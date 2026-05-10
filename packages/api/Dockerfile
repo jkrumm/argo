@@ -3,7 +3,8 @@ WORKDIR /app
 
 COPY package.json bun.lock ./
 COPY packages/api/package.json ./packages/api/
-RUN bun install --production --ignore-scripts
+COPY packages/dashboard/package.json ./packages/dashboard/
+RUN bun install --production --ignore-scripts --filter @argo/api
 
 COPY packages/api/src ./packages/api/src
 COPY packages/api/tsconfig.json ./packages/api/
