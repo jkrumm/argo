@@ -3,8 +3,9 @@
 > Periodization instrument for the key compound lifts. Manual set-level logging, wearable-enriched
 > readiness. The goal is not to display raw data — it's to **answer questions and surface insights**.
 >
-> This doc is the analytics reference (the *what* and *why*). For the phased implementation plan
-> (ralph groups), see [STRENGTH-MIGRATION.md](./STRENGTH-MIGRATION.md).
+> This doc is the analytics reference (the *what* and *why*). The historical phased
+> implementation plan ("ralph groups") that built this lived in the homelab repo and
+> was deleted after the argo extraction.
 
 ---
 
@@ -757,7 +758,7 @@ landmarks, momentum.
   `refactor(dashboard):` for migrations, `chore(dashboard):` for dependency drops.
 - Run `bun run lint && bun tsc --noEmit && bun run format:check` before committing.
 - Validate in Chrome at `https://dashboard.test` or `http://localhost:5173` (dev server points at
-  prod API via `VITE_API_URL=https://api.jkrumm.com`). Screenshot before/after for each group.
+  prod API via `VITE_API_URL=https://argo.jkrumm.com/api`). Screenshot before/after for each group.
 - Leave the dev server running at the end of a group so the user can verify.
 - Never reimplement primitives. If a chart shape needs something new, extend `Bars` or add a new
   kind under `charts/kinds/` — **only if the same shape appears twice**, per the Rule of Three.

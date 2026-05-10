@@ -1,4 +1,12 @@
-# PRD: Homelab Dashboard (Refine v5)
+# PRD: Homelab Dashboard (Refine v5) — *historical*
+
+> **Implementation note (post-extraction):** this PRD was written when the
+> dashboard + API still lived in the homelab repo. They were later extracted
+> into this `jkrumm/argo` repo and deployed to the VPS via RollHook. The
+> single-host deployment now uses **`argo.jkrumm.com`** (dashboard at `/`,
+> API at `/api`, Traefik strips the `/api` prefix). The diagrams below
+> show the original two-host plan (`api.jkrumm.com` + `dashboard.jkrumm.com`)
+> kept for design context.
 
 ## Problem
 

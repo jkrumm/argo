@@ -3,7 +3,8 @@ import { join } from 'path'
 
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? ''
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET ?? ''
-const REDIRECT_URI = 'https://api.jkrumm.com/oauth/google/callback'
+const REDIRECT_URI =
+  process.env.GOOGLE_OAUTH_REDIRECT_URI ?? 'https://argo.jkrumm.com/api/oauth/google/callback'
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/calendar.readonly',

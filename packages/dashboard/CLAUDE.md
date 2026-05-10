@@ -258,9 +258,9 @@ bun run format:check # oxfmt --check
 
 ## Environment Variables
 
-| Variable       | Default                  | Purpose      |
-| -------------- | ------------------------ | ------------ |
-| `VITE_API_URL` | `https://api.jkrumm.com` | API base URL |
+| Variable       | Default                       | Purpose      |
+| -------------- | ----------------------------- | ------------ |
+| `VITE_API_URL` | `https://argo.jkrumm.com/api` | API base URL |
 
 Set in Docker: `--build-arg VITE_API_URL=<value>` or via `.env` for local dev.
 
