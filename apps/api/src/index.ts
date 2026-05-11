@@ -1,6 +1,7 @@
 import { Elysia } from 'elysia'
+import { z } from 'zod'
 import { bearer } from '@elysiajs/bearer'
-import { swagger } from '@elysiajs/swagger'
+import { openapi } from '@elysiajs/openapi'
 import { cors } from '@elysiajs/cors'
 import { healthRoute } from './routes/health.js'
 import { ticktickRoutes } from './routes/ticktick.js'
@@ -44,15 +45,14 @@ export const app = new Elysia()
     }),
   )
   .use(
-    swagger({
-      provider: 'scalar',
-      path: '/docs',
+    openapi({
+      mapJsonSchema: { zod: z.toJSONSchema },
       documentation: {
         info: {
-          title: 'argo-api',
-          version: '0.1.0',
+          title: 'Argo API',
+          version: '1.0.0',
           description:
-            'Personal stack API (argo) — TickTick tasks, UptimeKuma monitoring, Docker containers, Slack messaging. All endpoints except /health require Bearer token authentication. Served behind Traefik path-strip on argo.jkrumm.com/api.',
+            'Personal stack API (argo) — health metrics, strength tracking, TickTick tasks, UptimeKuma monitoring, Docker containers, Slack messaging. All endpoints except /health require Bearer token authentication. Served behind Traefik path-strip on argo.jkrumm.com/api.',
         },
         servers: [{ url: 'https://argo.jkrumm.com/api', description: 'Argo (VPS, Tailscale)' }],
         components: {
@@ -60,10 +60,19 @@ export const app = new Elysia()
             BearerAuth: { type: 'http', scheme: 'bearer' },
           },
         },
+        tags: [
+          { name: 'workouts', description: 'Strength training workouts and sets' },
+          { name: 'daily-metrics', description: 'Garmin daily health metrics' },
+          { name: 'weight-log', description: 'Body weight log' },
+          { name: 'activities', description: 'Garmin activities' },
+          { name: 'exercises', description: 'Exercise catalog' },
+          { name: 'user-profile', description: 'User profile' },
+          { name: 'admin', description: 'Cron, query, internal' },
+        ],
       },
     }),
   )
-  .get('/openapi.json', ({ redirect }) => redirect('/docs/json'))
+  .get('/openapi.json', ({ redirect }) => redirect('/openapi/json'))
   .use(healthRoute)
   .use(oauthRoutes)
   .use(authGuard)
