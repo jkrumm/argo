@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { and, asc, eq, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { workoutSets } from '../db/schema.js'
 import { SetTypeSchema, WorkoutSetSchema } from './schemas.js'
@@ -8,47 +8,48 @@ import { SetTypeSchema, WorkoutSetSchema } from './schemas.js'
 export const workoutSetRoutes = new Elysia({ prefix: '/workout-sets' })
   .get(
     '/',
-    async ({ query, set }) => {
-      const start = Math.max(0, Number(query._start ?? 0))
-      const end = Number(query._end ?? start + 50)
-      const limit = Math.max(0, end - start)
+    async ({ query }) => {
+      const page = query.page ?? 1
+      const limit = query.limit ?? 50
+      const order = query.order ?? 'asc'
+      const offset = (page - 1) * limit
 
       const conds = []
       if (query.workout_id) conds.push(eq(workoutSets.workout_id, Number(query.workout_id)))
       const where = conds.length > 0 ? and(...conds) : undefined
 
-      const countResult = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(workoutSets)
-        .where(where)
-      const count = countResult[0]?.count ?? 0
+      const [rows, countResult] = await Promise.all([
+        db
+          .select()
+          .from(workoutSets)
+          .where(where)
+          .orderBy(
+            order === 'desc' ? desc(workoutSets.workout_id) : asc(workoutSets.workout_id),
+            order === 'desc' ? desc(workoutSets.set_number) : asc(workoutSets.set_number),
+          )
+          .limit(limit)
+          .offset(offset),
+        db.select({ count: count() }).from(workoutSets).where(where),
+      ])
 
-      set.headers['x-total-count'] = String(count)
-
-      if (limit === 0) return []
-
-      const rows = await db
-        .select()
-        .from(workoutSets)
-        .where(where)
-        .orderBy(asc(workoutSets.workout_id), asc(workoutSets.set_number))
-        .limit(limit)
-        .offset(start)
-
-      return rows
+      return { data: rows, total: Number(countResult[0]?.count ?? 0) }
     },
     {
       query: z.object({
-        _start: z.string().optional(),
-        _end: z.string().optional(),
+        page: z.number().int().min(1).default(1).optional(),
+        limit: z.number().int().min(1).max(200).default(50).optional(),
+        order: z.enum(['asc', 'desc']).default('asc').optional(),
         workout_id: z.string().optional(),
       }),
-      response: z.array(WorkoutSetSchema),
+      response: z.object({
+        data: z.array(WorkoutSetSchema),
+        total: z.number().int(),
+      }),
       detail: {
         tags: ['Workout Sets'],
         summary: 'List workout sets',
         description:
-          'Filter by workout_id. Supports _start/_end pagination. Returns x-total-count header.',
+          'Returns paginated workout sets. `page` is 1-indexed, `limit` ≤ 200. Filter by workout_id. Ordered by workout_id then set_number.',
         security: [{ BearerAuth: [] }],
       },
     },

@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { and, asc, desc, gte, lte } from 'drizzle-orm'
+import { and, asc, count, desc, gte, lte } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { garminActivities } from '../db/schema.js'
 
@@ -34,36 +34,59 @@ const ActivitySchema = z.object({
 
 export const activitiesRoutes = new Elysia({ prefix: '/activities' }).get(
   '/',
-  async ({ query, set }) => {
+  async ({ query }) => {
+    const page = query.page ?? 1
+    const limit = query.limit ?? 50
+    const sort = query.sort ?? 'start_time_local'
+    const order = query.order ?? 'desc'
+    const offset = (page - 1) * limit
+
     const conds = []
     if (query.date_from) conds.push(gte(garminActivities.date, query.date_from))
     if (query.date_to) conds.push(lte(garminActivities.date, query.date_to))
     const where = conds.length > 0 ? and(...conds) : undefined
 
-    const rows = await db
-      .select()
-      .from(garminActivities)
-      .where(where)
-      .orderBy(
-        query._order === 'desc'
-          ? desc(garminActivities.start_time_local)
-          : asc(garminActivities.start_time_local),
-      )
+    const sortCol =
+      sort === 'date'
+        ? garminActivities.date
+        : sort === 'duration_sec'
+          ? garminActivities.duration_sec
+          : sort === 'calories'
+            ? garminActivities.calories
+            : garminActivities.start_time_local
 
-    set.headers['x-total-count'] = String(rows.length)
+    const [rows, countResult] = await Promise.all([
+      db
+        .select()
+        .from(garminActivities)
+        .where(where)
+        .orderBy(order === 'asc' ? asc(sortCol) : desc(sortCol))
+        .limit(limit)
+        .offset(offset),
+      db.select({ count: count() }).from(garminActivities).where(where),
+    ])
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return rows as any
+    return { data: rows as any, total: Number(countResult[0]?.count ?? 0) }
   },
   {
     query: z.object({
+      page: z.number().int().min(1).default(1).optional(),
+      limit: z.number().int().min(1).max(200).default(50).optional(),
+      sort: z.enum(['start_time_local', 'date', 'duration_sec', 'calories']).optional(),
+      order: z.enum(['asc', 'desc']).default('desc').optional(),
       date_from: z.string().optional(),
       date_to: z.string().optional(),
-      _order: z.string().optional(),
     }),
-    response: z.array(ActivitySchema),
+    response: z.object({
+      data: z.array(ActivitySchema),
+      total: z.number().int(),
+    }),
     detail: {
       tags: ['Activities'],
-      summary: 'List Garmin activities (workouts) with optional date range filter',
+      summary: 'List Garmin activities',
+      description:
+        'Returns paginated Garmin activities. `page` is 1-indexed, `limit` ≤ 200. Filter by date_from/date_to (YYYY-MM-DD). Sort: start_time_local (default), date, duration_sec, calories.',
       security: [{ BearerAuth: [] }],
     },
   },

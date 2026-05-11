@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { asc } from 'drizzle-orm'
+import { asc, count, desc } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { exercises } from '../db/schema.js'
 
@@ -15,14 +15,48 @@ const ExerciseRowSchema = z.object({
 
 export const exerciseRoutes = new Elysia({ prefix: '/exercises' }).get(
   '/',
-  async () => {
-    return db.select().from(exercises).orderBy(asc(exercises.display_order))
+  async ({ query }) => {
+    const page = query.page ?? 1
+    const limit = query.limit ?? 50
+    const sort = query.sort ?? 'display_order'
+    const order = query.order ?? 'asc'
+    const offset = (page - 1) * limit
+
+    const sortCol =
+      sort === 'name'
+        ? exercises.name
+        : sort === 'category'
+          ? exercises.category
+          : exercises.display_order
+
+    const [rows, countResult] = await Promise.all([
+      db
+        .select()
+        .from(exercises)
+        .orderBy(order === 'desc' ? desc(sortCol) : asc(sortCol))
+        .limit(limit)
+        .offset(offset),
+      db.select({ count: count() }).from(exercises),
+    ])
+
+    return { data: rows, total: Number(countResult[0]?.count ?? 0) }
   },
   {
-    response: z.array(ExerciseRowSchema),
+    query: z.object({
+      page: z.number().int().min(1).default(1).optional(),
+      limit: z.number().int().min(1).max(200).default(50).optional(),
+      sort: z.enum(['display_order', 'name', 'category']).optional(),
+      order: z.enum(['asc', 'desc']).default('asc').optional(),
+    }),
+    response: z.object({
+      data: z.array(ExerciseRowSchema),
+      total: z.number().int(),
+    }),
     detail: {
       tags: ['Exercises'],
-      summary: 'List all exercises sorted by display_order',
+      summary: 'List exercises',
+      description:
+        'Returns paginated exercises. `page` is 1-indexed, `limit` ≤ 200. Sort: display_order (default), name, category.',
       security: [{ BearerAuth: [] }],
     },
   },

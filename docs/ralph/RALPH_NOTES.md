@@ -239,3 +239,36 @@ None — Group 7 is a tooling swap with identical runtime behavior. Validation g
 - Align `detail.tags` in route handlers with the OpenAPI-level tag names (currently route-level tags use mixed-case, plugin-level tags use lowercase).
 - Pre-existing `no-underscore-dangle` warnings on `_start/_end/_sort/_order` will disappear naturally in Group 8 when these params are renamed to `page/limit/sort/order`.
 - Consider adding `response: withHeader(z.array(...), { 'x-total-count': z.string() })` from `@elysiajs/openapi` to document the pagination header on list endpoints. Currently the header is set manually but not declared in the OpenAPI spec.
+
+## Group 8: API pagination convention swap
+
+### What was implemented
+
+Swapped Refine-style `_start/_end/_sort/_order` + `x-total-count` header for `page/limit/sort/order` + `{ data, total }` body on the six dashboard-consumed list routes that had list endpoints: `workouts`, `workout-sets`, `exercises`, `daily-metrics`, `activities`, `weight-log`. The `user-profile` route is a singleton GET+PUT and was left unchanged (no list semantics). Each route now accepts `page` (1-indexed, default 1), `limit` (max 200, default 50), and route-appropriate `sort` / `order` enums. Count and data queries run in parallel via `Promise.all`. Used `count()` from `drizzle-orm` instead of `sql<number>\`count(\*)\``. All handlers return `{ data: rows, total: number }`.
+
+### Deviations from PRD
+
+- **`user-profile` skipped**: The PRD lists it among the seven routes but `user-profile` has no list endpoint — it's always a singleton `GET /` + `PUT /`. Adding `{ data, total }` wrapping to a singleton would be incorrect semantics and would break existing dashboard consumers. Left as-is.
+- **`z.number()` instead of `z.coerce.number()`**: The project's `elysia-zod.md` rule explicitly says "you do not need z.coerce.number() for query params — Elysia handles coercion internally before passing to the Zod validator." Used `z.number().int().min(1).default(N).optional()` throughout, consistent with that rule.
+- **`exercises` had no pre-existing list pagination**: The exercises route originally had no `_start/_end` params (just returned all rows). Added full pagination support as part of the scope.
+
+### Gotchas & surprises
+
+- **1Password biometric auth blocked in headless mode**: Smoke tests against the running server require the DB password from 1Password (`op://vps/argo/DB_PASSWORD`). In headless `claude -p` mode, `op read` times out waiting for biometric auth. Verification gate fell back to TypeScript typecheck + lint only. Human operator should run the smoke curls manually after reviewing the commit.
+- **`count()` from drizzle-orm vs `sql<number>\`count(\*)\``**: The existing codebase used raw `sql<number>\`count(\*)\``which is a TypeScript-only type assertion — the actual Postgres value may be a bigint string. The`count()`helper from drizzle-orm (available since v0.31) is the correct ergonomic alternative. Wrapped the result with`Number(countResult[0]?.count ?? 0)` in all cases.
+- **oxfmt reformatted `exercises.ts` and `workout-sets.ts`**: The formatter collapsed multi-line `.get(` chains to a single-argument form and adjusted indentation in the ternary sortCol expression. Both files pass format check after formatting.
+- **No `no-underscore-dangle` warnings from new code**: The `_start/_end/_sort/_order` params that previously triggered warnings are now gone entirely. Pre-existing warnings in legacy `packages/dashboard` remain but are not from this group's changes.
+
+### Security notes
+
+No secrets touched. No env access. DB queries pass no credentials through route parameters.
+
+### Tests added
+
+None — Group 8 is a pure API shape change. Integration correctness is verified by TypeScript typechecking against the Zod response schemas.
+
+### Future improvements
+
+- Run the smoke curl commands manually once biometric auth is available (`curl "http://localhost:4000/workouts?page=1&limit=10" | jq '{data_length: (.data|length), total}'`).
+- The `exercises` route historically returned all rows (no pagination needed — small lookup table). Consider whether the dashboard query factory should use `limit=200` to effectively fetch all exercises in one request.
+- `user-profile` could optionally be wrapped as `{ data: profile, total: 1 }` for API consistency, but only if the dashboard client is updated at the same time.

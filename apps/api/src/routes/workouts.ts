@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gte, inArray, lte } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { workouts, workoutSets, exercises, weightLog, userProfile } from '../db/schema.js'
 import { SetTypeSchema, WorkoutSetSchema } from './schemas.js'
@@ -103,20 +103,24 @@ function computeMetrics(
   }
 }
 
-function orderColumn(field: string) {
-  if (field === 'exercise_id' || field === 'exercise') return workouts.exercise_id
-  if (field === 'id') return workouts.id
-  if (field === 'created_at') return workouts.created_at
+type WorkoutSort = 'date' | 'id' | 'exercise_id' | 'created_at'
+
+function orderColumn(sort: WorkoutSort) {
+  if (sort === 'exercise_id') return workouts.exercise_id
+  if (sort === 'id') return workouts.id
+  if (sort === 'created_at') return workouts.created_at
   return workouts.date
 }
 
 export const workoutRoutes = new Elysia({ prefix: '/workouts' })
   .get(
     '/',
-    async ({ query, set }) => {
-      const start = Math.max(0, Number(query._start ?? 0))
-      const end = Number(query._end ?? start + 10)
-      const limit = Math.max(0, end - start)
+    async ({ query }) => {
+      const page = query.page ?? 1
+      const limit = query.limit ?? 50
+      const sort = query.sort ?? 'date'
+      const order = query.order ?? 'desc'
+      const offset = (page - 1) * limit
 
       const conds = []
       if (query.exercise) conds.push(eq(workouts.exercise_id, query.exercise))
@@ -124,35 +128,30 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       if (query.date_to) conds.push(lte(workouts.date, query.date_to))
       const where = conds.length > 0 ? and(...conds) : undefined
 
-      const countResult = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(workouts)
-        .where(where)
-      const count = countResult[0]?.count ?? 0
+      const col = orderColumn(sort)
+      const [rows, countResult] = await Promise.all([
+        db
+          .select({
+            id: workouts.id,
+            date: workouts.date,
+            exercise_id: workouts.exercise_id,
+            exercise_name: exercises.name,
+            is_bodyweight: exercises.is_bodyweight,
+            notes: workouts.notes,
+            created_at: workouts.created_at,
+          })
+          .from(workouts)
+          .leftJoin(exercises, eq(workouts.exercise_id, exercises.id))
+          .where(where)
+          .orderBy(order === 'asc' ? asc(col) : desc(col))
+          .limit(limit)
+          .offset(offset),
+        db.select({ count: count() }).from(workouts).where(where),
+      ])
 
-      set.headers['x-total-count'] = String(count)
+      const total = Number(countResult[0]?.count ?? 0)
 
-      if (limit === 0) return []
-
-      const col = orderColumn(query._sort ?? 'date')
-      const rows = await db
-        .select({
-          id: workouts.id,
-          date: workouts.date,
-          exercise_id: workouts.exercise_id,
-          exercise_name: exercises.name,
-          is_bodyweight: exercises.is_bodyweight,
-          notes: workouts.notes,
-          created_at: workouts.created_at,
-        })
-        .from(workouts)
-        .leftJoin(exercises, eq(workouts.exercise_id, exercises.id))
-        .where(where)
-        .orderBy((query._order ?? 'desc') === 'asc' ? asc(col) : desc(col))
-        .limit(limit)
-        .offset(start)
-
-      if (rows.length === 0) return []
+      if (rows.length === 0) return { data: [], total }
 
       const ids = rows.map((w) => w.id)
       const allSets = await db
@@ -170,28 +169,32 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       const bwAt = await loadBodyweightResolver()
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return rows.map((w) => {
+      const data = rows.map((w) => {
         const wSets = setMap.get(w.id) ?? []
         return { ...w, sets: wSets, ...computeMetrics(wSets, w.exercise_id, bwAt(w.date)) }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       }) as any
+
+      return { data, total }
     },
     {
       query: z.object({
-        _start: z.string().optional(),
-        _end: z.string().optional(),
-        _sort: z.string().optional(),
-        _order: z.string().optional(),
+        page: z.number().int().min(1).default(1).optional(),
+        limit: z.number().int().min(1).max(200).default(50).optional(),
+        sort: z.enum(['date', 'id', 'exercise_id', 'created_at']).optional(),
+        order: z.enum(['asc', 'desc']).default('desc').optional(),
         exercise: z.string().optional(),
         date_from: z.string().optional(),
         date_to: z.string().optional(),
       }),
-      response: z.array(WorkoutWithSetsSchema),
+      response: z.object({
+        data: z.array(WorkoutWithSetsSchema),
+        total: z.number().int(),
+      }),
       detail: {
         tags: ['Workouts'],
         summary: 'List workouts',
         description:
-          'Refine-compatible pagination (_start/_end), sorting (_sort/_order), filtering (exercise, date_from, date_to). Returns x-total-count header.',
+          'Returns paginated workouts with sets and computed 1RM metrics. `page` is 1-indexed, `limit` ≤ 200. Filters: exercise (exercise_id), date_from/date_to (YYYY-MM-DD). Sort: date (default), id, exercise_id, created_at.',
         security: [{ BearerAuth: [] }],
       },
     },

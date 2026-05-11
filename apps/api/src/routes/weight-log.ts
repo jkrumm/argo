@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { asc, desc, eq, sql } from 'drizzle-orm'
+import { asc, count, desc, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { weightLog } from '../db/schema.js'
 
@@ -14,28 +14,44 @@ const WeightLogSchema = z.object({
 export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
   .get(
     '/',
-    async ({ query, set }) => {
-      const countResult = await db.select({ count: sql<number>`count(*)` }).from(weightLog)
-      const count = countResult[0]?.count ?? 0
+    async ({ query }) => {
+      const page = query.page ?? 1
+      const limit = query.limit ?? 50
+      const sort = query.sort ?? 'date'
+      const order = query.order ?? 'desc'
+      const offset = (page - 1) * limit
 
-      set.headers['x-total-count'] = String(count)
+      const sortCol = sort === 'weight_kg' ? weightLog.weight_kg : weightLog.date
 
-      const rows = await db
-        .select()
-        .from(weightLog)
-        .orderBy(query._order === 'asc' ? asc(weightLog.date) : desc(weightLog.date))
+      const [rows, countResult] = await Promise.all([
+        db
+          .select()
+          .from(weightLog)
+          .orderBy(order === 'asc' ? asc(sortCol) : desc(sortCol))
+          .limit(limit)
+          .offset(offset),
+        db.select({ count: count() }).from(weightLog),
+      ])
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return rows as any
+      return { data: rows as any, total: Number(countResult[0]?.count ?? 0) }
     },
     {
       query: z.object({
-        _order: z.string().optional(),
+        page: z.number().int().min(1).default(1).optional(),
+        limit: z.number().int().min(1).max(200).default(50).optional(),
+        sort: z.enum(['date', 'weight_kg']).optional(),
+        order: z.enum(['asc', 'desc']).default('desc').optional(),
       }),
-      response: z.array(WeightLogSchema),
+      response: z.object({
+        data: z.array(WeightLogSchema),
+        total: z.number().int(),
+      }),
       detail: {
         tags: ['Weight Log'],
-        summary: 'List all weight entries',
+        summary: 'List weight entries',
+        description:
+          'Returns paginated weight log entries. `page` is 1-indexed, `limit` ≤ 200. Sort: date (default), weight_kg.',
         security: [{ BearerAuth: [] }],
       },
     },

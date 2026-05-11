@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { and, asc, desc, eq, gte, lte } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gte, lte } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { dailyMetrics, syncControl } from '../db/schema.js'
 
@@ -67,32 +67,48 @@ async function readSyncStatus() {
 export const dailyMetricsRoutes = new Elysia({ prefix: '/daily-metrics' })
   .get(
     '/',
-    async ({ query, set }) => {
+    async ({ query }) => {
+      const page = query.page ?? 1
+      const limit = query.limit ?? 50
+      const order = query.order ?? 'desc'
+      const offset = (page - 1) * limit
+
       const conds = []
       if (query.date_from) conds.push(gte(dailyMetrics.date, query.date_from))
       if (query.date_to) conds.push(lte(dailyMetrics.date, query.date_to))
       const where = conds.length > 0 ? and(...conds) : undefined
 
-      const rows = await db
-        .select()
-        .from(dailyMetrics)
-        .where(where)
-        .orderBy(query._order === 'desc' ? desc(dailyMetrics.date) : asc(dailyMetrics.date))
+      const [rows, countResult] = await Promise.all([
+        db
+          .select()
+          .from(dailyMetrics)
+          .where(where)
+          .orderBy(order === 'desc' ? desc(dailyMetrics.date) : asc(dailyMetrics.date))
+          .limit(limit)
+          .offset(offset),
+        db.select({ count: count() }).from(dailyMetrics).where(where),
+      ])
 
-      set.headers['x-total-count'] = String(rows.length)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return rows as any
+      return { data: rows as any, total: Number(countResult[0]?.count ?? 0) }
     },
     {
       query: z.object({
+        page: z.number().int().min(1).default(1).optional(),
+        limit: z.number().int().min(1).max(200).default(50).optional(),
+        order: z.enum(['asc', 'desc']).default('desc').optional(),
         date_from: z.string().optional(),
         date_to: z.string().optional(),
-        _order: z.string().optional(),
       }),
-      response: z.array(DailyMetricSchema),
+      response: z.object({
+        data: z.array(DailyMetricSchema),
+        total: z.number().int(),
+      }),
       detail: {
         tags: ['Daily Metrics'],
-        summary: 'List daily Garmin metrics with optional date range filter',
+        summary: 'List daily Garmin metrics',
+        description:
+          'Returns paginated daily metrics. `page` is 1-indexed, `limit` ≤ 200. Filter by date_from/date_to (YYYY-MM-DD). Ordered by date descending by default.',
         security: [{ BearerAuth: [] }],
       },
     },
