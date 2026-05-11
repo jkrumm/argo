@@ -1,0 +1,40 @@
+name: check
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: argo
+          POSTGRES_PASSWORD: argo
+          POSTGRES_DB: argo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U argo"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://argo:argo@localhost:5432/argo
+      API_SECRET: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run format:check
+      - run: bun --cwd apps/api typecheck
+      - run: bun --cwd apps/dashboard typecheck
+      - run: bun --cwd packages/charts typecheck
+      - run: bun --cwd apps/api db:migrate
+      - run: bun --cwd apps/api test
+      - name: fallow analysis (report-only)
+        continue-on-error: true
+        run: bunx fallow --json | tee fallow-report.json
