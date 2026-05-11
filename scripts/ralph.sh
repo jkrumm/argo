@@ -150,12 +150,16 @@ SECRETS_FILE="$REPO_ROOT/.ralph-secrets.env"
 
 prefetch_secrets() {
   log_info "Pre-fetching secrets via op (Touch ID may prompt)..."
-  local db_password
+  local db_password slack_webhook
   db_password="$(gtimeout 30 op read 'op://vps/argo/DB_PASSWORD' --account tkrumm 2>/dev/null || true)"
   if [[ -z "$db_password" ]]; then
     log_error "Failed to read op://vps/argo/DB_PASSWORD."
     log_error "Make sure the 1Password app is unlocked and you've approved Touch ID."
     exit 1
+  fi
+  slack_webhook="$(gtimeout 30 op read 'op://common/slack/WEBHOOK_ALERTS' --account tkrumm 2>/dev/null || true)"
+  if [[ -z "$slack_webhook" ]]; then
+    log_warn "Could not read op://common/slack/WEBHOOK_ALERTS — babysitter will not post to Slack."
   fi
   umask 077
   cat > "$SECRETS_FILE" <<EOF
@@ -163,6 +167,8 @@ prefetch_secrets() {
 # Single password used for both local dev container and production VPS Postgres.
 ARGO_DB_PASSWORD=$db_password
 ARGO_LOCAL_DATABASE_URL=postgres://argo:$db_password@localhost:5433/argo
+# Slack webhook for babysitter status updates (one-way notifications).
+RALPH_SLACK_WEBHOOK_URL=$slack_webhook
 EOF
   chmod 600 "$SECRETS_FILE"
   # Export into runner env so subprocesses (claude -p) inherit it.
