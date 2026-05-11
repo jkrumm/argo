@@ -33,6 +33,7 @@ import {
 } from './visx-charts'
 import { StrengthSparklineGrid } from './sparkline-grid'
 import { WorkoutForm } from './workout-form'
+import { BodyWeightView } from './body-weight-view'
 import type { DailyMetric } from '../garmin-health/types'
 
 // ── Responsive hook ────────────────────────────────────────────────────────
@@ -74,7 +75,10 @@ export default function StrengthTrackerPage() {
     [datePreset, customRange],
   )
 
-  const [view, setView] = useLocalState<'charts' | 'history' | 'sparklines'>('st-view', 'charts')
+  const [view, setView] = useLocalState<'charts' | 'history' | 'sparklines' | 'body-weight'>(
+    'st-view',
+    'charts',
+  )
   const [useDemoData, setUseDemoData] = useLocalState('st-demo-data', false)
 
   const [hover, setHoverState] = useState<{ date: string | null; source: string | null }>({
@@ -187,6 +191,12 @@ export default function StrengthTrackerPage() {
             style={view === 'history' ? { fontWeight: 600 } : { opacity: 0.65 }}
           >
             History
+          </Button>
+          <Button
+            onClick={() => setView('body-weight')}
+            style={view === 'body-weight' ? { fontWeight: 600 } : { opacity: 0.65 }}
+          >
+            Body Weight
           </Button>
         </Space.Compact>
         <Select
@@ -370,7 +380,9 @@ export default function StrengthTrackerPage() {
       <div style={{ padding: isMobile ? '12px 12px 80px' : '16px 24px 40px' }}>
         {filterBar}
 
-        {isMobile ? (
+        {view === 'body-weight' ? (
+          <BodyWeightView />
+        ) : isMobile ? (
           <Space direction="vertical" style={{ width: '100%' }} size={16}>
             <WorkoutForm onSuccess={() => void query.refetch()} workouts={workouts} />
             {content}

@@ -101,8 +101,6 @@ export const garminCollector = {
   },
 
   status() {
-    return fetchJson<{ login_at: string | null; logged_in: boolean; token_dir: string }>(
-      '/status',
-    )
+    return fetchJson<{ login_at: string | null; logged_in: boolean; token_dir: string }>('/status')
   },
 }
