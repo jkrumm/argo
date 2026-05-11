@@ -61,6 +61,11 @@ export const app = new Elysia()
           },
         },
         tags: [
+          {
+            name: 'Summaries',
+            description:
+              'Server-computed aggregates and time series — same numbers consumed by the dashboard and AI agents',
+          },
           { name: 'workouts', description: 'Strength training workouts and sets' },
           { name: 'daily-metrics', description: 'Garmin daily health metrics' },
           { name: 'weight-log', description: 'Body weight log' },

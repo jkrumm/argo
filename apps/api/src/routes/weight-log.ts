@@ -1,8 +1,10 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { asc, count, desc, eq } from 'drizzle-orm'
+import { asc, count, desc, eq, gte, lte, and } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { weightLog } from '../db/schema.js'
+import { computeStats } from '../lib/formulas.js'
+import { WindowQuerySchema, parseWindow } from '../lib/window.js'
 
 const WeightLogSchema = z.object({
   id: z.number(),
@@ -11,7 +13,131 @@ const WeightLogSchema = z.object({
   created_at: z.string().nullable(),
 })
 
+const WeightLogSummarySchema = z.object({
+  current: z.number().nullable().describe('Most recent weight entry in window (kg)'),
+  ma7: z
+    .number()
+    .nullable()
+    .describe('Average of up to 7 most-recent entries; fewer when window < 7 entries'),
+  ma30: z
+    .number()
+    .nullable()
+    .describe('Average of up to 30 most-recent entries; fewer when window < 30 entries'),
+  trend: z
+    .enum(['up', 'down', 'flat'])
+    .describe(
+      'up = ma7 > ma30 by >0.5% (gaining); down = ma7 < ma30 by >0.5% (losing); flat = otherwise',
+    ),
+  weeklyDelta: z
+    .number()
+    .nullable()
+    .describe(
+      'Weight change (kg) between most recent and oldest entry in last 7 entries. Positive = gaining.',
+    ),
+  monthlyDelta: z
+    .number()
+    .nullable()
+    .describe(
+      'Weight change (kg) between most recent and oldest entry in last 30 entries. Positive = gaining.',
+    ),
+})
+
 export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
+  .get(
+    '/summary',
+    async ({ query }) => {
+      const { from, to } = parseWindow(query)
+      const fromStr = from.toISOString().slice(0, 10)
+      const toStr = to.toISOString().slice(0, 10)
+
+      // Most-recent-first for computeStats
+      const rows = await db
+        .select({ date: weightLog.date, weight_kg: weightLog.weight_kg })
+        .from(weightLog)
+        .where(and(gte(weightLog.date, fromStr), lte(weightLog.date, toStr)))
+        .orderBy(desc(weightLog.date))
+
+      if (rows.length === 0) {
+        return {
+          current: null,
+          ma7: null,
+          ma30: null,
+          trend: 'flat' as const,
+          weeklyDelta: null,
+          monthlyDelta: null,
+        }
+      }
+
+      const stats = computeStats(rows.map((r) => r.weight_kg))
+
+      const last7 = rows.slice(0, 7)
+      const weeklyDelta =
+        last7.length >= 2
+          ? Math.round((last7[0]!.weight_kg - last7[last7.length - 1]!.weight_kg) * 10) / 10
+          : null
+
+      const last30 = rows.slice(0, 30)
+      const monthlyDelta =
+        last30.length >= 2
+          ? Math.round((last30[0]!.weight_kg - last30[last30.length - 1]!.weight_kg) * 10) / 10
+          : null
+
+      return { ...stats, weeklyDelta, monthlyDelta }
+    },
+    {
+      query: WindowQuerySchema,
+      response: WeightLogSummarySchema,
+      detail: {
+        tags: ['Summaries'],
+        summary: 'Body weight summary',
+        description:
+          'Server-computed rolling weight stats. ' +
+          'ma7/ma30 = average of most-recent 7/30 entries. ' +
+          'weeklyDelta = latest − oldest within last 7 entries (positive = gaining). ' +
+          'monthlyDelta = latest − oldest within last 30 entries. ' +
+          'Trend: ma7 vs ma30 — up >0.5% = gaining, down >0.5% = losing. ' +
+          'Accept `?window=7d|30d|90d|all` (default 30d) or `?from=YYYY-MM-DD&to=YYYY-MM-DD`. ' +
+          'Example: GET /weight-log/summary?window=90d',
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
+  .get(
+    '/series',
+    async ({ query }) => {
+      const { from, to } = parseWindow(query)
+      const fromStr = from.toISOString().slice(0, 10)
+      const toStr = to.toISOString().slice(0, 10)
+
+      const rows = await db
+        .select({ date: weightLog.date, weight_kg: weightLog.weight_kg })
+        .from(weightLog)
+        .where(and(gte(weightLog.date, fromStr), lte(weightLog.date, toStr)))
+        .orderBy(asc(weightLog.date))
+
+      return { points: rows.map((r) => ({ date: r.date, weightKg: r.weight_kg })) }
+    },
+    {
+      query: WindowQuerySchema,
+      response: z.object({
+        points: z.array(
+          z.object({
+            date: z.string().describe('YYYY-MM-DD'),
+            weightKg: z.number(),
+          }),
+        ),
+      }),
+      detail: {
+        tags: ['Summaries'],
+        summary: 'Body weight time series',
+        description:
+          'One data point per weight log entry for charting weight trends. ' +
+          'Accept `?window=7d|30d|90d|all` (default 30d) or `?from=YYYY-MM-DD&to=YYYY-MM-DD`. ' +
+          'Example: GET /weight-log/series?window=all',
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
   .get(
     '/',
     async ({ query }) => {

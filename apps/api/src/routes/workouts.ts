@@ -2,8 +2,10 @@ import { Elysia } from 'elysia'
 import { z } from 'zod'
 import { and, asc, count, desc, eq, gte, inArray, lte } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { workouts, workoutSets, exercises, weightLog, userProfile } from '../db/schema.js'
+import { workouts, workoutSets, exercises } from '../db/schema.js'
 import { SetTypeSchema, WorkoutSetSchema } from './schemas.js'
+import { computeMetrics, loadBodyweightResolver } from '../lib/formulas.js'
+import { WindowQuerySchema, parseWindow } from '../lib/window.js'
 
 const WorkoutWithSetsSchema = z.object({
   id: z.number(),
@@ -20,88 +22,22 @@ const WorkoutWithSetsSchema = z.object({
   total_volume: z.number(),
 })
 
-// Bodyweight resolution for pull-ups: weight_log latest-on-or-before the workout date,
-// then earliest weight_log entry (so a recent first entry still applies to backfilled
-// historical workouts), then user_profile.goal_weight_kg, then 80 kg.
-const HARD_FALLBACK_BW = 80
+const StrengthSummaryItemSchema = z.object({
+  exercise_id: z.string(),
+  exercise_name: z.string(),
+  currentE1RM: z.number().nullable(),
+  bestE1RM: z.number().nullable(),
+  prDate: z.string().nullable().describe('YYYY-MM-DD date of best e1RM in window'),
+  totalVolumeWindow: z.number().describe('Sum of all set volumes (weight × reps) in window'),
+  sessionCountWindow: z.number().int().describe('Number of workout sessions in window'),
+})
 
-type WeightEntry = { date: string; weight_kg: number }
-
-function makeBodyweightResolver(
-  entries: WeightEntry[],
-  profileFallback: number,
-): (date: string) => number {
-  if (entries.length === 0) return () => profileFallback
-  // entries arrive sorted asc by date
-  const earliest = entries[0]!.weight_kg
-  return (date: string) => {
-    let latest: number | null = null
-    for (const e of entries) {
-      if (e.date <= date) latest = e.weight_kg
-      else break
-    }
-    return latest ?? earliest
-  }
-}
-
-async function loadBodyweightResolver(): Promise<(date: string) => number> {
-  const entries = await db
-    .select({ date: weightLog.date, weight_kg: weightLog.weight_kg })
-    .from(weightLog)
-    .orderBy(asc(weightLog.date))
-  const [profile] = await db
-    .select({ goal_weight_kg: userProfile.goal_weight_kg })
-    .from(userProfile)
-    .where(eq(userProfile.id, 1))
-  const profileFallback = profile?.goal_weight_kg ?? HARD_FALLBACK_BW
-  return makeBodyweightResolver(entries, profileFallback)
-}
-
-function computeMetrics(
-  sets: Array<{ set_type: string; weight_kg: number; reps: number }>,
-  exercise_id: string,
-  bodyweightKg: number,
-) {
-  const isPullUps = exercise_id === 'pull_ups'
-  let totalVolume = 0
-  let maxEpley: number | null = null
-  let maxBrzycki: number | null = null
-
-  for (const s of sets) {
-    const ew = isPullUps ? s.weight_kg + bodyweightKg : s.weight_kg
-    totalVolume += ew * s.reps
-  }
-
-  for (const s of sets) {
-    const eligible =
-      (s.set_type === 'work' || s.set_type === 'amrap') && s.reps >= 1 && s.reps <= 12
-    if (!eligible) continue
-
-    const ew = isPullUps ? s.weight_kg + bodyweightKg : s.weight_kg
-    const epley = ew * (1 + s.reps / 30)
-    maxEpley = maxEpley === null ? epley : Math.max(maxEpley, epley)
-
-    if (s.reps <= 10) {
-      const brzycki = (ew * 36) / (37 - s.reps)
-      maxBrzycki = maxBrzycki === null ? brzycki : Math.max(maxBrzycki, brzycki)
-    }
-  }
-
-  const e = maxEpley !== null ? Math.round(maxEpley * 10) / 10 : null
-  const b = maxBrzycki !== null ? Math.round(maxBrzycki * 10) / 10 : null
-
-  let e1rm: number | null = null
-  if (e !== null && b !== null) e1rm = Math.round(((e + b) / 2) * 10) / 10
-  else if (b !== null) e1rm = b
-  else if (e !== null) e1rm = e
-
-  return {
-    estimated_1rm_epley: e,
-    estimated_1rm_brzycki: b,
-    estimated_1rm: e1rm,
-    total_volume: Math.round(totalVolume * 10) / 10,
-  }
-}
+const SeriesPointSchema = z.object({
+  date: z.string().describe('YYYY-MM-DD'),
+  e1rm: z.number().nullable().describe('Estimated 1RM (average of Epley and Brzycki)'),
+  volume: z.number().describe('Total session volume (weight × reps)'),
+  maxWeight: z.number().describe('Heaviest weight lifted (effective weight including bodyweight)'),
+})
 
 type WorkoutSort = 'date' | 'id' | 'exercise_id' | 'created_at'
 
@@ -113,6 +49,216 @@ function orderColumn(sort: WorkoutSort) {
 }
 
 export const workoutRoutes = new Elysia({ prefix: '/workouts' })
+  .get(
+    '/summary/strength',
+    async ({ query }) => {
+      const { from, to } = parseWindow(query)
+      const fromStr = from.toISOString().slice(0, 10)
+      const toStr = to.toISOString().slice(0, 10)
+
+      const allWorkouts = await db
+        .select({
+          id: workouts.id,
+          date: workouts.date,
+          exercise_id: workouts.exercise_id,
+          exercise_name: exercises.name,
+        })
+        .from(workouts)
+        .leftJoin(exercises, eq(workouts.exercise_id, exercises.id))
+        .where(and(gte(workouts.date, fromStr), lte(workouts.date, toStr)))
+        .orderBy(asc(workouts.date))
+
+      if (allWorkouts.length === 0) return { byExercise: [] }
+
+      const ids = allWorkouts.map((w) => w.id)
+      const allSets = await db
+        .select()
+        .from(workoutSets)
+        .where(inArray(workoutSets.workout_id, ids))
+
+      const setMap = new Map<number, typeof allSets>()
+      for (const s of allSets) {
+        const list = setMap.get(s.workout_id) ?? []
+        list.push(s)
+        setMap.set(s.workout_id, list)
+      }
+
+      const bwAt = await loadBodyweightResolver()
+
+      type ExerciseAgg = {
+        exercise_id: string
+        exercise_name: string
+        sessions: Array<{ date: string; e1rm: number | null; volume: number }>
+      }
+      const exerciseMap = new Map<string, ExerciseAgg>()
+
+      for (const w of allWorkouts) {
+        const wSets = setMap.get(w.id) ?? []
+        const metrics = computeMetrics(wSets, w.exercise_id, bwAt(w.date))
+        let entry = exerciseMap.get(w.exercise_id)
+        if (!entry) {
+          entry = {
+            exercise_id: w.exercise_id,
+            exercise_name: w.exercise_name ?? w.exercise_id,
+            sessions: [],
+          }
+          exerciseMap.set(w.exercise_id, entry)
+        }
+        entry.sessions.push({
+          date: w.date,
+          e1rm: metrics.estimated_1rm,
+          volume: metrics.total_volume,
+        })
+      }
+
+      const byExercise = Array.from(exerciseMap.values()).map(
+        ({ exercise_id, exercise_name, sessions }) => {
+          const currentE1RM = sessions.at(-1)?.e1rm ?? null
+          let bestE1RM: number | null = null
+          let prDate: string | null = null
+          let totalVolumeWindow = 0
+
+          for (const s of sessions) {
+            totalVolumeWindow += s.volume
+            if (s.e1rm !== null && (bestE1RM === null || s.e1rm > bestE1RM)) {
+              bestE1RM = s.e1rm
+              prDate = s.date
+            }
+          }
+
+          return {
+            exercise_id,
+            exercise_name,
+            currentE1RM: currentE1RM !== null ? Math.round(currentE1RM * 10) / 10 : null,
+            bestE1RM: bestE1RM !== null ? Math.round(bestE1RM * 10) / 10 : null,
+            prDate,
+            totalVolumeWindow: Math.round(totalVolumeWindow * 10) / 10,
+            sessionCountWindow: sessions.length,
+          }
+        },
+      )
+
+      return { byExercise }
+    },
+    {
+      query: WindowQuerySchema,
+      response: z.object({ byExercise: z.array(StrengthSummaryItemSchema) }),
+      detail: {
+        tags: ['Summaries'],
+        summary: 'Strength summary by exercise',
+        description:
+          'Server-computed aggregates per exercise for the given window. ' +
+          '`currentE1RM` = e1RM of the most recent session; `bestE1RM` = highest e1RM in window; ' +
+          '`prDate` = date that best e1RM was achieved. ' +
+          'e1RM = average of Epley (w × (1 + reps/30)) and Brzycki (w × 36 / (37 - reps)), work/amrap sets only, reps 1–12. ' +
+          'Volume = Σ(effective_weight × reps) across all sets. ' +
+          'Accept `?window=7d|30d|90d|all` (default 30d) or `?from=YYYY-MM-DD&to=YYYY-MM-DD`.',
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
+  .get(
+    '/summary/series',
+    async ({ query }) => {
+      const { from, to } = parseWindow(query)
+      const fromStr = from.toISOString().slice(0, 10)
+      const toStr = to.toISOString().slice(0, 10)
+
+      const allWorkouts = await db
+        .select({
+          id: workouts.id,
+          date: workouts.date,
+          exercise_id: workouts.exercise_id,
+          exercise_name: exercises.name,
+        })
+        .from(workouts)
+        .leftJoin(exercises, eq(workouts.exercise_id, exercises.id))
+        .where(and(gte(workouts.date, fromStr), lte(workouts.date, toStr)))
+        .orderBy(asc(workouts.date))
+
+      if (allWorkouts.length === 0) return { byExercise: [] }
+
+      const ids = allWorkouts.map((w) => w.id)
+      const allSets = await db
+        .select()
+        .from(workoutSets)
+        .where(inArray(workoutSets.workout_id, ids))
+
+      const setMap = new Map<number, typeof allSets>()
+      for (const s of allSets) {
+        const list = setMap.get(s.workout_id) ?? []
+        list.push(s)
+        setMap.set(s.workout_id, list)
+      }
+
+      const bwAt = await loadBodyweightResolver()
+
+      type SeriesAgg = {
+        exercise_id: string
+        exercise_name: string
+        points: Array<{ date: string; e1rm: number | null; volume: number; maxWeight: number }>
+      }
+      const exerciseMap = new Map<string, SeriesAgg>()
+
+      for (const w of allWorkouts) {
+        const wSets = setMap.get(w.id) ?? []
+        const bw = bwAt(w.date)
+        const metrics = computeMetrics(wSets, w.exercise_id, bw)
+        const isPullUps = w.exercise_id === 'pull_ups'
+        const maxWeight = wSets.reduce((max, s) => {
+          const ew = isPullUps ? s.weight_kg + bw : s.weight_kg
+          return Math.max(max, ew)
+        }, 0)
+
+        let entry = exerciseMap.get(w.exercise_id)
+        if (!entry) {
+          entry = {
+            exercise_id: w.exercise_id,
+            exercise_name: w.exercise_name ?? w.exercise_id,
+            points: [],
+          }
+          exerciseMap.set(w.exercise_id, entry)
+        }
+        entry.points.push({
+          date: w.date,
+          e1rm: metrics.estimated_1rm,
+          volume: metrics.total_volume,
+          maxWeight: Math.round(maxWeight * 10) / 10,
+        })
+      }
+
+      const byExercise = Array.from(exerciseMap.values()).map(
+        ({ exercise_id, exercise_name, points }) => ({
+          exercise_id,
+          exercise_name,
+          points,
+        }),
+      )
+
+      return { byExercise }
+    },
+    {
+      query: WindowQuerySchema,
+      response: z.object({
+        byExercise: z.array(
+          z.object({
+            exercise_id: z.string(),
+            exercise_name: z.string(),
+            points: z.array(SeriesPointSchema),
+          }),
+        ),
+      }),
+      detail: {
+        tags: ['Summaries'],
+        summary: 'Strength time series by exercise',
+        description:
+          'One data point per workout session per exercise for charting e1RM and volume trends. ' +
+          '`maxWeight` is the heaviest effective weight lifted in that session (includes bodyweight for pull-ups). ' +
+          'Accept `?window=7d|30d|90d|all` (default 30d) or `?from=YYYY-MM-DD&to=YYYY-MM-DD`.',
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
   .get(
     '/',
     async ({ query }) => {

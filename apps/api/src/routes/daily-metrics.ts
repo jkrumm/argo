@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { and, asc, count, desc, eq, gte, lte } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { dailyMetrics, syncControl } from '../db/schema.js'
+import { computeStats } from '../lib/formulas.js'
+import { WindowQuerySchema, parseWindow } from '../lib/window.js'
 
 const DailyMetricSchema = z.object({
   date: z.string(),
@@ -52,6 +54,47 @@ const SyncStatusSchema = z.object({
   last_message: z.string().nullable(),
 })
 
+const MetricStatsSchema = z.object({
+  current: z.number().nullable().describe('Most recent non-null value in window'),
+  ma7: z
+    .number()
+    .nullable()
+    .describe('Average of up to 7 most-recent non-null values; fewer when window < 7 days'),
+  ma30: z
+    .number()
+    .nullable()
+    .describe('Average of up to 30 most-recent non-null values; fewer when window < 30 days'),
+  trend: z
+    .enum(['up', 'down', 'flat'])
+    .describe('up = ma7 > ma30 by >0.5%; down = ma7 < ma30 by >0.5%; flat = otherwise'),
+})
+
+const DailyMetricsSummarySchema = z.object({
+  hrv: MetricStatsSchema.describe(
+    'HRV last night avg (ms). Higher is generally better — trend "up" means improving recovery.',
+  ),
+  restingHr: MetricStatsSchema.describe(
+    'Resting heart rate (bpm). Lower is generally better — trend "down" means improving fitness.',
+  ),
+  sleep: MetricStatsSchema.describe(
+    'Sleep score (0–100). Higher is better — trend "up" means improving sleep quality.',
+  ),
+  stress: MetricStatsSchema.describe(
+    'Average stress level (0–100). Lower is generally better — trend "down" means less stress.',
+  ),
+})
+
+const DailyMetricsSeriesPointSchema = z.object({
+  date: z.string().describe('YYYY-MM-DD'),
+  hrv: z.number().nullable(),
+  restingHr: z.number().nullable(),
+  sleepScore: z.number().nullable(),
+  stress: z.number().nullable(),
+  steps: z.number().nullable(),
+  activeKcal: z.number().nullable(),
+  sleepDurationSec: z.number().nullable(),
+})
+
 async function readSyncStatus() {
   const [row] = await db.select().from(syncControl).where(eq(syncControl.id, 1))
   return {
@@ -65,6 +108,97 @@ async function readSyncStatus() {
 }
 
 export const dailyMetricsRoutes = new Elysia({ prefix: '/daily-metrics' })
+  .get(
+    '/summary',
+    async ({ query }) => {
+      const { from, to } = parseWindow(query)
+      const fromStr = from.toISOString().slice(0, 10)
+      const toStr = to.toISOString().slice(0, 10)
+
+      // Ordered most-recent-first so slice(0, N) gives the N most recent values
+      const rows = await db
+        .select({
+          hrv_last_night_avg: dailyMetrics.hrv_last_night_avg,
+          resting_hr: dailyMetrics.resting_hr,
+          sleep_score: dailyMetrics.sleep_score,
+          avg_stress: dailyMetrics.avg_stress,
+        })
+        .from(dailyMetrics)
+        .where(and(gte(dailyMetrics.date, fromStr), lte(dailyMetrics.date, toStr)))
+        .orderBy(desc(dailyMetrics.date))
+
+      return {
+        hrv: computeStats(rows.map((r) => r.hrv_last_night_avg)),
+        restingHr: computeStats(rows.map((r) => r.resting_hr)),
+        sleep: computeStats(rows.map((r) => r.sleep_score)),
+        stress: computeStats(rows.map((r) => r.avg_stress)),
+      }
+    },
+    {
+      query: WindowQuerySchema,
+      response: DailyMetricsSummarySchema,
+      detail: {
+        tags: ['Summaries'],
+        summary: 'Daily metrics health summary',
+        description:
+          'Server-computed rolling stats for HRV, resting HR, sleep score, and stress. ' +
+          'ma7 = average of the 7 most-recent non-null values in the window; ma30 = 30 most-recent. ' +
+          'Trend: ma7 vs ma30 — if ma7 > ma30 by >0.5% → "up"; if ma7 < ma30 by >0.5% → "down"; else "flat". ' +
+          'Accept `?window=7d|30d|90d|all` (default 30d) or `?from=YYYY-MM-DD&to=YYYY-MM-DD`. ' +
+          'Example: GET /daily-metrics/summary?window=30d',
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
+  .get(
+    '/series',
+    async ({ query }) => {
+      const { from, to } = parseWindow(query)
+      const fromStr = from.toISOString().slice(0, 10)
+      const toStr = to.toISOString().slice(0, 10)
+
+      const rows = await db
+        .select({
+          date: dailyMetrics.date,
+          hrv_last_night_avg: dailyMetrics.hrv_last_night_avg,
+          resting_hr: dailyMetrics.resting_hr,
+          sleep_score: dailyMetrics.sleep_score,
+          avg_stress: dailyMetrics.avg_stress,
+          steps: dailyMetrics.steps,
+          active_kcal: dailyMetrics.active_kcal,
+          sleep_duration_sec: dailyMetrics.sleep_duration_sec,
+        })
+        .from(dailyMetrics)
+        .where(and(gte(dailyMetrics.date, fromStr), lte(dailyMetrics.date, toStr)))
+        .orderBy(asc(dailyMetrics.date))
+
+      return {
+        points: rows.map((r) => ({
+          date: r.date,
+          hrv: r.hrv_last_night_avg,
+          restingHr: r.resting_hr,
+          sleepScore: r.sleep_score,
+          stress: r.avg_stress,
+          steps: r.steps,
+          activeKcal: r.active_kcal,
+          sleepDurationSec: r.sleep_duration_sec,
+        })),
+      }
+    },
+    {
+      query: WindowQuerySchema,
+      response: z.object({ points: z.array(DailyMetricsSeriesPointSchema) }),
+      detail: {
+        tags: ['Summaries'],
+        summary: 'Daily metrics time series',
+        description:
+          'One data point per day for charting HRV, resting HR, sleep score, stress, steps, active kcal, and sleep duration. ' +
+          'Accept `?window=7d|30d|90d|all` (default 30d) or `?from=YYYY-MM-DD&to=YYYY-MM-DD`. ' +
+          'Example: GET /daily-metrics/series?window=90d',
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
   .get(
     '/',
     async ({ query }) => {
@@ -124,7 +258,6 @@ export const dailyMetricsRoutes = new Elysia({ prefix: '/daily-metrics' })
   .post(
     '/refresh',
     async () => {
-      // Set the flag — garmin-sync polls sync_control every ~30s and runs immediately.
       await db
         .update(syncControl)
         .set({ refresh_requested: 1, requested_at: new Date().toISOString() })

@@ -1,5 +1,38 @@
 # RALPH Migration Notes
 
+## Group 9: API summary endpoints (server-computed aggregates)
+
+### What was implemented
+
+Created `apps/api/src/lib/formulas.ts` with extracted pure functions (`makeBodyweightResolver`, `loadBodyweightResolver`, `computeMetrics`, `deriveTrend`, `computeStats`) and `apps/api/src/lib/window.ts` with the shared `parseWindow` helper and `WindowQuerySchema`. Added seven summary + series endpoints across four route files: `GET /workouts/summary/strength`, `GET /workouts/summary/series`, `GET /daily-metrics/summary`, `GET /daily-metrics/series`, `GET /weight-log/summary`, `GET /weight-log/series`, and `GET /activities/summary`. Added a `Summaries` OpenAPI tag in `index.ts`. All endpoints accept `?window=7d|30d|90d|all` (default 30d) or `?from=YYYY-MM-DD&to=YYYY-MM-DD`. Trend logic is `ma7 vs ma30 by >0.5%` threshold, documented in each route's `detail.description`.
+
+### Deviations from PRD
+
+- **Formulas extracted from `workouts.ts` rather than pre-existing**: The PRD implied `apps/api/src/lib/formulas.ts` already existed from an earlier group. It did not. Created it fresh and updated `workouts.ts` to import from it instead of carrying duplicate functions.
+- **`computeStats` added to `formulas.ts`**: PRD scope implied only Epley/Brzycki/volume/PR detection in formulas. Added `computeStats` (rolling average helper) there because it's reused across daily-metrics, weight-log, and potentially future endpoints — follows the "deep module" principle from code-style rules.
+- **`weeklyDelta`/`monthlyDelta` in weight-log summary**: Defined as `latest − oldest within last 7/30 entries` (entry-count based, not calendar-days based). This is more meaningful when entries are sparse.
+
+### Gotchas & surprises
+
+- **Smoke test blocked by headless postgres auth**: Same situation as Group 8. The local Postgres container is running and the password is in `.ralph-secrets.env`, but `postgres.js` fails with `password authentication failed` when run from the Claude Code subprocess environment. Likely a networking/env-isolation issue specific to the `claude -p` context. TypeScript typecheck + lint + format are the verification gate; human operator should run smoke curls after review.
+- **Route ordering with Elysia and `/summary/*` vs `/:id`**: Static route segments take priority over dynamic params in Elysia's radix router, so `/summary/strength` and `/summary/series` match before `/:id` regardless of registration order. Placed summary routes first in the chain anyway for readability.
+- **`z.record(z.string(), z.number())` for `weeklyByType`**: Works correctly with `@elysiajs/openapi` — serializes to `{ type: "object", additionalProperties: { type: "number" } }` in the JSON Schema output. Not listed in `elysia-zod.md` but confirmed by prior Zod v4 behavior.
+
+### Security notes
+
+No secrets touched. `formulas.ts` and `window.ts` are pure computation / schema libraries with no credential access. `loadBodyweightResolver` uses the existing `db` client (DATABASE_URL already validated at startup).
+
+### Tests added
+
+None in this group — Group 10 wires `bun test` and adds unit tests for formulas + summary endpoint integration tests.
+
+### Future improvements
+
+- Add `bun test` unit tests for `deriveTrend`, `computeStats`, `parseWindow`, `computeMetrics` in Group 10.
+- The `computeStats` function takes values most-recent-first. If the caller passes values in the wrong order, ma7/ma30/trend will silently be wrong. A comment documents this but a runtime assertion or naming convention would be stronger.
+- `GET /daily-metrics/series` could accept a `fields` query param to limit payload size for clients that only need a subset of columns.
+- The workout summary routes load all workouts + sets in the window into memory. For large windows (`all`) with many exercises, this could be O(N×M) data. Revisit if response time exceeds 50ms.
+
 ## Group 4: `apps/dashboard` scaffold
 
 ### What was implemented
