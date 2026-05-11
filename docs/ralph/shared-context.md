@@ -78,36 +78,36 @@ argo/
 
 ## Tech Stack (target)
 
-| Concern | Choice |
-|-|-|
-| Runtime | Bun (apps + tooling) |
-| Backend framework | Elysia |
-| Backend validation | **Zod** via Standard Schema (no TypeBox) |
-| OpenAPI plugin | `@elysiajs/openapi` (Scalar UI) with `mapJsonSchema: { zod: z.toJSONSchema }` |
-| Database | **Postgres** (VPS prod, local container dev) — schema `argo`, role `argo` |
-| ORM | Drizzle (`drizzle-orm/postgres-js`) + `drizzle-kit` migrations |
-| Driver | `postgres` (postgres.js) |
-| Frontend build | Vite 5 + React 19 |
-| UI library | Mantine v9 (core + form, notifications, modals, dates, hooks) — **no Tailwind** |
-| Icons | `@tabler/icons-react` |
-| Router | TanStack Router (file-based via `@tanstack/router-plugin/vite`) |
-| Data fetching | TanStack Query (loaders use `ensureQueryData`; components `useSuspenseQuery`) |
-| API client | Eden Treaty (`@elysiajs/eden`) |
-| Client state | Zustand (`persist` middleware) — minimal scope: theme, sidebar, per-page filters |
-| Forms | `@mantine/form` + Zod resolver |
-| Charts | **visx**, extracted to `@argo/charts` (theme-agnostic, `VxThemeProvider`) |
-| Date library | `date-fns` (frontend only; backend uses ISO strings) |
-| Schema lib (E2E) | **Zod** (env, route validators, search params, forms) |
-| Telemetry | `@elysiajs/opentelemetry` (backend) + `@hyperdx/browser` (frontend) → ClickStack/HyperDX at `127.0.0.1:4318` |
-| TypeScript | `tsconfig.base.json` max strict (`noUncheckedIndexedAccess`, `verbatimModuleSyntax`, `exactOptionalPropertyTypes`) |
-| Testing | `bun test` (native) — unit + summary endpoint tests against fresh Postgres |
-| React perf | `babel-plugin-react-compiler` via `vite-plugin-babel` |
-| Pre-commit | `lefthook` running `oxlint` + `oxfmt --check` on staged |
-| Lint | oxlint with `react`, `react-perf`, `typescript`, `import`, `unicorn`, `jsx-a11y`, `promise`, `oxc`, `jsdoc` |
-| Format | oxfmt |
-| Static analysis | `fallow` (CI, report-only/non-blocking initially) |
-| Secrets | 1Password CLI (`op run --account tkrumm` / `op read --account tkrumm`); password at `op://vps/argo/DB_PASSWORD` |
-| Production host | VPS (`ssh vps`), compose at `~/vps/apps/argo/compose.yml` |
+| Concern            | Choice                                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| Runtime            | Bun (apps + tooling)                                                                                               |
+| Backend framework  | Elysia                                                                                                             |
+| Backend validation | **Zod** via Standard Schema (no TypeBox)                                                                           |
+| OpenAPI plugin     | `@elysiajs/openapi` (Scalar UI) with `mapJsonSchema: { zod: z.toJSONSchema }`                                      |
+| Database           | **Postgres** (VPS prod, local container dev) — schema `argo`, role `argo`                                          |
+| ORM                | Drizzle (`drizzle-orm/postgres-js`) + `drizzle-kit` migrations                                                     |
+| Driver             | `postgres` (postgres.js)                                                                                           |
+| Frontend build     | Vite 5 + React 19                                                                                                  |
+| UI library         | Mantine v9 (core + form, notifications, modals, dates, hooks) — **no Tailwind**                                    |
+| Icons              | `@tabler/icons-react`                                                                                              |
+| Router             | TanStack Router (file-based via `@tanstack/router-plugin/vite`)                                                    |
+| Data fetching      | TanStack Query (loaders use `ensureQueryData`; components `useSuspenseQuery`)                                      |
+| API client         | Eden Treaty (`@elysiajs/eden`)                                                                                     |
+| Client state       | Zustand (`persist` middleware) — minimal scope: theme, sidebar, per-page filters                                   |
+| Forms              | `@mantine/form` + Zod resolver                                                                                     |
+| Charts             | **visx**, extracted to `@argo/charts` (theme-agnostic, `VxThemeProvider`)                                          |
+| Date library       | `date-fns` (frontend only; backend uses ISO strings)                                                               |
+| Schema lib (E2E)   | **Zod** (env, route validators, search params, forms)                                                              |
+| Telemetry          | `@elysiajs/opentelemetry` (backend) + `@hyperdx/browser` (frontend) → ClickStack/HyperDX at `127.0.0.1:4318`       |
+| TypeScript         | `tsconfig.base.json` max strict (`noUncheckedIndexedAccess`, `verbatimModuleSyntax`, `exactOptionalPropertyTypes`) |
+| Testing            | `bun test` (native) — unit + summary endpoint tests against fresh Postgres                                         |
+| React perf         | `babel-plugin-react-compiler` via `vite-plugin-babel`                                                              |
+| Pre-commit         | `lefthook` running `oxlint` + `oxfmt --check` on staged                                                            |
+| Lint               | oxlint with `react`, `react-perf`, `typescript`, `import`, `unicorn`, `jsx-a11y`, `promise`, `oxc`, `jsdoc`        |
+| Format             | oxfmt                                                                                                              |
+| Static analysis    | `fallow` (CI, report-only/non-blocking initially)                                                                  |
+| Secrets            | 1Password CLI (`op run --account tkrumm` / `op read --account tkrumm`); password at `op://vps/argo/DB_PASSWORD`    |
+| Production host    | VPS (`ssh vps`), compose at `~/vps/apps/argo/compose.yml`                                                          |
 
 ---
 
@@ -127,11 +127,13 @@ bun run format:check                                            # oxfmt clean
 ```
 
 After Group 10 wires up `bun test`:
+
 ```bash
 bun --cwd apps/api test
 ```
 
 **E2E / production smoke (only when the group instructs):**
+
 - Group 2: `docker compose -f apps/api/docker-compose.dev.yml up -d` + `op run … bun --cwd apps/api start` + curl-driven smoke against every route.
 - Group 7: open the dashboard locally, perform a request, inspect HyperDX for the cross-boundary trace.
 - Group 11: production cutover — see PRD Group 11.
@@ -186,21 +188,27 @@ After completing each group, **always append** to `docs/ralph/RALPH_NOTES.md`:
 ## Group N: <title>
 
 ### What was implemented
+
 <1–3 sentences describing the actual outcome>
 
 ### Deviations from PRD
+
 <what you did differently and why — be specific>
 
 ### Gotchas & surprises
+
 <library quirks, API changes since training cutoff, undocumented behavior>
 
 ### Security notes
+
 <secrets handling, env validation, anything that touches auth or DB credentials>
 
 ### Tests added
+
 <list test files / functions / fixtures>
 
 ### Future improvements
+
 <deferred work, tech debt, better approaches you saw but didn't take>
 ```
 
@@ -223,6 +231,16 @@ docs(api): document the pgSchema convention
 Scopes used in this repo: `api`, `dashboard`, `charts`, `repo` (root config), `ci`, `docs`, `deploy`.
 
 Stage only the files you changed (no `git add -A`). Commit before signaling completion. If a pre-commit hook fails after Group 10, fix the issue and create a **new** commit — never `--amend` to bypass.
+
+### Use raw `git` and `bun` — never invoke slash-command skills
+
+You are running inside `claude -p` (headless). **Do not invoke any slash-command skill (`/commit`, `/commit --split`, `/check`, `/lint`, `/pr`, `/review`, `/ship`, etc.) from inside a group.** These skills are interactive Claude Code workflows that present a proposal and wait for user confirmation; in headless mode the confirmation never arrives, the skill prints its plan, and the underlying action (commit, PR, check) never happens. The group then exits without a `RALPH_TASK_COMPLETE` signal, the runner resets it to pending, and all of the group's work is left uncommitted in the working tree.
+
+Always use the underlying tools directly:
+
+- **Commit**: `git add <specific files> && git commit -m "..."`. If the work splits into multiple logical commits, run `git add` + `git commit` once per commit — do **not** call `/commit --split`.
+- **Typecheck / lint / format / test**: `bun run typecheck`, `bun run lint`, `bun run format:check`, `bun test` (or the package-local equivalents). Do **not** call `/check`.
+- **PR / review / ship**: not your job — the human runs those after the loop completes.
 
 ---
 
