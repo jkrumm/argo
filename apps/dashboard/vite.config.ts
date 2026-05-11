@@ -1,10 +1,15 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import babel from 'vite-plugin-babel'
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite'
 import { resolve } from 'path'
 
 export default defineConfig({
-  plugins: [TanStackRouterVite({ target: 'react', autoCodeSplitting: true }), react()],
+  plugins: [
+    TanStackRouterVite({ target: 'react', autoCodeSplitting: true }),
+    babel({ babelConfig: { plugins: ['babel-plugin-react-compiler'] } }),
+    react(),
+  ],
   server: {
     port: 5173,
     strictPort: true,
