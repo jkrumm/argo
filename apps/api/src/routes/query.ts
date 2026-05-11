@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { sqlite } from '../db/index.js'
+import { client } from '../db/index.js'
 
 // Block any mutation or schema-altering keywords
 const BLOCKED =
@@ -7,7 +7,7 @@ const BLOCKED =
 
 export const queryRoute = new Elysia().post(
   '/query',
-  ({ body, set }) => {
+  async ({ body, set }) => {
     const { sql } = body
     const trimmed = sql.trim()
 
@@ -17,8 +17,7 @@ export const queryRoute = new Elysia().post(
     }
 
     try {
-      const stmt = sqlite.query(trimmed)
-      const rows = stmt.all() as Record<string, unknown>[]
+      const rows = Array.from(await client.unsafe(trimmed)) as Record<string, unknown>[]
       const columns = rows.length > 0 ? Object.keys(rows[0]!) : []
       return { rows, columns }
     } catch (e) {
@@ -32,7 +31,7 @@ export const queryRoute = new Elysia().post(
       tags: ['Database'],
       summary: 'Execute a read-only SQL query',
       description:
-        'Executes a SELECT statement against the homelab SQLite database. Only SELECT statements are permitted. Useful for ad-hoc chart queries and agent consumption.',
+        'Executes a SELECT statement against the Postgres database. Only SELECT statements are permitted. Tables are in the argo schema — use argo.table_name syntax. Useful for ad-hoc chart queries and agent consumption.',
       security: [{ BearerAuth: [] }],
     },
   },

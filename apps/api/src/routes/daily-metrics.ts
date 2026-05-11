@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, lte } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { dailyMetrics, syncControl } from '../db/schema.js'
 
@@ -110,7 +110,7 @@ export const dailyMetricsRoutes = new Elysia({ prefix: '/daily-metrics' })
       // Set the flag — garmin-sync polls sync_control every ~30s and runs immediately.
       await db
         .update(syncControl)
-        .set({ refresh_requested: 1, requested_at: sql`datetime('now')` })
+        .set({ refresh_requested: 1, requested_at: new Date().toISOString() })
         .where(eq(syncControl.id, 1))
       return readSyncStatus()
     },

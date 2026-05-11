@@ -21,8 +21,9 @@ import { weightLogRoutes } from './routes/weight-log.js'
 import { userProfileRoutes } from './routes/user-profile.js'
 import { registerCronJobs } from './cron/index.js'
 import { uptimeKumaClient } from './clients/uptime-kuma.js'
-// eslint-disable-next-line import/no-unassigned-import
-import './db/index.js' // Initialize DB and ensure tables exist
+import { runMigrations } from './db/index.js'
+
+await runMigrations()
 
 const SECRET = process.env['API_SECRET']
 if (!SECRET) throw new Error('API_SECRET env var is not set')

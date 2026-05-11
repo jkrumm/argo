@@ -97,7 +97,7 @@ export async function runGarminSync(reason: string): Promise<GarminSyncResult> {
 
   await db
     .update(syncControl)
-    .set({ in_progress: 1, last_started_at: sql`datetime('now')`, refresh_requested: 0 })
+    .set({ in_progress: 1, last_started_at: isoNow(), refresh_requested: 0 })
     .where(eq(syncControl.id, 1))
 
   // eslint-disable-next-line no-console
@@ -162,7 +162,7 @@ export async function runGarminSync(reason: string): Promise<GarminSyncResult> {
     .update(syncControl)
     .set({
       in_progress: 0,
-      last_completed_at: sql`datetime('now')`,
+      last_completed_at: isoNow(),
       last_status: errors === 0 ? 'ok' : 'error',
       last_message: message,
     })

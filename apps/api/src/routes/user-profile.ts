@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { eq, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { userProfile } from '../db/schema.js'
 
@@ -42,14 +42,14 @@ export const userProfileRoutes = new Elysia({ prefix: '/user-profile' })
       if (!existing) {
         const [created] = await db
           .insert(userProfile)
-          .values({ id: 1, ...body, updated_at: sql`datetime('now')` })
+          .values({ id: 1, ...body, updated_at: new Date().toISOString() })
           .returning()
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return created as any
       }
       const [updated] = await db
         .update(userProfile)
-        .set({ ...body, updated_at: sql`datetime('now')` })
+        .set({ ...body, updated_at: new Date().toISOString() })
         .where(eq(userProfile.id, 1))
         .returning()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
