@@ -51,10 +51,17 @@ function RootLayout() {
   const isGarminActive = !!matchRoute({ to: '/garmin-health', fuzzy: true })
   const isStrengthActive = !!matchRoute({ to: '/strength-tracker', fuzzy: true })
 
-  function handleNav(to: '/garmin-health' | '/strength-tracker') {
+  function handleNavGarmin() {
     return (e: MouseEvent) => {
       e.preventDefault()
-      void navigate({ to })
+      void navigate({ to: '/garmin-health', search: { window: '30d' } })
+    }
+  }
+
+  function handleNavStrength() {
+    return (e: MouseEvent) => {
+      e.preventDefault()
+      void navigate({ to: '/strength-tracker', search: { window: '90d', tab: 'workouts' } })
     }
   }
 
@@ -76,7 +83,7 @@ function RootLayout() {
             leftSection={<IconHeartbeat size={18} />}
             active={isGarminActive}
             mb={4}
-            onClick={handleNav('/garmin-health')}
+            onClick={handleNavGarmin()}
           />
           <NavLink
             component="a"
@@ -85,7 +92,7 @@ function RootLayout() {
             leftSection={<IconBarbell size={18} />}
             active={isStrengthActive}
             mb={4}
-            onClick={handleNav('/strength-tracker')}
+            onClick={handleNavStrength()}
           />
 
           <Divider my="sm" />
