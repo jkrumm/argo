@@ -1,5 +1,7 @@
 # PRD: Argo Dashboard — Mantine v9 + TanStack Migration
 
+> **Status: COMPLETED.** All 15 groups landed on `master`. The stack described in this PRD is the production stack. This document is kept as a historical reference — consult the as-built `CLAUDE.md` files instead for authoritative patterns.
+
 > Greenfield rebuild of `packages/dashboard` as `apps/dashboard`. Vite + React 19 + Mantine v9 + TanStack Router (file-based) + TanStack Query + Eden Treaty. Retires Refine v5, Ant Design v5, and `react-router`. Keeps visx (extracted to `@argo/charts`). Migrates the API database from SQLite to Postgres (drizzle-kit migrations, dedicated `argo` Postgres schema via `pgSchema()`). Wires end-to-end OTel observability into the existing ClickStack/HyperDX deployment. Then cutover and prune.
 
 ## Problem
@@ -32,33 +34,33 @@ The dashboard runs Refine v5 + Ant Design v5 + a custom Eden Treaty data provide
 
 ## Stack Decisions
 
-| Concern         | Choice                                         | Notes                                                                                                                       |
-|-|-|-|
-| Build           | Vite 5+                                        | `--strictPort` 5173                                                                                                         |
-| Framework       | React 19                                       | Mantine v9 supports natively, no patch import                                                                               |
-| UI              | Mantine v9                                     | `@mantine/core` + `@mantine/form` + `@mantine/notifications` + `@mantine/modals` + `@mantine/dates` + `@mantine/hooks`      |
-| Charts package  | `packages/charts` (`@argo/charts`)             | visx primitives/kinds/sparklines/hooks/tokens extracted as a theme-agnostic package. Exposes `VxThemeProvider`/`useVxTheme`. |
-| Charts bridge   | `apps/dashboard/src/charts-bridge.tsx`         | One-line wrapper that reads `useMantineColorScheme()` and passes `colorScheme` to `VxThemeProvider`. Only place Mantine touches visx. |
-| Routing         | TanStack Router, file-based                    | `src/routes/__root.tsx`, `src/routes/<page>.tsx`; `@tanstack/router-plugin/vite` generates `routeTree.gen.ts`                |
-| Server state    | TanStack Query                                 | Coordinated with router loaders via `ensureQueryData`; QueryClient passed through router context                            |
-| API client      | Eden Treaty                                    | `treaty<App>(API_URL, { parseDate: false })`; imports `App` type from `apps/api`                                            |
-| Client state    | Zustand (minimal, `persist` middleware)        | Theme, sidebar collapsed, last-selected filters — and nothing else. Enforced via CLAUDE.md + `.claude/rules/state.md`.        |
-| Forms           | `@mantine/form`                                | Zod-resolved validation; dynamic-set list uses `form.insertListItem` / `form.removeListItem`                                |
-| Lint / Format   | oxlint + oxfmt                                 | Plugins listed above; project-specific `no-restricted-imports` to ban legacy deps and enforce barrel patterns               |
+| Concern          | Choice                                        | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ---------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Build            | Vite 5+                                       | `--strictPort` 5173                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Framework        | React 19                                      | Mantine v9 supports natively, no patch import                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| UI               | Mantine v9                                    | `@mantine/core` + `@mantine/form` + `@mantine/notifications` + `@mantine/modals` + `@mantine/dates` + `@mantine/hooks`                                                                                                                                                                                                                                                                                                                                                                    |
+| Charts package   | `packages/charts` (`@argo/charts`)            | visx primitives/kinds/sparklines/hooks/tokens extracted as a theme-agnostic package. Exposes `VxThemeProvider`/`useVxTheme`.                                                                                                                                                                                                                                                                                                                                                              |
+| Charts bridge    | `apps/dashboard/src/charts-bridge.tsx`        | One-line wrapper that reads `useMantineColorScheme()` and passes `colorScheme` to `VxThemeProvider`. Only place Mantine touches visx.                                                                                                                                                                                                                                                                                                                                                     |
+| Routing          | TanStack Router, file-based                   | `src/routes/__root.tsx`, `src/routes/<page>.tsx`; `@tanstack/router-plugin/vite` generates `routeTree.gen.ts`                                                                                                                                                                                                                                                                                                                                                                             |
+| Server state     | TanStack Query                                | Coordinated with router loaders via `ensureQueryData`; QueryClient passed through router context                                                                                                                                                                                                                                                                                                                                                                                          |
+| API client       | Eden Treaty                                   | `treaty<App>(API_URL, { parseDate: false })`; imports `App` type from `apps/api`                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Client state     | Zustand (minimal, `persist` middleware)       | Theme, sidebar collapsed, last-selected filters — and nothing else. Enforced via CLAUDE.md + `.claude/rules/state.md`.                                                                                                                                                                                                                                                                                                                                                                    |
+| Forms            | `@mantine/form`                               | Zod-resolved validation; dynamic-set list uses `form.insertListItem` / `form.removeListItem`                                                                                                                                                                                                                                                                                                                                                                                              |
+| Lint / Format    | oxlint + oxfmt                                | Plugins listed above; project-specific `no-restricted-imports` to ban legacy deps and enforce barrel patterns                                                                                                                                                                                                                                                                                                                                                                             |
 | Schema lib (E2E) | **Zod** (single library, end-to-end)          | Elysia routes use Zod via Standard Schema (Elysia 1.4+). Frontend uses Zod for forms (`@mantine/form` `zodResolver`), search params (`zodValidator`), and env. `apps/api/src/env.ts` parses `process.env` with Zod. **Constraints:** use `z.enum([...])` for literal unions (not `z.union([z.literal()...])`); keep dates as ISO strings in responses (no `z.date()` / `z.transform()`); no branded types / `z.custom()` / `z.void()` (open issues in `@elysiajs/openapi` serialization). |
-| OpenAPI         | `@elysiajs/openapi` (Scalar)                    | **Swap from `@elysiajs/swagger` to `@elysiajs/openapi`** (the newer plugin) to get Zod→JSON Schema serialization. Configure `mapJsonSchema: { zod: z.toJSONSchema }`. Every route adds `detail: { summary, description, tags, examples? }`; agents consume `/openapi.json`. |
-| Date lib (FE)   | `date-fns`                                     | Tree-shakeable, idiomatic React. Used by `@mantine/dates` and any custom formatting. **No date lib on the backend** — ISO strings + Postgres `timestamp with time zone` / `text` columns; Drizzle returns the right types; Eden Treaty's `parseDate: false` preserves strings to the frontend. |
-| Static analysis | fallow                                         | CI step (dead code, duplication, complexity). Report-only initially.                                                        |
-| Database        | Postgres (VPS, same host)                      | `drizzle-orm/postgres-js` driver. Schema lives in a dedicated `argo` Postgres schema (already provisioned by user).         |
-| Schema isolation | `pgSchema("argo")` in code                    | All tables defined via `dbSchema.table(...)`. Drizzle auto-emits `CREATE SCHEMA IF NOT EXISTS "argo"` in the generated migration. Connection string carries **no** `?schema=` / `search_path` param (postgres.js doesn't grok it; strip if present). Pattern from `basalt-ui-playground/apps/api/src/schema/auth-schema.ts:1-3`. |
-| Migrations      | drizzle-kit generate + migrate                 | Files under `apps/api/drizzle/`. Applied via **explicit CLI step** (`bun --cwd apps/api db:migrate`) — not on api boot. Run on the VPS as part of deploy / cutover. Matches basalt-ui-playground pattern. |
-| Dev DB          | Postgres in `apps/api/docker-compose.dev.yml`  | Throwaway local instance on a fixed port. `op run` injects dev credentials. Seeded via the same migrations.                  |
-| Observability   | OTel → HyperDX / ClickStack                    | Backend: `@elysiajs/opentelemetry` + `apps/api/src/telemetry.ts` (OTLP exporter, service name/version, tracer export). Frontend: `@hyperdx/browser` initialized as the **first import** in `main.tsx`. Vite proxies `/v1/traces` + `/v1/logs` to `127.0.0.1:4318` (same-origin, no CORS). |
-| Env validation  | Zod at module scope                            | `apps/api/src/env.ts` parses `process.env` with Zod, exports typed `env`. Boot fails fast on missing/malformed vars. Mirror pattern in `apps/dashboard/src/lib/env.ts` for `import.meta.env`. |
-| TypeScript      | `tsconfig.base.json` at repo root              | Max strictness: `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`, `verbatimModuleSyntax`, `isolatedModules`, `exactOptionalPropertyTypes`, `module: "ESNext"`, `moduleResolution: "bundler"`, `target: "ES2022"`. Each app/package extends. |
-| Testing         | Bun test (unit + summary endpoints)            | Test files colocated as `*.test.ts`. Coverage target: 1RM formulas (Epley/Brzycki), summary aggregations (rolling averages, PR detection, trend logic), env parsing. No component tests in this PRD. Runs via `bun --cwd apps/api test` in `check.yml`. |
-| React Compiler  | `babel-plugin-react-compiler` via Rolldown     | Enabled in `apps/dashboard/vite.config.ts` (basalt's pattern: a separate `babel()` pass alongside `viteReact()`). Auto-memoizes; manual `useMemo`/`useCallback` become exceptional. |
-| Pre-commit      | Lefthook                                       | `lefthook.yml` at repo root. Staged-files only: oxlint on `*.ts(x)`, oxfmt `--check` on tracked. Installed via `bun lefthook install` once per clone. |
+| OpenAPI          | `@elysiajs/openapi` (Scalar)                  | **Swap from `@elysiajs/swagger` to `@elysiajs/openapi`** (the newer plugin) to get Zod→JSON Schema serialization. Configure `mapJsonSchema: { zod: z.toJSONSchema }`. Every route adds `detail: { summary, description, tags, examples? }`; agents consume `/openapi.json`.                                                                                                                                                                                                               |
+| Date lib (FE)    | `date-fns`                                    | Tree-shakeable, idiomatic React. Used by `@mantine/dates` and any custom formatting. **No date lib on the backend** — ISO strings + Postgres `timestamp with time zone` / `text` columns; Drizzle returns the right types; Eden Treaty's `parseDate: false` preserves strings to the frontend.                                                                                                                                                                                            |
+| Static analysis  | fallow                                        | CI step (dead code, duplication, complexity). Report-only initially.                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Database         | Postgres (VPS, same host)                     | `drizzle-orm/postgres-js` driver. Schema lives in a dedicated `argo` Postgres schema (already provisioned by user).                                                                                                                                                                                                                                                                                                                                                                       |
+| Schema isolation | `pgSchema("argo")` in code                    | All tables defined via `dbSchema.table(...)`. Drizzle auto-emits `CREATE SCHEMA IF NOT EXISTS "argo"` in the generated migration. Connection string carries **no** `?schema=` / `search_path` param (postgres.js doesn't grok it; strip if present). Pattern from `basalt-ui-playground/apps/api/src/schema/auth-schema.ts:1-3`.                                                                                                                                                          |
+| Migrations       | drizzle-kit generate + migrate                | Files under `apps/api/drizzle/`. Applied via **explicit CLI step** (`bun --cwd apps/api db:migrate`) — not on api boot. Run on the VPS as part of deploy / cutover. Matches basalt-ui-playground pattern.                                                                                                                                                                                                                                                                                 |
+| Dev DB           | Postgres in `apps/api/docker-compose.dev.yml` | Throwaway local instance on a fixed port. `op run` injects dev credentials. Seeded via the same migrations.                                                                                                                                                                                                                                                                                                                                                                               |
+| Observability    | OTel → HyperDX / ClickStack                   | Backend: `@elysiajs/opentelemetry` + `apps/api/src/telemetry.ts` (OTLP exporter, service name/version, tracer export). Frontend: `@hyperdx/browser` initialized as the **first import** in `main.tsx`. Vite proxies `/v1/traces` + `/v1/logs` to `127.0.0.1:4318` (same-origin, no CORS).                                                                                                                                                                                                 |
+| Env validation   | Zod at module scope                           | `apps/api/src/env.ts` parses `process.env` with Zod, exports typed `env`. Boot fails fast on missing/malformed vars. Mirror pattern in `apps/dashboard/src/lib/env.ts` for `import.meta.env`.                                                                                                                                                                                                                                                                                             |
+| TypeScript       | `tsconfig.base.json` at repo root             | Max strictness: `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`, `verbatimModuleSyntax`, `isolatedModules`, `exactOptionalPropertyTypes`, `module: "ESNext"`, `moduleResolution: "bundler"`, `target: "ES2022"`. Each app/package extends.                                                                                                                                                                                                                                     |
+| Testing          | Bun test (unit + summary endpoints)           | Test files colocated as `*.test.ts`. Coverage target: 1RM formulas (Epley/Brzycki), summary aggregations (rolling averages, PR detection, trend logic), env parsing. No component tests in this PRD. Runs via `bun --cwd apps/api test` in `check.yml`.                                                                                                                                                                                                                                   |
+| React Compiler   | `babel-plugin-react-compiler` via Rolldown    | Enabled in `apps/dashboard/vite.config.ts` (basalt's pattern: a separate `babel()` pass alongside `viteReact()`). Auto-memoizes; manual `useMemo`/`useCallback` become exceptional.                                                                                                                                                                                                                                                                                                       |
+| Pre-commit       | Lefthook                                      | `lefthook.yml` at repo root. Staged-files only: oxlint on `*.ts(x)`, oxfmt `--check` on tracked. Installed via `bun lefthook install` once per clone.                                                                                                                                                                                                                                                                                                                                     |
 
 ## Architecture
 
@@ -171,12 +173,14 @@ export function VxBridge({ children }: { children: React.ReactNode }) {
 ### Postgres migration
 
 **Server side (VPS) — already provisioned:**
+
 - Database `argo`, schema `argo`, role `argo` exist on the VPS Postgres.
 - Password lives at **`op://vps/argo/DB_PASSWORD`** (tkrumm account).
 - Connection from argo-api: `DATABASE_URL=postgres://argo:<pw>@<host>:5432/argo?search_path=argo`. In compose, `<host>` is the Postgres service name on the Docker network; locally it's `127.0.0.1:5433` against the dev container.
 - The migration agent does **not** run `CREATE DATABASE`/`CREATE ROLE`/`GRANT` statements — the instance is ready.
 
 **Driver swap:**
+
 - Remove `bun:sqlite`, `drizzle-orm/bun-sqlite`.
 - Add `postgres` (postgres.js) + `drizzle-orm/postgres-js`.
 - `apps/api/src/db/index.ts` becomes a connection pool + `drizzle(client, { schema })`.
@@ -198,6 +202,7 @@ export const workouts     = argoSchema.table('workouts', { … })
 Drizzle generates `CREATE SCHEMA IF NOT EXISTS "argo";` as the first statement of `0000_init.sql`, then qualifies every table/FK with the schema name. No need to set `search_path` in the connection string.
 
 Type and idiom mapping:
+
 - `sqliteTable` → `argoSchema.table` (PG).
 - `text` (SQLite) → `text` (PG); `integer` → `integer`; `real` → `doublePrecision` (or `numeric(p,s)` for kg / weight precision if we want it).
 - Integer-as-boolean (`is_bodyweight`, `completed`, `refresh_requested`, `in_progress`) → real `boolean`.
@@ -208,10 +213,12 @@ Type and idiom mapping:
 - Re-add explicit indexes that were implicit in SQLite where needed.
 
 **Connection string hygiene:**
+
 - `DATABASE_URL=postgres://argo:<pw>@<host>:5432/argo` — **no** `?schema=` or `?search_path=` param. postgres.js doesn't recognise the Prisma-style param and the schema is enforced by `pgSchema()` in code.
 - If a `DATABASE_URL` arrives with `?schema=` (legacy / mistake), `apps/api/src/db/index.ts` strips it before passing to `postgres()`. Pattern from `basalt-ui-playground/apps/api/src/db.ts:8-9`.
 
 **Migrations folder:**
+
 - `apps/api/drizzle/0000_init.sql` generated from the new schema. Future schema changes via `drizzle-kit generate` produce numbered files.
 - Migrations are applied via **explicit CLI step**: `bun --cwd apps/api db:migrate`. This is what runs during deploy (Group 11) and as part of the dev container bootstrap. **Not** applied at api boot — a separate command keeps the boot path side-effect-free, lets us run migrations once per deploy, and matches `basalt-ui-playground`.
 - Add to `apps/api/package.json`:
@@ -220,10 +227,12 @@ Type and idiom mapping:
   - `"db:push": "drizzle-kit push"` for local rapid iteration
 
 **Data migration script (one-shot):**
+
 - `apps/api/scripts/migrate-sqlite-to-pg.ts` reads the existing `homelab.db` (mount in via env var) and inserts rows into Postgres via the same Drizzle schema. Tables in order: `exercises`, `user_profile`, `sync_control`, `daily_metrics`, `garmin_activities`, `workouts`, `workout_sets`, `weight_log`. Idempotent — re-runs are safe (uses `ON CONFLICT DO NOTHING` on natural keys; `id` columns inserted via `OVERRIDING SYSTEM VALUE` then sequences are reset to `max(id)+1` per table at end).
 - Run during cutover (Group 11), before deploy switches over.
 
 **Local dev:**
+
 - `apps/api/docker-compose.dev.yml` runs a Postgres container on a fixed port (e.g. `5433` to avoid colliding with any host-installed instance). Volume mount for persistence between sessions.
 - `apps/api/.env.local.tpl` includes `DATABASE_URL`. Dev runs via `op run --account tkrumm --env-file=.env.local.tpl -- bun --cwd apps/api start`.
 
@@ -293,20 +302,21 @@ server: {
 This keeps the browser SDK same-origin, avoiding CORS on ClickStack. Production: HyperDX endpoint is set explicitly via `VITE_HYPERDX_ENDPOINT` at build time (passed in `apps/dashboard/Dockerfile` via `--build-arg`).
 
 **Trace propagation across Eden Treaty:**
+
 - Browser side: HyperDX's fetch patch automatically injects W3C trace-context headers for any URL matching `tracePropagationTargets`. No code changes in `apps/dashboard/src/lib/eden.ts` required.
 - Server side: Elysia's OTel plugin reads the incoming traceparent header and continues the trace.
 - Result: a single distributed trace per user action, spanning `browser → vite proxy → api → outbound HTTP (once tracedFetch is adopted)`.
 
 **Env vars:**
 
-| Var | Where | Default | Notes |
-|-|-|-|-|
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | api | `http://127.0.0.1:4318` (dev), `http://clickstack:4318` (prod) | OTLP HTTP base URL — exporter appends `/v1/traces` |
-| `OTEL_SERVICE_NAME` | api | `argo-api` | |
-| `OTEL_SERVICE_VERSION` | api | from `package.json` | |
-| `VITE_HYPERDX_API_KEY` | dashboard build | from `op://vps/hyperdx/api-key` | |
-| `VITE_HYPERDX_SERVICE_NAME` | dashboard build | `argo-dashboard` | |
-| `VITE_HYPERDX_ENDPOINT` | dashboard build | empty (dev: vite proxy), set explicit URL for prod | |
+| Var                           | Where           | Default                                                        | Notes                                              |
+| ----------------------------- | --------------- | -------------------------------------------------------------- | -------------------------------------------------- |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | api             | `http://127.0.0.1:4318` (dev), `http://clickstack:4318` (prod) | OTLP HTTP base URL — exporter appends `/v1/traces` |
+| `OTEL_SERVICE_NAME`           | api             | `argo-api`                                                     |                                                    |
+| `OTEL_SERVICE_VERSION`        | api             | from `package.json`                                            |                                                    |
+| `VITE_HYPERDX_API_KEY`        | dashboard build | from `op://vps/hyperdx/api-key`                                |                                                    |
+| `VITE_HYPERDX_SERVICE_NAME`   | dashboard build | `argo-dashboard`                                               |                                                    |
+| `VITE_HYPERDX_ENDPOINT`       | dashboard build | empty (dev: vite proxy), set explicit URL for prod             |                                                    |
 
 ### Schema validation — Zod end-to-end
 
@@ -320,6 +330,7 @@ One schema lib, one mental model. Used in:
 - `apps/dashboard/src/components/**` — `@mantine/form`'s `useForm({ validate: zodResolver(schema) })`.
 
 **Conventions (constraints to avoid `@elysiajs/openapi` open issues):**
+
 - Literal unions: `z.enum(['a','b','c'])` — **not** `z.union([z.literal('a'), z.literal('b')])`.
 - Dates in responses: ISO `string()` — **not** `z.date()` or `z.transform()`. The dashboard parses with `date-fns` if needed.
 - Avoid `z.custom()`, branded types, and `z.void()` in response schemas.
@@ -364,8 +375,8 @@ import { z } from 'zod'
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "allowSyntheticDefaultImports": true
-  }
+    "allowSyntheticDefaultImports": true,
+  },
 }
 ```
 
@@ -413,10 +424,10 @@ pre-commit:
   parallel: true
   commands:
     lint:
-      glob: "*.{ts,tsx,js,jsx}"
+      glob: '*.{ts,tsx,js,jsx}'
       run: bunx oxlint {staged_files}
     format:
-      glob: "*.{ts,tsx,js,jsx,json,md}"
+      glob: '*.{ts,tsx,js,jsx,json,md}'
       run: bunx oxfmt --check {staged_files}
 ```
 
@@ -426,10 +437,10 @@ One-time install: `bun add -D lefthook && bun lefthook install`. Documented in r
 
 All files under `**/CLAUDE.md` and `**/.claude/rules/*.md` are written in **descriptive present-tense voice** — they describe how the code currently works, not what is planned. The PRD (this file) is the only document that uses roadmap voice. Examples:
 
-| ✗ Roadmap voice (PRD) | ✓ Rule voice (CLAUDE.md / rules) |
-|-|-|
-| "We will use Zod for route validators." | "Routes validate `body`/`query`/`params`/`response` with Zod via Standard Schema." |
-| "Migrate to file-based routing." | "Routes are file-based under `src/routes/`. Adding a page = adding a file." |
+| ✗ Roadmap voice (PRD)                            | ✓ Rule voice (CLAUDE.md / rules)                                                           |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| "We will use Zod for route validators."          | "Routes validate `body`/`query`/`params`/`response` with Zod via Standard Schema."         |
+| "Migrate to file-based routing."                 | "Routes are file-based under `src/routes/`. Adding a page = adding a file."                |
 | "Should ship with HyperDX init as first import." | "`apps/dashboard/src/main.tsx` imports `./lib/hyperdx` on its first line. Do not reorder." |
 
 Group 10 establishes the initial rule files during the migration; Group 12 rewrites them in this descriptive voice against the as-built code once cutover lands.
@@ -443,7 +454,7 @@ Implementing agents may add these as small follow-ups without blocking the migra
 - **Workout form draft autosave** — the gym use case warrants saving in-progress form state to Zustand `persist`. Mention in `apps/dashboard/CLAUDE.md` as a known opportunity.
 - **Drizzle Studio** — `db:studio` script added to `apps/api/package.json` for browsing the local Postgres at `:4983`. Dev-only.
 - **DB-aware health check** — `/health/ready` performs a `SELECT 1` against Postgres; `/health` stays liveness-only.
-- **VITE_ env validation** — mirror `apps/api/src/env.ts` as `apps/dashboard/src/lib/env.ts` parsing `import.meta.env` with Zod at module load.
+- **VITE\_ env validation** — mirror `apps/api/src/env.ts` as `apps/dashboard/src/lib/env.ts` parsing `import.meta.env` with Zod at module load.
 
 ### Sweet patterns to adopt (from basalt-ui-playground)
 
@@ -467,41 +478,57 @@ Internal-only routes (`docker`, `slack`, `gmail`, `weather`, `ticktick`, `uptime
 
 ### Claude Code rule set (`apps/dashboard/.claude/rules/`)
 
-| Rule file              | Enforces                                                                                                                                              |
-|-|-|
-| `mantine.md`           | Use Mantine components (Stack/Group/Grid) for layout. No raw hex in JSX. Color scheme via `useMantineColorScheme`. No inline `style={{}}` for theme-dependent values. |
-| `tanstack-router.md`   | File-based routes, `loader` + `ensureQueryData`, search-param Zod validation, `<Link>` for navigation, `from` param for type narrowing.                |
-| `tanstack-query.md`    | Query-key factories under `src/lib/queries/`, mutation invalidation, `useSuspenseQuery` in components.                                                 |
-| `forms.md`             | `@mantine/form` with Zod resolver; dynamic lists via `insertListItem`/`removeListItem`; no controlled `useState` chains.                              |
-| `state.md`             | Zustand only for cross-page persistent UI; URL state in router; server state in Query; component-local state in `useState`/`useReducer`.              |
-| `openapi.md`           | Every route declares `detail: { summary, description, tags }`. Examples for agent-facing routes. New tags must be registered in `swagger` plugin docs. |
+| Rule file            | Enforces                                                                                                                                                              |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mantine.md`         | Use Mantine components (Stack/Group/Grid) for layout. No raw hex in JSX. Color scheme via `useMantineColorScheme`. No inline `style={{}}` for theme-dependent values. |
+| `tanstack-router.md` | File-based routes, `loader` + `ensureQueryData`, search-param Zod validation, `<Link>` for navigation, `from` param for type narrowing.                               |
+| `tanstack-query.md`  | Query-key factories under `src/lib/queries/`, mutation invalidation, `useSuspenseQuery` in components.                                                                |
+| `forms.md`           | `@mantine/form` with Zod resolver; dynamic lists via `insertListItem`/`removeListItem`; no controlled `useState` chains.                                              |
+| `state.md`           | Zustand only for cross-page persistent UI; URL state in router; server state in Query; component-local state in `useState`/`useReducer`.                              |
+| `openapi.md`         | Every route declares `detail: { summary, description, tags }`. Examples for agent-facing routes. New tags must be registered in `swagger` plugin docs.                |
 
 ### oxlint extensions
 
 ```jsonc
 {
-  "plugins": ["react", "react-perf", "typescript", "import", "unicorn", "jsx-a11y", "promise", "oxc", "jsdoc"],
+  "plugins": [
+    "react",
+    "react-perf",
+    "typescript",
+    "import",
+    "unicorn",
+    "jsx-a11y",
+    "promise",
+    "oxc",
+    "jsdoc",
+  ],
   "overrides": [
     {
       "files": ["apps/dashboard/src/**"],
       "rules": {
-        "no-restricted-imports": ["error", {
-          "paths": [
-            { "name": "antd",                 "message": "Use Mantine — antd was removed in the migration." },
-            { "name": "@ant-design/icons",    "message": "Use @tabler/icons-react." },
-            { "name": "@refinedev/core",      "message": "Refine was removed in the migration." },
-            { "name": "@refinedev/antd",      "message": "Refine was removed in the migration." },
-            { "name": "react-router",         "message": "Use @tanstack/react-router." },
-            { "name": "react-router-dom",     "message": "Use @tanstack/react-router." },
-            { "name": "@visx/tooltip",        "message": "Use ChartTooltip + TooltipHeader/Row/Body from src/charts/primitives." }
-          ],
-          "patterns": [
-            { "group": ["@refinedev/*"],      "message": "Refine was removed in the migration." }
-          ]
-        }]
-      }
-    }
-  ]
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              { "name": "antd", "message": "Use Mantine — antd was removed in the migration." },
+              { "name": "@ant-design/icons", "message": "Use @tabler/icons-react." },
+              { "name": "@refinedev/core", "message": "Refine was removed in the migration." },
+              { "name": "@refinedev/antd", "message": "Refine was removed in the migration." },
+              { "name": "react-router", "message": "Use @tanstack/react-router." },
+              { "name": "react-router-dom", "message": "Use @tanstack/react-router." },
+              {
+                "name": "@visx/tooltip",
+                "message": "Use ChartTooltip + TooltipHeader/Row/Body from src/charts/primitives.",
+              },
+            ],
+            "patterns": [
+              { "group": ["@refinedev/*"], "message": "Refine was removed in the migration." },
+            ],
+          },
+        ],
+      },
+    },
+  ],
 }
 ```
 
@@ -546,6 +573,7 @@ Greenfield `apps/dashboard` is built next to legacy `packages/dashboard`. Only t
 ```
 
 **Parallelism windows:**
+
 - After Group 1: Groups 2 + 3 run in parallel.
 - After Group 3: Groups 4 + 5 run in parallel.
 - After Groups 2 + 3: Group 7 can start; Group 6 can start; they coordinate on `apps/api/src/index.ts` edits.
@@ -633,6 +661,7 @@ From Group 6 landing until Group 11 cutover, **no production deploys**. The new 
 **Depends on:** Group 1 (workspace rename so paths are stable).
 
 **Acceptance:**
+
 - `bun --cwd apps/api typecheck` passes after the swap.
 - Local dev: `docker compose -f apps/api/docker-compose.dev.yml up -d` brings up Postgres; `op run … bun --cwd apps/api start` boots the api, applies the initial migration, and serves every existing route correctly.
 - Smoke test: `GET /workouts`, `GET /daily-metrics`, `POST /workouts`, `GET /health`, `POST /query` (with a sample `SELECT * FROM argo.workouts LIMIT 5`), and one Garmin cron tick all behave as before.
@@ -697,15 +726,15 @@ Smoke-test in a temporary route that the package's primitives, kinds, and sparkl
 
 Minimum set:
 
-| Endpoint | Returns (sketch) |
-|-|-|
+| Endpoint                         | Returns (sketch)                                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | `GET /workouts/summary/strength` | `{ byExercise: [{ exercise, currentE1RM, bestE1RM, prDate, totalVolumeWindow, sessionCountWindow }] }` |
-| `GET /workouts/summary/series` | `{ byExercise: [{ exercise, points: [{ date, e1rm, volume, maxWeight }] }] }` |
-| `GET /daily-metrics/summary` | `{ hrv: { current, ma7, ma30, trend }, restingHr: {…}, sleep: {…}, stress: {…} }` |
-| `GET /daily-metrics/series` | `{ points: [{ date, hrv, restingHr, sleepScore, stress, … }] }` (already exists or trivial) |
-| `GET /weight-log/summary` | `{ current, ma7, ma30, trend, weeklyDelta, monthlyDelta }` |
-| `GET /weight-log/series` | `{ points: [{ date, weightKg }] }` |
-| `GET /activities/summary` | `{ weeklyMinutes, weeklyByType, totalsWindow }` |
+| `GET /workouts/summary/series`   | `{ byExercise: [{ exercise, points: [{ date, e1rm, volume, maxWeight }] }] }`                          |
+| `GET /daily-metrics/summary`     | `{ hrv: { current, ma7, ma30, trend }, restingHr: {…}, sleep: {…}, stress: {…} }`                      |
+| `GET /daily-metrics/series`      | `{ points: [{ date, hrv, restingHr, sleepScore, stress, … }] }` (already exists or trivial)            |
+| `GET /weight-log/summary`        | `{ current, ma7, ma30, trend, weeklyDelta, monthlyDelta }`                                             |
+| `GET /weight-log/series`         | `{ points: [{ date, weightKg }] }`                                                                     |
+| `GET /activities/summary`        | `{ weeklyMinutes, weeklyByType, totalsWindow }`                                                        |
 
 `trend` is `'up' | 'down' | 'flat'` derived from `ma7 vs ma30` (or equivalent) — document the rule per metric in the route's `detail.description`.
 
@@ -751,6 +780,7 @@ Minimum set:
 **Depends on:** Groups 2 (Postgres swap — telemetry instrumentation lives in the same area as the new `db/` module) and 3 (dashboard scaffold — entry point must exist). Can run after Group 6 (or in parallel with Group 6 if both authors coordinate on `index.ts` edits).
 
 **Acceptance:**
+
 - `apps/api/src/env.ts` exists and is used everywhere — no raw `process.env.X` in route or service code (only in `env.ts` and `vite.config.ts`).
 - A locally-run `apps/dashboard` produces traces in the local HyperDX, with continuity into the api spans.
 - `/health` requests do not produce spans.
@@ -786,12 +816,13 @@ Minimum set:
 **Types.** Create `tsconfig.base.json` at repo root with the max-strict baseline (see Architecture). Update `apps/api/tsconfig.json`, `apps/dashboard/tsconfig.json`, `packages/charts/tsconfig.json` to `"extends": "../../tsconfig.base.json"`. Fix any errors that surface; expect a moderate number from `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`.
 
 **Tests.** Add unit tests in `apps/api`:
+
 - `src/lib/formulas.test.ts` — Epley, Brzycki, average 1RM, pull-up total load, volume.
 - `src/routes/workouts.summary.test.ts` — assert window math + trend rules.
 - `src/routes/daily-metrics.summary.test.ts` — same.
 - `src/routes/weight-log.summary.test.ts` — same.
 - `src/env.test.ts` — happy path + one failure case.
-Tests run via `bun test` (native, no Vitest). Add `"test": "bun test"` script to `apps/api/package.json`.
+  Tests run via `bun test` (native, no Vitest). Add `"test": "bun test"` script to `apps/api/package.json`.
 
 **React Compiler.** Add `babel-plugin-react-compiler` + `vite-plugin-babel` to `apps/dashboard`. Wire into `vite.config.ts` (see Architecture). Smoke-test that the dashboard still builds and pages render.
 
@@ -800,6 +831,7 @@ Tests run via `bun test` (native, no Vitest). Add `"test": "bun test"` script to
 **Lint.** Extend `.oxlintrc.json` with the plugin set (`react`, `react-perf`, `typescript`, `import`, `unicorn`, `jsx-a11y`, `promise`, `oxc`, `jsdoc`) and the `no-restricted-imports` overrides scoped to `apps/dashboard/src/**` (ban `antd`, `@ant-design/*`, `@refinedev/*`, `react-router*`, `@visx/tooltip` outside primitives) and `packages/charts/src/**` (ban `@mantine/*` and `apps/**`).
 
 **Rules + CLAUDE.md.** Create the minimum viable set; full rewrite happens in Group 12.
+
 - `apps/dashboard/CLAUDE.md` — short walkthrough: "add a page = file under `src/routes/` + loader + query factory + component". Reference rules.
 - `apps/dashboard/.claude/rules/`: `mantine.md`, `tanstack-router.md`, `tanstack-query.md`, `forms.md`, `state.md`, `observability.md` (HyperDX import-order rule).
 - `apps/api/CLAUDE.md` — connection string format, migration commands, OTel env vars, test commands.
@@ -807,6 +839,7 @@ Tests run via `bun test` (native, no Vitest). Add `"test": "bun test"` script to
 - Update root `CLAUDE.md` for the `apps/*` + `packages/*` layout.
 
 **CI.** Add `.github/workflows/check.yml` running on `pull_request` and `push: master`:
+
 - `bun install`
 - `bun run lint` (oxlint)
 - `bun run format:check` (oxfmt)
@@ -819,6 +852,7 @@ Tests run via `bun test` (native, no Vitest). Add `"test": "bun test"` script to
 > **Recommendation for the implementing agent:** the **TypeScript baseline**, **lefthook**, and **React Compiler** sub-tasks have no real dependency on the page migrations — landing them as soon as Group 3 finishes spreads the strictness benefit across every later group. The ralph runner may pull these forward into a small "Group 3.5" if that scheduling works better. Tests + final CI workflow + final rule pass must stay at the end.
 
 **Acceptance:**
+
 - `bun run lint`, `bun run format:check`, all `typecheck` commands clean from root.
 - `bun --cwd apps/api test` passes locally and in CI against a fresh Postgres.
 - Pre-commit hook fires on a staged file and runs lint+format before allowing a commit.
@@ -890,6 +924,7 @@ Tests run via `bun test` (native, no Vitest). Add `"test": "bun test"` script to
 **Depends on:** Group 11 (cutover complete, production stable for at least one normal use session of both pages).
 
 **Acceptance:**
+
 - Every `CLAUDE.md` and `.claude/rules/*.md` is in descriptive voice (no roadmap residue).
 - The "add a page" and "add a route" walkthroughs work when followed literally.
 - The onboarding smoke test passes.
@@ -902,17 +937,17 @@ Tests run via `bun test` (native, no Vitest). Add `"test": "bun test"` script to
 
 ## Risks & Mitigations
 
-| Risk                                                                            | Mitigation                                                                                                                  |
-|-|-|
-| Mantine v9 + React 19 edge cases (third-party deps)                             | Mantine v9 explicitly supports React 19. Pin known-good minor early in Group 3; rely on `/research` skill for any surprises. |
-| visx alpha versions (`^4.0.0-alpha.11`) drift                                   | Keep current versions; do not upgrade visx during this migration. Note in CLAUDE.md as a "do not touch".                    |
-| API cleanup breaks legacy dashboard during transition                            | Legacy is frozen as of Group 6. Production keeps running the old API + dashboard pair until the Group 11 cutover replaces both at once. |
-| Postgres + drizzle migration produces subtly different SQL types vs SQLite       | Group 2 acceptance includes a route-by-route smoke test against the local Postgres before any prod work. Sequences are reset post-import. |
-| Data migration row-count mismatch                                                | The one-shot script logs per-table SQLite vs Postgres counts; cutover halts if they disagree. SQLite backup is retained under `/var/backups/argo/`. |
-| TanStack Router file-based routing has a learning curve for agents              | `.claude/rules/tanstack-router.md` plus a concrete `apps/dashboard/CLAUDE.md` "add a page" walkthrough mitigate this.        |
-| oxlint plugin coverage gaps (no Mantine-specific rules exist)                   | Document patterns in `.claude/rules/` + enforce import bans via `no-restricted-imports`. Rely on Claude Code conformance.   |
-| `@hey-api/client-fetch` lingering in `apps/api` deps                            | Audit during Group 11 prune; if unused, remove.                                                                              |
-| HyperDX SDK monkey-patches `fetch` — import order matters                       | `apps/dashboard/.claude/rules/observability.md` documents that `import './lib/hyperdx'` must be the first line in `main.tsx`. Group 7 acceptance verifies traceparent header on Eden Treaty calls. |
-| OTLP endpoint differs between dev (host port) and prod (docker network DNS)     | Vite dev proxies `/v1/traces` + `/v1/logs` → `127.0.0.1:4318` for same-origin. Prod sets `VITE_HYPERDX_ENDPOINT` at build time. Both documented in `apps/dashboard/CLAUDE.md`. |
+| Risk                                                                                                                 | Mitigation                                                                                                                                                                                                                                                        |
+| -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mantine v9 + React 19 edge cases (third-party deps)                                                                  | Mantine v9 explicitly supports React 19. Pin known-good minor early in Group 3; rely on `/research` skill for any surprises.                                                                                                                                      |
+| visx alpha versions (`^4.0.0-alpha.11`) drift                                                                        | Keep current versions; do not upgrade visx during this migration. Note in CLAUDE.md as a "do not touch".                                                                                                                                                          |
+| API cleanup breaks legacy dashboard during transition                                                                | Legacy is frozen as of Group 6. Production keeps running the old API + dashboard pair until the Group 11 cutover replaces both at once.                                                                                                                           |
+| Postgres + drizzle migration produces subtly different SQL types vs SQLite                                           | Group 2 acceptance includes a route-by-route smoke test against the local Postgres before any prod work. Sequences are reset post-import.                                                                                                                         |
+| Data migration row-count mismatch                                                                                    | The one-shot script logs per-table SQLite vs Postgres counts; cutover halts if they disagree. SQLite backup is retained under `/var/backups/argo/`.                                                                                                               |
+| TanStack Router file-based routing has a learning curve for agents                                                   | `.claude/rules/tanstack-router.md` plus a concrete `apps/dashboard/CLAUDE.md` "add a page" walkthrough mitigate this.                                                                                                                                             |
+| oxlint plugin coverage gaps (no Mantine-specific rules exist)                                                        | Document patterns in `.claude/rules/` + enforce import bans via `no-restricted-imports`. Rely on Claude Code conformance.                                                                                                                                         |
+| `@hey-api/client-fetch` lingering in `apps/api` deps                                                                 | Audit during Group 11 prune; if unused, remove.                                                                                                                                                                                                                   |
+| HyperDX SDK monkey-patches `fetch` — import order matters                                                            | `apps/dashboard/.claude/rules/observability.md` documents that `import './lib/hyperdx'` must be the first line in `main.tsx`. Group 7 acceptance verifies traceparent header on Eden Treaty calls.                                                                |
+| OTLP endpoint differs between dev (host port) and prod (docker network DNS)                                          | Vite dev proxies `/v1/traces` + `/v1/logs` → `127.0.0.1:4318` for same-origin. Prod sets `VITE_HYPERDX_ENDPOINT` at build time. Both documented in `apps/dashboard/CLAUDE.md`.                                                                                    |
 | `@elysiajs/openapi` open issues with Zod (`z.union` in response, `z.transform`, `z.void`, branded types, `z.custom`) | Constrain Zod usage per the **Schema validation** section: `z.enum()` for literal unions, ISO strings for dates, no transforms/custom/void in responses. None of these limits affect argo's domain schemas. Documented in `apps/api/.claude/rules/elysia-zod.md`. |
-| `mapJsonSchema` not configured → Zod schemas silently dropped from docs        | Group 6c acceptance includes a spot-check that every route appears in `/openapi.json` with full request/response schema fidelity. |
+| `mapJsonSchema` not configured → Zod schemas silently dropped from docs                                              | Group 6c acceptance includes a spot-check that every route appears in `/openapi.json` with full request/response schema fidelity.                                                                                                                                 |

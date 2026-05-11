@@ -1,11 +1,8 @@
 # Strength Tracker v2 — Analytics Reference
 
-> Periodization instrument for the key compound lifts. Manual set-level logging, wearable-enriched
-> readiness. The goal is not to display raw data — it's to **answer questions and surface insights**.
+> **Analytics reference.** This document describes metric definitions, formulas, and composite signals — the _what_ and _why_. For implementation conventions (route structure, query factories, chart primitives), see `apps/dashboard/CLAUDE.md` and `packages/charts/CLAUDE.md`.
 >
-> This doc is the analytics reference (the *what* and *why*). The historical phased
-> implementation plan ("ralph groups") that built this lived in the homelab repo and
-> was deleted after the argo extraction.
+> **Note:** The schema section references `SQLite` in flow diagrams. The API uses Postgres. Table definitions and metric formulas are otherwise current.
 
 ---
 
@@ -14,7 +11,7 @@
 This app tracks **the key compound lifts you want to get stronger at** — bench press, squat,
 deadlift, weighted pull-ups today; extensible via the `exercises` reference table tomorrow (OHP,
 front squat, RDL…). Isolation work and accessory exercises are not first-class citizens. Every
-chart, hero card, and signal is designed around: *am I progressing on the lifts that matter?*
+chart, hero card, and signal is designed around: _am I progressing on the lifts that matter?_
 
 The app is greenfield — prior data is backed up separately, so schema changes don't need
 migrations. Break things, iterate freely.
@@ -26,31 +23,31 @@ migrations. Break things, iterate freely.
 The Garmin Health page is the pattern reference. These are the specific learnings that shape every
 decision below; if something here conflicts with Garmin Health, Garmin Health wins.
 
-| Learning | Where it applies to strength |
-|-|-|
-| **One concept, one name** — hero label = section title = chart title. | "Strength Direction", "Training Load", "Readiness" — each used in exactly one place with one meaning. |
-| **6-word subtitle per chart** — every `ChartCard` carries the question it answers. | "Am I getting stronger?", "Is my load sustainable?", "Am I loading smart?" |
-| **Header extra on every chart** — today's reading + verdict in the card's top-right slot. | Latest 1RM + momentum arrow, current weekly tonnage + zone, INOL of last session, etc. |
-| **Personal z-scores for dissimilar scales** — the Fitness Trends fix for RHR/HRV/VO2. | Strength Composite plots 1RM-velocity, tonnage-growth, and INOL-quality on one σ axis. |
-| **EWMA > rolling mean** for training load (Hulin 2017). | Acute 7d / chronic 28d tonnage drives the strength ACWR. |
-| **Dynamic personal ceilings** — p90 of your own history, not hardcoded thresholds. | MEV/MAV/MRV per exercise from p10/p50/p90 of your own weekly work-set count. |
-| **MACD-style acute−chronic divergence**. | Weekly tonnage divergence histogram — reveals accumulation vs peaking phases. |
-| **Fatigue-debt adjustment** on recovery (strain-debt analog). | Yesterday's INOL and tonnage dampen today's "push" verdict. |
-| **Cross-chart hover sync** via `HoverContext` + `useHoverSync`. | Every chart on the page snaps to the same session date on hover. |
-| **Visx primitives only** — `ChartCard`, `ChartLegend`, `ChartTooltip`, `ZonedLine`, `Bars`, `VX`. | No recharts. No raw hex. No `localStorage.getItem('theme')`. |
-| **Client-side analytics** — API returns raw rows, dashboard derives everything. | Iteration on formulas doesn't require an API deploy. |
+| Learning                                                                                          | Where it applies to strength                                                                          |
+| ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| **One concept, one name** — hero label = section title = chart title.                             | "Strength Direction", "Training Load", "Readiness" — each used in exactly one place with one meaning. |
+| **6-word subtitle per chart** — every `ChartCard` carries the question it answers.                | "Am I getting stronger?", "Is my load sustainable?", "Am I loading smart?"                            |
+| **Header extra on every chart** — today's reading + verdict in the card's top-right slot.         | Latest 1RM + momentum arrow, current weekly tonnage + zone, INOL of last session, etc.                |
+| **Personal z-scores for dissimilar scales** — the Fitness Trends fix for RHR/HRV/VO2.             | Strength Composite plots 1RM-velocity, tonnage-growth, and INOL-quality on one σ axis.                |
+| **EWMA > rolling mean** for training load (Hulin 2017).                                           | Acute 7d / chronic 28d tonnage drives the strength ACWR.                                              |
+| **Dynamic personal ceilings** — p90 of your own history, not hardcoded thresholds.                | MEV/MAV/MRV per exercise from p10/p50/p90 of your own weekly work-set count.                          |
+| **MACD-style acute−chronic divergence**.                                                          | Weekly tonnage divergence histogram — reveals accumulation vs peaking phases.                         |
+| **Fatigue-debt adjustment** on recovery (strain-debt analog).                                     | Yesterday's INOL and tonnage dampen today's "push" verdict.                                           |
+| **Cross-chart hover sync** via `HoverContext` + `useHoverSync`.                                   | Every chart on the page snaps to the same session date on hover.                                      |
+| **Visx primitives only** — `ChartCard`, `ChartLegend`, `ChartTooltip`, `ZonedLine`, `Bars`, `VX`. | No recharts. No raw hex. No `localStorage.getItem('theme')`.                                          |
+| **Client-side analytics** — API returns raw rows, dashboard derives everything.                   | Iteration on formulas doesn't require an API deploy.                                                  |
 
 ---
 
 ## The 5 Questions This Dashboard Answers
 
-| # | Question | Composite signal | Min data | Wearable? |
-|-|-|-|-|-|
-| 1 | Am I getting stronger on the lifts I care about? | **Strength Direction** — per-lift 3-level verdict from velocity + momentum | 4 weeks | No |
-| 2 | Am I loading smart or just hard? | **Load Quality** — INOL zones + fatigue-adjusted tonnage ACWR | 2 weeks | No |
-| 3 | Are my lifts balanced? | **Balance** — DOTS-adjusted strength ratios against norms | 1 session per lift | No |
-| 4 | Should I push, sustain, or deload *today*? | **Readiness × Strain** — training state + physiological readiness | 2 weeks | Partial (better with wearable) |
-| 5 | When should I deload? | **Deload Signal** — stall + fatigue + physiological confirmation | 3 weeks | Partial |
+| #   | Question                                         | Composite signal                                                           | Min data           | Wearable?                      |
+| --- | ------------------------------------------------ | -------------------------------------------------------------------------- | ------------------ | ------------------------------ |
+| 1   | Am I getting stronger on the lifts I care about? | **Strength Direction** — per-lift 3-level verdict from velocity + momentum | 4 weeks            | No                             |
+| 2   | Am I loading smart or just hard?                 | **Load Quality** — INOL zones + fatigue-adjusted tonnage ACWR              | 2 weeks            | No                             |
+| 3   | Are my lifts balanced?                           | **Balance** — DOTS-adjusted strength ratios against norms                  | 1 session per lift | No                             |
+| 4   | Should I push, sustain, or deload _today_?       | **Readiness × Strain** — training state + physiological readiness          | 2 weeks            | Partial (better with wearable) |
+| 5   | When should I deload?                            | **Deload Signal** — stall + fatigue + physiological confirmation           | 3 weeks            | Partial                        |
 
 Every chart, badge, or number in the dashboard serves one of these five questions. If it doesn't,
 it's not on the page.
@@ -130,7 +127,7 @@ Wearable tables — already shipped for Garmin Health, reused here:
   sets to compute (max weight, best-set e1RM, total volume). Everything else — derivatives, ACWR,
   ratios, readiness — is derived in the dashboard.
 - **Body weight is dynamic.** `effective_weight(set, date) = is_bodyweight ? set.weight_kg +
-  bw(date) : set.weight_kg`, where `bw(date)` walks `weight_log → daily_metrics → profile default`
+bw(date) : set.weight_kg`, where `bw(date)` walks `weight_log → daily_metrics → profile default`
   in that order.
 - **Null-safe everywhere.** RIR, body weight, and every wearable field can be null on any day.
 
@@ -140,13 +137,13 @@ Wearable tables — already shipped for Garmin Health, reused here:
 
 ### 2.1 Stored metrics (per set, per workout)
 
-| Field | Per | Source |
-|-|-|-|
-| `weight_kg` | set | UI |
-| `reps` | set | UI |
-| `set_type` | set | UI (`warmup` / `work` / `drop` / `amrap`) |
-| `rir` | workout | UI (optional, 0–5) |
-| `body_weight_kg(date)` | day | `weight_log` → `daily_metrics` → profile default |
+| Field                  | Per     | Source                                           |
+| ---------------------- | ------- | ------------------------------------------------ |
+| `weight_kg`            | set     | UI                                               |
+| `reps`                 | set     | UI                                               |
+| `set_type`             | set     | UI (`warmup` / `work` / `drop` / `amrap`)        |
+| `rir`                  | workout | UI (optional, 0–5)                               |
+| `body_weight_kg(date)` | day     | `weight_log` → `daily_metrics` → profile default |
 
 ### 2.2 Estimated 1RM (the canonical strength measure)
 
@@ -197,13 +194,13 @@ where %e1RM = (effective_weight / best_e1RM) × 100, clamped to [40, 99]
 The clamp prevents a singularity at 100% and rejects noise from very light back-off sets. INOL
 zones (Hristov):
 
-| INOL | Zone | Interpretation |
-|-|-|-|
-| < 0.4 | Too light | insufficient stimulus |
-| 0.4 – 0.6 | Recovery | deload / technique work |
-| **0.6 – 1.0** | **Optimal** | **effective loading** |
-| 1.0 – 1.5 | Hard | sustainable short-term (peaking blocks) |
-| > 1.5 | Excessive | high fatigue risk, rarely appropriate |
+| INOL          | Zone        | Interpretation                          |
+| ------------- | ----------- | --------------------------------------- |
+| < 0.4         | Too light   | insufficient stimulus                   |
+| 0.4 – 0.6     | Recovery    | deload / technique work                 |
+| **0.6 – 1.0** | **Optimal** | **effective loading**                   |
+| 1.0 – 1.5     | Hard        | sustainable short-term (peaking blocks) |
+| > 1.5         | Excessive   | high fatigue risk, rarely appropriate   |
 
 ### 2.4 Relative strength (1RM / BW)
 
@@ -230,7 +227,7 @@ seed      = mean of first min(N, available) values
 ```
 
 Load input is **weekly work_volume** for a given exercise (aggregated by ISO week, missing weeks
-fill with 0). Smoothing N counts *weeks*, not days — the input is already a weekly series. This
+fill with 0). Smoothing N counts _weeks_, not days — the input is already a weekly series. This
 avoids variance from the session cadence itself (2x vs 4x per week).
 
 ### 2.6 Velocity & Momentum (Kurvendiskussion)
@@ -275,12 +272,12 @@ ACWR(ex, t)         = ewma_acute / ewma_chronic
 
 Zones identical to Garmin Health (Gabbett 2016):
 
-| ACWR | Zone |
-|-|-|
-| < 0.8 | Under-loaded |
-| 0.8 – 1.3 | **Optimal** |
-| 1.3 – 1.5 | Caution |
-| > 1.5 | Danger |
+| ACWR      | Zone         |
+| --------- | ------------ |
+| < 0.8     | Under-loaded |
+| 0.8 – 1.3 | **Optimal**  |
+| 1.3 – 1.5 | Caution      |
+| > 1.5     | Danger       |
 
 `divergence(ex, t) = ewma_acute − ewma_chronic` — rendered as a histogram below the ACWR line,
 same MACD pattern as Garmin Health. Positive bars (green) = building load. Negative (red) = shed
@@ -307,14 +304,15 @@ ratio(A, B) = DOTS(e1RM_A, bw, sex) / DOTS(e1RM_B, bw, sex)
 
 Normative ranges from 809,986 IPF entries (2024 meta-analysis):
 
-| Ratio | Expected range | Notes |
-|-|-|-|
-| Deadlift / Squat | 1.0 – 1.25 | Squat-dominant → lower ratio; DL-specialist → higher |
-| Squat / Bench | 1.2 – 1.5 | Below 1.2 = leg weakness signal |
-| Deadlift / Bench | 1.5 – 2.0 | Anything above 2.0 = unusual anterior-chain deficit |
-| Pull-up / BW | 0.4 – 0.7 (added weight / BW) | As weighted pull-up ratio |
+| Ratio            | Expected range                | Notes                                                |
+| ---------------- | ----------------------------- | ---------------------------------------------------- |
+| Deadlift / Squat | 1.0 – 1.25                    | Squat-dominant → lower ratio; DL-specialist → higher |
+| Squat / Bench    | 1.2 – 1.5                     | Below 1.2 = leg weakness signal                      |
+| Deadlift / Bench | 1.5 – 2.0                     | Anything above 2.0 = unusual anterior-chain deficit  |
+| Pull-up / BW     | 0.4 – 0.7 (added weight / BW) | As weighted pull-up ratio                            |
 
 Status bands:
+
 ```
 Balanced    ratio within expected range
 Imbalanced  ratio outside range by > 15%
@@ -496,6 +494,7 @@ prompts a proactive deload regardless of signal state.
 ```
 
 Section ordering follows "cause → consequence" just like Garmin Health:
+
 - Strength Trajectory: 1RM timeline (what's happening) → σ-composite (how broad the signal is)
 - Load Quality: weekly volume (input) → ACWR ratio (response)
 - Efficiency: INOL (quality score) → Momentum (curve analysis)
@@ -507,18 +506,18 @@ History view swaps Sections 1–5 for the workout list; it's not a separate page
 
 ### 4.2 Naming rule (source of truth)
 
-| Hero card | Section | Chart card title | Header extra |
-|-|-|-|-|
-| Strength | Strength Trajectory | 1RM Trend | Best e1RM (kg) + direction arrow |
-| — | Strength Trajectory | Strength Composite | Today's σ score |
-| Load Quality | Load Quality | Weekly Volume | Current week kg + MEV/MAV/MRV band indicator |
-| — | Load Quality | Training Load (ACWR) | Today's ratio + zone |
-| — | Efficiency & Momentum | INOL per Session | Last session INOL + zone verdict |
-| — | Efficiency & Momentum | Momentum | f'(t) (%/day) + f''(t) sign |
-| — | Balance | Relative Progression | Leader lift % · laggard lift % |
-| — | Balance | Strength Ratios | Worst-offender pair + status |
-| Readiness | Readiness | Readiness × Strain | Today's score + verdict |
-| — | Readiness | Training–Recovery Alignment | Today's alignment cell |
+| Hero card    | Section               | Chart card title            | Header extra                                 |
+| ------------ | --------------------- | --------------------------- | -------------------------------------------- |
+| Strength     | Strength Trajectory   | 1RM Trend                   | Best e1RM (kg) + direction arrow             |
+| —            | Strength Trajectory   | Strength Composite          | Today's σ score                              |
+| Load Quality | Load Quality          | Weekly Volume               | Current week kg + MEV/MAV/MRV band indicator |
+| —            | Load Quality          | Training Load (ACWR)        | Today's ratio + zone                         |
+| —            | Efficiency & Momentum | INOL per Session            | Last session INOL + zone verdict             |
+| —            | Efficiency & Momentum | Momentum                    | f'(t) (%/day) + f''(t) sign                  |
+| —            | Balance               | Relative Progression        | Leader lift % · laggard lift %               |
+| —            | Balance               | Strength Ratios             | Worst-offender pair + status                 |
+| Readiness    | Readiness             | Readiness × Strain          | Today's score + verdict                      |
+| —            | Readiness             | Training–Recovery Alignment | Today's alignment cell                       |
 
 Section 1 reads "Strength Trajectory" both in the section header and in the hero card's
 sub-text ("Strength · trajectory improving"). Users must never see two names for the same concept.
@@ -527,18 +526,18 @@ sub-text ("Strength · trajectory improving"). Users must never see two names fo
 
 Every `ChartCard` declares a `subtitle` prop — the question a user would ask.
 
-| Chart | Subtitle |
-|-|-|
-| 1RM Trend | "Am I getting stronger?" |
-| Strength Composite | "Is the gain broad-based?" |
-| Weekly Volume | "Am I progressively overloading?" |
-| Training Load (ACWR) | "Is my load spiking?" |
-| INOL per Session | "Am I loading smart?" |
-| Momentum | "Where am I heading next?" |
-| Relative Progression | "Which lifts are lagging?" |
-| Strength Ratios | "Are my lifts balanced?" |
-| Readiness × Strain | "Am I ready to push?" |
-| Training–Recovery Alignment | "Does today match my body?" |
+| Chart                       | Subtitle                          |
+| --------------------------- | --------------------------------- |
+| 1RM Trend                   | "Am I getting stronger?"          |
+| Strength Composite          | "Is the gain broad-based?"        |
+| Weekly Volume               | "Am I progressively overloading?" |
+| Training Load (ACWR)        | "Is my load spiking?"             |
+| INOL per Session            | "Am I loading smart?"             |
+| Momentum                    | "Where am I heading next?"        |
+| Relative Progression        | "Which lifts are lagging?"        |
+| Strength Ratios             | "Are my lifts balanced?"          |
+| Readiness × Strain          | "Am I ready to push?"             |
+| Training–Recovery Alignment | "Does today match my body?"       |
 
 ### 4.4 Cross-chart hover sync
 
@@ -548,18 +547,18 @@ No exceptions. No reimplementing closest-point loops inline.
 
 ### 4.5 Chart-specific treatments
 
-| Chart | Visx kind | Shape | Notes |
-|-|-|-|-|
-| 1RM Trend | `ZonedLine<T>` (existing) | Per-exercise lines with optional 30-day MA overlay (dashed). Reference line at best-ever e1RM per lift. PR dots appear after 1.5 s animation delay (preserve the v1 UX). When only one lift is active, line switches to theme-neutral grey (v1 convention); with multiple lifts, `VX.series.<exercise>` per-lift. Header extra shows the most recent e1RM for the primary active lift. | Hover shows best-set details ("120×6 @ RIR 2 → e1RM 143.9 kg"). |
-| Strength Composite | bespoke single-axis (z-score) | Three series — velocity z, tonnage-growth z, INOL z — on a shared σ axis in the style of Fitness Trends. 7d MA lines; raw values + σ reading in the tooltip. Dashed zero line = personal baseline. | One chart per active lift; when multiple lifts are active, page switches to "select one to view composite" placeholder (same as Fitness Trends' single-user model). |
-| Weekly Volume | `Bars<T>` (existing) | Stacked bars: warmup (lightest) → work (primary) → drop (darker) → amrap (accent). Per-exercise grouped when multiple lifts active. MEV/MAV/MRV as three horizontal reference lines (dashed). 4-week MA as line overlay on left axis. | Uses the same `Bars` kind as Sleep Quality — grouped+stacked is supported. |
-| Training Load (ACWR) | `ZonedLine<T>` (existing) | 0.8/1.3/1.5 reference lines, optimal-zone band, threshold fills (green above 0.8, red above 1.3). Per-lift series with `highlighted` legend interaction dimming the others (shipped pattern). | Header extra: today's ratio + zone label. |
-| INOL per Session | `ZonedLine<T>` (existing) | Per-session dots (not a line — sessions are discrete events, connecting them implies continuity that doesn't exist). Optimal-zone band at 0.6–1.0. Dot color by zone (green/yellow/red). 10-session moving average line. | Header extra: last session's INOL + zone. |
-| Momentum | bespoke dual-panel | Top panel: 1RM with 4-week projection (dashed line extending from current f'(t) slope). Bottom panel: stacked histogram of f'(t) and f''(t), color-coded by sign. Green when both positive. Single `useHoverSync` drives both panels — same pattern as `DivergenceChartInner` in Garmin Health. | Per-lift — only one active at a time. |
-| Relative Progression | bespoke multi-line (possibly `ZonedLine` per series) | All active lifts normalized to 100% at filter-start date. Line chart showing % change over time. Legend-hover dims the others (shipped pattern). | Reveals which lift advanced, which is stuck, independent of absolute numbers. |
-| Strength Ratios | bespoke horizontal Bars | One bar per pair (DL/Squat, Squat/Bench, DL/Bench). Normative range as green band. Current value as colored tick. Status label as header-extra (e.g. "DL/Bench critical · 2.3"). | Updates when body weight or e1RMs change. DOTS-adjusted. |
-| Readiness × Strain | `ZonedLine<T>` (reuse Garmin's recovery chart) | Push/Normal/Rest zone bands, threshold fill, strain-debt annotation dot when > 0.25. | Wearable-only. Hidden when no Garmin data present (same pattern as Garmin Health's hasHeartData guard). |
-| Training–Recovery Alignment | bespoke 3×3 matrix | Recovery row × ACWR col: rows = High (≥70) / Normal (40–69) / Low (<40); cols = ACWR Under (<0.8) / Optimal (0.8–1.3) / Caution+ (>1.3). Each cell shows the verdict copy (Aligned / Misaligned / Risk) with session count; today's cell gets a colored border. Cell tooltip lists the last 8 session dates. | Teaches the user which combinations they tend to end up in — surfaces "Heavy on low-recovery day" as a visible pattern. |
+| Chart                       | Visx kind                                            | Shape                                                                                                                                                                                                                                                                                                                                                                                  | Notes                                                                                                                                                               |
+| --------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1RM Trend                   | `ZonedLine<T>` (existing)                            | Per-exercise lines with optional 30-day MA overlay (dashed). Reference line at best-ever e1RM per lift. PR dots appear after 1.5 s animation delay (preserve the v1 UX). When only one lift is active, line switches to theme-neutral grey (v1 convention); with multiple lifts, `VX.series.<exercise>` per-lift. Header extra shows the most recent e1RM for the primary active lift. | Hover shows best-set details ("120×6 @ RIR 2 → e1RM 143.9 kg").                                                                                                     |
+| Strength Composite          | bespoke single-axis (z-score)                        | Three series — velocity z, tonnage-growth z, INOL z — on a shared σ axis in the style of Fitness Trends. 7d MA lines; raw values + σ reading in the tooltip. Dashed zero line = personal baseline.                                                                                                                                                                                     | One chart per active lift; when multiple lifts are active, page switches to "select one to view composite" placeholder (same as Fitness Trends' single-user model). |
+| Weekly Volume               | `Bars<T>` (existing)                                 | Stacked bars: warmup (lightest) → work (primary) → drop (darker) → amrap (accent). Per-exercise grouped when multiple lifts active. MEV/MAV/MRV as three horizontal reference lines (dashed). 4-week MA as line overlay on left axis.                                                                                                                                                  | Uses the same `Bars` kind as Sleep Quality — grouped+stacked is supported.                                                                                          |
+| Training Load (ACWR)        | `ZonedLine<T>` (existing)                            | 0.8/1.3/1.5 reference lines, optimal-zone band, threshold fills (green above 0.8, red above 1.3). Per-lift series with `highlighted` legend interaction dimming the others (shipped pattern).                                                                                                                                                                                          | Header extra: today's ratio + zone label.                                                                                                                           |
+| INOL per Session            | `ZonedLine<T>` (existing)                            | Per-session dots (not a line — sessions are discrete events, connecting them implies continuity that doesn't exist). Optimal-zone band at 0.6–1.0. Dot color by zone (green/yellow/red). 10-session moving average line.                                                                                                                                                               | Header extra: last session's INOL + zone.                                                                                                                           |
+| Momentum                    | bespoke dual-panel                                   | Top panel: 1RM with 4-week projection (dashed line extending from current f'(t) slope). Bottom panel: stacked histogram of f'(t) and f''(t), color-coded by sign. Green when both positive. Single `useHoverSync` drives both panels — same pattern as `DivergenceChartInner` in Garmin Health.                                                                                        | Per-lift — only one active at a time.                                                                                                                               |
+| Relative Progression        | bespoke multi-line (possibly `ZonedLine` per series) | All active lifts normalized to 100% at filter-start date. Line chart showing % change over time. Legend-hover dims the others (shipped pattern).                                                                                                                                                                                                                                       | Reveals which lift advanced, which is stuck, independent of absolute numbers.                                                                                       |
+| Strength Ratios             | bespoke horizontal Bars                              | One bar per pair (DL/Squat, Squat/Bench, DL/Bench). Normative range as green band. Current value as colored tick. Status label as header-extra (e.g. "DL/Bench critical · 2.3").                                                                                                                                                                                                       | Updates when body weight or e1RMs change. DOTS-adjusted.                                                                                                            |
+| Readiness × Strain          | `ZonedLine<T>` (reuse Garmin's recovery chart)       | Push/Normal/Rest zone bands, threshold fill, strain-debt annotation dot when > 0.25.                                                                                                                                                                                                                                                                                                   | Wearable-only. Hidden when no Garmin data present (same pattern as Garmin Health's hasHeartData guard).                                                             |
+| Training–Recovery Alignment | bespoke 3×3 matrix                                   | Recovery row × ACWR col: rows = High (≥70) / Normal (40–69) / Low (<40); cols = ACWR Under (<0.8) / Optimal (0.8–1.3) / Caution+ (>1.3). Each cell shows the verdict copy (Aligned / Misaligned / Risk) with session count; today's cell gets a colored border. Cell tooltip lists the last 8 session dates.                                                                           | Teaches the user which combinations they tend to end up in — surfaces "Heavy on low-recovery day" as a visible pattern.                                             |
 
 ### 4.6 Sparkline grid (alternate view)
 
@@ -586,12 +585,12 @@ tokens and `useVxTheme`. Each sparkline is < 60 px tall.
 
 ## Part 5 — Tier system
 
-| Tier | Content | Purpose |
-|-|-|-|
-| Tier 1 — Answers | 3 hero cards | Three-second read |
-| Tier 2 — Evidence | 10 charts across 5 sections | Data behind the answers |
+| Tier                | Content                          | Purpose                                       |
+| ------------------- | -------------------------------- | --------------------------------------------- |
+| Tier 1 — Answers    | 3 hero cards                     | Three-second read                             |
+| Tier 2 — Evidence   | 10 charts across 5 sections      | Data behind the answers                       |
 | Tier 3 — Drill-down | Tooltip + header-extra per chart | Per-date values, per-set details on 1RM chart |
-| Tier 4 — Raw | Sparkline grid + History view | Dense scan / session-level edit |
+| Tier 4 — Raw        | Sparkline grid + History view    | Dense scan / session-level edit               |
 
 Reading flow: answer → evidence → detail → raw. Matches Garmin Health exactly.
 
@@ -612,25 +611,25 @@ Reading flow: answer → evidence → detail → raw. Matches Garmin Health exac
 
 ### Changes
 
-| v1 | v2 | Why |
-|-|-|-|
-| 4 hardcoded exercises | `exercises` reference table + `exercise_id` FK | Add lifts without code |
-| No RIR | RIR on `workouts`, feeds e1RM validity gate | Reject sandbagged sets |
-| Mayhew in e1RM average | Dropped, Brzycki+Epley only | Mayhew over-fits bench |
-| No INOL | INOL per workout, zone-classified | Distinguishes quality from junk volume |
-| No derivatives | f'(t) and f''(t) per lift | Answers "where am I heading" |
-| Recharts | Visx primitives (`ZonedLine`, `Bars`, bespoke) | One chart library, one tooltip contract |
-| `TOOLTIP_STYLE` hard-coded rgba | `ChartTooltip` + `useVxTheme` | Theme-reactive |
-| Hardcoded `PULL_UPS_BODYWEIGHT = 70` | Dynamic `body_weight(date)` | Accurate when BW changes |
-| `EXERCISE_COLORS` with raw hex | `VX.series.<exercise>` tokens | Palette hygiene |
+| v1                                                    | v2                                                          | Why                                                  |
+| ----------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------- |
+| 4 hardcoded exercises                                 | `exercises` reference table + `exercise_id` FK              | Add lifts without code                               |
+| No RIR                                                | RIR on `workouts`, feeds e1RM validity gate                 | Reject sandbagged sets                               |
+| Mayhew in e1RM average                                | Dropped, Brzycki+Epley only                                 | Mayhew over-fits bench                               |
+| No INOL                                               | INOL per workout, zone-classified                           | Distinguishes quality from junk volume               |
+| No derivatives                                        | f'(t) and f''(t) per lift                                   | Answers "where am I heading"                         |
+| Recharts                                              | Visx primitives (`ZonedLine`, `Bars`, bespoke)              | One chart library, one tooltip contract              |
+| `TOOLTIP_STYLE` hard-coded rgba                       | `ChartTooltip` + `useVxTheme`                               | Theme-reactive                                       |
+| Hardcoded `PULL_UPS_BODYWEIGHT = 70`                  | Dynamic `body_weight(date)`                                 | Accurate when BW changes                             |
+| `EXERCISE_COLORS` with raw hex                        | `VX.series.<exercise>` tokens                               | Palette hygiene                                      |
 | Dual-axis metric selector (MainChart "left vs right") | Dropped — replaced by dedicated charts with clear questions | "Pick any two metrics" was flexible but insight-poor |
-| `AreaMetricChart` (stacked area of any metric) | Dropped — replaced by Weekly Volume (stacked `Bars`) | Clearer semantic: volume is the thing you stack |
-| `FrequencyChart` | Folded into Weekly Volume tooltip rows | Free up section space |
-| No training state | Strength Direction + Load Quality + Deload Signal | Hero-level verdicts, not just charts |
-| No balance analysis | DOTS-adjusted ratio chart + relative progression | Compares lifts fairly across BW changes |
-| No readiness integration | Readiness × Strain + Alignment matrix | Connects wearable data to training decisions |
-| No volume landmarks | Personal MEV/MAV/MRV from p25/p50/p90 | "Am I in the right volume range for me" |
-| No PR density | PR count per 4-week block in hero drill-down | Mesocycle effectiveness signal |
+| `AreaMetricChart` (stacked area of any metric)        | Dropped — replaced by Weekly Volume (stacked `Bars`)        | Clearer semantic: volume is the thing you stack      |
+| `FrequencyChart`                                      | Folded into Weekly Volume tooltip rows                      | Free up section space                                |
+| No training state                                     | Strength Direction + Load Quality + Deload Signal           | Hero-level verdicts, not just charts                 |
+| No balance analysis                                   | DOTS-adjusted ratio chart + relative progression            | Compares lifts fairly across BW changes              |
+| No readiness integration                              | Readiness × Strain + Alignment matrix                       | Connects wearable data to training decisions         |
+| No volume landmarks                                   | Personal MEV/MAV/MRV from p25/p50/p90                       | "Am I in the right volume range for me"              |
+| No PR density                                         | PR count per 4-week block in hero drill-down                | Mesocycle effectiveness signal                       |
 
 ---
 
@@ -769,17 +768,17 @@ landmarks, momentum.
 
 ## References
 
-| Source | Contribution |
-|-|-|
-| Brzycki (1993), Epley — NSCA Journal | 1RM estimation formulas |
-| Hristov — INOL framework | Load-quality scoring |
-| Hulin et al. (2017) — BJSM | EWMA acute:chronic workload |
-| Gabbett (2016) — BJSM | ACWR zone thresholds |
-| IPF (2020) — DOTS coefficient | Bodyweight-normalized strength comparison |
-| Schoenfeld et al. (2024) — JSCR | Volume-hypertrophy dose-response |
-| Israetel — RP Strength (2023) | Volume landmarks framework (MEV/MAV/MRV) |
-| Helms et al. (2023) — MASS Review | RIR methodology and accuracy |
-| Nature Sci Reports (2025) | HRV-guided training readiness |
-| PMC Delphi study (2024) | Deload timing consensus (every 4–8 weeks) |
-| PubMed (2024) — 809,986 entries | Normative powerlifting strength ratios |
-| Garmin Health dashboard (this repo) | Composite-card layout, primitive contract, z-score normalization, strain-debt adjustment, naming rule, subtitle rule |
+| Source                               | Contribution                                                                                                         |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| Brzycki (1993), Epley — NSCA Journal | 1RM estimation formulas                                                                                              |
+| Hristov — INOL framework             | Load-quality scoring                                                                                                 |
+| Hulin et al. (2017) — BJSM           | EWMA acute:chronic workload                                                                                          |
+| Gabbett (2016) — BJSM                | ACWR zone thresholds                                                                                                 |
+| IPF (2020) — DOTS coefficient        | Bodyweight-normalized strength comparison                                                                            |
+| Schoenfeld et al. (2024) — JSCR      | Volume-hypertrophy dose-response                                                                                     |
+| Israetel — RP Strength (2023)        | Volume landmarks framework (MEV/MAV/MRV)                                                                             |
+| Helms et al. (2023) — MASS Review    | RIR methodology and accuracy                                                                                         |
+| Nature Sci Reports (2025)            | HRV-guided training readiness                                                                                        |
+| PMC Delphi study (2024)              | Deload timing consensus (every 4–8 weeks)                                                                            |
+| PubMed (2024) — 809,986 entries      | Normative powerlifting strength ratios                                                                               |
+| Garmin Health dashboard (this repo)  | Composite-card layout, primitive contract, z-score normalization, strain-debt adjustment, naming rule, subtitle rule |

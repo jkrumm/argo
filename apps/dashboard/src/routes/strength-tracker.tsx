@@ -52,21 +52,7 @@ import {
 } from '../lib/queries/workouts'
 import { weightLogQueries, useCreateWeightLog } from '../lib/queries/weight-log'
 import { exerciseQueries } from '../lib/queries/exercises'
-
-// ── Custom zodResolver (zodResolver not exported from @mantine/form v9) ───
-
-function zodResolver(schema: z.ZodType) {
-  return (values: unknown): Record<string, string> => {
-    const result = schema.safeParse(values)
-    if (result.success) return {}
-    const errors: Record<string, string> = {}
-    for (const issue of result.error.issues) {
-      const path = issue.path.join('.')
-      if (path !== '') errors[path] = issue.message
-    }
-    return errors
-  }
-}
+import { zodResolver } from '../lib/zod-resolver'
 
 // ── Search params ──────────────────────────────────────────────────────────
 

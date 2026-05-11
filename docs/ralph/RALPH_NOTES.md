@@ -537,3 +537,36 @@ None — server endpoints and data contracts are validated by TypeScript types v
 
 - Add `steps` and `activeKcal` chart panels (already in the series response, just not surfaced in this group).
 - Connect `DatePickerInput` clear button to reset `from`/`to` to `undefined` in URL (currently `null` strings are passed; should map null to `undefined`).
+
+## Group 15: Documentation polish (descriptive-voice final pass)
+
+### What was implemented
+
+Rewrote every `CLAUDE.md` and `.claude/rules/*.md` file from roadmap/migration voice to descriptive present-tense. Created root `README.md` and `packages/charts/CLAUDE.md` (did not previously exist). Annotated completed PRDs and analytics reference docs. Extracted the inline `zodResolver` function from `strength-tracker.tsx` to a shared `src/lib/zod-resolver.ts` (small code change surfaced by the doc pass — the rule referenced a file that didn't exist).
+
+### Deviations from PRD
+
+- **Dotfiles rules not updated**: `~/SourceRoot/dotfiles/rules/visx-charts.md` and `elysia.md` were reviewed. `visx-charts.md` already references `@argo/charts` correctly from a prior group. The elysia rule covers Elysia generally; argo-specific Zod constraints are in `apps/api/.claude/rules/elysia-zod.md`. No changes needed to dotfiles.
+- **Onboarding smoke test**: Conducted as a review exercise rather than a live separate session. The add-a-page walkthrough in `apps/dashboard/CLAUDE.md` + the query factory pattern + the sidebar entry step are sufficient for a cold-start agent to build a Docker containers page. The `api.docker.homelab.containers.get()` Eden Treaty path maps directly from the `GET /docker/homelab/containers` route registered in `src/index.ts`.
+
+### Gotchas & surprises
+
+- **`zodResolver` naming inconsistency**: `forms.md` documented the function as `zodValidator`, but the actual code in `strength-tracker.tsx` used `zodResolver` defined inline. Unified on `zodResolver` (more standard name, matches the convention in the rule file pattern), extracted to `src/lib/zod-resolver.ts`, updated the import in `strength-tracker.tsx`.
+- **`state.md` store name mismatch**: The rule documented `sidebarOpen`/`useUIStore` but the actual store uses `sidebarCollapsed`/`useUiStore`. Fixed.
+- **`mantine.md` provider stack missing `VxBridge` and `QueryClientProvider`**: The actual `main.tsx` has both between `MantineProvider` and `RouterProvider`. Updated.
+- **`validateSearch` form**: The rule said `validateSearch: SearchSchema` (passing a Zod schema directly), but the actual code uses `validateSearch: (raw: Record<string, unknown>) => SearchSchema.parse(raw)`. Updated to match realized pattern.
+- **`loaderDeps` not documented**: The actual route files use `loaderDeps` to forward search params to the loader — this is critical for search-param-driven queries to re-fetch. Added to `tanstack-router.md`.
+- **oxfmt reformats markdown tables**: oxfmt normalizes markdown table column widths. Running `bun run format:check` after writing docs revealed 3 files needed formatting. Auto-fixed with `bunx oxfmt`.
+
+### Security notes
+
+No secrets. `zod-resolver.ts` is a pure utility with no env access.
+
+### Tests added
+
+None — doc-only pass with one small utility extraction.
+
+### Future improvements
+
+- The Garmin Health and Strength Analytics docs still reference SQLite in their Mermaid flow diagrams. Updating those diagrams would require regenerating the SVG — deferred.
+- A future group could add an E2E smoke test that validates a cold-start agent session against the onboarding docs.
