@@ -137,3 +137,35 @@ None — Group 3 is replacement-of-storage, not new behavior. Manual smoke test 
 - Add a healthcheck wait to `make db-up` so first-time migrations don't race the container boot.
 - The `apps/api/src/db/index.ts` `no-restricted-imports` lint override added in Group 2 for `bun:sqlite` can now be deleted (no remaining SQLite imports in the API).
 - `migrate-sqlite-to-pg.ts` should be exercised against a production SQLite snapshot before the Group 11 cutover — current invocation only tested the local dev SQLite which has the same shape but smaller volume.
+
+## Group 5: Dashboard data layer (Eden + Query + Zustand + router-context)
+
+### What was implemented
+
+Created `apps/dashboard/src/lib/eden.ts` (Eden Treaty client, env-driven URL with `/api` proxy fallback), `query-client.ts` (shared `QueryClient` with `staleTime: 60_000`, `retry: 1`), `store.ts` (Zustand persist store with `sidebarCollapsed`). Updated `__root.tsx` to use `createRootRouteWithContext<{ queryClient: QueryClient }>()`. Updated `main.tsx` to import the shared `queryClient`, pass it into router context with `defaultPreload: 'intent'` and `defaultPreloadStaleTime: 0`, and mount `<ReactQueryDevtools>` in DEV. Created `lib/queries/health.ts` and `lib/queries/exercises.ts` as query key factory examples. Wired a trivial loader → `ensureQueryData` → `useSuspenseQuery` round trip in `garmin-health.tsx` (throwaway — Group 8 rebuilds it). Added a Vite dev proxy (`/api` → `http://localhost:4000`).
+
+### Deviations from PRD
+
+- PRD says theme should be in Zustand store — skipped that slot; Mantine's `useMantineColorScheme` already persists theme to `localStorage` and re-reading the PRD confirms "Theme is owned by Mantine's `useMantineColorScheme`". The store only has `sidebarCollapsed` for now, matching the narrower scope described in the group prompt.
+- PRD mentions `parseDate: false` on Eden Treaty — this option does not exist in `@elysiajs/eden@1.4.x`. Omitted; responses are treated as ISO strings consumed by `date-fns` as intended.
+- Used Vite proxy (`/api` → `:4000`) rather than setting `VITE_API_URL` in `.env.local.tpl`, since the proxy avoids CORS configuration and matches the production path-strip pattern. `.env.local.tpl` documents the direct-URL alternative.
+
+### Gotchas & surprises
+
+- `bun run lint -- {staged_files}` in `lefthook.yml` expanded to `oxlint . {staged_files}`, scanning the entire repo including legacy `packages/dashboard` pre-existing lint issues. Fixed by switching to `bunx oxlint {staged_files}` — oxlint auto-discovers `.oxlintrc.json` from the repo root. This unblocks every future RALPH group from the same pre-commit failure.
+- `createRootRouteWithContext` import is from `@tanstack/react-router` (same package as `createRootRoute`), not a separate sub-path.
+- `verbatimModuleSyntax` requires `import type { QueryClient }` in `__root.tsx` since `QueryClient` is used only as a type parameter there.
+
+### Security notes
+
+No secrets. `VITE_API_URL` is not a secret value; `.env.local.tpl` has it commented out as a documentation note only.
+
+### Tests added
+
+None — Group 5 is plumbing only. The `/garmin-health` loader round trip provides runtime proof when dev server is running.
+
+### Future improvements
+
+- The `garmin-health.tsx` proof component (`<pre>{JSON.stringify(data)}</pre>`) is explicitly throwaway; Group 8 replaces it with the real page.
+- `exerciseQueries.list()` requires a Bearer token that isn't wired yet — the query factory is correct but will 401 until Group 7/8 adds auth headers to Eden Treaty calls.
+- Consider adding an `onError` global handler to `queryClient` once error reporting (HyperDX) is wired in Group 7.
