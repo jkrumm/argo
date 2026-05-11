@@ -1,5 +1,11 @@
-import { createRootRoute, Outlet, useMatchRoute, useNavigate } from '@tanstack/react-router'
+import {
+  createRootRouteWithContext,
+  Outlet,
+  useMatchRoute,
+  useNavigate,
+} from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
+import type { QueryClient } from '@tanstack/react-query'
 import {
   AppShell,
   Box,
@@ -25,7 +31,7 @@ import {
 } from '@tabler/icons-react'
 import type { MouseEvent } from 'react'
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   component: RootLayout,
 })
 

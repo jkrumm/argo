@@ -3,7 +3,7 @@ pre-commit:
   commands:
     oxlint:
       glob: '*.{ts,tsx,js,jsx}'
-      run: bun run lint -- {staged_files}
+      run: bunx oxlint {staged_files}
     oxfmt:
       glob: '*.{ts,tsx,js,jsx,json,md,yml,yaml}'
       run: bunx oxfmt --check {staged_files}
