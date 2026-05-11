@@ -542,11 +542,18 @@ function WeightTrendChart({ entries, goal }: { entries: WeightLogEntry[]; goal: 
       tooltip="Raw daily entries (solid line) with a centered 7-day average (dashed). Goal weight overlaid when set in user profile. Hover for delta vs previous entry."
       extra={null}
     >
-      <ParentSize>
-        {({ width }) => (
-          <WeightTrendChartInner data={data} width={width} height={320} goal={goal} />
-        )}
-      </ParentSize>
+      <div style={{ height: 320 }}>
+        <ParentSize debounceTime={100}>
+          {({ width }) => (
+            <WeightTrendChartInner
+              data={data}
+              width={Math.max(width, 200)}
+              height={320}
+              goal={goal}
+            />
+          )}
+        </ParentSize>
+      </div>
       <ChartLegend items={legendItems} highlighted={null} onHighlight={() => {}} />
     </ChartCard>
   )
