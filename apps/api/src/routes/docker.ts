@@ -1,4 +1,5 @@
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import { z } from 'zod'
 
 interface DockerContainer {
   Id: string
@@ -89,16 +90,16 @@ function createDockerRoutes(proxyUrl: string, tag: string) {
         return enriched
       },
       {
-        response: t.Array(
-          t.Object({
-            id: t.String({ description: 'Short 12-char container ID' }),
-            name: t.String(),
-            image: t.String(),
-            state: t.String({ description: 'running | exited | paused | created | restarting' }),
-            status: t.String({ description: 'Human-readable status string from Docker' }),
-            health: t.String({ description: 'healthy | unhealthy | starting | none' }),
-            startedAt: t.Union([t.String(), t.Null()]),
-            restartCount: t.Number({ description: 'Total restart count since container creation' }),
+        response: z.array(
+          z.object({
+            id: z.string().describe('Short 12-char container ID'),
+            name: z.string(),
+            image: z.string(),
+            state: z.string().describe('running | exited | paused | created | restarting'),
+            status: z.string().describe('Human-readable status string from Docker'),
+            health: z.string().describe('healthy | unhealthy | starting | none'),
+            startedAt: z.string().nullable(),
+            restartCount: z.number().describe('Total restart count since container creation'),
           }),
         ),
         detail: {
@@ -144,20 +145,20 @@ function createDockerRoutes(proxyUrl: string, tag: string) {
         return stats
       },
       {
-        response: t.Array(
-          t.Union([
-            t.Object({
-              name: t.String(),
-              cpuPercent: t.Number({ description: 'CPU usage as percentage of all cores' }),
-              memUsageMB: t.Number({ description: 'Current memory usage in MiB' }),
-              memLimitMB: t.Number({ description: 'Container memory limit in MiB' }),
-              memPercent: t.Number({ description: 'Memory usage as percentage of limit' }),
-              netRxMB: t.Number({ description: 'Total network bytes received in MB' }),
-              netTxMB: t.Number({ description: 'Total network bytes transmitted in MB' }),
+        response: z.array(
+          z.union([
+            z.object({
+              name: z.string(),
+              cpuPercent: z.number().describe('CPU usage as percentage of all cores'),
+              memUsageMB: z.number().describe('Current memory usage in MiB'),
+              memLimitMB: z.number().describe('Container memory limit in MiB'),
+              memPercent: z.number().describe('Memory usage as percentage of limit'),
+              netRxMB: z.number().describe('Total network bytes received in MB'),
+              netTxMB: z.number().describe('Total network bytes transmitted in MB'),
             }),
-            t.Object({
-              name: t.String(),
-              error: t.String({ description: 'Error message if stats were unavailable' }),
+            z.object({
+              name: z.string(),
+              error: z.string().describe('Error message if stats were unavailable'),
             }),
           ]),
         ),
@@ -215,12 +216,12 @@ function createDockerRoutes(proxyUrl: string, tag: string) {
         return { container: params.name, tail: Number(tail), lines }
       },
       {
-        params: t.Object({ name: t.String() }),
-        query: t.Object({ tail: t.Optional(t.String()) }),
-        response: t.Object({
-          container: t.String(),
-          tail: t.Number({ description: 'Number of log lines requested' }),
-          lines: t.Array(t.String({ description: 'Log line with RFC3339 timestamp prefix' })),
+        params: z.object({ name: z.string() }),
+        query: z.object({ tail: z.string().optional() }),
+        response: z.object({
+          container: z.string(),
+          tail: z.number().describe('Number of log lines requested'),
+          lines: z.array(z.string().describe('Log line with RFC3339 timestamp prefix')),
         }),
         detail: {
           tags: [tag],
@@ -306,35 +307,35 @@ function createDockerRoutes(proxyUrl: string, tag: string) {
         }
       },
       {
-        response: t.Object({
-          host: t.Object({
-            cpus: t.Number(),
-            totalMemoryGB: t.Number(),
-            dockerVersion: t.String(),
+        response: z.object({
+          host: z.object({
+            cpus: z.number(),
+            totalMemoryGB: z.number(),
+            dockerVersion: z.string(),
           }),
-          counts: t.Object({
-            total: t.Number(),
-            running: t.Number(),
-            stopped: t.Number(),
+          counts: z.object({
+            total: z.number(),
+            running: z.number(),
+            stopped: z.number(),
           }),
-          alerts: t.Object({
-            unhealthyContainers: t.Array(t.String()),
-            highRestartContainers: t.Array(
-              t.Object({
-                name: t.String(),
-                restarts: t.Number({ description: 'Restart count (>3 triggers alert)' }),
+          alerts: z.object({
+            unhealthyContainers: z.array(z.string()),
+            highRestartContainers: z.array(
+              z.object({
+                name: z.string(),
+                restarts: z.number().describe('Restart count (>3 triggers alert)'),
               }),
             ),
           }),
-          running: t.Array(
-            t.Object({
-              name: t.String(),
-              health: t.String({ description: 'healthy | unhealthy | starting | none' }),
-              restartCount: t.Number(),
-              startedAt: t.Union([t.String(), t.Null()]),
+          running: z.array(
+            z.object({
+              name: z.string(),
+              health: z.string().describe('healthy | unhealthy | starting | none'),
+              restartCount: z.number(),
+              startedAt: z.string().nullable(),
             }),
           ),
-          stopped: t.Array(t.Object({ name: t.String(), status: t.String() })),
+          stopped: z.array(z.object({ name: z.string(), status: z.string() })),
         }),
         detail: {
           tags: [tag],

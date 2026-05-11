@@ -1,4 +1,5 @@
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import { z } from 'zod'
 import { ticktickOps } from '../clients/ticktick'
 
 // ─── Inbound: accept YYYY-MM-DD, convert to UTC midnight ISO for TickTick ───
@@ -57,36 +58,36 @@ function normalizeSdkResponse(sdkResult: Record<string, unknown>): Record<string
   return sdkResult
 }
 
-const TaskSchema = t.Object({
-  id: t.Optional(t.String()),
-  projectId: t.Optional(t.String()),
-  title: t.Optional(t.String()),
-  content: t.Optional(t.String()),
-  desc: t.Optional(t.String()),
-  dueDate: t.Optional(t.String({ description: 'YYYY-MM-DD' })),
-  startDate: t.Optional(t.String({ description: 'YYYY-MM-DD' })),
-  priority: t.Optional(t.Number({ description: '0=none 1=low 3=medium 5=high' })),
-  status: t.Optional(t.Number({ description: '0=active 2=completed' })),
-  isAllDay: t.Optional(t.Union([t.String(), t.Boolean()])),
-  completedTime: t.Optional(t.String()),
-  timeZone: t.Optional(t.String()),
-  sortOrder: t.Optional(t.Number()),
+const TaskSchema = z.object({
+  id: z.string().optional(),
+  projectId: z.string().optional(),
+  title: z.string().optional(),
+  content: z.string().optional(),
+  desc: z.string().optional(),
+  dueDate: z.string().describe('YYYY-MM-DD').optional(),
+  startDate: z.string().describe('YYYY-MM-DD').optional(),
+  priority: z.number().describe('0=none 1=low 3=medium 5=high').optional(),
+  status: z.number().describe('0=active 2=completed').optional(),
+  isAllDay: z.union([z.string(), z.boolean()]).optional(),
+  completedTime: z.string().optional(),
+  timeZone: z.string().optional(),
+  sortOrder: z.number().optional(),
 })
 
-const ProjectSchema = t.Object({
-  id: t.Optional(t.String()),
-  name: t.Optional(t.String()),
-  color: t.Optional(t.Union([t.String(), t.Null()])),
-  closed: t.Optional(t.Union([t.Boolean(), t.Null()])),
-  viewMode: t.Optional(t.Union([t.String(), t.Null()])),
-  permission: t.Optional(t.Union([t.String(), t.Null()])),
-  kind: t.Optional(t.Union([t.String(), t.Null()])),
+const ProjectSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().optional(),
+  color: z.string().nullable().optional(),
+  closed: z.boolean().nullable().optional(),
+  viewMode: z.string().nullable().optional(),
+  permission: z.string().nullable().optional(),
+  kind: z.string().nullable().optional(),
 })
 
 export const ticktickRoutes = new Elysia({ prefix: '/ticktick' })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   .get('/projects', () => ticktickOps.getProjects() as any, {
-    response: t.Object({ data: t.Array(ProjectSchema) }),
+    response: z.object({ data: z.array(ProjectSchema) }),
     detail: {
       tags: ['TickTick'],
       summary: 'Get all projects',
@@ -102,13 +103,13 @@ export const ticktickRoutes = new Elysia({ prefix: '/ticktick' })
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ) as any,
     {
-      params: t.Object({ projectId: t.String() }),
-      response: t.Object({
-        data: t.Object({
-          tasks: t.Array(TaskSchema),
-          columns: t.Optional(
-            t.Array(t.Object({ id: t.Optional(t.String()), name: t.Optional(t.String()) })),
-          ),
+      params: z.object({ projectId: z.string() }),
+      response: z.object({
+        data: z.object({
+          tasks: z.array(TaskSchema),
+          columns: z
+            .array(z.object({ id: z.string().optional(), name: z.string().optional() }))
+            .optional(),
         }),
       }),
       detail: {
@@ -130,24 +131,23 @@ export const ticktickRoutes = new Elysia({ prefix: '/ticktick' })
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ) as any,
     {
-      body: t.Object(
-        {
-          title: t.String(),
-          projectId: t.Optional(t.String()),
-          dueDate: t.Optional(
-            t.String({
-              description:
-                'YYYY-MM-DD only. Server converts to the correct midnight timestamp for the TickTick account timezone.',
-            }),
-          ),
-          priority: t.Optional(t.Number({ description: '0=none, 1=low, 3=medium, 5=high' })),
-          content: t.Optional(t.String()),
-          startDate: t.Optional(t.String()),
-          isAllDay: t.Optional(t.Boolean()),
-        },
-        { additionalProperties: true },
-      ),
-      response: t.Object({ data: TaskSchema }),
+      body: z
+        .object({
+          title: z.string(),
+          projectId: z.string().optional(),
+          dueDate: z
+            .string()
+            .describe(
+              'YYYY-MM-DD only. Server converts to the correct midnight timestamp for the TickTick account timezone.',
+            )
+            .optional(),
+          priority: z.number().describe('0=none, 1=low, 3=medium, 5=high').optional(),
+          content: z.string().optional(),
+          startDate: z.string().optional(),
+          isAllDay: z.boolean().optional(),
+        })
+        .passthrough(),
+      response: z.object({ data: TaskSchema }),
       detail: {
         tags: ['TickTick'],
         summary: 'Create a task',
@@ -167,18 +167,17 @@ export const ticktickRoutes = new Elysia({ prefix: '/ticktick' })
       return normalizeTaskDates((await res.json()) as Record<string, unknown>)
     },
     {
-      params: t.Object({ taskId: t.String() }),
-      body: t.Object(
-        {
-          title: t.Optional(t.String()),
-          projectId: t.Optional(t.String()),
-          dueDate: t.Optional(t.String({ description: 'YYYY-MM-DD only' })),
-          priority: t.Optional(t.Number({ description: '0=none, 1=low, 3=medium, 5=high' })),
-          content: t.Optional(t.String()),
-          status: t.Optional(t.Number({ description: '0=active, 2=completed' })),
-        },
-        { additionalProperties: true },
-      ),
+      params: z.object({ taskId: z.string() }),
+      body: z
+        .object({
+          title: z.string().optional(),
+          projectId: z.string().optional(),
+          dueDate: z.string().describe('YYYY-MM-DD only').optional(),
+          priority: z.number().describe('0=none, 1=low, 3=medium, 5=high').optional(),
+          content: z.string().optional(),
+          status: z.number().describe('0=active, 2=completed').optional(),
+        })
+        .passthrough(),
       response: TaskSchema,
       detail: {
         tags: ['TickTick'],
@@ -191,8 +190,8 @@ export const ticktickRoutes = new Elysia({ prefix: '/ticktick' })
     '/project/:projectId/task/:taskId/complete',
     ({ params }) => ticktickOps.completeTask(params.projectId, params.taskId),
     {
-      params: t.Object({ projectId: t.String(), taskId: t.String() }),
-      response: t.Object({ data: t.Any() }),
+      params: z.object({ projectId: z.string(), taskId: z.string() }),
+      response: z.object({ data: z.unknown() }),
       detail: {
         tags: ['TickTick'],
         summary: 'Mark task as complete',
@@ -204,8 +203,8 @@ export const ticktickRoutes = new Elysia({ prefix: '/ticktick' })
     '/project/:projectId/task/:taskId',
     ({ params }) => ticktickOps.deleteTask(params.projectId, params.taskId),
     {
-      params: t.Object({ projectId: t.String(), taskId: t.String() }),
-      response: t.Object({ data: t.Any() }),
+      params: z.object({ projectId: z.string(), taskId: z.string() }),
+      response: z.object({ data: z.unknown() }),
       detail: {
         tags: ['TickTick'],
         summary: 'Delete a task',

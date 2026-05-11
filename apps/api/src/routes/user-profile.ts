@@ -1,15 +1,16 @@
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { userProfile } from '../db/schema.js'
 
-const UserProfileSchema = t.Object({
-  id: t.Number(),
-  height_cm: t.Union([t.Number(), t.Null()]),
-  birth_date: t.Union([t.String(), t.Null()]),
-  gender: t.Union([t.String(), t.Null()]),
-  goal_weight_kg: t.Union([t.Number(), t.Null()]),
-  updated_at: t.Union([t.String(), t.Null()]),
+const UserProfileSchema = z.object({
+  id: z.number(),
+  height_cm: z.number().nullable(),
+  birth_date: z.string().nullable(),
+  gender: z.string().nullable(),
+  goal_weight_kg: z.number().nullable(),
+  updated_at: z.string().nullable(),
 })
 
 export const userProfileRoutes = new Elysia({ prefix: '/user-profile' })
@@ -56,13 +57,14 @@ export const userProfileRoutes = new Elysia({ prefix: '/user-profile' })
       return updated as any
     },
     {
-      body: t.Object({
-        height_cm: t.Optional(t.Union([t.Number({ minimum: 100, maximum: 250 }), t.Null()])),
-        birth_date: t.Optional(
-          t.Union([t.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$' }), t.Null()]),
-        ),
-        gender: t.Optional(t.Union([t.Literal('male'), t.Literal('female'), t.Null()])),
-        goal_weight_kg: t.Optional(t.Union([t.Number({ minimum: 30, maximum: 300 }), t.Null()])),
+      body: z.object({
+        height_cm: z.number().min(100).max(250).nullish(),
+        birth_date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .nullish(),
+        gender: z.enum(['male', 'female']).nullish(),
+        goal_weight_kg: z.number().min(30).max(300).nullish(),
       }),
       response: UserProfileSchema,
       detail: {

@@ -1,20 +1,15 @@
-import { t } from 'elysia'
+import { z } from 'zod'
 
-export const ExerciseSchema = t.String()
+export const ExerciseSchema = z.string()
 
-export const SetTypeSchema = t.Union([
-  t.Literal('warmup'),
-  t.Literal('work'),
-  t.Literal('drop'),
-  t.Literal('amrap'),
-])
+export const SetTypeSchema = z.enum(['warmup', 'work', 'drop', 'amrap'])
 
-export const WorkoutSetSchema = t.Object({
-  id: t.Number(),
-  workout_id: t.Number(),
-  set_number: t.Number(),
-  set_type: t.String(),
-  weight_kg: t.Number(),
-  reps: t.Number(),
-  created_at: t.Union([t.String(), t.Null()]),
+export const WorkoutSetSchema = z.object({
+  id: z.number(),
+  workout_id: z.number(),
+  set_number: z.number(),
+  set_type: z.string(),
+  weight_kg: z.number(),
+  reps: z.number(),
+  created_at: z.string().nullable(),
 })

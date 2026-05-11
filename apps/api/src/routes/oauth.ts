@@ -1,4 +1,5 @@
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import { z } from 'zod'
 import { getAuthUrl, exchangeCode } from '../clients/google.js'
 
 export const oauthRoutes = new Elysia({ prefix: '/oauth' })
@@ -31,12 +32,12 @@ export const oauthRoutes = new Elysia({ prefix: '/oauth' })
       }
     },
     {
-      query: t.Object({
-        code: t.Optional(t.String()),
-        error: t.Optional(t.String()),
-        scope: t.Optional(t.String()),
+      query: z.object({
+        code: z.string().optional(),
+        error: z.string().optional(),
+        scope: z.string().optional(),
       }),
-      response: { 200: t.String(), 400: t.String(), 500: t.String() },
+      response: { 200: z.string(), 400: z.string(), 500: z.string() },
       detail: {
         tags: ['OAuth'],
         summary: 'Google OAuth callback',

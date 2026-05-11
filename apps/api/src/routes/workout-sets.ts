@@ -1,4 +1,5 @@
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import { z } from 'zod'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { workoutSets } from '../db/schema.js'
@@ -37,12 +38,12 @@ export const workoutSetRoutes = new Elysia({ prefix: '/workout-sets' })
       return rows
     },
     {
-      query: t.Object({
-        _start: t.Optional(t.String()),
-        _end: t.Optional(t.String()),
-        workout_id: t.Optional(t.String()),
+      query: z.object({
+        _start: z.string().optional(),
+        _end: z.string().optional(),
+        workout_id: z.string().optional(),
       }),
-      response: t.Array(WorkoutSetSchema),
+      response: z.array(WorkoutSetSchema),
       detail: {
         tags: ['Workout Sets'],
         summary: 'List workout sets',
@@ -70,12 +71,12 @@ export const workoutSetRoutes = new Elysia({ prefix: '/workout-sets' })
       return row! as any
     },
     {
-      body: t.Object({
-        workout_id: t.Number({ minimum: 1 }),
-        set_number: t.Number({ minimum: 1 }),
+      body: z.object({
+        workout_id: z.number().min(1),
+        set_number: z.number().min(1),
         set_type: SetTypeSchema,
-        weight_kg: t.Number({ minimum: 0 }),
-        reps: t.Integer({ minimum: 1 }),
+        weight_kg: z.number().min(0),
+        reps: z.number().int().min(1),
       }),
       response: { 201: WorkoutSetSchema },
       detail: {
@@ -119,16 +120,16 @@ export const workoutSetRoutes = new Elysia({ prefix: '/workout-sets' })
       return updated! as any
     },
     {
-      params: t.Object({ id: t.String() }),
-      body: t.Object({
-        set_number: t.Optional(t.Number({ minimum: 1 })),
-        set_type: t.Optional(SetTypeSchema),
-        weight_kg: t.Optional(t.Number({ minimum: 0 })),
-        reps: t.Optional(t.Integer({ minimum: 1 })),
+      params: z.object({ id: z.string() }),
+      body: z.object({
+        set_number: z.number().min(1).optional(),
+        set_type: SetTypeSchema.optional(),
+        weight_kg: z.number().min(0).optional(),
+        reps: z.number().int().min(1).optional(),
       }),
       response: {
         200: WorkoutSetSchema,
-        404: t.String(),
+        404: z.string(),
       },
       detail: {
         tags: ['Workout Sets'],
@@ -154,10 +155,10 @@ export const workoutSetRoutes = new Elysia({ prefix: '/workout-sets' })
       return { id: Number(params.id) }
     },
     {
-      params: t.Object({ id: t.String() }),
+      params: z.object({ id: z.string() }),
       response: {
-        200: t.Object({ id: t.Number() }),
-        404: t.String(),
+        200: z.object({ id: z.number() }),
+        404: z.string(),
       },
       detail: {
         tags: ['Workout Sets'],

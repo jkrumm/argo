@@ -1,4 +1,5 @@
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import { z } from 'zod'
 
 const OPEN_METEO_BASE = 'https://api.open-meteo.com/v1/forecast'
 const OPEN_METEO_GEOCODING = 'https://geocoding-api.open-meteo.com/v1/search'
@@ -124,58 +125,58 @@ async function fetchForecast(loc: ResolvedLocation): Promise<OpenMeteoResponse> 
 
 // --- Response schemas ---
 
-const CurrentSchema = t.Object({
-  time: t.String(),
-  temperature: t.Number({ description: '°C' }),
-  feels_like: t.Number({ description: '°C' }),
-  humidity: t.Number({ description: '%' }),
-  cloud_cover: t.Number({ description: '%' }),
-  wind_speed: t.Number({ description: 'km/h' }),
-  wind_direction: t.Number({ description: 'degrees' }),
-  wind_gusts: t.Number({ description: 'km/h' }),
-  uv_index: t.Number(),
-  precipitation: t.Number({ description: 'mm' }),
-  condition: t.String({ description: 'Human-readable weather condition' }),
+const CurrentSchema = z.object({
+  time: z.string(),
+  temperature: z.number().describe('°C'),
+  feels_like: z.number().describe('°C'),
+  humidity: z.number().describe('%'),
+  cloud_cover: z.number().describe('%'),
+  wind_speed: z.number().describe('km/h'),
+  wind_direction: z.number().describe('degrees'),
+  wind_gusts: z.number().describe('km/h'),
+  uv_index: z.number(),
+  precipitation: z.number().describe('mm'),
+  condition: z.string().describe('Human-readable weather condition'),
 })
 
-const HourlyEntrySchema = t.Object({
-  time: t.String(),
-  temperature: t.Number(),
-  feels_like: t.Number(),
-  precipitation_probability: t.Number({ description: '%' }),
-  precipitation: t.Number({ description: 'mm' }),
-  cloud_cover: t.Number({ description: '%' }),
-  uv_index: t.Number(),
-  wind_speed: t.Number({ description: 'km/h' }),
-  wind_direction: t.Number({ description: 'degrees' }),
-  condition: t.String(),
+const HourlyEntrySchema = z.object({
+  time: z.string(),
+  temperature: z.number(),
+  feels_like: z.number(),
+  precipitation_probability: z.number().describe('%'),
+  precipitation: z.number().describe('mm'),
+  cloud_cover: z.number().describe('%'),
+  uv_index: z.number(),
+  wind_speed: z.number().describe('km/h'),
+  wind_direction: z.number().describe('degrees'),
+  condition: z.string(),
 })
 
-const DailyEntrySchema = t.Object({
-  date: t.String(),
-  day: t.String({ description: 'Day of week (Monday, Tuesday, ...)' }),
-  temp_max: t.Number({ description: '°C' }),
-  temp_min: t.Number({ description: '°C' }),
-  feels_like_max: t.Number({ description: '°C' }),
-  feels_like_min: t.Number({ description: '°C' }),
-  precipitation_sum: t.Number({ description: 'mm total' }),
-  precipitation_probability: t.Number({ description: '% max' }),
-  wind_max: t.Number({ description: 'km/h' }),
-  wind_gusts_max: t.Number({ description: 'km/h' }),
-  uv_index_max: t.Number(),
-  condition: t.String(),
-  sunrise: t.String(),
-  sunset: t.String(),
+const DailyEntrySchema = z.object({
+  date: z.string(),
+  day: z.string().describe('Day of week (Monday, Tuesday, ...)'),
+  temp_max: z.number().describe('°C'),
+  temp_min: z.number().describe('°C'),
+  feels_like_max: z.number().describe('°C'),
+  feels_like_min: z.number().describe('°C'),
+  precipitation_sum: z.number().describe('mm total'),
+  precipitation_probability: z.number().describe('% max'),
+  wind_max: z.number().describe('km/h'),
+  wind_gusts_max: z.number().describe('km/h'),
+  uv_index_max: z.number(),
+  condition: z.string(),
+  sunrise: z.string(),
+  sunset: z.string(),
 })
 
-const ForecastSchema = t.Object({
-  location: t.String({ description: 'Resolved "City, Country"' }),
-  city: t.String(),
-  country: t.String(),
-  today: t.String({ description: 'Current date in YYYY-MM-DD format (resolved timezone)' }),
+const ForecastSchema = z.object({
+  location: z.string().describe('Resolved "City, Country"'),
+  city: z.string(),
+  country: z.string(),
+  today: z.string().describe('Current date in YYYY-MM-DD format (resolved timezone)'),
   current: CurrentSchema,
-  hourly_48h: t.Array(HourlyEntrySchema),
-  daily_7d: t.Array(DailyEntrySchema),
+  hourly_48h: z.array(HourlyEntrySchema),
+  daily_7d: z.array(DailyEntrySchema),
 })
 
 // --- Transform Open-Meteo response to clean format ---
@@ -255,12 +256,12 @@ export const weatherRoutes = new Elysia({ prefix: '/weather' }).get(
     return transformResponse(raw, loc)
   },
   {
-    query: t.Object({
-      city: t.Optional(t.String({ minLength: 2, description: 'City name (default: Munich)' })),
+    query: z.object({
+      city: z.string().min(2).describe('City name (default: Munich)').optional(),
     }),
     response: {
       200: ForecastSchema,
-      400: t.String(),
+      400: z.string(),
     },
     detail: {
       tags: ['Weather'],

@@ -1,64 +1,61 @@
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import { z } from 'zod'
 import { listEmails, getEmail, listCalendarEvents } from '../clients/google.js'
 
-const AddressSchema = t.Object({
-  name: t.String({ description: 'Display name' }),
-  email: t.String({ description: 'Email address' }),
+const AddressSchema = z.object({
+  name: z.string().describe('Display name'),
+  email: z.string().describe('Email address'),
 })
 
-const AttachmentSchema = t.Object({
-  filename: t.String(),
-  mimeType: t.String(),
-  size: t.Number({ description: 'Size in bytes' }),
+const AttachmentSchema = z.object({
+  filename: z.string(),
+  mimeType: z.string(),
+  size: z.number().describe('Size in bytes'),
 })
 
-const EmailListItemSchema = t.Object({
-  id: t.String({ description: 'Gmail message ID' }),
-  subject: t.String(),
+const EmailListItemSchema = z.object({
+  id: z.string().describe('Gmail message ID'),
+  subject: z.string(),
   from: AddressSchema,
-  to: t.Array(AddressSchema),
-  date: t.String({ description: 'RFC 2822 date string' }),
-  snippet: t.String({ description: '200-char preview' }),
-  isRead: t.Boolean(),
-  labels: t.Array(t.String(), { description: 'Gmail label IDs' }),
-  hasAttachments: t.Boolean(),
+  to: z.array(AddressSchema),
+  date: z.string().describe('RFC 2822 date string'),
+  snippet: z.string().describe('200-char preview'),
+  isRead: z.boolean(),
+  labels: z.array(z.string()).describe('Gmail label IDs'),
+  hasAttachments: z.boolean(),
 })
 
-const EmailDetailSchema = t.Object({
-  id: t.String(),
-  subject: t.String(),
+const EmailDetailSchema = z.object({
+  id: z.string(),
+  subject: z.string(),
   from: AddressSchema,
-  to: t.Array(AddressSchema),
-  date: t.String(),
-  snippet: t.String(),
-  isRead: t.Boolean(),
-  labels: t.Array(t.String()),
-  hasAttachments: t.Boolean(),
-  body: t.String({
-    description: 'Decoded plaintext body (HTML stripped as fallback)',
-  }),
-  attachments: t.Array(AttachmentSchema),
+  to: z.array(AddressSchema),
+  date: z.string(),
+  snippet: z.string(),
+  isRead: z.boolean(),
+  labels: z.array(z.string()),
+  hasAttachments: z.boolean(),
+  body: z.string().describe('Decoded plaintext body (HTML stripped as fallback)'),
+  attachments: z.array(AttachmentSchema),
 })
 
-const AttendeeSchema = t.Object({
-  name: t.String(),
-  email: t.String(),
-  status: t.String({
-    description: 'accepted | declined | tentative | needsAction | unknown',
-  }),
+const AttendeeSchema = z.object({
+  name: z.string(),
+  email: z.string(),
+  status: z.string().describe('accepted | declined | tentative | needsAction | unknown'),
 })
 
-const CalendarEventSchema = t.Object({
-  id: t.String(),
-  title: t.String(),
-  start: t.String({ description: 'ISO timestamp or YYYY-MM-DD for all-day' }),
-  end: t.String({ description: 'ISO timestamp or YYYY-MM-DD for all-day' }),
-  isAllDay: t.Boolean(),
-  location: t.Optional(t.String()),
-  organizer: t.Optional(t.Object({ name: t.String(), email: t.String() })),
-  attendees: t.Array(AttendeeSchema),
-  calendarName: t.String({ description: 'Source calendar name' }),
-  videoLink: t.Optional(t.String({ description: 'Google Meet or conference link' })),
+const CalendarEventSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  start: z.string().describe('ISO timestamp or YYYY-MM-DD for all-day'),
+  end: z.string().describe('ISO timestamp or YYYY-MM-DD for all-day'),
+  isAllDay: z.boolean(),
+  location: z.string().optional(),
+  organizer: z.object({ name: z.string(), email: z.string() }).optional(),
+  attendees: z.array(AttendeeSchema),
+  calendarName: z.string().describe('Source calendar name'),
+  videoLink: z.string().describe('Google Meet or conference link').optional(),
 })
 
 export const gmailRoutes = new Elysia({ prefix: '/gmail' })
@@ -85,44 +82,41 @@ export const gmailRoutes = new Elysia({ prefix: '/gmail' })
       }
     },
     {
-      query: t.Object({
-        days: t.Optional(t.String({ description: 'Days back to search (default: 7)' })),
-        maxResults: t.Optional(t.String({ description: 'Max emails returned (default: 50)' })),
-        query: t.Optional(
-          t.String({
-            description:
-              "Free-text Gmail search string. Supports full Gmail query syntax e.g. 'from:boss@work.com' or 'subject:invoice'",
-          }),
-        ),
-        label: t.Optional(
-          t.String({
-            description:
-              'Filter by Gmail label name. System labels: STARRED, IMPORTANT, SENT, DRAFT. Category labels: CATEGORY_PERSONAL, CATEGORY_UPDATES, CATEGORY_SOCIAL, CATEGORY_FORUMS, CATEGORY_PROMOTIONS.',
-          }),
-        ),
-        unread: t.Optional(t.String({ description: "Set to 'true' to return only unread emails" })),
-        important: t.Optional(
-          t.String({
-            description: "Set to 'true' to return only emails marked important by Gmail",
-          }),
-        ),
-        starred: t.Optional(
-          t.String({ description: "Set to 'true' to return only starred emails" }),
-        ),
-        excludeCategories: t.Optional(
-          t.String({
-            description:
-              'Comma-separated Gmail categories to exclude in addition to the defaults (spam, promotions, forums). Options: personal, social, updates',
-          }),
-        ),
-        scope: t.Optional(
-          t.String({
-            description:
-              "Search scope: 'inbox' (default, active inbox only) or 'all' (entire mailbox including archived). Defaults to 'all' when label is set, since user-labeled emails are often archived.",
-          }),
-        ),
+      query: z.object({
+        days: z.string().describe('Days back to search (default: 7)').optional(),
+        maxResults: z.string().describe('Max emails returned (default: 50)').optional(),
+        query: z
+          .string()
+          .describe(
+            "Free-text Gmail search string. Supports full Gmail query syntax e.g. 'from:boss@work.com' or 'subject:invoice'",
+          )
+          .optional(),
+        label: z
+          .string()
+          .describe(
+            'Filter by Gmail label name. System labels: STARRED, IMPORTANT, SENT, DRAFT. Category labels: CATEGORY_PERSONAL, CATEGORY_UPDATES, CATEGORY_SOCIAL, CATEGORY_FORUMS, CATEGORY_PROMOTIONS.',
+          )
+          .optional(),
+        unread: z.string().describe("Set to 'true' to return only unread emails").optional(),
+        important: z
+          .string()
+          .describe("Set to 'true' to return only emails marked important by Gmail")
+          .optional(),
+        starred: z.string().describe("Set to 'true' to return only starred emails").optional(),
+        excludeCategories: z
+          .string()
+          .describe(
+            'Comma-separated Gmail categories to exclude in addition to the defaults (spam, promotions, forums). Options: personal, social, updates',
+          )
+          .optional(),
+        scope: z
+          .string()
+          .describe(
+            "Search scope: 'inbox' (default, active inbox only) or 'all' (entire mailbox including archived). Defaults to 'all' when label is set, since user-labeled emails are often archived.",
+          )
+          .optional(),
       }),
-      response: { 200: t.Array(EmailListItemSchema), 503: t.String() },
+      response: { 200: z.array(EmailListItemSchema), 503: z.string() },
       detail: {
         tags: ['Gmail'],
         summary: 'List emails',
@@ -143,8 +137,8 @@ export const gmailRoutes = new Elysia({ prefix: '/gmail' })
       }
     },
     {
-      params: t.Object({ id: t.String({ description: 'Gmail message ID' }) }),
-      response: { 200: EmailDetailSchema, 404: t.String() },
+      params: z.object({ id: z.string().describe('Gmail message ID') }),
+      response: { 200: EmailDetailSchema, 404: z.string() },
       detail: {
         tags: ['Gmail'],
         summary: 'Get email detail',
@@ -165,14 +159,10 @@ export const gmailRoutes = new Elysia({ prefix: '/gmail' })
       }
     },
     {
-      query: t.Object({
-        days: t.Optional(
-          t.String({
-            description: 'Days window from today (default: 30)',
-          }),
-        ),
+      query: z.object({
+        days: z.string().describe('Days window from today (default: 30)').optional(),
       }),
-      response: { 200: t.Array(CalendarEventSchema), 503: t.String() },
+      response: { 200: z.array(CalendarEventSchema), 503: z.string() },
       detail: {
         tags: ['Google Calendar'],
         summary: 'List upcoming events',

@@ -1,4 +1,5 @@
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import { z } from 'zod'
 import { client } from '../db/index.js'
 
 // Block any mutation or schema-altering keywords
@@ -26,7 +27,7 @@ export const queryRoute = new Elysia().post(
     }
   },
   {
-    body: t.Object({ sql: t.String({ minLength: 1 }) }),
+    body: z.object({ sql: z.string().min(1) }),
     detail: {
       tags: ['Database'],
       summary: 'Execute a read-only SQL query',

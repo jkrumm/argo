@@ -1,13 +1,14 @@
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import { z } from 'zod'
 import { asc, desc, eq, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { weightLog } from '../db/schema.js'
 
-const WeightLogSchema = t.Object({
-  id: t.Number(),
-  date: t.String(),
-  weight_kg: t.Number(),
-  created_at: t.Union([t.String(), t.Null()]),
+const WeightLogSchema = z.object({
+  id: z.number(),
+  date: z.string(),
+  weight_kg: z.number(),
+  created_at: z.string().nullable(),
 })
 
 export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
@@ -28,10 +29,10 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
       return rows as any
     },
     {
-      query: t.Object({
-        _order: t.Optional(t.String()),
+      query: z.object({
+        _order: z.string().optional(),
       }),
-      response: t.Array(WeightLogSchema),
+      response: z.array(WeightLogSchema),
       detail: {
         tags: ['Weight Log'],
         summary: 'List all weight entries',
@@ -50,11 +51,11 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
       return { id: result!.id }
     },
     {
-      body: t.Object({
-        date: t.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$' }),
-        weight_kg: t.Number({ minimum: 30, maximum: 300 }),
+      body: z.object({
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        weight_kg: z.number().min(30).max(300),
       }),
-      response: { 201: t.Object({ id: t.Number() }) },
+      response: { 201: z.object({ id: z.number() }) },
       detail: {
         tags: ['Weight Log'],
         summary: 'Add a weight entry',
@@ -78,10 +79,10 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
       return { id: Number(params.id) }
     },
     {
-      params: t.Object({ id: t.String() }),
+      params: z.object({ id: z.string() }),
       response: {
-        200: t.Object({ id: t.Number() }),
-        404: t.String(),
+        200: z.object({ id: z.number() }),
+        404: z.string(),
       },
       detail: {
         tags: ['Weight Log'],

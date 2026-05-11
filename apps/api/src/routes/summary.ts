@@ -1,4 +1,5 @@
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import { z } from 'zod'
 import { uptimeKumaClient } from '../clients/uptime-kuma.js'
 import { ticktickOps } from '../clients/ticktick.js'
 import type { Project, Task } from '../generated/ticktick/types.gen.js'
@@ -159,48 +160,48 @@ async function fetchTickTickSummary() {
 
 // ─── Response Schema ─────────────────────────────────────────────────────────
 
-const errSchema = t.Object({ error: t.String() })
+const errSchema = z.object({ error: z.string() })
 
-const DockerSummarySchema = t.Object({
-  host: t.Object({ cpus: t.Number(), totalMemoryGB: t.Number(), dockerVersion: t.String() }),
-  counts: t.Object({ total: t.Number(), running: t.Number(), stopped: t.Number() }),
-  alerts: t.Object({
-    unhealthyContainers: t.Array(t.String()),
-    highRestartContainers: t.Array(t.Object({ name: t.String(), restarts: t.Number() })),
+const DockerSummarySchema = z.object({
+  host: z.object({ cpus: z.number(), totalMemoryGB: z.number(), dockerVersion: z.string() }),
+  counts: z.object({ total: z.number(), running: z.number(), stopped: z.number() }),
+  alerts: z.object({
+    unhealthyContainers: z.array(z.string()),
+    highRestartContainers: z.array(z.object({ name: z.string(), restarts: z.number() })),
   }),
 })
 
-const TickTaskItemSchema = t.Object({
-  id: t.String(),
-  title: t.String(),
-  dueDate: t.String({ description: 'YYYY-MM-DD' }),
-  projectName: t.String(),
-  priority: t.Number({ description: '0=none 1=low 3=medium 5=high' }),
+const TickTaskItemSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  dueDate: z.string().describe('YYYY-MM-DD'),
+  projectName: z.string(),
+  priority: z.number().describe('0=none 1=low 3=medium 5=high'),
 })
 
-const UptimeKumaSummarySchema = t.Object({
-  status: t.Union([t.Literal('warming'), t.Literal('ready'), t.Literal('stale')], {
-    description: 'warming = no data yet · ready = live · stale = last-known data, connection lost',
-  }),
-  lastUpdatedAt: t.Union([t.String(), t.Null()]),
-  staleSince: t.Union([t.String(), t.Null()]),
-  lastError: t.Union([t.String(), t.Null()]),
-  up: t.Number(),
-  down: t.Number(),
-  maintenance: t.Number(),
-  total: t.Number(),
-  downMonitors: t.Array(
-    t.Object({ name: t.String(), type: t.String(), uptime1d: t.Union([t.Number(), t.Null()]) }),
+const UptimeKumaSummarySchema = z.object({
+  status: z
+    .enum(['warming', 'ready', 'stale'])
+    .describe('warming = no data yet · ready = live · stale = last-known data, connection lost'),
+  lastUpdatedAt: z.string().nullable(),
+  staleSince: z.string().nullable(),
+  lastError: z.string().nullable(),
+  up: z.number(),
+  down: z.number(),
+  maintenance: z.number(),
+  total: z.number(),
+  downMonitors: z.array(
+    z.object({ name: z.string(), type: z.string(), uptime1d: z.number().nullable() }),
   ),
 })
 
-const SummaryResponseSchema = t.Object({
-  generatedAt: t.String({ description: 'ISO timestamp when summary was generated' }),
+const SummaryResponseSchema = z.object({
+  generatedAt: z.string().describe('ISO timestamp when summary was generated'),
   uptimeKuma: UptimeKumaSummarySchema,
-  dockerHomelab: t.Union([DockerSummarySchema, errSchema]),
-  dockerVps: t.Union([DockerSummarySchema, errSchema]),
-  ticktick: t.Union([
-    t.Object({ overdue: t.Array(TickTaskItemSchema), dueSoon: t.Array(TickTaskItemSchema) }),
+  dockerHomelab: z.union([DockerSummarySchema, errSchema]),
+  dockerVps: z.union([DockerSummarySchema, errSchema]),
+  ticktick: z.union([
+    z.object({ overdue: z.array(TickTaskItemSchema), dueSoon: z.array(TickTaskItemSchema) }),
     errSchema,
   ]),
 })

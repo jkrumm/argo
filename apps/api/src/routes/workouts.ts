@@ -1,22 +1,23 @@
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import { z } from 'zod'
 import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { workouts, workoutSets, exercises, weightLog, userProfile } from '../db/schema.js'
 import { SetTypeSchema, WorkoutSetSchema } from './schemas.js'
 
-const WorkoutWithSetsSchema = t.Object({
-  id: t.Number(),
-  date: t.String(),
-  exercise_id: t.String(),
-  exercise_name: t.Union([t.String(), t.Null()]),
-  is_bodyweight: t.Union([t.Number(), t.Null()]),
-  notes: t.Union([t.String(), t.Null()]),
-  created_at: t.Union([t.String(), t.Null()]),
-  sets: t.Array(WorkoutSetSchema),
-  estimated_1rm_epley: t.Union([t.Number(), t.Null()]),
-  estimated_1rm_brzycki: t.Union([t.Number(), t.Null()]),
-  estimated_1rm: t.Union([t.Number(), t.Null()]),
-  total_volume: t.Number(),
+const WorkoutWithSetsSchema = z.object({
+  id: z.number(),
+  date: z.string(),
+  exercise_id: z.string(),
+  exercise_name: z.string().nullable(),
+  is_bodyweight: z.number().nullable(),
+  notes: z.string().nullable(),
+  created_at: z.string().nullable(),
+  sets: z.array(WorkoutSetSchema),
+  estimated_1rm_epley: z.number().nullable(),
+  estimated_1rm_brzycki: z.number().nullable(),
+  estimated_1rm: z.number().nullable(),
+  total_volume: z.number(),
 })
 
 // Bodyweight resolution for pull-ups: weight_log latest-on-or-before the workout date,
@@ -176,16 +177,16 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       }) as any
     },
     {
-      query: t.Object({
-        _start: t.Optional(t.String()),
-        _end: t.Optional(t.String()),
-        _sort: t.Optional(t.String()),
-        _order: t.Optional(t.String()),
-        exercise: t.Optional(t.String()),
-        date_from: t.Optional(t.String()),
-        date_to: t.Optional(t.String()),
+      query: z.object({
+        _start: z.string().optional(),
+        _end: z.string().optional(),
+        _sort: z.string().optional(),
+        _order: z.string().optional(),
+        exercise: z.string().optional(),
+        date_from: z.string().optional(),
+        date_to: z.string().optional(),
       }),
-      response: t.Array(WorkoutWithSetsSchema),
+      response: z.array(WorkoutWithSetsSchema),
       detail: {
         tags: ['Workouts'],
         summary: 'List workouts',
@@ -223,10 +224,10 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       return { ...row, sets, ...metrics } as any
     },
     {
-      params: t.Object({ id: t.String() }),
+      params: z.object({ id: z.string() }),
       response: {
         200: WorkoutWithSetsSchema,
-        404: t.String(),
+        404: z.string(),
       },
       detail: {
         tags: ['Workouts'],
@@ -273,22 +274,25 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       return { id: result.id }
     },
     {
-      body: t.Object({
-        date: t.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$', description: 'YYYY-MM-DD' }),
-        exercise_id: t.String(),
-        notes: t.Optional(t.String()),
-        sets: t.Array(
-          t.Object({
-            set_number: t.Number({ minimum: 1 }),
+      body: z.object({
+        date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .describe('YYYY-MM-DD'),
+        exercise_id: z.string(),
+        notes: z.string().optional(),
+        sets: z.array(
+          z.object({
+            set_number: z.number().min(1),
             set_type: SetTypeSchema,
-            weight_kg: t.Number({ minimum: 0 }),
-            reps: t.Integer({ minimum: 1 }),
+            weight_kg: z.number().min(0),
+            reps: z.number().int().min(1),
           }),
         ),
       }),
       response: {
-        201: t.Object({ id: t.Number() }),
-        400: t.String(),
+        201: z.object({ id: z.number() }),
+        400: z.string(),
       },
       detail: {
         tags: ['Workouts'],
@@ -354,26 +358,29 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       return { id: existing.id }
     },
     {
-      params: t.Object({ id: t.String() }),
-      body: t.Object({
-        date: t.Optional(t.String({ pattern: '^\\d{4}-\\d{2}-\\d{2}$' })),
-        exercise_id: t.Optional(t.String()),
-        notes: t.Optional(t.Union([t.String(), t.Null()])),
-        sets: t.Optional(
-          t.Array(
-            t.Object({
-              set_number: t.Number({ minimum: 1 }),
+      params: z.object({ id: z.string() }),
+      body: z.object({
+        date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional(),
+        exercise_id: z.string().optional(),
+        notes: z.string().nullable().optional(),
+        sets: z
+          .array(
+            z.object({
+              set_number: z.number().min(1),
               set_type: SetTypeSchema,
-              weight_kg: t.Number({ minimum: 0 }),
-              reps: t.Integer({ minimum: 1 }),
+              weight_kg: z.number().min(0),
+              reps: z.number().int().min(1),
             }),
-          ),
-        ),
+          )
+          .optional(),
       }),
       response: {
-        200: t.Object({ id: t.Number() }),
-        400: t.String(),
-        404: t.String(),
+        200: z.object({ id: z.number() }),
+        400: z.string(),
+        404: z.string(),
       },
       detail: {
         tags: ['Workouts'],
@@ -403,10 +410,10 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       return { id: Number(params.id) }
     },
     {
-      params: t.Object({ id: t.String() }),
+      params: z.object({ id: z.string() }),
       response: {
-        200: t.Object({ id: t.Number() }),
-        404: t.String(),
+        200: z.object({ id: z.number() }),
+        404: z.string(),
       },
       detail: {
         tags: ['Workouts'],

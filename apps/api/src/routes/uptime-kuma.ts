@@ -1,40 +1,41 @@
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import { z } from 'zod'
 import { uptimeKumaClient } from '../clients/uptime-kuma'
 
-const MonitorSchema = t.Object({
-  id: t.String({ description: 'UptimeKuma monitor ID' }),
-  name: t.String({ description: 'Display name' }),
-  type: t.String({ description: 'Monitor type: http, keyword, docker, push, mysql, group, …' }),
-  url: t.Union([t.String(), t.Null()], {
-    description: 'Target URL. Null for docker, group, and push monitors.',
-  }),
-  active: t.Boolean({ description: 'Whether the monitor is enabled in UptimeKuma' }),
-  status: t.Number({ description: '0=DOWN 1=UP 2=PENDING 3=MAINTENANCE' }),
-  ping: t.Union([t.Number(), t.Null()], {
-    description: 'Response latency in milliseconds. Null for docker and push monitors.',
-  }),
-  uptime1d: t.Union([t.Number(), t.Null()], {
-    description: 'Uptime ratio over last 24 h (0.0–1.0). Null until first uptime event lands.',
-  }),
-  uptime30d: t.Union([t.Number(), t.Null()], {
-    description: 'Uptime ratio over last 30 days (0.0–1.0). Null until first uptime event lands.',
-  }),
+const MonitorSchema = z.object({
+  id: z.string().describe('UptimeKuma monitor ID'),
+  name: z.string().describe('Display name'),
+  type: z.string().describe('Monitor type: http, keyword, docker, push, mysql, group, …'),
+  url: z.string().nullable().describe('Target URL. Null for docker, group, and push monitors.'),
+  active: z.boolean().describe('Whether the monitor is enabled in UptimeKuma'),
+  status: z.number().describe('0=DOWN 1=UP 2=PENDING 3=MAINTENANCE'),
+  ping: z
+    .number()
+    .nullable()
+    .describe('Response latency in milliseconds. Null for docker and push monitors.'),
+  uptime1d: z
+    .number()
+    .nullable()
+    .describe('Uptime ratio over last 24 h (0.0–1.0). Null until first uptime event lands.'),
+  uptime30d: z
+    .number()
+    .nullable()
+    .describe('Uptime ratio over last 30 days (0.0–1.0). Null until first uptime event lands.'),
 })
 
-const StatusFieldSchema = t.Union([t.Literal('warming'), t.Literal('ready'), t.Literal('stale')], {
-  description: 'warming = no data yet · ready = live · stale = last-known data, connection lost',
-})
+const StatusFieldSchema = z
+  .enum(['warming', 'ready', 'stale'])
+  .describe('warming = no data yet · ready = live · stale = last-known data, connection lost')
 
-const SnapshotSchema = t.Object({
+const SnapshotSchema = z.object({
   status: StatusFieldSchema,
-  lastUpdatedAt: t.Union([t.String(), t.Null()], {
-    description: 'ISO timestamp of latest event applied to in-memory state',
-  }),
-  staleSince: t.Union([t.String(), t.Null()], {
-    description: 'ISO timestamp of last disconnect; null while ready',
-  }),
-  lastError: t.Union([t.String(), t.Null()]),
-  monitors: t.Array(MonitorSchema),
+  lastUpdatedAt: z
+    .string()
+    .nullable()
+    .describe('ISO timestamp of latest event applied to in-memory state'),
+  staleSince: z.string().nullable().describe('ISO timestamp of last disconnect; null while ready'),
+  lastError: z.string().nullable(),
+  monitors: z.array(MonitorSchema),
 })
 
 export const uptimeKumaRoutes = new Elysia({ prefix: '/uptime-kuma' })
@@ -68,15 +69,15 @@ export const uptimeKumaRoutes = new Elysia({ prefix: '/uptime-kuma' })
       }
     },
     {
-      response: t.Object({
+      response: z.object({
         status: StatusFieldSchema,
-        lastUpdatedAt: t.Union([t.String(), t.Null()]),
-        staleSince: t.Union([t.String(), t.Null()]),
-        lastError: t.Union([t.String(), t.Null()]),
-        up: t.Number(),
-        down: t.Number(),
-        maintenance: t.Number(),
-        total: t.Number(),
+        lastUpdatedAt: z.string().nullable(),
+        staleSince: z.string().nullable(),
+        lastError: z.string().nullable(),
+        up: z.number(),
+        down: z.number(),
+        maintenance: z.number(),
+        total: z.number(),
       }),
       detail: {
         tags: ['UptimeKuma'],

@@ -1,6 +1,7 @@
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import { z } from 'zod'
 
 export const healthRoute = new Elysia().get('/health', () => ({ status: 'ok' as const }), {
-  response: t.Object({ status: t.Literal('ok') }),
+  response: z.object({ status: z.literal('ok') }),
   detail: { tags: ['System'], summary: 'Health check' },
 })
