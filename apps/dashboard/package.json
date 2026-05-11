@@ -12,6 +12,7 @@
   "dependencies": {
     "@argo/charts": "workspace:*",
     "@elysiajs/eden": "^1.4.9",
+    "@hyperdx/browser": "^0.23.0",
     "@mantine/core": "^9.2.0",
     "@mantine/dates": "^9.2.0",
     "@mantine/form": "^9.2.0",
