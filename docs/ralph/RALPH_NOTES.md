@@ -204,3 +204,38 @@ None — visual verification required in dev. `charts-smoke.tsx` at `/charts-smo
 - The `charts-smoke.tsx` route should be deleted in Group 11 (prune pass) once charts are wired into real pages (Groups 8 + 9).
 - The `VxBridge` component assumes `colorScheme === 'auto'` defaults to `'dark'`. Could be improved to read `window.matchMedia('(prefers-color-scheme: dark)')` for more accurate auto-resolution.
 - `@visx/tooltip` restriction should be extended to `packages/charts/src/**` in Group 10's oxlint pass (currently only applies to `apps/dashboard/src/**`).
+
+## Group 7: API schema lib swap (TypeBox → Zod) + OpenAPI plugin
+
+### What was implemented
+
+Replaced `@elysiajs/swagger` with `@elysiajs/openapi` configured with `mapJsonSchema: { zod: z.toJSONSchema }`. Migrated all 18 route files from TypeBox `t.*` to Zod `z.*` via Standard Schema — zero TypeBox usages remain in `apps/api/src/`. Added `detail: { summary, description, tags, security }` to every route. Created `apps/api/.claude/rules/elysia-zod.md` documenting Argo-specific constraints and known `@elysiajs/openapi` degradations. OpenAPI Scalar UI now at `/openapi`; JSON spec at `/openapi/json`; `/openapi.json` redirects to `/openapi/json`.
+
+### Deviations from PRD
+
+- **`path` not explicitly set in `openapi({})`** — default is `/openapi` per the plugin docs, which matches what the validation commands expect. Explicitly setting `path: '/openapi'` would be equivalent but redundant.
+- **Tags in OpenAPI config use short lowercase names** (`workouts`, `daily-metrics`, etc.) per the PRD spec but route `detail.tags` still use legacy mixed-case names (`Workouts`, `Daily Metrics`, etc.) from before Group 7. These mismatched names were pre-existing and not in scope for Group 7. A future group can align them.
+- **Pre-existing lint warnings not fixed** — `no-underscore-dangle` on `_start/_end/_sort/_order` query params and `no-array-sort` in `summary.ts` are pre-existing from the Refine-style pagination era. Group 8 will rename these when implementing the page/limit convention.
+
+### Gotchas & surprises
+
+- **`mapJsonSchema: { zod: z.toJSONSchema }` is mandatory for Zod v4** — without it `@elysiajs/openapi` produces empty schemas in the Scalar UI. The key is the Zod v4 static method `z.toJSONSchema`, not a third-party converter like `zod-to-json-schema` (which was used for Zod v3).
+- **Literal union serialization bug** — `z.union([z.literal('a'), z.literal('b')])` produces malformed OpenAPI output from `@elysiajs/openapi`. Always use `z.enum(['a', 'b'])` instead. Object unions (`z.union([z.object({...}), z.object({...})])`) are fine.
+- **`z.passthrough()` for additional-properties bodies** — TypeBox's `t.Object({...}, { additionalProperties: true })` translates to `z.object({...}).passthrough()` in Zod. Used for TickTick task create/update bodies that forward arbitrary extra fields.
+- **`z.unknown()` for opaque fields** — TypeBox's `t.Any()` becomes `z.unknown()`. Serializes to `{}` (any type) in the OpenAPI JSON Schema, which is correct for TickTick response envelopes.
+- **`@elysiajs/openapi` default path is `/openapi`** — docs at `/openapi`, JSON spec at `/openapi/json`. The old `@elysiajs/swagger` path was `/docs` with JSON at `/docs/json`. Updated the `/openapi.json` redirect accordingly.
+- **Pre-commit hook produces warnings from pre-existing code** — `no-underscore-dangle` fires on `_start/_end/_sort/_order` params in all migrated route files. These were pre-existing in the TypeBox era too but not staged for earlier commits. Hook returns exit 0 (warnings only), commit succeeds.
+
+### Security notes
+
+No secrets touched. `mapJsonSchema` and OpenAPI plugin configuration contain no credentials. All existing `process.env['X']` bracket-notation access preserved.
+
+### Tests added
+
+None — Group 7 is a tooling swap with identical runtime behavior. Validation gate: `bun --cwd apps/api typecheck` passes, `bun run lint` clean (warnings pre-existing), `bun run format:check` clean, zero TypeBox usages confirmed via grep.
+
+### Future improvements
+
+- Align `detail.tags` in route handlers with the OpenAPI-level tag names (currently route-level tags use mixed-case, plugin-level tags use lowercase).
+- Pre-existing `no-underscore-dangle` warnings on `_start/_end/_sort/_order` will disappear naturally in Group 8 when these params are renamed to `page/limit/sort/order`.
+- Consider adding `response: withHeader(z.array(...), { 'x-total-count': z.string() })` from `@elysiajs/openapi` to document the pagination header on list endpoints. Currently the header is set manually but not declared in the OpenAPI spec.
