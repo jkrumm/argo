@@ -2,13 +2,14 @@
   "name": "argo",
   "private": true,
   "workspaces": [
+    "apps/*",
     "packages/*"
   ],
   "scripts": {
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
-    "format": "oxfmt 'packages/**' '!**/generated/**' '!**/dist/**' --write",
-    "format:check": "oxfmt 'packages/**' '!**/generated/**' '!**/dist/**' --check"
+    "format": "oxfmt 'apps/**' 'packages/**' '!**/generated/**' '!**/dist/**' --write",
+    "format:check": "oxfmt 'apps/**' 'packages/**' '!**/generated/**' '!**/dist/**' --check"
   },
   "devDependencies": {
     "oxfmt": "^0.45.0",

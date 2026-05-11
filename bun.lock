@@ -9,7 +9,7 @@
         "oxlint": "^1.60.0",
       },
     },
-    "packages/api": {
+    "apps/api": {
       "name": "@argo/api",
       "version": "0.1.0",
       "dependencies": {
@@ -91,7 +91,7 @@
 
     "@ant-design/v5-patch-for-react-19": ["@ant-design/v5-patch-for-react-19@1.0.3", "", { "peerDependencies": { "antd": ">=5.22.6", "react": ">=19.0.0", "react-dom": ">=19.0.0" } }, "sha512-iWfZuSUl5kuhqLUw7jJXUQFMMkM7XpW7apmKzQBQHU0cpifYW4A79xIBt9YVO5IBajKpPG5UKP87Ft7Yrw1p/w=="],
 
-    "@argo/api": ["@argo/api@workspace:packages/api"],
+    "@argo/api": ["@argo/api@workspace:apps/api"],
 
     "@argo/dashboard": ["@argo/dashboard@workspace:packages/dashboard"],
 

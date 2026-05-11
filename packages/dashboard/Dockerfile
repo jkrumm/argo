@@ -7,13 +7,13 @@ ENV VITE_API_URL=$VITE_API_URL
 
 COPY package.json bun.lock ./
 COPY packages/dashboard/package.json ./packages/dashboard/
-COPY packages/api/package.json ./packages/api/
+COPY apps/api/package.json ./apps/api/
 
 RUN bun install
 
 # API src needed for @argo/api type resolution (type-only, stripped at build)
-COPY packages/api/src/ ./packages/api/src/
-COPY packages/api/tsconfig.json ./packages/api/
+COPY apps/api/src/ ./apps/api/src/
+COPY apps/api/tsconfig.json ./apps/api/
 COPY packages/dashboard/ ./packages/dashboard/
 
 WORKDIR /app/packages/dashboard

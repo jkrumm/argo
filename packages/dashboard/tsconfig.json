@@ -14,7 +14,7 @@
     "strict": true,
     "types": ["bun-types"],
     "paths": {
-      "@argo/api": ["../api/src/index.ts"]
+      "@argo/api": ["../../apps/api/src/index.ts"]
     }
   },
   "include": ["src", "vite.config.ts"]
