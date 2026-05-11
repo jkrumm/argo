@@ -12,6 +12,7 @@
     "format:check": "oxfmt 'apps/**' 'packages/**' '!**/generated/**' '!**/dist/**' --check"
   },
   "devDependencies": {
+    "lefthook": "^2.1.6",
     "oxfmt": "^0.45.0",
     "oxlint": "^1.60.0"
   }
