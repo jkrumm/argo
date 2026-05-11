@@ -339,3 +339,32 @@ None in this group. The env validation itself is the safeguard (fail-fast on boo
 - Migrate outbound `clients/*` fetch calls (garmin-collector, slack, ticktick, google, uptime-kuma) to wrapped traced fetch. Left as a TODO per PRD Group 7 item 5.
 - Add `OTEL_SERVICE_VERSION` population from `package.json` version at build time (currently defaults to `'0.0.0'`).
 - Consider adding `pgInstrumentation` from `@opentelemetry/instrumentation-pg` for Drizzle/postgres.js query-level spans. Requires the instrumentation to load before `postgres` is imported — use the preload pattern documented in the elysia opentelemetry plugin reference.
+
+## Group 11: Garmin Health page rebuild
+
+### What was implemented
+
+Rebuilt `apps/dashboard/src/routes/garmin-health.tsx` from a client-side aggregation stub to a full server-driven Mantine + TanStack page consuming the two server-computed endpoints from Group 10.
+
+- `apps/dashboard/src/lib/queries/daily-metrics.ts` — new query factory (`dailyMetricsQueries.summary` + `.series`) using `queryOptions` + Eden Treaty `unwrap` helper
+- `apps/dashboard/src/lib/eden.ts` — added `unwrap<T>()` to centralize error/null handling for treaty responses
+- `apps/dashboard/src/routes/garmin-health.tsx` — full rebuild: Zod search params (`window`, `from`, `to`), TanStack Router loader with `ensureQueryData`, `useSuspenseQuery`, four `ZonedLine` charts with zones/refLines, `HoverContext.Provider` for cross-chart hover sync, `SegmentedControl` + `DatePickerInput` for window/date filtering with URL sync
+- `apps/dashboard/src/routes/index.tsx` — updated redirect to include required `search: { window: '30d' }` param
+
+### Non-obvious lessons
+
+- **Mantine v9 date strings**: `DatePickerInput` in Mantine v9 uses `DateStringValue = string` (format `YYYY-MM-DD`) — not `Date` objects — for both `value` and `onChange`. The `onChange` type is `(value: DatesRangeValue<string>) => void` = `[string | null, string | null]`. No conversion to/from `Date` is needed; pass `search.from ?? null` / `search.to ?? null` directly as the value.
+- **`useElementSize` over `ParentSize`**: `@visx/responsive` (`ParentSize`) is not in the dashboard's deps. `useElementSize<HTMLDivElement>()` from `@mantine/hooks` is the correct responsive chart sizing tool — wrap in a `ChartContainer` render-prop component to pass `width` into each chart.
+- **TanStack Router redirect needs `search`**: When a route has `validateSearch` with required (or defaulted) params, a `redirect({ to: ... })` in a sibling route must include `search` — otherwise TS raises a `MakeRequiredSearchParams` error. Pass `{ window: '30d' as const }`.
+- **`unicorn(consistent-function-scoping)` lint rule**: Arrow functions defined inside a component that don't close over any local variables must be moved to module scope. Formatter/linter catches this — structure helpers like `fmtMetric` outside the component.
+- **Search reducer type vs route schema**: In a TanStack Router `navigate` search reducer `(prev) => ({ ...prev, ... })`, spreading `prev` returns fields with their inferred types from the router, which can include `| undefined` even for params with Zod defaults. If the route schema has `window` required (defaulted by Zod), use a plain search object (`{ window: search.window, from, to }`) instead of a reducer to avoid the `| undefined` assignability error.
+- **`yAutoMinCeil={Infinity}`**: For HRV and resting HR charts, pass `yAutoMinCeil={Infinity}` to prevent `ZonedLine`'s auto y-axis from forcing a 0 lower bound. Heart rate values live in 35–100 bpm — a 0 floor wastes most of the chart height.
+
+### Tests added
+
+None — server endpoints and data contracts are validated by TypeScript types via Eden Treaty.
+
+### Future improvements
+
+- Add `steps` and `activeKcal` chart panels (already in the series response, just not surfaced in this group).
+- Connect `DatePickerInput` clear button to reset `from`/`to` to `undefined` in URL (currently `null` strings are passed; should map null to `undefined`).
