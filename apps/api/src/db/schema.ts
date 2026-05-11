@@ -1,20 +1,21 @@
-import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
-import { sql } from 'drizzle-orm'
+import { pgSchema, text, integer, bigint, real, timestamp, index } from 'drizzle-orm/pg-core'
+
+const argoSchema = pgSchema('argo')
 
 // ── Exercises reference table ────────────────────────────────────────────────
 
-export const exercises = sqliteTable('exercises', {
+export const exercises = argoSchema.table('exercises', {
   id: text('id').primaryKey(), // "bench_press" | "squat" | "deadlift" | "pull_ups"
   name: text('name').notNull(), // "Bench Press"
   category: text('category').notNull(), // "push" | "pull" | "legs" | "hinge"
-  muscle_group: text('muscle_group').notNull(), // "chest" | "back" | "quads" | "glutes" | "posterior"
-  is_bodyweight: integer('is_bodyweight').default(0),
+  muscle_group: text('muscle_group').notNull(), // "chest" | "back" | "quads" | "posterior"
+  is_bodyweight: integer('is_bodyweight').default(0), // 0 | 1 (kept as int for response compat)
   display_order: integer('display_order').default(0),
 })
 
-// ── Garmin daily metrics (auto-synced via garmin-sync cron) ─────────
+// ── Garmin daily metrics (auto-synced via garmin-sync cron) ─────────────────
 
-export const dailyMetrics = sqliteTable('daily_metrics', {
+export const dailyMetrics = argoSchema.table('daily_metrics', {
   date: text('date').primaryKey(), // yyyy-mm-dd
 
   // Activity
@@ -67,91 +68,99 @@ export const dailyMetrics = sqliteTable('daily_metrics', {
   vo2_max: real('vo2_max'),
 
   // Meta
-  completed: integer('completed').default(0), // 0 = partial, 1 = full 24h
-  synced_at: text('synced_at'),
+  completed: integer('completed').default(0), // 0 = partial, 1 = full 24h (int for response compat)
+  synced_at: text('synced_at'), // ISO string set from application layer
 })
 
-// ── Garmin activities (per-workout, auto-synced via garmin-sync) ──
+// ── Garmin activities (per-workout, auto-synced via garmin-sync) ─────────────
 
-export const garminActivities = sqliteTable('garmin_activities', {
-  activity_id: integer('activity_id').primaryKey(), // Garmin's own id
-  date: text('date').notNull(), // yyyy-mm-dd, derived from start_time_local
-  start_time_local: text('start_time_local').notNull(),
-  type_key: text('type_key').notNull(), // cycling | indoor_cardio | tennis_v2 | running | …
-  activity_name: text('activity_name'),
-  duration_sec: real('duration_sec'),
-  distance_m: real('distance_m'),
-  calories: integer('calories'),
-  avg_hr: integer('avg_hr'),
-  max_hr: integer('max_hr'),
-  aerobic_te: real('aerobic_te'),
-  anaerobic_te: real('anaerobic_te'),
-  training_effect_label: text('training_effect_label'), // AEROBIC_BASE | ANAEROBIC_CAPACITY | SPEED | RECOVERY | UNKNOWN
-  training_load: real('training_load'),
-  moderate_intensity_min: integer('moderate_intensity_min'),
-  vigorous_intensity_min: integer('vigorous_intensity_min'),
-  hr_zone_1_sec: real('hr_zone_1_sec'),
-  hr_zone_2_sec: real('hr_zone_2_sec'),
-  hr_zone_3_sec: real('hr_zone_3_sec'),
-  hr_zone_4_sec: real('hr_zone_4_sec'),
-  hr_zone_5_sec: real('hr_zone_5_sec'),
-  bb_delta: integer('bb_delta'), // differenceBodyBattery (typically negative)
-  steps: integer('steps'),
-  vo2_max: real('vo2_max'),
-  synced_at: text('synced_at'),
-})
+export const garminActivities = argoSchema.table(
+  'garmin_activities',
+  {
+    activity_id: bigint('activity_id', { mode: 'number' }).primaryKey(), // Garmin's own id (>int32)
+    date: text('date').notNull(), // yyyy-mm-dd, derived from start_time_local
+    start_time_local: text('start_time_local').notNull(),
+    type_key: text('type_key').notNull(), // cycling | indoor_cardio | tennis_v2 | running | …
+    activity_name: text('activity_name'),
+    duration_sec: real('duration_sec'),
+    distance_m: real('distance_m'),
+    calories: integer('calories'),
+    avg_hr: real('avg_hr'), // stored as average from Garmin, can be fractional
+    max_hr: integer('max_hr'),
+    aerobic_te: real('aerobic_te'),
+    anaerobic_te: real('anaerobic_te'),
+    training_effect_label: text('training_effect_label'), // AEROBIC_BASE | RECOVERY | SPEED | …
+    training_load: real('training_load'),
+    moderate_intensity_min: integer('moderate_intensity_min'),
+    vigorous_intensity_min: integer('vigorous_intensity_min'),
+    hr_zone_1_sec: real('hr_zone_1_sec'),
+    hr_zone_2_sec: real('hr_zone_2_sec'),
+    hr_zone_3_sec: real('hr_zone_3_sec'),
+    hr_zone_4_sec: real('hr_zone_4_sec'),
+    hr_zone_5_sec: real('hr_zone_5_sec'),
+    bb_delta: integer('bb_delta'), // differenceBodyBattery (typically negative)
+    steps: integer('steps'),
+    vo2_max: real('vo2_max'),
+    synced_at: text('synced_at'), // ISO string set from application layer
+  },
+  (t) => [index('idx_garmin_activities_date').on(t.date)],
+)
 
-// ── Garmin sync control (cross-process flag table) ─────────────────
+// ── Garmin sync control (cross-process flag table, single row id=1) ──────────
 
-export const syncControl = sqliteTable('sync_control', {
+export const syncControl = argoSchema.table('sync_control', {
   id: integer('id').primaryKey().default(1),
-  refresh_requested: integer('refresh_requested').default(0),
-  requested_at: text('requested_at'),
-  in_progress: integer('in_progress').default(0),
-  last_started_at: text('last_started_at'),
-  last_completed_at: text('last_completed_at'),
+  refresh_requested: integer('refresh_requested').default(0), // 0 | 1
+  requested_at: text('requested_at'), // ISO string
+  in_progress: integer('in_progress').default(0), // 0 | 1
+  last_started_at: text('last_started_at'), // ISO string
+  last_completed_at: text('last_completed_at'), // ISO string
   last_status: text('last_status'), // 'ok' | 'error'
   last_message: text('last_message'),
 })
 
-// ── Weight log (manual entries) ─────────────────────────────────────
+// ── Weight log (manual entries) ──────────────────────────────────────────────
 
-export const weightLog = sqliteTable('weight_log', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const weightLog = argoSchema.table('weight_log', {
+  id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
   date: text('date').notNull(),
   weight_kg: real('weight_kg').notNull(),
-  created_at: text('created_at').default(sql`(datetime('now'))`),
+  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 })
 
-// ── User profile (single row, static body data) ────────────────────
+// ── User profile (single row id=1, static body data) ────────────────────────
 
-export const userProfile = sqliteTable('user_profile', {
+export const userProfile = argoSchema.table('user_profile', {
   id: integer('id').primaryKey().default(1),
   height_cm: real('height_cm'),
   birth_date: text('birth_date'), // yyyy-mm-dd
   gender: text('gender'), // male | female
   goal_weight_kg: real('goal_weight_kg'),
-  updated_at: text('updated_at').default(sql`(datetime('now'))`),
+  updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 })
 
-// ── Workouts ────────────────────────────────────────────────────────
+// ── Workouts ─────────────────────────────────────────────────────────────────
 
-export const workouts = sqliteTable('workouts', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const workouts = argoSchema.table('workouts', {
+  id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
   date: text('date').notNull(),
   exercise_id: text('exercise_id').notNull(),
   notes: text('notes'),
-  created_at: text('created_at').default(sql`(datetime('now'))`),
+  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 })
 
-export const workoutSets = sqliteTable('workout_sets', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  workout_id: integer('workout_id')
-    .notNull()
-    .references(() => workouts.id, { onDelete: 'cascade' }),
-  set_number: integer('set_number').notNull(),
-  set_type: text('set_type').notNull(),
-  weight_kg: real('weight_kg').notNull(),
-  reps: integer('reps').notNull(),
-  created_at: text('created_at').default(sql`(datetime('now'))`),
-})
+export const workoutSets = argoSchema.table(
+  'workout_sets',
+  {
+    id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
+    workout_id: integer('workout_id')
+      .notNull()
+      .references(() => workouts.id, { onDelete: 'cascade' }),
+    set_number: integer('set_number').notNull(),
+    set_type: text('set_type').notNull(),
+    weight_kg: real('weight_kg').notNull(),
+    reps: integer('reps').notNull(),
+    created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+  },
+  (t) => [index('idx_workout_sets_workout_id').on(t.workout_id)],
+)
