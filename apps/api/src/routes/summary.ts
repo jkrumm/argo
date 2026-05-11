@@ -1,5 +1,6 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
+import { env } from '../env.js'
 import { uptimeKumaClient } from '../clients/uptime-kuma.js'
 import { ticktickOps } from '../clients/ticktick.js'
 import type { Project, Task } from '../generated/ticktick/types.gen.js'
@@ -228,9 +229,8 @@ export const summaryRoute = new Elysia().get(
         .map((m) => ({ name: m.name, type: m.type, uptime1d: m.uptime1d })),
     }
 
-    const dockerHomelabUrl =
-      process.env['DOCKER_HOMELAB_URL'] ?? `http://${process.env['HOMELAB_TAILSCALE_IP']}:2376`
-    const dockerVpsUrl = process.env['DOCKER_VPS_URL'] ?? 'http://socket-proxy-monitoring:2375'
+    const dockerHomelabUrl = env.DOCKER_HOMELAB_URL || `http://${env.HOMELAB_TAILSCALE_IP}:2376`
+    const dockerVpsUrl = env.DOCKER_VPS_URL
     const [dockerHLResult, dockerVPSResult, ticktickResult] = await Promise.allSettled([
       withTimeout(fetchDockerSummary(dockerHomelabUrl), 10_000, 'dockerHomelab'),
       withTimeout(fetchDockerSummary(dockerVpsUrl), 10_000, 'dockerVps'),

@@ -1,8 +1,9 @@
 import { io, type Socket } from 'socket.io-client'
+import { env } from '../env.js'
 
-const UPTIME_KUMA_URL = process.env['UPTIME_KUMA_URL'] ?? ''
-const UPTIME_KUMA_USERNAME = process.env['UPTIME_KUMA_USERNAME'] ?? 'admin'
-const UPTIME_KUMA_PASSWORD = process.env['UPTIME_KUMA_PASSWORD'] ?? ''
+const UPTIME_KUMA_URL = env.UPTIME_KUMA_URL
+const UPTIME_KUMA_USERNAME = env.UPTIME_KUMA_USERNAME
+const UPTIME_KUMA_PASSWORD = env.UPTIME_KUMA_PASSWORD
 
 export interface UptimeMonitor {
   id: string

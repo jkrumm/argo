@@ -1,8 +1,12 @@
+import { trace, SpanStatusCode } from '@opentelemetry/api'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
+import { opentelemetry } from '@elysiajs/opentelemetry'
 import { bearer } from '@elysiajs/bearer'
 import { openapi } from '@elysiajs/openapi'
 import { cors } from '@elysiajs/cors'
+import { env } from './env.js'
+import { telemetryConfig } from './telemetry.js'
 import { healthRoute } from './routes/health.js'
 import { ticktickRoutes } from './routes/ticktick.js'
 import { uptimeKumaRoutes } from './routes/uptime-kuma.js'
@@ -26,17 +30,27 @@ import { runMigrations } from './db/index.js'
 
 await runMigrations()
 
-const SECRET = process.env['API_SECRET']
-if (!SECRET) throw new Error('API_SECRET env var is not set')
-
 const authGuard = new Elysia({ name: 'auth' }).use(bearer()).onBeforeHandle(({ bearer, set }) => {
-  if (!bearer || bearer !== SECRET) {
+  if (!bearer || bearer !== env.API_SECRET) {
     set.status = 401
     return 'Unauthorized'
   }
 })
 
 export const app = new Elysia()
+  .use(
+    opentelemetry({
+      ...telemetryConfig,
+      checkIfShouldTrace: (req) => !req.url.includes('/health'),
+    }),
+  )
+  .onError(({ error }) => {
+    const span = trace.getActiveSpan()
+    if (span) {
+      span.recordException(error as Error)
+      span.setStatus({ code: SpanStatusCode.ERROR, message: String(error) })
+    }
+  })
   .use(
     cors({
       origin: ['https://argo.jkrumm.com', 'http://localhost:5173'],

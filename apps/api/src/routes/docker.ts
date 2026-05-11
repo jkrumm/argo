@@ -1,5 +1,6 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
+import { env } from '../env.js'
 
 interface DockerContainer {
   Id: string
@@ -351,15 +352,12 @@ function createDockerRoutes(proxyUrl: string, tag: string) {
 // API runs on the VPS now; reaches homelab Docker over Tailscale VPN.
 export const dockerHomelabRoutes = new Elysia({ prefix: '/docker/homelab' }).use(
   createDockerRoutes(
-    process.env['DOCKER_HOMELAB_URL'] ?? `http://${process.env['HOMELAB_TAILSCALE_IP']}:2376`,
+    env.DOCKER_HOMELAB_URL || `http://${env.HOMELAB_TAILSCALE_IP}:2376`,
     'Docker - HomeLab',
   ),
 )
 
 // VPS: read-only socket-proxy-monitoring on VPS internal Docker network (API is local now).
 export const dockerVpsRoutes = new Elysia({ prefix: '/docker/vps' }).use(
-  createDockerRoutes(
-    process.env['DOCKER_VPS_URL'] ?? 'http://socket-proxy-monitoring:2375',
-    'Docker - VPS',
-  ),
+  createDockerRoutes(env.DOCKER_VPS_URL, 'Docker - VPS'),
 )

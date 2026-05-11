@@ -1,16 +1,16 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
 import { join } from 'path'
+import { env } from '../env.js'
 
-const CLIENT_ID = process.env['GOOGLE_CLIENT_ID'] ?? ''
-const CLIENT_SECRET = process.env['GOOGLE_CLIENT_SECRET'] ?? ''
-const REDIRECT_URI =
-  process.env['GOOGLE_OAUTH_REDIRECT_URI'] ?? 'https://argo.jkrumm.com/api/oauth/google/callback'
+const CLIENT_ID = env.GOOGLE_CLIENT_ID
+const CLIENT_SECRET = env.GOOGLE_CLIENT_SECRET
+const REDIRECT_URI = env.GOOGLE_OAUTH_REDIRECT_URI
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/calendar.readonly',
 ].join(' ')
 
-const DATA_DIR = process.env['DATA_DIR'] ?? './data'
+const DATA_DIR = env.DATA_DIR
 const TOKEN_FILE = join(DATA_DIR, 'oauth-tokens.json')
 
 interface GoogleTokens {

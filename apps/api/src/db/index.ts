@@ -2,13 +2,14 @@ import postgres from 'postgres'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import * as schema from './schema.js'
-
-const rawUrl = process.env['DATABASE_URL'] ?? ''
-if (!rawUrl) throw new Error('DATABASE_URL env var is not set')
+import { env } from '../env.js'
 
 // Strip ?schema= / ?search_path= params — postgres.js does not understand them;
 // pgSchema() handles schema qualification at the query level.
-const DATABASE_URL = rawUrl.replace(/[?&](?:schema|search_path)=[^&]*/g, '').replace(/[?&]$/, '')
+const DATABASE_URL = env.DATABASE_URL.replace(/[?&](?:schema|search_path)=[^&]*/g, '').replace(
+  /[?&]$/,
+  '',
+)
 
 export const client = postgres(DATABASE_URL)
 export const db = drizzle(client, { schema })
