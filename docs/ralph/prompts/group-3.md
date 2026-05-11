@@ -64,11 +64,11 @@ Run `db:generate` once locally; commit `drizzle/0000_init.sql`. The generated SQ
 
 ### 5. Dev container
 
-Create `apps/api/docker-compose.dev.yml`: Postgres 16, host port 5433 (avoids collision), named volume `argo_pg_dev`, `POSTGRES_DB=argo`, `POSTGRES_USER=argo`, `POSTGRES_PASSWORD=argo` (dev only — not the production password). Add a Makefile target (`apps/api/Makefile` or root) for `make db-up` / `make db-down` / `make db-reset`.
+Create `apps/api/docker-compose.dev.yml`: Postgres 16, host port 5433 (avoids collision), named volume `argo_pg_dev`, `POSTGRES_DB=argo`, `POSTGRES_USER=argo`, `POSTGRES_PASSWORD: ${ARGO_DB_PASSWORD}` (env-interpolated — same password as production, sourced from `op://vps/argo/DB_PASSWORD` via the runner's pre-fetched `.ralph-secrets.env` exported into the loop's environment). Add a Makefile target (`apps/api/Makefile` or root) for `make db-up` / `make db-down` / `make db-reset` — each target sources `.ralph-secrets.env` before invoking docker compose, so a developer running the targets manually also gets the password.
 
-Create `apps/api/.env.local.tpl` with `DATABASE_URL="postgres://argo:argo@localhost:5433/argo"` for dev and a placeholder line for prod (`# prod: op://vps/argo/DB_PASSWORD`).
+Create `apps/api/.env.local.tpl` with `DATABASE_URL="postgres://argo:${ARGO_DB_PASSWORD}@localhost:5433/argo"` for dev and a placeholder line for prod (`# prod: op://vps/argo/DB_PASSWORD`).
 
-Document `bun --cwd apps/api db:migrate && bun --cwd apps/api start` (or `op run … bun --cwd apps/api start`) in `apps/api/CLAUDE.md`.
+Document `make db-up && bun --cwd apps/api db:migrate && bun --cwd apps/api start` for local dev in `apps/api/CLAUDE.md`. Note that production uses `op run --account tkrumm` against `op://vps/argo/DB_PASSWORD` at deploy time — but that's a Group 14 concern.
 
 ### 6. Data migration script
 
@@ -83,29 +83,28 @@ Create `apps/api/scripts/migrate-sqlite-to-pg.ts`. It:
 
 Add a script entry: `"db:migrate-from-sqlite": "bun run scripts/migrate-sqlite-to-pg.ts"`.
 
-### 7. Snapshot production SQLite locally + run the migration
+### 7. Run the migration against the pre-downloaded SQLite
 
-Download a fresh copy of the production SQLite file and run the migration script against it. After this step, local Postgres holds real data and every later group (summary endpoints, Garmin page, Strength page) develops against realistic content instead of empty tables. This also exercises the migration script before cutover, shrinking Group 11's risk surface.
+The production SQLite snapshot was downloaded during ralph setup and lives at `apps/api/data/homelab.db` (Group 1's `git mv` of `packages/api` → `apps/api` carries the `data/` dir with it). **Do not re-download.** If you need a fresher snapshot later, the one-liner is `ssh vps "sudo cat /var/lib/argo/data/homelab.db" > apps/api/data/homelab.db` — but not as part of this group.
+
+**No `op run` is needed for local dev.** Local Postgres uses hardcoded dev credentials (`postgres://argo:${ARGO_DB_PASSWORD}@localhost:5433/argo`). The `.env.local.tpl` you create in Step 6 lists this directly — no `op://` references for local. Production secrets are only consumed during the Group 14 cutover.
 
 ```bash
-# Production SQLite lives at /var/lib/argo/data/homelab.db on the VPS.
-# VPS has NOPASSWD sudo (see ~/SourceRoot/CLAUDE.md), so:
-mkdir -p apps/api/data
-ssh vps "sudo cat /var/lib/argo/data/homelab.db" > apps/api/data/homelab.db
-ls -lh apps/api/data/homelab.db   # sanity-check size
+ls -lh apps/api/data/homelab.db   # sanity-check the snapshot exists (~68KB)
 
-# Bring up local Postgres (Step 6) if not already running, then:
-op run --account tkrumm --env-file=apps/api/.env.local.tpl -- \
-  bun --cwd apps/api db:migrate
-op run --account tkrumm --env-file=apps/api/.env.local.tpl -- \
+# Bring up local Postgres (Step 6) if not already running:
+make db-up   # or: docker compose -f apps/api/docker-compose.dev.yml up -d
+
+# Apply migrations + import data:
+DATABASE_URL="$ARGO_LOCAL_DATABASE_URL" bun --cwd apps/api db:migrate
+DATABASE_URL="$ARGO_LOCAL_DATABASE_URL" \
+  SQLITE_PATH=./apps/api/data/homelab.db \
   bun --cwd apps/api run scripts/migrate-sqlite-to-pg.ts
 ```
 
-The script logs per-table SQLite-vs-Postgres row counts and exits non-zero on mismatch. **Validate counts match before considering Step 7 done.**
+The script logs per-table SQLite-vs-Postgres row counts and exits non-zero on mismatch. **Validate counts match before considering Step 7 done.** Record the counts in `docs/ralph/RALPH_NOTES.md` as a baseline for Group 14's cutover verification.
 
-The downloaded SQLite is a frozen snapshot (production cron keeps writing on the VPS until cutover). That is fine for dev — the goal is realistic data shapes + volumes, not live sync. Re-running the snapshot+migrate cycle later picks up new data idempotently (the script's `ON CONFLICT DO NOTHING`).
-
-Add `apps/api/data/homelab.db` to `.gitignore` (alongside the existing `/packages/api/data/` entry that this group's Group-1 move should already have shifted to `/apps/api/data/`).
+`.gitignore` already excludes `/apps/api/data/` so the snapshot never enters git.
 
 ### 8. Prod compose env (do NOT trigger a deploy)
 
@@ -129,8 +128,8 @@ make db-up || docker compose -f apps/api/docker-compose.dev.yml up -d
 # Snapshot prod SQLite (Step 7) — only re-run if you want fresher data
 [ -f apps/api/data/homelab.db ] || ssh vps "sudo cat /var/lib/argo/data/homelab.db" > apps/api/data/homelab.db
 
-op run --account tkrumm --env-file=apps/api/.env.local.tpl -- bun --cwd apps/api db:migrate
-op run --account tkrumm --env-file=apps/api/.env.local.tpl -- bun --cwd apps/api run scripts/migrate-sqlite-to-pg.ts
+DATABASE_URL="$ARGO_LOCAL_DATABASE_URL" bun --cwd apps/api db:migrate
+DATABASE_URL="$ARGO_LOCAL_DATABASE_URL" SQLITE_PATH=./apps/api/data/homelab.db bun --cwd apps/api run scripts/migrate-sqlite-to-pg.ts
 
 # Boot api against the migrated DB and smoke every surface
 bun --cwd apps/api start &

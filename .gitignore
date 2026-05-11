@@ -14,3 +14,7 @@ node_modules/
 # RALPH loop state + logs
 .ralph-tasks.json
 .ralph-logs/
+.ralph-secrets.env
+
+# data snapshots (sqlite copies for migration)
+/apps/api/data/
