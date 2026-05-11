@@ -64,3 +64,36 @@ None (Group 1 is a structural move only).
 
 - The legacy dashboard `Dockerfile` still copies `apps/api/src/` for type resolution. Group 11 prune will remove this once `packages/dashboard` is deleted.
 - `oxlint` reports 41 pre-existing warnings (generated ticktick code, legacy `_start/_end/_sort/_order` route params, `no-underscore-dangle` in chart internals). These predate Group 1; plan to address in Group 10 (lint/tooling pass).
+
+## Group 3: Postgres migration (driver + schema + data + dev)
+
+### What was implemented
+
+Swapped persistence from Bun-SQLite to Postgres via `postgres.js` + `drizzle-orm/postgres-js`, all 8 tables ported under a dedicated `argo` `pgSchema`. Integer PKs converted to `generatedByDefaultAsIdentity`; `garmin_activities.id` widened to `bigint`; timestamp columns use `timestamp({ withTimezone: true, mode: 'string' })` so the wire format remains ISO strings (no behavioral diff for the dashboard). Routes updated for Postgres SQL idioms (`now()` instead of `datetime('now')`, `client.unsafe(...)` for the dynamic query route). Local dev runs Postgres 16 via `apps/api/docker-compose.dev.yml` on port 5433 with a one-shot `bun run db:migrate-from-sqlite` script that ports 28 daily-metrics rows, 52 activities, 9 workouts, 38 sets, 4 exercises, 1 weight log, 1 user profile.
+
+### Deviations from prompt
+
+- The agent invoked `/commit --split` (an interactive Claude Code skill) instead of running `git commit` directly. In `claude -p` headless mode the skill prints a proposal and waits for confirmation that never comes — the group exited "successfully" but produced no commit and no `RALPH_TASK_COMPLETE` signal. Runner reset the group to pending and exited; the working tree was left dirty with all of the actual work uncommitted. Resolved manually by the human operator: the agent's proposed 4-commit split (db / routes / dev-infra / migration-script) was sound and was executed verbatim. Shared-context now explicitly forbids invoking slash-command skills inside a group.
+- Context auto-compression fired mid-group (~12-15 min in). The agent recovered via the standard "continued from a previous conversation" mechanism and the work itself was unaffected, but the recovery may have contributed to the commit-strategy phase using a skill instead of raw `git`.
+
+### Gotchas & surprises
+
+- **Float values in nominally-integer SQLite columns**: `daily_metrics.avg_hr` and `garmin_activities.calories` held float values (e.g. `110.59`) even though the SQLite schema declared them as INTEGER. The Postgres schema needed `real` for these columns; the agent had to iterate on `drizzle/0000_*.sql` after the first migration run failed. Worth pre-checking column types with a SELECT before defining the schema, not after.
+- **Postgres still-starting race**: `drizzle-kit migrate` fired immediately after `docker compose up -d` and hit `the database system is starting up` (FATAL 57P03). The container's healthcheck takes a few seconds. Either rely on the postgres-js auto-retry, add `depends_on.condition: service_healthy` for downstream services, or sleep briefly before the first migrate run. Currently relies on the implicit retry — fragile but works in practice.
+- **postgres.js `sql.unsafe` for dynamic queries**: drizzle's `db.run(sql.raw(...))` is SQLite-only; the dynamic query route now uses `client.unsafe(...)` directly. Behavior identical from the dashboard's perspective.
+- **Single-source-of-truth password**: per the RALPH pre-fetch pattern, local Postgres uses the production `ARGO_DB_PASSWORD` from 1Password, sourced via the root `Makefile`'s `-include .ralph-secrets.env`. No throwaway local creds.
+- **schema-qualified identity sequences**: after a bulk insert via the migration script, `setval('argo.<table>_id_seq', ...)` resets each table's sequence so subsequent inserts pick up after the migrated max(id). Easy to forget — would have surfaced as duplicate-key errors on the next real write.
+
+### Security notes
+
+`apps/api/.env.local.tpl` documents which env vars the API expects (DATABASE_URL, etc.) but contains no real values — operators fill from 1Password. Real credentials never land on disk outside `.ralph-secrets.env` (mode-600, gitignored). The legacy SQLite file is left in place at the old path so a Group 11 cutover can re-run the migration on production data.
+
+### Tests added
+
+None — Group 3 is replacement-of-storage, not new behavior. Manual smoke test exercised the modified routes against the local Postgres and confirmed identical shapes vs. the legacy SQLite output (recorded in the group log).
+
+### Future improvements
+
+- Add a healthcheck wait to `make db-up` so first-time migrations don't race the container boot.
+- The `apps/api/src/db/index.ts` `no-restricted-imports` lint override added in Group 2 for `bun:sqlite` can now be deleted (no remaining SQLite imports in the API).
+- `migrate-sqlite-to-pg.ts` should be exercised against a production SQLite snapshot before the Group 11 cutover — current invocation only tested the local dev SQLite which has the same shape but smaller volume.
