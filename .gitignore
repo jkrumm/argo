@@ -4,8 +4,6 @@
 .env.local
 node_modules/
 /apps/api/node_modules/
-/packages/dashboard/node_modules/
-/packages/dashboard/dist/
 
 # Claude Code runtime state
 .claude/scheduled_tasks.lock

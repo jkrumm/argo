@@ -27,7 +27,7 @@
     "import/no-duplicates": "error",
     "import/no-unassigned-import": "off"
   },
-  "ignorePatterns": ["apps/api/src/generated/**", "packages/dashboard/**"],
+  "ignorePatterns": ["apps/api/src/generated/**"],
   "overrides": [
     {
       "files": ["apps/dashboard/src/**"],

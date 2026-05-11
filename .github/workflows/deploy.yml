@@ -45,5 +45,5 @@ jobs:
         with:
           url: https://rollhook.jkrumm.com
           image_name: argo-dashboard
-          dockerfile: packages/dashboard/Dockerfile
+          dockerfile: apps/dashboard/Dockerfile
           context: .

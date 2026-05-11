@@ -7,7 +7,6 @@ Workspaces: `apps/*` + `packages/*`
 - `apps/api` — Elysia + Bun backend (`@argo/api`)
 - `apps/dashboard` — Vite + React 19 + Mantine v9 frontend
 - `packages/charts` — Theme-agnostic visx primitives (`@argo/charts`)
-- `packages/dashboard` — Legacy Refine v5 + AntD dashboard (reference only, not run locally)
 
 ## Common commands
 

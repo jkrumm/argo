@@ -79,5 +79,8 @@ OTEL_SERVICE_VERSION=0.0.0                           # default; set to git tag i
 
 ## Production (VPS)
 
-Production cutover is in Group 11. Until then, production runs SQLite + legacy dashboard.
-Do not deploy the new API shape to production before Group 11.
+API runs on the VPS via RollHook — push to `master` triggers a build and rolling restart.
+Compose file: `~/SourceRoot/vps/apps/argo/compose.yml`.
+
+Data migration from SQLite was run once at cutover (`scripts/migrate-sqlite-to-pg.ts`).
+Backups at `/var/backups/argo/homelab-pre-cutover.db` on the VPS.
