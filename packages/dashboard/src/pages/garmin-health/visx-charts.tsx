@@ -105,7 +105,11 @@ function ActivityStackInner({
     })
 
   const tickValues = useMemo(
-    () => smartTicks(buckets.map((b) => b.date), xMax),
+    () =>
+      smartTicks(
+        buckets.map((b) => b.date),
+        xMax,
+      ),
     [buckets, xMax],
   )
 
@@ -176,21 +180,13 @@ function ActivityStackInner({
             />
           )}
 
-          <AxisLeftNumeric
-            scale={yScale}
-            numTicks={4}
-            tickFormat={(v) => fmtMin(Number(v))}
-          />
+          <AxisLeftNumeric scale={yScale} numTicks={4} tickFormat={(v) => fmtMin(Number(v))} />
           <AxisBottomDate top={yMax} scale={xScale} tickValues={tickValues} />
           <HoverOverlay width={xMax} height={yMax} onMove={handleMouse} onLeave={handleLeave} />
         </Group>
       </svg>
 
-      <ChartTooltip
-        tip={isDirectHover ? tip : null}
-        tooltipRef={tooltipRef}
-        styles={tooltipStyles}
-      >
+      <ChartTooltip tip={isDirectHover ? tip : null} tooltipRef={tooltipRef} styles={tooltipStyles}>
         {tip?.data && (
           <>
             <TooltipHeader
@@ -205,11 +201,7 @@ function ActivityStackInner({
                 </div>
               ) : (
                 tip.data.activities.map((a, idx) => (
-                  <ActivityTooltipRow
-                    key={a.activity_id}
-                    activity={a}
-                    isFirst={idx === 0}
-                  />
+                  <ActivityTooltipRow key={a.activity_id} activity={a} isFirst={idx === 0} />
                 ))
               )}
             </TooltipBody>
@@ -220,13 +212,7 @@ function ActivityStackInner({
   )
 }
 
-function ActivityTooltipRow({
-  activity,
-  isFirst,
-}: {
-  activity: GarminActivity
-  isFirst: boolean
-}) {
+function ActivityTooltipRow({ activity, isFirst }: { activity: GarminActivity; isFirst: boolean }) {
   const { tooltipMuted } = useVxTheme()
   const meta = activityTypeMeta(activity.type_key)
   const dur = (activity.duration_sec ?? 0) / 60
@@ -245,7 +231,8 @@ function ActivityTooltipRow({
     activity.avg_hr !== null || activity.max_hr !== null
       ? `HR ${activity.avg_hr ?? '—'}/${activity.max_hr ?? '—'}`
       : null
-  const loadText = activity.training_load !== null ? `Load ${Math.round(activity.training_load)}` : null
+  const loadText =
+    activity.training_load !== null ? `Load ${Math.round(activity.training_load)}` : null
 
   return (
     <div
@@ -296,7 +283,10 @@ export function ActivityStackChart({
 }) {
   const effectiveFrom = useMemo(() => {
     if (activities.length === 0) return dateFrom
-    const earliest = activities.reduce((min, a) => (a.date < min ? a.date : min), activities[0]!.date)
+    const earliest = activities.reduce(
+      (min, a) => (a.date < min ? a.date : min),
+      activities[0]!.date,
+    )
     return earliest > dateFrom ? earliest : dateFrom
   }, [activities, dateFrom])
   const buckets = useMemo(
@@ -313,10 +303,7 @@ export function ActivityStackChart({
       })),
     [activities],
   )
-  const totalMin = useMemo(
-    () => buckets.reduce((s, b) => s + b.totalDurationMin, 0),
-    [buckets],
-  )
+  const totalMin = useMemo(() => buckets.reduce((s, b) => s + b.totalDurationMin, 0), [buckets])
   const activeDays = useMemo(() => buckets.filter((b) => b.totalDurationMin > 0).length, [buckets])
 
   return (
@@ -333,11 +320,7 @@ export function ActivityStackChart({
       <div style={{ height: 240 }}>
         <ParentSize debounceTime={100}>
           {({ width }) => (
-            <ActivityStackInner
-              buckets={buckets}
-              width={Math.max(width, 200)}
-              height={240}
-            />
+            <ActivityStackInner buckets={buckets} width={Math.max(width, 200)} height={240} />
           )}
         </ParentSize>
       </div>

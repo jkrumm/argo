@@ -71,7 +71,7 @@ export const METRIC_TOOLTIPS = {
   loadBalance:
     'Short-term (7-day EWMA) vs long-term (28-day EWMA) training load. When the short-term line rises sharply above long-term, you are spiking load — injury risk increases. Gradual, steady increases keep both lines close together (optimal). A declining short-term below long-term signals detraining.',
   activities:
-    'Recorded workouts per day, stacked by duration. Color = activity type. Walking is excluded (filtered server-side). Garmin under-reports gym load because rest periods between sets keep avg HR low — height shows duration, tooltip surfaces aerobic/anaerobic Training Effect and max HR so the actual stress is visible. ACWR uses Garmin\'s own load number; this chart is a separate signal.',
+    "Recorded workouts per day, stacked by duration. Color = activity type. Walking is excluded (filtered server-side). Garmin under-reports gym load because rest periods between sets keep avg HR low — height shows duration, tooltip surfaces aerobic/anaerobic Training Effect and max HR so the actual stress is visible. ACWR uses Garmin's own load number; this chart is a separate signal.",
 }
 
 // Activity-type display + color map. typeKey values from get_activities_by_date.
@@ -117,9 +117,7 @@ export function activityLegendTypes(
     const meta = activityTypeMeta(a.type_key)
     if (!seen.has(meta.label)) seen.set(meta.label, meta)
   }
-  return [...seen.values()].sort(
-    (a, b) => (totals.get(b.label) ?? 0) - (totals.get(a.label) ?? 0),
-  )
+  return [...seen.values()].sort((a, b) => (totals.get(b.label) ?? 0) - (totals.get(a.label) ?? 0))
 }
 
 export function scoreColor(score: number | null): string {

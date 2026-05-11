@@ -3,13 +3,27 @@ import { useList } from '@refinedev/core'
 import { api } from '../../providers/eden'
 
 export interface WeightLogEntry {
+  id: number
   date: string
   weight_kg: number
+  created_at: string | null
 }
 
 export interface UserProfile {
   gender: 'male' | 'female' | null
   goal_weight_kg: number | null
+}
+
+// Hook variant for components that need the full list (chart, table, hero).
+// useBodyWeight() above is the resolution chain used by 1RM/balance math.
+export function useWeightLog() {
+  const { result, query } = useList<WeightLogEntry>({
+    resource: 'weight-log',
+    pagination: { currentPage: 1, pageSize: 500 },
+    sorters: [{ field: 'date', order: 'desc' }],
+  })
+  const entries = (result.data as WeightLogEntry[] | undefined) ?? []
+  return { entries, isLoading: query.isLoading, refetch: () => void query.refetch() }
 }
 
 let _genderWarned = false

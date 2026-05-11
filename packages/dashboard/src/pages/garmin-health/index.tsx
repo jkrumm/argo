@@ -210,9 +210,7 @@ export default function GarminHealthPage() {
   // Visible window — drops noise before 2026-04-15 (see VISIBLE_DATE_MIN).
   const metrics = useMemo(
     () =>
-      ((result.data as DailyMetric[] | undefined) ?? []).filter(
-        (m) => m.date >= VISIBLE_DATE_MIN,
-      ),
+      ((result.data as DailyMetric[] | undefined) ?? []).filter((m) => m.date >= VISIBLE_DATE_MIN),
     [result.data],
   )
   // Same window, but also strips today's partial aggregates before 22:00.

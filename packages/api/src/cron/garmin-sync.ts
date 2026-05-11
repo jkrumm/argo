@@ -51,10 +51,7 @@ async function ensureControlRow(): Promise<void> {
 async function upsertDailyMetric(metric: DailyMetric): Promise<void> {
   const completed = isDayComplete(metric.date) ? 1 : 0
   const synced_at = isoNow()
-  const [existing] = await db
-    .select()
-    .from(dailyMetrics)
-    .where(eq(dailyMetrics.date, metric.date))
+  const [existing] = await db.select().from(dailyMetrics).where(eq(dailyMetrics.date, metric.date))
 
   if (!existing) {
     await db.insert(dailyMetrics).values({ ...metric, completed, synced_at })
