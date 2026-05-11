@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-const Env = z.object({
+export const Env = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   DATABASE_URL: z.string().min(1),
   API_SECRET: z.string().min(1),
