@@ -49,6 +49,34 @@ DATABASE_URL="postgres://argo:<pw>@localhost:5433/argo" \
   bun --cwd apps/api run db:migrate-from-sqlite
 ```
 
+## Tests
+
+```bash
+# Run all tests (requires DATABASE_URL + API_SECRET env vars)
+bun --cwd apps/api test
+
+# With local DB
+DATABASE_URL="postgres://argo:<pw>@localhost:5433/argo" API_SECRET=dev bun --cwd apps/api test
+```
+
+Tests live alongside source files as `*.test.ts`:
+
+- `src/lib/formulas.test.ts` — unit tests for pure formula functions (no DB)
+- `src/env.test.ts` — env schema validation
+- `src/routes/workouts.summary.test.ts` — integration: strength summary endpoint
+- `src/routes/daily-metrics.summary.test.ts` — integration: health summary endpoint
+- `src/routes/weight-log.summary.test.ts` — integration: weight summary endpoint
+
+Integration tests seed fixtures in `beforeEach`/`afterEach` and require a real Postgres.
+
+## OTel environment variables
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318  # default — points at local ClickStack
+OTEL_SERVICE_NAME=argo-api                           # default
+OTEL_SERVICE_VERSION=0.0.0                           # default; set to git tag in prod Docker
+```
+
 ## Production (VPS)
 
 Production cutover is in Group 11. Until then, production runs SQLite + legacy dashboard.

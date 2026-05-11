@@ -29,6 +29,21 @@ Routes live in `src/routes/`. The generated route tree (`src/routeTree.gen.ts`) 
 - `@argo/api` → `../api/src` (Eden Treaty type source)
 - `@argo/charts` → `../../packages/charts/src` (added when Group 5 creates the package)
 
+## Adding a page
+
+1. Create `src/routes/<page-name>.tsx`
+2. Define `validateSearch` with a Zod schema for URL state (filters, tabs, pagination)
+3. Add a `loader` that calls `queryClient.ensureQueryData(myQueries.something())`
+4. Build the component using `useSuspenseQuery` — data is always pre-fetched
+5. Add a query factory to `src/lib/queries/<resource>.ts`
+6. Add the nav link in `src/__root.tsx`
+
+See `.claude/rules/tanstack-router.md` for the full route template.
+
+## React Compiler
+
+The dashboard uses `babel-plugin-react-compiler` via `vite-plugin-babel`. All components are automatically memoized where safe. Components that need to opt out add `'use no memo'` as the first statement.
+
 ## Observability (HyperDX)
 
 Run ClickStack/HyperDX locally on `:4318`, then `bun --cwd apps/dashboard dev`. The Vite
