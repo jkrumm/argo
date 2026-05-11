@@ -1,5 +1,5 @@
 {
-  "name": "@argo/dashboard",
+  "name": "@argo/dashboard-legacy",
   "version": "0.1.0",
   "private": true,
   "type": "module",
