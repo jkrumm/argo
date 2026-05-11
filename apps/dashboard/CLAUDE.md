@@ -28,3 +28,14 @@ Routes live in `src/routes/`. The generated route tree (`src/routeTree.gen.ts`) 
 
 - `@argo/api` → `../api/src` (Eden Treaty type source)
 - `@argo/charts` → `../../packages/charts/src` (added when Group 5 creates the package)
+
+## Observability (HyperDX)
+
+Run ClickStack/HyperDX locally on `:4318`, then `bun --cwd apps/dashboard dev`. The Vite
+proxy forwards `/v1/traces` and `/v1/logs` to `127.0.0.1:4318` — no CORS configuration needed.
+
+Set `VITE_HYPERDX_API_KEY` in your local `.env.local` (or via the `.env.local.tpl`) to enable
+tracing. When the key is absent, HyperDX is silently disabled — the dashboard works normally
+without ClickStack running.
+
+See `apps/dashboard/.claude/rules/observability.md` for the first-import constraint.

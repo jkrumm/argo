@@ -9,6 +9,8 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
+      '/v1/traces': { target: 'http://127.0.0.1:4318', changeOrigin: true },
+      '/v1/logs': { target: 'http://127.0.0.1:4318', changeOrigin: true },
       '/api': {
         target: 'http://localhost:4000',
         rewrite: (path) => path.replace(/^\/api/, ''),
