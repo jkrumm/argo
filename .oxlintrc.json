@@ -106,6 +106,12 @@
       }
     },
     {
+      "files": ["packages/charts/src/kinds/**"],
+      "rules": {
+        "no-underscore-dangle": "off"
+      }
+    },
+    {
       "files": ["apps/api/src/**"],
       "rules": {
         "no-restricted-imports": [

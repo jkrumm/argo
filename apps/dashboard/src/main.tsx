@@ -14,6 +14,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { createRouter, RouterProvider } from '@tanstack/react-router'
 import { queryClient } from './lib/query-client'
 import { routeTree } from './routeTree.gen'
+import { VxBridge } from './charts-bridge'
 
 const router = createRouter({
   routeTree,
@@ -34,13 +35,15 @@ if (!rootEl) throw new Error('Root element not found')
 createRoot(rootEl).render(
   <StrictMode>
     <MantineProvider defaultColorScheme="dark">
-      <Notifications />
-      <ModalsProvider>
-        <QueryClientProvider client={queryClient}>
-          <RouterProvider router={router} />
-          {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
-        </QueryClientProvider>
-      </ModalsProvider>
+      <VxBridge>
+        <Notifications />
+        <ModalsProvider>
+          <QueryClientProvider client={queryClient}>
+            <RouterProvider router={router} />
+            {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+          </QueryClientProvider>
+        </ModalsProvider>
+      </VxBridge>
     </MantineProvider>
   </StrictMode>,
 )

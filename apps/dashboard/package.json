@@ -10,6 +10,7 @@
     "typecheck": "tsr generate && tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json"
   },
   "dependencies": {
+    "@argo/charts": "workspace:*",
     "@elysiajs/eden": "^1.4.9",
     "@mantine/core": "^9.2.0",
     "@mantine/dates": "^9.2.0",

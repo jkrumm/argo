@@ -169,3 +169,38 @@ None — Group 5 is plumbing only. The `/garmin-health` loader round trip provid
 - The `garmin-health.tsx` proof component (`<pre>{JSON.stringify(data)}</pre>`) is explicitly throwaway; Group 8 replaces it with the real page.
 - `exerciseQueries.list()` requires a Bearer token that isn't wired yet — the query factory is correct but will 401 until Group 7/8 adds auth headers to Eden Treaty calls.
 - Consider adding an `onError` global handler to `queryClient` once error reporting (HyperDX) is wired in Group 7.
+
+## Group 6: Extract visx to `packages/charts`
+
+### What was implemented
+
+Created `packages/charts` workspace (`@argo/charts`) with all visx primitives, kind components, sparklines, hooks, utils, tokens, and the standalone `VxThemeProvider`/`useVxTheme`. Rewrote `theme.tsx` to accept `colorScheme: 'light' | 'dark'` as a prop (instead of reading from a custom `ThemeContext`) and expose a `VxTheme` context with fully resolved color values. Rewrote `ChartCard.tsx` to use plain HTML/CSS with `useVxTheme()` instead of Ant Design `Card`/`Tooltip`/`InfoCircleOutlined`. Created `apps/dashboard/src/charts-bridge.tsx` (`VxBridge`) as the single file bridging Mantine's `useMantineColorScheme` to `VxThemeProvider`. Wired `<VxBridge>` in `main.tsx` between `MantineProvider` and the rest of the tree. Added `@argo/charts` workspace dep and tsconfig path alias to `apps/dashboard`. Added `no-underscore-dangle: off` override in `.oxlintrc.json` for `packages/charts/src/kinds/**` (internal `__y`/`__d` augmentation properties). Created a `charts-smoke.tsx` route at `/charts-smoke` for DEV-only visual verification.
+
+### Deviations from PRD
+
+- **`ChartCard` rewritten from scratch**: The PRD said "copy, don't move" but `ChartCard.tsx` imported from `antd` (`Card`, `Tooltip`) and `@ant-design/icons` (`InfoCircleOutlined`), which are banned by the `@mantine/*` boundary in `packages/charts`. Rewrote as a pure HTML/CSS card using `useVxTheme()` for dark/light border and background colors.
+- **Smoke route renamed from `__charts-smoke.tsx` to `charts-smoke.tsx`**: TanStack Router's generator treated `__charts-smoke.tsx` as conflicting with `index.tsx` (both resolved to `/`). The double-underscore prefix is reserved semantics in TanStack Router. Renamed to `charts-smoke.tsx` → `/charts-smoke`.
+- **`vite` added as devDep in `packages/charts`**: Needed for `/// <reference types="vite/client" />` in `vite-env.d.ts` so `import.meta.env.DEV` in `useHoverSync.ts` typechecks without error in the standalone package typecheck.
+- **`no-underscore-dangle: off` override added**: The `__y` and `__d` property names used for internal type augmentation in `ZonedLine` and `Bars` kinds triggered `no-underscore-dangle`. Added a scoped oxlint override rather than renaming the properties (renaming would break the TypeScript augmentation pattern used throughout both kinds).
+- **`exactOptionalPropertyTypes` required conditional spread pattern**: The base tsconfig has `exactOptionalPropertyTypes: true`. Passing `tickFormat={leftAxis.formatTick}` (which could be `undefined`) to `AxisLeftNumeric` whose prop is `tickFormat?: (v: number) => string` fails with this flag. Fixed with `{...(x !== undefined && { key: x })}` spreads in `Bars.tsx` and `ZonedLine.tsx`. Same pattern for `TooltipHeader` label/labelColor and `TooltipRow` strokeWidth/dashed.
+
+### Gotchas & surprises
+
+- `exactOptionalPropertyTypes: true` is viral: anywhere you spread or pass optional properties that could be `undefined`, TypeScript rejects it. The conditional spread pattern `{...(x !== undefined && { key: x })}` is the standard fix. Note: `{...(x !== undefined ? { key: x } : undefined)}` also works (spreading `undefined` in an object is a no-op in JS/TS).
+- TanStack Router's file-based generator gives special meaning to filenames starting with `__`. It does NOT create a route at `/__charts-smoke`; instead it conflicts with the index route. Single `_` prefix creates pathless layouts; only `__root.tsx` is recognized as a special reserved name by the generator.
+- `@visx/tooltip` is already absent from the chart code — the `ChartTooltip` primitive is a pure React/HTML implementation that doesn't use the visx tooltip package. The restriction in `.oxlintrc.json` for `apps/dashboard/src/**` was already set by Group 2 and remains correct.
+- The hook-in-conditional error in the smoke route: `if (!import.meta.env.DEV) return null` BEFORE `useState(...)` triggers `rules-of-hooks`. Move the early return AFTER all hooks.
+
+### Security notes
+
+No secrets. `packages/charts` has no env access. `apps/dashboard/src/charts-bridge.tsx` only reads Mantine's color scheme from localStorage, no credentials.
+
+### Tests added
+
+None — visual verification required in dev. `charts-smoke.tsx` at `/charts-smoke` renders ChartLegend (primitive), LineSparkline (sparkline), and ZonedLine inside ChartCard (kind). DEV-only guard via `import.meta.env.DEV`.
+
+### Future improvements
+
+- The `charts-smoke.tsx` route should be deleted in Group 11 (prune pass) once charts are wired into real pages (Groups 8 + 9).
+- The `VxBridge` component assumes `colorScheme === 'auto'` defaults to `'dark'`. Could be improved to read `window.matchMedia('(prefers-color-scheme: dark)')` for more accurate auto-resolution.
+- `@visx/tooltip` restriction should be extended to `packages/charts/src/**` in Group 10's oxlint pass (currently only applies to `apps/dashboard/src/**`).

@@ -14,7 +14,8 @@
     "noEmit": true,
     "skipLibCheck": true,
     "paths": {
-      "@argo/api": ["../api/src/index.ts"]
+      "@argo/api": ["../api/src/index.ts"],
+      "@argo/charts": ["../../packages/charts/src/index.ts"]
     }
   },
   "include": ["src"],
