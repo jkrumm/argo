@@ -305,3 +305,37 @@ None — Group 8 is a pure API shape change. Integration correctness is verified
 - Run the smoke curl commands manually once biometric auth is available (`curl "http://localhost:4000/workouts?page=1&limit=10" | jq '{data_length: (.data|length), total}'`).
 - The `exercises` route historically returned all rows (no pagination needed — small lookup table). Consider whether the dashboard query factory should use `limit=200` to effectively fetch all exercises in one request.
 - `user-profile` could optionally be wrapped as `{ data: profile, total: 1 }` for API consistency, but only if the dashboard client is updated at the same time.
+
+## Group 10: OTel + HyperDX observability (backend + frontend)
+
+### What was implemented
+
+Created `apps/api/src/env.ts` with a Zod-validated `env` object covering all 24 env vars in the API. Migrated every `process.env.X` access in `apps/api/src/**` (7 files) to read from `env.X` — only `env.ts` itself uses raw `process.env`. Created `apps/api/src/telemetry.ts` with `OTLPTraceExporter` + `BatchSpanProcessor` + exported `tracer`. Wired `@elysiajs/opentelemetry` in `index.ts` early in the chain with `/health` filter and a global `onError` handler that calls `span.recordException()` + `span.setStatus({ code: SpanStatusCode.ERROR })`. On the frontend: replaced the placeholder `apps/dashboard/src/lib/hyperdx.ts` with the real HyperDX SDK init (guarded by `typeof window !== 'undefined'` and `VITE_HYPERDX_API_KEY` presence), added OTLP proxy rules (`/v1/traces`, `/v1/logs` → `127.0.0.1:4318`) to `vite.config.ts`, updated `apps/dashboard/.env.local.tpl` and `Dockerfile` with HyperDX build args, and documented the first-import constraint in `apps/dashboard/.claude/rules/observability.md`.
+
+### Deviations from PRD
+
+- **`telemetry.ts` uses `BatchSpanProcessor` explicitly** rather than passing `traceExporter` directly (the basalt-ui-playground uses the latter). Both are equivalent (the plugin wraps `traceExporter` in a `BatchSpanProcessor` internally), but the explicit form matches the group task specification.
+- **`onError` placement**: placed before `cors`/`openapi` (as early as possible) per basalt-ui-playground pattern, rather than after route registrations.
+- **`identifyUser` not added**: The basalt-ui-playground's `hyperdx.ts` exports `identifyUser` for setting user attributes on spans. Not added here since there is no auth/user session in argo-dashboard.
+
+### Gotchas & surprises
+
+- **`@hyperdx/browser@0.23.0` peer dep warnings on `@opentelemetry/api@1.9.1`**: The `@hyperdx/browser` SDK pins an older OTel API peer. These warnings are benign — the HyperDX SDK uses OTel API internally but Elysia's OTel plugin creates the NodeSDK, so there is no runtime version conflict.
+- **`BatchSpanProcessor` comes from `@opentelemetry/sdk-trace-base`** (not `sdk-trace-node`). The elysia plugin docs show `sdk-trace-node`, but Bun is not Node.js — `sdk-trace-base` is the correct package for non-Node environments.
+- **`checkIfShouldTrace` filter**: The option is passed inline in the `opentelemetry({...})` call in `index.ts`, not in `telemetryConfig`. This matches the basalt-ui-playground approach and keeps `telemetry.ts` export-shape-neutral.
+- **Vite proxy `/v1/traces` and `/v1/logs`**: Both paths must be proxied — HyperDX browser SDK sends logs to `/v1/logs` and traces to `/v1/traces`. The HyperDX `url` option is the origin; the SDK appends the path suffix.
+
+### Security notes
+
+- `VITE_HYPERDX_API_KEY` is baked into the frontend bundle at build time (Vite's `import.meta.env` is build-time substitution). The key is visible in the browser bundle — this is by design for client-side HyperDX and matches how all HyperDX browser integrations work.
+- All other secrets (DATABASE_URL, API_SECRET, Slack tokens, Google OAuth, etc.) are now validated at startup via Zod — missing required vars cause a fail-fast error on boot rather than silent `undefined` behavior.
+
+### Tests added
+
+None in this group. The env validation itself is the safeguard (fail-fast on boot if required vars are absent).
+
+### Future improvements
+
+- Migrate outbound `clients/*` fetch calls (garmin-collector, slack, ticktick, google, uptime-kuma) to wrapped traced fetch. Left as a TODO per PRD Group 7 item 5.
+- Add `OTEL_SERVICE_VERSION` population from `package.json` version at build time (currently defaults to `'0.0.0'`).
+- Consider adding `pgInstrumentation` from `@opentelemetry/instrumentation-pg` for Drizzle/postgres.js query-level spans. Requires the instrumentation to load before `postgres` is imported — use the preload pattern documented in the elysia opentelemetry plugin reference.
