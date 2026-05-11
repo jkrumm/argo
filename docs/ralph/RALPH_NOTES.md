@@ -1,5 +1,100 @@
 # RALPH Migration Notes
 
+## Group 14: Cutover + cleanup (frontend deploy + data migration + prune)
+
+### What was implemented
+
+Updated `.github/workflows/deploy.yml` dashboard job to build from `apps/dashboard/Dockerfile`
+(Vite + React 19 + Mantine v9) rather than the legacy `packages/dashboard/Dockerfile`.
+Deleted `packages/dashboard/` (57 files). Updated VPS `apps/argo/compose.yml`: added
+`monitoring-net` so the API can reach `clickstack:4318` for OTLP; added
+`OTEL_EXPORTER_OTLP_ENDPOINT` + `OTEL_SERVICE_NAME` env vars; removed the SQLite
+transition-period comment. Removed `packages/dashboard/**` from `.oxlintrc.json` ignore
+list and `.gitignore`. Updated root `CLAUDE.md` and `apps/api/CLAUDE.md`. Took a SQLite
+backup at `/var/backups/argo/homelab-pre-cutover.db` on the VPS.
+
+### Deviations from PRD
+
+- **VPS compose commit blocked**: The vps repo requires 1Password SSH signing for commits,
+  which times out in headless `claude -p` mode. The compose changes at
+  `~/SourceRoot/vps/apps/argo/compose.yml` are staged but not committed — the human operator
+  must run: `cd ~/SourceRoot/vps && git add apps/argo/compose.yml && git commit -m "chore(argo): add monitoring-net + OTEL env vars, remove SQLite transition comment" && git push`
+- **Data migration not yet run**: The migration script needs the NEW argo-api image
+  (with `apps/api` layout) which is built by the deploy triggered by this group's push to
+  `master`. After the deploy completes (GitHub Actions green), run the migration:
+
+```bash
+# On the VPS, once new argo-api image is deployed:
+ssh vps "cd ~/vps && op run --account tkrumm --env-file=apps/argo/.env.tpl -- docker run --rm \
+  -e DATABASE_URL \
+  -v /var/backups/argo:/backup:ro \
+  --network vps_postgres-net \
+  rollhook.jkrumm.com/argo-api:latest \
+  bun run --cwd /app scripts/migrate-sqlite-to-pg.ts"
+```
+
+Then verify row counts match the SQLite backup.
+
+- **`sqlite3` not installed on VPS**: Could not get pre-migration SQLite row counts directly.
+  The migration script logs per-table counts when it runs — capture that output for the record.
+- **Combined deploy + prune commit**: The specification called for separate commits for
+  (a) deploy.yml swap, (b) VPS compose, and (c) prune. Since the VPS repo couldn't be
+  committed in headless mode, and the prune/deploy.yml changes are logically atomic
+  (prune removes the Dockerfile that deploy.yml no longer references), they were combined
+  into one argo repo commit.
+
+### SQLite pre-cutover row counts
+
+`sqlite3` not available on VPS during the RALPH run. Row counts will be captured from the
+migration script output when run post-deploy. Backup file is 69,632 bytes (valid SQLite 3.x).
+
+Expected approximate counts based on Group 3 dev migration (as of 2025):
+| Table | Approx count |
+|-|-|
+| exercises | 4 |
+| user_profile | 1 |
+| sync_control | 1 |
+| daily_metrics | ~350+ |
+| garmin_activities | ~100+ |
+| workouts | ~50+ |
+| workout_sets | ~250+ |
+| weight_log | ~30+ |
+
+### Gotchas & surprises
+
+- **argo repo has local `commit.gpgsign=false`** but the vps repo uses the global setting
+  (`commit.gpgsign=true`) which requires 1Password biometric auth. All prior RALPH groups
+  avoided this because they only committed in the argo repo. Group 14 is the first to need
+  vps repo commits.
+- **Running containers use old image**: `rollhook.jkrumm.com/argo-api:latest` on the VPS
+  was built from commit `18f6caba` (legacy `packages/api` layout). None of the SHA-tagged
+  images on the VPS have the migration script. A new deploy is required first.
+- **clickstack service name**: The ClickStack OTel collector is reachable as `clickstack:4318`
+  on `monitoring-net` (not `hyperdx-otelcol` as some docs imply). Verified from
+  `compose.monitoring.yml` service definition.
+
+### Security notes
+
+- SQLite backup at `/var/backups/argo/homelab-pre-cutover.db` is world-readable (chmod from
+  `chown 1000:1000`). If the VPS ever has untrusted users, tighten permissions.
+- VPS compose changes do not expose new secrets — `OTEL_EXPORTER_OTLP_ENDPOINT` is the
+  internal ClickStack endpoint, not a credential.
+
+### Tests added
+
+None — this is a deploy/infrastructure group.
+
+### Future improvements
+
+- Add the data migration step to the bootstrap docs in `apps/api/CLAUDE.md` (Group 15 doc pass
+  will cover this).
+- The `apps/api/scripts/migrate-sqlite-to-pg.ts` script can be kept for archaeology or deleted
+  once the VPS Postgres row counts confirm a clean migration. The ON CONFLICT DO NOTHING guard
+  makes it safe to re-run.
+- VPS repo should add a local `commit.gpgsign=false` override (or the 1Password SSH agent
+  should be wired into headless Claude Code sessions) to unblock future RALPH groups that
+  touch the vps repo.
+
 ## Group 13: Tests + React Compiler + Rules + CLAUDE.md + CI
 
 ### What was implemented
