@@ -147,6 +147,7 @@ require_op_session() {
 # instead of invoking `op run` mid-loop. Trap deletes the file on exit.
 
 SECRETS_FILE="$REPO_ROOT/.ralph-secrets.env"
+SECRETS_INSTALLED=false   # only the invocation that wrote the file may delete it
 
 prefetch_secrets() {
   log_info "Pre-fetching secrets via op (Touch ID may prompt)..."
@@ -176,10 +177,15 @@ EOF
   # shellcheck disable=SC1090
   source "$SECRETS_FILE"
   set +a
+  SECRETS_INSTALLED=true
   log_success "Secrets cached to .ralph-secrets.env (mode 600) and exported."
 }
 
 remove_secrets() {
+  # Only delete the file if THIS invocation installed it. Side-channel runs like
+  # --status / --reset (and early-exit guards) must not strip the secrets file
+  # out from under a live runner — the babysitter still needs RALPH_SLACK_WEBHOOK_URL.
+  $SECRETS_INSTALLED || return 0
   [[ -f "$SECRETS_FILE" ]] || return 0
   rm -f "$SECRETS_FILE"
   log_info "Removed .ralph-secrets.env."
@@ -191,6 +197,7 @@ remove_secrets() {
 
 PRE_PUSH_HOOK=""
 PRE_PUSH_BACKUP=""
+PUSH_GUARD_INSTALLED=false
 
 install_push_guard() {
   cd "$REPO_ROOT"
@@ -205,9 +212,13 @@ echo "[ralph] pre-push hook: autonomous push blocked. Push manually after the lo
 exit 1
 HOOK
   chmod +x "$PRE_PUSH_HOOK"
+  PUSH_GUARD_INSTALLED=true
 }
 
 remove_push_guard() {
+  # Same sentinel discipline as remove_secrets: --status / --reset must not
+  # uninstall a hook the live runner depends on.
+  $PUSH_GUARD_INSTALLED || return 0
   [[ -n "$PRE_PUSH_HOOK" && -f "$PRE_PUSH_HOOK" ]] || return 0
   rm -f "$PRE_PUSH_HOOK"
   if [[ -n "$PRE_PUSH_BACKUP" && -f "$PRE_PUSH_BACKUP" ]]; then
