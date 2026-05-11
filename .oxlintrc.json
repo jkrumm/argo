@@ -1,6 +1,16 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "import"],
+  "plugins": [
+    "react",
+    "react-perf",
+    "typescript",
+    "import",
+    "unicorn",
+    "jsx-a11y",
+    "promise",
+    "oxc",
+    "jsdoc"
+  ],
   "categories": {
     "correctness": "error",
     "suspicious": "warn"
@@ -17,26 +27,114 @@
     "import/no-duplicates": "error",
     "import/no-unassigned-import": "off"
   },
-  "ignorePatterns": ["packages/api/src/generated/**", "packages/dashboard/dist/**"],
+  "ignorePatterns": ["apps/api/src/generated/**", "packages/dashboard/dist/**"],
   "overrides": [
     {
-      "files": [
-        "packages/dashboard/src/charts/**",
-        "packages/dashboard/src/pages/**/visx-charts.tsx",
-        "packages/dashboard/src/pages/**/charts.tsx"
-      ],
+      "files": ["apps/dashboard/src/**"],
       "rules": {
         "no-restricted-imports": [
           "error",
           {
             "paths": [
               {
+                "name": "antd",
+                "message": "Use Mantine — antd was removed in the migration."
+              },
+              {
+                "name": "@ant-design/icons",
+                "message": "Use @tabler/icons-react."
+              },
+              {
+                "name": "@refinedev/core",
+                "message": "Refine was removed in the migration."
+              },
+              {
+                "name": "@refinedev/antd",
+                "message": "Refine was removed in the migration."
+              },
+              {
+                "name": "react-router",
+                "message": "Use @tanstack/react-router."
+              },
+              {
+                "name": "react-router-dom",
+                "message": "Use @tanstack/react-router."
+              },
+              {
                 "name": "@visx/tooltip",
-                "message": "Use ChartTooltip + TooltipHeader/Row/Body from src/charts/primitives instead — they are theme-aware."
+                "message": "Use ChartTooltip + TooltipHeader/Row/Body from src/charts/primitives."
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["@refinedev/*"],
+                "message": "Refine was removed in the migration."
               }
             ]
           }
         ]
+      }
+    },
+    {
+      "files": ["packages/charts/src/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@mantine/core",
+                "message": "packages/charts must be theme-agnostic — no Mantine imports allowed."
+              },
+              {
+                "name": "@mantine/hooks",
+                "message": "packages/charts must be theme-agnostic — no Mantine imports allowed."
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["@mantine/*"],
+                "message": "packages/charts must be theme-agnostic — no Mantine imports allowed."
+              },
+              {
+                "group": ["apps/*"],
+                "message": "packages/charts must not import from apps/."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["apps/api/src/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "bun:sqlite",
+                "message": "SQLite removed — use drizzle-orm/postgres-js. Only migrate-sqlite-to-pg.ts may import this."
+              },
+              {
+                "name": "drizzle-orm/bun-sqlite",
+                "message": "SQLite removed — use drizzle-orm/postgres-js. Only migrate-sqlite-to-pg.ts may import this."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["apps/api/scripts/migrate-sqlite-to-pg.ts"],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    },
+    {
+      "files": ["apps/api/src/db/index.ts"],
+      "rules": {
+        "no-restricted-imports": "off"
       }
     }
   ]
