@@ -1,5 +1,43 @@
 # RALPH Migration Notes
 
+## Group 12: Strength Tracker + Body Weight
+
+### What was implemented
+
+Created `apps/dashboard/src/lib/queries/workouts.ts` and `weight-log.ts` with query factories (`queryOptions` + hierarchical query keys) and mutation hooks (`useCreateWorkout`, `useUpdateWorkout`, `useDeleteWorkout`, `useCreateWeightLog`, `useDeleteWeightLog`). Rebuilt `apps/dashboard/src/routes/strength-tracker.tsx` from the 18-line stub into a 950-line production page: URL-driven Tabs (workouts/bodyweight) via `tab` search param, loader branching on active tab, Zod-validated search params, workout entry form with dynamic sets using `@mantine/form` `insertListItem`/`removeListItem`, exercise summary cards, per-exercise ZonedLine e1RM charts, recent workouts table with edit modal and delete confirm modal, body weight subtab with rolling summary cards, trend chart, and weight entry form. Also fixed `__root.tsx` navigation and bumped the dashboard tsconfig lib to ES2023.
+
+### Deviations from PRD
+
+- **`zodResolver` not exported from `@mantine/form` v9**: Mantine v9.2.0 does not export `zodResolver` from `@mantine/form`. Wrote a custom inline resolver using `schema.safeParse` + `ZodError.issues` path-joining, which works with Zod v4.4.3.
+- **Grid `gutter` prop removed**: Mantine v9 Grid does not have a `gutter` prop in its TypeScript types. Used the default grid gap instead.
+- **`__root.tsx` navigation fixed**: Adding `validateSearch` to strength-tracker made the union navigate call in `__root.tsx` require `search` for both routes. Split into separate `handleNavGarmin` / `handleNavStrength` functions with explicit default search params.
+- **tsconfig.app.json lib bumped to ES2023**: The `unicorn/no-array-sort` lint rule requires `Array#toSorted()`, but the previous lib setting (ES2022) didn't include it. Added ES2023 to the lib array; `toSorted` is available in all supported runtimes (Bun, modern browsers).
+- **Body weight delete not implemented**: The spec mentions `useDeleteWeightLog` but the body weight panel is described as simpler. The mutation hook is exported from the query factory for future use, but no delete UI is rendered in this group to keep the panel focused.
+
+### Gotchas & surprises
+
+- **Eden Treaty path param syntax**: For routes with `:id` params (`DELETE /workouts/:id`, `PATCH /workouts/:id`, `DELETE /weight-log/:id`), Eden Treaty v1 uses function-call syntax on the parent segment: `api.workouts({ id: String(id) }).delete()`. This is NOT the `[':id']` bracket syntax found in some older docs.
+- **TanStack Router navigate union type issue**: When both routes in a union have `validateSearch`, the `navigate` type requires `search` to satisfy ALL routes in the union simultaneously. The fix is concrete per-route navigate calls, not a shared union handler.
+- **`exactOptionalPropertyTypes` + conditional spread**: The correct pattern to conditionally include optional fields in navigate `search` objects is `...(condition ? { key: value } : undefined)`. Using `{}` in the false branch triggers `unicorn/no-useless-spread`; using `{ key: undefined }` breaks `exactOptionalPropertyTypes`.
+- **Eden Treaty inference for API response arrays**: The query result type from Eden Treaty is strongly typed from the Elysia route response schema, but array items still need a local type assertion (`as ExerciseSummaryItem[]`) where TypeScript can't narrow through the treaty type layers. This is expected — the `as` casts are safe since the API schemas match the local types exactly.
+- **Loader tab branching**: `useSuspenseQuery` in panel components works without actual suspension because the loader pre-fetches the correct data for the active tab. Rendering the inactive panel's component (inside `Tabs.Panel`) is prevented by `{search.tab === 'workouts' && <WorkoutsPanel />}` guards, so only the active panel's queries execute.
+
+### Security notes
+
+No secrets touched. All API calls go through the Eden Treaty client using the existing bearer token mechanism in `apps/api/src/index.ts`. No credentials handled in the dashboard.
+
+### Tests added
+
+None in this group — Group 10 adds `bun test` for API-level tests.
+
+### Future improvements
+
+- Add body weight delete UI (the `useDeleteWeightLog` hook is ready in the query factory).
+- Exercise chart filter — currently shows top 4 exercises by session count; a `Select` or `SegmentedControl` to choose which exercise chart to display would improve the UX.
+- Workout list pagination — the recent workouts table is fixed at page 1, limit 20. A page control or infinite scroll would surface older workouts.
+- Optimistic updates for weight log inserts (noted as reasonable in the spec; deferred to keep the form simple).
+- The `WorkoutForm` and `EditWorkoutForm` share nearly identical markup — could be unified into a single `WorkoutFormFields` component in a future cleanup pass.
+
 ## Group 9: API summary endpoints (server-computed aggregates)
 
 ### What was implemented
