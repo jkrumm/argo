@@ -1,8 +1,8 @@
 import { io, type Socket } from 'socket.io-client'
 
-const UPTIME_KUMA_URL = process.env.UPTIME_KUMA_URL ?? ''
-const UPTIME_KUMA_USERNAME = process.env.UPTIME_KUMA_USERNAME ?? 'admin'
-const UPTIME_KUMA_PASSWORD = process.env.UPTIME_KUMA_PASSWORD ?? ''
+const UPTIME_KUMA_URL = process.env['UPTIME_KUMA_URL'] ?? ''
+const UPTIME_KUMA_USERNAME = process.env['UPTIME_KUMA_USERNAME'] ?? 'admin'
+const UPTIME_KUMA_PASSWORD = process.env['UPTIME_KUMA_PASSWORD'] ?? ''
 
 export interface UptimeMonitor {
   id: string
@@ -222,10 +222,10 @@ class UptimeKumaClient {
       }
       this.monitorMeta = next
       // Drop runtime/ratio entries for monitors that no longer exist
-      for (const id of [...this.monitorRuntime.keys()]) {
+      for (const id of this.monitorRuntime.keys()) {
         if (!next.has(id)) this.monitorRuntime.delete(id)
       }
-      for (const id of [...this.uptimeRatios.keys()]) {
+      for (const id of this.uptimeRatios.keys()) {
         if (!next.has(id)) this.uptimeRatios.delete(id)
       }
       this.monitorListReceived = true

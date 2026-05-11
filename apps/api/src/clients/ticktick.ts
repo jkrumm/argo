@@ -8,7 +8,7 @@ import {
 } from '../generated/ticktick/sdk.gen'
 import type { Task } from '../generated/ticktick/types.gen'
 
-const API_KEY = process.env.TICKTICK_API_KEY ?? ''
+const API_KEY = process.env['TICKTICK_API_KEY'] ?? ''
 
 export const ticktickClient = createClient(createConfig({ baseUrl: 'https://ticktick.com' }))
 

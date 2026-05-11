@@ -117,9 +117,9 @@ export const slackRoutes = new Elysia({ prefix: '/slack' })
     '/channels',
     async ({ query }) => {
       return listChannels({
-        types: query.types,
+        ...(query.types !== undefined ? { types: query.types } : {}),
         exclude_archived: query.exclude_archived !== 'false',
-        limit: query.limit ? Number(query.limit) : undefined,
+        ...(query.limit ? { limit: Number(query.limit) } : {}),
       })
     },
     {
@@ -150,10 +150,10 @@ export const slackRoutes = new Elysia({ prefix: '/slack' })
     '/channels/:channelId/messages',
     async ({ params, query }) => {
       return getMessages(params.channelId, {
-        limit: query.limit ? Number(query.limit) : undefined,
-        oldest: query.oldest,
-        latest: query.latest,
-        cursor: query.cursor,
+        ...(query.limit ? { limit: Number(query.limit) } : {}),
+        ...(query.oldest !== undefined ? { oldest: query.oldest } : {}),
+        ...(query.latest !== undefined ? { latest: query.latest } : {}),
+        ...(query.cursor !== undefined ? { cursor: query.cursor } : {}),
       })
     },
     {
@@ -183,8 +183,8 @@ export const slackRoutes = new Elysia({ prefix: '/slack' })
     '/channels/:channelId/messages/:threadTs/thread',
     async ({ params, query }) => {
       return getThread(params.channelId, params.threadTs, {
-        limit: query.limit ? Number(query.limit) : undefined,
-        cursor: query.cursor,
+        ...(query.limit ? { limit: Number(query.limit) } : {}),
+        ...(query.cursor !== undefined ? { cursor: query.cursor } : {}),
       })
     },
     {
@@ -212,10 +212,10 @@ export const slackRoutes = new Elysia({ prefix: '/slack' })
     '/search',
     async ({ query }) => {
       return searchMessages(query.q, {
-        sort: query.sort as 'score' | 'timestamp' | undefined,
-        sort_dir: query.sort_dir as 'asc' | 'desc' | undefined,
-        count: query.count ? Number(query.count) : undefined,
-        page: query.page ? Number(query.page) : undefined,
+        ...(query.sort ? { sort: query.sort as 'score' | 'timestamp' } : {}),
+        ...(query.sort_dir ? { sort_dir: query.sort_dir as 'asc' | 'desc' } : {}),
+        ...(query.count ? { count: Number(query.count) } : {}),
+        ...(query.page ? { page: Number(query.page) } : {}),
       })
     },
     {
@@ -282,9 +282,11 @@ export const slackRoutes = new Elysia({ prefix: '/slack' })
   .post(
     '/channels/:channelId/messages',
     async ({ params, body }) => {
-      return sendMessage(params.channelId, body.text, {
-        unfurl_links: body.unfurl_links,
-      })
+      return sendMessage(
+        params.channelId,
+        body.text,
+        body.unfurl_links !== undefined ? { unfurl_links: body.unfurl_links } : undefined,
+      )
     },
     {
       params: t.Object({
@@ -307,7 +309,7 @@ export const slackRoutes = new Elysia({ prefix: '/slack' })
     async ({ params, body }) => {
       return sendMessage(params.channelId, body.text, {
         thread_ts: params.threadTs,
-        unfurl_links: body.unfurl_links,
+        ...(body.unfurl_links !== undefined ? { unfurl_links: body.unfurl_links } : undefined),
       })
     },
     {

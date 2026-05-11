@@ -67,17 +67,17 @@ export const gmailRoutes = new Elysia({ prefix: '/gmail' })
     async ({ query, set }) => {
       try {
         return await listEmails({
-          days: query.days ? Number(query.days) : undefined,
-          maxResults: query.maxResults ? Number(query.maxResults) : undefined,
-          query: query.query,
-          label: query.label,
+          ...(query.days ? { days: Number(query.days) } : {}),
+          ...(query.maxResults ? { maxResults: Number(query.maxResults) } : {}),
+          ...(query.query !== undefined ? { query: query.query } : {}),
+          ...(query.label !== undefined ? { label: query.label } : {}),
           unread: query.unread === 'true',
           important: query.important === 'true',
           starred: query.starred === 'true',
-          excludeCategories: query.excludeCategories
-            ? query.excludeCategories.split(',').map((s) => s.trim())
-            : undefined,
-          scope: query.scope === 'all' || query.scope === 'inbox' ? query.scope : undefined,
+          ...(query.excludeCategories
+            ? { excludeCategories: query.excludeCategories.split(',').map((s) => s.trim()) }
+            : {}),
+          ...(query.scope === 'all' || query.scope === 'inbox' ? { scope: query.scope } : {}),
         })
       } catch (error) {
         set.status = 503

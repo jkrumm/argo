@@ -1,8 +1,8 @@
 // Bearer-authed HTTP client for the homelab garmin-collector at https://garmin.jkrumm.com.
 // Stateless query layer over Garmin Connect — owns the OAuth tokens, returns shaped JSON.
 
-const COLLECTOR_URL = process.env.GARMIN_COLLECTOR_URL ?? ''
-const COLLECTOR_TOKEN = process.env.GARMIN_COLLECTOR_TOKEN ?? ''
+const COLLECTOR_URL = process.env['GARMIN_COLLECTOR_URL'] ?? ''
+const COLLECTOR_TOKEN = process.env['GARMIN_COLLECTOR_TOKEN'] ?? ''
 
 // Mirrors the columns we upsert into sqlite. All optional — collector returns
 // nulls/missing keys when Garmin's API is flaky for that day.

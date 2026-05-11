@@ -24,7 +24,7 @@ import { uptimeKumaClient } from './clients/uptime-kuma.js'
 // eslint-disable-next-line import/no-unassigned-import
 import './db/index.js' // Initialize DB and ensure tables exist
 
-const SECRET = process.env.API_SECRET
+const SECRET = process.env['API_SECRET']
 if (!SECRET) throw new Error('API_SECRET env var is not set')
 
 const authGuard = new Elysia({ name: 'auth' }).use(bearer()).onBeforeHandle(({ bearer, set }) => {

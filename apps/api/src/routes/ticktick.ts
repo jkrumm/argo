@@ -28,27 +28,30 @@ function fromTickTickISO(iso: string): string {
 
 function normalizeTaskDates(task: Record<string, unknown>): Record<string, unknown> {
   const result = { ...task }
-  if (typeof result.dueDate === 'string' && result.dueDate) {
-    result.dueDate = fromTickTickISO(result.dueDate)
+  if (typeof result['dueDate'] === 'string' && result['dueDate']) {
+    result['dueDate'] = fromTickTickISO(result['dueDate'])
   }
-  if (typeof result.startDate === 'string' && result.startDate) {
-    result.startDate = fromTickTickISO(result.startDate)
+  if (typeof result['startDate'] === 'string' && result['startDate']) {
+    result['startDate'] = fromTickTickISO(result['startDate'])
   }
   return result
 }
 
 // Normalize SDK response { data: T } where T is a task or project data with tasks array.
 function normalizeSdkResponse(sdkResult: Record<string, unknown>): Record<string, unknown> {
-  const data = sdkResult.data
+  const data = sdkResult['data']
   if (!data || typeof data !== 'object') return sdkResult
   const d = data as Record<string, unknown>
-  if (Array.isArray(d.tasks)) {
+  if (Array.isArray(d['tasks'])) {
     return {
       ...sdkResult,
-      data: { ...d, tasks: d.tasks.map((t) => normalizeTaskDates(t as Record<string, unknown>)) },
+      data: {
+        ...d,
+        tasks: d['tasks'].map((t) => normalizeTaskDates(t as Record<string, unknown>)),
+      },
     }
   }
-  if (typeof d.id === 'string') {
+  if (typeof d['id'] === 'string') {
     return { ...sdkResult, data: normalizeTaskDates(d) }
   }
   return sdkResult

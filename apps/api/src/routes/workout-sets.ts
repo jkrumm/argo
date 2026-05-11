@@ -16,10 +16,11 @@ export const workoutSetRoutes = new Elysia({ prefix: '/workout-sets' })
       if (query.workout_id) conds.push(eq(workoutSets.workout_id, Number(query.workout_id)))
       const where = conds.length > 0 ? and(...conds) : undefined
 
-      const [{ count }] = await db
+      const countResult = await db
         .select({ count: sql<number>`count(*)` })
         .from(workoutSets)
         .where(where)
+      const count = countResult[0]?.count ?? 0
 
       set.headers['x-total-count'] = String(count)
 

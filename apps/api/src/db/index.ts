@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/bun-sqlite'
 import { mkdirSync } from 'node:fs'
 import * as schema from './schema.js'
 
-const DATA_DIR = process.env.DATA_DIR ?? './data'
+const DATA_DIR = process.env['DATA_DIR'] ?? './data'
 const DB_PATH = `${DATA_DIR}/homelab.db`
 
 mkdirSync(DATA_DIR, { recursive: true })

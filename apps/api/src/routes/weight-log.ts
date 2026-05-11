@@ -14,7 +14,8 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
   .get(
     '/',
     async ({ query, set }) => {
-      const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(weightLog)
+      const countResult = await db.select({ count: sql<number>`count(*)` }).from(weightLog)
+      const count = countResult[0]?.count ?? 0
 
       set.headers['x-total-count'] = String(count)
 

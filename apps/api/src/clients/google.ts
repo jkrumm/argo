@@ -1,16 +1,16 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
 import { join } from 'path'
 
-const CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? ''
-const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET ?? ''
+const CLIENT_ID = process.env['GOOGLE_CLIENT_ID'] ?? ''
+const CLIENT_SECRET = process.env['GOOGLE_CLIENT_SECRET'] ?? ''
 const REDIRECT_URI =
-  process.env.GOOGLE_OAUTH_REDIRECT_URI ?? 'https://argo.jkrumm.com/api/oauth/google/callback'
+  process.env['GOOGLE_OAUTH_REDIRECT_URI'] ?? 'https://argo.jkrumm.com/api/oauth/google/callback'
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/calendar.readonly',
 ].join(' ')
 
-const DATA_DIR = process.env.DATA_DIR ?? './data'
+const DATA_DIR = process.env['DATA_DIR'] ?? './data'
 const TOKEN_FILE = join(DATA_DIR, 'oauth-tokens.json')
 
 interface GoogleTokens {
@@ -158,7 +158,7 @@ function getHeader(headers: Array<{ name: string; value: string }>, name: string
 
 function parseAddress(raw: string): { name: string; email: string } {
   const match = raw.match(/^(.+?)\s*<([^>]+)>$/)
-  if (match) return { name: match[1].trim(), email: match[2].trim() }
+  if (match) return { name: match[1]!.trim(), email: match[2]!.trim() }
   return { name: '', email: raw.trim() }
 }
 
@@ -263,7 +263,7 @@ export async function listEmails(params: {
   scope?: 'inbox' | 'all'
 }): Promise<EmailListItem[]> {
   const token = await getValidAccessToken()
-  const [labelMap] = await Promise.all([getLabelMap(token)])
+  const labelMap = await getLabelMap(token)
   const maxResults = params.maxResults ?? 50
   // Default to "all" when filtering by label (archived emails are common for user labels)
   const scope = params.scope ?? (params.label ? 'all' : 'inbox')
@@ -280,7 +280,7 @@ export async function listEmails(params: {
   if (scope === 'inbox') {
     const excluded = ['spam', 'promotions', 'forums', ...(params.excludeCategories ?? [])]
     q += ' in:inbox'
-    for (const cat of [...new Set(excluded)]) q += ` -category:${cat}`
+    for (const cat of new Set(excluded)) q += ` -category:${cat}`
   }
   if (params.label) q += ` label:${params.label}`
   if (params.unread) q += ' is:unread'
@@ -431,26 +431,24 @@ export async function listCalendarEvents(days: number = 30): Promise<CalendarEve
       const evData = (await evRes.json()) as { items: CalendarEvent[] }
       for (const ev of evData.items ?? []) {
         const isAllDay = Boolean(ev.start.date && !ev.start.dateTime)
+        const videoLink = extractVideoLink(ev)
         allEvents.push({
           id: ev.id,
           title: ev.summary ?? '(no title)',
           start: ev.start.dateTime ?? ev.start.date ?? '',
           end: ev.end.dateTime ?? ev.end.date ?? '',
           isAllDay,
-          location: ev.location,
-          organizer: ev.organizer?.email
-            ? {
-                name: ev.organizer.displayName ?? '',
-                email: ev.organizer.email,
-              }
-            : undefined,
+          ...(ev.location !== undefined ? { location: ev.location } : {}),
+          ...(ev.organizer?.email
+            ? { organizer: { name: ev.organizer.displayName ?? '', email: ev.organizer.email } }
+            : {}),
           attendees: (ev.attendees ?? []).map((a) => ({
             name: a.displayName ?? '',
             email: a.email ?? '',
             status: a.responseStatus ?? 'unknown',
           })),
           calendarName: cal.summary,
-          videoLink: extractVideoLink(ev),
+          ...(videoLink !== undefined ? { videoLink } : {}),
         })
       }
     }),

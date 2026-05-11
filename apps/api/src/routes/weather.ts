@@ -184,50 +184,50 @@ function transformResponse(raw: OpenMeteoResponse, loc: ResolvedLocation) {
   const { current: c, hourly: h, daily: d } = raw
 
   const current = {
-    time: String(c.time),
-    temperature: c.temperature_2m,
-    feels_like: c.apparent_temperature,
-    humidity: c.relative_humidity_2m,
-    cloud_cover: c.cloud_cover,
-    wind_speed: c.wind_speed_10m,
-    wind_direction: c.wind_direction_10m,
-    wind_gusts: c.wind_gusts_10m,
-    uv_index: c.uv_index,
-    precipitation: c.precipitation,
-    condition: describeWeatherCode(c.weather_code),
+    time: String(c['time'] ?? ''),
+    temperature: c['temperature_2m'] ?? 0,
+    feels_like: c['apparent_temperature'] ?? 0,
+    humidity: c['relative_humidity_2m'] ?? 0,
+    cloud_cover: c['cloud_cover'] ?? 0,
+    wind_speed: c['wind_speed_10m'] ?? 0,
+    wind_direction: c['wind_direction_10m'] ?? 0,
+    wind_gusts: c['wind_gusts_10m'] ?? 0,
+    uv_index: c['uv_index'] ?? 0,
+    precipitation: c['precipitation'] ?? 0,
+    condition: describeWeatherCode(c['weather_code'] ?? 0),
   }
 
-  const times = h.time as unknown as string[]
+  const times = h['time'] as unknown as string[]
   const hourly_48h = times.map((time, i) => ({
     time,
-    temperature: (h.temperature_2m[i] as number) ?? 0,
-    feels_like: (h.apparent_temperature[i] as number) ?? 0,
-    precipitation_probability: (h.precipitation_probability[i] as number) ?? 0,
-    precipitation: (h.precipitation[i] as number) ?? 0,
-    cloud_cover: (h.cloud_cover[i] as number) ?? 0,
-    uv_index: (h.uv_index[i] as number) ?? 0,
-    wind_speed: (h.wind_speed_10m[i] as number) ?? 0,
-    wind_direction: (h.wind_direction_10m[i] as number) ?? 0,
-    condition: describeWeatherCode((h.weather_code[i] as number) ?? 0),
+    temperature: (h['temperature_2m']?.[i] ?? 0) as number,
+    feels_like: (h['apparent_temperature']?.[i] ?? 0) as number,
+    precipitation_probability: (h['precipitation_probability']?.[i] ?? 0) as number,
+    precipitation: (h['precipitation']?.[i] ?? 0) as number,
+    cloud_cover: (h['cloud_cover']?.[i] ?? 0) as number,
+    uv_index: (h['uv_index']?.[i] ?? 0) as number,
+    wind_speed: (h['wind_speed_10m']?.[i] ?? 0) as number,
+    wind_direction: (h['wind_direction_10m']?.[i] ?? 0) as number,
+    condition: describeWeatherCode((h['weather_code']?.[i] ?? 0) as number),
   }))
 
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-  const dates = d.time as unknown as string[]
+  const dates = d['time'] as unknown as string[]
   const daily_7d = dates.map((date, i) => ({
     date,
-    day: dayNames[new Date(date + 'T12:00:00').getDay()],
-    temp_max: (d.temperature_2m_max[i] as number) ?? 0,
-    temp_min: (d.temperature_2m_min[i] as number) ?? 0,
-    feels_like_max: (d.apparent_temperature_max[i] as number) ?? 0,
-    feels_like_min: (d.apparent_temperature_min[i] as number) ?? 0,
-    precipitation_sum: (d.precipitation_sum[i] as number) ?? 0,
-    precipitation_probability: (d.precipitation_probability_max[i] as number) ?? 0,
-    wind_max: (d.wind_speed_10m_max[i] as number) ?? 0,
-    wind_gusts_max: (d.wind_gusts_10m_max[i] as number) ?? 0,
-    uv_index_max: (d.uv_index_max[i] as number) ?? 0,
-    condition: describeWeatherCode((d.weather_code[i] as number) ?? 0),
-    sunrise: String(d.sunrise[i]),
-    sunset: String(d.sunset[i]),
+    day: dayNames[new Date(date + 'T12:00:00').getDay()] ?? 'Unknown',
+    temp_max: (d['temperature_2m_max']?.[i] ?? 0) as number,
+    temp_min: (d['temperature_2m_min']?.[i] ?? 0) as number,
+    feels_like_max: (d['apparent_temperature_max']?.[i] ?? 0) as number,
+    feels_like_min: (d['apparent_temperature_min']?.[i] ?? 0) as number,
+    precipitation_sum: (d['precipitation_sum']?.[i] ?? 0) as number,
+    precipitation_probability: (d['precipitation_probability_max']?.[i] ?? 0) as number,
+    wind_max: (d['wind_speed_10m_max']?.[i] ?? 0) as number,
+    wind_gusts_max: (d['wind_gusts_10m_max']?.[i] ?? 0) as number,
+    uv_index_max: (d['uv_index_max']?.[i] ?? 0) as number,
+    condition: describeWeatherCode((d['weather_code']?.[i] ?? 0) as number),
+    sunrise: String(d['sunrise']?.[i] ?? ''),
+    sunset: String(d['sunset']?.[i] ?? ''),
   }))
 
   const today = new Date().toLocaleDateString('en-CA', { timeZone: loc.timezone })

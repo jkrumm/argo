@@ -198,7 +198,10 @@ function createDockerRoutes(proxyUrl: string, tag: string) {
         let i = 0
         while (i + 8 <= bytes.length) {
           const size =
-            (bytes[i + 4] << 24) | (bytes[i + 5] << 16) | (bytes[i + 6] << 8) | bytes[i + 7]
+            ((bytes[i + 4] ?? 0) << 24) |
+            ((bytes[i + 5] ?? 0) << 16) |
+            ((bytes[i + 6] ?? 0) << 8) |
+            (bytes[i + 7] ?? 0)
           const payload = bytes.slice(i + 8, i + 8 + size)
           const line = new TextDecoder()
             .decode(payload)
@@ -347,7 +350,7 @@ function createDockerRoutes(proxyUrl: string, tag: string) {
 // API runs on the VPS now; reaches homelab Docker over Tailscale VPN.
 export const dockerHomelabRoutes = new Elysia({ prefix: '/docker/homelab' }).use(
   createDockerRoutes(
-    process.env.DOCKER_HOMELAB_URL ?? `http://${process.env.HOMELAB_TAILSCALE_IP}:2376`,
+    process.env['DOCKER_HOMELAB_URL'] ?? `http://${process.env['HOMELAB_TAILSCALE_IP']}:2376`,
     'Docker - HomeLab',
   ),
 )
@@ -355,7 +358,7 @@ export const dockerHomelabRoutes = new Elysia({ prefix: '/docker/homelab' }).use
 // VPS: read-only socket-proxy-monitoring on VPS internal Docker network (API is local now).
 export const dockerVpsRoutes = new Elysia({ prefix: '/docker/vps' }).use(
   createDockerRoutes(
-    process.env.DOCKER_VPS_URL ?? 'http://socket-proxy-monitoring:2375',
+    process.env['DOCKER_VPS_URL'] ?? 'http://socket-proxy-monitoring:2375',
     'Docker - VPS',
   ),
 )

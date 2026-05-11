@@ -228,8 +228,8 @@ export const summaryRoute = new Elysia().get(
     }
 
     const dockerHomelabUrl =
-      process.env.DOCKER_HOMELAB_URL ?? `http://${process.env.HOMELAB_TAILSCALE_IP}:2376`
-    const dockerVpsUrl = process.env.DOCKER_VPS_URL ?? 'http://socket-proxy-monitoring:2375'
+      process.env['DOCKER_HOMELAB_URL'] ?? `http://${process.env['HOMELAB_TAILSCALE_IP']}:2376`
+    const dockerVpsUrl = process.env['DOCKER_VPS_URL'] ?? 'http://socket-proxy-monitoring:2375'
     const [dockerHLResult, dockerVPSResult, ticktickResult] = await Promise.allSettled([
       withTimeout(fetchDockerSummary(dockerHomelabUrl), 10_000, 'dockerHomelab'),
       withTimeout(fetchDockerSummary(dockerVpsUrl), 10_000, 'dockerVps'),

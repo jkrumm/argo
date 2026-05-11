@@ -1,5 +1,5 @@
-const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN ?? ''
-const SLACK_USER_TOKEN = process.env.SLACK_USER_TOKEN ?? ''
+const SLACK_BOT_TOKEN = process.env['SLACK_BOT_TOKEN'] ?? ''
+const SLACK_USER_TOKEN = process.env['SLACK_USER_TOKEN'] ?? ''
 
 // ─── Slack Web API client ───────────────────────────────────────────────────
 

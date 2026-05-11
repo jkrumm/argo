@@ -8,11 +8,11 @@ import {
   type DailyMetric,
 } from '../clients/garmin-collector.js'
 
-const BACKFILL_DAYS = Number(process.env.GARMIN_BACKFILL_DAYS ?? '7')
+const BACKFILL_DAYS = Number(process.env['GARMIN_BACKFILL_DAYS'] ?? '7')
 const ACTIVITIES_INITIAL_BACKFILL_DAYS = Number(
-  process.env.GARMIN_ACTIVITIES_INITIAL_BACKFILL_DAYS ?? '60',
+  process.env['GARMIN_ACTIVITIES_INITIAL_BACKFILL_DAYS'] ?? '60',
 )
-const HEARTBEAT_URL = process.env.GARMIN_HEARTBEAT_URL ?? ''
+const HEARTBEAT_URL = process.env['GARMIN_HEARTBEAT_URL'] ?? ''
 
 let inProgress = false
 
@@ -174,7 +174,7 @@ export async function runGarminSync(reason: string): Promise<GarminSyncResult> {
 }
 
 export function registerGarminSyncCron(): void {
-  if (!process.env.GARMIN_COLLECTOR_URL) {
+  if (!process.env['GARMIN_COLLECTOR_URL']) {
     // eslint-disable-next-line no-console
     console.warn('[garmin-sync] GARMIN_COLLECTOR_URL not set — cron disabled')
     return
