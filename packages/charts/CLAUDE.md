@@ -92,5 +92,5 @@ Sparklines (under `sparklines/`) are exempt from ChartCard/ChartLegend/ChartTool
 ## Typecheck
 
 ```bash
-bun --cwd packages/charts run typecheck
+bun run --cwd packages/charts typecheck
 ```

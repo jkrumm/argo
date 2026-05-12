@@ -6,12 +6,16 @@
     "packages/*"
   ],
   "scripts": {
+    "dev": "op run --account tkrumm --env-file=apps/api/.env.local.tpl -- ./scripts/dev.sh",
+    "db:migrate": "op run --account tkrumm --env-file=apps/api/.env.local.tpl -- ./scripts/db-migrate.sh",
+    "db:sync": "./scripts/db-sync.sh",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
     "format": "oxfmt 'apps/**' 'packages/**' '!**/generated/**' '!**/dist/**' --write",
     "format:check": "oxfmt 'apps/**' 'packages/**' '!**/generated/**' '!**/dist/**' --check"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "lefthook": "^2.1.6",
     "oxfmt": "^0.45.0",
     "oxlint": "^1.60.0"

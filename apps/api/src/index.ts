@@ -53,7 +53,7 @@ export const app = new Elysia()
   })
   .use(
     cors({
-      origin: ['https://argo.jkrumm.com', 'http://localhost:5173'],
+      origin: ['https://argo.jkrumm.com', 'https://argo.test', 'http://localhost:7715'],
       allowedHeaders: ['Authorization', 'Content-Type'],
       exposeHeaders: ['x-total-count'],
     }),

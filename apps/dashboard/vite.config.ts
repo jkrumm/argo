@@ -11,8 +11,9 @@ export default defineConfig({
     react(),
   ],
   server: {
-    port: 5173,
+    port: 7715,
     strictPort: true,
+    allowedHosts: ['argo.test'],
     proxy: {
       '/v1/traces': { target: 'http://127.0.0.1:4318', changeOrigin: true },
       '/v1/logs': { target: 'http://127.0.0.1:4318', changeOrigin: true },
