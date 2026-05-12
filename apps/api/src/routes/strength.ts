@@ -37,14 +37,18 @@ import { WindowQuerySchema, parseWindow } from '../lib/window.js'
 
 const DEFAULT_EXERCISES = ['bench_press', 'deadlift', 'squat', 'pull_ups']
 
-const ExercisesQuerySchema = WindowQuerySchema.extend({
-  exercises: z
-    .string()
-    .optional()
-    .describe('Comma-separated exercise IDs; default: bench_press,deadlift,squat,pull_ups'),
-})
+// Elysia's query parser splits comma-separated values into an array, so accept both shapes.
+const ExercisesField = z
+  .union([z.string(), z.array(z.string())])
+  .optional()
+  .describe('Comma-separated exercise IDs; default: bench_press,deadlift,squat,pull_ups')
 
-function parseExercises(s: string | undefined): string[] {
+const ExercisesQuerySchema = WindowQuerySchema.extend({ exercises: ExercisesField })
+
+const ExercisesOnlyQuerySchema = z.object({ exercises: ExercisesField })
+
+function parseExercises(s: string | string[] | undefined): string[] {
+  if (Array.isArray(s)) return s.filter(Boolean)
   return (s ?? DEFAULT_EXERCISES.join(',')).split(',').filter(Boolean)
 }
 
@@ -723,12 +727,7 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
       return { grid }
     },
     {
-      query: z.object({
-        exercises: z
-          .string()
-          .optional()
-          .describe('Comma-separated exercise IDs; default: bench_press,deadlift,squat,pull_ups'),
-      }),
+      query: ExercisesOnlyQuerySchema,
       response: z.object({
         grid: z.array(z.array(AlignmentCellSchema)),
       }),
@@ -770,12 +769,7 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
       return res
     },
     {
-      query: z.object({
-        exercises: z
-          .string()
-          .optional()
-          .describe('Comma-separated exercise IDs; default: bench_press,deadlift,squat,pull_ups'),
-      }),
+      query: ExercisesOnlyQuerySchema,
       response: z.object({
         verdict: DeloadVerdictEnum,
         activeSignals: z.array(z.string()),
