@@ -41,3 +41,21 @@ export {
 } from './kinds/Bars'
 
 export { LineSparkline, BarSparkline } from './sparklines'
+
+// ── Re-exported visx primitives ──────────────────────────────────────────
+// Bespoke charts (genuinely unique compositions per CLAUDE.md) need raw
+// visx primitives. Re-exporting from @argo/charts keeps the dependency
+// declared in one place and preserves the rule that the dashboard only
+// imports from @argo/charts.
+export { Group } from '@visx/group'
+export { GridRows, GridColumns } from '@visx/grid'
+export { scaleLinear, scaleBand, scalePoint, scaleTime } from '@visx/scale'
+export { LinePath, Bar, AreaClosed, BarStack, BarGroup, Line } from '@visx/shape'
+export { Threshold } from '@visx/threshold'
+export {
+  curveMonotoneX,
+  curveLinear,
+  curveCatmullRom,
+  curveStepAfter,
+  curveBasis,
+} from '@visx/curve'

@@ -1,11 +1,10 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useCallback, useMemo, useState } from 'react'
+import { Suspense, useCallback, useMemo, useState } from 'react'
 import { Grid, Group, SimpleGrid, Stack, Title } from '@mantine/core'
 import { z } from 'zod'
 import { HoverContext, type HoverCtx } from '@argo/charts'
 import {
   HeroStats,
-  Placeholder,
   Section,
   SyncControl,
   WindowSelector,
@@ -13,7 +12,20 @@ import {
   type SummaryParams,
   type WindowPreset,
 } from '../features/garmin-health'
+import ActivitiesChart from '../features/garmin-health/charts/activities-chart'
+import ActivityScoreChart from '../features/garmin-health/charts/activity-score-chart'
+import AcwrChart from '../features/garmin-health/charts/acwr-chart'
+import BodyBatteryChart from '../features/garmin-health/charts/body-battery-chart'
+import DivergenceChart from '../features/garmin-health/charts/divergence-chart'
+import FitnessTrendsChart from '../features/garmin-health/charts/fitness-trends-chart'
+import RecoveryTrendChart from '../features/garmin-health/charts/recovery-trend-chart'
+import SleepBreakdownChart from '../features/garmin-health/charts/sleep-breakdown-chart'
+import StressChart from '../features/garmin-health/charts/stress-chart'
 import { dailyMetricsQueries } from '../lib/queries/daily-metrics'
+
+function ChartFallback({ height = 320 }: { height?: number }) {
+  return <div style={{ height, width: '100%' }} />
+}
 
 // ── Search params ──────────────────────────────────────────────────────────
 
@@ -116,16 +128,19 @@ function GarminHealthPage() {
 
         {/* Section 1: Activity & Fitness */}
         <Section title="Activity & Fitness">
-          {/* CHART_SLOT: activities (full width) */}
-          <Placeholder label="Activities" height={220} />
+          <Suspense fallback={<ChartFallback height={240} />}>
+            <ActivitiesChart params={params} />
+          </Suspense>
           <Grid>
             <Grid.Col span={{ base: 12, lg: 6 }}>
-              {/* CHART_SLOT: activity-score */}
-              <Placeholder label="Activity Score" />
+              <Suspense fallback={<ChartFallback />}>
+                <ActivityScoreChart params={params} />
+              </Suspense>
             </Grid.Col>
             <Grid.Col span={{ base: 12, lg: 6 }}>
-              {/* CHART_SLOT: fitness-trends */}
-              <Placeholder label="Fitness Trends" />
+              <Suspense fallback={<ChartFallback />}>
+                <FitnessTrendsChart params={params} />
+              </Suspense>
             </Grid.Col>
           </Grid>
         </Section>
@@ -133,30 +148,36 @@ function GarminHealthPage() {
         {/* Section 2: Training Load */}
         <Section title="Training Load">
           <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-            {/* CHART_SLOT: acwr */}
-            <Placeholder label="ACWR" />
-            {/* CHART_SLOT: divergence */}
-            <Placeholder label="Load Divergence" />
+            <Suspense fallback={<ChartFallback />}>
+              <AcwrChart params={params} />
+            </Suspense>
+            <Suspense fallback={<ChartFallback />}>
+              <DivergenceChart params={params} />
+            </Suspense>
           </SimpleGrid>
         </Section>
 
         {/* Section 3: Recovery & Sleep */}
         <Section title="Recovery & Sleep">
           <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-            {/* CHART_SLOT: recovery-trend */}
-            <Placeholder label="Recovery Trend" />
-            {/* CHART_SLOT: sleep-breakdown */}
-            <Placeholder label="Sleep Breakdown" />
+            <Suspense fallback={<ChartFallback />}>
+              <RecoveryTrendChart params={params} />
+            </Suspense>
+            <Suspense fallback={<ChartFallback />}>
+              <SleepBreakdownChart params={params} />
+            </Suspense>
           </SimpleGrid>
         </Section>
 
         {/* Section 4: Energy & Stress */}
         <Section title="Energy & Stress">
           <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-            {/* CHART_SLOT: body-battery */}
-            <Placeholder label="Body Battery" />
-            {/* CHART_SLOT: stress */}
-            <Placeholder label="Stress" />
+            <Suspense fallback={<ChartFallback />}>
+              <BodyBatteryChart params={params} />
+            </Suspense>
+            <Suspense fallback={<ChartFallback />}>
+              <StressChart params={params} />
+            </Suspense>
           </SimpleGrid>
         </Section>
       </Stack>
