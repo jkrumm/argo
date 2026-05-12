@@ -10,8 +10,8 @@ import { ZONE_COLORS } from './constants'
 export function scoreColor(score: number | null): string {
   if (score === null) return ZONE_COLORS.neutral
   if (score >= 90) return ZONE_COLORS.excellent
-  if (score >= 70) return ZONE_COLORS.excellent
-  if (score >= 40) return ZONE_COLORS.warn
+  if (score >= 80) return ZONE_COLORS.good
+  if (score >= 60) return ZONE_COLORS.warn
   return ZONE_COLORS.bad
 }
 
