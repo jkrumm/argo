@@ -19,7 +19,7 @@ import {
   weightLogQueries,
   type WeightLogWindowParams,
 } from '../../../lib/queries/weight-log'
-import { Placeholder } from '../hero-stats'
+import BodyWeightChart from '../charts/body-weight-chart'
 
 type WeightSummary = {
   current: number | null
@@ -216,7 +216,7 @@ export function BodyWeightPanel({ params }: { params: WeightLogWindowParams }) {
     <Stack>
       <WeightSummaryCards summary={summary as WeightSummary} />
       <WeightEntryForm />
-      <Placeholder label="Body Weight Chart" height={280} />
+      <BodyWeightChart params={params} />
     </Stack>
   )
 }
