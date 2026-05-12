@@ -3,7 +3,8 @@ WORKDIR /app
 
 COPY package.json bun.lock ./
 COPY apps/api/package.json ./apps/api/
-COPY packages/dashboard/package.json ./packages/dashboard/
+COPY apps/dashboard/package.json ./apps/dashboard/
+COPY packages/charts/package.json ./packages/charts/
 RUN bun install --production --ignore-scripts --filter @argo/api
 
 COPY apps/api/src ./apps/api/src

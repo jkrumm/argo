@@ -17,6 +17,7 @@ ENV VITE_HYPERDX_SERVICE_NAME=$VITE_HYPERDX_SERVICE_NAME
 COPY package.json bun.lock ./
 COPY apps/dashboard/package.json ./apps/dashboard/
 COPY apps/api/package.json ./apps/api/
+COPY packages/charts/package.json ./packages/charts/
 
 RUN bun install
 
@@ -24,6 +25,7 @@ RUN bun install
 COPY apps/api/src/ ./apps/api/src/
 COPY apps/api/tsconfig.json ./apps/api/
 COPY tsconfig.base.json ./
+COPY packages/charts/ ./packages/charts/
 COPY apps/dashboard/ ./apps/dashboard/
 
 WORKDIR /app/apps/dashboard
