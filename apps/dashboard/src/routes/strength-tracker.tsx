@@ -5,11 +5,14 @@ import { z } from 'zod'
 import { HoverContext, type HoverCtx } from '@argo/charts'
 import {
   BodyWeightPanel,
+  ChartSkeleton,
   DEFAULT_EXERCISES,
   DeloadBanner,
+  EmptyState,
   ExerciseFilter,
   ExerciseSummaryCards,
   HeroStats,
+  HeroStatsSkeleton,
   RecentRecords,
   Section,
   ViewTabs,
@@ -53,10 +56,6 @@ const SearchSchema = z.object({
 })
 
 type SearchParams = z.infer<typeof SearchSchema>
-
-function ChartFallback({ height = 320 }: { height?: number }) {
-  return <div style={{ height, width: '100%' }} />
-}
 
 function resolveWindow(search: SearchParams): SummaryParams {
   if (search.from !== undefined && search.to !== undefined) {
@@ -197,6 +196,11 @@ function StrengthTrackerPage() {
     [activeExercises, navigate, search.window, search.from, search.to, search.tab],
   )
 
+  // Total workout count drives the page-level empty state. The list query is
+  // already prefetched in the loader, so this hits the cache.
+  const { data: workoutsList } = useSuspenseQuery(workoutsQueries.list({ page: 1, limit: 20 }))
+  const hasWorkouts = workoutsList.total > 0
+
   return (
     <HoverContext.Provider value={hoverCtx}>
       <Stack gap="md">
@@ -220,35 +224,45 @@ function StrengthTrackerPage() {
 
         <DeloadBanner exercises={search.exercises} />
 
-        <Suspense fallback={<ChartFallback height={120} />}>
-          <HeroStats params={queryParams} />
-        </Suspense>
+        {hasWorkouts && (
+          <Suspense fallback={<HeroStatsSkeleton />}>
+            <HeroStats params={queryParams} />
+          </Suspense>
+        )}
 
         <Grid>
           <Grid.Col span={{ base: 12, lg: 8 }}>
-            {search.tab === 'charts' && (
-              <ChartsPanel params={queryParams} activeExercises={activeExercises} />
-            )}
-            {search.tab === 'scan' && <ScanPanel params={queryParams} />}
-            {search.tab === 'history' && (
-              <Suspense fallback={<ChartFallback height={320} />}>
-                <WorkoutsTable />
-              </Suspense>
-            )}
-            {search.tab === 'body-weight' && (
-              <Suspense fallback={<ChartFallback height={320} />}>
-                <BodyWeightPanel params={windowParams} />
-              </Suspense>
+            {!hasWorkouts ? (
+              <EmptyState />
+            ) : (
+              <>
+                {search.tab === 'charts' && (
+                  <ChartsPanel params={queryParams} activeExercises={activeExercises} />
+                )}
+                {search.tab === 'scan' && <ScanPanel params={queryParams} />}
+                {search.tab === 'history' && (
+                  <Suspense fallback={<ChartSkeleton height={320} />}>
+                    <WorkoutsTable />
+                  </Suspense>
+                )}
+                {search.tab === 'body-weight' && (
+                  <Suspense fallback={<ChartSkeleton height={320} />}>
+                    <BodyWeightPanel params={windowParams} />
+                  </Suspense>
+                )}
+              </>
             )}
           </Grid.Col>
 
           {/* Right rail */}
           <Grid.Col span={{ base: 12, lg: 4 }}>
             <Stack gap="md">
-              <Suspense fallback={<ChartFallback height={320} />}>
+              <Suspense fallback={<ChartSkeleton height={320} />}>
                 <WorkoutForm />
               </Suspense>
-              <RecentRecords params={queryParams} multiExercise={activeExercises.length > 1} />
+              {hasWorkouts && (
+                <RecentRecords params={queryParams} multiExercise={activeExercises.length > 1} />
+              )}
             </Stack>
           </Grid.Col>
         </Grid>
@@ -266,60 +280,63 @@ function ChartsPanel({
 }) {
   return (
     <Stack gap="md">
-      <Suspense fallback={<ChartFallback height={120} />}>
+      <Suspense fallback={<ChartSkeleton height={120} />}>
         <ExerciseSummaryCardsSlot />
       </Suspense>
 
-      <Section title="Strength Trajectory">
+      <Section
+        title="Strength Trajectory"
+        subtitle="Am I getting stronger on the lifts I care about?"
+      >
         <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-          <Suspense fallback={<ChartFallback />}>
+          <Suspense fallback={<ChartSkeleton />}>
             <OneRmTrendChart params={params} />
           </Suspense>
-          <Suspense fallback={<ChartFallback />}>
+          <Suspense fallback={<ChartSkeleton />}>
             <CompositeChartSlot params={params} activeExercises={activeExercises} />
           </Suspense>
         </SimpleGrid>
       </Section>
 
-      <Section title="Load Quality">
+      <Section title="Load Quality" subtitle="Am I loading smart or just hard?">
         <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-          <Suspense fallback={<ChartFallback />}>
+          <Suspense fallback={<ChartSkeleton />}>
             <WeeklyVolumeChart params={params} />
           </Suspense>
-          <Suspense fallback={<ChartFallback />}>
+          <Suspense fallback={<ChartSkeleton />}>
             <TrainingLoadChart params={params} />
           </Suspense>
         </SimpleGrid>
       </Section>
 
-      <Section title="Efficiency & Momentum">
+      <Section title="Efficiency & Momentum" subtitle="Are my sessions producing quality work?">
         <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-          <Suspense fallback={<ChartFallback />}>
+          <Suspense fallback={<ChartSkeleton />}>
             <InolChart params={params} />
           </Suspense>
-          <Suspense fallback={<ChartFallback />}>
+          <Suspense fallback={<ChartSkeleton />}>
             <MomentumChart params={params} />
           </Suspense>
         </SimpleGrid>
       </Section>
 
-      <Section title="Balance">
+      <Section title="Balance" subtitle="Are my lifts proportional?">
         <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-          <Suspense fallback={<ChartFallback />}>
+          <Suspense fallback={<ChartSkeleton />}>
             <RelativeProgressionChart params={params} />
           </Suspense>
-          <Suspense fallback={<ChartFallback />}>
+          <Suspense fallback={<ChartSkeleton />}>
             <StrengthRatiosChart params={params} />
           </Suspense>
         </SimpleGrid>
       </Section>
 
-      <Section title="Readiness">
+      <Section title="Readiness" subtitle="Is today a push, sustain, or rest day?">
         <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-          <Suspense fallback={<ChartFallback />}>
+          <Suspense fallback={<ChartSkeleton />}>
             <ReadinessStrainChart params={params} />
           </Suspense>
-          <Suspense fallback={<ChartFallback />}>
+          <Suspense fallback={<ChartSkeleton />}>
             <AlignmentMatrixChart params={params} />
           </Suspense>
         </SimpleGrid>
@@ -345,7 +362,7 @@ function CompositeChartSlot({
 function ScanPanel({ params }: { params: StrengthQueryParams }) {
   return (
     <Stack gap="md">
-      <Suspense fallback={<ChartFallback height={420} />}>
+      <Suspense fallback={<ChartSkeleton height={420} />}>
         <SparklineGridChart params={params} />
       </Suspense>
     </Stack>

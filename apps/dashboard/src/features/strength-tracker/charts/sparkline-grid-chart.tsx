@@ -1,8 +1,8 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Box, Table, Text } from '@mantine/core'
+import { Box, Table, Text, Tooltip } from '@mantine/core'
 import { BarSparkline, ChartCard, LineSparkline } from '@argo/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
-import { EXERCISE_COLORS, type ExerciseKey } from '../constants'
+import { EXERCISE_COLORS, METRIC_TOOLTIPS, type ExerciseKey } from '../constants'
 import { directionArrow, directionColor, type StrengthDirection } from '../formulas'
 import { ChartEmpty } from './empty'
 
@@ -34,7 +34,7 @@ export default function SparklineGridChart({ params }: { params: StrengthQueryPa
     <ChartCard
       title="Strength Scan"
       subtitle="All lifts at a glance"
-      tooltip="One row per lift: 1RM trend, weekly volume, INOL quality, momentum (28d velocity), and a status indicator."
+      tooltip={METRIC_TOOLTIPS.strengthScan}
     >
       {!hasData ? (
         <ChartEmpty height={180} message="No data — start logging workouts." />
@@ -43,10 +43,26 @@ export default function SparklineGridChart({ params }: { params: StrengthQueryPa
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Exercise</Table.Th>
-              <Table.Th>1RM</Table.Th>
-              <Table.Th>Volume</Table.Th>
-              <Table.Th>INOL</Table.Th>
-              <Table.Th>Momentum</Table.Th>
+              <Table.Th>
+                <Tooltip label="1RM (last 20 sessions)" withArrow position="top">
+                  <span style={{ cursor: 'help' }}>1RM</span>
+                </Tooltip>
+              </Table.Th>
+              <Table.Th>
+                <Tooltip label="Volume (last 10 weeks)" withArrow position="top">
+                  <span style={{ cursor: 'help' }}>Volume</span>
+                </Tooltip>
+              </Table.Th>
+              <Table.Th>
+                <Tooltip label="INOL (last 15 sessions)" withArrow position="top">
+                  <span style={{ cursor: 'help' }}>INOL</span>
+                </Tooltip>
+              </Table.Th>
+              <Table.Th>
+                <Tooltip label="Momentum (28d velocity %/day)" withArrow position="top">
+                  <span style={{ cursor: 'help' }}>Momentum</span>
+                </Tooltip>
+              </Table.Th>
               <Table.Th>Status</Table.Th>
             </Table.Tr>
           </Table.Thead>

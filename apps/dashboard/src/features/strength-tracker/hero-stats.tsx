@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Card, Group, SimpleGrid, Stack, Text, Tooltip } from '@mantine/core'
+import { Card, Group, SimpleGrid, Skeleton, Stack, Text, Tooltip } from '@mantine/core'
 import { IconInfoCircle } from '@tabler/icons-react'
 import { strengthQueries, type StrengthQueryParams } from '../../lib/queries/strength'
 import { METRIC_TOOLTIPS, ZONE_COLORS } from './constants'
@@ -149,6 +149,46 @@ export function HeroStats({ params }: { params: StrengthQueryParams }) {
         />
       )}
     </SimpleGrid>
+  )
+}
+
+/**
+ * Skeleton shimmer used as the Suspense fallback for the three hero cards.
+ * Mirrors the garmin-health `HeroCardSkeleton` pattern — one shimmer card per
+ * column so the layout doesn't reflow on load.
+ */
+function HeroCardSkeleton({ label }: { label: string }) {
+  return (
+    <Card padding="md" withBorder h="100%">
+      <Text size="xs" c="dimmed" mb={6}>
+        {label}
+      </Text>
+      <Skeleton height={32} width={120} radius="sm" mb={8} />
+      <Skeleton height={12} width={180} radius="sm" />
+    </Card>
+  )
+}
+
+export function HeroStatsSkeleton() {
+  return (
+    <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+      <HeroCardSkeleton label="Strength Direction" />
+      <HeroCardSkeleton label="Load Quality" />
+      <HeroCardSkeleton label="Readiness" />
+    </SimpleGrid>
+  )
+}
+
+/**
+ * Chart skeleton — used as the Suspense fallback for individual chart cards.
+ * Renders a card-like shell with a faded title and a single Skeleton block.
+ */
+export function ChartSkeleton({ height = 320 }: { height?: number }) {
+  return (
+    <Card padding="md" withBorder>
+      <Skeleton height={14} width={140} radius="sm" mb="sm" />
+      <Skeleton height={height - 40} radius="sm" />
+    </Card>
   )
 }
 

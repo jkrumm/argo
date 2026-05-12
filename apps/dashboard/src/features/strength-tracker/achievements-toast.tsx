@@ -1,6 +1,6 @@
 import { notifications } from '@mantine/notifications'
 import confetti from 'canvas-confetti'
-import type { Achievement } from '../../lib/queries/workouts'
+import type { Achievement, AchievementType } from '../../lib/queries/workouts'
 
 /**
  * Mirrors the old strength-tracker `fireConfetti` — a central burst plus two
@@ -14,9 +14,23 @@ function fireConfetti() {
   }, 200)
 }
 
+/** Distinct color per achievement type for visual hierarchy. */
+function colorFor(type: AchievementType): string {
+  switch (type) {
+    case 'first_workout':
+      return 'blue'
+    case 'volume_pr':
+      return 'gray'
+    default:
+      return 'green'
+  }
+}
+
 /**
  * Fire one notification per achievement and optionally trigger confetti.
- * Called after a workout-create mutation resolves.
+ * Called after a workout-create mutation resolves. Confetti fires once per
+ * call when any achievement has `confetti: true` — multiple consecutive
+ * mutations cannot stack bursts since each call is its own scope.
  */
 export function showAchievements(achievements: Achievement[] | undefined) {
   if (!achievements || achievements.length === 0) return
@@ -25,7 +39,7 @@ export function showAchievements(achievements: Achievement[] | undefined) {
 
   for (const a of achievements) {
     notifications.show({
-      color: 'green',
+      color: colorFor(a.type),
       title: a.title,
       message: a.description,
       autoClose: 6000,

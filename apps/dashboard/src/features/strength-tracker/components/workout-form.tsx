@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Group, Paper, Select, Stack, Text, TextInput } from '@mantine/core'
+import { Badge, Button, Group, Paper, Select, Stack, Text, TextInput } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import {
   useCreateWorkout,
@@ -15,6 +15,42 @@ const DEFAULT_SETS: SetEntry[] = [{ set_type: 'work', weight_kg: 60, reps: 5 }]
 
 function today(): string {
   return new Date().toISOString().slice(0, 10)
+}
+
+/**
+ * Client-side preview of the session aggregates the backend will compute on
+ * save. Mirrors the work-set filter + Brzycki/Epley average from
+ * `apps/api/src/lib/strength-formulas.ts:estimate1RM`. Best-set e1RM is the
+ * max across qualifying sets — same logic as the backend's `bestSet`.
+ */
+function previewMetrics(sets: SetEntry[]): {
+  workSets: number
+  topReps: number | null
+  topWeight: number | null
+  totalVolume: number
+  bestE1rm: number | null
+} {
+  let workSets = 0
+  let totalVolume = 0
+  let bestE1rm: number | null = null
+  let topReps: number | null = null
+  let topWeight: number | null = null
+
+  for (const s of sets) {
+    totalVolume += s.weight_kg * s.reps
+    if (s.set_type !== 'work' && s.set_type !== 'amrap') continue
+    workSets++
+    if (s.reps < 1 || s.reps > 12) continue
+    const epley = s.weight_kg * (1 + s.reps / 30)
+    const e1rm = s.reps <= 10 ? (epley + (s.weight_kg * 36) / (37 - s.reps)) / 2 : epley
+    if (bestE1rm === null || e1rm > bestE1rm) {
+      bestE1rm = e1rm
+      topReps = s.reps
+      topWeight = s.weight_kg
+    }
+  }
+
+  return { workSets, topReps, topWeight, totalVolume, bestE1rm }
 }
 
 type WorkoutRowLite = {
@@ -91,8 +127,19 @@ export function WorkoutForm() {
     })
   }
 
-  const workSetCount = sets.filter((s) => s.set_type === 'work').length
-  const totalVolume = sets.reduce((sum, s) => sum + s.weight_kg * s.reps, 0)
+  const preview = previewMetrics(sets)
+  const previewParts: string[] = []
+  if (preview.workSets > 0 && preview.topReps !== null && preview.topWeight !== null) {
+    previewParts.push(
+      `${preview.workSets} work × ${preview.topReps} @ ${preview.topWeight.toFixed(1)} kg`,
+    )
+  }
+  if (preview.totalVolume > 0) {
+    previewParts.push(`${Math.round(preview.totalVolume).toLocaleString()} kg total`)
+  }
+  if (preview.bestE1rm !== null) {
+    previewParts.push(`${Math.round(preview.bestE1rm)} e1RM`)
+  }
 
   return (
     <Paper withBorder p="md">
@@ -120,12 +167,13 @@ export function WorkoutForm() {
 
         <SetEditor sets={sets} onChange={setSets} previousSets={previousSets} />
 
-        <Group justify="space-between" gap={4} mt={4}>
-          <Text size="xs" c="dimmed">
-            {workSetCount} work {workSetCount === 1 ? 'set' : 'sets'} ·{' '}
-            {totalVolume.toLocaleString()} kg
-          </Text>
-        </Group>
+        {previewParts.length > 0 && (
+          <Group justify="flex-start" gap={4} mt={2}>
+            <Badge variant="light" color="gray" size="sm" radius="sm">
+              {previewParts.join(' · ')}
+            </Badge>
+          </Group>
+        )}
 
         <Button
           onClick={handleSubmit}
