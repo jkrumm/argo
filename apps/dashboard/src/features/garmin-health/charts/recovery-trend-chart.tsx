@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useElementSize } from '@mantine/hooks'
 import {
@@ -11,6 +12,8 @@ import {
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
+import { applyVisibilityFilter } from '../visibility'
+import { ChartEmpty } from './empty'
 
 type RecoveryPoint = {
   date: string
@@ -30,7 +33,11 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
   const { ref, width } = useElementSize<HTMLDivElement>()
   const { line } = useVxTheme()
 
-  const points = data.points as RecoveryPoint[]
+  const points = useMemo<RecoveryPoint[]>(
+    () => applyVisibilityFilter(data.points as RecoveryPoint[], (p) => p.date),
+    [data.points],
+  )
+  const hasRecovery = points.some((p) => p.recovery !== null)
   const latest = points[points.length - 1]
 
   const headerExtra =
@@ -51,7 +58,9 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
   return (
     <ChartCard title="Recovery Trend" tooltip={METRIC_TOOLTIPS.recoveryScore} extra={headerExtra}>
       <div ref={ref} style={{ height: 280, width: '100%' }}>
-        {width > 0 && (
+        {!hasRecovery ? (
+          <ChartEmpty height={280} />
+        ) : width > 0 ? (
           <ZonedLine<RecoveryPoint>
             data={points}
             width={Math.max(width, 200)}
@@ -69,7 +78,7 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
             formatValue={(v) => String(Math.round(v))}
             tooltipLabel={(d) => (d.recovery === null ? null : recoveryZoneLabel(d.recovery))}
           />
-        )}
+        ) : null}
       </div>
       <ChartLegend
         items={[

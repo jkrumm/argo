@@ -5,6 +5,8 @@ import { Bars, ChartCard, ChartLegend, TooltipRow, VX, useVxTheme } from '@argo/
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
+import { applyVisibilityFilter } from '../visibility'
+import { ChartEmpty } from './empty'
 
 const CHART_HEIGHT = 280
 const CHART_ID = 'sleep-breakdown'
@@ -83,7 +85,10 @@ export default function SleepBreakdownChart({ params }: { params: SummaryParams 
   const { ref, width } = useElementSize<HTMLDivElement>()
   const [highlighted, setHighlighted] = useState<string | null>(null)
 
-  const points = data.points as SeriesPoint[]
+  const points = useMemo(
+    () => applyVisibilityFilter(data.points as SeriesPoint[], (p) => p.date, { hideToday: false }),
+    [data.points],
+  )
   const sleepData = useMemo(() => buildSleepData(points), [points])
 
   const latest = sleepData[sleepData.length - 1]
@@ -111,7 +116,9 @@ export default function SleepBreakdownChart({ params }: { params: SummaryParams 
       extra={headerExtra}
     >
       <div ref={ref} style={{ height: CHART_HEIGHT, width: '100%' }}>
-        {width > 0 && sleepData.length > 0 && (
+        {sleepData.length === 0 ? (
+          <ChartEmpty height={CHART_HEIGHT} />
+        ) : width > 0 ? (
           <Bars<SleepPoint>
             data={sleepData}
             width={Math.max(width, 200)}
@@ -190,7 +197,7 @@ export default function SleepBreakdownChart({ params }: { params: SummaryParams 
             }}
             highlightedKey={highlighted}
           />
-        )}
+        ) : null}
       </div>
       <ChartLegend
         items={[

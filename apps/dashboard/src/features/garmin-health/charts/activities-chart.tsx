@@ -6,6 +6,8 @@ import { Bars, ChartCard, ChartLegend, VX, useVxTheme, type LegendEntry } from '
 import { activitiesQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
+import { applyVisibilityFilter } from '../visibility'
+import { ChartEmpty } from './empty'
 
 const CHART_HEIGHT = 240
 const CHART_ID = 'activities'
@@ -193,7 +195,10 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
   const { tooltipMuted, axis } = useVxTheme()
   const [highlighted, setHighlighted] = useState<string | null>(null)
 
-  const activities = data.data as Activity[]
+  const activities = useMemo(
+    () => applyVisibilityFilter(data.data as Activity[], (a) => a.date),
+    [data.data],
+  )
   const points = useMemo(() => buildPoints(activities), [activities])
   const orderedTypes = useMemo(() => buildOrderedTypes(activities), [activities])
 
@@ -236,7 +241,9 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
       }
     >
       <div ref={ref} style={{ height: CHART_HEIGHT, width: '100%' }}>
-        {width > 0 && points.length > 0 && (
+        {points.length === 0 ? (
+          <ChartEmpty height={CHART_HEIGHT} />
+        ) : width > 0 ? (
           <Bars<ActivityDayPoint>
             data={points}
             width={Math.max(width, 200)}
@@ -270,7 +277,7 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
             )}
             highlightedKey={highlighted}
           />
-        )}
+        ) : null}
       </div>
       {legendItems.length > 0 && (
         <ChartLegend items={legendItems} highlighted={highlighted} onHighlight={setHighlighted} />

@@ -26,6 +26,8 @@ import {
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
+import { applyVisibilityFilter } from '../visibility'
+import { ChartEmpty } from './empty'
 
 // ── Local helpers ────────────────────────────────────────────────────────
 
@@ -346,12 +348,16 @@ export default function FitnessTrendsChart({ params }: { params: SummaryParams }
 
   const seriesPoints: SeriesPoint[] = useMemo(
     () =>
-      data.points.map((p) => ({
-        date: p.date,
-        restingHr: p.restingHr,
-        hrv: p.hrv,
-        vo2Max: p.vo2Max,
-      })),
+      applyVisibilityFilter(
+        data.points.map((p) => ({
+          date: p.date,
+          restingHr: p.restingHr,
+          hrv: p.hrv,
+          vo2Max: p.vo2Max,
+        })),
+        (p) => p.date,
+        { hideToday: false },
+      ),
     [data.points],
   )
 
@@ -407,13 +413,17 @@ export default function FitnessTrendsChart({ params }: { params: SummaryParams }
       extra={headerExtra}
     >
       <div ref={ref} style={{ height: 280, width: '100%' }}>
-        {width > 0 && (
-          <FitnessTrendsInner
-            data={chartData}
-            width={Math.max(width, 200)}
-            height={280}
-            highlighted={highlighted}
-          />
+        {chartData.length === 0 ? (
+          <ChartEmpty height={280} />
+        ) : (
+          width > 0 && (
+            <FitnessTrendsInner
+              data={chartData}
+              width={Math.max(width, 200)}
+              height={280}
+              highlighted={highlighted}
+            />
+          )
         )}
       </div>
       <ChartLegend

@@ -11,6 +11,7 @@ export { HeroStats, Placeholder } from './hero-stats'
 export { SyncControl } from './sync-control'
 export { WindowSelector, presetToParams, getInitialPreset } from './window-selector'
 export { Section } from './section'
+export { applyVisibilityFilter, shouldHideTodayNow } from './visibility'
 export {
   scoreColor,
   recoveryActionLabel,

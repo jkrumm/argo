@@ -27,6 +27,8 @@ import {
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
+import { applyVisibilityFilter } from '../visibility'
+import { ChartEmpty } from './empty'
 
 const MARGIN = VX.margin
 const CHART_HEIGHT = 280
@@ -53,13 +55,16 @@ export default function StressChart({ params }: { params: SummaryParams }) {
 
   const chartData = useMemo<StressPoint[]>(
     () =>
-      data.points
-        .filter((p) => p.stress !== null)
-        .map((p) => ({
-          date: p.date,
-          avgStress: p.stress,
-          sleepStress: p.avgSleepStress,
-        })),
+      applyVisibilityFilter(
+        data.points
+          .filter((p) => p.stress !== null)
+          .map((p) => ({
+            date: p.date,
+            avgStress: p.stress,
+            sleepStress: p.avgSleepStress,
+          })),
+        (p) => p.date,
+      ),
     [data],
   )
 
@@ -89,13 +94,17 @@ export default function StressChart({ params }: { params: SummaryParams }) {
       }
     >
       <div ref={ref} style={{ height: CHART_HEIGHT, width: '100%' }}>
-        {width > 0 && chartData.length > 0 && (
-          <StressChartInner
-            data={chartData}
-            width={Math.max(width, 200)}
-            height={CHART_HEIGHT}
-            highlighted={highlighted}
-          />
+        {chartData.length === 0 ? (
+          <ChartEmpty height={CHART_HEIGHT} />
+        ) : (
+          width > 0 && (
+            <StressChartInner
+              data={chartData}
+              width={Math.max(width, 200)}
+              height={CHART_HEIGHT}
+              highlighted={highlighted}
+            />
+          )
         )}
       </div>
       <ChartLegend
