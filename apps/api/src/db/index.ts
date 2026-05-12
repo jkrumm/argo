@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 import postgres from 'postgres'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
@@ -14,9 +15,14 @@ const DATABASE_URL = env.DATABASE_URL.replace(/[?&](?:schema|search_path)=[^&]*/
 export const client = postgres(DATABASE_URL)
 export const db = drizzle(client, { schema })
 
+// Resolve the migrations folder relative to this source file so it works
+// regardless of the process CWD (local dev runs with --cwd apps/api; the
+// production container's CMD runs from /app).
+const migrationsFolder = join(import.meta.dir, '../../drizzle')
+
 export async function runMigrations(): Promise<void> {
   const migrationClient = postgres(DATABASE_URL, { max: 1 })
-  await migrate(drizzle(migrationClient), { migrationsFolder: './drizzle' })
+  await migrate(drizzle(migrationClient), { migrationsFolder })
   await migrationClient.end()
 
   // Seed reference exercises (idempotent)
