@@ -61,7 +61,14 @@ function RootLayout() {
   function handleNavStrength() {
     return (e: MouseEvent) => {
       e.preventDefault()
-      void navigate({ to: '/strength-tracker', search: { window: '90d', tab: 'workouts' } })
+      void navigate({
+        to: '/strength-tracker',
+        search: {
+          window: 'all',
+          tab: 'charts',
+          exercises: 'bench_press,deadlift,squat,pull_ups',
+        },
+      })
     }
   }
 

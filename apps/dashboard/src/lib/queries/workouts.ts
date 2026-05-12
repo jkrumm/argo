@@ -24,6 +24,25 @@ export type CreateWorkoutInput = {
   }>
 }
 
+export type AchievementType =
+  | 'first_workout'
+  | 'weight_milestone'
+  | 'max_weight_pr'
+  | 'estimated_1rm_pr'
+  | 'volume_pr'
+
+export type Achievement = {
+  type: AchievementType
+  title: string
+  description: string
+  confetti: boolean
+}
+
+export type CreateWorkoutResponse = {
+  id: number
+  achievements: Achievement[]
+}
+
 export type UpdateWorkoutInput = {
   id: number
   date: string

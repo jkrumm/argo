@@ -15,9 +15,14 @@
     "format:check": "oxfmt 'apps/**' 'packages/**' '!**/generated/**' '!**/dist/**' --check"
   },
   "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0",
     "concurrently": "^9.2.1",
     "lefthook": "^2.1.6",
     "oxfmt": "^0.45.0",
     "oxlint": "^1.60.0"
+  },
+  "dependencies": {
+    "canvas-confetti": "^1.9.4",
+    "dashboard": "^0.0.1"
   }
 }
