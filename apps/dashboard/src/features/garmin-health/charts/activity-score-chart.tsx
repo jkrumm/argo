@@ -12,6 +12,12 @@ import type { SummaryParams } from '../types'
  */
 const ACTIVITY_TARGET_SCORE = 600
 
+/** MET multipliers — must mirror server-side `garmin-formulas.ts`. */
+const VIGOROUS_MET = 8
+const MODERATE_MET = 4
+const STEPS_PER_INTENSITY_MIN = 100
+const STEPS_MET_PER_STEP = 0.03
+
 /**
  * Trailing simple moving average. Returns null when fewer than `min` non-null
  * samples are in the window so early days don't render a misleading flat line.
@@ -40,14 +46,25 @@ function movingAverage(
 
 type ActivityPoint = {
   date: string
+  vigorousMin: number | null
+  moderateMin: number | null
+  steps: number | null
+  walkingSteps: number
+  walkingScore: number
+  moderateScore: number
+  vigorousScore: number
   score: number | null
   scoreMA: number | null
 }
 
 const activityGetValue = (d: ActivityPoint, key: string): number | null => {
   switch (key) {
-    case 'score':
-      return d.score
+    case 'walkingScore':
+      return d.walkingScore
+    case 'moderateScore':
+      return d.moderateScore
+    case 'vigorousScore':
+      return d.vigorousScore
     case 'scoreMA':
       return d.scoreMA
     default:
@@ -64,11 +81,24 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
   const chartData = useMemo<ActivityPoint[]>(() => {
     const scores = data.points.map((p) => p.activityScore)
     const ma = movingAverage(scores, 30)
-    return data.points.map((p, i) => ({
-      date: p.date,
-      score: p.activityScore,
-      scoreMA: ma[i] ?? null,
-    }))
+    return data.points.map((p, i) => {
+      const vig = p.vigorousIntensityMin ?? 0
+      const mod = p.moderateIntensityMin ?? 0
+      const steps = p.steps ?? 0
+      const walkingSteps = Math.max(0, steps - (vig + mod) * STEPS_PER_INTENSITY_MIN)
+      return {
+        date: p.date,
+        vigorousMin: p.vigorousIntensityMin,
+        moderateMin: p.moderateIntensityMin,
+        steps: p.steps,
+        walkingSteps,
+        walkingScore: walkingSteps * STEPS_MET_PER_STEP,
+        moderateScore: mod * MODERATE_MET,
+        vigorousScore: vig * VIGOROUS_MET,
+        score: p.activityScore,
+        scoreMA: ma[i] ?? null,
+      }
+    })
   }, [data])
 
   const latest = chartData[chartData.length - 1]
@@ -104,7 +134,12 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
             chartId="activity-score"
             getX={(d) => d.date}
             getValue={activityGetValue}
-            positiveBars={[{ key: 'score', label: 'Activity', color: VX.series.intensityMin }]}
+            positiveBars={[
+              { key: 'walkingScore', label: 'Walking', color: VX.series.intensityWalking },
+              { key: 'moderateScore', label: 'Moderate', color: VX.series.intensityModerate },
+              { key: 'vigorousScore', label: 'Vigorous', color: VX.series.intensityVigorous },
+            ]}
+            barLayout="stacked"
             lines={[
               {
                 key: 'scoreMA',
@@ -145,9 +180,21 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
             renderPrefixTooltipRows={(d) => (
               <>
                 <TooltipRow
-                  color={VX.series.intensityMin}
-                  label="Activity"
-                  value={d.score === null ? '–' : `${Math.round(d.score)} MET-min`}
+                  color={VX.series.intensityVigorous}
+                  label="Vigorous"
+                  value={`${d.vigorousMin ?? 0} min`}
+                  shape="bar"
+                />
+                <TooltipRow
+                  color={VX.series.intensityModerate}
+                  label="Moderate"
+                  value={`${d.moderateMin ?? 0} min`}
+                  shape="bar"
+                />
+                <TooltipRow
+                  color={VX.series.intensityWalking}
+                  label="Walking"
+                  value={`${d.walkingSteps.toLocaleString()} steps`}
                   shape="bar"
                 />
                 {d.scoreMA !== null && (
@@ -170,7 +217,24 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
       </div>
       <ChartLegend
         items={[
-          { key: 'score', label: 'Activity', color: VX.series.intensityMin, shape: 'bar' },
+          {
+            key: 'walkingScore',
+            label: 'Walking',
+            color: VX.series.intensityWalking,
+            shape: 'bar',
+          },
+          {
+            key: 'moderateScore',
+            label: 'Moderate',
+            color: VX.series.intensityModerate,
+            shape: 'bar',
+          },
+          {
+            key: 'vigorousScore',
+            label: 'Vigorous',
+            color: VX.series.intensityVigorous,
+            shape: 'bar',
+          },
           {
             key: 'scoreMA',
             label: '30d avg',

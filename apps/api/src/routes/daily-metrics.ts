@@ -111,6 +111,8 @@ const DailyMetricsSeriesPointSchema = z.object({
     .number()
     .nullable()
     .describe('Computed MET-min: vigorous×8 + moderate×4 + walking_steps×0.03'),
+  vigorousIntensityMin: z.number().nullable(),
+  moderateIntensityMin: z.number().nullable(),
 })
 
 async function readSyncStatus() {
@@ -233,6 +235,8 @@ export const dailyMetricsRoutes = new Elysia({ prefix: '/daily-metrics' })
             moderateMin: r.moderate_intensity_min,
             steps: r.steps,
           }),
+          vigorousIntensityMin: r.vigorous_intensity_min,
+          moderateIntensityMin: r.moderate_intensity_min,
         })),
       }
     },
