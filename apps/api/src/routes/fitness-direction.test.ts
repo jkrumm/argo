@@ -20,7 +20,7 @@ type Body = {
   vo2max: number | null
 }
 
-describe('GET /daily-metrics/fitness-direction', () => {
+describe('GET /fitness-direction', () => {
   afterEach(async () => {
     await db.delete(dailyMetrics)
   })
@@ -28,7 +28,9 @@ describe('GET /daily-metrics/fitness-direction', () => {
   it('returns stable signal with no data', async () => {
     const app = new Elysia().use(fitnessDirectionRoutes)
     const res = await app.handle(
-      new Request('http://localhost/daily-metrics/fitness-direction?from=2025-06-01&to=2025-06-30'),
+      new Request('http://localhost/fitness-direction?from=2025-06-01&to=2025-06-30', {
+        headers: { Authorization: `Bearer ${process.env['API_SECRET'] ?? ''}` },
+      }),
     )
     expect(res.status).toBe(200)
     const body = (await res.json()) as Body
@@ -52,7 +54,9 @@ describe('GET /daily-metrics/fitness-direction', () => {
 
     const app = new Elysia().use(fitnessDirectionRoutes)
     const res = await app.handle(
-      new Request('http://localhost/daily-metrics/fitness-direction?from=2025-06-01&to=2025-06-30'),
+      new Request('http://localhost/fitness-direction?from=2025-06-01&to=2025-06-30', {
+        headers: { Authorization: `Bearer ${process.env['API_SECRET'] ?? ''}` },
+      }),
     )
     expect(res.status).toBe(200)
     const body = (await res.json()) as Body

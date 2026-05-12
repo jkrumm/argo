@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { listEmails, getEmail, listCalendarEvents } from '../clients/google.js'
+import { listEmails, getEmail } from '../clients/google.js'
 
 const AddressSchema = z.object({
   name: z.string().describe('Display name'),
@@ -37,25 +37,6 @@ const EmailDetailSchema = z.object({
   hasAttachments: z.boolean(),
   body: z.string().describe('Decoded plaintext body (HTML stripped as fallback)'),
   attachments: z.array(AttachmentSchema),
-})
-
-const AttendeeSchema = z.object({
-  name: z.string(),
-  email: z.string(),
-  status: z.string().describe('accepted | declined | tentative | needsAction | unknown'),
-})
-
-const CalendarEventSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  start: z.string().describe('ISO timestamp or YYYY-MM-DD for all-day'),
-  end: z.string().describe('ISO timestamp or YYYY-MM-DD for all-day'),
-  isAllDay: z.boolean(),
-  location: z.string().optional(),
-  organizer: z.object({ name: z.string(), email: z.string() }).optional(),
-  attendees: z.array(AttendeeSchema),
-  calendarName: z.string().describe('Source calendar name'),
-  videoLink: z.string().describe('Google Meet or conference link').optional(),
 })
 
 export const gmailRoutes = new Elysia({ prefix: '/gmail' })
@@ -118,7 +99,7 @@ export const gmailRoutes = new Elysia({ prefix: '/gmail' })
       }),
       response: { 200: z.array(EmailListItemSchema), 503: z.string() },
       detail: {
-        tags: ['Gmail'],
+        tags: ['Productivity'],
         summary: 'List emails',
         description:
           "Returns inbox emails. Spam, promotions, and forums are excluded by default. Labels are resolved to human-readable names (e.g. 'Rechnungen' instead of 'Label_25'). Supports label filters, read/starred/important flags, and full Gmail query syntax.",
@@ -140,34 +121,10 @@ export const gmailRoutes = new Elysia({ prefix: '/gmail' })
       params: z.object({ id: z.string().describe('Gmail message ID') }),
       response: { 200: EmailDetailSchema, 404: z.string() },
       detail: {
-        tags: ['Gmail'],
+        tags: ['Productivity'],
         summary: 'Get email detail',
         description:
           'Returns full email with decoded body (plaintext preferred, HTML stripped as fallback) and attachment metadata.',
-        security: [{ BearerAuth: [] }],
-      },
-    },
-  )
-  .get(
-    '/calendar',
-    async ({ query, set }) => {
-      try {
-        return await listCalendarEvents(query.days ? Number(query.days) : undefined)
-      } catch (error) {
-        set.status = 503
-        return error instanceof Error ? error.message : 'Google API error'
-      }
-    },
-    {
-      query: z.object({
-        days: z.string().describe('Days window from today (default: 30)').optional(),
-      }),
-      response: { 200: z.array(CalendarEventSchema), 503: z.string() },
-      detail: {
-        tags: ['Google Calendar'],
-        summary: 'List upcoming events',
-        description:
-          'Returns events from all personal Google calendars merged into a single list, sorted by start time ascending.',
         security: [{ BearerAuth: [] }],
       },
     },

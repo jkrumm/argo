@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Badge, Button, Group, Paper, Select, Stack, Text, TextInput } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
+import { format } from 'date-fns'
 import {
   useCreateWorkout,
   workoutsQueries,
@@ -14,7 +15,7 @@ import { SetEditor, type SetEntry } from './set-editor'
 const DEFAULT_SETS: SetEntry[] = [{ set_type: 'work', weight_kg: 60, reps: 5 }]
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10)
+  return format(new Date(), 'yyyy-MM-dd')
 }
 
 /**

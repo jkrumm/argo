@@ -126,7 +126,7 @@ export const slackRoutes = new Elysia({ prefix: '/slack' })
       }),
       response: z.array(SlackChannelSchema),
       detail: {
-        tags: ['Slack'],
+        tags: ['Productivity'],
         summary: 'List all accessible channels, groups, DMs',
         description:
           "Returns all conversations the user has access to — public channels, private channels, group DMs, and direct messages. DMs show the other user's display name.",
@@ -159,7 +159,7 @@ export const slackRoutes = new Elysia({ prefix: '/slack' })
       }),
       response: PaginatedMessagesSchema,
       detail: {
-        tags: ['Slack'],
+        tags: ['Productivity'],
         summary: 'Get message history for a channel',
         description:
           'Returns messages in reverse chronological order (newest first). Use oldest/latest for time ranges, cursor for pagination.',
@@ -189,7 +189,7 @@ export const slackRoutes = new Elysia({ prefix: '/slack' })
       }),
       response: PaginatedMessagesSchema,
       detail: {
-        tags: ['Slack'],
+        tags: ['Productivity'],
         summary: 'Get all replies in a thread',
         description: 'Returns the parent message plus all replies in chronological order.',
         security: [{ BearerAuth: [] }],
@@ -204,7 +204,7 @@ export const slackRoutes = new Elysia({ prefix: '/slack' })
     async ({ query }) => {
       return searchMessages(query.q, {
         ...(query.sort ? { sort: query.sort as 'score' | 'timestamp' } : {}),
-        ...(query.sort_dir ? { sort_dir: query.sort_dir as 'asc' | 'desc' } : {}),
+        ...(query.sortDir ? { sort_dir: query.sortDir as 'asc' | 'desc' } : {}),
         ...(query.count ? { count: Number(query.count) } : {}),
         ...(query.page ? { page: Number(query.page) } : {}),
       })
@@ -215,13 +215,13 @@ export const slackRoutes = new Elysia({ prefix: '/slack' })
           .string()
           .describe('Search query (supports Slack search syntax: in:#channel, from:@user, etc.)'),
         sort: z.string().describe('"score" or "timestamp". Default: timestamp').optional(),
-        sort_dir: z.string().describe('"asc" or "desc". Default: desc').optional(),
+        sortDir: z.string().describe('"asc" or "desc". Default: desc').optional(),
         count: z.string().describe('Results per page. Default: 20').optional(),
         page: z.string().describe('Page number (1-based). Default: 1').optional(),
       }),
       response: SearchResultSchema,
       detail: {
-        tags: ['Slack'],
+        tags: ['Productivity'],
         summary: 'Search messages across all channels',
         description:
           'Full-text search across all accessible messages. Supports Slack search operators: in:#channel, from:@user, has:link, before:2024-01-01, after:2024-01-01, etc.',
@@ -240,7 +240,7 @@ export const slackRoutes = new Elysia({ prefix: '/slack' })
     {
       response: z.array(SlackUserSchema),
       detail: {
-        tags: ['Slack'],
+        tags: ['Productivity'],
         summary: 'List all workspace users',
         description:
           'Returns all users in the workspace (cached for 5 minutes). Useful for resolving user IDs in messages to display names.',
@@ -259,7 +259,7 @@ export const slackRoutes = new Elysia({ prefix: '/slack' })
     {
       response: z.array(UnreadSchema),
       detail: {
-        tags: ['Slack'],
+        tags: ['Productivity'],
         summary: 'Get channels with unread messages',
         description:
           'Returns all channels with unread messages, sorted by unread count descending. The latest message is included for the top 10 channels.',
@@ -286,8 +286,10 @@ export const slackRoutes = new Elysia({ prefix: '/slack' })
       body: SendMessageBodySchema,
       response: SendMessageResponseSchema,
       detail: {
-        tags: ['Slack'],
+        tags: ['Productivity'],
         summary: 'Send a message to a channel',
+        description:
+          'Posts a new top-level message to the channel. `text` supports Slack mrkdwn (bold *foo*, italic _foo_, code `foo`, link <url|label>). To reply inside a thread use POST /slack/channels/{channelId}/messages/{threadTs}/reply instead. `unfurl_links` defaults to true on the Slack side.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -311,7 +313,7 @@ export const slackRoutes = new Elysia({ prefix: '/slack' })
       body: SendMessageBodySchema,
       response: SendMessageResponseSchema,
       detail: {
-        tags: ['Slack'],
+        tags: ['Productivity'],
         summary: 'Reply to a thread',
         description: 'Sends a message as a reply in the specified thread.',
         security: [{ BearerAuth: [] }],

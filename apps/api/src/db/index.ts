@@ -1,4 +1,5 @@
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import postgres from 'postgres'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
@@ -18,7 +19,8 @@ export const db = drizzle(client, { schema })
 // Resolve the migrations folder relative to this source file so it works
 // regardless of the process CWD (local dev runs with --cwd apps/api; the
 // production container's CMD runs from /app).
-const migrationsFolder = join(import.meta.dir, '../../drizzle')
+const moduleDir = dirname(fileURLToPath(import.meta.url))
+const migrationsFolder = join(moduleDir, '../../drizzle')
 
 export async function runMigrations(): Promise<void> {
   const migrationClient = postgres(DATABASE_URL, { max: 1 })

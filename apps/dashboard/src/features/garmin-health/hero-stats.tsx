@@ -1,7 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { Card, Group, SimpleGrid, Skeleton, Stack, Text, Tooltip } from '@mantine/core'
 import { IconInfoCircle } from '@tabler/icons-react'
-import { dailyMetricsQueries } from '../../lib/queries/daily-metrics'
+import {
+  fitnessDirectionQueries,
+  recoveryQueries,
+  trainingLoadQueries,
+} from '../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS, ZONE_COLORS } from './constants'
 import { acwrZoneColor, acwrZoneLabel, recoveryActionLabel, scoreColor } from './formulas'
 import type { SummaryParams } from './types'
@@ -77,7 +81,7 @@ function HeroCardSkeleton({ label }: { label: string }) {
 }
 
 function RecoveryCard({ params }: { params: SummaryParams }) {
-  const { data, isLoading } = useQuery(dailyMetricsQueries.recovery(params))
+  const { data, isLoading } = useQuery(recoveryQueries.summary(params))
   if (isLoading || data === undefined) return <HeroCardSkeleton label="Recovery" />
   const score = data.recovery
   const color = score !== null ? scoreColor(score) : ZONE_COLORS.neutral
@@ -106,7 +110,7 @@ function RecoveryCard({ params }: { params: SummaryParams }) {
 }
 
 function FitnessDirectionCard({ params }: { params: SummaryParams }) {
-  const { data, isLoading } = useQuery(dailyMetricsQueries.fitnessDirection(params))
+  const { data, isLoading } = useQuery(fitnessDirectionQueries.summary(params))
   if (isLoading || data === undefined) return <HeroCardSkeleton label="Fitness" />
 
   const breakdown = [
@@ -134,7 +138,7 @@ function FitnessDirectionCard({ params }: { params: SummaryParams }) {
 }
 
 function TrainingLoadCard({ params }: { params: SummaryParams }) {
-  const { data, isLoading } = useQuery(dailyMetricsQueries.trainingLoad(params))
+  const { data, isLoading } = useQuery(trainingLoadQueries.summary(params))
   if (isLoading || data === undefined) return <HeroCardSkeleton label="Training Load" />
   const latest = data.points.at(-1) ?? null
 

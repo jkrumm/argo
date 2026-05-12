@@ -97,7 +97,7 @@ const ItemSchema = z.object({
 })
 
 export const myResourceRoutes = new Elysia({ prefix: '/my-resource' }).get(
-  '/',
+  '',
   async ({ query }) => {
     const { page = 1, limit = 50 } = query
     const [rows, [countRow]] = await Promise.all([
@@ -114,9 +114,10 @@ export const myResourceRoutes = new Elysia({ prefix: '/my-resource' }).get(
     query: QuerySchema,
     response: z.object({ data: z.array(ItemSchema), total: z.number().int() }),
     detail: {
-      tags: ['my-resource'],
+      tags: ['Strength'], // MUST be from the enum in .claude/rules/openapi.md
       summary: 'List my resources',
-      description: 'Returns a paginated list. page is 1-indexed.',
+      description:
+        'Returns a paginated list of my resources, newest first. page is 1-indexed; limit caps at 200. Use ?sort=name to alphabetize. For a single resource use GET /my-resource/{id}.',
       security: [{ BearerAuth: [] }],
     },
   },

@@ -5,7 +5,7 @@ import { getAuthUrl, exchangeCode } from '../clients/google.js'
 export const oauthRoutes = new Elysia({ prefix: '/oauth' })
   .get('/google/init', ({ redirect }) => redirect(getAuthUrl()), {
     detail: {
-      tags: ['OAuth'],
+      tags: ['System'],
       summary: 'Initiate Google OAuth',
       description:
         'Redirects browser to Google consent screen. Visit in a browser to grant Gmail and Calendar read access. No auth required.',
@@ -39,7 +39,7 @@ export const oauthRoutes = new Elysia({ prefix: '/oauth' })
       }),
       response: { 200: z.string(), 400: z.string(), 500: z.string() },
       detail: {
-        tags: ['OAuth'],
+        tags: ['System'],
         summary: 'Google OAuth callback',
         description:
           'Exchanges authorization code for access + refresh tokens and saves them to disk. Called automatically by Google after user consent. No auth required.',

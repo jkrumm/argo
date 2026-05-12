@@ -7,7 +7,7 @@ import { SetTypeSchema, WorkoutSetSchema } from './schemas.js'
 
 export const workoutSetRoutes = new Elysia({ prefix: '/workout-sets' })
   .get(
-    '/',
+    '',
     async ({ query }) => {
       const page = query.page ?? 1
       const limit = query.limit ?? 50
@@ -15,7 +15,7 @@ export const workoutSetRoutes = new Elysia({ prefix: '/workout-sets' })
       const offset = (page - 1) * limit
 
       const conds = []
-      if (query.workout_id) conds.push(eq(workoutSets.workout_id, Number(query.workout_id)))
+      if (query.workoutId !== undefined) conds.push(eq(workoutSets.workout_id, query.workoutId))
       const where = conds.length > 0 ? and(...conds) : undefined
 
       const [rows, countResult] = await Promise.all([
@@ -39,23 +39,23 @@ export const workoutSetRoutes = new Elysia({ prefix: '/workout-sets' })
         page: z.coerce.number().int().min(1).default(1).optional(),
         limit: z.coerce.number().int().min(1).max(200).default(50).optional(),
         order: z.enum(['asc', 'desc']).default('asc').optional(),
-        workout_id: z.string().optional(),
+        workoutId: z.coerce.number().int().min(1).optional(),
       }),
       response: z.object({
         data: z.array(WorkoutSetSchema),
         total: z.number().int(),
       }),
       detail: {
-        tags: ['Workout Sets'],
+        tags: ['Strength'],
         summary: 'List workout sets',
         description:
-          'Returns paginated workout sets. `page` is 1-indexed, `limit` ≤ 200. Filter by workout_id. Ordered by workout_id then set_number.',
+          'Returns individual workout-set rows (paginated). Most callers should use GET /workouts which already embeds sets — this raw endpoint is for cases where you need set-level filtering across workouts. `page` is 1-indexed, `limit` ≤ 200. Filter by `workoutId` to scope to one session. Ordered by workout_id then set_number.',
         security: [{ BearerAuth: [] }],
       },
     },
   )
   .post(
-    '/',
+    '',
     async ({ body, set }) => {
       const [row] = await db
         .insert(workoutSets)
@@ -81,8 +81,10 @@ export const workoutSetRoutes = new Elysia({ prefix: '/workout-sets' })
       }),
       response: { 201: WorkoutSetSchema },
       detail: {
-        tags: ['Workout Sets'],
-        summary: 'Create a workout set',
+        tags: ['Strength'],
+        summary: 'Append a set to a workout',
+        description:
+          'Inserts a single set into an existing workout. Most callers should send the full set list in POST /workouts (transactional) or PATCH /workouts/{id} (replace-all). This endpoint is for incremental "add one more set" flows. `set_type` values: warmup, work, drop, amrap. No referential check on workout_id — pass a real one.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -133,8 +135,10 @@ export const workoutSetRoutes = new Elysia({ prefix: '/workout-sets' })
         404: z.string(),
       },
       detail: {
-        tags: ['Workout Sets'],
+        tags: ['Strength'],
         summary: 'Update a workout set',
+        description:
+          'Partial update of a single set (set_number, set_type, weight_kg, reps). 404 if no set with that id exists. Returns the updated row. Note: PATCH /workouts/{id} replaces the whole set list — use that for bulk edits.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -162,8 +166,10 @@ export const workoutSetRoutes = new Elysia({ prefix: '/workout-sets' })
         404: z.string(),
       },
       detail: {
-        tags: ['Workout Sets'],
+        tags: ['Strength'],
         summary: 'Delete a workout set',
+        description:
+          'Removes a single set by id. Returns 404 if no set with that id exists. To delete an entire workout (and all its sets) use DELETE /workouts/{id} instead.',
         security: [{ BearerAuth: [] }],
       },
     },

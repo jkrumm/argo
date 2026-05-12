@@ -158,7 +158,7 @@ export const dailyMetricsRoutes = new Elysia({ prefix: '/daily-metrics' })
       query: WindowQuerySchema,
       response: DailyMetricsSummarySchema,
       detail: {
-        tags: ['Summaries'],
+        tags: ['Garmin Health'],
         summary: 'Daily metrics health summary',
         description:
           'Server-computed rolling stats for HRV, resting HR, sleep score, and stress. ' +
@@ -244,7 +244,7 @@ export const dailyMetricsRoutes = new Elysia({ prefix: '/daily-metrics' })
       query: WindowQuerySchema,
       response: z.object({ points: z.array(DailyMetricsSeriesPointSchema) }),
       detail: {
-        tags: ['Summaries'],
+        tags: ['Garmin Health'],
         summary: 'Daily metrics time series',
         description:
           'One data point per day for charting HRV, resting HR, sleep score, stress, steps, active kcal, and sleep duration. ' +
@@ -255,7 +255,7 @@ export const dailyMetricsRoutes = new Elysia({ prefix: '/daily-metrics' })
     },
   )
   .get(
-    '/',
+    '',
     async ({ query }) => {
       const page = query.page ?? 1
       const limit = query.limit ?? 50
@@ -263,8 +263,8 @@ export const dailyMetricsRoutes = new Elysia({ prefix: '/daily-metrics' })
       const offset = (page - 1) * limit
 
       const conds = []
-      if (query.date_from) conds.push(gte(dailyMetrics.date, query.date_from))
-      if (query.date_to) conds.push(lte(dailyMetrics.date, query.date_to))
+      if (query.dateFrom) conds.push(gte(dailyMetrics.date, query.dateFrom))
+      if (query.dateTo) conds.push(lte(dailyMetrics.date, query.dateTo))
       const where = conds.length > 0 ? and(...conds) : undefined
 
       const [rows, countResult] = await Promise.all([
@@ -286,18 +286,18 @@ export const dailyMetricsRoutes = new Elysia({ prefix: '/daily-metrics' })
         page: z.coerce.number().int().min(1).default(1).optional(),
         limit: z.coerce.number().int().min(1).max(200).default(50).optional(),
         order: z.enum(['asc', 'desc']).default('desc').optional(),
-        date_from: z.string().optional(),
-        date_to: z.string().optional(),
+        dateFrom: z.string().optional(),
+        dateTo: z.string().optional(),
       }),
       response: z.object({
         data: z.array(DailyMetricSchema),
         total: z.number().int(),
       }),
       detail: {
-        tags: ['Daily Metrics'],
+        tags: ['Garmin Health'],
         summary: 'List daily Garmin metrics',
         description:
-          'Returns paginated daily metrics. `page` is 1-indexed, `limit` ≤ 200. Filter by date_from/date_to (YYYY-MM-DD). Ordered by date descending by default.',
+          'Returns paginated daily Garmin metric rows — one row per day with the full snapshot (steps, HRV, sleep stages, body battery, intensity minutes, etc.). For computed rolling stats use GET /daily-metrics/summary; for charting-friendly per-day series use GET /daily-metrics/series. `page` is 1-indexed, `limit` ≤ 200. Filter by dateFrom/dateTo (YYYY-MM-DD). Ordered by date descending by default.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -305,8 +305,10 @@ export const dailyMetricsRoutes = new Elysia({ prefix: '/daily-metrics' })
   .get('/sync-status', async () => readSyncStatus(), {
     response: SyncStatusSchema,
     detail: {
-      tags: ['Daily Metrics'],
-      summary: 'Get garmin-sync state (last run, in-progress, queued refresh)',
+      tags: ['Garmin Health'],
+      summary: 'Get garmin-sync state',
+      description:
+        'Returns the state of the garmin-sync sidecar: whether a refresh is queued (refresh_requested), whether a sync is currently running (in_progress), and timestamps + status of the last run. The sidecar polls this every ~30s and picks up queued refreshes. Use this to gate UI buttons or to verify a refresh actually ran.',
       security: [{ BearerAuth: [] }],
     },
   })
@@ -322,8 +324,10 @@ export const dailyMetricsRoutes = new Elysia({ prefix: '/daily-metrics' })
     {
       response: SyncStatusSchema,
       detail: {
-        tags: ['Daily Metrics'],
-        summary: 'Queue an on-demand garmin-sync refresh (picked up within ~30s)',
+        tags: ['Garmin Health'],
+        summary: 'Queue an on-demand garmin-sync refresh',
+        description:
+          'Sets refresh_requested=true so the next sidecar poll (~30s) picks up the request and runs a fresh Garmin import. Returns the updated sync-status row immediately; the import itself completes asynchronously — poll GET /daily-metrics/sync-status to wait for in_progress=false.',
         security: [{ BearerAuth: [] }],
       },
     },

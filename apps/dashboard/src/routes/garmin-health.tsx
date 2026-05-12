@@ -21,7 +21,11 @@ import FitnessTrendsChart from '../features/garmin-health/charts/fitness-trends-
 import RecoveryTrendChart from '../features/garmin-health/charts/recovery-trend-chart'
 import SleepBreakdownChart from '../features/garmin-health/charts/sleep-breakdown-chart'
 import StressChart from '../features/garmin-health/charts/stress-chart'
-import { dailyMetricsQueries } from '../lib/queries/daily-metrics'
+import {
+  fitnessDirectionQueries,
+  recoveryQueries,
+  trainingLoadQueries,
+} from '../lib/queries/daily-metrics'
 
 function ChartFallback({ height = 320 }: { height?: number }) {
   return <div style={{ height, width: '100%' }} />
@@ -52,9 +56,9 @@ export const Route = createFileRoute('/garmin-health')({
     const params = resolveParams(deps)
     // Prefetch the three hero-card queries; charts prefetch their own data.
     return Promise.all([
-      context.queryClient.ensureQueryData(dailyMetricsQueries.recovery(params)),
-      context.queryClient.ensureQueryData(dailyMetricsQueries.fitnessDirection(params)),
-      context.queryClient.ensureQueryData(dailyMetricsQueries.trainingLoad(params)),
+      context.queryClient.ensureQueryData(recoveryQueries.summary(params)),
+      context.queryClient.ensureQueryData(fitnessDirectionQueries.summary(params)),
+      context.queryClient.ensureQueryData(trainingLoadQueries.summary(params)),
     ])
   },
   component: GarminHealthPage,

@@ -146,7 +146,7 @@ async function fetchTickTickSummary() {
   const overdue = eligible
     .filter((t) => (t.dueDate ?? '').slice(0, 10) < todayStr)
     .map(toItem)
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || b.priority - a.priority)
+    .toSorted((a, b) => a.dueDate.localeCompare(b.dueDate) || b.priority - a.priority)
 
   const dueSoon = eligible
     .filter((t) => {
@@ -154,7 +154,7 @@ async function fetchTickTickSummary() {
       return d >= todayStr && d <= in7Str
     })
     .map(toItem)
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || b.priority - a.priority)
+    .toSorted((a, b) => a.dueDate.localeCompare(b.dueDate) || b.priority - a.priority)
 
   return { overdue, dueSoon }
 }
@@ -248,8 +248,10 @@ export const summaryRoute = new Elysia().get(
   {
     response: SummaryResponseSchema,
     detail: {
-      tags: ['Summary'],
-      summary: 'Aggregated health snapshot — UptimeKuma, Docker (HomeLab + VPS), TickTick tasks',
+      tags: ['System'],
+      summary: 'Aggregated infrastructure snapshot',
+      description:
+        'Single-call dashboard summary: UptimeKuma monitor counts, Docker container health on HomeLab + VPS, and overdue/due-soon TickTick tasks. Each subsystem is fetched in parallel with a per-subsystem timeout; failures degrade gracefully to `{ error: ... }` rather than failing the whole response. Use this for at-a-glance ops monitoring; for per-domain detail call the dedicated endpoints (e.g. /uptime-kuma/status, /docker/homelab/summary).',
       security: [{ BearerAuth: [] }],
     },
   },

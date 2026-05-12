@@ -20,7 +20,7 @@ export type StrengthRecordsParams = StrengthQueryParams & {
   metric?: 'all' | 'max_weight' | 'estimated_1rm' | 'total_volume' | 'total_reps' | 'work_sets'
 }
 
-export type StrengthCompositeParams = StrengthWindowParams & { exercise_id: string }
+export type StrengthCompositeParams = StrengthWindowParams & { exerciseId: string }
 
 export type StrengthAlignmentParams = { exercises?: string }
 export type StrengthDeloadParams = { exercises?: string }
@@ -65,8 +65,8 @@ export const strengthQueries = {
     queryOptions({
       queryKey: [...strengthQueries.all(), 'composite', params] as const,
       queryFn: async () => {
-        const { exercise_id, ...query } = params
-        return unwrap(await api.workouts.summary.composite({ exercise_id }).get({ query }))
+        const { exerciseId, ...query } = params
+        return unwrap(await api.workouts.summary.composite({ exerciseId }).get({ query }))
       },
     }),
 

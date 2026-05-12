@@ -18,8 +18,8 @@ const FitnessDirectionResponseSchema = z.object({
   vo2max: z.number().nullable(),
 })
 
-export const fitnessDirectionRoutes = new Elysia({ prefix: '/daily-metrics' }).get(
-  '/fitness-direction',
+export const fitnessDirectionRoutes = new Elysia({ prefix: '/fitness-direction' }).get(
+  '',
   async ({ query }) => {
     const { from, to } = parseWindow(query)
     const fromStr = from.toISOString().slice(0, 10)
@@ -42,7 +42,7 @@ export const fitnessDirectionRoutes = new Elysia({ prefix: '/daily-metrics' }).g
     query: WindowQuerySchema,
     response: FitnessDirectionResponseSchema,
     detail: {
-      tags: ['Summaries'],
+      tags: ['Garmin Health'],
       summary: 'Fitness direction signal (3-level) from 14-day RHR + HRV regression',
       description:
         'Computes linear-regression slope over the most recent 14 days of resting HR and HRV. ' +

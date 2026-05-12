@@ -29,7 +29,7 @@ export const queryRoute = new Elysia().post(
   {
     body: z.object({ sql: z.string().min(1) }),
     detail: {
-      tags: ['Database'],
+      tags: ['System'],
       summary: 'Execute a read-only SQL query',
       description:
         'Executes a SELECT statement against the Postgres database. Only SELECT statements are permitted. Tables are in the argo schema — use argo.table_name syntax. Useful for ad-hoc chart queries and agent consumption.',

@@ -6,7 +6,6 @@ function InfoIcon({ title }: { title: string }) {
     <span
       title={title}
       aria-label={title}
-      role="img"
       style={{
         cursor: 'help',
         marginLeft: 6,

@@ -23,7 +23,7 @@ import {
   useHoverSync,
   useTooltipStyles,
 } from '@argo/charts'
-import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
+import { trainingLoadQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
@@ -277,7 +277,7 @@ function DivergenceChartInner({
 }
 
 export default function DivergenceChart({ params }: { params: SummaryParams }) {
-  const { data } = useSuspenseQuery(dailyMetricsQueries.trainingLoad(params))
+  const { data } = useSuspenseQuery(trainingLoadQueries.summary(params))
   const { ref, width } = useElementSize<HTMLDivElement>()
   const [highlighted, setHighlighted] = useState<string | null>(null)
 

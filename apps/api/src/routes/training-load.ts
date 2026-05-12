@@ -20,8 +20,8 @@ const TrainingLoadPointSchema = z.object({
   divNeg: z.number().nullable(),
 })
 
-export const trainingLoadRoutes = new Elysia({ prefix: '/daily-metrics' }).get(
-  '/training-load',
+export const trainingLoadRoutes = new Elysia({ prefix: '/training-load' }).get(
+  '',
   async ({ query }) => {
     const { from, to } = parseWindow(query)
     const fromStr = from.toISOString().slice(0, 10)
@@ -53,7 +53,7 @@ export const trainingLoadRoutes = new Elysia({ prefix: '/daily-metrics' }).get(
     query: WindowQuerySchema,
     response: z.object({ points: z.array(TrainingLoadPointSchema) }),
     detail: {
-      tags: ['Summaries'],
+      tags: ['Garmin Health'],
       summary: 'Training load (ACWR) series with zones and divergence',
       description:
         'Daily activity score (MET-min) → EWMA acute (λ=0.25, ~7d half-life) + chronic (λ≈0.069, ~28d half-life). ' +

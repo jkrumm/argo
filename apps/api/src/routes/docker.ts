@@ -46,7 +46,8 @@ function calcCpuPercent(stats: DockerStats): number {
   return Math.round((cpuDelta / systemDelta) * numCpus * 100 * 100) / 100
 }
 
-function createDockerRoutes(proxyUrl: string, tag: string) {
+function createDockerRoutes(proxyUrl: string, host: 'HomeLab' | 'VPS') {
+  const tag = 'Infrastructure'
   async function dockerGet<T>(path: string): Promise<T> {
     const res = await fetch(`${proxyUrl}${path}`)
     if (!res.ok) throw new Error(`Docker API ${res.status}: ${await res.text()}`)
@@ -105,7 +106,8 @@ function createDockerRoutes(proxyUrl: string, tag: string) {
         ),
         detail: {
           tags: [tag],
-          summary: 'List all containers (running + stopped) with health and restart count',
+          summary: `List Docker containers on ${host}`,
+          description: `Returns every Docker container on the ${host} host (running + stopped + paused + restarting) with health status, current state, and total restart count since creation. Underlying call: GET /containers/json?all=1 on the read-only socket-proxy, then GET /containers/{id}/json per container for restart count and health. For a one-shot overview use GET /docker/${host.toLowerCase()}/summary instead.`,
           security: [{ BearerAuth: [] }],
         },
       },
@@ -165,7 +167,8 @@ function createDockerRoutes(proxyUrl: string, tag: string) {
         ),
         detail: {
           tags: [tag],
-          summary: 'Resource usage (CPU%, memory MB, network I/O) for all running containers',
+          summary: `Container resource usage on ${host}`,
+          description: `Returns CPU%, memory MB + %, and network I/O for every running container on ${host}. CPU% is computed from the delta between two Docker API stat snapshots (cpu_stats.cpu_usage.total_usage vs precpu_stats) scaled by online_cpus. Per-container failures degrade gracefully to \`{ name, error }\` rather than failing the whole response.`,
           security: [{ BearerAuth: [] }],
         },
       },
@@ -226,7 +229,8 @@ function createDockerRoutes(proxyUrl: string, tag: string) {
         }),
         detail: {
           tags: [tag],
-          summary: 'Fetch recent log lines for a container by name (default: last 100)',
+          summary: `Fetch recent log lines for a ${host} container`,
+          description: `Returns the most recent N log lines (default 100) for a container on ${host}, identified by name or short id prefix. Logs are streamed from Docker's binary log format, ANSI escape sequences stripped, and empty lines filtered. RFC3339 timestamps are preserved as the line prefix. Returns 500 if the container is not found or if the Docker API errors.`,
           security: [{ BearerAuth: [] }],
         },
       },
@@ -340,8 +344,8 @@ function createDockerRoutes(proxyUrl: string, tag: string) {
         }),
         detail: {
           tags: [tag],
-          summary:
-            'Single-call overview: host resources, running/stopped containers, unhealthy + high-restart alerts',
+          summary: `Single-call Docker overview for ${host}`,
+          description: `Aggregated snapshot of the ${host} Docker host: total CPUs and memory, Docker version, container counts (total/running/stopped), and alerts for unhealthy containers and containers with restart count >3. Plus per-container summaries for running and stopped. Use this for at-a-glance ops monitoring; for detail call GET /docker/${host.toLowerCase()}/containers + /stats.`,
           security: [{ BearerAuth: [] }],
         },
       },
@@ -353,11 +357,11 @@ function createDockerRoutes(proxyUrl: string, tag: string) {
 export const dockerHomelabRoutes = new Elysia({ prefix: '/docker/homelab' }).use(
   createDockerRoutes(
     env.DOCKER_HOMELAB_URL || `http://${env.HOMELAB_TAILSCALE_IP}:2376`,
-    'Docker - HomeLab',
+    'HomeLab',
   ),
 )
 
 // VPS: read-only socket-proxy-monitoring on VPS internal Docker network (API is local now).
 export const dockerVpsRoutes = new Elysia({ prefix: '/docker/vps' }).use(
-  createDockerRoutes(env.DOCKER_VPS_URL, 'Docker - VPS'),
+  createDockerRoutes(env.DOCKER_VPS_URL, 'VPS'),
 )

@@ -264,7 +264,7 @@ export const weatherRoutes = new Elysia({ prefix: '/weather' }).get(
       400: z.string(),
     },
     detail: {
-      tags: ['Weather'],
+      tags: ['External Data'],
       summary:
         'Full weather forecast — current conditions, 48h hourly detail, 7-day daily overview',
       description:

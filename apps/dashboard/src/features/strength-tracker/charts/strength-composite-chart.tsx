@@ -281,7 +281,7 @@ export default function StrengthCompositeChart({
   const [selected, setSelected] = useState(initialExerciseId)
 
   const compositeParams = {
-    exercise_id: selected,
+    exerciseId: selected,
     window: params.window,
     from: params.from,
     to: params.to,

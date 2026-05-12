@@ -23,7 +23,7 @@ type Body = {
   }>
 }
 
-describe('GET /daily-metrics/training-load', () => {
+describe('GET /training-load', () => {
   afterEach(async () => {
     await db.delete(dailyMetrics)
   })
@@ -31,7 +31,7 @@ describe('GET /daily-metrics/training-load', () => {
   it('returns empty points when no data', async () => {
     const app = new Elysia().use(trainingLoadRoutes)
     const res = await app.handle(
-      new Request('http://localhost/daily-metrics/training-load?from=2025-05-01&to=2025-05-31'),
+      new Request('http://localhost/training-load?from=2025-05-01&to=2025-05-31'),
     )
     expect(res.status).toBe(200)
     const body = (await res.json()) as Body
@@ -50,7 +50,7 @@ describe('GET /daily-metrics/training-load', () => {
 
     const app = new Elysia().use(trainingLoadRoutes)
     const res = await app.handle(
-      new Request('http://localhost/daily-metrics/training-load?from=2025-05-01&to=2025-05-31'),
+      new Request('http://localhost/training-load?from=2025-05-01&to=2025-05-31'),
     )
     expect(res.status).toBe(200)
     const body = (await res.json()) as Body
@@ -89,7 +89,7 @@ describe('GET /daily-metrics/training-load', () => {
 
     const app = new Elysia().use(trainingLoadRoutes)
     const res = await app.handle(
-      new Request('http://localhost/daily-metrics/training-load?from=2025-05-01&to=2025-05-31'),
+      new Request('http://localhost/training-load?from=2025-05-01&to=2025-05-31'),
     )
     expect(res.status).toBe(200)
     const body = (await res.json()) as Body
