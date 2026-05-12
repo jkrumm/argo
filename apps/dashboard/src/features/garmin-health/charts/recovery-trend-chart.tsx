@@ -9,7 +9,7 @@ import {
   useVxTheme,
   type ZonedLineTooltipLabel,
 } from '@argo/charts'
-import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
+import { recoveryQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
@@ -29,7 +29,7 @@ function recoveryZoneLabel(v: number): ZonedLineTooltipLabel {
 }
 
 export default function RecoveryTrendChart({ params }: { params: SummaryParams }) {
-  const { data } = useSuspenseQuery(dailyMetricsQueries.recoverySeries(params))
+  const { data } = useSuspenseQuery(recoveryQueries.series(params))
   const { ref, width } = useElementSize<HTMLDivElement>()
   const { line } = useVxTheme()
 

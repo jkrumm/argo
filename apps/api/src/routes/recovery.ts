@@ -35,9 +35,9 @@ const RecoverySeriesPointSchema = z.object({
   bbHigh: z.number().nullable(),
 })
 
-export const recoveryRoutes = new Elysia({ prefix: '/daily-metrics' })
+export const recoveryRoutes = new Elysia({ prefix: '/recovery' })
   .get(
-    '/recovery',
+    '',
     async ({ query }) => {
       const { from, to } = parseWindow(query)
       const fromStr = from.toISOString().slice(0, 10)
@@ -116,7 +116,7 @@ export const recoveryRoutes = new Elysia({ prefix: '/daily-metrics' })
       query: WindowQuerySchema,
       response: RecoverySnapshotSchema,
       detail: {
-        tags: ['Summaries'],
+        tags: ['Garmin Health'],
         summary: 'Recovery score snapshot for most recent date in window',
         description:
           "Weighted composite: HRV (40%) + Sleep (35%) + RHR (25%), with strain-debt penalty from yesterday's activity score. " +
@@ -127,7 +127,7 @@ export const recoveryRoutes = new Elysia({ prefix: '/daily-metrics' })
     },
   )
   .get(
-    '/recovery/series',
+    '/series',
     async ({ query }) => {
       const { from, to } = parseWindow(query)
       const fromStr = from.toISOString().slice(0, 10)
@@ -167,7 +167,7 @@ export const recoveryRoutes = new Elysia({ prefix: '/daily-metrics' })
       query: WindowQuerySchema,
       response: z.object({ points: z.array(RecoverySeriesPointSchema) }),
       detail: {
-        tags: ['Summaries'],
+        tags: ['Garmin Health'],
         summary: 'Daily recovery score series for charting',
         description:
           'One recovery score per day in the window. Uses window-wide HRV/RHR baselines and 90th-percentile ' +

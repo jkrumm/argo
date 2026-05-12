@@ -27,7 +27,7 @@ type SeriesBody = {
   }>
 }
 
-describe('GET /daily-metrics/recovery', () => {
+describe('GET /recovery', () => {
   afterEach(async () => {
     await db.delete(dailyMetrics)
   })
@@ -35,7 +35,7 @@ describe('GET /daily-metrics/recovery', () => {
   it('returns null snapshot when no data in window', async () => {
     const app = new Elysia().use(recoveryRoutes)
     const res = await app.handle(
-      new Request('http://localhost/daily-metrics/recovery?from=2025-03-01&to=2025-03-31'),
+      new Request('http://localhost/recovery?from=2025-03-01&to=2025-03-31'),
     )
     expect(res.status).toBe(200)
     const body = (await res.json()) as SnapshotBody
@@ -71,7 +71,7 @@ describe('GET /daily-metrics/recovery', () => {
 
     const app = new Elysia().use(recoveryRoutes)
     const res = await app.handle(
-      new Request('http://localhost/daily-metrics/recovery?from=2025-03-01&to=2025-03-31'),
+      new Request('http://localhost/recovery?from=2025-03-01&to=2025-03-31'),
     )
     expect(res.status).toBe(200)
     const body = (await res.json()) as SnapshotBody
@@ -86,7 +86,7 @@ describe('GET /daily-metrics/recovery', () => {
   })
 })
 
-describe('GET /daily-metrics/recovery/series', () => {
+describe('GET /recovery/series', () => {
   afterEach(async () => {
     await db.delete(dailyMetrics)
   })
@@ -94,7 +94,7 @@ describe('GET /daily-metrics/recovery/series', () => {
   it('returns empty points when no data', async () => {
     const app = new Elysia().use(recoveryRoutes)
     const res = await app.handle(
-      new Request('http://localhost/daily-metrics/recovery/series?from=2025-04-01&to=2025-04-30'),
+      new Request('http://localhost/recovery/series?from=2025-04-01&to=2025-04-30'),
     )
     expect(res.status).toBe(200)
     const body = (await res.json()) as SeriesBody
@@ -128,7 +128,7 @@ describe('GET /daily-metrics/recovery/series', () => {
 
     const app = new Elysia().use(recoveryRoutes)
     const res = await app.handle(
-      new Request('http://localhost/daily-metrics/recovery/series?from=2025-04-01&to=2025-04-30'),
+      new Request('http://localhost/recovery/series?from=2025-04-01&to=2025-04-30'),
     )
     expect(res.status).toBe(200)
     const body = (await res.json()) as SeriesBody

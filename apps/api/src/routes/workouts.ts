@@ -158,7 +158,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       query: WindowQuerySchema,
       response: z.object({ byExercise: z.array(StrengthSummaryItemSchema) }),
       detail: {
-        tags: ['Summaries'],
+        tags: ['Strength'],
         summary: 'Strength summary by exercise',
         description:
           'Server-computed aggregates per exercise for the given window. ' +
@@ -263,7 +263,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
         ),
       }),
       detail: {
-        tags: ['Summaries'],
+        tags: ['Strength'],
         summary: 'Strength time series by exercise',
         description:
           'One data point per workout session per exercise for charting e1RM and volume trends. ' +
@@ -274,7 +274,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
     },
   )
   .get(
-    '/',
+    '',
     async ({ query }) => {
       const page = query.page ?? 1
       const limit = query.limit ?? 50
@@ -284,8 +284,8 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
 
       const conds = []
       if (query.exercise) conds.push(eq(workouts.exercise_id, query.exercise))
-      if (query.date_from) conds.push(gte(workouts.date, query.date_from))
-      if (query.date_to) conds.push(lte(workouts.date, query.date_to))
+      if (query.dateFrom) conds.push(gte(workouts.date, query.dateFrom))
+      if (query.dateTo) conds.push(lte(workouts.date, query.dateTo))
       const where = conds.length > 0 ? and(...conds) : undefined
 
       const col = orderColumn(sort)
@@ -328,13 +328,13 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
 
       const bwAt = await loadBodyweightResolver()
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data = rows.map((w) => {
         const wSets = setMap.get(w.id) ?? []
         return { ...w, sets: wSets, ...computeMetrics(wSets, w.exercise_id, bwAt(w.date)) }
-      }) as any
+      })
 
-      return { data, total }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return { data, total } as any
     },
     {
       query: z.object({
@@ -343,18 +343,18 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
         sort: z.enum(['date', 'id', 'exercise_id', 'created_at']).optional(),
         order: z.enum(['asc', 'desc']).default('desc').optional(),
         exercise: z.string().optional(),
-        date_from: z.string().optional(),
-        date_to: z.string().optional(),
+        dateFrom: z.string().optional(),
+        dateTo: z.string().optional(),
       }),
       response: z.object({
         data: z.array(WorkoutWithSetsSchema),
         total: z.number().int(),
       }),
       detail: {
-        tags: ['Workouts'],
+        tags: ['Strength'],
         summary: 'List workouts',
         description:
-          'Returns paginated workouts with sets and computed 1RM metrics. `page` is 1-indexed, `limit` ≤ 200. Filters: exercise (exercise_id), date_from/date_to (YYYY-MM-DD). Sort: date (default), id, exercise_id, created_at.',
+          'Returns paginated workout sessions with their sets and server-computed Epley/Brzycki 1RM estimates. `page` is 1-indexed, `limit` ≤ 200. Filters: `exercise` (an exercise_id from GET /exercises), `dateFrom`/`dateTo` (YYYY-MM-DD). Sort: date (default), id, exercise_id, created_at. For aggregates use /workouts/summary/*; for a single session use GET /workouts/{id}.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -393,14 +393,16 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
         404: z.string(),
       },
       detail: {
-        tags: ['Workouts'],
-        summary: 'Get workout by ID with sets and computed 1RM metrics',
+        tags: ['Strength'],
+        summary: 'Get workout by ID',
+        description:
+          'Returns a single workout session with its sets and computed 1RM metrics (Epley, Brzycki, average). Bodyweight resolves to the most recent weight-log entry on or before the workout date — used for adjusting pull-up effective weight. Returns 404 if no workout with that id exists.',
         security: [{ BearerAuth: [] }],
       },
     },
   )
   .post(
-    '/',
+    '',
     async ({ body, set }) => {
       const [exists] = await db
         .select({ id: exercises.id })
@@ -413,6 +415,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
       }
 
       // Load history BEFORE inserting — achievements compare against prior sessions only.
+      // Filter by date so backfilled workouts don't see future sessions as "prior".
       const priorWorkouts = await db
         .select({
           id: workouts.id,
@@ -420,7 +423,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
           exercise_id: workouts.exercise_id,
         })
         .from(workouts)
-        .where(eq(workouts.exercise_id, body.exercise_id))
+        .where(and(eq(workouts.exercise_id, body.exercise_id), lte(workouts.date, body.date)))
       const priorIds = priorWorkouts.map((w) => w.id)
       const priorSets = priorIds.length
         ? await db.select().from(workoutSets).where(inArray(workoutSets.workout_id, priorIds))
@@ -494,9 +497,10 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
         400: z.string(),
       },
       detail: {
-        tags: ['Workouts'],
-        summary:
-          'Create workout with sets (transactional). Response includes detected achievements.',
+        tags: ['Strength'],
+        summary: 'Create a workout with sets',
+        description:
+          'Creates a workout session and its sets atomically (single transaction). 400 if exercise_id is unknown. Response includes any achievements detected against prior history: first_workout, weight_milestone (e.g. crossing 100 kg), max_weight_pr, estimated_1rm_pr, volume_pr — each with a `confetti` flag for the UI.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -583,8 +587,10 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
         404: z.string(),
       },
       detail: {
-        tags: ['Workouts'],
-        summary: 'Update workout (exercise_id, date, notes, sets)',
+        tags: ['Strength'],
+        summary: 'Update workout fields and replace sets',
+        description:
+          'Partial update of a workout. Pass only the fields you want to change. If `sets` is provided, the existing sets are deleted and replaced wholesale in a single transaction (not merged). 400 on unknown exercise_id, 404 on missing workout id.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -616,8 +622,10 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
         404: z.string(),
       },
       detail: {
-        tags: ['Workouts'],
-        summary: 'Delete workout and cascade delete all its sets',
+        tags: ['Strength'],
+        summary: 'Delete a workout',
+        description:
+          'Deletes a workout and all of its sets in a single transaction. There is no soft-delete — hard delete only. Returns 404 if no workout with that id exists.',
         security: [{ BearerAuth: [] }],
       },
     },

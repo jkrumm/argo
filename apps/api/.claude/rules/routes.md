@@ -43,6 +43,9 @@ Parse with `parseWindow(query)` to get `{ from: Date; to: Date }`. Default windo
 - Route files: `<resource>.ts` (e.g., `workouts.ts`, `weight-log.ts`)
 - Exported constant: `<resource>Routes` (e.g., `workoutRoutes`, `weightLogRoutes`)
 - Prefix: `/<resource>` (e.g., `/workouts`, `/weight-log`)
+- **Use `.get('', ...)` (empty string) for the prefix root** — `.get('/', ...)` produces a trailing slash (`/workouts/`) which is inconsistent with `/workouts/{id}`. See `openapi.md` path conventions.
+- **All path and query params: camelCase** (`{exerciseId}`, `dateFrom`, `workoutId`). Never snake_case.
+- **Collections are plural** (`/workouts`, `/ticktick/projects`, `/ticktick/tasks`). Never `/project/{id}` for a nested resource.
 
 ## Transactions
 

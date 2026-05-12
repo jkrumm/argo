@@ -3,38 +3,97 @@ paths:
   - apps/api/**
 ---
 
-# OpenAPI — Route Detail Conventions
+# OpenAPI — Tags, Paths, and Detail Blocks
 
-Every route must have a `detail` block:
+The Argo API is consumed by **two classes of clients**: the Argo dashboard (Eden Treaty, gets full TypeScript types) and **AI agents** (Hermes Agent, external tools — they read the OpenAPI spec at `/openapi/json` or browse Scalar at `/openapi`). The spec is the agent contract. Treat every route's `detail` block as documentation for a stranger who has only the OpenAPI JSON.
+
+## Discovery
+
+- `GET /` — public root, returns `{ name, version, docs: { scalar, json }, auth, tags }`. AI agents start here.
+- `GET /openapi` — Scalar interactive UI.
+- `GET /openapi/json` — raw spec.
+
+## Tag taxonomy (enum — do not invent new tags)
+
+Every route MUST use exactly one of these six tags:
+
+| Tag              | Belongs to it                                                                                                                                               |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Garmin Health`  | daily-metrics, recovery, training-load, fitness-direction, activities, weight-log, user-profile, and all corresponding `*/summary` and `*/series` endpoints |
+| `Strength`       | workouts, workout-sets, exercises, and all `workouts/summary/*` analytics                                                                                   |
+| `Productivity`   | ticktick, slack, gmail, calendar                                                                                                                            |
+| `Infrastructure` | uptime-kuma, docker (homelab + vps)                                                                                                                         |
+| `External Data`  | weather (and future read-only third-party feeds)                                                                                                            |
+| `System`         | `/`, `/health`, `/summary`, `/query`, `/oauth/*`                                                                                                            |
+
+If a new route doesn't fit one of these, **expand the taxonomy in this file first**, in lockstep with the `tags:` array in `src/index.ts`. Free-form tags break the agent contract.
+
+## Path conventions
+
+- **No trailing slashes.** Use `.get('', handler)` (empty string), never `.get('/', handler)`. Elysia's prefix already provides the leading slash; `.get('/')` produces `/prefix/` which is inconsistent with `/prefix/{id}`.
+- **Path params: camelCase.** `{exerciseId}`, `{channelId}`, `{projectId}` — never `{exercise_id}`.
+- **Query params: camelCase.** `dateFrom`, `dateTo`, `displayOrder`, `sortDir`, `workoutId` — never `date_from`.
+- **Collections plural.** `/workouts`, `/exercises`, `/ticktick/projects`, `/ticktick/tasks` — never `/ticktick/project/{id}` for a nested resource.
+- **Action subroutes are fine** (`/daily-metrics/refresh`, `/ticktick/projects/{id}/tasks/{tid}/complete`) — a personal API isn't strict REST.
+- **Cross-domain analytics live at the top level**, not nested. `/recovery`, `/training-load`, `/fitness-direction` — not `/daily-metrics/recovery`. Daily metrics are the _input_ to recovery, but recovery is its own domain.
+
+## Required fields on every `detail` block
 
 ```ts
-.get('/my-endpoint', handler, {
+.get('/endpoint', handler, {
   query: QuerySchema,
   response: ResponseSchema,
   detail: {
-    tags: ['TagName'],
-    summary: 'Short one-line summary',
-    description: 'Full description with parameter semantics and examples.',
-    security: [{ BearerAuth: [] }],
+    tags: ['Garmin Health'],         // MUST be from the enum above
+    summary: 'One-line imperative',   // MUST be present (shown in Scalar sidebar)
+    description: '...',                // MUST be present (1–3 sentences, see below)
+    security: [{ BearerAuth: [] }],    // MUST be present except /, /health, /oauth/*
   },
 })
 ```
 
-## Tags
+### Description quality bar
 
-| Tag            | Routes                               |
-| -------------- | ------------------------------------ |
-| `Summaries`    | `*/summary` and `*/series` endpoints |
-| `Workouts`     | workout CRUD                         |
-| `DailyMetrics` | daily health metrics                 |
-| `WeightLog`    | body weight entries                  |
-| `Exercises`    | exercise reference                   |
-| `UserProfile`  | user profile singleton               |
+The description is what an AI agent reads to decide whether to call this endpoint. It MUST cover:
 
-## Scalar UI
+1. **What it returns** — shape and semantics (e.g. "rolling 7-day HRV trend with deviation from baseline", not just "HRV data").
+2. **Parameter semantics** — when does `dateFrom`/`dateTo` differ from `window`? What does `sort=date` mean for activities?
+3. **When to use this vs. an alternative** — e.g. `/daily-metrics/summary` (current snapshot) vs. `/daily-metrics/series` (time series). Mention sibling endpoints by name so the agent can pivot.
 
-Available at `/openapi` (interactive). Raw JSON at `/openapi/json`. The plugin config in `src/index.ts` uses `mapJsonSchema: { zod: z.toJSONSchema }` — required for Zod v4 schemas to render correctly.
+Bad: `"Returns daily metrics."`
+Good: `"Returns the latest day's Garmin metrics (HRV, resting HR, sleep score, stress, body battery) plus 7-day baseline deviations. Use this for an at-a-glance current snapshot; for time series across a date range use /daily-metrics/series."`
 
-## Security
+## Plugin config
 
-All routes except `/health` require `BearerAuth`. Include `security: [{ BearerAuth: [] }]` in every `detail` block. The auth guard is wired in `src/index.ts` — individual route modules do not need to re-apply it, but the OpenAPI spec still needs the annotation.
+```ts
+import { openapi } from '@elysiajs/openapi'
+import { z } from 'zod'
+
+app.use(openapi({
+  mapJsonSchema: { zod: z.toJSONSchema },     // required for Zod v4
+  documentation: {
+    info: { ... },
+    servers: [...],
+    components: { securitySchemes: { BearerAuth: { type: 'http', scheme: 'bearer' } } },
+    tags: [
+      { name: 'Garmin Health',  description: '...' },
+      { name: 'Strength',       description: '...' },
+      { name: 'Productivity',   description: '...' },
+      { name: 'Infrastructure', description: '...' },
+      { name: 'External Data',  description: '...' },
+      { name: 'System',         description: '...' },
+    ],
+  },
+}))
+```
+
+The `tags` array in `documentation` must mirror this file's taxonomy exactly. Tag descriptions in `src/index.ts` explain the group to agents; route descriptions explain the operation.
+
+## Safety net: Eden Treaty catches dashboard breakage
+
+The dashboard imports `type App = typeof app` (apps/dashboard/src/lib/eden.ts), so path, param, and query renames surface as TypeScript errors in dashboard query files. **Always run `bun run --cwd apps/dashboard typecheck` after touching route shapes.** If TS is clean, the dashboard is fixed.
+
+## Cross-references
+
+- `elysia-zod.md` — Zod v4 + `@elysiajs/openapi` constraints (e.g. `z.enum` over `z.union` of literals, `z.coerce.number()` for query params)
+- `routes.md` — pagination shape, summary endpoints, response codes, transactions

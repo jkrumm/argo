@@ -15,7 +15,7 @@ const UserProfileSchema = z.object({
 
 export const userProfileRoutes = new Elysia({ prefix: '/user-profile' })
   .get(
-    '/',
+    '',
     async () => {
       const [profile] = await db.select().from(userProfile).where(eq(userProfile.id, 1))
       if (!profile) {
@@ -30,14 +30,16 @@ export const userProfileRoutes = new Elysia({ prefix: '/user-profile' })
     {
       response: UserProfileSchema,
       detail: {
-        tags: ['User Profile'],
-        summary: 'Get user profile (single row, auto-created on first access)',
+        tags: ['Garmin Health'],
+        summary: 'Get user profile',
+        description:
+          'Returns the single-row user profile (height, birth date, gender, goal weight). Auto-created with null fields on first access. Consumed by strength-analytics (gender feeds ratio targets) and by the weight-log page (goal weight). Update via PUT /user-profile.',
         security: [{ BearerAuth: [] }],
       },
     },
   )
   .put(
-    '/',
+    '',
     async ({ body }) => {
       const [existing] = await db.select().from(userProfile).where(eq(userProfile.id, 1))
       if (!existing) {
@@ -68,8 +70,10 @@ export const userProfileRoutes = new Elysia({ prefix: '/user-profile' })
       }),
       response: UserProfileSchema,
       detail: {
-        tags: ['User Profile'],
+        tags: ['Garmin Health'],
         summary: 'Update user profile',
+        description:
+          'Partial update of the single-row user profile. All fields are nullable — pass only the keys you want to change. height_cm 100–250, goal_weight_kg 30–300, gender is "male" or "female", birth_date is YYYY-MM-DD. Returns the post-update row.',
         security: [{ BearerAuth: [] }],
       },
     },

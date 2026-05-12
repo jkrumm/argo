@@ -15,6 +15,7 @@ import { summaryRoute } from './routes/summary.js'
 import { slackRoutes } from './routes/slack.js'
 import { oauthRoutes } from './routes/oauth.js'
 import { gmailRoutes } from './routes/gmail.js'
+import { calendarRoutes } from './routes/calendar.js'
 import { weatherRoutes } from './routes/weather.js'
 import { queryRoute } from './routes/query.js'
 import { workoutRoutes } from './routes/workouts.js'
@@ -70,7 +71,7 @@ export const app = new Elysia()
           title: 'Argo API',
           version: '1.0.0',
           description:
-            'Personal stack API (argo) — health metrics, strength tracking, TickTick tasks, UptimeKuma monitoring, Docker containers, Slack messaging. All endpoints except /health require Bearer token authentication. Served behind Traefik path-strip on argo.jkrumm.com/api.',
+            'Personal stack API for Johannes Krumm. Powers the Argo dashboard (Garmin Health + Strength Tracker pages) and is consumed as an AI-agent endpoint by Hermes Agent and external tools. Start at `GET /` for discovery. All routes except `/`, `/health`, and `/oauth/*` require `Authorization: Bearer <API_SECRET>`. Served behind Traefik path-strip on `argo.jkrumm.com/api`.',
         },
         servers: [{ url: 'https://argo.jkrumm.com/api', description: 'Argo (VPS, Tailscale)' }],
         components: {
@@ -80,22 +81,88 @@ export const app = new Elysia()
         },
         tags: [
           {
-            name: 'Summaries',
+            name: 'Garmin Health',
             description:
-              'Server-computed aggregates and time series — same numbers consumed by the dashboard and AI agents',
+              'Daily Garmin metrics (HRV, sleep, stress, resting HR), recovery score, training load (ACWR), fitness direction, activity sessions, body-weight log, and user profile. Powers the Garmin Health dashboard page.',
           },
-          { name: 'workouts', description: 'Strength training workouts and sets' },
-          { name: 'daily-metrics', description: 'Garmin daily health metrics' },
-          { name: 'weight-log', description: 'Body weight log' },
-          { name: 'activities', description: 'Garmin activities' },
-          { name: 'exercises', description: 'Exercise catalog' },
-          { name: 'user-profile', description: 'User profile' },
-          { name: 'admin', description: 'Cron, query, internal' },
+          {
+            name: 'Strength',
+            description:
+              'Strength training: workouts and sets CRUD, exercise catalog, and analytics under /workouts/summary/* (e1RM, volume, ACWR, PRs, readiness, alignment, deload signal). Powers the Strength Tracker dashboard page.',
+          },
+          {
+            name: 'Productivity',
+            description:
+              'Personal comms and task management: TickTick projects/tasks, Slack channels/messages/threads, Gmail inbox, Google Calendar events.',
+          },
+          {
+            name: 'Infrastructure',
+            description:
+              'Self-hosted ops: UptimeKuma monitors + status, Docker container state on HomeLab and VPS (containers, stats, logs, summary).',
+          },
+          {
+            name: 'External Data',
+            description:
+              'Third-party read-only data feeds (currently: weather via Open-Meteo, geocoded).',
+          },
+          {
+            name: 'System',
+            description:
+              'Discovery, health, observability, and auth plumbing: `/` (API discovery), `/health` (liveness), `/summary` (aggregated infra snapshot), `/query` (read-only SQL), `/oauth/google/*` (Google auth dance for Gmail + Calendar).',
+          },
         ],
       },
     }),
   )
-  .get('/openapi.json', ({ redirect }) => redirect('/openapi/json'))
+  .get(
+    '/',
+    () => ({
+      name: 'Argo API',
+      version: '1.0.0',
+      description:
+        'Personal stack API for Johannes Krumm. Two domain groups (Garmin Health, Strength) plus integration groups (Productivity, Infrastructure, External Data, System). See docs for the full surface.',
+      docs: {
+        scalar: '/openapi',
+        json: '/openapi/json',
+      },
+      auth: {
+        scheme: 'Bearer',
+        header: 'Authorization: Bearer <API_SECRET>',
+        public: ['GET /', 'GET /health', 'GET /oauth/google/init', 'GET /oauth/google/callback'],
+      },
+      tags: [
+        'Garmin Health',
+        'Strength',
+        'Productivity',
+        'Infrastructure',
+        'External Data',
+        'System',
+      ],
+    }),
+    {
+      response: z.object({
+        name: z.string(),
+        version: z.string(),
+        description: z.string(),
+        docs: z.object({
+          scalar: z.string().describe('Interactive OpenAPI UI'),
+          json: z.string().describe('Raw OpenAPI 3.0 JSON spec'),
+        }),
+        auth: z.object({
+          scheme: z.string(),
+          header: z.string(),
+          public: z.array(z.string()).describe('Paths that do not require Bearer auth'),
+        }),
+        tags: z.array(z.string()).describe('Top-level tag taxonomy used in the OpenAPI spec'),
+      }),
+      detail: {
+        tags: ['System'],
+        summary: 'API discovery — start here',
+        description:
+          'Public root endpoint. Returns the API name, version, where to find the OpenAPI spec (Scalar UI + raw JSON), auth scheme, and the list of OpenAPI tag groups. AI agents should call this first to bootstrap, then read /openapi/json for the full surface.',
+      },
+    },
+  )
   .use(healthRoute)
   .use(oauthRoutes)
   .use(authGuard)
@@ -105,6 +172,7 @@ export const app = new Elysia()
   .use(dockerVpsRoutes)
   .use(slackRoutes)
   .use(gmailRoutes)
+  .use(calendarRoutes)
   .use(weatherRoutes)
   .use(summaryRoute)
   .use(queryRoute)

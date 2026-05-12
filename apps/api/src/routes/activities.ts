@@ -103,20 +103,16 @@ export const activitiesRoutes = new Elysia({ prefix: '/activities' })
       query: WindowQuerySchema,
       response: ActivitiesSummarySchema,
       detail: {
-        tags: ['Summaries'],
-        summary: 'Activity summary',
+        tags: ['Garmin Health'],
+        summary: 'Garmin activity summary',
         description:
-          'Server-computed activity totals. ' +
-          '`weeklyMinutes` and `weeklyByType` cover the 7 days up to the window end date. ' +
-          '`totalsWindow` covers the full requested window. ' +
-          'Accept `?window=7d|30d|90d|all` (default 30d) or `?from=YYYY-MM-DD&to=YYYY-MM-DD`. ' +
-          'Example: GET /activities/summary?window=30d',
+          'Server-computed activity totals from Garmin activity logs (separate from /daily-metrics, which is per-day aggregates). `weeklyMinutes` and `weeklyByType` cover the 7 days up to the window end date — useful for "minutes per sport this week" rollups. `totalsWindow` covers the full requested window. Accept `?window=7d|30d|90d|all` (default 30d) or `?from=YYYY-MM-DD&to=YYYY-MM-DD`. For the raw activity list use GET /activities.',
         security: [{ BearerAuth: [] }],
       },
     },
   )
   .get(
-    '/',
+    '',
     async ({ query }) => {
       const page = query.page ?? 1
       const limit = query.limit ?? 50
@@ -125,8 +121,8 @@ export const activitiesRoutes = new Elysia({ prefix: '/activities' })
       const offset = (page - 1) * limit
 
       const conds = []
-      if (query.date_from) conds.push(gte(garminActivities.date, query.date_from))
-      if (query.date_to) conds.push(lte(garminActivities.date, query.date_to))
+      if (query.dateFrom) conds.push(gte(garminActivities.date, query.dateFrom))
+      if (query.dateTo) conds.push(lte(garminActivities.date, query.dateTo))
       const where = conds.length > 0 ? and(...conds) : undefined
 
       const sortCol =
@@ -158,18 +154,18 @@ export const activitiesRoutes = new Elysia({ prefix: '/activities' })
         limit: z.coerce.number().int().min(1).max(200).default(50).optional(),
         sort: z.enum(['start_time_local', 'date', 'duration_sec', 'calories']).optional(),
         order: z.enum(['asc', 'desc']).default('desc').optional(),
-        date_from: z.string().optional(),
-        date_to: z.string().optional(),
+        dateFrom: z.string().optional(),
+        dateTo: z.string().optional(),
       }),
       response: z.object({
         data: z.array(ActivitySchema),
         total: z.number().int(),
       }),
       detail: {
-        tags: ['Activities'],
+        tags: ['Garmin Health'],
         summary: 'List Garmin activities',
         description:
-          'Returns paginated Garmin activities. `page` is 1-indexed, `limit` ≤ 200. Filter by date_from/date_to (YYYY-MM-DD). Sort: start_time_local (default), date, duration_sec, calories.',
+          'Returns paginated Garmin activity sessions (raw events, not per-day rollups). Each row has start time, type, duration, distance, calories, heart-rate zones, and training-effect labels. `page` is 1-indexed, `limit` ≤ 200. Filter by dateFrom/dateTo (YYYY-MM-DD). Sort: start_time_local (default), date, duration_sec, calories. For per-week totals use GET /activities/summary.',
         security: [{ BearerAuth: [] }],
       },
     },

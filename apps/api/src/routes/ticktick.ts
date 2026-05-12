@@ -89,13 +89,15 @@ export const ticktickRoutes = new Elysia({ prefix: '/ticktick' })
   .get('/projects', () => ticktickOps.getProjects() as any, {
     response: z.object({ data: z.array(ProjectSchema) }),
     detail: {
-      tags: ['TickTick'],
-      summary: 'Get all projects',
+      tags: ['Productivity'],
+      summary: 'List TickTick projects',
+      description:
+        'Returns all TickTick projects (lists) visible to the authenticated TickTick account. Use the project.id values returned here to drill into tasks via GET /ticktick/projects/{projectId}/data.',
       security: [{ BearerAuth: [] }],
     },
   })
   .get(
-    '/project/:projectId/data',
+    '/projects/:projectId/data',
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async ({ params }) =>
       normalizeSdkResponse(
@@ -113,15 +115,17 @@ export const ticktickRoutes = new Elysia({ prefix: '/ticktick' })
         }),
       }),
       detail: {
-        tags: ['TickTick'],
-        summary: 'Get project with tasks and columns',
+        tags: ['Productivity'],
+        summary: 'Get a TickTick project with its tasks',
+        description:
+          'Returns the project metadata plus all of its tasks and (for kanban projects) columns. Task dueDate and startDate are normalised from TickTick ISO timestamps to YYYY-MM-DD on the way out.',
         security: [{ BearerAuth: [] }],
       },
     },
   )
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   .post(
-    '/task',
+    '/tasks',
     async ({ body }) =>
       normalizeSdkResponse(
         (await ticktickOps.createTask(normalizeDueDate(body as Record<string, unknown>))) as Record<
@@ -149,14 +153,16 @@ export const ticktickRoutes = new Elysia({ prefix: '/ticktick' })
         .passthrough(),
       response: z.object({ data: TaskSchema }),
       detail: {
-        tags: ['TickTick'],
-        summary: 'Create a task',
+        tags: ['Productivity'],
+        summary: 'Create a TickTick task',
+        description:
+          'Creates a task. `dueDate` accepts YYYY-MM-DD only — the server converts to UTC midnight ISO with `isAllDay: true, timeZone: "UTC"` so the date stays correct regardless of TickTick account timezone. Priority: 0=none, 1=low, 3=medium, 5=high. To set the project, pass `projectId` (default = TickTick inbox).',
         security: [{ BearerAuth: [] }],
       },
     },
   )
   .post(
-    '/task/:taskId',
+    '/tasks/:taskId',
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async ({ params, body }): Promise<any> => {
       const res = await ticktickOps.updateTask(
@@ -180,34 +186,40 @@ export const ticktickRoutes = new Elysia({ prefix: '/ticktick' })
         .passthrough(),
       response: TaskSchema,
       detail: {
-        tags: ['TickTick'],
-        summary: 'Update a task',
+        tags: ['Productivity'],
+        summary: 'Update a TickTick task',
+        description:
+          "Partial update of an existing task. POST (not PATCH) because that is what TickTick's SDK expects. Date handling is identical to task creation — pass dueDate as YYYY-MM-DD. Set `status: 2` to mark completed, `status: 0` to reopen. Returns the upstream response or proxies the TickTick error body on non-2xx.",
         security: [{ BearerAuth: [] }],
       },
     },
   )
   .post(
-    '/project/:projectId/task/:taskId/complete',
+    '/projects/:projectId/tasks/:taskId/complete',
     ({ params }) => ticktickOps.completeTask(params.projectId, params.taskId),
     {
       params: z.object({ projectId: z.string(), taskId: z.string() }),
       response: z.object({ data: z.unknown() }),
       detail: {
-        tags: ['TickTick'],
-        summary: 'Mark task as complete',
+        tags: ['Productivity'],
+        summary: 'Mark a TickTick task complete',
+        description:
+          'Calls the TickTick "complete" endpoint, which is semantically equivalent to setting status=2 but doesn\'t require sending the full task body. Both `projectId` and `taskId` are required by the upstream API.',
         security: [{ BearerAuth: [] }],
       },
     },
   )
   .delete(
-    '/project/:projectId/task/:taskId',
+    '/projects/:projectId/tasks/:taskId',
     ({ params }) => ticktickOps.deleteTask(params.projectId, params.taskId),
     {
       params: z.object({ projectId: z.string(), taskId: z.string() }),
       response: z.object({ data: z.unknown() }),
       detail: {
-        tags: ['TickTick'],
-        summary: 'Delete a task',
+        tags: ['Productivity'],
+        summary: 'Delete a TickTick task',
+        description:
+          'Permanently deletes a task. Both `projectId` and `taskId` are required by the upstream API. There is no soft-delete or trash — once deleted, the task is gone.',
         security: [{ BearerAuth: [] }],
       },
     },

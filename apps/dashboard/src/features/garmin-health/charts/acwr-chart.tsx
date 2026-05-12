@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useElementSize } from '@mantine/hooks'
 import { ChartCard, ChartLegend, VX, ZonedLine, useVxTheme } from '@argo/charts'
-import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
+import { trainingLoadQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import { acwrZoneColor, acwrZoneLabel } from '../formulas'
 import type { SummaryParams } from '../types'
@@ -22,7 +22,7 @@ type TrainingLoadPoint = {
 }
 
 export default function AcwrChart({ params }: { params: SummaryParams }) {
-  const { data } = useSuspenseQuery(dailyMetricsQueries.trainingLoad(params))
+  const { data } = useSuspenseQuery(trainingLoadQueries.summary(params))
   const { ref, width } = useElementSize<HTMLDivElement>()
   const { line } = useVxTheme()
 

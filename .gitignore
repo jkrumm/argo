@@ -16,3 +16,5 @@ docs/ralph/RALPH_REPORT.md
 
 # data snapshots (sqlite copies for migration)
 /apps/api/data/
+
+.fallow/

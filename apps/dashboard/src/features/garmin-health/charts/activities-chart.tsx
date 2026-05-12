@@ -2,7 +2,15 @@ import { useMemo, useState } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useElementSize } from '@mantine/hooks'
 import { Text } from '@mantine/core'
-import { Bars, ChartCard, ChartLegend, VX, useVxTheme, type LegendEntry } from '@argo/charts'
+import {
+  Bars,
+  ChartCard,
+  ChartLegend,
+  TooltipRow,
+  VX,
+  useVxTheme,
+  type LegendEntry,
+} from '@argo/charts'
 import { activitiesQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
@@ -116,15 +124,7 @@ function getDayValue(d: ActivityDayPoint, key: string): number | null {
   return v === undefined || v <= 0 ? null : v
 }
 
-function ActivityTooltipRow({
-  activity,
-  isFirst,
-  tooltipMuted,
-}: {
-  activity: Activity
-  isFirst: boolean
-  tooltipMuted: string
-}) {
+function activityRowProps(activity: Activity) {
   const meta = activityTypeMeta(activity.type_key)
   const dur = (activity.duration_sec ?? 0) / 60
   const isGym = meta.label === 'Gym'
@@ -144,55 +144,25 @@ function ActivityTooltipRow({
       : null
   const loadText =
     activity.training_load !== null ? `Load ${Math.round(activity.training_load)}` : null
-
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 8,
-        padding: '4px 10px',
-        borderTop: isFirst ? '1px solid rgba(128,128,128,0.2)' : '1px solid rgba(128,128,128,0.15)',
-      }}
-    >
-      <span
-        style={{
-          width: 8,
-          height: 8,
-          borderRadius: 2,
-          backgroundColor: meta.color,
-          marginTop: 5,
-          flexShrink: 0,
-        }}
-      />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-          <span style={{ fontWeight: 500 }}>
-            {meta.label}
-            {showDistinctName ? (
-              <span style={{ fontWeight: 400, opacity: 0.7 }}> · {activity.activity_name}</span>
-            ) : null}
-          </span>
-          <span>{fmtMin(dur)}</span>
-        </div>
-        <div style={{ fontSize: 10.5, color: tooltipMuted, marginTop: 2 }}>
-          {[hrText, teText, loadText].filter(Boolean).join(' · ') || '—'}
-        </div>
-      </div>
-    </div>
-  )
+  const detail = [hrText, teText, loadText].filter(Boolean).join(' · ')
+  const labelBase = showDistinctName ? `${meta.label} · ${activity.activity_name}` : meta.label
+  return {
+    color: meta.color,
+    label: detail ? `${labelBase} (${detail})` : labelBase,
+    value: fmtMin(dur),
+  }
 }
 
 export default function ActivitiesChart({ params }: { params: SummaryParams }) {
   const { data } = useSuspenseQuery(
     activitiesQueries.list({
-      date_from: params.from,
-      date_to: params.to,
+      dateFrom: params.from,
+      dateTo: params.to,
       limit: 200,
     }),
   )
   const { ref, width } = useElementSize<HTMLDivElement>()
-  const { tooltipMuted, axis } = useVxTheme()
+  const { axis } = useVxTheme()
   const [highlighted, setHighlighted] = useState<string | null>(null)
 
   const activities = useMemo(
@@ -265,14 +235,18 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
             hideBarTooltipRows
             renderExtraTooltipRows={(d) => (
               <>
-                {d.activities.map((a, idx) => (
-                  <ActivityTooltipRow
-                    key={a.activity_id}
-                    activity={a}
-                    isFirst={idx === 0}
-                    tooltipMuted={tooltipMuted}
-                  />
-                ))}
+                {d.activities.map((a) => {
+                  const row = activityRowProps(a)
+                  return (
+                    <TooltipRow
+                      key={a.activity_id}
+                      color={row.color}
+                      shape="bar"
+                      label={row.label}
+                      value={row.value}
+                    />
+                  )
+                })}
               </>
             )}
             highlightedKey={highlighted}

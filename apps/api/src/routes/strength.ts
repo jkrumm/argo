@@ -354,7 +354,7 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
       query: ExercisesQuerySchema,
       response: HeroesResponseSchema,
       detail: {
-        tags: ['Summaries'],
+        tags: ['Strength'],
         summary: 'Strength tracker hero composites',
         description:
           'Composite hero metrics: strength direction, load quality, balance ratios, and readiness ' +
@@ -396,7 +396,7 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
         ),
       }),
       detail: {
-        tags: ['Summaries'],
+        tags: ['Strength'],
         summary: 'Per-exercise detailed strength series',
         description:
           'Per session: e1RM, date-based 30-day MA, INOL, max weight, best set, volume. ' +
@@ -441,7 +441,7 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
         ),
       }),
       detail: {
-        tags: ['Summaries'],
+        tags: ['Strength'],
         summary: 'Per-exercise weekly volume breakdown + MEV/MAV/MRV landmarks',
         description:
           'Weekly tonnage broken down by set_type (warmup/work/drop/amrap) with a 4-week trailing MA. ' +
@@ -489,7 +489,7 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
         ),
       }),
       detail: {
-        tags: ['Summaries'],
+        tags: ['Strength'],
         summary: 'Per-exercise ACWR training-load series',
         description:
           'ACWR = EWMA(4) / EWMA(16) of weekly tonnage per exercise. Zones: undertrained (<0.8), optimal ' +
@@ -553,7 +553,7 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
       }),
       response: z.object({ records: z.array(PRRecordSchema) }),
       detail: {
-        tags: ['Summaries'],
+        tags: ['Strength'],
         summary: 'Running-max personal records',
         description:
           'Per exercise + metric, emits a PR every time the running max is beaten. The very first session per ' +
@@ -563,24 +563,24 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
     },
   )
   .get(
-    '/summary/composite/:exercise_id',
+    '/summary/composite/:exerciseId',
     async ({ params, query }) => {
       const { from, to } = parseWindow(query)
       const rows = await loadWorkoutsRange(
         from.toISOString().slice(0, 10),
         to.toISOString().slice(0, 10),
       )
-      const exRows = rows.filter((w) => w.exercise_id === params.exercise_id)
+      const exRows = rows.filter((w) => w.exercise_id === params.exerciseId)
       const bwAt = await loadBodyweightResolver()
       const points = buildCompositeSeries(exRows, bwAt)
       return { points }
     },
     {
-      params: z.object({ exercise_id: z.string() }),
+      params: z.object({ exerciseId: z.string() }),
       query: WindowQuerySchema,
       response: z.object({ points: z.array(CompositePointSchema) }),
       detail: {
-        tags: ['Summaries'],
+        tags: ['Strength'],
         summary: 'Z-scored composite signals for a single exercise',
         description:
           'Velocity / tonnage-growth / INOL z-scored against a 90-day baseline (SD floors 0.05 / 0.02 / 0.1) ' +
@@ -613,7 +613,7 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
         ),
       }),
       detail: {
-        tags: ['Summaries'],
+        tags: ['Strength'],
         summary: 'Relative progression % from first e1RM baseline',
         description:
           'Per exercise: percent change of best-of-day e1RM from the first available e1RM in window.',
@@ -648,7 +648,7 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
       query: ExercisesQuerySchema,
       response: z.object({ byExercise: z.array(SparklineRowSchema) }),
       detail: {
-        tags: ['Summaries'],
+        tags: ['Strength'],
         summary: 'Compact sparkline arrays per exercise',
         description:
           'Last 20 e1RM, last 10 weekly volume totals, last 15 INOL values. ' +
@@ -688,7 +688,7 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
       query: WindowQuerySchema,
       response: z.object({ points: z.array(ReadinessPointSchema) }),
       detail: {
-        tags: ['Summaries'],
+        tags: ['Strength'],
         summary: 'Per-day strength readiness from Garmin recovery + fatigue debt',
         description:
           'Garmin recovery score (HRV/Sleep/RHR) penalised by recent strength-session INOL within 48h. ' +
@@ -732,7 +732,7 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
         grid: z.array(z.array(AlignmentCellSchema)),
       }),
       detail: {
-        tags: ['Summaries'],
+        tags: ['Strength'],
         summary: '3×3 training-recovery alignment matrix',
         description:
           'Buckets each session of the active exercises by (recovery score row, ACWR column) using a 90-day ' +
@@ -776,7 +776,7 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
         physioAvailable: z.boolean(),
       }),
       detail: {
-        tags: ['Summaries'],
+        tags: ['Strength'],
         summary: 'Deload signal verdict + active signal list',
         description:
           'Combines stall, overload, fatigue, and physio signals over the trailing 90 days. >=2 active → deload, ' +

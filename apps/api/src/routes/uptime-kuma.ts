@@ -43,7 +43,7 @@ export const uptimeKumaRoutes = new Elysia({ prefix: '/uptime-kuma' })
   .get('/monitors', () => uptimeKumaClient.getSnapshot(), {
     response: SnapshotSchema,
     detail: {
-      tags: ['UptimeKuma'],
+      tags: ['Infrastructure'],
       summary: 'Live UptimeKuma monitor snapshot (held in memory via long-lived socket)',
       description:
         'Returns the in-memory snapshot maintained by a persistent socket.io connection to UptimeKuma. ' +
@@ -80,8 +80,10 @@ export const uptimeKumaRoutes = new Elysia({ prefix: '/uptime-kuma' })
         total: z.number(),
       }),
       detail: {
-        tags: ['UptimeKuma'],
-        summary: 'UptimeKuma monitor counts with freshness fields (groups excluded)',
+        tags: ['Infrastructure'],
+        summary: 'UptimeKuma monitor counts',
+        description:
+          'Aggregated counters (up / down / maintenance / total) derived from the in-memory snapshot. Group monitors are excluded since they aggregate child monitors. Includes `status` (warming|ready|stale) and `lastUpdatedAt` so callers can reason about freshness. For the full monitor list with per-monitor uptime/ping use /uptime-kuma/monitors.',
         security: [{ BearerAuth: [] }],
       },
     },

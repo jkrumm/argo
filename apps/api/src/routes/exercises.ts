@@ -14,7 +14,7 @@ const ExerciseRowSchema = z.object({
 })
 
 export const exerciseRoutes = new Elysia({ prefix: '/exercises' }).get(
-  '/',
+  '',
   async ({ query }) => {
     const page = query.page ?? 1
     const limit = query.limit ?? 50
@@ -53,10 +53,10 @@ export const exerciseRoutes = new Elysia({ prefix: '/exercises' }).get(
       total: z.number().int(),
     }),
     detail: {
-      tags: ['Exercises'],
-      summary: 'List exercises',
+      tags: ['Strength'],
+      summary: 'List the exercise catalog',
       description:
-        'Returns paginated exercises. `page` is 1-indexed, `limit` ≤ 200. Sort: display_order (default), name, category.',
+        'Returns paginated reference catalog of strength exercises (id, name, category, muscle_group, is_bodyweight flag). `page` is 1-indexed, `limit` ≤ 200. Sort: display_order (default, the curated UI order), name (alphabetical), category. The exercise.id values returned here are the same strings accepted by `?exercise=` on /workouts and `{exerciseId}` on /workouts/summary/composite/{exerciseId}.',
       security: [{ BearerAuth: [] }],
     },
   },

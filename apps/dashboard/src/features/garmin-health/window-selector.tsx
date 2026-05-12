@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Group, Select, Text } from '@mantine/core'
 import { DatePickerInput } from '@mantine/dates'
+import { format } from 'date-fns'
 import { WINDOW_PRESET_OPTIONS, WINDOW_STORAGE_KEY, type WindowPreset } from './constants'
 import type { SummaryParams } from './types'
 
@@ -12,7 +13,7 @@ import type { SummaryParams } from './types'
  */
 export function presetToParams(preset: WindowPreset): SummaryParams {
   const today = new Date()
-  const todayStr = today.toISOString().slice(0, 10)
+  const todayStr = format(today, 'yyyy-MM-dd')
   switch (preset) {
     case '7d':
       return { window: '7d' }
@@ -21,12 +22,12 @@ export function presetToParams(preset: WindowPreset): SummaryParams {
     case '3m': {
       const from = new Date(today)
       from.setMonth(from.getMonth() - 3)
-      return { from: from.toISOString().slice(0, 10), to: todayStr }
+      return { from: format(from, 'yyyy-MM-dd'), to: todayStr }
     }
     case '1y': {
       const from = new Date(today)
       from.setFullYear(from.getFullYear() - 1)
-      return { from: from.toISOString().slice(0, 10), to: todayStr }
+      return { from: format(from, 'yyyy-MM-dd'), to: todayStr }
     }
     case 'all':
       return { window: 'all' }

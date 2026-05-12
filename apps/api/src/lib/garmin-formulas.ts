@@ -458,6 +458,9 @@ export function linearRegressionSlope(values: (number | null)[]): number | null 
  * Requires at least min(3, window) non-null values in the slice.
  */
 export function movingAverage(values: (number | null)[], window: number): (number | null)[] {
+  if (window <= 0) {
+    throw new Error('movingAverage: window must be > 0')
+  }
   const minValues = Math.min(3, window)
   return values.map((_, i) => {
     const slice = values

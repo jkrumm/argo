@@ -110,7 +110,7 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
       query: WindowQuerySchema,
       response: WeightLogSummarySchema,
       detail: {
-        tags: ['Summaries'],
+        tags: ['Garmin Health'],
         summary: 'Body weight summary',
         description:
           'Server-computed rolling weight stats. ' +
@@ -150,7 +150,7 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
         ),
       }),
       detail: {
-        tags: ['Summaries'],
+        tags: ['Garmin Health'],
         summary: 'Body weight time series',
         description:
           'One data point per weight log entry for charting weight trends. ' +
@@ -161,7 +161,7 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
     },
   )
   .get(
-    '/',
+    '',
     async ({ query }) => {
       const page = query.page ?? 1
       const limit = query.limit ?? 50
@@ -196,16 +196,16 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
         total: z.number().int(),
       }),
       detail: {
-        tags: ['Weight Log'],
+        tags: ['Garmin Health'],
         summary: 'List weight entries',
         description:
-          'Returns paginated weight log entries. `page` is 1-indexed, `limit` ≤ 200. Sort: date (default), weight_kg.',
+          'Returns paginated body-weight log entries (manual input, not Garmin-synced). `page` is 1-indexed, `limit` ≤ 200. Sort: date (default, newest first), weight_kg. For rolling averages and trend classification use GET /weight-log/summary; for charting use GET /weight-log/series.',
         security: [{ BearerAuth: [] }],
       },
     },
   )
   .post(
-    '/',
+    '',
     async ({ body, set }) => {
       const [result] = await db
         .insert(weightLog)
@@ -221,8 +221,10 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
       }),
       response: { 201: z.object({ id: z.number() }) },
       detail: {
-        tags: ['Weight Log'],
+        tags: ['Garmin Health'],
         summary: 'Add a weight entry',
+        description:
+          'Inserts a body-weight measurement. `date` is YYYY-MM-DD, `weight_kg` is 30–300. There is no uniqueness constraint on date — duplicate entries on the same day are allowed (the trend calculations use the most recent rows). Returns the new row id.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -249,8 +251,10 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
         404: z.string(),
       },
       detail: {
-        tags: ['Weight Log'],
+        tags: ['Garmin Health'],
         summary: 'Delete a weight entry',
+        description:
+          'Removes a weight log entry by id. Returns 404 if no entry with that id exists, 200 with the deleted id on success. Deletes are hard — there is no soft-delete column.',
         security: [{ BearerAuth: [] }],
       },
     },

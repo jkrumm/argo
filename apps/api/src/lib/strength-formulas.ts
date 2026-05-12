@@ -296,7 +296,7 @@ export function weeklyTonnageSeries(
 }
 
 function weeklyWorkVolume(workouts: WorkoutWithSets[], weekEndDate: string): number {
-  const start = addDays(weekEndDate, -7)
+  const start = addDays(weekEndDate, -6)
   return workouts
     .filter((w) => w.date >= start && w.date <= weekEndDate)
     .reduce((sum, w) => sum + w.total_volume, 0)
