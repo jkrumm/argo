@@ -154,8 +154,8 @@ export const activitiesRoutes = new Elysia({ prefix: '/activities' })
     },
     {
       query: z.object({
-        page: z.number().int().min(1).default(1).optional(),
-        limit: z.number().int().min(1).max(200).default(50).optional(),
+        page: z.coerce.number().int().min(1).default(1).optional(),
+        limit: z.coerce.number().int().min(1).max(200).default(50).optional(),
         sort: z.enum(['start_time_local', 'date', 'duration_sec', 'calories']).optional(),
         order: z.enum(['asc', 'desc']).default('desc').optional(),
         date_from: z.string().optional(),

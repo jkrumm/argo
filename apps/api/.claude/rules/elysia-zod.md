@@ -58,6 +58,17 @@ Serializes to `{}` in JSON Schema (any type), which is correct for OpenAPI consu
 **Zod object `.passthrough()` for bodies accepting extra properties.**
 Use when the upstream API accepts and forwards unknown keys (e.g. TickTick task create/update).
 
-## Elysia Standard Schema coercion
+## Query/path param coercion — use `z.coerce.number()`
 
-Elysia handles query param and path param coercion (string → number) internally before passing to the Zod validator. You do not need `z.coerce.number()` for query params — use `z.string()` for params that are read as strings in the handler, or `z.number()` for body fields (JSON-parsed).
+Elysia's built-in string→number coercion works for TypeBox `t.Number()` but **not** for Zod `z.number()` in query or path params. The Zod validator receives the raw string from URLSearchParams and rejects it with a 422.
+
+For numeric query/path params, always use `z.coerce.number()`:
+
+```ts
+query: z.object({
+  page: z.coerce.number().int().min(1).default(1).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50).optional(),
+})
+```
+
+For body fields (JSON-parsed), use plain `z.number()` — JSON already produces a number on the wire.

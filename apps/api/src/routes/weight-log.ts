@@ -164,8 +164,8 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
     },
     {
       query: z.object({
-        page: z.number().int().min(1).default(1).optional(),
-        limit: z.number().int().min(1).max(200).default(50).optional(),
+        page: z.coerce.number().int().min(1).default(1).optional(),
+        limit: z.coerce.number().int().min(1).max(200).default(50).optional(),
         sort: z.enum(['date', 'weight_kg']).optional(),
         order: z.enum(['asc', 'desc']).default('desc').optional(),
       }),

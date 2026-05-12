@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "bun run src/index.ts",
+    "dev": "bun run --hot src/index.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",

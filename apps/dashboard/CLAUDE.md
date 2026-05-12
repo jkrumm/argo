@@ -5,7 +5,7 @@
 - **UI:** Mantine v9 (`@mantine/core`, `hooks`, `form`, `notifications`, `modals`, `dates`)
 - **Icons:** `@tabler/icons-react`
 - **Routing:** TanStack Router — file-based via `@tanstack/router-plugin/vite`
-- **Data:** TanStack Query + Eden Treaty (`@elysiajs/eden`) for type-safe API calls
+- **Data:** TanStack Query + Eden Treaty (`@elysiajs/eden`) for type-safe API calls — configured with `{ parseDate: false }` so `YYYY-MM-DD` strings stay strings (matches the API's wire format and TS types)
 - **Client state:** Zustand (`persist` middleware) — sidebar collapse state only
 - **Charts:** `@argo/charts` (visx primitives), bridged from Mantine via `src/charts-bridge.tsx`
 - **Dates:** `date-fns` (frontend only; backend sends ISO strings)

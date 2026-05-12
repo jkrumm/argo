@@ -19,5 +19,5 @@ export DATABASE_URL="postgresql://argo:${ENCODED_PASSWORD}@localhost:5432/${POST
 exec ./node_modules/.bin/concurrently \
   --names api,web \
   --prefix-colors blue,magenta \
-  "bun run --cwd apps/api start" \
+  "bun run --cwd apps/api dev" \
   "bun run --cwd apps/dashboard dev"
