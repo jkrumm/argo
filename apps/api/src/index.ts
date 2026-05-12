@@ -21,6 +21,9 @@ import { workoutRoutes } from './routes/workouts.js'
 import { workoutSetRoutes } from './routes/workout-sets.js'
 import { exerciseRoutes } from './routes/exercises.js'
 import { dailyMetricsRoutes } from './routes/daily-metrics.js'
+import { recoveryRoutes } from './routes/recovery.js'
+import { trainingLoadRoutes } from './routes/training-load.js'
+import { fitnessDirectionRoutes } from './routes/fitness-direction.js'
 import { activitiesRoutes } from './routes/activities.js'
 import { weightLogRoutes } from './routes/weight-log.js'
 import { userProfileRoutes } from './routes/user-profile.js'
@@ -108,6 +111,9 @@ export const app = new Elysia()
   .use(workoutRoutes)
   .use(workoutSetRoutes)
   .use(dailyMetricsRoutes)
+  .use(recoveryRoutes)
+  .use(trainingLoadRoutes)
+  .use(fitnessDirectionRoutes)
   .use(activitiesRoutes)
   .use(weightLogRoutes)
   .use(userProfileRoutes)
