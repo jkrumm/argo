@@ -26,6 +26,7 @@ import {
 } from '@argo/charts'
 import { api, unwrap } from '../../../lib/eden'
 import { weightLogQueries, type WeightLogWindowParams } from '../../../lib/queries/weight-log'
+import { METRIC_TOOLTIPS } from '../constants'
 import { ChartEmpty } from './empty'
 
 type ApiPoint = { date: string; weightKg: number }
@@ -37,8 +38,6 @@ type ChartPoint = {
 
 const MARGIN = { top: 16, right: 24, bottom: 32, left: 56 }
 const CHART_HEIGHT = 240
-const TOOLTIP_TEXT =
-  'Logged weight (kg) over time with 7-day centered MA. Goal weight shown as horizontal reference line when set in profile.'
 
 // Inline user-profile query — single row, used here only.
 const userProfileQuery = queryOptions({
@@ -333,7 +332,7 @@ export default function BodyWeightChart({ params }: { params: WeightLogWindowPar
     <ChartCard
       title="Body Weight"
       subtitle="Am I trending toward my goal?"
-      tooltip={TOOLTIP_TEXT}
+      tooltip={METRIC_TOOLTIPS.bodyWeight}
       extra={headerExtra}
     >
       <div ref={ref} style={{ height: CHART_HEIGHT, width: '100%' }}>

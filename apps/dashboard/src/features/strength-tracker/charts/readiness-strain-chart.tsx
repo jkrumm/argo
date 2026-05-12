@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useElementSize } from '@mantine/hooks'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import {
@@ -36,6 +37,7 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
   const { data } = useSuspenseQuery(strengthQueries.readiness(windowParams))
   const { ref, width } = useElementSize<HTMLDivElement>()
   const { line, tooltipMuted } = useVxTheme()
+  const [highlighted, setHighlighted] = useState<string | null>(null)
 
   const points = data.points as ReadinessPoint[]
   const hasData = points.some((p) => p.readiness !== null)
@@ -120,8 +122,8 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
           { key: 'normal', label: 'Normal (40–69)', color: VX.warnSolid, shape: 'bar' },
           { key: 'rest', label: 'Rest (<40)', color: VX.badSolid, shape: 'bar' },
         ]}
-        highlighted={null}
-        onHighlight={() => {}}
+        highlighted={highlighted}
+        onHighlight={setHighlighted}
       />
     </ChartCard>
   )
