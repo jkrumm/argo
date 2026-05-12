@@ -5,7 +5,21 @@ import { db } from '../db/index.js'
 import { workouts, workoutSets, exercises } from '../db/schema.js'
 import { SetTypeSchema, WorkoutSetSchema } from './schemas.js'
 import { computeMetrics, loadBodyweightResolver } from '../lib/formulas.js'
+import { detectAchievements, type WorkoutWithSets } from '../lib/strength-formulas.js'
 import { WindowQuerySchema, parseWindow } from '../lib/window.js'
+
+const AchievementSchema = z.object({
+  type: z.enum([
+    'first_workout',
+    'weight_milestone',
+    'max_weight_pr',
+    'estimated_1rm_pr',
+    'volume_pr',
+  ]),
+  title: z.string(),
+  description: z.string(),
+  confetti: z.boolean(),
+})
 
 const WorkoutWithSetsSchema = z.object({
   id: z.number(),
@@ -397,6 +411,42 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return `Unknown exercise_id: ${body.exercise_id}` as any
       }
+
+      // Load history BEFORE inserting — achievements compare against prior sessions only.
+      const priorWorkouts = await db
+        .select({
+          id: workouts.id,
+          date: workouts.date,
+          exercise_id: workouts.exercise_id,
+        })
+        .from(workouts)
+        .where(eq(workouts.exercise_id, body.exercise_id))
+      const priorIds = priorWorkouts.map((w) => w.id)
+      const priorSets = priorIds.length
+        ? await db.select().from(workoutSets).where(inArray(workoutSets.workout_id, priorIds))
+        : []
+      const priorSetMap = new Map<number, typeof priorSets>()
+      for (const s of priorSets) {
+        const list = priorSetMap.get(s.workout_id) ?? []
+        list.push(s)
+        priorSetMap.set(s.workout_id, list)
+      }
+      const bwAt = await loadBodyweightResolver()
+      const history: WorkoutWithSets[] = priorWorkouts.map((w) => {
+        const wSets = priorSetMap.get(w.id) ?? []
+        const metrics = computeMetrics(wSets, w.exercise_id, bwAt(w.date))
+        return {
+          id: w.id,
+          date: w.date,
+          exercise_id: w.exercise_id,
+          exercise_name: w.exercise_id,
+          sets: wSets,
+          estimated_1rm: metrics.estimated_1rm,
+          total_volume: metrics.total_volume,
+        }
+      })
+      const achievements = detectAchievements(body.exercise_id, body.sets, history, bwAt(body.date))
+
       const result = await db.transaction(async (tx) => {
         const [workout] = await tx
           .insert(workouts)
@@ -420,7 +470,7 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
         return workout!
       })
       set.status = 201
-      return { id: result.id }
+      return { id: result.id, achievements }
     },
     {
       body: z.object({
@@ -440,12 +490,13 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
         ),
       }),
       response: {
-        201: z.object({ id: z.number() }),
+        201: z.object({ id: z.number(), achievements: z.array(AchievementSchema) }),
         400: z.string(),
       },
       detail: {
         tags: ['Workouts'],
-        summary: 'Create workout with sets (transactional)',
+        summary:
+          'Create workout with sets (transactional). Response includes detected achievements.',
         security: [{ BearerAuth: [] }],
       },
     },

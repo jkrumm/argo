@@ -4,6 +4,7 @@ import { asc, count, desc, eq, gte, lte, and } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { weightLog } from '../db/schema.js'
 import { computeStats } from '../lib/formulas.js'
+import { trailingRateKgPerWeek, classifyWeightPhase } from '../lib/strength-formulas.js'
 import { WindowQuerySchema, parseWindow } from '../lib/window.js'
 
 const WeightLogSchema = z.object({
@@ -40,6 +41,18 @@ const WeightLogSummarySchema = z.object({
     .describe(
       'Weight change (kg) between most recent and oldest entry in last 30 entries. Positive = gaining.',
     ),
+  kgPerWeek: z
+    .number()
+    .nullable()
+    .describe('Trailing 28-day linear-regression rate of weight change (kg/week).'),
+  phase: z
+    .enum(['losing', 'gaining', 'maintaining'])
+    .describe('Classification of |kgPerWeek|: <0.1 maintenance, else losing or gaining.'),
+  intensity: z
+    .string()
+    .describe(
+      'Intensity tier label — e.g. "Lean cut", "Standard bulk", "Maintenance", "Aggressive cut".',
+    ),
 })
 
 export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
@@ -65,6 +78,9 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
           trend: 'flat' as const,
           weeklyDelta: null,
           monthlyDelta: null,
+          kgPerWeek: null,
+          phase: 'maintaining' as const,
+          intensity: 'No trend',
         }
       }
 
@@ -82,7 +98,13 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
           ? Math.round((last30[0]!.weight_kg - last30[last30.length - 1]!.weight_kg) * 10) / 10
           : null
 
-      return { ...stats, weeklyDelta, monthlyDelta }
+      const rate = trailingRateKgPerWeek(
+        rows.map((r) => ({ date: r.date, weight_kg: r.weight_kg })),
+      )
+      const { phase, intensity } = classifyWeightPhase(rate)
+      const kgPerWeek = rate !== null ? Math.round(rate * 100) / 100 : null
+
+      return { ...stats, weeklyDelta, monthlyDelta, kgPerWeek, phase, intensity }
     },
     {
       query: WindowQuerySchema,

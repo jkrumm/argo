@@ -19,6 +19,7 @@ import { weatherRoutes } from './routes/weather.js'
 import { queryRoute } from './routes/query.js'
 import { workoutRoutes } from './routes/workouts.js'
 import { workoutSetRoutes } from './routes/workout-sets.js'
+import { strengthRoutes } from './routes/strength.js'
 import { exerciseRoutes } from './routes/exercises.js'
 import { dailyMetricsRoutes } from './routes/daily-metrics.js'
 import { recoveryRoutes } from './routes/recovery.js'
@@ -109,6 +110,7 @@ export const app = new Elysia()
   .use(queryRoute)
   .use(exerciseRoutes)
   .use(workoutRoutes)
+  .use(strengthRoutes)
   .use(workoutSetRoutes)
   .use(dailyMetricsRoutes)
   .use(recoveryRoutes)
