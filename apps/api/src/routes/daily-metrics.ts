@@ -4,6 +4,7 @@ import { and, asc, count, desc, eq, gte, lte } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { dailyMetrics, syncControl } from '../db/schema.js'
 import { computeStats } from '../lib/formulas.js'
+import { activityScore } from '../lib/garmin-formulas.js'
 import { WindowQuerySchema, parseWindow } from '../lib/window.js'
 
 const DailyMetricSchema = z.object({
@@ -93,6 +94,23 @@ const DailyMetricsSeriesPointSchema = z.object({
   steps: z.number().nullable(),
   activeKcal: z.number().nullable(),
   sleepDurationSec: z.number().nullable(),
+  bbCharged: z.number().nullable(),
+  bbDrained: z.number().nullable(),
+  bbHighest: z.number().nullable(),
+  bbLowest: z.number().nullable(),
+  bbNet: z.number().nullable().describe('bb_charged − bb_drained (null if either component null)'),
+  deepSleepSec: z.number().nullable(),
+  lightSleepSec: z.number().nullable(),
+  remSleepSec: z.number().nullable(),
+  awakeSleepSec: z.number().nullable(),
+  avgSleepStress: z.number().nullable(),
+  vo2Max: z.number().nullable(),
+  hrvWeeklyAvg: z.number().nullable(),
+  maxHr: z.number().nullable(),
+  activityScore: z
+    .number()
+    .nullable()
+    .describe('Computed MET-min: vigorous×8 + moderate×4 + walking_steps×0.03'),
 })
 
 async function readSyncStatus() {
@@ -167,6 +185,20 @@ export const dailyMetricsRoutes = new Elysia({ prefix: '/daily-metrics' })
           steps: dailyMetrics.steps,
           active_kcal: dailyMetrics.active_kcal,
           sleep_duration_sec: dailyMetrics.sleep_duration_sec,
+          bb_charged: dailyMetrics.bb_charged,
+          bb_drained: dailyMetrics.bb_drained,
+          bb_highest: dailyMetrics.bb_highest,
+          bb_lowest: dailyMetrics.bb_lowest,
+          deep_sleep_sec: dailyMetrics.deep_sleep_sec,
+          light_sleep_sec: dailyMetrics.light_sleep_sec,
+          rem_sleep_sec: dailyMetrics.rem_sleep_sec,
+          awake_sleep_sec: dailyMetrics.awake_sleep_sec,
+          avg_sleep_stress: dailyMetrics.avg_sleep_stress,
+          vo2_max: dailyMetrics.vo2_max,
+          hrv_weekly_avg: dailyMetrics.hrv_weekly_avg,
+          max_hr: dailyMetrics.max_hr,
+          moderate_intensity_min: dailyMetrics.moderate_intensity_min,
+          vigorous_intensity_min: dailyMetrics.vigorous_intensity_min,
         })
         .from(dailyMetrics)
         .where(and(gte(dailyMetrics.date, fromStr), lte(dailyMetrics.date, toStr)))
@@ -182,6 +214,25 @@ export const dailyMetricsRoutes = new Elysia({ prefix: '/daily-metrics' })
           steps: r.steps,
           activeKcal: r.active_kcal,
           sleepDurationSec: r.sleep_duration_sec,
+          bbCharged: r.bb_charged,
+          bbDrained: r.bb_drained,
+          bbHighest: r.bb_highest,
+          bbLowest: r.bb_lowest,
+          bbNet:
+            r.bb_charged !== null && r.bb_drained !== null ? r.bb_charged - r.bb_drained : null,
+          deepSleepSec: r.deep_sleep_sec,
+          lightSleepSec: r.light_sleep_sec,
+          remSleepSec: r.rem_sleep_sec,
+          awakeSleepSec: r.awake_sleep_sec,
+          avgSleepStress: r.avg_sleep_stress,
+          vo2Max: r.vo2_max,
+          hrvWeeklyAvg: r.hrv_weekly_avg,
+          maxHr: r.max_hr,
+          activityScore: activityScore({
+            vigorousMin: r.vigorous_intensity_min,
+            moderateMin: r.moderate_intensity_min,
+            steps: r.steps,
+          }),
         })),
       }
     },
