@@ -10,6 +10,7 @@ RUN bun install --production --ignore-scripts --filter @argo/api
 COPY apps/api/src ./apps/api/src
 COPY apps/api/tsconfig.json ./apps/api/
 COPY apps/api/drizzle.config.ts ./apps/api/
+COPY apps/api/drizzle ./apps/api/drizzle
 
 FROM oven/bun:1.3-alpine AS runner
 WORKDIR /app
