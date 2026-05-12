@@ -79,9 +79,18 @@ function RootLayout() {
     >
       <AppShell.Navbar p="md">
         <Stack gap={0} h="100%">
-          <Text fw={700} fz="xl" mb="lg">
-            Argo
-          </Text>
+          <Group gap="xs" mb="lg" wrap="nowrap">
+            <img
+              src="/favicon.svg"
+              alt="Argo"
+              width={28}
+              height={28}
+              style={{ display: 'block' }}
+            />
+            <Text fw={700} fz="xl">
+              Argo
+            </Text>
+          </Group>
 
           <NavLink
             component="a"
