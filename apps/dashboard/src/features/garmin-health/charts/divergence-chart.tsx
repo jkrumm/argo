@@ -26,6 +26,8 @@ import {
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
+import { applyVisibilityFilter } from '../visibility'
+import { ChartEmpty } from './empty'
 
 const MARGIN = VX.margin
 const CHART_HEIGHT = 280
@@ -290,7 +292,7 @@ export default function DivergenceChart({ params }: { params: SummaryParams }) {
         divergence: p.divergence,
       })
     }
-    return out
+    return applyVisibilityFilter(out, (p) => p.date)
   }, [data.points])
 
   const latest = points.length > 0 ? points[points.length - 1] : null
@@ -322,13 +324,17 @@ export default function DivergenceChart({ params }: { params: SummaryParams }) {
       extra={headerExtra}
     >
       <div ref={ref} style={{ height: CHART_HEIGHT, width: '100%' }}>
-        {width > 0 && points.length > 0 && (
-          <DivergenceChartInner
-            data={points}
-            width={Math.max(width, 200)}
-            height={CHART_HEIGHT}
-            highlighted={highlighted}
-          />
+        {points.length === 0 ? (
+          <ChartEmpty height={CHART_HEIGHT} />
+        ) : (
+          width > 0 && (
+            <DivergenceChartInner
+              data={points}
+              width={Math.max(width, 200)}
+              height={CHART_HEIGHT}
+              highlighted={highlighted}
+            />
+          )
         )}
       </div>
       <ChartLegend

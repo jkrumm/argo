@@ -5,6 +5,8 @@ import { useMemo, useState } from 'react'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
+import { applyVisibilityFilter } from '../visibility'
+import { ChartEmpty } from './empty'
 
 type BodyBatteryPoint = {
   date: string
@@ -26,14 +28,17 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
 
   const points = useMemo<BodyBatteryPoint[]>(
     () =>
-      data.points
-        .filter((p) => p.bbCharged !== null || p.bbDrained !== null)
-        .map((p) => ({
-          date: p.date,
-          charged: p.bbCharged,
-          drained: p.bbDrained,
-          net: p.bbNet,
-        })),
+      applyVisibilityFilter(
+        data.points
+          .filter((p) => p.bbCharged !== null || p.bbDrained !== null)
+          .map((p) => ({
+            date: p.date,
+            charged: p.bbCharged,
+            drained: p.bbDrained,
+            net: p.bbNet,
+          })),
+        (p) => p.date,
+      ),
     [data.points],
   )
 
@@ -71,7 +76,9 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
       extra={headerExtra}
     >
       <div ref={ref} style={{ height: 280, width: '100%' }}>
-        {width > 0 && points.length > 0 && (
+        {points.length === 0 ? (
+          <ChartEmpty height={280} />
+        ) : width > 0 ? (
           <Bars<BodyBatteryPoint>
             data={points}
             width={Math.max(width, 200)}
@@ -101,7 +108,7 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
             }}
             highlightedKey={highlighted}
           />
-        )}
+        ) : null}
       </div>
       <ChartLegend items={legendItems} highlighted={highlighted} onHighlight={setHighlighted} />
     </ChartCard>

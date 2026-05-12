@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useElementSize } from '@mantine/hooks'
 import { ChartCard, ChartLegend, VX, ZonedLine, useVxTheme } from '@argo/charts'
@@ -5,6 +6,8 @@ import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import { acwrZoneColor, acwrZoneLabel } from '../formulas'
 import type { SummaryParams } from '../types'
+import { applyVisibilityFilter } from '../visibility'
+import { ChartEmpty } from './empty'
 
 type TrainingLoadPoint = {
   date: string
@@ -23,7 +26,11 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
   const { ref, width } = useElementSize<HTMLDivElement>()
   const { line } = useVxTheme()
 
-  const points = data.points as TrainingLoadPoint[]
+  const points = useMemo<TrainingLoadPoint[]>(
+    () => applyVisibilityFilter(data.points as TrainingLoadPoint[], (p) => p.date),
+    [data.points],
+  )
+  const hasAcwr = points.some((p) => p.acwr !== null)
   const latest = points.toReversed().find((p) => p.acwr !== null) ?? null
 
   return (
@@ -50,7 +57,9 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
       }
     >
       <div ref={ref} style={{ height: 280, width: '100%' }}>
-        {width > 0 && (
+        {!hasAcwr ? (
+          <ChartEmpty height={280} />
+        ) : width > 0 ? (
           <ZonedLine<TrainingLoadPoint>
             data={points}
             width={Math.max(width, 200)}
@@ -76,7 +85,7 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
               d.zone === null ? null : { text: acwrZoneLabel(d.zone), color: acwrZoneColor(d.zone) }
             }
           />
-        )}
+        ) : null}
       </div>
       <ChartLegend
         items={[

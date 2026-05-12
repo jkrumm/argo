@@ -5,6 +5,8 @@ import { Bars, ChartCard, ChartLegend, TooltipRow, useVxTheme, VX } from '@argo/
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
+import { applyVisibilityFilter } from '../visibility'
+import { ChartEmpty } from './empty'
 
 /**
  * Daily activity target in MET-minutes — matches the WHO weekly floor at 86/day,
@@ -81,7 +83,7 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
   const chartData = useMemo<ActivityPoint[]>(() => {
     const scores = data.points.map((p) => p.activityScore)
     const ma = movingAverage(scores, 30)
-    return data.points.map((p, i) => {
+    const all: ActivityPoint[] = data.points.map((p, i) => {
       const vig = p.vigorousIntensityMin ?? 0
       const mod = p.moderateIntensityMin ?? 0
       const steps = p.steps ?? 0
@@ -99,7 +101,10 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
         scoreMA: ma[i] ?? null,
       }
     })
+    return applyVisibilityFilter(all, (p) => p.date)
   }, [data])
+
+  const hasData = chartData.some((d) => d.score !== null)
 
   const latest = chartData[chartData.length - 1]
 
@@ -126,7 +131,9 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
       }
     >
       <div ref={ref} style={{ height: 280, width: '100%' }}>
-        {width > 0 && (
+        {!hasData ? (
+          <ChartEmpty height={280} />
+        ) : width > 0 ? (
           <Bars<ActivityPoint>
             data={chartData}
             width={Math.max(width, 200)}
@@ -213,7 +220,7 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
             )}
             highlightedKey={highlighted}
           />
-        )}
+        ) : null}
       </div>
       <ChartLegend
         items={[
