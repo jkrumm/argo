@@ -10,7 +10,6 @@ import {
   ExerciseFilter,
   ExerciseSummaryCards,
   HeroStats,
-  Placeholder,
   RecentRecords,
   Section,
   ViewTabs,
@@ -23,8 +22,20 @@ import {
   type SummaryParams,
   type WindowPreset,
 } from '../features/strength-tracker'
+import AlignmentMatrixChart from '../features/strength-tracker/charts/alignment-matrix-chart'
+import InolChart from '../features/strength-tracker/charts/inol-chart'
+import MomentumChart from '../features/strength-tracker/charts/momentum-chart'
+import OneRmTrendChart from '../features/strength-tracker/charts/one-rm-trend-chart'
+import ReadinessStrainChart from '../features/strength-tracker/charts/readiness-strain-chart'
+import RelativeProgressionChart from '../features/strength-tracker/charts/relative-progression-chart'
+import SparklineGridChart from '../features/strength-tracker/charts/sparkline-grid-chart'
+import StrengthCompositeChart from '../features/strength-tracker/charts/strength-composite-chart'
+import StrengthRatiosChart from '../features/strength-tracker/charts/strength-ratios-chart'
+import TrainingLoadChart from '../features/strength-tracker/charts/training-load-chart'
+import WeeklyVolumeChart from '../features/strength-tracker/charts/weekly-volume-chart'
+import { useSuspenseQuery } from '@tanstack/react-query'
 import { exerciseQueries } from '../lib/queries/exercises'
-import { strengthQueries } from '../lib/queries/strength'
+import { strengthQueries, type StrengthQueryParams } from '../lib/queries/strength'
 import { weightLogQueries } from '../lib/queries/weight-log'
 import { workoutsQueries } from '../lib/queries/workouts'
 
@@ -215,8 +226,10 @@ function StrengthTrackerPage() {
 
         <Grid>
           <Grid.Col span={{ base: 12, lg: 8 }}>
-            {search.tab === 'charts' && <ChartsPanel />}
-            {search.tab === 'scan' && <ScanPanel />}
+            {search.tab === 'charts' && (
+              <ChartsPanel params={queryParams} activeExercises={activeExercises} />
+            )}
+            {search.tab === 'scan' && <ScanPanel params={queryParams} />}
             {search.tab === 'history' && (
               <Suspense fallback={<ChartFallback height={320} />}>
                 <WorkoutsTable />
@@ -244,7 +257,13 @@ function StrengthTrackerPage() {
   )
 }
 
-function ChartsPanel() {
+function ChartsPanel({
+  params,
+  activeExercises,
+}: {
+  params: StrengthQueryParams
+  activeExercises: ReadonlyArray<ExerciseKey>
+}) {
   return (
     <Stack gap="md">
       <Suspense fallback={<ChartFallback height={120} />}>
@@ -253,46 +272,82 @@ function ChartsPanel() {
 
       <Section title="Strength Trajectory">
         <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-          <Placeholder label="1RM Trend Chart" />
-          <Placeholder label="Strength Composite Chart" />
+          <Suspense fallback={<ChartFallback />}>
+            <OneRmTrendChart params={params} />
+          </Suspense>
+          <Suspense fallback={<ChartFallback />}>
+            <CompositeChartSlot params={params} activeExercises={activeExercises} />
+          </Suspense>
         </SimpleGrid>
       </Section>
 
       <Section title="Load Quality">
         <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-          <Placeholder label="Weekly Volume Chart" />
-          <Placeholder label="Training Load Chart" />
+          <Suspense fallback={<ChartFallback />}>
+            <WeeklyVolumeChart params={params} />
+          </Suspense>
+          <Suspense fallback={<ChartFallback />}>
+            <TrainingLoadChart params={params} />
+          </Suspense>
         </SimpleGrid>
       </Section>
 
       <Section title="Efficiency & Momentum">
         <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-          <Placeholder label="INOL Chart" />
-          <Placeholder label="Momentum Chart" />
+          <Suspense fallback={<ChartFallback />}>
+            <InolChart params={params} />
+          </Suspense>
+          <Suspense fallback={<ChartFallback />}>
+            <MomentumChart params={params} />
+          </Suspense>
         </SimpleGrid>
       </Section>
 
       <Section title="Balance">
         <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-          <Placeholder label="Relative Progression Chart" />
-          <Placeholder label="Strength Ratios Chart" />
+          <Suspense fallback={<ChartFallback />}>
+            <RelativeProgressionChart params={params} />
+          </Suspense>
+          <Suspense fallback={<ChartFallback />}>
+            <StrengthRatiosChart params={params} />
+          </Suspense>
         </SimpleGrid>
       </Section>
 
       <Section title="Readiness">
         <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-          <Placeholder label="Readiness Strain Chart" />
-          <Placeholder label="Training Recovery Alignment Chart" />
+          <Suspense fallback={<ChartFallback />}>
+            <ReadinessStrainChart params={params} />
+          </Suspense>
+          <Suspense fallback={<ChartFallback />}>
+            <AlignmentMatrixChart params={params} />
+          </Suspense>
         </SimpleGrid>
       </Section>
     </Stack>
   )
 }
 
-function ScanPanel() {
+function CompositeChartSlot({
+  params,
+  activeExercises,
+}: {
+  params: StrengthQueryParams
+  activeExercises: ReadonlyArray<ExerciseKey>
+}) {
+  // Pull the strength-direction leader from heroes (already prefetched + cached);
+  // fall back to the first active exercise.
+  const { data: heroes } = useSuspenseQuery(strengthQueries.heroes(params))
+  const leader = heroes.strengthDirection.leaderExercise ?? activeExercises[0] ?? 'bench_press'
+  return <StrengthCompositeChart params={params} exerciseId={leader} />
+}
+
+function ScanPanel({ params }: { params: StrengthQueryParams }) {
   return (
     <Stack gap="md">
-      <Placeholder label="Sparkline Grid (Scan View)" height={420} />
+      <Suspense fallback={<ChartFallback height={420} />}>
+        <SparklineGridChart params={params} />
+      </Suspense>
     </Stack>
   )
 }
