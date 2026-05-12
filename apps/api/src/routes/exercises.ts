@@ -43,8 +43,8 @@ export const exerciseRoutes = new Elysia({ prefix: '/exercises' }).get(
   },
   {
     query: z.object({
-      page: z.number().int().min(1).default(1).optional(),
-      limit: z.number().int().min(1).max(200).default(50).optional(),
+      page: z.coerce.number().int().min(1).default(1).optional(),
+      limit: z.coerce.number().int().min(1).max(200).default(50).optional(),
       sort: z.enum(['display_order', 'name', 'category']).optional(),
       order: z.enum(['asc', 'desc']).default('asc').optional(),
     }),

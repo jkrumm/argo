@@ -228,8 +228,8 @@ export const dailyMetricsRoutes = new Elysia({ prefix: '/daily-metrics' })
     },
     {
       query: z.object({
-        page: z.number().int().min(1).default(1).optional(),
-        limit: z.number().int().min(1).max(200).default(50).optional(),
+        page: z.coerce.number().int().min(1).default(1).optional(),
+        limit: z.coerce.number().int().min(1).max(200).default(50).optional(),
         order: z.enum(['asc', 'desc']).default('desc').optional(),
         date_from: z.string().optional(),
         date_to: z.string().optional(),

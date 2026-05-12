@@ -36,8 +36,8 @@ export const workoutSetRoutes = new Elysia({ prefix: '/workout-sets' })
     },
     {
       query: z.object({
-        page: z.number().int().min(1).default(1).optional(),
-        limit: z.number().int().min(1).max(200).default(50).optional(),
+        page: z.coerce.number().int().min(1).default(1).optional(),
+        limit: z.coerce.number().int().min(1).max(200).default(50).optional(),
         order: z.enum(['asc', 'desc']).default('asc').optional(),
         workout_id: z.string().optional(),
       }),
