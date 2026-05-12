@@ -2,35 +2,52 @@
 
 ## Database
 
-- **Postgres** on the VPS (production) and locally on port **5433** (dev container).
-- Schema: `argo` (all tables qualified as `argo.<table>`).
-- Role/DB: `argo` / `argo`. Password at `op://vps/argo/DB_PASSWORD` (tkrumm account).
-- Connection string: `postgres://argo:<password>@<host>:5432/argo`
+- **Postgres 18** — production on the VPS, local dev uses the shared cluster from `~/SourceRoot/vps/compose.dev.yml` on `:5432`.
+- Schema: `argo` (all tables qualified as `argo.<table>`). Created via `cd ~/SourceRoot/vps && make postgres-setup` (idempotent).
+- Role: `argo`. Password at `op://vps/argo/DB_PASSWORD` (tkrumm account).
+- Database name: `op://vps/config/POSTGRES_DB`.
 
 ### Local dev
 
 ```bash
-# 1. Start local Postgres (reads ARGO_DB_PASSWORD from .ralph-secrets.env or env)
-make db-up
+# 1. Start shared dev infra (Postgres + ClickStack + Valkey)
+cd ~/SourceRoot/vps && make up && cd -
 
-# 2. Apply migrations and start the API
-op run --account tkrumm --env-file=apps/api/.env.local.tpl -- \
-  sh -c 'bun --cwd apps/api run db:migrate && bun --cwd apps/api run start'
+# 2. (Once) provision the argo role + schema
+cd ~/SourceRoot/vps && make postgres-setup && cd -
+
+# 3. (Optional) Pull a fresh dump of prod data into local
+bun db:sync
+
+# 4. Start API + dashboard concurrently (runs migrations on API boot)
+bun dev
 ```
 
 ### Migrations
 
-Generated SQL files live in `apps/api/drizzle/`. Committed to git, applied automatically on boot via `runMigrations()` in `src/db/index.ts`.
-
-```bash
-# Generate new migration after schema changes:
-bun --cwd apps/api run db:generate
-
-# Apply to local DB:
-DATABASE_URL="postgres://argo:<pw>@localhost:5433/argo" bun --cwd apps/api run db:migrate
-```
+Generated SQL files live in `apps/api/drizzle/`, committed to git, and applied automatically on boot via `runMigrations()` in `src/db/index.ts`. **There is no manual prod migrate step** — push to `master`, RollHook redeploys, the new container migrates before serving traffic.
 
 All tables are declared under `pgSchema('argo')` in `src/db/schema.ts`.
+
+**Workflow**
+
+```bash
+# 1. (optional, for risky migrations) refresh local data to match prod shape
+bun db:sync
+
+# 2. edit src/db/schema.ts
+
+# 3. generate SQL — no DB needed; drizzle-kit diffs schema.ts against drizzle/*.sql
+bun run --cwd apps/api db:generate
+
+# 4. apply locally and test (or restart `bun dev`)
+bun db:migrate
+
+# 5. commit + push → RollHook → migration runs on prod boot
+git add apps/api/drizzle apps/api/src/db/schema.ts
+```
+
+**Sync ordering gotcha.** `bun db:sync` uses `pg_dump --clean --if-exists`, so it **wipes** whatever's in your local `argo` schema and replaces it with prod's. Run `db:sync` _before_ generating a new migration (so you test against prod-shaped data), never _after_ — otherwise your unreleased migration gets wiped from the local DB. The SQL files in git are untouched either way; just re-run `bun db:migrate` to re-apply.
 
 ## Adding a Route
 
@@ -52,8 +69,8 @@ export const myTable = argo.table('my_table', {
 Then generate and apply:
 
 ```bash
-bun --cwd apps/api run db:generate
-DATABASE_URL="postgres://argo:<pw>@localhost:5433/argo" bun --cwd apps/api run db:migrate
+bun run --cwd apps/api db:generate
+bun db:migrate
 ```
 
 ### 2. Create the route file
@@ -159,10 +176,10 @@ describe('GET /my-resource', () => {
 
 ```bash
 # Run all tests (requires DATABASE_URL + API_SECRET)
-bun --cwd apps/api test
+bun test --cwd apps/api
 
 # With local DB
-DATABASE_URL="postgres://argo:<pw>@localhost:5433/argo" API_SECRET=dev bun --cwd apps/api test
+op run --account tkrumm --env-file=apps/api/.env.local.tpl -- bun test --cwd apps/api
 ```
 
 Tests live alongside source files as `*.test.ts`:

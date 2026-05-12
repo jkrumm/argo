@@ -20,25 +20,27 @@ argo/
 ```bash
 bun install                                    # all workspace deps
 
-# API
-make db-up                                     # start local Postgres on :5433
-bun --cwd apps/api run db:migrate             # apply pending Drizzle migrations
-bun --cwd apps/api run db:generate            # generate migration after schema changes
-bun --cwd apps/api run start                  # API on :4000
-bun --cwd apps/api test                       # integration tests (needs DATABASE_URL + API_SECRET)
-bun --cwd apps/api run typecheck
+# Dev — runs API + dashboard concurrently with secrets injected via op
+bun dev                                        # API :4000, dashboard https://argo.test (→ :7715)
+bun db:sync                                    # pull fresh argo schema dump from VPS into local Postgres
+bun db:migrate                                 # apply pending Drizzle migrations against local DB
 
-# Dashboard
-bun --cwd apps/dashboard run dev              # dashboard on :5173 (proxy: /api → :4000)
-bun --cwd apps/dashboard run typecheck
+# Single-app
+bun run --cwd apps/api start                  # API on :4000 (needs op run wrapper for env)
+bun run --cwd apps/api db:generate            # generate migration after schema changes
+bun run --cwd apps/api typecheck
+bun run --cwd apps/dashboard typecheck
+bun run --cwd packages/charts typecheck
 
-# Charts package
-bun --cwd packages/charts run typecheck
+# Tests
+op run --account tkrumm --env-file=apps/api/.env.local.tpl -- bun test --cwd apps/api
 
 # Root (all workspaces)
 bun run lint                                  # oxlint
 bun run format:check                          # oxfmt
 ```
+
+**Dev infra prerequisite:** the local Postgres + ClickStack + Valkey come from `~/SourceRoot/vps/compose.dev.yml`. Start once with `cd ~/SourceRoot/vps && make up` (and `make postgres-setup` the first time to provision the `argo` role + schema). The `bun dev` command then connects to the shared cluster on `localhost:5432` and pipes OTel to ClickStack on `localhost:4318`.
 
 ## Secrets
 
@@ -52,10 +54,9 @@ op read "op://vps/argo/DB_PASSWORD" --account tkrumm
 ## Local Dev
 
 ```bash
-make db-up                                                         # Postgres 16 on :5433
-op run --account tkrumm --env-file=apps/api/.env.local.tpl -- \
-  sh -c 'bun --cwd apps/api run db:migrate && bun --cwd apps/api run start'
-bun --cwd apps/dashboard run dev
+cd ~/SourceRoot/vps && make up && cd -   # Postgres 18 + ClickStack + Valkey (once per boot)
+bun db:sync                              # optional: refresh local data from VPS
+bun dev                                  # API :4000 + dashboard :7715 (https://argo.test via dotfiles Caddy)
 ```
 
 The dashboard proxies `/api/*` to the API (strips `/api` prefix) and `/v1/traces` + `/v1/logs` to ClickStack on `:4318`.

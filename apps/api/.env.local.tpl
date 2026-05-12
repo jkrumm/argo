@@ -1,9 +1,17 @@
-# Local dev environment template.
-# Usage: op run --account tkrumm --env-file=apps/api/.env.local.tpl -- bun run start
+# Local dev — connects to the shared VPS dev Postgres + ClickStack running locally
+# from ~/SourceRoot/vps (start with `cd ~/SourceRoot/vps && make up`).
 #
-# Local Postgres runs on port 5433 (docker-compose.dev.yml).
-# Same password as production; sourced from op://vps/argo/DB_PASSWORD.
-# Production DATABASE_URL points to VPS Postgres — see Group 11 cutover notes.
+# Run from repo root: `bun dev` (auto-wraps with `op run --account tkrumm`).
+#
+# Note: op run only substitutes values that ARE an op:// reference — it does
+# not interpolate refs inside larger strings. So DATABASE_URL is assembled at
+# runtime by scripts/dev.sh from the components below.
 
-DATABASE_URL=postgres://argo:op://vps/argo/DB_PASSWORD@localhost:5433/argo
 ARGO_DB_PASSWORD=op://vps/argo/DB_PASSWORD
+POSTGRES_DB=op://vps/config/POSTGRES_DB
+API_SECRET=op://common/api/SECRET
+
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+OTEL_SERVICE_NAME=argo-api
+
+NODE_ENV=development

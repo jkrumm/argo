@@ -28,36 +28,38 @@ The backend also serves a curated OpenAPI (`/openapi`) consumed by AI agents —
 ### Prerequisites
 
 - Bun
-- Docker (for local Postgres)
-- 1Password CLI (`op`) with the `tkrumm` account
+- Docker
+- 1Password CLI (`op`) signed into the `tkrumm` account
+- `~/SourceRoot/vps` cloned — argo connects to the shared dev cluster defined there (Postgres 18 + ClickStack + Valkey)
 
 ### Start
 
 ```bash
+# One-time, in the vps repo:
+cd ~/SourceRoot/vps
+make up                                       # Postgres :5432, ClickStack :4318, Valkey :6379
+make postgres-setup                           # provisions the argo role + schema (idempotent)
+cd -
+
+# In argo:
 bun install
-
-# Start local Postgres on :5433
-make db-up
-
-# Apply migrations + start API on :4000
-op run --account tkrumm --env-file=apps/api/.env.local.tpl -- \
-  sh -c 'bun --cwd apps/api run db:migrate && bun --cwd apps/api run start'
-
-# Start dashboard on :5173 (proxies /api → :4000)
-bun --cwd apps/dashboard run dev
+bun db:sync                                   # optional: pull fresh data from prod into local
+bun dev                                       # API :4000 + dashboard :7715 (op-wrapped, concurrent)
 ```
 
-Open `http://localhost:5173`.
+Open `https://argo.test` (via dotfiles Caddy + dnsmasq) or `http://localhost:7715` directly.
+
+The dashboard proxies `/api/*` to the API and `/v1/traces` + `/v1/logs` to ClickStack on `:4318`.
 
 ### Validation
 
 ```bash
 bun run lint              # oxlint
 bun run format:check      # oxfmt
-bun --cwd apps/api run typecheck
-bun --cwd apps/dashboard run typecheck
-bun --cwd packages/charts run typecheck
-bun --cwd apps/api test   # integration tests — needs DATABASE_URL + API_SECRET
+bun run --cwd apps/api typecheck
+bun run --cwd apps/dashboard typecheck
+bun run --cwd packages/charts typecheck
+op run --account tkrumm --env-file=apps/api/.env.local.tpl -- bun test --cwd apps/api
 ```
 
 ## Deploying
