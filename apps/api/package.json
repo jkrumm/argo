@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:migrate-from-sqlite": "bun run scripts/migrate-sqlite-to-pg.ts"
+    "db:migrate-from-sqlite": "bun run scripts/migrate-sqlite-to-pg.ts",
+    "m365:auth": "bun run scripts/m365-bootstrap.ts",
+    "m365:auth:prod": "bun run scripts/m365-bootstrap.ts --target=prod"
   },
   "dependencies": {
     "@elysiajs/bearer": "^1",

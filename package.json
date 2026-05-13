@@ -9,6 +9,8 @@
     "dev": "op run --account tkrumm --env-file=apps/api/.env.local.tpl --env-file=apps/dashboard/.env.local.tpl -- ./scripts/dev.sh",
     "db:migrate": "op run --account tkrumm --env-file=apps/api/.env.local.tpl -- ./scripts/db-migrate.sh",
     "db:sync": "./scripts/db-sync.sh",
+    "m365:auth": "bun run --cwd apps/api m365:auth",
+    "m365:auth:prod": "op run --account tkrumm --env-file=apps/api/.env.local.tpl -- bun run --cwd apps/api m365:auth:prod",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
     "format": "oxfmt 'apps/**' 'packages/**' '!**/generated/**' '!**/dist/**' --write",

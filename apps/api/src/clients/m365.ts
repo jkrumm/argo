@@ -31,12 +31,20 @@ const REFRESH_LEEWAY_MS = 5 * 60 * 1000
 const DATA_DIR = env.DATA_DIR
 const TOKEN_FILE = join(DATA_DIR, 'oauth-tokens.json')
 
-interface M365State {
+export interface M365State {
   clientId?: string
   accessToken?: string
   refreshToken?: string
   expiresAt?: number
   scope?: string
+}
+
+export interface SeedTokens {
+  clientId: string
+  accessToken: string
+  refreshToken: string
+  expiresAt: number
+  scope: string
 }
 
 // Loose store type: each integration owns its slice and preserves unknown
@@ -61,6 +69,19 @@ function patchM365(patch: M365State): void {
   const store = loadTokens()
   store.m365 = { ...store.m365, ...patch }
   saveTokens(store)
+}
+
+/**
+ * Seed M365 tokens from an external bootstrap (laptop-side OAuth flow against
+ * an AAD-allowed redirect URI like the MCP inspector's localhost:6274). Used
+ * by POST /m365/seed to ship a fresh grant from laptop → VPS without exposing
+ * the VPS to the IU SSO browser dance.
+ */
+export function seedTokens(tokens: SeedTokens): void {
+  patchM365(tokens)
+  // Reset MCP session state so the next call re-initializes with new creds.
+  sessionId = undefined
+  initialized = false
 }
 
 // ---------- Dynamic Client Registration (RFC 7591) ----------
