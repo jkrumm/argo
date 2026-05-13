@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
 import { join } from 'path'
 import { env } from '../env.js'
+import { tracedFetch } from '../lib/traced-fetch.js'
 
 const CLIENT_ID = env.GOOGLE_CLIENT_ID
 const CLIENT_SECRET = env.GOOGLE_CLIENT_SECRET
@@ -46,7 +47,7 @@ export function getAuthUrl(): string {
 }
 
 export async function exchangeCode(code: string): Promise<void> {
-  const res = await fetch('https://oauth2.googleapis.com/token', {
+  const res = await tracedFetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -73,7 +74,7 @@ export async function exchangeCode(code: string): Promise<void> {
 }
 
 async function refreshAccessToken(tokens: GoogleTokens): Promise<GoogleTokens> {
-  const res = await fetch('https://oauth2.googleapis.com/token', {
+  const res = await tracedFetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -111,7 +112,7 @@ let labelCache: Map<string, string> | null = null
 
 async function getLabelMap(token: string): Promise<Map<string, string>> {
   if (labelCache) return labelCache
-  const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
+  const res = await tracedFetch('https://gmail.googleapis.com/gmail/v1/users/me/labels', {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) return new Map()
@@ -288,7 +289,7 @@ export async function listEmails(params: {
   if (params.starred) q += ' is:starred'
   if (params.query) q += ` ${params.query}`
 
-  const listRes = await fetch(
+  const listRes = await tracedFetch(
     `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${maxResults}&q=${encodeURIComponent(q)}`,
     { headers: { Authorization: `Bearer ${token}` } },
   )
@@ -298,7 +299,7 @@ export async function listEmails(params: {
 
   const details = await Promise.all(
     listData.messages.map(async (m) => {
-      const r = await fetch(
+      const r = await tracedFetch(
         `https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata` +
           `&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`,
         { headers: { Authorization: `Bearer ${token}` } },
@@ -329,7 +330,7 @@ export async function listEmails(params: {
 export async function getEmail(id: string): Promise<EmailDetail> {
   const token = await getValidAccessToken()
   const [res, labelMap] = await Promise.all([
-    fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`, {
+    tracedFetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`, {
       headers: { Authorization: `Bearer ${token}` },
     }),
     getLabelMap(token),
@@ -401,7 +402,7 @@ export interface CalendarEventItem {
 export async function listCalendarEvents(days: number = 30): Promise<CalendarEventItem[]> {
   const token = await getValidAccessToken()
 
-  const calRes = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
+  const calRes = await tracedFetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!calRes.ok) throw new Error(`Calendar list failed: ${await calRes.text()}`)
@@ -423,7 +424,7 @@ export async function listCalendarEvents(days: number = 30): Promise<CalendarEve
         orderBy: 'startTime',
         maxResults: '250',
       })
-      const evRes = await fetch(
+      const evRes = await tracedFetch(
         `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?${params}`,
         { headers: { Authorization: `Bearer ${token}` } },
       )

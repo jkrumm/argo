@@ -193,12 +193,18 @@ Tests live alongside source files as `*.test.ts`:
 
 Integration tests seed fixtures in `beforeEach`/`afterEach` and require a live Postgres.
 
-## OTel Environment Variables
+## Observability
+
+OpenTelemetry traces + logs ship to ClickStack via `@elysiajs/opentelemetry`. `src/telemetry.ts` is the single entry point — exports `telemetryConfig`, `tracer`, and a structured `log` helper. Outgoing fetch must go through `src/lib/traced-fetch.ts`; Drizzle is auto-instrumented in `src/db/index.ts` via `@kubiks/otel-drizzle`. Cron ticks wrap each tick in `context.with(ROOT_CONTEXT, …)` so they don't chain into one giant trace.
+
+See `.claude/rules/observability.md` for the full pattern — when to add manual spans, the CORS allowlist for W3C propagation, cron naming convention, and the verification checklist.
+
+### Env vars
 
 ```bash
-OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318  # default — local ClickStack
-OTEL_SERVICE_NAME=argo-api                           # default
-OTEL_SERVICE_VERSION=0.0.0                           # default; set to git tag in prod Docker
+OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318  # base URL — SDK appends /v1/traces and /v1/logs
+OTEL_SERVICE_NAME=argo-api                         # service.name resource attribute
+OTEL_SERVICE_VERSION=                              # optional; falls back to package.json version
 ```
 
 All env vars are validated at startup via Zod in `src/env.ts`. Missing required vars cause a fail-fast error on boot.

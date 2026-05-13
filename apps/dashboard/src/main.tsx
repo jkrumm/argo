@@ -12,6 +12,7 @@ import { ModalsProvider } from '@mantine/modals'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { createRouter, RouterProvider } from '@tanstack/react-router'
+import { ErrorBoundary } from './lib/error-boundary'
 import { queryClient } from './lib/query-client'
 import { routeTree } from './routeTree.gen'
 import { VxBridge } from './charts-bridge'
@@ -35,15 +36,17 @@ if (!rootEl) throw new Error('Root element not found')
 createRoot(rootEl).render(
   <StrictMode>
     <MantineProvider defaultColorScheme="dark">
-      <VxBridge>
-        <Notifications />
-        <ModalsProvider>
-          <QueryClientProvider client={queryClient}>
-            <RouterProvider router={router} />
-            {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
-          </QueryClientProvider>
-        </ModalsProvider>
-      </VxBridge>
+      <ErrorBoundary>
+        <VxBridge>
+          <Notifications />
+          <ModalsProvider>
+            <QueryClientProvider client={queryClient}>
+              <RouterProvider router={router} />
+              {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+            </QueryClientProvider>
+          </ModalsProvider>
+        </VxBridge>
+      </ErrorBoundary>
     </MantineProvider>
   </StrictMode>,
 )

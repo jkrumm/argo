@@ -47,3 +47,8 @@ jobs:
           image_name: argo-dashboard
           dockerfile: apps/dashboard/Dockerfile
           context: .
+          # HyperDX ingestion key is public-by-design (Sentry-DSN equivalent) —
+          # safe to bake into the static bundle. Synced to every repo by
+          # dotfiles/scripts/github-config.sh (op://vps/argo/HYPERDX_API_KEY_PROD).
+          build_args: |
+            VITE_HYPERDX_API_KEY=${{ secrets.HYPERDX_API_KEY_PROD }}

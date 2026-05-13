@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import postgres from 'postgres'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
+import { instrumentDrizzleClient } from '@kubiks/otel-drizzle'
 import * as schema from './schema.js'
 import { env } from '../env.js'
 
@@ -14,7 +15,11 @@ const DATABASE_URL = env.DATABASE_URL.replace(/[?&](?:schema|search_path)=[^&]*/
 )
 
 export const client = postgres(DATABASE_URL)
-export const db = drizzle(client, { schema })
+// OTel-instrumented Drizzle — emits CLIENT spans per query with db.statement,
+// db.operation, durations. Idempotent; safe to wrap once at module load.
+export const db = instrumentDrizzleClient(drizzle(client, { schema }), {
+  dbSystem: 'postgresql',
+})
 
 // Resolve the migrations folder relative to this source file so it works
 // regardless of the process CWD (local dev runs with --cwd apps/api; the

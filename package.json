@@ -6,7 +6,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "op run --account tkrumm --env-file=apps/api/.env.local.tpl -- ./scripts/dev.sh",
+    "dev": "op run --account tkrumm --env-file=apps/api/.env.local.tpl --env-file=apps/dashboard/.env.local.tpl -- ./scripts/dev.sh",
     "db:migrate": "op run --account tkrumm --env-file=apps/api/.env.local.tpl -- ./scripts/db-migrate.sh",
     "db:sync": "./scripts/db-sync.sh",
     "lint": "oxlint .",

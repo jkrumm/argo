@@ -1,4 +1,5 @@
 import { Cron } from 'croner'
+import { context, ROOT_CONTEXT, SpanKind, SpanStatusCode } from '@opentelemetry/api'
 import { eq, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { dailyMetrics, garminActivities, syncControl } from '../db/schema.js'
@@ -8,6 +9,8 @@ import {
   type DailyMetric,
 } from '../clients/garmin-collector.js'
 import { env } from '../env.js'
+import { tracedFetch } from '../lib/traced-fetch.js'
+import { tracer } from '../telemetry.js'
 
 const BACKFILL_DAYS = env.GARMIN_BACKFILL_DAYS
 const ACTIVITIES_INITIAL_BACKFILL_DAYS = env.GARMIN_ACTIVITIES_INITIAL_BACKFILL_DAYS
@@ -33,7 +36,7 @@ async function pingHeartbeat(status: 'up' | 'down', msg: string): Promise<void> 
   if (!HEARTBEAT_URL) return
   try {
     const url = `${HEARTBEAT_URL}?status=${status}&msg=${encodeURIComponent(msg)}`
-    await fetch(url, { signal: AbortSignal.timeout(10_000) })
+    await tracedFetch(url, { signal: AbortSignal.timeout(10_000) })
   } catch (e) {
     // eslint-disable-next-line no-console
     console.warn('[garmin-sync] heartbeat ping failed:', e)
@@ -172,6 +175,31 @@ export async function runGarminSync(reason: string): Promise<GarminSyncResult> {
   return { errors, message, daysSynced, activitiesSynced }
 }
 
+/**
+ * Wrap a cron tick in a fresh root span. Detaches from any ambient context
+ * via ROOT_CONTEXT so each tick stands alone in the trace tree.
+ */
+async function tracedTick(
+  name: string,
+  attributes: Record<string, string>,
+  fn: () => Promise<unknown>,
+): Promise<void> {
+  await context.with(ROOT_CONTEXT, () =>
+    tracer.startActiveSpan(name, { kind: SpanKind.INTERNAL, attributes }, async (span) => {
+      try {
+        await fn()
+        span.setStatus({ code: SpanStatusCode.OK })
+      } catch (err) {
+        span.recordException(err as Error)
+        span.setStatus({ code: SpanStatusCode.ERROR, message: String(err) })
+        throw err
+      } finally {
+        span.end()
+      }
+    }),
+  )
+}
+
 export function registerGarminSyncCron(): void {
   if (!env.GARMIN_COLLECTOR_URL) {
     // eslint-disable-next-line no-console
@@ -181,16 +209,22 @@ export function registerGarminSyncCron(): void {
 
   void ensureControlRow()
 
-  // Scheduled sync every 6h.
+  // Scheduled sync every 6h. Each tick is a fresh root trace via ROOT_CONTEXT —
+  // without detachment, croner's timer-based scheduling could chain ticks together.
   new Cron('0 */6 * * *', () => {
-    void runGarminSync('scheduled')
+    void tracedTick('cron.garmin-sync.scheduled', { 'cron.schedule': '0 */6 * * *' }, () =>
+      runGarminSync('scheduled'),
+    )
   })
 
   // Manual refresh poller — picks up dashboard-triggered refresh within 60s.
+  // Only emit a span when work actually runs; the no-op DB check would be noise.
   new Cron('* * * * *', async () => {
     const [row] = await db.select().from(syncControl).where(eq(syncControl.id, 1))
     if (row?.refresh_requested) {
-      void runGarminSync('manual-refresh')
+      void tracedTick('cron.garmin-sync.manual-refresh', { 'cron.schedule': '* * * * *' }, () =>
+        runGarminSync('manual-refresh'),
+      )
     }
   })
 

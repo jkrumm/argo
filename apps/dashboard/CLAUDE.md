@@ -112,8 +112,10 @@ The dashboard uses `babel-plugin-react-compiler` via `vite-plugin-babel`. All co
 
 ## Observability (HyperDX)
 
-`import './lib/hyperdx'` is the **first import** in `main.tsx`. HyperDX patches `window.fetch` on import — any module loaded before it misses tracing. The Vite proxy forwards `/v1/traces` and `/v1/logs` to `127.0.0.1:4318`.
+`import './lib/hyperdx'` is the **first import** in `main.tsx`. HyperDX patches `window.fetch` on import — any module loaded before it misses tracing. The Vite proxy forwards `/v1/traces` and `/v1/logs` to `127.0.0.1:4318`; in prod, Traefik routes the same paths on `argo.jkrumm.com` to `clickstack-otel@docker` (same-origin → no CORS).
 
-Set `VITE_HYPERDX_API_KEY` in `.env.local` to enable tracing. When the key is absent, HyperDX is silently disabled — the dashboard works normally without ClickStack running.
+Set `VITE_HYPERDX_API_KEY` in `.env.local` to enable tracing. When the key is absent, HyperDX is silently disabled — the dashboard works normally without ClickStack running. **Never set `VITE_HYPERDX_ENDPOINT` to a relative path** like `/` — the OTLP exporter requires absolute URLs and silently falls back to HyperDX Cloud.
 
-See `.claude/rules/observability.md` for the first-import constraint details.
+`__APP_VERSION__` is injected by Vite at build time (sourced from `package.json` `version`, override via `BUILD_VERSION` env). Surfaced as the `app.version` resource attribute in HyperDX for release diffs.
+
+See `.claude/rules/observability.md` for the full configuration contract — first-import constraint, `tracePropagationTargets` regex rules, `ignoreUrls`, prod routing, common pitfalls.

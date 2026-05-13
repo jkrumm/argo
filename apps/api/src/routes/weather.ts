@@ -1,5 +1,6 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
+import { tracedFetch } from '../lib/traced-fetch.js'
 
 const OPEN_METEO_BASE = 'https://api.open-meteo.com/v1/forecast'
 const OPEN_METEO_GEOCODING = 'https://geocoding-api.open-meteo.com/v1/search'
@@ -44,7 +45,7 @@ async function geocodeCity(city: string): Promise<ResolvedLocation | null> {
     language: 'en',
     format: 'json',
   })
-  const res = await fetch(`${OPEN_METEO_GEOCODING}?${params}`)
+  const res = await tracedFetch(`${OPEN_METEO_GEOCODING}?${params}`)
   if (!res.ok) throw new Error(`Open-Meteo geocoding error: ${res.status}`)
   const data = (await res.json()) as GeocodingResponse
   const hit = data.results?.[0]
@@ -118,7 +119,7 @@ async function fetchForecast(loc: ResolvedLocation): Promise<OpenMeteoResponse> 
     timezone: loc.timezone,
   })
 
-  const res = await fetch(`${OPEN_METEO_BASE}?${params}`)
+  const res = await tracedFetch(`${OPEN_METEO_BASE}?${params}`)
   if (!res.ok) throw new Error(`Open-Meteo API error: ${res.status}`)
   return res.json() as Promise<OpenMeteoResponse>
 }

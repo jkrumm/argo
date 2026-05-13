@@ -46,7 +46,10 @@ export const app = new Elysia()
   .use(
     opentelemetry({
       ...telemetryConfig,
-      checkIfShouldTrace: (req) => !req.url.includes('/health'),
+      checkIfShouldTrace: (req) => {
+        const u = new URL(req.url)
+        return u.pathname !== '/' && u.pathname !== '/health' && !u.pathname.startsWith('/openapi')
+      },
     }),
   )
   .onError(({ error }) => {
@@ -59,7 +62,9 @@ export const app = new Elysia()
   .use(
     cors({
       origin: ['https://argo.jkrumm.com', 'https://argo.test', 'http://localhost:7715'],
-      allowedHeaders: ['Authorization', 'Content-Type'],
+      // W3C trace context headers must be allowed so distributed tracing
+      // survives the browser→API hop (HyperDX injects traceparent on fetch).
+      allowedHeaders: ['Authorization', 'Content-Type', 'traceparent', 'tracestate', 'baggage'],
       exposeHeaders: ['x-total-count'],
     }),
   )

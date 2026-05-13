@@ -2,6 +2,7 @@
 // Stateless query layer over Garmin Connect — owns the OAuth tokens, returns shaped JSON.
 
 import { env } from '../env.js'
+import { tracedFetch } from '../lib/traced-fetch.js'
 
 const COLLECTOR_URL = env.GARMIN_COLLECTOR_URL
 const COLLECTOR_TOKEN = env.GARMIN_COLLECTOR_TOKEN
@@ -76,7 +77,7 @@ async function fetchJson<T>(path: string): Promise<T> {
   if (!COLLECTOR_URL) throw new Error('GARMIN_COLLECTOR_URL not configured')
   if (!COLLECTOR_TOKEN) throw new Error('GARMIN_COLLECTOR_TOKEN not configured')
 
-  const res = await fetch(`${COLLECTOR_URL}${path}`, {
+  const res = await tracedFetch(`${COLLECTOR_URL}${path}`, {
     headers: { Authorization: `Bearer ${COLLECTOR_TOKEN}` },
     signal: AbortSignal.timeout(120_000), // generous — Garmin can be slow
   })

@@ -1,4 +1,5 @@
 import { env } from '../env.js'
+import { tracedFetch } from '../lib/traced-fetch.js'
 
 const SLACK_BOT_TOKEN = env.SLACK_BOT_TOKEN
 const SLACK_USER_TOKEN = env.SLACK_USER_TOKEN
@@ -29,7 +30,7 @@ async function slackApi<T>(
         if (v !== undefined && v !== null) url.searchParams.set(k, String(v))
       }
     }
-    const res = await fetch(url, {
+    const res = await tracedFetch(url, {
       headers: { Authorization: `Bearer ${authToken}` },
     })
     if (!res.ok) throw new Error(`Slack API ${method} HTTP ${res.status}`)
@@ -38,7 +39,7 @@ async function slackApi<T>(
     return data
   }
 
-  const res = await fetch(`https://slack.com/api/${method}`, {
+  const res = await tracedFetch(`https://slack.com/api/${method}`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${authToken}`,
