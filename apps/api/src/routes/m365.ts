@@ -1,7 +1,5 @@
 import { Elysia } from 'elysia'
-import { bearer } from '@elysiajs/bearer'
 import { z } from 'zod'
-import { env } from '../env.js'
 import { listTools, seedTokens, listUpcomingCalendarEvents } from '../clients/m365.js'
 
 const ToolSchema = z.object({
@@ -41,18 +39,7 @@ const CalendarEventSchema = z.object({
   webLink: z.string().describe('Outlook web URL for this event').optional(),
 })
 
-// Self-contained bearer guard at the plugin level — argo's outer authGuard
-// doesn't reliably propagate to sibling instances mounted after it. We
-// duplicate the check here because /m365/seed is a WRITE endpoint that
-// affects token state and must not be reachable without API_SECRET.
 export const m365Routes = new Elysia({ prefix: '/m365' })
-  .use(bearer())
-  .onBeforeHandle(({ bearer: token, set }) => {
-    if (!token || token !== env.API_SECRET) {
-      set.status = 401
-      return 'Unauthorized'
-    }
-  })
   .get(
     '/tools',
     async () => {

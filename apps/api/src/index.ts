@@ -37,12 +37,18 @@ import { runMigrations } from './db/index.js'
 
 await runMigrations()
 
-const authGuard = new Elysia({ name: 'auth' }).use(bearer()).onBeforeHandle(({ bearer, set }) => {
-  if (!bearer || bearer !== env.API_SECRET) {
-    set.status = 401
-    return 'Unauthorized'
-  }
-})
+// `as: 'scoped'` is required so the lifecycle propagates to sibling plugins
+// mounted after this guard (default `local` only reaches descendants of this
+// instance, which left /m365 and /atlassian unguarded historically). See
+// dotfiles/rules/elysia.md → "Encapsulation".
+const authGuard = new Elysia({ name: 'auth' })
+  .use(bearer())
+  .onBeforeHandle({ as: 'scoped' }, ({ bearer, set }) => {
+    if (!bearer || bearer !== env.API_SECRET) {
+      set.status = 401
+      return 'Unauthorized'
+    }
+  })
 
 export const app = new Elysia()
   .use(

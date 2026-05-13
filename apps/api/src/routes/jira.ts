@@ -1,7 +1,5 @@
 import { Elysia } from 'elysia'
-import { bearer } from '@elysiajs/bearer'
 import { z } from 'zod'
-import { env } from '../env.js'
 import {
   DEFAULT_BOARD_ID,
   getMyself,
@@ -69,18 +67,7 @@ const BoardSchema = z.object({
 
 // --- Plugin ---------------------------------------------------------------
 
-// Plugin-level bearer guard. The outer authGuard in src/index.ts doesn't
-// reliably propagate to sibling plugins mounted later (same scoping quirk
-// that bit /m365). Read-only data but the IU PAT it surfaces is sensitive,
-// so we re-assert API_SECRET here.
 export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
-  .use(bearer())
-  .onBeforeHandle(({ bearer: token, set }) => {
-    if (!token || token !== env.API_SECRET) {
-      set.status = 401
-      return 'Unauthorized'
-    }
-  })
   .get(
     '/me',
     async ({ set }) => {
