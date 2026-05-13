@@ -57,9 +57,9 @@ export const oauthRoutes = new Elysia({ prefix: '/oauth' })
     {
       detail: {
         tags: ['System'],
-        summary: 'Initiate IU M365 OAuth',
+        summary: 'Initiate IU M365 OAuth (currently inactive — see /m365/seed)',
         description:
-          'Redirects browser to the IU Microsoft 365 MCP consent screen. On first invocation the API registers itself dynamically (RFC 7591) against the MCP server and persists the resulting client_id. Each subsequent click only re-runs the OAuth 2.1 + PKCE dance. Visit in a browser; complete IU SSO; the callback writes tokens to disk and you can close the tab. Tokens auto-refresh forever via the offline_access scope. No auth required (the API is Tailscale-gated at the network layer).',
+          "Redirects browser to the IU Microsoft 365 MCP consent screen with argo's own callback URL. NON-FUNCTIONAL at present: the upstream Azure AD application's redirect-URI allow-list does not include argo.jkrumm.com or localhost:4000, so the flow fails with AADSTS50011 after IU SSO. Kept as a future-proof entry point in case IT adds our callbacks to the AAD app. Until then, install tokens via the laptop bootstrap script: `bun m365:auth` (local) / `bun m365:auth:prod` (prod) — see /m365/seed and apps/api/scripts/m365-bootstrap.ts.",
         security: [],
       },
     },

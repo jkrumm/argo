@@ -209,6 +209,45 @@ OTEL_SERVICE_VERSION=                              # optional; falls back to pac
 
 All env vars are validated at startup via Zod in `src/env.ts`. Missing required vars cause a fail-fast error on boot.
 
+## M365 (IU Microsoft 365 MCP)
+
+Wraps the IU M365 MCP server (proxy over Microsoft Graph — calendar, mail, Teams, OneDrive, OneNote, ~270 operations behind 3 meta-tools). Argo never sees the user's IU password; it holds an OAuth refresh token per environment.
+
+### Why it's bootstrapped, not browser-flow
+
+`GET /oauth/m365/init` exists but is **inactive**: the upstream Azure AD app's redirect-URI allow-list doesn't include `argo.jkrumm.com/api/...` or `localhost:4000/...`. Only the MCP-inspector callback (`http://localhost:6274/oauth/callback/debug`) is allowed. We don't ask IT to widen the list; we work with what's there.
+
+### Token install / refresh
+
+```bash
+# One-time per env (each is an independent OAuth grant, separate refresh-token chain):
+bun m365:auth          # writes apps/api/data/oauth-tokens.json on the laptop
+bun m365:auth:prod     # POSTs to https://argo.jkrumm.com/api/m365/seed
+```
+
+Both run `apps/api/scripts/m365-bootstrap.ts`, which spawns a one-shot HTTP server on `localhost:6274`, does its own DCR + PKCE + token exchange against the MCP server, then either writes the file or seeds prod via `POST /m365/seed` (bearer-auth gated by `API_SECRET`). The script prints the IU SSO URL to stdout; you complete it in a browser; the success page lands and the process exits.
+
+### Where tokens live
+
+- **Local:** `apps/api/data/oauth-tokens.json` — gitignored, on the laptop's disk, owned by the user.
+- **Prod:** `/var/lib/argo/data/oauth-tokens.json` on the VPS, mounted as `/app/data` into the container, owned by `dhcpcd:lxd` (the container runtime user). Persisted across container restarts; survives `RollHook` redeploys.
+
+Tokens are NOT stored in 1Password or in env vars — they're per-grant, per-env runtime state. Both files coexist with the existing `google` OAuth tokens (each integration owns its slice of the JSON).
+
+### Refresh behavior
+
+`clients/m365.ts` refreshes the access token automatically when it has less than 5 minutes of life left. Microsoft rotates refresh tokens on every use; we persist the new one each round. Either env stays alive forever as long as it gets called at least once every 90 days (Microsoft's inactivity ceiling). Local and prod do not race — independent grants → independent rotation chains.
+
+### When to re-seed
+
+Re-run `bun m365:auth*` if:
+
+- `/m365/*` returns `M365 not authenticated …` (refresh token revoked, file deleted, or 90-day inactivity expired)
+- You changed your IU password (revokes all grants)
+- You explicitly want to invalidate the current token and start fresh
+
+The same command both installs and replaces — no clean-up step needed.
+
 ## Production (VPS)
 
 API runs on the VPS via RollHook — push to `master` triggers a rolling Docker restart.

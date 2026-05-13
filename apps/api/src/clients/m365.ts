@@ -159,7 +159,9 @@ export async function getAuthUrl(): Promise<string> {
 export async function exchangeCode(code: string, state: string): Promise<void> {
   const entry = pendingAuths.get(state)
   if (!entry)
-    throw new Error('Unknown or expired OAuth state — restart the flow via /oauth/m365/init')
+    throw new Error(
+      'Unknown or expired OAuth state. This route is only reachable if the IU AAD app has been updated to allow argo.jkrumm.com / localhost:4000 callbacks; otherwise use `bun m365:auth` instead.',
+    )
   pendingAuths.delete(state)
 
   const clientId = await getClientId()
@@ -189,10 +191,16 @@ export async function exchangeCode(code: string, state: string): Promise<void> {
   })
 }
 
+const NOT_AUTHENTICATED_MSG =
+  'M365 not authenticated. Run `bun m365:auth` (local) or `bun m365:auth:prod` (prod) to seed tokens via the laptop bootstrap script. See apps/api/scripts/m365-bootstrap.ts.'
+
+const REFRESH_FAILED_HINT =
+  'If this persists (e.g. refresh token revoked or 90-day inactivity expiry), re-seed via `bun m365:auth` (local) / `bun m365:auth:prod` (prod).'
+
 async function refreshAccessToken(): Promise<string> {
   const m = loadM365()
   if (!m.refreshToken) {
-    throw new Error('M365 not authenticated — visit /oauth/m365/init in a browser')
+    throw new Error(NOT_AUTHENTICATED_MSG)
   }
   const clientId = await getClientId()
   const res = await tracedFetch(`${MCP_BASE}/token`, {
@@ -204,7 +212,11 @@ async function refreshAccessToken(): Promise<string> {
       refresh_token: m.refreshToken,
     }),
   })
-  if (!res.ok) throw new Error(`M365 token refresh failed: ${res.status} ${await res.text()}`)
+  if (!res.ok) {
+    throw new Error(
+      `M365 token refresh failed: ${res.status} ${await res.text()}. ${REFRESH_FAILED_HINT}`,
+    )
+  }
   const data = (await res.json()) as {
     access_token: string
     refresh_token?: string
