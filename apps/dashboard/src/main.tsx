@@ -12,6 +12,7 @@ import { ModalsProvider } from '@mantine/modals'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { createRouter, RouterProvider } from '@tanstack/react-router'
+import { AuthGate } from './lib/auth-gate'
 import { ErrorBoundary } from './lib/error-boundary'
 import { queryClient } from './lib/query-client'
 import { routeTree } from './routeTree.gen'
@@ -41,7 +42,9 @@ createRoot(rootEl).render(
           <Notifications />
           <ModalsProvider>
             <QueryClientProvider client={queryClient}>
-              <RouterProvider router={router} />
+              <AuthGate>
+                <RouterProvider router={router} />
+              </AuthGate>
               {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
             </QueryClientProvider>
           </ModalsProvider>
