@@ -47,7 +47,7 @@ const SCOPES = [
   'ChannelMessage.Read.All',
 ].join(' ')
 
-const TIMEOUT_MS = 5 * 60 * 1000
+const TIMEOUT_MS = 15 * 60 * 1000
 
 interface CliArgs {
   target: 'local' | 'prod'
@@ -204,9 +204,10 @@ async function main(): Promise<void> {
       const code = url.searchParams.get('code')
       const state = url.searchParams.get('state')
       if (!code || state !== expectedState) {
-        res.writeHead(400).end('missing or invalid code/state')
-        console.error('missing or invalid code/state')
-        finish(1)
+        // Keep listening — stale browser retries from a previous bootstrap run
+        // can land here. We only exit on success or a real OAuth error.
+        res.writeHead(400).end('missing or invalid code/state — ignored, still listening')
+        console.error('  (ignored stale/invalid callback, still waiting)')
         return
       }
 
