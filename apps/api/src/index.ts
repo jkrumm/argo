@@ -16,6 +16,7 @@ import { slackRoutes } from './routes/slack.js'
 import { oauthRoutes } from './routes/oauth.js'
 import { gmailRoutes } from './routes/gmail.js'
 import { calendarRoutes } from './routes/calendar.js'
+import { m365Routes } from './routes/m365.js'
 import { weatherRoutes } from './routes/weather.js'
 import { queryRoute } from './routes/query.js'
 import { workoutRoutes } from './routes/workouts.js'
@@ -101,6 +102,11 @@ export const app = new Elysia()
               'Personal comms and task management: TickTick projects/tasks, Slack channels/messages/threads, Gmail inbox, Google Calendar events.',
           },
           {
+            name: 'M365',
+            description:
+              'IU Microsoft 365 surface — Outlook calendar, mail, Teams chats and channels — proxied through the IU MCP server (Microsoft Graph wrapper) with OAuth 2.1 + PKCE + Dynamic Client Registration. Phase 1 exposes only a /m365/tools discovery endpoint until the surface is mapped.',
+          },
+          {
             name: 'Infrastructure',
             description:
               'Self-hosted ops: UptimeKuma monitors + status, Docker container state on HomeLab and VPS (containers, stats, logs, summary).',
@@ -113,7 +119,7 @@ export const app = new Elysia()
           {
             name: 'System',
             description:
-              'Discovery, health, observability, and auth plumbing: `/` (API discovery), `/health` (liveness), `/summary` (aggregated infra snapshot), `/query` (read-only SQL), `/oauth/google/*` (Google auth dance for Gmail + Calendar).',
+              'Discovery, health, observability, and auth plumbing: `/` (API discovery), `/health` (liveness), `/summary` (aggregated infra snapshot), `/query` (read-only SQL), `/oauth/google/*` (Google auth dance for Gmail + Calendar), `/oauth/m365/*` (IU Microsoft 365 auth dance — DCR + PKCE).',
           },
         ],
       },
@@ -133,12 +139,20 @@ export const app = new Elysia()
       auth: {
         scheme: 'Bearer',
         header: 'Authorization: Bearer <API_SECRET>',
-        public: ['GET /', 'GET /health', 'GET /oauth/google/init', 'GET /oauth/google/callback'],
+        public: [
+          'GET /',
+          'GET /health',
+          'GET /oauth/google/init',
+          'GET /oauth/google/callback',
+          'GET /oauth/m365/init',
+          'GET /oauth/m365/callback',
+        ],
       },
       tags: [
         'Garmin Health',
         'Strength',
         'Productivity',
+        'M365',
         'Infrastructure',
         'External Data',
         'System',
@@ -178,6 +192,7 @@ export const app = new Elysia()
   .use(slackRoutes)
   .use(gmailRoutes)
   .use(calendarRoutes)
+  .use(m365Routes)
   .use(weatherRoutes)
   .use(summaryRoute)
   .use(queryRoute)

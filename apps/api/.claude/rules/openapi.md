@@ -15,13 +15,14 @@ The Argo API is consumed by **two classes of clients**: the Argo dashboard (Eden
 
 ## Tag taxonomy (enum — do not invent new tags)
 
-Every route MUST use exactly one of these six tags:
+Every route MUST use exactly one of these seven tags:
 
 | Tag              | Belongs to it                                                                                                                                               |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Garmin Health`  | daily-metrics, recovery, training-load, fitness-direction, activities, weight-log, user-profile, and all corresponding `*/summary` and `*/series` endpoints |
 | `Strength`       | workouts, workout-sets, exercises, and all `workouts/summary/*` analytics                                                                                   |
 | `Productivity`   | ticktick, slack, gmail, calendar                                                                                                                            |
+| `M365`           | IU Microsoft 365 via the IU MCP server — Outlook calendar, mail, Teams (chats/channels/messages), OneDrive, OneNote                                         |
 | `Infrastructure` | uptime-kuma, docker (homelab + vps)                                                                                                                         |
 | `External Data`  | weather (and future read-only third-party feeds)                                                                                                            |
 | `System`         | `/`, `/health`, `/summary`, `/query`, `/oauth/*`                                                                                                            |
@@ -79,6 +80,7 @@ app.use(openapi({
       { name: 'Garmin Health',  description: '...' },
       { name: 'Strength',       description: '...' },
       { name: 'Productivity',   description: '...' },
+      { name: 'M365',           description: '...' },
       { name: 'Infrastructure', description: '...' },
       { name: 'External Data',  description: '...' },
       { name: 'System',         description: '...' },
