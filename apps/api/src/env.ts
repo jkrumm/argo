@@ -21,7 +21,6 @@ export const Env = z.object({
   M365_MCP_BASE_URL: z
     .string()
     .default('https://iu-m365-mcp.kindmushroom-c7823c35.westeurope.azurecontainerapps.io'),
-  M365_OAUTH_REDIRECT_URI: z.string().default('https://argo.jkrumm.com/api/oauth/m365/callback'),
   DATA_DIR: z.string().default('./data'),
   GARMIN_COLLECTOR_URL: z.string().default(''),
   GARMIN_COLLECTOR_TOKEN: z.string().default(''),

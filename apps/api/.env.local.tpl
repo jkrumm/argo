@@ -18,8 +18,3 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4319
 OTEL_SERVICE_NAME=argo-api
 
 NODE_ENV=development
-
-# M365 OAuth — local callback. The DCR registration includes both this URI and
-# the prod one, so both envs work against the same client_id. The MCP base URL
-# uses the env.ts default.
-M365_OAUTH_REDIRECT_URI=http://localhost:4000/oauth/m365/callback

@@ -213,9 +213,9 @@ All env vars are validated at startup via Zod in `src/env.ts`. Missing required 
 
 Wraps the IU M365 MCP server (proxy over Microsoft Graph — calendar, mail, Teams, OneDrive, OneNote, ~270 operations behind 3 meta-tools). Argo never sees the user's IU password; it holds an OAuth refresh token per environment.
 
-### Why it's bootstrapped, not browser-flow
+### Why bootstrap-script-only
 
-`GET /oauth/m365/init` exists but is **inactive**: the upstream Azure AD app's redirect-URI allow-list doesn't include `argo.jkrumm.com/api/...` or `localhost:4000/...`. Only the MCP-inspector callback (`http://localhost:6274/oauth/callback/debug`) is allowed. We don't ask IT to widen the list; we work with what's there.
+The upstream Azure AD app's redirect-URI allow-list doesn't include `argo.jkrumm.com/api/...` — only the MCP-inspector callback (`http://localhost:6274/oauth/callback/debug`) is allowed. The IT colleague won't widen it without justification. So argo has no in-process OAuth init route; tokens are always installed by a laptop-side bootstrap script that uses the inspector URI, then POSTs the result to `/m365/seed`.
 
 ### Token install / refresh
 

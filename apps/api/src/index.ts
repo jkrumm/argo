@@ -104,7 +104,7 @@ export const app = new Elysia()
           {
             name: 'M365',
             description:
-              'IU Microsoft 365 surface — Outlook calendar, mail, Teams chats and channels — proxied through the IU MCP server (Microsoft Graph wrapper) with OAuth 2.1 + PKCE + Dynamic Client Registration. Phase 1 exposes only a /m365/tools discovery endpoint until the surface is mapped.',
+              'IU Microsoft 365 surface — proxied through the IU MCP server (Microsoft Graph wrapper covering Outlook calendar, mail, Teams chats/channels). The MCP server exposes ~270 Graph operations behind 3 meta-tools (search-tools, get-tool-schema, execute-tool); curated read-only REST endpoints will be added incrementally as use cases land. Tokens are installed via the laptop bootstrap script (`bun m365:auth*`) which POSTs to /m365/seed — see apps/api/CLAUDE.md.',
           },
           {
             name: 'Infrastructure',
@@ -119,7 +119,7 @@ export const app = new Elysia()
           {
             name: 'System',
             description:
-              'Discovery, health, observability, and auth plumbing: `/` (API discovery), `/health` (liveness), `/summary` (aggregated infra snapshot), `/query` (read-only SQL), `/oauth/google/*` (Google auth dance for Gmail + Calendar), `/oauth/m365/*` (IU Microsoft 365 auth dance — DCR + PKCE).',
+              'Discovery, health, observability, and auth plumbing: `/` (API discovery), `/health` (liveness), `/summary` (aggregated infra snapshot), `/query` (read-only SQL), `/oauth/google/*` (Google auth dance for Gmail + Calendar). M365 tokens are installed via the laptop bootstrap script — see POST /m365/seed.',
           },
         ],
       },
@@ -139,14 +139,7 @@ export const app = new Elysia()
       auth: {
         scheme: 'Bearer',
         header: 'Authorization: Bearer <API_SECRET>',
-        public: [
-          'GET /',
-          'GET /health',
-          'GET /oauth/google/init',
-          'GET /oauth/google/callback',
-          'GET /oauth/m365/init',
-          'GET /oauth/m365/callback',
-        ],
+        public: ['GET /', 'GET /health', 'GET /oauth/google/init', 'GET /oauth/google/callback'],
       },
       tags: [
         'Garmin Health',
