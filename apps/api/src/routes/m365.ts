@@ -2,7 +2,7 @@ import { Elysia } from 'elysia'
 import { bearer } from '@elysiajs/bearer'
 import { z } from 'zod'
 import { env } from '../env.js'
-import { listTools, seedTokens } from '../clients/m365.js'
+import { listTools, seedTokens, listUpcomingCalendarEvents } from '../clients/m365.js'
 
 const ToolSchema = z.object({
   name: z.string(),
@@ -16,6 +16,29 @@ const SeedBody = z.object({
   refreshToken: z.string().min(1),
   expiresAt: z.number().int(),
   scope: z.string().min(1),
+})
+
+const AttendeeSchema = z.object({
+  name: z.string(),
+  email: z.string(),
+  status: z
+    .string()
+    .describe('accepted | declined | tentative | needsAction | organizer | unknown'),
+})
+
+const CalendarEventSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  start: z.string().describe('ISO 8601 timestamp (UTC) for timed events, YYYY-MM-DD for all-day'),
+  end: z.string().describe('ISO 8601 timestamp (UTC) for timed events, YYYY-MM-DD for all-day'),
+  isAllDay: z.boolean(),
+  isOnlineMeeting: z.boolean().describe('True when Outlook flagged this as a Teams meeting'),
+  location: z.string().optional(),
+  organizer: z.object({ name: z.string(), email: z.string() }).optional(),
+  attendees: z.array(AttendeeSchema),
+  bodyPreview: z.string().describe('Plain-text body preview from Outlook (~250 chars)').optional(),
+  videoLink: z.string().describe('Teams meeting joinUrl when present').optional(),
+  webLink: z.string().describe('Outlook web URL for this event').optional(),
 })
 
 // Self-contained bearer guard at the plugin level — argo's outer authGuard
@@ -46,6 +69,37 @@ export const m365Routes = new Elysia({ prefix: '/m365' })
         summary: 'Discover available M365 MCP tools',
         description:
           'Calls tools/list on the IU Microsoft 365 MCP server. The server exposes 3 meta-tools (search-tools, get-tool-schema, execute-tool) that dispatch to ~270 underlying Microsoft Graph operations (calendar, mail, Teams, OneDrive, OneNote, etc.). Requires prior seeding via `bun m365:auth` (local) or `bun m365:auth:prod` (prod). Returns "M365 not authenticated" if no tokens are present — re-run the bootstrap to reseed.',
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
+  .get(
+    '/calendar/upcoming',
+    async ({ query, set }) => {
+      try {
+        return await listUpcomingCalendarEvents(query.days ?? 14)
+      } catch (error) {
+        set.status = 503
+        return error instanceof Error ? error.message : 'M365 calendar error'
+      }
+    },
+    {
+      query: z.object({
+        days: z.coerce
+          .number()
+          .int()
+          .min(1)
+          .max(60)
+          .default(14)
+          .describe('Days window from now (default 14, max 60)')
+          .optional(),
+      }),
+      response: { 200: z.array(CalendarEventSchema), 503: z.string() },
+      detail: {
+        tags: ['M365'],
+        summary: 'List upcoming Outlook calendar events',
+        description:
+          "Returns expanded events (recurring series flattened to individual occurrences) from the user's default Outlook calendar within `[now, now + days)`, sorted ascending by start. Wraps Microsoft Graph `GET /me/calendarView` via the IU MCP meta-dispatcher. All-day events use YYYY-MM-DD for start/end; timed events use ISO 8601 UTC timestamps. `videoLink` is the Teams meeting joinUrl when present (`isOnlineMeeting=true`). Use this for an at-a-glance agenda over the next ~2 weeks; cap is 60 days. 503 if the upstream MCP errors or the M365 grant is invalid — re-seed via `bun m365:auth:prod` (prod) or `bun m365:auth` (local). The Google equivalent for personal calendars is GET /calendar.",
         security: [{ BearerAuth: [] }],
       },
     },

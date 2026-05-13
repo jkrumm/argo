@@ -148,10 +148,17 @@ async function mcpPost(body: unknown, token: string): Promise<Response> {
   return res
 }
 
-async function mcpRequest<T>(method: string, params: unknown = {}): Promise<T> {
+async function mcpRequest<T>(method: string, params: unknown = {}, retried = false): Promise<T> {
   const token = await getValidAccessToken()
   const id = nextRpcId++
   const res = await mcpPost({ jsonrpc: '2.0', id, method, params }, token)
+  // Cached AT can be server-revoked despite passing the local leeway check
+  // (manual revoke, clock skew, IT-side token wipe). Force a refresh once.
+  if (res.status === 401 && !retried) {
+    await res.text().catch(() => undefined)
+    await refreshAccessToken()
+    return mcpRequest<T>(method, params, true)
+  }
   if (!res.ok) {
     throw new Error(`MCP ${method} failed: ${res.status} ${await res.text()}`)
   }
@@ -190,4 +197,200 @@ export async function listTools(): Promise<McpTool[]> {
   await ensureInitialized()
   const result = await mcpRequest<{ tools: McpTool[] }>('tools/list')
   return result.tools ?? []
+}
+
+// ---------- Meta-tool dispatch (search → schema → execute) ----------
+//
+// The IU M365 MCP exposes 3 meta-tools that fan out to ~270 Graph operations.
+// Argo never surfaces execute-tool publicly — every Phase 2 route hard-codes a
+// single (tool_name, parameter shape) and uses callGraphTool internally.
+
+interface McpToolCallResult {
+  content?: Array<{ type: string; text?: string }>
+  isError?: boolean
+  structuredContent?: unknown
+}
+
+async function callMetaTool<T>(toolName: string, args: Record<string, unknown>): Promise<T> {
+  await ensureInitialized()
+  const result = await mcpRequest<McpToolCallResult>('tools/call', {
+    name: toolName,
+    arguments: args,
+  })
+  if (result.isError) {
+    const text = result.content?.find((c) => c.type === 'text')?.text ?? ''
+    throw new Error(`M365 ${toolName} failed: ${text}`)
+  }
+  if (result.structuredContent !== undefined) return result.structuredContent as T
+  const text = result.content?.find((c) => c.type === 'text')?.text
+  if (text === undefined) throw new Error(`M365 ${toolName} returned no content`)
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    return text as unknown as T
+  }
+}
+
+export interface SearchToolsHit {
+  name: string
+  description?: string
+  category?: string
+  path?: string
+  method?: string
+  score?: number
+}
+
+export async function searchTools(
+  query: string,
+  opts: { category?: string; limit?: number } = {},
+): Promise<SearchToolsHit[]> {
+  const args: Record<string, unknown> = { query }
+  if (opts.category) args['category'] = opts.category
+  if (opts.limit) args['limit'] = opts.limit
+  const r = await callMetaTool<
+    { tools?: SearchToolsHit[]; results?: SearchToolsHit[] } | SearchToolsHit[]
+  >('search-tools', args)
+  if (Array.isArray(r)) return r
+  return r.tools ?? r.results ?? []
+}
+
+export async function getToolSchema(toolName: string): Promise<unknown> {
+  return callMetaTool<unknown>('get-tool-schema', { tool_name: toolName })
+}
+
+/**
+ * Execute a Microsoft Graph operation through the MCP meta-dispatcher.
+ *
+ * Path/query/header params go at the top level of `parameters`; request bodies
+ * go under `parameters.body` (per MCP server spec — see /m365/tools output).
+ * Argo routes hard-code both `toolName` and the shape of `parameters` — this
+ * helper is internal-only and must never be exposed via a generic endpoint.
+ */
+export async function callGraphTool<T>(
+  toolName: string,
+  parameters: Record<string, unknown> = {},
+): Promise<T> {
+  return callMetaTool<T>('execute-tool', { tool_name: toolName, parameters })
+}
+
+// ---------- Calendar ----------
+
+export interface CalendarEvent {
+  id: string
+  title: string
+  start: string
+  end: string
+  isAllDay: boolean
+  isOnlineMeeting: boolean
+  location?: string
+  organizer?: { name: string; email: string }
+  attendees: Array<{ name: string; email: string; status: string }>
+  bodyPreview?: string
+  videoLink?: string
+  webLink?: string
+}
+
+interface GraphDateTime {
+  dateTime: string
+  timeZone?: string
+}
+interface GraphEmailAddress {
+  name?: string
+  address?: string
+}
+interface GraphAttendee {
+  emailAddress?: GraphEmailAddress
+  status?: { response?: string }
+}
+interface GraphEvent {
+  id?: string
+  subject?: string
+  bodyPreview?: string
+  webLink?: string
+  isAllDay?: boolean
+  isOnlineMeeting?: boolean
+  start?: GraphDateTime
+  end?: GraphDateTime
+  organizer?: { emailAddress?: GraphEmailAddress }
+  attendees?: GraphAttendee[]
+  location?: { displayName?: string }
+  onlineMeeting?: { joinUrl?: string }
+}
+
+// Graph returns dateTime as "2026-05-13T09:00:00.0000000" without offset (UTC
+// when no Prefer header is set). For all-day events the value is midnight UTC
+// and we emit a date-only string to match the existing Google calendar shape.
+function graphDateTimeToIso(dt: GraphDateTime | undefined, isAllDay: boolean): string {
+  if (!dt?.dateTime) return ''
+  if (isAllDay) return dt.dateTime.slice(0, 10)
+  // Trim sub-millisecond precision Graph emits; append Z when no offset present.
+  const trimmed = dt.dateTime.replace(/\.\d+$/, '').replace(/Z?$/, 'Z')
+  return new Date(trimmed).toISOString()
+}
+
+const RESPONSE_MAP: Record<string, string> = {
+  accepted: 'accepted',
+  declined: 'declined',
+  tentativelyAccepted: 'tentative',
+  notResponded: 'needsAction',
+  none: 'needsAction',
+  organizer: 'organizer',
+}
+
+function normalizeEvent(e: GraphEvent): CalendarEvent {
+  const isAllDay = e.isAllDay ?? false
+  const organizerEmail = e.organizer?.emailAddress
+  const attendees = (e.attendees ?? []).map((a) => ({
+    name: a.emailAddress?.name ?? '',
+    email: a.emailAddress?.address ?? '',
+    status: RESPONSE_MAP[a.status?.response ?? ''] ?? 'unknown',
+  }))
+  return {
+    id: e.id ?? '',
+    title: e.subject ?? '',
+    start: graphDateTimeToIso(e.start, isAllDay),
+    end: graphDateTimeToIso(e.end, isAllDay),
+    isAllDay,
+    isOnlineMeeting: e.isOnlineMeeting ?? false,
+    ...(e.location?.displayName ? { location: e.location.displayName } : {}),
+    ...(organizerEmail?.address
+      ? { organizer: { name: organizerEmail.name ?? '', email: organizerEmail.address } }
+      : {}),
+    attendees,
+    ...(e.bodyPreview ? { bodyPreview: e.bodyPreview } : {}),
+    ...(e.onlineMeeting?.joinUrl ? { videoLink: e.onlineMeeting.joinUrl } : {}),
+    ...(e.webLink ? { webLink: e.webLink } : {}),
+  }
+}
+
+/**
+ * Returns expanded calendar events (recurring series flattened to occurrences)
+ * from the user's default Outlook calendar within `[now, now + days)`.
+ * Sorted ascending by start. Uses Graph's `/me/calendarView` via the MCP
+ * meta-dispatcher (tool: get-calendar-view).
+ */
+export async function listUpcomingCalendarEvents(days: number): Promise<CalendarEvent[]> {
+  const now = new Date()
+  const end = new Date(now.getTime() + days * 86_400_000)
+  const r = await callGraphTool<{ value?: GraphEvent[] }>('get-calendar-view', {
+    startDateTime: now.toISOString(),
+    endDateTime: end.toISOString(),
+    orderby: ['start/dateTime'],
+    top: 200,
+    select: [
+      'id',
+      'subject',
+      'bodyPreview',
+      'webLink',
+      'isAllDay',
+      'isOnlineMeeting',
+      'start',
+      'end',
+      'organizer',
+      'attendees',
+      'location',
+      'onlineMeeting',
+    ],
+  })
+  return (r.value ?? []).map(normalizeEvent)
 }
