@@ -66,9 +66,9 @@ export const m365Routes = new Elysia({ prefix: '/m365' })
       }),
       detail: {
         tags: ['M365'],
-        summary: 'Discover available M365 MCP tools',
+        summary: 'List the M365 MCP meta-tool catalog',
         description:
-          'Calls tools/list on the IU Microsoft 365 MCP server. The server exposes 3 meta-tools (search-tools, get-tool-schema, execute-tool) that dispatch to ~270 underlying Microsoft Graph operations (calendar, mail, Teams, OneDrive, OneNote, etc.). Requires prior seeding via `bun m365:auth` (local) or `bun m365:auth:prod` (prod). Returns "M365 not authenticated" if no tokens are present — re-run the bootstrap to reseed.',
+          'Introspection endpoint — returns the three meta-tools exposed by the IU M365 MCP server (search-tools, get-tool-schema, execute-tool) that dispatch to ~270 Microsoft Graph operations. Agents do NOT call these meta-tools directly through argo; argo wraps individual operations as curated REST routes (e.g. GET /m365/calendar/upcoming). Use this endpoint only to confirm the MCP surface is reachable and tokens are valid — for actual data, use the curated routes. Returns 503 with "M365 not authenticated" when tokens are missing/expired (re-seed via `bun m365:auth:prod`).',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -97,9 +97,9 @@ export const m365Routes = new Elysia({ prefix: '/m365' })
       response: { 200: z.array(CalendarEventSchema), 503: z.string() },
       detail: {
         tags: ['M365'],
-        summary: 'List upcoming Outlook calendar events',
+        summary: 'List upcoming IU Outlook calendar events',
         description:
-          "Returns expanded events (recurring series flattened to individual occurrences) from the user's default Outlook calendar within `[now, now + days)`, sorted ascending by start. Wraps Microsoft Graph `GET /me/calendarView` via the IU MCP meta-dispatcher. All-day events use YYYY-MM-DD for start/end; timed events use ISO 8601 UTC timestamps. `videoLink` is the Teams meeting joinUrl when present (`isOnlineMeeting=true`). Use this for an at-a-glance agenda over the next ~2 weeks; cap is 60 days. 503 if the upstream MCP errors or the M365 grant is invalid — re-seed via `bun m365:auth:prod` (prod) or `bun m365:auth` (local). The Google equivalent for personal calendars is GET /calendar.",
+          'Returns events from the authenticated IU Outlook calendar within `[now, now + days)`, sorted ascending by start. Recurring series are flattened to individual occurrences. Timed events use ISO 8601 UTC timestamps for start/end; all-day events use YYYY-MM-DD. `videoLink` is the Teams meeting joinUrl when `isOnlineMeeting=true`. Use this for work calendar queries ("meetings tomorrow", "agenda this week", "my next call"). For personal/Google calendar use GET /calendar instead. Cap is 60 days; default 14. 503 with "M365 not authenticated" if tokens are missing/expired — user must re-seed via `bun m365:auth:prod`.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -115,9 +115,9 @@ export const m365Routes = new Elysia({ prefix: '/m365' })
       response: z.object({ ok: z.boolean() }),
       detail: {
         tags: ['M365'],
-        summary: 'Seed M365 tokens from a laptop bootstrap',
+        summary: 'Seed M365 OAuth tokens (internal — bootstrap script only)',
         description:
-          "Writes a full M365 OAuth grant (clientId, access + refresh tokens, expiry, scope) into the persistent token store under the `m365` key in /app/data/oauth-tokens.json. Canonical way to install or replace tokens on this argo instance — the IU AAD app only allows the MCP-inspector callback (localhost:6274), so the SSO dance has to happen on a laptop and the result has to be shipped here. Companion: apps/api/scripts/m365-bootstrap.ts, invoked via `bun m365:auth:prod` from the repo root (op-injected API_SECRET). When tokens expire / are revoked / disappear, /m365/* routes return 'M365 not authenticated' — re-run the same `bun m365:auth:prod` command to reseed. Bearer-auth gated.",
+          'INTERNAL — agents should NOT call this. Token-install endpoint used exclusively by the laptop bootstrap script (`bun m365:auth:prod`, runs apps/api/scripts/m365-bootstrap.ts). Writes a full OAuth grant (clientId, access + refresh tokens, expiry, scope) to /app/data/oauth-tokens.json. Required because the IU AAD app\'s redirect-URI allow-list only includes the MCP-inspector callback (localhost:6274), so the SSO dance happens on a laptop and the result is shipped here. When /m365/* routes return 503 "M365 not authenticated", the user re-runs the bootstrap script — agents do not orchestrate this.',
         security: [{ BearerAuth: [] }],
       },
     },

@@ -17,6 +17,7 @@ import { oauthRoutes } from './routes/oauth.js'
 import { gmailRoutes } from './routes/gmail.js'
 import { calendarRoutes } from './routes/calendar.js'
 import { m365Routes } from './routes/m365.js'
+import { jiraRoutes } from './routes/jira.js'
 import { weatherRoutes } from './routes/weather.js'
 import { queryRoute } from './routes/query.js'
 import { workoutRoutes } from './routes/workouts.js'
@@ -107,6 +108,11 @@ export const app = new Elysia()
               'IU Microsoft 365 surface — proxied through the IU MCP server (Microsoft Graph wrapper covering Outlook calendar, mail, Teams chats/channels). The MCP server exposes ~270 Graph operations behind 3 meta-tools (search-tools, get-tool-schema, execute-tool); curated read-only REST endpoints will be added incrementally as use cases land. Tokens are installed via the laptop bootstrap script (`bun m365:auth*`) which POSTs to /m365/seed — see apps/api/CLAUDE.md.',
           },
           {
+            name: 'Atlassian',
+            description:
+              'IU Atlassian Cloud (careerpartner tenant) — Jira read-only surface for the user\'s work board ("EPOS Team Prometheus", board 272 in project EP): list assigned issues, fetch a single ticket, read the current/past/future sprint, page through the backlog, run arbitrary JQL. Wraps the Cloud REST API v3 (issues, search/jql) and the Agile API v1 (boards, sprints, backlog) with HTTP Basic auth via a personal API token. No write endpoints — agents must treat this surface as read-only.',
+          },
+          {
             name: 'Infrastructure',
             description:
               'Self-hosted ops: UptimeKuma monitors + status, Docker container state on HomeLab and VPS (containers, stats, logs, summary).',
@@ -146,6 +152,7 @@ export const app = new Elysia()
         'Strength',
         'Productivity',
         'M365',
+        'Atlassian',
         'Infrastructure',
         'External Data',
         'System',
@@ -186,6 +193,7 @@ export const app = new Elysia()
   .use(gmailRoutes)
   .use(calendarRoutes)
   .use(m365Routes)
+  .use(jiraRoutes)
   .use(weatherRoutes)
   .use(summaryRoute)
   .use(queryRoute)

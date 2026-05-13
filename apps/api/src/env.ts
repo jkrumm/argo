@@ -30,6 +30,10 @@ export const Env = z.object({
   GARMIN_BACKFILL_DAYS: z.coerce.number().default(7),
   GARMIN_ACTIVITIES_INITIAL_BACKFILL_DAYS: z.coerce.number().default(60),
   GARMIN_HEARTBEAT_URL: z.string().default(''),
+  ATLASSIAN_BASE_URL: z.string().default(''),
+  JIRA_EMAIL: z.string().default(''),
+  JIRA_API_TOKEN: z.string().default(''),
+  JIRA_BOARD_ID: z.coerce.number().int().default(272),
 })
 
 export const env = Env.parse(process.env)

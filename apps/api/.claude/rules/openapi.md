@@ -15,7 +15,7 @@ The Argo API is consumed by **two classes of clients**: the Argo dashboard (Eden
 
 ## Tag taxonomy (enum — do not invent new tags)
 
-Every route MUST use exactly one of these seven tags:
+Every route MUST use exactly one of these eight tags:
 
 | Tag              | Belongs to it                                                                                                                                               |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -23,6 +23,7 @@ Every route MUST use exactly one of these seven tags:
 | `Strength`       | workouts, workout-sets, exercises, and all `workouts/summary/*` analytics                                                                                   |
 | `Productivity`   | ticktick, slack, gmail, calendar                                                                                                                            |
 | `M365`           | IU Microsoft 365 via the IU MCP server — Outlook calendar, mail, Teams (chats/channels/messages), OneDrive, OneNote                                         |
+| `Atlassian`      | IU Atlassian Cloud — Jira (boards, sprints, backlog, issues, JQL search) and future Confluence reads                                                        |
 | `Infrastructure` | uptime-kuma, docker (homelab + vps)                                                                                                                         |
 | `External Data`  | weather (and future read-only third-party feeds)                                                                                                            |
 | `System`         | `/`, `/health`, `/summary`, `/query`, `/oauth/*`                                                                                                            |
@@ -81,6 +82,7 @@ app.use(openapi({
       { name: 'Strength',       description: '...' },
       { name: 'Productivity',   description: '...' },
       { name: 'M365',           description: '...' },
+      { name: 'Atlassian',      description: '...' },
       { name: 'Infrastructure', description: '...' },
       { name: 'External Data',  description: '...' },
       { name: 'System',         description: '...' },

@@ -18,3 +18,9 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4319
 OTEL_SERVICE_NAME=argo-api
 
 NODE_ENV=development
+
+# Atlassian (Jira) — IU work tenant. Read-only basic auth via PAT.
+ATLASSIAN_BASE_URL=op://vps/argo/ATLASSIAN_BASE_URL
+JIRA_EMAIL=op://vps/argo/ATLASSIAN_EMAIL
+JIRA_API_TOKEN=op://vps/argo/ATLASSIAN_API
+JIRA_BOARD_ID=272
