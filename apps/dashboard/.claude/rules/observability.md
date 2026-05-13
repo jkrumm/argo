@@ -44,10 +44,10 @@ The SDK appends `/v1/traces` and `/v1/logs`. **Relative paths silently fail** �
 
 | Env  | How `/v1/traces` reaches ClickStack                                                                                                                                                         |
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Dev  | Vite proxy in `vite.config.ts` forwards `/v1/traces` + `/v1/logs` to `:4318` (authed bundled receiver).                                                                                     |
+| Dev  | Vite proxy in `vite.config.ts` forwards `/v1/traces` + `/v1/logs` to `:4319` (unauthed). `VITE_HYPERDX_API_KEY` is a literal placeholder — SDK requires non-empty, receiver ignores it.     |
 | Prod | Traefik labels on `argo-dashboard` route those paths to `clickstack-otel@docker` (→ `clickstack:4318`, authed). Browser embeds the public ingestion key in the bundle (Sentry-DSN pattern). |
 
-Backend services (argo-api) use a **different** unauthed receiver `:4319` over the docker bridge — see `~/SourceRoot/vps/docs/observability.md`. Browser SDK can't use `:4319` because there's no public route for it (intentional — `:4319` is monitoring-net only).
+The asymmetry is by design: backend services on both sides use the unauthed `:4319` (docker-bridge-only). Browser SDK uses `:4319` directly in dev (via Vite proxy on localhost) but must go through Traefik's authed `:4318` in prod, since `:4319` has no public route. See `~/SourceRoot/vps/docs/observability.md`.
 
 Never set `VITE_HYPERDX_ENDPOINT=/` (relative path → silent cloud fallback). To override, use the absolute origin: `VITE_HYPERDX_ENDPOINT=https://otel.jkrumm.com`.
 
@@ -95,8 +95,7 @@ Don't fire `addAction` from render or effect cleanup — only from event handler
 
 ## Verifying locally
 
-1. `cd ~/SourceRoot/vps && make up` — starts ClickStack.
-2. `op run --account tkrumm --env-file=apps/dashboard/.env.local.tpl -- printenv VITE_HYPERDX_API_KEY` — confirm the key resolves.
-3. `bun dev` — dashboard on `https://argo.test`.
-4. Open DevTools → Network → filter `v1/traces`. Click around. Expect POST to `https://argo.test/v1/traces` returning 200.
-5. `https://hyperdx.test` → Services → `argo-dashboard`. Click a recent trace. Expect a single trace spanning browser (`argo-dashboard`) → API (`argo-api`) → DB span(s). If trace IDs differ between dashboard and API, the W3C propagation chain is broken — check API CORS `allowedHeaders` and dashboard `tracePropagationTargets` regex.
+1. `cd ~/SourceRoot/vps && make up` — starts ClickStack with the unauthed `:4319` receiver wired.
+2. `bun dev` — dashboard on `https://argo.test`. No ingestion key needed locally.
+3. Open DevTools → Network → filter `v1/traces`. Click around. Expect POST to `https://argo.test/v1/traces` returning 200 (Vite proxies it to localhost:4319).
+4. `https://hyperdx.test` → Services → `argo-dashboard`. Click a recent trace. Expect a single trace spanning browser (`argo-dashboard`) → API (`argo-api`) → DB span(s). If trace IDs differ between dashboard and API, the W3C propagation chain is broken — check API CORS `allowedHeaders` and dashboard `tracePropagationTargets` regex.

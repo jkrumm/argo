@@ -112,9 +112,9 @@ The dashboard uses `babel-plugin-react-compiler` via `vite-plugin-babel`. All co
 
 ## Observability (HyperDX)
 
-`import './lib/hyperdx'` is the **first import** in `main.tsx`. HyperDX patches `window.fetch` on import — any module loaded before it misses tracing. The Vite proxy forwards `/v1/traces` and `/v1/logs` to `127.0.0.1:4318`; in prod, Traefik routes the same paths on `argo.jkrumm.com` to `clickstack-otel@docker` (same-origin → no CORS).
+`import './lib/hyperdx'` is the **first import** in `main.tsx`. HyperDX patches `window.fetch` on import — any module loaded before it misses tracing. The Vite proxy forwards `/v1/traces` and `/v1/logs` to `127.0.0.1:4319` (unauthed receiver, no key needed in dev); in prod, Traefik routes the same paths on `argo.jkrumm.com` to `clickstack-otel@docker` → `clickstack:4318` (authed, key baked into the bundle via GHA build-arg).
 
-Set `VITE_HYPERDX_API_KEY` in `.env.local` to enable tracing. When the key is absent, HyperDX is silently disabled — the dashboard works normally without ClickStack running. **Never set `VITE_HYPERDX_ENDPOINT` to a relative path** like `/` — the OTLP exporter requires absolute URLs and silently falls back to HyperDX Cloud.
+`VITE_HYPERDX_API_KEY` is a placeholder string locally (`local-dev-no-auth` in `.env.local.tpl`) — the SDK requires non-empty but `:4319` ignores the value. **Never set `VITE_HYPERDX_ENDPOINT` to a relative path** like `/` — the OTLP exporter requires absolute URLs and silently falls back to HyperDX Cloud.
 
 `__APP_VERSION__` is injected by Vite at build time (sourced from `package.json` `version`, override via `BUILD_VERSION` env). Surfaced as the `app.version` resource attribute in HyperDX for release diffs.
 
