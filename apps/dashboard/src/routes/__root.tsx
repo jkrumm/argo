@@ -42,7 +42,7 @@ const COMING_SOON = [
 ]
 
 function RootLayout() {
-  const [mobileOpened, { toggle: toggleMobile }] = useDisclosure()
+  const [mobileOpened, { toggle: toggleMobile, close: closeMobile }] = useDisclosure()
   const { colorScheme, toggleColorScheme } = useMantineColorScheme()
   const matchRoute = useMatchRoute()
   const navigate = useNavigate()
@@ -54,6 +54,7 @@ function RootLayout() {
   function handleNavGarmin() {
     return (e: MouseEvent) => {
       e.preventDefault()
+      closeMobile()
       void navigate({ to: '/garmin-health', search: { window: '30d' } })
     }
   }
@@ -61,6 +62,7 @@ function RootLayout() {
   function handleNavStrength() {
     return (e: MouseEvent) => {
       e.preventDefault()
+      closeMobile()
       void navigate({
         to: '/strength-tracker',
         search: {
@@ -74,9 +76,21 @@ function RootLayout() {
 
   return (
     <AppShell
+      header={{ height: { base: 56, sm: 0 } }}
       navbar={{ width: 240, breakpoint: 'sm', collapsed: { mobile: !mobileOpened } }}
       padding="md"
     >
+      <AppShell.Header px="md" hiddenFrom="sm">
+        <Group h="100%" gap="sm">
+          <Burger
+            opened={mobileOpened}
+            onClick={toggleMobile}
+            size="sm"
+            aria-label="Toggle navigation"
+          />
+          <Text fw={700}>Argo</Text>
+        </Group>
+      </AppShell.Header>
       <AppShell.Navbar p="md">
         <Stack gap={0} h="100%">
           <Group gap="xs" mb="lg" wrap="nowrap">
@@ -149,10 +163,6 @@ function RootLayout() {
       </AppShell.Navbar>
 
       <AppShell.Main>
-        <Group hiddenFrom="sm" mb="md">
-          <Burger opened={mobileOpened} onClick={toggleMobile} size="sm" />
-          <Text fw={700}>Argo</Text>
-        </Group>
         <Outlet />
       </AppShell.Main>
 
