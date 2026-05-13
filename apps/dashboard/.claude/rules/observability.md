@@ -42,10 +42,12 @@ The SDK appends `/v1/traces` and `/v1/logs`. **Relative paths silently fail** �
 
 `window.location.origin` is the right fallback because the dashboard origin proxies the OTLP paths back to ClickStack (same-origin → no CORS):
 
-| Env  | How `/v1/traces` reaches ClickStack                                               |
-| ---- | --------------------------------------------------------------------------------- |
-| Dev  | Vite proxy in `vite.config.ts` forwards `/v1/traces` + `/v1/logs` to `:4318`.     |
-| Prod | Traefik labels on `argo-dashboard` route those paths to `clickstack-otel@docker`. |
+| Env  | How `/v1/traces` reaches ClickStack                                                                                                                                                         |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dev  | Vite proxy in `vite.config.ts` forwards `/v1/traces` + `/v1/logs` to `:4318` (authed bundled receiver).                                                                                     |
+| Prod | Traefik labels on `argo-dashboard` route those paths to `clickstack-otel@docker` (→ `clickstack:4318`, authed). Browser embeds the public ingestion key in the bundle (Sentry-DSN pattern). |
+
+Backend services (argo-api) use a **different** unauthed receiver `:4319` over the docker bridge — see `~/SourceRoot/vps/docs/observability.md`. Browser SDK can't use `:4319` because there's no public route for it (intentional — `:4319` is monitoring-net only).
 
 Never set `VITE_HYPERDX_ENDPOINT=/` (relative path → silent cloud fallback). To override, use the absolute origin: `VITE_HYPERDX_ENDPOINT=https://otel.jkrumm.com`.
 

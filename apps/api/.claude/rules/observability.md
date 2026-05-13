@@ -5,7 +5,16 @@ paths:
 
 # Observability (apps/api)
 
-OpenTelemetry traces + logs ship to **ClickStack** (HyperDX). Local dev runs ClickStack at `127.0.0.1:4318` from `~/SourceRoot/vps/compose.dev.yml`; prod sends to `clickstack:4318` over `monitoring-net`. The Elysia OpenTelemetry plugin (`@elysiajs/opentelemetry`) wires NodeSDK internally — we layer manual instrumentation on top of it.
+OpenTelemetry traces + logs ship to **ClickStack** (HyperDX). The Elysia OpenTelemetry plugin (`@elysiajs/opentelemetry`) wires NodeSDK internally — we layer manual instrumentation on top of it.
+
+**Two ingest tiers** (see `~/SourceRoot/vps/docs/observability.md` for the full architecture):
+
+| Environment | Endpoint                                             | Auth                                           |
+| ----------- | ---------------------------------------------------- | ---------------------------------------------- |
+| Local dev   | `http://127.0.0.1:4318` (from `vps/compose.dev.yml`) | `authorization` header required — local key    |
+| Prod        | `http://clickstack:4319` (over `monitoring-net`)     | **none** — docker bridge is the trust boundary |
+
+The auth divergence is intentional: prod has an unauthed `:4319` receiver added via ClickStack's custom config merge (`vps/clickstack/otel-custom.yaml`), bound only to the docker bridge. Local dev still uses the bundled `:4318` because we haven't replicated the custom-merge setup in `compose.dev.yml`.
 
 ## Files
 
@@ -20,24 +29,24 @@ OpenTelemetry traces + logs ship to **ClickStack** (HyperDX). Local dev runs Cli
 ## Env vars
 
 ```bash
-OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318  # base URL — SDK appends /v1/traces and /v1/logs
-OTEL_EXPORTER_OTLP_HEADERS=authorization=<key>     # required — ClickStack rejects un-authed ingest with 401
+OTEL_EXPORTER_OTLP_ENDPOINT=<see-below>            # base URL — SDK appends /v1/traces and /v1/logs
+OTEL_EXPORTER_OTLP_HEADERS=authorization=<key>     # LOCAL DEV ONLY — prod uses the unauthed :4319 port
 OTEL_SERVICE_NAME=argo-api                         # service.name resource attribute
 OTEL_SERVICE_VERSION=                              # optional; falls back to package.json version
 ```
 
+| Env   | `OTEL_EXPORTER_OTLP_ENDPOINT` | Auth header | UI URL                       | Key ref                               |
+| ----- | ----------------------------- | ----------- | ---------------------------- | ------------------------------------- |
+| Local | `http://127.0.0.1:4318`       | required    | `https://hyperdx.test`       | `op://vps/argo/HYPERDX_API_KEY_LOCAL` |
+| Prod  | `http://clickstack:4319`      | **none**    | `https://hyperdx.jkrumm.com` | n/a — unauthed internal receiver      |
+
 The endpoint must be the **base origin only**. Do not include `/v1/traces` — the exporter appends it. If you ever see `/v1/traces/v1/traces` in network logs, that's the bug.
 
-**Authorization**: ClickStack (HyperDX) rejects OTLP ingest without an `authorization` header — `{"code":16, "message":"missing or empty authorization header: Authorization"}`. The OTLP HTTP exporters (`@opentelemetry/exporter-trace-otlp-proto`, `-logs-otlp-proto`) read `OTEL_EXPORTER_OTLP_HEADERS` per the OTel spec, parsed as comma-separated `key=value` pairs. The keys are the **HyperDX Ingestion API Keys** generated under Team Settings on first login.
-
-| Env   | UI URL                       | 1Password reference                   |
-| ----- | ---------------------------- | ------------------------------------- |
-| Local | `https://hyperdx.test`       | `op://vps/argo/HYPERDX_API_KEY_LOCAL` |
-| Prod  | `https://hyperdx.jkrumm.com` | `op://vps/argo/HYPERDX_API_KEY_PROD`  |
-
-Local and prod ClickStack run separate Mongo state, so their keys are always different.
+**Local-only auth**: `compose.dev.yml`'s ClickStack uses the bundled authed `:4318`. Without the `authorization` header you get `{"code":16, "message":"missing or empty authorization header: Authorization"}`. The OTLP HTTP exporters (`@opentelemetry/exporter-trace-otlp-proto`, `-logs-otlp-proto`) read `OTEL_EXPORTER_OTLP_HEADERS` per the OTel spec.
 
 **`op run` does NOT interpolate refs inside larger strings** — only values that are themselves a pure `op://` ref. So `OTEL_EXPORTER_OTLP_HEADERS=authorization=op://...` won't be substituted. The pattern in `apps/api/.env.local.tpl` is to expose the bare key (`HYPERDX_API_KEY_LOCAL=op://...`) and let `scripts/dev.sh` assemble the header string at runtime. Same pattern as `DATABASE_URL`.
+
+**Prod**: just set `OTEL_EXPORTER_OTLP_ENDPOINT=http://clickstack:4319` and `OTEL_SERVICE_NAME`. No headers, no key. See `~/SourceRoot/vps/docs/observability.md` for why.
 
 ## Plugin order in `src/index.ts`
 
