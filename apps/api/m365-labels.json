@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "labels": {
+    "chat:19:99853dcf75ce49d59098f0e6afba0b86@thread.v2": {
+      "sourceId": "chat:19:99853dcf75ce49d59098f0e6afba0b86@thread.v2",
+      "kind": "chat",
+      "label": "team",
+      "displayName": "Team Prometheus",
+      "notes": "Core EPOS Team Prometheus chat — Fabian (TL), Dmytro, Marco, Meike. Your team. High signal.",
+      "updatedAt": "2026-05-16T19:20:11.136Z"
+    },
+    "chat:19:21259681a1ab41249ff2464be5ae11f7@thread.v2": {
+      "sourceId": "chat:19:21259681a1ab41249ff2464be5ae11f7@thread.v2",
+      "kind": "chat",
+      "label": "team",
+      "displayName": "Prometheus Dev Chat",
+      "notes": "Dev-focused chat for the Prometheus team — code, deploys, technical back-and-forth.",
+      "updatedAt": "2026-05-16T19:20:11.165Z"
+    },
+    "channel:bca79474-6197-45ce-aab9-61fea1843a1d:19:03feec5120274466872fe09eac2bfec6@thread.tacv2": {
+      "sourceId": "channel:bca79474-6197-45ce-aab9-61fea1843a1d:19:03feec5120274466872fe09eac2bfec6@thread.tacv2",
+      "kind": "channel",
+      "label": "pr-reviews",
+      "displayName": "Team Prometheus PRs",
+      "notes": "Prometheus Pullreqeusts sharing",
+      "updatedAt": "2026-05-16T19:16:51.648Z"
+    },
+    "channel:bca79474-6197-45ce-aab9-61fea1843a1d:19:2b10ae109f7a4405b57542ea553087c7@thread.tacv2": {
+      "sourceId": "channel:bca79474-6197-45ce-aab9-61fea1843a1d:19:2b10ae109f7a4405b57542ea553087c7@thread.tacv2",
+      "kind": "channel",
+      "label": "alerts",
+      "displayName": "Team Prometheus Monitoring",
+      "notes": "Prometheus alerts channel",
+      "updatedAt": "2026-05-16T19:17:42.836Z"
+    },
+    "channel:bca79474-6197-45ce-aab9-61fea1843a1d:19:e09f6325a9f040b5972a70c166eb8ee7@thread.tacv2": {
+      "sourceId": "channel:bca79474-6197-45ce-aab9-61fea1843a1d:19:e09f6325a9f040b5972a70c166eb8ee7@thread.tacv2",
+      "kind": "channel",
+      "label": "general",
+      "displayName": "Team Prometheus Releases",
+      "notes": "Prometheus prod release sharing",
+      "updatedAt": "2026-05-16T19:18:18.412Z"
+    },
+    "chat:19:meeting_NTg0MDI0ZTQtZmM2ZS00ZWZjLWJkNjgtMGZlODUzNWY5OTVl@thread.v2": {
+      "sourceId": "chat:19:meeting_NTg0MDI0ZTQtZmM2ZS00ZWZjLWJkNjgtMGZlODUzNWY5OTVl@thread.v2",
+      "kind": "chat",
+      "label": "daily",
+      "displayName": "TL<>PM<>EM daily",
+      "notes": "Tech Lead / Product Manager / Engineering Manager sync — leadership coordination.",
+      "updatedAt": "2026-05-16T19:20:11.215Z"
+    },
+    "chat:19:meeting_YzNiNWIyYjQtYjJkZi00YzM4LWIwYjAtYWZkMWYyMmJjNTQ2@thread.v2": {
+      "sourceId": "chat:19:meeting_YzNiNWIyYjQtYjJkZi00YzM4LWIwYjAtYWZkMWYyMmJjNTQ2@thread.v2",
+      "kind": "chat",
+      "label": "daily",
+      "displayName": "Prometheus Daily",
+      "notes": "Team standup chat — usually status updates and out-of-office pings.",
+      "updatedAt": "2026-05-16T19:20:11.191Z"
+    },
+    "chat:19:1e0fdc1b-404d-40c1-958e-eec7b88b24d0_55000116-9291-4d14-9043-3e734aa6671f@unq.gbl.spaces": {
+      "sourceId": "chat:19:1e0fdc1b-404d-40c1-958e-eec7b88b24d0_55000116-9291-4d14-9043-3e734aa6671f@unq.gbl.spaces",
+      "kind": "chat",
+      "label": "1on1",
+      "displayName": "Samhammer, Fabian",
+      "notes": "1:1 with Fabian (likely manager/peer TL). Decision-maker context surfaces here.",
+      "updatedAt": "2026-05-16T19:20:11.237Z"
+    },
+    "chat:19:meeting_MmFhZjAwYzgtNzBhOS00MTEyLWFhNDMtZWVjY2Q3NTY1ZGUy@thread.v2": {
+      "sourceId": "chat:19:meeting_MmFhZjAwYzgtNzBhOS00MTEyLWFhNDMtZWVjY2Q3NTY1ZGUy@thread.v2",
+      "kind": "chat",
+      "label": "incidents",
+      "displayName": "Weekly P1/P2 Production Issue Sync",
+      "notes": "Weekly production incident review. Watch for new P1/P2 mentions and resolution updates.",
+      "updatedAt": "2026-05-16T19:20:11.260Z"
+    }
+  }
+}

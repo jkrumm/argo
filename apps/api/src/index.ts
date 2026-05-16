@@ -18,6 +18,7 @@ import { gmailRoutes } from './routes/gmail.js'
 import { calendarRoutes } from './routes/calendar.js'
 import { m365Routes } from './routes/m365.js'
 import { jiraRoutes } from './routes/jira.js'
+import { confluenceRoutes } from './routes/confluence.js'
 import { weatherRoutes } from './routes/weather.js'
 import { queryRoute } from './routes/query.js'
 import { workoutRoutes } from './routes/workouts.js'
@@ -116,7 +117,7 @@ export const app = new Elysia()
           {
             name: 'Atlassian',
             description:
-              'IU Atlassian Cloud (careerpartner tenant) — Jira read-only surface for the user\'s work board ("EPOS Team Prometheus", board 272 in project EP): list assigned issues, fetch a single ticket, read the current/past/future sprint, page through the backlog, run arbitrary JQL. Wraps the Cloud REST API v3 (issues, search/jql) and the Agile API v1 (boards, sprints, backlog) with HTTP Basic auth via a personal API token. No write endpoints — agents must treat this surface as read-only.',
+              'IU Atlassian Cloud (careerpartner tenant), read-only. **Jira** — work board ("EPOS Team Prometheus", board 272 in project EP): list assigned issues, fetch a single ticket, current/past/future sprints, backlog, arbitrary JQL. **Confluence** — list spaces, CQL search across all content, fetch a page (rendered HTML / storage XHTML / ADF), list children, recently-updated feed. Both share a single Atlassian API token; HTTP Basic auth via Cloud REST APIs (Jira v3 + Agile v1, Confluence v2 + v1 search). No write endpoints.',
           },
           {
             name: 'Infrastructure',
@@ -200,6 +201,7 @@ export const app = new Elysia()
   .use(calendarRoutes)
   .use(m365Routes)
   .use(jiraRoutes)
+  .use(confluenceRoutes)
   .use(weatherRoutes)
   .use(summaryRoute)
   .use(queryRoute)

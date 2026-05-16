@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "team": "EPOS Team Prometheus",
+  "members": [
+    {
+      "alias": "fabi",
+      "displayName": "Samhammer, Fabian",
+      "role": "PO",
+      "ms": { "userId": "55000116-9291-4d14-9043-3e734aa6671f" },
+      "atlassian": { "accountId": "5c53fb10137421218b59de35" },
+      "gitlab": { "username": null }
+    },
+    {
+      "alias": "abdallah",
+      "displayName": "Altokhy, Abdallah",
+      "role": "EM",
+      "ms": { "userId": "ff597064-3165-42a5-baa7-f9c89c04f206" },
+      "atlassian": { "accountId": "712020:588046d5-c95d-487b-bb1c-ee8e3c5f9cf4" },
+      "gitlab": { "username": null }
+    },
+    {
+      "alias": "johannes",
+      "displayName": "Krumm, Johannes",
+      "role": "TechLead",
+      "self": true,
+      "ms": { "userId": "1e0fdc1b-404d-40c1-958e-eec7b88b24d0" },
+      "atlassian": { "accountId": "6073fbf2115da6006f0f6512" },
+      "gitlab": { "username": null }
+    },
+    {
+      "alias": "ana",
+      "displayName": "Afonso, Ana",
+      "role": "UX",
+      "ms": { "userId": "b2198740-dd41-4e7e-a826-6b53f2469a52" },
+      "atlassian": { "accountId": "712020:35ffadcd-4b14-4732-adf3-c40645080f29" },
+      "gitlab": { "username": null }
+    },
+    {
+      "alias": "meike",
+      "displayName": "Michels, Meike",
+      "role": "AgileCoach",
+      "ms": { "userId": "fed976e6-daef-43de-b2bb-f925f0bfba85" },
+      "atlassian": { "accountId": "712020:5dd567c7-6859-460d-9ace-c02a662cee50" },
+      "gitlab": { "username": null }
+    },
+    {
+      "alias": "dmytro",
+      "displayName": "Rozhko, Dmytro",
+      "role": "Dev",
+      "ms": { "userId": "3a047bfd-afb9-4fb4-8910-94a1da6f3790" },
+      "atlassian": { "accountId": "712020:67e84b8f-f13c-4e18-8bb2-dacddd5869fa" },
+      "gitlab": { "username": null }
+    },
+    {
+      "alias": "mirza",
+      "displayName": "Avdic, Mirza",
+      "role": "Dev",
+      "ms": { "userId": "e05571be-930d-4c6a-adf7-cc93ca5ec4ee" },
+      "atlassian": { "accountId": "63f8813cd6722987749e6d6a" },
+      "gitlab": { "username": null }
+    },
+    {
+      "alias": "marco",
+      "displayName": "Patierno, Marco",
+      "role": "Dev",
+      "ms": { "userId": "a45821bd-aa07-44e2-a4e8-6a912176cb09" },
+      "atlassian": { "accountId": "712020:a24df169-7cf2-42fb-897b-835fbf15f18b" },
+      "gitlab": { "username": null }
+    }
+  ]
+}

@@ -11,6 +11,11 @@ COPY apps/api/src ./apps/api/src
 COPY apps/api/tsconfig.json ./apps/api/
 COPY apps/api/drizzle.config.ts ./apps/api/
 COPY apps/api/drizzle ./apps/api/drizzle
+# Git-tracked source-of-truth files (M365 labels + team roster). Baked into
+# the image at build time; dashboard mutations on prod write to the container's
+# copy and are reset on the next deploy — edit locally + commit instead.
+COPY apps/api/m365-labels.json ./apps/api/
+COPY apps/api/m365-team.json ./apps/api/
 
 FROM oven/bun:1.3-alpine AS runner
 WORKDIR /app

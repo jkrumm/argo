@@ -361,6 +361,39 @@ export async function getIssue(key: string): Promise<Issue> {
   return normalizeIssue(r)
 }
 
+export interface JiraUser {
+  accountId: string
+  displayName: string
+  email: string | null
+  active: boolean
+}
+
+interface RawJiraUser {
+  accountId: string
+  displayName?: string
+  emailAddress?: string | null
+  active?: boolean
+  accountType?: string
+}
+
+/**
+ * Resolve Atlassian Cloud users by free-form query (matches displayName, email,
+ * username). Filters to atlassian accountType only — drops `app` and
+ * `customer` rows that show up in the raw response and add noise.
+ */
+export async function searchUsers(query: string, maxResults = 10): Promise<JiraUser[]> {
+  const params = new URLSearchParams({ query, maxResults: String(maxResults) })
+  const r = await jira<RawJiraUser[]>(`/rest/api/3/user/search?${params.toString()}`)
+  return r
+    .filter((u) => u.accountType === undefined || u.accountType === 'atlassian')
+    .map((u) => ({
+      accountId: u.accountId,
+      displayName: u.displayName ?? 'Unknown',
+      email: u.emailAddress ?? null,
+      active: u.active ?? true,
+    }))
+}
+
 export async function searchByJql(opts: {
   jql: string
   maxResults?: number

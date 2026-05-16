@@ -363,6 +363,336 @@ function normalizeEvent(e: GraphEvent): CalendarEvent {
   }
 }
 
+// ---------- Teams: joined teams + channels ----------
+
+export interface Team {
+  id: string
+  displayName: string
+  description: string | null
+  webUrl: string | null
+  isArchived: boolean
+}
+
+export interface Channel {
+  id: string
+  displayName: string
+  description: string | null
+  webUrl: string | null
+  membershipType: string
+  createdAt: string | null
+}
+
+interface GraphTeam {
+  id?: string
+  displayName?: string
+  description?: string | null
+  webUrl?: string | null
+  isArchived?: boolean
+}
+
+interface GraphChannel {
+  id?: string
+  displayName?: string
+  description?: string | null
+  webUrl?: string | null
+  membershipType?: string
+  createdDateTime?: string
+}
+
+function normalizeTeam(raw: GraphTeam): Team {
+  return {
+    id: raw.id ?? '',
+    displayName: raw.displayName ?? '',
+    description: raw.description ?? null,
+    webUrl: raw.webUrl ?? null,
+    isArchived: raw.isArchived ?? false,
+  }
+}
+
+function normalizeChannel(raw: GraphChannel): Channel {
+  return {
+    id: raw.id ?? '',
+    displayName: raw.displayName ?? '',
+    description: raw.description ?? null,
+    webUrl: raw.webUrl ?? null,
+    membershipType: raw.membershipType ?? 'standard',
+    createdAt: raw.createdDateTime ?? null,
+  }
+}
+
+export async function listJoinedTeams(): Promise<Team[]> {
+  // /me/joinedTeams rejects $top; pass an empty params object instead.
+  const r = await callGraphTool<{ value?: GraphTeam[] }>('list-joined-teams', {})
+  return (r.value ?? []).map(normalizeTeam)
+}
+
+export async function listTeamChannels(teamId: string): Promise<Channel[]> {
+  // /teams/:teamId/channels rejects $top; the endpoint returns the full list.
+  const r = await callGraphTool<{ value?: GraphChannel[] }>('list-team-channels', { teamId })
+  return (r.value ?? []).map(normalizeChannel)
+}
+
+// ---------- Teams: chats (1:1, group, meeting) ----------
+
+export type ChatType = 'oneOnOne' | 'group' | 'meeting' | 'unknownFutureValue'
+
+export interface ChatMember {
+  name: string
+  email: string | null
+  userId: string | null
+}
+
+export interface ChatSummary {
+  id: string
+  topic: string | null
+  chatType: ChatType
+  webUrl: string | null
+  createdAt: string | null
+  lastUpdatedAt: string | null
+  members: ChatMember[]
+  /** Last activity preview (sender + plain-text snippet) when expanded. */
+  lastMessagePreview: {
+    from: string | null
+    text: string
+    createdAt: string | null
+  } | null
+}
+
+interface GraphChatMember {
+  displayName?: string
+  email?: string | null
+  userId?: string | null
+}
+
+interface GraphLastMessagePreview {
+  createdDateTime?: string
+  body?: { contentType?: string; content?: string }
+  from?: { user?: { displayName?: string } }
+}
+
+interface GraphChat {
+  id?: string
+  topic?: string | null
+  chatType?: string
+  webUrl?: string | null
+  createdDateTime?: string
+  lastUpdatedDateTime?: string
+  members?: GraphChatMember[]
+  lastMessagePreview?: GraphLastMessagePreview | null
+}
+
+function htmlToText(input: string): string {
+  // The MCP/Graph delivers chat messages with HTML body — strip tags for a
+  // preview that's readable to agents and humans without a renderer.
+  return input
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function normalizeChatType(raw: string | undefined): ChatType {
+  switch (raw) {
+    case 'oneOnOne':
+    case 'group':
+    case 'meeting':
+      return raw
+    default:
+      return 'unknownFutureValue'
+  }
+}
+
+function normalizeChat(raw: GraphChat): ChatSummary {
+  const members: ChatMember[] = (raw.members ?? []).map((m) => ({
+    name: m.displayName ?? '',
+    email: m.email ?? null,
+    userId: m.userId ?? null,
+  }))
+  let lastMessagePreview: ChatSummary['lastMessagePreview'] = null
+  const lp = raw.lastMessagePreview
+  if (lp && (lp.body?.content || lp.createdDateTime)) {
+    const text =
+      lp.body?.contentType === 'html' ? htmlToText(lp.body.content ?? '') : (lp.body?.content ?? '')
+    lastMessagePreview = {
+      from: lp.from?.user?.displayName ?? null,
+      text: text.slice(0, 280),
+      createdAt: lp.createdDateTime ?? null,
+    }
+  }
+  return {
+    id: raw.id ?? '',
+    topic: raw.topic ?? null,
+    chatType: normalizeChatType(raw.chatType),
+    webUrl: raw.webUrl ?? null,
+    createdAt: raw.createdDateTime ?? null,
+    lastUpdatedAt: raw.lastUpdatedDateTime ?? null,
+    members,
+    lastMessagePreview,
+  }
+}
+
+export async function listChats(opts: { top?: number } = {}): Promise<ChatSummary[]> {
+  // Graph default order for /me/chats is lastMessagePreview/createdDateTime
+  // desc — explicit orderby chokes on nested paths, so let the server sort
+  // and apply a secondary sort client-side as a safety net.
+  const r = await callGraphTool<{ value?: GraphChat[] }>('list-chats', {
+    top: opts.top ?? 50,
+    expand: ['members', 'lastMessagePreview'],
+  })
+  const chats = (r.value ?? []).map(normalizeChat)
+  return chats.toSorted((a, b) => {
+    const ax = a.lastMessagePreview?.createdAt ?? a.lastUpdatedAt ?? ''
+    const bx = b.lastMessagePreview?.createdAt ?? b.lastUpdatedAt ?? ''
+    return bx.localeCompare(ax)
+  })
+}
+
+// ---------- Teams: chat + channel messages ----------
+
+export interface MessageAttachment {
+  name: string | null
+  contentType: string | null
+  contentUrl: string | null
+}
+
+export interface ChatMessage {
+  id: string
+  createdAt: string | null
+  lastModifiedAt: string | null
+  from: { name: string; email: string | null } | null
+  subject: string | null
+  importance: string
+  bodyText: string
+  bodyHtml: string | null
+  webUrl: string | null
+  attachments: MessageAttachment[]
+  /** Number of replies (channel messages can be reply roots); 0 for chat messages. */
+  replyCount: number
+  /**
+   * True when the message is a Graph system event (join/leave, member added,
+   * meeting started/ended). Body is empty and `from` is null. Default filtered
+   * out by chat/channel/important routes; opt back in with ?includeSystem=true.
+   */
+  isSystem: boolean
+}
+
+interface GraphMessageBody {
+  contentType?: string
+  content?: string
+}
+
+interface GraphMessageAttachment {
+  name?: string
+  contentType?: string
+  contentUrl?: string
+}
+
+interface GraphIdentitySet {
+  user?: { displayName?: string; id?: string }
+  application?: { displayName?: string; id?: string }
+}
+
+interface GraphChatMessage {
+  id?: string
+  createdDateTime?: string
+  lastModifiedDateTime?: string
+  subject?: string | null
+  importance?: string
+  webUrl?: string | null
+  from?: GraphIdentitySet | null
+  body?: GraphMessageBody
+  attachments?: GraphMessageAttachment[]
+  replies?: GraphChatMessage[]
+}
+
+function normalizeMessage(
+  raw: GraphChatMessage,
+  userEmailLookup?: Map<string, string>,
+): ChatMessage {
+  const body = raw.body ?? {}
+  const isHtml = (body.contentType ?? 'text').toLowerCase() === 'html'
+  const rawContent = body.content ?? ''
+  const html = isHtml ? rawContent || null : null
+  const text = isHtml ? htmlToText(rawContent) : rawContent
+  const userId = raw.from?.user?.id
+  const fromName = raw.from?.user?.displayName ?? raw.from?.application?.displayName ?? null
+  const from = fromName
+    ? { name: fromName, email: (userId && userEmailLookup?.get(userId)) ?? null }
+    : null
+  // Graph wraps join/leave + meeting started/ended in <systemEventMessage>.
+  // After tag-stripping these come out as empty text with a null `from` — both
+  // are reliable signals; combine them so we don't flag user "Sent an empty
+  // message" as system.
+  const isSystem = !from && (rawContent.includes('<systemEventMessage') || text.trim() === '')
+  return {
+    id: raw.id ?? '',
+    createdAt: raw.createdDateTime ?? null,
+    lastModifiedAt: raw.lastModifiedDateTime ?? null,
+    from,
+    subject: raw.subject ?? null,
+    importance: raw.importance ?? 'normal',
+    bodyText: text,
+    bodyHtml: html,
+    webUrl: raw.webUrl ?? null,
+    attachments: (raw.attachments ?? []).map((a) => ({
+      name: a.name ?? null,
+      contentType: a.contentType ?? null,
+      contentUrl: a.contentUrl ?? null,
+    })),
+    replyCount: raw.replies?.length ?? 0,
+    isSystem,
+  }
+}
+
+export async function listChatMessages(opts: {
+  chatId: string
+  top?: number
+  includeSystem?: boolean
+}): Promise<ChatMessage[]> {
+  // Graph rejects $orderby on chat/channel messages — both endpoints return
+  // newest-first by default. `top` is the only pagination knob. We over-fetch
+  // a bit when filtering so the post-filter result still hits the target size.
+  const ask = opts.top ?? 20
+  const fetchTop = opts.includeSystem ? ask : Math.min(50, ask * 3)
+  const r = await callGraphTool<{ value?: GraphChatMessage[] }>('list-chat-messages', {
+    chatId: opts.chatId,
+    top: fetchTop,
+  })
+  const all = (r.value ?? []).map((m) => normalizeMessage(m))
+  const filtered = opts.includeSystem ? all : all.filter((m) => !m.isSystem)
+  return filtered.slice(0, ask)
+}
+
+export async function listChannelMessages(opts: {
+  teamId: string
+  channelId: string
+  top?: number
+  includeSystem?: boolean
+}): Promise<ChatMessage[]> {
+  const ask = opts.top ?? 20
+  const fetchTop = opts.includeSystem ? ask : Math.min(50, ask * 3)
+  const r = await callGraphTool<{ value?: GraphChatMessage[] }>('list-channel-messages', {
+    teamId: opts.teamId,
+    channelId: opts.channelId,
+    top: fetchTop,
+  })
+  const all = (r.value ?? []).map((m) => normalizeMessage(m))
+  const filtered = opts.includeSystem ? all : all.filter((m) => !m.isSystem)
+  return filtered.slice(0, ask)
+}
+
+// ---------- Calendar ----------
+
 /**
  * Returns expanded calendar events (recurring series flattened to occurrences)
  * from the user's default Outlook calendar within `[now, now + days)`.

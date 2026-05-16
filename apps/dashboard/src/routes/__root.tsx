@@ -24,6 +24,7 @@ import {
   IconActivity,
   IconBarbell,
   IconBox,
+  IconBrandTeams,
   IconChecklist,
   IconHeartbeat,
   IconMoon,
@@ -50,12 +51,21 @@ function RootLayout() {
   const isDark = colorScheme === 'dark'
   const isGarminActive = !!matchRoute({ to: '/garmin-health', fuzzy: true })
   const isStrengthActive = !!matchRoute({ to: '/strength-tracker', fuzzy: true })
+  const isM365Active = !!matchRoute({ to: '/m365-explorer', fuzzy: true })
 
   function handleNavGarmin() {
     return (e: MouseEvent) => {
       e.preventDefault()
       closeMobile()
       void navigate({ to: '/garmin-health', search: { window: '30d' } })
+    }
+  }
+
+  function handleNavM365() {
+    return (e: MouseEvent) => {
+      e.preventDefault()
+      closeMobile()
+      void navigate({ to: '/m365-explorer' })
     }
   }
 
@@ -123,6 +133,15 @@ function RootLayout() {
             active={isStrengthActive}
             mb={4}
             onClick={handleNavStrength()}
+          />
+          <NavLink
+            component="a"
+            href="/m365-explorer"
+            label="M365 Explorer"
+            leftSection={<IconBrandTeams size={18} />}
+            active={isM365Active}
+            mb={4}
+            onClick={handleNavM365()}
           />
 
           <Divider my="sm" />

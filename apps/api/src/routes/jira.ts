@@ -10,6 +10,7 @@ import {
   listMyOpenIssues,
   listSprints,
   searchByJql,
+  searchUsers,
 } from '../clients/jira.js'
 
 // --- Shared response schemas ----------------------------------------------
@@ -375,6 +376,60 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
         summary: 'Run a JQL search (escape hatch for arbitrary queries)',
         description:
           'Generic JQL search against the Atlassian REST v3 `/search/jql` endpoint. Use this when the curated endpoints (/my-issues, /current-sprint, /backlog) don\'t express the filter you need — e.g. "issues updated in the last 24h", "all blockers in project EP", "anything mentioning a specific feature flag". JQL reference: https://support.atlassian.com/jira-software-cloud/docs/jql-fields/. Cursor-paginated: when `isLast=false`, pass the returned `nextPageToken` back to fetch the next page.',
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
+  .get(
+    '/users/search',
+    async ({ query, set }) => {
+      try {
+        const users = await searchUsers(query.query, query.maxResults ?? 10)
+        return { users }
+      } catch (error) {
+        set.status = 503
+        return error instanceof Error ? error.message : 'Jira error'
+      }
+    },
+    {
+      query: z.object({
+        query: z
+          .string()
+          .min(1)
+          .describe(
+            'Free-form match against displayName / email / username. e.g. "samhammer" or "fabian.samhammer@iu.org" or "Patierno, Marco".',
+          ),
+        maxResults: z.coerce
+          .number()
+          .int()
+          .min(1)
+          .max(50)
+          .default(10)
+          .describe('Max users to return (default 10, max 50).')
+          .optional(),
+      }),
+      response: {
+        200: z.object({
+          users: z.array(
+            z.object({
+              accountId: z
+                .string()
+                .describe(
+                  'Atlassian Cloud accountId — stable cross-product identifier. Pair with `assignee = <accountId>` in JQL.',
+                ),
+              displayName: z.string(),
+              email: z.string().nullable(),
+              active: z.boolean(),
+            }),
+          ),
+        }),
+        503: z.string(),
+      },
+      detail: {
+        tags: ['Atlassian'],
+        summary: 'Resolve Atlassian users by name/email',
+        description:
+          "Wraps Jira Cloud's `/rest/api/3/user/search`. Returns only atlassian-type users (filters out `app` and `customer` accounts that pollute the raw response). Primary use: bridge a Teams/M365 person to their Jira accountId so agents can run JQL like `assignee = <accountId>` or look up tickets across systems. For the authenticated user's own accountId, use /atlassian/jira/me instead — cheaper and avoids a search call.",
         security: [{ BearerAuth: [] }],
       },
     },

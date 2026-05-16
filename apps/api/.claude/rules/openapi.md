@@ -23,7 +23,7 @@ Every route MUST use exactly one of these eight tags:
 | `Strength`       | workouts, workout-sets, exercises, and all `workouts/summary/*` analytics                                                                                   |
 | `Productivity`   | ticktick, slack, gmail, calendar                                                                                                                            |
 | `M365`           | IU Microsoft 365 via the IU MCP server — Outlook calendar, mail, Teams (chats/channels/messages), OneDrive, OneNote                                         |
-| `Atlassian`      | IU Atlassian Cloud — Jira (boards, sprints, backlog, issues, JQL search) and future Confluence reads                                                        |
+| `Atlassian`      | IU Atlassian Cloud — Jira (boards, sprints, backlog, issues, JQL search) and Confluence reads                                                               |
 | `Infrastructure` | uptime-kuma, docker (homelab + vps)                                                                                                                         |
 | `External Data`  | weather (and future read-only third-party feeds)                                                                                                            |
 | `System`         | `/`, `/health`, `/summary`, `/query`, `/oauth/*`                                                                                                            |

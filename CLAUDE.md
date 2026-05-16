@@ -2,7 +2,7 @@
 
 ## What Argo Is
 
-Personal homelab dashboard for Johannes Krumm. Two live pages: **Garmin Health** (HRV, resting HR, sleep, stress, daily metrics, recovery score) and **Strength Tracker** (workouts, sets, e1RM, volume, ACWR, PR detection, body weight). A Garmin sync sidecar feeds health data every 6 hours; strength data is logged manually.
+Personal homelab dashboard for Johannes Krumm. Three live pages: **Garmin Health** (HRV, resting HR, sleep, stress, daily metrics, recovery score), **Strength Tracker** (workouts, sets, e1RM, volume, ACWR, PR detection, body weight), and **M365 Explorer** (browse IU Teams chats + channels, label important ones to drive `GET /m365/important`). A Garmin sync sidecar feeds health data every 6 hours; strength data is logged manually.
 
 The API doubles as an AI-agent endpoint. Discovery is anchored at three URLs: `GET /` returns a small JSON pointing at the docs and listing the six tag groups, `GET /openapi` serves the Scalar interactive UI, and `GET /openapi/json` exposes the raw spec. The OpenAPI contract (paths, tag taxonomy, description quality) is the agent interface — see `apps/api/.claude/rules/openapi.md`.
 
