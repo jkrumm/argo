@@ -107,9 +107,17 @@ const MessageFromSchema = z.object({
 })
 
 const ChatMessageSchema = z.object({
-  id: z.string(),
-  createdAt: z.string().nullable(),
-  lastModifiedAt: z.string().nullable(),
+  id: z
+    .string()
+    .describe('Graph message id. Stable per chat/channel; not globally unique across sources.'),
+  createdAt: z
+    .string()
+    .nullable()
+    .describe('ISO 8601 timestamp. Use to sort or window message lists.'),
+  lastModifiedAt: z
+    .string()
+    .nullable()
+    .describe('ISO 8601. Non-null when the author edited the message after sending.'),
   from: MessageFromSchema.nullable().describe(
     'null for system messages (member added, app posts, etc.)',
   ),
@@ -123,8 +131,13 @@ const ChatMessageSchema = z.object({
     .string()
     .nullable()
     .describe('Original HTML body when the message was sent as HTML; null for text-only'),
-  webUrl: z.string().nullable(),
-  attachments: z.array(MessageAttachmentSchema),
+  webUrl: z
+    .string()
+    .nullable()
+    .describe('Teams deep-link to the specific message. Pastable into chat or browser.'),
+  attachments: z
+    .array(MessageAttachmentSchema)
+    .describe('Files, message-quote references, or external links attached to the message.'),
   replyCount: z.number().int().describe('Number of replies (channel only). 0 for chat messages.'),
   isSystem: z
     .boolean()
@@ -221,7 +234,12 @@ const RosterMemberSchema = z.object({
       .describe('Jira/Confluence cloud accountId. null until resolved.'),
   }),
   gitlab: z.object({
-    username: z.string().nullable().describe('GitLab username. null until resolved.'),
+    username: z
+      .string()
+      .nullable()
+      .describe(
+        "GitLab username (stable handle, e.g. 'johannes.krumm'). null for non-devs (PO/EM/UX/AgileCoach have no GitLab activity). Use as the canonical join key with /gitlab/merge-requests `author.username` / `assignees[].username` / `reviewers[].username`.",
+      ),
   }),
 })
 
@@ -296,7 +314,7 @@ export const m365Routes = new Elysia({ prefix: '/m365' })
         tags: ['M365'],
         summary: 'List the M365 MCP meta-tool catalog',
         description:
-          'Introspection endpoint — returns the three meta-tools exposed by the IU M365 MCP server (search-tools, get-tool-schema, execute-tool) that dispatch to ~270 Microsoft Graph operations. Agents do NOT call these meta-tools directly through argo; argo wraps individual operations as curated REST routes (e.g. GET /m365/calendar/upcoming). Use this endpoint only to confirm the MCP surface is reachable and tokens are valid — for actual data, use the curated routes. Returns 503 with "M365 not authenticated" when tokens are missing/expired (re-seed via `bun m365:auth:prod`).',
+          'Introspection endpoint — returns the three meta-tools exposed by the IU M365 MCP server (search-tools, get-tool-schema, execute-tool) that dispatch to ~270 Microsoft Graph operations. Agents do NOT call these meta-tools directly through argo; argo wraps individual operations as curated REST routes (e.g. GET /m365/calendar/upcoming). Use this endpoint only to confirm the MCP surface is reachable and tokens are valid — for actual data, use the curated routes. Returns 503 with "M365 not authenticated" when tokens are missing/expired (re-seed via `bun m365:auth:prod`).\n\nMost agents should use the curated routes — /m365/calendar/upcoming, /m365/chats, /m365/teams, /m365/important, /m365/team — instead of dispatching through this catalog. The curated routes return structured Zod-validated shapes; the meta-tools return opaque MCP payloads. Only reach for /m365/tools when the curated surface genuinely does not cover the capability.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -757,9 +775,9 @@ export const m365Routes = new Elysia({ prefix: '/m365' })
       response: z.object({ ok: z.boolean() }),
       detail: {
         tags: ['M365'],
-        summary: 'Seed M365 OAuth tokens (internal — bootstrap script only)',
+        summary: 'INTERNAL — bootstrap script only. Do not call from agents.',
         description:
-          'INTERNAL — agents should NOT call this. Token-install endpoint used exclusively by the laptop bootstrap script (`bun m365:auth:prod`, runs apps/api/scripts/m365-bootstrap.ts). Writes a full OAuth grant (clientId, access + refresh tokens, expiry, scope) to /app/data/oauth-tokens.json. Required because the IU AAD app\'s redirect-URI allow-list only includes the MCP-inspector callback (localhost:6274), so the SSO dance happens on a laptop and the result is shipped here. When /m365/* routes return 503 "M365 not authenticated", the user re-runs the bootstrap script — agents do not orchestrate this.',
+          'INTERNAL endpoint used by the laptop bootstrap script (`bun m365:auth:prod`, runs apps/api/scripts/m365-bootstrap.ts) to install OAuth tokens after a manual SSO flow. Agents must NEVER call this — it expects raw OAuth grant payloads (clientId, access + refresh tokens, expiry, scope) that only the bootstrap script produces. Writes to /app/data/oauth-tokens.json. Required because the IU AAD app\'s redirect-URI allow-list only includes the MCP-inspector callback (localhost:6274), so the SSO dance happens on a laptop and the result is shipped here. When /m365/* routes return 503 "M365 not authenticated", the human user re-runs the bootstrap script — agents do not orchestrate this.',
         security: [{ BearerAuth: [] }],
       },
     },

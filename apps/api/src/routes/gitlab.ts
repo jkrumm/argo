@@ -36,23 +36,54 @@ const MergeRequestSchema = z.object({
     .int()
     .describe('Global GitLab MR id — opaque, use {projectId, iid} for further calls'),
   iid: z.number().int().describe('Per-project MR number — the "!1234" in the web URL'),
-  projectId: z.number().int(),
+  projectId: z
+    .number()
+    .int()
+    .describe(
+      'Numeric GitLab project id — plug into /gitlab/projects/{projectId}/* routes. Cross-reference with /m365/team `repos[].gitlab.projectId` to identify which team repo this MR belongs to.',
+    ),
   projectPath: z
     .string()
     .nullable()
     .describe(
       'e.g. "iu-group/epos/prometheus/epos.student-enrolment" — human-readable project path',
     ),
-  title: z.string(),
-  state: z.enum(['opened', 'closed', 'merged', 'locked']),
+  title: z.string().describe('MR title. May still contain "Draft:"/"WIP:" prefix — see `draft`.'),
+  state: z
+    .enum(['opened', 'closed', 'merged', 'locked'])
+    .describe(
+      'opened = WIP or awaiting review; merged = shipped; closed = abandoned (not merged); locked = discussion frozen.',
+    ),
   draft: z.boolean().describe('true when title still tagged Draft/WIP'),
   webUrl: z.string(),
-  sourceBranch: z.string(),
-  targetBranch: z.string(),
-  author: MemberSchema.nullable(),
-  assignees: z.array(MemberSchema),
-  reviewers: z.array(MemberSchema),
-  labels: z.array(z.string()),
+  sourceBranch: z
+    .string()
+    .describe(
+      'Branch the MR was opened from. Often encodes a Jira key (e.g. "EP-17665" or "fix/EP-17527-…") — already mined into `jiraKeys`.',
+    ),
+  targetBranch: z
+    .string()
+    .describe(
+      "Branch the MR merges into. Usually 'main' or 'master' — matches the repo's `defaultBranch` from /m365/team `repos[]`.",
+    ),
+  author: MemberSchema.nullable().describe(
+    'Author identity. Use `.username` (not `.name`) to join with /m365/team `members[].gitlab.username`.',
+  ),
+  assignees: z
+    .array(MemberSchema)
+    .describe(
+      'MR assignees (the owners driving it). Join via `.username` ↔ /m365/team `members[].gitlab.username`. May be empty.',
+    ),
+  reviewers: z
+    .array(MemberSchema)
+    .describe(
+      'Requested reviewers. Join via `.username` ↔ /m365/team `members[].gitlab.username`. May be empty.',
+    ),
+  labels: z
+    .array(z.string())
+    .describe(
+      "GitLab project labels (e.g. 'needs-review', 'priority::high'). These are GitLab-side tags, NOT Jira labels — fetch Jira labels via /atlassian/jira/issue/{key} using `jiraKeys`.",
+    ),
   upvotes: z.number().int(),
   downvotes: z.number().int(),
   userNotesCount: z.number().int().describe('Number of human comments (excludes system events)'),
@@ -60,7 +91,11 @@ const MergeRequestSchema = z.object({
     .string()
     .nullable()
     .describe('e.g. "can_be_merged", "cannot_be_merged" — null when not yet checked'),
-  hasConflicts: z.boolean(),
+  hasConflicts: z
+    .boolean()
+    .describe(
+      'True when GitLab detected unresolved conflicts against `targetBranch`. Gate "ready to merge" on `!hasConflicts && approved && !draft && mergeStatus="can_be_merged"`.',
+    ),
   createdAt: z.string().describe('ISO 8601'),
   updatedAt: z.string().describe('ISO 8601 — sort by this for most-recently-touched'),
   jiraKeys: z
@@ -212,7 +247,7 @@ export const gitlabRoutes = new Elysia({ prefix: '/gitlab' })
         tags: ['GitLab'],
         summary: 'Look up a GitLab user by exact username',
         description:
-          'Exact-match lookup via GET /users?username=…. Returns 404 if no user matches. For fuzzy/partial matching use /gitlab/users/search.',
+          'Exact-match lookup via GET /users?username=…. Returns 404 if no user matches. For fuzzy/partial matching use /gitlab/users/search. PREFER reading the username from /m365/team `members[].gitlab.username` over discovery — the team JSON is the source of truth for teammate identities; only fall back to this endpoint for non-teammates.',
         security: [{ BearerAuth: [] }],
       },
     },

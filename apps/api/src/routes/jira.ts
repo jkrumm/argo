@@ -18,27 +18,49 @@ import {
 const IssueSchema = z.object({
   key: z.string().describe('Jira issue key (e.g. EP-17849, QET-1200)'),
   url: z.string().describe('Browse URL — open this in a browser for the full ticket'),
-  summary: z.string(),
+  summary: z.string().describe('Short ticket title (the human-readable label).'),
   status: z.string().describe('Free-form status name (e.g. "In Progress", "Retesting", "Blocked")'),
   statusCategory: z
     .enum(['todo', 'in-progress', 'done', 'unknown'])
     .describe('Normalized status bucket — use this for grouping, ignore custom workflow names'),
   issueType: z.string().describe('e.g. "Bug", "Task", "Story", "Sub-task", "Epic"'),
-  isSubtask: z.boolean(),
-  priority: z.string().nullable(),
-  project: z.object({
-    key: z.string().describe('Project key prefix on the issue key (e.g. "EP", "QET")'),
-    name: z.string(),
-  }),
+  isSubtask: z
+    .boolean()
+    .describe('True for sub-tasks of a parent story (the parent appears in `parent`).'),
+  priority: z
+    .string()
+    .nullable()
+    .describe(
+      'Free-form priority name (e.g. "Highest", "High", "Medium", "Low"). null when unset.',
+    ),
+  project: z
+    .object({
+      key: z.string().describe('Project key prefix on the issue key (e.g. "EP", "QET")'),
+      name: z.string().describe('Human project name (e.g. "Education Product OS").'),
+    })
+    .describe(
+      'Project the ticket belongs to. `key` is the prefix on `Issue.key` (EP-17665 → "EP").',
+    ),
   assignee: z
     .object({ name: z.string(), email: z.string().nullable() })
     .nullable()
-    .describe('null when unassigned'),
-  reporter: z.object({ name: z.string(), email: z.string().nullable() }).nullable(),
+    .describe(
+      'null when unassigned. `email` may also be null per privacy settings. For cross-system joins, resolve via /m365/team `members[].displayName` — names from Jira are not directly linkable to GitLab.',
+    ),
+  reporter: z
+    .object({ name: z.string(), email: z.string().nullable() })
+    .nullable()
+    .describe(
+      'Who filed the ticket. Use `.name` for display; for cross-system joins, resolve via /m365/team `members[].displayName`. `email` may be null per privacy settings.',
+    ),
   dueDate: z.string().nullable().describe('YYYY-MM-DD or null'),
   created: z.string().describe('ISO 8601 timestamp'),
   updated: z.string().describe('ISO 8601 timestamp — sort by this for most-recently-touched'),
-  labels: z.array(z.string()),
+  labels: z
+    .array(z.string())
+    .describe(
+      "Free-form Jira labels (e.g. 'tech-debt', 'security'). Project-specific conventions — NOT GitLab MR labels.",
+    ),
   parent: z
     .object({ key: z.string(), summary: z.string() })
     .nullable()
@@ -375,7 +397,7 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
         tags: ['Atlassian'],
         summary: 'Run a JQL search (escape hatch for arbitrary queries)',
         description:
-          'Generic JQL search against the Atlassian REST v3 `/search/jql` endpoint. Use this when the curated endpoints (/my-issues, /current-sprint, /backlog) don\'t express the filter you need — e.g. "issues updated in the last 24h", "all blockers in project EP", "anything mentioning a specific feature flag". JQL reference: https://support.atlassian.com/jira-software-cloud/docs/jql-fields/. Cursor-paginated: when `isLast=false`, pass the returned `nextPageToken` back to fetch the next page.',
+          'Generic JQL search against the Atlassian REST v3 `/search/jql` endpoint. Use this when the curated endpoints (/my-issues, /current-sprint, /backlog) don\'t express the filter you need — e.g. "issues updated in the last 24h", "all blockers in project EP", "anything mentioning a specific feature flag". JQL reference: https://support.atlassian.com/jira-software-cloud/docs/jql-fields/. Cursor-paginated: when `isLast=false`, pass the returned `nextPageToken` back to fetch the next page.\n\nCanonical pattern — "all open tickets assigned to teammate X": resolve X\'s accountId from /m365/team `members[].atlassian.accountId`, then `assignee = "<accountId>" AND statusCategory != Done ORDER BY updated DESC`. If the user means themselves, prefer the curated /atlassian/jira/my-issues — cheaper and uses `currentUser()`.',
         security: [{ BearerAuth: [] }],
       },
     },
