@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "team": "EPOS Team Prometheus",
   "members": [
     {
@@ -25,7 +25,7 @@
       "self": true,
       "ms": { "userId": "1e0fdc1b-404d-40c1-958e-eec7b88b24d0" },
       "atlassian": { "accountId": "6073fbf2115da6006f0f6512" },
-      "gitlab": { "username": null }
+      "gitlab": { "username": "johannes.krumm" }
     },
     {
       "alias": "ana",
@@ -49,7 +49,7 @@
       "role": "Dev",
       "ms": { "userId": "3a047bfd-afb9-4fb4-8910-94a1da6f3790" },
       "atlassian": { "accountId": "712020:67e84b8f-f13c-4e18-8bb2-dacddd5869fa" },
-      "gitlab": { "username": null }
+      "gitlab": { "username": "dmytrorozhko1" }
     },
     {
       "alias": "mirza",
@@ -57,7 +57,7 @@
       "role": "Dev",
       "ms": { "userId": "e05571be-930d-4c6a-adf7-cc93ca5ec4ee" },
       "atlassian": { "accountId": "63f8813cd6722987749e6d6a" },
-      "gitlab": { "username": null }
+      "gitlab": { "username": "mirza.avdic" }
     },
     {
       "alias": "marco",
@@ -65,7 +65,57 @@
       "role": "Dev",
       "ms": { "userId": "a45821bd-aa07-44e2-a4e8-6a912176cb09" },
       "atlassian": { "accountId": "712020:a24df169-7cf2-42fb-897b-835fbf15f18b" },
-      "gitlab": { "username": null }
+      "gitlab": { "username": "marco.patierno1" }
+    }
+  ],
+  "repos": [
+    {
+      "alias": "studentEnrolment",
+      "purpose": "Backend domain service powering the booking and academic-profile flows (DDD, NestJS, Postgres). The team's main backend.",
+      "kind": "backend",
+      "domains": ["booking", "profile"],
+      "gitlab": {
+        "projectId": 43178321,
+        "path": "iu-group/epos/prometheus/epos.student-enrolment",
+        "defaultBranch": "main",
+        "webUrl": "https://gitlab.com/iu-group/epos/prometheus/epos.student-enrolment"
+      }
+    },
+    {
+      "alias": "prometheusScripts",
+      "purpose": "Team-internal tooling — Jupyter notebooks, data analysis, ad-hoc scripts, investigation playgrounds.",
+      "kind": "internal",
+      "domains": ["internal"],
+      "gitlab": {
+        "projectId": 43178372,
+        "path": "iu-group/epos/prometheus/prometheus-scripts",
+        "defaultBranch": "main",
+        "webUrl": "https://gitlab.com/iu-group/epos/prometheus/prometheus-scripts"
+      }
+    },
+    {
+      "alias": "academicProfileFe",
+      "purpose": "Vue frontend micro-app for the student academic profile.",
+      "kind": "frontend",
+      "domains": ["profile"],
+      "gitlab": {
+        "projectId": 43178318,
+        "path": "iu-group/epos/prometheus/epos_fe.academic-profile",
+        "defaultBranch": "main",
+        "webUrl": "https://gitlab.com/iu-group/epos/prometheus/epos_fe.academic-profile"
+      }
+    },
+    {
+      "alias": "bookingFe",
+      "purpose": "Vue frontend micro-app for the booking workflow.",
+      "kind": "frontend",
+      "domains": ["booking"],
+      "gitlab": {
+        "projectId": 43178313,
+        "path": "iu-group/epos/prometheus/epos_fe.booking",
+        "defaultBranch": "main",
+        "webUrl": "https://gitlab.com/iu-group/epos/prometheus/epos_fe.booking"
+      }
     }
   ]
 }

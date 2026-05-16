@@ -19,6 +19,7 @@ import { calendarRoutes } from './routes/calendar.js'
 import { m365Routes } from './routes/m365.js'
 import { jiraRoutes } from './routes/jira.js'
 import { confluenceRoutes } from './routes/confluence.js'
+import { gitlabRoutes } from './routes/gitlab.js'
 import { weatherRoutes } from './routes/weather.js'
 import { queryRoute } from './routes/query.js'
 import { workoutRoutes } from './routes/workouts.js'
@@ -120,6 +121,11 @@ export const app = new Elysia()
               'IU Atlassian Cloud (careerpartner tenant), read-only. **Jira** — work board ("EPOS Team Prometheus", board 272 in project EP): list assigned issues, fetch a single ticket, current/past/future sprints, backlog, arbitrary JQL. **Confluence** — list spaces, CQL search across all content, fetch a page (rendered HTML / storage XHTML / ADF), list children, recently-updated feed. Both share a single Atlassian API token; HTTP Basic auth via Cloud REST APIs (Jira v3 + Agile v1, Confluence v2 + v1 search). No write endpoints.',
           },
           {
+            name: 'GitLab',
+            description:
+              "IU GitLab on gitlab.com (`iu-group/*`), read-only. PAT-auth (scopes `read_api` + `read_user`). Cross-project merge requests (created/assigned/reviewer scopes), per-MR threaded discussions and approval state, per-project commits and releases, and the authenticated user's cross-project push-event feed via /events. Pair `gitlab.username` from /m365/team to walk from a teammate name to their open MRs.",
+          },
+          {
             name: 'Infrastructure',
             description:
               'Self-hosted ops: UptimeKuma monitors + status, Docker container state on HomeLab and VPS (containers, stats, logs, summary).',
@@ -160,6 +166,7 @@ export const app = new Elysia()
         'Productivity',
         'M365',
         'Atlassian',
+        'GitLab',
         'Infrastructure',
         'External Data',
         'System',
@@ -202,6 +209,7 @@ export const app = new Elysia()
   .use(m365Routes)
   .use(jiraRoutes)
   .use(confluenceRoutes)
+  .use(gitlabRoutes)
   .use(weatherRoutes)
   .use(summaryRoute)
   .use(queryRoute)

@@ -225,9 +225,36 @@ const RosterMemberSchema = z.object({
   }),
 })
 
+const RepoKindSchema = z.enum(['backend', 'frontend', 'internal'])
+
+const RepoSchema = z.object({
+  alias: z.string().describe('Stable short key (e.g. "studentEnrolment") — cross-reference id'),
+  purpose: z.string().describe('One-line human description of what the repo is for.'),
+  kind: RepoKindSchema,
+  domains: z
+    .array(z.string())
+    .describe('Domain tags (e.g. ["booking","profile"]) — links the repo to a feature area.'),
+  gitlab: z.object({
+    projectId: z
+      .number()
+      .int()
+      .describe(
+        'Numeric GitLab project id — pass straight to /gitlab/projects/{projectId}/* routes.',
+      ),
+    path: z.string().describe('Canonical project path (e.g. "iu-group/epos/prometheus/...").'),
+    defaultBranch: z.string(),
+    webUrl: z.string(),
+  }),
+})
+
 const RosterSchema = z.object({
   team: z.string().describe('Team display name (e.g. "EPOS Team Prometheus").'),
   members: z.array(RosterMemberSchema),
+  repos: z
+    .array(RepoSchema)
+    .describe(
+      "Team's GitLab repos with semantic metadata (purpose, kind, domains) and the numeric projectId — agents use this to navigate from a domain/topic to the right repo without scraping URLs.",
+    ),
 })
 
 const AttendeeSchema = z.object({
@@ -713,9 +740,9 @@ export const m365Routes = new Elysia({ prefix: '/m365' })
     response: { 200: RosterSchema },
     detail: {
       tags: ['M365'],
-      summary: 'Team roster (roles + cross-system identities)',
+      summary: 'Team roster + repo registry (cross-system identities and repos)',
       description:
-        "Returns the user's team structure — who plays which role (PO/EM/TechLead/UX/AgileCoach/Dev) and the opaque platform IDs that link a person across Microsoft 365 (`ms.userId`), Atlassian (`atlassian.accountId`), and GitLab (`gitlab.username`). Source of truth: `apps/api/m365-team.json`, committed to git, hand-editable. Agents use this to translate a Teams message author into the same person's Jira tickets or GitLab MRs. Intentionally PII-light — no emails. `alias` is the stable canonical id for cross-referencing.",
+        "Returns the user's team in two parts: (1) `members` — who plays which role (PO/EM/TechLead/UX/AgileCoach/Dev) plus the opaque platform IDs that link a person across Microsoft 365 (`ms.userId`), Atlassian (`atlassian.accountId`), and GitLab (`gitlab.username`); (2) `repos` — the team's GitLab repos with `alias`, `purpose`, `kind` (backend/frontend/internal), `domains` (e.g. ['booking','profile']), and the numeric `gitlab.projectId` ready to pass into /gitlab/projects/{projectId}/* routes. Source of truth: `apps/api/m365-team.json`, committed to git, hand-editable. Agents use this to translate a Teams message author into the same person's Jira tickets or GitLab MRs, or to find which repo owns a given domain. Intentionally PII-light — no emails. `alias` is the stable canonical id for cross-referencing.",
       security: [{ BearerAuth: [] }],
     },
   })

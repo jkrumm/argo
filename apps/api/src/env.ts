@@ -34,6 +34,8 @@ export const Env = z.object({
   JIRA_EMAIL: z.string().default(''),
   JIRA_API_TOKEN: z.string().default(''),
   JIRA_BOARD_ID: z.coerce.number().int().default(272),
+  GITLAB_BASE_URL: z.string().default('https://gitlab.com'),
+  GITLAB_TOKEN: z.string().default(''),
 })
 
 export const env = Env.parse(process.env)

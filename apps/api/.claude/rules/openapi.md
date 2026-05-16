@@ -15,7 +15,7 @@ The Argo API is consumed by **two classes of clients**: the Argo dashboard (Eden
 
 ## Tag taxonomy (enum — do not invent new tags)
 
-Every route MUST use exactly one of these eight tags:
+Every route MUST use exactly one of these nine tags:
 
 | Tag              | Belongs to it                                                                                                                                               |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -24,6 +24,7 @@ Every route MUST use exactly one of these eight tags:
 | `Productivity`   | ticktick, slack, gmail, calendar                                                                                                                            |
 | `M365`           | IU Microsoft 365 via the IU MCP server — Outlook calendar, mail, Teams (chats/channels/messages), OneDrive, OneNote                                         |
 | `Atlassian`      | IU Atlassian Cloud — Jira (boards, sprints, backlog, issues, JQL search) and Confluence reads                                                               |
+| `GitLab`         | IU GitLab on gitlab.com — merge requests, discussions, approvals, project commits, releases, push events                                                    |
 | `Infrastructure` | uptime-kuma, docker (homelab + vps)                                                                                                                         |
 | `External Data`  | weather (and future read-only third-party feeds)                                                                                                            |
 | `System`         | `/`, `/health`, `/summary`, `/query`, `/oauth/*`                                                                                                            |

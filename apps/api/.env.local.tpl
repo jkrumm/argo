@@ -24,3 +24,8 @@ ATLASSIAN_BASE_URL=op://vps/argo/ATLASSIAN_BASE_URL
 JIRA_EMAIL=op://vps/argo/ATLASSIAN_EMAIL
 JIRA_API_TOKEN=op://vps/argo/ATLASSIAN_API
 JIRA_BOARD_ID=272
+
+# GitLab — IU work on gitlab.com (iu-group/*). Read-only PAT with scopes
+# `read_api` + `read_user` (the latter required for /events).
+GITLAB_BASE_URL=https://gitlab.com
+GITLAB_TOKEN=op://vps/argo/GITLAB_TOKEN
