@@ -20,6 +20,10 @@ ENCODED_PASSWORD=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quot
 
 export DATABASE_URL="postgresql://argo:${ENCODED_PASSWORD}@localhost:5432/${POSTGRES_DB}?schema=argo"
 
+# Free both ports so re-runs don't trip the dashboard's --strictPort or leave
+# a zombie API. Errors are tolerated (nothing was running on the port).
+npx --yes kill-port 4000 7715 >/dev/null 2>&1 || true
+
 exec ./node_modules/.bin/concurrently \
   --names api,web \
   --prefix-colors blue,magenta \
