@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { and, asc, count, desc, gte, lte, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gte, lte, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { walkingPadSessions, walkingPadAchievements } from '../db/schema.js'
 import { WindowQuerySchema, parseWindow } from '../lib/window.js'
@@ -320,6 +320,35 @@ export const walkingPadRoutes = new Elysia({ prefix: '/walking-pad' })
         summary: 'Upsert a WalkingPad session',
         description:
           'Idempotent insert-or-replace keyed on `uuid`. Called by the `king-smith-walkingpad-mac` Go daemon to sync each closed treadmill session — a duplicate POST overwrites the row (the daemon is the source of truth and may re-emit totals after a crash mid-flush). Returns 201 on first insert, 200 when the row already existed. Per-second sample rows are not synced — they stay in the daemon-local SQLite. Timestamps must be UTC ISO 8601 with a `Z` suffix. The response also includes any new achievements unlocked by this session (first_walk, longest_*, streak_*, distance_milestone_*, weekly_distance_pr, …) — the dashboard polls GET /walking-pad/achievements to surface them. For reads use GET /walking-pad/sessions (paginated list) or GET /walking-pad/sessions/summary (windowed totals).',
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
+  .delete(
+    '/sessions/:uuid',
+    async ({ params }) => {
+      const result = await db
+        .delete(walkingPadSessions)
+        .where(eq(walkingPadSessions.uuid, params.uuid))
+        .returning({ uuid: walkingPadSessions.uuid })
+      // Clear the live snapshot if it referenced the deleted row — mirrors the
+      // upsert path so the dashboard doesn't keep polling a ghost session.
+      if (liveSnapshot !== null && liveSnapshot.uuid === params.uuid) liveSnapshot = null
+      return { uuid: params.uuid, deleted: result.length > 0 }
+    },
+    {
+      params: z.object({ uuid: z.string().uuid() }),
+      response: z.object({
+        uuid: z.string().uuid(),
+        deleted: z
+          .boolean()
+          .describe('True when a row was removed, false when no matching uuid existed.'),
+      }),
+      detail: {
+        tags: ['WalkingPad'],
+        summary: 'Delete a WalkingPad session',
+        description:
+          'Idempotent delete keyed on `uuid`. Returns 200 whether or not the row existed so the `king-smith-walkingpad-mac` daemon can retry freely (the daemon emits a delete when it discards a session locally — e.g. user wiped a row from its UI). Achievements unlocked by the deleted session are not retroactively revoked. To re-create the row use POST /walking-pad/sessions; for reads use GET /walking-pad/sessions.',
         security: [{ BearerAuth: [] }],
       },
     },
