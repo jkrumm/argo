@@ -32,6 +32,7 @@ import { trainingLoadRoutes } from './routes/training-load.js'
 import { fitnessDirectionRoutes } from './routes/fitness-direction.js'
 import { activitiesRoutes } from './routes/activities.js'
 import { weightLogRoutes } from './routes/weight-log.js'
+import { walkingPadRoutes } from './routes/walking-pad.js'
 import { userProfileRoutes } from './routes/user-profile.js'
 import { registerCronJobs } from './cron/index.js'
 import { uptimeKumaClient } from './clients/uptime-kuma.js'
@@ -126,6 +127,11 @@ export const app = new Elysia()
               "IU GitLab on gitlab.com (`iu-group/*`), read-only. PAT-auth (scopes `read_api` + `read_user`). Cross-project merge requests (created/assigned/reviewer scopes), per-MR threaded discussions and approval state, per-project commits and releases, and the authenticated user's cross-project push-event feed via /events. Pair `gitlab.username` from /m365/team to walk from a teammate name to their open MRs.",
           },
           {
+            name: 'WalkingPad',
+            description:
+              'KingSmith under-desk treadmill sessions. The local Go daemon `king-smith-walkingpad-mac` records per-second samples in its own SQLite, then POSTs each closed session to /walking-pad/sessions (idempotent on `uuid`). Argo only stores closed-session totals — per-second samples stay on the daemon. Use /walking-pad/sessions to list raw rows and /walking-pad/sessions/summary for windowed totals (steps, distance, duration, kcal).',
+          },
+          {
             name: 'Infrastructure',
             description:
               'Self-hosted ops: UptimeKuma monitors + status, Docker container state on HomeLab and VPS (containers, stats, logs, summary).',
@@ -150,7 +156,7 @@ export const app = new Elysia()
       name: 'Argo API',
       version: '1.0.0',
       description:
-        'Personal stack API for Johannes Krumm. Two domain groups (Garmin Health, Strength) plus integration groups (Productivity, Infrastructure, External Data, System). See docs for the full surface.',
+        'Personal stack API for Johannes Krumm. Health/training domains (Garmin Health, Strength, WalkingPad) plus integration groups (Productivity, M365, Atlassian, GitLab, Infrastructure, External Data, System). See docs for the full surface.',
       docs: {
         scalar: '/openapi',
         json: '/openapi/json',
@@ -167,6 +173,7 @@ export const app = new Elysia()
         'M365',
         'Atlassian',
         'GitLab',
+        'WalkingPad',
         'Infrastructure',
         'External Data',
         'System',
@@ -224,6 +231,7 @@ export const app = new Elysia()
   .use(activitiesRoutes)
   .use(weightLogRoutes)
   .use(userProfileRoutes)
+  .use(walkingPadRoutes)
   .listen(4000)
 
 export type App = typeof app

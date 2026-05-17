@@ -164,3 +164,29 @@ export const workoutSets = argoSchema.table(
   },
   (t) => [index('idx_workout_sets_workout_id').on(t.workout_id)],
 )
+
+// ── WalkingPad sessions (synced from king-smith-walkingpad-mac daemon) ──────
+//
+// Source: the local Go daemon at ~/SourceRoot/king-smith-walkingpad-mac stores
+// per-session totals in its own SQLite, then POSTs each closed session here.
+// Argo never receives the per-second `samples` rows — those stay local for
+// debugging.  Idempotency is on `uuid` so the daemon's sync worker can retry
+// safely (a duplicate POST is a no-op, not a 4xx).
+
+export const walkingPadSessions = argoSchema.table(
+  'walking_pad_sessions',
+  {
+    uuid: text('uuid').primaryKey(),
+    started_at: timestamp('started_at', { withTimezone: true, mode: 'string' }).notNull(),
+    ended_at: timestamp('ended_at', { withTimezone: true, mode: 'string' }).notNull(),
+    duration_s: integer('duration_s').notNull(),
+    distance_m: real('distance_m').notNull(),
+    steps: integer('steps').notNull(),
+    avg_speed_kmh: real('avg_speed_kmh').notNull(),
+    max_speed_kmh: real('max_speed_kmh').notNull(),
+    kcal: real('kcal').notNull(),
+    pause_count: integer('pause_count').notNull().default(0),
+    created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+  },
+  (t) => [index('idx_walking_pad_sessions_started_at').on(t.started_at)],
+)

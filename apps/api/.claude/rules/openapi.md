@@ -15,12 +15,13 @@ The Argo API is consumed by **two classes of clients**: the Argo dashboard (Eden
 
 ## Tag taxonomy (enum — do not invent new tags)
 
-Every route MUST use exactly one of these nine tags:
+Every route MUST use exactly one of these ten tags:
 
 | Tag              | Belongs to it                                                                                                                                               |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Garmin Health`  | daily-metrics, recovery, training-load, fitness-direction, activities, weight-log, user-profile, and all corresponding `*/summary` and `*/series` endpoints |
 | `Strength`       | workouts, workout-sets, exercises, and all `workouts/summary/*` analytics                                                                                   |
+| `WalkingPad`     | KingSmith treadmill sessions synced from the `king-smith-walkingpad-mac` Go daemon — closed-session upsert and read endpoints under `/walking-pad/*`        |
 | `Productivity`   | ticktick, slack, gmail, calendar                                                                                                                            |
 | `M365`           | IU Microsoft 365 via the IU MCP server — Outlook calendar, mail, Teams (chats/channels/messages), OneDrive, OneNote                                         |
 | `Atlassian`      | IU Atlassian Cloud — Jira (boards, sprints, backlog, issues, JQL search) and Confluence reads                                                               |

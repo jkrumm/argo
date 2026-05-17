@@ -8,6 +8,13 @@
       "when": 1778530660325,
       "tag": "0000_chunky_secret_warriors",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1779030939584,
+      "tag": "0001_amusing_captain_stacy",
+      "breakpoints": true
     }
   ]
 }
