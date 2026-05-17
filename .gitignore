@@ -8,13 +8,7 @@ node_modules/
 # Claude Code runtime state
 .claude/scheduled_tasks.lock
 
-# RALPH loop state + logs
-.ralph-tasks.json
-.ralph-logs/
-.ralph-secrets.env
-docs/ralph/RALPH_REPORT.md
-
-# data snapshots (sqlite copies for migration)
+# Local API runtime data (OAuth tokens, etc.)
 /apps/api/data/
 
 .fallow/

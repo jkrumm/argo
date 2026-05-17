@@ -120,27 +120,15 @@
             "paths": [
               {
                 "name": "bun:sqlite",
-                "message": "SQLite removed — use drizzle-orm/postgres-js. Only migrate-sqlite-to-pg.ts may import this."
+                "message": "Argo uses Postgres — import from drizzle-orm/postgres-js."
               },
               {
                 "name": "drizzle-orm/bun-sqlite",
-                "message": "SQLite removed — use drizzle-orm/postgres-js. Only migrate-sqlite-to-pg.ts may import this."
+                "message": "Argo uses Postgres — import from drizzle-orm/postgres-js."
               }
             ]
           }
         ]
-      }
-    },
-    {
-      "files": ["apps/api/scripts/migrate-sqlite-to-pg.ts"],
-      "rules": {
-        "no-restricted-imports": "off"
-      }
-    },
-    {
-      "files": ["apps/api/src/db/index.ts"],
-      "rules": {
-        "no-restricted-imports": "off"
       }
     }
   ]

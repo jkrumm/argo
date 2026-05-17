@@ -252,6 +252,3 @@ The same command both installs and replaces — no clean-up step needed.
 
 API runs on the VPS via RollHook — push to `master` triggers a rolling Docker restart.
 Compose: `~/SourceRoot/vps/apps/argo/compose.yml`.
-
-The SQLite → Postgres migration ran once at cutover (`scripts/migrate-sqlite-to-pg.ts`).
-Pre-cutover SQLite backup at `/var/backups/argo/homelab-pre-cutover.db` on the VPS.

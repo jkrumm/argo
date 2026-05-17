@@ -84,4 +84,4 @@ packages/charts/  — @argo/charts: theme-agnostic visx primitives + kind compon
 - `packages/charts/CLAUDE.md` — Chart primitives, kinds, tokens
 - `docs/GARMIN-HEALTH.md` — Health metric formulas and composite signals (analytics reference)
 - `docs/STRENGTH-ANALYTICS.md` — Strength metric formulas (analytics reference)
-- `docs/MANTINE-MIGRATION-PRD.md` — Completed migration spec (historical reference)
+- `docs/THE-QUANTIFIED-ATHLETE.md` — Narrative field guide to every metric on the dashboard

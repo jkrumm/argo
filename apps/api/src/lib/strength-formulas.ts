@@ -1,13 +1,9 @@
 /**
  * Strength tracker analytics — pure functions.
  *
- * Verbatim port of argo-old/packages/dashboard/src/pages/strength-tracker/
- * (utils.ts, analytics.ts, achievements.ts). Section numbers refer to
- * `docs/strength-tracker-port/old-formulas.md`.
- *
  * All functions are pure: data is loaded by the route layer and passed in.
  * No DB calls. No external date library — plain Date arithmetic with the
- * helpers at the bottom of this file.
+ * helpers at the bottom of this file. Formula reference: `docs/STRENGTH-ANALYTICS.md`.
  */
 
 import {

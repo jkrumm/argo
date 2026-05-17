@@ -4,8 +4,6 @@
  * Pure read endpoints under `/workouts/summary/*` that consume
  * `apps/api/src/lib/strength-formulas.ts`. Kept in a separate file from the
  * CRUD workouts routes so this 12-endpoint surface can grow independently.
- *
- * Endpoints follow §2 of `docs/strength-tracker-port/backend-audit.md`.
  */
 
 import { Elysia } from 'elysia'

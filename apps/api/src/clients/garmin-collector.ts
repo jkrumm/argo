@@ -7,8 +7,8 @@ import { tracedFetch } from '../lib/traced-fetch.js'
 const COLLECTOR_URL = env.GARMIN_COLLECTOR_URL
 const COLLECTOR_TOKEN = env.GARMIN_COLLECTOR_TOKEN
 
-// Mirrors the columns we upsert into sqlite. All optional — collector returns
-// nulls/missing keys when Garmin's API is flaky for that day.
+// Mirrors the columns we upsert into daily_metrics. All optional — collector
+// returns nulls/missing keys when Garmin's API is flaky for that day.
 export type DailyMetric = {
   date: string
   steps?: number | null
