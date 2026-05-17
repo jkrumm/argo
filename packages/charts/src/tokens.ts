@@ -92,6 +92,14 @@ export const VX = {
     deadlift: '#ff4d4f',
     pullUps: '#fa8c16',
 
+    // WalkingPad — per-metric stable identity. Distance is the anchor (the
+    // metric that maps to "how much you moved today"); pace and steps support.
+    walkingDistance: '#00b894',
+    walkingPace: '#0984e3',
+    walkingSteps: '#fdcb6e',
+    walkingKcal: '#e17055',
+    walkingDuration: '#6c5ce7',
+
     // Garmin activities — per-type stable identity. Gym is the anchor (red)
     // because Garmin under-reports its load and we want it to read as "the
     // important block" in the stacked-day view.

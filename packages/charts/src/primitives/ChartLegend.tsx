@@ -11,16 +11,16 @@ export type LegendEntry = {
 
 /**
  * Shared legend for all non-sparkline charts. `highlighted`/`onHighlight` are
- * optional — pass null / no-op for static legends.
+ * optional — omit for static legends without hover interactivity.
  */
 export function ChartLegend({
   items,
-  highlighted,
+  highlighted = null,
   onHighlight,
 }: {
   items: LegendEntry[]
-  highlighted: string | null
-  onHighlight: (key: string | null) => void
+  highlighted?: string | null
+  onHighlight?: (key: string | null) => void
 }) {
   return (
     <div
@@ -43,8 +43,8 @@ export function ChartLegend({
             opacity: highlighted === null || highlighted === item.key ? 1 : 0.3,
             transition: 'opacity 0.15s',
           }}
-          onMouseEnter={() => onHighlight(item.key)}
-          onMouseLeave={() => onHighlight(null)}
+          onMouseEnter={() => onHighlight?.(item.key)}
+          onMouseLeave={() => onHighlight?.(null)}
         >
           {item.shape === 'splitLine' ? (
             <svg width={20} height={14} style={{ flexShrink: 0 }}>

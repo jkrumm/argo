@@ -190,3 +190,35 @@ export const walkingPadSessions = argoSchema.table(
   },
   (t) => [index('idx_walking_pad_sessions_started_at').on(t.started_at)],
 )
+
+// ── WalkingPad achievements ──────────────────────────────────────────────────
+//
+// Persisted because the user never triggers a mutation for a walking-pad
+// session — the daemon does. The dashboard polls this table to surface new
+// unlocks via toast/confetti, comparing `unlocked_at` against a localStorage
+// watermark. Each row is one unlock event; the same `type` can recur (e.g.
+// `streak_7` unlocks again after a break-and-rebuild).
+
+export const walkingPadAchievements = argoSchema.table(
+  'walking_pad_achievements',
+  {
+    id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
+    type: text('type').notNull(),
+    // Session that triggered the unlock. Null for streak/milestone unlocks
+    // computed over multiple sessions.
+    session_uuid: text('session_uuid'),
+    // Numeric payload used for sorting/comparison (e.g. distance_m for a
+    // distance milestone, days for a streak, km/h for a pace PR).
+    value: real('value'),
+    title: text('title').notNull(),
+    description: text('description').notNull(),
+    confetti: integer('confetti').notNull().default(1),
+    unlocked_at: timestamp('unlocked_at', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('idx_walking_pad_achievements_unlocked_at').on(t.unlocked_at),
+    index('idx_walking_pad_achievements_type').on(t.type),
+  ],
+)

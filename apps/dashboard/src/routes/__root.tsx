@@ -26,6 +26,7 @@ import {
   IconBox,
   IconBrandTeams,
   IconChecklist,
+  IconShoe,
   IconHeartbeat,
   IconMoon,
   IconSun,
@@ -51,6 +52,7 @@ function RootLayout() {
   const isDark = colorScheme === 'dark'
   const isGarminActive = !!matchRoute({ to: '/garmin-health', fuzzy: true })
   const isStrengthActive = !!matchRoute({ to: '/strength-tracker', fuzzy: true })
+  const isWalkingPadActive = !!matchRoute({ to: '/walking-pad', fuzzy: true })
   const isM365Active = !!matchRoute({ to: '/m365-explorer', fuzzy: true })
 
   function handleNavGarmin() {
@@ -66,6 +68,14 @@ function RootLayout() {
       e.preventDefault()
       closeMobile()
       void navigate({ to: '/m365-explorer' })
+    }
+  }
+
+  function handleNavWalkingPad() {
+    return (e: MouseEvent) => {
+      e.preventDefault()
+      closeMobile()
+      void navigate({ to: '/walking-pad', search: { window: '30d' } })
     }
   }
 
@@ -133,6 +143,15 @@ function RootLayout() {
             active={isStrengthActive}
             mb={4}
             onClick={handleNavStrength()}
+          />
+          <NavLink
+            component="a"
+            href="/walking-pad"
+            label="WalkingPad"
+            leftSection={<IconShoe size={18} />}
+            active={isWalkingPadActive}
+            mb={4}
+            onClick={handleNavWalkingPad()}
           />
           <NavLink
             component="a"
