@@ -107,24 +107,30 @@ const LiveSnapshotSchema = z.object({
   sample_at: isoUtc,
 })
 
-const LiveResponseSchema = z
-  .object({
-    uuid: z.string().uuid(),
-    started_at: z.string(),
-    state: z.enum(['active', 'paused', 'ended']),
-    duration_s: z.number().int(),
-    distance_m: z.number(),
-    steps: z.number().int(),
-    current_speed_kmh: z.number(),
-    avg_speed_kmh: z.number(),
-    max_speed_kmh: z.number(),
-    kcal: z.number(),
-    pause_count: z.number().int(),
-    sample_at: z.string(),
-    received_at: z.string(),
-    age_s: z.number().describe('Seconds since sample_at; consumers use this to detect staleness.'),
-  })
-  .nullable()
+const LiveSnapshotResponseSchema = z.object({
+  uuid: z.string().uuid(),
+  started_at: z.string(),
+  state: z.enum(['active', 'paused', 'ended']),
+  duration_s: z.number().int(),
+  distance_m: z.number(),
+  steps: z.number().int(),
+  current_speed_kmh: z.number(),
+  avg_speed_kmh: z.number(),
+  max_speed_kmh: z.number(),
+  kcal: z.number(),
+  pause_count: z.number().int(),
+  sample_at: z.string(),
+  received_at: z.string(),
+  age_s: z.number().describe('Seconds since sample_at; consumers use this to detect staleness.'),
+})
+
+// Envelope so the wire is always a non-empty JSON object. Returning bare `null`
+// from an Elysia handler serializes to an empty response body — Eden then
+// parses that as `""` (not `null`), and consumers crash dereferencing fields
+// like `live.steps`.
+const LiveResponseSchema = z.object({
+  snapshot: LiveSnapshotResponseSchema.nullable(),
+})
 
 // In-memory live-snapshot store. One row only (single daemon, single Mac).
 // TTL is enforced at read time: any snapshot older than LIVE_TTL_MS is treated
@@ -613,13 +619,13 @@ export const walkingPadRoutes = new Elysia({ prefix: '/walking-pad' })
   .get(
     '/live',
     () => {
-      if (liveSnapshot === null) return null
+      if (liveSnapshot === null) return { snapshot: null }
       const ageMs = Date.now() - new Date(liveSnapshot.sample_at).getTime()
       if (ageMs > LIVE_TTL_MS) {
         liveSnapshot = null
-        return null
+        return { snapshot: null }
       }
-      return { ...liveSnapshot, age_s: Math.round(ageMs / 1000) }
+      return { snapshot: { ...liveSnapshot, age_s: Math.round(ageMs / 1000) } }
     },
     {
       response: LiveResponseSchema,
@@ -627,7 +633,7 @@ export const walkingPadRoutes = new Elysia({ prefix: '/walking-pad' })
         tags: ['WalkingPad'],
         summary: 'Read the current live WalkingPad snapshot',
         description:
-          'Returns the latest snapshot pushed by the daemon, or `null` if no session is running (or the last snapshot is older than 15s). The dashboard polls this every ~2s while the WalkingPad tab is active. `age_s` lets consumers render a "stale" indicator if the daemon falters mid-session. Closed sessions are not visible here — list them via GET /walking-pad/sessions.',
+          'Returns `{ snapshot: <live row> | null }`. The snapshot is null when no session is running (or the last snapshot is older than 15s). The dashboard polls this every ~2s while the WalkingPad tab is active. `age_s` lets consumers render a "stale" indicator if the daemon falters mid-session. The envelope shape exists so the response is always a non-empty JSON object (a bare `null` return serializes to an empty body, which trips Eden Treaty). Closed sessions are not visible here — list them via GET /walking-pad/sessions.',
         security: [{ BearerAuth: [] }],
       },
     },

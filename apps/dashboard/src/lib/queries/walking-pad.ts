@@ -65,10 +65,16 @@ export const walkingPadQueries = {
 
   // Live snapshot — polled aggressively while the page is visible. Refetch
   // cadence is controlled at the call site (refetchInterval), not here.
+  // The API wraps in an envelope ({ snapshot: ... | null }) so the wire is
+  // always a non-empty JSON object; we unwrap here so callers get the bare
+  // snapshot or null.
   live: () =>
     queryOptions({
       queryKey: [...walkingPadQueries.all(), 'live'] as const,
-      queryFn: async () => unwrap(await api['walking-pad'].live.get()),
+      queryFn: async () => {
+        const envelope = unwrap(await api['walking-pad'].live.get())
+        return envelope.snapshot
+      },
     }),
 
   achievements: (params: WalkingPadAchievementParams = {}) =>
