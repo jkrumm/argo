@@ -34,7 +34,7 @@ function colorFor(type: string): string {
   return 'green'
 }
 
-export function AchievementsGallery() {
+export function AchievementsGallery({ matchHeight }: { matchHeight?: number }) {
   const { data } = useSuspenseQuery(walkingPadQueries.achievements({ limit: 50 }))
   if (data.data.length === 0) {
     return (
@@ -45,6 +45,11 @@ export function AchievementsGallery() {
       </Card>
     )
   }
+  // Card chrome eats ~64px of the matched height: 32px (padding md, top+bot)
+  // + ~22px (header text/badge line) + 8px (mb=xs) + 2px (border). Subtract
+  // that so the ScrollArea + chrome together match the left column exactly.
+  const HEADER_RESERVE = 64
+  const scrollHeight = matchHeight !== undefined ? Math.max(180, matchHeight - HEADER_RESERVE) : 260
   return (
     <Card padding="md" withBorder>
       <Group justify="space-between" mb="xs">
@@ -55,7 +60,7 @@ export function AchievementsGallery() {
           {data.data.length} unlocked
         </Badge>
       </Group>
-      <ScrollArea h={320} type="auto" offsetScrollbars>
+      <ScrollArea h={scrollHeight} type="auto" offsetScrollbars>
         <Stack gap={6}>
           {data.data.map((a) => (
             <Group
@@ -72,15 +77,17 @@ export function AchievementsGallery() {
               <ThemeIcon variant="light" color={colorFor(a.type)} size="md" radius="md">
                 {iconFor(a.type)}
               </ThemeIcon>
-              <Stack gap={0} style={{ flex: 1 }}>
-                <Text size="sm" fw={600}>
-                  {a.title}
-                </Text>
+              <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
+                <Group gap={6} wrap="nowrap" justify="space-between" align="flex-start">
+                  <Text size="sm" fw={600} style={{ flex: 1, minWidth: 0 }} truncate>
+                    {a.title}
+                  </Text>
+                  <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                    {relativeTime(a.unlocked_at)}
+                  </Text>
+                </Group>
                 <Text size="xs" c="dimmed">
                   {a.description}
-                </Text>
-                <Text size="xs" c="dimmed" mt={2}>
-                  {relativeTime(a.unlocked_at)}
                 </Text>
               </Stack>
             </Group>

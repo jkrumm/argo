@@ -1,15 +1,6 @@
 import type { ReactNode } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import {
-  Card,
-  Group,
-  Progress,
-  SimpleGrid,
-  Skeleton,
-  Text,
-  ThemeIcon,
-  Tooltip,
-} from '@mantine/core'
+import { Card, Group, SimpleGrid, Skeleton, Text, ThemeIcon, Tooltip } from '@mantine/core'
 import {
   IconArrowDownRight,
   IconArrowRight,
@@ -20,7 +11,7 @@ import {
   IconWalk,
 } from '@tabler/icons-react'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../lib/queries/walking-pad'
-import { HERO_TOOLTIPS, WEEKLY_DISTANCE_GOAL_M } from './constants'
+import { HERO_TOOLTIPS } from './constants'
 import { formatDeltaKmh, formatKm, formatPace, formatPct } from './formatters'
 
 type Direction = 'up' | 'flat' | 'down' | 'na'
@@ -71,7 +62,6 @@ function HeroCard({
   breakdown,
   color,
   icon,
-  progress,
 }: {
   label: string
   tooltip: string
@@ -81,7 +71,6 @@ function HeroCard({
   breakdown?: string
   color: string
   icon?: ReactNode
-  progress?: number
 }) {
   return (
     <Card padding="md" withBorder h="100%">
@@ -113,15 +102,6 @@ function HeroCard({
         <Text size="xs" c="dimmed" mt={6}>
           {breakdown}
         </Text>
-      )}
-      {progress !== undefined && (
-        <Progress
-          value={Math.min(100, Math.max(0, progress * 100))}
-          size="xs"
-          mt={8}
-          color={color}
-          radius="xl"
-        />
       )}
     </Card>
   )
@@ -168,8 +148,6 @@ export function HeroStats({ params }: { params: WalkingPadWindowParams }) {
 
   // ── Streak ─────────────────────────────────────────────────────────────
   const s = data.streak
-  const weeklyDistance = vol.currentDistanceM
-  const weeklyProgress = weeklyDistance / WEEKLY_DISTANCE_GOAL_M
   const momentumLabel =
     s.momentum === 'accelerating' ? 'Accelerating' : s.momentum === 'cooling' ? 'Cooling' : 'Steady'
   const streakColor = s.currentDays === 0 ? 'gray' : s.currentDays >= 7 ? 'teal' : 'blue'
@@ -216,8 +194,7 @@ export function HeroStats({ params }: { params: WalkingPadWindowParams }) {
         unit={s.currentDays === 1 ? 'day' : 'days'}
         color={streakColor}
         subLabel={s.walkedToday ? '✓ today' : 'walk to extend'}
-        breakdown={`Best ${s.bestDays}d · ${s.sessionsThisWeek} sessions this week · ${momentumLabel}`}
-        progress={weeklyProgress}
+        breakdown={`Best ${s.bestDays}d · ${momentumLabel}`}
       />
     </SimpleGrid>
   )

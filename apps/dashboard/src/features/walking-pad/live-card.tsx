@@ -111,7 +111,7 @@ function LiveCardActive({ live }: { live: LiveSnapshot }) {
           <SpeedTile speedKmh={isPaused ? 0 : live.current_speed_kmh} />
         </Group>
 
-        <Divider />
+        <Divider mb="sm" />
 
         <Group grow gap="md" wrap="wrap">
           <BigTile
