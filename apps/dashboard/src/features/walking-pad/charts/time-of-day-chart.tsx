@@ -2,7 +2,16 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { useElementSize } from '@mantine/hooks'
 import { Group as MGroup, Stack, Text } from '@mantine/core'
 import { useMemo } from 'react'
-import { ChartCard, Group, useVxTheme } from '@argo/charts'
+import {
+  ChartCard,
+  ChartTooltip,
+  Group,
+  TooltipBody,
+  TooltipRow,
+  useChartTooltip,
+  useTooltipStyles,
+  useVxTheme,
+} from '@argo/charts'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { ChartEmpty } from './empty'
 
@@ -22,39 +31,66 @@ type Cell = { hour: number; dow: number; sessions: number; distance_m: number }
  * theme neutrals via useVxTheme. Cells fade from a neutral grid color
  * (no walks) toward the WalkingPad distance hue (max walks in the window).
  */
-export function TimeOfDayChart({ params }: { params: WalkingPadWindowParams }) {
+// Chrome eaten by ChartCard around the SVG body when `matchHeight` is set:
+// ~44px header (title+subtitle row + 1px border) + 16px body vertical padding
+// + ~22px footer line (the "tip" row below the heatmap). Subtract from the
+// matched height so the SVG fills the remainder exactly. Floor at the
+// original 240 so a short history card doesn't squish the heatmap.
+const CHART_CARD_CHROME = 82
+const DEFAULT_HEIGHT = 240
+
+export function TimeOfDayChart({
+  params,
+  matchHeight,
+}: {
+  params: WalkingPadWindowParams
+  matchHeight?: number
+}) {
   const { data } = useSuspenseQuery(walkingPadQueries.hourOfDay(params))
   const { ref, width } = useElementSize<HTMLDivElement>()
-  const { axis, line } = useVxTheme()
+  const { axis, line, tooltipMuted } = useVxTheme()
+  const tooltipStyles = useTooltipStyles()
+  const { tip, show, hide, tooltipRef } = useChartTooltip<Cell>()
   const cells: Cell[] = useMemo(
     () => (data.cells as Cell[]).filter((c) => c.hour >= MIN_HOUR && c.hour < MAX_HOUR),
     [data.cells],
   )
 
   const maxSessions = useMemo(() => cells.reduce((m, c) => Math.max(m, c.sessions), 0), [cells])
-  const total = cells.reduce((s, c) => s + c.sessions, 0)
+  // Unique-session count comes from the API; per-cell sessions sum over-counts
+  // because a single session contributes to every hour it touched.
+  const totalSessions = data.totalSessions
 
-  if (total === 0) {
+  if (totalSessions === 0) {
     return (
       <ChartCard
         title="Time of day"
         subtitle="When do I tend to walk?"
-        tooltip="Heatmap of session starts by day-of-week × hour-of-day (UTC). Darker cells = more sessions. Useful for spotting whether the desk-treadmill habit aligns with your meeting calendar or evening routine."
+        tooltip="Heatmap of walking activity by day-of-week × hour-of-day (UTC). Each session lights up every hour it touched, not just its start hour — so a 2-hour walk starting at 14:00 colours 14:00, 15:00, and the partial overlap at 16:00. Darker cells = more sessions active in that hour. Useful for spotting whether the desk-treadmill habit aligns with your meeting calendar or evening routine."
       >
-        <ChartEmpty height={240} label="No walks yet — heatmap unlocks on first session." />
+        <ChartEmpty
+          height={DEFAULT_HEIGHT}
+          label="No walks yet — heatmap unlocks on first session."
+        />
       </ChartCard>
     )
   }
 
-  const height = 240
+  const height =
+    matchHeight !== undefined
+      ? Math.max(DEFAULT_HEIGHT, matchHeight - CHART_CARD_CHROME)
+      : DEFAULT_HEIGHT
   const padLeft = 36
   const padBottom = 24
   const padTop = 8
   // Right margin reserves room for the gradient legend strip + "more / less"
   // labels which sit at `left={width - LEGEND_OFFSET}` below. Without this
-  // the heatmap cells draw under the legend.
-  const LEGEND_OFFSET = 50
-  const padRight = LEGEND_OFFSET + 4
+  // the heatmap cells draw under the legend. `LEGEND_OFFSET` is the legend's
+  // distance from the SVG's right edge (kept tight — text is ~22px wide);
+  // `padRight - LEGEND_OFFSET` is the breathing room between the cells and
+  // the legend strip.
+  const LEGEND_OFFSET = 28
+  const padRight = LEGEND_OFFSET + 20
   const gridW = Math.max(0, width - padLeft - padRight)
   const cellW = gridW / HOUR_SPAN
   const cellH = (height - padTop - padBottom) / 7
@@ -69,7 +105,7 @@ export function TimeOfDayChart({ params }: { params: WalkingPadWindowParams }) {
     <ChartCard
       title="Time of day"
       subtitle="When do I tend to walk?"
-      tooltip="Heatmap of session starts by day-of-week × hour-of-day (UTC). Darker cells = more sessions. Useful for spotting whether the desk-treadmill habit aligns with your meeting calendar or evening routine."
+      tooltip="Heatmap of walking activity by day-of-week × hour-of-day (UTC). Each session lights up every hour it touched, not just its start hour — so a 2-hour walk starting at 14:00 colours 14:00, 15:00, and the partial overlap at 16:00. Darker cells = more sessions active in that hour. Useful for spotting whether the desk-treadmill habit aligns with your meeting calendar or evening routine."
       extra={
         busiest !== null ? (
           <span style={{ fontSize: 12, fontWeight: 600 }}>
@@ -99,11 +135,10 @@ export function TimeOfDayChart({ params }: { params: WalkingPadWindowParams }) {
                         : `rgba(0, 184, 148, ${0.18 + intensity * 0.72})`
                     }
                     rx={2}
-                  >
-                    <title>
-                      {`${DAY_LABELS[c.dow]} ${String(c.hour).padStart(2, '0')}:00 — ${c.sessions} session${c.sessions === 1 ? '' : 's'}, ${(c.distance_m / 1000).toFixed(2)} km`}
-                    </title>
-                  </rect>
+                    style={{ cursor: c.sessions > 0 ? 'pointer' : 'default' }}
+                    onMouseMove={(e) => show(c, e)}
+                    onMouseLeave={hide}
+                  />
                 )
               })}
             </Group>
@@ -158,15 +193,47 @@ export function TimeOfDayChart({ params }: { params: WalkingPadWindowParams }) {
           </svg>
         ) : null}
       </div>
-      <MGroup justify="space-between" mt={4}>
+      <MGroup justify="flex-start" mt={4}>
         <Text size="xs" c="dimmed">
           {String(MIN_HOUR).padStart(2, '0')}:00–{String(MAX_HOUR - 1).padStart(2, '0')}:59 UTC ·{' '}
-          {total} sessions in window
-        </Text>
-        <Text size="xs" c="dimmed">
-          Tip: hover a cell for exact totals
+          {totalSessions} session{totalSessions === 1 ? '' : 's'} in window · each session lights
+          every hour it touched
         </Text>
       </MGroup>
+      <ChartTooltip tip={tip} tooltipRef={tooltipRef} styles={tooltipStyles}>
+        {tip !== null && (
+          <>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 16,
+                padding: '6px 10px',
+                borderBottom: '1px solid rgba(128,128,128,0.2)',
+              }}
+            >
+              <span style={{ fontSize: 11, color: tooltipMuted }}>
+                {DAY_LABELS[tip.data.dow]} · {String(tip.data.hour).padStart(2, '0')}:00 UTC
+              </span>
+            </div>
+            <TooltipBody>
+              <TooltipRow
+                color="rgba(0, 184, 148, 0.9)"
+                shape="bar"
+                label="Sessions"
+                value={`${tip.data.sessions}`}
+              />
+              <TooltipRow
+                color="rgba(0, 184, 148, 0.45)"
+                shape="bar"
+                label="Distance"
+                value={`${(tip.data.distance_m / 1000).toFixed(2)} km`}
+              />
+            </TooltipBody>
+          </>
+        )}
+      </ChartTooltip>
       <Stack gap={0} style={{ display: 'none' }}>
         {/* SR-only fallback summary so the chart isn't silent for screen readers. */}
         {cells.map((c) => (

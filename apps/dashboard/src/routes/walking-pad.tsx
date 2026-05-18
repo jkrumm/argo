@@ -82,6 +82,12 @@ function WalkingPadPage() {
   const isLg = useMediaQuery('(min-width: 75em)')
   const matchHeight = isLg === true && leftColHeight > 0 ? leftColHeight : undefined
 
+  // Same trick for the bottom row: the (capped) history card drives the
+  // time-of-day heatmap so the two cards line up at lg+. Below lg the
+  // columns stack and `bottomMatchHeight` drops back to undefined.
+  const { ref: historyRef, height: historyHeight } = useElementSize<HTMLDivElement>()
+  const bottomMatchHeight = isLg === true && historyHeight > 0 ? historyHeight : undefined
+
   return (
     <HoverContext.Provider value={hoverCtx}>
       <Stack gap="md">
@@ -140,15 +146,17 @@ function WalkingPadPage() {
           <Grid.Col span={{ base: 12, lg: 4 }}>
             <Section title="Patterns" subtitle="When do I tend to walk?">
               <Suspense fallback={<ChartSkeleton height={240} />}>
-                <TimeOfDayChart params={params} />
+                <TimeOfDayChart params={params} matchHeight={bottomMatchHeight} />
               </Suspense>
             </Section>
           </Grid.Col>
           <Grid.Col span={{ base: 12, lg: 8 }}>
             <Section title="History" subtitle="Every closed session, newest first.">
-              <Suspense fallback={<ChartSkeleton height={420} />}>
-                <SessionHistoryTable />
-              </Suspense>
+              <div ref={historyRef}>
+                <Suspense fallback={<ChartSkeleton height={420} />}>
+                  <SessionHistoryTable />
+                </Suspense>
+              </div>
             </Section>
           </Grid.Col>
         </Grid>

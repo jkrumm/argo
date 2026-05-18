@@ -5,6 +5,11 @@ import { walkingPadQueries } from '../../lib/queries/walking-pad'
 import { formatDurationClock, formatKcal, formatKm, formatPace, formatSteps } from './formatters'
 
 const PAGE_SIZE = 25
+// Cap the table body so the history card doesn't blow out vertically. With
+// PAGE_SIZE=25 the natural height is well over 1000px — capping at ~480 keeps
+// the bottom row of the page balanced with the time-of-day heatmap beside it
+// and the user scrolls within the card for the rest of the page.
+const TABLE_BODY_MAX_HEIGHT = 480
 
 type SessionRow = {
   uuid: string
@@ -55,8 +60,8 @@ export function SessionHistoryTable() {
           {data.total} session{data.total === 1 ? '' : 's'} total
         </Text>
       </Group>
-      <Box style={{ overflowX: 'auto' }}>
-        <Table verticalSpacing="xs" striped highlightOnHover>
+      <Box style={{ maxHeight: TABLE_BODY_MAX_HEIGHT, overflowX: 'auto', overflowY: 'auto' }}>
+        <Table verticalSpacing="xs" striped highlightOnHover stickyHeader>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>When</Table.Th>

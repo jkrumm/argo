@@ -661,23 +661,56 @@ export type HourDowCell = {
   distance_m: number
 }
 
-export function hourOfDayMatrix(sessions: WalkingPadSessionRow[]): HourDowCell[] {
+// A session that starts at 14:00 and runs for 2h should colour 14:00, 15:00,
+// and the partial overlap at 16:00 — not just the start hour. We walk each
+// session forward in hour-sized slices, incrementing `sessions` by 1 for
+// every hour the session touched, and apportioning `distance_m` by the
+// fraction of the session spent in that hour. The "sessions touched this
+// hour" semantic means the cell sum is greater than the unique session
+// count — the heatmap is "when am I active", not "where did I press start".
+export type HourOfDayMatrix = {
+  cells: HourDowCell[]
+  /** Unique real-session count for the window (NOT a sum of cell sessions —
+   *  each session contributes to every hour it touched). */
+  totalSessions: number
+}
+
+export function hourOfDayMatrix(sessions: WalkingPadSessionRow[]): HourOfDayMatrix {
   const map = new Map<string, HourDowCell>()
   for (let dow = 0; dow < 7; dow += 1) {
     for (let h = 0; h < 24; h += 1) {
       map.set(`${dow}-${h}`, { dow, hour: h, sessions: 0, distance_m: 0 })
     }
   }
+  let totalSessions = 0
   for (const s of sessions) {
     if (!isRealSession(s)) continue
-    const d = new Date(s.started_at)
-    const key = `${d.getUTCDay()}-${d.getUTCHours()}`
-    const cell = map.get(key)
-    if (cell === undefined) continue
-    cell.sessions += 1
-    cell.distance_m += s.distance_m
+    totalSessions += 1
+    const startMs = new Date(s.started_at).getTime()
+    if (!Number.isFinite(startMs)) continue
+    // Derive end from duration_s rather than ended_at — duration_s is the
+    // canonical "real walking time" used everywhere else (and tests rely on
+    // it). ended_at can drift if a session paused for hours before close.
+    const durationMs = s.duration_s * 1000
+    if (durationMs <= 0) continue
+    const endMs = startMs + durationMs
+
+    let t = startMs
+    while (t < endMs) {
+      const d = new Date(t)
+      const dow = d.getUTCDay()
+      const hour = d.getUTCHours()
+      const nextHourMs = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), hour + 1)
+      const sliceMs = Math.min(nextHourMs, endMs) - t
+      const cell = map.get(`${dow}-${hour}`)
+      if (cell !== undefined) {
+        cell.sessions += 1
+        cell.distance_m += s.distance_m * (sliceMs / durationMs)
+      }
+      t = nextHourMs
+    }
   }
-  return [...map.values()]
+  return { cells: [...map.values()], totalSessions }
 }
 
 // ── Session distribution histogram ─────────────────────────────────────────

@@ -237,11 +237,41 @@ describe('bucketSessions', () => {
 
 describe('hourOfDayMatrix', () => {
   it('produces a 7x24 grid filled with zeros plus one populated cell', () => {
-    const cells = hourOfDayMatrix([row('a', '2026-05-17T10:00:00Z')])
+    const { cells, totalSessions } = hourOfDayMatrix([row('a', '2026-05-17T10:00:00Z')])
     expect(cells.length).toBe(7 * 24)
     const populated = cells.filter((c) => c.sessions > 0)
     expect(populated.length).toBe(1)
     expect(populated[0]?.hour).toBe(10)
+    expect(totalSessions).toBe(1)
+  })
+
+  it('spreads a multi-hour session across every hour it touched', () => {
+    // 14:00 start, 2h duration → 14, 15, plus partial 16
+    const { cells, totalSessions } = hourOfDayMatrix([
+      row('a', '2026-05-17T14:00:00Z', { duration_s: 60 * 60 * 2, distance_m: 6000 }),
+    ])
+    const at = (h: number) => cells.find((c) => c.hour === h && c.dow === 0)
+    expect(at(14)?.sessions).toBe(1)
+    expect(at(15)?.sessions).toBe(1)
+    // Exactly 2h ends at 16:00:00 — the loop should NOT enter hour 16.
+    expect(at(16)?.sessions).toBe(0)
+    // Distance apportioned 50/50 across the two full hours.
+    expect(at(14)?.distance_m).toBeCloseTo(3000, 5)
+    expect(at(15)?.distance_m).toBeCloseTo(3000, 5)
+    // Unique session count stays 1 even though two cells are populated.
+    expect(totalSessions).toBe(1)
+  })
+
+  it('apportions distance fractionally on a session that ends mid-hour', () => {
+    // 14:30 start, 60min duration → 30min in hour 14, 30min in hour 15
+    const { cells } = hourOfDayMatrix([
+      row('a', '2026-05-17T14:30:00Z', { duration_s: 60 * 60, distance_m: 4000 }),
+    ])
+    const at = (h: number) => cells.find((c) => c.hour === h && c.dow === 0)
+    expect(at(14)?.sessions).toBe(1)
+    expect(at(15)?.sessions).toBe(1)
+    expect(at(14)?.distance_m).toBeCloseTo(2000, 5)
+    expect(at(15)?.distance_m).toBeCloseTo(2000, 5)
   })
 })
 

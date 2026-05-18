@@ -503,16 +503,19 @@ export const walkingPadRoutes = new Elysia({ prefix: '/walking-pad' })
             lte(walkingPadSessions.started_at, to.toISOString()),
           ),
         )
-      return { cells: hourOfDayMatrix(rows as WalkingPadSessionRow[]) }
+      return hourOfDayMatrix(rows as WalkingPadSessionRow[])
     },
     {
       query: WindowQuerySchema,
-      response: z.object({ cells: z.array(HourDowCellSchema) }),
+      response: z.object({
+        cells: z.array(HourDowCellSchema),
+        totalSessions: z.number().int().nonnegative(),
+      }),
       detail: {
         tags: ['WalkingPad'],
         summary: 'WalkingPad hour-of-day × day-of-week matrix',
         description:
-          'Returns a 7×24 grid of (day-of-week, hour-of-day-UTC) cells with session counts and total distance. Used by the time-of-day heatmap on the WalkingPad dashboard to show when walks tend to happen.',
+          'Returns a 7×24 grid of (day-of-week, hour-of-day-UTC) cells with per-cell session counts and total distance, plus the unique-session count for the window. Each session is spread across every UTC hour it overlaps (a session starting at 14:00 with a 2h duration increments cells 14, 15, and partially 16); `distance_m` is apportioned by the fraction of the session spent in that hour. Sum of per-cell `sessions` is therefore greater than `totalSessions` — use `totalSessions` for any "X sessions in window" copy.',
         security: [{ BearerAuth: [] }],
       },
     },
