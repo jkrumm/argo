@@ -116,6 +116,58 @@ describe('detectWalkingPadAchievements', () => {
     expect(onFourth.map((a) => a.type)).not.toContain('multi_walk_day')
   })
 
+  it('does not award weekly_distance_pr on day 2 (fragment weeks, no complete baseline)', () => {
+    // User walks once Sunday (week W) and once Monday (week W+1). Without the
+    // completeness guard, day-2 trivially "beats" day-1's week. With it, the
+    // PR is suppressed because the incoming week is still in progress and
+    // there are fewer than 2 complete prior weeks.
+    const sunday = row('a', '2026-05-17T18:00:00Z', { distance_m: 500 })
+    const monday = row('b', '2026-05-18T07:00:00Z', { distance_m: 1500 })
+    const out = detectWalkingPadAchievements(
+      'b',
+      [sunday, monday],
+      [],
+      new Date('2026-05-18T08:00:00Z'),
+    )
+    expect(out.map((a) => a.type)).not.toContain('weekly_distance_pr')
+  })
+
+  it('awards weekly_distance_pr when the incoming week is complete and the baseline has >=2 complete prior weeks', () => {
+    // Three complete weeks before incoming (W18, W19, W20). Then a session in
+    // W21 — which is also complete by the time `now` is reached — that totals
+    // more than any prior week.
+    const w18 = row('a', '2026-04-27T10:00:00Z', { distance_m: 5000 })
+    const w19 = row('b', '2026-05-04T10:00:00Z', { distance_m: 6000 })
+    const w20 = row('c', '2026-05-11T10:00:00Z', { distance_m: 7000 })
+    const w21a = row('d', '2026-05-18T10:00:00Z', { distance_m: 8000 })
+    const w21b = row('e', '2026-05-22T10:00:00Z', { distance_m: 2000 })
+    const out = detectWalkingPadAchievements(
+      'e',
+      [w18, w19, w20, w21a, w21b],
+      [],
+      new Date('2026-05-25T08:00:00Z'),
+    )
+    const pr = out.find((a) => a.type === 'weekly_distance_pr')
+    expect(pr).toBeDefined()
+    expect(pr?.value).toBe(10_000)
+  })
+
+  it('does not award weekly_distance_pr while the incoming week is still in progress', () => {
+    // Plenty of complete prior weeks, but the incoming session is in the
+    // current (mid-)week. Hold the PR until the week actually closes.
+    const w18 = row('a', '2026-04-27T10:00:00Z', { distance_m: 5000 })
+    const w19 = row('b', '2026-05-04T10:00:00Z', { distance_m: 6000 })
+    const w20 = row('c', '2026-05-11T10:00:00Z', { distance_m: 7000 })
+    const inProgress = row('d', '2026-05-19T10:00:00Z', { distance_m: 20_000 })
+    const out = detectWalkingPadAchievements(
+      'd',
+      [w18, w19, w20, inProgress],
+      [],
+      new Date('2026-05-19T18:00:00Z'),
+    )
+    expect(out.map((a) => a.type)).not.toContain('weekly_distance_pr')
+  })
+
   it('skips tiny non-real sessions for PR detection', () => {
     const incoming = row('a', '2026-05-17T10:00:00Z', {
       duration_s: 20,

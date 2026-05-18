@@ -244,6 +244,7 @@ async function recomputeAchievements(
     sessionUuid,
     sessions as WalkingPadSessionRow[],
     typed,
+    new Date(),
   )
   if (detected.length === 0) return []
 

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { notifications } from '@mantine/notifications'
 import confetti from 'canvas-confetti'
 import { walkingPadQueries } from '../../lib/queries/walking-pad'
-import { ACHIEVEMENT_WATERMARK_KEY } from './constants'
+import { ACHIEVEMENT_LAST_SEEN_ID_KEY, ACHIEVEMENT_WATERMARK_KEY } from './constants'
 
 function fireConfetti() {
   confetti({ particleCount: 80, spread: 70, origin: { y: 0.6, x: 0.5 } })
@@ -23,18 +23,19 @@ function colorFor(type: string): string {
 }
 
 /**
- * Watches `/walking-pad/achievements` for unlocks since the last-seen
- * watermark (persisted in localStorage). On new unlocks, fires a toast per
- * achievement and one confetti burst if any has `confetti: true`. The
- * watermark is bumped to the newest seen unlock so we don't re-toast on
- * the next poll.
+ * Watches `/walking-pad/achievements` for unlocks the user hasn't seen yet.
  *
- * Mount once at the page root. Returns nothing; just performs side effects.
+ * The cross-session guard is `lastSeenId` in localStorage — achievement IDs
+ * are a monotonic serial PK, so "seen" is just `id <= lastSeenId`. This
+ * survives page reloads (the previous in-memory toastedIds ref did not, which
+ * caused confetti to re-fire on every open because the API's `since` filter
+ * is inclusive). The `since` timestamp is still used to narrow the API
+ * response payload, but is no longer the dedup signal.
  */
 export function useAchievementWatcher() {
-  // We refetch alongside live (every 5s here, vs 2s for live) so a new PR
-  // appears within ~5 s of the daemon closing the session.
   const initialWatermark = useRef<string>(getWatermark())
+  const lastSeenId = useRef<number>(getLastSeenId())
+
   const { data } = useQuery({
     ...walkingPadQueries.achievements({ since: initialWatermark.current, limit: 20 }),
     refetchInterval: 5000,
@@ -42,13 +43,9 @@ export function useAchievementWatcher() {
     staleTime: 0,
   })
 
-  // Track which achievement ids we've already toasted in this session so a
-  // remount or a missed `since` update doesn't re-toast.
-  const toastedIds = useRef<Set<number>>(new Set())
-
   useEffect(() => {
     if (data === undefined) return
-    const fresh = data.data.filter((a) => !toastedIds.current.has(a.id))
+    const fresh = data.data.filter((a) => a.id > lastSeenId.current)
     if (fresh.length === 0) return
 
     if (fresh.some((a) => a.confetti)) fireConfetti()
@@ -59,8 +56,12 @@ export function useAchievementWatcher() {
         message: a.description,
         autoClose: 7000,
       })
-      toastedIds.current.add(a.id)
     }
+
+    const maxId = fresh.reduce((m, a) => (a.id > m ? a.id : m), lastSeenId.current)
+    lastSeenId.current = maxId
+    setLastSeenId(maxId)
+
     const newest = fresh.reduce(
       (acc, a) => (a.unlocked_at > acc ? a.unlocked_at : acc),
       initialWatermark.current,
@@ -83,6 +84,25 @@ function getWatermark(): string {
 function setWatermark(iso: string) {
   try {
     localStorage.setItem(ACHIEVEMENT_WATERMARK_KEY, iso)
+  } catch {
+    // Ignore.
+  }
+}
+
+function getLastSeenId(): number {
+  try {
+    const v = localStorage.getItem(ACHIEVEMENT_LAST_SEEN_ID_KEY)
+    if (v === null || v.length === 0) return 0
+    const n = Number.parseInt(v, 10)
+    return Number.isFinite(n) && n > 0 ? n : 0
+  } catch {
+    return 0
+  }
+}
+
+function setLastSeenId(id: number) {
+  try {
+    localStorage.setItem(ACHIEVEMENT_LAST_SEEN_ID_KEY, String(id))
   } catch {
     // Ignore.
   }

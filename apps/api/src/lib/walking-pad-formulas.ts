@@ -115,6 +115,7 @@ export function detectWalkingPadAchievements(
   newUuid: string,
   allSessions: WalkingPadSessionRow[],
   priorAchievements: ReadonlyArray<PriorAchievement>,
+  now: Date = new Date(),
 ): DetectedAchievement[] {
   const incoming = allSessions.find((s) => s.uuid === newUuid)
   if (!incoming) return []
@@ -286,8 +287,10 @@ export function detectWalkingPadAchievements(
   }
 
   // Weekly distance PR — emit when the current ISO-week distance strictly
-  // beats every prior ISO-week AND beats the stored weekly-PR value.
-  const weeklyPr = detectWeeklyDistancePr(realAll, incoming)
+  // beats every prior ISO-week AND beats the stored weekly-PR value. Requires
+  // the incoming week to be complete and at least N complete prior weeks to
+  // exist, so we never "award" a record against a single fragment-week.
+  const weeklyPr = detectWeeklyDistancePr(realAll, incoming, now)
   if (weeklyPr !== null && weeklyPr.value > maxValueOfType('weekly_distance_pr')) {
     out.push(weeklyPr)
   }
@@ -319,24 +322,51 @@ export function isoWeekKey(iso: string): string {
   return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`
 }
 
+// At least this many *completed* prior ISO weeks must exist before a weekly
+// PR can be awarded — guarantees the record is set against a real baseline of
+// fully-elapsed comparison weeks rather than a single fragment.
+const MIN_COMPLETE_PRIOR_WEEKS_FOR_PR = 2
+
 function detectWeeklyDistancePr(
   realAll: WalkingPadSessionRow[],
   incoming: WalkingPadSessionRow,
+  now: Date,
 ): DetectedAchievement | null {
+  // The incoming session's week must itself be complete — we don't crown a
+  // PR mid-week, because additional sessions could still extend the total
+  // and an in-progress week isn't comparable to fully-elapsed prior weeks.
+  if (!isIsoWeekComplete(incoming.started_at, now)) return null
+
   const incomingWeek = isoWeekKey(incoming.started_at)
-  const weeklyTotals = new Map<string, number>()
+  // Bucket by ISO week; remember one session date per week so we can decide
+  // whether each prior week is complete.
+  const weeklyBuckets = new Map<string, { distance_m: number; sampleIso: string }>()
   for (const s of realAll) {
     const key = isoWeekKey(s.started_at)
-    weeklyTotals.set(key, (weeklyTotals.get(key) ?? 0) + s.distance_m)
+    const cur = weeklyBuckets.get(key)
+    if (cur === undefined) {
+      weeklyBuckets.set(key, { distance_m: s.distance_m, sampleIso: s.started_at })
+    } else {
+      cur.distance_m += s.distance_m
+    }
   }
-  const currentTotal = weeklyTotals.get(incomingWeek) ?? 0
+
+  const currentTotal = weeklyBuckets.get(incomingWeek)?.distance_m ?? 0
   if (currentTotal <= 0) return null
+
+  // Only complete prior weeks count toward the baseline.
   let priorMax = 0
-  for (const [k, v] of weeklyTotals) {
-    if (k !== incomingWeek && v > priorMax) priorMax = v
+  let completePriorCount = 0
+  for (const [key, bucket] of weeklyBuckets) {
+    if (key === incomingWeek) continue
+    if (!isIsoWeekComplete(bucket.sampleIso, now)) continue
+    completePriorCount += 1
+    if (bucket.distance_m > priorMax) priorMax = bucket.distance_m
   }
+  if (completePriorCount < MIN_COMPLETE_PRIOR_WEEKS_FOR_PR) return null
   if (priorMax === 0) return null
   if (currentTotal <= priorMax) return null
+
   return {
     type: 'weekly_distance_pr',
     session_uuid: incoming.uuid,
@@ -345,6 +375,18 @@ function detectWeeklyDistancePr(
     description: `${(currentTotal / 1000).toFixed(2)} km this week — beat prior best of ${(priorMax / 1000).toFixed(2)} km.`,
     confetti: true,
   }
+}
+
+// True iff the ISO week containing `anyIsoInWeek` has fully elapsed — i.e.
+// `now` is at or past the following Monday 00:00 UTC.
+function isIsoWeekComplete(anyIsoInWeek: string, now: Date): boolean {
+  const day = new Date(`${anyIsoInWeek.slice(0, 10)}T00:00:00Z`)
+  const dayNum = day.getUTCDay() === 0 ? 7 : day.getUTCDay()
+  // Days from this date forward to the start of the next ISO week (Monday).
+  // dayNum=1 (Mon) → 7; dayNum=7 (Sun) → 1.
+  const daysToNextMonday = 8 - dayNum
+  const nextMondayMs = day.getTime() + daysToNextMonday * 86_400_000
+  return now.getTime() >= nextMondayMs
 }
 
 // ── Heroes / smart abstractions ────────────────────────────────────────────

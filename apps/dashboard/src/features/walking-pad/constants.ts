@@ -26,6 +26,7 @@ export const DAILY_DISTANCE_GOAL_M = 3000
 export const WEEKLY_DISTANCE_GOAL_M = 15_000
 
 export const ACHIEVEMENT_WATERMARK_KEY = 'walkingpad-achievements-last-seen'
+export const ACHIEVEMENT_LAST_SEEN_ID_KEY = 'walkingpad-achievements-last-seen-id'
 
 // Tooltip explanations for the hero cards.
 export const HERO_TOOLTIPS = {
