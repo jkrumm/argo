@@ -1,52 +1,81 @@
+import { useState } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useElementSize } from '@mantine/hooks'
-import { Bars, ChartCard, ChartLegend, useVxTheme, VX } from '@argo/charts'
+import { Bars, ChartCard, ChartLegend } from '@argo/charts'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
+import { METRIC_DEFS, MetricToggle, fmtSteps, type MetricKey } from '../metric-toggle'
 import { ChartEmpty } from './empty'
 
 type Point = {
   date: string // ISO week YYYY-Www — Bars treats it as a categorical x.
   distance_m: number
   duration_s: number
+  steps: number
   sessions: number
 }
 
-const fmtKm = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`)
-const fmtMinutes = (s: number) => `${Math.round(s / 60)} min`
+type WeeklyMetric = {
+  pick: (p: Point) => number
+  formatTotal: (v: number) => string
+  formatAvg: (v: number) => string
+  /** Per-week minimum scale ceiling — wider than daily because a typical week
+   * sums ~5–7× a typical day. */
+  autoMaxFloor: number
+}
 
-const getValue = (d: Point, key: string): number | null => {
-  switch (key) {
-    case 'distance':
-      return d.distance_m > 0 ? d.distance_m : null
-    case 'duration':
-      return d.duration_s > 0 ? d.duration_s : null
-    default:
-      return null
-  }
+const WEEKLY_METRICS: Record<MetricKey, WeeklyMetric> = {
+  distance: {
+    pick: (p) => p.distance_m,
+    formatTotal: (m) => `${(m / 1000).toFixed(1)} km total`,
+    formatAvg: (m) => `${(m / 1000).toFixed(1)} km/week`,
+    autoMaxFloor: 5000,
+  },
+  duration: {
+    pick: (p) => p.duration_s,
+    formatTotal: (s) => `${(s / 3600).toFixed(1)} h total`,
+    formatAvg: (s) => `${(s / 3600).toFixed(1)} h/week`,
+    autoMaxFloor: 60 * 60 * 3,
+  },
+  steps: {
+    pick: (p) => p.steps,
+    formatTotal: (v) => `${fmtSteps(v)} steps total`,
+    formatAvg: (v) => `${fmtSteps(Math.round(v))} steps/week`,
+    autoMaxFloor: 15_000,
+  },
 }
 
 export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }) {
   const { data } = useSuspenseQuery(walkingPadQueries.series({ ...params, bucket: 'week' }))
   const { ref, width } = useElementSize<HTMLDivElement>()
-  const { line2 } = useVxTheme()
+  const [metricKey, setMetricKey] = useState<MetricKey>('distance')
+  const def = METRIC_DEFS[metricKey]
+  const metric = WEEKLY_METRICS[metricKey]
 
   const points: Point[] = data.points
-  const hasData = points.some((p) => p.distance_m > 0)
-  const total = points.reduce((s, p) => s + p.distance_m, 0)
+  const getValue = (d: Point, key: string): number | null => {
+    if (key !== metricKey) return null
+    const v = metric.pick(d)
+    return v > 0 ? v : null
+  }
+
+  const hasData = points.some((p) => metric.pick(p) > 0)
+  const totalValue = points.reduce((s, p) => s + metric.pick(p), 0)
+  const avgValue = totalValue / Math.max(1, points.length)
 
   return (
     <ChartCard
       title="Weekly volume"
       subtitle="Is the habit holding week to week?"
-      tooltip="ISO-week buckets within the window: total distance (left axis) alongside total duration (right axis, in minutes). Weeks with no walks render as gaps so dips are visible at a glance."
+      tooltip="ISO-week buckets within the window. Toggle the metric (distance, duration, or steps). Weeks with no walks render as gaps so dips are visible at a glance."
       extra={
         hasData ? (
-          <span style={{ fontSize: 12, fontWeight: 600, color: VX.series.walkingDistance }}>
-            {(total / 1000).toFixed(1)} km total
+          <span style={{ fontSize: 12, fontWeight: 600, color: def.color }}>
+            {metric.formatTotal(totalValue)}
           </span>
         ) : null
       }
     >
+      <MetricToggle value={metricKey} onChange={setMetricKey} />
       <div ref={ref} style={{ height: 280, width: '100%' }}>
         {!hasData ? (
           <ChartEmpty height={280} label="No weekly data in this window." />
@@ -58,41 +87,23 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
             chartId="walking-pad-weekly-volume"
             getX={(d) => d.date}
             getValue={getValue}
-            positiveBars={[
-              { key: 'distance', label: 'Distance', color: VX.series.walkingDistance },
-              {
-                key: 'duration',
-                label: 'Duration',
-                color: VX.series.walkingDuration,
-                axisSide: 'right',
-                formatValue: fmtMinutes,
-              },
-            ]}
-            barLayout="grouped"
+            positiveBars={[{ key: metricKey, label: def.label, color: def.color }]}
             leftAxis={{
               domain: 'auto',
-              formatTick: fmtKm,
+              formatTick: def.format,
               numTicks: 5,
-              autoMaxFloor: 5000,
+              autoMaxFloor: metric.autoMaxFloor,
             }}
-            rightAxis={{
-              domain: 'auto',
-              formatTick: (v) => `${Math.round(v / 60)}m`,
-              numTicks: 4,
-              autoMaxFloor: 30 * 60,
-            }}
-            formatValue={(v) => fmtKm(v)}
+            formatValue={def.format}
           />
         ) : null}
       </div>
       <ChartLegend
-        items={[
-          { key: 'distance', label: 'Distance', color: VX.series.walkingDistance, shape: 'bar' },
-          { key: 'duration', label: 'Duration', color: VX.series.walkingDuration, shape: 'bar' },
-        ]}
+        items={[{ key: metricKey, label: `${def.label} / week`, color: def.color, shape: 'bar' }]}
       />
-      {/* line2 reserved for future moving-average overlay */}
-      <span style={{ display: 'none' }}>{line2}</span>
+      <span style={{ fontSize: 11, color: 'var(--mantine-color-dimmed)', marginTop: 4 }}>
+        {hasData ? `${metric.formatAvg(avgValue)} average across the window.` : ''}
+      </span>
     </ChartCard>
   )
 }
