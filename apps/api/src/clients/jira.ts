@@ -18,6 +18,7 @@
 // against the careerpartner Cloud tenant; they're stable for the EP project.
 
 import { env } from '../env.js'
+import { type AdfDoc, appendFooter, markdownToAdf } from '../lib/jira-adf.js'
 import { tracedFetch } from '../lib/traced-fetch.js'
 
 const BASE_URL = env.ATLASSIAN_BASE_URL
@@ -112,6 +113,17 @@ async function jiraWrite<T>(
 
 export type StatusCategory = 'todo' | 'in-progress' | 'done' | 'unknown'
 
+export interface IssueLink {
+  type: string // canonical link type name, e.g. "Blocks", "Relates", "Duplicate"
+  direction: 'inward' | 'outward'
+  phrase: string // human-readable phrase ("blocks", "is blocked by") for the direction above
+  key: string // the OTHER ticket
+  url: string // browse URL of the other ticket
+  summary: string // summary of the other ticket
+  status: string // status name of the other ticket
+  statusCategory: StatusCategory
+}
+
 export interface Issue {
   key: string
   url: string
@@ -129,6 +141,7 @@ export interface Issue {
   updated: string
   labels: string[]
   parent: { key: string; summary: string } | null
+  links: IssueLink[]
 }
 
 export interface Sprint {
@@ -170,6 +183,17 @@ interface RawStatus {
   statusCategory?: { key?: string }
 }
 
+interface RawLinkedIssue {
+  key: string
+  fields?: { summary?: string; status?: RawStatus }
+}
+interface RawIssueLink {
+  id?: string
+  type?: { name?: string; inward?: string; outward?: string }
+  inwardIssue?: RawLinkedIssue
+  outwardIssue?: RawLinkedIssue
+}
+
 interface RawIssue {
   key: string
   fields: {
@@ -185,6 +209,7 @@ interface RawIssue {
     updated?: string
     labels?: string[]
     parent?: { key?: string; fields?: { summary?: string } } | null
+    issuelinks?: RawIssueLink[]
   }
 }
 
@@ -239,6 +264,38 @@ export function browseUrl(key: string): string {
   return `${BASE_URL.replace(/\/+$/, '')}/browse/${key}`
 }
 
+function normalizeLink(raw: RawIssueLink): IssueLink | null {
+  // A link entry has either an inwardIssue (THIS issue is the inward end) or
+  // an outwardIssue (THIS issue is the outward end). The direction tells the
+  // agent which phrase from the link type applies on THIS side.
+  const typeName = raw.type?.name ?? 'Unknown'
+  if (raw.outwardIssue) {
+    return {
+      type: typeName,
+      direction: 'outward',
+      phrase: raw.type?.outward ?? typeName,
+      key: raw.outwardIssue.key,
+      url: browseUrl(raw.outwardIssue.key),
+      summary: raw.outwardIssue.fields?.summary ?? '',
+      status: raw.outwardIssue.fields?.status?.name ?? 'Unknown',
+      statusCategory: normalizeStatusCategory(raw.outwardIssue.fields?.status?.statusCategory?.key),
+    }
+  }
+  if (raw.inwardIssue) {
+    return {
+      type: typeName,
+      direction: 'inward',
+      phrase: raw.type?.inward ?? typeName,
+      key: raw.inwardIssue.key,
+      url: browseUrl(raw.inwardIssue.key),
+      summary: raw.inwardIssue.fields?.summary ?? '',
+      status: raw.inwardIssue.fields?.status?.name ?? 'Unknown',
+      statusCategory: normalizeStatusCategory(raw.inwardIssue.fields?.status?.statusCategory?.key),
+    }
+  }
+  return null
+}
+
 function normalizeIssue(raw: RawIssue): Issue {
   const f = raw.fields
   return {
@@ -265,6 +322,7 @@ function normalizeIssue(raw: RawIssue): Issue {
     updated: f.updated ?? '',
     labels: f.labels ?? [],
     parent: f.parent?.key ? { key: f.parent.key, summary: f.parent.fields?.summary ?? '' } : null,
+    links: (f.issuelinks ?? []).map(normalizeLink).filter((l): l is IssueLink => l !== null),
   }
 }
 
@@ -300,7 +358,7 @@ function normalizeBoard(raw: RawBoard): Board {
 // ---------------------------------------------------------------------------
 
 const ISSUE_FIELDS =
-  'summary,status,issuetype,priority,project,assignee,reporter,duedate,created,updated,labels,parent'
+  'summary,status,issuetype,priority,project,assignee,reporter,duedate,created,updated,labels,parent,issuelinks'
 
 export async function getMyself(): Promise<{
   accountId: string
@@ -486,66 +544,19 @@ export type IssueTypeName = 'Story' | 'Task' | 'Bug' | 'Spike' | 'Sub-task' | 'E
 export type PriorityName = 'Highest' | 'High' | 'Medium' | 'Low' | 'Lowest'
 export type SprintRef = 'current' | 'next' | 'backlog' | number
 
-interface AdfNode {
-  type: string
-  text?: string
-  marks?: Array<{ type: string }>
-  content?: AdfNode[]
-  attrs?: Record<string, unknown>
-}
-interface AdfDoc {
-  type: 'doc'
-  version: 1
-  content: AdfNode[]
-}
-
-// Plain text → ADF. We accept markdown-lite: blank lines split paragraphs,
-// single newlines become hard breaks. The Hermes footer is always appended
-// as a final italic paragraph so the human reader sees who filed the ticket.
-//
-// We deliberately don't try to parse headings/lists/code — agents that need
-// rich formatting should send `descriptionAdf` directly. Keeping the
-// converter dumb avoids surprises when the agent's markdown collides with
-// Jira's ADF semantics.
+// Markdown subset → ADF doc with the Hermes attribution footer stamped.
+// Bare issue keys (`EP-1234`) and `/browse/<KEY>` URLs are auto-linked to
+// inlineCard nodes so they render as Jira smart-links instead of literal
+// text. Full subset reference in lib/jira-adf.ts.
 function textToAdf(text: string | null | undefined, includeFooter: boolean): AdfDoc {
-  const paragraphs: AdfNode[] = []
-  const trimmed = (text ?? '').trim()
-  if (trimmed.length > 0) {
-    for (const block of trimmed.split(/\n{2,}/)) {
-      const lines = block.split('\n')
-      const content: AdfNode[] = []
-      lines.forEach((line, idx) => {
-        if (line.length > 0) content.push({ type: 'text', text: line })
-        if (idx < lines.length - 1) content.push({ type: 'hardBreak' })
-      })
-      if (content.length > 0) paragraphs.push({ type: 'paragraph', content })
-    }
-  }
-  if (includeFooter) {
-    paragraphs.push({
-      type: 'paragraph',
-      content: [{ type: 'text', text: HERMES_FOOTER, marks: [{ type: 'em' }] }],
-    })
-  }
-  return { type: 'doc', version: 1, content: paragraphs }
+  const doc = markdownToAdf(text, BASE_URL)
+  return includeFooter ? appendFooter(doc, HERMES_FOOTER) : doc
 }
 
-// Append the footer to an agent-supplied ADF doc. If the agent already
-// included the footer (rare), don't double-stamp.
+// Stamp the footer on an agent-supplied ADF doc. If the agent already
+// embedded the footer string, don't double-stamp.
 function ensureFooterAdf(doc: AdfDoc): AdfDoc {
-  const flat = JSON.stringify(doc)
-  if (flat.includes(HERMES_FOOTER)) return doc
-  return {
-    type: 'doc',
-    version: 1,
-    content: [
-      ...doc.content,
-      {
-        type: 'paragraph',
-        content: [{ type: 'text', text: HERMES_FOOTER, marks: [{ type: 'em' }] }],
-      },
-    ],
-  }
+  return appendFooter(doc, HERMES_FOOTER)
 }
 
 async function resolveSprintId(ref: SprintRef, boardId: number): Promise<number | null> {

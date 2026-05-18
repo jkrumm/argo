@@ -108,6 +108,30 @@ const IssueSchema = z.object({
     .object({ key: z.string(), summary: z.string() })
     .nullable()
     .describe('Parent issue (epic for stories, story for sub-tasks) — null if top-level'),
+  links: z
+    .array(
+      z.object({
+        type: z
+          .string()
+          .describe('Canonical link type name (e.g. "Blocks", "Relates", "Duplicate")'),
+        direction: z
+          .enum(['inward', 'outward'])
+          .describe('Whether THIS ticket is the inward or outward end of the link'),
+        phrase: z
+          .string()
+          .describe(
+            'Human-readable phrase for THIS side of the link ("blocks" if outward of Blocks, "is blocked by" if inward of Blocks)',
+          ),
+        key: z.string().describe('The OTHER ticket\'s key, e.g. "EP-17587"'),
+        url: z.string().describe('Browse URL of the other ticket'),
+        summary: z.string().describe('Summary of the other ticket — handy for inline rendering'),
+        status: z.string().describe('Workflow status name of the other ticket'),
+        statusCategory: z.enum(['todo', 'in-progress', 'done', 'unknown']),
+      }),
+    )
+    .describe(
+      "Structured Jira issue links (Blocks / Relates / Duplicate / Causes / Tests / Cloners / etc.). Read this BEFORE calling PATCH .../issues/{key} with `links: [...]` — PATCH is additive, so duplicates can pile up if you don't check first.",
+    ),
 })
 
 const SprintSchema = z.object({
@@ -637,7 +661,7 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
         description: z
           .string()
           .describe(
-            'Plain text. Blank lines split paragraphs, single newlines become hard breaks. The Hermes footer (italic "Created by Johannes\' personal Hermes Agent") is auto-appended — do NOT add it manually. For richer formatting (panels, code blocks, bullet lists) Argo currently converts plain text only; raise the limit if needed.',
+            'Markdown-subset body. Supported: `# / ## / ###` headings, `**bold**`, `*italic*` (or `_italic_`), `` `code` ``, ```` ```fenced``` ```` code blocks, `- ` / `* ` bullet lists, `1. ` ordered lists, `[text](url)` links. Bare issue keys (`EP-17587`) and `/browse/<KEY>` URLs are auto-linked to Jira smart-link inlineCards. Blank lines split paragraphs; single newlines inside a paragraph become hard breaks. The italic Hermes footer ("Created by Johannes\' personal Hermes Agent") is auto-appended — do NOT add it manually. Unsupported markdown (tables, blockquotes, nested lists, images, HTML) renders as literal characters; surface the gap rather than approximating.',
           )
           .optional(),
         assigneeAccountId: z
@@ -760,7 +784,7 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
           .nullable()
           .optional()
           .describe(
-            'Replaces the entire description (Jira PUT semantics — there is no append). Pass empty string to clear. Hermes footer is re-stamped automatically. To add a follow-up note without rewriting, prefer POST /atlassian/jira/issues/{key}/comments.',
+            'Replaces the entire description (Jira PUT semantics — there is no append). Same markdown subset as POST /issues `description`. Pass empty string to clear. Hermes footer is re-stamped automatically. To add a follow-up note without rewriting, prefer POST /atlassian/jira/issues/{key}/comments.',
           ),
         issueType: z
           .enum(ISSUE_TYPE_ENUM)
@@ -867,7 +891,7 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
           .string()
           .min(1)
           .describe(
-            'Comment text. Blank lines split paragraphs. Hermes footer auto-appended. Use for follow-ups that should NOT overwrite the description — e.g. status updates, "tested locally, looks good", "blocked by EP-17XXX".',
+            'Comment text. Same markdown subset as POST /issues `description` — headings, bold/italic/code, lists, fenced code blocks, links, plus auto-linked issue keys (`EP-1234` becomes a Jira smart-link). Hermes footer auto-appended. Use for follow-ups that should NOT overwrite the description — e.g. status updates, "tested locally, looks good", "blocked by EP-17XXX".',
           ),
       }),
       response: {
