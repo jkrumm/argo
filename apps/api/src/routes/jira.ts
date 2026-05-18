@@ -525,15 +525,14 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
   )
   // --- Write surface ----------------------------------------------------
   //
-  // Every issue created or commented via these endpoints is automatically:
-  //   - assigned to the "Prometheus" Team option (customfield_11688)
-  //   - stamped with an italic Hermes-attribution footer in the description/body
-  //
-  // Agents do NOT need to supply the team, the footer, or a project key —
-  // those are derived from JIRA_DEFAULT_PROJECT_KEY / JIRA_DEFAULT_TEAM_OPTION_ID.
-  // Before creating, agents should call GET /atlassian/jira/current-sprint or
-  // /atlassian/jira/search to inspect sibling tickets for the project's title
-  // convention (e.g. `[Topic][Sub-topic] Description`) so the new ticket fits.
+  // Every issue created or commented via these endpoints is automatically
+  // assigned to the "Prometheus" Team option (customfield_11688). Agents do
+  // NOT need to supply the team or a project key — those are derived from
+  // JIRA_DEFAULT_PROJECT_KEY / JIRA_DEFAULT_TEAM_OPTION_ID. Before creating,
+  // agents should call GET /atlassian/jira/current-sprint or
+  // /atlassian/jira/search to inspect sibling tickets for the project's
+  // title convention (e.g. `[Topic][Sub-topic] Description`) so the new
+  // ticket fits.
   .get(
     '/create-meta',
     async ({ set }) => {
@@ -571,8 +570,6 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
         linkTypes,
         titleConvention:
           'Prefix with bracketed topic tags, stackable. Examples: "[FE][Booking Migration] Phase 3 - BookingsView", "[MS][TMC][Cancellation] Block finance fields", "[BI] Fix 2 failed prod imports". Look at GET /atlassian/jira/current-sprint for live examples.',
-        hermesFooter:
-          "Italic line '_Created by Johannes' personal Hermes Agent_' is appended automatically to every description and comment body — do NOT add it manually.",
       }
     },
     {
@@ -605,7 +602,6 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
               'Tenant-configured issue-link types. The `outward` and `inward` strings are the recommended values for the `links[].type` field on create/update — they carry direction unambiguously.',
             ),
           titleConvention: z.string(),
-          hermesFooter: z.string(),
         }),
         503: z.string(),
       },
@@ -613,7 +609,7 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
         tags: ['Atlassian'],
         summary: 'Self-describing metadata for the Jira write surface',
         description:
-          "Returns the constants an agent needs to fill a valid POST /atlassian/jira/issues body: the default project key (`EP`), the board (`272` — Prometheus), the accepted issue type and priority enums, the sprint keyword set, the transition names available on a typical ticket, the team's title-bracket convention, and the tenant's issue-link types (with the recommended direction phrases). Read this once before any create/update call so you don't have to memorize field names. Issue-type / priority / transition lists are static client-side mappings (verified live against the EP project); the actual transitions returned for a specific ticket may differ slightly per workflow state — use /atlassian/jira/issues/{key}/transitions for the exact list when transitioning. Link types are fetched live from Atlassian.",
+          "Returns the constants an agent needs to fill a valid POST /atlassian/jira/issues body: the default project key (`EP`), the board (`272` — Prometheus), the accepted issue type and priority enums, the sprint keyword set, the transition names available on a typical ticket, the team's title-bracket convention, and the tenant's issue-link types (with the recommended direction phrases). Read this once before any create/update call so you don't have to memorize field names. Issue-type / priority / transition lists are static client-side mappings (verified live against the EP project); the actual transitions returned for a specific ticket may differ slightly per workflow state — use /atlassian/jira/issues/{key}/transitions for the exact list when transitioning. Link types are fetched live from Atlassian. Tickets are created as the authenticated Jira user (no attribution footer is added — what you write is what the team sees).",
         security: [{ BearerAuth: [] }],
       },
     },
@@ -661,7 +657,7 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
         description: z
           .string()
           .describe(
-            'Markdown-subset body. Supported: `# / ## / ###` headings, `**bold**`, `*italic*` (or `_italic_`), `` `code` ``, ```` ```fenced``` ```` code blocks, `- ` / `* ` bullet lists, `1. ` ordered lists, `[text](url)` links. Bare issue keys (`EP-17587`) and `/browse/<KEY>` URLs are auto-linked to Jira smart-link inlineCards. Blank lines split paragraphs; single newlines inside a paragraph become hard breaks. The italic Hermes footer ("Created by Johannes\' personal Hermes Agent") is auto-appended — do NOT add it manually. Unsupported markdown (tables, blockquotes, nested lists, images, HTML) renders as literal characters; surface the gap rather than approximating.',
+            'Markdown-subset body. Supported: `# / ## / ###` headings, `**bold**`, `*italic*` (or `_italic_`), `` `code` ``, ```` ```fenced``` ```` code blocks, `- ` / `* ` bullet lists, `1. ` ordered lists, `[text](url)` links. Bare issue keys (`EP-17587`) and `/browse/<KEY>` URLs are auto-linked to Jira smart-link inlineCards. Blank lines split paragraphs; single newlines inside a paragraph become hard breaks. Unsupported markdown (tables, blockquotes, nested lists, images, HTML) renders as literal characters; surface the gap rather than approximating.',
           )
           .optional(),
         assigneeAccountId: z
@@ -735,7 +731,7 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
         tags: ['Atlassian'],
         summary: 'Create a Jira ticket on the Prometheus board',
         description:
-          'Creates a new issue in the EP project, Team=Prometheus (always — board 272). Returns the new key + URL. The description is auto-suffixed with an italic Hermes attribution line. \n\n**Agent checklist before calling:** (1) call GET /atlassian/jira/create-meta if you forgot the field shape, (2) call GET /atlassian/jira/current-sprint to see how sibling tickets are titled (bracket convention), (3) for sub-tasks set `parentKey`, for Story-on-Epic set `epicKey`. Sprint defaults to backlog — pass `sprint: "current"` to drop the ticket directly into this week\'s sprint. \n\nFor updates use PATCH /atlassian/jira/issues/{key}; for comments POST /atlassian/jira/issues/{key}/comments. To resolve an assignee\'s accountId from a name use /atlassian/jira/users/search.',
+          'Creates a new issue in the EP project, Team=Prometheus (always — board 272). Returns the new key + URL. Reporter is the authenticated Jira user; no extra attribution is added to the description.\n\n**Agent checklist before calling:** (1) call GET /atlassian/jira/create-meta if you forgot the field shape, (2) call GET /atlassian/jira/current-sprint to see how sibling tickets are titled (bracket convention), (3) for sub-tasks set `parentKey`, for Story-on-Epic set `epicKey`. Sprint defaults to backlog — pass `sprint: "current"` to drop the ticket directly into this week\'s sprint.\n\nFor updates use PATCH /atlassian/jira/issues/{key}; for comments POST /atlassian/jira/issues/{key}/comments. To resolve an assignee\'s accountId from a name use /atlassian/jira/users/search.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -784,7 +780,7 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
           .nullable()
           .optional()
           .describe(
-            'Replaces the entire description (Jira PUT semantics — there is no append). Same markdown subset as POST /issues `description`. Pass empty string to clear. Hermes footer is re-stamped automatically. To add a follow-up note without rewriting, prefer POST /atlassian/jira/issues/{key}/comments.',
+            'Replaces the entire description (Jira PUT semantics — there is no append). Same markdown subset as POST /issues `description`. Pass empty string to clear. To add a follow-up note without rewriting, prefer POST /atlassian/jira/issues/{key}/comments.',
           ),
         issueType: z
           .enum(ISSUE_TYPE_ENUM)
@@ -891,7 +887,7 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
           .string()
           .min(1)
           .describe(
-            'Comment text. Same markdown subset as POST /issues `description` — headings, bold/italic/code, lists, fenced code blocks, links, plus auto-linked issue keys (`EP-1234` becomes a Jira smart-link). Hermes footer auto-appended. Use for follow-ups that should NOT overwrite the description — e.g. status updates, "tested locally, looks good", "blocked by EP-17XXX".',
+            'Comment text. Same markdown subset as POST /issues `description` — headings, bold/italic/code, lists, fenced code blocks, links, plus auto-linked issue keys (`EP-1234` becomes a Jira smart-link). Use for follow-ups that should NOT overwrite the description — e.g. status updates, "tested locally, looks good", "blocked by EP-17XXX".',
           ),
       }),
       response: {
@@ -908,7 +904,7 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
         tags: ['Atlassian'],
         summary: 'Post a comment on a Jira ticket',
         description:
-          'Adds a comment to the ticket. Use this for incremental updates instead of PATCH .../issues/{key} with description — comments preserve the original description and keep an audit trail. Footer is auto-appended so the team always sees who filed the note.',
+          'Adds a comment to the ticket. Use this for incremental updates instead of PATCH .../issues/{key} with description — comments preserve the original description and keep an audit trail.',
         security: [{ BearerAuth: [] }],
       },
     },

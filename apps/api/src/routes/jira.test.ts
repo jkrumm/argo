@@ -134,53 +134,30 @@ describe('Jira write validation', () => {
   })
 })
 
-describe('Jira ADF helpers', () => {
-  const { textToAdf, ensureFooterAdf, HERMES_FOOTER } = __test
+describe('Jira description textToAdf wiring', () => {
+  const { textToAdf } = __test
 
-  it('wraps plain text in an ADF doc and appends the footer', () => {
-    const doc = textToAdf('First paragraph.\n\nSecond paragraph.', true)
+  it('returns an ADF doc shape', () => {
+    const doc = textToAdf('hello')
     expect(doc.type).toBe('doc')
     expect(doc.version).toBe(1)
-    // 2 paragraphs + 1 footer paragraph
-    expect(doc.content).toHaveLength(3)
-    const footer = doc.content[2]
-    expect(footer?.content?.[0]?.text).toBe(HERMES_FOOTER)
-    expect(footer?.content?.[0]?.marks?.[0]?.type).toBe('em')
-  })
-
-  it('renders the footer even when text is empty', () => {
-    const doc = textToAdf('', true)
     expect(doc.content).toHaveLength(1)
-    expect(doc.content[0]?.content?.[0]?.text).toBe(HERMES_FOOTER)
   })
 
-  it('preserves single-newline hard breaks', () => {
-    const doc = textToAdf('Line 1\nLine 2', false)
+  it('does not append any attribution / footer paragraph', () => {
+    const doc = textToAdf('First paragraph.\n\nSecond paragraph.')
+    // Should be exactly 2 paragraphs — no auto-stamped third one.
+    expect(doc.content).toHaveLength(2)
+    const flat = JSON.stringify(doc)
+    expect(flat.includes('Hermes Agent')).toBe(false)
+    expect(flat.includes('Created by')).toBe(false)
+  })
+
+  it('preserves single-newline hard breaks within a paragraph', () => {
+    const doc = textToAdf('Line 1\nLine 2')
     expect(doc.content).toHaveLength(1)
     const para = doc.content[0]?.content ?? []
-    // text, hardBreak, text
     expect(para).toHaveLength(3)
-    expect(para[0]?.text).toBe('Line 1')
     expect(para[1]?.type).toBe('hardBreak')
-    expect(para[2]?.text).toBe('Line 2')
-  })
-
-  it('ensureFooterAdf appends footer when missing', () => {
-    const doc = ensureFooterAdf({
-      type: 'doc',
-      version: 1,
-      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hello' }] }],
-    })
-    expect(doc.content).toHaveLength(2)
-    expect(doc.content[1]?.content?.[0]?.text).toBe(HERMES_FOOTER)
-  })
-
-  it('ensureFooterAdf does not double-stamp', () => {
-    const doc = ensureFooterAdf({
-      type: 'doc',
-      version: 1,
-      content: [{ type: 'paragraph', content: [{ type: 'text', text: HERMES_FOOTER }] }],
-    })
-    expect(doc.content).toHaveLength(1)
   })
 })

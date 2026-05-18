@@ -11,14 +11,13 @@
 // explicitly per call.
 //
 // Write surface (createIssue / updateIssue / addComment / transitionIssue)
-// always stamps Team = Prometheus (customfield_11688 option 10561) and
-// appends the Hermes attribution footer to descriptions, so an agent can
-// fire a one-shot POST without remembering the team or signing each ticket
-// manually. Custom-field IDs were discovered live via scripts/jira-write-discover.ts
-// against the careerpartner Cloud tenant; they're stable for the EP project.
+// always stamps Team = Prometheus (customfield_11688 option 10561) so an
+// agent can fire a one-shot POST without remembering the team. Custom-field
+// IDs were discovered live via scripts/jira-write-discover.ts against the
+// careerpartner Cloud tenant; they're stable for the EP project.
 
 import { env } from '../env.js'
-import { type AdfDoc, appendFooter, markdownToAdf } from '../lib/jira-adf.js'
+import { type AdfDoc, markdownToAdf } from '../lib/jira-adf.js'
 import { tracedFetch } from '../lib/traced-fetch.js'
 
 const BASE_URL = env.ATLASSIAN_BASE_URL
@@ -34,8 +33,6 @@ const FIELD_SPRINT = 'customfield_10007' // gh-sprint (array of sprint ids on wr
 const FIELD_EPIC_LINK = 'customfield_10009' // gh-epic-link (parent epic key, e.g. "EP-16692")
 const FIELD_STORY_POINTS = 'customfield_10005' // float — the team's actual SP field
 const FIELD_TEAM = 'customfield_11688' // multiselect option, holds [{id: "10561", value: "Prometheus"}]
-
-const HERMES_FOOTER = "Created by Johannes' personal Hermes Agent"
 
 function ensureConfigured(): void {
   if (!BASE_URL || !EMAIL || !TOKEN) {
@@ -265,15 +262,23 @@ export function browseUrl(key: string): string {
 }
 
 function normalizeLink(raw: RawIssueLink): IssueLink | null {
-  // A link entry has either an inwardIssue (THIS issue is the inward end) or
-  // an outwardIssue (THIS issue is the outward end). The direction tells the
-  // agent which phrase from the link type applies on THIS side.
+  // Jira's response shape: each link entry on issue X has EITHER inwardIssue
+  // OR outwardIssue set — that's the OTHER side of the link. The direction we
+  // expose is X's role on the link, which is the INVERSE of which slot the
+  // other issue sits in.
+  //
+  //   raw.outwardIssue set  → the OTHER issue is the outward end → X is INWARD
+  //   raw.inwardIssue  set  → the OTHER issue is the inward end  → X is OUTWARD
+  //
+  // Concrete example: if X "is blocked by" Y, the link stored on X has
+  // outwardIssue=Y (Y blocks → outward) and inwardIssue=null. From X's
+  // perspective the phrase is "is blocked by" (inward of Blocks).
   const typeName = raw.type?.name ?? 'Unknown'
   if (raw.outwardIssue) {
     return {
       type: typeName,
-      direction: 'outward',
-      phrase: raw.type?.outward ?? typeName,
+      direction: 'inward',
+      phrase: raw.type?.inward ?? typeName,
       key: raw.outwardIssue.key,
       url: browseUrl(raw.outwardIssue.key),
       summary: raw.outwardIssue.fields?.summary ?? '',
@@ -284,8 +289,8 @@ function normalizeLink(raw: RawIssueLink): IssueLink | null {
   if (raw.inwardIssue) {
     return {
       type: typeName,
-      direction: 'inward',
-      phrase: raw.type?.inward ?? typeName,
+      direction: 'outward',
+      phrase: raw.type?.outward ?? typeName,
       key: raw.inwardIssue.key,
       url: browseUrl(raw.inwardIssue.key),
       summary: raw.inwardIssue.fields?.summary ?? '',
@@ -544,19 +549,11 @@ export type IssueTypeName = 'Story' | 'Task' | 'Bug' | 'Spike' | 'Sub-task' | 'E
 export type PriorityName = 'Highest' | 'High' | 'Medium' | 'Low' | 'Lowest'
 export type SprintRef = 'current' | 'next' | 'backlog' | number
 
-// Markdown subset → ADF doc with the Hermes attribution footer stamped.
-// Bare issue keys (`EP-1234`) and `/browse/<KEY>` URLs are auto-linked to
-// inlineCard nodes so they render as Jira smart-links instead of literal
-// text. Full subset reference in lib/jira-adf.ts.
-function textToAdf(text: string | null | undefined, includeFooter: boolean): AdfDoc {
-  const doc = markdownToAdf(text, BASE_URL)
-  return includeFooter ? appendFooter(doc, HERMES_FOOTER) : doc
-}
-
-// Stamp the footer on an agent-supplied ADF doc. If the agent already
-// embedded the footer string, don't double-stamp.
-function ensureFooterAdf(doc: AdfDoc): AdfDoc {
-  return appendFooter(doc, HERMES_FOOTER)
+// Markdown subset → ADF doc. Bare issue keys (`EP-1234`) and `/browse/<KEY>`
+// URLs are auto-linked to inlineCard nodes so they render as Jira smart-links
+// instead of literal text. Full subset reference in lib/jira-adf.ts.
+function textToAdf(text: string | null | undefined): AdfDoc {
+  return markdownToAdf(text, BASE_URL)
 }
 
 async function resolveSprintId(ref: SprintRef, boardId: number): Promise<number | null> {
@@ -705,9 +702,7 @@ export async function createIssue(
     project: { key: projectKey },
     issuetype: { id: issueTypeId },
     summary: input.summary,
-    description: input.descriptionAdf
-      ? ensureFooterAdf(input.descriptionAdf)
-      : textToAdf(input.description ?? null, true),
+    description: input.descriptionAdf ?? textToAdf(input.description ?? null),
   }
 
   if (input.team !== 'none') {
@@ -780,9 +775,9 @@ export async function updateIssue(
 
   if (input.summary !== undefined) fields['summary'] = input.summary
   if (input.descriptionAdf !== undefined) {
-    fields['description'] = ensureFooterAdf(input.descriptionAdf)
+    fields['description'] = input.descriptionAdf
   } else if (input.description !== undefined) {
-    fields['description'] = textToAdf(input.description, true)
+    fields['description'] = textToAdf(input.description)
   }
   if (input.issueType !== undefined) {
     const issueTypeId = ISSUE_TYPE_ID[input.issueType]
@@ -880,7 +875,7 @@ export interface AddCommentInput {
 }
 
 export async function addComment(key: string, input: AddCommentInput): Promise<{ id: string }> {
-  const doc = input.bodyAdf ? ensureFooterAdf(input.bodyAdf) : textToAdf(input.body, true)
+  const doc = input.bodyAdf ?? textToAdf(input.body)
   const created = await jiraWrite<{ id: string }>(
     'POST',
     `/rest/api/3/issue/${encodeURIComponent(key)}/comment`,
@@ -892,4 +887,4 @@ export async function addComment(key: string, input: AddCommentInput): Promise<{
 }
 
 // Export for tests
-export const __test = { textToAdf, ensureFooterAdf, HERMES_FOOTER }
+export const __test = { textToAdf, normalizeLink }
