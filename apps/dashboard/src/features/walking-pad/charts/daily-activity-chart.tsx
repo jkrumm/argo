@@ -106,6 +106,10 @@ export function DailyActivityChart({ params }: { params: WalkingPadWindowParams 
   const singleDef = singleMetric !== undefined ? METRIC_DEFS[singleMetric] : null
   const singleConfig = singleMetric !== undefined ? DAILY_METRICS[singleMetric] : null
 
+  // Y-axis labels for steps run up to 5 digits ("12,000"); default 44px is
+  // tight. Multi-metric mode normalizes to 0-100% which fits fine.
+  const marginLeft = !isMulti && singleMetric === 'steps' ? 56 : undefined
+
   // Header summary: one line per enabled metric.
   const headerSummary = (
     <span style={{ display: 'inline-flex', gap: 12, flexWrap: 'wrap' }}>
@@ -185,6 +189,7 @@ export function DailyActivityChart({ params }: { params: WalkingPadWindowParams 
               autoMaxFloor: 3,
             }}
             formatValue={isMulti ? fmtPct : (singleDef?.format ?? fmtPct)}
+            marginLeft={marginLeft}
             hideBarTooltipRows={isMulti}
             renderExtraTooltipRows={renderExtraTooltipRows}
           />

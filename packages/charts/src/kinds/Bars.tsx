@@ -121,6 +121,9 @@ export type BarsProps<T> = {
   formatValue?: (v: number) => string
   /** X-axis tick count override. */
   numTicksX?: number
+  /** Override the left margin (defaults to VX.margin.left = 44). Useful when
+   * y-axis labels are unusually wide (e.g. five-digit step counts). */
+  marginLeft?: number
   /**
    * Series currently highlighted via legend hover. When set, bars and lines
    * whose `key` does NOT match are dimmed. null → no dimming.
@@ -160,6 +163,7 @@ export function Bars<T>(props: BarsProps<T>) {
     hideBarTooltipRows = false,
     formatValue = (v) => String(Math.round(v)),
     numTicksX,
+    marginLeft,
     highlightedKey = null,
   } = props
 
@@ -170,9 +174,10 @@ export function Bars<T>(props: BarsProps<T>) {
   const MARGIN = useMemo(
     () => ({
       ...VX.margin,
+      left: marginLeft ?? VX.margin.left,
       right: rightAxis ? Math.max(VX.margin.right, 40) : VX.margin.right,
     }),
-    [rightAxis],
+    [rightAxis, marginLeft],
   )
   const xMax = width - MARGIN.left - MARGIN.right
   const yMax = height - MARGIN.top - MARGIN.bottom

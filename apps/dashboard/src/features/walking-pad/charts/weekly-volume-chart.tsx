@@ -103,6 +103,10 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
   const singleDef = singleMetric !== undefined ? METRIC_DEFS[singleMetric] : null
   const singleConfig = singleMetric !== undefined ? WEEKLY_METRICS[singleMetric] : null
 
+  // Weekly steps totals reach 6 digits ("100,000"). Widen the left margin
+  // when steps is alone on the y-axis; default 44px is tight even for "20,000".
+  const marginLeft = !isMulti && singleMetric === 'steps' ? 64 : undefined
+
   const headerSummary = (
     <span style={{ display: 'inline-flex', gap: 12, flexWrap: 'wrap' }}>
       {enabled.map((m) => (
@@ -159,6 +163,7 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
               autoMaxFloor: isMulti ? undefined : singleConfig?.autoMaxFloor,
             }}
             formatValue={isMulti ? fmtPct : (singleDef?.format ?? fmtPct)}
+            marginLeft={marginLeft}
             hideBarTooltipRows={isMulti}
             renderExtraTooltipRows={renderExtraTooltipRows}
           />
