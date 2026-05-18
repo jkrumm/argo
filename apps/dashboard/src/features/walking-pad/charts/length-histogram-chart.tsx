@@ -31,6 +31,9 @@ const AXIS_LABELS: Record<MetricKey, { title: string; subtitle: string; xUnit: s
 
 const fmtSessions = (v: number) => `${Math.round(v)} session${Math.round(v) === 1 ? '' : 's'}`
 
+// Match the Weekly Volume chart's height so the two bottom-row cards align.
+const CHART_HEIGHT = 280
+
 export function LengthHistogramChart({ params }: { params: WalkingPadWindowParams }) {
   const { enabled } = useMetricSelection()
   // The toggle picks the *bucketing dimension*. With multiple enabled, the
@@ -67,7 +70,10 @@ export function LengthHistogramChart({ params }: { params: WalkingPadWindowParam
         subtitle={labels.subtitle}
         tooltip="Frequency histogram of sessions across buckets of the toggled metric. Pick one or more metrics from the page header to populate."
       >
-        <ChartEmpty height={240} label="No metric selected — toggle one in the page header." />
+        <ChartEmpty
+          height={CHART_HEIGHT}
+          label="No metric selected — toggle one in the page header."
+        />
       </ChartCard>
     )
   }
@@ -98,14 +104,14 @@ export function LengthHistogramChart({ params }: { params: WalkingPadWindowParam
         ) : null
       }
     >
-      <div ref={ref} style={{ height: 240, width: '100%' }}>
+      <div ref={ref} style={{ height: CHART_HEIGHT, width: '100%' }}>
         {totalSessions === 0 ? (
-          <ChartEmpty height={240} label="No sessions in this window." />
+          <ChartEmpty height={CHART_HEIGHT} label="No sessions in this window." />
         ) : width > 0 ? (
           <Bars<Bucket>
             data={buckets}
             width={Math.max(width, 200)}
-            height={240}
+            height={CHART_HEIGHT}
             chartId="walking-pad-length-histogram"
             getX={getX}
             getValue={getValue}

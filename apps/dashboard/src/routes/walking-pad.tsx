@@ -136,7 +136,7 @@ function WalkingPadPage() {
             <Suspense fallback={<ChartSkeleton />}>
               <WeeklyVolumeChart params={params} />
             </Suspense>
-            <Suspense fallback={<ChartSkeleton height={240} />}>
+            <Suspense fallback={<ChartSkeleton height={280} />}>
               <LengthHistogramChart params={params} />
             </Suspense>
           </SimpleGrid>
