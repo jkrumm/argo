@@ -682,24 +682,44 @@ export function hourOfDayMatrix(sessions: WalkingPadSessionRow[]): HourDowCell[]
 
 // ── Session length histogram (5-min buckets) ──────────────────────────────
 
-export type LengthHistogramBucket = { bucketMin: number; sessions: number }
+export type LengthHistogramBucket = {
+  bucketMin: number
+  sessions: number
+  distance_m: number
+  duration_s: number
+  steps: number
+}
 
 export function sessionLengthHistogram(
   sessions: WalkingPadSessionRow[],
   bucketWidthMin = 5,
   maxBucketMin = 90,
 ): LengthHistogramBucket[] {
-  const buckets = new Map<number, number>()
+  const buckets = new Map<
+    number,
+    { sessions: number; distance_m: number; duration_s: number; steps: number }
+  >()
   for (let m = 0; m <= maxBucketMin; m += bucketWidthMin) {
-    buckets.set(m, 0)
+    buckets.set(m, { sessions: 0, distance_m: 0, duration_s: 0, steps: 0 })
   }
   for (const s of sessions) {
     if (!isRealSession(s)) continue
     const min = Math.floor(s.duration_s / 60 / bucketWidthMin) * bucketWidthMin
     const clamped = Math.min(min, maxBucketMin)
-    buckets.set(clamped, (buckets.get(clamped) ?? 0) + 1)
+    const cell = buckets.get(clamped)
+    if (cell === undefined) continue
+    cell.sessions += 1
+    cell.distance_m += s.distance_m
+    cell.duration_s += s.duration_s
+    cell.steps += s.steps
   }
   return [...buckets.entries()]
-    .map(([bucketMin, sessions]) => ({ bucketMin, sessions }))
+    .map(([bucketMin, v]) => ({
+      bucketMin,
+      sessions: v.sessions,
+      distance_m: Math.round(v.distance_m),
+      duration_s: v.duration_s,
+      steps: v.steps,
+    }))
     .toSorted((a, b) => a.bucketMin - b.bucketMin)
 }

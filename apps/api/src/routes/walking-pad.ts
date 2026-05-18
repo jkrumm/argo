@@ -173,6 +173,21 @@ const HourDowCellSchema = z.object({
 const LengthHistogramSchema = z.object({
   bucketMin: z.number().int().describe('Lower bound of the 5-minute bucket (0,5,10,…).'),
   sessions: z.number().int().nonnegative(),
+  distance_m: z
+    .number()
+    .int()
+    .nonnegative()
+    .describe('Total distance walked in sessions of this length bucket.'),
+  duration_s: z
+    .number()
+    .int()
+    .nonnegative()
+    .describe('Total duration walked in sessions of this length bucket.'),
+  steps: z
+    .number()
+    .int()
+    .nonnegative()
+    .describe('Total steps walked in sessions of this length bucket.'),
 })
 
 // ── Heroes ──────────────────────────────────────────────────────────────────
