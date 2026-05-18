@@ -34,20 +34,25 @@ function colorFor(type: string): string {
   return 'green'
 }
 
-export function AchievementsGallery() {
+export function AchievementsGallery({ matchHeight }: { matchHeight?: number }) {
   const { data } = useSuspenseQuery(walkingPadQueries.achievements({ limit: 50 }))
   if (data.data.length === 0) {
     return (
-      <Card padding="md" withBorder>
+      <Card padding="md" withBorder h={matchHeight}>
         <Text size="sm" c="dimmed">
           No achievements yet — first walk unlocks one.
         </Text>
       </Card>
     )
   }
-  const scrollHeight = 260
+  // Card chrome eats ~64px of any matched height: ~32px (padding md, top+bot)
+  // + ~22px header line + 8px mb=xs + 2px border. Subtract so ScrollArea +
+  // chrome together fit the left column exactly. Below lg the prop drops,
+  // and we fall back to a sensible default scroll height.
+  const HEADER_RESERVE = 64
+  const scrollHeight = matchHeight !== undefined ? Math.max(180, matchHeight - HEADER_RESERVE) : 320
   return (
-    <Card padding="md" withBorder>
+    <Card padding="md" withBorder h={matchHeight}>
       <Group justify="space-between" mb="xs">
         <Text fw={600} size="sm">
           Achievements

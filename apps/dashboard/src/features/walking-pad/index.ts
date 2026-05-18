@@ -20,6 +20,7 @@ export {
   relativeTime,
 } from './formatters'
 export { WindowSelector, presetToParams } from './window-selector'
+export { MetricToggle, useMetricSelection, METRIC_DEFS, type MetricKey } from './metric-toggle'
 export { LiveCard, LiveCardSkeleton } from './live-card'
 export { HeroStats, HeroStatsSkeleton, ChartSkeleton } from './hero-stats'
 export { useAchievementWatcher } from './achievements-toast'
