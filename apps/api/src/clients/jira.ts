@@ -1,14 +1,21 @@
-// HTTP Basic-auth client for Atlassian Cloud (Jira). Read-only.
+// HTTP Basic-auth client for Atlassian Cloud (Jira).
 //
 // Wraps two underlying APIs against the same host:
-//   - REST API v3 (issues, search/jql, myself)        — /rest/api/3
-//   - Agile API v1 (boards, sprints, backlog)          — /rest/agile/1.0
+//   - REST API v3 (issues, search/jql, myself, create/update/comment) — /rest/api/3
+//   - Agile API v1 (boards, sprints, backlog)                          — /rest/agile/1.0
 //
 // All credentials come from env (JIRA_EMAIL + JIRA_API_TOKEN), which the
 // argo deployment resolves from 1Password (op://vps/argo/ATLASSIAN_*).
 // The board ID is single-tenant (JIRA_BOARD_ID, defaults to 272 — the
 // user's "EPOS Team Prometheus" scrum board); other boards can be queried
 // explicitly per call.
+//
+// Write surface (createIssue / updateIssue / addComment / transitionIssue)
+// always stamps Team = Prometheus (customfield_11688 option 10561) and
+// appends the Hermes attribution footer to descriptions, so an agent can
+// fire a one-shot POST without remembering the team or signing each ticket
+// manually. Custom-field IDs were discovered live via scripts/jira-write-discover.ts
+// against the careerpartner Cloud tenant; they're stable for the EP project.
 
 import { env } from '../env.js'
 import { tracedFetch } from '../lib/traced-fetch.js'
@@ -17,6 +24,17 @@ const BASE_URL = env.ATLASSIAN_BASE_URL
 const EMAIL = env.JIRA_EMAIL
 const TOKEN = env.JIRA_API_TOKEN
 export const DEFAULT_BOARD_ID = env.JIRA_BOARD_ID
+export const DEFAULT_PROJECT_KEY = env.JIRA_DEFAULT_PROJECT_KEY
+const DEFAULT_TEAM_OPTION_ID = env.JIRA_DEFAULT_TEAM_OPTION_ID
+
+// Stable custom-field IDs on the EP project. Verified via createmeta probe.
+// Don't move these without re-running scripts/jira-write-discover.ts.
+const FIELD_SPRINT = 'customfield_10007' // gh-sprint (array of sprint ids on write)
+const FIELD_EPIC_LINK = 'customfield_10009' // gh-epic-link (parent epic key, e.g. "EP-16692")
+const FIELD_STORY_POINTS = 'customfield_10005' // float — the team's actual SP field
+const FIELD_TEAM = 'customfield_11688' // multiselect option, holds [{id: "10561", value: "Prometheus"}]
+
+const HERMES_FOOTER = "Created by Johannes' personal Hermes Agent"
 
 function ensureConfigured(): void {
   if (!BASE_URL || !EMAIL || !TOKEN) {
@@ -38,6 +56,51 @@ async function jira<T>(path: string): Promise<T> {
     const snippet = text.length > 300 ? text.slice(0, 300) + '…' : text
     throw new Error(`Jira ${res.status} on ${path}: ${snippet}`)
   }
+  return JSON.parse(text) as T
+}
+
+// Upstream errors surface as HTTP status codes on the route layer (404, 409,
+// 503). `JiraHttpError.status` is what routes inspect to decide the response
+// code — wrapping it here keeps that mapping in one place instead of
+// string-matching error messages.
+export class JiraHttpError extends Error {
+  status: number
+  body: unknown
+  constructor(status: number, body: unknown, path: string) {
+    super(
+      `Jira ${status} on ${path}: ${typeof body === 'string' ? body.slice(0, 300) : JSON.stringify(body).slice(0, 300)}`,
+    )
+    this.status = status
+    this.body = body
+  }
+}
+
+async function jiraWrite<T>(
+  method: 'POST' | 'PUT' | 'DELETE',
+  path: string,
+  body?: unknown,
+): Promise<T | null> {
+  ensureConfigured()
+  const res = await tracedFetch(`${BASE_URL}${path}`, {
+    method,
+    headers: {
+      Authorization: authHeader(),
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+  const text = await res.text()
+  if (!res.ok) {
+    let parsed: unknown = text
+    try {
+      parsed = JSON.parse(text)
+    } catch {
+      // keep raw text
+    }
+    throw new JiraHttpError(res.status, parsed, path)
+  }
+  if (text.length === 0) return null
   return JSON.parse(text) as T
 }
 
@@ -172,7 +235,7 @@ function normalizeStatusCategory(key: string | undefined): StatusCategory {
   }
 }
 
-function browseUrl(key: string): string {
+export function browseUrl(key: string): string {
   return `${BASE_URL.replace(/\/+$/, '')}/browse/${key}`
 }
 
@@ -414,3 +477,304 @@ export async function searchByJql(opts: {
     nextPageToken: r.nextPageToken ?? null,
   }
 }
+
+// ---------------------------------------------------------------------------
+// Write surface — create / update / comment / transition
+// ---------------------------------------------------------------------------
+
+export type IssueTypeName = 'Story' | 'Task' | 'Bug' | 'Spike' | 'Sub-task' | 'Epic' | 'Requirement'
+export type PriorityName = 'Highest' | 'High' | 'Medium' | 'Low' | 'Lowest'
+export type SprintRef = 'current' | 'next' | 'backlog' | number
+
+interface AdfNode {
+  type: string
+  text?: string
+  marks?: Array<{ type: string }>
+  content?: AdfNode[]
+  attrs?: Record<string, unknown>
+}
+interface AdfDoc {
+  type: 'doc'
+  version: 1
+  content: AdfNode[]
+}
+
+// Plain text → ADF. We accept markdown-lite: blank lines split paragraphs,
+// single newlines become hard breaks. The Hermes footer is always appended
+// as a final italic paragraph so the human reader sees who filed the ticket.
+//
+// We deliberately don't try to parse headings/lists/code — agents that need
+// rich formatting should send `descriptionAdf` directly. Keeping the
+// converter dumb avoids surprises when the agent's markdown collides with
+// Jira's ADF semantics.
+function textToAdf(text: string | null | undefined, includeFooter: boolean): AdfDoc {
+  const paragraphs: AdfNode[] = []
+  const trimmed = (text ?? '').trim()
+  if (trimmed.length > 0) {
+    for (const block of trimmed.split(/\n{2,}/)) {
+      const lines = block.split('\n')
+      const content: AdfNode[] = []
+      lines.forEach((line, idx) => {
+        if (line.length > 0) content.push({ type: 'text', text: line })
+        if (idx < lines.length - 1) content.push({ type: 'hardBreak' })
+      })
+      if (content.length > 0) paragraphs.push({ type: 'paragraph', content })
+    }
+  }
+  if (includeFooter) {
+    paragraphs.push({
+      type: 'paragraph',
+      content: [{ type: 'text', text: HERMES_FOOTER, marks: [{ type: 'em' }] }],
+    })
+  }
+  return { type: 'doc', version: 1, content: paragraphs }
+}
+
+// Append the footer to an agent-supplied ADF doc. If the agent already
+// included the footer (rare), don't double-stamp.
+function ensureFooterAdf(doc: AdfDoc): AdfDoc {
+  const flat = JSON.stringify(doc)
+  if (flat.includes(HERMES_FOOTER)) return doc
+  return {
+    type: 'doc',
+    version: 1,
+    content: [
+      ...doc.content,
+      {
+        type: 'paragraph',
+        content: [{ type: 'text', text: HERMES_FOOTER, marks: [{ type: 'em' }] }],
+      },
+    ],
+  }
+}
+
+async function resolveSprintId(ref: SprintRef, boardId: number): Promise<number | null> {
+  if (typeof ref === 'number') return ref
+  if (ref === 'backlog') return null
+  const state = ref === 'current' ? 'active' : 'future'
+  const list = await listSprints({ boardId, state })
+  if (list.length === 0) {
+    throw new JiraHttpError(409, `No ${state} sprint on board ${boardId}`, '/sprint-resolve')
+  }
+  // Future sprints come back in chronological order; pick the earliest.
+  if (ref === 'next') {
+    return [...list].sort((a, b) => {
+      const aT = a.startDate ? Date.parse(a.startDate) : Number.MAX_SAFE_INTEGER
+      const bT = b.startDate ? Date.parse(b.startDate) : Number.MAX_SAFE_INTEGER
+      return aT - bT
+    })[0]!.id
+  }
+  return list[0]!.id
+}
+
+const ISSUE_TYPE_ID: Record<IssueTypeName, string> = {
+  Epic: '10000',
+  Story: '10001',
+  Task: '10002',
+  'Sub-task': '10003',
+  Bug: '10004',
+  Spike: '10338',
+  Requirement: '14523',
+}
+
+const PRIORITY_ID: Record<PriorityName, string> = {
+  Highest: '1',
+  High: '2',
+  Medium: '3',
+  Low: '4',
+  Lowest: '5',
+}
+
+export interface CreateIssueInput {
+  projectKey?: string
+  issueType: IssueTypeName
+  summary: string
+  description?: string | null
+  descriptionAdf?: AdfDoc
+  assigneeAccountId?: string | null
+  parentKey?: string // for sub-tasks
+  epicKey?: string | null // assign Story to Epic via customfield_10009
+  sprint?: SprintRef
+  storyPoints?: number | null
+  priority?: PriorityName
+  labels?: string[]
+  boardId?: number
+  team?: 'prometheus' | 'none'
+}
+
+export async function createIssue(
+  input: CreateIssueInput,
+): Promise<{ key: string; id: string; url: string }> {
+  const projectKey = input.projectKey ?? DEFAULT_PROJECT_KEY
+  const boardId = input.boardId ?? DEFAULT_BOARD_ID
+  const issueTypeId = ISSUE_TYPE_ID[input.issueType]
+  if (!issueTypeId) {
+    throw new JiraHttpError(400, `Unknown issue type "${input.issueType}"`, '/issue')
+  }
+
+  const fields: Record<string, unknown> = {
+    project: { key: projectKey },
+    issuetype: { id: issueTypeId },
+    summary: input.summary,
+    description: input.descriptionAdf
+      ? ensureFooterAdf(input.descriptionAdf)
+      : textToAdf(input.description ?? null, true),
+  }
+
+  if (input.team !== 'none') {
+    fields[FIELD_TEAM] = [{ id: DEFAULT_TEAM_OPTION_ID }]
+  }
+  if (input.assigneeAccountId) {
+    fields['assignee'] = { accountId: input.assigneeAccountId }
+  }
+  if (input.parentKey) {
+    fields['parent'] = { key: input.parentKey }
+  }
+  if (input.epicKey !== undefined && input.epicKey !== null) {
+    fields[FIELD_EPIC_LINK] = input.epicKey
+  }
+  if (input.storyPoints !== undefined && input.storyPoints !== null) {
+    fields[FIELD_STORY_POINTS] = input.storyPoints
+  }
+  if (input.priority) {
+    fields['priority'] = { id: PRIORITY_ID[input.priority] }
+  }
+  if (input.labels && input.labels.length > 0) {
+    fields['labels'] = input.labels
+  }
+  if (input.sprint !== undefined && input.sprint !== 'backlog') {
+    const sprintId = await resolveSprintId(input.sprint, boardId)
+    if (sprintId !== null) fields[FIELD_SPRINT] = sprintId
+  }
+
+  const created = await jiraWrite<{ id: string; key: string }>('POST', '/rest/api/3/issue', {
+    fields,
+  })
+  if (!created) throw new JiraHttpError(502, 'Empty response from Jira', '/rest/api/3/issue')
+  return {
+    id: created.id,
+    key: created.key,
+    url: browseUrl(created.key),
+  }
+}
+
+export interface UpdateIssueInput {
+  summary?: string
+  description?: string | null
+  descriptionAdf?: AdfDoc
+  assigneeAccountId?: string | null // null clears assignment
+  epicKey?: string | null // null removes from epic
+  sprint?: SprintRef
+  storyPoints?: number | null // null removes points
+  priority?: PriorityName
+  labels?: string[]
+  status?: string // free-form transition target name ("In Progress", "Code Review", "Done")
+  boardId?: number
+}
+
+export async function updateIssue(
+  key: string,
+  input: UpdateIssueInput,
+): Promise<{ key: string; url: string; transitioned: boolean }> {
+  const boardId = input.boardId ?? DEFAULT_BOARD_ID
+  const fields: Record<string, unknown> = {}
+
+  if (input.summary !== undefined) fields['summary'] = input.summary
+  if (input.descriptionAdf !== undefined) {
+    fields['description'] = ensureFooterAdf(input.descriptionAdf)
+  } else if (input.description !== undefined) {
+    fields['description'] = textToAdf(input.description, true)
+  }
+  if (input.assigneeAccountId !== undefined) {
+    fields['assignee'] =
+      input.assigneeAccountId === null ? null : { accountId: input.assigneeAccountId }
+  }
+  if (input.epicKey !== undefined) {
+    fields[FIELD_EPIC_LINK] = input.epicKey
+  }
+  if (input.storyPoints !== undefined) {
+    fields[FIELD_STORY_POINTS] = input.storyPoints
+  }
+  if (input.priority !== undefined) {
+    fields['priority'] = { id: PRIORITY_ID[input.priority] }
+  }
+  if (input.labels !== undefined) {
+    fields['labels'] = input.labels
+  }
+  if (input.sprint !== undefined) {
+    const sprintId =
+      input.sprint === 'backlog' ? null : await resolveSprintId(input.sprint, boardId)
+    fields[FIELD_SPRINT] = sprintId
+  }
+
+  if (Object.keys(fields).length > 0) {
+    await jiraWrite('PUT', `/rest/api/3/issue/${encodeURIComponent(key)}`, { fields })
+  }
+
+  let transitioned = false
+  if (input.status !== undefined) {
+    await transitionIssue(key, input.status)
+    transitioned = true
+  }
+
+  return { key, url: browseUrl(key), transitioned }
+}
+
+interface RawTransition {
+  id: string
+  name: string
+  to?: { name?: string }
+}
+
+export async function listTransitions(
+  key: string,
+): Promise<Array<{ id: string; name: string; targetStatus: string | null }>> {
+  const r = await jira<{ transitions?: RawTransition[] }>(
+    `/rest/api/3/issue/${encodeURIComponent(key)}/transitions`,
+  )
+  return (r.transitions ?? []).map((t) => ({
+    id: t.id,
+    name: t.name,
+    targetStatus: t.to?.name ?? null,
+  }))
+}
+
+export async function transitionIssue(key: string, statusOrTransition: string): Promise<void> {
+  const transitions = await listTransitions(key)
+  const target = statusOrTransition.trim().toLowerCase()
+  const match =
+    transitions.find((t) => t.name.toLowerCase() === target) ??
+    transitions.find((t) => (t.targetStatus ?? '').toLowerCase() === target) ??
+    transitions.find((t) => t.name.toLowerCase().includes(target))
+  if (!match) {
+    const avail = transitions.map((t) => `${t.name}→${t.targetStatus ?? '?'}`).join(', ')
+    throw new JiraHttpError(
+      409,
+      `No transition matches "${statusOrTransition}". Available: ${avail}`,
+      `/rest/api/3/issue/${key}/transitions`,
+    )
+  }
+  await jiraWrite('POST', `/rest/api/3/issue/${encodeURIComponent(key)}/transitions`, {
+    transition: { id: match.id },
+  })
+}
+
+export interface AddCommentInput {
+  body: string
+  bodyAdf?: AdfDoc
+}
+
+export async function addComment(key: string, input: AddCommentInput): Promise<{ id: string }> {
+  const doc = input.bodyAdf ? ensureFooterAdf(input.bodyAdf) : textToAdf(input.body, true)
+  const created = await jiraWrite<{ id: string }>(
+    'POST',
+    `/rest/api/3/issue/${encodeURIComponent(key)}/comment`,
+    { body: doc },
+  )
+  if (!created)
+    throw new JiraHttpError(502, 'Empty response from Jira', `/rest/api/3/issue/${key}/comment`)
+  return { id: created.id }
+}
+
+// Export for tests
+export const __test = { textToAdf, ensureFooterAdf, HERMES_FOOTER }

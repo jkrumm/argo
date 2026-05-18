@@ -2,6 +2,11 @@ import { Elysia } from 'elysia'
 import { z } from 'zod'
 import {
   DEFAULT_BOARD_ID,
+  DEFAULT_PROJECT_KEY,
+  JiraHttpError,
+  addComment,
+  browseUrl,
+  createIssue,
   getMyself,
   getIssue,
   getBacklog,
@@ -9,9 +14,21 @@ import {
   getCurrentSprint,
   listMyOpenIssues,
   listSprints,
+  listTransitions,
   searchByJql,
   searchUsers,
+  updateIssue,
 } from '../clients/jira.js'
+
+function mapError(error: unknown): { status: number; message: string } {
+  if (error instanceof JiraHttpError) {
+    // Atlassian-side 4xx surfaces as 4xx to the agent so it can react;
+    // anything else gets bundled as a transient upstream failure (503).
+    const status = error.status >= 400 && error.status < 500 ? error.status : 503
+    return { status, message: error.message }
+  }
+  return { status: 503, message: error instanceof Error ? error.message : 'Jira error' }
+}
 
 // --- Shared response schemas ----------------------------------------------
 
@@ -452,6 +469,379 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
         summary: 'Resolve Atlassian users by name/email',
         description:
           "Wraps Jira Cloud's `/rest/api/3/user/search`. Returns only atlassian-type users (filters out `app` and `customer` accounts that pollute the raw response). Primary use: bridge a Teams/M365 person to their Jira accountId so agents can run JQL like `assignee = <accountId>` or look up tickets across systems. For the authenticated user's own accountId, use /atlassian/jira/me instead — cheaper and avoids a search call.",
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
+  // --- Write surface ----------------------------------------------------
+  //
+  // Every issue created or commented via these endpoints is automatically:
+  //   - assigned to the "Prometheus" Team option (customfield_11688)
+  //   - stamped with an italic Hermes-attribution footer in the description/body
+  //
+  // Agents do NOT need to supply the team, the footer, or a project key —
+  // those are derived from JIRA_DEFAULT_PROJECT_KEY / JIRA_DEFAULT_TEAM_OPTION_ID.
+  // Before creating, agents should call GET /atlassian/jira/current-sprint or
+  // /atlassian/jira/search to inspect sibling tickets for the project's title
+  // convention (e.g. `[Topic][Sub-topic] Description`) so the new ticket fits.
+  .get(
+    '/create-meta',
+    () => ({
+      projectKey: DEFAULT_PROJECT_KEY,
+      boardId: DEFAULT_BOARD_ID,
+      defaultTeam: 'Prometheus',
+      issueTypes: ['Story', 'Task', 'Bug', 'Spike', 'Sub-task', 'Epic', 'Requirement'],
+      priorities: ['Highest', 'High', 'Medium', 'Low', 'Lowest'],
+      sprintRefs: ['current', 'next', 'backlog'],
+      transitions: [
+        'To Do',
+        'In Progress',
+        'Code Review',
+        'QA Tech',
+        'QA Business',
+        'QA Design',
+        'Refinement Done',
+        'Blocked',
+        'On Hold',
+        'Done',
+      ],
+      titleConvention:
+        'Prefix with bracketed topic tags, stackable. Examples: "[FE][Booking Migration] Phase 3 - BookingsView", "[MS][TMC][Cancellation] Block finance fields", "[BI] Fix 2 failed prod imports". Look at GET /atlassian/jira/current-sprint for live examples.',
+      hermesFooter:
+        "Italic line '_Created by Johannes' personal Hermes Agent_' is appended automatically to every description and comment body — do NOT add it manually.",
+    }),
+    {
+      response: z.object({
+        projectKey: z.string(),
+        boardId: z.number().int(),
+        defaultTeam: z.string(),
+        issueTypes: z.array(z.string()),
+        priorities: z.array(z.string()),
+        sprintRefs: z.array(z.string()),
+        transitions: z.array(z.string()),
+        titleConvention: z.string(),
+        hermesFooter: z.string(),
+      }),
+      detail: {
+        tags: ['Atlassian'],
+        summary: 'Self-describing metadata for the Jira write surface',
+        description:
+          "Returns the constants an agent needs to fill a valid POST /atlassian/jira/issues body: the default project key (`EP`), the board (`272` — Prometheus), the accepted issue type and priority enums, the sprint keyword set, the transition names available on a typical ticket, and the team's title-bracket convention. Read this once before any create/update call so you don't have to memorize field names. Issue-type / priority / transition lists are static client-side mappings (verified live against the EP project); the actual transitions returned for a specific ticket may differ slightly per workflow state — use /atlassian/jira/issues/{key}/transitions for the exact list when transitioning.",
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
+  .post(
+    '/issues',
+    async ({ body, set }) => {
+      try {
+        return await createIssue({
+          issueType: body.issueType,
+          summary: body.summary,
+          description: body.description ?? null,
+          ...(body.assigneeAccountId !== undefined
+            ? { assigneeAccountId: body.assigneeAccountId }
+            : {}),
+          ...(body.parentKey !== undefined ? { parentKey: body.parentKey } : {}),
+          ...(body.epicKey !== undefined ? { epicKey: body.epicKey } : {}),
+          ...(body.sprint !== undefined ? { sprint: body.sprint } : {}),
+          ...(body.storyPoints !== undefined ? { storyPoints: body.storyPoints } : {}),
+          ...(body.priority !== undefined ? { priority: body.priority } : {}),
+          ...(body.labels !== undefined ? { labels: body.labels } : {}),
+          ...(body.team !== undefined ? { team: body.team } : {}),
+        })
+      } catch (error) {
+        const { status, message } = mapError(error)
+        set.status = status
+        return message
+      }
+    },
+    {
+      body: z.object({
+        issueType: z
+          .enum(['Story', 'Task', 'Bug', 'Spike', 'Sub-task', 'Epic', 'Requirement'])
+          .describe(
+            'Issue type. Use `Story` for user-facing features, `Task` for engineering chores, `Bug` for defects, `Spike` for time-boxed investigations, `Sub-task` when `parentKey` is also set, `Epic` for multi-sprint themes.',
+          ),
+        summary: z
+          .string()
+          .min(1)
+          .max(255)
+          .describe(
+            'Ticket title. Follow the team convention: bracketed topic tags first, then a concise imperative. Stack multiple brackets when relevant: "[FE][Booking] Migrate OverviewInformation", "[MS][TMC][Cancellation] Block finance fields". Inspect /atlassian/jira/current-sprint before composing — match the existing prefix taxonomy.',
+          ),
+        description: z
+          .string()
+          .describe(
+            'Plain text. Blank lines split paragraphs, single newlines become hard breaks. The Hermes footer (italic "Created by Johannes\' personal Hermes Agent") is auto-appended — do NOT add it manually. For richer formatting (panels, code blocks, bullet lists) Argo currently converts plain text only; raise the limit if needed.',
+          )
+          .optional(),
+        assigneeAccountId: z
+          .string()
+          .describe(
+            'Atlassian accountId (NOT email or display name). Resolve from /atlassian/jira/me (for Johannes), /atlassian/jira/users/search, or /m365/team members[].atlassian.accountId. Omit to leave unassigned.',
+          )
+          .optional(),
+        parentKey: z
+          .string()
+          .regex(/^[A-Z]+-\d+$/)
+          .describe(
+            'Parent issue key (e.g. "EP-17850") — REQUIRED when issueType is "Sub-task", otherwise leave empty.',
+          )
+          .optional(),
+        epicKey: z
+          .string()
+          .regex(/^[A-Z]+-\d+$/)
+          .describe(
+            'Epic key (e.g. "EP-16692") to link this Story/Task under. Distinct from `parentKey` — Epic Link is a Story-on-Epic association, not a hierarchy.',
+          )
+          .optional(),
+        sprint: z
+          .union([z.enum(['current', 'next', 'backlog']), z.number().int().positive()])
+          .describe(
+            'Where to place the ticket. `current` → active sprint on board 272 (Prometheus), `next` → earliest future sprint, `backlog` → leave unscheduled (default behavior if omitted). Or pass a numeric sprint ID directly when you already know it (from /atlassian/jira/sprints).',
+          )
+          .optional(),
+        storyPoints: z
+          .number()
+          .min(0)
+          .max(100)
+          .describe(
+            'Estimation in story points. Usually OMIT — points should be set during team refinement, not at creation. Only set when the ticket is a pre-estimated chore (e.g. "1 — config tweak").',
+          )
+          .optional(),
+        priority: z
+          .enum(['Highest', 'High', 'Medium', 'Low', 'Lowest'])
+          .describe('Priority. Defaults to Medium upstream when omitted.')
+          .optional(),
+        labels: z
+          .array(z.string())
+          .describe(
+            'Free-form labels. Conventions on this project include "tech", "business", "now", "next", "later", "Refinement", "Missing_Scenarios". Avoid inventing new label vocabulary without discussion.',
+          )
+          .optional(),
+        team: z
+          .enum(['prometheus', 'none'])
+          .describe(
+            'Team assignment. Defaults to `prometheus` — Argo always stamps Team=Prometheus (customfield_11688). Pass `none` only if you explicitly want to create an unassigned cross-team ticket.',
+          )
+          .optional(),
+      }),
+      response: {
+        200: z.object({
+          key: z.string().describe('Newly created issue key, e.g. "EP-17920"'),
+          id: z.string().describe('Numeric issue id (string-wrapped, as Jira returns it)'),
+          url: z.string().describe('Browse URL — open this to inspect the ticket in Jira'),
+        }),
+        400: z.string(),
+        403: z.string(),
+        503: z.string(),
+      },
+      detail: {
+        tags: ['Atlassian'],
+        summary: 'Create a Jira ticket on the Prometheus board',
+        description:
+          'Creates a new issue in the EP project, Team=Prometheus (always — board 272). Returns the new key + URL. The description is auto-suffixed with an italic Hermes attribution line. \n\n**Agent checklist before calling:** (1) call GET /atlassian/jira/create-meta if you forgot the field shape, (2) call GET /atlassian/jira/current-sprint to see how sibling tickets are titled (bracket convention), (3) for sub-tasks set `parentKey`, for Story-on-Epic set `epicKey`. Sprint defaults to backlog — pass `sprint: "current"` to drop the ticket directly into this week\'s sprint. \n\nFor updates use PATCH /atlassian/jira/issues/{key}; for comments POST /atlassian/jira/issues/{key}/comments. To resolve an assignee\'s accountId from a name use /atlassian/jira/users/search.',
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
+  .patch(
+    '/issues/:key',
+    async ({ params, body, set }) => {
+      try {
+        return await updateIssue(params.key, {
+          ...(body.summary !== undefined ? { summary: body.summary } : {}),
+          ...(body.description !== undefined ? { description: body.description } : {}),
+          ...(body.assigneeAccountId !== undefined
+            ? { assigneeAccountId: body.assigneeAccountId }
+            : {}),
+          ...(body.epicKey !== undefined ? { epicKey: body.epicKey } : {}),
+          ...(body.sprint !== undefined ? { sprint: body.sprint } : {}),
+          ...(body.storyPoints !== undefined ? { storyPoints: body.storyPoints } : {}),
+          ...(body.priority !== undefined ? { priority: body.priority } : {}),
+          ...(body.labels !== undefined ? { labels: body.labels } : {}),
+          ...(body.status !== undefined ? { status: body.status } : {}),
+        })
+      } catch (error) {
+        const { status, message } = mapError(error)
+        set.status = status
+        return message
+      }
+    },
+    {
+      params: z.object({
+        key: z
+          .string()
+          .regex(/^[A-Z]+-\d+$/)
+          .describe('Issue key, e.g. "EP-17849"'),
+      }),
+      body: z.object({
+        summary: z
+          .string()
+          .min(1)
+          .max(255)
+          .optional()
+          .describe("New ticket title. Keep the team's bracket convention."),
+        description: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            'Replaces the entire description (Jira PUT semantics — there is no append). Pass empty string to clear. Hermes footer is re-stamped automatically. To add a follow-up note without rewriting, prefer POST /atlassian/jira/issues/{key}/comments.',
+          ),
+        assigneeAccountId: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            'Atlassian accountId, or null to unassign. Resolve via /atlassian/jira/users/search.',
+          ),
+        epicKey: z
+          .string()
+          .regex(/^[A-Z]+-\d+$/)
+          .nullable()
+          .optional()
+          .describe('Epic key to link under, or null to remove from epic.'),
+        sprint: z
+          .union([z.enum(['current', 'next', 'backlog']), z.number().int().positive()])
+          .optional()
+          .describe(
+            'Move to current/next sprint, drop to backlog, or assign to a specific sprint id.',
+          ),
+        storyPoints: z
+          .number()
+          .min(0)
+          .max(100)
+          .nullable()
+          .optional()
+          .describe(
+            'Set or clear story points. Usually done by the team during refinement — be conservative about updating from an agent.',
+          ),
+        priority: z.enum(['Highest', 'High', 'Medium', 'Low', 'Lowest']).optional(),
+        labels: z
+          .array(z.string())
+          .optional()
+          .describe(
+            'REPLACES the full label set — to add one, fetch existing labels first via GET /atlassian/jira/issue/{key}.',
+          ),
+        status: z
+          .string()
+          .optional()
+          .describe(
+            'Transition target — accepts a workflow transition name OR the destination status name (case-insensitive prefix match). Common values: "In Progress", "Code Review", "QA Tech", "QA Business", "Refinement Done", "Blocked", "Done". The active set of transitions depends on the ticket\'s current state — if the requested transition is unavailable you\'ll get a 409 listing the valid options.',
+          ),
+      }),
+      response: {
+        200: z.object({
+          key: z.string(),
+          url: z.string(),
+          transitioned: z
+            .boolean()
+            .describe('true when the `status` field triggered a workflow transition'),
+        }),
+        400: z.string(),
+        404: z.string(),
+        409: z
+          .string()
+          .describe(
+            'Returned when a requested status transition is not available from the current state — message lists valid transitions.',
+          ),
+        503: z.string(),
+      },
+      detail: {
+        tags: ['Atlassian'],
+        summary: 'Partially update a Jira ticket (fields + optional status transition)',
+        description:
+          'PATCH semantics: every supplied field is updated; omitted fields are left untouched. Two notable Jira gotchas wrapped here: (1) PUT description in Jira REPLACES the body (no native append) — pass null/empty to clear, or use POST .../comments for incremental notes; (2) `labels` REPLACES the full set — read existing labels first to add one. Status changes piggyback on the same call: pass `status: "Code Review"` to fire the matching workflow transition after the field update. Returns the canonical URL + a `transitioned` boolean so the agent knows whether the state actually moved.',
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
+  .post(
+    '/issues/:key/comments',
+    async ({ params, body, set }) => {
+      try {
+        const r = await addComment(params.key, { body: body.body })
+        return {
+          id: r.id,
+          key: params.key,
+          issueUrl: browseUrl(params.key),
+        }
+      } catch (error) {
+        const { status, message } = mapError(error)
+        set.status = status
+        return message
+      }
+    },
+    {
+      params: z.object({
+        key: z.string().regex(/^[A-Z]+-\d+$/),
+      }),
+      body: z.object({
+        body: z
+          .string()
+          .min(1)
+          .describe(
+            'Comment text. Blank lines split paragraphs. Hermes footer auto-appended. Use for follow-ups that should NOT overwrite the description — e.g. status updates, "tested locally, looks good", "blocked by EP-17XXX".',
+          ),
+      }),
+      response: {
+        200: z.object({
+          id: z.string().describe('Comment id'),
+          key: z.string(),
+          issueUrl: z.string().describe('Browse URL of the parent ticket'),
+        }),
+        400: z.string(),
+        404: z.string(),
+        503: z.string(),
+      },
+      detail: {
+        tags: ['Atlassian'],
+        summary: 'Post a comment on a Jira ticket',
+        description:
+          'Adds a comment to the ticket. Use this for incremental updates instead of PATCH .../issues/{key} with description — comments preserve the original description and keep an audit trail. Footer is auto-appended so the team always sees who filed the note.',
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
+  .get(
+    '/issues/:key/transitions',
+    async ({ params, set }) => {
+      try {
+        const transitions = await listTransitions(params.key)
+        return { transitions }
+      } catch (error) {
+        const { status, message } = mapError(error)
+        set.status = status
+        return message
+      }
+    },
+    {
+      params: z.object({ key: z.string().regex(/^[A-Z]+-\d+$/) }),
+      response: {
+        200: z.object({
+          transitions: z.array(
+            z.object({
+              id: z.string().describe('Numeric transition id (workflow-specific)'),
+              name: z
+                .string()
+                .describe('Human transition label, e.g. "Code Review", "Refinement Done"'),
+              targetStatus: z
+                .string()
+                .nullable()
+                .describe('The status the ticket lands in after the transition fires'),
+            }),
+          ),
+        }),
+        404: z.string(),
+        503: z.string(),
+      },
+      detail: {
+        tags: ['Atlassian'],
+        summary: "List transitions available on a ticket's current state",
+        description:
+          'Returns the workflow transitions valid for this ticket right now. Use this before PATCH .../issues/{key} with `status: "..."` if you\'re unsure which targets are reachable — the EP workflow gates some transitions on the source state. The returned `name` and `targetStatus` are both accepted by the PATCH `status` field (case-insensitive).',
         security: [{ BearerAuth: [] }],
       },
     },
