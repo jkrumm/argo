@@ -5,7 +5,7 @@ import {
   detectWalkingPadAchievements,
   hourOfDayMatrix,
   isoWeekKey,
-  sessionLengthHistogram,
+  sessionDistributionHistogram,
   type WalkingPadSessionRow,
 } from './walking-pad-formulas.js'
 
@@ -245,17 +245,44 @@ describe('hourOfDayMatrix', () => {
   })
 })
 
-describe('sessionLengthHistogram', () => {
-  it('clamps long sessions at the top bucket', () => {
+describe('sessionDistributionHistogram', () => {
+  it('clamps long sessions at the top duration bucket', () => {
     const sessions = [
       row('a', '2026-05-17T10:00:00Z', { duration_s: 60 * 7 }), // 7 min → bucket 5
       row('b', '2026-05-17T10:00:00Z', { duration_s: 60 * 130 }), // 130 min → bucket 90 (clamp)
     ]
-    const hist = sessionLengthHistogram(sessions)
-    const b5 = hist.find((b) => b.bucketMin === 5)
-    const b90 = hist.find((b) => b.bucketMin === 90)
+    const hist = sessionDistributionHistogram(sessions, 'duration')
+    const b5 = hist.find((b) => b.bucketStart === 5)
+    const b90 = hist.find((b) => b.bucketStart === 90)
     expect(b5?.sessions).toBe(1)
     expect(b90?.sessions).toBe(1)
+  })
+
+  it('buckets by steps in 1000-step bins, clamping at 20000', () => {
+    const sessions = [
+      row('a', '2026-05-17T10:00:00Z', { steps: 800 }), // bucket 0
+      row('b', '2026-05-17T10:00:00Z', { steps: 7500 }), // bucket 7000
+      row('c', '2026-05-17T10:00:00Z', { steps: 7900 }), // bucket 7000
+      row('d', '2026-05-17T10:00:00Z', { steps: 50_000 }), // bucket 20000 (clamp)
+    ]
+    const hist = sessionDistributionHistogram(sessions, 'steps')
+    expect(hist.find((b) => b.bucketStart === 0)?.sessions).toBe(1)
+    expect(hist.find((b) => b.bucketStart === 7000)?.sessions).toBe(2)
+    expect(hist.find((b) => b.bucketStart === 20_000)?.sessions).toBe(1)
+    expect(hist[0]?.bucketWidth).toBe(1000)
+  })
+
+  it('buckets by distance in 500-m bins, clamping at 10000', () => {
+    const sessions = [
+      row('a', '2026-05-17T10:00:00Z', { distance_m: 250 }), // bucket 0
+      row('b', '2026-05-17T10:00:00Z', { distance_m: 800 }), // bucket 500
+      row('c', '2026-05-17T10:00:00Z', { distance_m: 15_000 }), // bucket 10000 (clamp)
+    ]
+    const hist = sessionDistributionHistogram(sessions, 'distance')
+    expect(hist.find((b) => b.bucketStart === 0)?.sessions).toBe(1)
+    expect(hist.find((b) => b.bucketStart === 500)?.sessions).toBe(1)
+    expect(hist.find((b) => b.bucketStart === 10_000)?.sessions).toBe(1)
+    expect(hist[0]?.bucketWidth).toBe(500)
   })
 })
 

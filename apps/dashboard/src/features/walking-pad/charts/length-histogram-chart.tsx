@@ -1,152 +1,105 @@
-import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useElementSize } from '@mantine/hooks'
-import { Bars, ChartCard, ChartLegend, TooltipRow } from '@argo/charts'
+import { Bars, ChartCard, useVxTheme } from '@argo/charts'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
-import { METRIC_DEFS, fmtSteps, useMetricSelection, type MetricKey } from '../metric-toggle'
+import { METRIC_DEFS, useMetricSelection, type MetricKey } from '../metric-toggle'
 import { ChartEmpty } from './empty'
 
-type Bucket = {
-  bucketMin: number
-  sessions: number
-  distance_m: number
-  duration_s: number
-  steps: number
+type Bucket = { bucketStart: number; bucketWidth: number; sessions: number }
+
+const fmtK = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k` : `${n}`)
+
+const BUCKET_FORMATTERS: Record<
+  MetricKey,
+  (start: number, width: number, isLast: boolean) => string
+> = {
+  duration: (s, _w, isLast) => (isLast ? `${s}+m` : `${s}m`),
+  distance: (s, w, isLast) => (isLast ? `${fmtK(s)}+m` : `${fmtK(s)}–${fmtK(s + w)}m`),
+  steps: (s, w, isLast) => (isLast ? `${fmtK(s)}+` : `${fmtK(s)}–${fmtK(s + w)}`),
 }
 
-type HistogramMetric = {
-  pick: (b: Bucket) => number
-  formatTotal: (v: number) => string
-  autoMaxFloor: number
+function getValue(d: Bucket, key: string): number | null {
+  if (key !== 'sessions') return null
+  return d.sessions > 0 ? d.sessions : null
 }
 
-const HIST_METRICS: Record<MetricKey, HistogramMetric> = {
-  distance: {
-    pick: (b) => b.distance_m,
-    formatTotal: (m) => `${(m / 1000).toFixed(1)} km total`,
-    autoMaxFloor: 1000,
-  },
-  duration: {
-    pick: (b) => b.duration_s,
-    formatTotal: (s) => `${(s / 3600).toFixed(1)} h total`,
-    autoMaxFloor: 1800,
-  },
-  steps: {
-    pick: (b) => b.steps,
-    formatTotal: (v) => `${fmtSteps(v)} steps total`,
-    autoMaxFloor: 3000,
-  },
+const AXIS_LABELS: Record<MetricKey, { title: string; subtitle: string; xUnit: string }> = {
+  duration: { title: 'Session length', subtitle: 'How long are my walks?', xUnit: 'minutes' },
+  distance: { title: 'Session distance', subtitle: 'How far are my walks?', xUnit: 'meters' },
+  steps: { title: 'Session steps', subtitle: 'How many steps per walk?', xUnit: 'steps' },
 }
 
-const fmtPct = (v: number) => `${Math.round(v * 100)}%`
+const fmtSessions = (v: number) => `${Math.round(v)} session${Math.round(v) === 1 ? '' : 's'}`
 
 export function LengthHistogramChart({ params }: { params: WalkingPadWindowParams }) {
-  const { data } = useSuspenseQuery(walkingPadQueries.lengthHistogram(params))
-  const { ref, width } = useElementSize<HTMLDivElement>()
   const { enabled } = useMetricSelection()
+  // The toggle picks the *bucketing dimension*. With multiple enabled, the
+  // first one drives this chart; with none enabled we still need to fetch
+  // something so the empty-state has a sensible default — fall back to
+  // duration (the original meaning of "session length").
+  const driver: MetricKey = enabled[0] ?? 'duration'
+  const { data } = useSuspenseQuery(
+    walkingPadQueries.lengthHistogram({ ...params, metric: driver }),
+  )
+  const { ref, width } = useElementSize<HTMLDivElement>()
+  const { line2 } = useVxTheme()
 
   const buckets: Bucket[] = data.buckets
   const totalSessions = buckets.reduce((s, b) => s + b.sessions, 0)
-  // Mode (busiest bucket) — useful "you tend to walk X minutes" abstraction.
-  // Always derived from session count regardless of metric selection.
+  const labels = AXIS_LABELS[driver]
+  const fmtBucket = BUCKET_FORMATTERS[driver]
+  const maxBucketStart = buckets.length > 0 ? (buckets[buckets.length - 1]?.bucketStart ?? 0) : 0
+
+  // Mode (busiest bucket) for the at-a-glance header.
   const mode = buckets.reduce<Bucket | null>(
     (best, b) => (best === null || b.sessions > best.sessions ? b : best),
     null,
   )
-
-  const metricMax = useMemo(() => {
-    const out = {} as Record<MetricKey, number>
-    for (const m of enabled) {
-      let max = 0
-      for (const b of buckets) {
-        const v = HIST_METRICS[m].pick(b)
-        if (v > max) max = v
-      }
-      out[m] = max
-    }
-    return out
-  }, [buckets, enabled])
-
-  const hasData = enabled.some((m) => (metricMax[m] ?? 0) > 0)
-  const isMulti = enabled.length > 1
+  const modeLabel =
+    mode !== null && mode.sessions > 0
+      ? fmtBucket(mode.bucketStart, mode.bucketWidth, mode.bucketStart === maxBucketStart)
+      : null
 
   if (enabled.length === 0) {
     return (
       <ChartCard
-        title="Session length"
-        subtitle="How long are my walks?"
-        tooltip="Distribution across 5-minute duration buckets, clamped at 90 minutes. Pick one or more metrics from the page header to populate."
+        title={labels.title}
+        subtitle={labels.subtitle}
+        tooltip="Frequency histogram of sessions across buckets of the toggled metric. Pick one or more metrics from the page header to populate."
       >
         <ChartEmpty height={240} label="No metric selected — toggle one in the page header." />
       </ChartCard>
     )
   }
 
-  const getValue = (d: Bucket, key: string): number | null => {
-    const m = key as MetricKey
-    if (!enabled.includes(m)) return null
-    const raw = HIST_METRICS[m].pick(d)
-    if (raw <= 0) return null
-    if (!isMulti) return raw
-    const max = metricMax[m] ?? 0
-    if (max <= 0) return null
-    return raw / max
-  }
+  const getX = (d: Bucket) =>
+    fmtBucket(d.bucketStart, d.bucketWidth, d.bucketStart === maxBucketStart)
 
-  const positiveBars = enabled.map((m) => ({
-    key: m,
-    label: METRIC_DEFS[m].label,
-    color: METRIC_DEFS[m].color,
-    formatValue: METRIC_DEFS[m].format,
-  }))
-
-  const singleMetric = enabled[0]
-  const singleDef = singleMetric !== undefined ? METRIC_DEFS[singleMetric] : null
-  const singleConfig = singleMetric !== undefined ? HIST_METRICS[singleMetric] : null
-
-  const headerSummary = (
-    <span style={{ display: 'inline-flex', gap: 12, flexWrap: 'wrap' }}>
-      {mode !== null && mode.sessions > 0 ? (
-        <span style={{ fontSize: 12, fontWeight: 600 }}>
-          most common: {mode.bucketMin}–{mode.bucketMin + 5} min
-        </span>
-      ) : null}
-      {enabled.map((m) => (
-        <span key={m} style={{ fontSize: 12, fontWeight: 600, color: METRIC_DEFS[m].color }}>
-          {HIST_METRICS[m].formatTotal(buckets.reduce((s, b) => s + HIST_METRICS[m].pick(b), 0))}
-        </span>
-      ))}
-    </span>
-  )
-
-  const renderExtraTooltipRows = isMulti
-    ? (d: Bucket) => (
-        <>
-          {enabled.map((m) => {
-            const raw = HIST_METRICS[m].pick(d)
-            return (
-              <TooltipRow
-                key={m}
-                color={METRIC_DEFS[m].color}
-                label={METRIC_DEFS[m].label}
-                value={raw > 0 ? METRIC_DEFS[m].format(raw) : '—'}
-                shape="bar"
-              />
-            )
-          })}
-        </>
-      )
-    : undefined
+  // For 2+ metrics the chart still bins by *one* dimension (the first
+  // enabled). Annotate so the user understands which dimension is in play.
+  const isMultiSelected = enabled.length > 1
+  const multiNote = isMultiSelected
+    ? ` Bucketed by ${METRIC_DEFS[driver].label} (first enabled metric).`
+    : ''
 
   return (
     <ChartCard
-      title="Session length"
-      subtitle="How long are my walks?"
-      tooltip="Distribution of session metrics across 5-minute duration buckets (clamped at 90 min). With 2+ metrics, bars are normalized to each metric's own window-max so the rhythm is comparable; tooltips show absolute values."
-      extra={hasData ? headerSummary : null}
+      title={labels.title}
+      subtitle={labels.subtitle}
+      tooltip={
+        `Frequency histogram of sessions bucketed by ${labels.xUnit}. ` +
+        `Y-axis is the number of sessions whose ${METRIC_DEFS[driver].label.toLowerCase()} falls into each bucket. ` +
+        `Top bucket is a clamped overflow.` +
+        multiNote
+      }
+      extra={
+        totalSessions > 0 && modeLabel !== null ? (
+          <span style={{ fontSize: 12, fontWeight: 600 }}>most common: {modeLabel}</span>
+        ) : null
+      }
     >
       <div ref={ref} style={{ height: 240, width: '100%' }}>
-        {!hasData ? (
+        {totalSessions === 0 ? (
           <ChartEmpty height={240} label="No sessions in this window." />
         ) : width > 0 ? (
           <Bars<Bucket>
@@ -154,34 +107,30 @@ export function LengthHistogramChart({ params }: { params: WalkingPadWindowParam
             width={Math.max(width, 200)}
             height={240}
             chartId="walking-pad-length-histogram"
-            getX={(d) => `${d.bucketMin}m`}
+            getX={getX}
             getValue={getValue}
-            positiveBars={positiveBars}
-            barLayout={isMulti ? 'grouped' : 'stacked'}
+            positiveBars={[
+              { key: 'sessions', label: 'Sessions', color: METRIC_DEFS[driver].color },
+            ]}
             leftAxis={{
-              domain: isMulti ? [0, 1] : 'auto',
-              formatTick: isMulti ? fmtPct : (singleDef?.format ?? fmtPct),
+              domain: 'auto',
+              formatTick: (v) => String(Math.round(v)),
               numTicks: 4,
-              autoMaxFloor: isMulti ? undefined : singleConfig?.autoMaxFloor,
+              autoMaxFloor: 3,
             }}
-            formatValue={isMulti ? fmtPct : (singleDef?.format ?? fmtPct)}
-            hideBarTooltipRows={isMulti}
-            renderExtraTooltipRows={renderExtraTooltipRows}
+            formatValue={fmtSessions}
+            numTicksX={driver === 'duration' ? 7 : 6}
           />
         ) : null}
       </div>
-      <ChartLegend
-        items={enabled.map((m) => ({
-          key: m,
-          label: METRIC_DEFS[m].label,
-          color: METRIC_DEFS[m].color,
-          shape: 'bar' as const,
-        }))}
-      />
       <span style={{ fontSize: 11, color: 'var(--mantine-color-dimmed)', marginTop: 4 }}>
-        {totalSessions} sessions · 5-min buckets, clamped at 90 min
-        {isMulti ? ' · normalized per metric (hover for absolute values)' : ''}
+        {totalSessions} session{totalSessions === 1 ? '' : 's'} · binned by{' '}
+        {METRIC_DEFS[driver].label.toLowerCase()}
+        {isMultiSelected ? ' (first enabled metric drives the binning)' : ''}
       </span>
+      {/* Reference line2 so the theme refresh dep stays satisfied across
+          theme toggles where this chart doesn't otherwise consume it. */}
+      <span style={{ display: 'none' }}>{line2}</span>
     </ChartCard>
   )
 }

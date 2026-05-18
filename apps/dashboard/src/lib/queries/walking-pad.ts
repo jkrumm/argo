@@ -44,7 +44,9 @@ export const walkingPadQueries = {
         unwrap(await api['walking-pad'].sessions['hour-of-day'].get({ query: params })),
     }),
 
-  lengthHistogram: (params: WalkingPadWindowParams) =>
+  lengthHistogram: (
+    params: WalkingPadWindowParams & { metric?: 'duration' | 'distance' | 'steps' },
+  ) =>
     queryOptions({
       queryKey: [...walkingPadQueries.all(), 'length-histogram', params] as const,
       queryFn: async () =>

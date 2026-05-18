@@ -136,17 +136,22 @@ function WalkingPadPage() {
           </SimpleGrid>
         </Section>
 
-        <Section title="Patterns" subtitle="When do I tend to walk?">
-          <Suspense fallback={<ChartSkeleton height={240} />}>
-            <TimeOfDayChart params={params} />
-          </Suspense>
-        </Section>
-
-        <Section title="History" subtitle="Every closed session, newest first.">
-          <Suspense fallback={<ChartSkeleton height={420} />}>
-            <SessionHistoryTable />
-          </Suspense>
-        </Section>
+        <Grid>
+          <Grid.Col span={{ base: 12, lg: 4 }}>
+            <Section title="Patterns" subtitle="When do I tend to walk?">
+              <Suspense fallback={<ChartSkeleton height={240} />}>
+                <TimeOfDayChart params={params} />
+              </Suspense>
+            </Section>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, lg: 8 }}>
+            <Section title="History" subtitle="Every closed session, newest first.">
+              <Suspense fallback={<ChartSkeleton height={420} />}>
+                <SessionHistoryTable />
+              </Suspense>
+            </Section>
+          </Grid.Col>
+        </Grid>
       </Stack>
     </HoverContext.Provider>
   )

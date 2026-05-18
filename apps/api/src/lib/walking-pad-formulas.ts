@@ -680,46 +680,59 @@ export function hourOfDayMatrix(sessions: WalkingPadSessionRow[]): HourDowCell[]
   return [...map.values()]
 }
 
-// ── Session length histogram (5-min buckets) ──────────────────────────────
+// ── Session distribution histogram ─────────────────────────────────────────
+//
+// "How are my sessions distributed by <metric>?" — pure frequency histogram.
+// X-axis = bucket of the chosen metric; y-axis = session count. The toggled
+// metric on the dashboard picks the bucketing dimension; bucket width is
+// metric-specific (5 min / 500 m / 1000 steps) and chosen to land 10-20
+// visible buckets for typical personal usage.
 
-export type LengthHistogramBucket = {
-  bucketMin: number
+export type SessionHistogramMetric = 'duration' | 'distance' | 'steps'
+
+export type SessionHistogramBucket = {
+  /** Lower bound of the bucket, in the metric's own native unit
+   *  (minutes / meters / steps). */
+  bucketStart: number
+  /** Bucket width in the same unit, for the dashboard to label `X – X+W`. */
+  bucketWidth: number
+  /** Session count whose value falls into [bucketStart, bucketStart+bucketWidth). */
   sessions: number
-  distance_m: number
-  duration_s: number
-  steps: number
 }
 
-export function sessionLengthHistogram(
+type HistogramSpec = {
+  pick: (s: WalkingPadSessionRow) => number
+  bucketWidth: number
+  maxBucket: number
+}
+
+const HISTOGRAM_SPECS: Record<SessionHistogramMetric, HistogramSpec> = {
+  duration: { pick: (s) => s.duration_s / 60, bucketWidth: 5, maxBucket: 90 },
+  distance: { pick: (s) => s.distance_m, bucketWidth: 500, maxBucket: 10_000 },
+  steps: { pick: (s) => s.steps, bucketWidth: 1000, maxBucket: 20_000 },
+}
+
+export function sessionDistributionHistogram(
   sessions: WalkingPadSessionRow[],
-  bucketWidthMin = 5,
-  maxBucketMin = 90,
-): LengthHistogramBucket[] {
-  const buckets = new Map<
-    number,
-    { sessions: number; distance_m: number; duration_s: number; steps: number }
-  >()
-  for (let m = 0; m <= maxBucketMin; m += bucketWidthMin) {
-    buckets.set(m, { sessions: 0, distance_m: 0, duration_s: 0, steps: 0 })
+  metric: SessionHistogramMetric,
+): SessionHistogramBucket[] {
+  const spec = HISTOGRAM_SPECS[metric]
+  const buckets = new Map<number, number>()
+  for (let b = 0; b <= spec.maxBucket; b += spec.bucketWidth) {
+    buckets.set(b, 0)
   }
   for (const s of sessions) {
     if (!isRealSession(s)) continue
-    const min = Math.floor(s.duration_s / 60 / bucketWidthMin) * bucketWidthMin
-    const clamped = Math.min(min, maxBucketMin)
-    const cell = buckets.get(clamped)
-    if (cell === undefined) continue
-    cell.sessions += 1
-    cell.distance_m += s.distance_m
-    cell.duration_s += s.duration_s
-    cell.steps += s.steps
+    const v = spec.pick(s)
+    const bucketStart = Math.floor(v / spec.bucketWidth) * spec.bucketWidth
+    const clamped = Math.min(bucketStart, spec.maxBucket)
+    buckets.set(clamped, (buckets.get(clamped) ?? 0) + 1)
   }
   return [...buckets.entries()]
-    .map(([bucketMin, v]) => ({
-      bucketMin,
-      sessions: v.sessions,
-      distance_m: Math.round(v.distance_m),
-      duration_s: v.duration_s,
-      steps: v.steps,
+    .map(([bucketStart, sessions]) => ({
+      bucketStart,
+      bucketWidth: spec.bucketWidth,
+      sessions,
     }))
-    .toSorted((a, b) => a.bucketMin - b.bucketMin)
+    .toSorted((a, b) => a.bucketStart - b.bucketStart)
 }

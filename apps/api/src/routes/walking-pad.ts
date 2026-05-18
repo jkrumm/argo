@@ -10,8 +10,9 @@ import {
   computeWalkingPadHeroes,
   detectWalkingPadAchievements,
   hourOfDayMatrix,
-  sessionLengthHistogram,
+  sessionDistributionHistogram,
   type DetectedAchievement,
+  type SessionHistogramMetric,
   type WalkingPadSessionRow,
 } from '../lib/walking-pad-formulas.js'
 
@@ -170,24 +171,21 @@ const HourDowCellSchema = z.object({
   distance_m: z.number().nonnegative(),
 })
 
-const LengthHistogramSchema = z.object({
-  bucketMin: z.number().int().describe('Lower bound of the 5-minute bucket (0,5,10,…).'),
-  sessions: z.number().int().nonnegative(),
-  distance_m: z
+const SessionHistogramSchema = z.object({
+  bucketStart: z
+    .number()
+    .int()
+    .describe("Lower bound of the bucket in the metric's native unit (min / m / steps)."),
+  bucketWidth: z
+    .number()
+    .int()
+    .positive()
+    .describe('Bucket width in the same unit — useful for labeling "start–start+width".'),
+  sessions: z
     .number()
     .int()
     .nonnegative()
-    .describe('Total distance walked in sessions of this length bucket.'),
-  duration_s: z
-    .number()
-    .int()
-    .nonnegative()
-    .describe('Total duration walked in sessions of this length bucket.'),
-  steps: z
-    .number()
-    .int()
-    .nonnegative()
-    .describe('Total steps walked in sessions of this length bucket.'),
+    .describe('Count of sessions whose metric value falls into this bucket.'),
 })
 
 // ── Heroes ──────────────────────────────────────────────────────────────────
@@ -523,6 +521,7 @@ export const walkingPadRoutes = new Elysia({ prefix: '/walking-pad' })
     '/sessions/length-histogram',
     async ({ query }) => {
       const { from, to } = parseWindow(query)
+      const metric = (query.metric ?? 'duration') as SessionHistogramMetric
       const rows = await db
         .select()
         .from(walkingPadSessions)
@@ -532,16 +531,27 @@ export const walkingPadRoutes = new Elysia({ prefix: '/walking-pad' })
             lte(walkingPadSessions.started_at, to.toISOString()),
           ),
         )
-      return { buckets: sessionLengthHistogram(rows as WalkingPadSessionRow[]) }
+      return {
+        metric,
+        buckets: sessionDistributionHistogram(rows as WalkingPadSessionRow[], metric),
+      }
     },
     {
-      query: WindowQuerySchema,
-      response: z.object({ buckets: z.array(LengthHistogramSchema) }),
+      query: WindowQuerySchema.extend({
+        metric: z
+          .enum(['duration', 'distance', 'steps'])
+          .optional()
+          .describe('Which session attribute to bucket on. Defaults to "duration".'),
+      }),
+      response: z.object({
+        metric: z.enum(['duration', 'distance', 'steps']),
+        buckets: z.array(SessionHistogramSchema),
+      }),
       detail: {
         tags: ['WalkingPad'],
-        summary: 'WalkingPad session-length distribution (5-minute buckets)',
+        summary: 'WalkingPad session distribution histogram',
         description:
-          'Histogram of session durations within the window, bucketed into 5-minute bins from 0 to 90 minutes (clamped at the top end). Drives the session-length distribution chart on the WalkingPad dashboard.',
+          'Pure frequency histogram of sessions across buckets of the chosen `metric` (duration / distance / steps). X-axis is the bucket on that dimension; y-axis is session count. Bucket widths are metric-specific: 5 min (duration, max 90), 500 m (distance, max 10 km), 1000 steps (steps, max 20 000). The top bucket is a clamped overflow ("90+", "10000+", "20000+").',
         security: [{ BearerAuth: [] }],
       },
     },
