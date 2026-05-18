@@ -7,7 +7,12 @@ import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/que
 import { ChartEmpty } from './empty'
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const HOUR_TICKS = [0, 6, 12, 18]
+// Treadmill is never used between midnight and 06:00 — hide that quarter of
+// the chart so the visible window (06:00–23:00) has room to breathe.
+const MIN_HOUR = 6
+const MAX_HOUR = 24
+const HOUR_SPAN = MAX_HOUR - MIN_HOUR // 18 columns
+const HOUR_TICKS = [6, 9, 12, 15, 18, 21]
 
 type Cell = { hour: number; dow: number; sessions: number; distance_m: number }
 
@@ -21,7 +26,10 @@ export function TimeOfDayChart({ params }: { params: WalkingPadWindowParams }) {
   const { data } = useSuspenseQuery(walkingPadQueries.hourOfDay(params))
   const { ref, width } = useElementSize<HTMLDivElement>()
   const { axis, line } = useVxTheme()
-  const cells: Cell[] = data.cells
+  const cells: Cell[] = useMemo(
+    () => (data.cells as Cell[]).filter((c) => c.hour >= MIN_HOUR && c.hour < MAX_HOUR),
+    [data.cells],
+  )
 
   const maxSessions = useMemo(() => cells.reduce((m, c) => Math.max(m, c.sessions), 0), [cells])
   const total = cells.reduce((s, c) => s + c.sessions, 0)
@@ -42,9 +50,13 @@ export function TimeOfDayChart({ params }: { params: WalkingPadWindowParams }) {
   const padLeft = 36
   const padBottom = 24
   const padTop = 8
-  const padRight = 4
+  // Right margin reserves room for the gradient legend strip + "more / less"
+  // labels which sit at `left={width - LEGEND_OFFSET}` below. Without this
+  // the heatmap cells draw under the legend.
+  const LEGEND_OFFSET = 50
+  const padRight = LEGEND_OFFSET + 4
   const gridW = Math.max(0, width - padLeft - padRight)
-  const cellW = gridW / 24
+  const cellW = gridW / HOUR_SPAN
   const cellH = (height - padTop - padBottom) / 7
 
   // Find the busiest cell for the badge.
@@ -71,7 +83,7 @@ export function TimeOfDayChart({ params }: { params: WalkingPadWindowParams }) {
           <svg width={width} height={height}>
             <Group left={padLeft} top={padTop}>
               {cells.map((c) => {
-                const x = c.hour * cellW
+                const x = (c.hour - MIN_HOUR) * cellW
                 const y = c.dow * cellH
                 const intensity = maxSessions > 0 ? c.sessions / maxSessions : 0
                 return (
@@ -115,7 +127,7 @@ export function TimeOfDayChart({ params }: { params: WalkingPadWindowParams }) {
               {HOUR_TICKS.map((h) => (
                 <text
                   key={h}
-                  x={h * cellW + cellW / 2}
+                  x={(h - MIN_HOUR) * cellW + cellW / 2}
                   y={14}
                   textAnchor="middle"
                   fontSize={10}
@@ -126,7 +138,7 @@ export function TimeOfDayChart({ params }: { params: WalkingPadWindowParams }) {
               ))}
             </Group>
             {/* Legend gradient strip on the right margin */}
-            <Group left={width - 50} top={padTop}>
+            <Group left={width - LEGEND_OFFSET} top={padTop}>
               <text x={0} y={-2} fontSize={9} fill={axis}>
                 more
               </text>
@@ -148,7 +160,8 @@ export function TimeOfDayChart({ params }: { params: WalkingPadWindowParams }) {
       </div>
       <MGroup justify="space-between" mt={4}>
         <Text size="xs" c="dimmed">
-          Hours in UTC · {total} sessions in window
+          {String(MIN_HOUR).padStart(2, '0')}:00–{String(MAX_HOUR - 1).padStart(2, '0')}:59 UTC ·{' '}
+          {total} sessions in window
         </Text>
         <Text size="xs" c="dimmed">
           Tip: hover a cell for exact totals
