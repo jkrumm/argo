@@ -7,6 +7,7 @@ import {
   addComment,
   browseUrl,
   createIssue,
+  getIssueLinkTypes,
   getMyself,
   getIssue,
   getBacklog,
@@ -19,6 +20,31 @@ import {
   searchUsers,
   updateIssue,
 } from '../clients/jira.js'
+
+const ISSUE_TYPE_ENUM = [
+  'Story',
+  'Task',
+  'Bug',
+  'Spike',
+  'Sub-task',
+  'Epic',
+  'Requirement',
+] as const
+
+const IssueLinkSchema = z.object({
+  type: z
+    .string()
+    .min(1)
+    .describe(
+      'Link type — preferred form is the direction-flavored phrase ("blocks", "is blocked by", "duplicates", "is duplicated by", "causes", "is caused by", "relates to", "tests", "is tested by", "clones", "is cloned by"). Canonical type names ("Blocks", "Relates", "Duplicate") also work and default to outward direction. Tenant-specific phrases (e.g. "is connected to") are accepted too — fetch the full list from GET /atlassian/jira/create-meta `linkTypes`.',
+    ),
+  key: z
+    .string()
+    .regex(/^[A-Z]+-\d+$/)
+    .describe(
+      'The OTHER ticket to link to. The current issue is the implicit source — "blocks" + key="EP-100" means THIS ticket blocks EP-100.',
+    ),
+})
 
 function mapError(error: unknown): { status: number; message: string } {
   if (error instanceof JiraHttpError) {
@@ -486,47 +512,84 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
   // convention (e.g. `[Topic][Sub-topic] Description`) so the new ticket fits.
   .get(
     '/create-meta',
-    () => ({
-      projectKey: DEFAULT_PROJECT_KEY,
-      boardId: DEFAULT_BOARD_ID,
-      defaultTeam: 'Prometheus',
-      issueTypes: ['Story', 'Task', 'Bug', 'Spike', 'Sub-task', 'Epic', 'Requirement'],
-      priorities: ['Highest', 'High', 'Medium', 'Low', 'Lowest'],
-      sprintRefs: ['current', 'next', 'backlog'],
-      transitions: [
-        'To Do',
-        'In Progress',
-        'Code Review',
-        'QA Tech',
-        'QA Business',
-        'QA Design',
-        'Refinement Done',
-        'Blocked',
-        'On Hold',
-        'Done',
-      ],
-      titleConvention:
-        'Prefix with bracketed topic tags, stackable. Examples: "[FE][Booking Migration] Phase 3 - BookingsView", "[MS][TMC][Cancellation] Block finance fields", "[BI] Fix 2 failed prod imports". Look at GET /atlassian/jira/current-sprint for live examples.',
-      hermesFooter:
-        "Italic line '_Created by Johannes' personal Hermes Agent_' is appended automatically to every description and comment body — do NOT add it manually.",
-    }),
+    async ({ set }) => {
+      // Link types are tenant-defined; fetch them live so the response stays
+      // accurate when admins add new ones. On upstream failure, surface a 503
+      // rather than returning a half-populated meta bundle.
+      let linkTypes: Array<{ name: string; outward: string; inward: string }>
+      try {
+        const raw = await getIssueLinkTypes()
+        linkTypes = raw.map((t) => ({ name: t.name, outward: t.outward, inward: t.inward }))
+      } catch (error) {
+        const { status, message } = mapError(error)
+        set.status = status
+        return message
+      }
+      return {
+        projectKey: DEFAULT_PROJECT_KEY,
+        boardId: DEFAULT_BOARD_ID,
+        defaultTeam: 'Prometheus',
+        issueTypes: [...ISSUE_TYPE_ENUM],
+        priorities: ['Highest', 'High', 'Medium', 'Low', 'Lowest'],
+        sprintRefs: ['current', 'next', 'backlog'],
+        transitions: [
+          'To Do',
+          'In Progress',
+          'Code Review',
+          'QA Tech',
+          'QA Business',
+          'QA Design',
+          'Refinement Done',
+          'Blocked',
+          'On Hold',
+          'Done',
+        ],
+        linkTypes,
+        titleConvention:
+          'Prefix with bracketed topic tags, stackable. Examples: "[FE][Booking Migration] Phase 3 - BookingsView", "[MS][TMC][Cancellation] Block finance fields", "[BI] Fix 2 failed prod imports". Look at GET /atlassian/jira/current-sprint for live examples.',
+        hermesFooter:
+          "Italic line '_Created by Johannes' personal Hermes Agent_' is appended automatically to every description and comment body — do NOT add it manually.",
+      }
+    },
     {
-      response: z.object({
-        projectKey: z.string(),
-        boardId: z.number().int(),
-        defaultTeam: z.string(),
-        issueTypes: z.array(z.string()),
-        priorities: z.array(z.string()),
-        sprintRefs: z.array(z.string()),
-        transitions: z.array(z.string()),
-        titleConvention: z.string(),
-        hermesFooter: z.string(),
-      }),
+      response: {
+        200: z.object({
+          projectKey: z.string(),
+          boardId: z.number().int(),
+          defaultTeam: z.string(),
+          issueTypes: z.array(z.string()),
+          priorities: z.array(z.string()),
+          sprintRefs: z.array(z.string()),
+          transitions: z.array(z.string()),
+          linkTypes: z
+            .array(
+              z.object({
+                name: z.string().describe('Canonical link-type name (e.g. "Blocks", "Duplicate")'),
+                outward: z
+                  .string()
+                  .describe(
+                    'Phrase shown on the source side (e.g. "blocks", "duplicates"). Pass this as `links[].type` to set THIS issue as the outward end.',
+                  ),
+                inward: z
+                  .string()
+                  .describe(
+                    'Phrase shown on the target side (e.g. "is blocked by"). Pass this as `links[].type` to set THIS issue as the inward end.',
+                  ),
+              }),
+            )
+            .describe(
+              'Tenant-configured issue-link types. The `outward` and `inward` strings are the recommended values for the `links[].type` field on create/update — they carry direction unambiguously.',
+            ),
+          titleConvention: z.string(),
+          hermesFooter: z.string(),
+        }),
+        503: z.string(),
+      },
       detail: {
         tags: ['Atlassian'],
         summary: 'Self-describing metadata for the Jira write surface',
         description:
-          "Returns the constants an agent needs to fill a valid POST /atlassian/jira/issues body: the default project key (`EP`), the board (`272` — Prometheus), the accepted issue type and priority enums, the sprint keyword set, the transition names available on a typical ticket, and the team's title-bracket convention. Read this once before any create/update call so you don't have to memorize field names. Issue-type / priority / transition lists are static client-side mappings (verified live against the EP project); the actual transitions returned for a specific ticket may differ slightly per workflow state — use /atlassian/jira/issues/{key}/transitions for the exact list when transitioning.",
+          "Returns the constants an agent needs to fill a valid POST /atlassian/jira/issues body: the default project key (`EP`), the board (`272` — Prometheus), the accepted issue type and priority enums, the sprint keyword set, the transition names available on a typical ticket, the team's title-bracket convention, and the tenant's issue-link types (with the recommended direction phrases). Read this once before any create/update call so you don't have to memorize field names. Issue-type / priority / transition lists are static client-side mappings (verified live against the EP project); the actual transitions returned for a specific ticket may differ slightly per workflow state — use /atlassian/jira/issues/{key}/transitions for the exact list when transitioning. Link types are fetched live from Atlassian.",
         security: [{ BearerAuth: [] }],
       },
     },
@@ -548,6 +611,7 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
           ...(body.storyPoints !== undefined ? { storyPoints: body.storyPoints } : {}),
           ...(body.priority !== undefined ? { priority: body.priority } : {}),
           ...(body.labels !== undefined ? { labels: body.labels } : {}),
+          ...(body.links !== undefined ? { links: body.links } : {}),
           ...(body.team !== undefined ? { team: body.team } : {}),
         })
       } catch (error) {
@@ -620,6 +684,12 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
             'Free-form labels. Conventions on this project include "tech", "business", "now", "next", "later", "Refinement", "Missing_Scenarios". Avoid inventing new label vocabulary without discussion.',
           )
           .optional(),
+        links: z
+          .array(IssueLinkSchema)
+          .describe(
+            'Structured issue links to create alongside the ticket (Jira REST has no atomic create-with-links — each link is a follow-up POST, fired sequentially so failures point at the offending entry). Use this for "Blocks EP-X", "Is blocked by EP-Y", "Relates to EP-Z" etc. — anything you would otherwise paste into the description as prose. Fetch the tenant-valid link types from GET /atlassian/jira/create-meta `linkTypes` if unsure.',
+          )
+          .optional(),
         team: z
           .enum(['prometheus', 'none'])
           .describe(
@@ -653,6 +723,7 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
         return await updateIssue(params.key, {
           ...(body.summary !== undefined ? { summary: body.summary } : {}),
           ...(body.description !== undefined ? { description: body.description } : {}),
+          ...(body.issueType !== undefined ? { issueType: body.issueType } : {}),
           ...(body.assigneeAccountId !== undefined
             ? { assigneeAccountId: body.assigneeAccountId }
             : {}),
@@ -661,6 +732,7 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
           ...(body.storyPoints !== undefined ? { storyPoints: body.storyPoints } : {}),
           ...(body.priority !== undefined ? { priority: body.priority } : {}),
           ...(body.labels !== undefined ? { labels: body.labels } : {}),
+          ...(body.links !== undefined ? { links: body.links } : {}),
           ...(body.status !== undefined ? { status: body.status } : {}),
         })
       } catch (error) {
@@ -689,6 +761,12 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
           .optional()
           .describe(
             'Replaces the entire description (Jira PUT semantics — there is no append). Pass empty string to clear. Hermes footer is re-stamped automatically. To add a follow-up note without rewriting, prefer POST /atlassian/jira/issues/{key}/comments.',
+          ),
+        issueType: z
+          .enum(ISSUE_TYPE_ENUM)
+          .optional()
+          .describe(
+            'Change the issue type after creation (Story↔Task↔Spike↔Bug↔...). Works in EP because the workflow is shared across types; Jira may reject combinations that change schema-required fields. Use this when the ticket was filed under the wrong type — recreation loses key + history.',
           ),
         assigneeAccountId: z
           .string()
@@ -724,6 +802,12 @@ export const jiraRoutes = new Elysia({ prefix: '/atlassian/jira' })
           .optional()
           .describe(
             'REPLACES the full label set — to add one, fetch existing labels first via GET /atlassian/jira/issue/{key}.',
+          ),
+        links: z
+          .array(IssueLinkSchema)
+          .optional()
+          .describe(
+            'ADDS issue links to the ticket. Unlike `labels`, this is additive — there is no remove-link endpoint exposed by Argo (Jira has no atomic set-links call and walking the diff would be racy). To drop a stale link, use the Jira UI. Fetch the tenant-valid link types from GET /atlassian/jira/create-meta `linkTypes`.',
           ),
         status: z
           .string()

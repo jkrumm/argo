@@ -585,6 +585,83 @@ const PRIORITY_ID: Record<PriorityName, string> = {
   Lowest: '5',
 }
 
+// Issue-link types are tenant-defined (admin-configurable) so we fetch them
+// from /rest/api/3/issueLinkType on demand and cache the result for the
+// lifetime of the process. The list is stable across deploys but we don't
+// want to hardcode the names — gives admins room to add types without a
+// code change. Cache miss costs one extra round-trip per process boot.
+interface RawIssueLinkType {
+  id: string
+  name: string // canonical type name, e.g. "Blocks", "Duplicate", "Relates"
+  inward: string // phrase shown on the inward issue, e.g. "is blocked by"
+  outward: string // phrase shown on the outward issue, e.g. "blocks"
+}
+let linkTypeCache: RawIssueLinkType[] | null = null
+
+export async function getIssueLinkTypes(): Promise<RawIssueLinkType[]> {
+  if (linkTypeCache) return linkTypeCache
+  const r = await jira<{ issueLinkTypes?: RawIssueLinkType[] }>('/rest/api/3/issueLinkType')
+  linkTypeCache = r.issueLinkTypes ?? []
+  return linkTypeCache
+}
+
+export interface IssueLinkInput {
+  // Either the canonical link type name ("Blocks", "Relates", "Duplicate")
+  // or the direction-flavored phrase ("blocks", "is blocked by", "duplicates",
+  // "is duplicated by", "causes", "is caused by", "relates to", "clones",
+  // "is cloned by", "tests", "is tested by"). Phrase form is preferred —
+  // it carries the direction unambiguously.
+  type: string
+  key: string // the OTHER ticket to link to (this issue is the implicit source)
+}
+
+interface LinkTypeMatch {
+  type: RawIssueLinkType
+  direction: 'inward' | 'outward'
+}
+
+function matchLinkType(types: RawIssueLinkType[], query: string): LinkTypeMatch | null {
+  const q = query.trim().toLowerCase()
+  // Prefer phrase matches (carry direction). If query matches the canonical
+  // name, default to outward (so "Blocks" means "this blocks the other").
+  for (const t of types) {
+    if (t.outward.toLowerCase() === q) return { type: t, direction: 'outward' }
+    if (t.inward.toLowerCase() === q) return { type: t, direction: 'inward' }
+  }
+  for (const t of types) {
+    if (t.name.toLowerCase() === q) return { type: t, direction: 'outward' }
+  }
+  return null
+}
+
+export async function addIssueLink(sourceKey: string, link: IssueLinkInput): Promise<void> {
+  const types = await getIssueLinkTypes()
+  const match = matchLinkType(types, link.type)
+  if (!match) {
+    const avail = types
+      .map((t) => `"${t.outward}" / "${t.inward}" (canonical: ${t.name})`)
+      .join('; ')
+    throw new JiraHttpError(
+      400,
+      `Unknown link type "${link.type}". Available phrases: ${avail}`,
+      '/rest/api/3/issueLink',
+    )
+  }
+  const body =
+    match.direction === 'outward'
+      ? {
+          type: { name: match.type.name },
+          outwardIssue: { key: sourceKey },
+          inwardIssue: { key: link.key },
+        }
+      : {
+          type: { name: match.type.name },
+          inwardIssue: { key: sourceKey },
+          outwardIssue: { key: link.key },
+        }
+  await jiraWrite('POST', '/rest/api/3/issueLink', body)
+}
+
 export interface CreateIssueInput {
   projectKey?: string
   issueType: IssueTypeName
@@ -598,6 +675,7 @@ export interface CreateIssueInput {
   storyPoints?: number | null
   priority?: PriorityName
   labels?: string[]
+  links?: IssueLinkInput[] // structured issue links (Blocks/Relates/Duplicate/...)
   boardId?: number
   team?: 'prometheus' | 'none'
 }
@@ -651,6 +729,14 @@ export async function createIssue(
     fields,
   })
   if (!created) throw new JiraHttpError(502, 'Empty response from Jira', '/rest/api/3/issue')
+  // Links require a follow-up call per Jira's REST design — there's no single
+  // create-with-links endpoint. We fire them sequentially (not parallel) so
+  // an early failure reports the link that broke, not just "first error".
+  if (input.links && input.links.length > 0) {
+    for (const link of input.links) {
+      await addIssueLink(created.key, link)
+    }
+  }
   return {
     id: created.id,
     key: created.key,
@@ -662,12 +748,14 @@ export interface UpdateIssueInput {
   summary?: string
   description?: string | null
   descriptionAdf?: AdfDoc
+  issueType?: IssueTypeName // Story↔Task swap. Jira allows this in EP because the workflow is shared across types.
   assigneeAccountId?: string | null // null clears assignment
   epicKey?: string | null // null removes from epic
   sprint?: SprintRef
   storyPoints?: number | null // null removes points
   priority?: PriorityName
   labels?: string[]
+  links?: IssueLinkInput[] // ADD links (not replace — Jira has no atomic "set links" endpoint)
   status?: string // free-form transition target name ("In Progress", "Code Review", "Done")
   boardId?: number
 }
@@ -684,6 +772,13 @@ export async function updateIssue(
     fields['description'] = ensureFooterAdf(input.descriptionAdf)
   } else if (input.description !== undefined) {
     fields['description'] = textToAdf(input.description, true)
+  }
+  if (input.issueType !== undefined) {
+    const issueTypeId = ISSUE_TYPE_ID[input.issueType]
+    if (!issueTypeId) {
+      throw new JiraHttpError(400, `Unknown issue type "${input.issueType}"`, '/issue')
+    }
+    fields['issuetype'] = { id: issueTypeId }
   }
   if (input.assigneeAccountId !== undefined) {
     fields['assignee'] =
@@ -709,6 +804,15 @@ export async function updateIssue(
 
   if (Object.keys(fields).length > 0) {
     await jiraWrite('PUT', `/rest/api/3/issue/${encodeURIComponent(key)}`, { fields })
+  }
+
+  // Links are additive. There's no atomic set-links endpoint on Jira REST v3
+  // and walking the existing-link diff would be racy; if Johannes needs to
+  // remove a stale link he does it in the UI.
+  if (input.links && input.links.length > 0) {
+    for (const link of input.links) {
+      await addIssueLink(key, link)
+    }
   }
 
   let transitioned = false
