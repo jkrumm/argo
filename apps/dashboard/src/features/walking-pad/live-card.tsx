@@ -1,4 +1,3 @@
-import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { Badge, Box, Card, Divider, Group, Skeleton, Stack, Text, ThemeIcon } from '@mantine/core'
 import {
@@ -31,8 +30,8 @@ import {
  *   - no live but recent session → "Last walk N min ago" mini-summary
  *   - no history at all          → empty placeholder
  *
- * The card includes an active-elapsed counter that ticks every second between
- * fetches so the timer feels smooth even though the underlying poll is 2 s.
+ * Elapsed clock updates per refetch (every 2 s). No sub-poll relative-time
+ * counter — the user found the constantly-ticking "Xs ago" text noisy.
  */
 export function LiveCard() {
   const visibility = useDocumentVisibility()
@@ -69,22 +68,8 @@ type LiveSnapshot = {
 }
 
 function LiveCardActive({ live }: { live: LiveSnapshot }) {
-  // Local timer that ticks every second between fetches so the elapsed
-  // counter doesn't visibly freeze.
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 1000)
-    return () => window.clearInterval(id)
-  }, [])
-
-  const elapsedS = useMemo(() => {
-    const sampleAt = new Date(live.sample_at).getTime()
-    const drift = (now - sampleAt) / 1000
-    return Math.max(0, live.duration_s + (drift > 0 && drift < 15 ? drift : 0))
-  }, [now, live.duration_s, live.sample_at])
-
+  const elapsedS = Math.max(0, live.duration_s)
   const isPaused = live.state === 'paused'
-  const stale = live.age_s > 6
 
   return (
     <Card padding="lg" withBorder shadow="sm">
@@ -101,11 +86,11 @@ function LiveCardActive({ live }: { live: LiveSnapshot }) {
                 </Text>
                 <PulseDot color={isPaused ? 'gray' : 'green'} active={!isPaused} />
               </Group>
-              <Text size="xs" c="dimmed">
-                Started {relativeTime(live.started_at)} · sample {live.age_s}s ago
-                {stale ? ' (stale)' : ''}
-                {live.pause_count > 0 ? ` · ${live.pause_count} pauses` : ''}
-              </Text>
+              {live.pause_count > 0 && (
+                <Text size="xs" c="dimmed">
+                  {live.pause_count} pauses
+                </Text>
+              )}
             </Stack>
           </Group>
           <SpeedTile speedKmh={isPaused ? 0 : live.current_speed_kmh} />

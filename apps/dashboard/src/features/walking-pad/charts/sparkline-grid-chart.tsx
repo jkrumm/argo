@@ -26,7 +26,7 @@ type SeriesPoint = {
 const METRICS: Metric[] = [
   {
     key: 'distance',
-    label: 'Distance / day',
+    label: 'Distance',
     color: VX.series.walkingDistance,
     format: (v) => (v >= 1000 ? `${(v / 1000).toFixed(2)} km` : `${Math.round(v)} m`),
     pick: (p) => p.distance_m,
@@ -34,7 +34,7 @@ const METRICS: Metric[] = [
   },
   {
     key: 'sessions',
-    label: 'Sessions / day',
+    label: 'Sessions',
     color: VX.series.walkingDuration,
     format: (v) => String(Math.round(v)),
     pick: (p) => p.sessions,
@@ -42,7 +42,7 @@ const METRICS: Metric[] = [
   },
   {
     key: 'duration',
-    label: 'Duration / day',
+    label: 'Duration',
     color: VX.series.walkingPace,
     format: (v) => `${Math.round(v / 60)}m`,
     pick: (p) => p.duration_s,
@@ -50,7 +50,7 @@ const METRICS: Metric[] = [
   },
   {
     key: 'pace',
-    label: 'Pace / day',
+    label: 'Pace',
     color: VX.series.walkingPace,
     format: (v) => `${v.toFixed(2)} km/h`,
     pick: (p) => p.avg_speed_kmh,
@@ -58,7 +58,7 @@ const METRICS: Metric[] = [
   },
   {
     key: 'steps',
-    label: 'Steps / day',
+    label: 'Steps',
     color: VX.series.walkingSteps,
     format: (v) => v.toLocaleString('en-US'),
     pick: (p) => p.steps,
@@ -66,7 +66,7 @@ const METRICS: Metric[] = [
   },
   {
     key: 'kcal',
-    label: 'Energy / day',
+    label: 'Energy',
     color: VX.series.walkingKcal,
     format: (v) => (v >= 1000 ? `${(v / 1000).toFixed(2)} k cal` : `${Math.round(v)} kcal`),
     pick: (p) => p.kcal,
@@ -93,7 +93,7 @@ export function SparklineGridChart({ params }: { params: WalkingPadWindowParams 
       <Text fw={600} size="sm" mb="xs">
         At-a-glance trends
       </Text>
-      <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="md">
+      <SimpleGrid cols={{ base: 2, sm: 3, lg: 6 }} spacing="sm">
         {METRICS.map((m) => (
           <SparkTile key={m.key} metric={m} points={points} />
         ))}

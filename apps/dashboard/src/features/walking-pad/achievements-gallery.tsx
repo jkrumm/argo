@@ -34,7 +34,7 @@ function colorFor(type: string): string {
   return 'green'
 }
 
-export function AchievementsGallery({ matchHeight }: { matchHeight?: number }) {
+export function AchievementsGallery() {
   const { data } = useSuspenseQuery(walkingPadQueries.achievements({ limit: 50 }))
   if (data.data.length === 0) {
     return (
@@ -45,11 +45,7 @@ export function AchievementsGallery({ matchHeight }: { matchHeight?: number }) {
       </Card>
     )
   }
-  // Card chrome eats ~64px of the matched height: 32px (padding md, top+bot)
-  // + ~22px (header text/badge line) + 8px (mb=xs) + 2px (border). Subtract
-  // that so the ScrollArea + chrome together match the left column exactly.
-  const HEADER_RESERVE = 64
-  const scrollHeight = matchHeight !== undefined ? Math.max(180, matchHeight - HEADER_RESERVE) : 260
+  const scrollHeight = 260
   return (
     <Card padding="md" withBorder>
       <Group justify="space-between" mb="xs">
