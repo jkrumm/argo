@@ -46,6 +46,27 @@ export function getAuthUrl(): string {
   return `https://accounts.google.com/o/oauth2/v2/auth?${params}`
 }
 
+const ALLOWED_EMAILS = env.GOOGLE_ALLOWED_EMAIL.split(',')
+  .map((entry) => entry.trim().toLowerCase())
+  .filter((entry) => entry.length > 0)
+
+async function assertEmailAllowed(accessToken: string): Promise<void> {
+  if (ALLOWED_EMAILS.length === 0) return
+  const res = await tracedFetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) {
+    throw new Error('Identity verification failed: could not read userinfo')
+  }
+  const { email } = (await res.json()) as { email?: string }
+  if (!email || !ALLOWED_EMAILS.includes(email.toLowerCase())) {
+    throw new Error(
+      `Account ${email ?? 'unknown'} is not authorized for this app. ` +
+        `Permitted accounts are configured via GOOGLE_ALLOWED_EMAIL.`,
+    )
+  }
+}
+
 export async function exchangeCode(code: string): Promise<void> {
   const res = await tracedFetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -64,6 +85,10 @@ export async function exchangeCode(code: string): Promise<void> {
     refresh_token: string
     expires_in: number
   }
+  // Verify identity before persisting — protects against an attacker who
+  // discovers the OAuth client_id and tries to overwrite our tokens with
+  // their own grant.
+  await assertEmailAllowed(data.access_token)
   const store = loadTokens()
   store.google = {
     accessToken: data.access_token,

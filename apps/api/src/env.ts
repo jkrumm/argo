@@ -18,6 +18,11 @@ export const Env = z.object({
   GOOGLE_OAUTH_REDIRECT_URI: z
     .string()
     .default('https://argo.jkrumm.com/api/oauth/google/callback'),
+  // Comma-separated allowlist of Google account emails permitted to complete
+  // the OAuth flow. When set, the callback verifies the granting account's
+  // email against this list and refuses to save tokens otherwise. Empty
+  // string disables the check (suitable only for fully private deployments).
+  GOOGLE_ALLOWED_EMAIL: z.string().default(''),
   M365_MCP_BASE_URL: z
     .string()
     .default('https://iu-m365-mcp.kindmushroom-c7823c35.westeurope.azurecontainerapps.io'),

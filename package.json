@@ -12,6 +12,8 @@
     "db:sync": "./scripts/db-sync.sh",
     "m365:auth": "bun run --cwd apps/api m365:auth",
     "m365:auth:prod": "op run --account tkrumm --env-file=apps/api/.env.local.tpl -- bun run --cwd apps/api m365:auth:prod",
+    "google:auth": "open http://localhost:4000/oauth/google/init",
+    "google:auth:prod": "open https://argo.jkrumm.com/api/oauth/google/init",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
     "format": "oxfmt 'apps/**' 'packages/**' '!**/generated/**' '!**/dist/**' --write",

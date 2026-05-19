@@ -209,6 +209,39 @@ OTEL_SERVICE_VERSION=                              # optional; falls back to pac
 
 All env vars are validated at startup via Zod in `src/env.ts`. Missing required vars cause a fail-fast error on boot.
 
+## Google (Gmail + Calendar)
+
+In-browser OAuth, refresh-token based. Local and prod are independent grants — each holds its own `google` slice in `data/oauth-tokens.json` (alongside the M365 slice).
+
+### Token install / refresh
+
+```bash
+bun google:auth          # opens http://localhost:4000/oauth/google/init in browser
+bun google:auth:prod     # opens https://argo.jkrumm.com/api/oauth/google/init
+```
+
+Both routes redirect to Google's consent screen; on completion, Google calls back to the configured `GOOGLE_OAUTH_REDIRECT_URI` and the API writes the tokens to disk. No script required — it's a pure browser flow.
+
+### Refresh behavior
+
+`clients/google.ts:getValidAccessToken()` auto-refreshes when the access token has less than 5 minutes of life left. Refresh tokens themselves do not normally expire — except in one case below.
+
+### When to re-auth
+
+- The Google Cloud OAuth client is in **"Testing"** publishing status → refresh tokens expire after **7 days**. Either re-auth weekly with `bun google:auth*`, or publish the OAuth app (Google Cloud Console → OAuth consent screen → **Publish App**) to lift refresh tokens to the standard 6-month-idle policy. **This is the most likely cause of recurring 503s on `/calendar` and Gmail endpoints.**
+- The Google account password changed, or the user revoked the grant at https://myaccount.google.com/permissions.
+- The token file was deleted.
+
+### Access control — `GOOGLE_ALLOWED_EMAIL`
+
+When the OAuth app is published to **In Production**, the consent screen is reachable by anyone who knows the `client_id`. Without further protection, a stranger could complete the flow and **overwrite** the stored tokens with their own grant — breaking the app and pulling their data onto our disk.
+
+`GOOGLE_ALLOWED_EMAIL` (comma-separated list of emails) closes this. `clients/google.ts:exchangeCode()` calls `/oauth2/v2/userinfo` immediately after the token exchange and refuses to persist if the authenticated email is not on the list. Empty value disables the check (suitable only for private deployments). Set it on prod via the standard env path (`op://vps/argo/GOOGLE_ALLOWED_EMAIL`) and redeploy.
+
+The refresh path is not gated because once a permitted token is saved, refresh only rotates the access token under the same `refresh_token` — there is no second consent step to attack.
+
+The Calendar page in the dashboard surfaces a "Re-authorize Google →" link in its error alert when `/calendar` returns 503, so the re-auth flow is one click from the UI.
+
 ## M365 (IU Microsoft 365 MCP)
 
 Wraps the IU M365 MCP server (proxy over Microsoft Graph — calendar, mail, Teams, OneDrive, OneNote, ~270 operations behind 3 meta-tools). Argo never sees the user's IU password; it holds an OAuth refresh token per environment.
