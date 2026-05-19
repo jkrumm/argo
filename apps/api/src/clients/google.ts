@@ -7,6 +7,11 @@ const CLIENT_ID = env.GOOGLE_CLIENT_ID
 const CLIENT_SECRET = env.GOOGLE_CLIENT_SECRET
 const REDIRECT_URI = env.GOOGLE_OAUTH_REDIRECT_URI
 const SCOPES = [
+  // openid + email are required to read userinfo for the allowlist check
+  // in assertEmailAllowed. Both are basic (non-sensitive) scopes — no
+  // Google verification needed.
+  'openid',
+  'email',
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/calendar.readonly',
 ].join(' ')
@@ -52,11 +57,16 @@ const ALLOWED_EMAILS = env.GOOGLE_ALLOWED_EMAIL.split(',')
 
 async function assertEmailAllowed(accessToken: string): Promise<void> {
   if (ALLOWED_EMAILS.length === 0) return
-  const res = await tracedFetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+  // OpenID Connect endpoint — works with `openid email` scopes (which are
+  // requested in SCOPES above). Returns 401 if the token lacks the scope.
+  const res = await tracedFetch('https://openidconnect.googleapis.com/v1/userinfo', {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
   if (!res.ok) {
-    throw new Error('Identity verification failed: could not read userinfo')
+    throw new Error(
+      `Identity verification failed: userinfo returned ${res.status} ${res.statusText}. ` +
+        `Body: ${(await res.text()).slice(0, 200)}`,
+    )
   }
   const { email } = (await res.json()) as { email?: string }
   if (!email || !ALLOWED_EMAILS.includes(email.toLowerCase())) {
