@@ -3,6 +3,7 @@ import './lib/hyperdx'
 import '@mantine/core/styles.css'
 import '@mantine/notifications/styles.css'
 import '@mantine/dates/styles.css'
+import '@mantine/schedule/styles.css'
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'

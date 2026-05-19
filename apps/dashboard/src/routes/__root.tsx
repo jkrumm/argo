@@ -25,12 +25,14 @@ import {
   IconBarbell,
   IconBox,
   IconBrandTeams,
+  IconCalendar,
   IconChecklist,
   IconShoe,
   IconHeartbeat,
   IconMoon,
   IconSun,
 } from '@tabler/icons-react'
+import { format } from 'date-fns'
 import type { MouseEvent } from 'react'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -54,6 +56,7 @@ function RootLayout() {
   const isStrengthActive = !!matchRoute({ to: '/strength-tracker', fuzzy: true })
   const isWalkingPadActive = !!matchRoute({ to: '/walking-pad', fuzzy: true })
   const isM365Active = !!matchRoute({ to: '/m365-explorer', fuzzy: true })
+  const isCalendarActive = !!matchRoute({ to: '/calendar', fuzzy: true })
 
   function handleNavGarmin() {
     return (e: MouseEvent) => {
@@ -68,6 +71,17 @@ function RootLayout() {
       e.preventDefault()
       closeMobile()
       void navigate({ to: '/m365-explorer' })
+    }
+  }
+
+  function handleNavCalendar() {
+    return (e: MouseEvent) => {
+      e.preventDefault()
+      closeMobile()
+      void navigate({
+        to: '/calendar',
+        search: { view: 'week', date: format(new Date(), 'yyyy-MM-dd') },
+      })
     }
   }
 
@@ -152,6 +166,15 @@ function RootLayout() {
             active={isWalkingPadActive}
             mb={4}
             onClick={handleNavWalkingPad()}
+          />
+          <NavLink
+            component="a"
+            href="/calendar"
+            label="Calendar"
+            leftSection={<IconCalendar size={18} />}
+            active={isCalendarActive}
+            mb={4}
+            onClick={handleNavCalendar()}
           />
           <NavLink
             component="a"
