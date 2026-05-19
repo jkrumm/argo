@@ -216,11 +216,20 @@ In-browser OAuth, refresh-token based. Local and prod are independent grants —
 ### Token install / refresh
 
 ```bash
-bun google:auth          # opens http://localhost:4000/oauth/google/init in browser
-bun google:auth:prod     # opens https://argo.jkrumm.com/api/oauth/google/init
+bun google:auth:prod     # copies https://argo.jkrumm.com/api/oauth/google/init to clipboard
 ```
 
-Both routes redirect to Google's consent screen; on completion, Google calls back to the configured `GOOGLE_OAUTH_REDIRECT_URI` and the API writes the tokens to disk. No script required — it's a pure browser flow.
+Paste into a browser signed into one of the allowlisted Google accounts. On completion, Google calls the prod callback and the API writes the tokens to disk. No script — pure browser flow.
+
+`bun google:auth` (local) is left in place for emergencies but **local OAuth is intentionally not used in normal development** — see "Local Google auth — intentionally disabled" below.
+
+### Local Google auth — intentionally disabled
+
+Google refresh tokens grant ~6 months of Gmail + Calendar read access. On prod they sit behind container isolation + VPS root, an acceptable risk. On a laptop they would sit in plain JSON owned by the user, readable by anything running as that user — other dev tooling, IDE extensions, stray transitive deps. The marginal benefit of `bun dev` reaching Google directly does not justify that attack surface.
+
+Therefore `apps/api/.env.local.tpl` does not wire `GOOGLE_*` env vars, and `data/oauth-tokens.json` should never contain a `google` slice on a developer laptop. For Google-backed features, use `bun dev:prod-api` — the local dashboard proxies `/api/*` to `argo.jkrumm.com`, which holds the prod tokens.
+
+Under `bun dev`, `/calendar` returns 503 and the dashboard renders its standard re-auth alert. That is the intended behavior, not a bug.
 
 ### Refresh behavior
 

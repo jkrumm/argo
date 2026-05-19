@@ -19,14 +19,19 @@ OTEL_SERVICE_NAME=argo-api
 
 NODE_ENV=development
 
-# Google (Gmail + Calendar) — same OAuth client as prod with a localhost
-# callback. Requires `http://localhost:4000/oauth/google/callback` to be
-# registered in the Google Cloud Console OAuth client's Authorized redirect
-# URIs list (alongside the prod argo.jkrumm.com one).
-GOOGLE_CLIENT_ID=op://common/google-oauth/CLIENT_ID
-GOOGLE_CLIENT_SECRET=op://common/google-oauth/CLIENT_SECRET
-GOOGLE_OAUTH_REDIRECT_URI=http://localhost:4000/oauth/google/callback
-GOOGLE_ALLOWED_EMAIL=op://vps/argo/GOOGLE_ALLOWED_EMAIL
+# Google (Gmail + Calendar) is INTENTIONALLY NOT wired locally.
+#
+# Reason: Google OAuth tokens grant ~6 months of Gmail + Calendar read access
+# via the refresh token. On prod they live behind container isolation + VPS
+# root; on a laptop they would live in plain JSON owned by the user, readable
+# by any process running as that user (other dev tooling, IDE extensions,
+# stray deps). The marginal value of `bun dev` calling Google directly does
+# not justify the extra attack surface.
+#
+# For Google-backed features (calendar, gmail, /summary), use `bun dev:prod-api`
+# instead — the local dashboard proxies /api/* to argo.jkrumm.com which holds
+# the prod tokens. The local /calendar endpoint will return 503 under `bun dev`
+# and the dashboard alert prompts re-auth (intentional behavior).
 
 # Atlassian (Jira) — IU work tenant. Read-only basic auth via PAT.
 ATLASSIAN_BASE_URL=op://vps/argo/ATLASSIAN_BASE_URL
