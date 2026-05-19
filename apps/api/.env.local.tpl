@@ -19,6 +19,15 @@ OTEL_SERVICE_NAME=argo-api
 
 NODE_ENV=development
 
+# Google (Gmail + Calendar) — same OAuth client as prod with a localhost
+# callback. Requires `http://localhost:4000/oauth/google/callback` to be
+# registered in the Google Cloud Console OAuth client's Authorized redirect
+# URIs list (alongside the prod argo.jkrumm.com one).
+GOOGLE_CLIENT_ID=op://common/google-oauth/CLIENT_ID
+GOOGLE_CLIENT_SECRET=op://common/google-oauth/CLIENT_SECRET
+GOOGLE_OAUTH_REDIRECT_URI=http://localhost:4000/oauth/google/callback
+GOOGLE_ALLOWED_EMAIL=op://vps/argo/GOOGLE_ALLOWED_EMAIL
+
 # Atlassian (Jira) — IU work tenant. Read-only basic auth via PAT.
 ATLASSIAN_BASE_URL=op://vps/argo/ATLASSIAN_BASE_URL
 JIRA_EMAIL=op://vps/argo/ATLASSIAN_EMAIL
