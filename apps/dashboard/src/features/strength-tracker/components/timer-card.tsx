@@ -313,25 +313,29 @@ function RestTimerPanel() {
 
   useEffect(() => {
     if (!running) return
-    const tick = () => {
+    let raf = 0
+    const frame = () => {
       const endAt = endAtRef.current
       if (endAt === null) return
-      const left = Math.max(0, Math.round((endAt - Date.now()) / 1000))
-      setRemaining(left)
-      if (left <= 0) {
-        endAtRef.current = null
-        setRunning(false)
-        playSound(restSoundRef.current.sound, restSoundRef.current.volume)
-        notifications.show({
-          color: 'teal',
-          title: 'Rest done',
-          message: 'Time for the next set.',
-          autoClose: 5000,
-        })
+      const left = Math.max(0, (endAt - Date.now()) / 1000)
+      if (left > 0) {
+        setRemaining(left)
+        raf = requestAnimationFrame(frame)
+        return
       }
+      endAtRef.current = null
+      setRunning(false)
+      setRemaining(0)
+      playSound(restSoundRef.current.sound, restSoundRef.current.volume)
+      notifications.show({
+        color: 'teal',
+        title: 'Rest done',
+        message: 'Time for the next set.',
+        autoClose: 5000,
+      })
     }
-    const id = window.setInterval(tick, 250)
-    return () => window.clearInterval(id)
+    raf = requestAnimationFrame(frame)
+    return () => cancelAnimationFrame(raf)
   }, [running])
 
   const start = () => {
@@ -373,7 +377,7 @@ function RestTimerPanel() {
 
   return (
     <Group align="center" wrap="nowrap" gap="md" w="100%">
-      <TimerRing pct={pct} color={ringColor} label={formatClock(remaining)} />
+      <TimerRing pct={pct} color={ringColor} label={formatClock(Math.ceil(remaining))} />
       <Stack gap="xs" style={{ flex: 1 }}>
         <Group gap={4} wrap="nowrap">
           {presets.map((seconds, i) => (
@@ -651,12 +655,14 @@ function IntervalTimerPanel() {
 
   useEffect(() => {
     if (!running) return
-    const tick = () => {
+    let raf = 0
+    const frame = () => {
       const endAt = endAtRef.current
       if (endAt === null) return
-      const left = Math.max(0, Math.round((endAt - Date.now()) / 1000))
+      const left = Math.max(0, (endAt - Date.now()) / 1000)
       if (left > 0) {
         setRemaining(left)
+        raf = requestAnimationFrame(frame)
         return
       }
       const phases = phasesRef.current
@@ -684,9 +690,10 @@ function IntervalTimerPanel() {
       setRemaining(nextPhase.dur)
       const cfg = soundRef.current
       playSound(nextPhase.type === 'rest' ? cfg.rest : cfg.work, cfg.volume)
+      raf = requestAnimationFrame(frame)
     }
-    const id = window.setInterval(tick, 250)
-    return () => window.clearInterval(id)
+    raf = requestAnimationFrame(frame)
+    return () => cancelAnimationFrame(raf)
   }, [running])
 
   const startFresh = () => {
@@ -751,7 +758,12 @@ function IntervalTimerPanel() {
 
   return (
     <Group align="center" wrap="nowrap" gap="md" w="100%">
-      <TimerRing pct={pct} color={ringColor} label={formatClock(remaining)} sublabel={sublabel} />
+      <TimerRing
+        pct={pct}
+        color={ringColor}
+        label={formatClock(Math.ceil(remaining))}
+        sublabel={sublabel}
+      />
 
       <Stack gap="xs" style={{ flex: 1 }}>
         {(active || finished) && (
