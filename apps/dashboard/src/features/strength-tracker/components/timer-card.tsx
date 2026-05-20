@@ -26,6 +26,7 @@ import {
   IconPlayerPlayFilled,
   IconRotateClockwise2,
 } from '@tabler/icons-react'
+import { subscribeRestTimer } from './rest-timer-bus'
 
 type TimerMode = 'rest' | 'interval'
 
@@ -344,6 +345,15 @@ function RestTimerPanel() {
     setRemaining(base)
     setRunning(true)
   }
+
+  // Auto-start a fresh full-duration rest when the workout checklist checks a set.
+  useEffect(() => {
+    return subscribeRestTimer(() => {
+      endAtRef.current = Date.now() + duration * 1000
+      setRemaining(duration)
+      setRunning(true)
+    })
+  }, [duration])
 
   const pause = () => {
     endAtRef.current = null

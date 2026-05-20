@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { ActionIcon, Button } from '@mantine/core'
-import { IconPlus, IconX } from '@tabler/icons-react'
+import { IconCheck, IconPlus, IconX } from '@tabler/icons-react'
 import type { SetType } from '../constants'
 
 export type SetEntry = {
@@ -23,6 +23,15 @@ export interface SetEditorProps {
   onChange?: (sets: SetEntry[]) => void
   previousSets?: SetEntry[]
   readOnly?: boolean
+  /**
+   * Guided check-off flow: only the first unchecked set is editable + checkable,
+   * earlier sets lock as done, later sets dim until reached. Drives the Save gate
+   * and the auto rest timer in the parent form.
+   */
+  checklist?: boolean
+  /** Number of sets checked off, counted from the top (only with `checklist`). */
+  completedCount?: number
+  onCompletedChange?: (count: number) => void
 }
 
 /**
@@ -38,7 +47,15 @@ export interface SetEditorProps {
  * - Tab on weight input focuses reps input of the same row.
  * - `readOnly` mode renders a compact text view without edit affordances.
  */
-export function SetEditor({ sets, onChange, previousSets, readOnly = false }: SetEditorProps) {
+export function SetEditor({
+  sets,
+  onChange,
+  previousSets,
+  readOnly = false,
+  checklist = false,
+  completedCount = 0,
+  onCompletedChange,
+}: SetEditorProps) {
   const [hoveredRow, setHoveredRow] = useState<number | null>(null)
   const repsRefs = useRef<(HTMLInputElement | null)[]>([])
 
@@ -152,13 +169,17 @@ export function SetEditor({ sets, onChange, previousSets, readOnly = false }: Se
         >
           Reps
         </span>
-        {!readOnly && <span style={{ width: 26 }} />}
+        {!readOnly && <span style={{ width: checklist ? 52 : 26 }} />}
       </div>
 
       {/* Set rows */}
       {sets.map((s, i) => {
         const isHovered = !readOnly && hoveredRow === i
         const prev = previousSets?.[i]
+        const isChecked = checklist && i < completedCount
+        const isActive = checklist && i === completedCount
+        const editable = !readOnly
+        const dimmed = checklist && !isActive
 
         return (
           <div
@@ -169,18 +190,24 @@ export function SetEditor({ sets, onChange, previousSets, readOnly = false }: Se
               display: 'flex',
               alignItems: 'center',
               gap: 0,
-              padding: '5px 0',
+              padding: checklist ? '5px var(--mantine-spacing-md)' : '5px 0',
+              marginInline: checklist ? 'calc(var(--mantine-spacing-md) * -1)' : undefined,
               borderBottom: '1px solid rgba(128,128,128,0.06)',
               transition: 'all 0.15s',
-              borderRadius: 3,
-              background: isHovered ? 'rgba(128,128,128,0.06)' : 'transparent',
+              borderRadius: checklist ? 0 : 3,
+              opacity: dimmed ? 0.5 : 1,
+              background: isActive
+                ? 'rgba(18,184,134,0.08)'
+                : isHovered
+                  ? 'rgba(128,128,128,0.06)'
+                  : 'transparent',
             }}
           >
             {/* Set type label (click to cycle) */}
             <button
               type="button"
-              onClick={() => !readOnly && cycleType(i)}
-              disabled={readOnly}
+              onClick={() => editable && cycleType(i)}
+              disabled={!editable}
               style={{
                 width: 30,
                 fontSize: 12,
@@ -188,12 +215,12 @@ export function SetEditor({ sets, onChange, previousSets, readOnly = false }: Se
                 fontFamily: 'inherit',
                 border: 'none',
                 background: 'transparent',
-                cursor: readOnly ? 'default' : 'pointer',
+                cursor: editable ? 'pointer' : 'default',
                 color: TYPE_COLOR[s.set_type],
                 padding: '0 0 0 2px',
                 textAlign: 'left',
               }}
-              title={readOnly ? undefined : 'Click to change set type'}
+              title={editable ? 'Click to change set type' : undefined}
             >
               {labels[i]}
             </button>
@@ -214,7 +241,7 @@ export function SetEditor({ sets, onChange, previousSets, readOnly = false }: Se
 
             {/* Weight column */}
             <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-              {!readOnly && (
+              {editable && (
                 <button
                   type="button"
                   className="st-stepper"
@@ -232,6 +259,7 @@ export function SetEditor({ sets, onChange, previousSets, readOnly = false }: Se
                   className="st-set-input"
                   type="number"
                   value={s.weight_kg}
+                  disabled={!editable}
                   onChange={(e) => {
                     const v = Number(e.target.value)
                     if (!Number.isNaN(v) && v >= 0) updateSet(i, 'weight_kg', v)
@@ -253,7 +281,7 @@ export function SetEditor({ sets, onChange, previousSets, readOnly = false }: Se
                   }}
                 />
               )}
-              {!readOnly && (
+              {editable && (
                 <button
                   type="button"
                   className="st-stepper"
@@ -268,7 +296,7 @@ export function SetEditor({ sets, onChange, previousSets, readOnly = false }: Se
 
             {/* Reps column */}
             <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-              {!readOnly && (
+              {editable && (
                 <button
                   type="button"
                   className="st-stepper"
@@ -289,6 +317,7 @@ export function SetEditor({ sets, onChange, previousSets, readOnly = false }: Se
                   className="st-set-input"
                   type="number"
                   value={s.reps}
+                  disabled={!editable}
                   onChange={(e) => {
                     const v = Number(e.target.value)
                     if (!Number.isNaN(v) && v >= 1) updateSet(i, 'reps', v)
@@ -304,7 +333,7 @@ export function SetEditor({ sets, onChange, previousSets, readOnly = false }: Se
                   }}
                 />
               )}
-              {!readOnly && (
+              {editable && (
                 <button
                   type="button"
                   className="st-stepper"
@@ -317,22 +346,39 @@ export function SetEditor({ sets, onChange, previousSets, readOnly = false }: Se
               )}
             </div>
 
-            {/* Remove */}
+            {/* Check + remove */}
             {!readOnly && (
               <div
                 style={{
-                  width: 26,
+                  width: checklist ? 52 : 26,
                   display: 'flex',
                   justifyContent: 'flex-end',
-                  opacity: isHovered ? 1 : 0.25,
+                  alignItems: 'center',
+                  gap: 2,
+                  opacity: checklist || isHovered ? 1 : 0.25,
                   transition: 'opacity 0.15s',
                 }}
               >
+                {checklist && (
+                  <ActionIcon
+                    size="sm"
+                    variant={isChecked ? 'filled' : isActive ? 'outline' : 'subtle'}
+                    color={isActive || isChecked ? 'teal' : 'gray'}
+                    disabled={!(isActive || i === completedCount - 1)}
+                    onClick={() =>
+                      onCompletedChange?.(isActive ? completedCount + 1 : completedCount - 1)
+                    }
+                    aria-label={isChecked ? 'Uncheck set' : 'Check set'}
+                  >
+                    <IconCheck size={12} />
+                  </ActionIcon>
+                )}
                 {sets.length > 1 && (
                   <ActionIcon
                     size="sm"
                     variant="subtle"
                     color="gray"
+                    disabled={isChecked}
                     onClick={() => removeSet(i)}
                     aria-label="Remove set"
                   >

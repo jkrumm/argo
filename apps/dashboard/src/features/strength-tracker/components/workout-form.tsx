@@ -11,6 +11,7 @@ import { exerciseQueries } from '../../../lib/queries/exercises'
 import { EXERCISES, type ExerciseKey } from '../constants'
 import { showAchievements } from '../achievements-toast'
 import { SetEditor, type SetEntry } from './set-editor'
+import { startRestTimer } from './rest-timer-bus'
 
 const DEFAULT_SETS: SetEntry[] = [{ set_type: 'work', weight_kg: 60, reps: 5 }]
 
@@ -86,6 +87,7 @@ export function WorkoutForm() {
   const [exercise, setExercise] = useState<ExerciseKey>('bench_press')
   const [date, setDate] = useState<string>(today())
   const [sets, setSets] = useState<SetEntry[]>(DEFAULT_SETS)
+  const [completedCount, setCompletedCount] = useState(0)
 
   const exercisesResult = useSuspenseQuery(exerciseQueries.list())
   const recentResult = useSuspenseQuery(workoutsQueries.list({ page: 1, limit: 20 }))
@@ -97,18 +99,31 @@ export function WorkoutForm() {
   const recentWorkouts = (recentResult.data?.data ?? []) as ReadonlyArray<WorkoutRowLite>
   const previousSets = findLastSession(recentWorkouts, exercise)
 
-  // Auto pre-fill on exercise change (mirror old behaviour).
+  // Auto pre-fill on exercise change (mirror old behaviour) + restart the check-off.
   useEffect(() => {
     if (previousSets !== undefined) {
       setSets(previousSets)
     }
+    setCompletedCount(0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exercise])
 
   const createWorkout = useCreateWorkout()
 
+  const allChecked = sets.length > 0 && completedCount >= sets.length
+
+  // Check-off a set: lock it, unlock the next, and rest before a non-drop next set.
+  function handleCompletedChange(count: number) {
+    const advancing = count > completedCount
+    setCompletedCount(count)
+    if (advancing) {
+      const next = sets[count]
+      if (next !== undefined && next.set_type !== 'drop') startRestTimer()
+    }
+  }
+
   function handleSubmit() {
-    if (sets.length === 0) return
+    if (sets.length === 0 || !allChecked) return
     const body = {
       date,
       exercise_id: exercise,
@@ -124,6 +139,7 @@ export function WorkoutForm() {
         const res = result as unknown as CreateWorkoutResponse
         showAchievements(res.achievements)
         setSets([{ set_type: 'work', weight_kg: sets[0]?.weight_kg ?? 60, reps: 5 }])
+        setCompletedCount(0)
       },
     })
   }
@@ -166,7 +182,14 @@ export function WorkoutForm() {
           size="md"
         />
 
-        <SetEditor sets={sets} onChange={setSets} previousSets={previousSets} />
+        <SetEditor
+          sets={sets}
+          onChange={setSets}
+          previousSets={previousSets}
+          checklist
+          completedCount={completedCount}
+          onCompletedChange={handleCompletedChange}
+        />
 
         {previewParts.length > 0 && (
           <Group justify="flex-start" gap={4} mt={2}>
@@ -179,7 +202,8 @@ export function WorkoutForm() {
         <Button
           onClick={handleSubmit}
           loading={createWorkout.isPending}
-          disabled={sets.length === 0}
+          disabled={!allChecked}
+          color={allChecked ? 'teal' : undefined}
           fullWidth
         >
           Save Workout

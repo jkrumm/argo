@@ -1,5 +1,6 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, unwrap } from '../eden'
+import { strengthQueries } from './strength'
 
 export type WorkoutWindowParams = {
   window?: '7d' | '30d' | '90d' | 'all'
@@ -75,11 +76,18 @@ export const workoutsQueries = {
     }),
 }
 
+// Workout mutations change both the raw workout list and every derived strength
+// summary (heroes, charts) — invalidate both key roots so the page refreshes.
+function invalidateWorkoutData(qc: ReturnType<typeof useQueryClient>) {
+  void qc.invalidateQueries({ queryKey: workoutsQueries.all() })
+  void qc.invalidateQueries({ queryKey: strengthQueries.all() })
+}
+
 export function useCreateWorkout() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: CreateWorkoutInput) => api.workouts.post(body).then(unwrap),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: workoutsQueries.all() }),
+    onSuccess: () => invalidateWorkoutData(qc),
   })
 }
 
@@ -91,7 +99,7 @@ export function useUpdateWorkout() {
         .workouts({ id: String(id) })
         .patch({ date, exercise_id, notes, sets })
         .then(unwrap),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: workoutsQueries.all() }),
+    onSuccess: () => invalidateWorkoutData(qc),
   })
 }
 
@@ -103,6 +111,6 @@ export function useDeleteWorkout() {
         .workouts({ id: String(id) })
         .delete()
         .then(unwrap),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: workoutsQueries.all() }),
+    onSuccess: () => invalidateWorkoutData(qc),
   })
 }
