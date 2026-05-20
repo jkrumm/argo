@@ -1,7 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import type { ScheduleEventData } from '@mantine/schedule'
-import type { MantineColor } from '@mantine/core'
 import { api, unwrap } from '../eden'
 
 export type CalendarSource = 'google' | 'm365' | 'ticktick'
@@ -16,19 +15,37 @@ export type CalendarEventPayload = {
   bodyPreview?: string | null
   calendarName?: string | null
   projectName?: string | null
+  projectColor?: string | null
   priority?: number
 }
 
-export const SOURCE_COLOR: Record<CalendarSource, MantineColor> = {
-  google: 'red',
-  m365: 'indigo',
-  ticktick: 'green',
+// Per-Google-calendar palette — mirrors Apple Calendar's hues for these calendars.
+// Unknown calendars fall back to GOOGLE_FALLBACK_COLOR.
+export const GOOGLE_CALENDAR_COLORS: Record<string, string> = {
+  Privat: '#34C759',
+  Arbeit: '#FF9500',
+  Familie: '#FF2D55',
+  Ferien: '#5AC8FA',
+}
+export const GOOGLE_FALLBACK_COLOR = '#E74C3C'
+export const M365_COLOR = '#5C6BC0'
+export const TICKTICK_FALLBACK_COLOR = '#34C759'
+
+export const SOURCE_COLOR: Record<CalendarSource, string> = {
+  google: GOOGLE_FALLBACK_COLOR,
+  m365: M365_COLOR,
+  ticktick: TICKTICK_FALLBACK_COLOR,
 }
 
 export const SOURCE_LABEL: Record<CalendarSource, string> = {
   google: 'Personal (Google)',
   m365: 'Work (M365)',
   ticktick: 'Tasks (TickTick)',
+}
+
+export function colorForGoogleCalendar(name: string | null | undefined): string {
+  if (!name) return GOOGLE_FALLBACK_COLOR
+  return GOOGLE_CALENDAR_COLORS[name] ?? GOOGLE_FALLBACK_COLOR
 }
 
 export const calendarQueries = {
@@ -92,7 +109,7 @@ type RawTickTickTask = {
   isAllDay?: boolean
 }
 
-type RawTickTickProject = { id: string; name: string }
+type RawTickTickProject = { id: string; name: string; color?: string | null }
 
 type CalendarScheduleEvent = ScheduleEventData<CalendarEventPayload>
 
@@ -124,12 +141,14 @@ function mapCalendarEvent(
   let end = toScheduleDateTime(event.end)
   if (event.isAllDay && end <= start) end = nextDayMidnight(start)
 
+  const color = source === 'google' ? colorForGoogleCalendar(event.calendarName) : M365_COLOR
+
   return {
     id: `${source}-${event.id}`,
     title: event.title,
     start,
     end,
-    color: SOURCE_COLOR[source],
+    color,
     payload: {
       source,
       isAllDay: event.isAllDay,
@@ -158,6 +177,7 @@ export function tickTickToEvents(
   project: RawTickTickProject,
 ): CalendarScheduleEvent[] {
   if (!Array.isArray(tasks)) return []
+  const projectColor = project.color?.trim() ? project.color : TICKTICK_FALLBACK_COLOR
   return (tasks as RawTickTickTask[])
     .filter((task) => task.status === 0 && Boolean(task.dueDate))
     .map((task) => {
@@ -167,11 +187,12 @@ export function tickTickToEvents(
         title: task.title,
         start,
         end: nextDayMidnight(start),
-        color: SOURCE_COLOR.ticktick,
+        color: projectColor,
         payload: {
           source: 'ticktick',
           isAllDay: true,
           projectName: project.name,
+          projectColor,
           priority: task.priority,
         },
       }

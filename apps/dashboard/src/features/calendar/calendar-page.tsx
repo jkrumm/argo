@@ -17,13 +17,19 @@ import {
 } from '@mantine/core'
 import { MonthView, WeekView } from '@mantine/schedule'
 import type { ScheduleEventData } from '@mantine/schedule'
-import { IconAlertTriangle, IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
+import {
+  IconAlertTriangle,
+  IconChevronLeft,
+  IconChevronRight,
+  IconFlag3Filled,
+} from '@tabler/icons-react'
 import { addMonths, addWeeks, endOfWeek, format, startOfWeek } from 'date-fns'
 import {
   calendarQueries,
   googleToEvents,
+  GOOGLE_CALENDAR_COLORS,
   m365ToEvents,
-  SOURCE_COLOR,
+  M365_COLOR,
   SOURCE_LABEL,
   tickTickToEvents,
   type CalendarEventPayload,
@@ -68,26 +74,28 @@ function headerLabel(date: string, view: CalendarView): string {
   return `${format(start, 'MMM d, yyyy')} – ${format(end, 'MMM d, yyyy')}`
 }
 
-function SourceLegend({ active }: { active: CalendarSource[] }) {
+type LegendEntry = { label: string; color: string }
+
+function Legend({ entries }: { entries: LegendEntry[] }) {
   return (
     <Group gap="sm" wrap="wrap">
-      {active.map((source) => (
-        <Group key={source} gap={6} wrap="nowrap">
-          <Box
-            w={10}
-            h={10}
-            style={{
-              borderRadius: '50%',
-              background: `var(--mantine-color-${SOURCE_COLOR[source]}-6)`,
-            }}
-          />
+      {entries.map((entry) => (
+        <Group key={`${entry.label}-${entry.color}`} gap={6} wrap="nowrap">
+          <Box w={10} h={10} style={{ borderRadius: '50%', background: entry.color }} />
           <Text size="xs" c="dimmed">
-            {SOURCE_LABEL[source]}
+            {entry.label}
           </Text>
         </Group>
       ))}
     </Group>
   )
+}
+
+function priorityColor(priority: number | undefined): string | null {
+  if (!priority || priority < 1) return null
+  if (priority >= 5) return '#FF3B30'
+  if (priority >= 3) return '#FF9500'
+  return '#64748b'
 }
 
 export function CalendarPage({ view, date }: CalendarPageProps) {
@@ -98,7 +106,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
   const m365Query = useQuery(calendarQueries.m365(DAYS_RANGE))
   const projectsQuery = useQuery(calendarQueries.ticktickProjects())
 
-  const projects = (projectsQuery.data ?? []) as Array<{
+  const projects = ((projectsQuery.data as { data?: unknown } | undefined)?.data ?? []) as Array<{
     id: string
     name: string
   }>
@@ -115,7 +123,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
   events.push(...m365ToEvents(m365Query.data))
   if (view === 'week') {
     projectQueries.forEach((query, index) => {
-      const tasks = (query.data as { tasks?: unknown } | undefined)?.tasks
+      const tasks = (query.data as { data?: { tasks?: unknown } } | undefined)?.data?.tasks
       const project = projects[index]
       if (project && tasks) {
         events.push(...tickTickToEvents(tasks, project))
@@ -129,8 +137,11 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
     })
   }
 
-  const activeSources: CalendarSource[] =
-    view === 'week' ? ['google', 'm365', 'ticktick'] : ['google', 'm365']
+  const legendEntries: LegendEntry[] = [
+    ...Object.entries(GOOGLE_CALENDAR_COLORS).map(([label, color]) => ({ label, color })),
+    { label: SOURCE_LABEL.m365, color: M365_COLOR },
+    ...(view === 'week' ? [{ label: SOURCE_LABEL.ticktick, color: '#34C759' }] : []),
+  ]
 
   const errors: Array<{
     source: CalendarSource
@@ -151,11 +162,41 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
     })
   }
 
+  const renderEventBody: NonNullable<React.ComponentProps<typeof WeekView>['renderEventBody']> = (
+    event,
+  ) => {
+    const payload = event.payload as CalendarEventPayload | undefined
+    if (payload?.source !== 'ticktick') return event.title
+    const flagColor = priorityColor(payload.priority)
+    const projectName = payload.projectName?.trim()
+    return (
+      <>
+        {projectName && (
+          <>
+            <span style={{ opacity: 0.7, fontWeight: 400 }}>{projectName}</span>
+            {' — '}
+          </>
+        )}
+        {event.title}
+        {flagColor && (
+          <IconFlag3Filled
+            size={10}
+            style={{
+              color: flagColor,
+              marginInlineStart: 4,
+              verticalAlign: 'middle',
+            }}
+          />
+        )}
+      </>
+    )
+  }
+
   return (
     <Stack
-      gap="md"
+      gap="xs"
       style={{
-        height: 'calc(100dvh - var(--app-shell-header-height, 0px) - 32px)',
+        height: 'calc(100dvh - 100px)',
         minHeight: 0,
       }}
     >
@@ -175,7 +216,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
               </Badge>
             )}
           </Group>
-          <SourceLegend active={activeSources} />
+          <Legend entries={legendEntries} />
         </Stack>
         <Group gap="sm" wrap="nowrap">
           <Group gap={4} wrap="nowrap">
@@ -251,8 +292,10 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
             startTime="07:00:00"
             endTime="22:00:00"
             startScrollTime="08:00:00"
-            slotHeight={48}
+            slotHeight={64}
+            allDaySlotHeight={72}
             radius="sm"
+            renderEventBody={renderEventBody}
             style={{ flex: 1, minHeight: 0 }}
           />
         ) : (
@@ -266,6 +309,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
             firstDayOfWeek={1}
             maxEventsPerDay={4}
             radius="sm"
+            renderEventBody={renderEventBody}
             onDayClick={(next) => setSearch({ date: next, view: 'week' })}
             style={{ flex: 1, minHeight: 0 }}
           />
