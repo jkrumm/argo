@@ -53,6 +53,7 @@ export { DeloadBanner } from './deload-banner'
 export { showAchievements } from './achievements-toast'
 
 export { WorkoutForm } from './components/workout-form'
+export { TimerCard } from './components/timer-card'
 export { EditWorkoutModal } from './components/edit-workout-modal'
 export { WorkoutsTable } from './components/workouts-table'
 export { RecentRecords } from './components/recent-records'

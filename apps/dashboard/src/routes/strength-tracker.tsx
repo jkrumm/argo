@@ -15,6 +15,7 @@ import {
   HeroStatsSkeleton,
   RecentRecords,
   Section,
+  TimerCard,
   ViewTabs,
   WindowSelector,
   WorkoutForm,
@@ -260,6 +261,7 @@ function StrengthTrackerPage() {
               <Suspense fallback={<ChartSkeleton height={320} />}>
                 <WorkoutForm />
               </Suspense>
+              <TimerCard />
               {hasWorkouts && (
                 <RecentRecords params={queryParams} multiExercise={activeExercises.length > 1} />
               )}
