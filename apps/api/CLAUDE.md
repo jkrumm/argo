@@ -172,16 +172,28 @@ describe('GET /my-resource', () => {
 - `.claude/rules/routes.md` — pagination shape, summary endpoints, naming, transactions
 - `.claude/rules/openapi.md` — `detail` block requirements and tag names
 - `.claude/rules/elysia-zod.md` — Zod constraints specific to `@elysiajs/openapi`
+- `.claude/rules/weekly-aggregation.md` — "by week" = Mon–Sun via `lib/week.ts`, keyed by the Monday date; never trailing-7d
 
 ## Tests
 
 ```bash
-# Run all tests (requires DATABASE_URL + API_SECRET)
-bun test --cwd apps/api
+# Run all tests (from repo root). Wraps op + assembles DATABASE_URL from the
+# op-resolved components (the .tpl only holds op:// refs — DATABASE_URL itself
+# is built at runtime by scripts/test.sh, same as dev.sh / db-migrate.sh).
+bun test:api
 
-# With local DB
-op run --account tkrumm --env-file=apps/api/.env.local.tpl -- bun test --cwd apps/api
+# Pass through filters/flags to `bun test`, e.g. a single file:
+bun test:api src/routes/workouts.summary.test.ts
+
+# Pure unit tests only (no DB) — DATABASE_URL/API_SECRET can be dummy values:
+DATABASE_URL=postgres://x@localhost/x API_SECRET=x bun test --cwd apps/api src/lib
 ```
+
+> NOTE: a bare `op run --env-file=apps/api/.env.local.tpl -- bun test` will fail
+> integration tests with `DATABASE_URL ... undefined` — the template never sets
+> `DATABASE_URL` (op can't interpolate an `op://` ref inside a larger string).
+> Use `bun test:api`. Integration tests also need the dev Postgres up
+> (`cd ~/SourceRoot/vps && make up && make postgres-setup`).
 
 Tests live alongside source files as `*.test.ts`:
 

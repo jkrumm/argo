@@ -32,8 +32,9 @@ bun run --cwd apps/api typecheck
 bun run --cwd apps/dashboard typecheck
 bun run --cwd packages/charts typecheck
 
-# Tests
-op run --account tkrumm --env-file=apps/api/.env.local.tpl -- bun test --cwd apps/api
+# Tests — wraps op + assembles DATABASE_URL (needs dev Postgres up)
+bun test:api                                  # all API tests
+bun test:api src/routes/workouts.summary.test.ts  # pass-through filter
 
 # Root (all workspaces)
 bun run lint                                  # oxlint

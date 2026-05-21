@@ -10,6 +10,7 @@
     "dev:prod-api": "op run --account tkrumm --env-file=apps/dashboard/.env.local.tpl -- ./scripts/dev-prod-api.sh",
     "db:migrate": "op run --account tkrumm --env-file=apps/api/.env.local.tpl -- ./scripts/db-migrate.sh",
     "db:sync": "make -C ../vps pg-sync-schema SCHEMA=argo ENV=dev",
+    "test:api": "op run --account tkrumm --env-file=apps/api/.env.local.tpl -- ./scripts/test.sh",
     "m365:auth": "bun run --cwd apps/api m365:auth",
     "m365:auth:prod": "op run --account tkrumm --env-file=apps/api/.env.local.tpl -- bun run --cwd apps/api m365:auth:prod",
     "google:auth": "printf 'http://localhost:4000/oauth/google/init' | pbcopy && echo 'http://localhost:4000/oauth/google/init' && echo 'Copied to clipboard — paste into a browser to authorize.'",
