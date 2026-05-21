@@ -145,7 +145,9 @@ const LIVE_TTL_MS = 15_000
 // ── Series ──────────────────────────────────────────────────────────────────
 
 const SeriesPointSchema = z.object({
-  date: z.string().describe('YYYY-MM-DD for bucket=day, YYYY-Www (ISO week) for bucket=week.'),
+  date: z
+    .string()
+    .describe('YYYY-MM-DD: the day for bucket=day, the Monday week-start for bucket=week.'),
   sessions: z.number().int(),
   duration_s: z.number().int(),
   distance_m: z.number(),
@@ -485,7 +487,7 @@ export const walkingPadRoutes = new Elysia({ prefix: '/walking-pad' })
         tags: ['WalkingPad'],
         summary: 'WalkingPad time-bucketed series for charts',
         description:
-          'Per-day or per-week aggregates across the requested window: sessions, duration_s, distance_m, steps, kcal, distance-weighted avg_speed_kmh. Empty buckets are returned with zero counts so charts can render gaps explicitly. `bucket=day` keys are YYYY-MM-DD; `bucket=week` keys are ISO week strings (YYYY-Www). Use this for daily-activity bars, weekly-volume bars, pace-trend lines, and sparkline grids.',
+          'Per-day or per-week aggregates across the requested window: sessions, duration_s, distance_m, steps, kcal, distance-weighted avg_speed_kmh. Empty buckets are returned with zero counts so charts can render gaps explicitly. Both buckets key on YYYY-MM-DD: `bucket=day` is the day, `bucket=week` is the Monday week-start of each Mon–Sun calendar week. Use this for daily-activity bars, weekly-volume bars, pace-trend lines, and sparkline grids.',
         security: [{ BearerAuth: [] }],
       },
     },
