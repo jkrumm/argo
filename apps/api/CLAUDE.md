@@ -27,6 +27,8 @@ bun dev
 
 Generated SQL files live in `apps/api/drizzle/`, committed to git, and applied automatically on boot via `runMigrations()` in `src/db/index.ts`. **There is no manual prod migrate step** — push to `master`, RollHook redeploys, the new container migrates before serving traffic.
 
+The migration journal lives in `argo.__drizzle_migrations` (argo's own schema), not the default shared `drizzle` schema — set via `migrations.schema` in `drizzle.config.ts` and `migrationsSchema` in `runMigrations()`. A one-time `relocateDrizzleJournal()` copies the journal from the legacy `drizzle` schema on boot (idempotent; removable once every env has booted past it). See `~/SourceRoot/vps/CLAUDE.md` → "Postgres Schema Model" for the cluster-wide convention.
+
 All tables are declared under `pgSchema('argo')` in `src/db/schema.ts`.
 
 **Workflow**
