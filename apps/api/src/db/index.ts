@@ -1,6 +1,6 @@
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import postgres from 'postgres'
+import postgres, { type Sql } from 'postgres'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { instrumentDrizzleClient } from '@kubiks/otel-drizzle'
@@ -27,9 +27,41 @@ export const db = instrumentDrizzleClient(drizzle(client, { schema }), {
 const moduleDir = dirname(fileURLToPath(import.meta.url))
 const migrationsFolder = join(moduleDir, '../../drizzle')
 
+/**
+ * One-time, idempotent relocation of the drizzle migration journal from the
+ * legacy shared `drizzle` schema into argo's own schema. drizzle-kit defaults
+ * the journal to `drizzle.__drizzle_migrations`, which is shared by every app
+ * in this cluster and owned by whichever role created it — fragile after a
+ * whole-DB restore ("permission denied for schema drizzle"). Keeping it in
+ * `argo.__drizzle_migrations` makes migrations self-contained and lets the
+ * journal travel with `db:sync` schema dumps.
+ *
+ * Safe in every state: copies only when argo's journal is empty AND a legacy
+ * one exists, so it no-ops on fresh DBs and after the first run. Can be removed
+ * once every environment has booted past it once.
+ */
+export async function relocateDrizzleJournal(sql: Sql): Promise<void> {
+  await sql`CREATE TABLE IF NOT EXISTS argo.__drizzle_migrations (
+    id SERIAL PRIMARY KEY,
+    hash text NOT NULL,
+    created_at bigint
+  )`
+  const [legacy] = await sql<{ exists: boolean }[]>`
+    SELECT to_regclass('drizzle.__drizzle_migrations') IS NOT NULL AS exists
+  `
+  if (legacy?.exists) {
+    await sql`
+      INSERT INTO argo.__drizzle_migrations (hash, created_at)
+      SELECT hash, created_at FROM drizzle.__drizzle_migrations
+      WHERE NOT EXISTS (SELECT 1 FROM argo.__drizzle_migrations)
+    `
+  }
+}
+
 export async function runMigrations(): Promise<void> {
   const migrationClient = postgres(DATABASE_URL, { max: 1 })
-  await migrate(drizzle(migrationClient), { migrationsFolder })
+  await relocateDrizzleJournal(migrationClient)
+  await migrate(drizzle(migrationClient), { migrationsFolder, migrationsSchema: 'argo' })
   await migrationClient.end()
 
   // Seed reference exercises (idempotent)
