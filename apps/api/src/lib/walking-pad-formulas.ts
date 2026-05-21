@@ -4,6 +4,8 @@
 // route layer owns DB I/O and is responsible for persisting any unlocked
 // achievements via `walking_pad_achievements`.
 
+import { eachWeekStart, isWeekComplete, weekStart } from './week.js'
+
 export type WalkingPadSessionRow = {
   uuid: string
   started_at: string
@@ -312,17 +314,7 @@ function currentStreakLength(sessions: WalkingPadSessionRow[], todayKey: string)
   return len
 }
 
-// ISO week of the given UTC date. Returns 'YYYY-Www'.
-export function isoWeekKey(iso: string): string {
-  const d = new Date(`${iso.slice(0, 10)}T12:00:00Z`)
-  const dayNum = d.getUTCDay() === 0 ? 7 : d.getUTCDay()
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum)
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-  const week = Math.ceil(((d.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7)
-  return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`
-}
-
-// At least this many *completed* prior ISO weeks must exist before a weekly
+// At least this many *completed* prior calendar weeks must exist before a weekly
 // PR can be awarded — guarantees the record is set against a real baseline of
 // fully-elapsed comparison weeks rather than a single fragment.
 const MIN_COMPLETE_PRIOR_WEEKS_FOR_PR = 2
@@ -335,14 +327,14 @@ function detectWeeklyDistancePr(
   // The incoming session's week must itself be complete — we don't crown a
   // PR mid-week, because additional sessions could still extend the total
   // and an in-progress week isn't comparable to fully-elapsed prior weeks.
-  if (!isIsoWeekComplete(incoming.started_at, now)) return null
+  if (!isWeekComplete(incoming.started_at, now)) return null
 
-  const incomingWeek = isoWeekKey(incoming.started_at)
-  // Bucket by ISO week; remember one session date per week so we can decide
-  // whether each prior week is complete.
+  const incomingWeek = weekStart(incoming.started_at)
+  // Bucket by calendar week; remember one session date per week so we can
+  // decide whether each prior week is complete.
   const weeklyBuckets = new Map<string, { distance_m: number; sampleIso: string }>()
   for (const s of realAll) {
-    const key = isoWeekKey(s.started_at)
+    const key = weekStart(s.started_at)
     const cur = weeklyBuckets.get(key)
     if (cur === undefined) {
       weeklyBuckets.set(key, { distance_m: s.distance_m, sampleIso: s.started_at })
@@ -359,7 +351,7 @@ function detectWeeklyDistancePr(
   let completePriorCount = 0
   for (const [key, bucket] of weeklyBuckets) {
     if (key === incomingWeek) continue
-    if (!isIsoWeekComplete(bucket.sampleIso, now)) continue
+    if (!isWeekComplete(bucket.sampleIso, now)) continue
     completePriorCount += 1
     if (bucket.distance_m > priorMax) priorMax = bucket.distance_m
   }
@@ -375,18 +367,6 @@ function detectWeeklyDistancePr(
     description: `${(currentTotal / 1000).toFixed(2)} km this week — beat prior best of ${(priorMax / 1000).toFixed(2)} km.`,
     confetti: true,
   }
-}
-
-// True iff the ISO week containing `anyIsoInWeek` has fully elapsed — i.e.
-// `now` is at or past the following Monday 00:00 UTC.
-function isIsoWeekComplete(anyIsoInWeek: string, now: Date): boolean {
-  const day = new Date(`${anyIsoInWeek.slice(0, 10)}T00:00:00Z`)
-  const dayNum = day.getUTCDay() === 0 ? 7 : day.getUTCDay()
-  // Days from this date forward to the start of the next ISO week (Monday).
-  // dayNum=1 (Mon) → 7; dayNum=7 (Sun) → 1.
-  const daysToNextMonday = 8 - dayNum
-  const nextMondayMs = day.getTime() + daysToNextMonday * 86_400_000
-  return now.getTime() >= nextMondayMs
 }
 
 // ── Heroes / smart abstractions ────────────────────────────────────────────
@@ -592,17 +572,13 @@ export function bucketSessions(
       cursor.setUTCDate(cursor.getUTCDate() + 1)
     }
   } else {
-    const cursor = isoWeekStart(from)
-    const end = isoWeekStart(to)
-    while (cursor.getTime() <= end.getTime()) {
-      const key = isoWeekKey(cursor.toISOString())
+    for (const key of eachWeekStart(from.toISOString(), to.toISOString())) {
       buckets.set(key, emptyPoint(key))
-      cursor.setUTCDate(cursor.getUTCDate() + 7)
     }
   }
 
   for (const s of sessions) {
-    const key = bucket === 'day' ? dateUtcKey(s.started_at) : isoWeekKey(s.started_at)
+    const key = bucket === 'day' ? dateUtcKey(s.started_at) : weekStart(s.started_at)
     const point = buckets.get(key) ?? emptyPoint(key)
     point.sessions += 1
     point.duration_s += s.duration_s
@@ -616,7 +592,7 @@ export function bucketSessions(
   const result: WalkingPadSeriesPoint[] = []
   for (const [key, p] of buckets) {
     const matching = sessions.filter(
-      (s) => (bucket === 'day' ? dateUtcKey(s.started_at) : isoWeekKey(s.started_at)) === key,
+      (s) => (bucket === 'day' ? dateUtcKey(s.started_at) : weekStart(s.started_at)) === key,
     )
     const avg = weightedAvgSpeed(matching)
     result.push({
@@ -642,14 +618,6 @@ function emptyPoint(key: string): WalkingPadSeriesPoint {
     kcal: 0,
     avg_speed_kmh: null,
   }
-}
-
-function isoWeekStart(d: Date): Date {
-  // Monday start.
-  const out = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
-  const day = out.getUTCDay() === 0 ? 7 : out.getUTCDay()
-  out.setUTCDate(out.getUTCDate() - (day - 1))
-  return out
 }
 
 // ── Time-of-day histogram (hour-of-day × day-of-week) ──────────────────────

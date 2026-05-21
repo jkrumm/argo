@@ -4,10 +4,10 @@ import {
   computeWalkingPadHeroes,
   detectWalkingPadAchievements,
   hourOfDayMatrix,
-  isoWeekKey,
   sessionDistributionHistogram,
   type WalkingPadSessionRow,
 } from './walking-pad-formulas.js'
+import { weekStart } from './week.js'
 
 const row = (
   uuid: string,
@@ -228,6 +228,7 @@ describe('bucketSessions', () => {
     ]
     const points = bucketSessions(sessions, 'week', from, to)
     expect(points.length).toBe(1)
+    expect(points[0]?.date).toBe('2026-05-11') // Monday week-start key
     expect(points[0]?.sessions).toBe(2)
     expect(points[0]?.distance_m).toBe(4000)
     // weighted: (1000*4 + 3000*6) / 4000 = 5.5
@@ -316,9 +317,11 @@ describe('sessionDistributionHistogram', () => {
   })
 })
 
-describe('isoWeekKey', () => {
-  it('matches ISO-8601 week numbering', () => {
-    expect(isoWeekKey('2026-01-05T10:00:00Z')).toBe('2026-W02')
-    expect(isoWeekKey('2025-12-29T10:00:00Z')).toBe('2026-W01')
+describe('weekStart', () => {
+  it('returns the Monday (UTC) of the week containing the date', () => {
+    expect(weekStart('2026-01-05T10:00:00Z')).toBe('2026-01-05') // already Monday
+    expect(weekStart('2025-12-31T10:00:00Z')).toBe('2025-12-29') // Wed → prior Monday
+    expect(weekStart('2026-05-20')).toBe('2026-05-18') // Wed → Monday
+    expect(weekStart('2026-05-24')).toBe('2026-05-18') // Sunday → same Monday
   })
 })

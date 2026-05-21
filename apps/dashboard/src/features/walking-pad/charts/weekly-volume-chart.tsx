@@ -7,7 +7,7 @@ import { METRIC_DEFS, fmtSteps, useMetricSelection, type MetricKey } from '../me
 import { ChartEmpty } from './empty'
 
 type Point = {
-  date: string // ISO week YYYY-Www — Bars treats it as a categorical x.
+  date: string // Monday week-start YYYY-MM-DD — Bars treats it as a categorical x.
   distance_m: number
   duration_s: number
   steps: number

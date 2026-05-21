@@ -13,6 +13,7 @@ import {
   STRAIN_DEBT_MIN_CEILING,
 } from './garmin-formulas.js'
 import { computeMetrics, makeBodyweightResolver, loadBodyweightResolver } from './formulas.js'
+import { weekStart } from './week.js'
 
 export { computeMetrics, makeBodyweightResolver, loadBodyweightResolver }
 
@@ -78,16 +79,6 @@ function addDays(yyyyMmDd: string, n: number): string {
 
 function diffDays(a: string, b: string): number {
   return Math.round((parseDate(a).getTime() - parseDate(b).getTime()) / 86_400_000)
-}
-
-/** ISO week end (Sunday) for a given date. */
-function isoWeekEnd(yyyyMmDd: string): string {
-  const d = parseDate(yyyyMmDd)
-  // getUTCDay: 0=Sun..6=Sat. ISO week ends on Sunday (day 7); shift to Sunday.
-  const dow = d.getUTCDay() // 0..6
-  const daysToSunday = dow === 0 ? 0 : 7 - dow
-  d.setUTCDate(d.getUTCDate() + daysToSunday)
-  return formatDate(d)
 }
 
 function round1(v: number): number {
@@ -276,8 +267,8 @@ export function weeklyTonnageSeries(
   const sorted = workouts.toSorted((a, b) => a.date.localeCompare(b.date))
   const byWeek = new Map<string, number>()
   for (const w of sorted) {
-    const we = isoWeekEnd(w.date)
-    byWeek.set(we, (byWeek.get(we) ?? 0) + w.total_volume)
+    const wk = weekStart(w.date)
+    byWeek.set(wk, (byWeek.get(wk) ?? 0) + w.total_volume)
   }
   const sortedKeys = Array.from(byWeek.keys()).toSorted()
   const first = sortedKeys[0]!
@@ -291,23 +282,34 @@ export function weeklyTonnageSeries(
   return result
 }
 
-function weeklyWorkVolume(workouts: WorkoutWithSets[], weekEndDate: string): number {
-  const start = addDays(weekEndDate, -6)
+/**
+ * Total volume in the calendar week starting `weekStartIso` (Mon–Sun). When
+ * `upTo` is given, only counts workouts on or before that date — keeps the
+ * current week's running total causal as it builds.
+ */
+function calendarWeekVolume(
+  workouts: WorkoutWithSets[],
+  weekStartIso: string,
+  upTo?: string,
+): number {
   return workouts
-    .filter((w) => w.date >= start && w.date <= weekEndDate)
+    .filter((w) => weekStart(w.date) === weekStartIso && (upTo === undefined || w.date <= upTo))
     .reduce((sum, w) => sum + w.total_volume, 0)
 }
 
+/**
+ * Current calendar week's volume (so far) vs. the mean of the prior 4 complete
+ * calendar weeks. Anchored to Mon–Sun weeks, not a trailing 7 days.
+ */
 function tonnageGrowthRatio(workouts: WorkoutWithSets[], date: string): number | null {
-  let ma28Sum = 0
-  for (let i = 0; i < 4; i++) {
-    const end = addDays(date, -i * 7)
-    ma28Sum += weeklyWorkVolume(workouts, end)
+  const thisWeekStart = weekStart(date)
+  let priorSum = 0
+  for (let i = 1; i <= 4; i++) {
+    priorSum += calendarWeekVolume(workouts, addDays(thisWeekStart, -7 * i))
   }
-  const ma28 = ma28Sum / 4
-  if (ma28 <= 0) return null
-  const thisWeek = weeklyWorkVolume(workouts, date)
-  return thisWeek / ma28
+  const priorAvg = priorSum / 4
+  if (priorAvg <= 0) return null
+  return calendarWeekVolume(workouts, thisWeekStart, date) / priorAvg
 }
 
 /** §1.8 — EWMA over a number series with N as the time constant (α = 2/(N+1)). */
@@ -403,8 +405,8 @@ export function buildWeeklyVolumeSeries(
   for (const w of sorted) {
     const isPullUps = w.exercise_id === 'pull_ups'
     const bw = bwAt(w.date)
-    const we = isoWeekEnd(w.date)
-    const entry = byWeek.get(we) ?? { warmup: 0, work: 0, drop: 0, amrap: 0 }
+    const wk = weekStart(w.date)
+    const entry = byWeek.get(wk) ?? { warmup: 0, work: 0, drop: 0, amrap: 0 }
     for (const s of w.sets) {
       const ew = isPullUps ? s.weight_kg + bw : s.weight_kg
       const t = ew * s.reps
@@ -413,7 +415,7 @@ export function buildWeeklyVolumeSeries(
       else if (s.set_type === 'drop') entry.drop += t
       else if (s.set_type === 'amrap') entry.amrap += t
     }
-    byWeek.set(we, entry)
+    byWeek.set(wk, entry)
   }
 
   const sortedKeys = Array.from(byWeek.keys()).toSorted()
