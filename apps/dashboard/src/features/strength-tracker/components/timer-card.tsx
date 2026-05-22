@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   ActionIcon,
   Box,
@@ -19,6 +19,7 @@ import {
 } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import {
+  IconBarbell,
   IconCaretDownFilled,
   IconMusic,
   IconPencil,
@@ -236,11 +237,16 @@ function TimerRing({
   color,
   label,
   sublabel,
+  flipIcon,
+  flipped = false,
 }: {
   pct: number
   color: string
   label: string
   sublabel?: string
+  /** When set, the clock face card-flips to this icon while `flipped` is true. */
+  flipIcon?: ReactNode
+  flipped?: boolean
 }) {
   return (
     <RingProgress
@@ -255,9 +261,57 @@ function TimerRing({
               {sublabel}
             </Text>
           )}
-          <Text ta="center" fw={700} size="xl" style={{ fontVariantNumeric: 'tabular-nums' }}>
-            {label}
-          </Text>
+          {flipIcon ? (
+            <div style={{ perspective: 500 }}>
+              <div
+                style={{
+                  position: 'relative',
+                  width: 96,
+                  height: 38,
+                  transformStyle: 'preserve-3d',
+                  transition: 'transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                  transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                }}
+              >
+                <Text
+                  ta="center"
+                  fw={700}
+                  size="xl"
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontVariantNumeric: 'tabular-nums',
+                    backfaceVisibility: 'hidden',
+                    WebkitBackfaceVisibility: 'hidden',
+                  }}
+                >
+                  {label}
+                </Text>
+                <span
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: `var(--mantine-color-${color}-6)`,
+                    transform: 'rotateY(180deg)',
+                    backfaceVisibility: 'hidden',
+                    WebkitBackfaceVisibility: 'hidden',
+                  }}
+                >
+                  {flipIcon}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <Text ta="center" fw={700} size="xl" style={{ fontVariantNumeric: 'tabular-nums' }}>
+              {label}
+            </Text>
+          )}
         </Stack>
       }
     />
@@ -383,11 +437,17 @@ function RestTimerPanel() {
 
   const done = remaining <= 0
   const pct = duration > 0 ? ((duration - remaining) / duration) * 100 : 0
-  const ringColor = done ? 'red' : remaining <= 15 ? 'orange' : running ? 'teal' : 'gray'
+  const ringColor = done ? 'teal' : remaining <= 15 ? 'orange' : running ? 'teal' : 'gray'
 
   return (
     <Group align="center" wrap="nowrap" gap="md" w="100%">
-      <TimerRing pct={pct} color={ringColor} label={formatClock(Math.ceil(remaining))} />
+      <TimerRing
+        pct={pct}
+        color={ringColor}
+        label={formatClock(Math.ceil(remaining))}
+        flipIcon={<IconBarbell size={34} stroke={1.8} />}
+        flipped={done}
+      />
       <Stack gap="xs" style={{ flex: 1 }}>
         <Group gap={4} wrap="nowrap">
           {presets.map((seconds, i) => (
