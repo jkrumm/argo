@@ -33,6 +33,7 @@ import { fitnessDirectionRoutes } from './routes/fitness-direction.js'
 import { activitiesRoutes } from './routes/activities.js'
 import { weightLogRoutes } from './routes/weight-log.js'
 import { walkingPadRoutes } from './routes/walking-pad.js'
+import { usageRoutes } from './routes/usage.js'
 import { userProfileRoutes } from './routes/user-profile.js'
 import { registerCronJobs } from './cron/index.js'
 import { uptimeKumaClient } from './clients/uptime-kuma.js'
@@ -130,6 +131,10 @@ export const app = new Elysia()
             name: 'WalkingPad',
             description:
               'KingSmith under-desk treadmill sessions. The local Go daemon `king-smith-walkingpad-mac` records per-second samples in its own SQLite, then POSTs each closed session to /walking-pad/sessions (idempotent on `uuid`). Argo only stores closed-session totals — per-second samples stay on the daemon. Use /walking-pad/sessions to list raw rows and /walking-pad/sessions/summary for windowed totals (steps, distance, duration, kcal).',
+          },
+          {
+            name: 'Usage Tracking',
+            description: 'Local AI token/cost telemetry ingested from the usage-tracker.',
           },
           {
             name: 'Infrastructure',
@@ -232,6 +237,7 @@ export const app = new Elysia()
   .use(weightLogRoutes)
   .use(userProfileRoutes)
   .use(walkingPadRoutes)
+  .use(usageRoutes)
   .listen(4000)
 
 export type App = typeof app

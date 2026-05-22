@@ -1,4 +1,15 @@
-import { pgSchema, text, integer, bigint, real, timestamp, index } from 'drizzle-orm/pg-core'
+import {
+  pgSchema,
+  serial,
+  text,
+  integer,
+  bigint,
+  real,
+  timestamp,
+  jsonb,
+  index,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core'
 
 const argoSchema = pgSchema('argo')
 
@@ -191,7 +202,51 @@ export const walkingPadSessions = argoSchema.table(
   (t) => [index('idx_walking_pad_sessions_started_at').on(t.started_at)],
 )
 
-// ── WalkingPad achievements ──────────────────────────────────────────────────
+// ── Usage tracking (ingested from local usage-tracker SQLite) ────────────────
+//
+// The `usage-tracker` app (~/SourceRoot/usage-tracker) collects per-usage AI
+// token/cost records from multiple collectors (Claude Code, LiteLLM bridge,
+// Hermes, Feuer, OpenCode) into a local SQLite `usage_record` table. An
+// associated LaunchAgent pushes new rows to this table every 15 minutes.
+// The upsert is keyed on (source, source_id) which matches the local SQLite
+// UNIQUE constraint.
+
+export const usageRecord = argoSchema.table(
+  'usage_record',
+  {
+    id: serial('id').primaryKey(),
+    source: text('source').notNull(),
+    source_id: text('source_id').notNull(),
+    grain: text('grain').notNull(),
+    ts: timestamp('ts', { withTimezone: true, mode: 'string' }).notNull(),
+    model: text('model'),
+    model_norm: text('model_norm'),
+    project: text('project'),
+    billing: text('billing').notNull(),
+    machine: text('machine'),
+    outcome: text('outcome').notNull().default('ok'),
+    input_tokens: integer('input_tokens').notNull().default(0),
+    output_tokens: integer('output_tokens').notNull().default(0),
+    cache_read_tokens: integer('cache_read_tokens').notNull().default(0),
+    cache_write_tokens: integer('cache_write_tokens').notNull().default(0),
+    reasoning_tokens: integer('reasoning_tokens').notNull().default(0),
+    cost_usd: real('cost_usd'),
+    cost_source: text('cost_source').notNull().default('none'),
+    raw: jsonb('raw'),
+    ingested_at: text('ingested_at').notNull(),
+    created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+    updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('uq_usage_source_sourceid').on(t.source, t.source_id),
+    index('idx_usage_ts').on(t.ts),
+    index('idx_usage_source').on(t.source),
+    index('idx_usage_model_norm').on(t.model_norm),
+    index('idx_usage_billing').on(t.billing),
+  ],
+)
+
+// ── WalkingPad achievements (unlocked milestones, surfaced by the dashboard) ─
 //
 // Persisted because the user never triggers a mutation for a walking-pad
 // session — the daemon does. The dashboard polls this table to surface new
