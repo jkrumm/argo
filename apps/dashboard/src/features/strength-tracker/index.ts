@@ -49,7 +49,6 @@ export { Section } from './section'
 export { WindowSelector, presetToParams, getInitialPreset } from './window-selector'
 export { ViewTabs, type StrengthView } from './view-tabs'
 export { ExerciseFilter } from './exercise-filter'
-export { DeloadBanner } from './deload-banner'
 export { showAchievements } from './achievements-toast'
 
 export { WorkoutForm } from './components/workout-form'

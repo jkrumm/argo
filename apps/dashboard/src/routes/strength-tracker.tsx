@@ -7,12 +7,9 @@ import {
   BodyWeightPanel,
   ChartSkeleton,
   DEFAULT_EXERCISES,
-  DeloadBanner,
   EmptyState,
   ExerciseFilter,
   ExerciseSummaryCards,
-  HeroStats,
-  HeroStatsSkeleton,
   RecentRecords,
   Section,
   TimerCard,
@@ -46,7 +43,7 @@ import { workoutsQueries } from '../lib/queries/workouts'
 // ── Search params ──────────────────────────────────────────────────────────
 
 const PresetEnum = z.enum(['7d', '30d', '3m', '6m', '1y', 'ytd', 'all'])
-const ViewEnum = z.enum(['charts', 'scan', 'history', 'body-weight'])
+const ViewEnum = z.enum(['charts', 'train', 'history', 'body-weight'])
 
 const SearchSchema = z.object({
   window: PresetEnum.default('all'),
@@ -92,6 +89,7 @@ export const Route = createFileRoute('/strength-tracker')({
       base.push(context.queryClient.ensureQueryData(workoutsQueries.list({ page: 1, limit: 50 })))
     } else if (deps.tab === 'charts') {
       base.push(context.queryClient.ensureQueryData(workoutsQueries.summaryStrength(windowParams)))
+      base.push(context.queryClient.ensureQueryData(strengthQueries.sparklines(params)))
     }
 
     return Promise.all(base)
@@ -223,24 +221,21 @@ function StrengthTrackerPage() {
           </Group>
         </Group>
 
-        <DeloadBanner exercises={search.exercises} />
-
-        {hasWorkouts && (
-          <Suspense fallback={<HeroStatsSkeleton />}>
-            <HeroStats params={queryParams} />
-          </Suspense>
-        )}
-
         <Grid>
           <Grid.Col span={{ base: 12, lg: 8 }}>
-            {!hasWorkouts ? (
+            {search.tab === 'train' ? (
+              <TrainingTools
+                params={queryParams}
+                hasWorkouts={hasWorkouts}
+                multiExercise={activeExercises.length > 1}
+              />
+            ) : !hasWorkouts ? (
               <EmptyState />
             ) : (
               <>
                 {search.tab === 'charts' && (
                   <ChartsPanel params={queryParams} activeExercises={activeExercises} />
                 )}
-                {search.tab === 'scan' && <ScanPanel params={queryParams} />}
                 {search.tab === 'history' && (
                   <Suspense fallback={<ChartSkeleton height={320} />}>
                     <WorkoutsTable />
@@ -255,17 +250,13 @@ function StrengthTrackerPage() {
             )}
           </Grid.Col>
 
-          {/* Right rail */}
-          <Grid.Col span={{ base: 12, lg: 4 }}>
-            <Stack gap="md">
-              <Suspense fallback={<ChartSkeleton height={320} />}>
-                <WorkoutForm />
-              </Suspense>
-              <TimerCard />
-              {hasWorkouts && (
-                <RecentRecords params={queryParams} multiExercise={activeExercises.length > 1} />
-              )}
-            </Stack>
+          {/* Right rail — desktop/tablet only; on phones it moves to the Train tab. */}
+          <Grid.Col span={{ base: 12, lg: 4 }} visibleFrom="sm">
+            <TrainingTools
+              params={queryParams}
+              hasWorkouts={hasWorkouts}
+              multiExercise={activeExercises.length > 1}
+            />
           </Grid.Col>
         </Grid>
       </Stack>
@@ -282,6 +273,10 @@ function ChartsPanel({
 }) {
   return (
     <Stack gap="md">
+      <Suspense fallback={<ChartSkeleton height={420} />}>
+        <SparklineGridChart params={params} />
+      </Suspense>
+
       <Suspense fallback={<ChartSkeleton height={120} />}>
         <ExerciseSummaryCardsSlot />
       </Suspense>
@@ -354,25 +349,49 @@ function CompositeChartSlot({
   params: StrengthQueryParams
   activeExercises: ReadonlyArray<ExerciseKey>
 }) {
-  // Pull the strength-direction leader from heroes (already prefetched + cached);
-  // fall back to the first active exercise.
+  // Default to the strength-direction leader, but only if it has enough sessions
+  // to actually draw a trend (the trailing ZMA needs ≥3 entries). A fast-rising
+  // lift logged once or twice would otherwise default to a blank chart. Both
+  // queries are prefetched in the loader, so this hits the cache.
   const { data: heroes } = useSuspenseQuery(strengthQueries.heroes(params))
-  const leader = heroes.strengthDirection.leaderExercise ?? activeExercises[0] ?? 'bench_press'
-  return <StrengthCompositeChart params={params} exerciseId={leader} />
-}
-
-function ScanPanel({ params }: { params: StrengthQueryParams }) {
-  return (
-    <Stack gap="md">
-      <Suspense fallback={<ChartSkeleton height={420} />}>
-        <SparklineGridChart params={params} />
-      </Suspense>
-    </Stack>
-  )
+  const { data: sparks } = useSuspenseQuery(strengthQueries.sparklines(params))
+  const initial = useMemo(() => {
+    const sessions = new Map(sparks.byExercise.map((r) => [r.exercise_id, r.e1rm.length]))
+    const enough = (ex: string) => (sessions.get(ex) ?? 0) >= 3
+    const leader = heroes.strengthDirection.leaderExercise
+    if (leader !== null && enough(leader)) return leader
+    const mostData = [...activeExercises].toSorted(
+      (a, b) => (sessions.get(b) ?? 0) - (sessions.get(a) ?? 0),
+    )[0]
+    return mostData ?? activeExercises[0] ?? 'bench_press'
+  }, [sparks, heroes, activeExercises])
+  return <StrengthCompositeChart params={params} exerciseId={initial} />
 }
 
 function ExerciseSummaryCardsSlot() {
   const search = Route.useSearch()
   const windowParams = useMemo<SummaryParams>(() => resolveWindow(search), [search])
   return <ExerciseSummaryCards params={windowParams} />
+}
+
+// Workout logger + rest/interval timer + recent PRs. Rendered in the desktop
+// right rail and, on phones, under the Train tab (the rail is hidden there).
+function TrainingTools({
+  params,
+  hasWorkouts,
+  multiExercise,
+}: {
+  params: StrengthQueryParams
+  hasWorkouts: boolean
+  multiExercise: boolean
+}) {
+  return (
+    <Stack gap="md">
+      <Suspense fallback={<ChartSkeleton height={320} />}>
+        <WorkoutForm />
+      </Suspense>
+      <TimerCard />
+      {hasWorkouts && <RecentRecords params={params} multiExercise={multiExercise} />}
+    </Stack>
+  )
 }

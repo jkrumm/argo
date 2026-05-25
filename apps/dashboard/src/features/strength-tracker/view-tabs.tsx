@@ -1,12 +1,18 @@
 import { SegmentedControl } from '@mantine/core'
 
-export type StrengthView = 'charts' | 'scan' | 'history' | 'body-weight'
+export type StrengthView = 'charts' | 'train' | 'history' | 'body-weight'
 
-const OPTIONS: { value: StrengthView; label: string }[] = [
+// Desktop keeps the workout/timer/records in the right rail, so no Train tab.
+const DESKTOP_OPTIONS: { value: StrengthView; label: string }[] = [
   { value: 'charts', label: 'Charts' },
-  { value: 'scan', label: 'Scan' },
   { value: 'history', label: 'History' },
   { value: 'body-weight', label: 'Body Weight' },
+]
+
+// Phones hide the rail, so Train surfaces the same tools as a leading tab.
+const MOBILE_OPTIONS: { value: StrengthView; label: string }[] = [
+  { value: 'train', label: 'Train' },
+  ...DESKTOP_OPTIONS,
 ]
 
 export function ViewTabs({
@@ -17,11 +23,21 @@ export function ViewTabs({
   onChange: (next: StrengthView) => void
 }) {
   return (
-    <SegmentedControl
-      size="xs"
-      value={value}
-      onChange={(v) => onChange(v as StrengthView)}
-      data={OPTIONS}
-    />
+    <>
+      <SegmentedControl
+        hiddenFrom="sm"
+        size="xs"
+        value={value}
+        onChange={(v) => onChange(v as StrengthView)}
+        data={MOBILE_OPTIONS}
+      />
+      <SegmentedControl
+        visibleFrom="sm"
+        size="xs"
+        value={value === 'train' ? 'charts' : value}
+        onChange={(v) => onChange(v as StrengthView)}
+        data={DESKTOP_OPTIONS}
+      />
+    </>
   )
 }

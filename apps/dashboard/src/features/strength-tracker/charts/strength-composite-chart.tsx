@@ -292,6 +292,17 @@ export default function StrengthCompositeChart({
 
   const points = data.points as CompositePoint[]
 
+  // A point only draws a line where its trailing ZMA is non-null. An exercise
+  // with < 3 sessions yields points but zero ZMA, which would render as blank
+  // axes — treat that as empty so the user sees why instead of nothing.
+  const hasLines = useMemo(
+    () =>
+      points.some(
+        (p) => p.velocityZma !== null || p.tonnageGrowthZma !== null || p.inolZma !== null,
+      ),
+    [points],
+  )
+
   const activeOptions = useMemo(() => {
     const active = parseExercises(params.exercises)
     return EXERCISES.filter((e) => active.includes(e.value))
@@ -349,8 +360,15 @@ export default function StrengthCompositeChart({
       extra={headerExtra}
     >
       <div ref={ref} style={{ height: 280, width: '100%' }}>
-        {points.length === 0 ? (
-          <ChartEmpty height={280} message={`No composite data for ${exerciseLabel(selected)}`} />
+        {!hasLines ? (
+          <ChartEmpty
+            height={280}
+            message={
+              points.length === 0
+                ? `No composite data for ${exerciseLabel(selected)}`
+                : `Not enough sessions for ${exerciseLabel(selected)} yet — needs at least 3`
+            }
+          />
         ) : width > 0 ? (
           <CompositeInner
             data={points}

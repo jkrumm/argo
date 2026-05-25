@@ -34,6 +34,7 @@ import {
 } from '@tabler/icons-react'
 import { format } from 'date-fns'
 import type { MouseEvent } from 'react'
+import { RefreshButton, TimerNavWidget, useTimerEngine } from '../components/timer-nav'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   component: RootLayout,
@@ -50,6 +51,8 @@ function RootLayout() {
   const { colorScheme, toggleColorScheme } = useMantineColorScheme()
   const matchRoute = useMatchRoute()
   const navigate = useNavigate()
+
+  useTimerEngine()
 
   const isDark = colorScheme === 'dark'
   const isGarminActive = !!matchRoute({ to: '/garmin-health', fuzzy: true })
@@ -115,14 +118,20 @@ function RootLayout() {
       padding="md"
     >
       <AppShell.Header px="md" hiddenFrom="sm">
-        <Group h="100%" gap="sm">
-          <Burger
-            opened={mobileOpened}
-            onClick={toggleMobile}
-            size="sm"
-            aria-label="Toggle navigation"
-          />
-          <Text fw={700}>Argo</Text>
+        <Group h="100%" gap="sm" justify="space-between" wrap="nowrap">
+          <Group gap="sm" wrap="nowrap">
+            <Burger
+              opened={mobileOpened}
+              onClick={toggleMobile}
+              size="sm"
+              aria-label="Toggle navigation"
+            />
+            <Text fw={700}>Argo</Text>
+          </Group>
+          <Group gap="xs" wrap="nowrap">
+            <TimerNavWidget />
+            <RefreshButton />
+          </Group>
         </Group>
       </AppShell.Header>
       <AppShell.Navbar p="md">
@@ -197,6 +206,12 @@ function RootLayout() {
           ))}
 
           <Box style={{ flex: 1 }} />
+
+          <Group gap="xs" wrap="nowrap" mb="sm">
+            <TimerNavWidget />
+            <Box style={{ flex: 1 }} />
+            <RefreshButton />
+          </Group>
 
           <Divider mb="sm" />
 
