@@ -1,0 +1,47 @@
+/* Native-feel polish for mobile browsers and the installed (standalone) PWA.
+   Imported after Mantine styles in main.tsx so these rules win on source order. */
+
+/* Stop iOS from inflating font sizes when rotating into landscape. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Remove the grey tap flash on iOS/Android. */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent whole-page pull-to-refresh / rubber-band reload while keeping inner
+   scroll regions intact. */
+html,
+body {
+  overscroll-behavior-y: contain;
+}
+
+/* Long-pressing a control shouldn't select its label or pop the iOS callout
+   menu. Inputs and content text stay selectable. */
+.mantine-Button-root,
+.mantine-NavLink-root,
+.mantine-Burger-root {
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+/* Safety net: any input that escapes the theme defaults still renders at 16px
+   on small screens, so iOS never zooms the viewport on focus. */
+@media (max-width: 48em) {
+  .mantine-Input-input {
+    font-size: 16px;
+  }
+}
+
+/* Installed PWA: clear the home indicator and the landscape notch. The iOS
+   status bar uses the opaque `default` style, so no top inset is needed. */
+@media (display-mode: standalone) {
+  .mantine-AppShell-main {
+    padding-bottom: max(var(--mantine-spacing-md), env(safe-area-inset-bottom));
+    padding-left: max(var(--mantine-spacing-md), env(safe-area-inset-left));
+    padding-right: max(var(--mantine-spacing-md), env(safe-area-inset-right));
+  }
+}

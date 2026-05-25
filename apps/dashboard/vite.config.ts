@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import babel from 'vite-plugin-babel'
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite'
+import { VitePWA } from 'vite-plugin-pwa'
 import { resolve } from 'path'
 import { readFileSync } from 'fs'
 
@@ -26,6 +27,28 @@ export default defineConfig({
     TanStackRouterVite({ target: 'react', autoCodeSplitting: true }),
     babel({ babelConfig: { plugins: ['babel-plugin-react-compiler'] } }),
     react(),
+    VitePWA({
+      // New service worker activates in the background; fresh assets are picked
+      // up on the next launch/navigation (no forced mid-session reload).
+      registerType: 'autoUpdate',
+      // Plugin injects the registration script — no app code needed.
+      injectRegister: 'auto',
+      // Keep the hand-tuned public/site.webmanifest + icon set; don't generate one.
+      manifest: false,
+      workbox: {
+        // App-shell precache only — no /api caching, so health/strength data is
+        // always fetched fresh (offline shows the shell with fetch errors).
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api/, /^\/v1\//],
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        // Some Mantine/charts chunks exceed the 2 MB default; precache them too.
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+      },
+      // SW stays off in dev so it can't cache stale assets during `bun dev`.
+      devOptions: { enabled: false },
+    }),
   ],
   server: {
     port: 7715,

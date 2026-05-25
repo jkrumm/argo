@@ -4,6 +4,7 @@ import '@mantine/core/styles.css'
 import '@mantine/notifications/styles.css'
 import '@mantine/dates/styles.css'
 import '@mantine/schedule/styles.css'
+import './styles/native.css'
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -18,6 +19,7 @@ import { ErrorBoundary } from './lib/error-boundary'
 import { queryClient } from './lib/query-client'
 import { routeTree } from './routeTree.gen'
 import { VxBridge } from './charts-bridge'
+import { theme } from './theme'
 
 const router = createRouter({
   routeTree,
@@ -37,7 +39,7 @@ if (!rootEl) throw new Error('Root element not found')
 
 createRoot(rootEl).render(
   <StrictMode>
-    <MantineProvider defaultColorScheme="dark">
+    <MantineProvider theme={theme} defaultColorScheme="dark">
       <ErrorBoundary>
         <VxBridge>
           <Notifications />
