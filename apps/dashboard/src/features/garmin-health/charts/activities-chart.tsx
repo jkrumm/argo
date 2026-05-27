@@ -48,6 +48,9 @@ const ACTIVITY_TYPE_META: Record<string, ActivityTypeMeta> = {
   running: { label: 'Running', color: VX.series.activity.running },
   trail_running: { label: 'Trail Run', color: VX.series.activity.running },
   treadmill_running: { label: 'Treadmill', color: VX.series.activity.running },
+  hiking: { label: 'Wandern', color: VX.series.activity.hiking },
+  surfing_v2: { label: 'Surfen', color: VX.series.activity.surfing },
+  surfing: { label: 'Surfen', color: VX.series.activity.surfing },
 }
 
 const ACTIVITY_TYPE_OTHER: ActivityTypeMeta = {

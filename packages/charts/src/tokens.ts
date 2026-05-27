@@ -108,6 +108,8 @@ export const VX = {
       cycling: '#1677ff',
       tennis: '#fa8c16',
       running: '#52c41a',
+      hiking: '#ab47bc',
+      surfing: '#00bcd4',
       other: '#8b949e',
     },
   },
