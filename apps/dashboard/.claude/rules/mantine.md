@@ -55,3 +55,21 @@ Route components import chart primitives directly from `@argo/charts` — never 
 ## Icons
 
 All icons from `@tabler/icons-react`. Size via `size={16}` prop, not CSS.
+
+## Interaction Feedback (micro-animations)
+
+Every action button (Save, Log, Add, Delete, Toggle) must give immediate visual confirmation. Silent success feels broken. Three layers, applied together:
+
+1. **In-flight state** — `loading` prop on `<Button>` (built-in spinner). Use `mutation.isPending` from TanStack Query. Disables clicks automatically.
+2. **Post-success state on the trigger itself** — flip the button briefly to confirm: swap label `Save → Saved`, set `color="teal"`, and reveal an `IconCheck` via `<Transition mounted={justSaved} transition="pop" duration={180}>`. Hold ~1.2–1.5s, then reset. The point is reactive proximity — the user's eye is on the thing they clicked, so feedback lands there, not only in a corner toast.
+3. **Toast (`notifications.show`)** — only for outcomes the user might miss (writes that succeed off-screen, errors, async background work). Don't toast trivial UI toggles. Keep `autoClose` ≤ 2000ms for success; errors stay until dismissed.
+
+Guidelines:
+
+- Durations: 120–200ms for state flips, 180–250ms for `Transition`, never above 300ms (feels laggy). Tailwind/Mantine `ease` curves are fine — don't hand-roll bezier.
+- Never animate layout-shifting properties (height, width) on buttons — animate `transform`, `opacity`, `color`, `background`.
+- Don't toast on every action. A button that turns into a check **is** the confirmation; the toast is for context the user can't see (e.g. "Weight logged — 80.3 kg on 2026-05-27").
+- Destructive actions: confirm with `modals.openConfirmModal` first, then the same in-button success pattern after deletion.
+- Form errors: prefer inline field errors over toast; toast only for submit-level failures (network, server).
+
+Reference implementation: `src/features/strength-tracker/components/body-weight-panel.tsx` → `WeightEntryForm` (loading + check-icon flip + success toast).

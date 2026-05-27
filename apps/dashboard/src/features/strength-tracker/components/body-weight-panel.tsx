@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Badge,
   Button,
@@ -10,9 +10,11 @@ import {
   Stack,
   Text,
   TextInput,
+  Transition,
 } from '@mantine/core'
+import { notifications } from '@mantine/notifications'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { IconMinus, IconTrendingDown, IconTrendingUp } from '@tabler/icons-react'
+import { IconCheck, IconMinus, IconTrendingDown, IconTrendingUp } from '@tabler/icons-react'
 import { VX } from '@argo/charts'
 import {
   useCreateWeightLog,
@@ -159,16 +161,43 @@ function WeightSummaryCards({ summary }: { summary: WeightSummary }) {
   )
 }
 
-function WeightEntryForm() {
+function WeightEntryForm({ defaultWeight }: { defaultWeight: number | null }) {
   const [date, setDate] = useState(today())
-  const [weight, setWeight] = useState<number | ''>(80)
+  const [weight, setWeight] = useState<number | ''>(defaultWeight ?? '')
+  const [justSaved, setJustSaved] = useState(false)
   const createWeightLog = useCreateWeightLog()
+
+  useEffect(() => {
+    if (weight === '' && defaultWeight !== null) setWeight(defaultWeight)
+  }, [defaultWeight, weight])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const w = typeof weight === 'number' ? weight : Number(weight)
     if (Number.isNaN(w) || w < 30 || w > 300) return
-    createWeightLog.mutate({ date, weight_kg: w })
+    createWeightLog.mutate(
+      { date, weight_kg: w },
+      {
+        onSuccess: () => {
+          setJustSaved(true)
+          notifications.show({
+            color: 'teal',
+            icon: <IconCheck size={18} />,
+            title: 'Weight logged',
+            message: `${w.toFixed(1)} kg on ${date}`,
+            autoClose: 2000,
+          })
+          setTimeout(() => setJustSaved(false), 1400)
+        },
+        onError: (err) => {
+          notifications.show({
+            color: 'red',
+            title: 'Could not save weight',
+            message: err instanceof Error ? err.message : 'Unknown error',
+          })
+        },
+      },
+    )
   }
 
   return (
@@ -199,8 +228,21 @@ function WeightEntryForm() {
               value={weight}
               onChange={(v) => setWeight(typeof v === 'number' ? v : '')}
             />
-            <Button type="submit" size="md" loading={createWeightLog.isPending}>
-              Save
+            <Button
+              type="submit"
+              size="md"
+              loading={createWeightLog.isPending}
+              color={justSaved ? 'teal' : undefined}
+              leftSection={
+                <Transition mounted={justSaved} transition="pop" duration={180}>
+                  {(styles) => <IconCheck size={16} style={styles} />}
+                </Transition>
+              }
+              styles={{
+                root: { transition: 'background-color 180ms ease, transform 120ms ease' },
+              }}
+            >
+              {justSaved ? 'Saved' : 'Save'}
             </Button>
           </Group>
         </Stack>
@@ -215,7 +257,7 @@ export function BodyWeightPanel({ params }: { params: WeightLogWindowParams }) {
   return (
     <Stack>
       <WeightSummaryCards summary={summary as WeightSummary} />
-      <WeightEntryForm />
+      <WeightEntryForm defaultWeight={(summary as WeightSummary).current} />
       <BodyWeightChart params={params} />
     </Stack>
   )

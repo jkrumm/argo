@@ -207,6 +207,22 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
   .post(
     '',
     async ({ body, set }) => {
+      const [existing] = await db
+        .select({ id: weightLog.id })
+        .from(weightLog)
+        .where(eq(weightLog.date, body.date))
+        .orderBy(desc(weightLog.id))
+        .limit(1)
+
+      if (existing) {
+        await db
+          .update(weightLog)
+          .set({ weight_kg: body.weight_kg })
+          .where(eq(weightLog.id, existing.id))
+        set.status = 201
+        return { id: existing.id }
+      }
+
       const [result] = await db
         .insert(weightLog)
         .values({ date: body.date, weight_kg: body.weight_kg })
@@ -222,9 +238,11 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
       response: { 201: z.object({ id: z.number() }) },
       detail: {
         tags: ['Garmin Health'],
-        summary: 'Add a weight entry',
+        summary: 'Add or replace a weight entry',
         description:
-          'Inserts a body-weight measurement. `date` is YYYY-MM-DD, `weight_kg` is 30–300. There is no uniqueness constraint on date — duplicate entries on the same day are allowed (the trend calculations use the most recent rows). Returns the new row id.',
+          'Records a body-weight measurement for the given day. `date` is YYYY-MM-DD, `weight_kg` is 30–300. ' +
+          'If an entry already exists for that date, its weight is overwritten and the existing row id is returned ' +
+          '(one entry per day; later submits replace earlier ones). Otherwise a new row is inserted and its id returned.',
         security: [{ BearerAuth: [] }],
       },
     },
