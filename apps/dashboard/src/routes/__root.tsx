@@ -113,6 +113,7 @@ function RootLayout() {
 
   return (
     <AppShell
+      h="100dvh"
       header={{ height: { base: 56, sm: 0 } }}
       navbar={{ width: 240, breakpoint: 'sm', collapsed: { mobile: !mobileOpened } }}
       padding="md"

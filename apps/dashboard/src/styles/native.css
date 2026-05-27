@@ -5,6 +5,7 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  height: 100%;
 }
 
 /* Remove the grey tap flash on iOS/Android. */
@@ -14,9 +15,13 @@ html {
 
 /* Prevent whole-page pull-to-refresh / rubber-band reload while keeping inner
    scroll regions intact. */
-html,
 body {
+  min-height: 100%;
   overscroll-behavior-y: contain;
+}
+
+#root {
+  min-height: 100%;
 }
 
 /* Long-pressing a control shouldn't select its label or pop the iOS callout
@@ -37,11 +42,15 @@ body {
 }
 
 /* Installed PWA: clear the home indicator and the landscape notch. The iOS
-   status bar uses the opaque `default` style, so no top inset is needed. */
+   status bar uses the opaque `default` style, so no top inset is needed.
+   Left inset is handled by the navbar so Mantine's grid offset stays intact. */
 @media (display-mode: standalone) {
+  .mantine-AppShell-navbar {
+    padding-left: max(var(--mantine-spacing-md), env(safe-area-inset-left));
+  }
+
   .mantine-AppShell-main {
     padding-bottom: max(var(--mantine-spacing-md), env(safe-area-inset-bottom));
-    padding-left: max(var(--mantine-spacing-md), env(safe-area-inset-left));
     padding-right: max(var(--mantine-spacing-md), env(safe-area-inset-right));
   }
 }
