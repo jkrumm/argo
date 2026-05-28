@@ -25,17 +25,16 @@ export const BreakdownDimensionEnum = z.enum([
 ])
 
 /**
- * Coerce a query param to an array schema.
+ * Normalize an optional query value to an array.
  *
  * Eden/URLSearchParams serialise a single-element array as a scalar
- * (`billing=max`) instead of repeating the key (`billing=max&billing=iu`).
- * `z.array(...)` then receives a string and 422s. Preprocess to wrap
- * scalars before validation.
+ * (`billing=max`); the `@elysiajs/openapi` validator runs against the
+ * converted JSON Schema, not Zod's runtime, so `z.preprocess` never fires.
+ * Handlers call this on the raw `query.foo` value before passing to SQL.
  */
-export function arrayParam<T extends z.ZodTypeAny>(schema: T) {
-  return z
-    .preprocess((v) => (v === undefined ? undefined : Array.isArray(v) ? v : [v]), z.array(schema))
-    .optional()
+export function toArray<T>(v: T | T[] | undefined): T[] | undefined {
+  if (v === undefined) return undefined
+  return Array.isArray(v) ? v : [v]
 }
 
 export function resolveRange(range: '7d' | '30d' | '90d' | 'all'): {

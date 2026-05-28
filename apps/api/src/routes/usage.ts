@@ -10,9 +10,21 @@ import {
   TimeseriesGroupByEnum,
   BreakdownMetricEnum,
   BreakdownDimensionEnum,
-  arrayParam,
   resolveRange,
+  toArray,
 } from '../lib/usage-query.js'
+
+const BillingEnum = z.enum(['max', 'iu', 'unknown'])
+
+/**
+ * Accept either a single scalar or an array for filter query params.
+ * Eden/URLSearchParams flatten 1-element arrays to a scalar on the wire,
+ * and the openapi plugin validates against the JSON Schema (not Zod runtime),
+ * so preprocess wrappers never run — declare both shapes here and call
+ * toArray() before using the value.
+ */
+const stringFilter = z.union([z.string(), z.array(z.string())]).optional()
+const billingFilter = z.union([BillingEnum, z.array(BillingEnum)]).optional()
 
 const UsageRecordInputSchema = z.object({
   source: z.string(),
@@ -286,7 +298,11 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
       }
 
       const interval = grain === 'day' ? sql`interval '1 day'` : sql`interval '1 week'`
-      const filterSql = buildFilterSql(query.sources, query.machines, query.billing)
+      const filterSql = buildFilterSql(
+        toArray(query.sources),
+        toArray(query.machines),
+        toArray(query.billing),
+      )
       const mExpr = metricExpr(metric)
 
       if (groupBy === 'none') {
@@ -409,9 +425,9 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         grain: GrainEnum.default('day'),
         metric: MetricEnum,
         groupBy: TimeseriesGroupByEnum.default('none'),
-        sources: arrayParam(z.string()),
-        machines: arrayParam(z.string()),
-        billing: arrayParam(z.enum(['max', 'iu', 'unknown'])),
+        sources: stringFilter,
+        machines: stringFilter,
+        billing: billingFilter,
       }),
       response: {
         200: z.object({
@@ -449,7 +465,11 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
 
       const col = groupColumnSql(dimension)
       const mExpr = metricExprBreakdown(metric)
-      const filterSql = buildFilterSql(query.sources, query.machines, query.billing)
+      const filterSql = buildFilterSql(
+        toArray(query.sources),
+        toArray(query.machines),
+        toArray(query.billing),
+      )
 
       const [totalResult, rowsResult] = await Promise.all([
         db.execute(sql`
@@ -488,9 +508,9 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         metric: BreakdownMetricEnum,
         dimension: BreakdownDimensionEnum,
         limit: z.coerce.number().int().min(1).max(100).default(10),
-        sources: arrayParam(z.string()),
-        machines: arrayParam(z.string()),
-        billing: arrayParam(z.enum(['max', 'iu', 'unknown'])),
+        sources: stringFilter,
+        machines: stringFilter,
+        billing: billingFilter,
       }),
       response: {
         200: z.object({
