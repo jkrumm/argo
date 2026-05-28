@@ -112,6 +112,32 @@ export const VX = {
       surfing: '#00bcd4',
       other: '#8b949e',
     },
+
+    // Usage tracker — source identity (each app/process)
+    usageSource: {
+      claudeCode: '#a78bfa',
+      litellm: '#22d3ee',
+      sideclaw: '#f59e0b',
+      hermesAgent: '#ec4899',
+      audioProxy: '#10b981',
+      feuer: '#ef4444',
+      opencode: '#6366f1',
+      other: '#94a3b8',
+    },
+
+    // Usage tracker — billing identity
+    usageBilling: {
+      max: '#f59e0b',
+      iu: '#22d3ee',
+      unknown: '#94a3b8',
+    },
+
+    // Usage tracker — outcome identity (also reusable for any ok/error split)
+    usageOutcome: {
+      ok: '#22c55e',
+      error: '#ef4444',
+      cancelled: '#f59e0b',
+    },
   },
 
   // Shared sizing

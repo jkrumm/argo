@@ -26,6 +26,7 @@ import {
   IconBox,
   IconBrandTeams,
   IconCalendar,
+  IconChartHistogram,
   IconChecklist,
   IconShoe,
   IconHeartbeat,
@@ -60,6 +61,7 @@ function RootLayout() {
   const isWalkingPadActive = !!matchRoute({ to: '/walking-pad', fuzzy: true })
   const isM365Active = !!matchRoute({ to: '/m365-explorer', fuzzy: true })
   const isCalendarActive = !!matchRoute({ to: '/calendar', fuzzy: true })
+  const isUsageActive = !!matchRoute({ to: '/usage-tracking', fuzzy: true })
 
   function handleNavGarmin() {
     return (e: MouseEvent) => {
@@ -74,6 +76,17 @@ function RootLayout() {
       e.preventDefault()
       closeMobile()
       void navigate({ to: '/m365-explorer' })
+    }
+  }
+
+  function handleNavUsage() {
+    return (e: MouseEvent) => {
+      e.preventDefault()
+      closeMobile()
+      void navigate({
+        to: '/usage-tracking',
+        search: { range: '30d', grain: 'day', costGroupBy: 'source', tokensGroupBy: 'sub_tool' },
+      })
     }
   }
 
@@ -194,6 +207,15 @@ function RootLayout() {
             active={isM365Active}
             mb={4}
             onClick={handleNavM365()}
+          />
+          <NavLink
+            component="a"
+            href="/usage-tracking"
+            label="Usage Tracking"
+            leftSection={<IconChartHistogram size={18} />}
+            active={isUsageActive}
+            mb={4}
+            onClick={handleNavUsage()}
           />
 
           <Divider my="sm" />

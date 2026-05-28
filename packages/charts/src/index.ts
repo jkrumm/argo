@@ -40,6 +40,9 @@ export {
   type BarsAxisConfig,
 } from './kinds/Bars'
 
+export { StackedArea, type StackedAreaProps } from './kinds/StackedArea'
+export { Donut, type DonutProps, type DonutDatum } from './kinds/Donut'
+
 export { LineSparkline, BarSparkline } from './sparklines'
 
 // ── Re-exported visx primitives ──────────────────────────────────────────
