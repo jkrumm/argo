@@ -24,6 +24,20 @@ export const BreakdownDimensionEnum = z.enum([
   'sub_tool',
 ])
 
+/**
+ * Coerce a query param to an array schema.
+ *
+ * Eden/URLSearchParams serialise a single-element array as a scalar
+ * (`billing=max`) instead of repeating the key (`billing=max&billing=iu`).
+ * `z.array(...)` then receives a string and 422s. Preprocess to wrap
+ * scalars before validation.
+ */
+export function arrayParam<T extends z.ZodTypeAny>(schema: T) {
+  return z
+    .preprocess((v) => (v === undefined ? undefined : Array.isArray(v) ? v : [v]), z.array(schema))
+    .optional()
+}
+
 export function resolveRange(range: '7d' | '30d' | '90d' | 'all'): {
   fromIso: string | null
   toIso: string

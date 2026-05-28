@@ -1,11 +1,18 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Card, Group, Stack, Table, Text } from '@mantine/core'
 import { usageQueries, type Range } from '../../../lib/queries/usage'
+import type { BillingValue } from '../types'
 import { fmtPct, fmtUsd } from '../constants'
 
-export default function TopProjects({ range }: { range: Range }) {
+export default function TopProjects({
+  range,
+  billing,
+}: {
+  range: Range
+  billing?: BillingValue[]
+}) {
   const { data } = useSuspenseQuery(
-    usageQueries.breakdown({ range, metric: 'cost', dimension: 'project', limit: 10 }),
+    usageQueries.breakdown({ range, metric: 'cost', dimension: 'project', limit: 10, billing }),
   )
 
   return (

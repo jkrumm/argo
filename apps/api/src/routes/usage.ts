@@ -10,6 +10,7 @@ import {
   TimeseriesGroupByEnum,
   BreakdownMetricEnum,
   BreakdownDimensionEnum,
+  arrayParam,
   resolveRange,
 } from '../lib/usage-query.js'
 
@@ -408,9 +409,9 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         grain: GrainEnum.default('day'),
         metric: MetricEnum,
         groupBy: TimeseriesGroupByEnum.default('none'),
-        sources: z.array(z.string()).optional(),
-        machines: z.array(z.string()).optional(),
-        billing: z.array(z.enum(['max', 'iu', 'unknown'])).optional(),
+        sources: arrayParam(z.string()),
+        machines: arrayParam(z.string()),
+        billing: arrayParam(z.enum(['max', 'iu', 'unknown'])),
       }),
       response: {
         200: z.object({
@@ -448,7 +449,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
 
       const col = groupColumnSql(dimension)
       const mExpr = metricExprBreakdown(metric)
-      const filterSql = buildFilterSql(undefined, undefined, undefined)
+      const filterSql = buildFilterSql(query.sources, query.machines, query.billing)
 
       const [totalResult, rowsResult] = await Promise.all([
         db.execute(sql`
@@ -487,6 +488,9 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         metric: BreakdownMetricEnum,
         dimension: BreakdownDimensionEnum,
         limit: z.coerce.number().int().min(1).max(100).default(10),
+        sources: arrayParam(z.string()),
+        machines: arrayParam(z.string()),
+        billing: arrayParam(z.enum(['max', 'iu', 'unknown'])),
       }),
       response: {
         200: z.object({

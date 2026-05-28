@@ -38,6 +38,9 @@ export type BreakdownParams = {
   metric: BreakdownMetric
   dimension: BreakdownDimension
   limit?: number
+  sources?: string[]
+  machines?: string[]
+  billing?: ('max' | 'iu' | 'unknown')[]
 }
 
 export const usageQueries = {

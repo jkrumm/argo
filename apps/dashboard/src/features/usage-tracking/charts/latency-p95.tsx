@@ -2,13 +2,22 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { useElementSize } from '@mantine/hooks'
 import { ChartCard, ChartLegend, ZonedLine, useVxTheme } from '@argo/charts'
 import { usageQueries, type Grain, type Range } from '../../../lib/queries/usage'
+import type { BillingValue } from '../types'
 import { fmtMs } from '../constants'
 
 type Bucket = { bucket: string; groups: Record<string, number | null> }
 
-export default function LatencyP95({ range, grain }: { range: Range; grain: Grain }) {
+export default function LatencyP95({
+  range,
+  grain,
+  billing,
+}: {
+  range: Range
+  grain: Grain
+  billing?: BillingValue[]
+}) {
   const { data } = useSuspenseQuery(
-    usageQueries.timeseries({ range, grain, metric: 'latency_p95', groupBy: 'none' }),
+    usageQueries.timeseries({ range, grain, metric: 'latency_p95', groupBy: 'none', billing }),
   )
   const { ref, width } = useElementSize<HTMLDivElement>()
   const { line } = useVxTheme()

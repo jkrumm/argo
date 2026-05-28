@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Suspense, useCallback, useMemo } from 'react'
+import { Suspense, useCallback, useMemo, useState } from 'react'
 import { Grid, Group, Stack, Title } from '@mantine/core'
 import { z } from 'zod'
+import { HoverContext, type HoverCtx } from '@argo/charts'
 import { usageQueries } from '../lib/queries/usage'
 import { FilterBar } from '../features/usage-tracking/filter-bar'
 import { HeroStats } from '../features/usage-tracking/hero-stats'
@@ -80,83 +81,98 @@ function UsageTrackingPage() {
 
   const range = search.range
   const grain = search.grain
+  const billing = search.billing
 
-  const tsBase = useMemo(() => ({ range, grain }), [range, grain])
+  const tsBase = useMemo(() => ({ range, grain, billing }), [range, grain, billing])
+
+  const [hover, setHoverState] = useState<{ date: string | null; source: string | null }>({
+    date: null,
+    source: null,
+  })
+  const setHover = useCallback<HoverCtx['setHover']>((date, source) => {
+    setHoverState({ date, source })
+  }, [])
+  const hoverCtx = useMemo<HoverCtx>(
+    () => ({ date: hover.date, source: hover.source, setHover }),
+    [hover.date, hover.source, setHover],
+  )
 
   return (
-    <Stack gap="md">
-      <Group justify="space-between" wrap="wrap" gap="sm">
-        <Title order={2}>Usage Tracking</Title>
-        <FilterBar
-          range={search.range}
-          grain={search.grain}
-          billing={search.billing}
-          onRangeChange={onRangeChange}
-          onGrainChange={onGrainChange}
-          onBillingChange={onBillingChange}
-        />
-      </Group>
+    <HoverContext.Provider value={hoverCtx}>
+      <Stack gap="md">
+        <Group justify="space-between" wrap="wrap" gap="sm">
+          <Title order={2}>Usage Tracking</Title>
+          <FilterBar
+            range={search.range}
+            grain={search.grain}
+            billing={search.billing}
+            onRangeChange={onRangeChange}
+            onGrainChange={onGrainChange}
+            onBillingChange={onBillingChange}
+          />
+        </Group>
 
-      <HeroStats />
+        <HeroStats />
 
-      <Section title="Cost">
-        <Grid>
-          <Grid.Col span={{ base: 12, lg: 8 }}>
-            <Suspense fallback={<ChartFallback />}>
-              <CostOverTime
-                {...tsBase}
-                groupBy={search.costGroupBy}
-                onGroupByChange={onCostGroupBy}
-              />
-            </Suspense>
-          </Grid.Col>
-          <Grid.Col span={{ base: 12, lg: 4 }}>
-            <Suspense fallback={<ChartFallback />}>
-              <BillingSplit range={range} />
-            </Suspense>
-          </Grid.Col>
-        </Grid>
-      </Section>
+        <Section title="Cost">
+          <Grid>
+            <Grid.Col span={{ base: 12, lg: 8 }}>
+              <Suspense fallback={<ChartFallback />}>
+                <CostOverTime
+                  {...tsBase}
+                  groupBy={search.costGroupBy}
+                  onGroupByChange={onCostGroupBy}
+                />
+              </Suspense>
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, lg: 4 }}>
+              <Suspense fallback={<ChartFallback />}>
+                <BillingSplit range={range} />
+              </Suspense>
+            </Grid.Col>
+          </Grid>
+        </Section>
 
-      <Section title="Volume">
-        <Grid>
-          <Grid.Col span={{ base: 12, lg: 8 }}>
-            <Suspense fallback={<ChartFallback />}>
-              <TokensOverTime
-                {...tsBase}
-                groupBy={search.tokensGroupBy}
-                onGroupByChange={onTokensGroupBy}
-              />
-            </Suspense>
-          </Grid.Col>
-          <Grid.Col span={{ base: 12, lg: 4 }}>
-            <Suspense fallback={<ChartFallback height={240} />}>
-              <CacheHitRatio {...tsBase} />
-            </Suspense>
-          </Grid.Col>
-        </Grid>
-      </Section>
+        <Section title="Volume">
+          <Grid>
+            <Grid.Col span={{ base: 12, lg: 8 }}>
+              <Suspense fallback={<ChartFallback />}>
+                <TokensOverTime
+                  {...tsBase}
+                  groupBy={search.tokensGroupBy}
+                  onGroupByChange={onTokensGroupBy}
+                />
+              </Suspense>
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, lg: 4 }}>
+              <Suspense fallback={<ChartFallback height={240} />}>
+                <CacheHitRatio {...tsBase} />
+              </Suspense>
+            </Grid.Col>
+          </Grid>
+        </Section>
 
-      <Section title="Health">
-        <Grid>
-          <Grid.Col span={{ base: 12, lg: 6 }}>
-            <Suspense fallback={<ChartFallback height={240} />}>
-              <ErrorRate {...tsBase} />
-            </Suspense>
-          </Grid.Col>
-          <Grid.Col span={{ base: 12, lg: 6 }}>
-            <Suspense fallback={<ChartFallback height={240} />}>
-              <LatencyP95 {...tsBase} />
-            </Suspense>
-          </Grid.Col>
-        </Grid>
-      </Section>
+        <Section title="Health">
+          <Grid>
+            <Grid.Col span={{ base: 12, lg: 6 }}>
+              <Suspense fallback={<ChartFallback height={240} />}>
+                <ErrorRate {...tsBase} />
+              </Suspense>
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, lg: 6 }}>
+              <Suspense fallback={<ChartFallback height={240} />}>
+                <LatencyP95 {...tsBase} />
+              </Suspense>
+            </Grid.Col>
+          </Grid>
+        </Section>
 
-      <Section title="Top projects">
-        <Suspense fallback={<ChartFallback height={280} />}>
-          <TopProjects range={range} />
-        </Suspense>
-      </Section>
-    </Stack>
+        <Section title="Top projects">
+          <Suspense fallback={<ChartFallback height={280} />}>
+            <TopProjects range={range} billing={billing} />
+          </Suspense>
+        </Section>
+      </Stack>
+    </HoverContext.Provider>
   )
 }

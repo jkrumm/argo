@@ -2,13 +2,22 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { useElementSize } from '@mantine/hooks'
 import { ChartCard, ChartLegend, VX, ZonedLine, useVxTheme } from '@argo/charts'
 import { usageQueries, type Grain, type Range } from '../../../lib/queries/usage'
+import type { BillingValue } from '../types'
 import { fmtPct } from '../constants'
 
 type Bucket = { bucket: string; groups: Record<string, number | null> }
 
-export default function CacheHitRatio({ range, grain }: { range: Range; grain: Grain }) {
+export default function CacheHitRatio({
+  range,
+  grain,
+  billing,
+}: {
+  range: Range
+  grain: Grain
+  billing?: BillingValue[]
+}) {
   const { data } = useSuspenseQuery(
-    usageQueries.timeseries({ range, grain, metric: 'cache_ratio', groupBy: 'none' }),
+    usageQueries.timeseries({ range, grain, metric: 'cache_ratio', groupBy: 'none', billing }),
   )
   const { ref, width } = useElementSize<HTMLDivElement>()
   const { line } = useVxTheme()
