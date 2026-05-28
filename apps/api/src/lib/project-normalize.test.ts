@@ -17,6 +17,17 @@ describe('normalizeProject', () => {
     )
   })
 
+  it('collapses subdirectories of a repo to the repo name', () => {
+    expect(normalizeProject('/Users/jkrumm/IuRoot/prometheus-scripts/vpn')).toBe(
+      'prometheus-scripts',
+    )
+    expect(normalizeProject('/Users/jkrumm/IuRoot/prometheus-scripts/cron/some-script.py')).toBe(
+      'prometheus-scripts',
+    )
+    expect(normalizeProject('/Users/jkrumm/SourceRoot/argo/apps/api')).toBe('argo')
+    expect(normalizeProject('/Users/jkrumm/SourceRoot/argo/apps/dashboard/src/routes')).toBe('argo')
+  })
+
   it('collapses worktree paths to the main repo', () => {
     expect(
       normalizeProject(
@@ -78,23 +89,5 @@ describe('classifyWorkspace', () => {
     expect(classifyWorkspace(null)).toBeNull()
     expect(classifyWorkspace(undefined)).toBeNull()
     expect(classifyWorkspace('')).toBeNull()
-  })
-
-  it('applies source-level overrides regardless of the project value', () => {
-    expect(classifyWorkspace('cron', 'feuer')).toBe('work')
-    expect(classifyWorkspace('cli', 'feuer')).toBe('work')
-    expect(classifyWorkspace(null, 'feuer')).toBe('work')
-    expect(classifyWorkspace(null, 'hermes')).toBe('private')
-    expect(classifyWorkspace(null, 'opencode')).toBe('private')
-    expect(classifyWorkspace(null, 'audio-proxy')).toBe('private')
-  })
-
-  it('falls back to path classification when source is not a fixed-workspace collector', () => {
-    expect(classifyWorkspace('/Users/jkrumm/IuRoot/epos.student-enrolment', 'claude-code')).toBe(
-      'work',
-    )
-    expect(classifyWorkspace('argo', 'claude-code')).toBe('private')
-    expect(classifyWorkspace(null, 'claude-code')).toBeNull()
-    expect(classifyWorkspace(null, 'litellm')).toBeNull()
   })
 })

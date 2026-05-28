@@ -19,6 +19,12 @@ export function normalizeProject(project: string | null | undefined): string | n
   const worktree = trimmed.match(/\/worktrees\/([^/]+)\//)
   if (worktree) return worktree[1] ?? null
 
+  // Anchor on the workspace root so a cwd inside a subdirectory of the repo
+  // (e.g. /IuRoot/prometheus-scripts/vpn) collapses to the repo name rather
+  // than the leaf segment.
+  const rooted = trimmed.match(/\/(?:Source|Iu)Root\/([^/]+)/)
+  if (rooted) return rooted[1] ?? null
+
   const segments = trimmed.split('/').filter(Boolean)
   const last = segments[segments.length - 1]
   return last ?? trimmed
@@ -27,41 +33,27 @@ export function normalizeProject(project: string | null | undefined): string | n
 export type Workspace = 'work' | 'private'
 
 /**
- * Heuristic for repo names that came out of ~/IuRoot but lost their
- * full path before classification (used by the migration backfill).
+ * Heuristic for repo names that came out of ~/IuRoot but lost their full
+ * path before classification. Only used by historical-data backfills now;
+ * the live ingest accepts a workspace from the collector and falls back
+ * to a pure path-based check, so adding a new IuRoot repo here is not
+ * required for going-forward classification.
  */
 const WORK_REPO_RE = /^(epos[._]|prometheus[-_]|crm-bridge|cfn-kafka|terraform-monitoring)/i
 
 /**
- * Source-level overrides for collectors whose workspace is fixed by
- * the daemon itself, independent of any cwd they emit. `feuer` is the
- * IuRoot Prometheus Feuer agent (always work); `hermes`, `opencode`,
- * `audio-proxy` are personal Mac Mini tooling (always private).
- */
-const WORK_SOURCES = new Set(['feuer'])
-const PRIVATE_SOURCES = new Set(['hermes', 'opencode', 'audio-proxy'])
-
-/**
- * Classify a usage record into a workspace.
- *
- * Source overrides win when a collector is dedicated to one workspace
- * (e.g. `feuer` always emits work usage, even when its rows carry a
- * generic project like `cron` or `cli`). Otherwise the cwd path is used:
+ * Classify a usage record into a workspace from its cwd-style project.
+ * Collectors that own their workspace (hermes/feuer/opencode/audio-proxy)
+ * declare it on their definition and the value lands in `record.workspace`
+ * directly — this helper is the per-record fallback for path-driven sources
+ * (claude-code, litellm) where the cwd determines the workspace.
  *
  *   /Users/<user>/IuRoot/...      → 'work'
  *   /Users/<user>/SourceRoot/...  → 'private'
- *   bare repo names               → matched against WORK_REPO_RE
+ *   bare repo names               → matched against WORK_REPO_RE (back-compat)
  *   anything else                 → null
  */
-export function classifyWorkspace(
-  project: string | null | undefined,
-  source?: string | null,
-): Workspace | null {
-  if (source) {
-    if (WORK_SOURCES.has(source)) return 'work'
-    if (PRIVATE_SOURCES.has(source)) return 'private'
-  }
-
+export function classifyWorkspace(project: string | null | undefined): Workspace | null {
   if (project === null || project === undefined) return null
   const trimmed = project.trim()
   if (trimmed === '') return null

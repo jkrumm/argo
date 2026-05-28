@@ -141,9 +141,13 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
   .post(
     '/records',
     async ({ body }) => {
+      // Prefer the collector-declared workspace; fall back to path-based
+      // classification for sources that emit a cwd per record (claude-code,
+      // litellm). classifyWorkspace must run on the *original* cwd before
+      // normalizeProject collapses it to a bare repo name.
       const records = body.records.map((r) => ({
         ...r,
-        workspace: classifyWorkspace(r.project, r.source),
+        workspace: r.workspace ?? classifyWorkspace(r.project),
         project: normalizeProject(r.project),
       }))
       const now = new Date().toISOString()
