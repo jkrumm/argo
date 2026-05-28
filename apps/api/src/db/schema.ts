@@ -222,6 +222,7 @@ export const usageRecord = argoSchema.table(
     model: text('model'),
     model_norm: text('model_norm'),
     project: text('project'),
+    sub_tool: text('sub_tool'),
     billing: text('billing').notNull(),
     machine: text('machine'),
     outcome: text('outcome').notNull().default('ok'),
@@ -230,19 +231,25 @@ export const usageRecord = argoSchema.table(
     cache_read_tokens: integer('cache_read_tokens').notNull().default(0),
     cache_write_tokens: integer('cache_write_tokens').notNull().default(0),
     reasoning_tokens: integer('reasoning_tokens').notNull().default(0),
+    duration_ms: integer('duration_ms'),
     cost_usd: real('cost_usd'),
     cost_source: text('cost_source').notNull().default('none'),
     raw: jsonb('raw'),
     ingested_at: text('ingested_at').notNull(),
+    received_at: timestamp('received_at', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
     created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
     updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
   },
   (t) => [
-    uniqueIndex('uq_usage_source_sourceid').on(t.source, t.source_id),
+    uniqueIndex('uq_usage_source_sourceid_machine').on(t.source, t.source_id, t.machine),
     index('idx_usage_ts').on(t.ts),
     index('idx_usage_source').on(t.source),
     index('idx_usage_model_norm').on(t.model_norm),
     index('idx_usage_billing').on(t.billing),
+    index('idx_usage_machine').on(t.machine),
+    index('idx_usage_sub_tool').on(t.sub_tool),
   ],
 )
 

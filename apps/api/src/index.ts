@@ -179,6 +179,7 @@ export const app = new Elysia()
         'Atlassian',
         'GitLab',
         'WalkingPad',
+        'Usage Tracking',
         'Infrastructure',
         'External Data',
         'System',
