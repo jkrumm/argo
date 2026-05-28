@@ -57,6 +57,13 @@
       "when": 1780289000000,
       "tag": "0007_reclassify_workspace_sources",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1780289100000,
+      "tag": "0008_relabel_hermes_feuer_projects",
+      "breakpoints": true
     }
   ]
 }
