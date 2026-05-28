@@ -4,7 +4,7 @@ import { useElementSize } from '@mantine/hooks'
 import { SegmentedControl } from '@mantine/core'
 import { ChartCard, ChartLegend, StackedArea } from '@argo/charts'
 import { usageQueries, type Grain, type Range } from '../../../lib/queries/usage'
-import type { BillingValue, CostGroupBy } from '../types'
+import type { BillingValue, CostGroupBy, WorkspaceValue } from '../types'
 import { colorForBilling, colorForKey, colorForSource, fmtUsd } from '../constants'
 
 const GROUPBY_OPTIONS = [
@@ -25,17 +25,19 @@ export default function CostOverTime({
   range,
   grain,
   billing,
+  workspace,
   groupBy,
   onGroupByChange,
 }: {
   range: Range
   grain: Grain
   billing?: BillingValue[]
+  workspace?: WorkspaceValue[]
   groupBy: CostGroupBy
   onGroupByChange: (g: CostGroupBy) => void
 }) {
   const { data } = useSuspenseQuery(
-    usageQueries.timeseries({ range, grain, metric: 'cost', groupBy, billing }),
+    usageQueries.timeseries({ range, grain, metric: 'cost', groupBy, billing, workspace }),
   )
   const { ref, width } = useElementSize<HTMLDivElement>()
 

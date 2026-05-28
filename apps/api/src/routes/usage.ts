@@ -10,10 +10,11 @@ import {
   TimeseriesGroupByEnum,
   BreakdownMetricEnum,
   BreakdownDimensionEnum,
+  WorkspaceEnum,
   resolveRange,
   toArray,
 } from '../lib/usage-query.js'
-import { normalizeProject } from '../lib/project-normalize.js'
+import { classifyWorkspace, normalizeProject } from '../lib/project-normalize.js'
 
 const BillingEnum = z.enum(['max', 'iu', 'unknown'])
 
@@ -26,6 +27,7 @@ const BillingEnum = z.enum(['max', 'iu', 'unknown'])
  */
 const stringFilter = z.union([z.string(), z.array(z.string())]).optional()
 const billingFilter = z.union([BillingEnum, z.array(BillingEnum)]).optional()
+const workspaceFilter = z.union([WorkspaceEnum, z.array(WorkspaceEnum)]).optional()
 
 const UsageRecordInputSchema = z.object({
   source: z.string(),
@@ -35,6 +37,7 @@ const UsageRecordInputSchema = z.object({
   model: z.string().nullable(),
   model_norm: z.string().nullable(),
   project: z.string().nullable(),
+  workspace: z.string().nullable().optional(),
   sub_tool: z.string().nullable(),
   machine: z.string().nullable(),
   billing: z.string(),
@@ -63,6 +66,8 @@ function groupColumnSql(groupBy: string) {
       return sql.raw('sub_tool')
     case 'project':
       return sql.raw('project')
+    case 'workspace':
+      return sql.raw('workspace')
     case 'billing':
       return sql.raw('billing')
     case 'outcome':
@@ -109,7 +114,12 @@ function inList(column: SQL, values: string[]): SQL {
   )})`
 }
 
-function buildFilterSql(sources?: string[], machines?: string[], billing?: string[]) {
+function buildFilterSql(
+  sources?: string[],
+  machines?: string[],
+  billing?: string[],
+  workspace?: string[],
+) {
   const parts: SQL[] = []
   if (sources && sources.length > 0) {
     parts.push(inList(sql`source`, sources))
@@ -119,6 +129,9 @@ function buildFilterSql(sources?: string[], machines?: string[], billing?: strin
   }
   if (billing && billing.length > 0) {
     parts.push(inList(sql`billing`, billing))
+  }
+  if (workspace && workspace.length > 0) {
+    parts.push(inList(sql`workspace`, workspace))
   }
   if (parts.length === 0) return sql``
   return sql`AND ${sql.join(parts, sql` AND `)}`
@@ -130,6 +143,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
     async ({ body }) => {
       const records = body.records.map((r) => ({
         ...r,
+        workspace: classifyWorkspace(r.project),
         project: normalizeProject(r.project),
       }))
       const now = new Date().toISOString()
@@ -145,6 +159,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
             model: sql`excluded.model`,
             model_norm: sql`excluded.model_norm`,
             project: sql`excluded.project`,
+            workspace: sql`excluded.workspace`,
             sub_tool: sql`excluded.sub_tool`,
             billing: sql`excluded.billing`,
             outcome: sql`excluded.outcome`,
@@ -313,6 +328,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         toArray(query.sources),
         toArray(query.machines),
         toArray(query.billing),
+        toArray(query.workspace),
       )
       const mExpr = metricExpr(metric)
 
@@ -439,6 +455,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         sources: stringFilter,
         machines: stringFilter,
         billing: billingFilter,
+        workspace: workspaceFilter,
       }),
       response: {
         200: z.object({
@@ -480,6 +497,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         toArray(query.sources),
         toArray(query.machines),
         toArray(query.billing),
+        toArray(query.workspace),
       )
 
       const [totalResult, rowsResult] = await Promise.all([
@@ -522,6 +540,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         sources: stringFilter,
         machines: stringFilter,
         billing: billingFilter,
+        workspace: workspaceFilter,
       }),
       response: {
         200: z.object({

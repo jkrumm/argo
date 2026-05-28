@@ -9,6 +9,7 @@ export const TimeseriesGroupByEnum = z.enum([
   'model_norm',
   'sub_tool',
   'project',
+  'workspace',
   'billing',
   'outcome',
   'none',
@@ -16,6 +17,7 @@ export const TimeseriesGroupByEnum = z.enum([
 export const BreakdownMetricEnum = z.enum(['cost', 'tokens', 'errors'])
 export const BreakdownDimensionEnum = z.enum([
   'project',
+  'workspace',
   'model_norm',
   'billing',
   'outcome',
@@ -23,6 +25,7 @@ export const BreakdownDimensionEnum = z.enum([
   'machine',
   'sub_tool',
 ])
+export const WorkspaceEnum = z.enum(['work', 'private'])
 
 /**
  * Normalize an optional query value to an array.

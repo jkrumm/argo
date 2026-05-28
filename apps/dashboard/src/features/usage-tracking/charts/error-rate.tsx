@@ -3,7 +3,7 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { useElementSize } from '@mantine/hooks'
 import { ChartCard, ChartLegend, StackedArea } from '@argo/charts'
 import { usageQueries, type Grain, type Range } from '../../../lib/queries/usage'
-import type { BillingValue } from '../types'
+import type { BillingValue, WorkspaceValue } from '../types'
 import { colorForSource, fmtCount } from '../constants'
 
 type Bucket = { bucket: string; groups: Record<string, number | null> }
@@ -12,13 +12,22 @@ export default function ErrorRate({
   range,
   grain,
   billing,
+  workspace,
 }: {
   range: Range
   grain: Grain
   billing?: BillingValue[]
+  workspace?: WorkspaceValue[]
 }) {
   const { data } = useSuspenseQuery(
-    usageQueries.timeseries({ range, grain, metric: 'errors', groupBy: 'source', billing }),
+    usageQueries.timeseries({
+      range,
+      grain,
+      metric: 'errors',
+      groupBy: 'source',
+      billing,
+      workspace,
+    }),
   )
   const { ref, width } = useElementSize<HTMLDivElement>()
 

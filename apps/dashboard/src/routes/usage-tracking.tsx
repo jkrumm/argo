@@ -19,6 +19,7 @@ import type {
   CostGroupBy,
   TokensGroupBy,
   UsageSearch,
+  WorkspaceValue,
 } from '../features/usage-tracking/types'
 
 function ChartFallback({ height = 280 }: { height?: number }) {
@@ -28,6 +29,7 @@ function ChartFallback({ height = 280 }: { height?: number }) {
 const RangeEnum = z.enum(['7d', '30d', '90d', 'all'])
 const GrainEnum = z.enum(['day', 'week'])
 const BillingValueEnum = z.enum(['max', 'iu', 'unknown'])
+const WorkspaceValueEnum = z.enum(['work', 'private'])
 const CostGroupByEnum = z.enum(['source', 'machine', 'billing'])
 const TokensGroupByEnum = z.enum(['sub_tool', 'model_norm', 'project', 'source'])
 
@@ -37,6 +39,7 @@ const SearchSchema = z.object({
   sources: z.array(z.string()).optional(),
   machines: z.array(z.string()).optional(),
   billing: z.array(BillingValueEnum).optional(),
+  workspace: z.array(WorkspaceValueEnum).optional(),
   costGroupBy: CostGroupByEnum.default('source'),
   tokensGroupBy: TokensGroupByEnum.default('sub_tool'),
 })
@@ -49,6 +52,7 @@ export const Route = createFileRoute('/usage-tracking')({
     range: search.range,
     grain: search.grain,
     billing: search.billing,
+    workspace: search.workspace,
     costGroupBy: search.costGroupBy,
     tokensGroupBy: search.tokensGroupBy,
   }),
@@ -76,14 +80,22 @@ function UsageTrackingPage() {
     (b: BillingValue[] | undefined) => patch({ billing: b }),
     [patch],
   )
+  const onWorkspaceChange = useCallback(
+    (w: WorkspaceValue[] | undefined) => patch({ workspace: w }),
+    [patch],
+  )
   const onCostGroupBy = useCallback((g: CostGroupBy) => patch({ costGroupBy: g }), [patch])
   const onTokensGroupBy = useCallback((g: TokensGroupBy) => patch({ tokensGroupBy: g }), [patch])
 
   const range = search.range
   const grain = search.grain
   const billing = search.billing
+  const workspace = search.workspace
 
-  const tsBase = useMemo(() => ({ range, grain, billing }), [range, grain, billing])
+  const tsBase = useMemo(
+    () => ({ range, grain, billing, workspace }),
+    [range, grain, billing, workspace],
+  )
 
   const [hover, setHoverState] = useState<{ date: string | null; source: string | null }>({
     date: null,
@@ -106,9 +118,11 @@ function UsageTrackingPage() {
             range={search.range}
             grain={search.grain}
             billing={search.billing}
+            workspace={search.workspace}
             onRangeChange={onRangeChange}
             onGrainChange={onGrainChange}
             onBillingChange={onBillingChange}
+            onWorkspaceChange={onWorkspaceChange}
           />
         </Group>
 
@@ -169,7 +183,7 @@ function UsageTrackingPage() {
 
         <Section title="Top projects">
           <Suspense fallback={<ChartFallback height={280} />}>
-            <TopProjects range={range} billing={billing} />
+            <TopProjects range={range} billing={billing} workspace={workspace} />
           </Suspense>
         </Section>
       </Stack>

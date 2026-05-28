@@ -10,18 +10,21 @@ export type TimeseriesGroupBy =
   | 'model_norm'
   | 'sub_tool'
   | 'project'
+  | 'workspace'
   | 'billing'
   | 'outcome'
   | 'none'
 export type BreakdownMetric = 'cost' | 'tokens' | 'errors'
 export type BreakdownDimension =
   | 'project'
+  | 'workspace'
   | 'model_norm'
   | 'billing'
   | 'outcome'
   | 'source'
   | 'machine'
   | 'sub_tool'
+export type WorkspaceValue = 'work' | 'private'
 
 export type TimeseriesParams = {
   range: Range
@@ -31,6 +34,7 @@ export type TimeseriesParams = {
   sources?: string[]
   machines?: string[]
   billing?: ('max' | 'iu' | 'unknown')[]
+  workspace?: WorkspaceValue[]
 }
 
 export type BreakdownParams = {
@@ -41,6 +45,7 @@ export type BreakdownParams = {
   sources?: string[]
   machines?: string[]
   billing?: ('max' | 'iu' | 'unknown')[]
+  workspace?: WorkspaceValue[]
 }
 
 export const usageQueries = {

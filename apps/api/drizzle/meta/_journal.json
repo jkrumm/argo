@@ -43,6 +43,13 @@
       "when": 1780288800000,
       "tag": "0005_normalize_projects",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1779959155972,
+      "tag": "0006_narrow_human_robot",
+      "breakpoints": true
     }
   ]
 }

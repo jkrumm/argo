@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test'
-import { normalizeProject } from './project-normalize.js'
+import { classifyWorkspace, normalizeProject } from './project-normalize.js'
 
 describe('normalizeProject', () => {
   it('returns repo name from SourceRoot path', () => {
@@ -44,5 +44,39 @@ describe('normalizeProject', () => {
     expect(normalizeProject(undefined)).toBeNull()
     expect(normalizeProject('')).toBeNull()
     expect(normalizeProject('   ')).toBeNull()
+  })
+})
+
+describe('classifyWorkspace', () => {
+  it('returns work for IuRoot paths (including worktrees)', () => {
+    expect(classifyWorkspace('/Users/jkrumm/IuRoot/epos.student-enrolment')).toBe('work')
+    expect(
+      classifyWorkspace(
+        '/Users/jkrumm/IuRoot/worktrees/epos.student-enrolment/steel-mesa/epos.student-enrolment',
+      ),
+    ).toBe('work')
+    expect(classifyWorkspace('/Users/jkrumm/IuRoot/prometheus-feuer-agent')).toBe('work')
+  })
+
+  it('returns private for SourceRoot paths', () => {
+    expect(classifyWorkspace('/Users/jkrumm/SourceRoot/argo')).toBe('private')
+    expect(classifyWorkspace('/Users/jkrumm/SourceRoot/free-planning-poker')).toBe('private')
+  })
+
+  it('classifies bare repo names via heuristic', () => {
+    expect(classifyWorkspace('epos.student-enrolment')).toBe('work')
+    expect(classifyWorkspace('epos_fe.booking')).toBe('work')
+    expect(classifyWorkspace('prometheus-feuer-agent')).toBe('work')
+    expect(classifyWorkspace('crm-bridge-retry-tool')).toBe('work')
+    expect(classifyWorkspace('cfn-kafka')).toBe('work')
+    expect(classifyWorkspace('argo')).toBe('private')
+    expect(classifyWorkspace('free-planning-poker')).toBe('private')
+  })
+
+  it('returns null for unclassifiable paths and empty input', () => {
+    expect(classifyWorkspace('/tmp/scratch')).toBeNull()
+    expect(classifyWorkspace(null)).toBeNull()
+    expect(classifyWorkspace(undefined)).toBeNull()
+    expect(classifyWorkspace('')).toBeNull()
   })
 })

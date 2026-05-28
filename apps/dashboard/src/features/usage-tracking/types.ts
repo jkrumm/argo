@@ -6,6 +6,7 @@ export type TokensGroupBy = Extract<
   'sub_tool' | 'model_norm' | 'project' | 'source'
 >
 export type BillingValue = 'max' | 'iu' | 'unknown'
+export type WorkspaceValue = 'work' | 'private'
 
 export type UsageSearch = {
   range: Range
@@ -13,6 +14,7 @@ export type UsageSearch = {
   sources?: string[]
   machines?: string[]
   billing?: BillingValue[]
+  workspace?: WorkspaceValue[]
   costGroupBy: CostGroupBy
   tokensGroupBy: TokensGroupBy
 }
