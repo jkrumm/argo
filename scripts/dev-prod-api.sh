@@ -11,6 +11,14 @@ set -euo pipefail
 
 export VITE_API_TARGET="${VITE_API_TARGET:-https://argo.jkrumm.com/api}"
 
+VPS_DIR="${VPS_DIR:-$HOME/SourceRoot/vps}"
+if [ -d "$VPS_DIR" ]; then
+  echo "→ starting local infra in $VPS_DIR (make up)"
+  make -C "$VPS_DIR" up
+else
+  echo "⚠ vps dir not found at $VPS_DIR — skipping local infra"
+fi
+
 npx --yes kill-port 7715 >/dev/null 2>&1 || true
 
 echo "→ dashboard proxy /api → $VITE_API_TARGET"
