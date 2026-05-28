@@ -101,16 +101,23 @@ function metricExprBreakdown(metric: string) {
   }
 }
 
+function inList(column: SQL, values: string[]): SQL {
+  return sql`${column} IN (${sql.join(
+    values.map((v) => sql`${v}`),
+    sql`, `,
+  )})`
+}
+
 function buildFilterSql(sources?: string[], machines?: string[], billing?: string[]) {
   const parts: SQL[] = []
   if (sources && sources.length > 0) {
-    parts.push(sql`source = ANY(${sources})`)
+    parts.push(inList(sql`source`, sources))
   }
   if (machines && machines.length > 0) {
-    parts.push(sql`machine = ANY(${machines})`)
+    parts.push(inList(sql`machine`, machines))
   }
   if (billing && billing.length > 0) {
-    parts.push(sql`billing = ANY(${billing})`)
+    parts.push(inList(sql`billing`, billing))
   }
   if (parts.length === 0) return sql``
   return sql`AND ${sql.join(parts, sql` AND `)}`
