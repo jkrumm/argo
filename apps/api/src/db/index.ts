@@ -46,8 +46,14 @@ export async function relocateDrizzleJournal(sql: Sql): Promise<void> {
     hash text NOT NULL,
     created_at bigint
   )`
+  // information_schema.tables filters by the role's visibility, so a missing
+  // USAGE grant on the legacy `drizzle` schema appears as "not present" rather
+  // than erroring with "permission denied for schema drizzle".
   const [legacy] = await sql<{ exists: boolean }[]>`
-    SELECT to_regclass('drizzle.__drizzle_migrations') IS NOT NULL AS exists
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'drizzle' AND table_name = '__drizzle_migrations'
+    ) AS exists
   `
   if (legacy?.exists) {
     await sql`
