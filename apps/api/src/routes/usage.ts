@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { count, max, min, sql, SQL } from 'drizzle-orm'
+import { count, max, sql, SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { usageRecord } from '../db/schema.js'
 import {
@@ -11,6 +11,7 @@ import {
   BreakdownMetricEnum,
   BreakdownDimensionEnum,
   WorkspaceEnum,
+  USAGE_DATA_FLOOR_ISO,
   resolveRange,
   toArray,
 } from '../lib/usage-query.js'
@@ -241,28 +242,31 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
     '/headline',
     async () => {
       const now = new Date()
+      const floor = USAGE_DATA_FLOOR_ISO
       const d7 = new Date(now.getTime() - 7 * 86_400_000).toISOString()
       const d30 = new Date(now.getTime() - 30 * 86_400_000).toISOString()
+      const f7 = d7 < floor ? floor : d7
+      const f30 = d30 < floor ? floor : d30
 
       const [row] = await db.execute(sql`
         SELECT
-          COALESCE(SUM(cost_usd) FILTER (WHERE ts >= ${d30}), 0)::float AS cost_usd_30d,
-          COALESCE(SUM(cost_usd) FILTER (WHERE ts >= ${d7}), 0)::float AS cost_usd_7d,
-          COALESCE(SUM(cost_usd) FILTER (WHERE billing = 'max' AND ts >= ${d30}), 0)::float AS cost_max_billing_30d,
-          COALESCE(SUM(cost_usd) FILTER (WHERE billing = 'iu' AND ts >= ${d30}), 0)::float AS cost_iu_billing_30d,
-          COALESCE(SUM(input_tokens::bigint + output_tokens::bigint + cache_read_tokens::bigint + cache_write_tokens::bigint + reasoning_tokens::bigint) FILTER (WHERE ts >= ${d30}), 0)::bigint AS tokens_30d,
+          COALESCE(SUM(cost_usd) FILTER (WHERE ts >= ${f30}), 0)::float AS cost_usd_30d,
+          COALESCE(SUM(cost_usd) FILTER (WHERE ts >= ${f7}), 0)::float AS cost_usd_7d,
+          COALESCE(SUM(cost_usd) FILTER (WHERE billing = 'max' AND ts >= ${f30}), 0)::float AS cost_max_billing_30d,
+          COALESCE(SUM(cost_usd) FILTER (WHERE billing = 'iu' AND ts >= ${f30}), 0)::float AS cost_iu_billing_30d,
+          COALESCE(SUM(input_tokens::bigint + output_tokens::bigint + cache_read_tokens::bigint + cache_write_tokens::bigint + reasoning_tokens::bigint) FILTER (WHERE ts >= ${f30}), 0)::bigint AS tokens_30d,
           COALESCE(
-            COUNT(*) FILTER (WHERE outcome = 'error' AND ts >= ${d30})::float
-            / NULLIF(COUNT(*) FILTER (WHERE ts >= ${d30}), 0),
+            COUNT(*) FILTER (WHERE outcome = 'error' AND ts >= ${f30})::float
+            / NULLIF(COUNT(*) FILTER (WHERE ts >= ${f30}), 0),
             0
           )::float AS error_rate_30d,
           percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms)
-            FILTER (WHERE duration_ms IS NOT NULL AND ts >= ${d30}) AS p95_ms_30d,
-          SUM(cache_read_tokens::bigint) FILTER (WHERE ts >= ${d30})::float
-            / NULLIF(SUM(cache_read_tokens::bigint + input_tokens::bigint) FILTER (WHERE ts >= ${d30}), 0) AS cache_hit_ratio_30d,
-          COUNT(DISTINCT source) FILTER (WHERE ts >= ${d30})::int AS sources_active,
-          MAX(ts) AS max_ts,
-          COUNT(*)::bigint AS records_total
+            FILTER (WHERE duration_ms IS NOT NULL AND ts >= ${f30}) AS p95_ms_30d,
+          SUM(cache_read_tokens::bigint) FILTER (WHERE ts >= ${f30})::float
+            / NULLIF(SUM(cache_read_tokens::bigint + input_tokens::bigint) FILTER (WHERE ts >= ${f30}), 0) AS cache_hit_ratio_30d,
+          COUNT(DISTINCT source) FILTER (WHERE ts >= ${f30})::int AS sources_active,
+          MAX(ts) FILTER (WHERE ts >= ${floor}) AS max_ts,
+          COUNT(*) FILTER (WHERE ts >= ${floor})::bigint AS records_total
         FROM argo.usage_record
       `)
 
@@ -320,12 +324,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
       const grain = query.grain
       const metric = query.metric
       const groupBy = query.groupBy
-      const { fromIso: rangeFrom, toIso } = resolveRange(range)
-      let fromIso = rangeFrom
-      if (!fromIso) {
-        const [minRow] = await db.select({ minTs: min(usageRecord.ts) }).from(usageRecord)
-        fromIso = minRow?.minTs ?? toIso
-      }
+      const { fromIso, toIso } = resolveRange(range)
 
       const interval = grain === 'day' ? sql`interval '1 day'` : sql`interval '1 week'`
       const filterSql = buildFilterSql(
@@ -488,12 +487,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
       const metric = query.metric
       const dimension = query.dimension
       const limit = query.limit
-      const { fromIso: rangeFrom, toIso } = resolveRange(range)
-      let fromIso = rangeFrom
-      if (!fromIso) {
-        const [minRow] = await db.select({ minTs: min(usageRecord.ts) }).from(usageRecord)
-        fromIso = minRow?.minTs ?? toIso
-      }
+      const { fromIso, toIso } = resolveRange(range)
 
       const col = groupColumnSql(dimension)
       const mExpr = metricExprBreakdown(metric)
