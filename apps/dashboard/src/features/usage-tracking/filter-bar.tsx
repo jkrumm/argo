@@ -28,7 +28,6 @@ const BILLING_OPTIONS = [
   { label: 'All', value: '__all__' },
   { label: 'Max', value: 'max' },
   { label: 'IU', value: 'iu' },
-  { label: 'Unknown', value: 'unknown' },
 ]
 
 export function FilterBar({

@@ -13,6 +13,7 @@ import {
   resolveRange,
   toArray,
 } from '../lib/usage-query.js'
+import { normalizeProject } from '../lib/project-normalize.js'
 
 const BillingEnum = z.enum(['max', 'iu', 'unknown'])
 
@@ -127,7 +128,10 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
   .post(
     '/records',
     async ({ body }) => {
-      const records = body.records
+      const records = body.records.map((r) => ({
+        ...r,
+        project: normalizeProject(r.project),
+      }))
       const now = new Date().toISOString()
 
       await db

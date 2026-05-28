@@ -36,6 +36,13 @@
       "when": 1779951162716,
       "tag": "0004_boring_screwball",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1780288800000,
+      "tag": "0005_normalize_projects",
+      "breakpoints": true
     }
   ]
 }
