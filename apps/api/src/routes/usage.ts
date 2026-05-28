@@ -63,13 +63,13 @@ function metricExpr(metric: string) {
     case 'cost':
       return sql`COALESCE(SUM(cost_usd), 0)`
     case 'tokens':
-      return sql`COALESCE(SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens + reasoning_tokens), 0)`
+      return sql`COALESCE(SUM(input_tokens::bigint + output_tokens::bigint + cache_read_tokens::bigint + cache_write_tokens::bigint + reasoning_tokens::bigint), 0)`
     case 'errors':
       return sql`COALESCE(SUM(CASE WHEN outcome = 'error' THEN 1 ELSE 0 END), 0)`
     case 'latency_p95':
       return sql`percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms) FILTER (WHERE duration_ms IS NOT NULL)`
     case 'cache_ratio':
-      return sql`SUM(cache_read_tokens)::float / NULLIF(SUM(cache_read_tokens + input_tokens), 0)`
+      return sql`SUM(cache_read_tokens::bigint)::float / NULLIF(SUM(cache_read_tokens::bigint + input_tokens::bigint), 0)`
     default:
       return sql`COALESCE(SUM(cost_usd), 0)`
   }
@@ -80,7 +80,7 @@ function metricExprBreakdown(metric: string) {
     case 'cost':
       return sql`COALESCE(SUM(cost_usd), 0)`
     case 'tokens':
-      return sql`COALESCE(SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens + reasoning_tokens), 0)`
+      return sql`COALESCE(SUM(input_tokens::bigint + output_tokens::bigint + cache_read_tokens::bigint + cache_write_tokens::bigint + reasoning_tokens::bigint), 0)`
     case 'errors':
       return sql`COALESCE(SUM(CASE WHEN outcome = 'error' THEN 1 ELSE 0 END), 0)`
     default:
@@ -207,7 +207,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
           COALESCE(SUM(cost_usd) FILTER (WHERE ts >= ${d7}), 0)::float AS cost_usd_7d,
           COALESCE(SUM(cost_usd) FILTER (WHERE billing = 'max' AND ts >= ${d30}), 0)::float AS cost_max_billing_30d,
           COALESCE(SUM(cost_usd) FILTER (WHERE billing = 'iu' AND ts >= ${d30}), 0)::float AS cost_iu_billing_30d,
-          COALESCE(SUM(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens + reasoning_tokens) FILTER (WHERE ts >= ${d30}), 0)::int AS tokens_30d,
+          COALESCE(SUM(input_tokens::bigint + output_tokens::bigint + cache_read_tokens::bigint + cache_write_tokens::bigint + reasoning_tokens::bigint) FILTER (WHERE ts >= ${d30}), 0)::bigint AS tokens_30d,
           COALESCE(
             COUNT(*) FILTER (WHERE outcome = 'error' AND ts >= ${d30})::float
             / NULLIF(COUNT(*) FILTER (WHERE ts >= ${d30}), 0),
@@ -215,11 +215,11 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
           )::float AS error_rate_30d,
           percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms)
             FILTER (WHERE duration_ms IS NOT NULL AND ts >= ${d30}) AS p95_ms_30d,
-          SUM(cache_read_tokens) FILTER (WHERE ts >= ${d30})::float
-            / NULLIF(SUM(cache_read_tokens + input_tokens) FILTER (WHERE ts >= ${d30}), 0) AS cache_hit_ratio_30d,
+          SUM(cache_read_tokens::bigint) FILTER (WHERE ts >= ${d30})::float
+            / NULLIF(SUM(cache_read_tokens::bigint + input_tokens::bigint) FILTER (WHERE ts >= ${d30}), 0) AS cache_hit_ratio_30d,
           COUNT(DISTINCT source) FILTER (WHERE ts >= ${d30})::int AS sources_active,
           MAX(ts) AS max_ts,
-          COUNT(*)::int AS records_total
+          COUNT(*)::bigint AS records_total
         FROM argo.usage_record
       `)
 
