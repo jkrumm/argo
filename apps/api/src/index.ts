@@ -2,7 +2,6 @@ import { trace, SpanStatusCode } from '@opentelemetry/api'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 import { opentelemetry } from '@elysiajs/opentelemetry'
-import { bearer } from '@elysiajs/bearer'
 import { openapi } from '@elysiajs/openapi'
 import { cors } from '@elysiajs/cors'
 import { env } from './env.js'
@@ -45,14 +44,21 @@ await runMigrations()
 // mounted after this guard (default `local` only reaches descendants of this
 // instance, which left /m365 and /atlassian unguarded historically). See
 // dotfiles/rules/elysia.md → "Encapsulation".
-const authGuard = new Elysia({ name: 'auth' })
-  .use(bearer())
-  .onBeforeHandle({ as: 'scoped' }, ({ bearer, set }) => {
-    if (!bearer || bearer !== env.API_SECRET) {
-      set.status = 401
-      return 'Unauthorized'
+// Auth runs in `onTransform` (before schema validation) so unauthenticated
+// requests can't trigger 422 body-echo responses, and so the validator's CPU
+// time is reserved for callers that have already proven the token. Reads the
+// Authorization header directly because the `bearer` plugin derives its value
+// after `transform`.
+const authGuard = new Elysia({ name: 'auth' }).onTransform(
+  { as: 'scoped' },
+  ({ request, status }) => {
+    const header = request.headers.get('authorization')
+    const token = header?.startsWith('Bearer ') ? header.slice(7) : null
+    if (!token || token !== env.API_SECRET) {
+      throw status(401, 'Unauthorized')
     }
-  })
+  },
+)
 
 export const app = new Elysia()
   .use(
