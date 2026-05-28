@@ -141,7 +141,7 @@ function UsageTrackingPage() {
             </Grid.Col>
             <Grid.Col span={{ base: 12, lg: 4 }}>
               <Suspense fallback={<ChartFallback />}>
-                <BillingSplit range={range} />
+                <BillingSplit range={range} workspace={workspace} />
               </Suspense>
             </Grid.Col>
           </Grid>

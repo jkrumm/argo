@@ -143,7 +143,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
     async ({ body }) => {
       const records = body.records.map((r) => ({
         ...r,
-        workspace: classifyWorkspace(r.project),
+        workspace: classifyWorkspace(r.project, r.source),
         project: normalizeProject(r.project),
       }))
       const now = new Date().toISOString()

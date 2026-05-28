@@ -2,11 +2,24 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { useElementSize } from '@mantine/hooks'
 import { ChartCard, ChartLegend, Donut } from '@argo/charts'
 import { usageQueries, type Range } from '../../../lib/queries/usage'
+import type { WorkspaceValue } from '../types'
 import { colorForBilling, fmtUsd } from '../constants'
 
-export default function BillingSplit({ range }: { range: Range }) {
+export default function BillingSplit({
+  range,
+  workspace,
+}: {
+  range: Range
+  workspace?: WorkspaceValue[]
+}) {
   const { data } = useSuspenseQuery(
-    usageQueries.breakdown({ range, metric: 'cost', dimension: 'billing', limit: 10 }),
+    usageQueries.breakdown({
+      range,
+      metric: 'cost',
+      dimension: 'billing',
+      limit: 10,
+      workspace,
+    }),
   )
   const { ref, width } = useElementSize<HTMLDivElement>()
 

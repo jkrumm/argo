@@ -50,6 +50,13 @@
       "when": 1780288900000,
       "tag": "0006_narrow_human_robot",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1780289000000,
+      "tag": "0007_reclassify_workspace_sources",
+      "breakpoints": true
     }
   ]
 }

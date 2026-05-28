@@ -79,4 +79,22 @@ describe('classifyWorkspace', () => {
     expect(classifyWorkspace(undefined)).toBeNull()
     expect(classifyWorkspace('')).toBeNull()
   })
+
+  it('applies source-level overrides regardless of the project value', () => {
+    expect(classifyWorkspace('cron', 'feuer')).toBe('work')
+    expect(classifyWorkspace('cli', 'feuer')).toBe('work')
+    expect(classifyWorkspace(null, 'feuer')).toBe('work')
+    expect(classifyWorkspace(null, 'hermes')).toBe('private')
+    expect(classifyWorkspace(null, 'opencode')).toBe('private')
+    expect(classifyWorkspace(null, 'audio-proxy')).toBe('private')
+  })
+
+  it('falls back to path classification when source is not a fixed-workspace collector', () => {
+    expect(classifyWorkspace('/Users/jkrumm/IuRoot/epos.student-enrolment', 'claude-code')).toBe(
+      'work',
+    )
+    expect(classifyWorkspace('argo', 'claude-code')).toBe('private')
+    expect(classifyWorkspace(null, 'claude-code')).toBeNull()
+    expect(classifyWorkspace(null, 'litellm')).toBeNull()
+  })
 })
