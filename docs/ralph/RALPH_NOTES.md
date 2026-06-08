@@ -548,3 +548,151 @@ Johannes' post-loop step against live Hermes. The validation gate (lint, format,
   open thread (today reload returns to the list; the transcript itself persists).
 - **Bundle**: the route already code-splits, but mermaid/vega (Group 6) will grow it
   — consider lazy-importing the diagram renderers behind their fenced blocks.
+
+## Group 6: Smart cards + rich rendering
+
+### What was implemented
+
+The dashboard `MessageMarkdown` renderer was upgraded from base markdown to the full
+rich renderer. Four new/changed pieces in `apps/dashboard/src/features/hermes-chat/`:
+
+- **Smart cards** (`smart-card.tsx`): the `code` component intercepts fenced
+  ` ```card ` blocks, `parseCard()` validates the JSON with a zod discriminated union
+  (`infra` / `todo` / `note` / `audio`), and `SmartCard` renders Mantine components
+  themed to DESIGN.md (status dots + badges via allowed accents green/yellow/red;
+  todo as read-only `Checkbox`es; note as a titled card; **audio is a reserved
+  placeholder** for Phase B). Any malformed/unknown JSON returns `null` → the code
+  component falls back to a plain `<Code block>` (never throws).
+- **Sandboxed diagrams** (`diagram-frame.tsx` + `.module.css`): ` ```mermaid ` and
+  ` ```vega-lite ` render inside `<iframe sandbox="allow-scripts">` (no
+  `allow-same-origin` → opaque/null origin). The diagram library is imported from a
+  **pinned CDN inside the frame**, theme colors are read from the live `--mantine-*`
+  / `--vx-*` CSS vars and injected as literals, and the frame reports its content
+  height back via `postMessage` (matched on `event.source`, since the origin is
+  "null"). Mermaid runs with `securityLevel:'strict'`.
+- **Inline accents** (`remark-hermes-accents.ts`): a small remark plugin maps the
+  `:badge[…]{color}` directive (from `remark-directive`) to a `hermes-badge` element
+  and scans text for `==highlight==` → a `hermes-mark` element. Both render
+  Mantine-native (`<Badge>` / `<Mark>`) via the `components` map; unknown directives
+  degrade to a passthrough span/div.
+- **Security pipeline** (`sanitize-schema.ts` + `message-markdown.tsx`):
+  `rehype-sanitize` (GitHub `defaultSchema` widened only for the two custom accent
+  tags) + `rehype-harden` (URL filtering; blocks `javascript:`/`file:` always) now
+  run on all LLM output.
+- **Tool-progress chips** (`chat-conversation.tsx`): the single "Hermes is <label>…"
+  line became a keyed-by-`toolCallId` chip row (emoji + label, terminal status drops
+  the chip); the "thinking…" loader remains as the fallback when no tool is active.
+
+New deps (pinned exact, all past the 3-day bun cooldown): `rehype-sanitize@6.0.0`,
+`rehype-harden@1.1.8`, `unist-util-visit@5.1.0`, and dev `@types/mdast@4.0.4` /
+`@types/unist@2.0.11`.
+
+### Deviations from prompt
+
+- **Diagrams load mermaid/vega from a CDN inside the iframe — they are NOT bundled.**
+  A `sandbox="allow-scripts"` frame with no `allow-same-origin` has a null origin, so
+  a bundled module from this app's origin cannot be shared into it (the security
+  boundary is exactly that origin gap). Importing the pinned library from jsDelivr
+  _inside_ the frame is the standard secure pattern and keeps the diagram libs out of
+  the SPA bundle entirely. **Consequence:** the `mermaid` / `vega` / `vega-lite` /
+  `vega-embed` npm deps installed in Group 1 are now **unused by app code** (not
+  bundled — which actually resolves Group 5's "mermaid/vega will grow the bundle"
+  worry). Left installed rather than removed: dropping deps another group deliberately
+  pinned is a cross-group call worth surfacing, not silently making. See Future
+  improvements.
+- **`==highlight==` is handled by my own remark plugin, not `remark-directive`.** The
+  PRD groups both accents under "remark-directive", but `==…==` is not directive
+  syntax (directives are `:name[…]{}`). A ~15-line text-node scan (dependency-hygiene:
+  prefer a snippet over a package) produces a `hermes-mark` custom node; only
+  `:badge[…]` actually flows through `remark-directive`.
+- **Custom accent elements (`hermes-badge`/`hermes-mark`) instead of overloading
+  `span`.** Cleaner to allowlist two dedicated tags in the sanitize schema and map
+  them in `components` than to sniff classNames on every `<span>`. The badge color is
+  carried as a constrained `c-<color>` className (validated against the DESIGN.md
+  identity set in the plugin, so the guard's forbidden-accent literal never appears).
+- **`note` card body renders as plain pre-wrap text**, not nested markdown — avoids a
+  circular import and re-parse cost. Markdown notes are a cheap later add.
+
+### Gotchas & surprises
+
+- **`@types/mdast` / `@types/unist` had to be added explicitly.** They exist in the
+  bun store transitively (via react-markdown) but aren't hoisted to a resolvable
+  `node_modules/@types/` dir, so `tsc` couldn't find `'mdast'`/`'unist'`. Pinned the
+  exact transitive versions as dev deps.
+- **`unist-util-visit` infers mdast types from the `Root` tree.** Annotating the
+  visitor's `parent` with unist's generic `Parent` broke the `BuildVisitor` overload
+  (mdast's `Data` has no string index signature). Fix: don't annotate `node`/`parent`
+  (let them infer), type the directive shape via a local cast, and push
+  `RootContent`-typed replacements (the custom `hermesMark` node cast through
+  `as unknown as RootContent`).
+- **Verified the `data.hName` mechanism for a _custom_ node type.** Read
+  `mdast-util-to-hast`'s `defaultUnknownHandler` + `applyData`: a node with `children`
+  (no `value`) becomes a `<div>` element whose `tagName` is then overridden by
+  `data.hName`. So `hermesMark` → `<hermes-mark>` exactly like a directive node — the
+  highlight path doesn't depend on directive internals.
+- **oxlint flagged `colorScheme` as an "unnecessary" `useMemo` dep** in
+  `diagram-frame.tsx` — it's deliberate (the colors are read from the DOM's CSS vars,
+  invisible to the linter, so a theme toggle must re-bake the srcDoc). Suppressed with
+  a documented `eslint-disable-next-line`.
+- **Streaming-safety of cards/diagrams comes free from `remend`.** A half-streamed
+  ` ```card ` closes into partial JSON → `parseCard` returns null → code-block
+  fallback until it completes, then snaps to the card. Diagrams additionally debounce
+  the source 250ms so a streaming fence doesn't reload the CDN module every token.
+
+### Security notes
+
+- **Mermaid/Vega XSS is contained by origin isolation** (Mermaid CVE-2025-12029, Vega
+  GHSA-7f2v-3qq3-vvjf): the frame is `sandbox="allow-scripts"` with **no**
+  `allow-same-origin`, so even a script-injecting diagram runs in a null origin with
+  no access to this app's DOM, cookies, `useAuthStore` token, or storage. Mermaid also
+  runs `securityLevel:'strict'`. The diagram source is JSON-encoded with `<` escaped
+  so it can't break out of the injected `<script>`.
+- **All LLM markdown passes `rehype-sanitize`** (GitHub-grade default schema; no raw
+  `<script>`/`<iframe>`/event handlers — react-markdown also never renders raw HTML
+  since `rehype-raw` is not used) **+ `rehype-harden`** (URL filtering: `javascript:`
+  and `file:` are blocked unconditionally; http(s)/relative allowed). Links still
+  render `target="_blank" rel="noopener noreferrer"`.
+- The sanitize schema is widened by exactly two tag names + a `className` attr each —
+  no broad data-attribute or arbitrary-tag allowance.
+
+### Tests added
+
+None. Group 6 is the frontend rendering layer; the repo has no dashboard test harness
+(the loop's test discipline is API-side, against mocked upstreams — see Group 5).
+Group 6 touches zero API files, so the existing API suite is unaffected. The
+validation gate (lint + theme guard, format, 3× typecheck, dashboard build) passes.
+
+### Validation result
+
+- `bun run lint` ✓ (0 errors; 20 pre-existing warnings; theme guard clean — diagram
+  colors are read from CSS vars at runtime, no hex literals in source)
+- `bun run format:check` ✓
+- `tsc` typecheck ✓ api, dashboard (incl. `tsr generate`), charts
+- `bun run --cwd apps/dashboard build` ✓ (pre-existing chunk-size + rrule warnings
+  only; diagram libs are not in the bundle — loaded via CDN in the iframe)
+
+### Future improvements
+
+- **Remove the now-unused `mermaid`/`vega`/`vega-lite`/`vega-embed` npm deps** (Group
+  1. — diagrams render via CDN inside the sandboxed iframe, so they're dead weight in
+     `package.json`. Left for a human call since another group pinned them.
+- **CSP / offline.** The iframe imports from jsDelivr; verify no prod CSP
+  (`script-src`/`frame-src`) at Traefik blocks it, and accept the external dependency
+  (no offline diagrams). A self-hosted ESM mirror would remove the third-party CDN.
+- **Card `note` body as markdown** (nested `MessageMarkdown`) and a richer `infra`
+  layout would round out the catalog; the `audio` card is a Phase-B placeholder.
+- **Diagram height** is reported via `postMessage` + `ResizeObserver`; very tall
+  diagrams are clamped to 2000px. Revisit if real diagrams exceed it.
+
+---
+
+## Phase A complete
+
+Groups 1–6 (the core Hermes Chat) are implemented and pass the full validation gate.
+**Next step is manual QA** of the running chat on Mac + iPhone against a live Hermes
+API server (Group 0 enablement) — streaming, tool-progress chips, thread
+create/continue/new, reload-restore, and the rich rendering (a message with `card`
+infra + `card` todo + `mermaid` + `vega-lite` should render without mid-stream
+breakage and with the diagrams sandboxed; invalid card JSON should degrade to a code
+block). After QA, **Phase B (Groups 7–10)** — output shaping, audio, attachments, the
+Slack feed pane — is a separate loop.

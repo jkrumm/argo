@@ -1,16 +1,55 @@
-import { memo } from 'react'
+import { memo, type ReactNode } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import remarkDirective from 'remark-directive'
 import remend from 'remend'
-import { Anchor, Blockquote, Code, Divider, List, Table, Text, Title } from '@mantine/core'
+import rehypeSanitize from 'rehype-sanitize'
+import { harden } from 'rehype-harden'
+import {
+  Anchor,
+  Badge,
+  Blockquote,
+  Code,
+  Divider,
+  List,
+  Mark,
+  Table,
+  Text,
+  Title,
+} from '@mantine/core'
+import { remarkHermesAccents } from './remark-hermes-accents'
+import { hermesSanitizeSchema } from './sanitize-schema'
+import { parseCard, SmartCard } from './smart-card'
+import { DiagramFrame } from './diagram-frame'
 import classes from './message-markdown.module.css'
 
-// Base streaming-safe markdown render for chat messages. react-markdown v10 +
-// `remend` (auto-completes unterminated **bold** / `code` / fences mid-stream so
-// the partial token never flickers as broken syntax) + remark-gfm, with
-// Mantine-native element mappings. Smart `card` / `mermaid` / `vega-lite` blocks
-// are NOT special-cased here — they fall through to the plain code-block renderer
-// for now; Group 6 replaces that. See docs/HERMES-CHAT-PRD.md.
+// Full rich renderer for chat messages (Group 6). react-markdown v10 + `remend`
+// (auto-completes unterminated **bold** / `code` / fences mid-stream so a partial
+// token never flickers as broken syntax) + remark-gfm, with Mantine-native element
+// mappings. On top of base markdown:
+//   • fenced ` ```card ` JSON → Mantine smart cards (infra/todo/note), bad JSON →
+//     graceful code-block fallback;
+//   • fenced ` ```mermaid ` / ` ```vega-lite ` → sandboxed iframe (diagram-frame);
+//   • inline `:badge[…]` / `==highlight==` accents (remark-hermes-accents);
+//   • `rehype-sanitize` (hardened schema) + `rehype-harden` (URL filtering) on all
+//     LLM output.
+// See docs/HERMES-CHAT-PRD.md → Rendering + Security.
+
+// Accent color the directive carried, encoded as a `c-<color>` className by the
+// remark plugin (constrained to the DESIGN.md identity set).
+function HermesBadge({ className, children }: { className?: string; children?: ReactNode }) {
+  const color = /\bc-([a-z]+)\b/.exec(className ?? '')?.[1] ?? 'gray'
+  return (
+    <Badge component="span" size="sm" variant="light" color={color} radius="sm">
+      {children}
+    </Badge>
+  )
+}
+
+// Extract a fenced block's language (`language-card` → `card`).
+function blockLang(className: string | undefined): string | undefined {
+  return /language-([\w-]+)/.exec(className ?? '')?.[1]
+}
 
 // Only `children` (+ the few attrs we actually need) are forwarded — the raw
 // intrinsic-element props carry element-specific `ref` types that fight Mantine's.
@@ -66,6 +105,22 @@ const components: Components = {
   hr: () => <Divider my="xs" />,
   code: ({ className, children }) => {
     const text = String(children ?? '')
+    const lang = blockLang(className)
+    // Smart card: parse JSON → Mantine card; invalid/unknown → code-block fallback
+    // (never throws). `remend` defers incomplete fences, so a half-streamed block
+    // stays valid until it closes.
+    if (lang === 'card') {
+      const card = parseCard(text)
+      return card ? (
+        <SmartCard card={card} />
+      ) : (
+        <Code block className={className}>
+          {text.replace(/\n$/, '')}
+        </Code>
+      )
+    }
+    if (lang === 'mermaid') return <DiagramFrame kind="mermaid" source={text} />
+    if (lang === 'vega-lite') return <DiagramFrame kind="vega-lite" source={text} />
     // v10 dropped the `inline` prop; a fenced block carries a `language-*` class
     // or spans multiple lines — everything else is inline code.
     const isBlock = (className?.startsWith('language-') ?? false) || text.includes('\n')
@@ -91,10 +146,36 @@ const components: Components = {
   td: ({ children }) => <Table.Td>{children}</Table.Td>,
 }
 
+// Known mappings + the two custom inline-accent elements emitted by
+// remark-hermes-accents. Custom tag names aren't in react-markdown's element-keyed
+// `Components` type, so the merge is cast at the boundary.
+const richComponents = {
+  ...components,
+  'hermes-badge': HermesBadge,
+  'hermes-mark': ({ children }: { children?: ReactNode }) => <Mark>{children}</Mark>,
+} as Components
+
+// rehype-harden filters link/image URLs (blocks javascript:/file: always). Links
+// may point anywhere on the homelab, so allow all http(s)/relative; dangerous
+// protocols stay blocked regardless. rehype-sanitize (hardened schema) strips any
+// disallowed tag/attribute first.
+const HARDEN_OPTIONS = {
+  allowedLinkPrefixes: ['*'],
+  allowedImagePrefixes: ['*'],
+  allowDataImages: true,
+}
+
 function MessageMarkdownImpl({ content }: { content: string }) {
   return (
     <div className={classes.prose}>
-      <Markdown remarkPlugins={[remarkGfm]} components={components}>
+      <Markdown
+        remarkPlugins={[remarkGfm, remarkDirective, remarkHermesAccents]}
+        rehypePlugins={[
+          [rehypeSanitize, hermesSanitizeSchema],
+          [harden, HARDEN_OPTIONS],
+        ]}
+        components={richComponents}
+      >
         {remend(content)}
       </Markdown>
     </div>

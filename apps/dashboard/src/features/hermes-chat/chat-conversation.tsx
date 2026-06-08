@@ -21,9 +21,19 @@ import { MessageMarkdown } from './message-markdown'
 import { createHermesTransport } from './transport'
 import type { HermesUIMessage, ToolProgress } from './types'
 
+// Tool-progress events whose status means the call has finished — chip is dropped.
+const TERMINAL_TOOL_STATUS = new Set([
+  'done',
+  'complete',
+  'completed',
+  'success',
+  'finished',
+  'error',
+])
+
 // One open thread. Owns the `useChat` instance (transport → /api/hermes/chat),
 // renders the live transcript with streaming markdown, and surfaces Hermes'
-// transient tool-progress as a "Hermes is <label>…" indicator. Hydrated with the
+// transient tool-progress as live chips during a run. Hydrated with the
 // persisted transcript on mount; the parent remounts this (via `key={threadId}`)
 // when the open thread changes. See docs/HERMES-CHAT-PRD.md.
 
@@ -84,7 +94,9 @@ export function ChatConversation({
 }) {
   const queryClient = useQueryClient()
   const [input, setInput] = useState('')
-  const [toolProgress, setToolProgress] = useState<ToolProgress | null>(null)
+  // Active tool calls keyed by toolCallId — Hermes streams these out-of-band; a
+  // terminal status removes the chip. Transient (never persisted into the transcript).
+  const [toolProgress, setToolProgress] = useState<Record<string, ToolProgress>>({})
   const viewportRef = useRef<HTMLDivElement>(null)
 
   const transport = useMemo(
@@ -97,10 +109,17 @@ export function ChatConversation({
     messages: initialMessages,
     transport,
     onData: (dataPart) => {
-      if (dataPart.type === 'data-toolProgress') setToolProgress(dataPart.data)
+      if (dataPart.type !== 'data-toolProgress') return
+      const tp = dataPart.data
+      setToolProgress((prev) => {
+        const next = { ...prev }
+        if (TERMINAL_TOOL_STATUS.has(tp.status)) delete next[tp.toolCallId]
+        else next[tp.toolCallId] = tp
+        return next
+      })
     },
     onFinish: () => {
-      setToolProgress(null)
+      setToolProgress({})
       // Refresh thread ordering + the persisted transcript. A fresh thread is
       // auto-titled off the response path (fire-and-forget on the server), so a
       // second, delayed invalidate catches the title once DeepSeek answers.
@@ -117,9 +136,10 @@ export function ChatConversation({
   // The assistant's reply is rendered live from `messages`; only show the
   // "thinking" indicator while we wait for the first token of a new reply.
   const awaitingReply = isStreaming && messages[messages.length - 1]?.role !== 'assistant'
+  const activeTools = Object.values(toolProgress)
 
   useEffect(() => {
-    if (status === 'ready' || status === 'error') setToolProgress(null)
+    if (status === 'ready' || status === 'error') setToolProgress({})
   }, [status])
 
   // Keep the latest message in view as it streams.
@@ -164,12 +184,32 @@ export function ChatConversation({
           {messages.map((message) => (
             <MessageRow key={message.id} message={message} />
           ))}
-          {awaitingReply && (
+          {isStreaming && activeTools.length > 0 && (
+            <Group gap="xs">
+              {activeTools.map((tool) => (
+                <Badge
+                  key={tool.toolCallId}
+                  size="sm"
+                  variant="light"
+                  color="gray"
+                  radius="sm"
+                  leftSection={
+                    tool.emoji ? (
+                      <span aria-hidden>{tool.emoji}</span>
+                    ) : (
+                      <Loader size={10} color="gray" />
+                    )
+                  }
+                >
+                  {tool.label}
+                </Badge>
+              ))}
+            </Group>
+          )}
+          {awaitingReply && activeTools.length === 0 && (
             <Group gap="xs" c="dimmed">
               <Loader size="xs" />
-              <Text size="sm">
-                {toolProgress ? `Hermes is ${toolProgress.label}…` : 'Hermes is thinking…'}
-              </Text>
+              <Text size="sm">Hermes is thinking…</Text>
             </Group>
           )}
           {error && (
