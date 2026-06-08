@@ -1,5 +1,18 @@
 export { VX } from './tokens'
 export { VxThemeProvider, useVxTheme, type VxTheme } from './theme'
+export { PALETTE_CSS } from './theme-vars'
+export {
+  BP,
+  SERIES,
+  ACTIVITY,
+  USAGE_SOURCE,
+  USAGE_BILLING,
+  USAGE_OUTCOME,
+  SEMANTIC,
+  NEUTRAL,
+  SURFACE,
+  type ColorPair,
+} from './palette'
 export { HoverContext, DEFAULT_NO_OP_SET_HOVER, type HoverCtx } from './hover-context'
 
 export { ChartCard } from './primitives/ChartCard'
@@ -14,12 +27,14 @@ export {
 export { AxisBottomDate, AxisLeftNumeric, AxisRightNumeric } from './primitives/Axes'
 export { HoverOverlay } from './primitives/HoverOverlay'
 export { ZoneRects, type ZoneSpec } from './primitives/ZoneRects'
+export { AreaGradient, areaFillUrl } from './primitives/AreaGradient'
 
 export { useChartTooltip, type TooltipState } from './hooks/useChartTooltip'
 export { useHoverSync } from './hooks/useHoverSync'
 
 export { fmtAxisDate, fmtTooltipDate } from './utils/format'
 export { smartTicks } from './utils/ticks'
+export { alpha } from './utils/color'
 
 export {
   ZonedLine,

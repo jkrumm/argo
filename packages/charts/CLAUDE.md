@@ -6,12 +6,26 @@ Theme-agnostic visx chart primitives, kinds, sparklines, and hooks. Consumed by 
 
 This package imports **no Mantine** and reads **no browser APIs** for color scheme. It is fully decoupled from `apps/*`. The dashboard's `src/charts-bridge.tsx` (`VxBridge`) is the only bridge between Mantine's color scheme and `VxThemeProvider` — the only file allowed to import both.
 
+## Color System — Blueprint palette via CSS variables
+
+All color lives in one place: `palette.ts` (`BP` = the Blueprint v6 hex palette + the per-metric `SERIES`/`STATUS`/`NEUTRAL`/`SURFACE` maps). Every entry is a per-theme `{ light, dark }` **pair** — series colors are NOT theme-agnostic; a hue keeps its identity but shifts shade (lighter on dark to avoid glow, deeper on light). `theme-vars.ts` emits those pairs as `--vx-*` CSS custom properties (`PALETTE_CSS`), which `VxBridge` injects once. Resolution is pure CSS off Mantine's `[data-mantine-color-scheme]`, so `VX.*` tokens work identically in components AND non-component files (`constants.ts`, `formulas.ts`).
+
+Consequences:
+
+- `VX.series.hrv` etc. are `var(--vx-*)` strings — use them everywhere; never branch on color scheme yourself.
+- The dashboard Mantine theme (`apps/dashboard/src/theme.ts`) is reskinned from the same `BP` data, so chrome and charts share one identity.
+- Off-palette colors are **enforced**: `scripts/check-theme.mjs` (wired into `bun run lint`) fails on any raw hex / `rgb()` / `hsl()` in chart or dashboard source. Apply opacity with `alpha(token, a)`, never `rgba()`. The only escape hatch is a `theme-allow` line comment.
+- A DEV-only theme lab (`apps/dashboard/src/components/theme-lab-panel.tsx`) live-overrides `--vx-*` on `<html>` for visual tuning; "Copy JSON" exports values to bake back into `palette.ts`.
+
 ## Directory Structure
 
 ```
 src/
-├── tokens.ts           — VX palette: semantic fills, per-metric series colors, sizing
-├── theme.tsx           — VxThemeProvider + useVxTheme (resolved neutrals per colorScheme)
+├── palette.ts          — Blueprint palette (BP) + SERIES/STATUS/NEUTRAL/SURFACE {light,dark} pairs (source of truth)
+├── theme-vars.ts       — emits PALETTE_CSS: the --vx-* custom properties per color scheme
+├── tokens.ts           — VX tokens: var(--vx-*) refs for colors + non-color sizing constants
+├── theme.tsx           — VxThemeProvider + useVxTheme (static var refs)
+├── utils/color.ts      — alpha(token, a): theme-aware opacity via color-mix
 ├── hover-context.ts    — HoverContext for cross-chart hover sync
 ├── primitives/         — Low-level building blocks
 │   ├── ChartCard       — Title + subtitle + header-extra slot + border
@@ -19,10 +33,13 @@ src/
 │   ├── ChartTooltip    — TooltipHeader + TooltipRow + TooltipBody + useTooltipStyles
 │   ├── Axes            — AxisLeftNumeric, AxisRightNumeric, AxisBottomDate
 │   ├── HoverOverlay    — Mouse capture rect for hover events
-│   └── ZoneRects       — Horizontal zone band fills
+│   ├── ZoneRects       — Horizontal zone band fills
+│   └── AreaGradient    — Soft single-hue area fill (--vx-area-top/bottom knobs)
 ├── kinds/              — Reusable high-level chart shapes
-│   ├── ZonedLine       — Line chart with zone fills, ref lines, thresholds
-│   └── Bars            — Grouped/stacked bar chart with optional line overlay
+│   ├── ZonedLine       — Line chart with optional gradient area, zone fills, ref lines, thresholds
+│   ├── StackedArea     — Stacked area chart
+│   ├── Bars            — Grouped/stacked bar chart with optional line overlay
+│   └── Donut           — Donut / pie
 ├── sparklines/         — LineSparkline, BarSparkline (exempt from ChartCard/Tooltip contract)
 ├── hooks/
 │   ├── useChartTooltip — Tooltip open/close + position state
@@ -34,24 +51,25 @@ src/
 
 ## Token Layers
 
-| Layer                   | Location              | Usage                                                             |
-| ----------------------- | --------------------- | ----------------------------------------------------------------- |
-| Semantic palette        | `VX.*` in `tokens.ts` | `VX.good`, `VX.bad`, `VX.goodSolid`, `VX.grid`, `VX.crosshair`, … |
-| Per-metric series       | `VX.series.*`         | `VX.series.hrv`, `VX.series.restingHr`, `VX.series.benchPress`, … |
-| Theme-resolved neutrals | `useVxTheme()`        | `theme.line`, `theme.axis`, `theme.tooltipBg`, …                  |
+| Layer                   | Location                | Usage                                                             |
+| ----------------------- | ----------------------- | ----------------------------------------------------------------- |
+| Semantic palette        | `VX.*` in `tokens.ts`   | `VX.good`, `VX.bad`, `VX.goodSolid`, `VX.grid`, `VX.crosshair`, … |
+| Per-metric series       | `VX.series.*`           | `VX.series.hrv`, `VX.series.restingHr`, `VX.series.benchPress`, … |
+| Status scale            | `VX.status.*`           | `VX.status.excellent / good / warn / bad / neutral`               |
+| Theme-resolved neutrals | `VX.*` / `useVxTheme()` | `VX.line`/`theme.line`, `VX.axis`, `VX.tooltipBg`, …              |
 
-Never use raw hex literals in chart files. Use `VX.*` for values that do not change with the color scheme; use `useVxTheme()` for values that do.
+Every `VX.*` color is a `var(--vx-*)` string that resolves per color scheme in pure CSS — there is no manual light/dark branching. Never use raw hex / `rgba()` literals (the lint guard fails on them); apply opacity with `alpha(token, a)`. `useVxTheme()` is kept for the handful of charts that destructure `line`, but `VX.line` is equivalent.
 
 ## VxThemeProvider
 
-`VxThemeProvider` accepts `colorScheme: 'light' | 'dark'` as a prop. The dashboard's `VxBridge` reads this from Mantine and passes it down. Inside any chart component:
+`VxThemeProvider` accepts `colorScheme: 'light' | 'dark'` as a prop (kept for back-compat). The dashboard's `VxBridge` reads this from Mantine and passes it down. `useVxTheme()` now returns **static `var(--vx-*)` refs** — the actual light/dark value is resolved by CSS, not by this hook — so most charts can just read `VX.*` directly:
 
 ```ts
 import { useVxTheme } from '@argo/charts'
 
 function MyChart() {
   const theme = useVxTheme()
-  // theme.line, theme.axis, theme.tooltipBg, etc.
+  // theme.line === VX.line === 'var(--vx-line)' — resolves per color scheme in CSS
 }
 ```
 
@@ -87,7 +105,9 @@ Sparklines (under `sparklines/`) are exempt from ChartCard/ChartLegend/ChartTool
 - **Same shape as an existing kind?** Reuse `ZonedLine` or `Bars` with different props.
 - **Second instance of a new shape?** Extract a kind under `src/kinds/` and migrate both sites (Rule of Three).
 - **Genuinely unique?** Build bespoke from primitives directly in the route file.
-- **New semantic color or size?** Add to `tokens.ts`, not inline.
+- **New color (series / status / semantic)?** Add a `{light,dark}` pair to `palette.ts`, wire the var in `theme-vars.ts`, expose the token in `tokens.ts` — never inline a hex.
+- **New non-color size/constant?** Add to `tokens.ts`.
+- **Want a soft fill under a line?** Pass `areaFill` to `ZonedLine` (or compose `AreaGradient` + `AreaClosed`); it defaults on for plain metric lines, off when zones/thresholds already fill the plot.
 
 ## Typecheck
 

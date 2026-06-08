@@ -2,9 +2,10 @@ import { curveMonotoneX } from '@visx/curve'
 import { GridRows } from '@visx/grid'
 import { Group } from '@visx/group'
 import { scaleLinear, scalePoint } from '@visx/scale'
-import { LinePath } from '@visx/shape'
+import { AreaClosed, LinePath } from '@visx/shape'
 import { Threshold } from '@visx/threshold'
 import { useMemo, type ReactNode } from 'react'
+import { AreaGradient, areaFillUrl } from '../primitives/AreaGradient'
 import { AxisBottomDate, AxisLeftNumeric } from '../primitives/Axes'
 import {
   ChartTooltip,
@@ -79,6 +80,13 @@ export type ZonedLineProps<T> = {
   formatValue: (v: number) => string
   /** Optional extra tooltip rows (rendered after the main row). */
   renderExtraTooltipRows?: (d: T) => ReactNode
+  /**
+   * Opt-in soft gradient fill under the line. Pass a VX series token (e.g. `VX.series.hrv`)
+   * to tint the area with that hue — the modern single-hue look. Off by default (a neutral
+   * fill under the neutral line just reads as grey haze). Strength is global via
+   * `--vx-area-top` / `--vx-area-bottom` (tunable in the dev theme lab).
+   */
+  areaFill?: string | boolean
 }
 
 /**
@@ -111,12 +119,19 @@ export function ZonedLine<T>(props: ZonedLineProps<T>) {
     seriesLabel,
     formatValue,
     renderExtraTooltipRows,
+    areaFill,
   } = props
 
   const { line } = useVxTheme()
   const MARGIN = VX.margin
   const xMax = width - MARGIN.left - MARGIN.right
   const yMax = height - MARGIN.top - MARGIN.bottom
+
+  // Area is opt-in: pass a series token to get a cohesive single-hue fill under the line.
+  // (A neutral fill under the neutral line just reads as grey haze, so there is no default-on.)
+  const showArea = areaFill !== undefined && areaFill !== false
+  const areaColor = typeof areaFill === 'string' ? areaFill : line
+  const areaId = `${chartId}-area`
 
   type Valid = T & { __y: number }
   const valid = useMemo<Valid[]>(() => {
@@ -192,6 +207,22 @@ export function ZonedLine<T>(props: ZonedLineProps<T>) {
               aboveAreaProps={{ fill: t.side === 'below' ? t.fill : 'transparent' }}
             />
           ))}
+
+          {showArea && (
+            <>
+              <defs>
+                <AreaGradient id={areaId} color={areaColor} />
+              </defs>
+              <AreaClosed<Valid>
+                data={valid}
+                x={(d) => xScale(getX(d)) ?? 0}
+                y={(d) => yScale(d.__y)}
+                yScale={yScale}
+                curve={curveMonotoneX}
+                fill={areaFillUrl(areaId)}
+              />
+            </>
+          )}
 
           {refLines.map((r, i) => (
             <line

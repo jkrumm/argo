@@ -1,5 +1,7 @@
 import { useMemo, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { useVxTheme } from '../theme'
+import { VX } from '../tokens'
+import { alpha } from '../utils/color'
 import { fmtTooltipDate } from '../utils/format'
 
 /** Theme-aware tooltip container styles — use with useChartTooltip(). */
@@ -63,7 +65,7 @@ export function TooltipHeader({
         alignItems: 'center',
         gap: 16,
         padding: '6px 10px',
-        borderBottom: '1px solid rgba(128,128,128,0.2)',
+        borderBottom: `1px solid ${alpha(VX.neutral, 0.2)}`,
       }}
     >
       <span style={{ fontSize: 11, color: tooltipMuted }}>{fmtTooltipDate(date)}</span>

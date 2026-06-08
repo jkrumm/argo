@@ -1,142 +1,142 @@
 /**
  * Visx chart tokens — single source of truth for colors, sizing and theme-dependent values.
  *
- * Never reference raw hex colors in chart files. Always go through VX (theme-agnostic
- * semantic palette + per-metric series colors) or useVxTheme() (theme-resolved neutrals
- * like line/axis/tooltip).
+ * Colors are now CSS custom properties (see palette.ts → theme-vars.ts). They resolve per
+ * Mantine color scheme automatically, so VX.* works in components AND in non-component files
+ * (constants.ts, formulas.ts). Never reference raw hex in chart files — use VX.* / useVxTheme().
  */
 
 export const VX = {
-  // Primary line — per-theme variants
-  lineDark: '#c9d1d9',
-  lineLight: '#57606a',
+  // Non-color sizing constants
   lineWidth: 2.5,
-
-  // Secondary line
-  line2Dark: '#8b949e',
-  line2Light: '#6e7681',
   line2Width: 2,
-
-  // Semantic fills — consistent opacity across all charts
-  good: 'rgba(63, 185, 80, 0.18)',
-  goodSoft: 'rgba(63, 185, 80, 0.08)',
-  bad: 'rgba(248, 81, 73, 0.18)',
-  warn: 'rgba(210, 153, 34, 0.08)',
-  goodSolid: '#3fb950',
-  badSolid: '#f85149',
-  warnSolid: '#d29922',
-
-  // Reference/dashed lines for thresholds
-  goodRef: 'rgba(63, 185, 80, 0.3)',
-  badRef: 'rgba(248, 81, 73, 0.3)',
-  warnRef: 'rgba(210, 153, 34, 0.2)',
-
-  // Grid and axes
-  grid: 'rgba(128, 128, 128, 0.12)',
-  axisDark: 'rgba(180, 180, 180, 0.8)',
-  axisLight: 'rgba(80, 80, 80, 0.75)',
-  axisStrokeDark: 'rgba(128, 128, 128, 0.18)',
-  axisStrokeLight: 'rgba(128, 128, 128, 0.18)',
   axisFont: 11,
-
-  // Hover crosshair + dot
-  crosshair: 'rgba(180, 180, 180, 0.5)',
-  dotStroke: '#fff',
   dotR: 5,
 
-  // Tooltip — per-theme variants
-  tooltipBgDark: 'rgba(0, 0, 0, 0.88)',
-  tooltipBgLight: '#ffffff',
-  tooltipMutedDark: 'rgba(255, 255, 255, 0.5)',
-  tooltipMutedLight: 'rgba(0, 0, 0, 0.45)',
-  tooltipTextDark: 'rgba(255, 255, 255, 0.85)',
-  tooltipTextLight: 'rgba(0, 0, 0, 0.85)',
-  tooltipBorderLight: 'rgba(0, 0, 0, 0.08)',
-  tooltipShadowDark: '0 2px 8px rgba(0,0,0,0.3)',
-  tooltipShadowLight: '0 2px 8px rgba(0,0,0,0.1)',
+  // Secondary-line color (back-compat alias; now theme-aware via --vx-line2)
+  line2Dark: 'var(--vx-line2)',
 
-  // Legend
-  legendText: 'rgba(220, 220, 220, 0.95)',
+  // Semantic fills — consistent opacity across all charts
+  good: 'var(--vx-good)',
+  goodSoft: 'var(--vx-goodSoft)',
+  bad: 'var(--vx-bad)',
+  warn: 'var(--vx-warn)',
+  goodSolid: 'var(--vx-goodSolid)',
+  badSolid: 'var(--vx-badSolid)',
+  warnSolid: 'var(--vx-warnSolid)',
 
-  // Per-metric series colors — theme-agnostic, used to give each metric a stable identity.
+  // Reference/dashed lines for thresholds
+  goodRef: 'var(--vx-goodRef)',
+  badRef: 'var(--vx-badRef)',
+  warnRef: 'var(--vx-warnRef)',
+
+  // Neutral primary line/text color — the default for single-series, no-signal marks
+  // ("white/gray per theme"). Same value as useVxTheme().line.
+  line: 'var(--vx-line)',
+
+  // Grid, hover, legend
+  grid: 'var(--vx-grid)',
+  crosshair: 'var(--vx-crosshair)',
+  dotStroke: 'var(--vx-dotStroke)',
+  legendText: 'var(--vx-legendText)',
+
+  // Base neutral for hairlines / muted text / overlays — apply opacity via alpha()
+  neutral: 'var(--vx-neutral)',
+
+  // App surfaces (cards, borders) — shared with the Mantine chrome
+  surface: {
+    bg: 'var(--vx-surface-bg)',
+    panel: 'var(--vx-surface-panel)',
+    elevated: 'var(--vx-surface-elevated)',
+    border: 'var(--vx-surface-border)',
+  },
+  shadowCard: 'var(--vx-shadowCard)',
+
+  // Score / zone status scale (excellent → poor)
+  status: {
+    excellent: 'var(--vx-status-excellent)',
+    good: 'var(--vx-status-good)',
+    warn: 'var(--vx-status-warn)',
+    bad: 'var(--vx-status-bad)',
+    neutral: 'var(--vx-status-neutral)',
+  },
+
+  // Per-metric series colors — stable hue identity, shade resolved per theme.
   series: {
     // Sleep stages
-    deep: '#1e3a5f',
-    rem: '#7c4dff',
-    light: '#90caf9',
-    awake: '#757575',
+    deep: 'var(--vx-deep)',
+    rem: 'var(--vx-rem)',
+    light: 'var(--vx-light)',
+    awake: 'var(--vx-awake)',
 
     // Metrics
-    sleepDuration: '#5c6bc0',
-    hrv: '#aa00ff',
-    hrvWeekly: '#ce93d8',
-    restingHr: '#ff5252',
-    steps: '#4caf50',
-    intensityMin: '#2e7d32',
-    vigorousMin: '#e65100',
-    intensityWalking: '#4caf50',
-    intensityModerate: '#2e7d32',
-    intensityVigorous: '#e65100',
-    calories: '#ffa726',
-    spo2: '#2979ff',
-    respiration: '#26a69a',
-    vo2max: '#ff6f00',
-    acwr: '#1677ff',
-    acute: '#ffa726',
-    chronic: '#ef5350',
-    optimalZone: 'rgba(0,200,83,0.1)',
+    sleepDuration: 'var(--vx-sleepDuration)',
+    hrv: 'var(--vx-hrv)',
+    hrvWeekly: 'var(--vx-hrvWeekly)',
+    restingHr: 'var(--vx-restingHr)',
+    steps: 'var(--vx-steps)',
+    intensityMin: 'var(--vx-intensityMin)',
+    vigorousMin: 'var(--vx-vigorousMin)',
+    intensityWalking: 'var(--vx-intensityWalking)',
+    intensityModerate: 'var(--vx-intensityModerate)',
+    intensityVigorous: 'var(--vx-intensityVigorous)',
+    calories: 'var(--vx-calories)',
+    spo2: 'var(--vx-spo2)',
+    respiration: 'var(--vx-respiration)',
+    vo2max: 'var(--vx-vo2max)',
+    acwr: 'var(--vx-acwr)',
+    acute: 'var(--vx-acute)',
+    chronic: 'var(--vx-chronic)',
+    optimalZone: 'var(--vx-optimalZone)',
 
     // Strength tracker — per-lift stable identity
-    benchPress: '#1677ff',
-    squat: '#52c41a',
-    deadlift: '#ff4d4f',
-    pullUps: '#fa8c16',
+    benchPress: 'var(--vx-benchPress)',
+    squat: 'var(--vx-squat)',
+    deadlift: 'var(--vx-deadlift)',
+    pullUps: 'var(--vx-pullUps)',
 
-    // WalkingPad — per-metric stable identity. Distance is the anchor (the
-    // metric that maps to "how much you moved today"); pace and steps support.
-    walkingDistance: '#00b894',
-    walkingPace: '#0984e3',
-    walkingSteps: '#fdcb6e',
-    walkingKcal: '#e17055',
-    walkingDuration: '#6c5ce7',
+    // WalkingPad — per-metric stable identity (distance is the anchor)
+    walkingDistance: 'var(--vx-walkingDistance)',
+    walkingPace: 'var(--vx-walkingPace)',
+    walkingSteps: 'var(--vx-walkingSteps)',
+    walkingKcal: 'var(--vx-walkingKcal)',
+    walkingDuration: 'var(--vx-walkingDuration)',
 
-    // Garmin activities — per-type stable identity. Gym is the anchor (red)
-    // because Garmin under-reports its load and we want it to read as "the
-    // important block" in the stacked-day view.
+    // Garmin activities — per-type stable identity (gym = red anchor)
     activity: {
-      gym: '#ff5252',
-      cycling: '#1677ff',
-      tennis: '#fa8c16',
-      running: '#52c41a',
-      hiking: '#ab47bc',
-      surfing: '#00bcd4',
-      other: '#8b949e',
+      gym: 'var(--vx-activity-gym)',
+      cycling: 'var(--vx-activity-cycling)',
+      tennis: 'var(--vx-activity-tennis)',
+      running: 'var(--vx-activity-running)',
+      hiking: 'var(--vx-activity-hiking)',
+      surfing: 'var(--vx-activity-surfing)',
+      other: 'var(--vx-activity-other)',
     },
 
-    // Usage tracker — source identity (each app/process)
+    // Usage tracker — source identity
     usageSource: {
-      claudeCode: '#a78bfa',
-      litellm: '#22d3ee',
-      sideclaw: '#f59e0b',
-      hermesAgent: '#ec4899',
-      audioProxy: '#10b981',
-      feuer: '#ef4444',
-      opencode: '#6366f1',
-      other: '#94a3b8',
+      claudeCode: 'var(--vx-usage-claudeCode)',
+      litellm: 'var(--vx-usage-litellm)',
+      sideclaw: 'var(--vx-usage-sideclaw)',
+      hermesAgent: 'var(--vx-usage-hermesAgent)',
+      audioProxy: 'var(--vx-usage-audioProxy)',
+      feuer: 'var(--vx-usage-feuer)',
+      opencode: 'var(--vx-usage-opencode)',
+      other: 'var(--vx-usage-other)',
     },
 
     // Usage tracker — billing identity
     usageBilling: {
-      max: '#f59e0b',
-      iu: '#22d3ee',
-      unknown: '#94a3b8',
+      max: 'var(--vx-billing-max)',
+      iu: 'var(--vx-billing-iu)',
+      unknown: 'var(--vx-billing-unknown)',
     },
 
-    // Usage tracker — outcome identity (also reusable for any ok/error split)
+    // Usage tracker — outcome identity
     usageOutcome: {
-      ok: '#22c55e',
-      error: '#ef4444',
-      cancelled: '#f59e0b',
+      ok: 'var(--vx-outcome-ok)',
+      error: 'var(--vx-outcome-error)',
+      cancelled: 'var(--vx-outcome-cancelled)',
     },
   },
 

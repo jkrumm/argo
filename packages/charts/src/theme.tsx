@@ -1,5 +1,4 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react'
-import { VX } from './tokens'
 
 type ColorScheme = 'light' | 'dark'
 
@@ -16,6 +15,23 @@ export type VxTheme = {
   tooltipShadow: string
 }
 
+/**
+ * Theme-resolved neutrals are now CSS custom properties (see theme-vars.ts). They resolve per
+ * Mantine color scheme in CSS, so these are static var refs — the provider keeps `colorScheme`
+ * only for any non-color branching a chart may need.
+ */
+const REFS = {
+  line: 'var(--vx-line)',
+  line2: 'var(--vx-line2)',
+  axis: 'var(--vx-axis)',
+  axisStroke: 'var(--vx-axisStroke)',
+  tooltipBg: 'var(--vx-tooltipBg)',
+  tooltipText: 'var(--vx-tooltipText)',
+  tooltipMuted: 'var(--vx-tooltipMuted)',
+  tooltipBorder: 'var(--vx-tooltipBorder)',
+  tooltipShadow: 'var(--vx-tooltipShadow)',
+} as const
+
 const VxThemeContext = createContext<VxTheme | null>(null)
 
 export function VxThemeProvider({
@@ -25,21 +41,7 @@ export function VxThemeProvider({
   colorScheme: ColorScheme
   children: ReactNode
 }) {
-  const value = useMemo<VxTheme>(() => {
-    const isDark = colorScheme === 'dark'
-    return {
-      colorScheme,
-      line: isDark ? VX.lineDark : VX.lineLight,
-      line2: isDark ? VX.line2Dark : VX.line2Light,
-      axis: isDark ? VX.axisDark : VX.axisLight,
-      axisStroke: isDark ? VX.axisStrokeDark : VX.axisStrokeLight,
-      tooltipBg: isDark ? VX.tooltipBgDark : VX.tooltipBgLight,
-      tooltipText: isDark ? VX.tooltipTextDark : VX.tooltipTextLight,
-      tooltipMuted: isDark ? VX.tooltipMutedDark : VX.tooltipMutedLight,
-      tooltipBorder: isDark ? 'none' : `1px solid ${VX.tooltipBorderLight}`,
-      tooltipShadow: isDark ? VX.tooltipShadowDark : VX.tooltipShadowLight,
-    }
-  }, [colorScheme])
+  const value = useMemo<VxTheme>(() => ({ colorScheme, ...REFS }), [colorScheme])
   return <VxThemeContext.Provider value={value}>{children}</VxThemeContext.Provider>
 }
 
