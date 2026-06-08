@@ -64,12 +64,20 @@ export const Env = z.object({
   HERMES_SESSION_KEY: z.string().default('agent:main:slack:group:C0ASRUD7K1U:U0AS54FURPE'),
 
   // General AI gateway (/ai/v1/*) — DeepSeek v4 Flash via the LiteLLM EU bridge.
+  // DEEPSEEK_BASE_URL must include the OpenAI path prefix (e.g.
+  // `https://<eu-bridge-host>/v1`); the gateway appends `/chat/completions`.
+  // Routing to this EU bridge is what keeps DeepSeek traffic GDPR-compliant.
   DEEPSEEK_BASE_URL: z.string().default(''),
   DEEPSEEK_API_KEY: z.string().default(''),
   DEEPSEEK_MODEL: z.string().default('DeepSeek-V4-Flash'),
 
-  // audio-proxy (:7716) — STT (transcriptions) + TTS (speech).
+  // audio-proxy (:7716) — STT (transcriptions) + TTS (speech). Like the others,
+  // AUDIO_PROXY_BASE_URL includes the OpenAI path prefix (e.g.
+  // `http://<host>:7716/v1`); the gateway appends `/audio/transcriptions` and
+  // `/audio/speech`. AUDIO_PROXY_API_KEY is the optional bearer the proxy gates
+  // on (empty = the proxy's auth is disabled, so no header is sent).
   AUDIO_PROXY_BASE_URL: z.string().default(''),
+  AUDIO_PROXY_API_KEY: z.string().default(''),
 })
 
 export const env = Env.parse(process.env)

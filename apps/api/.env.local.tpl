@@ -63,9 +63,14 @@ GITLAB_TOKEN=op://vps/argo/GITLAB_TOKEN
 # HERMES_SESSION_KEY=agent:main:slack:group:C0ASRUD7K1U:U0AS54FURPE
 #
 # General AI gateway (/ai/v1/*) — DeepSeek v4 Flash via the LiteLLM EU bridge.
+# DEEPSEEK_BASE_URL must include the OpenAI `/v1` path prefix; the gateway
+# appends `/chat/completions`. Routing here is what keeps DeepSeek EU/GDPR.
 # DEEPSEEK_BASE_URL=op://vps/argo/DEEPSEEK_BASE_URL
 # DEEPSEEK_API_KEY=op://vps/argo/DEEPSEEK_API_KEY
 # DEEPSEEK_MODEL=DeepSeek-V4-Flash
 #
 # audio-proxy (:7716) — STT (/audio/transcriptions) + TTS (/audio/speech).
+# AUDIO_PROXY_BASE_URL includes the `/v1` prefix (e.g. http://<host>:7716/v1);
+# AUDIO_PROXY_API_KEY is the optional bearer the proxy gates on (empty = off).
 # AUDIO_PROXY_BASE_URL=op://vps/argo/AUDIO_PROXY_BASE_URL
+# AUDIO_PROXY_API_KEY=op://vps/argo/AUDIO_PROXY_API_KEY

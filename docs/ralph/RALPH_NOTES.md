@@ -217,3 +217,95 @@ with `Hello world` reconstructed from parts and the tool event in `payload`; exi
   array read by `onFinish`. In practice the filter completes before finish, but a stricter
   design would await the tap. Acceptable since `payload.toolEvents` is non-essential.
 - Confirm Traefik does not buffer `/api/hermes/chat` in prod (still-open PRD E2E item #7).
+
+## Group 3: General AI gateway (/ai/v1/\*)
+
+### What was implemented
+
+- **`apps/api/src/routes/ai.ts`** — the Group 1 stub (models-only) replaced by a full
+  OpenAI-compatible gateway, all thin proxies that inject the upstream bearer server-side
+  and stream the upstream response straight back:
+  - `POST /ai/v1/chat/completions` → DeepSeek v4 Flash via the LiteLLM EU bridge. Defaults
+    `model` to `DEEPSEEK_MODEL` (body `model` wins); supports non-stream (default) and
+    `stream:true` SSE through the same passthrough path. Returns the upstream OpenAI shape.
+  - `POST /ai/v1/audio/transcriptions` → audio-proxy STT. Multipart in: Elysia parses the
+    form, the handler rebuilds a `FormData` (File fields stay `Blob`) and forwards it
+    (fetch sets the multipart boundary; we never set content-type). Response verbatim.
+  - `POST /ai/v1/audio/speech` → audio-proxy TTS. JSON in (`model`/`input`/`voice`/
+    `response_format`), binary audio out (`audio/mpeg` fallback content-type).
+  - `GET /ai/v1/models` → advertises the configured DeepSeek model (`owned_by:
+deepseek-eu-bridge`).
+- **`aiComplete(prompt, opts)`** exported from the same module — the in-process seam Group 4
+  titling imports (no HTTP hop). Non-stream DeepSeek call, returns the assistant text;
+  supports `system`/`model`/`temperature`/`maxTokens` and `deps` injection for tests.
+- **Injectable deps** mirror `hermes.ts`: `createAiRoutes(overrides)` + `aiRoutes =
+createAiRoutes()`; `AiRouteDeps { deepseekBaseURL, deepseekApiKey, deepseekModel,
+audioBaseURL, audioApiKey, fetchImpl }`. Tests point `fetchImpl` at a fake upstream.
+- **`apps/api/src/lib/auth-guard.ts`** — extracted the global Bearer `authGuard` out of
+  `index.ts` into a shared module (verbatim logic + the `as:'scoped'`/`onTransform`
+  rationale comment). `index.ts` now imports it; the unused `env` import was dropped. This
+  lets `ai.test.ts` exercise the _real_ guard for the 401 contract instead of duplicating it.
+- **Env:** added `AUDIO_PROXY_API_KEY` (optional bearer the audio-proxy gates on) and
+  documented that `DEEPSEEK_BASE_URL` / `AUDIO_PROXY_BASE_URL` both include the `/v1` path
+  prefix (matching `HERMES_BASE_URL`). `.env.local.tpl` updated with the same notes.
+
+### Deviations from prompt
+
+- **All upstream base URLs include `/v1`** (consistent with `HERMES_BASE_URL` from Group 2).
+  So the handlers append `/chat/completions`, `/audio/transcriptions`, `/audio/speech`. The
+  audio-proxy `endsWith`-matches its routes regardless of a `/v1` prefix (verified in its
+  `src/index.ts`), so `<base>/v1/audio/...` works against it.
+- **Extracted the auth guard** rather than replicating it in the test or importing the full
+  `app` (importing `index.ts` runs `await runMigrations()` + `.listen(4000)` — unwanted in
+  tests, and the migration chain is environmentally broken in the loop, see Group 1/2). The
+  extraction is behavior-preserving and gives the test the production guard.
+- **Streaming is a single passthrough path**, not a separate code branch — returning
+  `new Response(upstream.body, …)` handles both JSON and SSE, with `X-Accel-Buffering: no`
+  set unconditionally (harmless for non-stream).
+
+### Gotchas & surprises
+
+- **Elysia parses `multipart/form-data` even without a body schema** — `body` arrives as a
+  plain object with File fields as `File`/`Blob`. Confirmed empirically by the STT test
+  (`forwarded.get('file')` is a `Blob`). No `z.instanceof(File)` / `z.file()` body schema is
+  needed (which would also risk `z.toJSONSchema` / elysia-zod degradation per the project's
+  Zod rules), so the transcription route declares no body schema and stays a faithful
+  passthrough of the full OpenAI field set.
+- **`BodyInit` is not in the API tsconfig's lib set** (Bun types, no DOM lib). Used
+  `RequestInit['body']` for the captured-request type instead.
+- **oxlint `eqeqeq`** rejects `value != null`; spelled out `value !== null && value !==
+undefined` in the FormData rebuild.
+- The 12 pre-existing `runMigrations()` failures (`must be owner of index
+uq_usage_source_sourceid`) persist — the gateway tests are DB-free (pure proxy), so they
+  add 9 green tests on top of the Group 2 baseline (142→151 pass, 12 fail unchanged).
+
+### Security notes
+
+- The DeepSeek and audio-proxy bearers are injected on the **upstream** request only; tests
+  assert the keys never appear in the client-visible response (`text` not containing
+  `DEEPSEEK_KEY`; STT JSON not containing `AUDIO_KEY`). When a key env is empty, no
+  `Authorization` header is sent at all (the audio-proxy treats no-key as auth-disabled).
+- All `/ai/v1/*` routes mount after the global `authGuard` in `index.ts`; `ai.test.ts`
+  verifies 401 without a bearer and 200 with `API_SECRET` through the same guard.
+- Routing chat to the EU bridge base URL is the GDPR guarantee regardless of the `model`
+  field — a test pins the upstream URL to the configured EU base.
+
+### Tests added
+
+`apps/api/src/routes/ai.test.ts` (9 tests, mocked upstreams, DB-free): auth 401/200 via the
+real guard + model listing; chat round-trip pinned to the EU base with default-model
+injection and bearer-not-leaked; body model override; 503 when the bridge is unconfigured;
+STT multipart forwarded with `file`/`model` intact + audio key absent; TTS JSON→audio bytes;
+`aiComplete()` returns assistant text with correct system/user message ordering + `stream:
+false`, and throws when unconfigured.
+
+### Future improvements
+
+- **Verify the real `DEEPSEEK_BASE_URL` / `AUDIO_PROXY_BASE_URL` path conventions** during
+  Group 0 / manual E2E — the loop assumes both carry `/v1`. If the LiteLLM bridge is mounted
+  at root, drop the `/v1` from the configured value (the `joinUrl` append stays correct).
+- **STT/TTS model defaults:** the gateway passes the client's `model` straight through (no
+  default injected for audio). Group 8's voice-in / read-aloud should decide whether to pin
+  a default STT model (e.g. `gpt-4o-transcribe`) and TTS voice server-side.
+- **No upstream timeout/cancel wiring** on the gateway proxies (unlike `/hermes/chat`'s
+  `timeout(req,0)`); fine for short titling calls, revisit if long audio synth needs it.
