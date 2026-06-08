@@ -64,6 +64,13 @@
       "when": 1780289100000,
       "tag": "0008_relabel_hermes_feuer_projects",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1780954051636,
+      "tag": "0009_friendly_mandarin",
+      "breakpoints": true
     }
   ]
 }

@@ -17,6 +17,7 @@ import {
   IconChecklist,
   IconHeartbeat,
   IconMenu2,
+  IconMessageChatbot,
   IconShoe,
 } from '@tabler/icons-react'
 import { format } from 'date-fns'
@@ -66,6 +67,7 @@ function RootLayout() {
   const isStrengthActive = !!matchRoute({ to: '/strength-tracker', fuzzy: true })
   const isWalkingPadActive = !!matchRoute({ to: '/walking-pad', fuzzy: true })
   const isM365Active = !!matchRoute({ to: '/m365-explorer', fuzzy: true })
+  const isHermesChatActive = !!matchRoute({ to: '/hermes-chat', fuzzy: true })
   const isCalendarActive = !!matchRoute({ to: '/calendar', fuzzy: true })
   const isUsageActive = !!matchRoute({ to: '/usage-tracking', fuzzy: true })
 
@@ -78,6 +80,20 @@ function RootLayout() {
   }
 
   const sections: SidebarSection[] = [
+    {
+      label: 'Assistant',
+      items: [
+        {
+          key: 'hermes-chat',
+          label: 'Hermes Chat',
+          short: 'Hermes',
+          icon: <IconMessageChatbot size={ICON} />,
+          href: '/hermes-chat',
+          active: isHermesChatActive,
+          onClick: go(() => void navigate({ to: '/hermes-chat' })),
+        },
+      ],
+    },
     {
       label: 'Health',
       items: [

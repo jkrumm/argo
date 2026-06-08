@@ -34,6 +34,8 @@ import { weightLogRoutes } from './routes/weight-log.js'
 import { walkingPadRoutes } from './routes/walking-pad.js'
 import { usageRoutes } from './routes/usage.js'
 import { userProfileRoutes } from './routes/user-profile.js'
+import { hermesRoutes } from './routes/hermes.js'
+import { aiRoutes } from './routes/ai.js'
 import { registerCronJobs } from './cron/index.js'
 import { uptimeKumaClient } from './clients/uptime-kuma.js'
 import { runMigrations } from './db/index.js'
@@ -153,6 +155,16 @@ export const app = new Elysia()
               'Third-party read-only data feeds (currently: weather via Open-Meteo, geocoded).',
           },
           {
+            name: 'Hermes Chat',
+            description:
+              'Thread-first chat surface backed by the Hermes agent core over its OpenAI-compatible API. Argo owns the verbatim transcript (threads + messages in Postgres); Hermes owns compressed agent state per session id. Covers the streaming chat proxy, thread/message reads, and the Hermes-hosted audio range proxy. Powers the Hermes Chat dashboard page.',
+          },
+          {
+            name: 'AI Gateway',
+            description:
+              'General-purpose, OpenAI-compatible AI gateway (`/ai/v1/*`) backing Argo-side AI features (NOT the Hermes agent): DeepSeek v4 Flash via the LiteLLM EU bridge for titling/classification, plus STT (transcriptions) and TTS (speech) via the audio-proxy.',
+          },
+          {
             name: 'System',
             description:
               'Discovery, health, observability, and auth plumbing: `/` (API discovery), `/health` (liveness), `/summary` (aggregated infra snapshot), `/query` (read-only SQL), `/oauth/google/*` (Google auth dance for Gmail + Calendar). M365 tokens are installed via the laptop bootstrap script — see POST /m365/seed.',
@@ -188,6 +200,8 @@ export const app = new Elysia()
         'Usage Tracking',
         'Infrastructure',
         'External Data',
+        'Hermes Chat',
+        'AI Gateway',
         'System',
       ],
     }),
@@ -245,6 +259,8 @@ export const app = new Elysia()
   .use(userProfileRoutes)
   .use(walkingPadRoutes)
   .use(usageRoutes)
+  .use(hermesRoutes)
+  .use(aiRoutes)
   .listen(4000)
 
 export type App = typeof app

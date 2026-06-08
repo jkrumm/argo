@@ -43,6 +43,27 @@ export const Env = z.object({
   JIRA_DEFAULT_TEAM_OPTION_ID: z.string().default('10561'),
   GITLAB_BASE_URL: z.string().default('https://gitlab.com'),
   GITLAB_TOKEN: z.string().default(''),
+
+  // ── Hermes Chat (see docs/HERMES-CHAT-PRD.md) ─────────────────────────────
+  // All optional so the API boots in test/CI without live cross-machine
+  // upstreams (Hermes Mac Mini, audio-proxy, DeepSeek bridge). Real values are
+  // provisioned in Group 0 (op://vps/argo/*). Group 1 wires config only — no
+  // behavior; handlers land in Groups 2–3.
+
+  // Hermes agent core — OpenAI-compatible API over Tailscale (port 8642).
+  HERMES_BASE_URL: z.string().default(''),
+  HERMES_API_KEY: z.string().default(''),
+  // Long-term memory scope (Honcho conversation id). Default resolves to the
+  // Slack #hermes group key for Johannes — see .env.local.tpl for derivation.
+  HERMES_SESSION_KEY: z.string().default('agent:main:slack:group:C0ASRUD7K1U:U0AS54FURPE'),
+
+  // General AI gateway (/ai/v1/*) — DeepSeek v4 Flash via the LiteLLM EU bridge.
+  DEEPSEEK_BASE_URL: z.string().default(''),
+  DEEPSEEK_API_KEY: z.string().default(''),
+  DEEPSEEK_MODEL: z.string().default('DeepSeek-V4-Flash'),
+
+  // audio-proxy (:7716) — STT (transcriptions) + TTS (speech).
+  AUDIO_PROXY_BASE_URL: z.string().default(''),
 })
 
 export const env = Env.parse(process.env)

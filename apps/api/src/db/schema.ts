@@ -10,6 +10,7 @@ import {
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
+import type { UIMessagePart, UIDataTypes, UITools } from 'ai'
 
 const argoSchema = pgSchema('argo')
 
@@ -285,4 +286,92 @@ export const walkingPadAchievements = argoSchema.table(
     index('idx_walking_pad_achievements_unlocked_at').on(t.unlocked_at),
     index('idx_walking_pad_achievements_type').on(t.type),
   ],
+)
+
+// ── Hermes Chat (see docs/HERMES-CHAT-PRD.md) ────────────────────────────────
+//
+// Argo owns the verbatim display transcript; Hermes owns only compressed agent
+// state keyed by X-Hermes-Session-Id. One thread = one session id (fresh id =
+// fresh context). Cross-thread long-term memory rides a constant session_key.
+//
+// `messages.parts` mirrors the Vercel AI SDK `UIMessage` parts shape (the live
+// stream's UIMessage is persisted verbatim in the proxy's onFinish — Group 2),
+// so the renderer can reproduce text/cards/audio/attachments on reload without
+// a parallel structure. Smart cards live inside the markdown text parts; the
+// `payload` extension carries only audio refs, attachments, and optional
+// tool-progress events (see E2E adjustment #2).
+
+/** A Hermes-hosted audio asset referenced by an assistant message. */
+export interface AudioRef {
+  url: string
+  title?: string
+  durationMs?: number
+}
+
+/** A user-supplied attachment. v1 ships longform-text only; file/image later. */
+export interface Attachment {
+  type: 'text'
+  title?: string
+  /** Longform markdown body for a text attachment. */
+  content?: string
+}
+
+/** A live tool-progress event tapped from Hermes' custom SSE channel. */
+export interface ToolEvent {
+  tool: string
+  emoji?: string
+  label: string
+  toolCallId: string
+  status: string
+}
+
+/** Non-transcript extension data attached to a persisted message. */
+export interface MessagePayload {
+  audio?: AudioRef[]
+  attachments?: Attachment[]
+  toolEvents?: ToolEvent[]
+}
+
+/** Persisted UIMessage parts — the AI SDK v5 shape, stored verbatim. */
+export type MessageParts = UIMessagePart<UIDataTypes, UITools>[]
+
+export const hermesThread = argoSchema.table('hermes_thread', {
+  // App-generated id (createIdGenerator({ prefix: 'thr' })) — Group 2.
+  id: text('id').primaryKey(),
+  // Hermes thread-continuity header (X-Hermes-Session-Id). Distinct per thread.
+  session_id: text('session_id').notNull(),
+  // Long-term memory scope (X-Hermes-Session-Key). Constant across threads.
+  session_key: text('session_key').notNull(),
+  // DeepSeek-generated title (Group 4); null until the first turn is titled.
+  title: text('title'),
+  // 'active' | 'archived' — kept as text for forward-compat.
+  status: text('status').notNull().default('active'),
+  pinned: integer('pinned').notNull().default(0), // 0 | 1
+  archived_at: timestamp('archived_at', { withTimezone: true, mode: 'string' }),
+  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' })
+    .notNull()
+    .defaultNow(),
+  updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' })
+    .notNull()
+    .defaultNow(),
+})
+
+export const hermesMessage = argoSchema.table(
+  'hermes_message',
+  {
+    // App-generated id (createIdGenerator({ prefix: 'msg' })) — Group 2.
+    id: text('id').primaryKey(),
+    thread_id: text('thread_id')
+      .notNull()
+      .references(() => hermesThread.id, { onDelete: 'cascade' }),
+    role: text('role').notNull(), // 'user' | 'assistant' | 'system'
+    parts: jsonb('parts').$type<MessageParts>().notNull().default([]),
+    payload: jsonb('payload').$type<MessagePayload>(),
+    // 'complete' | 'streaming' | 'interrupted' | 'error' (Group 4).
+    status: text('status').notNull().default('complete'),
+    created_at: timestamp('created_at', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index('idx_hermes_message_thread_created').on(t.thread_id, t.created_at)],
 )

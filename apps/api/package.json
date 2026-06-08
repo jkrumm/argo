@@ -14,6 +14,7 @@
     "m365:auth:prod": "bun run scripts/m365-bootstrap.ts --target=prod"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "1.0.39",
     "@elysiajs/bearer": "^1",
     "@elysiajs/cors": "^1",
     "@elysiajs/openapi": "^1",
@@ -27,6 +28,7 @@
     "@opentelemetry/resources": "^2.0.0",
     "@opentelemetry/sdk-logs": "^0.217.0",
     "@opentelemetry/sdk-trace-base": "^2.7.1",
+    "ai": "5.0.196",
     "croner": "^9",
     "drizzle-orm": "^0.38.0",
     "elysia": "^1.4.26",

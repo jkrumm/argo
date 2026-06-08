@@ -43,3 +43,29 @@ JIRA_BOARD_ID=272
 # `read_api` + `read_user` (the latter required for /events).
 GITLAB_BASE_URL=https://gitlab.com
 GITLAB_TOKEN=op://vps/argo/GITLAB_TOKEN
+
+# ── Hermes Chat (docs/HERMES-CHAT-PRD.md) ────────────────────────────────────
+# All optional. Local dev does NOT talk to the live Hermes Mac Mini / audio-proxy
+# / DeepSeek bridge — these are provisioned on prod in Group 0 and exercised via
+# mocked upstreams in tests. Uncomment + wire the op refs once Group 0 lands the
+# secrets in op://vps/argo/*.
+#
+# Hermes agent core — OpenAI-compatible API, bearer = API_SERVER_KEY, port 8642,
+# reached over Tailscale from the VPS.
+# HERMES_BASE_URL=op://vps/argo/HERMES_BASE_URL
+# HERMES_API_KEY=op://vps/argo/HERMES_API_KEY
+#
+# HERMES_SESSION_KEY — long-term memory scope (Honcho conversation id). Form:
+#   agent:main:slack:group:<channel_id>:<slack_user_id>
+# Resolved default: channel C0ASRUD7K1U (#hermes group) + Johannes' Slack user id
+# U0AS54FURPE (resolved via Slack `auth.test` with op://common/slack/USER_TOKEN).
+# The env.ts default already carries this; override here only to change scope.
+# HERMES_SESSION_KEY=agent:main:slack:group:C0ASRUD7K1U:U0AS54FURPE
+#
+# General AI gateway (/ai/v1/*) — DeepSeek v4 Flash via the LiteLLM EU bridge.
+# DEEPSEEK_BASE_URL=op://vps/argo/DEEPSEEK_BASE_URL
+# DEEPSEEK_API_KEY=op://vps/argo/DEEPSEEK_API_KEY
+# DEEPSEEK_MODEL=DeepSeek-V4-Flash
+#
+# audio-proxy (:7716) — STT (/audio/transcriptions) + TTS (/audio/speech).
+# AUDIO_PROXY_BASE_URL=op://vps/argo/AUDIO_PROXY_BASE_URL
