@@ -4,10 +4,15 @@
  *
  * oxlint has no `no-restricted-syntax`, so this is how "all color goes through the
  * Blueprint palette" is actually ENFORCED. It flags, in apps/dashboard/src and
- * packages/charts/src, raw color literals: hex (#rrggbb) and rgb()/rgba()/hsl()/hsla().
- *
- * Mantine accent names (color="teal") are NOT flagged — the whole Mantine palette is
- * reskinned to Blueprint in theme.ts, so those resolve on-palette.
+ * packages/charts/src:
+ *   1. raw color literals — hex (#rrggbb) and rgb()/rgba()/hsl()/hsla().
+ *   2. off-identity Mantine accent props — `color`/`c`/`bg`/`backgroundColor` set to
+ *      teal/violet/grape/indigo/pink. theme.ts reskins the WHOLE Mantine palette to
+ *      Blueprint, so any accent resolves on-palette — but the identity is blue-anchored and
+ *      DESIGN.md (Colors) forbids turquoise/violet/indigo/rose, so those families must not be
+ *      USED as chrome accents. Allowed accents: blue (identity), gray (neutral), and the
+ *      status hues red/green/orange/yellow. Series/categorical color goes through VX.* tokens,
+ *      never a Mantine accent prop.
  *
  * Allowed: CSS vars (var(--vx-*)), color-mix() / alpha(), and any line carrying a
  * `theme-allow` comment (an explicit, diff-visible exception).
@@ -32,6 +37,9 @@ const SKIP = /\.gen\.ts$|\.test\.[tj]sx?$|\.d\.ts$/
 
 const HEX = /#[0-9a-fA-F]{3,8}\b/g
 const FUNC = /\b(?:rgba?|hsla?)\(/g
+// Off-identity Mantine accent props: color="violet", c='indigo', bg={'teal'}, … (any quote/brace form).
+const FORBIDDEN_ACCENT =
+  /\b(?:color|c|bg|backgroundColor)\s*=\s*\{?\s*['"](teal|violet|grape|indigo|pink)['"]/g
 
 const violations = []
 
@@ -46,6 +54,9 @@ function scanFile(abs, rel) {
     for (const m of line.matchAll(FUNC)) {
       void m
       violations.push({ rel, line: i + 1, token: 'rgba()/hsl()', kind: 'raw-color-fn' })
+    }
+    for (const m of line.matchAll(FORBIDDEN_ACCENT)) {
+      violations.push({ rel, line: i + 1, token: m[1], kind: 'off-identity-accent' })
     }
   }
 }
@@ -69,7 +80,7 @@ for (const v of violations) {
   if (!byFile.has(v.rel)) byFile.set(v.rel, [])
   byFile.get(v.rel).push(v)
 }
-console.error(`✖ Theme guard: ${violations.length} off-palette color(s) bypassing the central theme\n`)
+console.error(`✖ Theme guard: ${violations.length} off-palette / off-identity violation(s)\n`)
 for (const [file, vs] of [...byFile].sort()) {
   console.error(file)
   for (const v of vs.sort((a, b) => a.line - b.line)) {
@@ -77,5 +88,9 @@ for (const [file, vs] of [...byFile].sort()) {
   }
   console.error('')
 }
-console.error('Fix: route through VX.* / useVxTheme() / the Mantine theme, or add a `theme-allow` comment for a deliberate exception.')
+console.error(
+  'Fix: route color through VX.* / useVxTheme() / the Mantine theme; for an off-identity accent use ' +
+    'blue/gray or a status hue (red/green/orange/yellow), or a VX series token. Add a `theme-allow` ' +
+    'comment for a deliberate exception.',
+)
 process.exit(1)

@@ -324,8 +324,9 @@ Blue-anchored, professional, calm. DESIGN.md governs the **roles** and the **ava
 
 > **Individual metric colors are not a design guideline.** Which metric gets which role (HRV→blue,
 > bench→blue, deadlift→vermilion, gym→red) is detail — it lives in `palette.ts`. Don't enumerate it
-> here. Avoid the Mantine accent names `teal`/`violet`/`indigo`: they resolve to forbidden hues and
-> slip past the hex guard.
+> here. The Mantine accent names `teal`/`violet`/`grape`/`indigo`/`pink` resolve to the forbidden
+> hues (turquoise/violet/rose) and are now **rejected by the guard** — use blue/gray or a status hue
+> (red/green/orange/yellow), or a VX series token, instead.
 
 ### When a hue is earned
 
@@ -457,9 +458,9 @@ instead of the muddy mid-gray default):
   Google + M365 (`days=1`; TickTick excluded — its N+1 projects→tasks fetch is disproportionate for a
   sidebar number), **M365 Explorer** = important messages received _today_ across labeled sources.
 
-> **Method:** `docs/MANTINE-THEMING.md` (the chrome-side sibling of the visx-charts rule). Still
-> open: spacing/type hardening, guard extensions (ban accent names + spacing/radius magic numbers),
-> and an optional shadcn `variantColorResolver`.
+> **Method:** `docs/MANTINE-THEMING.md` (the chrome-side sibling of the visx-charts rule). The guard
+> now also rejects off-identity accent names. Still open: a deliberate spacing/type/radius scale (then
+> a magic-number guard on top of it), and an optional shadcn `variantColorResolver`.
 
 ## Data visualization
 
@@ -508,17 +509,19 @@ Argo's signature surface — the visx primitives in `@argo/charts`. Full contrac
 
 The teeth, today:
 
-- **`scripts/check-theme.mjs`** (`bun run lint`) — fails on any raw `hex`/`rgb()`/`hsl()` in
-  `apps/dashboard/src` + `packages/charts/src`. Exempts the token-definition files; escape hatch
-  is a `theme-allow` line comment.
+- **`scripts/check-theme.mjs`** (`bun run lint`) — fails on (1) any raw `hex`/`rgb()`/`hsl()` and
+  (2) off-identity Mantine accent props (`color`/`c`/`bg`/`backgroundColor` set to
+  `teal`/`violet`/`grape`/`indigo`/`pink`) in `apps/dashboard/src` + `packages/charts/src`. Exempts
+  the token-definition files; escape hatch is a `theme-allow` line comment.
 - **`bun run check:design`** — `npx @google/design.md lint DESIGN.md` (pinned `@0.2.0`), opt-in
   (out of the default `lint` because it's a network `npx` wanting Node 22). Validates this file's
   structure, token references, and **WCAG contrast** on the dark snapshot.
 - **oxlint** — `no-restricted-imports` bans `@visx/tooltip` in chart files.
 
-Known gaps (next-session): named CSS colors and forbidden Mantine accent names slip past the hex
-guard; spacing/radius magic numbers are unguarded; `palette.ts` ↔ `DESIGN.md` drift (fix: codegen
-the snapshot from palette.ts, or `design.md export --format dtcg`).
+Known gaps (next-session): named CSS colors (e.g. `red`, `rebeccapurple`) still slip past the hex
+guard; spacing/radius magic numbers are unguarded (pending a deliberate spacing/type/radius scale to
+guard against); `palette.ts` ↔ `DESIGN.md` drift (fix: codegen the snapshot from palette.ts, or
+`design.md export --format dtcg`).
 
 ## Promotion path
 
