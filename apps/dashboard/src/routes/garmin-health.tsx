@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Suspense, useCallback, useMemo, useState } from 'react'
-import { Grid, Group, SimpleGrid, Stack, Title } from '@mantine/core'
+import { Grid, Group, SimpleGrid, Stack } from '@mantine/core'
 import { z } from 'zod'
 import { HoverContext, type HoverCtx } from '@argo/charts'
 import {
@@ -12,6 +12,7 @@ import {
   type SummaryParams,
   type WindowPreset,
 } from '../features/garmin-health'
+import { PageActions } from '../components/app-shell/page-header'
 import ActivitiesChart from '../features/garmin-health/charts/activities-chart'
 import ActivityScoreChart from '../features/garmin-health/charts/activity-score-chart'
 import AcwrChart from '../features/garmin-health/charts/acwr-chart'
@@ -111,13 +112,10 @@ function GarminHealthPage() {
 
   return (
     <HoverContext.Provider value={hoverCtx}>
-      <Stack gap="md">
-        {/* Header */}
-        <Group justify="space-between" wrap="wrap" gap="sm">
-          <Group gap="sm">
-            <Title order={2}>Garmin Health</Title>
-            <SyncControl />
-          </Group>
+      {/* Page controls live in the shared top-bar slot; the breadcrumb names the page. */}
+      <PageActions>
+        <Group gap="sm" wrap="nowrap">
+          <SyncControl />
           <WindowSelector
             preset={search.window}
             from={search.from}
@@ -126,7 +124,9 @@ function GarminHealthPage() {
             onRangeChange={handleRangeChange}
           />
         </Group>
+      </PageActions>
 
+      <Stack gap="md">
         {/* Hero composite cards */}
         <HeroStats params={params} />
 

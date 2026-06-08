@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { ActionIcon, Button } from '@mantine/core'
 import { IconCheck, IconPlus, IconX } from '@tabler/icons-react'
+import { VX, alpha } from '@argo/charts'
 import type { SetType } from '../constants'
 
 export type SetEntry = {
@@ -12,9 +13,9 @@ export type SetEntry = {
 const TYPE_CYCLE: SetType[] = ['work', 'warmup', 'drop', 'amrap']
 const TYPE_ABBREV: Record<SetType, string> = { warmup: 'W', work: '', drop: 'D', amrap: 'A' }
 const TYPE_COLOR: Record<SetType, string> = {
-  warmup: 'rgba(128,128,128,0.5)',
+  warmup: alpha(VX.neutral, 0.5),
   work: 'inherit',
-  drop: 'rgba(128,128,128,0.5)',
+  drop: alpha(VX.neutral, 0.5),
   amrap: 'inherit',
 }
 
@@ -129,7 +130,7 @@ export function SetEditor({
   }
 
   const inputHover: React.CSSProperties = {
-    borderBottom: '1px solid rgba(128,128,128,0.3)',
+    borderBottom: `1px solid ${alpha(VX.neutral, 0.3)}`,
   }
 
   return (
@@ -138,8 +139,8 @@ export function SetEditor({
         .st-set-input::-webkit-outer-spin-button,
         .st-set-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .st-set-input { -moz-appearance: textfield; }
-        .st-set-input:focus { border-bottom-color: rgba(128,128,128,0.5) !important; }
-        .st-stepper:hover:not(:disabled) { background: rgba(128,128,128,0.12) !important; opacity: 0.8 !important; }
+        .st-set-input:focus { border-bottom-color: ${alpha(VX.neutral, 0.5)} !important; }
+        .st-stepper:hover:not(:disabled) { background: ${alpha(VX.neutral, 0.12)} !important; opacity: 0.8 !important; }
       `}</style>
 
       {/* Header row */}
@@ -149,24 +150,20 @@ export function SetEditor({
           alignItems: 'center',
           gap: 0,
           padding: '0 0 4px',
-          borderBottom: '1px solid rgba(128,128,128,0.12)',
+          borderBottom: `1px solid ${alpha(VX.neutral, 0.12)}`,
           marginBottom: 2,
         }}
       >
-        <span style={{ width: 30, fontSize: 11, color: 'rgba(128,128,128,0.5)', paddingLeft: 2 }}>
+        <span style={{ width: 30, fontSize: 11, color: alpha(VX.neutral, 0.5), paddingLeft: 2 }}>
           Set
         </span>
         {hasPrevious && (
-          <span style={{ width: 72, fontSize: 11, color: 'rgba(128,128,128,0.5)' }}>Previous</span>
+          <span style={{ width: 72, fontSize: 11, color: alpha(VX.neutral, 0.5) }}>Previous</span>
         )}
-        <span
-          style={{ flex: 1, fontSize: 11, color: 'rgba(128,128,128,0.5)', textAlign: 'center' }}
-        >
+        <span style={{ flex: 1, fontSize: 11, color: alpha(VX.neutral, 0.5), textAlign: 'center' }}>
           KG
         </span>
-        <span
-          style={{ flex: 1, fontSize: 11, color: 'rgba(128,128,128,0.5)', textAlign: 'center' }}
-        >
+        <span style={{ flex: 1, fontSize: 11, color: alpha(VX.neutral, 0.5), textAlign: 'center' }}>
           Reps
         </span>
         {!readOnly && <span style={{ width: checklist ? 52 : 26 }} />}
@@ -192,14 +189,14 @@ export function SetEditor({
               gap: 0,
               padding: checklist ? '5px var(--mantine-spacing-md)' : '5px 0',
               marginInline: checklist ? 'calc(var(--mantine-spacing-md) * -1)' : undefined,
-              borderBottom: '1px solid rgba(128,128,128,0.06)',
+              borderBottom: `1px solid ${alpha(VX.neutral, 0.06)}`,
               transition: 'all 0.15s',
               borderRadius: checklist ? 0 : 3,
               opacity: dimmed ? 0.5 : 1,
               background: isActive
-                ? 'rgba(18,184,134,0.08)'
+                ? alpha(VX.goodSolid, 0.08)
                 : isHovered
-                  ? 'rgba(128,128,128,0.06)'
+                  ? alpha(VX.neutral, 0.06)
                   : 'transparent',
             }}
           >
@@ -231,7 +228,7 @@ export function SetEditor({
                 style={{
                   width: 72,
                   fontSize: 11,
-                  color: 'rgba(128,128,128,0.4)',
+                  color: alpha(VX.neutral, 0.4),
                   whiteSpace: 'nowrap',
                 }}
               >
@@ -363,7 +360,7 @@ export function SetEditor({
                   <ActionIcon
                     size="sm"
                     variant={isChecked ? 'filled' : isActive ? 'outline' : 'subtle'}
-                    color={isActive || isChecked ? 'teal' : 'gray'}
+                    color={isActive || isChecked ? 'blue' : 'gray'}
                     disabled={!(isActive || i === completedCount - 1)}
                     onClick={() =>
                       onCompletedChange?.(isActive ? completedCount + 1 : completedCount - 1)

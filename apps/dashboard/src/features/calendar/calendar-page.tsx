@@ -4,14 +4,12 @@ import {
   ActionIcon,
   Alert,
   Anchor,
-  Badge,
   Box,
   Button,
   Group,
   SegmentedControl,
   Stack,
   Text,
-  Title,
   Tooltip,
   useMantineColorScheme,
 } from '@mantine/core'
@@ -35,6 +33,8 @@ import {
   type CalendarEventPayload,
   type CalendarSource,
 } from '../../lib/queries/calendar'
+import { VX } from '@argo/charts'
+import { PageActions } from '../../components/app-shell/page-header'
 
 const DAYS_RANGE = 60
 
@@ -93,9 +93,9 @@ function Legend({ entries }: { entries: LegendEntry[] }) {
 
 function priorityColor(priority: number | undefined): string | null {
   if (!priority || priority < 1) return null
-  if (priority >= 5) return '#FF3B30'
-  if (priority >= 3) return '#FF9500'
-  return '#64748b'
+  if (priority >= 5) return VX.status.bad
+  if (priority >= 3) return VX.status.warn
+  return VX.neutral
 }
 
 export function CalendarPage({ view, date }: CalendarPageProps) {
@@ -140,7 +140,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
   const legendEntries: LegendEntry[] = [
     ...Object.entries(GOOGLE_CALENDAR_COLORS).map(([label, color]) => ({ label, color })),
     { label: SOURCE_LABEL.m365, color: M365_COLOR },
-    ...(view === 'week' ? [{ label: SOURCE_LABEL.ticktick, color: '#34C759' }] : []),
+    ...(view === 'week' ? [{ label: SOURCE_LABEL.ticktick, color: VX.series.steps }] : []),
   ]
 
   const errors: Array<{
@@ -200,24 +200,8 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
         minHeight: 0,
       }}
     >
-      <Group justify="space-between" align="flex-end" wrap="nowrap">
-        <Stack gap={4}>
-          <Group gap="xs" align="baseline">
-            <Title order={2}>{headerLabel(date, view)}</Title>
-            {date !== todayISO() && (
-              <Badge
-                color="gray"
-                variant="light"
-                size="sm"
-                style={{ cursor: 'pointer' }}
-                onClick={() => setSearch({ date: todayISO() })}
-              >
-                Jump to today
-              </Badge>
-            )}
-          </Group>
-          <Legend entries={legendEntries} />
-        </Stack>
+      {/* Nav + date label + view toggle live in the shared top-bar slot. */}
+      <PageActions>
         <Group gap="sm" wrap="nowrap">
           <Group gap={4} wrap="nowrap">
             <Tooltip label={view === 'week' ? 'Previous week' : 'Previous month'}>
@@ -242,6 +226,9 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
               </ActionIcon>
             </Tooltip>
           </Group>
+          <Text fw={600} size="sm" style={{ whiteSpace: 'nowrap' }}>
+            {headerLabel(date, view)}
+          </Text>
           <SegmentedControl
             size="xs"
             value={view}
@@ -249,7 +236,9 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
             onChange={(value) => setSearch({ view: value as CalendarView })}
           />
         </Group>
-      </Group>
+      </PageActions>
+
+      <Legend entries={legendEntries} />
 
       {errors.length > 0 && (
         <Stack gap="xs">

@@ -3,6 +3,7 @@ import { useElementSize } from '@mantine/hooks'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import {
+  alpha,
   AxisBottomDate,
   AxisLeftNumeric,
   ChartCard,
@@ -155,7 +156,7 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
   )
 
   const zones: ZoneSpec[] = [
-    { from: 0, to: 0.8, fill: 'rgba(22, 119, 255, 0.08)' },
+    { from: 0, to: 0.8, fill: alpha(VX.series.benchPress, 0.08) },
     { from: 0.8, to: 1.3, fill: VX.good },
     { from: 1.3, to: 1.5, fill: VX.warn },
     { from: 1.5, to: yMax, fill: VX.bad },
@@ -328,7 +329,7 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
           {
             key: 'zone-under',
             label: 'Undertrained',
-            color: 'rgba(22,119,255,0.4)',
+            color: alpha(VX.series.benchPress, 0.4),
             shape: 'bar' as const,
           },
           { key: 'zone-opt', label: 'Optimal', color: VX.goodSolid, shape: 'bar' as const },

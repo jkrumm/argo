@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useElementSize } from '@mantine/hooks'
-import { Bars, ChartCard, ChartLegend, TooltipRow, useVxTheme } from '@argo/charts'
+import { Bars, ChartCard, ChartLegend, TooltipRow, VX, useVxTheme } from '@argo/charts'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { METRIC_DEFS, fmtSteps, useMetricSelection, type MetricKey } from '../metric-toggle'
 import { ChartEmpty } from './empty'
@@ -98,7 +98,7 @@ export function DailyActivityChart({ params }: { params: WalkingPadWindowParams 
   const positiveBars = enabled.map((m) => ({
     key: m,
     label: METRIC_DEFS[m].label,
-    color: METRIC_DEFS[m].color,
+    color: isMulti ? METRIC_DEFS[m].color : VX.line,
     formatValue: METRIC_DEFS[m].format,
   }))
 
@@ -114,7 +114,14 @@ export function DailyActivityChart({ params }: { params: WalkingPadWindowParams 
   const headerSummary = (
     <span style={{ display: 'inline-flex', gap: 12, flexWrap: 'wrap' }}>
       {enabled.map((m) => (
-        <span key={m} style={{ fontSize: 12, fontWeight: 600, color: METRIC_DEFS[m].color }}>
+        <span
+          key={m}
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: isMulti ? METRIC_DEFS[m].color : VX.line,
+          }}
+        >
           {DAILY_METRICS[m].formatTotal(points.reduce((s, p) => s + DAILY_METRICS[m].pick(p), 0))}
         </span>
       ))}
@@ -200,7 +207,7 @@ export function DailyActivityChart({ params }: { params: WalkingPadWindowParams 
           ...enabled.map((m) => ({
             key: m,
             label: `${METRIC_DEFS[m].label} / day`,
-            color: METRIC_DEFS[m].color,
+            color: isMulti ? METRIC_DEFS[m].color : VX.line,
             shape: 'bar' as const,
           })),
           { key: 'sessions', label: 'Sessions', color: line2, dashed: true, strokeWidth: 1.5 },

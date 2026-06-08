@@ -95,13 +95,13 @@ export const METRIC_TOOLTIPS = {
 } as const
 
 /**
- * Zone colors for the hero cards. Theme-independent traffic-light colors so
- * the score is unambiguous in both light and dark mode (mirrors garmin-health).
+ * Hero-card grade colors — the Blueprint STATUS scale (theme-aware traffic-light,
+ * mirrors garmin-health).
  */
 export const ZONE_COLORS = {
-  excellent: '#00c853',
-  good: '#64dd17',
-  warn: '#ffd600',
-  bad: '#ff3d00',
-  neutral: '#999',
+  excellent: VX.status.excellent,
+  good: VX.status.good,
+  warn: VX.status.warn,
+  bad: VX.status.bad,
+  neutral: VX.status.neutral,
 } as const

@@ -233,6 +233,6 @@ export function buildPhases(cfg: IntervalConfig): Phase[] {
 export function phaseInfo(phase: Phase): { label: string; color: string } {
   if (phase.type === 'lead') return { label: 'Get Ready', color: 'gray' }
   if (phase.type === 'work')
-    return { label: `Work · ${phase.rep}/${phase.totalReps}`, color: 'teal' }
-  return { label: `Rest · ${phase.rep}/${phase.totalReps}`, color: 'indigo' }
+    return { label: `Work · ${phase.rep}/${phase.totalReps}`, color: 'blue' }
+  return { label: `Rest · ${phase.rep}/${phase.totalReps}`, color: 'orange' }
 }

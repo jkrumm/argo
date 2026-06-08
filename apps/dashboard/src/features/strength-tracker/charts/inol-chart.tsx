@@ -3,6 +3,7 @@ import { Select } from '@mantine/core'
 import { useElementSize } from '@mantine/hooks'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import {
+  alpha,
   AxisBottomDate,
   AxisLeftNumeric,
   ChartCard,
@@ -49,11 +50,11 @@ function inolZoneLabel(v: number): string {
 }
 
 const INOL_ZONES: ZoneSpec[] = [
-  { from: 0, to: 0.4, fill: 'rgba(64, 156, 255, 0.06)' },
-  { from: 0.4, to: 0.6, fill: 'rgba(255, 214, 0, 0.06)' },
-  { from: 0.6, to: 1.0, fill: 'rgba(0, 200, 83, 0.08)' },
-  { from: 1.0, to: 1.5, fill: 'rgba(255, 145, 0, 0.08)' },
-  { from: 1.5, to: Infinity, fill: 'rgba(255, 61, 0, 0.08)' },
+  { from: 0, to: 0.4, fill: alpha(VX.status.neutral, 0.06) },
+  { from: 0.4, to: 0.6, fill: alpha(VX.status.good, 0.06) },
+  { from: 0.6, to: 1.0, fill: alpha(VX.status.excellent, 0.08) },
+  { from: 1.0, to: 1.5, fill: alpha(VX.status.warn, 0.08) },
+  { from: 1.5, to: Infinity, fill: alpha(VX.status.bad, 0.08) },
 ]
 
 /** Trailing moving average; null until `min` non-null values are present. */

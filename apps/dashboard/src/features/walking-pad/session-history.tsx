@@ -105,7 +105,7 @@ function SessionRow({ session }: { session: SessionRow }) {
         </Stack>
       </Table.Td>
       <Table.Td>
-        <Text size="sm" fw={600} c="teal">
+        <Text size="sm" fw={600} c="blue">
           {formatKm(session.distance_m)}
         </Text>
       </Table.Td>

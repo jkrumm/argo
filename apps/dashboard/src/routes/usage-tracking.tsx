@@ -1,9 +1,10 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Suspense, useCallback, useMemo, useState } from 'react'
-import { Grid, Group, Stack, Title } from '@mantine/core'
+import { Grid, Stack } from '@mantine/core'
 import { z } from 'zod'
 import { HoverContext, type HoverCtx } from '@argo/charts'
 import { usageQueries } from '../lib/queries/usage'
+import { PageActions } from '../components/app-shell/page-header'
 import { FilterBar } from '../features/usage-tracking/filter-bar'
 import { HeroStats } from '../features/usage-tracking/hero-stats'
 import { Section } from '../features/usage-tracking/section'
@@ -111,21 +112,21 @@ function UsageTrackingPage() {
 
   return (
     <HoverContext.Provider value={hoverCtx}>
-      <Stack gap="md">
-        <Group justify="space-between" wrap="wrap" gap="sm">
-          <Title order={2}>Usage Tracking</Title>
-          <FilterBar
-            range={search.range}
-            grain={search.grain}
-            billing={search.billing}
-            workspace={search.workspace}
-            onRangeChange={onRangeChange}
-            onGrainChange={onGrainChange}
-            onBillingChange={onBillingChange}
-            onWorkspaceChange={onWorkspaceChange}
-          />
-        </Group>
+      {/* Page controls live in the shared top-bar slot; the breadcrumb names the page. */}
+      <PageActions>
+        <FilterBar
+          range={search.range}
+          grain={search.grain}
+          billing={search.billing}
+          workspace={search.workspace}
+          onRangeChange={onRangeChange}
+          onGrainChange={onGrainChange}
+          onBillingChange={onBillingChange}
+          onWorkspaceChange={onWorkspaceChange}
+        />
+      </PageActions>
 
+      <Stack gap="md">
         <HeroStats />
 
         <Section title="Cost">

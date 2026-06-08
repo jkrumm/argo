@@ -1,8 +1,8 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Box, Table, Text, Tooltip } from '@mantine/core'
-import { BarSparkline, ChartCard, LineSparkline } from '@argo/charts'
+import { BarSparkline, ChartCard, LineSparkline, VX } from '@argo/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
-import { EXERCISE_COLORS, METRIC_TOOLTIPS, type ExerciseKey } from '../constants'
+import { METRIC_TOOLTIPS } from '../constants'
 import { directionArrow, directionColor, type StrengthDirection } from '../formulas'
 import { ChartEmpty } from './empty'
 
@@ -19,8 +19,10 @@ type SparkRow = {
   dir: StrengthDirection
 }
 
-function colorFor(exId: string): string {
-  return EXERCISE_COLORS[exId as ExerciseKey] ?? '#888'
+// Single-series sparklines carry no separation — neutral. Color lives only in the
+// direction arrow / status dot (trend signal).
+function rowColor(): string {
+  return VX.line
 }
 
 export default function SparklineGridChart({ params }: { params: StrengthQueryParams }) {
@@ -68,7 +70,7 @@ export default function SparklineGridChart({ params }: { params: StrengthQueryPa
           </Table.Thead>
           <Table.Tbody>
             {rows.map((row) => {
-              const color = colorFor(row.exercise_id)
+              const color = rowColor()
               const dirColor = directionColor(row.dir)
               const arrow = directionArrow(row.dir)
               return (

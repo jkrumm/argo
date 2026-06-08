@@ -1,9 +1,10 @@
 import { Suspense, useCallback, useMemo, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Grid, Group, SimpleGrid, Stack, Title } from '@mantine/core'
+import { Grid, Group, SimpleGrid, Stack } from '@mantine/core'
 import { useElementSize, useMediaQuery } from '@mantine/hooks'
 import { HoverContext, type HoverCtx } from '@argo/charts'
 import { z } from 'zod'
+import { PageActions } from '../components/app-shell/page-header'
 import {
   AchievementsGallery,
   ChartSkeleton,
@@ -90,15 +91,15 @@ function WalkingPadPage() {
 
   return (
     <HoverContext.Provider value={hoverCtx}>
-      <Stack gap="md">
-        <Group justify="space-between" wrap="wrap" gap="sm">
-          <Title order={2}>WalkingPad</Title>
-          <Group gap="md" wrap="wrap">
-            <MetricToggle />
-            <WindowSelector value={search.window} onChange={handleWindowChange} />
-          </Group>
+      {/* Page controls live in the shared top-bar slot; the breadcrumb names the page. */}
+      <PageActions>
+        <Group gap="sm" wrap="nowrap">
+          <MetricToggle />
+          <WindowSelector value={search.window} onChange={handleWindowChange} />
         </Group>
+      </PageActions>
 
+      <Stack gap="md">
         <Grid>
           <Grid.Col span={{ base: 12, lg: 8 }}>
             <Stack gap="md" ref={leftColRef}>

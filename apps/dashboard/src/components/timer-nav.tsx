@@ -49,7 +49,7 @@ export function TimerNavWidget() {
 
   const phase = intervalRunning && intervalActive ? phases[phaseIndex] : undefined
   const info = phase ? phaseInfo(phase) : undefined
-  const color = intervalRunning ? (info?.color ?? 'teal') : 'teal'
+  const color = intervalRunning ? (info?.color ?? 'blue') : 'blue'
   const label = intervalRunning ? (info?.label ?? 'Interval') : 'Rest'
   const remaining = intervalRunning ? intervalRemaining : restRemaining
 

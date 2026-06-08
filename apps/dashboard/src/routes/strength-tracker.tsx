@@ -1,8 +1,9 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Suspense, useCallback, useMemo, useState } from 'react'
-import { Grid, Group, SimpleGrid, Stack, Title } from '@mantine/core'
+import { Grid, Group, SimpleGrid, Stack } from '@mantine/core'
 import { z } from 'zod'
 import { HoverContext, type HoverCtx } from '@argo/charts'
+import { PageActions } from '../components/app-shell/page-header'
 import {
   BodyWeightPanel,
   ChartSkeleton,
@@ -202,25 +203,22 @@ function StrengthTrackerPage() {
 
   return (
     <HoverContext.Provider value={hoverCtx}>
-      <Stack gap="md">
-        {/* Header */}
-        <Group justify="space-between" wrap="wrap" gap="sm">
-          <Group gap="sm">
-            <Title order={2}>Strength Tracker</Title>
-            <ViewTabs value={search.tab} onChange={handleTabChange} />
-          </Group>
-          <Group gap="sm" wrap="wrap">
-            <WindowSelector
-              preset={search.window}
-              from={search.from}
-              to={search.to}
-              onPresetChange={handlePresetChange}
-              onRangeChange={handleRangeChange}
-            />
-            <ExerciseFilter active={activeExercises} onToggle={handleExerciseToggle} />
-          </Group>
+      {/* Page controls live in the shared top-bar slot; the breadcrumb names the page. */}
+      <PageActions>
+        <Group gap="sm" wrap="nowrap">
+          <ViewTabs value={search.tab} onChange={handleTabChange} />
+          <WindowSelector
+            preset={search.window}
+            from={search.from}
+            to={search.to}
+            onPresetChange={handlePresetChange}
+            onRangeChange={handleRangeChange}
+          />
+          <ExerciseFilter active={activeExercises} onToggle={handleExerciseToggle} />
         </Group>
+      </PageActions>
 
+      <Stack gap="md">
         <Grid>
           <Grid.Col span={{ base: 12, lg: 8 }}>
             {search.tab === 'train' ? (

@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Group, Stack, Text } from '@mantine/core'
-import { ChartCard, VX } from '@argo/charts'
+import { alpha, ChartCard, VX } from '@argo/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from '../constants'
 import { balanceColor, balanceLabel, balanceSymbol, type RatioStatus } from '../formulas'
@@ -23,7 +23,7 @@ function statusColor(status: RatioStatus | null): string {
     case 'critical':
       return VX.badSolid
     default:
-      return 'rgba(128,128,128,0.5)'
+      return alpha(VX.neutral, 0.5)
   }
 }
 
@@ -80,7 +80,7 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
                     flex: 1,
                     height: 10,
                     position: 'relative',
-                    background: 'rgba(128,128,128,0.08)',
+                    background: alpha(VX.neutral, 0.08),
                     borderRadius: 3,
                   }}
                 >

@@ -27,7 +27,7 @@ const METRICS: Metric[] = [
   {
     key: 'distance',
     label: 'Distance',
-    color: VX.series.walkingDistance,
+    color: VX.line,
     format: (v) => (v >= 1000 ? `${(v / 1000).toFixed(2)} km` : `${Math.round(v)} m`),
     pick: (p) => p.distance_m,
     ariaLabel: 'distance per day',
@@ -35,7 +35,7 @@ const METRICS: Metric[] = [
   {
     key: 'sessions',
     label: 'Sessions',
-    color: VX.series.walkingDuration,
+    color: VX.line,
     format: (v) => String(Math.round(v)),
     pick: (p) => p.sessions,
     ariaLabel: 'sessions per day',
@@ -43,7 +43,7 @@ const METRICS: Metric[] = [
   {
     key: 'duration',
     label: 'Duration',
-    color: VX.series.walkingPace,
+    color: VX.line,
     format: (v) => `${Math.round(v / 60)}m`,
     pick: (p) => p.duration_s,
     ariaLabel: 'duration per day',
@@ -51,7 +51,7 @@ const METRICS: Metric[] = [
   {
     key: 'pace',
     label: 'Pace',
-    color: VX.series.walkingPace,
+    color: VX.line,
     format: (v) => `${v.toFixed(2)} km/h`,
     pick: (p) => p.avg_speed_kmh,
     ariaLabel: 'pace per day',
@@ -59,7 +59,7 @@ const METRICS: Metric[] = [
   {
     key: 'steps',
     label: 'Steps',
-    color: VX.series.walkingSteps,
+    color: VX.line,
     format: (v) => v.toLocaleString('en-US'),
     pick: (p) => p.steps,
     ariaLabel: 'steps per day',
@@ -67,7 +67,7 @@ const METRICS: Metric[] = [
   {
     key: 'kcal',
     label: 'Energy',
-    color: VX.series.walkingKcal,
+    color: VX.line,
     format: (v) => (v >= 1000 ? `${(v / 1000).toFixed(2)} k cal` : `${Math.round(v)} kcal`),
     pick: (p) => p.kcal,
     ariaLabel: 'kcal per day',

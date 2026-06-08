@@ -46,7 +46,7 @@ function today(): string {
 function phaseColor(phase: WeightSummary['phase']): string {
   switch (phase) {
     case 'losing':
-      return 'teal'
+      return 'blue'
     case 'gaining':
       return 'yellow'
     default:
@@ -181,7 +181,7 @@ function WeightEntryForm({ defaultWeight }: { defaultWeight: number | null }) {
         onSuccess: () => {
           setJustSaved(true)
           notifications.show({
-            color: 'teal',
+            color: 'green',
             icon: <IconCheck size={18} />,
             title: 'Weight logged',
             message: `${w.toFixed(1)} kg on ${date}`,
@@ -232,7 +232,7 @@ function WeightEntryForm({ defaultWeight }: { defaultWeight: number | null }) {
               type="submit"
               size="md"
               loading={createWeightLog.isPending}
-              color={justSaved ? 'teal' : undefined}
+              color={justSaved ? 'green' : undefined}
               leftSection={
                 <Transition mounted={justSaved} transition="pop" duration={180}>
                   {(styles) => <IconCheck size={16} style={styles} />}

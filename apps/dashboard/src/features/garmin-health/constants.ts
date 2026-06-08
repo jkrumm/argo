@@ -1,3 +1,5 @@
+import { VX } from '@argo/charts'
+
 /**
  * Hard floor on visible data. Anything before this date is dropped from the
  * page so charts and moving averages start from a known-clean baseline.
@@ -71,13 +73,11 @@ export const METRIC_TOOLTIPS = {
     "Recorded workouts per day, stacked by duration. Color = activity type. Walking is excluded (filtered server-side). Garmin under-reports gym load because rest periods between sets keep avg HR low — height shows duration, tooltip surfaces aerobic/anaerobic Training Effect and max HR so the actual stress is visible. ACWR uses Garmin's own load number; this chart is a separate signal.",
 }
 
-// Zone colors for the hero cards. Kept simple — VX semantic tokens exist
-// for chart use, but hero cards need fixed, theme-independent traffic-light
-// colors so the score is unambiguous in both light and dark mode.
+// Hero-card grade colors — the Blueprint STATUS scale (theme-aware traffic-light).
 export const ZONE_COLORS = {
-  excellent: '#00c853',
-  good: '#64dd17',
-  warn: '#ffd600',
-  bad: '#ff3d00',
-  neutral: '#999',
+  excellent: VX.status.excellent,
+  good: VX.status.good,
+  warn: VX.status.warn,
+  bad: VX.status.bad,
+  neutral: VX.status.neutral,
 } as const

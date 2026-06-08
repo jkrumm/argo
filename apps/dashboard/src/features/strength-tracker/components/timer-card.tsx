@@ -148,7 +148,7 @@ function RestTimerPanel() {
 
   const done = remaining <= 0
   const pct = duration > 0 ? ((duration - remaining) / duration) * 100 : 0
-  const ringColor = done ? 'teal' : remaining <= 15 ? 'orange' : running ? 'teal' : 'gray'
+  const ringColor = done ? 'green' : remaining <= 15 ? 'orange' : running ? 'blue' : 'gray'
 
   return (
     <Flex direction={{ base: 'column', sm: 'row' }} align="center" gap="md" w="100%">
@@ -168,7 +168,7 @@ function RestTimerPanel() {
               px={4}
               style={{ flex: 1 }}
               variant={duration === seconds ? 'filled' : 'default'}
-              color="teal"
+              color="blue"
               onClick={() => selectPreset(seconds)}
             >
               {presetLabel(seconds)}
@@ -180,7 +180,7 @@ function RestTimerPanel() {
             style={{ flex: 1 }}
             size="sm"
             variant={running ? 'light' : 'filled'}
-            color={running ? 'gray' : 'teal'}
+            color={running ? 'gray' : 'blue'}
             leftSection={
               running ? <IconPlayerPauseFilled size={16} /> : <IconPlayerPlayFilled size={16} />
             }
@@ -351,7 +351,7 @@ function SoundPicker({
               size="compact-xs"
               justify="flex-start"
               variant={value === o.value ? 'light' : 'subtle'}
-              color={value === o.value ? 'teal' : 'gray'}
+              color={value === o.value ? 'blue' : 'gray'}
               onClick={() => {
                 onSelect(o.value)
                 playSound(o.value, volume)
@@ -519,7 +519,7 @@ function IntervalTimerPanel() {
               size="sm"
               style={{ flex: 1 }}
               variant={running ? 'light' : 'filled'}
-              color={running ? 'gray' : 'teal'}
+              color={running ? 'gray' : 'blue'}
               leftSection={
                 running ? <IconPlayerPauseFilled size={16} /> : <IconPlayerPlayFilled size={16} />
               }
@@ -536,7 +536,7 @@ function IntervalTimerPanel() {
             fullWidth
             size="sm"
             variant="filled"
-            color="teal"
+            color="blue"
             leftSection={<IconPlayerPlayFilled size={16} />}
             onClick={onPrimary}
           >

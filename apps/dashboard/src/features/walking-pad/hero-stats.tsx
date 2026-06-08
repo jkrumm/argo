@@ -32,7 +32,7 @@ function arrowIcon(d: Direction, size = 18) {
 function colorFor(d: Direction): string {
   switch (d) {
     case 'up':
-      return 'teal'
+      return 'green'
     case 'down':
       return 'orange'
     case 'flat':
@@ -150,7 +150,7 @@ export function HeroStats({ params }: { params: WalkingPadWindowParams }) {
   const s = data.streak
   const momentumLabel =
     s.momentum === 'accelerating' ? 'Accelerating' : s.momentum === 'cooling' ? 'Cooling' : 'Steady'
-  const streakColor = s.currentDays === 0 ? 'gray' : s.currentDays >= 7 ? 'teal' : 'blue'
+  const streakColor = s.currentDays === 0 ? 'gray' : s.currentDays >= 7 ? 'green' : 'blue'
 
   return (
     <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">

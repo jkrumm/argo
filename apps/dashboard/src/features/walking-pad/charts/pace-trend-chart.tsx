@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useElementSize } from '@mantine/hooks'
-import { ChartCard, ChartLegend, VX, ZonedLine } from '@argo/charts'
+import { alpha, ChartCard, ChartLegend, VX, ZonedLine } from '@argo/charts'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { PACE_ZONES } from '../constants'
 import { ChartEmpty } from './empty'
@@ -17,7 +17,7 @@ const zoneFill = (tone: (typeof PACE_ZONES)[number]['tone']) => {
     case 'soft':
       return VX.warn
     case 'neutral':
-      return 'rgba(140,140,140,0.06)'
+      return alpha(VX.neutral, 0.06)
     case 'good':
       return VX.good
     case 'strong':
@@ -93,7 +93,7 @@ export function PaceTrendChart({ params }: { params: WalkingPadWindowParams }) {
                 ? VX.series.walkingPace
                 : z.tone === 'soft'
                   ? VX.warnSolid
-                  : 'rgba(140,140,140,0.6)',
+                  : alpha(VX.neutral, 0.6),
           shape: 'bar',
         }))}
       />

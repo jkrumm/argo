@@ -27,11 +27,11 @@ function iconFor(type: string) {
 
 function colorFor(type: string): string {
   if (type === 'first_walk') return 'blue'
-  if (type.startsWith('distance_milestone')) return 'teal'
+  if (type.startsWith('distance_milestone')) return 'yellow'
   if (type.startsWith('streak_')) return 'orange'
-  if (type === 'weekly_distance_pr') return 'grape'
-  if (type === 'multi_walk_day') return 'cyan'
-  return 'green'
+  if (type === 'weekly_distance_pr') return 'red'
+  if (type === 'multi_walk_day') return 'green'
+  return 'gray'
 }
 
 export function AchievementsGallery({ matchHeight }: { matchHeight?: number }) {

@@ -11,6 +11,8 @@ import {
   useChartTooltip,
   useTooltipStyles,
   useVxTheme,
+  VX,
+  alpha,
 } from '@argo/charts'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { ChartEmpty } from './empty'
@@ -38,6 +40,10 @@ type Cell = { hour: number; dow: number; sessions: number; distance_m: number }
 // original 240 so a short history card doesn't squish the heatmap.
 const CHART_CARD_CHROME = 82
 const DEFAULT_HEIGHT = 240
+
+/** WalkingPad distance hue (theme-aware) at a given opacity — drives the heat intensity. */
+const distFill = (alpha: number) =>
+  `color-mix(in srgb, ${VX.series.walkingDistance} ${Math.round(alpha * 100)}%, transparent)`
 
 export function TimeOfDayChart({
   params,
@@ -129,11 +135,7 @@ export function TimeOfDayChart({
                     y={y + 1}
                     width={Math.max(0, cellW - 2)}
                     height={Math.max(0, cellH - 2)}
-                    fill={
-                      c.sessions === 0
-                        ? 'rgba(128,128,128,0.07)'
-                        : `rgba(0, 184, 148, ${0.18 + intensity * 0.72})`
-                    }
+                    fill={c.sessions === 0 ? VX.grid : distFill(0.18 + intensity * 0.72)}
                     rx={2}
                     style={{ cursor: c.sessions > 0 ? 'pointer' : 'default' }}
                     onMouseMove={(e) => show(c, e)}
@@ -179,8 +181,8 @@ export function TimeOfDayChart({
               </text>
               <defs>
                 <linearGradient id="wp-heat-gradient" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor={`rgba(0,184,148,0.9)`} />
-                  <stop offset="100%" stopColor={`rgba(0,184,148,0.18)`} />
+                  <stop offset="0%" stopColor={distFill(0.9)} />
+                  <stop offset="100%" stopColor={distFill(0.18)} />
                 </linearGradient>
               </defs>
               <rect width={6} height={cellH * 7} fill="url(#wp-heat-gradient)" rx={2} />
@@ -210,7 +212,7 @@ export function TimeOfDayChart({
                 alignItems: 'center',
                 gap: 16,
                 padding: '6px 10px',
-                borderBottom: '1px solid rgba(128,128,128,0.2)',
+                borderBottom: `1px solid ${alpha(VX.neutral, 0.2)}`,
               }}
             >
               <span style={{ fontSize: 11, color: tooltipMuted }}>
@@ -219,13 +221,13 @@ export function TimeOfDayChart({
             </div>
             <TooltipBody>
               <TooltipRow
-                color="rgba(0, 184, 148, 0.9)"
+                color={distFill(0.9)}
                 shape="bar"
                 label="Sessions"
                 value={`${tip.data.sessions}`}
               />
               <TooltipRow
-                color="rgba(0, 184, 148, 0.45)"
+                color={distFill(0.45)}
                 shape="bar"
                 label="Distance"
                 value={`${(tip.data.distance_m / 1000).toFixed(2)} km`}

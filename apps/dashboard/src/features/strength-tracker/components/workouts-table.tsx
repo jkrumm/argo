@@ -3,6 +3,7 @@ import { ActionIcon, Badge, Group, Stack, Table, Text, Tooltip } from '@mantine/
 import { modals } from '@mantine/modals'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { IconEdit, IconTrash } from '@tabler/icons-react'
+import { alpha, VX } from '@argo/charts'
 import { useDeleteWorkout, workoutsQueries } from '../../../lib/queries/workouts'
 import { EXERCISE_COLORS, type ExerciseKey } from '../constants'
 import { exerciseLabel } from '../formulas'
@@ -29,7 +30,7 @@ type WorkoutRow = {
 }
 
 function exerciseDot(id: string): string {
-  return EXERCISE_COLORS[id as ExerciseKey] ?? 'rgba(128,128,128,0.5)'
+  return EXERCISE_COLORS[id as ExerciseKey] ?? alpha(VX.neutral, 0.5)
 }
 
 function formatSets(sets: WorkoutSetRow[]): string {

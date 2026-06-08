@@ -10,6 +10,7 @@ import {
   IconWalk,
 } from '@tabler/icons-react'
 import { useDocumentVisibility } from '@mantine/hooks'
+import { VX } from '@argo/charts'
 import { walkingPadQueries } from '../../lib/queries/walking-pad'
 import {
   formatDurationClock,
@@ -103,38 +104,38 @@ function LiveCardActive({ live }: { live: LiveSnapshot }) {
             label="Elapsed"
             value={formatDurationClock(elapsedS)}
             icon={<IconActivity size={16} />}
-            color="indigo"
+            color={VX.line}
             mono
           />
           <BigTile
             label="Distance"
             value={formatKm(live.distance_m)}
             icon={<IconRoute size={16} />}
-            color="teal"
+            color={VX.line}
           />
           <BigTile
             label="Steps"
             value={formatSteps(live.steps)}
             icon={<IconShoe size={16} />}
-            color="yellow"
+            color={VX.line}
           />
           <BigTile
             label="Energy"
             value={formatKcal(live.kcal)}
             icon={<IconFlame size={16} />}
-            color="orange"
+            color={VX.line}
           />
           <BigTile
             label="Avg pace"
             value={formatPace(live.avg_speed_kmh, 1)}
             icon={<IconWalk size={16} />}
-            color="blue"
+            color={VX.line}
           />
           <BigTile
             label="Peak"
             value={formatPace(live.max_speed_kmh, 1)}
             icon={<IconBolt size={16} />}
-            color="grape"
+            color={VX.line}
           />
         </Group>
       </Stack>
@@ -183,9 +184,9 @@ function LiveCardIdle() {
           </Stack>
         </Group>
         <Group gap="lg">
-          <MiniStat label="Distance" value={formatMeters(last.distance_m)} color="teal" />
-          <MiniStat label="Steps" value={formatSteps(last.steps)} color="yellow" />
-          <MiniStat label="Kcal" value={formatKcal(last.kcal)} color="orange" />
+          <MiniStat label="Distance" value={formatMeters(last.distance_m)} color={VX.line} />
+          <MiniStat label="Steps" value={formatSteps(last.steps)} color={VX.line} />
+          <MiniStat label="Kcal" value={formatKcal(last.kcal)} color={VX.line} />
         </Group>
       </Group>
     </Card>

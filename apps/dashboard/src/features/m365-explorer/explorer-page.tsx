@@ -19,10 +19,10 @@ import {
   Text,
   Textarea,
   TextInput,
-  Title,
   Tooltip,
 } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
+import { PageActions } from '../../components/app-shell/page-header'
 import {
   IconCheck,
   IconCopy,
@@ -167,16 +167,9 @@ export function M365ExplorerPage(): React.ReactElement {
 
   return (
     <Stack gap="md">
-      <Group justify="space-between" align="flex-end">
-        <Stack gap={4}>
-          <Title order={2}>M365 Explorer</Title>
-          <Text c="dimmed" size="sm">
-            Browse your Teams chats and channels, then star the ones worth surfacing in agent feeds.
-            Labels persist to <Code>apps/api/m365-labels.json</Code> (git-tracked) and drive{' '}
-            <Code>GET /m365/important</Code>.
-          </Text>
-        </Stack>
-        <Group gap="xs">
+      {/* Page actions live in the shared top-bar slot; the breadcrumb names the page. */}
+      <PageActions>
+        <Group gap="xs" wrap="nowrap">
           <Button
             variant="light"
             size="xs"
@@ -197,7 +190,13 @@ export function M365ExplorerPage(): React.ReactElement {
             </ActionIcon>
           </Tooltip>
         </Group>
-      </Group>
+      </PageActions>
+
+      <Text c="dimmed" size="sm">
+        Browse your Teams chats and channels, then star the ones worth surfacing in agent feeds.
+        Labels persist to <Code>apps/api/m365-labels.json</Code> (git-tracked) and drive{' '}
+        <Code>GET /m365/important</Code>.
+      </Text>
 
       <LabelsStrip
         labels={labelsData.labels}
@@ -243,7 +242,7 @@ export function M365ExplorerPage(): React.ReactElement {
                     rightTop={formatTime(c.lastUpdatedAt)}
                     badge={c.chatType}
                     badgeColor={
-                      c.chatType === 'meeting' ? 'gray' : c.chatType === 'group' ? 'blue' : 'teal'
+                      c.chatType === 'meeting' ? 'gray' : c.chatType === 'group' ? 'blue' : 'green'
                     }
                     selected={isSelected}
                     label={labeled?.label}
@@ -294,7 +293,7 @@ export function M365ExplorerPage(): React.ReactElement {
                               title={`# ${ch.displayName}`}
                               subtitle={ch.description ?? ''}
                               badge={ch.membershipType}
-                              badgeColor="violet"
+                              badgeColor="blue"
                               selected={isSelected}
                               label={labeled?.label}
                               onClick={() => setSelected(ref)}
