@@ -5,7 +5,7 @@ import {
   useNavigate,
 } from '@tanstack/react-router'
 import type { QueryClient } from '@tanstack/react-query'
-import { AppShell, Divider } from '@mantine/core'
+import { AppShell, Badge, Divider } from '@mantine/core'
 import { useDisclosure, useHotkeys } from '@mantine/hooks'
 import {
   IconActivity,
@@ -23,6 +23,7 @@ import { format } from 'date-fns'
 import type { MouseEvent } from 'react'
 import { useTimerEngine } from '../components/timer-nav'
 import { AppSidebar, type SidebarSection } from '../components/app-shell/app-sidebar'
+import { useSidebarBadges } from '../components/app-shell/use-sidebar-badges'
 import { MobileNav } from '../components/app-shell/app-mobile-nav'
 import { AppBreadcrumbs } from '../components/app-shell/app-breadcrumbs'
 import { GlobalActions } from '../components/app-shell/global-actions'
@@ -37,6 +38,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 const ICON = 18
 
+/**
+ * Nav count pill. A count is a data signal ("ink earns its color", DESIGN.md), so it carries the
+ * one spot of identity blue in the otherwise-neutral nav — the active state stays neutral. Rendered
+ * only when > 0; auto-hidden in the collapsed icon-rail (the right-section is display:none there).
+ */
+function navBadge(count: number) {
+  return count > 0 ? (
+    <Badge size="sm" variant="light" color="blue" radius="sm">
+      {count}
+    </Badge>
+  ) : undefined
+}
+
 function RootLayout() {
   const [mobileOpened, { toggle: toggleMobile, close: closeMobile }] = useDisclosure()
   const matchRoute = useMatchRoute()
@@ -46,6 +60,7 @@ function RootLayout() {
 
   useTimerEngine()
   useHotkeys([['mod+B', toggleSidebar]])
+  const badges = useSidebarBadges()
 
   const isGarminActive = !!matchRoute({ to: '/garmin-health', fuzzy: true })
   const isStrengthActive = !!matchRoute({ to: '/strength-tracker', fuzzy: true })
@@ -119,6 +134,7 @@ function RootLayout() {
           icon: <IconCalendar size={ICON} />,
           href: '/calendar',
           active: isCalendarActive,
+          badge: navBadge(badges.calendar),
           onClick: go(
             () =>
               void navigate({
@@ -133,6 +149,7 @@ function RootLayout() {
           icon: <IconBrandTeams size={ICON} />,
           href: '/m365-explorer',
           active: isM365Active,
+          badge: navBadge(badges.m365),
           onClick: go(() => void navigate({ to: '/m365-explorer' })),
         },
       ],

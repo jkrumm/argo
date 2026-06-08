@@ -356,6 +356,18 @@ button); **m365** moved its action buttons up and kept the descriptive subtitle 
   the Menu tab and dismisses via the footer ✕ or by navigating. The DEV `DevDock` `Affix` lifts to
   `bottom: 72` on mobile (`useMatches({ base: 72, sm: 20 })`) so its FAB never sits on the Menu tab or
   the footer close.
+- **Nav count badges** (`use-sidebar-badges.ts`): the `SidebarItem.badge` slot (`NavLink.rightSection`)
+  is fed by a small always-on hook running read-only TanStack queries. A count is a data **signal**, so
+  "ink earns its color" permits the badge to be the **one spot of identity blue** in the neutral nav —
+  a `Badge size="sm" variant="light" color="blue"` (the active state stays neutral, so the badge never
+  competes with it). Rendered only when `> 0`; the rail CSS already `display:none`s the right-section,
+  so it auto-hides when collapsed. Both queries `retry: false`-degrade to 0 on 503 (no badge under
+  `bun dev`, where Google/M365 lack local tokens; they resolve under `bun dev:prod-api` / prod).
+  **Calendar** = events starting _today_ from Google + M365 (`days=1` window → effectively still-to-come
+  today; **TickTick deliberately excluded** — counting tasks-due-today needs an N+1 projects→tasks fetch,
+  disproportionate for a sidebar number). **M365 Explorer** = important messages received _today_ across
+  labeled sources (`GET /m365/important`, filtered by `message.createdAt`). Validated dark + light +
+  collapsed-rail (hidden) + mobile drawer; counts matched the API-computed expectations.
 
 Target aesthetic (the inspiration board + ShadCN sidebar, mapped to Mantine):
 

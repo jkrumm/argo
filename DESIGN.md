@@ -448,10 +448,18 @@ instead of the muddy mid-gray default):
   grouped drawer (which carries everything, incl. M365 + Usage). There is no top burger on mobile; the
   drawer dismisses via the footer ✕ or by navigating. The DEV `DevDock` FAB lifts above the bottom-nav
   on mobile (`useMatches`) so it never covers a tab.
+- **Nav count badges.** A count is a data _signal_, so "ink earns its color" lets it carry the **one
+  spot of identity blue** in the otherwise-neutral nav (the active state stays neutral): a
+  `Badge size="sm" variant="light" color="blue"` in the NavLink right-section, rendered only when
+  `> 0` and auto-hidden in the collapsed rail (the right-section is `display:none` there). Counts come
+  from `use-sidebar-badges.ts` — always-on, read-only queries that degrade to 0 on error (under
+  `bun dev` the Google/M365 upstreams 503 → no badge): **Calendar** = events starting _today_ from
+  Google + M365 (`days=1`; TickTick excluded — its N+1 projects→tasks fetch is disproportionate for a
+  sidebar number), **M365 Explorer** = important messages received _today_ across labeled sources.
 
 > **Method:** `docs/MANTINE-THEMING.md` (the chrome-side sibling of the visx-charts rule). Still
-> open: count badges (need real counts), spacing/type hardening, guard extensions (ban accent names +
-> spacing/radius magic numbers), and an optional shadcn `variantColorResolver`.
+> open: spacing/type hardening, guard extensions (ban accent names + spacing/radius magic numbers),
+> and an optional shadcn `variantColorResolver`.
 
 ## Data visualization
 
