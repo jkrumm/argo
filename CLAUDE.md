@@ -66,13 +66,28 @@ The dashboard proxies `/api/*` to the API (strips `/api` prefix) and `/v1/traces
 
 API and dashboard run on the VPS via Docker. Compose: `~/SourceRoot/vps/apps/argo/compose.yml`. Push to `master` → RollHook → rolling restart.
 
+## Design System
+
+**`DESIGN.md` (repo root) is the law for Argo's visual identity** — the color/token/restraint
+rules, the "ink earns its color" doctrine, and the spacing/type/radius hardening roadmap. Read it
+before building or restyling any UI; it wins over library defaults and habit. The global
+`/dataviz` skill is the generic _method_ and defers to `DESIGN.md` as the project-specific
+_contract_. Argo is the greenfield POC for a design system that later promotes to the global
+config and `basalt-ui`.
+
+`docs/MANTINE-THEMING.md` is the **method for the Mantine chrome layer** (shell, sidebar,
+breadcrumb, cards, inputs) — the chrome-side sibling of `~/.claude/rules/visx-charts.md`, also
+subordinate to `DESIGN.md`. It documents the v9 CSS-variable theming model and the binding that
+makes chrome and charts share one surface system.
+
 ## Workspace-Specific Docs
 
-| File                        | Contents                                                    |
-| --------------------------- | ----------------------------------------------------------- |
-| `apps/api/CLAUDE.md`        | DB, migrations, adding a route, test patterns, OTel vars    |
-| `apps/dashboard/CLAUDE.md`  | Adding a page, stack details, React Compiler, observability |
-| `packages/charts/CLAUDE.md` | Chart primitives, kinds, tokens, VxBridge wiring            |
+| File                        | Contents                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------- |
+| `DESIGN.md`                 | Visual-identity law: color/token tiers, earned-color rule, enforcement, roadmap |
+| `apps/api/CLAUDE.md`        | DB, migrations, adding a route, test patterns, OTel vars                        |
+| `apps/dashboard/CLAUDE.md`  | Adding a page, stack details, React Compiler, observability                     |
+| `packages/charts/CLAUDE.md` | Chart primitives, kinds, tokens, VxBridge wiring                                |
 
 ## Analytics Reference
 

@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Argo · Chart Theme Lab</title>
+<style>
+  /* ---- Blueprint neutral system, resolved per theme via body class ---- */
+  :root {
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
+  }
+  body.dark {
+    --bg: #1c2127;        /* Blueprint DarkGray1 — never pure black */
+    --panel: #252a31;     /* DarkGray2 */
+    --elevated: #2f343c;  /* DarkGray3 — chart area, slightly lifted */
+    --border: #383e47;    /* DarkGray4 */
+    --grid: rgba(255,255,255,0.055);
+    --axis: rgba(255,255,255,0.55);
+    --title: rgba(255,255,255,0.88);
+    --muted: rgba(255,255,255,0.45);
+    --dot-stroke: #252a31;
+    --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.25);
+  }
+  body.light {
+    --bg: #f6f7f9;        /* LightGray5 */
+    --panel: #ffffff;
+    --elevated: #ffffff;
+    --border: #dce0e5;    /* LightGray2 */
+    --grid: rgba(17,20,24,0.07);
+    --axis: rgba(17,20,24,0.55);
+    --title: rgba(17,20,24,0.88);
+    --muted: rgba(17,20,24,0.45);
+    --dot-stroke: #ffffff;
+    --shadow: 0 1px 2px rgba(17,20,24,0.06), 0 6px 18px rgba(17,20,24,0.08);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; font-family: var(--font); background: var(--bg); color: var(--title);
+    -webkit-font-smoothing: antialiased; transition: background .25s ease, color .25s ease;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px 96px; }
+
+  /* ---- Sticky control bar ---- */
+  .bar {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    backdrop-filter: saturate(1.4) blur(12px);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 32px;
+  }
+  .bar-inner { max-width: 1180px; margin: 0 auto; padding: 14px 24px; display: flex; gap: 28px; align-items: center; flex-wrap: wrap; }
+  .brand { font-weight: 650; font-size: 15px; letter-spacing: -0.01em; margin-right: auto; }
+  .brand span { color: var(--muted); font-weight: 400; }
+  .ctl { display: flex; align-items: center; gap: 10px; }
+  .ctl > label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .seg { display: inline-flex; background: var(--panel); border: 1px solid var(--border); border-radius: 9px; padding: 3px; }
+  .seg button {
+    appearance: none; border: 0; background: transparent; color: var(--axis);
+    font: inherit; font-size: 13px; font-weight: 500; padding: 5px 13px; border-radius: 6px; cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+  .seg button[aria-pressed="true"] { background: var(--elevated); color: var(--title); box-shadow: var(--shadow); }
+  body.light .seg button[aria-pressed="true"] { background: #2d72d2; color: #fff; }
+
+  /* ---- Typographic rhythm ---- */
+  h1 { font-size: 30px; letter-spacing: -0.025em; margin: 28px 0 6px; }
+  .lede { color: var(--muted); font-size: 15px; max-width: 720px; margin: 0 0 8px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--axis);
+       margin: 56px 0 4px; font-weight: 650; }
+  .sub { color: var(--muted); font-size: 14px; max-width: 760px; margin: 0 0 22px; }
+  code { font-family: var(--mono); font-size: 0.88em; background: var(--panel); border: 1px solid var(--border);
+         border-radius: 5px; padding: 1px 6px; }
+
+  /* ---- Cards / grids ---- */
+  .grid { display: grid; gap: 18px; }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  .g4 { grid-template-columns: repeat(4, 1fr); }
+  .g2 { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 940px) { .g3,.g4 { grid-template-columns: repeat(2,1fr); } }
+  @media (max-width: 620px) { .g2,.g3,.g4 { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    padding: 16px 16px 12px; box-shadow: var(--shadow);
+    transition: background .25s, border-color .25s;
+  }
+  .card-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
+  .card-title { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+  .card-tag { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+  .chart-area { background: var(--elevated); border-radius: 10px; padding: 6px 4px 2px; }
+  body.light .chart-area { background: #fbfcfd; border: 1px solid #edeff2; }
+  svg.chart { display: block; width: 100%; height: auto; }
+
+  /* ---- Palette swatches ---- */
+  .ramp { display: flex; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); height: 38px; }
+  .ramp > div { flex: 1; }
+  .ramp-lbl { display:flex; justify-content: space-between; font-size: 11px; color: var(--muted);
+              font-family: var(--mono); margin: 6px 2px 0; }
+  .pal-row { margin-bottom: 16px; }
+  .pal-name { font-size: 13px; font-weight: 600; margin-bottom: 6px; display:flex; gap:8px; align-items:center; }
+  .pal-name .swatch { width: 12px; height: 12px; border-radius: 3px; }
+  .fine { display: flex; height: 22px; border-radius: 6px; overflow: hidden; margin-top: 6px; border: 1px solid var(--border); }
+  .fine > div { flex: 1; }
+
+  .note { background: var(--panel); border: 1px solid var(--border); border-left: 3px solid #2d72d2;
+          border-radius: 10px; padding: 14px 16px; font-size: 14px; color: var(--axis); margin: 16px 0; }
+  .note b { color: var(--title); }
+  .legend { display:flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; }
+  .legend span { display:inline-flex; align-items:center; gap:6px; font-size:12px; color: var(--axis); }
+  .legend i { width: 18px; height: 3px; border-radius: 2px; display:inline-block; }
+</style>
+</head>
+<body class="dark">
+  <div class="bar">
+    <div class="bar-inner">
+      <div class="brand">Argo <span>· Chart Theme Lab</span></div>
+      <div class="ctl">
+        <label>Theme</label>
+        <div class="seg" id="seg-theme">
+          <button data-v="dark" aria-pressed="true">Dark</button>
+          <button data-v="light" aria-pressed="false">Light</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <label>Area fill</label>
+        <div class="seg" id="seg-area">
+          <button data-v="none" aria-pressed="false">None</button>
+          <button data-v="subtle" aria-pressed="true">Subtle</button>
+          <button data-v="strong" aria-pressed="false">Strong</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <h1>Chart Theme Lab</h1>
+    <p class="lede">A playground for the proposed Blueprint-based palette. Everything is muted, single-hue,
+      and gray-anchored. Toggle theme and area fill above to compare. The neutrals (background, panels,
+      gridlines, axes) are Blueprint's DarkGray / LightGray ramps — the same system the real dashboard would use.</p>
+
+    <h2>1 · Gradient strength — pick the area treatment</h2>
+    <p class="sub">Same HRV series, same violet hue, three fills side by side. This row ignores the toolbar's
+      area control so you can A/B/C directly. Follows the theme toggle.</p>
+    <div class="grid g3" id="row-gradient"></div>
+
+    <h2>2 · Cross-tab consistency</h2>
+    <p class="sub">Four different metrics, four different hues — but one identical design language: same chrome,
+      neutrals, gridlines, gradient treatment, and per-theme shade logic. Different accent, same family.
+      Follows both toolbar controls.</p>
+    <div class="grid g4" id="row-crosstab"></div>
+
+    <h2>3 · Before / after</h2>
+    <p class="sub">Left: today's palette — Ant Design + Material + Tailwind defaults at full saturation, every
+      series shouting. Right: proposed — one hue highlighted, the rest demoted to gray (Datawrapper rule:
+      emphasize 1–2, mute the context). Follows the theme toggle.</p>
+    <div class="grid g2" id="row-beforeafter"></div>
+
+    <h2>4 · Per-theme shade shift</h2>
+    <p class="sub">Why series colors can't be a single fixed hex. The <i>hue</i> is constant, but on dark we use a
+      lighter Blueprint shade (no glow/bleed) and on light a deeper one (enough contrast). Same metric, both themes,
+      shown together.</p>
+    <div class="grid g2" id="row-shadeshift"></div>
+
+    <h2>5 · The palette</h2>
+    <p class="sub">Blueprint's hand-tuned 5-step ramps are the source. The thin strip under each is a 20-step ramp
+      I generate in <b>OKLCH via <code>color-mix</code></b> — perceptually even, any resolution, straight from CSS.
+      So I don't need Blueprint's 20-step arrays for gradients/series ramps; see the note.</p>
+    <div class="note" id="palette-note"></div>
+    <div class="card" style="padding:20px">
+      <div id="palette"></div>
+    </div>
+  </div>
+
+<script>
+/* ============================ palette ============================ */
+// Curated, harmonious Blueprint subset. Each metric: one hue, shade-3 (light) / shade-4 (dark).
+const SERIES = {
+  hrv:       { label: "HRV",         ramp: ["#5c255c","#7c327c","#9d3f9d","#bd6bbd","#d69fd6"], light:"#9d3f9d", dark:"#bd6bbd" }, // violet
+  restingHr: { label: "Resting HR",  ramp: ["#8e292c","#ac2f33","#cd4246","#e76a6e","#fa999c"], light:"#cd4246", dark:"#e76a6e" }, // red
+  sleep:     { label: "Sleep",       ramp: ["#0c5174","#0f6894","#147eb3","#3fa6da","#68c1ee"], light:"#147eb3", dark:"#3fa6da" }, // cerulean
+  vo2max:    { label: "VO₂ max",     ramp: ["#5c4405","#866103","#d1980b","#f0b726","#fbd065"], light:"#d1980b", dark:"#f0b726" }, // gold
+  steps:     { label: "Steps",       ramp: ["#1d7324","#238c2c","#29a634","#43bf4d","#62d96b"], light:"#29a634", dark:"#43bf4d" }, // forest
+};
+// Today's actual argo tokens (the "childish" baseline) — Material/AntD/Tailwind mix at full sat.
+const BASELINE = { hrv:"#aa00ff", restingHr:"#ff5252", steps:"#4caf50", vo2max:"#ff6f00" };
+
+const NEUTRAL_RAMP = {
+  dark:  ["#111418","#1c2127","#252a31","#2f343c","#383e47","#404854","#5f6b7c","#738091","#8f99a8","#abb3bf"],
+  light: ["#abb3bf","#c5cbd3","#d3d8de","#dce0e5","#e5e8eb","#edeff2","#f6f7f9","#ffffff"],
+};
+
+/* ============================ state ============================ */
+const state = { theme: "dark", area: "subtle" };
+
+/* ============================ data ============================ */
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function wave(seed, n, lo, hi, trend=0){
+  const r = mulberry32(seed); const out=[]; let v=(lo+hi)/2;
+  for(let i=0;i<n;i++){ v += (r()-0.5)*(hi-lo)*0.32 + trend; v=Math.max(lo,Math.min(hi,v)); out.push(v); }
+  return out;
+}
+const N = 26;
+const DATA = {
+  hrv:       wave(7,  N, 42, 78),
+  restingHr: wave(21, N, 47, 58),
+  sleep:     wave(33, N, 62, 88, 0.15),
+  vo2max:    wave(49, N, 48, 56, 0.05),
+  steps:     wave(63, N, 30, 92),
+  s1: wave(101,N,40,85), s2: wave(202,N,35,80), s3: wave(303,N,45,90), s4: wave(404,N,30,75),
+};
+
+/* ============================ svg chart engine ============================ */
+const W = 440, H = 184, PAD = { t: 14, r: 14, b: 16, l: 14 };
+
+function smooth(pts){
+  if(pts.length<2) return "";
+  let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+  for(let i=0;i<pts.length-1;i++){
+    const p0=pts[i-1]||pts[i], p1=pts[i], p2=pts[i+1], p3=pts[i+2]||p2;
+    const c1x=p1.x+(p2.x-p0.x)/6, c1y=p1.y+(p2.y-p0.y)/6;
+    const c2x=p2.x-(p3.x-p1.x)/6, c2y=p2.y-(p3.y-p1.y)/6;
+    d+=` C ${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+  }
+  return d;
+}
+function scalePts(values, lo, hi){
+  const min = lo ?? Math.min(...values), max = hi ?? Math.max(...values);
+  const span = (max-min)||1, padv = span*0.12;
+  const x0=PAD.l, x1=W-PAD.r, y0=PAD.t, y1=H-PAD.b;
+  return values.map((v,i)=>({
+    x: x0 + (x1-x0)*(i/(values.length-1)),
+    y: y1 - (y1-y0)*((v-(min-padv))/((max+padv)-(min-padv))),
+  }));
+}
+let GID = 0;
+// series: [{values, hue, area, dim, lo, hi}]  hue = resolved color for current theme
+function chartSVG(series, opts={}){
+  const n = NEUTRAL(); const baseY = H-PAD.b;
+  const lw = state.theme==="dark" ? 2.5 : 2;
+  let defs="", body="", glow="";
+  // gridlines
+  let grid="";
+  for(let g=0; g<=3; g++){ const y=PAD.t+(baseY-PAD.t)*(g/3); grid+=`<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="${n.grid}" stroke-width="1"/>`; }
+
+  series.forEach((s)=>{
+    const pts = scalePts(s.values, s.lo, s.hi);
+    const area = s.area ?? state.area;
+    const color = s.dim ? n.dimSeries : s.hue;
+    const line = smooth(pts);
+    if(area!=="none" && !s.dim){
+      const id = "grad"+(GID++);
+      const top = area==="strong" ? 0.50 : 0.26;
+      defs += `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${color}" stop-opacity="${top}"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient>`;
+      const ap = `${line} L ${pts[pts.length-1].x.toFixed(1)} ${baseY} L ${pts[0].x.toFixed(1)} ${baseY} Z`;
+      body += `<path d="${ap}" fill="url(#${id})"/>`;
+    }
+    if(area==="strong" && !s.dim){
+      const fid="glow"+(GID++);
+      defs += `<filter id="${fid}" x="-20%" y="-40%" width="140%" height="180%"><feGaussianBlur stdDeviation="3.2"/></filter>`;
+      glow += `<path d="${line}" fill="none" stroke="${color}" stroke-width="${lw+1}" stroke-opacity="0.35" filter="url(#${fid})" stroke-linecap="round"/>`;
+    }
+    body += `<path d="${line}" fill="none" stroke="${color}" stroke-width="${s.dim?1.6:lw}" stroke-opacity="${s.dim?0.9:1}" stroke-linecap="round" stroke-linejoin="round"/>`;
+    if(!s.dim){
+      const last=pts[pts.length-1];
+      body += `<circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="3.6" fill="${color}" stroke="${n.dotStroke}" stroke-width="2"/>`;
+    }
+  });
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img"><defs>${defs}</defs>${grid}${glow}${body}</svg>`;
+}
+function NEUTRAL(){
+  return state.theme==="dark"
+    ? { grid:"rgba(255,255,255,0.06)", dotStroke:"#252a31", dimSeries:"#5f6b7c" }
+    : { grid:"rgba(17,20,24,0.07)",   dotStroke:"#ffffff", dimSeries:"#abb3bf" };
+}
+function hue(key){ return state.theme==="dark" ? SERIES[key].dark : SERIES[key].light; }
+
+function card(title, tag, svg){
+  return `<div class="card"><div class="card-head"><div class="card-title">${title}</div><div class="card-tag">${tag}</div></div><div class="chart-area">${svg}</div></div>`;
+}
+
+/* ============================ renderers ============================ */
+function renderGradient(){
+  const el = document.getElementById("row-gradient");
+  const variants = [["none","No fill — line only"],["subtle","Subtle (0.26 → 0)"],["strong","Strong + glow (0.50 → 0)"]];
+  el.innerHTML = variants.map(([v,label])=>
+    card(label, "violet · "+state.theme, chartSVG([{values:DATA.hrv, hue:hue("hrv"), area:v}]))
+  ).join("");
+}
+function renderCrosstab(){
+  const el = document.getElementById("row-crosstab");
+  const keys = ["hrv","restingHr","sleep","vo2max"];
+  el.innerHTML = keys.map(k=>
+    card(SERIES[k].label, hue(k), chartSVG([{values:DATA[k], hue:hue(k)}]))
+  ).join("");
+}
+function renderBeforeAfter(){
+  const el = document.getElementById("row-beforeafter");
+  // before: 4 neon series, all full-strength
+  const before = chartSVG([
+    {values:DATA.s1, hue:BASELINE.hrv,       area:"none"},
+    {values:DATA.s2, hue:BASELINE.restingHr, area:"none"},
+    {values:DATA.s3, hue:BASELINE.steps,     area:"none"},
+    {values:DATA.s4, hue:BASELINE.vo2max,    area:"none"},
+  ]);
+  // after: one highlighted (violet, with fill), rest dimmed gray
+  const after = chartSVG([
+    {values:DATA.s2, hue:"", dim:true, area:"none"},
+    {values:DATA.s3, hue:"", dim:true, area:"none"},
+    {values:DATA.s4, hue:"", dim:true, area:"none"},
+    {values:DATA.s1, hue:hue("hrv")},
+  ]);
+  el.innerHTML =
+    card("Today — rainbow, full saturation", "#aa00ff #ff5252 #4caf50 #ff6f00", before) +
+    card("Proposed — emphasize one, mute the rest", "violet + gray", after);
+}
+function renderShadeShift(){
+  const el = document.getElementById("row-shadeshift");
+  const mk = (theme)=>{
+    const h = theme==="dark" ? SERIES.restingHr.dark : SERIES.restingHr.light;
+    const n = theme==="dark"
+      ? { grid:"rgba(255,255,255,0.06)", dotStroke:"#252a31" }
+      : { grid:"rgba(17,20,24,0.07)", dotStroke:"#ffffff" };
+    const bg = theme==="dark" ? "#252a31" : "#ffffff";
+    const ar = theme==="dark" ? "#2f343c" : "#fbfcfd";
+    // build with a temporary theme override
+    const prev = state.theme; state.theme = theme;
+    const svg = chartSVG([{values:DATA.restingHr, hue:h}]);
+    state.theme = prev;
+    return `<div class="card" style="background:${bg}">
+      <div class="card-head"><div class="card-title" style="color:${theme==='dark'?'#fff':'#111418'}">Resting HR · ${theme}</div>
+      <div class="card-tag" style="color:${theme==='dark'?'#8f99a8':'#8f99a8'}">${h}</div></div>
+      <div class="chart-area" style="background:${ar}">${svg}</div></div>`;
+  };
+  el.innerHTML = mk("dark") + mk("light");
+}
+function renderPalette(){
+  const host = document.getElementById("palette");
+  let html = "";
+  Object.entries(SERIES).forEach(([k,s])=>{
+    const active = state.theme==="dark" ? s.dark : s.light;
+    const blocks = s.ramp.map((c,i)=>`<div title="${c}" style="background:${c};${c===active?'box-shadow:inset 0 0 0 2px var(--title)':''}"></div>`).join("");
+    // 20-step OKLCH ramp via color-mix, dark→light stop
+    let fine=""; const a=s.ramp[0], b=s.ramp[s.ramp.length-1];
+    for(let i=0;i<20;i++){ const p=(i/19*100).toFixed(1); fine+=`<div style="background:color-mix(in oklch, ${a}, ${b} ${p}%)"></div>`; }
+    html += `<div class="pal-row">
+      <div class="pal-name"><span class="swatch" style="background:${active}"></span>${s.label}
+        <span style="color:var(--muted);font-weight:400;font-size:12px">— ring = shade used in ${state.theme}</span></div>
+      <div class="ramp">${blocks}</div>
+      <div class="ramp-lbl"><span>${s.ramp[0]} (1 · darkest)</span><span>${s.ramp[4]} (5 · lightest)</span></div>
+      <div class="fine" title="20-step OKLCH color-mix ramp">${fine}</div>
+    </div>`;
+  });
+  // neutrals
+  const nr = NEUTRAL_RAMP[state.theme];
+  const nblocks = nr.map(c=>`<div title="${c}" style="background:${c}"></div>`).join("");
+  html += `<div class="pal-row"><div class="pal-name"><span class="swatch" style="background:${nr[Math.floor(nr.length/2)]}"></span>Neutrals · ${state.theme} (bg / panels / borders / grid / axis)</div>
+    <div class="ramp">${nblocks}</div></div>`;
+  host.innerHTML = html;
+
+  document.getElementById("palette-note").innerHTML =
+    `<b>On the 20-step question:</b> for single-hue series ramps and area gradients I generate any number of steps
+     in OKLCH with <code>color-mix(in oklch, …)</code> straight from Blueprint's anchor stops (the thin strips above) —
+     perceptually even, no arrays needed. The one place Blueprint's <b>official 20-step sequential/diverging arrays</b>
+     would beat generation is a true <i>heatmap</i> encoding (calendar intensity, correlation matrix), where Palantir
+     hand-tuned the perception. We have none of those today — when we add one, paste the array and we use it verbatim.`;
+}
+
+function renderAll(){ GID=0; renderGradient(); renderCrosstab(); renderBeforeAfter(); renderShadeShift(); renderPalette(); }
+
+/* ============================ controls ============================ */
+function wireSeg(id, key){
+  const seg = document.getElementById(id);
+  seg.addEventListener("click", (e)=>{
+    const b = e.target.closest("button"); if(!b) return;
+    state[key] = b.dataset.v;
+    [...seg.children].forEach(c=>c.setAttribute("aria-pressed", String(c===b)));
+    if(key==="theme"){ document.body.className = state.theme; }
+    renderAll();
+  });
+}
+wireSeg("seg-theme","theme");
+wireSeg("seg-area","area");
+renderAll();
+</script>
+</body>
+</html>
