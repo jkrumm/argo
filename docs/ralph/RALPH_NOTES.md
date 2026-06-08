@@ -309,3 +309,115 @@ false`, and throws when unconfigured.
   a default STT model (e.g. `gpt-4o-transcribe`) and TTS voice server-side.
 - **No upstream timeout/cancel wiring** on the gateway proxies (unlike `/hermes/chat`'s
   `timeout(req,0)`); fine for short titling calls, revisit if long audio synth needs it.
+
+## Group 4: Read CRUD + DeepSeek titling
+
+### What was implemented
+
+Extended `apps/api/src/routes/hermes.ts` (the guarded plugin from Group 2) with
+the read side, auto-titling, and interrupted-message handling:
+
+- `POST /hermes/threads` — create a thread, minting a fresh `session_id` and
+  defaulting `session_key` to the configured `HERMES_SESSION_KEY` (overridable).
+  Returns the row.
+- `GET /hermes/threads` — list threads, pinned-first then `updated_at` desc.
+  Pagination (`page`/`limit`) + a `status` filter (`active` default / `archived`
+  / `all`); excludes archived by default. `{ data, total }` shape.
+- `GET /hermes/threads/:id/messages` — verbatim, chronologically ordered
+  transcript; 404 if the thread is missing.
+- `PATCH /hermes/threads/:id` — minimal rename / pin / archive. Archiving stamps
+  `archived_at` + sets `status='archived'`; unarchiving clears both. Does not
+  touch `updated_at` (that tracks message activity, not metadata edits). 404 if
+  missing.
+- **Auto-titling** — a new injectable `generateTitle` dep (defaults to a
+  `aiComplete` DeepSeek-v4-Flash call) fired **fire-and-forget** from the proxy's
+  `onFinish` after a non-aborted turn. `titleThreadIfNeeded` reads the first
+  user+assistant exchange, generates a title, and writes it under an
+  `isNull(title)` guard (idempotent / no clobber). Never awaited → never delays
+  the stream.
+- **Interrupted handling** — the Group 2 `aborted → status:'interrupted'` mapping
+  is now exercised. `isAborted` flips when streamText emits an `abort` chunk on
+  client disconnect; the partial assistant message persists as `interrupted`.
+
+### Deviations from prompt
+
+- **Touched Group 2's `persistTurn`** to stamp an explicit, per-index
+  `created_at` (`new Date(baseMs + i)`), instead of relying on the column
+  default. A single transaction's `now()` is identical for every row, so the
+  user→assistant order within a turn was otherwise non-deterministic on read —
+  which would break "fetch messages reproduce it verbatim". Minimal change,
+  directly in service of Group 4's read correctness. Transcript reads order by
+  `(created_at, id)`.
+- **`generateTitle` is an injected dep**, not a direct `aiComplete` import at the
+  call site, so titling tests run against a stub with no live DeepSeek bridge.
+  The default wires the real `aiComplete` (Group 3 seam, no HTTP hop).
+- Titling is gated on `!isAborted` — an interrupted turn has no complete
+  assistant message worth titling from.
+
+### Gotchas & surprises
+
+- **`createIdGenerator` uses `-` as the separator**, so generated ids are
+  `thr-…`/`ses-…`/`msg-…`, not `thr_…`. (The Group 2 tests only ever passed
+  manual `thr_test_*` ids, so this surfaced for the first time when asserting the
+  generated id format.)
+- **Abort is observed lazily by streamText**: it only emits the `abort` UI chunk
+  the next time its upstream `reader.read()` resolves (or throws an AbortError)
+  — see `ai/dist/index.js` ~L4955. A fake upstream that emits partial content
+  then _parks_ (never resolves the read) hangs forever — the abort is never seen
+  and the test times out. Fix: the fake keeps trickling content deltas every
+  ~10ms (never sending a finish), so the read loop stays live and detects the
+  aborted signal. `controller.abort()` is fired ~30ms in via the request signal.
+- **Response enum vs DB text**: `status`/`role` are plain `text` columns (typed
+  `string`), but the response schemas narrow them to `z.enum` literal unions for
+  a richer OpenAPI contract. Elysia's strict return-type inference rejects the
+  `string`-typed rows against the enum, so each return is asserted to a
+  `z.infer<typeof …Schema>` alias (`ThreadResponse`/`MessageResponse`). Runtime
+  is still validated by Elysia. Kept `z.enum` (not `z.string()`) deliberately —
+  the elysia-zod rule's union-serialization caveat is about `z.union([literal…])`,
+  not `z.enum`.
+
+### Security notes
+
+- All new routes are mounted under the global `authGuard` in `index.ts` (via
+  `hermesRoutes`); the bare plugin is also used in tests without the guard, same
+  as Group 2. No upstream secrets are involved in the read paths.
+- Titling sends only the first user+assistant text (sliced to 500 chars each) to
+  the EU DeepSeek bridge via the existing `aiComplete` seam — same GDPR routing
+  guarantee as Group 3.
+
+### Tests added
+
+`apps/api/src/routes/hermes.test.ts` grew from 4 to 15 tests (mocked upstreams,
+DB via the direct 0009 apply from Group 2):
+
+- titling: fresh thread titled from the first exchange via a mocked titler (also
+  exercises the quote-strip / whitespace-collapse cleanup); already-titled thread
+  is **not** retitled (titler not called).
+- interrupted: client abort mid-stream persists the partial assistant message as
+  `status:'interrupted'` while the user message stays `complete`.
+- read CRUD: create (minted `session_id`, defaulted `session_key`); list
+  (pinned-first → newest, archived excluded, `?status=all` includes it);
+  transcript in verbatim `[user, assistant]` order with reconstructed text; 404
+  for a missing thread's transcript and a missing-thread PATCH; PATCH rename +
+  pin, then archive/unarchive round-trip.
+
+The 12 pre-existing `runMigrations()` failures (`must be owner of index
+uq_usage_source_sourceid`, an environmental role-ownership issue in the shared
+dev DB — see Group 1) persist unchanged; `hermes.test.ts` is unaffected (it
+applies migration 0009 directly). Suite: 160 pass / 12 fail (was 151/12 → +9 net
+new green from the rebuilt hermes test file).
+
+### Future improvements
+
+- **Titling trigger is best-effort and in-process.** If the API restarts between
+  the turn finishing and the title write, the thread stays untitled until the
+  next turn (which re-checks `title == null`). Acceptable for v1; a small backfill
+  pass could title orphaned threads.
+- **No cursor pagination on the transcript** — `GET /threads/:id/messages`
+  returns the full thread. Fine for personal-scale threads; revisit if threads
+  grow large.
+- **Title language/length** depends on the DeepSeek prompt; `cleanTitle` caps at
+  80 chars and strips wrapping quotes, but the model could still return prose.
+  Group 7's output-shaping work could tighten this if needed.
+- **`updated_at` is bumped only on a chat turn**, not on PATCH. If the UI wants
+  pin/rename to resurface a thread, revisit the ordering key.

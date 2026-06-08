@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterEach } from 'bun:test'
 import { Elysia } from 'elysia'
 import { eq } from 'drizzle-orm'
-import { createHermesRoutes, type FetchImpl } from './hermes.js'
+import { createHermesRoutes, type FetchImpl, type HermesRouteDeps } from './hermes.js'
 import { client, db } from '../db/index.js'
 import { hermesMessage, hermesThread } from '../db/schema.js'
 
@@ -74,7 +74,7 @@ function fakeHermes(): { fetchImpl: FetchImpl; calls: CapturedRequest[] } {
   return { fetchImpl, calls }
 }
 
-function buildApp(fetchImpl: FetchImpl) {
+function buildApp(fetchImpl: FetchImpl, extra: Partial<HermesRouteDeps> = {}) {
   return new Elysia().use(
     createHermesRoutes({
       baseURL: 'http://hermes.test/v1',
@@ -82,6 +82,10 @@ function buildApp(fetchImpl: FetchImpl) {
       sessionKey: 'agent:main:test',
       model: 'hermes',
       fetchImpl,
+      // Default to a no-op titler so the env-based DeepSeek path isn't exercised
+      // (no live bridge in the loop); titling is tested explicitly below.
+      generateTitle: async () => '',
+      ...extra,
     }),
   )
 }
@@ -208,6 +212,318 @@ describe('POST /hermes/chat', () => {
 
     const chatCall = calls.find((c) => c.url.endsWith('/chat/completions'))
     expect(chatCall?.headers.get('x-hermes-session-id')).toBe('ses_original')
+  })
+})
+
+describe('auto-titling', () => {
+  it('titles a fresh thread from the first exchange (via the mocked gateway)', async () => {
+    const { fetchImpl } = fakeHermes()
+    let received: { userText: string; assistantText: string } | undefined
+    const app = buildApp(fetchImpl, {
+      // Stand-in for the DeepSeek gateway; returns a quoted/padded title to also
+      // exercise the cleanup (quote strip + whitespace collapse + trim).
+      generateTitle: async (input) => {
+        received = input
+        return '  "Weather in Berlin"  '
+      },
+    })
+
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_test_title',
+        sessionId: 'ses_test_title',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi there' }] }],
+      }),
+    )
+    await res.text()
+
+    const titled = await waitFor(async () => {
+      const t = await db.query.hermesThread.findFirst({
+        where: eq(hermesThread.id, 'thr_test_title'),
+      })
+      return t?.title ? t : undefined
+    })
+    expect(titled?.title).toBe('Weather in Berlin')
+    // The titler saw the persisted first user + assistant text.
+    expect(received?.userText).toBe('hi there')
+    expect(received?.assistantText).toBe('Hello world')
+  })
+
+  it('does not retitle a thread that already has a title', async () => {
+    const { fetchImpl } = fakeHermes()
+    let calls = 0
+    const app = buildApp(fetchImpl, {
+      generateTitle: async () => {
+        calls++
+        return 'Should not be used'
+      },
+    })
+    await db.insert(hermesThread).values({
+      id: 'thr_already_titled',
+      session_id: 'ses_already_titled',
+      session_key: 'agent:main:test',
+      title: 'Existing title',
+    })
+
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_already_titled',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+      }),
+    )
+    await res.text()
+
+    // Give any (incorrect) background titling a chance to run, then assert it didn't.
+    await new Promise((r) => setTimeout(r, 100))
+    const thread = await db.query.hermesThread.findFirst({
+      where: eq(hermesThread.id, 'thr_already_titled'),
+    })
+    expect(thread?.title).toBe('Existing title')
+    expect(calls).toBe(0)
+  })
+})
+
+/**
+ * A fake Hermes whose stream emits the assistant role + partial content, then
+ * aborts the client request signal and keeps trickling deltas (never sending a
+ * finish) — simulating a client disconnect mid-response (the v1 "interrupted"
+ * path). The trickle matters: streamText only observes the abort the next time
+ * its upstream `reader.read()` resolves, so the stream must stay live.
+ */
+function abortingHermes(abort: () => void): FetchImpl {
+  const encoder = new TextEncoder()
+  const delta = (content: string) =>
+    encoder.encode(
+      `data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{"content":${JSON.stringify(content)}},"finish_reason":null}]}\n\n`,
+    )
+  return (input) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    if (url.endsWith('/health')) return Promise.resolve(new Response('ok', { status: 200 }))
+    let timer: ReturnType<typeof setInterval> | undefined
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n',
+          ),
+        )
+        controller.enqueue(delta('Partial answer'))
+        setTimeout(abort, 30)
+        // Keep the stream live (and unfinished) so the abort is observed.
+        timer = setInterval(() => {
+          try {
+            controller.enqueue(delta('.'))
+          } catch {
+            // controller closed once the abort tore the stream down
+          }
+        }, 10)
+      },
+      cancel() {
+        if (timer) clearInterval(timer)
+      },
+    })
+    return Promise.resolve(
+      new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } }),
+    )
+  }
+}
+
+describe('interrupted streams', () => {
+  it("persists the partial assistant message with status:'interrupted' on client abort", async () => {
+    const controller = new AbortController()
+    const app = buildApp(abortingHermes(() => controller.abort()))
+
+    const req = new Request('http://localhost/hermes/chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        threadId: 'thr_test_interrupt',
+        sessionId: 'ses_test_interrupt',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'tell me a story' }] }],
+      }),
+      signal: controller.signal,
+    })
+
+    const res = await app.handle(req)
+    await res.text().catch(() => undefined) // drain; the abort may cut it short
+
+    const rows = await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.length >= 2 ? r : undefined
+    })
+    const assistant = rows?.find((r) => r.role === 'assistant')
+    const user = rows?.find((r) => r.role === 'user')
+    expect(user?.status).toBe('complete')
+    expect(assistant).toBeDefined()
+    expect(assistant?.status).toBe('interrupted')
+  })
+})
+
+describe('thread read CRUD', () => {
+  it('creates a thread, minting a session_id and defaulting the session_key', async () => {
+    const { fetchImpl } = fakeHermes()
+    const app = buildApp(fetchImpl)
+    const res = await app.handle(
+      new Request('http://localhost/hermes/threads', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: 'My thread' }),
+      }),
+    )
+    expect(res.status).toBe(200)
+    const row = (await res.json()) as {
+      id: string
+      session_id: string
+      session_key: string
+      title: string | null
+      status: string
+      pinned: number
+    }
+    expect(row.id.startsWith('thr-')).toBe(true)
+    expect(row.session_id.startsWith('ses-')).toBe(true)
+    expect(row.session_key).toBe('agent:main:test')
+    expect(row.title).toBe('My thread')
+    expect(row.status).toBe('active')
+    expect(row.pinned).toBe(0)
+  })
+
+  it('lists threads pinned-first then newest, excluding archived by default', async () => {
+    const { fetchImpl } = fakeHermes()
+    const app = buildApp(fetchImpl)
+    await db.insert(hermesThread).values([
+      {
+        id: 'thr_old',
+        session_id: 's1',
+        session_key: 'k',
+        updated_at: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        id: 'thr_new',
+        session_id: 's2',
+        session_key: 'k',
+        updated_at: '2026-06-01T00:00:00.000Z',
+      },
+      {
+        id: 'thr_pinned',
+        session_id: 's3',
+        session_key: 'k',
+        pinned: 1,
+        updated_at: '2025-01-01T00:00:00.000Z',
+      },
+      {
+        id: 'thr_archived',
+        session_id: 's4',
+        session_key: 'k',
+        status: 'archived',
+        updated_at: '2026-06-05T00:00:00.000Z',
+      },
+    ])
+
+    const res = await app.handle(new Request('http://localhost/hermes/threads'))
+    const body = (await res.json()) as { data: Array<{ id: string }>; total: number }
+    expect(body.total).toBe(3) // archived excluded
+    expect(body.data.map((t) => t.id)).toEqual(['thr_pinned', 'thr_new', 'thr_old'])
+
+    // ?status=all includes the archived one.
+    const allRes = await app.handle(new Request('http://localhost/hermes/threads?status=all'))
+    const all = (await allRes.json()) as { total: number }
+    expect(all.total).toBe(4)
+  })
+
+  it('returns a thread transcript in verbatim order', async () => {
+    const { fetchImpl } = fakeHermes()
+    const app = buildApp(fetchImpl)
+    await app
+      .handle(
+        chatRequest({
+          threadId: 'thr_transcript',
+          sessionId: 'ses_transcript',
+          messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi there' }] }],
+        }),
+      )
+      .then((r) => r.text())
+
+    await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.length >= 2 ? r : undefined
+    })
+
+    const res = await app.handle(
+      new Request('http://localhost/hermes/threads/thr_transcript/messages'),
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      data: Array<{ role: string; parts: Array<{ type: string; text?: string }> }>
+      total: number
+    }
+    expect(body.total).toBe(2)
+    // User precedes assistant (deterministic created_at stamping).
+    expect(body.data.map((m) => m.role)).toEqual(['user', 'assistant'])
+    const assistantText = (body.data[1]?.parts ?? [])
+      .filter((p) => p.type === 'text')
+      .map((p) => p.text)
+      .join('')
+    expect(assistantText).toBe('Hello world')
+  })
+
+  it('404s the transcript of a missing thread', async () => {
+    const { fetchImpl } = fakeHermes()
+    const app = buildApp(fetchImpl)
+    const res = await app.handle(new Request('http://localhost/hermes/threads/thr_nope/messages'))
+    expect(res.status).toBe(404)
+  })
+
+  it('renames, pins, and archives a thread via PATCH', async () => {
+    const { fetchImpl } = fakeHermes()
+    const app = buildApp(fetchImpl)
+    await db.insert(hermesThread).values({
+      id: 'thr_patch',
+      session_id: 'ses_patch',
+      session_key: 'k',
+    })
+
+    const patch = (body: unknown) =>
+      app.handle(
+        new Request('http://localhost/hermes/threads/thr_patch', {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        }),
+      )
+
+    const renamed = (await (await patch({ title: 'Renamed', pinned: true })).json()) as {
+      title: string
+      pinned: number
+    }
+    expect(renamed.title).toBe('Renamed')
+    expect(renamed.pinned).toBe(1)
+
+    const archived = (await (await patch({ archived: true })).json()) as {
+      status: string
+      archived_at: string | null
+    }
+    expect(archived.status).toBe('archived')
+    expect(archived.archived_at).not.toBeNull()
+
+    const unarchived = (await (await patch({ archived: false })).json()) as {
+      status: string
+      archived_at: string | null
+    }
+    expect(unarchived.status).toBe('active')
+    expect(unarchived.archived_at).toBeNull()
+  })
+
+  it('404s a PATCH to a missing thread', async () => {
+    const { fetchImpl } = fakeHermes()
+    const app = buildApp(fetchImpl)
+    const res = await app.handle(
+      new Request('http://localhost/hermes/threads/thr_nope', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: 'x' }),
+      }),
+    )
+    expect(res.status).toBe(404)
   })
 })
 

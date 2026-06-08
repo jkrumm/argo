@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { eq } from 'drizzle-orm'
+import { and, asc, count, desc, eq, isNull } from 'drizzle-orm'
 import {
   convertToModelMessages,
   createIdGenerator,
@@ -19,6 +19,7 @@ import {
 } from '../db/schema.js'
 import { tracedFetch } from '../lib/traced-fetch.js'
 import { filterToolProgress, type ToolProgressData } from '../lib/hermes-sse.js'
+import { aiComplete } from './ai.js'
 import { env } from '../env.js'
 import { log } from '../telemetry.js'
 
@@ -43,6 +44,9 @@ const messageIdGen = createIdGenerator({ prefix: 'msg', size: 16 })
  */
 export type FetchImpl = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
 
+/** Generate a short thread title from the first user+assistant exchange. */
+export type GenerateTitle = (input: { userText: string; assistantText: string }) => Promise<string>
+
 /** Injectable upstream config so tests can point at a fake Hermes SSE server. */
 export interface HermesRouteDeps {
   baseURL: string
@@ -51,7 +55,27 @@ export interface HermesRouteDeps {
   model: string
   /** Underlying transport the proxy wraps (defaults to the OTel-traced fetch). */
   fetchImpl: FetchImpl
+  /**
+   * Titler for fresh threads (DeepSeek v4 Flash via the AI gateway by default).
+   * Injectable so tests title against a mock without a live bridge.
+   */
+  generateTitle: GenerateTitle
 }
+
+const TITLE_SYSTEM =
+  'You write concise titles for chat threads. Reply with ONLY the title: 2-6 words, ' +
+  'no surrounding quotes, no trailing punctuation, in the language of the conversation.'
+
+/** Default titler: a single non-streaming DeepSeek completion via `aiComplete`. */
+const deepseekTitle: GenerateTitle = ({ userText, assistantText }) =>
+  aiComplete(
+    [
+      'Summarize this exchange as a short thread title.',
+      `User: ${userText.slice(0, 500)}`,
+      `Assistant: ${assistantText.slice(0, 500)}`,
+    ].join('\n'),
+    { system: TITLE_SYSTEM, temperature: 0.3, maxTokens: 24 },
+  )
 
 function defaultDeps(): HermesRouteDeps {
   return {
@@ -60,7 +84,60 @@ function defaultDeps(): HermesRouteDeps {
     sessionKey: env.HERMES_SESSION_KEY,
     model: env.HERMES_MODEL,
     fetchImpl: tracedFetch,
+    generateTitle: deepseekTitle,
   }
+}
+
+/** Concatenate the text of a message's `text` parts (ignores cards/tool parts). */
+function partsText(parts: MessageParts): string {
+  return parts
+    .filter((p): p is Extract<MessageParts[number], { type: 'text' }> => p.type === 'text')
+    .map((p) => p.text)
+    .join('')
+}
+
+/** Trim, strip wrapping quotes, collapse whitespace, cap length for a title. */
+function cleanTitle(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .slice(0, 80)
+    .trim()
+}
+
+/**
+ * Auto-title a fresh thread from its first user+assistant exchange. Best-effort
+ * and non-blocking: skips threads that already have a title (the `isNull` guard
+ * also makes the write idempotent under concurrent turns) and swallows nothing —
+ * the caller fire-and-forgets and logs failures.
+ */
+async function titleThreadIfNeeded(threadId: string, generateTitle: GenerateTitle): Promise<void> {
+  const thread = await db.query.hermesThread.findFirst({
+    where: eq(hermesThread.id, threadId),
+  })
+  if (!thread || thread.title) return
+
+  const msgs = await db
+    .select()
+    .from(hermesMessage)
+    .where(eq(hermesMessage.thread_id, threadId))
+    .orderBy(asc(hermesMessage.created_at), asc(hermesMessage.id))
+  const firstUser = msgs.find((m) => m.role === 'user')
+  const firstAssistant = msgs.find((m) => m.role === 'assistant')
+  if (!firstUser || !firstAssistant) return
+
+  const userText = partsText(firstUser.parts)
+  const assistantText = partsText(firstAssistant.parts)
+  if (!userText && !assistantText) return
+
+  const title = cleanTitle(await generateTitle({ userText, assistantText }))
+  if (!title) return
+
+  await db
+    .update(hermesThread)
+    .set({ title })
+    .where(and(eq(hermesThread.id, threadId), isNull(hermesThread.title)))
 }
 
 const ChatBodySchema = z.object({
@@ -80,6 +157,68 @@ const ChatBodySchema = z.object({
   // are validated by the SDK downstream, so they stay opaque to Zod here.
   messages: z.array(z.unknown()).min(1).describe('UIMessage[] — the new user turn.'),
 })
+
+// ── Read-CRUD schemas (thread/message reads, create, patch) ──────────────────
+
+const ThreadSchema = z.object({
+  id: z.string().describe('App-generated thread id (thr_…).'),
+  session_id: z.string().describe('X-Hermes-Session-Id — Hermes thread continuity.'),
+  session_key: z.string().describe('X-Hermes-Session-Key — long-term memory scope.'),
+  title: z.string().nullable().describe('DeepSeek-generated title; null until titled.'),
+  status: z.enum(['active', 'archived']),
+  pinned: z.number().int().describe('1 if pinned, else 0.'),
+  archived_at: z.string().nullable().describe('ISO timestamp when archived, else null.'),
+  created_at: z.string().describe('ISO 8601 creation timestamp.'),
+  updated_at: z.string().describe('ISO 8601 timestamp of the last turn.'),
+})
+
+const MessageSchema = z.object({
+  id: z.string().describe('App-generated message id (msg_…).'),
+  thread_id: z.string(),
+  role: z.enum(['user', 'assistant', 'system']),
+  // Opaque AI SDK UIMessage parts, stored + returned verbatim.
+  parts: z.array(z.unknown()).describe('AI SDK UIMessage parts (text/cards/etc.), verbatim.'),
+  payload: z
+    .unknown()
+    .nullable()
+    .describe('Non-transcript extension data (audio refs, attachments, tool events).'),
+  status: z.enum(['complete', 'streaming', 'interrupted', 'error']),
+  created_at: z.string().describe('ISO 8601 creation timestamp.'),
+})
+
+const ThreadListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50).optional(),
+  status: z
+    .enum(['active', 'archived', 'all'])
+    .default('active')
+    .describe('Filter by lifecycle status; "all" includes archived. Default: active.')
+    .optional(),
+})
+
+const CreateThreadBodySchema = z.object({
+  title: z.string().min(1).max(200).describe('Optional initial title.').optional(),
+  sessionId: z
+    .string()
+    .describe('X-Hermes-Session-Id to adopt; minted when omitted (fresh context).')
+    .optional(),
+  sessionKey: z
+    .string()
+    .describe('Override the long-term-memory X-Hermes-Session-Key; defaults to the configured one.')
+    .optional(),
+})
+
+const PatchThreadBodySchema = z.object({
+  title: z.string().min(1).max(200).describe('Rename the thread.').optional(),
+  pinned: z.boolean().describe('Pin/unpin the thread.').optional(),
+  archived: z.boolean().describe('Archive/unarchive the thread.').optional(),
+})
+
+// DB `status`/`role` are plain text columns (typed `string`); the response
+// schemas narrow them to literal unions for the OpenAPI contract. These aliases
+// + the casts at each return reconcile the two (runtime is validated by Elysia).
+type ThreadResponse = z.infer<typeof ThreadSchema>
+type MessageResponse = z.infer<typeof MessageSchema>
 
 /**
  * Resolve the thread for a chat turn: reuse an existing row's session_id, or
@@ -120,7 +259,12 @@ async function persistTurn(args: {
   toolEvents: ToolProgressData[]
   aborted: boolean
 }): Promise<void> {
-  const rows = args.messages.map((m) => ({
+  // Stamp a distinct, monotonically increasing created_at per message. A single
+  // transaction's `now()` is identical for every row, so relying on the column
+  // default would make the user→assistant order within a turn non-deterministic
+  // on read; an explicit per-index offset preserves the array order verbatim.
+  const baseMs = Date.now()
+  const rows = args.messages.map((m, i) => ({
     id: messageIdGen(),
     thread_id: args.threadId,
     role: m.role,
@@ -130,6 +274,7 @@ async function persistTurn(args: {
         ? ({ toolEvents: args.toolEvents } satisfies MessagePayload)
         : null,
     status: m.role === 'assistant' && args.aborted ? 'interrupted' : 'complete',
+    created_at: new Date(baseMs + i).toISOString(),
   }))
   await db.transaction(async (tx) => {
     await tx.insert(hermesMessage).values(rows)
@@ -256,6 +401,14 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
               })
             } catch (error) {
               log.error('hermes transcript persist failed', error)
+              return
+            }
+            // Auto-title a fresh thread off the response path: fire-and-forget so
+            // it never delays the stream; the row updates when DeepSeek answers.
+            if (!isAborted) {
+              titleThreadIfNeeded(resolvedThreadId, deps.generateTitle).catch((error) =>
+                log.error('hermes auto-title failed', error),
+              )
             }
           },
         })
@@ -272,6 +425,127 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
           summary: 'Stream a chat turn through the Hermes agent core',
           description:
             "Proxies the new user turn to Hermes `/v1/chat/completions` (SSE) over Tailscale with the bearer kept server-side, and streams back a Vercel-AI-SDK UIMessageStream. Hermes holds conversation history per `X-Hermes-Session-Id`, so only the latest turn is forwarded. Hermes' custom `hermes.tool.progress` events are injected as transient `data-toolProgress` parts (live progress; not persisted). On completion the user + assistant messages are written verbatim to Postgres. Pass `threadId` to continue a thread; omit it to start a fresh one. Response is `text/event-stream`, not JSON.",
+          security: [{ BearerAuth: [] }],
+        },
+      },
+    )
+    .post(
+      '/threads',
+      async ({ body }) => {
+        const [row] = await db
+          .insert(hermesThread)
+          .values({
+            id: threadIdGen(),
+            session_id: body.sessionId ?? sessionIdGen(),
+            session_key: body.sessionKey ?? deps.sessionKey,
+            ...(body.title ? { title: body.title } : {}),
+          })
+          .returning()
+        return row! as ThreadResponse
+      },
+      {
+        body: CreateThreadBodySchema,
+        response: ThreadSchema,
+        detail: {
+          tags: ['Hermes Chat'],
+          summary: 'Create a chat thread',
+          description:
+            'Creates a thread, minting a fresh `session_id` (X-Hermes-Session-Id) for a clean Hermes context and defaulting `session_key` (long-term memory scope) to the configured value. Pass `sessionId`/`sessionKey` to adopt explicit ones. Returns the new row. POST /hermes/chat also lazily creates a thread, so calling this first is optional — use it when the UI needs a thread id before the first message.',
+          security: [{ BearerAuth: [] }],
+        },
+      },
+    )
+    .get(
+      '/threads',
+      async ({ query }) => {
+        const { page = 1, limit = 50, status = 'active' } = query
+        const where = status === 'all' ? undefined : eq(hermesThread.status, status)
+        const [rows, [countRow]] = await Promise.all([
+          db
+            .select()
+            .from(hermesThread)
+            .where(where)
+            .orderBy(desc(hermesThread.pinned), desc(hermesThread.updated_at))
+            .limit(limit)
+            .offset((page - 1) * limit),
+          db.select({ count: count() }).from(hermesThread).where(where),
+        ])
+        return { data: rows as ThreadResponse[], total: Number(countRow?.count ?? 0) }
+      },
+      {
+        query: ThreadListQuerySchema,
+        response: z.object({ data: z.array(ThreadSchema), total: z.number().int() }),
+        detail: {
+          tags: ['Hermes Chat'],
+          summary: 'List chat threads',
+          description:
+            "Returns threads ordered pinned-first then by most recent activity (updated_at desc). Excludes archived threads by default; pass `?status=archived` or `?status=all` to change that. `total` is the unfiltered count for the active filter. For a thread's transcript use GET /hermes/threads/{id}/messages.",
+          security: [{ BearerAuth: [] }],
+        },
+      },
+    )
+    .get(
+      '/threads/:id/messages',
+      async ({ params, status }) => {
+        const thread = await db.query.hermesThread.findFirst({
+          where: eq(hermesThread.id, params.id),
+        })
+        if (!thread) return status(404, 'Thread not found')
+        const rows = await db
+          .select()
+          .from(hermesMessage)
+          .where(eq(hermesMessage.thread_id, params.id))
+          .orderBy(asc(hermesMessage.created_at), asc(hermesMessage.id))
+        return { data: rows as MessageResponse[], total: rows.length }
+      },
+      {
+        params: z.object({ id: z.string().describe('Thread id (thr_…).') }),
+        response: {
+          200: z.object({ data: z.array(MessageSchema), total: z.number().int() }),
+          404: z.string(),
+        },
+        detail: {
+          tags: ['Hermes Chat'],
+          summary: 'Get a thread transcript',
+          description:
+            'Returns the verbatim, chronologically ordered messages of a thread (the display transcript Argo owns; Hermes holds only compressed state). Each message carries its AI SDK `parts` (text/cards/etc.) and `payload` (audio refs, attachments, tool events) exactly as persisted, plus a `status` (`complete`/`interrupted`/…). Returns 404 if the thread does not exist.',
+          security: [{ BearerAuth: [] }],
+        },
+      },
+    )
+    .patch(
+      '/threads/:id',
+      async ({ params, body, status }) => {
+        const existing = await db.query.hermesThread.findFirst({
+          where: eq(hermesThread.id, params.id),
+        })
+        if (!existing) return status(404, 'Thread not found')
+
+        const set: Partial<typeof hermesThread.$inferInsert> = {}
+        if (body.title !== undefined) set.title = body.title
+        if (body.pinned !== undefined) set.pinned = body.pinned ? 1 : 0
+        if (body.archived !== undefined) {
+          set.status = body.archived ? 'archived' : 'active'
+          set.archived_at = body.archived ? new Date().toISOString() : null
+        }
+        if (Object.keys(set).length === 0) return existing as ThreadResponse
+
+        const [row] = await db
+          .update(hermesThread)
+          .set(set)
+          .where(eq(hermesThread.id, params.id))
+          .returning()
+        return row! as ThreadResponse
+      },
+      {
+        params: z.object({ id: z.string().describe('Thread id (thr_…).') }),
+        body: PatchThreadBodySchema,
+        response: { 200: ThreadSchema, 404: z.string() },
+        detail: {
+          tags: ['Hermes Chat'],
+          summary: 'Rename, pin, or archive a thread',
+          description:
+            'Partially updates a thread: `title` renames it, `pinned` pins/unpins (pinned threads sort first), `archived` archives/unarchives it (archiving stamps `archived_at` and sets status to `archived`, hiding it from the default list). Send only the fields to change. Does not touch `updated_at` (which tracks message activity). Returns 404 if the thread does not exist.',
           security: [{ BearerAuth: [] }],
         },
       },
