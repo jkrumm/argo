@@ -126,7 +126,9 @@ typography:
     letterSpacing: 0
 
 spacing:
-  # Mantine v9 inherited scale. SNAPSHOT — hardening (likely a 4px grid à la Carbon) is next.
+  # OWNED in theme.ts (`spacing`) — no longer inherited. Values match v9 today (a zero-pixel
+  # ownership step); a strict 4px-grid tightening (xs 10→8, lg 20→24) is a ready one-line follow-up.
+  # The guard rejects raw spacing props equal to a step (use the token: p="md", gap="sm").
   xs: 10px
   sm: 12px
   md: 16px
@@ -134,9 +136,9 @@ spacing:
   xl: 32px
 
 rounded:
-  # Mantine v9 radius scale. NOTE: v9's DEFAULT radius is `md` (8px) and theme.ts does not yet
-  # override it — so the app currently renders 8px. Argo intends tight radii (`sm`/4px default,
-  # cards at `md`); set deliberately during the chrome retheme. SNAPSHOT.
+  # OWNED in theme.ts (`radius`); `defaultRadius: 'sm'` (4px) for controls, cards at `md` (8px) —
+  # tight, à la Linear/Carbon. Tightening large radii (lg 16→12, xl 32→16) is a ready follow-up.
+  # The guard rejects any numeric `radius` prop (use the token: radius="sm").
   xs: 2px
   sm: 4px
   md: 8px
@@ -362,9 +364,11 @@ System-sans, carried by **size + weight** (no display/body family split). Number
 Density is the point: this is a terminal, not a marketing page — sections separate by surface
 change and hairlines, not by large air. Card interior padding defaults to `{spacing.md}` (16px).
 
-> Spacing is the **current Mantine inheritance** (`{spacing.xs}` 10 → `{spacing.xl}` 32 — not yet a
-> clean 4px grid). **Next-session hardening:** decide whether to move to a 4px grid (Carbon-style),
-> ban raw `px` spacing in favour of tokens, and extend the guard to catch magic numbers.
+> Spacing/radius are now **OWNED in theme.ts** (values still match v9 — a zero-pixel ownership step).
+> The guard rejects raw spacing props equal to a scale step (`p={16}` → `p="md"`) and any numeric
+> `radius`, while leaving sub-scale micro-gaps (`gap={2/4/6}`) alone — those have no token and are
+> legitimate. **Ready follow-up:** flip the scale to a strict 4px grid (xs 10→8, lg 20→24) + tighter
+> large radii in theme.ts and re-validate density. A full type ladder is the remaining hardening.
 
 ## Elevation & Depth
 
@@ -519,9 +523,9 @@ The teeth, today:
 - **oxlint** — `no-restricted-imports` bans `@visx/tooltip` in chart files.
 
 Known gaps (next-session): named CSS colors (e.g. `red`, `rebeccapurple`) still slip past the hex
-guard; spacing/radius magic numbers are unguarded (pending a deliberate spacing/type/radius scale to
-guard against); `palette.ts` ↔ `DESIGN.md` drift (fix: codegen the snapshot from palette.ts, or
-`design.md export --format dtcg`).
+guard; the spacing/radius guard is deliberately narrow (only token-equal values; sub-scale micro-gaps
+are allowed by design); a full type ladder is unenforced; `palette.ts` ↔ `DESIGN.md` drift (fix:
+codegen the snapshot from palette.ts, or `design.md export --format dtcg`).
 
 ## Promotion path
 

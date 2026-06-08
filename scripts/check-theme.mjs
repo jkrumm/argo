@@ -13,6 +13,11 @@
  *      USED as chrome accents. Allowed accents: blue (identity), gray (neutral), and the
  *      status hues red/green/orange/yellow. Series/categorical color goes through VX.* tokens,
  *      never a Mantine accent prop.
+ *   3. raw spacing/radius numbers that EQUAL a named scale step — a `p`/`m`/`gap`-family prop set
+ *      to 10/12/16/20/32 (theme.ts `spacing`), or any numeric `radius`. These should use the token
+ *      (`p="md"`, `radius="sm"`). Deliberately NARROW: sub-scale micro-gaps (2/4/6/8) and one-off
+ *      layout dims are legitimate and left alone — only an exact token-equals is flagged, so the
+ *      guard stays near-zero-noise (drift-proofing, not a px crusade).
  *
  * Allowed: CSS vars (var(--vx-*)), color-mix() / alpha(), and any line carrying a
  * `theme-allow` comment (an explicit, diff-visible exception).
@@ -40,6 +45,10 @@ const FUNC = /\b(?:rgba?|hsla?)\(/g
 // Off-identity Mantine accent props: color="violet", c='indigo', bg={'teal'}, … (any quote/brace form).
 const FORBIDDEN_ACCENT =
   /\b(?:color|c|bg|backgroundColor)\s*=\s*\{?\s*['"](teal|violet|grape|indigo|pink)['"]/g
+// Spacing prop whose raw px EQUALS a named scale step (theme.ts spacing 10/12/16/20/32) → use the token.
+const SPACING_PROP = /\b(?:p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|gap)=\{(?:10|12|16|20|32)\}/g
+// Any numeric radius prop → use a radius token (xs/sm/md/lg/xl).
+const RADIUS_PROP = /\bradius=(?:\{[0-9]+\}|"[0-9]+")/g
 
 const violations = []
 
@@ -57,6 +66,12 @@ function scanFile(abs, rel) {
     }
     for (const m of line.matchAll(FORBIDDEN_ACCENT)) {
       violations.push({ rel, line: i + 1, token: m[1], kind: 'off-identity-accent' })
+    }
+    for (const m of line.matchAll(SPACING_PROP)) {
+      violations.push({ rel, line: i + 1, token: m[0], kind: 'raw-spacing' })
+    }
+    for (const m of line.matchAll(RADIUS_PROP)) {
+      violations.push({ rel, line: i + 1, token: m[0], kind: 'raw-radius' })
     }
   }
 }
@@ -90,7 +105,8 @@ for (const [file, vs] of [...byFile].sort()) {
 }
 console.error(
   'Fix: route color through VX.* / useVxTheme() / the Mantine theme; for an off-identity accent use ' +
-    'blue/gray or a status hue (red/green/orange/yellow), or a VX series token. Add a `theme-allow` ' +
-    'comment for a deliberate exception.',
+    'blue/gray or a status hue (red/green/orange/yellow), or a VX series token; for raw spacing/radius ' +
+    'use the scale token (p="md", gap="sm", radius="sm"). Add a `theme-allow` comment for a deliberate ' +
+    'exception.',
 )
 process.exit(1)

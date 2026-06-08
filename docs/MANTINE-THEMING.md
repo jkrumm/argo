@@ -402,11 +402,24 @@ A small `nav-config.ts` (route, label, icon, badge) drives the list so items are
 
 ### 8.3 Enforcement & DESIGN.md sync
 
-- Extend `scripts/check-theme.mjs` to also flag **forbidden Mantine accent names** for identity
-  (`teal`/`violet`/`indigo`) and (later) raw spacing/radius magic numbers — closes the known gap.
+- **Guard, extended (built).** `scripts/check-theme.mjs` (in `bun run lint`) now flags three things
+  in `apps/dashboard/src` + `packages/charts/src`: (1) raw `hex`/`rgb()`/`hsl()`; (2) **off-identity
+  Mantine accents** — `color`/`c`/`bg`/`backgroundColor` set to `teal`/`violet`/`grape`/`indigo`/`pink`
+  (the forbidden turquoise/violet/rose); (3) **raw spacing/radius that equals a scale step** —
+  `p`/`m`/`gap`-family props at `10/12/16/20/32`, or any numeric `radius`. The spacing check is
+  deliberately **narrow**: sub-scale micro-gaps (`gap={2/4/6}`) have no token and are left alone — a
+  blanket px guard would be ~90% noise (measured: of 130 numeric spacing props, only 13 sat on a
+  scale step), which would erode the guard's signal. Allowed accents: `blue`/`gray` + status
+  `red`/`green`/`orange`/`yellow`.
+- **Scales owned (built).** `theme.ts` now sets `spacing` + `radius` explicitly (values match v9 — a
+  zero-pixel ownership step) so they're the single edit point + the guard's reference, not inherited
+  defaults. Flipping to a strict 4px grid (xs 10→8, lg 20→24) + tighter large radii is a one-line
+  follow-up; re-validate density after.
+- **`.claude/rules/design-tokens.md`** (repo root, scoped to dashboard + charts) is the agent-facing
+  checklist for all of the above — so AI/agent edits stay on-token without reading the whole law.
 - Advance DESIGN.md's **Components / Shapes / Elevation** sections to describe the realized chrome
   (radius decision, `withBorder` elevation, the surface-var binding), and add the
-  Mantine↔`--vx-*` binding table. Keep the front-matter snapshot honest (fix the radius note).
+  Mantine↔`--vx-*` binding table. Keep the front-matter snapshot honest (radius note fixed).
 - Keep the universal/instantiation seam: the _technique_ (bind chrome vars to your token system)
   is promotable; the concrete `--vx-*` names are Argo's instantiation.
 

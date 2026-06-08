@@ -84,6 +84,13 @@ export const theme = createTheme({
   fontFamilyMonospace: "ui-monospace, 'SF Mono', Menlo, monospace",
   // Named weight ladder (v9 fontWeights) — matches DESIGN.md typography weights.
   fontWeights: { normal: '400', medium: '500', semibold: '600', bold: '700' },
+  // Deliberate, OWNED spacing + radius scales — no longer inherited Mantine defaults. The values
+  // match v9 today (so this is a zero-pixel ownership step), but they now live here as the single
+  // edit point and the reference `scripts/check-theme.mjs` enforces against. A strict 4px-grid
+  // tightening (xs 10→8, lg 20→24) + tighter large radii is a ready follow-up — change here and
+  // re-validate density. See DESIGN.md (spacing / rounded) + docs/MANTINE-THEMING.md §8.3.
+  spacing: { xs: '0.625rem', sm: '0.75rem', md: '1rem', lg: '1.25rem', xl: '2rem' }, // 10 12 16 20 32
+  radius: { xs: '0.125rem', sm: '0.25rem', md: '0.5rem', lg: '1rem', xl: '2rem' }, // 2 4 8 16 32
   colors: {
     dark: bpDark,
     gray: ramp10(BP.gray),
