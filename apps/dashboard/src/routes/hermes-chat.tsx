@@ -1,28 +1,28 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Center, Stack, Text, ThemeIcon, Title } from '@mantine/core'
-import { IconMessageChatbot } from '@tabler/icons-react'
+import { Suspense } from 'react'
+import { Center, Loader } from '@mantine/core'
+import { HermesChatPage } from '../features/hermes-chat'
+import { hermesQueries } from '../lib/queries/hermes'
 
-// Hermes Chat — thread-first chat with the Hermes agent core. Group 1 ships a
-// placeholder only; the working chat (useChat → /hermes/chat, responsive
-// list+detail, streaming render) lands in Group 5. See docs/HERMES-CHAT-PRD.md.
+// Hermes Chat — thread-first chat with the Hermes agent core. Streaming transport
+// (useChat → /hermes/chat), responsive list+detail, base markdown rendering.
+// Smart cards/diagrams land in Group 6. See docs/HERMES-CHAT-PRD.md.
 
 export const Route = createFileRoute('/hermes-chat')({
+  loader: ({ context }) => context.queryClient.ensureQueryData(hermesQueries.threads('active')),
   component: HermesChatRoute,
 })
 
 function HermesChatRoute() {
   return (
-    <Center mih="60vh">
-      <Stack align="center" gap="sm" maw={420} ta="center">
-        <ThemeIcon size={56} radius="xl" variant="light" color="blue">
-          <IconMessageChatbot size={32} />
-        </ThemeIcon>
-        <Title order={3}>Hermes Chat</Title>
-        <Text c="dimmed">
-          Thread-first chat with the Hermes agent is coming soon. Streaming responses, rich
-          rendering, and audio land in the upcoming build groups.
-        </Text>
-      </Stack>
-    </Center>
+    <Suspense
+      fallback={
+        <Center mih="60vh">
+          <Loader />
+        </Center>
+      }
+    >
+      <HermesChatPage />
+    </Suspense>
   )
 }

@@ -1,0 +1,24 @@
+/* Thread row. Neutral hover + selected fill — selection is UI state, not a data
+ * signal, so it never spends the identity blue (DESIGN.md, "ink earns its color"
+ * applied to chrome — mirrors the nav active-state treatment). */
+
+.row {
+  display: block;
+  width: 100%;
+  padding: 6px var(--mantine-spacing-xs);
+  border-radius: var(--mantine-radius-sm);
+  color: inherit;
+}
+
+.row:hover {
+  background-color: var(--mantine-color-default-hover);
+}
+
+.row[data-selected] {
+  background-color: var(--mantine-color-default-hover);
+}
+
+.pin {
+  flex-shrink: 0;
+  color: var(--mantine-color-dimmed);
+}

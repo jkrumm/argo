@@ -1,0 +1,40 @@
+/* Streaming-safe prose container for rendered assistant/user markdown. Element
+ * styling is Mantine-native (see message-markdown.tsx component map); this module
+ * only owns block rhythm — vertical spacing between top-level blocks and a few
+ * resets react-markdown's default wrappers would otherwise impose. */
+
+.prose {
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.prose > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.prose > * + * {
+  margin-top: var(--mantine-spacing-xs);
+}
+
+.prose :is(ul, ol) {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.prose li + li {
+  margin-top: 0.15rem;
+}
+
+.prose pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Tables can be wider than the bubble — let them scroll rather than overflow. */
+.prose :global(.mantine-Table-table) {
+  display: block;
+  overflow-x: auto;
+}

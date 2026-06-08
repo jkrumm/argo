@@ -421,3 +421,130 @@ new green from the rebuilt hermes test file).
   Group 7's output-shaping work could tighten this if needed.
 - **`updated_at` is bumped only on a chat turn**, not on PATCH. If the UI wants
   pin/rename to resurface a thread, revisit the ordering key.
+
+## Group 5: Frontend core chat (working chat!)
+
+### What was implemented
+
+The dashboard side of Hermes Chat — a usable threaded chat on Mac + iPhone.
+
+- **Data hooks** (`apps/dashboard/src/lib/queries/hermes.ts`): TanStack Query v5
+  factory `hermesQueries` (`threads(status)`, `messages(threadId)`, `health()`)
+  through Eden Treaty, plus `hermesMutations` (`createThread`, `patchThread`).
+  Local `HermesThread`/`HermesMessage` types mirror the Group 4 response schemas.
+- **`useChat` transport** (`features/hermes-chat/transport.ts`): a
+  `DefaultChatTransport` pointed at `/api/hermes/chat`, injecting the Bearer from
+  `useAuthStore` (`getToken()`) in `headers` — the stream bypasses Eden, so the
+  token is injected here, resolved fresh per request.
+  `prepareSendMessagesRequest` sends only the latest message (`messages.slice(-1)`)
+  - `threadId`/`sessionId`, matching the proxy's `ChatBodySchema`.
+- **Base rendering** (`message-markdown.tsx` + `.module.css`): `react-markdown`
+  v10 + `remend` (streaming-safe preprocessor) + `remark-gfm`, with Mantine-native
+  element mappings (headings→`Title`, `p`→`Text`, `a`→`Anchor` target=\_blank,
+  lists→`List`, code→`Code`/`Code block`, tables→`Table.*`, `blockquote`→
+  `Blockquote`, `hr`→`Divider`). Card/mermaid/vega fall through to plain
+  `Code block` (Group 6 replaces them). Memoized so a streaming turn only re-parses
+  the message whose text changed.
+- **Conversation** (`chat-conversation.tsx`): owns the `useChat<HermesUIMessage>`
+  instance; renders user messages as a right-aligned neutral bubble and assistant
+  messages as plain prose under a "Hermes" label; live streaming via `messages`;
+  transient tool-progress captured in `onData` → "Hermes is <label>…" indicator
+  while awaiting the first reply token; composer (autosize `Textarea`, Enter to
+  send / Shift+Enter newline, Stop button while streaming via `stop()`);
+  auto-scroll to bottom. `onFinish` invalidates the thread cache (+ a delayed
+  re-invalidate to catch the async DeepSeek title).
+- **Hydration** (`chat-view.tsx`): fetches the persisted transcript, maps rows →
+  `HermesUIMessage[]` (carrying `metadata.status` so interrupted messages render a
+  badge), and mounts `ChatConversation` keyed by thread id so switching threads
+  remounts with the right history (`useChat` reads `messages` only at init).
+- **Responsive list+detail** (`chat-page.tsx`): `useMediaQuery('(min-width: 62em)')`
+  → Mac two-pane (`ThreadList` 300px + conversation), iPhone single-pane (list, or
+  full-screen thread with a back affordance). Fills the app-shell main area exactly
+  via a `calc(100dvh - header-offset - footer-offset - 2*padding)` height so the
+  panes scroll internally, not the page. "New chat" → `createThread` mutation,
+  optimistically prepended to the list cache, then selected.
+- **Thread list** (`thread-list.tsx` + `.module.css`): pinned-first/newest rows
+  with a neutral selected fill (selection is UI state, not a data signal → no
+  identity blue, per DESIGN.md), relative `updated_at`, "New chat" button.
+- **Route** (`routes/hermes-chat.tsx`): replaced the Group 1 placeholder; loader
+  `ensureQueryData(threads('active'))`, page in a `<Suspense>`.
+
+### Deviations from prompt
+
+- **Selection is local state, not a URL search param.** Simpler, no `__root.tsx`
+  nav-search churn, and the reload-restores-transcript criterion is satisfied by DB
+  persistence regardless. Deep-linking a thread via `?thread=` is a cheap later add.
+- **"New chat" always creates the thread server-side first** (`POST /hermes/threads`)
+  rather than letting `/hermes/chat` lazily mint one. This is exactly what the PRD's
+  Group 5 line says ("New chat → POST /hermes/threads then select it") and it avoids
+  the otherwise-unsolved problem of the client not knowing a server-minted thread id
+  from inside the stream. So the client always sends a known `threadId`.
+- **Tool-progress via `onData`, not message parts.** Verified in the SDK source
+  (`ai/dist/index.js` ~L3984): a `transient` data chunk calls `onData` and `break`s —
+  it is never pushed into `state.message.parts`. So the live "Hermes is …" indicator
+  reads `onData`; nothing transient leaks into the rendered/persisted transcript.
+- **Nav unchanged** — Hermes Chat stays in the grouped drawer (the Group 1
+  `mobile:false` decision); it's reachable on mobile via the Menu drawer. Adding a
+  5th bottom-nav tab would crowd the curated 4 + Menu. Revisit if it becomes a daily
+  primary.
+
+### Gotchas & surprises
+
+- **react-markdown v10 element mappings can't spread raw props into Mantine.** The
+  intrinsic-element props carry an element-specific `ref` type (e.g. `ul`'s
+  `Ref<HTMLUListElement>`) that fails to assign to Mantine's component ref. Fix:
+  forward only `children` (+ `href`/`className` where needed), never `{...props}`.
+- **v10 dropped the `code` `inline` prop.** Block vs inline is detected by a
+  `language-*` class or a newline in the text; everything else is inline `<Code>`.
+  The `pre` mapping is a pass-through (`<>{children}</>`) because `Code block`
+  renders its own `<pre>`.
+- **`useChat` reads `messages` only at init for a given id.** Hydration therefore
+  has to gate on the transcript query and mount the chat component keyed by thread
+  id — passing `messages` to a chat that's already mounted does nothing.
+- **`headers` typing.** A `token ? {Authorization} : {}` ternary widens to
+  `{Authorization?: undefined}`, which isn't assignable to `Record<string,string>`;
+  build the object imperatively instead.
+- **Full-height layout.** Mantine `AppShell.Main` sets `min-height`, not `height`,
+  so a child `h="100%"` doesn't resolve. The page sets an explicit height off the
+  app-shell CSS vars (`--app-shell-header-offset`/`-footer-offset`/`-padding`).
+
+### Security notes
+
+- The Argo Bearer is injected only into the `/api/hermes/chat` request headers from
+  `useAuthStore`; it is never bundled. The Hermes upstream bearer stays server-side
+  in the Group 2 proxy. Eden already injects the same Bearer for the CRUD/read calls.
+- `a` links render with `target="_blank" rel="noopener noreferrer"`. LLM output is
+  rendered as markdown only (no raw HTML beyond what react-markdown allows; full
+  `rehype-sanitize`/`rehype-harden` + sandboxed mermaid/vega land in Group 6).
+
+### Tests added
+
+None. Group 5 is the frontend UI layer; there is no dashboard test harness in this
+repo (the loop's test discipline is API-side, against mocked upstreams). Manual
+acceptance (start/continue/new thread on Mac + iPhone, streaming, reload-restore) is
+Johannes' post-loop step against live Hermes. The validation gate (lint, format,
+3× typecheck, dashboard build) passes.
+
+### Validation result
+
+- `bun run lint` ✓ (0 errors; 20 pre-existing warnings; theme guard clean — no raw
+  hex / off-palette accents)
+- `bun run format:check` ✓
+- `tsc` typecheck ✓ api, dashboard (incl. `tsr generate`), charts
+- `bun run --cwd apps/dashboard build` ✓ (hermes-chat route chunk ~324 kB / 90 kB
+  gzip — react-markdown + AI SDK; pre-existing chunk-size + rrule warnings unrelated)
+
+### Future improvements
+
+- **Auto-title latency.** The thread title is generated async server-side; the UI
+  catches it via an `onFinish` invalidate + a 2.5s delayed re-invalidate. A push
+  channel (or returning the title in a final stream part) would be tighter than the
+  timer heuristic.
+- **No edit/regenerate/delete-thread UI** yet — `PATCH /hermes/threads` (rename/pin/
+  archive) is wired in `hermesMutations` but not surfaced. Add a thread context menu.
+- **Reasoning / step parts** from the assistant are ignored (only `text` parts
+  render). Fine for base chat; revisit if Hermes emits reasoning the user should see.
+- **Deep-linking** a selected thread via a search param would make reload restore the
+  open thread (today reload returns to the list; the transcript itself persists).
+- **Bundle**: the route already code-splits, but mermaid/vega (Group 6) will grow it
+  — consider lazy-importing the diagram renderers behind their fenced blocks.
