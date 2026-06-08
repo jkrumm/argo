@@ -51,8 +51,14 @@ export const Env = z.object({
   // behavior; handlers land in Groups 2–3.
 
   // Hermes agent core — OpenAI-compatible API over Tailscale (port 8642).
+  // HERMES_BASE_URL must include the OpenAI path prefix (e.g.
+  // `http://<tailnet-host>:8642/v1`); the provider appends `/chat/completions`.
+  // The liveness check derives `/health` from the URL origin.
   HERMES_BASE_URL: z.string().default(''),
   HERMES_API_KEY: z.string().default(''),
+  // OpenAI `model` field sent to Hermes. The agent maps/ignores it; kept
+  // configurable so a future multi-persona Hermes can be addressed.
+  HERMES_MODEL: z.string().default('hermes'),
   // Long-term memory scope (Honcho conversation id). Default resolves to the
   // Slack #hermes group key for Johannes — see .env.local.tpl for derivation.
   HERMES_SESSION_KEY: z.string().default('agent:main:slack:group:C0ASRUD7K1U:U0AS54FURPE'),

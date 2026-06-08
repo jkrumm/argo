@@ -106,3 +106,114 @@ jsonb $type<MessagePayload>`, FK `thread_id → hermes_thread` (cascade), and in
 - Confirm Traefik does not buffer `/api/hermes/chat` before Group 2 ships streaming (PRD
   E2E adjustment #7).
 - Re-evaluate the AI SDK v5 → v6 migration as a standalone task once the core chat is QA'd.
+
+## Group 2: Hermes chat proxy + persistence
+
+### What was implemented
+
+- **`POST /hermes/chat`** (`apps/api/src/routes/hermes.ts`) — streams a Vercel-AI-SDK
+  `UIMessageStream` to the client while proxying to Hermes `/v1/chat/completions` over
+  Tailscale. Built with `createOpenAICompatible` → `streamText` →
+  `writer.merge(result.toUIMessageStream())` inside `createUIMessageStream`, returned via
+  `createUIMessageStreamResponse`. Only the **new turn** is forwarded (Hermes holds
+  history); session continuity via `X-Hermes-Session-Id`, long-term memory via
+  `X-Hermes-Session-Key`. The Hermes bearer is injected server-side by the provider and
+  never reaches the client.
+- **Raw-SSE tool-progress tap** (`apps/api/src/lib/hermes-sse.ts`, `filterToolProgress`).
+  Rather than a naive `body.tee()`, the proxy passes a **custom `fetch`** to the provider
+  that runs the upstream SSE through a filtering `ReadableStream`: `hermes.tool.progress`
+  events are peeled off and handed to a callback (→ written as **transient**
+  `data-toolProgress` parts), and every other event is re-emitted verbatim to the SDK
+  branch. This is critical — see Gotchas.
+- **No-buffer plumbing:** `X-Accel-Buffering: no` on the response; `server?.timeout(request, 0)`
+  to disable Bun's idle timeout for the streaming connection. `content-encoding`/`content-length`
+  are stripped when re-wrapping the filtered upstream body so the SDK doesn't try to
+  re-decompress it.
+- **Persistence on `onFinish`** (`persistTurn`): writes the user + assistant `UIMessage`s
+  verbatim to `hermes_message` (server-generated `msg_…` ids via `createIdGenerator`), with
+  any tapped tool events stashed in the assistant row's `payload.toolEvents` (not the
+  transcript). A `db.transaction` also bumps the thread's `updated_at`. Aborted streams
+  persist the assistant row with `status: 'interrupted'`.
+- **`ensureThread`**: a chat turn upserts its thread so the message FK holds and Group 2 is
+  self-contained (Group 4 adds the richer read CRUD + titling). An existing thread's stored
+  `session_id` wins over any `sessionId` in the body; a new thread generates `thr_…`/`ses_…`
+  ids and uses `sessionKey` (body override → env `HERMES_SESSION_KEY`).
+- **`GET /hermes/health`** upgraded from the Group 1 static stub to a real upstream ping
+  (derives `/health` from the base URL origin). Returns `degraded` (never throws) when
+  Hermes is unconfigured/unreachable so the dashboard can show a soft offline state.
+- **Mock seam:** `createHermesRoutes(overrides)` injects `{ baseURL, apiKey, sessionKey,
+model, fetchImpl }`. `hermesRoutes` is the env-wired default; tests mount a variant with a
+  fake Hermes `fetchImpl`. No live Mac Mini in the loop.
+- **Env:** added `HERMES_MODEL` (default `'hermes'`) — the OpenAI `model` field Hermes
+  maps/ignores. Documented that `HERMES_BASE_URL` must include the `/v1` path prefix.
+
+### Deviations from prompt
+
+- **Filter, don't tee.** The prompt says "tap the raw upstream SSE". A literal `tee()` would
+  feed the custom `hermes.tool.progress` `data:` frames into the AI SDK's OpenAI parser,
+  which would either error or mis-parse them (they have no `choices`). So the tap **filters**
+  the custom events out of the SDK-bound branch instead of duplicating the whole stream. Same
+  outcome (transient parts injected), but safe for the SDK. This resolves the PRD's flagged
+  risk "AI SDK ↔ Hermes custom-event tap (validate early)".
+- **Request body shape.** Designed `{ threadId?, sessionId?, sessionKey?, messages: UIMessage[] }`
+  with `messages` left opaque to Zod (`z.array(z.unknown())`) — the AI SDK validates parts
+  downstream, and the elysia-zod rules warn against heavy nested unions in route schemas. The
+  Group 5 client will use `useChat` + `prepareSendMessagesRequest` to post only the new turn
+  into this shape.
+- **No compression to disable.** The prompt says "disable compression on the route", but the
+  app mounts no compression plugin, so there was nothing to turn off (noted for the future).
+
+### Gotchas & surprises
+
+- **`createOpenAICompatible({ fetch })` typing.** `FetchFunction` is `typeof globalThis.fetch`,
+  which includes `preconnect`. Our middleware (and `tracedFetch`) omit it, so a local
+  `FetchImpl` type is used internally and widened with `as typeof fetch` only at the provider
+  boundary.
+- **`exactOptionalPropertyTypes` is on.** Zod `.optional()` yields `prop?: T | undefined`, which
+  is _not_ assignable to a hand-written `prop?: T`; helper param types had to spell out
+  `| undefined`. Also forced dropping the explicit `: Elysia` return annotation on the route
+  factory (the annotation's default `prefix: ""` mismatched the real `"/hermes"`).
+- **The environmental DB blocker is real and unfixable in-loop.** `runMigrations()` throws
+  `must be owner of index uq_usage_source_sourceid` — migration 0004's `DROP INDEX` fails
+  because `usage_record`'s indexes in the shared local DB are owned by `jkrumm`, not `argo`,
+  and the journal only records 4 of 9 migrations. The superuser role needs a password not
+  available in the headless loop (op/Touch ID), so I could not re-provision. Workaround: the
+  Hermes test applies **only** the idempotent 0009 migration directly (read from the SQL file,
+  split on `--> statement-breakpoint`) as the `argo` role, which owns the schema. No drift, no
+  dependence on the broken chain. Full suite: **142 pass / 12 fail** — the 12 are the
+  documented pre-existing failures (Group 1 baseline was 136 pass / 12 fail; my 6 tests all
+  pass, no new failures).
+- **`onFinish` timing.** It runs after the stream source completes; the persistence test drains
+  the response body (`await res.text()`) then polls the DB briefly (`waitFor`) to avoid a
+  finalize race.
+
+### Security notes
+
+- The Hermes bearer (`HERMES_API_KEY`) is added by the provider to the **upstream** request
+  only; a test asserts it never appears in client-visible stream output and that it _is_ sent
+  upstream as `Authorization: Bearer …` alongside the session headers.
+- `/hermes/chat` mounts after the global `authGuard` in `index.ts`, so callers still need
+  `Authorization: Bearer <API_SECRET>`. Tool-progress events are **transient** (streamed, not
+  persisted); the verbatim transcript stores tool events only in `payload`, never inline.
+- An existing thread's `session_id` cannot be overridden by the request body (prevents a
+  caller from redirecting an existing thread's Hermes session).
+
+### Tests added
+
+`apps/api/src/routes/hermes.test.ts` (6 tests, mocked Hermes via injected `fetchImpl`):
+streams assistant deltas + injects a `data-toolProgress` part; bearer absent from client
+output but present (with session headers) upstream; user+assistant turn persisted verbatim
+with `Hello world` reconstructed from parts and the tool event in `payload`; existing-thread
+`session_id` reuse; `/hermes/health` ok-vs-degraded.
+
+### Future improvements
+
+- **Fix the local dev DB ownership** (re-provision via `make postgres-setup` or `db:sync`)
+  so later API groups can use `runMigrations()` in `beforeAll` and validate against a green
+  baseline — the 0009-only workaround is a loop-local stopgap, not a pattern to copy.
+- **Verify the real Hermes `model` id** (`HERMES_MODEL`) and that `HERMES_BASE_URL` carries
+  `/v1` during manual E2E; the default `'hermes'` is a guess (Hermes likely ignores it).
+- **Tool-event/onFinish race:** the detached SSE filter pushes into a shared `toolEvents`
+  array read by `onFinish`. In practice the filter completes before finish, but a stricter
+  design would await the tap. Acceptable since `payload.toolEvents` is non-essential.
+- Confirm Traefik does not buffer `/api/hermes/chat` in prod (still-open PRD E2E item #7).
