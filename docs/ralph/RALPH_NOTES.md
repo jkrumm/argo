@@ -43,3 +43,58 @@ No security-relevant changes — purely additive nullable columns with no user-s
   to the existing `titleThreadIfNeeded` pattern).
 - The `HERMES_THREAD_TYPES` tuple could be exposed via `@argo/api` to avoid the mirror type in
   the dashboard, but the current manual-mirror pattern is consistent with other dashboard types.
+
+## Group 2: Summary + type classification (DeepSeek)
+
+### What was implemented
+
+Added `GenerateSummary` type, `deepseekSummarize` (one `aiComplete` call returning
+`{"summary":"...","type":"..."}` JSON, with code-fence stripping, defensive `JSON.parse`, type
+coercion to `HERMES_THREAD_TYPES` with `'general'` fallback, and 200-char summary cap), and
+`summarizeThreadIfNeeded` (idempotent `isNull(summary)` guarded UPDATE, same fire-and-forget
+pattern as `titleThreadIfNeeded`). Added `generateSummary` to `HermesRouteDeps` with
+`deepseekSummarize` as the default. Wired both calls in `onFinish` alongside the existing titler,
+skipping on abort/error. Added 5 new tests in `describe('auto-summarization')`.
+
+### Deviations from prompt
+
+Type coercion (`HERMES_THREAD_TYPES.includes(rawType as HermesThreadType) ? rawType : 'general'`)
+is done in both `deepseekSummarize` (for the live path) and `summarizeThreadIfNeeded` (as a safety
+layer, enabling the test to inject mocks with invalid type strings and verify coercion at the DB
+write level). This double-coercion is intentional — it makes the injectable contract `{ summary:
+string; type: string }` (loose), which simplifies tests.
+
+### Gotchas & surprises
+
+- `HermesThreadType` was not imported in `hermes.ts` — required adding it explicitly to the schema
+  import alongside `HERMES_THREAD_TYPES`. TypeScript error revealed it; easy fix.
+- The fire-and-forget `.catch` path correctly suppresses errors from the summarizer mock that
+  throws — but the `log.error` call still prints to stderr in tests. These lines are expected and
+  don't indicate test failures.
+- Summary is generated once per thread (not refreshed on subsequent turns). Refresh is deferred
+  future work; the `isNull` guard is the single source of truth for "generated or not."
+
+### Security notes
+
+No new attack surface. The summarizer output (summary text, type) comes from DeepSeek, not from
+user input, so XSS/injection concerns don't apply here. Summary is stored as plain text, not
+rendered as HTML.
+
+### Tests added
+
+All in `apps/api/src/routes/hermes.test.ts`, `describe('auto-summarization')`:
+
+- `'writes summary and type on the first finished turn'`
+- `'does not re-summarize a thread that already has a summary'`
+- `'coerces an unknown type to "general"'`
+- `'swallows errors from the summarizer (fire-and-forget; malformed JSON case)'`
+- `'skips summarization on an aborted turn'`
+
+### Future improvements
+
+- Refresh summary when the thread title changes (re-classify after significant new context)?
+  Currently deferred — single-shot on first turn only.
+- The `deepseekSummarize` prompt could be improved to produce more specific type classifications;
+  initial prompt is intentionally simple.
+- Consider exposing `deepseekSummarize` for direct unit testing (currently internal) if the
+  parsing/coercion logic grows more complex.
