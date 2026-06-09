@@ -256,16 +256,26 @@ export function ChatConversation({
   const playingAudioRef = useRef<HTMLAudioElement | null>(null)
   const voiceModeRef = useRef(false)
   const lastSpokenRef = useRef<string | null>(null)
+  // Mirrors playingMessageId so async playback can re-check the latest value after
+  // an await — the closed-over state would be stale if the user stopped meanwhile.
+  const playingMessageIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     voiceModeRef.current = voiceMode
   }, [voiceMode])
+
+  useEffect(() => {
+    playingMessageIdRef.current = playingMessageId
+  }, [playingMessageId])
 
   // Cleanup audio resources on unmount.
   useEffect(() => {
     return () => {
       if (playingAudioRef.current) {
         playingAudioRef.current.pause()
+        if (playingAudioRef.current.src.startsWith('blob:')) {
+          URL.revokeObjectURL(playingAudioRef.current.src)
+        }
         playingAudioRef.current = null
       }
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -670,6 +680,8 @@ export function ChatConversation({
         }
         const title = decodeAudioTitle(res.headers.get('x-audio-title'))
         const blob = await res.blob()
+        // User stopped or switched playback during the fetch → drop this stale result.
+        if (playingMessageIdRef.current !== messageId) return
         if (el.src.startsWith('blob:')) URL.revokeObjectURL(el.src)
         el.src = URL.createObjectURL(blob)
         // Lock-screen / background playback controls — playback keeps running when

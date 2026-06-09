@@ -17,14 +17,15 @@ import { log } from '../telemetry.js'
 //
 //   • POST /ai/v1/chat/completions   — DeepSeek v4 Flash on the IU unified
 //                                       endpoint (thread titling, classification)
-//   • POST /ai/v1/audio/transcriptions — STT (audio-proxy)
-//   • POST /ai/v1/audio/speech        — TTS (audio-proxy)
+//   • POST /ai/v1/audio/transcriptions — native STT against the IU endpoint
+//   • POST /ai/v1/audio/speech        — native STT/TTS (Gemini expressive pipeline)
 //   • GET  /ai/v1/models              — advertise the configured model(s)
 //
-// Each handler is a thin proxy: it injects the upstream bearer server-side
-// (never leaked to the client) and streams the upstream response straight back.
-// `aiComplete()` is the in-process seam Group 4's titling imports without going
-// back out over HTTP. All upstreams are OpenAI-compatible and reached via
+// The chat/models handlers are thin proxies that inject the upstream bearer
+// server-side (never leaked to the client). The audio handlers (lib/tts/audio.ts)
+// own a real pipeline — STT format synthesis and the Gemini prep→chunk→synth→ffmpeg
+// TTS — but still keep the IU bearer server-side. `aiComplete()` is the in-process
+// seam thread titling imports without an HTTP hop. All upstreams are reached via
 // `tracedFetch` (OTel CLIENT spans). See docs/HERMES-CHAT-PRD.md.
 
 /**
@@ -89,9 +90,11 @@ function defaultDeps(): AiRouteDeps {
 /** Build the audio handler deps from the gateway deps (IU OpenAI creds are shared). */
 function toAudioDeps(deps: AiRouteDeps): AudioDeps {
   return {
-    iuBaseURL: deps.deepseekBaseURL,
+    // Strip trailing slashes so the audio handlers' `${base}/path` templates can't
+    // produce a `//` that some upstream proxies reject.
+    iuBaseURL: deps.deepseekBaseURL.replace(/\/+$/, ''),
     iuApiKey: deps.deepseekApiKey,
-    geminiBaseURL: deps.geminiBaseURL,
+    geminiBaseURL: deps.geminiBaseURL.replace(/\/+$/, ''),
     ttsModel: deps.ttsModel,
     ttsPrepModel: deps.ttsPrepModel,
     ttsVoice: deps.ttsVoice,

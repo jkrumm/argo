@@ -1,4 +1,5 @@
-import { unlink } from 'node:fs/promises'
+import { spawn } from 'node:child_process'
+import { unlink, writeFile } from 'node:fs/promises'
 import {
   CHUNK_DEFAULTS,
   defaultPrep,
@@ -128,6 +129,8 @@ interface RawResponse {
   body: string
 }
 
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
+
 /** fetch with backoff retry on transient 503/429 (mirrors the audio-proxy handling). */
 async function rawFetch(
   fetchImpl: FetchImpl,
@@ -138,7 +141,7 @@ async function rawFetch(
   for (let attempt = 1; attempt <= attempts; attempt++) {
     const res = await fetchImpl(url, init)
     if ((res.status === 503 || res.status === 429) && attempt < attempts) {
-      await Bun.sleep(500 * attempt)
+      await sleep(500 * attempt)
       continue
     }
     return { status: res.status, body: await res.text() }
@@ -193,7 +196,9 @@ async function runPrep(input: string, deps: AudioDeps): Promise<PrepResult> {
       .catch(() => {})
   }
 
-  return parsePrepResponse(json.choices?.[0]?.message?.content ?? '')
+  const content = json.choices?.[0]?.message?.content ?? ''
+  if (!content.trim()) throw new Error('TTS prep returned empty content (no choices in response)')
+  return parsePrepResponse(content)
 }
 
 interface ChunkAudio {
@@ -311,7 +316,7 @@ export interface Encoded {
 
 /** Real ffmpeg transcode: raw s16le PCM → compressed MP3 (default) or Opus/OGG. */
 export function makeFfmpegTranscoder(bitrateKbps: number) {
-  return async function transcodePcm(
+  return function transcodePcm(
     pcm: Uint8Array,
     sampleRate: number,
     opus: boolean,
@@ -319,35 +324,45 @@ export function makeFfmpegTranscoder(bitrateKbps: number) {
     const codec = opus
       ? ['-c:a', 'libopus', '-b:a', '32k', '-f', 'ogg']
       : ['-c:a', 'libmp3lame', '-b:a', `${bitrateKbps}k`, '-f', 'mp3']
-    const proc = Bun.spawn(
-      [
-        'ffmpeg',
-        '-hide_banner',
-        '-loglevel',
-        'error',
-        '-f',
-        's16le',
-        '-ar',
-        String(sampleRate),
-        '-ac',
-        '1',
-        '-i',
-        'pipe:0',
-        ...codec,
-        'pipe:1',
-      ],
-      { stdin: 'pipe', stdout: 'pipe', stderr: 'pipe' },
-    )
-    // Drain stdout/stderr concurrently with the write so the pipe never deadlocks.
-    const stdout = new Response(proc.stdout).arrayBuffer()
-    const stderr = new Response(proc.stderr).text()
-    proc.stdin.write(pcm)
-    await proc.stdin.end()
-    const [bytes, errText, exitCode] = await Promise.all([stdout, stderr, proc.exited])
-    if (exitCode !== 0) {
-      throw new Error(`ffmpeg transcode failed (${exitCode}): ${errText.slice(0, 300)}`)
-    }
-    return { bytes, contentType: opus ? 'audio/ogg' : 'audio/mpeg' }
+    const args = [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-f',
+      's16le',
+      '-ar',
+      String(sampleRate),
+      '-ac',
+      '1',
+      '-i',
+      'pipe:0',
+      ...codec,
+      'pipe:1',
+    ]
+    return new Promise<Encoded>((resolve, reject) => {
+      const proc = spawn('ffmpeg', args, { stdio: ['pipe', 'pipe', 'pipe'] })
+      const out: Buffer[] = []
+      const err: Buffer[] = []
+      proc.stdout?.on('data', (d: Buffer) => out.push(d))
+      proc.stderr?.on('data', (d: Buffer) => err.push(d))
+      proc.on('error', reject)
+      proc.on('close', (code) => {
+        if (code !== 0) {
+          reject(
+            new Error(
+              `ffmpeg transcode failed (${code}): ${Buffer.concat(err).toString().slice(0, 300)}`,
+            ),
+          )
+          return
+        }
+        const buf = Buffer.concat(out)
+        const bytes = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
+        resolve({ bytes, contentType: opus ? 'audio/ogg' : 'audio/mpeg' })
+      })
+      // end(chunk) buffers and flushes the entire PCM payload, then closes stdin.
+      // Node streams handle pipe backpressure internally — no partial-write truncation.
+      proc.stdin?.end(Buffer.from(pcm))
+    })
   }
 }
 
@@ -355,22 +370,18 @@ export function makeFfmpegTranscoder(bitrateKbps: number) {
 export async function ffprobeDurationSec(file: File): Promise<number> {
   const tmp = `/tmp/argo-audio-${crypto.randomUUID()}`
   try {
-    await Bun.write(tmp, await file.arrayBuffer())
-    const proc = Bun.spawn(
-      [
+    await writeFile(tmp, Buffer.from(await file.arrayBuffer()))
+    const out = await new Promise<string>((resolve) => {
+      const proc = spawn(
         'ffprobe',
-        '-v',
-        'error',
-        '-show_entries',
-        'format=duration',
-        '-of',
-        'default=nw=1:nk=1',
-        tmp,
-      ],
-      { stdout: 'pipe', stderr: 'ignore' },
-    )
-    const out = await new Response(proc.stdout).text()
-    await proc.exited
+        ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', tmp],
+        { stdio: ['ignore', 'pipe', 'ignore'] },
+      )
+      const chunks: Buffer[] = []
+      proc.stdout?.on('data', (d: Buffer) => chunks.push(d))
+      proc.on('error', () => resolve(''))
+      proc.on('close', () => resolve(Buffer.concat(chunks).toString()))
+    })
     const d = Number.parseFloat(out.trim())
     return Number.isFinite(d) ? d : 0
   } catch {
@@ -416,6 +427,12 @@ export async function handleNativeSpeech(
     const voiceName = VOICES.has(voice) ? voice : DEFAULT_VOICE
     const prep = await runPrep(input, deps)
     const chunks = enforceChunkLimits(prep.chunks, CHUNK_LIMITS)
+    if (chunks.length === 0) {
+      return Response.json(
+        { error: { message: 'no speakable content', type: 'invalid_request_error' } },
+        { status: 400 },
+      )
+    }
     // Parallel, order-preserving synthesis — the long-form latency fix.
     const parts = await mapWithConcurrency(chunks, deps.ttsConcurrency, (chunk) =>
       synthChunk(model, voiceName, chunk, deps),
