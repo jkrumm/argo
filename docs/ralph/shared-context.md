@@ -109,6 +109,19 @@ EXISTS`, etc. drizzle-kit does **not** emit `IF NOT EXISTS` by default — **han
    your new migration file, so the new columns exist in the test DB.
 3. Do **not** rely on `bun db:migrate` succeeding locally — verify via the tests.
 
+### TypeScript strictness discipline (READ — `exactOptionalPropertyTypes` is on)
+
+`tsc` runs with `exactOptionalPropertyTypes: true`. An optional property `foo?: number` means
+**"absent OR a number"** — passing `{ foo: undefined }` is a type error. This bites whenever you
+read an **optional Zod body field** (e.g. `z.number().optional()` → its value is `number |
+undefined`, never `null`) and forward it:
+
+- Guard with `!== undefined` (or omit the key), **never `!== null`** — an optional field is never
+  `null`, so `!== null` fails to narrow `undefined` out and you forward `number | undefined` into
+  a `foo?: number` param. Use the conditional-spread idiom:
+  `...(v !== undefined ? { foo: v } : {})`.
+- Same rule when building any object literal handed to a function whose param type uses `?:`.
+
 ---
 
 ## Hard Constraints (non-negotiable)
