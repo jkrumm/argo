@@ -15,6 +15,7 @@ import {
   hermesMessage,
   hermesThread,
   HERMES_THREAD_TYPES,
+  type HermesThreadType,
   type MessageParts,
   type MessagePayload,
 } from '../db/schema.js'
@@ -48,6 +49,12 @@ export type FetchImpl = (input: string | URL | Request, init?: RequestInit) => P
 /** Generate a short thread title from the first user+assistant exchange. */
 export type GenerateTitle = (input: { userText: string; assistantText: string }) => Promise<string>
 
+/** Generate a one-line summary + type classification from the first exchange. */
+export type GenerateSummary = (input: {
+  userText: string
+  assistantText: string
+}) => Promise<{ summary: string; type: string }>
+
 /** Injectable upstream config so tests can point at a fake Hermes SSE server. */
 export interface HermesRouteDeps {
   baseURL: string
@@ -61,6 +68,11 @@ export interface HermesRouteDeps {
    * Injectable so tests title against a mock without a live bridge.
    */
   generateTitle: GenerateTitle
+  /**
+   * Summarizer+classifier for fresh threads. Injectable so tests stub it without
+   * a live bridge.
+   */
+  generateSummary: GenerateSummary
 }
 
 const TITLE_SYSTEM =
@@ -78,6 +90,38 @@ const deepseekTitle: GenerateTitle = ({ userText, assistantText }) =>
     { system: TITLE_SYSTEM, temperature: 0.3, maxTokens: 24 },
   )
 
+const SUMMARIZE_SYSTEM =
+  'You classify chat threads. Reply with ONLY a JSON object (no markdown, no code fences): ' +
+  '{"summary":"one sentence summarizing the thread","type":"<type>"}. ' +
+  `Allowed types: ${HERMES_THREAD_TYPES.join(', ')}. Use "general" when unsure.`
+
+/** Default summarizer: one DeepSeek call returning { summary, type } parsed from JSON. */
+const deepseekSummarize: GenerateSummary = async ({ userText, assistantText }) => {
+  const raw = await aiComplete(
+    [
+      'Classify this exchange and write a one-sentence summary.',
+      `User: ${userText.slice(0, 500)}`,
+      `Assistant: ${assistantText.slice(0, 500)}`,
+    ].join('\n'),
+    { system: SUMMARIZE_SYSTEM, temperature: 0.3, maxTokens: 64 },
+  )
+  // Strip optional code fences then parse defensively.
+  const stripped = raw.replace(/^```(?:json)?\n?|\n?```$/g, '').trim()
+  let parsed: { summary?: unknown; type?: unknown } = {}
+  try {
+    parsed = JSON.parse(stripped) as { summary?: unknown; type?: unknown }
+  } catch {
+    // Malformed response — caller's null guard will skip the DB write.
+  }
+  const summary = String(parsed.summary ?? '')
+    .slice(0, 200)
+    .trim()
+  const type = HERMES_THREAD_TYPES.includes(parsed.type as HermesThreadType)
+    ? (parsed.type as HermesThreadType)
+    : 'general'
+  return { summary, type }
+}
+
 function defaultDeps(): HermesRouteDeps {
   return {
     baseURL: env.HERMES_BASE_URL,
@@ -86,6 +130,7 @@ function defaultDeps(): HermesRouteDeps {
     model: env.HERMES_MODEL,
     fetchImpl: tracedFetch,
     generateTitle: deepseekTitle,
+    generateSummary: deepseekSummarize,
   }
 }
 
@@ -139,6 +184,48 @@ async function titleThreadIfNeeded(threadId: string, generateTitle: GenerateTitl
     .update(hermesThread)
     .set({ title })
     .where(and(eq(hermesThread.id, threadId), isNull(hermesThread.title)))
+}
+
+/**
+ * Auto-summarize and classify a fresh thread from its first user+assistant
+ * exchange. Same fire-and-forget, idempotent pattern as `titleThreadIfNeeded`:
+ * the `isNull` guard on `summary` prevents overwriting an existing value and
+ * makes concurrent calls safe. Unknown types from the model are coerced to
+ * 'general' before the write.
+ */
+async function summarizeThreadIfNeeded(
+  threadId: string,
+  generateSummary: GenerateSummary,
+): Promise<void> {
+  const thread = await db.query.hermesThread.findFirst({
+    where: eq(hermesThread.id, threadId),
+  })
+  if (!thread || thread.summary) return
+
+  const msgs = await db
+    .select()
+    .from(hermesMessage)
+    .where(eq(hermesMessage.thread_id, threadId))
+    .orderBy(asc(hermesMessage.created_at), asc(hermesMessage.id))
+  const firstUser = msgs.find((m) => m.role === 'user')
+  const firstAssistant = msgs.find((m) => m.role === 'assistant')
+  if (!firstUser || !firstAssistant) return
+
+  const userText = partsText(firstUser.parts)
+  const assistantText = partsText(firstAssistant.parts)
+  if (!userText && !assistantText) return
+
+  const { summary, type: rawType } = await generateSummary({ userText, assistantText })
+  if (!summary) return
+
+  const type: HermesThreadType = HERMES_THREAD_TYPES.includes(rawType as HermesThreadType)
+    ? (rawType as HermesThreadType)
+    : 'general'
+
+  await db
+    .update(hermesThread)
+    .set({ summary, type })
+    .where(and(eq(hermesThread.id, threadId), isNull(hermesThread.summary)))
 }
 
 const ChatBodySchema = z.object({
@@ -432,12 +519,16 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
               log.error('hermes transcript persist failed', error)
               return
             }
-            // Auto-title a fresh thread off the response path: fire-and-forget so
-            // it never delays the stream; the row updates when DeepSeek answers.
-            // Skip on a failed turn — there's no real assistant text to title from.
+            // Auto-title and summarize a fresh thread off the response path:
+            // fire-and-forget so they never delay the stream; rows update when
+            // DeepSeek answers. Skip on failed turns — there's no real assistant
+            // text to work from.
             if (!isAborted && !streamErrored) {
               titleThreadIfNeeded(resolvedThreadId, deps.generateTitle).catch((error) =>
                 log.error('hermes auto-title failed', error),
+              )
+              summarizeThreadIfNeeded(resolvedThreadId, deps.generateSummary).catch((error) =>
+                log.error('hermes auto-summarize failed', error),
               )
             }
           },

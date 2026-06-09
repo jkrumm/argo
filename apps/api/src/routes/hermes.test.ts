@@ -85,9 +85,10 @@ function buildApp(fetchImpl: FetchImpl, extra: Partial<HermesRouteDeps> = {}) {
       sessionKey: 'agent:main:test',
       model: 'hermes',
       fetchImpl,
-      // Default to a no-op titler so the env-based DeepSeek path isn't exercised
-      // (no live bridge in the loop); titling is tested explicitly below.
+      // Default to no-ops so the env-based DeepSeek path isn't exercised
+      // (no live bridge in the loop); titling/summarization tested explicitly below.
       generateTitle: async () => '',
+      generateSummary: async () => ({ summary: '', type: 'general' }),
       ...extra,
     }),
   )
@@ -598,6 +599,153 @@ describe('thread read CRUD', () => {
     expect(row).toBeDefined()
     expect(row?.summary).toBeNull()
     expect(row?.type).toBeNull()
+  })
+})
+
+describe('auto-summarization', () => {
+  it('writes summary and type on the first finished turn', async () => {
+    const { fetchImpl } = fakeHermes()
+    let received: { userText: string; assistantText: string } | undefined
+    const app = buildApp(fetchImpl, {
+      generateSummary: async (input) => {
+        received = input
+        return { summary: 'A discussion about weather', type: 'research' }
+      },
+    })
+
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_sum_first',
+        sessionId: 'ses_sum_first',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi there' }] }],
+      }),
+    )
+    await res.text()
+
+    const summarized = await waitFor(async () => {
+      const t = await db.query.hermesThread.findFirst({
+        where: eq(hermesThread.id, 'thr_sum_first'),
+      })
+      return t?.summary ? t : undefined
+    })
+    expect(summarized?.summary).toBe('A discussion about weather')
+    expect(summarized?.type).toBe('research')
+    expect(received?.userText).toBe('hi there')
+    expect(received?.assistantText).toBe('Hello world')
+  })
+
+  it('does not re-summarize a thread that already has a summary', async () => {
+    const { fetchImpl } = fakeHermes()
+    let calls = 0
+    const app = buildApp(fetchImpl, {
+      generateSummary: async () => {
+        calls++
+        return { summary: 'Should not be written', type: 'general' }
+      },
+    })
+    await db.insert(hermesThread).values({
+      id: 'thr_sum_existing',
+      session_id: 'ses_sum_existing',
+      session_key: 'agent:main:test',
+      summary: 'Existing summary',
+    })
+
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_sum_existing',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+      }),
+    )
+    await res.text()
+
+    await new Promise((r) => setTimeout(r, 100))
+    const thread = await db.query.hermesThread.findFirst({
+      where: eq(hermesThread.id, 'thr_sum_existing'),
+    })
+    expect(thread?.summary).toBe('Existing summary')
+    expect(calls).toBe(0)
+  })
+
+  it('coerces an unknown type to "general"', async () => {
+    const { fetchImpl } = fakeHermes()
+    const app = buildApp(fetchImpl, {
+      generateSummary: async () => ({ summary: 'A summary', type: 'unknown_type' }),
+    })
+
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_sum_coerce',
+        sessionId: 'ses_sum_coerce',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+      }),
+    )
+    await res.text()
+
+    const thread = await waitFor(async () => {
+      const t = await db.query.hermesThread.findFirst({
+        where: eq(hermesThread.id, 'thr_sum_coerce'),
+      })
+      return t?.summary ? t : undefined
+    })
+    expect(thread?.type).toBe('general')
+    expect(thread?.summary).toBe('A summary')
+  })
+
+  it('swallows errors from the summarizer (fire-and-forget; malformed JSON case)', async () => {
+    const { fetchImpl } = fakeHermes()
+    const app = buildApp(fetchImpl, {
+      generateSummary: async () => {
+        throw new Error('simulated malformed JSON parse failure')
+      },
+    })
+
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_sum_throw',
+        sessionId: 'ses_sum_throw',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+      }),
+    )
+    // Stream completes successfully — the summarizer error is swallowed.
+    expect(res.status).toBe(200)
+    await res.text()
+
+    await new Promise((r) => setTimeout(r, 100))
+    const thread = await db.query.hermesThread.findFirst({
+      where: eq(hermesThread.id, 'thr_sum_throw'),
+    })
+    expect(thread).toBeDefined()
+    expect(thread?.summary).toBeNull()
+  })
+
+  it('skips summarization on an aborted turn', async () => {
+    const controller = new AbortController()
+    let calls = 0
+    const app = buildApp(
+      abortingHermes(() => controller.abort()),
+      {
+        generateSummary: async () => {
+          calls++
+          return { summary: 'Should not be written', type: 'general' }
+        },
+      },
+    )
+
+    const req = new Request('http://localhost/hermes/chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        threadId: 'thr_sum_abort',
+        sessionId: 'ses_sum_abort',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+      }),
+      signal: controller.signal,
+    })
+    const res = await app.handle(req)
+    await res.text().catch(() => undefined)
+
+    await new Promise((r) => setTimeout(r, 100))
+    expect(calls).toBe(0)
   })
 })
 
