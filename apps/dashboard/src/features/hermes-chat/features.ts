@@ -13,6 +13,6 @@ export const HERMES_CHAT_FEATURES: {
   imageUpload: false,
   // File attachments are not yet forwarded to Hermes.
   fileUpload: false,
-  // Voice input (mic → STT transcription).
-  audioTranscription: false,
+  // Voice input (mic → STT transcription) + voice mode (auto-send + spoken replies).
+  audioTranscription: true,
 }
