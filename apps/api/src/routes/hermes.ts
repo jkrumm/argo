@@ -258,6 +258,7 @@ async function persistTurn(args: {
   messages: UIMessage[]
   toolEvents: ToolProgressData[]
   aborted: boolean
+  errored: boolean
 }): Promise<void> {
   // Stamp a distinct, monotonically increasing created_at per message. A single
   // transaction's `now()` is identical for every row, so relying on the column
@@ -273,7 +274,14 @@ async function persistTurn(args: {
       m.role === 'assistant' && args.toolEvents.length
         ? ({ toolEvents: args.toolEvents } satisfies MessagePayload)
         : null,
-    status: m.role === 'assistant' && args.aborted ? 'interrupted' : 'complete',
+    status:
+      m.role === 'assistant'
+        ? args.aborted
+          ? 'interrupted'
+          : args.errored
+            ? 'error'
+            : 'complete'
+        : 'complete',
     created_at: new Date(baseMs + i).toISOString(),
   }))
   await db.transaction(async (tx) => {
@@ -324,7 +332,17 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
     )
     .post(
       '/chat',
-      ({ body, request, server }) => {
+      ({ body, request, server, status }) => {
+        // Unconfigured upstream → fail clean. Without this, an empty baseURL lets
+        // streamText connect to an invalid URL, surfacing as a mid-stream error
+        // and persisting a broken (empty) assistant turn. Mirrors /health.
+        if (!deps.baseURL) {
+          return status(503, {
+            error: 'hermes_unconfigured',
+            message: 'Hermes chat upstream is not configured (HERMES_BASE_URL unset).',
+          })
+        }
+
         // Disable Bun's idle timeout for this connection — long streams must not
         // be cut off mid-response. (No-op if the server handle is unavailable.)
         server?.timeout(request, 0)
@@ -337,6 +355,9 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
 
         // Resolved inside execute (after ensureThread) and read in onFinish.
         let resolvedThreadId = ''
+        // Set by onError so onFinish persists a failed turn as 'error' rather
+        // than the default 'complete' on an empty assistant message.
+        let streamErrored = false
 
         const stream = createUIMessageStream({
           originalMessages: [newTurn],
@@ -387,6 +408,7 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
             writer.merge(result.toUIMessageStream())
           },
           onError: (error) => {
+            streamErrored = true
             log.error('hermes chat stream failed', error)
             return 'Hermes stream error'
           },
@@ -398,6 +420,7 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
                 messages,
                 toolEvents,
                 aborted: isAborted,
+                errored: streamErrored,
               })
             } catch (error) {
               log.error('hermes transcript persist failed', error)
@@ -405,7 +428,8 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
             }
             // Auto-title a fresh thread off the response path: fire-and-forget so
             // it never delays the stream; the row updates when DeepSeek answers.
-            if (!isAborted) {
+            // Skip on a failed turn — there's no real assistant text to title from.
+            if (!isAborted && !streamErrored) {
               titleThreadIfNeeded(resolvedThreadId, deps.generateTitle).catch((error) =>
                 log.error('hermes auto-title failed', error),
               )

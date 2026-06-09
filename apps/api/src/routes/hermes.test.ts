@@ -359,6 +359,56 @@ describe('interrupted streams', () => {
   })
 })
 
+/** A Hermes whose chat call rejects — simulates an upstream network failure. */
+function erroringHermes(): FetchImpl {
+  return (input) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    if (url.endsWith('/health')) return Promise.resolve(new Response('ok', { status: 200 }))
+    return Promise.reject(new Error('upstream exploded'))
+  }
+}
+
+describe('failed streams', () => {
+  it("persists the assistant turn with status:'error' when the upstream fails", async () => {
+    const app = buildApp(erroringHermes())
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_test_error',
+        sessionId: 'ses_test_error',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+      }),
+    )
+    await res.text().catch(() => undefined) // drain; the error may cut it short
+
+    const rows = await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.length >= 2 ? r : undefined
+    })
+    const assistant = rows?.find((r) => r.role === 'assistant')
+    const user = rows?.find((r) => r.role === 'user')
+    expect(user?.status).toBe('complete')
+    expect(assistant).toBeDefined()
+    expect(assistant?.status).toBe('error')
+  })
+
+  it('returns 503 without streaming when the upstream is unconfigured', async () => {
+    const app = new Elysia().use(
+      createHermesRoutes({ baseURL: '', apiKey: '', fetchImpl: fakeHermes().fetchImpl }),
+    )
+    const res = await app.handle(
+      chatRequest({
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+      }),
+    )
+    expect(res.status).toBe(503)
+    const body = (await res.json()) as { error: string }
+    expect(body.error).toBe('hermes_unconfigured')
+    // Nothing is persisted on the short-circuit.
+    const rows = await db.query.hermesMessage.findMany()
+    expect(rows.length).toBe(0)
+  })
+})
+
 describe('thread read CRUD', () => {
   it('creates a thread, minting a session_id and defaulting the session_key', async () => {
     const { fetchImpl } = fakeHermes()
