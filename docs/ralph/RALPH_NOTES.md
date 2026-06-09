@@ -156,3 +156,64 @@ network request to jsDelivr for mermaid (all bundled).
   for large diagrams that take >200ms to render.
 - `mermaid.initialize()` is called on every render; could be optimized to only re-initialize
   when the theme actually changes (compare color strings before calling).
+
+## Group 4: Diagrams II — vega-lite bundled + retire iframe
+
+### What was implemented
+
+Replaced the CDN/iframe Vega-Lite path in `diagram-frame.tsx` with `vega-lite-diagram.tsx`:
+a bundled inline React component that compiles Vega-Lite specs to Vega specs (`vega-lite`
+`compile()`), parses them into a Vega runtime (`vega.parse()`), and renders headlessly to SVG
+(`view.toSVG()`) using the AST expression interpreter to avoid `eval`/`Function`. Deleted
+`diagram-frame.tsx` and `diagram-frame.module.css` entirely. Added `vega-interpreter` as a direct
+dependency (removing `vega-embed` which was the only prior consumer). Updated `message-markdown.tsx`
+to route `vega-lite` fences to `VegaLiteDiagram`.
+
+### Deviations from prompt
+
+- Reused `mermaid-diagram.module.css` classes (`root`/`error`) rather than creating a new CSS
+  module — the visual treatment (border, radius, background, padding, overflow) is identical.
+- New dep `vega-interpreter@2.2.1` was added as a direct dep (previously a transitive dep of
+  `vega-embed`). It is small (~15kB) and required for the CSP-safe expression evaluation path.
+  `vega-embed` was removed (no other consumer).
+
+### Gotchas & surprises
+
+- **`vega.parse()` `ast` option**: `{ ast: true }` must be passed to `vega.parse()` alongside
+  `expr: expressionInterpreter` on the View — without `ast:true`, expressions are compiled to JS
+  strings (and use `Function`) rather than stored as AST nodes for the interpreter to walk.
+  This combination is what `vega-embed` does internally.
+- **Headless rendering**: `renderer: 'none'` on the View, then `runAsync()` + `toSVG()` gives
+  an SVG string without needing a DOM container. The mermaid pattern uses the same shape.
+- **`vega-interpreter` not in vega's bundle**: The interpreter is a separate package; vega does
+  not re-export it, so importing `expressionInterpreter` from `vega` fails. Must import from
+  `vega-interpreter` directly.
+- **Spec sanitization scope**: Only `data.url` (remote data) is rejected. Expressions in
+  `transform.calculate`/`filter` are safe because the interpreter runs them without `eval`.
+  Rejecting them would make many valid LLM-generated charts unusable.
+
+### Security notes
+
+- **No `eval`/`Function`**: `vega.parse(spec, config, { ast: true })` + `expr: expressionInterpreter`
+  replaces the default JS codegen with AST interpretation. Expressions never reach `Function()`.
+- **Remote data blocked**: `hasRemoteDataUrl()` recursively scans the parsed spec for any object
+  with a string `url` property. In Vega-Lite, `url` as a key only appears in data specs (not in
+  mark/encoding). This is a conservative reject — false positives are unlikely and acceptable.
+- **SVG XSS**: Vega generates SVG programmatically via its rendering engine; user-supplied data
+  never reaches `<script>` tags. `dangerouslySetInnerHTML` is safe for the same reason as
+  mermaid (library controls SVG generation, not user strings).
+
+### Tests added
+
+None — no dashboard test harness. Manual QA notes: a simple bar chart with `data.values`
+renders inline and themes with `--vx-*` colors; light/dark toggle re-renders with updated
+palette; a spec with `data.url` shows the rejection error; malformed JSON shows the parse
+error fallback; no jsDelivr request in network tab.
+
+### Future improvements
+
+- Loading state (spinner) during the async compile+render pipeline for large specs.
+- Could attempt to sanitize (rather than reject) specs with `data.url` by substituting
+  empty `data.values: []`, but rejection with a clear message is safer and simpler.
+- `vega-interpreter` ships with both AST walk and a fallback — could add a lint check
+  to ensure `ast: true` is always paired with `expr: expressionInterpreter`.
