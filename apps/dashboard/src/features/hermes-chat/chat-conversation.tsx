@@ -38,6 +38,7 @@ import {
 } from '@tabler/icons-react'
 import { hermesQueries, type HermesThread } from '../../lib/queries/hermes'
 import { getToken } from '../../lib/auth'
+import { HERMES_CHAT_FEATURES } from './features'
 import { MessageMarkdown } from './message-markdown'
 import { createHermesTransport, apiBase } from './transport'
 import type { Attachment, HermesUIMessage, ToolProgress } from './types'
@@ -739,64 +740,70 @@ export function ChatConversation({
               </Tooltip>
             </Menu.Target>
             <Menu.Dropdown>
-              <FileButton
-                onChange={(file) => {
-                  if (file) readFileAsAttachment(file, 'image')
-                }}
-                accept="image/*"
-              >
-                {(props) => (
-                  <Menu.Item {...props} leftSection={<IconPhoto size={14} />}>
-                    Image
-                  </Menu.Item>
-                )}
-              </FileButton>
-              <FileButton
-                onChange={(file) => {
-                  if (file) readFileAsAttachment(file, 'file')
-                }}
-              >
-                {(props) => (
-                  <Menu.Item {...props} leftSection={<IconFile size={14} />}>
-                    File
-                  </Menu.Item>
-                )}
-              </FileButton>
+              {HERMES_CHAT_FEATURES.imageUpload && (
+                <FileButton
+                  onChange={(file) => {
+                    if (file) readFileAsAttachment(file, 'image')
+                  }}
+                  accept="image/*"
+                >
+                  {(props) => (
+                    <Menu.Item {...props} leftSection={<IconPhoto size={14} />}>
+                      Image
+                    </Menu.Item>
+                  )}
+                </FileButton>
+              )}
+              {HERMES_CHAT_FEATURES.fileUpload && (
+                <FileButton
+                  onChange={(file) => {
+                    if (file) readFileAsAttachment(file, 'file')
+                  }}
+                >
+                  {(props) => (
+                    <Menu.Item {...props} leftSection={<IconFile size={14} />}>
+                      File
+                    </Menu.Item>
+                  )}
+                </FileButton>
+              )}
               <Menu.Item leftSection={<IconTextSize size={14} />} onClick={openLongTextModal}>
                 Long Text
               </Menu.Item>
             </Menu.Dropdown>
           </Menu>
 
-          <Tooltip
-            label={
-              audioAvailable === false
-                ? 'Audio proxy not configured'
-                : isRecording
-                  ? 'Stop recording'
-                  : isTranscribing
-                    ? 'Transcribing…'
-                    : 'Voice input'
-            }
-            withArrow
-          >
-            <ActionIcon
-              size={36}
-              variant={isRecording ? 'filled' : 'subtle'}
-              color={isRecording ? 'red' : 'gray'}
-              disabled={isTranscribing || audioAvailable === false || isStreaming}
-              onClick={handleMicClick}
-              aria-label={isRecording ? 'Stop recording' : 'Voice input'}
+          {HERMES_CHAT_FEATURES.audioTranscription && (
+            <Tooltip
+              label={
+                audioAvailable === false
+                  ? 'Audio proxy not configured'
+                  : isRecording
+                    ? 'Stop recording'
+                    : isTranscribing
+                      ? 'Transcribing…'
+                      : 'Voice input'
+              }
+              withArrow
             >
-              {isTranscribing ? (
-                <Loader size={14} />
-              ) : isRecording ? (
-                <IconPlayerStopFilled size={18} />
-              ) : (
-                <IconMicrophone size={18} />
-              )}
-            </ActionIcon>
-          </Tooltip>
+              <ActionIcon
+                size={36}
+                variant={isRecording ? 'filled' : 'subtle'}
+                color={isRecording ? 'red' : 'gray'}
+                disabled={isTranscribing || audioAvailable === false || isStreaming}
+                onClick={handleMicClick}
+                aria-label={isRecording ? 'Stop recording' : 'Voice input'}
+              >
+                {isTranscribing ? (
+                  <Loader size={14} />
+                ) : isRecording ? (
+                  <IconPlayerStopFilled size={18} />
+                ) : (
+                  <IconMicrophone size={18} />
+                )}
+              </ActionIcon>
+            </Tooltip>
+          )}
           {isStreaming ? (
             <Tooltip label="Stop" withArrow>
               <ActionIcon
