@@ -88,7 +88,7 @@ const deepseekTitle: GenerateTitle = ({ userText, assistantText }) =>
       `User: ${userText.slice(0, 500)}`,
       `Assistant: ${assistantText.slice(0, 500)}`,
     ].join('\n'),
-    { system: TITLE_SYSTEM, temperature: 0.3, maxTokens: 24 },
+    { system: TITLE_SYSTEM, temperature: 0.3, maxTokens: 24, sub_tool: 'titling' },
   )
 
 const SUMMARIZE_SYSTEM =
@@ -104,7 +104,7 @@ const deepseekSummarize: GenerateSummary = async ({ userText, assistantText }) =
       `User: ${userText.slice(0, 500)}`,
       `Assistant: ${assistantText.slice(0, 500)}`,
     ].join('\n'),
-    { system: SUMMARIZE_SYSTEM, temperature: 0.3, maxTokens: 64 },
+    { system: SUMMARIZE_SYSTEM, temperature: 0.3, maxTokens: 64, sub_tool: 'summarization' },
   )
   // Strip optional code fences then parse defensively.
   const stripped = raw.replace(/^```(?:json)?\n?|\n?```$/g, '').trim()

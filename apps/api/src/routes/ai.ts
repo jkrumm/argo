@@ -2,6 +2,8 @@ import { Elysia } from 'elysia'
 import { z } from 'zod'
 import { tracedFetch } from '../lib/traced-fetch.js'
 import { env } from '../env.js'
+import { recordAiUsage, type RecordUsageFn } from '../lib/ai-usage.js'
+import { log } from '../telemetry.js'
 
 // General-purpose AI gateway — an OpenAI-compatible surface at /ai/v1/* backing
 // Argo's own AI features (NOT the Hermes agent; that lives under /hermes).
@@ -37,6 +39,12 @@ export interface AiRouteDeps {
   audioApiKey: string
   /** Underlying transport the gateway wraps (defaults to the OTel-traced fetch). */
   fetchImpl: FetchImpl
+  /**
+   * Usage recorder called after each `aiComplete` call when the upstream returns
+   * token counts. Defaults to `recordAiUsage` (DB write). Override in tests to
+   * spy without touching the DB.
+   */
+  recordUsage: RecordUsageFn
 }
 
 function defaultDeps(): AiRouteDeps {
@@ -47,6 +55,7 @@ function defaultDeps(): AiRouteDeps {
     audioBaseURL: env.AUDIO_PROXY_BASE_URL,
     audioApiKey: env.AUDIO_PROXY_API_KEY,
     fetchImpl: tracedFetch,
+    recordUsage: recordAiUsage,
   }
 }
 
@@ -100,6 +109,8 @@ const SpeechBodySchema = z
 /**
  * In-process helper: a single non-streaming DeepSeek completion returning the
  * assistant text. Group 4's thread titling imports this directly (no HTTP hop).
+ * Token usage is recorded fire-and-forget into argo.usage_record (source='argo')
+ * when the upstream returns a usage object.
  */
 export async function aiComplete(
   prompt: string,
@@ -108,6 +119,8 @@ export async function aiComplete(
     model?: string
     temperature?: number
     maxTokens?: number
+    /** Usage-record sub_tool tag, e.g. 'titling' | 'summarization'. */
+    sub_tool?: string
     deps?: Partial<AiRouteDeps>
   } = {},
 ): Promise<string> {
@@ -118,6 +131,8 @@ export async function aiComplete(
     ...(opts.system ? [{ role: 'system', content: opts.system }] : []),
     { role: 'user', content: prompt },
   ]
+  const startedAt = new Date().toISOString()
+  const startMs = Date.now()
   const res = await deps.fetchImpl(joinUrl(deps.deepseekBaseURL, '/chat/completions'), {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...bearer(deps.deepseekApiKey) },
@@ -133,8 +148,30 @@ export async function aiComplete(
     const detail = await res.text().catch(() => '')
     throw new Error(`AI completion failed: ${res.status} ${detail.slice(0, 200)}`)
   }
-  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> }
-  return json.choices?.[0]?.message?.content ?? ''
+  const json = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string } }>
+    usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
+    model?: string
+  }
+  const content = json.choices?.[0]?.message?.content ?? ''
+
+  if (json.usage?.prompt_tokens !== undefined) {
+    deps
+      .recordUsage({
+        model: json.model ?? opts.model ?? deps.deepseekModel,
+        usage: {
+          prompt_tokens: json.usage.prompt_tokens ?? 0,
+          completion_tokens: json.usage.completion_tokens ?? 0,
+          total_tokens: json.usage.total_tokens ?? 0,
+        },
+        ...(opts.sub_tool !== undefined ? { subTool: opts.sub_tool } : {}),
+        startedAt,
+        durationMs: Date.now() - startMs,
+      })
+      .catch((err: unknown) => log.error('argo ai usage record failed', err))
+  }
+
+  return content
 }
 
 export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {

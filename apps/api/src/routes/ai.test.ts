@@ -1,7 +1,11 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, it, expect, afterEach } from 'bun:test'
+import { eq } from 'drizzle-orm'
 import { Elysia } from 'elysia'
 import { createAiRoutes, aiComplete, type FetchImpl, type AiRouteDeps } from './ai.js'
 import { authGuard } from '../lib/auth-guard.js'
+import { recordAiUsage, normalizeDeepseekModel } from '../lib/ai-usage.js'
+import { db } from '../db/index.js'
+import { usageRecord } from '../db/schema.js'
 
 // Group 3 — General AI gateway. Tests run entirely against mocked upstreams
 // (DeepSeek EU bridge + audio-proxy); no live cross-machine services. Auth is
@@ -241,5 +245,118 @@ describe('aiComplete()', () => {
     expect(
       aiComplete('x', { deps: { ...buildDeps(fetchImpl), deepseekBaseURL: '' } }),
     ).rejects.toThrow()
+  })
+
+  it('calls recordUsage with correct params when the upstream returns a usage object', async () => {
+    const captured: Parameters<AiRouteDeps['recordUsage']>[0][] = []
+    const fetchImpl: FetchImpl = () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            id: 'cmpl-u1',
+            object: 'chat.completion',
+            model: 'DeepSeek-V4-Flash',
+            choices: [
+              {
+                index: 0,
+                message: { role: 'assistant', content: 'A title' },
+                finish_reason: 'stop',
+              },
+            ],
+            usage: { prompt_tokens: 42, completion_tokens: 7, total_tokens: 49 },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      )
+
+    const out = await aiComplete('Make a title', {
+      sub_tool: 'titling',
+      deps: {
+        ...buildDeps(fetchImpl),
+        recordUsage: async (p) => {
+          captured.push(p)
+        },
+      },
+    })
+
+    expect(out).toBe('A title')
+    expect(captured).toHaveLength(1)
+    const rec = captured[0]!
+    expect(rec.model).toBe('DeepSeek-V4-Flash')
+    expect(rec.usage.prompt_tokens).toBe(42)
+    expect(rec.usage.completion_tokens).toBe(7)
+    expect(rec.usage.total_tokens).toBe(49)
+    expect(rec.subTool).toBe('titling')
+    expect(rec.durationMs).toBeGreaterThanOrEqual(0)
+  })
+
+  it('skips recordUsage when the upstream omits usage', async () => {
+    const captured: unknown[] = []
+    const { fetchImpl } = fakeUpstream() // existing fake — no usage field
+    await aiComplete('Make a title', {
+      deps: {
+        ...buildDeps(fetchImpl),
+        recordUsage: async (p) => {
+          captured.push(p)
+        },
+      },
+    })
+    expect(captured).toHaveLength(0)
+  })
+})
+
+describe('normalizeDeepseekModel()', () => {
+  it('lowercases and strips provider prefix', () => {
+    expect(normalizeDeepseekModel('DeepSeek-V4-Flash')).toBe('deepseek-v4-flash')
+    expect(normalizeDeepseekModel('iu/DeepSeek-V4-Pro')).toBe('deepseek-v4-pro')
+    expect(normalizeDeepseekModel('DeepSeek-V4-Flash-eu')).toBe('deepseek-v4-flash')
+  })
+})
+
+describe('recordAiUsage() — DB integration', () => {
+  afterEach(async () => {
+    await db.delete(usageRecord).where(eq(usageRecord.source, 'argo'))
+  })
+
+  it('inserts a row tagged source=argo with correct token counts and sub_tool', async () => {
+    const startedAt = new Date().toISOString()
+    await recordAiUsage({
+      model: 'DeepSeek-V4-Flash',
+      usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
+      subTool: 'titling',
+      startedAt,
+      durationMs: 500,
+    })
+
+    const rows = await db.select().from(usageRecord).where(eq(usageRecord.source, 'argo'))
+    expect(rows).toHaveLength(1)
+    const row = rows[0]!
+    expect(row.source).toBe('argo')
+    expect(row.model).toBe('DeepSeek-V4-Flash')
+    expect(row.model_norm).toBe('deepseek-v4-flash')
+    expect(row.input_tokens).toBe(100)
+    expect(row.output_tokens).toBe(20)
+    expect(row.sub_tool).toBe('titling')
+    expect(row.billing).toBe('iu')
+    expect(row.project).toBe('argo')
+    expect(row.workspace).toBe('private')
+    expect(row.outcome).toBe('ok')
+    expect(row.cost_usd).toBeGreaterThan(0)
+    expect(row.cost_source).toBe('computed')
+    expect(row.duration_ms).toBe(500)
+  })
+
+  it('records with null sub_tool when subTool is omitted', async () => {
+    await recordAiUsage({
+      model: 'DeepSeek-V4-Pro',
+      usage: { prompt_tokens: 50, completion_tokens: 10, total_tokens: 60 },
+      startedAt: new Date().toISOString(),
+      durationMs: 300,
+    })
+
+    const rows = await db.select().from(usageRecord).where(eq(usageRecord.source, 'argo'))
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.sub_tool).toBeNull()
+    expect(rows[0]!.model_norm).toBe('deepseek-v4-pro')
   })
 })
