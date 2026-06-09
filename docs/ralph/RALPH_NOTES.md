@@ -98,3 +98,61 @@ All in `apps/api/src/routes/hermes.test.ts`, `describe('auto-summarization')`:
   initial prompt is intentionally simple.
 - Consider exposing `deepseekSummarize` for direct unit testing (currently internal) if the
   parsing/coercion logic grows more complex.
+
+## Group 3: Diagrams I — mermaid bundled + themed
+
+### What was implemented
+
+Created `mermaid-diagram.tsx` — a bundled inline React component that renders mermaid diagrams
+using the already-installed `mermaid@11.15.0` package (no CDN, no iframe). `readMermaidColors()`
+reads live Mantine CSS vars (`--mantine-color-default-hover`, `--mantine-color-default-border`,
+`--mantine-color-text`, `--mantine-color-dimmed`, `--mantine-font-family`) and passes them as
+`themeVariables` to `mermaid.initialize()` with `securityLevel: 'strict'` and `theme: 'base'`.
+The component debounces the source (250ms), uses a per-render unique ID via a `useRef` counter +
+`useId()`, and re-initializes + re-renders on `colorScheme` change. Error fallback mirrors the
+`SmartCard` pattern: a `Text c="dimmed"` message + `Code block` of the raw source. Updated
+`message-markdown.tsx` to route `lang === 'mermaid'` to `<MermaidDiagram>` instead of
+`<DiagramFrame kind="mermaid">`. `DiagramFrame` still handles `vega-lite` (retired in Group 4).
+
+### Deviations from prompt
+
+Used async/await with try/catch inside a `void (async () => { ... })()` IIFE rather than
+`.then().catch()` chaining — cleaner and avoids the `promise(always-return)` oxlint warning that
+fires when a `.then()` callback is side-effect-only (no return value or throw).
+
+### Gotchas & surprises
+
+- `useId()` returns `:r0:`-style IDs with colons; mermaid uses the render id as a CSS selector
+  internally and fails on colons — must strip with `.replace(/[^a-zA-Z0-9]/g, '')`.
+- `mermaid.initialize()` is global but concurrent calls from multiple instances are fine in
+  practice since all instances share the same theme; the per-render counter ensures unique
+  `render()` ids to avoid DOM id collisions between overlapping async renders.
+- `colorScheme` in the `useEffect` deps satisfies the linter even though it's not directly
+  referenced in the effect body — it's there because `readMermaidColors()` reads live CSS vars
+  that change on theme toggle. Added an `eslint-disable-next-line` comment explaining why.
+- The `check-theme.mjs` guard only scans `.ts`/`.tsx` files, not `.module.css` — CSS vars in
+  the CSS module are not constrained by the hex guard.
+- Pre-existing oxlint warnings (no-array-sort, no-array-reverse in other files) persist but are
+  not my responsibility; new file introduced 0 new warnings.
+
+### Security notes
+
+`securityLevel: 'strict'` causes mermaid v11 to run its built-in DOMPurify pass on the SVG
+before returning it. The SVG is injected via `dangerouslySetInnerHTML` — safe because the
+content has been DOMPurify'd by the library before reaching the component. This is the
+documented safe pattern for non-iframe mermaid rendering. No additional DOMPurify dependency
+was introduced; mermaid bundles its own.
+
+### Tests added
+
+None — no dashboard test harness. QA notes: valid flowchart renders inline and themes correctly;
+light/dark toggle re-themes; malformed diagram shows the error fallback with raw source; no
+network request to jsDelivr for mermaid (all bundled).
+
+### Future improvements
+
+- Group 4 retires the vega-lite CDN path, completing the full diagram-frame.tsx deletion.
+- Could add a loading state (spinner or skeleton) between debounce expiry and render completion
+  for large diagrams that take >200ms to render.
+- `mermaid.initialize()` is called on every render; could be optimized to only re-initialize
+  when the theme actually changes (compare color strings before calling).

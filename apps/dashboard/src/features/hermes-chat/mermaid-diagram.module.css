@@ -1,0 +1,24 @@
+/* Inline mermaid diagram — same surface depth as the iframe it replaces. */
+
+.root {
+  width: 100%;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-default);
+  padding: 8px;
+  overflow-x: auto;
+}
+
+/* The mermaid SVG is injected via dangerouslySetInnerHTML — target without scoping. */
+.root :global(svg) {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+.error {
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
+  padding: 8px;
+}

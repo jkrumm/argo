@@ -21,6 +21,7 @@ import { remarkHermesAccents } from './remark-hermes-accents'
 import { hermesSanitizeSchema } from './sanitize-schema'
 import { parseCard, SmartCard } from './smart-card'
 import { DiagramFrame } from './diagram-frame'
+import { MermaidDiagram } from './mermaid-diagram'
 import classes from './message-markdown.module.css'
 
 // Full rich renderer for chat messages (Group 6). react-markdown v10 + `remend`
@@ -119,7 +120,7 @@ const components: Components = {
         </Code>
       )
     }
-    if (lang === 'mermaid') return <DiagramFrame kind="mermaid" source={text} />
+    if (lang === 'mermaid') return <MermaidDiagram source={text} />
     if (lang === 'vega-lite') return <DiagramFrame kind="vega-lite" source={text} />
     // v10 dropped the `inline` prop; a fenced block carries a `language-*` class
     // or spans multiple lines — everything else is inline code.
