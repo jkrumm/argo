@@ -19,6 +19,11 @@ export type TransportArgs = {
    * prepareSendMessagesRequest, so a stable useRef callback is safe here.
    */
   getPendingAudio?: () => number | null
+  /**
+   * Returns pending user attachments to carry on the user message payload.
+   * Called synchronously inside prepareSendMessagesRequest.
+   */
+  getPendingAttachments?: () => unknown[] | null
 }
 
 /**
@@ -37,6 +42,7 @@ export function createHermesTransport(args: TransportArgs): DefaultChatTransport
     },
     prepareSendMessagesRequest: ({ messages, body }) => {
       const audioMs = args.getPendingAudio?.() ?? null
+      const attachments = args.getPendingAttachments?.() ?? null
       return {
         body: {
           ...body,
@@ -46,6 +52,7 @@ export function createHermesTransport(args: TransportArgs): DefaultChatTransport
           // Only the latest message — the user's new turn.
           messages: messages.slice(-1),
           ...(audioMs !== null ? { userAudioDurationMs: audioMs } : {}),
+          ...(attachments?.length ? { attachments } : {}),
         },
       }
     },

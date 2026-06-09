@@ -15,6 +15,7 @@ import {
   hermesMessage,
   hermesThread,
   HERMES_THREAD_TYPES,
+  type Attachment,
   type HermesThreadType,
   type MessageParts,
   type MessagePayload,
@@ -250,6 +251,11 @@ const ChatBodySchema = z.object({
     .number()
     .describe('Duration in ms of the voice recording that produced this message.')
     .optional(),
+  // User-supplied attachments (text/image/file) to carry on the user message payload.
+  attachments: z
+    .array(z.unknown())
+    .describe('Attachments to persist on the user message payload.')
+    .optional(),
 })
 
 // ── Read-CRUD schemas (thread/message reads, create, patch) ──────────────────
@@ -359,6 +365,7 @@ async function persistTurn(args: {
   aborted: boolean
   errored: boolean
   userAudioDurationMs?: number
+  attachments?: unknown[]
 }): Promise<void> {
   // Stamp a distinct, monotonically increasing created_at per message. A single
   // transaction's `now()` is identical for every row, so relying on the column
@@ -373,10 +380,13 @@ async function persistTurn(args: {
     payload: (() => {
       if (m.role === 'assistant' && args.toolEvents.length)
         return { toolEvents: args.toolEvents } satisfies MessagePayload
-      if (m.role === 'user' && args.userAudioDurationMs)
-        return {
-          audio: [{ title: 'Voice input', durationMs: args.userAudioDurationMs }],
-        } satisfies MessagePayload
+      if (m.role === 'user') {
+        const p: MessagePayload = {}
+        if (args.userAudioDurationMs)
+          p.audio = [{ title: 'Voice input', durationMs: args.userAudioDurationMs }]
+        if (args.attachments?.length) p.attachments = args.attachments as Attachment[]
+        return Object.keys(p).length > 0 ? p : null
+      }
       return null
     })(),
     status:
@@ -458,6 +468,7 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
 
         const toolEvents: ToolProgressData[] = []
         const capturedAudioDurationMs = body.userAudioDurationMs
+        const capturedAttachments = body.attachments
 
         // Resolved inside execute (after ensureThread) and read in onFinish.
         let resolvedThreadId = ''
@@ -530,6 +541,7 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
                 ...(capturedAudioDurationMs !== undefined
                   ? { userAudioDurationMs: capturedAudioDurationMs }
                   : {}),
+                ...(capturedAttachments?.length ? { attachments: capturedAttachments } : {}),
               })
             } catch (error) {
               log.error('hermes transcript persist failed', error)

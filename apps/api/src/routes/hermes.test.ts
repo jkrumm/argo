@@ -196,6 +196,30 @@ describe('POST /hermes/chat', () => {
     expect(thread?.session_id).toBe('ses_test_persist')
   })
 
+  it('persists user-supplied attachments in the user message payload', async () => {
+    const { fetchImpl } = fakeHermes()
+    const app = buildApp(fetchImpl)
+    const attachment = { type: 'text', title: 'Context', content: 'Some context here' }
+
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_test_attach',
+        sessionId: 'ses_test_attach',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+        attachments: [attachment],
+      }),
+    )
+    await res.text()
+
+    const rows = await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.length >= 2 ? r : undefined
+    })
+    const user = rows?.find((r) => r.role === 'user')
+    expect(user?.payload?.attachments).toHaveLength(1)
+    expect(user?.payload?.attachments?.[0]).toMatchObject(attachment)
+  })
+
   it('reuses an existing thread session_id instead of the body sessionId', async () => {
     const { fetchImpl, calls } = fakeHermes()
     const app = buildApp(fetchImpl)

@@ -6,8 +6,15 @@ import {
   ActionIcon,
   Badge,
   Box,
+  Button,
+  CloseButton,
+  Collapse,
+  FileButton,
   Group,
+  Image,
   Loader,
+  Menu,
+  Modal,
   Paper,
   ScrollArea,
   Stack,
@@ -15,20 +22,29 @@ import {
   Textarea,
   Tooltip,
 } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import {
   IconArrowLeft,
+  IconFile,
+  IconFileText,
   IconMicrophone,
   IconPaperclip,
+  IconPhoto,
   IconPlayerStopFilled,
   IconSend,
+  IconTextSize,
   IconVolume,
 } from '@tabler/icons-react'
 import { hermesQueries, type HermesThread } from '../../lib/queries/hermes'
 import { getToken } from '../../lib/auth'
 import { MessageMarkdown } from './message-markdown'
 import { createHermesTransport, apiBase } from './transport'
-import type { HermesUIMessage, ToolProgress } from './types'
+import type { Attachment, HermesUIMessage, ToolProgress } from './types'
+
+// Inline size cap: 2 MB (base64-encoded payload stored in JSONB). Larger files
+// are noted as future work requiring a server-side upload pipeline.
+const ATTACHMENT_SIZE_LIMIT = 2 * 1024 * 1024
 
 // Tool-progress events whose status means the call has finished — chip is dropped.
 const TERMINAL_TOOL_STATUS = new Set([
@@ -53,6 +69,80 @@ function messageText(message: HermesUIMessage): string {
     .join('')
 }
 
+function AttachmentDisplay({ attachment }: { attachment: Attachment }) {
+  const [expanded, setExpanded] = useState(false)
+
+  if (attachment.type === 'image') {
+    return (
+      <Box>
+        {attachment.title && (
+          <Text size="xs" c="dimmed" mb={4}>
+            {attachment.title}
+          </Text>
+        )}
+        <Image
+          src={attachment.dataUrl}
+          alt={attachment.title ?? attachment.fileName ?? 'Image'}
+          maw={240}
+          radius="sm"
+          style={{ border: '1px solid var(--mantine-color-default-border)' }}
+        />
+      </Box>
+    )
+  }
+
+  if (attachment.type === 'file') {
+    return (
+      <Group gap={6} wrap="nowrap">
+        <IconFile size={14} color="var(--mantine-color-dimmed)" />
+        <Text size="xs" c="dimmed" lineClamp={1}>
+          {attachment.fileName}
+          {attachment.sizeBytes > 0 &&
+            ` (${attachment.sizeBytes < 1024 ? `${attachment.sizeBytes} B` : attachment.sizeBytes < 1024 * 1024 ? `${Math.round(attachment.sizeBytes / 1024)} KB` : `${(attachment.sizeBytes / (1024 * 1024)).toFixed(1)} MB`})`}
+        </Text>
+      </Group>
+    )
+  }
+
+  // type === 'text'
+  const hasContent = Boolean(attachment.content?.trim())
+  return (
+    <Box>
+      <Group
+        gap={6}
+        wrap="nowrap"
+        style={hasContent ? { cursor: 'pointer' } : undefined}
+        onClick={hasContent ? () => setExpanded((v) => !v) : undefined}
+      >
+        <IconFileText size={14} color="var(--mantine-color-dimmed)" />
+        <Text size="xs" c="dimmed">
+          {attachment.title ?? 'Text attachment'}
+        </Text>
+        {hasContent && (
+          <Text size="xs" c="dimmed">
+            {expanded ? '▲' : '▼'}
+          </Text>
+        )}
+      </Group>
+      {hasContent && (
+        <Collapse expanded={expanded}>
+          <Paper
+            withBorder
+            radius="sm"
+            p="xs"
+            mt={6}
+            style={{ background: 'var(--mantine-color-default-hover)' }}
+          >
+            <Text size="xs" style={{ whiteSpace: 'pre-wrap' }}>
+              {attachment.content}
+            </Text>
+          </Paper>
+        </Collapse>
+      )}
+    </Box>
+  )
+}
+
 function MessageRow({
   message,
   onReadAloud,
@@ -66,11 +156,12 @@ function MessageRow({
   const text = messageText(message)
   const interrupted = message.metadata?.status === 'interrupted'
   const hasVoiceInput = (message.metadata?.audio?.length ?? 0) > 0
+  const attachments = message.metadata?.attachments ?? []
 
   if (isUser) {
     return (
       <Group justify="flex-end" gap={0}>
-        <Stack gap={4} align="flex-end">
+        <Stack gap={4} align="flex-end" maw="85%">
           {hasVoiceInput && (
             <Group gap={4}>
               <IconMicrophone size={11} color="var(--mantine-color-dimmed)" />
@@ -79,16 +170,27 @@ function MessageRow({
               </Text>
             </Group>
           )}
-          <Paper
-            withBorder
-            radius="md"
-            px="sm"
-            py={6}
-            maw="85%"
-            bg="var(--mantine-color-default-hover)"
-          >
-            <MessageMarkdown content={text} />
-          </Paper>
+          {attachments.length > 0 && (
+            <Stack gap={6} w="100%">
+              {attachments.map((att, i) => (
+                <Paper key={i} withBorder radius="sm" px="sm" py={6}>
+                  <AttachmentDisplay attachment={att} />
+                </Paper>
+              ))}
+            </Stack>
+          )}
+          {text && (
+            <Paper
+              withBorder
+              radius="md"
+              px="sm"
+              py={6}
+              w="100%"
+              bg="var(--mantine-color-default-hover)"
+            >
+              <MessageMarkdown content={text} />
+            </Paper>
+          )}
         </Stack>
       </Group>
     )
@@ -142,6 +244,14 @@ export function ChatConversation({
   const [toolProgress, setToolProgress] = useState<Record<string, ToolProgress>>({})
   const viewportRef = useRef<HTMLDivElement>(null)
 
+  // ── Attachment state ─────────────────────────────────────────────────────────
+  const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([])
+  const pendingAttachmentsRef = useRef<Attachment[] | null>(null)
+  const [longTextModalOpen, { open: openLongTextModal, close: closeLongTextModal }] =
+    useDisclosure(false)
+  const [longTextTitle, setLongTextTitle] = useState('')
+  const [longTextContent, setLongTextContent] = useState('')
+
   // ── Audio state ─────────────────────────────────────────────────────────────
   const [isRecording, setIsRecording] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
@@ -175,6 +285,7 @@ export function ChatConversation({
         threadId: thread.id,
         sessionId: thread.session_id,
         getPendingAudio: () => pendingAudioMsRef.current,
+        getPendingAttachments: () => pendingAttachmentsRef.current,
       }),
     [thread.id, thread.session_id],
   )
@@ -227,12 +338,84 @@ export function ChatConversation({
 
   function send() {
     const text = input.trim()
-    if (!text || isStreaming) return
+    if ((!text && pendingAttachments.length === 0) || isStreaming) return
+
+    // For text attachments, append content to the Hermes-bound message so Hermes
+    // can read it. Image/file attachments are stored in payload only (display).
+    let augmentedText = text
+    for (const att of pendingAttachments) {
+      if (att.type === 'text' && att.content?.trim()) {
+        const header = att.title ? `**${att.title}**\n` : ''
+        augmentedText = augmentedText
+          ? `${augmentedText}\n\n${header}${att.content}`
+          : `${header}${att.content}`
+      }
+    }
+
+    pendingAttachmentsRef.current = pendingAttachments.length > 0 ? pendingAttachments : null
     setInput('')
-    void sendMessage({ text })
-    // pendingAudioMsRef is read synchronously inside prepareSendMessagesRequest,
-    // which runs during sendMessage, so clear it after the call.
+    setPendingAttachments([])
+    void sendMessage({ text: augmentedText || text || ' ' })
+    // Both refs are read synchronously inside prepareSendMessagesRequest, which
+    // runs during sendMessage, so clear them after the call.
     pendingAudioMsRef.current = null
+    pendingAttachmentsRef.current = null
+  }
+
+  // ── Attachment handlers ──────────────────────────────────────────────────────
+
+  function handleLongTextSave() {
+    const content = longTextContent.trim()
+    if (!content) return
+    const att: Attachment = {
+      type: 'text',
+      ...(longTextTitle.trim() ? { title: longTextTitle.trim() } : {}),
+      content,
+    }
+    setPendingAttachments((prev) => [...prev, att])
+    setLongTextTitle('')
+    setLongTextContent('')
+    closeLongTextModal()
+  }
+
+  function readFileAsAttachment(file: File, kind: 'image' | 'file') {
+    if (file.size > ATTACHMENT_SIZE_LIMIT) {
+      notifications.show({
+        title: 'File too large',
+        message: `Attachments must be under ${ATTACHMENT_SIZE_LIMIT / (1024 * 1024)} MB.`,
+        color: 'red',
+      })
+      return
+    }
+    const reader = new FileReader()
+    reader.addEventListener('load', () => {
+      const dataUrl = reader.result as string
+      if (kind === 'image') {
+        const att: Attachment = {
+          type: 'image',
+          dataUrl,
+          mimeType: file.type,
+          ...(file.name ? { fileName: file.name } : {}),
+          ...(file.name ? { title: file.name } : {}),
+        }
+        setPendingAttachments((prev) => [...prev, att])
+      } else {
+        const att: Attachment = {
+          type: 'file',
+          dataUrl,
+          mimeType: file.type,
+          fileName: file.name,
+          sizeBytes: file.size,
+          ...(file.name ? { title: file.name } : {}),
+        }
+        setPendingAttachments((prev) => [...prev, att])
+      }
+    })
+    reader.readAsDataURL(file)
+  }
+
+  function removeAttachment(index: number) {
+    setPendingAttachments((prev) => prev.filter((_, i) => i !== index))
   }
 
   // ── Voice recording → STT ───────────────────────────────────────────────────
@@ -458,7 +641,72 @@ export function ChatConversation({
         </Stack>
       </ScrollArea>
 
+      {/* Long Text attachment modal */}
+      <Modal
+        opened={longTextModalOpen}
+        onClose={closeLongTextModal}
+        title="Add text attachment"
+        size="lg"
+      >
+        <Stack gap="sm">
+          <Textarea
+            label="Title (optional)"
+            placeholder="e.g. Context, Paste, Draft…"
+            value={longTextTitle}
+            onChange={(e) => setLongTextTitle(e.currentTarget.value)}
+            autosize
+            minRows={1}
+            maxRows={2}
+          />
+          <Textarea
+            label="Content"
+            placeholder="Paste or type longform text here…"
+            value={longTextContent}
+            onChange={(e) => setLongTextContent(e.currentTarget.value)}
+            autosize
+            minRows={6}
+            maxRows={20}
+            data-autofocus
+          />
+          <Group justify="flex-end" gap="xs">
+            <Button variant="subtle" color="gray" onClick={closeLongTextModal}>
+              Cancel
+            </Button>
+            <Button onClick={handleLongTextSave} disabled={!longTextContent.trim()}>
+              Attach
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
       <Box p="sm" style={{ borderTop: '1px solid var(--mantine-color-default-border)' }}>
+        {/* Pending attachment chips */}
+        {pendingAttachments.length > 0 && (
+          <Stack gap={4} mb="xs">
+            {pendingAttachments.map((att, i) => (
+              <Group key={i} gap={6} wrap="nowrap">
+                {att.type === 'image' ? (
+                  <IconPhoto size={13} color="var(--mantine-color-dimmed)" />
+                ) : att.type === 'file' ? (
+                  <IconFile size={13} color="var(--mantine-color-dimmed)" />
+                ) : (
+                  <IconTextSize size={13} color="var(--mantine-color-dimmed)" />
+                )}
+                <Text size="xs" c="dimmed" flex={1} lineClamp={1}>
+                  {att.type === 'file' || att.type === 'image'
+                    ? (att.fileName ?? att.title ?? att.type)
+                    : (att.title ?? 'Text attachment')}
+                </Text>
+                <CloseButton
+                  size="xs"
+                  aria-label="Remove attachment"
+                  onClick={() => removeAttachment(i)}
+                />
+              </Group>
+            ))}
+          </Stack>
+        )}
+
         <Group gap="xs" align="flex-end" wrap="nowrap">
           <Textarea
             flex={1}
@@ -475,11 +723,51 @@ export function ChatConversation({
               }
             }}
           />
-          <Tooltip label="Attach file (coming soon)" withArrow>
-            <ActionIcon size={36} variant="subtle" color="gray" disabled aria-label="Attach file">
-              <IconPaperclip size={18} />
-            </ActionIcon>
-          </Tooltip>
+
+          {/* Attach menu */}
+          <Menu shadow="md" position="top-end" withinPortal>
+            <Menu.Target>
+              <Tooltip label="Attach" withArrow>
+                <ActionIcon
+                  size={36}
+                  variant={pendingAttachments.length > 0 ? 'light' : 'subtle'}
+                  color={pendingAttachments.length > 0 ? 'blue' : 'gray'}
+                  aria-label="Attach"
+                >
+                  <IconPaperclip size={18} />
+                </ActionIcon>
+              </Tooltip>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <FileButton
+                onChange={(file) => {
+                  if (file) readFileAsAttachment(file, 'image')
+                }}
+                accept="image/*"
+              >
+                {(props) => (
+                  <Menu.Item {...props} leftSection={<IconPhoto size={14} />}>
+                    Image
+                  </Menu.Item>
+                )}
+              </FileButton>
+              <FileButton
+                onChange={(file) => {
+                  if (file) readFileAsAttachment(file, 'file')
+                }}
+              >
+                {(props) => (
+                  <Menu.Item {...props} leftSection={<IconFile size={14} />}>
+                    File
+                  </Menu.Item>
+                )}
+              </FileButton>
+              <Menu.Item leftSection={<IconTextSize size={14} />} onClick={openLongTextModal}>
+                Long Text
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+
           <Tooltip
             label={
               audioAvailable === false
@@ -527,7 +815,7 @@ export function ChatConversation({
                 size={36}
                 variant="filled"
                 onClick={send}
-                disabled={!input.trim()}
+                disabled={!input.trim() && pendingAttachments.length === 0}
                 aria-label="Send message"
               >
                 <IconSend size={18} />

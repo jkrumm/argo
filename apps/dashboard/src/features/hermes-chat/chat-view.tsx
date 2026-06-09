@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Center, Loader } from '@mantine/core'
 import { hermesQueries, type HermesMessage, type HermesThread } from '../../lib/queries/hermes'
 import { ChatConversation } from './chat-conversation'
-import type { AudioRefMeta, HermesUIMessage } from './types'
+import type { Attachment, AudioRefMeta, HermesUIMessage } from './types'
 
 // Loads a thread's persisted transcript and hydrates the chat. `ChatConversation`
 // reads `messages` only at init for a given id, so we must have the rows before
@@ -11,7 +11,10 @@ import type { AudioRefMeta, HermesUIMessage } from './types'
 
 function toUIMessages(rows: HermesMessage[]): HermesUIMessage[] {
   return rows.map((row) => {
-    const payload = row.payload as { audio?: AudioRefMeta[] } | null
+    const payload = row.payload as {
+      audio?: AudioRefMeta[]
+      attachments?: Attachment[]
+    } | null
     return {
       id: row.id,
       role: row.role,
@@ -19,6 +22,7 @@ function toUIMessages(rows: HermesMessage[]): HermesUIMessage[] {
       metadata: {
         status: row.status,
         ...(payload?.audio?.length ? { audio: payload.audio } : {}),
+        ...(payload?.attachments?.length ? { attachments: payload.attachments } : {}),
       },
     }
   })

@@ -341,3 +341,61 @@ payload as before.
 - Consider a visual waveform animation on the mic button while recording (WebAudio `AnalyserNode`).
 - `audioAvailable` state resets when the thread is remounted (keyed by thread id). Consider
   persisting the "audio unavailable" state in a Zustand slice so it survives thread switching.
+
+---
+
+## Group 7: Attachments
+
+### What was implemented
+
+Added an **attach menu** (paperclip `Menu` with Long Text / Image / File entries) to the Hermes
+Chat composer. Long Text opens a `Modal` with title + content textarea; File and Image each use a
+Mantine `FileButton`. Pending attachments render as removable chips above the textarea before send.
+The full `Attachment` discriminated union (`TextAttachment | ImageAttachment | FileAttachment`) was
+added to both `apps/api/src/db/schema.ts` (replacing the v1 `type:'text'-only` interface) and
+`types.ts` on the dashboard. Attachments flow through the transport (`getPendingAttachments`
+callback), are carried in `ChatBodySchema.attachments`, and are persisted in `payload.attachments`
+on the user message via `persistTurn`. On thread reload, `toUIMessages` hydrates
+`metadata.attachments` from the payload and `MessageRow` renders them: image → thumbnail with
+border, file → name+size chip, text → title chip with expand/collapse card. Text attachment content
+is also appended to the Hermes-bound message text so Hermes can read it.
+
+### Deviations from prompt
+
+- Kept the schema change as TypeScript interface only (JSONB column is schemaless — no migration
+  needed). The prompt mentioned "extend the type if you added Image/File kinds" which is what was
+  done without a DB migration.
+- Images and files are NOT forwarded to Hermes (Hermes would need multimodal message handling).
+  Only text attachment content is appended to the message text. Noted as future work.
+
+### Gotchas & surprises
+
+- **Mantine v9 `Collapse` uses `expanded` not `in`** — Mantine v6/v7 used `in` (the React
+  transition prop); v9 renamed it to `expanded`. TypeScript caught this immediately.
+- **`FileReader.onload` triggers the `unicorn/prefer-add-event-listener` lint rule** — must use
+  `reader.addEventListener('load', ...)` instead.
+- `exactOptionalPropertyTypes` still bites: `...(file.name ? { fileName: file.name } : {})` is
+  the required idiom for optional fields from a potentially-empty `file.name`.
+
+### Security notes
+
+- Inline data URL storage in JSONB capped at 2 MB to bound JSONB size. Larger files require a
+  dedicated server-side upload pipeline (deferred).
+- Images are rendered via Mantine `Image` with the data URL as `src` — no sanitization needed
+  (data URLs never hit the network, XSS is not a concern for `<img src="data:...">` in this context).
+- File data URLs are never executed (download chip only, no `eval`, no dynamic `<script>`).
+
+### Tests added
+
+- `hermes.test.ts`: "persists user-supplied attachments in the user message payload" — verifies
+  that `attachments` in the request body ends up in `payload.attachments` on the persisted user
+  message row.
+
+### Future improvements
+
+- Forward image attachments to Hermes as multimodal message parts once Hermes gains vision support.
+- Server-side upload pipeline for files > 2 MB (presigned S3 / VPS-local storage).
+- Live attachment preview before send: image thumbnail in the chip row, not just an icon+name.
+- `pendingAttachmentsRef` is cleared synchronously after `sendMessage`; if AI SDK v5 ever exposes
+  a `metadata` field on `sendMessage` the live user message could render attachments immediately
+  before `onFinish` re-fetches the transcript.

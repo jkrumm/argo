@@ -19,12 +19,42 @@ export type AudioRefMeta = {
   durationMs?: number
 }
 
+/** A user-supplied text (longform markdown) attachment. */
+export type TextAttachment = {
+  type: 'text'
+  title?: string
+  content?: string
+}
+
+/** A user-supplied image attachment stored inline as a data URL. */
+export type ImageAttachment = {
+  type: 'image'
+  title?: string
+  dataUrl: string
+  mimeType: string
+  fileName?: string
+}
+
+/** A user-supplied file attachment stored inline as a data URL. */
+export type FileAttachment = {
+  type: 'file'
+  title?: string
+  dataUrl: string
+  mimeType: string
+  fileName: string
+  sizeBytes: number
+}
+
+export type Attachment = TextAttachment | ImageAttachment | FileAttachment
+
 /** Optional non-transcript metadata we carry on hydrated messages. */
 export type HermesMessageMetadata = {
   /** DB lifecycle status (e.g. 'interrupted') for a persisted message. */
   status?: string
   /** Audio refs persisted on this message (voice input or generated speech). */
   audio?: AudioRefMeta[]
+  /** User-supplied attachments persisted on this message. */
+  attachments?: Attachment[]
 }
 
 /**

@@ -308,13 +308,36 @@ export interface AudioRef {
   durationMs?: number
 }
 
-/** A user-supplied attachment. v1 ships longform-text only; file/image later. */
-export interface Attachment {
+/** A user-supplied text (longform markdown) attachment. */
+export interface TextAttachment {
   type: 'text'
   title?: string
-  /** Longform markdown body for a text attachment. */
+  /** Longform markdown body. */
   content?: string
 }
+
+/** A user-supplied image attachment stored as a data URL. */
+export interface ImageAttachment {
+  type: 'image'
+  title?: string
+  /** data:[mimeType];base64,... */
+  dataUrl: string
+  mimeType: string
+  fileName?: string
+}
+
+/** A user-supplied file attachment stored as a data URL. */
+export interface FileAttachment {
+  type: 'file'
+  title?: string
+  /** data:[mimeType];base64,... */
+  dataUrl: string
+  mimeType: string
+  fileName: string
+  sizeBytes: number
+}
+
+export type Attachment = TextAttachment | ImageAttachment | FileAttachment
 
 /** A live tool-progress event tapped from Hermes' custom SSE channel. */
 export interface ToolEvent {
