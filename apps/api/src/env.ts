@@ -2,6 +2,9 @@ import { z } from 'zod'
 
 export const Env = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  // HTTP listen port. Defaults to 4000 (prod). Local dev overrides to 4040 via
+  // apps/api/.env.local.tpl to avoid colliding with the LiteLLM bridge on :4000.
+  PORT: z.coerce.number().int().default(4000),
   DATABASE_URL: z.string().min(1),
   API_SECRET: z.string().min(1),
   OTEL_EXPORTER_OTLP_ENDPOINT: z.string().default('http://127.0.0.1:4318'),

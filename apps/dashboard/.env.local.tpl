@@ -1,6 +1,6 @@
-# Local dev: the Vite proxy (/api → localhost:4000) works without this var.
+# Local dev: the Vite proxy (/api → localhost:4040) works without this var.
 # Set it to bypass the proxy and hit the API directly.
-# VITE_API_URL=http://localhost:4000
+# VITE_API_URL=http://localhost:4040
 
 # HyperDX — local dev hits the unauthed ClickStack :4319 receiver via the Vite
 # proxy, so the SDK key is effectively a placeholder (whatever value lands in

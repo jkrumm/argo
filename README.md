@@ -44,7 +44,7 @@ cd -
 # In argo:
 bun install
 bun db:sync                                   # optional: pull fresh data from prod into local
-bun dev                                       # API :4000 + dashboard :7715 (op-wrapped, concurrent)
+bun dev                                       # API :4040 + dashboard :7715 (op-wrapped, concurrent)
 ```
 
 Open `https://argo.test` (via dotfiles Caddy + dnsmasq) or `http://localhost:7715` directly.

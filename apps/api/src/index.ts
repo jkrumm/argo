@@ -5,6 +5,7 @@ import { opentelemetry } from '@elysiajs/opentelemetry'
 import { openapi } from '@elysiajs/openapi'
 import { cors } from '@elysiajs/cors'
 import { telemetryConfig } from './telemetry.js'
+import { env } from './env.js'
 import { healthRoute } from './routes/health.js'
 import { ticktickRoutes } from './routes/ticktick.js'
 import { uptimeKumaRoutes } from './routes/uptime-kuma.js'
@@ -241,14 +242,14 @@ export const app = new Elysia()
   .use(usageRoutes)
   .use(hermesRoutes)
   .use(aiRoutes)
-  .listen(4000)
+  .listen(env.PORT)
 
 export type App = typeof app
 
 registerCronJobs()
 uptimeKumaClient.start()
 // eslint-disable-next-line no-console
-console.log('api running on port 4000')
+console.log(`api running on port ${env.PORT}`)
 
 const shutdown = async (): Promise<void> => {
   await uptimeKumaClient.stop()

@@ -209,7 +209,7 @@ Don't wrap simple synchronous helpers — spans cost more than they're worth for
 
 1. `cd ~/SourceRoot/vps && make up` — starts ClickStack on `127.0.0.1:4318`, UI at `https://hyperdx.test`.
 2. **First-run only**: visit `https://hyperdx.test`, create the admin account, then Team Settings → Ingestion API Keys → copy. Save in 1Password: `op item edit argo --account tkrumm --vault vps "HYPERDX_API_KEY_LOCAL[password]=<paste>"`. Without this `op run` will fail (the ref is unresolvable) AND ClickStack would 401 the traces.
-3. `bun dev` — API on `:4000`, dashboard via Vite proxy. Both env files are loaded so `VITE_HYPERDX_API_KEY` reaches the browser and `OTEL_EXPORTER_OTLP_HEADERS` reaches the API exporter.
+3. `bun dev` — API on `:4040`, dashboard via Vite proxy. Both env files are loaded so `VITE_HYPERDX_API_KEY` reaches the browser and `OTEL_EXPORTER_OTLP_HEADERS` reaches the API exporter.
 4. Hit a real endpoint (not `/health`): `curl -H "Authorization: Bearer $API_SECRET" https://argo.test/api/workouts`.
 5. Open `https://hyperdx.test` → Services → `argo-api`. Expect a trace with route span → drizzle span(s) → tracedFetch span(s) if the route calls out.
 6. Click a workout in the dashboard → expect ONE trace with `argo-dashboard` (CLIENT) → `argo-api` (SERVER) → child spans. Different `trace_id`s on the two sides = CORS or propagation regex bug.

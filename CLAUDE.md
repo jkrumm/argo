@@ -21,12 +21,12 @@ argo/
 bun install                                    # all workspace deps
 
 # Dev — runs API + dashboard concurrently with secrets injected via op
-bun dev                                        # API :4000, dashboard https://argo.test (→ :7715)
+bun dev                                        # API :4040, dashboard https://argo.test (→ :7715)
 bun db:sync                                    # pull fresh argo schema dump from VPS into local Postgres
 bun db:migrate                                 # apply pending Drizzle migrations against local DB
 
 # Single-app
-bun run --cwd apps/api start                  # API on :4000 (needs op run wrapper for env)
+bun run --cwd apps/api start                  # API on :4040 (needs op run wrapper for env)
 bun run --cwd apps/api db:generate            # generate migration after schema changes
 bun run --cwd apps/api typecheck
 bun run --cwd apps/dashboard typecheck
@@ -57,7 +57,7 @@ op read "op://vps/argo/DB_PASSWORD" --account tkrumm
 ```bash
 cd ~/SourceRoot/vps && make up && cd -   # Postgres 18 + ClickStack + Valkey (once per boot)
 bun db:sync                              # optional: refresh local data from VPS
-bun dev                                  # API :4000 + dashboard :7715 (https://argo.test via dotfiles Caddy)
+bun dev                                  # API :4040 + dashboard :7715 (https://argo.test via dotfiles Caddy)
 ```
 
 The dashboard proxies `/api/*` to the API (strips `/api` prefix) and `/v1/traces` + `/v1/logs` to ClickStack on `:4318`.

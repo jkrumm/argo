@@ -22,7 +22,7 @@ export DATABASE_URL="postgresql://argo:${ENCODED_PASSWORD}@localhost:5432/${POST
 
 # Free both ports so re-runs don't trip the dashboard's --strictPort or leave
 # a zombie API. Errors are tolerated (nothing was running on the port).
-npx --yes kill-port 4000 7715 >/dev/null 2>&1 || true
+npx --yes kill-port 4040 7715 >/dev/null 2>&1 || true
 
 exec ./node_modules/.bin/concurrently \
   --names api,web \

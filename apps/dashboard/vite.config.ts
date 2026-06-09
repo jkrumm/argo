@@ -14,8 +14,8 @@ const pkg = JSON.parse(readFileSync(resolve(import.meta.dirname, 'package.json')
 // debugging against real data. The proxy strips `/api` from the source path
 // and prepends the target, so for prod set the target to include `/api`
 // (e.g. `https://argo.jkrumm.com/api`). Defaults to the bare local API on
-// :4000 which serves routes without a prefix.
-const apiTarget = process.env['VITE_API_TARGET'] ?? 'http://localhost:4000'
+// :4040 which serves routes without a prefix.
+const apiTarget = process.env['VITE_API_TARGET'] ?? 'http://localhost:4040'
 
 export default defineConfig({
   define: {
