@@ -274,3 +274,70 @@ disabled attach/mic icons appear in the composer.
 - The conversation pane height (480px) could become a user preference or auto-scale to available
   viewport height with a CSS `min()`/`max()` expression once Mantine's `Collapse` height
   animation is confirmed stable with `dvh` values.
+
+## Group 6: Audio in/out (STT + TTS)
+
+### What was implemented
+
+Wired the existing `/ai/v1/audio/*` API endpoints into the composer and transcript: mic button
+records audio via `MediaRecorder`, POSTs the blob to `/api/ai/v1/audio/transcriptions`, and
+appends the returned transcript to the input. A read-aloud `ActionIcon` on assistant messages
+POSTs the text to `/api/ai/v1/audio/speech`, creates a blob URL, and plays it via `new Audio()`.
+Voice-recorded messages persist a duration-only `AudioRef` on `payload.audio` via an extended
+`ChatBodySchema`. The `AudioView` smart-card placeholder was replaced with a real `<audio>` player
+(controls, with a "No audio available" fallback when `src` is absent). 503 responses from the
+audio-proxy disable both controls for the session via `audioAvailable` state.
+
+### Deviations from prompt
+
+- `AudioRef.url` was made optional (`url?: string`) in `schema.ts` so the voice-input audio ref
+  can be persisted without a URL (the recording blob is ephemeral; only duration is stored). No DB
+  migration needed — it is a TypeScript interface over a JSONB column, not a schema constraint.
+- TTS audio refs are not persisted (always regeneratable on demand from message text). Only the
+  user's voice input ref is stored.
+- The `getPendingAudio` ref pattern (`() => ref.current`) is used instead of a `sendMessage` body
+  option — `prepareSendMessagesRequest` in the `DefaultChatTransport` is synchronous, so reading
+  the ref inside it is safe; clearing immediately after `sendMessage()` is correct.
+
+### Gotchas & surprises
+
+- `exactOptionalPropertyTypes: true` in the API tsconfig requires conditional spreading for the
+  optional `userAudioDurationMs` arg — `{ ...cond ? { key: val } : {} }` rather than
+  `{ key: val | undefined }`.
+- oxlint `eqeqeq` rule rejects `!= null`; must use `!== null` even in the "coerce null +
+  undefined" pattern. The rule fires on both API and dashboard code.
+- oxlint `prefer-add-event-listener` warns on `audio.onended = ...`; use
+  `audio.addEventListener('ended', handler, { once: true })` instead.
+- `MediaRecorder.ondataavailable` chunks arrive asynchronously; `onstop` fires after all chunks
+  are queued, so `recordingChunksRef.current` is fully populated when `finishRecording` runs.
+  Releasing the mic (`stream.getTracks().forEach(t => t.stop())`) must happen in `onstop`, not
+  during `stopRecording()` — the latter just calls `recorder.stop()` which is async.
+
+### Security notes
+
+- No XSS: STT transcript is `text` content only, set via `setInput()` into the controlled
+  textarea. It never reaches `dangerouslySetInnerHTML`.
+- TTS audio is fetched server-side as a binary blob; a browser blob URL is created
+  (`URL.createObjectURL`) and revoked in the `ended`/`error` handler — no external URL is ever
+  set on an `<audio>` element directly.
+- The `<audio src={card.src}>` in `AudioView` (smart-card) renders a Hermes-supplied URL. This
+  is the same trust boundary as `<a href>` — acceptable for a personal-use agent surface where
+  Hermes is the trusted source.
+- `AudioRef.url` being optional means the player component's conditional `{card.src ? <audio> :
+fallback}` is the only gate; no empty-string sentinels needed.
+
+### Tests added
+
+None — no dashboard test harness; API hermes tests (23) all pass unchanged. The `userAudioDurationMs`
+field is optional and backwards-compatible; existing test requests omit it and persist `null` audio
+payload as before.
+
+### Future improvements
+
+- Add a `PATCH /hermes/messages/:id/payload` endpoint so TTS refs can be persisted after the
+  assistant message is already written (enabling replay from thread history).
+- Replace the native `<audio controls>` in `AudioView` with a custom Mantine-themed player
+  (progress bar, time display) once media-session / range-request proxy is in place.
+- Consider a visual waveform animation on the mic button while recording (WebAudio `AnalyserNode`).
+- `audioAvailable` state resets when the thread is remounted (keyed by thread id). Consider
+  persisting the "audio unavailable" state in a Zustand slice so it survives thread switching.
