@@ -159,11 +159,17 @@ export function ChatConversation({
   initialMessages,
   onBack,
   hideHeader,
+  autoSendText,
+  onAutoSent,
 }: {
   thread: HermesThread
   initialMessages: HermesUIMessage[]
   onBack?: () => void
   hideHeader?: boolean
+  /** First message to auto-send once on mount — used when a thread is created from
+   *  the feed-level composer so the user types only once (no separate "new chat" click). */
+  autoSendText?: string
+  onAutoSent?: () => void
 }) {
   const queryClient = useQueryClient()
   const [input, setInput] = useState('')
@@ -259,6 +265,17 @@ export function ChatConversation({
     const el = viewportRef.current
     if (el) el.scrollTo({ top: el.scrollHeight })
   }, [messages, toolProgress, awaitingReply])
+
+  // Auto-send the seed message exactly once when a thread is opened straight from the
+  // feed composer (create-and-send), so "new chat" needs no extra click.
+  const autoSentRef = useRef(false)
+  useEffect(() => {
+    if (autoSentRef.current || !autoSendText?.trim()) return
+    autoSentRef.current = true
+    void sendMessage({ text: autoSendText.trim() })
+    onAutoSent?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSendText])
 
   // ── Send ────────────────────────────────────────────────────────────────────
 

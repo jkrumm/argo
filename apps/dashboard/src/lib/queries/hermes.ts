@@ -89,4 +89,8 @@ export const hermesMutations = {
     mutationFn: ({ id, ...body }: PatchThreadBody): Promise<HermesThread> =>
       api.hermes.threads({ id }).patch(body).then(unwrap),
   }),
+  deleteThread: () => ({
+    mutationFn: (id: string): Promise<{ id: string }> =>
+      api.hermes.threads({ id }).delete().then(unwrap),
+  }),
 }

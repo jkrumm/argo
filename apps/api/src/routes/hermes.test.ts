@@ -606,6 +606,47 @@ describe('thread read CRUD', () => {
     expect(res.status).toBe(404)
   })
 
+  it('deletes a thread and cascades its messages via DELETE', async () => {
+    const { fetchImpl } = fakeHermes()
+    const app = buildApp(fetchImpl)
+    await db.insert(hermesThread).values({
+      id: 'thr_del',
+      session_id: 'ses_del',
+      session_key: 'k',
+    })
+    await db.insert(hermesMessage).values({
+      id: 'msg_del',
+      thread_id: 'thr_del',
+      role: 'user',
+      parts: [{ type: 'text', text: 'hi' }],
+      status: 'complete',
+    })
+
+    const res = await app.handle(
+      new Request('http://localhost/hermes/threads/thr_del', { method: 'DELETE' }),
+    )
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as { id: string }).id).toBe('thr_del')
+
+    const thread = await db.query.hermesThread.findFirst({
+      where: eq(hermesThread.id, 'thr_del'),
+    })
+    expect(thread).toBeUndefined()
+    const message = await db.query.hermesMessage.findFirst({
+      where: eq(hermesMessage.id, 'msg_del'),
+    })
+    expect(message).toBeUndefined()
+  })
+
+  it('404s a DELETE to a missing thread', async () => {
+    const { fetchImpl } = fakeHermes()
+    const app = buildApp(fetchImpl)
+    const res = await app.handle(
+      new Request('http://localhost/hermes/threads/thr_nope', { method: 'DELETE' }),
+    )
+    expect(res.status).toBe(404)
+  })
+
   it('returns summary and type as null for a fresh thread', async () => {
     const { fetchImpl } = fakeHermes()
     const app = buildApp(fetchImpl)

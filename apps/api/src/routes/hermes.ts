@@ -739,6 +739,30 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
         },
       },
     )
+    .delete(
+      '/threads/:id',
+      async ({ params, status }) => {
+        const existing = await db.query.hermesThread.findFirst({
+          where: eq(hermesThread.id, params.id),
+        })
+        if (!existing) return status(404, 'Thread not found')
+
+        // Messages cascade via the hermes_message → hermes_thread FK (onDelete: cascade).
+        await db.delete(hermesThread).where(eq(hermesThread.id, params.id))
+        return { id: params.id }
+      },
+      {
+        params: z.object({ id: z.string().describe('Thread id (thr_…).') }),
+        response: { 200: z.object({ id: z.string() }), 404: z.string() },
+        detail: {
+          tags: ['Hermes Chat'],
+          summary: 'Delete a thread',
+          description:
+            'Permanently deletes a thread and all of its messages (cascade). Intended for cleaning up empty/abandoned threads (e.g. a "New chat" that never received a turn). For a reversible hide, PATCH `archived: true` instead. Returns 404 if the thread does not exist.',
+          security: [{ BearerAuth: [] }],
+        },
+      },
+    )
 }
 
 export const hermesRoutes = createHermesRoutes()

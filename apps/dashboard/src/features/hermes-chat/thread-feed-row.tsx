@@ -31,10 +31,14 @@ export function ThreadFeedRow({
   thread,
   expanded,
   onToggle,
+  autoSendText,
+  onAutoSent,
 }: {
   thread: HermesThread
   expanded: boolean
   onToggle: () => void
+  autoSendText?: string
+  onAutoSent?: () => void
 }) {
   return (
     <Box className={classes.wrapper} data-expanded={expanded || undefined}>
@@ -77,7 +81,12 @@ export function ThreadFeedRow({
 
       <Collapse expanded={expanded}>
         <Box className={classes.conversationWrapper} h={CONV_HEIGHT}>
-          <ChatView thread={thread} hideHeader />
+          <ChatView
+            thread={thread}
+            hideHeader
+            autoSendText={autoSendText}
+            onAutoSent={onAutoSent}
+          />
         </Box>
       </Collapse>
     </Box>

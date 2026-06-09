@@ -32,10 +32,14 @@ export function ChatView({
   thread,
   onBack,
   hideHeader,
+  autoSendText,
+  onAutoSent,
 }: {
   thread: HermesThread
   onBack?: () => void
   hideHeader?: boolean
+  autoSendText?: string
+  onAutoSent?: () => void
 }) {
   const { data, isLoading } = useQuery(hermesQueries.messages(thread.id))
 
@@ -54,6 +58,8 @@ export function ChatView({
       initialMessages={toUIMessages(data.data)}
       onBack={onBack}
       hideHeader={hideHeader}
+      autoSendText={autoSendText}
+      onAutoSent={onAutoSent}
     />
   )
 }
