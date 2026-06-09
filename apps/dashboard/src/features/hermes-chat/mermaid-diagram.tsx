@@ -1,7 +1,8 @@
 import { memo, useEffect, useId, useRef, useState } from 'react'
 import mermaid from 'mermaid'
-import { Code, Stack, Text, useComputedColorScheme } from '@mantine/core'
-import classes from './mermaid-diagram.module.css'
+import { useComputedColorScheme } from '@mantine/core'
+import classes from './diagram.module.css'
+import { useDebouncedDiagram, DiagramError } from './diagram-shared'
 
 // Bundled inline mermaid renderer (Group 3). Replaces the CDN/iframe path in
 // diagram-frame.tsx for mermaid fences. securityLevel:'strict' runs mermaid's
@@ -39,12 +40,7 @@ function MermaidDiagramImpl({ source }: { source: string }) {
   const [svg, setSvg] = useState<string | null>(null)
   const [renderError, setRenderError] = useState<{ message: string; raw: string } | null>(null)
 
-  // Debounce source so partial streaming fences don't thrash mermaid on every token.
-  const [stableSource, setStableSource] = useState(source)
-  useEffect(() => {
-    const t = setTimeout(() => setStableSource(source), 250)
-    return () => clearTimeout(t)
-  }, [source])
+  const stableSource = useDebouncedDiagram(source)
 
   useEffect(() => {
     if (!stableSource.trim()) return
@@ -103,14 +99,7 @@ function MermaidDiagramImpl({ source }: { source: string }) {
   }
 
   if (renderError) {
-    return (
-      <Stack gap="xs" className={classes.error}>
-        <Text size="xs" c="dimmed">
-          {renderError.message}
-        </Text>
-        <Code block>{renderError.raw.replace(/\n$/, '')}</Code>
-      </Stack>
-    )
+    return <DiagramError source={renderError.raw} message={renderError.message} />
   }
 
   return null

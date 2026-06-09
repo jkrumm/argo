@@ -150,10 +150,13 @@ const components: Components = {
 // Known mappings + the two custom inline-accent elements emitted by
 // remark-hermes-accents. Custom tag names aren't in react-markdown's element-keyed
 // `Components` type, so the merge is cast at the boundary.
-const richComponents = {
+// Hoisted to module scope — all entries are stable (no per-render closure).
+const MarkComponent = ({ children }: { children?: ReactNode }) => <Mark>{children}</Mark>
+
+const richComponents: Components = {
   ...components,
   'hermes-badge': HermesBadge,
-  'hermes-mark': ({ children }: { children?: ReactNode }) => <Mark>{children}</Mark>,
+  'hermes-mark': MarkComponent,
 } as Components
 
 // rehype-harden filters link/image URLs (blocks javascript:/file: always). Links

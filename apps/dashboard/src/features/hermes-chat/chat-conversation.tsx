@@ -8,10 +8,8 @@ import {
   Box,
   Button,
   CloseButton,
-  Collapse,
   FileButton,
   Group,
-  Image,
   Loader,
   Menu,
   Modal,
@@ -27,7 +25,6 @@ import { notifications } from '@mantine/notifications'
 import {
   IconArrowLeft,
   IconFile,
-  IconFileText,
   IconMicrophone,
   IconPaperclip,
   IconPhoto,
@@ -42,10 +39,12 @@ import { HERMES_CHAT_FEATURES } from './features'
 import { MessageMarkdown } from './message-markdown'
 import { createHermesTransport, apiBase } from './transport'
 import type { Attachment, HermesUIMessage, ToolProgress } from './types'
+import { AttachmentDisplay } from './attachment-display'
 
 // Inline size cap: 2 MB (base64-encoded payload stored in JSONB). Larger files
 // are noted as future work requiring a server-side upload pipeline.
 const ATTACHMENT_SIZE_LIMIT = 2 * 1024 * 1024
+const SIZE_LIMIT_MB = ATTACHMENT_SIZE_LIMIT / (1024 * 1024)
 
 // Tool-progress events whose status means the call has finished — chip is dropped.
 const TERMINAL_TOOL_STATUS = new Set([
@@ -68,80 +67,6 @@ function messageText(message: HermesUIMessage): string {
     .filter(isTextUIPart)
     .map((part) => part.text)
     .join('')
-}
-
-function AttachmentDisplay({ attachment }: { attachment: Attachment }) {
-  const [expanded, setExpanded] = useState(false)
-
-  if (attachment.type === 'image') {
-    return (
-      <Box>
-        {attachment.title && (
-          <Text size="xs" c="dimmed" mb={4}>
-            {attachment.title}
-          </Text>
-        )}
-        <Image
-          src={attachment.dataUrl}
-          alt={attachment.title ?? attachment.fileName ?? 'Image'}
-          maw={240}
-          radius="sm"
-          style={{ border: '1px solid var(--mantine-color-default-border)' }}
-        />
-      </Box>
-    )
-  }
-
-  if (attachment.type === 'file') {
-    return (
-      <Group gap={6} wrap="nowrap">
-        <IconFile size={14} color="var(--mantine-color-dimmed)" />
-        <Text size="xs" c="dimmed" lineClamp={1}>
-          {attachment.fileName}
-          {attachment.sizeBytes > 0 &&
-            ` (${attachment.sizeBytes < 1024 ? `${attachment.sizeBytes} B` : attachment.sizeBytes < 1024 * 1024 ? `${Math.round(attachment.sizeBytes / 1024)} KB` : `${(attachment.sizeBytes / (1024 * 1024)).toFixed(1)} MB`})`}
-        </Text>
-      </Group>
-    )
-  }
-
-  // type === 'text'
-  const hasContent = Boolean(attachment.content?.trim())
-  return (
-    <Box>
-      <Group
-        gap={6}
-        wrap="nowrap"
-        style={hasContent ? { cursor: 'pointer' } : undefined}
-        onClick={hasContent ? () => setExpanded((v) => !v) : undefined}
-      >
-        <IconFileText size={14} color="var(--mantine-color-dimmed)" />
-        <Text size="xs" c="dimmed">
-          {attachment.title ?? 'Text attachment'}
-        </Text>
-        {hasContent && (
-          <Text size="xs" c="dimmed">
-            {expanded ? '▲' : '▼'}
-          </Text>
-        )}
-      </Group>
-      {hasContent && (
-        <Collapse expanded={expanded}>
-          <Paper
-            withBorder
-            radius="sm"
-            p="xs"
-            mt={6}
-            style={{ background: 'var(--mantine-color-default-hover)' }}
-          >
-            <Text size="xs" style={{ whiteSpace: 'pre-wrap' }}>
-              {attachment.content}
-            </Text>
-          </Paper>
-        </Collapse>
-      )}
-    </Box>
-  )
 }
 
 function MessageRow({
@@ -379,40 +304,51 @@ export function ChatConversation({
     closeLongTextModal()
   }
 
-  function readFileAsAttachment(file: File, kind: 'image' | 'file') {
+  async function readFileAsAttachment(file: File, kind: 'image' | 'file') {
     if (file.size > ATTACHMENT_SIZE_LIMIT) {
       notifications.show({
         title: 'File too large',
-        message: `Attachments must be under ${ATTACHMENT_SIZE_LIMIT / (1024 * 1024)} MB.`,
+        message: `Attachments must be under ${SIZE_LIMIT_MB} MB.`,
         color: 'red',
       })
       return
     }
-    const reader = new FileReader()
-    reader.addEventListener('load', () => {
-      const dataUrl = reader.result as string
-      if (kind === 'image') {
-        const att: Attachment = {
-          type: 'image',
-          dataUrl,
-          mimeType: file.type,
-          ...(file.name ? { fileName: file.name } : {}),
-          ...(file.name ? { title: file.name } : {}),
-        }
-        setPendingAttachments((prev) => [...prev, att])
-      } else {
-        const att: Attachment = {
-          type: 'file',
-          dataUrl,
-          mimeType: file.type,
-          fileName: file.name,
-          sizeBytes: file.size,
-          ...(file.name ? { title: file.name } : {}),
-        }
-        setPendingAttachments((prev) => [...prev, att])
+    let dataUrl: string
+    try {
+      dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.addEventListener('load', () => resolve(reader.result as string))
+        reader.addEventListener('error', () => reject(reader.error))
+        reader.readAsDataURL(file)
+      })
+    } catch {
+      notifications.show({
+        title: 'Read error',
+        message: 'Could not read the selected file.',
+        color: 'red',
+      })
+      return
+    }
+    if (kind === 'image') {
+      const att: Attachment = {
+        type: 'image',
+        dataUrl,
+        mimeType: file.type,
+        ...(file.name ? { fileName: file.name } : {}),
+        ...(file.name ? { title: file.name } : {}),
       }
-    })
-    reader.readAsDataURL(file)
+      setPendingAttachments((prev) => [...prev, att])
+    } else {
+      const att: Attachment = {
+        type: 'file',
+        dataUrl,
+        mimeType: file.type,
+        fileName: file.name,
+        sizeBytes: file.size,
+        ...(file.name ? { title: file.name } : {}),
+      }
+      setPendingAttachments((prev) => [...prev, att])
+    }
   }
 
   function removeAttachment(index: number) {

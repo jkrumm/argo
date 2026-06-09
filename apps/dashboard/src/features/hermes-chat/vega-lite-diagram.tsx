@@ -2,8 +2,9 @@ import { memo, useEffect, useRef, useState } from 'react'
 import { compile } from 'vega-lite'
 import * as vega from 'vega'
 import { expressionInterpreter } from 'vega-interpreter'
-import { Code, Stack, Text, useComputedColorScheme } from '@mantine/core'
-import classes from './mermaid-diagram.module.css'
+import { useComputedColorScheme } from '@mantine/core'
+import classes from './diagram.module.css'
+import { useDebouncedDiagram, DiagramError } from './diagram-shared'
 
 // Bundled inline Vega-Lite renderer (Group 4). Replaces the CDN/iframe path in
 // diagram-frame.tsx for vega-lite fences.
@@ -82,12 +83,7 @@ function VegaLiteDiagramImpl({ source }: { source: string }) {
   // Keep a ref to the active view so it can be finalized on unmount / re-render.
   const viewRef = useRef<vega.View | null>(null)
 
-  // Debounce source: partial streaming fences should settle before we compile.
-  const [stableSource, setStableSource] = useState(source)
-  useEffect(() => {
-    const t = setTimeout(() => setStableSource(source), 250)
-    return () => clearTimeout(t)
-  }, [source])
+  const stableSource = useDebouncedDiagram(source)
 
   useEffect(() => {
     if (!stableSource.trim()) return
@@ -174,14 +170,7 @@ function VegaLiteDiagramImpl({ source }: { source: string }) {
   }
 
   if (renderError) {
-    return (
-      <Stack gap="xs" className={classes.error}>
-        <Text size="xs" c="dimmed">
-          {renderError.message}
-        </Text>
-        <Code block>{renderError.raw.replace(/\n$/, '')}</Code>
-      </Stack>
-    )
+    return <DiagramError source={renderError.raw} message={renderError.message} />
   }
 
   return null
