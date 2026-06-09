@@ -83,8 +83,8 @@ export interface HermesRouteDeps {
 }
 
 const TITLE_SYSTEM =
-  'You write concise titles for chat threads. Reply with ONLY the title: 2-6 words, ' +
-  'no surrounding quotes, no trailing punctuation, in the language of the conversation.'
+  `You write concise titles for chat threads. Reply with ONLY the title: 2-6 words, ` +
+  `no surrounding quotes, no trailing punctuation, in the language of the conversation.`
 
 /** Default titler: a single non-streaming DeepSeek completion via `aiComplete`. */
 const deepseekTitle: GenerateTitle = ({ userText, assistantText }) =>
@@ -98,8 +98,8 @@ const deepseekTitle: GenerateTitle = ({ userText, assistantText }) =>
   )
 
 const SUMMARIZE_SYSTEM =
-  'You classify chat threads. Reply with ONLY a JSON object (no markdown, no code fences): ' +
-  '{"summary":"one sentence summarizing the thread","type":"<type>"}. ' +
+  `You classify chat threads. Reply with ONLY a JSON object (no markdown, no code fences): ` +
+  `{"summary":"one sentence summarizing the thread","type":"<type>"}. ` +
   `Allowed types: ${HERMES_THREAD_TYPES.join(', ')}. Use "general" when unsure.`
 
 /** Default summarizer: one DeepSeek call returning { summary, type } parsed from JSON. */
@@ -118,6 +118,7 @@ const deepseekSummarize: GenerateSummary = async ({ userText, assistantText }) =
   try {
     parsed = JSON.parse(stripped) as { summary?: unknown; type?: unknown }
   } catch {
+    log.error('hermes summarize: malformed model JSON', raw)
     // Malformed response — caller's null guard will skip the DB write.
   }
   const summary = String(parsed.summary ?? '')
@@ -161,16 +162,19 @@ function cleanTitle(raw: string): string {
 }
 
 /**
- * Auto-title a fresh thread from its first user+assistant exchange. Best-effort
- * and non-blocking: skips threads that already have a title (the `isNull` guard
- * also makes the write idempotent under concurrent turns) and swallows nothing —
- * the caller fire-and-forgets and logs failures.
+ * Fetch the thread row and the text of its first user and first assistant
+ * message. Returns null when the thread is missing or the first exchange is
+ * absent — callers skip their work without error.
  */
-async function titleThreadIfNeeded(threadId: string, generateTitle: GenerateTitle): Promise<void> {
+async function getFirstExchange(threadId: string): Promise<{
+  thread: typeof hermesThread.$inferSelect
+  userText: string
+  assistantText: string
+} | null> {
   const thread = await db.query.hermesThread.findFirst({
     where: eq(hermesThread.id, threadId),
   })
-  if (!thread || thread.title) return
+  if (!thread) return null
 
   const msgs = await db
     .select()
@@ -179,13 +183,28 @@ async function titleThreadIfNeeded(threadId: string, generateTitle: GenerateTitl
     .orderBy(asc(hermesMessage.created_at), asc(hermesMessage.id))
   const firstUser = msgs.find((m) => m.role === 'user')
   const firstAssistant = msgs.find((m) => m.role === 'assistant')
-  if (!firstUser || !firstAssistant) return
+  if (!firstUser || !firstAssistant) return null
 
   const userText = partsText(firstUser.parts)
   const assistantText = partsText(firstAssistant.parts)
-  if (!userText && !assistantText) return
+  if (!userText && !assistantText) return null
 
-  const title = cleanTitle(await generateTitle({ userText, assistantText }))
+  return { thread, userText, assistantText }
+}
+
+/**
+ * Auto-title a fresh thread from its first user+assistant exchange. Best-effort
+ * and non-blocking: skips threads that already have a title (the `isNull` guard
+ * also makes the write idempotent under concurrent turns) and swallows nothing —
+ * the caller fire-and-forgets and logs failures.
+ */
+async function titleThreadIfNeeded(threadId: string, generateTitle: GenerateTitle): Promise<void> {
+  const exchange = await getFirstExchange(threadId)
+  if (!exchange || exchange.thread.title) return
+
+  const title = cleanTitle(
+    await generateTitle({ userText: exchange.userText, assistantText: exchange.assistantText }),
+  )
   if (!title) return
 
   await db
@@ -205,25 +224,13 @@ async function summarizeThreadIfNeeded(
   threadId: string,
   generateSummary: GenerateSummary,
 ): Promise<void> {
-  const thread = await db.query.hermesThread.findFirst({
-    where: eq(hermesThread.id, threadId),
+  const exchange = await getFirstExchange(threadId)
+  if (!exchange || exchange.thread.summary) return
+
+  const { summary, type: rawType } = await generateSummary({
+    userText: exchange.userText,
+    assistantText: exchange.assistantText,
   })
-  if (!thread || thread.summary) return
-
-  const msgs = await db
-    .select()
-    .from(hermesMessage)
-    .where(eq(hermesMessage.thread_id, threadId))
-    .orderBy(asc(hermesMessage.created_at), asc(hermesMessage.id))
-  const firstUser = msgs.find((m) => m.role === 'user')
-  const firstAssistant = msgs.find((m) => m.role === 'assistant')
-  if (!firstUser || !firstAssistant) return
-
-  const userText = partsText(firstUser.parts)
-  const assistantText = partsText(firstAssistant.parts)
-  if (!userText && !assistantText) return
-
-  const { summary, type: rawType } = await generateSummary({ userText, assistantText })
   if (!summary) return
 
   const type: HermesThreadType = HERMES_THREAD_TYPES.includes(rawType as HermesThreadType)
@@ -364,6 +371,29 @@ async function ensureThread(
   return { threadId, sessionId: row?.session_id ?? sessionId }
 }
 
+function turnStatus(aborted: boolean, errored: boolean): 'interrupted' | 'error' | 'complete' {
+  if (aborted) return 'interrupted'
+  if (errored) return 'error'
+  return 'complete'
+}
+
+function buildMessagePayload(
+  m: UIMessage,
+  toolEvents: ToolProgressData[],
+  audioDurationMs: number | undefined,
+  sentAttachments: unknown[] | undefined,
+): MessagePayload | null {
+  if (m.role === 'assistant' && toolEvents.length) return { toolEvents } satisfies MessagePayload
+  if (m.role === 'user') {
+    const p: MessagePayload = {}
+    if (audioDurationMs !== undefined)
+      p.audio = [{ title: 'Voice input', durationMs: audioDurationMs }]
+    if (sentAttachments?.length) p.attachments = sentAttachments as Attachment[]
+    return Object.keys(p).length > 0 ? p : null
+  }
+  return null
+}
+
 /** Persist the user + assistant turn and bump the thread's updated_at. */
 async function persistTurn(args: {
   threadId: string
@@ -384,26 +414,8 @@ async function persistTurn(args: {
     thread_id: args.threadId,
     role: m.role,
     parts: (m.parts ?? []) as MessageParts,
-    payload: (() => {
-      if (m.role === 'assistant' && args.toolEvents.length)
-        return { toolEvents: args.toolEvents } satisfies MessagePayload
-      if (m.role === 'user') {
-        const p: MessagePayload = {}
-        if (args.userAudioDurationMs)
-          p.audio = [{ title: 'Voice input', durationMs: args.userAudioDurationMs }]
-        if (args.attachments?.length) p.attachments = args.attachments as Attachment[]
-        return Object.keys(p).length > 0 ? p : null
-      }
-      return null
-    })(),
-    status:
-      m.role === 'assistant'
-        ? args.aborted
-          ? 'interrupted'
-          : args.errored
-            ? 'error'
-            : 'complete'
-        : 'complete',
+    payload: buildMessagePayload(m, args.toolEvents, args.userAudioDurationMs, args.attachments),
+    status: m.role === 'assistant' ? turnStatus(args.aborted, args.errored) : 'complete',
     created_at: new Date(baseMs + i).toISOString(),
   }))
   await db.transaction(async (tx) => {
@@ -418,7 +430,7 @@ async function persistTurn(args: {
 export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
   const deps = { ...defaultDeps(), ...overrides }
 
-  return new Elysia({ prefix: '/hermes' })
+  return new Elysia({ name: 'hermes', prefix: '/hermes' })
     .get(
       '/health',
       async () => {
@@ -474,8 +486,8 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
         if (!newTurn) throw new Error('No message in request')
 
         const toolEvents: ToolProgressData[] = []
-        const capturedAudioDurationMs = body.userAudioDurationMs
-        const capturedAttachments = body.attachments
+        const audioDurationMs = body.userAudioDurationMs
+        const sentAttachments = body.attachments
 
         // Resolved inside execute (after ensureThread) and read in onFinish.
         let resolvedThreadId = ''
@@ -568,10 +580,8 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
                 toolEvents,
                 aborted: isAborted,
                 errored: streamErrored,
-                ...(capturedAudioDurationMs !== undefined
-                  ? { userAudioDurationMs: capturedAudioDurationMs }
-                  : {}),
-                ...(capturedAttachments?.length ? { attachments: capturedAttachments } : {}),
+                ...(audioDurationMs !== undefined ? { userAudioDurationMs: audioDurationMs } : {}),
+                ...(sentAttachments?.length ? { attachments: sentAttachments } : {}),
               })
             } catch (error) {
               log.error('hermes transcript persist failed', error)

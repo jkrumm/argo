@@ -47,10 +47,11 @@ export function filterToolProgress(
   const decoder = new TextDecoder()
   const encoder = new TextEncoder()
   let buffer = ''
+  let reader: ReturnType<typeof upstream.getReader> | undefined
 
   return new ReadableStream<Uint8Array>({
     start(controller) {
-      const reader = upstream.getReader()
+      reader = upstream.getReader()
 
       const dispatch = (block: string): void => {
         const { event, data } = parseSseBlock(block)
@@ -70,7 +71,7 @@ export function filterToolProgress(
       void (async () => {
         try {
           for (;;) {
-            const { done, value } = await reader.read()
+            const { done, value } = await reader!.read()
             if (done) break
             // Strip CR so both `\n\n` and `\r\n\r\n` frame delimiters split cleanly.
             buffer += decoder.decode(value, { stream: true }).replace(/\r/g, '')
@@ -89,6 +90,9 @@ export function filterToolProgress(
           controller.error(error)
         }
       })()
+    },
+    async cancel(reason) {
+      await reader?.cancel(reason)
     },
   })
 }

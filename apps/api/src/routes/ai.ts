@@ -76,6 +76,10 @@ function bearer(key: string): Record<string, string> {
 function proxyHeaders(upstream: Headers, fallbackContentType: string): Headers {
   const headers = new Headers()
   headers.set('content-type', upstream.get('content-type') ?? fallbackContentType)
+  // Bun's fetch auto-decompresses the body, so the upstream's compressed
+  // content-length / content-encoding are wrong for the forwarded stream.
+  headers.delete('content-encoding')
+  headers.delete('content-length')
   headers.set('X-Accel-Buffering', 'no')
   return headers
 }
@@ -177,7 +181,7 @@ export async function aiComplete(
 export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
   const deps = { ...defaultDeps(), ...overrides }
 
-  return new Elysia({ prefix: '/ai' })
+  return new Elysia({ name: 'ai', prefix: '/ai' })
     .get(
       '/v1/models',
       () => ({

@@ -45,7 +45,10 @@ function computeCost(
   completionTokens: number,
 ): { cost_usd: number | null; cost_source: string } {
   const rates = DEEPSEEK_RATES[modelNorm]
-  if (!rates) return { cost_usd: null, cost_source: 'none' }
+  if (!rates) {
+    log.warn('unknown deepseek model norm — cannot compute cost', { modelNorm })
+    return { cost_usd: null, cost_source: 'none' }
+  }
   return {
     cost_usd: (promptTokens * rates.input + completionTokens * rates.output) / 1_000_000,
     cost_source: 'computed',
@@ -55,7 +58,7 @@ function computeCost(
 /**
  * Insert one row into argo.usage_record for an in-process Argo AI call.
  * Tagged source='argo', billing='iu' (IU unified endpoint, EU-resident).
- * Returns a promise the caller can fire-and-forget; errors are logged.
+ * DB errors are logged AND re-thrown, so callers must `catch()`.
  */
 export async function recordAiUsage(params: RecordUsageParams): Promise<void> {
   const modelNorm = normalizeDeepseekModel(params.model)
