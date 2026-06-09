@@ -52,8 +52,8 @@ GITLAB_TOKEN=op://vps/argo/GITLAB_TOKEN
 #
 # Hermes agent core — OpenAI-compatible API, bearer = API_SERVER_KEY, port 8642,
 # reached over Tailscale from the VPS.
-# HERMES_BASE_URL=op://vps/argo/HERMES_BASE_URL
-# HERMES_API_KEY=op://vps/argo/HERMES_API_KEY
+HERMES_BASE_URL=op://vps/argo/HERMES_BASE_URL
+HERMES_API_KEY=op://vps/argo/HERMES_API_KEY
 #
 # HERMES_SESSION_KEY — long-term memory scope (Honcho conversation id). Form:
 #   agent:main:slack:group:<channel_id>:<slack_user_id>
@@ -62,12 +62,15 @@ GITLAB_TOKEN=op://vps/argo/GITLAB_TOKEN
 # The env.ts default already carries this; override here only to change scope.
 # HERMES_SESSION_KEY=agent:main:slack:group:C0ASRUD7K1U:U0AS54FURPE
 #
-# General AI gateway (/ai/v1/*) — DeepSeek v4 Flash via the LiteLLM EU bridge.
-# DEEPSEEK_BASE_URL must include the OpenAI `/v1` path prefix; the gateway
-# appends `/chat/completions`. Routing here is what keeps DeepSeek EU/GDPR.
-# DEEPSEEK_BASE_URL=op://vps/argo/DEEPSEEK_BASE_URL
-# DEEPSEEK_API_KEY=op://vps/argo/DEEPSEEK_API_KEY
-# DEEPSEEK_MODEL=DeepSeek-V4-Flash
+# General AI gateway (/ai/v1/*) — DeepSeek v4 Flash, called DIRECTLY on the IU
+# unified endpoint's OpenAI-compatible transport. No LiteLLM bridge, no localhost:
+# the same public HTTPS endpoint is reachable from local dev and the prod VPS, so
+# one config serves both. The model is EU/GDPR-resident (Azure Spain). The base
+# URL already carries the OpenAI `/v1` path; the gateway appends
+# `/chat/completions`. Reuses the shared IU creds in op://common/anthropic.
+DEEPSEEK_BASE_URL=op://common/anthropic/OPENAI_BASE_URL
+DEEPSEEK_API_KEY=op://common/anthropic/API_KEY
+DEEPSEEK_MODEL=DeepSeek-V4-Flash
 #
 # audio-proxy (:7716) — STT (/audio/transcriptions) + TTS (/audio/speech).
 # AUDIO_PROXY_BASE_URL includes the `/v1` prefix (e.g. http://<host>:7716/v1);

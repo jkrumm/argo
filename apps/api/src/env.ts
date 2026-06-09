@@ -46,7 +46,7 @@ export const Env = z.object({
 
   // ── Hermes Chat (see docs/HERMES-CHAT-PRD.md) ─────────────────────────────
   // All optional so the API boots in test/CI without live cross-machine
-  // upstreams (Hermes Mac Mini, audio-proxy, DeepSeek bridge). Real values are
+  // upstreams (Hermes Mac Mini, audio-proxy, IU AI endpoint). Real values are
   // provisioned in Group 0 (op://vps/argo/*). Group 1 wires config only — no
   // behavior; handlers land in Groups 2–3.
 
@@ -63,10 +63,11 @@ export const Env = z.object({
   // Slack #hermes group key for Johannes — see .env.local.tpl for derivation.
   HERMES_SESSION_KEY: z.string().default('agent:main:slack:group:C0ASRUD7K1U:U0AS54FURPE'),
 
-  // General AI gateway (/ai/v1/*) — DeepSeek v4 Flash via the LiteLLM EU bridge.
-  // DEEPSEEK_BASE_URL must include the OpenAI path prefix (e.g.
-  // `https://<eu-bridge-host>/v1`); the gateway appends `/chat/completions`.
-  // Routing to this EU bridge is what keeps DeepSeek traffic GDPR-compliant.
+  // General AI gateway (/ai/v1/*) — DeepSeek v4 Flash, called directly on the IU
+  // unified endpoint's OpenAI-compatible transport (no LiteLLM bridge). The same
+  // public endpoint serves local + prod. DEEPSEEK_BASE_URL must include the
+  // OpenAI path prefix; the gateway appends `/chat/completions`. The model is
+  // EU/GDPR-resident (Azure Spain), so routing stays GDPR-compliant.
   DEEPSEEK_BASE_URL: z.string().default(''),
   DEEPSEEK_API_KEY: z.string().default(''),
   DEEPSEEK_MODEL: z.string().default('DeepSeek-V4-Flash'),

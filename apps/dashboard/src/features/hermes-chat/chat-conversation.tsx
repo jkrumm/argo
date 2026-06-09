@@ -120,15 +120,22 @@ export function ChatConversation({
     },
     onFinish: () => {
       setToolProgress({})
-      // Refresh thread ordering + the persisted transcript. A fresh thread is
-      // auto-titled off the response path (fire-and-forget on the server), so a
-      // second, delayed invalidate catches the title once DeepSeek answers.
+      // Refresh thread ordering + the persisted transcript immediately.
       void queryClient.invalidateQueries({ queryKey: hermesQueries.all() })
-      setTimeout(() => {
-        void queryClient.invalidateQueries({
-          queryKey: hermesQueries.threads('active').queryKey,
-        })
-      }, 2500)
+      // A fresh thread is auto-titled off the response path (fire-and-forget on
+      // the server; DeepSeek latency is variable), so poll the thread list until
+      // this thread shows a title instead of racing a single fixed timer.
+      const threadsKey = hermesQueries.threads('active').queryKey
+      let attempts = 0
+      const pollForTitle = async (): Promise<void> => {
+        attempts += 1
+        await queryClient.invalidateQueries({ queryKey: threadsKey })
+        const titled = queryClient
+          .getQueryData<{ data: HermesThread[]; total: number }>(threadsKey)
+          ?.data.find((t) => t.id === thread.id)?.title
+        if (!titled && attempts < 6) setTimeout(() => void pollForTitle(), 1500)
+      }
+      setTimeout(() => void pollForTitle(), 1500)
     },
   })
 

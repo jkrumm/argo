@@ -6,8 +6,8 @@ import { env } from '../env.js'
 // General-purpose AI gateway — an OpenAI-compatible surface at /ai/v1/* backing
 // Argo's own AI features (NOT the Hermes agent; that lives under /hermes).
 //
-//   • POST /ai/v1/chat/completions   — DeepSeek v4 Flash via the LiteLLM EU
-//                                       bridge (thread titling, classification)
+//   • POST /ai/v1/chat/completions   — DeepSeek v4 Flash on the IU unified
+//                                       endpoint (thread titling, classification)
 //   • POST /ai/v1/audio/transcriptions — STT (audio-proxy)
 //   • POST /ai/v1/audio/speech        — TTS (audio-proxy)
 //   • GET  /ai/v1/models              — advertise the configured model(s)
@@ -25,9 +25,9 @@ import { env } from '../env.js'
  */
 export type FetchImpl = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
 
-/** Injectable upstream config so tests can point at fake bridge / audio-proxy. */
+/** Injectable upstream config so tests can point at fake endpoint / audio-proxy. */
 export interface AiRouteDeps {
-  /** DeepSeek (LiteLLM EU bridge) base URL, including the `/v1` path prefix. */
+  /** DeepSeek base URL (IU unified endpoint, OpenAI transport), incl. `/v1`. */
   deepseekBaseURL: string
   deepseekApiKey: string
   deepseekModel: string
@@ -146,7 +146,7 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
       () => ({
         object: 'list' as const,
         data: deps.deepseekModel
-          ? [{ id: deps.deepseekModel, object: 'model' as const, owned_by: 'deepseek-eu-bridge' }]
+          ? [{ id: deps.deepseekModel, object: 'model' as const, owned_by: 'iu-unified-endpoint' }]
           : [],
       }),
       {
@@ -158,7 +158,7 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
           tags: ['AI Gateway'],
           summary: 'List available gateway models',
           description:
-            'OpenAI-compatible model listing for the general AI gateway. Advertises the configured DeepSeek model (served via the LiteLLM EU bridge) used for titling/classification. STT/TTS run through /ai/v1/audio/* and are not selectable here. This is the Argo-owned gateway — to chat with the Hermes agent use POST /hermes/chat instead.',
+            'OpenAI-compatible model listing for the general AI gateway. Advertises the configured DeepSeek model (served directly by the IU unified endpoint, EU/GDPR) used for titling/classification. STT/TTS run through /ai/v1/audio/* and are not selectable here. This is the Argo-owned gateway — to chat with the Hermes agent use POST /hermes/chat instead.',
           security: [{ BearerAuth: [] }],
         },
       },
@@ -172,8 +172,8 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
           })
         }
         // Default the model to the configured DeepSeek model; an explicit
-        // `model` in the body wins. Routing to the EU bridge base URL is what
-        // keeps the request GDPR-compliant regardless of the model field.
+        // `model` in the body wins. Routing to the EU-resident IU endpoint is
+        // what keeps the request GDPR-compliant regardless of the model field.
         const payload = { model: deps.deepseekModel, ...(body as Record<string, unknown>) }
         const res = await deps.fetchImpl(joinUrl(deps.deepseekBaseURL, '/chat/completions'), {
           method: 'POST',
@@ -191,7 +191,7 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
           tags: ['AI Gateway'],
           summary: 'OpenAI-compatible chat completion (DeepSeek v4 Flash, EU)',
           description:
-            'Proxies an OpenAI chat-completion request to DeepSeek v4 Flash via the LiteLLM EU bridge, with the bridge API key kept server-side. Used for fast Argo-side tasks like thread titling and classification. `model` defaults to the configured DeepSeek model; routing always targets the EU bridge (GDPR). Supports non-streaming (default) and `stream: true` SSE. Response mirrors the upstream OpenAI shape.',
+            'Proxies an OpenAI chat-completion request to DeepSeek v4 Flash on the IU unified endpoint (OpenAI transport), with the endpoint API key kept server-side. Used for fast Argo-side tasks like thread titling and classification. `model` defaults to the configured DeepSeek model; routing always targets the EU-resident IU endpoint (GDPR). Supports non-streaming (default) and `stream: true` SSE. Response mirrors the upstream OpenAI shape.',
           security: [{ BearerAuth: [] }],
         },
       },
