@@ -174,22 +174,37 @@ function NoteView({ card }: { card: z.infer<typeof NoteCard> }) {
   )
 }
 
-// Audio is reserved for Phase B (Group 8 wires the MediaSession player + range
-// proxy). Until then a quiet placeholder so the card never looks broken.
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`
+}
+
 function AudioView({ card }: { card: z.infer<typeof AudioCard> }) {
   return (
     <Card withBorder radius="md" padding="sm">
-      <Group gap="xs" wrap="nowrap">
-        <ThemeIcon size="sm" radius="sm" variant="light" color="gray">
+      <Group gap="xs" wrap="nowrap" mb={card.src ? 'xs' : 0}>
+        <ThemeIcon size="sm" radius="sm" variant="light" color="blue">
           <IconHeadphones size={14} />
         </ThemeIcon>
         <Text size="sm" fw="semibold">
           {card.title ?? 'Audio'}
         </Text>
-        <Badge size="xs" variant="light" color="gray" radius="sm">
-          coming soon
-        </Badge>
+        {card.durationMs && (
+          <Text size="xs" c="dimmed">
+            {formatDuration(card.durationMs)}
+          </Text>
+        )}
       </Group>
+      {card.src ? (
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <audio controls src={card.src} style={{ width: '100%', height: 32 }} />
+      ) : (
+        <Text size="xs" c="dimmed">
+          No audio available
+        </Text>
+      )}
     </Card>
   )
 }

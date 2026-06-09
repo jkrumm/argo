@@ -12,10 +12,19 @@ export type ToolProgress = {
   status: string
 }
 
+/** Persisted audio ref from a message payload — hydrated into metadata on load. */
+export type AudioRefMeta = {
+  url?: string
+  title?: string
+  durationMs?: number
+}
+
 /** Optional non-transcript metadata we carry on hydrated messages. */
 export type HermesMessageMetadata = {
   /** DB lifecycle status (e.g. 'interrupted') for a persisted message. */
   status?: string
+  /** Audio refs persisted on this message (voice input or generated speech). */
+  audio?: AudioRefMeta[]
 }
 
 /**

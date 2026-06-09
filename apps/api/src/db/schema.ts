@@ -303,7 +303,7 @@ export const walkingPadAchievements = argoSchema.table(
 
 /** A Hermes-hosted audio asset referenced by an assistant message. */
 export interface AudioRef {
-  url: string
+  url?: string
   title?: string
   durationMs?: number
 }

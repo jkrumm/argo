@@ -244,6 +244,12 @@ const ChatBodySchema = z.object({
   // AI SDK UIMessage[]; only the new turn is sent (Hermes holds history). Parts
   // are validated by the SDK downstream, so they stay opaque to Zod here.
   messages: z.array(z.unknown()).min(1).describe('UIMessage[] — the new user turn.'),
+  // Present when the user recorded voice and the browser sent it to STT before
+  // this message. Stored as an audio ref on the user message payload.
+  userAudioDurationMs: z
+    .number()
+    .describe('Duration in ms of the voice recording that produced this message.')
+    .optional(),
 })
 
 // ── Read-CRUD schemas (thread/message reads, create, patch) ──────────────────
@@ -352,6 +358,7 @@ async function persistTurn(args: {
   toolEvents: ToolProgressData[]
   aborted: boolean
   errored: boolean
+  userAudioDurationMs?: number
 }): Promise<void> {
   // Stamp a distinct, monotonically increasing created_at per message. A single
   // transaction's `now()` is identical for every row, so relying on the column
@@ -363,10 +370,15 @@ async function persistTurn(args: {
     thread_id: args.threadId,
     role: m.role,
     parts: (m.parts ?? []) as MessageParts,
-    payload:
-      m.role === 'assistant' && args.toolEvents.length
-        ? ({ toolEvents: args.toolEvents } satisfies MessagePayload)
-        : null,
+    payload: (() => {
+      if (m.role === 'assistant' && args.toolEvents.length)
+        return { toolEvents: args.toolEvents } satisfies MessagePayload
+      if (m.role === 'user' && args.userAudioDurationMs)
+        return {
+          audio: [{ title: 'Voice input', durationMs: args.userAudioDurationMs }],
+        } satisfies MessagePayload
+      return null
+    })(),
     status:
       m.role === 'assistant'
         ? args.aborted
@@ -445,6 +457,7 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
         if (!newTurn) throw new Error('No message in request')
 
         const toolEvents: ToolProgressData[] = []
+        const capturedAudioDurationMs = body.userAudioDurationMs
 
         // Resolved inside execute (after ensureThread) and read in onFinish.
         let resolvedThreadId = ''
@@ -514,6 +527,9 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
                 toolEvents,
                 aborted: isAborted,
                 errored: streamErrored,
+                ...(capturedAudioDurationMs !== undefined
+                  ? { userAudioDurationMs: capturedAudioDurationMs }
+                  : {}),
               })
             } catch (error) {
               log.error('hermes transcript persist failed', error)

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { isTextUIPart } from 'ai'
 import { useQueryClient } from '@tanstack/react-query'
@@ -15,16 +15,19 @@ import {
   Textarea,
   Tooltip,
 } from '@mantine/core'
+import { notifications } from '@mantine/notifications'
 import {
   IconArrowLeft,
   IconMicrophone,
   IconPaperclip,
   IconPlayerStopFilled,
   IconSend,
+  IconVolume,
 } from '@tabler/icons-react'
 import { hermesQueries, type HermesThread } from '../../lib/queries/hermes'
+import { getToken } from '../../lib/auth'
 import { MessageMarkdown } from './message-markdown'
-import { createHermesTransport } from './transport'
+import { createHermesTransport, apiBase } from './transport'
 import type { HermesUIMessage, ToolProgress } from './types'
 
 // Tool-progress events whose status means the call has finished — chip is dropped.
@@ -50,38 +53,72 @@ function messageText(message: HermesUIMessage): string {
     .join('')
 }
 
-function MessageRow({ message }: { message: HermesUIMessage }) {
+function MessageRow({
+  message,
+  onReadAloud,
+  isPlayingAloud,
+}: {
+  message: HermesUIMessage
+  onReadAloud?: (id: string, text: string) => void
+  isPlayingAloud?: boolean
+}) {
   const isUser = message.role === 'user'
   const text = messageText(message)
   const interrupted = message.metadata?.status === 'interrupted'
+  const hasVoiceInput = (message.metadata?.audio?.length ?? 0) > 0
 
   if (isUser) {
     return (
       <Group justify="flex-end" gap={0}>
-        <Paper
-          withBorder
-          radius="md"
-          px="sm"
-          py={6}
-          maw="85%"
-          bg="var(--mantine-color-default-hover)"
-        >
-          <MessageMarkdown content={text} />
-        </Paper>
+        <Stack gap={4} align="flex-end">
+          {hasVoiceInput && (
+            <Group gap={4}>
+              <IconMicrophone size={11} color="var(--mantine-color-dimmed)" />
+              <Text size="xs" c="dimmed">
+                Voice
+              </Text>
+            </Group>
+          )}
+          <Paper
+            withBorder
+            radius="md"
+            px="sm"
+            py={6}
+            maw="85%"
+            bg="var(--mantine-color-default-hover)"
+          >
+            <MessageMarkdown content={text} />
+          </Paper>
+        </Stack>
       </Group>
     )
   }
 
   return (
     <Box maw="92%">
-      <Group gap="xs" mb={2}>
-        <Text size="xs" fw="semibold" c="dimmed">
-          Hermes
-        </Text>
-        {interrupted && (
-          <Badge size="xs" variant="light" color="orange" radius="sm">
-            interrupted
-          </Badge>
+      <Group gap="xs" mb={2} justify="space-between" wrap="nowrap">
+        <Group gap="xs">
+          <Text size="xs" fw="semibold" c="dimmed">
+            Hermes
+          </Text>
+          {interrupted && (
+            <Badge size="xs" variant="light" color="orange" radius="sm">
+              interrupted
+            </Badge>
+          )}
+        </Group>
+        {text && onReadAloud && (
+          <Tooltip label={isPlayingAloud ? 'Stop' : 'Read aloud'} withArrow>
+            <ActionIcon
+              size={20}
+              variant="subtle"
+              color="gray"
+              onClick={() => onReadAloud(message.id, text)}
+              aria-label={isPlayingAloud ? 'Stop reading' : 'Read aloud'}
+            >
+              {isPlayingAloud ? <IconPlayerStopFilled size={12} /> : <IconVolume size={12} />}
+            </ActionIcon>
+          </Tooltip>
         )}
       </Group>
       <MessageMarkdown content={text} />
@@ -102,13 +139,43 @@ export function ChatConversation({
 }) {
   const queryClient = useQueryClient()
   const [input, setInput] = useState('')
-  // Active tool calls keyed by toolCallId — Hermes streams these out-of-band; a
-  // terminal status removes the chip. Transient (never persisted into the transcript).
   const [toolProgress, setToolProgress] = useState<Record<string, ToolProgress>>({})
   const viewportRef = useRef<HTMLDivElement>(null)
 
+  // ── Audio state ─────────────────────────────────────────────────────────────
+  const [isRecording, setIsRecording] = useState(false)
+  const [isTranscribing, setIsTranscribing] = useState(false)
+  // null = unknown, false = 503 confirmed (controls disabled), true = working
+  const [audioAvailable, setAudioAvailable] = useState<boolean | null>(null)
+  const [playingMessageId, setPlayingMessageId] = useState<string | null>(null)
+
+  const pendingAudioMsRef = useRef<number | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const recordingChunksRef = useRef<Blob[]>([])
+  const recordingStartRef = useRef<number>(0)
+  const playingAudioRef = useRef<HTMLAudioElement | null>(null)
+
+  // Cleanup audio resources on unmount.
+  useEffect(() => {
+    return () => {
+      if (playingAudioRef.current) {
+        playingAudioRef.current.pause()
+        playingAudioRef.current = null
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop()
+      }
+    }
+  }, [])
+
+  // ── Transport ────────────────────────────────────────────────────────────────
   const transport = useMemo(
-    () => createHermesTransport({ threadId: thread.id, sessionId: thread.session_id }),
+    () =>
+      createHermesTransport({
+        threadId: thread.id,
+        sessionId: thread.session_id,
+        getPendingAudio: () => pendingAudioMsRef.current,
+      }),
     [thread.id, thread.session_id],
   )
 
@@ -128,11 +195,7 @@ export function ChatConversation({
     },
     onFinish: () => {
       setToolProgress({})
-      // Refresh thread ordering + the persisted transcript immediately.
       void queryClient.invalidateQueries({ queryKey: hermesQueries.all() })
-      // A fresh thread is auto-titled off the response path (fire-and-forget on
-      // the server; DeepSeek latency is variable), so poll the thread list until
-      // this thread shows a title instead of racing a single fixed timer.
       const threadsKey = hermesQueries.threads('active').queryKey
       let attempts = 0
       const pollForTitle = async (): Promise<void> => {
@@ -148,8 +211,6 @@ export function ChatConversation({
   })
 
   const isStreaming = status === 'submitted' || status === 'streaming'
-  // The assistant's reply is rendered live from `messages`; only show the
-  // "thinking" indicator while we wait for the first token of a new reply.
   const awaitingReply = isStreaming && messages[messages.length - 1]?.role !== 'assistant'
   const activeTools = Object.values(toolProgress)
 
@@ -157,18 +218,173 @@ export function ChatConversation({
     if (status === 'ready' || status === 'error') setToolProgress({})
   }, [status])
 
-  // Keep the latest message in view as it streams.
   useEffect(() => {
     const el = viewportRef.current
     if (el) el.scrollTo({ top: el.scrollHeight })
   }, [messages, toolProgress, awaitingReply])
+
+  // ── Send ────────────────────────────────────────────────────────────────────
 
   function send() {
     const text = input.trim()
     if (!text || isStreaming) return
     setInput('')
     void sendMessage({ text })
+    // pendingAudioMsRef is read synchronously inside prepareSendMessagesRequest,
+    // which runs during sendMessage, so clear it after the call.
+    pendingAudioMsRef.current = null
   }
+
+  // ── Voice recording → STT ───────────────────────────────────────────────────
+
+  const finishRecording = useCallback(async (chunks: Blob[], durationMs: number) => {
+    setIsTranscribing(true)
+    try {
+      const blob = new Blob(chunks, { type: 'audio/webm' })
+      const form = new FormData()
+      form.append('file', blob, 'recording.webm')
+      const token = getToken()
+      const res = await fetch(`${apiBase}/ai/v1/audio/transcriptions`, {
+        method: 'POST',
+        headers: token ? { authorization: `Bearer ${token}` } : {},
+        body: form,
+      })
+      if (!res.ok) {
+        if (res.status === 503) {
+          setAudioAvailable(false)
+          notifications.show({
+            title: 'Audio unavailable',
+            message: 'Audio proxy is not configured.',
+            color: 'red',
+          })
+        }
+        return
+      }
+      const json = (await res.json()) as { text?: string }
+      const transcript = (json.text ?? '').trim()
+      if (transcript) {
+        setInput((prev) => (prev ? `${prev} ${transcript}` : transcript))
+        pendingAudioMsRef.current = durationMs
+      }
+      setAudioAvailable(true)
+    } catch {
+      notifications.show({
+        title: 'Transcription failed',
+        message: 'Could not transcribe audio.',
+        color: 'red',
+      })
+    } finally {
+      setIsTranscribing(false)
+    }
+  }, [])
+
+  function stopRecording() {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop()
+    }
+    setIsRecording(false)
+  }
+
+  async function startRecording() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      notifications.show({
+        title: 'Microphone unavailable',
+        message: 'Your browser does not support audio recording.',
+        color: 'red',
+      })
+      return
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      const chunks: Blob[] = []
+      recordingChunksRef.current = chunks
+      recordingStartRef.current = Date.now()
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data)
+      }
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop())
+        void finishRecording(chunks, Date.now() - recordingStartRef.current)
+      }
+
+      mediaRecorderRef.current = recorder
+      recorder.start()
+      setIsRecording(true)
+    } catch {
+      notifications.show({
+        title: 'Microphone unavailable',
+        message: 'Could not access your microphone.',
+        color: 'red',
+      })
+    }
+  }
+
+  function handleMicClick() {
+    if (isRecording) stopRecording()
+    else void startRecording()
+  }
+
+  // ── Read-aloud → TTS ────────────────────────────────────────────────────────
+
+  async function handleReadAloud(messageId: string, text: string) {
+    // Stop whatever is currently playing.
+    if (playingAudioRef.current) {
+      playingAudioRef.current.pause()
+      playingAudioRef.current = null
+    }
+    // Click on the currently playing message → just stop.
+    if (playingMessageId === messageId) {
+      setPlayingMessageId(null)
+      return
+    }
+    setPlayingMessageId(messageId)
+    try {
+      const token = getToken()
+      const res = await fetch(`${apiBase}/ai/v1/audio/speech`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ input: text }),
+      })
+      if (!res.ok) {
+        if (res.status === 503) {
+          setAudioAvailable(false)
+          notifications.show({
+            title: 'Audio unavailable',
+            message: 'Audio proxy is not configured.',
+            color: 'red',
+          })
+        }
+        setPlayingMessageId(null)
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const audio = new Audio(url)
+      const cleanup = () => {
+        URL.revokeObjectURL(url)
+        setPlayingMessageId(null)
+        playingAudioRef.current = null
+      }
+      audio.addEventListener('ended', cleanup, { once: true })
+      audio.addEventListener('error', cleanup, { once: true })
+      playingAudioRef.current = audio
+      await audio.play()
+      setAudioAvailable(true)
+    } catch {
+      setPlayingMessageId(null)
+      playingAudioRef.current = null
+    }
+  }
+
+  // Expose read-aloud only when audio is not confirmed unavailable and not streaming.
+  const readAloudHandler = audioAvailable !== false && !isStreaming ? handleReadAloud : undefined
+
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <Stack h="100%" gap={0}>
@@ -199,7 +415,12 @@ export function ChatConversation({
             </Text>
           )}
           {messages.map((message) => (
-            <MessageRow key={message.id} message={message} />
+            <MessageRow
+              key={message.id}
+              message={message}
+              onReadAloud={readAloudHandler}
+              isPlayingAloud={playingMessageId === message.id}
+            />
           ))}
           {isStreaming && activeTools.length > 0 && (
             <Group gap="xs">
@@ -259,9 +480,33 @@ export function ChatConversation({
               <IconPaperclip size={18} />
             </ActionIcon>
           </Tooltip>
-          <Tooltip label="Voice input (coming soon)" withArrow>
-            <ActionIcon size={36} variant="subtle" color="gray" disabled aria-label="Voice input">
-              <IconMicrophone size={18} />
+          <Tooltip
+            label={
+              audioAvailable === false
+                ? 'Audio proxy not configured'
+                : isRecording
+                  ? 'Stop recording'
+                  : isTranscribing
+                    ? 'Transcribing…'
+                    : 'Voice input'
+            }
+            withArrow
+          >
+            <ActionIcon
+              size={36}
+              variant={isRecording ? 'filled' : 'subtle'}
+              color={isRecording ? 'red' : 'gray'}
+              disabled={isTranscribing || audioAvailable === false || isStreaming}
+              onClick={handleMicClick}
+              aria-label={isRecording ? 'Stop recording' : 'Voice input'}
+            >
+              {isTranscribing ? (
+                <Loader size={14} />
+              ) : isRecording ? (
+                <IconPlayerStopFilled size={18} />
+              ) : (
+                <IconMicrophone size={18} />
+              )}
             </ActionIcon>
           </Tooltip>
           {isStreaming ? (
