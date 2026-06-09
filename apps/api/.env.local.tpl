@@ -77,8 +77,10 @@ DEEPSEEK_BASE_URL=op://common/anthropic/OPENAI_BASE_URL
 DEEPSEEK_API_KEY=op://common/anthropic/API_KEY
 DEEPSEEK_MODEL=DeepSeek-V4-Flash
 #
-# audio-proxy (:7716) — STT (/audio/transcriptions) + TTS (/audio/speech).
-# AUDIO_PROXY_BASE_URL includes the `/v1` prefix (e.g. http://<host>:7716/v1);
-# AUDIO_PROXY_API_KEY is the optional bearer the proxy gates on (empty = off).
-# AUDIO_PROXY_BASE_URL=op://vps/argo/AUDIO_PROXY_BASE_URL
-# AUDIO_PROXY_API_KEY=op://vps/argo/AUDIO_PROXY_API_KEY
+# Audio (STT + TTS) — native to Argo (no more audio-proxy hop). STT
+# (/audio/transcriptions) and the TTS prep LLM reuse the IU OpenAI creds above
+# (DEEPSEEK_BASE_URL + DEEPSEEK_API_KEY). Gemini expressive TTS needs the native
+# generateContent base below and reuses the same IU key. Unset → STT works, TTS
+# 503s. Tuning knobs (AUDIO_TTS_*, AUDIO_STT_*) have code defaults in env.ts —
+# override only to tune. Requires ffmpeg/ffprobe on PATH (brew install ffmpeg).
+AUDIO_GEMINI_BASE_URL=op://common/anthropic/GEMINI_BASE_URL

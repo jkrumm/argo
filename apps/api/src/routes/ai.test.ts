@@ -2,19 +2,21 @@ import { describe, it, expect, afterEach } from 'bun:test'
 import { eq } from 'drizzle-orm'
 import { Elysia } from 'elysia'
 import { createAiRoutes, aiComplete, type FetchImpl, type AiRouteDeps } from './ai.js'
+import { mapWithConcurrency } from '../lib/tts/audio.js'
 import { authGuard } from '../lib/auth-guard.js'
 import { recordAiUsage, normalizeDeepseekModel } from '../lib/ai-usage.js'
 import { db } from '../db/index.js'
 import { usageRecord } from '../db/schema.js'
 
-// Group 3 — General AI gateway. Tests run entirely against mocked upstreams
-// (DeepSeek EU bridge + audio-proxy); no live cross-machine services. Auth is
-// exercised through the real shared `authGuard`.
+// General AI gateway + native audio. Tests run entirely against mocked upstreams
+// (the IU unified endpoint — OpenAI dialect for chat/STT/TTS-prep, and the native
+// Gemini generateContent for TTS synth); no live cross-machine services and no
+// ffmpeg (the transcoder is stubbed). Auth is exercised through the real shared
+// `authGuard`. The IU OpenAI base/key are shared by chat, STT and the TTS prep LLM.
 
 const DEEPSEEK_KEY = 'DEEPSEEK_SECRET_KEY'
-const AUDIO_KEY = 'AUDIO_PROXY_SECRET_KEY'
 const DEEPSEEK_BASE = 'https://deepseek-eu.bridge.test/v1'
-const AUDIO_BASE = 'http://audio-proxy.test/v1'
+const GEMINI_BASE = 'https://gemini.iu.test/v1beta'
 
 const SECRET = process.env['API_SECRET'] ?? ''
 const authHeaders = { Authorization: `Bearer ${SECRET}` }
@@ -57,17 +59,9 @@ function fakeUpstream(): { fetchImpl: FetchImpl; calls: Captured[] } {
     }
     if (url.endsWith('/audio/transcriptions')) {
       return Promise.resolve(
-        new Response(JSON.stringify({ text: 'transcribed words' }), {
+        new Response(JSON.stringify({ text: 'transcribed words', language: 'de' }), {
           status: 200,
           headers: { 'content-type': 'application/json' },
-        }),
-      )
-    }
-    if (url.endsWith('/audio/speech')) {
-      return Promise.resolve(
-        new Response(new Uint8Array([1, 2, 3, 4, 5]), {
-          status: 200,
-          headers: { 'content-type': 'audio/mpeg' },
         }),
       )
     }
@@ -76,13 +70,66 @@ function fakeUpstream(): { fetchImpl: FetchImpl; calls: Captured[] } {
   return { fetchImpl, calls }
 }
 
+/** Fake IU upstreams for the Gemini TTS path: prep LLM (/chat/completions) + synth. */
+function fakeTtsUpstream(prepChunks?: Array<{ style: string; text: string }>): {
+  fetchImpl: FetchImpl
+  calls: Captured[]
+} {
+  const calls: Captured[] = []
+  const chunks = prepChunks ?? [{ style: 'ruhig', text: 'Hallo Welt' }]
+  const fetchImpl: FetchImpl = (input, init) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    calls.push({
+      url,
+      method: init?.method ?? 'GET',
+      headers: new Headers(init?.headers ?? {}),
+      body: init?.body,
+    })
+    if (url.endsWith('/chat/completions')) {
+      return Promise.resolve(
+        Response.json({
+          choices: [
+            { message: { content: JSON.stringify({ lang: 'de', title: 'Kurzer Titel', chunks }) } },
+          ],
+          usage: { prompt_tokens: 3, completion_tokens: 12, total_tokens: 15 },
+        }),
+      )
+    }
+    if (url.includes(':generateContent')) {
+      const pcm = Buffer.from(new Uint8Array([1, 2, 3, 4])).toString('base64')
+      return Promise.resolve(
+        Response.json({
+          candidates: [
+            {
+              content: { parts: [{ inlineData: { data: pcm, mimeType: 'audio/L16;rate=24000' } }] },
+            },
+          ],
+          usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 10 },
+        }),
+      )
+    }
+    return Promise.resolve(new Response('not found', { status: 404 }))
+  }
+  return { fetchImpl, calls }
+}
+
+/** Deterministic transcode stub — avoids any ffmpeg dependency in tests. */
+const stubTranscode: AiRouteDeps['transcodePcm'] = (_pcm, _sr, opus) =>
+  Promise.resolve({
+    bytes: new Uint8Array([9, 9, 9]).buffer,
+    contentType: opus ? 'audio/ogg' : 'audio/mpeg',
+  })
+
 function buildDeps(fetchImpl: FetchImpl): Partial<AiRouteDeps> {
   return {
     deepseekBaseURL: DEEPSEEK_BASE,
     deepseekApiKey: DEEPSEEK_KEY,
     deepseekModel: 'DeepSeek-V4-Flash',
-    audioBaseURL: AUDIO_BASE,
-    audioApiKey: AUDIO_KEY,
+    geminiBaseURL: GEMINI_BASE,
+    transcodePcm: stubTranscode,
+    // No-op by default so HTTP tests don't touch the DB; usage-specific tests
+    // override this with a capturing recorder.
+    recordUsage: async () => {},
     fetchImpl,
   }
 }
@@ -168,7 +215,7 @@ describe('POST /ai/v1/chat/completions', () => {
 })
 
 describe('POST /ai/v1/audio/transcriptions', () => {
-  it('forwards multipart audio to the audio-proxy with the right shape', async () => {
+  it('transcribes multipart audio against the IU endpoint and injects language steering', async () => {
     const { fetchImpl, calls } = fakeUpstream()
     const form = new FormData()
     form.append('file', new File([new Uint8Array([1, 2, 3])], 'clip.webm', { type: 'audio/webm' }))
@@ -185,39 +232,129 @@ describe('POST /ai/v1/audio/transcriptions', () => {
     expect(res.status).toBe(200)
     const body = (await res.json()) as { text: string }
     expect(body.text).toBe('transcribed words')
-    expect(JSON.stringify(body)).not.toContain(AUDIO_KEY)
+    expect(JSON.stringify(body)).not.toContain(DEEPSEEK_KEY)
 
     const call = calls.find((c) => c.url.endsWith('/audio/transcriptions'))
-    expect(call?.url).toBe(`${AUDIO_BASE}/audio/transcriptions`)
+    // STT targets the IU OpenAI base directly with the IU key (no audio-proxy hop).
+    expect(call?.url).toBe(`${DEEPSEEK_BASE}/audio/transcriptions`)
     expect(call?.method).toBe('POST')
-    expect(call?.headers.get('authorization')).toBe(`Bearer ${AUDIO_KEY}`)
+    expect(call?.headers.get('authorization')).toBe(`Bearer ${DEEPSEEK_KEY}`)
     const forwarded = call?.body as FormData
     expect(forwarded).toBeInstanceOf(FormData)
     expect(forwarded.get('model')).toBe('gpt-4o-transcribe')
     expect(forwarded.get('file')).toBeInstanceOf(Blob)
+    expect(forwarded.get('response_format')).toBe('json')
+    // No client prompt → default German/English steering is injected upstream.
+    expect(String(forwarded.get('prompt'))).toContain('Deutsch')
+  })
+
+  it('returns 503 when the IU base is unconfigured', async () => {
+    const { fetchImpl } = fakeUpstream()
+    const app = new Elysia()
+      .use(authGuard)
+      .use(createAiRoutes({ ...buildDeps(fetchImpl), deepseekBaseURL: '' }))
+    const form = new FormData()
+    form.append('file', new File([new Uint8Array([1])], 'c.webm'))
+    const res = await app.handle(
+      new Request('http://localhost/ai/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: authHeaders,
+        body: form,
+      }),
+    )
+    expect(res.status).toBe(503)
   })
 })
 
-describe('POST /ai/v1/audio/speech', () => {
-  it('forwards JSON and returns audio bytes', async () => {
-    const { fetchImpl, calls } = fakeUpstream()
+describe('POST /ai/v1/audio/speech (Gemini expressive)', () => {
+  it('runs prep + synth + transcode and returns titled audio', async () => {
+    const { fetchImpl, calls } = fakeTtsUpstream()
     const res = await buildApp(fetchImpl).handle(
       new Request('http://localhost/ai/v1/audio/speech', {
         method: 'POST',
         headers: { ...authHeaders, 'content-type': 'application/json' },
-        body: JSON.stringify({ model: 'gemini-tts', input: 'Hallo Welt', voice: 'Charon' }),
+        // No model → defaults to the Gemini TTS model → expressive pipeline.
+        body: JSON.stringify({ input: 'Hallo Welt' }),
       }),
     )
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toContain('audio/mpeg')
+    expect(res.headers.get('x-audio-title')).toBe(encodeURIComponent('Kurzer Titel'))
     const buf = new Uint8Array(await res.arrayBuffer())
-    expect(buf.length).toBe(5)
+    expect(buf.length).toBe(3) // from the transcode stub
 
-    const call = calls.find((c) => c.url.endsWith('/audio/speech'))
-    expect(call?.url).toBe(`${AUDIO_BASE}/audio/speech`)
-    expect(call?.headers.get('authorization')).toBe(`Bearer ${AUDIO_KEY}`)
-    const sent = JSON.parse(String(call?.body)) as { input: string }
-    expect(sent.input).toBe('Hallo Welt')
+    // Prep LLM hit the IU OpenAI base with the prep model.
+    const prep = calls.find((c) => c.url.endsWith('/chat/completions'))
+    expect(prep?.url).toBe(`${DEEPSEEK_BASE}/chat/completions`)
+    expect((JSON.parse(String(prep?.body)) as { model: string }).model).toBe('DeepSeek-V4-Pro')
+
+    // Synth hit the native Gemini generateContent base with the IU key, style+text joined.
+    const synth = calls.find((c) => c.url.includes(':generateContent'))
+    expect(synth?.url).toBe(`${GEMINI_BASE}/models/gemini-3.1-flash-tts-preview:generateContent`)
+    expect(synth?.headers.get('authorization')).toBe(`Bearer ${DEEPSEEK_KEY}`)
+    const synthBody = JSON.parse(String(synth?.body)) as {
+      contents: Array<{ parts: Array<{ text: string }> }>
+    }
+    expect(synthBody.contents[0]?.parts[0]?.text).toBe('ruhig: Hallo Welt')
+  })
+
+  it('returns 503 when the Gemini base is unconfigured', async () => {
+    const { fetchImpl } = fakeTtsUpstream()
+    const app = new Elysia()
+      .use(authGuard)
+      .use(createAiRoutes({ ...buildDeps(fetchImpl), geminiBaseURL: '' }))
+    const res = await app.handle(
+      new Request('http://localhost/ai/v1/audio/speech', {
+        method: 'POST',
+        headers: { ...authHeaders, 'content-type': 'application/json' },
+        body: JSON.stringify({ input: 'Hallo' }),
+      }),
+    )
+    expect(res.status).toBe(503)
+  })
+
+  it('synthesizes every chunk of long input', async () => {
+    const { fetchImpl, calls } = fakeTtsUpstream([
+      { style: 's', text: 'one' },
+      { style: 's', text: 'two' },
+      { style: 's', text: 'three' },
+    ])
+    const res = await buildApp(fetchImpl).handle(
+      new Request('http://localhost/ai/v1/audio/speech', {
+        method: 'POST',
+        headers: { ...authHeaders, 'content-type': 'application/json' },
+        body: JSON.stringify({ input: 'long input goes here' }),
+      }),
+    )
+    expect(res.status).toBe(200)
+    expect(calls.filter((c) => c.url.includes(':generateContent'))).toHaveLength(3)
+  })
+})
+
+describe('mapWithConcurrency()', () => {
+  it('preserves input order in the result regardless of completion order', async () => {
+    // Item 0 resolves slowest, item 2 fastest — result must still be [0,1,2].
+    const out = await mapWithConcurrency([30, 15, 1], 3, async (ms, i) => {
+      await Bun.sleep(ms)
+      return i
+    })
+    expect(out).toEqual([0, 1, 2])
+  })
+
+  it('bounds concurrency to the limit', async () => {
+    let active = 0
+    let peak = 0
+    await mapWithConcurrency(
+      Array.from({ length: 10 }, (_, i) => i),
+      3,
+      async () => {
+        active++
+        peak = Math.max(peak, active)
+        await Bun.sleep(5)
+        active--
+      },
+    )
+    expect(peak).toBeLessThanOrEqual(3)
   })
 })
 

@@ -46,7 +46,12 @@ function computeCost(
 ): { cost_usd: number | null; cost_source: string } {
   const rates = DEEPSEEK_RATES[modelNorm]
   if (!rates) {
-    log.warn('unknown deepseek model norm — cannot compute cost', { modelNorm })
+    // Audio models (gemini*tts, gpt-4o*-transcribe) are billed per audio-second /
+    // character upstream, not per token, so they intentionally have no token rate
+    // here — record the row with a null cost and don't warn (would spam per chunk).
+    if (modelNorm.startsWith('deepseek')) {
+      log.warn('unknown deepseek model norm — cannot compute cost', { modelNorm })
+    }
     return { cost_usd: null, cost_source: 'none' }
   }
   return {

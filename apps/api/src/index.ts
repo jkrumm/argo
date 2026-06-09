@@ -242,7 +242,11 @@ export const app = new Elysia()
   .use(usageRoutes)
   .use(hermesRoutes)
   .use(aiRoutes)
-  .listen(env.PORT)
+  // idleTimeout (seconds, Bun max 255) raised from the 10s default so a long-form
+  // TTS request — which holds the socket open with no bytes until the full audio
+  // is synthesized + transcoded — isn't dropped mid-flight. Parallel chunk synth
+  // keeps real latency well under this; the headroom is a safety margin.
+  .listen({ port: env.PORT, idleTimeout: 255 })
 
 export type App = typeof app
 

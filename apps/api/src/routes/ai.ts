@@ -3,6 +3,13 @@ import { z } from 'zod'
 import { tracedFetch } from '../lib/traced-fetch.js'
 import { env } from '../env.js'
 import { recordAiUsage, type RecordUsageFn } from '../lib/ai-usage.js'
+import {
+  ffprobeDurationSec,
+  handleNativeSpeech,
+  handleNativeTranscriptions,
+  makeFfmpegTranscoder,
+  type AudioDeps,
+} from '../lib/tts/audio.js'
 import { log } from '../telemetry.js'
 
 // General-purpose AI gateway — an OpenAI-compatible surface at /ai/v1/* backing
@@ -33,10 +40,21 @@ export interface AiRouteDeps {
   deepseekBaseURL: string
   deepseekApiKey: string
   deepseekModel: string
-  /** audio-proxy base URL, including the `/v1` path prefix. */
-  audioBaseURL: string
-  /** Optional bearer the audio-proxy gates on; empty → no header sent. */
-  audioApiKey: string
+  // ── Audio (native STT + Gemini TTS; reuses the IU OpenAI creds above) ──────
+  /** IU native Gemini base (`generateContent`) for expressive TTS; empty → TTS 503. */
+  geminiBaseURL: string
+  ttsModel: string
+  ttsPrepModel: string
+  ttsVoice: string
+  ttsPrepMode: 'always' | 'long' | 'off'
+  ttsConcurrency: number
+  mp3BitrateKbps: number
+  sttPrompt: string
+  sttLanguage: string
+  /** ffmpeg transcoder (PCM → MP3/Opus); overridable in tests. */
+  transcodePcm: AudioDeps['transcodePcm']
+  /** ffprobe duration probe; overridable in tests. */
+  probeDurationSec: AudioDeps['probeDurationSec']
   /** Underlying transport the gateway wraps (defaults to the OTel-traced fetch). */
   fetchImpl: FetchImpl
   /**
@@ -52,10 +70,40 @@ function defaultDeps(): AiRouteDeps {
     deepseekBaseURL: env.DEEPSEEK_BASE_URL,
     deepseekApiKey: env.DEEPSEEK_API_KEY,
     deepseekModel: env.DEEPSEEK_MODEL,
-    audioBaseURL: env.AUDIO_PROXY_BASE_URL,
-    audioApiKey: env.AUDIO_PROXY_API_KEY,
+    geminiBaseURL: env.AUDIO_GEMINI_BASE_URL,
+    ttsModel: env.AUDIO_TTS_MODEL,
+    ttsPrepModel: env.AUDIO_TTS_PREP_MODEL,
+    ttsVoice: env.AUDIO_TTS_VOICE,
+    ttsPrepMode: env.AUDIO_TTS_PREP_MODE,
+    ttsConcurrency: env.AUDIO_TTS_CONCURRENCY,
+    mp3BitrateKbps: env.AUDIO_TTS_MP3_BITRATE,
+    sttPrompt: env.AUDIO_STT_PROMPT,
+    sttLanguage: env.AUDIO_STT_LANGUAGE,
+    transcodePcm: makeFfmpegTranscoder(env.AUDIO_TTS_MP3_BITRATE),
+    probeDurationSec: ffprobeDurationSec,
     fetchImpl: tracedFetch,
     recordUsage: recordAiUsage,
+  }
+}
+
+/** Build the audio handler deps from the gateway deps (IU OpenAI creds are shared). */
+function toAudioDeps(deps: AiRouteDeps): AudioDeps {
+  return {
+    iuBaseURL: deps.deepseekBaseURL,
+    iuApiKey: deps.deepseekApiKey,
+    geminiBaseURL: deps.geminiBaseURL,
+    ttsModel: deps.ttsModel,
+    ttsPrepModel: deps.ttsPrepModel,
+    ttsVoice: deps.ttsVoice,
+    ttsPrepMode: deps.ttsPrepMode,
+    ttsConcurrency: deps.ttsConcurrency,
+    mp3BitrateKbps: deps.mp3BitrateKbps,
+    sttPrompt: deps.sttPrompt,
+    sttLanguage: deps.sttLanguage,
+    fetchImpl: deps.fetchImpl,
+    recordUsage: deps.recordUsage,
+    transcodePcm: deps.transcodePcm,
+    probeDurationSec: deps.probeDurationSec,
   }
 }
 
@@ -240,14 +288,17 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
     .post(
       '/v1/audio/transcriptions',
       async ({ body, status }) => {
-        if (!deps.audioBaseURL) {
+        if (!deps.deepseekBaseURL) {
           return status(503, {
-            error: { message: 'audio-proxy not configured', type: 'config_error' },
+            error: {
+              message: 'audio STT not configured (DEEPSEEK_BASE_URL unset)',
+              type: 'config_error',
+            },
           })
         }
         // Elysia parses multipart/form-data into a plain object (File fields stay
-        // File/Blob). Rebuild the FormData faithfully and forward it; fetch sets
-        // the multipart boundary itself, so we never set content-type here.
+        // File/Blob). Rebuild the FormData faithfully so the native handler can
+        // re-derive the upstream form without re-reading the consumed request stream.
         const form = new FormData()
         const src = (body ?? {}) as Record<string, unknown>
         for (const [key, value] of Object.entries(src)) {
@@ -258,26 +309,17 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
             }
           } else if (value !== null && value !== undefined) form.append(key, String(value))
         }
-        const res = await deps.fetchImpl(joinUrl(deps.audioBaseURL, '/audio/transcriptions'), {
-          method: 'POST',
-          headers: { ...bearer(deps.audioApiKey) },
-          body: form,
-        })
-        return new Response(res.body, {
-          status: res.status,
-          headers: proxyHeaders(res.headers, 'application/json'),
-        })
+        return handleNativeTranscriptions(form, toAudioDeps(deps))
       },
       {
-        // No body schema: this is a passthrough multipart proxy accepting the
-        // full OpenAI transcription field set (file, model, language,
-        // response_format, prompt, temperature, …). Elysia still parses the
-        // multipart body by content-type.
+        // No body schema: native multipart STT accepting the full OpenAI
+        // transcription field set (file, model, language, response_format, prompt,
+        // …). Elysia still parses the multipart body by content-type.
         detail: {
           tags: ['AI Gateway'],
-          summary: 'OpenAI-compatible speech-to-text (audio-proxy)',
+          summary: 'OpenAI-compatible speech-to-text (native, IU)',
           description:
-            'Multipart `/audio/transcriptions` proxy to the audio-proxy STT endpoint, bearer kept server-side. Accepts the standard OpenAI fields (`file`, `model`, `language`, `response_format`, `prompt`, …) and returns the audio-proxy response verbatim (JSON `{ text }` or the requested rich format).',
+            'Native multipart `/audio/transcriptions` against the IU unified endpoint (bearer kept server-side). Forces `json` upstream for `gpt-4o*-transcribe` and synthesizes any requested rich format (`verbose_json`/`srt`/`vtt`) locally; `whisper` rich formats pass through. Injects German/English language steering when the client sends none. Returns `{ text }` (json) or the requested rich format.',
           security: [{ BearerAuth: [] }],
         },
       },
@@ -285,28 +327,26 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
     .post(
       '/v1/audio/speech',
       async ({ body, status }) => {
-        if (!deps.audioBaseURL) {
+        if (!deps.deepseekBaseURL) {
           return status(503, {
-            error: { message: 'audio-proxy not configured', type: 'config_error' },
+            error: {
+              message: 'audio TTS not configured (DEEPSEEK_BASE_URL unset)',
+              type: 'config_error',
+            },
           })
         }
-        const res = await deps.fetchImpl(joinUrl(deps.audioBaseURL, '/audio/speech'), {
-          method: 'POST',
-          headers: { 'content-type': 'application/json', ...bearer(deps.audioApiKey) },
-          body: JSON.stringify(body),
-        })
-        return new Response(res.body, {
-          status: res.status,
-          headers: proxyHeaders(res.headers, 'audio/mpeg'),
-        })
+        return handleNativeSpeech(
+          body as { model?: string; input?: string; voice?: string; response_format?: string },
+          toAudioDeps(deps),
+        )
       },
       {
         body: SpeechBodySchema,
         detail: {
           tags: ['AI Gateway'],
-          summary: 'OpenAI-compatible text-to-speech (audio-proxy)',
+          summary: 'OpenAI-compatible text-to-speech (native, Gemini expressive)',
           description:
-            'Proxies `/audio/speech` to the audio-proxy TTS endpoint (bearer server-side) and streams the synthesized audio bytes straight back. Body is the OpenAI speech shape (`model`, `input`, `voice`, `response_format`). Response is binary audio (e.g. `audio/mpeg`), not JSON.',
+            'Native `/audio/speech`. A model matching `gemini*tts` (the default) runs the expressive pipeline — a prep LLM rewrites the text into styled ~110-word chunks, each chunk is synthesized on the IU Gemini `generateContent` endpoint (in parallel), then the PCM is concatenated and transcoded to MP3 (default) or Opus via ffmpeg. Any other model proxies the IU OpenAI `/audio/speech`. Body is the OpenAI speech shape (`model`, `input`, `voice`, `response_format`); response is binary audio with an `x-audio-title` header.',
           security: [{ BearerAuth: [] }],
         },
       },
