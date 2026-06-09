@@ -12,3 +12,9 @@ node_modules/
 /apps/api/data/
 
 .fallow/
+
+# RALPH loop runtime state (scaffold scripts + docs/ralph/*.md ARE committed)
+.ralph-tasks.json
+.ralph-logs/
+.ralph-lock
+.ralph-secrets.env
