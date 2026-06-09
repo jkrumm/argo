@@ -5,19 +5,22 @@ import { createHermesRoutes, type FetchImpl, type HermesRouteDeps } from './herm
 import { client, db } from '../db/index.js'
 import { hermesMessage, hermesThread } from '../db/schema.js'
 
-// Apply only the Hermes-table migration (0009) directly, rather than the full
-// `runMigrations()` chain. The shared local dev DB is in a half-migrated state
-// where an unrelated earlier migration (0004's DROP INDEX on usage_record) fails
-// because those objects are owned by a different role — a documented
-// environmental issue (see RALPH_NOTES Group 1). 0009 is fully idempotent
+// Apply Hermes-table migrations directly rather than the full `runMigrations()`
+// chain. The shared local dev DB is in a half-migrated state where an unrelated
+// earlier migration (0004's DROP INDEX on usage_record) fails because those
+// objects are owned by a different role — a documented environmental issue (see
+// RALPH_NOTES Group 1). All Hermes migrations are fully idempotent
 // (IF NOT EXISTS + guarded FK), so this is drift-free and self-contained.
 beforeAll(async () => {
-  const sql = await Bun.file(
-    new URL('../../drizzle/0009_friendly_mandarin.sql', import.meta.url),
-  ).text()
-  for (const stmt of sql.split('--> statement-breakpoint')) {
-    const trimmed = stmt.trim()
-    if (trimmed) await client.unsafe(trimmed)
+  for (const file of [
+    '../../drizzle/0009_friendly_mandarin.sql',
+    '../../drizzle/0010_far_george_stacy.sql',
+  ]) {
+    const sql = await Bun.file(new URL(file, import.meta.url)).text()
+    for (const stmt of sql.split('--> statement-breakpoint')) {
+      const trimmed = stmt.trim()
+      if (trimmed) await client.unsafe(trimmed)
+    }
   }
 })
 
@@ -574,6 +577,27 @@ describe('thread read CRUD', () => {
       }),
     )
     expect(res.status).toBe(404)
+  })
+
+  it('returns summary and type as null for a fresh thread', async () => {
+    const { fetchImpl } = fakeHermes()
+    const app = buildApp(fetchImpl)
+    await db.insert(hermesThread).values({
+      id: 'thr_nullfields',
+      session_id: 'ses_nullfields',
+      session_key: 'k',
+    })
+
+    const res = await app.handle(new Request('http://localhost/hermes/threads'))
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      data: Array<{ id: string; summary: unknown; type: unknown }>
+      total: number
+    }
+    const row = body.data.find((t) => t.id === 'thr_nullfields')
+    expect(row).toBeDefined()
+    expect(row?.summary).toBeNull()
+    expect(row?.type).toBeNull()
   })
 })
 

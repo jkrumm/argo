@@ -9,12 +9,16 @@ import { api, unwrap } from '../eden'
 
 export type ThreadStatusFilter = 'active' | 'archived' | 'all'
 
+export type HermesThreadType = 'todo' | 'podcast' | 'infra' | 'note' | 'research' | 'general'
+
 /** A chat thread row (mirrors the API ThreadSchema). */
 export type HermesThread = {
   id: string
   session_id: string
   session_key: string
   title: string | null
+  summary: string | null
+  type: HermesThreadType | null
   status: 'active' | 'archived'
   pinned: number
   archived_at: string | null

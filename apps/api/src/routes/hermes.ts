@@ -14,6 +14,7 @@ import { db } from '../db/index.js'
 import {
   hermesMessage,
   hermesThread,
+  HERMES_THREAD_TYPES,
   type MessageParts,
   type MessagePayload,
 } from '../db/schema.js'
@@ -165,6 +166,11 @@ const ThreadSchema = z.object({
   session_id: z.string().describe('X-Hermes-Session-Id — Hermes thread continuity.'),
   session_key: z.string().describe('X-Hermes-Session-Key — long-term memory scope.'),
   title: z.string().nullable().describe('DeepSeek-generated title; null until titled.'),
+  summary: z.string().nullable().describe('DeepSeek one-line summary; null until generated.'),
+  type: z
+    .enum(HERMES_THREAD_TYPES)
+    .nullable()
+    .describe('Thread type badge; null until classified.'),
   status: z.enum(['active', 'archived']),
   pinned: z.number().int().describe('1 if pinned, else 0.'),
   archived_at: z.string().nullable().describe('ISO timestamp when archived, else null.'),

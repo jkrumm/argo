@@ -335,6 +335,16 @@ export interface MessagePayload {
 /** Persisted UIMessage parts — the AI SDK v5 shape, stored verbatim. */
 export type MessageParts = UIMessagePart<UIDataTypes, UITools>[]
 
+export const HERMES_THREAD_TYPES = [
+  'todo',
+  'podcast',
+  'infra',
+  'note',
+  'research',
+  'general',
+] as const
+export type HermesThreadType = (typeof HERMES_THREAD_TYPES)[number]
+
 export const hermesThread = argoSchema.table('hermes_thread', {
   // App-generated id (createIdGenerator({ prefix: 'thr' })) — Group 2.
   id: text('id').primaryKey(),
@@ -344,6 +354,10 @@ export const hermesThread = argoSchema.table('hermes_thread', {
   session_key: text('session_key').notNull(),
   // DeepSeek-generated title (Group 4); null until the first turn is titled.
   title: text('title'),
+  // DeepSeek one-line summary; null until generated (Group 2).
+  summary: text('summary'),
+  // Thread type badge (Group 2); null until classified.
+  type: text('type').$type<HermesThreadType>(),
   // 'active' | 'archived' — kept as text for forward-compat.
   status: text('status').notNull().default('active'),
   pinned: integer('pinned').notNull().default(0), // 0 | 1

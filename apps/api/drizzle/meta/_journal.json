@@ -71,6 +71,13 @@
       "when": 1780954051636,
       "tag": "0009_friendly_mandarin",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1781003007348,
+      "tag": "0010_far_george_stacy",
+      "breakpoints": true
     }
   ]
 }
