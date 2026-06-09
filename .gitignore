@@ -12,7 +12,3 @@ node_modules/
 /apps/api/data/
 
 .fallow/
-.ralph-tasks.json
-.ralph-logs/
-.ralph-lock
-.ralph-secrets.env
