@@ -40,13 +40,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 const ICON = 18
 
 /**
- * Nav count pill. A count is a data signal ("ink earns its color", DESIGN.md), so it carries the
- * one spot of identity blue in the otherwise-neutral nav — the active state stays neutral. Rendered
- * only when > 0; auto-hidden in the collapsed icon-rail (the right-section is display:none there).
+ * Nav count pill. Kept maximally restrained ("ink earns its color", DESIGN.md): no background, no
+ * border, no accent — just quiet neutral text. Rendered only when > 0; auto-hidden in the collapsed
+ * icon-rail (the right-section is display:none there).
  */
 function navBadge(count: number) {
   return count > 0 ? (
-    <Badge size="sm" variant="light" color="blue" radius="sm">
+    <Badge size="sm" variant="transparent" color="gray" radius="sm">
       {count}
     </Badge>
   ) : undefined
@@ -245,7 +245,11 @@ function RootLayout() {
               <AppBreadcrumbs section={activeCrumb?.section} page={activeCrumb?.page} />
             </div>
             <PageActionsOutlet className={classes.pageActions} />
-            <Divider orientation="vertical" visibleFrom="sm" style={{ height: 24 }} />
+            <Divider
+              orientation="vertical"
+              visibleFrom="sm"
+              style={{ alignSelf: 'stretch', height: 'auto' }}
+            />
             <GlobalActions className={classes.global} />
           </div>
         </AppShell.Header>

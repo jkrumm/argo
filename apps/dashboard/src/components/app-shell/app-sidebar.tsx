@@ -155,7 +155,7 @@ export function AppSidebar({ sections, collapsed, onToggleCollapse, onClose }: A
         ))}
       </Stack>
 
-      <Divider my="sm" />
+      <Divider my="sm" mx="-md" />
       <Group gap="xs" wrap="nowrap">
         <Menu position="top-start" withArrow shadow="md" width={180} zIndex={500}>
           <Menu.Target>
