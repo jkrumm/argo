@@ -13,15 +13,21 @@ import {
 } from '@mantine/core'
 import {
   IconCheck,
+  IconDatabase,
   IconDeviceDesktop,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
   IconMoon,
+  IconPalette,
+  IconRoute,
+  IconSettings,
   IconSun,
+  IconTools,
   IconX,
 } from '@tabler/icons-react'
 import type { MouseEvent, ReactNode } from 'react'
 import { RefreshButton } from '../timer-nav'
+import type { DevTool } from '../dev-dock'
 import classes from './app-sidebar.module.css'
 
 /**
@@ -58,6 +64,8 @@ type AppSidebarProps = {
   collapsed: boolean
   onToggleCollapse: () => void
   onClose: () => void
+  /** DEV-only: open an in-app devtool panel from the Settings menu. Omitted in production. */
+  onOpenDevTool?: (tool: DevTool) => void
 }
 
 const THEME_OPTIONS = [
@@ -84,9 +92,21 @@ function SectionLabel({ children }: { children: ReactNode }) {
   )
 }
 
-export function AppSidebar({ sections, collapsed, onToggleCollapse, onClose }: AppSidebarProps) {
+export function AppSidebar({
+  sections,
+  collapsed,
+  onToggleCollapse,
+  onClose,
+  onOpenDevTool,
+}: AppSidebarProps) {
   const { colorScheme, setColorScheme } = useMantineColorScheme()
   const current = THEME_OPTIONS.find((o) => o.value === colorScheme) ?? THEME_OPTIONS[0]
+
+  const DEV_TOOLS = [
+    { value: 'router', label: 'Router', icon: <IconRoute size={16} /> },
+    { value: 'query', label: 'Query', icon: <IconDatabase size={16} /> },
+    { value: 'theme', label: 'Theme', icon: <IconPalette size={16} /> },
+  ] as const
 
   return (
     <Stack gap={0} h="100%" className={classes.root} data-collapsed={collapsed || undefined}>
@@ -157,27 +177,53 @@ export function AppSidebar({ sections, collapsed, onToggleCollapse, onClose }: A
 
       <Divider my="sm" mx="-md" />
       <Group gap="xs" wrap="nowrap">
-        <Menu position="top-start" withArrow shadow="md" width={180} zIndex={500}>
+        <Menu position="top-start" withArrow shadow="md" width={200} zIndex={500}>
           <Menu.Target>
-            <UnstyledButton className={classes.footerBtn} aria-label="Theme">
-              {current.icon}
+            <UnstyledButton className={classes.footerBtn} aria-label="Settings">
+              <IconSettings size={16} />
               <Text className={classes.footerText} size="sm">
-                {current.label}
+                Settings
               </Text>
             </UnstyledButton>
           </Menu.Target>
           <Menu.Dropdown>
-            <Menu.Label>Theme</Menu.Label>
-            {THEME_OPTIONS.map((o) => (
-              <Menu.Item
-                key={o.value}
-                leftSection={o.icon}
-                rightSection={colorScheme === o.value ? <IconCheck size={14} /> : null}
-                onClick={() => setColorScheme(o.value)}
-              >
-                {o.label}
-              </Menu.Item>
-            ))}
+            <Menu.Sub>
+              <Menu.Sub.Target>
+                <Menu.Sub.Item leftSection={current.icon}>Theme</Menu.Sub.Item>
+              </Menu.Sub.Target>
+              <Menu.Sub.Dropdown>
+                {THEME_OPTIONS.map((o) => (
+                  <Menu.Item
+                    key={o.value}
+                    leftSection={o.icon}
+                    rightSection={colorScheme === o.value ? <IconCheck size={14} /> : null}
+                    onClick={() => setColorScheme(o.value)}
+                  >
+                    {o.label}
+                  </Menu.Item>
+                ))}
+              </Menu.Sub.Dropdown>
+            </Menu.Sub>
+
+            {onOpenDevTool && (
+              <Menu.Sub>
+                <Menu.Sub.Target>
+                  <Menu.Sub.Item leftSection={<IconTools size={16} />}>DevTools</Menu.Sub.Item>
+                </Menu.Sub.Target>
+                <Menu.Sub.Dropdown>
+                  {DEV_TOOLS.map((t) => (
+                    <Menu.Item
+                      key={t.value}
+                      leftSection={t.icon}
+                      onClick={() => onOpenDevTool(t.value)}
+                    >
+                      {t.label}
+                    </Menu.Item>
+                  ))}
+                </Menu.Sub.Dropdown>
+              </Menu.Sub>
+            )}
+
             <Menu.Divider />
             <Menu.Label>Argo v{__APP_VERSION__}</Menu.Label>
           </Menu.Dropdown>

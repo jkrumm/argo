@@ -21,7 +21,7 @@ import {
   IconShoe,
 } from '@tabler/icons-react'
 import { format } from 'date-fns'
-import type { MouseEvent } from 'react'
+import { useState, type MouseEvent } from 'react'
 import { useTimerEngine } from '../components/timer-nav'
 import { AppSidebar, type SidebarSection } from '../components/app-shell/app-sidebar'
 import { useSidebarBadges } from '../components/app-shell/use-sidebar-badges'
@@ -29,7 +29,7 @@ import { MobileNav } from '../components/app-shell/app-mobile-nav'
 import { AppBreadcrumbs } from '../components/app-shell/app-breadcrumbs'
 import { GlobalActions } from '../components/app-shell/global-actions'
 import { PageActionsOutlet, PageHeaderProvider } from '../components/app-shell/page-header'
-import { DevDock } from '../components/dev-dock'
+import { DevToolsPanel, type DevTool } from '../components/dev-dock'
 import { useUiStore } from '../lib/store'
 import classes from '../components/app-shell/app-header.module.css'
 
@@ -58,6 +58,7 @@ function RootLayout() {
   const navigate = useNavigate()
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed)
   const toggleSidebar = useUiStore((s) => s.toggleSidebar)
+  const [devTool, setDevTool] = useState<DevTool | null>(null)
 
   useTimerEngine()
   useHotkeys([['mod+B', toggleSidebar]])
@@ -260,6 +261,7 @@ function RootLayout() {
             collapsed={sidebarCollapsed}
             onToggleCollapse={toggleSidebar}
             onClose={closeMobile}
+            onOpenDevTool={import.meta.env.DEV ? setDevTool : undefined}
           />
         </AppShell.Navbar>
 
@@ -271,7 +273,7 @@ function RootLayout() {
           <MobileNav items={mobileItems} />
         </AppShell.Footer>
 
-        {import.meta.env.DEV && <DevDock />}
+        {import.meta.env.DEV && <DevToolsPanel tool={devTool} onClose={() => setDevTool(null)} />}
       </AppShell>
     </PageHeaderProvider>
   )
