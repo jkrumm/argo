@@ -20,8 +20,8 @@ import {
 import { remarkHermesAccents } from './remark-hermes-accents'
 import { hermesSanitizeSchema } from './sanitize-schema'
 import { parseCard, SmartCard } from './smart-card'
-import { DiagramFrame } from './diagram-frame'
 import { MermaidDiagram } from './mermaid-diagram'
+import { VegaLiteDiagram } from './vega-lite-diagram'
 import classes from './message-markdown.module.css'
 
 // Full rich renderer for chat messages (Group 6). react-markdown v10 + `remend`
@@ -30,7 +30,7 @@ import classes from './message-markdown.module.css'
 // mappings. On top of base markdown:
 //   • fenced ` ```card ` JSON → Mantine smart cards (infra/todo/note), bad JSON →
 //     graceful code-block fallback;
-//   • fenced ` ```mermaid ` / ` ```vega-lite ` → sandboxed iframe (diagram-frame);
+//   • fenced ` ```mermaid ` / ` ```vega-lite ` → bundled inline diagram components;
 //   • inline `:badge[…]` / `==highlight==` accents (remark-hermes-accents);
 //   • `rehype-sanitize` (hardened schema) + `rehype-harden` (URL filtering) on all
 //     LLM output.
@@ -121,7 +121,7 @@ const components: Components = {
       )
     }
     if (lang === 'mermaid') return <MermaidDiagram source={text} />
-    if (lang === 'vega-lite') return <DiagramFrame kind="vega-lite" source={text} />
+    if (lang === 'vega-lite') return <VegaLiteDiagram source={text} />
     // v10 dropped the `inline` prop; a fenced block carries a `language-*` class
     // or spans multiple lines — everything else is inline code.
     const isBlock = (className?.startsWith('language-') ?? false) || text.includes('\n')

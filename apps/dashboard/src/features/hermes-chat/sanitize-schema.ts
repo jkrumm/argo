@@ -6,7 +6,7 @@ import { defaultSchema } from 'rehype-sanitize'
 // renderer emits. `language-*` classNames on `code` are already permitted by the
 // default schema, so the fenced `card`/`mermaid`/`vega-lite` interception still
 // receives its language class. Mermaid/Vega never reach the DOM as HTML — they are
-// re-rendered inside a sandboxed iframe (see diagram-frame.tsx).
+// rendered by bundled inline components (mermaid-diagram.tsx / vega-lite-diagram.tsx).
 export const hermesSanitizeSchema = {
   ...defaultSchema,
   tagNames: [...(defaultSchema.tagNames ?? []), 'hermes-badge', 'hermes-mark'],
