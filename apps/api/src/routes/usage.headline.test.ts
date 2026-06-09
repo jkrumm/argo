@@ -69,8 +69,10 @@ describe('GET /usage/headline', () => {
       p95Ms30d: number | null
       recordsTotal: number
     }
-    expect(body.costUsd30d).toBe(1.23)
-    expect(body.costMaxBilling30d).toBe(1.23)
+    // cost_usd is a single-precision `real` column, so 1.23 round-trips as
+    // 1.2300000190734863 — compare to cent precision, not float-bit-exact.
+    expect(body.costUsd30d).toBeCloseTo(1.23, 2)
+    expect(body.costMaxBilling30d).toBeCloseTo(1.23, 2)
     expect(body.tokens30d).toBe(1500)
     expect(body.errorRate30d).toBe(0)
     expect(body.p95Ms30d).toBe(100)
