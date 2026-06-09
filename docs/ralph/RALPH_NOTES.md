@@ -217,3 +217,60 @@ error fallback; no jsDelivr request in network tab.
   empty `data.values: []`, but rejection with a clear message is safer and simpler.
 - `vega-interpreter` ships with both AST walk and a fallback — could add a lint check
   to ensure `ast: true` is always paired with `expr: expressionInterpreter`.
+
+## Group 5: Slack-style inline-expandable thread feed
+
+### What was implemented
+
+Rebuilt the two-pane `chat-page.tsx` into a single-column thread feed. New files:
+`thread-feed-row.tsx` (each row: type badge + title + summary + timestamp + chevron, plus a
+`Collapse`-animated inline conversation when expanded) and `thread-feed-row.module.css` (neutral
+hover/expanded fills, never the identity blue). `chat-page.tsx` is now a plain vertical `Stack`
+with a sticky "Hermes / New chat" header bar and a `ScrollArea` containing the feed rows.
+`chat-view.tsx` and `chat-conversation.tsx` gained an optional `hideHeader` prop — when the
+conversation is embedded inside a feed row, the redundant title bar is suppressed. The composer
+now includes disabled placeholder `ActionIcon`s for attach (paperclip) and voice (microphone),
+ordered before the send/stop cluster, ready for Groups 6–7 to wire up.
+
+### Deviations from prompt
+
+- Mobile breakpoint logic (`useMediaQuery`) was removed entirely — the single-column feed is
+  inherently responsive; no `onBack` affordance is needed.
+- The old `ThreadList` component is no longer used by `chat-page.tsx` but was left on disk (not
+  deleted) since it's not exported from `index.ts` — it becomes dead code but causes no harm.
+  Cleanup is deferred to a post-loop tidy.
+- Conversation height when expanded is fixed at `h={480}` (480px) rather than a `dvh` expression
+  — Mantine v9's `Collapse` works by measuring `scrollHeight` at runtime, and a fixed pixel value
+  is the most reliable target for the height animation.
+
+### Gotchas & surprises
+
+- Mantine v9 `Collapse` prop is `expanded` (not `in` from react-transition-group, not `opened`
+  from Mantine v7). TypeScript caught the mismatch immediately — check `.d.ts` before assuming.
+- `Collapse` with `keepMounted={false}` (default) unmounts children after the exit animation.
+  This means each `ChatConversation` / `useChat` instance is cleaned up when collapsed and
+  re-hydrated from TanStack Query cache on re-expand. Acceptable for personal-use thread counts.
+- The type → color map intentionally uses only allowed Mantine accents (`blue`, `orange`, `gray`,
+  `yellow`, `green`) — the `check-theme.mjs` guard enforces this via oxlint.
+
+### Security notes
+
+No new attack surface. Type badge labels come from a static `Record<HermesThreadType, string>`
+map keyed on validated enum values — no user-supplied strings reach Badge content.
+
+### Tests added
+
+None — no dashboard test harness. Manual QA checklist: feed lists threads with badge+title+
+summary+timestamp; expanding streams a live conversation via the existing `useChat` path;
+collapsing unmounts the conversation; new-chat auto-expands; dark/light themes correct; the
+disabled attach/mic icons appear in the composer.
+
+### Future improvements
+
+- Delete the now-unused `thread-list.tsx` and `thread-list.module.css` in a post-loop cleanup
+  commit.
+- Consider `keepMounted={true}` on `Collapse` if re-open latency (spinner from message fetch)
+  becomes noticeable — React 19 `Activity` preserves state while hidden.
+- The conversation pane height (480px) could become a user preference or auto-scale to available
+  viewport height with a CSS `min()`/`max()` expression once Mantine's `Collapse` height
+  animation is confirmed stable with `dvh` values.

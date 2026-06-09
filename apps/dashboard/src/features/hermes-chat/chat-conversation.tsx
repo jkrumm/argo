@@ -15,7 +15,13 @@ import {
   Textarea,
   Tooltip,
 } from '@mantine/core'
-import { IconArrowLeft, IconPlayerStopFilled, IconSend } from '@tabler/icons-react'
+import {
+  IconArrowLeft,
+  IconMicrophone,
+  IconPaperclip,
+  IconPlayerStopFilled,
+  IconSend,
+} from '@tabler/icons-react'
 import { hermesQueries, type HermesThread } from '../../lib/queries/hermes'
 import { MessageMarkdown } from './message-markdown'
 import { createHermesTransport } from './transport'
@@ -87,10 +93,12 @@ export function ChatConversation({
   thread,
   initialMessages,
   onBack,
+  hideHeader,
 }: {
   thread: HermesThread
   initialMessages: HermesUIMessage[]
   onBack?: () => void
+  hideHeader?: boolean
 }) {
   const queryClient = useQueryClient()
   const [input, setInput] = useState('')
@@ -164,22 +172,24 @@ export function ChatConversation({
 
   return (
     <Stack h="100%" gap={0}>
-      <Group
-        gap="xs"
-        px="sm"
-        py={8}
-        wrap="nowrap"
-        style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}
-      >
-        {onBack && (
-          <ActionIcon variant="subtle" color="gray" onClick={onBack} aria-label="Back to threads">
-            <IconArrowLeft size={18} />
-          </ActionIcon>
-        )}
-        <Text fw="semibold" size="sm" lineClamp={1}>
-          {thread.title ?? 'New chat'}
-        </Text>
-      </Group>
+      {!hideHeader && (
+        <Group
+          gap="xs"
+          px="sm"
+          py={8}
+          wrap="nowrap"
+          style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}
+        >
+          {onBack && (
+            <ActionIcon variant="subtle" color="gray" onClick={onBack} aria-label="Back to threads">
+              <IconArrowLeft size={18} />
+            </ActionIcon>
+          )}
+          <Text fw="semibold" size="sm" lineClamp={1}>
+            {thread.title ?? 'New chat'}
+          </Text>
+        </Group>
+      )}
 
       <ScrollArea style={{ flex: 1 }} viewportRef={viewportRef} type="auto">
         <Stack gap="md" p="md">
@@ -244,6 +254,16 @@ export function ChatConversation({
               }
             }}
           />
+          <Tooltip label="Attach file (coming soon)" withArrow>
+            <ActionIcon size={36} variant="subtle" color="gray" disabled aria-label="Attach file">
+              <IconPaperclip size={18} />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label="Voice input (coming soon)" withArrow>
+            <ActionIcon size={36} variant="subtle" color="gray" disabled aria-label="Voice input">
+              <IconMicrophone size={18} />
+            </ActionIcon>
+          </Tooltip>
           {isStreaming ? (
             <Tooltip label="Stop" withArrow>
               <ActionIcon

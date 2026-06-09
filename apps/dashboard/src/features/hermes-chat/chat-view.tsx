@@ -18,7 +18,15 @@ function toUIMessages(rows: HermesMessage[]): HermesUIMessage[] {
   }))
 }
 
-export function ChatView({ thread, onBack }: { thread: HermesThread; onBack?: () => void }) {
+export function ChatView({
+  thread,
+  onBack,
+  hideHeader,
+}: {
+  thread: HermesThread
+  onBack?: () => void
+  hideHeader?: boolean
+}) {
   const { data, isLoading } = useQuery(hermesQueries.messages(thread.id))
 
   if (isLoading || !data) {
@@ -35,6 +43,7 @@ export function ChatView({ thread, onBack }: { thread: HermesThread; onBack?: ()
       thread={thread}
       initialMessages={toUIMessages(data.data)}
       onBack={onBack}
+      hideHeader={hideHeader}
     />
   )
 }
