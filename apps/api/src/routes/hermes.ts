@@ -23,6 +23,7 @@ import {
 import { tracedFetch } from '../lib/traced-fetch.js'
 import { filterToolProgress, type ToolProgressData } from '../lib/hermes-sse.js'
 import { aiComplete } from './ai.js'
+import { recordAiUsage, type RecordUsageFn } from '../lib/ai-usage.js'
 import { env } from '../env.js'
 import { log } from '../telemetry.js'
 
@@ -74,6 +75,11 @@ export interface HermesRouteDeps {
    * a live bridge.
    */
   generateSummary: GenerateSummary
+  /**
+   * Records token usage for the proxied chat turn into argo.usage_record.
+   * Injectable so tests don't write usage rows. Defaults to `recordAiUsage`.
+   */
+  recordUsage: RecordUsageFn
 }
 
 const TITLE_SYSTEM =
@@ -132,6 +138,7 @@ function defaultDeps(): HermesRouteDeps {
     fetchImpl: tracedFetch,
     generateTitle: deepseekTitle,
     generateSummary: deepseekSummarize,
+    recordUsage: recordAiUsage,
   }
 }
 
@@ -513,6 +520,8 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
               fetch: tappingFetch as typeof fetch,
             })
 
+            const usageStartedAt = new Date().toISOString()
+            const usageStartMs = Date.now()
             const result = streamText({
               model: provider.chatModel(deps.model),
               messages: convertToModelMessages([newTurn]),
@@ -521,6 +530,27 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
                 'X-Hermes-Session-Key': body.sessionKey ?? deps.sessionKey,
               },
               abortSignal: request.signal,
+              // Record proxied-turn token usage into argo.usage_record
+              // (source='argo', sub_tool='hermes-proxy'). Fire-and-forget; skip
+              // when the upstream reports no token counts.
+              onFinish: ({ usage }) => {
+                if (usage.inputTokens === undefined && usage.outputTokens === undefined) return
+                const inputTokens = usage.inputTokens ?? 0
+                const outputTokens = usage.outputTokens ?? 0
+                void deps
+                  .recordUsage({
+                    model: deps.model,
+                    usage: {
+                      prompt_tokens: inputTokens,
+                      completion_tokens: outputTokens,
+                      total_tokens: usage.totalTokens ?? inputTokens + outputTokens,
+                    },
+                    subTool: 'hermes-proxy',
+                    startedAt: usageStartedAt,
+                    durationMs: Date.now() - usageStartMs,
+                  })
+                  .catch((err: unknown) => log.error('hermes proxy usage record failed', err))
+              },
             })
             writer.merge(result.toUIMessageStream())
           },

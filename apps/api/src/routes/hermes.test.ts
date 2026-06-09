@@ -89,6 +89,8 @@ function buildApp(fetchImpl: FetchImpl, extra: Partial<HermesRouteDeps> = {}) {
       // (no live bridge in the loop); titling/summarization tested explicitly below.
       generateTitle: async () => '',
       generateSummary: async () => ({ summary: '', type: 'general' }),
+      // No-op so streaming tests don't write rows into argo.usage_record.
+      recordUsage: async () => {},
       ...extra,
     }),
   )
