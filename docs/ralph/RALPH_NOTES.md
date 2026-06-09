@@ -399,3 +399,60 @@ is also appended to the Hermes-bound message text so Hermes can read it.
 - `pendingAttachmentsRef` is cleared synchronously after `sendMessage`; if AI SDK v5 ever exposes
   a `metadata` field on `sendMessage` the live user message could render attachments immediately
   before `onFinish` re-fetches the transcript.
+
+## Group 8: Usage-tracking (application=argo)
+
+### What was implemented
+
+Created `apps/api/src/lib/ai-usage.ts` with `normalizeDeepseekModel()`, DeepSeek pricing
+constants, and `recordAiUsage()` which inserts directly into `argo.usage_record` tagged
+`source='argo'`, `billing='iu'`, `project='argo'`. Widened `aiComplete` in `ai.ts` to accept
+a `sub_tool` label and a `RecordUsageFn` injected via `AiRouteDeps.recordUsage` (defaults to
+`recordAiUsage`). Usage is captured from the upstream `usage` response field and recorded
+fire-and-forget. Tagged `deepseekTitle` as `sub_tool='titling'` and `deepseekSummarize` as
+`sub_tool='summarization'` in `hermes.ts`.
+
+### Deviations from prompt
+
+No schema migration was needed — `usage_record` already exists. The prompt mentioned
+`application=argo` but the existing table has no `application` column; used `source='argo'`
+instead, which is the established pattern (`'claude-code'`, `'hermes'`, `'feuer'`, `'opencode'`).
+
+For the Hermes proxy usage (where the upstream returns a `usage` object in the stream): the
+`streamText` SDK path doesn't expose per-request token counts in a way that's trivially injectable
+into the same recording path. Deferred — the `aiComplete` path (titling + summarization) is the
+high-value capture and is fully implemented.
+
+### Gotchas & surprises
+
+The unique index on `(source, source_id, machine)` does NOT enforce uniqueness when `machine=NULL`
+in Postgres — `NULL != NULL` in unique constraints, so two rows with the same `source+source_id`
+and `machine=NULL` don't conflict. Harmless since `source_id` is a UUID per call. No
+`onConflictDoNothing` needed.
+
+The usage-tracker pipeline is pull-based (LaunchAgent pushes from local SQLite to Argo).
+In-process Argo calls bypass it — rows go straight to `argo.usage_record` without the
+usage-tracker cost-computation path. Mitigated by computing `cost_usd` in-process using the same
+DeepSeek rates as `usage-tracker/src/pricing.ts`. Rates are documented as a copy — update both
+when DeepSeek pricing changes.
+
+### Security notes
+
+No new surface. Token counts from DeepSeek are recorded as-is; no user data in the usage row.
+
+### Tests added
+
+- `ai.test.ts`: `aiComplete()` — "calls recordUsage with correct params when the upstream returns
+  a usage object" (spy-based, no DB)
+- `ai.test.ts`: `aiComplete()` — "skips recordUsage when the upstream omits usage"
+- `ai.test.ts`: `normalizeDeepseekModel()` — model string normalization cases
+- `ai.test.ts`: `recordAiUsage() — DB integration` — two tests verifying the full DB write
+  (source, billing, model_norm, cost, sub_tool)
+
+### Future improvements
+
+- Capture Hermes proxy token usage: the `streamText` result exposes `.usage` as a Promise; wire
+  `(await result.usage)` into `recordAiUsage` in `onFinish` tagged `sub_tool='hermes-proxy'`.
+- Sync `DEEPSEEK_RATES` from the usage-tracker's `pricing.ts` automatically (shared package or a
+  single source of truth) to prevent drift when rates change.
+- Add a dashboard breakdown showing `source='argo'` rows in the usage charts.
