@@ -20,9 +20,8 @@ COPY apps/api/m365-team.json ./apps/api/
 FROM oven/bun:1.3-alpine AS runner
 WORKDIR /app
 
-# ffmpeg (bundles ffprobe) is required by the native TTS pipeline (PCM → MP3/Opus)
-# and STT rich-format duration probing. curl is used by the healthcheck.
-RUN apk add --no-cache curl ca-certificates ffmpeg \
+# curl is used by the healthcheck.
+RUN apk add --no-cache curl ca-certificates \
   && addgroup -S app && adduser -S app -G app
 
 COPY --from=builder --chown=app:app /app/node_modules /app/node_modules

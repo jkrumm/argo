@@ -75,27 +75,10 @@ export const Env = z.object({
   DEEPSEEK_API_KEY: z.string().default(''),
   DEEPSEEK_MODEL: z.string().default('DeepSeek-V4-Flash'),
 
-  // Audio (STT + TTS) — native to Argo, talking directly to the IU unified
-  // endpoint (no more audio-proxy hop). STT (`/audio/transcriptions`) and the TTS
-  // prep LLM reuse the IU OpenAI creds above (DEEPSEEK_BASE_URL + DEEPSEEK_API_KEY).
-  // Gemini expressive TTS needs the native generateContent base below; unset →
-  // TTS 503s but STT still works. Ported from the standalone audio-proxy service.
-  AUDIO_GEMINI_BASE_URL: z.string().default(''),
-  // Default TTS model when the request omits one. A model matching /gemini.*tts/i
-  // routes to the native expressive pipeline; anything else proxies IU /audio/speech.
-  AUDIO_TTS_MODEL: z.string().default('gemini-3.1-flash-tts-preview'),
-  // Prep LLM (OpenAI dialect) that rewrites text into styled, chunked spoken form.
-  AUDIO_TTS_PREP_MODEL: z.string().default('DeepSeek-V4-Pro'),
-  AUDIO_TTS_VOICE: z.string().default('Charon'),
-  AUDIO_TTS_PREP_MODE: z.enum(['always', 'long', 'off']).default('always'),
-  // Max concurrent Gemini chunk syntheses. >1 is the long-form latency fix that
-  // replaced audio-proxy's serial synth loop. Keep modest to avoid upstream 429s.
-  AUDIO_TTS_CONCURRENCY: z.coerce.number().int().min(1).max(8).default(4),
-  AUDIO_TTS_MP3_BITRATE: z.coerce.number().int().default(64),
-  // STT language steering injected only when the client sends none. STT_LANGUAGE is
-  // a hard ISO-639-1 lock; STT_PROMPT is a soft bias (keeps transcribe on de/en).
-  AUDIO_STT_PROMPT: z.string().default('Die Aufnahme ist auf Deutsch oder Englisch.'),
-  AUDIO_STT_LANGUAGE: z.string().default(''),
+  // Audio (STT + TTS) — forwarded to the audio-gateway service (audio-gateway:7714).
+  // The gateway is the single source of truth for all audio processing; Argo proxies.
+  // Defaults to the in-cluster Docker service name; override for local dev if needed.
+  AUDIO_GATEWAY_URL: z.string().default('http://audio-gateway:7714'),
 })
 
 export const env = Env.parse(process.env)

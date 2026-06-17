@@ -143,7 +143,7 @@ export const app = new Elysia()
           {
             name: 'AI Gateway',
             description:
-              'General-purpose, OpenAI-compatible AI gateway (`/ai/v1/*`) backing Argo-side AI features (NOT the Hermes agent): DeepSeek v4 Flash via the LiteLLM EU bridge for titling/classification, plus STT (transcriptions) and TTS (speech) via the audio-proxy.',
+              'General-purpose, OpenAI-compatible AI gateway (`/ai/v1/*`) backing Argo-side AI features (NOT the Hermes agent): DeepSeek v4 Flash via the LiteLLM EU bridge for titling/classification, plus STT (transcriptions) and TTS (speech) via the audio-gateway.',
           },
           {
             name: 'System',
