@@ -1,0 +1,22 @@
+/* Hermes widget — neutral interaction states, never the identity blue (DESIGN.md).
+   Blue is reserved for the speaking ring + send button in the TSX. */
+
+.threadRow {
+  display: block;
+  width: 100%;
+  border-radius: var(--mantine-radius-sm);
+  color: inherit;
+}
+
+.threadRow:hover {
+  background-color: var(--mantine-color-default-hover);
+}
+
+.openFull {
+  border-radius: var(--mantine-radius-sm);
+  padding: 4px var(--mantine-spacing-xs);
+}
+
+.openFull:hover {
+  background-color: var(--mantine-color-default-hover);
+}

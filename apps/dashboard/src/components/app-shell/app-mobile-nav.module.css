@@ -29,3 +29,41 @@
   line-height: 1;
   font-weight: 500;
 }
+
+/* Bottom sheet: rounded top corners so it reads as a card rising from the footer. */
+.sheet {
+  border-top-left-radius: var(--mantine-radius-lg);
+  border-top-right-radius: var(--mantine-radius-lg);
+}
+
+/* Large tap rows inside the group sheet. NavLink rows reuse the sidebar's neutral active fill. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  width: 100%;
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  border-radius: var(--mantine-radius-sm);
+  color: var(--mantine-color-text);
+}
+
+.row:hover {
+  background-color: color-mix(in srgb, var(--vx-neutral) 8%, transparent);
+}
+
+/*
+ * Active = neutral surface fill + plain text color. Never the identity blue (DESIGN.md). --nl-color
+ * forces NavLink's active text/icon color (otherwise the accent) to the plain text color.
+ */
+.row[data-active],
+.row[data-active]:hover {
+  --nl-color: var(--mantine-color-text);
+  color: var(--mantine-color-text);
+  background-color: color-mix(in srgb, var(--vx-neutral) 13%, transparent);
+  font-weight: 600;
+}
+
+.rowLabel {
+  font-size: var(--mantine-font-size-md);
+  line-height: 1.2;
+}

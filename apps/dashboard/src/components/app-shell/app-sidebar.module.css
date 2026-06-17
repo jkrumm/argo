@@ -47,6 +47,29 @@
 }
 
 /*
+ * Collapsible group header — keeps the SectionLabel look (dimmed, uppercase) and adds a trailing
+ * neutral chevron. Color is set to dimmed so the chevron inherits a quiet stroke (no accent); the
+ * label brings its own px="xs", so only the chevron needs the matching right inset.
+ */
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  color: var(--mantine-color-dimmed);
+  border-radius: var(--mantine-radius-sm);
+}
+
+.sectionHeader > svg {
+  margin-inline-end: var(--mantine-spacing-xs);
+  flex: none;
+}
+
+.sectionHeader:hover {
+  background-color: color-mix(in srgb, var(--vx-neutral) 8%, transparent);
+}
+
+/*
  * Icon-rail (collapsed) — desktop only. Gated behind min-width: sm (48em) so the mobile drawer keeps
  * full labels even when the persisted collapse flag is on. Hide the brand text, section labels and
  * nav labels; center the remaining icons.
@@ -60,7 +83,8 @@
     display: none;
   }
 
-  .root[data-collapsed] .sectionLabel {
+  .root[data-collapsed] .sectionLabel,
+  .root[data-collapsed] .sectionHeader {
     display: none;
   }
 

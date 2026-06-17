@@ -1,4 +1,6 @@
 import { RefreshButton, TimerNavWidget } from '../timer-nav'
+import { HermesVoiceButton } from '../../features/hermes-chat/hermes-voice-button'
+import { HermesWidget } from '../../features/hermes-chat/hermes-widget'
 
 /**
  * Global slot of the app-shell top bar — shell-owned and persistent across routes (unlike
@@ -9,6 +11,8 @@ import { RefreshButton, TimerNavWidget } from '../timer-nav'
 export function GlobalActions({ className }: { className?: string }) {
   return (
     <div className={className}>
+      <HermesVoiceButton />
+      <HermesWidget />
       <TimerNavWidget />
       <RefreshButton />
     </div>

@@ -3,7 +3,13 @@ import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-q
 import { ActionIcon, Box, Group, Stack, Text, Textarea, Tooltip } from '@mantine/core'
 import { IconSend } from '@tabler/icons-react'
 import { hermesMutations, hermesQueries, type HermesThread } from '../../lib/queries/hermes'
+import { useUiStore } from '../../lib/store'
 import { ThreadFeedRow } from './thread-feed-row'
+import { HERMES_CHAT_FEATURES } from './features'
+import { useVoicePlayback } from './voice/voice-playback'
+import { useVoiceRecorder } from './voice/use-voice-recorder'
+import { VoiceControls } from './voice/voice-controls'
+import { RecordingIndicator } from './voice/recording-indicator'
 
 // Single-column Slack-style thread feed, chat-anchored: the feed scrolls with the
 // newest thread at the BOTTOM (older scroll up), and a single composer is pinned to
@@ -18,7 +24,14 @@ const FILL_HEIGHT =
   'calc(100dvh - var(--app-shell-header-offset, 0rem) - var(--app-shell-footer-offset, 0rem))'
 const BLEED_MARGIN = 'calc(var(--app-shell-padding) * -1)'
 
+// The playback provider is lifted to the app root so the header widget and every thread
+// share ONE <audio> element — the key to iOS autoplay surviving navigation. The page is
+// just the feed now.
 export function HermesChatPage() {
+  return <HermesChatFeed />
+}
+
+function HermesChatFeed() {
   const queryClient = useQueryClient()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [input, setInput] = useState('')
@@ -78,13 +91,58 @@ export function HermesChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function startChat() {
-    const text = input.trim()
-    if (!text || create.isPending) return
+  function startChatWith(text: string) {
+    const trimmed = text.trim()
+    if (!trimmed || create.isPending) return
     setInput('')
-    pendingSeedRef.current = text
+    pendingSeedRef.current = trimmed
     create.mutate({})
   }
+
+  function startChat() {
+    startChatWith(input)
+  }
+
+  // Cross-app intent from the header widget: a `draft` seeds + starts a new chat, an `open`
+  // expands the targeted thread. Keyed on the intent so it runs once per dispatch;
+  // `consumeHermesIntent` reads-and-clears so it never re-fires.
+  const hermesIntent = useUiStore((s) => s.hermesIntent)
+  const consumeHermesIntent = useUiStore((s) => s.consumeHermesIntent)
+  useEffect(() => {
+    if (!hermesIntent) return
+    const intent = consumeHermesIntent()
+    if (!intent) return
+    if (intent.type === 'draft') startChatWith(intent.text)
+    else setExpandedId(intent.threadId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hermesIntent])
+
+  // ── Voice: master toggle + dictation that starts a chat ──────────────────────
+  const voiceMode = useUiStore((s) => s.voiceMode)
+  const toggleVoiceMode = useUiStore((s) => s.toggleVoiceMode)
+  const { audioAvailable, setAudioAvailable, primePlayback } = useVoicePlayback()
+
+  // Mirror voice mode into a ref for the recorder's async onResult. Assigned in render
+  // (no effect) to avoid a frame of staleness.
+  const voiceModeRef = useRef(voiceMode)
+  voiceModeRef.current = voiceMode
+
+  const {
+    isRecording,
+    isTranscribing,
+    recordingMs,
+    toggle: toggleRecording,
+  } = useVoiceRecorder({
+    setAudioAvailable,
+    onPrime: primePlayback,
+    onResult: (transcript) => {
+      // Voice mode: dictation immediately starts a new chat (the new thread inherits
+      // voice mode from the shared store and speaks its reply). Otherwise just fill
+      // the composer so it can be reviewed before sending.
+      if (voiceModeRef.current) startChatWith(transcript)
+      else setInput((prev) => (prev ? `${prev} ${transcript}` : transcript))
+    },
+  })
 
   function consumeSeed(id: string) {
     setSeeds((prev) => {
@@ -129,13 +187,19 @@ export function HermesChatPage() {
         p="sm"
         style={{ borderTop: '1px solid var(--mantine-color-default-border)', flexShrink: 0 }}
       >
+        {isRecording && <RecordingIndicator recordingMs={recordingMs} />}
+
         <Group gap="xs" align="flex-end" wrap="nowrap">
           <Textarea
             flex={1}
             autosize
             minRows={1}
             maxRows={6}
-            placeholder="Message Hermes — starts a new chat…"
+            placeholder={
+              voiceMode
+                ? 'Talk or type — starts a new chat…'
+                : 'Message Hermes — starts a new chat…'
+            }
             value={input}
             onChange={(e) => setInput(e.currentTarget.value)}
             onKeyDown={(e) => {
@@ -145,6 +209,17 @@ export function HermesChatPage() {
               }
             }}
           />
+          {HERMES_CHAT_FEATURES.audioTranscription && (
+            <VoiceControls
+              voiceMode={voiceMode}
+              onToggleVoiceMode={toggleVoiceMode}
+              isRecording={isRecording}
+              isTranscribing={isTranscribing}
+              audioAvailable={audioAvailable}
+              onMicClick={toggleRecording}
+              micDisabled={create.isPending}
+            />
+          )}
           <Tooltip label="Start chat" withArrow>
             <ActionIcon
               size={36}

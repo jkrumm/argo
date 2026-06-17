@@ -1,6 +1,7 @@
 import {
   ActionIcon,
   Box,
+  Collapse,
   Divider,
   Group,
   Menu,
@@ -13,6 +14,8 @@ import {
 } from '@mantine/core'
 import {
   IconCheck,
+  IconChevronDown,
+  IconChevronRight,
   IconDatabase,
   IconDeviceDesktop,
   IconLayoutSidebarLeftCollapse,
@@ -25,6 +28,7 @@ import {
   IconTools,
   IconX,
 } from '@tabler/icons-react'
+import { useState } from 'react'
 import type { MouseEvent, ReactNode } from 'react'
 import { RefreshButton } from '../timer-nav'
 import type { DevTool } from '../dev-dock'
@@ -57,7 +61,18 @@ export type SidebarItem = {
   badge?: ReactNode
 }
 
-export type SidebarSection = { label: string; items: SidebarItem[] }
+export type SidebarSection = {
+  label: string
+  items: SidebarItem[]
+  /** Group icon, used by the mobile tabs. */
+  icon?: ReactNode
+  /** Desktop: render a clickable group header that collapses its items. */
+  collapsible?: boolean
+  /** Initial collapsed state when `collapsible`. */
+  defaultCollapsed?: boolean
+  /** `false` excludes the section from the primary mobile group tabs. */
+  mobileTab?: boolean
+}
 
 type AppSidebarProps = {
   sections: SidebarSection[]
@@ -102,6 +117,41 @@ export function AppSidebar({
   const { colorScheme, setColorScheme } = useMantineColorScheme()
   const current = THEME_OPTIONS.find((o) => o.value === colorScheme) ?? THEME_OPTIONS[0]
 
+  // Desktop collapsible-section state, keyed by section label. Seeded once from each section's
+  // `defaultCollapsed`; non-collapsible sections are simply never read here.
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(sections.map((s) => [s.label, Boolean(s.defaultCollapsed)])),
+  )
+
+  const renderItems = (section: SidebarSection) =>
+    section.items.map((item) =>
+      item.disabled ? (
+        <Tooltip key={item.key} label="Coming soon" position="right" withArrow>
+          <Box>
+            <NavLink
+              classNames={{ root: classes.link }}
+              label={item.label}
+              leftSection={item.icon}
+              disabled
+            />
+          </Box>
+        </Tooltip>
+      ) : (
+        <Tooltip key={item.key} label={item.label} position="right" withArrow disabled={!collapsed}>
+          <NavLink
+            classNames={{ root: classes.link }}
+            component="a"
+            href={item.href}
+            label={item.label}
+            leftSection={item.icon}
+            rightSection={item.badge}
+            active={item.active}
+            onClick={item.onClick}
+          />
+        </Tooltip>
+      ),
+    )
+
   const DEV_TOOLS = [
     { value: 'router', label: 'Router', icon: <IconRoute size={16} /> },
     { value: 'query', label: 'Query', icon: <IconDatabase size={16} /> },
@@ -135,44 +185,38 @@ export function AppSidebar({
       </Group>
 
       <Stack gap="lg" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-        {sections.map((section) => (
-          <Stack key={section.label} gap={2}>
-            <SectionLabel>{section.label}</SectionLabel>
-            {section.items.map((item) =>
-              item.disabled ? (
-                <Tooltip key={item.key} label="Coming soon" position="right" withArrow>
-                  <Box>
-                    <NavLink
-                      classNames={{ root: classes.link }}
-                      label={item.label}
-                      leftSection={item.icon}
-                      disabled
-                    />
-                  </Box>
-                </Tooltip>
-              ) : (
-                <Tooltip
-                  key={item.key}
-                  label={item.label}
-                  position="right"
-                  withArrow
-                  disabled={!collapsed}
-                >
-                  <NavLink
-                    classNames={{ root: classes.link }}
-                    component="a"
-                    href={item.href}
-                    label={item.label}
-                    leftSection={item.icon}
-                    rightSection={item.badge}
-                    active={item.active}
-                    onClick={item.onClick}
-                  />
-                </Tooltip>
-              ),
-            )}
-          </Stack>
-        ))}
+        {sections.map((section) => {
+          if (!section.collapsible) {
+            return (
+              <Stack key={section.label} gap={2}>
+                <SectionLabel>{section.label}</SectionLabel>
+                {renderItems(section)}
+              </Stack>
+            )
+          }
+
+          const isOpen = !collapsedSections[section.label]
+          return (
+            <Stack key={section.label} gap={2}>
+              <UnstyledButton
+                className={classes.sectionHeader}
+                onClick={() =>
+                  setCollapsedSections((prev) => ({
+                    ...prev,
+                    [section.label]: !prev[section.label],
+                  }))
+                }
+                aria-expanded={isOpen}
+              >
+                <SectionLabel>{section.label}</SectionLabel>
+                {isOpen ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+              </UnstyledButton>
+              <Collapse expanded={isOpen}>
+                <Stack gap={2}>{renderItems(section)}</Stack>
+              </Collapse>
+            </Stack>
+          )
+        })}
       </Stack>
 
       <Divider my="sm" mx="-md" />

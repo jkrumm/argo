@@ -9,6 +9,7 @@ import { AppShell, Badge, Divider } from '@mantine/core'
 import { useDisclosure, useHotkeys } from '@mantine/hooks'
 import {
   IconActivity,
+  IconArchive,
   IconBarbell,
   IconBox,
   IconBrandTeams,
@@ -16,8 +17,8 @@ import {
   IconChartHistogram,
   IconChecklist,
   IconHeartbeat,
-  IconMenu2,
   IconMessageChatbot,
+  IconServer,
   IconShoe,
 } from '@tabler/icons-react'
 import { format } from 'date-fns'
@@ -25,10 +26,11 @@ import { useState, type MouseEvent } from 'react'
 import { useTimerEngine } from '../components/timer-nav'
 import { AppSidebar, type SidebarSection } from '../components/app-shell/app-sidebar'
 import { useSidebarBadges } from '../components/app-shell/use-sidebar-badges'
-import { MobileNav } from '../components/app-shell/app-mobile-nav'
+import { MobileNav, type MobileNavSection } from '../components/app-shell/app-mobile-nav'
 import { AppBreadcrumbs } from '../components/app-shell/app-breadcrumbs'
 import { GlobalActions } from '../components/app-shell/global-actions'
 import { PageActionsOutlet, PageHeaderProvider } from '../components/app-shell/page-header'
+import { VoicePlaybackProvider } from '../features/hermes-chat/voice/voice-playback'
 import { DevToolsPanel, type DevTool } from '../components/dev-dock'
 import { useUiStore } from '../lib/store'
 import classes from '../components/app-shell/app-header.module.css'
@@ -83,6 +85,7 @@ function RootLayout() {
   const sections: SidebarSection[] = [
     {
       label: 'Assistant',
+      icon: <IconMessageChatbot size={ICON} />,
       items: [
         {
           key: 'hermes-chat',
@@ -93,10 +96,28 @@ function RootLayout() {
           active: isHermesChatActive,
           onClick: go(() => void navigate({ to: '/hermes-chat' })),
         },
+        {
+          key: 'calendar',
+          label: 'Calendar',
+          short: 'Calendar',
+          mobile: true,
+          icon: <IconCalendar size={ICON} />,
+          href: '/calendar',
+          active: isCalendarActive,
+          badge: navBadge(badges.calendar),
+          onClick: go(
+            () =>
+              void navigate({
+                to: '/calendar',
+                search: { view: 'week', date: format(new Date(), 'yyyy-MM-dd') },
+              }),
+          ),
+        },
       ],
     },
     {
       label: 'Health',
+      icon: <IconHeartbeat size={ICON} />,
       items: [
         {
           key: 'garmin',
@@ -141,38 +162,8 @@ function RootLayout() {
       ],
     },
     {
-      label: 'Work',
-      items: [
-        {
-          key: 'calendar',
-          label: 'Calendar',
-          short: 'Calendar',
-          mobile: true,
-          icon: <IconCalendar size={ICON} />,
-          href: '/calendar',
-          active: isCalendarActive,
-          badge: navBadge(badges.calendar),
-          onClick: go(
-            () =>
-              void navigate({
-                to: '/calendar',
-                search: { view: 'week', date: format(new Date(), 'yyyy-MM-dd') },
-              }),
-          ),
-        },
-        {
-          key: 'm365',
-          label: 'M365 Explorer',
-          icon: <IconBrandTeams size={ICON} />,
-          href: '/m365-explorer',
-          active: isM365Active,
-          badge: navBadge(badges.m365),
-          onClick: go(() => void navigate({ to: '/m365-explorer' })),
-        },
-      ],
-    },
-    {
       label: 'System',
+      icon: <IconServer size={ICON} />,
       items: [
         {
           key: 'usage',
@@ -203,78 +194,100 @@ function RootLayout() {
         { key: 'tasks', label: 'Tasks', icon: <IconChecklist size={ICON} />, disabled: true },
       ],
     },
+    {
+      label: 'Other',
+      icon: <IconArchive size={ICON} />,
+      collapsible: true,
+      defaultCollapsed: true,
+      mobileTab: false,
+      items: [
+        {
+          key: 'm365',
+          label: 'M365 Explorer',
+          icon: <IconBrandTeams size={ICON} />,
+          href: '/m365-explorer',
+          active: isM365Active,
+          badge: navBadge(badges.m365),
+          onClick: go(() => void navigate({ to: '/m365-explorer' })),
+        },
+      ],
+    },
   ]
 
   const activeCrumb = sections
     .flatMap((s) => s.items.map((it) => ({ section: s.label, page: it.label, active: it.active })))
     .find((x) => x.active)
 
-  // Mobile bottom-nav: the curated `mobile` destinations (reusing their typed handlers) plus a
-  // trailing "Menu" tab that opens the full grouped nav drawer.
-  const mobileItems = [
-    ...sections
-      .flatMap((s) => s.items)
-      .filter((it) => it.mobile)
-      .map((it) => ({
-        key: it.key,
-        short: it.short ?? it.label,
-        icon: it.icon,
-        href: it.href,
-        active: it.active,
-        onClick: it.onClick,
+  // Mobile bottom-nav: one tab per (non-`mobileTab:false`) section, each raising a bottom sheet
+  // of that section's destinations. The full grouped drawer stays the "More" target.
+  const mobileSections: MobileNavSection[] = sections
+    .filter((s) => s.mobileTab !== false)
+    .map((s) => ({
+      key: s.label,
+      label: s.label,
+      icon: s.icon,
+      active: s.items.some((i) => i.active),
+      items: s.items.map((i) => ({
+        key: i.key,
+        label: i.label,
+        icon: i.icon,
+        href: i.href,
+        active: i.active,
+        onClick: i.onClick,
       })),
-    { key: 'menu', short: 'Menu', icon: <IconMenu2 size={ICON} />, onClick: () => toggleMobile() },
-  ]
+    }))
 
   return (
-    <PageHeaderProvider>
-      <AppShell
-        h="100dvh"
-        layout="alt"
-        header={{ height: { base: 108, sm: 56 } }}
-        navbar={{
-          width: { base: 240, sm: sidebarCollapsed ? 72 : 240 },
-          breakpoint: 'sm',
-          collapsed: { mobile: !mobileOpened },
-        }}
-        footer={{ height: { base: 56, sm: 0 } }}
-        padding="md"
-      >
-        <AppShell.Header px="md">
-          <div className={classes.bar}>
-            <div className={classes.lead}>
-              <AppBreadcrumbs section={activeCrumb?.section} page={activeCrumb?.page} />
+    <VoicePlaybackProvider>
+      <PageHeaderProvider>
+        <AppShell
+          h="100dvh"
+          layout="alt"
+          header={{ height: { base: 108, sm: 56 } }}
+          navbar={{
+            width: { base: 240, sm: sidebarCollapsed ? 72 : 240 },
+            breakpoint: 'sm',
+            collapsed: { mobile: !mobileOpened },
+          }}
+          footer={{ height: { base: 56, sm: 0 } }}
+          padding="md"
+        >
+          <AppShell.Header px="md">
+            <div className={classes.bar}>
+              <div className={classes.lead}>
+                <AppBreadcrumbs section={activeCrumb?.section} page={activeCrumb?.page} />
+              </div>
+              <PageActionsOutlet className={classes.pageActions} />
+              <Divider
+                orientation="vertical"
+                visibleFrom="sm"
+                style={{ alignSelf: 'stretch', height: 'auto' }}
+              />
+              <GlobalActions className={classes.global} />
             </div>
-            <PageActionsOutlet className={classes.pageActions} />
-            <Divider
-              orientation="vertical"
-              visibleFrom="sm"
-              style={{ alignSelf: 'stretch', height: 'auto' }}
+          </AppShell.Header>
+
+          <AppShell.Navbar p="md">
+            <AppSidebar
+              sections={sections}
+              collapsed={sidebarCollapsed}
+              onToggleCollapse={toggleSidebar}
+              onClose={closeMobile}
+              onOpenDevTool={import.meta.env.DEV ? setDevTool : undefined}
             />
-            <GlobalActions className={classes.global} />
-          </div>
-        </AppShell.Header>
+          </AppShell.Navbar>
 
-        <AppShell.Navbar p="md">
-          <AppSidebar
-            sections={sections}
-            collapsed={sidebarCollapsed}
-            onToggleCollapse={toggleSidebar}
-            onClose={closeMobile}
-            onOpenDevTool={import.meta.env.DEV ? setDevTool : undefined}
-          />
-        </AppShell.Navbar>
+          <AppShell.Main>
+            <Outlet />
+          </AppShell.Main>
 
-        <AppShell.Main>
-          <Outlet />
-        </AppShell.Main>
+          <AppShell.Footer hiddenFrom="sm" p={0}>
+            <MobileNav sections={mobileSections} onOpenMore={toggleMobile} />
+          </AppShell.Footer>
 
-        <AppShell.Footer hiddenFrom="sm" p={0}>
-          <MobileNav items={mobileItems} />
-        </AppShell.Footer>
-
-        {import.meta.env.DEV && <DevToolsPanel tool={devTool} onClose={() => setDevTool(null)} />}
-      </AppShell>
-    </PageHeaderProvider>
+          {import.meta.env.DEV && <DevToolsPanel tool={devTool} onClose={() => setDevTool(null)} />}
+        </AppShell>
+      </PageHeaderProvider>
+    </VoicePlaybackProvider>
   )
 }

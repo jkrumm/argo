@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { isTextUIPart } from 'ai'
 import { useQueryClient } from '@tanstack/react-query'
@@ -25,22 +25,25 @@ import { notifications } from '@mantine/notifications'
 import {
   IconArrowLeft,
   IconFile,
-  IconHeadphones,
   IconMicrophone,
   IconPaperclip,
   IconPhoto,
   IconPlayerStopFilled,
   IconSend,
   IconTextSize,
-  IconVolume,
 } from '@tabler/icons-react'
 import { hermesQueries, type HermesThread } from '../../lib/queries/hermes'
-import { getToken } from '../../lib/auth'
+import { useUiStore } from '../../lib/store'
 import { HERMES_CHAT_FEATURES } from './features'
 import { MessageMarkdown } from './message-markdown'
-import { createHermesTransport, apiBase } from './transport'
+import { createHermesTransport } from './transport'
 import type { Attachment, HermesUIMessage, ToolProgress } from './types'
 import { AttachmentDisplay } from './attachment-display'
+import { useVoiceRecorder } from './voice/use-voice-recorder'
+import { useVoicePlayback } from './voice/voice-playback'
+import { VoiceControls } from './voice/voice-controls'
+import { RecordingIndicator } from './voice/recording-indicator'
+import { ReadAloudButton } from './voice/read-aloud-button'
 
 // Inline size cap: 2 MB (base64-encoded payload stored in JSONB). Larger files
 // are noted as future work requiring a server-side upload pipeline.
@@ -57,52 +60,6 @@ const TERMINAL_TOOL_STATUS = new Set([
   'error',
 ])
 
-// MediaRecorder output format differs by browser: Chrome/Firefox emit webm/opus,
-// Safari/iOS only emit mp4/aac (it cannot produce webm). Pick the first supported
-// container at record time — gpt-4o-transcribe accepts all of these, so no
-// client-side transcoding is needed. Hardcoding webm silently broke iOS recording.
-const PREFERRED_MIMES = [
-  'audio/webm;codecs=opus',
-  'audio/webm',
-  'audio/mp4',
-  'audio/mpeg',
-  'audio/ogg;codecs=opus',
-]
-
-function pickRecordingMime(): string {
-  if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) return ''
-  return PREFERRED_MIMES.find((t) => MediaRecorder.isTypeSupported(t)) ?? ''
-}
-
-function mimeToExt(mime: string): string {
-  if (mime.includes('mp4')) return 'm4a'
-  if (mime.includes('mpeg')) return 'mp3'
-  if (mime.includes('ogg')) return 'ogg'
-  return 'webm'
-}
-
-function formatElapsed(ms: number): string {
-  const total = Math.floor(ms / 1000)
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}:${String(s).padStart(2, '0')}`
-}
-
-// A valid empty (zero-sample) WAV. Played once inside a user gesture (the mic tap)
-// to "unlock" the playback element so voice-mode can auto-play the reply later,
-// outside a gesture, under iOS/Safari autoplay policy.
-const SILENT_WAV =
-  'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
-
-function decodeAudioTitle(raw: string | null): string {
-  if (!raw) return ''
-  try {
-    return decodeURIComponent(raw)
-  } catch {
-    return raw
-  }
-}
-
 // One open thread. Owns the `useChat` instance (transport → /api/hermes/chat),
 // renders the live transcript with streaming markdown, and surfaces Hermes'
 // transient tool-progress as live chips during a run. Hydrated with the
@@ -118,12 +75,12 @@ function messageText(message: HermesUIMessage): string {
 
 function MessageRow({
   message,
-  onReadAloud,
-  isPlayingAloud,
+  canReadAloud,
+  threadId,
 }: {
   message: HermesUIMessage
-  onReadAloud?: (id: string, text: string) => void
-  isPlayingAloud?: boolean
+  canReadAloud?: boolean
+  threadId: string
 }) {
   const isUser = message.role === 'user'
   const text = messageText(message)
@@ -182,18 +139,8 @@ function MessageRow({
             </Badge>
           )}
         </Group>
-        {text && onReadAloud && (
-          <Tooltip label={isPlayingAloud ? 'Stop' : 'Read aloud'} withArrow>
-            <ActionIcon
-              size={20}
-              variant="subtle"
-              color="gray"
-              onClick={() => onReadAloud(message.id, text)}
-              aria-label={isPlayingAloud ? 'Stop reading' : 'Read aloud'}
-            >
-              {isPlayingAloud ? <IconPlayerStopFilled size={12} /> : <IconVolume size={12} />}
-            </ActionIcon>
-          </Tooltip>
+        {text && canReadAloud && (
+          <ReadAloudButton messageId={message.id} text={text} threadId={threadId} />
         )}
       </Group>
       <MessageMarkdown content={text} />
@@ -231,63 +178,31 @@ export function ChatConversation({
   const [longTextTitle, setLongTextTitle] = useState('')
   const [longTextContent, setLongTextContent] = useState('')
 
-  // ── Audio state ─────────────────────────────────────────────────────────────
-  const [isRecording, setIsRecording] = useState(false)
-  const [isTranscribing, setIsTranscribing] = useState(false)
-  // null = unknown, false = 503 confirmed (controls disabled), true = working
-  const [audioAvailable, setAudioAvailable] = useState<boolean | null>(null)
-  const [playingMessageId, setPlayingMessageId] = useState<string | null>(null)
-  // Voice mode: after STT, auto-send the transcript and auto-speak the reply —
-  // the hands-light "talk and it talks back" loop. Off → mic just fills the input.
-  const [voiceMode, setVoiceMode] = useState(false)
-  // Live mic level (0..1) and elapsed time, for recording feedback.
-  const [recordingLevel, setRecordingLevel] = useState(0)
-  const [recordingMs, setRecordingMs] = useState(0)
+  // ── Voice: mode toggle + shared TTS playback ─────────────────────────────────
+  // Voice mode is the persisted, app-wide master toggle (shared with the feed
+  // composer). Playback lives in the feature-wide VoicePlaybackProvider so one
+  // <audio> element is reused — that's what keeps iOS autoplay unlocked across the
+  // feed → thread hop. Recording is owned by useVoiceRecorder below.
+  const voiceMode = useUiStore((s) => s.voiceMode)
+  const toggleVoiceMode = useUiStore((s) => s.toggleVoiceMode)
+  const { audioAvailable, setAudioAvailable, primePlayback, readAloud } = useVoicePlayback()
 
+  // Carries the recorded clip duration into the next sendMessage so the user turn is
+  // tagged with its audio length (usage) — read in prepareSendMessagesRequest.
   const pendingAudioMsRef = useRef<number | null>(null)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const recordingChunksRef = useRef<Blob[]>([])
-  const recordingStartRef = useRef<number>(0)
-  const streamRef = useRef<MediaStream | null>(null)
-  const wakeLockRef = useRef<WakeLockSentinel | null>(null)
-  const audioCtxRef = useRef<AudioContext | null>(null)
-  const levelRafRef = useRef<number | null>(null)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const playingAudioRef = useRef<HTMLAudioElement | null>(null)
-  const voiceModeRef = useRef(false)
-  const lastSpokenRef = useRef<string | null>(null)
-  // Mirrors playingMessageId so async playback can re-check the latest value after
-  // an await — the closed-over state would be stale if the user stopped meanwhile.
-  const playingMessageIdRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    voiceModeRef.current = voiceMode
-  }, [voiceMode])
-
-  useEffect(() => {
-    playingMessageIdRef.current = playingMessageId
-  }, [playingMessageId])
-
-  // Cleanup audio resources on unmount.
-  useEffect(() => {
-    return () => {
-      if (playingAudioRef.current) {
-        playingAudioRef.current.pause()
-        if (playingAudioRef.current.src.startsWith('blob:')) {
-          URL.revokeObjectURL(playingAudioRef.current.src)
-        }
-        playingAudioRef.current = null
-      }
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        mediaRecorderRef.current.stop()
-      }
-      streamRef.current?.getTracks().forEach((t) => t.stop())
-      if (levelRafRef.current) cancelAnimationFrame(levelRafRef.current)
-      if (timerRef.current) clearInterval(timerRef.current)
-      void audioCtxRef.current?.close().catch(() => {})
-      void wakeLockRef.current?.release().catch(() => {})
-    }
-  }, [])
+  // Latest assistant message id already auto-spoken in voice mode (speak once). Seeded
+  // with the last historical assistant message so opening an existing thread with voice
+  // mode on doesn't blurt an old reply on mount — only NEW replies auto-speak.
+  const lastSpokenRef = useRef<string | null>(
+    initialMessages.findLast((m) => m.role === 'assistant')?.id ?? null,
+  )
+  // A reply that completes while Argo is backgrounded is stashed here and spoken when
+  // you return — auto-pause "holds until you return", rather than blurting immediately.
+  const pendingSpeakRef = useRef<{ id: string; text: string } | null>(null)
+  // Mirror voice mode into a ref so async callbacks read the live value. Assigned in
+  // render (no effect) to avoid a frame of staleness.
+  const voiceModeRef = useRef(voiceMode)
+  voiceModeRef.current = voiceMode
 
   // ── Transport ────────────────────────────────────────────────────────────────
   const transport = useMemo(
@@ -452,279 +367,70 @@ export function ChatConversation({
   }
 
   // ── Voice recording → STT ───────────────────────────────────────────────────
-
-  const stopLevelMeter = useCallback(() => {
-    if (levelRafRef.current) cancelAnimationFrame(levelRafRef.current)
-    levelRafRef.current = null
-    void audioCtxRef.current?.close().catch(() => {})
-    audioCtxRef.current = null
-    setRecordingLevel(0)
-  }, [])
-
-  const stopTimer = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current)
-    timerRef.current = null
-  }, [])
-
-  const finishRecording = useCallback(
-    async (chunks: Blob[], durationMs: number, mime: string) => {
-      setIsTranscribing(true)
-      try {
-        const type = mime || 'audio/webm'
-        const blob = new Blob(chunks, { type })
-        const form = new FormData()
-        form.append('file', blob, `recording.${mimeToExt(type)}`)
-        const token = getToken()
-        const res = await fetch(`${apiBase}/ai/v1/audio/transcriptions`, {
-          method: 'POST',
-          headers: token ? { authorization: `Bearer ${token}` } : {},
-          body: form,
-        })
-        if (!res.ok) {
-          if (res.status === 503) {
-            setAudioAvailable(false)
-            notifications.show({
-              title: 'Audio unavailable',
-              message: 'Speech-to-text is not configured.',
-              color: 'red',
-            })
-          }
-          return
-        }
-        const json = (await res.json()) as { text?: string }
-        const transcript = (json.text ?? '').trim()
-        setAudioAvailable(true)
-        if (!transcript) return
-        if (voiceModeRef.current) {
-          // Voice mode: skip the input box and send the transcript straight away.
-          pendingAudioMsRef.current = durationMs
-          void sendMessage({ text: transcript })
-          pendingAudioMsRef.current = null
-        } else {
-          setInput((prev) => (prev ? `${prev} ${transcript}` : transcript))
-          pendingAudioMsRef.current = durationMs
-        }
-      } catch {
-        notifications.show({
-          title: 'Transcription failed',
-          message: 'Could not transcribe audio.',
-          color: 'red',
-        })
-      } finally {
-        setIsTranscribing(false)
+  // The recorder hands back a transcript; this component decides what to do with it.
+  const {
+    isRecording,
+    isTranscribing,
+    recordingMs,
+    toggle: toggleRecording,
+  } = useVoiceRecorder({
+    setAudioAvailable,
+    onPrime: primePlayback,
+    onResult: (transcript, durationMs) => {
+      if (voiceModeRef.current) {
+        // Voice mode: skip the input box and send the transcript straight away.
+        pendingAudioMsRef.current = durationMs
+        void sendMessage({ text: transcript })
+        pendingAudioMsRef.current = null
+      } else {
+        setInput((prev) => (prev ? `${prev} ${transcript}` : transcript))
+        pendingAudioMsRef.current = durationMs
       }
     },
-    [sendMessage],
-  )
-
-  function stopRecording() {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop()
-    }
-    setIsRecording(false)
-  }
-
-  async function startRecording() {
-    // Unlock playback within the user gesture so voice-mode can auto-play the
-    // reply later (iOS autoplay policy). No-op when already unlocked.
-    primePlayback()
-    if (!navigator.mediaDevices?.getUserMedia) {
-      notifications.show({
-        title: 'Microphone unavailable',
-        message: 'Your browser does not support audio recording.',
-        color: 'red',
-      })
-      return
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      streamRef.current = stream
-      const mime = pickRecordingMime()
-      const recorder = mime
-        ? new MediaRecorder(stream, { mimeType: mime })
-        : new MediaRecorder(stream)
-      const chunks: Blob[] = []
-      recordingChunksRef.current = chunks
-      recordingStartRef.current = Date.now()
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data)
-      }
-      recorder.onstop = () => {
-        const elapsed = Date.now() - recordingStartRef.current
-        stopLevelMeter()
-        stopTimer()
-        stream.getTracks().forEach((t) => t.stop())
-        streamRef.current = null
-        void wakeLockRef.current?.release().catch(() => {})
-        wakeLockRef.current = null
-        void finishRecording(chunks, elapsed, recorder.mimeType || mime)
-      }
-
-      mediaRecorderRef.current = recorder
-      recorder.start()
-      setIsRecording(true)
-      setRecordingMs(0)
-      timerRef.current = setInterval(
-        () => setRecordingMs(Date.now() - recordingStartRef.current),
-        200,
-      )
-
-      // Best-effort: keep the screen awake while recording. Browsers suspend mic
-      // capture once the page is hidden, so foreground-with-screen-on is the
-      // realistic ceiling — the wake lock just stops the screen auto-sleeping.
-      try {
-        wakeLockRef.current = (await navigator.wakeLock?.request('screen')) ?? null
-      } catch {
-        /* wake lock is non-essential */
-      }
-
-      // Best-effort live level meter via the Web Audio analyser, wrapped so any
-      // AudioContext failure never breaks the recording itself.
-      try {
-        const AudioCtx =
-          window.AudioContext ??
-          (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-        if (AudioCtx) {
-          const ctx = new AudioCtx()
-          audioCtxRef.current = ctx
-          const source = ctx.createMediaStreamSource(stream)
-          const analyser = ctx.createAnalyser()
-          analyser.fftSize = 256
-          source.connect(analyser)
-          const data = new Uint8Array(analyser.frequencyBinCount)
-          const tick = (): void => {
-            analyser.getByteTimeDomainData(data)
-            let sum = 0
-            for (const v of data) {
-              const x = (v - 128) / 128
-              sum += x * x
-            }
-            setRecordingLevel(Math.min(1, Math.sqrt(sum / data.length) * 3))
-            levelRafRef.current = requestAnimationFrame(tick)
-          }
-          tick()
-        }
-      } catch {
-        /* level meter is best-effort */
-      }
-    } catch {
-      notifications.show({
-        title: 'Microphone unavailable',
-        message: 'Could not access your microphone.',
-        color: 'red',
-      })
-    }
-  }
-
-  function handleMicClick() {
-    if (isRecording) stopRecording()
-    else void startRecording()
-  }
+  })
 
   // ── Read-aloud → TTS ────────────────────────────────────────────────────────
 
-  // One persistent <audio> element for all TTS playback. Reusing it (rather than a
-  // fresh `new Audio()` per click) lets `primePlayback()` unlock it inside a user
-  // gesture so voice-mode auto-play works on iOS.
-  const getPlaybackEl = useCallback((): HTMLAudioElement => {
-    if (!playingAudioRef.current) {
-      const el = new Audio()
-      el.addEventListener('ended', () => setPlayingMessageId(null))
-      el.addEventListener('error', () => setPlayingMessageId(null))
-      playingAudioRef.current = el
-    }
-    return playingAudioRef.current
-  }, [])
-
-  const primePlayback = useCallback(() => {
-    const el = getPlaybackEl()
-    el.src = SILENT_WAV
-    void el
-      .play()
-      .then(() => el.pause())
-      .catch(() => {})
-  }, [getPlaybackEl])
-
-  const handleReadAloud = useCallback(
-    async (messageId: string, text: string) => {
-      const el = getPlaybackEl()
-      el.pause()
-      // Click the currently-playing message → just stop (toggle / barge-in).
-      if (playingMessageId === messageId) {
-        setPlayingMessageId(null)
-        return
-      }
-      setPlayingMessageId(messageId)
-      try {
-        const token = getToken()
-        const res = await fetch(`${apiBase}/ai/v1/audio/speech`, {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            ...(token ? { authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({ input: text }),
-        })
-        if (!res.ok) {
-          if (res.status === 503) {
-            setAudioAvailable(false)
-            notifications.show({
-              title: 'Audio unavailable',
-              message: 'Text-to-speech is not configured.',
-              color: 'red',
-            })
-          }
-          setPlayingMessageId(null)
-          return
-        }
-        const title = decodeAudioTitle(res.headers.get('x-audio-title'))
-        const blob = await res.blob()
-        // User stopped or switched playback during the fetch → drop this stale result.
-        if (playingMessageIdRef.current !== messageId) return
-        if (el.src.startsWith('blob:')) URL.revokeObjectURL(el.src)
-        el.src = URL.createObjectURL(blob)
-        // Lock-screen / background playback controls — playback keeps running when
-        // the device is locked or the PWA is backgrounded (works on iOS + Android).
-        if ('mediaSession' in navigator) {
-          try {
-            navigator.mediaSession.metadata = new MediaMetadata({
-              title: title || 'Hermes',
-              artist: 'Hermes',
-            })
-            navigator.mediaSession.setActionHandler('play', () => void el.play())
-            navigator.mediaSession.setActionHandler('pause', () => el.pause())
-            navigator.mediaSession.setActionHandler('stop', () => {
-              el.pause()
-              setPlayingMessageId(null)
-            })
-          } catch {
-            /* media session is best-effort */
-          }
-        }
-        setAudioAvailable(true)
-        await el.play()
-      } catch {
-        setPlayingMessageId(null)
-      }
-    },
-    [playingMessageId, getPlaybackEl],
-  )
-
-  // Voice mode: once a reply finishes streaming, speak it automatically.
+  // Voice mode: once a reply finishes streaming, speak a SHORT summary of it — but
+  // only while Argo is foregrounded. If you've switched away (e.g. into a Teams
+  // call) the reply is marked spoken and held, so it won't blurt out when you
+  // return. Explicit read-aloud is unaffected and always speaks the full text.
   useEffect(() => {
     if (!voiceModeRef.current || status !== 'ready') return
     const last = messages[messages.length - 1]
     if (!last || last.role !== 'assistant' || lastSpokenRef.current === last.id) return
     const text = messageText(last)
     if (!text.trim()) return
+    // Auto-pause: while Argo is backgrounded, defer instead of speaking — the
+    // visibilitychange effect below replays it on return. Leave it unmarked so it can
+    // still be spoken when you come back.
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      pendingSpeakRef.current = { id: last.id, text }
+      return
+    }
     lastSpokenRef.current = last.id
-    void handleReadAloud(last.id, text)
+    void readAloud(last.id, text, { summarize: true, threadId: thread.id })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, messages])
 
-  // Expose read-aloud only when audio is not confirmed unavailable and not streaming.
-  const readAloudHandler = audioAvailable !== false && !isStreaming ? handleReadAloud : undefined
+  // Replay a reply that was deferred while backgrounded, once Argo is foreground again.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      const pending = pendingSpeakRef.current
+      pendingSpeakRef.current = null
+      if (!pending || !voiceModeRef.current) return
+      lastSpokenRef.current = pending.id
+      void readAloud(pending.id, pending.text, { summarize: true, threadId: thread.id })
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [readAloud, thread.id])
+
+  // Per-message read-aloud (full text — only voice mode summarizes) is offered only
+  // when audio isn't confirmed unavailable and no reply is streaming. The control
+  // itself reads live playback state from the provider.
+  const canReadAloud = audioAvailable !== false && !isStreaming
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -760,8 +466,8 @@ export function ChatConversation({
             <MessageRow
               key={message.id}
               message={message}
-              onReadAloud={readAloudHandler}
-              isPlayingAloud={playingMessageId === message.id}
+              canReadAloud={canReadAloud}
+              threadId={thread.id}
             />
           ))}
           {isStreaming && activeTools.length > 0 && (
@@ -866,32 +572,7 @@ export function ChatConversation({
           </Stack>
         )}
 
-        {isRecording && (
-          <Group gap="xs" align="center" wrap="nowrap" mb="xs">
-            <Box w={8} h={8} bg="red.6" style={{ borderRadius: '50%' }} />
-            <Text size="xs" c="dimmed" ff="monospace">
-              {formatElapsed(recordingMs)}
-            </Text>
-            <Box
-              flex={1}
-              h={4}
-              style={{
-                background: 'var(--mantine-color-default-border)',
-                borderRadius: 'var(--mantine-radius-xs)',
-                overflow: 'hidden',
-              }}
-            >
-              <Box
-                h="100%"
-                bg="red.5"
-                style={{
-                  width: `${Math.round(recordingLevel * 100)}%`,
-                  transition: 'width 80ms linear',
-                }}
-              />
-            </Box>
-          </Group>
-        )}
+        {isRecording && <RecordingIndicator recordingMs={recordingMs} />}
 
         <Group gap="xs" align="flex-end" wrap="nowrap">
           <Textarea
@@ -959,55 +640,15 @@ export function ChatConversation({
           </Menu>
 
           {HERMES_CHAT_FEATURES.audioTranscription && (
-            <>
-              <Tooltip
-                label={
-                  voiceMode ? 'Voice mode on — replies are spoken' : 'Voice mode (talk & listen)'
-                }
-                withArrow
-              >
-                <ActionIcon
-                  size={36}
-                  variant={voiceMode ? 'light' : 'subtle'}
-                  color={voiceMode ? 'blue' : 'gray'}
-                  disabled={audioAvailable === false}
-                  onClick={() => setVoiceMode((v) => !v)}
-                  aria-label="Toggle voice mode"
-                  aria-pressed={voiceMode}
-                >
-                  <IconHeadphones size={18} />
-                </ActionIcon>
-              </Tooltip>
-              <Tooltip
-                label={
-                  audioAvailable === false
-                    ? 'Audio not configured'
-                    : isRecording
-                      ? 'Stop recording'
-                      : isTranscribing
-                        ? 'Transcribing…'
-                        : 'Voice input'
-                }
-                withArrow
-              >
-                <ActionIcon
-                  size={36}
-                  variant={isRecording ? 'filled' : 'subtle'}
-                  color={isRecording ? 'red' : 'gray'}
-                  disabled={isTranscribing || audioAvailable === false || isStreaming}
-                  onClick={handleMicClick}
-                  aria-label={isRecording ? 'Stop recording' : 'Voice input'}
-                >
-                  {isTranscribing ? (
-                    <Loader size={14} />
-                  ) : isRecording ? (
-                    <IconPlayerStopFilled size={18} />
-                  ) : (
-                    <IconMicrophone size={18} />
-                  )}
-                </ActionIcon>
-              </Tooltip>
-            </>
+            <VoiceControls
+              voiceMode={voiceMode}
+              onToggleVoiceMode={toggleVoiceMode}
+              isRecording={isRecording}
+              isTranscribing={isTranscribing}
+              audioAvailable={audioAvailable}
+              onMicClick={toggleRecording}
+              micDisabled={isStreaming}
+            />
           )}
           {isStreaming ? (
             <Tooltip label="Stop" withArrow>
