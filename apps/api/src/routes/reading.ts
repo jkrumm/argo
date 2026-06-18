@@ -1,9 +1,11 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { desc, sql } from 'drizzle-orm'
+import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { book, userBook, readingStat } from '../db/schema.js'
+import { book, bookSyncMap, readingStat, userBook } from '../db/schema.js'
 import { runHardcoverSync } from '../cron/hardcover-sync.js'
+import { runHardcoverReconcile } from '../cron/hardcover-reconcile.js'
+import { hardcover } from '../clients/hardcover.js'
 
 // ── Status id → label map ─────────────────────────────────────────────────────
 
@@ -35,7 +37,18 @@ const ShelfItemSchema = z.object({
   readDate: z.string().nullable().describe('first_read_date from Hardcover'),
   lastReadDate: z.string().nullable(),
   dateAdded: z.string().nullable(),
-  stats: z.null().describe('Reserved for Phase B reading-stat enrichment'),
+  stats: z
+    .object({
+      totalReadSeconds: z.number().int(),
+      pagesRead: z.number().int(),
+      currentPercent: z.number(),
+      sessions: z.number().int(),
+      lastReadAt: z.string().nullable(),
+    })
+    .nullable()
+    .describe(
+      'Reading-stat telemetry joined via book_sync_map (confirmed matches only); null when unmatched',
+    ),
 })
 
 const SummarySchema = z.object({
@@ -95,6 +108,42 @@ export const readingRoutes = new Elysia({ prefix: '/reading' })
         .leftJoin(book, sql`${userBook.hardcover_book_id} = ${book.hardcover_book_id}`)
         .orderBy(desc(userBook.hardcover_updated_at))
 
+      // Fetch confirmed stats joined via book_sync_map.
+      const statsRows = await db
+        .select({
+          hardcover_book_id: bookSyncMap.hardcover_book_id,
+          total_read_seconds: readingStat.total_read_seconds,
+          pages_read: readingStat.pages_read,
+          current_percent: readingStat.current_percent,
+          sessions: readingStat.sessions,
+          last_read_at: readingStat.last_read_at,
+        })
+        .from(bookSyncMap)
+        .innerJoin(readingStat, eq(bookSyncMap.book_key, readingStat.book_key))
+        .where(and(eq(bookSyncMap.confirmed, 1), isNotNull(bookSyncMap.hardcover_book_id)))
+
+      const statsMap = new Map<
+        number,
+        {
+          totalReadSeconds: number
+          pagesRead: number
+          currentPercent: number
+          sessions: number
+          lastReadAt: string | null
+        }
+      >()
+      for (const s of statsRows) {
+        if (s.hardcover_book_id !== null) {
+          statsMap.set(s.hardcover_book_id, {
+            totalReadSeconds: s.total_read_seconds,
+            pagesRead: s.pages_read,
+            currentPercent: s.current_percent,
+            sessions: s.sessions,
+            lastReadAt: (s.last_read_at as string | null) ?? null,
+          })
+        }
+      }
+
       // Build shelf items
       const shelf = rows.map((r) => ({
         hardcoverBookId: r.hardcoverBookId,
@@ -113,7 +162,7 @@ export const readingRoutes = new Elysia({ prefix: '/reading' })
         readDate: r.readDate ?? null,
         lastReadDate: r.lastReadDate ?? null,
         dateAdded: r.dateAdded ?? null,
-        stats: null,
+        stats: statsMap.get(r.hardcoverBookId) ?? null,
       }))
 
       // Compute summary
@@ -158,7 +207,67 @@ export const readingRoutes = new Elysia({ prefix: '/reading' })
         tags: ['Reading'],
         summary: 'Hardcover shelf with summary',
         description:
-          'Returns the full Hardcover.app shelf joined to book metadata, ordered by most-recently-updated. Includes a summary block with counts by status and average rating. The `stats` field on each shelf item is null in Phase A; it will be populated with reading-time data from a homelab reading-stats job in a future phase.',
+          'Returns the full Hardcover.app shelf joined to book metadata, ordered by most-recently-updated. Includes a summary block with counts by status and average rating. The `stats` field on each shelf item is populated from reading-stat telemetry via confirmed book_sync_map matches; null when no confirmed match exists.',
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
+  .get(
+    '/unmatched',
+    async () => {
+      const rows = await db
+        .select({
+          bookKey: bookSyncMap.book_key,
+          readingTitle: readingStat.title,
+          readingAuthor: readingStat.author,
+          currentPercent: readingStat.current_percent,
+          lastReadAt: readingStat.last_read_at,
+          candidateBookId: bookSyncMap.hardcover_book_id,
+          candidateTitle: book.title,
+          candidateAuthors: book.authors,
+          candidateCoverUrl: book.cover_url,
+        })
+        .from(bookSyncMap)
+        .innerJoin(readingStat, eq(bookSyncMap.book_key, readingStat.book_key))
+        .leftJoin(book, eq(bookSyncMap.hardcover_book_id, book.hardcover_book_id))
+        .where(eq(bookSyncMap.confirmed, 0))
+        .orderBy(desc(readingStat.last_read_at))
+
+      return {
+        unmatched: rows.map((r) => ({
+          bookKey: r.bookKey,
+          readingTitle: r.readingTitle ?? null,
+          readingAuthor: r.readingAuthor ?? null,
+          currentPercent: r.currentPercent,
+          candidateBookId: r.candidateBookId ?? null,
+          candidateTitle: r.candidateTitle ?? null,
+          candidateAuthors: (r.candidateAuthors as string[] | null) ?? [],
+          candidateCoverUrl: r.candidateCoverUrl ?? null,
+        })),
+      }
+    },
+    {
+      response: {
+        200: z.object({
+          unmatched: z.array(
+            z.object({
+              bookKey: z.string(),
+              readingTitle: z.string().nullable(),
+              readingAuthor: z.string().nullable(),
+              currentPercent: z.number(),
+              candidateBookId: z.number().int().nullable(),
+              candidateTitle: z.string().nullable(),
+              candidateAuthors: z.array(z.string()),
+              candidateCoverUrl: z.string().nullable(),
+            }),
+          ),
+        }),
+      },
+      detail: {
+        tags: ['Reading'],
+        summary: 'List unconfirmed book matches',
+        description:
+          'Returns reading-stat rows whose book_sync_map entry has confirmed=0 — books the matcher found a Hardcover candidate for but could not auto-confirm, plus books with no candidate at all. Includes the telemetry title/author and the candidate book metadata. Use `POST /reading/match` to confirm a specific entry. Ordered by most-recently-read first.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -232,3 +341,140 @@ export const readingRoutes = new Elysia({ prefix: '/reading' })
       security: [{ BearerAuth: [] }],
     },
   })
+  .post(
+    '/match',
+    async ({ body, set }) => {
+      const existing = await db
+        .select({
+          book_key: bookSyncMap.book_key,
+          hardcover_book_id: bookSyncMap.hardcover_book_id,
+        })
+        .from(bookSyncMap)
+        .where(eq(bookSyncMap.book_key, body.bookKey))
+        .limit(1)
+
+      const row = existing[0]
+
+      if (!row || row.hardcover_book_id === null) {
+        set.status = 404
+        return {
+          confirmed: false,
+          bookKey: body.bookKey,
+          error: 'No candidate found for this bookKey',
+        }
+      }
+
+      await db
+        .update(bookSyncMap)
+        .set({
+          confirmed: 1, // 0 | 1
+          updated_at: new Date().toISOString(),
+        })
+        .where(eq(bookSyncMap.book_key, body.bookKey))
+
+      return { confirmed: true, bookKey: body.bookKey }
+    },
+    {
+      body: z.object({ bookKey: z.string() }),
+      response: {
+        200: z.object({ confirmed: z.boolean(), bookKey: z.string() }),
+        404: z.object({ confirmed: z.boolean(), bookKey: z.string(), error: z.string() }),
+      },
+      detail: {
+        tags: ['Reading'],
+        summary: 'Confirm a book match',
+        description:
+          'Sets confirmed=1 on the book_sync_map row for the given bookKey, promoting the candidate Hardcover book to a confirmed match. The next reconcile run (or `POST /reading/reconcile`) will then write status/date back to Hardcover. Returns 404 if the bookKey has no map entry or no candidate was found by the matcher.',
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
+  .post('/reconcile', async () => runHardcoverReconcile(), {
+    response: {
+      200: z.object({
+        matched: z.number().int().describe('New book_sync_map rows created by the match scan'),
+        reconciled: z.number().int().describe('Hardcover user_book entries written or updated'),
+        errors: z.number().int().describe('Per-row errors encountered (fail-soft)'),
+      }),
+    },
+    detail: {
+      tags: ['Reading'],
+      summary: 'Run the reading reconcile (match scan + Hardcover status/date write-back)',
+      description:
+        'Runs the full reconcile pipeline on demand: (1) scans reading_stat rows without a book_sync_map entry and searches Hardcover for candidates; (2) for all confirmed matches, writes the appropriate reading status (Currently Reading or Read) and first_started_reading_date back to Hardcover, then write-through to the local user_book table. Idempotent — never downgrades an existing status. Returns counts of matched, reconciled, and errored rows.',
+      security: [{ BearerAuth: [] }],
+    },
+  })
+  .post(
+    '/want-to-read',
+    async ({ body, set }) => {
+      const hits = await hardcover.searchBook({
+        title: body.title,
+        author: body.author ?? null,
+      })
+
+      if (hits.length === 0) {
+        set.status = 404
+        return { added: false, hardcoverBookId: null, title: null }
+      }
+
+      // hits.length > 0 is guaranteed above; assert non-undefined.
+      const top = hits[0]!
+
+      await hardcover.insertUserBook({ book_id: top.hardcoverBookId, status_id: 1 })
+
+      // Upsert book metadata so it appears on shelf after next sync.
+      const now = new Date().toISOString()
+      await db
+        .insert(book)
+        .values({
+          hardcover_book_id: top.hardcoverBookId,
+          title: top.title,
+          subtitle: top.subtitle,
+          authors: top.authors,
+          genres: top.genres,
+          release_year: top.releaseYear,
+          cover_url: top.coverUrl,
+          synced_at: now,
+        })
+        .onConflictDoUpdate({
+          target: book.hardcover_book_id,
+          set: {
+            title: sql`excluded.title`,
+            subtitle: sql`excluded.subtitle`,
+            authors: sql`excluded.authors`,
+            genres: sql`excluded.genres`,
+            release_year: sql`excluded.release_year`,
+            cover_url: sql`excluded.cover_url`,
+            synced_at: sql`excluded.synced_at`,
+          },
+        })
+
+      return { added: true, hardcoverBookId: top.hardcoverBookId, title: top.title }
+    },
+    {
+      body: z.object({
+        title: z.string().min(1),
+        author: z.string().optional(),
+      }),
+      response: {
+        200: z.object({
+          added: z.boolean(),
+          hardcoverBookId: z.number().int().nullable(),
+          title: z.string().nullable(),
+        }),
+        404: z.object({
+          added: z.boolean(),
+          hardcoverBookId: z.number().int().nullable(),
+          title: z.string().nullable(),
+        }),
+      },
+      detail: {
+        tags: ['Reading'],
+        summary: 'Add a book to the Want to Read shelf',
+        description:
+          "Searches Hardcover for the given title (and optional author), then adds the top hit to the authenticated user's Want to Read shelf (status_id=1) via `insert_user_book`. Also upserts the book metadata locally so it appears on `GET /reading` after the next shelf sync. Returns 404 if no Hardcover match is found.",
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )

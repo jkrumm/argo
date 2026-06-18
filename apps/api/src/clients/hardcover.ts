@@ -91,6 +91,16 @@ interface HardcoverQueryResponse {
 
 // ── Normalized public types ──────────────────────────────────────────────────
 
+export type HardcoverSearchHit = {
+  hardcoverBookId: number
+  title: string
+  subtitle: string | null
+  authors: string[]
+  releaseYear: number | null
+  coverUrl: string | null
+  genres: string[]
+}
+
 export type HardcoverUserBook = {
   // shelf fields
   hardcoverUserBookId: number
@@ -118,7 +128,46 @@ export type HardcoverUserBook = {
   genres: string[]
 }
 
-// ── GraphQL query ────────────────────────────────────────────────────────────
+// ── Write input types ────────────────────────────────────────────────────────
+
+export interface UserBookUpdateInput {
+  status_id?: number
+  first_started_reading_date?: string
+  last_read_date?: string
+  edition_id?: number
+}
+
+export interface UserBookCreateInput extends UserBookUpdateInput {
+  book_id: number
+}
+
+// ── GraphQL queries and mutations ────────────────────────────────────────────
+
+const SEARCH_BOOKS_QUERY = `
+  query SearchBooks($q: String!, $perPage: Int!) {
+    search(query: $q, query_type: "Book", per_page: $perPage, page: 1) {
+      results
+    }
+  }
+`
+
+const UPDATE_USER_BOOK_MUTATION = `
+  mutation UpdateUserBook($id: Int!, $object: UserBookUpdateInput!) {
+    update_user_book(id: $id, object: $object) {
+      id
+      error
+    }
+  }
+`
+
+const INSERT_USER_BOOK_MUTATION = `
+  mutation InsertUserBook($object: UserBookCreateInput!) {
+    insert_user_book(object: $object) {
+      id
+      error
+    }
+  }
+`
 
 const SHELF_QUERY = `
   query MyShelf($limit: Int!, $offset: Int!) {
@@ -214,7 +263,97 @@ function normalizeUserBook(raw: HardcoverUserBookRaw): HardcoverUserBook {
 
 // ── Public client ────────────────────────────────────────────────────────────
 
+// search blob is untyped Typesense json
+interface SearchDocument {
+  id: string
+  title?: string
+  subtitle?: string
+  author_names?: string[]
+  release_year?: number
+  image?: { url: string }
+  genres?: string[]
+  isbns?: string[]
+  slug?: string
+}
+
+interface SearchHit {
+  document: SearchDocument
+}
+
+interface SearchResults {
+  found: number
+  hits: SearchHit[]
+}
+
 export const hardcover = {
+  /**
+   * Search Hardcover for a book by title (and optional author).
+   * Returns up to 5 normalized hits ordered by Hardcover relevance.
+   */
+  async searchBook({
+    title,
+    author,
+  }: {
+    title: string
+    author?: string | null
+  }): Promise<HardcoverSearchHit[]> {
+    const q = [title, author].filter(Boolean).join(' ').trim()
+    if (!q) return []
+
+    const data = await gql<{ search?: { results?: SearchResults } }>(SEARCH_BOOKS_QUERY, {
+      q,
+      perPage: 5,
+    })
+
+    const hits = data.search?.results?.hits ?? []
+
+    return hits.flatMap((hit) => {
+      const doc = hit.document
+      const id = Number(doc.id)
+      if (Number.isNaN(id)) return []
+      return [
+        {
+          hardcoverBookId: id,
+          title: doc.title ?? '',
+          subtitle: doc.subtitle ?? null,
+          authors: doc.author_names ?? [],
+          releaseYear: doc.release_year ?? null,
+          coverUrl: doc.image?.url ?? null,
+          genres: doc.genres ?? [],
+        } satisfies HardcoverSearchHit,
+      ]
+    })
+  },
+
+  /**
+   * Update an existing user_book entry on Hardcover (status + dates only).
+   * Throws if Hardcover returns an error.
+   */
+  async updateUserBook(userBookId: number, object: UserBookUpdateInput): Promise<void> {
+    const data = await gql<{ update_user_book: { id: number | null; error: string | null } }>(
+      UPDATE_USER_BOOK_MUTATION,
+      { id: userBookId, object },
+    )
+    if (data.update_user_book.error) {
+      throw new Error(`hardcover update_user_book → ${data.update_user_book.error}`)
+    }
+  },
+
+  /**
+   * Insert a new user_book entry on Hardcover. Returns the new user_book id.
+   * Throws if Hardcover returns an error.
+   */
+  async insertUserBook(object: UserBookCreateInput): Promise<number> {
+    const data = await gql<{ insert_user_book: { id: number | null; error: string | null } }>(
+      INSERT_USER_BOOK_MUTATION,
+      { object },
+    )
+    if (data.insert_user_book.error) {
+      throw new Error(`hardcover insert_user_book → ${data.insert_user_book.error}`)
+    }
+    return data.insert_user_book.id as number
+  },
+
   /**
    * Fetch the authenticated user's full shelf by paginating in pages of 50
    * until an underfull page signals the end. Returns normalized rows.

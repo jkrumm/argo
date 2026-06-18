@@ -18,7 +18,13 @@ type ShelfItem = {
   readDate: string | null
   lastReadDate: string | null
   dateAdded: string | null
-  stats: null
+  stats: {
+    totalReadSeconds: number
+    pagesRead: number
+    currentPercent: number
+    sessions: number
+    lastReadAt: string | null
+  } | null
 }
 
 export function ShelfSection({ title, books }: { title: string; books: ShelfItem[] }) {

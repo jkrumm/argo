@@ -6,6 +6,7 @@ import { HeroStats } from '../features/reading/hero-stats'
 import { ShelfSection } from '../features/reading/shelf-section'
 import { EmptyShelf } from '../features/reading/empty-state'
 import { SyncButton } from '../features/reading/sync-button'
+import { UnmatchedSection } from '../features/reading/unmatched-section'
 
 export const Route = createFileRoute('/reading')({
   loader: ({ context }) => context.queryClient.ensureQueryData(readingQueries.shelf()),
@@ -41,6 +42,8 @@ function ReadingPage() {
       </Group>
 
       <HeroStats />
+
+      <UnmatchedSection />
 
       {shelf.length === 0 ? (
         <EmptyShelf />

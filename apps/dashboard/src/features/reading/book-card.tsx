@@ -1,5 +1,16 @@
-import { AspectRatio, Badge, Card, Group, Image, Rating, Stack, Text } from '@mantine/core'
+import {
+  AspectRatio,
+  Badge,
+  Card,
+  Group,
+  Image,
+  Progress,
+  Rating,
+  Stack,
+  Text,
+} from '@mantine/core'
 import { IconBook } from '@tabler/icons-react'
+import { formatReadTime, pagesPerHour } from './format'
 
 type ShelfItem = {
   hardcoverBookId: number
@@ -18,7 +29,13 @@ type ShelfItem = {
   readDate: string | null
   lastReadDate: string | null
   dateAdded: string | null
-  stats: null
+  stats: {
+    totalReadSeconds: number
+    pagesRead: number
+    currentPercent: number
+    sessions: number
+    lastReadAt: string | null
+  } | null
 }
 
 function CoverPlaceholder() {
@@ -91,8 +108,46 @@ export function BookCard({ book }: { book: ShelfItem }) {
               </Badge>
             ))}
           </Group>
+
+          {book.stats !== null && <StatsStrip stats={book.stats} />}
         </Stack>
       </Group>
     </Card>
+  )
+}
+
+type Stats = NonNullable<ShelfItem['stats']>
+
+function StatsStrip({ stats }: { stats: Stats }) {
+  const pace = pagesPerHour(stats.pagesRead, stats.totalReadSeconds)
+
+  return (
+    <Stack gap={4} mt={2}>
+      {stats.currentPercent > 0 && (
+        <Stack gap={2}>
+          <Progress value={stats.currentPercent} size="xs" color="blue" radius="xs" />
+          <Text size="xs" c="dimmed" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            {Math.round(stats.currentPercent)}% read
+          </Text>
+        </Stack>
+      )}
+      <Group gap="xs" wrap="wrap">
+        {stats.totalReadSeconds > 0 && (
+          <Text size="xs" c="dimmed" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            {formatReadTime(stats.totalReadSeconds)} read
+          </Text>
+        )}
+        {pace !== null && (
+          <Text size="xs" c="dimmed" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            · {pace} pages/hr
+          </Text>
+        )}
+        {stats.sessions > 0 && (
+          <Text size="xs" c="dimmed" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            · {stats.sessions} {stats.sessions === 1 ? 'session' : 'sessions'}
+          </Text>
+        )}
+      </Group>
+    </Stack>
   )
 }
