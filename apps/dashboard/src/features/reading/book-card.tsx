@@ -82,7 +82,7 @@ export function BookCard({ book }: { book: ShelfItem }) {
         )}
 
         <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
-          {book.slug !== null ? (
+          {book.slug ? (
             <Anchor
               href={`https://hardcover.app/books/${book.slug}`}
               target="_blank"
@@ -116,12 +116,12 @@ export function BookCard({ book }: { book: ShelfItem }) {
             <Rating value={book.rating} readOnly fractions={2} size="xs" style={{ marginTop: 2 }} />
           )}
 
-          {book.communityRating !== null && (
+          {typeof book.communityRating === 'number' && (
             <Group gap={2} align="center">
               <IconStarFilled size={12} style={{ opacity: 0.45 }} />
               <Text size="xs" c="dimmed" style={{ fontVariantNumeric: 'tabular-nums' }}>
                 {book.communityRating.toFixed(1)}
-                {book.ratingsCount !== null && ` (${book.ratingsCount})`}
+                {typeof book.ratingsCount === 'number' && ` (${book.ratingsCount})`}
               </Text>
             </Group>
           )}
@@ -139,7 +139,7 @@ export function BookCard({ book }: { book: ShelfItem }) {
             ))}
           </Group>
 
-          {book.stats !== null && <StatsStrip stats={book.stats} />}
+          {book.stats && <StatsStrip stats={book.stats} />}
         </Stack>
       </Group>
     </Card>
