@@ -46,6 +46,7 @@ export const Env = z.object({
   JIRA_DEFAULT_TEAM_OPTION_ID: z.string().default('10561'),
   GITLAB_BASE_URL: z.string().default('https://gitlab.com'),
   GITLAB_TOKEN: z.string().default(''),
+  HARDCOVER_API_KEY: z.string().default(''),
 
   // ── Hermes Chat (see docs/HERMES-CHAT-PRD.md) ─────────────────────────────
   // All optional so the API boots in test/CI without live cross-machine

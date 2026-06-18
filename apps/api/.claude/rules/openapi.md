@@ -15,7 +15,7 @@ The Argo API is consumed by **two classes of clients**: the Argo dashboard (Eden
 
 ## Tag taxonomy (enum — do not invent new tags)
 
-Every route MUST use exactly one of these twelve tags:
+Every route MUST use exactly one of these thirteen tags:
 
 | Tag              | Belongs to it                                                                                                                                               |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -30,6 +30,7 @@ Every route MUST use exactly one of these twelve tags:
 | `External Data`  | weather (and future read-only third-party feeds)                                                                                                            |
 | `Hermes Chat`    | Hermes agent chat — streaming chat proxy (`/hermes/chat`), thread/message reads, Hermes-hosted audio range proxy (`/hermes/*`)                              |
 | `AI Gateway`     | Argo-side OpenAI-compatible gateway (`/ai/v1/*`) — DeepSeek v4 Flash (titling/classification), STT, TTS                                                     |
+| `Reading`        | Book reading vertical — Hardcover.app shelf (`GET /reading`), generic homelab reading-stat ingest (`POST /reading/stats`)                                   |
 | `System`         | `/`, `/health`, `/summary`, `/query`, `/oauth/*`                                                                                                            |
 
 If a new route doesn't fit one of these, **expand the taxonomy in this file first**, in lockstep with the `tags:` array in `src/index.ts`. Free-form tags break the agent contract.

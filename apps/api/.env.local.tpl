@@ -49,6 +49,9 @@ JIRA_BOARD_ID=272
 GITLAB_BASE_URL=https://gitlab.com
 GITLAB_TOKEN=op://vps/argo/GITLAB_TOKEN
 
+# Hardcover.app — book shelf sync (optional, daily cron disabled when absent).
+HARDCOVER_API_KEY=op://vps/argo/HARDCOVER_API_KEY
+
 # ── Hermes Chat (docs/HERMES-CHAT-PRD.md) ────────────────────────────────────
 # All optional. Local dev does NOT talk to the live Hermes Mac Mini / audio-proxy
 # / DeepSeek bridge — these are provisioned on prod in Group 0 and exercised via

@@ -33,6 +33,7 @@ import { activitiesRoutes } from './routes/activities.js'
 import { weightLogRoutes } from './routes/weight-log.js'
 import { walkingPadRoutes } from './routes/walking-pad.js'
 import { usageRoutes } from './routes/usage.js'
+import { readingRoutes } from './routes/reading.js'
 import { userProfileRoutes } from './routes/user-profile.js'
 import { hermesRoutes } from './routes/hermes.js'
 import { aiRoutes } from './routes/ai.js'
@@ -146,6 +147,11 @@ export const app = new Elysia()
               'General-purpose, OpenAI-compatible AI gateway (`/ai/v1/*`) backing Argo-side AI features (NOT the Hermes agent): DeepSeek v4 Flash via the LiteLLM EU bridge for titling/classification, plus STT (transcriptions) and TTS (speech) via the audio-gateway.',
           },
           {
+            name: 'Reading',
+            description:
+              'Book reading vertical. Synced daily from Hardcover.app (shelf + book metadata). Generic reading-stat telemetry ingested from a homelab reading-stats job. Phase A: read-only shelf + stats ingest. `/reading` returns the full shelf with a summary; `POST /reading/stats` accepts batch telemetry.',
+          },
+          {
             name: 'System',
             description:
               'Discovery, health, observability, and auth plumbing: `/` (API discovery), `/health` (liveness), `/summary` (aggregated infra snapshot), `/query` (read-only SQL), `/oauth/google/*` (Google auth dance for Gmail + Calendar). M365 tokens are installed via the laptop bootstrap script — see POST /m365/seed.',
@@ -183,6 +189,7 @@ export const app = new Elysia()
         'External Data',
         'Hermes Chat',
         'AI Gateway',
+        'Reading',
         'System',
       ],
     }),
@@ -240,6 +247,7 @@ export const app = new Elysia()
   .use(userProfileRoutes)
   .use(walkingPadRoutes)
   .use(usageRoutes)
+  .use(readingRoutes)
   .use(hermesRoutes)
   .use(aiRoutes)
   // idleTimeout (seconds, Bun max 255) raised from the 10s default so a long-form

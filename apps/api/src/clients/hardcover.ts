@@ -1,0 +1,244 @@
+// Bearer-authed GraphQL client for the Hardcover.app API.
+// Paginates the user's shelf and returns normalized rows.
+
+import { env } from '../env.js'
+import { tracedFetch } from '../lib/traced-fetch.js'
+
+const API_URL = 'https://api.hardcover.app/v1/graphql'
+const API_KEY = env.HARDCOVER_API_KEY
+
+const PAGE_SIZE = 50
+
+// ── GraphQL response types ───────────────────────────────────────────────────
+
+interface HardcoverAuthor {
+  name: string
+}
+
+interface HardcoverContribution {
+  author: HardcoverAuthor | null
+}
+
+interface HardcoverCachedImage {
+  url?: string | null
+  color?: string | null
+  width?: number | null
+  height?: number | null
+}
+
+interface HardcoverTagEntry {
+  tag: string
+  tagSlug: string
+}
+
+interface HardcoverCachedTags {
+  Genre?: HardcoverTagEntry[]
+  Mood?: HardcoverTagEntry[]
+  Tag?: HardcoverTagEntry[]
+  'Content Warning'?: HardcoverTagEntry[]
+}
+
+interface HardcoverBook {
+  id: number
+  title: string
+  subtitle: string | null
+  slug: string | null
+  headline: string | null
+  pages: number | null
+  release_year: number | null
+  description: string | null
+  cached_image: HardcoverCachedImage | null
+  contributions: HardcoverContribution[]
+  cached_tags: HardcoverCachedTags | null
+}
+
+interface HardcoverUserBookRead {
+  id: number
+  started_at: string | null
+  finished_at: string | null
+  progress_pages: number | null
+  progress_seconds: number | null
+  edition_id: number | null
+}
+
+interface HardcoverUserBookRaw {
+  id: number
+  book_id: number
+  status_id: number
+  rating: number | null
+  review_raw: string | null
+  has_review: boolean
+  first_read_date: string | null
+  last_read_date: string | null
+  first_started_reading_date: string | null
+  date_added: string | null
+  updated_at: string | null
+  edition_id: number | null
+  book: HardcoverBook
+  user_book_reads: HardcoverUserBookRead[]
+}
+
+interface HardcoverMeResult {
+  user_books: HardcoverUserBookRaw[]
+}
+
+interface HardcoverQueryResponse {
+  data: {
+    me: HardcoverMeResult[]
+  }
+  errors?: Array<{ message: string }>
+}
+
+// ── Normalized public types ──────────────────────────────────────────────────
+
+export type HardcoverUserBook = {
+  // shelf fields
+  hardcoverUserBookId: number
+  hardcoverBookId: number
+  statusId: number
+  rating: number | null
+  reviewRaw: string | null
+  hasReview: boolean
+  firstStartedReadingDate: string | null
+  firstReadDate: string | null
+  lastReadDate: string | null
+  dateAdded: string | null
+  hardcoverUpdatedAt: string | null
+  editionId: number | null
+  // normalized book fields
+  title: string
+  subtitle: string | null
+  slug: string | null
+  headline: string | null
+  pages: number | null
+  releaseYear: number | null
+  description: string | null
+  coverUrl: string | null
+  authors: string[]
+  genres: string[]
+}
+
+// ── GraphQL query ────────────────────────────────────────────────────────────
+
+const SHELF_QUERY = `
+  query MyShelf($limit: Int!, $offset: Int!) {
+    me {
+      user_books(limit: $limit, offset: $offset, order_by: { updated_at: desc }) {
+        id
+        book_id
+        status_id
+        rating
+        review_raw
+        has_review
+        first_read_date
+        last_read_date
+        first_started_reading_date
+        date_added
+        updated_at
+        edition_id
+        book {
+          id title subtitle slug headline pages release_year description
+          cached_image
+          contributions { author { name } }
+          cached_tags
+        }
+        user_book_reads { id started_at finished_at progress_pages progress_seconds edition_id }
+      }
+    }
+  }
+`
+
+// ── Private helpers ──────────────────────────────────────────────────────────
+
+async function gql<T>(query: string, variables: Record<string, unknown>): Promise<T> {
+  if (!API_KEY) throw new Error('HARDCOVER_API_KEY not configured')
+
+  const res = await tracedFetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${API_KEY}`,
+    },
+    body: JSON.stringify({ query, variables }),
+    signal: AbortSignal.timeout(30_000),
+  })
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`hardcover GraphQL → ${res.status}: ${body.slice(0, 200)}`)
+  }
+
+  const json = (await res.json()) as { data?: T; errors?: Array<{ message: string }> }
+
+  if (json.errors && json.errors.length > 0) {
+    throw new Error(`hardcover GraphQL errors: ${json.errors.map((e) => e.message).join('; ')}`)
+  }
+
+  return json.data as T
+}
+
+function normalizeUserBook(raw: HardcoverUserBookRaw): HardcoverUserBook {
+  const authors = (raw.book.contributions ?? [])
+    .map((c) => c.author?.name)
+    .filter((n): n is string => Boolean(n))
+
+  const genres = (raw.book.cached_tags?.Genre ?? []).map((g) => g.tag).filter(Boolean)
+
+  const coverUrl = raw.book.cached_image?.url ?? null
+
+  return {
+    hardcoverUserBookId: raw.id,
+    hardcoverBookId: raw.book_id,
+    statusId: raw.status_id,
+    rating: raw.rating ?? null,
+    reviewRaw: raw.review_raw ?? null,
+    hasReview: raw.has_review,
+    firstStartedReadingDate: raw.first_started_reading_date ?? null,
+    firstReadDate: raw.first_read_date ?? null,
+    lastReadDate: raw.last_read_date ?? null,
+    dateAdded: raw.date_added ?? null,
+    hardcoverUpdatedAt: raw.updated_at ?? null,
+    editionId: raw.edition_id ?? null,
+    title: raw.book.title,
+    subtitle: raw.book.subtitle ?? null,
+    slug: raw.book.slug ?? null,
+    headline: raw.book.headline ?? null,
+    pages: raw.book.pages ?? null,
+    releaseYear: raw.book.release_year ?? null,
+    description: raw.book.description ?? null,
+    coverUrl,
+    authors,
+    genres,
+  }
+}
+
+// ── Public client ────────────────────────────────────────────────────────────
+
+export const hardcover = {
+  /**
+   * Fetch the authenticated user's full shelf by paginating in pages of 50
+   * until an underfull page signals the end. Returns normalized rows.
+   * Gracefully returns an empty array when the shelf has no books yet.
+   */
+  async myShelf(): Promise<HardcoverUserBook[]> {
+    const results: HardcoverUserBook[] = []
+    let offset = 0
+
+    for (;;) {
+      const data = await gql<HardcoverQueryResponse['data']>(SHELF_QUERY, {
+        limit: PAGE_SIZE,
+        offset,
+      })
+
+      const page = data?.me?.[0]?.user_books ?? []
+      for (const raw of page) {
+        results.push(normalizeUserBook(raw))
+      }
+
+      if (page.length < PAGE_SIZE) break
+      offset += PAGE_SIZE
+    }
+
+    return results
+  },
+}

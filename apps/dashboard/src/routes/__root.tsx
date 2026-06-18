@@ -11,6 +11,7 @@ import {
   IconActivity,
   IconArchive,
   IconBarbell,
+  IconBook,
   IconBox,
   IconBrandTeams,
   IconCalendar,
@@ -69,6 +70,7 @@ function RootLayout() {
   const isGarminActive = !!matchRoute({ to: '/garmin-health', fuzzy: true })
   const isStrengthActive = !!matchRoute({ to: '/strength-tracker', fuzzy: true })
   const isWalkingPadActive = !!matchRoute({ to: '/walking-pad', fuzzy: true })
+  const isReadingActive = !!matchRoute({ to: '/reading', fuzzy: true })
   const isM365Active = !!matchRoute({ to: '/m365-explorer', fuzzy: true })
   const isHermesChatActive = !!matchRoute({ to: '/hermes-chat', fuzzy: true })
   const isCalendarActive = !!matchRoute({ to: '/calendar', fuzzy: true })
@@ -158,6 +160,16 @@ function RootLayout() {
           href: '/walking-pad',
           active: isWalkingPadActive,
           onClick: go(() => void navigate({ to: '/walking-pad', search: { window: '30d' } })),
+        },
+        {
+          key: 'reading',
+          label: 'Reading',
+          short: 'Reading',
+          mobile: true,
+          icon: <IconBook size={ICON} />,
+          href: '/reading',
+          active: isReadingActive,
+          onClick: go(() => void navigate({ to: '/reading' })),
         },
       ],
     },

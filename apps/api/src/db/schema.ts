@@ -412,3 +412,68 @@ export const hermesMessage = argoSchema.table(
   },
   (t) => [index('idx_hermes_message_thread_created').on(t.thread_id, t.created_at)],
 )
+
+// ── Reading / Books (Phase A — Hardcover.app read-model) ─────────────────────
+//
+// `book` and `userBook` are synced daily from the Hardcover.app GraphQL API
+// by the hardcover-sync cron. `readingStat` is a generic telemetry table fed by
+// a homelab reading-stats job (Phase B). `bookSyncMap` is a placeholder for the
+// Phase C reconcile pass that will link readingStat rows to Hardcover books.
+
+export const book = argoSchema.table('book', {
+  hardcover_book_id: integer('hardcover_book_id').primaryKey(),
+  title: text('title').notNull(),
+  subtitle: text('subtitle'),
+  slug: text('slug'),
+  headline: text('headline'),
+  authors: jsonb('authors').$type<string[]>().notNull().default([]),
+  genres: jsonb('genres').$type<string[]>().notNull().default([]),
+  pages: integer('pages'),
+  release_year: integer('release_year'),
+  description: text('description'),
+  cover_url: text('cover_url'),
+  synced_at: timestamp('synced_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+})
+
+export const userBook = argoSchema.table('user_book', {
+  hardcover_user_book_id: integer('hardcover_user_book_id').primaryKey(),
+  hardcover_book_id: integer('hardcover_book_id')
+    .notNull()
+    .references(() => book.hardcover_book_id),
+  status_id: integer('status_id').notNull(),
+  rating: real('rating'),
+  review_raw: text('review_raw'),
+  has_review: integer('has_review').notNull().default(0), // 0 | 1 (boolean stored as int)
+  first_started_reading_date: text('first_started_reading_date'),
+  first_read_date: text('first_read_date'),
+  last_read_date: text('last_read_date'),
+  date_added: text('date_added'),
+  edition_id: integer('edition_id'),
+  hardcover_updated_at: timestamp('hardcover_updated_at', {
+    withTimezone: true,
+    mode: 'string',
+  }),
+  synced_at: timestamp('synced_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+})
+
+export const readingStat = argoSchema.table('reading_stat', {
+  book_key: text('book_key').primaryKey(),
+  title: text('title'),
+  author: text('author'),
+  total_read_seconds: integer('total_read_seconds').notNull().default(0),
+  pages_read: integer('pages_read').notNull().default(0),
+  current_percent: real('current_percent').notNull().default(0),
+  sessions: integer('sessions').notNull().default(0),
+  last_read_at: timestamp('last_read_at', { withTimezone: true, mode: 'string' }),
+  raw: jsonb('raw'),
+  synced_at: timestamp('synced_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+})
+
+export const bookSyncMap = argoSchema.table('book_sync_map', {
+  book_key: text('book_key').primaryKey(),
+  hardcover_book_id: integer('hardcover_book_id'),
+  hardcover_edition_id: integer('hardcover_edition_id'),
+  confirmed: integer('confirmed').notNull().default(0), // 0 | 1 (boolean stored as int)
+  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+  updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+})
