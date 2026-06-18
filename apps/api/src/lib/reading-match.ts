@@ -8,49 +8,7 @@ import { book, bookSyncMap, readingStat } from '../db/schema.js'
 import { hardcover, type HardcoverSearchHit } from '../clients/hardcover.js'
 import { aiComplete } from '../routes/ai.js'
 import { env } from '../env.js'
-
-// ── Normalisation helpers (module-local) ─────────────────────────────────────
-
-function normalizeTitle(s: string): string {
-  return s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '') // strip diacritics
-    .toLowerCase()
-    .replace(/[:(].*/s, '') // drop subtitle / series marker
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-}
-
-function tokens(s: string): string[] {
-  return normalizeTitle(s).split(/\s+/).filter(Boolean)
-}
-
-function authorOverlap(statAuthor: string | null, candidateAuthors: string[]): boolean {
-  if (!statAuthor) return true // thin metadata — don't penalize
-  const statTokens = tokens(statAuthor)
-  for (const ca of candidateAuthors) {
-    const caTokens = tokens(ca)
-    if (statTokens.some((t) => caTokens.includes(t))) return true
-  }
-  return false
-}
-
-/** True if any normalized token from any author in `a` appears in any author in `b`. */
-function authorsShareToken(a: string[], b: string[]): boolean {
-  for (const authorA of a) {
-    const tokensA = tokens(authorA)
-    for (const authorB of b) {
-      const tokensB = tokens(authorB)
-      if (tokensA.some((t) => tokensB.includes(t))) return true
-    }
-  }
-  return false
-}
-
-/** Completeness score: cover + release year + genres presence (0–3). */
-function completeness(h: HardcoverSearchHit): number {
-  return (h.coverUrl ? 1 : 0) + (h.releaseYear ? 1 : 0) + (h.genres.length > 0 ? 1 : 0)
-}
+import { parseLLMVerdict, decideMatch, stringAutoConfirms } from './reading-match-logic.js'
 
 // ── LLM disambiguation (module-local, fail-soft) ─────────────────────────────
 
@@ -104,28 +62,7 @@ async function disambiguateWithLLM(
       sub_tool: 'reading-match',
     })
 
-    // Strip markdown fences and extract first {...} object.
-    const stripped = raw.replace(/```[a-z]*\n?/gi, '').trim()
-    const match = stripped.match(/\{[^}]*\}/)
-    if (!match) return null
-
-    const parsed = JSON.parse(match[0]) as unknown
-    if (typeof parsed !== 'object' || parsed === null) return null
-
-    const obj = parsed as Record<string, unknown>
-
-    // Validate index: must be an integer within [0, candidates.length - 1].
-    const rawIndex = obj['index']
-    if (rawIndex === null || rawIndex === undefined) return null
-    const idx = Number(rawIndex)
-    if (!Number.isInteger(idx) || idx < 0 || idx >= candidates.length) return null
-
-    // Validate confidence: default to 'low' if missing/invalid.
-    const rawConf = obj['confidence']
-    const confidence: 'high' | 'medium' | 'low' =
-      rawConf === 'high' || rawConf === 'medium' || rawConf === 'low' ? rawConf : 'low'
-
-    return { index: idx, confidence }
+    return parseLLMVerdict(raw, candidates.length)
   } catch {
     return null
   }
@@ -184,64 +121,15 @@ export async function runReadingMatch(): Promise<{
         continue
       }
 
-      // hits.length > 0 is guaranteed by the check above; assert non-undefined.
-      const best = hits[0]!
-
-      // High-confidence string auto-confirm: exact normalised title + NON-EMPTY
-      // author overlap + no genuinely-ambiguous rival.
-      // Empty/whitespace author must NOT auto-confirm — fall through to LLM pass.
-      const titleExact = normalizeTitle(best.title) === normalizeTitle(row.title)
-      const authorPresent = Boolean(row.author?.trim())
-      // A same-title runner-up only signals real ambiguity when it's a DIFFERENT
-      // book (different author). Duplicate editions of the same work (same title +
-      // overlapping author) must NOT block auto-confirm — Hardcover often carries
-      // several edition records for one book.
-      const hasRivalDifferentBook = hits
-        .slice(1)
-        .some(
-          (h) =>
-            normalizeTitle(h.title) === normalizeTitle(best.title) &&
-            !authorOverlap(row.author, h.authors),
-        )
-      const stringAutoConfirm =
-        titleExact &&
-        authorPresent &&
-        authorOverlap(row.author, best.authors) &&
-        !hasRivalDifferentBook
-
-      // Resolve chosen + confirmed via string path or LLM disambiguation.
-      let chosen: HardcoverSearchHit
-      let confirmed: number // 0 | 1
-
-      if (stringAutoConfirm) {
-        // Clean string match — no LLM call needed.
-        chosen = best
-        confirmed = 1
-      } else {
-        // Attempt LLM disambiguation for dirty/thin metadata.
-        const verdict = await disambiguateWithLLM({ title: row.title, author: row.author }, hits)
-        if (verdict !== null) {
-          chosen = hits[verdict.index]! // index validated in-range by disambiguateWithLLM
-          confirmed = verdict.confidence === 'high' ? 1 : 0 // 0 | 1
-        } else {
-          // No verdict — store the search's top hit as a weak candidate for
-          // manual review via the confirm-UI.
-          chosen = best
-          confirmed = 0 // 0 | 1
-        }
-      }
-
-      // Pick the richest duplicate of the chosen book from the cluster.
-      // Hardcover often has several fragmented records for the same work; the
-      // richest member (cover + year + genres) makes the best candidate.
-      const cluster = hits.filter(
-        (h) =>
-          normalizeTitle(h.title) === normalizeTitle(chosen.title) &&
-          authorsShareToken(h.authors, chosen.authors),
-      )
-      const pick = cluster.reduce(
-        (bestSoFar, h) => (completeness(h) > completeness(bestSoFar) ? h : bestSoFar),
-        chosen,
+      // hits.length > 0 is guaranteed by the check above.
+      // Gate LLM call: only call when the string path fails (token-frugal).
+      const verdict = stringAutoConfirms({ title: row.title, author: row.author }, hits)
+        ? null
+        : await disambiguateWithLLM({ title: row.title, author: row.author }, hits)
+      const { pick, confirmed } = decideMatch(
+        { title: row.title, author: row.author },
+        hits,
+        verdict,
       )
 
       // Upsert the candidate book so confirm-UI and stats join have metadata.
