@@ -171,16 +171,26 @@ export async function runReadingMatch(): Promise<{
       const best = hits[0]!
 
       // High-confidence string auto-confirm: exact normalised title + NON-EMPTY
-      // author overlap + unambiguous (no equally-good runner-up).
+      // author overlap + no genuinely-ambiguous rival.
       // Empty/whitespace author must NOT auto-confirm — fall through to LLM pass.
       const titleExact = normalizeTitle(best.title) === normalizeTitle(row.title)
       const authorPresent = Boolean(row.author?.trim())
-      const runner = hits[1]
-      const unambiguous =
-        hits.length === 1 ||
-        (runner !== undefined && normalizeTitle(runner.title) !== normalizeTitle(best.title))
+      // A same-title runner-up only signals real ambiguity when it's a DIFFERENT
+      // book (different author). Duplicate editions of the same work (same title +
+      // overlapping author) must NOT block auto-confirm — Hardcover often carries
+      // several edition records for one book.
+      const hasRivalDifferentBook = hits
+        .slice(1)
+        .some(
+          (h) =>
+            normalizeTitle(h.title) === normalizeTitle(best.title) &&
+            !authorOverlap(row.author, h.authors),
+        )
       const stringAutoConfirm =
-        titleExact && authorPresent && authorOverlap(row.author, best.authors) && unambiguous
+        titleExact &&
+        authorPresent &&
+        authorOverlap(row.author, best.authors) &&
+        !hasRivalDifferentBook
 
       // Resolve pick + confirmed via string path or LLM disambiguation.
       let pick: HardcoverSearchHit
