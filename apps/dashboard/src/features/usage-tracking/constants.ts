@@ -12,6 +12,7 @@ const SOURCE_KEY_TO_TOKEN: Record<string, keyof typeof VX.series.usageSource> = 
   hermesAgent: 'hermesAgent',
   audio: 'audioProxy',
   'audio-proxy': 'audioProxy',
+  'audio-gateway': 'audioProxy',
   audioProxy: 'audioProxy',
   feuer: 'feuer',
   opencode: 'opencode',
