@@ -2,8 +2,9 @@ import { Cron } from 'croner'
 import { context, ROOT_CONTEXT, SpanKind, SpanStatusCode } from '@opentelemetry/api'
 import { sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { book, userBook } from '../db/schema.js'
+import { userBook } from '../db/schema.js'
 import { hardcover, type HardcoverUserBook } from '../clients/hardcover.js'
+import { upsertBook } from '../lib/book-store.js'
 import { env } from '../env.js'
 import { tracer } from '../telemetry.js'
 
@@ -40,42 +41,7 @@ async function upsertBooks(rows: HardcoverUserBook[]): Promise<void> {
   const now = new Date().toISOString()
 
   for (const row of rows) {
-    await db
-      .insert(book)
-      .values({
-        hardcover_book_id: row.hardcoverBookId,
-        title: row.title,
-        subtitle: row.subtitle,
-        slug: row.slug,
-        headline: row.headline,
-        authors: row.authors,
-        genres: row.genres,
-        pages: row.pages,
-        release_year: row.releaseYear,
-        description: row.description,
-        cover_url: row.coverUrl,
-        community_rating: row.communityRating,
-        ratings_count: row.ratingsCount,
-        synced_at: now,
-      })
-      .onConflictDoUpdate({
-        target: book.hardcover_book_id,
-        set: {
-          title: sql`excluded.title`,
-          subtitle: sql`excluded.subtitle`,
-          slug: sql`excluded.slug`,
-          headline: sql`excluded.headline`,
-          authors: sql`excluded.authors`,
-          genres: sql`excluded.genres`,
-          pages: sql`excluded.pages`,
-          release_year: sql`excluded.release_year`,
-          description: sql`excluded.description`,
-          cover_url: sql`excluded.cover_url`,
-          community_rating: sql`excluded.community_rating`,
-          ratings_count: sql`excluded.ratings_count`,
-          synced_at: sql`excluded.synced_at`,
-        },
-      })
+    await upsertBook(row, now)
   }
 }
 

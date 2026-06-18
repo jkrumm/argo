@@ -3,6 +3,7 @@
 
 import { env } from '../env.js'
 import { tracedFetch } from '../lib/traced-fetch.js'
+import { normalizeAuthors } from '../lib/author-normalize.js'
 
 const API_URL = 'https://api.hardcover.app/v1/graphql'
 const API_KEY = env.HARDCOVER_API_KEY
@@ -105,6 +106,24 @@ export type HardcoverSearchHit = {
   ratingsCount: number | null
 }
 
+// Full book metadata — the complete field set the shelf sync pulls, fetchable
+// for a single book by id (search hits are sparse: no slug/headline/pages/description).
+export type HardcoverBookDetail = {
+  hardcoverBookId: number
+  title: string
+  subtitle: string | null
+  slug: string | null
+  headline: string | null
+  pages: number | null
+  releaseYear: number | null
+  description: string | null
+  coverUrl: string | null
+  authors: string[]
+  genres: string[]
+  communityRating: number | null
+  ratingsCount: number | null
+}
+
 export type HardcoverUserBook = {
   // shelf fields
   hardcoverUserBookId: number
@@ -175,6 +194,20 @@ const INSERT_USER_BOOK_MUTATION = `
   }
 `
 
+// Single book by id — same book sub-selection as SHELF_QUERY, usable for any
+// book (not just shelf members), so a matched book can be enriched to full fidelity.
+const BOOK_BY_ID_QUERY = `
+  query BookById($id: Int!) {
+    books(where: { id: { _eq: $id } }, limit: 1) {
+      id title subtitle slug headline pages release_year description
+      rating ratings_count
+      cached_image
+      contributions { author { name } }
+      cached_tags
+    }
+  }
+`
+
 const SHELF_QUERY = `
   query MyShelf($limit: Int!, $offset: Int!) {
     me {
@@ -233,14 +266,28 @@ async function gql<T>(query: string, variables: Record<string, unknown>): Promis
   return json.data as T
 }
 
+// Extract the normalized book metadata from a raw Hardcover book object. Single
+// source of truth for both the shelf sync (via normalizeUserBook) and fetchBook.
+function normalizeBookDetail(b: HardcoverBook): HardcoverBookDetail {
+  return {
+    hardcoverBookId: b.id,
+    title: b.title,
+    subtitle: b.subtitle ?? null,
+    slug: b.slug ?? null,
+    headline: b.headline ?? null,
+    pages: b.pages ?? null,
+    releaseYear: b.release_year ?? null,
+    description: b.description ?? null,
+    coverUrl: b.cached_image?.url ?? null,
+    authors: normalizeAuthors((b.contributions ?? []).map((c) => c.author?.name)),
+    genres: (b.cached_tags?.Genre ?? []).map((g) => g.tag).filter(Boolean),
+    communityRating: b.rating ?? null,
+    ratingsCount: b.ratings_count ?? null,
+  }
+}
+
 function normalizeUserBook(raw: HardcoverUserBookRaw): HardcoverUserBook {
-  const authors = (raw.book.contributions ?? [])
-    .map((c) => c.author?.name)
-    .filter((n): n is string => Boolean(n))
-
-  const genres = (raw.book.cached_tags?.Genre ?? []).map((g) => g.tag).filter(Boolean)
-
-  const coverUrl = raw.book.cached_image?.url ?? null
+  const detail = normalizeBookDetail(raw.book)
 
   return {
     hardcoverUserBookId: raw.id,
@@ -255,18 +302,18 @@ function normalizeUserBook(raw: HardcoverUserBookRaw): HardcoverUserBook {
     dateAdded: raw.date_added ?? null,
     hardcoverUpdatedAt: raw.updated_at ?? null,
     editionId: raw.edition_id ?? null,
-    title: raw.book.title,
-    subtitle: raw.book.subtitle ?? null,
-    slug: raw.book.slug ?? null,
-    headline: raw.book.headline ?? null,
-    pages: raw.book.pages ?? null,
-    releaseYear: raw.book.release_year ?? null,
-    description: raw.book.description ?? null,
-    coverUrl,
-    authors,
-    genres,
-    communityRating: raw.book.rating ?? null,
-    ratingsCount: raw.book.ratings_count ?? null,
+    title: detail.title,
+    subtitle: detail.subtitle,
+    slug: detail.slug,
+    headline: detail.headline,
+    pages: detail.pages,
+    releaseYear: detail.releaseYear,
+    description: detail.description,
+    coverUrl: detail.coverUrl,
+    authors: detail.authors,
+    genres: detail.genres,
+    communityRating: detail.communityRating,
+    ratingsCount: detail.ratingsCount,
   }
 }
 
@@ -327,7 +374,7 @@ export const hardcover = {
           hardcoverBookId: id,
           title: doc.title ?? '',
           subtitle: doc.subtitle ?? null,
-          authors: doc.author_names ?? [],
+          authors: normalizeAuthors(doc.author_names ?? []),
           releaseYear: doc.release_year ?? null,
           coverUrl: doc.image?.url ?? null,
           genres: doc.genres ?? [],
@@ -336,6 +383,16 @@ export const hardcover = {
         } satisfies HardcoverSearchHit,
       ]
     })
+  },
+
+  /**
+   * Fetch a single book's full metadata by id. Returns null when the id is
+   * unknown. Unlike searchBook, this carries slug/headline/pages/description.
+   */
+  async fetchBook(id: number): Promise<HardcoverBookDetail | null> {
+    const data = await gql<{ books?: HardcoverBook[] }>(BOOK_BY_ID_QUERY, { id })
+    const raw = data.books?.[0]
+    return raw ? normalizeBookDetail(raw) : null
   },
 
   /**

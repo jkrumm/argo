@@ -2,10 +2,11 @@
 // to find a Hardcover book candidate via the search API. High-confidence matches
 // are auto-confirmed; ambiguous ones are left for manual review.
 
-import { isNull, sql } from 'drizzle-orm'
+import { eq, isNull, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { book, bookSyncMap, readingStat } from '../db/schema.js'
 import { hardcover, type HardcoverSearchHit } from '../clients/hardcover.js'
+import { upsertBook } from './book-store.js'
 import { aiComplete } from '../routes/ai.js'
 import { env } from '../env.js'
 import { parseLLMVerdict, decideMatch, stringAutoConfirms } from './reading-match-logic.js'
@@ -68,13 +69,52 @@ async function disambiguateWithLLM(
   }
 }
 
+// ── Enrichment backfill ────────────────────────────────────────────────────────
+
+/**
+ * Backfill sweep for book rows the match path wrote from the sparse search blob
+ * (no slug/headline/pages/description). Re-fetches each book's full metadata and
+ * rewrites the complete row. Scoped to books referenced by a book_sync_map and
+ * gated on `slug IS NULL` — every Hardcover book has a slug once fully fetched,
+ * so a backfilled row drops out of the set and repeat runs converge to a no-op.
+ * Fail-soft per book.
+ */
+async function enrichSparseMatchedBooks(): Promise<number> {
+  const sparse = await db
+    .selectDistinct({ hardcoverBookId: book.hardcover_book_id })
+    .from(book)
+    .innerJoin(bookSyncMap, eq(bookSyncMap.hardcover_book_id, book.hardcover_book_id))
+    .where(isNull(book.slug))
+
+  let enriched = 0
+  const now = new Date().toISOString()
+
+  for (const { hardcoverBookId } of sparse) {
+    try {
+      const detail = await hardcover.fetchBook(hardcoverBookId)
+      if (!detail) continue
+      await upsertBook(detail, now)
+      enriched++
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(`[reading-match] enrich error for book_id=${hardcoverBookId}:`, err)
+    }
+  }
+
+  return enriched
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export async function runReadingMatch(): Promise<{
   scanned: number
   matched: number
   autoConfirmed: number
+  enriched: number
 }> {
+  // Backfill any earlier sparse matches before scanning for new ones.
+  const enriched = await enrichSparseMatchedBooks()
+
   // Find reading_stat rows that have no corresponding book_sync_map row yet.
   const unmapped = await db
     .select({
@@ -132,36 +172,45 @@ export async function runReadingMatch(): Promise<{
         verdict,
       )
 
-      // Upsert the candidate book so confirm-UI and stats join have metadata.
+      // Upsert the candidate book so confirm-UI and the stats join have metadata.
+      // Prefer the FULL book (search blobs omit slug/headline/pages/description);
+      // on a fetch failure fall back to the sparse hit so the match still lands —
+      // the next reconcile's enrich sweep will complete the row (slug IS NULL).
       const now = new Date().toISOString()
-      await db
-        .insert(book)
-        .values({
-          hardcover_book_id: pick.hardcoverBookId,
-          title: pick.title,
-          subtitle: pick.subtitle,
-          authors: pick.authors,
-          genres: pick.genres,
-          release_year: pick.releaseYear,
-          cover_url: pick.coverUrl,
-          community_rating: pick.communityRating,
-          ratings_count: pick.ratingsCount,
-          synced_at: now,
-        })
-        .onConflictDoUpdate({
-          target: book.hardcover_book_id,
-          set: {
-            title: sql`excluded.title`,
-            subtitle: sql`excluded.subtitle`,
-            authors: sql`excluded.authors`,
-            genres: sql`excluded.genres`,
-            release_year: sql`excluded.release_year`,
-            cover_url: sql`excluded.cover_url`,
-            community_rating: sql`excluded.community_rating`,
-            ratings_count: sql`excluded.ratings_count`,
-            synced_at: sql`excluded.synced_at`,
-          },
-        })
+      const detail = await hardcover.fetchBook(pick.hardcoverBookId).catch(() => null)
+
+      if (detail) {
+        await upsertBook(detail, now)
+      } else {
+        await db
+          .insert(book)
+          .values({
+            hardcover_book_id: pick.hardcoverBookId,
+            title: pick.title,
+            subtitle: pick.subtitle,
+            authors: pick.authors,
+            genres: pick.genres,
+            release_year: pick.releaseYear,
+            cover_url: pick.coverUrl,
+            community_rating: pick.communityRating,
+            ratings_count: pick.ratingsCount,
+            synced_at: now,
+          })
+          .onConflictDoUpdate({
+            target: book.hardcover_book_id,
+            set: {
+              title: sql`excluded.title`,
+              subtitle: sql`excluded.subtitle`,
+              authors: sql`excluded.authors`,
+              genres: sql`excluded.genres`,
+              release_year: sql`excluded.release_year`,
+              cover_url: sql`excluded.cover_url`,
+              community_rating: sql`excluded.community_rating`,
+              ratings_count: sql`excluded.ratings_count`,
+              synced_at: sql`excluded.synced_at`,
+            },
+          })
+      }
 
       await db
         .insert(bookSyncMap)
@@ -181,5 +230,5 @@ export async function runReadingMatch(): Promise<{
     }
   }
 
-  return { scanned, matched, autoConfirmed }
+  return { scanned, matched, autoConfirmed, enriched }
 }

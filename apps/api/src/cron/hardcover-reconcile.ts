@@ -64,7 +64,7 @@ export async function runHardcoverReconcile(): Promise<{
     matched = matchResult.matched
     // eslint-disable-next-line no-console
     console.log(
-      `[hardcover-reconcile] match scan done: scanned=${matchResult.scanned} matched=${matchResult.matched} autoConfirmed=${matchResult.autoConfirmed}`,
+      `[hardcover-reconcile] match scan done: scanned=${matchResult.scanned} matched=${matchResult.matched} autoConfirmed=${matchResult.autoConfirmed} enriched=${matchResult.enriched}`,
     )
 
     // Step 1: find confirmed maps joined with their stat and current shelf entry.
