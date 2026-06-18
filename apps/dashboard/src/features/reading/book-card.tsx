@@ -1,4 +1,5 @@
 import {
+  Anchor,
   AspectRatio,
   Badge,
   Card,
@@ -9,7 +10,7 @@ import {
   Stack,
   Text,
 } from '@mantine/core'
-import { IconBook } from '@tabler/icons-react'
+import { IconBook, IconStarFilled } from '@tabler/icons-react'
 import { formatReadTime, pagesPerHour } from './format'
 
 type ShelfItem = {
@@ -29,6 +30,9 @@ type ShelfItem = {
   readDate: string | null
   lastReadDate: string | null
   dateAdded: string | null
+  slug: string | null
+  communityRating: number | null
+  ratingsCount: number | null
   stats: {
     totalReadSeconds: number
     pagesRead: number
@@ -78,9 +82,25 @@ export function BookCard({ book }: { book: ShelfItem }) {
         )}
 
         <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
-          <Text fw={600} size="sm" lineClamp={2} style={{ lineHeight: 1.3 }}>
-            {book.title}
-          </Text>
+          {book.slug !== null ? (
+            <Anchor
+              href={`https://hardcover.app/books/${book.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              underline="hover"
+              c="inherit"
+              fw={600}
+              size="sm"
+              lineClamp={2}
+              style={{ lineHeight: 1.3 }}
+            >
+              {book.title}
+            </Anchor>
+          ) : (
+            <Text fw={600} size="sm" lineClamp={2} style={{ lineHeight: 1.3 }}>
+              {book.title}
+            </Text>
+          )}
 
           {book.subtitle !== null && (
             <Text size="xs" c="dimmed" lineClamp={1}>
@@ -94,6 +114,16 @@ export function BookCard({ book }: { book: ShelfItem }) {
 
           {book.rating !== null && (
             <Rating value={book.rating} readOnly fractions={2} size="xs" style={{ marginTop: 2 }} />
+          )}
+
+          {book.communityRating !== null && (
+            <Group gap={2} align="center">
+              <IconStarFilled size={12} style={{ opacity: 0.45 }} />
+              <Text size="xs" c="dimmed" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                {book.communityRating.toFixed(1)}
+                {book.ratingsCount !== null && ` (${book.ratingsCount})`}
+              </Text>
+            </Group>
           )}
 
           <Group gap={4} mt={2} wrap="wrap">

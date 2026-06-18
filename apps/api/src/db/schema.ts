@@ -432,6 +432,8 @@ export const book = argoSchema.table('book', {
   release_year: integer('release_year'),
   description: text('description'),
   cover_url: text('cover_url'),
+  community_rating: real('community_rating'),
+  ratings_count: integer('ratings_count'),
   synced_at: timestamp('synced_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 })
 

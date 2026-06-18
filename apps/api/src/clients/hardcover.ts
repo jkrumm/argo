@@ -50,6 +50,8 @@ interface HardcoverBook {
   cached_image: HardcoverCachedImage | null
   contributions: HardcoverContribution[]
   cached_tags: HardcoverCachedTags | null
+  rating: number | null
+  ratings_count: number | null
 }
 
 interface HardcoverUserBookRead {
@@ -99,6 +101,8 @@ export type HardcoverSearchHit = {
   releaseYear: number | null
   coverUrl: string | null
   genres: string[]
+  communityRating: number | null
+  ratingsCount: number | null
 }
 
 export type HardcoverUserBook = {
@@ -126,6 +130,8 @@ export type HardcoverUserBook = {
   coverUrl: string | null
   authors: string[]
   genres: string[]
+  communityRating: number | null
+  ratingsCount: number | null
 }
 
 // ── Write input types ────────────────────────────────────────────────────────
@@ -187,6 +193,7 @@ const SHELF_QUERY = `
         edition_id
         book {
           id title subtitle slug headline pages release_year description
+          rating ratings_count
           cached_image
           contributions { author { name } }
           cached_tags
@@ -258,6 +265,8 @@ function normalizeUserBook(raw: HardcoverUserBookRaw): HardcoverUserBook {
     coverUrl,
     authors,
     genres,
+    communityRating: raw.book.rating ?? null,
+    ratingsCount: raw.book.ratings_count ?? null,
   }
 }
 
@@ -274,6 +283,8 @@ interface SearchDocument {
   genres?: string[]
   isbns?: string[]
   slug?: string
+  rating?: number
+  ratings_count?: number
 }
 
 interface SearchHit {
@@ -320,6 +331,8 @@ export const hardcover = {
           releaseYear: doc.release_year ?? null,
           coverUrl: doc.image?.url ?? null,
           genres: doc.genres ?? [],
+          communityRating: doc.rating ?? null,
+          ratingsCount: doc.ratings_count ?? null,
         } satisfies HardcoverSearchHit,
       ]
     })

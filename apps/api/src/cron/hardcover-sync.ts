@@ -54,6 +54,8 @@ async function upsertBooks(rows: HardcoverUserBook[]): Promise<void> {
         release_year: row.releaseYear,
         description: row.description,
         cover_url: row.coverUrl,
+        community_rating: row.communityRating,
+        ratings_count: row.ratingsCount,
         synced_at: now,
       })
       .onConflictDoUpdate({
@@ -69,6 +71,8 @@ async function upsertBooks(rows: HardcoverUserBook[]): Promise<void> {
           release_year: sql`excluded.release_year`,
           description: sql`excluded.description`,
           cover_url: sql`excluded.cover_url`,
+          community_rating: sql`excluded.community_rating`,
+          ratings_count: sql`excluded.ratings_count`,
           synced_at: sql`excluded.synced_at`,
         },
       })

@@ -24,11 +24,17 @@ const ShelfItemSchema = z.object({
   hardcoverBookId: z.number().int(),
   title: z.string(),
   subtitle: z.string().nullable(),
+  slug: z
+    .string()
+    .nullable()
+    .describe('Hardcover slug — build a link as hardcover.app/books/{slug}'),
   authors: z.array(z.string()),
   genres: z.array(z.string()),
   pages: z.number().int().nullable(),
   releaseYear: z.number().int().nullable(),
   coverUrl: z.string().nullable(),
+  communityRating: z.number().nullable().describe('Hardcover community rating'),
+  ratingsCount: z.number().int().nullable(),
   statusId: z.number().int(),
   status: z.string().describe('Human-readable status label'),
   rating: z.number().nullable(),
@@ -98,11 +104,14 @@ export const readingRoutes = new Elysia({ prefix: '/reading' })
           // book fields
           title: book.title,
           subtitle: book.subtitle,
+          slug: book.slug,
           authors: book.authors,
           genres: book.genres,
           pages: book.pages,
           releaseYear: book.release_year,
           coverUrl: book.cover_url,
+          communityRating: book.community_rating,
+          ratingsCount: book.ratings_count,
         })
         .from(userBook)
         .leftJoin(book, sql`${userBook.hardcover_book_id} = ${book.hardcover_book_id}`)
@@ -149,11 +158,14 @@ export const readingRoutes = new Elysia({ prefix: '/reading' })
         hardcoverBookId: r.hardcoverBookId,
         title: r.title ?? '',
         subtitle: r.subtitle ?? null,
+        slug: r.slug ?? null,
         authors: (r.authors as string[] | null) ?? [],
         genres: (r.genres as string[] | null) ?? [],
         pages: r.pages ?? null,
         releaseYear: r.releaseYear ?? null,
         coverUrl: r.coverUrl ?? null,
+        communityRating: r.communityRating ?? null,
+        ratingsCount: r.ratingsCount ?? null,
         statusId: r.statusId,
         status: STATUS_LABELS[r.statusId] ?? 'Unknown',
         rating: r.rating ?? null,

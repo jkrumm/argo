@@ -35,6 +35,23 @@ function authorOverlap(statAuthor: string | null, candidateAuthors: string[]): b
   return false
 }
 
+/** True if any normalized token from any author in `a` appears in any author in `b`. */
+function authorsShareToken(a: string[], b: string[]): boolean {
+  for (const authorA of a) {
+    const tokensA = tokens(authorA)
+    for (const authorB of b) {
+      const tokensB = tokens(authorB)
+      if (tokensA.some((t) => tokensB.includes(t))) return true
+    }
+  }
+  return false
+}
+
+/** Completeness score: cover + release year + genres presence (0–3). */
+function completeness(h: HardcoverSearchHit): number {
+  return (h.coverUrl ? 1 : 0) + (h.releaseYear ? 1 : 0) + (h.genres.length > 0 ? 1 : 0)
+}
+
 // ── LLM disambiguation (module-local, fail-soft) ─────────────────────────────
 
 /**
@@ -192,27 +209,40 @@ export async function runReadingMatch(): Promise<{
         authorOverlap(row.author, best.authors) &&
         !hasRivalDifferentBook
 
-      // Resolve pick + confirmed via string path or LLM disambiguation.
-      let pick: HardcoverSearchHit
+      // Resolve chosen + confirmed via string path or LLM disambiguation.
+      let chosen: HardcoverSearchHit
       let confirmed: number // 0 | 1
 
       if (stringAutoConfirm) {
         // Clean string match — no LLM call needed.
-        pick = best
+        chosen = best
         confirmed = 1
       } else {
         // Attempt LLM disambiguation for dirty/thin metadata.
         const verdict = await disambiguateWithLLM({ title: row.title, author: row.author }, hits)
         if (verdict !== null) {
-          pick = hits[verdict.index]! // index validated in-range by disambiguateWithLLM
+          chosen = hits[verdict.index]! // index validated in-range by disambiguateWithLLM
           confirmed = verdict.confidence === 'high' ? 1 : 0 // 0 | 1
         } else {
           // No verdict — store the search's top hit as a weak candidate for
           // manual review via the confirm-UI.
-          pick = best
+          chosen = best
           confirmed = 0 // 0 | 1
         }
       }
+
+      // Pick the richest duplicate of the chosen book from the cluster.
+      // Hardcover often has several fragmented records for the same work; the
+      // richest member (cover + year + genres) makes the best candidate.
+      const cluster = hits.filter(
+        (h) =>
+          normalizeTitle(h.title) === normalizeTitle(chosen.title) &&
+          authorsShareToken(h.authors, chosen.authors),
+      )
+      const pick = cluster.reduce(
+        (bestSoFar, h) => (completeness(h) > completeness(bestSoFar) ? h : bestSoFar),
+        chosen,
+      )
 
       // Upsert the candidate book so confirm-UI and stats join have metadata.
       const now = new Date().toISOString()
@@ -226,6 +256,8 @@ export async function runReadingMatch(): Promise<{
           genres: pick.genres,
           release_year: pick.releaseYear,
           cover_url: pick.coverUrl,
+          community_rating: pick.communityRating,
+          ratings_count: pick.ratingsCount,
           synced_at: now,
         })
         .onConflictDoUpdate({
@@ -237,6 +269,8 @@ export async function runReadingMatch(): Promise<{
             genres: sql`excluded.genres`,
             release_year: sql`excluded.release_year`,
             cover_url: sql`excluded.cover_url`,
+            community_rating: sql`excluded.community_rating`,
+            ratings_count: sql`excluded.ratings_count`,
             synced_at: sql`excluded.synced_at`,
           },
         })

@@ -18,6 +18,9 @@ type ShelfItem = {
   readDate: string | null
   lastReadDate: string | null
   dateAdded: string | null
+  slug: string | null
+  communityRating: number | null
+  ratingsCount: number | null
   stats: {
     totalReadSeconds: number
     pagesRead: number
