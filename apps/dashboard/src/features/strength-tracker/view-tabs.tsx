@@ -1,12 +1,11 @@
 import { SegmentedControl } from '@mantine/core'
 
-export type StrengthView = 'charts' | 'train' | 'history' | 'body-weight'
+export type StrengthView = 'charts' | 'train' | 'history'
 
 // Desktop keeps the workout/timer/records in the right rail, so no Train tab.
 const DESKTOP_OPTIONS: { value: StrengthView; label: string }[] = [
   { value: 'charts', label: 'Charts' },
   { value: 'history', label: 'History' },
-  { value: 'body-weight', label: 'Body Weight' },
 ]
 
 // Phones hide the rail, so Train surfaces the same tools as a leading tab.

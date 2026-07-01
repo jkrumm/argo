@@ -20,7 +20,6 @@ import. Follow this contract so the swap is a one-line diff.
 | `readiness-strain-chart.tsx`     | `ReadinessStrainChart`     | `<Placeholder label="Readiness Strain Chart" />`            |
 | `alignment-matrix-chart.tsx`     | `AlignmentMatrixChart`     | `<Placeholder label="Training Recovery Alignment Chart" />` |
 | `sparkline-grid-chart.tsx`       | `SparklineGridChart`       | `<Placeholder label="Sparkline Grid (Scan View)" />`        |
-| `body-weight-chart.tsx`          | `BodyWeightChart`          | Drop-in for the body-weight panel's chart slot.             |
 
 ## Component contract
 
@@ -57,9 +56,6 @@ slot in the route passes the prop in.
 - `strengthQueries.readiness(params)`
 - `strengthQueries.alignment(params)`
 - `strengthQueries.deloadSignal(params)`
-
-`weightLogQueries.summary(params)` and `weightLogQueries.series(params)` are
-already present.
 
 ## Tokens & theme
 

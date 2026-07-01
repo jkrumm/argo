@@ -31,6 +31,7 @@ import { trainingLoadRoutes } from './routes/training-load.js'
 import { fitnessDirectionRoutes } from './routes/fitness-direction.js'
 import { activitiesRoutes } from './routes/activities.js'
 import { weightLogRoutes } from './routes/weight-log.js'
+import { skinfoldLogRoutes } from './routes/skinfold-log.js'
 import { walkingPadRoutes } from './routes/walking-pad.js'
 import { usageRoutes } from './routes/usage.js'
 import { readingRoutes } from './routes/reading.js'
@@ -90,7 +91,7 @@ export const app = new Elysia()
           {
             name: 'Garmin Health',
             description:
-              'Daily Garmin metrics (HRV, sleep, stress, resting HR), recovery score, training load (ACWR), fitness direction, activity sessions, body-weight log, and user profile. Powers the Garmin Health dashboard page.',
+              'Daily Garmin metrics (HRV, sleep, stress, resting HR), recovery score, training load (ACWR), fitness direction, activity sessions, body-weight log, manual skinfold-caliper measurements, and user profile. Powers the Garmin Health dashboard page.',
           },
           {
             name: 'Strength',
@@ -244,6 +245,7 @@ export const app = new Elysia()
   .use(fitnessDirectionRoutes)
   .use(activitiesRoutes)
   .use(weightLogRoutes)
+  .use(skinfoldLogRoutes)
   .use(userProfileRoutes)
   .use(walkingPadRoutes)
   .use(usageRoutes)

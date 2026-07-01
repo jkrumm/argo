@@ -100,6 +100,10 @@ export const SERIES = {
   deadlift: p(BP.vermilion),
   pullUps: p(BP.gold),
 
+  // ── Body composition · skinfold sites (distinct from the strength set above) ──
+  skinfoldAbdominal: p(BP.cerulean),
+  skinfoldSuprailiac: p(BP.gold),
+
   // ── WalkingPad · distinct professional set (blue anchor + warm accents) ──────
   // Each metric needs its OWN color (sparkline grid / multi-toggle charts) — not blue shades.
   walkingDistance: p(BP.blue), // anchor

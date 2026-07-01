@@ -5,7 +5,6 @@ import { z } from 'zod'
 import { HoverContext, type HoverCtx } from '@argo/charts'
 import { PageActions } from '../components/app-shell/page-header'
 import {
-  BodyWeightPanel,
   ChartSkeleton,
   DEFAULT_EXERCISES,
   EmptyState,
@@ -38,13 +37,12 @@ import WeeklyVolumeChart from '../features/strength-tracker/charts/weekly-volume
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { exerciseQueries } from '../lib/queries/exercises'
 import { strengthQueries, type StrengthQueryParams } from '../lib/queries/strength'
-import { weightLogQueries } from '../lib/queries/weight-log'
 import { workoutsQueries } from '../lib/queries/workouts'
 
 // ── Search params ──────────────────────────────────────────────────────────
 
 const PresetEnum = z.enum(['7d', '30d', '3m', '6m', '1y', 'ytd', 'all'])
-const ViewEnum = z.enum(['charts', 'train', 'history', 'body-weight'])
+const ViewEnum = z.enum(['charts', 'train', 'history'])
 
 const SearchSchema = z.object({
   window: PresetEnum.default('all'),
@@ -84,9 +82,7 @@ export const Route = createFileRoute('/strength-tracker')({
       context.queryClient.ensureQueryData(workoutsQueries.list({ page: 1, limit: 20 })),
     ]
 
-    if (deps.tab === 'body-weight') {
-      base.push(context.queryClient.ensureQueryData(weightLogQueries.summary(windowParams)))
-    } else if (deps.tab === 'history') {
+    if (deps.tab === 'history') {
       base.push(context.queryClient.ensureQueryData(workoutsQueries.list({ page: 1, limit: 50 })))
     } else if (deps.tab === 'charts') {
       base.push(context.queryClient.ensureQueryData(workoutsQueries.summaryStrength(windowParams)))
@@ -237,11 +233,6 @@ function StrengthTrackerPage() {
                 {search.tab === 'history' && (
                   <Suspense fallback={<ChartSkeleton height={320} />}>
                     <WorkoutsTable />
-                  </Suspense>
-                )}
-                {search.tab === 'body-weight' && (
-                  <Suspense fallback={<ChartSkeleton height={320} />}>
-                    <BodyWeightPanel params={windowParams} />
                   </Suspense>
                 )}
               </>

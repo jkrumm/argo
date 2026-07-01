@@ -59,7 +59,7 @@ function daysBetween(a: string, b: string): number {
 function centeredMA(points: ApiPoint[], halfWindowDays = 3): Map<string, number> {
   const out = new Map<string, number>()
   if (points.length === 0) return out
-  const sorted = [...points].sort((a, b) => (a.date < b.date ? -1 : 1))
+  const sorted = points.toSorted((a, b) => (a.date < b.date ? -1 : 1))
   for (const e of sorted) {
     const window = sorted.filter((x) => {
       const d = daysBetween(x.date, e.date)
@@ -83,7 +83,7 @@ function thirtyDayMA(points: ApiPoint[]): number | null {
   return slice.reduce((acc, p) => acc + p.weightKg, 0) / slice.length
 }
 
-function BodyWeightInner({
+function WeightChartInner({
   data,
   width,
   height,
@@ -257,7 +257,7 @@ function BodyWeightInner({
   )
 }
 
-export default function BodyWeightChart({ params }: { params: WeightLogWindowParams }) {
+export default function WeightChart({ params }: { params: WeightLogWindowParams }) {
   const { data } = useSuspenseQuery(weightLogQueries.series(params))
   const { data: profile } = useQuery(userProfileQuery)
   const { ref, width } = useElementSize<HTMLDivElement>()
@@ -267,7 +267,7 @@ export default function BodyWeightChart({ params }: { params: WeightLogWindowPar
   const goal = profile?.goal_weight_kg ?? null
 
   const chartData = useMemo<ChartPoint[]>(() => {
-    const sorted = [...apiPoints].sort((a, b) => (a.date < b.date ? -1 : 1))
+    const sorted = apiPoints.toSorted((a, b) => (a.date < b.date ? -1 : 1))
     const ma = centeredMA(sorted)
     return sorted.map((e) => ({
       date: e.date,
@@ -342,7 +342,7 @@ export default function BodyWeightChart({ params }: { params: WeightLogWindowPar
             message="No entries yet — log your first weight to start the trend."
           />
         ) : width > 0 ? (
-          <BodyWeightInner
+          <WeightChartInner
             data={chartData}
             width={Math.max(width, 200)}
             height={CHART_HEIGHT}

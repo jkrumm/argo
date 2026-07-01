@@ -15,23 +15,23 @@ import {
 import { notifications } from '@mantine/notifications'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { IconCheck, IconMinus, IconTrendingDown, IconTrendingUp } from '@tabler/icons-react'
-import { VX } from '@argo/charts'
 import {
   useCreateWeightLog,
   weightLogQueries,
   type WeightLogWindowParams,
 } from '../../../lib/queries/weight-log'
-import BodyWeightChart from '../charts/body-weight-chart'
+import { weightPhaseColor, weightTrendColor, type WeightPhase, type WeightTrend } from '../formulas'
+import WeightChart from '../charts/weight-chart'
 
 type WeightSummary = {
   current: number | null
   ma7: number | null
   ma30: number | null
-  trend: 'up' | 'down' | 'flat'
+  trend: WeightTrend
   weeklyDelta: number | null
   monthlyDelta: number | null
   kgPerWeek: number | null
-  phase: 'losing' | 'gaining' | 'maintaining'
+  phase: WeightPhase
   intensity: string
 }
 
@@ -43,20 +43,8 @@ function today(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-function phaseColor(phase: WeightSummary['phase']): string {
-  switch (phase) {
-    case 'losing':
-      return 'blue'
-    case 'gaining':
-      return 'yellow'
-    default:
-      return 'gray'
-  }
-}
-
 function WeightSummaryCards({ summary }: { summary: WeightSummary }) {
-  const trendColor =
-    summary.trend === 'flat' ? 'gray' : summary.trend === 'down' ? VX.goodSolid : VX.warnSolid
+  const trendColor = weightTrendColor(summary.trend)
 
   const TrendIcon =
     summary.trend === 'up' ? (
@@ -74,7 +62,7 @@ function WeightSummaryCards({ summary }: { summary: WeightSummary }) {
           <Text size="xs" c="dimmed">
             Current
           </Text>
-          <Badge size="xs" color={phaseColor(summary.phase)} variant="light">
+          <Badge size="xs" color={weightPhaseColor(summary.phase)} variant="light">
             {summary.intensity}
           </Badge>
         </Group>
@@ -117,7 +105,9 @@ function WeightSummaryCards({ summary }: { summary: WeightSummary }) {
           style={{
             lineHeight: 1,
             color:
-              summary.weeklyDelta !== null && summary.weeklyDelta > 0 ? VX.warnSolid : VX.goodSolid,
+              summary.weeklyDelta !== null && summary.weeklyDelta > 0
+                ? weightTrendColor('up')
+                : weightTrendColor('down'),
           }}
         >
           {summary.weeklyDelta !== null
@@ -137,8 +127,8 @@ function WeightSummaryCards({ summary }: { summary: WeightSummary }) {
             lineHeight: 1,
             color:
               summary.monthlyDelta !== null && summary.monthlyDelta > 0
-                ? VX.warnSolid
-                : VX.goodSolid,
+                ? weightTrendColor('up')
+                : weightTrendColor('down'),
           }}
         >
           {summary.monthlyDelta !== null
@@ -251,14 +241,14 @@ function WeightEntryForm({ defaultWeight }: { defaultWeight: number | null }) {
   )
 }
 
-export function BodyWeightPanel({ params }: { params: WeightLogWindowParams }) {
+export function WeightPanel({ params }: { params: WeightLogWindowParams }) {
   const { data: summary } = useSuspenseQuery(weightLogQueries.summary(params))
 
   return (
     <Stack>
       <WeightSummaryCards summary={summary as WeightSummary} />
       <WeightEntryForm defaultWeight={(summary as WeightSummary).current} />
-      <BodyWeightChart params={params} />
+      <WeightChart params={params} />
     </Stack>
   )
 }

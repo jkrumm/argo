@@ -140,6 +140,20 @@ export const weightLog = argoSchema.table('weight_log', {
   created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 })
 
+// ── Skinfold log (manual caliper measurements) ───────────────────────────────
+
+export const skinfoldLog = argoSchema.table(
+  'skinfold_log',
+  {
+    id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
+    date: text('date').notNull(), // YYYY-MM-DD
+    site: text('site').notNull(), // SkinfoldSite key, e.g. 'abdominal'
+    value_mm: real('value_mm').notNull(), // skinfold thickness in mm
+    created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+  },
+  (t) => [uniqueIndex('skinfold_log_date_site_uq').on(t.date, t.site)],
+)
+
 // ── User profile (single row id=1, static body data) ────────────────────────
 
 export const userProfile = argoSchema.table('user_profile', {

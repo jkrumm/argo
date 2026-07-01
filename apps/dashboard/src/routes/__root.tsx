@@ -19,6 +19,7 @@ import {
   IconChecklist,
   IconHeartbeat,
   IconMessageChatbot,
+  IconRulerMeasure,
   IconServer,
   IconShoe,
 } from '@tabler/icons-react'
@@ -69,6 +70,7 @@ function RootLayout() {
 
   const isGarminActive = !!matchRoute({ to: '/garmin-health', fuzzy: true })
   const isStrengthActive = !!matchRoute({ to: '/strength-tracker', fuzzy: true })
+  const isBodyCompositionActive = !!matchRoute({ to: '/body-composition', fuzzy: true })
   const isWalkingPadActive = !!matchRoute({ to: '/walking-pad', fuzzy: true })
   const isReadingActive = !!matchRoute({ to: '/reading', fuzzy: true })
   const isM365Active = !!matchRoute({ to: '/m365-explorer', fuzzy: true })
@@ -150,6 +152,16 @@ function RootLayout() {
                 },
               }),
           ),
+        },
+        {
+          key: 'body-composition',
+          label: 'Body Composition',
+          short: 'Body',
+          mobile: true,
+          icon: <IconRulerMeasure size={ICON} />,
+          href: '/body-composition',
+          active: isBodyCompositionActive,
+          onClick: go(() => void navigate({ to: '/body-composition', search: { window: '90d' } })),
         },
         {
           key: 'walkingpad',

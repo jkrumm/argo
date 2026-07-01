@@ -88,8 +88,6 @@ export const METRIC_TOOLTIPS = {
     'Adjusted readiness: Garmin recovery score (HRV 40% + sleep 35% + RHR 25%) × (1 − fatigue_debt × 0.25). Fatigue debt = last session INOL / p90 INOL ceiling. Heavy session (INOL > 1.2) adds a further 10% dampening. Zone thresholds: Push ≥ 70 · Normal 40–69 · Rest < 40.',
   trainingRecoveryAlignment:
     "3×3 matrix: rows = recovery zone (High/Normal/Low), cols = training load ACWR (Under/Optimal/Caution). Each cell shows sessions in that zone combination. Today's cell has a colored border. Aligned cells = recovery and load match. Misaligned cells = conflict between body state and training load.",
-  bodyWeight:
-    'Logged weight (kg) over time with 7-day centered MA. Goal weight shown as horizontal reference line when set in profile.',
   strengthScan:
     'One row per lift: 1RM trend, weekly volume, INOL quality, momentum (28d velocity), and a status indicator.',
 } as const

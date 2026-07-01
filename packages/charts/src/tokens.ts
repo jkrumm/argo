@@ -95,6 +95,10 @@ export const VX = {
     deadlift: 'var(--vx-deadlift)',
     pullUps: 'var(--vx-pullUps)',
 
+    // Body composition — skinfold caliper sites
+    skinfoldAbdominal: 'var(--vx-skinfoldAbdominal)',
+    skinfoldSuprailiac: 'var(--vx-skinfoldSuprailiac)',
+
     // WalkingPad — per-metric stable identity (distance is the anchor)
     walkingDistance: 'var(--vx-walkingDistance)',
     walkingPace: 'var(--vx-walkingPace)',
