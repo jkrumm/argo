@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { notifications } from '@mantine/notifications'
 import { getToken } from '../../../lib/auth'
+import { useUiStore } from '../../../lib/store'
 import { apiBase } from '../transport'
 import { decodeAudioTitle, SILENT_WAV } from './audio-utils'
 
@@ -27,6 +28,8 @@ import { decodeAudioTitle, SILENT_WAV } from './audio-utils'
 
 type ReadAloudOpts = { summarize?: boolean; threadId?: string }
 
+type PlaySourceOpts = { title?: string; threadId?: string; startAt?: number }
+
 type VoicePlaybackValue = {
   /** Message id currently playing OR fetching audio, else null. */
   playingMessageId: string | null
@@ -38,6 +41,14 @@ type VoicePlaybackValue = {
   progress: number
   /** Seconds left in the current clip. */
   remainingSec: number
+  /** Absolute current playback position in seconds. */
+  currentTimeSec: number
+  /** Total duration of the current clip in seconds. */
+  durationSec: number
+  /** True when the audio element is actively playing. */
+  isPlaying: boolean
+  /** Current playback rate (0.75 / 1 / 1.25 / 1.5 / 2). */
+  rate: number
   /** null = unknown, false = audio confirmed unavailable (503), true = working. */
   audioAvailable: boolean | null
   setAudioAvailable: (v: boolean) => void
@@ -45,6 +56,16 @@ type VoicePlaybackValue = {
   primePlayback: () => void
   /** Fetch + play TTS for a message. Calling it for the playing id stops (toggle/barge-in). */
   readAloud: (messageId: string, text: string, opts?: ReadAloudOpts) => Promise<void>
+  /** Bind a direct URL to the shared element and play. Same-messageId call → resume, not restart. */
+  playSource: (messageId: string, src: string, opts?: PlaySourceOpts) => Promise<void>
+  /** Pause without resetting position (resumable). */
+  pause: () => void
+  /** Resume playback on the current element. */
+  resume: () => Promise<void>
+  /** Seek to an absolute time in seconds. */
+  seek: (seconds: number) => void
+  /** Set and persist the playback rate. */
+  setRate: (rate: number) => void
   /** Stop any current playback. */
   stop: () => void
 }
@@ -63,7 +84,15 @@ export function VoicePlaybackProvider({ children }: { children: ReactNode }) {
   const [isBuffering, setIsBuffering] = useState(false)
   const [progress, setProgress] = useState(0)
   const [remainingSec, setRemainingSec] = useState(0)
+  const [currentTimeSec, setCurrentTimeSec] = useState(0)
+  const [durationSec, setDurationSec] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [rate, setRateState] = useState(1)
   const [audioAvailable, setAudioAvailableState] = useState<boolean | null>(null)
+
+  // Read persisted playback rate from store on mount
+  const storedRate = useUiStore((s) => s.playbackRate)
+  const setPlaybackRate = useUiStore((s) => s.setPlaybackRate)
 
   const audioElRef = useRef<HTMLAudioElement | null>(null)
   // Mirrors playingMessageId so async playback can re-check the latest value after
@@ -71,6 +100,9 @@ export function VoicePlaybackProvider({ children }: { children: ReactNode }) {
   // Assigned in render (no effect) to avoid a frame of staleness.
   const playingMessageIdRef = useRef<string | null>(null)
   playingMessageIdRef.current = playingMessageId
+
+  // Track the current duration for seek clamping (mirrors durationSec state, no extra re-renders)
+  const durationRef = useRef(0)
 
   const setAudioAvailable = useCallback((v: boolean) => setAudioAvailableState(v), [])
 
@@ -80,20 +112,68 @@ export function VoicePlaybackProvider({ children }: { children: ReactNode }) {
     setIsBuffering(false)
     setProgress(0)
     setRemainingSec(0)
+    setCurrentTimeSec(0)
+    setDurationSec(0)
+    setIsPlaying(false)
+    durationRef.current = 0
+  }, [])
+
+  const updatePositionState = useCallback((el: HTMLAudioElement) => {
+    if (!('mediaSession' in navigator)) return
+    const d = el.duration
+    if (!Number.isFinite(d) || d <= 0) return
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: d,
+        position: Math.min(el.currentTime, d),
+        playbackRate: el.playbackRate,
+      })
+    } catch {
+      /* best-effort */
+    }
   }, [])
 
   const getPlaybackEl = useCallback((): HTMLAudioElement => {
     if (!audioElRef.current) {
       const el = new Audio()
+
+      // Metadata loaded → update duration + MediaSession position
+      el.addEventListener('loadedmetadata', () => {
+        const d = el.duration
+        if (Number.isFinite(d) && d > 0) {
+          durationRef.current = d
+          setDurationSec(d)
+          updatePositionState(el)
+        }
+      })
+
       // Audio actually started → leave the loading state.
-      el.addEventListener('playing', () => setIsBuffering(false))
+      el.addEventListener('playing', () => {
+        setIsBuffering(false)
+        setIsPlaying(true)
+      })
+
+      el.addEventListener('pause', () => setIsPlaying(false))
+      el.addEventListener('play', () => setIsPlaying(true))
+
+      // Waiting for more data (buffering mid-stream)
+      el.addEventListener('waiting', () => setIsBuffering(true))
+      el.addEventListener('canplay', () => setIsBuffering(false))
+
       el.addEventListener('timeupdate', () => {
         const d = el.duration
         if (Number.isFinite(d) && d > 0) {
           setProgress(el.currentTime / d)
           setRemainingSec(Math.max(0, d - el.currentTime))
+          setCurrentTimeSec(el.currentTime)
+          updatePositionState(el)
         }
       })
+
+      el.addEventListener('ratechange', () => {
+        updatePositionState(el)
+      })
+
       // Release the object URL when playback finishes or errors — readAloud only
       // revokes the PREVIOUS src when a new one is set, so without this the last
       // played blob would linger in memory until the next play or unmount.
@@ -106,7 +186,12 @@ export function VoicePlaybackProvider({ children }: { children: ReactNode }) {
       audioElRef.current = el
     }
     return audioElRef.current
-  }, [resetPlayback])
+  }, [resetPlayback, updatePositionState])
+
+  // Sync the persisted rate into local state on first render
+  useEffect(() => {
+    setRateState(storedRate)
+  }, [storedRate])
 
   const primePlayback = useCallback(() => {
     const el = getPlaybackEl()
@@ -122,6 +207,129 @@ export function VoicePlaybackProvider({ children }: { children: ReactNode }) {
     resetPlayback()
   }, [resetPlayback])
 
+  const pause = useCallback(() => {
+    audioElRef.current?.pause()
+    // Do NOT call resetPlayback — this is a resumable pause.
+  }, [])
+
+  const resume = useCallback(async () => {
+    const el = audioElRef.current
+    if (!el) return
+    try {
+      await el.play()
+    } catch {
+      /* best-effort */
+    }
+  }, [])
+
+  const seek = useCallback(
+    (seconds: number) => {
+      const el = audioElRef.current
+      if (!el) return
+      const d = durationRef.current
+      const clamped = Math.max(0, d > 0 ? Math.min(seconds, d) : seconds)
+      el.currentTime = clamped
+      setCurrentTimeSec(clamped)
+      if (d > 0) {
+        setProgress(clamped / d)
+        setRemainingSec(Math.max(0, d - clamped))
+      }
+      updatePositionState(el)
+    },
+    [updatePositionState],
+  )
+
+  const setRate = useCallback(
+    (newRate: number) => {
+      const el = audioElRef.current
+      if (el) el.playbackRate = newRate
+      setRateState(newRate)
+      setPlaybackRate(newRate)
+    },
+    [setPlaybackRate],
+  )
+
+  const playSource = useCallback(
+    async (messageId: string, src: string, opts?: PlaySourceOpts) => {
+      const el = getPlaybackEl()
+
+      // Same messageId already active → treat as resume (not restart)
+      if (playingMessageIdRef.current === messageId) {
+        if (!el.paused) return
+        try {
+          await el.play()
+        } catch {
+          /* best-effort */
+        }
+        return
+      }
+
+      el.pause()
+      setPlayingMessageId(messageId)
+      setPlayingThreadId(opts?.threadId ?? null)
+      setIsBuffering(true)
+      setProgress(0)
+      setRemainingSec(0)
+      setCurrentTimeSec(0)
+      setDurationSec(0)
+      durationRef.current = 0
+
+      // Apply current rate
+      const currentRate = useUiStore.getState().playbackRate
+      el.playbackRate = currentRate
+      setRateState(currentRate)
+
+      // If a startAt is requested, apply it once metadata loads
+      if (opts?.startAt && opts.startAt > 0) {
+        const startAt = opts.startAt
+        const onMeta = () => {
+          // Only apply if this is still the same playback session
+          if (playingMessageIdRef.current !== messageId) return
+          const d = el.duration
+          if (d > 0 && startAt < d * 0.98) {
+            el.currentTime = startAt
+          }
+          el.removeEventListener('loadedmetadata', onMeta)
+        }
+        el.addEventListener('loadedmetadata', onMeta)
+      }
+
+      el.src = src
+
+      if ('mediaSession' in navigator) {
+        try {
+          navigator.mediaSession.metadata = new MediaMetadata({
+            title: opts?.title ?? 'Hermes Podcast',
+            artist: 'Hermes',
+          })
+          navigator.mediaSession.setActionHandler('play', () => void el.play())
+          navigator.mediaSession.setActionHandler('pause', () => el.pause())
+          navigator.mediaSession.setActionHandler('stop', () => stop())
+          navigator.mediaSession.setActionHandler('seekto', (e) => {
+            if (e.seekTime !== null && e.seekTime !== undefined) seek(e.seekTime)
+          })
+          navigator.mediaSession.setActionHandler('seekforward', (e) => {
+            seek(el.currentTime + (e.seekOffset ?? 10))
+          })
+          navigator.mediaSession.setActionHandler('seekbackward', (e) => {
+            seek(el.currentTime - (e.seekOffset ?? 10))
+          })
+        } catch {
+          /* media session is best-effort */
+        }
+      }
+
+      setAudioAvailableState(true)
+      try {
+        await el.play()
+      } catch {
+        // Stale guard: if user navigated away, resetPlayback already called
+        if (playingMessageIdRef.current === messageId) resetPlayback()
+      }
+    },
+    [getPlaybackEl, resetPlayback, seek, stop],
+  )
+
   const readAloud = useCallback(
     async (messageId: string, text: string, opts?: ReadAloudOpts) => {
       const el = getPlaybackEl()
@@ -136,6 +344,9 @@ export function VoicePlaybackProvider({ children }: { children: ReactNode }) {
       setIsBuffering(true)
       setProgress(0)
       setRemainingSec(0)
+      setCurrentTimeSec(0)
+      setDurationSec(0)
+      durationRef.current = 0
       try {
         const token = getToken()
         const res = await fetch(`${apiBase}/ai/v1/audio/speech`, {
@@ -207,10 +418,19 @@ export function VoicePlaybackProvider({ children }: { children: ReactNode }) {
       isBuffering,
       progress,
       remainingSec,
+      currentTimeSec,
+      durationSec,
+      isPlaying,
+      rate,
       audioAvailable,
       setAudioAvailable,
       primePlayback,
       readAloud,
+      playSource,
+      pause,
+      resume,
+      seek,
+      setRate,
       stop,
     }),
     [
@@ -219,10 +439,19 @@ export function VoicePlaybackProvider({ children }: { children: ReactNode }) {
       isBuffering,
       progress,
       remainingSec,
+      currentTimeSec,
+      durationSec,
+      isPlaying,
+      rate,
       audioAvailable,
       setAudioAvailable,
       primePlayback,
       readAloud,
+      playSource,
+      pause,
+      resume,
+      seek,
+      setRate,
       stop,
     ],
   )

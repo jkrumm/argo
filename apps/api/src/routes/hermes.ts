@@ -86,6 +86,22 @@ const TITLE_SYSTEM =
   `You write concise titles for chat threads. Reply with ONLY the title: 2-6 words, ` +
   `no surrounding quotes, no trailing punctuation, in the language of the conversation.`
 
+/**
+ * Injected as the `system` prompt on every POST /hermes/chat turn so the
+ * dashboard gets structured audio cards instead of spoken-text prose.
+ * Only active on the dashboard path — Slack and other Hermes surfaces are unaffected.
+ */
+const HERMES_DASHBOARD_SYSTEM_PROMPT =
+  'You are answering inside a web dashboard. For any request to be spoken or heard ' +
+  '(podcast, voice memo, "read me…", "make a podcast about…"), DO NOT call the ' +
+  'text_to_speech tool and DO NOT print the spoken text as prose. Instead reply with ' +
+  'a one-line lead-in sentence followed by a fenced card:\n\n' +
+  '```card\n' +
+  '{"type":"audio","title":"<short title>","script":"<full spoken text>"}\n' +
+  '```\n\n' +
+  'Put the entire narration in the `script` field. Keep the visible message to one ' +
+  'short sentence — never paste the script as prose.'
+
 /** Default titler: a single non-streaming DeepSeek completion via `aiComplete`. */
 const deepseekTitle: GenerateTitle = ({ userText, assistantText }) =>
   aiComplete(
@@ -536,6 +552,7 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
             const usageStartMs = Date.now()
             const result = streamText({
               model: provider.chatModel(deps.model),
+              system: HERMES_DASHBOARD_SYSTEM_PROMPT,
               messages: convertToModelMessages([newTurn]),
               headers: {
                 'X-Hermes-Session-Id': sessionId,

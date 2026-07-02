@@ -37,7 +37,7 @@ import { usageRoutes } from './routes/usage.js'
 import { readingRoutes } from './routes/reading.js'
 import { userProfileRoutes } from './routes/user-profile.js'
 import { hermesRoutes } from './routes/hermes.js'
-import { aiRoutes } from './routes/ai.js'
+import { aiRoutes, audioFileRoutes } from './routes/ai.js'
 import { registerCronJobs } from './cron/index.js'
 import { uptimeKumaClient } from './clients/uptime-kuma.js'
 import { runMigrations } from './db/index.js'
@@ -220,6 +220,7 @@ export const app = new Elysia()
   )
   .use(healthRoute)
   .use(oauthRoutes)
+  .use(audioFileRoutes)
   .use(authGuard)
   .use(ticktickRoutes)
   .use(uptimeKumaRoutes)

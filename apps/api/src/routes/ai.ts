@@ -1,9 +1,16 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
+import { join } from 'node:path'
 import { tracedFetch } from '../lib/traced-fetch.js'
 import { env } from '../env.js'
 import { recordAiUsage, type RecordUsageFn } from '../lib/ai-usage.js'
 import { log } from '../telemetry.js'
+import {
+  createDiskAudioStore,
+  hashScript,
+  serveAudioBytes,
+  type AudioStore,
+} from '../lib/audio-cache.js'
 
 // General-purpose AI gateway — an OpenAI-compatible surface at /ai/v1/* backing
 // Argo's own AI features (NOT the Hermes agent; that lives under /hermes).
@@ -43,6 +50,8 @@ export interface AiRouteDeps {
    * spy without touching the DB.
    */
   recordUsage: RecordUsageFn
+  /** Content-addressed store for synthesized podcast audio. */
+  audioStore: AudioStore
 }
 
 function defaultDeps(): AiRouteDeps {
@@ -53,6 +62,7 @@ function defaultDeps(): AiRouteDeps {
     audioGatewayUrl: env.AUDIO_GATEWAY_URL,
     fetchImpl: tracedFetch,
     recordUsage: recordAiUsage,
+    audioStore: createDiskAudioStore(join(env.DATA_DIR, 'audio-cache')),
   }
 }
 
@@ -109,6 +119,16 @@ const SpeechBodySchema = z
       .describe(
         'Condense the input into a single short spoken sentence before synthesis (hands-free voice-mode replies). Off by default — read-aloud speaks the full text.',
       )
+      .optional(),
+  })
+  .passthrough()
+
+const PodcastBodySchema = z
+  .object({
+    script: z.string().min(1).describe('Full spoken text to synthesize as a podcast episode.'),
+    title: z
+      .string()
+      .describe('Human-readable title for the episode. Falls back to the gateway x-audio-title.')
       .optional(),
   })
   .passthrough()
@@ -319,6 +339,132 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
         },
       },
     )
+    .post(
+      '/v1/audio/podcast',
+      async ({ body, status }) => {
+        if (!deps.audioGatewayUrl) {
+          return status(503, {
+            error: {
+              message: 'audio TTS not configured (AUDIO_GATEWAY_URL unset)',
+              type: 'config_error',
+            },
+          })
+        }
+        const { script, title: requestTitle } = body as { script: string; title?: string }
+        const hash = hashScript(script)
+
+        // Cache hit — return metadata without calling the gateway again.
+        if (await deps.audioStore.has(hash)) {
+          const cached = await deps.audioStore.read(hash)
+          return { hash, title: requestTitle ?? '', bytes: cached?.length ?? 0 }
+        }
+
+        const startedAt = new Date().toISOString()
+        const startMs = Date.now()
+
+        // Only send `input` — the audio-gateway owns model selection.
+        const upstream = await deps.fetchImpl(`${deps.audioGatewayUrl}/v1/audio/speech`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ input: script }),
+        })
+
+        if (!upstream.ok) {
+          const detail = await upstream.text().catch(() => '')
+          return status(502, {
+            error: {
+              message: `audio gateway error: ${detail.slice(0, 200)}`,
+              type: 'upstream_error',
+            },
+          })
+        }
+
+        const bytes = new Uint8Array(await upstream.arrayBuffer())
+        await deps.audioStore.write(hash, bytes)
+
+        const gatewayTitle = upstream.headers.get('x-audio-title')
+        const resolvedTitle = gatewayTitle ?? requestTitle ?? ''
+
+        deps
+          .recordUsage({
+            model: 'audio-gateway/tts',
+            usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+            subTool: 'podcast',
+            startedAt,
+            durationMs: Date.now() - startMs,
+          })
+          .catch((err: unknown) => log.error('argo podcast usage record failed', err))
+
+        return { hash, title: resolvedTitle, bytes: bytes.length }
+      },
+      {
+        body: PodcastBodySchema,
+        detail: {
+          tags: ['AI Gateway'],
+          summary: 'Synthesize and cache a podcast episode',
+          description:
+            'Synthesizes the given `script` as a spoken podcast episode via the audio-gateway and caches the result content-addressed by sha256(script). On a cache hit the gateway is NOT called again. Returns `{ hash, title, bytes }` on 200. 503 when AUDIO_GATEWAY_URL is unset; 502 when the gateway returns non-2xx. The frontend builds the playback URL as `GET /ai/v1/audio/file/{hash}` — a public, range-served, immutably-cached endpoint that supports browser `<audio>` scrubbing without re-synthesis. Do NOT pass a `model` field — the audio-gateway owns model selection.',
+          security: [{ BearerAuth: [] }],
+        },
+      },
+    )
+}
+
+/** Deps for the public audio-file serving plugin (no auth required). */
+export interface AudioFileDeps {
+  audioStore: AudioStore
+}
+
+function defaultAudioFileDeps(): AudioFileDeps {
+  return {
+    audioStore: createDiskAudioStore(join(env.DATA_DIR, 'audio-cache')),
+  }
+}
+
+/**
+ * Public plugin serving cached podcast audio as range-friendly responses.
+ *
+ * Mounted BEFORE authGuard in index.ts — rationale: a bare `<audio src>` element
+ * cannot send a bearer header. The 256-bit content hash is an unguessable
+ * capability; Argo prod is Tailscale-only, so reading already-synthesized
+ * content-addressed bytes is capability-gated without a bearer. Synthesis (the
+ * costly guarded POST /ai/v1/audio/podcast) stays bearer-protected.
+ */
+export function createAudioFileRoutes(overrides: Partial<AudioFileDeps> = {}) {
+  const deps = { ...defaultAudioFileDeps(), ...overrides }
+
+  return new Elysia({ name: 'audio-file', prefix: '/ai' }).get(
+    '/v1/audio/file/:hash',
+    async ({ params, request, status }) => {
+      const { hash } = params
+
+      // Path-traversal guard: only lowercase hex, exactly 64 chars.
+      if (!/^[a-f0-9]{64}$/.test(hash)) {
+        return status(400, {
+          error: { message: 'invalid hash format', type: 'invalid_request' },
+        })
+      }
+
+      const bytes = await deps.audioStore.read(hash)
+      if (!bytes) {
+        return status(404, {
+          error: { message: 'not found', type: 'not_found' },
+        })
+      }
+
+      const rangeHeader = request.headers.get('range')
+      return serveAudioBytes(bytes, rangeHeader)
+    },
+    {
+      detail: {
+        tags: ['AI Gateway'],
+        summary: 'Serve cached podcast audio (public, range-supported)',
+        description:
+          'Public endpoint serving a synthesized podcast file by its sha256 content hash. Supports HTTP range requests (`Range: bytes=START-END`) for browser `<audio>` scrubbing — returns 206 Partial Content on a satisfiable range, 416 Range Not Satisfiable otherwise. Returns 400 on a malformed hash (path-traversal guard), 404 when the hash is unknown. Response is immutably cached (`Cache-Control: public, max-age=31536000, immutable`). No bearer required — the 256-bit hash is an unguessable capability; synthesis is separately guarded on POST /ai/v1/audio/podcast.',
+      },
+    },
+  )
 }
 
 export const aiRoutes = createAiRoutes()
+export const audioFileRoutes = createAudioFileRoutes()

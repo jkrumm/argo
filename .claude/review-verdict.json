@@ -1,0 +1,177 @@
+{
+  "outcome": "actionable",
+  "blocking": [
+    {
+      "file": "apps/api/src/routes/ai.ts",
+      "line": 348,
+      "message": "Body type assertion loses the `summarize` field from Zod validation. The handler casts to a manual inline type instead of deriving from the schema. Fix: use `z.infer<typeof SpeechBodySchema>` or drop the cast entirely (Elysia infers the type when a schema is provided). If `SpeechBodySchema` drifts, the cast silently passes mismatched shapes.",
+      "angle": "backend"
+    },
+    {
+      "file": "apps/api/src/lib/tts/audio.ts",
+      "line": 173,
+      "message": "When `summarize` is true, `runPrep` bypasses the `ttsPrepMode === 'off'` check and forces an LLM call. If prep LLM credentials (`ttsPrepUrl`/`ttsPrepApiKey`) are not configured because prep mode is disabled, this will cause a runtime crash (invalid URL or unauthorized fetch). Fix: guard the summarize path behind the same `ttsPrepMode !== 'off'` check as the full-prep path, or return a sensible error.",
+      "angle": "adversary"
+    },
+    {
+      "file": "apps/dashboard/src/features/hermes-chat/chat-conversation.tsx",
+      "line": 400,
+      "message": "`lastSpokenRef` initializes to `null` on mount. When navigating to an existing thread with `voiceMode` enabled, the auto-speak effect triggers on the last historical assistant message (status is `'ready'`, ref is `null`), causing the app to blurt out old messages on page load. Fix: initialize `lastSpokenRef` to the last assistant message ID on mount, or guard with a `hasInteracted` flag that only enables auto-speak after a user-initiated send.",
+      "angle": "adversary"
+    },
+    {
+      "file": "apps/dashboard/src/features/hermes-chat/chat-conversation.tsx",
+      "line": 409,
+      "message": "`lastSpokenRef.current = last.id` is set before the `visibilityState` guard. When `document.hidden` is true during stream completion, the message is permanently marked as spoken and silently dropped — even after the user returns to the tab. Fix: either move the ref assignment after the guard (so it retries on the next re-render) or store the unsaid message ID and replay it on `visibilitychange` to foreground.",
+      "angle": "typescript"
+    },
+    {
+      "file": "apps/api/src/lib/tts/audio.ts",
+      "line": 489,
+      "message": "The non-Gemini passthrough path spreads `body` directly into the upstream request: `JSON.stringify({ ...body, model })`. This forwards `summarize` to the IU upstream's `/audio/speech` endpoint which likely doesn't understand it and will either ignore or error. Fix: strip `summarize` from the body before passthrough — `const { summarize: _, ...upstreamBody } = body as Record<string, unknown>;`",
+      "angle": "backend"
+    },
+    {
+      "file": "apps/dashboard/src/features/hermes-chat/chat-conversation.tsx",
+      "line": 389,
+      "message": "`pendingAudioMsRef` is set, then `void sendMessage(...)`, then immediately nulled — relying on the AI SDK calling `prepareSendMessagesRequest` synchronously within `sendMessage`, a contract that isn't enforced. If the SDK ever defers body construction, audio duration silently drops to null. Fix: clear the ref in the transport callback or `onFinish` instead.",
+      "angle": "typescript"
+    }
+  ],
+  "improvements": [
+    {
+      "file": "apps/dashboard/src/features/hermes-chat/chat-conversation.tsx",
+      "line": 206,
+      "message": "The `voiceModeRef` sync-via-`useEffect` pattern is unnecessary. Replace with inline assignment in render body: `voiceModeRef.current = voiceMode` directly in the component body (no effect wrapper). This eliminates one render cycle of staleness and the superfluous effect. Apply the same fix to all three instances: `chat-conversation.tsx` (line ~206), `chat-conversation.tsx` (line ~620, different effect), and `chat-page.tsx` (line ~801).",
+      "angle": "frontend"
+    },
+    {
+      "file": "apps/dashboard/src/features/hermes-chat/chat-conversation.tsx",
+      "line": 620,
+      "message": "Voice mode auto-speak effect checks `document.visibilityState` synchronously but doesn't listen to `visibilitychange`. If the user backgrounds the tab mid-streaming and returns while status is still `'ready'`, the reply is marked spoken but never read aloud — and the effect won't re-fire. Fix: subscribe to `visibilitychange` in this effect, clearing `lastSpokenRef` when the tab re-enters foreground for the latest message, or move the gate into `readAloud` so queued speech waits for foreground.",
+      "angle": "architect"
+    },
+    {
+      "file": "apps/dashboard/src/features/hermes-chat/chat-conversation.tsx",
+      "line": 411,
+      "message": "Auto-speak calls `void readAloud(...)` — the `void` is intentional (async effect), but `lastSpokenRef.current` is set before `readAloud` completes. If TTS fetch fails (network error, 503), the message is permanently marked spoken and never retried. Fix: move `lastSpokenRef.current = last.id` into the `.then()` of `readAloud` so failures can retry on the next re-render.",
+      "angle": "frontend"
+    },
+    {
+      "file": "apps/dashboard/src/features/hermes-chat/voice/voice-playback.tsx",
+      "line": 47,
+      "message": "The provider's `useMemo` enumerates six individual refs. Since callbacks are `useCallback`-wrapped with stable deps, they're effectively constant — prefer exposing callbacks directly from the provider value object and only `useMemo` the state values (`playingMessageId`, `audioAvailable`). Less fragile when someone adds a new callback.",
+      "angle": "architect"
+    },
+    {
+      "file": "apps/dashboard/src/features/hermes-chat/voice/voice-playback.tsx",
+      "line": 57,
+      "message": "Same `useEffect`-to-sync-a-ref pattern for `playingMessageIdRef`. Replace with `playingMessageIdRef.current = playingMessageId` directly in render body (mirrors the `voiceModeRef` fix above).",
+      "angle": "frontend"
+    },
+    {
+      "file": "apps/dashboard/src/features/hermes-chat/voice/voice-playback.tsx",
+      "line": 63,
+      "message": "The stale-closure workaround (`playingMessageIdRef`) is correct but fragile — every async code path must remember to read from the ref, not the state closure. Consider extracting a `useLatestRef` utility that wraps `useRef` + inline sync so the ref pattern becomes the default, not the exception. Alternatively, React 19's `useOptimistic` could express this more idiomatically.",
+      "angle": "senior-dev"
+    },
+    {
+      "file": "apps/dashboard/src/features/hermes-chat/voice/voice-playback.tsx",
+      "line": 73,
+      "message": "`primePlayback` leaves `src` pointing at the `SILENT_WAV` data URI after pausing. While harmless (inline data needs no revocation), it's untidy. Reset `src` to empty string or call `el.load()` after the pause to leave the element in a clean state.",
+      "angle": "senior-dev"
+    },
+    {
+      "file": "apps/dashboard/src/features/hermes-chat/voice/voice-playback.tsx",
+      "line": 86,
+      "message": "`readAloud` mixes three concerns: fetch audio, Media Session setup, and HTMLAudioElement lifecycle. Break into `fetchAudioChunk(messageId, text, opts)` → `Blob`, `setupMediaSession(title)` → void, and `playAudioBlob(el, blob)` → void. Improves testability and readability.",
+      "angle": "architect"
+    },
+    {
+      "file": "apps/dashboard/src/features/hermes-chat/voice/voice-playback.tsx",
+      "line": 91,
+      "message": "Toggle/barge-in check uses `playingMessageIdRef.current` (synced via effect), but `setPlayingMessageId(messageId)` is called synchronously at line 95. Between `setState` and effect flush, the ref holds the stale value. A synchronous double-call to `readAloud` for the same `messageId` would miss the toggle guard. Defensive fix: check both the state variable and the ref.",
+      "angle": "typescript"
+    },
+    {
+      "file": "apps/dashboard/src/features/hermes-chat/voice/voice-playback.tsx",
+      "line": 118,
+      "message": "`readAloud` hardcodes `apiBase` and `getToken()` — coupling the playback provider to the specific transport. Extract the fetch concern: accept a `fetchSpeech(input: string, opts?: ReadAloudOpts): Promise<Response>` via context or props, and move the current wiring into a default factory at the call site. This makes the provider testable without a server.",
+      "angle": "architect"
+    },
+    {
+      "file": "apps/dashboard/src/features/hermes-chat/voice/voice-playback.tsx",
+      "line": 122,
+      "message": "Blob URL from previous playback is revoked when a new `src` is set, but NOT when playback finishes via `ended` or `error` events. The unreleased object holds memory until the next playback or unmount. Revoke in the `ended`/`error` listeners too.",
+      "angle": "typescript"
+    },
+    {
+      "file": "apps/dashboard/src/features/hermes-chat/voice/voice-playback.tsx",
+      "line": 126,
+      "message": "Media Session handlers are set up in `readAloud` but never torn down. If another message starts playing, `play`/`pause` handlers still point at the old audio element. Set handlers to `null` in `stop()` and when `playingMessageId` transitions to null.",
+      "angle": "senior-dev"
+    },
+    {
+      "file": "apps/dashboard/src/features/hermes-chat/voice/use-voice-recorder.ts",
+      "line": 68,
+      "message": "`useVoiceRecorder` hardcodes `apiBase` + `getToken()` for the STT fetch — same injectability concern as `voice-playback.tsx`. Extract the transcription fetch into an injected function so the hook is testable without a server. The hook's core logic is browser-side recording; the API call is infrastructure.",
+      "angle": "architect"
+    },
+    {
+      "file": "apps/dashboard/src/features/hermes-chat/voice/use-voice-recorder.ts",
+      "line": 147,
+      "message": "`setRecordingMs(0)` on start is redundant — the 200ms `setInterval` tick on the next line immediately overwrites it. Remove the no-op init.",
+      "angle": "senior-dev"
+    },
+    {
+      "file": "apps/dashboard/src/features/hermes-chat/voice/audio-utils.ts",
+      "line": 28,
+      "message": "`formatElapsed` overflows the minutes field past 59:59 (shows `60:00`, `61:00` with no hour rollover). Fine for short voice memos, but add an hours segment for robustness.",
+      "angle": "senior-dev"
+    },
+    {
+      "file": "apps/api/src/lib/tts/audio.ts",
+      "line": 176,
+      "message": "`summarize` coercion is applied at three layers: Zod schema (optional boolean, no coercion), `runPrep` (`opts.summarize === true`), and the call site (`body.summarize === true`). Pick one approach — either trust Zod with `.coerce` on the schema or coerce once in the handler. Also drop the redundant recheck in `runPrep` since the caller already normalizes it; just use `opts.summarize` directly.",
+      "angle": "backend"
+    },
+    {
+      "file": "apps/api/src/routes/ai.ts",
+      "line": 361,
+      "message": "OpenAPI `detail.description` for the speech endpoint doesn't document the new `summarize` field or `tts-summary` behavior. Add a sentence: 'Set `summarize: true` to condense the input into a single ~30-word spoken confirmation (hands-free voice-mode replies); the prep LLM uses a summarization prompt instead of chunking.' The OpenAPI contract is the agent interface per CLAUDE.md.",
+      "angle": "backend"
+    }
+  ],
+  "discussions": [
+    {
+      "file": "apps/dashboard/src/features/hermes-chat/chat-page.tsx",
+      "message": "The `HermesChatFeed` component duplicates the voice recorder + playback wiring pattern from `chat-conversation.tsx` (both wire `primePlayback` + `setAudioAvailable` + `onResult`). Consider extracting a `useFeedVoiceComposer()` hook so the two call sites differ only in what `onResult` does. The 25-line duplication per composer is noise that will drift over time. Trade-off: adds an abstraction; avoids copy-paste drift.",
+      "angle": "architect"
+    },
+    {
+      "file": "apps/api/src/lib/tts/audio.ts",
+      "message": "`SUMMARY_SYSTEM_PROMPT` duplicates ~60% of `PREP_SYSTEM_PROMPT`'s structure (language detection, title, style, JSON format). If a third mode is added, the shared skeleton would be copied again. Consider extracting a base template function `prepPrompt(variant: 'full' | 'summary'): string` that parameterizes only the chunking/content instructions. Trade-off: adds indirection; avoids copy-paste drift.",
+      "angle": "architect"
+    },
+    {
+      "file": "apps/dashboard/src/lib/store.ts",
+      "message": "`voiceMode` is in the global `argo-ui` Zustand persist store. The `.claude/rules/state.md` rule says Zustand should manage 'only UI state that must survive navigation but is not appropriate for URL params.' Voice mode is a Hermes Chat-scoped preference, not a global UI preference like sidebar collapse. It's here because the feed/thread split demands a shared store and persistence across reloads is intentional. Either update the state rule to reflect the expanded scope, or add a comment explaining the exception.",
+      "angle": "architect"
+    },
+    {
+      "file": "apps/dashboard/src/features/hermes-chat/voice/voice-controls.tsx",
+      "message": "`VoiceControls` takes 7 behavioral props. They logically group into `mode: {voiceMode, onToggleVoiceMode}` and `mic: {isRecording, isTranscribing, audioAvailable, onMicClick, micDisabled}`. Grouping would make call sites clearer about which button each group controls. Trade-off: minor additional typing; clearer intent at call sites.",
+      "angle": "senior-dev"
+    }
+  ],
+  "testGaps": [
+    "apps/dashboard/src/features/hermes-chat/voice/voice-playback.tsx — unit: `readAloud` fetch+playback pipeline with injected `fetchSpeech` mock",
+    "apps/dashboard/src/features/hermes-chat/voice/use-voice-recorder.ts — unit: recording lifecycle with injected STT fetch mock",
+    "apps/dashboard/src/features/hermes-chat/chat-conversation.tsx — integration: auto-speak does NOT fire on historical messages when navigating to an existing thread",
+    "apps/dashboard/src/features/hermes-chat/chat-conversation.tsx — integration: auto-speak defers/replays when tab is backgrounded during stream completion",
+    "apps/api/src/lib/tts/audio.ts — unit: `summarize=true` path guards against missing prep LLM credentials",
+    "apps/api/src/lib/tts/audio.ts — unit: non-Gemini passthrough strips `summarize` from upstream body",
+    "apps/api/src/routes/ai.ts — integration: speech endpoint rejects or handles unknown passthrough fields gracefully"
+  ],
+  "summary": "6 blocking bugs found: three in the frontend (auto-speak fires on historical messages on page load, spoken-ref set before visibility guard permanently drops backgrounded messages, pendingAudioMsRef cleared before async transport), two in the backend (body type assertion drifts from Zod schema, summarize field leaked to IU passthrough), and one shared concern (summarize path bypasses prep LLM credential guard causing runtime crash). 14 improvements cover code quality (ref-sync-via-effect pattern, injectable API fetches, stale Media Session handlers, blob URL lifecycle, redundant coercions, missing OpenAPI docs). 4 discussion items flag architecture tradeoffs (voice composer hook extraction, prompt template consolidation, Zustand store scope, VoiceControls prop grouping). 7 test gaps identified, primarily around voice auto-speak edge cases and API contract boundaries."
+}

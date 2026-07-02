@@ -19,7 +19,8 @@ import {
 } from '@mantine/core'
 import { remarkHermesAccents } from './remark-hermes-accents'
 import { hermesSanitizeSchema } from './sanitize-schema'
-import { parseCard, SmartCard } from './smart-card'
+import { parseCard } from './smart-card-schema'
+import { SmartCard } from './smart-card'
 import { MermaidDiagram } from './mermaid-diagram'
 import { VegaLiteDiagram } from './vega-lite-diagram'
 import classes from './message-markdown.module.css'
@@ -28,7 +29,7 @@ import classes from './message-markdown.module.css'
 // (auto-completes unterminated **bold** / `code` / fences mid-stream so a partial
 // token never flickers as broken syntax) + remark-gfm, with Mantine-native element
 // mappings. On top of base markdown:
-//   • fenced ` ```card ` JSON → Mantine smart cards (infra/todo/note), bad JSON →
+//   • fenced ` ```card ` JSON → Mantine smart cards (infra/todo/note/audio), bad JSON →
 //     graceful code-block fallback;
 //   • fenced ` ```mermaid ` / ` ```vega-lite ` → bundled inline diagram components;
 //   • inline `:badge[…]` / `==highlight==` accents (remark-hermes-accents);
@@ -54,7 +55,8 @@ function blockLang(className: string | undefined): string | undefined {
 
 // Only `children` (+ the few attrs we actually need) are forwarded — the raw
 // intrinsic-element props carry element-specific `ref` types that fight Mantine's.
-const components: Components = {
+// These are stable module-scope components (no per-render closure).
+const baseComponents: Components = {
   h1: ({ children }) => (
     <Title order={3} fw="bold">
       {children}
@@ -104,7 +106,45 @@ const components: Components = {
     </Blockquote>
   ),
   hr: () => <Divider my="xs" />,
-  code: ({ className, children }) => {
+  // The fenced block's <pre> wrapper is redundant — Code block renders its own.
+  pre: ({ children }) => <>{children}</>,
+  table: ({ children }) => (
+    <Table striped withTableBorder withColumnBorders>
+      {children}
+    </Table>
+  ),
+  thead: ({ children }) => <Table.Thead>{children}</Table.Thead>,
+  tbody: ({ children }) => <Table.Tbody>{children}</Table.Tbody>,
+  tr: ({ children }) => <Table.Tr>{children}</Table.Tr>,
+  th: ({ children }) => <Table.Th>{children}</Table.Th>,
+  td: ({ children }) => <Table.Td>{children}</Table.Td>,
+}
+
+// Known mappings + the two custom inline-accent elements emitted by
+// remark-hermes-accents. Custom tag names aren't in react-markdown's element-keyed
+// `Components` type, so the merge is cast at the boundary.
+const MarkComponent = ({ children }: { children?: ReactNode }) => <Mark>{children}</Mark>
+
+const richBaseComponents: Components = {
+  ...baseComponents,
+  'hermes-badge': HermesBadge,
+  'hermes-mark': MarkComponent,
+} as Components
+
+// rehype-harden filters link/image URLs (blocks javascript:/file: always). Links
+// may point anywhere on the homelab, so allow all http(s)/relative; dangerous
+// protocols stay blocked regardless. rehype-sanitize (hardened schema) strips any
+// disallowed tag/attribute first.
+const HARDEN_OPTIONS = {
+  allowedLinkPrefixes: ['*'],
+  allowedImagePrefixes: ['*'],
+  allowDataImages: true,
+}
+
+// Build the code component for a specific messageId/threadId context so SmartCard
+// receives stable routing props for its audio player.
+function buildCodeComponent(messageId?: string, threadId?: string): Components['code'] {
+  return ({ className, children }) => {
     const text = String(children ?? '')
     const lang = blockLang(className)
     // Smart card: parse JSON → Mantine card; invalid/unknown → code-block fallback
@@ -113,7 +153,7 @@ const components: Components = {
     if (lang === 'card') {
       const card = parseCard(text)
       return card ? (
-        <SmartCard card={card} />
+        <SmartCard card={card} messageId={messageId} threadId={threadId} />
       ) : (
         <Code block className={className}>
           {text.replace(/\n$/, '')}
@@ -132,44 +172,24 @@ const components: Components = {
     ) : (
       <Code className={className}>{children}</Code>
     )
-  },
-  // The fenced block's <pre> wrapper is redundant — Code block renders its own.
-  pre: ({ children }) => <>{children}</>,
-  table: ({ children }) => (
-    <Table striped withTableBorder withColumnBorders>
-      {children}
-    </Table>
-  ),
-  thead: ({ children }) => <Table.Thead>{children}</Table.Thead>,
-  tbody: ({ children }) => <Table.Tbody>{children}</Table.Tbody>,
-  tr: ({ children }) => <Table.Tr>{children}</Table.Tr>,
-  th: ({ children }) => <Table.Th>{children}</Table.Th>,
-  td: ({ children }) => <Table.Td>{children}</Table.Td>,
+  }
 }
 
-// Known mappings + the two custom inline-accent elements emitted by
-// remark-hermes-accents. Custom tag names aren't in react-markdown's element-keyed
-// `Components` type, so the merge is cast at the boundary.
-// Hoisted to module scope — all entries are stable (no per-render closure).
-const MarkComponent = ({ children }: { children?: ReactNode }) => <Mark>{children}</Mark>
+function MessageMarkdownImpl({
+  content,
+  messageId,
+  threadId,
+}: {
+  content: string
+  messageId?: string
+  threadId?: string
+}) {
+  // Merge the context-aware code handler over the stable base map.
+  const components: Components = {
+    ...richBaseComponents,
+    code: buildCodeComponent(messageId, threadId),
+  }
 
-const richComponents: Components = {
-  ...components,
-  'hermes-badge': HermesBadge,
-  'hermes-mark': MarkComponent,
-} as Components
-
-// rehype-harden filters link/image URLs (blocks javascript:/file: always). Links
-// may point anywhere on the homelab, so allow all http(s)/relative; dangerous
-// protocols stay blocked regardless. rehype-sanitize (hardened schema) strips any
-// disallowed tag/attribute first.
-const HARDEN_OPTIONS = {
-  allowedLinkPrefixes: ['*'],
-  allowedImagePrefixes: ['*'],
-  allowDataImages: true,
-}
-
-function MessageMarkdownImpl({ content }: { content: string }) {
   return (
     <div className={classes.prose}>
       <Markdown
@@ -178,7 +198,7 @@ function MessageMarkdownImpl({ content }: { content: string }) {
           [rehypeSanitize, hermesSanitizeSchema],
           [harden, HARDEN_OPTIONS],
         ]}
-        components={richComponents}
+        components={components}
       >
         {remend(content)}
       </Markdown>

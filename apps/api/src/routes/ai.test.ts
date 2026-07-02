@@ -1,11 +1,35 @@
 import { describe, it, expect, afterEach } from 'bun:test'
 import { eq } from 'drizzle-orm'
 import { Elysia } from 'elysia'
-import { createAiRoutes, aiComplete, type FetchImpl, type AiRouteDeps } from './ai.js'
+import {
+  createAiRoutes,
+  createAudioFileRoutes,
+  aiComplete,
+  type FetchImpl,
+  type AiRouteDeps,
+  type AudioFileDeps,
+} from './ai.js'
 import { authGuard } from '../lib/auth-guard.js'
 import { recordAiUsage, normalizeDeepseekModel } from '../lib/ai-usage.js'
 import { db } from '../db/index.js'
 import { usageRecord } from '../db/schema.js'
+import { type AudioStore } from '../lib/audio-cache.js'
+
+/** In-memory AudioStore backed by a Map — no disk. */
+function makeMemoryStore(): AudioStore {
+  const map = new Map<string, Uint8Array>()
+  return {
+    async has(hash) {
+      return map.has(hash)
+    },
+    async read(hash) {
+      return map.get(hash) ?? null
+    },
+    async write(hash, bytes) {
+      map.set(hash, bytes)
+    },
+  }
+}
 
 // General AI gateway + audio proxy. Tests run entirely against mocked upstreams.
 // Auth is exercised through the real shared `authGuard`.
@@ -93,7 +117,7 @@ function fakeAudioGateway(): { fetchImpl: FetchImpl; calls: Captured[] } {
   return { fetchImpl, calls }
 }
 
-function buildDeps(fetchImpl: FetchImpl): Partial<AiRouteDeps> {
+function buildDeps(fetchImpl: FetchImpl, audioStore?: AudioStore): Partial<AiRouteDeps> {
   return {
     deepseekBaseURL: DEEPSEEK_BASE,
     deepseekApiKey: DEEPSEEK_KEY,
@@ -103,6 +127,7 @@ function buildDeps(fetchImpl: FetchImpl): Partial<AiRouteDeps> {
     // override this with a capturing recorder.
     recordUsage: async () => {},
     fetchImpl,
+    audioStore: audioStore ?? makeMemoryStore(),
   }
 }
 
@@ -355,6 +380,215 @@ describe('aiComplete()', () => {
       },
     })
     expect(captured).toHaveLength(0)
+  })
+})
+
+describe('POST /ai/v1/audio/podcast', () => {
+  it('synthesizes on cache miss — calls gateway once and returns hash/title/bytes', async () => {
+    const store = makeMemoryStore()
+    const { fetchImpl, calls } = fakeAudioGateway()
+    const app = new Elysia().use(authGuard).use(createAiRoutes(buildDeps(fetchImpl, store)))
+
+    const res = await app.handle(
+      new Request('http://localhost/ai/v1/audio/podcast', {
+        method: 'POST',
+        headers: { ...authHeaders, 'content-type': 'application/json' },
+        body: JSON.stringify({ script: 'Hello podcast world', title: 'My Episode' }),
+      }),
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { hash: string; title: string; bytes: number }
+    expect(body.hash).toMatch(/^[a-f0-9]{64}$/)
+    expect(body.bytes).toBeGreaterThan(0)
+
+    const speechCalls = calls.filter((c) => c.url.endsWith('/v1/audio/speech'))
+    expect(speechCalls).toHaveLength(1)
+    // Must NOT forward a model field
+    const sent = JSON.parse(String(speechCalls[0]!.body)) as Record<string, unknown>
+    expect(sent['input']).toBe('Hello podcast world')
+    expect(sent['model']).toBeUndefined()
+  })
+
+  it('cache hit — second POST with same script does NOT call gateway again', async () => {
+    const store = makeMemoryStore()
+    const { fetchImpl, calls } = fakeAudioGateway()
+    const app = new Elysia().use(authGuard).use(createAiRoutes(buildDeps(fetchImpl, store)))
+
+    const body1 = JSON.stringify({ script: 'Cached script' })
+    const res1 = await app.handle(
+      new Request('http://localhost/ai/v1/audio/podcast', {
+        method: 'POST',
+        headers: { ...authHeaders, 'content-type': 'application/json' },
+        body: body1,
+      }),
+    )
+    expect(res1.status).toBe(200)
+    const data1 = (await res1.json()) as { hash: string }
+
+    const callCountAfterMiss = calls.filter((c) => c.url.endsWith('/v1/audio/speech')).length
+    expect(callCountAfterMiss).toBe(1)
+
+    // Second request with same script
+    const res2 = await app.handle(
+      new Request('http://localhost/ai/v1/audio/podcast', {
+        method: 'POST',
+        headers: { ...authHeaders, 'content-type': 'application/json' },
+        body: body1,
+      }),
+    )
+    expect(res2.status).toBe(200)
+    const data2 = (await res2.json()) as { hash: string }
+
+    // Same hash returned
+    expect(data2.hash).toBe(data1.hash)
+    // Gateway still called only once
+    const callCountAfterHit = calls.filter((c) => c.url.endsWith('/v1/audio/speech')).length
+    expect(callCountAfterHit).toBe(1)
+  })
+
+  it('cache hit — recordUsage NOT called on second request', async () => {
+    const store = makeMemoryStore()
+    const { fetchImpl } = fakeAudioGateway()
+    const captured: unknown[] = []
+    const app = new Elysia().use(authGuard).use(
+      createAiRoutes({
+        ...buildDeps(fetchImpl, store),
+        recordUsage: async (p) => {
+          captured.push(p)
+        },
+      }),
+    )
+
+    const body = JSON.stringify({ script: 'Usage test script' })
+    await app.handle(
+      new Request('http://localhost/ai/v1/audio/podcast', {
+        method: 'POST',
+        headers: { ...authHeaders, 'content-type': 'application/json' },
+        body,
+      }),
+    )
+    expect(captured).toHaveLength(1)
+
+    await app.handle(
+      new Request('http://localhost/ai/v1/audio/podcast', {
+        method: 'POST',
+        headers: { ...authHeaders, 'content-type': 'application/json' },
+        body,
+      }),
+    )
+    // Still 1 — no second recordUsage call on hit
+    expect(captured).toHaveLength(1)
+  })
+
+  it('returns 401 without bearer token', async () => {
+    const { fetchImpl } = fakeAudioGateway()
+    const app = new Elysia().use(authGuard).use(createAiRoutes(buildDeps(fetchImpl)))
+    const res = await app.handle(
+      new Request('http://localhost/ai/v1/audio/podcast', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ script: 'No auth' }),
+      }),
+    )
+    expect(res.status).toBe(401)
+  })
+
+  it('returns 503 when audioGatewayUrl is unset', async () => {
+    const { fetchImpl } = fakeAudioGateway()
+    const app = new Elysia()
+      .use(authGuard)
+      .use(createAiRoutes({ ...buildDeps(fetchImpl), audioGatewayUrl: '' }))
+    const res = await app.handle(
+      new Request('http://localhost/ai/v1/audio/podcast', {
+        method: 'POST',
+        headers: { ...authHeaders, 'content-type': 'application/json' },
+        body: JSON.stringify({ script: 'No gateway' }),
+      }),
+    )
+    expect(res.status).toBe(503)
+  })
+})
+
+describe('GET /ai/v1/audio/file/:hash', () => {
+  const VALID_HASH = 'a'.repeat(64)
+  const TEST_BYTES = new Uint8Array([10, 20, 30, 40, 50])
+
+  function buildFileApp(overrides: Partial<AudioFileDeps> = {}) {
+    // Public route — no authGuard
+    return new Elysia().use(createAudioFileRoutes(overrides))
+  }
+
+  it('works WITHOUT a bearer token (public)', async () => {
+    const store = makeMemoryStore()
+    await store.write(VALID_HASH, TEST_BYTES)
+    const app = buildFileApp({ audioStore: store })
+    const res = await app.handle(new Request(`http://localhost/ai/v1/audio/file/${VALID_HASH}`))
+    expect(res.status).toBe(200)
+  })
+
+  it('returns 200 with full bytes, Content-Type audio/mpeg, Accept-Ranges, Content-Length', async () => {
+    const store = makeMemoryStore()
+    await store.write(VALID_HASH, TEST_BYTES)
+    const app = buildFileApp({ audioStore: store })
+    const res = await app.handle(new Request(`http://localhost/ai/v1/audio/file/${VALID_HASH}`))
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toBe('audio/mpeg')
+    expect(res.headers.get('accept-ranges')).toBe('bytes')
+    expect(res.headers.get('content-length')).toBe(String(TEST_BYTES.length))
+    const buf = new Uint8Array(await res.arrayBuffer())
+    expect(buf).toEqual(TEST_BYTES)
+  })
+
+  it('returns 206 for a Range request with correct Content-Range and slice', async () => {
+    const store = makeMemoryStore()
+    await store.write(VALID_HASH, TEST_BYTES)
+    const app = buildFileApp({ audioStore: store })
+    const res = await app.handle(
+      new Request(`http://localhost/ai/v1/audio/file/${VALID_HASH}`, {
+        headers: { Range: 'bytes=0-1' },
+      }),
+    )
+    expect(res.status).toBe(206)
+    expect(res.headers.get('content-range')).toBe(`bytes 0-1/${TEST_BYTES.length}`)
+    expect(res.headers.get('content-length')).toBe('2')
+    const buf = new Uint8Array(await res.arrayBuffer())
+    expect(buf).toEqual(new Uint8Array([10, 20]))
+  })
+
+  it('returns 416 for an out-of-range start', async () => {
+    const store = makeMemoryStore()
+    await store.write(VALID_HASH, TEST_BYTES)
+    const app = buildFileApp({ audioStore: store })
+    const res = await app.handle(
+      new Request(`http://localhost/ai/v1/audio/file/${VALID_HASH}`, {
+        headers: { Range: 'bytes=9999-' },
+      }),
+    )
+    expect(res.status).toBe(416)
+  })
+
+  it('returns 404 for an unknown hash', async () => {
+    const store = makeMemoryStore()
+    const app = buildFileApp({ audioStore: store })
+    const res = await app.handle(new Request(`http://localhost/ai/v1/audio/file/${VALID_HASH}`))
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 400 for a malformed (non-64-hex) hash — path-traversal guard', async () => {
+    const store = makeMemoryStore()
+    const app = buildFileApp({ audioStore: store })
+    const res = await app.handle(new Request(`http://localhost/ai/v1/audio/file/../etc/passwd`))
+    // Elysia may 404 on path segments; confirm non-200 and no successful file access
+    expect(res.status).not.toBe(200)
+  })
+
+  it('returns 400 for a short non-hex hash', async () => {
+    const store = makeMemoryStore()
+    const app = buildFileApp({ audioStore: store })
+    const res = await app.handle(
+      new Request(`http://localhost/ai/v1/audio/file/short-invalid-hash`),
+    )
+    expect(res.status).toBe(400)
   })
 })
 

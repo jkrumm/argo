@@ -30,6 +30,7 @@ import {
   IconPhoto,
   IconPlayerStopFilled,
   IconSend,
+  IconSettings,
   IconTextSize,
 } from '@tabler/icons-react'
 import { hermesQueries, type HermesThread } from '../../lib/queries/hermes'
@@ -118,7 +119,7 @@ function MessageRow({
               w="100%"
               bg="var(--mantine-color-default-hover)"
             >
-              <MessageMarkdown content={text} />
+              <MessageMarkdown content={text} messageId={message.id} threadId={threadId} />
             </Paper>
           )}
         </Stack>
@@ -143,7 +144,7 @@ function MessageRow({
           <ReadAloudButton messageId={message.id} text={text} threadId={threadId} />
         )}
       </Group>
-      <MessageMarkdown content={text} />
+      <MessageMarkdown content={text} messageId={message.id} threadId={threadId} />
     </Box>
   )
 }
@@ -185,6 +186,8 @@ export function ChatConversation({
   // feed → thread hop. Recording is owned by useVoiceRecorder below.
   const voiceMode = useUiStore((s) => s.voiceMode)
   const toggleVoiceMode = useUiStore((s) => s.toggleVoiceMode)
+  const showToolProgress = useUiStore((s) => s.showToolProgress)
+  const toggleShowToolProgress = useUiStore((s) => s.toggleShowToolProgress)
   const { audioAvailable, setAudioAvailable, primePlayback, readAloud } = useVoicePlayback()
 
   // Carries the recorded clip duration into the next sendMessage so the user turn is
@@ -449,9 +452,30 @@ export function ChatConversation({
               <IconArrowLeft size={18} />
             </ActionIcon>
           )}
-          <Text fw="semibold" size="sm" lineClamp={1}>
+          <Text fw="semibold" size="sm" lineClamp={1} flex={1}>
             {thread.title ?? 'New chat'}
           </Text>
+          <Menu shadow="md" position="bottom-end" withinPortal>
+            <Menu.Target>
+              <Tooltip label="Chat settings" withArrow>
+                <ActionIcon variant="subtle" color="gray" size={28} aria-label="Chat settings">
+                  <IconSettings size={15} />
+                </ActionIcon>
+              </Tooltip>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Item
+                onClick={toggleShowToolProgress}
+                rightSection={
+                  <Text size="xs" c="dimmed">
+                    {showToolProgress ? 'on' : 'off'}
+                  </Text>
+                }
+              >
+                Show tool activity
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
         </Group>
       )}
 
@@ -470,32 +494,22 @@ export function ChatConversation({
               threadId={thread.id}
             />
           ))}
-          {isStreaming && activeTools.length > 0 && (
-            <Group gap="xs">
-              {activeTools.map((tool) => (
-                <Badge
-                  key={tool.toolCallId}
-                  size="sm"
-                  variant="light"
-                  color="gray"
-                  radius="sm"
-                  leftSection={
-                    tool.emoji ? (
-                      <span aria-hidden>{tool.emoji}</span>
-                    ) : (
-                      <Loader size={10} color="gray" />
-                    )
-                  }
-                >
-                  {tool.label}
-                </Badge>
-              ))}
-            </Group>
-          )}
-          {awaitingReply && activeTools.length === 0 && (
-            <Group gap="xs" c="dimmed">
-              <Loader size="xs" />
-              <Text size="sm">Hermes is thinking…</Text>
+          {isStreaming && (
+            <Group gap={6}>
+              <Badge
+                size="sm"
+                variant="light"
+                color="gray"
+                radius="sm"
+                leftSection={<Loader size={10} color="gray" />}
+              >
+                {showToolProgress && activeTools.length > 0
+                  ? activeTools
+                      .map((t) => t.emoji ?? '')
+                      .filter(Boolean)
+                      .join(' ') || 'working…'
+                  : 'working…'}
+              </Badge>
             </Group>
           )}
           {error && (
