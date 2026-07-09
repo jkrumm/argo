@@ -83,7 +83,11 @@ function metricExpr(metric: string) {
     case 'cost':
       return sql`COALESCE(SUM(cost_usd), 0)`
     case 'tokens':
-      return sql`COALESCE(SUM(input_tokens::bigint + output_tokens::bigint + cache_read_tokens::bigint + cache_write_tokens::bigint + reasoning_tokens::bigint), 0)`
+      // cache_read_tokens excluded: Anthropic reports it as the full accumulated
+      // prior context re-read from cache on *every* turn, not a delta, so summing
+      // it across rows re-counts the same underlying tokens repeatedly. Only
+      // input/output/cache_write/reasoning are genuinely incremental per row.
+      return sql`COALESCE(SUM(input_tokens::bigint + output_tokens::bigint + cache_write_tokens::bigint + reasoning_tokens::bigint), 0)`
     case 'errors':
       return sql`COALESCE(SUM(CASE WHEN outcome = 'error' THEN 1 ELSE 0 END), 0)`
     case 'latency_p95':
@@ -100,7 +104,11 @@ function metricExprBreakdown(metric: string) {
     case 'cost':
       return sql`COALESCE(SUM(cost_usd), 0)`
     case 'tokens':
-      return sql`COALESCE(SUM(input_tokens::bigint + output_tokens::bigint + cache_read_tokens::bigint + cache_write_tokens::bigint + reasoning_tokens::bigint), 0)`
+      // cache_read_tokens excluded: Anthropic reports it as the full accumulated
+      // prior context re-read from cache on *every* turn, not a delta, so summing
+      // it across rows re-counts the same underlying tokens repeatedly. Only
+      // input/output/cache_write/reasoning are genuinely incremental per row.
+      return sql`COALESCE(SUM(input_tokens::bigint + output_tokens::bigint + cache_write_tokens::bigint + reasoning_tokens::bigint), 0)`
     case 'errors':
       return sql`COALESCE(SUM(CASE WHEN outcome = 'error' THEN 1 ELSE 0 END), 0)`
     default:
@@ -254,7 +262,9 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
           COALESCE(SUM(cost_usd) FILTER (WHERE ts >= ${f7}), 0)::float AS cost_usd_7d,
           COALESCE(SUM(cost_usd) FILTER (WHERE billing = 'max' AND ts >= ${f30}), 0)::float AS cost_max_billing_30d,
           COALESCE(SUM(cost_usd) FILTER (WHERE billing = 'iu' AND ts >= ${f30}), 0)::float AS cost_iu_billing_30d,
-          COALESCE(SUM(input_tokens::bigint + output_tokens::bigint + cache_read_tokens::bigint + cache_write_tokens::bigint + reasoning_tokens::bigint) FILTER (WHERE ts >= ${f30}), 0)::bigint AS tokens_30d,
+          -- cache_read_tokens excluded: it's the full re-read prior context on every
+          -- turn, not a delta, so summing it across rows re-counts the same tokens.
+          COALESCE(SUM(input_tokens::bigint + output_tokens::bigint + cache_write_tokens::bigint + reasoning_tokens::bigint) FILTER (WHERE ts >= ${f30}), 0)::bigint AS tokens_30d,
           COALESCE(
             COUNT(*) FILTER (WHERE outcome = 'error' AND ts >= ${f30})::float
             / NULLIF(COUNT(*) FILTER (WHERE ts >= ${f30}), 0),

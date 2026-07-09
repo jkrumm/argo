@@ -57,8 +57,8 @@ export default function TokensOverTime({
   return (
     <ChartCard
       title="Tokens over time"
-      subtitle="Sum of all token columns, bucketed"
-      tooltip="Total token volume (input + output + cache_read + cache_write + reasoning) over time. Group by sub-tool to see which sideclaw workflows burn tokens."
+      subtitle="Sum of incremental token columns, bucketed"
+      tooltip="Total token volume (input + output + cache_write + reasoning) over time. cache_read is excluded — it's the full prior context re-read from cache on every turn, not a delta, so summing it across rows would inflate the total. Group by sub-tool to see which sideclaw workflows burn tokens."
       extra={headerExtra}
     >
       <div ref={ref} style={{ height: 280, width: '100%' }}>
