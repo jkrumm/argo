@@ -145,7 +145,7 @@ describe('GET /usage/timeseries', () => {
     expect(body.groupKeys).toEqual(['foo'])
   })
 
-  it('metric=tokens sums all 5 token columns', async () => {
+  it('metric=tokens sums the counted token columns, excluding cache_read', async () => {
     const ts = new Date().toISOString()
     await db.insert(usageRecord).values({
       source: 'test',
@@ -171,7 +171,9 @@ describe('GET /usage/timeseries', () => {
     const body = (await res.json()) as {
       buckets: Array<{ bucket: string; groups: Record<string, number | null> }>
     }
-    const today = body.buckets.find((b) => b.groups['value'] === 15)
+    // input(1) + output(2) + cache_write(4) + reasoning(5) = 12; cache_read(3) is
+    // excluded (Anthropic reports it as an accumulated total, so summing re-counts it).
+    const today = body.buckets.find((b) => b.groups['value'] === 12)
     expect(today).toBeDefined()
   })
 
