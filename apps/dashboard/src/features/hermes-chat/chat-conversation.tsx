@@ -37,7 +37,7 @@ import { hermesQueries, type HermesThread } from '../../lib/queries/hermes'
 import { useUiStore } from '../../lib/store'
 import { HERMES_CHAT_FEATURES } from './features'
 import { MessageMarkdown } from './message-markdown'
-import { createHermesTransport } from './transport'
+import { createHermesTransport, stopHermesStream } from './transport'
 import type { Attachment, HermesUIMessage, ToolProgress } from './types'
 import { AttachmentDisplay } from './attachment-display'
 import { useVoiceRecorder } from './voice/use-voice-recorder'
@@ -223,6 +223,9 @@ export function ChatConversation({
     id: thread.id,
     messages: initialMessages,
     transport,
+    // Recover an in-flight turn after a dropped connection or reload: fires a GET
+    // to /hermes/chat/:id/stream on mount (204 when nothing is streaming).
+    resume: true,
     onData: (dataPart) => {
       if (dataPart.type !== 'data-toolProgress') return
       const tp = dataPart.data
@@ -670,7 +673,12 @@ export function ChatConversation({
                 size={36}
                 variant="light"
                 color="gray"
-                onClick={() => void stop()}
+                onClick={() => {
+                  // With resume on, local stop() is only a disconnect — abort the
+                  // generation server-side first so it truly stops and persists.
+                  void stopHermesStream(thread.id)
+                  void stop()
+                }}
                 aria-label="Stop generating"
               >
                 <IconPlayerStopFilled size={18} />

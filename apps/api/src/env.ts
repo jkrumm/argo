@@ -80,6 +80,15 @@ export const Env = z.object({
   // The gateway is the single source of truth for all audio processing; Argo proxies.
   // Defaults to the in-cluster Docker service name; override for local dev if needed.
   AUDIO_GATEWAY_URL: z.string().default('http://audio-gateway:7714'),
+
+  // Valkey/Redis URL for durable/resumable Hermes chat streaming (resumable-stream
+  // pub/sub + sentinel key). Empty DISABLES durability — POST /hermes/chat then
+  // falls back to a plain non-resumable stream, and a dropped client connection
+  // loses the in-flight turn (the v1 behavior). Dev: redis://localhost:6379
+  // (vps/compose.dev.yml); prod: redis://redis:6379 (Valkey container named `redis`
+  // on valkey-net). Durability survives client disconnect/reconnect, NOT a server
+  // restart (chunks buffer in-process) — acceptable for personal chat + rolling deploys.
+  REDIS_URL: z.string().default(''),
 })
 
 export const env = Env.parse(process.env)

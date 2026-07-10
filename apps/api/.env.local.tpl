@@ -84,3 +84,8 @@ DEEPSEEK_MODEL=DeepSeek-V4-Flash
 # the gateway's own `bun run dev` on the Mac (:7714); in-cluster prod uses the
 # Docker service name (env.ts default / the VPS compose).
 AUDIO_GATEWAY_URL=http://localhost:7714
+#
+# Valkey/Redis for durable/resumable Hermes chat streaming. Points at the shared
+# dev Valkey from ~/SourceRoot/vps/compose.dev.yml (exposed on :6379). Empty
+# disables durability (plain non-resumable stream). Prod sets redis://redis:6379.
+REDIS_URL=redis://localhost:6379

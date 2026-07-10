@@ -32,7 +32,9 @@
     "croner": "^9",
     "drizzle-orm": "^0.38.0",
     "elysia": "^1.4.26",
+    "ioredis": "5.11.1",
     "postgres": "^3",
+    "resumable-stream": "2.2.12",
     "socket.io-client": "^4.8.3",
     "zod": "^4"
   },

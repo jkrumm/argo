@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterEach } from 'bun:test'
 import { Elysia } from 'elysia'
 import { eq } from 'drizzle-orm'
 import { createHermesRoutes, type FetchImpl, type HermesRouteDeps } from './hermes.js'
+import type { HermesStreaming } from '../lib/resumable.js'
 import { client, db } from '../db/index.js'
 import { hermesMessage, hermesThread } from '../db/schema.js'
 
@@ -15,6 +16,7 @@ beforeAll(async () => {
   for (const file of [
     '../../drizzle/0009_friendly_mandarin.sql',
     '../../drizzle/0010_far_george_stacy.sql',
+    '../../drizzle/0014_fixed_hercules.sql',
   ]) {
     const sql = await Bun.file(new URL(file, import.meta.url)).text()
     for (const stmt of sql.split('--> statement-breakpoint')) {
@@ -91,6 +93,10 @@ function buildApp(fetchImpl: FetchImpl, extra: Partial<HermesRouteDeps> = {}) {
       generateSummary: async () => ({ summary: '', type: 'general' }),
       // No-op so streaming tests don't write rows into argo.usage_record.
       recordUsage: async () => {},
+      // Deterministic default: the v1 non-durable path (a client disconnect
+      // interrupts). Durable-path tests inject a fake via `extra.streaming`. This
+      // pins behavior regardless of whether REDIS_URL leaks into the test env.
+      streaming: null,
       ...extra,
     }),
   )
@@ -835,5 +841,329 @@ describe('GET /hermes/health', () => {
     const body = (await res.json()) as { status: string; upstream: { reachable: boolean } }
     expect(body.status).toBe('degraded')
     expect(body.upstream.reachable).toBe(false)
+  })
+})
+
+// ── Durable streaming (resumable-stream + abort registry) ────────────────────
+//
+// These exercise OUR wiring around the durable path with an in-memory fake
+// standing in for the Valkey-backed resumable-stream context: the active-stream
+// pointer lifecycle, decoupled generation surviving a client disconnect, the
+// resume endpoint, and the explicit-stop → interrupted path. The real
+// resumable-stream/ioredis library is third-party (verified separately); here we
+// test the boundary our code owns.
+
+interface FakeEntry {
+  buffer: string
+  done: boolean
+}
+
+/** In-memory stand-in for `HermesStreaming`: buffers the SSE the producer emits
+ *  (draining it drives generation with no client attached) and replays it on resume. */
+function fakeStreaming(): HermesStreaming & { streams: Map<string, FakeEntry> } {
+  const streams = new Map<string, FakeEntry>()
+  const registry = new Map<string, AbortController>()
+  return {
+    streams,
+    async createNewResumableStream(streamId, make) {
+      const entry: FakeEntry = { buffer: '', done: false }
+      streams.set(streamId, entry)
+      const reader = make().getReader()
+      // Background drain — drives generation (and thus persistence) to completion
+      // even when no client is reading the HTTP response (the disconnect case).
+      void (async () => {
+        try {
+          for (;;) {
+            const { done, value } = await reader.read()
+            if (done) break
+            entry.buffer += value
+          }
+        } catch {
+          // stream torn down by an abort — stop buffering
+        } finally {
+          entry.done = true
+        }
+      })()
+    },
+    async resumeExistingStream(streamId) {
+      const entry = streams.get(streamId)
+      if (!entry) return null
+      const { buffer } = entry
+      return new ReadableStream<string>({
+        start(controller) {
+          if (buffer) controller.enqueue(buffer)
+          controller.close()
+        },
+      })
+    },
+    register(streamId, controller) {
+      registry.set(streamId, controller)
+    },
+    abort(streamId) {
+      const controller = registry.get(streamId)
+      if (!controller) return false
+      controller.abort()
+      return true
+    },
+    unregister(streamId) {
+      registry.delete(streamId)
+    },
+    async close() {
+      streams.clear()
+      registry.clear()
+    },
+  }
+}
+
+/** A Hermes stream that emits role + a partial delta then trickles forever until
+ *  aborted — keeps a turn "live" so active_stream_id stays set for the stop test. */
+function infiniteHermes(): FetchImpl {
+  const encoder = new TextEncoder()
+  const delta = (content: string) =>
+    encoder.encode(
+      `data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{"content":${JSON.stringify(content)}},"finish_reason":null}]}\n\n`,
+    )
+  return (input) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    if (url.endsWith('/health')) return Promise.resolve(new Response('ok', { status: 200 }))
+    let timer: ReturnType<typeof setInterval> | undefined
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n',
+          ),
+        )
+        controller.enqueue(delta('Partial answer'))
+        timer = setInterval(() => {
+          try {
+            controller.enqueue(delta('.'))
+          } catch {
+            // controller closed once the abort tore the stream down
+          }
+        }, 10)
+      },
+      cancel() {
+        if (timer) clearInterval(timer)
+      },
+    })
+    return Promise.resolve(
+      new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } }),
+    )
+  }
+}
+
+describe('durable streaming', () => {
+  it('sets active_stream_id for a turn and clears it on finish (persists complete)', async () => {
+    const streaming = fakeStreaming()
+    const app = buildApp(fakeHermes().fetchImpl, { streaming })
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_durable_finish',
+        sessionId: 'ses_durable_finish',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+      }),
+    )
+    await res.text()
+
+    const rows = await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.length >= 2 ? r : undefined
+    })
+    expect(rows?.find((r) => r.role === 'assistant')?.status).toBe('complete')
+    // A resumable stream was registered, and the thread pointer was cleared on finish.
+    expect(streaming.streams.size).toBe(1)
+    const thread = await db.query.hermesThread.findFirst({
+      where: eq(hermesThread.id, 'thr_durable_finish'),
+    })
+    expect(thread?.active_stream_id).toBeNull()
+  })
+
+  it('keeps generating after a client disconnect and still persists the completed turn', async () => {
+    const streaming = fakeStreaming()
+    const app = buildApp(fakeHermes().fetchImpl, { streaming })
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_disconnect',
+        sessionId: 'ses_disconnect',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+      }),
+    )
+    // Drop the client connection immediately — generation must NOT be tied to it.
+    await res.body?.cancel()
+
+    const assistant = await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.find((m) => m.role === 'assistant')
+    })
+    // The decoupled producer finished the turn regardless of the dropped client.
+    expect(assistant?.status).toBe('complete')
+    const text = (assistant?.parts ?? [])
+      .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+      .map((p) => p.text)
+      .join('')
+    expect(text).toBe('Hello world')
+  })
+
+  it('resumes buffered output via GET /chat/:id/stream, and 204s when nothing is active', async () => {
+    const streaming = fakeStreaming()
+    const app = buildApp(fakeHermes().fetchImpl, { streaming })
+
+    await db.insert(hermesThread).values({
+      id: 'thr_resume',
+      session_id: 'ses_resume',
+      session_key: 'k',
+    })
+    // No active stream → 204.
+    const none = await app.handle(new Request('http://localhost/hermes/chat/thr_resume/stream'))
+    expect(none.status).toBe(204)
+
+    // Seed an in-flight stream and point the thread at it → resume replays the buffer.
+    streaming.streams.set('strm_seed', { buffer: 'data: {"type":"text-delta"}\n\n', done: false })
+    await db
+      .update(hermesThread)
+      .set({ active_stream_id: 'strm_seed' })
+      .where(eq(hermesThread.id, 'thr_resume'))
+    const resumed = await app.handle(new Request('http://localhost/hermes/chat/thr_resume/stream'))
+    expect(resumed.status).toBe(200)
+    // Carries the AI SDK UI-message-stream marker so the client parses it correctly.
+    expect(resumed.headers.get('x-vercel-ai-ui-message-stream')).toBe('v1')
+    expect(await resumed.text()).toContain('text-delta')
+  })
+
+  it('204s the resume endpoint when durability is disabled', async () => {
+    const app = buildApp(fakeHermes().fetchImpl) // streaming: null
+    await db.insert(hermesThread).values({
+      id: 'thr_nodur',
+      session_id: 'ses_nodur',
+      session_key: 'k',
+      active_stream_id: 'strm_orphan',
+    })
+    const res = await app.handle(new Request('http://localhost/hermes/chat/thr_nodur/stream'))
+    expect(res.status).toBe(204)
+  })
+
+  it('POST /chat/:id/stop aborts an in-flight turn → interrupted persist + cleared pointer', async () => {
+    const streaming = fakeStreaming()
+    const app = buildApp(infiniteHermes(), { streaming })
+
+    // Kick off a long-running turn and drop the client — the fake's background
+    // drain keeps generation alive until we explicitly stop it.
+    void app
+      .handle(
+        chatRequest({
+          threadId: 'thr_stop',
+          sessionId: 'ses_stop',
+          messages: [
+            { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'tell me a story' }] },
+          ],
+        }),
+      )
+      .then((r) => r.body?.cancel())
+      .catch(() => undefined)
+
+    const active = await waitFor(async () => {
+      const t = await db.query.hermesThread.findFirst({ where: eq(hermesThread.id, 'thr_stop') })
+      return t?.active_stream_id ?? undefined
+    })
+    expect(active).toBeDefined()
+
+    const stopRes = await app.handle(
+      new Request('http://localhost/hermes/chat/thr_stop/stop', { method: 'POST' }),
+    )
+    expect(stopRes.status).toBe(200)
+    expect(await stopRes.json()).toEqual({ ok: true, stopped: true })
+
+    // The abort drives onFinish → interrupted persist + pointer cleared.
+    const assistant = await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.find((m) => m.role === 'assistant')
+    })
+    expect(assistant?.status).toBe('interrupted')
+    const thread = await db.query.hermesThread.findFirst({
+      where: eq(hermesThread.id, 'thr_stop'),
+    })
+    expect(thread?.active_stream_id).toBeNull()
+  })
+
+  it('404s a stop to a missing thread; no-op success when nothing is in-flight', async () => {
+    const streaming = fakeStreaming()
+    const app = buildApp(fakeHermes().fetchImpl, { streaming })
+    const missing = await app.handle(
+      new Request('http://localhost/hermes/chat/thr_nope/stop', { method: 'POST' }),
+    )
+    expect(missing.status).toBe(404)
+
+    await db.insert(hermesThread).values({
+      id: 'thr_idle',
+      session_id: 'ses_idle',
+      session_key: 'k',
+    })
+    const idle = await app.handle(
+      new Request('http://localhost/hermes/chat/thr_idle/stop', { method: 'POST' }),
+    )
+    expect(idle.status).toBe(200)
+    expect(await idle.json()).toMatchObject({ stopped: false })
+  })
+
+  // A pointer left dangling by a crashed/restarted producer (its onFinish cleanup
+  // never ran). resume must NOT 500 on it — it reaps the pointer and 204s.
+
+  it('reaps a stale active_stream_id and 204s when resume finds nothing (gone/finished)', async () => {
+    const streaming = fakeStreaming() // no entry for the seeded id → resume returns null
+    const app = buildApp(fakeHermes().fetchImpl, { streaming })
+    await db.insert(hermesThread).values({
+      id: 'thr_stale_gone',
+      session_id: 'ses_stale_gone',
+      session_key: 'k',
+      active_stream_id: 'strm_orphan',
+    })
+    const res = await app.handle(new Request('http://localhost/hermes/chat/thr_stale_gone/stream'))
+    expect(res.status).toBe(204)
+    const thread = await db.query.hermesThread.findFirst({
+      where: eq(hermesThread.id, 'thr_stale_gone'),
+    })
+    expect(thread?.active_stream_id).toBeNull()
+  })
+
+  it('reaps a stale active_stream_id and 204s when resume rejects (crashed-producer timeout)', async () => {
+    // Simulate the ~1s ack timeout the real library throws when no producer answers.
+    const streaming: HermesStreaming = {
+      ...fakeStreaming(),
+      resumeExistingStream: () => Promise.reject(new Error('Timeout waiting for ack')),
+    }
+    const app = buildApp(fakeHermes().fetchImpl, { streaming })
+    await db.insert(hermesThread).values({
+      id: 'thr_stale_throw',
+      session_id: 'ses_stale_throw',
+      session_key: 'k',
+      active_stream_id: 'strm_orphan',
+    })
+    const res = await app.handle(new Request('http://localhost/hermes/chat/thr_stale_throw/stream'))
+    expect(res.status).toBe(204)
+    const thread = await db.query.hermesThread.findFirst({
+      where: eq(hermesThread.id, 'thr_stale_throw'),
+    })
+    expect(thread?.active_stream_id).toBeNull()
+  })
+
+  it('stop reaps a stale pointer that cannot be aborted (registry empty after restart)', async () => {
+    const streaming = fakeStreaming() // nothing registered → abort() returns false
+    const app = buildApp(fakeHermes().fetchImpl, { streaming })
+    await db.insert(hermesThread).values({
+      id: 'thr_stale_stop',
+      session_id: 'ses_stale_stop',
+      session_key: 'k',
+      active_stream_id: 'strm_orphan',
+    })
+    const res = await app.handle(
+      new Request('http://localhost/hermes/chat/thr_stale_stop/stop', { method: 'POST' }),
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ stopped: false })
+    const thread = await db.query.hermesThread.findFirst({
+      where: eq(hermesThread.id, 'thr_stale_stop'),
+    })
+    expect(thread?.active_stream_id).toBeNull()
   })
 })

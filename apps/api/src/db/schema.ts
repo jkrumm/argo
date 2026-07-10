@@ -399,6 +399,11 @@ export const hermesThread = argoSchema.table('hermes_thread', {
   status: text('status').notNull().default('active'),
   pinned: integer('pinned').notNull().default(0), // 0 | 1
   archived_at: timestamp('archived_at', { withTimezone: true, mode: 'string' }),
+  // Active resumable-stream id while an assistant turn is generating (durable
+  // streaming). Non-null during a live/resumable stream; cleared on finish or
+  // explicit stop. Drives GET /hermes/chat/:id/stream resume. Internal state —
+  // deliberately absent from the public ThreadSchema response.
+  active_stream_id: text('active_stream_id'),
   created_at: timestamp('created_at', { withTimezone: true, mode: 'string' })
     .notNull()
     .defaultNow(),

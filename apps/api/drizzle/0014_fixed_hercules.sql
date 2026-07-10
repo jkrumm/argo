@@ -1,0 +1,1 @@
+ALTER TABLE "argo"."hermes_thread" ADD COLUMN IF NOT EXISTS "active_stream_id" text;

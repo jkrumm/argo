@@ -7,6 +7,7 @@ import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   streamText,
+  UI_MESSAGE_STREAM_HEADERS,
   type UIMessage,
 } from 'ai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
@@ -22,6 +23,7 @@ import {
 } from '../db/schema.js'
 import { tracedFetch } from '../lib/traced-fetch.js'
 import { filterToolProgress, type ToolProgressData } from '../lib/hermes-sse.js'
+import { getHermesStreaming, type HermesStreaming } from '../lib/resumable.js'
 import { aiComplete } from './ai.js'
 import { recordAiUsage, type RecordUsageFn } from '../lib/ai-usage.js'
 import { env } from '../env.js'
@@ -41,6 +43,8 @@ import { log } from '../telemetry.js'
 const threadIdGen = createIdGenerator({ prefix: 'thr', size: 16 })
 const sessionIdGen = createIdGenerator({ prefix: 'ses', size: 24 })
 const messageIdGen = createIdGenerator({ prefix: 'msg', size: 16 })
+// Resumable-stream id — unique per assistant turn; stored on hermes_thread.active_stream_id.
+const streamIdGen = createIdGenerator({ prefix: 'strm', size: 24 })
 
 /**
  * Minimal fetch shape (no `preconnect`) — matches both `tracedFetch` and the AI
@@ -80,6 +84,14 @@ export interface HermesRouteDeps {
    * Injectable so tests don't write usage rows. Defaults to `recordAiUsage`.
    */
   recordUsage: RecordUsageFn
+  /**
+   * Durable streaming backend (Valkey-backed resumable-stream + abort registry).
+   * `null` disables durability (REDIS_URL unset / tests) — POST /hermes/chat then
+   * returns a plain non-resumable stream and a client disconnect persists an
+   * interrupted turn (v1 behavior). Injectable so tests can exercise the durable
+   * path (resume + stop) with an in-memory fake instead of a live Valkey.
+   */
+  streaming: HermesStreaming | null
 }
 
 const TITLE_SYSTEM =
@@ -156,6 +168,7 @@ function defaultDeps(): HermesRouteDeps {
     generateTitle: deepseekTitle,
     generateSummary: deepseekSummarize,
     recordUsage: recordAiUsage,
+    streaming: getHermesStreaming(),
   }
 }
 
@@ -387,6 +400,19 @@ async function ensureThread(
   return { threadId, sessionId: row?.session_id ?? sessionId }
 }
 
+/**
+ * Clear a thread's active-stream pointer, but only if it still points at
+ * `streamId` — the AND-guard avoids clobbering a newer turn that already
+ * superseded it. Used to reap a stale pointer left by a crashed/restarted
+ * producer (whose `onFinish` cleanup never ran).
+ */
+async function clearActiveStream(threadId: string, streamId: string): Promise<void> {
+  await db
+    .update(hermesThread)
+    .set({ active_stream_id: null })
+    .where(and(eq(hermesThread.id, threadId), eq(hermesThread.active_stream_id, streamId)))
+}
+
 function turnStatus(aborted: boolean, errored: boolean): 'interrupted' | 'error' | 'complete' {
   if (aborted) return 'interrupted'
   if (errored) return 'error'
@@ -511,12 +537,51 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
         // than the default 'complete' on an empty assistant message.
         let streamErrored = false
 
+        // Durable streaming decouples generation from the HTTP response: the
+        // producer is driven by the Redis buffer (via consumeSseStream) rather
+        // than the client connection, so a dropped connection no longer loses the
+        // turn — a reconnect resumes via GET /hermes/chat/:id/stream. Because of
+        // that, the abort must NOT come from the request signal (Bun #6758:
+        // cancel() is unreliable on disconnect, so response-lifecycle cleanup is
+        // off-limits); a dedicated controller is aborted only by an explicit stop.
+        // When durability is off (no REDIS_URL / tests) we keep v1 semantics: the
+        // request signal is the abort, so a client disconnect persists an
+        // interrupted turn.
+        const durable = deps.streaming
+        const streamId = durable ? streamIdGen() : ''
+        const abortController = new AbortController()
+        const abortSignal = durable ? abortController.signal : request.signal
+
         const stream = createUIMessageStream({
           originalMessages: [newTurn],
           generateId: messageIdGen,
           execute: async ({ writer }) => {
             const { threadId, sessionId } = await ensureThread(body, deps.sessionKey)
             resolvedThreadId = threadId
+
+            if (durable) {
+              // Supersede any still-registered in-flight stream for this thread,
+              // then claim the thread's active-stream pointer for the resume path.
+              // NOTE: this read-then-write is not atomic. Two POSTs racing on the
+              // same thread could each read the old pointer and both generate — a
+              // known, accepted limitation: the dashboard is single-user and gates
+              // sends while streaming, so it's only reachable by concurrent
+              // API-agent callers on one thread. If that ever matters, make the
+              // claim a CAS UPDATE (WHERE active_stream_id = observed OR IS NULL)
+              // and bail the loser before streamText.
+              const existing = await db.query.hermesThread.findFirst({
+                where: eq(hermesThread.id, threadId),
+                columns: { active_stream_id: true },
+              })
+              if (existing?.active_stream_id && existing.active_stream_id !== streamId) {
+                durable.abort(existing.active_stream_id)
+              }
+              durable.register(streamId, abortController)
+              await db
+                .update(hermesThread)
+                .set({ active_stream_id: streamId })
+                .where(eq(hermesThread.id, threadId))
+            }
 
             // Custom fetch: wrap the transport, filter the custom tool-progress
             // channel out of the SDK-bound branch and into transient data parts.
@@ -558,7 +623,7 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
                 'X-Hermes-Session-Id': sessionId,
                 'X-Hermes-Session-Key': body.sessionKey ?? deps.sessionKey,
               },
-              abortSignal: request.signal,
+              abortSignal,
               // Record proxied-turn token usage into argo.usage_record
               // (source='argo', sub_tool='hermes-proxy'). Fire-and-forget; skip
               // when the upstream reports no token counts.
@@ -590,6 +655,7 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
           },
           onFinish: async ({ messages, isAborted }) => {
             if (!resolvedThreadId) return
+            let persisted = false
             try {
               await persistTurn({
                 threadId: resolvedThreadId,
@@ -600,10 +666,31 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
                 ...(audioDurationMs !== undefined ? { userAudioDurationMs: audioDurationMs } : {}),
                 ...(sentAttachments?.length ? { attachments: sentAttachments } : {}),
               })
+              persisted = true
             } catch (error) {
               log.error('hermes transcript persist failed', error)
-              return
+            } finally {
+              // Release the durable stream regardless of persist outcome: drop the
+              // abort-registry entry and clear the thread pointer, but only if it
+              // still points at this stream (a newer turn may have superseded it).
+              if (durable) {
+                durable.unregister(streamId)
+                try {
+                  await db
+                    .update(hermesThread)
+                    .set({ active_stream_id: null })
+                    .where(
+                      and(
+                        eq(hermesThread.id, resolvedThreadId),
+                        eq(hermesThread.active_stream_id, streamId),
+                      ),
+                    )
+                } catch (error) {
+                  log.error('hermes active_stream_id clear failed', error)
+                }
+              }
             }
+            if (!persisted) return
             // Auto-title and summarize a fresh thread off the response path:
             // fire-and-forget so they never delay the stream; rows update when
             // DeepSeek answers. Skip on failed turns — there's no real assistant
@@ -619,6 +706,18 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
           },
         })
 
+        // Durable: tee the serialized SSE into the resumable producer so it
+        // buffers + coordinates independent of the client connection. Plain:
+        // v1 behavior — the stream lives and dies with the response.
+        if (durable) {
+          return createUIMessageStreamResponse({
+            stream,
+            headers: { 'X-Accel-Buffering': 'no' },
+            consumeSseStream: async ({ stream: sse }) => {
+              await durable.createNewResumableStream(streamId, () => sse)
+            },
+          })
+        }
         return createUIMessageStreamResponse({
           stream,
           headers: { 'X-Accel-Buffering': 'no' },
@@ -630,7 +729,93 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
           tags: ['Hermes Chat'],
           summary: 'Stream a chat turn through the Hermes agent core',
           description:
-            "Proxies the new user turn to Hermes `/v1/chat/completions` (SSE) over Tailscale with the bearer kept server-side, and streams back a Vercel-AI-SDK UIMessageStream. Hermes holds conversation history per `X-Hermes-Session-Id`, so only the latest turn is forwarded. Hermes' custom `hermes.tool.progress` events are injected as transient `data-toolProgress` parts (live progress; not persisted). On completion the user + assistant messages are written verbatim to Postgres. Pass `threadId` to continue a thread; omit it to start a fresh one. Response is `text/event-stream`, not JSON.",
+            "Proxies the new user turn to Hermes `/v1/chat/completions` (SSE) over Tailscale with the bearer kept server-side, and streams back a Vercel-AI-SDK UIMessageStream. Hermes holds conversation history per `X-Hermes-Session-Id`, so only the latest turn is forwarded. Hermes' custom `hermes.tool.progress` events are injected as transient `data-toolProgress` parts (live progress; not persisted). On completion the user + assistant messages are written verbatim to Postgres. Pass `threadId` to continue a thread; omit it to start a fresh one. Response is `text/event-stream`, not JSON. When durable streaming is enabled the generation is decoupled from this connection — a dropped client can resume via `GET /hermes/chat/{id}/stream`.",
+          security: [{ BearerAuth: [] }],
+        },
+      },
+    )
+    .get(
+      '/chat/:id/stream',
+      async ({ params }) => {
+        // Resume an in-flight assistant turn after a dropped connection (the AI
+        // SDK's `useChat({ resume: true })` fires this GET on mount). 204 = nothing
+        // to resume: durability off, no active stream on the thread, or the stream
+        // already finished. Otherwise replay buffered + live SSE from Valkey.
+        const streaming = deps.streaming
+        if (!streaming) return new Response(null, { status: 204 })
+        const thread = await db.query.hermesThread.findFirst({
+          where: eq(hermesThread.id, params.id),
+          columns: { active_stream_id: true },
+        })
+        const activeStreamId = thread?.active_stream_id
+        if (!activeStreamId) return new Response(null, { status: 204 })
+        // resumeExistingStream yields null for a finished/gone stream, or REJECTS
+        // (~1s ack timeout) when the producer is gone after a server restart — the
+        // sentinel outlives the process (24h TTL) with no one to answer. Either way
+        // there is nothing to resume: reap the stale pointer so the next reopen
+        // 204s instantly instead of re-hitting the timeout, then 204.
+        let resumed: ReadableStream<string> | null = null
+        try {
+          resumed = await streaming.resumeExistingStream(activeStreamId)
+        } catch (error) {
+          log.error('hermes resume failed (stale/timeout)', error)
+        }
+        if (!resumed) {
+          await clearActiveStream(params.id, activeStreamId)
+          return new Response(null, { status: 204 })
+        }
+        return new Response(resumed, {
+          headers: { ...UI_MESSAGE_STREAM_HEADERS, 'X-Accel-Buffering': 'no' },
+        })
+      },
+      {
+        params: z.object({ id: z.string().describe('Thread id (thr_…).') }),
+        detail: {
+          tags: ['Hermes Chat'],
+          summary: 'Resume an in-flight chat stream',
+          description:
+            'Resumes the assistant turn currently generating for a thread, replaying everything buffered so far plus live output — used by the dashboard to recover a stream after a dropped connection or page reload (AI SDK `useChat({ resume: true })`). Returns `204 No Content` when there is nothing to resume (durable streaming disabled, no active stream, or the turn already finished — read the finished transcript via GET /hermes/threads/{id}/messages instead). An active stream is returned as a `text/event-stream` UIMessageStream. Does not start generation; `POST /hermes/chat` does that.',
+          security: [{ BearerAuth: [] }],
+        },
+      },
+    )
+    .post(
+      '/chat/:id/stop',
+      async ({ params, status }) => {
+        const thread = await db.query.hermesThread.findFirst({
+          where: eq(hermesThread.id, params.id),
+          columns: { active_stream_id: true },
+        })
+        if (!thread) return status(404, 'Thread not found')
+        // Idempotent: no in-flight stream is a no-op success. Aborting drives the
+        // stream's onFinish, which persists the partial turn as 'interrupted' and
+        // clears active_stream_id. With resume enabled a client-side stop() is only
+        // a disconnect, so the dashboard calls this first to truly cancel.
+        const activeStreamId = thread.active_stream_id
+        const stopped = activeStreamId ? (deps.streaming?.abort(activeStreamId) ?? false) : false
+        // A non-null pointer that couldn't be aborted is stale — the producer is
+        // gone after a restart (the in-process registry is empty), so no onFinish
+        // will ever clear it. Reap it so resume/stop stop tripping over it. A live
+        // abort instead clears the pointer via its own onFinish.
+        if (activeStreamId && !stopped) await clearActiveStream(params.id, activeStreamId)
+        return { ok: true, stopped }
+      },
+      {
+        params: z.object({ id: z.string().describe('Thread id (thr_…).') }),
+        response: {
+          200: z.object({
+            ok: z.boolean().describe('Always true — the request was accepted.'),
+            stopped: z
+              .boolean()
+              .describe('True if a live generation was aborted; false if nothing was in-flight.'),
+          }),
+          404: z.string(),
+        },
+        detail: {
+          tags: ['Hermes Chat'],
+          summary: 'Stop an in-flight chat stream',
+          description:
+            "Cancels the assistant turn currently generating for a thread. Unlike a client disconnect (which, with durable streaming, keeps generating so it can be resumed), this genuinely aborts the underlying work; the partial assistant message is persisted with status `interrupted` and the thread's active stream is cleared. Idempotent — returns `{ ok: true, stopped: false }` when nothing is in-flight. The dashboard calls this before its local stop. Returns 404 if the thread does not exist.",
           security: [{ BearerAuth: [] }],
         },
       },
