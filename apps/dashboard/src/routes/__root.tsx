@@ -26,6 +26,7 @@ import {
 } from '@tabler/icons-react'
 import { format } from 'date-fns'
 import { useCallback, useEffect, useState } from 'react'
+import { useLocalStorage } from '@mantine/hooks'
 import { BasaltShell, NavCountBadge } from 'basalt-ui'
 import { NotificationBell } from 'basalt-ui/notifications'
 import type {
@@ -41,6 +42,7 @@ import { HermesWidget } from '../features/hermes-chat/hermes-widget'
 import { VoicePlaybackProvider } from '../features/hermes-chat/voice/voice-playback'
 import { DevToolsPanel, type DevTool } from '../components/dev-dock'
 import { registerColorSchemeSetter } from '../lib/color-scheme-bridge'
+import { registerSidebarToggle } from '../lib/sidebar-bridge'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   component: RootLayout,
@@ -100,6 +102,17 @@ function RootLayout() {
     return () => registerColorSchemeSetter(null)
   }, [setColorScheme])
 
+  // Controlled sidebar collapse (BasaltShell's controlled seam) — persistence stays on the same
+  // 'argo-sidebar' key the shell used internally, and the Mod+B command drives it via the bridge.
+  const [sidebarCollapsed, setSidebarCollapsed] = useLocalStorage<boolean>({
+    key: 'argo-sidebar',
+    defaultValue: false,
+  })
+  useEffect(() => {
+    registerSidebarToggle(() => setSidebarCollapsed((c) => !c))
+    return () => registerSidebarToggle(null)
+  }, [setSidebarCollapsed])
+
   const isGarminActive = !!matchRoute({ to: '/garmin-health', fuzzy: true })
   const isStrengthActive = !!matchRoute({ to: '/strength-tracker', fuzzy: true })
   const isBodyCompositionActive = !!matchRoute({ to: '/body-composition', fuzzy: true })
@@ -113,26 +126,32 @@ function RootLayout() {
   // Router-agnostic seam: BasaltShell/AppSidebar never import a router primitive — this renders
   // each nav row through a real TanStack `<Link>` (NAV_TARGETS above), so `active` detection above
   // stays the single source of truth and default search params survive per-route.
-  const renderNavLink = useCallback<NavLinkRenderer>((item, { active }) => {
-    const target = NAV_TARGETS[item.key]
-    if (!target) {
-      // Safety net for a nav item missing from NAV_TARGETS (AppSidebar intercepts
-      // `item.disabled` before ever calling renderNavLink, so disabled placeholders
-      // like Docker/Monitoring/Tasks never reach this branch).
-      return <MantineNavLink label={item.label} leftSection={item.icon} disabled />
-    }
-    return (
-      <MantineNavLink
-        component={Link}
-        to={target.to as never}
-        {...(target.search !== undefined && { search: target.search as never })}
-        label={item.label}
-        leftSection={item.icon}
-        rightSection={item.badge}
-        active={active}
-      />
-    )
-  }, [])
+  const renderNavLink = useCallback<NavLinkRenderer>(
+    (item, { active, close, navLinkClassName }) => {
+      const target = NAV_TARGETS[item.key]
+      if (!target) {
+        // Safety net for a nav item missing from NAV_TARGETS (AppSidebar intercepts
+        // `item.disabled` before ever calling renderNavLink, so disabled placeholders
+        // like Docker/Monitoring/Tasks never reach this branch).
+        return <MantineNavLink label={item.label} leftSection={item.icon} disabled />
+      }
+      return (
+        <MantineNavLink
+          component={Link}
+          to={target.to as never}
+          {...(target.search !== undefined && { search: target.search as never })}
+          label={item.label}
+          leftSection={item.icon}
+          rightSection={item.badge}
+          active={active}
+          className={navLinkClassName}
+          // Closes the mobile "More" full-sidebar drawer on navigation (no-op on desktop).
+          onClick={() => close?.()}
+        />
+      )
+    },
+    [],
+  )
 
   /** Renders breadcrumb parent segments as client-side TanStack Links (argo has no nested items
    * today, so this never actually fires — wired for parity with the shipped contract). */
@@ -316,7 +335,8 @@ function RootLayout() {
           </>
         }
         settingsMenuItems={settingsMenuItems}
-        storageKey="argo-sidebar"
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
       >
         <Outlet />
       </BasaltShell>

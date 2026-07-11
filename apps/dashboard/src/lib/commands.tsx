@@ -26,11 +26,18 @@ import { format } from 'date-fns'
 import { defineCommands, overlays } from 'basalt-ui/commands'
 import { router } from './router'
 import { setColorScheme } from './color-scheme-bridge'
+import { toggleSidebar } from './sidebar-bridge'
 // Side-effect import: registers the overlays.open('help:shortcuts', …) target used below. Kept in
 // its own file/BasaltRegister augmentation — see overlays.tsx header for why.
 import './overlays'
 
 export const COMMANDS = defineCommands({
+  'ui:toggle-sidebar': {
+    label: 'Toggle sidebar',
+    group: 'View',
+    shortcut: 'Mod+B',
+    run: () => toggleSidebar(),
+  },
   'nav:hermes-chat': {
     label: 'Go to Hermes Chat',
     group: 'Navigation',
