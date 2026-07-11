@@ -115,7 +115,8 @@ export default function SleepBreakdownChart({ params }: { params: SummaryParams 
       {sleepData.length === 0 ? (
         <ChartEmpty height={CHART_HEIGHT} />
       ) : (
-        <Bars<SleepPoint>
+        <Bars
+          ariaLabel="Sleep stages breakdown with sleep score overlay"
           data={sleepData}
           height={CHART_HEIGHT}
           chartId={CHART_ID}
@@ -190,7 +191,6 @@ export default function SleepBreakdownChart({ params }: { params: SummaryParams 
               />
             )
           }}
-          ariaLabel="Sleep stages breakdown with sleep score overlay"
         />
       )}
     </ChartCard>

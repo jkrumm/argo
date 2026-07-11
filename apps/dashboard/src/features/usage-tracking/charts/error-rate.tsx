@@ -51,7 +51,8 @@ export default function ErrorRate({
       tooltip="Per-source error counts over the window. Healthy systems sit near zero; spikes correlate with bridge incidents, upstream model issues, or rate-limit storms."
     >
       {hasAnyError && (
-        <StackedArea<Bucket>
+        <StackedArea
+          ariaLabel="Errors over time by source"
           data={buckets}
           height={240}
           chartId="usage-errors-over-time"
@@ -59,7 +60,6 @@ export default function ErrorRate({
           series={series}
           formatValue={fmtCount}
           legend={{ maxRows: 8 }}
-          ariaLabel="Errors over time by source"
         />
       )}
     </ChartCard>

@@ -130,7 +130,8 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
       {!hasData ? (
         <ChartEmpty height={280} />
       ) : (
-        <Bars<ActivityPoint>
+        <Bars
+          ariaLabel="Daily activity score by intensity with 30-day average"
           data={chartData}
           height={280}
           chartId="activity-score"
@@ -213,7 +214,6 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
               )}
             </>
           )}
-          ariaLabel="Daily activity score by intensity with 30-day average"
         />
       )}
     </ChartCard>

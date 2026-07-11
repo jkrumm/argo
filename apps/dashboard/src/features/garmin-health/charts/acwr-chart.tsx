@@ -60,7 +60,8 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
       {!hasAcwr ? (
         <ChartEmpty height={280} />
       ) : (
-        <ZonedLine<TrainingLoadPoint>
+        <ZonedLine
+          ariaLabel="Acute:chronic training load ratio with optimal zone"
           data={points}
           height={280}
           chartId="acwr"
@@ -83,7 +84,6 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
             d.zone === null ? null : { text: acwrZoneLabel(d.zone), color: acwrZoneColor(d.zone) }
           }
           legend={false}
-          ariaLabel="Acute:chronic training load ratio with optimal zone"
         />
       )}
       <ChartLegend

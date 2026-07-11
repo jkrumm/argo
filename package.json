@@ -41,6 +41,6 @@
     "inlineSpacing": false,
     "inlineDisplay": false,
     "unframedChart": false,
-    "chartMissingAriaLabel": false
+    "chartMissingAriaLabel": true
   }
 }

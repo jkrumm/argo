@@ -68,7 +68,8 @@ export default function TokensOverTime({
       extra={headerExtra}
     >
       {buckets.length > 0 && (
-        <StackedArea<Bucket>
+        <StackedArea
+          ariaLabel="Tokens over time, stacked by group"
           data={buckets}
           height={280}
           chartId="usage-tokens-over-time"
@@ -76,7 +77,6 @@ export default function TokensOverTime({
           series={series}
           formatValue={fmtCount}
           legend={{ maxRows: 8 }}
-          ariaLabel="Tokens over time, stacked by group"
         />
       )}
     </ChartCard>

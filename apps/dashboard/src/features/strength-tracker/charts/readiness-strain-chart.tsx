@@ -75,7 +75,8 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
       {!hasData ? (
         <ChartEmpty height={HEIGHT} message="Need ≥ 7 days of Garmin daily metrics" />
       ) : (
-        <ZonedLine<ReadinessPoint>
+        <ZonedLine
+          ariaLabel="Readiness and strain over time"
           data={points}
           height={HEIGHT}
           chartId="readiness-strain"
@@ -116,7 +117,6 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
             </>
           )}
           legend={false}
-          ariaLabel="Readiness and strain over time"
         />
       )}
       <ChartLegend

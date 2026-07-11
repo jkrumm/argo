@@ -46,7 +46,8 @@ export default function LatencyP95({
       tooltip="95th-percentile latency over time (only rows with duration_ms set are counted). Sudden steps up usually mean a slower model is taking over the workload, or an upstream slowdown."
     >
       {hasData && (
-        <ZonedLine<Point>
+        <ZonedLine
+          ariaLabel="p95 latency over time"
           data={points}
           height={240}
           chartId="usage-latency-p95"
@@ -55,7 +56,6 @@ export default function LatencyP95({
           yDomain="auto"
           yAutoMinCeil={0}
           formatValue={fmtMs}
-          ariaLabel="p95 latency over time"
         />
       )}
     </ChartCard>

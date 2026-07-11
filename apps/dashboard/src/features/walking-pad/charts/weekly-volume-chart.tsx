@@ -152,7 +152,8 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
       {!hasData ? (
         <ChartEmpty height={280} label="No weekly data in this window." />
       ) : (
-        <Bars<Point>
+        <Bars
+          ariaLabel="Weekly volume, ISO-week totals of the enabled walking metrics"
           data={points}
           height={280}
           chartId="walking-pad-weekly-volume"
@@ -170,7 +171,6 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
           marginLeft={marginLeft}
           hideBarTooltipRows={isMulti}
           renderExtraTooltipRows={renderExtraTooltipRows}
-          ariaLabel="Weekly volume, ISO-week totals of the enabled walking metrics"
         />
       )}
       <span style={{ fontSize: 11, color: 'var(--mantine-color-dimmed)', marginTop: 4 }}>

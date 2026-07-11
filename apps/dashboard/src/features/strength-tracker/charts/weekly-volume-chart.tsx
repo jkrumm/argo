@@ -110,7 +110,8 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
       {!hasData ? (
         <ChartEmpty height={280} label={`No volume data for ${exLabel}`} />
       ) : (
-        <Bars<WeeklyVolumePoint>
+        <Bars
+          ariaLabel={`Weekly volume for ${exLabel}`}
           data={points}
           height={280}
           chartId="weekly-volume"
@@ -141,7 +142,6 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
           ]}
           leftAxis={{ domain: 'auto', formatTick: fmtTonnage, numTicks: 5 }}
           formatValue={fmtTonnage}
-          ariaLabel={`Weekly volume for ${exLabel}`}
         />
       )}
       {/* MEV/MAV/MRV are refLines, not part of the bar/line series — Bars' derived legend can't

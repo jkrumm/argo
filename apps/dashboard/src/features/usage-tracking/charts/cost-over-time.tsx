@@ -68,14 +68,14 @@ export default function CostOverTime({
       extra={headerExtra}
     >
       {buckets.length > 0 && (
-        <StackedArea<Bucket>
+        <StackedArea
+          ariaLabel="Cost over time, stacked by group"
           data={buckets}
           height={280}
           chartId="usage-cost-over-time"
           getX={(d) => d.bucket}
           series={series}
           formatValue={fmtUsd}
-          ariaLabel="Cost over time, stacked by group"
         />
       )}
     </ChartCard>

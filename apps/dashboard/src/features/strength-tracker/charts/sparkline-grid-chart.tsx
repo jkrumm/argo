@@ -81,10 +81,17 @@ export default function SparklineGridChart({ params }: { params: StrengthQueryPa
                     </Text>
                   </Table.Td>
                   <Table.Td>
-                    <LineSparkline data={row.e1rm} width={SPARK_W} height={SPARK_H} color={color} />
+                    <LineSparkline
+                      ariaLabel={`${row.exercise_name} 1RM trend, last 20 sessions`}
+                      data={row.e1rm}
+                      width={SPARK_W}
+                      height={SPARK_H}
+                      color={color}
+                    />
                   </Table.Td>
                   <Table.Td>
                     <BarSparkline
+                      ariaLabel={`${row.exercise_name} volume trend, last 10 weeks`}
                       data={row.volume}
                       width={SPARK_W}
                       height={SPARK_H}
@@ -92,7 +99,13 @@ export default function SparklineGridChart({ params }: { params: StrengthQueryPa
                     />
                   </Table.Td>
                   <Table.Td>
-                    <LineSparkline data={row.inol} width={SPARK_W} height={SPARK_H} color={color} />
+                    <LineSparkline
+                      ariaLabel={`${row.exercise_name} INOL trend, last 15 sessions`}
+                      data={row.inol}
+                      width={SPARK_W}
+                      height={SPARK_H}
+                      color={color}
+                    />
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm" c={dirColor}>

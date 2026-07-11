@@ -174,7 +174,8 @@ export default function WeightChart({ params }: { params: WeightLogWindowParams 
           message="No entries yet — log your first weight to start the trend."
         />
       ) : (
-        <MultiLine<ChartPoint>
+        <MultiLine
+          ariaLabel="Body weight trend over time"
           data={chartData}
           height={CHART_HEIGHT}
           chartId="body-weight"
@@ -182,7 +183,6 @@ export default function WeightChart({ params }: { params: WeightLogWindowParams 
           series={series}
           yDomain={yDomain}
           formatValue={fmtKg}
-          ariaLabel="Body weight trend over time"
         />
       )}
     </ChartCard>

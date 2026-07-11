@@ -74,7 +74,8 @@ export function PaceTrendChart({ params }: { params: WalkingPadWindowParams }) {
       {!hasData ? (
         <ChartEmpty height={280} label="No pace data — log a session first." />
       ) : (
-        <ZonedLine<Point>
+        <ZonedLine
+          ariaLabel="Pace trend, daily average walking speed with zone bands"
           data={points}
           height={280}
           chartId="walking-pad-pace-trend"
@@ -86,7 +87,6 @@ export function PaceTrendChart({ params }: { params: WalkingPadWindowParams }) {
           zones={zones}
           formatValue={fmtKmh}
           legend={false}
-          ariaLabel="Pace trend, daily average walking speed with zone bands"
         />
       )}
       <ChartLegend

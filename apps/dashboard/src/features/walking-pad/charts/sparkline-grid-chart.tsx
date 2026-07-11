@@ -1,7 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
 import { Card, SimpleGrid, Stack, Text } from '@mantine/core'
-import { LineSparkline } from 'basalt-ui/charts'
+import { LineSparkline, useChartSize } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 
@@ -104,7 +103,7 @@ export function SparklineGridChart({ params }: { params: WalkingPadWindowParams 
 }
 
 function SparkTile({ metric, points }: { metric: Metric; points: SeriesPoint[] }) {
-  const { ref, width } = useElementSize<HTMLDivElement>()
+  const { ref, width } = useChartSize()
   const values = points.map((p) => metric.pick(p)).filter((v): v is number => v !== null && v > 0)
   const latest = values.length > 0 ? (values[values.length - 1] ?? null) : null
   const max = values.length > 0 ? Math.max(...values) : 0
@@ -121,6 +120,7 @@ function SparkTile({ metric, points }: { metric: Metric; points: SeriesPoint[] }
       <div ref={ref} style={{ height: 36, width: '100%' }} aria-label={metric.ariaLabel}>
         {width > 0 ? (
           <LineSparkline
+            ariaLabel={metric.ariaLabel}
             data={points.map((p) => metric.pick(p) ?? 0)}
             width={Math.max(width, 60)}
             height={36}

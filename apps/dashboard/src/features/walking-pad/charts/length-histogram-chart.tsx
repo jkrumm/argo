@@ -104,7 +104,8 @@ export function LengthHistogramChart({ params }: { params: WalkingPadWindowParam
       {totalSessions === 0 ? (
         <ChartEmpty height={CHART_HEIGHT} label="No sessions in this window." />
       ) : (
-        <Bars<Bucket>
+        <Bars
+          ariaLabel="Session length histogram, frequency of sessions by bucket"
           data={buckets}
           height={CHART_HEIGHT}
           chartId="walking-pad-length-histogram"
@@ -120,7 +121,6 @@ export function LengthHistogramChart({ params }: { params: WalkingPadWindowParam
           formatValue={fmtSessions}
           numTicksX={driver === 'duration' ? 7 : 6}
           legend={false}
-          ariaLabel="Session length histogram, frequency of sessions by bucket"
         />
       )}
       <span style={{ fontSize: 11, color: 'var(--mantine-color-dimmed)', marginTop: 4 }}>

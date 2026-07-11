@@ -68,7 +68,8 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
       {points.length === 0 ? (
         <ChartEmpty height={280} />
       ) : (
-        <Bars<BodyBatteryPoint>
+        <Bars
+          ariaLabel="Body battery charged vs drained per day with net line"
           data={points}
           height={280}
           chartId="body-battery"
@@ -94,7 +95,6 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
             numTicks: 5,
             formatTick: (v) => (v === 0 ? '0' : v > 0 ? `+${v}` : String(v)),
           }}
-          ariaLabel="Body battery charged vs drained per day with net line"
         />
       )}
     </ChartCard>

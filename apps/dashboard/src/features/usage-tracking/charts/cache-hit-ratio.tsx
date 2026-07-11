@@ -46,7 +46,8 @@ export default function CacheHitRatio({
       tooltip="Weighted cache hit ratio over time. >60% means prompt caching is doing its job; sustained <30% usually means the cache key is changing too often."
     >
       {hasData && (
-        <ZonedLine<Point>
+        <ZonedLine
+          ariaLabel="Cache hit ratio over time"
           data={points}
           height={240}
           chartId="usage-cache-hit-ratio"
@@ -59,7 +60,6 @@ export default function CacheHitRatio({
           ]}
           formatValue={fmtPct}
           legend={false}
-          ariaLabel="Cache hit ratio over time"
         />
       )}
       <ChartLegend

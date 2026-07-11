@@ -61,7 +61,8 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
       {!hasRecovery ? (
         <ChartEmpty height={280} />
       ) : (
-        <ZonedLine<RecoveryPoint>
+        <ZonedLine
+          ariaLabel="Recovery score trend with push/normal/rest zones"
           data={points}
           height={280}
           chartId="recovery-trend"
@@ -76,7 +77,6 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
           formatValue={(v) => String(Math.round(v))}
           tooltipLabel={(d) => (d.recovery === null ? null : recoveryZoneLabel(d.recovery))}
           legend={false}
-          ariaLabel="Recovery score trend with push/normal/rest zones"
         />
       )}
       <ChartLegend

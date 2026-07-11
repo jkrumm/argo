@@ -70,7 +70,13 @@ function ChartsSmokeRoute() {
       {/* Sparkline */}
       <div style={{ marginBottom: 24 }}>
         <h3 style={{ marginBottom: 8, fontSize: 14 }}>Sparkline: LineSparkline</h3>
-        <LineSparkline data={SPARKLINE_DATA} width={200} height={40} color={SERIES.hrv} />
+        <LineSparkline
+          ariaLabel="HRV sparkline, smoke test"
+          data={SPARKLINE_DATA}
+          width={200}
+          height={40}
+          color={SERIES.hrv}
+        />
       </div>
 
       <ChartHoverSync>
@@ -78,6 +84,7 @@ function ChartsSmokeRoute() {
         <div style={{ marginBottom: 24 }}>
           <ChartCard title="HRV Trend" tooltip="7-day rolling average HRV from Garmin">
             <ZonedLine
+              ariaLabel="HRV trend, smoke test"
               data={SMOKE_DATA}
               height={200}
               chartId="smoke-zoned-line"
@@ -93,7 +100,6 @@ function ChartsSmokeRoute() {
               ]}
               yDomain="auto"
               formatValue={(v) => `${Math.round(v)} ms`}
-              ariaLabel="HRV trend, smoke test"
             />
           </ChartCard>
         </div>
@@ -101,6 +107,7 @@ function ChartsSmokeRoute() {
         {/* Kind: MultiLine */}
         <ChartCard title="HRV vs Resting HR" tooltip="Two series sharing one y-axis">
           <MultiLine
+            ariaLabel="HRV vs resting HR, smoke test"
             data={MULTI_LINE_DATA}
             height={200}
             chartId="smoke-multi-line"
@@ -108,7 +115,6 @@ function ChartsSmokeRoute() {
             series={MULTI_LINE_SERIES}
             yDomain="auto"
             formatValue={(v) => `${Math.round(v)} ms`}
-            ariaLabel="HRV vs resting HR, smoke test"
           />
         </ChartCard>
       </ChartHoverSync>

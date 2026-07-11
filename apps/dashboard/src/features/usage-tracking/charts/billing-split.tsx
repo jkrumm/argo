@@ -32,6 +32,7 @@ export default function BillingSplit({
     >
       {slices.length > 0 && (
         <Donut
+          ariaLabel="Billing split donut chart showing cost by billing class"
           data={slices as DonutDatum[]}
           height={280}
           colorForKey={colorForBilling}
@@ -39,7 +40,6 @@ export default function BillingSplit({
           centerLabel={fmtUsd(data.total)}
           centerSubLabel="total"
           seriesLabel={(k) => `${k} · ${fmtUsd(valueByKey.get(k) ?? 0)}`}
-          ariaLabel="Billing split donut chart showing cost by billing class"
         />
       )}
     </ChartCard>

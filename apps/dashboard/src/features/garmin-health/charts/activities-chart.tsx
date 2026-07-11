@@ -194,7 +194,8 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
       {points.length === 0 ? (
         <ChartEmpty height={CHART_HEIGHT} />
       ) : (
-        <Bars<ActivityDayPoint>
+        <Bars
+          ariaLabel="Daily activities stacked by type"
           data={points}
           height={CHART_HEIGHT}
           chartId={CHART_ID}
@@ -228,7 +229,6 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
               })}
             </>
           )}
-          ariaLabel="Daily activities stacked by type"
         />
       )}
     </ChartCard>
