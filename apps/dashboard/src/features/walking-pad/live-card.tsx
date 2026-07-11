@@ -10,7 +10,7 @@ import {
   IconWalk,
 } from '@tabler/icons-react'
 import { useDocumentVisibility } from '@mantine/hooks'
-import { VX } from '@argo/charts'
+import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries } from '../../lib/queries/walking-pad'
 import {
   formatDurationClock,

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
-import { Bars, ChartCard, ChartLegend, TooltipRow, VX, useVxTheme } from '@argo/charts'
+import { Bars, ChartCard, TooltipRow } from 'basalt-ui/charts'
+import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { METRIC_DEFS, fmtSteps, useMetricSelection, type MetricKey } from '../metric-toggle'
 import { ChartEmpty } from './empty'
@@ -47,8 +47,6 @@ const fmtPct = (v: number) => `${Math.round(v * 100)}%`
 
 export function DailyActivityChart({ params }: { params: WalkingPadWindowParams }) {
   const { data } = useSuspenseQuery(walkingPadQueries.series({ ...params, bucket: 'day' }))
-  const { ref, width } = useElementSize<HTMLDivElement>()
-  const { line2 } = useVxTheme()
   const { enabled } = useMetricSelection()
 
   const points: Point[] = data.points
@@ -159,60 +157,47 @@ export function DailyActivityChart({ params }: { params: WalkingPadWindowParams 
       tooltip="Per-UTC-day total of each enabled metric. With 2+ metrics, bars are normalized to each metric's own window-max so the rhythm is comparable; tooltips show absolute values. The dashed line is the per-day session count on the right axis."
       extra={hasData ? headerSummary : null}
     >
-      <div ref={ref} style={{ height: 280, width: '100%' }}>
-        {!hasData ? (
-          <ChartEmpty height={280} label="No walks in this window" />
-        ) : width > 0 ? (
-          <Bars<Point>
-            data={points}
-            width={Math.max(width, 200)}
-            height={280}
-            chartId="walking-pad-daily-activity"
-            getX={(d) => d.date}
-            getValue={getValue}
-            positiveBars={positiveBars}
-            barLayout={isMulti ? 'grouped' : 'stacked'}
-            lines={[
-              {
-                key: 'sessions',
-                label: 'Sessions',
-                color: line2,
-                axisSide: 'right',
-                dashed: true,
-                strokeWidth: 1.5,
-                formatValue: (v) => String(Math.round(v)),
-              },
-            ]}
-            leftAxis={{
-              domain: isMulti ? [0, 1] : 'auto',
-              formatTick: isMulti ? fmtPct : (singleDef?.format ?? fmtPct),
-              numTicks: 5,
-              autoMaxFloor: isMulti ? undefined : singleConfig?.autoMaxFloor,
-            }}
-            rightAxis={{
-              domain: 'auto',
-              formatTick: (v) => String(Math.round(v)),
-              numTicks: 4,
-              autoMaxFloor: 3,
-            }}
-            formatValue={isMulti ? fmtPct : (singleDef?.format ?? fmtPct)}
-            marginLeft={marginLeft}
-            hideBarTooltipRows={isMulti}
-            renderExtraTooltipRows={renderExtraTooltipRows}
-          />
-        ) : null}
-      </div>
-      <ChartLegend
-        items={[
-          ...enabled.map((m) => ({
-            key: m,
-            label: `${METRIC_DEFS[m].label} / day`,
-            color: isMulti ? METRIC_DEFS[m].color : VX.line,
-            shape: 'bar' as const,
-          })),
-          { key: 'sessions', label: 'Sessions', color: line2, dashed: true, strokeWidth: 1.5 },
-        ]}
-      />
+      {!hasData ? (
+        <ChartEmpty height={280} label="No walks in this window" />
+      ) : (
+        <Bars<Point>
+          data={points}
+          height={280}
+          chartId="walking-pad-daily-activity"
+          getX={(d) => d.date}
+          getValue={getValue}
+          positiveBars={positiveBars}
+          barLayout={isMulti ? 'grouped' : 'stacked'}
+          lines={[
+            {
+              key: 'sessions',
+              label: 'Sessions',
+              color: VX.line2,
+              axisSide: 'right',
+              dashed: true,
+              strokeWidth: 1.5,
+              formatValue: (v) => String(Math.round(v)),
+            },
+          ]}
+          leftAxis={{
+            domain: isMulti ? [0, 1] : 'auto',
+            formatTick: isMulti ? fmtPct : (singleDef?.format ?? fmtPct),
+            numTicks: 5,
+            autoMaxFloor: isMulti ? undefined : singleConfig?.autoMaxFloor,
+          }}
+          rightAxis={{
+            domain: 'auto',
+            formatTick: (v) => String(Math.round(v)),
+            numTicks: 4,
+            autoMaxFloor: 3,
+          }}
+          formatValue={isMulti ? fmtPct : (singleDef?.format ?? fmtPct)}
+          marginLeft={marginLeft}
+          hideBarTooltipRows={isMulti}
+          renderExtraTooltipRows={renderExtraTooltipRows}
+          ariaLabel="Daily activity, per-day totals of the enabled walking metrics"
+        />
+      )}
       <span style={{ fontSize: 11, color: 'var(--mantine-color-dimmed)', marginTop: 4 }}>
         {hasData && !isMulti && singleConfig !== null
           ? `${singleConfig.formatAvg(

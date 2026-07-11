@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
-import { Bars, ChartCard, ChartLegend, TooltipRow, VX } from '@argo/charts'
+import { Bars, ChartCard, TooltipRow } from 'basalt-ui/charts'
+import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { METRIC_DEFS, fmtSteps, useMetricSelection, type MetricKey } from '../metric-toggle'
 import { ChartEmpty } from './empty'
@@ -48,7 +48,6 @@ const fmtPct = (v: number) => `${Math.round(v * 100)}%`
 
 export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }) {
   const { data } = useSuspenseQuery(walkingPadQueries.series({ ...params, bucket: 'week' }))
-  const { ref, width } = useElementSize<HTMLDivElement>()
   const { enabled } = useMetricSelection()
 
   const points: Point[] = data.points
@@ -150,40 +149,30 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
       tooltip="ISO-week buckets within the window. With 2+ metrics, bars are normalized to each metric's own window-max so the rhythm is comparable; tooltips show absolute values."
       extra={hasData ? headerSummary : null}
     >
-      <div ref={ref} style={{ height: 280, width: '100%' }}>
-        {!hasData ? (
-          <ChartEmpty height={280} label="No weekly data in this window." />
-        ) : width > 0 ? (
-          <Bars<Point>
-            data={points}
-            width={Math.max(width, 200)}
-            height={280}
-            chartId="walking-pad-weekly-volume"
-            getX={(d) => d.date}
-            getValue={getValue}
-            positiveBars={positiveBars}
-            barLayout={isMulti ? 'grouped' : 'stacked'}
-            leftAxis={{
-              domain: isMulti ? [0, 1] : 'auto',
-              formatTick: isMulti ? fmtPct : (singleDef?.format ?? fmtPct),
-              numTicks: 5,
-              autoMaxFloor: isMulti ? undefined : singleConfig?.autoMaxFloor,
-            }}
-            formatValue={isMulti ? fmtPct : (singleDef?.format ?? fmtPct)}
-            marginLeft={marginLeft}
-            hideBarTooltipRows={isMulti}
-            renderExtraTooltipRows={renderExtraTooltipRows}
-          />
-        ) : null}
-      </div>
-      <ChartLegend
-        items={enabled.map((m) => ({
-          key: m,
-          label: `${METRIC_DEFS[m].label} / week`,
-          color: isMulti ? METRIC_DEFS[m].color : VX.line,
-          shape: 'bar' as const,
-        }))}
-      />
+      {!hasData ? (
+        <ChartEmpty height={280} label="No weekly data in this window." />
+      ) : (
+        <Bars<Point>
+          data={points}
+          height={280}
+          chartId="walking-pad-weekly-volume"
+          getX={(d) => d.date}
+          getValue={getValue}
+          positiveBars={positiveBars}
+          barLayout={isMulti ? 'grouped' : 'stacked'}
+          leftAxis={{
+            domain: isMulti ? [0, 1] : 'auto',
+            formatTick: isMulti ? fmtPct : (singleDef?.format ?? fmtPct),
+            numTicks: 5,
+            autoMaxFloor: isMulti ? undefined : singleConfig?.autoMaxFloor,
+          }}
+          formatValue={isMulti ? fmtPct : (singleDef?.format ?? fmtPct)}
+          marginLeft={marginLeft}
+          hideBarTooltipRows={isMulti}
+          renderExtraTooltipRows={renderExtraTooltipRows}
+          ariaLabel="Weekly volume, ISO-week totals of the enabled walking metrics"
+        />
+      )}
       <span style={{ fontSize: 11, color: 'var(--mantine-color-dimmed)', marginTop: 4 }}>
         {hasData && !isMulti && singleConfig !== null
           ? `${singleConfig.formatAvg(

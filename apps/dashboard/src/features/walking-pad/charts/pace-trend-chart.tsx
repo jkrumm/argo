@@ -1,8 +1,9 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
-import { alpha, ChartCard, ChartLegend, VX, ZonedLine } from '@argo/charts'
+import { ChartCard, ChartLegend, ZonedLine, type ChartSeries } from 'basalt-ui/charts'
+import { alpha, VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { PACE_ZONES } from '../constants'
+import { SERIES } from '../../../lib/series'
 import { ChartEmpty } from './empty'
 
 type Point = {
@@ -27,7 +28,6 @@ const zoneFill = (tone: (typeof PACE_ZONES)[number]['tone']) => {
 
 export function PaceTrendChart({ params }: { params: WalkingPadWindowParams }) {
   const { data } = useSuspenseQuery(walkingPadQueries.series({ ...params, bucket: 'day' }))
-  const { ref, width } = useElementSize<HTMLDivElement>()
 
   const points: Point[] = data.points.map((p) => ({
     date: p.date,
@@ -39,8 +39,17 @@ export function PaceTrendChart({ params }: { params: WalkingPadWindowParams }) {
     from: z.from,
     to: z.to,
     fill: zoneFill(z.tone),
-    label: z.label,
   }))
+
+  const series: ChartSeries<Point>[] = [
+    {
+      key: 'pace',
+      label: 'Avg pace',
+      color: SERIES.walkingPace,
+      mark: 'line',
+      getValue: (d) => d.avg_speed_kmh,
+    },
+  ]
 
   return (
     <ChartCard
@@ -49,7 +58,7 @@ export function PaceTrendChart({ params }: { params: WalkingPadWindowParams }) {
       tooltip="Per-day distance-weighted average walking speed. Zones (stroll / walking / brisk / power) are calibrated against typical desk-treadmill ranges. A long slow session counts more than a tiny fast one — the headline number reflects how you actually moved, not the peak."
       extra={
         hasData ? (
-          <span style={{ fontSize: 12, fontWeight: 600, color: VX.series.walkingPace }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: SERIES.walkingPace }}>
             {fmtKmh(
               points
                 .filter(
@@ -62,26 +71,24 @@ export function PaceTrendChart({ params }: { params: WalkingPadWindowParams }) {
         ) : null
       }
     >
-      <div ref={ref} style={{ height: 280, width: '100%' }}>
-        {!hasData ? (
-          <ChartEmpty height={280} label="No pace data — log a session first." />
-        ) : width > 0 ? (
-          <ZonedLine<Point>
-            data={points}
-            width={Math.max(width, 200)}
-            height={280}
-            chartId="walking-pad-pace-trend"
-            getX={(d) => d.date}
-            getY={(d) => d.avg_speed_kmh}
-            yDomain="auto"
-            yAutoMaxFloor={6}
-            yAutoMinCeil={1}
-            zones={zones}
-            seriesLabel="Avg pace"
-            formatValue={fmtKmh}
-          />
-        ) : null}
-      </div>
+      {!hasData ? (
+        <ChartEmpty height={280} label="No pace data — log a session first." />
+      ) : (
+        <ZonedLine<Point>
+          data={points}
+          height={280}
+          chartId="walking-pad-pace-trend"
+          getX={(d) => d.date}
+          series={series}
+          yDomain="auto"
+          yAutoMaxFloor={6}
+          yAutoMinCeil={1}
+          zones={zones}
+          formatValue={fmtKmh}
+          legend={false}
+          ariaLabel="Pace trend, daily average walking speed with zone bands"
+        />
+      )}
       <ChartLegend
         items={PACE_ZONES.map((z) => ({
           key: z.label,
@@ -90,7 +97,7 @@ export function PaceTrendChart({ params }: { params: WalkingPadWindowParams }) {
             z.tone === 'good'
               ? VX.goodSolid
               : z.tone === 'strong'
-                ? VX.series.walkingPace
+                ? SERIES.walkingPace
                 : z.tone === 'soft'
                   ? VX.warnSolid
                   : alpha(VX.neutral, 0.6),

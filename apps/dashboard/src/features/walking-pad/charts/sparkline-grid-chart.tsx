@@ -1,7 +1,8 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useElementSize } from '@mantine/hooks'
 import { Card, SimpleGrid, Stack, Text } from '@mantine/core'
-import { LineSparkline, VX } from '@argo/charts'
+import { LineSparkline } from 'basalt-ui/charts'
+import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 
 type Metric = {
