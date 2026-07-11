@@ -1,7 +1,8 @@
-import { ActionIcon, Group, Stack, Table, Text, Tooltip } from '@mantine/core'
+import { ActionIcon, Group, Stack, Text, Tooltip } from '@mantine/core'
 import { modals } from '@mantine/modals'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { IconTrash } from '@tabler/icons-react'
+import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
 import { skinfoldLogQueries, useDeleteSkinfoldLog } from '../../../lib/queries/skinfold-log'
 import { skinfoldSiteLabel } from '../formulas'
 
@@ -12,6 +13,8 @@ type SkinfoldRow = {
   value_mm: number
   created_at: string | null
 }
+
+const columnHelper = createColumnHelper<SkinfoldRow>()
 
 export function SkinfoldHistoryTable() {
   const { data } = useSuspenseQuery(skinfoldLogQueries.list({ page: 1, limit: 20 }))
@@ -34,52 +37,55 @@ export function SkinfoldHistoryTable() {
     })
   }
 
+  const columns = [
+    columnHelper.accessor('date', { header: 'Date' }),
+    columnHelper.accessor((row) => skinfoldSiteLabel(row.site), {
+      id: 'site',
+      header: 'Site',
+    }),
+    columnHelper.accessor('value_mm', {
+      header: 'Thickness',
+      cell: (ctx) => `${ctx.getValue().toFixed(1)} mm`,
+    }),
+    columnHelper.display({
+      id: 'actions',
+      header: '',
+      enableSorting: false,
+      cell: (ctx) => {
+        const r = ctx.row.original
+        return (
+          <Group gap={4} justify="flex-end">
+            <Tooltip label="Delete" withArrow>
+              <ActionIcon
+                variant="subtle"
+                color="red"
+                size="sm"
+                loading={deleteSkinfoldLog.isPending && deleteSkinfoldLog.variables === r.id}
+                onClick={() => handleDelete(r)}
+                aria-label="Delete"
+              >
+                <IconTrash size={14} />
+              </ActionIcon>
+            </Tooltip>
+          </Group>
+        )
+      },
+    }),
+  ]
+
   return (
     <Stack gap="xs">
-      <Table striped highlightOnHover>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>Date</Table.Th>
-            <Table.Th>Site</Table.Th>
-            <Table.Th>Thickness</Table.Th>
-            <Table.Th style={{ width: 56 }} />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {readings.map((r) => (
-            <Table.Tr key={r.id}>
-              <Table.Td>{r.date}</Table.Td>
-              <Table.Td>{skinfoldSiteLabel(r.site)}</Table.Td>
-              <Table.Td>{r.value_mm.toFixed(1)} mm</Table.Td>
-              <Table.Td>
-                <Group gap={4} justify="flex-end">
-                  <Tooltip label="Delete" withArrow>
-                    <ActionIcon
-                      variant="subtle"
-                      color="red"
-                      size="sm"
-                      loading={deleteSkinfoldLog.isPending && deleteSkinfoldLog.variables === r.id}
-                      onClick={() => handleDelete(r)}
-                      aria-label="Delete"
-                    >
-                      <IconTrash size={14} />
-                    </ActionIcon>
-                  </Tooltip>
-                </Group>
-              </Table.Td>
-            </Table.Tr>
-          ))}
-          {readings.length === 0 && (
-            <Table.Tr>
-              <Table.Td colSpan={4}>
-                <Text c="dimmed" ta="center" py="sm">
-                  No skinfold readings logged yet
-                </Text>
-              </Table.Td>
-            </Table.Tr>
-          )}
-        </Table.Tbody>
-      </Table>
+      <BasaltDataTable
+        data={readings}
+        columns={columns}
+        striped
+        highlightOnHover
+        emptyState={
+          <Text c="dimmed" ta="center" size="sm" py="sm">
+            No skinfold readings logged yet
+          </Text>
+        }
+      />
     </Stack>
   )
 }

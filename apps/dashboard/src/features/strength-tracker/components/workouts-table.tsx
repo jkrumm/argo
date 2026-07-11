@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { ActionIcon, Badge, Group, Stack, Table, Text, Tooltip } from '@mantine/core'
+import { ActionIcon, Badge, Group, Stack, Text, Tooltip } from '@mantine/core'
 import { modals } from '@mantine/modals'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { IconEdit, IconTrash } from '@tabler/icons-react'
+import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { useDeleteWorkout, workoutsQueries } from '../../../lib/queries/workouts'
 import { EXERCISE_COLORS, type ExerciseKey } from '../constants'
@@ -55,6 +56,8 @@ function topSet(sets: WorkoutSetRow[]): string {
   return `${top.weight_kg} kg × ${top.reps}`
 }
 
+const columnHelper = createColumnHelper<WorkoutRow>()
+
 export function WorkoutsTable() {
   const { data } = useSuspenseQuery(workoutsQueries.list({ page: 1, limit: 50 }))
   const workouts = (data?.data ?? []) as WorkoutRow[]
@@ -77,90 +80,105 @@ export function WorkoutsTable() {
     })
   }
 
+  const columns = [
+    columnHelper.accessor('date', { header: 'Date' }),
+    columnHelper.accessor((row) => row.exercise_name ?? exerciseLabel(row.exercise_id), {
+      id: 'exercise',
+      header: 'Exercise',
+      cell: (ctx) => (
+        <Group gap={6} wrap="nowrap">
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              backgroundColor: exerciseDot(ctx.row.original.exercise_id),
+              flexShrink: 0,
+            }}
+          />
+          <Text size="sm">{ctx.getValue()}</Text>
+        </Group>
+      ),
+    }),
+    columnHelper.display({
+      id: 'sets',
+      header: 'Sets',
+      enableSorting: false,
+      cell: (ctx) => formatSets(ctx.row.original.sets),
+    }),
+    columnHelper.display({
+      id: 'topSet',
+      header: 'Top Set',
+      enableSorting: false,
+      cell: (ctx) => topSet(ctx.row.original.sets),
+    }),
+    columnHelper.accessor('total_volume', {
+      header: 'Volume',
+      cell: (ctx) => `${Math.round(ctx.getValue()).toLocaleString()} kg`,
+    }),
+    columnHelper.accessor('estimated_1rm', {
+      header: 'e1RM',
+      cell: (ctx) => {
+        const value = ctx.getValue()
+        return value !== null ? (
+          <Badge variant="light" color="blue">
+            {value.toFixed(1)} kg
+          </Badge>
+        ) : (
+          '—'
+        )
+      },
+    }),
+    columnHelper.display({
+      id: 'actions',
+      header: '',
+      enableSorting: false,
+      cell: (ctx) => {
+        const w = ctx.row.original
+        return (
+          <Group gap={4} justify="flex-end">
+            <Tooltip label="Edit" withArrow>
+              <ActionIcon
+                variant="subtle"
+                size="sm"
+                onClick={() => setEditing(w as unknown as EditableWorkout)}
+                aria-label="Edit"
+              >
+                <IconEdit size={14} />
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip label="Delete" withArrow>
+              <ActionIcon
+                variant="subtle"
+                color="red"
+                size="sm"
+                loading={deleteWorkout.isPending && deleteWorkout.variables === w.id}
+                onClick={() => handleDelete(w)}
+                aria-label="Delete"
+              >
+                <IconTrash size={14} />
+              </ActionIcon>
+            </Tooltip>
+          </Group>
+        )
+      },
+    }),
+  ]
+
   return (
     <Stack gap="xs">
       <EditWorkoutModal workout={editing} onClose={() => setEditing(null)} />
-      <Table striped highlightOnHover>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>Date</Table.Th>
-            <Table.Th>Exercise</Table.Th>
-            <Table.Th>Sets</Table.Th>
-            <Table.Th>Top Set</Table.Th>
-            <Table.Th>Volume</Table.Th>
-            <Table.Th>e1RM</Table.Th>
-            <Table.Th style={{ width: 96 }} />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {workouts.map((w) => (
-            <Table.Tr key={w.id}>
-              <Table.Td>{w.date}</Table.Td>
-              <Table.Td>
-                <Group gap={6} wrap="nowrap">
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      backgroundColor: exerciseDot(w.exercise_id),
-                      flexShrink: 0,
-                    }}
-                  />
-                  <Text size="sm">{w.exercise_name ?? exerciseLabel(w.exercise_id)}</Text>
-                </Group>
-              </Table.Td>
-              <Table.Td>{formatSets(w.sets)}</Table.Td>
-              <Table.Td>{topSet(w.sets)}</Table.Td>
-              <Table.Td>{Math.round(w.total_volume).toLocaleString()} kg</Table.Td>
-              <Table.Td>
-                {w.estimated_1rm !== null ? (
-                  <Badge variant="light" color="blue">
-                    {w.estimated_1rm.toFixed(1)} kg
-                  </Badge>
-                ) : (
-                  '—'
-                )}
-              </Table.Td>
-              <Table.Td>
-                <Group gap={4} justify="flex-end">
-                  <Tooltip label="Edit" withArrow>
-                    <ActionIcon
-                      variant="subtle"
-                      size="sm"
-                      onClick={() => setEditing(w as unknown as EditableWorkout)}
-                      aria-label="Edit"
-                    >
-                      <IconEdit size={14} />
-                    </ActionIcon>
-                  </Tooltip>
-                  <Tooltip label="Delete" withArrow>
-                    <ActionIcon
-                      variant="subtle"
-                      color="red"
-                      size="sm"
-                      loading={deleteWorkout.isPending && deleteWorkout.variables === w.id}
-                      onClick={() => handleDelete(w)}
-                      aria-label="Delete"
-                    >
-                      <IconTrash size={14} />
-                    </ActionIcon>
-                  </Tooltip>
-                </Group>
-              </Table.Td>
-            </Table.Tr>
-          ))}
-          {workouts.length === 0 && (
-            <Table.Tr>
-              <Table.Td colSpan={7}>
-                <Text c="dimmed" ta="center" py="sm">
-                  No workouts logged yet
-                </Text>
-              </Table.Td>
-            </Table.Tr>
-          )}
-        </Table.Tbody>
-      </Table>
+      <BasaltDataTable
+        data={workouts}
+        columns={columns}
+        striped
+        highlightOnHover
+        emptyState={
+          <Text c="dimmed" ta="center" size="sm" py="sm">
+            No workouts logged yet
+          </Text>
+        }
+      />
     </Stack>
   )
 }
