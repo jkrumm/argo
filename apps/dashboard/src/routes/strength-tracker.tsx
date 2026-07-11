@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Suspense, useCallback, useMemo, useState } from 'react'
+import { Suspense, useCallback, useMemo } from 'react'
 import { Grid, Group, SimpleGrid, Stack } from '@mantine/core'
 import { z } from 'zod'
-import { HoverContext, type HoverCtx } from '@argo/charts'
+import { ChartHoverSync } from 'basalt-ui/charts'
 import { PageActions } from '../components/app-shell/page-header'
 import {
   ChartSkeleton,
@@ -114,16 +114,6 @@ function StrengthTrackerPage() {
     return tokens.length > 0 ? tokens : DEFAULT_EXERCISES
   }, [search.exercises])
 
-  // Cross-chart hover sync
-  const [hoverState, setHoverState] = useState<{ date: string | null; source: string | null }>({
-    date: null,
-    source: null,
-  })
-  const setHover = useCallback((date: string | null, source: string | null) => {
-    setHoverState({ date, source })
-  }, [])
-  const hoverCtx = useMemo<HoverCtx>(() => ({ ...hoverState, setHover }), [hoverState, setHover])
-
   const handlePresetChange = useCallback(
     (preset: WindowPreset) => {
       void navigate({
@@ -198,7 +188,7 @@ function StrengthTrackerPage() {
   const hasWorkouts = workoutsList.total > 0
 
   return (
-    <HoverContext.Provider value={hoverCtx}>
+    <ChartHoverSync>
       {/* Page controls live in the shared top-bar slot; the breadcrumb names the page. */}
       <PageActions>
         <Group gap="sm" wrap="nowrap">
@@ -249,7 +239,7 @@ function StrengthTrackerPage() {
           </Grid.Col>
         </Grid>
       </Stack>
-    </HoverContext.Provider>
+    </ChartHoverSync>
   )
 }
 

@@ -22,8 +22,9 @@ import {
   useHoverSync,
   useTooltipStyles,
   type LegendEntry,
-} from '@argo/charts'
+} from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
+import { SERIES } from '../../../lib/series'
 import { DEFAULT_EXERCISES, EXERCISE_COLORS, METRIC_TOOLTIPS } from '../constants'
 import { directionArrow, directionColor, exerciseLabel } from '../formulas'
 import { ChartEmpty } from './empty'
@@ -41,7 +42,7 @@ type MergedPoint = {
 const MARGIN = { top: 16, right: 24, bottom: 32, left: 56 }
 
 function colorFor(exId: string): string {
-  return EXERCISE_COLORS[exId as keyof typeof EXERCISE_COLORS] ?? VX.series.benchPress
+  return EXERCISE_COLORS[exId as keyof typeof EXERCISE_COLORS] ?? SERIES.benchPress
 }
 
 function parseExercises(exercises: string | undefined): string[] {
@@ -182,7 +183,7 @@ function OneRmInner({
     useHoverSync<MergedPoint>({
       data,
       chartId: 'one-rm-trend',
-      getX: (d) => d.date,
+      getKey: (d) => d.date,
       xScale,
       marginLeft: MARGIN.left,
     })

@@ -1,15 +1,14 @@
 import { useState } from 'react'
-import { useElementSize } from '@mantine/hooks'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import {
   ChartCard,
   ChartLegend,
   TooltipRow,
-  useVxTheme,
   VX,
   ZonedLine,
+  type ChartSeries,
   type ZonedLineTooltipLabel,
-} from '@argo/charts'
+} from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from '../constants'
 import { ChartEmpty } from './empty'
@@ -35,8 +34,6 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
   const { exercises: _ignored, ...windowParams } = params
   void _ignored
   const { data } = useSuspenseQuery(strengthQueries.readiness(windowParams))
-  const { ref, width } = useElementSize<HTMLDivElement>()
-  const { line, tooltipMuted } = useVxTheme()
   const [highlighted, setHighlighted] = useState<string | null>(null)
 
   const points = data.points as ReadinessPoint[]
@@ -58,6 +55,16 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
         })()
       : null
 
+  const series: ChartSeries<ReadinessPoint>[] = [
+    {
+      key: 'readiness',
+      label: 'Readiness (adjusted)',
+      color: VX.line,
+      mark: 'line',
+      getValue: (d) => d.readiness,
+    },
+  ]
+
   return (
     <ChartCard
       title="Readiness × Strain"
@@ -65,59 +72,57 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
       tooltip={METRIC_TOOLTIPS.readinessStrain}
       extra={headerExtra}
     >
-      <div ref={ref} style={{ height: HEIGHT, width: '100%' }}>
-        {!hasData ? (
-          <ChartEmpty height={HEIGHT} message="Need ≥ 7 days of Garmin daily metrics" />
-        ) : width > 0 ? (
-          <ZonedLine<ReadinessPoint>
-            data={points}
-            width={Math.max(width, 200)}
-            height={HEIGHT}
-            chartId="readiness-strain"
-            getX={(d) => d.date}
-            getY={(d) => d.readiness}
-            yDomain={[0, 100]}
-            zones={[
-              { from: 70, to: 100, fill: VX.good },
-              { from: 40, to: 70, fill: VX.warn },
-              { from: 0, to: 40, fill: VX.bad },
-            ]}
-            refLines={[
-              { value: 70, color: VX.goodRef },
-              { value: 40, color: VX.badRef },
-            ]}
-            seriesLabel="Readiness (adjusted)"
-            formatValue={(v) => String(Math.round(v))}
-            tooltipLabel={(d) => (d.readiness === null ? null : readinessZoneLabel(d.readiness))}
-            renderExtraTooltipRows={(d) => (
-              <>
-                {d.garminRecovery !== null && (
-                  <TooltipRow
-                    color={tooltipMuted}
-                    label="Garmin Recovery"
-                    value={String(Math.round(d.garminRecovery))}
-                    shape="line"
-                    dashed
-                  />
-                )}
+      {!hasData ? (
+        <ChartEmpty height={HEIGHT} message="Need ≥ 7 days of Garmin daily metrics" />
+      ) : (
+        <ZonedLine<ReadinessPoint>
+          data={points}
+          height={HEIGHT}
+          chartId="readiness-strain"
+          getX={(d) => d.date}
+          series={series}
+          yDomain={[0, 100]}
+          zones={[
+            { from: 70, to: 100, fill: VX.good },
+            { from: 40, to: 70, fill: VX.warn },
+            { from: 0, to: 40, fill: VX.bad },
+          ]}
+          refLines={[
+            { value: 70, color: VX.goodRef },
+            { value: 40, color: VX.badRef },
+          ]}
+          formatValue={(v) => String(Math.round(v))}
+          tooltipLabel={(d) => (d.readiness === null ? null : readinessZoneLabel(d.readiness))}
+          renderExtraTooltipRows={(d) => (
+            <>
+              {d.garminRecovery !== null && (
                 <TooltipRow
-                  color={tooltipMuted}
-                  label="Fatigue debt"
-                  value={d.fatigueDept.toFixed(2)}
-                  shape="bar"
+                  color={VX.muted}
+                  label="Garmin Recovery"
+                  value={String(Math.round(d.garminRecovery))}
+                  shape="line"
+                  dashed
                 />
-                {d.driver && (
-                  <TooltipRow color={tooltipMuted} label="Driver" value={d.driver} shape="bar" />
-                )}
-              </>
-            )}
-          />
-        ) : null}
-      </div>
+              )}
+              <TooltipRow
+                color={VX.muted}
+                label="Fatigue debt"
+                value={d.fatigueDept.toFixed(2)}
+                shape="bar"
+              />
+              {d.driver && (
+                <TooltipRow color={VX.muted} label="Driver" value={d.driver} shape="bar" />
+              )}
+            </>
+          )}
+          legend={false}
+          ariaLabel="Readiness and strain over time"
+        />
+      )}
       <ChartLegend
         items={[
-          { key: 'readiness', label: 'Readiness (adjusted)', color: line },
-          { key: 'garmin', label: 'Garmin Recovery (raw)', color: tooltipMuted, dashed: true },
+          { key: 'readiness', label: 'Readiness (adjusted)', color: VX.line },
+          { key: 'garmin', label: 'Garmin Recovery (raw)', color: VX.muted, dashed: true },
           { key: 'push', label: 'Push (≥70)', color: VX.goodSolid, shape: 'bar' },
           { key: 'normal', label: 'Normal (40–69)', color: VX.warnSolid, shape: 'bar' },
           { key: 'rest', label: 'Rest (<40)', color: VX.badSolid, shape: 'bar' },

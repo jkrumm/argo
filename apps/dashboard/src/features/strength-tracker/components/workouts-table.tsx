@@ -3,7 +3,7 @@ import { ActionIcon, Badge, Group, Stack, Table, Text, Tooltip } from '@mantine/
 import { modals } from '@mantine/modals'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { IconEdit, IconTrash } from '@tabler/icons-react'
-import { alpha, VX } from '@argo/charts'
+import { alpha, VX } from 'basalt-ui/tokens'
 import { useDeleteWorkout, workoutsQueries } from '../../../lib/queries/workouts'
 import { EXERCISE_COLORS, type ExerciseKey } from '../constants'
 import { exerciseLabel } from '../formulas'

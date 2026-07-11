@@ -1,6 +1,6 @@
 import { Card, Group, SimpleGrid, Stack, Text } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { alpha, VX } from '@argo/charts'
+import { alpha, VX } from 'basalt-ui/tokens'
 import { workoutsQueries, type WorkoutWindowParams } from '../../../lib/queries/workouts'
 import { EXERCISE_COLORS, type ExerciseKey } from '../constants'
 import { exerciseLabel } from '../formulas'

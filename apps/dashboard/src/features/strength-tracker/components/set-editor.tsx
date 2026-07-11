@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { ActionIcon, Button } from '@mantine/core'
 import { IconCheck, IconPlus, IconX } from '@tabler/icons-react'
-import { VX, alpha } from '@argo/charts'
+import { VX, alpha } from 'basalt-ui/tokens'
 import type { SetType } from '../constants'
 
 export type SetEntry = {

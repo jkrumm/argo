@@ -1,9 +1,9 @@
 import { Select, Stack, Text } from '@mantine/core'
-import { useElementSize } from '@mantine/hooks'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Bars, ChartCard, ChartLegend, useVxTheme, VX } from '@argo/charts'
+import { Bars, ChartCard, ChartLegend, VX } from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
+import { SERIES } from '../../../lib/series'
 import { EXERCISE_COLORS, METRIC_TOOLTIPS, type ExerciseKey } from '../constants'
 import { exerciseLabel } from '../formulas'
 
@@ -56,9 +56,6 @@ function ChartEmpty({ height = 280, label }: { height?: number; label: string })
 
 export default function WeeklyVolumeChart({ params }: { params: StrengthQueryParams }) {
   const { data } = useSuspenseQuery(strengthQueries.weeklyVolume(params))
-  const { ref, width } = useElementSize<HTMLDivElement>()
-  const { line2 } = useVxTheme()
-  const [highlighted, setHighlighted] = useState<string | null>(null)
 
   const availableExercises = data.byExercise.map((b) => b.exercise_id)
   const [selectedExercise, setSelectedExercise] = useState<string>(
@@ -75,7 +72,7 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
   const selectedBlock = data.byExercise.find((b) => b.exercise_id === effectiveSelected) ?? null
   const points = (selectedBlock?.points ?? []) as WeeklyVolumePoint[]
   const landmarks = selectedBlock?.landmarks ?? { mev: 0, mav: 0, mrv: 0 }
-  const exColor = EXERCISE_COLORS[effectiveSelected as ExerciseKey] ?? VX.series.benchPress
+  const exColor = EXERCISE_COLORS[effectiveSelected as ExerciseKey] ?? SERIES.benchPress
 
   const hasData = points.some((p) => p.total > 0)
   const latest = points[points.length - 1]
@@ -110,59 +107,53 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
         </span>
       }
     >
-      <div ref={ref} style={{ height: 280, width: '100%' }}>
-        {!hasData ? (
-          <ChartEmpty height={280} label={`No volume data for ${exLabel}`} />
-        ) : width > 0 ? (
-          <Bars<WeeklyVolumePoint>
-            data={points}
-            width={Math.max(width, 200)}
-            height={280}
-            chartId="weekly-volume"
-            getX={(d) => d.date}
-            getValue={getValue}
-            positiveBars={[
-              { key: 'warmup', label: 'Warm-up', color: exColor },
-              { key: 'work', label: 'Work', color: exColor },
-              { key: 'drop', label: 'Drop', color: exColor },
-              { key: 'amrap', label: 'AMRAP', color: VX.warnSolid },
-            ]}
-            barLayout="stacked"
-            barOpacity={barOpacityFor}
-            lines={[
-              {
-                key: 'ma',
-                label: '4w MA',
-                color: line2,
-                dashed: true,
-                strokeWidth: 1.5,
-                formatValue: fmtTonnage,
-              },
-            ]}
-            refLines={[
-              { value: landmarks.mev, color: VX.goodRef, dashed: true },
-              { value: landmarks.mav, color: VX.warnRef, dashed: true },
-              { value: landmarks.mrv, color: VX.badRef, dashed: true },
-            ]}
-            leftAxis={{ domain: 'auto', formatTick: fmtTonnage, numTicks: 5 }}
-            formatValue={fmtTonnage}
-            highlightedKey={highlighted}
-          />
-        ) : null}
-      </div>
+      {!hasData ? (
+        <ChartEmpty height={280} label={`No volume data for ${exLabel}`} />
+      ) : (
+        <Bars<WeeklyVolumePoint>
+          data={points}
+          height={280}
+          chartId="weekly-volume"
+          getX={(d) => d.date}
+          getValue={getValue}
+          positiveBars={[
+            { key: 'warmup', label: 'Warm-up', color: exColor },
+            { key: 'work', label: 'Work', color: exColor },
+            { key: 'drop', label: 'Drop', color: exColor },
+            { key: 'amrap', label: 'AMRAP', color: VX.warnSolid },
+          ]}
+          barLayout="stacked"
+          barOpacity={barOpacityFor}
+          lines={[
+            {
+              key: 'ma',
+              label: '4w MA',
+              color: VX.line2,
+              dashed: true,
+              strokeWidth: 1.5,
+              formatValue: fmtTonnage,
+            },
+          ]}
+          refLines={[
+            { value: landmarks.mev, color: VX.goodRef, dashed: true },
+            { value: landmarks.mav, color: VX.warnRef, dashed: true },
+            { value: landmarks.mrv, color: VX.badRef, dashed: true },
+          ]}
+          leftAxis={{ domain: 'auto', formatTick: fmtTonnage, numTicks: 5 }}
+          formatValue={fmtTonnage}
+          ariaLabel={`Weekly volume for ${exLabel}`}
+        />
+      )}
+      {/* MEV/MAV/MRV are refLines, not part of the bar/line series — Bars' derived legend can't
+       * express them, so they get a supplementary static legend row (basalt-ui/charts crib
+       * pattern: legend={false}-style escape, kept additive here since the bar/MA legend is
+       * still auto-derived and interactive). */}
       <ChartLegend
         items={[
-          { key: 'warmup', label: 'Warm-up', color: exColor, shape: 'bar' },
-          { key: 'work', label: 'Work', color: exColor, shape: 'bar' },
-          { key: 'drop', label: 'Drop', color: exColor, shape: 'bar' },
-          { key: 'amrap', label: 'AMRAP', color: VX.warnSolid, shape: 'bar' },
-          { key: 'ma', label: '4w MA', color: line2, dashed: true, strokeWidth: 1.5 },
-          { key: 'mev', label: 'MEV', color: VX.goodSolid, dashed: true },
-          { key: 'mav', label: 'MAV', color: VX.warnSolid, dashed: true },
-          { key: 'mrv', label: 'MRV', color: VX.badSolid, dashed: true },
+          { key: 'mev', label: 'MEV', color: VX.goodSolid, shape: 'bar' },
+          { key: 'mav', label: 'MAV', color: VX.warnSolid, shape: 'bar' },
+          { key: 'mrv', label: 'MRV', color: VX.badSolid, shape: 'bar' },
         ]}
-        highlighted={highlighted}
-        onHighlight={setHighlighted}
       />
     </ChartCard>
   )

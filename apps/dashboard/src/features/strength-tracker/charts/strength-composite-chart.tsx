@@ -22,9 +22,9 @@ import {
   smartTicks,
   useHoverSync,
   useTooltipStyles,
-  useVxTheme,
-} from '@argo/charts'
+} from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
+import { SERIES } from '../../../lib/series'
 import { DEFAULT_EXERCISES, EXERCISES, METRIC_TOOLTIPS } from '../constants'
 import { exerciseLabel } from '../formulas'
 import { ChartEmpty } from './empty'
@@ -45,9 +45,9 @@ type CompositePoint = {
 // Distinct semantic colors per metric (NOT exercise colors — three metrics
 // across one exercise).
 const COMPOSITE_COLORS = {
-  velocity: VX.series.hrv,
-  tonnage: VX.series.calories,
-  inol: VX.series.acwr,
+  velocity: SERIES.hrv,
+  tonnage: SERIES.calories,
+  inol: SERIES.acwr,
 } as const
 
 const Y_DOMAIN: [number, number] = [-3, 3]
@@ -82,7 +82,6 @@ function CompositeInner({
   height: number
   highlighted: string | null
 }) {
-  const { axis } = useVxTheme()
   const dim = (key: string): number => (highlighted === null || highlighted === key ? 1 : 0.15)
 
   const MARGIN_LOCAL = useMemo(() => ({ ...VX.margin, left: Math.max(VX.margin.left, 48) }), [])
@@ -106,7 +105,7 @@ function CompositeInner({
     useHoverSync<CompositePoint>({
       data,
       chartId: 'strength-composite',
-      getX: (d) => d.date,
+      getKey: (d) => d.date,
       xScale,
       marginLeft: MARGIN_LOCAL.left,
     })
@@ -152,7 +151,7 @@ function CompositeInner({
             x2={xMax}
             y1={yScale(0)}
             y2={yScale(0)}
-            stroke={axis}
+            stroke={VX.axis}
             strokeWidth={1}
             strokeDasharray="2 4"
             strokeOpacity={0.6}

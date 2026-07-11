@@ -21,10 +21,10 @@ import {
   TooltipRow,
   useHoverSync,
   useTooltipStyles,
-  useVxTheme,
   VX,
-} from '@argo/charts'
+} from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
+import { SERIES } from '../../../lib/series'
 import { DEFAULT_EXERCISES, EXERCISE_COLORS, METRIC_TOOLTIPS, type ExerciseKey } from '../constants'
 import { directionArrow, directionColor, exerciseLabel, type StrengthDirection } from '../formulas'
 import { ChartEmpty } from './empty'
@@ -161,7 +161,7 @@ function MomentumChartInner({
     useHoverSync<MomentumPoint>({
       data,
       chartId,
-      getX: (d) => d.date,
+      getKey: (d) => d.date,
       xScale,
       marginLeft: MARGIN.left,
     })
@@ -372,8 +372,6 @@ function MomentumChartInner({
 }
 
 export default function MomentumChart({ params }: { params: StrengthQueryParams }) {
-  // Reads useVxTheme to keep the reference stable across theme switches (no-op return).
-  useVxTheme()
   const { data } = useSuspenseQuery(strengthQueries.seriesDetailed(params))
   const { ref, width } = useElementSize<HTMLDivElement>()
 
@@ -404,7 +402,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
   const e1rmCount = chartData.filter((d) => d.e1rm !== null).length
   const hasData = e1rmCount >= 2
 
-  const exerciseColor = EXERCISE_COLORS[selectedExercise as ExerciseKey] ?? VX.series.benchPress
+  const exerciseColor = EXERCISE_COLORS[selectedExercise as ExerciseKey] ?? SERIES.benchPress
 
   const latestVel = [...chartData].reverse().find((d) => d.velocity !== null)?.velocity ?? null
   const dir = directionFromVelocity(latestVel)

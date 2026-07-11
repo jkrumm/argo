@@ -22,12 +22,12 @@ import {
   TooltipRow,
   useHoverSync,
   useTooltipStyles,
-  useVxTheme,
   VX,
   ZoneRects,
   type ZoneSpec,
-} from '@argo/charts'
+} from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
+import { SERIES } from '../../../lib/series'
 import { DEFAULT_EXERCISES, EXERCISE_COLORS, METRIC_TOOLTIPS, type ExerciseKey } from '../constants'
 import { exerciseLabel, inolDotColor } from '../formulas'
 import { ChartEmpty } from './empty'
@@ -91,7 +91,6 @@ function InolChartInner({
 }) {
   const xMax = width - MARGIN.left - MARGIN.right
   const yMax = height - MARGIN.top - MARGIN.bottom
-  const { line: themeLine } = useVxTheme()
 
   const xScale = useMemo(
     () =>
@@ -115,7 +114,7 @@ function InolChartInner({
     useHoverSync<InolPoint>({
       data,
       chartId,
-      getX: (d) => d.date,
+      getKey: (d) => d.date,
       xScale,
       marginLeft: MARGIN.left,
     })
@@ -250,7 +249,7 @@ function InolChartInner({
                 />
               )}
               {tip.data.inol === null && (
-                <TooltipRow color={themeLine} label="INOL" value="—" shape="bar" />
+                <TooltipRow color={VX.line} label="INOL" value="—" shape="bar" />
               )}
             </TooltipBody>
           </>
@@ -286,7 +285,7 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
   const hasData = chartData.some((d) => d.inol !== null)
   const latest = [...chartData].reverse().find((d) => d.inol !== null)
 
-  const exerciseColor = EXERCISE_COLORS[selectedExercise as ExerciseKey] ?? VX.series.benchPress
+  const exerciseColor = EXERCISE_COLORS[selectedExercise as ExerciseKey] ?? SERIES.benchPress
 
   const selectOptions = data.byExercise.map((e) => ({
     value: e.exercise_id,
@@ -349,7 +348,7 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
             dashed: true,
           },
           { key: 'opt', label: 'Optimal (0.6–1.0)', color: VX.goodSolid, shape: 'bar' },
-          { key: 'hard', label: 'Hard (1.0–1.5)', color: VX.series.calories, shape: 'bar' },
+          { key: 'hard', label: 'Hard (1.0–1.5)', color: SERIES.calories, shape: 'bar' },
           { key: 'exc', label: 'Excessive (>1.5)', color: VX.badSolid, shape: 'bar' },
         ]}
         highlighted={null}

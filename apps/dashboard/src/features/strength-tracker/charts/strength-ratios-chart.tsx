@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Group, Stack, Text } from '@mantine/core'
-import { alpha, ChartCard, VX } from '@argo/charts'
+import { alpha, ChartCard, VX } from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from '../constants'
 import { balanceColor, balanceLabel, balanceSymbol, type RatioStatus } from '../formulas'

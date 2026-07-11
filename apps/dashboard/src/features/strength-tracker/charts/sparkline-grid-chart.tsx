@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Box, Table, Text, Tooltip } from '@mantine/core'
-import { BarSparkline, ChartCard, LineSparkline, VX } from '@argo/charts'
+import { BarSparkline, ChartCard, LineSparkline, VX } from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from '../constants'
 import { directionArrow, directionColor, type StrengthDirection } from '../formulas'
