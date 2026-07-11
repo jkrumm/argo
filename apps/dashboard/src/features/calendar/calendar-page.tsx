@@ -33,7 +33,8 @@ import {
   type CalendarEventPayload,
   type CalendarSource,
 } from '../../lib/queries/calendar'
-import { VX } from '@argo/charts'
+import { VX } from 'basalt-ui/tokens'
+import { SERIES } from '../../lib/series'
 import { PageActions } from '../../components/app-shell/page-header'
 
 const DAYS_RANGE = 60
@@ -140,7 +141,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
   const legendEntries: LegendEntry[] = [
     ...Object.entries(GOOGLE_CALENDAR_COLORS).map(([label, color]) => ({ label, color })),
     { label: SOURCE_LABEL.m365, color: M365_COLOR },
-    ...(view === 'week' ? [{ label: SOURCE_LABEL.ticktick, color: VX.series.steps }] : []),
+    ...(view === 'week' ? [{ label: SOURCE_LABEL.ticktick, color: SERIES.steps }] : []),
   ]
 
   const errors: Array<{

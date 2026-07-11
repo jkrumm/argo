@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
 import {
   AreaClosed,
   AreaGradient,
@@ -22,10 +21,12 @@ import {
   scaleLinear,
   scalePoint,
   smartTicks,
+  useChartSize,
   useHoverSync,
   useTooltipStyles,
   type LegendEntry,
-} from '@argo/charts'
+} from 'basalt-ui/charts'
+import { SERIES } from '../../../lib/series'
 import {
   skinfoldLogQueries,
   type SkinfoldSite,
@@ -52,8 +53,8 @@ const CHART_HEIGHT = 260
 const AREA_ID = 'skinfold-average-area'
 
 const SITE_COLORS: Record<SkinfoldSite, string> = {
-  abdominal: VX.series.skinfoldAbdominal,
-  suprailiac: VX.series.skinfoldSuprailiac,
+  abdominal: SERIES.skinfoldAbdominal,
+  suprailiac: SERIES.skinfoldSuprailiac,
 }
 
 function toChartPoints(points: ApiPoint[]): ChartPoint[] {
@@ -108,7 +109,7 @@ function SkinfoldChartInner({
     useHoverSync<ChartPoint>({
       data,
       chartId: 'skinfold',
-      getX: (d) => d.date,
+      getKey: (d) => d.date,
       xScale,
       marginLeft: MARGIN.left,
     })
@@ -259,7 +260,7 @@ function SkinfoldChartInner({
 
 export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams }) {
   const { data } = useSuspenseQuery(skinfoldLogQueries.series(params))
-  const { ref, width } = useElementSize<HTMLDivElement>()
+  const { ref, width } = useChartSize()
 
   const apiPoints = data.points as ApiPoint[]
   const chartData = useMemo(() => toChartPoints(apiPoints), [apiPoints])
