@@ -12,7 +12,7 @@ import {
   TextInput,
   Transition,
 } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
+import { emit } from 'basalt-ui/notifications'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { IconCheck, IconMinus, IconTrendingDown, IconTrendingUp } from '@tabler/icons-react'
 import {
@@ -170,21 +170,19 @@ function WeightEntryForm({ defaultWeight }: { defaultWeight: number | null }) {
       {
         onSuccess: () => {
           setJustSaved(true)
-          notifications.show({
-            color: 'green',
-            icon: <IconCheck size={18} />,
-            title: 'Weight logged',
-            message: `${w.toFixed(1)} kg on ${date}`,
-            autoClose: 2000,
-          })
+          emit(
+            'body-comp:save-success',
+            { message: `${w.toFixed(1)} kg on ${date}` },
+            { title: 'Weight logged', icon: <IconCheck size={18} />, autoClose: 2000 },
+          )
           setTimeout(() => setJustSaved(false), 1400)
         },
         onError: (err) => {
-          notifications.show({
-            color: 'red',
-            title: 'Could not save weight',
-            message: err instanceof Error ? err.message : 'Unknown error',
-          })
+          emit(
+            'body-comp:save-error',
+            { message: err instanceof Error ? err.message : 'Unknown error' },
+            { title: 'Could not save weight' },
+          )
         },
       },
     )

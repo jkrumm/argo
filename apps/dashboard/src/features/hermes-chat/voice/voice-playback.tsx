@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { notifications } from '@mantine/notifications'
+import { emit } from 'basalt-ui/notifications'
 import { getToken } from '../../../lib/auth'
 import { useUiStore } from '../../../lib/store'
 import { apiBase } from '../transport'
@@ -360,11 +360,11 @@ export function VoicePlaybackProvider({ children }: { children: ReactNode }) {
         if (!res.ok) {
           if (res.status === 503) {
             setAudioAvailableState(false)
-            notifications.show({
-              title: 'Audio unavailable',
-              message: 'Text-to-speech is not configured.',
-              color: 'red',
-            })
+            emit(
+              'chat:error',
+              { message: 'Text-to-speech is not configured.' },
+              { title: 'Audio unavailable' },
+            )
           }
           resetPlayback()
           return

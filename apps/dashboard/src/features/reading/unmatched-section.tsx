@@ -1,5 +1,5 @@
 import { Button, Card, Group, Image, Stack, Text } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
+import { emit } from 'basalt-ui/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api, unwrap } from '../../lib/eden'
@@ -56,18 +56,18 @@ function UnmatchedRow({ row }: { row: UnmatchedRow }) {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: readingQueries.all() })
-      notifications.show({
-        title: 'Match confirmed',
-        message: 'The reading activity has been linked and will sync on the next reconcile.',
-        color: 'green',
-      })
+      emit(
+        'reading:success',
+        { message: 'The reading activity has been linked and will sync on the next reconcile.' },
+        { title: 'Match confirmed' },
+      )
     },
     onError: () => {
-      notifications.show({
-        title: 'Confirm failed',
-        message: 'Could not confirm the match. Check the server logs.',
-        color: 'red',
-      })
+      emit(
+        'reading:error',
+        { message: 'Could not confirm the match. Check the server logs.' },
+        { title: 'Confirm failed' },
+      )
     },
     onSettled: () => {
       setPendingKey(null)

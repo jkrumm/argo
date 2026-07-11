@@ -3,7 +3,7 @@ import { IconCopy, IconRefresh, IconX } from '@tabler/icons-react'
 import { useRouter } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { ReactQueryDevtoolsPanel } from '@tanstack/react-query-devtools'
-import { notifications } from '@mantine/notifications'
+import { emit } from 'basalt-ui/notifications'
 import { ThemeLabControls } from 'basalt-ui/theme-lab'
 
 /**
@@ -79,9 +79,7 @@ export function DevToolsPanel({ tool, onClose }: { tool: DevTool | null; onClose
             <ThemeLabControls
               copyIcon={<IconCopy size={15} />}
               resetIcon={<IconRefresh size={15} />}
-              onCopy={() =>
-                notifications.show({ message: 'Theme overrides copied as JSON', color: 'blue' })
-              }
+              onCopy={() => emit('dev:info', { message: 'Theme overrides copied as JSON' })}
             />
           </Box>
         )}

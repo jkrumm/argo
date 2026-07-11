@@ -21,7 +21,7 @@ import {
   Tooltip,
 } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { notifications } from '@mantine/notifications'
+import { emit } from 'basalt-ui/notifications'
 import {
   IconArrowLeft,
   IconFile,
@@ -323,11 +323,11 @@ export function ChatConversation({
 
   async function readFileAsAttachment(file: File, kind: 'image' | 'file') {
     if (file.size > ATTACHMENT_SIZE_LIMIT) {
-      notifications.show({
-        title: 'File too large',
-        message: `Attachments must be under ${SIZE_LIMIT_MB} MB.`,
-        color: 'red',
-      })
+      emit(
+        'chat:error',
+        { message: `Attachments must be under ${SIZE_LIMIT_MB} MB.` },
+        { title: 'File too large' },
+      )
       return
     }
     let dataUrl: string
@@ -339,11 +339,7 @@ export function ChatConversation({
         reader.readAsDataURL(file)
       })
     } catch {
-      notifications.show({
-        title: 'Read error',
-        message: 'Could not read the selected file.',
-        color: 'red',
-      })
+      emit('chat:error', { message: 'Could not read the selected file.' }, { title: 'Read error' })
       return
     }
     if (kind === 'image') {

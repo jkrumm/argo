@@ -27,6 +27,7 @@ import {
 import { format } from 'date-fns'
 import { useCallback, useEffect, useState } from 'react'
 import { BasaltShell, NavCountBadge } from 'basalt-ui'
+import { NotificationBell } from 'basalt-ui/notifications'
 import type {
   BreadcrumbLinkRenderer,
   NavLinkRenderer,
@@ -309,6 +310,7 @@ function RootLayout() {
             <HermesWidget />
             <TimerNavWidget />
             <RefreshButton />
+            <NotificationBell />
           </>
         }
         settingsMenuItems={settingsMenuItems}

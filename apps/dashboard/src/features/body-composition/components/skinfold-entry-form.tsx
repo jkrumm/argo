@@ -9,7 +9,7 @@ import {
   TextInput,
   Transition,
 } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
+import { emit } from 'basalt-ui/notifications'
 import { IconCheck } from '@tabler/icons-react'
 import { useCreateSkinfoldLog, type SkinfoldSite } from '../../../lib/queries/skinfold-log'
 import { SKINFOLD_SITES } from '../constants'
@@ -38,22 +38,20 @@ export function SkinfoldEntryForm() {
       {
         onSuccess: () => {
           setJustSaved(true)
-          notifications.show({
-            color: 'green',
-            icon: <IconCheck size={18} />,
-            title: 'Skinfold logged',
-            message: `${readings.length} reading${readings.length === 1 ? '' : 's'} on ${date}`,
-            autoClose: 2000,
-          })
+          emit(
+            'body-comp:save-success',
+            { message: `${readings.length} reading${readings.length === 1 ? '' : 's'} on ${date}` },
+            { title: 'Skinfold logged', icon: <IconCheck size={18} />, autoClose: 2000 },
+          )
           setValues({})
           setTimeout(() => setJustSaved(false), 1400)
         },
         onError: (err) => {
-          notifications.show({
-            color: 'red',
-            title: 'Could not save skinfold reading',
-            message: err instanceof Error ? err.message : 'Unknown error',
-          })
+          emit(
+            'body-comp:save-error',
+            { message: err instanceof Error ? err.message : 'Unknown error' },
+            { title: 'Could not save skinfold reading' },
+          )
         },
       },
     )
