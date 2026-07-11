@@ -70,7 +70,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@argo/api': resolve(import.meta.dirname, '../api/src'),
-      '@argo/charts': resolve(import.meta.dirname, '../../packages/charts/src'),
     },
     // Force Mantine packages to resolve to a single instance. Without dedupe,
     // Vite's optimizer can stamp a second copy of @mantine/core into

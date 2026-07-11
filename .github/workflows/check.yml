@@ -17,7 +17,6 @@ jobs:
       - run: bun run format:check
       - run: bun --cwd apps/api typecheck
       - run: bun --cwd apps/dashboard typecheck
-      - run: bun --cwd packages/charts typecheck
       - name: unit tests (pure logic, no DB connection)
         # DATABASE_URL/API_SECRET are placeholders to satisfy env schema for
         # module init only — the lib/* tests don't actually connect to the DB.

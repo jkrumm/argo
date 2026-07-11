@@ -1,3 +1,10 @@
+> **Superseded 2026-07-11.** This documented Argo's hand-rolled Blueprint-era Mantine retheme
+> (`theme.ts`, `charts-bridge.tsx`/`VxBridge`, the local `packages/charts` package). Both `theme.ts`
+> and `charts-bridge.tsx` have been removed; the retheme technique it describes is now built into
+> `basalt-ui` itself (`createBasaltTheme`, `BasaltProvider`). See the current `.claude/rules/
+basalt-mantine.md` and `.claude/rules/basalt-tokens.md` for the live conventions. Kept here as
+> historical reference only; do not follow its guidance.
+
 # Mantine Theming — Argo Engineering Reference
 
 > **Role.** This is the **method** for the Mantine _chrome_ layer (the app shell: shell, sidebar,
@@ -31,7 +38,7 @@ in pure CSS with zero JS branching.
    emits --vx-*            createTheme() + cssVariablesResolver
    (charts)                emits/overrides --mantine-*  ←──binds to──  --vx-*
         │                       │
-   @argo/charts            Mantine components
+   (local charts pkg)      Mantine components
         └──────────┬───────────┘
               one identity, one set of surfaces
 ```

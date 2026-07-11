@@ -59,31 +59,41 @@ slot in the route passes the prop in.
 
 ## Tokens & theme
 
-- Import semantic colors from `@argo/charts` via `VX.good`, `VX.bad`, `VX.warn`, etc.
-- Import per-exercise colors via `VX.series.benchPress`, `VX.series.deadlift`, `VX.series.squat`, `VX.series.pullUps`.
-- Theme-resolved neutrals come from `useVxTheme()` (`{ line, axis, tooltipBg, tooltipText }`).
+- Import semantic colors from `basalt-ui/charts` via `VX.good`, `VX.bad`, `VX.warn`, etc.
+- Import per-exercise colors from `apps/dashboard/src/lib/series.ts` (`SERIES.benchPress`,
+  `SERIES.deadlift`, `SERIES.squat`, `SERIES.pullUps`) — Argo's series identity is defined there via
+  basalt's `defineSeries` mechanism.
+- Theme-resolved neutrals (`VX.line`, `VX.axis`, `VX.tooltipBg`, `VX.tooltipText`) come from the same
+  `basalt-ui/charts` `VX` token object — CSS-var refs, no hook needed.
 - **Never** hardcode hex literals in chart files.
 - Use the constants in `../constants.ts`: `EXERCISE_COLORS`, `METRIC_TOOLTIPS`, `ZONE_COLORS` (for zone fills).
 - Use the helpers in `../formulas.ts`: `acwrZoneColor`, `acwrZoneLabel`, `inolDotColor`, `directionArrow`, `directionColor`, `exerciseLabel`.
 
-## HoverContext
+## Chart hover sync
 
-If your chart should sync crosshairs with other charts on the page, wire
-in via `useHoverSync(chartId, getX)`. The route already wraps the page in
-`<HoverContext.Provider>`. Use a stable `chartId` matching the chart's
-filename (e.g. `'one-rm-trend'`, `'training-load'`).
+If your chart should sync crosshairs with other charts on the page, wire in via
+`useHoverSync(chartId, getX)` (`basalt-ui/charts`). The route wraps the page's chart section in
+`<ChartHoverSync>` (also `basalt-ui/charts`) — no manual context provider needed. Use a stable
+`chartId` matching the chart's filename (e.g. `'one-rm-trend'`, `'training-load'`).
 
 ## Primitive contract — required
 
 1. `ChartCard` wrapper (title + subtitle + tooltip + extra slot)
-2. `ChartLegend` for any legend markup — never hand-rolled
+2. `ChartLegend` for any legend markup — never hand-rolled; pass series/legend items as data, not JSX
 3. `ChartTooltip` + `TooltipHeader` / `TooltipRow` / `TooltipBody`
 4. `AxisLeftNumeric` / `AxisBottomDate` — never raw visx axes
 5. `HoverOverlay` for mouse capture
 6. `useChartTooltip` for tooltip open/close state
 7. `useElementSize` from `@mantine/hooks` for responsive width
+8. Every chart entry point needs an `ariaLabel` prop — enforced by `bunx basalt check-theme`.
 
-For bespoke compositions, you may import raw visx primitives **but only via the `@argo/charts` re-exports** (`Group`, `GridRows`, `GridColumns`, `scaleLinear`, `scaleBand`, `scalePoint`, `scaleTime`, `LinePath`, `Bar`, `AreaClosed`, `BarStack`, `BarGroup`, `Line`, `Threshold`, `curveMonotoneX`, `curveLinear`, `curveCatmullRom`, `curveStepAfter`, `curveBasis`). Never import from `@visx/*` directly.
+Kind components (`ZonedLine`, `MultiLine`, `DualPanel`, `Heatmap`, …) take a `series: ChartSeries<T>[]`
+descriptor array (`{ key, label, color, mark, getValue }`) rather than ad-hoc per-series props.
+
+For bespoke compositions, you may import raw visx primitives **but only via the `basalt-ui/charts`
+re-exports** (`Group`, `GridRows`, `GridColumns`, `scaleLinear`, `scaleBand`, `scalePoint`, `scaleTime`,
+`LinePath`, `Bar`, `AreaClosed`, `BarStack`, `BarGroup`, `Line`, `Threshold`, `curveMonotoneX`,
+`curveLinear`, `curveCatmullRom`, `curveStepAfter`, `curveBasis`). Never import from `@visx/*` directly.
 
 ## Wiring slots
 

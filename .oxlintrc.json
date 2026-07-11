@@ -76,42 +76,6 @@
       }
     },
     {
-      "files": ["packages/charts/src/**"],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "paths": [
-              {
-                "name": "@mantine/core",
-                "message": "packages/charts must be theme-agnostic — no Mantine imports allowed."
-              },
-              {
-                "name": "@mantine/hooks",
-                "message": "packages/charts must be theme-agnostic — no Mantine imports allowed."
-              }
-            ],
-            "patterns": [
-              {
-                "group": ["@mantine/*"],
-                "message": "packages/charts must be theme-agnostic — no Mantine imports allowed."
-              },
-              {
-                "group": ["apps/*"],
-                "message": "packages/charts must not import from apps/."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "files": ["packages/charts/src/kinds/**"],
-      "rules": {
-        "no-underscore-dangle": "off"
-      }
-    },
-    {
       "files": ["apps/api/src/**"],
       "rules": {
         "no-restricted-imports": [

@@ -20,7 +20,7 @@ The backend also serves a curated OpenAPI (`/openapi`) consumed by AI agents —
 | Frontend      | Vite + React 19 + Mantine v9                                          |
 | Routing       | TanStack Router (file-based)                                          |
 | Data fetching | TanStack Query + Eden Treaty                                          |
-| Charts        | visx, extracted to `@argo/charts`                                     |
+| Charts        | visx, via `basalt-ui/charts`                                          |
 | Telemetry     | `@elysiajs/opentelemetry` (backend) + HyperDX (frontend) → ClickStack |
 
 ## Running Locally
@@ -58,7 +58,6 @@ bun run lint              # oxlint
 bun run format:check      # oxfmt
 bun run --cwd apps/api typecheck
 bun run --cwd apps/dashboard typecheck
-bun run --cwd packages/charts typecheck
 op run --account tkrumm --env-file=apps/api/.env.local.tpl -- bun test --cwd apps/api
 ```
 
@@ -73,15 +72,14 @@ Secrets are in 1Password under the `vps` vault (`op://vps/argo/*`, account `tkru
 
 ```
 apps/api/         — Elysia backend, Postgres (schema: argo), Drizzle migrations
-apps/dashboard/   — Vite + React 19 frontend
-packages/charts/  — @argo/charts: theme-agnostic visx primitives + kind components
+apps/dashboard/   — Vite + React 19 frontend, themed by basalt-ui
 ```
 
 ## Docs
 
 - `apps/api/CLAUDE.md` — API conventions, route patterns, DB setup
 - `apps/dashboard/CLAUDE.md` — Dashboard conventions, adding a page
-- `packages/charts/CLAUDE.md` — Chart primitives, kinds, tokens
+- `DESIGN.md` — Argo's design-system app-delta record (basalt-ui is the design system)
 - `docs/GARMIN-HEALTH.md` — Health metric formulas and composite signals (analytics reference)
 - `docs/STRENGTH-ANALYTICS.md` — Strength metric formulas (analytics reference)
 - `docs/THE-QUANTIFIED-ATHLETE.md` — Narrative field guide to every metric on the dashboard

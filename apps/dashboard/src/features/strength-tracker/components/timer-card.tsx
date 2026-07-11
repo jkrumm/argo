@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { VX } from 'basalt-ui/tokens'
 import {
   ActionIcon,
   Box,
@@ -274,8 +275,11 @@ function RestTimerPanel() {
   )
 }
 
+// NOTE: work/rest still use off-identity teal/indigo Mantine ramp vars (pre-basalt-migration) —
+// not caught by the mechanical guard (plain object, not a JSX accent prop) but a real palette
+// deviation; flagged as a follow-up, not fixed here.
 const PHASE_BG: Record<Phase['type'], string> = {
-  lead: 'var(--mantine-color-gray-5)',
+  lead: VX.neutral,
   work: 'var(--mantine-color-teal-6)',
   rest: 'var(--mantine-color-indigo-5)',
 }
