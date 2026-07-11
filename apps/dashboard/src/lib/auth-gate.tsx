@@ -1,9 +1,14 @@
 import { Button, Container, PasswordInput, Stack, Text, Title } from '@mantine/core'
-import { useForm } from '@mantine/form'
+import { field, useBasaltForm } from 'basalt-ui/forms'
 import type { ReactNode } from 'react'
+import { z } from 'zod'
 import { useAuthStore } from './auth'
 
 type Props = { children: ReactNode }
+
+const TokenSchema = z.object({
+  token: z.string().trim().min(1, 'API token is required'),
+})
 
 export function AuthGate({ children }: Props) {
   const token = useAuthStore((s) => s.token)
@@ -13,11 +18,9 @@ export function AuthGate({ children }: Props) {
 
 function TokenPrompt() {
   const setToken = useAuthStore((s) => s.setToken)
-  const form = useForm({
+  const form = useBasaltForm({
     initialValues: { token: '' },
-    validate: {
-      token: (value) => (value.trim().length === 0 ? 'API token is required' : null),
-    },
+    schema: TokenSchema,
   })
 
   return (
@@ -41,7 +44,7 @@ function TokenPrompt() {
               label="API token"
               placeholder="Bearer token"
               autoComplete="current-password"
-              {...form.getInputProps('token')}
+              {...field(form, 'token')}
             />
             <Button type="submit">Sign in</Button>
           </Stack>
