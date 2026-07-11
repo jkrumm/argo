@@ -1,6 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
-import { ChartCard, ChartLegend, Donut } from '@argo/charts'
+import { ChartCard, Donut, type DonutDatum } from 'basalt-ui/charts'
 import { usageQueries, type Range } from '../../../lib/queries/usage'
 import type { WorkspaceValue } from '../types'
 import { colorForBilling, fmtUsd } from '../constants'
@@ -21,10 +20,9 @@ export default function BillingSplit({
       workspace,
     }),
   )
-  const { ref, width } = useElementSize<HTMLDivElement>()
 
   const slices = data.rows.map((r) => ({ key: r.key, value: r.value }))
-  const height = 280
+  const valueByKey = new Map(slices.map((s) => [s.key, s.value]))
 
   return (
     <ChartCard
@@ -32,27 +30,18 @@ export default function BillingSplit({
       subtitle="$ by billing class over the window"
       tooltip="Max = sunk value of the Max subscription (already paid). IU = real per-token spend through the IU gateway. Unknown = rows the source did not tag — most often pre-instrumentation data."
     >
-      <div ref={ref} style={{ height, width: '100%' }}>
-        {width > 0 && slices.length > 0 && (
-          <Donut
-            data={slices}
-            width={Math.max(width, 200)}
-            height={height}
-            colorForKey={colorForBilling}
-            formatValue={fmtUsd}
-            centerLabel={fmtUsd(data.total)}
-            centerSubLabel="total"
-          />
-        )}
-      </div>
-      <ChartLegend
-        items={slices.map((s) => ({
-          key: s.key,
-          label: `${s.key} · ${fmtUsd(s.value)}`,
-          color: colorForBilling(s.key),
-          shape: 'bar' as const,
-        }))}
-      />
+      {slices.length > 0 && (
+        <Donut
+          data={slices as DonutDatum[]}
+          height={280}
+          colorForKey={colorForBilling}
+          formatValue={fmtUsd}
+          centerLabel={fmtUsd(data.total)}
+          centerSubLabel="total"
+          seriesLabel={(k) => `${k} · ${fmtUsd(valueByKey.get(k) ?? 0)}`}
+          ariaLabel="Billing split donut chart showing cost by billing class"
+        />
+      )}
     </ChartCard>
   )
 }

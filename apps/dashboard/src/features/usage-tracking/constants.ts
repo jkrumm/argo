@@ -1,7 +1,7 @@
-import { VX } from '@argo/charts'
+import { USAGE_BILLING, USAGE_OUTCOME, USAGE_SOURCE } from '../../lib/series'
 import type { BillingValue, WorkspaceValue } from './types'
 
-const SOURCE_KEY_TO_TOKEN: Record<string, keyof typeof VX.series.usageSource> = {
+const SOURCE_KEY_TO_TOKEN: Record<string, keyof typeof USAGE_SOURCE> = {
   'claude-code': 'claudeCode',
   claudeCode: 'claudeCode',
   litellm: 'litellm',
@@ -20,35 +20,35 @@ const SOURCE_KEY_TO_TOKEN: Record<string, keyof typeof VX.series.usageSource> = 
 
 export function colorForSource(source: string): string {
   const token = SOURCE_KEY_TO_TOKEN[source]
-  if (token !== undefined) return VX.series.usageSource[token]
-  return VX.series.usageSource.other
+  if (token !== undefined) return USAGE_SOURCE[token]
+  return USAGE_SOURCE.other
 }
 
 export function colorForBilling(billing: string): string {
-  if (billing === 'max') return VX.series.usageBilling.max
-  if (billing === 'iu') return VX.series.usageBilling.iu
-  return VX.series.usageBilling.unknown
+  if (billing === 'max') return USAGE_BILLING.max
+  if (billing === 'iu') return USAGE_BILLING.iu
+  return USAGE_BILLING.unknown
 }
 
 export function colorForOutcome(outcome: string): string {
-  if (outcome === 'ok') return VX.series.usageOutcome.ok
-  if (outcome === 'error') return VX.series.usageOutcome.error
-  if (outcome === 'cancelled') return VX.series.usageOutcome.cancelled
-  return VX.series.usageSource.other
+  if (outcome === 'ok') return USAGE_OUTCOME.ok
+  if (outcome === 'error') return USAGE_OUTCOME.error
+  if (outcome === 'cancelled') return USAGE_OUTCOME.cancelled
+  return USAGE_SOURCE.other
 }
 
 // Deterministic fallback color picker for unknown grouping keys (e.g. machines,
-// projects, models) — cycles through a small VX.series palette so identical keys
+// projects, models) — cycles through a small USAGE_SOURCE palette so identical keys
 // render with the same color across rerenders.
 const FALLBACK_PALETTE = [
-  VX.series.usageSource.claudeCode,
-  VX.series.usageSource.litellm,
-  VX.series.usageSource.sideclaw,
-  VX.series.usageSource.hermesAgent,
-  VX.series.usageSource.audioProxy,
-  VX.series.usageSource.feuer,
-  VX.series.usageSource.opencode,
-  VX.series.usageSource.other,
+  USAGE_SOURCE.claudeCode,
+  USAGE_SOURCE.litellm,
+  USAGE_SOURCE.sideclaw,
+  USAGE_SOURCE.hermesAgent,
+  USAGE_SOURCE.audioProxy,
+  USAGE_SOURCE.feuer,
+  USAGE_SOURCE.opencode,
+  USAGE_SOURCE.other,
 ]
 
 function hashKey(key: string): number {
@@ -58,7 +58,7 @@ function hashKey(key: string): number {
 }
 
 export function colorForKey(key: string): string {
-  return FALLBACK_PALETTE[hashKey(key) % FALLBACK_PALETTE.length] ?? VX.series.usageSource.other
+  return FALLBACK_PALETTE[hashKey(key) % FALLBACK_PALETTE.length] ?? USAGE_SOURCE.other
 }
 
 export const ALL_BILLING: BillingValue[] = ['max', 'iu', 'unknown']

@@ -1,8 +1,7 @@
 import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
 import { SegmentedControl } from '@mantine/core'
-import { ChartCard, ChartLegend, StackedArea } from '@argo/charts'
+import { ChartCard, StackedArea, type ChartSeries } from 'basalt-ui/charts'
 import { usageQueries, type Grain, type Range } from '../../../lib/queries/usage'
 import type { BillingValue, CostGroupBy, WorkspaceValue } from '../types'
 import { colorForBilling, colorForKey, colorForSource, fmtUsd } from '../constants'
@@ -39,11 +38,18 @@ export default function CostOverTime({
   const { data } = useSuspenseQuery(
     usageQueries.timeseries({ range, grain, metric: 'cost', groupBy, billing, workspace }),
   )
-  const { ref, width } = useElementSize<HTMLDivElement>()
 
   const colorFn = useMemo(() => colorForGroup(groupBy), [groupBy])
   const buckets = data.buckets as Bucket[]
   const groupKeys = data.groupKeys
+
+  const series: ChartSeries<Bucket>[] = groupKeys.map((k) => ({
+    key: k,
+    label: k,
+    color: colorFn(k),
+    mark: 'area' as const,
+    getValue: (d) => d.groups[k] ?? 0,
+  }))
 
   const headerExtra = (
     <SegmentedControl
@@ -61,30 +67,17 @@ export default function CostOverTime({
       tooltip="Stacked total cost across all calls, grouped by source / machine / billing. Hover a bucket to see per-group dollar values."
       extra={headerExtra}
     >
-      <div ref={ref} style={{ height: 280, width: '100%' }}>
-        {width > 0 && buckets.length > 0 && (
-          <StackedArea<Bucket>
-            data={buckets}
-            width={Math.max(width, 200)}
-            height={280}
-            chartId="usage-cost-over-time"
-            getX={(d) => d.bucket}
-            groups={groupKeys}
-            getValue={(d, g) => d.groups[g] ?? 0}
-            colorForGroup={colorFn}
-            seriesLabel={(g) => g}
-            formatValue={fmtUsd}
-          />
-        )}
-      </div>
-      <ChartLegend
-        items={groupKeys.map((k) => ({
-          key: k,
-          label: k,
-          color: colorFn(k),
-          shape: 'bar' as const,
-        }))}
-      />
+      {buckets.length > 0 && (
+        <StackedArea<Bucket>
+          data={buckets}
+          height={280}
+          chartId="usage-cost-over-time"
+          getX={(d) => d.bucket}
+          series={series}
+          formatValue={fmtUsd}
+          ariaLabel="Cost over time, stacked by group"
+        />
+      )}
     </ChartCard>
   )
 }

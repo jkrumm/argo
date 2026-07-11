@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
-import { ChartCard, ChartLegend, StackedArea } from '@argo/charts'
+import { ChartCard, StackedArea, type ChartSeries } from 'basalt-ui/charts'
 import { usageQueries, type Grain, type Range } from '../../../lib/queries/usage'
 import type { BillingValue, WorkspaceValue } from '../types'
 import { colorForSource, fmtCount } from '../constants'
@@ -29,7 +28,6 @@ export default function ErrorRate({
       workspace,
     }),
   )
-  const { ref, width } = useElementSize<HTMLDivElement>()
 
   const buckets = data.buckets as Bucket[]
   const groupKeys = data.groupKeys
@@ -38,36 +36,32 @@ export default function ErrorRate({
     [buckets, groupKeys],
   )
 
+  const series: ChartSeries<Bucket>[] = groupKeys.map((k) => ({
+    key: k,
+    label: k,
+    color: colorForSource(k),
+    mark: 'area' as const,
+    getValue: (d) => d.groups[k] ?? 0,
+  }))
+
   return (
     <ChartCard
       title="Errors over time"
       subtitle="Count of outcome='error' per source"
       tooltip="Per-source error counts over the window. Healthy systems sit near zero; spikes correlate with bridge incidents, upstream model issues, or rate-limit storms."
     >
-      <div ref={ref} style={{ height: 240, width: '100%' }}>
-        {width > 0 && hasAnyError && (
-          <StackedArea<Bucket>
-            data={buckets}
-            width={Math.max(width, 200)}
-            height={240}
-            chartId="usage-errors-over-time"
-            getX={(d) => d.bucket}
-            groups={groupKeys}
-            getValue={(d, g) => d.groups[g] ?? 0}
-            colorForGroup={colorForSource}
-            seriesLabel={(g) => g}
-            formatValue={fmtCount}
-          />
-        )}
-      </div>
-      <ChartLegend
-        items={groupKeys.slice(0, 8).map((k) => ({
-          key: k,
-          label: k,
-          color: colorForSource(k),
-          shape: 'bar' as const,
-        }))}
-      />
+      {hasAnyError && (
+        <StackedArea<Bucket>
+          data={buckets}
+          height={240}
+          chartId="usage-errors-over-time"
+          getX={(d) => d.bucket}
+          series={series}
+          formatValue={fmtCount}
+          legend={{ maxRows: 8 }}
+          ariaLabel="Errors over time by source"
+        />
+      )}
     </ChartCard>
   )
 }

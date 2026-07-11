@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Suspense, useCallback, useMemo, useState } from 'react'
+import { Suspense, useCallback, useMemo } from 'react'
 import { Grid, Stack } from '@mantine/core'
 import { z } from 'zod'
-import { HoverContext, type HoverCtx } from '@argo/charts'
+import { ChartHoverSync } from 'basalt-ui/charts'
 import { usageQueries } from '../lib/queries/usage'
 import { PageActions } from '../components/app-shell/page-header'
 import { FilterBar } from '../features/usage-tracking/filter-bar'
@@ -98,20 +98,8 @@ function UsageTrackingPage() {
     [range, grain, billing, workspace],
   )
 
-  const [hover, setHoverState] = useState<{ date: string | null; source: string | null }>({
-    date: null,
-    source: null,
-  })
-  const setHover = useCallback<HoverCtx['setHover']>((date, source) => {
-    setHoverState({ date, source })
-  }, [])
-  const hoverCtx = useMemo<HoverCtx>(
-    () => ({ date: hover.date, source: hover.source, setHover }),
-    [hover.date, hover.source, setHover],
-  )
-
   return (
-    <HoverContext.Provider value={hoverCtx}>
+    <ChartHoverSync>
       {/* Page controls live in the shared top-bar slot; the breadcrumb names the page. */}
       <PageActions>
         <FilterBar
@@ -188,6 +176,6 @@ function UsageTrackingPage() {
           </Suspense>
         </Section>
       </Stack>
-    </HoverContext.Provider>
+    </ChartHoverSync>
   )
 }
