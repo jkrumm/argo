@@ -22,7 +22,7 @@ import {
   Tooltip,
 } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { PageActions } from '../../components/app-shell/page-header'
+import { PageActions } from 'basalt-ui'
 import {
   IconCheck,
   IconCopy,

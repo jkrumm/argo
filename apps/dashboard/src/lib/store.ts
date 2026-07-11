@@ -7,9 +7,6 @@ import { persist } from 'zustand/middleware'
 export type HermesIntent = { type: 'draft'; text: string } | { type: 'open'; threadId: string }
 
 type UiState = {
-  sidebarCollapsed: boolean
-  setSidebarCollapsed: (v: boolean) => void
-  toggleSidebar: () => void
   // Hermes Chat voice mode: when on, dictated messages auto-send and replies are
   // spoken back (a short summary). Persisted so the master toggle survives reloads
   // and is shared across the feed composer and every open thread.
@@ -33,9 +30,6 @@ type UiState = {
 export const useUiStore = create<UiState>()(
   persist(
     (set, get) => ({
-      sidebarCollapsed: false,
-      setSidebarCollapsed: (v) => set({ sidebarCollapsed: v }),
-      toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       voiceMode: false,
       setVoiceMode: (v) => set({ voiceMode: v }),
       toggleVoiceMode: () => set((s) => ({ voiceMode: !s.voiceMode })),
@@ -56,7 +50,6 @@ export const useUiStore = create<UiState>()(
       name: 'argo-ui',
       // Only the durable UI prefs persist — hermesIntent is transient routing state.
       partialize: (s) => ({
-        sidebarCollapsed: s.sidebarCollapsed,
         voiceMode: s.voiceMode,
         showToolProgress: s.showToolProgress,
         playbackRate: s.playbackRate,

@@ -36,7 +36,6 @@ const EXEMPT = new Set([
   'packages/charts/src/theme-vars.ts',
   'packages/charts/src/tokens.ts',
   'packages/charts/src/utils/color.ts',
-  'apps/dashboard/src/theme.ts',
 ])
 const SKIP = /\.gen\.ts$|\.test\.[tj]sx?$|\.d\.ts$/
 

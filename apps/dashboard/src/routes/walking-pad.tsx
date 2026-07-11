@@ -4,7 +4,7 @@ import { Grid, Group, SimpleGrid, Stack } from '@mantine/core'
 import { useElementSize, useMediaQuery } from '@mantine/hooks'
 import { ChartHoverSync } from 'basalt-ui/charts'
 import { z } from 'zod'
-import { PageActions } from '../components/app-shell/page-header'
+import { PageActions } from 'basalt-ui'
 import {
   AchievementsGallery,
   ChartSkeleton,

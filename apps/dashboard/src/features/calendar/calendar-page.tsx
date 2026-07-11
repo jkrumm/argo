@@ -35,7 +35,7 @@ import {
 } from '../../lib/queries/calendar'
 import { VX } from 'basalt-ui/tokens'
 import { SERIES } from '../../lib/series'
-import { PageActions } from '../../components/app-shell/page-header'
+import { PageActions } from 'basalt-ui'
 
 const DAYS_RANGE = 60
 

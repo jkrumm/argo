@@ -12,7 +12,7 @@ import {
   type SummaryParams,
   type WindowPreset,
 } from '../features/garmin-health'
-import { PageActions } from '../components/app-shell/page-header'
+import { PageActions } from 'basalt-ui'
 import ActivitiesChart from '../features/garmin-health/charts/activities-chart'
 import ActivityScoreChart from '../features/garmin-health/charts/activity-score-chart'
 import AcwrChart from '../features/garmin-health/charts/acwr-chart'
