@@ -148,6 +148,19 @@ export default function WeightChart({ params }: { params: WeightLogWindowParams 
     })
   }
 
+  // Fixed domain over weight/MA/goal: MultiLine's 'auto' floor is
+  // min(safeMin, yAutoMinCeil) * yAutoPad, which for a non-zero baseline lands
+  // ABOVE the data minimum and clips the low end of the weight line.
+  const yDomain = useMemo<[number, number]>(() => {
+    const values = chartData.flatMap((d) => (d.ma !== null ? [d.weightKg, d.ma] : [d.weightKg]))
+    if (goal !== null) values.push(goal)
+    if (values.length === 0) return [0, 1]
+    const min = Math.min(...values)
+    const max = Math.max(...values)
+    const pad = Math.max((max - min) * 0.1, 0.5)
+    return [min - pad, max + pad]
+  }, [chartData, goal])
+
   return (
     <ChartCard
       title="Body Weight"
@@ -167,8 +180,7 @@ export default function WeightChart({ params }: { params: WeightLogWindowParams 
           chartId="body-weight"
           getX={(d) => d.date}
           series={series}
-          yDomain="auto"
-          yAutoMinCeil={Infinity}
+          yDomain={yDomain}
           formatValue={fmtKg}
           ariaLabel="Body weight trend over time"
         />

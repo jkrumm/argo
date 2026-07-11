@@ -158,4 +158,6 @@ per-metric series, so it isn't in the table above.
 Genuine, intentional departures from the basalt-ui defaults — each with a one-line justification. An
 empty section is the correct default; do not invent deviations to fill it.
 
-- _(none yet)_
+- **`VX.muted` substitutes the old `tooltipMuted` token** in two bespoke tooltip/legend labels
+  (readiness-strain, time-of-day): basalt-ui exposes no `VX.tooltipMuted` JS token (the CSS var is
+  internal to `ChartTooltip`), and the opaque secondary-ink token reads equivalently there.

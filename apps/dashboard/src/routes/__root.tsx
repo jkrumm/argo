@@ -116,7 +116,9 @@ function RootLayout() {
   const renderNavLink = useCallback<NavLinkRenderer>((item, { active }) => {
     const target = NAV_TARGETS[item.key]
     if (!target) {
-      // Disabled placeholders (Docker/Monitoring/Tasks) carry no destination — render inert.
+      // Safety net for a nav item missing from NAV_TARGETS (AppSidebar intercepts
+      // `item.disabled` before ever calling renderNavLink, so disabled placeholders
+      // like Docker/Monitoring/Tasks never reach this branch).
       return <MantineNavLink label={item.label} leftSection={item.icon} disabled />
     }
     return (

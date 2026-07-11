@@ -145,14 +145,13 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
         />
       )}
       {/* MEV/MAV/MRV are refLines, not part of the bar/line series — Bars' derived legend can't
-       * express them, so they get a supplementary static legend row (basalt-ui/charts crib
-       * pattern: legend={false}-style escape, kept additive here since the bar/MA legend is
-       * still auto-derived and interactive). */}
+       * express them. The kind keeps its own interactive legend for bars + MA; this supplementary
+       * static row only carries the landmark chips, styled to match the dashed refLines. */}
       <ChartLegend
         items={[
-          { key: 'mev', label: 'MEV', color: VX.goodSolid, shape: 'bar' },
-          { key: 'mav', label: 'MAV', color: VX.warnSolid, shape: 'bar' },
-          { key: 'mrv', label: 'MRV', color: VX.badSolid, shape: 'bar' },
+          { key: 'mev', label: 'MEV', color: VX.goodRef, shape: 'line', dashed: true },
+          { key: 'mav', label: 'MAV', color: VX.warnRef, shape: 'line', dashed: true },
+          { key: 'mrv', label: 'MRV', color: VX.badRef, shape: 'line', dashed: true },
         ]}
       />
     </ChartCard>

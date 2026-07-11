@@ -1,6 +1,6 @@
 # Strength Tracker v2 — Analytics Reference
 
-> **Analytics reference.** This document describes metric definitions, formulas, and composite signals — the _what_ and _why_. For implementation conventions (route structure, query factories, chart primitives), see `apps/dashboard/CLAUDE.md` and `packages/charts/CLAUDE.md`.
+> **Analytics reference.** This document describes metric definitions, formulas, and composite signals — the _what_ and _why_. For implementation conventions (route structure, query factories, chart primitives), see `apps/dashboard/CLAUDE.md` and `.claude/rules/basalt-charts.md`.
 >
 > **Note:** The schema section references `SQLite` in flow diagrams. The API uses Postgres. Table definitions and metric formulas are otherwise current.
 

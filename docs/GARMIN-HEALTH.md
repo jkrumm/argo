@@ -1,6 +1,6 @@
 # Garmin Health Analytics — Reference
 
-> **Analytics reference.** This document describes metric definitions, formulas, and composite signals — the _what_ and _why_. For implementation conventions (route structure, query factories, chart primitives), see `apps/dashboard/CLAUDE.md` and `packages/charts/CLAUDE.md`.
+> **Analytics reference.** This document describes metric definitions, formulas, and composite signals — the _what_ and _why_. For implementation conventions (route structure, query factories, chart primitives), see `apps/dashboard/CLAUDE.md` and `.claude/rules/basalt-charts.md`.
 >
 > **Note:** Flow diagrams in this document still reference SQLite. The API uses Postgres. The pipeline and metric definitions are otherwise current.
 
