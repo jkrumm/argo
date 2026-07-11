@@ -1,17 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
 import { Text } from '@mantine/core'
-import {
-  Bars,
-  ChartCard,
-  ChartLegend,
-  TooltipRow,
-  VX,
-  useVxTheme,
-  type LegendEntry,
-} from '@argo/charts'
+import { Bars, ChartCard, TooltipRow, VX, type BarsBar } from 'basalt-ui/charts'
 import { activitiesQueries } from '../../../lib/queries/daily-metrics'
+import { ACTIVITY } from '../../../lib/series'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
@@ -37,25 +29,25 @@ type Activity = {
 type ActivityTypeMeta = { label: string; color: string }
 
 const ACTIVITY_TYPE_META: Record<string, ActivityTypeMeta> = {
-  indoor_cardio: { label: 'Gym', color: VX.series.activity.gym },
-  strength_training: { label: 'Gym', color: VX.series.activity.gym },
-  cycling: { label: 'Cycling', color: VX.series.activity.cycling },
-  road_biking: { label: 'Cycling', color: VX.series.activity.cycling },
-  mountain_biking: { label: 'MTB', color: VX.series.activity.cycling },
-  indoor_cycling: { label: 'Indoor Bike', color: VX.series.activity.cycling },
-  tennis_v2: { label: 'Tennis', color: VX.series.activity.tennis },
-  tennis: { label: 'Tennis', color: VX.series.activity.tennis },
-  running: { label: 'Running', color: VX.series.activity.running },
-  trail_running: { label: 'Trail Run', color: VX.series.activity.running },
-  treadmill_running: { label: 'Treadmill', color: VX.series.activity.running },
-  hiking: { label: 'Wandern', color: VX.series.activity.hiking },
-  surfing_v2: { label: 'Surfen', color: VX.series.activity.surfing },
-  surfing: { label: 'Surfen', color: VX.series.activity.surfing },
+  indoor_cardio: { label: 'Gym', color: ACTIVITY.gym },
+  strength_training: { label: 'Gym', color: ACTIVITY.gym },
+  cycling: { label: 'Cycling', color: ACTIVITY.cycling },
+  road_biking: { label: 'Cycling', color: ACTIVITY.cycling },
+  mountain_biking: { label: 'MTB', color: ACTIVITY.cycling },
+  indoor_cycling: { label: 'Indoor Bike', color: ACTIVITY.cycling },
+  tennis_v2: { label: 'Tennis', color: ACTIVITY.tennis },
+  tennis: { label: 'Tennis', color: ACTIVITY.tennis },
+  running: { label: 'Running', color: ACTIVITY.running },
+  trail_running: { label: 'Trail Run', color: ACTIVITY.running },
+  treadmill_running: { label: 'Treadmill', color: ACTIVITY.running },
+  hiking: { label: 'Wandern', color: ACTIVITY.hiking },
+  surfing_v2: { label: 'Surfen', color: ACTIVITY.surfing },
+  surfing: { label: 'Surfen', color: ACTIVITY.surfing },
 }
 
 const ACTIVITY_TYPE_OTHER: ActivityTypeMeta = {
   label: 'Other',
-  color: VX.series.activity.other,
+  color: ACTIVITY.other,
 }
 
 function activityTypeMeta(typeKey: string): ActivityTypeMeta {
@@ -164,9 +156,6 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
       limit: 200,
     }),
   )
-  const { ref, width } = useElementSize<HTMLDivElement>()
-  const { axis } = useVxTheme()
-  const [highlighted, setHighlighted] = useState<string | null>(null)
 
   const activities = useMemo(
     () => applyVisibilityFilter(data.data as Activity[], (a) => a.date),
@@ -181,23 +170,12 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
   )
   const activeDays = points.length
 
-  const positiveBars = useMemo(
+  const positiveBars: BarsBar[] = useMemo(
     () =>
       orderedTypes.map((m) => ({
         key: m.label,
         label: m.label,
         color: m.color,
-      })),
-    [orderedTypes],
-  )
-
-  const legendItems: LegendEntry[] = useMemo(
-    () =>
-      orderedTypes.map((m) => ({
-        key: m.label,
-        label: m.label,
-        color: m.color,
-        shape: 'bar' as const,
       })),
     [orderedTypes],
   )
@@ -213,51 +191,45 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
         </Text>
       }
     >
-      <div ref={ref} style={{ height: CHART_HEIGHT, width: '100%' }}>
-        {points.length === 0 ? (
-          <ChartEmpty height={CHART_HEIGHT} />
-        ) : width > 0 ? (
-          <Bars<ActivityDayPoint>
-            data={points}
-            width={Math.max(width, 200)}
-            height={CHART_HEIGHT}
-            chartId={CHART_ID}
-            getX={(d) => d.date}
-            getValue={getDayValue}
-            positiveBars={positiveBars}
-            leftAxis={{
-              domain: 'auto',
-              autoMaxFloor: 30,
-              numTicks: 4,
-              formatTick: (v) => fmtMin(v),
-            }}
-            tooltipLabel={(d) => {
-              const total = Object.values(d.totals).reduce((a, b) => a + b, 0)
-              return total > 0 ? { text: fmtMin(total), color: axis } : null
-            }}
-            hideBarTooltipRows
-            renderExtraTooltipRows={(d) => (
-              <>
-                {d.activities.map((a) => {
-                  const row = activityRowProps(a)
-                  return (
-                    <TooltipRow
-                      key={a.activity_id}
-                      color={row.color}
-                      shape="bar"
-                      label={row.label}
-                      value={row.value}
-                    />
-                  )
-                })}
-              </>
-            )}
-            highlightedKey={highlighted}
-          />
-        ) : null}
-      </div>
-      {legendItems.length > 0 && (
-        <ChartLegend items={legendItems} highlighted={highlighted} onHighlight={setHighlighted} />
+      {points.length === 0 ? (
+        <ChartEmpty height={CHART_HEIGHT} />
+      ) : (
+        <Bars<ActivityDayPoint>
+          data={points}
+          height={CHART_HEIGHT}
+          chartId={CHART_ID}
+          getX={(d) => d.date}
+          getValue={getDayValue}
+          positiveBars={positiveBars}
+          leftAxis={{
+            domain: 'auto',
+            autoMaxFloor: 30,
+            numTicks: 4,
+            formatTick: (v) => fmtMin(v),
+          }}
+          tooltipLabel={(d) => {
+            const total = Object.values(d.totals).reduce((a, b) => a + b, 0)
+            return total > 0 ? { text: fmtMin(total), color: VX.axis } : null
+          }}
+          hideBarTooltipRows
+          renderExtraTooltipRows={(d) => (
+            <>
+              {d.activities.map((a) => {
+                const row = activityRowProps(a)
+                return (
+                  <TooltipRow
+                    key={a.activity_id}
+                    color={row.color}
+                    shape="bar"
+                    label={row.label}
+                    value={row.value}
+                  />
+                )
+              })}
+            </>
+          )}
+          ariaLabel="Daily activities stacked by type"
+        />
       )}
     </ChartCard>
   )

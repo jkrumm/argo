@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
 import {
   AxisBottomDate,
   AxisLeftNumeric,
   ChartCard,
+  ChartFrame,
   ChartLegend,
   ChartTooltip,
+  Crosshair,
   GridRows,
   Group,
   HoverOverlay,
@@ -21,13 +22,16 @@ import {
   smartTicks,
   useHoverSync,
   useTooltipStyles,
-  useVxTheme,
-} from '@argo/charts'
+} from 'basalt-ui/charts'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
+import { SERIES } from '../../../lib/series'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { ChartEmpty } from './empty'
+
+const CHART_HEIGHT = 280
+const CHART_ID = 'fitness-trends'
 
 // ── Local helpers ────────────────────────────────────────────────────────
 
@@ -134,7 +138,11 @@ function computeFitnessSummary(points: SeriesPoint[]) {
   return { vo2max, rhrDelta, hrvDelta }
 }
 
-// ── Inner chart (bespoke — dual-line + scatter doesn't fit ZonedLine) ────
+// ── Inner chart (bespoke — dual-line + scatter doesn't fit any shipped kind) ─
+//
+// Composes `ChartFrame` + `useHoverSync` directly (the sanctioned escape hatch): a fixed
+// symmetric z-score axis with a dashed zero baseline and a scatter-only VO2 series is not
+// expressible via `MultiLine`'s config surface (line-only series).
 
 function FitnessTrendsInner({
   data,
@@ -147,7 +155,6 @@ function FitnessTrendsInner({
   height: number
   highlighted: string | null
 }) {
-  const { axis } = useVxTheme()
   const dim = (key: string): number => (highlighted === null || highlighted === key ? 1 : 0.15)
 
   const MARGIN_LOCAL = useMemo(() => ({ ...VX.margin, left: Math.max(VX.margin.left, 48) }), [])
@@ -174,8 +181,8 @@ function FitnessTrendsInner({
   const { tip, tooltipRef, syncedPoint, isDirectHover, handleMouse, handleLeave } =
     useHoverSync<FitnessPoint>({
       data,
-      chartId: 'fitness-trends',
-      getX: (d) => d.date,
+      chartId: CHART_ID,
+      getKey: (d) => d.date,
       xScale,
       marginLeft: MARGIN_LOCAL.left,
     })
@@ -218,7 +225,7 @@ function FitnessTrendsInner({
             x2={xMax}
             y1={yScale(0)}
             y2={yScale(0)}
-            stroke={axis}
+            stroke={VX.axis}
             strokeWidth={1}
             strokeDasharray="2 4"
             strokeOpacity={0.6}
@@ -228,7 +235,7 @@ function FitnessTrendsInner({
             data={rhrValid}
             x={(d) => xScale(d.date) ?? 0}
             y={(d) => yScale(d.rhrZ)}
-            stroke={VX.series.restingHr}
+            stroke={SERIES.restingHr}
             strokeWidth={2.5}
             strokeOpacity={dim('rhr')}
             curve={curveMonotoneX}
@@ -237,7 +244,7 @@ function FitnessTrendsInner({
             data={hrvValid}
             x={(d) => xScale(d.date) ?? 0}
             y={(d) => yScale(d.hrvZ)}
-            stroke={VX.series.hrv}
+            stroke={SERIES.hrv}
             strokeWidth={2.5}
             strokeOpacity={dim('hrv')}
             curve={curveMonotoneX}
@@ -249,7 +256,7 @@ function FitnessTrendsInner({
               cx={xScale(d.date) ?? 0}
               cy={yScale(d.vo2Z)}
               r={5}
-              fill={VX.series.vo2max}
+              fill={SERIES.vo2max}
               fillOpacity={dim('vo2')}
               stroke={VX.dotStroke}
               strokeWidth={2}
@@ -259,20 +266,13 @@ function FitnessTrendsInner({
 
           {syncedPoint && (
             <>
-              <line
-                x1={xScale(syncedPoint.date) ?? 0}
-                x2={xScale(syncedPoint.date) ?? 0}
-                y1={0}
-                y2={yMax}
-                stroke={VX.crosshair}
-                strokeWidth={1}
-              />
+              <Crosshair x={xScale(syncedPoint.date) ?? 0} top={0} bottom={yMax} />
               {syncedPoint.rhrZ !== null && (
                 <circle
                   cx={xScale(syncedPoint.date) ?? 0}
                   cy={yScale(syncedPoint.rhrZ)}
                   r={4}
-                  fill={VX.series.restingHr}
+                  fill={SERIES.restingHr}
                   stroke={VX.dotStroke}
                   strokeWidth={2}
                 />
@@ -282,7 +282,7 @@ function FitnessTrendsInner({
                   cx={xScale(syncedPoint.date) ?? 0}
                   cy={yScale(syncedPoint.hrvZ)}
                   r={4}
-                  fill={VX.series.hrv}
+                  fill={SERIES.hrv}
                   stroke={VX.dotStroke}
                   strokeWidth={2}
                 />
@@ -303,7 +303,7 @@ function FitnessTrendsInner({
             <TooltipBody>
               {tip.data.rhrZ !== null && tip.data.rhrMA !== null && (
                 <TooltipRow
-                  color={VX.series.restingHr}
+                  color={SERIES.restingHr}
                   label="RHR (7d)"
                   value={`${Math.round(tip.data.rhrMA)} bpm · ${fmtSigma(tip.data.rhrZ)}`}
                   shape="line"
@@ -312,7 +312,7 @@ function FitnessTrendsInner({
               )}
               {tip.data.hrvZ !== null && tip.data.hrvMA !== null && (
                 <TooltipRow
-                  color={VX.series.hrv}
+                  color={SERIES.hrv}
                   label="HRV (7d)"
                   value={`${Math.round(tip.data.hrvMA)} ms · ${fmtSigma(tip.data.hrvZ)}`}
                   shape="line"
@@ -321,7 +321,7 @@ function FitnessTrendsInner({
               )}
               {tip.data.vo2max !== null && (
                 <TooltipRow
-                  color={VX.series.vo2max}
+                  color={SERIES.vo2max}
                   label="VO2 Max"
                   value={
                     tip.data.vo2Z !== null
@@ -339,11 +339,37 @@ function FitnessTrendsInner({
   )
 }
 
+function FitnessTrendsFrame({
+  data,
+  highlighted,
+}: {
+  data: FitnessPoint[]
+  highlighted: string | null
+}) {
+  return (
+    <ChartFrame
+      series={[]}
+      chartId={CHART_ID}
+      height={CHART_HEIGHT}
+      legend={false}
+      ariaLabel="Resting heart rate and HRV trend z-scores with VO2 max markers"
+    >
+      {(plot) => (
+        <FitnessTrendsInner
+          data={data}
+          width={plot.width}
+          height={plot.height}
+          highlighted={highlighted}
+        />
+      )}
+    </ChartFrame>
+  )
+}
+
 // ── Public chart ─────────────────────────────────────────────────────────
 
 export default function FitnessTrendsChart({ params }: { params: SummaryParams }) {
   const { data } = useSuspenseQuery(dailyMetricsQueries.series(params))
-  const { ref, width } = useElementSize<HTMLDivElement>()
   const [highlighted, setHighlighted] = useState<string | null>(null)
 
   const seriesPoints: SeriesPoint[] = useMemo(
@@ -368,7 +394,7 @@ export default function FitnessTrendsChart({ params }: { params: SummaryParams }
     <span style={{ fontSize: 12 }}>
       {summary.vo2max !== null && (
         <span style={{ marginRight: 12 }}>
-          <span style={{ fontWeight: 600, fontSize: 14, color: VX.series.vo2max }}>
+          <span style={{ fontWeight: 600, fontSize: 14, color: SERIES.vo2max }}>
             {summary.vo2max.toFixed(1)}
           </span>
           <span style={{ opacity: 0.5 }}> VO2</span>
@@ -412,35 +438,26 @@ export default function FitnessTrendsChart({ params }: { params: SummaryParams }
       tooltip={METRIC_TOOLTIPS.fitnessTrends}
       extra={headerExtra}
     >
-      <div ref={ref} style={{ height: 280, width: '100%' }}>
-        {chartData.length === 0 ? (
-          <ChartEmpty height={280} />
-        ) : (
-          width > 0 && (
-            <FitnessTrendsInner
-              data={chartData}
-              width={Math.max(width, 200)}
-              height={280}
-              highlighted={highlighted}
-            />
-          )
-        )}
-      </div>
+      {chartData.length === 0 ? (
+        <ChartEmpty height={CHART_HEIGHT} />
+      ) : (
+        <FitnessTrendsFrame data={chartData} highlighted={highlighted} />
+      )}
       <ChartLegend
         items={[
           {
             key: 'rhr',
             label: 'RHR (lower = fitter)',
-            color: VX.series.restingHr,
+            color: SERIES.restingHr,
             strokeWidth: 2.5,
           },
           {
             key: 'hrv',
             label: 'HRV (7d avg)',
-            color: VX.series.hrv,
+            color: SERIES.hrv,
             strokeWidth: 2.5,
           },
-          { key: 'vo2', label: 'VO2 Max', color: VX.series.vo2max, shape: 'bar' },
+          { key: 'vo2', label: 'VO2 Max', color: SERIES.vo2max, shape: 'bar' },
         ]}
         highlighted={highlighted}
         onHighlight={setHighlighted}

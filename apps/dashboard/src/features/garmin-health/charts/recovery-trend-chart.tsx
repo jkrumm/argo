@@ -1,14 +1,13 @@
 import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
 import {
   ChartCard,
   ChartLegend,
   ZonedLine,
   VX,
-  useVxTheme,
+  type ChartSeries,
   type ZonedLineTooltipLabel,
-} from '@argo/charts'
+} from 'basalt-ui/charts'
 import { recoveryQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
@@ -28,10 +27,12 @@ function recoveryZoneLabel(v: number): ZonedLineTooltipLabel {
   return { text: 'Rest', color: VX.badSolid }
 }
 
+const RECOVERY_SERIES: ChartSeries<RecoveryPoint>[] = [
+  { key: 'recovery', label: 'Recovery', color: VX.line, mark: 'line', getValue: (d) => d.recovery },
+]
+
 export default function RecoveryTrendChart({ params }: { params: SummaryParams }) {
   const { data } = useSuspenseQuery(recoveryQueries.series(params))
-  const { ref, width } = useElementSize<HTMLDivElement>()
-  const { line } = useVxTheme()
 
   const points = useMemo<RecoveryPoint[]>(
     () => applyVisibilityFilter(data.points as RecoveryPoint[], (p) => p.date),
@@ -57,37 +58,33 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
 
   return (
     <ChartCard title="Recovery Trend" tooltip={METRIC_TOOLTIPS.recoveryScore} extra={headerExtra}>
-      <div ref={ref} style={{ height: 280, width: '100%' }}>
-        {!hasRecovery ? (
-          <ChartEmpty height={280} />
-        ) : width > 0 ? (
-          <ZonedLine<RecoveryPoint>
-            data={points}
-            width={Math.max(width, 200)}
-            height={280}
-            chartId="recovery-trend"
-            getX={(d) => d.date}
-            getY={(d) => d.recovery}
-            yDomain={[0, 100]}
-            zones={[
-              { from: 70, to: 100, fill: VX.good },
-              { from: 40, to: 70, fill: VX.warn },
-              { from: 0, to: 40, fill: VX.bad },
-            ]}
-            seriesLabel="Recovery"
-            formatValue={(v) => String(Math.round(v))}
-            tooltipLabel={(d) => (d.recovery === null ? null : recoveryZoneLabel(d.recovery))}
-          />
-        ) : null}
-      </div>
+      {!hasRecovery ? (
+        <ChartEmpty height={280} />
+      ) : (
+        <ZonedLine<RecoveryPoint>
+          data={points}
+          height={280}
+          chartId="recovery-trend"
+          getX={(d) => d.date}
+          series={RECOVERY_SERIES}
+          yDomain={[0, 100]}
+          zones={[
+            { from: 70, to: 100, fill: VX.good },
+            { from: 40, to: 70, fill: VX.warn },
+            { from: 0, to: 40, fill: VX.bad },
+          ]}
+          formatValue={(v) => String(Math.round(v))}
+          tooltipLabel={(d) => (d.recovery === null ? null : recoveryZoneLabel(d.recovery))}
+          legend={false}
+          ariaLabel="Recovery score trend with push/normal/rest zones"
+        />
+      )}
       <ChartLegend
         items={[
-          { key: 'recovery', label: 'Recovery Score', color: line },
+          { key: 'recovery', label: 'Recovery Score', color: VX.line },
           { key: 'push', label: 'Push (>70)', color: VX.goodSolid, shape: 'bar' },
           { key: 'rest', label: 'Rest (<40)', color: VX.badSolid, shape: 'bar' },
         ]}
-        highlighted={null}
-        onHighlight={() => {}}
       />
     </ChartCard>
   )

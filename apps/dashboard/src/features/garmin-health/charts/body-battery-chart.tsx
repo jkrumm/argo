@@ -1,7 +1,6 @@
-import { ChartCard, ChartLegend, Bars, VX, useVxTheme, type LegendEntry } from '@argo/charts'
-import { useElementSize } from '@mantine/hooks'
+import { Bars, ChartCard, VX } from 'basalt-ui/charts'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
@@ -22,9 +21,6 @@ const formatNet = (v: number) => `${v >= 0 ? '+' : ''}${Math.round(v)}`
 
 export default function BodyBatteryChart({ params }: { params: SummaryParams }) {
   const { data } = useSuspenseQuery(dailyMetricsQueries.series(params))
-  const { ref, width } = useElementSize<HTMLDivElement>()
-  const { line } = useVxTheme()
-  const [highlighted, setHighlighted] = useState<string | null>(null)
 
   const points = useMemo<BodyBatteryPoint[]>(
     () =>
@@ -62,12 +58,6 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
       </span>
     ) : null
 
-  const legendItems: LegendEntry[] = [
-    { key: 'charged', label: 'Charged', color: VX.goodSolid, shape: 'bar' },
-    { key: 'drained', label: 'Drained', color: VX.badSolid, shape: 'bar' },
-    { key: 'net', label: 'Net', color: line, strokeWidth: 2 },
-  ]
-
   return (
     <ChartCard
       title="Body Battery"
@@ -75,42 +65,38 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
       tooltip={METRIC_TOOLTIPS.bodyBattery}
       extra={headerExtra}
     >
-      <div ref={ref} style={{ height: 280, width: '100%' }}>
-        {points.length === 0 ? (
-          <ChartEmpty height={280} />
-        ) : width > 0 ? (
-          <Bars<BodyBatteryPoint>
-            data={points}
-            width={Math.max(width, 200)}
-            height={280}
-            chartId="body-battery"
-            getX={(d) => d.date}
-            getValue={getValue}
-            positiveBars={[{ key: 'charged', label: 'Charged', color: VX.goodSolid }]}
-            negativeBars={[{ key: 'drained', label: 'Drained', color: VX.badSolid }]}
-            lines={[
-              {
-                key: 'net',
-                label: 'Net',
-                color: line,
-                axisSide: 'left',
-                strokeWidth: 2,
-                formatValue: formatNet,
-              },
-            ]}
-            leftAxis={{
-              domain: 'auto',
-              autoPad: 1.1,
-              autoMaxFloor: 50,
-              autoMinCeil: -50,
-              numTicks: 5,
-              formatTick: (v) => (v === 0 ? '0' : v > 0 ? `+${v}` : String(v)),
-            }}
-            highlightedKey={highlighted}
-          />
-        ) : null}
-      </div>
-      <ChartLegend items={legendItems} highlighted={highlighted} onHighlight={setHighlighted} />
+      {points.length === 0 ? (
+        <ChartEmpty height={280} />
+      ) : (
+        <Bars<BodyBatteryPoint>
+          data={points}
+          height={280}
+          chartId="body-battery"
+          getX={(d) => d.date}
+          getValue={getValue}
+          positiveBars={[{ key: 'charged', label: 'Charged', color: VX.goodSolid }]}
+          negativeBars={[{ key: 'drained', label: 'Drained', color: VX.badSolid }]}
+          lines={[
+            {
+              key: 'net',
+              label: 'Net',
+              color: VX.line,
+              axisSide: 'left',
+              strokeWidth: 2,
+              formatValue: formatNet,
+            },
+          ]}
+          leftAxis={{
+            domain: 'auto',
+            autoPad: 1.1,
+            autoMaxFloor: 50,
+            autoMinCeil: -50,
+            numTicks: 5,
+            formatTick: (v) => (v === 0 ? '0' : v > 0 ? `+${v}` : String(v)),
+          }}
+          ariaLabel="Body battery charged vs drained per day with net line"
+        />
+      )}
     </ChartCard>
   )
 }
