@@ -47,7 +47,14 @@ export function filterToolProgress(
   const decoder = new TextDecoder()
   const encoder = new TextEncoder()
   let buffer = ''
-  let reader: ReturnType<typeof upstream.getReader> | undefined
+  // Structural type: dashboard (DOM lib) and api (bun-types) disagree on the
+  // reader interface, and ReturnType<typeof getReader> picks the BYOB overload.
+  let reader:
+    | {
+        read(): Promise<{ done: boolean; value?: Uint8Array | undefined }>
+        cancel(reason?: unknown): Promise<void>
+      }
+    | undefined
 
   return new ReadableStream<Uint8Array>({
     start(controller) {
