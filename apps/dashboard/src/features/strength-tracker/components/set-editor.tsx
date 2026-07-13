@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { ActionIcon, Button } from '@mantine/core'
+import { ActionIcon, Button, NumberInput } from '@mantine/core'
 import { IconCheck, IconPlus, IconX } from '@tabler/icons-react'
 import { VX, alpha } from 'basalt-ui/tokens'
 import type { SetType } from '../constants'
@@ -37,13 +37,15 @@ export interface SetEditorProps {
 
 /**
  * Inline keyboard-driven set editor. Ported from the AntD version in
- * `argo-old/.../set-editor.tsx`. Visual style intentionally bespoke (raw
- * inputs + steppers) — Mantine's NumberInput is too heavy for a dense grid.
+ * `argo-old/.../set-editor.tsx`. Dense grid of `NumberInput`s
+ * (`variant="unstyled"`, `hideControls`) for weight/reps, paired with
+ * custom ± stepper buttons and a label that cycles set type on click.
  *
  * Features:
  * - Label column cycles set type on click (work → warmup → drop → amrap).
  * - Work sets are numbered (1, 2, 3...); other types show their letter (W/D/A).
- * - ± steppers on weight (0.5 kg) and reps (1) visible on row hover.
+ * - ± steppers on weight (0.5 kg) and reps (1) — visible on row hover on
+ *   desktop, pinned visible on touch (coarse-pointer devices have no hover).
  * - Previous-session column when `previousSets` is provided.
  * - Tab on weight input focuses reps input of the same row.
  * - `readOnly` mode renders a compact text view without edit affordances.
@@ -115,18 +117,15 @@ export function SetEditor({
     lineHeight: 1,
   }
 
+  // Targets NumberInput's `input` stylesName — variant="unstyled" already strips the
+  // Mantine chrome (border/background/outline), this layers the bespoke underline back on.
   const inputBase: React.CSSProperties = {
-    border: 'none',
-    background: 'transparent',
-    color: 'inherit',
-    outline: 'none',
-    fontSize: 13,
-    padding: '2px 4px',
     textAlign: 'center',
     width: '100%',
+    fontSize: 16,
+    padding: '4px 4px',
     borderBottom: '1px solid transparent',
     transition: 'border-color 0.15s',
-    fontFamily: 'inherit',
   }
 
   const inputHover: React.CSSProperties = {
@@ -136,11 +135,11 @@ export function SetEditor({
   return (
     <div>
       <style>{`
-        .st-set-input::-webkit-outer-spin-button,
-        .st-set-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        .st-set-input { -moz-appearance: textfield; }
         .st-set-input:focus { border-bottom-color: ${alpha(VX.neutral, 0.5)} !important; }
         .st-stepper:hover:not(:disabled) { background: ${alpha(VX.neutral, 0.12)} !important; opacity: 0.8 !important; }
+        @media (pointer: coarse) {
+          .st-stepper { opacity: 0.55 !important; width: 26px !important; height: 26px !important; }
+        }
       `}</style>
 
       {/* Header row */}
@@ -187,7 +186,7 @@ export function SetEditor({
               display: 'flex',
               alignItems: 'center',
               gap: 0,
-              padding: checklist ? '5px var(--mantine-spacing-md)' : '5px 0',
+              padding: checklist ? '7px var(--mantine-spacing-md)' : '7px 0',
               marginInline: checklist ? 'calc(var(--mantine-spacing-md) * -1)' : undefined,
               borderBottom: `1px solid ${alpha(VX.neutral, 0.06)}`,
               transition: 'all 0.15s',
@@ -250,15 +249,18 @@ export function SetEditor({
                 </button>
               )}
               {readOnly ? (
-                <span style={{ flex: 1, fontSize: 13, textAlign: 'center' }}>{s.weight_kg}</span>
+                <span style={{ flex: 1, fontSize: 16, textAlign: 'center' }}>{s.weight_kg}</span>
               ) : (
-                <input
-                  className="st-set-input"
-                  type="number"
+                <NumberInput
+                  classNames={{ input: 'st-set-input' }}
+                  variant="unstyled"
+                  hideControls
+                  clampBehavior="none"
+                  inputMode="decimal"
                   value={s.weight_kg}
                   disabled={!editable}
-                  onChange={(e) => {
-                    const v = Number(e.target.value)
+                  onChange={(value) => {
+                    const v = typeof value === 'number' ? value : Number(value)
                     if (!Number.isNaN(v) && v >= 0) updateSet(i, 'weight_kg', v)
                   }}
                   onKeyDown={(e) => {
@@ -270,12 +272,8 @@ export function SetEditor({
                   }}
                   step={0.5}
                   min={0}
-                  style={{
-                    ...inputBase,
-                    flex: 1,
-                    minWidth: 0,
-                    ...(isHovered ? inputHover : {}),
-                  }}
+                  style={{ flex: 1, minWidth: 0 }}
+                  styles={{ input: { ...inputBase, ...(isHovered ? inputHover : {}) } }}
                 />
               )}
               {editable && (
@@ -305,29 +303,28 @@ export function SetEditor({
                 </button>
               )}
               {readOnly ? (
-                <span style={{ flex: 1, fontSize: 13, textAlign: 'center' }}>{s.reps}</span>
+                <span style={{ flex: 1, fontSize: 16, textAlign: 'center' }}>{s.reps}</span>
               ) : (
-                <input
+                <NumberInput
                   ref={(el) => {
                     repsRefs.current[i] = el
                   }}
-                  className="st-set-input"
-                  type="number"
+                  classNames={{ input: 'st-set-input' }}
+                  variant="unstyled"
+                  hideControls
+                  clampBehavior="none"
+                  inputMode="numeric"
                   value={s.reps}
                   disabled={!editable}
-                  onChange={(e) => {
-                    const v = Number(e.target.value)
+                  onChange={(value) => {
+                    const v = typeof value === 'number' ? value : Number(value)
                     if (!Number.isNaN(v) && v >= 1) updateSet(i, 'reps', v)
                   }}
                   step={1}
                   min={1}
                   max={100}
-                  style={{
-                    ...inputBase,
-                    flex: 1,
-                    minWidth: 0,
-                    ...(isHovered ? inputHover : {}),
-                  }}
+                  style={{ flex: 1, minWidth: 0 }}
+                  styles={{ input: { ...inputBase, ...(isHovered ? inputHover : {}) } }}
                 />
               )}
               {editable && (
