@@ -67,7 +67,6 @@ export function AttachmentDisplay({ attachment }: { attachment: Attachment }) {
       {hasContent && (
         <Collapse expanded={expanded}>
           <Paper
-            withBorder
             radius="sm"
             p="xs"
             mt={6}

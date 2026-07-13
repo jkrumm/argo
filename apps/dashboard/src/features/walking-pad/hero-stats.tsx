@@ -73,7 +73,7 @@ function HeroCard({
   icon?: ReactNode
 }) {
   return (
-    <Card padding="md" withBorder h="100%">
+    <Card padding="md" h="100%">
       <Group gap={0} mb={6} justify="space-between">
         <Group gap={6}>
           {icon !== undefined && (
@@ -204,7 +204,7 @@ export function HeroStatsSkeleton() {
   return (
     <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
       {Array.from({ length: 3 }).map((_, i) => (
-        <Card key={i} padding="md" withBorder h="100%">
+        <Card key={i} padding="md" h="100%">
           <Skeleton height={12} width={100} mb={8} />
           <Skeleton height={32} width={140} mb={8} />
           <Skeleton height={10} width={180} />
@@ -216,7 +216,7 @@ export function HeroStatsSkeleton() {
 
 export function ChartSkeleton({ height = 320 }: { height?: number }) {
   return (
-    <Card padding="md" withBorder>
+    <Card padding="md">
       <Skeleton height={14} width={140} radius="sm" mb="sm" />
       <Skeleton height={height - 40} radius="sm" />
     </Card>

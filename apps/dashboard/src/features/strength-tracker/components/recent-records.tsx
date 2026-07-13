@@ -31,7 +31,7 @@ export function RecentRecords({
   const records = (data?.records ?? []).slice(0, 30)
 
   return (
-    <Card padding="md" withBorder>
+    <Card padding="md">
       <Group justify="space-between" mb="sm">
         <Group gap={6}>
           <IconTrophy size={16} color={VX.status.warn} />

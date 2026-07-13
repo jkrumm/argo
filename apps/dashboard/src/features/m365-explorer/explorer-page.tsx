@@ -207,11 +207,7 @@ export function M365ExplorerPage(): React.ReactElement {
       />
 
       <Group align="stretch" gap="md" wrap="nowrap" style={{ minHeight: '70vh' }}>
-        <Card
-          withBorder
-          p={0}
-          style={{ flex: '0 0 360px', display: 'flex', flexDirection: 'column' }}
-        >
+        <Card p={0} style={{ flex: '0 0 360px', display: 'flex', flexDirection: 'column' }}>
           <Box p="sm">
             <TextInput
               placeholder="Filter chats / teams…"
@@ -309,7 +305,7 @@ export function M365ExplorerPage(): React.ReactElement {
           </ScrollArea>
         </Card>
 
-        <Card withBorder style={{ flex: 1, display: 'flex', flexDirection: 'column' }} p={0}>
+        <Card style={{ flex: 1, display: 'flex', flexDirection: 'column' }} p={0}>
           {!selected ? (
             <Stack
               gap="xs"
@@ -421,7 +417,7 @@ function LabelsStrip(props: {
 }) {
   if (props.labels.length === 0) {
     return (
-      <Card withBorder p="sm">
+      <Card p="sm">
         <Text c="dimmed" size="sm">
           No labels yet. Pick a chat or channel below, give it a tag, and it'll surface here and in{' '}
           <Code>GET /m365/important</Code>.
@@ -430,7 +426,7 @@ function LabelsStrip(props: {
     )
   }
   return (
-    <Card withBorder p="sm">
+    <Card p="sm">
       <Stack gap="xs">
         <Group gap="xs" wrap="wrap">
           {props.tagCounts.map(([tag, count]) => (
@@ -447,13 +443,7 @@ function LabelsStrip(props: {
         <Divider />
         <Group gap="xs" wrap="wrap">
           {props.labels.map((l) => (
-            <Card
-              key={l.sourceId}
-              withBorder
-              p={6}
-              radius="sm"
-              style={{ minWidth: 220, maxWidth: 320 }}
-            >
+            <Card key={l.sourceId} p={6} radius="sm" style={{ minWidth: 220, maxWidth: 320 }}>
               <Group gap={6} justify="space-between" wrap="nowrap">
                 <Stack gap={0} style={{ minWidth: 0, flex: 1 }}>
                   <Group gap={6} wrap="nowrap">

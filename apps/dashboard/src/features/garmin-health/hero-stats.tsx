@@ -39,7 +39,7 @@ function HeroCard({
   breakdown?: string
 }) {
   return (
-    <Card padding="md" withBorder h="100%">
+    <Card padding="md" h="100%">
       <Group gap={0} mb={6}>
         <Text size="xs" c="dimmed">
           {label}
@@ -70,7 +70,7 @@ function HeroCard({
 
 function HeroCardSkeleton({ label }: { label: string }) {
   return (
-    <Card padding="md" withBorder h="100%">
+    <Card padding="md" h="100%">
       <Text size="xs" c="dimmed" mb={6}>
         {label}
       </Text>
@@ -181,7 +181,7 @@ export function HeroStats({ params }: { params: SummaryParams }) {
  */
 export function Placeholder({ label, height = 240 }: { label: string; height?: number }) {
   return (
-    <Card padding="md" withBorder>
+    <Card padding="md">
       <Stack gap={4} justify="center" align="center" h={height}>
         <Text fw={600}>{label}</Text>
         <Text size="xs" c="dimmed">

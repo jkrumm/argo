@@ -17,7 +17,7 @@ function HeroCard({
   valueColor?: string
 }) {
   return (
-    <Card padding="md" withBorder h="100%">
+    <Card padding="md" h="100%">
       <Text size="xs" c="dimmed" mb={6}>
         {label}
       </Text>
@@ -42,7 +42,7 @@ function HeroCard({
 
 function HeroCardSkeleton({ label }: { label: string }) {
   return (
-    <Card padding="md" withBorder h="100%">
+    <Card padding="md" h="100%">
       <Text size="xs" c="dimmed" mb={6}>
         {label}
       </Text>

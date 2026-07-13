@@ -4,7 +4,7 @@ import { readingQueries } from '../../lib/queries/reading'
 
 function HeroCard({ label, value, subLabel }: { label: string; value: string; subLabel?: string }) {
   return (
-    <Card padding="md" withBorder h="100%">
+    <Card padding="md" h="100%">
       <Text size="xs" c="dimmed" mb={6}>
         {label}
       </Text>
@@ -22,7 +22,7 @@ function HeroCard({ label, value, subLabel }: { label: string; value: string; su
 
 function HeroCardSkeleton({ label }: { label: string }) {
   return (
-    <Card padding="md" withBorder h="100%">
+    <Card padding="md" h="100%">
       <Text size="xs" c="dimmed" mb={6}>
         {label}
       </Text>

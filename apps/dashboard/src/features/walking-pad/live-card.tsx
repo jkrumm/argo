@@ -73,7 +73,7 @@ function LiveCardActive({ live }: { live: LiveSnapshot }) {
   const isPaused = live.state === 'paused'
 
   return (
-    <Card padding="lg" withBorder shadow="sm">
+    <Card padding="lg" shadow="sm">
       <Stack gap="sm">
         <Group justify="space-between" align="flex-start" wrap="nowrap">
           <Group gap="sm" wrap="nowrap">
@@ -148,7 +148,7 @@ function LiveCardIdle() {
   const last = list.data[0]
   if (last === undefined) {
     return (
-      <Card padding="lg" withBorder>
+      <Card padding="lg">
         <Group gap="sm">
           <ThemeIcon size="lg" radius="xl" variant="light" color="gray">
             <IconWalk size={20} />
@@ -164,7 +164,7 @@ function LiveCardIdle() {
     )
   }
   return (
-    <Card padding="lg" withBorder>
+    <Card padding="lg">
       <Group justify="space-between" wrap="wrap" gap="sm">
         <Group gap="sm" wrap="nowrap">
           <ThemeIcon size="lg" radius="xl" variant="light" color="gray">
@@ -280,7 +280,7 @@ function PulseDot({ color, active }: { color: string; active: boolean }) {
 
 export function LiveCardSkeleton() {
   return (
-    <Card padding="lg" withBorder>
+    <Card padding="lg">
       <Stack gap="sm">
         <Group justify="space-between">
           <Skeleton height={36} width={200} />

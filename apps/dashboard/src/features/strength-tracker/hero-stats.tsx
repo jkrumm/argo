@@ -45,7 +45,7 @@ function HeroCard({
   breakdown?: string
 }) {
   return (
-    <Card padding="md" withBorder h="100%">
+    <Card padding="md" h="100%">
       <Group gap={0} mb={6}>
         <Text size="xs" c="dimmed">
           {label}
@@ -159,7 +159,7 @@ export function HeroStats({ params }: { params: StrengthQueryParams }) {
  */
 function HeroCardSkeleton({ label }: { label: string }) {
   return (
-    <Card padding="md" withBorder h="100%">
+    <Card padding="md" h="100%">
       <Text size="xs" c="dimmed" mb={6}>
         {label}
       </Text>
@@ -185,7 +185,7 @@ export function HeroStatsSkeleton() {
  */
 export function ChartSkeleton({ height = 320 }: { height?: number }) {
   return (
-    <Card padding="md" withBorder>
+    <Card padding="md">
       <Skeleton height={14} width={140} radius="sm" mb="sm" />
       <Skeleton height={height - 40} radius="sm" />
     </Card>
@@ -198,7 +198,7 @@ export function ChartSkeleton({ height = 320 }: { height?: number }) {
  */
 export function Placeholder({ label, height = 320 }: { label: string; height?: number }) {
   return (
-    <Card padding="md" withBorder>
+    <Card padding="md">
       <Stack gap={4} justify="center" align="center" h={height}>
         <Text fw={600}>{label}</Text>
         <Text size="xs" c="dimmed">
