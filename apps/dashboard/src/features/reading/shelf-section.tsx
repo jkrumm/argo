@@ -33,7 +33,7 @@ type ShelfItem = {
 export function ShelfSection({ title, books }: { title: string; books: ShelfItem[] }) {
   return (
     <Stack gap="xs">
-      <Text fw={600} size="sm" style={{ opacity: 0.65, marginTop: 4 }}>
+      <Text fw={600} size="sm" mt={4} style={{ opacity: 0.65 }}>
         {title}{' '}
         <Text component="span" fw={400} c="dimmed">
           ({books.length})

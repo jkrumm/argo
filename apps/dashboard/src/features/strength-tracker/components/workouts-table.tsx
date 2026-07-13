@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ActionIcon, Badge, Group, Stack, Text, Tooltip } from '@mantine/core'
+import { ActionIcon, Badge, Box, Group, Stack, Text, Tooltip } from '@mantine/core'
 import { modals } from '@mantine/modals'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { IconEdit, IconTrash } from '@tabler/icons-react'
@@ -87,14 +87,13 @@ export function WorkoutsTable() {
       header: 'Exercise',
       cell: (ctx) => (
         <Group gap={6} wrap="nowrap">
-          <span
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              backgroundColor: exerciseDot(ctx.row.original.exercise_id),
-              flexShrink: 0,
-            }}
+          <Box
+            component="span"
+            w={8}
+            h={8}
+            bdrs="50%"
+            bg={exerciseDot(ctx.row.original.exercise_id)}
+            style={{ flexShrink: 0 }}
           />
           <Text size="sm">{ctx.getValue()}</Text>
         </Group>

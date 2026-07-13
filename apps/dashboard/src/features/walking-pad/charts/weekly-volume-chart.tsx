@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
+import { Box, Group } from '@mantine/core'
 import { Bars, ChartCard, TooltipRow } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
@@ -107,7 +108,7 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
   const marginLeft = !isMulti && singleMetric === 'steps' ? 64 : undefined
 
   const headerSummary = (
-    <span style={{ display: 'inline-flex', gap: 12, flexWrap: 'wrap' }}>
+    <Group gap="sm" wrap="wrap">
       {enabled.map((m) => (
         <span
           key={m}
@@ -120,7 +121,7 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
           {WEEKLY_METRICS[m].formatTotal(points.reduce((s, p) => s + WEEKLY_METRICS[m].pick(p), 0))}
         </span>
       ))}
-    </span>
+    </Group>
   )
 
   const renderExtraTooltipRows = isMulti
@@ -173,7 +174,7 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
           renderExtraTooltipRows={renderExtraTooltipRows}
         />
       )}
-      <span style={{ fontSize: 11, color: 'var(--mantine-color-dimmed)', marginTop: 4 }}>
+      <Box component="span" mt={4} style={{ fontSize: 11, color: 'var(--mantine-color-dimmed)' }}>
         {hasData && !isMulti && singleConfig !== null
           ? `${singleConfig.formatAvg(
               points.reduce((s, p) => s + WEEKLY_METRICS[singleMetric as MetricKey].pick(p), 0) /
@@ -182,7 +183,7 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
           : isMulti
             ? `Bars normalized per metric (0–100% of window max). Hover for absolute values.`
             : ''}
-      </span>
+      </Box>
     </ChartCard>
   )
 }

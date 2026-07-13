@@ -1,4 +1,4 @@
-import { ActionIcon, Box, Group, Text } from '@mantine/core'
+import { ActionIcon, Box, Flex, Group, Text } from '@mantine/core'
 import { IconCopy, IconRefresh, IconX } from '@tabler/icons-react'
 import { useRouter } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
@@ -28,7 +28,8 @@ export function DevToolsPanel({ tool, onClose }: { tool: DevTool | null; onClose
   if (tool === null) return null
 
   return (
-    <Box
+    <Flex
+      direction="column"
       style={{
         position: 'fixed',
         left: 0,
@@ -36,8 +37,6 @@ export function DevToolsPanel({ tool, onClose }: { tool: DevTool | null; onClose
         bottom: 0,
         height: '42vh',
         zIndex: 400,
-        display: 'flex',
-        flexDirection: 'column',
         background: 'var(--mantine-color-body)',
         borderTop: '1px solid var(--mantine-color-default-border)',
         boxShadow: 'var(--mantine-shadow-lg)',
@@ -84,6 +83,6 @@ export function DevToolsPanel({ tool, onClose }: { tool: DevTool | null; onClose
           </Box>
         )}
       </Box>
-    </Box>
+    </Flex>
   )
 }

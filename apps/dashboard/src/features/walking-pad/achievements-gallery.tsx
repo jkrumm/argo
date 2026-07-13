@@ -9,6 +9,7 @@ import {
   IconRoute,
   IconTrophy,
 } from '@tabler/icons-react'
+import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries } from '../../lib/queries/walking-pad'
 import { relativeTime } from './formatters'
 
@@ -71,7 +72,7 @@ export function AchievementsGallery({ matchHeight }: { matchHeight?: number }) {
               align="flex-start"
               p={8}
               style={{
-                borderRadius: 8,
+                borderRadius: VX.radiusCtrl,
                 background: 'var(--mantine-color-default-hover)',
               }}
             >

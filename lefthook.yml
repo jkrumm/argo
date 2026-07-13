@@ -7,3 +7,9 @@ pre-commit:
     oxfmt:
       glob: '*.{ts,tsx,js,jsx,json,md,yml,yaml}'
       run: bunx oxfmt --check {staged_files}
+
+    # Scans the configured `basalt.roots`, not {staged_files} — the guard is only worth
+    # having if it cannot be walked past, and `bun run lint` alone is opt-in.
+    check-theme:
+      glob: '*.{ts,tsx}'
+      run: bunx basalt check-theme

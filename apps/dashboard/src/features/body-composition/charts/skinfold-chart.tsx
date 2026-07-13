@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Box } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import {
   AreaClosed,
@@ -269,7 +270,9 @@ export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams
   const headerExtra = latest ? (
     <span style={{ fontSize: 12 }}>
       <span style={{ fontWeight: 600, fontSize: 14 }}>{latest.average.toFixed(1)} mm</span>
-      <span style={{ marginLeft: 4, opacity: 0.5 }}>avg</span>
+      <Box component="span" ml={4} style={{ opacity: 0.5 }}>
+        avg
+      </Box>
     </span>
   ) : null
 
@@ -291,7 +294,7 @@ export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams
       tooltip={METRIC_TOOLTIPS.skinfoldChart}
       extra={headerExtra}
     >
-      <div ref={ref} style={{ height: CHART_HEIGHT, width: '100%' }}>
+      <Box ref={ref} h={CHART_HEIGHT} w="100%">
         {chartData.length === 0 ? (
           <ChartEmpty
             height={CHART_HEIGHT}
@@ -300,7 +303,7 @@ export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams
         ) : width > 0 ? (
           <SkinfoldChartInner data={chartData} width={Math.max(width, 200)} height={CHART_HEIGHT} />
         ) : null}
-      </div>
+      </Box>
       <ChartLegend items={legendItems} highlighted={null} onHighlight={() => {}} />
     </ChartCard>
   )

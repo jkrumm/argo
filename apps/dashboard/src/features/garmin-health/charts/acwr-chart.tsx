@@ -1,6 +1,15 @@
 import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { ChartCard, ChartLegend, VX, ZonedLine, type ChartSeries } from 'basalt-ui/charts'
+import { Box } from '@mantine/core'
+import {
+  ChartCard,
+  ChartLegend,
+  VX,
+  ZonedLine,
+  deriveLegend,
+  type ChartSeries,
+  type SeriesStyle,
+} from 'basalt-ui/charts'
 import { trainingLoadQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import { acwrZoneColor, acwrZoneLabel } from '../formulas'
@@ -24,6 +33,12 @@ const ACWR_SERIES: ChartSeries<TrainingLoadPoint>[] = [
   { key: 'acwr', label: 'ACWR', color: VX.line, mark: 'line', getValue: (d) => d.acwr },
 ]
 
+const ACWR_LEGEND_SERIES: readonly SeriesStyle[] = [
+  { key: 'acwr', label: 'ACWR', color: VX.line, mark: 'line' },
+  { key: 'optimal', label: 'Optimal (0.8–1.3)', color: VX.goodSolid, mark: 'bar' },
+  { key: 'danger', label: 'Overload (>1.5)', color: VX.badSolid, mark: 'bar' },
+]
+
 export default function AcwrChart({ params }: { params: SummaryParams }) {
   const { data } = useSuspenseQuery(trainingLoadQueries.summary(params))
 
@@ -41,19 +56,22 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
       tooltip={METRIC_TOOLTIPS.trainingLoad}
       extra={
         latest?.acwr !== null && latest?.acwr !== undefined ? (
-          <span style={{ fontSize: 16, fontWeight: 600 }}>
-            <span style={{ color: acwrZoneColor(latest.zone) }}>{latest.acwr.toFixed(2)}</span>
-            <span
+          <Box component="span" style={{ fontSize: 16, fontWeight: 600 }}>
+            <Box component="span" style={{ color: acwrZoneColor(latest.zone) }}>
+              {latest.acwr.toFixed(2)}
+            </Box>
+            <Box
+              component="span"
+              ml={6}
               style={{
                 fontSize: 11,
                 fontWeight: 400,
-                marginLeft: 6,
                 color: acwrZoneColor(latest.zone),
               }}
             >
               {acwrZoneLabel(latest.zone)}
-            </span>
-          </span>
+            </Box>
+          </Box>
         ) : null
       }
     >
@@ -86,13 +104,7 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
           legend={false}
         />
       )}
-      <ChartLegend
-        items={[
-          { key: 'acwr', label: 'ACWR', color: VX.line },
-          { key: 'optimal', label: 'Optimal (0.8–1.3)', color: VX.goodSolid, shape: 'bar' },
-          { key: 'danger', label: 'Overload (>1.5)', color: VX.badSolid, shape: 'bar' },
-        ]}
-      />
+      <ChartLegend items={deriveLegend(ACWR_LEGEND_SERIES)} />
     </ChartCard>
   )
 }

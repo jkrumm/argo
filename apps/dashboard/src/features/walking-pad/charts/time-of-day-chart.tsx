@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useElementSize } from '@mantine/hooks'
-import { Group as MGroup, Stack, Text } from '@mantine/core'
+import { Box, Group as MGroup, Stack, Text } from '@mantine/core'
 import { useMemo } from 'react'
 import {
   ChartCard,
@@ -118,7 +118,7 @@ export function TimeOfDayChart({
         ) : null
       }
     >
-      <div ref={ref} style={{ height, width: '100%' }}>
+      <Box ref={ref} h={height} w="100%">
         {width > 0 ? (
           <svg width={width} height={height}>
             <Group left={padLeft} top={padTop}>
@@ -190,7 +190,7 @@ export function TimeOfDayChart({
             </Group>
           </svg>
         ) : null}
-      </div>
+      </Box>
       <MGroup justify="flex-start" mt={4}>
         <Text size="xs" c="dimmed">
           {String(MIN_HOUR).padStart(2, '0')}:00–{String(MAX_HOUR - 1).padStart(2, '0')}:59 UTC ·{' '}
@@ -201,20 +201,22 @@ export function TimeOfDayChart({
       <ChartTooltip tip={tip} tooltipRef={tooltipRef} styles={tooltipStyles}>
         {tip !== null && (
           <>
-            <div
+            <Box
+              px="xs"
+              py={6}
               style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 16,
-                padding: '6px 10px',
-                borderBottom: `1px solid ${alpha(VX.neutral, 0.2)}`,
+                // Already routed through the alpha() token helper (basalt-tokens.md: "opacity via
+                // alpha(), never rgba()"); the static guard can't see through the call to VX.neutral
+                // inside the template literal.
+                borderBottom: `1px solid ${alpha(VX.neutral, 0.2)}`, // theme-allow: on-token via alpha()
               }}
             >
-              <span style={{ fontSize: 11, color: VX.muted }}>
-                {DAY_LABELS[tip.data.dow]} · {String(tip.data.hour).padStart(2, '0')}:00 UTC
-              </span>
-            </div>
+              <MGroup justify="space-between" align="center" gap="md" wrap="nowrap">
+                <span style={{ fontSize: 11, color: VX.muted }}>
+                  {DAY_LABELS[tip.data.dow]} · {String(tip.data.hour).padStart(2, '0')}:00 UTC
+                </span>
+              </MGroup>
+            </Box>
             <TooltipBody>
               <TooltipRow
                 color={distFill(0.9)}

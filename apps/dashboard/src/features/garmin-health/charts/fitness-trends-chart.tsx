@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
+import { Box } from '@mantine/core'
 import {
   AxisBottomDate,
   AxisLeftNumeric,
@@ -17,11 +18,13 @@ import {
   TooltipRow,
   VX,
   curveMonotoneX,
+  deriveLegend,
   scaleLinear,
   scalePoint,
   smartTicks,
   useHoverSync,
   useTooltipStyles,
+  type SeriesStyle,
 } from 'basalt-ui/charts'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { SERIES } from '../../../lib/series'
@@ -32,6 +35,18 @@ import { ChartEmpty } from './empty'
 
 const CHART_HEIGHT = 280
 const CHART_ID = 'fitness-trends'
+
+const FITNESS_LEGEND_SERIES: readonly SeriesStyle[] = [
+  {
+    key: 'rhr',
+    label: 'RHR (lower = fitter)',
+    color: SERIES.restingHr,
+    mark: 'line',
+    strokeWidth: 2.5,
+  },
+  { key: 'hrv', label: 'HRV (7d avg)', color: SERIES.hrv, mark: 'line', strokeWidth: 2.5 },
+  { key: 'vo2', label: 'VO2 Max', color: SERIES.vo2max, mark: 'bar' },
+]
 
 // ── Local helpers ────────────────────────────────────────────────────────
 
@@ -393,15 +408,15 @@ export default function FitnessTrendsChart({ params }: { params: SummaryParams }
   const headerExtra = (
     <span style={{ fontSize: 12 }}>
       {summary.vo2max !== null && (
-        <span style={{ marginRight: 12 }}>
+        <Box component="span" mr="sm">
           <span style={{ fontWeight: 600, fontSize: 14, color: SERIES.vo2max }}>
             {summary.vo2max.toFixed(1)}
           </span>
           <span style={{ opacity: 0.5 }}> VO2</span>
-        </span>
+        </Box>
       )}
       {summary.rhrDelta !== null && (
-        <span style={{ marginRight: 12 }}>
+        <Box component="span" mr="sm">
           <span
             style={{
               color: summary.rhrDelta <= 0 ? VX.goodSolid : VX.badSolid,
@@ -412,7 +427,7 @@ export default function FitnessTrendsChart({ params }: { params: SummaryParams }
             {summary.rhrDelta.toFixed(0)}
           </span>
           <span style={{ opacity: 0.5 }}> bpm RHR</span>
-        </span>
+        </Box>
       )}
       {summary.hrvDelta !== null && (
         <span>
@@ -444,21 +459,7 @@ export default function FitnessTrendsChart({ params }: { params: SummaryParams }
         <FitnessTrendsFrame data={chartData} highlighted={highlighted} />
       )}
       <ChartLegend
-        items={[
-          {
-            key: 'rhr',
-            label: 'RHR (lower = fitter)',
-            color: SERIES.restingHr,
-            strokeWidth: 2.5,
-          },
-          {
-            key: 'hrv',
-            label: 'HRV (7d avg)',
-            color: SERIES.hrv,
-            strokeWidth: 2.5,
-          },
-          { key: 'vo2', label: 'VO2 Max', color: SERIES.vo2max, shape: 'bar' },
-        ]}
+        items={deriveLegend(FITNESS_LEGEND_SERIES)}
         highlighted={highlighted}
         onHighlight={setHighlighted}
       />

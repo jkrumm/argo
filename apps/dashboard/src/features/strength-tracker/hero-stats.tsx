@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Card, Group, SimpleGrid, Skeleton, Stack, Text, Tooltip } from '@mantine/core'
+import { Box, Card, Group, SimpleGrid, Skeleton, Stack, Text, Tooltip } from '@mantine/core'
 import { IconInfoCircle } from '@tabler/icons-react'
 import { strengthQueries, type StrengthQueryParams } from '../../lib/queries/strength'
 import { METRIC_TOOLTIPS, ZONE_COLORS } from './constants'
@@ -19,10 +19,9 @@ import {
 function InfoIcon({ tooltip }: { tooltip: string }) {
   return (
     <Tooltip label={tooltip} multiline w={320} withArrow position="bottom-start">
-      <IconInfoCircle
-        size={12}
-        style={{ marginLeft: 4, opacity: 0.45, cursor: 'help', verticalAlign: 'middle' }}
-      />
+      <Box component="span" ml={4} style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+        <IconInfoCircle size={12} style={{ opacity: 0.45, cursor: 'help' }} />
+      </Box>
     </Tooltip>
   )
 }

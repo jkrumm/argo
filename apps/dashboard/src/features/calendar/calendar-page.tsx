@@ -82,7 +82,7 @@ function Legend({ entries }: { entries: LegendEntry[] }) {
     <Group gap="sm" wrap="wrap">
       {entries.map((entry) => (
         <Group key={`${entry.label}-${entry.color}`} gap={6} wrap="nowrap">
-          <Box w={10} h={10} style={{ borderRadius: '50%', background: entry.color }} />
+          <Box w={10} h={10} bdrs="50%" style={{ background: entry.color }} />
           <Text size="xs" c="dimmed">
             {entry.label}
           </Text>
@@ -266,7 +266,8 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
 
       <Box
         key={`${view}-${colorScheme}`}
-        style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+        display="flex"
+        style={{ flex: 1, minHeight: 0, flexDirection: 'column' }}
       >
         {view === 'week' ? (
           <WeekView

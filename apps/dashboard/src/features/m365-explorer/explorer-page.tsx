@@ -207,7 +207,7 @@ export function M365ExplorerPage(): React.ReactElement {
       />
 
       <Group align="stretch" gap="md" wrap="nowrap" style={{ minHeight: '70vh' }}>
-        <Card p={0} style={{ flex: '0 0 360px', display: 'flex', flexDirection: 'column' }}>
+        <Card p={0} display="flex" style={{ flex: '0 0 360px', flexDirection: 'column' }}>
           <Box p="sm">
             <TextInput
               placeholder="Filter chats / teams…"
@@ -305,7 +305,7 @@ export function M365ExplorerPage(): React.ReactElement {
           </ScrollArea>
         </Card>
 
-        <Card style={{ flex: 1, display: 'flex', flexDirection: 'column' }} p={0}>
+        <Card display="flex" style={{ flex: 1, flexDirection: 'column' }} p={0}>
           {!selected ? (
             <Stack
               gap="xs"
@@ -359,9 +359,10 @@ function SourceRow(props: {
   return (
     <Box
       onClick={props.onClick}
+      py={8}
+      px="xs"
+      bdrs={6}
       style={{
-        padding: '8px 10px',
-        borderRadius: 6,
         cursor: 'pointer',
         background: props.selected ? 'var(--mantine-color-default-hover)' : undefined,
         border: props.selected ? '1px solid var(--mantine-color-blue-5)' : '1px solid transparent',
@@ -635,9 +636,9 @@ function DetailPane(props: {
           {messagesQuery.data?.messages.map((m) => (
             <Box
               key={m.id}
+              pl="sm"
               style={{
                 borderLeft: '2px solid var(--mantine-color-default-border)',
-                paddingLeft: 12,
               }}
             >
               <Group gap="xs" mb={2}>

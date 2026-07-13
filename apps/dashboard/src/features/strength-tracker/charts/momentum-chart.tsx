@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Select } from '@mantine/core'
+import { Box, Flex, Select } from '@mantine/core'
 import { useElementSize } from '@mantine/hooks'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import {
@@ -9,12 +9,14 @@ import {
   ChartLegend,
   ChartTooltip,
   curveMonotoneX,
+  deriveLegend,
   GridRows,
   Group,
   HoverOverlay,
   LinePath,
   scaleLinear,
   scalePoint,
+  type SeriesStyle,
   smartTicks,
   TooltipBody,
   TooltipHeader,
@@ -414,7 +416,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
   }))
 
   const headerExtra = (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+    <Flex display="inline-flex" align="center" gap={8}>
       {monthly !== null ? (
         <span style={{ fontSize: 12 }}>
           <span style={{ fontWeight: 600, fontSize: 14, color: directionColor(dir) }}>
@@ -435,8 +437,22 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
           allowDeselect={false}
         />
       )}
-    </span>
+    </Flex>
   )
+
+  const legendSeries: readonly SeriesStyle[] = [
+    { key: 'e1rm', label: 'e1RM', color: exerciseColor, mark: 'line', strokeWidth: 1.5 },
+    {
+      key: 'ma30',
+      label: '30d MA',
+      color: exerciseColor,
+      mark: 'line',
+      strokeWidth: 2.25,
+      dash: 'dashed',
+    },
+    { key: 'velUp', label: 'Velocity ▲', color: VX.goodSolid, mark: 'bar' },
+    { key: 'velDown', label: 'Velocity ▼', color: VX.badSolid, mark: 'bar' },
+  ]
 
   return (
     <ChartCard
@@ -445,7 +461,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
       tooltip={METRIC_TOOLTIPS.momentum}
       extra={headerExtra}
     >
-      <div ref={ref} style={{ height: HEIGHT, width: '100%' }}>
+      <Box ref={ref} h={HEIGHT} w="100%">
         {!hasData ? (
           <ChartEmpty height={HEIGHT} message="Need at least 2 sessions per exercise" />
         ) : width > 0 ? (
@@ -457,17 +473,8 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
             chartId="momentum"
           />
         ) : null}
-      </div>
-      <ChartLegend
-        items={[
-          { key: 'e1rm', label: 'e1RM', color: exerciseColor, strokeWidth: 1.5 },
-          { key: 'ma30', label: '30d MA', color: exerciseColor, strokeWidth: 2.25, dashed: true },
-          { key: 'velUp', label: 'Velocity ▲', color: VX.goodSolid, shape: 'bar' },
-          { key: 'velDown', label: 'Velocity ▼', color: VX.badSolid, shape: 'bar' },
-        ]}
-        highlighted={null}
-        onHighlight={() => {}}
-      />
+      </Box>
+      <ChartLegend items={deriveLegend(legendSeries)} highlighted={null} onHighlight={() => {}} />
     </ChartCard>
   )
 }

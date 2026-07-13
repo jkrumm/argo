@@ -113,7 +113,7 @@ export function BookCard({ book }: { book: ShelfItem }) {
           </Text>
 
           {book.rating !== null && (
-            <Rating value={book.rating} readOnly fractions={2} size="xs" style={{ marginTop: 2 }} />
+            <Rating value={book.rating} readOnly fractions={2} size="xs" mt={2} />
           )}
 
           {typeof book.communityRating === 'number' && (

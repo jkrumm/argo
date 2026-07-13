@@ -269,7 +269,7 @@ function PulseDot({ color, active }: { color: string; active: boolean }) {
         style={{
           width: 8,
           height: 8,
-          borderRadius: '50%',
+          borderRadius: 'var(--mantine-radius-xl)',
           background: `var(--mantine-color-${color}-6)`,
           animation: active ? 'wp-pulse 1.6s infinite' : undefined,
         }}

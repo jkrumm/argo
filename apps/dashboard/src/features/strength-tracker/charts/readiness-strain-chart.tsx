@@ -1,17 +1,28 @@
 import { useState } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
+import { Box } from '@mantine/core'
 import {
   ChartCard,
   ChartLegend,
+  deriveLegend,
   TooltipRow,
   VX,
   ZonedLine,
   type ChartSeries,
+  type SeriesStyle,
   type ZonedLineTooltipLabel,
 } from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from '../constants'
 import { ChartEmpty } from './empty'
+
+const READINESS_LEGEND_SERIES: readonly SeriesStyle[] = [
+  { key: 'readiness', label: 'Readiness (adjusted)', color: VX.line, mark: 'line' },
+  { key: 'garmin', label: 'Garmin Recovery (raw)', color: VX.muted, mark: 'line', dash: 'dashed' },
+  { key: 'push', label: 'Push (≥70)', color: VX.goodSolid, mark: 'bar' },
+  { key: 'normal', label: 'Normal (40–69)', color: VX.warnSolid, mark: 'bar' },
+  { key: 'rest', label: 'Rest (<40)', color: VX.badSolid, mark: 'bar' },
+]
 
 const HEIGHT = 280
 
@@ -49,7 +60,9 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
               <span style={{ fontSize: 14, fontWeight: 600, color: zone.color }}>
                 {Math.round(latest.readiness)}
               </span>
-              <span style={{ marginLeft: 6, color: zone.color }}>{zone.text}</span>
+              <Box component="span" ml={6} style={{ color: zone.color }}>
+                {zone.text}
+              </Box>
             </span>
           )
         })()
@@ -120,13 +133,7 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
         />
       )}
       <ChartLegend
-        items={[
-          { key: 'readiness', label: 'Readiness (adjusted)', color: VX.line },
-          { key: 'garmin', label: 'Garmin Recovery (raw)', color: VX.muted, dashed: true },
-          { key: 'push', label: 'Push (≥70)', color: VX.goodSolid, shape: 'bar' },
-          { key: 'normal', label: 'Normal (40–69)', color: VX.warnSolid, shape: 'bar' },
-          { key: 'rest', label: 'Rest (<40)', color: VX.badSolid, shape: 'bar' },
-        ]}
+        items={deriveLegend(READINESS_LEGEND_SERIES)}
         highlighted={highlighted}
         onHighlight={setHighlighted}
       />

@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Card, SimpleGrid, Stack, Text } from '@mantine/core'
+import { Box, Card, SimpleGrid, Stack, Text } from '@mantine/core'
 import { LineSparkline, useChartSize } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
@@ -117,7 +117,7 @@ function SparkTile({ metric, points }: { metric: Metric; points: SeriesPoint[] }
       <Text fw={700} size="lg" lh={1.1}>
         {latest !== null ? metric.format(latest) : '—'}
       </Text>
-      <div ref={ref} style={{ height: 36, width: '100%' }} aria-label={metric.ariaLabel}>
+      <Box ref={ref} h={36} w="100%" aria-label={metric.ariaLabel}>
         {width > 0 ? (
           <LineSparkline
             ariaLabel={metric.ariaLabel}
@@ -127,7 +127,7 @@ function SparkTile({ metric, points }: { metric: Metric; points: SeriesPoint[] }
             color={metric.color}
           />
         ) : null}
-      </div>
+      </Box>
       <Text size="xs" c="dimmed">
         avg {metric.format(avg)} · best {metric.format(max)}
       </Text>

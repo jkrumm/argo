@@ -18,11 +18,13 @@ import {
   TooltipRow,
   VX,
   curveMonotoneX,
+  deriveLegend,
   scaleLinear,
   scalePoint,
   smartTicks,
   useHoverSync,
   useTooltipStyles,
+  type SeriesStyle,
 } from 'basalt-ui/charts'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
@@ -47,6 +49,18 @@ function stressZoneLabel(v: number): { text: string; color: string } {
   if (v >= 25) return { text: 'Low', color: VX.goodSolid }
   return { text: 'Rest', color: VX.goodSolid }
 }
+
+const STRESS_LEGEND_SERIES: readonly SeriesStyle[] = [
+  { key: 'avg', label: 'Avg Stress', color: VX.warnSolid, mark: 'bar' },
+  {
+    key: 'sleep',
+    label: 'Overnight',
+    color: VX.line2,
+    mark: 'line',
+    dash: 'dashed',
+    strokeWidth: 1.5,
+  },
+]
 
 export default function StressChart({ params }: { params: SummaryParams }) {
   const { data } = useSuspenseQuery(dailyMetricsQueries.series(params))
@@ -98,16 +112,7 @@ export default function StressChart({ params }: { params: SummaryParams }) {
         <StressChartFrame data={chartData} highlighted={highlighted} />
       )}
       <ChartLegend
-        items={[
-          { key: 'avg', label: 'Avg Stress', color: VX.warnSolid, shape: 'bar' },
-          {
-            key: 'sleep',
-            label: 'Overnight',
-            color: VX.line2,
-            strokeWidth: 1.5,
-            dashed: true,
-          },
-        ]}
+        items={deriveLegend(STRESS_LEGEND_SERIES)}
         highlighted={highlighted}
         onHighlight={setHighlighted}
       />

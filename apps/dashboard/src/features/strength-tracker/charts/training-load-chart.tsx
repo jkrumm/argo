@@ -1,4 +1,4 @@
-import { Stack, Text } from '@mantine/core'
+import { Box, Stack, Text } from '@mantine/core'
 import { useElementSize } from '@mantine/hooks'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useState } from 'react'
@@ -25,6 +25,8 @@ import {
   VX,
   ZoneRects,
   type ZoneSpec,
+  type SeriesStyle,
+  deriveLegend,
 } from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { SERIES } from '../../../lib/series'
@@ -94,6 +96,27 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
 
   const series = data.byExercise as ExerciseSeries[]
   const exercises = series.map((s) => s.exercise_id)
+
+  const legendSeries: readonly SeriesStyle[] = [
+    ...exercises.map(
+      (ex): SeriesStyle => ({
+        key: ex,
+        label: exerciseLabel(ex),
+        color: EXERCISE_COLORS[ex as ExerciseKey] ?? VX.line,
+        mark: 'line',
+        strokeWidth: 2.5,
+      }),
+    ),
+    {
+      key: 'zone-under',
+      label: 'Undertrained',
+      color: alpha(SERIES.benchPress, 0.4),
+      mark: 'bar',
+    },
+    { key: 'zone-opt', label: 'Optimal', color: VX.goodSolid, mark: 'bar' },
+    { key: 'zone-caut', label: 'Caution', color: VX.warnSolid, mark: 'bar' },
+    { key: 'zone-danger', label: 'Danger', color: VX.badSolid, mark: 'bar' },
+  ]
   const merged = mergePoints(series)
 
   // Need at least 2 ACWR points across any exercise to render.
@@ -195,7 +218,7 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
         ) : null
       }
     >
-      <div ref={ref} style={{ height: HEIGHT, width: '100%' }}>
+      <Box ref={ref} h={HEIGHT} w="100%">
         {!enoughData ? (
           <ChartEmpty height={HEIGHT} label="Not enough data — need at least 2 weeks of sessions" />
         ) : containerWidth > 0 ? (
@@ -316,25 +339,9 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
             </ChartTooltip>
           </div>
         ) : null}
-      </div>
+      </Box>
       <ChartLegend
-        items={[
-          ...exercises.map((ex) => ({
-            key: ex,
-            label: exerciseLabel(ex),
-            color: EXERCISE_COLORS[ex as ExerciseKey] ?? VX.line,
-            strokeWidth: 2.5,
-          })),
-          {
-            key: 'zone-under',
-            label: 'Undertrained',
-            color: alpha(SERIES.benchPress, 0.4),
-            shape: 'bar' as const,
-          },
-          { key: 'zone-opt', label: 'Optimal', color: VX.goodSolid, shape: 'bar' as const },
-          { key: 'zone-caut', label: 'Caution', color: VX.warnSolid, shape: 'bar' as const },
-          { key: 'zone-danger', label: 'Danger', color: VX.badSolid, shape: 'bar' as const },
-        ]}
+        items={deriveLegend(legendSeries)}
         highlighted={highlighted}
         onHighlight={setHighlighted}
       />

@@ -1,4 +1,4 @@
-import { Card, Group, SimpleGrid, Stack, Text } from '@mantine/core'
+import { Box, Card, Group, SimpleGrid, Stack, Text } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { workoutsQueries, type WorkoutWindowParams } from '../../../lib/queries/workouts'
@@ -43,14 +43,7 @@ export function ExerciseSummaryCards({ params }: { params: WorkoutWindowParams }
       {items.map((item) => (
         <Card key={item.exercise_id} padding="md">
           <Group gap={6} mb={4}>
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                backgroundColor: color(item.exercise_id),
-              }}
-            />
+            <Box component="span" w={8} h={8} bdrs="50%" bg={color(item.exercise_id)} />
             <Text size="xs" c="dimmed" truncate>
               {item.exercise_name || exerciseLabel(item.exercise_id)}
             </Text>

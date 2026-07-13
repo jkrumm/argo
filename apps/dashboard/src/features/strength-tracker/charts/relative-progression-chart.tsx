@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
+import { Box } from '@mantine/core'
 import { useElementSize } from '@mantine/hooks'
 import {
   AxisBottomDate,
@@ -264,7 +265,9 @@ export default function RelativeProgressionChart({ params }: { params: StrengthQ
         {leader.pct >= 0 ? '+' : ''}
         {leader.pct.toFixed(1)}%
       </span>
-      <span style={{ marginLeft: 6, opacity: 0.6 }}>{exerciseLabel(leader.ex)}</span>
+      <Box component="span" ml={6} style={{ opacity: 0.6 }}>
+        {exerciseLabel(leader.ex)}
+      </Box>
     </span>
   ) : null
 
@@ -283,7 +286,7 @@ export default function RelativeProgressionChart({ params }: { params: StrengthQ
       tooltip={METRIC_TOOLTIPS.relativeProgression}
       extra={headerExtra}
     >
-      <div ref={ref} style={{ height: 280, width: '100%' }}>
+      <Box ref={ref} h={280} w="100%">
         {!hasAny ? (
           <ChartEmpty height={280} />
         ) : width > 0 ? (
@@ -295,7 +298,7 @@ export default function RelativeProgressionChart({ params }: { params: StrengthQ
             highlighted={highlighted}
           />
         ) : null}
-      </div>
+      </Box>
       <ChartLegend items={legendItems} highlighted={highlighted} onHighlight={setHighlighted} />
     </ChartCard>
   )

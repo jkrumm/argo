@@ -1,7 +1,7 @@
-import { Select, Stack, Text } from '@mantine/core'
+import { Flex, Select, Stack, Text } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Bars, ChartCard, ChartLegend, VX } from 'basalt-ui/charts'
+import { Bars, ChartCard, ChartLegend, deriveLegend, VX, type SeriesStyle } from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { SERIES } from '../../../lib/series'
 import { EXERCISE_COLORS, METRIC_TOOLTIPS, type ExerciseKey } from '../constants'
@@ -16,6 +16,13 @@ type WeeklyVolumePoint = {
   total: number
   ma: number | null
 }
+
+/** The volume landmarks (MEV/MAV/MRV) drawn as dashed refLines by the Bars kind. */
+const LANDMARK_LEGEND_SERIES: readonly SeriesStyle[] = [
+  { key: 'mev', label: 'MEV', color: VX.goodRef, mark: 'line', dash: 'dashed' },
+  { key: 'mav', label: 'MAV', color: VX.warnRef, mark: 'line', dash: 'dashed' },
+  { key: 'mrv', label: 'MRV', color: VX.badRef, mark: 'line', dash: 'dashed' },
+]
 
 const fmtTonnage = (v: number): string =>
   v >= 1000 ? `${(v / 1000).toFixed(1)}t` : `${Math.round(v)}`
@@ -97,14 +104,14 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
       subtitle="Is my training load sustainable?"
       tooltip={METRIC_TOOLTIPS.weeklyVolume}
       extra={
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+        <Flex display="inline-flex" align="center" gap="xs">
           {hasData && latest && latest.total > 0 ? (
             <span style={{ fontSize: 12, color: exColor, fontWeight: 600 }}>
               {fmtTonnage(latest.total)} this week
             </span>
           ) : null}
           {selectorNode}
-        </span>
+        </Flex>
       }
     >
       {!hasData ? (
@@ -147,13 +154,7 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
       {/* MEV/MAV/MRV are refLines, not part of the bar/line series — Bars' derived legend can't
        * express them. The kind keeps its own interactive legend for bars + MA; this supplementary
        * static row only carries the landmark chips, styled to match the dashed refLines. */}
-      <ChartLegend
-        items={[
-          { key: 'mev', label: 'MEV', color: VX.goodRef, shape: 'line', dashed: true },
-          { key: 'mav', label: 'MAV', color: VX.warnRef, shape: 'line', dashed: true },
-          { key: 'mrv', label: 'MRV', color: VX.badRef, shape: 'line', dashed: true },
-        ]}
-      />
+      <ChartLegend items={deriveLegend(LANDMARK_LEGEND_SERIES)} />
     </ChartCard>
   )
 }

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
+import { Box } from '@mantine/core'
 import { useElementSize } from '@mantine/hooks'
 import {
   AxisBottomDate,
@@ -373,8 +374,12 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
             <span style={{ fontWeight: 600, fontSize: 14, color: colorFor(leader.ex) }}>
               {leader.latest.toFixed(1)} kg
             </span>
-            <span style={{ marginLeft: 6, opacity: 0.6 }}>{exerciseLabel(leader.ex)}</span>
-            <span style={{ marginLeft: 8, color, fontWeight: 600 }}>{arrow}</span>
+            <Box component="span" ml={6} style={{ opacity: 0.6 }}>
+              {exerciseLabel(leader.ex)}
+            </Box>
+            <Box component="span" ml={8} style={{ color, fontWeight: 600 }}>
+              {arrow}
+            </Box>
           </span>
         )
       })()
@@ -399,7 +404,7 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
       tooltip={METRIC_TOOLTIPS.oneRmTrend}
       extra={headerExtra}
     >
-      <div ref={ref} style={{ height: 280, width: '100%' }}>
+      <Box ref={ref} h={280} w="100%">
         {!hasAnyPoint ? (
           <ChartEmpty height={280} />
         ) : width > 0 ? (
@@ -411,7 +416,7 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
             highlighted={highlighted}
           />
         ) : null}
-      </div>
+      </Box>
       <ChartLegend items={legendItems} highlighted={highlighted} onHighlight={setHighlighted} />
     </ChartCard>
   )

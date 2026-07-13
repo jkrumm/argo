@@ -1,11 +1,14 @@
 import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
+import { Box } from '@mantine/core'
 import {
   ChartCard,
   ChartLegend,
   ZonedLine,
   VX,
+  deriveLegend,
   type ChartSeries,
+  type SeriesStyle,
   type ZonedLineTooltipLabel,
 } from 'basalt-ui/charts'
 import { recoveryQueries } from '../../../lib/queries/daily-metrics'
@@ -31,6 +34,12 @@ const RECOVERY_SERIES: ChartSeries<RecoveryPoint>[] = [
   { key: 'recovery', label: 'Recovery', color: VX.line, mark: 'line', getValue: (d) => d.recovery },
 ]
 
+const RECOVERY_LEGEND_SERIES: readonly SeriesStyle[] = [
+  { key: 'recovery', label: 'Recovery Score', color: VX.line, mark: 'line' },
+  { key: 'push', label: 'Push (>70)', color: VX.goodSolid, mark: 'bar' },
+  { key: 'rest', label: 'Rest (<40)', color: VX.badSolid, mark: 'bar' },
+]
+
 export default function RecoveryTrendChart({ params }: { params: SummaryParams }) {
   const { data } = useSuspenseQuery(recoveryQueries.series(params))
 
@@ -50,7 +59,9 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
               <span style={{ fontSize: 14, fontWeight: 600, color: zone.color }}>
                 {Math.round(latest.recovery)}
               </span>
-              <span style={{ marginLeft: 6, color: zone.color }}>{zone.text}</span>
+              <Box component="span" ml={6} style={{ color: zone.color }}>
+                {zone.text}
+              </Box>
             </span>
           )
         })()
@@ -79,13 +90,7 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
           legend={false}
         />
       )}
-      <ChartLegend
-        items={[
-          { key: 'recovery', label: 'Recovery Score', color: VX.line },
-          { key: 'push', label: 'Push (>70)', color: VX.goodSolid, shape: 'bar' },
-          { key: 'rest', label: 'Rest (<40)', color: VX.badSolid, shape: 'bar' },
-        ]}
-      />
+      <ChartLegend items={deriveLegend(RECOVERY_LEGEND_SERIES)} />
     </ChartCard>
   )
 }

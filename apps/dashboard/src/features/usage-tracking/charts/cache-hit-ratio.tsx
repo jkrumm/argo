@@ -1,11 +1,25 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { ChartCard, ChartLegend, VX, ZonedLine, type ChartSeries } from 'basalt-ui/charts'
+import {
+  ChartCard,
+  ChartLegend,
+  deriveLegend,
+  VX,
+  ZonedLine,
+  type ChartSeries,
+  type SeriesStyle,
+} from 'basalt-ui/charts'
 import { usageQueries, type Grain, type Range } from '../../../lib/queries/usage'
 import type { BillingValue, WorkspaceValue } from '../types'
 import { fmtPct } from '../constants'
 
 type Bucket = { bucket: string; groups: Record<string, number | null> }
 type Point = { date: string; ratio: number | null }
+
+const CACHE_HIT_LEGEND_SERIES: readonly SeriesStyle[] = [
+  { key: 'ratio', label: 'Cache hit ratio', color: VX.line, mark: 'line' },
+  { key: 'good', label: 'Good (>60%)', color: VX.goodSolid, mark: 'bar' },
+  { key: 'bad', label: 'Poor (<30%)', color: VX.badSolid, mark: 'bar' },
+]
 
 export default function CacheHitRatio({
   range,
@@ -62,13 +76,7 @@ export default function CacheHitRatio({
           legend={false}
         />
       )}
-      <ChartLegend
-        items={[
-          { key: 'ratio', label: 'Cache hit ratio', color: VX.line },
-          { key: 'good', label: 'Good (>60%)', color: VX.goodSolid, shape: 'bar' },
-          { key: 'bad', label: 'Poor (<30%)', color: VX.badSolid, shape: 'bar' },
-        ]}
-      />
+      <ChartLegend items={deriveLegend(CACHE_HIT_LEGEND_SERIES)} />
     </ChartCard>
   )
 }

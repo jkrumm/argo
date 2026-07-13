@@ -1,13 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { Box, Stack, Title } from '@mantine/core'
 import {
   ChartCard,
   ChartHoverSync,
   ChartLegend,
+  deriveLegend,
   LineSparkline,
   MultiLine,
   ZonedLine,
 } from 'basalt-ui/charts'
-import type { ChartSeries } from 'basalt-ui/charts'
+import type { ChartSeries, SeriesStyle } from 'basalt-ui/charts'
 import { SERIES } from '../lib/series'
 
 export const Route = createFileRoute('/charts-smoke')({
@@ -47,29 +49,37 @@ const MULTI_LINE_SERIES: ChartSeries<(typeof MULTI_LINE_DATA)[number]>[] = [
   },
 ]
 
+const LEGEND_SMOKE_SERIES: readonly SeriesStyle[] = [
+  { key: 'hrv', label: 'HRV', color: SERIES.hrv, mark: 'line' },
+  { key: 'hr', label: 'Resting HR', color: SERIES.restingHr, mark: 'line' },
+]
+
 function ChartsSmokeRoute() {
   if (!import.meta.env.DEV) return null
 
   return (
-    <div style={{ padding: 24, maxWidth: 800 }}>
-      <h2 style={{ marginBottom: 16 }}>basalt-ui/charts smoke test</h2>
+    <Box p={24} maw={800}>
+      <Title order={2} mb="md">
+        basalt-ui/charts smoke test
+      </Title>
 
       {/* Primitive: ChartLegend */}
-      <div style={{ marginBottom: 24 }}>
-        <h3 style={{ marginBottom: 8, fontSize: 14 }}>Primitive: ChartLegend</h3>
+      <Box mb={24}>
+        <Title order={3} mb={8} fz={14}>
+          Primitive: ChartLegend
+        </Title>
         <ChartLegend
-          items={[
-            { key: 'hrv', label: 'HRV', color: SERIES.hrv, shape: 'line' },
-            { key: 'hr', label: 'Resting HR', color: SERIES.restingHr, shape: 'line' },
-          ]}
+          items={deriveLegend(LEGEND_SMOKE_SERIES)}
           highlighted={null}
           onHighlight={() => {}}
         />
-      </div>
+      </Box>
 
       {/* Sparkline */}
-      <div style={{ marginBottom: 24 }}>
-        <h3 style={{ marginBottom: 8, fontSize: 14 }}>Sparkline: LineSparkline</h3>
+      <Box mb={24}>
+        <Title order={3} mb={8} fz={14}>
+          Sparkline: LineSparkline
+        </Title>
         <LineSparkline
           ariaLabel="HRV sparkline, smoke test"
           data={SPARKLINE_DATA}
@@ -77,11 +87,11 @@ function ChartsSmokeRoute() {
           height={40}
           color={SERIES.hrv}
         />
-      </div>
+      </Box>
 
       <ChartHoverSync>
-        {/* Kind: ZonedLine */}
-        <div style={{ marginBottom: 24 }}>
+        <Stack gap={24}>
+          {/* Kind: ZonedLine */}
           <ChartCard title="HRV Trend" tooltip="7-day rolling average HRV from Garmin">
             <ZonedLine
               ariaLabel="HRV trend, smoke test"
@@ -102,22 +112,22 @@ function ChartsSmokeRoute() {
               formatValue={(v) => `${Math.round(v)} ms`}
             />
           </ChartCard>
-        </div>
 
-        {/* Kind: MultiLine */}
-        <ChartCard title="HRV vs Resting HR" tooltip="Two series sharing one y-axis">
-          <MultiLine
-            ariaLabel="HRV vs resting HR, smoke test"
-            data={MULTI_LINE_DATA}
-            height={200}
-            chartId="smoke-multi-line"
-            getX={(d) => d.date}
-            series={MULTI_LINE_SERIES}
-            yDomain="auto"
-            formatValue={(v) => `${Math.round(v)} ms`}
-          />
-        </ChartCard>
+          {/* Kind: MultiLine */}
+          <ChartCard title="HRV vs Resting HR" tooltip="Two series sharing one y-axis">
+            <MultiLine
+              ariaLabel="HRV vs resting HR, smoke test"
+              data={MULTI_LINE_DATA}
+              height={200}
+              chartId="smoke-multi-line"
+              getX={(d) => d.date}
+              series={MULTI_LINE_SERIES}
+              yDomain="auto"
+              formatValue={(v) => `${Math.round(v)} ms`}
+            />
+          </ChartCard>
+        </Stack>
       </ChartHoverSync>
-    </div>
+    </Box>
   )
 }

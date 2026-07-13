@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useElementSize } from '@mantine/hooks'
-import { Select } from '@mantine/core'
+import { Box, Flex, Select } from '@mantine/core'
 import {
   AxisBottomDate,
   AxisLeftNumeric,
   ChartCard,
   ChartLegend,
   ChartTooltip,
+  deriveLegend,
   GridRows,
   Group,
   HoverOverlay,
@@ -19,6 +20,7 @@ import {
   curveMonotoneX,
   scaleLinear,
   scalePoint,
+  type SeriesStyle,
   smartTicks,
   useHoverSync,
   useTooltipStyles,
@@ -323,7 +325,7 @@ export default function StrengthCompositeChart({
   }, [points])
 
   const headerExtra = (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+    <Flex display="inline-flex" align="center" gap="xs">
       <span style={{ fontSize: 12 }}>
         <span style={{ color: COMPOSITE_COLORS.velocity, fontWeight: 600 }}>
           v {latest.v !== null ? fmtSigma(latest.v) : '—'}
@@ -348,8 +350,32 @@ export default function StrengthCompositeChart({
         allowDeselect={false}
         aria-label="Exercise"
       />
-    </span>
+    </Flex>
   )
+
+  const legendSeries: readonly SeriesStyle[] = [
+    {
+      key: 'velocity',
+      label: 'Velocity',
+      color: COMPOSITE_COLORS.velocity,
+      mark: 'line',
+      strokeWidth: 2.5,
+    },
+    {
+      key: 'tonnage',
+      label: 'Tonnage Growth',
+      color: COMPOSITE_COLORS.tonnage,
+      mark: 'line',
+      strokeWidth: 2.5,
+    },
+    {
+      key: 'inol',
+      label: 'INOL Quality',
+      color: COMPOSITE_COLORS.inol,
+      mark: 'line',
+      strokeWidth: 2.5,
+    },
+  ]
 
   return (
     <ChartCard
@@ -358,7 +384,7 @@ export default function StrengthCompositeChart({
       tooltip={METRIC_TOOLTIPS.strengthComposite}
       extra={headerExtra}
     >
-      <div ref={ref} style={{ height: 280, width: '100%' }}>
+      <Box ref={ref} h={280} w="100%">
         {!hasLines ? (
           <ChartEmpty
             height={280}
@@ -376,31 +402,9 @@ export default function StrengthCompositeChart({
             highlighted={highlighted}
           />
         ) : null}
-      </div>
+      </Box>
       <ChartLegend
-        items={[
-          {
-            key: 'velocity',
-            label: 'Velocity',
-            color: COMPOSITE_COLORS.velocity,
-            shape: 'line',
-            strokeWidth: 2.5,
-          },
-          {
-            key: 'tonnage',
-            label: 'Tonnage Growth',
-            color: COMPOSITE_COLORS.tonnage,
-            shape: 'line',
-            strokeWidth: 2.5,
-          },
-          {
-            key: 'inol',
-            label: 'INOL Quality',
-            color: COMPOSITE_COLORS.inol,
-            shape: 'line',
-            strokeWidth: 2.5,
-          },
-        ]}
+        items={deriveLegend(legendSeries)}
         highlighted={highlighted}
         onHighlight={setHighlighted}
       />

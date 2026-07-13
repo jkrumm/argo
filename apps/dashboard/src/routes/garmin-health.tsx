@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Suspense, useCallback, useMemo } from 'react'
-import { Grid, Group, SimpleGrid, Stack } from '@mantine/core'
+import { Box, Grid, Group, SimpleGrid, Stack } from '@mantine/core'
 import { z } from 'zod'
 import { ChartHoverSync } from 'basalt-ui/charts'
 import {
@@ -29,7 +29,7 @@ import {
 } from '../lib/queries/daily-metrics'
 
 function ChartFallback({ height = 320 }: { height?: number }) {
-  return <div style={{ height, width: '100%' }} />
+  return <Box h={height} w="100%" />
 }
 
 // ── Search params ──────────────────────────────────────────────────────────

@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Box } from '@mantine/core'
 import { queryOptions, useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { ChartCard, MultiLine, VX, type ChartSeries } from 'basalt-ui/charts'
 import { api, unwrap } from '../../../lib/eden'
@@ -91,9 +92,10 @@ export default function WeightChart({ params }: { params: WeightLogWindowParams 
           <span style={{ fontSize: 12 }}>
             <span style={{ fontWeight: 600, fontSize: 14 }}>{latest.weightKg.toFixed(1)} kg</span>
             {delta !== null && (
-              <span
+              <Box
+                component="span"
+                ml={8}
                 style={{
-                  marginLeft: 8,
                   color: delta < -0.05 ? VX.goodSolid : delta > 0.05 ? VX.warnSolid : undefined,
                   opacity: Math.abs(delta) < 0.05 ? 0.6 : 1,
                   fontWeight: 600,
@@ -101,9 +103,13 @@ export default function WeightChart({ params }: { params: WeightLogWindowParams 
               >
                 {delta >= 0 ? '+' : ''}
                 {delta.toFixed(2)} kg
-              </span>
+              </Box>
             )}
-            {delta !== null && <span style={{ marginLeft: 4, opacity: 0.5 }}>vs 30d</span>}
+            {delta !== null && (
+              <Box component="span" ml={4} style={{ opacity: 0.5 }}>
+                vs 30d
+              </Box>
+            )}
           </span>
         )
       })()

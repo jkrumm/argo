@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
+import { Group as MantineGroup } from '@mantine/core'
 import {
   AxisBottomDate,
   AxisLeftNumeric,
@@ -19,11 +20,14 @@ import {
   TooltipRow,
   VX,
   curveMonotoneX,
+  deriveLegend,
   scaleLinear,
   scalePoint,
   smartTicks,
   useHoverSync,
   useTooltipStyles,
+  type LegendEntry,
+  type SeriesStyle,
 } from 'basalt-ui/charts'
 import { trainingLoadQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
@@ -52,6 +56,27 @@ type RawPoint = {
 function formatDivergence(v: number): string {
   return `${v >= 0 ? '+' : ''}${v.toFixed(1)}`
 }
+
+// `split` shape + `secondColor` have no `SeriesStyle`/`mark` equivalent (deriveLegend can only
+// emit 'line' | 'bar' swatches), so the diverging-color entry is authored directly as a
+// `LegendEntry` and appended after the two `deriveLegend`-derived series entries.
+const DIVERGENCE_LEGEND_SERIES: readonly SeriesStyle[] = [
+  { key: 'acute', label: 'Short-term (7d)', color: VX.goodSolid, mark: 'line', strokeWidth: 2 },
+  { key: 'chronic', label: 'Long-term (28d)', color: VX.badSolid, mark: 'line', strokeWidth: 3 },
+]
+
+const DIVERGENCE_SPLIT_ENTRY: LegendEntry = {
+  key: 'divergence',
+  label: 'Divergence',
+  color: VX.goodSolid,
+  secondColor: VX.badSolid,
+  shape: 'split',
+}
+
+const DIVERGENCE_LEGEND_ITEMS: LegendEntry[] = [
+  ...deriveLegend(DIVERGENCE_LEGEND_SERIES),
+  DIVERGENCE_SPLIT_ENTRY,
+]
 
 /**
  * Bespoke composition (dual-pane line + signed-histogram with a DIVERGING two-tone fill-between —
@@ -312,7 +337,7 @@ export default function DivergenceChart({ params }: { params: SummaryParams }) {
   const latest = points.length > 0 ? points[points.length - 1] : null
 
   const headerExtra = latest ? (
-    <span style={{ fontSize: 12, display: 'inline-flex', alignItems: 'baseline', gap: 6 }}>
+    <MantineGroup gap={6} align="baseline" wrap="nowrap" style={{ fontSize: 12 }}>
       <span
         style={{
           fontSize: 14,
@@ -327,7 +352,7 @@ export default function DivergenceChart({ params }: { params: SummaryParams }) {
           ? `+${latest.divergence.toFixed(0)} ahead`
           : `${latest.divergence.toFixed(0)} behind`}
       </span>
-    </span>
+    </MantineGroup>
   ) : null
 
   return (
@@ -343,29 +368,7 @@ export default function DivergenceChart({ params }: { params: SummaryParams }) {
         <DivergenceChartFrame data={points} highlighted={highlighted} />
       )}
       <ChartLegend
-        items={[
-          {
-            key: 'acute',
-            label: 'Short-term (7d)',
-            color: VX.goodSolid,
-            strokeWidth: 2,
-            shape: 'line',
-          },
-          {
-            key: 'chronic',
-            label: 'Long-term (28d)',
-            color: VX.badSolid,
-            strokeWidth: 3,
-            shape: 'line',
-          },
-          {
-            key: 'divergence',
-            label: 'Divergence',
-            color: VX.goodSolid,
-            secondColor: VX.badSolid,
-            shape: 'split',
-          },
-        ]}
+        items={DIVERGENCE_LEGEND_ITEMS}
         highlighted={highlighted}
         onHighlight={setHighlighted}
       />

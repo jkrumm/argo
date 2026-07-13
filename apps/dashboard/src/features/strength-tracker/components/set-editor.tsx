@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react'
-import { ActionIcon, Button, NumberInput } from '@mantine/core'
+import { ActionIcon, Box, Button, Flex, NumberInput } from '@mantine/core'
 import { IconCheck, IconPlus, IconX } from '@tabler/icons-react'
 import { VX, alpha } from 'basalt-ui/tokens'
 import type { SetType } from '../constants'
+import cls from './set-editor.module.css'
 
 export type SetEntry = {
   set_type: SetType
@@ -101,72 +102,26 @@ export function SetEditor({
     return TYPE_ABBREV[s.set_type]
   })
 
-  const stepperStyle: React.CSSProperties = {
-    width: 18,
-    height: 18,
-    border: 'none',
-    background: 'transparent',
-    color: 'inherit',
-    cursor: 'pointer',
-    fontSize: 13,
-    fontFamily: 'inherit',
-    padding: 0,
-    flexShrink: 0,
-    transition: 'opacity 0.15s',
-    borderRadius: 3,
-    lineHeight: 1,
-  }
-
-  // Targets NumberInput's `input` stylesName — variant="unstyled" already strips the
-  // Mantine chrome (border/background/outline), this layers the bespoke underline back on.
-  const inputBase: React.CSSProperties = {
-    textAlign: 'center',
-    width: '100%',
-    fontSize: 16,
-    padding: '4px 4px',
-    borderBottom: '1px solid transparent',
-    transition: 'border-color 0.15s',
-  }
-
-  const inputHover: React.CSSProperties = {
-    borderBottom: `1px solid ${alpha(VX.neutral, 0.3)}`,
-  }
-
   return (
-    <div>
-      <style>{`
-        .st-set-input:focus { border-bottom-color: ${alpha(VX.neutral, 0.5)} !important; }
-        .st-stepper:hover:not(:disabled) { background: ${alpha(VX.neutral, 0.12)} !important; opacity: 0.8 !important; }
-        @media (pointer: coarse) {
-          .st-stepper { opacity: 0.55 !important; width: 26px !important; height: 26px !important; }
-        }
-      `}</style>
-
+    <Box>
       {/* Header row */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 0,
-          padding: '0 0 4px',
-          borderBottom: `1px solid ${alpha(VX.neutral, 0.12)}`,
-          marginBottom: 2,
-        }}
-      >
-        <span style={{ width: 30, fontSize: 11, color: alpha(VX.neutral, 0.5), paddingLeft: 2 }}>
+      <Flex align="center" className={`${cls.header} ${cls.headCell}`}>
+        <Box component="span" w={30} pl={2}>
           Set
-        </span>
+        </Box>
         {hasPrevious && (
-          <span style={{ width: 72, fontSize: 11, color: alpha(VX.neutral, 0.5) }}>Previous</span>
+          <Box component="span" w={72}>
+            Previous
+          </Box>
         )}
-        <span style={{ flex: 1, fontSize: 11, color: alpha(VX.neutral, 0.5), textAlign: 'center' }}>
+        <Box component="span" className={cls.cell} ta="center">
           KG
-        </span>
-        <span style={{ flex: 1, fontSize: 11, color: alpha(VX.neutral, 0.5), textAlign: 'center' }}>
+        </Box>
+        <Box component="span" className={cls.cell} ta="center">
           Reps
-        </span>
-        {!readOnly && <span style={{ width: checklist ? 52 : 26 }} />}
-      </div>
+        </Box>
+        {!readOnly && <Box component="span" w={checklist ? 52 : 26} />}
+      </Flex>
 
       {/* Set rows */}
       {sets.map((s, i) => {
@@ -178,44 +133,24 @@ export function SetEditor({
         const dimmed = checklist && !isActive
 
         return (
-          <div
+          <Flex
             key={i}
+            align="center"
+            className={cls.row}
+            data-checklist={checklist}
+            data-active={isActive}
+            data-hovered={isHovered}
+            data-dimmed={dimmed}
             onMouseEnter={() => !readOnly && setHoveredRow(i)}
             onMouseLeave={() => !readOnly && setHoveredRow(null)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0,
-              padding: checklist ? '7px var(--mantine-spacing-md)' : '7px 0',
-              marginInline: checklist ? 'calc(var(--mantine-spacing-md) * -1)' : undefined,
-              borderBottom: `1px solid ${alpha(VX.neutral, 0.06)}`,
-              transition: 'all 0.15s',
-              borderRadius: checklist ? 0 : 3,
-              opacity: dimmed ? 0.5 : 1,
-              background: isActive
-                ? alpha(VX.goodSolid, 0.08)
-                : isHovered
-                  ? alpha(VX.neutral, 0.06)
-                  : 'transparent',
-            }}
           >
             {/* Set type label (click to cycle) */}
             <button
               type="button"
+              className={cls.typeButton}
               onClick={() => editable && cycleType(i)}
               disabled={!editable}
-              style={{
-                width: 30,
-                fontSize: 12,
-                fontWeight: 600,
-                fontFamily: 'inherit',
-                border: 'none',
-                background: 'transparent',
-                cursor: editable ? 'pointer' : 'default',
-                color: TYPE_COLOR[s.set_type],
-                padding: '0 0 0 2px',
-                textAlign: 'left',
-              }}
+              style={{ color: TYPE_COLOR[s.set_type] }}
               title={editable ? 'Click to change set type' : undefined}
             >
               {labels[i]}
@@ -223,36 +158,35 @@ export function SetEditor({
 
             {/* Previous reference */}
             {hasPrevious && (
-              <span
-                style={{
-                  width: 72,
-                  fontSize: 11,
-                  color: alpha(VX.neutral, 0.4),
-                  whiteSpace: 'nowrap',
-                }}
+              <Box
+                component="span"
+                w={72}
+                fz={11}
+                style={{ color: alpha(VX.neutral, 0.4), whiteSpace: 'nowrap' }}
               >
                 {prev !== undefined ? `${prev.weight_kg} × ${prev.reps}` : '—'}
-              </span>
+              </Box>
             )}
 
             {/* Weight column */}
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+            <Flex align="center" className={cls.cell}>
               {editable && (
                 <button
                   type="button"
-                  className="st-stepper"
+                  className={cls.stepper}
                   onClick={() => updateSet(i, 'weight_kg', Math.max(0, s.weight_kg - 0.5))}
-                  style={{ ...stepperStyle, opacity: isHovered ? 0.5 : 0 }}
                   aria-label="Decrement weight"
                 >
                   −
                 </button>
               )}
               {readOnly ? (
-                <span style={{ flex: 1, fontSize: 16, textAlign: 'center' }}>{s.weight_kg}</span>
+                <Box component="span" className={cls.readOnlyValue}>
+                  {s.weight_kg}
+                </Box>
               ) : (
                 <NumberInput
-                  classNames={{ input: 'st-set-input' }}
+                  classNames={{ input: cls.input }}
                   variant="unstyled"
                   hideControls
                   clampBehavior="none"
@@ -272,44 +206,43 @@ export function SetEditor({
                   }}
                   step={0.5}
                   min={0}
-                  style={{ flex: 1, minWidth: 0 }}
-                  styles={{ input: { ...inputBase, ...(isHovered ? inputHover : {}) } }}
+                  className={cls.cell}
                 />
               )}
               {editable && (
                 <button
                   type="button"
-                  className="st-stepper"
+                  className={cls.stepper}
                   onClick={() => updateSet(i, 'weight_kg', s.weight_kg + 0.5)}
-                  style={{ ...stepperStyle, opacity: isHovered ? 0.5 : 0 }}
                   aria-label="Increment weight"
                 >
                   +
                 </button>
               )}
-            </div>
+            </Flex>
 
             {/* Reps column */}
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+            <Flex align="center" className={cls.cell}>
               {editable && (
                 <button
                   type="button"
-                  className="st-stepper"
+                  className={cls.stepper}
                   onClick={() => updateSet(i, 'reps', Math.max(1, s.reps - 1))}
-                  style={{ ...stepperStyle, opacity: isHovered ? 0.5 : 0 }}
                   aria-label="Decrement reps"
                 >
                   −
                 </button>
               )}
               {readOnly ? (
-                <span style={{ flex: 1, fontSize: 16, textAlign: 'center' }}>{s.reps}</span>
+                <Box component="span" className={cls.readOnlyValue}>
+                  {s.reps}
+                </Box>
               ) : (
                 <NumberInput
                   ref={(el) => {
                     repsRefs.current[i] = el
                   }}
-                  classNames={{ input: 'st-set-input' }}
+                  classNames={{ input: cls.input }}
                   variant="unstyled"
                   hideControls
                   clampBehavior="none"
@@ -323,35 +256,29 @@ export function SetEditor({
                   step={1}
                   min={1}
                   max={100}
-                  style={{ flex: 1, minWidth: 0 }}
-                  styles={{ input: { ...inputBase, ...(isHovered ? inputHover : {}) } }}
+                  className={cls.cell}
                 />
               )}
               {editable && (
                 <button
                   type="button"
-                  className="st-stepper"
+                  className={cls.stepper}
                   onClick={() => updateSet(i, 'reps', Math.min(100, s.reps + 1))}
-                  style={{ ...stepperStyle, opacity: isHovered ? 0.5 : 0 }}
                   aria-label="Increment reps"
                 >
                   +
                 </button>
               )}
-            </div>
+            </Flex>
 
             {/* Check + remove */}
             {!readOnly && (
-              <div
-                style={{
-                  width: checklist ? 52 : 26,
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  alignItems: 'center',
-                  gap: 2,
-                  opacity: checklist || isHovered ? 1 : 0.25,
-                  transition: 'opacity 0.15s',
-                }}
+              <Flex
+                w={checklist ? 52 : 26}
+                justify="flex-end"
+                align="center"
+                gap={2}
+                className={cls.actions}
               >
                 {checklist && (
                   <ActionIcon
@@ -379,9 +306,9 @@ export function SetEditor({
                     <IconX size={12} />
                   </ActionIcon>
                 )}
-              </div>
+              </Flex>
             )}
-          </div>
+          </Flex>
         )
       })}
 
@@ -399,6 +326,6 @@ export function SetEditor({
           Add Set
         </Button>
       )}
-    </div>
+    </Box>
   )
 }

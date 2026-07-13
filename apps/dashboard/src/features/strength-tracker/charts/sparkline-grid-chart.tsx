@@ -121,15 +121,7 @@ export default function SparklineGridChart({ params }: { params: StrengthQueryPa
                     </Text>
                   </Table.Td>
                   <Table.Td>
-                    <Box
-                      style={{
-                        display: 'inline-block',
-                        width: 10,
-                        height: 10,
-                        borderRadius: '50%',
-                        backgroundColor: dirColor,
-                      }}
-                    />
+                    <Box display="inline-block" w={10} h={10} bdrs="xl" bg={dirColor} />
                   </Table.Td>
                 </Table.Tr>
               )

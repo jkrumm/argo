@@ -36,11 +36,6 @@
     "exempt": [
       "apps/dashboard/src/lib/series.ts"
     ],
-    "rawSurface": false,
-    "rawHtmlLayout": false,
-    "inlineSpacing": false,
-    "inlineDisplay": false,
-    "unframedChart": false,
     "chartMissingAriaLabel": true
   }
 }

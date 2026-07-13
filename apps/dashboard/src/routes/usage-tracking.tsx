@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Suspense, useCallback, useMemo } from 'react'
-import { Grid, Stack } from '@mantine/core'
+import { Box, Grid, Stack } from '@mantine/core'
 import { z } from 'zod'
 import { ChartHoverSync } from 'basalt-ui/charts'
 import { usageQueries } from '../lib/queries/usage'
@@ -24,7 +24,7 @@ import type {
 } from '../features/usage-tracking/types'
 
 function ChartFallback({ height = 280 }: { height?: number }) {
-  return <div style={{ height, width: '100%' }} />
+  return <Box h={height} w="100%" />
 }
 
 const RangeEnum = z.enum(['7d', '30d', '90d', 'all'])

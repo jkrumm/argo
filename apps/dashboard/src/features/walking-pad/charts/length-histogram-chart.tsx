@@ -1,4 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
+import { Box } from '@mantine/core'
 import { Bars, ChartCard } from 'basalt-ui/charts'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { METRIC_DEFS, useMetricSelection, type MetricKey } from '../metric-toggle'
@@ -123,11 +124,11 @@ export function LengthHistogramChart({ params }: { params: WalkingPadWindowParam
           legend={false}
         />
       )}
-      <span style={{ fontSize: 11, color: 'var(--mantine-color-dimmed)', marginTop: 4 }}>
+      <Box component="span" mt={4} style={{ fontSize: 11, color: 'var(--mantine-color-dimmed)' }}>
         {totalSessions} session{totalSessions === 1 ? '' : 's'} · binned by{' '}
         {METRIC_DEFS[driver].label.toLowerCase()}
         {isMultiSelected ? ' (first enabled metric drives the binning)' : ''}
-      </span>
+      </Box>
     </ChartCard>
   )
 }

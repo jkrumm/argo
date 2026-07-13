@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Card, Group, ScrollArea, Select, Stack, Text } from '@mantine/core'
+import { Box, Card, Group, ScrollArea, Select, Stack, Text } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { IconTrophy } from '@tabler/icons-react'
 import { alpha, VX } from 'basalt-ui/tokens'
@@ -64,15 +64,13 @@ export function RecentRecords({
             {records.map((r, i) => (
               <Group key={`${r.date}-${r.exercise_id}-${r.metric}-${i}`} gap={8} wrap="nowrap">
                 {multiExercise && (
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      backgroundColor:
-                        EXERCISE_COLORS[r.exercise_id as ExerciseKey] ?? alpha(VX.neutral, 0.5),
-                      flexShrink: 0,
-                    }}
+                  <Box
+                    component="span"
+                    w={8}
+                    h={8}
+                    bdrs="50%"
+                    bg={EXERCISE_COLORS[r.exercise_id as ExerciseKey] ?? alpha(VX.neutral, 0.5)}
+                    style={{ flexShrink: 0 }}
                   />
                 )}
                 <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>

@@ -123,18 +123,18 @@ export default function AlignmentMatrixChart({ params }: { params: StrengthQuery
                   <Box
                     style={{
                       position: 'relative',
-                      padding: '12px 6px',
-                      borderRadius: 6,
                       background: bg,
                       border: cell.isToday ? `2px solid ${color}` : '2px solid transparent',
                       textAlign: 'center',
                       minHeight: 56,
-                      display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       flexDirection: 'column',
-                      gap: 2,
                     }}
+                    display="flex"
+                    py="sm"
+                    px={6}
+                    bdrs={6}
                   >
                     <Text size="xs" fw={600} c={color} lh={1.2}>
                       {cell.verdict}

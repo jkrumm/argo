@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Select } from '@mantine/core'
+import { Box, Flex, Select } from '@mantine/core'
 import { useElementSize } from '@mantine/hooks'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import {
@@ -10,6 +10,7 @@ import {
   ChartLegend,
   ChartTooltip,
   curveMonotoneX,
+  deriveLegend,
   GridRows,
   Group,
   HoverOverlay,
@@ -20,6 +21,7 @@ import {
   TooltipBody,
   TooltipHeader,
   TooltipRow,
+  type SeriesStyle,
   useHoverSync,
   useTooltipStyles,
   VX,
@@ -293,15 +295,15 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
   }))
 
   const headerExtra = (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+    <Flex display="inline-flex" align="center" gap={8}>
       {latest && latest.inol !== null ? (
         <span style={{ fontSize: 12 }}>
           <span style={{ fontWeight: 600, fontSize: 14, color: inolDotColor(latest.inol) }}>
             {latest.inol.toFixed(2)}
           </span>
-          <span style={{ marginLeft: 6, color: inolDotColor(latest.inol) }}>
+          <Box component="span" ml={6} style={{ color: inolDotColor(latest.inol) }}>
             {inolZoneLabel(latest.inol)}
-          </span>
+          </Box>
         </span>
       ) : null}
       {selectOptions.length > 1 && (
@@ -314,8 +316,23 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
           allowDeselect={false}
         />
       )}
-    </span>
+    </Flex>
   )
+
+  const legendSeries: readonly SeriesStyle[] = [
+    { key: 'session', label: 'Session', color: VX.goodSolid, mark: 'bar' },
+    {
+      key: 'ma',
+      label: '10-session MA',
+      color: exerciseColor,
+      mark: 'line',
+      strokeWidth: 2.25,
+      dash: 'dashed',
+    },
+    { key: 'opt', label: 'Optimal (0.6–1.0)', color: VX.goodSolid, mark: 'bar' },
+    { key: 'hard', label: 'Hard (1.0–1.5)', color: SERIES.calories, mark: 'bar' },
+    { key: 'exc', label: 'Excessive (>1.5)', color: VX.badSolid, mark: 'bar' },
+  ]
 
   return (
     <ChartCard
@@ -324,7 +341,7 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
       tooltip={METRIC_TOOLTIPS.inol}
       extra={headerExtra}
     >
-      <div ref={ref} style={{ height: HEIGHT, width: '100%' }}>
+      <Box ref={ref} h={HEIGHT} w="100%">
         {!hasData ? (
           <ChartEmpty height={HEIGHT} message="No sessions in this window" />
         ) : width > 0 ? (
@@ -336,24 +353,8 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
             chartId="inol"
           />
         ) : null}
-      </div>
-      <ChartLegend
-        items={[
-          { key: 'session', label: 'Session', color: VX.goodSolid, shape: 'bar' },
-          {
-            key: 'ma',
-            label: '10-session MA',
-            color: exerciseColor,
-            strokeWidth: 2.25,
-            dashed: true,
-          },
-          { key: 'opt', label: 'Optimal (0.6–1.0)', color: VX.goodSolid, shape: 'bar' },
-          { key: 'hard', label: 'Hard (1.0–1.5)', color: SERIES.calories, shape: 'bar' },
-          { key: 'exc', label: 'Excessive (>1.5)', color: VX.badSolid, shape: 'bar' },
-        ]}
-        highlighted={null}
-        onHighlight={() => {}}
-      />
+      </Box>
+      <ChartLegend items={deriveLegend(legendSeries)} highlighted={null} onHighlight={() => {}} />
     </ChartCard>
   )
 }

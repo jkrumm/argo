@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Card, Group, SimpleGrid, Skeleton, Text, ThemeIcon, Tooltip } from '@mantine/core'
+import { Box, Card, Group, SimpleGrid, Skeleton, Text, ThemeIcon, Tooltip } from '@mantine/core'
 import {
   IconArrowDownRight,
   IconArrowRight,
@@ -45,9 +45,11 @@ function colorFor(d: Direction): string {
 function InfoIcon({ tooltip }: { tooltip: string }) {
   return (
     <Tooltip label={tooltip} multiline w={320} withArrow position="bottom-start">
-      <IconInfoCircle
+      <Box
+        component={IconInfoCircle}
         size={12}
-        style={{ marginLeft: 4, opacity: 0.45, cursor: 'help', verticalAlign: 'middle' }}
+        ml={4}
+        style={{ opacity: 0.45, cursor: 'help', verticalAlign: 'middle' }}
       />
     </Tooltip>
   )

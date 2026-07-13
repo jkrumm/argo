@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Card, Group, SimpleGrid, Skeleton, Stack, Text, Tooltip } from '@mantine/core'
+import { Box, Card, Group, SimpleGrid, Skeleton, Stack, Text, Tooltip } from '@mantine/core'
 import { IconInfoCircle } from '@tabler/icons-react'
 import {
   fitnessDirectionQueries,
@@ -13,10 +13,12 @@ import type { SummaryParams } from './types'
 function InfoIcon({ tooltip }: { tooltip: string }) {
   return (
     <Tooltip label={tooltip} multiline w={320} withArrow position="bottom-start">
-      <IconInfoCircle
-        size={12}
-        style={{ marginLeft: 4, opacity: 0.45, cursor: 'help', verticalAlign: 'middle' }}
-      />
+      <Box component="span" ml={4}>
+        <IconInfoCircle
+          size={12}
+          style={{ opacity: 0.45, cursor: 'help', verticalAlign: 'middle' }}
+        />
+      </Box>
     </Tooltip>
   )
 }
