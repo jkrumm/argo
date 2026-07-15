@@ -27,7 +27,7 @@ import {
 import { format } from 'date-fns'
 import { useCallback, useEffect, useState } from 'react'
 import { useLocalStorage } from '@mantine/hooks'
-import { BasaltShell, NavCountBadge } from 'basalt-ui'
+import { BasaltShell, NavCountBadge, ThemeToggle } from 'basalt-ui'
 import { NotificationBell } from 'basalt-ui/notifications'
 import type {
   BreadcrumbLinkRenderer,
@@ -332,6 +332,7 @@ function RootLayout() {
             <TimerNavWidget />
             <RefreshButton />
             <NotificationBell />
+            <ThemeToggle />
           </>
         }
         settingsMenuItems={settingsMenuItems}
