@@ -173,6 +173,24 @@ export const NOTIFICATIONS = defineNotifications({ 'upload:success': uploadSucce
 WARNING: `defineNotification` only TYPES — it does NOT register. Only `defineNotifications(map)`
 registers. Calling `emit` without a prior `defineNotifications` is a no-op at runtime.
 
+### `NotificationSpec` has no `title`/`icon` — by design
+
+`NotificationSpec` is `{ intent, toMessage? }` — deliberately no `title`/`icon` field. Those stay
+per-call `NotifyOptions` (`emit(kind, payload, { title: '…' })` or `notify({ ..., title: '…' })`),
+so a title that varies per call site isn't forced into the registry. If every call to a given kind
+repeats the same title, pass it at each call site — there's no registry-level default to fall back
+on.
+
+### Colors beyond the 4 intents live outside the registry
+
+`notify`/`emit` only resolve `intent` to one of the four Mantine colors (§ Intent → Mantine color
+above) — there's no `intent` override and no raw-color escape in `NotifyOptions`. A feature needing
+per-category colored toasts beyond `success`/`info`/`warning`/`error` (e.g. achievement toasts keyed
+by achievement type) cannot ride the typed registry. The documented stance: call Mantine's raw
+`notifications.show({ color, ... })` directly, outside `notify`/`emit`. The cost is explicit — a
+raw `notifications.show` toast is invisible to the persisted history store, the bell, and the
+notification center, since only `notify`/`notifyPromise` record to history.
+
 ## Notification history store
 
 Every `notify()` / `notifyPromise()` call records to a module-level persisted external store

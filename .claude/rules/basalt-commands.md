@@ -113,6 +113,16 @@ stashes the spec map in a module-level `activeCommands` variable; `runCommand` r
 stash — NOT from `{} as Commands`. This is the same pattern as `defineNotifications` / `emit`.
 Always call `defineCommands` once before any call to `runCommand` (typically imported at app boot).
 
+### TS circular-inference footgun
+
+Calling `overlays.open(...)` inside a `run` handler, in the **same module that also augments**
+`BasaltRegister.commands` (i.e. the file with `declare module 'basalt-ui' { interface
+BasaltRegister { commands: typeof COMMANDS } }`), can trip TS into inferring `COMMANDS` as
+`implicitly has type 'any'` — the `run` return type and the `commands` slot type end up in a
+circular inference loop. Fix: give that `run` an explicit `: void` (or `: Promise<void>` for async)
+return annotation. Prefer splitting overlay-opening commands into a separate file from the
+`defineCommands`/`declare module` augmentation when practical — it sidesteps the cycle entirely.
+
 ## defineOverlays + overlays
 
 `defineOverlays` registers ephemeral modal overlays. `overlays.open` is the imperative controller.

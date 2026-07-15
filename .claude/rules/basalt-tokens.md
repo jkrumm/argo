@@ -117,6 +117,28 @@ Popover, Accordion, cards) renders one border shade, one card background, and on
   the named `fontWeights` ladder (`fw="semibold"`, `fw="medium"`, …) and `fontFamilyMonospace` for
   numbers. Don't hard-code `fontSize` in px on chrome; use `size`/`fz` tokens.
 
+## `groupTokens` ↔ `paletteOptions.groups` — the prefix lockstep
+
+`groupTokens(GROUP, MAP)` (from `basalt-ui/tokens` or `basalt-ui/charts`) generates `var(--vx-GROUP-key)`
+refs assuming the same map is also handed to `BasaltProvider`'s `paletteOptions.groups` under the key
+`` `${GROUP}-` `` (**with the trailing dash** — `paletteOptions.groups` is keyed by CSS-var _prefix_,
+not by group name). Drift between the two — e.g. calling `groupTokens('activity', MAP)` but wiring
+`paletteOptions={{ groups: { activity: MAP } }}` (missing the dash) — emits token refs that point at
+CSS variables the palette stylesheet never declares: no tsc error, silent unstyled/transparent charts
+at runtime. Derive both from one `GROUP` constant so they can't drift:
+
+```ts
+// theme/series.ts
+export const GROUP = 'activity'
+export const colors = groupTokens(GROUP, SERIES) // -> var(--vx-activity-key)
+export const paletteGroups = { [`${GROUP}-`]: SERIES } // -> { 'activity-': SERIES }
+```
+
+```tsx
+// main.tsx
+<BasaltProvider paletteOptions={{ groups: paletteGroups }}>{/* app */}</BasaltProvider>
+```
+
 ## When the guard fires
 
 Fix the source, don't silence it — reach for the right token first. Only add `theme-allow` for a

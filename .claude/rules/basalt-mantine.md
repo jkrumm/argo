@@ -103,7 +103,10 @@ Route components import chart primitives directly from `basalt-ui/charts` — ne
 - **Notifications**: `notifications.show(...)` from `@mantine/notifications` — never roll a custom toast.
 - **Modals**: `modals.openConfirmModal(...)` for destructive actions; `modals.open(...)` for forms.
 - **Inputs**: from `@mantine/core` (`TextInput`, `Select`, `Combobox`, …). Don't use native `<select>`.
-  The theme defaults inputs to `md` (16px font) so iOS Safari never zooms on focus.
+  The theme defaults inputs to `md` (16px font) so iOS Safari never zooms on focus. The floor
+  (`styles.css`) is `!important` and mechanically enforced: `raw-form-control` flags any raw
+  `<input>`/`<select>`/`<textarea>`, `sub-16-input-font` flags a sub-16 `fontSize` on a form control
+  as dead code against the floor.
 - **DatePickerInput**: from `@mantine/dates` (if you separately install it). In v9 it uses string
   values (`YYYY-MM-DD`) for `value`/`onChange` — no `Date` conversion.
 - **Responsive chart sizing**: use `ResponsiveChart` or `useChartSize` from `basalt-ui/charts`
@@ -122,19 +125,28 @@ defaults card bg to the page body color, so cards blend into the page); `--app-s
 is pinned to `--vx-surface-border`. Net: **one border shade, one card background, one radius
 (`--vx-radius-card`) across every surface** — AppShell, Table, Input, Divider, Tabs, Popover,
 Accordion, cards. The agent cannot reintroduce a divergent border/bg (no more off-system
-`#aba59c`). Surfaces must come from `VX.surface.*` / `withBorder` + the radius token — **never**
-inline `border`/`borderRadius`/`backgroundColor`/`boxShadow`, and never a raw Mantine ramp-step var
+`#aba59c`). Surfaces must come from `VX.surface.*` + the radius token — **never** inline
+`border`/`borderRadius`/`backgroundColor`/`boxShadow`, and never a raw Mantine ramp-step var
 (`var(--mantine-color-gray-N)`).
+
+**Never pass `withBorder` to a `Card`/`Paper`.** Card depth is `--vx-shadow-card`, which bakes its
+1px ring into the shadow value itself; the theme's `styles.root` pins bg/shadow/radius but does not
+clear `border`, so `withBorder` draws a _second_, real edge on top of the ring and the card reads
+heavy and boxed. This is the most common way a migrated app silently keeps its old hairline
+identity — the prop is on-token (its color resolves to `--vx-surface-border`), so only the
+`card-with-border` guard kind catches it. `withBorder={false}` and `<Card.Section withBorder>` (a
+section divider, not card depth) are both fine.
 
 - **Use Mantine primitives, not raw HTML.** To keep padding/spacing/radius/colors consistent,
   consumer code must compose Mantine layout/surface primitives — `Box`, `Flex`, `Grid`,
   `SimpleGrid`, `Stack`, `Group`, `Paper`, `Card` — instead of raw `<div>`/`<span>` with inline
   `style`. Raw HTML with inline layout/surface styling defeats the token system.
-- **Mechanical enforcement.** `basalt check-theme` now adds four guard kinds (each a config knob,
+- **Mechanical enforcement.** `basalt check-theme` adds five surface guard kinds (each a config knob,
   default ON; `theme-allow` line-comment escape): `off-system-surface-var` (raw ramp-step vars),
-  `raw-html-layout` (raw `<div>`/`<span>` with inline layout/surface styling), `inline-spacing`
-  (inline spacing literals), `inline-display` (inline `display` literals). The Mantine-free
-  `src/charts/**` is the only place raw `<div>` is allowed — and it must still use `VX.*` tokens.
+  `card-with-border` (`withBorder` on a `Card`/`Paper`), `raw-html-layout` (raw `<div>`/`<span>` with
+  inline layout/surface styling), `inline-spacing` (inline spacing literals), `inline-display`
+  (inline `display` literals). The Mantine-free `src/charts/**` is the only place raw `<div>` is
+  allowed — and it must still use `VX.*` tokens.
 
 ## Elevation, density & shape
 
@@ -160,10 +172,38 @@ shape doctrine lives here; the spacing/radius/type **tokens** are in basalt-toke
   page bg); 1 surface (`shadow-card` on `canvas` — cards, panels, chart cards); 2 elevated (same
   `shadow-card`, `surface-elevated` bg — tooltips, lifted cards); 3 focus (2px primary outline —
   focused control). `Card`/`Paper` default to the `shadow-card` shadow (no `withBorder`), and the
-  Mantine-free `ChartCard` matches them (`VX.shadowCard` + `--vx-radius-card` radius). Layout
-  dividers (header bottom border, sidebar section separators) still use plain borders — only card
-  depth moved to shadow. (Genuinely floating elements — modals, popovers, menus — get elevation from
-  Mantine's own shadow scale, not from the card token.)
+  Mantine-free `ChartCard` matches them (`VX.shadowCard` + `--vx-radius-card` radius). The same
+  inversion applies to every **`variant="default"` control surface**, not just Card/Paper: Button,
+  ActionIcon, and the field idiom (Input/TextInput/…) all render panel/field bg + `shadow-card`
+  with a _transparent_ 1px border box (never `border: none` — the box stays so focus/error can
+  recolor it with no layout shift). `--mantine-color-default-border` is pinned to `transparent` in
+  `cssVariablesResolver`, which is the ONE lever that kills the stock hairline for every
+  default-variant component at once (`defaultVariantColorsResolver`'s `variant === 'default'`
+  branch reads that single var); the shadow itself is added per-component in
+  `controls.module.css`, since Mantine never declares one for `default`. Layout dividers (header
+  bottom border, sidebar section separators) still use plain borders — only card/control depth
+  moved to shadow. (Genuinely floating elements — modals, popovers, menus — get elevation from
+  Mantine's own shadow scale, not from the card token.) `CheckboxCard`/`RadioCard` (`withBorder`,
+  their own default) and `Chip` (its own default, internally `variant="filled"` — Chip has no
+  literal `"default"`) get the SAME triad — panel bg + `shadow-card`, border dropped — via
+  dedicated rules in `controls.module.css`; `PillsInput` reuses the Input field idiom's `classNames`
+  wiring directly (it renders `InputBase` under its own `__staticSelector`, so the base `Input`
+  theme entry never reached it). A dedicated test, `src/theme/border-coverage.test.ts`, mechanically
+  enumerates every `@mantine/core` component whose shipped CSS declares a border and asserts it's
+  either a themed `baseTheme.components` key or a reasoned `BORDER_ALLOWLIST` entry — this is what
+  catches the NEXT unthemed bordered component (Button/ActionIcon shipped with no `.extend()` block
+  at all, which no consumer-source guard can ever see).
+- **The shadow-card ring must land on the box that carries the surface's `border-radius`.**
+  `shadow-card`/`shadow-ctrl` bakes a 1px ring into the shadow value itself, and the ring is drawn
+  by the shadowed box's OWN corners — it never reads correctly against a different element's radius
+  (the Input wrapper bug: a `position: relative` box with `border-radius: 0` drew a square ring
+  around the 8px-rounded `<input>` inside it). Background usually co-locates with the radius since
+  most surfaces declare both on the same box, but it's the radius the ring is contractually bound
+  to, not the background — `ChartCard.tsx` legitimately carries the shadow on a box with NO
+  background (an inner box, sharing its exact radius, paints the fill instead, because `overflow:
+hidden` on the same box as the shadow would clip the shadow itself) and is correct. `src/theme/
+shadow-surfaces.test.ts` mechanically enumerates every site that applies either token and requires
+  a written `roundedBy` reason naming where that box's radius comes from.
 - **Tight radii read precise/technical** (Linear): `sm` for controls, `md` for cards, `pill` for
   badges. Consume the token, never a raw number (basalt-tokens.md).
 - **Type is carried by the three-font system** (sans body / head condensed headings / mono

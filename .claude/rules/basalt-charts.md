@@ -152,6 +152,19 @@ const { ref, width, height } = useChartSize()
 `ResponsiveChartProps`: `height` (default 240), `aspectRatio`, `debounceMs` (default 0), `children`.
 `UseChartSizeResult`: `{ ref, width, height }`.
 
+## Migrating from pre-1.0 (`@argo/charts` era)
+
+Three silent renames/behavior changes trip up a consumer migrating off the pre-1.0 in-house charts
+package — all typecheck-clean only in a strict setup, so they're easy to miss in a quick port:
+
+- **`HoverCtx.date` → `HoverCtx.key`.** The hover context's cross-chart cursor field is generic
+  now (not date-only) — rename the field, not just the type.
+- **`useHoverSync({ getX })` → `useHoverSync({ getKey })`.** Same generalization — pass an accessor
+  returning the series key, not an x/date value.
+- **`legend.maxRows` renders a `+N more` chip** instead of silently truncating. A consumer that
+  previously hand-rolled `.slice(0, N)` on its legend items gets a visible UX diff (a real overflow
+  indicator) — drop the manual slice and let `maxRows` own it.
+
 ## Rule of thumb
 
 > If the new chart doesn't fit the primitives, add a kind — don't loosen the primitives.
