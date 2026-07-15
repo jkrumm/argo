@@ -19,18 +19,18 @@ argo/
 ```bash
 bun install                                    # all workspace deps
 
-# Dev — runs API + dashboard concurrently with secrets injected via op
+# Dev — runs API + dashboard concurrently with secrets injected via secrets-run (op/cache)
 bun dev                                        # API :4040, dashboard https://argo.test (→ :7715)
 bun db:sync                                    # pull fresh argo schema dump from VPS into local Postgres
 bun db:migrate                                 # apply pending Drizzle migrations against local DB
 
 # Single-app
-bun run --cwd apps/api start                  # API on :4040 (needs op run wrapper for env)
+bun run --cwd apps/api start                  # API on :4040 (needs secrets-run/op wrapper for env)
 bun run --cwd apps/api db:generate            # generate migration after schema changes
 bun run --cwd apps/api typecheck
 bun run --cwd apps/dashboard typecheck
 
-# Tests — wraps op + assembles DATABASE_URL (needs dev Postgres up)
+# Tests — wraps secrets-run + assembles DATABASE_URL (needs dev Postgres up)
 bun test:api                                  # all API tests
 bun test:api src/routes/workouts.summary.test.ts  # pass-through filter
 
@@ -45,9 +45,15 @@ bun run format:check                          # oxfmt
 
 All secrets via 1Password, account `tkrumm`. DB password at `op://vps/argo/DB_PASSWORD`.
 
+Local-dev scripts (`dev`, `db:migrate`, `test:api`) inject through the **`secrets-run`** shim
+(dotfiles): a drop-in `op` — live biometric `op` on the MacBook, the age-encrypted headless
+cache on the Mac mini (where `op` isn't interactively signed in). Prod scripts (`dev:prod-api`,
+`m365:auth:prod`) stay on raw `op run` — present-human only.
+
 ```bash
-op run --account tkrumm --env-file=apps/api/.env.local.tpl -- <command>
-op read "op://vps/argo/DB_PASSWORD" --account tkrumm
+secrets-run run --env-file=apps/api/.env.local.tpl -- <command>   # local dev (op or cache)
+secrets-run read op://vps/argo/DB_PASSWORD                        # single value (op or cache)
+op run --account tkrumm --env-file=apps/api/.env.local.tpl -- <command>   # force live op (prod)
 ```
 
 ## Local Dev

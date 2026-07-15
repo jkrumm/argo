@@ -58,7 +58,7 @@ bun run lint              # oxlint
 bun run format:check      # oxfmt
 bun run --cwd apps/api typecheck
 bun run --cwd apps/dashboard typecheck
-op run --account tkrumm --env-file=apps/api/.env.local.tpl -- bun test --cwd apps/api
+secrets-run run --env-file=apps/api/.env.local.tpl -- bun test --cwd apps/api
 ```
 
 ## Deploying
