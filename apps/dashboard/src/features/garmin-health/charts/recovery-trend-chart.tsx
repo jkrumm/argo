@@ -55,8 +55,8 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
       ? (() => {
           const zone = recoveryZoneLabel(latest.recovery)
           return (
-            <span style={{ fontSize: 12 }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: zone.color }}>
+            <span style={{ fontSize: VX.text.xs }}>
+              <span style={{ fontSize: VX.text.md, fontWeight: 600, color: zone.color }}>
                 {Math.round(latest.recovery)}
               </span>
               <Box component="span" ml={6} style={{ color: zone.color }}>

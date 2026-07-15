@@ -1,6 +1,7 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Box, Card, Group, SimpleGrid, Skeleton, Stack, Text, Tooltip } from '@mantine/core'
 import { IconInfoCircle } from '@tabler/icons-react'
+import { VX } from 'basalt-ui/tokens'
 import { strengthQueries, type StrengthQueryParams } from '../../lib/queries/strength'
 import { METRIC_TOOLTIPS, ZONE_COLORS } from './constants'
 import {
@@ -44,7 +45,7 @@ function HeroCard({
   breakdown?: string
 }) {
   return (
-    <Card padding="md" h="100%">
+    <Card py="xs" px="sm" h="100%">
       <Group gap={0} mb={6}>
         <Text size="xs" c="dimmed">
           {label}
@@ -52,7 +53,9 @@ function HeroCard({
         <InfoIcon tooltip={tooltip} />
       </Group>
       <Group gap={8} align="baseline">
-        <Text style={{ fontSize: 32, fontWeight: 700, lineHeight: 1, color }}>{value}</Text>
+        <Text style={{ fontSize: VX.text.kpi, fontWeight: 700, lineHeight: 1, color }}>
+          {value}
+        </Text>
         {unit !== undefined && unit.length > 0 && (
           <Text size="sm" c="dimmed">
             {unit}
@@ -158,7 +161,7 @@ export function HeroStats({ params }: { params: StrengthQueryParams }) {
  */
 function HeroCardSkeleton({ label }: { label: string }) {
   return (
-    <Card padding="md" h="100%">
+    <Card py="xs" px="sm" h="100%">
       <Text size="xs" c="dimmed" mb={6}>
         {label}
       </Text>
@@ -184,7 +187,7 @@ export function HeroStatsSkeleton() {
  */
 export function ChartSkeleton({ height = 320 }: { height?: number }) {
   return (
-    <Card padding="md">
+    <Card py="xs" px="sm">
       <Skeleton height={14} width={140} radius="sm" mb="sm" />
       <Skeleton height={height - 40} radius="sm" />
     </Card>
@@ -197,7 +200,7 @@ export function ChartSkeleton({ height = 320 }: { height?: number }) {
  */
 export function Placeholder({ label, height = 320 }: { label: string; height?: number }) {
   return (
-    <Card padding="md">
+    <Card py="xs" px="sm">
       <Stack gap={4} justify="center" align="center" h={height}>
         <Text fw={600}>{label}</Text>
         <Text size="xs" c="dimmed">

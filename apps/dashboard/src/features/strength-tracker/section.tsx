@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Stack, Text } from '@mantine/core'
+import { VX } from 'basalt-ui/tokens'
 
 /**
  * Section divider for the Strength Tracker page.
@@ -22,7 +23,7 @@ export function Section({
         {title}
       </Text>
       {subtitle !== undefined && subtitle.length > 0 && (
-        <Text size="xs" c="dimmed" mb={4} style={{ fontSize: 12 }}>
+        <Text size="xs" c="dimmed" mb={4} style={{ fontSize: VX.text.xs }}>
           {subtitle}
         </Text>
       )}

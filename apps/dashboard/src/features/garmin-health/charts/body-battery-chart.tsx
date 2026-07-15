@@ -43,10 +43,10 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
 
   const headerExtra =
     latestNet !== null ? (
-      <span style={{ fontSize: 12 }}>
+      <span style={{ fontSize: VX.text.xs }}>
         <span
           style={{
-            fontSize: 14,
+            fontSize: VX.text.md,
             fontWeight: 600,
             color: latestNet >= 0 ? VX.goodSolid : VX.badSolid,
           }}

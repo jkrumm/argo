@@ -116,7 +116,7 @@ export function DailyActivityChart({ params }: { params: WalkingPadWindowParams 
         <span
           key={m}
           style={{
-            fontSize: 12,
+            fontSize: VX.text.xs,
             fontWeight: 600,
             color: isMulti ? METRIC_DEFS[m].color : VX.line,
           }}
@@ -124,7 +124,7 @@ export function DailyActivityChart({ params }: { params: WalkingPadWindowParams 
           {DAILY_METRICS[m].formatTotal(points.reduce((s, p) => s + DAILY_METRICS[m].pick(p), 0))}
         </span>
       ))}
-      <span style={{ fontSize: 12, color: 'var(--mantine-color-dimmed)' }}>
+      <span style={{ fontSize: VX.text.xs, color: 'var(--mantine-color-dimmed)' }}>
         · {totalSessions} sessions
       </span>
     </Group>
@@ -199,7 +199,11 @@ export function DailyActivityChart({ params }: { params: WalkingPadWindowParams 
           renderExtraTooltipRows={renderExtraTooltipRows}
         />
       )}
-      <Box component="span" mt={4} style={{ fontSize: 11, color: 'var(--mantine-color-dimmed)' }}>
+      <Box
+        component="span"
+        mt={4}
+        style={{ fontSize: VX.text.micro, color: 'var(--mantine-color-dimmed)' }}
+      >
         {hasData && !isMulti && singleConfig !== null
           ? `${singleConfig.formatAvg(
               points.reduce((s, p) => s + DAILY_METRICS[singleMetric as MetricKey].pick(p), 0) /

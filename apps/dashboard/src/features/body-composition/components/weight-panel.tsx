@@ -57,7 +57,7 @@ function WeightSummaryCards({ summary }: { summary: WeightSummary }) {
 
   return (
     <SimpleGrid cols={{ base: 2, sm: 3, lg: 6 }}>
-      <Card padding="md">
+      <Card py="xs" px="sm">
         <Group justify="space-between">
           <Text size="xs" c="dimmed">
             Current
@@ -77,7 +77,7 @@ function WeightSummaryCards({ summary }: { summary: WeightSummary }) {
         </Group>
       </Card>
 
-      <Card padding="md">
+      <Card py="xs" px="sm">
         <Text size="xs" c="dimmed" mb={4}>
           7d avg
         </Text>
@@ -86,7 +86,7 @@ function WeightSummaryCards({ summary }: { summary: WeightSummary }) {
         </Text>
       </Card>
 
-      <Card padding="md">
+      <Card py="xs" px="sm">
         <Text size="xs" c="dimmed" mb={4}>
           30d avg
         </Text>
@@ -95,7 +95,7 @@ function WeightSummaryCards({ summary }: { summary: WeightSummary }) {
         </Text>
       </Card>
 
-      <Card padding="md">
+      <Card py="xs" px="sm">
         <Text size="xs" c="dimmed" mb={4}>
           Weekly Δ
         </Text>
@@ -116,7 +116,7 @@ function WeightSummaryCards({ summary }: { summary: WeightSummary }) {
         </Text>
       </Card>
 
-      <Card padding="md">
+      <Card py="xs" px="sm">
         <Text size="xs" c="dimmed" mb={4}>
           Monthly Δ
         </Text>
@@ -137,7 +137,7 @@ function WeightSummaryCards({ summary }: { summary: WeightSummary }) {
         </Text>
       </Card>
 
-      <Card padding="md">
+      <Card py="xs" px="sm">
         <Text size="xs" c="dimmed" mb={4}>
           kg / week
         </Text>
@@ -189,7 +189,7 @@ function WeightEntryForm({ defaultWeight }: { defaultWeight: number | null }) {
   }
 
   return (
-    <Paper p="md">
+    <Paper py="xs" px="sm">
       <form onSubmit={handleSubmit}>
         <Stack gap="sm">
           <Text fw={600} size="sm">

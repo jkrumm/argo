@@ -30,7 +30,7 @@ export function ExerciseSummaryCards({ params }: { params: WorkoutWindowParams }
 
   if (items.length === 0) {
     return (
-      <Card padding="md">
+      <Card py="xs" px="sm">
         <Text size="sm" c="dimmed" ta="center">
           No workouts in this window
         </Text>
@@ -41,7 +41,7 @@ export function ExerciseSummaryCards({ params }: { params: WorkoutWindowParams }
   return (
     <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="sm">
       {items.map((item) => (
-        <Card key={item.exercise_id} padding="md">
+        <Card key={item.exercise_id} py="xs" px="sm">
           <Group gap={6} mb={4}>
             <Box component="span" w={8} h={8} bdrs="50%" bg={color(item.exercise_id)} />
             <Text size="xs" c="dimmed" truncate>

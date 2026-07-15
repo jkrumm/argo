@@ -80,7 +80,7 @@ export function SparklineGridChart({ params }: { params: WalkingPadWindowParams 
 
   if (points.length === 0) {
     return (
-      <Card padding="md">
+      <Card py="xs" px="sm">
         <Text size="sm" c="dimmed">
           No walks in this window — sparklines unlock on first session.
         </Text>
@@ -89,7 +89,7 @@ export function SparklineGridChart({ params }: { params: WalkingPadWindowParams 
   }
 
   return (
-    <Card padding="md">
+    <Card py="xs" px="sm">
       <Text fw={600} size="sm" mb="xs">
         At-a-glance trends
       </Text>

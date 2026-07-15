@@ -159,7 +159,7 @@ export function WorkoutForm() {
   }
 
   return (
-    <Paper p="md">
+    <Paper py="xs" px="sm">
       <Stack gap="sm">
         <Text fw={600} size="sm">
           Log Workout

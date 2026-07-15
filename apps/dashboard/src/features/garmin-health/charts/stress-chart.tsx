@@ -91,10 +91,10 @@ export default function StressChart({ params }: { params: SummaryParams }) {
       tooltip={METRIC_TOOLTIPS.stress}
       extra={
         latest && latest.avgStress !== null && latestZone ? (
-          <span style={{ fontSize: 12 }}>
+          <span style={{ fontSize: VX.text.xs }}>
             <span
               style={{
-                fontSize: 14,
+                fontSize: VX.text.md,
                 fontWeight: 600,
                 color: latestZone.color,
               }}

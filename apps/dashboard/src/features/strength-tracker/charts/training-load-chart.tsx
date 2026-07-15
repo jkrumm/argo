@@ -200,10 +200,10 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
       tooltip={METRIC_TOOLTIPS.trainingLoad}
       extra={
         leaderLast && leaderLast.acwr !== null ? (
-          <span style={{ fontSize: 12 }}>
+          <span style={{ fontSize: VX.text.xs }}>
             <span
               style={{
-                fontSize: 14,
+                fontSize: VX.text.md,
                 fontWeight: 600,
                 color: acwrZoneColor(leaderLast.zone),
               }}

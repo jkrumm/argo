@@ -112,7 +112,7 @@ export function TimeOfDayChart({
       tooltip="Heatmap of walking activity by day-of-week × hour-of-day (UTC). Each session lights up every hour it touched, not just its start hour — so a 2-hour walk starting at 14:00 colours 14:00, 15:00, and the partial overlap at 16:00. Darker cells = more sessions active in that hour. Useful for spotting whether the desk-treadmill habit aligns with your meeting calendar or evening routine."
       extra={
         busiest !== null ? (
-          <span style={{ fontSize: 12, fontWeight: 600 }}>
+          <span style={{ fontSize: VX.text.xs, fontWeight: 600 }}>
             Peak: {DAY_LABELS[busiest.dow]} {String(busiest.hour).padStart(2, '0')}:00
           </span>
         ) : null
@@ -150,7 +150,7 @@ export function TimeOfDayChart({
                   x={padLeft - 6}
                   y={i * cellH + cellH / 2 + 4}
                   textAnchor="end"
-                  fontSize={10}
+                  fontSize={VX.text.micro}
                   fill={VX.axis}
                 >
                   {d}
@@ -165,7 +165,7 @@ export function TimeOfDayChart({
                   x={(h - MIN_HOUR) * cellW + cellW / 2}
                   y={14}
                   textAnchor="middle"
-                  fontSize={10}
+                  fontSize={VX.text.micro}
                   fill={VX.axis}
                 >
                   {String(h).padStart(2, '0')}:00
@@ -174,7 +174,7 @@ export function TimeOfDayChart({
             </Group>
             {/* Legend gradient strip on the right margin */}
             <Group left={width - LEGEND_OFFSET} top={padTop}>
-              <text x={0} y={-2} fontSize={9} fill={VX.axis}>
+              <text x={0} y={-2} fontSize={VX.text.micro} fill={VX.axis}>
                 more
               </text>
               <defs>
@@ -184,7 +184,7 @@ export function TimeOfDayChart({
                 </linearGradient>
               </defs>
               <rect width={6} height={cellH * 7} fill="url(#wp-heat-gradient)" rx={2} />
-              <text x={0} y={cellH * 7 + 10} fontSize={9} fill={VX.axis}>
+              <text x={0} y={cellH * 7 + 10} fontSize={VX.text.micro} fill={VX.axis}>
                 less
               </text>
             </Group>
@@ -212,7 +212,7 @@ export function TimeOfDayChart({
               }}
             >
               <MGroup justify="space-between" align="center" gap="md" wrap="nowrap">
-                <span style={{ fontSize: 11, color: VX.muted }}>
+                <span style={{ fontSize: VX.text.micro, color: VX.muted }}>
                   {DAY_LABELS[tip.data.dow]} · {String(tip.data.hour).padStart(2, '0')}:00 UTC
                 </span>
               </MGroup>

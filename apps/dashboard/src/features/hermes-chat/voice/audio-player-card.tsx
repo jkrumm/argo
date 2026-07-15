@@ -285,7 +285,7 @@ export function AudioPlayerCard({
         : null
 
   return (
-    <Card radius="md" padding="sm">
+    <Card padding="sm">
       {/* Header */}
       <Group gap="xs" wrap="nowrap" mb="xs">
         <ThemeIcon size="sm" radius="sm" variant="light" color="blue">

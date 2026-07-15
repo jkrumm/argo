@@ -95,8 +95,8 @@ export default function SleepBreakdownChart({ params }: { params: SummaryParams 
           const total = latest.deep + latest.light + latest.rem
           const color = sleepScoreColor(latest.sleepScore)
           return (
-            <span style={{ fontSize: 12 }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color }}>
+            <span style={{ fontSize: VX.text.xs }}>
+              <span style={{ fontSize: VX.text.md, fontWeight: 600, color }}>
                 {Math.round(latest.sleepScore)}
               </span>
               {total > 0 && <span style={{ opacity: 0.5 }}> · {fmtHours(total)}</span>}

@@ -337,10 +337,10 @@ export default function DivergenceChart({ params }: { params: SummaryParams }) {
   const latest = points.length > 0 ? points[points.length - 1] : null
 
   const headerExtra = latest ? (
-    <MantineGroup gap={6} align="baseline" wrap="nowrap" style={{ fontSize: 12 }}>
+    <MantineGroup gap={6} align="baseline" wrap="nowrap" style={{ fontSize: VX.text.xs }}>
       <span
         style={{
-          fontSize: 14,
+          fontSize: VX.text.md,
           fontWeight: 600,
           color: latest.divergence >= 0 ? VX.goodSolid : VX.badSolid,
         }}

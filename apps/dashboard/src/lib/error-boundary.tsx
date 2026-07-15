@@ -1,6 +1,7 @@
 import { Alert, Button, Code, Container, Group, Stack, Text, Title } from '@mantine/core'
 import { IconAlertTriangle, IconRefresh, IconRotate } from '@tabler/icons-react'
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { VX } from 'basalt-ui/tokens'
 import { HyperDX } from './hyperdx'
 
 type Props = { children: ReactNode }
@@ -48,7 +49,7 @@ export class ErrorBoundary extends Component<Props, State> {
           </Alert>
 
           {import.meta.env.DEV && error.stack && (
-            <Code block style={{ fontSize: 11, maxHeight: 280, overflow: 'auto' }}>
+            <Code block style={{ fontSize: VX.text.micro, maxHeight: 280, overflow: 'auto' }}>
               {error.stack}
             </Code>
           )}

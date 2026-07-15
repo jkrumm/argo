@@ -113,7 +113,7 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
         <span
           key={m}
           style={{
-            fontSize: 12,
+            fontSize: VX.text.xs,
             fontWeight: 600,
             color: isMulti ? METRIC_DEFS[m].color : VX.line,
           }}
@@ -174,7 +174,11 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
           renderExtraTooltipRows={renderExtraTooltipRows}
         />
       )}
-      <Box component="span" mt={4} style={{ fontSize: 11, color: 'var(--mantine-color-dimmed)' }}>
+      <Box
+        component="span"
+        mt={4}
+        style={{ fontSize: VX.text.micro, color: 'var(--mantine-color-dimmed)' }}
+      >
         {hasData && !isMulti && singleConfig !== null
           ? `${singleConfig.formatAvg(
               points.reduce((s, p) => s + WEEKLY_METRICS[singleMetric as MetricKey].pick(p), 0) /

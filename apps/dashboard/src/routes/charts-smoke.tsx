@@ -7,6 +7,7 @@ import {
   deriveLegend,
   LineSparkline,
   MultiLine,
+  VX,
   ZonedLine,
 } from 'basalt-ui/charts'
 import type { ChartSeries, SeriesStyle } from 'basalt-ui/charts'
@@ -65,7 +66,7 @@ function ChartsSmokeRoute() {
 
       {/* Primitive: ChartLegend */}
       <Box mb={24}>
-        <Title order={3} mb={8} fz={14}>
+        <Title order={3} mb={8} fz={VX.text.md}>
           Primitive: ChartLegend
         </Title>
         <ChartLegend
@@ -77,7 +78,7 @@ function ChartsSmokeRoute() {
 
       {/* Sparkline */}
       <Box mb={24}>
-        <Title order={3} mb={8} fz={14}>
+        <Title order={3} mb={8} fz={VX.text.md}>
           Sparkline: LineSparkline
         </Title>
         <LineSparkline

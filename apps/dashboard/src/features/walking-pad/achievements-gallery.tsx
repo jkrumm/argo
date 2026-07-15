@@ -39,7 +39,7 @@ export function AchievementsGallery({ matchHeight }: { matchHeight?: number }) {
   const { data } = useSuspenseQuery(walkingPadQueries.achievements({ limit: 50 }))
   if (data.data.length === 0) {
     return (
-      <Card padding="md" h={matchHeight}>
+      <Card py="xs" px="sm" h={matchHeight}>
         <Text size="sm" c="dimmed">
           No achievements yet — first walk unlocks one.
         </Text>
@@ -53,7 +53,7 @@ export function AchievementsGallery({ matchHeight }: { matchHeight?: number }) {
   const HEADER_RESERVE = 64
   const scrollHeight = matchHeight !== undefined ? Math.max(180, matchHeight - HEADER_RESERVE) : 320
   return (
-    <Card padding="md" h={matchHeight}>
+    <Card py="xs" px="sm" h={matchHeight}>
       <Group justify="space-between" mb="xs">
         <Text fw={600} size="sm">
           Achievements

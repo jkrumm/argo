@@ -25,7 +25,7 @@ export default function TopProjects({
   )
 
   return (
-    <Card padding="md">
+    <Card py="xs" px="sm">
       <Stack gap="sm">
         <Group justify="space-between" align="baseline">
           <Text fw={600}>Top projects (cost)</Text>

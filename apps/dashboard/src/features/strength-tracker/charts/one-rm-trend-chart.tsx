@@ -370,8 +370,8 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
         const color = directionColor(dir)
         const arrow = directionArrow(dir)
         return (
-          <span style={{ fontSize: 12 }}>
-            <span style={{ fontWeight: 600, fontSize: 14, color: colorFor(leader.ex) }}>
+          <span style={{ fontSize: VX.text.xs }}>
+            <span style={{ fontWeight: 600, fontSize: VX.text.md, color: colorFor(leader.ex) }}>
               {leader.latest.toFixed(1)} kg
             </span>
             <Box component="span" ml={6} style={{ opacity: 0.6 }}>

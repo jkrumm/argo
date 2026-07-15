@@ -104,14 +104,14 @@ function MessageRow({
           {attachments.length > 0 && (
             <Stack gap={6} w="100%">
               {attachments.map((att, i) => (
-                <Paper key={i} radius="sm" px="sm" py={6}>
+                <Paper key={i} px="sm" py={6}>
                   <AttachmentDisplay attachment={att} />
                 </Paper>
               ))}
             </Stack>
           )}
           {text && (
-            <Paper radius="md" px="sm" py={6} w="100%" bg="var(--mantine-color-default-hover)">
+            <Paper px="sm" py={6} w="100%" bg="var(--mantine-color-default-hover)">
               <MessageMarkdown content={text} messageId={message.id} threadId={threadId} />
             </Paper>
           )}

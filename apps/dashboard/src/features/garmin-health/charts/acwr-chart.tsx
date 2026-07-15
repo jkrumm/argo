@@ -56,7 +56,7 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
       tooltip={METRIC_TOOLTIPS.trainingLoad}
       extra={
         latest?.acwr !== null && latest?.acwr !== undefined ? (
-          <Box component="span" style={{ fontSize: 16, fontWeight: 600 }}>
+          <Box component="span" style={{ fontSize: VX.text.lg, fontWeight: 600 }}>
             <Box component="span" style={{ color: acwrZoneColor(latest.zone) }}>
               {latest.acwr.toFixed(2)}
             </Box>
@@ -64,7 +64,7 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
               component="span"
               ml={6}
               style={{
-                fontSize: 11,
+                fontSize: VX.text.micro,
                 fontWeight: 400,
                 color: acwrZoneColor(latest.zone),
               }}

@@ -268,8 +268,8 @@ export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams
   const latest = chartData[chartData.length - 1] ?? null
 
   const headerExtra = latest ? (
-    <span style={{ fontSize: 12 }}>
-      <span style={{ fontWeight: 600, fontSize: 14 }}>{latest.average.toFixed(1)} mm</span>
+    <span style={{ fontSize: VX.text.xs }}>
+      <span style={{ fontWeight: 600, fontSize: VX.text.md }}>{latest.average.toFixed(1)} mm</span>
       <Box component="span" ml={4} style={{ opacity: 0.5 }}>
         avg
       </Box>

@@ -10,6 +10,7 @@ import {
   IconRoute,
   IconWalk,
 } from '@tabler/icons-react'
+import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../lib/queries/walking-pad'
 import { HERO_TOOLTIPS } from './constants'
 import { formatDeltaKmh, formatKm, formatPace, formatPct } from './formatters'
@@ -75,7 +76,7 @@ function HeroCard({
   icon?: ReactNode
 }) {
   return (
-    <Card padding="md" h="100%">
+    <Card py="xs" px="sm" h="100%">
       <Group gap={0} mb={6} justify="space-between">
         <Group gap={6}>
           {icon !== undefined && (
@@ -90,7 +91,7 @@ function HeroCard({
         </Group>
       </Group>
       <Group gap={8} align="baseline" wrap="nowrap">
-        <Text style={{ fontSize: 32, fontWeight: 700, lineHeight: 1 }} c={color}>
+        <Text style={{ fontSize: VX.text.kpi, fontWeight: 700, lineHeight: 1 }} c={color}>
           {value}
         </Text>
         {unit !== undefined && (
@@ -206,7 +207,7 @@ export function HeroStatsSkeleton() {
   return (
     <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
       {Array.from({ length: 3 }).map((_, i) => (
-        <Card key={i} padding="md" h="100%">
+        <Card key={i} py="xs" px="sm" h="100%">
           <Skeleton height={12} width={100} mb={8} />
           <Skeleton height={32} width={140} mb={8} />
           <Skeleton height={10} width={180} />
@@ -218,7 +219,7 @@ export function HeroStatsSkeleton() {
 
 export function ChartSkeleton({ height = 320 }: { height?: number }) {
   return (
-    <Card padding="md">
+    <Card py="xs" px="sm">
       <Skeleton height={14} width={140} radius="sm" mb="sm" />
       <Skeleton height={height - 40} radius="sm" />
     </Card>

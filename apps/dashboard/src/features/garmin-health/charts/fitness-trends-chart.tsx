@@ -406,10 +406,10 @@ export default function FitnessTrendsChart({ params }: { params: SummaryParams }
   const summary = useMemo(() => computeFitnessSummary(seriesPoints), [seriesPoints])
 
   const headerExtra = (
-    <span style={{ fontSize: 12 }}>
+    <span style={{ fontSize: VX.text.xs }}>
       {summary.vo2max !== null && (
         <Box component="span" mr="sm">
-          <span style={{ fontWeight: 600, fontSize: 14, color: SERIES.vo2max }}>
+          <span style={{ fontWeight: 600, fontSize: VX.text.md, color: SERIES.vo2max }}>
             {summary.vo2max.toFixed(1)}
           </span>
           <span style={{ opacity: 0.5 }}> VO2</span>

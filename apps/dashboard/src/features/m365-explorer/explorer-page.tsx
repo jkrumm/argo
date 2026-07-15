@@ -23,6 +23,7 @@ import {
 } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { PageActions } from 'basalt-ui'
+import { VX } from 'basalt-ui/tokens'
 import {
   IconCheck,
   IconCopy,
@@ -207,6 +208,7 @@ export function M365ExplorerPage(): React.ReactElement {
       />
 
       <Group align="stretch" gap="md" wrap="nowrap" style={{ minHeight: '70vh' }}>
+        {/* theme-allow: flush edge card — inner Box/ScrollArea own their own padding */}
         <Card p={0} display="flex" style={{ flex: '0 0 360px', flexDirection: 'column' }}>
           <Box p="sm">
             <TextInput
@@ -305,6 +307,7 @@ export function M365ExplorerPage(): React.ReactElement {
           </ScrollArea>
         </Card>
 
+        {/* theme-allow: flush edge card — DetailPane owns its own padding */}
         <Card display="flex" style={{ flex: 1, flexDirection: 'column' }} p={0}>
           {!selected ? (
             <Stack
@@ -444,7 +447,7 @@ function LabelsStrip(props: {
         <Divider />
         <Group gap="xs" wrap="wrap">
           {props.labels.map((l) => (
-            <Card key={l.sourceId} p={6} radius="sm" style={{ minWidth: 220, maxWidth: 320 }}>
+            <Card key={l.sourceId} py="xs" px="sm" style={{ minWidth: 220, maxWidth: 320 }}>
               <Group gap={6} justify="space-between" wrap="nowrap">
                 <Stack gap={0} style={{ minWidth: 0, flex: 1 }}>
                   <Group gap={6} wrap="nowrap">
@@ -558,7 +561,7 @@ function DetailPane(props: {
                 )}
               </CopyButton>
             </Group>
-            <Code style={{ fontSize: 11 }}>{sourceId}</Code>
+            <Code style={{ fontSize: VX.text.micro }}>{sourceId}</Code>
           </Stack>
           <Stack gap="xs" w={320}>
             <Select

@@ -297,8 +297,8 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
   const headerExtra = (
     <Flex display="inline-flex" align="center" gap={8}>
       {latest && latest.inol !== null ? (
-        <span style={{ fontSize: 12 }}>
-          <span style={{ fontWeight: 600, fontSize: 14, color: inolDotColor(latest.inol) }}>
+        <span style={{ fontSize: VX.text.xs }}>
+          <span style={{ fontWeight: 600, fontSize: VX.text.md, color: inolDotColor(latest.inol) }}>
             {latest.inol.toFixed(2)}
           </span>
           <Box component="span" ml={6} style={{ color: inolDotColor(latest.inol) }}>

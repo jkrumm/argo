@@ -145,7 +145,7 @@ export default function AlignmentMatrixChart({ params }: { params: StrengthQuery
                           position: 'absolute',
                           top: 4,
                           right: 6,
-                          fontSize: 10,
+                          fontSize: VX.text.micro,
                           fontWeight: 600,
                           opacity: 0.7,
                         }}

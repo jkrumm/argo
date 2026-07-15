@@ -326,7 +326,7 @@ export default function StrengthCompositeChart({
 
   const headerExtra = (
     <Flex display="inline-flex" align="center" gap="xs">
-      <span style={{ fontSize: 12 }}>
+      <span style={{ fontSize: VX.text.xs }}>
         <span style={{ color: COMPOSITE_COLORS.velocity, fontWeight: 600 }}>
           v {latest.v !== null ? fmtSigma(latest.v) : '—'}
         </span>

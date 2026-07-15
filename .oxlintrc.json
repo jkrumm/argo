@@ -11,6 +11,7 @@
     "oxc",
     "jsdoc"
   ],
+  "jsPlugins": ["./node_modules/basalt-ui/configs/oxlint-plugin.js"],
   "categories": {
     "correctness": "error",
     "suspicious": "warn"
@@ -25,7 +26,10 @@
     "react/react-in-jsx-scope": "off",
     "typescript/no-explicit-any": "warn",
     "import/no-duplicates": "error",
-    "import/no-unassigned-import": "off"
+    "import/no-unassigned-import": "off",
+    "basalt/no-raw-font-size": "error",
+    "basalt/card-inset": "error",
+    "basalt/chart-in-raw-surface": "error"
   },
   "ignorePatterns": ["apps/api/src/generated/**", "scripts/**"],
   "overrides": [

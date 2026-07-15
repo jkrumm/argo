@@ -254,11 +254,11 @@ export default function RelativeProgressionChart({ params }: { params: StrengthQ
   }, [points, activeExercises])
 
   const headerExtra = leader ? (
-    <span style={{ fontSize: 12 }}>
+    <span style={{ fontSize: VX.text.xs }}>
       <span
         style={{
           fontWeight: 600,
-          fontSize: 14,
+          fontSize: VX.text.md,
           color: leader.pct >= 0 ? VX.goodSolid : VX.badSolid,
         }}
       >

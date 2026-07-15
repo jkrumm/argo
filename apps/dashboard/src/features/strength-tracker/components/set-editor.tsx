@@ -161,7 +161,7 @@ export function SetEditor({
               <Box
                 component="span"
                 w={72}
-                fz={11}
+                fz={VX.text.micro}
                 style={{ color: alpha(VX.neutral, 0.4), whiteSpace: 'nowrap' }}
               >
                 {prev !== undefined ? `${prev.weight_kg} × ${prev.reps}` : '—'}

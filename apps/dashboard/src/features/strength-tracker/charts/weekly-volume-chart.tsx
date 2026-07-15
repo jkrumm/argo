@@ -106,7 +106,7 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
       extra={
         <Flex display="inline-flex" align="center" gap="xs">
           {hasData && latest && latest.total > 0 ? (
-            <span style={{ fontSize: 12, color: exColor, fontWeight: 600 }}>
+            <span style={{ fontSize: VX.text.xs, color: exColor, fontWeight: 600 }}>
               {fmtTonnage(latest.total)} this week
             </span>
           ) : null}

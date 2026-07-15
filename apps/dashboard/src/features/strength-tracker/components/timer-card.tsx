@@ -555,7 +555,7 @@ export function TimerCard() {
   const setMode = useTimerStore((s) => s.setMode)
 
   return (
-    <Paper p="md">
+    <Paper py="xs" px="sm">
       <Stack gap="sm" align="center">
         <SegmentedControl
           fullWidth

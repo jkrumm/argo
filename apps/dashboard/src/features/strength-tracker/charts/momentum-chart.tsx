@@ -418,8 +418,8 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
   const headerExtra = (
     <Flex display="inline-flex" align="center" gap={8}>
       {monthly !== null ? (
-        <span style={{ fontSize: 12 }}>
-          <span style={{ fontWeight: 600, fontSize: 14, color: directionColor(dir) }}>
+        <span style={{ fontSize: VX.text.xs }}>
+          <span style={{ fontWeight: 600, fontSize: VX.text.md, color: directionColor(dir) }}>
             {monthly >= 0 ? '+' : ''}
             {monthly.toFixed(2)}%
           </span>

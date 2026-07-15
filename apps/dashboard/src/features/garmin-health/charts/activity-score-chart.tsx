@@ -112,10 +112,10 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
       tooltip={METRIC_TOOLTIPS.activityScore}
       extra={
         latest?.score !== null && latest?.score !== undefined ? (
-          <span style={{ fontSize: 12 }}>
+          <span style={{ fontSize: VX.text.xs }}>
             <span
               style={{
-                fontSize: 14,
+                fontSize: VX.text.md,
                 fontWeight: 600,
                 color: latest.score >= ACTIVITY_TARGET_SCORE ? VX.goodSolid : VX.muted,
               }}

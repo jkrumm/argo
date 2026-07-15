@@ -58,7 +58,7 @@ export function PaceTrendChart({ params }: { params: WalkingPadWindowParams }) {
       tooltip="Per-day distance-weighted average walking speed. Zones (stroll / walking / brisk / power) are calibrated against typical desk-treadmill ranges. A long slow session counts more than a tiny fast one — the headline number reflects how you actually moved, not the peak."
       extra={
         hasData ? (
-          <span style={{ fontSize: 12, fontWeight: 600, color: SERIES.walkingPace }}>
+          <span style={{ fontSize: VX.text.xs, fontWeight: 600, color: SERIES.walkingPace }}>
             {fmtKmh(
               points
                 .filter(

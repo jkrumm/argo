@@ -89,8 +89,10 @@ export default function WeightChart({ params }: { params: WeightLogWindowParams 
     ? (() => {
         const delta = ma30 !== null ? latest.weightKg - ma30 : null
         return (
-          <span style={{ fontSize: 12 }}>
-            <span style={{ fontWeight: 600, fontSize: 14 }}>{latest.weightKg.toFixed(1)} kg</span>
+          <span style={{ fontSize: VX.text.xs }}>
+            <span style={{ fontWeight: 600, fontSize: VX.text.md }}>
+              {latest.weightKg.toFixed(1)} kg
+            </span>
             {delta !== null && (
               <Box
                 component="span"
