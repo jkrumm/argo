@@ -10,7 +10,8 @@ paths:
 # Basalt Tokens — Color, Spacing, Radius, Type
 
 basalt-ui ships one color/type/spacing/radius identity shared by the Mantine chrome and the visx
-charts. The **identity is modern zinc** (see `docs/DESIGN-SPEC.md`) — **cool-neutral zinc surfaces**
+charts. The **identity is modern zinc** (see `docs/DESIGN-SPEC.md` in the basalt-ui repo) —
+**cool-neutral zinc surfaces**
 (Tailwind zinc family) on both light and dark, low-contrast panel lift on a slightly darker page,
 depth via a whisper shadow + 1px ring (`shadow-card`) rather than a hairline border, carrying
 **one saturated sky-blue accent**, split by ROLE: as INK (links, active-nav icon, chart
@@ -18,7 +19,8 @@ lines, focus ring) it is `#0077bd` light / `#8ec5ff` dark; as a FILLED SURFACE i
 `#0077bd` in BOTH schemes with a WHITE label (`--vx-accentFill`, never `--vx-accent`). Neutrals do ~90% of the
 surface (60/30/10, pushed toward 90/10); the accent only points — primary CTA, focus, links, small
 status pops — never floods. (Blueprint/Basalt zinc-charcoal are the historical hue-tuning
-ancestors; `docs/DESIGN-SPEC.md` supersedes both — see its "Doctrine inversions" section.) This
+ancestors; `docs/DESIGN-SPEC.md` in the basalt-ui repo supersedes both — see its "Doctrine
+inversions" section.) This
 rule is the operational checklist; it is enforced mechanically by **`basalt check-theme`**
 (wire it into `lint`: `oxlint . && basalt check-theme`). A violation fails the build. Escape hatch: a
 `theme-allow` line comment (diff-visible, deliberate).
@@ -95,7 +97,7 @@ Popover, Accordion, cards) renders one border shade, one card background, and on
   **Use the token**, not the raw number, when a value equals a step: `p="md"` not `p={16}`,
   `gap="sm"` not `gap={12}`, `radius="sm"` not `radius={4}`. The guard flags exact token-equals
   (`p={16}`, any numeric `radius`).
-- **Card radius has one source: `--vx-radius-card` (10px) = `VX.radiusCard` = `radius.md`.** Every
+- **Card radius has one source: `--vx-radius-card` (7px) = `VX.radiusCard`.** Every
   card corner — the Mantine chrome (`Card`/`Paper`, `radius="md"`) and the Mantine-free `ChartCard`
   (`var(--vx-radius-card)`) — resolves to this single token; cards must never diverge. Don't inline
   a `borderRadius` on a surface (the `raw-surface` guard rejects it).

@@ -30,14 +30,16 @@ renders.
 
 - Use `createBasaltTheme(overrides?)` for the theme — it merges your overrides over `baseTheme`
   (last-wins), so you can retune any field without forking. Don't hand-build `createTheme`.
-- The theme reskins **every** Mantine accent to the modern-zinc identity (`docs/DESIGN-SPEC.md`) —
+- The theme reskins **every** Mantine accent to the modern-zinc identity (`docs/DESIGN-SPEC.md` in
+  the basalt-ui repo) —
   **cool-neutral zinc** ramps on both light and dark — plus a **single saturated sky-blue accent**
   — split by role: as INK (links, active-nav icon, chart lines, focus ring) `#0077bd` light /
   `#8ec5ff` dark; as a FILLED SURFACE `#0077bd` in BOTH schemes with a white label — and binds
   Mantine's surface vars AND its color families to the same `--vx-*` tokens
   the charts use (`cssVariablesResolver`, pre-wired in `BasaltProvider`), so chrome and charts share
   one scheme-reactive identity. (Blueprint / Basalt zinc-charcoal are the historical hue-tuning
-  ancestors; `docs/DESIGN-SPEC.md` supersedes both.) Don't add a second `cssVariablesResolver`.
+  ancestors; `docs/DESIGN-SPEC.md` in the basalt-ui repo supersedes both.) Don't add a second
+  `cssVariablesResolver`.
 - Color scheme: read/write via `useMantineColorScheme()`. **Never** read the color scheme from
   localStorage directly, and never `localStorage.getItem('theme')` — see basalt-state.md.
 - Owned `spacing`/`radius` scales and the `fontWeights` ladder live in the theme — consume them as
@@ -148,6 +150,27 @@ section divider, not card depth) are both fine.
   (inline `display` literals). The Mantine-free `src/charts/**` is the only place raw `<div>` is
   allowed — and it must still use `VX.*` tokens.
 
+## Scroll regions
+
+**A scroll region inside app chrome is a Mantine `ScrollArea`, not a raw `overflow: auto` box.**
+ScrollArea draws its own bar absolutely inside a `position: relative; overflow: hidden` root, so the
+bar floats over the content; a native bar reserves gutter width and reflows the column the moment
+the content overflows. `AppSidebar`'s nav is the reference pattern — `<ScrollArea type="hover"
+scrollbars="y" scrollbarSize={9}>` with the flex fill (`flex: 1; min-height: 0`) on the ScrollArea
+root and the content classes on the inner `Stack`, so child-combinator spacing rules still see the
+content's own children through the wrapper.
+
+`styles.css` re-hides the native bar on `.mantine-ScrollArea-viewport`: basalt's global
+`*::-webkit-scrollbar` theming otherwise re-exposes the bar ScrollArea hides, yielding two bars plus
+an always-on gutter. That fix makes **one overlay bar** the framework-wide outcome for every
+ScrollArea consumer — do not undo it, and do not re-theme the viewport's native bar.
+
+A raw `overflow: auto` element is still correct where a library owns the scroll container and needs
+a real scrollable node: `BasaltStickToBottom` (scroll anchoring) and `BasaltVirtualList` (TanStack
+Virtual measures the scroll element). That is why this is a documented standard rather than a lint
+rule — the legitimate exceptions are context-dependent, not syntactic. Prefer ScrollArea for
+everything else: sidebars, panels, menus, palettes, and any chrome that scrolls.
+
 ## Elevation, density & shape
 
 basalt-ui targets dense, professional surfaces (a terminal, not a marketing page). The depth and
@@ -160,15 +183,15 @@ shape doctrine lives here; the spacing/radius/type **tokens** are in basalt-toke
   32px. Pages: KPI/card padding **~17–19px**, page `Stack`/`SimpleGrid` gaps **`sm`**; ChartCard
   header/body padding raised to ~16–18px.
 - **Surface single-source.** All cards — Mantine `Card`/`Paper` **and** the Mantine-free
-  `ChartCard` — resolve to **one radius token** (`--vx-radius-card` = `radius.md` = **10px**) and
+  `ChartCard` — resolve to **one radius token** (`--vx-radius-card` = **7px**) and
   **one depth token** (`shadow-card` — a whisper shadow + 1px ring, the ring lives IN the shadow, no
   separate `border` property). Cards must never diverge: same radius, same shadow. Never
   inline-override `border`/`borderRadius`/`boxShadow`/`backgroundColor` on a surface — use the
   radius token (`radius="md"` / `var(--vx-radius-card)`) + `VX.shadowCard` + `VX.surface.*`.
   Mechanically enforced by `basalt check-theme`'s `raw-surface` guard. Outer spacing comes from the
   parent `Stack`/`SimpleGrid` gap, not an intrinsic card margin.
-- **Depth = `shadow-card`, not a plain hairline** (see `docs/DESIGN-SPEC.md` doctrine inversion #1 —
-  this supersedes the old "never a drop shadow" rule). Elevation tiers: 0 flat (no shadow — body,
+- **Depth = `shadow-card`, not a plain hairline** (see `docs/DESIGN-SPEC.md` in the basalt-ui repo,
+  doctrine inversion #1 — this supersedes the old "never a drop shadow" rule). Elevation tiers: 0 flat (no shadow — body,
   page bg); 1 surface (`shadow-card` on `canvas` — cards, panels, chart cards); 2 elevated (same
   `shadow-card`, `surface-elevated` bg — tooltips, lifted cards); 3 focus (2px primary outline —
   focused control). `Card`/`Paper` default to the `shadow-card` shadow (no `withBorder`), and the

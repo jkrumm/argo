@@ -1,22 +1,23 @@
 {
   "version": 1,
   "files": {
-    ".claude/rules/basalt-mantine.md": "d088e47a95b0d1da71f3985ad971f6be0e4f1c37902cff631bea67af1668af98",
+    ".claude/rules/basalt-mantine.md": "556f03596b84a9e690b6ced444ff35cc3a8ff2668ad8aadbc32dbcc6c21de061",
     ".claude/rules/basalt-charts.md": "14d672bc654d91cae8dbff282b01a9696fcbd3ad1317373fbeb0bbc1cd78c7be",
-    ".claude/rules/basalt-tokens.md": "6307fa32dc7eb685a03c1160aa48cc8c5f645695616960d1e1a42a6aeb686668",
-    ".claude/rules/basalt-query.md": "958fc95c8a77103b0f153fb833256243bd75258e23bc8cb60d1ca46d64bd23d5",
+    ".claude/rules/basalt-tokens.md": "37afccc1d5bc5cc22a22649d118550491b8dbdd32bf8dfcaac6694b8958b8b68",
+    ".claude/rules/basalt-query.md": "3a19b88c6efcab6309fd85b38ce558514a58d31c19af1e55ca4e985fef3c73ce",
     ".claude/rules/basalt-router.md": "65e3f39228f0ff062039897322c243b617d1bc4a6ba6fb05dcf7b962caf29ab8",
     ".claude/rules/basalt-forms.md": "ed3701552206b4f030f9fc729cf06fe50698e67581143c347cd60301e4752af7",
     ".claude/rules/basalt-notifications.md": "148cf1df4c8fb70631e62bd24fef156914e07f00faf5885a9827d80d64a46fc3",
-    ".claude/rules/basalt-commands.md": "53af1ea12e44e8ea996baf943cf4ff2b4fe9c85b02c766a145210492eeb8c045",
-    ".claude/rules/basalt-data.md": "3fc6f0ad91747955a79dad15b900dae77a3be817ed55478a50e00c60ba435d48",
-    ".claude/rules/basalt-agent.md": "925cfc906ba31c0ee1a2bac98e51a315b12ba5f6110bfc464f47a9bbb698a75e",
+    ".claude/rules/basalt-commands.md": "280297119aa906b0c8c488f0e54522a6091eddf9a6c40ee43343704788b098c4",
+    ".claude/rules/basalt-data.md": "02f6bc001cefdc2380360c48a21eec6eee877eca5727dcd8fc257dd9be2e8459",
+    ".claude/rules/basalt-agent.md": "cdc5690c15a32e6783884e7f894cc2a06adb973f6d8061c25b70ed3b1bb7642c",
     ".claude/rules/basalt-state.md": "9d6a2cffaad6df4ebf099483ce613181725ab559947f82e12f82b6235e8431da",
-    "CLAUDE.md": "5dc0e1b59990f1e6e612ad27540c61be54f6cbba886ffd7e821b6f60b9c5ccff",
+    "CLAUDE.md": "97559e2f9640062f508ac4a165ebdcb2bc85bff92b154a514aad9b494527cd25",
     "DESIGN.md": "c32facc4a2efa27130d2090c2ee107fd650ea9b188c380e2773bdf079126c518",
-    "lefthook.yml": "885cdd5862db444c57e52e9c2e0e339f64a1f4cb5d30794f380f7d4544e6345f",
-    ".github/workflows/check.yml": "e03c50a443f7305080456c229be8b261cfbc6bbc28ab1feb97b6f582e01c2e33",
+    "lefthook.yml": "695fb214cccac2c4579e14340d97cacce472d5987b7cdfec22f211c7e1a7ef42",
+    ".github/workflows/check.yml": "f6e4999d3479614a03c7a7e24ac995dc1dca2bbf99461efea657b089dec70743",
     ".oxlintrc.json": "edb58b25c29f977f712ff892b59d28a74420f424ddf465ba7f29a7c713b388ec",
-    ".oxfmtrc.json": "6b56ddca73ac1f170fe161ad32aa830dad40a6dc687964c8a852cb928c395039"
+    ".oxfmtrc.json": "6b56ddca73ac1f170fe161ad32aa830dad40a6dc687964c8a852cb928c395039",
+    ".claude/rules/basalt-content.md": "8b917316fd0e50221baf9b381c729bc6dbdb2269873b91ceae5c7aaa347e636e"
   }
 }

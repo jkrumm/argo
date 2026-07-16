@@ -11,10 +11,12 @@ paths:
 basalt-ui ships `./commands` — a Mantine-coupled command bus + overlay controller battery providing
 `defineCommands`, `runCommand`, `defineOverlays`, `overlays`, `toSpotlightActions`,
 `toShortcutList`, `ShortcutsHelp`, and `BasaltOverlays` on top of `@mantine/modals` and
-`@mantine/spotlight`. Both are **optional peers** — install them before using this battery:
+`@mantine/spotlight`. Both are **optional peers** — install them before using this battery. The
+default `BasaltOverlays` also mounts `<Notifications>` (or pass `notifications={false}`), so
+`@mantine/notifications` is needed too:
 
 ```bash
-bun add @mantine/modals @mantine/spotlight
+bun add @mantine/modals @mantine/spotlight @mantine/notifications
 ```
 
 Also import Spotlight styles in `main.tsx` — use the **layered** bundle, since the unlayered one

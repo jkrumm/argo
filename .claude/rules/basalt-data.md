@@ -177,6 +177,8 @@ container. Only the visible rows plus `overscan` are in the DOM at any time — 
 of 1 000+ items.
 
 ```tsx
+import { Box } from '@mantine/core'
+import { VX } from 'basalt-ui/tokens'
 import { BasaltVirtualList } from 'basalt-ui/data'
 
 const items = Array.from({ length: 10_000 }, (_, i) => ({ id: i, name: `Row ${i}` }))
@@ -187,9 +189,9 @@ const items = Array.from({ length: 10_000 }, (_, i) => ({ id: i, name: `Row ${i}
   estimateSize={40}
   overscan={5}
   renderItem={(item, index) => (
-    <div style={{ padding: '8px 12px', borderBottom: '1px solid #eee' }}>
+    <Box px="sm" py={8} style={{ borderBottom: `1px solid ${VX.divider}` }}>
       {index + 1}. {item.name}
-    </div>
+    </Box>
   )}
   getItemKey={(item) => item.id}
 />

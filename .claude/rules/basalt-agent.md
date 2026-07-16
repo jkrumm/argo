@@ -1,6 +1,6 @@
 ---
 source: basalt-ui
-description: Streaming-agent layer for basalt-ui apps — Eden-native transport, AgentPart exhaustive handling, StreamingMarkdown, StickToBottom, chat history, AND the multi-thread ThreadWorkspace (concurrent runs + a distilled-outcome feed + detail panel). Headless layer in ./agent; the Mantine chrome ships from the root entry. Covers authoring doctrine and the Eden #231 footgun.
+description: Streaming-agent layer for basalt-ui apps — Eden-native transport, AgentPart exhaustive handling, StickToBottom, chat history, AND the multi-thread ThreadWorkspace (concurrent runs + a distilled-outcome feed + detail panel). Headless layer in ./agent; the Mantine chrome and markdown rendering (basalt-ui/content's Markdown) ship from the root entry. Covers authoring doctrine and the Eden #231 footgun.
 paths:
   - 'src/**/*agent*'
   - 'src/**/chat*'
@@ -12,7 +12,9 @@ paths:
 # Basalt Agent — Streaming Chat Layer
 
 basalt-ui ships `./agent` — a headless, Mantine-free streaming-chat layer with an injected
-transport seam, exhaustive part rendering, optional markdown, auto-scroll, and persisted history.
+transport seam, exhaustive part rendering, auto-scroll, and persisted history. `./agent` ships no
+markdown renderer of its own — `agent/** -> content` is lint-blocked by design, so `PartList` takes
+a consumer-supplied `components.text`; basalt's own renderer is `basalt-ui/content`'s `Markdown`.
 
 ## AgentPart discriminated union
 
@@ -134,16 +136,17 @@ const { parts, status, send, stop, regenerate } = useAgentStream({ transport })
 ## PartList — exhaustive rendering
 
 ```tsx
-import { PartList, StreamingMarkdown } from 'basalt-ui/agent'
+import { PartList } from 'basalt-ui/agent'
+import { Markdown } from 'basalt-ui/content'
 
 // Default headless renderers (plain HTML elements):
 <PartList parts={parts} />
 
-// With StreamingMarkdown for the text renderer:
+// With basalt's own Markdown for the text renderer:
 <PartList
   parts={parts}
   components={{
-    text: ({ part }) => <StreamingMarkdown>{part.text}</StreamingMarkdown>,
+    text: ({ part }) => <Markdown streaming density="chat">{part.text}</Markdown>,
   }}
 />
 ```
@@ -156,24 +159,10 @@ import { PartList, StreamingMarkdown } from 'basalt-ui/agent'
 - `source` → `<a className="basalt-agent-source">`
 - `error` → `<div className="basalt-agent-error" role="alert">`
 
-## StreamingMarkdown (optional peer)
-
-Tailwind-free markdown via `react-markdown` + `remark-gfm`, lazily loaded.
-
-```tsx
-import { StreamingMarkdown } from 'basalt-ui/agent'
-;<StreamingMarkdown>{markdownText}</StreamingMarkdown>
-```
-
-**Install:** `bun add react-markdown remark-gfm`
-
-`react-markdown` and `remark-gfm` are OPTIONAL peers — importing `basalt-ui/agent` does NOT
-eagerly resolve them (React.lazy + dynamic import). They load only when `StreamingMarkdown` first
-renders.
-
-**streamdown is NOT an alternative here.** `streamdown v2.5.0` REQUIRES Tailwind CSS for its
-class-based rendering pipeline — it is the Tailwind-only alternative and is not a basalt peer.
-If your app uses Tailwind, `streamdown` is an option in consumer code; basalt ships `react-markdown`.
+`./agent` deliberately ships no markdown renderer of its own — `agent/** -> content` is
+lint-blocked by design (the Mantine-free boundary). The package's only markdown renderer is
+`basalt-ui/content`'s `Markdown`; `threadPartRenderers` (re-exported from the root `basalt-ui`
+entry) already wires it in as the `text` renderer for `ThreadTranscript`/`ThreadWorkspace`.
 
 ## BasaltStickToBottom (optional peer)
 
@@ -354,10 +343,10 @@ const transport = aiSdkTransport({ api: '/api/chat' })
 const { parts, status, send } = useAgentStream({ transport })
 ```
 
-**Install:** `bun add ai`. Like `StreamingMarkdown`/`BasaltStickToBottom`, `ai` is lazily resolved
-via a memoized dynamic `import()` on first `stream()`/`resume()` — importing `basalt-ui/agent` (or
-calling `aiSdkTransport(...)`) never eagerly resolves it. Unlike those two, there is no "plain
-text" degrade path if `ai` is missing: the rejected import propagates through the async generator
+**Install:** `bun add ai`. Like `BasaltStickToBottom`, `ai` is lazily resolved via a memoized
+dynamic `import()` on first `stream()`/`resume()` — importing `basalt-ui/agent` (or calling
+`aiSdkTransport(...)`) never eagerly resolves it. Unlike that, there is no "plain text" degrade
+path if `ai` is missing: the rejected import propagates through the async generator
 into the consumer's existing error handling (`useAgentStream` → `status: 'error'`;
 `useAgentThreadRuns` → its `onFailureStatus`).
 

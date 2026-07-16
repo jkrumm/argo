@@ -1,3 +1,7 @@
+# basalt-ui consumer lefthook template.
+# Copy to your repo root as lefthook.yml. Runs oxlint + oxfmt on staged files and the
+# theme guard on the whole tree, pre-commit. Assumes oxlint/oxfmt are installed and your
+# .oxlintrc.json extends ./node_modules/basalt-ui/configs/oxlint.json.
 pre-commit:
   parallel: true
   commands:
@@ -8,8 +12,10 @@ pre-commit:
       glob: '*.{ts,tsx,js,jsx,json,md,yml,yaml}'
       run: bunx oxfmt --check {staged_files}
 
-    # Scans the configured `basalt.roots`, not {staged_files} — the guard is only worth
-    # having if it cannot be walked past, and `bun run lint` alone is opt-in.
+    # Scans the configured `basalt.roots`, not {staged_files}. A guard that only runs when
+    # someone remembers to run it is not a guard: without this, a consumer can accumulate
+    # violations indefinitely while `check-theme` is never invoked, and the kinds it never
+    # ran are indistinguishable from the kinds that found nothing.
     check-theme:
       glob: '*.{ts,tsx}'
       run: bunx basalt check-theme

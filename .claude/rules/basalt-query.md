@@ -12,7 +12,8 @@ paths:
 
 basalt-ui ships `./query` — a thin TanStack Query adapter providing `createBasaltQueryClient`,
 `unwrap`, `BasaltQueryDevtools`, and convenience re-exports (`QueryClientProvider`,
-`QueryErrorResetBoundary`, `useQueryErrorResetBoundary`). @tanstack/react-query is an optional peer.
+`QueryErrorResetBoundary`, `useQueryErrorResetBoundary`). @tanstack/react-query is a **required**
+peer — `BasaltProvider` hard-requires it at build time.
 
 `./query` also re-exports the primary fetch hooks so consumers never need to dual-import from both
 `basalt-ui/query` and `@tanstack/react-query`:
