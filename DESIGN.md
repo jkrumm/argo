@@ -31,7 +31,7 @@ three-font system (Nunito Sans body / Hubot Sans condensed headings / JetBrains 
   rings, meter leader bars) — never floods. Light mode has cards (`#f4f4f5`) lifting subtly off a
   slightly darker page (`#ececee`-ish) with near-black ink text; dark mode is cool zinc (not steel-blue,
   not pure black). **Dense by default** (compact nav, `sm` gaps/padding); all cards render identically
-  — **`shadow-card` depth, one radius token (`--vx-radius-card`, 10px)** — never inline-override a
+  — **`shadow-card` depth, one radius token (`--vx-radius-card`)** — never inline-override a
   surface's shadow/radius/bg (enforced by `basalt check-theme`). The theme runs a **strict surface
   system**: it collapses Mantine's raw ramp steps onto the `--vx-surface-*` tokens, so every component
   shares one bg/radius/depth. **Use Mantine primitives, not raw HTML**
@@ -158,6 +158,8 @@ per-metric series, so it isn't in the table above.
 Genuine, intentional departures from the basalt-ui defaults — each with a one-line justification. An
 empty section is the correct default; do not invent deviations to fill it.
 
-- **`VX.muted` substitutes the old `tooltipMuted` token** in two bespoke tooltip/legend labels
-  (readiness-strain, time-of-day): basalt-ui exposes no `VX.tooltipMuted` JS token (the CSS var is
-  internal to `ChartTooltip`), and the opaque secondary-ink token reads equivalently there.
+- **`VX.muted` is used instead of `VX.tooltipMuted`** in two bespoke tooltip/legend labels
+  (readiness-strain, time-of-day): the opaque secondary-ink token reads equivalently there. Note
+  this is now a preference, not a constraint — basalt-ui 1.0.0 does export `VX.tooltipMuted`
+  (the earlier claim that it did not was written against a pre-1.0 build). Retire this entry if
+  those two call sites ever move to `VX.tooltipMuted`.
