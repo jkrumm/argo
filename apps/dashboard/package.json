@@ -29,7 +29,7 @@
     "@tanstack/react-router-devtools": "^1.166.13",
     "@tanstack/react-table": "^8",
     "ai": "7.0.18",
-    "basalt-ui": "1.0.1",
+    "basalt-ui": "1.0.2",
     "canvas-confetti": "^1.9.4",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.13",
