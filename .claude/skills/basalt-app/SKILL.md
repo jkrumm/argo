@@ -84,8 +84,9 @@ import 'basalt-ui/styles.css' // @layer basalt base styles, iOS input safety net
 ```
 
 Lint wires as `oxlint . && basalt-ui check-theme` — the theme guard is the teeth behind the token
-doctrine. The consumer series file (`src/lib/series.ts` by default; configurable via
-`basalt.seriesModulePath`) is the single guard-exempt palette source — see `/basalt-charts`.
+doctrine. The consumer series file (`<first basalt.root>/lib/series.ts` by default — so `src/lib/series.ts`
+on a plain app, `apps/web/src/lib/series.ts` on a monorepo; override via `basalt.seriesModulePath`) is the
+single guard-exempt palette source — see `/basalt-charts`.
 
 ## Refresh: `bunx basalt-ui sync`
 
@@ -120,7 +121,7 @@ both.
   imported.
 - `basaltViteConfig` adopted; `oxlint . && basalt-ui check-theme` is the lint command.
 - A thin `DESIGN.md` (deltas) + the twelve `basalt-*` rules + the managed CLAUDE block are present.
-- `src/lib/series.ts` exists as the one guard-exempt series source (for any app metric colors).
+- `<first basalt.root>/lib/series.ts` exists as the one guard-exempt series source (for any app metric colors).
 - `basalt-ui sync --check` wired in CI (recommended) to catch drift on future upgrades.
 
 ## Notes
