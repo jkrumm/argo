@@ -12,12 +12,16 @@
     ".claude/rules/basalt-data.md": "02f6bc001cefdc2380360c48a21eec6eee877eca5727dcd8fc257dd9be2e8459",
     ".claude/rules/basalt-agent.md": "cdc5690c15a32e6783884e7f894cc2a06adb973f6d8061c25b70ed3b1bb7642c",
     ".claude/rules/basalt-state.md": "9d6a2cffaad6df4ebf099483ce613181725ab559947f82e12f82b6235e8431da",
-    "CLAUDE.md": "97559e2f9640062f508ac4a165ebdcb2bc85bff92b154a514aad9b494527cd25",
+    "CLAUDE.md": "7dcf8e8b7ec083d2d0c8b03f39c454a12eadec85276524aa07759a9c7ac2a922",
     "DESIGN.md": "c32facc4a2efa27130d2090c2ee107fd650ea9b188c380e2773bdf079126c518",
     "lefthook.yml": "695fb214cccac2c4579e14340d97cacce472d5987b7cdfec22f211c7e1a7ef42",
     ".github/workflows/check.yml": "f6e4999d3479614a03c7a7e24ac995dc1dca2bbf99461efea657b089dec70743",
     ".oxlintrc.json": "edb58b25c29f977f712ff892b59d28a74420f424ddf465ba7f29a7c713b388ec",
     ".oxfmtrc.json": "6b56ddca73ac1f170fe161ad32aa830dad40a6dc687964c8a852cb928c395039",
-    ".claude/rules/basalt-content.md": "8b917316fd0e50221baf9b381c729bc6dbdb2269873b91ceae5c7aaa347e636e"
-  }
+    ".claude/rules/basalt-content.md": "8b917316fd0e50221baf9b381c729bc6dbdb2269873b91ceae5c7aaa347e636e",
+    ".claude/skills/basalt-app/SKILL.md": "e6978188b460420b10bb92f86cad87521d3794292fbf029af3464c6f467aa898",
+    ".claude/skills/basalt-design/SKILL.md": "e32c922320469f3a7d6774b43303c2e3931a8313ad6238d5aded41f21477bd40",
+    ".claude/skills/basalt-charts/SKILL.md": "c1e252b21877ec2f2d339fd8a80292fc08156131fcf654e868dd3ce48222d4d8"
+  },
+  "basaltVersion": "1.0.1"
 }

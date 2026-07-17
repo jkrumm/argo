@@ -76,12 +76,12 @@ API and dashboard run on the VPS via Docker. Compose: `~/SourceRoot/vps/apps/arg
 tokens (`basalt-ui/tokens`), and toolchain presets (oxlint/oxfmt/lefthook) all come from the
 framework. Argo is `basalt-ui`'s original reference consumer; the local `packages/charts` package
 and hand-rolled `DESIGN.md`/theming docs it used to carry have been retired in favor of the
-framework's agentic layer (`bunx basalt init`/`sync`, the `.claude/rules/basalt-*.md` doctrine, and
-the `/basalt:design` / `/basalt:charts` plugin skills).
+framework's agentic layer (`bunx basalt-ui init`/`sync`, the `.claude/rules/basalt-*.md` doctrine, and
+the managed `/basalt-design` / `/basalt-charts` skills in `.claude/skills/`).
 
 **`DESIGN.md` (repo root) is Argo's app-delta record** — not the law itself anymore, but the
 project-specific deltas on top of basalt's defaults (accent hue, series dictionary). It is a basalt
-`seed` file: written once by `basalt init`, then owned by Argo — `basalt sync` never overwrites it.
+`seed` file: written once by `basalt-ui init`, then owned by Argo — `basalt-ui sync` never overwrites it.
 Read it before building or restyling any UI. `docs/MANTINE-THEMING.md` is **superseded** by
 basalt-ui's own theming docs (shipped with the framework) and kept only as historical reference —
 see `docs/archive/`.
@@ -99,12 +99,12 @@ see `docs/archive/`.
 - `docs/GARMIN-HEALTH.md` — metric definitions, formulas, composite signals (health page)
 - `docs/STRENGTH-ANALYTICS.md` — metric definitions, INOL, ACWR, e1RM formulas (strength page)
 
-<!-- basalt:begin 1.0.0 -->
+<!-- basalt:begin 1.0.1 -->
 
 ## basalt-ui (managed — do not hand-edit)
 
-Scaffolded by `bunx basalt init` and refreshed by `bunx basalt sync` (run it after a basalt-ui
-upgrade; `basalt sync --check` gates drift in CI). This block is framework-owned — edit `DESIGN.md`
+Scaffolded by `bunx basalt-ui init` and refreshed by `bunx basalt-ui sync` (run it after a basalt-ui
+upgrade; `basalt-ui sync --check` gates drift in CI). This block is framework-owned — edit `DESIGN.md`
 or the `basalt-*` rules instead; manual changes here are overwritten on the next sync.
 
 **Stack:** React 19 + Mantine v9, themed by `basalt-ui` (`BasaltProvider` + `createBasaltTheme`).
@@ -113,17 +113,18 @@ never a raw hex/`rgb()`/`hsl()`. Charts are visx via `basalt-ui/charts` (compose
 `ChartCard`, `ChartLegend`, the `ChartTooltip` family, `AxisLeftNumeric`/`AxisBottomDate`); add a
 kind on the third repeat, don't loosen the primitives. `basalt-ui/charts` and `basalt-ui/tokens`
 are Mantine-free — never import `@mantine/*` under `**/charts/**`, never import `@visx/*` outside
-charts. Toolchain is oxlint + oxfmt (no ESLint/Biome/Prettier) and `basalt check-theme` guards the
+charts. Toolchain is oxlint + oxfmt (no ESLint/Biome/Prettier) and `basalt-ui check-theme` guards the
 palette. Runtime is Bun.
 
 **Before guessing an import, check the installed package's machine docs**:
 `node_modules/basalt-ui/llms.txt` (per-subpath import map), `node_modules/basalt-ui/AGENTS.md`, or
-run `bunx basalt info --json`.
+run `bunx basalt-ui info --json`.
 
 **DESIGN.md is law.** `./DESIGN.md` (imported below) records this app's palette identity and series
 dictionary. Precedence: **DESIGN.md > `basalt-*` rules > skills.** When building or restyling any
 UI, that law wins over habit, over library defaults, and over a skill's instinct. The design/charts
-workflows are in the `basalt` plugin (`/basalt:design`, `/basalt:charts`) — they defer to DESIGN.md.
+workflows are the managed skills in `.claude/skills/` (`/basalt-design`, `/basalt-charts`) — they
+defer to DESIGN.md.
 
 @./DESIGN.md
 
