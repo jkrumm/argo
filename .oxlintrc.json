@@ -1,36 +1,7 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": [
-    "react",
-    "react-perf",
-    "typescript",
-    "import",
-    "unicorn",
-    "jsx-a11y",
-    "promise",
-    "oxc",
-    "jsdoc"
-  ],
-  "jsPlugins": ["./node_modules/basalt-ui/configs/oxlint-plugin.js"],
-  "categories": {
-    "correctness": "error",
-    "suspicious": "warn"
-  },
-  "rules": {
-    "no-var": "error",
-    "eqeqeq": "error",
-    "no-console": "warn",
-    "no-shadow": "off",
-    "react/rules-of-hooks": "error",
-    "react/jsx-key": "error",
-    "react/react-in-jsx-scope": "off",
-    "typescript/no-explicit-any": "warn",
-    "import/no-duplicates": "error",
-    "import/no-unassigned-import": "off",
-    "basalt/no-raw-font-size": "error",
-    "basalt/card-inset": "error",
-    "basalt/chart-in-raw-surface": "error"
-  },
+  "extends": ["./node_modules/basalt-ui/configs/oxlint.json"],
+  "plugins": ["react-perf", "jsdoc"],
   "ignorePatterns": ["apps/api/src/generated/**", "scripts/**"],
   "overrides": [
     {
@@ -65,8 +36,12 @@
                 "message": "Use @tanstack/react-router."
               },
               {
+                "name": "framer-motion",
+                "message": "Import from 'motion/react', not the raw framer-motion package."
+              },
+              {
                 "name": "@visx/tooltip",
-                "message": "Use ChartTooltip + TooltipHeader/Row/Body from src/charts/primitives."
+                "message": "Use ChartTooltip + TooltipHeader/Row/Body from basalt-ui/charts."
               }
             ],
             "patterns": [
@@ -77,6 +52,17 @@
             ]
           }
         ]
+      }
+    },
+    // Argo has no Mantine-free chart-primitives tree — it consumes basalt-ui/charts. These
+    // features/*/charts/ dirs hold feature components (Select/SegmentedControl/Table chrome around
+    // basalt primitives), not primitives, so import-boundary's Mantine-free half doesn't apply.
+    // The @visx/tooltip ban it also carries is re-declared in the dashboard override above, so
+    // nothing is lost. See DESIGN.md → App deviations.
+    {
+      "files": ["apps/dashboard/src/features/**/charts/**"],
+      "rules": {
+        "basalt/import-boundary": "off"
       }
     },
     {

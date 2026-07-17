@@ -158,6 +158,16 @@ per-metric series, so it isn't in the table above.
 Genuine, intentional departures from the basalt-ui defaults — each with a one-line justification. An
 empty section is the correct default; do not invent deviations to fill it.
 
+- **`basalt/import-boundary` is disabled under `apps/dashboard/src/features/**/charts/**`.** The
+  rule treats every `charts/` path segment as a Mantine-free chart-primitives tree. Argo has no such
+  tree — `packages/charts` was deleted in the migration and primitives come from `basalt-ui/charts`;
+  these dirs hold _feature components_ (Select / SegmentedControl / Table chrome composed around
+  basalt primitives). Enforcing the Mantine-free half there would contradict the `basalt-mantine`
+  rule's own "use Mantine primitives, not raw HTML" mandate — a `SegmentedControl` cannot be a raw
+  `<div>`. Nothing is lost: the rule's other half (`@visx/*` only inside charts) is unaffected
+  outside these dirs, and the `@visx/tooltip` ban it also carries is re-declared in `.oxlintrc.json`'s
+  dashboard override. Retire this entry if basalt-ui ever scopes the rule to a configurable
+  primitives root.
 - **`VX.muted` is used instead of `VX.tooltipMuted`** in two bespoke tooltip/legend labels
   (readiness-strain, time-of-day): the opaque secondary-ink token reads equivalently there. Note
   this is now a preference, not a constraint — basalt-ui 1.0.0 does export `VX.tooltipMuted`
