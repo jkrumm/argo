@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { notifications } from '@mantine/notifications'
+import { emit } from 'basalt-ui/notifications'
 import {
   buildPhases,
   clampNum,
@@ -217,12 +217,11 @@ export const useTimerStore = create<TimerState>()((set, get) => ({
       } else {
         set({ restRunning: false, restEndAt: null, restRemaining: 0 })
         playSound(s.restSound.sound, s.restSound.volume)
-        notifications.show({
-          color: 'blue',
-          title: 'Rest done',
-          message: 'Time for the next set.',
-          autoClose: 5000,
-        })
+        emit(
+          'timer:done',
+          { message: 'Time for the next set.' },
+          { title: 'Rest done', autoClose: 5000 },
+        )
       }
     }
 
@@ -243,12 +242,11 @@ export const useTimerStore = create<TimerState>()((set, get) => ({
           })
           playFinish(s.intervalSound.volume)
           const rounds = s.intervalPhases.filter((p) => p.type === 'work').length
-          notifications.show({
-            color: 'blue',
-            title: 'Interval done',
-            message: `${rounds} rounds complete.`,
-            autoClose: 5000,
-          })
+          emit(
+            'timer:done',
+            { message: `${rounds} rounds complete.` },
+            { title: 'Interval done', autoClose: 5000 },
+          )
         } else {
           set({
             intervalPhaseIndex: next,

@@ -1,11 +1,25 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
-import { ChartCard, ChartLegend, VX, ZonedLine, useVxTheme } from '@argo/charts'
+import {
+  ChartCard,
+  ChartLegend,
+  deriveLegend,
+  VX,
+  ZonedLine,
+  type ChartSeries,
+  type SeriesStyle,
+} from 'basalt-ui/charts'
 import { usageQueries, type Grain, type Range } from '../../../lib/queries/usage'
 import type { BillingValue, WorkspaceValue } from '../types'
 import { fmtPct } from '../constants'
 
 type Bucket = { bucket: string; groups: Record<string, number | null> }
+type Point = { date: string; ratio: number | null }
+
+const CACHE_HIT_LEGEND_SERIES: readonly SeriesStyle[] = [
+  { key: 'ratio', label: 'Cache hit ratio', color: VX.line, mark: 'line' },
+  { key: 'good', label: 'Good (>60%)', color: VX.goodSolid, mark: 'bar' },
+  { key: 'bad', label: 'Poor (<30%)', color: VX.badSolid, mark: 'bar' },
+]
 
 export default function CacheHitRatio({
   range,
@@ -28,14 +42,16 @@ export default function CacheHitRatio({
       workspace,
     }),
   )
-  const { ref, width } = useElementSize<HTMLDivElement>()
-  const { line } = useVxTheme()
 
-  const points = (data.buckets as Bucket[]).map((b) => ({
+  const points: Point[] = (data.buckets as Bucket[]).map((b) => ({
     date: b.bucket,
     ratio: b.groups['value'] ?? null,
   }))
   const hasData = points.some((p) => p.ratio !== null)
+
+  const series: ChartSeries<Point>[] = [
+    { key: 'ratio', label: 'Cache hit', color: VX.line, mark: 'line', getValue: (d) => d.ratio },
+  ]
 
   return (
     <ChartCard
@@ -43,32 +59,24 @@ export default function CacheHitRatio({
       subtitle="cache_read / (cache_read + input), weighted per bucket"
       tooltip="Weighted cache hit ratio over time. >60% means prompt caching is doing its job; sustained <30% usually means the cache key is changing too often."
     >
-      <div ref={ref} style={{ height: 240, width: '100%' }}>
-        {width > 0 && hasData && (
-          <ZonedLine<{ date: string; ratio: number | null }>
-            data={points}
-            width={Math.max(width, 200)}
-            height={240}
-            chartId="usage-cache-hit-ratio"
-            getX={(d) => d.date}
-            getY={(d) => d.ratio}
-            yDomain={[0, 1]}
-            zones={[
-              { from: 0.6, to: 1, fill: VX.good },
-              { from: 0, to: 0.3, fill: VX.bad },
-            ]}
-            seriesLabel="Cache hit"
-            formatValue={fmtPct}
-          />
-        )}
-      </div>
-      <ChartLegend
-        items={[
-          { key: 'ratio', label: 'Cache hit ratio', color: line },
-          { key: 'good', label: 'Good (>60%)', color: VX.goodSolid, shape: 'bar' },
-          { key: 'bad', label: 'Poor (<30%)', color: VX.badSolid, shape: 'bar' },
-        ]}
-      />
+      {hasData && (
+        <ZonedLine
+          ariaLabel="Cache hit ratio over time"
+          data={points}
+          height={240}
+          chartId="usage-cache-hit-ratio"
+          getX={(d) => d.date}
+          series={series}
+          yDomain={[0, 1]}
+          zones={[
+            { from: 0.6, to: 1, fill: VX.good },
+            { from: 0, to: 0.3, fill: VX.bad },
+          ]}
+          formatValue={fmtPct}
+          legend={false}
+        />
+      )}
+      <ChartLegend items={deriveLegend(CACHE_HIT_LEGEND_SERIES)} />
     </ChartCard>
   )
 }

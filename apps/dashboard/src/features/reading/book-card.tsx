@@ -64,7 +64,7 @@ export function BookCard({ book }: { book: ShelfItem }) {
   const displayGenres = book.genres.slice(0, 3)
 
   return (
-    <Card padding="sm" withBorder>
+    <Card padding="sm">
       <Group gap="sm" align="flex-start" wrap="nowrap">
         {book.coverUrl !== null ? (
           <AspectRatio ratio={2 / 3} w={72} style={{ flexShrink: 0 }}>
@@ -113,7 +113,7 @@ export function BookCard({ book }: { book: ShelfItem }) {
           </Text>
 
           {book.rating !== null && (
-            <Rating value={book.rating} readOnly fractions={2} size="xs" style={{ marginTop: 2 }} />
+            <Rating value={book.rating} readOnly fractions={2} size="xs" mt={2} />
           )}
 
           {typeof book.communityRating === 'number' && (

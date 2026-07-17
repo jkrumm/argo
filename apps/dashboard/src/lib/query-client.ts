@@ -1,7 +1,8 @@
-import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query'
+import { MutationCache, QueryCache } from '@tanstack/react-query'
+import { createBasaltQueryClient } from 'basalt-ui/query'
 import { clearToken, isUnauthorizedError } from './auth'
 
-export const queryClient = new QueryClient({
+export const queryClient = createBasaltQueryClient({
   queryCache: new QueryCache({
     onError: (error) => {
       if (isUnauthorizedError(error)) clearToken()

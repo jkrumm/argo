@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
+import { Box } from '@mantine/core'
 import { useElementSize } from '@mantine/hooks'
 import {
   AxisBottomDate,
@@ -21,10 +22,10 @@ import {
   smartTicks,
   useHoverSync,
   useTooltipStyles,
-  useVxTheme,
   type LegendEntry,
-} from '@argo/charts'
+} from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
+import { SERIES } from '../../../lib/series'
 import { DEFAULT_EXERCISES, EXERCISE_COLORS, METRIC_TOOLTIPS } from '../constants'
 import { exerciseLabel } from '../formulas'
 import { ChartEmpty } from './empty'
@@ -37,7 +38,7 @@ type RelPoint = {
 const MARGIN = { top: 16, right: 24, bottom: 32, left: 56 }
 
 function colorFor(exId: string): string {
-  return EXERCISE_COLORS[exId as keyof typeof EXERCISE_COLORS] ?? VX.series.benchPress
+  return EXERCISE_COLORS[exId as keyof typeof EXERCISE_COLORS] ?? SERIES.benchPress
 }
 
 function parseExercises(exercises: string | undefined): string[] {
@@ -61,7 +62,6 @@ function RelativeProgressionInner({
   activeExercises: string[]
   highlighted: string | null
 }) {
-  const { axis } = useVxTheme()
   const xMax = width - MARGIN.left - MARGIN.right
   const yMax = height - MARGIN.top - MARGIN.bottom
 
@@ -94,7 +94,7 @@ function RelativeProgressionInner({
     useHoverSync<RelPoint>({
       data,
       chartId: 'relative-progression',
-      getX: (d) => d.date,
+      getKey: (d) => d.date,
       xScale,
       marginLeft: MARGIN.left,
     })
@@ -120,7 +120,7 @@ function RelativeProgressionInner({
             x2={xMax}
             y1={yScale(0)}
             y2={yScale(0)}
-            stroke={axis}
+            stroke={VX.axis}
             strokeWidth={1}
             strokeDasharray="2 4"
             strokeOpacity={0.6}
@@ -254,18 +254,20 @@ export default function RelativeProgressionChart({ params }: { params: StrengthQ
   }, [points, activeExercises])
 
   const headerExtra = leader ? (
-    <span style={{ fontSize: 12 }}>
+    <span style={{ fontSize: VX.text.xs }}>
       <span
         style={{
           fontWeight: 600,
-          fontSize: 14,
+          fontSize: VX.text.md,
           color: leader.pct >= 0 ? VX.goodSolid : VX.badSolid,
         }}
       >
         {leader.pct >= 0 ? '+' : ''}
         {leader.pct.toFixed(1)}%
       </span>
-      <span style={{ marginLeft: 6, opacity: 0.6 }}>{exerciseLabel(leader.ex)}</span>
+      <Box component="span" ml={6} style={{ opacity: 0.6 }}>
+        {exerciseLabel(leader.ex)}
+      </Box>
     </span>
   ) : null
 
@@ -284,7 +286,7 @@ export default function RelativeProgressionChart({ params }: { params: StrengthQ
       tooltip={METRIC_TOOLTIPS.relativeProgression}
       extra={headerExtra}
     >
-      <div ref={ref} style={{ height: 280, width: '100%' }}>
+      <Box ref={ref} h={280} w="100%">
         {!hasAny ? (
           <ChartEmpty height={280} />
         ) : width > 0 ? (
@@ -296,7 +298,7 @@ export default function RelativeProgressionChart({ params }: { params: StrengthQ
             highlighted={highlighted}
           />
         ) : null}
-      </div>
+      </Box>
       <ChartLegend items={legendItems} highlighted={highlighted} onHighlight={setHighlighted} />
     </ChartCard>
   )

@@ -1,4 +1,4 @@
-import { VX } from '@argo/charts'
+import { VX } from 'basalt-ui/tokens'
 import { SKINFOLD_SITES } from './constants'
 
 export type WeightPhase = 'losing' | 'gaining' | 'maintaining'

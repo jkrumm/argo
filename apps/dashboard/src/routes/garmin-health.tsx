@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Suspense, useCallback, useMemo, useState } from 'react'
-import { Grid, Group, SimpleGrid, Stack } from '@mantine/core'
+import { Suspense, useCallback, useMemo } from 'react'
+import { Box, Grid, Group, SimpleGrid, Stack } from '@mantine/core'
 import { z } from 'zod'
-import { HoverContext, type HoverCtx } from '@argo/charts'
+import { ChartHoverSync } from 'basalt-ui/charts'
 import {
   HeroStats,
   Section,
@@ -12,7 +12,7 @@ import {
   type SummaryParams,
   type WindowPreset,
 } from '../features/garmin-health'
-import { PageActions } from '../components/app-shell/page-header'
+import { PageActions } from 'basalt-ui'
 import ActivitiesChart from '../features/garmin-health/charts/activities-chart'
 import ActivityScoreChart from '../features/garmin-health/charts/activity-score-chart'
 import AcwrChart from '../features/garmin-health/charts/acwr-chart'
@@ -29,7 +29,7 @@ import {
 } from '../lib/queries/daily-metrics'
 
 function ChartFallback({ height = 320 }: { height?: number }) {
-  return <div style={{ height, width: '100%' }} />
+  return <Box h={height} w="100%" />
 }
 
 // ── Search params ──────────────────────────────────────────────────────────
@@ -80,16 +80,6 @@ function GarminHealthPage() {
 
   const params = useMemo<SummaryParams>(() => resolveParams(search), [search])
 
-  // Cross-chart hover sync
-  const [hoverState, setHoverState] = useState<{ date: string | null; source: string | null }>({
-    date: null,
-    source: null,
-  })
-  const setHover = useCallback((date: string | null, source: string | null) => {
-    setHoverState({ date, source })
-  }, [])
-  const hoverCtx = useMemo<HoverCtx>(() => ({ ...hoverState, setHover }), [hoverState, setHover])
-
   const handlePresetChange = useCallback(
     (preset: WindowPreset) => {
       void navigate({
@@ -111,7 +101,7 @@ function GarminHealthPage() {
   )
 
   return (
-    <HoverContext.Provider value={hoverCtx}>
+    <ChartHoverSync>
       {/* Page controls live in the shared top-bar slot; the breadcrumb names the page. */}
       <PageActions>
         <Group gap="sm" wrap="nowrap">
@@ -185,6 +175,6 @@ function GarminHealthPage() {
           </SimpleGrid>
         </Section>
       </Stack>
-    </HoverContext.Provider>
+    </ChartHoverSync>
   )
 }

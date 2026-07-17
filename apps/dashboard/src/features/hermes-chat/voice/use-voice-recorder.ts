@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { notifications } from '@mantine/notifications'
+import { emit } from 'basalt-ui/notifications'
 import { getToken } from '../../../lib/auth'
 import { apiBase } from '../transport'
 import { mimeToExt, pickRecordingMime } from './audio-utils'
@@ -62,19 +62,19 @@ export function useVoiceRecorder(opts: UseVoiceRecorderOpts): VoiceRecorder {
       if (!res.ok) {
         if (res.status === 503) {
           cbRef.current.setAudioAvailable?.(false)
-          notifications.show({
-            title: 'Audio unavailable',
-            message: 'Speech-to-text is not configured.',
-            color: 'red',
-          })
+          emit(
+            'chat:error',
+            { message: 'Speech-to-text is not configured.' },
+            { title: 'Audio unavailable' },
+          )
         } else {
           // Any other non-OK status used to return silently — the user saw the
           // recording stop with nothing in the box and no idea why.
-          notifications.show({
-            title: 'Transcription failed',
-            message: `The speech service returned an error (${res.status}).`,
-            color: 'red',
-          })
+          emit(
+            'chat:error',
+            { message: `The speech service returned an error (${res.status}).` },
+            { title: 'Transcription failed' },
+          )
         }
         return
       }
@@ -82,20 +82,20 @@ export function useVoiceRecorder(opts: UseVoiceRecorderOpts): VoiceRecorder {
       const transcript = (json.text ?? '').trim()
       cbRef.current.setAudioAvailable?.(true)
       if (!transcript) {
-        notifications.show({
-          title: 'Nothing transcribed',
-          message: "Didn't catch anything — try speaking again.",
-          color: 'yellow',
-        })
+        emit(
+          'chat:warning',
+          { message: "Didn't catch anything — try speaking again." },
+          { title: 'Nothing transcribed' },
+        )
         return
       }
       cbRef.current.onResult(transcript, durationMs)
     } catch {
-      notifications.show({
-        title: 'Transcription failed',
-        message: 'Could not transcribe audio.',
-        color: 'red',
-      })
+      emit(
+        'chat:error',
+        { message: 'Could not transcribe audio.' },
+        { title: 'Transcription failed' },
+      )
     } finally {
       setIsTranscribing(false)
     }
@@ -113,11 +113,11 @@ export function useVoiceRecorder(opts: UseVoiceRecorderOpts): VoiceRecorder {
     // later (iOS autoplay policy). No-op when already unlocked.
     cbRef.current.onPrime?.()
     if (!navigator.mediaDevices?.getUserMedia) {
-      notifications.show({
-        title: 'Microphone unavailable',
-        message: 'Your browser does not support audio recording.',
-        color: 'red',
-      })
+      emit(
+        'chat:error',
+        { message: 'Your browser does not support audio recording.' },
+        { title: 'Microphone unavailable' },
+      )
       return
     }
     try {
@@ -161,11 +161,11 @@ export function useVoiceRecorder(opts: UseVoiceRecorderOpts): VoiceRecorder {
         /* wake lock is non-essential */
       }
     } catch {
-      notifications.show({
-        title: 'Microphone unavailable',
-        message: 'Could not access your microphone.',
-        color: 'red',
-      })
+      emit(
+        'chat:error',
+        { message: 'Could not access your microphone.' },
+        { title: 'Microphone unavailable' },
+      )
     }
   }, [finishRecording, stopTimer])
 

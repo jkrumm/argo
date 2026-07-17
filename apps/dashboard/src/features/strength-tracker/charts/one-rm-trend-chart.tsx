@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
+import { Box } from '@mantine/core'
 import { useElementSize } from '@mantine/hooks'
 import {
   AxisBottomDate,
@@ -22,8 +23,9 @@ import {
   useHoverSync,
   useTooltipStyles,
   type LegendEntry,
-} from '@argo/charts'
+} from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
+import { SERIES } from '../../../lib/series'
 import { DEFAULT_EXERCISES, EXERCISE_COLORS, METRIC_TOOLTIPS } from '../constants'
 import { directionArrow, directionColor, exerciseLabel } from '../formulas'
 import { ChartEmpty } from './empty'
@@ -41,7 +43,7 @@ type MergedPoint = {
 const MARGIN = { top: 16, right: 24, bottom: 32, left: 56 }
 
 function colorFor(exId: string): string {
-  return EXERCISE_COLORS[exId as keyof typeof EXERCISE_COLORS] ?? VX.series.benchPress
+  return EXERCISE_COLORS[exId as keyof typeof EXERCISE_COLORS] ?? SERIES.benchPress
 }
 
 function parseExercises(exercises: string | undefined): string[] {
@@ -182,7 +184,7 @@ function OneRmInner({
     useHoverSync<MergedPoint>({
       data,
       chartId: 'one-rm-trend',
-      getX: (d) => d.date,
+      getKey: (d) => d.date,
       xScale,
       marginLeft: MARGIN.left,
     })
@@ -368,12 +370,16 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
         const color = directionColor(dir)
         const arrow = directionArrow(dir)
         return (
-          <span style={{ fontSize: 12 }}>
-            <span style={{ fontWeight: 600, fontSize: 14, color: colorFor(leader.ex) }}>
+          <span style={{ fontSize: VX.text.xs }}>
+            <span style={{ fontWeight: 600, fontSize: VX.text.md, color: colorFor(leader.ex) }}>
               {leader.latest.toFixed(1)} kg
             </span>
-            <span style={{ marginLeft: 6, opacity: 0.6 }}>{exerciseLabel(leader.ex)}</span>
-            <span style={{ marginLeft: 8, color, fontWeight: 600 }}>{arrow}</span>
+            <Box component="span" ml={6} style={{ opacity: 0.6 }}>
+              {exerciseLabel(leader.ex)}
+            </Box>
+            <Box component="span" ml={8} style={{ color, fontWeight: 600 }}>
+              {arrow}
+            </Box>
           </span>
         )
       })()
@@ -398,7 +404,7 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
       tooltip={METRIC_TOOLTIPS.oneRmTrend}
       extra={headerExtra}
     >
-      <div ref={ref} style={{ height: 280, width: '100%' }}>
+      <Box ref={ref} h={280} w="100%">
         {!hasAnyPoint ? (
           <ChartEmpty height={280} />
         ) : width > 0 ? (
@@ -410,7 +416,7 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
             highlighted={highlighted}
           />
         ) : null}
-      </div>
+      </Box>
       <ChartLegend items={legendItems} highlighted={highlighted} onHighlight={setHighlighted} />
     </ChartCard>
   )

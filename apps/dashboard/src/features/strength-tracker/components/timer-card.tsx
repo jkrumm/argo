@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { VX } from 'basalt-ui/tokens'
 import {
   ActionIcon,
   Box,
@@ -82,30 +83,28 @@ function TimerRing({
                   transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
                 }}
               >
-                <Text
-                  ta="center"
-                  fw={700}
-                  size="xl"
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontVariantNumeric: 'tabular-nums',
-                    backfaceVisibility: 'hidden',
-                    WebkitBackfaceVisibility: 'hidden',
-                  }}
+                <Flex
+                  pos="absolute"
+                  inset={0}
+                  align="center"
+                  justify="center"
+                  style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
                 >
-                  {label}
-                </Text>
-                <span
+                  <Text
+                    ta="center"
+                    fw={700}
+                    size="xl"
+                    style={{ fontVariantNumeric: 'tabular-nums' }}
+                  >
+                    {label}
+                  </Text>
+                </Flex>
+                <Flex
+                  pos="absolute"
+                  inset={0}
+                  align="center"
+                  justify="center"
                   style={{
-                    position: 'absolute',
-                    inset: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
                     color: `var(--mantine-color-${color}-6)`,
                     transform: 'rotateY(180deg)',
                     backfaceVisibility: 'hidden',
@@ -113,7 +112,7 @@ function TimerRing({
                   }}
                 >
                   {flipIcon}
-                </span>
+                </Flex>
               </div>
             </div>
           ) : (
@@ -274,8 +273,11 @@ function RestTimerPanel() {
   )
 }
 
+// NOTE: work/rest still use off-identity teal/indigo Mantine ramp vars (pre-basalt-migration) —
+// not caught by the mechanical guard (plain object, not a JSX accent prop) but a real palette
+// deviation; flagged as a follow-up, not fixed here.
 const PHASE_BG: Record<Phase['type'], string> = {
-  lead: 'var(--mantine-color-gray-5)',
+  lead: VX.neutral,
   work: 'var(--mantine-color-teal-6)',
   rest: 'var(--mantine-color-indigo-5)',
 }
@@ -311,11 +313,11 @@ function PhaseBar({
         {phases.map((p, i) => (
           <Box
             key={`${p.type}-${p.rep}-${i}`}
+            bdrs={2}
             style={{
               flexGrow: p.dur,
               flexBasis: 0,
               height: '100%',
-              borderRadius: 2,
               background: PHASE_BG[p.type],
               opacity: !finished && i > phaseIndex ? 0.3 : 1,
             }}
@@ -553,7 +555,7 @@ export function TimerCard() {
   const setMode = useTimerStore((s) => s.setMode)
 
   return (
-    <Paper withBorder p="md">
+    <Paper py="xs" px="sm">
       <Stack gap="sm" align="center">
         <SegmentedControl
           fullWidth

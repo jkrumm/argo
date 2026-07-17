@@ -7,7 +7,7 @@
 - **Routing:** TanStack Router — file-based via `@tanstack/router-plugin/vite`
 - **Data:** TanStack Query + Eden Treaty (`@elysiajs/eden`) for type-safe API calls — configured with `{ parseDate: false }` so `YYYY-MM-DD` strings stay strings (matches the API's wire format and TS types)
 - **Client state:** Zustand (`persist` middleware) — sidebar collapse state only
-- **Charts:** `@argo/charts` (visx primitives), bridged from Mantine via `src/charts-bridge.tsx`
+- **Charts:** `basalt-ui/charts` (visx primitives) + `src/lib/series.ts` (Argo's per-metric series identity)
 - **Dates:** `date-fns` (frontend only; backend sends ISO strings)
 
 ## Route Structure
@@ -89,22 +89,43 @@ See `.claude/rules/tanstack-query.md` for the mutation + invalidation pattern.
 
 `useMantineColorScheme()` from Mantine — reads/writes `mantine-color-scheme-value` in localStorage. The inline script in `index.html` prevents flash of wrong scheme on load.
 
-## Charts — VxBridge
+## Charts
 
-`@argo/charts` is theme-agnostic. `src/charts-bridge.tsx` (`VxBridge`) is the **only** file allowed to import both `@mantine/core` and `@argo/charts`. It bridges Mantine's color scheme to `VxThemeProvider`.
+`basalt-ui/charts` ships the visx primitives and is theme-agnostic; `BasaltProvider` (mounted in
+`main.tsx`) bridges Mantine's color scheme to the charts internally — there is no local bridge file
+to maintain.
 
-All chart imports in route components go directly to `@argo/charts`:
+All chart imports in route components go directly to `basalt-ui/charts`; per-metric series colors
+come from `src/lib/series.ts` (Argo's `defineSeries`-based data dictionary, fed into
+`BasaltProvider`'s `paletteOptions`):
 
 ```ts
-import { ChartCard, ZonedLine, VX, useVxTheme, HoverContext } from '@argo/charts'
+import {
+  ChartCard,
+  ChartLegend,
+  ZonedLine,
+  VX,
+  useHoverSync,
+  ChartHoverSync,
+} from 'basalt-ui/charts'
+import { SERIES } from '../../../lib/series'
 ```
 
-See `packages/charts/CLAUDE.md` for the full primitive and kind contract.
+See `.claude/rules/basalt-charts.md` for the full primitive and kind contract, and `DESIGN.md` for
+Argo's series dictionary.
+
+## Commands palette & notifications
+
+`main.tsx` mounts `BasaltOverlays` (from `basalt-ui/commands`) inside `BasaltProvider`, which bundles
+the Spotlight command palette (`Cmd/Ctrl+K`), modals, and the notifications toast/history stack.
+The app's command and notification registries are defined once via `defineCommands`/`defineNotifications`
+in `src/lib/commands.tsx` / `src/lib/notifications.ts` (side-effect imported at boot in `main.tsx`,
+before `BasaltOverlays` mounts) — see `.claude/rules/basalt-commands.md` and
+`.claude/rules/basalt-notifications.md` for the registry contract.
 
 ## Path Aliases
 
 - `@argo/api` → `../api/src` (Eden Treaty type source)
-- `@argo/charts` → `../../packages/charts/src`
 
 ## React Compiler
 

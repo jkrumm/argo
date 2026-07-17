@@ -1,0 +1,147 @@
+/*
+ * The set grid is a bespoke, spreadsheet-dense row editor — a hover-revealed stepper pair per
+ * numeric cell, an underline that only appears on hover/focus, and a checklist mode that bleeds the
+ * row to the card edge. Mantine props carry the layout; these rules carry the visuals those props
+ * can't express. Every color routes through a --vx-* token (basalt-tokens: opacity via color-mix,
+ * never rgba), so the grid tracks the color scheme like everything else.
+ *
+ * Replaces an injected <style> tag that rebuilt these same rules as a template literal on every
+ * render.
+ */
+
+.header {
+  padding: 0 0 4px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid color-mix(in srgb, var(--vx-neutral) 12%, transparent);
+}
+
+.headCell {
+  font-size: 11px;
+  color: color-mix(in srgb, var(--vx-neutral) 50%, transparent);
+}
+
+.row {
+  padding: 7px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--vx-neutral) 6%, transparent);
+  border-radius: 3px;
+  transition: all 0.15s;
+}
+
+/* Checklist mode bleeds the row to the card's edge, so it drops the radius and takes the card's
+   own horizontal padding back out as a negative margin. */
+.row[data-checklist='true'] {
+  padding: 7px var(--mantine-spacing-md);
+  margin-inline: calc(var(--mantine-spacing-md) * -1);
+  border-radius: 0;
+}
+
+.row[data-active='true'] {
+  background: color-mix(in srgb, var(--vx-goodSolid) 8%, transparent);
+}
+
+.row[data-hovered='true']:not([data-active='true']) {
+  background: color-mix(in srgb, var(--vx-neutral) 6%, transparent);
+}
+
+.row[data-dimmed='true'] {
+  opacity: 0.5;
+}
+
+/* Set-type label — click to cycle. Color is per-type, so it stays a prop. */
+.typeButton {
+  width: 30px;
+  padding: 0 0 0 2px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.typeButton:disabled {
+  cursor: default;
+}
+
+.cell {
+  flex: 1;
+  min-width: 0;
+}
+
+.stepper {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.row[data-hovered='true'] .stepper {
+  opacity: 0.5;
+}
+
+.stepper:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--vx-neutral) 12%, transparent);
+  opacity: 0.8;
+}
+
+/*
+ * On a touch device there is no hover, so a stepper revealed only on hover is invisible — but still
+ * tappable. Pin them visible and give them a real touch target.
+ */
+@media (pointer: coarse) {
+  .stepper {
+    width: 26px;
+    height: 26px;
+    opacity: 0.55;
+  }
+}
+
+/*
+ * NumberInput's `input` slot. variant="unstyled" strips the Mantine chrome; this layers the bespoke
+ * underline back on. The 16px is load-bearing — below it iOS Safari zooms the viewport on focus and
+ * never zooms back out (basalt's styles.css floor enforces the same minimum).
+ */
+.input {
+  width: 100%;
+  padding: 4px 4px;
+  border-bottom: 1px solid transparent;
+  font-size: 16px;
+  text-align: center;
+  transition: border-color 0.15s;
+}
+
+.row[data-hovered='true'] .input {
+  border-bottom-color: color-mix(in srgb, var(--vx-neutral) 30%, transparent);
+}
+
+.input:focus {
+  border-bottom-color: color-mix(in srgb, var(--vx-neutral) 50%, transparent);
+}
+
+/* Read-only mirror of .input — same 16px so the row height doesn't shift between modes. */
+.readOnlyValue {
+  flex: 1;
+  font-size: 16px;
+  text-align: center;
+}
+
+.actions {
+  opacity: 0.25;
+  transition: opacity 0.15s;
+}
+
+.row[data-hovered='true'] .actions,
+.row[data-checklist='true'] .actions {
+  opacity: 1;
+}

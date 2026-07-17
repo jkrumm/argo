@@ -1,9 +1,2 @@
-pre-commit:
-  parallel: true
-  commands:
-    oxlint:
-      glob: '*.{ts,tsx,js,jsx}'
-      run: bunx oxlint {staged_files}
-    oxfmt:
-      glob: '*.{ts,tsx,js,jsx,json,md,yml,yaml}'
-      run: bunx oxfmt --check {staged_files}
+extends:
+  - node_modules/basalt-ui/configs/lefthook.yml

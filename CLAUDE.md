@@ -11,8 +11,7 @@ The API doubles as an AI-agent endpoint. Discovery is anchored at three URLs: `G
 ```
 argo/
 ├── apps/api/          — Elysia + Bun + Postgres + Drizzle + Zod + OTel
-├── apps/dashboard/    — Vite + React 19 + Mantine v9 + TanStack Router/Query
-└── packages/charts/   — Theme-agnostic visx primitives (@argo/charts)
+└── apps/dashboard/    — Vite + React 19 + Mantine v9 + TanStack Router/Query
 ```
 
 ## Common Commands
@@ -20,19 +19,18 @@ argo/
 ```bash
 bun install                                    # all workspace deps
 
-# Dev — runs API + dashboard concurrently with secrets injected via op
+# Dev — runs API + dashboard concurrently with secrets injected via secrets-run (op/cache)
 bun dev                                        # API :4040, dashboard https://argo.test (→ :7715)
 bun db:sync                                    # pull fresh argo schema dump from VPS into local Postgres
 bun db:migrate                                 # apply pending Drizzle migrations against local DB
 
 # Single-app
-bun run --cwd apps/api start                  # API on :4040 (needs op run wrapper for env)
+bun run --cwd apps/api start                  # API on :4040 (needs secrets-run/op wrapper for env)
 bun run --cwd apps/api db:generate            # generate migration after schema changes
 bun run --cwd apps/api typecheck
 bun run --cwd apps/dashboard typecheck
-bun run --cwd packages/charts typecheck
 
-# Tests — wraps op + assembles DATABASE_URL (needs dev Postgres up)
+# Tests — wraps secrets-run + assembles DATABASE_URL (needs dev Postgres up)
 bun test:api                                  # all API tests
 bun test:api src/routes/workouts.summary.test.ts  # pass-through filter
 
@@ -47,9 +45,15 @@ bun run format:check                          # oxfmt
 
 All secrets via 1Password, account `tkrumm`. DB password at `op://vps/argo/DB_PASSWORD`.
 
+Local-dev scripts (`dev`, `db:migrate`, `test:api`) inject through the **`secrets-run`** shim
+(dotfiles): a drop-in `op` — live biometric `op` on the MacBook, the age-encrypted headless
+cache on the Mac mini (where `op` isn't interactively signed in). Prod scripts (`dev:prod-api`,
+`m365:auth:prod`) stay on raw `op run` — present-human only.
+
 ```bash
-op run --account tkrumm --env-file=apps/api/.env.local.tpl -- <command>
-op read "op://vps/argo/DB_PASSWORD" --account tkrumm
+secrets-run run --env-file=apps/api/.env.local.tpl -- <command>   # local dev (op or cache)
+secrets-run read op://vps/argo/DB_PASSWORD                        # single value (op or cache)
+op run --account tkrumm --env-file=apps/api/.env.local.tpl -- <command>   # force live op (prod)
 ```
 
 ## Local Dev
@@ -68,28 +72,68 @@ API and dashboard run on the VPS via Docker. Compose: `~/SourceRoot/vps/apps/arg
 
 ## Design System
 
-**`DESIGN.md` (repo root) is the law for Argo's visual identity** — the color/token/restraint
-rules, the "ink earns its color" doctrine, and the spacing/type/radius hardening roadmap. Read it
-before building or restyling any UI; it wins over library defaults and habit. The global
-`/dataviz` skill is the generic _method_ and defers to `DESIGN.md` as the project-specific
-_contract_. Argo is the greenfield POC for a design system that later promotes to the global
-config and `basalt-ui`.
+**`basalt-ui` is now Argo's design system** — the Mantine theme, chart primitives (`basalt-ui/charts`),
+tokens (`basalt-ui/tokens`), and toolchain presets (oxlint/oxfmt/lefthook) all come from the
+framework. Argo is `basalt-ui`'s original reference consumer; the local `packages/charts` package
+and hand-rolled `DESIGN.md`/theming docs it used to carry have been retired in favor of the
+framework's agentic layer (`bunx basalt-ui init`/`sync`, the `.claude/rules/basalt-*.md` doctrine, and
+the managed `/basalt-design` / `/basalt-charts` skills in `.claude/skills/`).
 
-`docs/MANTINE-THEMING.md` is the **method for the Mantine chrome layer** (shell, sidebar,
-breadcrumb, cards, inputs) — the chrome-side sibling of `~/.claude/rules/visx-charts.md`, also
-subordinate to `DESIGN.md`. It documents the v9 CSS-variable theming model and the binding that
-makes chrome and charts share one surface system.
+**`DESIGN.md` (repo root) is Argo's app-delta record** — not the law itself anymore, but the
+project-specific deltas on top of basalt's defaults (accent hue, series dictionary). It is a basalt
+`seed` file: written once by `basalt-ui init`, then owned by Argo — `basalt-ui sync` never overwrites it.
+Read it before building or restyling any UI. `docs/MANTINE-THEMING.md` is **superseded** by
+basalt-ui's own theming docs (shipped with the framework) and kept only as historical reference —
+see `docs/archive/`.
 
 ## Workspace-Specific Docs
 
-| File                        | Contents                                                                        |
-| --------------------------- | ------------------------------------------------------------------------------- |
-| `DESIGN.md`                 | Visual-identity law: color/token tiers, earned-color rule, enforcement, roadmap |
-| `apps/api/CLAUDE.md`        | DB, migrations, adding a route, test patterns, OTel vars                        |
-| `apps/dashboard/CLAUDE.md`  | Adding a page, stack details, React Compiler, observability                     |
-| `packages/charts/CLAUDE.md` | Chart primitives, kinds, tokens, VxBridge wiring                                |
+| File                       | Contents                                                                                |
+| -------------------------- | --------------------------------------------------------------------------------------- |
+| `DESIGN.md`                | Argo's app-delta record: accent hue, series dictionary, deviations from basalt defaults |
+| `apps/api/CLAUDE.md`       | DB, migrations, adding a route, test patterns, OTel vars                                |
+| `apps/dashboard/CLAUDE.md` | Adding a page, stack details, React Compiler, observability                             |
 
 ## Analytics Reference
 
 - `docs/GARMIN-HEALTH.md` — metric definitions, formulas, composite signals (health page)
 - `docs/STRENGTH-ANALYTICS.md` — metric definitions, INOL, ACWR, e1RM formulas (strength page)
+
+<!-- basalt:begin 1.0.1 -->
+
+## basalt-ui (managed — do not hand-edit)
+
+Scaffolded by `bunx basalt-ui init` and refreshed by `bunx basalt-ui sync` (run it after a basalt-ui
+upgrade; `basalt-ui sync --check` gates drift in CI). This block is framework-owned — edit `DESIGN.md`
+or the `basalt-*` rules instead; manual changes here are overwritten on the next sync.
+
+**Stack:** React 19 + Mantine v9, themed by `basalt-ui` (`BasaltProvider` + `createBasaltTheme`).
+Colors come from the three-tier `--vx-*` token system — read `VX.*` / a `defineSeries` token,
+never a raw hex/`rgb()`/`hsl()`. Charts are visx via `basalt-ui/charts` (compose the primitives:
+`ChartCard`, `ChartLegend`, the `ChartTooltip` family, `AxisLeftNumeric`/`AxisBottomDate`); add a
+kind on the third repeat, don't loosen the primitives. `basalt-ui/charts` and `basalt-ui/tokens`
+are Mantine-free — never import `@mantine/*` under `**/charts/**`, never import `@visx/*` outside
+charts. Toolchain is oxlint + oxfmt (no ESLint/Biome/Prettier) and `basalt-ui check-theme` guards the
+palette. Runtime is Bun.
+
+**Before guessing an import, check the installed package's machine docs**:
+`node_modules/basalt-ui/llms.txt` (per-subpath import map), `node_modules/basalt-ui/AGENTS.md`, or
+run `bunx basalt-ui info --json`.
+
+**DESIGN.md is law.** `./DESIGN.md` (imported below) records this app's palette identity and series
+dictionary. Precedence: **DESIGN.md > `basalt-*` rules > skills.** When building or restyling any
+UI, that law wins over habit, over library defaults, and over a skill's instinct. The design/charts
+workflows are the managed skills in `.claude/skills/` (`/basalt-design`, `/basalt-charts`) — they
+defer to DESIGN.md.
+
+@./DESIGN.md
+
+**Restraint override (supersedes `/frontend-design`).** This app is a calm, data-dense,
+dark-first professional surface — not a showcase. Ignore `/frontend-design`'s push toward a "BOLD
+aesthetic direction", gradient meshes, noise/grain, and dramatic motion. Here: the shipped
+three-font system (Nunito Sans body, Hubot Sans condensed headings, JetBrains Mono for every
+numeral/micro-label), depth via `shadow-card` (a whisper shadow + 1px ring, never a decorative drop
+shadow), neutral zinc-by-default with the single saturated accent spent only when earned (trend /
+signal / categorical separation). Restraint **is** the identity.
+
+<!-- basalt:end -->

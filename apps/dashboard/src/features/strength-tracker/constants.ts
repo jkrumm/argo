@@ -1,4 +1,5 @@
-import { VX } from '@argo/charts'
+import { VX } from 'basalt-ui/tokens'
+import { SERIES } from '../../lib/series'
 
 export type ExerciseKey = 'bench_press' | 'deadlift' | 'squat' | 'pull_ups'
 
@@ -24,10 +25,10 @@ export const EXERCISES: { value: ExerciseKey; label: string }[] = [
 ]
 
 export const EXERCISE_COLORS: Record<ExerciseKey, string> = {
-  bench_press: VX.series.benchPress,
-  deadlift: VX.series.deadlift,
-  squat: VX.series.squat,
-  pull_ups: VX.series.pullUps,
+  bench_press: SERIES.benchPress,
+  deadlift: SERIES.deadlift,
+  squat: SERIES.squat,
+  pull_ups: SERIES.pullUps,
 }
 
 export const SET_TYPE_OPTIONS: { value: SetType; label: string }[] = [

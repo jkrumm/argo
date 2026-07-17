@@ -21,7 +21,7 @@ import {
   Tooltip,
 } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { notifications } from '@mantine/notifications'
+import { emit } from 'basalt-ui/notifications'
 import {
   IconArrowLeft,
   IconFile,
@@ -104,21 +104,14 @@ function MessageRow({
           {attachments.length > 0 && (
             <Stack gap={6} w="100%">
               {attachments.map((att, i) => (
-                <Paper key={i} withBorder radius="sm" px="sm" py={6}>
+                <Paper key={i} px="sm" py={6}>
                   <AttachmentDisplay attachment={att} />
                 </Paper>
               ))}
             </Stack>
           )}
           {text && (
-            <Paper
-              withBorder
-              radius="md"
-              px="sm"
-              py={6}
-              w="100%"
-              bg="var(--mantine-color-default-hover)"
-            >
+            <Paper px="sm" py={6} w="100%" bg="var(--mantine-color-default-hover)">
               <MessageMarkdown content={text} messageId={message.id} threadId={threadId} />
             </Paper>
           )}
@@ -323,11 +316,11 @@ export function ChatConversation({
 
   async function readFileAsAttachment(file: File, kind: 'image' | 'file') {
     if (file.size > ATTACHMENT_SIZE_LIMIT) {
-      notifications.show({
-        title: 'File too large',
-        message: `Attachments must be under ${SIZE_LIMIT_MB} MB.`,
-        color: 'red',
-      })
+      emit(
+        'chat:error',
+        { message: `Attachments must be under ${SIZE_LIMIT_MB} MB.` },
+        { title: 'File too large' },
+      )
       return
     }
     let dataUrl: string
@@ -339,11 +332,7 @@ export function ChatConversation({
         reader.readAsDataURL(file)
       })
     } catch {
-      notifications.show({
-        title: 'Read error',
-        message: 'Could not read the selected file.',
-        color: 'red',
-      })
+      emit('chat:error', { message: 'Could not read the selected file.' }, { title: 'Read error' })
       return
     }
     if (kind === 'image') {

@@ -30,7 +30,7 @@ export default function MyChart({ params }: { params: SummaryParams }) {
   const { data } = useSuspenseQuery(dailyMetricsQueries.recoverySeries(params))
 
   // 2. ChartCard wrapper — never a raw Mantine Card; the contract lives in
-  //    @argo/charts. Title + tooltip + optional extra slot.
+  //    basalt-ui/charts. Title + tooltip + optional extra slot.
   return (
     <ChartCard title="Recovery Trend" tooltip={METRIC_TOOLTIPS.recoveryScore}>
       {/* 3. Use existing kinds (ZonedLine, Bars) where possible. */}
@@ -57,29 +57,40 @@ be skipped when data is null, fall back to `useQuery` and render nothing.
 
 ## Tokens & theme
 
-- Import semantic colors from `@argo/charts` via `VX.good`, `VX.bad`, etc.
-- Import per-metric colors from `VX.series.hrv`, `VX.series.restingHr`, etc.
-- Theme-resolved neutrals come from `useVxTheme()` (line, axis, tooltipBg).
-- **Never** hardcode hex literals in charts. Add to `tokens.ts` if a new
-  semantic color is required.
+- Import semantic colors from `basalt-ui/charts` via `VX.good`, `VX.bad`, `VX.goodSolid`, etc.
+- Import per-metric colors from `apps/dashboard/src/lib/series.ts` (`SERIES.hrv`, `SERIES.restingHr`,
+  etc.) — this is where Argo's series identity is defined, via basalt's `defineSeries` mechanism.
+- Theme-resolved neutrals (`VX.line`, `VX.axis`, `VX.tooltipBg`) come from the same `basalt-ui/charts`
+  `VX` token object — no hook needed, they're CSS-var refs.
+- **Never** hardcode hex literals in charts. Add a new metric to `apps/dashboard/src/lib/series.ts`
+  if a new semantic/series color is required.
 
-## HoverContext registration
+## Chart hover sync
 
-If your chart should sync crosshairs with other charts on the page, wire it
-in via `useHoverSync(chartId, getX)`. The shell already wraps the page in
-`<HoverContext.Provider>`. Use a stable `chartId` matching the chart name
-(e.g. `'recovery-trend'`, `'acwr'`).
+If your chart should sync crosshairs with other charts on the page, wire it in via
+`useHoverSync(chartId, getX)` (`basalt-ui/charts`). The route wraps the page's chart section in
+`<ChartHoverSync>` (also `basalt-ui/charts`) — no manual context provider needed. Use a stable
+`chartId` matching the chart name (e.g. `'recovery-trend'`, `'acwr'`).
 
 ## Primitive contract — required
 
 1. `ChartCard` wrapper (title + tooltip + headerExtra slot)
-2. `ChartLegend` for any legend markup — never hand-rolled
+2. `ChartLegend` for any legend markup — never hand-rolled; pass series/legend items as data, not JSX
 3. `ChartTooltip` + `TooltipHeader` / `TooltipRow` / `TooltipBody`
 4. `AxisLeftNumeric` / `AxisBottomDate` — never raw visx axes
 5. `HoverOverlay` for mouse capture
 6. `useChartTooltip` for tooltip open/close state
+7. Every chart entry point (`ZonedLine`, `MultiLine`, etc.) needs an `ariaLabel` prop — enforced by
+   `bunx basalt-ui check-theme`.
 
-See `packages/charts/CLAUDE.md` for the full primitive reference.
+Kind components (`ZonedLine`, `MultiLine`, `DualPanel`, `Heatmap`, …) take a `series: ChartSeries<T>[]`
+descriptor array (`{ key, label, color, mark, getValue }`) rather than ad-hoc per-series props — see
+`recovery-trend-chart.tsx` for a worked example. Bespoke compositions import primitives (`Group`,
+`GridRows`, `LinePath`, `Threshold`, `scaleLinear`, `curveMonotoneX`, …) from `basalt-ui/charts` too —
+never straight from `@visx/*`.
+
+All primitives, kinds, and tokens ship from `basalt-ui/charts`; there is no local `packages/charts`
+package anymore.
 
 ## Replacing a slot
 
@@ -94,40 +105,66 @@ See `packages/charts/CLAUDE.md` for the full primitive reference.
 
 ```tsx
 // apps/dashboard/src/features/garmin-health/charts/recovery-trend-chart.tsx
+import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { ChartCard, ZonedLine, VX, useVxTheme } from '@argo/charts'
-import { useElementSize } from '@mantine/hooks'
-import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
+import {
+  ChartCard,
+  ChartLegend,
+  ZonedLine,
+  VX,
+  type ChartSeries,
+  type ZonedLineTooltipLabel,
+} from 'basalt-ui/charts'
+import { recoveryQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
+import { applyVisibilityFilter } from '../visibility'
+import { ChartEmpty } from './empty'
+
+type RecoveryPoint = { date: string; recovery: number | null }
+
+function recoveryZoneLabel(v: number): ZonedLineTooltipLabel {
+  if (v >= 70) return { text: 'Push', color: VX.goodSolid }
+  if (v >= 40) return { text: 'Normal', color: VX.warnSolid }
+  return { text: 'Rest', color: VX.badSolid }
+}
+
+const RECOVERY_SERIES: ChartSeries<RecoveryPoint>[] = [
+  { key: 'recovery', label: 'Recovery', color: VX.line, mark: 'line', getValue: (d) => d.recovery },
+]
 
 export default function RecoveryTrendChart({ params }: { params: SummaryParams }) {
-  const { data } = useSuspenseQuery(dailyMetricsQueries.recoverySeries(params))
-  const { ref, width } = useElementSize<HTMLDivElement>()
-  const { line } = useVxTheme()
+  const { data } = useSuspenseQuery(recoveryQueries.series(params))
+  const points = useMemo(
+    () => applyVisibilityFilter(data.points as RecoveryPoint[], (p) => p.date),
+    [data.points],
+  )
+  const hasRecovery = points.some((p) => p.recovery !== null)
 
   return (
     <ChartCard title="Recovery" tooltip={METRIC_TOOLTIPS.recoveryScore}>
-      <div ref={ref} style={{ height: 240, width: '100%' }}>
-        {width > 0 && (
-          <ZonedLine
-            data={data.points}
-            width={Math.max(width, 200)}
-            height={240}
-            chartId="recovery-trend"
-            getX={(d) => d.date}
-            getY={(d) => d.recovery}
-            yDomain={[0, 100]}
-            zones={[
-              { from: 70, to: 100, fill: VX.good },
-              { from: 40, to: 70, fill: VX.warn },
-              { from: 0, to: 40, fill: VX.bad },
-            ]}
-            seriesLabel="Recovery"
-            formatValue={(v) => String(Math.round(v))}
-          />
-        )}
-      </div>
+      {!hasRecovery ? (
+        <ChartEmpty height={240} />
+      ) : (
+        <ZonedLine<RecoveryPoint>
+          data={points}
+          height={240}
+          chartId="recovery-trend"
+          getX={(d) => d.date}
+          series={RECOVERY_SERIES}
+          yDomain={[0, 100]}
+          zones={[
+            { from: 70, to: 100, fill: VX.good },
+            { from: 40, to: 70, fill: VX.warn },
+            { from: 0, to: 40, fill: VX.bad },
+          ]}
+          formatValue={(v) => String(Math.round(v))}
+          tooltipLabel={(d) => (d.recovery === null ? null : recoveryZoneLabel(d.recovery))}
+          legend={false}
+          ariaLabel="Recovery score trend with push/normal/rest zones"
+        />
+      )}
+      <ChartLegend items={[{ key: 'recovery', label: 'Recovery Score', color: VX.line }]} />
     </ChartCard>
   )
 }

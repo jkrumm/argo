@@ -2,7 +2,8 @@ import { queryOptions } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import type { ScheduleEventData } from '@mantine/schedule'
 import { api, unwrap } from '../eden'
-import { VX } from '@argo/charts'
+import { VX } from 'basalt-ui/tokens'
+import { SERIES } from '../series'
 
 export type CalendarSource = 'google' | 'm365' | 'ticktick'
 
@@ -23,14 +24,14 @@ export type CalendarEventPayload = {
 // Per-Google-calendar palette — mirrors Apple Calendar's hues for these calendars.
 // Unknown calendars fall back to GOOGLE_FALLBACK_COLOR.
 export const GOOGLE_CALENDAR_COLORS: Record<string, string> = {
-  Privat: VX.series.steps,
-  Arbeit: VX.series.calories,
-  Familie: VX.series.deadlift,
-  Ferien: VX.series.spo2,
+  Privat: SERIES.steps,
+  Arbeit: SERIES.calories,
+  Familie: SERIES.deadlift,
+  Ferien: SERIES.spo2,
 }
 export const GOOGLE_FALLBACK_COLOR = VX.status.bad
-export const M365_COLOR = VX.series.sleepDuration
-export const TICKTICK_FALLBACK_COLOR = VX.series.steps
+export const M365_COLOR = SERIES.sleepDuration
+export const TICKTICK_FALLBACK_COLOR = SERIES.steps
 
 export const SOURCE_COLOR: Record<CalendarSource, string> = {
   google: GOOGLE_FALLBACK_COLOR,

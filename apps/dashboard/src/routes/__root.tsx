@@ -1,12 +1,6 @@
-import {
-  createRootRouteWithContext,
-  Outlet,
-  useMatchRoute,
-  useNavigate,
-} from '@tanstack/react-router'
+import { createRootRouteWithContext, Link, Outlet, useMatchRoute } from '@tanstack/react-router'
 import type { QueryClient } from '@tanstack/react-query'
-import { AppShell, Badge, Divider } from '@mantine/core'
-import { useDisclosure, useHotkeys } from '@mantine/hooks'
+import { NavLink as MantineNavLink, Text, useMantineColorScheme } from '@mantine/core'
 import {
   IconActivity,
   IconArchive,
@@ -16,26 +10,39 @@ import {
   IconBrandTeams,
   IconCalendar,
   IconChartHistogram,
+  IconCheck,
   IconChecklist,
+  IconDatabase,
+  IconDeviceDesktop,
   IconHeartbeat,
   IconMessageChatbot,
+  IconMoon,
+  IconPalette,
+  IconRoute,
   IconRulerMeasure,
   IconServer,
   IconShoe,
+  IconSun,
 } from '@tabler/icons-react'
 import { format } from 'date-fns'
-import { useState, type MouseEvent } from 'react'
-import { useTimerEngine } from '../components/timer-nav'
-import { AppSidebar, type SidebarSection } from '../components/app-shell/app-sidebar'
+import { useCallback, useEffect, useState } from 'react'
+import { useLocalStorage } from '@mantine/hooks'
+import { BasaltShell, NavCountBadge, ThemeToggle } from 'basalt-ui'
+import { NotificationBell } from 'basalt-ui/notifications'
+import type {
+  BreadcrumbLinkRenderer,
+  NavLinkRenderer,
+  SettingsMenuItem,
+  SidebarSection,
+} from 'basalt-ui'
+import { RefreshButton, TimerNavWidget, useTimerEngine } from '../components/timer-nav'
 import { useSidebarBadges } from '../components/app-shell/use-sidebar-badges'
-import { MobileNav, type MobileNavSection } from '../components/app-shell/app-mobile-nav'
-import { AppBreadcrumbs } from '../components/app-shell/app-breadcrumbs'
-import { GlobalActions } from '../components/app-shell/global-actions'
-import { PageActionsOutlet, PageHeaderProvider } from '../components/app-shell/page-header'
+import { HermesVoiceButton } from '../features/hermes-chat/hermes-voice-button'
+import { HermesWidget } from '../features/hermes-chat/hermes-widget'
 import { VoicePlaybackProvider } from '../features/hermes-chat/voice/voice-playback'
 import { DevToolsPanel, type DevTool } from '../components/dev-dock'
-import { useUiStore } from '../lib/store'
-import classes from '../components/app-shell/app-header.module.css'
+import { registerColorSchemeSetter } from '../lib/color-scheme-bridge'
+import { registerSidebarToggle } from '../lib/sidebar-bridge'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   component: RootLayout,
@@ -43,30 +50,68 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 const ICON = 18
 
+const THEME_OPTIONS = [
+  { value: 'auto', label: 'System', icon: <IconDeviceDesktop size={16} /> },
+  { value: 'light', label: 'Light', icon: <IconSun size={16} /> },
+  { value: 'dark', label: 'Dark', icon: <IconMoon size={16} /> },
+] as const
+
 /**
- * Nav count pill. Kept maximally restrained ("ink earns its color", DESIGN.md): no background, no
- * border, no accent — just quiet neutral text. Rendered only when > 0; auto-hidden in the collapsed
- * icon-rail (the right-section is display:none there).
+ * Static router destination for every navigable nav item, keyed by `SidebarItem.key`. Feeds
+ * `renderNavLink` below — a real TanStack `<Link>` per item, carrying each page's default search
+ * params (so `MakeRequiredSearchParams` stays satisfied on routes with required search state).
+ * `calendar`'s `date` is a thunk (re-evaluated by the Link at click time) so "today" never goes
+ * stale across a long-lived tab.
  */
-function navBadge(count: number) {
-  return count > 0 ? (
-    <Badge size="sm" variant="transparent" color="gray" radius="sm">
-      {count}
-    </Badge>
-  ) : undefined
+const NAV_TARGETS: Record<
+  string,
+  { to: string; search?: Record<string, unknown> | (() => Record<string, unknown>) }
+> = {
+  'hermes-chat': { to: '/hermes-chat' },
+  calendar: {
+    to: '/calendar',
+    search: () => ({ view: 'week', date: format(new Date(), 'yyyy-MM-dd') }),
+  },
+  garmin: { to: '/garmin-health', search: { window: '30d' } },
+  strength: {
+    to: '/strength-tracker',
+    search: { window: 'all', tab: 'charts', exercises: 'bench_press,deadlift,squat,pull_ups' },
+  },
+  'body-composition': { to: '/body-composition', search: { window: '90d' } },
+  walkingpad: { to: '/walking-pad', search: { window: '30d' } },
+  reading: { to: '/reading' },
+  usage: {
+    to: '/usage-tracking',
+    search: { range: '30d', grain: 'day', costGroupBy: 'source', tokensGroupBy: 'sub_tool' },
+  },
+  m365: { to: '/m365-explorer' },
 }
 
 function RootLayout() {
-  const [mobileOpened, { toggle: toggleMobile, close: closeMobile }] = useDisclosure()
   const matchRoute = useMatchRoute()
-  const navigate = useNavigate()
-  const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed)
-  const toggleSidebar = useUiStore((s) => s.toggleSidebar)
+  const { colorScheme, setColorScheme } = useMantineColorScheme()
   const [devTool, setDevTool] = useState<DevTool | null>(null)
 
   useTimerEngine()
-  useHotkeys([['mod+B', toggleSidebar]])
   const badges = useSidebarBadges()
+
+  // Bridges the live setColorScheme setter to lib/commands.tsx's theme:* commands, which run
+  // outside the React tree (Spotlight) and have no hook access of their own.
+  useEffect(() => {
+    registerColorSchemeSetter(setColorScheme)
+    return () => registerColorSchemeSetter(null)
+  }, [setColorScheme])
+
+  // Controlled sidebar collapse (BasaltShell's controlled seam) — persistence stays on the same
+  // 'argo-sidebar' key the shell used internally, and the Mod+B command drives it via the bridge.
+  const [sidebarCollapsed, setSidebarCollapsed] = useLocalStorage<boolean>({
+    key: 'argo-sidebar',
+    defaultValue: false,
+  })
+  useEffect(() => {
+    registerSidebarToggle(() => setSidebarCollapsed((c) => !c))
+    return () => registerSidebarToggle(null)
+  }, [setSidebarCollapsed])
 
   const isGarminActive = !!matchRoute({ to: '/garmin-health', fuzzy: true })
   const isStrengthActive = !!matchRoute({ to: '/strength-tracker', fuzzy: true })
@@ -78,13 +123,46 @@ function RootLayout() {
   const isCalendarActive = !!matchRoute({ to: '/calendar', fuzzy: true })
   const isUsageActive = !!matchRoute({ to: '/usage-tracking', fuzzy: true })
 
-  // Typed navigation stays here (route + search literals). Each handler also closes the mobile
-  // drawer. The presentational sidebar just renders the resolved sections.
-  const go = (run: () => void) => (e: MouseEvent) => {
-    e.preventDefault()
-    closeMobile()
-    run()
-  }
+  // Router-agnostic seam: BasaltShell/AppSidebar never import a router primitive — this renders
+  // each nav row through a real TanStack `<Link>` (NAV_TARGETS above), so `active` detection above
+  // stays the single source of truth and default search params survive per-route.
+  const renderNavLink = useCallback<NavLinkRenderer>(
+    (item, { active, close, navLinkClassName }) => {
+      const target = NAV_TARGETS[item.key]
+      if (!target) {
+        // Safety net for a nav item missing from NAV_TARGETS (AppSidebar intercepts
+        // `item.disabled` before ever calling renderNavLink, so disabled placeholders
+        // like Docker/Monitoring/Tasks never reach this branch).
+        return <MantineNavLink label={item.label} leftSection={item.icon} disabled />
+      }
+      return (
+        <MantineNavLink
+          component={Link}
+          to={target.to as never}
+          {...(target.search !== undefined && { search: target.search as never })}
+          label={item.label}
+          leftSection={item.icon}
+          rightSection={item.badge}
+          active={active}
+          className={navLinkClassName}
+          // Closes the mobile "More" full-sidebar drawer on navigation (no-op on desktop).
+          onClick={() => close?.()}
+        />
+      )
+    },
+    [],
+  )
+
+  /** Renders breadcrumb parent segments as client-side TanStack Links (argo has no nested items
+   * today, so this never actually fires — wired for parity with the shipped contract). */
+  const renderBreadcrumbLink = useCallback<BreadcrumbLinkRenderer>(
+    (href, label) => (
+      <Text size="sm" c="dimmed" truncate component={Link} to={href as never}>
+        {label}
+      </Text>
+    ),
+    [],
+  )
 
   const sections: SidebarSection[] = [
     {
@@ -98,7 +176,6 @@ function RootLayout() {
           icon: <IconMessageChatbot size={ICON} />,
           href: '/hermes-chat',
           active: isHermesChatActive,
-          onClick: go(() => void navigate({ to: '/hermes-chat' })),
         },
         {
           key: 'calendar',
@@ -108,14 +185,7 @@ function RootLayout() {
           icon: <IconCalendar size={ICON} />,
           href: '/calendar',
           active: isCalendarActive,
-          badge: navBadge(badges.calendar),
-          onClick: go(
-            () =>
-              void navigate({
-                to: '/calendar',
-                search: { view: 'week', date: format(new Date(), 'yyyy-MM-dd') },
-              }),
-          ),
+          badge: <NavCountBadge count={badges.calendar} />,
         },
       ],
     },
@@ -131,7 +201,6 @@ function RootLayout() {
           icon: <IconHeartbeat size={ICON} />,
           href: '/garmin-health',
           active: isGarminActive,
-          onClick: go(() => void navigate({ to: '/garmin-health', search: { window: '30d' } })),
         },
         {
           key: 'strength',
@@ -141,17 +210,6 @@ function RootLayout() {
           icon: <IconBarbell size={ICON} />,
           href: '/strength-tracker',
           active: isStrengthActive,
-          onClick: go(
-            () =>
-              void navigate({
-                to: '/strength-tracker',
-                search: {
-                  window: 'all',
-                  tab: 'charts',
-                  exercises: 'bench_press,deadlift,squat,pull_ups',
-                },
-              }),
-          ),
         },
         {
           key: 'body-composition',
@@ -161,7 +219,6 @@ function RootLayout() {
           icon: <IconRulerMeasure size={ICON} />,
           href: '/body-composition',
           active: isBodyCompositionActive,
-          onClick: go(() => void navigate({ to: '/body-composition', search: { window: '90d' } })),
         },
         {
           key: 'walkingpad',
@@ -171,7 +228,6 @@ function RootLayout() {
           icon: <IconShoe size={ICON} />,
           href: '/walking-pad',
           active: isWalkingPadActive,
-          onClick: go(() => void navigate({ to: '/walking-pad', search: { window: '30d' } })),
         },
         {
           key: 'reading',
@@ -181,7 +237,6 @@ function RootLayout() {
           icon: <IconBook size={ICON} />,
           href: '/reading',
           active: isReadingActive,
-          onClick: go(() => void navigate({ to: '/reading' })),
         },
       ],
     },
@@ -195,18 +250,6 @@ function RootLayout() {
           icon: <IconChartHistogram size={ICON} />,
           href: '/usage-tracking',
           active: isUsageActive,
-          onClick: go(
-            () =>
-              void navigate({
-                to: '/usage-tracking',
-                search: {
-                  range: '30d',
-                  grain: 'day',
-                  costGroupBy: 'source',
-                  tokensGroupBy: 'sub_tool',
-                },
-              }),
-          ),
         },
         { key: 'docker', label: 'Docker', icon: <IconBox size={ICON} />, disabled: true },
         {
@@ -231,87 +274,74 @@ function RootLayout() {
           icon: <IconBrandTeams size={ICON} />,
           href: '/m365-explorer',
           active: isM365Active,
-          badge: navBadge(badges.m365),
-          onClick: go(() => void navigate({ to: '/m365-explorer' })),
+          badge: <NavCountBadge count={badges.m365} />,
         },
       ],
     },
   ]
 
-  const activeCrumb = sections
-    .flatMap((s) => s.items.map((it) => ({ section: s.label, page: it.label, active: it.active })))
-    .find((x) => x.active)
-
-  // Mobile bottom-nav: one tab per (non-`mobileTab:false`) section, each raising a bottom sheet
-  // of that section's destinations. The full grouped drawer stays the "More" target.
-  const mobileSections: MobileNavSection[] = sections
-    .filter((s) => s.mobileTab !== false)
-    .map((s) => ({
-      key: s.label,
-      label: s.label,
-      icon: s.icon,
-      active: s.items.some((i) => i.active),
-      items: s.items.map((i) => ({
-        key: i.key,
-        label: i.label,
-        icon: i.icon,
-        href: i.href,
-        active: i.active,
-        onClick: i.onClick,
-      })),
-    }))
+  // Theme lives in the sidebar Settings menu (not basalt's globalActions `ThemeToggle`) — the
+  // Settings row only renders when `settingsMenuItems` is non-empty, and it also carries the
+  // `brand.version` label, so keeping Theme here preserves that footer version display in
+  // production (where the DevTools entries below are absent). The active option's icon swaps to a
+  // checkmark — basalt's `SettingsMenuItem` has no dedicated "active" slot (a flat `Menu.Item`
+  // list, no nested submenus like the old hand-rolled sidebar), so this is the closest available
+  // affordance. See migration report for the full shell-gap note.
+  const settingsMenuItems: SettingsMenuItem[] = [
+    ...THEME_OPTIONS.map((o) => ({
+      key: `theme-${o.value}`,
+      label: o.label,
+      icon: colorScheme === o.value ? <IconCheck size={16} /> : o.icon,
+      onClick: () => setColorScheme(o.value),
+    })),
+    ...(import.meta.env.DEV
+      ? [
+          {
+            key: 'devtools-router',
+            label: 'Router',
+            icon: <IconRoute size={16} />,
+            onClick: () => setDevTool('router'),
+          },
+          {
+            key: 'devtools-query',
+            label: 'Query',
+            icon: <IconDatabase size={16} />,
+            onClick: () => setDevTool('query'),
+          },
+          {
+            key: 'devtools-theme',
+            label: 'Theme Lab',
+            icon: <IconPalette size={16} />,
+            onClick: () => setDevTool('theme'),
+          },
+        ]
+      : []),
+  ]
 
   return (
     <VoicePlaybackProvider>
-      <PageHeaderProvider>
-        <AppShell
-          h="100dvh"
-          layout="alt"
-          header={{ height: { base: 108, sm: 56 } }}
-          navbar={{
-            width: { base: 240, sm: sidebarCollapsed ? 72 : 240 },
-            breakpoint: 'sm',
-            collapsed: { mobile: !mobileOpened },
-          }}
-          footer={{ height: { base: 56, sm: 0 } }}
-          padding="md"
-        >
-          <AppShell.Header px="md">
-            <div className={classes.bar}>
-              <div className={classes.lead}>
-                <AppBreadcrumbs section={activeCrumb?.section} page={activeCrumb?.page} />
-              </div>
-              <PageActionsOutlet className={classes.pageActions} />
-              <Divider
-                orientation="vertical"
-                visibleFrom="sm"
-                style={{ alignSelf: 'stretch', height: 'auto' }}
-              />
-              <GlobalActions className={classes.global} />
-            </div>
-          </AppShell.Header>
-
-          <AppShell.Navbar p="md">
-            <AppSidebar
-              sections={sections}
-              collapsed={sidebarCollapsed}
-              onToggleCollapse={toggleSidebar}
-              onClose={closeMobile}
-              onOpenDevTool={import.meta.env.DEV ? setDevTool : undefined}
-            />
-          </AppShell.Navbar>
-
-          <AppShell.Main>
-            <Outlet />
-          </AppShell.Main>
-
-          <AppShell.Footer hiddenFrom="sm" p={0}>
-            <MobileNav sections={mobileSections} onOpenMore={toggleMobile} />
-          </AppShell.Footer>
-
-          {import.meta.env.DEV && <DevToolsPanel tool={devTool} onClose={() => setDevTool(null)} />}
-        </AppShell>
-      </PageHeaderProvider>
+      <BasaltShell
+        brand={{ name: 'Argo', logoSrc: '/favicon.svg', version: __APP_VERSION__ }}
+        sections={sections}
+        renderNavLink={renderNavLink}
+        renderBreadcrumbLink={renderBreadcrumbLink}
+        globalActions={
+          <>
+            <HermesVoiceButton />
+            <HermesWidget />
+            <TimerNavWidget />
+            <RefreshButton />
+            <NotificationBell />
+            <ThemeToggle />
+          </>
+        }
+        settingsMenuItems={settingsMenuItems}
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+      >
+        <Outlet />
+      </BasaltShell>
+      {import.meta.env.DEV && <DevToolsPanel tool={devTool} onClose={() => setDevTool(null)} />}
     </VoicePlaybackProvider>
   )
 }

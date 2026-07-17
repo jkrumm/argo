@@ -1,28 +1,34 @@
 import { useMemo, useState } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
+import { Group as MantineGroup } from '@mantine/core'
 import {
   AxisBottomDate,
   AxisLeftNumeric,
   ChartCard,
+  ChartFrame,
   ChartLegend,
   ChartTooltip,
+  Crosshair,
   GridRows,
   Group,
   HoverOverlay,
   LinePath,
+  SeriesDot,
   Threshold,
   TooltipBody,
   TooltipHeader,
   TooltipRow,
   VX,
   curveMonotoneX,
+  deriveLegend,
   scaleLinear,
   scalePoint,
   smartTicks,
   useHoverSync,
   useTooltipStyles,
-} from '@argo/charts'
+  type LegendEntry,
+  type SeriesStyle,
+} from 'basalt-ui/charts'
 import { trainingLoadQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
@@ -51,6 +57,33 @@ function formatDivergence(v: number): string {
   return `${v >= 0 ? '+' : ''}${v.toFixed(1)}`
 }
 
+// `split` shape + `secondColor` have no `SeriesStyle`/`mark` equivalent (deriveLegend can only
+// emit 'line' | 'bar' swatches), so the diverging-color entry is authored directly as a
+// `LegendEntry` and appended after the two `deriveLegend`-derived series entries.
+const DIVERGENCE_LEGEND_SERIES: readonly SeriesStyle[] = [
+  { key: 'acute', label: 'Short-term (7d)', color: VX.goodSolid, mark: 'line', strokeWidth: 2 },
+  { key: 'chronic', label: 'Long-term (28d)', color: VX.badSolid, mark: 'line', strokeWidth: 3 },
+]
+
+const DIVERGENCE_SPLIT_ENTRY: LegendEntry = {
+  key: 'divergence',
+  label: 'Divergence',
+  color: VX.goodSolid,
+  secondColor: VX.badSolid,
+  shape: 'split',
+}
+
+const DIVERGENCE_LEGEND_ITEMS: LegendEntry[] = [
+  ...deriveLegend(DIVERGENCE_LEGEND_SERIES),
+  DIVERGENCE_SPLIT_ENTRY,
+]
+
+/**
+ * Bespoke composition (dual-pane line + signed-histogram with a DIVERGING two-tone fill-between —
+ * `basalt-ui`'s `DualPanel.fillBetween` only accepts a single fill color, so it can't express
+ * "green when acute < chronic, red when acute > chronic". Composes `ChartFrame` + `useHoverSync`
+ * directly, the sanctioned escape hatch for a shape no shipped kind's config surface covers.
+ */
 function DivergenceChartInner({
   data,
   width,
@@ -100,7 +133,7 @@ function DivergenceChartInner({
     useHoverSync<Point>({
       data,
       chartId: CHART_ID,
-      getX: (d) => d.date,
+      getKey: (d) => d.date,
       xScale,
       marginLeft: MARGIN.left,
     })
@@ -162,29 +195,16 @@ function DivergenceChartInner({
 
           {syncedPoint && (
             <>
-              <line
-                x1={xScale(syncedPoint.date) ?? 0}
-                x2={xScale(syncedPoint.date) ?? 0}
-                y1={0}
-                y2={yMaxTop}
-                stroke={VX.crosshair}
-                strokeWidth={1}
-              />
-              <circle
+              <Crosshair x={xScale(syncedPoint.date) ?? 0} top={0} bottom={yMaxTop} />
+              <SeriesDot
                 cx={xScale(syncedPoint.date) ?? 0}
                 cy={yScaleTop(syncedPoint.acute)}
-                r={4}
-                fill={VX.goodSolid}
-                stroke={VX.dotStroke}
-                strokeWidth={2}
+                color={VX.goodSolid}
               />
-              <circle
+              <SeriesDot
                 cx={xScale(syncedPoint.date) ?? 0}
                 cy={yScaleTop(syncedPoint.chronic)}
-                r={4}
-                fill={VX.badSolid}
-                stroke={VX.dotStroke}
-                strokeWidth={2}
+                color={VX.badSolid}
               />
             </>
           )}
@@ -219,14 +239,7 @@ function DivergenceChartInner({
           <line x1={0} x2={xMax} y1={yScaleBottom(0)} y2={yScaleBottom(0)} stroke={VX.grid} />
 
           {syncedPoint && (
-            <line
-              x1={xScale(syncedPoint.date) ?? 0}
-              x2={xScale(syncedPoint.date) ?? 0}
-              y1={0}
-              y2={yMaxBottom}
-              stroke={VX.crosshair}
-              strokeWidth={1}
-            />
+            <Crosshair x={xScale(syncedPoint.date) ?? 0} top={0} bottom={yMaxBottom} />
           )}
 
           <AxisLeftNumeric scale={yScaleBottom} numTicks={3} />
@@ -276,9 +289,35 @@ function DivergenceChartInner({
   )
 }
 
+function DivergenceChartFrame({
+  data,
+  highlighted,
+}: {
+  data: Point[]
+  highlighted: string | null
+}) {
+  return (
+    <ChartFrame
+      series={[]}
+      chartId={CHART_ID}
+      height={CHART_HEIGHT}
+      legend={false}
+      ariaLabel="Short-term vs long-term training load, with the divergence between them"
+    >
+      {(plot) => (
+        <DivergenceChartInner
+          data={data}
+          width={plot.width}
+          height={plot.height}
+          highlighted={highlighted}
+        />
+      )}
+    </ChartFrame>
+  )
+}
+
 export default function DivergenceChart({ params }: { params: SummaryParams }) {
   const { data } = useSuspenseQuery(trainingLoadQueries.summary(params))
-  const { ref, width } = useElementSize<HTMLDivElement>()
   const [highlighted, setHighlighted] = useState<string | null>(null)
 
   const points = useMemo<Point[]>(() => {
@@ -298,10 +337,10 @@ export default function DivergenceChart({ params }: { params: SummaryParams }) {
   const latest = points.length > 0 ? points[points.length - 1] : null
 
   const headerExtra = latest ? (
-    <span style={{ fontSize: 12, display: 'inline-flex', alignItems: 'baseline', gap: 6 }}>
+    <MantineGroup gap={6} align="baseline" wrap="nowrap" style={{ fontSize: VX.text.xs }}>
       <span
         style={{
-          fontSize: 14,
+          fontSize: VX.text.md,
           fontWeight: 600,
           color: latest.divergence >= 0 ? VX.goodSolid : VX.badSolid,
         }}
@@ -313,7 +352,7 @@ export default function DivergenceChart({ params }: { params: SummaryParams }) {
           ? `+${latest.divergence.toFixed(0)} ahead`
           : `${latest.divergence.toFixed(0)} behind`}
       </span>
-    </span>
+    </MantineGroup>
   ) : null
 
   return (
@@ -323,44 +362,13 @@ export default function DivergenceChart({ params }: { params: SummaryParams }) {
       tooltip={METRIC_TOOLTIPS.loadBalance}
       extra={headerExtra}
     >
-      <div ref={ref} style={{ height: CHART_HEIGHT, width: '100%' }}>
-        {points.length === 0 ? (
-          <ChartEmpty height={CHART_HEIGHT} />
-        ) : (
-          width > 0 && (
-            <DivergenceChartInner
-              data={points}
-              width={Math.max(width, 200)}
-              height={CHART_HEIGHT}
-              highlighted={highlighted}
-            />
-          )
-        )}
-      </div>
+      {points.length === 0 ? (
+        <ChartEmpty height={CHART_HEIGHT} />
+      ) : (
+        <DivergenceChartFrame data={points} highlighted={highlighted} />
+      )}
       <ChartLegend
-        items={[
-          {
-            key: 'acute',
-            label: 'Short-term (7d)',
-            color: VX.goodSolid,
-            strokeWidth: 2,
-            shape: 'line',
-          },
-          {
-            key: 'chronic',
-            label: 'Long-term (28d)',
-            color: VX.badSolid,
-            strokeWidth: 3,
-            shape: 'line',
-          },
-          {
-            key: 'divergence',
-            label: 'Divergence',
-            color: VX.goodSolid,
-            secondColor: VX.badSolid,
-            shape: 'split',
-          },
-        ]}
+        items={DIVERGENCE_LEGEND_ITEMS}
         highlighted={highlighted}
         onHighlight={setHighlighted}
       />

@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Group, Stack, Text } from '@mantine/core'
-import { alpha, ChartCard, VX } from '@argo/charts'
+import { Box, Group, Stack, Text } from '@mantine/core'
+import { alpha, ChartCard, VX } from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from '../constants'
 import { balanceColor, balanceLabel, balanceSymbol, type RatioStatus } from '../formulas'
@@ -75,16 +75,16 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
                 <Text size="xs" c="dimmed" ta="right" style={{ width: 100, flexShrink: 0 }}>
                   {pair.label}
                 </Text>
-                <div
+                <Box
                   style={{
                     flex: 1,
                     height: 10,
                     position: 'relative',
                     background: alpha(VX.neutral, 0.08),
-                    borderRadius: 3,
                   }}
+                  bdrs={3}
                 >
-                  <div
+                  <Box
                     style={{
                       position: 'absolute',
                       left: `${lowPct}%`,
@@ -92,11 +92,11 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
                       top: 0,
                       bottom: 0,
                       background: VX.good,
-                      borderRadius: 3,
                     }}
+                    bdrs={3}
                   />
                   {ratioPct !== null && (
-                    <div
+                    <Box
                       style={{
                         position: 'absolute',
                         left: `${ratioPct}%`,
@@ -104,12 +104,12 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
                         bottom: -2,
                         width: 3,
                         background: color,
-                        borderRadius: 2,
                         transform: 'translateX(-50%)',
                       }}
+                      bdrs={2}
                     />
                   )}
-                </div>
+                </Box>
                 <Group gap={4} wrap="nowrap" style={{ width: 70, flexShrink: 0 }}>
                   <Text size="xs" fw={600} style={{ minWidth: 40 }}>
                     {pair.ratio !== null ? pair.ratio.toFixed(2) : '—'}

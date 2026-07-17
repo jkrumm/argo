@@ -33,8 +33,9 @@ import {
   type CalendarEventPayload,
   type CalendarSource,
 } from '../../lib/queries/calendar'
-import { VX } from '@argo/charts'
-import { PageActions } from '../../components/app-shell/page-header'
+import { VX } from 'basalt-ui/tokens'
+import { SERIES } from '../../lib/series'
+import { PageActions } from 'basalt-ui'
 
 const DAYS_RANGE = 60
 
@@ -81,7 +82,7 @@ function Legend({ entries }: { entries: LegendEntry[] }) {
     <Group gap="sm" wrap="wrap">
       {entries.map((entry) => (
         <Group key={`${entry.label}-${entry.color}`} gap={6} wrap="nowrap">
-          <Box w={10} h={10} style={{ borderRadius: '50%', background: entry.color }} />
+          <Box w={10} h={10} bdrs="50%" style={{ background: entry.color }} />
           <Text size="xs" c="dimmed">
             {entry.label}
           </Text>
@@ -140,7 +141,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
   const legendEntries: LegendEntry[] = [
     ...Object.entries(GOOGLE_CALENDAR_COLORS).map(([label, color]) => ({ label, color })),
     { label: SOURCE_LABEL.m365, color: M365_COLOR },
-    ...(view === 'week' ? [{ label: SOURCE_LABEL.ticktick, color: VX.series.steps }] : []),
+    ...(view === 'week' ? [{ label: SOURCE_LABEL.ticktick, color: SERIES.steps }] : []),
   ]
 
   const errors: Array<{
@@ -265,7 +266,8 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
 
       <Box
         key={`${view}-${colorScheme}`}
-        style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+        display="flex"
+        style={{ flex: 1, minHeight: 0, flexDirection: 'column' }}
       >
         {view === 'week' ? (
           <WeekView

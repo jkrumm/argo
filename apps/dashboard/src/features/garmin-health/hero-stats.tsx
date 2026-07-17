@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { Card, Group, SimpleGrid, Skeleton, Stack, Text, Tooltip } from '@mantine/core'
+import { Box, Card, Group, SimpleGrid, Skeleton, Stack, Text, Tooltip } from '@mantine/core'
 import { IconInfoCircle } from '@tabler/icons-react'
+import { VX } from 'basalt-ui/tokens'
 import {
   fitnessDirectionQueries,
   recoveryQueries,
@@ -13,10 +14,12 @@ import type { SummaryParams } from './types'
 function InfoIcon({ tooltip }: { tooltip: string }) {
   return (
     <Tooltip label={tooltip} multiline w={320} withArrow position="bottom-start">
-      <IconInfoCircle
-        size={12}
-        style={{ marginLeft: 4, opacity: 0.45, cursor: 'help', verticalAlign: 'middle' }}
-      />
+      <Box component="span" ml={4}>
+        <IconInfoCircle
+          size={12}
+          style={{ opacity: 0.45, cursor: 'help', verticalAlign: 'middle' }}
+        />
+      </Box>
     </Tooltip>
   )
 }
@@ -39,7 +42,7 @@ function HeroCard({
   breakdown?: string
 }) {
   return (
-    <Card padding="md" withBorder h="100%">
+    <Card py="xs" px="sm" h="100%">
       <Group gap={0} mb={6}>
         <Text size="xs" c="dimmed">
           {label}
@@ -47,7 +50,9 @@ function HeroCard({
         <InfoIcon tooltip={tooltip} />
       </Group>
       <Group gap={8} align="baseline">
-        <Text style={{ fontSize: 32, fontWeight: 700, lineHeight: 1, color }}>{value}</Text>
+        <Text style={{ fontSize: VX.text.kpi, fontWeight: 700, lineHeight: 1, color }}>
+          {value}
+        </Text>
         {unit !== undefined && unit.length > 0 && (
           <Text size="sm" c="dimmed">
             {unit}
@@ -70,7 +75,7 @@ function HeroCard({
 
 function HeroCardSkeleton({ label }: { label: string }) {
   return (
-    <Card padding="md" withBorder h="100%">
+    <Card py="xs" px="sm" h="100%">
       <Text size="xs" c="dimmed" mb={6}>
         {label}
       </Text>
@@ -181,7 +186,7 @@ export function HeroStats({ params }: { params: SummaryParams }) {
  */
 export function Placeholder({ label, height = 240 }: { label: string; height?: number }) {
   return (
-    <Card padding="md" withBorder>
+    <Card py="xs" px="sm">
       <Stack gap={4} justify="center" align="center" h={height}>
         <Text fw={600}>{label}</Text>
         <Text size="xs" c="dimmed">

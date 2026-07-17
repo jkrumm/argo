@@ -8,7 +8,7 @@ import { IconBarbell } from '@tabler/icons-react'
  */
 export function EmptyState() {
   return (
-    <Card padding="xl" withBorder>
+    <Card py="xs" px="sm">
       <Stack align="center" justify="center" gap="xs" py="xl">
         <IconBarbell size={48} stroke={1.5} opacity={0.4} />
         <Text fw={600} size="lg">

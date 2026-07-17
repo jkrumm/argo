@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
+import { Box } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
 import {
   AreaClosed,
   AreaGradient,
@@ -22,10 +22,12 @@ import {
   scaleLinear,
   scalePoint,
   smartTicks,
+  useChartSize,
   useHoverSync,
   useTooltipStyles,
   type LegendEntry,
-} from '@argo/charts'
+} from 'basalt-ui/charts'
+import { SERIES } from '../../../lib/series'
 import {
   skinfoldLogQueries,
   type SkinfoldSite,
@@ -52,8 +54,8 @@ const CHART_HEIGHT = 260
 const AREA_ID = 'skinfold-average-area'
 
 const SITE_COLORS: Record<SkinfoldSite, string> = {
-  abdominal: VX.series.skinfoldAbdominal,
-  suprailiac: VX.series.skinfoldSuprailiac,
+  abdominal: SERIES.skinfoldAbdominal,
+  suprailiac: SERIES.skinfoldSuprailiac,
 }
 
 function toChartPoints(points: ApiPoint[]): ChartPoint[] {
@@ -108,7 +110,7 @@ function SkinfoldChartInner({
     useHoverSync<ChartPoint>({
       data,
       chartId: 'skinfold',
-      getX: (d) => d.date,
+      getKey: (d) => d.date,
       xScale,
       marginLeft: MARGIN.left,
     })
@@ -259,16 +261,18 @@ function SkinfoldChartInner({
 
 export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams }) {
   const { data } = useSuspenseQuery(skinfoldLogQueries.series(params))
-  const { ref, width } = useElementSize<HTMLDivElement>()
+  const { ref, width } = useChartSize()
 
   const apiPoints = data.points as ApiPoint[]
   const chartData = useMemo(() => toChartPoints(apiPoints), [apiPoints])
   const latest = chartData[chartData.length - 1] ?? null
 
   const headerExtra = latest ? (
-    <span style={{ fontSize: 12 }}>
-      <span style={{ fontWeight: 600, fontSize: 14 }}>{latest.average.toFixed(1)} mm</span>
-      <span style={{ marginLeft: 4, opacity: 0.5 }}>avg</span>
+    <span style={{ fontSize: VX.text.xs }}>
+      <span style={{ fontWeight: 600, fontSize: VX.text.md }}>{latest.average.toFixed(1)} mm</span>
+      <Box component="span" ml={4} style={{ opacity: 0.5 }}>
+        avg
+      </Box>
     </span>
   ) : null
 
@@ -290,7 +294,7 @@ export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams
       tooltip={METRIC_TOOLTIPS.skinfoldChart}
       extra={headerExtra}
     >
-      <div ref={ref} style={{ height: CHART_HEIGHT, width: '100%' }}>
+      <Box ref={ref} h={CHART_HEIGHT} w="100%">
         {chartData.length === 0 ? (
           <ChartEmpty
             height={CHART_HEIGHT}
@@ -299,7 +303,7 @@ export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams
         ) : width > 0 ? (
           <SkinfoldChartInner data={chartData} width={Math.max(width, 200)} height={CHART_HEIGHT} />
         ) : null}
-      </div>
+      </Box>
       <ChartLegend items={legendItems} highlighted={null} onHighlight={() => {}} />
     </ChartCard>
   )

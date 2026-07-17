@@ -1,9 +1,9 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Suspense, useCallback, useMemo, useState } from 'react'
+import { Suspense, useCallback, useMemo } from 'react'
 import { Group, Stack } from '@mantine/core'
 import { z } from 'zod'
-import { HoverContext, type HoverCtx } from '@argo/charts'
-import { PageActions } from '../components/app-shell/page-header'
+import { ChartHoverSync } from 'basalt-ui/charts'
+import { PageActions } from 'basalt-ui'
 import {
   presetToParams,
   Section,
@@ -65,16 +65,6 @@ function BodyCompositionPage() {
 
   const params = useMemo<SummaryParams>(() => resolveWindow(search), [search])
 
-  // Cross-chart hover sync (Body Weight ↔ Skinfold)
-  const [hoverState, setHoverState] = useState<{ date: string | null; source: string | null }>({
-    date: null,
-    source: null,
-  })
-  const setHover = useCallback((date: string | null, source: string | null) => {
-    setHoverState({ date, source })
-  }, [])
-  const hoverCtx = useMemo<HoverCtx>(() => ({ ...hoverState, setHover }), [hoverState, setHover])
-
   const handlePresetChange = useCallback(
     (preset: WindowPreset) => {
       void navigate({
@@ -96,7 +86,7 @@ function BodyCompositionPage() {
   )
 
   return (
-    <HoverContext.Provider value={hoverCtx}>
+    <ChartHoverSync>
       {/* Page controls live in the shared top-bar slot; the breadcrumb names the page. */}
       <PageActions>
         <Group gap="sm" wrap="nowrap">
@@ -123,6 +113,6 @@ function BodyCompositionPage() {
           </Suspense>
         </Section>
       </Stack>
-    </HoverContext.Provider>
+    </ChartHoverSync>
   )
 }

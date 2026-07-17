@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { Chip, Group, Text } from '@mantine/core'
-import { VX } from '@argo/charts'
+import { SERIES } from '../../lib/series'
 
 export type MetricKey = 'distance' | 'duration' | 'steps'
 
@@ -24,9 +24,9 @@ export const METRIC_DEFS: Record<
   MetricKey,
   { label: string; color: string; format: (v: number) => string }
 > = {
-  distance: { label: 'Distance', color: VX.series.walkingDistance, format: fmtKm },
-  duration: { label: 'Duration', color: VX.series.walkingDuration, format: fmtMin },
-  steps: { label: 'Steps', color: VX.series.walkingSteps, format: fmtSteps },
+  distance: { label: 'Distance', color: SERIES.walkingDistance, format: fmtKm },
+  duration: { label: 'Duration', color: SERIES.walkingDuration, format: fmtMin },
+  steps: { label: 'Steps', color: SERIES.walkingSteps, format: fmtSteps },
 }
 
 // ── Global selection (localStorage-backed, cross-tab via storage event) ────

@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
-import { Bars, ChartCard, ChartLegend, TooltipRow, VX } from '@argo/charts'
+import { Box, Group } from '@mantine/core'
+import { Bars, ChartCard, TooltipRow } from 'basalt-ui/charts'
+import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { METRIC_DEFS, fmtSteps, useMetricSelection, type MetricKey } from '../metric-toggle'
 import { ChartEmpty } from './empty'
@@ -48,7 +49,6 @@ const fmtPct = (v: number) => `${Math.round(v * 100)}%`
 
 export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }) {
   const { data } = useSuspenseQuery(walkingPadQueries.series({ ...params, bucket: 'week' }))
-  const { ref, width } = useElementSize<HTMLDivElement>()
   const { enabled } = useMetricSelection()
 
   const points: Point[] = data.points
@@ -108,12 +108,12 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
   const marginLeft = !isMulti && singleMetric === 'steps' ? 64 : undefined
 
   const headerSummary = (
-    <span style={{ display: 'inline-flex', gap: 12, flexWrap: 'wrap' }}>
+    <Group gap="sm" wrap="wrap">
       {enabled.map((m) => (
         <span
           key={m}
           style={{
-            fontSize: 12,
+            fontSize: VX.text.xs,
             fontWeight: 600,
             color: isMulti ? METRIC_DEFS[m].color : VX.line,
           }}
@@ -121,7 +121,7 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
           {WEEKLY_METRICS[m].formatTotal(points.reduce((s, p) => s + WEEKLY_METRICS[m].pick(p), 0))}
         </span>
       ))}
-    </span>
+    </Group>
   )
 
   const renderExtraTooltipRows = isMulti
@@ -150,41 +150,35 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
       tooltip="ISO-week buckets within the window. With 2+ metrics, bars are normalized to each metric's own window-max so the rhythm is comparable; tooltips show absolute values."
       extra={hasData ? headerSummary : null}
     >
-      <div ref={ref} style={{ height: 280, width: '100%' }}>
-        {!hasData ? (
-          <ChartEmpty height={280} label="No weekly data in this window." />
-        ) : width > 0 ? (
-          <Bars<Point>
-            data={points}
-            width={Math.max(width, 200)}
-            height={280}
-            chartId="walking-pad-weekly-volume"
-            getX={(d) => d.date}
-            getValue={getValue}
-            positiveBars={positiveBars}
-            barLayout={isMulti ? 'grouped' : 'stacked'}
-            leftAxis={{
-              domain: isMulti ? [0, 1] : 'auto',
-              formatTick: isMulti ? fmtPct : (singleDef?.format ?? fmtPct),
-              numTicks: 5,
-              autoMaxFloor: isMulti ? undefined : singleConfig?.autoMaxFloor,
-            }}
-            formatValue={isMulti ? fmtPct : (singleDef?.format ?? fmtPct)}
-            marginLeft={marginLeft}
-            hideBarTooltipRows={isMulti}
-            renderExtraTooltipRows={renderExtraTooltipRows}
-          />
-        ) : null}
-      </div>
-      <ChartLegend
-        items={enabled.map((m) => ({
-          key: m,
-          label: `${METRIC_DEFS[m].label} / week`,
-          color: isMulti ? METRIC_DEFS[m].color : VX.line,
-          shape: 'bar' as const,
-        }))}
-      />
-      <span style={{ fontSize: 11, color: 'var(--mantine-color-dimmed)', marginTop: 4 }}>
+      {!hasData ? (
+        <ChartEmpty height={280} label="No weekly data in this window." />
+      ) : (
+        <Bars
+          ariaLabel="Weekly volume, ISO-week totals of the enabled walking metrics"
+          data={points}
+          height={280}
+          chartId="walking-pad-weekly-volume"
+          getX={(d) => d.date}
+          getValue={getValue}
+          positiveBars={positiveBars}
+          barLayout={isMulti ? 'grouped' : 'stacked'}
+          leftAxis={{
+            domain: isMulti ? [0, 1] : 'auto',
+            formatTick: isMulti ? fmtPct : (singleDef?.format ?? fmtPct),
+            numTicks: 5,
+            autoMaxFloor: isMulti ? undefined : singleConfig?.autoMaxFloor,
+          }}
+          formatValue={isMulti ? fmtPct : (singleDef?.format ?? fmtPct)}
+          marginLeft={marginLeft}
+          hideBarTooltipRows={isMulti}
+          renderExtraTooltipRows={renderExtraTooltipRows}
+        />
+      )}
+      <Box
+        component="span"
+        mt={4}
+        style={{ fontSize: VX.text.micro, color: 'var(--mantine-color-dimmed)' }}
+      >
         {hasData && !isMulti && singleConfig !== null
           ? `${singleConfig.formatAvg(
               points.reduce((s, p) => s + WEEKLY_METRICS[singleMetric as MetricKey].pick(p), 0) /
@@ -193,7 +187,7 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
           : isMulti
             ? `Bars normalized per metric (0–100% of window max). Hover for absolute values.`
             : ''}
-      </span>
+      </Box>
     </ChartCard>
   )
 }

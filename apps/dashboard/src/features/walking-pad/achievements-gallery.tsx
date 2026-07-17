@@ -9,6 +9,7 @@ import {
   IconRoute,
   IconTrophy,
 } from '@tabler/icons-react'
+import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries } from '../../lib/queries/walking-pad'
 import { relativeTime } from './formatters'
 
@@ -38,7 +39,7 @@ export function AchievementsGallery({ matchHeight }: { matchHeight?: number }) {
   const { data } = useSuspenseQuery(walkingPadQueries.achievements({ limit: 50 }))
   if (data.data.length === 0) {
     return (
-      <Card padding="md" withBorder h={matchHeight}>
+      <Card py="xs" px="sm" h={matchHeight}>
         <Text size="sm" c="dimmed">
           No achievements yet — first walk unlocks one.
         </Text>
@@ -52,7 +53,7 @@ export function AchievementsGallery({ matchHeight }: { matchHeight?: number }) {
   const HEADER_RESERVE = 64
   const scrollHeight = matchHeight !== undefined ? Math.max(180, matchHeight - HEADER_RESERVE) : 320
   return (
-    <Card padding="md" withBorder h={matchHeight}>
+    <Card py="xs" px="sm" h={matchHeight}>
       <Group justify="space-between" mb="xs">
         <Text fw={600} size="sm">
           Achievements
@@ -71,7 +72,7 @@ export function AchievementsGallery({ matchHeight }: { matchHeight?: number }) {
               align="flex-start"
               p={8}
               style={{
-                borderRadius: 8,
+                borderRadius: VX.radiusCtrl,
                 background: 'var(--mantine-color-default-hover)',
               }}
             >

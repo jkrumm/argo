@@ -1,10 +1,10 @@
-import { Suspense, useCallback, useMemo, useState } from 'react'
+import { Suspense, useCallback, useMemo } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Grid, Group, SimpleGrid, Stack } from '@mantine/core'
 import { useElementSize, useMediaQuery } from '@mantine/hooks'
-import { HoverContext, type HoverCtx } from '@argo/charts'
+import { ChartHoverSync } from 'basalt-ui/charts'
 import { z } from 'zod'
-import { PageActions } from '../components/app-shell/page-header'
+import { PageActions } from 'basalt-ui'
 import {
   AchievementsGallery,
   ChartSkeleton,
@@ -62,20 +62,6 @@ function WalkingPadPage() {
   // Toast + confetti on new achievement unlocks. Side-effect hook.
   useAchievementWatcher()
 
-  // Cross-chart hover sync. The kinds (Bars, ZonedLine) auto-wire via
-  // useHoverSync; we just supply the Provider here. Charts on incompatible
-  // x-axes (week buckets, length-histogram buckets) naturally don't match
-  // each other's date strings, so they coexist without false crosshairs.
-  // The time-of-day heatmap is bespoke SVG and stays outside this system.
-  const [hoverState, setHoverState] = useState<{ date: string | null; source: string | null }>({
-    date: null,
-    source: null,
-  })
-  const setHover = useCallback((date: string | null, source: string | null) => {
-    setHoverState({ date, source })
-  }, [])
-  const hoverCtx = useMemo<HoverCtx>(() => ({ ...hoverState, setHover }), [hoverState, setHover])
-
   // Mirror the left column's height into the achievements card on lg+ so the
   // two columns line up. Below lg the columns stack — the prop drops back to
   // undefined and the gallery uses its own default scroll height.
@@ -90,7 +76,7 @@ function WalkingPadPage() {
   const bottomMatchHeight = isLg === true && historyHeight > 0 ? historyHeight : undefined
 
   return (
-    <HoverContext.Provider value={hoverCtx}>
+    <ChartHoverSync>
       {/* Page controls live in the shared top-bar slot; the breadcrumb names the page. */}
       <PageActions>
         <Group gap="sm" wrap="nowrap">
@@ -162,6 +148,6 @@ function WalkingPadPage() {
           </Grid.Col>
         </Grid>
       </Stack>
-    </HoverContext.Provider>
+    </ChartHoverSync>
   )
 }

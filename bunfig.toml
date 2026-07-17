@@ -1,0 +1,13 @@
+# Repo-local Bun config. Merges with the global ~/.bunfig.toml (dotfiles) —
+# verified on bun 1.3.14: a local [install] section does NOT replace the global
+# one, so the global 3-day `minimumReleaseAge` cooldown still gates every
+# package except the ones excluded below.
+
+[install]
+# basalt-ui is first-party: we publish it ourselves from ~/SourceRoot/basalt-ui
+# with npm provenance, and argo is its reference consumer — so a fresh release is
+# consumed here the same day it ships. The cooldown exists to dodge third-party
+# supply-chain compromise (hijacked maintainer accounts, typosquats); that threat
+# model doesn't apply to a package we cut ourselves. Every other dependency keeps
+# the full 3-day cooldown.
+minimumReleaseAgeExcludes = ["basalt-ui"]

@@ -1,4 +1,5 @@
-import { VX } from '@argo/charts'
+import { VX } from 'basalt-ui/tokens'
+import { SERIES } from '../../lib/series'
 import { EXERCISES, METRICS, ZONE_COLORS, type ExerciseKey, type MetricKey } from './constants'
 
 /**
@@ -136,11 +137,11 @@ export function readinessVerdictColor(verdict: ReadinessVerdict | null): string 
 // ── INOL ────────────────────────────────────────────────────────────────────
 
 export function inolDotColor(inol: number | null): string {
-  if (inol === null) return VX.series.acwr
-  if (inol < 0.4) return VX.series.acwr
+  if (inol === null) return SERIES.acwr
+  if (inol < 0.4) return SERIES.acwr
   if (inol < 0.6) return VX.warnSolid
   if (inol <= 1.0) return VX.goodSolid
-  if (inol <= 1.5) return VX.series.calories
+  if (inol <= 1.5) return SERIES.calories
   return VX.badSolid
 }
 

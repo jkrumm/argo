@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Card, Group, SimpleGrid, Skeleton, Text, ThemeIcon, Tooltip } from '@mantine/core'
+import { Box, Card, Group, SimpleGrid, Skeleton, Text, ThemeIcon, Tooltip } from '@mantine/core'
 import {
   IconArrowDownRight,
   IconArrowRight,
@@ -10,6 +10,7 @@ import {
   IconRoute,
   IconWalk,
 } from '@tabler/icons-react'
+import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../lib/queries/walking-pad'
 import { HERO_TOOLTIPS } from './constants'
 import { formatDeltaKmh, formatKm, formatPace, formatPct } from './formatters'
@@ -45,9 +46,11 @@ function colorFor(d: Direction): string {
 function InfoIcon({ tooltip }: { tooltip: string }) {
   return (
     <Tooltip label={tooltip} multiline w={320} withArrow position="bottom-start">
-      <IconInfoCircle
+      <Box
+        component={IconInfoCircle}
         size={12}
-        style={{ marginLeft: 4, opacity: 0.45, cursor: 'help', verticalAlign: 'middle' }}
+        ml={4}
+        style={{ opacity: 0.45, cursor: 'help', verticalAlign: 'middle' }}
       />
     </Tooltip>
   )
@@ -73,7 +76,7 @@ function HeroCard({
   icon?: ReactNode
 }) {
   return (
-    <Card padding="md" withBorder h="100%">
+    <Card py="xs" px="sm" h="100%">
       <Group gap={0} mb={6} justify="space-between">
         <Group gap={6}>
           {icon !== undefined && (
@@ -88,7 +91,7 @@ function HeroCard({
         </Group>
       </Group>
       <Group gap={8} align="baseline" wrap="nowrap">
-        <Text style={{ fontSize: 32, fontWeight: 700, lineHeight: 1 }} c={color}>
+        <Text style={{ fontSize: VX.text.kpi, fontWeight: 700, lineHeight: 1 }} c={color}>
           {value}
         </Text>
         {unit !== undefined && (
@@ -204,7 +207,7 @@ export function HeroStatsSkeleton() {
   return (
     <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
       {Array.from({ length: 3 }).map((_, i) => (
-        <Card key={i} padding="md" withBorder h="100%">
+        <Card key={i} py="xs" px="sm" h="100%">
           <Skeleton height={12} width={100} mb={8} />
           <Skeleton height={32} width={140} mb={8} />
           <Skeleton height={10} width={180} />
@@ -216,7 +219,7 @@ export function HeroStatsSkeleton() {
 
 export function ChartSkeleton({ height = 320 }: { height?: number }) {
   return (
-    <Card padding="md" withBorder>
+    <Card py="xs" px="sm">
       <Skeleton height={14} width={140} radius="sm" mb="sm" />
       <Skeleton height={height - 40} radius="sm" />
     </Card>

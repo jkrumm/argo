@@ -70,12 +70,19 @@ export default defineConfig({
   resolve: {
     alias: {
       '@argo/api': resolve(import.meta.dirname, '../api/src'),
-      '@argo/charts': resolve(import.meta.dirname, '../../packages/charts/src'),
     },
     // Force Mantine packages to resolve to a single instance. Without dedupe,
     // Vite's optimizer can stamp a second copy of @mantine/core into
     // @mantine/schedule's pre-bundle, which breaks MantineProvider context.
-    dedupe: ['react', 'react-dom', '@mantine/core', '@mantine/hooks', '@mantine/dates'],
+    dedupe: [
+      'react',
+      'react-dom',
+      '@mantine/core',
+      '@mantine/hooks',
+      '@mantine/dates',
+      '@mantine/spotlight',
+      '@tanstack/react-hotkeys',
+    ],
   },
   optimizeDeps: {
     // Pre-bundle all Mantine subpackages together so they share one
@@ -88,6 +95,8 @@ export default defineConfig({
       '@mantine/modals',
       '@mantine/notifications',
       '@mantine/schedule',
+      '@mantine/spotlight',
+      '@tanstack/react-hotkeys',
     ],
   },
 })

@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
-import { Bars, ChartCard, ChartLegend, TooltipRow, VX, useVxTheme } from '@argo/charts'
+import { Bars, ChartCard, TooltipRow, VX } from 'basalt-ui/charts'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
+import { SERIES } from '../../../lib/series'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
@@ -81,9 +81,6 @@ function sleepGetValue(d: SleepPoint, key: string): number | null {
 
 export default function SleepBreakdownChart({ params }: { params: SummaryParams }) {
   const { data } = useSuspenseQuery(dailyMetricsQueries.series(params))
-  const { line } = useVxTheme()
-  const { ref, width } = useElementSize<HTMLDivElement>()
-  const [highlighted, setHighlighted] = useState<string | null>(null)
 
   const points = useMemo(
     () => applyVisibilityFilter(data.points as SeriesPoint[], (p) => p.date, { hideToday: false }),
@@ -98,8 +95,8 @@ export default function SleepBreakdownChart({ params }: { params: SummaryParams 
           const total = latest.deep + latest.light + latest.rem
           const color = sleepScoreColor(latest.sleepScore)
           return (
-            <span style={{ fontSize: 12 }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color }}>
+            <span style={{ fontSize: VX.text.xs }}>
+              <span style={{ fontSize: VX.text.md, fontWeight: 600, color }}>
                 {Math.round(latest.sleepScore)}
               </span>
               {total > 0 && <span style={{ opacity: 0.5 }}> · {fmtHours(total)}</span>}
@@ -115,106 +112,87 @@ export default function SleepBreakdownChart({ params }: { params: SummaryParams 
       tooltip={METRIC_TOOLTIPS.sleepStages}
       extra={headerExtra}
     >
-      <div ref={ref} style={{ height: CHART_HEIGHT, width: '100%' }}>
-        {sleepData.length === 0 ? (
-          <ChartEmpty height={CHART_HEIGHT} />
-        ) : width > 0 ? (
-          <Bars<SleepPoint>
-            data={sleepData}
-            width={Math.max(width, 200)}
-            height={CHART_HEIGHT}
-            chartId={CHART_ID}
-            getX={(d) => d.date}
-            getValue={sleepGetValue}
-            positiveBars={[
-              {
-                key: SLEEP_KEYS.deep,
-                label: 'Deep',
-                color: VX.series.deep,
-                formatValue: fmtHours,
-              },
-              {
-                key: SLEEP_KEYS.light,
-                label: 'Light',
-                color: VX.series.light,
-                formatValue: fmtHours,
-              },
-              {
-                key: SLEEP_KEYS.rem,
-                label: 'REM',
-                color: VX.series.rem,
-                formatValue: fmtHours,
-              },
-            ]}
-            negativeBars={[
-              {
-                key: SLEEP_KEYS.awake,
-                label: 'Awake',
-                color: VX.series.awake,
-                formatValue: fmtHours,
-              },
-            ]}
-            lines={[
-              {
-                key: SLEEP_KEYS.sleepScore,
-                label: 'Sleep Score',
-                color: line,
-                axisSide: 'right',
-                strokeWidth: 2,
-                formatValue: (v) => String(Math.round(v)),
-              },
-            ]}
-            zones={[{ from: 7, to: 9, fill: VX.goodSoft, axisSide: 'left' }]}
-            leftAxis={{
-              domain: 'auto',
-              autoPad: 1.05,
-              autoMaxFloor: 9,
-              autoMinCeil: -1,
-              numTicks: 6,
-              formatTick: (v) => (v < 0 ? `−${Math.abs(v)}h` : `${v}h`),
-            }}
-            rightAxis={{ domain: [0, 100], numTicks: 4 }}
-            tooltipLabel={(d) =>
-              d.sleepScore === null
-                ? null
-                : {
-                    text: String(Math.round(d.sleepScore)),
-                    color: sleepScoreColor(d.sleepScore),
-                  }
-            }
-            renderPrefixTooltipRows={(d) => {
-              const total = d.deep + d.light + d.rem
-              if (total <= 0) return null
-              return (
-                <TooltipRow
-                  color={line}
-                  label="Total sleep"
-                  value={fmtHours(total)}
-                  shape="line"
-                  strokeWidth={2}
-                />
-              )
-            }}
-            highlightedKey={highlighted}
-          />
-        ) : null}
-      </div>
-      <ChartLegend
-        items={[
-          { key: SLEEP_KEYS.deep, label: 'Deep', color: VX.series.deep, shape: 'bar' },
-          { key: SLEEP_KEYS.light, label: 'Light', color: VX.series.light, shape: 'bar' },
-          { key: SLEEP_KEYS.rem, label: 'REM', color: VX.series.rem, shape: 'bar' },
-          { key: SLEEP_KEYS.awake, label: 'Awake', color: VX.series.awake, shape: 'bar' },
-          {
-            key: SLEEP_KEYS.sleepScore,
-            label: 'Sleep Score',
-            color: line,
-            strokeWidth: 2,
-          },
-        ]}
-        highlighted={highlighted}
-        onHighlight={setHighlighted}
-      />
+      {sleepData.length === 0 ? (
+        <ChartEmpty height={CHART_HEIGHT} />
+      ) : (
+        <Bars
+          ariaLabel="Sleep stages breakdown with sleep score overlay"
+          data={sleepData}
+          height={CHART_HEIGHT}
+          chartId={CHART_ID}
+          getX={(d) => d.date}
+          getValue={sleepGetValue}
+          positiveBars={[
+            {
+              key: SLEEP_KEYS.deep,
+              label: 'Deep',
+              color: SERIES.deep,
+              formatValue: fmtHours,
+            },
+            {
+              key: SLEEP_KEYS.light,
+              label: 'Light',
+              color: SERIES.light,
+              formatValue: fmtHours,
+            },
+            {
+              key: SLEEP_KEYS.rem,
+              label: 'REM',
+              color: SERIES.rem,
+              formatValue: fmtHours,
+            },
+          ]}
+          negativeBars={[
+            {
+              key: SLEEP_KEYS.awake,
+              label: 'Awake',
+              color: SERIES.awake,
+              formatValue: fmtHours,
+            },
+          ]}
+          lines={[
+            {
+              key: SLEEP_KEYS.sleepScore,
+              label: 'Sleep Score',
+              color: VX.line,
+              axisSide: 'right',
+              strokeWidth: 2,
+              formatValue: (v) => String(Math.round(v)),
+            },
+          ]}
+          zones={[{ from: 7, to: 9, fill: VX.goodSoft, axisSide: 'left' }]}
+          leftAxis={{
+            domain: 'auto',
+            autoPad: 1.05,
+            autoMaxFloor: 9,
+            autoMinCeil: -1,
+            numTicks: 6,
+            formatTick: (v) => (v < 0 ? `−${Math.abs(v)}h` : `${v}h`),
+          }}
+          rightAxis={{ domain: [0, 100], numTicks: 4 }}
+          tooltipLabel={(d) =>
+            d.sleepScore === null
+              ? null
+              : {
+                  text: String(Math.round(d.sleepScore)),
+                  color: sleepScoreColor(d.sleepScore),
+                }
+          }
+          renderPrefixTooltipRows={(d) => {
+            const total = d.deep + d.light + d.rem
+            if (total <= 0) return null
+            return (
+              <TooltipRow
+                color={VX.line}
+                label="Total sleep"
+                value={fmtHours(total)}
+                shape="line"
+                strokeWidth={2}
+              />
+            )
+          }}
+        />
+      )}
     </ChartCard>
   )
 }

@@ -10,7 +10,7 @@ import {
   IconWalk,
 } from '@tabler/icons-react'
 import { useDocumentVisibility } from '@mantine/hooks'
-import { VX } from '@argo/charts'
+import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries } from '../../lib/queries/walking-pad'
 import {
   formatDurationClock,
@@ -73,7 +73,7 @@ function LiveCardActive({ live }: { live: LiveSnapshot }) {
   const isPaused = live.state === 'paused'
 
   return (
-    <Card padding="lg" withBorder shadow="sm">
+    <Card py="xs" px="sm" shadow="sm">
       <Stack gap="sm">
         <Group justify="space-between" align="flex-start" wrap="nowrap">
           <Group gap="sm" wrap="nowrap">
@@ -148,7 +148,7 @@ function LiveCardIdle() {
   const last = list.data[0]
   if (last === undefined) {
     return (
-      <Card padding="lg" withBorder>
+      <Card py="xs" px="sm">
         <Group gap="sm">
           <ThemeIcon size="lg" radius="xl" variant="light" color="gray">
             <IconWalk size={20} />
@@ -164,7 +164,7 @@ function LiveCardIdle() {
     )
   }
   return (
-    <Card padding="lg" withBorder>
+    <Card py="xs" px="sm">
       <Group justify="space-between" wrap="wrap" gap="sm">
         <Group gap="sm" wrap="nowrap">
           <ThemeIcon size="lg" radius="xl" variant="light" color="gray">
@@ -200,7 +200,7 @@ function SpeedTile({ speedKmh }: { speedKmh: number }) {
         Current speed
       </Text>
       <Group gap={6} justify="flex-end" align="baseline" mt={2}>
-        <Text style={{ fontVariantNumeric: 'tabular-nums' }} fw={700} fz={40} lh={1}>
+        <Text style={{ fontVariantNumeric: 'tabular-nums' }} fw={700} fz={VX.text.kpi} lh={1}>
           {speedKmh.toFixed(1)}
         </Text>
         <Text size="sm" c="dimmed">
@@ -236,7 +236,7 @@ function BigTile({
       </Group>
       <Text
         fw={700}
-        fz={22}
+        fz={VX.text.kpi}
         style={mono ? { fontVariantNumeric: 'tabular-nums' } : undefined}
         lh={1.1}
       >
@@ -252,7 +252,7 @@ function MiniStat({ label, value, color }: { label: string; value: string; color
       <Text size="xs" c="dimmed" tt="uppercase" fw={600} lh={1}>
         {label}
       </Text>
-      <Text fw={700} fz={18} c={color}>
+      <Text fw={700} fz={VX.text.xl} c={color}>
         {value}
       </Text>
     </Box>
@@ -269,7 +269,7 @@ function PulseDot({ color, active }: { color: string; active: boolean }) {
         style={{
           width: 8,
           height: 8,
-          borderRadius: '50%',
+          borderRadius: 'var(--mantine-radius-xl)',
           background: `var(--mantine-color-${color}-6)`,
           animation: active ? 'wp-pulse 1.6s infinite' : undefined,
         }}
@@ -280,7 +280,7 @@ function PulseDot({ color, active }: { color: string; active: boolean }) {
 
 export function LiveCardSkeleton() {
   return (
-    <Card padding="lg" withBorder>
+    <Card py="xs" px="sm">
       <Stack gap="sm">
         <Group justify="space-between">
           <Skeleton height={36} width={200} />

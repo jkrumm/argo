@@ -10,7 +10,7 @@ import { Stack, Text } from '@mantine/core'
 export function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Stack gap="xs">
-      <Text fw={600} size="sm" style={{ opacity: 0.65, marginTop: 4 }}>
+      <Text fw={600} size="sm" mt={4} style={{ opacity: 0.65 }}>
         {title}
       </Text>
       {children}

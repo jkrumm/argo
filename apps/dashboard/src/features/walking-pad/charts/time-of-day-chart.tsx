@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useElementSize } from '@mantine/hooks'
-import { Group as MGroup, Stack, Text } from '@mantine/core'
+import { Box, Group as MGroup, Stack, Text } from '@mantine/core'
 import { useMemo } from 'react'
 import {
   ChartCard,
@@ -10,11 +10,10 @@ import {
   TooltipRow,
   useChartTooltip,
   useTooltipStyles,
-  useVxTheme,
-  VX,
-  alpha,
-} from '@argo/charts'
+} from 'basalt-ui/charts'
+import { VX, alpha } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
+import { SERIES } from '../../../lib/series'
 import { ChartEmpty } from './empty'
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -29,9 +28,9 @@ type Cell = { hour: number; dow: number; sessions: number; distance_m: number }
 
 /**
  * Local hour-of-day × day-of-week heatmap. Bespoke (no kind primitive matches)
- * but stays inside the chart contract — pulls colors from VX and resolves
- * theme neutrals via useVxTheme. Cells fade from a neutral grid color
- * (no walks) toward the WalkingPad distance hue (max walks in the window).
+ * but stays inside the chart contract — pulls colors from theme-aware VX
+ * CSS-var tokens. Cells fade from a neutral grid color (no walks) toward the
+ * WalkingPad distance hue (max walks in the window).
  */
 // Chrome eaten by ChartCard around the SVG body when `matchHeight` is set:
 // ~44px header (title+subtitle row + 1px border) + 16px body vertical padding
@@ -42,8 +41,8 @@ const CHART_CARD_CHROME = 82
 const DEFAULT_HEIGHT = 240
 
 /** WalkingPad distance hue (theme-aware) at a given opacity — drives the heat intensity. */
-const distFill = (alpha: number) =>
-  `color-mix(in srgb, ${VX.series.walkingDistance} ${Math.round(alpha * 100)}%, transparent)`
+const distFill = (opacity: number) =>
+  `color-mix(in srgb, ${SERIES.walkingDistance} ${Math.round(opacity * 100)}%, transparent)`
 
 export function TimeOfDayChart({
   params,
@@ -54,7 +53,6 @@ export function TimeOfDayChart({
 }) {
   const { data } = useSuspenseQuery(walkingPadQueries.hourOfDay(params))
   const { ref, width } = useElementSize<HTMLDivElement>()
-  const { axis, line, tooltipMuted } = useVxTheme()
   const tooltipStyles = useTooltipStyles()
   const { tip, show, hide, tooltipRef } = useChartTooltip<Cell>()
   const cells: Cell[] = useMemo(
@@ -114,13 +112,13 @@ export function TimeOfDayChart({
       tooltip="Heatmap of walking activity by day-of-week × hour-of-day (UTC). Each session lights up every hour it touched, not just its start hour — so a 2-hour walk starting at 14:00 colours 14:00, 15:00, and the partial overlap at 16:00. Darker cells = more sessions active in that hour. Useful for spotting whether the desk-treadmill habit aligns with your meeting calendar or evening routine."
       extra={
         busiest !== null ? (
-          <span style={{ fontSize: 12, fontWeight: 600 }}>
+          <span style={{ fontSize: VX.text.xs, fontWeight: 600 }}>
             Peak: {DAY_LABELS[busiest.dow]} {String(busiest.hour).padStart(2, '0')}:00
           </span>
         ) : null
       }
     >
-      <div ref={ref} style={{ height, width: '100%' }}>
+      <Box ref={ref} h={height} w="100%">
         {width > 0 ? (
           <svg width={width} height={height}>
             <Group left={padLeft} top={padTop}>
@@ -152,8 +150,8 @@ export function TimeOfDayChart({
                   x={padLeft - 6}
                   y={i * cellH + cellH / 2 + 4}
                   textAnchor="end"
-                  fontSize={10}
-                  fill={axis}
+                  fontSize={VX.text.micro}
+                  fill={VX.axis}
                 >
                   {d}
                 </text>
@@ -167,8 +165,8 @@ export function TimeOfDayChart({
                   x={(h - MIN_HOUR) * cellW + cellW / 2}
                   y={14}
                   textAnchor="middle"
-                  fontSize={10}
-                  fill={axis}
+                  fontSize={VX.text.micro}
+                  fill={VX.axis}
                 >
                   {String(h).padStart(2, '0')}:00
                 </text>
@@ -176,7 +174,7 @@ export function TimeOfDayChart({
             </Group>
             {/* Legend gradient strip on the right margin */}
             <Group left={width - LEGEND_OFFSET} top={padTop}>
-              <text x={0} y={-2} fontSize={9} fill={axis}>
+              <text x={0} y={-2} fontSize={VX.text.micro} fill={VX.axis}>
                 more
               </text>
               <defs>
@@ -186,15 +184,13 @@ export function TimeOfDayChart({
                 </linearGradient>
               </defs>
               <rect width={6} height={cellH * 7} fill="url(#wp-heat-gradient)" rx={2} />
-              <text x={0} y={cellH * 7 + 10} fontSize={9} fill={axis}>
+              <text x={0} y={cellH * 7 + 10} fontSize={VX.text.micro} fill={VX.axis}>
                 less
               </text>
             </Group>
-            {/* Hidden reference to line so it stays in deps for theme refresh */}
-            <text style={{ display: 'none' }}>{line}</text>
           </svg>
         ) : null}
-      </div>
+      </Box>
       <MGroup justify="flex-start" mt={4}>
         <Text size="xs" c="dimmed">
           {String(MIN_HOUR).padStart(2, '0')}:00–{String(MAX_HOUR - 1).padStart(2, '0')}:59 UTC ·{' '}
@@ -205,20 +201,22 @@ export function TimeOfDayChart({
       <ChartTooltip tip={tip} tooltipRef={tooltipRef} styles={tooltipStyles}>
         {tip !== null && (
           <>
-            <div
+            <Box
+              px="xs"
+              py={6}
               style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 16,
-                padding: '6px 10px',
-                borderBottom: `1px solid ${alpha(VX.neutral, 0.2)}`,
+                // Already routed through the alpha() token helper (basalt-tokens.md: "opacity via
+                // alpha(), never rgba()"); the static guard can't see through the call to VX.neutral
+                // inside the template literal.
+                borderBottom: `1px solid ${alpha(VX.neutral, 0.2)}`, // theme-allow: on-token via alpha()
               }}
             >
-              <span style={{ fontSize: 11, color: tooltipMuted }}>
-                {DAY_LABELS[tip.data.dow]} · {String(tip.data.hour).padStart(2, '0')}:00 UTC
-              </span>
-            </div>
+              <MGroup justify="space-between" align="center" gap="md" wrap="nowrap">
+                <span style={{ fontSize: VX.text.micro, color: VX.muted }}>
+                  {DAY_LABELS[tip.data.dow]} · {String(tip.data.hour).padStart(2, '0')}:00 UTC
+                </span>
+              </MGroup>
+            </Box>
             <TooltipBody>
               <TooltipRow
                 color={distFill(0.9)}

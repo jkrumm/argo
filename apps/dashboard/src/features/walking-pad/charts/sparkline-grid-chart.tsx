@@ -1,7 +1,7 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
-import { Card, SimpleGrid, Stack, Text } from '@mantine/core'
-import { LineSparkline, VX } from '@argo/charts'
+import { Box, Card, SimpleGrid, Stack, Text } from '@mantine/core'
+import { LineSparkline, useChartSize } from 'basalt-ui/charts'
+import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 
 type Metric = {
@@ -80,7 +80,7 @@ export function SparklineGridChart({ params }: { params: WalkingPadWindowParams 
 
   if (points.length === 0) {
     return (
-      <Card padding="md" withBorder>
+      <Card py="xs" px="sm">
         <Text size="sm" c="dimmed">
           No walks in this window — sparklines unlock on first session.
         </Text>
@@ -89,7 +89,7 @@ export function SparklineGridChart({ params }: { params: WalkingPadWindowParams 
   }
 
   return (
-    <Card padding="md" withBorder>
+    <Card py="xs" px="sm">
       <Text fw={600} size="sm" mb="xs">
         At-a-glance trends
       </Text>
@@ -103,7 +103,7 @@ export function SparklineGridChart({ params }: { params: WalkingPadWindowParams 
 }
 
 function SparkTile({ metric, points }: { metric: Metric; points: SeriesPoint[] }) {
-  const { ref, width } = useElementSize<HTMLDivElement>()
+  const { ref, width } = useChartSize()
   const values = points.map((p) => metric.pick(p)).filter((v): v is number => v !== null && v > 0)
   const latest = values.length > 0 ? (values[values.length - 1] ?? null) : null
   const max = values.length > 0 ? Math.max(...values) : 0
@@ -117,16 +117,17 @@ function SparkTile({ metric, points }: { metric: Metric; points: SeriesPoint[] }
       <Text fw={700} size="lg" lh={1.1}>
         {latest !== null ? metric.format(latest) : '—'}
       </Text>
-      <div ref={ref} style={{ height: 36, width: '100%' }} aria-label={metric.ariaLabel}>
+      <Box ref={ref} h={36} w="100%" aria-label={metric.ariaLabel}>
         {width > 0 ? (
           <LineSparkline
+            ariaLabel={metric.ariaLabel}
             data={points.map((p) => metric.pick(p) ?? 0)}
             width={Math.max(width, 60)}
             height={36}
             color={metric.color}
           />
         ) : null}
-      </div>
+      </Box>
       <Text size="xs" c="dimmed">
         avg {metric.format(avg)} · best {metric.format(max)}
       </Text>

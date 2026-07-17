@@ -66,13 +66,7 @@ export function AttachmentDisplay({ attachment }: { attachment: Attachment }) {
       </Group>
       {hasContent && (
         <Collapse expanded={expanded}>
-          <Paper
-            withBorder
-            radius="sm"
-            p="xs"
-            mt={6}
-            style={{ background: 'var(--mantine-color-default-hover)' }}
-          >
+          <Paper p="xs" mt={6} style={{ background: 'var(--mantine-color-default-hover)' }}>
             <Text size="xs" style={{ whiteSpace: 'pre-wrap' }}>
               {attachment.content}
             </Text>

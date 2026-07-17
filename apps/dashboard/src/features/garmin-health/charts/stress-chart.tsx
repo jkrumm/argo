@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
 import {
   AxisBottomDate,
   AxisLeftNumeric,
   ChartCard,
+  ChartFrame,
   ChartLegend,
   ChartTooltip,
+  Crosshair,
   GridRows,
   Group,
   HoverOverlay,
@@ -17,13 +18,14 @@ import {
   TooltipRow,
   VX,
   curveMonotoneX,
+  deriveLegend,
   scaleLinear,
   scalePoint,
   smartTicks,
   useHoverSync,
   useTooltipStyles,
-  useVxTheme,
-} from '@argo/charts'
+  type SeriesStyle,
+} from 'basalt-ui/charts'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
@@ -48,9 +50,20 @@ function stressZoneLabel(v: number): { text: string; color: string } {
   return { text: 'Rest', color: VX.goodSolid }
 }
 
+const STRESS_LEGEND_SERIES: readonly SeriesStyle[] = [
+  { key: 'avg', label: 'Avg Stress', color: VX.warnSolid, mark: 'bar' },
+  {
+    key: 'sleep',
+    label: 'Overnight',
+    color: VX.line2,
+    mark: 'line',
+    dash: 'dashed',
+    strokeWidth: 1.5,
+  },
+]
+
 export default function StressChart({ params }: { params: SummaryParams }) {
   const { data } = useSuspenseQuery(dailyMetricsQueries.series(params))
-  const { ref, width } = useElementSize<HTMLDivElement>()
   const [highlighted, setHighlighted] = useState<string | null>(null)
 
   const chartData = useMemo<StressPoint[]>(
@@ -78,10 +91,10 @@ export default function StressChart({ params }: { params: SummaryParams }) {
       tooltip={METRIC_TOOLTIPS.stress}
       extra={
         latest && latest.avgStress !== null && latestZone ? (
-          <span style={{ fontSize: 12 }}>
+          <span style={{ fontSize: VX.text.xs }}>
             <span
               style={{
-                fontSize: 14,
+                fontSize: VX.text.md,
                 fontWeight: 600,
                 color: latestZone.color,
               }}
@@ -93,31 +106,13 @@ export default function StressChart({ params }: { params: SummaryParams }) {
         ) : null
       }
     >
-      <div ref={ref} style={{ height: CHART_HEIGHT, width: '100%' }}>
-        {chartData.length === 0 ? (
-          <ChartEmpty height={CHART_HEIGHT} />
-        ) : (
-          width > 0 && (
-            <StressChartInner
-              data={chartData}
-              width={Math.max(width, 200)}
-              height={CHART_HEIGHT}
-              highlighted={highlighted}
-            />
-          )
-        )}
-      </div>
+      {chartData.length === 0 ? (
+        <ChartEmpty height={CHART_HEIGHT} />
+      ) : (
+        <StressChartFrame data={chartData} highlighted={highlighted} />
+      )}
       <ChartLegend
-        items={[
-          { key: 'avg', label: 'Avg Stress', color: VX.warnSolid, shape: 'bar' },
-          {
-            key: 'sleep',
-            label: 'Overnight',
-            color: VX.line2Dark,
-            strokeWidth: 1.5,
-            dashed: true,
-          },
-        ]}
+        items={deriveLegend(STRESS_LEGEND_SERIES)}
         highlighted={highlighted}
         onHighlight={setHighlighted}
       />
@@ -125,6 +120,38 @@ export default function StressChart({ params }: { params: SummaryParams }) {
   )
 }
 
+function StressChartFrame({
+  data,
+  highlighted,
+}: {
+  data: StressPoint[]
+  highlighted: string | null
+}) {
+  return (
+    <ChartFrame
+      series={[]}
+      chartId={CHART_ID}
+      height={CHART_HEIGHT}
+      legend={false}
+      ariaLabel="Average and overnight stress with a gradient zone fill"
+    >
+      {(plot) => (
+        <StressChartInner
+          data={data}
+          width={plot.width}
+          height={plot.height}
+          highlighted={highlighted}
+        />
+      )}
+    </ChartFrame>
+  )
+}
+
+/**
+ * Bespoke composition — a vertical stress-zone GRADIENT fill under the avg-stress line (not a flat
+ * zone band) plus a secondary dashed overnight line. Composes `ChartFrame` + `useHoverSync`
+ * directly, the sanctioned escape hatch for a shape no shipped kind's config surface covers.
+ */
 function StressChartInner({
   data,
   width,
@@ -136,7 +163,6 @@ function StressChartInner({
   height: number
   highlighted: string | null
 }) {
-  const { line, line2 } = useVxTheme()
   const xMax = width - MARGIN.left - MARGIN.right
   const yMax = height - MARGIN.top - MARGIN.bottom
 
@@ -172,7 +198,7 @@ function StressChartInner({
     useHoverSync<StressPoint>({
       data,
       chartId: CHART_ID,
-      getX: (d) => d.date,
+      getKey: (d) => d.date,
       xScale,
       marginLeft: MARGIN.left,
     })
@@ -265,7 +291,7 @@ function StressChartInner({
             data={avgValid}
             x={(d) => xScale(d.date) ?? 0}
             y={(d) => yScale(d.avgStress)}
-            stroke={line}
+            stroke={VX.line}
             strokeWidth={2}
             strokeOpacity={dim('avg')}
             curve={curveMonotoneX}
@@ -276,7 +302,7 @@ function StressChartInner({
             data={sleepValid}
             x={(d) => xScale(d.date) ?? 0}
             y={(d) => yScale(d.sleepStress)}
-            stroke={line2}
+            stroke={VX.line2}
             strokeWidth={1.5}
             strokeDasharray="4 4"
             strokeOpacity={dim('sleep')}
@@ -288,13 +314,13 @@ function StressChartInner({
               const sx = xScale(syncedPoint.date) ?? 0
               return (
                 <>
-                  <line x1={sx} x2={sx} y1={0} y2={yMax} stroke={VX.crosshair} strokeWidth={1} />
+                  <Crosshair x={sx} top={0} bottom={yMax} />
                   {syncedPoint.avgStress !== null && (
                     <circle
                       cx={sx}
                       cy={yScale(syncedPoint.avgStress)}
                       r={4}
-                      fill={line}
+                      fill={VX.line}
                       stroke={VX.dotStroke}
                       strokeWidth={2}
                     />
@@ -304,7 +330,7 @@ function StressChartInner({
                       cx={sx}
                       cy={yScale(syncedPoint.sleepStress)}
                       r={4}
-                      fill={line2}
+                      fill={VX.line2}
                       stroke={VX.dotStroke}
                       strokeWidth={2}
                     />
@@ -334,7 +360,7 @@ function StressChartInner({
             <TooltipBody>
               {tip.data.avgStress !== null && (
                 <TooltipRow
-                  color={line}
+                  color={VX.line}
                   label="Avg Stress"
                   value={String(Math.round(tip.data.avgStress))}
                   shape="line"
@@ -343,7 +369,7 @@ function StressChartInner({
               )}
               {tip.data.sleepStress !== null && (
                 <TooltipRow
-                  color={line2}
+                  color={VX.line2}
                   label="Overnight"
                   value={String(Math.round(tip.data.sleepStress))}
                   shape="line"

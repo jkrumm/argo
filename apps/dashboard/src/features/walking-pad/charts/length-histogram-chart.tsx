@@ -1,6 +1,7 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
-import { Bars, ChartCard, useVxTheme } from '@argo/charts'
+import { Box } from '@mantine/core'
+import { Bars, ChartCard } from 'basalt-ui/charts'
+import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { METRIC_DEFS, useMetricSelection, type MetricKey } from '../metric-toggle'
 import { ChartEmpty } from './empty'
@@ -44,8 +45,6 @@ export function LengthHistogramChart({ params }: { params: WalkingPadWindowParam
   const { data } = useSuspenseQuery(
     walkingPadQueries.lengthHistogram({ ...params, metric: driver }),
   )
-  const { ref, width } = useElementSize<HTMLDivElement>()
-  const { line2 } = useVxTheme()
 
   const buckets: Bucket[] = data.buckets
   const totalSessions = buckets.reduce((s, b) => s + b.sessions, 0)
@@ -100,43 +99,41 @@ export function LengthHistogramChart({ params }: { params: WalkingPadWindowParam
       }
       extra={
         totalSessions > 0 && modeLabel !== null ? (
-          <span style={{ fontSize: 12, fontWeight: 600 }}>most common: {modeLabel}</span>
+          <span style={{ fontSize: VX.text.xs, fontWeight: 600 }}>most common: {modeLabel}</span>
         ) : null
       }
     >
-      <div ref={ref} style={{ height: CHART_HEIGHT, width: '100%' }}>
-        {totalSessions === 0 ? (
-          <ChartEmpty height={CHART_HEIGHT} label="No sessions in this window." />
-        ) : width > 0 ? (
-          <Bars<Bucket>
-            data={buckets}
-            width={Math.max(width, 200)}
-            height={CHART_HEIGHT}
-            chartId="walking-pad-length-histogram"
-            getX={getX}
-            getValue={getValue}
-            positiveBars={[
-              { key: 'sessions', label: 'Sessions', color: METRIC_DEFS[driver].color },
-            ]}
-            leftAxis={{
-              domain: 'auto',
-              formatTick: (v) => String(Math.round(v)),
-              numTicks: 4,
-              autoMaxFloor: 3,
-            }}
-            formatValue={fmtSessions}
-            numTicksX={driver === 'duration' ? 7 : 6}
-          />
-        ) : null}
-      </div>
-      <span style={{ fontSize: 11, color: 'var(--mantine-color-dimmed)', marginTop: 4 }}>
+      {totalSessions === 0 ? (
+        <ChartEmpty height={CHART_HEIGHT} label="No sessions in this window." />
+      ) : (
+        <Bars
+          ariaLabel="Session length histogram, frequency of sessions by bucket"
+          data={buckets}
+          height={CHART_HEIGHT}
+          chartId="walking-pad-length-histogram"
+          getX={getX}
+          getValue={getValue}
+          positiveBars={[{ key: 'sessions', label: 'Sessions', color: METRIC_DEFS[driver].color }]}
+          leftAxis={{
+            domain: 'auto',
+            formatTick: (v) => String(Math.round(v)),
+            numTicks: 4,
+            autoMaxFloor: 3,
+          }}
+          formatValue={fmtSessions}
+          numTicksX={driver === 'duration' ? 7 : 6}
+          legend={false}
+        />
+      )}
+      <Box
+        component="span"
+        mt={4}
+        style={{ fontSize: VX.text.micro, color: 'var(--mantine-color-dimmed)' }}
+      >
         {totalSessions} session{totalSessions === 1 ? '' : 's'} · binned by{' '}
         {METRIC_DEFS[driver].label.toLowerCase()}
         {isMultiSelected ? ' (first enabled metric drives the binning)' : ''}
-      </span>
-      {/* Reference line2 so the theme refresh dep stays satisfied across
-          theme toggles where this chart doesn't otherwise consume it. */}
-      <span style={{ display: 'none' }}>{line2}</span>
+      </Box>
     </ChartCard>
   )
 }

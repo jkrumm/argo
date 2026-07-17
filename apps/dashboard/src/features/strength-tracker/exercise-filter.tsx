@@ -1,4 +1,4 @@
-import { Button, Group } from '@mantine/core'
+import { Box, Button, Group } from '@mantine/core'
 import { EXERCISES, EXERCISE_COLORS, type ExerciseKey } from './constants'
 
 export function ExerciseFilter({
@@ -20,14 +20,13 @@ export function ExerciseFilter({
             onClick={() => onToggle(ex.value)}
             styles={{ root: { opacity: isOn ? 1 : 0.45 } }}
             leftSection={
-              <span
-                style={{
-                  display: 'inline-block',
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  backgroundColor: EXERCISE_COLORS[ex.value],
-                }}
+              <Box
+                component="span"
+                w={8}
+                h={8}
+                bdrs="50%"
+                bg={EXERCISE_COLORS[ex.value]}
+                style={{ display: 'inline-block' }}
               />
             }
           >

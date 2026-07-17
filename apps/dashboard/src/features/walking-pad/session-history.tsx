@@ -40,7 +40,7 @@ export function SessionHistoryTable() {
 
   if (data.total === 0) {
     return (
-      <Card padding="md" withBorder>
+      <Card py="xs" px="sm">
         <Text size="sm" c="dimmed">
           No sessions yet — the daemon will surface them here as they're synced.
         </Text>
@@ -51,7 +51,8 @@ export function SessionHistoryTable() {
   const totalPages = Math.max(1, Math.ceil(data.total / PAGE_SIZE))
 
   return (
-    <Card padding={0} withBorder>
+    // theme-allow: flush table card — header/body/footer manage their own px/py, no card inset
+    <Card padding={0}>
       <Group justify="space-between" px="md" py="sm">
         <Text fw={600} size="sm">
           Session history

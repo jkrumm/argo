@@ -1,4 +1,4 @@
-import { Stack, Text } from '@mantine/core'
+import { Box, Stack, Text } from '@mantine/core'
 import { useElementSize } from '@mantine/hooks'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useState } from 'react'
@@ -22,12 +22,14 @@ import {
   TooltipRow,
   useHoverSync,
   useTooltipStyles,
-  useVxTheme,
   VX,
   ZoneRects,
   type ZoneSpec,
-} from '@argo/charts'
+  type SeriesStyle,
+  deriveLegend,
+} from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
+import { SERIES } from '../../../lib/series'
 import { EXERCISE_COLORS, METRIC_TOOLTIPS, type ExerciseKey } from '../constants'
 import { acwrZoneColor, acwrZoneLabel, exerciseLabel } from '../formulas'
 
@@ -89,12 +91,32 @@ function mergePoints(series: ExerciseSeries[]): MergedPoint[] {
 export default function TrainingLoadChart({ params }: { params: StrengthQueryParams }) {
   const { data } = useSuspenseQuery(strengthQueries.trainingLoad(params))
   const { ref, width: containerWidth } = useElementSize<HTMLDivElement>()
-  const { line } = useVxTheme()
   const tooltipStyles = useTooltipStyles()
   const [highlighted, setHighlighted] = useState<string | null>(null)
 
   const series = data.byExercise as ExerciseSeries[]
   const exercises = series.map((s) => s.exercise_id)
+
+  const legendSeries: readonly SeriesStyle[] = [
+    ...exercises.map(
+      (ex): SeriesStyle => ({
+        key: ex,
+        label: exerciseLabel(ex),
+        color: EXERCISE_COLORS[ex as ExerciseKey] ?? VX.line,
+        mark: 'line',
+        strokeWidth: 2.5,
+      }),
+    ),
+    {
+      key: 'zone-under',
+      label: 'Undertrained',
+      color: alpha(SERIES.benchPress, 0.4),
+      mark: 'bar',
+    },
+    { key: 'zone-opt', label: 'Optimal', color: VX.goodSolid, mark: 'bar' },
+    { key: 'zone-caut', label: 'Caution', color: VX.warnSolid, mark: 'bar' },
+    { key: 'zone-danger', label: 'Danger', color: VX.badSolid, mark: 'bar' },
+  ]
   const merged = mergePoints(series)
 
   // Need at least 2 ACWR points across any exercise to render.
@@ -145,7 +167,7 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
     useHoverSync<MergedPoint>({
       data: merged,
       chartId: 'training-load',
-      getX: (d) => d.date,
+      getKey: (d) => d.date,
       xScale,
       marginLeft: MARGIN.left,
     })
@@ -156,7 +178,7 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
   )
 
   const zones: ZoneSpec[] = [
-    { from: 0, to: 0.8, fill: alpha(VX.series.benchPress, 0.08) },
+    { from: 0, to: 0.8, fill: alpha(SERIES.benchPress, 0.08) },
     { from: 0.8, to: 1.3, fill: VX.good },
     { from: 1.3, to: 1.5, fill: VX.warn },
     { from: 1.5, to: yMax, fill: VX.bad },
@@ -178,10 +200,10 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
       tooltip={METRIC_TOOLTIPS.trainingLoad}
       extra={
         leaderLast && leaderLast.acwr !== null ? (
-          <span style={{ fontSize: 12 }}>
+          <span style={{ fontSize: VX.text.xs }}>
             <span
               style={{
-                fontSize: 14,
+                fontSize: VX.text.md,
                 fontWeight: 600,
                 color: acwrZoneColor(leaderLast.zone),
               }}
@@ -196,7 +218,7 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
         ) : null
       }
     >
-      <div ref={ref} style={{ height: HEIGHT, width: '100%' }}>
+      <Box ref={ref} h={HEIGHT} w="100%">
         {!enoughData ? (
           <ChartEmpty height={HEIGHT} label="Not enough data — need at least 2 weeks of sessions" />
         ) : containerWidth > 0 ? (
@@ -218,7 +240,7 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
                   />
                 ))}
                 {exercises.map((ex) => {
-                  const exColor = EXERCISE_COLORS[ex as ExerciseKey] ?? line
+                  const exColor = EXERCISE_COLORS[ex as ExerciseKey] ?? VX.line
                   const pts = merged.filter((d) => {
                     const v = d.per[ex]?.acwr
                     return v !== null && v !== undefined
@@ -253,7 +275,7 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
                         {exercises.map((ex) => {
                           const v = syncedPoint.per[ex]?.acwr
                           if (v === null || v === undefined) return null
-                          const exColor = EXERCISE_COLORS[ex as ExerciseKey] ?? line
+                          const exColor = EXERCISE_COLORS[ex as ExerciseKey] ?? VX.line
                           return (
                             <circle
                               key={ex}
@@ -296,7 +318,7 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
                     {exercises.map((ex) => {
                       const row = tip.data.per[ex]
                       if (!row || row.acwr === null) return null
-                      const exColor = EXERCISE_COLORS[ex as ExerciseKey] ?? line
+                      const exColor = EXERCISE_COLORS[ex as ExerciseKey] ?? VX.line
                       const zone = row.zone
                       return (
                         <TooltipRow
@@ -317,25 +339,9 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
             </ChartTooltip>
           </div>
         ) : null}
-      </div>
+      </Box>
       <ChartLegend
-        items={[
-          ...exercises.map((ex) => ({
-            key: ex,
-            label: exerciseLabel(ex),
-            color: EXERCISE_COLORS[ex as ExerciseKey] ?? line,
-            strokeWidth: 2.5,
-          })),
-          {
-            key: 'zone-under',
-            label: 'Undertrained',
-            color: alpha(VX.series.benchPress, 0.4),
-            shape: 'bar' as const,
-          },
-          { key: 'zone-opt', label: 'Optimal', color: VX.goodSolid, shape: 'bar' as const },
-          { key: 'zone-caut', label: 'Caution', color: VX.warnSolid, shape: 'bar' as const },
-          { key: 'zone-danger', label: 'Danger', color: VX.badSolid, shape: 'bar' as const },
-        ]}
+        items={deriveLegend(legendSeries)}
         highlighted={highlighted}
         onHighlight={setHighlighted}
       />

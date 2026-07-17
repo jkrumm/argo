@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Select } from '@mantine/core'
+import { Box, Flex, Select } from '@mantine/core'
 import { useElementSize } from '@mantine/hooks'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import {
@@ -9,22 +9,24 @@ import {
   ChartLegend,
   ChartTooltip,
   curveMonotoneX,
+  deriveLegend,
   GridRows,
   Group,
   HoverOverlay,
   LinePath,
   scaleLinear,
   scalePoint,
+  type SeriesStyle,
   smartTicks,
   TooltipBody,
   TooltipHeader,
   TooltipRow,
   useHoverSync,
   useTooltipStyles,
-  useVxTheme,
   VX,
-} from '@argo/charts'
+} from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
+import { SERIES } from '../../../lib/series'
 import { DEFAULT_EXERCISES, EXERCISE_COLORS, METRIC_TOOLTIPS, type ExerciseKey } from '../constants'
 import { directionArrow, directionColor, exerciseLabel, type StrengthDirection } from '../formulas'
 import { ChartEmpty } from './empty'
@@ -161,7 +163,7 @@ function MomentumChartInner({
     useHoverSync<MomentumPoint>({
       data,
       chartId,
-      getX: (d) => d.date,
+      getKey: (d) => d.date,
       xScale,
       marginLeft: MARGIN.left,
     })
@@ -372,8 +374,6 @@ function MomentumChartInner({
 }
 
 export default function MomentumChart({ params }: { params: StrengthQueryParams }) {
-  // Reads useVxTheme to keep the reference stable across theme switches (no-op return).
-  useVxTheme()
   const { data } = useSuspenseQuery(strengthQueries.seriesDetailed(params))
   const { ref, width } = useElementSize<HTMLDivElement>()
 
@@ -404,7 +404,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
   const e1rmCount = chartData.filter((d) => d.e1rm !== null).length
   const hasData = e1rmCount >= 2
 
-  const exerciseColor = EXERCISE_COLORS[selectedExercise as ExerciseKey] ?? VX.series.benchPress
+  const exerciseColor = EXERCISE_COLORS[selectedExercise as ExerciseKey] ?? SERIES.benchPress
 
   const latestVel = [...chartData].reverse().find((d) => d.velocity !== null)?.velocity ?? null
   const dir = directionFromVelocity(latestVel)
@@ -416,10 +416,10 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
   }))
 
   const headerExtra = (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+    <Flex display="inline-flex" align="center" gap={8}>
       {monthly !== null ? (
-        <span style={{ fontSize: 12 }}>
-          <span style={{ fontWeight: 600, fontSize: 14, color: directionColor(dir) }}>
+        <span style={{ fontSize: VX.text.xs }}>
+          <span style={{ fontWeight: 600, fontSize: VX.text.md, color: directionColor(dir) }}>
             {monthly >= 0 ? '+' : ''}
             {monthly.toFixed(2)}%
           </span>
@@ -437,8 +437,22 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
           allowDeselect={false}
         />
       )}
-    </span>
+    </Flex>
   )
+
+  const legendSeries: readonly SeriesStyle[] = [
+    { key: 'e1rm', label: 'e1RM', color: exerciseColor, mark: 'line', strokeWidth: 1.5 },
+    {
+      key: 'ma30',
+      label: '30d MA',
+      color: exerciseColor,
+      mark: 'line',
+      strokeWidth: 2.25,
+      dash: 'dashed',
+    },
+    { key: 'velUp', label: 'Velocity ▲', color: VX.goodSolid, mark: 'bar' },
+    { key: 'velDown', label: 'Velocity ▼', color: VX.badSolid, mark: 'bar' },
+  ]
 
   return (
     <ChartCard
@@ -447,7 +461,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
       tooltip={METRIC_TOOLTIPS.momentum}
       extra={headerExtra}
     >
-      <div ref={ref} style={{ height: HEIGHT, width: '100%' }}>
+      <Box ref={ref} h={HEIGHT} w="100%">
         {!hasData ? (
           <ChartEmpty height={HEIGHT} message="Need at least 2 sessions per exercise" />
         ) : width > 0 ? (
@@ -459,17 +473,8 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
             chartId="momentum"
           />
         ) : null}
-      </div>
-      <ChartLegend
-        items={[
-          { key: 'e1rm', label: 'e1RM', color: exerciseColor, strokeWidth: 1.5 },
-          { key: 'ma30', label: '30d MA', color: exerciseColor, strokeWidth: 2.25, dashed: true },
-          { key: 'velUp', label: 'Velocity ▲', color: VX.goodSolid, shape: 'bar' },
-          { key: 'velDown', label: 'Velocity ▼', color: VX.badSolid, shape: 'bar' },
-        ]}
-        highlighted={null}
-        onHighlight={() => {}}
-      />
+      </Box>
+      <ChartLegend items={deriveLegend(legendSeries)} highlighted={null} onHighlight={() => {}} />
     </ChartCard>
   )
 }

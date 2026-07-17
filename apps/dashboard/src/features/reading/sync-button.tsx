@@ -1,7 +1,7 @@
 import { Button } from '@mantine/core'
 import { IconRefresh } from '@tabler/icons-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { notifications } from '@mantine/notifications'
+import { emit } from 'basalt-ui/notifications'
 import { api, unwrap } from '../../lib/eden'
 import { readingQueries } from '../../lib/queries/reading'
 
@@ -17,21 +17,28 @@ export function SyncButton() {
     mutationFn: async () => unwrap(await api.reading.sync.post()),
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: readingQueries.all() })
-      notifications.show({
-        title: 'Sync complete',
-        message:
-          result.errors > 0
-            ? `Synced ${result.upserted} book(s) with ${result.errors} error(s) — check server logs.`
-            : `Synced ${result.upserted} book(s) from Hardcover.`,
-        color: result.errors > 0 ? 'yellow' : 'green',
-      })
+      if (result.errors > 0) {
+        emit(
+          'reading:partial',
+          {
+            message: `Synced ${result.upserted} book(s) with ${result.errors} error(s) — check server logs.`,
+          },
+          { title: 'Sync complete' },
+        )
+      } else {
+        emit(
+          'reading:success',
+          { message: `Synced ${result.upserted} book(s) from Hardcover.` },
+          { title: 'Sync complete' },
+        )
+      }
     },
     onError: () => {
-      notifications.show({
-        title: 'Sync failed',
-        message: 'Could not run the Hardcover sync. Check the server logs.',
-        color: 'red',
-      })
+      emit(
+        'reading:error',
+        { message: 'Could not run the Hardcover sync. Check the server logs.' },
+        { title: 'Sync failed' },
+      )
     },
   })
 

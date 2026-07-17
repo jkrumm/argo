@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useElementSize } from '@mantine/hooks'
-import { Select } from '@mantine/core'
+import { Box, Flex, Select } from '@mantine/core'
 import {
   AxisBottomDate,
   AxisLeftNumeric,
   ChartCard,
   ChartLegend,
   ChartTooltip,
+  deriveLegend,
   GridRows,
   Group,
   HoverOverlay,
@@ -19,12 +20,13 @@ import {
   curveMonotoneX,
   scaleLinear,
   scalePoint,
+  type SeriesStyle,
   smartTicks,
   useHoverSync,
   useTooltipStyles,
-  useVxTheme,
-} from '@argo/charts'
+} from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
+import { SERIES } from '../../../lib/series'
 import { DEFAULT_EXERCISES, EXERCISES, METRIC_TOOLTIPS } from '../constants'
 import { exerciseLabel } from '../formulas'
 import { ChartEmpty } from './empty'
@@ -45,9 +47,9 @@ type CompositePoint = {
 // Distinct semantic colors per metric (NOT exercise colors — three metrics
 // across one exercise).
 const COMPOSITE_COLORS = {
-  velocity: VX.series.hrv,
-  tonnage: VX.series.calories,
-  inol: VX.series.acwr,
+  velocity: SERIES.hrv,
+  tonnage: SERIES.calories,
+  inol: SERIES.acwr,
 } as const
 
 const Y_DOMAIN: [number, number] = [-3, 3]
@@ -82,7 +84,6 @@ function CompositeInner({
   height: number
   highlighted: string | null
 }) {
-  const { axis } = useVxTheme()
   const dim = (key: string): number => (highlighted === null || highlighted === key ? 1 : 0.15)
 
   const MARGIN_LOCAL = useMemo(() => ({ ...VX.margin, left: Math.max(VX.margin.left, 48) }), [])
@@ -106,7 +107,7 @@ function CompositeInner({
     useHoverSync<CompositePoint>({
       data,
       chartId: 'strength-composite',
-      getX: (d) => d.date,
+      getKey: (d) => d.date,
       xScale,
       marginLeft: MARGIN_LOCAL.left,
     })
@@ -152,7 +153,7 @@ function CompositeInner({
             x2={xMax}
             y1={yScale(0)}
             y2={yScale(0)}
-            stroke={axis}
+            stroke={VX.axis}
             strokeWidth={1}
             strokeDasharray="2 4"
             strokeOpacity={0.6}
@@ -324,8 +325,8 @@ export default function StrengthCompositeChart({
   }, [points])
 
   const headerExtra = (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-      <span style={{ fontSize: 12 }}>
+    <Flex display="inline-flex" align="center" gap="xs">
+      <span style={{ fontSize: VX.text.xs }}>
         <span style={{ color: COMPOSITE_COLORS.velocity, fontWeight: 600 }}>
           v {latest.v !== null ? fmtSigma(latest.v) : '—'}
         </span>
@@ -349,8 +350,32 @@ export default function StrengthCompositeChart({
         allowDeselect={false}
         aria-label="Exercise"
       />
-    </span>
+    </Flex>
   )
+
+  const legendSeries: readonly SeriesStyle[] = [
+    {
+      key: 'velocity',
+      label: 'Velocity',
+      color: COMPOSITE_COLORS.velocity,
+      mark: 'line',
+      strokeWidth: 2.5,
+    },
+    {
+      key: 'tonnage',
+      label: 'Tonnage Growth',
+      color: COMPOSITE_COLORS.tonnage,
+      mark: 'line',
+      strokeWidth: 2.5,
+    },
+    {
+      key: 'inol',
+      label: 'INOL Quality',
+      color: COMPOSITE_COLORS.inol,
+      mark: 'line',
+      strokeWidth: 2.5,
+    },
+  ]
 
   return (
     <ChartCard
@@ -359,7 +384,7 @@ export default function StrengthCompositeChart({
       tooltip={METRIC_TOOLTIPS.strengthComposite}
       extra={headerExtra}
     >
-      <div ref={ref} style={{ height: 280, width: '100%' }}>
+      <Box ref={ref} h={280} w="100%">
         {!hasLines ? (
           <ChartEmpty
             height={280}
@@ -377,31 +402,9 @@ export default function StrengthCompositeChart({
             highlighted={highlighted}
           />
         ) : null}
-      </div>
+      </Box>
       <ChartLegend
-        items={[
-          {
-            key: 'velocity',
-            label: 'Velocity',
-            color: COMPOSITE_COLORS.velocity,
-            shape: 'line',
-            strokeWidth: 2.5,
-          },
-          {
-            key: 'tonnage',
-            label: 'Tonnage Growth',
-            color: COMPOSITE_COLORS.tonnage,
-            shape: 'line',
-            strokeWidth: 2.5,
-          },
-          {
-            key: 'inol',
-            label: 'INOL Quality',
-            color: COMPOSITE_COLORS.inol,
-            shape: 'line',
-            strokeWidth: 2.5,
-          },
-        ]}
+        items={deriveLegend(legendSeries)}
         highlighted={highlighted}
         onHighlight={setHighlighted}
       />

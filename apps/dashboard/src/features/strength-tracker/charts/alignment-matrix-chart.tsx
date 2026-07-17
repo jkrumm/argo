@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Box, SimpleGrid, Stack, Text, Tooltip } from '@mantine/core'
-import { ChartCard, VX } from '@argo/charts'
+import { ChartCard, VX } from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from '../constants'
 import { ChartEmpty } from './empty'
@@ -123,18 +123,18 @@ export default function AlignmentMatrixChart({ params }: { params: StrengthQuery
                   <Box
                     style={{
                       position: 'relative',
-                      padding: '12px 6px',
-                      borderRadius: 6,
                       background: bg,
                       border: cell.isToday ? `2px solid ${color}` : '2px solid transparent',
                       textAlign: 'center',
                       minHeight: 56,
-                      display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       flexDirection: 'column',
-                      gap: 2,
                     }}
+                    display="flex"
+                    py="sm"
+                    px={6}
+                    bdrs={6}
                   >
                     <Text size="xs" fw={600} c={color} lh={1.2}>
                       {cell.verdict}
@@ -145,7 +145,7 @@ export default function AlignmentMatrixChart({ params }: { params: StrengthQuery
                           position: 'absolute',
                           top: 4,
                           right: 6,
-                          fontSize: 10,
+                          fontSize: VX.text.micro,
                           fontWeight: 600,
                           opacity: 0.7,
                         }}

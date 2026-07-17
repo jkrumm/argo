@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Box, Table, Text, Tooltip } from '@mantine/core'
-import { BarSparkline, ChartCard, LineSparkline, VX } from '@argo/charts'
+import { BarSparkline, ChartCard, LineSparkline, VX } from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from '../constants'
 import { directionArrow, directionColor, type StrengthDirection } from '../formulas'
@@ -81,10 +81,17 @@ export default function SparklineGridChart({ params }: { params: StrengthQueryPa
                     </Text>
                   </Table.Td>
                   <Table.Td>
-                    <LineSparkline data={row.e1rm} width={SPARK_W} height={SPARK_H} color={color} />
+                    <LineSparkline
+                      ariaLabel={`${row.exercise_name} 1RM trend, last 20 sessions`}
+                      data={row.e1rm}
+                      width={SPARK_W}
+                      height={SPARK_H}
+                      color={color}
+                    />
                   </Table.Td>
                   <Table.Td>
                     <BarSparkline
+                      ariaLabel={`${row.exercise_name} volume trend, last 10 weeks`}
                       data={row.volume}
                       width={SPARK_W}
                       height={SPARK_H}
@@ -92,7 +99,13 @@ export default function SparklineGridChart({ params }: { params: StrengthQueryPa
                     />
                   </Table.Td>
                   <Table.Td>
-                    <LineSparkline data={row.inol} width={SPARK_W} height={SPARK_H} color={color} />
+                    <LineSparkline
+                      ariaLabel={`${row.exercise_name} INOL trend, last 15 sessions`}
+                      data={row.inol}
+                      width={SPARK_W}
+                      height={SPARK_H}
+                      color={color}
+                    />
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm" c={dirColor}>
@@ -108,15 +121,7 @@ export default function SparklineGridChart({ params }: { params: StrengthQueryPa
                     </Text>
                   </Table.Td>
                   <Table.Td>
-                    <Box
-                      style={{
-                        display: 'inline-block',
-                        width: 10,
-                        height: 10,
-                        borderRadius: '50%',
-                        backgroundColor: dirColor,
-                      }}
-                    />
+                    <Box display="inline-block" w={10} h={10} bdrs="xl" bg={dirColor} />
                   </Table.Td>
                 </Table.Tr>
               )

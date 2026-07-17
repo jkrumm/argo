@@ -22,7 +22,8 @@ import {
   Tooltip,
 } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { PageActions } from '../../components/app-shell/page-header'
+import { PageActions } from 'basalt-ui'
+import { VX } from 'basalt-ui/tokens'
 import {
   IconCheck,
   IconCopy,
@@ -207,11 +208,8 @@ export function M365ExplorerPage(): React.ReactElement {
       />
 
       <Group align="stretch" gap="md" wrap="nowrap" style={{ minHeight: '70vh' }}>
-        <Card
-          withBorder
-          p={0}
-          style={{ flex: '0 0 360px', display: 'flex', flexDirection: 'column' }}
-        >
+        {/* theme-allow: flush edge card — inner Box/ScrollArea own their own padding */}
+        <Card p={0} display="flex" style={{ flex: '0 0 360px', flexDirection: 'column' }}>
           <Box p="sm">
             <TextInput
               placeholder="Filter chats / teams…"
@@ -309,7 +307,8 @@ export function M365ExplorerPage(): React.ReactElement {
           </ScrollArea>
         </Card>
 
-        <Card withBorder style={{ flex: 1, display: 'flex', flexDirection: 'column' }} p={0}>
+        {/* theme-allow: flush edge card — DetailPane owns its own padding */}
+        <Card display="flex" style={{ flex: 1, flexDirection: 'column' }} p={0}>
           {!selected ? (
             <Stack
               gap="xs"
@@ -363,9 +362,10 @@ function SourceRow(props: {
   return (
     <Box
       onClick={props.onClick}
+      py={8}
+      px="xs"
+      bdrs={6}
       style={{
-        padding: '8px 10px',
-        borderRadius: 6,
         cursor: 'pointer',
         background: props.selected ? 'var(--mantine-color-default-hover)' : undefined,
         border: props.selected ? '1px solid var(--mantine-color-blue-5)' : '1px solid transparent',
@@ -421,7 +421,7 @@ function LabelsStrip(props: {
 }) {
   if (props.labels.length === 0) {
     return (
-      <Card withBorder p="sm">
+      <Card p="sm">
         <Text c="dimmed" size="sm">
           No labels yet. Pick a chat or channel below, give it a tag, and it'll surface here and in{' '}
           <Code>GET /m365/important</Code>.
@@ -430,7 +430,7 @@ function LabelsStrip(props: {
     )
   }
   return (
-    <Card withBorder p="sm">
+    <Card p="sm">
       <Stack gap="xs">
         <Group gap="xs" wrap="wrap">
           {props.tagCounts.map(([tag, count]) => (
@@ -447,13 +447,7 @@ function LabelsStrip(props: {
         <Divider />
         <Group gap="xs" wrap="wrap">
           {props.labels.map((l) => (
-            <Card
-              key={l.sourceId}
-              withBorder
-              p={6}
-              radius="sm"
-              style={{ minWidth: 220, maxWidth: 320 }}
-            >
+            <Card key={l.sourceId} py="xs" px="sm" style={{ minWidth: 220, maxWidth: 320 }}>
               <Group gap={6} justify="space-between" wrap="nowrap">
                 <Stack gap={0} style={{ minWidth: 0, flex: 1 }}>
                   <Group gap={6} wrap="nowrap">
@@ -567,7 +561,7 @@ function DetailPane(props: {
                 )}
               </CopyButton>
             </Group>
-            <Code style={{ fontSize: 11 }}>{sourceId}</Code>
+            <Code style={{ fontSize: VX.text.micro }}>{sourceId}</Code>
           </Stack>
           <Stack gap="xs" w={320}>
             <Select
@@ -645,9 +639,9 @@ function DetailPane(props: {
           {messagesQuery.data?.messages.map((m) => (
             <Box
               key={m.id}
+              pl="sm"
               style={{
                 borderLeft: '2px solid var(--mantine-color-default-border)',
-                paddingLeft: 12,
               }}
             >
               <Group gap="xs" mb={2}>

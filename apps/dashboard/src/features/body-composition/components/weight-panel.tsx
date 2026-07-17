@@ -12,7 +12,7 @@ import {
   TextInput,
   Transition,
 } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
+import { emit } from 'basalt-ui/notifications'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { IconCheck, IconMinus, IconTrendingDown, IconTrendingUp } from '@tabler/icons-react'
 import {
@@ -57,7 +57,7 @@ function WeightSummaryCards({ summary }: { summary: WeightSummary }) {
 
   return (
     <SimpleGrid cols={{ base: 2, sm: 3, lg: 6 }}>
-      <Card padding="md" withBorder>
+      <Card py="xs" px="sm">
         <Group justify="space-between">
           <Text size="xs" c="dimmed">
             Current
@@ -77,7 +77,7 @@ function WeightSummaryCards({ summary }: { summary: WeightSummary }) {
         </Group>
       </Card>
 
-      <Card padding="md" withBorder>
+      <Card py="xs" px="sm">
         <Text size="xs" c="dimmed" mb={4}>
           7d avg
         </Text>
@@ -86,7 +86,7 @@ function WeightSummaryCards({ summary }: { summary: WeightSummary }) {
         </Text>
       </Card>
 
-      <Card padding="md" withBorder>
+      <Card py="xs" px="sm">
         <Text size="xs" c="dimmed" mb={4}>
           30d avg
         </Text>
@@ -95,7 +95,7 @@ function WeightSummaryCards({ summary }: { summary: WeightSummary }) {
         </Text>
       </Card>
 
-      <Card padding="md" withBorder>
+      <Card py="xs" px="sm">
         <Text size="xs" c="dimmed" mb={4}>
           Weekly Δ
         </Text>
@@ -116,7 +116,7 @@ function WeightSummaryCards({ summary }: { summary: WeightSummary }) {
         </Text>
       </Card>
 
-      <Card padding="md" withBorder>
+      <Card py="xs" px="sm">
         <Text size="xs" c="dimmed" mb={4}>
           Monthly Δ
         </Text>
@@ -137,7 +137,7 @@ function WeightSummaryCards({ summary }: { summary: WeightSummary }) {
         </Text>
       </Card>
 
-      <Card padding="md" withBorder>
+      <Card py="xs" px="sm">
         <Text size="xs" c="dimmed" mb={4}>
           kg / week
         </Text>
@@ -170,28 +170,26 @@ function WeightEntryForm({ defaultWeight }: { defaultWeight: number | null }) {
       {
         onSuccess: () => {
           setJustSaved(true)
-          notifications.show({
-            color: 'green',
-            icon: <IconCheck size={18} />,
-            title: 'Weight logged',
-            message: `${w.toFixed(1)} kg on ${date}`,
-            autoClose: 2000,
-          })
+          emit(
+            'body-comp:save-success',
+            { message: `${w.toFixed(1)} kg on ${date}` },
+            { title: 'Weight logged', icon: <IconCheck size={18} />, autoClose: 2000 },
+          )
           setTimeout(() => setJustSaved(false), 1400)
         },
         onError: (err) => {
-          notifications.show({
-            color: 'red',
-            title: 'Could not save weight',
-            message: err instanceof Error ? err.message : 'Unknown error',
-          })
+          emit(
+            'body-comp:save-error',
+            { message: err instanceof Error ? err.message : 'Unknown error' },
+            { title: 'Could not save weight' },
+          )
         },
       },
     )
   }
 
   return (
-    <Paper withBorder p="md">
+    <Paper py="xs" px="sm">
       <form onSubmit={handleSubmit}>
         <Stack gap="sm">
           <Text fw={600} size="sm">

@@ -1,7 +1,15 @@
 import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
-import { ChartCard, ChartLegend, VX, ZonedLine, useVxTheme } from '@argo/charts'
+import { Box } from '@mantine/core'
+import {
+  ChartCard,
+  ChartLegend,
+  VX,
+  ZonedLine,
+  deriveLegend,
+  type ChartSeries,
+  type SeriesStyle,
+} from 'basalt-ui/charts'
 import { trainingLoadQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import { acwrZoneColor, acwrZoneLabel } from '../formulas'
@@ -21,10 +29,18 @@ type TrainingLoadPoint = {
   divNeg: number | null
 }
 
+const ACWR_SERIES: ChartSeries<TrainingLoadPoint>[] = [
+  { key: 'acwr', label: 'ACWR', color: VX.line, mark: 'line', getValue: (d) => d.acwr },
+]
+
+const ACWR_LEGEND_SERIES: readonly SeriesStyle[] = [
+  { key: 'acwr', label: 'ACWR', color: VX.line, mark: 'line' },
+  { key: 'optimal', label: 'Optimal (0.8–1.3)', color: VX.goodSolid, mark: 'bar' },
+  { key: 'danger', label: 'Overload (>1.5)', color: VX.badSolid, mark: 'bar' },
+]
+
 export default function AcwrChart({ params }: { params: SummaryParams }) {
   const { data } = useSuspenseQuery(trainingLoadQueries.summary(params))
-  const { ref, width } = useElementSize<HTMLDivElement>()
-  const { line } = useVxTheme()
 
   const points = useMemo<TrainingLoadPoint[]>(
     () => applyVisibilityFilter(data.points as TrainingLoadPoint[], (p) => p.date),
@@ -40,62 +56,55 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
       tooltip={METRIC_TOOLTIPS.trainingLoad}
       extra={
         latest?.acwr !== null && latest?.acwr !== undefined ? (
-          <span style={{ fontSize: 16, fontWeight: 600 }}>
-            <span style={{ color: acwrZoneColor(latest.zone) }}>{latest.acwr.toFixed(2)}</span>
-            <span
+          <Box component="span" style={{ fontSize: VX.text.lg, fontWeight: 600 }}>
+            <Box component="span" style={{ color: acwrZoneColor(latest.zone) }}>
+              {latest.acwr.toFixed(2)}
+            </Box>
+            <Box
+              component="span"
+              ml={6}
               style={{
-                fontSize: 11,
+                fontSize: VX.text.micro,
                 fontWeight: 400,
-                marginLeft: 6,
                 color: acwrZoneColor(latest.zone),
               }}
             >
               {acwrZoneLabel(latest.zone)}
-            </span>
-          </span>
+            </Box>
+          </Box>
         ) : null
       }
     >
-      <div ref={ref} style={{ height: 280, width: '100%' }}>
-        {!hasAcwr ? (
-          <ChartEmpty height={280} />
-        ) : width > 0 ? (
-          <ZonedLine<TrainingLoadPoint>
-            data={points}
-            width={Math.max(width, 200)}
-            height={280}
-            chartId="acwr"
-            getX={(d) => d.date}
-            getY={(d) => d.acwr}
-            yDomain="auto"
-            yAutoMaxFloor={2}
-            zones={[{ from: 0.8, to: 1.3, fill: VX.good }]}
-            thresholds={[
-              { value: 1.3, side: 'above', fill: VX.bad },
-              { value: 0.8, side: 'below', fill: VX.warn },
-            ]}
-            refLines={[
-              { value: 0.8, color: VX.warnRef },
-              { value: 1.3, color: VX.goodRef },
-              { value: 1.5, color: VX.badRef },
-            ]}
-            seriesLabel="ACWR"
-            formatValue={(v) => v.toFixed(2)}
-            tooltipLabel={(d) =>
-              d.zone === null ? null : { text: acwrZoneLabel(d.zone), color: acwrZoneColor(d.zone) }
-            }
-          />
-        ) : null}
-      </div>
-      <ChartLegend
-        items={[
-          { key: 'acwr', label: 'ACWR', color: line },
-          { key: 'optimal', label: 'Optimal (0.8–1.3)', color: VX.goodSolid, shape: 'bar' },
-          { key: 'danger', label: 'Overload (>1.5)', color: VX.badSolid, shape: 'bar' },
-        ]}
-        highlighted={null}
-        onHighlight={() => {}}
-      />
+      {!hasAcwr ? (
+        <ChartEmpty height={280} />
+      ) : (
+        <ZonedLine
+          ariaLabel="Acute:chronic training load ratio with optimal zone"
+          data={points}
+          height={280}
+          chartId="acwr"
+          getX={(d) => d.date}
+          series={ACWR_SERIES}
+          yDomain="auto"
+          yAutoMaxFloor={2}
+          zones={[{ from: 0.8, to: 1.3, fill: VX.good }]}
+          thresholds={[
+            { value: 1.3, side: 'above', fill: VX.bad },
+            { value: 0.8, side: 'below', fill: VX.warn },
+          ]}
+          refLines={[
+            { value: 0.8, color: VX.warnRef },
+            { value: 1.3, color: VX.goodRef },
+            { value: 1.5, color: VX.badRef },
+          ]}
+          formatValue={(v) => v.toFixed(2)}
+          tooltipLabel={(d) =>
+            d.zone === null ? null : { text: acwrZoneLabel(d.zone), color: acwrZoneColor(d.zone) }
+          }
+          legend={false}
+        />
+      )}
+      <ChartLegend items={deriveLegend(ACWR_LEGEND_SERIES)} />
     </ChartCard>
   )
 }

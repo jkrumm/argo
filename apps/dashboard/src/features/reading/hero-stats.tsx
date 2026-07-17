@@ -1,15 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
 import { Card, Group, SimpleGrid, Skeleton, Text } from '@mantine/core'
+import { VX } from 'basalt-ui/tokens'
 import { readingQueries } from '../../lib/queries/reading'
 
 function HeroCard({ label, value, subLabel }: { label: string; value: string; subLabel?: string }) {
   return (
-    <Card padding="md" withBorder h="100%">
+    <Card py="xs" px="sm" h="100%">
       <Text size="xs" c="dimmed" mb={6}>
         {label}
       </Text>
       <Group gap={8} align="baseline">
-        <Text style={{ fontSize: 28, fontWeight: 700, lineHeight: 1 }}>{value}</Text>
+        <Text style={{ fontSize: VX.text.kpi, fontWeight: 700, lineHeight: 1 }}>{value}</Text>
       </Group>
       {subLabel !== undefined && subLabel.length > 0 && (
         <Text size="xs" c="dimmed" mt={6}>
@@ -22,7 +23,7 @@ function HeroCard({ label, value, subLabel }: { label: string; value: string; su
 
 function HeroCardSkeleton({ label }: { label: string }) {
   return (
-    <Card padding="md" withBorder h="100%">
+    <Card py="xs" px="sm" h="100%">
       <Text size="xs" c="dimmed" mb={6}>
         {label}
       </Text>

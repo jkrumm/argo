@@ -1,8 +1,8 @@
-import { useElementSize } from '@mantine/hooks'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
-import { Bars, ChartCard, ChartLegend, TooltipRow, useVxTheme, VX } from '@argo/charts'
+import { useMemo } from 'react'
+import { Bars, ChartCard, TooltipRow, VX } from 'basalt-ui/charts'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
+import { SERIES } from '../../../lib/series'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
@@ -76,9 +76,6 @@ const activityGetValue = (d: ActivityPoint, key: string): number | null => {
 
 export default function ActivityScoreChart({ params }: { params: SummaryParams }) {
   const { data } = useSuspenseQuery(dailyMetricsQueries.series(params))
-  const { ref, width } = useElementSize<HTMLDivElement>()
-  const { line2, tooltipMuted } = useVxTheme()
-  const [highlighted, setHighlighted] = useState<string | null>(null)
 
   const chartData = useMemo<ActivityPoint[]>(() => {
     const scores = data.points.map((p) => p.activityScore)
@@ -115,12 +112,12 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
       tooltip={METRIC_TOOLTIPS.activityScore}
       extra={
         latest?.score !== null && latest?.score !== undefined ? (
-          <span style={{ fontSize: 12 }}>
+          <span style={{ fontSize: VX.text.xs }}>
             <span
               style={{
-                fontSize: 14,
+                fontSize: VX.text.md,
                 fontWeight: 600,
-                color: latest.score >= ACTIVITY_TARGET_SCORE ? VX.goodSolid : tooltipMuted,
+                color: latest.score >= ACTIVITY_TARGET_SCORE ? VX.goodSolid : VX.muted,
               }}
             >
               {Math.round(latest.score)}
@@ -130,129 +127,95 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
         ) : null
       }
     >
-      <div ref={ref} style={{ height: 280, width: '100%' }}>
-        {!hasData ? (
-          <ChartEmpty height={280} />
-        ) : width > 0 ? (
-          <Bars<ActivityPoint>
-            data={chartData}
-            width={Math.max(width, 200)}
-            height={280}
-            chartId="activity-score"
-            getX={(d) => d.date}
-            getValue={activityGetValue}
-            positiveBars={[
-              { key: 'walkingScore', label: 'Walking', color: VX.series.intensityWalking },
-              { key: 'moderateScore', label: 'Moderate', color: VX.series.intensityModerate },
-              { key: 'vigorousScore', label: 'Vigorous', color: VX.series.intensityVigorous },
-            ]}
-            barLayout="stacked"
-            lines={[
-              {
-                key: 'scoreMA',
-                label: '30d avg',
-                color: line2,
-                axisSide: 'left',
-                dashed: true,
-                strokeWidth: 1.5,
-                formatValue: (v) =>
-                  `${Math.round(v)} · ${Math.round((v / ACTIVITY_TARGET_SCORE) * 100)}%`,
-              },
-            ]}
-            zones={[
-              { from: ACTIVITY_TARGET_SCORE, to: Infinity, fill: VX.goodSoft, axisSide: 'left' },
-            ]}
-            refLines={[
-              {
-                value: ACTIVITY_TARGET_SCORE,
-                color: VX.goodRef,
-                dashed: true,
-                axisSide: 'left',
-              },
-            ]}
-            leftAxis={{
-              domain: 'auto',
-              autoMaxFloor: ACTIVITY_TARGET_SCORE * 1.2,
-              numTicks: 5,
-            }}
-            tooltipLabel={(d) => {
-              if (d.score === null) return null
-              const pct = Math.round((d.score / ACTIVITY_TARGET_SCORE) * 100)
-              return {
-                text: `${Math.round(d.score)} · ${pct}%`,
-                color: d.score >= ACTIVITY_TARGET_SCORE ? VX.goodSolid : tooltipMuted,
-              }
-            }}
-            hideBarTooltipRows
-            renderPrefixTooltipRows={(d) => (
-              <>
+      {!hasData ? (
+        <ChartEmpty height={280} />
+      ) : (
+        <Bars
+          ariaLabel="Daily activity score by intensity with 30-day average"
+          data={chartData}
+          height={280}
+          chartId="activity-score"
+          getX={(d) => d.date}
+          getValue={activityGetValue}
+          positiveBars={[
+            { key: 'walkingScore', label: 'Walking', color: SERIES.intensityWalking },
+            { key: 'moderateScore', label: 'Moderate', color: SERIES.intensityModerate },
+            { key: 'vigorousScore', label: 'Vigorous', color: SERIES.intensityVigorous },
+          ]}
+          barLayout="stacked"
+          lines={[
+            {
+              key: 'scoreMA',
+              label: '30d avg',
+              color: VX.line2,
+              axisSide: 'left',
+              dashed: true,
+              strokeWidth: 1.5,
+              formatValue: (v) =>
+                `${Math.round(v)} · ${Math.round((v / ACTIVITY_TARGET_SCORE) * 100)}%`,
+            },
+          ]}
+          zones={[
+            { from: ACTIVITY_TARGET_SCORE, to: Infinity, fill: VX.goodSoft, axisSide: 'left' },
+          ]}
+          refLines={[
+            {
+              value: ACTIVITY_TARGET_SCORE,
+              color: VX.goodRef,
+              dashed: true,
+              axisSide: 'left',
+            },
+          ]}
+          leftAxis={{
+            domain: 'auto',
+            autoMaxFloor: ACTIVITY_TARGET_SCORE * 1.2,
+            numTicks: 5,
+          }}
+          tooltipLabel={(d) => {
+            if (d.score === null) return null
+            const pct = Math.round((d.score / ACTIVITY_TARGET_SCORE) * 100)
+            return {
+              text: `${Math.round(d.score)} · ${pct}%`,
+              color: d.score >= ACTIVITY_TARGET_SCORE ? VX.goodSolid : VX.muted,
+            }
+          }}
+          hideBarTooltipRows
+          renderPrefixTooltipRows={(d) => (
+            <>
+              <TooltipRow
+                color={SERIES.intensityVigorous}
+                label="Vigorous"
+                value={`${d.vigorousMin ?? 0} min`}
+                shape="bar"
+              />
+              <TooltipRow
+                color={SERIES.intensityModerate}
+                label="Moderate"
+                value={`${d.moderateMin ?? 0} min`}
+                shape="bar"
+              />
+              <TooltipRow
+                color={SERIES.intensityWalking}
+                label="Walking"
+                value={`${d.walkingSteps.toLocaleString()} steps`}
+                shape="bar"
+              />
+              {d.scoreMA !== null && (
                 <TooltipRow
-                  color={VX.series.intensityVigorous}
-                  label="Vigorous"
-                  value={`${d.vigorousMin ?? 0} min`}
-                  shape="bar"
+                  color={VX.line2}
+                  label="30d avg"
+                  value={`${Math.round(d.scoreMA)} · ${Math.round(
+                    (d.scoreMA / ACTIVITY_TARGET_SCORE) * 100,
+                  )}%`}
+                  shape="line"
+                  strokeWidth={1.5}
+                  dashed
                 />
-                <TooltipRow
-                  color={VX.series.intensityModerate}
-                  label="Moderate"
-                  value={`${d.moderateMin ?? 0} min`}
-                  shape="bar"
-                />
-                <TooltipRow
-                  color={VX.series.intensityWalking}
-                  label="Walking"
-                  value={`${d.walkingSteps.toLocaleString()} steps`}
-                  shape="bar"
-                />
-                {d.scoreMA !== null && (
-                  <TooltipRow
-                    color={line2}
-                    label="30d avg"
-                    value={`${Math.round(d.scoreMA)} · ${Math.round(
-                      (d.scoreMA / ACTIVITY_TARGET_SCORE) * 100,
-                    )}%`}
-                    shape="line"
-                    strokeWidth={1.5}
-                    dashed
-                  />
-                )}
-              </>
-            )}
-            highlightedKey={highlighted}
-          />
-        ) : null}
-      </div>
-      <ChartLegend
-        items={[
-          {
-            key: 'walkingScore',
-            label: 'Walking',
-            color: VX.series.intensityWalking,
-            shape: 'bar',
-          },
-          {
-            key: 'moderateScore',
-            label: 'Moderate',
-            color: VX.series.intensityModerate,
-            shape: 'bar',
-          },
-          {
-            key: 'vigorousScore',
-            label: 'Vigorous',
-            color: VX.series.intensityVigorous,
-            shape: 'bar',
-          },
-          {
-            key: 'scoreMA',
-            label: '30d avg',
-            color: line2,
-            strokeWidth: 1.5,
-            dashed: true,
-          },
-        ]}
-        highlighted={highlighted}
-        onHighlight={setHighlighted}
-      />
+              )}
+            </>
+          )}
+        />
+      )}
     </ChartCard>
   )
 }

@@ -1,4 +1,4 @@
-import { VX } from '@argo/charts'
+import { VX } from 'basalt-ui/tokens'
 
 /**
  * Hard floor on visible data. Anything before this date is dropped from the
