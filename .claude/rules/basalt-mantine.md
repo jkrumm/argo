@@ -143,7 +143,7 @@ section divider, not card depth) are both fine.
   consumer code must compose Mantine layout/surface primitives — `Box`, `Flex`, `Grid`,
   `SimpleGrid`, `Stack`, `Group`, `Paper`, `Card` — instead of raw `<div>`/`<span>` with inline
   `style`. Raw HTML with inline layout/surface styling defeats the token system.
-- **Mechanical enforcement.** `basalt check-theme` adds five surface guard kinds (each a config knob,
+- **Mechanical enforcement.** `basalt-ui check-theme` adds five surface guard kinds (each a config knob,
   default ON; `theme-allow` line-comment escape): `off-system-surface-var` (raw ramp-step vars),
   `card-with-border` (`withBorder` on a `Card`/`Paper`), `raw-html-layout` (raw `<div>`/`<span>` with
   inline layout/surface styling), `inline-spacing` (inline spacing literals), `inline-display`
@@ -188,7 +188,7 @@ shape doctrine lives here; the spacing/radius/type **tokens** are in basalt-toke
   separate `border` property). Cards must never diverge: same radius, same shadow. Never
   inline-override `border`/`borderRadius`/`boxShadow`/`backgroundColor` on a surface — use the
   radius token (`radius="md"` / `var(--vx-radius-card)`) + `VX.shadowCard` + `VX.surface.*`.
-  Mechanically enforced by `basalt check-theme`'s `raw-surface` guard. Outer spacing comes from the
+  Mechanically enforced by `basalt-ui check-theme`'s `raw-surface` guard. Outer spacing comes from the
   parent `Stack`/`SimpleGrid` gap, not an intrinsic card margin.
 - **Depth = `shadow-card`, not a plain hairline** (see `docs/DESIGN-SPEC.md` in the basalt-ui repo,
   doctrine inversion #1 — this supersedes the old "never a drop shadow" rule). Elevation tiers: 0 flat (no shadow — body,
@@ -318,7 +318,7 @@ precedent as `@visx/*`: an internal implementation detail, not a peer the consum
 - **Never a hardcoded duration/spring/ease literal in a `transition={{...}}` prop.** Import
   `MOTION_DURATION` / `MOTION_SPRING` / `MOTION_EASE_STANDARD` from `basalt-ui` instead — the
   motion analog of routing color through `VX.*`. `MOTION_DURATION` is capped at 0.3s (300ms),
-  matching the interaction-feedback ceiling above. Mechanically enforced by `basalt check-theme`'s
+  matching the interaction-feedback ceiling above. Mechanically enforced by `basalt-ui check-theme`'s
   `raw-motion-value` guard (default ON; `theme-allow` line-comment escape).
 - **Always branch on `useReducedMotion`** (`@mantine/hooks`) — render a real unanimated code path
   (no `motion.*` wrapper at all), not just `transition={{ duration: 0 }}`. See `ThemeToggle`'s

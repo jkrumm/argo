@@ -108,7 +108,7 @@ Install `@tanstack/react-router` as a peer, then import from `basalt-ui/router-t
   tree (`src/routeTree.gen.ts`) has been generated. In CI and after adding routes, run
   `tsr generate` (or `bun run typecheck`, which triggers it) before relying on breadcrumb or nav data.
 - The loader's `context.queryClient` requires `createRootRouteWithContext<{ queryClient: QueryClient }>()`.
-  Run `basalt init` to scaffold a `query-client.ts` + `__root.tsx` seed that wires the TanStack
+  Run `basalt-ui init` to scaffold a `query-client.ts` + `__root.tsx` seed that wires the TanStack
   Router + Query context correctly — the generated `__root.tsx` uses
   `createRootRouteWithContext<{ queryClient }>()` and passes the client through `RouterProvider`.
 

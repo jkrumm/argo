@@ -36,7 +36,7 @@ downstream apps too:
    shapes and optional highlight state.
 3. **ChartTooltip** + `TooltipHeader` + `TooltipRow` + `TooltipBody` — never `@visx/tooltip` directly.
 4. **AxisLeftNumeric** / **AxisRightNumeric** + **AxisBottomDate** — never raw `<AxisLeft>`/`<AxisBottom>`/`<AxisRight>`
-   (they miss theme tokens + smart ticks). Enforced by `basalt check-theme` (`raw-visx-axis` guard
+   (they miss theme tokens + smart ticks). Enforced by `basalt-ui check-theme` (`raw-visx-axis` guard
    fails the build on a raw axis in a `/charts/` file; escape via `theme-allow`), not just convention.
 5. **HoverOverlay** for mouse capture, **HoverContext** for cross-chart crosshair sync,
    **useChartTooltip** for tip state, **useHoverSync** for the shared cursor. Wrap a group of

@@ -9,7 +9,7 @@ paths:
 # Basalt State
 
 How to place state in a basalt-ui app. The **theme-scheme rule** below is
-guard-enforced (`basalt check-theme` bans `localStorage.getItem('theme')`); the rest is **advisory**.
+guard-enforced (`basalt-ui check-theme` bans `localStorage.getItem('theme')`); the rest is **advisory**.
 
 ## State placement
 
@@ -21,7 +21,7 @@ Pick the right home for each kind of state — don't dump everything into one st
   might link to.
 - **Theme / color scheme** → `useMantineColorScheme()` from Mantine — **never** a client store, and
   **never** `localStorage.getItem('theme')`. The scheme persists to Mantine's own key and resolves the
-  `--vx-*` tokens via CSS; reading it any other way breaks scheme reactivity and trips `basalt check-theme`.
+  `--vx-*` tokens via CSS; reading it any other way breaks scheme reactivity and trips `basalt-ui check-theme`.
 - **UI preferences that must survive navigation but aren't URL-worthy** (sidebar collapsed, panel
   layout, draft filters) → `createPersistedState` from `basalt-ui/state` — the framework's own
   versioned localStorage primitive (see below). `BasaltShell` already persists its own collapse state

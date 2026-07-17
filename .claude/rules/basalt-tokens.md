@@ -1,6 +1,6 @@
 ---
 source: basalt-ui
-description: Color, spacing, radius, and type discipline — route every value through the basalt-ui token system. Enforced by `basalt check-theme`.
+description: Color, spacing, radius, and type discipline — route every value through the basalt-ui token system. Enforced by `basalt-ui check-theme`.
 paths:
   - 'src/**'
   - 'apps/**/src/**'
@@ -21,8 +21,8 @@ surface (60/30/10, pushed toward 90/10); the accent only points — primary CTA,
 status pops — never floods. (Blueprint/Basalt zinc-charcoal are the historical hue-tuning
 ancestors; `docs/DESIGN-SPEC.md` in the basalt-ui repo supersedes both — see its "Doctrine
 inversions" section.) This
-rule is the operational checklist; it is enforced mechanically by **`basalt check-theme`**
-(wire it into `lint`: `oxlint . && basalt check-theme`). A violation fails the build. Escape hatch: a
+rule is the operational checklist; it is enforced mechanically by **`basalt-ui check-theme`**
+(wire it into `lint`: `oxlint . && basalt-ui check-theme`). A violation fails the build. Escape hatch: a
 `theme-allow` line comment (diff-visible, deliberate).
 
 `check-theme` reads its config from your `package.json` `"basalt"` key
