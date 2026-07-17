@@ -32,7 +32,7 @@ three-font system (Nunito Sans body / Hubot Sans condensed headings / JetBrains 
   slightly darker page (`#ececee`-ish) with near-black ink text; dark mode is cool zinc (not steel-blue,
   not pure black). **Dense by default** (compact nav, `sm` gaps/padding); all cards render identically
   — **`shadow-card` depth, one radius token (`--vx-radius-card`)** — never inline-override a
-  surface's shadow/radius/bg (enforced by `basalt check-theme`). The theme runs a **strict surface
+  surface's shadow/radius/bg (enforced by `basalt-ui check-theme`). The theme runs a **strict surface
   system**: it collapses Mantine's raw ramp steps onto the `--vx-surface-*` tokens, so every component
   shares one bg/radius/depth. **Use Mantine primitives, not raw HTML**
   (`Box`/`Flex`/`Grid`/`SimpleGrid`/`Stack`/`Group`/`Paper`/`Card` over `<div>`/`<span>` with inline

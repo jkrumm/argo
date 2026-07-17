@@ -15,15 +15,15 @@
     "m365:auth:prod": "op run --account tkrumm --env-file=apps/api/.env.local.tpl -- bun run --cwd apps/api m365:auth:prod",
     "google:auth": "printf 'http://localhost:4040/oauth/google/init' | pbcopy && echo 'http://localhost:4040/oauth/google/init' && echo 'Copied to clipboard — paste into a browser to authorize.'",
     "google:auth:prod": "printf 'https://argo.jkrumm.com/api/oauth/google/init' | pbcopy && echo 'https://argo.jkrumm.com/api/oauth/google/init' && echo 'Copied to clipboard — paste into a browser to authorize.'",
-    "lint": "oxlint . && bunx basalt check-theme",
+    "lint": "oxlint . && bunx basalt-ui check-theme",
     "lint:fix": "oxlint --fix .",
-    "check:theme": "bunx basalt check-theme",
+    "check:theme": "bunx basalt-ui check-theme",
     "check:design": "npx -y @google/design.md@0.2.0 lint DESIGN.md",
     "format": "oxfmt 'apps/**' 'packages/**' '!**/generated/**' '!**/dist/**' --write",
     "format:check": "oxfmt 'apps/**' 'packages/**' '!**/generated/**' '!**/dist/**' --check"
   },
   "devDependencies": {
-    "basalt-ui": "1.0.0",
+    "basalt-ui": "1.0.1",
     "concurrently": "^9.2.1",
     "lefthook": "^2.1.6",
     "oxfmt": "^0.45.0",

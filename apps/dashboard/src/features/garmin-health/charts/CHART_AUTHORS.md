@@ -81,7 +81,7 @@ If your chart should sync crosshairs with other charts on the page, wire it in v
 5. `HoverOverlay` for mouse capture
 6. `useChartTooltip` for tooltip open/close state
 7. Every chart entry point (`ZonedLine`, `MultiLine`, etc.) needs an `ariaLabel` prop — enforced by
-   `bunx basalt check-theme`.
+   `bunx basalt-ui check-theme`.
 
 Kind components (`ZonedLine`, `MultiLine`, `DualPanel`, `Heatmap`, …) take a `series: ChartSeries<T>[]`
 descriptor array (`{ key, label, color, mark, getValue }`) rather than ad-hoc per-series props — see
