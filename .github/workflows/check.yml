@@ -13,6 +13,8 @@ jobs:
         with:
           bun-version: latest
       - run: bun install --frozen-lockfile
+      - name: basalt drift gate (managed files match the installed basalt-ui)
+        run: bunx basalt-ui sync --check
       - run: bun run lint
       - run: bun run format:check
       - run: bun --cwd apps/api typecheck
