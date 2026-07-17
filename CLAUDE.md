@@ -99,7 +99,7 @@ see `docs/archive/`.
 - `docs/GARMIN-HEALTH.md` — metric definitions, formulas, composite signals (health page)
 - `docs/STRENGTH-ANALYTICS.md` — metric definitions, INOL, ACWR, e1RM formulas (strength page)
 
-<!-- basalt:begin 1.0.2 -->
+<!-- basalt:begin 1.1.0 -->
 
 ## basalt-ui (managed — do not hand-edit)
 
@@ -112,9 +112,9 @@ Colors come from the three-tier `--vx-*` token system — read `VX.*` / a `defin
 never a raw hex/`rgb()`/`hsl()`. Charts are visx via `basalt-ui/charts` (compose the primitives:
 `ChartCard`, `ChartLegend`, the `ChartTooltip` family, `AxisLeftNumeric`/`AxisBottomDate`); add a
 kind on the third repeat, don't loosen the primitives. `basalt-ui/charts` and `basalt-ui/tokens`
-are Mantine-free — never import `@mantine/*` under `**/charts/**`, never import `@visx/*` outside
-charts. Toolchain is oxlint + oxfmt (no ESLint/Biome/Prettier) and `basalt-ui check-theme` guards the
-palette. Runtime is Bun.
+are Mantine-free internally (a framework invariant, not something your own app code must follow)
+— never import `@visx/*` outside a `charts/` directory (oxlint-enforced). Toolchain is oxlint +
+oxfmt (no ESLint/Biome/Prettier) and `basalt-ui check-theme` guards the palette. Runtime is Bun.
 
 **Before guessing an import, check the installed package's machine docs**:
 `node_modules/basalt-ui/llms.txt` (per-subpath import map), `node_modules/basalt-ui/AGENTS.md`, or

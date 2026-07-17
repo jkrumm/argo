@@ -1,6 +1,6 @@
 ---
 source: basalt-ui
-description: visx chart conventions — compose basalt-ui primitives/kinds, stay Mantine-free, and keep all color in `--vx-*` tokens. Enforced by the oxlint `@visx` ban.
+description: visx chart conventions — compose basalt-ui primitives/kinds and keep all color in `--vx-*` tokens. Enforced by the oxlint `@visx` ban.
 paths:
   - 'src/**/charts/**'
   - 'apps/**/charts/**'
@@ -19,15 +19,25 @@ contract, not optional polish.**
 The shipped oxlint preset (`basalt-ui/configs/oxlint.json`) enforces two hard rules — they hold in
 downstream apps too:
 
-- **`@visx/*` may only be imported inside a `**/charts/**` directory.** Everywhere else, compose
-  basalt-ui chart primitives/kinds. If you need a raw visx primitive for a bespoke chart, import it
-  from `basalt-ui/charts` (it re-exports `Group`, `LinePath`, `Bar`, `AreaClosed`, `scaleLinear`,
-  `curveMonotoneX`, …) — keep the dependency declared in one place.
-- **`@visx/tooltip` is banned everywhere.** Use `ChartTooltip` + `TooltipHeader`/`TooltipRow`/
-  `TooltipBody` from `basalt-ui/charts`.
-- **The `src/charts/` tree must be Mantine-free** — no `@mantine/*` imports. Bridge the Mantine
-  color scheme to charts in exactly one file (see basalt-mantine.md, the VxBridge pattern); route
-  components import chart primitives directly from `basalt-ui/charts`, never from the bridge file.
+- **`@visx/*` may only be imported inside a `charts/` directory** (`basalt/visx-boundary`).
+  Everywhere else, compose basalt-ui chart primitives/kinds. If you need a raw visx primitive for a
+  bespoke chart, import it from `basalt-ui/charts` (it re-exports `Group`, `LinePath`, `Bar`,
+  `AreaClosed`, `scaleLinear`, `curveMonotoneX`, …) — keep the dependency declared in one place, and
+  keep your own bespoke chart file under a `charts/` directory so it stays on the right side of the
+  boundary.
+- **`@visx/tooltip` is banned everywhere** (`basalt/visx-tooltip`). Use `ChartTooltip` +
+  `TooltipHeader`/`TooltipRow`/`TooltipBody` from `basalt-ui/charts`.
+
+`basalt-ui/charts` is itself Mantine-free (`basalt/token-layer-boundary`, enforced only inside
+basalt-ui's own repo) — that keeps the token layer it reads from upstream of Mantine
+(`cssVariablesResolver` reads `--vx-*` tokens to bind Mantine's surfaces to them, so a chart
+importing `@mantine/*` directly would fork chrome and charts apart instead of sharing one source),
+AND it means `basalt-ui/charts`/`basalt-ui/tokens` resolve and render with no `@mantine/*`
+installed (real, CI-tested — `scripts/pack-test.sh`'s "charts/tokens-only (no-Mantine) resolution +
+render" step). Neither is something a consumer app maintains: there is no local chart-primitives
+tree to keep Mantine-free and no bridge file to own — `BasaltProvider` already bridges the Mantine
+color scheme to the `--vx-*` CSS variables charts read internally. Just compose the shipped
+primitives/kinds and pull color from `VX.*`/`alpha()` (`basalt-ui/tokens`).
 
 ## Every chart has
 
@@ -120,8 +130,8 @@ clutter). Keep stacked-area bands opaque — fading them leaks lower bands.
 ## Responsive sizing
 
 Use `ResponsiveChart` (render-prop container) or `useChartSize` (hook) from `basalt-ui/charts` —
-both are backed by `@visx/responsive`'s `useParentSize` and keep the `@visx/*` import inside
-`src/charts/**` per the boundary rule. Never reach for `@visx/responsive` directly or
+both are backed by `@visx/responsive`'s `useParentSize` and keep the `@visx/*` import inside a
+`charts/` directory per `basalt/visx-boundary`. Never reach for `@visx/responsive` directly or
 `useElementSize` from `@mantine/hooks` in a chart file.
 
 ```tsx

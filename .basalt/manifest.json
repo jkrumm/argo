@@ -2,7 +2,7 @@
   "version": 1,
   "files": {
     ".claude/rules/basalt-mantine.md": "d009fb0697af3bd141a3bb7cfff6a57d1bf907bf81a9ff83ce230a0423225e8a",
-    ".claude/rules/basalt-charts.md": "955c6b54f4608231d46af64de7d38f8250f4ae07778a0004b5a50de18f35137b",
+    ".claude/rules/basalt-charts.md": "113731efc24c4e8131e0c76c8248c443e418f375780c9d472e84fcc23e9b6ab1",
     ".claude/rules/basalt-tokens.md": "afaf9bdb442d181d3ee588760c819d7260b7e9169667a965cfedf62adc8ecc76",
     ".claude/rules/basalt-query.md": "cacd92c4c9c40721e3854abc8e734f557c0447c51c4b619e84e2e42d12fe2cdc",
     ".claude/rules/basalt-router.md": "2d6d9cb9dd34e683309a380af4fd5434dc0349592a252c4208c1c51b673105d2",
@@ -12,7 +12,7 @@
     ".claude/rules/basalt-data.md": "30732f2113087e9f602ba9e18e480f40e76a96c0a0b2d1498710c4ceda9cf51e",
     ".claude/rules/basalt-agent.md": "5bac2cc553f1d3f663dff2d4f6b629ca34d67b78fd834db387e2ce8fdf92ee7d",
     ".claude/rules/basalt-state.md": "f51b38a79c42c767c5721dfd46ed1123f0e7be3e069effac6353ad0683237613",
-    "CLAUDE.md": "5be1684cdb95bc67663e0f3cde9a1d4d1fe6ded2016ef8c2499084f23181170e",
+    "CLAUDE.md": "3933964526f1f00a914d8e8621fb35e8a9d00c3926012290adc41e4ad14c4b5c",
     "DESIGN.md": "c32facc4a2efa27130d2090c2ee107fd650ea9b188c380e2773bdf079126c518",
     "lefthook.yml": "695fb214cccac2c4579e14340d97cacce472d5987b7cdfec22f211c7e1a7ef42",
     ".github/workflows/check.yml": "f6e4999d3479614a03c7a7e24ac995dc1dca2bbf99461efea657b089dec70743",
@@ -20,8 +20,8 @@
     ".oxfmtrc.json": "6b56ddca73ac1f170fe161ad32aa830dad40a6dc687964c8a852cb928c395039",
     ".claude/rules/basalt-content.md": "939c41049bf540e39944527e84b6d84158fe575ba29533e81db55e66dcf60518",
     ".claude/skills/basalt-app/SKILL.md": "40e8801427d7371e2e689df8c863049afe5b23f16b424045f990ee3b114d3771",
-    ".claude/skills/basalt-design/SKILL.md": "7ba643c71f09eb7b94fdc276b7817c8d5807d4597a62a1095f34e048ee8661da",
-    ".claude/skills/basalt-charts/SKILL.md": "c452a96a141aa7d729f8377c6d9cb1ab01d4aab934fab6fb3a181415fab348c5"
+    ".claude/skills/basalt-design/SKILL.md": "721762815f8c57c439e4fde26970f949ed2e4e51af68826ec3267dea8cf0d912",
+    ".claude/skills/basalt-charts/SKILL.md": "44f8fb358dfd20e97c77f558b86cda005631f7e78739fc85e2bd7597a28f87de"
   },
-  "basaltVersion": "1.0.2"
+  "basaltVersion": "1.1.0"
 }

@@ -234,9 +234,10 @@ or auto domain — also z-score/σ via a symmetric domain + zero refLine), **`Du
 > `--vx-*`, exposed as a `VX.*` ref — never an inline hex. The mechanics of all three live in
 > **`/basalt-charts`** — defer to it for the "how".
 
-The Mantine-free boundary holds here too: `./charts` and `./tokens` import zero `@mantine/*`, and
-`@visx/*` is only allowed under chart files. Both are oxlint-enforced in the shipped consumer
-preset.
+The Mantine-free boundary holds here too: `./charts` and `./tokens` import zero `@mantine/*` (an
+internal invariant keeping the token layer upstream of Mantine, and letting those two subpaths
+resolve/render with no `@mantine/*` installed — CI-tested, repo-local only, not shipped), and
+`@visx/*` is only allowed under chart files (oxlint-enforced in the shipped consumer preset too).
 
 ## Checklist before declaring a chart "done"
 

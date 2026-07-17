@@ -158,8 +158,14 @@ import { ChartHoverSync } from 'basalt-ui/charts'
 - **`@visx/*` may only be imported inside chart files.** The shipped consumer oxlint preset bans
   direct `@visx/*` outside `**/charts/**`. Need a raw visx primitive for a bespoke chart? Pull it
   from basalt-ui's curated re-export in `basalt-ui/charts`, or keep the chart under a charts dir.
-- **`./charts` and `./tokens` are Mantine-free** — zero `@mantine/*` imports. Keep new chart code
-  free of Mantine so a charts/tokens-only consumer never pulls Mantine in.
+- **basalt-ui's own `./charts` and `./tokens` are Mantine-free** — zero `@mantine/*` imports,
+  keeping the token layer upstream of Mantine inside the framework itself (`cssVariablesResolver`
+  reads `--vx-*` tokens to bind Mantine's surfaces to them; a chart importing `@mantine/*` directly
+  would fork chrome and charts apart), AND letting `basalt-ui/charts`/`basalt-ui/tokens` resolve and
+  render with no `@mantine/*` installed (real, CI-tested — `scripts/pack-test.sh`'s
+  "charts/tokens-only (no-Mantine) resolution + render" step). This is a basalt-internal invariant,
+  not a rule enforced on your own app code — compose the shipped primitives from
+  `basalt-ui/charts`/`basalt-ui/tokens` and you inherit it for free.
 - **No raw color literals** anywhere except the one guard-exempt series file (and a deliberate
   `theme-allow` line). `basalt-ui check-theme` is the teeth; run it before committing.
 - **No raw visx axes.** `basalt-ui check-theme`'s `raw-visx-axis` guard fails the build on a raw
