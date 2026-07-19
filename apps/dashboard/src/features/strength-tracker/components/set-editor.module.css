@@ -21,17 +21,18 @@
 }
 
 .row {
-  padding: 7px 0;
+  padding: 4px 0;
   border-bottom: 1px solid color-mix(in srgb, var(--vx-neutral) 6%, transparent);
   border-radius: 3px;
   transition: all 0.15s;
 }
 
 /* Checklist mode bleeds the row to the card's edge, so it drops the radius and takes the card's
-   own horizontal padding back out as a negative margin. */
+   own horizontal padding back out as a negative margin. The inset must match the parent card's
+   px (WorkoutForm's Paper uses `sm`) — a wider one overhangs the card and the tint spills. */
 .row[data-checklist='true'] {
-  padding: 7px var(--mantine-spacing-md);
-  margin-inline: calc(var(--mantine-spacing-md) * -1);
+  padding: 4px var(--mantine-spacing-sm);
+  margin-inline: calc(var(--mantine-spacing-sm) * -1);
   border-radius: 0;
 }
 
@@ -111,12 +112,18 @@
  * NumberInput's `input` slot. variant="unstyled" strips the Mantine chrome; this layers the bespoke
  * underline back on. The 16px is load-bearing — below it iOS Safari zooms the viewport on focus and
  * never zooms back out (basalt's styles.css floor enforces the same minimum).
+ *
+ * variant="unstyled" does NOT drop `--input-height` (36px at the default size), which is what made
+ * these rows twice as tall as they read. The height here comes from the font + padding instead.
  */
 .input {
   width: 100%;
-  padding: 4px 4px;
+  height: auto;
+  min-height: 0;
+  padding: 2px 4px;
   border-bottom: 1px solid transparent;
   font-size: 16px;
+  line-height: 1.35;
   text-align: center;
   transition: border-color 0.15s;
 }
@@ -132,7 +139,9 @@
 /* Read-only mirror of .input — same 16px so the row height doesn't shift between modes. */
 .readOnlyValue {
   flex: 1;
+  padding: 2px 4px;
   font-size: 16px;
+  line-height: 1.35;
   text-align: center;
 }
 
