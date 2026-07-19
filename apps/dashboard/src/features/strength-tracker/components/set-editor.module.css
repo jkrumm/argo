@@ -12,7 +12,6 @@
 .header {
   padding: 0 0 4px;
   margin-bottom: 2px;
-  border-bottom: 1px solid color-mix(in srgb, var(--vx-neutral) 12%, transparent);
 }
 
 .headCell {
