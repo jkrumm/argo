@@ -164,7 +164,8 @@ export const workoutRoutes = new Elysia({ prefix: '/workouts' })
           'Server-computed aggregates per exercise for the given window. ' +
           '`currentE1RM` = e1RM of the most recent session; `bestE1RM` = highest e1RM in window; ' +
           '`prDate` = date that best e1RM was achieved. ' +
-          'e1RM = average of Epley (w × (1 + reps/30)) and Brzycki (w × 36 / (37 - reps)), work/amrap sets only, reps 1–12. ' +
+          'e1RM = the best SINGLE work/amrap set, scored as the average of Epley (w × (1 + reps/30)) and Brzycki (w × 36 / (37 - reps)); ties go to the heavier set. ' +
+          'Only reps 1–10 are estimated — the two formulas cross at exactly 10 reps and diverge above it, so higher-rep sets yield no e1RM (null) rather than an inflated guess. ' +
           'Volume = Σ(effective_weight × reps) across all sets. ' +
           'Accept `?window=7d|30d|90d|all` (default 30d) or `?from=YYYY-MM-DD&to=YYYY-MM-DD`.',
         security: [{ BearerAuth: [] }],

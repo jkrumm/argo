@@ -72,13 +72,25 @@ describe('computeMetrics', () => {
     expect(result.total_volume).toBe(1500)
   })
 
-  it('returns only Epley (no Brzycki) when reps > 10', () => {
-    // Epley: 100 × (1 + 11/30) = 136.666… → 136.7; Brzycki requires reps ≤ 10
+  it('rejects reps > 10 for e1rm but still counts volume', () => {
+    // Past 10 reps Brzycki overtakes Epley and diverges toward its pole at 37, so neither formula
+    // can anchor the other — the estimate is refused rather than guessed. See §2.2.
     const sets = [{ set_type: 'work', weight_kg: 100, reps: 11 }]
     const result = computeMetrics(sets, 'bench_press', 80)
-    expect(result.estimated_1rm_epley).toBe(136.7)
+    expect(result.estimated_1rm).toBeNull()
+    expect(result.estimated_1rm_epley).toBeNull()
     expect(result.estimated_1rm_brzycki).toBeNull()
-    expect(result.estimated_1rm).toBe(136.7)
+    expect(result.total_volume).toBe(1100)
+  })
+
+  it('agrees with itself at exactly 10 reps, where the two formulas cross', () => {
+    // Epley: 100 × (1 + 10/30) = 133.33…; Brzycki: 3600 / 27 = 133.33… — identical by construction
+    // (1 + R/30 = 36/(37−R) has its positive root at R = 10).
+    const sets = [{ set_type: 'work', weight_kg: 100, reps: 10 }]
+    const result = computeMetrics(sets, 'bench_press', 80)
+    expect(result.estimated_1rm_epley).toBe(133.3)
+    expect(result.estimated_1rm_brzycki).toBe(133.3)
+    expect(result.estimated_1rm).toBe(133.3)
   })
 
   it('picks best e1rm across multiple sets', () => {
@@ -90,6 +102,39 @@ describe('computeMetrics', () => {
     // best e1rm should come from 100 kg × 5
     expect(result.estimated_1rm).toBe(114.6)
     expect(result.total_volume).toBe(80 * 5 + 100 * 5)
+  })
+
+  it('reports one set, not a blend of two (regression)', () => {
+    // The old implementation took max(Epley) and max(Brzycki) independently, then averaged them —
+    // so the two components could come from DIFFERENT sets and the result described neither.
+    //
+    //   132.5×1 → Epley 136.9, Brzycki 132.5, avg 134.7   ← the genuinely best set
+    //   100×10  → Epley 133.3, Brzycki 133.3, avg 133.3
+    //
+    // Old: max Epley (136.9, from the single) blended with max Brzycki (133.3, from the ten-rep
+    // set) → 135.1, an estimate belonging to no set that happened. New: the winning set's own
+    // three numbers, so estimated_1rm always sits between its own epley and brzycki.
+    const sets = [
+      { set_type: 'work', weight_kg: 132.5, reps: 1 },
+      { set_type: 'work', weight_kg: 100, reps: 10 },
+    ]
+    const result = computeMetrics(sets, 'bench_press', 80)
+    expect(result.estimated_1rm_epley).toBe(136.9)
+    expect(result.estimated_1rm_brzycki).toBe(132.5)
+    expect(result.estimated_1rm).toBe(134.7)
+    expect(result.estimated_1rm).not.toBe(135.1)
+  })
+
+  it('falls back to a valid set when the session also contains an out-of-range one', () => {
+    // A high-rep set is skipped rather than poisoning or nulling the whole session.
+    // 90×5 → Epley 105.0, Brzycki 101.25, avg 103.125 → 103.1
+    const sets = [
+      { set_type: 'work', weight_kg: 100, reps: 11 },
+      { set_type: 'work', weight_kg: 90, reps: 5 },
+    ]
+    const result = computeMetrics(sets, 'bench_press', 80)
+    expect(result.estimated_1rm).toBe(103.1)
+    expect(result.total_volume).toBe(1550)
   })
 })
 

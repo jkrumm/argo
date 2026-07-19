@@ -11,6 +11,10 @@ export type WorkoutWindowParams = {
 export type WorkoutListParams = {
   page?: number
   limit?: number
+  /** An `exercise_id` from GET /exercises. */
+  exercise?: string
+  dateFrom?: string
+  dateTo?: string
 }
 
 export type CreateWorkoutInput = {

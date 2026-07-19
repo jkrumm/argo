@@ -63,7 +63,7 @@ export const VIEW_STORAGE_KEY = 'argo:strength-tracker:view'
 
 export const METRIC_TOOLTIPS = {
   oneRmTrend:
-    'Estimated 1-rep max per session using Brzycki + Epley average. Only work/AMRAP sets with 1–12 reps count. Dashed line = 30-day moving average. Stars = personal records. Direction arrow (▲►▼) from 28-day linear regression of e1RM.',
+    'Estimated 1-rep max per session: the best single work/AMRAP set, scored as the Brzycki + Epley average. Only 1–10 rep sets count — the two formulas cross at 10 reps and diverge above it, so higher-rep sets are left unscored rather than inflated. Dashed line = 30-day moving average. Stars = personal records. Direction arrow (▲►▼) from 28-day linear regression of e1RM.',
   strengthComposite:
     "Three independent signals z-scored to your own 90-day baseline. Velocity (f'): e1RM growth rate. Tonnage growth: weekly volume vs 28-day MA. INOL quality: session load index (0.6–1.0 = optimal). All on a shared σ axis — up means above your own average.",
   weeklyVolume:

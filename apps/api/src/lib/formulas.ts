@@ -35,6 +35,40 @@ export async function loadBodyweightResolver(): Promise<(date: string) => number
   return makeBodyweightResolver(entries, profileFallback)
 }
 
+/**
+ * Highest rep count for which a rep-based 1RM estimate is trusted.
+ *
+ * Epley and Brzycki cross at exactly 10 reps — solving `1 + R/30 = 36/(37−R)` gives
+ * `R² − 7R − 30 = 0`, whose positive root is 10. Below 10 Brzycki is the conservative of the two;
+ * above 10 it overtakes Epley and runs away toward its pole at R = 37. Estimating past 10 therefore
+ * means depending on which formula you picked, with no agreement to anchor it. See
+ * `docs/STRENGTH-ANALYTICS.md` §2.2.
+ */
+export const E1RM_MAX_REPS = 10
+
+function round1(v: number): number {
+  return Math.round(v * 10) / 10
+}
+
+/**
+ * The two component estimates for a single set, or null when the set is outside the trusted rep
+ * range. Both formulas are always valid together (they share the [1, {@link E1RM_MAX_REPS}] window),
+ * so this returns both or neither.
+ */
+export function estimate1RMParts(
+  weight: number,
+  reps: number,
+): { epley: number; brzycki: number } | null {
+  if (reps < 1 || reps > E1RM_MAX_REPS) return null
+  return { epley: weight * (1 + reps / 30), brzycki: (weight * 36) / (37 - reps) }
+}
+
+/** Epley + Brzycki average for one set. Null outside [1, {@link E1RM_MAX_REPS}]. */
+export function estimate1RM(weight: number, reps: number): number | null {
+  const parts = estimate1RMParts(weight, reps)
+  return parts === null ? null : (parts.epley + parts.brzycki) / 2
+}
+
 export function computeMetrics(
   sets: Array<{ set_type: string; weight_kg: number; reps: number }>,
   exercise_id: string,
@@ -42,42 +76,33 @@ export function computeMetrics(
 ) {
   const isPullUps = exercise_id === 'pull_ups'
   let totalVolume = 0
-  let maxEpley: number | null = null
-  let maxBrzycki: number | null = null
 
   for (const s of sets) {
     const ew = isPullUps ? s.weight_kg + bodyweightKg : s.weight_kg
     totalVolume += ew * s.reps
   }
 
+  // Session e1RM is the best SINGLE set: score each set, then take the winner — never the max of
+  // each formula taken separately, which blends two different sets into an estimate of neither.
+  let best: { e1rm: number; epley: number; brzycki: number; weight: number } | null = null
+
   for (const s of sets) {
-    const eligible =
-      (s.set_type === 'work' || s.set_type === 'amrap') && s.reps >= 1 && s.reps <= 12
-    if (!eligible) continue
-
+    if (s.set_type !== 'work' && s.set_type !== 'amrap') continue
     const ew = isPullUps ? s.weight_kg + bodyweightKg : s.weight_kg
-    const epley = ew * (1 + s.reps / 30)
-    maxEpley = maxEpley === null ? epley : Math.max(maxEpley, epley)
+    const parts = estimate1RMParts(ew, s.reps)
+    if (parts === null) continue
 
-    if (s.reps <= 10) {
-      const brzycki = (ew * 36) / (37 - s.reps)
-      maxBrzycki = maxBrzycki === null ? brzycki : Math.max(maxBrzycki, brzycki)
-    }
+    const e1rm = (parts.epley + parts.brzycki) / 2
+    // Ties break toward the heavier set — the heavier lift is the more reliable estimate.
+    const wins = best === null || e1rm > best.e1rm || (e1rm === best.e1rm && ew > best.weight)
+    if (wins) best = { e1rm, epley: parts.epley, brzycki: parts.brzycki, weight: ew }
   }
 
-  const e = maxEpley !== null ? Math.round(maxEpley * 10) / 10 : null
-  const b = maxBrzycki !== null ? Math.round(maxBrzycki * 10) / 10 : null
-
-  let e1rm: number | null = null
-  if (e !== null && b !== null) e1rm = Math.round(((e + b) / 2) * 10) / 10
-  else if (b !== null) e1rm = b
-  else if (e !== null) e1rm = e
-
   return {
-    estimated_1rm_epley: e,
-    estimated_1rm_brzycki: b,
-    estimated_1rm: e1rm,
-    total_volume: Math.round(totalVolume * 10) / 10,
+    estimated_1rm_epley: best === null ? null : round1(best.epley),
+    estimated_1rm_brzycki: best === null ? null : round1(best.brzycki),
+    estimated_1rm: best === null ? null : round1(best.e1rm),
+    total_volume: round1(totalVolume),
   }
 }
 

@@ -1,8 +1,8 @@
 # The Quantified Athlete
 
-*A field guide to the homelab dashboard — every metric, every composite, every signal,
+_A field guide to the homelab dashboard — every metric, every composite, every signal,
 explained the way you'd want a sharp coach to explain it: what it is, why it's there,
-when to trust it, and when to ignore it.*
+when to trust it, and when to ignore it._
 
 ---
 
@@ -41,7 +41,7 @@ Two ground rules to frame what follows:
 
 A Python sidecar called `garmin-sync` wakes every six hours, authenticates to Garmin
 Connect, pulls the last seven days, and upserts into a single `daily_metrics` table in
-SQLite. The seven-day rolling backfill isn't paranoia — Garmin watches sync *after* they
+SQLite. The seven-day rolling backfill isn't paranoia — Garmin watches sync _after_ they
 finish charging, after the user opens the mobile app, and sometimes twelve hours late.
 Re-fetching the week catches everything. Completed days (those already flagged as
 finalised more than six hours in the past) are skipped, which cuts the Garmin API load
@@ -60,15 +60,15 @@ seven families.
 
 ### Activity — how much you moved
 
-| Field | What it is | Why it matters |
-|-|-|-|
-| `steps` | Total steps the watch registered, 00:00–23:59 local | Daily volume floor — walking minutes, commuting, fidgeting |
-| `distance_m` | Meters travelled (derived from steps + stride length) | Sanity check on steps — spikes without it mean indoor lifting |
-| `total_kcal` | BMR + activity | Gross energy burn; not directly useful for training |
-| `active_kcal` | Calories above BMR | Closer to "what the day cost you" |
-| `floors_ascended` | Floors climbed | Proxy for vertical work — hikes, stairs, hill running |
-| `moderate_intensity_min` | Minutes at 40–59% HRR (Garmin's threshold) | Half of the WHO activity calculation |
-| `vigorous_intensity_min` | Minutes at ≥60% HRR | The other half. Worth double in WHO math |
+| Field                    | What it is                                            | Why it matters                                                |
+| ------------------------ | ----------------------------------------------------- | ------------------------------------------------------------- |
+| `steps`                  | Total steps the watch registered, 00:00–23:59 local   | Daily volume floor — walking minutes, commuting, fidgeting    |
+| `distance_m`             | Meters travelled (derived from steps + stride length) | Sanity check on steps — spikes without it mean indoor lifting |
+| `total_kcal`             | BMR + activity                                        | Gross energy burn; not directly useful for training           |
+| `active_kcal`            | Calories above BMR                                    | Closer to "what the day cost you"                             |
+| `floors_ascended`        | Floors climbed                                        | Proxy for vertical work — hikes, stairs, hill running         |
+| `moderate_intensity_min` | Minutes at 40–59% HRR (Garmin's threshold)            | Half of the WHO activity calculation                          |
+| `vigorous_intensity_min` | Minutes at ≥60% HRR                                   | The other half. Worth double in WHO math                      |
 
 ### Heart rate — how your cardiovascular system runs at rest
 
@@ -157,7 +157,7 @@ Three design choices baked in:
    day legitimately scores 720+ MET-min. That's the point.
 
 The target is **600 MET-min/day** — about 3.5× the WHO weekly floor (500–1000 MET-min
-*per week* for general health). That target is tuned for a sportive young adult, not a
+_per week_ for general health). That target is tuned for a sportive young adult, not a
 population norm. A 45-minute vigorous block plus 10k steps lands you around 540 — close
 to target without any moderate work.
 
@@ -181,7 +181,7 @@ ewma(t) = load(t) × λ + ewma(t−1) × (1 − λ)
 EWMA (exponentially weighted moving average) beats a rolling mean for training load —
 it weighs recent days more, it doesn't have sharp boundary effects, and it tracks
 changes without lag-of-N/2 that a simple rolling window gives you. Hulin et al. (2017,
-*BJSM*) established this specifically for ACWR.
+_BJSM_) established this specifically for ACWR.
 
 Then:
 
@@ -189,14 +189,14 @@ Then:
 ACWR = ewma_acute / ewma_chronic
 ```
 
-| ACWR | Zone | Interpretation |
-|-|-|-|
-| < 0.8 | Undertrained | insufficient stimulus, detraining risk |
-| 0.8–1.3 | Optimal | adaptation sweet spot |
-| 1.3–1.5 | Caution | elevated injury risk |
-| > 1.5 | Danger | high injury probability |
+| ACWR    | Zone         | Interpretation                         |
+| ------- | ------------ | -------------------------------------- |
+| < 0.8   | Undertrained | insufficient stimulus, detraining risk |
+| 0.8–1.3 | Optimal      | adaptation sweet spot                  |
+| 1.3–1.5 | Caution      | elevated injury risk                   |
+| > 1.5   | Danger       | high injury probability                |
 
-Thresholds from Gabbett (2016, *BJSM*). Because ACWR is a ratio, it's scale-invariant —
+Thresholds from Gabbett (2016, _BJSM_). Because ACWR is a ratio, it's scale-invariant —
 swapping TRIMP for MET-min changes the input but preserves the zone meaning.
 
 A companion chart — **Short vs Long Load** — plots `ewma_acute − ewma_chronic` as a
@@ -222,7 +222,7 @@ recovery_raw =
   Null components → redistribute weight proportionally.
 ```
 
-Body Battery is *not* in the formula, even though it's in the schema. That's deliberate:
+Body Battery is _not_ in the formula, even though it's in the schema. That's deliberate:
 BB is itself a composite of HRV + stress + movement, so including it would double-count
 the same underlying physiology. Keeping the formula to HRV + sleep + RHR means each
 input is observably different and the weights are legible.
@@ -251,11 +251,11 @@ The existing components catch it.
 
 Zones:
 
-| Range | Verdict |
-|-|-|
-| ≥ 70 | **Push** — train hard, attempt intensity |
-| 40–69 | **Normal** — standard session |
-| < 40 | **Rest** — prioritise recovery |
+| Range | Verdict                                  |
+| ----- | ---------------------------------------- |
+| ≥ 70  | **Push** — train hard, attempt intensity |
+| 40–69 | **Normal** — standard session            |
+| < 40  | **Rest** — prioritise recovery           |
 
 ## 6. Fitness Direction — three-level slope verdict
 
@@ -332,13 +332,13 @@ caution window is the cleanest "you're digging a hole" signal the dashboard prod
 
 Formerly this was called "Body Battery" but that name confused the chart (BB level) with
 the hero sub-metric (morning BB peak). The rename to "Energy Balance" fixed it — the
-chart shows the *balance*, not the level.
+chart shows the _balance_, not the level.
 
 ## 10. Stress Levels — color is the metric
 
 Daily average stress plotted against overnight sleep stress. A vertical SVG
 `<linearGradient>` under the `avg_stress` line is mapped to the stress zones —
-green 0–25, yellow 25–50, orange 50–75, red 75–100. The color *is* the stress level.
+green 0–25, yellow 25–50, orange 50–75, red 75–100. The color _is_ the stress level.
 You can read the chart with your eyes closed.
 
 `max_stress` is deliberately omitted. On any active day, it pegs near 80–90 — no signal,
@@ -347,12 +347,12 @@ hug zero, excursions upward mean disrupted sleep-phase autonomic control.
 
 ## 11. The four questions the body half answers
 
-| # | Question | Composite signal | Min data |
-|-|-|-|-|
-| 1 | Am I recovered enough today? | Recovery Score (0–100) | 7 days |
-| 2 | Am I getting fitter over time? | Fitness Direction (3-level) | 14 days |
-| 3 | Am I training the right amount? | Daily Activity + ACWR | 14 days |
-| 4 | How well am I sleeping? | Sleep Score + stage stack | immediate |
+| #   | Question                        | Composite signal            | Min data  |
+| --- | ------------------------------- | --------------------------- | --------- |
+| 1   | Am I recovered enough today?    | Recovery Score (0–100)      | 7 days    |
+| 2   | Am I getting fitter over time?  | Fitness Direction (3-level) | 14 days   |
+| 3   | Am I training the right amount? | Daily Activity + ACWR       | 14 days   |
+| 4   | How well am I sleeping?         | Sleep Score + stage stack   | immediate |
 
 Two secondary questions live beneath:
 
@@ -398,39 +398,79 @@ One-rep-max from a real max-effort single is rare. e1RM (estimated 1RM) from a
 submaximal set is what you actually get. Two formulas, averaged:
 
 ```
-Brzycki: e1RM = W × 36 / (37 − R)        valid R ∈ [1, 10]
-Epley:   e1RM = W × (1 + R / 30)          valid R ∈ [1, 12]
+Brzycki: e1RM = W × 36 / (37 − R)
+Epley:   e1RM = W × (1 + R / 30)
 
-Average when both valid. Brzycki only when R > 10 (up to 12). Reject R > 12.
+e1RM(set) = (Epley + Brzycki) / 2,  for R ∈ [1, 10];  undefined above 10.
 ```
 
 Mayhew was in the original version and got dropped. Mayhew is tuned for bench press and
 systematically under-estimates squat and deadlift in untrained-to-intermediate lifters.
 Brzycki+Epley has the widest published validation across all three powerlifts.
 
+### Why the ceiling is exactly 10
+
+The interesting thing about these two formulas is that they **cross**, and they cross at a
+number you can solve for rather than one you pick:
+
+```
+1 + R/30 = 36/(37 − R)   →   R² − 7R − 30 = 0   →   R = 10
+```
+
+Below ten reps Brzycki always sits under Epley, so averaging them is a real hedge — two
+independent guesses bracketing an answer, never more than about 3% apart. At exactly ten
+they return the identical number (both reduce to 4/3 × W). Above ten the ordering flips:
+Brzycki climbs past Epley and keeps accelerating toward its pole at R = 37, where the
+denominator hits zero and the formula returns infinity.
+
+That flip is what makes ten the honest stopping point. Past it you no longer have two
+estimates agreeing on a range — you have two estimates disagreeing, and picking the
+average is picking a side. So a set of 11+ reps produces no e1RM at all. A 20-rep set
+tells you about muscular endurance, not about a one-rep maximum, and pretending otherwise
+just puts a confident number on a guess.
+
 ### Validity gate — not every set counts
 
 ```
 eligible = set_type ∈ {work, amrap}
-           AND reps ∈ [1, 12]
-           AND (RIR is null OR RIR ≤ 3)
+           AND reps ∈ [1, 10]
 ```
-
-Why the gate:
 
 - **Set type**: warmups and drop sets are not max-effort attempts. A 60%-of-1RM warmup
   would give a wildly inflated e1RM if we naively plugged it in.
-- **Reps**: both formulas' error explodes beyond 12 reps. A 20-rep set tells you about
-  muscular endurance, not 1RM.
-- **RIR**: a set with RIR 4+ was "sandbagged" — you left too many reps in the tank, and
-  the e1RM is an underestimate. Gating at ≤ 3 keeps the e1RM honest.
+- **Reps**: the crossover argument above.
+- **RIR** _(designed, not yet built)_: a set with RIR 4+ was "sandbagged" — you left too
+  many reps in the tank, so its e1RM is an underestimate. Gating at ≤ 3 would keep the
+  number honest. The `workouts` table has no `rir` column yet, so nothing filters on it
+  today.
 
-### Per-workout e1RM
+### Per-workout e1RM — the best single set
 
-`best_e1RM(workout) = max(e1RM)` over eligible sets. Ties broken by higher absolute
-weight. The set that produced it is stored alongside — the 1RM chart tooltip reads
-"best set: 120×6 @ RIR 2 → e1RM 143.9 kg" so you can see the evidence, not just the
-derived number.
+`best_e1RM(workout) = max(e1RM)` over eligible sets, ties to the heavier. Score each set
+first, **then** pick the winner. The order matters more than it looks: an earlier version
+took the highest Epley across all sets and the highest Brzycki across all sets and averaged
+_those_, which quietly blended two different sets into a number describing neither — and
+could land above every individual set's own estimate. A 132.5×1 single (134.7) alongside a
+100×10 set (133.3) reported 135.1, a figure nobody had earned.
+
+The set that produced it is carried alongside — the 1RM chart tooltip reads "best set:
+120×6 → e1RM 143.9 kg" so you can see the evidence, not just the derived number.
+
+### The limitation worth knowing
+
+Everything above is about _accuracy_ — making sure the number is computed from data the
+formula can actually speak to. It does nothing for _stability_, and stability is where the
+real error lives.
+
+A heavy day of 105×3 scores 113.4. A volume day of 95×10 scores 126.7. Same lifter, same
+week, thirteen kilos apart — because every one of these formulas assumes a single universal
+relationship between reps and maximum strength, and no individual actually follows it. The
+choice of combining rule is worth about two kilos against that.
+
+Which means: do not read week-to-week movement in e1RM as a change in strength. That is
+what the 30-day moving average and the 28-day regression are for. And the only real fix is
+logging RIR — a set of eight taken to failure and a set of eight with three left in the tank
+are different lifts, and no rep-based formula will ever tell them apart.
 
 ### Bodyweight exercises
 
@@ -445,21 +485,27 @@ Intensity × volume in one dimensionless number. Hristov's framework:
 ```
 INOL_set  = reps / (100 − %e1RM)         where %e1RM = (ew / best_e1RM) × 100,
                                                clamped to [40, 99]
-INOL_session = Σ INOL_set    over eligible sets only
+INOL_session = Σ INOL_set    over work|amrap sets with R ∈ [1, 12]
 ```
 
 The clamp does two things: rejects noise from very light back-off sets (below 40%) and
 prevents a singularity at 100% (a true-max set would divide by zero).
 
+Note the wider rep window than e1RM's ten. That is deliberate: INOL measures _work done_,
+and an eleven-rep set is real work even where it is too high-rep to estimate a maximum
+from. The two windows answer different questions, so they don't have to agree. INOL still
+needs `best_e1RM` as its intensity reference, though — so a session with no set inside the
+ten-rep window has no INOL either, however much load it carried.
+
 Zones (Hristov):
 
-| INOL | Zone | Interpretation |
-|-|-|-|
-| < 0.4 | Too light | insufficient stimulus |
-| 0.4 – 0.6 | Recovery | deload / technique work |
-| **0.6 – 1.0** | **Optimal** | **effective loading** |
-| 1.0 – 1.5 | Hard | sustainable short-term (peaking blocks) |
-| > 1.5 | Excessive | high fatigue risk |
+| INOL          | Zone        | Interpretation                          |
+| ------------- | ----------- | --------------------------------------- |
+| < 0.4         | Too light   | insufficient stimulus                   |
+| 0.4 – 0.6     | Recovery    | deload / technique work                 |
+| **0.6 – 1.0** | **Optimal** | **effective loading**                   |
+| 1.0 – 1.5     | Hard        | sustainable short-term (peaking blocks) |
+| > 1.5         | Excessive   | high fatigue risk                       |
 
 INOL answers "was that session quality or junk?" Five sets of 10 at 60% is a 2.0 INOL
 (junk volume). Three heavy triples at 85% is a 1.0 INOL (optimal). It's the closest
@@ -530,8 +576,8 @@ velocity < −0.05 %/day                → Declining (▼)
 ```
 
 Sub-text from `f''(t)`: "accelerating" when both positive, "decelerating" when f' is
-positive and f'' is negative. This is the drill-down that tells you not just *where*
-your lift is going but *how the trend itself is trending*. Stale at the current level
+positive and f'' is negative. This is the drill-down that tells you not just _where_
+your lift is going but _how the trend itself is trending_. Stale at the current level
 (f' > 0, f'' < 0) is the early warning that a deload or program change is coming.
 
 ## 17. Personal volume landmarks — MEV, MAV, MRV
@@ -558,8 +604,7 @@ been doing.
 ## 18. DOTS — comparing yourself across bodyweights
 
 Raw `1RM_deadlift / 1RM_squat` is noisy when your body weight changes. A weight cut
-improves the ratio without any strength gain; a bulk does the opposite. **DOTS** (IPF
-2020) is the current standard replacement for Wilks — normalises to a common bodyweight
+improves the ratio without any strength gain; a bulk does the opposite. **DOTS** (IPF 2020) is the current standard replacement for Wilks — normalises to a common bodyweight
 via a fifth-order polynomial fit against the IPF database.
 
 ```
@@ -572,12 +617,12 @@ from the IPF PDF, verified against OpenPowerlifting.
 Ratios of DOTS-adjusted e1RMs are what the **Strength Ratios** chart plots. Normative
 ranges are from the 2024 PubMed meta-analysis over 809,986 IPF entries:
 
-| Ratio | Expected range | Note |
-|-|-|-|
-| Deadlift / Squat | 1.0 – 1.25 | Squat-dominant → lower, DL specialist → higher |
-| Squat / Bench | 1.2 – 1.5 | Below 1.2 signals leg weakness |
-| Deadlift / Bench | 1.5 – 2.0 | Above 2.0 is unusual anterior-chain deficit |
-| Pull-up / BW | 0.4 – 0.7 | Weighted pull-up ratio: added weight / BW |
+| Ratio            | Expected range | Note                                           |
+| ---------------- | -------------- | ---------------------------------------------- |
+| Deadlift / Squat | 1.0 – 1.25     | Squat-dominant → lower, DL specialist → higher |
+| Squat / Bench    | 1.2 – 1.5      | Below 1.2 signals leg weakness                 |
+| Deadlift / Bench | 1.5 – 2.0      | Above 2.0 is unusual anterior-chain deficit    |
+| Pull-up / BW     | 0.4 – 0.7      | Weighted pull-up ratio: added weight / BW      |
 
 Status bands:
 
@@ -658,13 +703,13 @@ against "but I feel fine" drift.
 
 ## 21. The five questions the bar half answers
 
-| # | Question | Composite signal | Wearable? |
-|-|-|-|-|
-| 1 | Am I getting stronger on the lifts I care about? | Strength Direction (per-lift ▲/►/▼) | No |
-| 2 | Am I loading smart or just hard? | Load Quality (INOL + ACWR + MEV–MAV–MRV) | No |
-| 3 | Are my lifts balanced? | Balance (DOTS-adjusted ratios) | No |
-| 4 | Should I push, sustain, or deload today? | Readiness × Strain | Partial |
-| 5 | When should I deload? | Deload Signal (multi-signal) | Partial |
+| #   | Question                                         | Composite signal                         | Wearable? |
+| --- | ------------------------------------------------ | ---------------------------------------- | --------- |
+| 1   | Am I getting stronger on the lifts I care about? | Strength Direction (per-lift ▲/►/▼)      | No        |
+| 2   | Am I loading smart or just hard?                 | Load Quality (INOL + ACWR + MEV–MAV–MRV) | No        |
+| 3   | Are my lifts balanced?                           | Balance (DOTS-adjusted ratios)           | No        |
+| 4   | Should I push, sustain, or deload today?         | Readiness × Strain                       | Partial   |
+| 5   | When should I deload?                            | Deload Signal (multi-signal)             | Partial   |
 
 ### Load Quality composite (Question 2)
 
@@ -699,7 +744,7 @@ The most important cross-half dependency. The strength math gets bodyweight from
 three-level walk:
 
 ```
-body_weight(date) = weight_log[date] 
+body_weight(date) = weight_log[date]
                  ?? weight_log[nearest previous]
                  ?? daily_metrics.weight_kg[date]    (when Garmin scale synced)
                  ?? user_profile.default_weight
@@ -743,7 +788,7 @@ Without wearable data (new user, watch dead, Garmin outage), the signal falls ba
 a pure training-state detector:
 
 ```
-PUSH verdict = 
+PUSH verdict =
   Strength Direction = Improving
   AND Load Quality ≥ 75
   AND (yesterday was rest OR yesterday_inol < 0.6)
@@ -755,11 +800,11 @@ Five zones from the body half (Recovery: High ≥ 70 / Normal 40–69 / Low < 40
 from the bar half (ACWR: Under < 0.8 / Optimal 0.8–1.3 / Caution+ > 1.3). A 3×3 grid
 of verdicts:
 
-|  | ACWR Under | ACWR Optimal | ACWR Caution+ |
-|-|-|-|-|
-| **Recovery High** | Waste | **Aligned · Push** | Misaligned · Risk |
-| **Recovery Normal** | Light | **Aligned** | Overload · Risk |
-| **Recovery Low** | **Aligned · Rest** | Misaligned | **Critical · Risk** |
+|                     | ACWR Under         | ACWR Optimal       | ACWR Caution+       |
+| ------------------- | ------------------ | ------------------ | ------------------- |
+| **Recovery High**   | Waste              | **Aligned · Push** | Misaligned · Risk   |
+| **Recovery Normal** | Light              | **Aligned**        | Overload · Risk     |
+| **Recovery Low**    | **Aligned · Rest** | Misaligned         | **Critical · Risk** |
 
 Each cell shows the count of past sessions that landed in it (so you learn which cells
 you frequent), today's cell gets a colored border, and a cell hover lists the last 8
@@ -771,7 +816,7 @@ chart: "I tend to do heavy sessions on low-recovery days" is a diagnosable habit
 The fourth signal in the Deload detector (§ 20) is a cross-half confirmation:
 
 ```
-physio = 
+physio =
   Garmin Fitness Direction = Declining
   OR HRV 7d MA down > 15% vs 28d baseline
 ```
@@ -796,7 +841,7 @@ axis, normalise to personal z-scores. Applied here:
 - **Strength Composite** — velocity, tonnage growth, INOL on σ axis
 
 The principle generalises: when the population mean is uninformative (everyone has
-different RHR baselines), your *own* mean is. Floor the SD so a near-constant series
+different RHR baselines), your _own_ mean is. Floor the SD so a near-constant series
 doesn't produce runaway z-scores.
 
 ## 27. EWMA over rolling means
@@ -807,7 +852,7 @@ training load on both halves (acute 7d, chronic 28d body; acute 4wk, chronic 16w
 
 ## 28. Personal ceilings via p90
 
-When a threshold is "what counts as a lot *for you*", use the 90th percentile of your
+When a threshold is "what counts as a lot _for you_", use the 90th percentile of your
 own history. Used for:
 
 - **Strain-debt ceiling** in Recovery Score (p90 of your own Activity Scores)
@@ -833,12 +878,12 @@ is why the document can name formulas — they are actually the formulas in the 
 
 Every view on the dashboard fits one of four tiers:
 
-| Tier | Content | Purpose |
-|-|-|-|
-| 1 — Answers | 3 hero cards per half | 3-second read |
-| 2 — Evidence | 8–10 charts per half | Data behind the answers |
-| 3 — Drill-down | Tooltip per chart + header-extra | Per-date detail |
-| 4 — Raw | Sparkline grid + History view | Dense scan, session-level edit |
+| Tier           | Content                          | Purpose                        |
+| -------------- | -------------------------------- | ------------------------------ |
+| 1 — Answers    | 3 hero cards per half            | 3-second read                  |
+| 2 — Evidence   | 8–10 charts per half             | Data behind the answers        |
+| 3 — Drill-down | Tooltip per chart + header-extra | Per-date detail                |
+| 4 — Raw        | Sparkline grid + History view    | Dense scan, session-level edit |
 
 You read top-down: answer → evidence → detail → raw. The bar half's sparkline grid is
 a compact per-lift summary that substitutes for the full dashboard when you want a
@@ -849,8 +894,8 @@ scan in under a second.
 One concept, one name. Hero card label = section title = chart card title. "Recovery"
 at the hero level, "Recovery & Sleep" at the section, "Recovery Trend" at the chart —
 same concept, consistent nominal hierarchy. Rename fixups shipped during development:
-*Training* → *Training Load* (hero), *Body Battery* → *Energy Balance* (chart), *Sleep
-Breakdown* → *Sleep Quality* (chart — the score is the primary number, stages are
+_Training_ → _Training Load_ (hero), _Body Battery_ → _Energy Balance_ (chart), _Sleep
+Breakdown_ → _Sleep Quality_ (chart — the score is the primary number, stages are
 evidence).
 
 Every chart has a **6-word subtitle** — the question it answers, authored as
@@ -887,7 +932,7 @@ keeps it legible.
 It is:
 
 - **A decision tool.** Every number is there to inform one of nine questions. The three
-  most-used: *Am I recovered?* *Am I overloading?* *Is this lift progressing?*
+  most-used: _Am I recovered?_ _Am I overloading?_ _Is this lift progressing?_
 - **An honest mirror.** Personal z-scores, personal p90 ceilings, personal MEV/MAV/MRV.
   Your numbers, not population averages.
 - **A research record.** The formulas are cited (Brzycki, Epley, Ainsworth, Hulin,
@@ -901,7 +946,7 @@ It is not:
 
 - **A population dashboard.** The Activity Score target is 600 MET-min/day for a
   sportive young adult. The strength ratios are normed against IPF powerlifters.
-  These are *personal* targets with *external* references, not universal thresholds.
+  These are _personal_ targets with _external_ references, not universal thresholds.
 - **A complete physio model.** We don't have per-minute heart rate, so we can't
   compute real TRIMP or Whoop Strain. We don't have continuous glucose. We don't have
   mood or nutrition logs. MET-min is a good-enough approximation for the effort
@@ -911,10 +956,10 @@ It is not:
   The cross-half fatigue-debt adjustment shipped. Future work lives in
   `docs/STRENGTH-ANALYTICS.md` Part 7 and `docs/GARMIN-HEALTH.md` Part 6.
 
-The thesis the whole thing is organised around: *if you can answer nine questions well,
+The thesis the whole thing is organised around: _if you can answer nine questions well,
 with every answer attributable to evidence you can audit and every evidence chart
 trackable back to a raw measurement, you have a training dashboard that's worth the
-time to log every set.*
+time to log every set._
 
 ---
 
@@ -922,23 +967,23 @@ time to log every set.*
 
 The formulas above are not original. Primary sources:
 
-| Source | Contribution |
-|-|-|
-| Ainsworth et al. (2011) — *Compendium of Physical Activities* | MET multipliers (8 vig, 4 mod, 3 walk) |
-| Banister (1991) — TRIMP | Original training-impulse formula |
-| Brzycki (1993) — NSCA Journal | 1RM estimation (valid R ∈ [1, 10]) |
-| Epley (1985) — NSCA | 1RM estimation (valid R ∈ [1, 12]) |
-| Gabbett (2016) — *BJSM* | ACWR zones (0.8 / 1.3 / 1.5) |
-| Helms et al. (2023) — MASS Review | RIR methodology |
-| Hristov | INOL framework and zone bands |
-| Hulin et al. (2017) — *BJSM* | EWMA superiority for ACWR |
-| IPF (2020) | DOTS coefficients (replaces Wilks) |
-| Israetel — RP Strength (2023) | Volume landmarks (MEV/MAV/MRV) |
-| Nature Sci Reports (2025) | HRV-guided training readiness |
-| PMC Delphi study (2024) | Deload timing consensus (4–8 week cadence) |
-| PubMed (2024) — 809,986 entries | Normative powerlifting strength ratios |
-| Schoenfeld et al. (2024) — JSCR | Volume-hypertrophy dose-response |
-| WHO (2020) | Physical Activity Guidelines, MET-min/week targets |
+| Source                                                        | Contribution                                                      |
+| ------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Ainsworth et al. (2011) — _Compendium of Physical Activities_ | MET multipliers (8 vig, 4 mod, 3 walk)                            |
+| Banister (1991) — TRIMP                                       | Original training-impulse formula                                 |
+| Brzycki (1993) — NSCA Journal                                 | 1RM estimation (valid R ∈ [1, 10])                                |
+| Epley (1985) — NSCA                                           | 1RM estimation (valid R ∈ [1, 12]; used only to R = 10 — see §13) |
+| Gabbett (2016) — _BJSM_                                       | ACWR zones (0.8 / 1.3 / 1.5)                                      |
+| Helms et al. (2023) — MASS Review                             | RIR methodology                                                   |
+| Hristov                                                       | INOL framework and zone bands                                     |
+| Hulin et al. (2017) — _BJSM_                                  | EWMA superiority for ACWR                                         |
+| IPF (2020)                                                    | DOTS coefficients (replaces Wilks)                                |
+| Israetel — RP Strength (2023)                                 | Volume landmarks (MEV/MAV/MRV)                                    |
+| Nature Sci Reports (2025)                                     | HRV-guided training readiness                                     |
+| PMC Delphi study (2024)                                       | Deload timing consensus (4–8 week cadence)                        |
+| PubMed (2024) — 809,986 entries                               | Normative powerlifting strength ratios                            |
+| Schoenfeld et al. (2024) — JSCR                               | Volume-hypertrophy dose-response                                  |
+| WHO (2020)                                                    | Physical Activity Guidelines, MET-min/week targets                |
 
 For the reference-manual view of each half, see `docs/GARMIN-HEALTH.md` and
 `docs/STRENGTH-ANALYTICS.md`. For the chart-primitive contract, see

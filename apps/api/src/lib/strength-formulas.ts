@@ -12,10 +12,22 @@ import {
   fitnessDirection,
   STRAIN_DEBT_MIN_CEILING,
 } from './garmin-formulas.js'
-import { computeMetrics, makeBodyweightResolver, loadBodyweightResolver } from './formulas.js'
+import {
+  computeMetrics,
+  estimate1RM,
+  makeBodyweightResolver,
+  loadBodyweightResolver,
+  E1RM_MAX_REPS,
+} from './formulas.js'
 import { weekStart } from './week.js'
 
-export { computeMetrics, makeBodyweightResolver, loadBodyweightResolver }
+export {
+  computeMetrics,
+  estimate1RM,
+  makeBodyweightResolver,
+  loadBodyweightResolver,
+  E1RM_MAX_REPS,
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -95,17 +107,6 @@ function clamp(v: number, lo: number, hi: number): number {
 
 // ─── Per-set / per-workout math (§1.1, §1.5, §1.16) ─────────────────────────
 
-/** Epley + Brzycki average. Reps 11–12 use Epley only. Returns null when outside [1, 12]. */
-export function estimate1RM(weight: number, reps: number): number | null {
-  if (reps < 1 || reps > 12) return null
-  const epley = weight * (1 + reps / 30)
-  if (reps <= 10) {
-    const brzycki = (weight * 36) / (37 - reps)
-    return (epley + brzycki) / 2
-  }
-  return epley
-}
-
 /** §1.5 — Intensity × Number Of Lifts for a single workout. */
 export function sessionInol(workout: WorkoutWithSets, bw: number): number | null {
   const best1rm = workout.estimated_1rm
@@ -115,6 +116,8 @@ export function sessionInol(workout: WorkoutWithSets, bw: number): number | null
   let count = 0
   for (const s of workout.sets) {
     if (s.set_type !== 'work' && s.set_type !== 'amrap') continue
+    // Deliberately wider than E1RM_MAX_REPS: INOL measures training load, and an 11–12 rep set is
+    // real work even where it's too high-rep to *estimate* a 1RM from. Not drift — see §2.3.
     if (s.reps < 1 || s.reps > 12) continue
     const ew = isPullUps ? s.weight_kg + bw : s.weight_kg
     // Cap intensity at 40..99 % to avoid blowing up the divisor near 1RM.
@@ -132,12 +135,14 @@ export function bestSet(workout: WorkoutWithSets, bw: number): BestSet | null {
   let bestE1rm: number | null = null
   let bestWeight = 0
   let bestReps = 0
+  // Must select the same set `computeMetrics` scored as the session best — including its
+  // heavier-set tie-break — or the tooltip names a set that doesn't match the headline number.
   for (const s of workout.sets) {
     if (s.set_type !== 'work' && s.set_type !== 'amrap') continue
-    if (s.reps < 1 || s.reps > 12) continue
     const ew = isPullUps ? s.weight_kg + bw : s.weight_kg
     const e1rm = estimate1RM(ew, s.reps)
-    if (e1rm !== null && (bestE1rm === null || e1rm > bestE1rm)) {
+    if (e1rm === null) continue
+    if (bestE1rm === null || e1rm > bestE1rm || (e1rm === bestE1rm && ew > bestWeight)) {
       bestE1rm = e1rm
       bestWeight = ew
       bestReps = s.reps

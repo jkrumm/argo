@@ -122,7 +122,7 @@ Wearable tables — already shipped for Garmin Health, reused here:
 - **`rir` lives on `workouts`** (per session), not per set. Matches how lifters think ("that session
   was a top set at RIR 2"). Per-set RIR can be added later if needed — start simple.
 - **`amrap` as a set_type** — the last set of a 5/3/1 or similar template, taken to near-failure.
-  Counts as `work` for all aggregates but is flagged for e1RM estimation (see 2.3).
+  Counts as `work` for all aggregates but is flagged for e1RM estimation (see 2.2).
 - **All analytics client-side.** API returns raw rows + a few per-workout aggregates that need the
   sets to compute (max weight, best-set e1RM, total volume). Everything else — derivatives, ACWR,
   ratios, readiness — is derived in the dashboard.
@@ -147,49 +147,138 @@ bw(date) : set.weight_kg`, where `bw(date)` walks `weight_log → daily_metrics 
 
 ### 2.2 Estimated 1RM (the canonical strength measure)
 
-Two formulas, averaged, with strict validity gates. We **do not** trust e1RM from every set — it's
-unstable at rep extremes.
+Two formulas, averaged per set, with a strict rep gate. We **do not** trust e1RM from every set —
+it is unstable at rep extremes.
 
 ```
-Brzycki: e1RM = W × 36 / (37 − R)           — valid for R ∈ [1, 10]
-Epley:   e1RM = W × (1 + R / 30)             — valid for R ∈ [1, 12]
-Average when both valid. Brzycki only when R > 10 (up to 12). Reject R > 12.
+Brzycki: e1RM = W × 36 / (37 − R)
+Epley:   e1RM = W × (1 + R / 30)
 
-Validity gate per set:
-  eligible = set_type ∈ {work, amrap}
-             AND reps ∈ [1, 12]
-             AND (RIR is null OR RIR ≤ 3)     — sandbagged sets distort upward trend
-             AND set is not flagged outlier
+Per-set score:  e1RM(set) = (Epley + Brzycki) / 2,  for R ∈ [1, 10]
+                undefined (null) for R > 10
+
+Eligibility:    set_type ∈ {work, amrap}  AND  R ∈ [1, 10]
 ```
 
-**Best e1RM per workout** = `max(e1RM over eligible sets)`. Ties broken by higher absolute weight.
-Store the set that produced it alongside the value — tooltip shows "best set: 120×6 @ RIR 2".
+Implemented by `estimate1RM` / `computeMetrics` in `apps/api/src/lib/formulas.ts`, which is the
+single source of truth. `previewMetrics` in the dashboard's `workout-form.tsx` mirrors it so the
+form's live preview and PR trophy agree with the achievement toast fired on save.
+
+#### Why the gate is exactly 10 reps
+
+Not a round number — it is the point where the two formulas **cross**. Setting them equal:
+
+```
+1 + R/30 = 36/(37 − R)
+(30 + R)(37 − R) = 1080
+R² − 7R − 30 = 0        →  R = 10   (positive root)
+```
+
+Their multipliers on either side of that root:
+
+| Reps | Epley | Brzycki | Higher    |
+| ---- | ----- | ------- | --------- |
+| 1    | 1.033 | 1.000   | Epley     |
+| 5    | 1.167 | 1.125   | Epley     |
+| 8    | 1.267 | 1.241   | Epley     |
+| 10   | 1.333 | 1.333   | identical |
+| 12   | 1.400 | 1.440   | Brzycki   |
+
+Below 10, Brzycki is consistently the conservative one and the two bracket each other — averaging
+them is a genuine hedge, and they never differ by more than ~3 % (widest at R = 1). At exactly 10
+they agree to the digit. Above 10 the ordering **flips**: Brzycki overtakes Epley and accelerates
+toward its pole at R = 37, where it divides by zero. Past the crossover there is no longer a
+bracket, so the answer depends entirely on which formula you picked — which is not an estimate, it
+is a choice. We refuse rather than guess: a session whose only work sets are 11+ reps reports
+`estimated_1rm: null`.
+
+This is an **accuracy** gate, not a stability one — see the limitation below.
+
+#### Best e1RM per workout = the best single set
+
+```
+best_e1RM(workout) = max( e1RM(set) )  over eligible sets
+                     ties → the heavier set
+```
+
+Score each set, **then** take the winner. The reported `estimated_1rm_epley` and
+`estimated_1rm_brzycki` are that winning set's own two components, so the average always sits
+between them.
+
+> **Historical bug (fixed).** An earlier `computeMetrics` took `max(Epley)` and `max(Brzycki)`
+> across sets _independently_ and averaged the two maxima. When the maxima came from different sets
+> the result described neither — and could exceed every individual set's estimate. For 132.5×1
+> (Epley 136.9 / Brzycki 132.5 → 134.7) plus 100×10 (133.3 / 133.3 → 133.3) it reported **135.1**,
+> higher than either set actually earned. Guarded by a regression test in `formulas.test.ts`.
+
+#### Why not the alternatives
+
+| Approach                                            | Verdict | Reason                                                                                                                                                                                                                                                       |
+| --------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Max per-set** (chosen)                            | ✅      | Set-count invariant in practice — fatigue means the top work set usually wins anyway. Matches how Strong/Hevy report it.                                                                                                                                     |
+| Average weight & reps, then one e1RM                | ❌      | Mathematically unsound. Feeding averaged reps into a nonlinear formula describes a set that never happened: 140×1 + 60×12 becomes "100×6.5".                                                                                                                 |
+| Mean of per-set e1RMs                               | ❌      | Deflates with volume. Adding one back-off set to a 3-set session drops e1RM ~2 kg, so a programming change reads as a strength change.                                                                                                                       |
+| Heaviest set only                                   | ❌      | Discards rep information. A heavy triple and a high-rep set at lower load can represent the same strength; taking only the bar weight loses that.                                                                                                            |
+| Averaging more formulas (Wathan, Mayhew, Lombardi…) | ❌      | Ensemble averaging reduces variance only when model errors are independent. These are all fitted to the same assumption — one universal rep→1RM curve — so their errors correlate and little is gained, at the cost of a number no other tool can reproduce. |
+
+**Why not Mayhew specifically?** Mayhew is tuned for the bench press and under-estimates for squat
+and deadlift in untrained-to-intermediate populations. Brzycki+Epley has the widest published
+validation across the three powerlifts (see references).
+
+#### Known limitation — rep-scheme bias dominates
+
+The choice of _combining rule_ above is worth ~2 kg. The formulas' own rep-scheme sensitivity is
+worth an order of magnitude more. A heavy day of 105×3 scores **113.4**; a volume day of 95×10
+scores **126.7** — same lifter, same week, **13 kg apart** — because the formulas assume one
+universal rep→1RM curve that no individual actually follows.
+
+No aggregation rule can fix this; it is upstream of the aggregation. Two consequences:
+
+1. **Do not read session-to-session jitter as a strength change.** Stability belongs to the trend
+   layer — the 30-day moving average and the 28-day regression in §3, not the per-session point.
+2. **The real fix is RIR/RPE.** An 8 taken to failure and an 8 with three left in reserve are
+   different lifts, and no rep-based formula can distinguish them.
+
+> **Not yet implemented.** The RIR gate below is design intent, not current behaviour — the
+> `workouts` table has no `rir` column, so nothing filters on it today. When added, the eligibility
+> rule gains `AND (RIR is null OR RIR ≤ 3)` to stop sandbagged sets distorting the trend upward.
 
 For bodyweight exercises: `W = weight_kg + body_weight(date)`. Pull-ups with no added weight are
-still valid — they just have `weight_kg = 0`.
-
-**Why not Mayhew?** Mayhew is tuned for the bench press and under-estimates for squat and deadlift
-in untrained-to-intermediate populations. Brzycki+Epley has the widest published validation across
-the three powerlifts (see references).
+still valid — they just have `weight_kg = 0`. Note this is why the Log Workout form shows no PR
+trophy for pull-ups: the form has no bodyweight loaded, so it cannot reproduce the backend's score.
 
 ### 2.3 Single-session computed metrics
 
-Derived from one workout's eligible work sets.
+Derived from one workout's work sets.
+
+> **Two rep windows, deliberately.** "Eligible" means different things depending on whether a
+> formula is being _estimated_ or work is being _counted_:
+>
+> - **e1RM window — `work|amrap` and R ∈ [1, 10]** (§2.2). Bounded by formula validity.
+> - **Load window — `work|amrap` and R ∈ [1, 12]**, used by INOL and the load metrics. An 11–12
+>   rep set is real training work even where it is too high-rep to _estimate_ a 1RM from, so
+>   excluding it would understate load.
+>
+> This is not drift between the two call sites — it is the intended split, and the code carries a
+> comment at each boundary saying so.
 
 ```
-max_weight       = max(eligible work-set weights)
-total_volume     = Σ (effective_weight × reps)   over ALL sets (warmup + work + drop + amrap)
-work_volume      = Σ (effective_weight × reps)   over eligible sets only
-avg_intensity    = mean(effective_weight / best_e1RM)    over eligible sets, as %
-top_set_rir      = workout.rir                           (session RIR)
+max_weight       = max(work-set weights)                 over the LOAD window
+total_volume     = Σ (effective_weight × reps)           over ALL sets (warmup + work + drop + amrap)
+work_volume      = Σ (effective_weight × reps)           over the LOAD window
+avg_intensity    = mean(effective_weight / best_e1RM)    over the LOAD window, as %
+top_set_rir      = workout.rir                           (session RIR — not yet implemented, see §2.2)
 ```
 
 **INOL (Intensity Number of Lifts)** — the single best single-number quality score:
 
 ```
-INOL = Σ ( reps / (100 − %e1RM) )     over eligible sets only
+INOL = Σ ( reps / (100 − %e1RM) )     over the LOAD window
 where %e1RM = (effective_weight / best_e1RM) × 100, clamped to [40, 99]
 ```
+
+INOL depends on `best_e1RM`, so a session with no set inside the **e1RM** window has no INOL
+(`null`) even though its sets carry real load — intensity is meaningless without a 1RM reference.
 
 The clamp prevents a singularity at 100% and rejects noise from very light back-off sets. INOL
 zones (Hristov):
