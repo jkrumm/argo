@@ -121,8 +121,7 @@
   min-width: 0;
   padding: 2px 4px;
   border: none;
-  border-bottom: 1px solid transparent;
-  border-radius: 3px 3px 0 0;
+  border-radius: 4px;
   background: transparent;
   color: inherit;
   font-family: var(--basalt-font-mono);
@@ -130,23 +129,23 @@
   line-height: 1.35;
   text-align: center;
   cursor: pointer;
-  transition:
-    border-color 0.15s,
-    background-color 0.15s;
+  transition: background-color 0.15s;
 }
 
-.row[data-hovered='true'] .cellTrigger {
-  border-bottom-color: color-mix(in srgb, var(--vx-neutral) 30%, transparent);
+/* A tint, not an underline: the cell is a button, and an underline advertises a text field that
+   no longer exists here. */
+.cellTrigger:hover {
+  background: color-mix(in srgb, var(--vx-neutral) 10%, transparent);
 }
 
 .cellTrigger:focus-visible {
-  border-bottom-color: color-mix(in srgb, var(--vx-neutral) 50%, transparent);
+  outline: 2px solid var(--vx-accent);
+  outline-offset: -2px;
 }
 
 /* While its popover is open the cell stays lit, so the anchor is obvious. */
 .cellTrigger[aria-expanded='true'] {
-  border-bottom-color: color-mix(in srgb, var(--vx-neutral) 50%, transparent);
-  background: color-mix(in srgb, var(--vx-neutral) 8%, transparent);
+  background: color-mix(in srgb, var(--vx-neutral) 14%, transparent);
 }
 
 @media (pointer: coarse) {
