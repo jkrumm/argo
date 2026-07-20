@@ -96,7 +96,7 @@
 }
 
 /*
- * On a touch device there is no hover, so a stepper revealed only on hover is invisible — but still
+ * On a touch device there is no hover, so a control revealed only on hover is invisible — but still
  * tappable. Pin them visible and give them a real touch target.
  */
 @media (pointer: coarse) {
@@ -104,6 +104,50 @@
     width: 26px;
     height: 26px;
     opacity: 0.55;
+  }
+}
+
+/*
+ * The weight cell is a button, not a field — every edit goes through WeightPopover. It mirrors
+ * .input exactly (same 16px, padding, and hover underline) so swapping the control never shifts
+ * the row's rhythm or makes the weight column read differently from the reps column beside it.
+ */
+.weightTrigger {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 4px;
+  border: none;
+  border-bottom: 1px solid transparent;
+  border-radius: 3px 3px 0 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.35;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
+}
+
+.row[data-hovered='true'] .weightTrigger {
+  border-bottom-color: color-mix(in srgb, var(--vx-neutral) 30%, transparent);
+}
+
+.weightTrigger:focus-visible {
+  border-bottom-color: color-mix(in srgb, var(--vx-neutral) 50%, transparent);
+}
+
+/* While its popover is open the cell stays lit, so the anchor is obvious. */
+.weightTrigger[aria-expanded='true'] {
+  border-bottom-color: color-mix(in srgb, var(--vx-neutral) 50%, transparent);
+  background: color-mix(in srgb, var(--vx-neutral) 8%, transparent);
+}
+
+@media (pointer: coarse) {
+  .weightTrigger {
+    min-height: 26px;
   }
 }
 

@@ -20,9 +20,11 @@ import {
   type CreateWorkoutResponse,
 } from '../../../lib/queries/workouts'
 import { exerciseQueries } from '../../../lib/queries/exercises'
+import { loadingFor, useGyms } from '../../../lib/gym-profile'
 import { EXERCISES, type ExerciseKey } from '../constants'
 import { showAchievements } from '../achievements-toast'
 import { SetEditor, type SetEntry } from './set-editor'
+import { GymSettingsModal } from './gym-settings-modal'
 import { startRestTimer } from './rest-timer-bus'
 
 const DEFAULT_SETS: SetEntry[] = [{ set_type: 'work', weight_kg: 60, reps: 5 }]
@@ -161,13 +163,23 @@ export function WorkoutForm() {
   const [date, setDate] = useState<string>(today())
   const [sets, setSets] = useState<SetEntry[]>(DEFAULT_SETS)
   const [completedCount, setCompletedCount] = useState(0)
+  const [gymSettingsOpen, setGymSettingsOpen] = useState(false)
 
   const exercisesResult = useSuspenseQuery(exerciseQueries.list())
   const recentResult = useSuspenseQuery(workoutsQueries.list({ page: 1, limit: 20 }))
 
-  const exerciseOptions = (exercisesResult.data?.data ?? []).map(
-    (e: { id: string; name: string }) => ({ value: e.id, label: e.name }),
-  )
+  const exerciseRows = exercisesResult.data?.data ?? []
+  const exerciseOptions = exerciseRows.map((e: { id: string; name: string }) => ({
+    value: e.id,
+    label: e.name,
+  }))
+
+  // How the selected exercise is loaded at the active gym, driving the weight
+  // popover's plate calculator. Equipment is a client-side preference (it changes
+  // when you travel), so it lives in localStorage — never in the workout record,
+  // which keeps storing the absolute total including the bar.
+  const gyms = useGyms()
+  const loading = loadingFor(gyms.active, exercise)
 
   const recentWorkouts = (recentResult.data?.data ?? []) as ReadonlyArray<WorkoutRowLite>
   const previousSets = findLastSession(recentWorkouts, exercise)
@@ -295,6 +307,16 @@ export function WorkoutForm() {
           checklist
           completedCount={completedCount}
           onCompletedChange={handleCompletedChange}
+          loadingMode={loading.mode}
+          barId={loading.barId}
+          onBarChange={(barId) => gyms.setExerciseLoading(exercise, { barId })}
+          onOpenSettings={() => setGymSettingsOpen(true)}
+        />
+
+        <GymSettingsModal
+          opened={gymSettingsOpen}
+          onClose={() => setGymSettingsOpen(false)}
+          exercises={exerciseOptions.length > 0 ? exerciseOptions : EXERCISES}
         />
 
         {previewParts.length > 0 && (

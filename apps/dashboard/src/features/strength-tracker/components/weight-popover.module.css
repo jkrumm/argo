@@ -1,0 +1,261 @@
+/*
+ * WeightPopover is two bespoke touch surfaces — a calculator-style numpad and a plate-loading
+ * visual — neither of which Mantine has a primitive for. Every color routes through a --vx-*
+ * token (basalt-tokens: opacity via color-mix, never rgba); numerals use the mono font var per
+ * DESIGN.md. A @media (pointer: coarse) block bumps every tappable target for mid-workout use,
+ * mirroring set-editor.module.css's precedent.
+ */
+
+.valueText {
+  font-family: var(--basalt-font-mono);
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.unit {
+  font-family: var(--basalt-font-mono);
+  color: color-mix(in srgb, var(--vx-neutral) 55%, transparent);
+}
+
+.digitGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  flex: 1;
+}
+
+.digitKey {
+  width: 100%;
+  height: 38px;
+  border: none;
+  border-radius: var(--vx-radius-ctrl);
+  background: var(--vx-surface-subtle);
+  color: inherit;
+  font-family: var(--basalt-font-mono);
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.digitKey:hover {
+  background: color-mix(in srgb, var(--vx-neutral) 14%, var(--vx-surface-subtle));
+}
+
+.digitKey:active {
+  background: color-mix(in srgb, var(--vx-neutral) 22%, var(--vx-surface-subtle));
+}
+
+.stepperBtn {
+  width: 100%;
+  height: 30px;
+  border: none;
+  border-radius: var(--vx-radius-ctrl);
+  background: var(--vx-surface-subtle);
+  color: inherit;
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.stepperBtn:hover {
+  background: color-mix(in srgb, var(--vx-neutral) 14%, var(--vx-surface-subtle));
+}
+
+.plateTotal {
+  font-family: var(--basalt-font-mono);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.hint {
+  font-family: var(--basalt-font-mono);
+  color: color-mix(in srgb, var(--vx-neutral) 55%, transparent);
+}
+
+.sideLabel {
+  color: color-mix(in srgb, var(--vx-neutral) 50%, transparent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/*
+ * The loaded bar, built entirely in flow — no absolute positioning — so the silhouette assembles
+ * itself left to right: inboard shaft → collar → plates → sleeve → end cap. A barbell is not a
+ * uniform tube; the sleeve the plates ride on is visibly fatter than the shaft, and that step is
+ * most of what makes this read as a bar rather than a rule. Every segment shares the same metallic
+ * top-lit gradient so they read as one machined piece.
+ */
+.barStage {
+  display: flex;
+  align-items: center;
+  height: 96px;
+}
+
+.metal {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--vx-neutral) 46%, transparent) 0%,
+    color-mix(in srgb, var(--vx-neutral) 30%, transparent) 42%,
+    color-mix(in srgb, var(--vx-neutral) 16%, transparent) 100%
+  );
+}
+
+/*
+ * The inboard shaft absorbs the slack (flex: 1) while the outboard sleeve stays a fixed stub, so
+ * the loaded stack sits out toward the sleeve end the way a real bar loads — rather than pinned to
+ * the left with a long empty runway to the right. As plates accumulate the left shaft shortens and
+ * the overall bar width holds steady.
+ */
+.shaftInner {
+  height: 8px;
+  flex: 1;
+  min-width: 14px;
+}
+
+/* The sleeve the plates load onto — thicker than the shaft, but only just. Runs to an open end:
+   a real sleeve has no stop out there, and drawing one read as a second collar. */
+.sleeve {
+  width: 44px;
+  height: 11px;
+  flex-shrink: 0;
+  border-radius: 0 2px 2px 0;
+}
+
+/* The bar's own weight, sitting at the inboard end where a barbell's centre knurl would be. */
+.barWeightPill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 20px;
+  flex-shrink: 0;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--vx-neutral) 30%, var(--vx-surface-panel));
+}
+
+.plateGroup {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 3px;
+}
+
+.barEndLabel {
+  font-family: var(--basalt-font-mono);
+  font-size: 10px;
+  color: color-mix(in srgb, var(--vx-neutral) 75%, transparent);
+}
+
+/* The collar the plates butt against — the visual anchor the stack grows out of. */
+.collar {
+  width: 7px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--vx-neutral) 52%, transparent);
+}
+
+/*
+ * Denomination is encoded by height and neutral tone, never by hue: six plate colors would mean six
+ * unearned series entries, and physical plates read by size anyway. Tone rides the same ramp as
+ * height so a 15 is unmistakably heavier than a 1.25 even where the height difference is subtle.
+ *
+ * The three --plate-tone-* stops are computed in TS rather than with calc() inside color-mix():
+ * calc() in a color-mix percentage is CSS Color 5 and not reliable across the browsers this runs
+ * in, and the stops need clamping to 0-100 anyway. The gradient is top-lit to match .metal, so
+ * plates and bar look lit from the same source.
+ */
+.plate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: var(--plate-height, 48px);
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--vx-neutral) 30%, transparent);
+  border-radius: 5px;
+  background: linear-gradient(
+    170deg,
+    color-mix(in srgb, var(--vx-neutral) var(--plate-tone-hi, 12%), var(--vx-surface-elevated)) 0%,
+    color-mix(in srgb, var(--vx-neutral) var(--plate-tone, 20%), var(--vx-surface-elevated)) 52%,
+    color-mix(in srgb, var(--vx-neutral) var(--plate-tone-lo, 32%), var(--vx-surface-elevated)) 100%
+  );
+  cursor: pointer;
+  transition:
+    filter 0.25s,
+    transform 0.12s;
+}
+
+.plate:hover {
+  transform: translateY(-2px);
+}
+
+.plate[data-highlight='true'] {
+  background: linear-gradient(
+    170deg,
+    color-mix(in srgb, var(--vx-accent) 28%, var(--vx-surface-elevated)) 0%,
+    color-mix(in srgb, var(--vx-accent) 40%, var(--vx-surface-elevated)) 100%
+  );
+}
+
+.plateLabel {
+  font-family: var(--basalt-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--vx-neutral) 85%, transparent);
+}
+
+/* Bar loaded with nothing yet — say so rather than showing a bare shaft. */
+.emptyBar {
+  padding-left: 8px;
+  white-space: nowrap;
+  font-size: 11px;
+  color: color-mix(in srgb, var(--vx-neutral) 45%, transparent);
+}
+
+.denomChip {
+  padding: 4px 10px;
+  border: 1px solid var(--vx-surface-border);
+  border-radius: var(--vx-radius-ctrl);
+  background: var(--vx-surface-subtle);
+  color: inherit;
+  font-family: var(--basalt-font-mono);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.denomChip:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--vx-neutral) 14%, var(--vx-surface-subtle));
+}
+
+.denomChip:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/*
+ * Touch-primary constraint: this component is used mid-workout. Bump every tappable target on a
+ * coarse pointer, mirroring set-editor.module.css's stepper bump.
+ */
+@media (pointer: coarse) {
+  .digitKey {
+    height: 46px;
+    font-size: 18px;
+  }
+
+  .stepperBtn {
+    height: 38px;
+  }
+
+  .plate {
+    width: 30px;
+  }
+
+  .denomChip {
+    padding: 8px 12px;
+  }
+}

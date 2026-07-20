@@ -2,7 +2,9 @@ import { useRef, useState } from 'react'
 import { ActionIcon, Box, Button, Flex, NumberInput } from '@mantine/core'
 import { IconCheck, IconPlus, IconX } from '@tabler/icons-react'
 import { VX, alpha } from 'basalt-ui/tokens'
+import type { LoadingMode } from '../../../lib/plate-math'
 import type { SetType } from '../constants'
+import { WeightPopover } from './weight-popover'
 import cls from './set-editor.module.css'
 
 export type SetEntry = {
@@ -34,6 +36,17 @@ export interface SetEditorProps {
   /** Number of sets checked off, counted from the top (only with `checklist`). */
   completedCount?: number
   onCompletedChange?: (count: number) => void
+  /**
+   * How the selected exercise's weight is physically assembled. Drives the weight
+   * popover's plate calculator; `free` hides it and leaves just the keypad.
+   */
+  loadingMode?: LoadingMode
+  /** Which bar the exercise uses, when `loadingMode` is 'barbell'. */
+  barId?: string
+  /** Persists a bar change back to the exercise's entry in the gym profile. */
+  onBarChange?: (barId: string) => void
+  /** Opens the gym-equipment settings modal (owned by the parent form). */
+  onOpenSettings?: () => void
 }
 
 /**
@@ -48,7 +61,9 @@ export interface SetEditorProps {
  * - ± steppers on weight (0.5 kg) and reps (1) — visible on row hover on
  *   desktop, pinned visible on touch (coarse-pointer devices have no hover).
  * - Previous-session column when `previousSets` is provided.
- * - Tab on weight input focuses reps input of the same row.
+ * - Weight is not a text field: the cell is a button that opens `WeightPopover`
+ *   (keypad + plate calculator). Typing a digit on it opens straight into the
+ *   keypad with that digit; Tab still jumps to the row's reps input.
  * - `readOnly` mode renders a compact text view without edit affordances.
  */
 export function SetEditor({
@@ -59,9 +74,24 @@ export function SetEditor({
   checklist = false,
   completedCount = 0,
   onCompletedChange,
+  loadingMode = 'free',
+  barId = '',
+  onBarChange,
+  onOpenSettings,
 }: SetEditorProps) {
   const [hoveredRow, setHoveredRow] = useState<number | null>(null)
+  // Index of the row whose weight popover is open — a single slot, so only one
+  // can ever be open at a time.
+  const [openRow, setOpenRow] = useState<number | null>(null)
+  // The digit that opened the popover, when it was opened by typing rather than
+  // tapping. Handed to the popover so the keystroke isn't swallowed.
+  const [pendingDigit, setPendingDigit] = useState<string | null>(null)
   const repsRefs = useRef<(HTMLInputElement | null)[]>([])
+
+  function openWeight(i: number, digit: string | null) {
+    setPendingDigit(digit)
+    setOpenRow(i)
+  }
 
   function emit(next: SetEntry[]) {
     onChange?.(next)
@@ -81,6 +111,9 @@ export function SetEditor({
   }
 
   function removeSet(i: number) {
+    // Row indices shift on removal, so a popover keyed to an index would end up
+    // anchored to the wrong set. Close it rather than try to re-map.
+    setOpenRow(null)
     emit(sets.filter((_, idx) => idx !== i))
   }
 
@@ -169,57 +202,74 @@ export function SetEditor({
             )}
 
             {/* Weight column */}
-            <Flex align="center" className={cls.cell}>
-              {editable && (
-                <button
-                  type="button"
-                  className={cls.stepper}
-                  onClick={() => updateSet(i, 'weight_kg', Math.max(0, s.weight_kg - 0.5))}
-                  aria-label="Decrement weight"
-                >
-                  −
-                </button>
-              )}
-              {readOnly ? (
+            {readOnly ? (
+              <Flex align="center" className={cls.cell}>
                 <Box component="span" className={cls.readOnlyValue}>
                   {s.weight_kg}
                 </Box>
-              ) : (
-                <NumberInput
-                  classNames={{ input: cls.input }}
-                  variant="unstyled"
-                  hideControls
-                  clampBehavior="none"
-                  inputMode="decimal"
-                  value={s.weight_kg}
-                  disabled={!editable}
-                  onChange={(value) => {
-                    const v = typeof value === 'number' ? value : Number(value)
-                    if (!Number.isNaN(v) && v >= 0) updateSet(i, 'weight_kg', v)
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Tab' && !e.shiftKey) {
-                      e.preventDefault()
-                      repsRefs.current[i]?.focus()
-                      repsRefs.current[i]?.select()
-                    }
-                  }}
-                  step={0.5}
-                  min={0}
-                  className={cls.cell}
-                />
-              )}
-              {editable && (
-                <button
-                  type="button"
-                  className={cls.stepper}
-                  onClick={() => updateSet(i, 'weight_kg', s.weight_kg + 0.5)}
-                  aria-label="Increment weight"
-                >
-                  +
-                </button>
-              )}
-            </Flex>
+              </Flex>
+            ) : (
+              <WeightPopover
+                value={s.weight_kg}
+                onChange={(v) => updateSet(i, 'weight_kg', v)}
+                loadingMode={loadingMode}
+                barId={barId}
+                onBarChange={onBarChange}
+                opened={openRow === i}
+                seedDigit={openRow === i ? pendingDigit : null}
+                onClose={() => setOpenRow(null)}
+                onCommit={() => {
+                  setOpenRow(null)
+                  repsRefs.current[i]?.focus()
+                  repsRefs.current[i]?.select()
+                }}
+                onOpenSettings={onOpenSettings}
+              >
+                <Flex align="center" className={cls.cell}>
+                  <button
+                    type="button"
+                    className={cls.stepper}
+                    onClick={() => updateSet(i, 'weight_kg', Math.max(0, s.weight_kg - 0.5))}
+                    aria-label="Decrement weight"
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    className={cls.weightTrigger}
+                    onClick={() => (openRow === i ? setOpenRow(null) : openWeight(i, null))}
+                    onKeyDown={(e) => {
+                      // Tab still hands off to reps, so the row stays keyboard-fast.
+                      if (e.key === 'Tab' && !e.shiftKey) {
+                        e.preventDefault()
+                        repsRefs.current[i]?.focus()
+                        repsRefs.current[i]?.select()
+                        return
+                      }
+                      // Typing a number goes straight into the keypad rather than
+                      // being dropped on a button that can't accept text.
+                      if (/^[0-9]$/.test(e.key)) {
+                        e.preventDefault()
+                        openWeight(i, e.key)
+                      }
+                    }}
+                    aria-haspopup="dialog"
+                    aria-expanded={openRow === i}
+                    aria-label={`Weight ${s.weight_kg} kg — open keypad and plate calculator`}
+                  >
+                    {s.weight_kg}
+                  </button>
+                  <button
+                    type="button"
+                    className={cls.stepper}
+                    onClick={() => updateSet(i, 'weight_kg', s.weight_kg + 0.5)}
+                    aria-label="Increment weight"
+                  >
+                    +
+                  </button>
+                </Flex>
+              </WeightPopover>
+            )}
 
             {/* Reps column */}
             <Flex align="center" className={cls.cell}>

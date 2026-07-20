@@ -7,7 +7,8 @@
     "dev": "vite --port 7715 --strictPort",
     "build": "vite build",
     "preview": "vite preview --port 7715 --strictPort",
-    "typecheck": "tsr generate && tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json"
+    "typecheck": "tsr generate && tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
+    "test": "bun test src/lib"
   },
   "dependencies": {
     "@ai-sdk/react": "4.0.19",

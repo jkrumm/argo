@@ -3,6 +3,7 @@ import { Button, Group, Modal, Select, Stack, TextInput } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { exerciseQueries } from '../../../lib/queries/exercises'
 import { useUpdateWorkout, type UpdateWorkoutInput } from '../../../lib/queries/workouts'
+import { loadingFor, useGyms } from '../../../lib/gym-profile'
 import { EXERCISES } from '../constants'
 import { SetEditor, type SetEntry } from './set-editor'
 
@@ -27,9 +28,11 @@ export function EditWorkoutModal({
   onClose: () => void
 }) {
   const exercisesResult = useSuspenseQuery(exerciseQueries.list())
-  const exerciseOptions = (exercisesResult.data?.data ?? []).map(
-    (e: { id: string; name: string }) => ({ value: e.id, label: e.name }),
-  )
+  const exerciseRows = exercisesResult.data?.data ?? []
+  const exerciseOptions = exerciseRows.map((e: { id: string; name: string }) => ({
+    value: e.id,
+    label: e.name,
+  }))
 
   return (
     <Modal opened={workout !== null} onClose={onClose} title="Edit Workout" size="lg">
@@ -66,6 +69,8 @@ function EditForm({
   )
 
   const updateWorkout = useUpdateWorkout()
+  const gyms = useGyms()
+  const loading = loadingFor(gyms.active, exerciseId)
 
   function handleSave() {
     const input: UpdateWorkoutInput = {
@@ -99,7 +104,15 @@ function EditForm({
         onChange={(e) => setDate(e.currentTarget.value)}
       />
 
-      <SetEditor sets={sets} onChange={setSets} />
+      {/* No settings gear here: the gym-equipment modal would have to stack on top
+          of this one. Editing equipment belongs in the Log Workout form. */}
+      <SetEditor
+        sets={sets}
+        onChange={setSets}
+        loadingMode={loading.mode}
+        barId={loading.barId}
+        onBarChange={(barId) => gyms.setExerciseLoading(exerciseId, { barId })}
+      />
 
       <Group justify="flex-end" mt="sm">
         <Button variant="default" onClick={onClose}>
