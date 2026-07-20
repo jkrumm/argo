@@ -108,11 +108,15 @@
 }
 
 /*
- * The weight cell is a button, not a field — every edit goes through WeightPopover. It mirrors
- * .input exactly (same 16px, padding, and hover underline) so swapping the control never shifts
- * the row's rhythm or makes the weight column read differently from the reps column beside it.
+ * Both numeric cells are buttons, not fields — every edit goes through a popover keypad. That is
+ * what lets the type drop to 15px: the old 16px was not a design choice but the iOS floor, since
+ * anything smaller makes Safari zoom the viewport on input focus and never zoom back. With no real
+ * input left in the grid the floor no longer applies, and the row gets tighter.
+ *
+ * Numerals are mono per DESIGN.md, which also makes the weight and reps columns align digit-wise
+ * down the grid the way a metric column should.
  */
-.weightTrigger {
+.cellTrigger {
   flex: 1;
   min-width: 0;
   padding: 2px 4px;
@@ -121,8 +125,8 @@
   border-radius: 3px 3px 0 0;
   background: transparent;
   color: inherit;
-  font: inherit;
-  font-size: 16px;
+  font-family: var(--basalt-font-mono);
+  font-size: 15px;
   line-height: 1.35;
   text-align: center;
   cursor: pointer;
@@ -131,59 +135,32 @@
     background-color 0.15s;
 }
 
-.row[data-hovered='true'] .weightTrigger {
+.row[data-hovered='true'] .cellTrigger {
   border-bottom-color: color-mix(in srgb, var(--vx-neutral) 30%, transparent);
 }
 
-.weightTrigger:focus-visible {
+.cellTrigger:focus-visible {
   border-bottom-color: color-mix(in srgb, var(--vx-neutral) 50%, transparent);
 }
 
 /* While its popover is open the cell stays lit, so the anchor is obvious. */
-.weightTrigger[aria-expanded='true'] {
+.cellTrigger[aria-expanded='true'] {
   border-bottom-color: color-mix(in srgb, var(--vx-neutral) 50%, transparent);
   background: color-mix(in srgb, var(--vx-neutral) 8%, transparent);
 }
 
 @media (pointer: coarse) {
-  .weightTrigger {
+  .cellTrigger {
     min-height: 26px;
   }
 }
 
-/*
- * NumberInput's `input` slot. variant="unstyled" strips the Mantine chrome; this layers the bespoke
- * underline back on. The 16px is load-bearing — below it iOS Safari zooms the viewport on focus and
- * never zooms back out (basalt's styles.css floor enforces the same minimum).
- *
- * variant="unstyled" does NOT drop `--input-height` (36px at the default size), which is what made
- * these rows twice as tall as they read. The height here comes from the font + padding instead.
- */
-.input {
-  width: 100%;
-  height: auto;
-  min-height: 0;
-  padding: 2px 4px;
-  border-bottom: 1px solid transparent;
-  font-size: 16px;
-  line-height: 1.35;
-  text-align: center;
-  transition: border-color 0.15s;
-}
-
-.row[data-hovered='true'] .input {
-  border-bottom-color: color-mix(in srgb, var(--vx-neutral) 30%, transparent);
-}
-
-.input:focus {
-  border-bottom-color: color-mix(in srgb, var(--vx-neutral) 50%, transparent);
-}
-
-/* Read-only mirror of .input — same 16px so the row height doesn't shift between modes. */
+/* Read-only mirror of .cellTrigger — same metrics so the row height doesn't shift between modes. */
 .readOnlyValue {
   flex: 1;
   padding: 2px 4px;
-  font-size: 16px;
+  font-family: var(--basalt-font-mono);
+  font-size: 15px;
   line-height: 1.35;
   text-align: center;
 }

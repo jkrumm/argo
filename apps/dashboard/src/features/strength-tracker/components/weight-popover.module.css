@@ -1,67 +1,10 @@
 /*
- * WeightPopover is two bespoke touch surfaces — a calculator-style numpad and a plate-loading
- * visual — neither of which Mantine has a primitive for. Every color routes through a --vx-*
- * token (basalt-tokens: opacity via color-mix, never rgba); numerals use the mono font var per
- * DESIGN.md. A @media (pointer: coarse) block bumps every tappable target for mid-workout use,
- * mirroring set-editor.module.css's precedent.
+ * The plate-loading visual — a bespoke touch surface Mantine has no primitive for. The keypad half
+ * of this popover lives in number-pad.module.css, shared with the reps popover. Every color routes
+ * through a --vx-* token (basalt-tokens: opacity via color-mix, never rgba); numerals use the mono
+ * font var per DESIGN.md. A @media (pointer: coarse) block bumps every tappable target for
+ * mid-workout use, mirroring set-editor.module.css's precedent.
  */
-
-.valueText {
-  font-family: var(--basalt-font-mono);
-  font-size: 32px;
-  font-weight: 600;
-  line-height: 1.1;
-}
-
-.unit {
-  font-family: var(--basalt-font-mono);
-  color: color-mix(in srgb, var(--vx-neutral) 55%, transparent);
-}
-
-.digitGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  flex: 1;
-}
-
-.digitKey {
-  width: 100%;
-  height: 38px;
-  border: none;
-  border-radius: var(--vx-radius-ctrl);
-  background: var(--vx-surface-subtle);
-  color: inherit;
-  font-family: var(--basalt-font-mono);
-  font-size: 16px;
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-.digitKey:hover {
-  background: color-mix(in srgb, var(--vx-neutral) 14%, var(--vx-surface-subtle));
-}
-
-.digitKey:active {
-  background: color-mix(in srgb, var(--vx-neutral) 22%, var(--vx-surface-subtle));
-}
-
-.stepperBtn {
-  width: 100%;
-  height: 30px;
-  border: none;
-  border-radius: var(--vx-radius-ctrl);
-  background: var(--vx-surface-subtle);
-  color: inherit;
-  font: inherit;
-  font-size: 15px;
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-.stepperBtn:hover {
-  background: color-mix(in srgb, var(--vx-neutral) 14%, var(--vx-surface-subtle));
-}
 
 .plateTotal {
   font-family: var(--basalt-font-mono);
@@ -242,15 +185,6 @@
  * coarse pointer, mirroring set-editor.module.css's stepper bump.
  */
 @media (pointer: coarse) {
-  .digitKey {
-    height: 46px;
-    font-size: 18px;
-  }
-
-  .stepperBtn {
-    height: 38px;
-  }
-
   .plate {
     width: 30px;
   }

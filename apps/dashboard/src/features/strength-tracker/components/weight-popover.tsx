@@ -2,7 +2,6 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   ActionIcon,
   Box,
-  Flex,
   Group,
   Popover,
   SegmentedControl,
@@ -10,7 +9,8 @@ import {
   Stack,
   Text,
 } from '@mantine/core'
-import { IconArrowRight, IconBackspace, IconSettings } from '@tabler/icons-react'
+import { IconSettings } from '@tabler/icons-react'
+import { NumberPad, formatNumber, parseBuffer, useNumberBuffer } from './number-pad'
 import {
   addPlate,
   availableDenominations,
@@ -62,16 +62,9 @@ const useWeightView = createPersistedState<View>({
   initial: 'keypad',
 })
 
-const DIGIT_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'] as const
-
-/** Trims float noise (82.500000001 -> "82.5") without losing a real fractional kg. */
-function formatKg(kg: number): string {
-  return Number(kg.toFixed(2)).toString()
-}
-
-function parseBuffer(buffer: string): number {
-  const n = Number(buffer)
-  return Number.isFinite(n) ? n : 0
+/** A gradient stop as a color-mix-safe percentage, clamped to 0-100. */
+function stop(value: number): string {
+  return `${Math.round(Math.min(100, Math.max(0, value)))}%`
 }
 
 /**
@@ -83,11 +76,6 @@ function parseBuffer(buffer: string): number {
  * indistinguishable slivers. sqrt lifts the light end back into legibility while keeping the 15
  * clearly the tallest.
  */
-/** A gradient stop as a color-mix-safe percentage, clamped to 0-100. */
-function stop(value: number): string {
-  return `${Math.round(Math.min(100, Math.max(0, value)))}%`
-}
-
 function plateStyle(weight_kg: number, denomWeights: number[]): CSSProperties {
   const min = Math.min(...denomWeights)
   const max = Math.max(...denomWeights)
@@ -104,7 +92,7 @@ function plateStyle(weight_kg: number, denomWeights: number[]): CSSProperties {
 function hintFor(result: Decomposition): string {
   if (result.reason === 'below-bar') return 'below bar weight'
   if (result.reason === 'unreachable') return 'exceeds available plates'
-  return `closest loadable: ${formatKg(result.total)} kg`
+  return `closest loadable: ${formatNumber(result.total)} kg`
 }
 
 /**
@@ -129,8 +117,7 @@ export function WeightPopover({
   const { active } = useGyms()
   const [preferredView, setPreferredView] = useWeightView()
   const [view, setView] = useState<View>('keypad')
-  const [buffer, setBuffer] = useState('')
-  const [replaceNext, setReplaceNext] = useState(true)
+  const pad = useNumberBuffer()
   const [plates, setPlates] = useState<PlateLoad[]>([])
   const [target, setTarget] = useState(0)
   // Set when a seeded decomposition couldn't hit the requested target exactly. It
@@ -165,9 +152,8 @@ export function WeightPopover({
     setWasOpened(opened)
     if (opened) {
       const typed = seedDigit ?? null
-      const seeded = typed ?? formatKg(value)
-      setBuffer(seeded)
-      setReplaceNext(typed === null)
+      const seeded = typed ?? formatNumber(value)
+      pad.reset(seeded, typed === null)
       // Typing a digit is an unambiguous request for the keypad, whatever view was remembered.
       const restored = loadingMode === 'free' || typed !== null ? 'keypad' : preferredView
       setView(restored)
@@ -187,29 +173,6 @@ export function WeightPopover({
     onClose()
   }
 
-  function pressDigit(key: string) {
-    if (key === '⌫') {
-      setBuffer((prev) => prev.slice(0, -1))
-      setReplaceNext(false)
-      return
-    }
-    if (key === '.') {
-      setBuffer((prev) => {
-        if (replaceNext) return '0.'
-        return prev.includes('.') ? prev : `${prev}.`
-      })
-      setReplaceNext(false)
-      return
-    }
-    setBuffer((prev) => (replaceNext ? key : prev + key))
-    setReplaceNext(false)
-  }
-
-  function step(delta: number) {
-    setBuffer(formatKg(Math.max(0, parseBuffer(buffer) + delta)))
-    setReplaceNext(false)
-  }
-
   /**
    * `propagate` is false only for the restore-on-open path: an explicit switch into the plates
    * view is a user action, so pushing the achievable total upward is right (it stops an unloadable
@@ -223,7 +186,7 @@ export function WeightPopover({
   }
 
   function openPlatesView() {
-    const seed = parseBuffer(buffer)
+    const seed = parseBuffer(pad.buffer)
     setTarget(seed)
     seedPlates(seed, config)
     setView('plates')
@@ -232,8 +195,7 @@ export function WeightPopover({
 
   /** Leaving the plates view carries the loading it built back into the keypad. */
   function openKeypadView() {
-    setBuffer(formatKg(totalFor(plates, config)))
-    setReplaceNext(true)
+    pad.reset(formatNumber(totalFor(plates, config)), true)
     setView('keypad')
     setPreferredView('keypad')
   }
@@ -293,19 +255,19 @@ export function WeightPopover({
           }
           if (view !== 'keypad') return
           if (event.key === 'Enter') {
-            commit(parseBuffer(buffer))
+            commit(parseBuffer(pad.buffer))
             return
           }
           if (event.key === 'Backspace') {
-            pressDigit('⌫')
+            pad.pressDigit('⌫')
             return
           }
           if (/^[0-9]$/.test(event.key)) {
-            pressDigit(event.key)
+            pad.pressDigit(event.key)
             return
           }
           if (event.key === '.') {
-            pressDigit('.')
+            pad.pressDigit('.')
           }
         }}
       >
@@ -347,65 +309,20 @@ export function WeightPopover({
           )}
 
           {view === 'keypad' ? (
-            <Stack gap="sm">
-              <Group justify="center" gap={4} align="baseline">
-                <Text component="span" className={cls.valueText}>
-                  {buffer || '0'}
-                </Text>
-                <Text component="span" size="sm" className={cls.unit}>
-                  kg
-                </Text>
-              </Group>
-
-              <Flex gap="sm">
-                <Box className={cls.digitGrid}>
-                  {DIGIT_KEYS.map((key) => (
-                    <button
-                      key={key}
-                      type="button"
-                      className={cls.digitKey}
-                      onClick={() => pressDigit(key)}
-                      aria-label={key === '⌫' ? 'Backspace' : key === '.' ? 'Decimal point' : key}
-                    >
-                      {key === '⌫' ? <IconBackspace size={16} /> : key}
-                    </button>
-                  ))}
-                </Box>
-
-                <Stack gap={6} w={44}>
-                  <button
-                    type="button"
-                    className={cls.stepperBtn}
-                    onClick={() => step(-0.5)}
-                    aria-label="Decrease 0.5 kg"
-                  >
-                    −
-                  </button>
-                  <button
-                    type="button"
-                    className={cls.stepperBtn}
-                    onClick={() => step(0.5)}
-                    aria-label="Increase 0.5 kg"
-                  >
-                    +
-                  </button>
-                  <ActionIcon
-                    variant="filled"
-                    color="blue"
-                    size={40}
-                    onClick={() => commit(parseBuffer(buffer))}
-                    aria-label="Confirm weight"
-                  >
-                    <IconArrowRight size={16} />
-                  </ActionIcon>
-                </Stack>
-              </Flex>
-            </Stack>
+            <NumberPad
+              buffer={pad.buffer}
+              unit="kg"
+              decimal
+              stepBy={0.5}
+              onDigit={pad.pressDigit}
+              onStep={(delta) => pad.step(delta, 0)}
+              onConfirm={() => commit(parseBuffer(pad.buffer))}
+            />
           ) : (
             <Stack gap="sm">
               <Group justify="center">
                 <Text component="span" className={cls.plateTotal}>
-                  {formatKg(total)} kg
+                  {formatNumber(total)} kg
                 </Text>
               </Group>
 
@@ -445,7 +362,7 @@ export function WeightPopover({
                     <>
                       <Box className={cls.barWeightPill}>
                         <Text component="span" className={cls.barEndLabel}>
-                          {formatKg(config.barWeight)}
+                          {formatNumber(config.barWeight)}
                         </Text>
                       </Box>
                       <Box className={`${cls.metal} ${cls.shaftInner}`} />

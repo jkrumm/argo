@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react'
-import { ActionIcon, Box, Button, Flex, NumberInput } from '@mantine/core'
+import { ActionIcon, Box, Button, Flex } from '@mantine/core'
 import { IconCheck, IconPlus, IconX } from '@tabler/icons-react'
 import { VX, alpha } from 'basalt-ui/tokens'
 import type { LoadingMode } from '../../../lib/plate-math'
 import type { SetType } from '../constants'
 import { WeightPopover } from './weight-popover'
+import { RepsPopover } from './reps-popover'
 import cls from './set-editor.module.css'
 
 export type SetEntry = {
@@ -51,9 +52,9 @@ export interface SetEditorProps {
 
 /**
  * Inline keyboard-driven set editor. Ported from the AntD version in
- * `argo-old/.../set-editor.tsx`. Dense grid of `NumberInput`s
- * (`variant="unstyled"`, `hideControls`) for weight/reps, paired with
- * custom ± stepper buttons and a label that cycles set type on click.
+ * `argo-old/.../set-editor.tsx`. Dense grid of button cells for weight/reps —
+ * neither is a text field, so no OS keyboard ever covers the screen mid-set —
+ * paired with custom ± stepper buttons and a label that cycles set type on click.
  *
  * Features:
  * - Label column cycles set type on click (work → warmup → drop → amrap).
@@ -86,11 +87,21 @@ export function SetEditor({
   // The digit that opened the popover, when it was opened by typing rather than
   // tapping. Handed to the popover so the keystroke isn't swallowed.
   const [pendingDigit, setPendingDigit] = useState<string | null>(null)
-  const repsRefs = useRef<(HTMLInputElement | null)[]>([])
+  // Reps has its own open slot: tabbing weight -> reps must be able to hand the
+  // popover across without the two fighting over one index.
+  const [openReps, setOpenReps] = useState<number | null>(null)
+  const repsRefs = useRef<(HTMLButtonElement | null)[]>([])
 
   function openWeight(i: number, digit: string | null) {
     setPendingDigit(digit)
+    setOpenReps(null)
     setOpenRow(i)
+  }
+
+  function openRepsPad(i: number, digit: string | null) {
+    setPendingDigit(digit)
+    setOpenRow(null)
+    setOpenReps(i)
   }
 
   function emit(next: SetEntry[]) {
@@ -114,6 +125,7 @@ export function SetEditor({
     // Row indices shift on removal, so a popover keyed to an index would end up
     // anchored to the wrong set. Close it rather than try to re-map.
     setOpenRow(null)
+    setOpenReps(null)
     emit(sets.filter((_, idx) => idx !== i))
   }
 
@@ -221,7 +233,6 @@ export function SetEditor({
                 onCommit={() => {
                   setOpenRow(null)
                   repsRefs.current[i]?.focus()
-                  repsRefs.current[i]?.select()
                 }}
                 onOpenSettings={onOpenSettings}
               >
@@ -236,14 +247,13 @@ export function SetEditor({
                   </button>
                   <button
                     type="button"
-                    className={cls.weightTrigger}
+                    className={cls.cellTrigger}
                     onClick={() => (openRow === i ? setOpenRow(null) : openWeight(i, null))}
                     onKeyDown={(e) => {
                       // Tab still hands off to reps, so the row stays keyboard-fast.
                       if (e.key === 'Tab' && !e.shiftKey) {
                         e.preventDefault()
                         repsRefs.current[i]?.focus()
-                        repsRefs.current[i]?.select()
                         return
                       }
                       // Typing a number goes straight into the keypad rather than
@@ -288,26 +298,33 @@ export function SetEditor({
                   {s.reps}
                 </Box>
               ) : (
-                <NumberInput
-                  ref={(el) => {
-                    repsRefs.current[i] = el
-                  }}
-                  classNames={{ input: cls.input }}
-                  variant="unstyled"
-                  hideControls
-                  clampBehavior="none"
-                  inputMode="numeric"
+                <RepsPopover
                   value={s.reps}
-                  disabled={!editable}
-                  onChange={(value) => {
-                    const v = typeof value === 'number' ? value : Number(value)
-                    if (!Number.isNaN(v) && v >= 1) updateSet(i, 'reps', v)
-                  }}
-                  step={1}
-                  min={1}
-                  max={100}
-                  className={cls.cell}
-                />
+                  onChange={(v) => updateSet(i, 'reps', v)}
+                  opened={openReps === i}
+                  seedDigit={openReps === i ? pendingDigit : null}
+                  onClose={() => setOpenReps(null)}
+                >
+                  <button
+                    ref={(el) => {
+                      repsRefs.current[i] = el
+                    }}
+                    type="button"
+                    className={cls.cellTrigger}
+                    onClick={() => (openReps === i ? setOpenReps(null) : openRepsPad(i, null))}
+                    onKeyDown={(e) => {
+                      if (/^[0-9]$/.test(e.key)) {
+                        e.preventDefault()
+                        openRepsPad(i, e.key)
+                      }
+                    }}
+                    aria-haspopup="dialog"
+                    aria-expanded={openReps === i}
+                    aria-label={`Reps ${s.reps} — open keypad`}
+                  >
+                    {s.reps}
+                  </button>
+                </RepsPopover>
               )}
               {editable && (
                 <button
