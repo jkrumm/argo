@@ -348,10 +348,16 @@ export function SetEditor({
                 className={cls.actions}
               >
                 {checklist && (
+                  /*
+                   * Only the current set is marked. A completed set is history — it gets a quiet
+                   * green tick, not a filled chip competing with the row you're actually on. The
+                   * hue matches the active row's own goodSolid tint rather than spending the blue
+                   * accent on state that is already resolved.
+                   */
                   <ActionIcon
                     size="sm"
-                    variant={isChecked ? 'filled' : isActive ? 'outline' : 'subtle'}
-                    color={isActive || isChecked ? 'blue' : 'gray'}
+                    variant={isActive ? 'light' : 'subtle'}
+                    color={isActive || isChecked ? 'green' : 'gray'}
                     disabled={!(isActive || i === completedCount - 1)}
                     onClick={() =>
                       onCompletedChange?.(isActive ? completedCount + 1 : completedCount - 1)
