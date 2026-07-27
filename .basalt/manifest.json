@@ -3,7 +3,7 @@
   "files": {
     ".claude/rules/basalt-mantine.md": "d009fb0697af3bd141a3bb7cfff6a57d1bf907bf81a9ff83ce230a0423225e8a",
     ".claude/rules/basalt-charts.md": "113731efc24c4e8131e0c76c8248c443e418f375780c9d472e84fcc23e9b6ab1",
-    ".claude/rules/basalt-tokens.md": "afaf9bdb442d181d3ee588760c819d7260b7e9169667a965cfedf62adc8ecc76",
+    ".claude/rules/basalt-tokens.md": "37e3144f2b13d6593b67332329aae027062718afee7424bc5a8962aaf5d55966",
     ".claude/rules/basalt-query.md": "cacd92c4c9c40721e3854abc8e734f557c0447c51c4b619e84e2e42d12fe2cdc",
     ".claude/rules/basalt-router.md": "2d6d9cb9dd34e683309a380af4fd5434dc0349592a252c4208c1c51b673105d2",
     ".claude/rules/basalt-forms.md": "9ff2049605cf5e24dca8970700fdf7a1f38a627c987e2c4bf4d160096cace60c",
@@ -24,5 +24,5 @@
     ".claude/skills/basalt-charts/SKILL.md": "44f8fb358dfd20e97c77f558b86cda005631f7e78739fc85e2bd7597a28f87de",
     ".claude/rules/basalt-app.md": "24068ac5dc9a69b955c6b050fb802c7c3cffc33114e7a36f21ca7b3caaf6631e"
   },
-  "basaltVersion": "1.2.0"
+  "basaltVersion": "1.3.0"
 }

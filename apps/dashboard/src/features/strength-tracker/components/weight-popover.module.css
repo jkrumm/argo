@@ -82,7 +82,7 @@
 .plateGroup {
   display: flex;
   align-items: center;
-  gap: 3px; /* theme-allow: sub-scale, below the xs floor */
+  gap: 3px;
   margin-left: 3px;
 }
 
@@ -160,7 +160,7 @@
 }
 
 .denomChip {
-  padding: 4px var(--mantine-spacing-xs); /* theme-allow: sub-scale, below the xs floor */
+  padding: 4px var(--mantine-spacing-xs);
   border: 1px solid var(--vx-surface-border);
   border-radius: var(--vx-radius-ctrl);
   background: var(--vx-surface-subtle);
@@ -190,6 +190,6 @@
   }
 
   .denomChip {
-    padding: 8px var(--mantine-spacing-sm); /* theme-allow: sub-scale, below the xs floor */
+    padding: 8px var(--mantine-spacing-sm);
   }
 }

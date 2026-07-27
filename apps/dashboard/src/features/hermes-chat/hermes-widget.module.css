@@ -14,7 +14,7 @@
 
 .openFull {
   border-radius: var(--mantine-radius-sm);
-  padding: 4px var(--mantine-spacing-xs); /* theme-allow: sub-scale, below the xs floor */
+  padding: 4px var(--mantine-spacing-xs);
 }
 
 .openFull:hover {

@@ -20,7 +20,7 @@
 }
 
 .row {
-  padding: 4px 0; /* theme-allow: sub-scale, below the xs floor */
+  padding: 4px 0;
   border-bottom: 1px solid color-mix(in srgb, var(--vx-neutral) 6%, transparent);
   border-radius: 3px;
   transition: all 0.15s;
@@ -30,7 +30,7 @@
    own horizontal padding back out as a negative margin. The inset must match the parent card's
    px (WorkoutForm's Paper uses `sm`) — a wider one overhangs the card and the tint spills. */
 .row[data-checklist='true'] {
-  padding: 4px var(--mantine-spacing-sm); /* theme-allow: sub-scale, below the xs floor */
+  padding: 4px var(--mantine-spacing-sm);
   margin-inline: calc(var(--mantine-spacing-sm) * -1);
   border-radius: 0;
 }
@@ -119,7 +119,7 @@
 .cellTrigger {
   flex: 1;
   min-width: 0;
-  padding: 2px 4px; /* theme-allow: sub-scale, below the xs floor */
+  padding: 2px 4px;
   border: none;
   border-radius: 4px;
   background: transparent;
@@ -157,7 +157,7 @@
 /* Read-only mirror of .cellTrigger — same metrics so the row height doesn't shift between modes. */
 .readOnlyValue {
   flex: 1;
-  padding: 2px 4px; /* theme-allow: sub-scale, below the xs floor */
+  padding: 2px 4px;
   font-family: var(--basalt-font-mono);
   font-size: 15px;
   line-height: 1.35;

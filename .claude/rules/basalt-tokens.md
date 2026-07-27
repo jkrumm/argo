@@ -93,10 +93,12 @@ Popover, Accordion, cards) renders one border shade, one card background, and on
 
 ## Spacing & radius — prefer the scale token
 
-- `baseTheme` owns the scales: `spacing` 10/12/16/20/32 → `xs…xl`, `radius` 2/4/8/16/32 → `xs…xl`.
-  **Use the token**, not the raw number, when a value equals a step: `p="md"` not `p={16}`,
-  `gap="sm"` not `gap={12}`, `radius="sm"` not `radius={4}`. The guard flags exact token-equals
-  (`p={16}`, any numeric `radius`).
+- `baseTheme` owns the scales: `spacing` 11/13/18/20/26 → `xs…xl`, `radius` 2/4/6/16/32 → `xs…xl`.
+  Both are DERIVED — `deriveSpacing(level)` / `deriveRadius(level)` in `tokens/palette.ts` move them
+  with `createBasaltTheme`'s `density` / `radius` knobs, so read the numbers as level-0 values, not
+  as constants. **Use the token**, not the raw number, when a value equals a step: `p="md"` not
+  `p={18}`, `gap="sm"` not `gap={13}`, `radius="sm"` not `radius={4}`. The guard flags exact
+  token-equals (`p={18}`, any numeric `radius`).
 - **Card radius has one source: `--vx-radius-card` (7px) = `VX.radiusCard`.** Every
   card corner — the Mantine chrome (`Card`/`Paper`, `radius="md"`) and the Mantine-free `ChartCard`
   (`var(--vx-radius-card)`) — resolves to this single token; cards must never diverge. Don't inline
@@ -105,8 +107,15 @@ Popover, Accordion, cards) renders one border shade, one card background, and on
   spacing step (`sm`/`xs`) for shell, nav, and card padding rather than `md`/`lg` air (see
   basalt-mantine.md for the shipped dense defaults).
 - **Sub-scale micro-spacing is legitimate and allowed raw** — `gap={2}`, `pl={4}`, `mt={6}` have no
-  token equivalent (the scale starts at 10). Use them freely for tight clusters; don't invent
+  token equivalent (the scale starts at 11). Use them freely for tight clusters; don't invent
   micro-tokens or pepper `theme-allow`. One-off layout dims (`h={36}`, `w={64}`) are also fine raw.
+  **The same permission holds in CSS modules**, where it has to be enforced differently: there is no
+  prop form to prefer, so `inline-spacing` simply does not fire on a declaration whose every literal
+  is ≤ 10px (`gap: 2px`, `padding: 4px 8px`). A `var()` component is dropped before that judgement;
+  one non-micro value makes the whole declaration a finding (`padding: 4px 16px` flags). Other units
+  are out — the doctrine is px, so `padding: 1.5rem` still flags. An inline style OBJECT in TSX
+  (`style={{ padding: 4 }}`) also still flags: there the Mantine prop exists and should have been
+  used.
 - **Icons** size via the icon's own `size` prop (`size={16}`), not spacing tokens — that's not spacing.
 
 ## Type
