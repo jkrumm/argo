@@ -14,7 +14,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--mantine-spacing-xs);
-  padding: 10px var(--mantine-spacing-sm);
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
   color: inherit;
 }
 

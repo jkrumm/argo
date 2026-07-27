@@ -284,7 +284,9 @@ bun add -D @content-collections/core @content-collections/vite @content-collecti
 
 **`vite.config.ts`** — the content-collections vite plugin MUST precede every other plugin (it
 generates the virtual `content-collections` module other plugins/transforms may depend on).
-TanStack Start (`>= 1.121`) wires it the same way:
+TanStack Start (`>= 1.121`) wires it the same way. This ordering holds regardless of what else is in
+the `plugins` array — see `agent/rules/basalt-app.md` for where `basaltAppPlugin` sits relative to
+it:
 
 ```ts
 import { defineConfig } from 'vite'

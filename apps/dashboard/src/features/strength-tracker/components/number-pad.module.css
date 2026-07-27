@@ -19,7 +19,7 @@
 .digitGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  gap: 6px; /* theme-allow: sub-scale, below the xs floor */
   flex: 1;
 }
 

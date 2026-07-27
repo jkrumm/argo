@@ -36,10 +36,10 @@ own the files.
 
 `init` writes the repo-side doctrine and toolchain into a consumer (monorepo globs supported):
 
-- `.claude/rules/basalt-*.md` — the twelve shipped rules (`basalt-tokens`, `basalt-charts`,
+- `.claude/rules/basalt-*.md` — the thirteen shipped rules (`basalt-tokens`, `basalt-charts`,
   `basalt-mantine`, `basalt-router`, `basalt-query`, `basalt-state`, `basalt-forms`,
-  `basalt-notifications`, `basalt-commands`, `basalt-data`, `basalt-agent`, `basalt-content`),
-  managed verbatim.
+  `basalt-notifications`, `basalt-commands`, `basalt-data`, `basalt-agent`, `basalt-content`,
+  `basalt-app`), managed verbatim.
 - `.claude/skills/basalt-{app,charts,design}/SKILL.md` — the three skills (`/basalt-app`,
   `/basalt-charts`, `/basalt-design`), managed verbatim, same path the rules take.
 - A managed `<!-- basalt:begin --> ... <!-- basalt:end -->` block in `CLAUDE.md`: stack facts, the
@@ -73,10 +73,21 @@ const theme = createBasaltTheme({
 ```
 
 ```ts
-// vite.config.ts — the shipped preset (dedupe react + @mantine/*, strictPort, /api proxy, BASALT_LOCAL alias)
-import { basaltViteConfig } from 'basalt-ui/vite'
-export default basaltViteConfig({ port: 5173, apiTarget: 'http://localhost:3000' })
+// vite.config.ts — basaltViteConfig (dedupe react + @mantine/*, strictPort, /api proxy,
+// BASALT_LOCAL alias) composed with basaltAppPlugin (PWA head, manifest, icon metadata)
+import react from '@vitejs/plugin-react'
+import { basaltAppPlugin, basaltViteConfig } from 'basalt-ui/vite'
+import { defineConfig } from 'vite'
+
+export default defineConfig({
+  ...basaltViteConfig({ port: 5173, apiTarget: 'http://localhost:3000' }),
+  plugins: [react(), ...basaltAppPlugin({ name: 'MyApp', description: '…' })],
+})
 ```
+
+`basaltViteConfig` stays config-only (no `plugins`) by contract; `basaltAppPlugin` is the plugin
+half — spread it into your own `plugins` array. See `agent/rules/basalt-app.md` for plugin
+ordering (e.g. alongside `@content-collections/vite`) and the full head/PWA/manifest surface.
 
 ```js
 // Tailwind era is over — there is no Tailwind. Styles come from:
@@ -120,7 +131,13 @@ both.
 - `BasaltProvider` wraps the app; `createBasaltTheme` used for theme deltas; `basalt-ui/styles.css`
   imported.
 - `basaltViteConfig` adopted; `oxlint . && basalt-ui check-theme` is the lint command.
-- A thin `DESIGN.md` (deltas) + the twelve `basalt-*` rules + the managed CLAUDE block are present.
+- `basaltAppPlugin` composed into `plugins` (see the vite.config.ts snippet above); icon files
+  (`favicon.ico`, `favicon.svg`, `favicon-96x96.png`, `apple-touch-icon.png`,
+  `web-app-manifest-192x192.png`, `web-app-manifest-512x512.png`) generated and placed under
+  `public/` — `basalt-ui doctor` warns if any are missing.
+- `site.webmanifest` is emitted by `basaltAppPlugin` — no manual manifest file needed unless
+  `manifest: false` was passed.
+- A thin `DESIGN.md` (deltas) + the thirteen `basalt-*` rules + the managed CLAUDE block are present.
 - `<first basalt.root>/lib/series.ts` exists as the one guard-exempt series source (for any app metric colors).
 - `basalt-ui sync --check` wired in CI (recommended) to catch drift on future upgrades.
 
@@ -136,3 +153,7 @@ both.
   animated chrome (`ThemeToggle` today) comes for free, no consumer dependency needed. Reach for
   the shared `MOTION_DURATION` / `MOTION_SPRING` tokens for any new animated interaction rather
   than inventing ad hoc durations/easings or a competing animation library.
+- `vite-plugin-pwa` (`^1.3.0`) is an OPTIONAL peer, only needed when `basaltAppPlugin`'s
+  `serviceWorker` option is truthy — omit it entirely for apps that don't want an installable/
+  offline-capable app. See `agent/rules/basalt-app.md` for the full head/PWA/manifest/icons
+  surface `basaltAppPlugin` owns.

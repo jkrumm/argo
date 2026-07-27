@@ -18,10 +18,11 @@
     ".github/workflows/check.yml": "f6e4999d3479614a03c7a7e24ac995dc1dca2bbf99461efea657b089dec70743",
     ".oxlintrc.json": "edb58b25c29f977f712ff892b59d28a74420f424ddf465ba7f29a7c713b388ec",
     ".oxfmtrc.json": "6b56ddca73ac1f170fe161ad32aa830dad40a6dc687964c8a852cb928c395039",
-    ".claude/rules/basalt-content.md": "939c41049bf540e39944527e84b6d84158fe575ba29533e81db55e66dcf60518",
-    ".claude/skills/basalt-app/SKILL.md": "818eac42289ae7fb1fee3dda33325709fdf3c34ec7d1d8ce5be6b23ee61cef61",
+    ".claude/rules/basalt-content.md": "ea23676b8aa50f5233abeeb1449b93ca5a48a5e15c28372e30cbfc0562dd479d",
+    ".claude/skills/basalt-app/SKILL.md": "52f007c13c20dc75a682765d4446b9e46097d8dab498babc4666b322fffd0422",
     ".claude/skills/basalt-design/SKILL.md": "721762815f8c57c439e4fde26970f949ed2e4e51af68826ec3267dea8cf0d912",
-    ".claude/skills/basalt-charts/SKILL.md": "44f8fb358dfd20e97c77f558b86cda005631f7e78739fc85e2bd7597a28f87de"
+    ".claude/skills/basalt-charts/SKILL.md": "44f8fb358dfd20e97c77f558b86cda005631f7e78739fc85e2bd7597a28f87de",
+    ".claude/rules/basalt-app.md": "24068ac5dc9a69b955c6b050fb802c7c3cffc33114e7a36f21ca7b3caaf6631e"
   },
-  "basaltVersion": "1.1.1"
+  "basaltVersion": "1.2.0"
 }
