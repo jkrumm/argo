@@ -36,7 +36,7 @@
 }
 
 .row[data-active='true'] {
-  background: color-mix(in srgb, var(--vx-goodSolid) 8%, transparent);
+  background: color-mix(in srgb, var(--vx-good-solid) 8%, transparent);
 }
 
 .row[data-hovered='true']:not([data-active='true']) {

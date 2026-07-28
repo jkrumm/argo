@@ -136,12 +136,12 @@ export const argoPaletteGroups: Record<string, SeriesMap> = {
 
 /**
  * `optimalZone` (`packages/charts/src/tokens.ts` → `VX.series.optimalZone`) is not a per-theme
- * hex pair like the series above — it was always a DERIVED tint of `--vx-goodSolid` (see the old
+ * hex pair like the series above — it was always a DERIVED tint of `--vx-good-solid` (see the old
  * `packages/charts/src/theme-vars.ts` DERIVED block), so it can't live in `defineSeries`. Carried
  * forward via `paletteOptions.derived` so the var name and formula stay identical.
  */
 export const ARGO_DERIVED = [
-  '--vx-optimalZone: color-mix(in srgb, var(--vx-goodSolid) 10%, transparent);',
+  '--vx-optimalZone: color-mix(in srgb, var(--vx-good-solid) 10%, transparent);',
 ]
 
 declare module 'basalt-ui' {

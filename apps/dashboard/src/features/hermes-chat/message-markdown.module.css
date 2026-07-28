@@ -20,7 +20,7 @@
 
 .prose :is(ul, ol) {
   margin: 0;
-  padding-left: 1.25rem;
+  padding-left: var(--mantine-spacing-lg);
 }
 
 .prose li + li {

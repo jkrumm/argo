@@ -180,14 +180,15 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
         )}
         {event.title}
         {flagColor && (
-          <IconFlag3Filled
-            size={10}
-            style={{
-              color: flagColor,
-              marginInlineStart: 4,
-              verticalAlign: 'middle',
-            }}
-          />
+          <Box component="span" ml={4}>
+            <IconFlag3Filled
+              size={10}
+              style={{
+                color: flagColor,
+                verticalAlign: 'middle',
+              }}
+            />
+          </Box>
         )}
       </>
     )

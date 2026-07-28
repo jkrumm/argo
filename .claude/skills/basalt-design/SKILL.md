@@ -83,7 +83,7 @@ border) · `hairline` (card ring, lives inside `shadow-card`, never rendered as 
 focus ring) it is read against the page, so it inverts: `#0077bd` light / `#8ec5ff` dark. As a
 **filled surface** it carries a label, so it is squeezed between that label (≥4.5:1) and the page
 behind it (≥3:1) — which leaves one luminance band, the same on both pages: `#0077bd` with a WHITE
-label, in BOTH schemes. Fill with `--vx-accentFill` / `--vx-fill-{family}`, never with `--vx-accent`
+label, in BOTH schemes. Fill with `--vx-accent-fill` / `--vx-fill-{family}`, never with `--vx-accent`
 (a light fill cannot carry white text). Every Mantine family's fill sits in that same band, so a
 filled surface always reads white. With `accent-hover` (derived from the fill) and `on-accent`
 companions (NOT the old ~50%-saturation muted slate).

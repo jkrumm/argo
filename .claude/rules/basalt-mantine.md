@@ -71,7 +71,7 @@ Restraint is the #1 lever — neutrals carry the surface, the accent only points
   the accent uses its lighter shade (`#8ec5ff`) on dark to avoid glow/bleed **as INK** — links,
   active-nav icons, chart lines, focus ring. A FILLED control is the opposite case: it keeps the
   deep `#0077bd` fill and a white label in both schemes, because a light fill cannot carry white
-  text and a darker one fades into the dark page (<3:1). Fill with `--vx-accentFill`, never
+  text and a darker one fades into the dark page (<3:1). Fill with `--vx-accent-fill`, never
   `--vx-accent`.
 - **Light mode** is never pure-white page + pure-black text (harsh halation). Page is a
   slightly-darker zinc mix (`#ececee`-ish) than the panel (`#f4f4f5`) so cards lift subtly off it;
