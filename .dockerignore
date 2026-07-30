@@ -8,3 +8,9 @@ node_modules
 .vscode
 .DS_Store
 *.log
+# Secrets templates (op:// refs) and agent config — apps/dashboard/ is COPYed
+# wholesale by its Dockerfile, so without these they land in a build layer.
+.env*
+**/.env*
+.claude
+**/.claude

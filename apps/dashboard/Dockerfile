@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Stage 1: Build
 FROM oven/bun:1.3-alpine AS build
 WORKDIR /app
@@ -18,7 +19,8 @@ COPY package.json bun.lock ./
 COPY apps/dashboard/package.json ./apps/dashboard/
 COPY apps/api/package.json ./apps/api/
 
-RUN bun install
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+  bun install --frozen-lockfile
 
 # API src needed for @argo/api type resolution (type-only, stripped at build)
 COPY apps/api/src/ ./apps/api/src/

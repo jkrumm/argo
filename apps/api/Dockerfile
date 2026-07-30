@@ -1,10 +1,12 @@
+# syntax=docker/dockerfile:1
 FROM oven/bun:1.3-alpine AS builder
 WORKDIR /app
 
 COPY package.json bun.lock ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/dashboard/package.json ./apps/dashboard/
-RUN bun install --production --ignore-scripts --filter @argo/api
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+  bun install --production --ignore-scripts --filter @argo/api --frozen-lockfile
 
 COPY apps/api/src ./apps/api/src
 COPY apps/api/tsconfig.json ./apps/api/
