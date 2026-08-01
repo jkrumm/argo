@@ -24,7 +24,7 @@
     ".claude/skills/basalt-charts/SKILL.md": "44f8fb358dfd20e97c77f558b86cda005631f7e78739fc85e2bd7597a28f87de",
     ".claude/rules/basalt-app.md": "24068ac5dc9a69b955c6b050fb802c7c3cffc33114e7a36f21ca7b3caaf6631e"
   },
-  "basaltVersion": "1.5.0",
+  "basaltVersion": "1.6.0",
   "spacingScale": {
     "xs": 11,
     "sm": 13,
