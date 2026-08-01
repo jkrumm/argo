@@ -5,10 +5,20 @@ import type { LoadingMode, PlateStock } from './plate-math'
 // A "gym profile" is the physical equipment at one training location — which
 // bars exist, what plates sit in the rack, and how each exercise is assembled
 // from them. The owner trains at home but also travels, so this is a switchable
-// set of profiles (client-side user preference), not one global config and not
-// server data.
+// set of profiles.
 //
-// None of this reaches the API. `workout_sets.weight_kg` stores the absolute
+// It lives on the server (`GET/PUT /gym`). It used to be localStorage-only, which
+// made it silently per-device: a 10 kg bar set on the laptop never reached the
+// phone at the gym, which just kept rendering the HOME seed below. localStorage
+// is still here, demoted to an offline mirror — a gym basement has no signal, and
+// the plate calculator has to work there.
+//
+// This module is the domain half: types, the seed, and pure resolution helpers,
+// all importable without a DOM so they stay unit-testable. The `useGyms` hook
+// that binds them to the API lives in `./queries/gym`, alongside every other
+// resource's data access.
+//
+// Equipment still never reaches `workout_sets`. That column stores the absolute
 // total including the bar, exactly as it always has — this is only a different
 // frontend for arriving at that same number, so changing a bar or moving gyms
 // can never retroactively corrupt logged history.
@@ -44,7 +54,7 @@ export interface GymState {
   profiles: GymProfile[]
 }
 
-const HOME = {
+export const HOME = {
   id: 'home',
   name: 'Home Gym',
   bars: [
@@ -134,7 +144,7 @@ export function loadingFor(
   }
 }
 
-// ── persisted storage ────────────────────────────────────────────────────────
+// ── offline mirror ───────────────────────────────────────────────────────────
 
 const BarSchema = z.object({
   id: z.string(),
@@ -166,79 +176,18 @@ const GymStateSchema = z.object({
   profiles: z.array(GymProfileSchema),
 })
 
+// Not the source of truth any more — a read-through cache of what the server
+// last returned, so the plate calculator still works in a basement with no
+// signal. The server wins on every successful fetch; an edit made while offline
+// is lost if the page reloads before the queued PUT lands. That is the right
+// trade for equipment config edited a few times a year.
+//
 // v2 added per-exercise loading config. A stored v1 value fails the version
 // check and falls back to `initial` — the seed below is the same equipment the
 // v1 seed described, so a reset costs nothing but hand-edited plate counts.
-const useGymState = createPersistedState<GymState>({
+export const useGymMirror = createPersistedState<GymState>({
   key: 'gym-profiles',
   version: 2,
   initial: { activeId: HOME.id, profiles: [HOME] },
   schema: GymStateSchema,
 })
-
-// ── public interface ─────────────────────────────────────────────────────────
-
-export function useGyms(): {
-  profiles: GymProfile[]
-  active: GymProfile
-  setActive(id: string): void
-  upsertProfile(profile: GymProfile): void
-  removeProfile(id: string): void
-  addProfile(name: string): GymProfile
-  setExerciseLoading(exerciseId: string, patch: Partial<ExerciseLoading>): void
-} {
-  const [state, setState] = useGymState()
-  const active = resolveActiveProfile(state.activeId, state.profiles)
-
-  const setActive = (id: string): void => {
-    setState({ ...state, activeId: id })
-  }
-
-  const upsertProfile = (profile: GymProfile): void => {
-    const exists = state.profiles.some((existing) => existing.id === profile.id)
-    const profiles = exists
-      ? state.profiles.map((existing) => (existing.id === profile.id ? profile : existing))
-      : [...state.profiles, profile]
-    setState({ ...state, profiles })
-  }
-
-  const removeProfile = (id: string): void => {
-    if (!canRemoveProfile(state.profiles)) return
-    setState({ ...state, profiles: state.profiles.filter((profile) => profile.id !== id) })
-  }
-
-  const addProfile = (name: string): GymProfile => {
-    const id = uniqueId(
-      name,
-      state.profiles.map((profile) => profile.id),
-    )
-    const created: GymProfile = {
-      id,
-      name,
-      bars: [{ id: 'olympic', name: 'Olympic Barbell', weight_kg: 20 }],
-      plates: [],
-      defaultBarId: 'olympic',
-      exercises: {},
-    }
-    setState({ ...state, profiles: [...state.profiles, created] })
-    return created
-  }
-
-  const setExerciseLoading = (exerciseId: string, patch: Partial<ExerciseLoading>): void => {
-    const current = active.exercises[exerciseId] ?? { mode: 'free' as LoadingMode }
-    upsertProfile({
-      ...active,
-      exercises: { ...active.exercises, [exerciseId]: { ...current, ...patch } },
-    })
-  }
-
-  return {
-    profiles: state.profiles.length > 0 ? state.profiles : [HOME],
-    active,
-    setActive,
-    upsertProfile,
-    removeProfile,
-    addProfile,
-    setExerciseLoading,
-  }
-}

@@ -15,7 +15,8 @@ import {
 } from '@mantine/core'
 import { modals } from '@mantine/modals'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
-import { canRemoveProfile, loadingFor, useGyms, type Bar } from '../../../lib/gym-profile'
+import { canRemoveProfile, loadingFor, type Bar } from '../../../lib/gym-profile'
+import { useGyms } from '../../../lib/queries/gym'
 import type { LoadingMode, PlateStock } from '../../../lib/plate-math'
 
 export interface GymSettingsModalProps {

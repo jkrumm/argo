@@ -23,7 +23,7 @@ import {
   type PlateLoad,
 } from '../../../lib/plate-math'
 import { createPersistedState } from 'basalt-ui/state'
-import { useGyms } from '../../../lib/gym-profile'
+import { useGyms } from '../../../lib/queries/gym'
 import cls from './weight-popover.module.css'
 
 export interface WeightPopoverProps {

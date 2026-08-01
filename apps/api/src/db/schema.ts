@@ -165,6 +165,24 @@ export const userProfile = argoSchema.table('user_profile', {
   updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 })
 
+// ── Gym equipment (single row id=1, whole-state jsonb) ──────────────────────
+
+// The dashboard's gym profiles — which bars exist, what plates sit in the rack,
+// and how each exercise is assembled from them. It used to live only in the
+// browser's localStorage, which made it per-device: a bar edited on the laptop
+// never reached the phone at the gym, which just re-rendered the seed. It is
+// user configuration, so it belongs on the server.
+//
+// Stored as one opaque jsonb blob rather than normalized tables: it is a single
+// user's equipment list, read and written whole, and its shape is owned by the
+// frontend. Normalizing it would buy nothing and cost a migration every time a
+// bar grows a field. The Zod schema on the route is the contract.
+export const gymState = argoSchema.table('gym_state', {
+  id: integer('id').primaryKey().default(1),
+  state: jsonb('state').notNull(),
+  updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+})
+
 // ── Workouts ─────────────────────────────────────────────────────────────────
 
 export const workouts = argoSchema.table('workouts', {

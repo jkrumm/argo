@@ -9,9 +9,10 @@ import {
   Text,
   TextInput,
   Tooltip,
+  UnstyledButton,
 } from '@mantine/core'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
-import { IconTrophy } from '@tabler/icons-react'
+import { IconSettings, IconTrophy } from '@tabler/icons-react'
 import { VX } from 'basalt-ui/tokens'
 import { format } from 'date-fns'
 import {
@@ -20,7 +21,8 @@ import {
   type CreateWorkoutResponse,
 } from '../../../lib/queries/workouts'
 import { exerciseQueries } from '../../../lib/queries/exercises'
-import { loadingFor, useGyms } from '../../../lib/gym-profile'
+import { loadingFor } from '../../../lib/gym-profile'
+import { useGyms } from '../../../lib/queries/gym'
 import { EXERCISES, type ExerciseKey } from '../constants'
 import { showAchievements } from '../achievements-toast'
 import { SetEditor, type SetEntry } from './set-editor'
@@ -175,11 +177,23 @@ export function WorkoutForm() {
   }))
 
   // How the selected exercise is loaded at the active gym, driving the weight
-  // popover's plate calculator. Equipment is a client-side preference (it changes
-  // when you travel), so it lives in localStorage — never in the workout record,
-  // which keeps storing the absolute total including the bar.
+  // popover's plate calculator. Equipment is user config synced through the API
+  // (it changes when you travel, and it has to agree across devices) — never part
+  // of the workout record, which keeps storing the absolute total including the bar.
   const gyms = useGyms()
   const loading = loadingFor(gyms.active, exercise)
+
+  // What this exercise actually loads against right now, spelled out in the form
+  // header. 'single' is a dip belt / loading pin (one side, no bar); 'free' means
+  // the keypad only, so there is no equipment claim to make.
+  const activeBar = gyms.active.bars.find((bar) => bar.id === loading.barId)
+  const loadingSummary =
+    loading.mode === 'barbell' && activeBar !== undefined
+      ? `${activeBar.name} ${KG_FORMAT.format(activeBar.weight_kg)} kg`
+      : loading.mode === 'single'
+        ? 'Loaded per side'
+        : 'Free entry'
+  const gymSummary = `${gyms.active.name} · ${loadingSummary}`
 
   const recentWorkouts = (recentResult.data?.data ?? []) as ReadonlyArray<WorkoutRowLite>
   const previousSets = findLastSession(recentWorkouts, exercise)
@@ -279,9 +293,27 @@ export function WorkoutForm() {
   return (
     <Paper py="xs" px="sm">
       <Stack gap="sm">
-        <Text fw={600} size="sm">
-          Log Workout
-        </Text>
+        <Group justify="space-between" wrap="nowrap" align="center">
+          <Text fw={600} size="sm">
+            Log Workout
+          </Text>
+
+          {/* The gear inside the weight popover reaches the same modal, but only
+              once a set row is open — this is the standing answer to "what is the
+              bar right now", which is the thing that used to be wrong per-device. */}
+          <Tooltip label="Gym equipment — bars, plate rack, per-exercise loading" withArrow>
+            <UnstyledButton onClick={() => setGymSettingsOpen(true)} aria-label="Gym settings">
+              <Group gap={6} wrap="nowrap" align="center">
+                <Text size="xs" c="dimmed">
+                  {gymSummary}
+                </Text>
+                <Center component="span">
+                  <IconSettings size={14} color={VX.muted} />
+                </Center>
+              </Group>
+            </UnstyledButton>
+          </Tooltip>
+        </Group>
 
         <Select
           label="Exercise"

@@ -38,6 +38,7 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { exerciseQueries } from '../lib/queries/exercises'
 import { strengthQueries, type StrengthQueryParams } from '../lib/queries/strength'
 import { workoutsQueries } from '../lib/queries/workouts'
+import { useGymSync } from '../lib/queries/gym'
 
 // ── Search params ──────────────────────────────────────────────────────────
 
@@ -99,6 +100,10 @@ export const Route = createFileRoute('/strength-tracker')({
 function StrengthTrackerPage() {
   const search = Route.useSearch()
   const navigate = useNavigate()
+
+  // Single owner of the gym-config poll — every `useGyms` consumer below reads
+  // the cache it fills. Mounting this more than once multiplies the request rate.
+  useGymSync()
 
   const windowParams = useMemo<SummaryParams>(() => resolveWindow(search), [search])
   const queryParams = useMemo(
