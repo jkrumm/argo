@@ -24,7 +24,11 @@ const apiTarget = process.env['VITE_API_TARGET'] ?? 'http://localhost:4040'
 // concerns on top.
 const basalt = basaltViteConfig({
   port: 7715,
-  allowedHosts: ['argo.test'],
+  // '.mini.jkrumm.com' (leading dot = that domain and all subdomains) is the
+  // Caddy-fronted tailnet door on the Mac mini — see dotfiles
+  // scripts/caddy-tailnet.sh. Without it Vite 403s every request whose Host
+  // isn't localhost, and the door looks broken at the proxy rather than here.
+  allowedHosts: ['argo.test', '.mini.jkrumm.com'],
   apiTarget,
   version: pkg.version,
 })
