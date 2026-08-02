@@ -19,7 +19,7 @@ one that exists. Lower layers fill gaps; they never override a higher layer.
 2. **Shipped `basalt-*` rules** (`.claude/rules/basalt-{tokens,charts,mantine,state}.md`) — the
    universal law AND its enforcement: the Basalt modern-zinc palette + saturated sky accent,
    one-hue-per-metric, neutral structure, gradient defaults, the three-tier token contract, the
-   shadow-card elevation/density doctrine.
+   elevation/density doctrine.
 3. **This skill** — only the loop and the judgment, where the above are silent.
 
 If a consumer `DESIGN.md` does not exist yet, the app has not been scaffolded — run `/basalt-app`
@@ -93,8 +93,9 @@ links, primary buttons, focus rings, and the leader bar in meters. It stays off:
 borders, large fills, every icon, secondary buttons. "Ink earns its color" — neutral does the
 structure, the accent only points.
 
-- **Active nav = panel bg + `shadow-card` + accent-colored icon + weight-600 ink text**, never a
-  full accent fill. The theme bakes this into `NavLink` for every render path — don't re-color it.
+- **Active nav = an ink-9% tint + accent-colored icon + weight-600 ink text** — no panel fill, no
+  shadow, and never a full accent fill. It's a selected row, not a raised control. The theme bakes
+  this into `NavLink` for every render path — don't re-color it.
 - **Buttons:** exactly one filled-accent primary CTA per view; every other action is
   `variant="default"` (neutral). Avoid colored `variant="light"` for routine actions.
 - **Status:** positive deltas `color="green"` (forest), never `teal`/turquoise/saturated emerald.
@@ -115,15 +116,31 @@ structure, the accent only points.
   inline-override a surface's `border`/`borderRadius`/`boxShadow`/`backgroundColor` — use the
   radius token + `VX.surface.*` / the shadow-card token. Mechanically enforced by
   `basalt-ui check-theme`'s `raw-surface` guard.
+- **Depth splits control-vs-panel-vs-floating** — three tokens, not one. Panels holding content
+  (Card/Paper/Notification/ChartCard) take `shadow-card`; anything you click or type into (Button,
+  ActionIcon, inputs, chips, the search trigger) takes `shadow-raised`, whose ring is INSET so one
+  value rides a fill, a tint and a panel alike; detached floating surfaces (Tooltip/Popover/Menu/
+  Modal/Drawer) take `shadow-overlay`. Depth is static — nothing lifts or gains a shadow on hover,
+  and emphasis is carried by fill weight, never z-height. Full doctrine in the `basalt-mantine`
+  rule.
 - **Strict surfaces & primitives.** The theme runs a strict surface system: Mantine components read
   raw ramp steps directly, so `cssVariablesResolver` **collapses the ramp steps onto the
-  `--vx-surface-*` tokens** — one `shadow-card` treatment, one card bg, one radius across every
+  `--vx-surface-*` tokens** — one depth token per tier, one card bg, one radius across every
   component (AppShell, Table, Input, Divider, Tabs, Popover, Accordion, cards). Consumer code must
   **use Mantine layout primitives** (`Box`/`Flex`/`Grid`/`SimpleGrid`/`Stack`/`Group`/`Paper`/`Card`),
-  not raw `<div>`/`<span>` with inline `style`. `check-theme` adds four guard kinds to enforce this
+  not raw `<div>`/`<span>` with inline `style`. `check-theme` adds five guard kinds to enforce this
   (default ON, `theme-allow` escape): `off-system-surface-var` (raw ramp-step vars),
-  `raw-html-layout`, `inline-spacing`, `inline-display`. Only the Mantine-free `src/charts/**` may
-  use raw `<div>` (still with `VX.*` tokens).
+  `mantine-shade-index` (a shade-pinned color — `c="yellow.7"` is one fixed swatch in both schemes;
+  use `VX.status.*` or the bare hue name), `raw-html-layout`, `inline-spacing`, `inline-display`.
+  Only the Mantine-free `src/charts/**` may use raw `<div>` (still with `VX.*` tokens).
+- **Reach for the shipped composite before wrapping one.** A `StatCard` carrying a threshold verdict
+  takes `tone="good" | "warn" | "bad"` (an accent rail down its leading edge). Omitting `tone` is not
+  the same as `"good"` — omitted means "fine, or nothing measured" and stays untinted, so `"good"` is
+  a positive assertion you opt into for a value that earned it (`0 min` downtime), never a default.
+  A chart goes in `ChartCard`. Wrapping
+  a shipped card in a hand-positioned `Box` to add a mark it already has is how an app grows a second
+  card idiom — one the guard cannot recognize as a card, and therefore cannot police. If a composite
+  genuinely can't express what you need, that is a gap to report, not to route around.
 
 **Anti-slop checklist:** no pure `#000`/`#fff`; one accent locked page-wide; neutral does the
 structure, accent only points; don't flood blue; hierarchy via scale/weight/contrast/space, not

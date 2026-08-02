@@ -13,7 +13,9 @@ basalt-ui ships one color/type/spacing/radius identity shared by the Mantine chr
 charts. The **identity is modern zinc** (see `docs/DESIGN-SPEC.md` in the basalt-ui repo) —
 **cool-neutral zinc surfaces**
 (Tailwind zinc family) on both light and dark, low-contrast panel lift on a slightly darker page,
-depth via a whisper shadow + 1px ring (`shadow-card`) rather than a hairline border, carrying
+depth via a whisper shadow + 1px ring (`shadow-card` on panels, `shadow-raised` on interactive
+controls, `shadow-overlay` on floating surfaces — see basalt-mantine.md) rather than a hairline
+border, carrying
 **one saturated sky-blue accent**, split by ROLE: as INK (links, active-nav icon, chart
 lines, focus ring) it is `#0077bd` light / `#8ec5ff` dark; as a FILLED SURFACE it is
 `#0077bd` in BOTH schemes with a WHITE label (`--vx-accent-fill`, never `--vx-accent`). Neutrals do ~90% of the

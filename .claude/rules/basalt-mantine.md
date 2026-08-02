@@ -55,11 +55,13 @@ Restraint is the #1 lever — neutrals carry the surface, the accent only points
   labels, links, primary buttons, focus rings, and the leader bar in meters. It does **NOT** appear
   on borders, large fills, every icon, or secondary/routine buttons. Don't flood blue — "ink earns
   its color."
-- **Active nav = panel bg + `shadow-card`** + an **accent-colored icon** + weight-600 ink text.
-  Inactive = muted text, faint icon; hover = ink-6% tint. This is baked into the theme's NavLink
-  defaults (`--nl-*` vars) and holds for _every_ render path, including a consumer's router `<Link>`
-  passed via `renderNavLink`. Child items indent with a 1px `divider` left border; active child =
-  accent text, weight 600.
+- **Active nav = an ink-9% tint** + an **accent-colored icon** + weight-600 ink text — **no panel
+  fill and no shadow**. It is a _selected row_, not a raised control; a panel-filled, shadowed row
+  reads as a button sitting in the nav rather than as the current location. Inactive = muted text,
+  faint icon, hover ink-6%; an active row hovers one step further to ink-13%. This is baked into
+  the theme's NavLink defaults (`--nl-*` vars) and holds for _every_ render path, including a
+  consumer's router `<Link>` passed via `renderNavLink`. Child items indent with a 1px `divider`
+  left border; active child = accent text, weight 600.
 - **Buttons**: the primary action = filled accent (`variant="filled"`), **exactly one per view**.
   Every other/secondary action = `variant="default"` (neutral). Do **not** use a colored
   `variant="light"` for routine actions.
@@ -67,7 +69,7 @@ Restraint is the #1 lever — neutrals carry the surface, the accent only points
   `color="teal"` (vivid turquoise) or a saturated emerald. Status (`red`/`green`/`orange`/`yellow`)
   is for signal only, kept muted — never raw Material/AntD.
 - **Dark mode** is cool-neutral zinc (`#27272a`-family panels on a darker `#18181b`-mixed page) —
-  not steel-blue, not pure black. Lift elevation via `shadow-card`'s whisper shadow + inset ring;
+  not steel-blue, not pure black. Lift elevation via the depth tokens' whisper shadow + inset ring;
   the accent uses its lighter shade (`#8ec5ff`) on dark to avoid glow/bleed **as INK** — links,
   active-nav icons, chart lines, focus ring. A FILLED control is the opposite case: it keeps the
   deep `#0077bd` fill and a white label in both schemes, because a light fill cannot carry white
@@ -75,7 +77,8 @@ Restraint is the #1 lever — neutrals carry the surface, the accent only points
   `--vx-accent`.
 - **Light mode** is never pure-white page + pure-black text (harsh halation). Page is a
   slightly-darker zinc mix (`#ececee`-ish) than the panel (`#f4f4f5`) so cards lift subtly off it;
-  text = near-black ink (`#262626`). Depth comes from `shadow-card` (whisper shadow + 1px ring), not
+  text = near-black ink (`#262626`). Depth comes from a whisper shadow with a 1px ring baked in
+  (`shadow-card` for panels, `shadow-raised` for controls — see "Elevation, density & shape"), not
   a plain hairline border.
 
 ## Bridging Mantine ↔ charts
@@ -143,12 +146,23 @@ section divider, not card depth) are both fine.
   consumer code must compose Mantine layout/surface primitives — `Box`, `Flex`, `Grid`,
   `SimpleGrid`, `Stack`, `Group`, `Paper`, `Card` — instead of raw `<div>`/`<span>` with inline
   `style`. Raw HTML with inline layout/surface styling defeats the token system.
-- **Mechanical enforcement.** `basalt-ui check-theme` adds five surface guard kinds (each a config knob,
+- **Mechanical enforcement.** `basalt-ui check-theme` adds six surface guard kinds (each a config knob,
   default ON; `theme-allow` line-comment escape): `off-system-surface-var` (raw ramp-step vars),
-  `card-with-border` (`withBorder` on a `Card`/`Paper`), `raw-html-layout` (raw `<div>`/`<span>` with
-  inline layout/surface styling), `inline-spacing` (inline spacing literals), `inline-display`
-  (inline `display` literals). The Mantine-free `src/charts/**` is the only place raw `<div>` is
-  allowed — and it must still use `VX.*` tokens.
+  `card-with-border` (`withBorder` on a `Card`/`Paper`), `mantine-shade-index` (a shade-pinned color —
+  see below), `raw-html-layout` (raw `<div>`/`<span>` with inline layout/surface styling),
+  `inline-spacing` (inline spacing literals), `inline-display` (inline `display` literals). The
+  Mantine-free `src/charts/**` is the only place raw `<div>` is allowed — and it must still use `VX.*`
+  tokens. `oxlint` adds `basalt/card-inset`, which catches the other half of the same card drift: an
+  explicit `p`/`padding`/`radius` on a `Card`/`Paper` instead of the xs/sm inset and the theme radius.
+
+**Never pin a shade index on a color.** `c="yellow.7"`, `bg="blue.4"`, `var(--mantine-color-red-6)` —
+each names one fixed swatch that is identical in light and dark, so a shade legible on the dark page
+is the one that fails contrast on the light one. Two correct forms: `VX.status.*` /
+`--vx-status-warn|bad|good` for a verdict color (emitted per scheme, contrast guaranteed by the
+derivation), or the bare hue name (`c="red"`, `color="green"`) to let the theme pick the step. The
+`mantine-shade-index` guard kind catches the pinned form; `gray`/`dark` steps in `var()` belong to
+`off-system-surface-var` instead. Note the distinction from `off-identity-accent`, which polices
+_which hue_ you reach for and permits the bare status names on purpose — this kind polices the index.
 
 ## Scroll regions
 
@@ -190,34 +204,60 @@ shape doctrine lives here; the spacing/radius/type **tokens** are in basalt-toke
   radius token (`radius="md"` / `var(--vx-radius-card)`) + `VX.shadowCard` + `VX.surface.*`.
   Mechanically enforced by `basalt-ui check-theme`'s `raw-surface` guard. Outer spacing comes from the
   parent `Stack`/`SimpleGrid` gap, not an intrinsic card margin.
-- **Depth = `shadow-card`, not a plain hairline** (see `docs/DESIGN-SPEC.md` in the basalt-ui repo,
-  doctrine inversion #1 — this supersedes the old "never a drop shadow" rule). Elevation tiers: 0 flat (no shadow — body,
-  page bg); 1 surface (`shadow-card` on `canvas` — cards, panels, chart cards); 2 elevated (same
-  `shadow-card`, `surface-elevated` bg — tooltips, lifted cards); 3 focus (2px primary outline —
-  focused control). `Card`/`Paper` default to the `shadow-card` shadow (no `withBorder`), and the
-  Mantine-free `ChartCard` matches them (`VX.shadowCard` + `--vx-radius-card` radius). The same
-  inversion applies to every **`variant="default"` control surface**, not just Card/Paper: Button,
-  ActionIcon, and the field idiom (Input/TextInput/…) all render panel/field bg + `shadow-card`
-  with a _transparent_ 1px border box (never `border: none` — the box stays so focus/error can
-  recolor it with no layout shift). `--mantine-color-default-border` is pinned to `transparent` in
-  `cssVariablesResolver`, which is the ONE lever that kills the stock hairline for every
-  default-variant component at once (`defaultVariantColorsResolver`'s `variant === 'default'`
-  branch reads that single var); the shadow itself is added per-component in
-  `controls.module.css`, since Mantine never declares one for `default`. Layout dividers (header
-  bottom border, sidebar section separators) still use plain borders — only card/control depth
-  moved to shadow. (Genuinely floating elements — modals, popovers, menus — get elevation from
-  Mantine's own shadow scale, not from the card token.) `CheckboxCard`/`RadioCard` (`withBorder`,
-  their own default) and `Chip` (its own default, internally `variant="filled"` — Chip has no
-  literal `"default"`) get the SAME triad — panel bg + `shadow-card`, border dropped — via
-  dedicated rules in `controls.module.css`; `PillsInput` reuses the Input field idiom's `classNames`
-  wiring directly (it renders `InputBase` under its own `__staticSelector`, so the base `Input`
-  theme entry never reached it). A dedicated test, `src/theme/border-coverage.test.ts`, mechanically
-  enumerates every `@mantine/core` component whose shipped CSS declares a border and asserts it's
-  either a themed `baseTheme.components` key or a reasoned `BORDER_ALLOWLIST` entry — this is what
-  catches the NEXT unthemed bordered component (Button/ActionIcon shipped with no `.extend()` block
-  at all, which no consumer-source guard can ever see).
-- **The shadow-card ring must land on the box that carries the surface's `border-radius`.**
-  `shadow-card`/`shadow-ctrl` bakes a 1px ring into the shadow value itself, and the ring is drawn
+- **Depth = a whisper shadow with a 1px ring baked in, not a plain hairline** (see
+  `docs/DESIGN-SPEC.md` in the basalt-ui repo, doctrine inversion #1 — this supersedes the old
+  "never a drop shadow" rule). **Three depth tiers, split control-vs-panel-vs-floating:**
+  - **`shadow-card` — panels.** A surface that HOLDS content: `Card`, `Paper`, `Notification`,
+    `ChartCard`, `SettingsSection`. Its light-mode ring is an **outset** 1px hairline; dark is a
+    deeper drop + an inset 4%-white rim.
+  - **`shadow-raised` — interactive controls.** Anything you click or type into: Button,
+    ActionIcon, the field idiom (Input/TextInput/PillsInput/…), the sidebar search trigger, header
+    icon buttons, `Chip`, `CheckboxCard`/`RadioCard`, the agent composer. **Never an outset ring** —
+    dark is drop + an inset 8%-white rim, light is drop only. That is what lets ONE value ride a
+    saturated fill, a 13% tint and a neutral panel alike: an outset ring paints in the color of
+    whatever it is drawn over, so `shadow-card`'s pale hairline would read as a grey outline around
+    a colored button, while an inset edge is drawn over the control's own background. The
+    light/dark asymmetry is deliberate — a light-mode edge would have to be a _darkening_, which
+    reads as a border (uniform) or a double bottom rule (bottom-only); both were tried and
+    rejected. Don't tidy the two schemes into one shape.
+  - **`shadow-overlay` — detached floating surfaces.** Tooltip, Popover, Menu, Combobox, Modal,
+    Drawer — they sit _above_ the page rather than on it. Resolved in `theme/index.ts`; not
+    Mantine's own shadow scale.
+
+  Focus is a fourth tier and **layers**: a 2px accent ring drawn OVER the resting depth, never
+  replacing it.
+
+  **The dividing line is control-vs-panel, not component-by-component.** Two controls sitting side
+  by side must never land on different tokens — a `size="md"` Input beside a `size="md"` Button
+  (pinned to the same height by `--vx-space-control-height`), or the header's search trigger and
+  icon button. Closing exactly that split is why `shadow-raised` exists.
+
+  **Emphasis is fill weight, not depth.** Every Button/ActionIcon variant that owns a box takes the
+  SAME resting depth: `default` / `filled` / `light` → `shadow-raised` unmodified; `outline` →
+  ring-free `shadow-ctrl` (its real 1px accent border already is its edge); `subtle` → **flat in
+  both states** (a text affordance, not an object — its hover is a neutral ink-6% tint and nothing
+  more). **Depth is static — no variant moves or changes depth on hover or press.** A hover lift
+  and a materializing `subtle` shadow were both tried and reverted; don't reintroduce either.
+  Disabled is flat and grounded. Reduced motion drops the transition, never the resting depth.
+
+  Mechanics: every default-variant control renders its bg + depth with a _transparent_ 1px border
+  box (never `border: none` — the box stays so focus/error can recolor it with no layout shift).
+  `--mantine-color-default-border` is pinned to `transparent` in `cssVariablesResolver`, the ONE
+  lever that kills the stock hairline for every default-variant component at once
+  (`defaultVariantColorsResolver`'s `variant === 'default'` branch reads that single var); the
+  shadow itself is added per-component in `controls.module.css`, since Mantine never declares one
+  for `default`. `PillsInput` reuses the Input field idiom's `classNames` wiring directly (it
+  renders `InputBase` under its own `__staticSelector`, so the base `Input` theme entry never
+  reached it). Layout dividers (header bottom border, sidebar section separators) still use plain
+  borders — only card/control depth moved to shadow. A dedicated test,
+  `src/theme/border-coverage.test.ts`, mechanically enumerates every `@mantine/core` component
+  whose shipped CSS declares a border and asserts it's either a themed `baseTheme.components` key
+  or a reasoned `BORDER_ALLOWLIST` entry — this is what catches the NEXT unthemed bordered
+  component (Button/ActionIcon shipped with no `.extend()` block at all, which no consumer-source
+  guard can ever see).
+
+- **The ring must land on the box that carries the surface's `border-radius`.**
+  `shadow-card`/`shadow-raised` bakes a 1px ring into the shadow value itself, and the ring is drawn
   by the shadowed box's OWN corners — it never reads correctly against a different element's radius
   (the Input wrapper bug: a `position: relative` box with `border-radius: 0` drew a square ring
   around the 8px-rounded `<input>` inside it). Background usually co-locates with the radius since

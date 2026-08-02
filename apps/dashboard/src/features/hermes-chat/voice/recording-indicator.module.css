@@ -2,7 +2,8 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--mantine-color-red-6);
+  /* The red status token, used here for the universal live-recording convention. */
+  background: var(--vx-bad-solid);
   animation: pulse 1.4s ease-in-out infinite;
 }
 

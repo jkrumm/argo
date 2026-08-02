@@ -368,7 +368,7 @@ function SourceRow(props: {
       style={{
         cursor: 'pointer',
         background: props.selected ? 'var(--mantine-color-default-hover)' : undefined,
-        border: props.selected ? '1px solid var(--mantine-color-blue-5)' : '1px solid transparent',
+        border: props.selected ? `1px solid ${VX.accent}` : '1px solid transparent',
       }}
     >
       <Group justify="space-between" gap={6} wrap="nowrap">
