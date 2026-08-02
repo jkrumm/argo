@@ -175,10 +175,278 @@ against prod hits it first.
 
 ---
 
+## P0 — landed
+
+Three commits on `master`, each one concern, all green through lefthook (oxfmt + oxlint +
+check-theme):
+
+```
+2a84432 docs: supersede the Hermes chat PRD with the v2 spec
+d239168 style(strength): drive timer phases from the series dictionary
+ac90650 chore(deps): upgrade basalt-ui to 1.8.0
+```
+
+**Not pushed** — pushing argo triggers RollHook and a rolling restart on the VPS, which is a
+deploy decision, not a commit decision.
+
+### A leaked Tailscale IP, caught one commit before it was permanent
+
+`HERMES-CHAT-V2.md:57` carried a real tailnet address in the "why the proxy is not optional"
+table: `` `lsof` → `100.87.73.3:8642 (LISTEN)` ``. The global security rule forbids real IPs,
+Tailscale IPs and internal service URLs in any git-tracked file. The doc was still untracked, so
+nothing had leaked; it is now `<tailnet-ip>:8642`, which costs the reader nothing — the load-bearing
+claim is "binds the tailnet IP only, no TLS", not the address.
+
+A full scan of all four program docs found this as the only hit: no other private-range IPs, no
+token/key/secret-shaped strings. Worth repeating the scan before any future doc commit in this
+program, since these docs quote a live-infrastructure audit.
+
+### The 21 lint warnings are pre-existing, not this upgrade's fallout
+
+`bun run lint` fails with 21 warnings across 12 files, none of them touched by P0. Ruled out as
+upgrade fallout rather than assumed: the only change to basalt's shipped oxlint preset between
+v1.6.0 and v1.8.0 is one added rule (`basalt/raw-size-literal`, at `warn`), which produces zero hits
+in argo. The `unicorn`/`eslint` category settings are identical, and `oxlint` does not appear in the
+lockfile diff.
+
+They arrived when `oxlint` floated to 1.64.0 under its `^1.60.0` caret at an earlier install —
+`no-array-sort`, `no-array-reverse` and friends are newer rules landing inside already-enabled
+categories. **That caret is itself a house-rule violation** (dependency-hygiene: pin exact versions
+for direct dependencies so every upgrade is deliberate) and is exactly the failure mode the rule
+exists to prevent. Pinning it and clearing the 21 warnings is separate, deliberate work — not
+something to smuggle into this program.
+
+### oxfmt formats markdown, and it pads tables
+
+The third commit was rejected by lefthook on first attempt: oxfmt owns `.md` in this repo, and it
+rewrites table separators to the padded `| --- | --- |` form. That directly contradicts the global
+formatting rule ("use minimum separator `|-|-|`, never pad with repeated hyphens"). The formatter
+wins mechanically, so in argo — and any oxfmt repo — that rule is unenforceable. Either scope the
+rule to exclude oxfmt-managed repos or turn off oxfmt's markdown table handling; do not hand-fight
+the formatter.
+
+---
+
+## B1 — basalt-ui 1.9.0
+
+Branch `feat/agent-chat-surface`, cut from `master`. Four implementation lanes on disjoint file
+groups: the DOM harness, the `./agent-chat` subpath, the oxlint guards + doctor check, and the F2
+remend pin — with the `src/agent` test suite chained behind the harness and the playground gate
+chained behind the subpath.
+
+### Corrections to the pre-flight record, found before writing a line of code
+
+**1. `feat/linewatch-chart-gaps` is not an unused branch.** The P0 note recorded it as "0 ahead / 0
+behind `master`, i.e. a branch created and never used". It is 10 commits ahead, pushed, and carries
+**open PR #42** (`feat: close the chart-layer gaps a data-honesty consumer found`, opened
+2026-08-02). Branching B1 from `master` was right for a different reason than the one recorded: not
+because the branch was empty, but because it is someone else's in-flight PR.
+
+The overlap is small but real. PR #42 touches `packages/basalt-ui/src/cli/index.ts` (+159),
+`src/guard/index.ts`, `packages/basalt-ui/package.json`, `CLAUDE.md` and `docs/STATUS.md`. It does
+**not** touch `configs/oxlint-plugin.js`, `src/surfaces.ts` or `src/agent/**`. B1's only collision
+is the CLI, where the `ai-major-parity` doctor check lands. Whichever merges second rebases there.
+
+Practical trap this created: a scout sent to read the CLI on that branch reported `checkCoverage` at
+`:1393` and `doctor` at `:1587`. On `master` they are `:1244` and `:1438` — everything after the
+chart CLI additions shifts by ~150 lines. Anchors read off a feature branch are not anchors.
+
+**2. The F3 production claim is right, but its stated mechanism is version-dependent — and the two
+repos disagree.** P1 recorded "Mantine v9 `Collapse` defaults `keepMounted: true` and renders
+through `Activity`". That is true of `@mantine/core` **9.4.1**, which argo resolves, whose
+`defaultProps` sets `keepMounted: true` and whose `:50-52` renders
+`<Activity mode={isExited ? 'hidden' : 'visible'}>`. Argo's `thread-feed-row.tsx:82` passes no
+`keepMounted` (grep across the whole dashboard returns nothing), so it inherits that default and F3
+does reproduce on collapse→expand in production.
+
+It is **not** true of `@mantine/core` **9.3.0**, which is what `basalt-ui` itself has installed.
+There `keepMounted` has no default at all, and the branch is three-valued: `false` unmounts on exit,
+`true` renders `Activity`, and **`undefined` falls through to plain children with no `Activity`**.
+The default was introduced between 9.3.0 and 9.4.1.
+
+The consequence is concrete and was one command away from being missed: an F3 test that reaches the
+`<Activity>` boundary _through Mantine's `Collapse`_ silently would not reproduce the bug inside
+basalt-ui. B1's test drives React's `<Activity>` directly. `Activity` is a stable named export of
+the installed `react@19.2.7` (`cjs/react.development.js:795`), typed in `@types/react@19.2.17` — not
+`unstable_Activity`.
+
+**3. `AGENT-CHAT-SPEC.md` §1's proposed subpath description advertises exports that do not exist.**
+It names `ToolChip` (ships 1.10.0) and `ThreadFeedRow` (ships 1.12.0). That string is not decorative
+— it feeds `llms.txt`, `AGENTS.md`'s subpath table and the `agents-sync.test.ts` drift gate, so
+shipping it verbatim in 1.9.0 would publish a surface listing two exports the tarball does not
+contain. B1 ships a description covering only what `src/agent-chat/index.ts` exports today.
+
+**4. The task list does not survive a session.** The orchestration contract treats `TaskList` as
+durable state; it is session-scoped. A fresh session opened against a program mid-flight finds it
+empty and must rebuild it from the specs. `docs/migrations/hermes-chat-v2.md` plus `git log` are the
+only state that actually persists — which is what the contract says, but the task list should not be
+relied on across a restart.
+
+### The two harness facts that would have sunk an under-specified brief
+
+Both came out of the research gate, and neither is guessable:
+
+- **The registrator is a separate npm package.** `@happy-dom/global-registrator` (20.11.1), not an
+  export of `happy-dom`. And since `@testing-library/react` v16.0.0, `@testing-library/dom` is a
+  _peer_, so it installs explicitly too.
+- **`@testing-library/react`'s auto-cleanup silently no-ops under `bun test`.** RTL registers it
+  with `if (typeof afterEach === 'function')` against the **global** scope; Bun exposes `afterEach`
+  only via `import { afterEach } from 'bun:test'`, so the branch never fires and every test leaks
+  its DOM into the next (oven-sh/bun#7044). Cleanup is wired by hand in the preload, with a comment
+  saying why — otherwise the next reader deletes it as redundant.
+
+Also load-bearing: `[test] preload` runs once per **process**, not per file; `bunfig.toml` is
+discovered only in the directory Bun is invoked from, so the root `"test": "bun test"` script is the
+only supported entry point; and happy-dom implements neither `ResizeObserver` nor `matchMedia`,
+both of which Mantine v9 needs.
+
+### Found while reading `use-agent-thread-runs.ts`, not in any register
+
+Two things worth scheduling rather than silently fixing:
+
+- `consumeAndFinalize` `await`s `resolveOutcome` at `:219` and then writes `setOutcome` / `setStatus`
+  at `:221-222` **without re-checking** the supersede/abort guards it checked at `:205-207`. A slow
+  async `resolveOutcome` racing a `stop()` looks reachable.
+- `stop()` (`:421-431`) unconditionally calls `setStatus(threadId, 'done')` even for a thread that
+  was never streaming, while `stopAll()` (`:433-437`) sets no status at all.
+
+Both land naturally in B2, which rewrites `stop()` for stop-preserves-the-partial-turn.
+
+### What the adversarial verifiers caught, and why it generalizes
+
+Eight agents implemented B1 across four disjoint lanes. Every lane reported success. Two verifiers
+then found that three of them had shipped code failing a CI gate — and the mechanism was identical
+each time: **the lane ran only its own scoped `bun test`, and `bun test` neither typechecks nor
+lints nor format-checks.**
+
+- `src/cli/index.ts` — three `TS4111` errors (`pkg.dependencies?.ai` under
+  `noPropertyAccessFromIndexSignature`). The lane reported "56 pass, 0 fail" over code `tsc`
+  rejects.
+- The two new playground demo pages — three `basalt(card-inset)` errors from `<Paper p="md">`. The
+  lane verified with `typecheck`, which passed, and never ran oxlint over its own files.
+- `README.md` — `oxfmt --check` fails on the widened Requirements table. `git show HEAD:` confirms
+  it was clean before the edit.
+
+The lesson is not "the agents were careless" — each verified exactly what it was told to verify. It
+is that **a per-lane scoped test is not a gate**, and a parallel fan-out that forbids repo-wide
+validation mid-flight (correctly, to avoid racing half-written state) has no gate at all until the
+lanes converge. The convergence step is not optional bookkeeping; it is where the only real
+validation happens. Budget for a remediation round after any parallel implementation fan-out.
+
+The completeness critic found a second class of problem the correctness verifier could not: the
+1.9.0 contract line "the full `src/agent/**` suite" was ~57% delivered. No `thread.test.ts`, no
+`ai-sdk-transport.test.ts` — the _other_ module the spec names as one of "the two most intricate in
+the package" — and no `parts.test.ts`. All three are current shipped code, testable today, gated on
+nothing. "What is missing" and "what is wrong" are different questions and want different agents.
+
+### A live defect, found by writing the tests
+
+`consumeAndFinalize` awaits `resolveOutcome` at `:219` and then writes `setOutcome`/`setStatus` at
+`:221-222` without re-checking the supersede/abort guards from `:205-207`. A `stop()` landing during
+that await is silently overwritten when the outcome settles. B1 shipped a **verified-failing**
+reproduction as a `.skip`'d test in `use-agent-thread-runs.test.tsx`; B2 owns un-skipping it, since
+its `stop()` rewrite and its "exactly one writer per terminal path" invariant are what make the
+clobber unrepresentable. A dormant test with no scheduled owner rots, so it is filed against B2
+explicitly rather than left as a comment.
+
+### happy-dom replaces `TransformStream` with a Node _classic_ stream
+
+The single most consequential thing B1 found, and it is a trap laid directly across B2–B4's path.
+
+`GlobalRegistrator.register()` overwrites `globalThis.TransformStream` and
+`globalThis.WritableStream`. Reading happy-dom 20.11.1's `BrowserWindow.ts`: it assigns
+`TransformStream = Stream.Transform` and `WritableStream = Stream.Writable` — Node's **classic**
+stream classes, not the web-streams API. They share a name and nothing else.
+
+The `ai` package constructs `new TransformStream()` at runtime inside `EventSourceParserStream` and
+`DefaultChatTransport.processResponseStream`, so every one of them breaks under the DOM harness with
+an opaque error that names neither happy-dom nor the substitution.
+
+The first fix was a per-file monkeypatch in `ai-sdk-transport.test.ts`: swap the native class back at
+module-eval time, then `await import('ai')` so `ai` binds the good one. It worked, and it was
+**silently order-dependent** — it only held because no other file in the `bun test` graph statically
+imports `ai` first. Any future test file that does, and sorts earlier, module-caches `ai` against the
+shim and turns the patch into a no-op. B2, B3 and B4 are entirely streaming work and would each have
+re-hit this in a different disguise.
+
+The fix belongs in `tests/setup/dom.ts`: restore `ReadableStream` / `TransformStream` /
+`WritableStream` from `node:stream/web` immediately after registration. (`ReadableStream` happens to
+survive registration today; it is restored anyway, because the reason it survives is not a promise
+happy-dom makes.) With that in place the per-file patch was deleted and a plain static import works.
+
+Two lessons, both general: a global DOM shim is not additive — it can replace a global you were
+relying on with something of the same name and different semantics; and a workaround whose
+correctness depends on module-load order is not a fix, it is a deferred failure with no error
+message attached.
+
+### B1 landed — four commits, and master moved underneath it
+
+```
+1144284 docs: record the agent-chat framework spec the B-phases build against
+9ffa473 feat: prove the agent-chat subpath and the streaming wedge in the playground
+006a2a4 feat: open ./agent-chat as its own door, and put the agent layer under test
+ea04c6b test: give the repo a DOM harness so the agent layer can be tested at all
+```
+
+On `feat/agent-chat-surface`, **not pushed** — basalt-ui is PR-required, and a push opens a PR.
+
+The split is forced by lefthook's `isolated-basalt-ui` hook, and the ordering by what it allows:
+the harness commit carries the root files (`bunfig.toml`, `package.json`, `bun.lock`,
+`tests/setup/dom.ts`) plus the allowlist widening that lets a future commit stage them beside
+`packages/basalt-ui/**` at all; the package commit is the release-triggering one; the playground
+and the spec follow because neither may share a commit with the package.
+
+**PR #42 merged mid-flight and someone pulled master while the lanes were running.** The reflog
+records `checkout: moving from feat/agent-chat-surface to master` then `pull: Fast-forward` to
+`3958a3e`, leaving the branch ref parked on the old `6c568ae` while the uncommitted work sat on top
+of the new master. Benign in the end, and arguably better than the alternative: every gate,
+including the dist gate, ran against the merged tree, so 1.9.0 is validated on top of the chart
+batch rather than against a base that no longer exists. It was worth checking rather than assuming
+— three files are touched by both changesets (`CLAUDE.md`, `package.json`, `src/cli/index.ts`), and
+a full-file write by any agent would have silently reverted #42's work in them. It didn't:
+`docs/STATUS.md`, `basalt-charts.md` and `src/guard/index.ts` are byte-identical to the new master
+and the overlapping diffs are purely additive.
+
+The lesson for the rest of this program: a long parallel fan-out cannot assume its base is frozen.
+Re-read `git log` before committing, not just before starting — the orchestration contract already
+says the git history is the authoritative record, and this is what that means in practice.
+
+### Gate results at commit time
+
+`fmt:check`, `lint`, `typecheck`, `build`, `check-coverage` (all 8 assertions), both generator drift
+checks, and the full `bun test` at **1180 pass / 1 skip / 0 fail**, run twice with identical counts.
+The dist gate (`pack-test.sh`) passed all 14 steps, including the two that are the actual point:
+
+```
+resolved basalt-ui/agent-chat
+scratch resolution OK (20 subpaths)
+export-surface snapshot OK (19 subpaths)
+```
+
+That is the only evidence the new door resolves from the published tarball — the playground
+exercises `src/` and never `dist/`.
+
+Two things the full run settled that nothing else could: the happy-dom preload did **not** perturb
+the ~48 pre-existing suites (all four `renderToStaticMarkup` files still pass with a real `document`
+present), and `lefthook-preset.test.ts` was flaking against Bun's 5000ms default at 5109ms/5004ms —
+pre-existing, reproducible with the preload disabled, and fixed by batching its nine `bunx oxfmt`
+spawns into one rather than by raising the ceiling.
+
+The one `skip` is deliberate: the `resolveOutcome`-clobbers-`stop()` reproduction, filed against B2.
+
+### Still open on B1
+
+`/review --deep` never ran — the sideclaw MCP server dropped out of the session entirely
+(all nine tools gone, not erroring), and reconnecting needs `/mcp` from the client side. The work is
+committed rather than held, since uncommitted state is the only thing a compaction cannot recover,
+and anything the review finds folds in with `--amend`. The browser gate on the two playground pages
+is Johannes's to walk.
+
 ### Phase status
 
-| Phase        | Status      | Note                                                                        |
-| ------------ | ----------- | --------------------------------------------------------------------------- |
-| P0           | in progress | Split decided; commits held on the sideclaw validation gate                 |
-| P1           | in progress | Verdict reached; spec corrections being written back into both specs        |
-| B1–B4, A1–A6 | pending     | Blocked per the dependency graph. A1 and B1 task bodies carry the P1 impact |
+| Phase        | Status  | Note                                                                        |
+| ------------ | ------- | --------------------------------------------------------------------------- |
+| P0           | done    | Three commits on master, unpushed                                           |
+| P1           | done    | Render-only verdict; 25/26 confirmed; both specs corrected                  |
+| B1           | wip     | Four lanes running on `feat/agent-chat-surface`, cut from `master`          |
+| B2–B4, A1–A6 | pending | Blocked per the dependency graph. A1 and B1 task bodies carry the P1 impact |
