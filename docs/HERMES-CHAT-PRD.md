@@ -1,5 +1,15 @@
 # Hermes Chat — PRD
 
+> **SUPERSEDED (2026-08-02) by `docs/HERMES-CHAT-V2.md`. Historical record only — do not build from
+> this file.** A 2026-08-02 audit found the following claims below no longer true: the AI SDK is v7,
+> not v5; diagrams render as bundled inline components, not in a sandboxed CDN iframe (that design
+> was explicitly rejected in Phase B); `packages/charts` is retired; the Blueprint palette and
+> `check-theme.mjs` are gone (basalt-ui zinc/sky, `bunx basalt-ui check-theme`); `/hermes/audio` was
+> never built; audio-proxy was replaced by audio-gateway; there is no LiteLLM bridge; resumable
+> streaming shipped rather than being deferred; the thread UX shipped as a single-column Slack feed,
+> not list+detail; the Slack feed pane (Goal 9) was never built and never recorded as deferred; and
+> the Hermes API is v0.19.1 with 33 routes, not ~v0.16.0.
+
 A thread-first, Slack/WhatsApp-style chat surface inside the Argo dashboard that
 talks directly to the Hermes agent core over its OpenAI-compatible API, built on
 the **Vercel AI SDK v5** (transport) and **react-markdown + remend** (streaming,

@@ -1,5 +1,9 @@
 # Hermes Chat — Phase B Handover
 
+> **SUPERSEDED (2026-08-02) by `docs/HERMES-CHAT-V2.md`. Historical record only.** Phase B shipped.
+> The validation gate below no longer runs (`packages/charts` is retired, `check-theme.mjs` is now
+> `bunx basalt-ui check-theme`) and the key references point at archived or deleted files.
+
 Input for the next `/ralph setup`. Phase A (Groups 1–6, the core chat) is complete and
 archived in `docs/migrations/hermes-chat-phase-a.md`. The authoritative product spec is
 `docs/HERMES-CHAT-PRD.md`; the target layout is `docs/diagrams/ChatWireframe.svg`.
