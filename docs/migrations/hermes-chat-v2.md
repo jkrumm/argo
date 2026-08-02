@@ -203,7 +203,9 @@ program, since these docs quote a live-infrastructure audit.
 
 ### The 21 lint warnings are pre-existing, not this upgrade's fallout
 
-`bun run lint` fails with 21 warnings across 12 files, none of them touched by P0. Ruled out as
+`bun run lint` reports 21 warnings across 12 files, none of them touched by P0 — and **exits 0**, so
+the gate is green; "fails" was the wrong word here and is corrected in the B1 close-out below. Ruled
+out as
 upgrade fallout rather than assumed: the only change to basalt's shipped oxlint preset between
 v1.6.0 and v1.8.0 is one added rule (`basalt/raw-size-literal`, at `warn`), which produces zero hits
 in argo. The `unicorn`/`eslint` category settings are identical, and `oxlint` does not appear in the
@@ -633,11 +635,53 @@ claim, and so is a validation verdict.** The same session had a checker report `
 it exits 0 (it was reacting to warning text), and a reviewer report three defects that do not exist.
 Both were resolved the same way — by reading the thing itself rather than the report about it.
 
+### B1 closed — 1.10.0 published, and the round-trip closed a loop
+
+Merged by **rebase**, which is the only method the repo enables and the right one here: it preserves
+the four-commit split lefthook forces, keeps history linear, and leaves semantic-release looking at
+one isolated `packages/basalt-ui/**` commit. The dry run named the version off exactly that commit —
+`v1.9.0 → v1.10.0 (minor)` — and the publish workflow confirmed the registry at 1.10.0.
+
+`make release` has a `YES=1` escape its author built for scripted use. It was used, with the publish
+authorized explicitly and the computed number shown first; the major-refusal check runs before that
+branch regardless, so the "never a major" guarantee is untouched.
+
+**CodeRabbit never re-reviewed the fixes** — it returned "Review rate limited", so the green check is
+the check passing, not a second read. The applied changes carry per-finding verification and the full
+gate suite instead. Worth knowing that a green review tick can mean "did not run".
+
+**The round-trip proved the parity guard end to end, which no test inside basalt-ui could.**
+Immediately after `bunx basalt-ui sync`, `doctor` hard-failed argo:
+
+```
+✖ ai package major version mismatch across workspace packages: @argo/dashboard@ai7, @argo/api@ai5
+```
+
+That is D3's topology — the correct configuration — failing a brand-new hard check: exactly the
+scenario the declarable exemption was designed for. Declaring `basalt.aiMajorSkewReason` in argo's
+`package.json` turned it green with the reason echoed back rather than suppressed. The guard, its
+escape hatch, and the consumer it was designed around were only ever exercised together here.
+
+Nine new lint warnings arrived with the upgrade and are expected, not debt: `ai-sdk-major` ×3 (the
+lint half of the same guard — it honours a `basalt-agent-allow` line comment, not the package.json
+declaration, which is the doctor's escape), `raw-scroll-container` ×4 (newly promoted to `warn`), and
+`agent-no-raw-usechat` / `agent-resume-guard` ×1 each, on the chat surface A3 replaces wholesale. The
+framework spec predicted this verbatim: "Argo's `chat-conversation.tsx` fails lint until the transport
+migration lands. Deliberate — that file is the migration."
+
+**Correction to the P0 entry above:** argo's `bun run lint` does not fail. It reports 30 warnings
+(21 pre-existing plus the 9 above), **0 errors, exit 0**, and `check-theme` passes, so the gate is
+green. That makes three separate occasions in this program where something reported a failure the
+exit code contradicted — a checker on basalt-ui's `lint`, this record's own P0 wording, and a
+reviewer's three non-defects. The habit that resolved all three was identical: run the thing and read
+`$?` rather than the summary of it.
+
 ### Phase status
 
-| Phase        | Status  | Note                                                                         |
-| ------------ | ------- | ---------------------------------------------------------------------------- |
-| P0           | done    | Three commits on master, unpushed                                            |
-| P1           | done    | Render-only verdict; 25/26 confirmed; both specs corrected                   |
-| B1           | wip     | Review applied (7 of 10); gates + browser gate green; releases as **1.10.0** |
-| B2–B4, A1–A6 | pending | Blocked per the dependency graph. A1 and B1 task bodies carry the P1 impact  |
+| Phase        | Status  | Note                                                                            |
+| ------------ | ------- | ------------------------------------------------------------------------------- |
+| P0           | done    | Three commits on master                                                         |
+| P1           | done    | Render-only verdict; 25/26 confirmed; both specs corrected                      |
+| B1           | done    | basalt-ui **1.10.0** published; argo consuming it; browser gate + review closed |
+| B2           | next    | Unblocked. Ships as 1.11.0. Owns the `.skip`'d resolveOutcome/stop clobber test |
+| B3–B4, A1–A6 | pending | Blocked per the dependency graph. A1 and B1 task bodies carry the P1 impact     |
