@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Button,
   Center,
@@ -11,15 +11,17 @@ import {
   Tooltip,
   UnstyledButton,
 } from '@mantine/core'
-import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { IconSettings, IconTrophy } from '@tabler/icons-react'
 import { VX } from 'basalt-ui/tokens'
 import { format } from 'date-fns'
 import {
+  invalidateWorkoutData,
   useCreateWorkout,
   workoutsQueries,
   type CreateWorkoutResponse,
 } from '../../../lib/queries/workouts'
+import { sameDraft, useWorkoutDrafts } from '../../../lib/queries/workout-draft'
 import { exerciseQueries } from '../../../lib/queries/exercises'
 import { loadingFor } from '../../../lib/gym-profile'
 import { useGyms } from '../../../lib/queries/gym'
@@ -207,14 +209,120 @@ export function WorkoutForm() {
   )
   const history = (historyResult.data?.data ?? []) as ReadonlyArray<HistoryRow>
 
-  // Auto pre-fill on exercise change (mirror old behaviour) + restart the check-off.
+  // ── cross-device draft sync ────────────────────────────────────────────────
+  //
+  // The session being entered is shared through `/workout-draft` so it can be
+  // started on the laptop and finished on the phone. The transport (debounced
+  // writes, the 5s poll, the settled-ness gate) is in `lib/queries/workout-draft`;
+  // what lives here is the part only the form can decide — when an incoming
+  // draft is allowed to replace what is on screen.
+  //
+  // The rule: never while the local copy is the user's. That means not while a
+  // keypad is open, not while anything in the form has focus, not while a write
+  // is queued or in flight, and not within a beat of the last edit. A poll tick
+  // that arrives in any of those states is dropped rather than deferred — the
+  // next one is 5s out, and by then the local copy has been written up and the
+  // two agree anyway.
+  const drafts = useWorkoutDrafts()
+  const remoteDraft = drafts.drafts[exercise]
+  const qc = useQueryClient()
+
+  const formRef = useRef<HTMLDivElement>(null)
+  // The local copy becomes the user's on their first edit. Before that the form
+  // is showing a guess — last session's sets — and a guess must never be written
+  // up, or merely opening the page would plant a draft on the other device.
+  const touchedRef = useRef(false)
+  // A weight/reps keypad is open. Those are buttons over a portalled popover, so
+  // focus-within on the form can't see them; SetEditor reports it instead.
+  const editingRef = useRef(false)
+  const handleEditingChange = useCallback((v: boolean) => {
+    editingRef.current = v
+  }, [])
+  // Whether a server draft for this exercise was ever observed. Its later absence
+  // means the other device saved the session — but only if it was there first.
+  // Without this, a PUT failing offline would read as "cleared elsewhere" and
+  // wipe the session the user is still entering.
+  const seenRef = useRef<Record<string, boolean>>({})
+  // Null, not `exercise`: the first mount has to take the same path as a switch,
+  // so opening the page either adopts the draft left on the other device or
+  // pre-fills from the last session — exactly what a switch does.
+  const prevExerciseRef = useRef<ExerciseKey | null>(null)
+
+  // Current render's values, for the sync effect to read without taking them as
+  // dependencies — it must not re-run on every keystroke. Declared before that
+  // effect so it is already fresh when the effect below runs in the same commit.
+  const latest = useRef({ date, sets, completedCount, previousSets })
   useEffect(() => {
-    if (previousSets !== undefined) {
-      setSets(previousSets)
+    latest.current = { date, sets, completedCount, previousSets }
+  })
+
+  // The one place a value that did not come from the user lands in the form.
+  useEffect(() => {
+    const switched = prevExerciseRef.current !== exercise
+    prevExerciseRef.current = exercise
+
+    if (switched) {
+      // Switching exercise is the user asking for that exercise's state, so it
+      // always applies: the shared draft when there is one, the usual pre-fill
+      // from the last session otherwise.
+      touchedRef.current = false
+      if (remoteDraft !== undefined) {
+        seenRef.current[exercise] = true
+        setDate(remoteDraft.date)
+        setSets(remoteDraft.sets)
+        setCompletedCount(remoteDraft.completedCount)
+        return
+      }
+      seenRef.current[exercise] = false
+      if (latest.current.previousSets !== undefined) setSets(latest.current.previousSets)
+      setCompletedCount(0)
+      return
     }
+
+    // A poll tick. Everything below is the "may a remote draft replace what is
+    // on screen" gate.
+    if (editingRef.current) return
+    if (formRef.current?.contains(document.activeElement) === true) return
+    if (!drafts.isSettled()) return
+
+    if (remoteDraft !== undefined) {
+      seenRef.current[exercise] = true
+      const local = latest.current
+      if (sameDraft(local, remoteDraft)) return
+      setDate(remoteDraft.date)
+      setSets(remoteDraft.sets)
+      setCompletedCount(remoteDraft.completedCount)
+      return
+    }
+
+    // The draft we were sharing is gone: the other device saved the session, or
+    // it aged out server-side. Reset to a fresh form and pull the newly-logged
+    // workout in, so finishing on the phone visibly finishes it here too.
+    if (seenRef.current[exercise] !== true) return
+    seenRef.current[exercise] = false
+    touchedRef.current = false
+    setDate(today())
+    setSets(latest.current.previousSets ?? DEFAULT_SETS)
     setCompletedCount(0)
+    invalidateWorkoutData(qc)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exercise])
+  }, [exercise, remoteDraft, drafts.dataUpdatedAt])
+
+  // Write-up. Debounced downstream, so this fires per edit and PUTs per pause.
+  // Skipped entirely until the user has touched the form, and skipped when the
+  // server already holds exactly this — which is what stops an adopted draft
+  // from being echoed straight back.
+  useEffect(() => {
+    if (!touchedRef.current) return
+    const local = { date, sets, completedCount }
+    if (sameDraft(local, remoteDraft)) return
+    drafts.push(exercise, local)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exercise, date, sets, completedCount])
+
+  function markTouched() {
+    touchedRef.current = true
+  }
 
   const createWorkout = useCreateWorkout()
 
@@ -223,6 +331,7 @@ export function WorkoutForm() {
   // Check-off a set: lock it, unlock the next, and rest before a non-drop next set.
   function handleCompletedChange(count: number) {
     const advancing = count > completedCount
+    markTouched()
     setCompletedCount(count)
     if (advancing) {
       const next = sets[count]
@@ -246,6 +355,12 @@ export function WorkoutForm() {
       onSuccess: (result) => {
         const res = result as unknown as CreateWorkoutResponse
         showAchievements(res.achievements)
+        // The session is history now — drop the shared draft so the other device
+        // stops offering it as unsaved work, and hand ownership of the reset form
+        // back to the pre-fill.
+        touchedRef.current = false
+        seenRef.current[exercise] = false
+        drafts.clear(exercise)
         setSets([{ set_type: 'work', weight_kg: sets[0]?.weight_kg ?? 60, reps: 5 }])
         setCompletedCount(0)
       },
@@ -291,7 +406,7 @@ export function WorkoutForm() {
   }
 
   return (
-    <Paper py="xs" px="sm">
+    <Paper ref={formRef} py="xs" px="sm">
       <Stack gap="sm">
         <Group justify="space-between" wrap="nowrap" align="center">
           <Text fw={600} size="sm">
@@ -328,13 +443,20 @@ export function WorkoutForm() {
           type="date"
           label="Date"
           value={date}
-          onChange={(e) => setDate(e.currentTarget.value)}
+          onChange={(e) => {
+            markTouched()
+            setDate(e.currentTarget.value)
+          }}
           size="md"
         />
 
         <SetEditor
           sets={sets}
-          onChange={setSets}
+          onChange={(next) => {
+            markTouched()
+            setSets(next)
+          }}
+          onEditingChange={handleEditingChange}
           previousSets={previousSets}
           checklist
           completedCount={completedCount}

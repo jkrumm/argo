@@ -61,20 +61,33 @@ export type UpdateWorkoutInput = {
   }>
 }
 
+// The strength page is the one surface genuinely used from two devices in the
+// same session, so it opts out of the app-wide `refetchOnWindowFocus: false` /
+// 60s staleTime — those are right for a single-device dashboard and wrong here:
+// a session logged on the phone would sit invisible on the laptop until a manual
+// reload. The draft sync pulls a workout in the moment its shared draft
+// disappears; this covers the rest — an edit, a delete, or a session logged
+// while this tab was closed. Focus, not a poll: the trigger for "is this still
+// current" is picking the device back up.
+const CROSS_DEVICE = { staleTime: 30_000, refetchOnWindowFocus: true } as const
+
 export const workoutsQueries = {
   all: () => ['workouts'] as const,
   summaryStrength: (params: WorkoutWindowParams) =>
     queryOptions({
+      ...CROSS_DEVICE,
       queryKey: [...workoutsQueries.all(), 'summary', 'strength', params] as const,
       queryFn: async () => unwrap(await api.workouts.summary.strength.get({ query: params })),
     }),
   summarySeries: (params: WorkoutWindowParams) =>
     queryOptions({
+      ...CROSS_DEVICE,
       queryKey: [...workoutsQueries.all(), 'summary', 'series', params] as const,
       queryFn: async () => unwrap(await api.workouts.summary.series.get({ query: params })),
     }),
   list: (params: WorkoutListParams) =>
     queryOptions({
+      ...CROSS_DEVICE,
       queryKey: [...workoutsQueries.all(), 'list', params] as const,
       queryFn: async () => unwrap(await api.workouts.get({ query: params })),
     }),
@@ -82,7 +95,9 @@ export const workoutsQueries = {
 
 // Workout mutations change both the raw workout list and every derived strength
 // summary (heroes, charts) — invalidate both key roots so the page refreshes.
-function invalidateWorkoutData(qc: ReturnType<typeof useQueryClient>) {
+// Exported because a workout can also be logged on ANOTHER device: the draft
+// sync notices the shared draft disappear and calls this to pull the session in.
+export function invalidateWorkoutData(qc: ReturnType<typeof useQueryClient>) {
   void qc.invalidateQueries({ queryKey: workoutsQueries.all() })
   void qc.invalidateQueries({ queryKey: strengthQueries.all() })
 }

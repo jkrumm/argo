@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ActionIcon, Box, Button, Flex } from '@mantine/core'
 import { IconCheck, IconPlus, IconX } from '@tabler/icons-react'
 import { VX, alpha } from 'basalt-ui/tokens'
@@ -48,6 +48,13 @@ export interface SetEditorProps {
   onBarChange?: (barId: string) => void
   /** Opens the gym-equipment settings modal (owned by the parent form). */
   onOpenSettings?: () => void
+  /**
+   * True while a keypad popover is open. Weight and reps are buttons, not text
+   * fields, so `:focus-within` on the form can't see them — the popovers render
+   * in a portal. This is the parent's "the user is standing in a field" signal,
+   * which the cross-device draft sync uses to refuse to swap the form out.
+   */
+  onEditingChange?: (editing: boolean) => void
 }
 
 /**
@@ -79,6 +86,7 @@ export function SetEditor({
   barId = '',
   onBarChange,
   onOpenSettings,
+  onEditingChange,
 }: SetEditorProps) {
   const [hoveredRow, setHoveredRow] = useState<number | null>(null)
   // Index of the row whose weight popover is open — a single slot, so only one
@@ -91,6 +99,11 @@ export function SetEditor({
   // popover across without the two fighting over one index.
   const [openReps, setOpenReps] = useState<number | null>(null)
   const repsRefs = useRef<(HTMLButtonElement | null)[]>([])
+
+  const editing = openRow !== null || openReps !== null
+  useEffect(() => {
+    onEditingChange?.(editing)
+  }, [editing, onEditingChange])
 
   function openWeight(i: number, digit: string | null) {
     setPendingDigit(digit)

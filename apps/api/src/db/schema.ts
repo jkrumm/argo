@@ -183,6 +183,26 @@ export const gymState = argoSchema.table('gym_state', {
   updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 })
 
+// ── Workout draft (single row id=1, per-exercise jsonb map) ──────────────────
+
+// The workout currently being ENTERED — the half-filled set list that exists
+// between opening the form and pressing Save. Same single-row jsonb shape as
+// `gym_state`, but the blob is a MAP keyed by exercise_id, not one value.
+//
+// Keying by exercise is what makes cross-device editing safe without any merge
+// logic: two devices in the same session are usually on different lifts (laptop
+// on bench, phone on squat), and per-exercise keys make that case collision-free
+// by construction. Same-exercise collisions are last-write-wins on the whole
+// draft — see the policy comment in the route.
+//
+// Writes are per-key (`jsonb_set` on one path), never whole-state, so a device
+// saving its bench draft can never clobber another device's squat draft.
+export const workoutDraft = argoSchema.table('workout_draft', {
+  id: integer('id').primaryKey().default(1),
+  state: jsonb('state').notNull(),
+  updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+})
+
 // ── Workouts ─────────────────────────────────────────────────────────────────
 
 export const workouts = argoSchema.table('workouts', {

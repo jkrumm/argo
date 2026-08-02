@@ -39,6 +39,7 @@ import { exerciseQueries } from '../lib/queries/exercises'
 import { strengthQueries, type StrengthQueryParams } from '../lib/queries/strength'
 import { workoutsQueries } from '../lib/queries/workouts'
 import { useGymSync } from '../lib/queries/gym'
+import { useWorkoutDraftSync } from '../lib/queries/workout-draft'
 
 // ── Search params ──────────────────────────────────────────────────────────
 
@@ -104,6 +105,7 @@ function StrengthTrackerPage() {
   // Single owner of the gym-config poll — every `useGyms` consumer below reads
   // the cache it fills. Mounting this more than once multiplies the request rate.
   useGymSync()
+  useWorkoutDraftSync()
 
   const windowParams = useMemo<SummaryParams>(() => resolveWindow(search), [search])
   const queryParams = useMemo(

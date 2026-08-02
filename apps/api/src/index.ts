@@ -37,6 +37,7 @@ import { usageRoutes } from './routes/usage.js'
 import { readingRoutes } from './routes/reading.js'
 import { userProfileRoutes } from './routes/user-profile.js'
 import { gymRoutes } from './routes/gym.js'
+import { workoutDraftRoutes } from './routes/workout-draft.js'
 import { hermesRoutes } from './routes/hermes.js'
 import { aiRoutes, audioFileRoutes } from './routes/ai.js'
 import { registerCronJobs } from './cron/index.js'
@@ -250,6 +251,7 @@ export const app = new Elysia()
   .use(skinfoldLogRoutes)
   .use(userProfileRoutes)
   .use(gymRoutes)
+  .use(workoutDraftRoutes)
   .use(walkingPadRoutes)
   .use(usageRoutes)
   .use(readingRoutes)
