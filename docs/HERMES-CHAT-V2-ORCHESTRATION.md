@@ -47,10 +47,10 @@ On first run, create one task per phase from `HERMES-CHAT-V2.md`, in order, with
 ```
 P0 land basalt 1.8.0 sync (argo)          → blocks everything
 P1 wire forensics + prod duplicate query  → blocks A1
-B1 agent-chat export, harness, tests, guards   → release 1.9.0
-B2 part registry, tool chips, keys, memo, stop → release 1.10.0
-B3 markdown/composer/store seams               → release 1.11.0
-B4 slack row, affordances, virtualization      → release 1.12.0
+B1 agent-chat export, harness, tests, guards   → release 1.10.0
+B2 part registry, tool chips, keys, memo, stop → release 1.11.0
+B3 markdown/composer/store seams               → release 1.12.0
+B4 slack row, affordances, virtualization      → release 1.13.0
 A1 api thin proxy + correctness fixes     → depends P1
 A2 hermes transport move                  → depends A1, GATED on human confirming D10
 A3 dashboard rebuild on basalt            → depends B4, A1
@@ -199,7 +199,7 @@ it is still running.
 ### Definition of done
 
 All 20 defects in the register are closed and covered by a test, plus F1–F4 in `basalt-ui`. The
-browser reproduction table passes clean. `basalt-ui` is at 1.12.0 with a real test suite under
+browser reproduction table passes clean. `basalt-ui` is at 1.13.0 with a real test suite under
 `src/agent/**`. `apps/dashboard/src/features/hermes-chat/` no longer contains `transport.ts`,
 `message-markdown.tsx`, `mermaid-diagram.tsx` or `diagram-shared.tsx`, and
 `react-markdown`/`remend`/`remark-gfm`/`mermaid` are gone from its direct dependencies. The feed

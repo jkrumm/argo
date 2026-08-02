@@ -114,10 +114,12 @@ file.
 3. **PR, merge, release.** `basalt-ui` is PR-required. Release only through `make release`, which is
    itself the gate — it dry-runs, reads the computed version back, and refuses a major.
 
-**1.9.0 will carry the chart-layer batch too.** PR #42 merged into `basalt-ui` master during B1, and
-`semantic-release-monorepo` analyzes every untagged commit touching `packages/basalt-ui/` since
-1.8.0. Both changesets release under one version. If that is unwanted it is already too late; say so
-rather than attempting to split it.
+**~~1.9.0 will carry the chart-layer batch too.~~ WRONG — it carried it alone.** This predicted that
+PR #42's chart batch and B1 would release under one version, since `semantic-release-monorepo`
+analyzes every untagged commit touching `packages/basalt-ui/` since 1.8.0. Instead 1.9.0 was released
+from `master` at 14:48 UTC on 2026-08-02 — chart batch only — while B1 was still on its branch. **B1
+ships as 1.10.0 and the whole ladder moves up one: B2 1.11.0, B3 1.12.0, B4 1.13.0.** The version
+references inside B1's own commits were corrected before the PR; see the migration record.
 
 ---
 
@@ -142,9 +144,9 @@ in its SSE parsing, so every streaming test breaks with an error naming neither 
 are entirely streaming work; if a stream test fails inexplicably, check that restoration first.
 
 **`AGENT-CHAT-SPEC.md` §1's proposed subpath description advertises exports that do not exist.** It
-names `ToolChip` (1.10.0) and `ThreadFeedRow` (1.12.0). That string feeds `llms.txt`, `AGENTS.md`
-and a drift test, so shipping it verbatim publishes a surface listing exports the tarball lacks. The
-shipped 1.9.0 description covers only what exists. Expect the same trap in later phases.
+names `ToolChip` (now 1.11.0) and `ThreadFeedRow` (now 1.13.0). That string feeds `llms.txt`,
+`AGENTS.md` and a drift test, so shipping it verbatim publishes a surface listing exports the tarball
+lacks. The shipped 1.10.0 description covers only what exists. Expect the same trap in later phases.
 
 **The spec's closing "What argo must do on the server side first" still needs reconciling.** Queued
 in A6. Until then `HERMES-CHAT-V2.md` wins on any conflict — in particular it does **not** upgrade

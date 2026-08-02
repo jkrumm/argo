@@ -509,11 +509,135 @@ already use — and deliberately not `theme-allow`.
 The reasoning is that the guard's stated purpose was that "nothing pins the pairing". A hard failure
 does not pin anything. A required reason, written in the repo where the skew lives, is the pin.
 
+### The browser gate — walked, and it passed
+
+Both playground pages, driven through Chrome on the mini. The playground root mounts `<StrictMode>`,
+so this is the double-invoke path F3 lives on.
+
+`/agent-chat-subpath` renders all four canned messages, including the tool part as a labelled
+`CHECK_IMPORT_GRAPH` block with stacked input/output JSON. That is the runtime half of the subpath
+proof; `pack-test.sh` is the tarball half.
+
+`/agent-wedge` passed on both paths. Seeding produced the correct pre-reconcile state — thread
+`streaming`, reconciler showing the red "wedged — streaming with no active run" — and "Reconcile
+now" resolved it to `done` with the resumed assistant text. The more realistic path also works:
+seed, then a plain full page reload, and the mount-time sweep resolves it with no click at all.
+
+One honest limit on the evidence: no intermediate "active run — N parts" frame was ever captured,
+because resolution beat the polling interval. So what was observed is "it resolves", not "it
+resolves through a visible run". The mechanism itself is covered by the unit tests, where reverting
+the one-line fix fails exactly the StrictMode and `<Activity>` cases and nothing else.
+
+**A non-finding worth recording so nobody re-chases it.** A console error —
+`Can't perform a React state update on a component that hasn't mounted yet`, a two-frame trace
+through Vite's dev client and `RouterProvider` — fires once per load on the agent pages. It also
+fires on `/` and `/charts`, and on `/agent-chat-subpath`, which has no store, no transport and no
+effects at all. Pre-existing global playground scaffolding noise, absent from the published package.
+The reason it was worth ten minutes: B1's entire subject is mount-time effects, so a mount-related
+warning on its own pages would have meant something. Establishing that a control route shows it too
+is what turned it from a suspicion into a closed question.
+
+### The release ladder shifted by one, and B1 nearly published a false version
+
+**1.9.0 released without B1 in it.** The handover predicted that PR #42's chart batch and B1 would
+release together, since `semantic-release-monorepo` sweeps every untagged commit touching
+`packages/basalt-ui/` since the last tag. Instead 1.9.0 was dispatched from `master` at 14:48 UTC on
+2026-08-02 carrying the chart batch alone — five feats, two fixes, three docs — while B1 sat unpushed
+on its branch. `npm dist-tags` now reads `latest: 1.9.0`.
+
+So B1 ships as **1.10.0**, and B2/B3/B4 become 1.11.0/1.12.0/1.13.0. That part is not a decision:
+semantic-release computes the number from the commit types and B1's package commit is a `feat:`.
+
+What it _was_ is a correctness problem inside the commits. They claimed 1.9.0 in eight places, and
+one of those files is shipped to consumers: `agent/rules/basalt-agent.md` is placed into a consumer's
+`.claude/rules/` by `basalt-ui sync`, and it said the subpath was "added in 1.9.0" — a real published
+version that contains none of it. Merging as-is would have published a documented lie about a
+version a consumer can actually install and check. Corrected by amend across two commits, plus the
+whole four-minor ladder renumbered in `AGENT-CHAT-SPEC.md` and the tip commit's own message.
+
+This is the same class as the trap caught earlier — the subpath description advertising `ToolChip`
+and `ThreadFeedRow` before they exist — and it generalizes: **anything in this program that names a
+version is a claim that rots the moment the release train moves, and the release train is not under
+this program's control.** Worth grepping for version literals before every future B-phase PR.
+
+The mechanism check that made this safe to act on: `.github/workflows/release.yml` is
+`workflow_dispatch` only, so merging does not auto-publish. `make release` stays the deliberate gate,
+and its confirmation is a TTY prompt on the computed number — `Publish v<version> to npm? This is
+irreversible.` — which is not something to pipe `yes` into.
+
+### Commits rebuilt a second time, and rebased onto the release
+
+The four commits were amended for the version sweep and then rebased onto the new `origin/master`
+(`e1f0c8b chore: release 1.9.0`), cleanly, no conflicts. The four-way split imposed by lefthook's
+`isolated-basalt-ui` hook survived intact. Doing the rebase before opening the PR rather than letting
+GitHub merge it means every gate ran against the tree that will actually land — the same reasoning
+that made the accidental mid-flight rebase during implementation turn out to be a good thing.
+
+Rebuilding a middle commit without an interactive rebase, since `-i` is unavailable here: detach at
+the target commit, amend it, then `git rebase --onto <new-sha> <old-sha> <branch>` to replay the
+rest. Fully non-interactive, no editor, no sequence file.
+
+### Gates, second time around
+
+`fmt:check`, `typecheck`, `check-theme`, `build`, `pack-test` and `bun test` all green.
+
+`lint` needs a footnote: it emits 22 warnings and **exits 0**, so the repo's own gate is green. The
+validation worker reported it as a failure on the presence of warning text alone. Checking the exit
+code rather than trusting the summary is the difference between a real finding and a wasted
+remediation round — the same lesson as the parallel fan-out, from the other direction: a worker's
+verdict is a claim, including a worker whose whole job is verdicts.
+
+The other reported failure was real but mine: `bun run build` is not a root script in this repo
+(`make build`, or per-package). The command list was wrong, not the tree.
+
+### The PR review — ten findings, three of them wrong
+
+CodeRabbit reviewed PR #43 and left ten inline findings. Each was verified against source by an
+independent agent told to try to refute it first. **Three were refuted**, and refuting them was worth
+more than applying them would have been:
+
+- **`llms.txt` still says 1.9.0.** True, and correct. The file is generated from `package.json` and
+  regenerated after semantic-release bumps the version. Hand-editing it to 1.10.0 would desync it and
+  fail the `gen-llms --check` drift gate — a "fix" that breaks CI to correct a string no consumer ever
+  sees in a mismatched state.
+- **A race in `use-agent-stream.test.tsx:89`.** Not reachable given React's commit granularity. Worse,
+  the proposed fix — folding the assertion into `waitFor` — would have _weakened_ the test: as
+  written it asserts that `done` is already true at the moment `parts` settles, which is a real claim
+  about the hook's single-commit behaviour. The suggestion would have quietly deleted that claim.
+- **A missing `await` on `act()`.** The described race is blocked by a synchronous busy guard, and the
+  finding's supporting argument — that sibling call sites use awaited `act()` — is simply false; all
+  eleven others in that file are synchronous by design.
+
+Of the seven that held, two were worth the whole exercise, and both are in code B1 itself added. The
+new `doctor` workspace walk did not exclude `node_modules` (so a `**` pattern descends into
+dependency trees and reports installed packages as workspace members) and silently dropped
+`!`-negation entries (so a package the consumer explicitly excluded still participates). Either one
+makes `ai-major-parity` hard-fail a healthy repo with an exit code the consumer cannot act on — which
+is precisely the failure mode that made the guard declarable in the first place, arriving through a
+different door. The fix had been reasoned about at the level of "should a correct topology fail?" and
+missed at the level of "which directories does the walk actually collect?".
+
+**The verifier also found something the review missed.** Chasing the stale "the chrome ships from the
+root entry" sentence in `basalt-agent.md`, it found the identical claim surviving at `README.md:496`
+— in a file this branch had otherwise updated for the new subpath, and the more consequential of the
+two, because the README quickstart is what a human copies. A reviewer pointed at one instance; asking
+"is this claim true anywhere else?" found the other.
+
+`motion` was labelled Major and is not: nothing breaks at runtime, the README was already right, and
+every `pack-test` suite installs it. It was guard drift in `required-peers.test.ts` — the file whose
+entire job is to hold that fact — whose header contradicted the README of the same commit. Worth
+fixing where it sits, not worth the severity.
+
+Standing lesson, now demonstrated twice on this branch from opposite directions: **a review is a
+claim, and so is a validation verdict.** The same session had a checker report `lint` as failing when
+it exits 0 (it was reacting to warning text), and a reviewer report three defects that do not exist.
+Both were resolved the same way — by reading the thing itself rather than the report about it.
+
 ### Phase status
 
-| Phase        | Status  | Note                                                                        |
-| ------------ | ------- | --------------------------------------------------------------------------- |
-| P0           | done    | Three commits on master, unpushed                                           |
-| P1           | done    | Render-only verdict; 25/26 confirmed; both specs corrected                  |
-| B1           | wip     | Four lanes running on `feat/agent-chat-surface`, cut from `master`          |
-| B2–B4, A1–A6 | pending | Blocked per the dependency graph. A1 and B1 task bodies carry the P1 impact |
+| Phase        | Status  | Note                                                                         |
+| ------------ | ------- | ---------------------------------------------------------------------------- |
+| P0           | done    | Three commits on master, unpushed                                            |
+| P1           | done    | Render-only verdict; 25/26 confirmed; both specs corrected                   |
+| B1           | wip     | Review applied (7 of 10); gates + browser gate green; releases as **1.10.0** |
+| B2–B4, A1–A6 | pending | Blocked per the dependency graph. A1 and B1 task bodies carry the P1 impact  |
