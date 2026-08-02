@@ -62,6 +62,10 @@ const SERIES_MAP = defineSeries({
   deadlift: p(BP.vermilion),
   pullUps: p(BP.gold),
 
+  // Interval timer — work/rest phase separation (the lead-in phase stays neutral)
+  timerWork: p(BP.forest),
+  timerRest: p(BP.cerulean),
+
   // ── Body composition · skinfold sites (distinct from the strength set above) ──
   skinfoldAbdominal: p(BP.cerulean),
   skinfoldSuprailiac: p(BP.gold),

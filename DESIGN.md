@@ -93,6 +93,8 @@ export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 | Squat                   | `#29a634` | `#43bf4d` | `squat`              | Strength lift — forest              |
 | Deadlift                | `#d33d17` | `#eb6847` | `deadlift`           | Strength lift — vermilion           |
 | Pull-ups                | `#d1980b` | `#f0b726` | `pullUps`            | Strength lift — gold                |
+| Timer phase: work       | `#29a634` | `#43bf4d` | `timerWork`          | Interval phase — forest             |
+| Timer phase: rest       | `#147eb3` | `#3fa6da` | `timerRest`          | Interval phase — cerulean           |
 | Skinfold: abdominal     | `#147eb3` | `#3fa6da` | `skinfoldAbdominal`  | Body-comp site — cerulean           |
 | Skinfold: suprailiac    | `#d1980b` | `#f0b726` | `skinfoldSuprailiac` | Body-comp site — gold               |
 | WalkingPad: distance    | `#0284c7` | `#38bdf8` | `walkingDistance`    | Anchor metric — sky                 |
