@@ -42,7 +42,7 @@
     "@visx/shape": "4.0.0",
     "@visx/threshold": "4.0.0",
     "ai": "7.0.18",
-    "basalt-ui": "1.8.0",
+    "basalt-ui": "1.10.0",
     "canvas-confetti": "^1.9.4",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.13",
