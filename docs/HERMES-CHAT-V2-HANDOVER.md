@@ -28,8 +28,9 @@ is not.
 > - **`master` can move under you.** It did during B1 — a PR merged and was pulled mid-flight. Re-read
 >   `git log` immediately before committing, not only before starting.
 >
-> Your immediate work is closing out B1, in this order: collect the pending review, act on it, walk
-> the browser gate, then decide the PR with Johannes. B2 follows. Start at step 1 of the phase loop.
+> Your immediate work is closing out B1: walk the browser gate, then decide the PR and the release
+> with Johannes. The review is already collected and its findings applied. B2 follows. Start at step
+> 1 of the phase loop.
 
 ---
 
@@ -47,11 +48,15 @@ is not.
 On `feat/agent-chat-surface`, based on `basalt-ui` master `3958a3e`:
 
 ```
-1144284 docs: record the agent-chat framework spec the B-phases build against
-9ffa473 feat: prove the agent-chat subpath and the streaming wedge in the playground
-006a2a4 feat: open ./agent-chat as its own door, and put the agent layer under test
-ea04c6b test: give the repo a DOM harness so the agent layer can be tested at all
+e01aec6 docs: record the agent-chat framework spec the B-phases build against
+6ea4bca feat: prove the agent-chat subpath and the streaming wedge in the playground
+0762338 feat: open ./agent-chat as its own door, and put the agent layer under test
+768a9ef test: give the repo a DOM harness so the agent layer can be tested at all
 ```
+
+These four were rebuilt after review, so earlier SHAs quoted anywhere else are stale. Two of the
+messages were rewritten rather than amended, because the review disproved a claim in one of them —
+`./agent-chat` does not shed the eager `remend` resolution, and the original said it did.
 
 The four-way split is forced by lefthook's `isolated-basalt-ui` hook and cannot be collapsed. Its
 allowlist was widened in the first commit to admit `bunfig.toml` / `package.json` / `bun.lock`
@@ -61,22 +66,48 @@ playground and the package can never share a commit.
 ### Gate results at commit time
 
 All green: `fmt:check`, `lint`, `typecheck`, `build`, `check-coverage` (8/8), both generator drift
-checks, and `bun test` at **1180 pass / 1 skip / 0 fail**, run twice with identical counts. The dist
-gate (`pack-test.sh`) passed all 14 steps including `resolved basalt-ui/agent-chat` and
-`export-surface snapshot OK` — the only evidence the new subpath resolves from the published
-tarball, since the playground exercises `src/` and never `dist/`.
+checks, and `bun test` at **1196 pass / 1 skip / 0 fail**. The dist gate (`pack-test.sh`) passes,
+including `resolved basalt-ui/agent-chat` and the new `agent-chat minimal-peer resolution` step —
+the only evidence the new subpath resolves from the published tarball, since the playground
+exercises `src/` and never `dist/`.
 
 The single `skip` is deliberate and filed against B2.
 
+Note the count moved during review (1180 → 1196) as findings were fixed and their tests added. If
+you are comparing against a number quoted elsewhere, the git history is authoritative, not this
+file.
+
 ## What B1 still owes
 
-1. **A review that was submitted but never collected.** `mcp__sideclaw__review` job
-   **`d10219f8-8947-42c1-b4cf-bc521930b976`**, scope `HEAD~4`, angles architect / senior-dev /
-   typescript / qa / concurrency / api-contract / frontend. sideclaw's MCP transport dropped before
-   it could be read. The job runs in sideclaw's always-on HTTP server and is durable across `/mcp`
-   reconnects, so `job_wait({ jobId })` should still return it. If the job is gone, resubmit with
-   the same scope and angles — the diff is committed, so nothing is lost. Fold findings in with
-   `/commit --amend`, never as a follow-up fix commit.
+1. ~~**The review.**~~ **DONE** — both reviews collected, all findings applied, commits rebuilt. Two
+   blocking findings, one from each reviewer, neither caught by the other: `./agent-chat`
+   hard-requires `remend` and `motion` through static imports (now documented, tested, and gated by
+   a new minimal-peer step in `pack-test.sh`), and the `ai-major-parity` guard hard-failed the
+   topology D3 locks in (now declarable through the `basalt` config block with a mandatory reason
+   string). Four smaller findings applied as well. The record below is kept for the failure modes it
+   documents.
+
+   Two are in flight over `HEAD~4`, deliberately redundant because sideclaw is
+   unreliable right now: `mcp__sideclaw__review` job **`3a96beb1-4fc6-4723-8087-5361c6f84a5c`**
+   (architect / senior-dev / typescript / concurrency / qa), and a native Opus subagent asked the
+   same four questions directly. Collect with `job_wait({ jobId })`.
+
+   The first attempt, `d10219f8-8947-42c1-b4cf-bc521930b976`, died at 965 turns with
+   `HTTP server restarted while job was running` — sideclaw's own repo is being edited, which
+   restarts its server and kills in-flight jobs. Note the asymmetry: a job survives an MCP
+   _transport_ drop, because it runs in sideclaw's HTTP server; it does not survive that server
+   restarting. Resubmit on `interrupted`; never fall back to inline validation.
+
+   Fold any findings in with `/commit --amend`, never as a follow-up fix commit.
+
+   The four questions both reviews were pointed at, because each is a place a plausible-but-wrong
+   change survives a shallow read: does the F3 wedge test actually fail if the one-line fix is
+   reverted, or does it pass either way; is `tests/setup/dom.ts`'s native-stream restoration
+   complete and free of module-eval ordering hazards; do the three new oxlint rules' messages carry
+   the trailing `(basalt/rule-id)` marker the fixture harness scrapes, without which every fixture
+   passes vacuously; and does the new subpath's declared `optionalPeers` match what its import
+   graph actually reaches.
+
 2. **The browser gate, un-walked.** `bun run dev:playground` (not `bun dev` — see failure modes),
    then `/agent-chat-subpath` and `/agent-wedge`. On the wedge page the point is that the persisted
    `streaming` thread _resolves_; a wedged thread looks identical to a slow one.

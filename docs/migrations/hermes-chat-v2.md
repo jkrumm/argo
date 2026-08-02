@@ -442,6 +442,73 @@ committed rather than held, since uncommitted state is the only thing a compacti
 and anything the review finds folds in with `--amend`. The browser gate on the two playground pages
 is Johannes's to walk.
 
+### The review — two of them, and each found what the other missed
+
+sideclaw's transport had dropped, so B1's review ran twice in parallel: the sideclaw multi-angle
+review and a native Opus subagent pointed at four specific questions. That redundancy was accidental
+insurance against an unreliable server, and it paid for itself — neither run found the other's
+blocking issue.
+
+**The native reviewer settled the question that mattered most, empirically.** Asked whether the F3
+wedge test actually bites, it reverted the one-line `controllersRef.current.clear()`, ran the file,
+and restored:
+
+| Wedge case                | With fix | Reverted                                              |
+| ------------------------- | -------- | ----------------------------------------------------- |
+| genuine unmount + remount | pass     | pass — correct, this is the deliberately-refuted case |
+| StrictMode double-invoke  | pass     | FAIL                                                  |
+| `<Activity>` hide/show    | pass     | FAIL                                                  |
+
+Run unfixed across all of `src/agent/`: 77 pass, 2 fail, and the two failures are exactly those
+cases. So the wedge file is the sole guard, nothing else silently duplicates the claim, and no test
+passes both ways while claiming to prove the fix. That last possibility is the one green output
+cannot rule out, and it is worth spending a reviewer on.
+
+**sideclaw's adversary angle found that the release's headline claim was false.**
+`agent-chat/index.ts` statically re-exports `ThreadTranscript` → `thread-message.tsx` →
+`../content/markdown`, whose `import remend from 'remend'` is top-level. Under unbundled ESM,
+importing _anything_ from `basalt-ui/agent-chat` evaluates that chain, so **`remend` is a hard
+requirement of the new subpath, not an optional peer** — verified by packing and installing with the
+Mantine peers but no remend: `Cannot find package 'remend'`. Chasing it down showed `motion` is
+hard-required too, for the same reason via `thread-feed.tsx` and `thread-detail-panel.tsx`.
+
+The commit message said the new door "costs none of that", listing the eager remend resolution among
+what it sheds. It sheds `BasaltProvider`, the shell, the dashboard composites and `./connectivity` —
+not remend. The message was rewritten before the commit was finalized.
+
+Worth naming why this survived every gate: **`pack-test.sh`'s scratch consumer installs every
+optional peer at once, so it structurally cannot detect a peer that is secretly required.** The fix
+is a second, deliberately minimal install — the same shape as the existing
+`charts/tokens-only (no-Mantine)` step, which is the precedent that made the hole visible once
+someone looked. A gate that installs everything proves only that everything works.
+
+The other finding worth keeping: restoring the three stream classes to Node's natives **created** a
+brand mismatch with `AbortController`/`AbortSignal`, which were left as happy-dom's.
+`new <native>ReadableStream(...).pipeTo(ws, { signal })` throws
+`TypeError: options.signal must be AbortSignal`. Nothing crosses that seam today only because every
+test injects its own `fetch` — but the agent layer's entire contract is abort-based and B2–B4 are
+all streaming, so it would have surfaced as an `ai` regression rather than a harness artifact.
+Restoring a family of globals by halves is its own bug.
+
+### D3 versus the parity guard — decided, not deferred
+
+`ai-major-parity` shipped as a hard `doctor` failure, and it fails exactly the topology D3 locks in:
+`apps/api` on `ai@5`, `apps/dashboard` on `ai@7`, neutralized by a producer-side `TransformStream`.
+A guard that permanently fails a correct configuration gets switched off, and then it guards
+nothing.
+
+Resolved in basalt-ui 1.9.0 by making the intentional case **declarable**: the consumer's existing
+`package.json` `"basalt"` block — the same one `check-theme` reads for `roots` / `exempt` /
+`exemptRules` / `severity` — gains one key carrying a **mandatory reason string**. Undeclared skew
+still hard-fails, which is what most consumers get. A declared one passes with both the skew and the
+reason echoed, so it is acknowledged rather than hidden. A declaration left behind after the skew is
+gone warns that it is stale, because a stale exemption is how a real skew slips through later. The
+`basalt/ai-sdk-major` lint rule honours the `basalt-agent-allow` line comment its two sibling rules
+already use — and deliberately not `theme-allow`.
+
+The reasoning is that the guard's stated purpose was that "nothing pins the pairing". A hard failure
+does not pin anything. A required reason, written in the repo where the skew lives, is the pin.
+
 ### Phase status
 
 | Phase        | Status  | Note                                                                        |
