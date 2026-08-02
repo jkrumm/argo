@@ -14,7 +14,8 @@ import {
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { IconSettings, IconTrophy } from '@tabler/icons-react'
 import { VX } from 'basalt-ui/tokens'
-import { format } from 'date-fns'
+import { modals } from '@mantine/modals'
+import { format, formatDistanceToNowStrict } from 'date-fns'
 import {
   invalidateWorkoutData,
   useCreateWorkout,
@@ -23,6 +24,7 @@ import {
 } from '../../../lib/queries/workouts'
 import { sameDraft, useWorkoutDrafts } from '../../../lib/queries/workout-draft'
 import { exerciseQueries } from '../../../lib/queries/exercises'
+import { fillSources, type FillSource } from '../../../lib/fill-sources'
 import { loadingFor } from '../../../lib/gym-profile'
 import { useGyms } from '../../../lib/queries/gym'
 import { EXERCISES, type ExerciseKey } from '../constants'
@@ -42,6 +44,19 @@ const KG_FORMAT = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 })
 
 function today(): string {
   return format(new Date(), 'yyyy-MM-dd')
+}
+
+/**
+ * Draft age for the header badge — `now` / `4m` / `2h`. Deliberately not
+ * `formatDistanceToNowStrict`: this sits on one nowrap line next to the gym
+ * summary on a phone, where "4 minutes" costs more width than it earns. The
+ * readable phrasing lives in the tooltip.
+ */
+function draftAge(iso: string): string {
+  const minutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000)
+  if (minutes < 1) return 'now'
+  if (minutes < 60) return `${minutes}m`
+  return `${Math.floor(minutes / 60)}h`
 }
 
 /**
@@ -110,9 +125,11 @@ function previewMetrics(sets: SetEntry[]): {
 }
 
 type HistoryRow = {
+  id: number
+  date: string
   estimated_1rm: number | null
   is_bodyweight?: boolean | null
-  sets: Array<{ set_type: string; weight_kg: number; reps: number }>
+  sets: Array<{ set_number: number; set_type: string; weight_kg: number; reps: number }>
 }
 
 /**
@@ -208,6 +225,16 @@ export function WorkoutForm() {
     workoutsQueries.list({ page: 1, limit: 200, exercise, dateTo: date }),
   )
   const history = (historyResult.data?.data ?? []) as ReadonlyArray<HistoryRow>
+
+  // Bodyweight exercises (pull-ups) score weight as `weight_kg + bodyweight` on the backend, and
+  // this form has no bodyweight to add — so every claim about a "best" or "max" is suppressed for
+  // them, both on the PR trophies below and on the fill sources.
+  const isBodyweight = history[0]?.is_bodyweight === true
+
+  // Past sessions worth replaying, offered as one-tap fills. Bounded by `date`
+  // the same way `history` is, so backfilling an older session can't offer to
+  // fill it from its own future.
+  const sources = fillSources(history, { isBodyweight })
 
   // ── cross-device draft sync ────────────────────────────────────────────────
   //
@@ -324,6 +351,39 @@ export function WorkoutForm() {
     touchedRef.current = true
   }
 
+  // Replay a past session. Free of a confirm by construction — this only renders
+  // while no set has been ticked, so there is nothing performed to destroy.
+  function applyFill(source: FillSource) {
+    markTouched()
+    setSets(source.sets)
+    setCompletedCount(0)
+  }
+
+  // The opposite case: sets have been ticked, so they are a record of what was
+  // actually lifted. Nothing may discard them on one tap, and the draft has to go
+  // with them — otherwise the other device keeps the old session and pushes it
+  // straight back.
+  function handleReset() {
+    modals.openConfirmModal({
+      title: 'Reset this session?',
+      children: (
+        <Text size="sm">
+          {completedCount} completed {completedCount === 1 ? 'set' : 'sets'} will be discarded —
+          here and on any other device following this session.
+        </Text>
+      ),
+      labels: { confirm: 'Reset', cancel: 'Keep going' },
+      confirmProps: { color: 'red' },
+      onConfirm: () => {
+        touchedRef.current = false
+        seenRef.current[exercise] = false
+        drafts.clear(exercise)
+        setSets(previousSets ?? DEFAULT_SETS)
+        setCompletedCount(0)
+      },
+    })
+  }
+
   const createWorkout = useCreateWorkout()
 
   const allChecked = sets.length > 0 && completedCount >= sets.length
@@ -384,10 +444,9 @@ export function WorkoutForm() {
     previewParts.push(`${Math.round(preview.bestE1rm)} kg e1RM`)
   }
 
-  // Bodyweight exercises (pull-ups) score weight as `weight_kg + bodyweight` on the backend, and
-  // this form has no bodyweight to add — predicting a PR would be wrong, so stay silent instead.
+  // Predicting a PR for a bodyweight exercise would be wrong (see `isBodyweight`
+  // above), so stay silent instead.
   const bests = priorBests(history)
-  const isBodyweight = history[0]?.is_bodyweight === true
   const beatsWeight = bests.maxWeight > 0 && preview.maxWeight > bests.maxWeight
   const beatsE1rm = bests.max1rm > 0 && preview.bestE1rm !== null && preview.bestE1rm > bests.max1rm
   // One trophy per record that falls — both can land in the same session.
@@ -408,10 +467,30 @@ export function WorkoutForm() {
   return (
     <Paper ref={formRef} py="xs" px="sm">
       <Stack gap="sm">
-        <Group justify="space-between" wrap="nowrap" align="center">
-          <Text fw={600} size="sm">
-            Log Workout
-          </Text>
+        {/* Wraps rather than truncates: the title now carries a draft badge as
+            well, and on a phone that plus the gym summary is more than one line. */}
+        <Group justify="space-between" wrap="wrap" align="center">
+          <Group gap={6} wrap="nowrap" align="center">
+            <Text fw={600} size="sm">
+              Log Workout
+            </Text>
+
+            {/* Sets on screen can now come from two places — a fresh pre-fill or a
+                session resumed from another device — and they look identical. This
+                is the only thing that tells them apart, which matters most in the
+                case that prompted it: switching back to a lift and wondering why
+                last session's numbers didn't return. */}
+            {remoteDraft !== undefined && (
+              <Tooltip
+                label={`Shared draft, last changed ${formatDistanceToNowStrict(new Date(remoteDraft.updated_at), { addSuffix: true })}. Your other devices pick this up automatically.`}
+                withArrow
+              >
+                <Text size="xs" c="dimmed" ff="monospace">
+                  draft · {draftAge(remoteDraft.updated_at)}
+                </Text>
+              </Tooltip>
+            )}
+          </Group>
 
           {/* The gear inside the weight popover reaches the same modal, but only
               once a set row is open — this is the standing answer to "what is the
@@ -449,6 +528,40 @@ export function WorkoutForm() {
           }}
           size="md"
         />
+
+        {/* Two mutually exclusive modes, gated on one real-world fact: have you
+            performed a set yet. Before the first tick nothing is at risk, so the
+            sources apply on one tap. After it, they disappear entirely — refilling
+            a list whose top rows are sets you actually lifted is never what you
+            meant — and the only destructive action left is behind a confirm. The
+            form gets simpler the deeper into the session you are. */}
+        {completedCount === 0 && sources.length > 0 && (
+          <Group gap={6} align="center" wrap="wrap">
+            <Text size="xs" c="dimmed">
+              Fill from
+            </Text>
+            {sources.map((source) => (
+              <Tooltip key={source.key} label={source.title} withArrow>
+                <Button
+                  variant="subtle"
+                  color="gray"
+                  size="compact-xs"
+                  onClick={() => applyFill(source)}
+                >
+                  {source.label} · {source.detail}
+                </Button>
+              </Tooltip>
+            ))}
+          </Group>
+        )}
+
+        {completedCount > 0 && (
+          <Group justify="flex-end">
+            <Button variant="subtle" color="gray" size="compact-xs" onClick={handleReset}>
+              Reset session
+            </Button>
+          </Group>
+        )}
 
         <SetEditor
           sets={sets}
