@@ -1819,3 +1819,46 @@ component and watching a counter not update. The phantom run came from a pre-boo
 poisoned virtualizer came from reading an inline style while the element was hidden. The reviews that
 read code carefully produced useful refinements; the reviews that ran code found the defects that
 would have shipped.
+
+### The fixes, and a seam that would have made the re-walk prove nothing
+
+**The phantom run** is fixed in the unmount-cleanup effect, which now tears down the `runs` entries
+for exactly the threadIds whose controllers it just aborted — the teardown set is read from
+`controllersRef` at the same instant those controllers are aborted, so it is identical to the abort
+set by construction rather than by assertion. `consumeAndFinalize`'s abort guard was deliberately
+_not_ touched, and now carries a comment saying why: a teardown there cannot distinguish "aborted,
+nothing replaced it" from "a newer resumed run already owns this key", so it would clobber a
+legitimately superseding run. The "exactly one writer per terminal path" invariant that makes
+double-append impossible is preserved. `stop()` also now settles a thread whose controller is already
+gone, rather than no-opping into the unrecoverable state.
+
+**The poisoned cache** is fixed with a `size > 0` guard rather than by gating the whole virtualizer.
+The lane checked `enabled` — the option the brief proposed — against virtual-core's installed source
+and found it _wipes_ `itemSizeCache` and `measurementsCache` rather than pausing measurement, which
+would have made the drift worse. It pushed back on the brief and was right. The guard treats a 0
+measurement as unreliable and returns the row's last cached size, which also covers any other cause
+of a 0 measurement, not just this one.
+
+**And then convergence found the seam that mattered most.** The framework's
+`DEFAULT_VIRTUALIZE_ESTIMATE_SIZE` moved 96 → 160. The demo page built to observe that fix had its
+own `DEFAULT_ESTIMATE_SIZE = 96` constant, with a comment claiming it mirrored the framework's
+internal default — and because that page _always_ passes the object form of `virtualize`, the shipped
+160 is the one value it could never exercise. The browser re-walk would have scrolled with 96,
+observed the same shrinking scrollbar, and concluded the fix did not work.
+
+That is a new shape worth naming: **not a broken fix, but an instrument calibrated to the old
+value.** Neither lane could see it — one owned the framework constant, the other owned the demo
+constant, and each was internally consistent. It is the strongest argument yet for a convergence pass
+that reads the combined diff rather than the union of the reports.
+
+Convergence also found a shipped source file whose module doc asserted the phantom-run defect was
+still unfixed and pointed the next reader at `consumeAndFinalize`'s guard — the exact place the fix
+was deliberately _not_ put, and where a "helpful" edit would clobber a resumed run. Under a freeze,
+a confidently wrong comment is a live hazard.
+
+Gates after the round: `make build` 0, `bun run pre` 0, `bun test` 1653 pass / 0 fail, `pack-test` 0,
+playground oxlint 0, playground typecheck 0. `pre` was red on arrival on the format gate for the
+third round running, on files a lane never ran `oxfmt` over — its report listed `oxlint` and `tsc`
+and, accurately, never claimed `oxfmt`. The lesson is not that the lanes are careless; it is that
+**"all green" in a report means "green on the checks I chose to run"**, and only the repo's own
+script settles it.
