@@ -921,3 +921,42 @@ Worth noting how it was found. The demo author traced the code path statically a
 flagging that distinction explicitly since it matters for the gate." That is the same discipline that
 separates "I could not reproduce it" from "it cannot happen", and it is the reason the browser gate in
 the phase loop is a separate step from the test gate rather than a restatement of it.
+
+### B2 closed — 1.11.0 published, and two gates that only fire outside the repo
+
+`basalt-ui@1.11.0` is on npm; six commits rebase-merged to `master`; argo consumes it. The
+round-trip was clean, which contradicted the prediction written here an hour earlier — argo imports
+**zero** from `./agent` and `./agent-chat`, so a release that is genuinely semver-breaking on those
+subpaths lands on the consumer without a scratch. The breakage is real and deferred, not absent; A3
+is where it gets paid.
+
+Two gates fired that no amount of local discipline would have caught, and both are worth carrying
+forward:
+
+**The repo's own gate is `bun run pre`, not a hand-assembled list.** Five commands were run
+individually and reported as "six gates green"; `check-theme` was not among them. lefthook rejected
+the very first commit — a `raw-surface` violation on `ToolChip`'s state dot — in the same commit that
+was _promoting a guard out of its grace period_. Resolved with a documented `theme-allow` matching the
+`ChartLegend`/`ChartTooltip` precedent for sub-scale corners. The lesson is not "run check-theme"; it
+is that a paraphrase of a repo's gate is not the gate.
+
+**CI carries an export-surface snapshot that runs in none of the local gates.** `pack-test.sh` installs
+the packed tarball into a scratch consumer and diffs `Object.keys()` per subpath against a committed
+snapshot, because publint and attw validate the export _map_ and not named-export completeness — a
+barrel that silently drops an export passes both and hard-fails the consumer's build. Ten new exports
+were unsnapshotted. Regenerating it locally needed `--base` pointed at the built package, and the
+generator's formatting then lost to oxfmt, which owns that JSON. Verified the diff semantically —
+zero exports removed, exactly the ten CI named — rather than trusting a 33-insertion diff by eye.
+
+**CodeRabbit returned "Review rate limited" and showed a green check.** Third occurrence in this
+program of a green signal that means "did not run". It was not counted as a review; the PR's actual
+review coverage was two sideclaw angle-router passes and an adversarial Opus pass, which between them
+found six defects in code that passed every gate.
+
+Both follow-up fixes were folded into the commits that introduced them via the documented
+detach-and-`rebase --onto` technique, since `rebase -i` is unavailable here and the repo forbids
+single-line fix commits. `basalt-ui` is rebase-merge only, so those commits land on `master`
+individually and their accuracy is not cosmetic.
+
+Final state: `bun run pre` = 0, `bun test` = 1322 pass / 0 fail / 0 skip, `make build` = 0,
+export-surface = 0, argo's dashboard typecheck + api typecheck + format + build all 0.
