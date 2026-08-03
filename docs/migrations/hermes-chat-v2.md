@@ -1740,3 +1740,82 @@ Not fixed — a 47-finding sweep across untouched demo pages on release eve is n
 change. But it is now a task with a real number attached rather than a vague misgiving, and the
 permanent fix is a `basalt` block in `apps/playground/package.json` so the guard covers the
 consumer-shaped tree that is most likely to drift.
+
+### The browser gate found the two worst defects of the phase, after everything was green
+
+1649 tests passing, four repo gates at 0, two review passes acted on, three convergence passes. Then
+a human-shaped walk through three demo pages in a real Chrome found this.
+
+**An aborted run leaves a phantom that nothing can clear.** The effect cleanup at
+`use-agent-thread-runs.ts:492-499` aborts every controller and clears `controllersRef` and
+`appendedRef` — and never touches `runs`. `consumeAndFinalize` returns early on abort with no
+teardown, so the entry is orphaned; `stop()` then early-returns forever because the controller it
+looks for is already gone. The mount-reconcile effect does set the thread to `'interrupted'`, but the
+phantom entry still feeds `liveStatus: 'streaming'` to the row, which disables the composer. **The
+state is unrecoverable for the hook's lifetime**: a thread that looks like it is streaming, cannot be
+stopped, and cannot be typed into.
+
+Observed as three threads permanently stuck on page load, reproduced 4/4 including once with zero
+page instrumentation, with a pre-boot `AbortController.abort` trap capturing all three aborts inside
+a React effect-destroy frame.
+
+The trigger visible today is StrictMode, which is dev-only. **The reason it is blocking anyway is
+written in the cleanup's own comment**: it says the path is reachable "whenever this fiber's effects
+re-run without the fiber itself unmounting (React 19 StrictMode double-invoke; `<Activity>` hide/show)".
+`<Activity>` is exactly what Mantine master's new `Collapse` defaults wrap children in — the same
+upstream change `ThreadFeedRow`'s module doc exists to defend against. A consumer putting a
+`useAgentThreadRuns` list inside a future Mantine `Collapse` gets a permanently dead composer in
+production. Two independent findings this phase now converge on that one upstream default flip.
+
+**Collapsing a virtualized row silently scrolls the transcript somewhere else.** Scroll to message
+#96, collapse and re-expand three times without touching the scrollbar, and the top visible message
+walks #96 → #111 → #119 → #126 while `scrollTop` stays pinned at 15,000. The content moved thirty
+messages under a stationary viewport.
+
+The mechanism was probed rather than inferred: reading the sizing box's inline height while the body
+is `display: none` shows `getTotalSize()` collapsing within 50ms of the toggle and rendered rows
+going to zero. TanStack's `resizeItem` writes whatever the ResizeObserver reports **with no `size > 0`
+guard**, so every row measures 0 the instant an ancestor is hidden, and the cache is permanently
+poisoned. The convergence pass had flagged this exact interaction as unverifiable in happy-dom and
+listed it for the browser gate. It was right to, and the answer was that it is broken.
+
+Note what did **not** happen: the demo author's stated fear was a zero-height pane needing a window
+resize. The pane comes back scrollable at the correct height. The real failure is quieter and worse —
+it shows you a different part of the conversation and nothing looks wrong.
+
+### What the four never-verified behaviours actually do
+
+`anchorTo: 'end'`, `followOnAppend`, `scrollEndThreshold` and variable-height `measureElement` had
+shipped on the strength of a research note, because happy-dom has no layout or scroll engine and a
+grep of the whole test tree for them returns one hit that is a comment. Driven for the first time:
+
+- **`followOnAppend` is correct in both directions.** At the bottom, appending moved `scrollTop`
+  31,006 → 31,100 and held distance-from-end at 0. Scrolled up 4,000px, appending moved it by
+  exactly 0 — no yank.
+- **`scrollEndThreshold`'s 64px band is real and sharp**, probed at four points rather than one: 0px
+  and 40px from the end follow; 70px and 200px do not.
+- **`measureElement`'s geometry is exact** — zero overlaps and zero gaps at 25 sample points across a
+  full 500-message descent, stable on the way back up, and a mid-list window resize held both the top
+  visible index and `scrollTop`. But `estimateSize` defaults to 96 against a measured mean of ~145,
+  so total size climbs 49,486 → 72,448px over one descent and the scrollbar thumb shrinks
+  continuously for the entire first scroll down. Tuning, not correctness.
+- **`anchorTo: 'end'` is still unverified**, and that is itself a finding: no demo streams into a
+  _virtualized_ transcript. The inline row is not virtualized, the virtualized row never receives
+  live parts, and the 500-message page is static. The one behaviour that exists specifically to keep
+  a streaming transcript pinned has never had those two halves put together, in a test or a demo.
+
+### Two process notes worth more than any single defect
+
+**The gate agent nearly filed a false blocker and caught itself.** Its first probe for the Regenerate
+control queried `button[aria-label="Regenerate"]` and returned zero hits across the whole page. The
+control is an `UnstyledButton` with a text child and no aria-label. Re-querying by text found it
+working correctly. One selector, one confident wrong answer — the same failure shape as B3's
+`contentTrust` verdict and as this phase's empty-file grep, now three times in three phases. The
+discipline that saves it is always the same: probe a second way before concluding.
+
+**Every serious defect this phase came from execution, and none from reading.** The render-path
+`RangeError` came from probing fourteen values. The frozen render prop came from rendering a consumer
+component and watching a counter not update. The phantom run came from a pre-boot abort trap. The
+poisoned virtualizer came from reading an inline style while the element was hidden. The reviews that
+read code carefully produced useful refinements; the reviews that ran code found the defects that
+would have shipped.
