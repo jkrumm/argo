@@ -99,7 +99,7 @@ see `docs/archive/`.
 - `docs/GARMIN-HEALTH.md` — metric definitions, formulas, composite signals (health page)
 - `docs/STRENGTH-ANALYTICS.md` — metric definitions, INOL, ACWR, e1RM formulas (strength page)
 
-<!-- basalt:begin 1.10.0 -->
+<!-- basalt:begin 1.12.0 -->
 
 ## basalt-ui (managed — do not hand-edit)
 
