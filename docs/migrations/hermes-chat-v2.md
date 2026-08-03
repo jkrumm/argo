@@ -1597,3 +1597,85 @@ file asserting the same thing failed in the same bun process **in either order**
 agent rewrote its own test to assert windowing instead and left the original alone. If a third file
 ever renders a virtualized transcript, expect a flake. The honest fix is the browser gate, not more
 happy-dom shimming.
+
+### Two review passes, and the more careful one disagreed with the thorough one
+
+Both ran after every gate was green. The multi-angle pass returned `needs-human` with two blocking
+findings. The independent adversarial pass found a **third, worse** one that neither the workflow nor
+the multi-angle review had seen — and it found it by probing rather than reading.
+
+**`formatRelativeTime` throws `RangeError` on the render path.** Fourteen values probed, not one:
+`NaN`, `±Infinity`, `undefined` and an ISO date string all throw; `null` coerces to 0 and renders
+"57 years ago". The throw escapes render in all three consuming components, and there is **no error
+boundary anywhere** in `agent/` or `agent-chat/` — so one bad `createdAt` blanks the entire
+transcript. B4 multiplied its reach from one call per inbox row to one per settled message. And it is
+reachable without a consumer bug: `createdAt` comes back from `localStorage` JSON or a consumer's
+adapter, and a server returning `created_at` as an ISO string is the single most likely adapter
+mistake. The contract suite's `typeof thread.createdAt === 'number'` passes `NaN` and never checks
+`message.createdAt` at all.
+
+The sharpest part is that it violates the standing invariant **quoted verbatim in the same diff** —
+`id.ts:78-80` cites `spliceText` clamping and `coalesceParts` degrading as the layer's rule, and
+three lines away `mergePart` clamps a NaN and warns. The new code throws.
+
+**Where the two reviewers disagreed, the adversary proved its case and the thorough one was wrong
+again.** The multi-angle pass called the keep-mounted invariant violated by a Suspense fallback
+swap. The adversary built a deliberately-broken copy of the component first, confirmed its
+effect-counting probe could detect a remount (mutant: 1 → 2), and only then reported the real one
+holds — ten collapse/expand cycles, a reorder through `AnimatePresence popLayout`, and fresh object
+identities all stayed at one effect run. That is the discipline B3's `contentTrust` verdict lacked,
+applied in the opposite direction: prove the instrument works before trusting a clean reading.
+
+The residual it did confirm was narrower and led somewhere better. The Suspense fallback renders the
+full row tree, so it remounts once when the lazy import resolves — and that same fact meant a test
+asserting end-anchoring resolved from the fallback at tick 0, regardless of whether virtualization
+worked at all. A dead assertion inside a live test. One fix — a lightweight placeholder — closed
+both.
+
+Also worth carrying: **`ThreadFeedRow` had a second "declared and not forwarded" defect**, in the
+same file where convergence had already caught one. It documents `onStop` as "shown as the composer's
+Stop action while streaming" and never passes `streaming` to `Composer`, which gates on exactly that.
+Executed: Stop never appears and the composer is never disabled mid-run — so a consumer's user can
+fire a second turn into a live thread, which prod forensics showed writes four rows and reaps the
+running turn. Prose describing behaviour that no wiring implements, twice, in one component.
+
+### The fix round introduced a defect, and convergence caught it by executing the public API
+
+Five fix lanes, then a convergence pass. The pass found that the transcript lane's fix for a
+memoization complaint had wrapped **both** `onRegenerate` and `actions` in a latest-ref stabilizer.
+For `onRegenerate`, an event handler, that is right. `actions` is a **render prop** — it is called
+during render to produce nodes — so freezing its identity froze the JSX React reconciles. A consumer
+rendering `actions: () => <span>count {n}</span>` still showed `count 0` after `n` changed.
+
+That is a silent break of a documented public API, introduced by a fix, at the release where the API
+freezes. It was caught because the convergence agent executed the consumer-facing behaviour rather
+than reading the diff — and the lane's own report had argued the design call without ever
+distinguishing a handler from a render prop.
+
+Convergence also found the `finalizeStop` guard was **half-closed**. The lane wrapped the two lines
+it was briefed on (`mintMessageId` + `appendMessage`) and left `setStatus`/`setResumeToken` — the
+same consumer adapter, the next two lines — bare. A throw there still skipped the `setRuns` teardown,
+which is the hook's own state and is what reports "a turn is in flight" to the UI. Identical wedge,
+one line further down. **A brief that names specific lines gets those specific lines fixed**; the
+generalisation has to be asked for explicitly.
+
+Gates after the round, exit codes read directly rather than trusted from a report: `make build` 0,
+`bun run pre` 0, `bun test` 1641 pass / 0 fail, `pack-test.sh` 0. Worth noting the offloaded check
+tool returned `failed` on its own output serialization while its narrative claimed green — exactly
+the ambiguity this program keeps getting burned by, and the reason the exit codes were read by hand.
+
+### The guard promotion breaks the consumer, which is the point
+
+Verified directly rather than taken from the review: argo extends the shipped preset
+(`./node_modules/basalt-ui/configs/oxlint.json`) and `chat-conversation.tsx` imports `useChat` from
+`@ai-sdk/react` with `resume: true` — the literal targets of `agent-no-raw-usechat` and
+`agent-resume-guard`, both going `warn` → `error` in 1.13.0. Plus four raw scroll containers with no
+`theme-allow`.
+
+Decision: promote as planned, and land argo's compliance in the same round-trip. The four scroll
+containers get real `theme-allow` declarations — they are legitimate scroll owners, so that is
+correct work rather than a suppression. The two agent rules get explicit suppressions naming A2/A3 as
+the removal point, which puts argo's migration debt in the code where it is visible and gives A3 a
+natural checkpoint to delete them. Erroring the reference consumer for code that is about to be
+deleted is a little noisy, but these rules exist precisely to force that migration, and leaving them
+at `warn` would waste the guard.
