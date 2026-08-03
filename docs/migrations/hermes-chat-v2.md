@@ -1547,3 +1547,53 @@ rather than token-by-token, so the mid-fence window was narrow. Latent, not prov
 One incidental finding for A3's benefit: `payload.toolEvents` persists richly — six events over three
 calls — and one label embeds a shell command containing a secret's env-var name. Rendering
 `toolEvents` verbatim would put that on screen.
+
+### The convergence pass paid for itself on the first defect it found
+
+B4 ran as a foundation lane, five lanes disjoint by file, then a convergence pass whose only job was
+the seam. Every lane reported green on its own files. The convergence pass then found seven defects,
+and the first one is the exact shape B2 warned about:
+
+**`ThreadFeedRow` declared `affordances` and never forwarded it.** Lane 3 wrote
+`affordances: _affordances` because at the time it wrote the row, `ThreadTranscript` had no such
+prop. Lane 2 then added `affordances`, `groupConsecutive` and `virtualize` to
+`ThreadTranscriptProps`. Both halves compiled. Both lanes' tests passed. The pair silently did
+nothing — a row that accepts an affordances object and drops it on the floor. No type error and no
+single-component test can see that, because each half is individually correct. It also meant a
+virtualized inline row was not _expressible_, which is the same defect class as B3's
+`Composer.leftSection`: an API that looks complete and cannot do the thing it exists for.
+
+The other six: a `check-theme` violation Lane 2 shipped because it was told not to run `check-theme`
+(a raw `<div>` inside the virtualizer — `bun run pre` exits 1 on it); two hard-pinned `'warn'`
+assertions that Lane 6 correctly refused to fix outside its scope; `surfaces.ts` missing the new
+optional peer, which then cascaded into three more gates nobody would hit running only their own
+files (`agents-sync`, `llms-sync`, `gen-llms --check`); an unregistered shadowed surface; incomplete
+barrels; and a `height!` assertion that a second consumer would have duplicated, replaced with a
+single `resolveVirtualize()` narrowing point.
+
+**One lane correctly did nothing, and that is the most interesting result.** Lane 5's brief — model
+the `toolCallId` empty-string sentinel, add the orphaned `approval-responded` test — was carried
+forward from B2's review inventory. It was stale: B3's `d47a35f` had already landed
+`Identified`/`MaybeIdentified` in `parts.ts` and the orphan test in `coalesce.test.ts:200`, complete
+with a design note explaining why the fold deliberately does not backtrack. The worker verified this
+and wrote nothing rather than inventing work to justify its existence. Verified independently before
+accepting it: both are at HEAD. **The carried-inventory list in a phase handover ages the same way
+the spec's line anchors do** — check each item is still open before briefing it.
+
+Lane 2's report was also not a reliable inventory of its own work: it claimed two files exclusively,
+having also modified `thread-outcome-card.tsx` and created five new files. The work was good; the
+self-report was not. Read the diff, not the report — which is what the convergence pass did.
+
+Gates, run twice: once by the convergence agent and once independently afterwards, because a green
+gate is a claim. `make build` 0, `bun run pre` 0, `bun test` 1611 pass / 0 fail across 82 files,
+`pack-test.sh` 0 including agent-chat resolving with `@tanstack/react-virtual` **not** installed.
+Export surface: two additions, both the same new VALUE export (`ThreadFeedRow`, root plus subpath),
+zero removals, no type-only export leaked.
+
+**One piece of latent fragility, recorded because it will bite later.** happy-dom has no layout or
+scroll engine, so `anchorTo: 'end'` is not genuinely observable in it. An anchoring assertion in
+`thread-message.test.tsx` passes today only because it is the only file asserting anchoring; a second
+file asserting the same thing failed in the same bun process **in either order**. The convergence
+agent rewrote its own test to assert windowing instead and left the original alone. If a third file
+ever renders a virtualized transcript, expect a flake. The honest fix is the browser gate, not more
+happy-dom shimming.
