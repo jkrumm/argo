@@ -1462,3 +1462,88 @@ impedance mismatch the consumer bridges, not something to fix by changing `retry
 
 The pattern is now consistent enough to state as a rule: **this spec's prose is reliable and its
 line anchors and "today the code does X" claims are not.** Survey the tree before every brief.
+
+### The playground walk found two defects in a release where every gate was green
+
+Twenty-two scenarios, observed rather than assumed. What held: F1 — the tail block of a finished
+message upgrades the instant the run ends, and `showCopy` appears with it; the sanitize extension
+adds a tag across three toggle states while `<script>` is still stripped, with no injected global, no
+inline `on*` attribute and no `javascript:` href; optimistic append and rollback; and the stopped turn
+is genuinely terminal, surviving a close/reopen _and_ a full page reload with no resume affordance
+anywhere on the page. The ruling recorded above is already what the code does.
+
+**A5's blocker turned out to be closed.** B3's own playground gate had found that
+`Composer.leftSection` gave a consumer no way to write into the composer — the defect that made the
+slots decorative and that A5 depends on. 1.12.0 shipped the fix: `ComposerHandle = { insertText,
+setValue, focus }` via `ref`. Verified by driving it, not by reading the type — caret at index 5 of
+`"ALPHA BRAVO"` inserted in place, and with the composer unfocused it appended at the end per the
+documented fallback.
+
+Two new defects, both in code that shipped with `bun run pre` at 0, 1548 tests passing, `make build`
+0 and `pack-test` 0:
+
+- **`ThreadWorkspace` renders its empty state during hydration.** No component in `src/agent-chat/**`
+  reads `hydrated` at all — it exists only in `agent/adapter.ts` and `agent/thread.ts`. It is
+  invisible in the playground purely because the demo adapter seeds an empty `Map`, so there is
+  nothing to flash _to_. A server-backed store holding real threads flashes empty-then-populated,
+  which is exactly argo in A3.
+- **A rolled-back `create()` leaves the user staring at the wrong error.** The dependent writes still
+  fire and each fails with `unknown thread <id>`, overwriting the root cause: the surfaced error ends
+  up `setStatus: unknown thread …` when the actual failure was the create, 1.3 seconds earlier. The
+  rollback itself is correct; this is error _reporting_.
+
+Both are in scope for B4, because 1.13.0 is the last release before the API freezes.
+
+### The chrome-devtools MCP returns plausible answers from the wrong page
+
+Worth recording as an environment failure mode, because it fails silently rather than loudly. Its
+"selected page" is global to the shared MCP server, and another client kept stealing it — three
+consecutive `select_page` → `evaluate_script` pairs executed against a different site's tab and
+returned perfectly well-formed results. Nothing errors. A less careful agent would have reported
+those as observations of the playground.
+
+The workaround that worked, and should be the default for this program: launch a dedicated Chrome
+with `--remote-debugging-port` and its own profile, and drive raw CDP. The MCP's browser runs with
+`--remote-debugging-pipe`, so there is no port to attach to. The dedicated instance also unlocks
+pre-boot `addScriptToEvaluateOnNewDocument` instrumentation, which the MCP does not expose — and that
+is what caught the hydration defect above.
+
+### P1's "render-only" verdict is true of the data and false of the wire
+
+The argo half of the gate walked the reproduction table against production. Four rows reproduce
+(3, 8+2, 9, 10+11), three do not, one is untestable on a prod build.
+
+The finding that changes another phase's premise is row 1. Collapsing mid-stream and re-expanding
+fires **one** `POST` and **one** `GET …/stream` — and that stream is a 111 KB replay of the turn
+**from character 0**, reusing the same `messageId` and the same `text-start` id, so the client
+appends rather than replaces. The bubble ended up holding `1…168` followed by a full `1…1000`, one
+seam at line 168.
+
+P1 concluded the duplication is RENDER-ONLY. That is right about the data — one LLM run, and the DB
+holds a single clean 3,898-char row — and wrong about the wire, where a full second stream really
+does cross the network. **Any A1/A2 design that assumed nothing re-crosses the network on re-expand
+is built on a half-true premise.** It remains consistent with the standing "do not fix the resume
+offset" rule: v7's `reconnectToStream` sends no `Last-Event-ID` and no offset, so the server has
+nothing to skip from. The fix is client state seeding, exactly as recorded.
+
+Three more things the table did not ask about, all routed into A1:
+
+- **A second `POST` during a live stream returns 200, not 409**, reaps the in-flight run (persisted
+  `interrupted` at 420 chars) and writes four rows for one exchange. In one run the second POST's own
+  SSE response streamed back the _first_ run's content — defect 6's pointer-reaping, visible from the
+  client. The dashboard UI gates this today (Send swaps to Stop, Enter is a no-op, zero second POST),
+  so it is not user-reachable; the endpoint is unguarded and A2 moves the transport.
+- **Thread-list polling runs every 700 ms–1 s continuously** for as long as the page is open.
+- **A resume `GET` fires on every `ChatView` mount** — including brand-new threads that have never
+  streamed (204) and every expand of a long-finished one.
+
+And two rows that did **not** reproduce are worth as much as the ones that did. Stop-mid-generation
+already preserves the partial text through a reload, persisted `interrupted` — argo's own
+implementation is correct there. The mermaid fence showed zero error boxes across 246 samples at
+30 ms; the real transient is a raw `<pre>` upgrading to the SVG in well under a second. That one
+carries a caveat rather than a clean bill: Hermes delivered those replies in one or two large bursts
+rather than token-by-token, so the mid-fence window was narrow. Latent, not proven absent.
+
+One incidental finding for A3's benefit: `payload.toolEvents` persists richly — six events over three
+calls — and one label embeds a shell command containing a secret's env-var name. Rendering
+`toolEvents` verbatim would put that on screen.
