@@ -1371,3 +1371,94 @@ The playground's house-law compliance currently rests on a step nothing enforces
 The stopped-turn question — whether `stop()` clearing the resume token should stay terminal — is
 still unanswered and stayed deliberately out of this release. It is a behaviour change, not a bug
 fix, and it wants its own release note.
+
+---
+
+## B4 — basalt-ui 1.13.0
+
+### The stopped-turn question, ruled
+
+**`stop()` stays terminal.** Ruled by Johannes on 2026-08-03, closing a question that had been open
+since B2. Stopping is an explicit "I don't want this"; resume exists for the _involuntary_ case — a
+dropped connection, a reload. The partial turn is already preserved through `ChatMessage.finish:
+'stopped'` (B2), so nothing is lost by refusing continuation, only continuation itself. And `retry()`
+already covers "actually, keep going" by starting a fresh turn.
+
+No behaviour change ships. The value of asking was not the answer but the closure: it was the last
+release before the API freezes, so leaving it open would have meant carrying it past the point where
+changing it costs a major.
+
+### The browser gate, and what it is actually a gate on
+
+B3 left the reproduction table unwalked. Re-reading the table before repeating "walk it" surfaced
+that the instruction had quietly stopped meaning what it says: **every row in that table is an argo
+dashboard defect, and argo imports zero from basalt's `./agent` and `./agent-chat`.** Walking it
+against `argo.test` today exercises the untouched legacy `hermes-chat` feature. It would re-observe
+the old defects and verify nothing B3 shipped.
+
+The rows that B3 and B4 actually make drivable are in the **playground**: fence flicker and
+tail-block settle, the sanitize extension, composer slots and draft-survives-reload, adapter
+hydration and rollback, stop preserving partial text. So the gate was split — the playground walk
+covers what the framework changed, and the argo table is walked against **production** (Johannes's
+call: prod is live, so it costs no local stack) as a documented pre-migration baseline for A3 to be
+diffed against.
+
+Worth stating plainly because it generalises: a gate inherited from an earlier phase can keep its
+name after it has lost its meaning. This one had been "the step we skipped" for a full release when
+it was really "the step that does not apply yet".
+
+### The research gate, and a wrong refutation caught by re-running it
+
+Three facts resolved before the brief. Two of them contradict the spec.
+
+**`@tanstack/react-virtual` needs no upgrade.** Installed is `react-virtual@3.14.3`, which pins
+`virtual-core@3.17.1` — and 3.17.1 already carries the chat primitives (`anchorTo: 'start' | 'end'`,
+`followOnAppend`, `scrollEndThreshold`, `scrollToEnd()`). That matters because it is exactly the
+stick-to-bottom-while-streaming machinery a virtualized transcript needs once it stops being nested
+inside `BasaltStickToBottom`, and the alternative — hand-rolling it on `scrollToIndex` — is the
+documented janky path.
+
+Getting there involved a self-inflicted detour worth recording. The first check for those primitives
+grepped a file that `curl` had failed to download: **an empty file greps clean**, so the result read
+as a confident "ABSENT" and nearly went into the brief as "the research report is wrong, do not use
+`anchorTo`". The second attempt asserted the file existed and had lines before trusting the grep,
+and found all four primitives present. Same failure shape as B3's `contentTrust` verdict, in the
+opposite direction: there, one executed case produced a false clean; here, one _unexecuted_ case
+produced a false absence. **A negative result from a tool needs its setup verified at least as hard
+as a positive one** — a passing grep proves the pattern is absent from what was actually read, which
+is not the same as absent from the package.
+
+**React 19 `<Activity>` destroys effects.** `mode="hidden"` runs the subtree's effect cleanups and
+re-creates them on show; React state and DOM state (scroll offset, textarea content) survive.
+
+**The spec's Mantine `Collapse` claim is backwards — and will become true later.** §12 says the row
+"does not use Mantine `Collapse`'s `keepMounted` default, which renders children inside React 19
+`<Activity>`". On the installed `@mantine/core@9.3.0` the opposite holds: `keepMounted` is absent
+from `defaultProps`, and the omitted-prop branch is `content = children` — children stay mounted,
+hidden by CSS `display: none`. `<Activity>` is reached only when `keepMounted={true}` is passed
+explicitly (which `app-sidebar.tsx:352` does today). But Mantine **master** has already flipped the
+defaults to `keepMounted: true` + `keepMountedMode: 'activity'`.
+
+So both the spec and the tree are right, about different versions, and the conclusion is stronger
+than either: **a bare `<Collapse expanded>` gives the correct keep-mounted behaviour today and
+silently stops giving it the day this repo bumps Mantine** — reintroducing gap-analysis defect 3, a
+double stream replay, through an upstream default change nobody in this repo wrote. `ThreadFeedRow`
+therefore owns its show/hide in basalt's own code rather than delegating the guarantee upstream. This
+is the second time this program has found that the safe-looking option was a dependency's default.
+
+### Four spec claims that did not survive the tree
+
+A survey pass before briefing found §9's memoization work **already done** — `MessageBlock` is
+already `memo`'d with a comparator, `coalesceParts` is already inside a `useMemo` (and never was
+called inline in the render body as §9 claims), the renderers map is already memoized, and the
+"one delta re-renders exactly one `MessageBlock`" budget test already exists and passes. The only
+unbuilt part of §9 is virtualization. Briefing the lanes off the spec alone would have produced a
+worker re-implementing memoization that was already there, then reporting it green.
+
+Also corrected before briefing: §9's line anchors and comparator prop names (the real prop is
+`streaming`; `settled` is derived), `PartList`'s `useMemo` anchor, and the fact that
+`useAgentThreadRuns.retry` is **thread**-keyed while §11's `onRegenerate` is **message**-keyed — an
+impedance mismatch the consumer bridges, not something to fix by changing `retry`.
+
+The pattern is now consistent enough to state as a rule: **this spec's prose is reliable and its
+line anchors and "today the code does X" claims are not.** Survey the tree before every brief.
