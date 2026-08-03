@@ -685,3 +685,239 @@ reviewer's three non-defects. The habit that resolved all three was identical: r
 | B1           | done    | basalt-ui **1.10.0** published; argo consuming it; browser gate + review closed |
 | B2           | next    | Unblocked. Ships as 1.11.0. Owns the `.skip`'d resolveOutcome/stop clobber test |
 | B3–B4, A1–A6 | pending | Blocked per the dependency graph. A1 and B1 task bodies carry the P1 impact     |
+
+---
+
+## B2 — basalt-ui 1.11.0
+
+### The lanes were not disjoint, and the handover said they were
+
+The mid-B2 handover hands the next orchestrator three "genuinely disjoint" lanes and recommends
+running them as parallel implementers. Two of them collide:
+
+| Collision                                   | Lanes                                                                   |
+| ------------------------------------------- | ----------------------------------------------------------------------- |
+| `use-agent-thread-runs.ts`                  | 1 (push → `mergePart`, resume gate) **and** 3 (stop, `finish`, clobber) |
+| `src/agent/index.ts` — the `./agent` barrel | 1, 2 **and** 3                                                          |
+
+A running implementer exclusively owns the files it touches, so lanes 1 and 3 in parallel is the
+named failure mode, not a shortcut. Resequenced to lane 2 ‖ lane 1 (genuinely disjoint), then lane 3
+once lane 1 releases the hook file. The barrel was assigned outright to lane 2 — the lane with the
+most new public surface — and lane 1 was told to export from its own module and leave the barrel
+alone, against an orchestrator convergence pass of two lines. Cheaper than two agents racing an
+append-only file.
+
+Four line numbers in the handover had drifted, all in ways that would have sent a worker to the wrong
+place: `part-list.tsx` is in `src/agent/`, not `src/agent-chat/`; the resume gate is `:343-350`, not
+`:337-341`; `stop()` is `:427-437`, not `~:421-431`; the `.skip`'d test is at `:356` with its
+rationale comment at `:348-355`, not `~:317`. The handover is a snapshot and says so. Re-reading the
+tree before briefing is not optional.
+
+### The six v7 corrections confirmed, and three new bugs found under them
+
+Re-read from installed source (`ai@7.0.16`) to write lane 1's brief. All six corrections in the
+handover held verbatim. Two additions that materially change the transport's design:
+
+**`input` is required on the message PART at `output-available`** (`.d.ts:2030`, no `?`). The
+handover's correction 5 — "the wire carries only `output`" — is true of the _chunk_ and does not
+apply here, because `aiSdkTransport` diffs `message.parts` snapshots and the SDK has already
+re-supplied `input` from the stored invocation (`index.js:6936-6958`). The transport does not need to
+carry input forward. Worth knowing anyway: `updateToolPart` (`index.js:6525-6555`) blind-_overwrites_
+input rather than merging, so an omitted input is destroyed, not preserved.
+
+**The SDK root-exports `getToolName`, `getStaticToolName`, `isToolUIPart`, `ToolUIPart` and
+`DynamicToolUIPart`** — and they must not be imported. `ai-sdk-transport.ts:56` imports from `ai`
+type-only by deliberate design; the file never resolves the peer at runtime (that is what
+`createAiSdkResolver` exists for). Taking the convenient value import would hard-require `ai` at
+runtime for every consumer. Use the types, reimplement the two-line name derivation.
+
+Three defects surfaced that appear in no spec, no register and no handover:
+
+| #   | Defect                                                                                                                                                                                                                                                                                                                        |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| a   | **Dynamic tool names are destroyed.** `curr.type.slice('tool-'.length)` runs on every tool part, but `DynamicToolUIPart` has `type: 'dynamic-tool'` and carries its name only in `part.toolName`. Every dynamic tool renders as the literal string `dynamic-tool`                                                             |
+| b   | **`if (prev?.state === curr.state) return []` drops preliminary refinements.** `preliminary: true` outputs stream — successive updates arrive with `state: 'output-available'` unchanged and `output` mutating. The early return emits the first and discards the rest, so a streaming tool result freezes at its first chunk |
+| c   | **`output-denied` carries neither `output` nor `errorText`.** Consumer logic shaped "error if `errorText`, else done if `output`, else pending" renders a denied tool as pending forever                                                                                                                                      |
+
+(b) is the interesting one: it is invisible to any test that drives one state transition per tool
+call, which is what every fixture in the repo does today.
+
+Also confirmed, and it settles a question that keeps getting re-litigated: `reconnectToStream`
+(`.d.ts:5409-5412`) takes no `AbortSignal` — deliberately asymmetric with `sendMessages`, which has
+one at `:5388` — and its runtime is a bare `GET` with no signal, no offset and no `Last-Event-ID`
+(`index.js:16297-16304`). "Do not fix the resume offset" is now read out of the SDK rather than
+inferred from a grep count.
+
+And the reverse-lookup constraint has teeth: `tool-approval-response` carries `approvalId`,
+`approved` and `reason?` but **no `toolCallId`** (`.d.ts:2462-2467`), and the SDK resolves it by
+scanning accumulated parts for a matching `approval.id`, _throwing_ when the request chunk was never
+applied (`index.js:6508-6523`). The mapping exists only in accumulated state, never on the wire — so
+a transport that drops or reorders the request chunk makes the response unrecoverable. `coalesce.ts`
+already carries the side index for this.
+
+### Lane 3's scope is three bugs, not one
+
+Reading `use-agent-thread-runs.ts` for the lane-3 brief turned the handover's one-line "stop()/stopAll()
+status asymmetry" into three distinct defects:
+
+- **`stop()` writes `setStatus(threadId, 'done')` unconditionally** (`:430`), with no check that the
+  thread ever streamed. `stop()` on an idle thread writes `'done'` and bumps `updatedAt`. Its own
+  JSDoc at `:109` claims "no-op if idle", which is false.
+- **`stopAll()` touches `storeRef` zero times** (`:439-443`) — no `setStatus`, no `setOutcome`,
+  nothing. Threads it aborts keep `'streaming'` forever, and because the abort makes
+  `consumeAndFinalize` bail early, nothing ever resolves them.
+- **The `.skip`'d test at `:356` pins a third:** `consumeAndFinalize` awaits `resolveOutcome` at
+  `:219`, then writes `setOutcome`/`setStatus` at `:221-222` **without re-checking** the
+  supersede/abort guards it checked at `:205-207` immediately before the await. A slow
+  `resolveOutcome` racing a `stop()` silently overwrites `'done'`. The test was verified failing
+  before being skipped — it is a genuine pinned defect, not dead weight.
+
+Constraints that bound the fix: `ThreadsStore` has no message-patch mutator at all — `appendMessage`
+is the only message-level write (`thread.ts:128`) — `ChatMessage` has no `finish` field
+(`history.ts:41-46`), and `AgentOutcome['status']` is `'done' | 'attention' | 'error'` with no
+`'stopped'`. Per spec §10 `ThreadStatus` is deliberately **not** widened with `'stopped'`; the
+message-level `finish` carries that distinction instead.
+
+### Both lanes landed green, and their convergence was still broken
+
+Lane 1 (transport + hooks) and Lane 2 (registry + chrome) each reported all five gates at exit 0, and
+Lane 2's `bun test` ran after both had landed — 1290 pass, 1 skip, 0 fail over the merged tree. The
+merged tree was nevertheless wrong in a way neither lane could see, and no test caught it:
+
+- Lane 1 needed `mergePart`'s `<TPart extends AgentPart>` bound, so it constrained the hooks:
+  `useAgentStream<TPart extends AgentPart>`, `useAgentThreadRuns<TPart extends AgentPart>`.
+- Lane 2 introduced `TranscriptPart = AgentPart | ForeignPart`, and `ForeignPart.type` is `string`.
+
+No `AgentPart` variant accepts a widened `string` discriminator, so `TranscriptPart` does not extend
+`AgentPart` and `useAgentThreadRuns<TranscriptPart>` does not compile. The registry's whole purpose is
+that a part basalt does not know reaches the transcript — and spec §4's own example is a
+server-emitted `data-toolProgress`, which has to travel transport → hook accumulator →
+`runs.get(id).parts` → `liveParts`. `PartRenderContext.settled` ("false while this part belongs to
+the in-flight tail of a streaming turn") is only meaningful if foreign parts pass through the
+streaming hook. Shipped as-was, 1.11.0 would have advertised a registry that could not carry the
+parts it exists for.
+
+The fix relaxes the constraint chain to a structural bound (`{ id: string; type: string }` — all
+`mergePart` actually reads) rather than closing the union. Folding `ForeignPart` into `AgentPart`
+remains forbidden: it would make `assertNever` accept everything. Widening a generic constraint is
+backward compatible, so this stays a minor.
+
+The general lesson is the one the B1 record already stated in a different form: **a per-lane scoped
+gate is not a gate.** Here both lanes ran the _full_ suite and both were honestly green, because the
+defect lives in a combination no test constructs. Parallel fan-out needs a convergence pass that
+tests the seam between the lanes, not just the union of their diffs.
+
+### Two corrections that came from the workers, not the orchestrator
+
+**A worker refuted the spec, correctly.** `AGENT-CHAT-SPEC.md` claimed in three places that a stale
+key in an augmented `definePartRenderers` map is a tsc error. Lane 2 built a minimal `tsc` repro and
+showed it is not: `<const T extends Constraint>` inference does not excess-property-check an
+object-literal argument, so only _missing_ keys are caught, and that comes from ordinary
+assignability rather than freshness. An `@ts-expect-error` asserting the stale-key error is itself an
+unused-directive error — which is how it surfaced. Rather than reach for an `Exact<T, Shape>` wrapper,
+the claim was deleted: the Canonical token-factory contract mandates one shape across every `defineX`,
+a stale key is dead code that never fires, and the valuable half is still caught. All three spec
+sites corrected.
+
+**Lane 1 found that bug (a) was worse than the brief said.** The brief described dynamic tool calls as
+_mislabeled_ — rendering as the literal string `dynamic-tool`. In fact `diffPart`'s default branch
+tested `currPart.type.startsWith('tool-')`, which is `false` for `type: 'dynamic-tool'`, so dynamic
+tool calls were **dropped entirely**, never reaching the transcript at all. The orchestrator's brief
+undersold a defect it had itself discovered; the worker corrected it while implementing. Briefing
+workers to push back, and meaning it, has now paid three times in this program.
+
+The convergence pass reproduced it before fixing it, which was the point of asking for a repro rather
+than a fix:
+
+```
+error TS2344: Type 'TranscriptPart' does not satisfy the constraint 'AgentPart'.
+  Type 'ForeignPart' is not assignable to type 'AgentPart'.
+```
+
+The fix introduces a structural `PartLike = { id: string; type: string }` — everything `mergePart`
+actually reads — and relaxes `mergePart`, `useAgentStream`, `useAgentThreadRuns` and
+`consumeAndFinalize` onto it. `isTextLikeType`'s parameter widens to `string`; it is already a type
+predicate narrowing to the two text-like literals, so a `ForeignPart` always falls through to the
+wholesale-replace path and `AgentPart` splicing is unchanged. `PartList` and `coalesceParts` keep
+`extends AgentPart` — they only ever handle the closed union. Default type arguments were not touched,
+so the change is a pure constraint widening: backward compatible, and a minor.
+
+The regression test for it is worth describing precisely, because "would it have failed before?" has a
+stronger answer than usual here: the test instantiates `useAgentThreadRuns<TranscriptPart>`, so before
+the fix it would not have compiled at all. Not a failed assertion — a `tsc` error in the test file.
+Gates after convergence: six of six at exit 0, 1295 pass / 1 skip / 0 fail, the one skip being the
+deliberately pinned `stop()`-clobber test that lane 3 owns.
+
+### The playground gate found the API gap it exists to find
+
+Three of the four 1.11.0 gate demos landed clean. The fourth — the render-count HUD — could not be
+built as specified, and the way it failed is the useful part.
+
+`thread-message.tsx` exports `messageBlockRenderCounter` precisely so the one-re-render-per-delta
+budget can be asserted. It is reachable from **no public surface**: not re-exported from
+`agent-chat/index.ts`, and no `package.json` `exports` subpath resolves it. The worker verified this
+with a probe rather than assuming —
+
+```
+error TS2307: Cannot find module 'basalt-ui/agent-chat/thread-message'
+```
+
+— then declined to reach into `packages/basalt-ui/src` with a relative import, on the grounds that a
+consumer of the published package cannot do that, so a demo which did would prove nothing. It built a
+`MutationObserver` proxy over `ThreadTranscript`'s rendered DOM instead, bucketing mutations by
+message block, and reported the number it actually observed (**1**, held across a full ~19-delta run)
+together with the caveat that this is a one-directional proxy — a component that truly bails out of
+`memo()` emits zero DOM mutations, so the signal is valid but is not the framework's own counter.
+
+**Decision: do not export the counter.** A mutable test-only counter is not something to freeze into
+an NPM package's public API on a release that also forbids a major, and the authoritative measurement
+already exists in `thread-message.test.tsx`, where the budget asserts exactly 1. The playground's job
+at this gate is human-observable evidence, which the DOM proxy supplies. The gate item is recorded as
+met by two complementary measurements rather than by the one it originally named.
+
+The generalizable point: the gate is worth running precisely because it is the first time the release's
+API is exercised from **outside** the package boundary. Both the missing surface and the honest
+"here is a proxy and here is why it is not the real number" came from that vantage, and neither would
+have surfaced from inside the framework's own test suite — which was, of course, green throughout.
+
+### A guard that was right for four minors and enforced for none
+
+`mantine-shade-index` was introduced in 1.7.0 as `warn` under the grace-minor doctrine — one minor of
+warning, then promotion to error. It was deferred by 1.8.0 (which shipped the same day as 1.7.0), by
+1.9.0 (which carried the chart-layer batch the same consumer was waiting on), and then 1.10.0 shipped
+without the promotion at all, leaving a `GRACE_PERIOD_KINDS` entry that read "promote to error in
+1.10.0" _after_ 1.10.0 had shipped.
+
+Promoted in 1.11.0 rather than deferred a fourth time, and the check that made it a five-minute
+decision instead of a debate: run the guard against the only consumer first. Argo's `check-theme`
+reports zero violations of any kind, so the promotion cannot break anything that was passing.
+`GRACE_PERIOD_KINDS` is empty again, which is the state it should spend most of its life in.
+
+### `finish` was persisted and rendered by nothing
+
+The fourth gate demo — stop mid-stream, partial text survives, labelled stopped — surfaced the same
+class of gap as the third, one level up. `stop()` now persists an assistant message carrying
+`finish: 'stopped'`, and `ThreadTranscript` / `MessageBlock` **never read that field**. A stopped turn
+renders identically to a completed one, and the demo could only show the distinction by building a
+"message ledger" panel of its own beside the transcript.
+
+Two reasons that is a defect rather than a missing nicety:
+
+1. The 1.11.0 gate item is _"leaves the partial text in the transcript, **labelled stopped**"_. The
+   framework satisfied the first half and could not satisfy the second.
+2. Spec §10's argument for **not** widening `ThreadStatus` with a `'stopped'` member is, verbatim,
+   "for a distinction the message-level `finish` already carries." If nothing reads `finish`, the
+   distinction is carried and never shown, and the argument that justified the narrower type is
+   hollow.
+
+Closed inside B2 rather than deferred to B4's affordance work: it is small, additive, and it is the
+other half of a lifecycle feature already shipping in this release. Shipping `finish` with no reader
+would mean 1.11.0's headline lifecycle change is invisible to any consumer who does not build their
+own chrome. `'complete'` deliberately renders nothing — labelling the ordinary case would put a badge
+on every message in the transcript.
+
+Worth noting how it was found. The demo author traced the code path statically and said so explicitly:
+"this is a static trace of the exact code path the demo drives, not an empirical browser observation —
+flagging that distinction explicitly since it matters for the gate." That is the same discipline that
+separates "I could not reproduce it" from "it cannot happen", and it is the reason the browser gate in
+the phase loop is a separate step from the test gate rather than a restatement of it.
