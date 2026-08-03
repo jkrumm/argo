@@ -1679,3 +1679,64 @@ the removal point, which puts argo's migration debt in the code where it is visi
 natural checkpoint to delete them. Erroring the reference consumer for code that is about to be
 deleted is a little noisy, but these rules exist precisely to force that migration, and leaving them
 at `warn` would waste the guard.
+
+### The B3 browser defects, fixed — and a fix that was correct for 200 milliseconds
+
+D1 and D2, both found by the playground walk after 1.12.0 had shipped green, were closed in this
+release rather than carried past the freeze.
+
+**D1 — the hydration flash.** `ThreadWorkspace` now holds a neutral skeleton while
+`!hydrated && threads.length === 0`, rather than rendering "no threads yet" at a store that has
+simply not answered yet. Two constraints made this more than a one-line guard, and both were
+verified rather than assumed: a cache-then-revalidate consumer with `hydrated: false` and a populated
+`threads` array must not be blanked, and the synchronous `createThreadsStore` pins `hydrated: true`
+always — if it could be `undefined`, the same guard would give every synchronous consumer a permanent
+skeleton. The lane checked that against `thread.ts` and its existing pin test rather than branching
+on a guess.
+
+**D2 — the error cascade, fixed twice.** The lane's fix dropped queued dependent writes whose target
+thread had rolled away, and its report argued the case well, including a careful paragraph on why
+multi-id writes like `clear()` are excluded. Convergence found it covered roughly the first 200
+milliseconds. `failedCreateIds` was cleared when a thread's write chain drained — but the cascade is
+not confined to the synchronous send path. `useAgentThreadRuns`' **completion path**
+(`appendMessage` → `setOutcome` → `setStatus` → `setResumeToken`) fires when the stream _ends_, long
+after that chain has drained, against the same rolled-back row, latching "unknown thread" over the
+create's real error at exactly the moment the user is looking at it.
+
+It was reproduced before being re-fixed — a new test went red against the lane's own code, showing
+`appendMessage` and `setStatus` firing after the drain. The record is now retained for the store's
+lifetime, which is bounded because `create()` always mints its own id and an id in the set can never
+be re-created.
+
+The pattern is the standing invariant again, on a delay: a transient failure still turning into a
+permanently misleading transcript. It is worth noticing that the lane's reasoning was not sloppy —
+it was thorough about the wrong time window. **A fix verified against the scenario that motivated it
+is not verified against the scenario it will actually meet.**
+
+**And one lane cited a document that does not exist.** The hydration lane's report closed with a
+"noticed, not touched" item: that `adapter.ts:172-173` documents hydration gating as the consumer's
+job, now stale. Convergence checked. That text is not there — `:176-177` says something else
+entirely, and nothing anywhere made that claim. The lane had been briefed with that quote (it came
+from the browser walk's own report) and echoed it back as an observation of the tree. Worth carrying:
+a lane report can launder a brief's assumption into an apparent finding, and the only defence is
+checking citations against source — which is the same rule this program already applies to the spec's
+line anchors.
+
+Gates: `bun run pre` was red on arrival on a file the cascade lane never ran the format gate over
+(its report said "all green" and listed `tsc` and `oxlint`, not `oxfmt` — the third time a lane's
+green claim covered only the checks it happened to run). Final: `make build` 0, `bun run pre` 0,
+`bun test` 1649 pass / 0 fail across 83 files, `pack-test.sh` 0, `oxlint apps/playground/src` 0
+across 96 files, playground typecheck 0 against a rebuilt dist.
+
+### The playground has never been theme-gated, and now it is measured
+
+`check-theme` reads `basalt.roots` from `packages/basalt-ui/package.json` and scans
+`packages/basalt-ui/src` only; it cannot be pointed elsewhere from the CLI. B3 noticed the hole and
+found two violations by running oxlint by hand. B4 measured it properly, by running the guard against
+a copy of `apps/playground/src` with a synthetic root: **47 findings, all pre-existing, none in any
+file this release added.**
+
+Not fixed — a 47-finding sweep across untouched demo pages on release eve is not a convergence
+change. But it is now a task with a real number attached rather than a vague misgiving, and the
+permanent fix is a `basalt` block in `apps/playground/package.json` so the guard covers the
+consumer-shaped tree that is most likely to drift.
