@@ -960,3 +960,407 @@ individually and their accuracy is not cosmetic.
 
 Final state: `bun run pre` = 0, `bun test` = 1322 pass / 0 fail / 0 skip, `make build` = 0,
 export-surface = 0, argo's dashboard typecheck + api typecheck + format + build all 0.
+
+## B3 — basalt-ui 1.12.0
+
+### The handover's lane split did not survive contact with the tree
+
+B2's closing lesson was "verify disjointness against the tree before parallelising". Doing that
+first is what B3 started with, and it immediately contradicted the plan. The scope reads as five
+independent seams — markdown fences, the settle fix, composer slots, the threads adapter, the
+carried defects — but a file-level map showed `markdown-fences` and `settle-fix` both rewriting
+`MarkdownProps` at `markdown.tsx:60-85` and both editing `TextRenderer` at `thread-message.tsx:68-77`.
+The same hunks, in two lanes. Split as written they would have merged broken, which is exactly the
+B2 failure mode that produced this lesson in the first place.
+
+They ran as one lane. Four contended artifacts — `scripts/export-surface.json`, `src/surfaces.ts`
+(plus the generated `llms.txt` and drift-gated `AGENTS.md`), the root `src/index.ts`, and
+`packages/basalt-ui/tsconfig.json` — were assigned to **no** lane and held for a convergence pass.
+
+One scope change followed from that. Enabling test typechecking (the `src/**/*.test.ts(x)` exclude)
+was in the carried-defects lane's brief until it became obvious the enable would surface a backlog
+across test files _other lanes were mid-write on_, which the owning lane could not fix. It moved to
+convergence, after every lane has landed.
+
+### The checkout's install was stale, and bun's linker is isolated here
+
+`bun install` reported "Checked 1541 installs across 1819 packages" while the repo-root
+`node_modules` held 12 entries. Not a broken install — this repo uses bun's **isolated** linker, so
+`remend`, `react-markdown` and `shiki` resolve from `packages/basalt-ui/node_modules` and
+`apps/playground/node_modules`, never hoisted to the root. A worker probing for them at the root
+concludes they are absent and starts fixing the wrong problem.
+
+### The research pass found the defect that would have shipped a disabled sanitizer
+
+`hast-util-sanitize` merges a supplied schema with a **shallow top-level spread only** — its source
+is literally `schema: options ? {...defaultSchema, ...options} : defaultSchema`. So passing an
+`attributes` object **replaces** `defaultSchema.attributes` entirely. A consumer adding one attribute
+allowance to one tag silently destroys every default allowance; `tagNames` do not concatenate either.
+There is no official deep-merge helper in either package — the upstream docs tell you to add the
+third-party `deepmerge`.
+
+basalt has zero runtime dependencies and is not acquiring one for this, so it owns a small additive
+merge for exactly this schema shape. The requirement that makes it testable: **the test suite has to
+fail against a naive shallow spread**, or it proves nothing.
+
+This is also a second, independent argument for the spec's locked "data extension, not a
+`(base) => Schema` callback" decision. The recorded rationale was that a callback can return `{}` and
+silently disable sanitization. The stronger one is that the _data_ form is the only shape basalt can
+deep-merge additively on the consumer's behalf — with a callback, the consumer performs the merge,
+and the upstream shallow-spread trap becomes theirs to fall into.
+
+Facts pinned for the lane, from package source rather than memory: `rehype-sanitize` 6.0.0 and
+`hast-util-sanitize` 5.0.2, both ESM-only; `defaultSchema` is re-exported by `rehype-sanitize` itself
+so only the one optional peer is needed; unified runs plugins in registration order, and
+rehype-sanitize's own Security section states "everything after rehype-sanitize could be unsafe" —
+which is the enforcement mechanism behind appending basalt's pass last.
+
+### Two spec claims overridden, deliberately
+
+**`BASALT_SANITIZE_SCHEMA` cannot be the fully-materialized baseline the spec describes.**
+`defaultSchema` lives in an _optional_ peer, so materializing it at module scope requires a static
+import of that peer — hard-requiring it for every consumer. That is precisely the F2 bug this same
+release fixes for `remend`; reintroducing it for the sanitizer would be self-defeating. The
+alternative, vendoring GitHub's schema into basalt, drifts silently on a security baseline. So it is
+the **additions layer**, and the effective schema is composed lazily where the peer is already
+dynamically imported.
+
+**`spliceText` clamps rather than throws.** Both reviewers who found it proposed bounds-check-and-
+throw. This is stream-reduction code on the render path, and a throw converts a transient wire
+anomaly into a permanently dead transcript. It clamps, warns in dev, and the JSDoc narrows to the two
+shapes actually supported.
+
+### The adversarial pass found what three green test suites did not
+
+All three lanes in the first fan-out reported green — 18, 31 and 101 passing tests, `tsc` clean,
+oxlint clean. The adversarial verifiers then found 13 defects across them, three blocking.
+
+The most instructive is the composer's. Spec section 8's _first_ behavioural promise is "draft state
+clears only on a successful submit, so a failed send does not eat what was typed". The test covering
+it read `input().value` from inside the `onSubmit` callback — but React does not flush a
+`useSyncExternalStore`-driven re-render mid-event-handler, it batches to the end of the discrete
+event. The DOM shows the old value whether the clear runs before or after the callback. The verifier
+proved it by moving the clear _before_ `onSubmit` and watching the test stay green. The headline
+acceptance criterion of the phase was, in effect, untested.
+
+Two more in the same class. The adapter's `draftKey`-equivalent hydration path — `readPersistedValue`
+— was never executed by any of the 18 tests, because a module-scope store cache outlives unmount and
+satisfies every persistence assertion; a wrong storage-key prefix on the read side would have left
+the suite green while every real page-reload draft vanished. And an adapter test asserting that
+unmount aborts an in-flight load could not fail at all: after unmount, `result.current` is frozen at
+the last committed render, and the field it asserted on was already `undefined` before the abort.
+
+The generalization: **a test written against the same mental model as the implementation inherits its
+blind spot.** All three survived a competent author, a passing run and a type check. What caught them
+was a reader whose explicit job was to make them fail. Worth carrying into every later phase — the
+question to ask of a new test is not "does it pass" but "would it fail if the behaviour it names were
+absent", and the cheap way to answer is to break the implementation and watch.
+
+### The two blocking adapter defects are the seam argo will actually hit
+
+Both are the same class: correct for one write in flight, wrong for the concurrent case, which is the
+normal case.
+
+`createAdapterThreadsStore` fired every adapter write immediately with no per-thread ordering. The
+real consumer path issues four writes in one synchronous tick — `thread-workspace.tsx:106-111` calls
+`create()` then `markRead()`, and `use-agent-thread-runs.ts:508-509` then appends the user message and
+sets status. Against a server-backed adapter the three dependent writes arrive before `createThread`
+has resolved, are rejected, and the store rolls the user's message back out of the transcript. Argo's
+adapter is Postgres-backed, so this is not hypothetical; it is A3's first bug, found before A3.
+
+The second: a superseded `revalidate()` returned early without refreshing `base`, but `mutate()`
+dropped its optimistic patch regardless — so a _confirmed_ write's effect vanished for the duration of
+the surviving round-trip. On create-and-send that collapses the entire new thread out of the list. The
+module's own docs claimed the opposite guarantee.
+
+### A ruling applied to one function and not its sibling
+
+The carried-defects lane was told, in writing, that `spliceText` must clamp rather than throw because
+a throw on the render path kills the transcript. In the same diff it gave `coalesceParts` a
+`default: return assertNever(next)` — a runtime throw, on the same render path, in a public function
+that folds wire data. It was not mentioned in the lane's concerns.
+
+The resolution keeps both properties rather than trading one away: the default branch still binds the
+value at type `never`, so `tsc` fails if a future state joins the union and exhaustiveness is
+preserved as decision D2 requires — but at runtime it returns a safe fallback and warns in dev instead
+of throwing. Exhaustive at build time, defensive at run time.
+
+The lane also justified normalizing `toolCallId: ''` with a claim that the shape "existed on the wire,
+basalt's own pre-1.12.0 mapping emitted it". The verifier ran `git log -S` and disproved it: the only
+commit containing that literal puts every occurrence in test fixtures, and the sole shipped mapping
+reads the SDK's required non-empty field. The change was also silently converting a previously-parsing
+part into a _dropped_ one on six states — data loss in a transcript, worse than the sentinel it
+replaced. The modelling change stands on its actual merit; the justification and the drop behaviour do not.
+
+### The fix for F1 removed a security control, and only an executed probe caught it
+
+The highest-value defect in B3 was introduced by B3's own headline fix.
+
+`Markdown` overloads its `streaming` prop to do two unrelated jobs: pick the streaming-vs-settled
+render path, **and** pick the image allowlist —
+`allowedImagePrefixes = streaming ? ['/'] : ['https://', '/']`. The comment above it says why in as
+many words: streamed model-generated markdown auto-fetches images, so an open `https://` default is
+a prompt-injection exfiltration channel.
+
+`TextRenderer` used to hardcode `streaming`, so every agent message got the restrictive same-origin
+list — the security property held by accident, as a side effect of the bug F1 exists to fix.
+Threading real settledness through it, which is exactly what F1 requires, flipped every _finished_
+message to the permissive list. That is most of a transcript. The fix and the regression are the
+same line of code.
+
+The lesson is narrower and more useful than "be careful": **a boolean that drives two unrelated
+decisions will eventually be changed for one of them.** The prop was overloaded before this phase;
+F1 merely made the second meaning reachable. Settledness is about rendering, trust is about
+provenance, and model-generated content is untrusted whether or not the run has finished.
+
+Three more in the same fan-out, all found by _executing_ against the real installed packages rather
+than reading them:
+
+**The additions-only sanitize extension could express three different removals.** An empty
+`clobberPrefix` disables DOM-clobbering protection entirely, because `hast-util-sanitize` gates
+prefixing on truthiness — `{"id":"user-content-body"}` becomes `{"id":"body"}`, which is the exact
+vector the prefix exists to stop. A tag-specific attribute addition _deletes_ what the base granted
+that tag via the `'*'` fallback, because upstream consults the wildcard only when the tag-specific
+lookup returns null/undefined, and an array-valued property returns `[]` instead. And widening an
+already-allowed property is a silent no-op, because `findDefinition` returns on the first entry
+matching the property name and the merge put base entries first — so every later entry for that
+property is dead code.
+
+All three are the same root mistake: the merge was written against the _shape_ of the schema without
+modelling how the consumer actually _reads_ it. A schema merge is only additive with respect to a
+particular lookup algorithm.
+
+**The fence registry indexed a plain object with a model-controlled key.** The fence language comes
+off the `language-*` class, `defaultSchema` permits any such class, and `renderers?.[language] ?? BUILT_IN[language]`
+never falls through for a key that exists on `Object.prototype` — so a fence opened with the language
+`valueOf` throws during render.
+
+**The always-on sanitize pass broke every GFM footnote link.** `mdast-util-to-hast` already applies
+`user-content-` to both the id and the href; `hast-util-sanitize` then prefixes ids a second time and
+hrefs not at all, so every footnote anchor dangles. Neither package is wrong on its own — the bug
+only exists in their composition, which is the kind of defect no single-package test suite can hold.
+
+### Mutation testing became the standard, and it immediately paid
+
+After the first adversarial round found three tests that could not fail, every fix brief carried the
+same requirement: break the implementation in the specific way the test names, watch it fail, restore
+it, and report the pass/fail counts at each step.
+
+The composer lane's evidence is the model. It rewrote the clear-on-success test to probe
+`localStorage` — which the store writes synchronously — instead of `input().value`, then moved the
+clear above the `onSubmit` call and observed 20 pass / 1 fail. It then went further and appended a
+scratch test carrying the OLD `input().value` probe, re-applied the same mutation, and watched the
+old probe pass while the new one failed **in the same run**. That is not a claim that the test is
+better; it is a demonstration.
+
+The cost is small and the alternative is what this phase already saw twice: a competent author, a
+passing suite, a clean typecheck, and an untested acceptance criterion. Worth making the default for
+A1's idempotency work, where the invariants are the deliverable and a green suite proves the least.
+
+### Spec section 8 promised something the signature could not deliver
+
+The composer's `onSubmit` returns `void`, so Composer cannot observe an async failure — by the time a
+network error arrives, the draft is already cleared. The spec's promise ("a failed send does not eat
+what was typed") therefore held only for a _synchronous throw_, which is not the case that happens in
+production. The lane found this itself and documented it rather than fixing it, on the correct
+grounds that fixing it changes a public signature.
+
+Taking it now rather than later: B3 is the release that _sets_ Composer's contract, and the gate
+recorded for "after B4, before A3" exists precisely because the framework API is fixed at that point
+and getting it wrong costs a major, which is forbidden. A signature widened in 1.12.0 is free; the
+same widening after 1.13.0 is not.
+
+The shape matters as much as the decision. Naively awaiting the promise before clearing would leave
+the typed text in the box for the whole round trip — wrong for a chat composer, where the input is
+expected to clear the instant you hit send. So: `void | Promise<void>` (source-compatible, an
+existing void handler still assignable), clear optimistically, and **restore on rejection** — with
+"do not destroy user input" beating "restore at all costs" wherever the two conflict, since the user
+may have typed something new in the meantime.
+
+### B3 convergence checklist — LIVE, delete this section when B3 closes
+
+Nothing below is committed yet. Held for the convergence pass because these files are owned by no
+lane, or because the work spans files several lanes were mid-write on.
+
+**Barrels.** `src/content/index.ts` needs `SanitizeSchemaInput` (now the parameter type of the public
+`mergeSanitizeSchema`, so consumers cannot otherwise name it) and `MarkdownContentTrust`.
+`src/agent/index.ts` needs `createAdapterThreadsStore` + `threadsStoreAdapterContract` (values) and
+`ThreadsStoreAdapter`, `AdapterThreadsStoreOptions`, `ThreadsStoreAdapterContractCase` (types). Root
+`src/index.ts` needs the agent values plus `ComposerSubmit`/`ComposerAttachment`.
+`src/agent-chat/index.ts` is already complete.
+
+**Export surface.** Regenerate AFTER `make build` — the script imports the built `dist`. Only VALUE
+exports appear; type-only exports are erased by `Object.keys()` and adding them by hand fails the
+gate. Then `bunx oxfmt --write` on the JSON, which oxfmt owns and the generator formats differently.
+
+**`surfaces.ts` + generated `llms.txt` + drift-gated `AGENTS.md`.** One correction is mandatory, not
+cosmetic: all three currently describe `streaming` as the thing that restricts images. That is now
+false. `streaming` is a rendering mode; `contentTrust` is the security input; any surface rendering
+model output must pin `contentTrust="untrusted"`.
+
+**Test typechecking.** Remove the `src/**/*.test.ts(x)` excludes from
+`packages/basalt-ui/tsconfig.json` and clear the backlog. Deferred from every lane on purpose — the
+backlog spans files other lanes owned, so no single lane could have fixed it.
+
+**`tests/setup/dom.ts`.** Move the `document.fonts` shim there, next to the existing ResizeObserver
+and matchMedia shims. happy-dom ships no `document.fonts`, and Mantine v9's Textarea autosize calls
+`document.fonts.addEventListener` on mount, so every test rendering an autosize `Textarea` throws. It
+is currently shimmed locally at the top of one test file; the next lane to render a Textarea will
+otherwise hit the same wall and reinvent it.
+
+**CHANGELOG (1.12.0) — these go in the COMMIT BODIES, not in a file.**
+`packages/basalt-ui/CHANGELOG.md` is generated by `@semantic-release/changelog` from the commit
+messages, and is a release asset committed by `@semantic-release/git`. Hand-editing it would be
+overwritten at release. Three behaviour changes are not additive and must be written into the
+commits that introduce them:
+
+1. `contentTrust` is new, and `streaming` no longer governs the image allowlist.
+2. `Markdown`'s `a` override now forwards the sanitized attributes it previously dropped, so
+   footnote refs, `data-footnote-*`, `class` and `aria-*` reach the DOM. Visible change.
+3. The composed sanitize schema sets `clobberPrefix: ''`, and any consumer passing `rehypePlugins`
+   now has that output sanitized.
+
+**The `clobberPrefix: ''` trade, recorded because it looks contradictory.** basalt disables
+`hast-util-sanitize`'s id/name namespacing while simultaneously refusing to let a consumer disable
+it. That is coherent, and the reason should not have to be re-derived: `mdast-util-to-hast` has
+_already_ applied `user-content-` to both the id and the href before sanitize runs, so sanitize's
+layer is a redundant second pass that prefixes ids and not hrefs — which is precisely what broke every
+footnote link. Disabling the redundant layer restores the round trip; a consumer disabling it removes
+the only layer covering content they inject.
+
+The residue, verified by execution rather than assumed: a consumer who adds `rehype-raw` gets
+un-namespaced ids on injected elements. It does not bite basalt itself, because basalt parses no raw
+HTML — raw HTML with an id or name is dropped entirely, and footnote ids stay namespaced even with an
+attacker-chosen identifier. Both facts were executed, not reasoned. The alternative candidate
+(clearing remark-rehype's prefix instead) was built and measured too: it yields `href="#fn-1"` beside
+`id="user-content-fn-1"`, still dangling. Chosen on evidence.
+
+### A green test was pinning a false claim
+
+The F2 fix — making `remend` a lazy import so the root entry stops hard-requiring an optional peer —
+exposed a failure mode worth naming, because a gate cannot catch it by construction.
+
+`tests/required-peers.test.ts` asserts that `surfaces.ts`'s description mentions `remend` together
+with `required`. That test's intent is good: keep the hand-maintained surface docs honest about peer
+requirements. But once `remend` went lazy, the claim it was pinning became false — and the test
+stayed **green**, because `surfaces.ts` still carried the stale wording. Worse, `surfaces.ts`
+contradicted itself twenty lines apart: `remend` described as "required, not optional … imported
+eagerly" at one line, and "now a lazy optional peer" at another.
+
+Correcting the file alone would have turned a passing test red for entirely the right reason, which
+is the trap: the obvious reading of that failure is "my change broke a test", and the obvious fix is
+to revert. The two have to move together, and knowing that requires understanding what the test was
+_for_ rather than what it _checks_.
+
+A test that asserts documentation matches reality inverts the usual direction of trust — it fails
+when the docs drift, but it also silently enshrines whatever the docs said on the day it was written.
+When the underlying fact changes, the test becomes an active defender of the wrong answer.
+
+The related pattern, one layer up: the same file carried a deliberate tripwire asserting the static
+`remend` import _still existed_, with a comment instructing its own deletion in this phase. Firing
+correctly is what it was for. But "delete me" was the wrong instruction — a static import is trivially
+reintroduced by someone debugging, and the consequence is a root entry that hard-requires an optional
+peer again. It was inverted into a regression guard over all of `src/**` instead, precise enough to
+exclude the lazy `import('remend')` call and type-only imports while still catching a static
+re-export. A tripwire is worth more after it fires, not less.
+
+### Enabling test typechecking cost 97 errors and found two traps worth more than the errors
+
+`packages/basalt-ui/tsconfig.json` excluded `src/**/*.test.ts(x)`, so a green `typecheck` said nothing
+whatsoever about test code. Removing the excludes surfaced 97 errors. Ninety-six were in test files
+and were fixed; the ninety-seventh was a one-line consequence in `src/cli/index.ts` (an
+`@ts-expect-error` that no longer suppressed anything once Bun's globals entered the program).
+
+The backlog itself was mostly mechanical — missing `id` on mock-transport yields now that
+`AgentPart` requires one, test doubles missing `ThreadsStore`'s new `hydrated`/`error`,
+`noUncheckedIndexedAccess` on fixture indexing. The interesting part is that `Omit<Union, K>` does not
+distribute, so a test helper had silently collapsed a seven-state `ToolCallPart` down to the fields
+common to every state, dropping `input` and `output` from what it compared. That is a test asserting
+less than it appears to, and only the typechecker could see it.
+
+Two traps found on the way, both of which would have produced a confidently green non-result:
+
+**`"types": ["bun-types"]` silently disables semantic checking.** It is the obvious spelling, and it
+is wrong; the correct one is `["bun"]`. The wrong one emits a `TS2688` config error that does _not_
+prevent per-file diagnostics from being skipped — so the typecheck passes while checking nothing.
+Caught with a deliberate-error probe rather than assumed, which is the only way to catch it.
+
+**`bunx tsc` does not run the repo's pinned TypeScript.** There is no `tsc` in the root
+`node_modules/.bin`, so `bunx` fetches a fresh unrelated major (7.0.2 against a pinned 6.0.3) on every
+invocation. `bun run typecheck` uses the pin; `bunx tsc` does not. They agreed on this occasion, which
+is luck rather than a guarantee. Any validation that reports a typecheck result via `bunx tsc` is
+reporting a different compiler's opinion than CI will.
+
+### Disjointness has to hold for what an agent RUNS, not only what it EDITS
+
+B2's lesson was that parallel lanes must not share files. B3 found the next layer down.
+
+Two agents were dispatched in parallel on the strength of editing different files — one owned
+`tsconfig.json`, the other owned `scripts/pack-test.sh`. Genuinely disjoint on disk. But `pack-test.sh`
+_builds the package_, and the build reads `tsconfig.json`. The second agent watched its build fail
+repeatedly against a `tsconfig.json` that was visibly flapping between states as the first agent
+edited it, and had to construct a temporary known-good config to verify its own work honestly.
+
+It reported this clearly and separated it from its own result, which is the behaviour the briefs ask
+for. But the split was the orchestrator's error, not the worker's. The check before parallelising is
+not "do these agents write to the same paths" — it is "does either one _execute_ something that reads
+what the other writes". Build configs, lockfiles, generated artifacts and test setup files are all
+read by tooling that a nominally unrelated lane may invoke.
+
+### B3's gates, run as the repo's own scripts
+
+| Gate                                                       | Result                    |
+| ---------------------------------------------------------- | ------------------------- |
+| `make build`                                               | 0                         |
+| `bun run pre` (fmt:check + lint + typecheck + check-theme) | 0                         |
+| `bun test`, from the repo root                             | 1518 pass / 0 fail        |
+| `export-surface` regeneration                              | 7 insertions, 0 deletions |
+| `scripts/pack-test.sh`                                     | 0                         |
+
+The export-surface diff was verified semantically rather than by eye, as in B1: seven additions, zero
+removals, and every one a VALUE export. Type-only exports never appear in that snapshot because the
+generator reads `Object.keys()` of the built module — a worker's hand-off note had claimed the two new
+composer types needed registering there, which would have failed the gate. An adversarial reader
+caught it by auditing the hand-off note rather than the code.
+
+`pack-test.sh` now prints `F2 proof: root entry resolved and evaluated with remend NOT installed at
+all`. That is the guarantee F2 exists to deliver, asserted against the packed and installed artifact
+rather than the source that produces it — the difference between "no static import appears in our
+tree" and "the thing we shipped actually works without the peer".
+
+### The playground gate earned its cost again, and found the slot that cannot be written to
+
+Every framework gate was green — `bun run pre` 0, 1518 tests passing, `make build` 0, `pack-test` 0 —
+before the playground demos were built. The gate then found three things, one of which would have
+shipped a decorative API.
+
+**`Composer.leftSection` has no way to write into the composer.** The spec's own example is
+`leftSection={<VoiceRecordButton onTranscript={appendToDraft} />}`, and `appendToDraft` does not
+exist. The draft lives in a module-scoped store keyed by `draftKey`, closed over inside
+`composer.tsx`, with nothing exported to read or write it — the only exported door,
+`readPersistedValue`, is read-only. The demo author could not build that half honestly and said so
+rather than faking it with local state.
+
+This is the whole point of the release. Composer grew slots in 1.12.0 _because_ A5 re-mounts argo's
+voice layer into them; a recorder that transcribes speech and cannot put the text in the box is not a
+slot. And the API is frozen shortly after — the recorded gate for "after B4, before A3" exists because
+a later correction costs a major, which this repo forbids. It had to land now or not at all.
+
+Unit tests could not have caught this. Every test of `leftSection` passes a `ReactNode` and asserts it
+renders, which it does. The defect is not in the behaviour of the code; it is in what the code makes
+possible, and that is only visible to someone trying to build the thing the API was designed for.
+
+**A consumer's fence renderer that throws takes the message down.** `settledOnly` calls `render(ctx)`
+unconditionally once settled, and there is no way for a renderer to decline. Fence bodies come from a
+language model, so malformed content is routine, not exceptional — a `vega-lite` fence with invalid
+JSON is a Tuesday. This is the third instance in this phase of the same rule (`spliceText` clamps
+rather than throws; `coalesceParts` lost its runtime `assertNever`), and the argument is identical:
+render-path code must not turn a transient content anomaly into a permanently dead transcript. Worth
+stating as a standing invariant for this layer rather than rediscovering it a fourth time.
+
+**A note on the gate's own scope.** `bun run check-theme` reads `basalt.roots` from package.json and
+scans `packages/basalt-ui/src` only — it does not cover `apps/playground`. The demo author ran oxlint
+over the playground separately and found two `basalt/card-inset` violations that the framework's own
+theme guard would never have reported. Not a defect in this release, but the guard's coverage is
+narrower than "run the repo's gate" implies, and a consumer-shaped tree is exactly where house-law
+drift is most likely.
