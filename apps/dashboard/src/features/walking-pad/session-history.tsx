@@ -61,6 +61,7 @@ export function SessionHistoryTable() {
           {data.total} session{data.total === 1 ? '' : 's'} total
         </Text>
       </Group>
+      {/* theme-allow — capped-height table body with a sticky header owns its own scroll node; a ScrollArea would clip the sticky thead's positioning context. */}
       <Box style={{ maxHeight: TABLE_BODY_MAX_HEIGHT, overflowX: 'auto', overflowY: 'auto' }}>
         <Table verticalSpacing="xs" striped highlightOnHover stickyHeader>
           <Table.Thead>

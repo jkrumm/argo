@@ -162,6 +162,7 @@ function HermesChatFeed() {
 
   return (
     <Stack h={FILL_HEIGHT} gap={0} style={{ margin: BLEED_MARGIN }}>
+      {/* theme-allow — scrollRef reads scrollTop/scrollHeight directly for scrollToBottom(); ScrollArea's viewport is an internal implementation detail, not a ref-able node. */}
       <Box ref={scrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         <Stack gap={0} mih="100%" justify="flex-end">
           {ordered.length === 0 ? (

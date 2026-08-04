@@ -49,6 +49,7 @@ export class ErrorBoundary extends Component<Props, State> {
           </Alert>
 
           {import.meta.env.DEV && error.stack && (
+            // theme-allow — crash-fallback stack trace: renders when something upstream broke, so it stays a plain scrollable node rather than depending on ScrollArea/theme context that may itself be implicated.
             <Code block style={{ fontSize: VX.text.micro, maxHeight: 280, overflow: 'auto' }}>
               {error.stack}
             </Code>

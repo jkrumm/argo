@@ -1,6 +1,7 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 import { and, asc, count, desc, eq, isNull } from 'drizzle-orm'
+// basalt-agent-allow — deliberate per locked decision D3: apps/api stays on ai@5 and imports no basalt-ui; the v5/v7 skew is neutralized producer-side in A1 by a TransformStream rewriting finishReason 'unknown' -> 'other', never by upgrading apps/api (docs/HERMES-CHAT-V2.md).
 import {
   convertToModelMessages,
   createIdGenerator,
@@ -10,6 +11,7 @@ import {
   UI_MESSAGE_STREAM_HEADERS,
   type UIMessage,
 } from 'ai'
+// basalt-agent-allow — deliberate per locked decision D3: apps/api stays on ai@5, whose provider package is @ai-sdk/openai-compatible@1.x; the rule flags every @ai-sdk/* import here because this package declares ai@5, and the v5/v7 skew is neutralized producer-side in A1, never by upgrading apps/api (docs/HERMES-CHAT-V2.md).
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { db } from '../db/index.js'
 import {

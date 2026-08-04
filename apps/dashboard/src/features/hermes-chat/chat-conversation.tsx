@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+// basalt-agent-allow — legacy raw useChat transport — removed in A3, when this file is rebuilt on basalt's useAgentThreadRuns + aiSdkTransport (docs/HERMES-CHAT-V2.md).
 import { useChat } from '@ai-sdk/react'
 import { isTextUIPart } from 'ai'
 import { useQueryClient } from '@tanstack/react-query'
@@ -218,6 +219,7 @@ export function ChatConversation({
     transport,
     // Recover an in-flight turn after a dropped connection or reload: fires a GET
     // to /hermes/chat/:id/stream on mount (204 when nothing is streaming).
+    // basalt-agent-allow — legacy raw resume — removed in A3; basalt's useAgentThreadRuns owns single-consumer resume, and the transport itself moves in A2 (docs/HERMES-CHAT-V2.md).
     resume: true,
     onData: (dataPart) => {
       if (dataPart.type !== 'data-toolProgress') return

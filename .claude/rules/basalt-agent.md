@@ -257,6 +257,20 @@ composer) on the right, collapsing to a single pane below 768px. The lower-level
 `threadPartRenderers`) are exported too for bespoke layouts. Motion (feed insert, panel slide) runs
 on the shared `MOTION_*` tokens and honours `useReducedMotion`.
 
+`ThreadFeed` also takes a `variant` (`'outcome'`, the default above, or `'inline'` for
+`ThreadFeedRow`, the Slack-style row that expands in place instead of opening a separate detail
+panel — lazily mounted on first expand, then kept mounted and hidden via CSS on every collapse
+after that) and a `renderRow` override that takes priority over `variant` entirely, for full control
+over live-run wiring (`onSend`/`onStop`/`liveParts`/`liveStatus`) the built-in `'inline'` row
+doesn't expose on its own; wire a real `onSend` on `ThreadFeed` itself to make the built-in row's
+composer usable, or omit it and the row's composer renders disabled rather than a live control that
+silently discards input. `ThreadTranscript` also takes `groupConsecutive` (suppresses role
+label/chrome on same-speaker runs), a per-message `affordances` contract (timestamp/copy/regenerate/
+custom actions), and an optional `virtualize`/`height` windowing mode for very long threads. A
+windowed transcript owns its own scroll node (never nest it in `BasaltStickToBottom`) and scrolls
+itself to the newest message once on mount — `virtualize={{ initialScroll: 'start' }}` opts out, and
+is what a consumer restoring its own saved scroll position wants so the two don't fight.
+
 **Boundary:** the headless layer (`createThreadsStore`, `useAgentThreadRuns`, the outcome types)
 stays Mantine-free in `./agent`; the components are Mantine-coupled and ship from `./agent-chat`
 (also re-exported from the root entry). Never add `@mantine/*` under `src/agent/**` — it is

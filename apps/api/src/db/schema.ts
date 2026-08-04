@@ -10,6 +10,7 @@ import {
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
+// basalt-agent-allow — deliberate per locked decision D3: apps/api stays on ai@5 and imports no basalt-ui; the v5/v7 skew is neutralized producer-side in A1 by a TransformStream rewriting finishReason 'unknown' -> 'other', never by upgrading apps/api (docs/HERMES-CHAT-V2.md).
 import type { UIMessagePart, UIDataTypes, UITools } from 'ai'
 
 const argoSchema = pgSchema('argo')

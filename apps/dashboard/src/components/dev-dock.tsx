@@ -61,6 +61,7 @@ export function DevToolsPanel({ tool, onClose }: { tool: DevTool | null; onClose
           <IconX size={15} />
         </ActionIcon>
       </Group>
+      {/* theme-allow — hosts third-party devtools panels sized to height: 100%; they need a real overflow ancestor, not ScrollArea's custom viewport. */}
       <Box style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         {tool === 'router' && (
           <TanStackRouterDevtoolsPanel
