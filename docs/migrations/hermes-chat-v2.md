@@ -1984,3 +1984,124 @@ The countermeasure that works is the same in all three cases and costs almost no
 instrument is pointed at the right thing before trusting what it says.** Verification tasks in this
 program now carry an explicit "state the URL, state which app, state that you started the server"
 preamble for that reason.
+
+### The review round: eleven findings, six real, and three rejected on a false premise
+
+CodeRabbit reviewed the release branch. Eleven actionable findings, ruled: **six fixed, five
+rejected.** The rejections are the more instructive half, because three of them were rejected for
+the same reason — the finding's _premise_ was wrong, not its concern.
+
+- **The export-surface manifest "missing" four names.** `scripts/export-surface.mjs:42-45` imports
+  the **built `dist/` entry** and lists `Object.keys()`. Type-only exports are erased by the build,
+  so `ThreadFeedRowProps`, `VirtualizeProps`, `VirtualizeOptions` and `MessageAffordances` — all
+  `export type` — cannot appear there. Their absence is the manifest working. The earlier B4 audit
+  ("two additions, both the same new VALUE export, no type-only export leaked") was re-tested and
+  confirmed: `dist/agent-chat/index.js` exports exactly nine names, matching `export-surface.json`
+  byte for byte, and the four sync tests pass 45/0.
+- **"Use the shared degraded-crypto ID helpers" in the playground.** `mintThreadId`/`mintMessageId`
+  are not exported — the `./agent` barrel re-exports only `withPartIds` from `id.ts` — so the
+  playground cannot call them across the package boundary at all. The finding also counted four call
+  sites where there are 53 across 15 files, and the playground is always a secure context
+  (localhost + Caddy TLS), so `crypto.randomUUID` is never undefined there.
+- **"Add explicit return types to the exported page components."** One of sixty exported demo pages
+  carries `: JSX.Element`. Annotating only the four new files would have manufactured the
+  inconsistency it claimed to fix.
+
+The fourth rejection is worth recording on its own, because the proposed fix was this phase's own
+worst defect, offered back as a remedy. A second review pass asked for `throw new RangeError` at the
+top of `buildLongThread` to reject a non-integer `count`. Every one of its three callers passes a
+module-level constant inside `useMemo` or render — and this is the same package where
+`formatRelativeTime` throwing on the render path blanked the entire transcript, because there is no
+error boundary anywhere in `agent/` or `agent-chat/`. **Adding a render-path throw to guard an
+unreachable input is a net loss.** Declined.
+
+The fifth, reduced-motion on the affordance row, is real doctrine but was deferred rather than
+rejected: the written rule (`agent/rules/basalt-mantine.md:358-364`) is scoped to the `motion/react`
+JSX-prop layer, the shipped guard's regex (`src/guard/index.ts:184-186`) deliberately excludes
+CSS-string transitions and says so in a comment, and fourteen in-package sites hardcode
+`120ms ease`. Fixing the one flagged line would have made `thread-message.tsx` the outlier. The
+honest fix is a class-wide `prefers-reduced-motion` block following `controls.module.css:209-213`.
+
+### The release's own fix had introduced a worse failure than the one it fixed
+
+The highest-value finding: **a failed initial load rendered a loading skeleton forever.**
+
+`adapter.ts:343` is the only `hydrated = true` in the package, and the `catch` at `:348-355` sets
+`error` and never touches `hydrated`. `ThreadWorkspace` rendered `FeedHydratingState` on
+`!hydrated && threads.length === 0`, and **no component under `src/agent-chat/**`read`store.error`at all** — the sole`.error`match was`part.errorText`in`tool-chip.tsx`, unrelated.
+
+What makes it more than an oversight is that the contract already specified the fix.
+`thread.ts:146-147` documents the exact discriminant — "`!hydrated && error !== undefined` is a
+failed load, `!hydrated && error === undefined` is still loading" — and three lines later asserts
+that "the shipped `ThreadWorkspace` already does it internally." It did not. The package documented
+a distinction it never made.
+
+This shipped in `f00bf6d`, on this branch: **the D1 hydration-flash fix.** Before it, a failed load
+showed "No threads yet" — wrong, but terminal and legible. After it, an indefinite skeleton that
+implies work in progress. The four tests added alongside it cover `{hydrating,empty}`,
+`{hydrating,populated}`, `{hydrated,empty}` and the sync store; **none constructs
+`error !== undefined`.** The playground masked it too, rendering its own error text _outside_
+`ThreadWorkspace`.
+
+Fixed by splitting the `!hydrated` arm on `store.error !== undefined`, with an optional
+`errorState?: ReactNode` override. Retry was deliberately **not** added: an optional additive member
+on `ThreadsStore` stays legal after the freeze, so `refresh()` can be a later minor, whereas getting
+the store interface wrong now is expensive. A failed load is therefore legible but still
+reload-only.
+
+The generalisation was asked for explicitly this time rather than left implicit, and the sweep came
+back clean: `thread-detail-panel.tsx:148-159` already branches `status === 'error'` into an Alert
+with Retry, and `OutcomeSkeleton` gates only on `pending`/`streaming`. One instance, not a class.
+
+### A peer range that was one patch too low, and the crash it would have caused
+
+`package.json:193` declared `@tanstack/react-virtual >=3 <4`. `thread-message.tsx:886-895` calls
+`virtualizer.scrollToEnd({ behavior: 'auto' })` with no `typeof` guard, on the **default** path
+(`initialScroll` defaults to `'end'`), inside a layout effect — and the lazy-import `.catch()` at
+`:930` covers import _rejection_ only. So an old-but-present peer does not degrade to the documented
+unwindowed pane; it throws a `TypeError` that escapes into render.
+
+Verified from downloaded, size-asserted tarballs rather than a changelog: all four APIs
+(`scrollToEnd`, `anchorTo`, `followOnAppend`, `scrollEndThreshold`) land together in
+`@tanstack/virtual-core` **3.16.0** and are absent in 3.15.0 (`dist/esm/index.d.ts`, 190 lines vs
+178). The pin mapping is the non-obvious part: `react-virtual@3.13.25 → core 3.15.0` but
+`3.13.26 → core 3.16.0`, so the floor is **3.13.26**, not the 3.14.0 the version numbers suggest.
+
+Raised to `>=3.13.26 <4` and mirrored in `pack-test.sh:78` and the regenerated `llms.txt`.
+
+### What the convergence pass caught this time
+
+Reading the combined diff rather than the report found one thing the lane missed, and it is the same
+shape as the demo constant pinned to a pre-fix value: **three shipped source files still documented
+the old range as their own requirement** — `src/data/index.ts:10`, `src/data/virtual-list.tsx:4` and
+`src/data/virtual.ts:5`, all saying `>=3 <4`. `src/` ships in the tarball, so those were false
+statements in the published artifact the moment the peer moved.
+
+The nuance that makes them worth more than a search-and-replace: npm allows one peer range per
+package, `BasaltVirtualList` genuinely works on any 3.x, and the floor exists only because
+`./agent-chat` needs it. A reader who noticed that could reasonably "fix" the range back down. Each
+comment now says why the floor is what it is and not to lower it. Folded into the peer commit rather
+than shipped as a follow-up.
+
+### Gates, and a CI failure that was two different failures
+
+Exit codes read by hand, not taken from a report: `make build` 0, `bun run pre` 0, `bun test`
+**1669 pass / 0 fail** across 83 files (1668 + the one new regression test), `pack-test` 0,
+`oxlint apps/playground/src` 0, playground typecheck 0.
+
+The branch's CI failed twice, for two unrelated reasons, and only the first was diagnosed in the
+handover:
+
+1. **`@tanstack/react-table` 9.0.0, published the same day.** `pack-test.sh` installed the scratch
+   consumer with an open-ended `>=8` while the declared peer is `>=8 <9`; v9 dropped the
+   `getCoreRowModel` export and the export-surface snapshot died on it. Fixed by pinning the
+   consumer inside the ranges it declares.
+2. **`bun pm pack` non-deterministically omitted `configs/oxlint.json` from the tarball.** Re-running
+   the _identical_ commit passed. Same bun 1.3.14 in both runs and locally; the file is tracked,
+   unignored, and inside `files`; no code delta could touch tarball contents. Given the assertion
+   order it was most likely the whole `configs/` directory.
+
+The second is worth keeping in view but is not a supply risk: the real publish path is
+`npm publish --access public` (`.github/workflows/publish.yml:56`), which uses npm's packer, not
+bun's. It is a CI-gate reliability problem — and a reminder that **a gate can fail for a reason that
+has nothing to do with the change under test**, which is exactly when a tired reader force-merges.
