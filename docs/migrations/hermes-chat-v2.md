@@ -2105,3 +2105,54 @@ The second is worth keeping in view but is not a supply risk: the real publish p
 `npm publish --access public` (`.github/workflows/publish.yml:56`), which uses npm's packer, not
 bun's. It is a CI-gate reliability problem — and a reminder that **a gate can fail for a reason that
 has nothing to do with the change under test**, which is exactly when a tired reader force-merges.
+
+### B4 closed — 1.13.0 published, and the round-trip found three sites nobody had counted
+
+`basalt-ui` **1.13.0** is published. The published tarball was checked rather than assumed, given the
+packer flake above: all nine `configs/` files present including `configs/oxlint.json` (the preset
+every consumer extends), the peer range shipping as `>=3.13.26 <4`, and 52 `dist/agent-chat/` files.
+The publish path is npm's packer, so the bun flake never reached it.
+
+Argo consumes it on `master` (`f354032`). `minimumReleaseAgeExcludes = ["basalt-ui"]` in the global
+bunfig meant the 3-day supply-chain cooldown did not have to be bypassed — the first-party exemption
+exists for exactly this.
+
+**The guard promotion breaks nine sites, not six.** The handover predicted four raw scroll
+containers plus the two agent rules in `chat-conversation.tsx`. All six were exactly where it said.
+What it did not carry is that **`ai-sdk-major` was promoted too**, and it fires three times in
+`apps/api` — `routes/hermes.ts:4`, `routes/hermes.ts:13`, `db/schema.ts:13`.
+
+Those three are a different kind of finding from the other six, and the distinction is the whole
+point of writing them down in code:
+
+- The dashboard pair is **debt with an end date**. Their comments name **A3** as the removal point,
+  so the migration has a checkpoint that a later reader can delete against.
+- The `apps/api` three are **not debt at all** — they are locked decision **D3**, which keeps
+  `apps/api` on `ai@5` permanently and neutralizes the skew producer-side in A1 with a
+  `TransformStream` rewriting `finishReason: 'unknown'` → `'other'`. A bare suppression there would
+  read as "someone was lazy" and invite exactly the upgrade D3 exists to forbid, so each says so.
+
+Two things worth carrying beyond this phase:
+
+**`ai-sdk-major` has no type-only carve-out, and its sibling does.** `db/schema.ts:13` is
+`import type { UIMessagePart, UIDataTypes, UITools } from 'ai'` — erased at build, incapable of
+producing the runtime `Unknown chunk type` the rule's own message warns about. `agent-no-raw-usechat`
+explicitly exempts type-only imports (it is a row in the spec's own fixture table). `ai-sdk-major`
+appears to lack the equivalent. Not worth reopening a published release for — argo suppresses it
+either way — but it belongs in a later minor.
+
+**The allow-comment matcher reads the comment that carries the token, not the comment block.** A
+four-line `//` comment whose first line held `basalt-agent-allow` did **not** suppress: each `//`
+line is its own comment node, the matcher requires the _token-bearing_ one to end on the node's line
+or the line directly above, and the token was three lines too early. Lint stayed red with a comment
+that looked correct. Caught by re-running the gate rather than by reading the diff — the same lesson
+this phase keeps re-learning, in its cheapest possible form. Keep these suppressions on one line.
+
+Also corrected during the convergence pass: the first attempt at the
+`@ai-sdk/openai-compatible` comment said it sat "under the same locked major" as `ai@5`. It is
+declared at `1.0.39` — major **1**. The rule fires there because the _package_ declares `ai@5`, not
+because the provider shares that major. A wrong comment on a suppression is worse than no comment,
+because the next reader trusts it.
+
+**A1 is unblocked**, carrying the corrected premise from the prod walk: P1's "duplication is
+render-only" verdict is true of the data and false of the wire.
