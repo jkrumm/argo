@@ -1914,3 +1914,73 @@ following only applies within the threshold. A less careful walk would have logg
 fire" as a defect in `followOnAppend`. Instead it scrolled to the bottom first, got a clean result,
 and then asked the better question: _why was it not at the bottom to begin with?_ **The most valuable
 finding of the gate came from a test that initially appeared to fail for the wrong reason.**
+
+### The fix for the ruling was itself broken, and the tests said it worked
+
+`initialScroll` shipped its first implementation with every gate green — `make build` 0, `bun run
+pre` 0, 1666 tests passing, `pack-test` 0 — and it did not work. All three virtualized pages opened
+at message #1, deterministically, 8 of 8 fresh loads.
+
+Captured by hooking `Element.prototype.scrollTo` before page script, with stack traces, identical
+every run:
+
+```
+{top: 0,     via: _willUpdate(anchor)}        after=0        ← element attach
+{top: 79440, via: scrollToEnd(initialScroll)} after=79440    ← the fix fires and lands
+{top: 0,     via: _willUpdate(anchor)}        after=0        ← clobbered ~1ms later
+```
+
+virtual-core's `_scrollToOffset` sets an _intended_ offset and never `this.scrollOffset`, which only
+updates from the async `scroll` event — so the next commit's anchor branch writes the stale zero back
+over it. The guard had already marked itself applied, so nothing retried.
+
+**The two halves were a clean controlled A/B of one mechanism.** Mounted hidden, the initial scroll
+defers to a later commit, lands after the anchor write has settled, and works — verified at seven
+separate timings. Mounted visible, it fires inside the first commit burst, races that same write, and
+loses. The retry path built for an edge case was carrying the whole feature; the common path had no
+protection at all.
+
+**And the unit tests were right about something that was not the thing.** They assert that
+`scrollToEnd` was _called_, and it is called. The assertion is true; the feature does not work.
+happy-dom has no layout or scroll engine, so effect is unobservable there — and the lane said exactly
+that, declined to write a test that would look like coverage, and flagged it for the browser gate.
+That is the distinction worth keeping: this is not one of the tests that quietly could not fail. It
+is a test that proves intent, honestly labelled as proving intent, in a codebase where intent and
+effect had never been shown to diverge until they did.
+
+The fix is verify-then-settle: the scroll is not considered applied when it fires, only when a real
+`scrollTop`/`scrollHeight`/`clientHeight` read on a later commit confirms it survived, re-firing if
+clobbered, bounded by an attempt cap so it can never fight a moving target forever. Gates
+re-verified by hand afterwards: build 0, `pre` 0, `bun test` 1668 pass / 0 fail, `pack-test` 0.
+
+### An environment fact this program has been carrying wrong
+
+**The playground dev server aliases `basalt-ui` to `packages/basalt-ui/src`, not `dist`** —
+`apps/playground/vite.config.ts:11-14`, with a comment saying the playground is deliberately the
+everyday iteration surface on source. Earlier notes in this record and in the handover said the
+playground consumes the built `dist`, and several rounds spent effort rebuilding "so the browser walk
+does not test stale code". For the **dev server** that was never necessary.
+
+It remains true, and separately, that `check-theme` and the playground's `typecheck` read the built
+`dist` — so `make build` is still a real gate, and a `tsc`-only error in a test file is still
+invisible to `bun test`. The correction is narrow but worth making precisely, because "rebuild before
+the browser walk" was being applied as a general rule derived from a fact about a different command.
+
+### Three ways a browser check has now gone wrong
+
+Worth listing together, because each failed _silently_ and each would have produced a confident wrong
+answer:
+
+1. **The chrome-devtools MCP served results from another client's page.** Its selected page is global
+   to the shared server; `select_page` → `evaluate_script` returned well-formed output from an
+   entirely different site. Nothing errors.
+2. **A grep against a file `curl` had failed to download.** An empty file greps clean, so an absent
+   pattern read as a confident "not present".
+3. **A verification agent drove the wrong application.** Dispatched to check the playground on
+   :7710, it ended up on a different project's dev server on :7715 and reported findings about an
+   unrelated page.
+
+The countermeasure that works is the same in all three cases and costs almost nothing: **assert the
+instrument is pointed at the right thing before trusting what it says.** Verification tasks in this
+program now carry an explicit "state the URL, state which app, state that you started the server"
+preamble for that reason.
