@@ -1862,3 +1862,55 @@ third round running, on files a lane never ran `oxfmt` over — its report liste
 and, accurately, never claimed `oxfmt`. The lesson is not that the lanes are careless; it is that
 **"all green" in a report means "green on the checks I chose to run"**, and only the repo's own
 script settles it.
+
+### The re-walk: fixed, not moved — and the fix proved causally
+
+Both serious defects are closed, and the walk went out of its way to establish that rather than
+observing an absence.
+
+**The phantom run could not be recreated by any route.** Eight were tried — reload mid-stream, SPA
+navigate away and back, send-then-reload at 60ms, collapse mid-stream, reset mid-stream, two
+concurrent runs then reload, an instant Stop before any content arrived, and browser back/forward.
+Every one left all three rows expandable with an enabled composer. Stop now appears mid-stream, halts
+the stream, and re-enables the composer.
+
+**The poisoned cache holds across 13 collapse cycles**, with `scrollTop` 15,094, `getTotalSize()`
+31,963 and top-visible message #96 byte-identical every cycle, plus the adjacent cases the original
+report never covered: collapsing at the very top, at the very bottom, and 60ms after expanding before
+rows have measured. The number that confirms the mechanism is that `getTotalSize()` **while
+collapsed** also reads 31,963 — the guard is holding last-good sizes rather than committing the zero.
+
+**And the scrollbar fix was proved causally, not just observed.** Setting `estimateSize` back to 96
+reproduces the old pathology on demand: total size grows **+62.9%** across a descent and the thumb
+shrinks to 0.61×, against −1.0% at the shipped 160. That is the difference between "the symptom went
+away" and "we know what caused it, and we can turn it back on."
+
+`anchorTo: 'end'` was finally observed, on the demo built for it. Streaming from the bottom held
+distance-from-bottom at 0 across the whole run. Scrolled up 700px mid-stream, **`scrollTop` drifted
+by exactly 0 across 40 samples over 16 seconds** while the live row grew — the viewport held.
+Scrolling back down resumed following with no extra click. The one behaviour that had shipped on a
+research note is now the best-evidenced thing in the release.
+
+### The gate found one more thing, and it was an owner call
+
+**A virtualized transcript mounts at the oldest message**, and a consumer cannot change it — no
+initial scroll, no ref, no imperative handle, and `VirtualizeOptions` is `{ overscan, estimateSize }`
+only. `anchorTo`/`followOnAppend` keep you pinned once you are within 64px of the bottom; neither
+gets you there.
+
+Not a regression, and nothing in `virtualize.ts`, `AGENTS.md` or `llms.txt` claims otherwise. But it
+is the same shape as B3's `Composer.leftSection`: an API that looks complete and cannot do the thing
+a consumer actually needs. A chat transcript that opens at the oldest message is wrong for chat, A3
+rebuilds argo's dashboard on this API, and the API freezes after this release — so "ship it and
+revisit" meant a major, which this repo forbids.
+
+**Johannes ruled: open at the newest message by default, with a prop to opt out.**
+`VirtualizeOptions` gains `initialScroll?: 'end' | 'start'`, defaulting to `'end'`. Type-only export,
+so the runtime surface does not move.
+
+Worth noting how it was found. The walker's first attempt at the anchor test produced nothing —
+`followOnAppend` correctly did nothing, because a fresh load lands 8,913px from the bottom and
+following only applies within the threshold. A less careful walk would have logged "follow did not
+fire" as a defect in `followOnAppend`. Instead it scrolled to the bottom first, got a clean result,
+and then asked the better question: _why was it not at the bottom to begin with?_ **The most valuable
+finding of the gate came from a test that initially appeared to fail for the wrong reason.**
