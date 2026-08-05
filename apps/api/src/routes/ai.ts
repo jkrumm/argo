@@ -1,7 +1,7 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 import { join } from 'node:path'
-import { tracedFetch } from '../lib/traced-fetch.js'
+import { tracedFetch, type TraceOptions } from '../lib/traced-fetch.js'
 import { env } from '../env.js'
 import { recordAiUsage, type RecordUsageFn } from '../lib/ai-usage.js'
 import { log } from '../telemetry.js'
@@ -30,9 +30,16 @@ import {
 /**
  * Minimal fetch shape (no `preconnect`) — matches `tracedFetch`, so the gateway
  * and its tests share one transport type and a fake upstream is trivial to
- * inject.
+ * inject. The optional third `traceOptions` param mirrors `tracedFetch`'s own
+ * signature so call sites can opt a proxy into `streamLifecycle: true`; a test
+ * stub that only declares `(input, init)` remains assignable (the extra param
+ * stays optional).
  */
-export type FetchImpl = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
+export type FetchImpl = (
+  input: string | URL | Request,
+  init?: RequestInit,
+  traceOptions?: TraceOptions,
+) => Promise<Response>
 
 /** Injectable upstream config so tests can point at fake endpoint / audio-gateway. */
 export interface AiRouteDeps {
@@ -253,11 +260,15 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
         // `model` in the body wins. Routing to the EU-resident IU endpoint is
         // what keeps the request GDPR-compliant regardless of the model field.
         const payload = { model: deps.deepseekModel, ...(body as Record<string, unknown>) }
-        const res = await deps.fetchImpl(joinUrl(deps.deepseekBaseURL, '/chat/completions'), {
-          method: 'POST',
-          headers: { 'content-type': 'application/json', ...bearer(deps.deepseekApiKey) },
-          body: JSON.stringify(payload),
-        })
+        const res = await deps.fetchImpl(
+          joinUrl(deps.deepseekBaseURL, '/chat/completions'),
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', ...bearer(deps.deepseekApiKey) },
+            body: JSON.stringify(payload),
+          },
+          { streamLifecycle: true },
+        )
         return new Response(res.body, {
           status: res.status,
           headers: proxyHeaders(res.headers, 'application/json'),
@@ -299,10 +310,14 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
           } else if (value !== null && value !== undefined) form.append(key, String(value))
         }
         // Do NOT set Content-Type — fetch sets the multipart boundary automatically.
-        const upstream = await deps.fetchImpl(`${deps.audioGatewayUrl}/v1/audio/transcriptions`, {
-          method: 'POST',
-          body: form,
-        })
+        const upstream = await deps.fetchImpl(
+          `${deps.audioGatewayUrl}/v1/audio/transcriptions`,
+          {
+            method: 'POST',
+            body: form,
+          },
+          { streamLifecycle: true },
+        )
         const headers = new Headers()
         headers.set('content-type', upstream.headers.get('content-type') ?? 'application/json')
         return new Response(upstream.body, { status: upstream.status, headers })
@@ -331,11 +346,15 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
             },
           })
         }
-        const upstream = await deps.fetchImpl(`${deps.audioGatewayUrl}/v1/audio/speech`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(body),
-        })
+        const upstream = await deps.fetchImpl(
+          `${deps.audioGatewayUrl}/v1/audio/speech`,
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body),
+          },
+          { streamLifecycle: true },
+        )
         const headers = new Headers()
         headers.set('content-type', upstream.headers.get('content-type') ?? 'audio/mpeg')
         const audioTitle = upstream.headers.get('x-audio-title')
@@ -377,11 +396,15 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
         const startMs = Date.now()
 
         // Only send `input` — the audio-gateway owns model selection.
-        const upstream = await deps.fetchImpl(`${deps.audioGatewayUrl}/v1/audio/speech`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ input: script }),
-        })
+        const upstream = await deps.fetchImpl(
+          `${deps.audioGatewayUrl}/v1/audio/speech`,
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ input: script }),
+          },
+          { streamLifecycle: true },
+        )
 
         if (!upstream.ok) {
           const detail = await upstream.text().catch(() => '')

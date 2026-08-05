@@ -34,6 +34,7 @@ import { skinfoldLogRoutes } from './routes/skinfold-log.js'
 import { walkingPadRoutes } from './routes/walking-pad.js'
 import { usageRoutes } from './routes/usage.js'
 import { readingRoutes } from './routes/reading.js'
+import { wildriftRoutes } from './routes/wildrift.js'
 import { userProfileRoutes } from './routes/user-profile.js'
 import { gymRoutes } from './routes/gym.js'
 import { workoutDraftRoutes } from './routes/workout-draft.js'
@@ -144,12 +145,12 @@ export function buildApp() {
               {
                 name: 'External Data',
                 description:
-                  'Third-party read-only data feeds (currently: weather via Open-Meteo, geocoded).',
+                  'Third-party read-only data feeds: weather via Open-Meteo (geocoded), and Wild Rift (League of Legends: Wild Rift) champion win/pick/ban rates from public Tencent endpoints (China server only).',
               },
               {
                 name: 'Hermes Chat',
                 description:
-                  'Thread-first chat surface backed by the Hermes agent core over its OpenAI-compatible API. Argo owns the verbatim transcript (threads + messages in Postgres); Hermes owns compressed agent state per session id. Covers the streaming chat proxy, thread/message reads, and the Hermes-hosted audio range proxy. Powers the Hermes Chat dashboard page.',
+                  'Thread-first chat surface backed by the Hermes agent core over its named-event SSE API (`POST /api/sessions/{id}/chat/stream`). Argo owns the verbatim transcript (threads + messages in Postgres); Hermes owns compressed agent state per session id. Covers the streaming chat proxy and thread/message reads. Powers the Hermes Chat dashboard page.',
               },
               {
                 name: 'AI Gateway',
@@ -272,6 +273,7 @@ export function buildApp() {
       .use(walkingPadRoutes)
       .use(usageRoutes)
       .use(readingRoutes)
+      .use(wildriftRoutes)
       .use(hermesRoutes)
       .use(aiRoutes)
   )

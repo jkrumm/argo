@@ -1,18 +1,16 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 import { and, asc, count, desc, eq, isNull, sql } from 'drizzle-orm'
-// basalt-agent-allow — deliberate per locked decision D3: apps/api stays on ai@5 and imports no basalt-ui; the v5/v7 skew is neutralized producer-side in A1 by a TransformStream rewriting finishReason 'unknown' -> 'other', never by upgrading apps/api (docs/HERMES-CHAT-V2.md).
+import { SpanStatusCode, type Span } from '@opentelemetry/api'
+// basalt-agent-allow — deliberate per locked decision D3: apps/api stays on ai@5 and imports no basalt-ui; the v5/v7 skew is neutralized producer-side by hermes-chunks.ts (which only ever emits legal ai@5 finish reasons) and defensively by finish-reason-transform.ts, never by upgrading apps/api (docs/HERMES-CHAT-V2.md).
 import {
-  convertToModelMessages,
   createIdGenerator,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  streamText,
   UI_MESSAGE_STREAM_HEADERS,
   type UIMessage,
+  type UIMessageChunk,
 } from 'ai'
-// basalt-agent-allow — deliberate per locked decision D3: apps/api stays on ai@5, whose provider package is @ai-sdk/openai-compatible@1.x; the rule flags every @ai-sdk/* import here because this package declares ai@5, and the v5/v7 skew is neutralized producer-side in A1, never by upgrading apps/api (docs/HERMES-CHAT-V2.md).
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { db } from '../db/index.js'
 import {
   hermesMessage,
@@ -22,26 +20,43 @@ import {
   type HermesThreadType,
   type MessageParts,
   type MessagePayload,
+  type ToolEvent,
 } from '../db/schema.js'
 import { tracedFetch } from '../lib/traced-fetch.js'
-import { filterToolProgress, type ToolProgressData } from '../lib/hermes-sse.js'
+import {
+  ensureHermesSession,
+  openHermesChatStream,
+  buildHermesMessageContent,
+  type FetchImpl,
+} from '../lib/hermes-upstream.js'
+import { parseHermesEvents } from '../lib/hermes-events.js'
+import { createHermesChunkMapper } from '../lib/hermes-chunks.js'
+import {
+  clearActiveStream,
+  turnAlreadyPersisted,
+  resumeOrDead,
+  claimActiveStream,
+  createDrizzleThreadPointerStore,
+  createDrizzleTurnLedger,
+} from '../lib/hermes-streams.js'
 import { getHermesStreaming, type HermesStreaming } from '../lib/resumable.js'
-import { finishReasonTransform } from '../lib/finish-reason-transform.js'
+import { rewriteUnknownFinishReason } from '../lib/finish-reason-transform.js'
 import { aiComplete } from './ai.js'
 import { recordAiUsage, type RecordUsageFn } from '../lib/ai-usage.js'
 import { env } from '../env.js'
-import { log } from '../telemetry.js'
+import { log, tracer } from '../telemetry.js'
 
 // Hermes Chat — thread-first chat surface backed by the Hermes agent core over
-// its OpenAI-compatible API. Argo owns the verbatim transcript (hermes_thread +
-// hermes_message); Hermes owns compressed agent state per X-Hermes-Session-Id.
+// its named-event SSE API (`POST /api/sessions/{id}/chat/stream`). Argo owns
+// the verbatim transcript (hermes_thread + hermes_message); Hermes owns
+// compressed agent state per session id.
 //
-// POST /hermes/chat streams a Vercel-AI-SDK UIMessageStream to the client while
-// proxying to Hermes /v1/chat/completions over Tailscale (bearer stays
-// server-side). The raw upstream SSE is filtered for Hermes' custom
-// `hermes.tool.progress` events, which are injected as transient UI data parts.
-// On finish the user + assistant UIMessages are persisted to Postgres.
-// See docs/HERMES-CHAT-PRD.md.
+// POST /hermes/chat streams a Vercel-AI-SDK UIMessageStream to the client
+// while proxying to Hermes' named-event stream over Tailscale (bearer stays
+// server-side). Hermes' own wire protocol is parsed by hermes-events.ts and
+// translated to AI SDK chunks by hand via hermes-chunks.ts — there is no
+// OpenAI-compatible provider in this path anymore. On finish the user +
+// assistant UIMessages are persisted to Postgres. See docs/HERMES-CHAT-V2.md.
 
 const threadIdGen = createIdGenerator({ prefix: 'thr', size: 16 })
 const sessionIdGen = createIdGenerator({ prefix: 'ses', size: 24 })
@@ -49,11 +64,10 @@ const messageIdGen = createIdGenerator({ prefix: 'msg', size: 16 })
 // Resumable-stream id — unique per assistant turn; stored on hermes_thread.active_stream_id.
 const streamIdGen = createIdGenerator({ prefix: 'strm', size: 24 })
 
-/**
- * Minimal fetch shape (no `preconnect`) — matches both `tracedFetch` and the AI
- * SDK's `FetchFunction`, so the proxy and the provider share one transport type.
- */
-export type FetchImpl = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
+// `FetchImpl` is defined in lib/hermes-upstream.js (shared with `ensureHermesSession` /
+// `openHermesChatStream`) and re-exported here so existing call sites/tests keep importing it
+// from this module.
+export type { FetchImpl }
 
 /** Generate a short thread title from the first user+assistant exchange. */
 export type GenerateTitle = (input: { userText: string; assistantText: string }) => Promise<string>
@@ -278,24 +292,32 @@ async function summarizeThreadIfNeeded(
 // Per-turn attachment budget (defect 18's app-level half — the global
 // maxRequestBodySize backstop wired elsewhere only rejects an oversize body
 // before Elysia ever runs; it can't shape a JSON error). 8 attachments covers
-// "several photos from one shoot" with headroom. 24MB decoded total (~32MB
-// base64 on the wire) is deliberately ABOVE what the only current client
-// (the dashboard) can ever actually send — it caps a single attachment at 2MB
-// client-side (apps/dashboard/src/features/hermes-chat/chat-conversation.tsx),
-// so 8 attachments tops out at 16MB from that path. The extra headroom is for
-// an API-agent caller bypassing the dashboard's own limit, while still
-// bounding worst-case memory for a payload stored verbatim in a jsonb column
-// and echoed back on every transcript read.
+// "several photos from one shoot" with headroom. 7MB decoded total (~9.3MB
+// base64 on the wire) keeps every turn under Hermes' own 10MB request cap
+// (A2) — the prior 24MB budget exceeded it and could turn an Argo-accepted
+// turn into an upstream 413. The only current client (the dashboard) caps a
+// single attachment at 2MB client-side
+// (apps/dashboard/src/features/hermes-chat/chat-conversation.tsx), so 8
+// attachments tops out at 16MB from that path already above this budget —
+// the cap here is the binding constraint, not the dashboard's own limit. It
+// also bounds worst-case memory for a payload stored verbatim in a jsonb
+// column and echoed back on every transcript read.
 const MAX_ATTACHMENTS = 8
-const MAX_ATTACHMENT_BYTES_TOTAL = 24 * 1024 * 1024
+const MAX_ATTACHMENT_BYTES_TOTAL = 7 * 1024 * 1024
 
 /**
  * Rough decoded-byte estimate for one attachment: a `dataUrl`'s base64 payload
  * (image/file attachments) or a `content` string's UTF-8 length (text
  * attachments). Reads only these two known field names — the full `Attachment`
  * union is deliberately not modeled here (same opaque-parse precedent as
- * `messages` below); a shape that matches neither just contributes 0 to the
- * budget and is caught downstream by the DB layer's own type.
+ * `messages` below). Fails CLOSED for anything else: a shape matching neither
+ * field falls back to the JSON-serialized byte length of the whole attachment,
+ * rather than contributing 0. Zero was a real bypass — `attachments` is only
+ * validated as `z.array(z.unknown())` and persisted via a raw cast (see
+ * `buildMessagePayload`), so any bearer-token holder could send an
+ * unrecognized shape (`{"type":"file","blob":"<huge base64>"}`) and have it
+ * contribute nothing to the budget while being stored verbatim in the jsonb
+ * `payload` column.
  */
 function attachmentByteEstimate(a: unknown): number {
   if (typeof a !== 'object' || a === null) return 0
@@ -305,7 +327,15 @@ function attachmentByteEstimate(a: unknown): number {
     return Math.floor((b64.length * 3) / 4)
   }
   const content = (a as { content?: unknown }).content
-  return typeof content === 'string' ? Buffer.byteLength(content, 'utf8') : 0
+  if (typeof content === 'string') return Buffer.byteLength(content, 'utf8')
+  try {
+    return Buffer.byteLength(JSON.stringify(a), 'utf8')
+  } catch {
+    // Only reachable for a non-JSON-serializable value (e.g. a BigInt field) —
+    // can't happen for a body Elysia already parsed as JSON, but fail closed
+    // with a non-zero estimate rather than 0 if it ever does.
+    return MAX_ATTACHMENT_BYTES_TOTAL + 1
+  }
 }
 
 /**
@@ -477,48 +507,15 @@ async function ensureThread(
   return { threadId, sessionId: row?.session_id ?? sessionId }
 }
 
-/**
- * Clear a thread's active-stream pointer, but only if it still points at
- * `streamId` — the AND-guard avoids clobbering a newer turn that already
- * superseded it. Used to reap a stale pointer left by a crashed/restarted
- * producer (whose `onFinish` cleanup never ran).
- */
-async function clearActiveStream(threadId: string, streamId: string): Promise<void> {
-  await db
-    .update(hermesThread)
-    .set({ active_stream_id: null })
-    .where(and(eq(hermesThread.id, threadId), eq(hermesThread.active_stream_id, streamId)))
-}
-
 function turnStatus(aborted: boolean, errored: boolean): 'interrupted' | 'error' | 'complete' {
   if (aborted) return 'interrupted'
   if (errored) return 'error'
   return 'complete'
 }
 
-/**
- * True when a hermes_message row already exists for this (threadId,
- * clientMessageId) pair — i.e. this exact client-supplied turn id has already
- * been persisted at least once, by an earlier request's early-write or its
- * onFinish fallback. Mirrors the predicate of the partial unique index
- * `uq_hermes_message_thread_client_id` (schema.ts) exactly, so this can never
- * disagree with what `persistMessages`'s own `ON CONFLICT DO NOTHING` would
- * dedupe against.
- */
-async function turnAlreadyPersisted(threadId: string, clientMessageId: string): Promise<boolean> {
-  const existing = await db.query.hermesMessage.findFirst({
-    where: and(
-      eq(hermesMessage.thread_id, threadId),
-      eq(hermesMessage.client_message_id, clientMessageId),
-    ),
-    columns: { id: true },
-  })
-  return existing !== undefined
-}
-
 function buildMessagePayload(
   m: UIMessage,
-  toolEvents: ToolProgressData[],
+  toolEvents: ToolEvent[],
   audioDurationMs: number | undefined,
   sentAttachments: unknown[] | undefined,
 ): MessagePayload | null {
@@ -577,7 +574,7 @@ interface MessageEntry {
 async function persistMessages(args: {
   threadId: string
   entries: MessageEntry[]
-  toolEvents: ToolProgressData[]
+  toolEvents: ToolEvent[]
   userAudioDurationMs?: number
   attachments?: unknown[]
 }): Promise<void> {
@@ -619,102 +616,16 @@ async function persistMessages(args: {
   })
 }
 
-/**
- * Resolve a `resumeExistingStream` call to "live" (a stream) or "dead" (null),
- * collapsing a rejection (crashed-producer ~1s ack timeout — see resumable.ts)
- * into dead too. Both the POST claim (`isStreamLive`, 409s on live) and the GET
- * resume handler (reaps a dead pointer) call this so the two can never
- * independently drift on what "dead" means — which is exactly how the pointer-
- * reaping defect this replaces was introduced in the first place.
- */
-async function resumeOrDead(
-  streaming: HermesStreaming,
-  streamId: string,
-): Promise<ReadableStream<string> | null> {
-  try {
-    return await streaming.resumeExistingStream(streamId)
-  } catch (error) {
-    log.error('hermes resume failed (stale/timeout)', error)
-    return null
-  }
-}
-
-/**
- * Two-tier liveness probe. Tier 1 is the in-process registry (`has`) — true the
- * instant THIS process's `register()` has run for `streamId`, synchronously and
- * with no round trip. That closes the exact race this function used to lose: a
- * stream this process just claimed via `claimActiveStream` is registered BEFORE
- * the CAS write, so a second POST reading the freshly-written pointer always
- * finds `has()` already true — it can never observe "pointer set, not yet live".
- *
- * Tier 2 (only reached when tier 1 says no — this process never registered
- * `streamId`, e.g. it's stale or belongs to another replica) falls back to the
- * pub/sub probe: `resumeExistingStream` performs a real round trip against the
- * live producer (resumable-stream/dist/runtime.js `resumeStream` — a fresh,
- * randomly generated `listenerId` per call, so concurrent probes and a real
- * client resume never collide), so a resolved non-null stream means a producer
- * answered RIGHT NOW. We only need the yes/no, so the probe stream is cancelled
- * immediately; cancelling drops our listener channel without disturbing the
- * underlying resumable-stream broadcast (a genuine consumer of the same
- * streamId, e.g. the dashboard's actual resume GET, gets its own independent
- * listener and is unaffected). A stale/gone pointer — the case a change here
- * most easily breaks — still resolves to dead: `has()` is false (nothing
- * registered for it in this process) and the probe finds no producer either.
- */
-async function isStreamLive(streaming: HermesStreaming, streamId: string): Promise<boolean> {
-  if (streaming.has(streamId)) return true
-  const resumed = await resumeOrDead(streaming, streamId)
-  if (!resumed) return false
-  await resumed.cancel()
-  return true
-}
-
-/**
- * Claim a thread's active-stream pointer via a liveness-gated compare-and-swap.
- * A genuinely live existing stream is left untouched (the caller 409s instead of
- * superseding it — see the standing ruling in the route). A dead or absent
- * pointer is atomically overwritten by `streamId`: the UPDATE's WHERE clause
- * pins the exact previously-observed value (or `IS NULL`), so if a second racing
- * POST already won between our read and this write, our UPDATE matches zero
- * rows and we lose cleanly instead of clobbering the winner's fresh pointer.
- *
- * Multi-process honesty: liveness is answered two-tier by `isStreamLive` — the
- * in-process registry first (authoritative for what THIS process itself just
- * registered, no round trip, no race — see its doc), then `resumeExistingStream`
- * as the only cross-process signal `HermesStreaming` exposes. A live producer in
- * another replica publishing over the same Valkey pub/sub answers that probe
- * correctly; an unreachable/slow replica collapses to "dead" via the ~1s ack
- * timeout in `resumeOrDead`. Argo runs single-instance (resumable.ts's own module
- * doc: durability does not survive a restart), so "producer crashed" is the far
- * likelier explanation for a stuck pointer than "producer is a live replica that
- * hasn't acked yet" — treating a timeout as dead is the honest choice for this
- * deployment, not merely the convenient one.
- */
-async function claimActiveStream(
-  streaming: HermesStreaming,
-  threadId: string,
-  streamId: string,
-): Promise<boolean> {
-  const existing = await db.query.hermesThread.findFirst({
-    where: eq(hermesThread.id, threadId),
-    columns: { active_stream_id: true },
-  })
-  const existingId = existing?.active_stream_id ?? null
-  if (existingId && (await isStreamLive(streaming, existingId))) return false
-
-  const claimCondition = existingId
-    ? eq(hermesThread.active_stream_id, existingId)
-    : isNull(hermesThread.active_stream_id)
-  const claimed = await db
-    .update(hermesThread)
-    .set({ active_stream_id: streamId })
-    .where(and(eq(hermesThread.id, threadId), claimCondition))
-    .returning({ id: hermesThread.id })
-  return claimed.length > 0
-}
+// The CAS-claim / liveness-probe / resume-or-dead helpers (`clearActiveStream`,
+// `turnAlreadyPersisted`, `resumeOrDead`, `isStreamLive`, `claimActiveStream`)
+// moved to lib/hermes-streams.js (Phase A1) so they can be exercised in memory
+// without Postgres — see that module's doc comments for the multi-process
+// honesty argument and the register-before-CAS ordering. Imported above.
 
 export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
   const deps = { ...defaultDeps(), ...overrides }
+  const threadPointerStore = createDrizzleThreadPointerStore(db)
+  const turnLedger = createDrizzleTurnLedger(db)
 
   return new Elysia({ name: 'hermes', prefix: '/hermes' })
     .get(
@@ -754,8 +665,9 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
       '/chat',
       async ({ body, request, server, status }) => {
         // Unconfigured upstream → fail clean. Without this, an empty baseURL lets
-        // streamText connect to an invalid URL, surfacing as a mid-stream error
-        // and persisting a broken (empty) assistant turn. Mirrors /health.
+        // `ensureHermesSession`/`openHermesChatStream` try to connect to an invalid
+        // URL, surfacing as a mid-stream error and persisting a broken (empty)
+        // assistant turn. Mirrors /health.
         if (!deps.baseURL) {
           return status(503, {
             error: 'hermes_unconfigured',
@@ -771,7 +683,6 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
         const newTurn = uiMessages[uiMessages.length - 1]
         if (!newTurn) throw new Error('No message in request')
 
-        const toolEvents: ToolProgressData[] = []
         const audioDurationMs = body.userAudioDurationMs
         const sentAttachments = body.attachments
         const clientMessageId = readClientMessageId(newTurn)
@@ -839,7 +750,11 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
           // success path below is the only path that must NOT unregister.
           let claimed: boolean
           try {
-            claimed = await claimActiveStream(durable, threadId, streamId)
+            claimed = await claimActiveStream(
+              { store: threadPointerStore, streaming: durable },
+              threadId,
+              streamId,
+            )
           } catch (error) {
             durable.unregister(streamId)
             throw error
@@ -877,7 +792,10 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
         // narrows that to a real, present id) — an API-agent caller sending none
         // behaves exactly as it does today. Replaying the prior turn's result is
         // explicitly out of scope: the caller re-reads the transcript.
-        if (clientMessageId && (await turnAlreadyPersisted(threadId, clientMessageId))) {
+        if (
+          clientMessageId &&
+          (await turnAlreadyPersisted(turnLedger, threadId, clientMessageId))
+        ) {
           // This request's own CAS claim above (if durable) already staked
           // active_stream_id on `streamId` — release both sides of that claim
           // before bailing, or it leaks exactly like BLOCKING 1's unhandled-throw
@@ -885,9 +803,13 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
           if (durable) {
             durable.unregister(streamId)
             try {
-              await clearActiveStream(threadId, streamId)
+              await clearActiveStream(threadPointerStore, threadId, streamId)
             } catch (error) {
-              log.error('hermes duplicate-turn claim release failed', error)
+              log.error('hermes duplicate-turn claim release failed', error, {
+                threadId,
+                streamId,
+                runId: undefined,
+              })
             }
           }
           return status(409, {
@@ -937,97 +859,244 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
           log.error(
             'hermes user turn early persist failed (falling back to turn-finish write)',
             error,
+            { threadId, streamId, runId: undefined },
           )
         }
+
+        // Set once the mapper is created inside `execute` — read by `onError`
+        // (a sibling callback, not nested inside `execute`) and by `onFinish`'s
+        // log calls so every log line on this turn can carry `runId` once it's
+        // known, without threading it through as a separate mutable variable.
+        const mapperRef: { current: ReturnType<typeof createHermesChunkMapper> | undefined } = {
+          current: undefined,
+        }
+        const runIdFor = (): string | undefined => mapperRef.current?.state.runId ?? undefined
 
         const stream = createUIMessageStream({
           originalMessages: [newTurn],
           generateId: messageIdGen,
           execute: async ({ writer }) => {
-            // Custom fetch: wrap the transport, filter the custom tool-progress
-            // channel out of the SDK-bound branch and into transient data parts.
-            const tappingFetch: FetchImpl = async (input, init) => {
-              const res = await deps.fetchImpl(input, init)
-              if (!res.body || !res.ok) return res
-              const filtered = filterToolProgress(res.body, (data) => {
-                toolEvents.push(data)
-                writer.write({ type: 'data-toolProgress', data, transient: true })
-              })
-              const headers = new Headers(res.headers)
-              // Body was already decoded by fetch; drop encoding/length so the
-              // SDK doesn't try to re-decompress the filtered stream.
-              headers.delete('content-encoding')
-              headers.delete('content-length')
-              return new Response(filtered, {
-                status: res.status,
-                statusText: res.statusText,
-                headers,
-              })
+            // Defensive no-op post-A2: hermes-chunks.ts's mapper only ever emits
+            // finishReason 'stop' (run.completed) or 'error' (error/upstream-ended-
+            // without-done) — both already legal in ai@7's accepted set — so this
+            // rewrite can never actually fire against this producer. Kept wired
+            // (locked decision, see finish-reason-transform.ts) in case that ever
+            // changes; there is no stream to `.pipeThrough(...)` anymore since
+            // chunks are written one at a time, so it's applied per-chunk instead.
+            const writeChunk = (chunk: UIMessageChunk): void => {
+              writer.write(rewriteUnknownFinishReason(chunk))
             }
 
-            const provider = createOpenAICompatible({
-              name: 'hermes',
-              baseURL: deps.baseURL,
-              ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
-              // FetchFunction is `typeof globalThis.fetch`; our middleware omits
-              // the unused `preconnect` member, so widen at the boundary.
-              fetch: tappingFetch as typeof fetch,
-            })
+            const hermesMessageContent = buildHermesMessageContent(newTurn.parts)
 
+            // Created BEFORE any upstream call (defect 2) — this is a pure,
+            // synchronous constructor with no side effects, so creating it
+            // early costs nothing. The AbortController is registered at the
+            // CAS claim, well before this point, so a stop can genuinely land
+            // while `ensureHermesSession`/`openHermesChatStream` are still in
+            // flight; the mapper must already exist so that window can be
+            // reported as an abort (see the catch below) instead of falling
+            // through `createUIMessageStream`'s own catch as a generic
+            // `{type:'error'}` — which would persist a deliberate stop as
+            // status `error` rather than `interrupted`.
+            const mapper = createHermesChunkMapper()
+            mapperRef.current = mapper
+
+            const traceAttributes = {
+              'argo.hermes.thread_id': threadId,
+              'argo.hermes.stream_id': streamId,
+              'argo.hermes.session_id': sessionId,
+            }
+            let hermesSpan: Span | undefined
             const usageStartedAt = new Date().toISOString()
             const usageStartMs = Date.now()
-            const result = streamText({
-              model: provider.chatModel(deps.model),
-              system: HERMES_DASHBOARD_SYSTEM_PROMPT,
-              messages: convertToModelMessages([newTurn]),
-              headers: {
-                'X-Hermes-Session-Id': sessionId,
-                'X-Hermes-Session-Key': body.sessionKey ?? deps.sessionKey,
-              },
-              abortSignal,
-              // The SDK's default retry (2 attempts) wraps doStream, which only
-              // resolves at response-headers time — so it can only retry a
-              // pre-stream failure (429/5xx/connection error), and only BEFORE any
-              // output has reached the client. Against Hermes specifically that
-              // window is after Hermes has already begun executing tools: a retry
-              // re-runs Hermes' side effects and duplicates its progress events.
-              // Not acceptable for a tool-executing agent — disable it outright
-              // (defect 7). A genuinely transient upstream hiccup surfaces as a
-              // normal failed turn instead, which the user can just retry.
-              maxRetries: 0,
-              // Record proxied-turn token usage into argo.usage_record
-              // (source='argo', sub_tool='hermes-proxy'). Fire-and-forget; skip
-              // when the upstream reports no token counts.
-              onFinish: ({ usage }) => {
-                if (usage.inputTokens === undefined && usage.outputTokens === undefined) return
-                const inputTokens = usage.inputTokens ?? 0
-                const outputTokens = usage.outputTokens ?? 0
-                void deps
-                  .recordUsage({
-                    model: deps.model,
-                    usage: {
-                      prompt_tokens: inputTokens,
-                      completion_tokens: outputTokens,
-                      total_tokens: usage.totalTokens ?? inputTokens + outputTokens,
-                    },
-                    subTool: 'hermes-proxy',
-                    startedAt: usageStartedAt,
-                    durationMs: Date.now() - usageStartMs,
+
+            let response: Response
+            try {
+              await ensureHermesSession({
+                fetchImpl: deps.fetchImpl,
+                baseURL: deps.baseURL,
+                apiKey: deps.apiKey,
+                sessionId,
+              })
+
+              response = await openHermesChatStream({
+                fetchImpl: deps.fetchImpl,
+                baseURL: deps.baseURL,
+                apiKey: deps.apiKey,
+                sessionId,
+                sessionKey: body.sessionKey ?? deps.sessionKey,
+                message: hermesMessageContent,
+                systemMessage: HERMES_DASHBOARD_SYSTEM_PROMPT,
+                model: deps.model,
+                signal: abortSignal,
+                traceOptions: {
+                  attributes: traceAttributes,
+                  onSpan: (span) => {
+                    hermesSpan = span
+                  },
+                  // Opt in to the stream-lifecycle span (defect 4/C4): this is
+                  // the one Hermes call that genuinely streams a body the
+                  // caller drains over minutes, unlike `ensureHermesSession`
+                  // (see its own doc comment for why that one stays default).
+                  streamLifecycle: true,
+                },
+              })
+            } catch (error) {
+              // Defect 2: an abort landing anywhere in the two calls above
+              // (session-open or the chat-stream open) throws — most commonly
+              // an AbortError once `openHermesChatStream`'s own `signal`
+              // fires — before the mapper's read loop below ever starts.
+              // Treat it as the deliberate stop it is rather than rethrowing
+              // into `onError` (which would mark the turn `error`).
+              if (abortSignal.aborted) {
+                for (const chunk of mapper.finalize('aborted')) writeChunk(chunk)
+                return
+              }
+              throw error
+            }
+            if (!response.body) throw new Error('Hermes chat stream returned no body')
+
+            // Manual span covering the STREAM LIFECYCLE of the turn: the client
+            // span (tracedFetch, above) already spans header-to-drain of the raw
+            // HTTP body, but an Elysia route handler's own span still closes at
+            // TTFB once it returns the streaming Response — without this, the
+            // server side would record a multi-second Hermes turn as a few ms.
+            await tracer.startActiveSpan(
+              'hermes.stream-lifecycle',
+              { attributes: traceAttributes },
+              async (lifecycleSpan) => {
+                try {
+                  const reader = parseHermesEvents(response.body!).getReader()
+                  const abortWait = new Promise<void>((resolve) => {
+                    if (abortSignal.aborted) {
+                      resolve()
+                      return
+                    }
+                    abortSignal.addEventListener('abort', () => resolve(), { once: true })
                   })
-                  .catch((err: unknown) => log.error('hermes proxy usage record failed', err))
+
+                  for (;;) {
+                    const outcome = await Promise.race([
+                      reader.read().then((r) => ({ kind: 'read' as const, r })),
+                      abortWait.then(() => ({ kind: 'abort' as const })),
+                    ])
+                    // Defect 1: ALWAYS fully process a `read` outcome when it's
+                    // the one that actually won the race, even if the abort
+                    // signal also happened to fire around the same tick — a
+                    // buffered `run.completed` (or `done`) sitting in the
+                    // reader must never be silently dropped just because a
+                    // stop request landed concurrently. Only take the abort
+                    // branch when the abort itself is what settled the race.
+                    if (outcome.kind === 'read') {
+                      const { done, value } = outcome.r
+                      if (done) {
+                        if (!mapper.state.sawDone) {
+                          for (const chunk of mapper.finalize('upstream-ended-without-done')) {
+                            writeChunk(chunk)
+                          }
+                        }
+                        break
+                      }
+                      if (value.type === 'run.started') {
+                        hermesSpan?.setAttribute('argo.hermes.run_id', value.env.runId)
+                      }
+                      for (const chunk of mapper.next(value)) writeChunk(chunk)
+                      if (value.type === 'done') {
+                        hermesSpan?.setAttribute('argo.hermes.seq_last', mapper.state.lastSeq)
+                      }
+                      continue
+                    }
+                    // `mapper.finalize('aborted')` is itself a no-op once the
+                    // turn already finished (`run.completed` landed in a prior
+                    // iteration) — see its own doc comment. That safety net is
+                    // what makes this branch correct even though the abort
+                    // race can keep winning on every subsequent iteration once
+                    // it has fired once (an already-settled Promise always
+                    // wins a fresh `Promise.race`).
+                    for (const chunk of mapper.finalize('aborted')) writeChunk(chunk)
+                    await reader.cancel().catch(() => {})
+                    break
+                  }
+                  lifecycleSpan.setStatus({ code: SpanStatusCode.OK })
+                } catch (error) {
+                  lifecycleSpan.recordException(error as Error)
+                  lifecycleSpan.setStatus({ code: SpanStatusCode.ERROR, message: String(error) })
+                  throw error
+                } finally {
+                  // Defect C6: a turn that silently dropped a tool output
+                  // (correlationMismatchCount) or hit malformed/unrecognized
+                  // upstream frames (parseErrorCount/unknownCount) produced
+                  // zero observable signal before this — surface it both as
+                  // span attributes and a warn log, same shape as the
+                  // existing 'hermes proxy usage missing' pattern below.
+                  const { correlationMismatchCount, parseErrorCount, unknownCount } = mapper.state
+                  if (correlationMismatchCount > 0 || parseErrorCount > 0 || unknownCount > 0) {
+                    lifecycleSpan.setAttribute(
+                      'argo.hermes.correlation_mismatch_count',
+                      correlationMismatchCount,
+                    )
+                    lifecycleSpan.setAttribute('argo.hermes.parse_error_count', parseErrorCount)
+                    lifecycleSpan.setAttribute('argo.hermes.unknown_count', unknownCount)
+                    log.warn('hermes stream had diagnostic anomalies', {
+                      threadId,
+                      streamId,
+                      runId: runIdFor(),
+                      correlationMismatchCount,
+                      parseErrorCount,
+                      unknownCount,
+                    })
+                  }
+                  lifecycleSpan.end()
+                }
               },
-            })
-            // ai@5's finishReason has 7 values; the dashboard (ai@7) strictly
-            // accepts only 6 and rejects the 7th ('unknown') outright — see
-            // finish-reason-transform.ts for the full citation trail (D3/D4).
-            writer.merge(result.toUIMessageStream().pipeThrough(finishReasonTransform()))
+            )
+
+            // Record proxied-turn token usage into argo.usage_record
+            // (source='argo', sub_tool='hermes-proxy'), sourced from the mapper's
+            // `run.completed` state rather than an SDK onFinish callback. A
+            // missing usage is logged (not silently skipped) — a silent stop in
+            // usage_record rows would otherwise be invisible.
+            if (mapper.state.usage) {
+              const usage = mapper.state.usage
+              void deps
+                .recordUsage({
+                  model: mapper.state.model ?? deps.model,
+                  usage: {
+                    prompt_tokens: usage.inputTokens,
+                    completion_tokens: usage.outputTokens,
+                    total_tokens: usage.totalTokens,
+                  },
+                  subTool: 'hermes-proxy',
+                  startedAt: usageStartedAt,
+                  durationMs: Date.now() - usageStartMs,
+                })
+                .catch((err: unknown) =>
+                  log.error('hermes proxy usage record failed', err, {
+                    threadId,
+                    streamId,
+                    runId: runIdFor(),
+                  }),
+                )
+            } else {
+              log.debug('hermes proxy usage missing at turn end', {
+                threadId,
+                streamId,
+                runId: runIdFor(),
+              })
+            }
           },
           onError: (error) => {
             streamErrored = true
-            log.error('hermes chat stream failed', error)
+            log.error('hermes chat stream failed', error, {
+              threadId,
+              streamId,
+              runId: runIdFor(),
+            })
             return 'Hermes stream error'
           },
           onFinish: async ({ messages, isAborted }) => {
+            const toolEvents = mapperRef.current?.state.toolEvents ?? []
             let persisted = false
             try {
               // Anchor the assistant row(s) strictly after the user row even if
@@ -1079,10 +1148,14 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
                 log.error(
                   'hermes transcript persist failed: assistant reply lost forever (user message was already persisted; no retry, no dead-letter)',
                   error,
-                  { dataLoss: true, threadId },
+                  { dataLoss: true, threadId, streamId, runId: runIdFor() },
                 )
               } else {
-                log.error('hermes transcript persist failed', error)
+                log.error('hermes transcript persist failed', error, {
+                  threadId,
+                  streamId,
+                  runId: runIdFor(),
+                })
               }
             } finally {
               // Release the durable stream regardless of persist outcome: drop the
@@ -1091,9 +1164,13 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
               if (durable) {
                 durable.unregister(streamId)
                 try {
-                  await clearActiveStream(threadId, streamId)
+                  await clearActiveStream(threadPointerStore, threadId, streamId)
                 } catch (error) {
-                  log.error('hermes active_stream_id clear failed', error)
+                  log.error('hermes active_stream_id clear failed', error, {
+                    threadId,
+                    streamId,
+                    runId: runIdFor(),
+                  })
                 }
               }
             }
@@ -1104,10 +1181,18 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
             // text to work from.
             if (!isAborted && !streamErrored) {
               titleThreadIfNeeded(threadId, deps.generateTitle).catch((error) =>
-                log.error('hermes auto-title failed', error),
+                log.error('hermes auto-title failed', error, {
+                  threadId,
+                  streamId,
+                  runId: runIdFor(),
+                }),
               )
               summarizeThreadIfNeeded(threadId, deps.generateSummary).catch((error) =>
-                log.error('hermes auto-summarize failed', error),
+                log.error('hermes auto-summarize failed', error, {
+                  threadId,
+                  streamId,
+                  runId: runIdFor(),
+                }),
               )
             }
           },
@@ -1154,7 +1239,7 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
           tags: ['Hermes Chat'],
           summary: 'Stream a chat turn through the Hermes agent core',
           description:
-            "Proxies the new user turn to Hermes `/v1/chat/completions` (SSE) over Tailscale with the bearer kept server-side, and streams back a Vercel-AI-SDK UIMessageStream. Hermes holds conversation history per `X-Hermes-Session-Id`, so only the latest turn is forwarded. Hermes' custom `hermes.tool.progress` events are injected as transient `data-toolProgress` parts (live progress; not persisted). The user turn is persisted immediately (before generation starts); the assistant turn on completion. Pass `threadId` to continue a thread; omit it to start a fresh one. Response is `text/event-stream`, not JSON. When durable streaming is enabled the generation is decoupled from this connection — a dropped client can resume via `GET /hermes/chat/{id}/stream`. Returns `409 stream_in_progress` if a turn is already generating for the thread — stop it first. Returns `409 duplicate_turn` when the request's UIMessage id (used as `client_message_id`) was already persisted on a completed turn on this thread — the turn is not replayed; re-read it via GET /hermes/threads/{id}/messages. Returns `422 attachment_limit_exceeded` when `attachments` exceeds the per-turn count or total-size budget — the response never echoes the offending attachments back.",
+            "Proxies the new user turn to Hermes' named-event chat stream (`POST /api/sessions/{id}/chat/stream`, SSE) over Tailscale with the bearer kept server-side, and streams back a Vercel-AI-SDK UIMessageStream. Hermes holds conversation history per session, so only the latest turn is forwarded (the session is created idempotently on every turn). Hermes' own `tool.started`/`tool.completed`/`tool.failed` events drive both durable tool-call parts and a transient `data-toolProgress` part mirroring the legacy live-progress channel; a `tool.progress` (`_thinking`) event drives a distinct `data-hermesThinking` transient part. The user turn is persisted immediately (before generation starts); the assistant turn on completion. Pass `threadId` to continue a thread; omit it to start a fresh one. Response is `text/event-stream`, not JSON. When durable streaming is enabled the generation is decoupled from this connection — a dropped client can resume via `GET /hermes/chat/{id}/stream`. Returns `409 stream_in_progress` if a turn is already generating for the thread — stop it first. Returns `409 duplicate_turn` when the request's UIMessage id (used as `client_message_id`) was already persisted on a completed turn on this thread — the turn is not replayed; re-read it via GET /hermes/threads/{id}/messages. Returns `422 attachment_limit_exceeded` when `attachments` exceeds the per-turn count or total-size budget — the response never echoes the offending attachments back.",
           security: [{ BearerAuth: [] }],
         },
       },
@@ -1182,7 +1267,7 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
         // reap and that 409 can't independently disagree on "is this stream alive".
         const resumed = await resumeOrDead(streaming, activeStreamId)
         if (!resumed) {
-          await clearActiveStream(params.id, activeStreamId)
+          await clearActiveStream(threadPointerStore, params.id, activeStreamId)
           return new Response(null, { status: 204 })
         }
         return new Response(resumed, {
@@ -1218,7 +1303,9 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
         // gone after a restart (the in-process registry is empty), so no onFinish
         // will ever clear it. Reap it so resume/stop stop tripping over it. A live
         // abort instead clears the pointer via its own onFinish.
-        if (activeStreamId && !stopped) await clearActiveStream(params.id, activeStreamId)
+        if (activeStreamId && !stopped) {
+          await clearActiveStream(threadPointerStore, params.id, activeStreamId)
+        }
         return { ok: true, stopped }
       },
       {

@@ -38,15 +38,105 @@ afterEach(async () => {
 
 const HERMES_KEY = 'SUPER_SECRET_HERMES_KEY'
 
-/** A canned Hermes OpenAI SSE stream: role → "Hello" → tool.progress → " world" → stop. */
-function hermesSseBody(): ReadableStream<Uint8Array> {
+// ── Hermes named-event wire fixtures (Phase A2) ──────────────────────────────
+//
+// Every fake transport below speaks the REAL wire protocol verified against
+// Hermes v0.19.1: `event: <name>\ndata: <json>\n\n` frames over
+// `POST /api/sessions/{id}/chat/stream`, gated by a `POST /api/sessions`
+// session-create call that must answer 201 or 409 before the stream call is
+// reachable. `buildApp` below always passes `baseURL: 'http://hermes.test/v1'`,
+// so the origin every fixture must recognize is `http://hermes.test`.
+
+function toUrl(input: string | URL | Request): string {
+  return typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+}
+
+/** True for the session-create call (`POST {origin}/api/sessions`), false for
+ * the chat-stream call (`POST {origin}/api/sessions/{id}/chat/stream`). */
+function isSessionCreateUrl(url: string): boolean {
+  return url.endsWith('/api/sessions')
+}
+
+function sseFrame(event: string, data: Record<string, unknown>): string {
+  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
+}
+
+function envelope(sessionId: string, runId: string, seq: number): Record<string, unknown> {
+  return { session_id: sessionId, run_id: runId, seq, ts: Date.now() }
+}
+
+/** Answer `POST {origin}/api/sessions` with the given status (201 by default). */
+function sessionCreateResponse(status = 201): Response {
+  return new Response(
+    status === 409 ? JSON.stringify({ error: { code: 'session_exists' } }) : null,
+    {
+      status,
+    },
+  )
+}
+
+interface CapturedRequest {
+  url: string
+  headers: Headers
+  body: string | undefined
+}
+
+/**
+ * A canned successful Hermes turn: run.started → message.started →
+ * assistant.delta "Hello" → tool.started (web_search) → tool.completed →
+ * assistant.delta " world" → assistant.completed → run.completed (with a
+ * matching tool result + usage) → done. Mirrors the pre-A2 fixture's shape
+ * ("Hello" + tool progress + " world" + stop) in the new wire format.
+ */
+function hermesSuccessBody(opts?: {
+  sessionId?: string
+  runId?: string
+  messageId?: string
+}): ReadableStream<Uint8Array> {
+  const sessionId = opts?.sessionId ?? 'ses-hermes-1'
+  const runId = opts?.runId ?? 'run-1'
+  const messageId = opts?.messageId ?? 'msg-1'
+  let seq = 0
+  const env = () => envelope(sessionId, runId, ++seq)
   const frames = [
-    'data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n',
-    'data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}\n\n',
-    'event: hermes.tool.progress\ndata: {"tool":"web_search","emoji":"🔎","label":"Searching the web","toolCallId":"tc1","status":"running"}\n\n',
-    'data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}\n\n',
-    'data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n',
-    'data: [DONE]\n\n',
+    sseFrame('run.started', env()),
+    sseFrame('message.started', { ...env(), message: { id: messageId } }),
+    sseFrame('assistant.delta', { ...env(), message_id: messageId, delta: 'Hello' }),
+    sseFrame('tool.started', {
+      ...env(),
+      message_id: messageId,
+      tool_name: 'web_search',
+      preview: 'Searching the web',
+      args: { query: 'weather' },
+    }),
+    sseFrame('tool.completed', { ...env(), message_id: messageId, tool_name: 'web_search' }),
+    sseFrame('assistant.delta', { ...env(), message_id: messageId, delta: ' world' }),
+    sseFrame('assistant.completed', {
+      ...env(),
+      message_id: messageId,
+      content: 'Hello world',
+      partial: false,
+      interrupted: false,
+    }),
+    sseFrame('run.completed', {
+      ...env(),
+      message_id: messageId,
+      messages: [
+        {
+          role: 'tool',
+          tool_call_id: 'unused',
+          tool_name: 'web_search',
+          content: JSON.stringify({ result: 'sunny' }),
+        },
+      ],
+      usage: {
+        input_tokens: 10,
+        output_tokens: 5,
+        total_tokens: 15,
+        runtime: { model: 'hermes-core' },
+      },
+    }),
+    sseFrame('done', env()),
   ]
   const encoder = new TextEncoder()
   return new ReadableStream<Uint8Array>({
@@ -57,23 +147,26 @@ function hermesSseBody(): ReadableStream<Uint8Array> {
   })
 }
 
-interface CapturedRequest {
-  url: string
-  headers: Headers
-}
-
-/** Build a fake Hermes transport plus a capture log of what it received. */
-function fakeHermes(): { fetchImpl: FetchImpl; calls: CapturedRequest[] } {
+/** Build a fake Hermes transport plus a capture log of what it received. Every
+ * `POST /api/sessions` call answers `sessionCreateStatus` (201 by default). */
+function fakeHermes(opts?: { sessionCreateStatus?: number }): {
+  fetchImpl: FetchImpl
+  calls: CapturedRequest[]
+} {
   const calls: CapturedRequest[] = []
   const fetchImpl: FetchImpl = (input, init) => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    const url = toUrl(input)
     const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : {}))
-    calls.push({ url, headers })
+    const body = typeof init?.body === 'string' ? init.body : undefined
+    calls.push({ url, headers, body })
     if (url.endsWith('/health')) {
       return Promise.resolve(new Response('ok', { status: 200 }))
     }
+    if (isSessionCreateUrl(url)) {
+      return Promise.resolve(sessionCreateResponse(opts?.sessionCreateStatus))
+    }
     return Promise.resolve(
-      new Response(hermesSseBody(), {
+      new Response(hermesSuccessBody(), {
         status: 200,
         headers: { 'content-type': 'text/event-stream' },
       }),
@@ -160,11 +253,13 @@ describe('POST /hermes/chat', () => {
     const text = await res.text()
     expect(text).not.toContain(HERMES_KEY)
 
-    const chatCall = calls.find((c) => c.url.endsWith('/chat/completions'))
+    const chatCall = calls.find((c) => c.url.endsWith('/chat/stream'))
     expect(chatCall).toBeDefined()
+    expect(chatCall?.url).toContain('/api/sessions/ses_test_auth/chat/stream')
     expect(chatCall?.headers.get('authorization')).toBe(`Bearer ${HERMES_KEY}`)
-    expect(chatCall?.headers.get('x-hermes-session-id')).toBe('ses_test_auth')
     expect(chatCall?.headers.get('x-hermes-session-key')).toBe('agent:main:test')
+    // No X-Hermes-Session-Id header — the session id lives in the URL path (A2).
+    expect(chatCall?.headers.has('x-hermes-session-id')).toBe(false)
   })
 
   it('persists the user + assistant turn verbatim on finish', async () => {
@@ -197,7 +292,8 @@ describe('POST /hermes/chat', () => {
     expect(assistantText).toBe('Hello world')
 
     // Tool-progress event captured into the assistant payload (not the transcript).
-    expect(assistant?.payload?.toolEvents?.[0]?.toolCallId).toBe('tc1')
+    expect(assistant?.payload?.toolEvents?.[0]?.tool).toBe('web_search')
+    expect(assistant?.payload?.toolEvents?.[0]?.label).toBe('Searching the web')
 
     // Thread row exists and its updated_at was touched.
     const thread = await db.query.hermesThread.findFirst({
@@ -249,8 +345,8 @@ describe('POST /hermes/chat', () => {
     )
     await res.text()
 
-    const chatCall = calls.find((c) => c.url.endsWith('/chat/completions'))
-    expect(chatCall?.headers.get('x-hermes-session-id')).toBe('ses_original')
+    const chatCall = calls.find((c) => c.url.endsWith('/chat/stream'))
+    expect(chatCall?.url).toContain('/api/sessions/ses_original/chat/stream')
   })
 })
 
@@ -262,7 +358,8 @@ describe('POST /hermes/chat', () => {
 // the 422's `found` field, roughly doubling peak memory on exactly the request
 // the cap exists to reject. These pin both halves: the reject itself, and that
 // the response never contains the attachment payload. Mirrors the constants in
-// hermes.ts (MAX_ATTACHMENTS = 8, MAX_ATTACHMENT_BYTES_TOTAL = 24MB).
+// hermes.ts (MAX_ATTACHMENTS = 8, MAX_ATTACHMENT_BYTES_TOTAL = 7MB — lowered
+// from 24MB in A2 so base64 stays under Hermes' own 10MB request cap).
 describe('attachment budget (defect 18 / C2)', () => {
   it('rejects more than 8 attachments with 422, without echoing them, before any upstream call or write', async () => {
     const { fetchImpl, calls } = fakeHermes()
@@ -286,15 +383,15 @@ describe('attachment budget (defect 18 / C2)', () => {
     // The whole point of the fix: the offending payload never comes back.
     expect(bodyText).not.toContain('attachment-payload-marker')
 
-    expect(calls.find((c) => c.url.endsWith('/chat/completions'))).toBeUndefined()
+    expect(calls.find((c) => c.url.endsWith('/chat/stream'))).toBeUndefined()
     expect(await db.query.hermesMessage.findMany()).toHaveLength(0)
   })
 
-  it('rejects attachments whose combined content size exceeds the 24MB budget, without echoing them', async () => {
+  it('rejects attachments whose combined content size exceeds the 7MB budget, without echoing them', async () => {
     const { fetchImpl, calls } = fakeHermes()
     const app = buildApp(fetchImpl)
-    // Two text attachments whose content alone sums past the 24MB budget.
-    const bigContent = 'x'.repeat(13 * 1024 * 1024)
+    // Two text attachments whose content alone sums past the 7MB budget.
+    const bigContent = 'x'.repeat(4 * 1024 * 1024)
     const attachments = [
       { type: 'text', content: bigContent },
       { type: 'text', content: bigContent },
@@ -314,16 +411,16 @@ describe('attachment budget (defect 18 / C2)', () => {
     expect(bodyText.length).toBeLessThan(1000)
     expect(bodyText).not.toContain('xxxxxxxxxx')
 
-    expect(calls.find((c) => c.url.endsWith('/chat/completions'))).toBeUndefined()
+    expect(calls.find((c) => c.url.endsWith('/chat/stream'))).toBeUndefined()
     expect(await db.query.hermesMessage.findMany()).toHaveLength(0)
   })
 
-  it('rejects a dataUrl attachment whose base64 payload exceeds the 24MB budget (the byte-estimate branch), without echoing it', async () => {
+  it('rejects a dataUrl attachment whose base64 payload exceeds the 7MB budget (the byte-estimate branch), without echoing it', async () => {
     const { fetchImpl, calls } = fakeHermes()
     const app = buildApp(fetchImpl)
-    // Decoded size deliberately just over the 24MB budget; base64 length derived
+    // Decoded size deliberately just over the 7MB budget; base64 length derived
     // from the same (bytes * 4/3) relationship attachmentByteEstimate decodes.
-    const oversizedB64Length = Math.ceil(((24 * 1024 * 1024 + 1024) * 4) / 3)
+    const oversizedB64Length = Math.ceil(((7 * 1024 * 1024 + 1024) * 4) / 3)
     const marker = 'ATTACHMENT_PAYLOAD_MARKER'
     const dataUrl = `data:image/png;base64,${marker}${'A'.repeat(oversizedB64Length)}`
 
@@ -341,7 +438,7 @@ describe('attachment budget (defect 18 / C2)', () => {
     expect(bodyText).not.toContain(marker)
     expect(bodyText.length).toBeLessThan(1000)
 
-    expect(calls.find((c) => c.url.endsWith('/chat/completions'))).toBeUndefined()
+    expect(calls.find((c) => c.url.endsWith('/chat/stream'))).toBeUndefined()
     expect(await db.query.hermesMessage.findMany()).toHaveLength(0)
   })
 
@@ -358,6 +455,35 @@ describe('attachment budget (defect 18 / C2)', () => {
     )
     expect(res.status).toBe(200)
     await res.text()
+  })
+
+  it('rejects an unrecognized attachment shape (neither dataUrl nor content) that would otherwise bypass the budget as 0 bytes', async () => {
+    const { fetchImpl, calls } = fakeHermes()
+    const app = buildApp(fetchImpl)
+    // Neither `dataUrl` nor `content` — the old estimator counted this as 0
+    // bytes regardless of size, so a caller could smuggle an arbitrarily large
+    // payload straight into the jsonb `payload` column under any other field
+    // name. `blob` here is oversized enough that the JSON-stringified-length
+    // fallback must catch it.
+    const marker = 'UNRECOGNIZED_SHAPE_PAYLOAD_MARKER'
+    const oversizedBlob = 'A'.repeat(8 * 1024 * 1024)
+
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_attach_unrecognized_shape',
+        sessionId: 'ses_attach_unrecognized_shape',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+        attachments: [{ type: 'file', blob: `${marker}${oversizedBlob}` }],
+      }),
+    )
+    expect(res.status).toBe(422)
+    const bodyText = await res.text()
+    expect(JSON.parse(bodyText)).toMatchObject({ error: 'attachment_limit_exceeded' })
+    expect(bodyText).not.toContain(marker)
+    expect(bodyText.length).toBeLessThan(1000)
+
+    expect(calls.find((c) => c.url.endsWith('/chat/stream'))).toBeUndefined()
+    expect(await db.query.hermesMessage.findMany()).toHaveLength(0)
   })
 })
 
@@ -430,35 +556,50 @@ describe('auto-titling', () => {
 })
 
 /**
- * A fake Hermes whose stream emits the assistant role + partial content, then
- * aborts the client request signal and keeps trickling deltas (never sending a
- * finish) — simulating a client disconnect mid-response (the v1 "interrupted"
- * path). The trickle matters: streamText only observes the abort the next time
- * its upstream `reader.read()` resolves, so the stream must stay live.
+ * A fake Hermes whose stream emits run.started/message.started + a partial
+ * assistant.delta, then triggers `abort` and keeps trickling deltas (never
+ * sending assistant.completed/run.completed/done) — simulating a client
+ * disconnect mid-response (the v1 "interrupted" path). The route's own read
+ * loop races an abort-signal listener against `reader.read()`, so the trickle
+ * only needs to keep the upstream stream alive long enough for that race to
+ * resolve on the abort side.
  */
 function abortingHermes(abort: () => void): FetchImpl {
+  const sessionId = 'ses-abort'
+  const runId = 'run-abort'
+  const messageId = 'msg-abort'
+  let seq = 0
+  const env = () => envelope(sessionId, runId, ++seq)
   const encoder = new TextEncoder()
-  const delta = (content: string) =>
-    encoder.encode(
-      `data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{"content":${JSON.stringify(content)}},"finish_reason":null}]}\n\n`,
-    )
   return (input) => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    const url = toUrl(input)
     if (url.endsWith('/health')) return Promise.resolve(new Response('ok', { status: 200 }))
+    if (isSessionCreateUrl(url)) return Promise.resolve(sessionCreateResponse())
     let timer: ReturnType<typeof setInterval> | undefined
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
+        controller.enqueue(encoder.encode(sseFrame('run.started', env())))
+        controller.enqueue(
+          encoder.encode(sseFrame('message.started', { ...env(), message: { id: messageId } })),
+        )
         controller.enqueue(
           encoder.encode(
-            'data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n',
+            sseFrame('assistant.delta', {
+              ...env(),
+              message_id: messageId,
+              delta: 'Partial answer',
+            }),
           ),
         )
-        controller.enqueue(delta('Partial answer'))
         setTimeout(abort, 30)
         // Keep the stream live (and unfinished) so the abort is observed.
         timer = setInterval(() => {
           try {
-            controller.enqueue(delta('.'))
+            controller.enqueue(
+              encoder.encode(
+                sseFrame('assistant.delta', { ...env(), message_id: messageId, delta: '.' }),
+              ),
+            )
           } catch {
             // controller closed once the abort tore the stream down
           }
@@ -505,10 +646,11 @@ describe('interrupted streams', () => {
   })
 })
 
-/** A Hermes whose chat call rejects — simulates an upstream network failure. */
+/** A Hermes whose session-create + chat calls both reject — simulates an
+ * upstream network failure. */
 function erroringHermes(): FetchImpl {
   return (input) => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    const url = toUrl(input)
     if (url.endsWith('/health')) return Promise.resolve(new Response('ok', { status: 200 }))
     return Promise.reject(new Error('upstream exploded'))
   }
@@ -1028,29 +1170,43 @@ function fakeStreaming(): HermesStreaming & { streams: Map<string, FakeEntry> } 
   }
 }
 
-/** A Hermes stream that emits role + a partial delta then trickles forever until
- *  aborted — keeps a turn "live" so active_stream_id stays set for the stop test. */
+/** A Hermes stream that emits run.started/message.started + a partial delta
+ *  then trickles forever until aborted — keeps a turn "live" so
+ *  active_stream_id stays set for the stop test. */
 function infiniteHermes(): FetchImpl {
+  const sessionId = 'ses-infinite'
+  const runId = 'run-infinite'
+  const messageId = 'msg-infinite'
+  let seq = 0
+  const env = () => envelope(sessionId, runId, ++seq)
   const encoder = new TextEncoder()
-  const delta = (content: string) =>
-    encoder.encode(
-      `data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{"content":${JSON.stringify(content)}},"finish_reason":null}]}\n\n`,
-    )
   return (input) => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    const url = toUrl(input)
     if (url.endsWith('/health')) return Promise.resolve(new Response('ok', { status: 200 }))
+    if (isSessionCreateUrl(url)) return Promise.resolve(sessionCreateResponse())
     let timer: ReturnType<typeof setInterval> | undefined
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
+        controller.enqueue(encoder.encode(sseFrame('run.started', env())))
+        controller.enqueue(
+          encoder.encode(sseFrame('message.started', { ...env(), message: { id: messageId } })),
+        )
         controller.enqueue(
           encoder.encode(
-            'data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n',
+            sseFrame('assistant.delta', {
+              ...env(),
+              message_id: messageId,
+              delta: 'Partial answer',
+            }),
           ),
         )
-        controller.enqueue(delta('Partial answer'))
         timer = setInterval(() => {
           try {
-            controller.enqueue(delta('.'))
+            controller.enqueue(
+              encoder.encode(
+                sseFrame('assistant.delta', { ...env(), message_id: messageId, delta: '.' }),
+              ),
+            )
           } catch {
             // controller closed once the abort tore the stream down
           }
@@ -1064,6 +1220,112 @@ function infiniteHermes(): FetchImpl {
       new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } }),
     )
   }
+}
+
+/**
+ * A Hermes turn that runs to completion (run.completed, WITH usage) but never
+ * sends the separate `done` frame and never closes the stream — reproduces
+ * the exact window defect 1 targets: a stop landing after Hermes finished
+ * generating but before its own `done`/close teardown. Every frame is
+ * enqueued synchronously in `start()`, so by the time a consumer's first
+ * `reader.read()` resolves, `run.completed` is already fully drained.
+ */
+function stallAfterCompletedHermes(): FetchImpl {
+  const sessionId = 'ses-stall'
+  const runId = 'run-stall'
+  const messageId = 'msg-stall'
+  let seq = 0
+  const env = () => envelope(sessionId, runId, ++seq)
+  const encoder = new TextEncoder()
+  return (input) => {
+    const url = toUrl(input)
+    if (url.endsWith('/health')) return Promise.resolve(new Response('ok', { status: 200 }))
+    if (isSessionCreateUrl(url)) return Promise.resolve(sessionCreateResponse())
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(sseFrame('run.started', env())))
+        controller.enqueue(
+          encoder.encode(sseFrame('message.started', { ...env(), message: { id: messageId } })),
+        )
+        controller.enqueue(
+          encoder.encode(
+            sseFrame('assistant.delta', { ...env(), message_id: messageId, delta: 'Done answer' }),
+          ),
+        )
+        controller.enqueue(
+          encoder.encode(
+            sseFrame('assistant.completed', {
+              ...env(),
+              message_id: messageId,
+              content: 'Done answer',
+              partial: false,
+              interrupted: false,
+            }),
+          ),
+        )
+        controller.enqueue(
+          encoder.encode(
+            sseFrame('run.completed', {
+              ...env(),
+              message_id: messageId,
+              messages: [],
+              usage: {
+                input_tokens: 3,
+                output_tokens: 2,
+                total_tokens: 5,
+                runtime: { model: 'hermes-core' },
+              },
+            }),
+          ),
+        )
+        // Deliberately no `done` frame and no `controller.close()` — the
+        // connection just idles, exactly like the real gap between
+        // run.completed and Hermes' `finally`-emitted `done`.
+      },
+      cancel() {},
+    })
+    return Promise.resolve(
+      new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } }),
+    )
+  }
+}
+
+/**
+ * A Hermes transport whose session-create call blocks until `release()` is
+ * called — used to land a stop while `ensureHermesSession` is still in
+ * flight, i.e. before the mapper's read loop (or even the mapper's upstream
+ * call) has started. The chat-stream call is never actually reached in the
+ * defect-2 test (the abort throws first), but it honors `init.signal` the
+ * same way a real `fetch` would, so the pre-mapper abort test doesn't depend
+ * on timing beyond "the stop request has landed".
+ */
+function abortDuringSessionOpenHermes(): {
+  fetchImpl: FetchImpl
+  sessionCreateCalled: () => boolean
+  release: () => void
+} {
+  let sessionCreateCalled = false
+  let releaseFn: (() => void) | undefined
+  const gate = new Promise<void>((resolve) => {
+    releaseFn = resolve
+  })
+  const fetchImpl: FetchImpl = async (input, init) => {
+    const url = toUrl(input)
+    if (url.endsWith('/health')) return new Response('ok', { status: 200 })
+    if (isSessionCreateUrl(url)) {
+      sessionCreateCalled = true
+      await gate
+      return sessionCreateResponse()
+    }
+    if (init?.signal?.aborted) {
+      throw new DOMException('The operation was aborted.', 'AbortError')
+    }
+    return new Response(hermesSuccessBody(), {
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+    })
+  }
+  return { fetchImpl, sessionCreateCalled: () => sessionCreateCalled, release: () => releaseFn?.() }
 }
 
 describe('durable streaming', () => {
@@ -1204,6 +1466,99 @@ describe('durable streaming', () => {
       where: eq(hermesThread.id, 'thr_stop'),
     })
     expect(thread?.active_stream_id).toBeNull()
+  })
+
+  // Defect 1 (A2 fix round): a stop landing AFTER run.completed but BEFORE
+  // Hermes' separate `done` frame must persist the turn as `complete`, not
+  // `interrupted` — Hermes already produced the full content and usage.
+  it('stop landing after run.completed but before done persists complete, not interrupted', async () => {
+    const streaming = fakeStreaming()
+    const app = buildApp(stallAfterCompletedHermes(), { streaming })
+
+    void app
+      .handle(
+        chatRequest({
+          threadId: 'thr_stop_after_completed',
+          sessionId: 'ses_stop_after_completed',
+          messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+        }),
+      )
+      .then((r) => r.body?.cancel())
+      .catch(() => undefined)
+
+    const active = await waitFor(async () => {
+      const t = await db.query.hermesThread.findFirst({
+        where: eq(hermesThread.id, 'thr_stop_after_completed'),
+      })
+      return t?.active_stream_id ?? undefined
+    })
+    expect(active).toBeDefined()
+
+    // The whole (synchronously-enqueued) frame burst up to run.completed is
+    // already drained the instant the reader starts pulling — give that a
+    // moment to settle before stopping, so the stop genuinely lands in the
+    // post-run.completed/pre-done window rather than racing session-open.
+    await new Promise((r) => setTimeout(r, 50))
+
+    const stopRes = await app.handle(
+      new Request('http://localhost/hermes/chat/thr_stop_after_completed/stop', {
+        method: 'POST',
+      }),
+    )
+    expect(stopRes.status).toBe(200)
+    expect(await stopRes.json()).toEqual({ ok: true, stopped: true })
+
+    const assistant = await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.find((m) => m.role === 'assistant')
+    })
+    expect(assistant?.status).toBe('complete')
+    const text = (assistant?.parts ?? [])
+      .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+      .map((p) => p.text)
+      .join('')
+    expect(text).toBe('Done answer')
+  })
+
+  // Defect 2 (A2 fix round): an abort landing while ensureHermesSession /
+  // openHermesChatStream are still in flight — before the mapper's read loop
+  // (or the mapper's upstream call at all) starts — must still persist
+  // `interrupted`, not `error`.
+  it('abort during session-open (before the mapper reads anything) persists interrupted, not error', async () => {
+    const streaming = fakeStreaming()
+    const { fetchImpl, sessionCreateCalled, release } = abortDuringSessionOpenHermes()
+    const app = buildApp(fetchImpl, { streaming })
+
+    const resPromise = app
+      .handle(
+        chatRequest({
+          threadId: 'thr_abort_presession',
+          sessionId: 'ses_abort_presession',
+          messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+        }),
+      )
+      .then((r) => r.text())
+      .catch(() => undefined)
+
+    await waitFor(async () => (sessionCreateCalled() ? true : undefined))
+    // The durable CAS claim (which sets active_stream_id) happens strictly
+    // before `execute()` even runs, i.e. before ensureHermesSession is ever
+    // called — so by the time the session-create call has been reached, stop
+    // is guaranteed to find a live pointer to abort.
+    const stopRes = await app.handle(
+      new Request('http://localhost/hermes/chat/thr_abort_presession/stop', { method: 'POST' }),
+    )
+    expect(stopRes.status).toBe(200)
+    expect(await stopRes.json()).toMatchObject({ stopped: true })
+
+    release()
+    await resPromise
+
+    const assistant = await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.find((m) => m.role === 'assistant')
+    })
+    expect(assistant?.status).toBe('interrupted')
   })
 
   it('404s a stop to a missing thread; no-op success when nothing is in-flight', async () => {
@@ -1438,37 +1793,59 @@ describe('order-level auth (composed app.ts — mount order, not the plugin)', (
 
 // ── Persist-at-start (defects 2, 8, 9) ───────────────────────────────────────
 
-/** A fake Hermes SSE stream that emits the assistant role + partial content,
- *  then blocks until `release()` is called before sending the finish frame —
- *  lets a test observe DB state while the turn is still generating. */
+/** A fake Hermes SSE stream that emits run.started/message.started + a partial
+ *  assistant.delta, then blocks until `release()` is called before sending
+ *  assistant.completed/run.completed/done — lets a test observe DB state
+ *  while the turn is still generating. */
 function holdableHermes(): { fetchImpl: FetchImpl; release: () => void } {
   let release!: () => void
   const gate = new Promise<void>((resolve) => {
     release = resolve
   })
+  const sessionId = 'ses-holdable'
+  const runId = 'run-holdable'
+  const messageId = 'msg-holdable'
+  let seq = 0
+  const env = () => envelope(sessionId, runId, ++seq)
   const encoder = new TextEncoder()
   const fetchImpl: FetchImpl = (input) => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    const url = toUrl(input)
     if (url.endsWith('/health')) return Promise.resolve(new Response('ok', { status: 200 }))
+    if (isSessionCreateUrl(url)) return Promise.resolve(sessionCreateResponse())
     const body = new ReadableStream<Uint8Array>({
       async start(controller) {
+        controller.enqueue(encoder.encode(sseFrame('run.started', env())))
         controller.enqueue(
-          encoder.encode(
-            'data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n',
-          ),
+          encoder.encode(sseFrame('message.started', { ...env(), message: { id: messageId } })),
         )
         controller.enqueue(
           encoder.encode(
-            'data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}\n\n',
+            sseFrame('assistant.delta', { ...env(), message_id: messageId, delta: 'Hello' }),
           ),
         )
         await gate
         controller.enqueue(
           encoder.encode(
-            'data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n',
+            sseFrame('assistant.completed', {
+              ...env(),
+              message_id: messageId,
+              content: 'Hello',
+              partial: false,
+              interrupted: false,
+            }),
           ),
         )
-        controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+        controller.enqueue(
+          encoder.encode(
+            sseFrame('run.completed', {
+              ...env(),
+              message_id: messageId,
+              messages: [],
+              usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+            }),
+          ),
+        )
+        controller.enqueue(encoder.encode(sseFrame('done', env())))
         controller.close()
       },
     })
@@ -1634,14 +2011,14 @@ describe('client-message idempotency (defect 4)', () => {
       const r = await db.query.hermesMessage.findMany()
       return r.length >= 2 ? r : undefined
     })
-    const chatCallsAfterFirst = calls.filter((c) => c.url.endsWith('/chat/completions')).length
+    const chatCallsAfterFirst = calls.filter((c) => c.url.endsWith('/chat/stream')).length
 
     const res2 = await app.handle(chatRequest(body))
     expect(res2.status).toBe(409)
     expect(await res2.json()).toMatchObject({ error: 'duplicate_turn' })
 
     // Hermes was NOT invoked a second time.
-    const chatCallsAfterSecond = calls.filter((c) => c.url.endsWith('/chat/completions')).length
+    const chatCallsAfterSecond = calls.filter((c) => c.url.endsWith('/chat/stream')).length
     expect(chatCallsAfterSecond).toBe(chatCallsAfterFirst)
 
     const rows = await db.query.hermesMessage.findMany()
@@ -1959,27 +2336,101 @@ describe('409 / CAS claim (defects 5, 6)', () => {
   })
 })
 
-// ── finish_reason: null upstream → 'other' end-to-end (defect 1) ─────────────
+// ── Hermes named-event wire protocol (Phase A2) ──────────────────────────────
+//
+// Note: the pre-A2 "finish-reason rewrite over a real stream (defect 1)" test
+// that lived here tested a scenario that no longer exists — it pinned the
+// `@ai-sdk/openai-compatible` provider's `mapOpenAICompatibleFinishReason`
+// mapping a null upstream `finish_reason` to ai@5's 'unknown'. That provider
+// is gone from this route entirely; hermes-chunks.ts's mapper only ever emits
+// 'stop' or 'error' (both already legal), so the scenario is unreachable.
+// The pure rewrite function itself stays covered by finish-reason-transform.test.ts.
 
-/** A Hermes SSE stream whose choice.finish_reason stays null on every chunk
- *  (never "stop") — the real reachable trigger for the openai-compatible
- *  provider's mapOpenAICompatibleFinishReason default branch, which resolves
- *  to ai@5's 'unknown' (see finish-reason-transform.ts's citation trail for
- *  the exact source lines). */
-function nullFinishReasonHermes(): FetchImpl {
+describe('session precondition (A2)', () => {
+  it('calls POST /api/sessions on every turn, not just thread creation', async () => {
+    const { fetchImpl, calls } = fakeHermes()
+    const app = buildApp(fetchImpl)
+
+    const firstRes = await app.handle(
+      chatRequest({
+        threadId: 'thr_ensure_session',
+        sessionId: 'ses_ensure_session',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'first' }] }],
+      }),
+    )
+    await firstRes.text()
+    await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.length >= 2 ? r : undefined
+    })
+
+    const secondRes = await app.handle(
+      chatRequest({
+        threadId: 'thr_ensure_session',
+        messages: [{ id: 'm2', role: 'user', parts: [{ type: 'text', text: 'second' }] }],
+      }),
+    )
+    await secondRes.text()
+    await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      const assistants = r.filter((m) => m.role === 'assistant')
+      return assistants.length >= 2 ? assistants : undefined
+    })
+
+    const sessionCreateCalls = calls.filter((c) => isSessionCreateUrl(c.url))
+    expect(sessionCreateCalls).toHaveLength(2)
+    expect(JSON.parse(sessionCreateCalls[0]?.body ?? '')).toMatchObject({
+      id: 'ses_ensure_session',
+      source: 'api_server',
+    })
+  })
+
+  it('treats a 409 session_exists response as success and still streams the turn', async () => {
+    const { fetchImpl } = fakeHermes({ sessionCreateStatus: 409 })
+    const app = buildApp(fetchImpl)
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_session_exists',
+        sessionId: 'ses_session_exists',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+      }),
+    )
+    expect(res.status).toBe(200)
+    await res.text()
+
+    const rows = await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.length >= 2 ? r : undefined
+    })
+    expect(rows?.find((r) => r.role === 'assistant')?.status).toBe('complete')
+  })
+})
+
+/** A Hermes stream that emits run.started/message.started/assistant.delta then
+ *  closes WITHOUT sending `done` or `error` — an upstream write-loop exception,
+ *  the one silent-close shape hermes-events.ts's own doc calls out. */
+function silentCloseHermes(): FetchImpl {
+  const sessionId = 'ses-silent-close'
+  const runId = 'run-silent-close'
+  const messageId = 'msg-silent-close'
+  let seq = 0
+  const env = () => envelope(sessionId, runId, ++seq)
   const encoder = new TextEncoder()
-  const frames = [
-    'data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n',
-    'data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}\n\n',
-    'data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{},"finish_reason":null}]}\n\n',
-    'data: [DONE]\n\n',
-  ]
   return (input) => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    const url = toUrl(input)
     if (url.endsWith('/health')) return Promise.resolve(new Response('ok', { status: 200 }))
+    if (isSessionCreateUrl(url)) return Promise.resolve(sessionCreateResponse())
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
-        for (const f of frames) controller.enqueue(encoder.encode(f))
+        controller.enqueue(encoder.encode(sseFrame('run.started', env())))
+        controller.enqueue(
+          encoder.encode(sseFrame('message.started', { ...env(), message: { id: messageId } })),
+        )
+        controller.enqueue(
+          encoder.encode(
+            sseFrame('assistant.delta', { ...env(), message_id: messageId, delta: 'partial' }),
+          ),
+        )
         controller.close()
       },
     })
@@ -1989,19 +2440,57 @@ function nullFinishReasonHermes(): FetchImpl {
   }
 }
 
-describe('finish-reason rewrite over a real stream (defect 1)', () => {
-  it("rewrites an upstream 'unknown' finish reason (finish_reason stays null throughout) to 'other' end-to-end", async () => {
-    const app = buildApp(nullFinishReasonHermes())
+describe('upstream ends without done (A2)', () => {
+  it("persists the turn as status:'error' (not a clean empty/complete turn) when the upstream closes without done or error", async () => {
+    const app = buildApp(silentCloseHermes())
     const res = await app.handle(
       chatRequest({
-        threadId: 'thr_finish_null',
-        sessionId: 'ses_finish_null',
+        threadId: 'thr_silent_close',
+        sessionId: 'ses_silent_close',
         messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
       }),
     )
-    expect(res.status).toBe(200)
-    const text = await res.text()
-    expect(text).toContain('"finishReason":"other"')
-    expect(text).not.toContain('unknown')
+    await res.text().catch(() => undefined)
+
+    const rows = await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.length >= 2 ? r : undefined
+    })
+    const assistant = rows?.find((r) => r.role === 'assistant')
+    expect(assistant).toBeDefined()
+    expect(assistant?.status).toBe('error')
+  })
+})
+
+describe('usage recording from run.completed (A2)', () => {
+  it('records usage sourced from the mapper state, not an SDK onFinish callback', async () => {
+    const { fetchImpl } = fakeHermes()
+    let recorded: Parameters<HermesRouteDeps['recordUsage']>[0] | undefined
+    const app = buildApp(fetchImpl, {
+      recordUsage: async (args) => {
+        recorded = args
+      },
+    })
+
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_usage',
+        sessionId: 'ses_usage',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+      }),
+    )
+    await res.text()
+    await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.length >= 2 ? r : undefined
+    })
+
+    expect(recorded).toBeDefined()
+    expect(recorded?.subTool).toBe('hermes-proxy')
+    expect(recorded?.usage).toMatchObject({
+      prompt_tokens: 10,
+      completion_tokens: 5,
+      total_tokens: 15,
+    })
   })
 })

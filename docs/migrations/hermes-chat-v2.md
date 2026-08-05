@@ -2359,3 +2359,165 @@ anyway and will know the right seams.
 **D10 is confirmed** — A2 proceeds. Tool visibility gets fixed at the source rather than faked in the
 renderer, and Argo will always send an explicit `X-Hermes-Session-Id`, closing the collision where two
 threads both opening with "hi" share one session and one sandbox directory.
+
+## A2 — the named-event transport
+
+A1 shipped to production first: `dc201e2..3d04c3f`, RollHook rebuilt, both containers healthy on that
+SHA. Migration 0017 verified against the prod database rather than assumed — `client_message_id`
+present, `uq_hermes_message_thread_client_id` carrying the correct
+`WHERE client_message_id IS NOT NULL` predicate, and `idx_hermes_thread_pinned_updated` emitting bare
+`DESC` so its pathkeys match the route's own `ORDER BY`.
+
+### The research gate was refuted by one HTTP request
+
+The four-way survey converged on a brief whose top-ranked risk read: `tool.completed` carries no tool
+id, no result and no error flag; `tool.failed` is never emitted; therefore Argo gets tool name plus
+arguments and nothing else, tool success and failure are indistinguishable, and completions must be
+correlated FIFO-by-name. It recommended shipping that as a documented limitation of D10.
+
+Every clause of that is true about `tool.completed`. The conclusion drawn from it is false. A session
+was created against the live gateway and one turn captured:
+
+| Source                     | Carries                                                                                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tool.started`             | `tool_name`, `preview`, full `args`                                                                                                         |
+| `tool.completed`           | `tool_name` only — `preview` and `args` both `null`                                                                                         |
+| `run.completed.messages[]` | real upstream ids (`toolu_vrtx_…`), `function.arguments`, and `role:'tool'` rows whose content is `{"output":…,"exit_code":0,"error":null}` |
+
+Tool results, exit codes and errors were one payload away the whole time — at end-of-turn rather than
+on the completion event. The FIFO scheme was designed around an absence that did not exist.
+
+That is four phases running. B4 had an empty file that grepped clean; B3 had one executed case
+producing a false clean; A1 had a research service confidently reporting an enum that was present;
+A2 had a survey concluding data was absent when it was in the next event. **A negative result needs
+its instrument verified at least as hard as a positive one** — and the cost of verifying is
+consistently one command.
+
+### Two things the capture settled that no amount of reading would have
+
+`concat(assistant.delta) !== assistant.completed.content`. The deltas began `'\n\n31'` and the
+content was `'31 items…'` — Hermes strips leading whitespace in the final content. The brief
+prescribed asserting equality and logging a mismatch; that assertion would have fired on every
+single turn, and the log would have been dismissed as noise within a day.
+
+`tool.progress` with `tool_name: '_thinking'` carried a delta that was **verbatim the final reply**.
+Mapping it to `reasoning-*` chunks — offered in the brief as the higher-value option — would render
+the answer twice in every message.
+
+### Defect 13 was confirmed by measurement, and it is wider than the register says
+
+Production ClickHouse, `argo-api`, 30 days:
+
+```
+POST <hermes>/v1/chat/completions           Client  n=19  p50   25.9ms  max   57.9ms
+POST /hermes/chat                           Server  n=19  p50   11.0ms  max   39.4ms
+POST unified-endpoint…/openai/v1/chat/…     Client  n=30  p50 1410.2ms
+```
+
+The third row is the control: a non-streaming call through the same tracing code records its true
+duration, so the instrument is sound and streaming specifically is blind. The register names only
+`traced-fetch.ts`. But the **server** span is blind too — Elysia returns the `Response` and the body
+streams after the handler span closes. Fixing the cited line alone would leave the turn invisible and
+the gate would have looked green. _Brief a specific line and you get that line fixed._
+
+The Hermes spans also carry zero domain attributes — no `thread_id`, `stream_id` or `run_id` anywhere
+— so no per-stream query was possible at all. `streamId` was logged nowhere; `threadId` exactly once.
+
+### D21 — the API bearer token is in the telemetry store
+
+Found while establishing the trace lane, outside the 20-item register. `http.request.header.authorization`
+is captured verbatim as a span attribute: **434,282 spans since 2026-07-07**, `uniqExact` = 1, i.e. the
+live agent-facing key. Session cookies ride along at 400–520 bytes per span.
+
+Stated accurately, because the severity matters: ClickHouse is not internet-exposed (clickstack
+publishes only `:13133` on the tailnet). This is a credential at rest in an internal datastore and in
+any backup of it — real, not an emergency. Fixed forward by scrubbing at the span-processor layer so
+the defense survives an instrumentation change. **Rotating the token and purging the history are
+owner decisions and were deliberately not taken**: rotation breaks Hermes and every agent holding the
+key, and the purge is irreversible.
+
+Two adjacent prod errors surfaced in the same sweep: `hermes summarize: malformed model JSON` ×15
+against ~19 turns — the thread-title summarizer fails on essentially every conversation — and
+`hermes transcript persist failed` ×1.
+
+### The sideclaw otel worker is broken
+
+`mcp__sideclaw__otel` exited 1 twice on different queries. ClickHouse itself was fine, which is the
+distinction that mattered: the absence was in the instrument, not the data. The lane runs on direct
+queries instead — `ssh vps "docker exec clickstack clickhouse-client --query …"` over
+`default.otel_traces` / `default.otel_logs`.
+
+### The review found four real defects and one that was not
+
+`/review` returned `needs-human` with five blocking findings. Four were real and clustered in one
+place — the turn-completion/abort state machine — so they were fixed as one coordinated change:
+
+| Defect                                                    | Consequence if shipped                                                                                                                                                  |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `finalize('aborted')` ignored the mapper's terminal state | A stop landing between `run.completed` and `done` persists a **completed** turn as `interrupted`                                                                        |
+| The mapper was constructed _after_ the upstream call      | A stop during session-open emits no `abort` chunk at all, so the turn persists as `error`                                                                               |
+| The `error` branch never called `closeOpenText`           | The documented shape is `error → done`; `done` sets `sawDone`, the route's `finalize` is gated on `!sawDone`, so a text part is persisted stuck in `state: 'streaming'` |
+| `ensureHermesSession` never drains its 201 body           | With the tap defaulting on, every fresh thread held a span for the full 10-minute watchdog                                                                              |
+
+The fifth was rejected. The adversary angle argued that a stream ending without `done` _after_
+`run.completed` masks a failure as success and must be forced to an error. But `run.completed`
+carries the full content **and** the usage totals, and `done` is emitted from a `finally` — its
+absence there is a teardown drop, not a failed generation. Relabelling that turn `error` would
+render a complete, correct reply as failed. The missing-`done`-is-an-error rule exists for the
+silent-close case _before_ `run.completed`, which was already handled.
+
+The span fix generalised into an inversion. Body-tapping had been made the **default**, which
+silently reclassified every call site that never drains its body — the M365 fire-and-forget POST,
+the Garmin heartbeat firing every sync tick, the Hermes health check reading only `res.ok`, and
+`ensureHermesSession` on the hot path. Each held a span, a watchdog timer and a connection for ten
+minutes before closing tagged `abandoned`. Making it **opt-in** (`streamLifecycle: true`) restored
+all of them with zero edits to those files. Measured after the change:
+
+```
+POST …/api/sessions        6.8ms   (untapped, no argo.stream.* attributes)
+POST …/chat/stream      19729.9ms   outcome=cancelled
+hermes.stream-lifecycle 19728.4ms
+```
+
+### The browser gate was right about what it saw and wrong about why
+
+Eight scenarios in a self-launched Chrome over raw CDP. Five clean. The headline finding was that
+Stop appeared broken: `{"ok":true,"stopped":false}`, the turn persisted `complete`, and the stored
+reply was 1244 characters where the user had watched 134.
+
+Every one of those observations was accurate. The cause was not. A controlled reproduction against
+a genuinely in-flight turn returns `stopped:true` and persists `interrupted` with partial text — and
+after the fix round, the persisted text matches what the client received **exactly** (153 chars vs
+153 chars, part state `done`, not `streaming`). What the gate actually hit is that **durable
+streaming decouples the producer from the client connection**: the server had already finished
+generating while the client was still rendering the buffer, so the pointer was clear and stop
+honestly reported that there was nothing to abort. That is a client-side UX defect for A3 — made
+worse by `stopHermesStream()` doing `.catch(() => undefined)` and never inspecting the body, so
+`stopped:false` is swallowed by construction.
+
+It also _strengthened_ the first review finding rather than contradicting it: because the server
+routinely finishes ahead of the client, a stop landing at or after `run.completed` is the common
+case, not a rare race.
+
+### Three findings, three wrong premises
+
+This is now the program's dominant failure mode — not missed defects, but correctly-observed
+symptoms attributed to the wrong cause:
+
+| Finding                                                        | Observation                                   | Actual cause                                   |
+| -------------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------- |
+| Survey: "tool results are unavailable, correlate FIFO-by-name" | `tool.completed` really does carry nothing    | The results were in `run.completed.messages[]` |
+| Review: "missing `done` masks failure as success"              | The code really does not error there          | The turn genuinely completed                   |
+| Browser gate: "stop is broken"                                 | Stop really did no-op and store the full text | The server had already finished                |
+
+Each was careful and well-evidenced. Each would have produced a wrong change if the conclusion had
+been actioned instead of the cause re-derived. **Verify the cause, not just the symptom** — the
+symptom is usually real.
+
+### An unrelated tree, and why nothing was staged with `-A`
+
+Partway through, `wildrift.*` sources, a `0018` migration, and edits to `db/schema.ts`,
+`cron/index.ts` and the drizzle journal appeared in the working tree — written between this phase's
+own edits, by another session in the same checkout. A1's countermeasure ("verify the staged tree,
+not the working tree") had a live target for the first time: every commit here stages **explicit
+paths**, never `git add -A`.

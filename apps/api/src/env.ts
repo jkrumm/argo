@@ -54,10 +54,15 @@ export const Env = z.object({
   // provisioned in Group 0 (op://vps/argo/*). Group 1 wires config only — no
   // behavior; handlers land in Groups 2–3.
 
-  // Hermes agent core — OpenAI-compatible API over Tailscale (port 8642).
-  // HERMES_BASE_URL must include the OpenAI path prefix (e.g.
-  // `http://<tailnet-host>:8642/v1`); the provider appends `/chat/completions`.
-  // The liveness check derives `/health` from the URL origin.
+  // Hermes agent core over Tailscale (port 8642). HERMES_BASE_URL keeps the
+  // `/v1` suffix historically used for the (now-retired) OpenAI-compatible
+  // path, e.g. `http://<tailnet-host>:8642/v1` — but it is really just the
+  // origin: the liveness check derives `/health` from it, and the named-event
+  // chat API (`lib/hermes-upstream.ts`'s `ensureHermesSession` /
+  // `openHermesChatStream`, hitting `/api/sessions*`) derives its origin the
+  // same way. `/api/*` is NOT under `/v1` — a leading slash on `new URL(path,
+  // HERMES_BASE_URL)` resets the path and drops the suffix, which is exactly
+  // what both call sites rely on.
   HERMES_BASE_URL: z.string().default(''),
   HERMES_API_KEY: z.string().default(''),
   // OpenAI `model` field sent to Hermes. The agent maps/ignores it; kept
