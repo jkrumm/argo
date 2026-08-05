@@ -34,7 +34,6 @@ import { skinfoldLogRoutes } from './routes/skinfold-log.js'
 import { walkingPadRoutes } from './routes/walking-pad.js'
 import { usageRoutes } from './routes/usage.js'
 import { readingRoutes } from './routes/reading.js'
-import { wildriftRoutes } from './routes/wildrift.js'
 import { userProfileRoutes } from './routes/user-profile.js'
 import { gymRoutes } from './routes/gym.js'
 import { workoutDraftRoutes } from './routes/workout-draft.js'
@@ -273,7 +272,6 @@ export function buildApp() {
       .use(walkingPadRoutes)
       .use(usageRoutes)
       .use(readingRoutes)
-      .use(wildriftRoutes)
       .use(hermesRoutes)
       .use(aiRoutes)
   )
