@@ -2156,3 +2156,206 @@ because the next reader trusts it.
 
 **A1 is unblocked**, carrying the corrected premise from the prod walk: P1's "duplication is
 render-only" verdict is true of the data and false of the wire.
+
+## A1 — the API as a thin proxy
+
+Four commits on `master`: `bb62fcd` (buildApp), `3cbcfc6` (usage attribution), `95bedc8` (SSE
+backpressure), `e33c10e` (the proxy rewrite). Gates at close, exit codes read by hand: lint 0,
+`format:check` 0, api typecheck 0, dashboard typecheck 0, dashboard build 0, `bun test:api`
+**471 pass / 0 fail**, `check-theme` 0.
+
+### The research gate confidently refuted the defect it was asked to confirm
+
+Three research jobs ran before the brief. The AI SDK one came back `status: partial` and asserted
+that `ai@5`'s `FinishReason` has six values with no `'unknown'` — i.e. that defect 1 does not exist,
+and that the entire producer-side transform is unnecessary. It said so with high confidence, and it
+noted in passing that "a separate sub-digest reported 7 values" before overruling it.
+
+Read off disk instead:
+
+| Package                                   | Values                                                   |
+| ----------------------------------------- | -------------------------------------------------------- |
+| `@ai-sdk/provider@2.0.3` (ai@5, apps/api) | 7 — **includes `'unknown'`** (`dist/index.d.ts:1081`)    |
+| `ai@7.0.18` `uiMessageChunkSchema`        | 6, inside a `z.strictObject` (`dist/index.js:6395-6406`) |
+| `@ai-sdk/openai-compatible@1.0.39`        | `default: return "unknown"` (`dist/index.mjs:171-172`)   |
+
+The spec was right and the research was wrong. Two other resolved facts were load-bearing and would
+have failed at runtime if taken from memory: `onConflictDoNothing` takes `{ target, where }` and has
+no `targetWhere` (that is `onConflictDoUpdate` only), and **Postgres will not infer a partial unique
+index unless the conflict target repeats its predicate** — an error `tsc` cannot see. Also that a
+partial index's `.where()` must use a `sql` literal, because `eq()` makes drizzle-kit emit an
+unsubstituted `$1` and Postgres fails with `42P02` (open since 2024, issues #2506/#3349/#4790).
+
+The generalisation is now three-for-three across this program: **a negative result needs its
+instrument verified at least as hard as a positive one.** B4 had an empty file that grepped clean;
+B3 had one executed case producing a false clean; A1 had a research service confidently reporting an
+absence. All three would have produced a wrong decision, and all three cost one command to refute.
+
+### A migration that passed once and would fail forever after
+
+The foundation lane's migration `ADD COLUMN` carried no `IF NOT EXISTS`, which breaks an invariant
+`hermes.test.ts:13-14` states verbatim — "All Hermes migrations are fully idempotent (IF NOT EXISTS
+
+- guarded FK)".
+
+The failure is asymmetric, and that is why the lane missed it: the **first** run passes because it
+adds the column, and every run after fails in `beforeAll` with `42701`. Worse, because that
+`beforeAll` applies migrations through `client.unsafe` **outside** the drizzle journal, the journal
+held 17 rows (0000–0016) while 0017's DDL was already in the database — so `runMigrations()` failed
+too. Two lanes hit it from opposite directions within minutes: one booting the API, one running the
+Hermes suite. Neither could fix it; it was not their file.
+
+**Every hand-added migration in this repo must be idempotent**, because the test harness deliberately
+applies them outside the journal. Proven by applying the file twice against the live DB: exit 0, all
+three statements degrading to `NOTICE … skipping`.
+
+### Two spec claims that did not survive the tree
+
+Defect 17 says "No test in the repo imports the composed app at all." Three do — `jira.test.ts`,
+`m365.test.ts` and `usage.test.ts` each imported `app` from `index.ts` as a **value**, so each ran
+`runMigrations()` and opened a port merely to make a request. They now import the side-effect-free
+factory.
+
+Defect 20 says `recordAiUsage` "mis-attributes audio-gateway spend" by tagging it `billing='iu'`.
+It does not. audio-gateway routes both STT and TTS through `IU_API_KEY`/`IU_OPENAI_BASE_URL`/
+`IU_GEMINI_BASE_URL` (`config.ts:34-41`), tags itself `billing: "iu"` (`usage.ts:249`), and
+modelpick's decision record says the same. The worker pushed back on its own brief with citations
+rather than complying, and was right. The real adjacent defect is **double counting**: prod runs
+`USAGE_SINK=both`, so a podcast synthesis writes two rows — the gateway's with real cost, Argo's with
+`cost_usd` null. Cost does not double; tokens do. Johannes ruled: log it, do not fix it in A1. It
+spans three repos and needs a decision on which source is authoritative. Recorded for A6.
+
+The half of defect 20 that was real is closed: `billing`/`outcome` are overridable, and the error
+paths that attempted an upstream call now write a row — previously a failure wrote **no row at all**,
+so the `outcome` column was 100% `'ok'` by construction rather than by observation.
+
+### The worst defect of the phase, and a worker that refused to hide it
+
+The 409/CAS claim had a **100% reproducible** race. The order was: write the pointer (Postgres), write
+the user turn (a second Postgres round trip), then register the stream with the durable backend —
+which is what the liveness probe actually queries. A second POST landing in that window read the
+pointer as set and the stream as not-live, classified it dead, and re-claimed it through the same CAS.
+**Both POSTs returned 200.** The first run was orphaned: still generating, unreachable by stop or
+resume. That is precisely the failure defect 5/6 exists to close, reached through a narrower door.
+
+The test agent was briefed to assert "exactly one 200 and one 409". It found the assertion false 100%
+of the time, **deleted the sub-test rather than assert something demonstrably wrong**, and reported
+the race. Bending that test would have shipped the bug with a green suite and a comment saying it was
+covered.
+
+The fix is register-before-CAS, so pointer-visible and registry-knows become atomic from another
+request's point of view — a happens-before, not a narrower window — plus a two-tier liveness check:
+the in-process registry first, the pub/sub probe second, which keeps the stale-pointer case resolving
+to "dead" so a crashed producer cannot wedge a thread forever. Reproduced (two 200s), fixed, then
+20/20 on a loop.
+
+### The review and the convergence pass disagreed on a severity, and the pessimist was right
+
+Both found that `durable.register()` runs before an unguarded `await claimActiveStream(...)`, with
+only the `!claimed` branch unregistering. Convergence judged it a bounded memory leak, reasoning that
+no pointer ever references the orphaned id. That holds **only if the CAS never committed**. If it
+commits server-side and the client await then rejects — a connection drop right after commit — the
+pointer does reference it, `has()` reports it live forever, and the thread 409s permanently.
+
+Worth stating because the pattern repeats: **a finding's severity can be wrong in the safe direction
+too**, and "it is only a leak" is the kind of conclusion nobody re-checks.
+
+### Implementing the spec exactly still left the defect open
+
+Defect 4 prescribes four steps — read the client's `UIMessage.id`, add a nullable column, add a
+partial unique index, `ON CONFLICT DO NOTHING`. All four landed exactly as written. Three review
+angles independently found that those four steps dedupe the **row** and not the **turn**: once
+`onFinish` clears the pointer, a retry carrying the same client id passes the CAS, silently no-ops the
+duplicate user row, and **still invokes Hermes** — two replies, tool side effects re-run, upstream
+billed twice.
+
+It sits directly beside `maxRetries: 0`, which exists to stop exactly that. Johannes ruled: 409
+`duplicate_turn` on a completed duplicate, and explicitly **no replay** — synthesising a stream from
+persisted rows is real design surface that A2 may throw away.
+
+Worth carrying: **a spec's prescribed fix can be complete and still not close the defect it names.**
+The four steps were not wrong; they were the row-level half of a turn-level problem.
+
+### A lane seam only EXPLAIN could show
+
+`idx_hermes_thread_pinned_updated` could not serve the only query it exists for. Drizzle's `.desc()`
+emits `DESC NULLS LAST` **in an index** but a bare `DESC` **in an orderBy** — and bare `DESC` in
+Postgres means `NULLS FIRST`. The pathkeys never match, even though both columns are `NOT NULL`.
+
+```
+ORDER BY pinned DESC, updated_at DESC                        -> Seq Scan ... Disabled: true
+ORDER BY pinned DESC NULLS LAST, updated_at DESC NULLS LAST  -> Index Scan using idx_hermes_thread_...
+```
+
+`Disabled: true` under `enable_seqscan = off` means no index path exists at all. One lane wrote the
+index, another owned the query, both were individually correct, and no test can see it. The index was
+pure write amplification on every turn. Fixed on the index side so the query stays natural, and
+verified causally: after the fix the relationship **inverts** — the route's own query takes the Index
+Scan and the `NULLS LAST` variant is the one that seq-scans.
+
+The other confirmed convergence finding: the attachment-cap `422` **echoed the entire request body
+back**, base64 payloads included, so rejecting a 40MB payload roughly doubled peak memory — inverting
+the point of the cap. Now an 81-byte response for a 41.9MB request, with zero occurrences of the
+payload in it.
+
+### The browser gate found the one defect that no test, lint or review could see
+
+Every gate was green, both blockers were closed, 471 tests passed. Then the gate agent read `git
+status` before touching a browser.
+
+The index was inconsistent. `git add -A` had run **before** the fix round regenerated the migration,
+so the staged tree held `0017_windy_shen.sql` (the version with the broken index) while the real
+`0017_nice_wilson_fisk.sql` sat untracked, the journal's 0017 entry was unstaged, and `hermes.ts`
+showed ` M` — meaning a plain `git commit` would have shipped **none of the fix round's changes to the
+main route file**, plus a journal with no 0017 entry at all. Prod would have created neither
+`client_message_id` nor its index while the code read both unconditionally.
+
+The agent executed the other half rather than inferring it: moving the migration aside and booting
+gave `No file …0017_nice_wilson_fisk.sql found in …/drizzle folder` and nothing bound `:4040` — a
+total boot failure, which on prod is a failed RollHook restart.
+
+This is a new failure shape for this program. Every prior defect lived in the code; this one lived in
+the **index**, and it was invisible to every gate precisely because gates read the worktree. The
+countermeasure is cheap and now standing: **before committing, verify the staged tree, not the
+working tree** — here, that every journal entry has a matching staged `.sql`. It came out 18 and 18.
+
+### What the browser gate confirmed, with the dirty reading proven first
+
+Eight scenarios against a self-launched Chrome on a dedicated debugging port with a throwaway profile,
+raw CDP, and a local stub upstream chosen over the reachable real Hermes so chunk timing and
+`finish_reason` could be controlled. The agent stated the URL, the app and its own server ancestry for
+each observation, and found **two stale processes from the previous day still holding `:7715`** — the
+exact hazard that made an earlier verification agent report findings about an unrelated project.
+
+- **Reload mid-stream keeps the user's message.** The user row lands **9ms before the upstream call**.
+  The new reply renders as a distinct bubble, not appended to the previous turn's.
+- **A brand-new thread survives a mid-stream reload** — the empty-thread cleanup no longer deletes a
+  thread whose first turn is in flight.
+- **A second POST on a live stream returns 409, the first run is not reaped**, and the exchange leaves
+  exactly two rows where production forensics had shown four.
+- **`finish_reason: null` renders clean end to end**, with zero exceptions in the client's stream
+  parser — and the **dirty reading was proven first**: rewriting `"other"` back to `"unknown"` in
+  flight made the identical turn render "Something went wrong. Try sending again." A controlled A/B
+  where only the enum value differed.
+- **A duplicate completed turn returns `duplicate_turn` and the stub's invocation count does not
+  move** — counted at the upstream, not inferred from the response.
+- **Collapse-and-re-expand duplicates the rendered bubble but not the data.** One POST, one resume
+  GET, DB holds a single clean row, and a fresh load shows the text once. Render-only, cosmetic until
+  reload — which sharpens P1's verdict a third time rather than contradicting it.
+- **The two things static review could not settle both came back clean.** An oversize body gets a bare
+  413 with an empty body, rejected before Elysia. And Valkey being unreachable at stream start does
+  **not** wedge a thread: the turn completes, `active_stream_id` never sticks, later POSTs still
+  succeed, and the 32 publisher errors are absorbed by the `.on('error')` handlers with zero unhandled
+  rejections. Degradation is "loses resumability", not "wedges" — which is the answer the review
+  flagged as its highest-value unknown.
+
+### Deferred deliberately
+
+The architect angle escalated a refactor rather than acting on it: `POST /chat` is now ~285 lines in a
+1234-line file with five stateful unexported helpers, so the CAS and liveness logic can only be
+exercised through full HTTP round-trips. Johannes ruled **defer to A2**, which rewrites this transport
+anyway and will know the right seams.
+
+**D10 is confirmed** — A2 proceeds. Tool visibility gets fixed at the source rather than faked in the
+renderer, and Argo will always send an explicit `X-Hermes-Session-Id`, closing the collision where two
+threads both opening with "hi" share one session and one sandbox directory.
