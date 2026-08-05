@@ -10,6 +10,7 @@ import {
   index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 // basalt-agent-allow — deliberate per locked decision D3: apps/api stays on ai@5 and imports no basalt-ui; the v5/v7 skew is neutralized producer-side in A1 by a TransformStream rewriting finishReason 'unknown' -> 'other', never by upgrading apps/api (docs/HERMES-CHAT-V2.md).
 import type { UIMessagePart, UIDataTypes, UITools } from 'ai'
 
@@ -421,35 +422,53 @@ export const HERMES_THREAD_TYPES = [
 ] as const
 export type HermesThreadType = (typeof HERMES_THREAD_TYPES)[number]
 
-export const hermesThread = argoSchema.table('hermes_thread', {
-  // App-generated id (createIdGenerator({ prefix: 'thr' })) — Group 2.
-  id: text('id').primaryKey(),
-  // Hermes thread-continuity header (X-Hermes-Session-Id). Distinct per thread.
-  session_id: text('session_id').notNull(),
-  // Long-term memory scope (X-Hermes-Session-Key). Constant across threads.
-  session_key: text('session_key').notNull(),
-  // DeepSeek-generated title (Group 4); null until the first turn is titled.
-  title: text('title'),
-  // DeepSeek one-line summary; null until generated (Group 2).
-  summary: text('summary'),
-  // Thread type badge (Group 2); null until classified.
-  type: text('type').$type<HermesThreadType>(),
-  // 'active' | 'archived' — kept as text for forward-compat.
-  status: text('status').notNull().default('active'),
-  pinned: integer('pinned').notNull().default(0), // 0 | 1
-  archived_at: timestamp('archived_at', { withTimezone: true, mode: 'string' }),
-  // Active resumable-stream id while an assistant turn is generating (durable
-  // streaming). Non-null during a live/resumable stream; cleared on finish or
-  // explicit stop. Drives GET /hermes/chat/:id/stream resume. Internal state —
-  // deliberately absent from the public ThreadSchema response.
-  active_stream_id: text('active_stream_id'),
-  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' })
-    .notNull()
-    .defaultNow(),
-  updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' })
-    .notNull()
-    .defaultNow(),
-})
+export const hermesThread = argoSchema.table(
+  'hermes_thread',
+  {
+    // App-generated id (createIdGenerator({ prefix: 'thr' })) — Group 2.
+    id: text('id').primaryKey(),
+    // Hermes thread-continuity header (X-Hermes-Session-Id). Distinct per thread.
+    session_id: text('session_id').notNull(),
+    // Long-term memory scope (X-Hermes-Session-Key). Constant across threads.
+    session_key: text('session_key').notNull(),
+    // DeepSeek-generated title (Group 4); null until the first turn is titled.
+    title: text('title'),
+    // DeepSeek one-line summary; null until generated (Group 2).
+    summary: text('summary'),
+    // Thread type badge (Group 2); null until classified.
+    type: text('type').$type<HermesThreadType>(),
+    // 'active' | 'archived' — kept as text for forward-compat.
+    status: text('status').notNull().default('active'),
+    pinned: integer('pinned').notNull().default(0), // 0 | 1
+    archived_at: timestamp('archived_at', { withTimezone: true, mode: 'string' }),
+    // Active resumable-stream id while an assistant turn is generating (durable
+    // streaming). Non-null during a live/resumable stream; cleared on finish or
+    // explicit stop. Drives GET /hermes/chat/:id/stream resume. Internal state —
+    // deliberately absent from the public ThreadSchema response.
+    active_stream_id: text('active_stream_id'),
+    created_at: timestamp('created_at', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
+    updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    // NOTE: drizzle-orm's `.desc()` means opposite things on a query `orderBy` vs
+    // on an INDEX column, and that asymmetry made this index unusable. `desc(col)`
+    // in a query emits bare `ORDER BY col DESC`, which Postgres defaults to `NULLS
+    // FIRST`. `col.desc()` on an index instead emits `DESC NULLS LAST`. GET
+    // /hermes/threads orders with plain `desc(...)` (the natural way to write it),
+    // so an index built from `t.pinned.desc()` never matched its pathkeys — the
+    // planner could not use it at all (confirmed live via `EXPLAIN` with
+    // `enable_seqscan = off`), making every `updated_at` bump (i.e. every turn)
+    // pure write amplification. Both columns are NOT NULL, so NULLS ordering is
+    // moot for row order — only for planner pathkey matching — hence the `sql`
+    // template below forces plain `DESC` (`NULLS FIRST`) to mirror the query
+    // exactly. Do not "simplify" this back to `t.pinned.desc()`.
+    index('idx_hermes_thread_pinned_updated').on(sql`${t.pinned} DESC`, sql`${t.updated_at} DESC`),
+  ],
+)
 
 export const hermesMessage = argoSchema.table(
   'hermes_message',
@@ -460,6 +479,9 @@ export const hermesMessage = argoSchema.table(
       .notNull()
       .references(() => hermesThread.id, { onDelete: 'cascade' }),
     role: text('role').notNull(), // 'user' | 'assistant' | 'system'
+    // Client-minted idempotency key for a retried/double-fired write. NULL for
+    // server-originated messages and legacy rows written before this column.
+    client_message_id: text('client_message_id'),
     parts: jsonb('parts').$type<MessageParts>().notNull().default([]),
     payload: jsonb('payload').$type<MessagePayload>(),
     // 'complete' | 'streaming' | 'interrupted' | 'error' (Group 4).
@@ -468,7 +490,12 @@ export const hermesMessage = argoSchema.table(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index('idx_hermes_message_thread_created').on(t.thread_id, t.created_at)],
+  (t) => [
+    index('idx_hermes_message_thread_created').on(t.thread_id, t.created_at),
+    uniqueIndex('uq_hermes_message_thread_client_id')
+      .on(t.thread_id, t.client_message_id)
+      .where(sql`${t.client_message_id} IS NOT NULL`),
+  ],
 )
 
 // ── Reading / Books (Phase A — Hardcover.app read-model) ─────────────────────

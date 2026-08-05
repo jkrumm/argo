@@ -35,6 +35,15 @@ export interface HermesStreaming {
   resumeExistingStream(streamId: string): Promise<ReadableStream<string> | null>
   /** Track the AbortController driving `streamId`'s generation (for explicit stop). */
   register(streamId: string, controller: AbortController): void
+  /**
+   * Side-effect-free membership check against the same in-process registry
+   * `register`/`abort`/`unregister` maintain — true the instant `register` has
+   * run for `streamId` in THIS process, with no round trip. This is what lets a
+   * POST claim be liveness-gated correctly the moment its own registration lands,
+   * before the durable pub/sub backend has any idea the stream exists (see the
+   * two-tier liveness check in hermes.ts's `isStreamLive`).
+   */
+  has(streamId: string): boolean
   /** Abort the generation behind `streamId` if still live. Returns whether it aborted. */
   abort(streamId: string): boolean
   /** Drop `streamId`'s registry entry (on finish). */
@@ -89,6 +98,9 @@ function buildRedisStreaming(url: string): HermesStreaming {
     },
     register(streamId, controller) {
       registry.set(streamId, controller)
+    },
+    has(streamId) {
+      return registry.has(streamId)
     },
     abort(streamId) {
       const controller = registry.get(streamId)

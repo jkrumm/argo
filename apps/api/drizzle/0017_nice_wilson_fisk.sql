@@ -1,0 +1,3 @@
+ALTER TABLE "argo"."hermes_message" ADD COLUMN IF NOT EXISTS "client_message_id" text;--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "uq_hermes_message_thread_client_id" ON "argo"."hermes_message" USING btree ("thread_id","client_message_id") WHERE "argo"."hermes_message"."client_message_id" IS NOT NULL;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_hermes_thread_pinned_updated" ON "argo"."hermes_thread" USING btree ("pinned" DESC,"updated_at" DESC);

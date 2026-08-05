@@ -120,6 +120,13 @@
       "when": 1785666394602,
       "tag": "0016_magical_power_man",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1785914450507,
+      "tag": "0017_nice_wilson_fisk",
+      "breakpoints": true
     }
   ]
 }

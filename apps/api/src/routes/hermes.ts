@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { and, asc, count, desc, eq, isNull } from 'drizzle-orm'
+import { and, asc, count, desc, eq, isNull, sql } from 'drizzle-orm'
 // basalt-agent-allow — deliberate per locked decision D3: apps/api stays on ai@5 and imports no basalt-ui; the v5/v7 skew is neutralized producer-side in A1 by a TransformStream rewriting finishReason 'unknown' -> 'other', never by upgrading apps/api (docs/HERMES-CHAT-V2.md).
 import {
   convertToModelMessages,
@@ -26,6 +26,7 @@ import {
 import { tracedFetch } from '../lib/traced-fetch.js'
 import { filterToolProgress, type ToolProgressData } from '../lib/hermes-sse.js'
 import { getHermesStreaming, type HermesStreaming } from '../lib/resumable.js'
+import { finishReasonTransform } from '../lib/finish-reason-transform.js'
 import { aiComplete } from './ai.js'
 import { recordAiUsage, type RecordUsageFn } from '../lib/ai-usage.js'
 import { env } from '../env.js'
@@ -274,6 +275,77 @@ async function summarizeThreadIfNeeded(
     .where(and(eq(hermesThread.id, threadId), isNull(hermesThread.summary)))
 }
 
+// Per-turn attachment budget (defect 18's app-level half — the global
+// maxRequestBodySize backstop wired elsewhere only rejects an oversize body
+// before Elysia ever runs; it can't shape a JSON error). 8 attachments covers
+// "several photos from one shoot" with headroom. 24MB decoded total (~32MB
+// base64 on the wire) is deliberately ABOVE what the only current client
+// (the dashboard) can ever actually send — it caps a single attachment at 2MB
+// client-side (apps/dashboard/src/features/hermes-chat/chat-conversation.tsx),
+// so 8 attachments tops out at 16MB from that path. The extra headroom is for
+// an API-agent caller bypassing the dashboard's own limit, while still
+// bounding worst-case memory for a payload stored verbatim in a jsonb column
+// and echoed back on every transcript read.
+const MAX_ATTACHMENTS = 8
+const MAX_ATTACHMENT_BYTES_TOTAL = 24 * 1024 * 1024
+
+/**
+ * Rough decoded-byte estimate for one attachment: a `dataUrl`'s base64 payload
+ * (image/file attachments) or a `content` string's UTF-8 length (text
+ * attachments). Reads only these two known field names — the full `Attachment`
+ * union is deliberately not modeled here (same opaque-parse precedent as
+ * `messages` below); a shape that matches neither just contributes 0 to the
+ * budget and is caught downstream by the DB layer's own type.
+ */
+function attachmentByteEstimate(a: unknown): number {
+  if (typeof a !== 'object' || a === null) return 0
+  const dataUrl = (a as { dataUrl?: unknown }).dataUrl
+  if (typeof dataUrl === 'string') {
+    const b64 = dataUrl.slice(dataUrl.indexOf(',') + 1)
+    return Math.floor((b64.length * 3) / 4)
+  }
+  const content = (a as { content?: unknown }).content
+  return typeof content === 'string' ? Buffer.byteLength(content, 'utf8') : 0
+}
+
+/**
+ * Validate the attachment budget (count + total decoded bytes) OUTSIDE the Zod
+ * body schema, deliberately. `attachments` used to carry a `.max()` + `.refine()`
+ * on the schema itself — but Elysia's validation-error response echoes the
+ * offending VALUE back in `found`, and for a body-level array field that is the
+ * entire request body, base64 data URLs included. A caller posting 9
+ * attachments (or an oversize total) got rejected AND had ~2x its payload
+ * echoed straight back in the 422 — inverting the whole point of the cap. This
+ * function runs by hand, in the handler, before any side effect — a violation
+ * returns a small, declared, machine-readable error that never includes the
+ * attachments themselves.
+ */
+function attachmentBudgetError(attachments: unknown[] | undefined): string | null {
+  if (!attachments) return null
+  if (attachments.length > MAX_ATTACHMENTS) {
+    return `At most ${MAX_ATTACHMENTS} attachments per turn.`
+  }
+  const totalBytes = attachments.reduce((sum: number, a) => sum + attachmentByteEstimate(a), 0)
+  if (totalBytes > MAX_ATTACHMENT_BYTES_TOTAL) {
+    return `Attachments exceed the ${Math.floor(MAX_ATTACHMENT_BYTES_TOTAL / (1024 * 1024))}MB total budget.`
+  }
+  return null
+}
+
+// Bound on the client-supplied UIMessage.id, persisted as `client_message_id`
+// for write idempotency (defect 4). `messages` below stays opaque `z.unknown()`
+// (the SDK validates the full UIMessage shape downstream) — this is a targeted
+// parse of just the one field Argo itself uses as an index key, so it needs its
+// own bound rather than trusting an arbitrary caller-supplied string.
+const ClientMessageIdSchema = z.string().trim().min(1).max(128)
+
+/** Extract and bound-validate a UIMessage's client-supplied id, or null when
+ * absent/invalid (an API-agent caller sending no id is a legal, supported case). */
+function readClientMessageId(message: UIMessage): string | null {
+  const result = ClientMessageIdSchema.safeParse(message.id)
+  return result.success ? result.data : null
+}
+
 const ChatBodySchema = z.object({
   threadId: z
     .string()
@@ -296,7 +368,10 @@ const ChatBodySchema = z.object({
     .number()
     .describe('Duration in ms of the voice recording that produced this message.')
     .optional(),
-  // User-supplied attachments (text/image/file) to carry on the user message payload.
+  // User-supplied attachments (text/image/file) to carry on the user message
+  // payload. Deliberately NOT bounded on this schema (no `.max()`/`.refine()`) —
+  // see `attachmentBudgetError`'s doc for why a schema-level check here is the
+  // wrong place to enforce the cap.
   attachments: z
     .array(z.unknown())
     .describe('Attachments to persist on the user message payload.')
@@ -421,6 +496,26 @@ function turnStatus(aborted: boolean, errored: boolean): 'interrupted' | 'error'
   return 'complete'
 }
 
+/**
+ * True when a hermes_message row already exists for this (threadId,
+ * clientMessageId) pair — i.e. this exact client-supplied turn id has already
+ * been persisted at least once, by an earlier request's early-write or its
+ * onFinish fallback. Mirrors the predicate of the partial unique index
+ * `uq_hermes_message_thread_client_id` (schema.ts) exactly, so this can never
+ * disagree with what `persistMessages`'s own `ON CONFLICT DO NOTHING` would
+ * dedupe against.
+ */
+async function turnAlreadyPersisted(threadId: string, clientMessageId: string): Promise<boolean> {
+  const existing = await db.query.hermesMessage.findFirst({
+    where: and(
+      eq(hermesMessage.thread_id, threadId),
+      eq(hermesMessage.client_message_id, clientMessageId),
+    ),
+    columns: { id: true },
+  })
+  return existing !== undefined
+}
+
 function buildMessagePayload(
   m: UIMessage,
   toolEvents: ToolProgressData[],
@@ -438,37 +533,184 @@ function buildMessagePayload(
   return null
 }
 
-/** Persist the user + assistant turn and bump the thread's updated_at. */
-async function persistTurn(args: {
+/**
+ * Row spec for one persisted hermes_message — shared by the early user-turn write
+ * (claimed at stream start, before generation) and the turn-finish write
+ * (onFinish), so ordering/payload logic lives in one place instead of forking
+ * into two near-duplicate persist functions.
+ */
+interface MessageEntry {
+  message: UIMessage
+  /** Explicit per-row timestamp (ms). Callers splitting a turn across two writes
+   * must pick this so ordering holds across the split — see `persistMessages`. */
+  createdAtMs: number
+  status: 'complete' | 'streaming' | 'interrupted' | 'error'
+  /** Client-supplied UIMessage.id for a user turn (idempotency key); null for
+   * every server-originated row, which the partial index never matches. */
+  clientMessageId: string | null
+}
+
+/**
+ * Insert one or more hermes_message rows and bump the thread's updated_at in one
+ * transaction. `entries` carries an explicit `createdAtMs` per row (rather than
+ * deriving one internally) precisely so a caller splitting a turn across two
+ * separate calls — the early user-row write, then the later assistant-row write
+ * in onFinish — can guarantee "user sorts before assistant" by construction, which
+ * two independent `Date.now()` stamps cannot reliably do within the same
+ * millisecond (see the onFinish call site for how the offset is derived).
+ *
+ * A `client_message_id` conflict (the SAME request's early-write and its own
+ * onFinish fallback both firing, or two truly-concurrent requests racing the
+ * insert) is absorbed at the ROW level via `ON CONFLICT DO NOTHING` against the
+ * partial unique index `uq_hermes_message_thread_client_id` (schema.ts) — the
+ * `where` predicate here must mirror the index's own predicate exactly, or
+ * Postgres can't infer the partial index and the INSERT throws at runtime (not a
+ * type error). Rows with a null `client_message_id` (every server-originated row)
+ * never match that predicate, so they're unaffected by the conflict clause. This
+ * is defense-in-depth only, NOT the turn-level idempotency guarantee: it stops a
+ * duplicate ROW, but on its own would let a retried POST arriving after the
+ * original turn finished still silently no-op its user-row insert and then call
+ * Hermes again for a second assistant reply. The route itself is what refuses
+ * that retry outright (`turnAlreadyPersisted` → `409 duplicate_turn`), before
+ * this function — or Hermes — is ever reached for that request.
+ */
+async function persistMessages(args: {
   threadId: string
-  messages: UIMessage[]
+  entries: MessageEntry[]
   toolEvents: ToolProgressData[]
-  aborted: boolean
-  errored: boolean
   userAudioDurationMs?: number
   attachments?: unknown[]
 }): Promise<void> {
-  // Stamp a distinct, monotonically increasing created_at per message. A single
-  // transaction's `now()` is identical for every row, so relying on the column
-  // default would make the user→assistant order within a turn non-deterministic
-  // on read; an explicit per-index offset preserves the array order verbatim.
-  const baseMs = Date.now()
-  const rows = args.messages.map((m, i) => ({
+  // Empty is reachable from onFinish: an errored/aborted turn that produced no
+  // assistant message, combined with the early-persist having already succeeded
+  // (`userPersisted` true), filters the user message back out too (it's already
+  // written) — leaving nothing to insert. Skipping the transaction here also
+  // skips its `updated_at` bump, but that bump already happened on the SAME
+  // request via the early-persist's own `persistMessages` call (see the
+  // `userCreatedAtMs` call site) — so this is a no-op, not a dropped write.
+  if (args.entries.length === 0) return
+  const rows = args.entries.map((e) => ({
     id: messageIdGen(),
     thread_id: args.threadId,
-    role: m.role,
-    parts: (m.parts ?? []) as MessageParts,
-    payload: buildMessagePayload(m, args.toolEvents, args.userAudioDurationMs, args.attachments),
-    status: m.role === 'assistant' ? turnStatus(args.aborted, args.errored) : 'complete',
-    created_at: new Date(baseMs + i).toISOString(),
+    role: e.message.role,
+    client_message_id: e.clientMessageId,
+    parts: (e.message.parts ?? []) as MessageParts,
+    payload: buildMessagePayload(
+      e.message,
+      args.toolEvents,
+      args.userAudioDurationMs,
+      args.attachments,
+    ),
+    status: e.status,
+    created_at: new Date(e.createdAtMs).toISOString(),
   }))
   await db.transaction(async (tx) => {
-    await tx.insert(hermesMessage).values(rows)
+    await tx
+      .insert(hermesMessage)
+      .values(rows)
+      .onConflictDoNothing({
+        target: [hermesMessage.thread_id, hermesMessage.client_message_id],
+        where: sql`${hermesMessage.client_message_id} IS NOT NULL`,
+      })
     await tx
       .update(hermesThread)
       .set({ updated_at: new Date().toISOString() })
       .where(eq(hermesThread.id, args.threadId))
   })
+}
+
+/**
+ * Resolve a `resumeExistingStream` call to "live" (a stream) or "dead" (null),
+ * collapsing a rejection (crashed-producer ~1s ack timeout — see resumable.ts)
+ * into dead too. Both the POST claim (`isStreamLive`, 409s on live) and the GET
+ * resume handler (reaps a dead pointer) call this so the two can never
+ * independently drift on what "dead" means — which is exactly how the pointer-
+ * reaping defect this replaces was introduced in the first place.
+ */
+async function resumeOrDead(
+  streaming: HermesStreaming,
+  streamId: string,
+): Promise<ReadableStream<string> | null> {
+  try {
+    return await streaming.resumeExistingStream(streamId)
+  } catch (error) {
+    log.error('hermes resume failed (stale/timeout)', error)
+    return null
+  }
+}
+
+/**
+ * Two-tier liveness probe. Tier 1 is the in-process registry (`has`) — true the
+ * instant THIS process's `register()` has run for `streamId`, synchronously and
+ * with no round trip. That closes the exact race this function used to lose: a
+ * stream this process just claimed via `claimActiveStream` is registered BEFORE
+ * the CAS write, so a second POST reading the freshly-written pointer always
+ * finds `has()` already true — it can never observe "pointer set, not yet live".
+ *
+ * Tier 2 (only reached when tier 1 says no — this process never registered
+ * `streamId`, e.g. it's stale or belongs to another replica) falls back to the
+ * pub/sub probe: `resumeExistingStream` performs a real round trip against the
+ * live producer (resumable-stream/dist/runtime.js `resumeStream` — a fresh,
+ * randomly generated `listenerId` per call, so concurrent probes and a real
+ * client resume never collide), so a resolved non-null stream means a producer
+ * answered RIGHT NOW. We only need the yes/no, so the probe stream is cancelled
+ * immediately; cancelling drops our listener channel without disturbing the
+ * underlying resumable-stream broadcast (a genuine consumer of the same
+ * streamId, e.g. the dashboard's actual resume GET, gets its own independent
+ * listener and is unaffected). A stale/gone pointer — the case a change here
+ * most easily breaks — still resolves to dead: `has()` is false (nothing
+ * registered for it in this process) and the probe finds no producer either.
+ */
+async function isStreamLive(streaming: HermesStreaming, streamId: string): Promise<boolean> {
+  if (streaming.has(streamId)) return true
+  const resumed = await resumeOrDead(streaming, streamId)
+  if (!resumed) return false
+  await resumed.cancel()
+  return true
+}
+
+/**
+ * Claim a thread's active-stream pointer via a liveness-gated compare-and-swap.
+ * A genuinely live existing stream is left untouched (the caller 409s instead of
+ * superseding it — see the standing ruling in the route). A dead or absent
+ * pointer is atomically overwritten by `streamId`: the UPDATE's WHERE clause
+ * pins the exact previously-observed value (or `IS NULL`), so if a second racing
+ * POST already won between our read and this write, our UPDATE matches zero
+ * rows and we lose cleanly instead of clobbering the winner's fresh pointer.
+ *
+ * Multi-process honesty: liveness is answered two-tier by `isStreamLive` — the
+ * in-process registry first (authoritative for what THIS process itself just
+ * registered, no round trip, no race — see its doc), then `resumeExistingStream`
+ * as the only cross-process signal `HermesStreaming` exposes. A live producer in
+ * another replica publishing over the same Valkey pub/sub answers that probe
+ * correctly; an unreachable/slow replica collapses to "dead" via the ~1s ack
+ * timeout in `resumeOrDead`. Argo runs single-instance (resumable.ts's own module
+ * doc: durability does not survive a restart), so "producer crashed" is the far
+ * likelier explanation for a stuck pointer than "producer is a live replica that
+ * hasn't acked yet" — treating a timeout as dead is the honest choice for this
+ * deployment, not merely the convenient one.
+ */
+async function claimActiveStream(
+  streaming: HermesStreaming,
+  threadId: string,
+  streamId: string,
+): Promise<boolean> {
+  const existing = await db.query.hermesThread.findFirst({
+    where: eq(hermesThread.id, threadId),
+    columns: { active_stream_id: true },
+  })
+  const existingId = existing?.active_stream_id ?? null
+  if (existingId && (await isStreamLive(streaming, existingId))) return false
+
+  const claimCondition = existingId
+    ? eq(hermesThread.active_stream_id, existingId)
+    : isNull(hermesThread.active_stream_id)
+  const claimed = await db
+    .update(hermesThread)
+    .set({ active_stream_id: streamId })
+    .where(and(eq(hermesThread.id, threadId), claimCondition))
+    .returning({ id: hermesThread.id })
+  return claimed.length > 0
 }
 
 export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
@@ -510,7 +752,7 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
     )
     .post(
       '/chat',
-      ({ body, request, server, status }) => {
+      async ({ body, request, server, status }) => {
         // Unconfigured upstream → fail clean. Without this, an empty baseURL lets
         // streamText connect to an invalid URL, surfacing as a mid-stream error
         // and persisting a broken (empty) assistant turn. Mirrors /health.
@@ -532,9 +774,16 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
         const toolEvents: ToolProgressData[] = []
         const audioDurationMs = body.userAudioDurationMs
         const sentAttachments = body.attachments
+        const clientMessageId = readClientMessageId(newTurn)
 
-        // Resolved inside execute (after ensureThread) and read in onFinish.
-        let resolvedThreadId = ''
+        // Attachment budget (defect 18's app-level half) — checked by hand, not by
+        // the Zod body schema; see `attachmentBudgetError`'s doc for why. Runs
+        // before any DB write or upstream call.
+        const attachmentError = attachmentBudgetError(sentAttachments)
+        if (attachmentError) {
+          return status(422, { error: 'attachment_limit_exceeded', message: attachmentError })
+        }
+
         // Set by onError so onFinish persists a failed turn as 'error' rather
         // than the default 'complete' on an empty assistant message.
         let streamErrored = false
@@ -554,37 +803,147 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
         const abortController = new AbortController()
         const abortSignal = durable ? abortController.signal : request.signal
 
+        // Thread resolution, the durable claim, and the early user-turn write all
+        // happen BEFORE the UIMessageStream/Response is constructed — a 409 (or
+        // any other rejection) must be a real HTTP status, not something spliced
+        // into an SSE body after headers are already committed.
+        const { threadId, sessionId } = await ensureThread(body, deps.sessionKey)
+
+        if (durable) {
+          // Register the AbortController in-process BEFORE the CAS write, not
+          // after. This is the fix for the 100%-reproducible race this ordering
+          // used to have: the CAS is a Postgres round trip and the durable
+          // backend only learns about the stream several awaits later (in
+          // consumeSseStream, below) — a second POST landing in that window used
+          // to see the pointer as set but the stream as not-yet-live, and could
+          // re-claim it. Registering first means `isStreamLive`'s in-process tier
+          // (see its doc) already answers "live" for this streamId the instant
+          // the pointer becomes visible to anyone else. Do not move this back
+          // below claimActiveStream.
+          durable.register(streamId, abortController)
+          // Liveness-gated CAS claim (defects 5/6): reject rather than supersede
+          // a genuinely live turn — see the standing ruling and claimActiveStream's
+          // own doc for the multi-process caveat.
+          //
+          // The `try` here is load-bearing, not defensive filler: `claimActiveStream`
+          // does a SELECT then a CAS UPDATE over Postgres, and either can throw on a
+          // transient error. Only the `!claimed` branch used to unregister — a THROW
+          // skipped it entirely, leaking the registry entry. That leak is not merely
+          // "one AbortController lost": if the CAS UPDATE already committed
+          // server-side before the connection dropped (so `active_stream_id` now
+          // points at this `streamId`), `isStreamLive`'s tier-1 `has()` check keeps
+          // answering "live" for it forever (nothing ever calls `unregister`), so
+          // every future POST on this thread 409s permanently — the exact "a leak
+          // 409s a thread forever" failure mode this phase was told to avoid. Any
+          // thrown error must unregister, same as an explicit `!claimed` loss; the
+          // success path below is the only path that must NOT unregister.
+          let claimed: boolean
+          try {
+            claimed = await claimActiveStream(durable, threadId, streamId)
+          } catch (error) {
+            durable.unregister(streamId)
+            throw error
+          }
+          if (!claimed) {
+            // Losing claimant: this streamId never became the thread's active
+            // stream, so its registration must be dropped here — otherwise it
+            // leaks forever and `has()` keeps answering "live" for a stream
+            // nothing is generating, permanently 409ing every future POST on
+            // this thread once the actual winner finishes and clears its own.
+            durable.unregister(streamId)
+            return status(409, {
+              error: 'stream_in_progress',
+              message:
+                'A turn is already generating for this thread. Stop it (POST /hermes/chat/{id}/stop) before starting a new one.',
+            })
+          }
+        }
+
+        // Turn-level idempotency (BLOCKING 2 / the turn half of defect 4):
+        // `persistMessages`'s own ON CONFLICT DO NOTHING only dedupes the user
+        // ROW — once the original turn has finished and cleared active_stream_id,
+        // a retry carrying the same client_message_id passes the live-stream gate
+        // above, silently no-ops the duplicate user row, and would still call
+        // Hermes again, producing a second assistant reply for one logical turn.
+        // Reject it here instead. Deliberately checked AFTER the live-stream 409
+        // above, not before: a retry arriving WHILE the original is still
+        // generating already has its user row persisted by the ORIGINAL request's
+        // own early-write below, so checking client_message_id existence first
+        // would misclassify that in-flight retry as "duplicate" when it must
+        // instead answer `stream_in_progress` — the live-stream CAS above has to
+        // win that race. Only a retry that arrives once the turn has genuinely
+        // finished (or was never claimed, durability off) reaches here. Skipped
+        // entirely when no client id was supplied (`readClientMessageId` already
+        // narrows that to a real, present id) — an API-agent caller sending none
+        // behaves exactly as it does today. Replaying the prior turn's result is
+        // explicitly out of scope: the caller re-reads the transcript.
+        if (clientMessageId && (await turnAlreadyPersisted(threadId, clientMessageId))) {
+          // This request's own CAS claim above (if durable) already staked
+          // active_stream_id on `streamId` — release both sides of that claim
+          // before bailing, or it leaks exactly like BLOCKING 1's unhandled-throw
+          // case (a pointer nothing will ever clear, permanently 409ing the thread).
+          if (durable) {
+            durable.unregister(streamId)
+            try {
+              await clearActiveStream(threadId, streamId)
+            } catch (error) {
+              log.error('hermes duplicate-turn claim release failed', error)
+            }
+          }
+          return status(409, {
+            error: 'duplicate_turn',
+            message:
+              'A turn with this client_message_id has already been persisted on this thread. Re-read the transcript (GET /hermes/threads/{id}/messages) instead of retrying.',
+          })
+        }
+
+        // Persist the user turn now, before generation starts (defects 2/8/9): a
+        // reload mid-stream, or a crash before onFinish runs, must not lose it.
+        // A failed early write is NOT retried here and does NOT fail the request —
+        // `userPersisted` stays false, and onFinish's write below still includes
+        // the user row as a fallback. That covers the case where the INSERT itself
+        // never committed. It does NOT cover every failure mode: the INSERT can
+        // commit here and the connection can still fail before this `try` returns
+        // (or before `userPersisted = true` is even reached) — `userPersisted`
+        // then stays false even though the row exists, and onFinish's fallback
+        // fires anyway. With a non-null `clientMessageId` that second insert is
+        // absorbed by the partial unique index's `ON CONFLICT DO NOTHING`
+        // (persistMessages' own doc) — so the guarantee is "written once, possibly
+        // late" only when a client id was supplied. With `clientMessageId` null
+        // (any API-agent caller, or a client id that failed the bound in
+        // `readClientMessageId`) that index predicate never matches, so this exact
+        // race produces two user rows, not one late one. Killing the turn over a
+        // write hiccup the user can't even see would still be strictly worse than
+        // that — this stays a deliberate, bounded tradeoff, not a bug to close here.
+        const userCreatedAtMs = Date.now()
+        let userPersisted = false
+        try {
+          await persistMessages({
+            threadId,
+            entries: [
+              {
+                message: newTurn,
+                createdAtMs: userCreatedAtMs,
+                status: 'complete',
+                clientMessageId,
+              },
+            ],
+            toolEvents: [],
+            ...(audioDurationMs !== undefined ? { userAudioDurationMs: audioDurationMs } : {}),
+            ...(sentAttachments?.length ? { attachments: sentAttachments } : {}),
+          })
+          userPersisted = true
+        } catch (error) {
+          log.error(
+            'hermes user turn early persist failed (falling back to turn-finish write)',
+            error,
+          )
+        }
+
         const stream = createUIMessageStream({
           originalMessages: [newTurn],
           generateId: messageIdGen,
           execute: async ({ writer }) => {
-            const { threadId, sessionId } = await ensureThread(body, deps.sessionKey)
-            resolvedThreadId = threadId
-
-            if (durable) {
-              // Supersede any still-registered in-flight stream for this thread,
-              // then claim the thread's active-stream pointer for the resume path.
-              // NOTE: this read-then-write is not atomic. Two POSTs racing on the
-              // same thread could each read the old pointer and both generate — a
-              // known, accepted limitation: the dashboard is single-user and gates
-              // sends while streaming, so it's only reachable by concurrent
-              // API-agent callers on one thread. If that ever matters, make the
-              // claim a CAS UPDATE (WHERE active_stream_id = observed OR IS NULL)
-              // and bail the loser before streamText.
-              const existing = await db.query.hermesThread.findFirst({
-                where: eq(hermesThread.id, threadId),
-                columns: { active_stream_id: true },
-              })
-              if (existing?.active_stream_id && existing.active_stream_id !== streamId) {
-                durable.abort(existing.active_stream_id)
-              }
-              durable.register(streamId, abortController)
-              await db
-                .update(hermesThread)
-                .set({ active_stream_id: streamId })
-                .where(eq(hermesThread.id, threadId))
-            }
-
             // Custom fetch: wrap the transport, filter the custom tool-progress
             // channel out of the SDK-bound branch and into transient data parts.
             const tappingFetch: FetchImpl = async (input, init) => {
@@ -626,6 +985,16 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
                 'X-Hermes-Session-Key': body.sessionKey ?? deps.sessionKey,
               },
               abortSignal,
+              // The SDK's default retry (2 attempts) wraps doStream, which only
+              // resolves at response-headers time — so it can only retry a
+              // pre-stream failure (429/5xx/connection error), and only BEFORE any
+              // output has reached the client. Against Hermes specifically that
+              // window is after Hermes has already begun executing tools: a retry
+              // re-runs Hermes' side effects and duplicates its progress events.
+              // Not acceptable for a tool-executing agent — disable it outright
+              // (defect 7). A genuinely transient upstream hiccup surfaces as a
+              // normal failed turn instead, which the user can just retry.
+              maxRetries: 0,
               // Record proxied-turn token usage into argo.usage_record
               // (source='argo', sub_tool='hermes-proxy'). Fire-and-forget; skip
               // when the upstream reports no token counts.
@@ -648,7 +1017,10 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
                   .catch((err: unknown) => log.error('hermes proxy usage record failed', err))
               },
             })
-            writer.merge(result.toUIMessageStream())
+            // ai@5's finishReason has 7 values; the dashboard (ai@7) strictly
+            // accepts only 6 and rejects the 7th ('unknown') outright — see
+            // finish-reason-transform.ts for the full citation trail (D3/D4).
+            writer.merge(result.toUIMessageStream().pipeThrough(finishReasonTransform()))
           },
           onError: (error) => {
             streamErrored = true
@@ -656,21 +1028,62 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
             return 'Hermes stream error'
           },
           onFinish: async ({ messages, isAborted }) => {
-            if (!resolvedThreadId) return
             let persisted = false
             try {
-              await persistTurn({
-                threadId: resolvedThreadId,
-                messages,
+              // Anchor the assistant row(s) strictly after the user row even if
+              // both land in the same wall-clock millisecond (Math.max over a
+              // fresh Date.now() vs userCreatedAtMs+1), then offset further
+              // entries to preserve the SDK's own relative order among them.
+              const assistantBaseMs = Math.max(Date.now(), userCreatedAtMs + 1)
+              let offset = 0
+              const entries: MessageEntry[] = messages
+                .filter((m) => !(userPersisted && m.role === 'user'))
+                .map((m): MessageEntry => {
+                  if (m.role === 'user') {
+                    return {
+                      message: m,
+                      createdAtMs: userCreatedAtMs,
+                      status: 'complete',
+                      clientMessageId,
+                    }
+                  }
+                  const createdAtMs = assistantBaseMs + offset
+                  offset += 1
+                  return {
+                    message: m,
+                    createdAtMs,
+                    status:
+                      m.role === 'assistant' ? turnStatus(isAborted, streamErrored) : 'complete',
+                    clientMessageId: null,
+                  }
+                })
+              await persistMessages({
+                threadId,
+                entries,
                 toolEvents,
-                aborted: isAborted,
-                errored: streamErrored,
                 ...(audioDurationMs !== undefined ? { userAudioDurationMs: audioDurationMs } : {}),
                 ...(sentAttachments?.length ? { attachments: sentAttachments } : {}),
               })
               persisted = true
             } catch (error) {
-              log.error('hermes transcript persist failed', error)
+              if (userPersisted) {
+                // The user's message is ALREADY durably saved (the early-persist
+                // above succeeded) — this failure is what drops the ASSISTANT's
+                // reply, permanently: no retry, no dead-letter, a new failure
+                // window opened by splitting the turn into two writes. Distinct
+                // message + a `dataLoss` attribute (no higher severity than
+                // `error` exists on this logger) so this specific shape is
+                // greppable/alertable apart from the generic case below, where
+                // the user row would also still be missing and is a strictly
+                // less surprising loss.
+                log.error(
+                  'hermes transcript persist failed: assistant reply lost forever (user message was already persisted; no retry, no dead-letter)',
+                  error,
+                  { dataLoss: true, threadId },
+                )
+              } else {
+                log.error('hermes transcript persist failed', error)
+              }
             } finally {
               // Release the durable stream regardless of persist outcome: drop the
               // abort-registry entry and clear the thread pointer, but only if it
@@ -678,15 +1091,7 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
               if (durable) {
                 durable.unregister(streamId)
                 try {
-                  await db
-                    .update(hermesThread)
-                    .set({ active_stream_id: null })
-                    .where(
-                      and(
-                        eq(hermesThread.id, resolvedThreadId),
-                        eq(hermesThread.active_stream_id, streamId),
-                      ),
-                    )
+                  await clearActiveStream(threadId, streamId)
                 } catch (error) {
                   log.error('hermes active_stream_id clear failed', error)
                 }
@@ -698,10 +1103,10 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
             // DeepSeek answers. Skip on failed turns — there's no real assistant
             // text to work from.
             if (!isAborted && !streamErrored) {
-              titleThreadIfNeeded(resolvedThreadId, deps.generateTitle).catch((error) =>
+              titleThreadIfNeeded(threadId, deps.generateTitle).catch((error) =>
                 log.error('hermes auto-title failed', error),
               )
-              summarizeThreadIfNeeded(resolvedThreadId, deps.generateSummary).catch((error) =>
+              summarizeThreadIfNeeded(threadId, deps.generateSummary).catch((error) =>
                 log.error('hermes auto-summarize failed', error),
               )
             }
@@ -727,11 +1132,29 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
       },
       {
         body: ChatBodySchema,
+        response: {
+          503: z.object({
+            error: z.literal('hermes_unconfigured'),
+            message: z.string(),
+          }),
+          409: z.object({
+            error: z
+              .enum(['stream_in_progress', 'duplicate_turn'])
+              .describe(
+                '`stream_in_progress`: a turn is already generating for this thread. `duplicate_turn`: this client_message_id was already persisted on a completed turn — re-read the transcript instead of retrying.',
+              ),
+            message: z.string(),
+          }),
+          422: z.object({
+            error: z.literal('attachment_limit_exceeded'),
+            message: z.string(),
+          }),
+        },
         detail: {
           tags: ['Hermes Chat'],
           summary: 'Stream a chat turn through the Hermes agent core',
           description:
-            "Proxies the new user turn to Hermes `/v1/chat/completions` (SSE) over Tailscale with the bearer kept server-side, and streams back a Vercel-AI-SDK UIMessageStream. Hermes holds conversation history per `X-Hermes-Session-Id`, so only the latest turn is forwarded. Hermes' custom `hermes.tool.progress` events are injected as transient `data-toolProgress` parts (live progress; not persisted). On completion the user + assistant messages are written verbatim to Postgres. Pass `threadId` to continue a thread; omit it to start a fresh one. Response is `text/event-stream`, not JSON. When durable streaming is enabled the generation is decoupled from this connection — a dropped client can resume via `GET /hermes/chat/{id}/stream`.",
+            "Proxies the new user turn to Hermes `/v1/chat/completions` (SSE) over Tailscale with the bearer kept server-side, and streams back a Vercel-AI-SDK UIMessageStream. Hermes holds conversation history per `X-Hermes-Session-Id`, so only the latest turn is forwarded. Hermes' custom `hermes.tool.progress` events are injected as transient `data-toolProgress` parts (live progress; not persisted). The user turn is persisted immediately (before generation starts); the assistant turn on completion. Pass `threadId` to continue a thread; omit it to start a fresh one. Response is `text/event-stream`, not JSON. When durable streaming is enabled the generation is decoupled from this connection — a dropped client can resume via `GET /hermes/chat/{id}/stream`. Returns `409 stream_in_progress` if a turn is already generating for the thread — stop it first. Returns `409 duplicate_turn` when the request's UIMessage id (used as `client_message_id`) was already persisted on a completed turn on this thread — the turn is not replayed; re-read it via GET /hermes/threads/{id}/messages. Returns `422 attachment_limit_exceeded` when `attachments` exceeds the per-turn count or total-size budget — the response never echoes the offending attachments back.",
           security: [{ BearerAuth: [] }],
         },
       },
@@ -751,17 +1174,13 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
         })
         const activeStreamId = thread?.active_stream_id
         if (!activeStreamId) return new Response(null, { status: 204 })
-        // resumeExistingStream yields null for a finished/gone stream, or REJECTS
-        // (~1s ack timeout) when the producer is gone after a server restart — the
-        // sentinel outlives the process (24h TTL) with no one to answer. Either way
-        // there is nothing to resume: reap the stale pointer so the next reopen
-        // 204s instantly instead of re-hitting the timeout, then 204.
-        let resumed: ReadableStream<string> | null = null
-        try {
-          resumed = await streaming.resumeExistingStream(activeStreamId)
-        } catch (error) {
-          log.error('hermes resume failed (stale/timeout)', error)
-        }
+        // A dead pointer (finished/gone stream, or a crashed producer whose
+        // sentinel outlives it — 24h TTL, nobody left to answer) means there is
+        // nothing to resume: reap it so the next reopen 204s instantly instead of
+        // re-hitting the ~1s ack timeout, then 204. `resumeOrDead` is the exact
+        // same dead/live classification the POST claim uses (see its doc) — this
+        // reap and that 409 can't independently disagree on "is this stream alive".
+        const resumed = await resumeOrDead(streaming, activeStreamId)
         if (!resumed) {
           await clearActiveStream(params.id, activeStreamId)
           return new Response(null, { status: 204 })

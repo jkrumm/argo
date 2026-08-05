@@ -5,6 +5,8 @@ import { createHermesRoutes, type FetchImpl, type HermesRouteDeps } from './herm
 import type { HermesStreaming } from '../lib/resumable.js'
 import { client, db } from '../db/index.js'
 import { hermesMessage, hermesThread } from '../db/schema.js'
+import { authGuard } from '../lib/auth-guard.js'
+import { buildApp as buildFullApp } from '../app.js'
 
 // Apply Hermes-table migrations directly rather than the full `runMigrations()`
 // chain. The shared local dev DB is in a half-migrated state where an unrelated
@@ -17,6 +19,7 @@ beforeAll(async () => {
     '../../drizzle/0009_friendly_mandarin.sql',
     '../../drizzle/0010_far_george_stacy.sql',
     '../../drizzle/0014_fixed_hercules.sql',
+    '../../drizzle/0017_nice_wilson_fisk.sql',
   ]) {
     const sql = await Bun.file(new URL(file, import.meta.url)).text()
     for (const stmt of sql.split('--> statement-breakpoint')) {
@@ -248,6 +251,113 @@ describe('POST /hermes/chat', () => {
 
     const chatCall = calls.find((c) => c.url.endsWith('/chat/completions'))
     expect(chatCall?.headers.get('x-hermes-session-id')).toBe('ses_original')
+  })
+})
+
+// ── Attachment budget (defect 18 / C2) ───────────────────────────────────────
+//
+// The cap is validated by hand in the handler (`attachmentBudgetError`), not by
+// the Zod body schema — a schema-level `.max()`/`.refine()` on `attachments`
+// made Elysia echo the ENTIRE request body (base64 payloads included) back in
+// the 422's `found` field, roughly doubling peak memory on exactly the request
+// the cap exists to reject. These pin both halves: the reject itself, and that
+// the response never contains the attachment payload. Mirrors the constants in
+// hermes.ts (MAX_ATTACHMENTS = 8, MAX_ATTACHMENT_BYTES_TOTAL = 24MB).
+describe('attachment budget (defect 18 / C2)', () => {
+  it('rejects more than 8 attachments with 422, without echoing them, before any upstream call or write', async () => {
+    const { fetchImpl, calls } = fakeHermes()
+    const app = buildApp(fetchImpl)
+    const attachments = Array.from({ length: 9 }, (_, i) => ({
+      type: 'text',
+      content: `attachment-payload-marker-${i}`,
+    }))
+
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_attach_count',
+        sessionId: 'ses_attach_count',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+        attachments,
+      }),
+    )
+    expect(res.status).toBe(422)
+    const bodyText = await res.text()
+    expect(JSON.parse(bodyText)).toMatchObject({ error: 'attachment_limit_exceeded' })
+    // The whole point of the fix: the offending payload never comes back.
+    expect(bodyText).not.toContain('attachment-payload-marker')
+
+    expect(calls.find((c) => c.url.endsWith('/chat/completions'))).toBeUndefined()
+    expect(await db.query.hermesMessage.findMany()).toHaveLength(0)
+  })
+
+  it('rejects attachments whose combined content size exceeds the 24MB budget, without echoing them', async () => {
+    const { fetchImpl, calls } = fakeHermes()
+    const app = buildApp(fetchImpl)
+    // Two text attachments whose content alone sums past the 24MB budget.
+    const bigContent = 'x'.repeat(13 * 1024 * 1024)
+    const attachments = [
+      { type: 'text', content: bigContent },
+      { type: 'text', content: bigContent },
+    ]
+
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_attach_content_size',
+        sessionId: 'ses_attach_content_size',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+        attachments,
+      }),
+    )
+    expect(res.status).toBe(422)
+    const bodyText = await res.text()
+    expect(JSON.parse(bodyText)).toMatchObject({ error: 'attachment_limit_exceeded' })
+    expect(bodyText.length).toBeLessThan(1000)
+    expect(bodyText).not.toContain('xxxxxxxxxx')
+
+    expect(calls.find((c) => c.url.endsWith('/chat/completions'))).toBeUndefined()
+    expect(await db.query.hermesMessage.findMany()).toHaveLength(0)
+  })
+
+  it('rejects a dataUrl attachment whose base64 payload exceeds the 24MB budget (the byte-estimate branch), without echoing it', async () => {
+    const { fetchImpl, calls } = fakeHermes()
+    const app = buildApp(fetchImpl)
+    // Decoded size deliberately just over the 24MB budget; base64 length derived
+    // from the same (bytes * 4/3) relationship attachmentByteEstimate decodes.
+    const oversizedB64Length = Math.ceil(((24 * 1024 * 1024 + 1024) * 4) / 3)
+    const marker = 'ATTACHMENT_PAYLOAD_MARKER'
+    const dataUrl = `data:image/png;base64,${marker}${'A'.repeat(oversizedB64Length)}`
+
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_attach_dataurl_size',
+        sessionId: 'ses_attach_dataurl_size',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+        attachments: [{ type: 'image', mimeType: 'image/png', dataUrl }],
+      }),
+    )
+    expect(res.status).toBe(422)
+    const bodyText = await res.text()
+    expect(JSON.parse(bodyText)).toMatchObject({ error: 'attachment_limit_exceeded' })
+    expect(bodyText).not.toContain(marker)
+    expect(bodyText.length).toBeLessThan(1000)
+
+    expect(calls.find((c) => c.url.endsWith('/chat/completions'))).toBeUndefined()
+    expect(await db.query.hermesMessage.findMany()).toHaveLength(0)
+  })
+
+  it('accepts attachments within the budget unchanged (regression guard)', async () => {
+    const { fetchImpl } = fakeHermes()
+    const app = buildApp(fetchImpl)
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_attach_ok',
+        sessionId: 'ses_attach_ok',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+        attachments: [{ type: 'text', content: 'small and fine' }],
+      }),
+    )
+    expect(res.status).toBe(200)
+    await res.text()
   })
 })
 
@@ -899,6 +1009,9 @@ function fakeStreaming(): HermesStreaming & { streams: Map<string, FakeEntry> } 
     register(streamId, controller) {
       registry.set(streamId, controller)
     },
+    has(streamId) {
+      return registry.has(streamId)
+    },
     abort(streamId) {
       const controller = registry.get(streamId)
       if (!controller) return false
@@ -977,6 +1090,13 @@ describe('durable streaming', () => {
       where: eq(hermesThread.id, 'thr_durable_finish'),
     })
     expect(thread?.active_stream_id).toBeNull()
+    // Pin the "every terminal path unregisters exactly once" invariant directly
+    // on the NORMAL successful-finish path — every existing 409/leak test only
+    // exercises the failure paths (loser cleanup, thrown-claim cleanup); nothing
+    // asserted the abort registry is cleared after a plain successful finish.
+    const [streamId] = streaming.streams.keys()
+    expect(streamId).toBeDefined()
+    expect(streaming.has(streamId!)).toBe(false)
   })
 
   it('keeps generating after a client disconnect and still persists the completed turn', async () => {
@@ -1165,5 +1285,723 @@ describe('durable streaming', () => {
       where: eq(hermesThread.id, 'thr_stale_stop'),
     })
     expect(thread?.active_stream_id).toBeNull()
+  })
+})
+
+// ── Plugin-level auth (defect 17, half one) ──────────────────────────────────
+//
+// `buildApp()` above builds a bare, unguarded Elysia instance so the
+// streaming/persist tests in this file don't need a bearer token — which
+// means nothing in this file has ever exercised auth on the Hermes plugin
+// itself. This mirrors ai.test.ts's guarded-app pattern
+// (`new Elysia().use(authGuard).use(createXRoutes(...))`) to close that gap
+// for every route/method the plugin exposes.
+
+function buildGuardedApp(fetchImpl: FetchImpl, extra: Partial<HermesRouteDeps> = {}) {
+  return new Elysia().use(authGuard).use(
+    createHermesRoutes({
+      baseURL: 'http://hermes.test/v1',
+      apiKey: HERMES_KEY,
+      sessionKey: 'agent:main:test',
+      model: 'hermes',
+      fetchImpl,
+      generateTitle: async () => '',
+      generateSummary: async () => ({ summary: '', type: 'general' }),
+      recordUsage: async () => {},
+      streaming: null,
+      ...extra,
+    }),
+  )
+}
+
+describe('plugin-level auth (every Hermes route requires a bearer token)', () => {
+  // Enumerated directly from createHermesRoutes' method chain in hermes.ts —
+  // GET /health, POST /chat, GET /chat/:id/stream, POST /chat/:id/stop, POST
+  // /threads, GET /threads, GET /threads/:id/messages, PATCH /threads/:id,
+  // DELETE /threads/:id.
+  const HERMES_ROUTE_CASES: Array<{ method: string; path: string; body?: unknown }> = [
+    { method: 'GET', path: '/hermes/health' },
+    { method: 'POST', path: '/hermes/chat', body: {} },
+    { method: 'GET', path: '/hermes/chat/thr_x/stream' },
+    { method: 'POST', path: '/hermes/chat/thr_x/stop' },
+    { method: 'POST', path: '/hermes/threads', body: {} },
+    { method: 'GET', path: '/hermes/threads' },
+    { method: 'GET', path: '/hermes/threads/thr_x/messages' },
+    { method: 'PATCH', path: '/hermes/threads/thr_x', body: {} },
+    { method: 'DELETE', path: '/hermes/threads/thr_x' },
+  ]
+
+  for (const { method, path, body } of HERMES_ROUTE_CASES) {
+    it(`401s ${method} ${path} without a bearer token`, async () => {
+      const { fetchImpl } = fakeHermes()
+      const app = buildGuardedApp(fetchImpl)
+      const res = await app.handle(
+        new Request(`http://localhost${path}`, {
+          method,
+          ...(body !== undefined
+            ? { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }
+            : {}),
+        }),
+      )
+      expect(res.status).toBe(401)
+    })
+  }
+})
+
+// ── Order-level auth (defect 17, half two) ───────────────────────────────────
+//
+// The plugin-level suite above proves the Hermes plugin 401s in isolation —
+// it says nothing about WHERE the plugin is mounted relative to authGuard in
+// the real composed app. This drives the actual `buildApp()` from app.ts: the
+// thing that would keep passing the suite above while some domain route (or
+// Hermes itself) sat above the guard, exposing the whole surface with a green
+// test file. One representative path per domain-route group mounted BELOW
+// authGuard in app.ts's .use() chain must 401 unauthenticated; the
+// deliberately public groups mounted ABOVE authGuard (healthRoute,
+// oauthRoutes, audioFileRoutes) must NOT.
+//
+// `buildFullApp()` (aliased from `buildApp` in app.ts) is side-effect-free on
+// call — no migrations, no .listen(), no port — so this needs no DB fixture
+// beyond what the rest of this file already sets up.
+
+const GUARDED_ROUTE_CASES: Array<{
+  group: string
+  method: string
+  path: string
+  body?: unknown
+}> = [
+  { group: 'ticktickRoutes', method: 'GET', path: '/ticktick/projects' },
+  { group: 'uptimeKumaRoutes', method: 'GET', path: '/uptime-kuma/monitors' },
+  { group: 'dockerHomelabRoutes', method: 'GET', path: '/docker/homelab/containers' },
+  { group: 'dockerVpsRoutes', method: 'GET', path: '/docker/vps/containers' },
+  { group: 'slackRoutes', method: 'GET', path: '/slack/channels' },
+  { group: 'gmailRoutes', method: 'GET', path: '/gmail/emails' },
+  { group: 'calendarRoutes', method: 'GET', path: '/calendar' },
+  { group: 'm365Routes', method: 'GET', path: '/m365/tools' },
+  { group: 'jiraRoutes', method: 'GET', path: '/atlassian/jira/me' },
+  { group: 'confluenceRoutes', method: 'GET', path: '/atlassian/confluence/spaces' },
+  { group: 'gitlabRoutes', method: 'GET', path: '/gitlab/me' },
+  { group: 'weatherRoutes', method: 'GET', path: '/weather/forecast' },
+  { group: 'summaryRoute', method: 'GET', path: '/summary' },
+  { group: 'queryRoute', method: 'POST', path: '/query', body: { sql: 'SELECT 1' } },
+  { group: 'exerciseRoutes', method: 'GET', path: '/exercises' },
+  { group: 'workoutRoutes', method: 'GET', path: '/workouts/summary/strength' },
+  { group: 'strengthRoutes', method: 'GET', path: '/workouts/summary/heroes' },
+  { group: 'workoutSetRoutes', method: 'GET', path: '/workout-sets' },
+  { group: 'dailyMetricsRoutes', method: 'GET', path: '/daily-metrics' },
+  { group: 'recoveryRoutes', method: 'GET', path: '/recovery' },
+  { group: 'trainingLoadRoutes', method: 'GET', path: '/training-load' },
+  { group: 'fitnessDirectionRoutes', method: 'GET', path: '/fitness-direction' },
+  { group: 'activitiesRoutes', method: 'GET', path: '/activities' },
+  { group: 'weightLogRoutes', method: 'GET', path: '/weight-log' },
+  { group: 'skinfoldLogRoutes', method: 'GET', path: '/skinfold-log' },
+  { group: 'userProfileRoutes', method: 'GET', path: '/user-profile' },
+  { group: 'gymRoutes', method: 'GET', path: '/gym' },
+  { group: 'workoutDraftRoutes', method: 'GET', path: '/workout-draft' },
+  { group: 'walkingPadRoutes', method: 'GET', path: '/walking-pad/sessions' },
+  { group: 'usageRoutes', method: 'GET', path: '/usage/summary' },
+  { group: 'readingRoutes', method: 'GET', path: '/reading' },
+  { group: 'hermesRoutes', method: 'GET', path: '/hermes/threads' },
+  { group: 'aiRoutes', method: 'GET', path: '/ai/v1/models' },
+]
+
+const PUBLIC_ROUTE_CASES: Array<{ group: string; method: string; path: string }> = [
+  { group: 'healthRoute', method: 'GET', path: '/health' },
+  { group: 'oauthRoutes', method: 'GET', path: '/oauth/google/init' },
+  { group: 'audioFileRoutes', method: 'GET', path: `/ai/v1/audio/file/${'a'.repeat(64)}` },
+]
+
+describe('order-level auth (composed app.ts — mount order, not the plugin)', () => {
+  const orderApp = buildFullApp()
+
+  for (const { group, method, path, body } of GUARDED_ROUTE_CASES) {
+    it(`401s ${group} (${method} ${path}) unauthenticated`, async () => {
+      const res = await orderApp.handle(
+        new Request(`http://localhost${path}`, {
+          method,
+          ...(body !== undefined
+            ? { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }
+            : {}),
+        }),
+      )
+      expect(res.status).toBe(401)
+    })
+  }
+
+  for (const { group, method, path } of PUBLIC_ROUTE_CASES) {
+    it(`does not 401 the deliberately public ${group} (${method} ${path})`, async () => {
+      const res = await orderApp.handle(new Request(`http://localhost${path}`, { method }))
+      expect(res.status).not.toBe(401)
+    })
+  }
+})
+
+// ── Persist-at-start (defects 2, 8, 9) ───────────────────────────────────────
+
+/** A fake Hermes SSE stream that emits the assistant role + partial content,
+ *  then blocks until `release()` is called before sending the finish frame —
+ *  lets a test observe DB state while the turn is still generating. */
+function holdableHermes(): { fetchImpl: FetchImpl; release: () => void } {
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const encoder = new TextEncoder()
+  const fetchImpl: FetchImpl = (input) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    if (url.endsWith('/health')) return Promise.resolve(new Response('ok', { status: 200 }))
+    const body = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            'data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n',
+          ),
+        )
+        controller.enqueue(
+          encoder.encode(
+            'data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}\n\n',
+          ),
+        )
+        await gate
+        controller.enqueue(
+          encoder.encode(
+            'data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n',
+          ),
+        )
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+        controller.close()
+      },
+    })
+    return Promise.resolve(
+      new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } }),
+    )
+  }
+  return { fetchImpl, release }
+}
+
+describe('persist-at-start (defects 2, 8, 9)', () => {
+  it('writes the user row before the assistant turn finishes, then settles to exactly one user + one assistant row, ordered user-before-assistant', async () => {
+    const { fetchImpl, release } = holdableHermes()
+    const app = buildApp(fetchImpl)
+
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_persist_start',
+        sessionId: 'ses_persist_start',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+      }),
+    )
+
+    // The stream is still open (holdableHermes hasn't been released yet). The
+    // handler awaits the early user-turn write before ever constructing the
+    // UIMessageStream, so by the time the Response comes back the user row
+    // must already be committed — and the assistant row must not exist at
+    // all yet (only written by onFinish, which the held-open stream hasn't
+    // reached).
+    const midRows = await db.query.hermesMessage.findMany()
+    expect(midRows).toHaveLength(1)
+    expect(midRows[0]?.role).toBe('user')
+    expect(midRows[0]?.status).toBe('complete')
+
+    release()
+    await res.text()
+
+    const rows = await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.length >= 2 ? r : undefined
+    })
+    // Exactly one user + one assistant row settled — not a duplicate user row
+    // from onFinish's own (guarded) write.
+    expect(rows).toHaveLength(2)
+    const user = rows?.find((r) => r.role === 'user')
+    const assistant = rows?.find((r) => r.role === 'assistant')
+    expect(user).toBeDefined()
+    expect(assistant).toBeDefined()
+    // Ordering property, not the specific Math.max(...) expression the
+    // implementation uses to guarantee it — onFinish applies that unconditionally
+    // on every turn, so this same assertion also exercises the same-millisecond
+    // collision path without needing to mock Date.now.
+    expect(new Date(assistant!.created_at).getTime()).toBeGreaterThan(
+      new Date(user!.created_at).getTime(),
+    )
+  })
+
+  // Forces the EARLY persistMessages call to throw via a test-only trigger that
+  // rejects any insert whose `parts` carries a marker string, then disables the
+  // trigger (a genuinely separate DB statement, not touched by the aborted early
+  // transaction) before releasing the held-open stream — so onFinish's fallback
+  // write lands cleanly. No production code is touched to force this failure.
+  it('falls back to onFinish when the early persist throws — the request still streams and settles to exactly one user row', async () => {
+    const marker = 'EARLY_PERSIST_FAIL_MARKER'
+    await client.unsafe(`
+      CREATE OR REPLACE FUNCTION argo.tmp_early_persist_fail() RETURNS trigger AS $$
+      BEGIN
+        IF NEW.parts::text LIKE '%${marker}%' THEN
+          RAISE EXCEPTION 'simulated early-persist failure (test-only trigger)';
+        END IF;
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql
+    `)
+    await client.unsafe(`
+      CREATE TRIGGER tmp_early_persist_fail_trigger
+      BEFORE INSERT ON argo.hermes_message
+      FOR EACH ROW EXECUTE FUNCTION argo.tmp_early_persist_fail()
+    `)
+
+    try {
+      const { fetchImpl, release } = holdableHermes()
+      const app = buildApp(fetchImpl)
+
+      const res = await app.handle(
+        chatRequest({
+          threadId: 'thr_early_fail',
+          sessionId: 'ses_early_fail',
+          messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: marker }] }],
+        }),
+      )
+      expect(res.status).toBe(200)
+
+      // The early write's trigger-forced throw is caught in the route — nothing
+      // landed, and the request still returned 200 rather than failing.
+      const midRows = await db.query.hermesMessage.findMany()
+      expect(midRows).toHaveLength(0)
+
+      // Disable the trigger BEFORE releasing the held-open stream, so onFinish's
+      // fallback write (still carrying the same marker text) succeeds.
+      await client.unsafe(
+        'DROP TRIGGER IF EXISTS tmp_early_persist_fail_trigger ON argo.hermes_message',
+      )
+
+      release()
+      await res.text()
+
+      const rows = await waitFor(async () => {
+        const r = await db.query.hermesMessage.findMany()
+        return r.length >= 2 ? r : undefined
+      })
+      expect(rows).toHaveLength(2)
+      const userRows = rows?.filter((r) => r.role === 'user')
+      const assistant = rows?.find((r) => r.role === 'assistant')
+      // Exactly one user row — the fallback write, not a duplicate.
+      expect(userRows).toHaveLength(1)
+      expect(userRows?.[0]?.status).toBe('complete')
+      expect(assistant).toBeDefined()
+      expect(new Date(assistant!.created_at).getTime()).toBeGreaterThanOrEqual(
+        new Date(userRows![0]!.created_at).getTime(),
+      )
+    } finally {
+      // Always clean up even if an assertion above throws — this trigger must
+      // never leak into later tests/files sharing the dev DB.
+      await client.unsafe(
+        'DROP TRIGGER IF EXISTS tmp_early_persist_fail_trigger ON argo.hermes_message',
+      )
+      await client.unsafe('DROP FUNCTION IF EXISTS argo.tmp_early_persist_fail()')
+    }
+  })
+})
+
+// ── Client-message idempotency (defect 4) ────────────────────────────────────
+//
+// All of these use the default non-durable `buildApp(fetchImpl)` (streaming:
+// null). With durability off there is no active-stream claim/CAS at all, so
+// two sequential POSTs on the same thread can never race into a 409 — that is
+// how these tests stay isolated from the 409/CAS behavior covered separately
+// below. Each POST is fully awaited (`await res.text()`) before the next is
+// sent, so there is no concurrency to reason about either.
+
+describe('client-message idempotency (defect 4)', () => {
+  // BLOCKING 2: a retry carrying the same client_message_id AFTER the original
+  // turn has already completed must be rejected as `duplicate_turn` — not
+  // silently no-op the user row while still re-invoking Hermes for a second
+  // assistant reply. The old assertion here (`userRows.length === 1`) passed
+  // even with that bug present, because it never looked at the assistant side
+  // or the upstream call count — both are asserted below.
+  it('collapses two POSTs carrying the same client message id: the retry after completion is rejected as duplicate_turn, not re-invoked', async () => {
+    const { fetchImpl, calls } = fakeHermes()
+    const app = buildApp(fetchImpl)
+    const body = {
+      threadId: 'thr_idem_same',
+      sessionId: 'ses_idem_same',
+      messages: [{ id: 'client-msg-1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+    }
+
+    const res1 = await app.handle(chatRequest(body))
+    expect(res1.status).toBe(200)
+    await res1.text()
+
+    await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.length >= 2 ? r : undefined
+    })
+    const chatCallsAfterFirst = calls.filter((c) => c.url.endsWith('/chat/completions')).length
+
+    const res2 = await app.handle(chatRequest(body))
+    expect(res2.status).toBe(409)
+    expect(await res2.json()).toMatchObject({ error: 'duplicate_turn' })
+
+    // Hermes was NOT invoked a second time.
+    const chatCallsAfterSecond = calls.filter((c) => c.url.endsWith('/chat/completions')).length
+    expect(chatCallsAfterSecond).toBe(chatCallsAfterFirst)
+
+    const rows = await db.query.hermesMessage.findMany()
+    const userRows = rows.filter((m) => m.role === 'user')
+    const assistantRows = rows.filter((m) => m.role === 'assistant')
+    expect(userRows).toHaveLength(1)
+    expect(userRows[0]?.client_message_id).toBe('client-msg-1')
+    // Exactly one assistant row — not two. This is what BLOCKING 2 fixes.
+    expect(assistantRows).toHaveLength(1)
+  })
+
+  // Ordering against the live-stream 409 (BLOCKING 2's requirement): a retry
+  // carrying the SAME client id must still get `stream_in_progress`, not
+  // `duplicate_turn`, while the original turn is still generating — its user
+  // row is already persisted by the early-write at that point, so the
+  // duplicate-turn check must run AFTER (not instead of) the live-stream gate.
+  it('a same-client-id retry arriving WHILE the original is still streaming gets stream_in_progress, not duplicate_turn', async () => {
+    const streaming = fakeStreaming()
+    const app = buildApp(infiniteHermes(), { streaming })
+    const body = {
+      threadId: 'thr_idem_live_retry',
+      sessionId: 'ses_idem_live_retry',
+      messages: [
+        { id: 'client-msg-live', role: 'user', parts: [{ type: 'text', text: 'tell me a story' }] },
+      ],
+    }
+
+    const firstRes = await app.handle(chatRequest(body))
+    expect(firstRes.status).toBe(200)
+
+    const secondRes = await app.handle(chatRequest(body))
+    expect(secondRes.status).toBe(409)
+    expect(await secondRes.json()).toMatchObject({ error: 'stream_in_progress' })
+
+    await app.handle(
+      new Request('http://localhost/hermes/chat/thr_idem_live_retry/stop', { method: 'POST' }),
+    )
+    await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.find((m) => m.role === 'assistant')
+    })
+  })
+
+  it('writes client_message_id NULL and still works when the client sends no id', async () => {
+    const { fetchImpl } = fakeHermes()
+    const app = buildApp(fetchImpl)
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_idem_noid',
+        sessionId: 'ses_idem_noid',
+        messages: [{ role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+      }),
+    )
+    expect(res.status).toBe(200)
+    await res.text()
+
+    const rows = await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.length >= 2 ? r : undefined
+    })
+    const user = rows?.find((r) => r.role === 'user')
+    expect(user?.client_message_id).toBeNull()
+  })
+
+  it('does NOT collapse two POSTs that both carry no client id — the partial index deliberately never matches NULL (documented behavior, not a bug to fix)', async () => {
+    const { fetchImpl } = fakeHermes()
+    const app = buildApp(fetchImpl)
+    const body = {
+      threadId: 'thr_idem_twonull',
+      sessionId: 'ses_idem_twonull',
+      messages: [{ role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+    }
+
+    const res1 = await app.handle(chatRequest(body))
+    await res1.text()
+    const res2 = await app.handle(chatRequest(body))
+    await res2.text()
+
+    const userRows = await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      const users = r.filter((m) => m.role === 'user')
+      return users.length >= 2 ? users : undefined
+    })
+    expect(userRows).toHaveLength(2)
+    expect(userRows?.every((u) => u.client_message_id === null)).toBe(true)
+  })
+
+  it('treats an id over the 128-char bound, and an empty/whitespace id, as absent (NULL) rather than rejecting the request', async () => {
+    const { fetchImpl } = fakeHermes()
+    const app = buildApp(fetchImpl)
+
+    const overLong = 'x'.repeat(129)
+    const res1 = await app.handle(
+      chatRequest({
+        threadId: 'thr_idem_toolong',
+        sessionId: 'ses_idem_toolong',
+        messages: [{ id: overLong, role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+      }),
+    )
+    expect(res1.status).toBe(200)
+    await res1.text()
+
+    const res2 = await app.handle(
+      chatRequest({
+        threadId: 'thr_idem_whitespace',
+        sessionId: 'ses_idem_whitespace',
+        messages: [{ id: '   ', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+      }),
+    )
+    expect(res2.status).toBe(200)
+    await res2.text()
+
+    const rows = await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.length >= 4 ? r : undefined
+    })
+    const longThreadUser = rows?.find(
+      (r) => r.thread_id === 'thr_idem_toolong' && r.role === 'user',
+    )
+    const wsThreadUser = rows?.find(
+      (r) => r.thread_id === 'thr_idem_whitespace' && r.role === 'user',
+    )
+    expect(longThreadUser?.client_message_id).toBeNull()
+    expect(wsThreadUser?.client_message_id).toBeNull()
+  })
+})
+
+// ── 409 / CAS claim (defects 5, 6) ────────────────────────────────────────────
+
+describe('409 / CAS claim (defects 5, 6)', () => {
+  // `isStreamLive`'s tier-1 `has()` check is what every OTHER 409 test in this
+  // file exercises — they all register in this process's abort registry AND
+  // seed `streaming.streams` together (a real POST does both). This is the only
+  // test that seeds `streams` WITHOUT registering — the shape of a pointer that
+  // is genuinely live in a DIFFERENT process/replica, which tier-1 can never see
+  // (has() is in-process only) and only the tier-2 pub/sub probe
+  // (`resumeExistingStream`) can answer.
+  it('409s via the tier-2 cross-process pub/sub probe when the pointer is live but never registered in this process', async () => {
+    const streaming = fakeStreaming()
+    const app = buildApp(fakeHermes().fetchImpl, { streaming })
+
+    streaming.streams.set('strm_other_process', { buffer: 'data: {}\n\n', done: false })
+    await db.insert(hermesThread).values({
+      id: 'thr_tier2_cross_process',
+      session_id: 'ses_tier2_cross_process',
+      session_key: 'k',
+      active_stream_id: 'strm_other_process',
+    })
+    expect(streaming.has('strm_other_process')).toBe(false)
+
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_tier2_cross_process',
+        sessionId: 'ses_tier2_cross_process',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+      }),
+    )
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ error: 'stream_in_progress' })
+    expect(await db.query.hermesMessage.findMany()).toHaveLength(0)
+  })
+
+  it('409s a second POST while the first stream is genuinely live, writing no extra rows', async () => {
+    const streaming = fakeStreaming()
+    const app = buildApp(infiniteHermes(), { streaming })
+
+    const firstRes = await app.handle(
+      chatRequest({
+        threadId: 'thr_409_live',
+        sessionId: 'ses_409_live',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'tell me a story' }] }],
+      }),
+    )
+    expect(firstRes.status).toBe(200)
+
+    const secondRes = await app.handle(
+      chatRequest({
+        threadId: 'thr_409_live',
+        sessionId: 'ses_409_live',
+        messages: [{ id: 'm2', role: 'user', parts: [{ type: 'text', text: 'another one' }] }],
+      }),
+    )
+    expect(secondRes.status).toBe(409)
+    expect(await secondRes.json()).toMatchObject({ error: 'stream_in_progress' })
+
+    // Only the first POST's user row exists — the 409'd second POST must not
+    // have persisted anything. (Production forensics showed today's behavior
+    // writes four rows for one exchange; this pins the fix.)
+    const rows = await db.query.hermesMessage.findMany()
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.role).toBe('user')
+
+    // Cleanup: stop the still-live first turn and wait for its (async) onFinish
+    // to actually settle before the test ends — otherwise its background persist
+    // can race the next test's afterEach truncation and log a spurious FK error.
+    await app.handle(
+      new Request('http://localhost/hermes/chat/thr_409_live/stop', { method: 'POST' }),
+    )
+    await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.find((m) => m.role === 'assistant')
+    })
+  })
+
+  it('claims successfully (no 409) when the existing active_stream_id pointer is stale/dead', async () => {
+    const streaming = fakeStreaming() // no entry for 'strm_dead_pointer' → resume returns null → dead
+    const app = buildApp(fakeHermes().fetchImpl, { streaming })
+    await db.insert(hermesThread).values({
+      id: 'thr_409_stale',
+      session_id: 'ses_409_stale',
+      session_key: 'k',
+      active_stream_id: 'strm_dead_pointer',
+    })
+
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_409_stale',
+        sessionId: 'ses_409_stale',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+      }),
+    )
+    expect(res.status).toBe(200)
+    await res.text()
+
+    const rows = await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.length >= 2 ? r : undefined
+    })
+    expect(rows).toHaveLength(2)
+  })
+
+  // Registration happens in-process BEFORE the CAS write (see claimActiveStream's
+  // doc + the register() call site in the route) precisely so a second POST
+  // landing between the CAS and the durable backend's own registration still
+  // observes the winner as live via the in-process registry — closing the
+  // window rather than narrowing it. Don't move registration back below the CAS.
+  it('genuinely concurrent POSTs on the same thread: exactly one 200 and one 409', async () => {
+    const streaming = fakeStreaming()
+    const app = buildApp(infiniteHermes(), { streaming })
+
+    const [res1, res2] = await Promise.all([
+      app.handle(
+        chatRequest({
+          threadId: 'thr_409_race',
+          sessionId: 'ses_409_race',
+          messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'one' }] }],
+        }),
+      ),
+      app.handle(
+        chatRequest({
+          threadId: 'thr_409_race',
+          sessionId: 'ses_409_race',
+          messages: [{ id: 'm2', role: 'user', parts: [{ type: 'text', text: 'two' }] }],
+        }),
+      ),
+    ])
+
+    const statuses = [res1.status, res2.status].toSorted((a, b) => a - b)
+    expect(statuses).toEqual([200, 409])
+
+    const loser = res1.status === 200 ? res2 : res1
+    expect(await loser.json()).toMatchObject({ error: 'stream_in_progress' })
+
+    // The pointer belongs to exactly one live stream; the loser wrote nothing.
+    const thread = await waitFor(async () => {
+      const t = await db.query.hermesThread.findFirst({
+        where: eq(hermesThread.id, 'thr_409_race'),
+      })
+      return t?.active_stream_id ? t : undefined
+    })
+    expect(thread?.active_stream_id).toBeDefined()
+
+    // The loser's cleanup did not disturb the winner's registration: stop must
+    // still reach the winner's live stream (not a leaked/unregistered one).
+    const stopRes = await app.handle(
+      new Request('http://localhost/hermes/chat/thr_409_race/stop', { method: 'POST' }),
+    )
+    expect(await stopRes.json()).toMatchObject({ ok: true, stopped: true })
+
+    const assistant = await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.find((m) => m.role === 'assistant')
+    })
+    expect(assistant?.status).toBe('interrupted')
+    const settled = await waitFor(async () => {
+      const t = await db.query.hermesThread.findFirst({
+        where: eq(hermesThread.id, 'thr_409_race'),
+      })
+      return t?.active_stream_id === null ? t : undefined
+    })
+    expect(settled?.active_stream_id).toBeNull()
+
+    // A subsequent POST after the winner finishes must succeed, not 409 against
+    // a leaked registration left by the loser.
+    const thirdRes = await app.handle(
+      chatRequest({
+        threadId: 'thr_409_race',
+        sessionId: 'ses_409_race',
+        messages: [{ id: 'm3', role: 'user', parts: [{ type: 'text', text: 'three' }] }],
+      }),
+    )
+    expect(thirdRes.status).toBe(200)
+    await app.handle(
+      new Request('http://localhost/hermes/chat/thr_409_race/stop', { method: 'POST' }),
+    )
+    // Wait for the third turn's (async) onFinish to actually settle before the
+    // test ends — otherwise its background persist can race the next test's
+    // afterEach truncation and log a spurious FK error (same hazard as the
+    // "genuinely live" 409 test above).
+    await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      const assistants = r.filter((m) => m.role === 'assistant')
+      return assistants.length >= 2 ? assistants : undefined
+    })
+  })
+})
+
+// ── finish_reason: null upstream → 'other' end-to-end (defect 1) ─────────────
+
+/** A Hermes SSE stream whose choice.finish_reason stays null on every chunk
+ *  (never "stop") — the real reachable trigger for the openai-compatible
+ *  provider's mapOpenAICompatibleFinishReason default branch, which resolves
+ *  to ai@5's 'unknown' (see finish-reason-transform.ts's citation trail for
+ *  the exact source lines). */
+function nullFinishReasonHermes(): FetchImpl {
+  const encoder = new TextEncoder()
+  const frames = [
+    'data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n',
+    'data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}\n\n',
+    'data: {"id":"c1","object":"chat.completion.chunk","created":1,"model":"hermes","choices":[{"index":0,"delta":{},"finish_reason":null}]}\n\n',
+    'data: [DONE]\n\n',
+  ]
+  return (input) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    if (url.endsWith('/health')) return Promise.resolve(new Response('ok', { status: 200 }))
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const f of frames) controller.enqueue(encoder.encode(f))
+        controller.close()
+      },
+    })
+    return Promise.resolve(
+      new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } }),
+    )
+  }
+}
+
+describe('finish-reason rewrite over a real stream (defect 1)', () => {
+  it("rewrites an upstream 'unknown' finish reason (finish_reason stays null throughout) to 'other' end-to-end", async () => {
+    const app = buildApp(nullFinishReasonHermes())
+    const res = await app.handle(
+      chatRequest({
+        threadId: 'thr_finish_null',
+        sessionId: 'ses_finish_null',
+        messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+      }),
+    )
+    expect(res.status).toBe(200)
+    const text = await res.text()
+    expect(text).toContain('"finishReason":"other"')
+    expect(text).not.toContain('unknown')
   })
 })
