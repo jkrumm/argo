@@ -39,6 +39,14 @@ function parseSseBlock(block: string): { event: string | undefined; data: string
  *
  * A malformed progress payload is ignored — the main OpenAI stream must never
  * break because of an auxiliary tool-progress frame.
+ *
+ * Pull-driven: reading from `upstream` is triggered by the consumer's `pull`,
+ * not an eager loop in `start()`, so a slow consumer applies real backpressure
+ * to the upstream socket. A single upstream chunk can be entirely tool-progress
+ * (or a partial/keepalive frame) and yield zero forwarded frames, so `pull`
+ * keeps reading upstream — draining buffered frames and pulling further chunks
+ * — until it enqueues at least one frame or upstream reports `done` (at which
+ * point it performs the tail flush and closes).
  */
 export function filterToolProgress(
   upstream: ReadableStream<Uint8Array>,
@@ -56,47 +64,55 @@ export function filterToolProgress(
       }
     | undefined
 
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      reader = upstream.getReader()
-
-      const dispatch = (block: string): void => {
-        const { event, data } = parseSseBlock(block)
-        if (event === TOOL_PROGRESS_EVENT) {
-          if (data) {
-            try {
-              onToolProgress(JSON.parse(data) as ToolProgressData)
-            } catch {
-              // swallow malformed progress payloads
-            }
-          }
-          return
-        }
-        controller.enqueue(encoder.encode(`${block}\n\n`))
-      }
-
-      void (async () => {
+  /** Parse+route one block. Returns true if it enqueued a forwarded frame. */
+  const dispatch = (
+    block: string,
+    controller: ReadableStreamDefaultController<Uint8Array>,
+  ): boolean => {
+    const { event, data } = parseSseBlock(block)
+    if (event === TOOL_PROGRESS_EVENT) {
+      if (data) {
         try {
-          for (;;) {
-            const { done, value } = await reader!.read()
-            if (done) break
-            // Strip CR so both `\n\n` and `\r\n\r\n` frame delimiters split cleanly.
-            buffer += decoder.decode(value, { stream: true }).replace(/\r/g, '')
-            let idx: number
-            while ((idx = buffer.indexOf('\n\n')) !== -1) {
-              const block = buffer.slice(0, idx)
-              buffer = buffer.slice(idx + 2)
-              if (block.length) dispatch(block)
-            }
-          }
-          buffer += decoder.decode().replace(/\r/g, '')
-          const rest = buffer.trim()
-          if (rest.length) dispatch(rest)
-          controller.close()
-        } catch (error) {
-          controller.error(error)
+          onToolProgress(JSON.parse(data) as ToolProgressData)
+        } catch {
+          // swallow malformed progress payloads
         }
-      })()
+      }
+      return false
+    }
+    controller.enqueue(encoder.encode(`${block}\n\n`))
+    return true
+  }
+
+  return new ReadableStream<Uint8Array>({
+    start() {
+      reader = upstream.getReader()
+    },
+    async pull(controller) {
+      try {
+        for (;;) {
+          let idx: number
+          while ((idx = buffer.indexOf('\n\n')) !== -1) {
+            const block = buffer.slice(0, idx)
+            buffer = buffer.slice(idx + 2)
+            if (block.length && dispatch(block, controller)) return
+          }
+
+          const { done, value } = await reader!.read()
+          if (done) {
+            // Strip CR so both `\n\n` and `\r\n\r\n` frame delimiters split cleanly.
+            buffer += decoder.decode().replace(/\r/g, '')
+            const rest = buffer.trim()
+            buffer = ''
+            if (rest.length) dispatch(rest, controller)
+            controller.close()
+            return
+          }
+          buffer += decoder.decode(value, { stream: true }).replace(/\r/g, '')
+        }
+      } catch (error) {
+        controller.error(error)
+      }
     },
     async cancel(reason) {
       await reader?.cancel(reason)
