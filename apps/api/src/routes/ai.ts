@@ -173,6 +173,20 @@ export async function aiComplete(
   })
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
+    // The upstream call was attempted (and billed, if it partially ran) — record
+    // an error-outcome row so `outcome` has a real denominator. Fire-and-forget
+    // with its own `.catch()`: a DB failure here must never replace the real
+    // upstream error the caller is about to throw.
+    deps
+      .recordUsage({
+        model: opts.model ?? deps.deepseekModel,
+        usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+        ...(opts.sub_tool !== undefined ? { subTool: opts.sub_tool } : {}),
+        startedAt,
+        durationMs: Date.now() - startMs,
+        outcome: 'error',
+      })
+      .catch((err: unknown) => log.error('argo ai usage record failed (error path)', err))
     throw new Error(`AI completion failed: ${res.status} ${detail.slice(0, 200)}`)
   }
   const json = (await res.json()) as {
@@ -371,6 +385,27 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
 
         if (!upstream.ok) {
           const detail = await upstream.text().catch(() => '')
+          // The audio-gateway call was attempted and failed — record an
+          // error-outcome row so `outcome` has a real denominator. Fire-and-forget
+          // with its own `.catch()`: a DB failure here must never replace the
+          // 502 the client is about to receive.
+          deps
+            .recordUsage({
+              model: 'audio-gateway/tts',
+              usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+              subTool: 'podcast',
+              // Genuinely IU spend: the gateway fronts the IU unified endpoint
+              // (IU_GEMINI_BASE_URL / IU_OPENAI_BASE_URL) for both TTS and STT —
+              // see modelpick/docs/decisions/audio-stack.md. Explicit here (not
+              // relying on the default) so the attribution is self-documenting.
+              billing: 'iu',
+              startedAt,
+              durationMs: Date.now() - startMs,
+              outcome: 'error',
+            })
+            .catch((err: unknown) =>
+              log.error('argo podcast usage record failed (error path)', err),
+            )
           return status(502, {
             error: {
               message: `audio gateway error: ${detail.slice(0, 200)}`,
@@ -390,6 +425,9 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
             model: 'audio-gateway/tts',
             usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
             subTool: 'podcast',
+            // Genuinely IU spend — see the matching comment on the error-path
+            // recordUsage call above for the routing evidence.
+            billing: 'iu',
             startedAt,
             durationMs: Date.now() - startMs,
           })

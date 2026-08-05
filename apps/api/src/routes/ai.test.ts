@@ -82,6 +82,22 @@ function fakeUpstream(): { fetchImpl: FetchImpl; calls: Captured[] } {
   return { fetchImpl, calls }
 }
 
+/** Fake audio-gateway upstream whose /v1/audio/speech leg always fails. */
+function fakeFailingAudioGateway(): { fetchImpl: FetchImpl; calls: Captured[] } {
+  const calls: Captured[] = []
+  const fetchImpl: FetchImpl = (input, init) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    calls.push({
+      url,
+      method: init?.method ?? 'GET',
+      headers: new Headers(init?.headers ?? {}),
+      body: init?.body,
+    })
+    return Promise.resolve(new Response('upstream synthesis failed', { status: 500 }))
+  }
+  return { fetchImpl, calls }
+}
+
 /** Fake audio-gateway upstream for the audio proxy tests. */
 function fakeAudioGateway(): { fetchImpl: FetchImpl; calls: Captured[] } {
   const calls: Captured[] = []
@@ -381,6 +397,61 @@ describe('aiComplete()', () => {
     })
     expect(captured).toHaveLength(0)
   })
+
+  it('records an error-outcome row (zero tokens, real durationMs) when the upstream returns non-2xx', async () => {
+    const captured: Parameters<AiRouteDeps['recordUsage']>[0][] = []
+    const fetchImpl: FetchImpl = () => Promise.resolve(new Response('bad request', { status: 400 }))
+
+    await expect(
+      aiComplete('Make a title', {
+        deps: {
+          ...buildDeps(fetchImpl),
+          recordUsage: async (p) => {
+            captured.push(p)
+          },
+        },
+      }),
+    ).rejects.toThrow('AI completion failed: 400')
+
+    expect(captured).toHaveLength(1)
+    const rec = captured[0]!
+    expect(rec.outcome).toBe('error')
+    expect(rec.usage).toEqual({ prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 })
+    expect(rec.durationMs).toBeGreaterThanOrEqual(0)
+  })
+
+  it('does not record when the upstream is never called (pre-call failure)', async () => {
+    const captured: unknown[] = []
+    const { fetchImpl } = fakeUpstream()
+    await expect(
+      aiComplete('x', {
+        deps: {
+          ...buildDeps(fetchImpl),
+          deepseekBaseURL: '',
+          recordUsage: async (p) => {
+            captured.push(p)
+          },
+        },
+      }),
+    ).rejects.toThrow()
+    expect(captured).toHaveLength(0)
+  })
+
+  it('a throwing recordUsage does not mask the original upstream error', async () => {
+    const fetchImpl: FetchImpl = () =>
+      Promise.resolve(new Response('server error', { status: 500 }))
+
+    await expect(
+      aiComplete('Make a title', {
+        deps: {
+          ...buildDeps(fetchImpl),
+          recordUsage: async () => {
+            throw new Error('DB write failed')
+          },
+        },
+      }),
+    ).rejects.toThrow('AI completion failed: 500')
+  })
 })
 
 describe('POST /ai/v1/audio/podcast', () => {
@@ -506,6 +577,107 @@ describe('POST /ai/v1/audio/podcast', () => {
       }),
     )
     expect(res.status).toBe(503)
+  })
+
+  it('records an error-outcome, iu-billed row when the audio-gateway call fails', async () => {
+    const { fetchImpl } = fakeFailingAudioGateway()
+    const captured: Parameters<AiRouteDeps['recordUsage']>[0][] = []
+    const app = new Elysia().use(authGuard).use(
+      createAiRoutes({
+        ...buildDeps(fetchImpl),
+        recordUsage: async (p) => {
+          captured.push(p)
+        },
+      }),
+    )
+
+    const res = await app.handle(
+      new Request('http://localhost/ai/v1/audio/podcast', {
+        method: 'POST',
+        headers: { ...authHeaders, 'content-type': 'application/json' },
+        body: JSON.stringify({ script: 'Fails upstream' }),
+      }),
+    )
+    expect(res.status).toBe(502)
+
+    expect(captured).toHaveLength(1)
+    const rec = captured[0]!
+    expect(rec.outcome).toBe('error')
+    expect(rec.billing).toBe('iu')
+    expect(rec.model).toBe('audio-gateway/tts')
+    expect(rec.subTool).toBe('podcast')
+    expect(rec.usage).toEqual({ prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 })
+  })
+
+  it('records nothing when the request is unauthenticated (pre-call failure)', async () => {
+    const { fetchImpl } = fakeAudioGateway()
+    const captured: unknown[] = []
+    const app = new Elysia().use(authGuard).use(
+      createAiRoutes({
+        ...buildDeps(fetchImpl),
+        recordUsage: async (p) => {
+          captured.push(p)
+        },
+      }),
+    )
+
+    const res = await app.handle(
+      new Request('http://localhost/ai/v1/audio/podcast', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ script: 'No auth' }),
+      }),
+    )
+    expect(res.status).toBe(401)
+    expect(captured).toHaveLength(0)
+  })
+
+  it('a throwing recordUsage does not change the 502 response the client receives', async () => {
+    const { fetchImpl } = fakeFailingAudioGateway()
+    const app = new Elysia().use(authGuard).use(
+      createAiRoutes({
+        ...buildDeps(fetchImpl),
+        recordUsage: async () => {
+          throw new Error('DB write failed')
+        },
+      }),
+    )
+
+    const res = await app.handle(
+      new Request('http://localhost/ai/v1/audio/podcast', {
+        method: 'POST',
+        headers: { ...authHeaders, 'content-type': 'application/json' },
+        body: JSON.stringify({ script: 'Fails upstream' }),
+      }),
+    )
+    expect(res.status).toBe(502)
+    const body = (await res.json()) as { error: { type: string } }
+    expect(body.error.type).toBe('upstream_error')
+  })
+
+  it('tags a successful synthesis with billing "iu" (audio-gateway fronts the IU unified endpoint)', async () => {
+    const store = makeMemoryStore()
+    const { fetchImpl } = fakeAudioGateway()
+    const captured: Parameters<AiRouteDeps['recordUsage']>[0][] = []
+    const app = new Elysia().use(authGuard).use(
+      createAiRoutes({
+        ...buildDeps(fetchImpl, store),
+        recordUsage: async (p) => {
+          captured.push(p)
+        },
+      }),
+    )
+
+    const res = await app.handle(
+      new Request('http://localhost/ai/v1/audio/podcast', {
+        method: 'POST',
+        headers: { ...authHeaders, 'content-type': 'application/json' },
+        body: JSON.stringify({ script: 'Billed correctly' }),
+      }),
+    )
+    expect(res.status).toBe(200)
+    expect(captured).toHaveLength(1)
+    expect(captured[0]!.billing).toBe('iu')
   })
 })
 
@@ -645,5 +817,35 @@ describe('recordAiUsage() — DB integration', () => {
     expect(rows).toHaveLength(1)
     expect(rows[0]!.sub_tool).toBeNull()
     expect(rows[0]!.model_norm).toBe('deepseek-v4-pro')
+  })
+
+  it('defaults billing to "iu" and outcome to "ok" when both are omitted', async () => {
+    await recordAiUsage({
+      model: 'DeepSeek-V4-Flash',
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+      startedAt: new Date().toISOString(),
+      durationMs: 100,
+    })
+
+    const rows = await db.select().from(usageRecord).where(eq(usageRecord.source, 'argo'))
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.billing).toBe('iu')
+    expect(rows[0]!.outcome).toBe('ok')
+  })
+
+  it('honours an explicit billing/outcome override', async () => {
+    await recordAiUsage({
+      model: 'audio-gateway/tts',
+      usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+      startedAt: new Date().toISOString(),
+      durationMs: 250,
+      billing: 'unknown',
+      outcome: 'error',
+    })
+
+    const rows = await db.select().from(usageRecord).where(eq(usageRecord.source, 'argo'))
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.billing).toBe('unknown')
+    expect(rows[0]!.outcome).toBe('error')
   })
 })

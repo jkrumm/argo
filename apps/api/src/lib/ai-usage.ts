@@ -8,6 +8,12 @@ export interface AiUsageData {
   total_tokens: number
 }
 
+/** Matches the domain accepted by the ingest side (`routes/usage.ts`'s `BillingEnum`). */
+export type UsageBilling = 'max' | 'iu' | 'unknown'
+
+/** Matches `usage_record.outcome`'s two known values (see `db/schema.ts`). */
+export type UsageOutcome = 'ok' | 'error'
+
 export interface RecordUsageParams {
   /** Raw model string from the upstream response. */
   model: string
@@ -18,6 +24,10 @@ export interface RecordUsageParams {
   startedAt: string
   /** Wall-clock latency of the upstream call in ms. */
   durationMs: number
+  /** Who pays for the call. Defaults to `'iu'` (IU unified endpoint) when omitted. */
+  billing?: UsageBilling
+  /** Request outcome. Defaults to `'ok'` when omitted — pass `'error'` on a failed upstream call. */
+  outcome?: UsageOutcome
 }
 
 export type RecordUsageFn = (params: RecordUsageParams) => Promise<void>
@@ -62,7 +72,8 @@ function computeCost(
 
 /**
  * Insert one row into argo.usage_record for an in-process Argo AI call.
- * Tagged source='argo', billing='iu' (IU unified endpoint, EU-resident).
+ * Tagged source='argo'. `billing` defaults to 'iu' (IU unified endpoint,
+ * EU-resident) and `outcome` defaults to 'ok' when the caller omits them.
  * DB errors are logged AND re-thrown, so callers must `catch()`.
  */
 export async function recordAiUsage(params: RecordUsageParams): Promise<void> {
@@ -84,9 +95,9 @@ export async function recordAiUsage(params: RecordUsageParams): Promise<void> {
       project: 'argo',
       workspace: 'private',
       sub_tool: params.subTool ?? null,
-      billing: 'iu',
+      billing: params.billing ?? 'iu',
       machine: null,
-      outcome: 'ok',
+      outcome: params.outcome ?? 'ok',
       input_tokens: params.usage.prompt_tokens,
       output_tokens: params.usage.completion_tokens,
       cache_read_tokens: 0,
