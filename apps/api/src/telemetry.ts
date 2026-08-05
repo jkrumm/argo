@@ -1,9 +1,14 @@
-import { trace, type Attributes } from '@opentelemetry/api'
+import { trace, type Attributes, type Context } from '@opentelemetry/api'
 import { logs, SeverityNumber } from '@opentelemetry/api-logs'
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto'
 import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-proto'
 import { resourceFromAttributes } from '@opentelemetry/resources'
-import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base'
+import {
+  BatchSpanProcessor,
+  type ReadableSpan,
+  type Span,
+  type SpanProcessor,
+} from '@opentelemetry/sdk-trace-base'
 import { BatchLogRecordProcessor, LoggerProvider } from '@opentelemetry/sdk-logs'
 import pkg from '../package.json' with { type: 'json' }
 import { env } from './env.js'
@@ -16,11 +21,111 @@ export const resource = resourceFromAttributes({
   'deployment.environment': env.NODE_ENV,
 })
 
+// D21 — credential-bearing headers must never reach the exporter. Header
+// span attributes (`http.request.header.*` / `http.response.header.*`) are
+// produced by @elysiajs/opentelemetry, which ships no config to narrow
+// header capture (verified against its installed types — the only knob is
+// `checkIfShouldTrace`, which decides IF a request is traced, not WHAT gets
+// captured). So the defense sits one layer down, at span-processing time,
+// where it holds regardless of which instrumentation set the attribute.
+const REDACTED_ATTRIBUTE_VALUE = '[redacted]'
+
+// Header names redacted outright, matched case-insensitively. Keep this in
+// sync with any new credential-style header the API starts accepting.
+export const REDACTED_HEADER_NAMES: ReadonlySet<string> = new Set([
+  'authorization',
+  'proxy-authorization',
+  'cookie',
+  'set-cookie',
+  'x-api-key',
+  'api-key',
+])
+
+// Anything else whose header name contains "token" or "secret" is also
+// redacted (covers ad hoc headers like `x-refresh-token`, `x-webhook-secret`).
+const SENSITIVE_HEADER_NAME_PATTERN = /token|secret/i
+
+const HEADER_ATTRIBUTE_PREFIXES = ['http.request.header.', 'http.response.header.']
+
+function isSensitiveHeaderName(headerName: string): boolean {
+  const lower = headerName.toLowerCase()
+  return REDACTED_HEADER_NAMES.has(lower) || SENSITIVE_HEADER_NAME_PATTERN.test(lower)
+}
+
+/**
+ * Pure scrubber: given a span (or log record) attributes object, returns an
+ * attributes object where every credential-bearing `http.request.header.*`
+ * / `http.response.header.*` value is replaced with a fixed redaction
+ * marker. The key is kept — losing "this request was authenticated" is a
+ * bigger loss to debuggability than the header value is a secret, once the
+ * value itself is gone.
+ *
+ * Case-insensitive on the header-name segment. Non-header attributes
+ * (`http.route`, `http.request.method`, `url.*`, `client.address`, …) pass
+ * through untouched. Never throws on a non-string attribute value.
+ *
+ * Returns the same object reference when nothing needed redacting.
+ */
+export function redactHeaderAttributes(attributes: Attributes): Attributes {
+  let redacted: Record<string, Attributes[string]> | undefined
+
+  for (const key of Object.keys(attributes)) {
+    const lowerKey = key.toLowerCase()
+    const prefix = HEADER_ATTRIBUTE_PREFIXES.find((p) => lowerKey.startsWith(p))
+    if (!prefix) continue
+
+    const headerName = lowerKey.slice(prefix.length)
+    if (!isSensitiveHeaderName(headerName)) continue
+
+    redacted ??= { ...attributes }
+    redacted[key] = REDACTED_ATTRIBUTE_VALUE
+  }
+
+  return redacted ?? attributes
+}
+
+/**
+ * Wraps another SpanProcessor and scrubs credential-bearing header
+ * attributes off every span in `onEnd`, before it reaches the wrapped
+ * processor (and therefore the exporter). Sits at the span-processing
+ * layer so it holds no matter which instrumentation set the attribute —
+ * see the D21 comment above `redactHeaderAttributes`.
+ */
+class ScrubbingSpanProcessor implements SpanProcessor {
+  constructor(private readonly next: SpanProcessor) {}
+
+  onStart(span: Span, parentContext: Context): void {
+    this.next.onStart(span, parentContext)
+  }
+
+  onEnd(span: ReadableSpan): void {
+    const redacted = redactHeaderAttributes(span.attributes)
+    if (redacted !== span.attributes) {
+      for (const [key, value] of Object.entries(redacted)) {
+        span.attributes[key] = value
+      }
+    }
+    this.next.onEnd(span)
+  }
+
+  forceFlush(): Promise<void> {
+    return this.next.forceFlush()
+  }
+
+  shutdown(): Promise<void> {
+    return this.next.shutdown()
+  }
+}
+
 // Traces — passed to the @elysiajs/opentelemetry plugin (NodeSDK under the hood).
 export const telemetryConfig = {
   serviceName: env.OTEL_SERVICE_NAME,
   resource,
-  spanProcessors: [new BatchSpanProcessor(new OTLPTraceExporter({ url: `${base}/v1/traces` }))],
+  spanProcessors: [
+    new ScrubbingSpanProcessor(
+      new BatchSpanProcessor(new OTLPTraceExporter({ url: `${base}/v1/traces` })),
+    ),
+  ],
 }
 
 // Logs — separate LoggerProvider registered globally so `logs.getLogger()` works.
