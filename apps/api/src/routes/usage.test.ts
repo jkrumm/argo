@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test'
-import { app } from '../index.js'
+import { app } from '../app.js'
 
 // Auth must run BEFORE schema validation so an unauthenticated request with
 // a malformed body returns 401 (not 422 — which would echo the body and leak

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test'
-import { app } from '../index.js'
+import { app } from '../app.js'
 import { __test } from '../clients/jira.js'
 
 // Auth-surface tests for every Jira route + unit tests for the ADF helpers

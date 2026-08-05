@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test'
-import { app } from '../index.js'
+import { app } from '../app.js'
 
 // Auth-surface tests only — the real Graph call is exercised manually via
 // apps/api/scripts/m365-discover.ts and scripts/m365-probe.ts (one-shot).
