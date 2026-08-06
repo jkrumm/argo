@@ -11,7 +11,7 @@ import {
 import { emit } from 'basalt-ui/notifications'
 import { getToken } from '../../../lib/auth'
 import { useUiStore } from '../../../lib/store'
-import { apiBase } from '../transport'
+import { apiBase } from '../../../lib/api-base'
 import { decodeAudioTitle, SILENT_WAV } from './audio-utils'
 
 // Feature-wide TTS playback. ONE persistent <audio> element is shared across the

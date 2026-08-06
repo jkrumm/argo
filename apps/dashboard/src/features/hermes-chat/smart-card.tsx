@@ -1,6 +1,7 @@
 import { type z } from 'zod'
 import { Badge, Card, Checkbox, Group, Stack, Text, ThemeIcon } from '@mantine/core'
 import { IconAlertTriangle, IconCircleCheck, IconCircleX, IconNote } from '@tabler/icons-react'
+import { settledOnly, type FenceRenderer } from 'basalt-ui/content'
 import { AudioPlayerCard } from './voice/audio-player-card'
 import {
   AudioCard,
@@ -14,8 +15,8 @@ import {
 
 // Fenced ` ```card ` blocks. The agent emits JSON; this renders it as a Mantine
 // component themed to DESIGN.md. Parsing is total: any malformed / unknown shape
-// returns null so the caller falls back to a plain code block (never throws,
-// never flashes broken mid-stream — `remend` defers incomplete fences upstream).
+// returns null so the fence renderer declines to a plain code block (never throws,
+// and only ever runs once the fence has fully settled — see `cardFenceRenderer`).
 // Card catalog v1: infra / todo / note / audio.
 // See docs/HERMES-CHAT-PRD.md → Rendering, "Cards live in markdown".
 
@@ -62,8 +63,8 @@ function InfraView({ card }: { card: z.infer<typeof InfraCard> }) {
       )}
       {card.items?.length ? (
         <Stack gap={6}>
-          {card.items.map((item, i) => (
-            <Group key={i} justify="space-between" wrap="nowrap" gap="xs">
+          {card.items.map((item) => (
+            <Group key={item.label} justify="space-between" wrap="nowrap" gap="xs">
               <Group gap="xs" wrap="nowrap">
                 {item.status && <StatusDot status={item.status} />}
                 <Text size="sm">{item.label}</Text>
@@ -90,9 +91,9 @@ function TodoView({ card }: { card: z.infer<typeof TodoCard> }) {
         </Text>
       )}
       <Stack gap={6}>
-        {card.items.map((item, i) => (
+        {card.items.map((item) => (
           <Checkbox
-            key={i}
+            key={item.text}
             size="xs"
             checked={item.done ?? false}
             readOnly
@@ -130,15 +131,7 @@ function NoteView({ card }: { card: z.infer<typeof NoteCard> }) {
   )
 }
 
-export function SmartCard({
-  card,
-  messageId,
-  threadId,
-}: {
-  card: SmartCardData
-  messageId?: string
-  threadId?: string
-}) {
+export function SmartCard({ card }: { card: SmartCardData }) {
   switch (card.type) {
     case 'infra':
       return <InfraView card={card} />
@@ -147,6 +140,16 @@ export function SmartCard({
     case 'note':
       return <NoteView card={card} />
     case 'audio':
-      return <AudioPlayerCard card={card} messageId={messageId} threadId={threadId} />
+      return <AudioPlayerCard card={card} />
   }
 }
+
+// Fence renderer for ```card blocks — registered into `hermesFenceRenderers`
+// (markdown-part.tsx). Wrapped in `settledOnly`: SmartCard (particularly the audio variant) is
+// heavyweight and must not render against a half-streamed fence. A parse failure DECLINES
+// (returns undefined) so basalt falls back to its default CodeBlock rather than a bespoke error
+// box — basalt already wraps fence renderers in a sync try/catch and a keyed error boundary.
+export const cardFenceRenderer: FenceRenderer = settledOnly(({ code }) => {
+  const card = parseCard(code)
+  return card ? <SmartCard card={card} /> : undefined
+})

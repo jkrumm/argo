@@ -1,17 +1,16 @@
-import { defaultSchema } from 'rehype-sanitize'
+import type { SanitizeSchemaExtension } from 'basalt-ui/content'
 
-// Hardened sanitize schema for LLM-authored markdown. Starts from the GitHub-grade
-// `defaultSchema` (no raw <script>/<style>/<iframe>/event handlers, URL protocols
-// constrained) and only widens it for the two custom inline-accent elements this
-// renderer emits. `language-*` classNames on `code` are already permitted by the
-// default schema, so the fenced `card`/`mermaid`/`vega-lite` interception still
-// receives its language class. Mermaid/Vega never reach the DOM as HTML — they are
-// rendered by bundled inline components (mermaid-diagram.tsx / vega-lite-diagram.tsx).
-export const hermesSanitizeSchema = {
-  ...defaultSchema,
-  tagNames: [...(defaultSchema.tagNames ?? []), 'hermes-badge', 'hermes-mark'],
+// Additions-only extension for `Markdown`'s `sanitizeSchema` prop — basalt merges this OVER its
+// own additions layer, which is itself layered over rehype-sanitize's `defaultSchema` (see
+// basalt-ui/content's sanitize docs). Removal is deliberately unrepresentable in this shape; this
+// widens the baseline for exactly the two custom inline-accent elements remark-hermes-accents.ts
+// emits (`:badge[…]` → hermes-badge, `==mark==` → hermes-mark) and nothing else. `language-*`
+// classNames on `code` are already permitted by the default schema, so the fenced
+// `card`/`mermaid`/`vega-lite` interception still receives its language class without any addition
+// here.
+export const hermesSanitizeSchema: SanitizeSchemaExtension = {
+  tagNames: ['hermes-badge', 'hermes-mark'],
   attributes: {
-    ...defaultSchema.attributes,
     'hermes-badge': ['className'],
     'hermes-mark': ['className'],
   },

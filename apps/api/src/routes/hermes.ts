@@ -425,6 +425,13 @@ const ThreadSchema = z.object({
   archived_at: z.string().nullable().describe('ISO timestamp when archived, else null.'),
   created_at: z.string().describe('ISO 8601 creation timestamp.'),
   updated_at: z.string().describe('ISO 8601 timestamp of the last turn.'),
+  streaming: z
+    .boolean()
+    .describe(
+      'True while an assistant turn is generating for this thread (derived from the internal ' +
+        'active-stream pointer). A client that reloads mid-turn can use this to decide whether to ' +
+        'call GET /hermes/chat/{id}/stream to resume, instead of calling it unconditionally on every mount.',
+    ),
 })
 
 const MessageSchema = z.object({
@@ -439,6 +446,15 @@ const MessageSchema = z.object({
     .describe('Non-transcript extension data (audio refs, attachments, tool events).'),
   status: z.enum(['complete', 'streaming', 'interrupted', 'error']),
   created_at: z.string().describe('ISO 8601 creation timestamp.'),
+  client_message_id: z
+    .string()
+    .nullable()
+    .describe(
+      'Client-supplied idempotency key for a user turn (the outbound AI SDK UIMessage.id) — ' +
+        'null for every server-originated (assistant) row. A dashboard client uses this to match ' +
+        'its own optimistically-rendered user message against the confirmed server row instead ' +
+        'of a timing heuristic.',
+    ),
 })
 
 const ThreadListQuerySchema = z.object({
@@ -474,6 +490,24 @@ const PatchThreadBodySchema = z.object({
 // + the casts at each return reconcile the two (runtime is validated by Elysia).
 type ThreadResponse = z.infer<typeof ThreadSchema>
 type MessageResponse = z.infer<typeof MessageSchema>
+
+/**
+ * Row → public `ThreadResponse`: reconciles the DB's plain-text `status` column
+ * with the response schema's literal union (same pattern as the comment above),
+ * and derives `streaming` from the internal `active_stream_id` pointer rather
+ * than exposing that pointer itself — a browser has no legitimate use for the
+ * raw stream id, only for whether one is live. Every route returning a thread
+ * row goes through this one function so a future field never has to be added
+ * at more than one call site — grep `toThreadResponse` to find them all.
+ */
+function toThreadResponse(row: typeof hermesThread.$inferSelect): ThreadResponse {
+  const { active_stream_id, ...rest } = row
+  return {
+    ...rest,
+    status: rest.status as ThreadResponse['status'],
+    streaming: active_stream_id !== null,
+  }
+}
 
 /**
  * Resolve the thread for a chat turn: reuse an existing row's session_id, or
@@ -1340,7 +1374,7 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
             ...(body.title ? { title: body.title } : {}),
           })
           .returning()
-        return row! as ThreadResponse
+        return toThreadResponse(row!)
       },
       {
         body: CreateThreadBodySchema,
@@ -1369,7 +1403,7 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
             .offset((page - 1) * limit),
           db.select({ count: count() }).from(hermesThread).where(where),
         ])
-        return { data: rows as ThreadResponse[], total: Number(countRow?.count ?? 0) }
+        return { data: rows.map(toThreadResponse), total: Number(countRow?.count ?? 0) }
       },
       {
         query: ThreadListQuerySchema,
@@ -1427,14 +1461,14 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
           set.status = body.archived ? 'archived' : 'active'
           set.archived_at = body.archived ? new Date().toISOString() : null
         }
-        if (Object.keys(set).length === 0) return existing as ThreadResponse
+        if (Object.keys(set).length === 0) return toThreadResponse(existing)
 
         const [row] = await db
           .update(hermesThread)
           .set(set)
           .where(eq(hermesThread.id, params.id))
           .returning()
-        return row! as ThreadResponse
+        return toThreadResponse(row!)
       },
       {
         params: z.object({ id: z.string().describe('Thread id (thr_…).') }),

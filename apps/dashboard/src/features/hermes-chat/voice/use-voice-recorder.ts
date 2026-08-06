@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { emit } from 'basalt-ui/notifications'
 import { getToken } from '../../../lib/auth'
-import { apiBase } from '../transport'
+import { apiBase } from '../../../lib/api-base'
 import { mimeToExt, pickRecordingMime } from './audio-utils'
 
 type UseVoiceRecorderOpts = {

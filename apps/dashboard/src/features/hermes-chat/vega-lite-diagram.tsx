@@ -3,6 +3,7 @@ import { compile } from 'vega-lite'
 import * as vega from 'vega'
 import { expressionInterpreter } from 'vega-interpreter'
 import { useComputedColorScheme } from '@mantine/core'
+import { settledOnly, type FenceRenderer } from 'basalt-ui/content'
 import classes from './diagram.module.css'
 import { useDebouncedDiagram, DiagramError } from './diagram-shared'
 
@@ -177,3 +178,12 @@ function VegaLiteDiagramImpl({ source }: { source: string }) {
 }
 
 export const VegaLiteDiagram = memo(VegaLiteDiagramImpl)
+
+// Fence renderer for ```vega-lite blocks — registered into `hermesFenceRenderers`
+// (markdown-part.tsx). Wrapped in `settledOnly`: the compile+render pipeline is heavyweight and
+// must not run against a half-streamed fence. Errors (invalid JSON, remote data.url, a Vega-Lite
+// compile/render failure) render the existing bespoke `DiagramError` box rather than declining —
+// that richer treatment (message + raw source) is worth keeping for a diagram fence specifically.
+export const vegaLiteFenceRenderer: FenceRenderer = settledOnly(({ code }) => (
+  <VegaLiteDiagram source={code} />
+))

@@ -12,7 +12,7 @@ import {
 } from '@mantine/core'
 import { IconHeadphones, IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react'
 import { getToken } from '../../../lib/auth'
-import { apiBase } from '../transport'
+import { apiBase } from '../../../lib/api-base'
 import type { AudioCardData } from '../smart-card-schema'
 import { formatElapsed } from './audio-utils'
 import { useVoicePlayback } from './voice-playback'

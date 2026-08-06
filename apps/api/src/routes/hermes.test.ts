@@ -804,6 +804,36 @@ describe('thread read CRUD', () => {
     expect(assistantText).toBe('Hello world')
   })
 
+  it('round-trips client_message_id: present for a user turn sent with one, null for the assistant row', async () => {
+    const { fetchImpl } = fakeHermes()
+    const app = buildApp(fetchImpl)
+    await app
+      .handle(
+        chatRequest({
+          threadId: 'thr_client_msg_id',
+          sessionId: 'ses_client_msg_id',
+          messages: [{ id: 'client-msg-abc', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+        }),
+      )
+      .then((r) => r.text())
+
+    await waitFor(async () => {
+      const r = await db.query.hermesMessage.findMany()
+      return r.length >= 2 ? r : undefined
+    })
+
+    const res = await app.handle(
+      new Request('http://localhost/hermes/threads/thr_client_msg_id/messages'),
+    )
+    const body = (await res.json()) as {
+      data: Array<{ role: string; client_message_id: string | null }>
+    }
+    const user = body.data.find((m) => m.role === 'user')
+    const assistant = body.data.find((m) => m.role === 'assistant')
+    expect(user?.client_message_id).toBe('client-msg-abc')
+    expect(assistant?.client_message_id).toBeNull()
+  })
+
   it('404s the transcript of a missing thread', async () => {
     const { fetchImpl } = fakeHermes()
     const app = buildApp(fetchImpl)
@@ -924,6 +954,66 @@ describe('thread read CRUD', () => {
     expect(row).toBeDefined()
     expect(row?.summary).toBeNull()
     expect(row?.type).toBeNull()
+  })
+
+  it('exposes `streaming` (derived from active_stream_id) on create, list, and patch — including the empty-body patch branch', async () => {
+    const { fetchImpl } = fakeHermes()
+    const app = buildApp(fetchImpl)
+
+    // Fresh thread via POST /threads: no active stream.
+    const createRes = await app.handle(
+      new Request('http://localhost/hermes/threads', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: 'Streaming check' }),
+      }),
+    )
+    const created = (await createRes.json()) as { streaming: boolean }
+    expect(created.streaming).toBe(false)
+
+    // A thread with a live active_stream_id pointer reports streaming:true.
+    await db.insert(hermesThread).values({
+      id: 'thr_streaming',
+      session_id: 'ses_streaming',
+      session_key: 'k',
+      active_stream_id: 'strm_live',
+    })
+
+    const listRes = await app.handle(new Request('http://localhost/hermes/threads'))
+    const list = (await listRes.json()) as { data: Array<{ id: string; streaming: boolean }> }
+    expect(list.data.find((t) => t.id === 'thr_streaming')?.streaming).toBe(true)
+
+    // PATCH that actually updates a field still reflects the pointer state.
+    const patchRes = await app.handle(
+      new Request('http://localhost/hermes/threads/thr_streaming', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ pinned: true }),
+      }),
+    )
+    const patched = (await patchRes.json()) as { streaming: boolean }
+    expect(patched.streaming).toBe(true)
+
+    // The empty-body PATCH no-op branch (returns `existing`, not a fresh `.returning()`
+    // row) must also carry `streaming` — this is the one call site not covered above.
+    const noopRes = await app.handle(
+      new Request('http://localhost/hermes/threads/thr_streaming', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({}),
+      }),
+    )
+    const noop = (await noopRes.json()) as { streaming: boolean }
+    expect(noop.streaming).toBe(true)
+
+    // Once the pointer clears, GET /threads reports streaming:false again.
+    await db
+      .update(hermesThread)
+      .set({ active_stream_id: null })
+      .where(eq(hermesThread.id, 'thr_streaming'))
+    const listRes2 = await app.handle(new Request('http://localhost/hermes/threads'))
+    const list2 = (await listRes2.json()) as { data: Array<{ id: string; streaming: boolean }> }
+    expect(list2.data.find((t) => t.id === 'thr_streaming')?.streaming).toBe(false)
   })
 })
 
