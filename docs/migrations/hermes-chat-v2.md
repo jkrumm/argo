@@ -2521,3 +2521,239 @@ Partway through, `wildrift.*` sources, a `0018` migration, and edits to `db/sche
 own edits, by another session in the same checkout. A1's countermeasure ("verify the staged tree,
 not the working tree") had a live target for the first time: every commit here stages **explicit
 paths**, never `git add -A`.
+
+## A3 — the dashboard rebuilt on basalt
+
+Status at time of writing: implementation complete, seven-command gate green, two verification passes
+run in a real browser, a third in flight. Not yet committed.
+
+The demolition is real rather than cosmetic, and the cheapest proof is a grep: at `190d492`,
+`git grep "from 'basalt-ui" -- apps/dashboard/src/features/hermes-chat` returns **zero** hits. The
+working tree has **22 import sites across 13 files**. `transport.ts`, `message-markdown.tsx`,
+`mermaid-diagram.tsx` and `message-markdown.module.css` are gone; `chat-conversation.tsx` went from
+695 lines to 165; the net is about −1,000 lines.
+
+### Three premises in the phase brief were false, and one of them would have cost the rebuild
+
+The A3 scope list was written from the audit. Four of its claims did not survive contact with the code:
+
+| Briefed                                        | Actual                                                                                                                                                                                                                                        |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Missing pending-guard" on new chat            | The guard **exists** (`chat-page.tsx:96`). The real bug: it rides async Query state, and `onSuccess` consumed the seed once but expanded **unconditionally**, so with two racing creates thread A got the seed and thread B got the expansion |
+| `toUIMessages` discards `dynamic-tool` parts   | It **preserves** `row.parts` verbatim (`chat-view.tsx:21`). The discard was a layer later, in `messageText`'s `isTextUIPart` filter. **Fixing chat-view alone would have made no chips appear**                                               |
+| Thread-list polls every 700ms–1s               | **No such poll exists anywhere in the client.** Nearest is a 1500ms×6 title poll gated behind `onFinish`                                                                                                                                      |
+| Delete `transport.ts` and `diagram-shared.tsx` | Both have live importers on the _keep_ list — `apiBase` feeds three `voice/` files, and `vega-lite-diagram.tsx` imports both of `diagram-shared`'s exports                                                                                    |
+
+The mermaid finding is the one worth keeping. Six stacked "Syntax error in text" blocks persisted in
+the settled DOM with **no console error**, and it was not a React cleanup bug at all: `mermaid.render(id, src)`
+called with **two** arguments makes mermaid append its scratch `<div>` to `document.body`, and the
+parse-error path `throw`s the stashed exception **before** `removeTempElements()` runs. No amount of
+React-side cleanup could have fixed it. It is moot now — the bespoke renderer is deleted and basalt's
+path uses `beautiful-mermaid`, which throws into a `catch` that degrades to last-good-SVG then
+`CodeBlock` — but a console-only check would have missed it forever.
+
+### The spec's definition of done was wrong about the dependencies
+
+`HERMES-CHAT-V2.md` says `react-markdown`, `remend`, `remark-gfm` and `mermaid` all leave
+`apps/dashboard`'s direct dependencies. Three of the four are **basalt-ui's own optional peers** —
+dropping them silently degrades basalt's `Markdown` to a plain-text renderer and skips the sanitize
+pass. Only `mermaid` was droppable.
+
+Johannes ruled: swap `mermaid@11.15.0` for `beautiful-mermaid@1.1.3` (what basalt's fence renderer
+actually loads), keep the other three plus `remark-directive` and `rehype-sanitize`. All eight mermaid
+diagrams in production are `flowchart TD`, which is squarely inside beautiful-mermaid's six supported
+types. The spec text must be amended in A6 or the next reader will "restore" the wrong goal.
+
+### The orchestrator's own ruling was the root cause of the phase's worst defects
+
+The Postgres `ThreadsStoreAdapter` was specified with a **no-op write half** and `listThreads`
+returning `messages: []`, reasoning that Argo's API already owns persistence. Both halves of that are
+contract violations, and basalt's own shipped conformance suite says so at `adapter.ts:907`:
+
+```
+listThreads returned a STALE message list — a list started after a write resolves must reflect it
+```
+
+`createAdapterThreadsStore` fires a `revalidate()` proving load after every write and `prune()`s the
+optimistic patch when the reload disagrees. Three defects followed, all confirmed in a real browser:
+
+1. **The new-chat row was pruned mid-turn.** Measured: the proving `GET /hermes/threads` _responded at
+   +69ms, seven milliseconds before `POST /hermes/chat` even fired at +76ms_ — so the server had not
+   yet lazily created the thread. The feed showed "No threads yet" for the **entire turn** while the
+   thread existed server-side with a full reply. A race, reproducing about one run in three.
+2. **The user's own message was invisible for the whole turn**, deterministically — it lived only in a
+   store the view deliberately never read, because not reading it was the workaround for the pruning.
+3. **Resume after a mid-stream reload was dead**, a true regression: `HEAD` does it correctly with
+   `useChat({resume: true})`. The `streaming` flag and `resumeToken` mapping added earlier in the
+   phase were inert, because `useAgentThreadRuns`'s reconcile requires a last `role:'user'` message in
+   `thread.messages` and the store's threads carried none.
+
+The lane that built the adapter reported honestly that ten of thirteen conformance cases failed and
+that every failure traced to the no-op design. That was read as "inapplicable by design" and waved
+through. It was the framework saying the design was wrong. **The instrument was working; its reading
+was discounted** — a new failure shape for this program, and the inverse of the four previous ones
+where the instrument itself was at fault.
+
+Johannes ruled: stop using `createAdapterThreadsStore` and implement basalt's `ThreadsStore` interface
+directly over Argo's React Query cache. `useAgentThreadRuns` only ever required a `ThreadsStore`, so
+everything already working — stop, tool chips, abort-on-unmount — was untouched.
+
+### The fix for one heuristic became the cause of the next defect
+
+The direct store fixed the prune race outright (`mergeServerThreads` only upserts by id; no code path
+removes a locally-created thread) and restored resume by gating the mount of `useAgentThreadRuns` on
+`hydrated` and eagerly fetching messages for the zero-or-one threads reporting `streaming: true`.
+
+But its optimistic-message dedupe was **timestamp-based**: keep an overlay message while
+`createdAt > dataUpdatedAt`. On an **existing** thread that worked (104 / 155 / 139ms to visible). On a
+**brand-new** thread it was catastrophic — 23,149 / 31,973 / 25,046ms — because the messages query
+404s on a thread that does not exist yet, and the `isNotFoundError` handler converts that 404 into a
+**successful** `{data: [], total: 0}`, stamping `dataUpdatedAt` at the same instant the optimistic
+message was appended. The guard against duplication became the cause of disappearance, and every
+"start a new chat" hit it.
+
+This was flagged as a residual risk _before_ the gate ran, on the grounds that the heuristic was
+load-bearing on the unrelated global `refetchOnWindowFocus: false`. The gate proved it was not merely
+fragile but actively broken.
+
+The fix exposes `client_message_id` — a column phase A1 already added and already populates, simply
+never surfaced in `MessageSchema` — and dedupes on the exact key.
+
+### A brief that specified an impossible mechanism, and a worker that refused it
+
+The fix brief instructed that the optimistic message's id "rides inside `messages[0].id`", which the
+server reads via `readClientMessageId`. That is false, and the worker proved it:
+
+- `useAgentThreadRuns.start()` mints `id: mintMessageId()` for the `ChatMessage` it appends to the
+  store (`use-agent-thread-runs.ts:623`).
+- `aiSdkTransport.stream()` mints a **separate, independent** `id: mintMessageId()` for the wire
+  `UIMessage` (`ai-sdk-transport.ts:408`).
+- `start()` passes only the raw input **string** to `transport.stream()` — the ChatMessage id never
+  reaches the transport, and neither basalt internal exposes its id to the other.
+
+Comparing them, exactly as briefed, would never have confirmed a user turn and would have rendered
+every one **twice** — failing the acceptance criterion the same brief set. Because basalt is frozen,
+the worker built the smallest correct bridge in Argo's own code: `hermesFetch` already rewrites the
+outbound body, so it is the one seam that sees the real wire id, and it records it per thread in send
+order.
+
+That is the fourth worker in this program to refuse part of its brief with citations and be right.
+
+### What the browser gates settled that no amount of reading would have
+
+Two full passes, self-launched Chrome on dedicated ports with throwaway profiles, raw CDP, each agent
+stating the URL, the app and its own server ancestry per observation.
+
+Confirmed working and not to be re-litigated: **stop behaves exactly as ruled in both branches**
+(`{stopped:true}` → partial text plus a "STOPPED" label; `{stopped:false}` → the full reply with no
+label); **historical tool chips survive collapse and reopen** with real tool name, input and output,
+closing defects 10 and 11; **secret redaction renders `[redacted]`** with zero real credential values
+found; four rapid collapse/expand cycles mid-stream leave exactly one user and one assistant node with
+each tool chip once; **zero console errors and zero `Runtime.exceptionThrown`**; no stray DOM nodes
+outside the React root.
+
+Two honest non-results, both reported rather than rounded up: the dedupe-vanish probe came back 2/3
+clean and **1/3 inconclusive** because the harness reused a stale row reference and one send never
+fired a POST; and console monitoring covered a representative combined pass rather than the entire
+multi-hour session, which the gate stated plainly instead of claiming a clean session.
+
+One false negative caught by the gate itself: the first 409 test found nothing, because opening a
+second tab on an **already-streaming** thread correctly disables its composer so no request fires. The
+real race needs tab B opened while the thread is **idle**, then raced. Re-run that way it produced the
+expected 409 and the notification.
+
+### Browser-gate knowledge specific to this machine, worth carrying
+
+A windowed Chrome on the mini is unusable for this: there is no real display attached, `screencapture`
+fails with "could not create image from display", and CDP `Page.enable` / `Page.navigate` hang
+unpredictably — reproduced three times. `--headless=new` is reliable. Connect to the **browser**
+endpoint and use `Target.attachToTarget({flatten: true})`; connecting directly to a page's
+`devtoolsFrontendUrl` websocket leaves the target unresponsive to `Page.enable` after about two
+reconnects.
+
+### Two gate holes, one of them pre-existing
+
+`apps/dashboard`'s test script was `bun test src/lib`, so **none** of the hermes-chat test files ran
+under any gate — including the secret-redaction tests, the safety net for the credential leak. The gap
+predates A3 (`smart-card.test.ts` dates to 2026-07-02) but A3 tripled what was being missed. Widened to
+`bun test src`: 56 tests became 110.
+
+`@ai-sdk/react` was left in `package.json` while completely unused. It is the exact package
+`basalt/agent-no-raw-usechat` forbids importing from, so leaving it invites a future violation. Removed.
+
+### Secrets — one finding in Argo, one upstream
+
+The tool-event label persisted by the API is `event.preview ?? event.toolName`, where `preview` is
+Hermes' own tool preview string — and a production row carries a shell command embedding a secret's
+environment-variable **name**. Before A3 there was no client render path for it at all (zero
+occurrences of `toolEvents` in the dashboard), so A3 was the change that would have started printing
+it. Redaction is wired at render, and the browser gate confirms the DOM shows `[redacted]`.
+
+The nuance the gate added: **the DOM is clean but the wire is not.** The raw
+`GET /hermes/threads/:id/messages` response still carries the unredacted string, so Network tab, OTel
+spans and any cached response see it. It is an env-var reference, not a resolved value. Argo-side
+server redaction is queued for A6.
+
+Upstream, and more interesting: `hermes-agent/config.yaml` had `security.redact_secrets: false` ten
+lines above `security.secret_redaction: true` **in the same block**. Investigation against the runtime
+source at `~/.hermes/hermes-agent/` (a full checkout; `~/SourceRoot/hermes-agent` is only the
+config/skills repo symlinked into it) established:
+
+- The runtime **default is `True`** (`config_defaults.py:2087`) — the config was explicitly overriding a
+  safe default to off.
+- Flipping it does **not** limit the agent. Redaction applies to tool **output**, never to the commands
+  the model writes. Argument redaction was tried once (#19798) and reverted (#43083) precisely because
+  the model read back its own `PGPASSWORD='***'` and copied the placeholder into the next turn.
+- `secret_redaction` is **dead config** — zero references anywhere in the runtime, verified four
+  differently-shaped ways. Almost certainly a word-order typo of `redact_secrets`, and the reason the
+  block reads as "redaction is on" at a glance.
+
+Flipped to `true`; Hermes was deliberately **not** restarted, so the running instance is unchanged
+until Johannes chooses.
+
+Johannes also asked whether Hermes could just take its secrets from the secrets cache. It already
+does — `config.yaml:547-551` wires `secrets.command` to `secrets-run export --env-file=…`, resolved
+once at startup into the process environment, which is what makes `$HOMELAB_API_KEY` references in
+commands work at all under the `local` terminal backend. The variant where the **agent** resolves a
+secret mid-task would be strictly worse: `secrets-run read op://…` prints the **value** to stdout,
+which is persisted into the transcript, and the redactor is a vendor-prefix allowlist (`sk-`, `ghp_`,
+`AKIA`, `xox…`) that matches none of Johannes's opaque self-issued keys. Tool-call arguments are never
+redacted at all, and the repo's own `tests/test_download_guard.py:91` lists `secrets-run read op://…`
+as an **allowed** command. The current env-var-reference scheme is leak-proof by construction; point-of-use
+resolution would trade that for pattern matching that demonstrably fails on exactly these keys.
+
+### The verification rounds, and what each instrument caught
+
+Three browser gates and one adversarial code review ran over A3. They did not find the same things, and
+the pattern of _which_ instrument caught _what_ is the useful part.
+
+| Round  | Caught                                                                                                                                            |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Gate 1 | The two structural blockers (thread pruned mid-turn; own message invisible) and the dead resume — none of which any test, lint or review had seen |
+| Gate 2 | That the first fix worked for existing threads but made new threads **worse** — 23-32s, up from ~2s                                               |
+| Review | Proved by execution that the overlay dedupe duplicates on reload/cross-tab/resume, **and cascades**                                               |
+| Gate 3 | Independently observed both review findings in a live browser, and settled the dev double-GET against a production bundle                         |
+
+The review and gate 3 agreeing, by completely different methods, on the same two defects is the
+strongest signal this program has produced. The review executed `mergeOptimisticMessages` directly
+against adversarial inputs; the gate drove a real browser and read the database. Neither saw the other's
+work.
+
+**The dev double-reconnect is StrictMode-only, now settled properly.** Gate 3 built the dashboard with
+`VITE_API_URL`, served the bundle statically, and reached the API by disabling CORS in a _separate_
+headless Chrome rather than editing the API's allowlist — settling the question without mutating the
+thing under test. The production bundle fires exactly one reconnect GET. But the gate was careful to
+add that the dedupe gap the double-GET _exposed_ is not StrictMode-dependent and recurs under any real
+double-resume — so it was fixed on its own merits, not written off as a dev artifact.
+
+**A false negative the gate caught on itself.** Its first 409 test found nothing, because opening a
+second tab on an _already-streaming_ thread correctly disables that tab's composer, so no request is
+ever issued. The real race needs tab B opened while the thread is idle and then raced. Re-run that way,
+the 409 and its notification both appeared. A gate that had stopped at the first result would have
+reported a passing check for a code path it never exercised.
+
+**Honest non-results, recorded as such.** Gate 2's dedupe-vanish probe came back 2/3 clean and 1/3
+**inconclusive** — its harness reused a stale row reference and one send never fired a POST — and it
+said so rather than rounding up. Gate 2 also stated that its console monitoring covered a representative
+combined pass rather than the entire multi-hour session. Both admissions are worth more than the clean
+results around them.
