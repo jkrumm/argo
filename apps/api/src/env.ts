@@ -72,14 +72,14 @@ export const Env = z.object({
   // Slack #hermes group key for Johannes — see .env.local.tpl for derivation.
   HERMES_SESSION_KEY: z.string().default('agent:main:slack:group:C0ASRUD7K1U:U0AS54FURPE'),
 
-  // General AI gateway (/ai/v1/*) — DeepSeek v4 Flash, called directly on the IU
+  // General AI gateway (/ai/v1/*) — gpt-5.6-luna, called directly on the IU
   // unified endpoint's OpenAI-compatible transport (no LiteLLM bridge). The same
   // public endpoint serves local + prod. DEEPSEEK_BASE_URL must include the
   // OpenAI path prefix; the gateway appends `/chat/completions`. The model is
   // EU/GDPR-resident (Azure Spain), so routing stays GDPR-compliant.
   DEEPSEEK_BASE_URL: z.string().default(''),
   DEEPSEEK_API_KEY: z.string().default(''),
-  DEEPSEEK_MODEL: z.string().default('DeepSeek-V4-Flash'),
+  DEEPSEEK_MODEL: z.string().default('gpt-5.6-luna'),
 
   // Audio (STT + TTS) — forwarded to the audio-gateway service (audio-gateway:7714).
   // The gateway is the single source of truth for all audio processing; Argo proxies.

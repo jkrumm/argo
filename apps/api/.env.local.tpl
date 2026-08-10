@@ -70,7 +70,7 @@ HERMES_API_KEY=op://vps/argo/HERMES_API_KEY
 # The env.ts default already carries this; override here only to change scope.
 # HERMES_SESSION_KEY=agent:main:slack:group:C0ASRUD7K1U:U0AS54FURPE
 #
-# General AI gateway (/ai/v1/*) — DeepSeek v4 Flash, called DIRECTLY on the IU
+# General AI gateway (/ai/v1/*) — gpt-5.6-luna, called DIRECTLY on the IU
 # unified endpoint's OpenAI-compatible transport. No LiteLLM bridge, no localhost:
 # the same public HTTPS endpoint is reachable from local dev and the prod VPS, so
 # one config serves both. The model is EU/GDPR-resident (Azure Spain). The base
