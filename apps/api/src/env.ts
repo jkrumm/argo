@@ -75,8 +75,10 @@ export const Env = z.object({
   // General AI gateway (/ai/v1/*) — gpt-5.6-luna, called directly on the IU
   // unified endpoint's OpenAI-compatible transport (no LiteLLM bridge). The same
   // public endpoint serves local + prod. DEEPSEEK_BASE_URL must include the
-  // OpenAI path prefix; the gateway appends `/chat/completions`. The model is
-  // EU/GDPR-resident (Azure Spain), so routing stays GDPR-compliant.
+  // OpenAI path prefix; the gateway appends `/chat/completions`. The model
+  // live-verifies as EU-resident (Azure Sweden Central, via IU response headers)
+  // — Azure deployment type (Regional/Data-Zone-EU vs Global) is unconfirmed;
+  // see modelpick/docs/decisions/hermes-brain.md.
   DEEPSEEK_BASE_URL: z.string().default(''),
   DEEPSEEK_API_KEY: z.string().default(''),
   DEEPSEEK_MODEL: z.string().default('gpt-5.6-luna'),

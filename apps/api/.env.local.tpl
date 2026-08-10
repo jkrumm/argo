@@ -73,9 +73,11 @@ HERMES_API_KEY=op://vps/argo/HERMES_API_KEY
 # General AI gateway (/ai/v1/*) — gpt-5.6-luna, called DIRECTLY on the IU
 # unified endpoint's OpenAI-compatible transport. No LiteLLM bridge, no localhost:
 # the same public HTTPS endpoint is reachable from local dev and the prod VPS, so
-# one config serves both. The model is EU/GDPR-resident (Azure Spain). The base
-# URL already carries the OpenAI `/v1` path; the gateway appends
-# `/chat/completions`. Reuses the shared IU creds in op://common/anthropic.
+# one config serves both. The model live-verifies as EU-resident (Azure Sweden
+# Central, via IU response headers) — Azure deployment type is unconfirmed; see
+# modelpick/docs/decisions/hermes-brain.md. The base URL already carries the
+# OpenAI `/v1` path; the gateway appends `/chat/completions`. Reuses the shared
+# IU creds in op://common/anthropic.
 DEEPSEEK_BASE_URL=op://common/anthropic/OPENAI_BASE_URL
 DEEPSEEK_API_KEY=op://common/anthropic/API_KEY
 DEEPSEEK_MODEL=DeepSeek-V4-Flash
