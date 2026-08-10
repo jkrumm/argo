@@ -37,6 +37,8 @@ export type RecordUsageFn = (params: RecordUsageParams) => Promise<void>
 const DEEPSEEK_RATES: Record<string, { input: number; output: number }> = {
   'deepseek-v4-flash': { input: 0.14, output: 0.28 },
   'deepseek-v4-pro': { input: 0.435, output: 0.87 },
+  // OpenRouter reference pricing — NOT confirmed as IU's actual billed rate for this model.
+  'gpt-5.6-luna': { input: 0.1, output: 0.6 },
 }
 
 /**

@@ -154,7 +154,7 @@ export function buildApp() {
               {
                 name: 'AI Gateway',
                 description:
-                  'General-purpose, OpenAI-compatible AI gateway (`/ai/v1/*`) backing Argo-side AI features (NOT the Hermes agent): DeepSeek v4 Flash via the LiteLLM EU bridge for titling/classification, plus STT (transcriptions) and TTS (speech) via the audio-gateway.',
+                  'General-purpose, OpenAI-compatible AI gateway (`/ai/v1/*`) backing Argo-side AI features (NOT the Hermes agent): gpt-5.6-luna via the LiteLLM EU bridge for titling/classification, plus STT (transcriptions) and TTS (speech) via the audio-gateway.',
               },
               {
                 name: 'Reading',
