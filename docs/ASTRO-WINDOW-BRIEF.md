@@ -313,6 +313,26 @@ poor`, with `out` reserved for gated nights — "out for a named reason" is
   different information from "scored low" and the API keeps them distinct.
 - **2026-08-15 · D5 · Observer elevation is sea level.** The contract carries
   lat/lon only; a few hundred metres moves rise/set by ~2 min, inside the noise.
+- **2026-08-15 · D6 · Upstream cache is in-memory, not Valkey/Postgres.** The brief suggests
+  either; argo is a single-instance deploy, `REDIS_URL` is unset in tests, and
+  `routes/walking-pad.ts` is the house precedent. 60-minute TTL, 200-entry FIFO,
+  keyed on `(source, lat@2dp, lon@2dp, days)`. A failed fetch is never cached.
+- **2026-08-15 · D7 · New OpenAPI tag `Astro & Marine`**, expanded deliberately per
+  the rule file rather than overloading `External Data` — this is a decision surface,
+  not a data feed, and phase 4's `/marine/window` belongs in the same group.
+- **2026-08-15 · D8 · Map: MapLibre GL JS 6.3.0 (BSD-3) + OpenFreeMap tiles, lazy-loaded.**
+  The brief's default choice, confirmed after checking the terms — which changed the
+  tile source. **CARTO is ruled out**: its basemaps need an Enterprise licence, and
+  the only free non-commercial route is a CARTO grant we do not hold. OpenFreeMap
+  needs no key and no signup, states "no limits on the number of map views or
+  requests", and imposes no use-outside-our-products restriction; required
+  attribution is `OpenFreeMap © OpenMapTiles Data from OpenStreetMap`, passed
+  explicitly because the style JSON carries none. The trade accepted: OpenFreeMap
+  offers no SLA and may vanish, so the map card degrades to an empty state rather
+  than breaking the page. The lighter no-dependency approach was considered and
+  rejected — picking a _new_ site by coordinates with no basemap is not usable, and
+  that is an explicit phase-3 requirement. maplibre-gl is ~253 kB gzipped and cannot
+  be tree-shaken, so it is `React.lazy`-loaded and only downloads on this page.
 - **2026-08-15 · Correction to this brief's phase-1 acceptance list.** "June at
   48.14°N returns **zero** astronomical-night hours" is factually wrong and
   internally contradictory — −18.4° _is_ below the −18° threshold. Munich gets

@@ -76,6 +76,20 @@ const SERIES_MAP = defineSeries({
   walkingSteps: p(BP.forest),
   walkingKcal: p(BP.orange),
   walkingDuration: p(BP.sepia),
+
+  // ── Astro window · the sky itself ───────────────────────────────────────
+  // The galactic core is the anchor metric of the page, so it takes the sky
+  // hue. The moon is its antagonist, not a sibling — gold, so the two curves
+  // never read as one family on the same axis.
+  coreAltitude: p(BP.blue),
+  moonAltitude: p(BP.gold),
+  // Cloud layers are a severity ramp, not three peers: at a 13° target it is
+  // low cloud that ends the night, mid that threatens it and high that only
+  // costs contrast. Red → orange → sepia encodes that order at a glance.
+  cloudLow: p(BP.red),
+  cloudMid: p(BP.orange),
+  cloudHigh: p(BP.sepia),
+  transparencyBand: p(BP.cerulean),
 } satisfies SeriesMap)
 
 /** Garmin activities — per-type identity. */

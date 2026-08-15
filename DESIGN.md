@@ -66,42 +66,48 @@ export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 
 ### Recovery / sleep / effort / movement (unprefixed — `SERIES.*`)
 
-| Series name             | Light hex | Dark hex  | `defineSeries` key   | Role / earned reason                |
-| ----------------------- | --------- | --------- | -------------------- | ----------------------------------- |
-| HRV                     | `#0284c7` | `#38bdf8` | `hrv`                | Anchor metric — sky                 |
-| HRV weekly avg          | `#38bdf8` | `#7dd3fc` | `hrvWeekly`          | Lighter sibling of hrv              |
-| Resting HR              | `#cd4246` | `#e76a6e` | `restingHr`          | Cardio family                       |
-| Sleep duration          | `#0369a1` | `#0284c7` | `sleepDuration`      | Deep sky, sleep anchor              |
-| Sleep stage: deep       | `#0c4a6e` | `#0369a1` | `deep`               | Darkest sleep-stage shade           |
-| Sleep stage: light      | `#38bdf8` | `#7dd3fc` | `light`              | Lighter sleep-stage shade           |
-| Sleep stage: REM        | `#147eb3` | `#3fa6da` | `rem`                | Aerobic/second-blue family          |
-| Sleep stage: awake      | `#71717a` | `#a1a1aa` | `awake`              | Neutral (non-sleeping state)        |
-| Intensity minutes (low) | `#238c2c` | `#29a634` | `intensityMin`       | Low end of effort ramp — forest     |
-| Vigorous minutes        | `#d33d17` | `#eb6847` | `vigorousMin`        | High end of effort ramp — vermilion |
-| Intensity: walking      | `#43bf4d` | `#62d96b` | `intensityWalking`   | Forest, lighter sibling             |
-| Intensity: moderate     | `#d1980b` | `#f0b726` | `intensityModerate`  | Mid effort ramp — gold              |
-| Intensity: vigorous     | `#d33d17` | `#eb6847` | `intensityVigorous`  | High effort ramp — vermilion        |
-| Steps                   | `#38bdf8` | `#7dd3fc` | `steps`              | Movement — sky                      |
-| Calories                | `#c87619` | `#ec9a3c` | `calories`           | Energy — orange                     |
-| SpO2                    | `#147eb3` | `#3fa6da` | `spo2`               | Aerobic — cerulean                  |
-| Respiration             | `#3fa6da` | `#68c1ee` | `respiration`        | Aerobic, lighter sibling            |
-| VO2max                  | `#d1980b` | `#f0b726` | `vo2max`             | Highlight — gold                    |
-| ACWR                    | `#d1980b` | `#f0b726` | `acwr`               | Training-load highlight — gold      |
-| Acute load              | `#ec9a3c` | `#fbb360` | `acute`              | Orange, lighter shade               |
-| Chronic load            | `#935610` | `#c87619` | `chronic`            | Orange, deeper shade                |
-| Bench press             | `#0284c7` | `#38bdf8` | `benchPress`         | Strength lift — sky                 |
-| Squat                   | `#29a634` | `#43bf4d` | `squat`              | Strength lift — forest              |
-| Deadlift                | `#d33d17` | `#eb6847` | `deadlift`           | Strength lift — vermilion           |
-| Pull-ups                | `#d1980b` | `#f0b726` | `pullUps`            | Strength lift — gold                |
-| Timer phase: work       | `#29a634` | `#43bf4d` | `timerWork`          | Interval phase — forest             |
-| Timer phase: rest       | `#147eb3` | `#3fa6da` | `timerRest`          | Interval phase — cerulean           |
-| Skinfold: abdominal     | `#147eb3` | `#3fa6da` | `skinfoldAbdominal`  | Body-comp site — cerulean           |
-| Skinfold: suprailiac    | `#d1980b` | `#f0b726` | `skinfoldSuprailiac` | Body-comp site — gold               |
-| WalkingPad: distance    | `#0284c7` | `#38bdf8` | `walkingDistance`    | Anchor metric — sky                 |
-| WalkingPad: pace        | `#d1980b` | `#f0b726` | `walkingPace`        | Gold accent                         |
-| WalkingPad: steps       | `#29a634` | `#43bf4d` | `walkingSteps`       | Forest accent                       |
-| WalkingPad: kcal        | `#c87619` | `#ec9a3c` | `walkingKcal`        | Energy — orange                     |
-| WalkingPad: duration    | `#946638` | `#af855a` | `walkingDuration`    | Sepia (distinct from the set above) |
+| Series name             | Light hex | Dark hex  | `defineSeries` key   | Role / earned reason                          |
+| ----------------------- | --------- | --------- | -------------------- | --------------------------------------------- |
+| HRV                     | `#0284c7` | `#38bdf8` | `hrv`                | Anchor metric — sky                           |
+| HRV weekly avg          | `#38bdf8` | `#7dd3fc` | `hrvWeekly`          | Lighter sibling of hrv                        |
+| Resting HR              | `#cd4246` | `#e76a6e` | `restingHr`          | Cardio family                                 |
+| Sleep duration          | `#0369a1` | `#0284c7` | `sleepDuration`      | Deep sky, sleep anchor                        |
+| Sleep stage: deep       | `#0c4a6e` | `#0369a1` | `deep`               | Darkest sleep-stage shade                     |
+| Sleep stage: light      | `#38bdf8` | `#7dd3fc` | `light`              | Lighter sleep-stage shade                     |
+| Sleep stage: REM        | `#147eb3` | `#3fa6da` | `rem`                | Aerobic/second-blue family                    |
+| Sleep stage: awake      | `#71717a` | `#a1a1aa` | `awake`              | Neutral (non-sleeping state)                  |
+| Intensity minutes (low) | `#238c2c` | `#29a634` | `intensityMin`       | Low end of effort ramp — forest               |
+| Vigorous minutes        | `#d33d17` | `#eb6847` | `vigorousMin`        | High end of effort ramp — vermilion           |
+| Intensity: walking      | `#43bf4d` | `#62d96b` | `intensityWalking`   | Forest, lighter sibling                       |
+| Intensity: moderate     | `#d1980b` | `#f0b726` | `intensityModerate`  | Mid effort ramp — gold                        |
+| Intensity: vigorous     | `#d33d17` | `#eb6847` | `intensityVigorous`  | High effort ramp — vermilion                  |
+| Steps                   | `#38bdf8` | `#7dd3fc` | `steps`              | Movement — sky                                |
+| Calories                | `#c87619` | `#ec9a3c` | `calories`           | Energy — orange                               |
+| SpO2                    | `#147eb3` | `#3fa6da` | `spo2`               | Aerobic — cerulean                            |
+| Respiration             | `#3fa6da` | `#68c1ee` | `respiration`        | Aerobic, lighter sibling                      |
+| VO2max                  | `#d1980b` | `#f0b726` | `vo2max`             | Highlight — gold                              |
+| ACWR                    | `#d1980b` | `#f0b726` | `acwr`               | Training-load highlight — gold                |
+| Acute load              | `#ec9a3c` | `#fbb360` | `acute`              | Orange, lighter shade                         |
+| Chronic load            | `#935610` | `#c87619` | `chronic`            | Orange, deeper shade                          |
+| Bench press             | `#0284c7` | `#38bdf8` | `benchPress`         | Strength lift — sky                           |
+| Squat                   | `#29a634` | `#43bf4d` | `squat`              | Strength lift — forest                        |
+| Deadlift                | `#d33d17` | `#eb6847` | `deadlift`           | Strength lift — vermilion                     |
+| Pull-ups                | `#d1980b` | `#f0b726` | `pullUps`            | Strength lift — gold                          |
+| Timer phase: work       | `#29a634` | `#43bf4d` | `timerWork`          | Interval phase — forest                       |
+| Timer phase: rest       | `#147eb3` | `#3fa6da` | `timerRest`          | Interval phase — cerulean                     |
+| Skinfold: abdominal     | `#147eb3` | `#3fa6da` | `skinfoldAbdominal`  | Body-comp site — cerulean                     |
+| Skinfold: suprailiac    | `#d1980b` | `#f0b726` | `skinfoldSuprailiac` | Body-comp site — gold                         |
+| WalkingPad: distance    | `#0284c7` | `#38bdf8` | `walkingDistance`    | Anchor metric — sky                           |
+| WalkingPad: pace        | `#d1980b` | `#f0b726` | `walkingPace`        | Gold accent                                   |
+| WalkingPad: steps       | `#29a634` | `#43bf4d` | `walkingSteps`       | Forest accent                                 |
+| WalkingPad: kcal        | `#c87619` | `#ec9a3c` | `walkingKcal`        | Energy — orange                               |
+| WalkingPad: duration    | `#946638` | `#af855a` | `walkingDuration`    | Sepia (distinct from the set above)           |
+| Core altitude           | `#0284c7` | `#38bdf8` | `coreAltitude`       | Anchor metric of the astro page — sky         |
+| Moon altitude           | `#d1980b` | `#f0b726` | `moonAltitude`       | The core's antagonist, never a sibling — gold |
+| Cloud: low              | `#cd4246` | `#e76a6e` | `cloudLow`           | Top of the cloud severity ramp — red          |
+| Cloud: mid              | `#c87619` | `#ec9a3c` | `cloudMid`           | Middle of the severity ramp — orange          |
+| Cloud: high             | `#946638` | `#af855a` | `cloudHigh`          | Bottom of the severity ramp — sepia           |
+| Transparency band       | `#147eb3` | `#3fa6da` | `transparencyBand`   | Atmospheric clarity — cerulean                |
 
 ### Garmin activities (`activity-` prefix — `ACTIVITY.*`)
 
@@ -160,6 +166,10 @@ per-metric series, so it isn't in the table above.
 Genuine, intentional departures from the basalt-ui defaults — each with a one-line justification. An
 empty section is the correct default; do not invent deviations to fill it.
 
+- **The three cloud layers are a severity ramp, not three peers.** `cloudLow` takes the red
+  normally reserved for status/cardio because at a 13° target it is low cloud that actually ends
+  the night; mid and high step down through orange and sepia. Read as an escalation, the same way
+  the effort ramp (`intensityMin` → `vigorousMin`) is.
 - **`VX.muted` is used instead of `VX.tooltipMuted`** in two bespoke tooltip/legend labels
   (readiness-strain, time-of-day): the opaque secondary-ink token reads equivalently there. Note
   this is now a preference, not a constraint — basalt-ui 1.0.0 does export `VX.tooltipMuted`

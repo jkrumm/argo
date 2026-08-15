@@ -17,6 +17,7 @@ import {
   IconHeartbeat,
   IconMessageChatbot,
   IconMoon,
+  IconMoonStars,
   IconPalette,
   IconRoute,
   IconRulerMeasure,
@@ -85,6 +86,7 @@ const NAV_TARGETS: Record<
     search: { range: '30d', grain: 'day', costGroupBy: 'source', tokensGroupBy: 'sub_tool' },
   },
   m365: { to: '/m365-explorer' },
+  'astro-window': { to: '/astro-window', search: { site: 'alpenvorland', nights: 10 } },
 }
 
 function RootLayout() {
@@ -119,6 +121,7 @@ function RootLayout() {
   const isWalkingPadActive = !!matchRoute({ to: '/walking-pad', fuzzy: true })
   const isReadingActive = !!matchRoute({ to: '/reading', fuzzy: true })
   const isM365Active = !!matchRoute({ to: '/m365-explorer', fuzzy: true })
+  const isAstroActive = !!matchRoute({ to: '/astro-window', fuzzy: true })
   const isHermesChatActive = !!matchRoute({ to: '/hermes-chat', fuzzy: true })
   const isCalendarActive = !!matchRoute({ to: '/calendar', fuzzy: true })
   const isUsageActive = !!matchRoute({ to: '/usage-tracking', fuzzy: true })
@@ -275,6 +278,14 @@ function RootLayout() {
           href: '/m365-explorer',
           active: isM365Active,
           badge: <NavCountBadge count={badges.m365} />,
+        },
+        {
+          key: 'astro-window',
+          label: 'Astro Window',
+          short: 'Astro',
+          icon: <IconMoonStars size={ICON} />,
+          href: '/astro-window',
+          active: isAstroActive,
         },
       ],
     },
