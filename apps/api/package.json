@@ -29,6 +29,7 @@
     "@opentelemetry/sdk-logs": "^0.217.0",
     "@opentelemetry/sdk-trace-base": "^2.7.1",
     "ai": "5.0.196",
+    "astronomy-engine": "2.1.19",
     "croner": "^9",
     "drizzle-orm": "^0.38.0",
     "elysia": "^1.4.26",
