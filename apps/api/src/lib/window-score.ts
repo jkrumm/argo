@@ -232,6 +232,38 @@ export function angularDistance(a: number, b: number): number {
 }
 
 /**
+ * Mean of a set of compass bearings, in degrees, 0..360 — or null when they are
+ * too dispersed for a mean to mean anything.
+ *
+ * The arithmetic mean is **wrong** for bearings and wrong in the worst way: it
+ * averages 350° and 10° to 180°, turning a north wind into a south one and
+ * inverting an offshore/onshore verdict. The fix is to average the unit vectors
+ * and take the angle of the result.
+ *
+ * The resultant's *length* is the bonus: it falls to 0 as the inputs spread out
+ * around the circle. Below `minResultant` (default 0.2 — roughly "the day's
+ * wind boxed the compass") there is no meaningful average direction, so this
+ * returns null rather than a confident number pointing at nothing. Callers feed
+ * that null straight into a factor, which drops it from the score and lowers
+ * `coverage` — the honest outcome.
+ */
+export function circularMean(degrees: number[], minResultant = 0.2): number | null {
+  if (degrees.length === 0) return null
+  let sumSin = 0
+  let sumCos = 0
+  for (const deg of degrees) {
+    const rad = (deg * Math.PI) / 180
+    sumSin += Math.sin(rad)
+    sumCos += Math.cos(rad)
+  }
+  const meanSin = sumSin / degrees.length
+  const meanCos = sumCos / degrees.length
+  if (Math.sqrt(meanSin * meanSin + meanCos * meanCos) < minResultant) return null
+  const deg = (Math.atan2(meanSin, meanCos) * 180) / Math.PI
+  return (deg + 360) % 360
+}
+
+/**
  * Map a discrete 1..n band (7Timer's transparency and seeing scales are like
  * this) onto 0..1, where band 1 is best.
  */

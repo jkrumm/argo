@@ -20,6 +20,7 @@ import { confluenceRoutes } from './routes/confluence.js'
 import { gitlabRoutes } from './routes/gitlab.js'
 import { weatherRoutes } from './routes/weather.js'
 import { astroRoutes } from './routes/astro.js'
+import { marineRoutes } from './routes/marine.js'
 import { queryRoute } from './routes/query.js'
 import { workoutRoutes } from './routes/workouts.js'
 import { workoutSetRoutes } from './routes/workout-sets.js'
@@ -261,6 +262,7 @@ export function buildApp() {
       .use(gitlabRoutes)
       .use(weatherRoutes)
       .use(astroRoutes)
+      .use(marineRoutes)
       .use(summaryRoute)
       .use(queryRoute)
       .use(exerciseRoutes)

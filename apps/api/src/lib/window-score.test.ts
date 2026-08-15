@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import {
   bandScore,
+  circularMean,
   DEFAULT_BANDS,
   GATED_VERDICT,
   linearScore,
@@ -168,5 +169,37 @@ describe('bandScore', () => {
 
   it('treats a single-band scale as always perfect', () => {
     expect(bandScore(1, 1)).toBe(1)
+  })
+})
+
+describe('circularMean', () => {
+  it('averages bearings across north instead of through south', () => {
+    // The whole reason this exists: the arithmetic mean of 350 and 10 is 180.
+    expect(circularMean([350, 10])).toBeCloseTo(0, 6)
+    expect(circularMean([355, 5, 15])).toBeCloseTo(5, 6)
+  })
+
+  it('agrees with the arithmetic mean when nothing wraps', () => {
+    expect(circularMean([100, 110, 120])).toBeCloseTo(110, 6)
+  })
+
+  it('returns a bearing in [0, 360)', () => {
+    const value = circularMean([340, 20])!
+    expect(value).toBeGreaterThanOrEqual(0)
+    expect(value).toBeLessThan(360)
+  })
+
+  it('returns null when the bearings box the compass', () => {
+    // Four opposed directions cancel — there is no meaningful average.
+    expect(circularMean([0, 90, 180, 270])).toBeNull()
+    expect(circularMean([0, 180])).toBeNull()
+  })
+
+  it('returns null for an empty set', () => {
+    expect(circularMean([])).toBeNull()
+  })
+
+  it('still answers for a merely spread-out set', () => {
+    expect(circularMean([80, 100, 120])).toBeCloseTo(100, 4)
   })
 })

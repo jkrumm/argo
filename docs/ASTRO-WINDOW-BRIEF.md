@@ -333,6 +333,26 @@ poor`, with `out` reserved for gated nights — "out for a named reason" is
   rejected — picking a _new_ site by coordinates with no basemap is not usable, and
   that is an explicit phase-3 requirement. maplibre-gl is ~253 kB gzipped and cannot
   be tree-shaken, so it is `React.lazy`-loaded and only downloads on this page.
+- **2026-08-15 · D9 · Marine thresholds and spots are mine, and are explicitly
+  provisional.** The brief fixes the gates ("swell period and offshore wind
+  direction") but not the numbers, and — unlike astro, whose every weighting
+  traces to the operator's own field notes — **there is no surf note in the
+  vault**. So: period ≥ 8 s (below is windsea, not groundswell), wave height
+  0.5–4 m, wind within 60° of dead-offshore with a glassy exemption under 5 kn.
+  Weights `swellPeriod 5 · windDirection 3.5 · swellHeight 2.5 · windSpeed 1.5
+· swellAlignment 1.5` — period heaviest because it, not height, is the
+  quality axis. The four seeded spots are real, well-documented European breaks
+  ordered by drive time from Munich, with **approximate** `shoreNormal`
+  bearings read off the coastline; `/marine/window` also accepts a raw lat/lon
+  plus `shoreNormal`, so the list never constrains it. The Eisbach is
+  deliberately excluded — a river wave has no swell or wind to score.
+- **2026-08-15 · D10 · `peakScore` and `angularDistance` were added to the
+  engine, not to the marine config.** Swell height has a sweet spot rather than
+  a direction, which `linearScore` cannot express in either orientation; and
+  wrap-around bearing distance is the one piece of arithmetic where a surf
+  forecast silently inverts itself. Both are domain-agnostic, so they belong in
+  `window-score.ts` — the marine build is the first real test of whether that
+  module was actually generic, and this is what it cost.
 - **2026-08-15 · Correction to this brief's phase-1 acceptance list.** "June at
   48.14°N returns **zero** astronomical-night hours" is factually wrong and
   internally contradictory — −18.4° _is_ below the −18° threshold. Munich gets

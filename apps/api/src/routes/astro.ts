@@ -30,7 +30,7 @@ import {
 } from '../lib/astro-score.js'
 import { geocodeCity } from '../lib/geocode.js'
 import { scoreWindow, type ScoredWindow } from '../lib/window-score.js'
-import { log } from '../telemetry.js'
+import { completeSentence } from '../lib/ai-sentence.js'
 import { aiComplete } from './ai.js'
 
 /**
@@ -71,22 +71,6 @@ const HOURLY_STEP_MINUTES = 30
  * sampling span are broad daylight and carry no information for this question.
  */
 const HOURLY_SUN_ALTITUDE_CEILING = 5
-
-/**
- * Token budget for the sentence. Far larger than the sentence, on purpose.
- *
- * The model behind `aiComplete` is a *reasoning* model, and `max_tokens` caps
- * reasoning tokens and visible content together. Size the budget for the
- * sentence alone and the whole allowance is consumed thinking: the call
- * returns 200 with `finish_reason: "length"` and an **empty** content string,
- * which surfaces as a silently missing summary rather than an error. Measured
- * against this exact prompt: 300 → 300 reasoning tokens, empty; 600 → 288
- * reasoning + a good sentence; 1200 → 205 reasoning. The tighter the style
- * instruction, the more it deliberates, so 900 is sized for the worst case
- * seen, not the median. The sentence is cached for 30 minutes anyway, so the
- * cost of the headroom is negligible.
- */
-const SUMMARY_MAX_TOKENS = 900
 
 /** How long a generated sentence is reused for. Forecasts refresh hourly at best. */
 const SUMMARY_TTL_MS = 30 * 60_000
@@ -538,31 +522,13 @@ async function generateSummary(
     if (reasons.length > 0) lines.push(`Reasons: ${reasons.join('; ')}.`)
   }
 
-  try {
-    const text = await complete(lines.join('\n'), {
-      system:
-        'You write ONE short sentence for an astrophotography planner — a terse field note, at most 25 words. Use ONLY the facts given: never compute, estimate or invent a number, time or date, and never restate every figure. Lead with the weekday and the window start, then the two or three numbers that actually decide the night. No preamble, no markdown, no list. Example of the register: "Saturday 21:40 — core 12°, moon 8%, low cloud 5% from the Alpenvorland; best window this month."',
-      temperature: 0.2,
-      maxTokens: SUMMARY_MAX_TOKENS,
-      sub_tool: 'astro-window',
-    })
-    const trimmed = text.trim()
-    if (!trimmed) {
-      // Empty content from a reasoning model almost always means the token
-      // budget ran out during hidden reasoning. Log it — this used to fail
-      // completely silently and looked like "the model is just off".
-      // Almost always the reasoning budget above running out — see its comment.
-      log.warn('astro window summary came back empty', { maxTokens: SUMMARY_MAX_TOKENS })
-      return null
-    }
-    summaryCache.set(key, { text: trimmed, expiresAt: now.getTime() + SUMMARY_TTL_MS })
-    return trimmed
-  } catch (error) {
-    log.warn('astro window summary unavailable', {
-      error: error instanceof Error ? error.message : String(error),
-    })
-    return null
-  }
+  const sentence = await completeSentence(complete, lines.join('\n'), {
+    system:
+      'You write ONE short sentence for an astrophotography planner — a terse field note, at most 25 words. Use ONLY the facts given: never compute, estimate or invent a number, time or date, and never restate every figure. Lead with the weekday and the window start, then the two or three numbers that actually decide the night. No preamble, no markdown, no list. Example of the register: "Saturday 21:40 — core 12°, moon 8%, low cloud 5% from the Alpenvorland; best window this month."',
+    subTool: 'astro-window',
+  })
+  if (sentence) summaryCache.set(key, { text: sentence, expiresAt: now.getTime() + SUMMARY_TTL_MS })
+  return sentence
 }
 
 /** Exported for tests — the summary cache is module-scope and would otherwise leak between cases. */
