@@ -147,6 +147,11 @@ export function buildApp() {
                   'Third-party read-only data feeds: weather via Open-Meteo (geocoded), and Wild Rift (League of Legends: Wild Rift) champion win/pick/ban rates from public Tencent endpoints (China server only).',
               },
               {
+                name: 'Astro & Marine',
+                description:
+                  'Go/no-go planning for night photography and (later) surf, for a given place and the next N nights. `/astro/window` scores each night deterministically — galactic-core altitude, astronomical darkness and moon are computed from an ephemeris, never from a model — and returns a verdict plus the named reasons a night is out. `/astro/sites` lists the candidate drive-to sites with their Bortle baseline. Weather comes from Open-Meteo DWD-ICON (cloud by layer) and 7Timer (atmospheric transparency); attribution is required and returned in the payload. Ask this instead of a raw weather forecast whenever the question is "is tonight worth going out for".',
+              },
+              {
                 name: 'Hermes Chat',
                 description:
                   'Thread-first chat surface backed by the Hermes agent core over its named-event SSE API (`POST /api/sessions/{id}/chat/stream`). Argo owns the verbatim transcript (threads + messages in Postgres); Hermes owns compressed agent state per session id. Covers the streaming chat proxy and thread/message reads. Powers the Hermes Chat dashboard page.',
@@ -202,6 +207,7 @@ export function buildApp() {
             'Usage Tracking',
             'Infrastructure',
             'External Data',
+            'Astro & Marine',
             'Hermes Chat',
             'AI Gateway',
             'Reading',

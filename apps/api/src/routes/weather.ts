@@ -1,66 +1,9 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 import { tracedFetch } from '../lib/traced-fetch.js'
+import { geocodeCity, MUNICH, type ResolvedLocation } from '../lib/geocode.js'
 
 const OPEN_METEO_BASE = 'https://api.open-meteo.com/v1/forecast'
-const OPEN_METEO_GEOCODING = 'https://geocoding-api.open-meteo.com/v1/search'
-
-interface ResolvedLocation {
-  lat: number
-  lon: number
-  city: string
-  country: string
-  timezone: string
-}
-
-const MUNICH: ResolvedLocation = {
-  lat: 48.137,
-  lon: 11.575,
-  city: 'Munich',
-  country: 'Germany',
-  timezone: 'Europe/Berlin',
-}
-
-// City locations don't change — cache forever, pre-seed with default
-const geocodeCache = new Map<string, ResolvedLocation>([['munich', MUNICH]])
-
-interface GeocodingResponse {
-  results?: {
-    name: string
-    latitude: number
-    longitude: number
-    country: string
-    timezone: string
-  }[]
-}
-
-async function geocodeCity(city: string): Promise<ResolvedLocation | null> {
-  const key = city.trim().toLowerCase()
-  const cached = geocodeCache.get(key)
-  if (cached) return cached
-
-  const params = new URLSearchParams({
-    name: city,
-    count: '1',
-    language: 'en',
-    format: 'json',
-  })
-  const res = await tracedFetch(`${OPEN_METEO_GEOCODING}?${params}`)
-  if (!res.ok) throw new Error(`Open-Meteo geocoding error: ${res.status}`)
-  const data = (await res.json()) as GeocodingResponse
-  const hit = data.results?.[0]
-  if (!hit) return null
-
-  const resolved: ResolvedLocation = {
-    lat: hit.latitude,
-    lon: hit.longitude,
-    city: hit.name,
-    country: hit.country,
-    timezone: hit.timezone,
-  }
-  geocodeCache.set(key, resolved)
-  return resolved
-}
 
 // WMO Weather interpretation codes → human-readable descriptions
 const WMO_CODES: Record<number, string> = {

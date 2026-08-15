@@ -15,7 +15,7 @@ The Argo API is consumed by **two classes of clients**: the Argo dashboard (Eden
 
 ## Tag taxonomy (enum — do not invent new tags)
 
-Every route MUST use exactly one of these thirteen tags:
+Every route MUST use exactly one of these fifteen tags:
 
 | Tag              | Belongs to it                                                                                                                                                                                                                                                                                     |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -26,14 +26,18 @@ Every route MUST use exactly one of these thirteen tags:
 | `M365`           | IU Microsoft 365 via the IU MCP server — Outlook calendar, mail, Teams (chats/channels/messages), OneDrive, OneNote                                                                                                                                                                               |
 | `Atlassian`      | IU Atlassian Cloud — Jira (boards, sprints, backlog, issues, JQL search) and Confluence reads                                                                                                                                                                                                     |
 | `GitLab`         | IU GitLab on gitlab.com — merge requests, discussions, approvals, project commits, releases, push events                                                                                                                                                                                          |
+| `Usage Tracking` | local AI token/cost telemetry ingested from the usage-tracker (`/usage/*`)                                                                                                                                                                                                                        |
 | `Infrastructure` | uptime-kuma, docker (homelab + vps)                                                                                                                                                                                                                                                               |
 | `External Data`  | weather (and future read-only third-party feeds)                                                                                                                                                                                                                                                  |
+| `Astro & Marine` | night-photography and (later) surf go/no-go planning — `/astro/window` (deterministic per-night verdict), `/astro/sites` (candidate drive-to sites with a Bortle baseline), and the future `/marine/window`                                                                                       |
 | `Hermes Chat`    | Hermes agent chat — streaming chat proxy (`/hermes/chat`), thread/message reads, Hermes-hosted audio range proxy (`/hermes/*`)                                                                                                                                                                    |
 | `AI Gateway`     | Argo-side OpenAI-compatible gateway (`/ai/v1/*`) — gpt-5.6-luna (titling/classification), STT, TTS                                                                                                                                                                                                |
 | `Reading`        | Book reading vertical — Hardcover.app shelf (`GET /reading`), generic homelab reading-stat ingest (`POST /reading/stats`), unmatched review (`GET /reading/unmatched`), match confirm (`POST /reading/match`), reconcile (`POST /reading/reconcile`), want-to-read (`POST /reading/want-to-read`) |
 | `System`         | `/`, `/health`, `/summary`, `/query`, `/oauth/*`                                                                                                                                                                                                                                                  |
 
-If a new route doesn't fit one of these, **expand the taxonomy in this file first**, in lockstep with the `tags:` array in `src/index.ts`. Free-form tags break the agent contract.
+If a new route doesn't fit one of these, **expand the taxonomy in this file first**, in lockstep with **both** `tags:` arrays in `src/app.ts` — the `documentation.tags` objects handed to the openapi plugin, and the hardcoded `tags` string list in the `/` discovery route. Free-form tags break the agent contract.
+
+(Routes mount in `src/app.ts`, not `src/index.ts` — `index.ts` only boots the listener. Older references to `index.ts` in this file and in `apps/api/CLAUDE.md` are stale.)
 
 ## Path conventions
 
