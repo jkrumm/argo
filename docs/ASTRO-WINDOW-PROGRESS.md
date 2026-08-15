@@ -543,3 +543,84 @@ metres of elevation moves rise/set by a couple of minutes — inside the noise o
 ## Blockers
 
 None so far.
+
+---
+
+## Report on stopping
+
+All four phases are done. The branch is `feat/astro-window`, pushed, nine commits,
+**not merged** — that is the operator's call, awake, in the morning.
+
+### What works and is verified
+
+|                                                |                                                      |
+| ---------------------------------------------- | ---------------------------------------------------- |
+| `bun test:api`                                 | 763 pass / 0 fail                                    |
+| `bun run --cwd apps/dashboard test`            | 114 pass / 0 fail                                    |
+| Both typechecks                                | clean                                                |
+| `bun run lint` (incl. `basalt-ui check-theme`) | 0 errors (23 pre-existing warnings, untouched files) |
+| `bun run format:check`                         | clean                                                |
+
+Verified as _behaviour_, not just as green:
+
+- **Every phase-1 acceptance number measured**, with fixtures committed. Core alt/az
+  within 0.003° against an independent ephemeris (budget: 0.5°); the ~13° Munich
+  ceiling; the mid-August transit-before-darkness ordering; moon and sun rise/set
+  within 0.5 min of USNO (bar: 2 min).
+- **Both APIs exercised against their real upstreams**, not just fakes — three astro
+  sites and four surf spots, with the verdicts sanity-checked against physics (the
+  moon correctly kills 2026-08-19 onward; every European spot is windsea in August).
+- **The `/astro/window` trace inspected in ClickStack**: one root span, three
+  genuinely parallel client spans starting on the same millisecond, no N+1.
+- **Both pages loaded in a real browser** and screenshotted at every round;
+  location switching confirmed to re-query by reading the live DOM.
+- **The astro page won a blind A/B against PhotoPills' Planner twice**, with the
+  sides swapped between rounds, judged on information density and scannability.
+
+### What is NOT verified
+
+- **Nothing has run in production.** The branch is unmerged by design.
+- **No load or cost testing.** The upstream-call arithmetic (dozens/day against a
+  10k/day free tier) is reasoned from the cache TTL, not measured over a real day.
+- **The map's tile-server-down fallback** has only been exercised synthetically,
+  never against a real OpenFreeMap outage.
+- **The marine thresholds have never met a real surfer.** They are defensible
+  physics, but no session has been ridden against them (see D9).
+- **The four surf spots' `shoreNormal` bearings are read off a coastline**, not
+  measured. Every wind verdict at a spot is only as good as that one number.
+- **Light mode** — the pages were built and judged dark-first, and only the dark
+  basemap path was screenshotted.
+- **No mobile viewport was checked.** The grids declare `base`/`md`/`lg` breakpoints
+  but only the 1600×1200 desktop layout was looked at.
+
+### What I would do next
+
+1. **Correct the four `shoreNormal` values** against something authoritative. It is
+   the cheapest available accuracy win in the whole marine surface.
+2. **Screenshot both pages in light mode and at a phone width**, and run the critic
+   again on whichever looks worse.
+3. **Move the upstream cache to Valkey** if argo ever runs more than one instance —
+   see `RALPH_NOTES.md`.
+4. **An alerting layer.** The brief's stated goal was a system that "speaks first",
+   and this build only answers when asked. Everything needed is in place: the
+   verdict is deterministic and stable, so a cron that re-scores the range and
+   pushes on a transition into `good`/`excellent` is a small addition.
+5. Derive Bortle live from the VNL raster, if the static classes ever feel wrong.
+
+### Assumptions taken that the brief did not decide
+
+Decisions D1–D10 in `docs/ASTRO-WINDOW-BRIEF.md` are the full list with reasoning.
+The ones that would most change the work if wrong:
+
+- **`astronomy-engine` replaces `suncalc`** — a direct reversal of the brief, taken
+  because its own acceptance number said so (D2).
+- **June is not zero astronomical night at Munich.** The brief's single best-loved
+  regression test was factually wrong; the corrected facts are asserted instead.
+- **In-memory caching rather than Valkey** (D6), a new `Astro & Marine` OpenAPI tag
+  rather than overloading `External Data` (D7), and **OpenFreeMap over CARTO**,
+  which the brief named as the default and whose terms rule it out (D8).
+- **Marine thresholds and spots are mine and provisional** (D9), because unlike
+  astro there is no operator note to anchor them.
+- **`peakScore`, `angularDistance` and `circularMean` went into the engine**, not
+  into the marine config (D10) — they are domain-agnostic, and marine was the first
+  real test of whether that module was generic.
