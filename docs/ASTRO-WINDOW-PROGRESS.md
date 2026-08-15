@@ -12,7 +12,7 @@ session with **none** of the original context can resume from here.
 | Phase                                     | State                                      |
 | ----------------------------------------- | ------------------------------------------ |
 | 1 — scoring engine (pure)                 | **DONE**, every acceptance number verified |
-| 2 — API (`/astro/window`, `/astro/sites`) | not started                                |
+| 2 — API (`/astro/window`, `/astro/sites`) | **DONE**, verified live + trace-checked    |
 | 3 — dashboard page (gauntlet-loop)        | not started                                |
 | 4 — marine                                | not started (gated on phase 3 sign-off)    |
 
@@ -26,9 +26,11 @@ bun run --cwd apps/api typecheck
 bunx oxlint apps/api/src/lib
 ```
 
-At the last commit: **429 pass / 0 fail** across 21 lib files, typecheck clean,
-0 lint errors in `apps/api/src/lib` (4 pre-existing `consistent-function-scoping`
-warnings, none in the new files).
+At the last commit: **708 pass / 0 fail** across 42 files (`bun test:api`), typecheck
+clean on both apps, `bun run lint` 0 errors (23 pre-existing warnings), `bun run
+format:check` clean.
+
+The integration tests need the dev stack up: `cd ~/SourceRoot/vps && make up`.
 
 ---
 
@@ -123,6 +125,89 @@ Two independent references, neither of which shares code with what it checks:
    — public, authoritative, no key. Rise/set at minute resolution, plus exact
    phase-event instants (new moon / quarters), which are unambiguous in a way a
    daily illumination percentage is not.
+
+---
+
+## Phase 2 — the API
+
+### What was built
+
+| File                                           | Role                                                                                   |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `apps/api/src/routes/astro.ts`                 | `GET /astro/window` and `GET /astro/sites`. Mounted in `src/app.ts` after `authGuard`. |
+| `apps/api/src/clients/astro-upstreams.ts`      | DWD ICON + Open-Meteo global + 7Timer, in parallel, cached, never throws.              |
+| `apps/api/src/lib/astro-sites.ts`              | The four candidate sites with their Bortle baselines.                                  |
+| `apps/api/src/lib/geocode.ts`                  | Lifted out of `weather.ts` so both routes share one cache.                             |
+| `…/astro.test.ts`, `…/astro-upstreams.test.ts` | 47 offline tests — injected clock, injected fetch, injected model.                     |
+
+### The response shape, and the one thing to understand about it
+
+Top-level `verdict` / `score` / `bestWindow` / `killers` describe the **best night
+in the range**, not tonight. The question the feature exists to answer is _when
+should I go_, and tonight being the answer is usually a coincidence. `nights[]`
+carries every night for an at-a-glance strip; `detail.hourly` carries a 30-minute
+series for exactly one night (the best one, or `?detailDate=`).
+
+Location resolves `site` > `lat`+`lon` > `city` > Munich. A raw coordinate inherits
+its Bortle class from the nearest known site **only within 150 km** — past that it
+reports `bortleSource: 'unknown'`, sky darkness drops out of the score and
+`coverage` falls. Returning Munich's Bortle 8 for a request in Tenerife would have
+been worse than admitting ignorance.
+
+`verdict: 'out'` is not a low score. It means a hard gate failed and `killers` says
+which; the API never conflates the two.
+
+### Verified live, not just green
+
+`bun dev`, then real requests against the real upstreams (2026-08-15):
+
+| Site         | Verdict   | Score | Best window     | Generated sentence                                                                                       |
+| ------------ | --------- | ----- | --------------- | -------------------------------------------------------------------------------------------------------- |
+| Alpenvorland | excellent | 80.9  | Sat 22:35–23:30 | "Saturday 22:35 — core 11.6°, moon 13%, low cloud 0%; excellent, best window."                           |
+| Munich       | good      | 71.6  | Sat 22:35–23:25 | "Saturday 22:35 — core 11°, moon 13%, low cloud 0%; best window this month."                             |
+| Walchensee   | good      | 75.1  | Sat 22:35–23:30 | "Saturday 22:35 — core 11.9°, moon 12%, low cloud 0% but high 100%; mid 45% clouds threaten the window." |
+
+The ten-night strip behaves the way the physics says it should: 2026-08-15 is a
+new-moon night and scores highest; from 2026-08-19 the moon crosses 25% and every
+remaining night returns `out` with killer `moon`, regardless of how clear it is.
+2026-08-24 is completely cloudless and still `out` — which is the correct answer
+and the reason gates exist separately from factors.
+
+### Trace verified in ClickStack
+
+One cold request, `TraceId 94e491d798cdae5f27da14c4df60aa36`:
+
+| Span                                 | Kind                   | Start (epoch ms) | Duration |
+| ------------------------------------ | ---------------------- | ---------------- | -------- |
+| `GET /astro/window`                  | Server (the only root) | …602021          | 471.4 ms |
+| `fetchAstroUpstreams`                | Internal               | …602022          | 432 ms   |
+| `GET api.open-meteo.com/v1/dwd-icon` | Client                 | …602022          | 19.8 ms  |
+| `GET api.open-meteo.com/v1/forecast` | Client                 | …602022          | 19.9 ms  |
+| `GET www.7timer.info/bin/api.pl`     | Client                 | …602022          | 431.5 ms |
+
+All three client spans start on the same millisecond — genuinely parallel, not a
+waterfall. Every span name appears exactly once, so there is no N+1, and there are
+no DB spans because the endpoint touches no database. 7Timer alone accounts for
+essentially the whole request; with the 60-minute cache that cost is paid once an
+hour per location. A warm request is ~50 ms.
+
+The `/otel` MCP tool failed twice (`Session exited with code 1`), so this was
+verified by querying ClickHouse directly at `http://localhost:8123` against
+`default.otel_traces`. Recorded as a tool blocker, not a feature blocker.
+
+### The reasoning-model trap, worth remembering
+
+`aiComplete()` runs on DeepSeek V4 Flash, a **reasoning** model, and `max_tokens`
+caps hidden reasoning tokens and visible content **together**. The first
+implementation used `maxTokens: 90` — enough for a 25-word sentence, nowhere near
+enough for the reasoning that precedes it. The call returned HTTP 200 with
+`finish_reason: "length"` and `content: ""`. No error, no log, just a permanently
+null `summary` that looked like the model being unhelpful.
+
+Measured against the final prompt: 300 → 300 reasoning tokens and empty content;
+600 → 288 reasoning + a good sentence; 1200 → 205 reasoning. Note that tightening
+the _style_ instruction made it deliberate **more**, not less. Settled on 900, and
+an empty completion now logs a warning naming the budget.
 
 ---
 
