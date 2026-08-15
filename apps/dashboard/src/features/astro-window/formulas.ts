@@ -1,5 +1,5 @@
 import { VX } from 'basalt-ui/tokens'
-import type { Sources, Verdict } from './types'
+import type { Night, Sources, Verdict } from './types'
 
 /** Verdict → tone. `out` is a hard gate, not a low score, so it reads neutral, never red. */
 export function verdictTone(verdict: Verdict): string {
@@ -101,4 +101,36 @@ export function dataHealthLine(
   if (bortleSource === 'unknown') parts.push('sky darkness unknown')
 
   return parts.length > 0 ? parts.join(' · ') : null
+}
+
+/** The lowest-scoring factor for a night, expressed as a percent — but only when it's genuinely
+ * limiting (< 80%). Null when every scored factor is ≥ 80%, i.e. nothing is meaningfully holding
+ * the night back. Feeds the hero's second row, which must never restate a fact the facts panel
+ * already owns (score, moon %, core altitude). */
+export function limitingFactor(night: Night): { label: string; pct: number } | null {
+  let lowest: { label: string; pct: number } | null = null
+  for (const factor of night.factors) {
+    if (factor.value === null) continue
+    const pct = Math.round(factor.value * 100)
+    if (lowest === null || pct < lowest.pct) lowest = { label: factor.label, pct }
+  }
+  return lowest !== null && lowest.pct < 80 ? lowest : null
+}
+
+/** Compact reason label for a ruled-out night's strip cell — the operator's actual question on a
+ * dead night is "why", not just "not tonight". Derived from the first killer only; a night can
+ * carry more than one, but stacking them doesn't fit a single small cell. */
+export function killerLabel(night: Night): string {
+  const killer = night.killers[0]
+  if (killer === undefined) return '—'
+  switch (killer.id) {
+    case 'moon':
+      return `moon ${fmtPercent(night.moon.illumination)}`
+    case 'core-altitude':
+      return 'core low'
+    case 'darkness':
+      return 'no dark'
+    default:
+      return killer.label.toLowerCase()
+  }
 }

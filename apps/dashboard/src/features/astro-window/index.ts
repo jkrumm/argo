@@ -30,6 +30,8 @@ export {
   fmtLocalClock,
   moonPhaseLabel,
   dataHealthLine,
+  limitingFactor,
+  killerLabel,
 } from './formulas'
 
 export { Section } from './section'

@@ -2,10 +2,9 @@ import { Badge, Card, Group, Stack, Text } from '@mantine/core'
 import { VX } from 'basalt-ui/tokens'
 import {
   dataHealthLine,
-  fmtDegrees,
   fmtMinutes,
-  fmtPercent,
   fmtWeekday,
+  limitingFactor,
   verdictLabel,
   verdictTone,
 } from '../formulas'
@@ -20,6 +19,16 @@ export function VerdictHero({ data }: { data: WindowResponse }) {
   const tone = verdictTone(verdict)
   const isOut = verdict === 'out'
   const bestNight = bestWindow ? data.nights.find((n) => n.date === bestWindow.date) : undefined
+  const limiting = bestNight ? limitingFactor(bestNight) : null
+  // One home per fact: the hero owns verdict/score/window range only. The `55m · core 11.6° ·
+  // moon 13%` micro-line used to restate the facts panel verbatim — replaced with the one thing
+  // not shown anywhere else, the limiting factor (or, when nothing is limiting, the duration).
+  const secondaryLine =
+    bestWindow === null
+      ? null
+      : limiting !== null
+        ? `limited by: ${limiting.label.toLowerCase()} ${limiting.pct}%`
+        : fmtMinutes(bestWindow.minutes)
   const healthLine = dataHealthLine(sources, location.bortleSource)
 
   return (
@@ -49,10 +58,11 @@ export function VerdictHero({ data }: { data: WindowResponse }) {
               <Text ff="monospace" fw={600} style={{ fontSize: VX.text.h1, lineHeight: 1.2 }}>
                 {bestWindow.localStart}–{bestWindow.localEnd}
               </Text>
-              <Text ff="monospace" size="xs" c="dimmed" mt={2}>
-                {fmtMinutes(bestWindow.minutes)} · core {fmtDegrees(bestWindow.peakCoreAltitude)}
-                {bestNight ? ` · moon ${fmtPercent(bestNight.moon.illumination)}` : ''}
-              </Text>
+              {secondaryLine !== null && (
+                <Text ff="monospace" size="xs" c="dimmed" mt={2}>
+                  {secondaryLine}
+                </Text>
+              )}
             </Stack>
           )}
         </Group>

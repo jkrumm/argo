@@ -13,7 +13,7 @@ session with **none** of the original context can resume from here.
 | ----------------------------------------- | ------------------------------------------ |
 | 1 — scoring engine (pure)                 | **DONE**, every acceptance number verified |
 | 2 — API (`/astro/window`, `/astro/sites`) | **DONE**, verified live + trace-checked    |
-| 3 — dashboard page (gauntlet-loop)        | not started                                |
+| 3 — dashboard page (gauntlet-loop)        | **DONE** — won blind in 2 of 2 rounds      |
 | 4 — marine                                | not started (gated on phase 3 sign-off)    |
 
 ## How to verify what exists
@@ -208,6 +208,151 @@ Measured against the final prompt: 300 → 300 reasoning tokens and empty conten
 600 → 288 reasoning + a good sentence; 1200 → 205 reasoning. Note that tightening
 the _style_ instruction made it deliberate **more**, not less. Settled on 900, and
 an empty completion now logs a warning naming the budget.
+
+---
+
+## Phase 3 — the dashboard page, run as a gauntlet
+
+### The bar, and how it was obtained
+
+PhotoPills' Planner, judged on **information density and scannability only** — the
+brief pre-decided this, so gauntlet-loop's "offer two or three bars and wait" step
+was skipped deliberately.
+
+A bar has to be _fetchable_ or the critic invents the comparison. PhotoPills is a
+native app and `photopills.com` returns 403 to a plain fetch, so the reference came
+from the App Store's own metadata instead:
+`https://itunes.apple.com/lookup?id=596026805` → `ipadScreenshotUrls`, with the
+`552x414bb.jpg` suffix rewritten to `2048x2048bb.jpg` for the full-resolution
+original. The second iPad screenshot is the Planner. It was cropped out of its
+marketing frame with ffmpeg (`crop=1582:1186:233:348`) so the critic sees the UI and
+not the yellow campaign background.
+
+Reference and screenshots live in `.gauntlet/` (gitignored) and `/tmp/astro-gauntlet/`.
+
+### What the bar actually teaches
+
+Not its palette — a satellite basemap and saturated overlays are the opposite of
+this app's law. What it does well is structural, and worth copying exactly:
+
+- A narrow right rail of ~7 labelled micro-tables, each 2–4 rows of `label · value`,
+  numerals mono and right-aligned so the eye drops one vertical line.
+- Comparison by adjacency — Sun and Moon on the _same_ rows, not in two panels.
+- A full-width time scrubber along the bottom with the altitude curves drawn over a
+  twilight-banded background.
+- Tellingly, it already has `Visibility GC` and `Galactic Center` azimuth/elevation
+  rows. The bar is aimed at exactly this problem.
+
+### Round 1
+
+Built, validated (dashboard typecheck + `bun run lint` incl. the theme guard +
+`format:check`, all clean) and screenshotted at 1600×1200 against the live API.
+
+**Two map bugs that only a real browser could have found** — both invisible to a
+passing typecheck, and worth remembering:
+
+1. **Vite's dependency optimizer breaks MapLibre's worker.** It rewrites maplibre's
+   ESM entry but cannot follow the sibling import the worker makes, so the worker
+   request 503s. MapLibre does not surface this as an error — the map simply renders
+   a black canvas with a working attribution bar, which looks like a styling problem.
+   The fix is the documented one: `import workerUrl from
+'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'` plus `setWorkerUrl(workerUrl)`
+   before the first `new Map(...)`. A plain `?url` breaks the production build instead.
+2. **Attribution printed twice.** OpenFreeMap's _style_ JSON carries no attribution —
+   which is what the research said and why `customAttribution` was passed — but the
+   _TileJSON_ the style points at (`/planet`) does, as linked HTML, and MapLibre
+   renders it automatically. Dropping `customAttribution` leaves exactly one, and the
+   canonical linked version at that.
+
+A third defect, found in the same screenshot: the map canvas was built while the
+lazy-loaded component's grid column was still settling, leaving a black gutter down
+the right of the card. MapLibre has no internal resize observer; one was added.
+
+### Round 1 — the blind critic's verdict
+
+A separate agent with fresh context, given the two images as `design-a.png` /
+`design-b.png` with no indication of which was which, and told explicitly that
+palette, saturation and "liveliness" were out of scope.
+
+**Verdict: ours.** Its reasoning, paraphrased: our right rail is one four-block
+numeric ledger with values right-aligned in a single mono column, where the
+reference's is eight loosely-boxed cards with inconsistent internal layouts and two
+holding only `-` placeholders; and the reference _has no verdict at all_ — it shows
+raw ephemeris and leaves "is tonight worth it" to the reader.
+
+That last point is worth keeping: the thing this feature adds over the app it is
+being measured against is the verdict, not the numbers.
+
+The critic still returned five defects in ours, all real:
+
+1. The map canvas filled only the left ~55% of its card.
+2. Cloud chart — low cloud sat flat at 0% and was indistinguishable from the axis
+   rule; mid and high were near-identical oranges that merged where they crossed.
+3. The two charts used different x-scales (90-minute vs 30-minute ticks), so a cloud
+   value could not be read against the shooting-window band above it.
+4. The header stated the same five facts three times.
+5. Six of the ten strip columns showed `—` and a grey bar: structurally present,
+   informationally empty.
+
+Plus two omissions the critic did not catch but the brief had asked for: the score
+breakdown group, and the transparency + Bortle rows in the facts panel.
+
+Round 2 fixes exactly those. `cloudHigh` moved from sepia to **neutral** in the
+process — partly for legibility, but it is also the more correct reading of "ink
+earns its colour": high cirrus costs a little contrast and nothing else, so it
+should not carry a hue at all.
+
+One of the two "omissions" turned out not to be one: the Score group and the
+transparency/Bortle rows _were_ implemented in round 1 — they sat below a scroll
+fold inside a fixed-height panel, so neither the screenshot nor the critic ever saw
+them. That is its own density defect and the more interesting bug: the densest block
+on the page was invisible. The panel now sizes to its content and the map matches it.
+
+### Round 2 — the critic again, sides swapped
+
+Same protocol, fresh agent, **A and B swapped** so a positional bias could not carry
+over. **Ours won again.** Its reasoning this time: ours answers the question in the
+first 200 px (verdict, score, window, limiting factor, sentence) and then gives a
+strip whose columns align; the reference spends 75% of its area on a map and crams
+every number into a rail of seven weakly-separated blocks, four of which are the same
+Sun/Moon/twilight family with no hierarchy between them.
+
+Two wins out of two, with the sides swapped, is the gauntlet's exit condition — three
+of the allowed six rounds were used.
+
+It named five residual defects in ours. Three were real and are fixed in round 3:
+
+1. **Cloud layers: low cloud flat at 0% and indistinguishable from the axis.** Fixed
+   by moving the story out of the plot: a series that holds one value all night now
+   says so in the legend — "Low cloud — 0% all night", which for low cloud is the best
+   news on the page and was previously the hardest thing to see.
+2. **The window was stated twice in text** (hero + facts panel). The facts row now
+   carries the window's _length_ instead of repeating its range.
+3. **The strip's columns switched meaning mid-row** — score for four cells, "moon 48%"
+   for six. Now every row keeps one meaning all the way across: a ruled-out night reads
+   `OUT` in the score slot, and its reason lands in the last row, displacing the moon
+   figure it would otherwise have duplicated.
+
+One was out of scope (empty space in the app-shell sidebar — that is every argo page,
+not this one).
+
+**And one was wrong.** The critic claimed the two stacked charts had different left
+gutters so you could not read straight down. Checked against the live DOM: both SVGs
+render at the same left edge and width with an identical `translate(44, 12)`, the
+first x-tick occupies pixels 298–331 in both and the last 1513–1546, and the y-tick
+labels share a right edge. The impression comes from the y-label strings differing in
+width (`-20°` vs `0%`) while right-anchored to the same line. Recorded in
+`RALPH_NOTES.md` under "Rejected findings" rather than acted on — a critic is
+evidence, not an oracle, and re-fixing a non-bug is how a loop like this burns a night.
+
+### Verified working, not just green
+
+- `bun run --cwd apps/dashboard test` → 114 pass; `bun test:api` → 708 pass; both
+  typechecks clean; `bun run lint` (incl. the theme guard) and `format:check` clean.
+- Loaded at 1600×1200 against the live API and screenshotted at every round.
+- **Location switching genuinely re-queries**, checked in the live DOM rather than
+  assumed: `?site=bayerischer-wald&nights=14` moves Bortle 4 → 3, the strip from 10 to
+  14 columns, and the limiting factor from "high cloud 37%" to "sky darkness 75%".
 
 ---
 

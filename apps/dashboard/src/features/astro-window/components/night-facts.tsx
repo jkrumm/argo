@@ -10,7 +10,7 @@ import {
   fmtPercent100,
   moonPhaseLabel,
 } from '../formulas'
-import type { Factor, Night } from '../types'
+import type { Factor, Location, Night } from '../types'
 
 function FactGroup({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -70,14 +70,21 @@ function FactorRow({ factor }: { factor: Factor }) {
 export function NightFacts({
   night,
   bortle,
+  bortleSource,
   timeZone,
 }: {
   night: Night
   bortle: number | null
+  bortleSource: Location['bortleSource']
   timeZone: string
 }) {
   return (
-    <Card py="xs" px="sm" h={SIDE_PANEL_HEIGHT}>
+    // `mih` rather than `h`: the five fact groups are the densest, most
+    // decision-relevant block on the page, and at a fixed height the Score group
+    // fell below a scroll fold where neither the operator nor a critic ever saw
+    // it. The panel sizes to its content and the map matches it; the ScrollArea
+    // stays as the narrow-viewport backstop, where it can still overflow.
+    <Card py="xs" px="sm" mih={SIDE_PANEL_HEIGHT}>
       <ScrollArea h="100%" type="hover" scrollbars="y" scrollbarSize={9}>
         <Stack gap="md" pr="xs">
           <FactGroup title="Darkness">
@@ -89,9 +96,11 @@ export function NightFacts({
           <FactGroup title="Galactic core">
             <FactRow label="Transit (local)" value={night.localTransit} />
             <FactRow label="Max altitude" value={fmtDegrees(night.maxCoreAltitude)} />
+            {/* The hero already states the window as a time RANGE, so this row
+                carries its length instead — the same fact twice is wasted rows. */}
             <FactRow
-              label="Window"
-              value={night.window ? `${night.window.localStart}–${night.window.localEnd}` : '—'}
+              label="Window length"
+              value={night.window ? fmtMinutes(night.window.minutes) : '—'}
             />
             <FactRow
               label="Peak alt. / az."
@@ -122,7 +131,12 @@ export function NightFacts({
               label="Transparency"
               value={night.weather.transparency !== null ? `${night.weather.transparency}/8` : '—'}
             />
-            <FactRow label="Bortle" value={bortle !== null ? String(bortle) : '—'} />
+            <FactRow
+              label="Bortle"
+              value={
+                bortleSource === 'unknown' ? 'unknown' : bortle !== null ? `Bortle ${bortle}` : '—'
+              }
+            />
           </FactGroup>
 
           <FactGroup title="Score">

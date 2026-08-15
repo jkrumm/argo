@@ -14,4 +14,4 @@ export const METRIC_TOOLTIPS = {
 export const CHART_HEIGHT = 260
 
 /** Fixed height so the map and the night-facts panel line up exactly. */
-export const SIDE_PANEL_HEIGHT = 460
+export const SIDE_PANEL_HEIGHT = 620

@@ -85,10 +85,13 @@ const SERIES_MAP = defineSeries({
   moonAltitude: p(BP.gold),
   // Cloud layers are a severity ramp, not three peers: at a 13° target it is
   // low cloud that ends the night, mid that threatens it and high that only
-  // costs contrast. Red → orange → sepia encodes that order at a glance.
+  // costs contrast. Red → orange → NEUTRAL encodes that order, and the third
+  // step is neutral on purpose — high cirrus barely matters, so by "ink earns
+  // its colour" it should not carry a hue at all. Sepia was tried first and
+  // read as a second orange on the same axis.
   cloudLow: p(BP.red),
   cloudMid: p(BP.orange),
-  cloudHigh: p(BP.sepia),
+  cloudHigh: p(BP.gray),
   transparencyBand: p(BP.cerulean),
 } satisfies SeriesMap)
 

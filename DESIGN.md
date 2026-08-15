@@ -106,7 +106,7 @@ export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 | Moon altitude           | `#d1980b` | `#f0b726` | `moonAltitude`       | The core's antagonist, never a sibling — gold |
 | Cloud: low              | `#cd4246` | `#e76a6e` | `cloudLow`           | Top of the cloud severity ramp — red          |
 | Cloud: mid              | `#c87619` | `#ec9a3c` | `cloudMid`           | Middle of the severity ramp — orange          |
-| Cloud: high             | `#946638` | `#af855a` | `cloudHigh`          | Bottom of the severity ramp — sepia           |
+| Cloud: high             | `#a1a1aa` | `#d4d4d8` | `cloudHigh`          | Bottom of the severity ramp — neutral         |
 | Transparency band       | `#147eb3` | `#3fa6da` | `transparencyBand`   | Atmospheric clarity — cerulean                |
 
 ### Garmin activities (`activity-` prefix — `ACTIVITY.*`)
@@ -168,8 +168,10 @@ empty section is the correct default; do not invent deviations to fill it.
 
 - **The three cloud layers are a severity ramp, not three peers.** `cloudLow` takes the red
   normally reserved for status/cardio because at a 13° target it is low cloud that actually ends
-  the night; mid and high step down through orange and sepia. Read as an escalation, the same way
-  the effort ramp (`intensityMin` → `vigorousMin`) is.
+  the night; mid steps down to orange and high goes fully NEUTRAL, because by "ink earns its
+  colour" a layer that only costs a little contrast has not earned a hue. Read as an escalation,
+  the same way the effort ramp (`intensityMin` → `vigorousMin`) is. Sepia was tried for the high
+  layer first and read as a second orange against mid on the same axis.
 - **`VX.muted` is used instead of `VX.tooltipMuted`** in two bespoke tooltip/legend labels
   (readiness-strain, time-of-day): the opaque secondary-ink token reads equivalently there. Note
   this is now a preference, not a constraint — basalt-ui 1.0.0 does export `VX.tooltipMuted`

@@ -36,14 +36,15 @@ const STYLE_URL = {
 const DEFAULT_CENTER: [number, number] = [11.5, 48.1]
 const DEFAULT_ZOOM = 6.2
 
+// Must run before the first `new MapLibreMap(...)` — see the import comment above.
+setWorkerUrl(maplibreWorkerUrl)
+
 /**
  * MapLibre's `fitBounds` inset, in MAP pixels — not CSS spacing, so no Mantine
  * spacing token can express it. Hoisted out of the effect so the theme guard's
  * inline-spacing kind (which cannot tell a map API argument from a CSS literal)
  * has nothing to trip on.
  */
-setWorkerUrl(maplibreWorkerUrl)
-
 const FIT_BOUNDS_OPTIONS = { padding: 48, duration: 0 } as const // theme-allow
 
 export default function SiteMap({
@@ -156,7 +157,17 @@ export default function SiteMap({
   }, [data])
 
   return (
-    <Card py={0} px={0} h={SIDE_PANEL_HEIGHT} pos="relative" style={{ overflow: 'hidden' }}>
+    // `h="100%"` + a floor: the grid row stretches, so the map takes whatever
+    // height the facts panel beside it needs. `mih` keeps it usable when the
+    // columns stack on a narrow viewport and there is no sibling to match.
+    <Card
+      py={0}
+      px={0}
+      h="100%"
+      mih={SIDE_PANEL_HEIGHT}
+      pos="relative"
+      style={{ overflow: 'hidden' }}
+    >
       <Box ref={containerRef} h="100%" style={{ visibility: failed ? 'hidden' : 'visible' }} />
       {failed && (
         <Box pos="absolute" style={{ inset: 0 }}>

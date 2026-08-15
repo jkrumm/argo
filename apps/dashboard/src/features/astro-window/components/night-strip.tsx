@@ -1,6 +1,6 @@
 import { Box, Card, SimpleGrid, Stack, Text, UnstyledButton } from '@mantine/core'
 import { VX } from 'basalt-ui/tokens'
-import { fmtDayLabel, fmtPercent, verdictTone } from '../formulas'
+import { fmtDayLabel, fmtPercent, killerLabel, verdictTone } from '../formulas'
 import type { Night } from '../types'
 
 /**
@@ -47,14 +47,22 @@ export function NightStrip({
                   {weekday} {day}
                 </Text>
                 <Box h={4} w="100%" bg={verdictTone(night.verdict)} />
+                {/*
+                  Every row keeps ONE meaning down the whole strip: score, window
+                  start, then the moon. A ruled-out night reads `OUT` in the score
+                  slot rather than a reason, because a column that means "score"
+                  for four cells and "why not" for six is unreadable across. The
+                  reason lands in the last row instead, where it displaces the
+                  moon reading it would otherwise have duplicated.
+                */}
                 <Text ff="monospace" size="sm" fw={600}>
-                  {isOut ? '—' : night.score}
+                  {isOut ? 'OUT' : night.score}
                 </Text>
                 <Text ff="monospace" size="xs" c="dimmed">
                   {night.window?.localStart ?? '—'}
                 </Text>
                 <Text ff="monospace" size="xs" c="dimmed">
-                  {fmtPercent(night.moon.illumination)}
+                  {isOut ? killerLabel(night) : fmtPercent(night.moon.illumination)}
                 </Text>
               </Stack>
             </UnstyledButton>
