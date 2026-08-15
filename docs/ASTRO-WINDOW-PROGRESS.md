@@ -14,7 +14,7 @@ session with **none** of the original context can resume from here.
 | 1 — scoring engine (pure)                 | **DONE**, every acceptance number verified |
 | 2 — API (`/astro/window`, `/astro/sites`) | **DONE**, verified live + trace-checked    |
 | 3 — dashboard page (gauntlet-loop)        | **DONE** — won blind in 2 of 2 rounds      |
-| 4 — marine                                | not started (gated on phase 3 sign-off)    |
+| 4 — marine                                | **DONE** — API + page, verified live       |
 
 ## How to verify what exists
 
@@ -353,6 +353,105 @@ evidence, not an oracle, and re-fixing a non-bug is how a loop like this burns a
 - **Location switching genuinely re-queries**, checked in the live DOM rather than
   assumed: `?site=bayerischer-wald&nights=14` moves Bortle 4 → 3, the strip from 10 to
   14 columns, and the limiting factor from "high cloud 37%" to "sky darkness 75%".
+
+---
+
+## Phase 4 — marine
+
+Started only after phase 3 signed off, per the brief's gate.
+
+### The engine held
+
+Marine is a second `WindowConfig`, not a second engine — which is the real test
+of whether `window-score.ts` was generic or just astro wearing a generic name. It
+held, at the cost of exactly two additions, both genuinely domain-agnostic:
+
+- **`peakScore`** — swell height has a _sweet spot_, not a direction. 0.2 m is
+  nothing to ride and 6 m closes out, and `linearScore` cannot express that in
+  either orientation. Astro has no such factor; marine does.
+- **`circularMean`** and **`angularDistance`** — bearings. See the bug below.
+
+Nothing astro-specific leaked into the engine, and a test asserts the astro
+factor list so a regression would be caught.
+
+### The physics the thresholds encode
+
+Unlike astro, whose every weighting traces to the operator's own field notes,
+**there is no surf note in the vault** — so these are mine, and recorded as
+provisional (decision D9):
+
+- **Period is the quality axis, not height.** 1 m at 14 s carries far more energy
+  and breaks far better than 1 m at 5 s, which is local chop that happens to be
+  the same height. Under 8 s is gated out as windsea rather than scored low.
+- **Direction beats speed.** 15 kn offshore grooms a wave; 15 kn onshore destroys
+  it. The gate is on direction, speed is only a factor — with a glassy exemption
+  under 5 kn so a 2-knot onshore drift does not rule out a still dawn.
+- **`shoreNormal` is the load-bearing number** — the bearing you face looking out
+  to sea. Offshore wind arrives _from_ `shoreNormal + 180`, which is where the
+  sign errors live, so `classifyWind` owns it and nothing computes it by hand.
+
+The four spots are real, well-documented European breaks ordered by drive time
+from Munich, with approximate shore normals. `/marine/window` also takes a raw
+lat/lon plus `shoreNormal`, so the list never constrains it. The Eisbach — the
+actual home break of every Munich surfer — is deliberately absent: a river wave
+has no swell or wind to score, and including it would produce confident nonsense.
+
+### Two bugs worth remembering
+
+**Bearings were being averaged arithmetically.** The mean of 350° and 10° is
+180° — it turns a north wind into a south one and inverts the offshore/onshore
+verdict the entire endpoint hangs on. This was flagged by the implementer as a
+known naivety and excused on the grounds that no _shore normal_ sits near the
+wrap point; that reasoning is wrong, because it is the _wind_ that wraps, and it
+does so routinely. `circularMean` now averages the unit vectors, and returns
+`null` — rather than a confident wrong answer — when the day's wind boxed the
+compass, at which point the factor drops out and `coverage` falls.
+
+**The reasoning-model token cliff bit again, harder.** Phase 2's fix was to pick
+a bigger number (900). That was not enough, because the budget needed is not a
+constant: the more open-ended "tell them not to go" marine prompt blew past 900
+on two spots out of three, while astro's tighter prompt used 288. The tighter the
+style instruction, the _more_ the model deliberates — the opposite of the
+intuition. Both routes now go through `lib/ai-sentence.ts`, which starts at 1200
+and retries once at 3600 on empty content, so the failure is self-healing and
+logged rather than silently producing a null summary forever.
+
+Related: asking the model to "lead with the weekday and the session start" when
+there is no session produced the fragment `"No usable day — 6."`. A flat range now
+gets its own instruction and its own facts — the closest day, its numbers, and
+why it is out.
+
+### Verified live
+
+Mid-August Europe is flat everywhere, which is a good test: all four spots gate on
+`swell-period` at 4–5.5 s, exactly right for windsea, and each returns a sentence
+naming that reason — e.g. _"Don't go to Hossegor: 0.8m at 5.5s is windsea, not
+groundswell — the limiting reason."_ 763 API tests pass.
+
+### The page
+
+`/marine-window`, built as the astro page's sibling and deliberately structurally
+identical — same hero, same strip, same map + facts split, same two stacked
+charts on a shared x-scale. The astro layout survived three rounds of a blind
+critic, so it is treated here as the specification rather than a starting point.
+
+Loading it against the live API found four defects that **only appear when every
+day in the range is gated** — which, in a flat European August, is every range,
+so it is the common case rather than an edge case:
+
+1. The day strip went nearly blank: `OUT`, `—`, and a truncated killer sentence,
+   five times over. It now always carries the day's conditions (`0.8m 5.5s`) plus
+   a short id-derived tag (`windsea`) instead of an ellipsised sentence.
+2. "Off dead-offshore" was always `—`, because it read from `factors[]`, which the
+   engine leaves **empty for a gated day**. It is now computed from the wind
+   direction and the shore normal, which are always present. The general lesson:
+   anything sourced from `factors[]` silently disappears exactly when a gate fires.
+3. The Score group collapsed to a lone "Coverage 0%" row for the same reason; a
+   gated day now renders a `RULED OUT` group listing each killer and its reason.
+4. The swell timeline's right-hand axis (period, seconds) was clipped against the
+   card edge — that chart carries a second axis the shared `VX.margin` does not
+   budget for. Its `right` inset is now local, and its `left` deliberately is not,
+   because that is what keeps it column-aligned with the wind chart below.
 
 ---
 

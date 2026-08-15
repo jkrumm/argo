@@ -19,6 +19,7 @@ import {
   IconMoon,
   IconMoonStars,
   IconPalette,
+  IconRipple,
   IconRoute,
   IconRulerMeasure,
   IconServer,
@@ -87,6 +88,7 @@ const NAV_TARGETS: Record<
   },
   m365: { to: '/m365-explorer' },
   'astro-window': { to: '/astro-window', search: { site: 'alpenvorland', nights: 10 } },
+  'marine-window': { to: '/marine-window', search: { spot: 'hossegor', days: 5 } },
 }
 
 function RootLayout() {
@@ -122,6 +124,7 @@ function RootLayout() {
   const isReadingActive = !!matchRoute({ to: '/reading', fuzzy: true })
   const isM365Active = !!matchRoute({ to: '/m365-explorer', fuzzy: true })
   const isAstroActive = !!matchRoute({ to: '/astro-window', fuzzy: true })
+  const isMarineActive = !!matchRoute({ to: '/marine-window', fuzzy: true })
   const isHermesChatActive = !!matchRoute({ to: '/hermes-chat', fuzzy: true })
   const isCalendarActive = !!matchRoute({ to: '/calendar', fuzzy: true })
   const isUsageActive = !!matchRoute({ to: '/usage-tracking', fuzzy: true })
@@ -286,6 +289,14 @@ function RootLayout() {
           icon: <IconMoonStars size={ICON} />,
           href: '/astro-window',
           active: isAstroActive,
+        },
+        {
+          key: 'marine-window',
+          label: 'Marine Window',
+          short: 'Marine',
+          icon: <IconRipple size={ICON} />,
+          href: '/marine-window',
+          active: isMarineActive,
         },
       ],
     },

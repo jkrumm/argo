@@ -108,6 +108,9 @@ export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 | Cloud: mid              | `#c87619` | `#ec9a3c` | `cloudMid`           | Middle of the severity ramp — orange          |
 | Cloud: high             | `#a1a1aa` | `#d4d4d8` | `cloudHigh`          | Bottom of the severity ramp — neutral         |
 | Transparency band       | `#147eb3` | `#3fa6da` | `transparencyBand`   | Atmospheric clarity — cerulean                |
+| Swell period            | `#0284c7` | `#38bdf8` | `swellPeriod`        | Anchor metric of the marine page — sky        |
+| Swell height            | `#147eb3` | `#3fa6da` | `swellHeight`        | The sea itself — cerulean                     |
+| Wind speed              | `#d1980b` | `#f0b726` | `windSpeed`          | What ruins a wave, as the moon ruins a night  |
 
 ### Garmin activities (`activity-` prefix — `ACTIVITY.*`)
 

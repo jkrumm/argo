@@ -2,9 +2,11 @@
 
 ## What Argo Is
 
-Personal homelab dashboard for Johannes Krumm. Three live pages: **Garmin Health** (HRV, resting HR, sleep, stress, daily metrics, recovery score), **Strength Tracker** (workouts, sets, e1RM, volume, ACWR, PR detection, body weight), and **M365 Explorer** (browse IU Teams chats + channels, label important ones to drive `GET /m365/important`). A Garmin sync sidecar feeds health data every 6 hours; strength data is logged manually.
+Personal homelab dashboard for Johannes Krumm. The health/training core is **Garmin Health** (HRV, resting HR, sleep, stress, daily metrics, recovery score) and **Strength Tracker** (workouts, sets, e1RM, volume, ACWR, PR detection, body weight), alongside **M365 Explorer** (browse IU Teams chats + channels, label important ones to drive `GET /m365/important`) and the other surfaces in the sidebar. A Garmin sync sidecar feeds health data every 6 hours; strength data is logged manually.
 
-The API doubles as an AI-agent endpoint. Discovery is anchored at three URLs: `GET /` returns a small JSON pointing at the docs and listing the six tag groups, `GET /openapi` serves the Scalar interactive UI, and `GET /openapi/json` exposes the raw spec. The OpenAPI contract (paths, tag taxonomy, description quality) is the agent interface — see `apps/api/.claude/rules/openapi.md`.
+**Astro Window** and **Marine Window** are one feature wearing two faces: "is tonight (or this week) worth going out for?", for Milky Way nightscapes and for surf. Both are scored by the same deterministic engine (`apps/api/src/lib/window-score.ts` — hard gates that name _why_ a night is out, plus weighted 0–1 factors), instantiated twice (`astro-score.ts`, `marine-score.ts`). **The model never computes a number**: the ephemeris, the thresholds and the score are all deterministic, and `aiComplete()` only writes one sentence about an already-finished verdict — see `docs/ASTRO-WINDOW-BRIEF.md` and `docs/ASTRO-WINDOW-PROGRESS.md`.
+
+The API doubles as an AI-agent endpoint. Discovery is anchored at three URLs: `GET /` returns a small JSON pointing at the docs and listing the tag groups, `GET /openapi` serves the Scalar interactive UI, and `GET /openapi/json` exposes the raw spec. The OpenAPI contract (paths, tag taxonomy, description quality) is the agent interface — see `apps/api/.claude/rules/openapi.md`.
 
 ## Workspace Layout
 
@@ -97,6 +99,7 @@ see `docs/archive/`.
 ## Analytics Reference
 
 - `docs/GARMIN-HEALTH.md` — metric definitions, formulas, composite signals (health page)
+- `docs/ASTRO-WINDOW-BRIEF.md` / `docs/ASTRO-WINDOW-PROGRESS.md` — the astro + marine window planner: the decided design, the measured acceptance numbers, and every decision taken during the build
 - `docs/STRENGTH-ANALYTICS.md` — metric definitions, INOL, ACWR, e1RM formulas (strength page)
 
 <!-- basalt:begin 1.13.0 -->

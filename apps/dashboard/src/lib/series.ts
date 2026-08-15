@@ -93,6 +93,15 @@ const SERIES_MAP = defineSeries({
   cloudMid: p(BP.orange),
   cloudHigh: p(BP.gray),
   transparencyBand: p(BP.cerulean),
+
+  // ── Marine window · the sea ─────────────────────────────────────────────
+  // Deliberately parallel to the astro set above, because the two pages answer
+  // the same question and should read the same way: the anchor metric takes the
+  // sky hue, and the thing that ruins it takes gold. Here period IS the quality
+  // axis (1 m at 14 s beats 1 m at 5 s), so period is the anchor, not height.
+  swellPeriod: p(BP.blue),
+  swellHeight: p(BP.cerulean),
+  windSpeed: p(BP.gold),
 } satisfies SeriesMap)
 
 /** Garmin activities — per-type identity. */
