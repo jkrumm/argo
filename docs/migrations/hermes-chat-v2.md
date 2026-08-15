@@ -2757,3 +2757,38 @@ reported a passing check for a code path it never exercised.
 said so rather than rounding up. Gate 2 also stated that its console monitoring covered a representative
 combined pass rather than the entire multi-hour session. Both admissions are worth more than the clean
 results around them.
+
+## A4 — the prerequisite, settled before any UI was written
+
+The phase spec says to verify the Slack token carries `chat:write` **before** building the reply
+affordance. Settled 2026-08-06, and it found a defect that would otherwise have surfaced as a broken
+button.
+
+`op://common/slack/BOT_TOKEN` is **not** in `dotfiles-private/headless.refs`, so `secrets-run` on the
+mini correctly refuses it rather than hanging. A cached `op://hermes/slack/*` token does exist, but it
+is a **different Slack app** with independent scopes — substituting it would have produced a confident
+answer about the wrong credential. The check was instead run from inside the production container
+(`ssh vps` → `docker exec argo-argo-api-… curl … auth.test`), reading the `X-OAuth-Scopes` response
+header. The token value never left the container.
+
+Granted scopes: `incoming-webhook, channels:history, channels:read, groups:history, groups:read,
+im:history, mpim:history, mpim:read, search:read.{im,mpim,files,private,public,users}, users:read,
+users:read.email, chat:write, im:read, channels:join`.
+
+**`chat:write` is present — A4 can build the reply affordance. `chat:write.public` is ABSENT**, and
+that combines badly with an asymmetry already in the code:
+
+- The **read** paths handle a missing membership: `clients/slack.ts:263` calls `conversations.join`,
+  and `:296` / `:342` catch `not_in_channel` and retry.
+- The **write** path does not. `sendMessage` (`clients/slack.ts:425`) calls `chat.postMessage`
+  directly with no `not_in_channel` handling and no join retry.
+
+So replying into a public channel the bot has not joined fails, and nothing recovers. The token
+already carries `channels:join`, so the fix is giving `sendMessage` the same symmetry the read paths
+have — no scope change needed. **Caveat:** `conversations.join` cannot self-join a _private_ channel,
+so those need an invite; surface an explicit "the bot is not in this channel" state rather than a
+generic error.
+
+The client is fully greenfield — zero Slack usage anywhere in `apps/dashboard/src`, confirmed by five
+differently-shaped searches (the only hits are the English word "slack" in a CSS comment and the
+phrase "Slack-style thread feed").
