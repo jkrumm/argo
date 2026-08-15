@@ -4,6 +4,7 @@ import { NavLink as MantineNavLink, Text, useMantineColorScheme } from '@mantine
 import {
   IconActivity,
   IconArchive,
+  IconCompass,
   IconBarbell,
   IconBook,
   IconBox,
@@ -247,6 +248,30 @@ function RootLayout() {
       ],
     },
     {
+      label: 'Outdoors',
+      icon: <IconCompass size={ICON} />,
+      items: [
+        {
+          key: 'astro-window',
+          label: 'Astro Window',
+          short: 'Astro',
+          mobile: true,
+          icon: <IconMoonStars size={ICON} />,
+          href: '/astro-window',
+          active: isAstroActive,
+        },
+        {
+          key: 'marine-window',
+          label: 'Marine Window',
+          short: 'Marine',
+          mobile: true,
+          icon: <IconRipple size={ICON} />,
+          href: '/marine-window',
+          active: isMarineActive,
+        },
+      ],
+    },
+    {
       label: 'System',
       icon: <IconServer size={ICON} />,
       items: [
@@ -281,22 +306,6 @@ function RootLayout() {
           href: '/m365-explorer',
           active: isM365Active,
           badge: <NavCountBadge count={badges.m365} />,
-        },
-        {
-          key: 'astro-window',
-          label: 'Astro Window',
-          short: 'Astro',
-          icon: <IconMoonStars size={ICON} />,
-          href: '/astro-window',
-          active: isAstroActive,
-        },
-        {
-          key: 'marine-window',
-          label: 'Marine Window',
-          short: 'Marine',
-          icon: <IconRipple size={ICON} />,
-          href: '/marine-window',
-          active: isMarineActive,
         },
       ],
     },
