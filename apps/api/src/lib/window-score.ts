@@ -198,6 +198,40 @@ export function linearScore(
 }
 
 /**
+ * Score a quantity that has a *sweet spot* rather than a direction — 1 at
+ * `ideal`, falling linearly to 0 once it is `tolerance` away in either
+ * direction.
+ *
+ * `linearScore` cannot express this: swell height is not "more is better" (a
+ * 6 m swell closes out) nor "less is better" (a 0.2 m swell is nothing to
+ * ride). Astro has no such factor; marine does, which is why this lives in the
+ * engine rather than in either config.
+ *
+ * `tolerance` may be asymmetric — most physical sweet spots are. `swell height
+ * 1.5 m ideal, 1.0 below, 2.5 above` says a metre under is as bad as two and a
+ * half over.
+ */
+export function peakScore(
+  value: number | null | undefined,
+  range: { ideal: number; below: number; above?: number },
+): number | null {
+  if (value === null || value === undefined || Number.isNaN(value)) return null
+  const spread = value < range.ideal ? range.below : (range.above ?? range.below)
+  if (spread <= 0) return value === range.ideal ? 1 : 0
+  return clamp01(1 - Math.abs(value - range.ideal) / spread)
+}
+
+/**
+ * Smallest angle between two compass bearings, in degrees, 0..180.
+ * Exported because "how offshore is the wind" is exactly this question and
+ * getting the wrap-around wrong is the classic bug.
+ */
+export function angularDistance(a: number, b: number): number {
+  const diff = Math.abs(((a - b) % 360) + 360) % 360
+  return diff > 180 ? 360 - diff : diff
+}
+
+/**
  * Map a discrete 1..n band (7Timer's transparency and seeing scales are like
  * this) onto 0..1, where band 1 is best.
  */
