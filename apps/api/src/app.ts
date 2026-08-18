@@ -151,7 +151,7 @@ export function buildApp() {
               {
                 name: 'Astro & Marine',
                 description:
-                  'Go/no-go planning for night photography and (later) surf, for a given place and the next N nights. `/astro/window` scores each night deterministically — galactic-core altitude, astronomical darkness and moon are computed from an ephemeris, never from a model — and returns a verdict plus the named reasons a night is out. `/astro/sites` lists the candidate drive-to sites with their Bortle baseline. Weather comes from Open-Meteo DWD-ICON (cloud by layer) and 7Timer (atmospheric transparency); attribution is required and returned in the payload. Ask this instead of a raw weather forecast whenever the question is "is tonight worth going out for".',
+                  'Go/no-go planning for night photography and for surf, for a given place and the next N nights or days. `/astro/window` scores each night deterministically — galactic-core altitude, astronomical darkness and moon are computed from an ephemeris, never from a model — and returns a verdict plus the named reasons a night is out. `/astro/sites` lists the candidate drive-to sites with their Bortle baseline. `/marine/window` and `/marine/spots` are the surf half over the same engine, scoring the longest usable daylight session per day from swell, period and wind. Weather comes from Open-Meteo DWD-ICON (cloud by layer), Open-Meteo Marine and 7Timer (atmospheric transparency); attribution is required and returned in the payload. Ask this instead of a raw weather forecast whenever the question is "is tonight (or this week) worth going out for".',
               },
               {
                 name: 'Hermes Chat',

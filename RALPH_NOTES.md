@@ -38,7 +38,7 @@ investigated; it did not block anything.
 
 ## Introduced deliberately, and worth knowing
 
-**`window-score.ts` has no marine config yet.** Phase 4 adds one. The engine is already
+**`window-score.ts` carries both configs.** Phase 4 added the marine one. The engine is already
 domain-agnostic and `linearScore(value, { good, bad })` inverts when `good > bad`, which
 is how "more is better" quantities like swell period are meant to be expressed. Nothing
 astro-specific has leaked into it — a test asserts the factor list, so a regression there
