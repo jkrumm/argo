@@ -139,6 +139,12 @@ const ShootingWindowSchema = z.object({
   peakCoreAltitude: z.number().describe('degrees'),
   peakCoreAzimuth: z.number().describe('degrees from north through east'),
   maxMoonAltitude: z.number().describe('degrees; negative means the moon is down throughout'),
+  minCoreClearance: z
+    .number()
+    .nullable()
+    .describe(
+      'Tightest gap between the core and the measured ridge at its own azimuth anywhere inside this window, degrees — how close the terrain came. Null when no skyline was resolved',
+    ),
 })
 
 const MoonSchema = z.object({
@@ -691,8 +697,25 @@ function horizonEtag(body: string): string {
  * A complete answer is deterministic in (lat, lon, year, horizon source)
  * forever — terrain does not move and the calendar year is fixed. Same
  * 30-day/`private` reasoning as `HORIZON_CACHE_CONTROL`.
+ *
+ * Only when `year` is IN THE URL, though. See {@link VISIBILITY_CLOCK_CACHE_CONTROL}.
  */
 const VISIBILITY_CACHE_CONTROL = 'private, max-age=2592000, stale-while-revalidate=86400'
+
+/**
+ * When `year` is omitted it defaults to the CURRENT UTC year, which makes the
+ * answer a function of the clock rather than of the URL. Thirty days of
+ * `max-age` on that means a browser that asked in December keeps serving the
+ * old year's budget well into January without ever revalidating — the one way
+ * this endpoint can be confidently wrong.
+ *
+ * `no-cache` still stores the body and still gets a 304 off the ETag, so the
+ * saving that matters (never recomputing the 373 ms integral, never refetching
+ * the DEM) is intact; it just cannot answer from the cache without asking.
+ * `/astro/tiles/lp/{year}/…` does not need this because the vintage is in its
+ * path.
+ */
+const VISIBILITY_CLOCK_CACHE_CONTROL = 'private, no-cache'
 
 /**
  * A `horizon=measure` answer built on an incomplete DEM profile is provisional
@@ -1104,6 +1127,9 @@ function serializeWindow(night: AstroNight) {
     peakCoreAltitude: round1(night.window.peakCoreAltitude),
     peakCoreAzimuth: round1(night.window.peakCoreAzimuth),
     maxMoonAltitude: round1(night.window.maxMoonAltitude),
+    minCoreClearance: Number.isNaN(night.window.minCoreClearance)
+      ? null
+      : round1(night.window.minCoreClearance),
   }
 }
 
@@ -1382,7 +1408,7 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
           tags: ['Astro & Marine'],
           summary: 'Score the next N nights for Milky Way nightscape photography',
           description:
-            'Answers "is tonight (or this week) worth going out for?" for one place. Every night in the range gets a verdict from hard gates (galactic-core altitude above 8° AND above the measured terrain skyline plus a 2° framing margin when the location resolved to a committed site — see `location.southHorizonDeg`; moon under 25% illuminated, or below the horizon, or behind that same skyline; and true astronomical night that overlaps the core window) plus weighted factors (low/mid/high cloud, atmospheric transparency, the measured sky brightness in the direction the core sits, and — only when a skyline was resolved — how many degrees of clear sky the core keeps above the ridge, `peakCoreClearanceDeg` on each night and `coreClearance` per hour). A night gated on terrain names the ridge in `killers` (`"the ridge to the south stands at X° — the core never clears it while dark"`) rather than the generic flat-floor message. A night that fails a gate returns verdict `out` with a named reason in `killers` — that is different information from a low score and the two are never conflated. Top-level `verdict`/`score`/`bestWindow`/`killers` describe the BEST night in the range, not tonight; `nights[]` carries every night for an at-a-glance strip, and `detail.hourly` carries the 30-minute series for one night (the best one unless `detailDate` says otherwise). Location resolves in the order `site` > `lat`+`lon` > `city` > Munich; a raw lat/lon inherits `coreDirectionMpsas` from the nearest known site within 150 km, unless `coreMpsas` overrides it — beyond that radius `darknessSource` is `unknown`, darkness drops out of the score and `coverage` falls. Terrain is different: it is ONLY applied when the location resolved to one of the four committed sites (`?site=`) — a raw lat/lon never fetches a DEM here, so scoring stays synchronous and I/O-free; use GET /astro/horizon for an arbitrary coordinate\'s profile. All astronomy is computed locally from an ephemeris and never by a model — `summary` is the one model-generated field and is null when the model is unavailable. For plain weather use GET /weather/forecast; for the candidate sites and their measured sky use GET /astro/sites.',
+            'Answers "is tonight (or this week) worth going out for?" for one place. Every night in the range gets a verdict from hard gates (galactic-core altitude above 8° AND above the measured terrain skyline plus a 2° framing margin when the location resolved to a committed site — see `location.southHorizonDeg`; moon under 25% illuminated, or below the horizon, or behind that same skyline; and true astronomical night that overlaps the core window) plus weighted factors (low/mid/high cloud, atmospheric transparency, the measured sky brightness in the direction the core sits, and — only when a skyline was resolved — how many degrees of clear sky the core keeps above the ridge, `peakCoreClearanceDeg` on each night and `coreClearance` per hour). A night gated on terrain names the ridge in `killers` (`"the ridge to the south stands at X° — the core peaks at Y° and never clears it"`, emitted only when that ridge is the TIGHTER floor and the core did clear the flat 8° one, so a December night whose core never rose still reports the flat-floor reason) rather than the generic flat-floor message. A night that fails a gate returns verdict `out` with a named reason in `killers` — that is different information from a low score and the two are never conflated. Top-level `verdict`/`score`/`bestWindow`/`killers` describe the BEST night in the range, not tonight; `nights[]` carries every night for an at-a-glance strip, and `detail.hourly` carries the 30-minute series for one night (the best one unless `detailDate` says otherwise). Location resolves in the order `site` > `lat`+`lon` > `city` > Munich; a raw lat/lon inherits `coreDirectionMpsas` from the nearest known site within 150 km, unless `coreMpsas` overrides it — beyond that radius `darknessSource` is `unknown`, darkness drops out of the score and `coverage` falls. Terrain is different: it is ONLY applied when the location resolved to one of the four committed sites (`?site=`) — a raw lat/lon never fetches a DEM here, so scoring stays synchronous and I/O-free; use GET /astro/horizon for an arbitrary coordinate\'s profile. All astronomy is computed locally from an ephemeris and never by a model — `summary` is the one model-generated field and is null when the model is unavailable. For plain weather use GET /weather/forecast; for the candidate sites and their measured sky use GET /astro/sites.',
           security: [{ BearerAuth: [] }],
         },
       },
@@ -1654,7 +1680,8 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
         }
 
         const etag = horizonEtag(body)
-        headers['cache-control'] = VISIBILITY_CACHE_CONTROL
+        headers['cache-control'] =
+          query.year === undefined ? VISIBILITY_CLOCK_CACHE_CONTROL : VISIBILITY_CACHE_CONTROL
         headers['etag'] = etag
         if (request.headers.get('if-none-match') === etag) {
           return new Response(null, { status: 304, headers })

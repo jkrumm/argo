@@ -269,14 +269,38 @@ describe('fetchLpTile', () => {
     return { fetchImpl, calls }
   }
 
+  it('enumerates the tile across a graticule that real pixels sample into', async () => {
+    /*
+     * Regression: a z9 map tile whose EAST edge lands exactly on the Greenwich
+     * meridian. `locateTile` rolls the last ~0.00417° below every 5° graticule
+     * onto the NEXT atlas tile, so the final 3 pixel columns of this tile really
+     * do sample tile 37:23 — while the old 0.01° endpoint nudge enumerated only
+     * 36:23. Those 3 columns read NaN, rendered as 22.00 (the ramp's deepest
+     * "pristine sky"), and cached as complete for 30 days: a false-dark seam
+     * down the meridian.
+     *
+     * Asserting the tile COUNT is the honest check. A pixel assertion would pass
+     * on this fixture either way, because the harness serves the same bytes for
+     * every coordinate.
+     */
+    const { fetchImpl, calls } = anyTileFetch()
+    const tile = await fetchLpTile({ x: 255, y: 177, z: 9 }, { fetchImpl })
+
+    expect(tile?.tilesRequested).toBe(2)
+    expect(tile?.tilesResolved).toBe(2)
+    expect(new Set(calls).size).toBe(2)
+    expect(calls.some((url) => url.includes('binary_tile_37_23'))).toBe(true)
+    expect(calls.some((url) => url.includes('binary_tile_36_23'))).toBe(true)
+  })
+
   it('enumerates every atlas tile a z5 map tile touches, not just its corners', async () => {
     const { fetchImpl, calls } = anyTileFetch()
     // x=3 y=16: a z5 tile spans ~11° of longitude, which is more than two 5°
     // atlas tiles, so a corner-only enumeration (at most 4 distinct tiles) would
-    // silently drop the columns in between. This particular tile's box also
-    // lands its northern edge exactly on the equator — a 5° atlas graticule —
-    // so `tileSpanSamples`'s boundary fix (see its docstring) correctly drops
-    // the tile just north of it, landing on 9 rather than a pre-fix 16.
+    // silently drop the columns in between. Its northern edge sits exactly on
+    // the equator — a 5° atlas graticule — and at z5 half a pixel is ~0.02° of
+    // latitude, well clear of `locateTile`'s ~0.00417° rollover band, so the
+    // pixel-centre inset keeps every sample south of it: 9 tiles, not 16.
     const tile = await fetchLpTile({ x: 3, y: 16, z: 5 }, { fetchImpl })
 
     expect(tile?.tilesRequested).toBe(9)

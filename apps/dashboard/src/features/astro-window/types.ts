@@ -29,6 +29,8 @@ export type ShootingWindow = {
   peakCoreAltitude: number
   peakCoreAzimuth: number
   maxMoonAltitude: number
+  /** Tightest gap between the core and the ridge inside this window, degrees. Null without a skyline. */
+  minCoreClearance: number | null
 }
 
 export type Moon = {

@@ -52,8 +52,9 @@ import {
 import {
   LP_TILE_MAX_ZOOM,
   LP_TILE_MIN_ZOOM,
+  LP_TILE_SIZE,
   renderLpTilePng,
-  tileBounds,
+  tileToLatLon,
   type MpsasSampler,
 } from '../lib/lp-tile.js'
 import {
@@ -252,28 +253,28 @@ async function fetchTileGrid(
 }
 
 /**
- * Nudges an endpoint below itself, so `locateTile` never resolves it to the
- * tile on the FAR side of a boundary it lands exactly on. The one case that
- * matters in practice: the easternmost map-tile column has `maxLon` exactly
- * `180`, and `locateTile` treats `180` as the date line's WEST side
- * (`mod(180+180,360) === 0`) — the tile the map tile does not overlap.
+ * `from`..`to` sampled at less than one atlas tile span, BOTH endpoints included.
  *
- * The nudge must be LARGER than `locateTile`'s own half-cell reference-walk
- * offset (~0.0083°, `lorenz-decode.ts`'s "pushes the last ~0.008° below every
- * 5° graticule onto index 600" quirk) — a microscopic epsilon (1e-9 was tried
- * first) still lands INSIDE that rollover band, and `locateTile` rolls it
- * straight back to the wrapped tile, reproducing the exact bug this exists to
- * fix. `0.01°` clears that band with margin while staying far short of one
- * `TILE_SPAN_DEG`, so it can never cross into a genuinely different tile for
- * any endpoint that wasn't already sitting on a boundary.
+ * Both callers pass a range whose endpoints are coordinates that actually get
+ * sampled — the raster route insets to its pixel CENTRES, the march reaches
+ * exactly `rangeKm` — so `to` must be enumerated rather than nudged away from.
+ *
+ * An earlier version pushed `to - 0.01°` instead, to stop a tile whose `maxLon`
+ * is exactly 180 from resolving across the date line. That traded one wasted
+ * fetch for a silent hole: `locateTile` rolls the last ~0.00417° below every 5°
+ * graticule onto the NEXT atlas tile (`lorenz-decode.ts`'s index-600 quirk), and
+ * a 0.01° nudge lands outside that band, so the far tile was never enumerated
+ * while real pixels still sampled into it. Those pixels read NaN, NaN rendered
+ * as 22.00 — the ramp's deepest "pristine sky" — and the tile cached as complete
+ * for 30 days. A 3-pixel false-dark seam down the Greenwich meridian, at z9.
+ *
+ * Insetting to pixel centres removes the question rather than re-tuning the
+ * epsilon: no sample can lie outside the enumerated range, at any zoom.
  */
-const TILE_BOUNDARY_EPSILON_DEG = 0.01
-
-/** `from`..`to` sampled at less than one tile span, endpoints included — so no tile in between is missed. */
 function tileSpanSamples(from: number, to: number): number[] {
   const samples: number[] = []
   for (let value = from; value < to; value += TILE_SPAN_DEG) samples.push(value)
-  samples.push(to - TILE_BOUNDARY_EPSILON_DEG)
+  samples.push(to)
   return samples
 }
 
@@ -546,14 +547,44 @@ export type LpTileImage = {
 }
 
 /**
- * Every 5° atlas tile a map tile's bounding box touches.
+ * Every 5° atlas tile a map tile's SAMPLED coordinates touch.
  *
  * Enumerated across the whole box rather than from its four corners: at z5 a
  * tile spans ~11° of longitude, which is more than two atlas tiles, so the
  * corners miss the column in the middle entirely. `tileSpanSamples` walks in
- * steps smaller than one atlas tile and always includes both endpoints, so
- * nothing between them can be skipped.
+ * steps smaller than one atlas tile and includes both endpoints, so nothing
+ * between them can be skipped.
+ *
+ * The bounds passed here are the pixel-CENTRE extremes, not the tile's outer
+ * edges — `renderLpTile` samples at `(p + 0.5) / SIZE`, so those are the only
+ * coordinates that are ever looked up. Enumerating the outer edges instead is
+ * what made the boundary epsilon necessary, and the epsilon is what left the
+ * seam; see `tileSpanSamples`.
  */
+/**
+ * The lat/lon extremes `renderLpTile` actually samples for a map tile — its
+ * pixel CENTRES, half a pixel inside each edge, not the tile's outer bounds.
+ *
+ * The y axis runs the other way round: row `y` is the NORTH edge, so the
+ * northernmost sampled latitude comes from `y + inset` and the southernmost
+ * from `y + 1 - inset`.
+ */
+function sampledBounds(tile: { x: number; y: number; z: number }): {
+  minLat: number
+  maxLat: number
+  minLon: number
+  maxLon: number
+} {
+  const inset = 0.5 / LP_TILE_SIZE
+  const { x, y, z } = tile
+  return {
+    maxLat: tileToLatLon({ x, y: y + inset, z }).lat,
+    minLat: tileToLatLon({ x, y: y + 1 - inset, z }).lat,
+    minLon: tileToLatLon({ x: x + inset, y, z }).lon,
+    maxLon: tileToLatLon({ x: x + 1 - inset, y, z }).lon,
+  }
+}
+
 function boxTiles(bounds: {
   minLat: number
   maxLat: number
@@ -632,7 +663,7 @@ export async function fetchLpTile(
           }
         }
 
-        const tiles = boxTiles(tileBounds({ x, y, z }))
+        const tiles = boxTiles(sampledBounds({ x, y, z }))
         // Above 75°N and below 65°S the atlas publishes nothing and never will,
         // so this is a PERMANENT, knowable answer — not an upstream failure. At
         // z5 that is 416 of the 1024 tiles a world view requests. Rendering the

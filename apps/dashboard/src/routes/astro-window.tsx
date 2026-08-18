@@ -4,9 +4,10 @@ import { Grid, Group, Stack, useComputedColorScheme } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { ChartHoverSync } from 'basalt-ui/charts'
-import { PageActions } from 'basalt-ui'
+import { BasaltErrorBoundary, PageActions, type BasaltErrorContext } from 'basalt-ui'
 import {
   type AstroView,
+  CHART_HEIGHT,
   ChartEmpty,
   CloudLayersChart,
   MAP_FULL_BLEED_HEIGHT,
@@ -108,27 +109,46 @@ export const Route = createFileRoute('/astro-window')({
       context.queryClient.ensureQueryData(astroQueries.sites()),
     ])
 
-    // The panorama + monthly-budget charts only render on the Forecast tab — this is exactly the
-    // "future per-tab prefetch" the `tab` loaderDep above was already carrying for. Coordinates
-    // come from the sites list (never `windowData.location`), so a scouted lat/lon never silently
-    // resolves to a different site's terrain.
+    /*
+     * The panorama + monthly-budget charts only render on the Forecast tab — this is exactly the
+     * "future per-tab prefetch" the `tab` loaderDep above was already carrying for. Coordinates
+     * come from the sites list (never `windowData.location`), so a scouted lat/lon never silently
+     * resolves to a different site's terrain.
+     *
+     * `prefetchQuery`, un-awaited, and NOT `ensureQueryData`. These three are backed by
+     * third-party hosts (AWS `elevation-tiles-prod`, `djlorenz.github.io`) whose routes document
+     * 502 as a normal outcome. Awaiting `ensureQueryData` made the loader reject on that, and a
+     * rejected loader replaces the WHOLE route with the error component — taking the verdict
+     * hero, the night strip and both weather charts, none of which touch those upstreams, down
+     * with a DEM tile. It also blocked the tab switch behind a cold ~100-tile fetch plus a
+     * ~373 ms server-side integral. `prefetchQuery` never rejects; the charts suspend on their
+     * own and fail inside their own boundary.
+     */
     if (deps.tab === 'forecast') {
       const site = sites.data.find((s) => s.id === deps.site)
       if (site) {
-        await Promise.all([
-          context.queryClient.ensureQueryData(
-            astroQueries.horizon({ lat: site.lat, lon: site.lon }),
-          ),
-          context.queryClient.ensureQueryData(
-            astroQueries.skyglow({ lat: site.lat, lon: site.lon, date: windowData.detail.date }),
-          ),
-          context.queryClient.ensureQueryData(astroQueries.visibility({ site: site.id })),
-        ])
+        void context.queryClient.prefetchQuery(
+          astroQueries.horizon({ lat: site.lat, lon: site.lon }),
+        )
+        void context.queryClient.prefetchQuery(
+          astroQueries.skyglow({ lat: site.lat, lon: site.lon, date: windowData.detail.date }),
+        )
+        void context.queryClient.prefetchQuery(astroQueries.visibility({ site: site.id }))
       }
     }
   },
   component: AstroWindowPage,
 })
+
+/**
+ * A chart-level boundary must not swallow the error: the fallback tells the reader the data is
+ * missing, this keeps the reason reachable in the console, the same sink `BasaltProvider`'s own
+ * `onError` uses in `main.tsx`.
+ */
+function reportChartError(error: unknown, ctx: BasaltErrorContext): void {
+  // eslint-disable-next-line no-console
+  console.error('[astro-window]', ctx, error)
+}
 
 // ── Page component ─────────────────────────────────────────────────────────
 
@@ -312,14 +332,52 @@ function AstroWindowPage() {
                 <CloudLayersChart hourly={data.detail.hourly} />
                 {selectedSite ? (
                   <>
-                    <SkyPanorama
-                      key={`${selectedSite.id}-${selectedDate}`}
-                      site={selectedSite}
-                      detailDate={selectedDate}
-                      hourly={data.detail.hourly}
-                      moonIllumination={selectedNight.moon.illumination}
-                    />
-                    <MonthlyBudgetChart site={selectedSite} />
+                    {/*
+                      Each chart owns its own Suspense AND error boundary. Both read upstreams
+                      that legitimately 502 (the DEM bucket, the Lorenz atlas), and neither is
+                      worth the rest of the page: a failed skyline should cost the panorama, not
+                      the verdict above it.
+                    */}
+                    <BasaltErrorBoundary
+                      onError={reportChartError}
+                      fallback={
+                        <ChartEmpty
+                          height={PANORAMA_HEIGHT}
+                          message="Terrain or sky-brightness data is unavailable for this site right now."
+                        />
+                      }
+                    >
+                      <Suspense
+                        fallback={
+                          <ChartEmpty height={PANORAMA_HEIGHT} message="Measuring the skyline…" />
+                        }
+                      >
+                        <SkyPanorama
+                          key={`${selectedSite.id}-${selectedDate}`}
+                          site={selectedSite}
+                          detailDate={selectedDate}
+                          hourly={data.detail.hourly}
+                          moonIllumination={selectedNight.moon.illumination}
+                        />
+                      </Suspense>
+                    </BasaltErrorBoundary>
+                    <BasaltErrorBoundary
+                      onError={reportChartError}
+                      fallback={
+                        <ChartEmpty
+                          height={CHART_HEIGHT}
+                          message="The annual budget is unavailable for this site right now."
+                        />
+                      }
+                    >
+                      <Suspense
+                        fallback={
+                          <ChartEmpty height={CHART_HEIGHT} message="Integrating the year…" />
+                        }
+                      >
+                        <MonthlyBudgetChart site={selectedSite} />
+                      </Suspense>
+                    </BasaltErrorBoundary>
                   </>
                 ) : (
                   <ChartEmpty height={PANORAMA_HEIGHT} message="Unknown site" />

@@ -989,13 +989,27 @@ describe('GET /astro/visibility', () => {
     expect(body.horizonComplete).toBe(false)
   })
 
-  it('caches a complete answer hard and PRIVATELY, with a strong ETag', async () => {
+  it('caches a complete answer hard and PRIVATELY when the year is in the URL', async () => {
     const { app } = build()
-    const res = await rawHeaders(app, '/astro/visibility?site=walchensee')
+    const res = await rawHeaders(app, '/astro/visibility?site=walchensee&year=2027')
     expect(res.status).toBe(200)
     expect(res.headers.get('cache-control')).toBe(
       'private, max-age=2592000, stale-while-revalidate=86400',
     )
+    expect(res.headers.get('etag')).toMatch(/^"[0-9a-f]{32}"$/)
+  })
+
+  it('will not cache a clock-defaulted year for 30 days', async () => {
+    /*
+     * With no `year` the answer is a function of the CURRENT UTC year, which the
+     * URL does not carry — so a 30-day `max-age` would keep serving the old
+     * year's budget well into January. `no-cache` still stores the body and
+     * still gets a 304 off the ETag, so nothing recomputes; it just has to ask.
+     */
+    const { app } = build()
+    const res = await rawHeaders(app, '/astro/visibility?site=walchensee')
+    expect(res.status).toBe(200)
+    expect(res.headers.get('cache-control')).toBe('private, no-cache')
     expect(res.headers.get('etag')).toMatch(/^"[0-9a-f]{32}"$/)
   })
 

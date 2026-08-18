@@ -216,7 +216,13 @@ export function southernHorizon(profile: HorizonProfile): { maxDeg: number; mean
 
 /**
  * Skyline altitude at an arbitrary bearing, linearly interpolated between the
- * profile's samples and wrapping across 360°→0°. Every later consumer of a
+ * profile's samples and wrapping across 360°→0°.
+ *
+ * This is the interpolator for a `HorizonProfile` — the shape `GET /astro/horizon`
+ * serves and the generator marches. Scoring reads the committed flat arrays through
+ * {@link horizonDegAt} instead, so nothing in the request path calls this one; it is
+ * here for consumers of the profile itself (the POC scripts, and any caller holding
+ * a `HorizonPoint[]` rather than a bare degree array). Every later consumer of a
  * horizon profile (scoring at the core's own azimuth, the panorama chart,
  * click-anywhere map scouting) reads through this rather than re-deriving its
  * own interpolation — port of `docs/poc/astro-horizon/sites.ts`'s `horizonAt`.
