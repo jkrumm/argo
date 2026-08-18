@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Suspense, useCallback, useMemo } from 'react'
-import { Grid, Group, Stack } from '@mantine/core'
+import { Grid, Group, Stack, useComputedColorScheme } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { ChartHoverSync } from 'basalt-ui/charts'
@@ -18,6 +18,16 @@ import {
   SiteSelector,
   VerdictHero,
   ViewTabs,
+  BASE_LAYER_IDS,
+  DEFAULT_LP_YEAR,
+  formatLpParam,
+  formatWeatherParam,
+  LP_PARAM_VALUES,
+  normaliseLayerState,
+  parseLpParam,
+  parseWeatherParam,
+  SCHEME_DEFAULT_BASE,
+  type MapLayerState,
 } from '../features/astro-window'
 import { astroQueries, type AstroWindowParams } from '../lib/queries/astro'
 
@@ -25,11 +35,39 @@ import { astroQueries, type AstroWindowParams } from '../lib/queries/astro'
 
 const ViewEnum = z.enum(['tonight', 'map', 'forecast'])
 
+/**
+ * The map's configuration rides in the URL so a configured map is linkable and survives a reload
+ * — but COMPACTLY. Four weather overlays with an opacity each would be eight query keys; `wx`
+ * carries them as one delimited string (`radar.cloudmask:30`), decoded by the catalogue.
+ *
+ * `base` is deliberately OPTIONAL rather than defaulted: absent means "follow the colour scheme",
+ * which is what keeps a dark/light toggle swapping the basemap for anyone who never opened the
+ * drawer. It is only written to the URL when the pick differs from the scheme's own default.
+ *
+ * All three map keys carry `.catch()`, and that is not belt-and-braces — without it the page whose
+ * whole job is to be linkable throws on its own links. TanStack's default parser is
+ * `parseSearchWith(JSON.parse)`, so `?lp=2025` decodes to the NUMBER 2025 and a bare `z.enum` of
+ * string literals rejects it; the thrown `SearchParamError` replaces the entire route with the
+ * error component. The app's own encoder writes `?lp=%222025%22` (`defaultStringifySearch` quotes
+ * a string that would otherwise round-trip as a number), so anyone tidying the quotes out of a
+ * shared link lands on exactly that form. `.catch()` is what makes the catalogue's documented
+ * fallbacks — `parseLpParam`'s unknown-year clamp, `baseLayer`'s unknown-id fallback — reachable
+ * code rather than dead code behind a validator that already threw.
+ */
 const SearchSchema = z.object({
   site: z.string().default('alpenvorland'),
   nights: z.number().int().min(1).max(14).default(10),
   detailDate: z.string().optional(),
   tab: ViewEnum.default('tonight'),
+  base: z.enum(BASE_LAYER_IDS).optional().catch(undefined),
+  lp: z.enum(LP_PARAM_VALUES).catch(String(DEFAULT_LP_YEAR)),
+  // Normalised rather than rejected: unknown ids are dropped by `parseWeatherParam`, so a stale
+  // link opens a slightly different map instead of erroring on the page whose job is to be linked.
+  wx: z
+    .string()
+    .optional()
+    .catch(undefined)
+    .transform((raw) => formatWeatherParam(parseWeatherParam(raw))),
 })
 
 type SearchParams = z.infer<typeof SearchSchema>
@@ -77,49 +115,88 @@ function AstroWindowPage() {
 
   const { data } = useSuspenseQuery(astroQueries.window(params))
 
+  /*
+   * Every handler spreads the CURRENT search rather than listing the keys it cares about. With
+   * the map's three keys now in the schema, the old key-by-key form silently dropped them:
+   * changing the site would have reset the basemap, the atlas year and every weather overlay.
+   *
+   * A `(prev) => …` reducer is the obvious alternative and does not typecheck here — TanStack
+   * types `prev` as the union of every route's search params, so `site`/`nights` come back
+   * optional and the result no longer satisfies this route's schema.
+   */
   const handleSiteChange = useCallback(
     (site: string) => {
       void navigate({
         to: '/astro-window',
-        search: { site, nights: search.nights, detailDate: undefined, tab: search.tab },
+        search: { ...search, site, detailDate: undefined },
       })
     },
-    [navigate, search.nights, search.tab],
+    [navigate, search],
   )
 
   const handleNightsChange = useCallback(
     (nights: number) => {
       void navigate({
         to: '/astro-window',
-        search: { site: search.site, nights, detailDate: undefined, tab: search.tab },
+        search: { ...search, nights, detailDate: undefined },
       })
     },
-    [navigate, search.site, search.tab],
+    [navigate, search],
   )
 
   const handleSelectDate = useCallback(
     (detailDate: string) => {
-      void navigate({
-        to: '/astro-window',
-        search: { site: search.site, nights: search.nights, detailDate, tab: search.tab },
-      })
+      void navigate({ to: '/astro-window', search: { ...search, detailDate } })
     },
-    [navigate, search.site, search.nights, search.tab],
+    [navigate, search],
   )
 
   const handleTabChange = useCallback(
     (tab: AstroView) => {
+      void navigate({ to: '/astro-window', search: { ...search, tab } })
+    },
+    [navigate, search],
+  )
+
+  /*
+   * The map's layer state, decoded once. `base` resolves against the live colour scheme so the
+   * map component never has to know that an absent param means "follow the theme" — and the
+   * encoder below drops it again when it matches, so a toggle in the drawer that lands back on
+   * the scheme default leaves the URL clean and scheme-reactive.
+   */
+  const resolvedScheme = useComputedColorScheme('dark')
+  const schemeDefaultBase = SCHEME_DEFAULT_BASE[resolvedScheme]
+
+  const layers = useMemo<MapLayerState>(
+    () =>
+      // `normaliseLayerState` applies the imagery/pollution exclusion HERE rather than only in the
+      // drawer's handlers, so a shared or hand-trimmed link cannot mount a combination the drawer
+      // would refuse to produce — `?base=eox-s2cloudless` alone is enough, since `lp` defaults to
+      // the latest vintage rather than to off.
+      normaliseLayerState({
+        base: search.base ?? schemeDefaultBase,
+        lpYear: parseLpParam(search.lp),
+        weather: parseWeatherParam(search.wx),
+      }),
+    [search.base, search.lp, search.wx, schemeDefaultBase],
+  )
+
+  const handleLayersChange = useCallback(
+    (next: MapLayerState) => {
       void navigate({
         to: '/astro-window',
         search: {
-          site: search.site,
-          nights: search.nights,
-          detailDate: search.detailDate,
-          tab,
+          ...search,
+          base: next.base === schemeDefaultBase ? undefined : next.base,
+          lp: formatLpParam(next.lpYear),
+          wx: formatWeatherParam(next.weather),
         },
+        // A layer toggle is a view setting, not a place — stacking one history entry per
+        // checkbox would make the back button walk the drawer instead of leaving the page.
+        replace: true,
       })
     },
-    [navigate, search.site, search.nights, search.detailDate],
+    [navigate, search, schemeDefaultBase],
   )
 
   const selectedDate = data.detail.date
@@ -157,6 +234,8 @@ function AstroWindowPage() {
             siteId={search.site}
             onSelectSite={handleSiteChange}
             height={MAP_FULL_BLEED_HEIGHT}
+            layers={layers}
+            onLayersChange={handleLayersChange}
           />
         </Suspense>
       ) : (
@@ -177,8 +256,8 @@ function AstroWindowPage() {
               <Grid gap="sm" align="stretch">
                 {/* The facts panel keeps its column width — it is a label/value list, and
                     stretched across the full page the two halves of every row drift apart. The
-                    columns the map used to occupy stay empty on purpose; Phase 5's skyglow rose
-                    is what fills them. */}
+                    columns the map used to occupy stay empty on purpose; the skyglow rose is
+                    what fills them, once something renders it. */}
                 <Grid.Col span={{ base: 12, md: 7, lg: 5 }}>
                   <NightFacts
                     night={selectedNight}

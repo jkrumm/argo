@@ -41,6 +41,26 @@ export {
   killerLabel,
 } from './formulas'
 
+export {
+  BASE_LAYER_IDS,
+  BASE_LAYERS,
+  DEFAULT_LP_YEAR,
+  formatLpParam,
+  formatWeatherParam,
+  LP_PARAM_VALUES,
+  LP_YEARS,
+  normaliseLayerState,
+  parseLpParam,
+  parseWeatherParam,
+  SCHEME_DEFAULT_BASE,
+  WEATHER_LAYERS,
+  type BaseLayerId,
+  type LpYear,
+  type MapLayerState,
+  type WeatherLayerId,
+  type WeatherSelection,
+} from './map-layers'
+
 export { Section } from './section'
 
 export { SiteSelector, type SiteSelectorProps } from './components/site-selector'

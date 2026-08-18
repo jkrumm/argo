@@ -1,12 +1,22 @@
-import { useEffect, useRef, useState } from 'react'
-import { Box, Card, Group, Paper, Stack, Text, useComputedColorScheme } from '@mantine/core'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  ActionIcon,
+  Box,
+  Card,
+  Group,
+  Paper,
+  Stack,
+  Text,
+  Tooltip,
+  useComputedColorScheme,
+} from '@mantine/core'
+import { IconAdjustments, IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import {
   AttributionControl,
   Map as MapLibreMap,
   Marker,
   setWorkerUrl,
-  type AddLayerObject,
   type RequestParameters,
 } from 'maplibre-gl'
 // Vite's dependency optimizer rewrites maplibre's ESM entry but cannot follow the sibling import
@@ -22,32 +32,30 @@ import { alpha, VX } from 'basalt-ui/tokens'
 import { astroQueries } from '../../../lib/queries/astro'
 import { apiBase } from '../../../lib/api-base'
 import { getToken } from '../../../lib/auth'
-import { LP } from '../../../lib/series'
 import { MAP_MIN_HEIGHT } from '../constants'
 import { ChartEmpty } from '../charts/empty'
-
-/**
- * OpenFreeMap ships unauthenticated, self-hostable OpenMapTiles-based styles — no API key, no
- * signup. CARTO's basemaps (the usual alternative) require an Enterprise licence or a grant for
- * an app like this one, so they are not a licensed option here.
- *
- * `fiord` replaced `dark` on 2026-08-18 (ASTRO-MAP-RESEARCH §6.6, decided by rendering the real
- * tiles against four basemaps): ofm-dark's road network renders near-black and heavy, so the
- * roads read louder than the light-pollution data sitting under them. fiord is cool blue-grey
- * with quiet roads and legible Alpine terrain shading, which leaves the domes as the only loud
- * thing on the map.
- */
-const STYLE_URL = {
-  dark: 'https://tiles.openfreemap.org/styles/fiord',
-  light: 'https://tiles.openfreemap.org/styles/positron',
-} as const
+import {
+  baseLayer,
+  LP_RAMP,
+  LP_RAMP_MAX,
+  LP_RAMP_MIN,
+  LP_SITE_BAND,
+  RADAR_FRAME_MS,
+  radarFrameTimes,
+  SCHEME_DEFAULT_BASE,
+  SCHEME_STYLE_URL,
+  weatherLayer,
+  type MapLayerState,
+} from '../map-layers'
+import { installOverlays, paintOverlays, refreshLpRamp, type OverlayState } from './map-overlays'
+import { MapSettingsDrawer } from './map-settings-drawer'
 
 /*
  * Attribution is contractually required and comes from the SOURCE, not the style: OpenFreeMap's
  * style JSON has none, but the TileJSON it points at (`/planet`) carries the canonical linked
  * string, which MapLibre renders on its own. Passing `customAttribution` as well printed it twice
- * — so the control is mounted bare and the source supplies the text. Our own LP source follows
- * the same rule: it declares the atlas credit itself, and MapLibre composes the two.
+ * — so the control is mounted bare and the source supplies the text. Every source in the layer
+ * catalogue follows the same rule: it declares its own credit, and MapLibre composes them.
  */
 
 const DEFAULT_CENTER: [number, number] = [11.5, 48.1]
@@ -64,154 +72,12 @@ setWorkerUrl(maplibreWorkerUrl)
  */
 const FIT_BOUNDS_OPTIONS = { padding: 48, duration: 0 } as const // theme-allow
 
-// ── Light-pollution overlay ────────────────────────────────────────────────
-
-/** Atlas vintage. The year selector is Phase 5's; until then the map shows the latest. */
-const LP_ATLAS_YEAR = 2025
-
-const LP_SOURCE_ID = 'argo-lp'
-const LP_LAYER_ID = 'argo-lp-relief'
-
-/**
- * Built from the app's one shared API base (`lib/api-base`), never hardcoded — in production the
- * dashboard is served from `argo.jkrumm.com` and the API lives under `/api` on the same origin,
- * so a localhost literal here would leave the map with no data at all.
- */
-const LP_TILE_URL = `${apiBase}/astro/tiles/lp/${LP_ATLAS_YEAR}/{z}/{x}/{y}.png`
-
-/** The atlas licence requires the credit; MapLibre renders it from the source. */
-const LP_ATTRIBUTION = 'Light Pollution Atlas 2025, David J. Lorenz'
-
-/**
- * The ramp, as ONE table so it reads as a ramp.
- *
- * `stop` is the raw tile payload — mpsas × 100, i.e. `1800` is 18.00 mag/arcsec². The stops
- * ASCEND (MapLibre's `interpolate` requires it), which is why the table runs from the polluted
- * end to the pristine one rather than the other way round.
- *
- * `alpha` is ramp GEOMETRY, not series identity — `lpDark`/`lpDarker`/`lpPristine` are one hue
- * separated only by opacity — so it lives here beside the stops rather than in the token. The
- * ladder is recorded in DESIGN.md under "Light pollution ramp".
- */
-const LP_RAMP: ReadonlyArray<{ stop: number; token: string; alpha: number }> = [
-  { stop: 1800, token: LP.lpCity, alpha: 0.9 }, // 18.00 — inner city
-  { stop: 1960, token: LP.lpUrban, alpha: 0.62 }, // 19.60
-  { stop: 2060, token: LP.lpSuburban, alpha: 0.4 }, // 20.60
-  { stop: 2130, token: LP.lpRural, alpha: 0.2 }, // 21.30 — the neutral crossing
-  { stop: 2155, token: LP.lpDark, alpha: 0.14 }, // 21.55 — the band our sites live in
-  { stop: 2180, token: LP.lpDarker, alpha: 0.3 }, // 21.80
-  { stop: 2200, token: LP.lpPristine, alpha: 0.44 }, // 22.00 — natural sky
-]
-
-/** The two ends of the ramp, in mpsas × 100 — the legend's axis and the gradient's domain. */
-const LP_RAMP_MIN = LP_RAMP[0]?.stop ?? 0
-const LP_RAMP_MAX = LP_RAMP[LP_RAMP.length - 1]?.stop ?? 0
-
-/** Where the ramp crosses into the cool half — read off the table, not restated as a literal. */
-const LP_SITE_BAND = LP_RAMP.find((s) => s.token === LP.lpDark)?.stop ?? LP_RAMP_MAX
-
-type ColorReliefLayer = Extract<AddLayerObject, { type: 'color-relief' }>
-type LpRampExpression = NonNullable<ColorReliefLayer['paint']>['color-relief-color']
-
-const CSS_VAR_REF = /^var\(\s*(--[\w-]+)\s*\)$/
-const SIX_DIGIT_HEX = /^#[\da-fA-F]{6}$/
-
-/**
- * MapLibre parses its own colour strings with its own parser: it understands neither
- * `var(--vx-*)` nor `color-mix()`, so a registered token has to be RESOLVED to a literal before
- * it can reach the style. Same trick the hermes-chat vega-lite bridge uses (`readThemeColors`) —
- * read the custom property off `document.documentElement` with `getComputedStyle`.
- *
- * The palette declares group values as plain 6-digit hex, so the stop's alpha is applied by
- * appending the eighth hex byte; MapLibre's style spec parses `#rrggbbaa`. If a palette value is
- * ever something else (a `color-mix`, an `oklch`), the alpha is dropped rather than concatenated
- * into a string MapLibre would reject — an opaque stop is a visible degradation, a parse error is
- * an invisible one.
- */
-function resolveStopColor(cs: CSSStyleDeclaration, token: string, opacity: number): string {
-  const varName = CSS_VAR_REF.exec(token)?.[1]
-  const resolved = (varName === undefined ? token : cs.getPropertyValue(varName)).trim()
-  if (!SIX_DIGIT_HEX.test(resolved)) return resolved
-  const alphaByte = Math.round(opacity * 255)
-    .toString(16)
-    .padStart(2, '0')
-  return `${resolved}${alphaByte}`
-}
-
-/**
- * Reads the live palette and returns the paint expression. Called on every `style.load`, so a
- * dark/light flip rebuilds the ramp from the scheme's own shades rather than reusing the other
- * scheme's. The cast is unavoidable: spreading a variable-length stop list widens the tuple that
- * `ExpressionSpecification` is, and the shape is validated by the style spec at runtime anyway.
- */
-function buildLpRamp(): LpRampExpression {
-  const cs = getComputedStyle(document.documentElement)
-  const stops = LP_RAMP.flatMap(({ stop, token, alpha: opacity }) => [
-    stop,
-    resolveStopColor(cs, token, opacity),
-  ])
-  return ['interpolate', ['linear'], ['elevation'], ...stops] as LpRampExpression
-}
-
-/**
- * Every raster this app adds must sit BELOW the basemap's first symbol layer, or the place names
- * disappear underneath it. Phase 5 adds more rasters (weather overlays, imagery) — they go
- * through here too. Falling back to `undefined` (append on top) is correct for a style with no
- * symbol layer at all: there are no labels to bury.
- */
-function addRasterBelowLabels(map: MapLibreMap, layer: AddLayerObject): void {
-  const firstSymbol = map.getStyle().layers.find((l) => l.type === 'symbol')
-  map.addLayer(layer, firstSymbol?.id)
-}
-
-/**
- * Registers every source and layer THIS app owns, on top of whatever basemap style is current.
- *
- * Wired to `style.load` rather than called once, because a style swap destroys the entire style
- * object — sources and layers included. Phase 5's overlays register here as well; the guards make
- * it idempotent so a second call is harmless.
- */
-function installOverlays(map: MapLibreMap): void {
-  if (map.getSource(LP_SOURCE_ID) === undefined) {
-    map.addSource(LP_SOURCE_ID, {
-      // Not terrain: the tiles are terrarium-ENCODED DATA (mpsas × 100), and `raster-dem` +
-      // `color-relief` is the only MapLibre path that colours a numeric raster with our own
-      // ramp. Mapbox's `raster-color` does not exist here (ASTRO-MAP-RESEARCH §6.3).
-      type: 'raster-dem',
-      tiles: [LP_TILE_URL],
-      tileSize: 256,
-      minzoom: 5,
-      maxzoom: 9,
-      encoding: 'terrarium',
-      attribution: LP_ATTRIBUTION,
-    })
-  }
-
-  if (map.getLayer(LP_LAYER_ID) === undefined) {
-    addRasterBelowLabels(map, {
-      id: LP_LAYER_ID,
-      type: 'color-relief',
-      source: LP_SOURCE_ID,
-      paint: {
-        'color-relief-color': buildLpRamp(),
-        'color-relief-opacity': 1,
-        // `resampling`, NOT `raster-resampling`. The latter is a RASTER-layer property; the
-        // style-spec validator rejects it on a color-relief layer with `unknown property
-        // "raster-resampling"` and the layer never gets added — verified against the shipped
-        // @maplibre/maplibre-gl-style-spec. `nearest` shows the atlas's true 30 arcsec
-        // granularity instead of pretending to a resolution the data does not have; the source
-        // stops at z9, so everything above it overzooms, which is exactly where that matters.
-        resampling: 'nearest',
-      },
-    })
-  }
-}
-
 /**
  * Our tile route is bearer-guarded, and `transformRequest` is the only place MapLibre lets an
  * Authorization header onto a tile request. The match is a PREFIX test against the API base URL,
  * never a substring like '/astro/' — a third-party URL containing that substring would otherwise
- * be handed our token.
+ * be handed our token. Every weather overlay in the catalogue is somebody else's host, so this
+ * predicate is the thing keeping the token off them.
  */
 function transformRequest(url: string): RequestParameters {
   if (!url.startsWith(`${apiBase}/`)) return { url }
@@ -225,10 +91,15 @@ export default function SiteMap({
   siteId,
   onSelectSite,
   height,
+  layers,
+  onLayersChange,
 }: {
   siteId: string
   onSelectSite: (id: string) => void
   height: number | string
+  /** The decoded search params — the single source of truth for what is on the map. */
+  layers: MapLayerState
+  onLayersChange: (next: MapLayerState) => void
 }) {
   const { data } = useSuspenseQuery(astroQueries.sites())
   // `useComputedColorScheme` (not `useMantineColorScheme`) so an `auto` scheme following the OS
@@ -236,15 +107,44 @@ export default function SiteMap({
   // here would paint the light shades onto the dark basemap.
   const resolvedScheme = useComputedColorScheme('dark')
 
+  const base = baseLayer(layers.base)
+  // An imagery base is a raster mounted OVER the scheme's own vector style, so the labels survive
+  // on top of it — which means the STYLE url only moves when a style base is picked.
+  const styleUrl = base.kind === 'style' ? base.styleUrl : SCHEME_STYLE_URL[resolvedScheme]
+
+  const radarActive = layers.weather.some((selection) => weatherLayer(selection.id)?.animated)
+  /**
+   * The frame timestamps are derived ONCE per radar activation and then held steady, so a
+   * re-render, a restyle or a theme flip re-mounts exactly the same twelve sources instead of
+   * re-requesting a shifted set. The consequence is deliberate: a map left open for hours keeps
+   * showing the frames it opened with, which is why the timestamp is on screen in mono.
+   */
+  const radarTimes = useMemo(() => (radarActive ? radarFrameTimes(new Date()) : []), [radarActive])
+
+  const overlayState = useMemo<OverlayState>(
+    () => ({ ...layers, radarTimes }),
+    [layers, radarTimes],
+  )
+
+  const [frame, setFrame] = useState(0)
+  const [playing, setPlaying] = useState(true)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const markersRef = useRef<Marker[]>([])
-  const initialSchemeRef = useRef(resolvedScheme)
+  const initialStyleRef = useRef(styleUrl)
   const isFirstStyleRef = useRef(true)
   const hasStyleLoadedRef = useRef(false)
   const hasFitRef = useRef(false)
   const onSelectSiteRef = useRef(onSelectSite)
   onSelectSiteRef.current = onSelectSite
+  // `style.load` fires asynchronously and has to rebuild whatever the CURRENT state asks for, so
+  // it reads the state off refs rather than closing over the values it was subscribed with.
+  const overlayStateRef = useRef(overlayState)
+  overlayStateRef.current = overlayState
+  const frameRef = useRef(frame)
+  frameRef.current = frame
   const [failed, setFailed] = useState(false)
 
   // Create/destroy exactly once. React 19 StrictMode double-invokes effects, so the create and
@@ -253,7 +153,7 @@ export default function SiteMap({
     if (!containerRef.current) return
     const map = new MapLibreMap({
       container: containerRef.current,
-      style: STYLE_URL[initialSchemeRef.current],
+      style: initialStyleRef.current,
       center: DEFAULT_CENTER,
       zoom: DEFAULT_ZOOM,
       attributionControl: false,
@@ -265,7 +165,8 @@ export default function SiteMap({
     // every failed tile fetch surfaces on it — and the LP source is bearer-guarded, so a
     // missing or expired token would otherwise 401 on every overlay tile and blank the
     // basemap and the markers along with it. A map with no overlay still answers questions;
-    // a hidden map answers none.
+    // a hidden map answers none. It also swallows the weather overlays' own failures, which
+    // are third-party hosts we do not control.
     map.on('error', () => {
       if (!hasStyleLoadedRef.current) setFailed(true)
     })
@@ -275,7 +176,8 @@ export default function SiteMap({
     // effect below for why that event is guaranteed to fire on a swap.
     map.on('style.load', () => {
       hasStyleLoadedRef.current = true
-      installOverlays(map)
+      installOverlays(map, overlayStateRef.current)
+      paintOverlays(map, overlayStateRef.current, frameRef.current)
     })
     mapRef.current = map
 
@@ -301,19 +203,21 @@ export default function SiteMap({
   }, [])
 
   /*
-   * Theme toggle, step by step — the one thing most likely to be silently broken:
+   * Style swap, step by step — the one thing most likely to be silently broken:
    *
-   * 1. `resolvedScheme` flips, this effect runs and calls `setStyle` with the other basemap.
+   * 1. `styleUrl` changes, either because the colour scheme flipped (no base pinned) or because
+   *    a base was picked in the drawer. This effect calls `setStyle` with the new one.
    * 2. `diff: false` is LOAD-BEARING. MapLibre's default (`diff: true`) fetches the new style
-   *    and reconciles it against the current one with `Style.setState` — and because our LP
-   *    source and layer exist only in the current style, the diff's verdict is "remove them".
+   *    and reconciles it against the current one with `Style.setState` — and because our own
+   *    sources and layers exist only in the current style, the diff's verdict is "remove them".
    *    No new Style object is constructed, so `style.load` never fires and nothing re-adds them:
-   *    the overlay would vanish on the first toggle and never come back. `diff: false` forces a
+   *    the overlays would vanish on the first toggle and never come back. `diff: false` forces a
    *    full rebuild, which is exactly what fires `style.load`.
-   * 3. `style.load` (subscribed once, in the create effect) runs `installOverlays`, which re-adds
-   *    the source and rebuilds the ramp — `buildLpRamp` re-reads the CSS vars, so the new stops
-   *    are the new scheme's shades. It resolves after the style fetch, long after Mantine has
-   *    flipped `data-mantine-color-scheme`, so there is no read-too-early race.
+   * 3. `style.load` (subscribed once, in the create effect) runs `installOverlays` against the
+   *    CURRENT state ref, so exactly the layers the drawer says are on come back — not a
+   *    hardcoded set — and `buildLpRamp` re-reads the CSS vars, so the ramp's stops are the new
+   *    scheme's shades. It resolves after the style fetch, long after Mantine has flipped
+   *    `data-mantine-color-scheme`, so there is no read-too-early race.
    * 4. Markers need nothing: a `Marker` is a DOM element MapLibre positions over the canvas, not
    *    part of the style, so `setStyle` never touches it — and its colours are `var(--vx-*)`
    *    strings the browser re-resolves on the scheme flip with no JS at all.
@@ -325,8 +229,71 @@ export default function SiteMap({
       isFirstStyleRef.current = false
       return
     }
-    mapRef.current?.setStyle(STYLE_URL[resolvedScheme], { diff: false })
+    mapRef.current?.setStyle(styleUrl, { diff: false })
+  }, [styleUrl])
+
+  /*
+   * The scheme and the style URL stopped being the same event the moment a base could be pinned:
+   * flipping dark/light with an explicit base selected changes every CSS variable but loads no
+   * new style, so nothing fires `style.load` and the ramp would keep painting the other scheme's
+   * shades. Re-resolving the paint expression is cheap and touches no source.
+   */
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !hasStyleLoadedRef.current) return
+    refreshLpRamp(map, overlayStateRef.current)
   }, [resolvedScheme])
+
+  // Drawer changes: add/remove sources and layers, then paint. Guarded on the style being up —
+  // when it is not, `style.load` will run both against the same ref and nothing is lost.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !hasStyleLoadedRef.current) return
+    installOverlays(map, overlayState)
+    paintOverlays(map, overlayState, frameRef.current)
+  }, [overlayState])
+
+  // The radar loop's only per-frame work: one `setPaintProperty` per frame layer. Never a
+  // re-add and never a re-request — the frames are already sources, and MapLibre's default
+  // paint transition turns the step into a crossfade.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !hasStyleLoadedRef.current) return
+    paintOverlays(map, overlayState, frame)
+  }, [frame, overlayState])
+
+  /*
+   * The loop itself. Two shutdown paths, both required:
+   *
+   * - Leaving the Map tab unmounts this component (the route renders it conditionally), so the
+   *   cleanup below is what stops it.
+   * - Backgrounding the browser tab does NOT unmount, so `visibilitychange` pauses the interval
+   *   instead. The frames are already downloaded, so a hidden loop costs no requests — but it
+   *   does cost a GPU repaint every 500 ms for a canvas nobody is looking at.
+   */
+  const frameCount = radarTimes.length
+  useEffect(() => {
+    if (!playing || frameCount === 0) return
+    let timer: number | undefined
+    const start = () => {
+      timer ??= window.setInterval(
+        () => setFrame((current) => (current + 1) % frameCount),
+        RADAR_FRAME_MS,
+      )
+    }
+    const stop = () => {
+      if (timer === undefined) return
+      window.clearInterval(timer)
+      timer = undefined
+    }
+    const sync = () => (document.visibilityState === 'visible' ? start() : stop())
+    sync()
+    document.addEventListener('visibilitychange', sync)
+    return () => {
+      stop()
+      document.removeEventListener('visibilitychange', sync)
+    }
+  }, [playing, frameCount])
 
   // Markers: one per site, the selected one visually distinct. Re-synced whenever the site list
   // or the selection changes; must wait for the style to finish loading at least once.
@@ -389,6 +356,8 @@ export default function SiteMap({
     else map.once('style.load', fit)
   }, [data])
 
+  const closeDrawer = useCallback(() => setDrawerOpen(false), [])
+
   return (
     <Card
       py={0}
@@ -404,9 +373,92 @@ export default function SiteMap({
           <ChartEmpty height="100%" message="Map unavailable — could not reach the tile server." />
         </Box>
       ) : (
-        <LpLegend />
+        <>
+          {/* One cluster, laid out by a Group — the radar clock appears beside the settings
+              trigger rather than at a second hand-guessed offset. */}
+          <Box pos="absolute" top={8} left={8}>
+            <Group gap="xs" wrap="nowrap" align="flex-start">
+              <Tooltip label="Map layers">
+                <ActionIcon
+                  variant="default"
+                  aria-label="Map layers"
+                  onClick={() => setDrawerOpen(true)}
+                >
+                  <IconAdjustments size={16} />
+                </ActionIcon>
+              </Tooltip>
+              {frameCount > 0 && (
+                <RadarClock
+                  times={radarTimes}
+                  frame={frame}
+                  playing={playing}
+                  onToggle={() => setPlaying((current) => !current)}
+                />
+              )}
+            </Group>
+          </Box>
+          {layers.lpYear !== null && <LpLegend year={layers.lpYear} />}
+        </>
       )}
+      <MapSettingsDrawer
+        opened={drawerOpen}
+        onClose={closeDrawer}
+        state={layers}
+        onChange={onLayersChange}
+        schemeDefaultBase={SCHEME_DEFAULT_BASE[resolvedScheme]}
+      />
     </Card>
+  )
+}
+
+// ── Radar clock ────────────────────────────────────────────────────────────
+
+const CLOCK_FORMAT = new Intl.DateTimeFormat('en-GB', {
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+})
+
+/**
+ * The frame's own timestamp, in the viewer's local zone, plus the single fact that decides how
+ * much to trust it: a frame later than the wall clock is DWD's nowcast, not a measurement.
+ * Numerals in JetBrains Mono per DESIGN.md.
+ */
+function RadarClock({
+  times,
+  frame,
+  playing,
+  onToggle,
+}: {
+  times: readonly string[]
+  frame: number
+  playing: boolean
+  onToggle: () => void
+}) {
+  const iso = times[Math.min(frame, times.length - 1)] ?? null
+  if (iso === null) return null
+  const at = new Date(iso)
+  const forecast = at.getTime() > Date.now()
+
+  return (
+    <Paper py="xs" px="sm">
+      <Group gap="xs" wrap="nowrap">
+        <ActionIcon
+          variant="subtle"
+          size="sm"
+          aria-label={playing ? 'Pause radar loop' : 'Play radar loop'}
+          onClick={onToggle}
+        >
+          {playing ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
+        </ActionIcon>
+        <Text ff="monospace" size="xs">
+          {CLOCK_FORMAT.format(at)}
+        </Text>
+        <Text size="xs" c="dimmed">
+          {forecast ? 'nowcast' : 'observed'}
+        </Text>
+      </Group>
+    </Paper>
   )
 }
 
@@ -429,10 +481,11 @@ const fmtMag = (stop: number) => (stop / 100).toFixed(1)
 
 /**
  * Seven stops are too many to label one by one, so the legend names only the three readings that
- * decide anything: the two ends, and the value the site markers have to clear. Numerals in
- * JetBrains Mono per DESIGN.md; quiet enough to sit on the map without competing with it.
+ * decide anything: the two ends, and the value the site markers have to clear. The atlas vintage
+ * rides along because the drawer can now change it — a legend that did not say which year it was
+ * describing would be the wrong kind of quiet. Numerals in JetBrains Mono per DESIGN.md.
  */
-function LpLegend() {
+function LpLegend({ year }: { year: number }) {
   return (
     <Box pos="absolute" bottom={8} left={8}>
       <Paper py="xs" px="sm">
@@ -451,7 +504,10 @@ function LpLegend() {
             <Text span ff="monospace" size="xs" c="dimmed">
               {fmtMag(LP_SITE_BAND)}
             </Text>
-            , where the sites sit
+            , where the sites sit{' '}
+            <Text span ff="monospace" size="xs" c="dimmed">
+              ({year})
+            </Text>
           </Text>
         </Stack>
       </Paper>
