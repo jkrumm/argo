@@ -192,7 +192,9 @@ const HourlyPointSchema = z.object({
   coreAltitude: z.number(),
   coreAzimuth: z.number(),
   sunAltitude: z.number(),
+  sunAzimuth: z.number().describe('Degrees from north through east'),
   moonAltitude: z.number(),
+  moonAzimuth: z.number().describe('Degrees from north through east'),
   astroDark: z.boolean(),
   coreClearance: z
     .number()
@@ -700,6 +702,16 @@ const VISIBILITY_CACHE_CONTROL = 'private, max-age=2592000, stale-while-revalida
  */
 const VISIBILITY_PARTIAL_CACHE_CONTROL = 'no-store'
 
+/**
+ * Wire shapes for the two routes that return a raw `Response` rather than
+ * declaring an Elysia `response` schema — they do that to own their
+ * Cache-Control/ETag headers and answer a bodiless 304, which costs Eden Treaty
+ * the ability to infer the parsed body. Exported so a client casts to THIS
+ * rather than to a hand-mirrored copy that is free to drift.
+ */
+export type HorizonResponse = z.infer<typeof HorizonResponseSchema>
+export type VisibilityResponse = z.infer<typeof VisibilityResponseSchema>
+
 export type AstroRouteDeps = {
   fetchUpstreams: typeof fetchAstroUpstreams
   lightPollution: typeof fetchLightPollution
@@ -1147,7 +1159,9 @@ function serializeHourly(night: AstroNight, upstreams: AstroUpstreams) {
       coreAltitude: round1(sample.coreAltitude),
       coreAzimuth: round1(sample.coreAzimuth),
       sunAltitude: round1(sample.sunAltitude),
+      sunAzimuth: round1(sample.sunAzimuth),
       moonAltitude: round1(sample.moonAltitude),
+      moonAzimuth: round1(sample.moonAzimuth),
       astroDark: sample.astroDark,
       coreClearance: Number.isNaN(sample.coreClearance) ? null : round1(sample.coreClearance),
       moonBehindTerrain: sample.moonBehindTerrain,

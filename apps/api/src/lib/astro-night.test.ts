@@ -323,3 +323,30 @@ describe('timezone helpers', () => {
     expect(() => night('15-08-2026')).toThrow(/YYYY-MM-DD/)
   })
 })
+
+describe('horizontal azimuths', () => {
+  const night = resolveNight({
+    observer: { lat: 47.6, lon: 11.33 },
+    timeZone: 'Europe/Berlin',
+    date: '2026-08-12',
+    minCoreAltitude: 8,
+  })
+
+  it('puts the sun due north at its lowest, which is what midnight means at 47.6°N', () => {
+    // Not a spot value: it is the one azimuth check that cannot pass by accident,
+    // and it fails loudly if sun altitude and azimuth ever come from different
+    // instants or different observers.
+    const lowest = night.samples.reduce((a, b) => (b.sunAltitude < a.sunAltitude ? b : a))
+    const offNorth = Math.min(lowest.sunAzimuth, 360 - lowest.sunAzimuth)
+    expect(offNorth).toBeLessThan(2)
+  })
+
+  it('carries an azimuth in [0, 360) on every sample for sun, moon and core', () => {
+    for (const sample of night.samples) {
+      for (const azimuth of [sample.sunAzimuth, sample.moonAzimuth, sample.coreAzimuth]) {
+        expect(azimuth).toBeGreaterThanOrEqual(0)
+        expect(azimuth).toBeLessThan(360)
+      }
+    }
+  })
+})

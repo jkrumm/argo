@@ -69,8 +69,14 @@ export type HourlyPoint = {
   coreAltitude: number
   coreAzimuth: number
   sunAltitude: number
+  /** Degrees from north through east. */
+  sunAzimuth: number
   moonAltitude: number
+  /** Degrees from north through east. */
+  moonAzimuth: number
   astroDark: boolean
+  coreClearance: number | null
+  moonBehindTerrain: boolean
   cloudLow: number | null
   cloudMid: number | null
   cloudHigh: number | null

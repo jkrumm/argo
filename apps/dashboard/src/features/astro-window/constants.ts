@@ -9,9 +9,17 @@ export const METRIC_TOOLTIPS = {
     'Galactic core, moon and sun altitude across the night. Shaded bands mark astronomical dark (faint) and the recommended shooting window (stronger, with a top rule). The sun line explains where the dark bands come from.',
   cloudLayers:
     'Low/mid/high cloud cover (%) across the same night, same time axis as the timeline above. Low cloud ends a night outright; high cloud only costs contrast.',
+  skyPanorama:
+    "Azimuth × altitude panorama for tonight: the measured terrain skyline, the artificial skyglow rose behind it, and the tracks the sun, moon and galactic core walk across it. Scrub the slider to see where each one sits at a given time — it opens on the core's highest point while astronomically dark.",
+  monthlyBudget:
+    'Usable galactic-core hours per calendar month at this site, under three progressively honest gates: the flat atmospheric floor, the same floor plus the measured terrain skyline, and terrain with the moon also counted down when it sits behind that skyline. Weather-free and deterministic — answers whether the SITE is worth the drive, not whether tonight is.',
 } as const
 
 export const CHART_HEIGHT = 260
+
+/** Taller than CHART_HEIGHT — the panorama's altitude domain (−4° to 52°) needs the extra room a
+ * single night's timeline doesn't. */
+export const PANORAMA_HEIGHT = 420
 
 /** Fixed height so the map and the night-facts panel line up exactly. */
 export const SIDE_PANEL_HEIGHT = 620

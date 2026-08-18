@@ -10,12 +10,15 @@ import {
   ChartEmpty,
   CloudLayersChart,
   MAP_FULL_BLEED_HEIGHT,
+  MonthlyBudgetChart,
   NightFacts,
   NightStrip,
   NightTimelineChart,
+  PANORAMA_HEIGHT,
   Section,
   SiteMap,
   SiteSelector,
+  SkyPanorama,
   VerdictHero,
   ViewTabs,
   BASE_LAYER_IDS,
@@ -84,8 +87,8 @@ export const Route = createFileRoute('/astro-window')({
     detailDate: search.detailDate,
     tab: search.tab,
   }),
-  loader: ({ context, deps }) =>
-    Promise.all([
+  loader: async ({ context, deps }) => {
+    const [windowData, sites] = await Promise.all([
       context.queryClient.ensureQueryData(
         astroQueries.window({
           site: deps.site,
@@ -94,7 +97,27 @@ export const Route = createFileRoute('/astro-window')({
         }),
       ),
       context.queryClient.ensureQueryData(astroQueries.sites()),
-    ]),
+    ])
+
+    // The panorama + monthly-budget charts only render on the Forecast tab — this is exactly the
+    // "future per-tab prefetch" the `tab` loaderDep above was already carrying for. Coordinates
+    // come from the sites list (never `windowData.location`), so a scouted lat/lon never silently
+    // resolves to a different site's terrain.
+    if (deps.tab === 'forecast') {
+      const site = sites.data.find((s) => s.id === deps.site)
+      if (site) {
+        await Promise.all([
+          context.queryClient.ensureQueryData(
+            astroQueries.horizon({ lat: site.lat, lon: site.lon }),
+          ),
+          context.queryClient.ensureQueryData(
+            astroQueries.skyglow({ lat: site.lat, lon: site.lon, date: windowData.detail.date }),
+          ),
+          context.queryClient.ensureQueryData(astroQueries.visibility({ site: site.id })),
+        ])
+      }
+    }
+  },
   component: AstroWindowPage,
 })
 
@@ -114,6 +137,8 @@ function AstroWindowPage() {
   )
 
   const { data } = useSuspenseQuery(astroQueries.window(params))
+  const { data: sites } = useSuspenseQuery(astroQueries.sites())
+  const selectedSite = sites.data.find((s) => s.id === search.site)
 
   /*
    * Every handler spreads the CURRENT search rather than listing the keys it cares about. With
@@ -274,6 +299,20 @@ function AstroWindowPage() {
               <>
                 <NightTimelineChart hourly={data.detail.hourly} night={selectedNight} />
                 <CloudLayersChart hourly={data.detail.hourly} />
+                {selectedSite ? (
+                  <>
+                    <SkyPanorama
+                      key={`${selectedSite.id}-${selectedDate}`}
+                      site={selectedSite}
+                      detailDate={selectedDate}
+                      hourly={data.detail.hourly}
+                      moonIllumination={selectedNight.moon.illumination}
+                    />
+                    <MonthlyBudgetChart site={selectedSite} />
+                  </>
+                ) : (
+                  <ChartEmpty height={PANORAMA_HEIGHT} message="Unknown site" />
+                )}
               </>
             )}
           </Stack>

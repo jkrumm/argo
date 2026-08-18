@@ -6,6 +6,7 @@ import { app, type App } from './app.js'
 
 export { app }
 export type { App }
+export type { HorizonResponse, VisibilityResponse } from './routes/astro.js'
 
 await runMigrations()
 

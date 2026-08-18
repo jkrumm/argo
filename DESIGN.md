@@ -166,6 +166,11 @@ is ramp geometry and lives with the stops in the map component, not in the token
 | LP: darker   | `#0284c7` | `#38bdf8` | `lpDarker`         | Sky, stop `2180`, alpha `.30` — same hue, deeper alpha       |
 | LP: pristine | `#0284c7` | `#38bdf8` | `lpPristine`       | Cool end, stop `2200`, alpha `.44` — same hue, deepest alpha |
 
+The `LP.*` group is reused verbatim (same tokens, same stops, same alpha ladder) for the sky
+panorama's skyglow field on the Forecast tab: `GET /astro/skyglow`'s rose is the same mag/arcsec²
+quantity this ramp already encodes, measured in the sky rather than on the ground, so it earns the
+same ramp rather than a second one.
+
 Rules for this table (from the `basalt-tokens` / `basalt-charts` rules — do not relax):
 
 - One hue per series, drawn from the identity families only. Never raw Material/AntD/Tailwind.

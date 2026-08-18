@@ -4,6 +4,7 @@ export {
   NIGHTS_OPTIONS,
   METRIC_TOOLTIPS,
   CHART_HEIGHT,
+  PANORAMA_HEIGHT,
   SIDE_PANEL_HEIGHT,
   MAP_FULL_BLEED_HEIGHT,
   MAP_MIN_HEIGHT,
@@ -76,4 +77,6 @@ export const SiteMap = lazy(() => import('./components/site-map'))
 
 export { default as NightTimelineChart } from './charts/night-timeline-chart'
 export { default as CloudLayersChart } from './charts/cloud-layers-chart'
+export { default as SkyPanorama } from './charts/sky-panorama'
+export { default as MonthlyBudgetChart } from './charts/monthly-budget-chart'
 export { ChartEmpty } from './charts/empty'

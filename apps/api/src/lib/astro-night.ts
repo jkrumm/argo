@@ -91,6 +91,8 @@ export type NightSample = {
   coreAzimuth: number
   /** Geometric sun altitude, degrees — the quantity twilight is defined on. */
   sunAltitude: number
+  /** Sun azimuth, degrees from north through east. */
+  sunAzimuth: number
   /** Apparent (refracted, topocentric) moon altitude, degrees. */
   moonAltitude: number
   /** Moon azimuth, degrees from north through east. */
@@ -240,13 +242,27 @@ function toAstroObserver(observer: Observer): AstroObserver {
 }
 
 /**
+ * Geometric sun horizontal coordinates — altitude AND azimuth from one
+ * `Horizon()` call, no refraction, which is the convention every twilight
+ * definition uses. Same rationale as {@link moonHorizontal}: a caller needing
+ * both must not get them from two separate evaluations.
+ */
+export function sunHorizontal(
+  time: Date,
+  observer: Observer,
+): { altitude: number; azimuth: number } {
+  const astroObserver = toAstroObserver(observer)
+  const equatorial = Equator(Body.Sun, time, astroObserver, true, true)
+  const horizontal = Horizon(time, astroObserver, equatorial.ra, equatorial.dec)
+  return { altitude: horizontal.altitude, azimuth: horizontal.azimuth }
+}
+
+/**
  * Geometric sun altitude in degrees — no refraction, which is the convention
  * every twilight definition uses.
  */
 export function sunAltitudeDeg(time: Date, observer: Observer): number {
-  const astroObserver = toAstroObserver(observer)
-  const equatorial = Equator(Body.Sun, time, astroObserver, true, true)
-  return Horizon(time, astroObserver, equatorial.ra, equatorial.dec).altitude
+  return sunHorizontal(time, observer).altitude
 }
 
 /**
@@ -370,7 +386,8 @@ export function resolveNight(options: NightOptions): AstroNight {
   for (let t = spanStart.getTime(); t <= spanEnd.getTime(); t += stepMinutes * MS_PER_MINUTE) {
     const time = new Date(t)
     const core = galacticCorePosition(observer, time)
-    const sunAltitude = sunAltitudeDeg(time, observer)
+    const sun = sunHorizontal(time, observer)
+    const sunAltitude = sun.altitude
     const moon = moonHorizontal(time, observer)
     const inDark =
       darkStart !== null &&
@@ -398,6 +415,7 @@ export function resolveNight(options: NightOptions): AstroNight {
       coreAltitude: core.altitude,
       coreAzimuth: core.azimuth,
       sunAltitude,
+      sunAzimuth: sun.azimuth,
       moonAltitude: moon.altitude,
       moonAzimuth: moon.azimuth,
       astroDark: inDark,
