@@ -12,10 +12,10 @@
  * gunzipping and caching live in `../clients/lorenz-atlas.ts`.
  *
  * The unit is LPI — Lorenz's Light Pollution Index, the ratio of artificial to
- * natural zenith brightness. There is intentionally no Bortle anywhere in this
- * file or its callers: Bortle is a subjective whole-sky scale, a zenith map
- * cannot produce it, and the atlas author asks explicitly that the two not be
- * conflated (§1.3).
+ * natural zenith brightness. No subjective whole-sky darkness class is derived
+ * anywhere in this file or its callers: such a scale is driven by light domes
+ * near the horizon, a zenith map cannot produce it, and the atlas author asks
+ * explicitly that the two not be conflated (§1.3).
  */
 
 /** Atlas vintages published as binary tiles. */

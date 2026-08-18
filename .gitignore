@@ -11,5 +11,8 @@ node_modules/
 # Local API runtime data (OAuth tokens, etc.)
 /apps/api/data/
 
+# Generator scratch: cached terrarium DEM tiles (scripts/gen-astro-sites.ts)
+/apps/api/.cache/
+
 .fallow/
 .gauntlet/

@@ -27,6 +27,7 @@ import { coreTransit, galacticCorePosition } from '../lib/astro-ephemeris.js'
 import { LORENZ_YEARS, LATEST_LORENZ_YEAR, type LorenzYear } from '../lib/lorenz-decode.js'
 import { LP_TILE_MAX_ZOOM, LP_TILE_MIN_ZOOM } from '../lib/lp-tile.js'
 import {
+  ASTRO_SITE_MEASUREMENTS,
   ASTRO_SITES,
   DEFAULT_SITE,
   distanceKm,
@@ -68,12 +69,13 @@ const ATTRIBUTION =
 const MAX_NIGHTS = 14
 
 /**
- * How far the nearest known site may be before its Bortle class stops meaning
- * anything about the requested coordinates. Beyond this the class is reported
- * as unknown and drops out of the score, lowering `coverage` — which is honest,
- * where handing back Munich's Bortle 8 for a request in Tenerife would not be.
+ * How far the nearest known site may be before its measured core-direction sky
+ * brightness stops meaning anything about the requested coordinates. Beyond
+ * this the value is reported as unknown and drops out of the score, lowering
+ * `coverage` — which is honest, where handing back Munich's 17.31 mag/arcsec²
+ * for a request in Tenerife would not be.
  */
-const BORTLE_INFERENCE_RADIUS_KM = 150
+const DARKNESS_INFERENCE_RADIUS_KM = 150
 
 /** Wire resolution for the hourly detail series. The engine still samples at 5 min. */
 const HOURLY_STEP_MINUTES = 30
@@ -173,14 +175,19 @@ const LocationSchema = z.object({
   lon: z.number(),
   name: z.string(),
   timeZone: z.string(),
-  bortle: z
+  coreDirectionMpsas: z
     .number()
-    .int()
     .nullable()
     .describe(
-      '1 (pristine) to 9 (inner city). Null when no known site is close enough to infer it',
+      'Measured sky brightness where the galactic core sits, mag/arcsec² — higher is darker. Null when no known site is close enough to infer it',
     ),
-  bortleSource: z
+  domePenaltyMag: z
+    .number()
+    .nullable()
+    .describe(
+      'How many magnitudes brighter the core direction is than the zenith. Measured at the site when `darknessSource` is `site`; inherited verbatim from the nearest site (up to 150 km away) when it is `nearest-site`. Null when unknown or when `coreDirectionMpsas` was overridden by the caller',
+    ),
+  darknessSource: z
     .enum(['site', 'nearest-site', 'query', 'unknown'])
     .describe(
       '`nearest-site` means it was inferred from the closest known site; `unknown` means none was close enough and sky darkness dropped out of the score',
@@ -220,10 +227,29 @@ const SiteSchema = z.object({
   lat: z.number(),
   lon: z.number(),
   timeZone: z.string(),
-  bortle: z.number().int(),
   driveMinutes: z.number().int(),
+  mpsas: z.number().describe('Zenith sky brightness, mag/arcsec² — higher is darker'),
+  lpi: z.number().describe('Light Pollution Index: artificial over natural zenith brightness'),
+  zone: z.string().describe('Lorenz zone band, `0a`..`7b`'),
+  trend10yPercent: z.number().describe('Change in `lpi` from the 2016 atlas to `atlasYear`'),
+  coreDirectionMpsas: z
+    .number()
+    .describe('Sky brightness where the galactic core sits — the number a frame actually sees'),
+  domePenaltyMag: z.number().describe('How much darker the zenith reads than the core direction'),
+  southHorizonDeg: z
+    .number()
+    .describe('Highest terrain horizon across the 150–215° arc the core crosses, degrees'),
+  siteElevationM: z.number().describe('DEM elevation of the site, metres'),
   note: z.string(),
 })
+
+const MeasurementSchema = z
+  .object({
+    atlasYear: z.number().int().describe('Lorenz atlas vintage every `mpsas`/`lpi`/`zone` reads'),
+    computedOn: z.string().describe('ISO 8601 date the constants were last generated'),
+    generator: z.string().describe('Script that produces them, and re-checks the acceptance table'),
+  })
+  .describe('Provenance of the committed per-site measurements — how stale these constants are')
 
 const WindowQuerySchema = z.object({
   site: z.string().optional().describe('Site id from GET /astro/sites. Wins over lat/lon and city'),
@@ -246,13 +272,12 @@ const WindowQuerySchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional()
     .describe('Which night the hourly series covers. Default: the best night'),
-  bortle: z.coerce
+  coreMpsas: z.coerce
     .number()
-    .int()
-    .min(1)
-    .max(9)
+    .min(14)
+    .max(22.5)
     .optional()
-    .describe('Override the Bortle class for a raw lat/lon'),
+    .describe('Override the core-direction sky brightness (mag/arcsec²) for a raw lat/lon'),
   // Not `z.coerce.boolean()`: `Boolean('false')` is `true`, so coercion would
   // silently ignore the one value anyone ever passes here.
   summary: z
@@ -589,23 +614,43 @@ type ResolvedPlace = {
   lon: number
   name: string
   timeZone: string
-  bortle: number | null
-  bortleSource: 'site' | 'nearest-site' | 'query' | 'unknown'
+  coreDirectionMpsas: number | null
+  domePenaltyMag: number | null
+  darknessSource: 'site' | 'nearest-site' | 'query' | 'unknown'
   site: AstroSite | null
 }
 
-/** Bortle for a raw coordinate: the caller's override, the nearest site, or nothing. */
-function inferBortle(
+type InferredDarkness = Pick<
+  ResolvedPlace,
+  'coreDirectionMpsas' | 'domePenaltyMag' | 'darknessSource'
+>
+
+/**
+ * Core-direction darkness for a raw coordinate: the caller's override, the
+ * nearest site's measurement, or nothing.
+ *
+ * The dome penalty rides along because it is measured in the same pass — but
+ * only when the brightness itself was measured. An overridden brightness has no
+ * zenith to be a penalty against, so it reports null rather than a number that
+ * belongs to a different sky.
+ */
+function inferCoreDarkness(
   lat: number,
   lon: number,
   override: number | undefined,
-): { bortle: number | null; bortleSource: ResolvedPlace['bortleSource'] } {
-  if (override !== undefined) return { bortle: override, bortleSource: 'query' }
-  const near = nearestSite(lat, lon)
-  if (distanceKm({ lat, lon }, near) > BORTLE_INFERENCE_RADIUS_KM) {
-    return { bortle: null, bortleSource: 'unknown' }
+): InferredDarkness {
+  if (override !== undefined) {
+    return { coreDirectionMpsas: override, domePenaltyMag: null, darknessSource: 'query' }
   }
-  return { bortle: near.bortle, bortleSource: 'nearest-site' }
+  const near = nearestSite(lat, lon)
+  if (distanceKm({ lat, lon }, near) > DARKNESS_INFERENCE_RADIUS_KM) {
+    return { coreDirectionMpsas: null, domePenaltyMag: null, darknessSource: 'unknown' }
+  }
+  return {
+    coreDirectionMpsas: near.coreDirectionMpsas,
+    domePenaltyMag: near.domePenaltyMag,
+    darknessSource: 'nearest-site',
+  }
 }
 
 async function resolvePlace(
@@ -619,8 +664,9 @@ async function resolvePlace(
       lon: site.lon,
       name: site.name,
       timeZone: site.timeZone,
-      bortle: query.bortle ?? site.bortle,
-      bortleSource: query.bortle === undefined ? 'site' : 'query',
+      coreDirectionMpsas: query.coreMpsas ?? site.coreDirectionMpsas,
+      domePenaltyMag: query.coreMpsas === undefined ? site.domePenaltyMag : null,
+      darknessSource: query.coreMpsas === undefined ? 'site' : 'query',
       site,
     }
   }
@@ -631,7 +677,7 @@ async function resolvePlace(
       lon: query.lon,
       name: `${query.lat.toFixed(3)}, ${query.lon.toFixed(3)}`,
       timeZone: nearestSite(query.lat, query.lon).timeZone,
-      ...inferBortle(query.lat, query.lon, query.bortle),
+      ...inferCoreDarkness(query.lat, query.lon, query.coreMpsas),
       site: null,
     }
   }
@@ -646,7 +692,7 @@ async function resolvePlace(
       // The geocoder knows the real timezone; the nearest site's is only a
       // fallback for a raw coordinate, which has no such lookup available.
       timeZone: located.timezone,
-      ...inferBortle(located.lat, located.lon, query.bortle),
+      ...inferCoreDarkness(located.lat, located.lon, query.coreMpsas),
       site: null,
     }
   }
@@ -656,8 +702,9 @@ async function resolvePlace(
     lon: DEFAULT_SITE.lon,
     name: DEFAULT_SITE.name,
     timeZone: DEFAULT_SITE.timeZone,
-    bortle: query.bortle ?? DEFAULT_SITE.bortle,
-    bortleSource: query.bortle === undefined ? 'site' : 'query',
+    coreDirectionMpsas: query.coreMpsas ?? DEFAULT_SITE.coreDirectionMpsas,
+    domePenaltyMag: query.coreMpsas === undefined ? DEFAULT_SITE.domePenaltyMag : null,
+    darknessSource: query.coreMpsas === undefined ? 'site' : 'query',
     site: DEFAULT_SITE,
   }
 }
@@ -787,7 +834,7 @@ type SummaryFacts = {
   placeName: string
   /** Weekday name of the best night — computed here, never by the model. */
   weekday: string
-  bortle: number | null
+  coreDirectionMpsas: number | null
   best: ReturnType<typeof serializeNight> | null
   bestWindow: ReturnType<typeof serializeWindow>
   nightCount: number
@@ -825,9 +872,9 @@ async function generateSummary(
   if (cached && cached.expiresAt > now.getTime()) return cached.text
 
   const lines: string[] = [
-    facts.bortle === null
+    facts.coreDirectionMpsas === null
       ? `Location: ${facts.placeName}, sky darkness unknown.`
-      : `Location: ${facts.placeName}, Bortle ${facts.bortle}.`,
+      : `Location: ${facts.placeName}, sky brightness ${facts.coreDirectionMpsas.toFixed(2)} mag/arcsec² in the core direction.`,
     `Nights evaluated: ${facts.nightCount}.`,
   ]
   if (facts.best && facts.bestWindow) {
@@ -903,7 +950,7 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
             cloudMid: weather.cloudMid,
             cloudHigh: weather.cloudHigh,
             transparency: weather.transparency,
-            bortle: place.bortle,
+            coreDirectionMpsas: place.coreDirectionMpsas,
           }
           const scored = scoreWindow(astroWindowConfig, input)
           scoredNights.push({ night, scored, serialized: serializeNight(night, scored, weather) })
@@ -934,7 +981,7 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
                       weekday: 'long',
                     }).format(best.night.transit)
                   : '',
-                bortle: place.bortle,
+                coreDirectionMpsas: place.coreDirectionMpsas,
                 best: best?.serialized ?? null,
                 bestWindow,
                 nightCount,
@@ -952,8 +999,9 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
             lon: place.lon,
             name: place.name,
             timeZone: place.timeZone,
-            bortle: place.bortle,
-            bortleSource: place.bortleSource,
+            coreDirectionMpsas: place.coreDirectionMpsas,
+            domePenaltyMag: place.domePenaltyMag,
+            darknessSource: place.darknessSource,
             siteId: place.site?.id ?? null,
             nearestSiteId: near.id,
             nearestSiteKm: Math.round(distanceKm(place, near)),
@@ -985,21 +1033,29 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
           tags: ['Astro & Marine'],
           summary: 'Score the next N nights for Milky Way nightscape photography',
           description:
-            'Answers "is tonight (or this week) worth going out for?" for one place. Every night in the range gets a verdict from hard gates (galactic-core altitude above 8°, moon under 25% illuminated or below the horizon, and true astronomical night that overlaps the core window) plus weighted factors (low/mid/high cloud, atmospheric transparency, Bortle class). A night that fails a gate returns verdict `out` with a named reason in `killers` — that is different information from a low score and the two are never conflated. Top-level `verdict`/`score`/`bestWindow`/`killers` describe the BEST night in the range, not tonight; `nights[]` carries every night for an at-a-glance strip, and `detail.hourly` carries the 30-minute series for one night (the best one unless `detailDate` says otherwise). Location resolves in the order `site` > `lat`+`lon` > `city` > Munich; a raw lat/lon inherits its Bortle class from the nearest known site unless `bortle` overrides it. All astronomy is computed locally from an ephemeris and never by a model — `summary` is the one model-generated field and is null when the model is unavailable. For plain weather use GET /weather/forecast; for the candidate sites and their Bortle baselines use GET /astro/sites.',
+            'Answers "is tonight (or this week) worth going out for?" for one place. Every night in the range gets a verdict from hard gates (galactic-core altitude above 8°, moon under 25% illuminated or below the horizon, and true astronomical night that overlaps the core window) plus weighted factors (low/mid/high cloud, atmospheric transparency, and the measured sky brightness in the direction the core sits). A night that fails a gate returns verdict `out` with a named reason in `killers` — that is different information from a low score and the two are never conflated. Top-level `verdict`/`score`/`bestWindow`/`killers` describe the BEST night in the range, not tonight; `nights[]` carries every night for an at-a-glance strip, and `detail.hourly` carries the 30-minute series for one night (the best one unless `detailDate` says otherwise). Location resolves in the order `site` > `lat`+`lon` > `city` > Munich; a raw lat/lon inherits `coreDirectionMpsas` from the nearest known site within 150 km, unless `coreMpsas` overrides it — beyond that radius `darknessSource` is `unknown`, darkness drops out of the score and `coverage` falls. All astronomy is computed locally from an ephemeris and never by a model — `summary` is the one model-generated field and is null when the model is unavailable. For plain weather use GET /weather/forecast; for the candidate sites and their measured sky use GET /astro/sites.',
           security: [{ BearerAuth: [] }],
         },
       },
     )
     .get(
       '/sites',
-      () => ({ data: ASTRO_SITES.map((site) => ({ ...site })), total: ASTRO_SITES.length }),
+      () => ({
+        data: ASTRO_SITES.map((site) => ({ ...site })),
+        total: ASTRO_SITES.length,
+        measurement: { ...ASTRO_SITE_MEASUREMENTS },
+      }),
       {
-        response: z.object({ data: z.array(SiteSchema), total: z.number().int() }),
+        response: z.object({
+          data: z.array(SiteSchema),
+          total: z.number().int(),
+          measurement: MeasurementSchema,
+        }),
         detail: {
           tags: ['Astro & Marine'],
           summary: 'List the candidate drive-to observing sites',
           description:
-            'The static set of observing sites with their Bortle baseline and drive time from Munich. Pass an `id` from here as `?site=` to GET /astro/window. Bortle is a hand-maintained constant rather than a live lookup: light pollution changes yearly, not hourly. Use this to populate a site picker, or to decide whether a 45-minute drive south is worth two Bortle classes.',
+            'The candidate observing sites with their MEASURED sky and terrain, and their drive time from Munich. Pass an `id` from here as `?site=` to GET /astro/window. Per site: `mpsas`/`lpi`/`zone`/`trend10yPercent` from the Lorenz light-pollution atlas at the zenith, `coreDirectionMpsas` + `domePenaltyMag` for the direction a Milky Way frame actually points, `southHorizonDeg` from a terrain-DEM horizon sweep across the arc the core crosses, and `siteElevationM`. These are committed constants rather than a per-request lookup because they move on a yearly cadence at most — the atlas publishes once a year and the mountains never; `measurement` names the atlas vintage `trend10yPercent` runs to and the date the constants were last generated, so a caller can tell how stale they are. Rank on `coreDirectionMpsas`, not on `mpsas`: the darkest zenith of the set is 0.22 mag BRIGHTER than the runner-up where the core sits, because its towns lie south, and that flip is the whole reason a site picker needs both numbers.',
           security: [{ BearerAuth: [] }],
         },
       },
@@ -1034,7 +1090,7 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
           tags: ['Astro & Marine'],
           summary: 'Zenith light pollution for a coordinate, from the Lorenz atlas',
           description:
-            "Returns measured ZENITH sky brightness for one point: `lpi` (artificial over natural zenith brightness), `mpsas` (total zenith brightness in mag/arcsec², higher is darker), the Lorenz `0a`..`7b` zone band, and `trend10yPercent` (the change in LPI from the 2016 atlas to the requested year, which runs +25% per decade at some German sites and flat at others). Values come from David J. Lorenz's binary tiles at 30-arcsec resolution; `year` selects the vintage (2016, 2020, 2022, 2023, 2024, 2025 — default the latest). Location resolves `site` > `lat`+`lon` > Munich. A Bortle class is deliberately NOT offered: Bortle is a subjective scale about the WHOLE sky, driven mostly by light domes near the horizon, and a zenith map cannot produce it — the atlas author asks explicitly that the two not be conflated. Treat absolute `mpsas` as ±0.2 mag, because the 22.0 mag/arcsec² natural baseline it is measured against is a convention rather than a constant. This endpoint describes the part of the sky a Milky Way frame never contains; for the direction that actually matters use GET /astro/skyglow, and for the full go/no-go verdict use GET /astro/window. Returns 502 when the atlas is unreachable — there is no cached or modelled value to degrade to.",
+            "Returns measured ZENITH sky brightness for one point: `lpi` (artificial over natural zenith brightness), `mpsas` (total zenith brightness in mag/arcsec², higher is darker), the Lorenz `0a`..`7b` zone band, and `trend10yPercent` (the change in LPI from the 2016 atlas to the requested year, which runs +25% per decade at some German sites and flat at others). Values come from David J. Lorenz's binary tiles at 30-arcsec resolution; `year` selects the vintage (2016, 2020, 2022, 2023, 2024, 2025 — default the latest). Location resolves `site` > `lat`+`lon` > Munich. A subjective whole-sky darkness class is deliberately NOT offered: those scales are driven mostly by light domes near the horizon, which a zenith map cannot produce, and the atlas author asks explicitly that the two not be conflated. Treat absolute `mpsas` as ±0.2 mag, because the 22.0 mag/arcsec² natural baseline it is measured against is a convention rather than a constant. This endpoint describes the part of the sky a Milky Way frame never contains; for the direction that actually matters use GET /astro/skyglow, and for the full go/no-go verdict use GET /astro/window. Returns 502 when the atlas is unreachable — there is no cached or modelled value to degrade to.",
           security: [{ BearerAuth: [] }],
         },
       },

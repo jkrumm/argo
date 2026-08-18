@@ -26,8 +26,10 @@
  *     and nothing downstream ever wants the bytes again.
  *
  * Attribution: the atlas carries no licence. The author grants use on request
- * and asks only that Bortle not be conflated with his maps — which is why there
- * is no `bortle` field anywhere in this module or its routes.
+ * and asks only that no subjective whole-sky darkness class be conflated with
+ * his maps — which is why this module and its routes report measured zenith
+ * brightness and a zone band, and never a class (`docs/ASTRO-MAP-RESEARCH.md`
+ * §1.3).
  */
 
 import { SpanKind, SpanStatusCode, type AttributeValue } from '@opentelemetry/api'
@@ -287,7 +289,7 @@ export type LightPollutionPoint = {
   lpi: number
   /** Total zenith brightness, mag/arcsec². */
   mpsas: number
-  /** Lorenz zone band, `0a`..`7b`. Deliberately not a Bortle class. */
+  /** Lorenz zone band, `0a`..`7b`. Deliberately not a subjective whole-sky class. */
   zone: string
   /** Percent change in LPI from 2016 to the requested year. null when the 2016 tile is unavailable, or its cell reads 0. */
   trend10yPercent: number | null

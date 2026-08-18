@@ -132,13 +132,13 @@ Two independent references, neither of which shares code with what it checks:
 
 ### What was built
 
-| File                                           | Role                                                                                   |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `apps/api/src/routes/astro.ts`                 | `GET /astro/window` and `GET /astro/sites`. Mounted in `src/app.ts` after `authGuard`. |
-| `apps/api/src/clients/astro-upstreams.ts`      | DWD ICON + Open-Meteo global + 7Timer, in parallel, cached, never throws.              |
-| `apps/api/src/lib/astro-sites.ts`              | The four candidate sites with their Bortle baselines.                                  |
-| `apps/api/src/lib/geocode.ts`                  | Lifted out of `weather.ts` so both routes share one cache.                             |
-| `…/astro.test.ts`, `…/astro-upstreams.test.ts` | 47 offline tests — injected clock, injected fetch, injected model.                     |
+| File                                           | Role                                                                                                                    |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `apps/api/src/routes/astro.ts`                 | `GET /astro/window` and `GET /astro/sites`. Mounted in `src/app.ts` after `authGuard`.                                  |
+| `apps/api/src/clients/astro-upstreams.ts`      | DWD ICON + Open-Meteo global + 7Timer, in parallel, cached, never throws.                                               |
+| `apps/api/src/lib/astro-sites.ts`              | The four candidate sites. Bortle baselines until the map rebuild replaced them with measured sky + terrain — see below. |
+| `apps/api/src/lib/geocode.ts`                  | Lifted out of `weather.ts` so both routes share one cache.                                                              |
+| `…/astro.test.ts`, `…/astro-upstreams.test.ts` | 47 offline tests — injected clock, injected fetch, injected model.                                                      |
 
 ### The response shape, and the one thing to understand about it
 
@@ -149,10 +149,20 @@ carries every night for an at-a-glance strip; `detail.hourly` carries a 30-minut
 series for exactly one night (the best one, or `?detailDate=`).
 
 Location resolves `site` > `lat`+`lon` > `city` > Munich. A raw coordinate inherits
-its Bortle class from the nearest known site **only within 150 km** — past that it
-reports `bortleSource: 'unknown'`, sky darkness drops out of the score and
-`coverage` falls. Returning Munich's Bortle 8 for a request in Tenerife would have
+its sky darkness from the nearest known site **only within 150 km** — past that it
+reports `darknessSource: 'unknown'`, sky darkness drops out of the score and
+`coverage` falls. Returning Munich's sky for a request in Tenerife would have
 been worse than admitting ignorance.
+
+> **Superseded 2026-08-18 by the map rebuild** (`docs/ASTRO-MAP-RESEARCH.md`, branch
+> `feat/astro-map`). This section originally read `bortle` / `bortleSource`. There is no
+> `bortle` field anywhere in the code any more: sites carry measured
+> `mpsas`/`lpi`/`zone`/`trend10yPercent`/`coreDirectionMpsas`/`domePenaltyMag`/`southHorizonDeg`/`siteElevationM`,
+> the location block reports `coreDirectionMpsas` + `domePenaltyMag` + `darknessSource`, and
+> `?bortle=` was replaced by `?coreMpsas=`. The dated decision log further down (D1–D10) is
+> history and was **not** rewritten — read `bortle` there as "the sky-darkness factor", which is
+> now `coreDarkness`, same weight and same ordering, scored on measured mag/arcsec² rather than a
+> hand-typed class.
 
 `verdict: 'out'` is not a low score. It means a hard gate failed and `killers` says
 which; the API never conflates the two.
@@ -605,7 +615,7 @@ Verified as _behaviour_, not just as green:
    and this build only answers when asked. Everything needed is in place: the
    verdict is deterministic and stable, so a cron that re-scores the range and
    pushes on a transition into `good`/`excellent` is a small addition.
-5. Derive Bortle live from the VNL raster, if the static classes ever feel wrong.
+5. ~~Derive Bortle live from the VNL raster, if the static classes ever feel wrong.~~ **Done 2026-08-18**, differently: the Lorenz atlas replaced the static classes with measured zenith and core-direction brightness, and the Bortle field is gone (`docs/ASTRO-MAP-RESEARCH.md` §1.3).
 
 ### Assumptions taken that the brief did not decide
 

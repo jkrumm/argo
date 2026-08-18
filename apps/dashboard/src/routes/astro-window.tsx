@@ -131,8 +131,9 @@ function AstroWindowPage() {
               {selectedNight && (
                 <NightFacts
                   night={selectedNight}
-                  bortle={data.location.bortle}
-                  bortleSource={data.location.bortleSource}
+                  coreDirectionMpsas={data.location.coreDirectionMpsas}
+                  domePenaltyMag={data.location.domePenaltyMag}
+                  darknessSource={data.location.darknessSource}
                   timeZone={data.location.timeZone}
                 />
               )}

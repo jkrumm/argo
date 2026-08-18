@@ -353,6 +353,22 @@ poor`, with `out` reserved for gated nights — "out for a named reason" is
   forecast silently inverts itself. Both are domain-agnostic, so they belong in
   `window-score.ts` — the marine build is the first real test of whether that
   module was actually generic, and this is what it cost.
+- **2026-08-18 · D11 · The `bortle` field is deleted, not refined — reverses this
+  brief.** The brief specifies "Bortle at the drive-to site, static per site" and
+  puts deriving it from a raster out of scope. The atlas author argues directly
+  against the derivation the brief was deferring: Bortle is a subjective
+  _whole-sky_ scale driven by light domes near the horizon, which is exactly what
+  a zenith map cannot see, and he asks that the two not be conflated. The stored
+  classes were also demonstrably wrong against measurement — Bayerischer Wald and
+  Walchensee sat a class apart while measuring the same zenith brightness to 0.02
+  mag. So sites now carry measured `mpsas` / `lpi` / `zone` / `trend10yPercent`
+  from the Lorenz atlas, `coreDirectionMpsas` + `domePenaltyMag` for the direction
+  a frame actually points, and `southHorizonDeg` + `siteElevationM` from a DEM
+  horizon sweep. The D3 factor named `bortle 1.5` above is now `coreDarkness 1.5`
+  at the same weight and the same ordering; `?bortle=` became `?coreMpsas=`, and
+  the window response reports `darknessSource` where it once reported
+  `bortleSource`. Read every "Bortle" earlier in this brief as "sky darkness".
+  Full reasoning and every measured number: `docs/ASTRO-MAP-RESEARCH.md`.
 - **2026-08-15 · Correction to this brief's phase-1 acceptance list.** "June at
   48.14°N returns **zero** astronomical-night hours" is factually wrong and
   internally contradictory — −18.4° _is_ below the −18° threshold. Munich gets

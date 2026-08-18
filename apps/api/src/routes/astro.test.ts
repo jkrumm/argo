@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'bun:test'
 import { Elysia } from 'elysia'
 import type { AstroUpstreams, CloudSeries, TransparencySeries } from '../clients/astro-upstreams.js'
 import type { LightPollutionPoint, LpTileImage, SkyglowResult } from '../clients/lorenz-atlas.js'
+import { ASTRO_SITE_MEASUREMENTS } from '../lib/astro-sites.js'
 import { authGuard } from '../lib/auth-guard.js'
 import { renderLpTilePng } from '../lib/lp-tile.js'
 import { PROFILE_ALTITUDES, SKYGLOW_MODEL } from '../lib/skyglow.js'
@@ -171,18 +172,27 @@ beforeEach(() => {
 })
 
 describe('GET /astro/sites', () => {
-  it('lists every candidate site with its Bortle baseline', async () => {
+  it('lists every candidate site with its measured sky', async () => {
     const { app } = build()
     const { status, body } = await get(app, '/astro/sites')
     expect(status).toBe(200)
     expect(body.total).toBe(body.data.length)
     expect(body.data.length).toBeGreaterThanOrEqual(4)
+    // Provenance travels with the constants: a caller has to be able to tell
+    // which atlas vintage `trend10yPercent` runs to, and how stale these are.
+    expect(body.measurement).toEqual({ ...ASTRO_SITE_MEASUREMENTS })
     const ids = body.data.map((site: { id: string }) => site.id)
     expect(ids).toContain('munich')
     expect(ids).toContain('alpenvorland')
     for (const site of body.data) {
-      expect(site.bortle).toBeGreaterThanOrEqual(1)
-      expect(site.bortle).toBeLessThanOrEqual(9)
+      expect(site.mpsas).toBeGreaterThan(15)
+      expect(site.coreDirectionMpsas).toBeGreaterThan(15)
+      // The core direction is always brighter than the zenith — the dome sits
+      // near the horizon, which is exactly where the core is.
+      expect(site.coreDirectionMpsas).toBeLessThan(site.mpsas)
+      expect(site.domePenaltyMag).toBeGreaterThan(0)
+      expect(site.southHorizonDeg).toBeGreaterThanOrEqual(0)
+      expect(typeof site.zone).toBe('string')
       expect(typeof site.note).toBe('string')
     }
   })
@@ -199,16 +209,17 @@ describe('GET /astro/window — location resolution', () => {
     const { status, body } = await get(app, '/astro/window')
     expect(status).toBe(200)
     expect(body.location.siteId).toBe('munich')
-    expect(body.location.bortle).toBe(8)
-    expect(body.location.bortleSource).toBe('site')
+    expect(body.location.coreDirectionMpsas).toBe(17.31)
+    expect(body.location.domePenaltyMag).toBe(1.09)
+    expect(body.location.darknessSource).toBe('site')
     expect(body.nights).toHaveLength(10)
   })
 
-  it('uses a named site’s coordinates and Bortle', async () => {
+  it('uses a named site’s coordinates and measured darkness', async () => {
     const { app } = build()
     const { body } = await get(app, '/astro/window?site=alpenvorland&nights=3')
     expect(body.location.siteId).toBe('alpenvorland')
-    expect(body.location.bortle).toBe(4)
+    expect(body.location.coreDirectionMpsas).toBe(19.7)
     expect(body.location.lat).toBeCloseTo(47.8167, 3)
     expect(body.nights).toHaveLength(3)
   })
@@ -220,20 +231,36 @@ describe('GET /astro/window — location resolution', () => {
     expect(String(body)).toContain('atlantis')
   })
 
-  it('infers Bortle from the nearest site for a raw lat/lon', async () => {
+  it('infers core-direction darkness from the nearest site for a raw lat/lon', async () => {
     const { app } = build()
     const { body } = await get(app, '/astro/window?lat=47.60&lon=11.33&nights=1')
     expect(body.location.siteId).toBeNull()
-    expect(body.location.bortleSource).toBe('nearest-site')
+    expect(body.location.darknessSource).toBe('nearest-site')
+    expect(body.location.coreDirectionMpsas).toBe(19.98)
+    expect(body.location.domePenaltyMag).toBe(1.03)
     expect(body.location.nearestSiteId).toBe('walchensee')
     expect(body.location.nearestSiteKm).toBeLessThan(5)
   })
 
-  it('lets an explicit bortle override the inference', async () => {
+  it('reports darkness as unknown beyond the inference radius, and drops coverage', async () => {
     const { app } = build()
-    const { body } = await get(app, '/astro/window?lat=47.60&lon=11.33&bortle=2&nights=1')
-    expect(body.location.bortle).toBe(2)
-    expect(body.location.bortleSource).toBe('query')
+    // Tenerife: nothing in the site table says anything about this sky.
+    const { body } = await get(app, '/astro/window?lat=28.27&lon=-16.61&nights=1')
+    expect(body.location.coreDirectionMpsas).toBeNull()
+    expect(body.location.domePenaltyMag).toBeNull()
+    expect(body.location.darknessSource).toBe('unknown')
+    const factor = body.nights[0].factors.find((f: { id: string }) => f.id === 'core-darkness')
+    expect(factor.value).toBeNull()
+    expect(body.nights[0].coverage).toBeLessThan(1)
+  })
+
+  it('lets an explicit coreMpsas override the inference', async () => {
+    const { app } = build()
+    const { body } = await get(app, '/astro/window?lat=47.60&lon=11.33&coreMpsas=21.2&nights=1')
+    expect(body.location.coreDirectionMpsas).toBe(21.2)
+    // An overridden brightness has no measured zenith to be a penalty against.
+    expect(body.location.domePenaltyMag).toBeNull()
+    expect(body.location.darknessSource).toBe('query')
   })
 })
 
@@ -287,7 +314,7 @@ describe('GET /astro/window — the verdict', () => {
     const { app } = build()
     const { body } = await get(app, '/astro/window?site=alpenvorland&nights=1')
     const ids = body.nights[0].factors.map((f: { id: string }) => f.id)
-    expect(ids).toEqual(['cloud-low', 'transparency', 'cloud-mid', 'bortle', 'cloud-high'])
+    expect(ids).toEqual(['cloud-low', 'transparency', 'cloud-mid', 'core-darkness', 'cloud-high'])
     expect(ids).not.toContain('seeing')
     expect(body.nights[0].coverage).toBe(1)
   })

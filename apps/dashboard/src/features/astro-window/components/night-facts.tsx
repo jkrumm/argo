@@ -69,13 +69,15 @@ function FactorRow({ factor }: { factor: Factor }) {
 
 export function NightFacts({
   night,
-  bortle,
-  bortleSource,
+  coreDirectionMpsas,
+  domePenaltyMag,
+  darknessSource,
   timeZone,
 }: {
   night: Night
-  bortle: number | null
-  bortleSource: Location['bortleSource']
+  coreDirectionMpsas: number | null
+  domePenaltyMag: number | null
+  darknessSource: Location['darknessSource']
   timeZone: string
 }) {
   return (
@@ -131,11 +133,19 @@ export function NightFacts({
               label="Transparency"
               value={night.weather.transparency !== null ? `${night.weather.transparency}/8` : '—'}
             />
+            {/* The direction the camera points, not the zenith — the zenith is the
+                half of the sky a Milky Way frame never contains. */}
             <FactRow
-              label="Bortle"
+              label="Core direction"
               value={
-                bortleSource === 'unknown' ? 'unknown' : bortle !== null ? `Bortle ${bortle}` : '—'
+                darknessSource === 'unknown' || coreDirectionMpsas === null
+                  ? 'unknown'
+                  : `${coreDirectionMpsas.toFixed(2)} mag/arcsec²`
               }
+            />
+            <FactRow
+              label="Dome penalty"
+              value={domePenaltyMag === null ? '—' : `${domePenaltyMag.toFixed(2)} mag`}
             />
           </FactGroup>
 

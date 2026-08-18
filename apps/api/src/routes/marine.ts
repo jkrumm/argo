@@ -249,7 +249,7 @@ function fromSpot(spot: MarineSpot): ResolvedPlace {
 /**
  * Nearest of the four candidate spots by great-circle distance — used only to
  * infer a timezone and a display country for a raw lat/lon request, the same
- * fallback role `nearestSite` plays for astro's Bortle inference.
+ * fallback role `nearestSite` plays for astro's sky-darkness inference.
  */
 function nearestMarineSpot(lat: number, lon: number): MarineSpot {
   let nearest: MarineSpot = MARINE_SPOTS[0]!

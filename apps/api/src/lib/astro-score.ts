@@ -36,8 +36,18 @@ export const MAX_MOON_ILLUMINATION = 0.25
  */
 export const WORST_TRANSPARENCY_BAND = 8
 
-/** Bortle runs 1 (pristine) to 9 (inner city). Munich is 8; the Alpenvorland is 4. */
-export const WORST_BORTLE_CLASS = 9
+/**
+ * The darkness ramp, in mag/arcsec² **in the direction the core sits** — not at
+ * the zenith, which is the half of the sky a Milky Way frame never contains.
+ *
+ * Both ends are measured rather than round (`docs/ASTRO-MAP-RESEARCH.md` §2.5):
+ * `good: 21.0` is beyond anything in reach of Munich, since the darkest of the
+ * four sites still only reads 19.98 where the camera points; `bad: 17.3` is
+ * Munich's own core direction, i.e. the floor of what is worth driving away
+ * from. Note the reversed scale — higher mpsas is darker, so `good > bad` and
+ * {@link linearScore} inverts accordingly.
+ */
+export const CORE_DARKNESS_RANGE = { good: 21.0, bad: 17.3 } as const
 
 /**
  * Cloud cover, in percent, at which each layer has effectively taken the night.
@@ -53,15 +63,17 @@ export const CLOUD_RUINS_AT = { low: 55, mid: 80, high: 100 } as const
  * Relative weights. Ratios are what matter — the engine normalises.
  *
  * Low cloud is heaviest because it kills a low target first; transparency is
- * second because "low haze is the enemy rather than the light dome"; Bortle
- * sits below both for the same reason — the drive south buys darkness, but
- * darkness is not the binding constraint at 48°N.
+ * second because "low haze is the enemy rather than the light dome";
+ * `coreDarkness` sits below both for the same reason — the drive south buys
+ * darkness, but darkness is not the binding constraint at 48°N. It holds the
+ * weight the old hand-typed sky class had: the input got better, the reasoning
+ * about its importance did not change.
  */
 export const ASTRO_WEIGHTS = {
   cloudLow: 5,
   transparency: 3,
   cloudMid: 2,
-  bortle: 1.5,
+  coreDarkness: 1.5,
   cloudHigh: 1,
 } as const
 
@@ -75,8 +87,12 @@ export type AstroScoreInput = {
   cloudHigh: number | null
   /** 7Timer transparency band, 1 (best) to 8 (worst). */
   transparency: number | null
-  /** Bortle class of the observing site, 1 (pristine) to 9 (inner city). */
-  bortle: number | null
+  /**
+   * Sky brightness where the galactic core sits, mag/arcsec² — higher is
+   * darker. Measured per site, not judged; null when no site is close enough
+   * for the number to mean anything about these coordinates.
+   */
+  coreDirectionMpsas: number | null
 }
 
 /** Samples inside the recommended window, or inside darkness when there is no window. */
@@ -187,11 +203,14 @@ export const astroWindowConfig: WindowConfig<AstroScoreInput> = {
       detail: (input) => (input.cloudMid === null ? undefined : `${Math.round(input.cloudMid)}%`),
     },
     {
-      id: 'bortle',
-      label: 'Sky darkness',
-      weight: ASTRO_WEIGHTS.bortle,
-      value: (input) => bandScore(input.bortle, WORST_BORTLE_CLASS),
-      detail: (input) => (input.bortle === null ? undefined : `Bortle ${input.bortle}`),
+      id: 'core-darkness',
+      label: 'Core darkness',
+      weight: ASTRO_WEIGHTS.coreDarkness,
+      value: (input) => linearScore(input.coreDirectionMpsas, CORE_DARKNESS_RANGE),
+      detail: (input) =>
+        input.coreDirectionMpsas === null
+          ? undefined
+          : `${input.coreDirectionMpsas.toFixed(2)} mag/arcsec²`,
     },
     {
       id: 'cloud-high',

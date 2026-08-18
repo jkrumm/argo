@@ -9,8 +9,8 @@
  * the worst days of the week.
  *
  * These four are a **starting set, not the operator's actual break list** —
- * unlike the astro sites, whose Bortle classes come from the operator's own
- * field notes, no surf note exists in the vault. They are picked for being real,
+ * unlike the astro sites, whose sky and terrain numbers are measured off an
+ * atlas and a DEM, no surf note exists in the vault. They are picked for being real,
  * well-documented European breaks reachable from Munich, ordered by drive time.
  * The `shoreNormal` values are read off the coastline orientation and are
  * approximate; they are the first thing to correct once someone has actually

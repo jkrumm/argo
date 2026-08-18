@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { resolveNight } from './astro-night.js'
+import { findSite } from './astro-sites.js'
 import {
   ASTRO_WEIGHTS,
   astroWindowConfig,
@@ -26,7 +27,7 @@ function input(date: string, weather: Partial<AstroScoreInput> = {}): AstroScore
     cloudMid: 0,
     cloudHigh: 0,
     transparency: 1,
-    bortle: 4,
+    coreDirectionMpsas: 19.7,
     ...weather,
   }
 }
@@ -102,7 +103,7 @@ describe('weighted factors', () => {
   const clear = input('2026-08-15')
 
   it('scores a perfectly clear, dark, transparent night near 100', () => {
-    const result = scoreWindow(astroWindowConfig, { ...clear, bortle: 1 })
+    const result = scoreWindow(astroWindowConfig, { ...clear, coreDirectionMpsas: 21.5 })
     expect(result.score).toBe(100)
     expect(result.coverage).toBe(1)
     expect(result.verdict).toBe('excellent')
@@ -122,16 +123,39 @@ describe('weighted factors', () => {
   })
 
   it('weights transparency above sky darkness', () => {
-    expect(ASTRO_WEIGHTS.transparency).toBeGreaterThan(ASTRO_WEIGHTS.bortle)
+    expect(ASTRO_WEIGHTS.transparency).toBeGreaterThan(ASTRO_WEIGHTS.coreDarkness)
     const haze = scoreWindow(astroWindowConfig, { ...clear, transparency: 8 })
-    const bright = scoreWindow(astroWindowConfig, { ...clear, bortle: 9 })
+    const bright = scoreWindow(astroWindowConfig, { ...clear, coreDirectionMpsas: 17.3 })
     expect(haze.score).toBeLessThan(bright.score)
   })
 
   it('prefers the Alpenvorland over Munich, all else equal', () => {
-    const alpenvorland = scoreWindow(astroWindowConfig, { ...clear, bortle: 4 })
-    const munich = scoreWindow(astroWindowConfig, { ...clear, bortle: 8 })
+    const alpenvorland = scoreWindow(astroWindowConfig, { ...clear, coreDirectionMpsas: 19.7 })
+    const munich = scoreWindow(astroWindowConfig, { ...clear, coreDirectionMpsas: 17.31 })
     expect(alpenvorland.score).toBeGreaterThan(munich.score)
+  })
+
+  // The decision this whole rework exists to make. Bayerischer Wald has the
+  // darker ZENITH (21.57 vs 21.55) and twice the drive; Walchensee is darker
+  // where the camera actually points (19.98 vs 19.76), because its light dome —
+  // Munich — sits behind the lens rather than across the core. Scoring the
+  // zenith, or a hand-typed whole-sky class, gets this backwards.
+  it('ranks Walchensee above Bayerischer Wald at equal weather, despite its brighter zenith', () => {
+    const walchensee = findSite('walchensee')!
+    const wald = findSite('bayerischer-wald')!
+
+    expect(walchensee.mpsas).toBeLessThan(wald.mpsas)
+    expect(walchensee.coreDirectionMpsas).toBeGreaterThan(wald.coreDirectionMpsas)
+
+    const atWalchensee = scoreWindow(astroWindowConfig, {
+      ...clear,
+      coreDirectionMpsas: walchensee.coreDirectionMpsas,
+    })
+    const atWald = scoreWindow(astroWindowConfig, {
+      ...clear,
+      coreDirectionMpsas: wald.coreDirectionMpsas,
+    })
+    expect(atWalchensee.score).toBeGreaterThan(atWald.score)
   })
 
   it('never scores seeing — it is irrelevant at 12 mm', () => {
@@ -139,7 +163,11 @@ describe('weighted factors', () => {
   })
 
   it('degrades coverage rather than the score when an upstream is missing', () => {
-    const result = scoreWindow(astroWindowConfig, { ...clear, bortle: 1, transparency: null })
+    const result = scoreWindow(astroWindowConfig, {
+      ...clear,
+      coreDirectionMpsas: 21.5,
+      transparency: null,
+    })
     expect(result.coverage).toBeLessThan(1)
     expect(result.factors.find((f) => f.id === 'transparency')!.value).toBeNull()
     // Everything that *did* report is perfect, so the score stays 100 — only
@@ -148,9 +176,13 @@ describe('weighted factors', () => {
   })
 
   it('carries a human-readable detail per factor', () => {
-    const result = scoreWindow(astroWindowConfig, { ...clear, cloudLow: 12, bortle: 4 })
+    const result = scoreWindow(astroWindowConfig, {
+      ...clear,
+      cloudLow: 12,
+      coreDirectionMpsas: 19.7,
+    })
     expect(result.factors.find((f) => f.id === 'cloud-low')!.detail).toBe('12%')
-    expect(result.factors.find((f) => f.id === 'bortle')!.detail).toBe('Bortle 4')
+    expect(result.factors.find((f) => f.id === 'core-darkness')!.detail).toBe('19.70 mag/arcsec²')
     expect(result.factors.find((f) => f.id === 'transparency')!.detail).toBe('band 1/8')
   })
 })

@@ -29,7 +29,7 @@ export function VerdictHero({ data }: { data: WindowResponse }) {
       : limiting !== null
         ? `limited by: ${limiting.label.toLowerCase()} ${limiting.pct}%`
         : fmtMinutes(bestWindow.minutes)
-  const healthLine = dataHealthLine(sources, location.bortleSource)
+  const healthLine = dataHealthLine(sources, location.darknessSource)
 
   return (
     <Card py="xs" px="sm">

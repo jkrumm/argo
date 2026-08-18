@@ -15,7 +15,8 @@ export function SiteSelector({ site, nights, onSiteChange, onNightsChange }: Sit
 
   const options = data.data.map((s) => ({
     value: s.id,
-    label: `${s.name} · Bortle ${s.bortle} · ${s.driveMinutes}min`,
+    // The core direction, not the zenith: it is the number the ranking turns on.
+    label: `${s.name} · ${s.coreDirectionMpsas.toFixed(2)} mag · ${s.driveMinutes}min`,
   }))
 
   return (

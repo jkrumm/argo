@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "gen:astro-sites": "bun run scripts/gen-astro-sites.ts",
     "m365:auth": "bun run scripts/m365-bootstrap.ts",
     "m365:auth:prod": "bun run scripts/m365-bootstrap.ts --target=prod"
   },

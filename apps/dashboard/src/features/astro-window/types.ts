@@ -81,8 +81,9 @@ export type Location = {
   lon: number
   name: string
   timeZone: string
-  bortle: number | null
-  bortleSource: 'site' | 'nearest-site' | 'query' | 'unknown'
+  coreDirectionMpsas: number | null
+  domePenaltyMag: number | null
+  darknessSource: 'site' | 'nearest-site' | 'query' | 'unknown'
   siteId: string | null
   nearestSiteId: string
   nearestSiteKm: number
@@ -114,7 +115,14 @@ export type Site = {
   lat: number
   lon: number
   timeZone: string
-  bortle: number
   driveMinutes: number
+  mpsas: number
+  lpi: number
+  zone: string
+  trend10yPercent: number
+  coreDirectionMpsas: number
+  domePenaltyMag: number
+  southHorizonDeg: number
+  siteElevationM: number
   note: string
 }

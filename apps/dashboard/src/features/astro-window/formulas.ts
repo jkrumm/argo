@@ -1,5 +1,5 @@
 import { VX } from 'basalt-ui/tokens'
-import type { Night, Sources, Verdict } from './types'
+import type { Location, Night, Sources, Verdict } from './types'
 
 /** Verdict → tone. `out` is a hard gate, not a low score, so it reads neutral, never red. */
 export function verdictTone(verdict: Verdict): string {
@@ -89,7 +89,7 @@ export function moonPhaseLabel(phase: number): string {
  * — the "reduced confidence" surface the brief calls for. Null when everything is healthy. */
 export function dataHealthLine(
   sources: Sources,
-  bortleSource: 'site' | 'nearest-site' | 'query' | 'unknown',
+  darknessSource: Location['darknessSource'],
 ): string | null {
   const down: string[] = []
   if (!sources.dwdIcon) down.push('DWD ICON')
@@ -98,7 +98,7 @@ export function dataHealthLine(
 
   const parts: string[] = []
   if (down.length > 0) parts.push(`${down.join(', ')} unavailable`)
-  if (bortleSource === 'unknown') parts.push('sky darkness unknown')
+  if (darknessSource === 'unknown') parts.push('sky darkness unknown')
 
   return parts.length > 0 ? parts.join(' · ') : null
 }
