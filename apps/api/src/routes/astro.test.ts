@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { Elysia } from 'elysia'
 import type { AstroUpstreams, CloudSeries, TransparencySeries } from '../clients/astro-upstreams.js'
+import type { LightPollutionPoint, SkyglowResult } from '../clients/lorenz-atlas.js'
 import { authGuard } from '../lib/auth-guard.js'
+import { PROFILE_ALTITUDES, SKYGLOW_MODEL } from '../lib/skyglow.js'
 import { clearAstroSummaryCache, createAstroRoutes, type AstroRouteDeps } from './astro.js'
 
 const SECRET = process.env['API_SECRET'] ?? 'x'
@@ -41,10 +43,56 @@ function upstreams(overrides: Partial<AstroUpstreams> = {}): AstroUpstreams {
   }
 }
 
-type Calls = { upstreams: number; complete: number }
+/**
+ * Stand-in atlas values. The real decode and the ray-march are pinned against
+ * committed tiles in `../lib/lorenz-decode.test.ts` and
+ * `../clients/lorenz-atlas.test.ts`; these tests own the layer above — location
+ * precedence, the ephemeris meeting the atlas, rounding, and the error branches.
+ */
+function lightPollutionPoint(overrides: Partial<LightPollutionPoint> = {}): LightPollutionPoint {
+  return {
+    lat: 48.1374,
+    lon: 11.5755,
+    year: 2025,
+    lpi: 25.4941,
+    mpsas: 18.4421,
+    zone: '6b',
+    trend10yPercent: 8.14,
+    source: 'Light Pollution Atlas 2025, David J. Lorenz',
+    ...overrides,
+  }
+}
+
+function skyglowResult(overrides: Partial<SkyglowResult> = {}): SkyglowResult {
+  const azimuths = [0, 90, 180, 270]
+  return {
+    lat: 47.6,
+    lon: 11.33,
+    year: 2025,
+    zenith: { lpi: 0.5114, mpsas: 21.5515, zone: '3a' },
+    core: { azimuthDeg: 180.72, altitudeDeg: 13.451, mpsas: 19.9794, domePenaltyMag: 1.0294 },
+    profile: {
+      azimuths,
+      altitudes: [...PROFILE_ALTITUDES],
+      mpsas: PROFILE_ALTITUDES.map(() => azimuths.map(() => 21.4444)),
+      calibration: 1,
+      dominant: { azimuthDeg: 15, compass: 'NNE', mpsas: 19.8341 },
+    },
+    model: SKYGLOW_MODEL,
+    source: 'Light Pollution Atlas 2025, David J. Lorenz',
+    ...overrides,
+  }
+}
+
+type Calls = {
+  upstreams: number
+  complete: number
+  lightPollution: Parameters<AstroRouteDeps['lightPollution']>[0][]
+  skyglow: Parameters<AstroRouteDeps['skyglow']>[0][]
+}
 
 function build(deps: Partial<AstroRouteDeps> = {}) {
-  const calls: Calls = { upstreams: 0, complete: 0 }
+  const calls: Calls = { upstreams: 0, complete: 0, lightPollution: [], skyglow: [] }
   const app = new Elysia().use(authGuard).use(
     createAstroRoutes({
       now: () => AUGUST,
@@ -55,6 +103,15 @@ function build(deps: Partial<AstroRouteDeps> = {}) {
       complete: async () => {
         calls.complete++
         return 'Saturday 22:35 — core 11°, moon 13%, low cloud 5%.'
+      },
+      // Defaulted so no test can reach the real atlas over the network.
+      lightPollution: async (input) => {
+        calls.lightPollution.push(input)
+        return lightPollutionPoint({ lat: input.lat, lon: input.lon })
+      },
+      skyglow: async (input) => {
+        calls.skyglow.push(input)
+        return skyglowResult({ lat: input.lat, lon: input.lon })
       },
       ...deps,
     }),
@@ -352,5 +409,148 @@ describe('GET /astro/window — contract details', () => {
   it('requires a bearer token', async () => {
     const { app } = build()
     expect((await get(app, '/astro/window', false)).status).toBe(401)
+  })
+})
+
+describe('GET /astro/light-pollution', () => {
+  it('rounds the atlas values and credits the source', async () => {
+    const { app } = build()
+    const { status, body } = await get(app, '/astro/light-pollution')
+
+    expect(status).toBe(200)
+    expect(body).toMatchObject({
+      siteId: 'munich',
+      year: 2025,
+      lpi: 25.494,
+      mpsas: 18.44,
+      zone: '6b',
+      trend10yPercent: 8.1,
+      source: 'Light Pollution Atlas 2025, David J. Lorenz',
+    })
+    expect(body.attribution).toContain('David J. Lorenz')
+  })
+
+  it('resolves site over lat/lon over the default', async () => {
+    const { app, calls } = build()
+
+    await get(app, '/astro/light-pollution?site=walchensee')
+    await get(app, '/astro/light-pollution?lat=19.82&lon=-155.47')
+    await get(app, '/astro/light-pollution')
+
+    expect(calls.lightPollution.map((call) => [call.lat, call.lon])).toEqual([
+      [47.6, 11.33],
+      [19.82, -155.47],
+      [48.1374, 11.5755],
+    ])
+    const raw = await get(app, '/astro/light-pollution?lat=19.82&lon=-155.47')
+    expect(raw.body.siteId).toBeNull()
+  })
+
+  it('passes the requested atlas vintage through as a number', async () => {
+    const { app, calls } = build()
+    await get(app, '/astro/light-pollution?year=2016')
+    expect(calls.lightPollution.at(-1)?.year).toBe(2016)
+  })
+
+  it('rejects a vintage the atlas never published', async () => {
+    const { app } = build()
+    expect((await get(app, '/astro/light-pollution?year=2019')).status).toBe(422)
+  })
+
+  it('serves null rather than a zero when the trend is unmeasurable', async () => {
+    const { app } = build({
+      lightPollution: async () => lightPollutionPoint({ trend10yPercent: null }),
+    })
+    expect((await get(app, '/astro/light-pollution')).body.trend10yPercent).toBeNull()
+  })
+
+  it('404s on an unknown site rather than silently falling back', async () => {
+    const { app, calls } = build()
+    const { status, body } = await get(app, '/astro/light-pollution?site=nowhere')
+    expect(status).toBe(404)
+    expect(body).toContain('nowhere')
+    expect(calls.lightPollution).toHaveLength(0)
+  })
+
+  it('502s when the atlas is unreachable — there is nothing to degrade to', async () => {
+    const { app } = build({ lightPollution: async () => null })
+    const { status, body } = await get(app, '/astro/light-pollution')
+    expect(status).toBe(502)
+    expect(body).toContain('Light Pollution Atlas')
+  })
+
+  it('requires a bearer token', async () => {
+    const { app } = build()
+    expect((await get(app, '/astro/light-pollution', false)).status).toBe(401)
+  })
+})
+
+describe('GET /astro/skyglow', () => {
+  it('hands the atlas the core peak the ephemeris found for tonight', async () => {
+    const { app, calls } = build()
+    const { status, body } = await get(app, '/astro/skyglow?site=walchensee')
+
+    expect(status).toBe(200)
+    const call = calls.skyglow.at(0)
+    // August at 47.6°N: the core peaks a little over 13°, due south.
+    expect(call?.coreAltitudeDeg).toBeGreaterThan(12)
+    expect(call?.coreAltitudeDeg).toBeLessThan(15)
+    expect(call?.coreAzimuthDeg).toBeGreaterThan(170)
+    expect(call?.coreAzimuthDeg).toBeLessThan(190)
+    // Defaulted to today in the site's own timezone, and reported as UTC.
+    expect(body.coreTime).toMatch(/^2026-08-1[56]T\d{2}:\d{2}:\d{2}/)
+  })
+
+  it('honours an explicit date', async () => {
+    const { app, calls } = build()
+    await get(app, '/astro/skyglow?site=walchensee&date=2026-07-15')
+    expect(calls.skyglow.at(0)?.coreAltitudeDeg).toBeCloseTo(13.45, 1)
+  })
+
+  it('rounds the rose and echoes the kernel so a result is reproducible', async () => {
+    const { app } = build()
+    const { body } = await get(app, '/astro/skyglow?site=walchensee')
+
+    expect(body.zenith).toMatchObject({ lpi: 0.511, mpsas: 21.55, zone: '3a' })
+    expect(body.core).toMatchObject({
+      azimuthDeg: 180.7,
+      altitudeDeg: 13.5,
+      mpsas: 19.98,
+      domePenaltyMag: 1.03,
+    })
+    expect(body.profile.dominant).toMatchObject({ azimuthDeg: 15, compass: 'NNE', mpsas: 19.83 })
+    expect(body.profile.mpsas[0]?.[0]).toBe(21.44)
+    expect(body.model).toEqual({ ...SKYGLOW_MODEL })
+  })
+
+  it('rejects a malformed date', async () => {
+    const { app } = build()
+    expect((await get(app, '/astro/skyglow?date=15-07-2026')).status).toBe(422)
+  })
+
+  it('refuses to measure a direction that is under the ground', async () => {
+    // Tromsø: the core's -29° declination never clears the horizon above ~61°N,
+    // and the scattering kernel is only defined above it.
+    const { app, calls } = build()
+    const { status, body } = await get(app, '/astro/skyglow?lat=69.65&lon=18.96')
+
+    expect(status).toBe(422)
+    expect(body).toContain('below the horizon')
+    expect(calls.skyglow).toHaveLength(0)
+  })
+
+  it('404s on an unknown site', async () => {
+    const { app } = build()
+    expect((await get(app, '/astro/skyglow?site=nowhere')).status).toBe(404)
+  })
+
+  it('502s when the atlas is unreachable', async () => {
+    const { app } = build({ skyglow: async () => null })
+    expect((await get(app, '/astro/skyglow')).status).toBe(502)
+  })
+
+  it('requires a bearer token', async () => {
+    const { app } = build()
+    expect((await get(app, '/astro/skyglow', false)).status).toBe(401)
   })
 })

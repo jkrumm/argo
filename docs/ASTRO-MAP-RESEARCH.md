@@ -569,7 +569,7 @@ timestamps — 12 frames × 5 min covers the last hour, 21 covers +105 min of no
 
 | Route                                        | Returns                                                                                                |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `GET /astro/lightpollution?lat&lon&year`     | `{ lpi, mpsas, zone, year, trend10y, source }` — one binary-tile lookup                                |
+| `GET /astro/light-pollution?lat&lon&year`    | `{ lpi, mpsas, zone, year, trend10y, source }` — one binary-tile lookup                                |
 | `GET /astro/skyglow?lat&lon`                 | azimuth×altitude glow profile + `{ coreAz, coreAlt, coreDirectionMpsas, domePenalty, topPolluters[] }` |
 | `GET /astro/horizon?lat&lon`                 | terrain horizon profile, 5° steps (cacheable ~forever)                                                 |
 | `GET /astro/tiles/lp/{year}/{z}/{x}/{y}.png` | terrarium-encoded LPI, our own palette applied client-side                                             |

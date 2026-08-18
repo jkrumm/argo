@@ -7,13 +7,22 @@ import {
   type AstroUpstreams,
 } from '../clients/astro-upstreams.js'
 import {
+  fetchLightPollution,
+  fetchSkyglow,
+  type LightPollutionPoint,
+  type SkyglowResult,
+} from '../clients/lorenz-atlas.js'
+import {
   addDays,
   formatLocalDate,
   formatLocalTime,
   resolveNight,
+  zonedTimeToUtc,
   type AstroNight,
   type NightSample,
 } from '../lib/astro-night.js'
+import { coreTransit, galacticCorePosition } from '../lib/astro-ephemeris.js'
+import { LORENZ_YEARS, LATEST_LORENZ_YEAR, type LorenzYear } from '../lib/lorenz-decode.js'
 import {
   ASTRO_SITES,
   DEFAULT_SITE,
@@ -249,8 +258,121 @@ const WindowQuerySchema = z.object({
     .describe('Set `false` to skip the generated sentence and the model call entirely'),
 })
 
+// ── Light pollution / skyglow ────────────────────────────────────────────
+
+/** The atlas ships no licence; its author asks for this credit and nothing else. */
+const ATLAS_ATTRIBUTION =
+  'Light pollution from the Light Pollution Atlas by David J. Lorenz (djlorenz.github.io/astronomy). Ephemeris computed locally.'
+
+/** Local wall-clock hour the core-peak search is anchored on — the middle of a shooting night. */
+const CORE_SEARCH_ANCHOR_HOUR = 23
+
+/** Half-width and resolution of the sweep around transit, in hours. Matches the research POC. */
+const CORE_SEARCH_SPAN_HOURS = 6
+const CORE_SEARCH_STEP_HOURS = 0.25
+
+const LORENZ_YEAR_OPTIONS = LORENZ_YEARS.map(String) as [string, ...string[]]
+
+const YearQueryParam = z
+  .enum(LORENZ_YEAR_OPTIONS)
+  .optional()
+  .describe(`Atlas vintage. Default ${LATEST_LORENZ_YEAR}, the latest published`)
+
+function parseYear(value: string | undefined): LorenzYear | undefined {
+  return value === undefined ? undefined : (Number(value) as LorenzYear)
+}
+
+const PointQuerySchema = z.object({
+  site: z.string().optional().describe('Site id from GET /astro/sites. Wins over lat/lon'),
+  lat: z.coerce.number().min(-90).max(90).optional().describe('Required together with lon'),
+  lon: z.coerce.number().min(-180).max(180).optional(),
+  year: YearQueryParam,
+})
+
+const SkyglowQuerySchema = PointQuerySchema.extend({
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .describe('Local calendar date of the night. Default: today in the location timezone'),
+})
+
+const LightPollutionResponseSchema = z.object({
+  lat: z.number(),
+  lon: z.number(),
+  siteId: z.string().nullable().describe('Null when the request used a raw lat/lon'),
+  year: z.number().int().describe('Atlas vintage the values were read from'),
+  lpi: z
+    .number()
+    .describe("Lorenz's Light Pollution Index — artificial over natural zenith brightness"),
+  mpsas: z.number().describe('Total zenith brightness, mag/arcsec². Higher is darker'),
+  zone: z.string().describe('Lorenz zone band, `0a`..`7b`. Each whole step is ×3 in LPI'),
+  trend10yPercent: z
+    .number()
+    .nullable()
+    .describe(
+      'Percent change in LPI from 2016 to `year`. Null when the change is not measurable — the 2016 tile was unavailable, or its cell reads exactly 0 and a ratio against it has no meaning',
+    ),
+  source: z.string(),
+  attribution: z.string(),
+})
+
+const SkyglowProfileSchema = z.object({
+  azimuths: z.number().array().describe('Degrees from north through east, 0..355 in steps of 5'),
+  altitudes: z.number().array().describe('Degrees above the horizon'),
+  mpsas: z
+    .number()
+    .array()
+    .array()
+    .describe('[altitudeIndex][azimuthIndex] — ARTIFICIAL skyglow only, mag/arcsec²'),
+  dominant: z
+    .object({
+      azimuthDeg: z.number(),
+      compass: z.string().describe('16-point label, e.g. `NNE`'),
+      mpsas: z.number(),
+    })
+    .describe('Brightest direction at 10° altitude — where the light dome sits'),
+})
+
+const SkyglowResponseSchema = z.object({
+  lat: z.number(),
+  lon: z.number(),
+  siteId: z.string().nullable(),
+  year: z.number().int(),
+  coreTime: z.string().describe('ISO 8601 UTC — the instant the core peaks on this night'),
+  zenith: z.object({
+    lpi: z.number(),
+    mpsas: z.number().describe('Total zenith brightness, mag/arcsec²'),
+    zone: z.string(),
+  }),
+  core: z.object({
+    azimuthDeg: z.number().describe('Degrees from north through east'),
+    altitudeDeg: z.number().describe('Degrees above the horizon at peak'),
+    mpsas: z
+      .number()
+      .describe('Sky brightness where the camera points — artificial glow plus airglow'),
+    domePenaltyMag: z
+      .number()
+      .describe('How many magnitudes darker the zenith reads than the core direction'),
+  }),
+  profile: SkyglowProfileSchema,
+  model: z
+    .object({
+      hScatKm: z.number(),
+      rangeKm: z.number(),
+      stepKm: z.number(),
+      coreRadiusKm: z.number(),
+      falloffExponent: z.number(),
+    })
+    .describe('The ray-march kernel the numbers came out of — echoed so a result is reproducible'),
+  source: z.string(),
+  attribution: z.string(),
+})
+
 export type AstroRouteDeps = {
   fetchUpstreams: typeof fetchAstroUpstreams
+  lightPollution: typeof fetchLightPollution
+  skyglow: typeof fetchSkyglow
   complete: typeof aiComplete
   /** Injectable clock — a route whose answer depends on "tonight" is untestable without one. */
   now: () => Date
@@ -258,8 +380,142 @@ export type AstroRouteDeps = {
 
 const defaultDeps: AstroRouteDeps = {
   fetchUpstreams: fetchAstroUpstreams,
+  lightPollution: fetchLightPollution,
+  skyglow: fetchSkyglow,
   complete: aiComplete,
   now: () => new Date(),
+}
+
+type AtlasPlace = { lat: number; lon: number; timeZone: string; siteId: string | null }
+
+/**
+ * Location for the two atlas routes: `site` > `lat`+`lon` > the default site —
+ * the same precedence `/astro/window` uses, minus the geocoder (a map lookup
+ * always arrives with coordinates already).
+ */
+function resolveAtlasPlace(query: {
+  site?: string | undefined
+  lat?: number | undefined
+  lon?: number | undefined
+}): AtlasPlace | null {
+  if (query.site) {
+    const site = findSite(query.site)
+    if (!site) return null
+    return { lat: site.lat, lon: site.lon, timeZone: site.timeZone, siteId: site.id }
+  }
+  if (query.lat !== undefined && query.lon !== undefined) {
+    return {
+      lat: query.lat,
+      lon: query.lon,
+      timeZone: nearestSite(query.lat, query.lon).timeZone,
+      siteId: null,
+    }
+  }
+  return {
+    lat: DEFAULT_SITE.lat,
+    lon: DEFAULT_SITE.lon,
+    timeZone: DEFAULT_SITE.timeZone,
+    siteId: DEFAULT_SITE.id,
+  }
+}
+
+/**
+ * Where the galactic core peaks on a given night.
+ *
+ * Anchoring on the local 23:00 and solving for transit puts the search on the
+ * right night rather than the right UTC day — the two differ for any timezone
+ * far from UTC. The sweep either side of transit is what the research POC did
+ * and is kept for the same reason: it makes the peak an observed maximum of the
+ * same ephemeris the rest of the astro surface uses, not a closed-form claim.
+ */
+function resolveCorePeak(args: {
+  observer: { lat: number; lon: number }
+  timeZone: string
+  date: string
+}): { time: Date; azimuthDeg: number; altitudeDeg: number } {
+  const anchor = zonedTimeToUtc(
+    {
+      year: Number(args.date.slice(0, 4)),
+      month: Number(args.date.slice(5, 7)),
+      day: Number(args.date.slice(8, 10)),
+      hour: CORE_SEARCH_ANCHOR_HOUR,
+      minute: 0,
+    },
+    args.timeZone,
+  )
+  const transit = coreTransit(args.observer, anchor)
+
+  let peak = { time: transit, azimuthDeg: 180, altitudeDeg: -90 }
+  for (let h = -CORE_SEARCH_SPAN_HOURS; h <= CORE_SEARCH_SPAN_HOURS; h += CORE_SEARCH_STEP_HOURS) {
+    const time = new Date(transit.getTime() + h * 3_600_000)
+    const position = galacticCorePosition(args.observer, time)
+    if (position.altitude > peak.altitudeDeg) {
+      peak = { time, azimuthDeg: position.azimuth, altitudeDeg: position.altitude }
+    }
+  }
+  return peak
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
+function serializeLightPollution(point: LightPollutionPoint, siteId: string | null) {
+  return {
+    lat: point.lat,
+    lon: point.lon,
+    siteId,
+    year: point.year,
+    lpi: round3(point.lpi),
+    mpsas: round2(point.mpsas),
+    zone: point.zone,
+    trend10yPercent: point.trend10yPercent === null ? null : round1(point.trend10yPercent),
+    source: point.source,
+    attribution: ATLAS_ATTRIBUTION,
+  }
+}
+
+function serializeSkyglow(
+  result: SkyglowResult,
+  place: AtlasPlace,
+  coreTime: Date,
+): z.infer<typeof SkyglowResponseSchema> {
+  return {
+    lat: result.lat,
+    lon: result.lon,
+    siteId: place.siteId,
+    year: result.year,
+    coreTime: coreTime.toISOString(),
+    zenith: {
+      lpi: round3(result.zenith.lpi),
+      mpsas: round2(result.zenith.mpsas),
+      zone: result.zenith.zone,
+    },
+    core: {
+      azimuthDeg: round1(result.core.azimuthDeg),
+      altitudeDeg: round1(result.core.altitudeDeg),
+      mpsas: round2(result.core.mpsas),
+      domePenaltyMag: round2(result.core.domePenaltyMag),
+    },
+    // No `topPolluters[]` here, even though doc §7 sketches one: naming the
+    // cities behind a dome needs the GeoNames population kernel (model A), and
+    // §2.2 drops that model outright. A named list is not derivable from the
+    // atlas grid alone, and guessing one would be the only model-invented number
+    // on this surface.
+    profile: {
+      azimuths: result.profile.azimuths,
+      altitudes: result.profile.altitudes,
+      mpsas: result.profile.mpsas.map((row) => row.map(round2)),
+      dominant: {
+        azimuthDeg: result.profile.dominant.azimuthDeg,
+        compass: result.profile.dominant.compass,
+        mpsas: round2(result.profile.dominant.mpsas),
+      },
+    },
+    model: result.model,
+    source: result.source,
+    attribution: ATLAS_ATTRIBUTION,
+  }
 }
 
 type ResolvedPlace = {
@@ -678,6 +934,97 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
           summary: 'List the candidate drive-to observing sites',
           description:
             'The static set of observing sites with their Bortle baseline and drive time from Munich. Pass an `id` from here as `?site=` to GET /astro/window. Bortle is a hand-maintained constant rather than a live lookup: light pollution changes yearly, not hourly. Use this to populate a site picker, or to decide whether a 45-minute drive south is worth two Bortle classes.',
+          security: [{ BearerAuth: [] }],
+        },
+      },
+    )
+    .get(
+      '/light-pollution',
+      async ({ query, status }) => {
+        const place = resolveAtlasPlace(query)
+        if (!place) return status(404, `Unknown site "${query.site}". See GET /astro/sites.`)
+
+        const point = await deps.lightPollution({
+          lat: place.lat,
+          lon: place.lon,
+          year: parseYear(query.year),
+        })
+        if (!point) {
+          return status(
+            502,
+            'Light Pollution Atlas unavailable, or the coordinate is outside its 65°S–75°N coverage.',
+          )
+        }
+        return serializeLightPollution(point, place.siteId)
+      },
+      {
+        query: PointQuerySchema,
+        response: {
+          200: LightPollutionResponseSchema,
+          404: z.string(),
+          502: z.string(),
+        },
+        detail: {
+          tags: ['Astro & Marine'],
+          summary: 'Zenith light pollution for a coordinate, from the Lorenz atlas',
+          description:
+            "Returns measured ZENITH sky brightness for one point: `lpi` (artificial over natural zenith brightness), `mpsas` (total zenith brightness in mag/arcsec², higher is darker), the Lorenz `0a`..`7b` zone band, and `trend10yPercent` (the change in LPI from the 2016 atlas to the requested year, which runs +25% per decade at some German sites and flat at others). Values come from David J. Lorenz's binary tiles at 30-arcsec resolution; `year` selects the vintage (2016, 2020, 2022, 2023, 2024, 2025 — default the latest). Location resolves `site` > `lat`+`lon` > Munich. A Bortle class is deliberately NOT offered: Bortle is a subjective scale about the WHOLE sky, driven mostly by light domes near the horizon, and a zenith map cannot produce it — the atlas author asks explicitly that the two not be conflated. Treat absolute `mpsas` as ±0.2 mag, because the 22.0 mag/arcsec² natural baseline it is measured against is a convention rather than a constant. This endpoint describes the part of the sky a Milky Way frame never contains; for the direction that actually matters use GET /astro/skyglow, and for the full go/no-go verdict use GET /astro/window. Returns 502 when the atlas is unreachable — there is no cached or modelled value to degrade to.",
+          security: [{ BearerAuth: [] }],
+        },
+      },
+    )
+    .get(
+      '/skyglow',
+      async ({ query, status }) => {
+        const place = resolveAtlasPlace(query)
+        if (!place) return status(404, `Unknown site "${query.site}". See GET /astro/sites.`)
+
+        const date = query.date ?? formatLocalDate(deps.now(), place.timeZone)
+        const peak = resolveCorePeak({
+          observer: { lat: place.lat, lon: place.lon },
+          timeZone: place.timeZone,
+          date,
+        })
+
+        // The core's declination is −29°, so it never clears the horizon above
+        // ~61°N — and the scattering kernel is only defined above it. Answering
+        // anyway would report a confident dome penalty for a direction that is
+        // under the ground; name the number instead.
+        if (peak.altitudeDeg <= 0) {
+          return status(
+            422,
+            `The galactic core stays below the horizon here on ${date} — it peaks at ${round1(peak.altitudeDeg)}°. There is no direction to measure.`,
+          )
+        }
+
+        const result = await deps.skyglow({
+          lat: place.lat,
+          lon: place.lon,
+          year: parseYear(query.year),
+          coreAzimuthDeg: peak.azimuthDeg,
+          coreAltitudeDeg: peak.altitudeDeg,
+        })
+        if (!result) {
+          return status(
+            502,
+            'Light Pollution Atlas unavailable, or the coordinate is outside its 65°S–75°N coverage.',
+          )
+        }
+        return serializeSkyglow(result, place, peak.time)
+      },
+      {
+        query: SkyglowQuerySchema,
+        response: {
+          200: SkyglowResponseSchema,
+          404: z.string(),
+          422: z.string(),
+          502: z.string(),
+        },
+        detail: {
+          tags: ['Astro & Marine'],
+          summary: 'Direction-resolved skyglow and the sky brightness where the core actually sits',
+          description:
+            'Returns an azimuth × altitude rose of ARTIFICIAL skyglow around one point (`profile.mpsas[altitudeIndex][azimuthIndex]`, azimuths 0–355° in 5° steps, altitudes 5/8/10/13/15/20/30°), the dominant light-dome direction at 10°, and — the number this endpoint exists for — `core.mpsas`: sky brightness in the direction the galactic core peaks on this night, with `core.domePenaltyMag` giving how many magnitudes darker the published zenith figure reads than that direction. It re-orders real sites: the darkest zenith of the four shipped sites loses its lead entirely once the light dome sits where the camera points. Every number is a deterministic ray-march over Lorenz atlas tiles weighted by a scattering kernel (echoed back in `model`); NO model computes any figure here, and the ephemeris behind `coreTime`/`core.azimuthDeg`/`core.altitudeDeg` is the same one GET /astro/window uses. `profile` is artificial glow ALONE — airglow enters only `core.mpsas`, so the rose reads as "what the lights cost me". `date` (YYYY-MM-DD) picks the night and defaults to today in the location timezone; `year` picks the atlas vintage; location resolves `site` > `lat`+`lon` > Munich. Absolute dome penalties move ±0.35 mag across nine kernel variants, but the ORDERING of sites is invariant across all nine — rank with this, do not quote it as a measurement. For the zenith value on its own use GET /astro/light-pollution. Returns 422 above ~61°N, where the core never clears the horizon and there is no direction to measure, and 502 when the atlas is unreachable.',
           security: [{ BearerAuth: [] }],
         },
       },
