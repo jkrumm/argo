@@ -624,3 +624,18 @@ The ones that would most change the work if wrong:
 - **`peakScore`, `angularDistance` and `circularMean` went into the engine**, not
   into the marine config (D10) — they are domain-agnostic, and marine was the first
   real test of whether that module was generic.
+
+## Addendum — 2026-08-18: the marine page was removed
+
+Building astro and marine in one run was too much at once. The **dashboard** side of
+marine was reverted: `features/marine-window/`, `routes/marine-window.tsx`,
+`lib/queries/marine.ts`, its sidebar entry and its three series
+(`swellPeriod`/`swellHeight`/`windSpeed`) are gone, and `Outdoors` now holds Astro
+alone.
+
+The **API side stayed** — `/marine/window`, `/marine/spots`, `marine-score.ts`,
+`marine-spots.ts`, `clients/marine-upstreams.ts` and their tests are untouched, so
+nothing above about the engine, the thresholds or the two upstream-bug fixes is
+stale. The surf face gets rebuilt deliberately on top of those endpoints later; this
+document stays the record of what it looked like and which four defects a flat week
+exposed.
