@@ -21,10 +21,11 @@ raster layers, and it stands. This one is about the other half of the sky budget
 | Our raymarch is PVGIS-grade                   | 0.20° RMS over the southern arc, ≤7 m elevation             |
 | PVGIS is a reference, not a dependency        | keyless, but 48 azimuths and EU-only; ours is 72 and global |
 | The horizon must be a profile, not a scalar   | terrain reorders the site ranking by 16×                    |
-| Terrain blocks moonlight too                  | +21% usable core hours at Walchensee                        |
+| Terrain blocks moonlight too                  | +22% usable core hours at Walchensee                        |
 | Beyond 500 m the profile is resolution-stable | z11 vs z12 agree to ≤0.08°                                  |
 | Within 500 m it is not                        | same sites disagree by up to 0.96°                          |
 | Clearance is rasterable                       | 0.34 ms per cell, 8.3 M DEM samples/s                       |
+| A whole year integrates in 373 ms             | 10-minute grid, within 0.4% of a 2-minute one               |
 
 ## 1. The reference check — PVGIS
 
@@ -149,10 +150,16 @@ azimuth:
 
 | Site             | Moon down at 0° | Moon down behind terrain | Gain       |
 | ---------------- | --------------- | ------------------------ | ---------- |
-| Munich           | 113.8 h/yr      | 116.3 h/yr               | +2.2%      |
-| Alpenvorland     | 126.2 h/yr      | 133.2 h/yr               | +5.5%      |
+| Munich           | 113.8 h/yr      | 114.5 h/yr               | +0.6%      |
+| Alpenvorland     | 126.2 h/yr      | 133.0 h/yr               | +5.4%      |
 | Bayerischer Wald | 76.0 h/yr       | 81.3 h/yr                | +7.0%      |
 | Walchensee       | 134.2 h/yr      | 163.8 h/yr               | **+22.1%** |
+
+These are measured against the SKYLINE band alone — ground beyond 500 m. Counting the
+near band too would raise Munich to +2.2% and the Karwendel valley floor to +11%, and it
+would be the wrong number: near-field ground is exactly the DEM-noise-prone case (§3),
+and crediting a 76 m pixel of your own hillside with blocking the moon is not a
+measurement. Excluding it is the conservative reading, and it is what ships.
 
 Refraction convention, because mixing two of them here would be a real error: the sun
 altitude is geometric (every twilight definition is), the moon altitude carries `'normal'`
