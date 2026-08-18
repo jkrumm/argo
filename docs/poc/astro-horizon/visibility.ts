@@ -62,7 +62,7 @@ for (const site of SITES) {
     }
 
     const moonEq = eq(Body.Moon, time, observer)
-    const moon = Horizon(time, observer, ...moonEq)
+    const moon = Horizon(time, observer, ...moonEq, 'normal')
     const illum = Illumination(Body.Moon, time).phase_fraction
     const moonFlatDown = moon.altitude < 0 || illum <= MAX_MOON_ILLUM
     const moonTerrainDown =

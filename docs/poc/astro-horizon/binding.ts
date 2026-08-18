@@ -91,7 +91,7 @@ for (const site of CANDIDATES) {
     const clearance = c.altitude - ridge
     if (clearance > peakClearance && c.altitude >= ATMOSPHERIC_FLOOR) peakClearance = clearance
 
-    const moon = Horizon(time, observer, ...eq(Body.Moon, time, observer))
+    const moon = Horizon(time, observer, ...eq(Body.Moon, time, observer), 'normal')
     const illum = Illumination(Body.Moon, time).phase_fraction
     const moonFlat = moon.altitude < 0 || illum <= 0.25
     const moonTerrain = moon.altitude < horizonAt(profile.points, moon.azimuth) || illum <= 0.25

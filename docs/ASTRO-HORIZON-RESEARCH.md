@@ -115,23 +115,23 @@ margin, is the tighter floor.
 
 | Candidate              | Elev   | South max | Flat 8° gate | Terrain gate | Δ        | bind% | Peak clearance |
 | ---------------------- | ------ | --------- | ------------ | ------------ | -------- | ----- | -------------- |
-| Munich                 | 525 m  | 1.0°      | 116.0 h/yr   | 116.0 h/yr   | 0%       | 0%    | 12.5°          |
-| Alpenvorland           | 599 m  | 3.8°      | 128.0 h/yr   | 128.0 h/yr   | 0%       | 0%    | 10.5°          |
-| Bayerischer Wald       | 809 m  | 0.6°      | 77.7 h/yr    | 77.7 h/yr    | 0%       | 0%    | 11.9°          |
-| Walchensee             | 801 m  | 5.7°      | 136.0 h/yr   | 136.0 h/yr   | 0%       | 0%    | 8.5°           |
-| Eng / Karwendel valley | 1956 m | 9.5°      | 143.5 h/yr   | 121.7 h/yr   | −15%     | 40%   | 10.9°          |
-| Sylvenstein            | 746 m  | 12.3°     | 137.5 h/yr   | 67.8 h/yr    | −51%     | 100%  | 3.9°           |
-| Herzogstand summit     | 1594 m | 2.6°      | 135.3 h/yr   | 135.3 h/yr   | 0%       | 0%    | 11.8°          |
-| Wallberg summit        | 1134 m | 20.1°     | 134.7 h/yr   | 8.7 h/yr     | **−94%** | 96%   | 3.3°           |
+| Munich                 | 525 m  | 1.0°      | 113.8 h/yr   | 113.8 h/yr   | 0%       | 0%    | 12.5°          |
+| Alpenvorland           | 599 m  | 3.8°      | 126.2 h/yr   | 126.2 h/yr   | 0%       | 0%    | 10.5°          |
+| Bayerischer Wald       | 809 m  | 0.6°      | 76.0 h/yr    | 76.0 h/yr    | 0%       | 0%    | 11.9°          |
+| Walchensee             | 801 m  | 5.7°      | 134.2 h/yr   | 134.2 h/yr   | 0%       | 0%    | 8.5°           |
+| Eng / Karwendel valley | 1956 m | 9.5°      | 141.2 h/yr   | 119.7 h/yr   | −15%     | 41%   | 10.9°          |
+| Sylvenstein            | 746 m  | 12.3°     | 135.8 h/yr   | 67.2 h/yr    | −51%     | 100%  | 3.9°           |
+| Herzogstand summit     | 1594 m | 2.6°      | 133.5 h/yr   | 133.5 h/yr   | 0%       | 0%    | 11.8°          |
+| Wallberg summit        | 1134 m | 20.1°     | 132.0 h/yr   | 8.5 h/yr     | **−94%** | 96%   | 3.3°           |
 
 At the four committed sites the terrain gate changes nothing — their southern horizons
 are all under 5.7°, so the 8° atmospheric floor swallows them whole. That is a property
 of the pre-alpine plain, not a reason to skip the work: the moment the map lets you
-click a valley or a summit, terrain becomes the binding constraint 40–100% of the time.
+click a valley or a summit, terrain becomes the binding constraint 41–100% of the time.
 
 Note Herzogstand against Wallberg. Both summits, 460 m apart in height, 35 km apart on
-the ground, indistinguishable on a light-pollution map. One keeps 135 h/yr; the other
-keeps 8.7. Altitude is not the variable — which side of the range you are on is.
+the ground, indistinguishable on a light-pollution map. One keeps 133 h/yr; the other
+keeps 8.5. Altitude is not the variable — which side of the range you are on is.
 
 **Decision: the gate is `max(8°, farHorizon(coreAzimuth) + 2°)`, evaluated per sample**,
 not once per night. The 8° term is atmospheric (extinction and the dome, no terrain
@@ -149,14 +149,21 @@ azimuth:
 
 | Site             | Moon down at 0° | Moon down behind terrain | Gain       |
 | ---------------- | --------------- | ------------------------ | ---------- |
-| Munich           | 116.0 h/yr      | 118.5 h/yr               | +2.2%      |
-| Alpenvorland     | 128.0 h/yr      | 135.0 h/yr               | +5.5%      |
-| Bayerischer Wald | 77.7 h/yr       | 82.7 h/yr                | +6.4%      |
-| Walchensee       | 136.0 h/yr      | 164.2 h/yr               | **+20.7%** |
+| Munich           | 113.8 h/yr      | 116.3 h/yr               | +2.2%      |
+| Alpenvorland     | 126.2 h/yr      | 133.2 h/yr               | +5.5%      |
+| Bayerischer Wald | 76.0 h/yr       | 81.3 h/yr                | +7.0%      |
+| Walchensee       | 134.2 h/yr      | 163.8 h/yr               | **+22.1%** |
+
+Refraction convention, because mixing two of them here would be a real error: the sun
+altitude is geometric (every twilight definition is), the moon altitude carries `'normal'`
+refraction, and the terrain profile carries terrestrial refraction at k = 0.13. Comparing
+a refracted moon against a refracted ridge is the consistent pair — an airless moon reads
+~0.5° low near the horizon and inflates every gain in this table by about a point.
+`astro-night.ts` already ships this convention; the POC was corrected to match it.
 
 The gain scales with how walled-in a site is, which is the correct behaviour and the
 opposite sign to what terrain does to the core. Walchensee's 34° northern wall costs it
-nothing to the south and earns it a fifth more usable time. That trade is invisible to
+nothing to the south and earns it 22% more usable time. That trade is invisible to
 every other tool in this space.
 
 ### 4.3 The annual budget is worth serving on its own
@@ -168,13 +175,15 @@ May peak — but the magnitude is a per-place fact:
 
 | Site             | Mar | Apr | May | Jun | Jul | Aug | Sep |
 | ---------------- | --- | --- | --- | --- | --- | --- | --- |
-| Munich           | 3   | 15  | 30  | 24  | 27  | 15  | 3   |
-| Alpenvorland     | 4   | 17  | 32  | 27  | 29  | 16  | 4   |
-| Bayerischer Wald | 1   | 12  | 25  | 11  | 17  | 11  | 2   |
-| Walchensee       | 4   | 17  | 33  | 29  | 31  | 18  | 5   |
+| Munich           | 3   | 15  | 29  | 23  | 26  | 15  | 3   |
+| Alpenvorland     | 3   | 17  | 31  | 27  | 29  | 16  | 4   |
+| Bayerischer Wald | 1   | 12  | 25  | 11  | 16  | 11  | 2   |
+| Walchensee       | 4   | 17  | 32  | 29  | 31  | 18  | 4   |
 
-Hours per month, terrain gate, moon-down-behind-terrain. June dipping below May and July
-is real: astronomical darkness itself is shortest at the solstice.
+Hours per month under the terrain gate with the moon counted down at 0° — the
+conservative pair, so §4.2's terrain-blocked-moon gain sits on top of these rather than
+inside them. June dipping below May and July is real: astronomical darkness itself is
+shortest at the solstice.
 
 **Decision: `GET /astro/visibility` serves this.** It is deterministic, weather-free,
 cacheable forever, and it is the number that answers "is this spot worth the drive at
