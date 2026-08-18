@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/maplibre-gl@6.3.0/dist/maplibre-gl.css"
+      rel="stylesheet"
+    />
+    <style>
+      html,
+      body,
+      #map {
+        margin: 0;
+        height: 100%;
+        background: #000;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script type="module">
+      import {
+        Map as MLMap,
+        getVersion,
+      } from 'https://cdn.jsdelivr.net/npm/maplibre-gl@6.3.0/dist/maplibre-gl.mjs'
+      window.__r = { errors: [], loaded: true, ver: getVersion?.() }
+      const map = new MLMap({
+        container: 'map',
+        style: {
+          version: 8,
+          sources: {},
+          layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#0a0a0b' } }],
+        },
+        center: [11.33, 47.6],
+        zoom: 8,
+      })
+      map.on('error', (e) => window.__r.errors.push(String(e?.error?.message || e)))
+      map.on('load', () => {
+        map.addSource('dem', {
+          type: 'raster-dem',
+          tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+          tileSize: 256,
+          maxzoom: 12,
+          encoding: 'terrarium',
+        })
+        try {
+          map.addLayer({
+            id: 'cr',
+            type: 'color-relief',
+            source: 'dem',
+            paint: {
+              'color-relief-color': [
+                'interpolate',
+                ['linear'],
+                ['elevation'],
+                400,
+                '#0a0a0b',
+                700,
+                '#0077bd',
+                1200,
+                '#8ec5ff',
+                2000,
+                '#f4f4f5',
+              ],
+              'color-relief-opacity': 0.9,
+            },
+          })
+          window.__r.added = 'ok'
+        } catch (e) {
+          window.__r.added = 'REJECTED: ' + e.message
+        }
+        map.once('idle', () => {
+          window.__r.ready = true
+        })
+      })
+    </script>
+  </body>
+</html>
