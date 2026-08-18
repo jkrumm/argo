@@ -3,9 +3,11 @@ import { existsSync, readFileSync } from 'node:fs'
 import {
   clearLorenzAtlasCache,
   fetchLightPollution,
+  fetchLpTile,
   fetchSkyglow,
   type FetchImpl,
 } from './lorenz-atlas.js'
+import { renderLpTilePng } from '../lib/lp-tile.js'
 
 // ── Fixtures ─────────────────────────────────────────────────────────────
 
@@ -230,5 +232,126 @@ describe('fetchSkyglow', () => {
   it('returns null outside atlas coverage', async () => {
     const { fetchImpl } = fixtureFetch()
     expect(await fetchSkyglow({ lat: -80, lon: 11, ...core }, { fetchImpl })).toBeNull()
+  })
+})
+
+describe('fetchLpTile', () => {
+  /**
+   * The atlas is one real 5° tile; this hands the SAME bytes back for every
+   * coordinate, so an enumeration test can resolve all 16 of them instead of
+   * 404ing on the 15 that were never committed.
+   */
+  function anyTileFetch(): { fetchImpl: FetchImpl; calls: string[] } {
+    const bytes = new Uint8Array(readFileSync(`${FIXTURE_DIR}/binary_tile_39_23.2025.dat.gz`))
+    const calls: string[] = []
+    const fetchImpl: FetchImpl = async (input) => {
+      calls.push(hrefOf(input))
+      return new Response(bytes.slice(), { status: 200 })
+    }
+    return { fetchImpl, calls }
+  }
+
+  it('enumerates every atlas tile a z5 map tile touches, not just its corners', async () => {
+    const { fetchImpl, calls } = anyTileFetch()
+    // x=3 y=16 is the measured worst case on the globe: a z5 tile spans ~11° of
+    // longitude, which is more than two 5° atlas tiles, so a corner-only
+    // enumeration would silently drop the columns in between.
+    const tile = await fetchLpTile({ x: 3, y: 16, z: 5 }, { fetchImpl })
+
+    expect(tile?.tilesRequested).toBe(16)
+    expect(tile?.tilesResolved).toBe(16)
+    expect(new Set(calls).size).toBe(16)
+    expect([...(tile?.png.subarray(0, 8) ?? [])]).toEqual([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    ])
+  })
+
+  it('serves a repeat render from the PNG cache without re-reading a single grid', async () => {
+    const { fetchImpl, calls } = anyTileFetch()
+    const first = await fetchLpTile({ x: 3, y: 16, z: 5 }, { fetchImpl })
+    const afterFirst = calls.length
+    expect(afterFirst).toBe(16)
+
+    const second = await fetchLpTile({ x: 3, y: 16, z: 5 }, { fetchImpl })
+    expect(calls.length).toBe(afterFirst)
+    expect(second?.png).toBe(first!.png)
+    expect(second?.tilesResolved).toBe(second?.tilesRequested)
+  })
+
+  it('does NOT cache a partial render, so the missing tiles get another chance', async () => {
+    // The committed fixture set covers 39:23 only, so this Munich z5 tile
+    // resolves 1 of 6 — exactly the partial case.
+    const { fetchImpl, calls } = fixtureFetch()
+    const first = await fetchLpTile({ x: 17, y: 11, z: 5 }, { fetchImpl })
+    expect(first?.tilesRequested).toBe(6)
+    expect(first?.tilesResolved).toBe(1)
+
+    calls.length = 0
+    const second = await fetchLpTile({ x: 17, y: 11, z: 5 }, { fetchImpl })
+    // The 5 that failed are retried; the 1 that worked is still grid-cached.
+    expect(calls).toHaveLength(5)
+    expect(second?.tilesResolved).toBe(1)
+  })
+
+  it('one low-zoom render does not evict the grids the point lookups live on', async () => {
+    const { fetchImpl, calls } = anyTileFetch()
+    await fetchSkyglow({ ...MUNICH, coreAzimuthDeg: 180, coreAltitudeDeg: 13 }, { fetchImpl })
+    calls.length = 0
+
+    // 16 grids at once — more than the old 12-entry cap, which flushed the
+    // astro engine's own tiles and sent /astro/skyglow back to the network.
+    await fetchLpTile({ x: 3, y: 16, z: 5 }, { fetchImpl })
+    calls.length = 0
+
+    await fetchSkyglow({ ...MUNICH, coreAzimuthDeg: 180, coreAltitudeDeg: 13 }, { fetchImpl })
+    expect(calls).toHaveLength(0)
+  })
+
+  it('coalesces concurrent callers onto one download per atlas tile', async () => {
+    const { fetchImpl, calls } = anyTileFetch()
+    // Four adjacent z5 tiles overlap heavily; without in-flight sharing each
+    // one re-downloads the neighbours the others are already fetching.
+    const tiles = await Promise.all([
+      fetchLpTile({ x: 3, y: 16, z: 5 }, { fetchImpl }),
+      fetchLpTile({ x: 4, y: 16, z: 5 }, { fetchImpl }),
+      fetchLpTile({ x: 3, y: 17, z: 5 }, { fetchImpl }),
+      fetchLpTile({ x: 4, y: 17, z: 5 }, { fetchImpl }),
+    ])
+
+    const distinct = new Set(calls).size
+    const asked = tiles.reduce((sum, tile) => sum + (tile?.tilesRequested ?? 0), 0)
+    // Guards against a vacuous assertion: the four boxes must genuinely share
+    // atlas tiles, or deduping them would prove nothing.
+    expect(asked).toBeGreaterThan(distinct)
+    expect(calls.length).toBe(distinct)
+  })
+
+  it('renders flat no-data outside the 65°S–75°N band instead of erroring', async () => {
+    const { fetchImpl, calls } = anyTileFetch()
+    // z5 rows 0..4 sit entirely above 75°N. 416 of the 1024 tiles a z5 world
+    // view requests are like this — a permanent answer, not an outage, so it
+    // must not cost a 502 and a warn each time.
+    const tile = await fetchLpTile({ x: 17, y: 0, z: 5 }, { fetchImpl })
+
+    expect(tile).not.toBeNull()
+    expect(tile?.tilesRequested).toBe(0)
+    expect(tile?.tilesResolved).toBe(0)
+    expect(calls).toHaveLength(0)
+    // Byte-identical to a tile whose sampler answers NaN everywhere — i.e. every
+    // pixel carries the same 22.00 an uncovered pixel gets on a partial tile.
+    // Asserting on the bytes avoids shipping a PNG decoder just for a test.
+    expect(tile?.png).toEqual(renderLpTilePng({ x: 17, y: 0, z: 5, sampler: () => Number.NaN }))
+  })
+
+  it('returns null — a real failure — when tiles exist but none of them resolve', async () => {
+    expect(await fetchLpTile({ x: 17, y: 11, z: 5 }, { fetchImpl: throwingFetch })).toBeNull()
+    expect(await fetchLpTile({ x: 17, y: 11, z: 5 }, { fetchImpl: notFoundFetch })).toBeNull()
+  })
+
+  it('returns null outside the served zoom range without touching the network', async () => {
+    const { fetchImpl, calls } = anyTileFetch()
+    expect(await fetchLpTile({ x: 4, y: 5, z: 4 }, { fetchImpl })).toBeNull()
+    expect(await fetchLpTile({ x: 540, y: 356, z: 10 }, { fetchImpl })).toBeNull()
+    expect(calls).toHaveLength(0)
   })
 })

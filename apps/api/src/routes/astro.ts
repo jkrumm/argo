@@ -1,4 +1,5 @@
 import { Elysia } from 'elysia'
+import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import {
   cloudAt,
@@ -8,6 +9,7 @@ import {
 } from '../clients/astro-upstreams.js'
 import {
   fetchLightPollution,
+  fetchLpTile,
   fetchSkyglow,
   type LightPollutionPoint,
   type SkyglowResult,
@@ -23,6 +25,7 @@ import {
 } from '../lib/astro-night.js'
 import { coreTransit, galacticCorePosition } from '../lib/astro-ephemeris.js'
 import { LORENZ_YEARS, LATEST_LORENZ_YEAR, type LorenzYear } from '../lib/lorenz-decode.js'
+import { LP_TILE_MAX_ZOOM, LP_TILE_MIN_ZOOM } from '../lib/lp-tile.js'
 import {
   ASTRO_SITES,
   DEFAULT_SITE,
@@ -369,9 +372,71 @@ const SkyglowResponseSchema = z.object({
   attribution: z.string(),
 })
 
+/**
+ * Path params for the raster tile route.
+ *
+ * `y` carries the `.png` suffix rather than the route path: Elysia binds
+ * `:y.png` as a parameter literally NAMED `y.png` (verified — it does not strip
+ * the suffix), so the honest form is a plain `:y` segment whose value is
+ * `"89.png"`. The suffix is REQUIRED, so the tile URL has exactly one shape.
+ *
+ * All three coordinates are matched as CANONICAL decimal strings rather than
+ * coerced numbers, and that is the load-bearing half of "exactly one shape":
+ * `z.coerce.number()` runs `Number()`, which happily accepts `0x87`, `1e2`,
+ * `0135` and `%20135` as 135 — five URLs for one tile, each of which a browser
+ * and Cloudflare would cache as a separate 30-day copy. The regex admits `0` or
+ * a leading non-zero digit, and nothing else.
+ *
+ * The numeric bounds are cross-field (x and y run 0..2^z−1) or would not survive
+ * the trip to JSON Schema, so they are checked in the handler.
+ */
+const CANONICAL_DECIMAL = /^(0|[1-9]\d{0,6})$/
+
+const LpTileParamsSchema = z.object({
+  year: z.enum(LORENZ_YEAR_OPTIONS).describe('Atlas vintage'),
+  z: z
+    .string()
+    .regex(CANONICAL_DECIMAL)
+    .describe(`Web Mercator zoom, ${LP_TILE_MIN_ZOOM}..${LP_TILE_MAX_ZOOM}`),
+  x: z.string().regex(CANONICAL_DECIMAL).describe('Tile column, 0..2^z-1'),
+  y: z
+    .string()
+    .regex(/^(0|[1-9]\d{0,6})\.png$/)
+    .describe('Tile row followed by the required `.png` suffix, e.g. `89.png`'),
+})
+
+/**
+ * 30 days. The atlas publishes once a year — but a vintage CAN be republished,
+ * so not `immutable`.
+ *
+ * `private`, not `public`: the route is behind `authGuard`, and RFC 9111 §3.5
+ * says a shared cache MUST NOT store a response to an `Authorization`-bearing
+ * request UNLESS it carries `public`/`s-maxage`/`must-revalidate`. Saying
+ * `public` is therefore the exact directive that would let the Cloudflare Tunnel
+ * in front of argo.jkrumm.com keep a `.png` and replay it to callers with no
+ * token. `private` buys the same browser caching without granting that.
+ */
+const LP_TILE_CACHE_CONTROL = 'private, max-age=2592000, stale-while-revalidate=86400'
+
+/**
+ * A partially covered render is provisional, so nothing may keep it.
+ *
+ * `fetchLpTile` already declines to cache it in-process precisely so the next
+ * request re-tries the missing atlas tiles; handing the browser a 30-day copy
+ * would pin the very bytes the client refused to keep. The unresolved region
+ * encodes 22.00 — "pristine natural sky" — so a 20 s upstream blip during a z5
+ * render would otherwise leave a fabricated dark zone over a city for a month.
+ */
+const LP_TILE_PARTIAL_CACHE_CONTROL = 'no-store'
+
+function lpTileEtag(png: Uint8Array<ArrayBuffer>): string {
+  return `"${createHash('sha256').update(png).digest('hex').slice(0, 32)}"`
+}
+
 export type AstroRouteDeps = {
   fetchUpstreams: typeof fetchAstroUpstreams
   lightPollution: typeof fetchLightPollution
+  lpTile: typeof fetchLpTile
   skyglow: typeof fetchSkyglow
   complete: typeof aiComplete
   /** Injectable clock — a route whose answer depends on "tonight" is untestable without one. */
@@ -381,6 +446,7 @@ export type AstroRouteDeps = {
 const defaultDeps: AstroRouteDeps = {
   fetchUpstreams: fetchAstroUpstreams,
   lightPollution: fetchLightPollution,
+  lpTile: fetchLpTile,
   skyglow: fetchSkyglow,
   complete: aiComplete,
   now: () => new Date(),
@@ -1026,6 +1092,73 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
           description:
             'Returns an azimuth × altitude rose of ARTIFICIAL skyglow around one point (`profile.mpsas[altitudeIndex][azimuthIndex]`, azimuths 0–355° in 5° steps, altitudes 5/8/10/13/15/20/30°), the dominant light-dome direction at 10°, and — the number this endpoint exists for — `core.mpsas`: sky brightness in the direction the galactic core peaks on this night, with `core.domePenaltyMag` giving how many magnitudes darker the published zenith figure reads than that direction. It re-orders real sites: the darkest zenith of the four shipped sites loses its lead entirely once the light dome sits where the camera points. Every number is a deterministic ray-march over Lorenz atlas tiles weighted by a scattering kernel (echoed back in `model`); NO model computes any figure here, and the ephemeris behind `coreTime`/`core.azimuthDeg`/`core.altitudeDeg` is the same one GET /astro/window uses. `profile` is artificial glow ALONE — airglow enters only `core.mpsas`, so the rose reads as "what the lights cost me". `date` (YYYY-MM-DD) picks the night and defaults to today in the location timezone; `year` picks the atlas vintage; location resolves `site` > `lat`+`lon` > Munich. Absolute dome penalties move ±0.35 mag across nine kernel variants, but the ORDERING of sites is invariant across all nine — rank with this, do not quote it as a measurement. For the zenith value on its own use GET /astro/light-pollution. Returns 422 above ~61°N, where the core never clears the horizon and there is no direction to measure, and 502 when the atlas is unreachable.',
           security: [{ BearerAuth: [] }],
+        },
+      },
+    )
+    .get(
+      '/tiles/lp/:year/:z/:x/:y',
+      async ({ params, request, status }) => {
+        const zoom = Number(params.z)
+        const column = Number(params.x)
+        const row = Number(params.y.slice(0, -'.png'.length))
+        if (zoom < LP_TILE_MIN_ZOOM || zoom > LP_TILE_MAX_ZOOM) {
+          return status(
+            422,
+            `z must be inside ${LP_TILE_MIN_ZOOM}..${LP_TILE_MAX_ZOOM}; got z=${zoom}.`,
+          )
+        }
+        const span = 2 ** zoom
+        if (column >= span || row >= span) {
+          return status(
+            422,
+            `x and y must be inside 0..${span - 1} at z${zoom}; got x=${column}, y=${row}.`,
+          )
+        }
+
+        const tile = await deps.lpTile({
+          x: column,
+          y: row,
+          z: zoom,
+          year: Number(params.year) as LorenzYear,
+        })
+        if (!tile) return status(502, 'Light Pollution Atlas unavailable.')
+
+        const etag = lpTileEtag(tile.png)
+        // A partial render must not outlive the request that produced it — see
+        // LP_TILE_PARTIAL_CACHE_CONTROL.
+        const partial = tile.tilesResolved < tile.tilesRequested
+        const headers: Record<string, string> = {
+          'content-type': 'image/png',
+          'cache-control': partial ? LP_TILE_PARTIAL_CACHE_CONTROL : LP_TILE_CACHE_CONTROL,
+          etag,
+        }
+        // A map re-requests the same tiles constantly; a 304 saves the body but
+        // still has to carry the validators the browser will reuse.
+        if (request.headers.get('if-none-match') === etag) {
+          return new Response(null, { status: 304, headers })
+        }
+        return new Response(tile.png, { headers })
+      },
+      {
+        params: LpTileParamsSchema,
+        // No `response` schema: the 200 body is binary PNG, which Zod cannot
+        // describe and Elysia would try to serialize. The OpenAPI contract for
+        // it is declared by hand in `detail.responses` below.
+        detail: {
+          tags: ['Astro & Marine'],
+          summary: 'Light-pollution raster tile, terrarium-encoded for client-side colouring',
+          description:
+            "Returns a 256×256 PNG of sky brightness for one Web Mercator tile, at `/astro/tiles/lp/{year}/{z}/{x}/{y}.png` (the `.png` suffix is part of the path). The payload is DATA, not a picture: each pixel is terrarium-encoded, so `mpsas = (R*256 + G + B/256 - 32768) / 100` — total zenith brightness in mag/arcsec², higher is darker. Blue is always 0 (the unit is 1/100 mag, not 1/256). The palette is applied CLIENT-side by MapLibre's `color-relief` layer over a `raster-dem` source, which is what lets the map use Argo's own ramp instead of the atlas author's colour scheme. Pixels with no atlas coverage encode 22.00, the natural sky, and a tile lying entirely outside the atlas's 65°S–75°N band renders flat 22.00 rather than erroring — that is a permanent answer, not an outage. Zoom is limited to z5..z9: below that a tile spans more than the request is worth rendering, above it the atlas's own 30-arcsec grid is already coarser than the pixels. `year` picks the vintage (2016, 2020, 2022, 2023, 2024, 2025). Coordinates must be canonical decimals (no leading zeros, no hex or exponent forms), so one tile has exactly one URL. Cached hard for 30 days as `private` — the data changes once a year, and the route is bearer-guarded, so no shared cache may keep it — and served with a strong ETag, so `If-None-Match` gets a 304; a partially covered render is returned `no-store` instead, since it is provisional. For a single numeric lookup use GET /astro/light-pollution; for the direction-resolved dome use GET /astro/skyglow. Returns 422 for a zoom outside z5..z9, a non-canonical coordinate, or an x/y outside 0..2^z-1, and 502 when the atlas is unreachable.",
+          security: [{ BearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Terrarium-encoded PNG tile',
+              content: { 'image/png': { schema: { type: 'string', format: 'binary' } } },
+            },
+            304: { description: 'Not modified — the ETag matched' },
+            422: { description: 'Zoom or tile coordinate malformed, or outside the served range' },
+            502: { description: 'Light Pollution Atlas unavailable' },
+          },
         },
       },
     )

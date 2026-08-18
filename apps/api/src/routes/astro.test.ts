@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { Elysia } from 'elysia'
 import type { AstroUpstreams, CloudSeries, TransparencySeries } from '../clients/astro-upstreams.js'
-import type { LightPollutionPoint, SkyglowResult } from '../clients/lorenz-atlas.js'
+import type { LightPollutionPoint, LpTileImage, SkyglowResult } from '../clients/lorenz-atlas.js'
 import { authGuard } from '../lib/auth-guard.js'
+import { renderLpTilePng } from '../lib/lp-tile.js'
 import { PROFILE_ALTITUDES, SKYGLOW_MODEL } from '../lib/skyglow.js'
 import { clearAstroSummaryCache, createAstroRoutes, type AstroRouteDeps } from './astro.js'
 
@@ -84,15 +85,31 @@ function skyglowResult(overrides: Partial<SkyglowResult> = {}): SkyglowResult {
   }
 }
 
+/**
+ * A real rendered tile, not a byte stub: the route's ETag, its 304 branch and
+ * the PNG signature assertion are only meaningful over bytes an encoder
+ * actually produced. The encoding itself is pinned in `../lib/lp-tile.test.ts`.
+ */
+function lpTileImage(overrides: Partial<LpTileImage> = {}): LpTileImage {
+  return {
+    png: renderLpTilePng({ x: 135, y: 89, z: 8, sampler: () => 21.55 }),
+    year: 2025,
+    tilesRequested: 4,
+    tilesResolved: 4,
+    ...overrides,
+  }
+}
+
 type Calls = {
   upstreams: number
   complete: number
   lightPollution: Parameters<AstroRouteDeps['lightPollution']>[0][]
+  lpTile: Parameters<AstroRouteDeps['lpTile']>[0][]
   skyglow: Parameters<AstroRouteDeps['skyglow']>[0][]
 }
 
 function build(deps: Partial<AstroRouteDeps> = {}) {
-  const calls: Calls = { upstreams: 0, complete: 0, lightPollution: [], skyglow: [] }
+  const calls: Calls = { upstreams: 0, complete: 0, lightPollution: [], lpTile: [], skyglow: [] }
   const app = new Elysia().use(authGuard).use(
     createAstroRoutes({
       now: () => AUGUST,
@@ -108,6 +125,10 @@ function build(deps: Partial<AstroRouteDeps> = {}) {
       lightPollution: async (input) => {
         calls.lightPollution.push(input)
         return lightPollutionPoint({ lat: input.lat, lon: input.lon })
+      },
+      lpTile: async (input) => {
+        calls.lpTile.push(input)
+        return lpTileImage()
       },
       skyglow: async (input) => {
         calls.skyglow.push(input)
@@ -552,5 +573,136 @@ describe('GET /astro/skyglow', () => {
   it('requires a bearer token', async () => {
     const { app } = build()
     expect((await get(app, '/astro/skyglow', false)).status).toBe(401)
+  })
+})
+
+describe('GET /astro/tiles/lp/{year}/{z}/{x}/{y}.png', () => {
+  const TILE = '/astro/tiles/lp/2025/8/135/89.png'
+
+  /** The JSON `get` helper is useless here — this route's body is binary. */
+  async function raw(app: TestApp, path: string, headers: Record<string, string> = {}) {
+    return app.handle(
+      new Request(`http://localhost${path}`, {
+        headers: { Authorization: `Bearer ${SECRET}`, ...headers },
+      }),
+    )
+  }
+
+  it('serves a PNG, and strips the .png suffix before reaching the client', async () => {
+    const { app, calls } = build()
+    const res = await raw(app, TILE)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('image/png')
+    const bytes = new Uint8Array(await res.arrayBuffer())
+    expect([...bytes.subarray(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+    expect(calls.lpTile).toEqual([{ x: 135, y: 89, z: 8, year: 2025 }])
+  })
+
+  it('caches hard and PRIVATELY — the route is bearer-guarded', async () => {
+    const { app } = build()
+    const res = await raw(app, TILE)
+    // `public` is the exact directive RFC 9111 §3.5 requires before a shared
+    // cache may store an Authorization-bearing response — i.e. it would let the
+    // Cloudflare Tunnel replay this tile to a caller with no token.
+    expect(res.headers.get('cache-control')).toBe(
+      'private, max-age=2592000, stale-while-revalidate=86400',
+    )
+    const etag = res.headers.get('etag')
+    expect(etag).toMatch(/^"[0-9a-f]{32}"$/)
+  })
+
+  it('refuses to let a partially covered render be cached at all', async () => {
+    // The client already declines to keep this in-process so the next request
+    // re-tries the missing atlas tiles; a 30-day copy downstream would pin the
+    // very bytes it refused, and the unresolved region reads 22.00 — "pristine
+    // sky" — over whatever city was missing.
+    const { app } = build({
+      lpTile: async () => lpTileImage({ tilesRequested: 6, tilesResolved: 1 }),
+    })
+    const res = await raw(app, TILE)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('cache-control')).toBe('no-store')
+  })
+
+  it('caches a fully covered render, including one with no atlas coverage at all', async () => {
+    const { app } = build({
+      lpTile: async () => lpTileImage({ tilesRequested: 0, tilesResolved: 0 }),
+    })
+    const res = await raw(app, TILE)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('cache-control')).toBe(
+      'private, max-age=2592000, stale-while-revalidate=86400',
+    )
+  })
+
+  it('answers a matching If-None-Match with a bodiless 304', async () => {
+    const { app } = build()
+    const etag = (await raw(app, TILE)).headers.get('etag') ?? ''
+    const res = await raw(app, TILE, { 'if-none-match': etag })
+    expect(res.status).toBe(304)
+    expect(res.headers.get('etag')).toBe(etag)
+    expect((await res.arrayBuffer()).byteLength).toBe(0)
+  })
+
+  it('still sends the body when the ETag does not match', async () => {
+    const { app } = build()
+    const res = await raw(app, TILE, { 'if-none-match': '"deadbeef"' })
+    expect(res.status).toBe(200)
+    expect((await res.arrayBuffer()).byteLength).toBeGreaterThan(0)
+  })
+
+  it('422s outside the served z5..z9 range', async () => {
+    const { app, calls } = build()
+    expect((await raw(app, '/astro/tiles/lp/2025/4/8/5.png')).status).toBe(422)
+    expect((await raw(app, '/astro/tiles/lp/2025/10/540/356.png')).status).toBe(422)
+    expect(calls.lpTile).toHaveLength(0)
+  })
+
+  it('422s on an atlas year that was never published', async () => {
+    const { app, calls } = build()
+    expect((await raw(app, '/astro/tiles/lp/2019/8/135/89.png')).status).toBe(422)
+    expect(calls.lpTile).toHaveLength(0)
+  })
+
+  it('422s on an x or y outside 0..2^z-1 rather than serving a wrong tile', async () => {
+    const { app, calls } = build()
+    expect((await raw(app, '/astro/tiles/lp/2025/8/256/89.png')).status).toBe(422)
+    expect((await raw(app, '/astro/tiles/lp/2025/8/135/256.png')).status).toBe(422)
+    expect((await raw(app, '/astro/tiles/lp/2025/8/-1/89.png')).status).toBe(422)
+    expect(calls.lpTile).toHaveLength(0)
+  })
+
+  it('422s when the .png suffix is missing — the tile URL has one shape', async () => {
+    const { app } = build()
+    expect((await raw(app, '/astro/tiles/lp/2025/8/135/89')).status).toBe(422)
+  })
+
+  it('422s every non-canonical spelling of the same tile, so one tile has one URL', async () => {
+    const { app, calls } = build()
+    // `z.coerce.number()` runs `Number()`, which reads all four of these as 135
+    // — four extra URLs a browser and Cloudflare would each cache separately.
+    for (const alias of [
+      '/astro/tiles/lp/2025/8/0135/89.png', // leading zero
+      '/astro/tiles/lp/2025/8/0x87/89.png', // hex
+      '/astro/tiles/lp/2025/8/1e2/89.png', // exponent
+      '/astro/tiles/lp/2025/8/%20135/89.png', // leading whitespace
+      '/astro/tiles/lp/2025/8/135/089.png', // leading zero on the row
+      '/astro/tiles/lp/2025/08/135/89.png', // leading zero on the zoom
+      '/astro/tiles/lp/2025/8.0/135/89.png', // decimal zoom
+    ]) {
+      expect((await raw(app, alias)).status).toBe(422)
+    }
+    expect(calls.lpTile).toHaveLength(0)
+  })
+
+  it('502s when the atlas is unreachable', async () => {
+    const { app } = build({ lpTile: async () => null })
+    expect((await raw(app, TILE)).status).toBe(502)
+  })
+
+  it('requires a bearer token — the dashboard passes it via MapLibre transformRequest', async () => {
+    const { app } = build()
+    const res = await app.handle(new Request(`http://localhost${TILE}`))
+    expect(res.status).toBe(401)
   })
 })

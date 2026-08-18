@@ -47,6 +47,13 @@ import {
   type TileCoord,
 } from '../lib/lorenz-decode.js'
 import {
+  LP_TILE_MAX_ZOOM,
+  LP_TILE_MIN_ZOOM,
+  renderLpTilePng,
+  tileBounds,
+  type MpsasSampler,
+} from '../lib/lp-tile.js'
+import {
   coreDirectionGlow,
   skyglowProfile,
   SKYGLOW_MODEL,
@@ -66,8 +73,27 @@ const REQUEST_TIMEOUT_MS = 20_000
 /** One year, one publication. See the module docstring for why this is not 60 minutes. */
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
-/** Each grid is 1.44 MB, so 12 entries is ~17 MB — enough for every German site plus neighbours. */
-const CACHE_MAX_ENTRIES = 12
+/**
+ * Each grid is 1.44 MB, so 32 entries is ~46 MB.
+ *
+ * Sized for the WORST SINGLE RENDER, not for point lookups. A z5 map tile spans
+ * ~11° of longitude and can touch 16 atlas tiles (measured maximum over every
+ * tile on the globe; z6 peaks at 9). A cap of 16 or less would let one low-zoom
+ * `fetchLpTile` flush the handful of tiles `fetchLightPollution` / `fetchSkyglow`
+ * live on — sending Argo's own astro endpoints back to cold-fetching 118 KB from
+ * a bandwidth-capped host (see the docstring above, §8) — and would evict its own
+ * tiles before the next, heavily-overlapping map tile could reuse them. Twice the
+ * worst render leaves both working sets resident.
+ */
+const CACHE_MAX_ENTRIES = 32
+
+/**
+ * Rendered tiles measure 7 KB (z9) to ~69 KB (z5) over real atlas data, and the
+ * busiest zooms sit at 40–70 KB — so 512 of them is a ~23 MB working set and a
+ * ~35 MB ceiling, alongside the 46 MB of grids above. Budget against those
+ * numbers, not against a compressed-PNG intuition.
+ */
+const TILE_CACHE_MAX_ENTRIES = 512
 
 /** Kilometres per degree of latitude — the same figure `../lib/skyglow.ts` marches with. */
 const KM_PER_DEG_LAT = 111.32
@@ -104,9 +130,39 @@ function setCached(key: string, grid: Float32Array): void {
   cache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, grid })
 }
 
-/** Exported for tests only — drops every cached grid. */
+/**
+ * Rendered PNG bytes, keyed `year:z:x:y`. A SECOND cache on purpose: the grid
+ * cache above is keyed by 5° atlas tile and holds 1.44 MB float grids, so it
+ * can never answer "give me this map tile's PNG". Rendering is cheap (~65 k
+ * samples), but re-doing it for every pan of a map that is mostly re-requesting
+ * the same tiles is pure waste.
+ */
+type TileCacheEntry = { expiresAt: number; png: Uint8Array<ArrayBuffer>; tiles: number }
+
+const tileCache = new Map<string, TileCacheEntry>()
+
+function getCachedTile(key: string): TileCacheEntry | undefined {
+  const entry = tileCache.get(key)
+  if (entry === undefined) return undefined
+  if (entry.expiresAt <= Date.now()) {
+    tileCache.delete(key)
+    return undefined
+  }
+  return entry
+}
+
+function setCachedTile(key: string, png: Uint8Array<ArrayBuffer>, tiles: number): void {
+  if (!tileCache.has(key) && tileCache.size >= TILE_CACHE_MAX_ENTRIES) {
+    const oldestKey = tileCache.keys().next().value
+    if (oldestKey !== undefined) tileCache.delete(oldestKey)
+  }
+  tileCache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, png, tiles })
+}
+
+/** Exported for tests only — drops every cached grid AND every rendered tile. */
 export function clearLorenzAtlasCache(): void {
   cache.clear()
+  tileCache.clear()
 }
 
 // ── Tiles ────────────────────────────────────────────────────────────────
@@ -114,6 +170,18 @@ export function clearLorenzAtlasCache(): void {
 function toAttributeValue(error: unknown): AttributeValue {
   return error instanceof Error ? error.message : String(error)
 }
+
+/**
+ * Downloads currently in flight, keyed exactly like the grid cache.
+ *
+ * The cache alone only dedupes SEQUENTIAL callers: a viewport that asks for four
+ * adjacent z5 tiles at once fires all four before any of them has finished
+ * decoding, and adjacent map tiles overlap heavily — measured, four concurrent
+ * z5 renders issued 30 requests for 20 distinct URLs. Sharing the promise makes
+ * the second caller wait on the first instead of duplicating a 118 KB download
+ * from a bandwidth-capped host.
+ */
+const inFlight = new Map<string, Promise<Float32Array | null>>()
 
 async function loadTileGrid(opts: {
   year: LorenzYear
@@ -124,6 +192,22 @@ async function loadTileGrid(opts: {
   const cached = getCached(key)
   if (cached !== undefined) return cached
 
+  const pending = inFlight.get(key)
+  if (pending) return pending
+
+  const request = fetchTileGrid(opts, key)
+  inFlight.set(key, request)
+  try {
+    return await request
+  } finally {
+    inFlight.delete(key)
+  }
+}
+
+async function fetchTileGrid(
+  opts: { year: LorenzYear; tile: TileCoord; fetchImpl: FetchImpl },
+  key: string,
+): Promise<Float32Array | null> {
   const url = `${ATLAS_BASE_URL}/${opts.year}/binary_tile_${opts.tile.tx}_${opts.tile.ty}.dat.gz`
 
   try {
@@ -377,6 +461,173 @@ export async function fetchSkyglow(
           model: SKYGLOW_MODEL,
           source: sourceLabel(year),
         }
+      } catch (error) {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: String(error) })
+        span.recordException(error as Error)
+        return null
+      } finally {
+        span.end()
+      }
+    },
+  )
+}
+
+export type LpTileImage = {
+  /** Terrarium-encoded PNG bytes: `mpsas = (R*256 + G + B/256 - 32768) / 100`. */
+  png: Uint8Array<ArrayBuffer>
+  year: LorenzYear
+  tilesRequested: number
+  tilesResolved: number
+}
+
+/**
+ * Every 5° atlas tile a map tile's bounding box touches.
+ *
+ * Enumerated across the whole box rather than from its four corners: at z5 a
+ * tile spans ~11° of longitude, which is more than two atlas tiles, so the
+ * corners miss the column in the middle entirely. `tileSpanSamples` walks in
+ * steps smaller than one atlas tile and always includes both endpoints, so
+ * nothing between them can be skipped.
+ */
+function boxTiles(bounds: {
+  minLat: number
+  maxLat: number
+  minLon: number
+  maxLon: number
+}): TileCoord[] {
+  const seen = new Map<string, TileCoord>()
+  for (const lat of tileSpanSamples(bounds.minLat, bounds.maxLat)) {
+    for (const lon of tileSpanSamples(bounds.minLon, bounds.maxLon)) {
+      const point = locateTile(lat, lon)
+      if (point) seen.set(`${point.tx}:${point.ty}`, { tx: point.tx, ty: point.ty })
+    }
+  }
+  return [...seen.values()]
+}
+
+/**
+ * One terrarium-encoded light-pollution raster tile, rendered from the atlas.
+ *
+ * The point of serving our own tiles rather than hot-linking the atlas author's
+ * image tiles is twofold (`docs/ASTRO-MAP-RESEARCH.md` §6.3, §8): his images
+ * carry HIS colour scheme, and they sit on a personal GitHub Pages site with a
+ * soft 100 GB/month cap. This returns DATA — the dashboard applies Argo's own
+ * ramp with MapLibre's `color-relief` layer.
+ *
+ * `null` only when the atlas was REACHABLE-and-failed: tiles exist for this box
+ * and not one of them came back. A PARTIAL result still renders — the unresolved
+ * region samples NaN and encodes as 22.00 mag, the natural sky, which is the
+ * honest reading of "no data" on a light-pollution map and what the reference
+ * encoder does — where failing the whole tile would blank a view that is 90%
+ * correct. A tile with no atlas coverage AT ALL is not a failure and renders
+ * flat 22.00; only the caller's `tilesRequested === 0` distinguishes it.
+ */
+export async function fetchLpTile(
+  input: { x: number; y: number; z: number; year?: LorenzYear | undefined },
+  deps?: { fetchImpl?: FetchImpl | undefined },
+): Promise<LpTileImage | null> {
+  const fetchImpl: FetchImpl = deps?.fetchImpl ?? tracedFetch
+  const year = input.year ?? LATEST_LORENZ_YEAR
+  const { x, y, z } = input
+
+  return tracer.startActiveSpan(
+    'fetchLpTile',
+    {
+      kind: SpanKind.INTERNAL,
+      attributes: {
+        'lorenz.tile_z': z,
+        'lorenz.tile_x': x,
+        'lorenz.tile_y': y,
+        'lorenz.year': year,
+      },
+    },
+    async (span) => {
+      try {
+        if (z < LP_TILE_MIN_ZOOM || z > LP_TILE_MAX_ZOOM) {
+          log.warn('lorenz-atlas: tile zoom outside the served range', { z })
+          return null
+        }
+
+        // The rendered bytes depend on nothing but (year, z, x, y), so a hit
+        // here skips the grid lookups and the 65 k-sample render entirely.
+        const key = `${year}:${z}:${x}:${y}`
+        const cached = getCachedTile(key)
+        if (cached) {
+          span.setAttributes({
+            'lorenz.tiles_requested': cached.tiles,
+            'lorenz.tiles_ok': cached.tiles,
+            'lorenz.tile_cached': true,
+          })
+          return {
+            png: cached.png,
+            year,
+            tilesRequested: cached.tiles,
+            tilesResolved: cached.tiles,
+          }
+        }
+
+        const tiles = boxTiles(tileBounds({ x, y, z }))
+        // Above 75°N and below 65°S the atlas publishes nothing and never will,
+        // so this is a PERMANENT, knowable answer — not an upstream failure. At
+        // z5 that is 416 of the 1024 tiles a world view requests. Rendering the
+        // no-data value gives them the same 22.00 an uncovered PIXEL already
+        // gets on a partially covered tile, and unlike a `null` (which the route
+        // turns into a 502) it caches, so the client asks once.
+        if (tiles.length === 0) {
+          const empty = renderLpTilePng({ x, y, z, sampler: () => Number.NaN })
+          setCachedTile(key, empty, 0)
+          span.setAttributes({ 'lorenz.tiles_requested': 0, 'lorenz.tiles_ok': 0 })
+          return { png: empty, year, tilesRequested: 0, tilesResolved: 0 }
+        }
+
+        const settled = await Promise.allSettled(
+          tiles.map((tile) => loadTileGrid({ year, tile, fetchImpl })),
+        )
+
+        const grids = new Map<string, Float32Array>()
+        for (const [index, result] of settled.entries()) {
+          const tile = tiles[index]
+          if (!tile) continue
+          if (result.status === 'rejected') {
+            log.warn('lorenz-atlas: tile rejected', {
+              tile: `${tile.tx}:${tile.ty}`,
+              error: toAttributeValue(result.reason),
+            })
+            continue
+          }
+          if (result.value) grids.set(cacheKey(year, tile), result.value)
+        }
+
+        span.setAttributes({
+          'lorenz.tiles_requested': tiles.length,
+          'lorenz.tiles_ok': grids.size,
+        })
+
+        // Nothing resolved means there is no data at all behind this tile — a
+        // flat 22.00 image there would be a confident claim of pristine sky.
+        if (grids.size === 0) return null
+        if (grids.size < tiles.length) {
+          log.warn('lorenz-atlas: rendering a partially covered tile', {
+            z,
+            x,
+            y,
+            year,
+            tilesRequested: tiles.length,
+            tilesResolved: grids.size,
+          })
+        }
+
+        const lpi = buildSampler(grids, year)
+        const sampler: MpsasSampler = (lat, lon) => {
+          const value = lpi(lat, lon)
+          return Number.isFinite(value) ? mpsasFromLpi(value) : Number.NaN
+        }
+
+        const png = renderLpTilePng({ x, y, z, sampler })
+        // Only a complete render is worth caching for a day; a partial one
+        // should re-try the missing atlas tiles on the next request.
+        if (grids.size === tiles.length) setCachedTile(key, png, tiles.length)
+        return { png, year, tilesRequested: tiles.length, tilesResolved: grids.size }
       } catch (error) {
         span.setStatus({ code: SpanStatusCode.ERROR, message: String(error) })
         span.recordException(error as Error)
