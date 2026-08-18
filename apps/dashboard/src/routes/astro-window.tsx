@@ -27,7 +27,6 @@ import {
   formatLpParam,
   formatTerrainParam,
   formatWeatherParam,
-  LP_PARAM_VALUES,
   normaliseLayerState,
   parseLpParam,
   parseTerrainParam,
@@ -52,13 +51,13 @@ const ViewEnum = z.enum(['tonight', 'map', 'forecast'])
  *
  * All three map keys carry `.catch()`, and that is not belt-and-braces — without it the page whose
  * whole job is to be linkable throws on its own links. TanStack's default parser is
- * `parseSearchWith(JSON.parse)`, so `?lp=2025` decodes to the NUMBER 2025 and a bare `z.enum` of
- * string literals rejects it; the thrown `SearchParamError` replaces the entire route with the
- * error component. The app's own encoder writes `?lp=%222025%22` (`defaultStringifySearch` quotes
- * a string that would otherwise round-trip as a number), so anyone tidying the quotes out of a
- * shared link lands on exactly that form. `.catch()` is what makes the catalogue's documented
- * fallbacks — `parseLpParam`'s unknown-year clamp, `baseLayer`'s unknown-id fallback — reachable
- * code rather than dead code behind a validator that already threw.
+ * `parseSearchWith(JSON.parse)`, so `?lp=2025` decodes to the NUMBER 2025 and a bare `z.string()`
+ * rejects it; the thrown `SearchParamError` replaces the entire route with the error component.
+ * The app's own encoder writes `?lp=%222025%22` (`defaultStringifySearch` quotes a string that
+ * would otherwise round-trip as a number), so anyone tidying the quotes out of a shared link lands
+ * on exactly that form. `.catch()` is what makes the catalogue's documented fallbacks —
+ * `parseLpParam`'s unknown-year clamp, `baseLayer`'s unknown-id fallback — reachable code rather
+ * than dead code behind a validator that already threw.
  */
 const SearchSchema = z.object({
   site: z.string().default('alpenvorland'),
@@ -66,7 +65,15 @@ const SearchSchema = z.object({
   detailDate: z.string().optional(),
   tab: ViewEnum.default('tonight'),
   base: z.enum(BASE_LAYER_IDS).optional().catch(undefined),
-  lp: z.enum(LP_PARAM_VALUES).catch(String(DEFAULT_LP_YEAR)),
+  // Same normalise-don't-reject shape as `wx`/`terrain` below — `parseLpParam` already falls back
+  // to the default vintage for anything it does not recognise, and now carries the ramp's own
+  // opacity and resampling mode too (`<year>[:<percent>[:sharp]]`), so a fixed `z.enum` of bare
+  // years can no longer describe every valid value.
+  lp: z
+    .string()
+    .optional()
+    .catch(undefined)
+    .transform((raw) => formatLpParam(parseLpParam(raw ?? String(DEFAULT_LP_YEAR)))),
   // Normalised rather than rejected: unknown ids are dropped by `parseWeatherParam`, so a stale
   // link opens a slightly different map instead of erroring on the page whose job is to be linked.
   wx: z
@@ -221,20 +228,21 @@ function AstroWindowPage() {
   const resolvedScheme = useComputedColorScheme('dark')
   const schemeDefaultBase = SCHEME_DEFAULT_BASE[resolvedScheme]
 
-  const layers = useMemo<MapLayerState>(
-    () =>
-      // `normaliseLayerState` applies the imagery/pollution exclusion HERE rather than only in the
-      // drawer's handlers, so a shared or hand-trimmed link cannot mount a combination the drawer
-      // would refuse to produce — `?base=eox-s2cloudless` alone is enough, since `lp` defaults to
-      // the latest vintage rather than to off.
-      normaliseLayerState({
-        base: search.base ?? schemeDefaultBase,
-        lpYear: parseLpParam(search.lp),
-        weather: parseWeatherParam(search.wx),
-        terrain: parseTerrainParam(search.terrain),
-      }),
-    [search.base, search.lp, search.wx, search.terrain, schemeDefaultBase],
-  )
+  const layers = useMemo<MapLayerState>(() => {
+    const lp = parseLpParam(search.lp)
+    // `normaliseLayerState` applies the imagery/pollution exclusion HERE rather than only in the
+    // drawer's handlers, so a shared or hand-trimmed link cannot mount a combination the drawer
+    // would refuse to produce — `?base=eox-s2cloudless` alone is enough, since `lp` defaults to
+    // the latest vintage rather than to off.
+    return normaliseLayerState({
+      base: search.base ?? schemeDefaultBase,
+      lpYear: lp.year,
+      lpOpacity: lp.opacity,
+      lpResampling: lp.resampling,
+      weather: parseWeatherParam(search.wx),
+      terrain: parseTerrainParam(search.terrain),
+    })
+  }, [search.base, search.lp, search.wx, search.terrain, schemeDefaultBase])
 
   const handleLayersChange = useCallback(
     (next: MapLayerState) => {
@@ -243,7 +251,11 @@ function AstroWindowPage() {
         search: {
           ...search,
           base: next.base === schemeDefaultBase ? undefined : next.base,
-          lp: formatLpParam(next.lpYear),
+          lp: formatLpParam({
+            year: next.lpYear,
+            opacity: next.lpOpacity,
+            resampling: next.lpResampling,
+          }),
           wx: formatWeatherParam(next.weather),
           terrain: formatTerrainParam(next.terrain),
         },

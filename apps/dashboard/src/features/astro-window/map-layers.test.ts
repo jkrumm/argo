@@ -11,11 +11,15 @@ process.env['VITE_API_URL'] = 'http://test.local/api'
 
 const {
   DEFAULT_LP_YEAR,
+  LP_OPACITY_DEFAULT,
   LP_PARAM_OFF,
+  LP_RAMP,
+  LP_RESAMPLING_DEFAULT,
   RADAR_FRAME_COUNT,
   RADAR_LAG_MINUTES,
   RADAR_STEP_MINUTES,
   TERRAIN_OFF,
+  TRAILS_DEFAULT_OPACITY,
   formatLpParam,
   formatTerrainParam,
   formatWeatherParam,
@@ -81,20 +85,87 @@ describe('weather param codec', () => {
 })
 
 describe('lp param codec', () => {
-  it('round-trips every published year and the off switch', () => {
+  it('round-trips every published year and the off switch, at the default opacity and resampling', () => {
     for (const year of [2016, 2020, 2022, 2023, 2024, 2025] as const) {
-      const encoded = formatLpParam(year)
-      expect(parseLpParam(encoded)).toBe(year)
+      const selection = { year, opacity: LP_OPACITY_DEFAULT, resampling: LP_RESAMPLING_DEFAULT }
+      const encoded = formatLpParam(selection)
+      expect(encoded).toBe(String(year)) // no `:<percent>[:sharp]` suffix at the defaults
+      expect(parseLpParam(encoded)).toEqual(selection)
     }
-    expect(formatLpParam(null)).toBe(LP_PARAM_OFF)
-    expect(parseLpParam(LP_PARAM_OFF)).toBeNull()
+    const off = { year: null, opacity: LP_OPACITY_DEFAULT, resampling: LP_RESAMPLING_DEFAULT }
+    expect(formatLpParam(off)).toBe(LP_PARAM_OFF)
+    expect(parseLpParam(LP_PARAM_OFF)).toEqual(off)
+  })
+
+  it('round-trips a committed opacity, dropping the resampling suffix while it stays default', () => {
+    const selection = { year: 2025 as const, opacity: 0.6, resampling: LP_RESAMPLING_DEFAULT }
+    const encoded = formatLpParam(selection)
+    expect(encoded).toBe('2025:60')
+    expect(parseLpParam(encoded)).toEqual(selection)
+  })
+
+  it('round-trips sharp resampling, carrying the opacity along even at its default', () => {
+    const selection = {
+      year: 2025 as const,
+      opacity: LP_OPACITY_DEFAULT,
+      resampling: 'nearest' as const,
+    }
+    const encoded = formatLpParam(selection)
+    expect(encoded).toBe('2025:100:sharp')
+    expect(parseLpParam(encoded)).toEqual(selection)
+  })
+
+  it('round-trips a committed opacity together with sharp resampling', () => {
+    const selection = { year: 2025 as const, opacity: 0.6, resampling: 'nearest' as const }
+    const encoded = formatLpParam(selection)
+    expect(encoded).toBe('2025:60:sharp')
+    expect(parseLpParam(encoded)).toEqual(selection)
   })
 
   it('falls back to the default year rather than returning NaN or undefined for a hostile string', () => {
-    expect(parseLpParam('<script>alert(1)</script>')).toBe(DEFAULT_LP_YEAR)
-    expect(parseLpParam('9999999999999999999999')).toBe(DEFAULT_LP_YEAR)
-    expect(parseLpParam('')).toBe(DEFAULT_LP_YEAR)
-    expect(parseLpParam('2019')).toBe(DEFAULT_LP_YEAR) // a real number, but never a published vintage
+    expect(parseLpParam('<script>alert(1)</script>').year).toBe(DEFAULT_LP_YEAR)
+    expect(parseLpParam('9999999999999999999999').year).toBe(DEFAULT_LP_YEAR)
+    expect(parseLpParam('').year).toBe(DEFAULT_LP_YEAR)
+    expect(parseLpParam('2019').year).toBe(DEFAULT_LP_YEAR) // a real number, but never a published vintage
+  })
+
+  it('falls back to the default opacity for a garbage or out-of-range percent, without touching the year', () => {
+    const fallback = {
+      year: 2025 as const,
+      opacity: LP_OPACITY_DEFAULT,
+      resampling: LP_RESAMPLING_DEFAULT,
+    }
+    expect(parseLpParam('2025:notanumber')).toEqual(fallback)
+    expect(parseLpParam('2025:999')).toEqual(fallback)
+    expect(parseLpParam('2025:-5')).toEqual(fallback)
+  })
+
+  it('treats anything other than the literal "sharp" suffix as linear', () => {
+    expect(parseLpParam('2025:60:hack').resampling).toBe('linear')
+    expect(parseLpParam('2025:60').resampling).toBe('linear')
+  })
+})
+
+describe('LP_RAMP geometry', () => {
+  it('ascends strictly in stop, as MapLibre interpolate requires', () => {
+    for (let i = 1; i < LP_RAMP.length; i += 1) {
+      expect(LP_RAMP[i]!.stop).toBeGreaterThan(LP_RAMP[i - 1]!.stop)
+    }
+  })
+
+  it('has its alpha minimum exactly at the neutral crossing (stop 2130), rising monotonically in both directions away from it — no dips anywhere else', () => {
+    let minIndex = 0
+    for (let i = 1; i < LP_RAMP.length; i += 1) {
+      if (LP_RAMP[i]!.alpha < LP_RAMP[minIndex]!.alpha) minIndex = i
+    }
+    expect(LP_RAMP[minIndex]!.stop).toBe(2130)
+
+    for (let i = 1; i <= minIndex; i += 1) {
+      expect(LP_RAMP[i]!.alpha).toBeLessThan(LP_RAMP[i - 1]!.alpha)
+    }
+    for (let i = minIndex + 1; i < LP_RAMP.length; i += 1) {
+      expect(LP_RAMP[i]!.alpha).toBeGreaterThan(LP_RAMP[i - 1]!.alpha)
+    }
   })
 })
 
@@ -106,9 +177,9 @@ describe('terrain param codec', () => {
   })
 
   it('round-trips hillshade alone, 3D alone, and both together', () => {
-    const hillshadeOnly = { hillshade: true, extruded: false }
-    const extrudedOnly = { hillshade: false, extruded: true }
-    const both = { hillshade: true, extruded: true }
+    const hillshadeOnly = { ...TERRAIN_OFF, hillshade: true }
+    const extrudedOnly = { ...TERRAIN_OFF, extruded: true }
+    const both = { ...TERRAIN_OFF, hillshade: true, extruded: true }
 
     expect(formatTerrainParam(hillshadeOnly)).toBe('hillshade')
     expect(parseTerrainParam('hillshade')).toEqual(hillshadeOnly)
@@ -126,17 +197,77 @@ describe('terrain param codec', () => {
     expect(parseTerrainParam('not-a-real-layer')).toEqual(TERRAIN_OFF)
     expect(parseTerrainParam('__proto__')).toEqual(TERRAIN_OFF)
   })
+
+  it('round-trips the trails overlay at its default and a committed opacity', () => {
+    const trailsDefault = { ...TERRAIN_OFF, trails: TRAILS_DEFAULT_OPACITY }
+    const trailsCustom = { ...TERRAIN_OFF, trails: 0.4 }
+    const trailsWithHillshade = { ...TERRAIN_OFF, hillshade: true, trails: TRAILS_DEFAULT_OPACITY }
+
+    // A default-opacity trails toggle drops the percent — same convention as `wx`.
+    expect(formatTerrainParam(trailsDefault)).toBe('trails')
+    expect(parseTerrainParam('trails')).toEqual(trailsDefault)
+
+    expect(formatTerrainParam(trailsCustom)).toBe('trails:40')
+    expect(parseTerrainParam('trails:40')).toEqual(trailsCustom)
+
+    // Token order must not matter, and trails composes with the other two toggles.
+    expect(formatTerrainParam(trailsWithHillshade)).toBe('hillshade.trails')
+    expect(parseTerrainParam('hillshade.trails')).toEqual(trailsWithHillshade)
+    expect(parseTerrainParam('trails.hillshade')).toEqual(trailsWithHillshade)
+  })
+
+  it('round-trips hillshade exaggeration at its default and a committed value', () => {
+    const hillshadeDefault = { ...TERRAIN_OFF, hillshade: true }
+    const hillshadeCustom = { ...TERRAIN_OFF, hillshade: true, hillshadeExaggeration: 0.8 }
+
+    // A default-exaggeration hillshade toggle drops the percent — same convention as `trails`.
+    expect(formatTerrainParam(hillshadeDefault)).toBe('hillshade')
+    expect(parseTerrainParam('hillshade')).toEqual(hillshadeDefault)
+
+    expect(formatTerrainParam(hillshadeCustom)).toBe('hillshade:80')
+    expect(parseTerrainParam('hillshade:80')).toEqual(hillshadeCustom)
+
+    // Exaggeration is dropped from the URL once hillshade itself is off, mirroring trails'
+    // opacity-follows-toggle shape — the custom value never round-trips through an off state.
+    expect(formatTerrainParam({ ...TERRAIN_OFF, hillshadeExaggeration: 0.8 })).toBeUndefined()
+  })
+
+  it('round-trips the contours toggle, bare and composed with the other toggles', () => {
+    const contoursOnly = { ...TERRAIN_OFF, contours: true }
+    const contoursWithHillshade = { ...TERRAIN_OFF, hillshade: true, contours: true }
+
+    expect(formatTerrainParam(contoursOnly)).toBe('contours')
+    expect(parseTerrainParam('contours')).toEqual(contoursOnly)
+
+    expect(formatTerrainParam(contoursWithHillshade)).toBe('hillshade.contours')
+    expect(parseTerrainParam('hillshade.contours')).toEqual(contoursWithHillshade)
+    // Token order must not matter for the decode.
+    expect(parseTerrainParam('contours.hillshade')).toEqual(contoursWithHillshade)
+  })
 })
 
 // ── normaliseLayerState — the imagery/LP exclusion, both directions ────────
 
 function stateFixture(overrides: Partial<MapLayerState>): MapLayerState {
-  return { base: 'ofm-fiord', lpYear: null, weather: [], terrain: TERRAIN_OFF, ...overrides }
+  return {
+    base: 'ofm-fiord',
+    lpYear: null,
+    lpOpacity: LP_OPACITY_DEFAULT,
+    lpResampling: LP_RESAMPLING_DEFAULT,
+    weather: [],
+    terrain: TERRAIN_OFF,
+    ...overrides,
+  }
 }
 
 describe('normaliseLayerState', () => {
   it('clears the pollution ramp when the base is satellite imagery', () => {
     const state = stateFixture({ base: 'eox-s2cloudless', lpYear: 2025 })
+    expect(normaliseLayerState(state).lpYear).toBeNull()
+  })
+
+  it('clears the pollution ramp when the base is the OpenTopoMap raster-style base', () => {
+    const state = stateFixture({ base: 'otm', lpYear: 2025 })
     expect(normaliseLayerState(state).lpYear).toBeNull()
   })
 

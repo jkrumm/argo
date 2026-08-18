@@ -4,7 +4,9 @@ import {
   Box,
   Card,
   Group,
+  Image,
   Paper,
+  ScrollArea,
   Stack,
   Text,
   Tooltip,
@@ -19,6 +21,7 @@ import {
   setWorkerUrl,
   type MapMouseEvent,
   type RequestParameters,
+  type StyleSpecification,
 } from 'maplibre-gl'
 // Vite's dependency optimizer rewrites maplibre's ESM entry but cannot follow the sibling import
 // its worker makes, so the pre-bundled copy 503s at runtime and the map renders a black canvas
@@ -37,22 +40,33 @@ import { MAP_MIN_HEIGHT } from '../constants'
 import { ChartEmpty } from '../charts/empty'
 import {
   baseLayer,
+  CONTOUR_GLYPHS_URL,
+  legendUrl,
   LP_RAMP,
   LP_RAMP_MAX,
   LP_RAMP_MIN,
   LP_SITE_BAND,
+  needsStaticTime,
   RADAR_FRAME_MS,
+  RADAR_REFRESH_MS,
   radarFrameTimes,
   SCHEME_DEFAULT_BASE,
   SCHEME_STYLE_URL,
+  staticWeatherTime,
   weatherLayer,
   type MapLayerState,
+  type WeatherLayer,
+  type WeatherSelection,
 } from '../map-layers'
 import {
   detachTerrainIfUnwanted,
   installOverlays,
-  paintOverlays,
+  paintOverlayState,
+  paintRadarFrame,
+  refreshContours,
+  refreshHillshade,
   refreshLpRamp,
+  resolveLegendFontColor,
   syncTerrain,
   type OverlayState,
 } from './map-overlays'
@@ -116,23 +130,141 @@ export default function SiteMap({
   // here would paint the light shades onto the dark basemap.
   const resolvedScheme = useComputedColorScheme('dark')
 
+  /**
+   * The DWD legend's `LEGEND_OPTIONS` `fontColor`, re-resolved from the live palette whenever the
+   * scheme flips. Producing a NEW string on the dependency change is what makes the legend
+   * `<Image>` re-request: React re-renders with a different `src`, which is enough on its own —
+   * see `legendUrl` in `map-layers.ts` for why a hardcoded colour was wrong in the first place.
+   */
+  // `resolvedScheme` is not read inside the callback (the resolver reads the DOM directly) — it
+  // is the dependency that forces this memo to re-run when the CSS vars it reads have changed.
+  const legendFontColor = useMemo(
+    () => resolveLegendFontColor(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [resolvedScheme],
+  )
+
   const base = baseLayer(layers.base)
-  // An imagery base is a raster mounted OVER the scheme's own vector style, so the labels survive
-  // on top of it — which means the STYLE url only moves when a style base is picked.
-  const styleUrl = base.kind === 'style' ? base.styleUrl : SCHEME_STYLE_URL[resolvedScheme]
+  /**
+   * The resolved MapLibre style: a URL for a `style` base (or the scheme default for an
+   * `imagery` base, which mounts as a raster OVER that vector style so its labels survive on top
+   * of it), or an inline `StyleSpecification` OBJECT for a `raster-style` base (OpenTopoMap) —
+   * its own tiles already carry every label, so there is no vector style to mount it over.
+   *
+   * It DOES need its own `glyphs` entry, though — every `kind: 'style'` base (and the
+   * scheme-default vector style an `imagery` base mounts over) already ships one, but this is the
+   * one base with no vector style underneath it, and the contour LABEL layer (`map-overlays.ts`)
+   * is a `symbol` layer that can render on top of any base, this one included. `CONTOUR_GLYPHS_URL`
+   * is OpenFreeMap's public glyph endpoint, the same host the vector styles above already use.
+   *
+   * Memoised on `[base, resolvedScheme]` so a `raster-style` base's object identity stays STABLE
+   * across re-renders that touch neither: the style-swap effect below is keyed on this value, and
+   * a fresh object literal every render would never `===` the last one, thrashing `setStyle` on
+   * every unrelated state change.
+   */
+  const mapStyle = useMemo<StyleSpecification | string>(() => {
+    if (base.kind === 'style') return base.styleUrl
+    if (base.kind === 'raster-style') {
+      const sourceId = `${base.id}-source`
+      return {
+        version: 8,
+        glyphs: CONTOUR_GLYPHS_URL,
+        sources: {
+          [sourceId]: {
+            type: 'raster',
+            tiles: [...base.tiles],
+            tileSize: 256,
+            maxzoom: base.maxzoom,
+            attribution: base.attribution ?? '',
+          },
+        },
+        layers: [{ id: `${base.id}-layer`, type: 'raster', source: sourceId }],
+      }
+    }
+    return SCHEME_STYLE_URL[resolvedScheme]
+  }, [base, resolvedScheme])
 
   const radarActive = layers.weather.some((selection) => weatherLayer(selection.id)?.animated)
+  const staticTimeActive = layers.weather.some((selection) => needsStaticTime(selection.id))
+
   /**
-   * The frame timestamps are derived ONCE per radar activation and then held steady, so a
-   * re-render, a restyle or a theme flip re-mounts exactly the same twelve sources instead of
-   * re-requesting a shifted set. The consequence is deliberate: a map left open for hours keeps
-   * showing the frames it opened with, which is why the timestamp is on screen in mono.
+   * The shared refresh clock for `radarTimes` and `weatherTime` below — bumped every
+   * `RADAR_REFRESH_MS` while radar OR a static-time layer (lightning/cells) is on, paused while
+   * the tab is backgrounded (the same `visibilitychange` discipline the radar playback loop below
+   * already uses). One clock drives both, so there is never a second interval to keep in sync.
+   *
+   * Restoring visibility also bumps `epoch` immediately, not just restarts the interval: a tab
+   * hidden for longer than `RADAR_REFRESH_MS` would otherwise keep painting the timestamps it was
+   * last mounted with for up to another interval on return — which is exactly the DWD
+   * `ServiceExceptionReport` failure mode this clock exists to prevent (a request past the
+   * published time extent returns a service exception, not a tile). A redundant bump on first
+   * activation is harmless: the recomputed timestamps are identical, so `installOverlays` finds
+   * every source id already in `wanted` and does nothing.
    */
-  const radarTimes = useMemo(() => (radarActive ? radarFrameTimes(new Date()) : []), [radarActive])
+  const timeSensitiveActive = radarActive || staticTimeActive
+  const [epoch, setEpoch] = useState(0)
+  useEffect(() => {
+    if (!timeSensitiveActive) return
+    let timer: number | undefined
+    const start = () => {
+      timer ??= window.setInterval(() => setEpoch((current) => current + 1), RADAR_REFRESH_MS)
+    }
+    const stop = () => {
+      if (timer === undefined) return
+      window.clearInterval(timer)
+      timer = undefined
+    }
+    // Bumping inside `sync` — rather than unconditionally on every effect run — ties the catch-up
+    // to the visibility TRANSITION (or this activation) instead of running on every re-render:
+    // this effect only re-runs when `timeSensitiveActive` itself flips, and `sync` itself only
+    // re-fires on a real `visibilitychange` event, so there is no render loop here.
+    const sync = () => {
+      if (document.visibilityState !== 'visible') {
+        stop()
+        return
+      }
+      start()
+      setEpoch((current) => current + 1)
+    }
+    sync()
+    document.addEventListener('visibilitychange', sync)
+    return () => {
+      stop()
+      document.removeEventListener('visibilitychange', sync)
+    }
+  }, [timeSensitiveActive])
+
+  /**
+   * The frame timestamps, refreshed every `RADAR_REFRESH_MS` while radar is active via `epoch` —
+   * held steady in between so a re-render, a restyle or a theme flip re-mounts the same twelve
+   * sources rather than a shifted set, but NOT frozen forever: a map left open for an hour would
+   * otherwise keep requesting frames that have fallen behind DWD's moving `PT5M` extent, and once
+   * a frame passes the extent it returns a `ServiceExceptionReport` instead of a tile (module
+   * docstring, facts 1–2). The on-screen clock next to the loop reads whichever frame is live.
+   */
+  // `epoch` is a bump-only counter, deliberately unread inside the callback — it exists purely to
+  // force this memo to recompute on the interval above.
+  const radarTimes = useMemo(
+    () => (radarActive ? radarFrameTimes(new Date()) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [radarActive, epoch],
+  )
+
+  /**
+   * The single grid slot `lightning`/`cells` bake into their request — see `staticWeatherTime` in
+   * `map-layers.ts`. Refreshed on the same `epoch` clock as `radarTimes`, for the identical reason:
+   * neither layer carries a nowcast of its own (fact 3), so an unrefreshed anchor eventually points
+   * at a slot DWD has stopped publishing.
+   */
+  const weatherTime = useMemo(
+    () => staticWeatherTime(new Date()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [epoch],
+  )
 
   const overlayState = useMemo<OverlayState>(
-    () => ({ ...layers, radarTimes }),
-    [layers, radarTimes],
+    () => ({ ...layers, radarTimes, weatherTime }),
+    [layers, radarTimes, weatherTime],
   )
 
   const [frame, setFrame] = useState(0)
@@ -146,7 +278,7 @@ export default function SiteMap({
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const markersRef = useRef<Marker[]>([])
-  const initialStyleRef = useRef(styleUrl)
+  const initialStyleRef = useRef(mapStyle)
   const isFirstStyleRef = useRef(true)
   const hasStyleLoadedRef = useRef(false)
   const hasFitRef = useRef(false)
@@ -190,7 +322,7 @@ export default function SiteMap({
     map.on('style.load', () => {
       hasStyleLoadedRef.current = true
       installOverlays(map, overlayStateRef.current)
-      paintOverlays(map, overlayStateRef.current, frameRef.current)
+      paintOverlayState(map, overlayStateRef.current, frameRef.current)
       // AFTER installOverlays: `syncTerrain` reads the DEM source `installOverlays` just added,
       // and `setTerrain` against a source that is not yet in the style is the ordering bug the
       // shared source id (`map-overlays.ts`) exists to avoid.
@@ -240,8 +372,9 @@ export default function SiteMap({
   /*
    * Style swap, step by step — the one thing most likely to be silently broken:
    *
-   * 1. `styleUrl` changes, either because the colour scheme flipped (no base pinned) or because
-   *    a base was picked in the drawer. This effect calls `setStyle` with the new one.
+   * 1. `mapStyle` changes, either because the colour scheme flipped (no base pinned) or because
+   *    a base was picked in the drawer. This effect calls `setStyle` with the new one — a URL for
+   *    a `style`/scheme-default `imagery` base, an inline object for a `raster-style` base.
    * 2. `diff: false` is LOAD-BEARING. MapLibre's default (`diff: true`) fetches the new style
    *    and reconciles it against the current one with `Style.setState` — and because our own
    *    sources and layers exist only in the current style, the diff's verdict is "remove them".
@@ -264,19 +397,23 @@ export default function SiteMap({
       isFirstStyleRef.current = false
       return
     }
-    mapRef.current?.setStyle(styleUrl, { diff: false })
-  }, [styleUrl])
+    mapRef.current?.setStyle(mapStyle, { diff: false })
+  }, [mapStyle])
 
   /*
    * The scheme and the style URL stopped being the same event the moment a base could be pinned:
    * flipping dark/light with an explicit base selected changes every CSS variable but loads no
-   * new style, so nothing fires `style.load` and the ramp would keep painting the other scheme's
-   * shades. Re-resolving the paint expression is cheap and touches no source.
+   * new style, so nothing fires `style.load` and the ramp — and the hillshade relief, and the
+   * contour line/label colours, the same palette-derived-paint problem in three places — would
+   * keep painting the other scheme's shades. Re-resolving each paint expression is cheap and
+   * touches no source.
    */
   useEffect(() => {
     const map = mapRef.current
     if (!map || !hasStyleLoadedRef.current) return
     refreshLpRamp(map, overlayStateRef.current)
+    refreshHillshade(map, overlayStateRef.current)
+    refreshContours(map, overlayStateRef.current)
   }, [resolvedScheme])
 
   // Drawer changes: add/remove sources and layers, then paint. Guarded on the style being up —
@@ -288,22 +425,24 @@ export default function SiteMap({
     // stop `removeSource` from pulling a source out from under `setTerrain` — see `syncTerrain`.
     detachTerrainIfUnwanted(map, overlayState)
     installOverlays(map, overlayState)
-    paintOverlays(map, overlayState, frameRef.current)
+    paintOverlayState(map, overlayState, frameRef.current)
     syncTerrain(map, overlayState)
   }, [overlayState])
 
-  // The radar loop's only per-frame work: one `setPaintProperty` per frame layer. Never a
-  // re-add and never a re-request — the frames are already sources, and MapLibre's default
-  // paint transition turns the step into a crossfade.
+  // The radar loop's only per-frame work: one `setPaintProperty` per frame layer, via
+  // `paintRadarFrame` — never the drawer-state paint work (`paintOverlayState`), and never a
+  // re-add or re-request. The frames are already sources, and MapLibre's default paint transition
+  // turns the step into a crossfade.
   //
   // `overlayState` deliberately stays OUT of the dep array and is read off the ref instead: the
-  // effect above already re-paints on every real `overlayState` change (right after
-  // `installOverlays` syncs the sources/layers it may have just added), so keeping it here too
-  // ran a second, redundant `paintOverlays` pass on every drawer toggle or opacity commit.
+  // effect above already re-paints every drawer-state value on every real `overlayState` change
+  // (right after `installOverlays` syncs the sources/layers it may have just added, including the
+  // current radar frame — see `paintOverlayState`'s docblock), so keeping it here too would run a
+  // second, redundant paint pass on every drawer toggle or opacity commit.
   useEffect(() => {
     const map = mapRef.current
     if (!map || !hasStyleLoadedRef.current) return
-    paintOverlays(map, overlayStateRef.current, frame)
+    paintRadarFrame(map, overlayStateRef.current, frame)
   }, [frame])
 
   /*
@@ -462,6 +601,7 @@ export default function SiteMap({
             </Group>
           </Box>
           {layers.lpYear !== null && <LpLegend year={layers.lpYear} />}
+          <WeatherLegends weather={layers.weather} fontColor={legendFontColor} />
         </>
       )}
       <MapSettingsDrawer
@@ -539,9 +679,10 @@ const stopOffset = (stop: number) =>
   Math.round(((stop - LP_RAMP_MIN) / (LP_RAMP_MAX - LP_RAMP_MIN)) * 100)
 
 /**
- * The same seven stops as the paint expression, as a CSS gradient. Here the tokens stay tokens
- * and the alpha goes through `alpha()` (a `color-mix`), because a browser understands both — no
- * runtime resolution needed, and it follows the scheme for free.
+ * The same stops as the paint expression (`LP_RAMP.length` of them — read the count off the
+ * table, not restated as a literal here), as a CSS gradient. Here the tokens stay tokens and the
+ * alpha goes through `alpha()` (a `color-mix`), because a browser understands both — no runtime
+ * resolution needed, and it follows the scheme for free.
  */
 const LEGEND_GRADIENT = `linear-gradient(90deg, ${LP_RAMP.map(
   ({ stop, token, alpha: opacity }) => `${alpha(token, opacity)} ${stopOffset(stop)}%`,
@@ -582,5 +723,84 @@ function LpLegend({ year }: { year: number }) {
         </Stack>
       </Paper>
     </Box>
+  )
+}
+
+// ── Weather legends ────────────────────────────────────────────────────────
+
+/**
+ * The active weather layers' own DWD legends — a separate, bottom-RIGHT cluster so it never
+ * collides with `LpLegend` at bottom-left. Answers the two halves of "toggle it on, nothing
+ * appears, is this broken": what colour means what (the legend image), and what an empty render
+ * means (`entry.emptyMeans`, right under it — a quiet night is data, not a failure).
+ */
+function WeatherLegends({
+  weather,
+  fontColor,
+}: {
+  weather: readonly WeatherSelection[]
+  fontColor: string
+}) {
+  const active = weather
+    .map((selection) => weatherLayer(selection.id))
+    .filter((entry): entry is WeatherLayer => entry?.legend === true)
+  if (active.length === 0) return null
+  return (
+    <Box pos="absolute" bottom={8} right={8}>
+      <Stack gap="xs" align="stretch">
+        {active.map((entry) => (
+          <WeatherLegendCard key={entry.id} entry={entry} fontColor={fontColor} />
+        ))}
+      </Stack>
+    </Box>
+  )
+}
+
+/** The legend's max box height — a scroll region past this rather than a squash. Blitzdichte's
+ * legend is 344 px tall; `mah={60}` (the old value) rendered it unreadably compressed. */
+const LEGEND_MAX_HEIGHT = 180
+
+/**
+ * One legend card. The image is a third-party PNG on a host we don't control — `onError` hides it
+ * quietly rather than letting a broken-image glyph sit on the map; the label and `emptyMeans` line
+ * still render either way, so the card degrades to text instead of vanishing.
+ *
+ * `imageFailed` tracks the `src` it failed FOR, not a bare boolean latch: this component is keyed
+ * by `entry.id` and stays mounted across a colour-scheme flip, but `fontColor` — and so `src` —
+ * changes on every flip. A latch with no `src` awareness would hide the legend for the rest of the
+ * session after one transient failure against DWD, even once a scheme flip produces a URL that
+ * would load fine. Same derive-during-render reset `OpacitySlider` uses in
+ * `map-settings-drawer.tsx` for its `committed`/`draft` pair, preferred over a `useEffect`.
+ */
+function WeatherLegendCard({ entry, fontColor }: { entry: WeatherLayer; fontColor: string }) {
+  const src = legendUrl(entry, fontColor)
+  const [trackedSrc, setTrackedSrc] = useState(src)
+  const [imageFailed, setImageFailed] = useState(false)
+  if (trackedSrc !== src) {
+    setTrackedSrc(src)
+    setImageFailed(false)
+  }
+  return (
+    <Paper py="xs" px="sm">
+      <Stack gap={4} w={168}>
+        <Text size="xs" fw={600}>
+          {entry.label}
+        </Text>
+        {!imageFailed && (
+          <ScrollArea.Autosize mah={LEGEND_MAX_HEIGHT} type="auto">
+            <Image
+              src={src}
+              alt={`${entry.label} legend`}
+              fit="contain"
+              w="auto"
+              onError={() => setImageFailed(true)}
+            />
+          </ScrollArea.Autosize>
+        )}
+        <Text size="xs" c="dimmed">
+          {entry.emptyMeans}
+        </Text>
+      </Stack>
+    </Paper>
   )
 }

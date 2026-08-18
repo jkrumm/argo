@@ -46,6 +46,7 @@
     "canvas-confetti": "^1.9.4",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.13",
+    "maplibre-contour": "0.1.0",
     "maplibre-gl": "6.3.0",
     "motion": "12.42.0",
     "react": "^19.2.7",

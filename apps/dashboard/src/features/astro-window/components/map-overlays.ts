@@ -1,15 +1,26 @@
-import type { AddLayerObject, Map as MapLibreMap } from 'maplibre-gl'
+import { addProtocol, type AddLayerObject, type Map as MapLibreMap } from 'maplibre-gl'
+import mlcontour from 'maplibre-contour'
 import {
   BASE_STACK_INDEX,
   baseLayer,
+  CONTOUR_ELEVATION_KEY,
+  CONTOUR_LABEL_FONT,
+  CONTOUR_LAYER_NAME,
+  CONTOUR_LEVEL_KEY,
+  CONTOUR_STACK_INDEX,
+  CONTOUR_THRESHOLDS,
   lpAttribution,
   LP_RAMP,
   LP_STACK_INDEX,
   lpTileUrl,
+  needsStaticTime,
   TERRAIN_3D_EXAGGERATION,
   TERRAIN_ATTRIBUTION,
   TERRAIN_DEM_URL,
   TERRAIN_STACK_INDEX,
+  TRAILS_ATTRIBUTION,
+  TRAILS_STACK_INDEX,
+  TRAILS_TILES,
   wmsTileUrl,
   weatherLayer,
   type MapLayerState,
@@ -41,6 +52,7 @@ const OWN_PREFIX = 'argo-'
 
 const lpLayerId = (year: number) => `${OWN_PREFIX}lp-${year}`
 const weatherLayerId = (id: WeatherLayerId) => `${OWN_PREFIX}wx-${id}`
+const TRAILS_LAYER_ID = `${OWN_PREFIX}trails`
 
 /**
  * ONE `raster-dem` source doubles as both the hillshade layer's input AND the `setTerrain`
@@ -50,6 +62,49 @@ const weatherLayerId = (id: WeatherLayerId) => `${OWN_PREFIX}wx-${id}`
  * exists in the style.
  */
 const TERRAIN_SOURCE_ID = `${OWN_PREFIX}terrain-dem`
+
+const CONTOUR_SOURCE_ID = `${OWN_PREFIX}contours`
+const CONTOUR_LINE_LAYER_ID = `${OWN_PREFIX}contours-line`
+const CONTOUR_LABEL_LAYER_ID = `${OWN_PREFIX}contours-label`
+
+/** Same DEM ceiling as `TERRAIN_SOURCE_ID`'s `raster-dem` source — the terrarium bucket has
+ * nothing past z15, so both sources declare it and let MapLibre overzoom beyond it. */
+const DEM_MAXZOOM = 15
+
+/**
+ * ONE `DemSource` for the whole module, constructed at MODULE SCOPE rather than inside a
+ * component or effect. A module is evaluated exactly once by the ESM loader no matter how many
+ * times a consuming effect re-runs — unlike a `useEffect`, which React 19 StrictMode
+ * double-invokes — so registering the protocol here needs no extra double-registration guard,
+ * the way `demSource.setupMaplibre` would need one if called from inside `site-map.tsx`'s effects.
+ *
+ * `worker: false` is a deliberate override, not the package default (which is `true`). The
+ * package's worker is NOT a plain file `new Worker(new URL(...))` — Vite's `?worker&url` pipeline
+ * (the fix `site-map.tsx`'s own long import comment documents for maplibre-gl's worker) has
+ * nothing to intercept, because `maplibre-contour`'s `dist/index.mjs` builds the worker at
+ * RUNTIME by string-concatenating its own UMD-wrapped chunks into a `Blob` and handing MapLibre
+ * `URL.createObjectURL(...)` of that string — there is no separate worker entry file to route
+ * through the optimizer at all. Rather than gamble on Vite surviving a pattern it was never built
+ * to recognise, DEM decoding and isoline generation run on the main thread here. This is a real
+ * perf tradeoff (contour tiles compute synchronously instead of off-thread), acceptable for a
+ * personal dashboard; `worker: true` is the thing to revisit if contour toggling ever visibly
+ * jank. `bun run --cwd apps/dashboard build` is what actually proves this choice survives Vite —
+ * a passing typecheck never touches the runtime Blob-URL path either way.
+ */
+const demSource = new mlcontour.DemSource({
+  url: TERRAIN_DEM_URL,
+  encoding: 'terrarium',
+  maxzoom: DEM_MAXZOOM,
+  worker: false,
+})
+demSource.setupMaplibre({ addProtocol })
+
+const CONTOUR_TILE_OPTIONS = {
+  thresholds: CONTOUR_THRESHOLDS,
+  contourLayer: CONTOUR_LAYER_NAME,
+  elevationKey: CONTOUR_ELEVATION_KEY,
+  levelKey: CONTOUR_LEVEL_KEY,
+}
 
 /**
  * The `time` is baked into the id, not just the index. `installOverlays` decides what to add/keep
@@ -62,6 +117,15 @@ const TERRAIN_SOURCE_ID = `${OWN_PREFIX}terrain-dem`
  */
 const radarFrameLayerId = (index: number, time: string) =>
   `${OWN_PREFIX}wx-radar-${index}-${time.replace(/[:.]/g, '-')}`
+
+/**
+ * The same id-changing discipline as `radarFrameLayerId` above, for `lightning`/`cells`: those two
+ * now carry a baked `time` too (`needsStaticTime`, `map-layers.ts`), and if their id did not move
+ * when that time refreshes, `installOverlays` would see the stale source as still "wanted" and
+ * never sweep it — the map would keep painting a slot that has aged out of DWD's extent.
+ */
+const staticTimedLayerId = (id: WeatherLayerId, time: string) =>
+  `${OWN_PREFIX}wx-${id}-${time.replace(/[:.]/g, '-')}`
 
 // ── The light-pollution ramp ───────────────────────────────────────────────
 
@@ -109,21 +173,118 @@ export function buildLpRamp(): LpRampExpression {
   return ['interpolate', ['linear'], ['elevation'], ...stops] as LpRampExpression
 }
 
+// ── The hillshade relief ────────────────────────────────────────────────────
+
+type HillshadeLayer = Extract<AddLayerObject, { type: 'hillshade' }>
+type HillshadePaint = NonNullable<HillshadeLayer['paint']>
+
+/**
+ * Neutral zinc tokens chosen by ROLE, not by literal darkness, so the same pair reads correctly
+ * in both schemes without a light/dark branch: `--vx-surface-bg` is this app's most RECESSED
+ * surface and `--vx-surface-elevated` its most RAISED one, by construction (`basalt-tokens.md`'s
+ * surface ladder) — "shadow = the recessed tone, highlight = the raised tone" is exactly the
+ * relief metaphor, in whichever scheme those tokens currently resolve to. `--vx-surface-border`,
+ * the hairline token, doubles as the accent light's subtle ridge tint for the same reason.
+ */
+const HILLSHADE_SHADOW_VAR = '--vx-surface-bg'
+const HILLSHADE_HIGHLIGHT_VAR = '--vx-surface-elevated'
+const HILLSHADE_ACCENT_VAR = '--vx-surface-border'
+
+/**
+ * Swiss-style multidirectional relief, palette-derived. `hillshade-illumination-direction` /
+ * `-altitude` are MapLibre's own official multidirectional example (Austria/Switzerland-centred);
+ * that example's rainbow `hillshade-shadow-color`/`-highlight-color` arrays exist only to
+ * demonstrate the ARRAY FORM `ColorArraySpecification` (`string | string[]`) allows for a
+ * per-direction colour — cartography, not colour choice, so they are not reused here. A single
+ * resolved string per colour applies uniformly to all four lights instead, which is what "calm
+ * neutral zinc shading, not tinted colour" (the brief this shipped against) asks for.
+ *
+ * Called on every `style.load` AND on a bare scheme flip (`refreshHillshade`, mirroring
+ * `buildLpRamp`/`refreshLpRamp`), so the relief always paints the shades actually mounted.
+ */
+export function buildHillshadePaint(exaggeration: number): HillshadePaint {
+  const cs = getComputedStyle(document.documentElement)
+  return {
+    'hillshade-method': 'multidirectional',
+    'hillshade-illumination-direction': [270, 315, 0, 45],
+    'hillshade-illumination-altitude': [30, 30, 30, 30],
+    'hillshade-exaggeration': exaggeration,
+    'hillshade-shadow-color': resolveStopColor(cs, HILLSHADE_SHADOW_VAR, 1),
+    'hillshade-highlight-color': resolveStopColor(cs, HILLSHADE_HIGHLIGHT_VAR, 1),
+    'hillshade-accent-color': resolveStopColor(cs, HILLSHADE_ACCENT_VAR, 1),
+  }
+}
+
+// ── Contour lines ────────────────────────────────────────────────────────────
+
+/** `--vx-muted` — readable but subordinate, the same secondary-ink role the legend caption below
+ * uses; the line and its label share one colour. `--vx-surface-bg` behind the label text is this
+ * app's own page tone rather than a scheme-blind literal, so the halo still reads against
+ * whichever basemap is mounted. */
+const CONTOUR_LINE_VAR = '--vx-muted'
+const CONTOUR_HALO_VAR = '--vx-surface-bg'
+
+/** Minor lines thinner and fainter than major ones — the visual half of "context, not answer". */
+const CONTOUR_MINOR_WIDTH = 0.5
+const CONTOUR_MAJOR_WIDTH = 1.1
+const CONTOUR_MINOR_OPACITY = 0.35
+const CONTOUR_MAJOR_OPACITY = 0.65
+
+/** Resolved once per stack build, same `getComputedStyle` trick as `buildHillshadePaint`. */
+function buildContourColors(): { line: string; halo: string } {
+  const cs = getComputedStyle(document.documentElement)
+  return {
+    line: resolveStopColor(cs, CONTOUR_LINE_VAR, 1),
+    halo: resolveStopColor(cs, CONTOUR_HALO_VAR, 1),
+  }
+}
+
+/** `--vx-muted` — the same opaque secondary-ink token DESIGN.md documents using in place of
+ * `--vx-tooltipMuted` for bespoke labels, which this WMS legend caption is. */
+const LEGEND_FONT_VAR = '--vx-muted'
+
+/** Neutral zinc-400 — never actually reached (`--vx-muted` always resolves to a 6-digit hex in
+ * both schemes), but a `0x`-prefixed literal keeps the return type honest if a future palette
+ * swap ever hands back something `SIX_DIGIT_HEX` cannot parse. */
+const LEGEND_FONT_FALLBACK = '0xa1a1aa'
+
+/**
+ * The DWD `LEGEND_OPTIONS` `fontColor`, resolved from the live palette rather than hardcoded — the
+ * one probed 2026-08-19 (`0xd4d4d8`) was the DARK scheme's `--vx-muted` value, not a constant, and
+ * hardcoding it would leave the legend's own caption unreadable the moment the page is in light
+ * mode. Same `getComputedStyle(document.documentElement)` read `resolveStopColor` already uses,
+ * converting the palette's `#rrggbb` to the `0xrrggbb` GeoServer's `LEGEND_OPTIONS` expects.
+ */
+export function resolveLegendFontColor(): string {
+  const hex = getComputedStyle(document.documentElement).getPropertyValue(LEGEND_FONT_VAR).trim()
+  return SIX_DIGIT_HEX.test(hex) ? `0x${hex.slice(1)}` : LEGEND_FONT_FALLBACK
+}
+
 // ── The desired stack ──────────────────────────────────────────────────────
 
 /**
- * One entry of the stack. `id` doubles as the source id — one source, one layer.
+ * One entry of the stack. `id` is the source id; `layers` is everything mounted off that ONE
+ * source — one item for every raster/DEM entry, two for contours (a `line` and a `symbol` layer
+ * sharing the same vector source, since a line and its label cannot be one MapLibre layer).
  *
  * `stackIndex` is the catalogue's single ordering scale (`BASE_STACK_INDEX` / `LP_STACK_INDEX` /
  * `WeatherLayer.stackIndex`), carried here so the whole stack is sorted ONCE at the end rather
  * than assembled in whatever order the branches happen to run.
  */
-type StackEntry = { id: string; stackIndex: number; source: SourceSpec; layer: AddLayerObject }
+type StackEntry = {
+  id: string
+  stackIndex: number
+  source: SourceSpec
+  layers: readonly AddLayerObject[]
+}
 
-/** The layer state plus the frame timestamps, which are derived once and then held steady. */
+/** The layer state plus the derived, periodically-refreshed weather timestamps. */
 export type OverlayState = MapLayerState & {
-  /** Empty unless the radar layer is on. Held in a ref by the component so a restyle reuses it. */
+  /** Empty unless the radar layer is on. Refreshed on the shared epoch clock — see `site-map.tsx`. */
   radarTimes: readonly string[]
+  /** The one grid slot `lightning`/`cells` bake into their id — see `needsStaticTime`. Always
+   * populated (cheap to compute) even when neither layer is on. */
+  weatherTime: string
 }
 
 function rasterEntry({
@@ -151,7 +312,7 @@ function rasterEntry({
       attribution,
       ...(maxzoom !== undefined && { maxzoom }),
     },
-    layer: { id, type: 'raster', source: id, paint: { 'raster-opacity': opacity } },
+    layers: [{ id, type: 'raster', source: id, paint: { 'raster-opacity': opacity } }],
   }
 }
 
@@ -188,23 +349,93 @@ function desiredStack(state: OverlayState): StackEntry[] {
       stackIndex: TERRAIN_STACK_INDEX,
       source: {
         type: 'raster-dem',
-        tiles: [TERRAIN_DEM_URL],
+        // `sharedDemProtocolUrl`, not `TERRAIN_DEM_URL` directly — the whole reason to route this
+        // through `maplibre-contour` rather than fetching the terrarium PNGs a second time: the
+        // hillshade layer, 3D terrain and the contour generator below all read ONE decoded DEM
+        // tile cache instead of three independent fetches of the same bytes.
+        tiles: [demSource.sharedDemProtocolUrl],
         tileSize: 256,
-        maxzoom: 15,
+        maxzoom: DEM_MAXZOOM,
         encoding: 'terrarium',
         attribution: TERRAIN_ATTRIBUTION,
       },
-      layer: {
-        id: TERRAIN_SOURCE_ID,
-        type: 'hillshade',
-        source: TERRAIN_SOURCE_ID,
-        paint: { 'hillshade-method': 'standard' },
-        // The source is mounted whenever hillshade OR 3D terrain is on — `setTerrain` (called
-        // from `syncTerrain`, below) needs the source to already exist in the style — but the
-        // shaded RENDER only draws when hillshade itself is requested. 3D-only leaves this layer
-        // resident and invisible, one DEM shared by both toggles rather than two copies of it.
-        layout: { visibility: state.terrain.hillshade ? 'visible' : 'none' },
+      layers: [
+        {
+          id: TERRAIN_SOURCE_ID,
+          type: 'hillshade',
+          source: TERRAIN_SOURCE_ID,
+          paint: buildHillshadePaint(state.terrain.hillshadeExaggeration),
+          // The source is mounted whenever hillshade OR 3D terrain is on — `setTerrain` (called
+          // from `syncTerrain`, below) needs the source to already exist in the style — but the
+          // shaded RENDER only draws when hillshade itself is requested. 3D-only leaves this
+          // layer resident and invisible, one DEM shared by both toggles rather than two copies.
+          layout: { visibility: state.terrain.hillshade ? 'visible' : 'none' },
+        },
+      ],
+    })
+  }
+
+  // Contour lines — a second consumer of the SAME shared DEM cache as the hillshade source above,
+  // independent of whether hillshade/3D are on: a hiker reading isolines has no need for shading.
+  if (state.terrain.contours) {
+    const { line, halo } = buildContourColors()
+    stack.push({
+      id: CONTOUR_SOURCE_ID,
+      stackIndex: CONTOUR_STACK_INDEX,
+      source: {
+        type: 'vector',
+        tiles: [demSource.contourProtocolUrl(CONTOUR_TILE_OPTIONS)],
+        maxzoom: DEM_MAXZOOM,
+        attribution: TERRAIN_ATTRIBUTION,
       },
+      layers: [
+        {
+          id: CONTOUR_LINE_LAYER_ID,
+          type: 'line',
+          source: CONTOUR_SOURCE_ID,
+          'source-layer': CONTOUR_LAYER_NAME,
+          paint: {
+            'line-color': line,
+            // Readable but subordinate — the sky data is this map's answer, contours are context
+            // (the same argument `TERRAIN_STACK_INDEX`'s comment makes for the hillshade). Driven
+            // off the `level` property the library sets (0 = minor, 1 = major) with an
+            // expression, not two hand-built sources.
+            'line-width': [
+              'case',
+              ['==', ['get', CONTOUR_LEVEL_KEY], 1],
+              CONTOUR_MAJOR_WIDTH,
+              CONTOUR_MINOR_WIDTH,
+            ],
+            'line-opacity': [
+              'case',
+              ['==', ['get', CONTOUR_LEVEL_KEY], 1],
+              CONTOUR_MAJOR_OPACITY,
+              CONTOUR_MINOR_OPACITY,
+            ],
+          },
+        },
+        {
+          id: CONTOUR_LABEL_LAYER_ID,
+          type: 'symbol',
+          source: CONTOUR_SOURCE_ID,
+          'source-layer': CONTOUR_LAYER_NAME,
+          // Labels only on major lines — minor-line labels at this density would be noise.
+          filter: ['==', ['get', CONTOUR_LEVEL_KEY], 1],
+          layout: {
+            'symbol-placement': 'line',
+            'text-field': ['concat', ['to-string', ['get', CONTOUR_ELEVATION_KEY]], ' m'],
+            // `Noto Sans Regular`, not JetBrains Mono — see `CONTOUR_GLYPHS_URL`'s docstring in
+            // `map-layers.ts` for why DESIGN.md's mono-numerals rule does not apply here.
+            'text-font': [CONTOUR_LABEL_FONT],
+            'text-size': 10,
+          },
+          paint: {
+            'text-color': line,
+            'text-halo-color': halo,
+            'text-halo-width': 1,
+          },
+        },
+      ],
     })
   }
 
@@ -225,23 +456,42 @@ function desiredStack(state: OverlayState): StackEntry[] {
         encoding: 'terrarium',
         attribution: lpAttribution(state.lpYear),
       },
-      layer: {
-        id,
-        type: 'color-relief',
-        source: id,
-        paint: {
-          'color-relief-color': buildLpRamp(),
-          'color-relief-opacity': 1,
-          // `resampling`, NOT `raster-resampling`. The latter is a RASTER-layer property; the
-          // style-spec validator rejects it on a color-relief layer with `unknown property
-          // "raster-resampling"` and the layer never gets added — verified against the shipped
-          // @maplibre/maplibre-gl-style-spec. `nearest` shows the atlas's true 30 arcsec
-          // granularity instead of pretending to a resolution the data does not have; the source
-          // stops at z9, so everything above it overzooms, which is exactly where that matters.
-          resampling: 'nearest',
+      layers: [
+        {
+          id,
+          type: 'color-relief',
+          source: id,
+          paint: {
+            'color-relief-color': buildLpRamp(),
+            'color-relief-opacity': state.lpOpacity,
+            // `resampling`, NOT `raster-resampling`. The latter is a RASTER-layer property; the
+            // style-spec validator rejects it on a color-relief layer with `unknown property
+            // "raster-resampling"` and the layer never gets added — verified against the shipped
+            // @maplibre/maplibre-gl-style-spec. Drawer-controlled (`state.lpResampling`); MapLibre's
+            // own default is `linear`, which smooths between the atlas's 30 arcsec samples — the
+            // honest-granularity argument for `nearest` (the source stops at z9, so everything
+            // above it overzooms) is a caveat the drawer states in one line, not a fixed veto.
+            resampling: state.lpResampling,
+          },
         },
-      },
+      ],
     })
+  }
+
+  // Waymarked Trails — independent of hillshade/3D (both read the shared DEM; this reads its own
+  // hiking tile server) but grouped into `state.terrain` because the drawer's Terrain section is
+  // where "can I get there" lives. See `TRAILS_STACK_INDEX` in `map-layers.ts` for why it sits
+  // above the ramp and below the weather annotations.
+  if (state.terrain.trails !== null) {
+    stack.push(
+      rasterEntry({
+        id: TRAILS_LAYER_ID,
+        stackIndex: TRAILS_STACK_INDEX,
+        tiles: TRAILS_TILES,
+        attribution: TRAILS_ATTRIBUTION,
+        opacity: state.terrain.trails,
+      }),
+    )
   }
 
   for (const selection of state.weather) {
@@ -260,11 +510,27 @@ function desiredStack(state: OverlayState): StackEntry[] {
             stackIndex: entry.stackIndex,
             tiles: [wmsTileUrl({ host: entry.host, layer: entry.wmsLayer, time })],
             attribution: entry.attribution,
-            // Every frame starts invisible; `paintOverlays` reveals exactly one.
+            // Every frame starts invisible; `paintOverlayState`/`paintRadarFrame` reveal exactly one.
             opacity: 0,
           }),
         )
       })
+      continue
+    }
+
+    if (needsStaticTime(entry.id)) {
+      // Same one-source-per-timestamp shape as the radar frames, just with exactly one frame:
+      // lightning/cells have no nowcast to animate, but their `time` still ages out of DWD's
+      // extent, so the id has to move with it — see `staticTimedLayerId`.
+      stack.push(
+        rasterEntry({
+          id: staticTimedLayerId(entry.id, state.weatherTime),
+          stackIndex: entry.stackIndex,
+          tiles: [wmsTileUrl({ host: entry.host, layer: entry.wmsLayer, time: state.weatherTime })],
+          attribution: entry.attribution,
+          opacity: selection.opacity,
+        }),
+      )
       continue
     }
 
@@ -356,14 +622,18 @@ export function installOverlays(map: MapLibreMap, state: OverlayState): void {
   if (style === undefined) return
 
   const stack = desiredStack(state)
-  const wanted = new Set(stack.map((entry) => entry.id))
+  // Two sets, not one: a source id (`entry.id`) and its layer ids no longer coincide now that
+  // contours mount two layers off one source, so the removal sweep below has to check each
+  // against the right one.
+  const wantedSources = new Set(stack.map((entry) => entry.id))
+  const wantedLayers = new Set(stack.flatMap((entry) => entry.layers.map((layer) => layer.id)))
 
   // Layers first, then their sources — MapLibre refuses to remove a source a layer still uses.
   for (const layer of style.layers) {
-    if (layer.id.startsWith(OWN_PREFIX) && !wanted.has(layer.id)) map.removeLayer(layer.id)
+    if (layer.id.startsWith(OWN_PREFIX) && !wantedLayers.has(layer.id)) map.removeLayer(layer.id)
   }
   for (const sourceId of Object.keys(style.sources)) {
-    if (sourceId.startsWith(OWN_PREFIX) && !wanted.has(sourceId)) map.removeSource(sourceId)
+    if (sourceId.startsWith(OWN_PREFIX) && !wantedSources.has(sourceId)) map.removeSource(sourceId)
   }
 
   // Resolved once: `getStyle()` serialises the entire style, and a twelve-frame radar loop would
@@ -372,10 +642,38 @@ export function installOverlays(map: MapLibreMap, state: OverlayState): void {
 
   stack.forEach((entry, index) => {
     if (map.getSource(entry.id) === undefined) map.addSource(entry.id, entry.source)
-    if (map.getLayer(entry.id) !== undefined) return
-    const above = stack.slice(index + 1).map((later) => later.id)
-    addRasterBelowLabels(map, entry.layer, above, anchorId)
+    // Every id above THIS entry in stack order — not just the next entry's, since `entry.layers`
+    // itself carries more than one layer for contours. Layers within `entry.layers` are pushed in
+    // array order against this SAME `above` target, so the line (pushed first) lands directly
+    // below the label (pushed second) purely from insertion order — no separate within-entry
+    // ordering pass needed.
+    const above = stack.slice(index + 1).flatMap((later) => later.layers.map((layer) => layer.id))
+    for (const layer of entry.layers) {
+      if (map.getLayer(layer.id) !== undefined) continue
+      addRasterBelowLabels(map, layer, above, anchorId)
+    }
   })
+}
+
+/**
+ * The radar loop's ONLY per-frame work: drives `raster-opacity` on every mounted radar-frame
+ * layer, revealing `radarFrame` and hiding the rest. Called on every `RADAR_FRAME_MS` tick from
+ * `site-map.tsx`'s `[frame]` effect — nothing else in this module belongs on that path, because
+ * everything else is drawer state that only ever changes on a state commit, not twice a second.
+ *
+ * Also called once from {@link paintOverlayState} (see its docblock for why): a fresh set of
+ * frame layers from `installOverlays` all start at opacity 0 and need the current frame revealed.
+ */
+export function paintRadarFrame(map: MapLibreMap, state: OverlayState, radarFrame: number): void {
+  for (const selection of state.weather) {
+    const entry = weatherLayer(selection.id)
+    if (entry === undefined || !entry.animated) continue
+    state.radarTimes.forEach((time, index) => {
+      const id = radarFrameLayerId(index, time)
+      if (map.getLayer(id) === undefined) return
+      map.setPaintProperty(id, 'raster-opacity', index === radarFrame ? selection.opacity : 0)
+    })
+  }
 }
 
 /**
@@ -383,27 +681,58 @@ export function installOverlays(map: MapLibreMap, state: OverlayState): void {
  * its tiles stay put and only the paint value changes, where re-adding the layer would drop the
  * tile cache and re-request everything for a drag of a few pixels.
  *
- * `radarFrame` indexes `state.radarTimes`; every other frame is driven to 0, which is what makes
- * the loop free to render.
+ * Everything here is drawer-commit state — lp opacity/resampling, the two static weather kinds,
+ * trails opacity, hillshade exaggeration — independent of `radarFrame`, so it belongs on the
+ * state-change path (`site-map.tsx`'s `[overlayState]` effect and the `style.load` handler) and
+ * NOT on the per-frame radar loop: writing these same four values twice a second for no reason
+ * was FIX 4 of the map-overlays review, split out into {@link paintRadarFrame} above.
+ *
+ * `hillshade-exaggeration` follows the same discipline: it is a drawer slider value, so a drag
+ * has to be one `setPaintProperty` call, never a layer re-add (that would drop the DEM tile cache
+ * and re-decode every visible tile for a drag of a few pixels).
+ *
+ * The pollution ramp's own opacity and resampling mode follow the identical discipline — both are
+ * drawer control values (a slider, a smooth/sharp toggle), so both are `setPaintProperty` calls on
+ * the already-mounted `color-relief` layer rather than a re-add that would drop the atlas tile
+ * cache for a drag of a few pixels.
+ *
+ * Ends by calling {@link paintRadarFrame} for the CURRENT frame — `installOverlays` may have just
+ * mounted a brand new set of frame layers (all starting at opacity 0), and this is the one call on
+ * the state-change path that reveals the one that should already be showing.
  */
-export function paintOverlays(map: MapLibreMap, state: OverlayState, radarFrame: number): void {
+export function paintOverlayState(map: MapLibreMap, state: OverlayState, radarFrame: number): void {
+  if (state.lpYear !== null) {
+    const id = lpLayerId(state.lpYear)
+    if (map.getLayer(id) !== undefined) {
+      map.setPaintProperty(id, 'color-relief-opacity', state.lpOpacity)
+      map.setPaintProperty(id, 'resampling', state.lpResampling)
+    }
+  }
+
   for (const selection of state.weather) {
     const entry = weatherLayer(selection.id)
-    if (entry === undefined) continue
+    if (entry === undefined || entry.animated) continue
 
-    if (entry.animated) {
-      state.radarTimes.forEach((time, index) => {
-        const id = radarFrameLayerId(index, time)
-        if (map.getLayer(id) === undefined) return
-        map.setPaintProperty(id, 'raster-opacity', index === radarFrame ? selection.opacity : 0)
-      })
-      continue
-    }
-
-    const id = weatherLayerId(entry.id)
+    const id = needsStaticTime(entry.id)
+      ? staticTimedLayerId(entry.id, state.weatherTime)
+      : weatherLayerId(entry.id)
     if (map.getLayer(id) === undefined) continue
     map.setPaintProperty(id, 'raster-opacity', selection.opacity)
   }
+
+  if (state.terrain.trails !== null && map.getLayer(TRAILS_LAYER_ID) !== undefined) {
+    map.setPaintProperty(TRAILS_LAYER_ID, 'raster-opacity', state.terrain.trails)
+  }
+
+  if (map.getLayer(TERRAIN_SOURCE_ID) !== undefined) {
+    map.setPaintProperty(
+      TERRAIN_SOURCE_ID,
+      'hillshade-exaggeration',
+      state.terrain.hillshadeExaggeration,
+    )
+  }
+
+  paintRadarFrame(map, state, radarFrame)
 }
 
 /**
@@ -421,6 +750,56 @@ export function refreshLpRamp(map: MapLibreMap, state: OverlayState): void {
 }
 
 /**
+ * Same shape, same guards as {@link refreshLpRamp}: the hillshade's shadow/highlight/accent
+ * colours are palette-derived, so a bare scheme flip with no style reload leaves them painting the
+ * other scheme's tokens until this re-resolves them. `hillshade-exaggeration` is deliberately NOT
+ * touched here — it is drawer state, not palette state, and `paintOverlayState` already keeps it
+ * in sync on every state change.
+ */
+export function refreshHillshade(map: MapLibreMap, state: OverlayState): void {
+  if (!state.terrain.hillshade && !state.terrain.extruded) return
+  if (map.getLayer(TERRAIN_SOURCE_ID) === undefined) return
+  const paint = buildHillshadePaint(state.terrain.hillshadeExaggeration)
+  map.setPaintProperty(TERRAIN_SOURCE_ID, 'hillshade-shadow-color', paint['hillshade-shadow-color'])
+  map.setPaintProperty(
+    TERRAIN_SOURCE_ID,
+    'hillshade-highlight-color',
+    paint['hillshade-highlight-color'],
+  )
+  map.setPaintProperty(TERRAIN_SOURCE_ID, 'hillshade-accent-color', paint['hillshade-accent-color'])
+}
+
+/**
+ * Same shape again, for the contour line/label colours — both derived from the palette
+ * (`buildContourColors`), so they go stale on the same bare scheme flip `refreshLpRamp` and
+ * `refreshHillshade` already guard against.
+ */
+export function refreshContours(map: MapLibreMap, state: OverlayState): void {
+  if (!state.terrain.contours) return
+  if (map.getLayer(CONTOUR_LINE_LAYER_ID) === undefined) return
+  const { line, halo } = buildContourColors()
+  map.setPaintProperty(CONTOUR_LINE_LAYER_ID, 'line-color', line)
+  if (map.getLayer(CONTOUR_LABEL_LAYER_ID) !== undefined) {
+    map.setPaintProperty(CONTOUR_LABEL_LAYER_ID, 'text-color', line)
+    map.setPaintProperty(CONTOUR_LABEL_LAYER_ID, 'text-halo-color', halo)
+  }
+}
+
+/**
+ * The same unloaded-style window `installOverlays` guards against with its own `getStyle() ===
+ * undefined` check (see that function's docblock for the full mechanism) — but `map.setTerrain`
+ * does not degrade the way `installOverlays` does. Its implementation opens with
+ * `this.style._checkLoaded()`, which THROWS `"Style is not done loading."` rather than no-opping
+ * (verified against the installed maplibre-gl 6.3.0 `Map.setTerrain` source). `syncTerrain` and
+ * `detachTerrainIfUnwanted` both call `setTerrain`, so both need this guard — it is REQUIRED to
+ * stop the throw from aborting the rest of a `style.load`/state-change handler (which would strand
+ * `installOverlays`'/`paintOverlayState`'s work half-applied), not merely defensive.
+ */
+function isStyleLoaded(map: MapLibreMap): boolean {
+  return map.getStyle() !== undefined
+}
+
+/**
  * 3D terrain is map-level state (`map.setTerrain`), not a layer — `installOverlays` above only
  * gets the hillshade LAYER and the shared DEM source onto the style; this is the other half.
  *
@@ -430,12 +809,14 @@ export function refreshLpRamp(map: MapLibreMap, state: OverlayState): void {
  * catch the mistake: `Style.removeSource` refuses to remove a source a LAYER is using, but has
  * no equivalent check for one the TERRAIN is using (verified in the installed
  * maplibre-gl 6.3.0 `Style.removeSource`), so it would delete the tile manager out from under
- * the terrain renderer and fail later, somewhere else.
+ * the terrain renderer and fail later, somewhere else. This ordering is untouched by the
+ * `isStyleLoaded` guard below — that guard decides WHETHER `setTerrain` may run at all, not where.
  *
  * Both calls are idempotent: {@link detachTerrainIfUnwanted} no-ops when 3D is staying on, and
  * `syncTerrain` no-ops when the source is not mounted yet or the terrain already matches.
  */
 export function syncTerrain(map: MapLibreMap, state: OverlayState): void {
+  if (!isStyleLoaded(map)) return
   if (!state.terrain.extruded) {
     detachTerrainIfUnwanted(map, state)
     return
@@ -450,9 +831,12 @@ export function syncTerrain(map: MapLibreMap, state: OverlayState): void {
 
 /**
  * Drop `setTerrain` BEFORE the stack sync can remove the DEM source it points at. See
- * {@link syncTerrain} for why MapLibre does not do this for us.
+ * {@link syncTerrain} for why MapLibre does not do this for us, and {@link isStyleLoaded} for why
+ * this guards the same unloaded-style window `syncTerrain` does — this function is also called
+ * directly (`site-map.tsx`'s `[overlayState]` effect), not only via `syncTerrain`.
  */
 export function detachTerrainIfUnwanted(map: MapLibreMap, state: OverlayState): void {
+  if (!isStyleLoaded(map)) return
   if (state.terrain.extruded) return
   if (map.getTerrain() !== null) map.setTerrain(null)
 }
