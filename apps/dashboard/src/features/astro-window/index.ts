@@ -1,6 +1,13 @@
 import { lazy } from 'react'
 
-export { NIGHTS_OPTIONS, METRIC_TOOLTIPS, CHART_HEIGHT, SIDE_PANEL_HEIGHT } from './constants'
+export {
+  NIGHTS_OPTIONS,
+  METRIC_TOOLTIPS,
+  CHART_HEIGHT,
+  SIDE_PANEL_HEIGHT,
+  MAP_FULL_BLEED_HEIGHT,
+  MAP_MIN_HEIGHT,
+} from './constants'
 
 export type {
   WindowParams,
@@ -37,6 +44,7 @@ export {
 export { Section } from './section'
 
 export { SiteSelector, type SiteSelectorProps } from './components/site-selector'
+export { ViewTabs, type AstroView } from './components/view-tabs'
 export { VerdictHero } from './components/verdict-hero'
 export { NightStrip } from './components/night-strip'
 export { NightFacts } from './components/night-facts'

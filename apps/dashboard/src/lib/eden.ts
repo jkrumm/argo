@@ -1,9 +1,9 @@
 import { treaty } from '@elysiajs/eden'
 import type { App } from '@argo/api'
 import { getToken } from './auth'
+import { apiBase } from './api-base'
 
-const baseUrl = import.meta.env.VITE_API_URL ?? `${window.location.origin}/api`
-export const api = treaty<App>(baseUrl, {
+export const api = treaty<App>(apiBase, {
   parseDate: false,
   headers: () => {
     const token = getToken()

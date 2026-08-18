@@ -137,11 +137,38 @@ const USAGE_OUTCOME_MAP = defineSeries({
   cancelled: p(BP.gold),
 } satisfies SeriesMap)
 
+/**
+ * Light-pollution ramp for the astro map — a DIVERGING scale, not a severity ramp.
+ *
+ * The warm half (city → rural) reads "don't bother"; the cool half (dark → pristine) is the
+ * signal "go here", which is why the dark end is NOT transparent: on a diverging scale both
+ * ends carry meaning, so fading the good end out would erase the very band the map exists to
+ * show. That is the categorical-separation case DESIGN.md already allows, not decoration.
+ *
+ * Every stop is a `p(BP.*)` family pick, exactly like the rest of this file — no literal pair.
+ * The three cool stops all take `BP.blue`, the sky family every other blue series in the app is
+ * drawn from, and separate from each other by ALPHA alone.
+ *
+ * That per-stop ALPHA ladder and the mpsas×100 stop values live with the ramp stops in the map
+ * component, not here: `lpDark`/`lpDarker`/`lpPristine` share one hue and are separated only by
+ * alpha, so the opacity is ramp geometry rather than series identity.
+ */
+const LP_MAP = defineSeries({
+  lpCity: p(BP.red),
+  lpUrban: p(BP.vermilion),
+  lpSuburban: p(BP.orange),
+  lpRural: p(BP.gold),
+  lpDark: p(BP.blue),
+  lpDarker: p(BP.blue),
+  lpPristine: p(BP.blue),
+} satisfies SeriesMap)
+
 export const SERIES = seriesTokens(SERIES_MAP)
 export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 export const USAGE_SOURCE = groupTokens('usage', USAGE_SOURCE_MAP)
 export const USAGE_BILLING = groupTokens('billing', USAGE_BILLING_MAP)
 export const USAGE_OUTCOME = groupTokens('outcome', USAGE_OUTCOME_MAP)
+export const LP = groupTokens('lp', LP_MAP)
 
 /**
  * `paletteOptions.groups` shape for `BasaltProvider` — appends argo's domain series on top of
@@ -153,6 +180,7 @@ export const argoPaletteGroups: Record<string, SeriesMap> = {
   'usage-': USAGE_SOURCE_MAP,
   'billing-': USAGE_BILLING_MAP,
   'outcome-': USAGE_OUTCOME_MAP,
+  'lp-': LP_MAP,
 }
 
 /**

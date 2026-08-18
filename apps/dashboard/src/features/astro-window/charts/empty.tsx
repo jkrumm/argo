@@ -10,7 +10,9 @@ export function ChartEmpty({
   height = 280,
   message = 'No entries yet',
 }: {
-  height?: number
+  // `string` as well as `number` so a full-bleed caller can hand it `"100%"` and have the empty
+  // state fill its container instead of guessing a pixel height.
+  height?: number | string
   message?: string
 }) {
   return (

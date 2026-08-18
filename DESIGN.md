@@ -150,6 +150,22 @@ export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 | Error       | `#cd4246` | `#e76a6e` | `error`            | Red (status-bad)     |
 | Cancelled   | `#d1980b` | `#f0b726` | `cancelled`        | Gold (status-warn)   |
 
+### Light pollution ramp (`lp-` prefix — `LP.*`)
+
+A **diverging** map ramp, ordered by sky brightness. Stop values are the raw tile payload
+(mpsas × 100, ascending from the polluted end because `interpolate` stops must ascend); the alpha
+is ramp geometry and lives with the stops in the map component, not in the token.
+
+| Series name  | Light hex | Dark hex  | `defineSeries` key | Role / earned reason                                         |
+| ------------ | --------- | --------- | ------------------ | ------------------------------------------------------------ |
+| LP: city     | `#cd4246` | `#e76a6e` | `lpCity`           | Warm end, stop `1800`, alpha `.90` — red                     |
+| LP: urban    | `#d33d17` | `#eb6847` | `lpUrban`          | Stop `1960`, alpha `.62` — vermilion                         |
+| LP: suburban | `#c87619` | `#ec9a3c` | `lpSuburban`       | Stop `2060`, alpha `.40` — orange                            |
+| LP: rural    | `#d1980b` | `#f0b726` | `lpRural`          | Neutral crossing, stop `2130`, alpha `.20` — gold            |
+| LP: dark     | `#0284c7` | `#38bdf8` | `lpDark`           | Sky, stop `2155`, alpha `.14` — the band our sites live in   |
+| LP: darker   | `#0284c7` | `#38bdf8` | `lpDarker`         | Sky, stop `2180`, alpha `.30` — same hue, deeper alpha       |
+| LP: pristine | `#0284c7` | `#38bdf8` | `lpPristine`       | Cool end, stop `2200`, alpha `.44` — same hue, deepest alpha |
+
 Rules for this table (from the `basalt-tokens` / `basalt-charts` rules — do not relax):
 
 - One hue per series, drawn from the identity families only. Never raw Material/AntD/Tailwind.
@@ -172,6 +188,13 @@ empty section is the correct default; do not invent deviations to fill it.
   colour" a layer that only costs a little contrast has not earned a hue. Read as an escalation,
   the same way the effort ramp (`intensityMin` → `vigorousMin`) is. Sepia was tried for the high
   layer first and read as a second orange against mid on the same axis.
+- **The light-pollution ramp's dark end is opaque, not transparent, and its three cool stops share
+  one hue.** A severity ramp fades out where nothing is wrong; this one is DIVERGING, so the cool
+  half is the actual answer — "go here" — and fading it out would erase the only band the map
+  exists to show. The three cool stops therefore all take `p(BP.blue)` — the sky family every
+  other blue series in the app is drawn from — and separate by alpha alone (`.14` → `.30` →
+  `.44`), which is why the alpha ladder lives with the ramp stops in the map component rather
+  than in the token.
 - **`VX.muted` is used instead of `VX.tooltipMuted`** in two bespoke tooltip/legend labels
   (readiness-strain, time-of-day): the opaque secondary-ink token reads equivalently there. Note
   this is now a preference, not a constraint — basalt-ui 1.0.0 does export `VX.tooltipMuted`
