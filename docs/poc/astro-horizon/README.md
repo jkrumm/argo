@@ -27,4 +27,19 @@ shipped libs directly and needs `astronomy-engine` resolvable from here.
 dragging the API's env validation and OTel into a POC.
 
 Environment knobs: `ZOOM` (validate), `YEAR` (visibility), `N` (clearance-grid),
-`SITE` / `DATE` (panorama).
+`SITE` / `DATE` (panorama). `panorama.ts` also takes `LAT` / `LON` / `NAME` for an
+arbitrary coordinate — the committed `panorama.html` is Walchensee on the 2026-08-12 new
+moon, which is the good case; render Wallberg summit for the bad one:
+
+```bash
+LAT=47.6631 LON=11.7736 NAME='Wallberg summit' bun run docs/poc/astro-horizon/panorama.ts
+```
+
+## What the panorama establishes for the real component
+
+Layer order, bottom to top: twilight wash (sky colour from sun altitude) → skyglow raster
+→ grid → the gate line → local-ground band → skyline fill → sun/moon/core tracks → the
+segment of the core track that clears the gate in astronomical darkness, drawn bold →
+instant markers. Axes are azimuth 0–360° in N-E-S-W-N order (which centres south for
+free) against altitude −4…52°. The single number the header carries is minutes above the
+gate tonight.
