@@ -24,12 +24,20 @@ import {
   addDays,
   formatLocalDate,
   formatLocalTime,
+  FRAMING_MARGIN_DEG,
   resolveNight,
   zonedTimeToUtc,
   type AstroNight,
   type NightSample,
 } from '../lib/astro-night.js'
 import { coreTransit, galacticCorePosition } from '../lib/astro-ephemeris.js'
+import {
+  annualVisibility,
+  VISIBILITY_MAX_MOON_ILLUMINATION,
+  VISIBILITY_STEP_MINUTES,
+  type AnnualVisibility,
+  type VisibilityGate,
+} from '../lib/astro-visibility.js'
 import { LORENZ_YEARS, LATEST_LORENZ_YEAR, type LorenzYear } from '../lib/lorenz-decode.js'
 import { LP_TILE_MAX_ZOOM, LP_TILE_MIN_ZOOM } from '../lib/lp-tile.js'
 import {
@@ -499,6 +507,110 @@ const HorizonResponseSchema = z.object({
     .describe('The bearing range `south` is computed over — the arc the core actually crosses'),
 })
 
+// ── Annual visibility budget ────────────────────────────────────────────
+
+/**
+ * `lat`/`lon` mirror `HorizonQuerySchema`'s bounds, but are OPTIONAL here:
+ * `site`, when given, resolves the location on its own and lat/lon are never
+ * read. Exactly one of `site` or `lat`+`lon` must be present — checked in the
+ * handler, because that is a cross-field rule the JSON Schema this produces
+ * cannot express.
+ */
+const VisibilityQuerySchema = z.object({
+  site: z
+    .string()
+    .optional()
+    .describe(
+      "Site id from GET /astro/sites. When given, uses that site's committed lat/lon/horizonDeg directly and skips coordinate resolution entirely — lat/lon and horizon are ignored",
+    ),
+  lat: z.coerce
+    .number()
+    .min(-90)
+    .max(90)
+    .optional()
+    .describe('Required together with lon, unless site is given'),
+  lon: z.coerce.number().min(-180).max(180).optional(),
+  year: z.coerce
+    .number()
+    .int()
+    .min(1900)
+    .max(2100)
+    .optional()
+    .describe('Calendar year to integrate, UTC. Default: the current UTC year'),
+  horizon: z
+    .enum(['site', 'measure', 'none'])
+    .optional()
+    .describe(
+      "How to resolve the skyline for a raw lat/lon — ignored when `site` is given. `site` (default): use a committed site's skyline ONLY when the coordinate resolves to one exactly, otherwise flat. `measure`: fetch a live terrain profile for this exact coordinate, the same door GET /astro/horizon uses. `none`: flat only, no DEM fetch",
+    ),
+})
+
+const VisibilityGateSchema = z.object({
+  minutes: z.number().int().describe('Total minutes in the year meeting this gate'),
+  byMonth: z
+    .number()
+    .int()
+    .array()
+    .length(12)
+    .describe('Minutes per calendar UTC month, index 0 = January'),
+})
+
+const VisibilityResponseSchema = z.object({
+  lat: z.number(),
+  lon: z.number(),
+  siteId: z
+    .string()
+    .nullable()
+    .describe(
+      'Non-null when `site` was given, or a raw lat/lon landed exactly on a committed site',
+    ),
+  year: z.number().int(),
+  darkMinutes: z.number().int().describe('Minutes of astronomical night in the year'),
+  flat: VisibilityGateSchema.describe(
+    'Core above the flat atmospheric floor, moon down at 0° or under the illumination ceiling',
+  ),
+  terrain: VisibilityGateSchema.describe(
+    '…and above max(atmosphericFloorDeg, skyline at the core’s azimuth + framingMarginDeg). Equals `flat` when horizonSource is `none`',
+  ),
+  terrainMoon: VisibilityGateSchema.describe(
+    '…and the moon also counts as down when it sits behind the skyline at its own azimuth',
+  ),
+  peakCoreAltitudeDeg: z.number().describe('Highest core altitude reached during darkness'),
+  peakClearanceDeg: z
+    .number()
+    .nullable()
+    .describe(
+      'Highest core clearance above the skyline during darkness. Null when horizonSource is `none`',
+    ),
+  peakClearanceDate: z
+    .string()
+    .nullable()
+    .describe('ISO date of peakClearanceDeg. Null when horizonSource is `none`'),
+  terrainBindsFraction: z
+    .number()
+    .describe(
+      'Share of flat-gate minutes where the skyline plus margin was the tighter floor, 0..1',
+    ),
+  horizonSource: z.enum(['site', 'measured', 'none']).describe('Which skyline this answer used'),
+  horizonComplete: z
+    .boolean()
+    .optional()
+    .describe(
+      'Only present when horizonSource is `measured` — false means at least one DEM tile failed and the profile is provisional',
+    ),
+  stepMinutes: z
+    .number()
+    .int()
+    .describe('Sample spacing the annual integral was walked at, minutes'),
+  atmosphericFloorDeg: z.number().describe('The flat core-altitude floor, before any terrain'),
+  framingMarginDeg: z
+    .number()
+    .describe('Sky the frame needs above the ridge, added to the skyline'),
+  maxMoonIllumination: z
+    .number()
+    .describe('Moon illuminated fraction above which the moon always counts as up'),
+})
+
 /**
  * Path params for the raster tile route.
  *
@@ -572,6 +684,21 @@ const HORIZON_PARTIAL_CACHE_CONTROL = 'no-store'
 function horizonEtag(body: string): string {
   return `"${createHash('sha256').update(body).digest('hex').slice(0, 32)}"`
 }
+
+/**
+ * A complete answer is deterministic in (lat, lon, year, horizon source)
+ * forever — terrain does not move and the calendar year is fixed. Same
+ * 30-day/`private` reasoning as `HORIZON_CACHE_CONTROL`.
+ */
+const VISIBILITY_CACHE_CONTROL = 'private, max-age=2592000, stale-while-revalidate=86400'
+
+/**
+ * A `horizon=measure` answer built on an incomplete DEM profile is provisional
+ * — same rule and reason as `HORIZON_PARTIAL_CACHE_CONTROL`: caching it would
+ * pin a fabricated annual budget for 30 days instead of letting the next
+ * request re-try the missing tiles.
+ */
+const VISIBILITY_PARTIAL_CACHE_CONTROL = 'no-store'
 
 export type AstroRouteDeps = {
   fetchUpstreams: typeof fetchAstroUpstreams
@@ -767,6 +894,44 @@ function serializeHorizon(result: HorizonResult): z.infer<typeof HorizonResponse
     refractionK: REFRACTION_K,
     azimuthStepDeg: HORIZON_AZIMUTH_STEP_DEG,
     southArc: { fromDeg: SOUTH_ARC.fromDeg, toDeg: SOUTH_ARC.toDeg },
+  }
+}
+
+function serializeVisibilityGate(gate: VisibilityGate): z.infer<typeof VisibilityGateSchema> {
+  return { minutes: gate.minutes, byMonth: gate.byMonth }
+}
+
+function serializeVisibility(args: {
+  lat: number
+  lon: number
+  siteId: string | null
+  horizonSource: 'site' | 'measured' | 'none'
+  horizonComplete: boolean | undefined
+  result: AnnualVisibility
+}): z.infer<typeof VisibilityResponseSchema> {
+  const { lat, lon, siteId, horizonSource, horizonComplete, result } = args
+  return {
+    lat,
+    lon,
+    siteId,
+    year: result.year,
+    darkMinutes: result.darkMinutes,
+    flat: serializeVisibilityGate(result.flat),
+    terrain: serializeVisibilityGate(result.terrain),
+    terrainMoon: serializeVisibilityGate(result.terrainMoon),
+    peakCoreAltitudeDeg: round1(result.peakCoreAltitudeDeg),
+    peakClearanceDeg: result.peakClearanceDeg === null ? null : round1(result.peakClearanceDeg),
+    peakClearanceDate: result.peakClearanceDate,
+    terrainBindsFraction: round3(result.terrainBindsFraction),
+    horizonSource,
+    // Only present for `measured` — a spread rather than an explicit
+    // `undefined` value, so `exactOptionalPropertyTypes` sees the key omitted
+    // entirely for `site`/`none` instead of present-but-undefined.
+    ...(horizonSource === 'measured' ? { horizonComplete: horizonComplete ?? false } : {}),
+    stepMinutes: VISIBILITY_STEP_MINUTES,
+    atmosphericFloorDeg: MIN_CORE_ALTITUDE,
+    framingMarginDeg: FRAMING_MARGIN_DEG,
+    maxMoonIllumination: VISIBILITY_MAX_MOON_ILLUMINATION,
   }
 }
 
@@ -1394,6 +1559,123 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
             422: { description: 'lat or lon out of range, or one of them is missing' },
             502: {
               description: 'Terrarium DEM unavailable, or the coordinate’s own tile is missing',
+            },
+          },
+        },
+      },
+    )
+    .get(
+      '/visibility',
+      async ({ query, status, request }) => {
+        let lat: number
+        let lon: number
+        let siteId: string | null
+        let horizonSource: 'site' | 'measured' | 'none'
+        let horizonDeg: readonly number[] | undefined
+        let horizonComplete: boolean | undefined
+
+        if (query.site) {
+          const found = findSite(query.site)
+          if (!found) return status(404, `Unknown site "${query.site}". See GET /astro/sites.`)
+          lat = found.lat
+          lon = found.lon
+          siteId = found.id
+          horizonSource = 'site'
+          horizonDeg = found.horizonDeg
+        } else {
+          if (hasIncompleteCoordinatePair(query)) {
+            return status(422, 'lat and lon must be provided together.')
+          }
+          if (query.lat === undefined || query.lon === undefined) {
+            return status(422, 'Provide either site, or lat and lon.')
+          }
+          lat = query.lat
+          lon = query.lon
+          siteId = null
+
+          const mode = query.horizon ?? 'site'
+          if (mode === 'none') {
+            horizonSource = 'none'
+          } else if (mode === 'site') {
+            // EXACT match only — see the description. Falling back to
+            // `nearestSite` here would silently hand a scouted valley a
+            // distant summit's mountains.
+            const exact = ASTRO_SITES.find(
+              (candidate) => candidate.lat === lat && candidate.lon === lon,
+            )
+            if (exact) {
+              horizonSource = 'site'
+              horizonDeg = exact.horizonDeg
+              siteId = exact.id
+            } else {
+              horizonSource = 'none'
+            }
+          } else {
+            const measured = await deps.horizon({ lat, lon })
+            if (!measured) {
+              return status(
+                502,
+                'Terrarium DEM unavailable, or the coordinate’s own tile could not be read.',
+              )
+            }
+            horizonSource = 'measured'
+            horizonComplete = measured.complete
+            horizonDeg = measured.profile.points.map((point) => point.altitudeDeg)
+          }
+        }
+
+        const year = query.year ?? deps.now().getUTCFullYear()
+        const result = annualVisibility({ observer: { lat, lon }, year, horizonDeg })
+
+        const body = JSON.stringify(
+          serializeVisibility({ lat, lon, siteId, horizonSource, horizonComplete, result }),
+        )
+        const headers: Record<string, string> = { 'content-type': 'application/json' }
+
+        // A `measure`d-but-incomplete profile is provisional — see
+        // VISIBILITY_PARTIAL_CACHE_CONTROL.
+        if (horizonSource === 'measured' && horizonComplete === false) {
+          headers['cache-control'] = VISIBILITY_PARTIAL_CACHE_CONTROL
+          return new Response(body, { headers })
+        }
+
+        const etag = horizonEtag(body)
+        headers['cache-control'] = VISIBILITY_CACHE_CONTROL
+        headers['etag'] = etag
+        if (request.headers.get('if-none-match') === etag) {
+          return new Response(null, { status: 304, headers })
+        }
+        return new Response(body, { headers })
+      },
+      {
+        query: VisibilityQuerySchema,
+        // No `response` schema — same reason as GET /astro/horizon: this
+        // handler returns a raw `Response` for Cache-Control/ETag/304.
+        detail: {
+          tags: ['Astro & Marine'],
+          summary: 'Annual visibility budget — is this spot worth the drive AT ALL',
+          description:
+            'Answers a different, more durable question than GET /astro/window: not "is tonight worth going out for" but "is this spot worth driving to at all". Deterministic and weather-free — depends only on latitude, an optional skyline and a calendar year — so unlike `/astro/window` it never touches a weather upstream or the model. Integrates the whole `year` (UTC, default the current one) on a 10-minute grid under three progressively honest gates, each a `{ minutes, byMonth }` pair (`byMonth` is UTC-month, index 0 = January): `flat` gates the core on the flat `atmosphericFloorDeg` alone (the same floor GET /astro/window uses); `terrain` additionally requires the core above `max(atmosphericFloorDeg, skyline at the core’s azimuth + framingMarginDeg)` — equal to `flat` whenever `horizonSource` is `none`; `terrainMoon` is `terrain` plus the moon counting as down when it sits behind that same skyline, not just below 0°, which recovers real usable time (a 34° northern wall gains one committed site 22% more usable minutes by blocking moonlight, not core exposure). `peakClearanceDeg`/`peakClearanceDate` name the single best night’s margin over the ridge; `terrainBindsFraction` says how often the skyline, not the atmosphere, was the tighter floor — 0 at the four committed sites on the pre-alpine plain, 41–100% once a scouted valley or summit is walled in (`docs/ASTRO-HORIZON-RESEARCH.md` §4.1). Location resolves `site` (wins, uses that site’s committed lat/lon/horizonDeg directly, lat/lon and `horizon` are ignored) or `lat`+`lon` together — there is no third fallback, a confidently wrong place being worse than a 422 here. For a raw lat/lon, `horizon` picks how the skyline resolves: `site` (default) inherits a committed site’s skyline ONLY when the coordinate lands on one exactly — never the nearest one, which would silently hand a scouted valley a distant summit’s mountains — `measure` fetches a live profile for this exact coordinate via the same door as GET /astro/horizon (`horizonSource` reports `measured` and `horizonComplete` says whether every DEM tile resolved), and `none` scores flat only with no DEM fetch at all. `stepMinutes`/`atmosphericFloorDeg`/`framingMarginDeg`/`maxMoonIllumination` echo the model constants so a caller renders the budget honestly rather than assuming them. A complete answer is deterministic in (lat, lon, year, horizon source) forever, so it caches hard for 30 days as `private` with a strong ETag and a bodiless 304 on a matching `If-None-Match` — a `measure`d-but-incomplete profile is `no-store` instead, the same rule GET /astro/horizon and the light-pollution tiles use for a provisional measurement. Returns 404 for an unknown `site` id, 422 when lat/lon are incomplete or out of range, neither `site` nor a full lat/lon pair was given, or `year` is outside 1900..2100, and 502 when `horizon=measure` and the DEM is unreachable.',
+          security: [{ BearerAuth: [] }],
+          responses: {
+            // No `content` schema — same reasoning as GET /astro/horizon: a
+            // hand-written OpenAPI SchemaObject would duplicate
+            // `VisibilityResponseSchema` in a shape the openapi types package
+            // rejects when built straight from `z.toJSONSchema`. The
+            // `description` above documents every field.
+            200: {
+              description:
+                'Annual visibility budget, JSON — see the description for the field shape',
+            },
+            304: { description: 'Not modified — the ETag matched' },
+            404: { description: 'Unknown `site` id' },
+            422: {
+              description:
+                'lat/lon incomplete or out of range, neither site nor lat+lon was given, or year is outside 1900..2100',
+            },
+            502: {
+              description:
+                'horizon=measure and the terrarium DEM is unreachable, or the coordinate’s own tile could not be read',
             },
           },
         },

@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto'
 import type { AstroUpstreams, CloudSeries, TransparencySeries } from '../clients/astro-upstreams.js'
 import type { LightPollutionPoint, LpTileImage, SkyglowResult } from '../clients/lorenz-atlas.js'
 import type { HorizonResult } from '../clients/terrarium-dem.js'
-import { ASTRO_SITE_MEASUREMENTS } from '../lib/astro-sites.js'
+import { ASTRO_SITE_MEASUREMENTS, findSite } from '../lib/astro-sites.js'
 import { authGuard } from '../lib/auth-guard.js'
 import { renderLpTilePng } from '../lib/lp-tile.js'
 import { PROFILE_ALTITUDES, SKYGLOW_MODEL } from '../lib/skyglow.js'
@@ -880,6 +880,160 @@ describe('GET /astro/horizon', () => {
   it('requires a bearer token', async () => {
     const { app } = build()
     expect((await get(app, '/astro/horizon?lat=48.1374&lon=11.5755', false)).status).toBe(401)
+  })
+})
+
+describe('GET /astro/visibility', () => {
+  /** The JSON `get` helper discards response headers — needed here for Cache-Control/ETag. */
+  async function rawHeaders(app: TestApp, path: string, headers: Record<string, string> = {}) {
+    return app.handle(
+      new Request(`http://localhost${path}`, {
+        headers: { Authorization: `Bearer ${SECRET}`, ...headers },
+      }),
+    )
+  }
+
+  it('returns the annual budget for a committed site, defaulting the year to now', async () => {
+    const { app, calls } = build()
+    const walchensee = findSite('walchensee')!
+    const { status, body } = await get(app, '/astro/visibility?site=walchensee')
+
+    expect(status).toBe(200)
+    expect(body.lat).toBe(walchensee.lat)
+    expect(body.lon).toBe(walchensee.lon)
+    expect(body.siteId).toBe('walchensee')
+    expect(body.year).toBe(2026) // AUGUST is the pinned clock
+    expect(body.horizonSource).toBe('site')
+    expect(body.horizonComplete).toBeUndefined()
+    expect(body.flat.minutes).toBeGreaterThan(0)
+    expect(body.flat.byMonth).toHaveLength(12)
+    expect(body.terrain.minutes).toBeLessThanOrEqual(body.flat.minutes)
+    expect(body.terrainMoon.minutes).toBeGreaterThanOrEqual(body.terrain.minutes)
+    expect(body.stepMinutes).toBe(10)
+    expect(body.atmosphericFloorDeg).toBe(8)
+    // `site` resolves the location itself — the DEM client is never reached.
+    expect(calls.horizon).toHaveLength(0)
+  })
+
+  it('site wins over lat/lon and skips coordinate resolution entirely', async () => {
+    const { app } = build()
+    const munich = findSite('munich')!
+    const { body } = await get(app, '/astro/visibility?site=munich&lat=1&lon=1')
+    expect(body.siteId).toBe('munich')
+    expect(body.lat).toBe(munich.lat)
+    expect(body.lon).toBe(munich.lon)
+  })
+
+  it('404s on an unknown site id', async () => {
+    const { app } = build()
+    expect((await get(app, '/astro/visibility?site=nope')).status).toBe(404)
+  })
+
+  it('uses a committed site’s skyline for a raw lat/lon landing on it exactly', async () => {
+    const { app } = build()
+    const munich = findSite('munich')!
+    const { body } = await get(app, `/astro/visibility?lat=${munich.lat}&lon=${munich.lon}`)
+    expect(body.horizonSource).toBe('site')
+    expect(body.siteId).toBe('munich')
+  })
+
+  it('does not inherit a nearby site’s skyline for a coordinate that misses exactly', async () => {
+    const { app, calls } = build()
+    const { body } = await get(app, '/astro/visibility?lat=48.1&lon=11.5')
+    expect(body.horizonSource).toBe('none')
+    expect(body.siteId).toBeNull()
+    expect(body.terrain.minutes).toBe(body.flat.minutes)
+    expect(calls.horizon).toHaveLength(0)
+  })
+
+  it('horizon=none scores flat only, with no DEM fetch', async () => {
+    const { app, calls } = build()
+    const munich = findSite('munich')!
+    const { body } = await get(
+      app,
+      `/astro/visibility?lat=${munich.lat}&lon=${munich.lon}&horizon=none`,
+    )
+    expect(body.horizonSource).toBe('none')
+    expect(body.terrain.minutes).toBe(body.flat.minutes)
+    expect(calls.horizon).toHaveLength(0)
+  })
+
+  it('horizon=measure fetches a live profile through the injected horizon dep', async () => {
+    const { app, calls } = build()
+    const { status, body } = await get(
+      app,
+      '/astro/visibility?lat=48.1374&lon=11.5755&horizon=measure',
+    )
+    expect(status).toBe(200)
+    expect(calls.horizon).toEqual([{ lat: 48.1374, lon: 11.5755 }])
+    expect(body.horizonSource).toBe('measured')
+    expect(body.horizonComplete).toBe(true)
+  })
+
+  it('502s when horizon=measure and the DEM is unreachable', async () => {
+    const { app } = build({ horizon: async () => null })
+    const { status } = await get(app, '/astro/visibility?lat=48.1374&lon=11.5755&horizon=measure')
+    expect(status).toBe(502)
+  })
+
+  it('refuses to cache an incomplete measured profile at all', async () => {
+    const { app } = build({
+      horizon: async (input) => horizonResult({ lat: input.lat, lon: input.lon, complete: false }),
+    })
+    const path = '/astro/visibility?lat=48.1374&lon=11.5755&horizon=measure'
+    const res = await rawHeaders(app, path)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('cache-control')).toBe('no-store')
+    expect(res.headers.get('etag')).toBeNull()
+    const { body } = await get(app, path)
+    expect(body.horizonComplete).toBe(false)
+  })
+
+  it('caches a complete answer hard and PRIVATELY, with a strong ETag', async () => {
+    const { app } = build()
+    const res = await rawHeaders(app, '/astro/visibility?site=walchensee')
+    expect(res.status).toBe(200)
+    expect(res.headers.get('cache-control')).toBe(
+      'private, max-age=2592000, stale-while-revalidate=86400',
+    )
+    expect(res.headers.get('etag')).toMatch(/^"[0-9a-f]{32}"$/)
+  })
+
+  it('answers a matching If-None-Match with a bodiless 304', async () => {
+    const { app } = build()
+    const path = '/astro/visibility?site=walchensee'
+    const etag = (await rawHeaders(app, path)).headers.get('etag') ?? ''
+    const res = await rawHeaders(app, path, { 'if-none-match': etag })
+    expect(res.status).toBe(304)
+    expect(res.headers.get('etag')).toBe(etag)
+    expect((await res.arrayBuffer()).byteLength).toBe(0)
+  })
+
+  it('422s when lat is given without lon', async () => {
+    const { app } = build()
+    expect((await get(app, '/astro/visibility?lat=48.1374')).status).toBe(422)
+  })
+
+  it('422s when neither site nor a full lat/lon pair is given', async () => {
+    const { app } = build()
+    expect((await get(app, '/astro/visibility')).status).toBe(422)
+  })
+
+  it('422s when year is outside 1900..2100', async () => {
+    const { app } = build()
+    expect((await get(app, '/astro/visibility?site=walchensee&year=1899')).status).toBe(422)
+    expect((await get(app, '/astro/visibility?site=walchensee&year=2101')).status).toBe(422)
+  })
+
+  it('accepts an explicit year', async () => {
+    const { app } = build()
+    const { body } = await get(app, '/astro/visibility?site=walchensee&year=2027')
+    expect(body.year).toBe(2027)
+  })
+
+  it('requires a bearer token', async () => {
+    const { app } = build()
+    expect((await get(app, '/astro/visibility?site=walchensee', false)).status).toBe(401)
   })
 })
 
