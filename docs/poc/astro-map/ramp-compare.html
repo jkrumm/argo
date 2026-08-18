@@ -1,0 +1,236 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/maplibre-gl@6.3.0/dist/maplibre-gl.css"
+      rel="stylesheet"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #09090b;
+        font:
+          12px ui-monospace,
+          monospace;
+        color: #a1a1aa;
+      }
+      #grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+        height: 100%;
+        gap: 2px;
+      }
+      .cell {
+        position: relative;
+      }
+      .cell .map {
+        position: absolute;
+        inset: 0;
+      }
+      .cell .tag {
+        position: absolute;
+        z-index: 5;
+        top: 6px;
+        left: 6px;
+        background: #000c;
+        padding: 3px 7px;
+        color: #8ec5ff;
+        letter-spacing: 0.04em;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="grid"></div>
+    <script type="module">
+      import {
+        Map as MLMap,
+        Marker as MLMarker,
+      } from 'https://cdn.jsdelivr.net/npm/maplibre-gl@6.3.0/dist/maplibre-gl.mjs'
+      const q = new URLSearchParams(location.search)
+      const RAMP_LIST = (q.get('ramps') || '').split(',').filter(Boolean)
+      const RAMP_ID = q.get('ramp') || 'severity'
+      const e = (m) => m * 100 // encoded units = mpsas x 100
+
+      // mpsas -> colour. Dark sky earns no ink at all; the ramp only lights up where
+      // pollution does. Hues from DESIGN.md's severity precedent (cloudHigh/Mid/Low).
+      const RAMPS = {
+        severity: [
+          'interpolate',
+          ['linear'],
+          ['elevation'],
+          e(18.0),
+          'rgba(231,106,110,0.88)',
+          e(19.4),
+          'rgba(235,104,71,0.66)',
+          e(20.4),
+          'rgba(236,154,60,0.44)',
+          e(21.2),
+          'rgba(240,183,38,0.24)',
+          e(21.6),
+          'rgba(161,161,170,0.10)',
+          e(21.85),
+          'rgba(161,161,170,0)',
+        ],
+        sky: [
+          'interpolate',
+          ['linear'],
+          ['elevation'],
+          e(18.0),
+          'rgba(255,255,255,0.88)',
+          e(19.4),
+          'rgba(226,240,255,0.66)',
+          e(20.4),
+          'rgba(190,222,255,0.46)',
+          e(21.2),
+          'rgba(142,197,255,0.26)',
+          e(21.6),
+          'rgba(142,197,255,0.11)',
+          e(21.85),
+          'rgba(142,197,255,0)',
+        ],
+        mono: [
+          'interpolate',
+          ['linear'],
+          ['elevation'],
+          e(18.0),
+          'rgba(244,244,245,0.88)',
+          e(19.4),
+          'rgba(244,244,245,0.62)',
+          e(20.4),
+          'rgba(244,244,245,0.42)',
+          e(21.2),
+          'rgba(244,244,245,0.24)',
+          e(21.6),
+          'rgba(244,244,245,0.10)',
+          e(21.85),
+          'rgba(244,244,245,0)',
+        ],
+        duo: [
+          'interpolate',
+          ['linear'],
+          ['elevation'],
+          e(18.0),
+          'rgba(231,106,110,0.88)',
+          e(19.4),
+          'rgba(236,154,60,0.62)',
+          e(20.4),
+          'rgba(240,183,38,0.40)',
+          e(21.2),
+          'rgba(142,197,255,0.26)',
+          e(21.6),
+          'rgba(142,197,255,0.12)',
+          e(21.85),
+          'rgba(142,197,255,0)',
+        ],
+        duo2: [
+          'interpolate',
+          ['linear'],
+          ['elevation'],
+          e(18.0),
+          'rgba(231,106,110,0.90)',
+          e(19.6),
+          'rgba(235,104,71,0.62)',
+          e(20.6),
+          'rgba(236,154,60,0.40)',
+          e(21.3),
+          'rgba(240,183,38,0.20)',
+          e(21.55),
+          'rgba(142,197,255,0.14)',
+          e(21.8),
+          'rgba(142,197,255,0.30)',
+          e(22.0),
+          'rgba(142,197,255,0.44)',
+        ],
+        warmonly: [
+          'interpolate',
+          ['linear'],
+          ['elevation'],
+          e(18.0),
+          'rgba(231,106,110,0.90)',
+          e(19.6),
+          'rgba(235,104,71,0.60)',
+          e(20.6),
+          'rgba(236,154,60,0.34)',
+          e(21.3),
+          'rgba(240,183,38,0.14)',
+          e(21.55),
+          'rgba(240,183,38,0)',
+        ],
+      }
+      const BASES = (q.get('bases') || 'ofm-dark,ofm-fiord,versatiles-eclipse,ofm-positron').split(
+        ',',
+      )
+      const STYLE = {
+        'ofm-dark': 'https://tiles.openfreemap.org/styles/dark',
+        'ofm-fiord': 'https://tiles.openfreemap.org/styles/fiord',
+        'ofm-positron': 'https://tiles.openfreemap.org/styles/positron',
+        'ofm-liberty': 'https://tiles.openfreemap.org/styles/liberty',
+        'versatiles-eclipse': 'https://tiles.versatiles.org/assets/styles/eclipse/style.json',
+        'versatiles-graybeard': 'https://tiles.versatiles.org/assets/styles/graybeard/style.json',
+      }
+      const CENTER = (q.get('c') || '11.45,47.95').split(',').map(Number)
+      const ZOOM = Number(q.get('z') || 7.4)
+      const grid = document.getElementById('grid')
+      window.__ready = 0
+      window.__errors = []
+      BASES.forEach((b, i) => {
+        const cell = document.createElement('div')
+        cell.className = 'cell'
+        const tag = document.createElement('div')
+        tag.className = 'tag'
+        const rid = RAMP_LIST[i] || RAMP_ID
+        tag.textContent = `${b}  ·  ${rid}`
+        const el = document.createElement('div')
+        el.className = 'map'
+        cell.append(el, tag)
+        grid.append(cell)
+        const map = new MLMap({
+          container: el,
+          style: STYLE[b],
+          center: CENTER,
+          zoom: ZOOM,
+          attributionControl: false,
+        })
+        map.on('error', (ev) => window.__errors.push(b + ': ' + (ev?.error?.message || ev)))
+        map.on('load', () => {
+          const firstSymbol = map.getStyle().layers.find((l) => l.type === 'symbol')?.id
+          map.addSource('lp', {
+            type: 'raster-dem',
+            tiles: [location.origin + '/t/{z}/{x}/{y}.png'],
+            tileSize: 256,
+            minzoom: 5,
+            maxzoom: 9,
+            encoding: 'terrarium',
+          })
+          map.addLayer(
+            {
+              id: 'lp',
+              type: 'color-relief',
+              source: 'lp',
+              paint: { 'color-relief-color': RAMPS[rid], 'color-relief-opacity': 1 },
+            },
+            firstSymbol,
+          )
+          for (const st of [
+            ['Munich', 11.5755, 48.1374],
+            ['Bad Tölz', 11.4667, 47.8167],
+            ['Walchensee', 11.33, 47.6],
+            ['Bayer. Wald', 13.4167, 48.9333],
+          ]) {
+            const m = document.createElement('div')
+            m.style.cssText =
+              'width:9px;height:9px;border-radius:50%;background:#f4f4f5;box-shadow:0 0 0 2px #09090b'
+            new MLMarker({ element: m }).setLngLat([st[1], st[2]]).addTo(map)
+          }
+          map.once('idle', () => {
+            window.__ready++
+          })
+        })
+      })
+    </script>
+  </body>
+</html>

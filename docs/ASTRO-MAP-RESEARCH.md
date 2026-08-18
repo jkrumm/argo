@@ -482,6 +482,63 @@ The same `raster-dem` mechanism gives terrain for free (AWS terrarium tiles,
 `s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png`, verified) — which is what
 §3's horizon profile already consumes.
 
+### 6.6 Decided: the basemap and the ramp
+
+These were settled by building the real thing — 209 terrarium-encoded LPI tiles generated
+from the Lorenz grid (`lp-tiles-gen.py`), served locally and rendered through `color-relief`
+in MapLibre 6.3.0 against four basemaps and six candidate ramps (`ramp-compare.html`). Not
+a preference; a comparison.
+
+**Basemap — OpenFreeMap `fiord` for dark, `positron` for light.**
+
+| Candidate            | Why not / why                                                                                                                |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `ofm-dark`           | Its road network renders near-black and heavy: the roads read louder than the data they sit under. Reject.                   |
+| `versatiles-eclipse` | Orange roads collide directly with the warm half of the ramp. Reject.                                                        |
+| `ofm-positron`       | Correct for light mode; the ramp needs its light-scheme hexes there (see below).                                             |
+| **`ofm-fiord`**      | Cool blue-grey, quiet roads, legible terrain shading in the Alps. The domes are the only loud thing on the map. **Take it.** |
+
+Note this replaces the current `dark`/`positron` pair in `site-map.tsx` with `fiord`/`positron`.
+
+**Ramp — diverging, cool for clean sky, warm for polluted.** Encoded value is
+`mpsas × 100`; stops ascend, which `interpolate` requires:
+
+```ts
+'color-relief-color': ['interpolate', ['linear'], ['elevation'],
+  1800, VX.series.lpCity,      // 18.00 mag — inner city
+  1960, VX.series.lpUrban,     // 19.60
+  2060, VX.series.lpSuburban,  // 20.60
+  2130, VX.series.lpRural,     // 21.30
+  2155, VX.series.lpDark,      // 21.55  ← the band our sites live in
+  2180, VX.series.lpDarker,    // 21.80
+  2200, VX.series.lpPristine]  // 22.00 — natural sky
+```
+
+with the tested dark-scheme values `rgba(231,106,110,.90) / (235,104,71,.62) /
+(236,154,60,.40) / (240,183,38,.20) / (142,197,255,.14) / (142,197,255,.30) /
+(142,197,255,.44)`.
+
+Four ramps were rendered on the same view. A pure severity ramp (neutral→gold→orange→red)
+tints the whole frame warm, because most of Bavaria genuinely sits at 20.8–21.5 — honest, but
+it makes "dark" look like "no data". A single-hue sky ramp and a mono white ramp both read as
+generic heatmaps and lose the good/bad distinction. **The diverging version wins on the only
+question the map has to answer: is the marker sitting in the blue?** Munich reads as a red
+core, the Alps and the Bayerischer Wald pocket read blue, and the site markers can be judged
+at a glance.
+
+Two rules that come with it:
+
+- The dark end is **not** transparent, which looks like a violation of "ink earns its colour".
+  It isn't: this is a diverging scale, so the cool end is carrying the _signal_ "go here", not
+  decoration. That is the categorical-separation case DESIGN.md already allows.
+- Register the seven stops through `defineSeries` as a `lp-` prefixed group with `{light,dark}`
+  pairs. The values above are the dark-scheme set; on `positron` they wash out and need the
+  light-scheme shade (one step deeper), which is exactly what `groupTokens` is for.
+
+**Imagery mode is exclusive.** When the base is EOX s2cloudless or Esri, drop the LP layer or
+switch it to the warm-only variant at half alpha — §6.2 showed that any full ramp over imagery
+is unreadable.
+
 ### 6.4 MapLibre v6 facts worth not rediscovering
 
 - **ESM-only, no UMD build, no default export.** `dist/maplibre-gl.mjs`, named exports only.

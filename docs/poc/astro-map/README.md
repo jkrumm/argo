@@ -27,5 +27,7 @@ pulls a few hundred MB; every run after that is offline.
 | `summary.ts`                         | Every measured quantity in one table                                                                                             |
 | `map2.html`                          | Basemap × light-pollution × DWD radar combinations in MapLibre                                                                   |
 | `relief.html`                        | Proves `color-relief` works on the shipped MapLibre 6.3.0                                                                        |
+| `lp-tiles-gen.py`                    | Encodes the Lorenz grid as terrarium PNG tiles (`mpsas × 100`) — the tile format the API would serve                             |
+| `ramp-compare.html`                  | Basemap × ramp comparison over those tiles; how §6.6 was decided                                                                 |
 
 `horizon.py` needs `numpy` and `pillow`; everything else is plain Bun with no dependencies.
