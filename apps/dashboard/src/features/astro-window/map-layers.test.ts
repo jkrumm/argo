@@ -15,11 +15,14 @@ const {
   RADAR_FRAME_COUNT,
   RADAR_LAG_MINUTES,
   RADAR_STEP_MINUTES,
+  TERRAIN_OFF,
   formatLpParam,
+  formatTerrainParam,
   formatWeatherParam,
   lpTileUrl,
   normaliseLayerState,
   parseLpParam,
+  parseTerrainParam,
   parseWeatherParam,
   radarFrameTimes,
   wmsTileUrl,
@@ -95,10 +98,40 @@ describe('lp param codec', () => {
   })
 })
 
+describe('terrain param codec', () => {
+  it('round-trips both-off through the absent-param case', () => {
+    expect(formatTerrainParam(TERRAIN_OFF)).toBeUndefined()
+    expect(parseTerrainParam(undefined)).toEqual(TERRAIN_OFF)
+    expect(parseTerrainParam('')).toEqual(TERRAIN_OFF)
+  })
+
+  it('round-trips hillshade alone, 3D alone, and both together', () => {
+    const hillshadeOnly = { hillshade: true, extruded: false }
+    const extrudedOnly = { hillshade: false, extruded: true }
+    const both = { hillshade: true, extruded: true }
+
+    expect(formatTerrainParam(hillshadeOnly)).toBe('hillshade')
+    expect(parseTerrainParam('hillshade')).toEqual(hillshadeOnly)
+
+    expect(formatTerrainParam(extrudedOnly)).toBe('3d')
+    expect(parseTerrainParam('3d')).toEqual(extrudedOnly)
+
+    expect(formatTerrainParam(both)).toBe('hillshade.3d')
+    expect(parseTerrainParam('hillshade.3d')).toEqual(both)
+    // Token order in the URL must not matter for the decode.
+    expect(parseTerrainParam('3d.hillshade')).toEqual(both)
+  })
+
+  it('drops an id the catalogue does not know, without throwing', () => {
+    expect(parseTerrainParam('not-a-real-layer')).toEqual(TERRAIN_OFF)
+    expect(parseTerrainParam('__proto__')).toEqual(TERRAIN_OFF)
+  })
+})
+
 // ── normaliseLayerState — the imagery/LP exclusion, both directions ────────
 
 function stateFixture(overrides: Partial<MapLayerState>): MapLayerState {
-  return { base: 'ofm-fiord', lpYear: null, weather: [], ...overrides }
+  return { base: 'ofm-fiord', lpYear: null, weather: [], terrain: TERRAIN_OFF, ...overrides }
 }
 
 describe('normaliseLayerState', () => {

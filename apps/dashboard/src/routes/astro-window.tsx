@@ -24,10 +24,12 @@ import {
   BASE_LAYER_IDS,
   DEFAULT_LP_YEAR,
   formatLpParam,
+  formatTerrainParam,
   formatWeatherParam,
   LP_PARAM_VALUES,
   normaliseLayerState,
   parseLpParam,
+  parseTerrainParam,
   parseWeatherParam,
   SCHEME_DEFAULT_BASE,
   type MapLayerState,
@@ -71,6 +73,13 @@ const SearchSchema = z.object({
     .optional()
     .catch(undefined)
     .transform((raw) => formatWeatherParam(parseWeatherParam(raw))),
+  // Same normalise-don't-reject shape as `wx` — `parseTerrainParam` already falls back to both
+  // toggles off for anything it does not recognise.
+  terrain: z
+    .string()
+    .optional()
+    .catch(undefined)
+    .transform((raw) => formatTerrainParam(parseTerrainParam(raw))),
 })
 
 type SearchParams = z.infer<typeof SearchSchema>
@@ -202,8 +211,9 @@ function AstroWindowPage() {
         base: search.base ?? schemeDefaultBase,
         lpYear: parseLpParam(search.lp),
         weather: parseWeatherParam(search.wx),
+        terrain: parseTerrainParam(search.terrain),
       }),
-    [search.base, search.lp, search.wx, schemeDefaultBase],
+    [search.base, search.lp, search.wx, search.terrain, schemeDefaultBase],
   )
 
   const handleLayersChange = useCallback(
@@ -215,6 +225,7 @@ function AstroWindowPage() {
           base: next.base === schemeDefaultBase ? undefined : next.base,
           lp: formatLpParam(next.lpYear),
           wx: formatWeatherParam(next.weather),
+          terrain: formatTerrainParam(next.terrain),
         },
         // A layer toggle is a view setting, not a place — stacking one history entry per
         // checkbox would make the back button walk the drawer instead of leaving the page.

@@ -17,6 +17,7 @@ import {
   Map as MapLibreMap,
   Marker,
   setWorkerUrl,
+  type MapMouseEvent,
   type RequestParameters,
 } from 'maplibre-gl'
 // Vite's dependency optimizer rewrites maplibre's ESM entry but cannot follow the sibling import
@@ -47,8 +48,16 @@ import {
   weatherLayer,
   type MapLayerState,
 } from '../map-layers'
-import { installOverlays, paintOverlays, refreshLpRamp, type OverlayState } from './map-overlays'
+import {
+  detachTerrainIfUnwanted,
+  installOverlays,
+  paintOverlays,
+  refreshLpRamp,
+  syncTerrain,
+  type OverlayState,
+} from './map-overlays'
 import { MapSettingsDrawer } from './map-settings-drawer'
+import { ScoutPanel } from './scout-panel'
 
 /*
  * Attribution is contractually required and comes from the SOURCE, not the style: OpenFreeMap's
@@ -129,6 +138,10 @@ export default function SiteMap({
   const [frame, setFrame] = useState(0)
   const [playing, setPlaying] = useState(true)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  // The last clicked coordinate — held even after the panel closes, so reopening it (or clicking
+  // the same spot again) reads from cache instead of re-fetching. `null` until the first click.
+  const [scoutPoint, setScoutPoint] = useState<{ lat: number; lon: number } | null>(null)
+  const [scoutOpen, setScoutOpen] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
@@ -178,6 +191,10 @@ export default function SiteMap({
       hasStyleLoadedRef.current = true
       installOverlays(map, overlayStateRef.current)
       paintOverlays(map, overlayStateRef.current, frameRef.current)
+      // AFTER installOverlays: `syncTerrain` reads the DEM source `installOverlays` just added,
+      // and `setTerrain` against a source that is not yet in the style is the ordering bug the
+      // shared source id (`map-overlays.ts`) exists to avoid.
+      syncTerrain(map, overlayStateRef.current)
     })
     mapRef.current = map
 
@@ -199,6 +216,24 @@ export default function SiteMap({
       hasStyleLoadedRef.current = false
       hasFitRef.current = false
       isFirstStyleRef.current = true
+    }
+  }, [])
+
+  // Click-anywhere scouting. Registered in its own effect (same empty-deps timing as the create
+  // effect above — `mapRef.current` is already set by the time this one runs, same commit, same
+  // declaration order) rather than inside the create effect itself, so the map's lifecycle stays
+  // the one thing that effect owns. A site marker's own click handler stops propagation before
+  // this ever sees it — see the marker effect below.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const handleClick = (event: MapMouseEvent) => {
+      setScoutPoint({ lat: event.lngLat.lat, lon: event.lngLat.lng })
+      setScoutOpen(true)
+    }
+    map.on('click', handleClick)
+    return () => {
+      map.off('click', handleClick)
     }
   }, [])
 
@@ -249,8 +284,12 @@ export default function SiteMap({
   useEffect(() => {
     const map = mapRef.current
     if (!map || !hasStyleLoadedRef.current) return
+    // Detach BEFORE the stack sync: turning 3D off drops the DEM source, and MapLibre does not
+    // stop `removeSource` from pulling a source out from under `setTerrain` — see `syncTerrain`.
+    detachTerrainIfUnwanted(map, overlayState)
     installOverlays(map, overlayState)
     paintOverlays(map, overlayState, frameRef.current)
+    syncTerrain(map, overlayState)
   }, [overlayState])
 
   // The radar loop's only per-frame work: one `setPaintProperty` per frame layer. Never a
@@ -323,7 +362,15 @@ export default function SiteMap({
         // colour parser cannot) would freeze the markers in whichever scheme was current.
         el.style.border = `2px solid ${VX.surface.panel}`
         el.style.background = site.id === siteId ? VX.accentFill : VX.muted
-        el.addEventListener('click', () => onSelectSiteRef.current(site.id))
+        el.addEventListener('click', (event) => {
+          // A `Marker` element mounts INSIDE `map.getCanvasContainer()` (verified against the
+          // installed maplibre-gl 6.3.0 source), the same node MapLibre's own click handler
+          // listens on — so an un-stopped click bubbles into the map's `click` handler below and
+          // would open the scout panel for whatever coordinate sits under the pin, on top of
+          // selecting the site.
+          event.stopPropagation()
+          onSelectSiteRef.current(site.id)
+        })
         return new Marker({ element: el }).setLngLat([site.lon, site.lat]).addTo(map)
       })
     }
@@ -372,6 +419,8 @@ export default function SiteMap({
   }, [data])
 
   const closeDrawer = useCallback(() => setDrawerOpen(false), [])
+  const closeScoutPanel = useCallback(() => setScoutOpen(false), [])
+  const compareSite = data.data.find((site) => site.id === siteId)
 
   return (
     <Card
@@ -421,6 +470,12 @@ export default function SiteMap({
         state={layers}
         onChange={onLayersChange}
         schemeDefaultBase={SCHEME_DEFAULT_BASE[resolvedScheme]}
+      />
+      <ScoutPanel
+        opened={scoutOpen}
+        onClose={closeScoutPanel}
+        point={scoutPoint}
+        compareSite={compareSite}
       />
     </Card>
   )

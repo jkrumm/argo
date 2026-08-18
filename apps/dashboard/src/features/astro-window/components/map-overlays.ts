@@ -6,6 +6,10 @@ import {
   LP_RAMP,
   LP_STACK_INDEX,
   lpTileUrl,
+  TERRAIN_3D_EXAGGERATION,
+  TERRAIN_ATTRIBUTION,
+  TERRAIN_DEM_URL,
+  TERRAIN_STACK_INDEX,
   wmsTileUrl,
   weatherLayer,
   type MapLayerState,
@@ -37,6 +41,15 @@ const OWN_PREFIX = 'argo-'
 
 const lpLayerId = (year: number) => `${OWN_PREFIX}lp-${year}`
 const weatherLayerId = (id: WeatherLayerId) => `${OWN_PREFIX}wx-${id}`
+
+/**
+ * ONE `raster-dem` source doubles as both the hillshade layer's input AND the `setTerrain`
+ * source — the brief is explicit that a second copy of the same DEM is not the answer. The
+ * hillshade LAYER only renders when `state.terrain.hillshade` is on, but the source is mounted
+ * whenever hillshade OR 3D terrain is wanted, because `setTerrain` needs a source that already
+ * exists in the style.
+ */
+const TERRAIN_SOURCE_ID = `${OWN_PREFIX}terrain-dem`
 
 /**
  * The `time` is baked into the id, not just the index. `installOverlays` decides what to add/keep
@@ -167,6 +180,32 @@ function desiredStack(state: OverlayState): StackEntry[] {
         maxzoom: base.maxzoom,
       }),
     )
+  }
+
+  if (state.terrain.hillshade || state.terrain.extruded) {
+    stack.push({
+      id: TERRAIN_SOURCE_ID,
+      stackIndex: TERRAIN_STACK_INDEX,
+      source: {
+        type: 'raster-dem',
+        tiles: [TERRAIN_DEM_URL],
+        tileSize: 256,
+        maxzoom: 15,
+        encoding: 'terrarium',
+        attribution: TERRAIN_ATTRIBUTION,
+      },
+      layer: {
+        id: TERRAIN_SOURCE_ID,
+        type: 'hillshade',
+        source: TERRAIN_SOURCE_ID,
+        paint: { 'hillshade-method': 'standard' },
+        // The source is mounted whenever hillshade OR 3D terrain is on — `setTerrain` (called
+        // from `syncTerrain`, below) needs the source to already exist in the style — but the
+        // shaded RENDER only draws when hillshade itself is requested. 3D-only leaves this layer
+        // resident and invisible, one DEM shared by both toggles rather than two copies of it.
+        layout: { visibility: state.terrain.hillshade ? 'visible' : 'none' },
+      },
+    })
   }
 
   if (state.lpYear !== null) {
@@ -379,4 +418,41 @@ export function refreshLpRamp(map: MapLibreMap, state: OverlayState): void {
   const id = lpLayerId(state.lpYear)
   if (map.getLayer(id) === undefined) return
   map.setPaintProperty(id, 'color-relief-color', buildLpRamp())
+}
+
+/**
+ * 3D terrain is map-level state (`map.setTerrain`), not a layer — `installOverlays` above only
+ * gets the hillshade LAYER and the shared DEM source onto the style; this is the other half.
+ *
+ * **Order is load-bearing in BOTH directions, so this runs on both sides of `installOverlays`.**
+ * Turning 3D on needs the DEM source in the style before `setTerrain` names it. Turning it off
+ * needs `setTerrain(null)` before `installOverlays` drops that source — and MapLibre will not
+ * catch the mistake: `Style.removeSource` refuses to remove a source a LAYER is using, but has
+ * no equivalent check for one the TERRAIN is using (verified in the installed
+ * maplibre-gl 6.3.0 `Style.removeSource`), so it would delete the tile manager out from under
+ * the terrain renderer and fail later, somewhere else.
+ *
+ * Both calls are idempotent: {@link detachTerrainIfUnwanted} no-ops when 3D is staying on, and
+ * `syncTerrain` no-ops when the source is not mounted yet or the terrain already matches.
+ */
+export function syncTerrain(map: MapLibreMap, state: OverlayState): void {
+  if (!state.terrain.extruded) {
+    detachTerrainIfUnwanted(map, state)
+    return
+  }
+  if (map.getSource(TERRAIN_SOURCE_ID) === undefined) return
+  const current = map.getTerrain()
+  if (current?.source === TERRAIN_SOURCE_ID && current.exaggeration === TERRAIN_3D_EXAGGERATION) {
+    return
+  }
+  map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: TERRAIN_3D_EXAGGERATION })
+}
+
+/**
+ * Drop `setTerrain` BEFORE the stack sync can remove the DEM source it points at. See
+ * {@link syncTerrain} for why MapLibre does not do this for us.
+ */
+export function detachTerrainIfUnwanted(map: MapLibreMap, state: OverlayState): void {
+  if (state.terrain.extruded) return
+  if (map.getTerrain() !== null) map.setTerrain(null)
 }

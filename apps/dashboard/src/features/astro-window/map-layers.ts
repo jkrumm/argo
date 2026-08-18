@@ -32,9 +32,9 @@ import { LP } from '../../lib/series'
  *   coming", not "the sky is clear", and nothing here reads it.
  * - **RainViewer** — its nowcast and satellite products were discontinued 2026-01-01 (verified:
  *   the API returns empty arrays). DWD RV covers the same ground at 1 km with a real nowcast.
- * - **Core-direction glow rose, terrain horizon shading, drive-time isochrones** — real features,
- *   but they need API surface that does not exist yet (`/astro/skyglow` returns a rose but nothing
- *   renders it as a map layer) and are out of Phase 5's scope.
+ * - **Core-direction glow rose, drive-time isochrones** — real features, but they need API
+ *   surface that does not exist yet (`/astro/skyglow` returns a rose but nothing renders it as a
+ *   map layer) and are out of scope here. Terrain (hillshade + optional 3D) shipped below.
  */
 
 // ── Ids ────────────────────────────────────────────────────────────────────
@@ -76,8 +76,14 @@ export const DEFAULT_LP_YEAR: LpYear = 2025
  * sheet across the whole viewport and the blue-is-dark-sky reading this page exists for is gone;
  * below it, it is the wash it was always described as. Radar, storm cells and lightning are sparse
  * annotations and stay above the ramp, where burying them would make them worthless.
+ *
+ * Hillshade sits between the base and everything else: it is CONTEXT for reading the ramp (which
+ * ridge blocks which valley), not an answer of its own, so it renders under the pollution ramp
+ * and under the weather group too (`docs/ASTRO-HORIZON-RESEARCH.md` §6 — "the ramp is the answer
+ * and the hillshade is context").
  */
 export const BASE_STACK_INDEX = 0
+export const TERRAIN_STACK_INDEX = 5
 export const LP_STACK_INDEX = 15
 
 // ── WMS plumbing ───────────────────────────────────────────────────────────
@@ -483,6 +489,8 @@ export type MapLayerState = {
   lpYear: LpYear | null
   /** Active overlays, already in stack order (bottom first). */
   weather: readonly WeatherSelection[]
+  /** Hillshade and 3D terrain — two independent toggles over the same DEM source. */
+  terrain: TerrainSelection
 }
 
 /**
@@ -551,4 +559,54 @@ export function formatWeatherParam(selection: readonly WeatherSelection[]): stri
 
 export function weatherLayer(id: WeatherLayerId): WeatherLayer | undefined {
   return WEATHER_BY_ID.get(id)
+}
+
+// ── Terrain (independent toggles) ───────────────────────────────────────────
+
+/**
+ * The same keyless AWS bucket `apps/api/src/clients/terrarium-dem.ts` reads for the server-side
+ * horizon march — one DEM, one encoding, read by both the raymarch and the map's hillshade / 3D
+ * terrain. `raster-dem` + `encoding: 'terrarium'` is MapLibre's own decode of the identical RGB
+ * triple `terrariumElevation` unpacks server-side. Verified against the installed `maplibre-gl`
+ * 6.3.0 `.d.ts`, not from memory: `DEMEncoding` is `"mapbox" | "terrarium" | "custom"`.
+ */
+export const TERRAIN_DEM_URL =
+  'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'
+
+/** Matches the source label `apps/api/src/clients/terrarium-dem.ts` already hands back. */
+export const TERRAIN_ATTRIBUTION = 'Terrarium DEM (SRTM/NED blend), AWS elevation-tiles-prod'
+
+/**
+ * How high 3D terrain stands the relief up. 1 is true-to-scale and reads nearly flat at map
+ * pitch on the pre-alpine plain this app centres on; this is a legibility multiplier, not a
+ * measurement, chosen to make a 500 m ridge readable without caricaturing the Alps into spikes.
+ */
+export const TERRAIN_3D_EXAGGERATION = 1.4
+
+export type TerrainSelection = {
+  /** The flat-shaded relief layer — always legible, cheap to render. */
+  hillshade: boolean
+  /** Real 3D terrain via `map.setTerrain` — off by default, a heavier render than hillshade alone. */
+  extruded: boolean
+}
+
+export const TERRAIN_OFF: TerrainSelection = { hillshade: false, extruded: false }
+
+/**
+ * One compact `terrain` search param, same convention as `wx`: `.`-joined ids, `hillshade` and/or
+ * `3d`. Two booleans would otherwise be two more bare query keys on a page that already carries
+ * `base`/`lp`/`wx`.
+ */
+export function parseTerrainParam(raw: string | undefined): TerrainSelection {
+  if (raw === undefined || raw === '') return TERRAIN_OFF
+  const tokens = new Set(raw.split('.'))
+  return { hillshade: tokens.has('hillshade'), extruded: tokens.has('3d') }
+}
+
+/** Inverse of `parseTerrainParam`. Returns `undefined` for both-off so the key leaves the URL. */
+export function formatTerrainParam(selection: TerrainSelection): string | undefined {
+  const tokens: string[] = []
+  if (selection.hillshade) tokens.push('hillshade')
+  if (selection.extruded) tokens.push('3d')
+  return tokens.length === 0 ? undefined : tokens.join('.')
 }

@@ -10,7 +10,19 @@ export type AstroWindowParams = {
 
 export type HorizonParams = { lat: number; lon: number }
 export type SkyglowParams = { lat: number; lon: number; date: string }
-export type VisibilityParams = { site: string }
+export type LightPollutionParams = { lat: number; lon: number }
+/**
+ * Mirrors the API's `VisibilityQuerySchema` shape exactly (every field optional there too — the
+ * `site` XOR `lat`+`lon` rule is a cross-field check the handler makes, not something a flat
+ * object can express). `site` wins when given; `horizon` is read only for a raw lat/lon and only
+ * `measure` triggers the DEM fetch — see the endpoint's own description for the other two modes.
+ */
+export type VisibilityParams = {
+  site?: string
+  lat?: number
+  lon?: number
+  horizon?: 'site' | 'measure' | 'none'
+}
 
 /**
  * `GET /astro/horizon` and `GET /astro/visibility` return a raw `Response` — no Elysia `response`
@@ -65,6 +77,14 @@ export const astroQueries = {
     queryOptions({
       queryKey: [...astroQueries.all(), 'skyglow', params] as const,
       queryFn: async () => unwrap(await api.astro.skyglow.get({ query: params })),
+      staleTime: Infinity,
+    }),
+  // Zenith brightness only — the map's click-anywhere scout panel reads this for the cheap half
+  // of a scouted coordinate; the skyline and the annual budget are separate, heavier doors.
+  lightPollution: (params: LightPollutionParams) =>
+    queryOptions({
+      queryKey: [...astroQueries.all(), 'light-pollution', params] as const,
+      queryFn: async () => unwrap(await api.astro['light-pollution'].get({ query: params })),
       staleTime: Infinity,
     }),
   visibility: (params: VisibilityParams) =>

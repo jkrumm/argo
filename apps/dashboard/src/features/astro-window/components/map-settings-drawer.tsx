@@ -15,6 +15,7 @@ import {
   weatherLayer,
   type BaseLayerId,
   type MapLayerState,
+  type TerrainSelection,
   type WeatherLayerId,
 } from '../map-layers'
 
@@ -84,6 +85,10 @@ export function MapSettingsDrawer({
     })
   }
 
+  const handleTerrain = (patch: Partial<TerrainSelection>) => {
+    onChange({ ...state, terrain: { ...state.terrain, ...patch } })
+  }
+
   return (
     <Drawer opened={opened} onClose={onClose} position="right" size="md" title="Map layers">
       <Stack gap="sm">
@@ -141,6 +146,26 @@ export function MapSettingsDrawer({
                 <Radio value={LP_PARAM_OFF} label="Off" description="Basemap only." />
               </Stack>
             </Radio.Group>
+          </Stack>
+        </SettingsSection>
+
+        <SettingsSection
+          title="Terrain"
+          description="The other half of the sky budget the ramp cannot see: which ridge is in the way."
+        >
+          <Stack gap="xs">
+            <Checkbox
+              checked={state.terrain.hillshade}
+              onChange={(event) => handleTerrain({ hillshade: event.currentTarget.checked })}
+              label="Hillshade"
+              description="Flat-shaded relief from the same DEM the horizon march reads."
+            />
+            <Checkbox
+              checked={state.terrain.extruded}
+              onChange={(event) => handleTerrain({ extruded: event.currentTarget.checked })}
+              label="3D terrain"
+              description="Tilts the map into real relief — heavier to render, off by default."
+            />
           </Stack>
         </SettingsSection>
 
