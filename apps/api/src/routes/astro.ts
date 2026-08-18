@@ -1,5 +1,6 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
+import { createHash } from 'node:crypto'
 import {
   cloudAt,
   fetchAstroUpstreams,
@@ -14,6 +15,12 @@ import {
   type SkyglowResult,
 } from '../clients/lorenz-atlas.js'
 import {
+  fetchHorizonProfile,
+  horizonTileCount,
+  MAX_HORIZON_TILES,
+  type HorizonResult,
+} from '../clients/terrarium-dem.js'
+import {
   addDays,
   formatLocalDate,
   formatLocalTime,
@@ -25,6 +32,15 @@ import {
 import { coreTransit, galacticCorePosition } from '../lib/astro-ephemeris.js'
 import { LORENZ_YEARS, LATEST_LORENZ_YEAR, type LorenzYear } from '../lib/lorenz-decode.js'
 import { LP_TILE_MAX_ZOOM, LP_TILE_MIN_ZOOM } from '../lib/lp-tile.js'
+import {
+  HORIZON_AZIMUTH_STEP_DEG,
+  HORIZON_DEM_ZOOM,
+  HORIZON_RANGE_M,
+  HORIZON_STEP_M,
+  NEAR_FIELD_M,
+  REFRACTION_K,
+  SOUTH_ARC,
+} from '../lib/terrain-horizon.js'
 import {
   ASTRO_SITE_MEASUREMENTS,
   ASTRO_SITES,
@@ -405,6 +421,64 @@ const SkyglowResponseSchema = z.object({
 })
 
 /**
+ * `lat`/`lon` are both REQUIRED here, unlike `PointQuerySchema` — this route
+ * has no `site` fallback and no default location, because the whole point is
+ * answering for an arbitrary coordinate the map is scouting, not for one of
+ * the four committed sites.
+ */
+const HorizonQuerySchema = z.object({
+  lat: z.coerce.number().min(-90).max(90),
+  lon: z.coerce.number().min(-180).max(180),
+})
+
+const HorizonPointSchema = z.object({
+  azimuthDeg: z.number().describe('Degrees from north through east'),
+  altitudeDeg: z
+    .number()
+    .describe('Skyline altitude BEYOND the near field — the only band anything scores, degrees'),
+  rangeM: z.number().describe('Distance to the obstruction that set altitudeDeg, metres'),
+  summitM: z
+    .number()
+    .nullable()
+    .describe(
+      'Elevation of that obstruction, metres. Null when this azimuth had no far-band data at all',
+    ),
+  nearAltitudeDeg: z
+    .number()
+    .describe(
+      'Highest ground WITHIN the near field, degrees — advisory, DEM-unstable at this range',
+    ),
+})
+
+const HorizonResponseSchema = z.object({
+  lat: z.number(),
+  lon: z.number(),
+  elevationM: z.number().describe('DEM elevation of the coordinate itself, metres'),
+  profile: z.array(HorizonPointSchema).describe('One entry per azimuth, ascending from 0°'),
+  south: z.object({
+    maxDeg: z.number().describe('The gate — the ridge that can hide the core outright'),
+    meanDeg: z.number().describe('How walled-in the whole southern sweep is'),
+  }),
+  tilesRequested: z.number().int(),
+  tilesResolved: z.number().int(),
+  complete: z
+    .boolean()
+    .describe('False when any DEM tile failed — the profile is then a partial measurement'),
+  source: z.string(),
+  demZoom: z.number().int().describe('Web Mercator zoom the DEM was sampled at'),
+  rangeM: z.number().describe('How far each ray was marched outward, metres'),
+  stepM: z.number().describe('Distance between samples along each ray, metres'),
+  nearFieldM: z.number().describe('Ray distance below which a sample is advisory-only, metres'),
+  refractionK: z
+    .number()
+    .describe('Standard atmospheric refraction coefficient applied to every sample'),
+  azimuthStepDeg: z.number().describe('Azimuth resolution of the profile, degrees'),
+  southArc: z
+    .object({ fromDeg: z.number(), toDeg: z.number() })
+    .describe('The bearing range `south` is computed over — the arc the core actually crosses'),
+})
+
+/**
  * Path params for the raster tile route.
  *
  * `y` carries the `.png` suffix rather than the route path: Elysia binds
@@ -461,11 +535,29 @@ const LP_TILE_CACHE_CONTROL = 'private, max-age=2592000, stale-while-revalidate=
  */
 const LP_TILE_PARTIAL_CACHE_CONTROL = 'no-store'
 
+/** Terrain does not move — the same 30-day/`private` reasoning as `LP_TILE_CACHE_CONTROL` above. */
+const HORIZON_CACHE_CONTROL = 'private, max-age=2592000, stale-while-revalidate=86400'
+
+/**
+ * A partial profile is a fabricated horizon, not a measurement — caching it
+ * for 30 days would pin the lie (the lesson `097e67b` paid for once already,
+ * for the light-pollution tile route). `fetchHorizonProfile` already declines
+ * to persist a partial result anywhere, so the next request re-tries the
+ * missing DEM tiles; a browser-side copy would defeat that.
+ */
+const HORIZON_PARTIAL_CACHE_CONTROL = 'no-store'
+
+/** Same derivation as `lpTileEtag` in `../clients/lorenz-atlas.ts` — hash the body once, not per hit. */
+function horizonEtag(body: string): string {
+  return `"${createHash('sha256').update(body).digest('hex').slice(0, 32)}"`
+}
+
 export type AstroRouteDeps = {
   fetchUpstreams: typeof fetchAstroUpstreams
   lightPollution: typeof fetchLightPollution
   lpTile: typeof fetchLpTile
   skyglow: typeof fetchSkyglow
+  horizon: typeof fetchHorizonProfile
   complete: typeof aiComplete
   /** Injectable clock — a route whose answer depends on "tonight" is untestable without one. */
   now: () => Date
@@ -476,6 +568,7 @@ const defaultDeps: AstroRouteDeps = {
   lightPollution: fetchLightPollution,
   lpTile: fetchLpTile,
   skyglow: fetchSkyglow,
+  horizon: fetchHorizonProfile,
   complete: aiComplete,
   now: () => new Date(),
 }
@@ -626,6 +719,33 @@ function serializeSkyglow(
     model: result.model,
     source: result.source,
     attribution: ATLAS_ATTRIBUTION,
+  }
+}
+
+function serializeHorizon(result: HorizonResult): z.infer<typeof HorizonResponseSchema> {
+  return {
+    lat: result.lat,
+    lon: result.lon,
+    elevationM: result.elevationM,
+    profile: result.profile.points.map((point) => ({
+      azimuthDeg: point.azimuthDeg,
+      altitudeDeg: round2(point.altitudeDeg),
+      rangeM: point.rangeM,
+      summitM: Number.isFinite(point.summitM) ? point.summitM : null,
+      nearAltitudeDeg: round2(point.nearAltitudeDeg),
+    })),
+    south: { maxDeg: round2(result.south.maxDeg), meanDeg: round2(result.south.meanDeg) },
+    tilesRequested: result.tilesRequested,
+    tilesResolved: result.tilesResolved,
+    complete: result.complete,
+    source: result.source,
+    demZoom: HORIZON_DEM_ZOOM,
+    rangeM: HORIZON_RANGE_M,
+    stepM: HORIZON_STEP_M,
+    nearFieldM: NEAR_FIELD_M,
+    refractionK: REFRACTION_K,
+    azimuthStepDeg: HORIZON_AZIMUTH_STEP_DEG,
+    southArc: { fromDeg: SOUTH_ARC.fromDeg, toDeg: SOUTH_ARC.toDeg },
   }
 }
 
@@ -1175,6 +1295,77 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
           description:
             'Returns an azimuth × altitude rose of ARTIFICIAL skyglow around one point (`profile.mpsas[altitudeIndex][azimuthIndex]`, azimuths 0–355° in 5° steps, altitudes 5/8/10/13/15/20/30°), the dominant light-dome direction at 10°, and — the number this endpoint exists for — `core.mpsas`: sky brightness in the direction the galactic core peaks on this night, with `core.domePenaltyMag` giving how many magnitudes darker the published zenith figure reads than that direction. It re-orders real sites: the darkest zenith of the four shipped sites loses its lead entirely once the light dome sits where the camera points. Every number is a deterministic ray-march over Lorenz atlas tiles weighted by a scattering kernel (echoed back in `model`); NO model computes any figure here, and the ephemeris behind `coreTime`/`core.azimuthDeg`/`core.altitudeDeg` is the same one GET /astro/window uses. `profile` is artificial glow ALONE — airglow enters only `core.mpsas`, so the rose reads as "what the lights cost me". `date` (YYYY-MM-DD) picks the night and defaults to today in the location timezone; `year` picks the atlas vintage; location resolves `site` > `lat`+`lon` > Munich. Absolute dome penalties move ±0.35 mag across nine kernel variants, but the ORDERING of sites is invariant across all nine — rank with this, do not quote it as a measurement. For the zenith value on its own use GET /astro/light-pollution. Returns 422 above ~61°N (where the core never clears the horizon and there is no direction to measure) or when only one of `lat`/`lon` is given, and 502 when the atlas is unreachable.',
           security: [{ BearerAuth: [] }],
+        },
+      },
+    )
+    .get(
+      '/horizon',
+      async ({ query, request, status }) => {
+        /*
+         * Guard BEFORE the client, because the cost is in the enumeration, not
+         * the fetch: the march's box grows as 1/cos(lat)², so a coordinate a
+         * fraction of a degree from the pole names over a hundred million DEM
+         * tiles. 422 rather than 502 — the coordinate is the problem, not the
+         * upstream, and no retry will ever help.
+         */
+        const tiles = horizonTileCount({ lat: query.lat, lon: query.lon })
+        if (tiles > MAX_HORIZON_TILES) {
+          return status(
+            422,
+            `Too close to the pole for a ${HORIZON_RANGE_M / 1000} km march at zoom ${HORIZON_DEM_ZOOM}: ` +
+              `this coordinate needs ${tiles} DEM tiles against a ceiling of ${MAX_HORIZON_TILES}.`,
+          )
+        }
+
+        const result = await deps.horizon({ lat: query.lat, lon: query.lon })
+        if (!result) {
+          return status(
+            502,
+            'Terrarium DEM unavailable, or the coordinate’s own tile could not be read.',
+          )
+        }
+
+        const body = JSON.stringify(serializeHorizon(result))
+        const headers: Record<string, string> = { 'content-type': 'application/json' }
+
+        // A partial profile is a fabricated horizon — see HORIZON_PARTIAL_CACHE_CONTROL.
+        if (!result.complete) {
+          headers['cache-control'] = HORIZON_PARTIAL_CACHE_CONTROL
+          return new Response(body, { headers })
+        }
+
+        const etag = horizonEtag(body)
+        headers['cache-control'] = HORIZON_CACHE_CONTROL
+        headers['etag'] = etag
+        if (request.headers.get('if-none-match') === etag) {
+          return new Response(null, { status: 304, headers })
+        }
+        return new Response(body, { headers })
+      },
+      {
+        query: HorizonQuerySchema,
+        // No `response` schema: this handler returns a raw `Response` so it can
+        // set Cache-Control/ETag and answer a bodiless 304, the same pattern the
+        // tile route below uses. The OpenAPI contract is declared by hand instead.
+        detail: {
+          tags: ['Astro & Marine'],
+          summary: 'Terrain horizon profile for an arbitrary coordinate, from the terrarium DEM',
+          description:
+            "Returns a per-azimuth terrain skyline for an ARBITRARY coordinate, from the same AWS terrarium ray-march that produces the four committed sites' `southHorizonDeg` in GET /astro/sites — this route answers the identical question for any point the map is scouting, at request time rather than as a committed constant. `profile[]` carries 72 rays, 5° apart: `altitudeDeg` is the skyline BEYOND 500 m and the only band anything should score against (compare it to the flat 8° atmospheric floor GET /astro/window gates on); `nearAltitudeDeg` is the highest ground WITHIN 500 m, shipped for a panorama chart to draw but never scored — inside 500 m a DEM sample is your own hillside plus vertical noise, not a skyline (`docs/ASTRO-HORIZON-RESEARCH.md` §3). `south` reduces `profile` to `southArc`, the bearing range the galactic core actually crosses — the same reduction the committed site constants use. `demZoom`/`rangeM`/`stepM`/`nearFieldM`/`refractionK`/`azimuthStepDeg` echo the model constants so a caller can render the profile honestly instead of assuming them. `complete: false` means at least one DEM tile failed to resolve and the profile is a partial measurement; such a response is `no-store`. A complete one caches hard for 30 days as `private` — terrain does not move, and the route is bearer-guarded so no shared cache may keep it — with a strong ETag, so `If-None-Match` gets a 304. Returns 422 when `lat`/`lon` are out of range or missing — both are required, there is no `site` fallback here — and 502 when the DEM is unreachable, or the coordinate's own tile could not be read, in which case there is no elevation to measure every other altitude against.",
+          security: [{ BearerAuth: [] }],
+          responses: {
+            // No `content` schema here: unlike the binary tile route below,
+            // this body IS JSON, but wiring a hand-written OpenAPI SchemaObject
+            // for it duplicates `HorizonResponseSchema` in a shape the openapi
+            // types package rejects when built from `z.toJSONSchema` directly.
+            // The `description` above already documents every field.
+            200: { description: 'Horizon profile, JSON — see the description for the field shape' },
+            304: { description: 'Not modified — the ETag matched' },
+            422: { description: 'lat or lon out of range, or one of them is missing' },
+            502: {
+              description: 'Terrarium DEM unavailable, or the coordinate’s own tile is missing',
+            },
+          },
         },
       },
     )

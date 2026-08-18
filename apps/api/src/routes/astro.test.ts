@@ -3,10 +3,21 @@ import { Elysia } from 'elysia'
 import { createHash } from 'node:crypto'
 import type { AstroUpstreams, CloudSeries, TransparencySeries } from '../clients/astro-upstreams.js'
 import type { LightPollutionPoint, LpTileImage, SkyglowResult } from '../clients/lorenz-atlas.js'
+import type { HorizonResult } from '../clients/terrarium-dem.js'
 import { ASTRO_SITE_MEASUREMENTS } from '../lib/astro-sites.js'
 import { authGuard } from '../lib/auth-guard.js'
 import { renderLpTilePng } from '../lib/lp-tile.js'
 import { PROFILE_ALTITUDES, SKYGLOW_MODEL } from '../lib/skyglow.js'
+import {
+  HORIZON_AZIMUTH_STEP_DEG,
+  HORIZON_DEM_ZOOM,
+  HORIZON_RANGE_M,
+  HORIZON_STEP_M,
+  NEAR_FIELD_M,
+  REFRACTION_K,
+  SOUTH_ARC,
+} from '../lib/terrain-horizon.js'
+import { MAX_HORIZON_TILES } from '../clients/terrarium-dem.js'
 import { clearAstroSummaryCache, createAstroRoutes, type AstroRouteDeps } from './astro.js'
 
 const SECRET = process.env['API_SECRET'] ?? 'x'
@@ -106,16 +117,56 @@ function lpTileImage(overrides: Partial<LpTileImage> = {}): LpTileImage {
   }
 }
 
+/**
+ * Structurally valid but geometrically arbitrary — the route trusts whatever
+ * `deps.horizon` hands back rather than re-deriving `south` from `profile`,
+ * so these tests only need a shape, not real terrain.
+ */
+function horizonResult(overrides: Partial<HorizonResult> = {}): HorizonResult {
+  return {
+    lat: 48.1374,
+    lon: 11.5755,
+    elevationM: 525,
+    profile: {
+      elevationM: 525,
+      points: [
+        { azimuthDeg: 0, altitudeDeg: -0.1234, rangeM: 600, summitM: 520, nearAltitudeDeg: -0.05 },
+        {
+          azimuthDeg: 180,
+          altitudeDeg: 1.0219,
+          rangeM: 54_000,
+          summitM: 2_200,
+          nearAltitudeDeg: -90,
+        },
+      ],
+    },
+    south: { maxDeg: 1.0219, meanDeg: 0.7 },
+    tilesRequested: 96,
+    tilesResolved: 96,
+    complete: true,
+    source: 'Terrarium DEM (SRTM/NED blend), AWS elevation-tiles-prod',
+    ...overrides,
+  }
+}
+
 type Calls = {
   upstreams: number
   complete: number
   lightPollution: Parameters<AstroRouteDeps['lightPollution']>[0][]
   lpTile: Parameters<AstroRouteDeps['lpTile']>[0][]
   skyglow: Parameters<AstroRouteDeps['skyglow']>[0][]
+  horizon: Parameters<AstroRouteDeps['horizon']>[0][]
 }
 
 function build(deps: Partial<AstroRouteDeps> = {}) {
-  const calls: Calls = { upstreams: 0, complete: 0, lightPollution: [], lpTile: [], skyglow: [] }
+  const calls: Calls = {
+    upstreams: 0,
+    complete: 0,
+    lightPollution: [],
+    lpTile: [],
+    skyglow: [],
+    horizon: [],
+  }
   const app = new Elysia().use(authGuard).use(
     createAstroRoutes({
       now: () => AUGUST,
@@ -139,6 +190,10 @@ function build(deps: Partial<AstroRouteDeps> = {}) {
       skyglow: async (input) => {
         calls.skyglow.push(input)
         return skyglowResult({ lat: input.lat, lon: input.lon })
+      },
+      horizon: async (input) => {
+        calls.horizon.push(input)
+        return horizonResult({ lat: input.lat, lon: input.lon })
       },
       ...deps,
     }),
@@ -635,6 +690,165 @@ describe('GET /astro/skyglow', () => {
   it('requires a bearer token', async () => {
     const { app } = build()
     expect((await get(app, '/astro/skyglow', false)).status).toBe(401)
+  })
+})
+
+describe('GET /astro/horizon', () => {
+  /** The JSON `get` helper discards response headers — needed here for Cache-Control/ETag. */
+  async function rawHeaders(app: TestApp, path: string, headers: Record<string, string> = {}) {
+    return app.handle(
+      new Request(`http://localhost${path}`, {
+        headers: { Authorization: `Bearer ${SECRET}`, ...headers },
+      }),
+    )
+  }
+
+  it('returns the profile plus the model constants a client needs to render it honestly', async () => {
+    const { app, calls } = build()
+    const { status, body } = await get(app, '/astro/horizon?lat=48.1374&lon=11.5755')
+
+    expect(status).toBe(200)
+    expect(calls.horizon).toEqual([{ lat: 48.1374, lon: 11.5755 }])
+    expect(body.lat).toBe(48.1374)
+    expect(body.lon).toBe(11.5755)
+    expect(body.elevationM).toBe(525)
+    expect(body.profile).toHaveLength(2)
+    expect(body.profile[0]).toEqual({
+      azimuthDeg: 0,
+      altitudeDeg: -0.12,
+      rangeM: 600,
+      summitM: 520,
+      nearAltitudeDeg: -0.05,
+    })
+    expect(body.south).toEqual({ maxDeg: 1.02, meanDeg: 0.7 })
+    expect(body.tilesRequested).toBe(96)
+    expect(body.tilesResolved).toBe(96)
+    expect(body.complete).toBe(true)
+    // The model constants are echoed, not left for the client to hard-code.
+    expect(body.demZoom).toBe(HORIZON_DEM_ZOOM)
+    expect(body.rangeM).toBe(HORIZON_RANGE_M)
+    expect(body.stepM).toBe(HORIZON_STEP_M)
+    expect(body.nearFieldM).toBe(NEAR_FIELD_M)
+    expect(body.refractionK).toBe(REFRACTION_K)
+    expect(body.azimuthStepDeg).toBe(HORIZON_AZIMUTH_STEP_DEG)
+    expect(body.southArc).toEqual({ fromDeg: SOUTH_ARC.fromDeg, toDeg: SOUTH_ARC.toDeg })
+  })
+
+  it('reports a missing far-band summit as null rather than a dropped NaN', async () => {
+    const { app } = build({
+      horizon: async (input) =>
+        horizonResult({
+          lat: input.lat,
+          lon: input.lon,
+          profile: {
+            elevationM: 525,
+            points: [
+              {
+                azimuthDeg: 0,
+                altitudeDeg: -90,
+                rangeM: 0,
+                summitM: Number.NaN,
+                nearAltitudeDeg: -90,
+              },
+            ],
+          },
+        }),
+    })
+    const { body } = await get(app, '/astro/horizon?lat=48.1374&lon=11.5755')
+    expect(body.profile[0].summitM).toBeNull()
+  })
+
+  it('422s when lat is out of range', async () => {
+    const { app, calls } = build()
+    expect((await get(app, '/astro/horizon?lat=999&lon=11.5755')).status).toBe(422)
+    expect(calls.horizon).toHaveLength(0)
+  })
+
+  it('422s when lon is out of range', async () => {
+    const { app, calls } = build()
+    expect((await get(app, '/astro/horizon?lat=48.1374&lon=999')).status).toBe(422)
+    expect(calls.horizon).toHaveLength(0)
+  })
+
+  it('422s when lat is missing — both are required, there is no site fallback', async () => {
+    const { app, calls } = build()
+    expect((await get(app, '/astro/horizon?lon=11.5755')).status).toBe(422)
+    expect(calls.horizon).toHaveLength(0)
+  })
+
+  it('422s when lon is missing', async () => {
+    const { app, calls } = build()
+    expect((await get(app, '/astro/horizon?lat=48.1374')).status).toBe(422)
+    expect(calls.horizon).toHaveLength(0)
+  })
+
+  it('422s when the march would enumerate more DEM tiles than the ceiling allows', async () => {
+    /*
+     * The tile box grows as 1/cos(lat)², so a fraction of a degree from the pole
+     * it names over a hundred million tiles. 422 rather than 502 — the
+     * coordinate is the problem and no retry helps — and the client must never
+     * be reached, because the cost is the enumeration itself.
+     */
+    const { app, calls } = build()
+    const { status, body } = await get(app, '/astro/horizon?lat=89.99&lon=11')
+    expect(status).toBe(422)
+    expect(body).toContain(String(MAX_HORIZON_TILES))
+    expect(calls.horizon).toHaveLength(0)
+  })
+
+  it('accepts a coordinate near the antimeridian, where the tile box wraps', async () => {
+    const { app, calls } = build()
+    expect((await get(app, '/astro/horizon?lat=48&lon=179.9')).status).toBe(200)
+    expect(calls.horizon).toEqual([{ lat: 48, lon: 179.9 }])
+  })
+
+  it('502s when the DEM is unreachable, or the coordinate’s own tile is missing', async () => {
+    const { app } = build({ horizon: async () => null })
+    expect((await get(app, '/astro/horizon?lat=48.1374&lon=11.5755')).status).toBe(502)
+  })
+
+  it('caches a complete profile hard and PRIVATELY, with a strong ETag', async () => {
+    const { app } = build()
+    const res = await rawHeaders(app, '/astro/horizon?lat=48.1374&lon=11.5755')
+    expect(res.status).toBe(200)
+    expect(res.headers.get('cache-control')).toBe(
+      'private, max-age=2592000, stale-while-revalidate=86400',
+    )
+    expect(res.headers.get('etag')).toMatch(/^"[0-9a-f]{32}"$/)
+  })
+
+  it('refuses to cache a partial profile at all', async () => {
+    const { app } = build({
+      horizon: async (input) => horizonResult({ lat: input.lat, lon: input.lon, complete: false }),
+    })
+    const res = await rawHeaders(app, '/astro/horizon?lat=48.1374&lon=11.5755')
+    expect(res.status).toBe(200)
+    expect(res.headers.get('cache-control')).toBe('no-store')
+    expect(res.headers.get('etag')).toBeNull()
+  })
+
+  it('answers a matching If-None-Match with a bodiless 304', async () => {
+    const { app } = build()
+    const path = '/astro/horizon?lat=48.1374&lon=11.5755'
+    const etag = (await rawHeaders(app, path)).headers.get('etag') ?? ''
+    const res = await rawHeaders(app, path, { 'if-none-match': etag })
+    expect(res.status).toBe(304)
+    expect(res.headers.get('etag')).toBe(etag)
+    expect((await res.arrayBuffer()).byteLength).toBe(0)
+  })
+
+  it('still sends the body when the ETag does not match', async () => {
+    const { app } = build()
+    const res = await rawHeaders(app, '/astro/horizon?lat=48.1374&lon=11.5755', {
+      'if-none-match': '"deadbeef"',
+    })
+    expect(res.status).toBe(200)
+    expect((await res.arrayBuffer()).byteLength).toBeGreaterThan(0)
+  })
+
+  it('requires a bearer token', async () => {
+    const { app } = build()
+    expect((await get(app, '/astro/horizon?lat=48.1374&lon=11.5755', false)).status).toBe(401)
   })
 })
 

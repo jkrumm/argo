@@ -3,11 +3,14 @@ import {
   HORIZON_AZIMUTH_STEP_DEG,
   HORIZON_RANGE_M,
   HORIZON_STEP_M,
+  NEAR_FIELD_M,
   SOUTH_ARC,
+  horizonAt,
   horizonProfile,
   southernHorizon,
   terrariumElevation,
   type ElevationSampler,
+  type HorizonPoint,
 } from './terrain-horizon.js'
 
 const SITE = { lat: 48, lon: 11 }
@@ -30,6 +33,9 @@ const ridgeSampler: ElevationSampler = (lat, lon) => {
   const northM = (lat - SITE.lat) * M_PER_DEG_LAT
   return Math.abs(eastM - 9900) < 50 && Math.abs(northM) < 50 ? 500 : 0
 }
+
+/** The first march step strictly beyond `NEAR_FIELD_M` — where the far band starts winning. */
+const FIRST_FAR_RANGE_M = HORIZON_STEP_M * (Math.floor(NEAR_FIELD_M / HORIZON_STEP_M) + 1)
 
 function at(profile: ReturnType<typeof horizonProfile>, azimuthDeg: number) {
   const point = profile.points.find((p) => p.azimuthDeg === azimuthDeg)
@@ -61,9 +67,14 @@ describe('horizonProfile', () => {
 
     for (const point of profile.points) {
       expect(point.altitudeDeg).toBeLessThan(0)
-      // The closest sample is the least depressed one, so it always wins the max.
-      expect(point.altitudeDeg).toBeCloseTo(-0.000587, 6)
-      expect(point.rangeM).toBe(HORIZON_STEP_M)
+      // `altitudeDeg` is the FAR band only — the closest far-band sample is the
+      // least depressed one, so it always wins that max.
+      expect(point.altitudeDeg).toBeCloseTo(-0.002347, 6)
+      expect(point.rangeM).toBe(FIRST_FAR_RANGE_M)
+      // The near band has its own, closer (and therefore less depressed) maximum.
+      expect(point.nearAltitudeDeg).toBeLessThan(0)
+      expect(point.nearAltitudeDeg).toBeCloseTo(-0.000587, 6)
+      expect(point.nearAltitudeDeg).toBeGreaterThan(point.altitudeDeg)
     }
   })
 
@@ -86,7 +97,51 @@ describe('horizonProfile', () => {
   it('never lets a hole in the model read as a horizon at eye level', () => {
     const profile = horizonProfile({ sampler: noDataSampler, site: SITE })
     expect(Number.isNaN(profile.elevationM)).toBe(true)
-    for (const point of profile.points) expect(point.altitudeDeg).toBe(-90)
+    for (const point of profile.points) {
+      expect(point.altitudeDeg).toBe(-90)
+      expect(point.nearAltitudeDeg).toBe(-90)
+    }
+  })
+
+  it('a ridge at 300 m sets nearAltitudeDeg and leaves altitudeDeg at the far value', () => {
+    // Flat baseline (0 m) everywhere except a 500 m block at 300 m due east —
+    // inside the near field, so only `nearAltitudeDeg` can see it.
+    const sampler: ElevationSampler = (lat, lon) => {
+      const eastM = (lon - SITE.lon) * M_PER_DEG_LON
+      const northM = (lat - SITE.lat) * M_PER_DEG_LAT
+      return Math.abs(eastM - 300) < 50 && Math.abs(northM) < 50 ? 500 : 0
+    }
+    const profile = horizonProfile({ sampler, site: SITE })
+    const east = at(profile, 90)
+
+    // R_eff = 7 323 908.0 m; drop = 300² / (2 · R_eff) = 0.0062 m
+    // angle = atan2(500 − 0.0062, 300) = 59.03593°
+    expect(east.nearAltitudeDeg).toBeCloseTo(59.03593, 4)
+    // The far band never samples inside 500 m, so it stays on the flat
+    // plane's own least-depressed far value, unaffected by the near ridge.
+    expect(east.altitudeDeg).toBeCloseTo(-0.002347, 6)
+    expect(east.rangeM).toBe(FIRST_FAR_RANGE_M)
+  })
+
+  it('a ridge at 5 km sets altitudeDeg and leaves nearAltitudeDeg at the sentinel', () => {
+    // No data anywhere except the site itself (needed for a finite elevationM)
+    // and a 500 m block at ~5 km due east, in the far band. The near band never
+    // gets a single valid sample, so it can only ever read the sentinel.
+    const sampler: ElevationSampler = (lat, lon) => {
+      if (lat === SITE.lat && lon === SITE.lon) return 0
+      const eastM = (lon - SITE.lon) * M_PER_DEG_LON
+      const northM = (lat - SITE.lat) * M_PER_DEG_LAT
+      return Math.abs(eastM - 5100) < 50 && Math.abs(northM) < 50 ? 500 : Number.NaN
+    }
+    const profile = horizonProfile({ sampler, site: SITE })
+    const east = at(profile, 90)
+
+    // R_eff = 7 323 908.0 m; drop = 5100² / (2 · R_eff) = 1.776 m
+    // angle = atan2(500 − 1.776, 5100) = 5.57958°
+    expect(east.altitudeDeg).toBeCloseTo(5.57958, 4)
+    expect(east.rangeM).toBe(5100)
+    expect(east.summitM).toBe(500)
+    expect(east.nearAltitudeDeg).toBe(-90)
   })
 
   it('stops at the declared range', () => {
@@ -132,5 +187,34 @@ describe('southernHorizon', () => {
     expect(south.maxDeg).toBeLessThan(0)
     expect(south.meanDeg).toBeLessThan(0)
     expect(south.maxDeg).toBeCloseTo(south.meanDeg, 6)
+  })
+})
+
+function point(azimuthDeg: number, altitudeDeg: number): HorizonPoint {
+  return { azimuthDeg, altitudeDeg, rangeM: 0, summitM: Number.NaN, nearAltitudeDeg: -90 }
+}
+
+describe('horizonAt', () => {
+  it('interpolates linearly midway between two samples', () => {
+    const profile = [point(0, 1), point(10, 3)]
+    expect(horizonAt(profile, 5)).toBeCloseTo(2, 10)
+  })
+
+  it('returns a sample exactly at its own azimuth', () => {
+    const profile = [point(0, 1), point(10, 3)]
+    expect(horizonAt(profile, 0)).toBeCloseTo(1, 10)
+    expect(horizonAt(profile, 10)).toBeCloseTo(3, 10)
+  })
+
+  it('wraps correctly across 358°→2° — the 355°/0° boundary', () => {
+    const profile = [point(355, 10), point(0, 20)]
+    // 359° sits 4/5 of the way from 355° to 0°(=360°).
+    expect(horizonAt(profile, 359)).toBeCloseTo(18, 10)
+  })
+
+  it('normalises negative and >360 bearings onto the same profile', () => {
+    const profile = [point(355, 10), point(0, 20)]
+    expect(horizonAt(profile, -1)).toBeCloseTo(horizonAt(profile, 359), 10)
+    expect(horizonAt(profile, 361)).toBeCloseTo(horizonAt(profile, 1), 10)
   })
 })
