@@ -238,6 +238,11 @@ about all three at the same coordinate. `panorama.ts` renders it; it reads at a 
 
 ## 7. Deliberately not done
 
+- **The clearance raster layer of §5.** It is measured and it works — 0.34 ms per cell, and the
+  ASCII field in the POC output is legible without any colour work — but no tile route exists.
+  The pattern is already established by `/astro/tiles/lp/…`, so this is unfinished rather than
+  undecided. Click-anywhere scouting covers the same ground one point at a time.
+
 - **Ground truth.** Nothing here is checked against a photograph or an SQM reading.
   PVGIS agreement is model-to-model.
 - **Vegetation and buildings.** Terrarium's blend is not consistently a surface model.
