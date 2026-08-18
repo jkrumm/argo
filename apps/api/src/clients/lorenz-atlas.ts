@@ -33,6 +33,7 @@
  */
 
 import { SpanKind, SpanStatusCode, type AttributeValue } from '@opentelemetry/api'
+import { createHash } from 'node:crypto'
 import { gunzipSync } from 'node:zlib'
 import { tracedFetch } from '../lib/traced-fetch.js'
 import {
@@ -56,7 +57,9 @@ import {
   type MpsasSampler,
 } from '../lib/lp-tile.js'
 import {
+  computeCalibration,
   coreDirectionGlow,
+  KM_PER_DEG_LAT,
   skyglowProfile,
   SKYGLOW_MODEL,
   type CoreDirection,
@@ -79,11 +82,14 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000
  * Each grid is 1.44 MB, so 32 entries is ~46 MB.
  *
  * Sized for the WORST SINGLE RENDER, not for point lookups. A z5 map tile spans
- * ~11° of longitude and can touch 16 atlas tiles (measured maximum over every
- * tile on the globe; z6 peaks at 9). A cap of 16 or less would let one low-zoom
- * `fetchLpTile` flush the handful of tiles `fetchLightPollution` / `fetchSkyglow`
- * live on — sending Argo's own astro endpoints back to cold-fetching 118 KB from
- * a bandwidth-capped host (see the docstring above, §8) — and would evict its own
+ * ~11° of longitude and could touch up to 16 atlas tiles (measured maximum over
+ * every tile on the globe, before `tileSpanSamples` stopped sampling exactly ON
+ * a 5° boundary — see its own docstring; the fix only ever REDUCES a box's tile
+ * count, so 16 stays a safe upper bound even though it is no longer the exact
+ * post-fix maximum). A cap of 16 or less would let one low-zoom `fetchLpTile`
+ * flush the handful of tiles `fetchLightPollution` / `fetchSkyglow` live on —
+ * sending Argo's own astro endpoints back to cold-fetching 118 KB from a
+ * bandwidth-capped host (see the docstring above, §8) — and would evict its own
  * tiles before the next, heavily-overlapping map tile could reuse them. Twice the
  * worst render leaves both working sets resident.
  */
@@ -96,9 +102,6 @@ const CACHE_MAX_ENTRIES = 32
  * numbers, not against a compressed-PNG intuition.
  */
 const TILE_CACHE_MAX_ENTRIES = 512
-
-/** Kilometres per degree of latitude — the same figure `../lib/skyglow.ts` marches with. */
-const KM_PER_DEG_LAT = 111.32
 
 // ── Cache ────────────────────────────────────────────────────────────────
 
@@ -139,7 +142,12 @@ function setCached(key: string, grid: Float32Array): void {
  * samples), but re-doing it for every pan of a map that is mostly re-requesting
  * the same tiles is pure waste.
  */
-type TileCacheEntry = { expiresAt: number; png: Uint8Array<ArrayBuffer>; tiles: number }
+type TileCacheEntry = {
+  expiresAt: number
+  png: Uint8Array<ArrayBuffer>
+  tiles: number
+  etag: string
+}
 
 const tileCache = new Map<string, TileCacheEntry>()
 
@@ -153,12 +161,28 @@ function getCachedTile(key: string): TileCacheEntry | undefined {
   return entry
 }
 
-function setCachedTile(key: string, png: Uint8Array<ArrayBuffer>, tiles: number): void {
+function setCachedTile(
+  key: string,
+  png: Uint8Array<ArrayBuffer>,
+  tiles: number,
+  etag: string,
+): void {
   if (!tileCache.has(key) && tileCache.size >= TILE_CACHE_MAX_ENTRIES) {
     const oldestKey = tileCache.keys().next().value
     if (oldestKey !== undefined) tileCache.delete(oldestKey)
   }
-  tileCache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, png, tiles })
+  tileCache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, png, tiles, etag })
+}
+
+/**
+ * The route's ETag, computed ONCE per distinct PNG rather than once per
+ * request. A panning map re-requests the same handful of tiles constantly —
+ * including `If-None-Match` 304s, which still need a validator — so hashing
+ * the (up to ~70 KB) PNG body on every hit made the hot path pay for a SHA-256
+ * that a cache hit's bytes never change.
+ */
+function lpTileEtag(png: Uint8Array<ArrayBuffer>): string {
+  return `"${createHash('sha256').update(png).digest('hex').slice(0, 32)}"`
 }
 
 /** Exported for tests only — drops every cached grid AND every rendered tile. */
@@ -227,11 +251,29 @@ async function fetchTileGrid(
   }
 }
 
+/**
+ * Nudges an endpoint below itself, so `locateTile` never resolves it to the
+ * tile on the FAR side of a boundary it lands exactly on. The one case that
+ * matters in practice: the easternmost map-tile column has `maxLon` exactly
+ * `180`, and `locateTile` treats `180` as the date line's WEST side
+ * (`mod(180+180,360) === 0`) — the tile the map tile does not overlap.
+ *
+ * The nudge must be LARGER than `locateTile`'s own half-cell reference-walk
+ * offset (~0.0083°, `lorenz-decode.ts`'s "pushes the last ~0.008° below every
+ * 5° graticule onto index 600" quirk) — a microscopic epsilon (1e-9 was tried
+ * first) still lands INSIDE that rollover band, and `locateTile` rolls it
+ * straight back to the wrapped tile, reproducing the exact bug this exists to
+ * fix. `0.01°` clears that band with margin while staying far short of one
+ * `TILE_SPAN_DEG`, so it can never cross into a genuinely different tile for
+ * any endpoint that wasn't already sitting on a boundary.
+ */
+const TILE_BOUNDARY_EPSILON_DEG = 0.01
+
 /** `from`..`to` sampled at less than one tile span, endpoints included — so no tile in between is missed. */
 function tileSpanSamples(from: number, to: number): number[] {
   const samples: number[] = []
   for (let value = from; value < to; value += TILE_SPAN_DEG) samples.push(value)
-  samples.push(to)
+  samples.push(to - TILE_BOUNDARY_EPSILON_DEG)
   return samples
 }
 
@@ -437,11 +479,29 @@ export async function fetchSkyglow(
           'lorenz.tiles_ok': grids.size,
         })
 
+        // A partial march is not a measurement: `marchRay` can only drop a
+        // missing sector from its sum, which reads as "no artificial light
+        // there" — a confidently wrong DARKER core, silently. Refuse to score
+        // one; a 502 is honest, a biased number is not.
+        if (grids.size < tiles.length) {
+          log.warn('lorenz-atlas: skyglow march incomplete, refusing a partial result', {
+            lat,
+            lon,
+            tilesRequested: tiles.length,
+            tilesResolved: grids.size,
+          })
+          return null
+        }
+
         const sampler = buildSampler(grids, year)
         const zenithLpi = sampler(lat, lon)
         // The site's own tile is the one tile that cannot be missing: without it
         // there is no calibration and every direction would be meaningless.
         if (!Number.isFinite(zenithLpi)) return null
+
+        // Both calls below need the same zenith calibration; compute it once
+        // rather than having each re-march the (degenerate but not free) zenith ray.
+        const calibration = computeCalibration({ sampler, site, zenithLpi })
 
         return {
           lat,
@@ -458,8 +518,9 @@ export async function fetchSkyglow(
             zenithLpi,
             coreAzimuthDeg: input.coreAzimuthDeg,
             coreAltitudeDeg: input.coreAltitudeDeg,
+            calibration,
           }),
-          profile: skyglowProfile({ sampler, site, zenithLpi }),
+          profile: skyglowProfile({ sampler, site, zenithLpi, calibration }),
           model: SKYGLOW_MODEL,
           source: sourceLabel(year),
         }
@@ -480,6 +541,8 @@ export type LpTileImage = {
   year: LorenzYear
   tilesRequested: number
   tilesResolved: number
+  /** Pre-computed over `png` — see `lpTileEtag`'s docstring for why this isn't left to the route. */
+  etag: string
 }
 
 /**
@@ -565,6 +628,7 @@ export async function fetchLpTile(
             year,
             tilesRequested: cached.tiles,
             tilesResolved: cached.tiles,
+            etag: cached.etag,
           }
         }
 
@@ -577,9 +641,10 @@ export async function fetchLpTile(
         // turns into a 502) it caches, so the client asks once.
         if (tiles.length === 0) {
           const empty = renderLpTilePng({ x, y, z, sampler: () => Number.NaN })
-          setCachedTile(key, empty, 0)
+          const etag = lpTileEtag(empty)
+          setCachedTile(key, empty, 0, etag)
           span.setAttributes({ 'lorenz.tiles_requested': 0, 'lorenz.tiles_ok': 0 })
-          return { png: empty, year, tilesRequested: 0, tilesResolved: 0 }
+          return { png: empty, year, tilesRequested: 0, tilesResolved: 0, etag }
         }
 
         const settled = await Promise.allSettled(
@@ -626,10 +691,11 @@ export async function fetchLpTile(
         }
 
         const png = renderLpTilePng({ x, y, z, sampler })
+        const etag = lpTileEtag(png)
         // Only a complete render is worth caching for a day; a partial one
         // should re-try the missing atlas tiles on the next request.
-        if (grids.size === tiles.length) setCachedTile(key, png, tiles.length)
-        return { png, year, tilesRequested: tiles.length, tilesResolved: grids.size }
+        if (grids.size === tiles.length) setCachedTile(key, png, tiles.length, etag)
+        return { png, year, tilesRequested: tiles.length, tilesResolved: grids.size, etag }
       } catch (error) {
         span.setStatus({ code: SpanStatusCode.ERROR, message: String(error) })
         span.recordException(error as Error)

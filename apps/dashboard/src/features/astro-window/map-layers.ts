@@ -144,8 +144,16 @@ const EOX_ATTRIBUTION =
   '(contains modified Copernicus Sentinel data 2025), released under ' +
   '<a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="license">CC BY-NC-SA 4.0</a>'
 
-/** The Lorenz atlas licence requires the credit; our own tile source declares it. */
-export const LP_ATTRIBUTION = 'Light Pollution Atlas 2025, David J. Lorenz'
+/**
+ * The Lorenz atlas licence requires the credit; our own tile source declares it. Vintage-scoped —
+ * the drawer offers every year in `LP_YEARS`, so a hard-coded 2025 would credit the wrong atlas
+ * the moment anyone selects 2016/2020/2022/2023/2024. Wording matches
+ * `apps/api/src/clients/lorenz-atlas.ts`'s `sourceLabel(year)` exactly, since that is the
+ * server-side half of the same credit and the two must agree.
+ */
+export function lpAttribution(year: LpYear): string {
+  return `Light Pollution Atlas ${year}, David J. Lorenz`
+}
 
 // ── Base group (exclusive) ─────────────────────────────────────────────────
 

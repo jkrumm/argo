@@ -4,7 +4,6 @@ import {
   compassPoint,
   marchRay,
   rayWeight,
-  relativeAirmass,
   skyglowProfile,
   vanRhijnAirglow,
   SKYGLOW_MODEL,
@@ -160,11 +159,6 @@ describe('coreDirectionGlow', () => {
 })
 
 describe('atmosphere helpers', () => {
-  it('matches the ~4.3 airmass the core suffers at 13 degrees', () => {
-    expect(relativeAirmass(13)).toBeCloseTo(4.37, 2)
-    expect(relativeAirmass(90)).toBeCloseTo(1, 2)
-  })
-
   it('adds airglow path length toward the horizon and none at the zenith', () => {
     expect(vanRhijnAirglow(90)).toBeCloseTo(1, 6)
     expect(vanRhijnAirglow(13)).toBeGreaterThan(1)

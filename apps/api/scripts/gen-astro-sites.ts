@@ -164,7 +164,12 @@ type Measurement = {
   highestHorizonAzimuthDeg: number
 }
 
-/** Where the core stands at its best moment near the reference instant. */
+/**
+ * Where the core stands at its best moment near the reference instant.
+ *
+ * The −90° seed is a sentinel for "never checked a real position", not a
+ * possible answer — `measure()` below refuses to act on it (see there for why).
+ */
 function corePeak(site: { lat: number; lon: number }): { azimuthDeg: number; altitudeDeg: number } {
   let peak = { azimuthDeg: 180, altitudeDeg: -90 }
   for (
@@ -181,7 +186,12 @@ function corePeak(site: { lat: number; lon: number }): { azimuthDeg: number; alt
   return peak
 }
 
-async function measure(): Promise<Measurement[]> {
+/** One upstream tile (atlas or DEM) that failed to resolve during this run. */
+type FetchFailure = { site: string; reason: string }
+
+async function measure(): Promise<{ rows: Measurement[]; fetchFailures: FetchFailure[] }> {
+  const fetchFailures: FetchFailure[] = []
+
   console.log(`Terrarium DEM z${HORIZON_DEM_ZOOM} → ${DEM_CACHE_DIR}`)
   const dem = await terrariumDem({ zoom: HORIZON_DEM_ZOOM, cacheDir: DEM_CACHE_DIR })
   await dem.prefetch(
@@ -189,6 +199,15 @@ async function measure(): Promise<Measurement[]> {
   )
   const tiles = dem.stats()
   console.log(`  ${tiles.tiles} tiles (${tiles.fromCache} cached, ${tiles.missing} unavailable)\n`)
+  // Previously logged and ignored: a missing DEM tile still lets the horizon
+  // math run over incomplete terrain, and the number it produces can land
+  // inside tolerance by luck — an "all PASS" report with silently wrong data.
+  if (tiles.missing > 0) {
+    fetchFailures.push({
+      site: '(DEM prefetch)',
+      reason: `${tiles.missing} of ${tiles.tiles} terrarium DEM tile(s) unavailable`,
+    })
+  }
 
   const measurements: Measurement[] = []
 
@@ -196,6 +215,17 @@ async function measure(): Promise<Measurement[]> {
     console.log(`measuring ${site.name}…`)
     const point = { lat: site.lat, lon: site.lon }
     const peak = corePeak(point)
+
+    // The core's declination is −29°, so above ~61°N it never clears the
+    // horizon and `corePeak` returns its −90° sentinel unchanged. Feeding that
+    // into `fetchSkyglow` would ray-march a direction under the ground and
+    // write a confident, meaningless number into committed data — the same
+    // reasoning `GET /astro/skyglow` 422s on at runtime (`routes/astro.ts`).
+    if (peak.altitudeDeg <= 0) {
+      throw new Error(
+        `${site.id}: the galactic core never clears the horizon here (peaks at ${peak.altitudeDeg.toFixed(1)}°) — refusing to generate garbage skyglow data for it.`,
+      )
+    }
 
     const [pollution, skyglow] = await Promise.all([
       fetchLightPollution({ ...point, year: LATEST_LORENZ_YEAR }),
@@ -206,8 +236,20 @@ async function measure(): Promise<Measurement[]> {
         coreAltitudeDeg: peak.altitudeDeg,
       }),
     ])
-    if (!pollution) throw new Error(`no atlas data for ${site.id} — is the upstream reachable?`)
-    if (!skyglow) throw new Error(`no skyglow for ${site.id} — is the upstream reachable?`)
+    if (!pollution) {
+      fetchFailures.push({ site: site.id, reason: 'light-pollution atlas tile unavailable' })
+      continue
+    }
+    if (!skyglow) {
+      fetchFailures.push({ site: site.id, reason: 'skyglow march tile(s) unavailable' })
+      continue
+    }
+    if (pollution.trend10yPercent === null) {
+      fetchFailures.push({
+        site: site.id,
+        reason: 'baseline (2016) atlas tile unavailable for trend',
+      })
+    }
 
     const profile = horizonProfile({ sampler: dem.sampler, site: point })
     const south = southernHorizon(profile)
@@ -234,7 +276,16 @@ async function measure(): Promise<Measurement[]> {
     })
   }
 
-  return measurements
+  return { rows: measurements, fetchFailures }
+}
+
+function printFetchFailures(failures: FetchFailure[]): void {
+  if (failures.length === 0) return
+  console.log('\n── fetch failures (checked independently of acceptance) ────────────────')
+  for (const failure of failures) console.log(`FAIL  ${pad(failure.site, 20)}${failure.reason}`)
+  console.log(
+    `\n${failures.length} fetch failure(s) — a network blip, not a modelling regression. Re-run once the upstream is healthy; this alone fails the run regardless of the acceptance table above.`,
+  )
 }
 
 // ── Output ───────────────────────────────────────────────────────────────
@@ -434,15 +485,22 @@ function printAcceptance(checks: Check[]): number {
 // ── Main ─────────────────────────────────────────────────────────────────
 
 const computedOn = new Date().toISOString().slice(0, 10)
-const rows = await measure()
+const { rows, fetchFailures } = await measure()
 
 printTable(rows)
 printLiteral(rows, computedOn)
-const failed = printAcceptance(acceptance(rows))
+const acceptanceFailed = printAcceptance(acceptance(rows))
+printFetchFailures(fetchFailures)
 
 console.log(`\nAtlas vintage ${LATEST_LORENZ_YEAR}; computed on ${computedOn} (UTC).`)
 console.log(`Core geometry pinned to ${REFERENCE_INSTANT.toISOString()} ±${PEAK_SEARCH_HOURS} h.`)
 
-// Explicit, because the OTel batch processor keeps a timer alive and would
-// otherwise hold the process open long after the numbers are printed.
-process.exit(failed === 0 ? 0 : 1)
+// Fetch failures fail the run on their OWN, independent of the acceptance
+// table: the whole premise of committing this script's output is that it is
+// trustworthy, and a transient upstream blip must never be indistinguishable
+// from a clean "all PASS" run just because the numbers it produced happened
+// to land inside tolerance anyway.
+//
+// Explicit exit, because the OTel batch processor keeps a timer alive and
+// would otherwise hold the process open long after the numbers are printed.
+process.exit(acceptanceFailed === 0 && fetchFailures.length === 0 ? 0 : 1)

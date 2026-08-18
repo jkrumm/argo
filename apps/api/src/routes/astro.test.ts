@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { Elysia } from 'elysia'
+import { createHash } from 'node:crypto'
 import type { AstroUpstreams, CloudSeries, TransparencySeries } from '../clients/astro-upstreams.js'
 import type { LightPollutionPoint, LpTileImage, SkyglowResult } from '../clients/lorenz-atlas.js'
 import { ASTRO_SITE_MEASUREMENTS } from '../lib/astro-sites.js'
@@ -92,11 +93,15 @@ function skyglowResult(overrides: Partial<SkyglowResult> = {}): SkyglowResult {
  * actually produced. The encoding itself is pinned in `../lib/lp-tile.test.ts`.
  */
 function lpTileImage(overrides: Partial<LpTileImage> = {}): LpTileImage {
+  const png = overrides.png ?? renderLpTilePng({ x: 135, y: 89, z: 8, sampler: () => 21.55 })
   return {
-    png: renderLpTilePng({ x: 135, y: 89, z: 8, sampler: () => 21.55 }),
+    png,
     year: 2025,
     tilesRequested: 4,
     tilesResolved: 4,
+    // Same derivation the client uses — the route now reads `tile.etag`
+    // straight off the deps result instead of hashing it itself.
+    etag: `"${createHash('sha256').update(png).digest('hex').slice(0, 32)}"`,
     ...overrides,
   }
 }
@@ -520,6 +525,21 @@ describe('GET /astro/light-pollution', () => {
     expect(calls.lightPollution).toHaveLength(0)
   })
 
+  it('422s on lat without lon rather than silently answering for Munich', async () => {
+    const { app, calls } = build()
+    const { status, body } = await get(app, '/astro/light-pollution?lat=48.1')
+    expect(status).toBe(422)
+    expect(body).toContain('lat and lon')
+    expect(calls.lightPollution).toHaveLength(0)
+  })
+
+  it('422s on lon without lat', async () => {
+    const { app, calls } = build()
+    const { status } = await get(app, '/astro/light-pollution?lon=11.5')
+    expect(status).toBe(422)
+    expect(calls.lightPollution).toHaveLength(0)
+  })
+
   it('502s when the atlas is unreachable — there is nothing to degrade to', async () => {
     const { app } = build({ lightPollution: async () => null })
     const { status, body } = await get(app, '/astro/light-pollution')
@@ -590,6 +610,21 @@ describe('GET /astro/skyglow', () => {
   it('404s on an unknown site', async () => {
     const { app } = build()
     expect((await get(app, '/astro/skyglow?site=nowhere')).status).toBe(404)
+  })
+
+  it('422s on lat without lon rather than silently answering for Munich', async () => {
+    const { app, calls } = build()
+    const { status, body } = await get(app, '/astro/skyglow?lat=48.1')
+    expect(status).toBe(422)
+    expect(body).toContain('lat and lon')
+    expect(calls.skyglow).toHaveLength(0)
+  })
+
+  it('422s on lon without lat', async () => {
+    const { app, calls } = build()
+    const { status } = await get(app, '/astro/skyglow?lon=11.5')
+    expect(status).toBe(422)
+    expect(calls.skyglow).toHaveLength(0)
   })
 
   it('502s when the atlas is unreachable', async () => {

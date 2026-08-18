@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Checkbox, Drawer, Radio, Slider, Stack, Text } from '@mantine/core'
+import { Checkbox, Drawer, Radio, Slider, Stack, Text, VisuallyHidden } from '@mantine/core'
 import { SettingsSection } from 'basalt-ui'
 import {
   BASE_LAYERS,
@@ -91,7 +91,14 @@ export function MapSettingsDrawer({
           title="Base map"
           description="One at a time — the base is the whole style, not an overlay."
         >
-          <Radio.Group value={state.base} onChange={handleBase}>
+          <Radio.Group
+            value={state.base}
+            onChange={handleBase}
+            // `SettingsSection`'s own title above renders the visible "Base map" heading; this
+            // label is for the accessibility tree only — Mantine wires it to the group via
+            // `aria-labelledby` regardless of whether it is rendered visibly.
+            label={<VisuallyHidden>Base map</VisuallyHidden>}
+          >
             <Stack gap="xs">
               {BASE_LAYERS.map((entry) => (
                 <Radio
@@ -117,7 +124,11 @@ export function MapSettingsDrawer({
                 base back to the map style.
               </Text>
             )}
-            <Radio.Group value={formatLpParam(state.lpYear)} onChange={handleLp}>
+            <Radio.Group
+              value={formatLpParam(state.lpYear)}
+              onChange={handleLp}
+              label={<VisuallyHidden>Light pollution</VisuallyHidden>}
+            >
               <Stack gap="xs">
                 {LP_YEARS.toReversed().map((year) => (
                   <Radio
@@ -150,6 +161,7 @@ export function MapSettingsDrawer({
                   />
                   {selection !== undefined && (
                     <OpacitySlider
+                      label={entry.label}
                       value={selection.opacity}
                       onCommit={(opacity) => handleOpacity(entry.id, opacity)}
                     />
@@ -178,7 +190,15 @@ export function MapSettingsDrawer({
  * other half of an exclusivity flip), which is the documented derive-state-during-render pattern
  * rather than an effect.
  */
-function OpacitySlider({ value, onCommit }: { value: number; onCommit: (next: number) => void }) {
+function OpacitySlider({
+  label,
+  value,
+  onCommit,
+}: {
+  label: string
+  value: number
+  onCommit: (next: number) => void
+}) {
   const percent = Math.round(value * 100)
   const [draft, setDraft] = useState(percent)
   const [committed, setCommitted] = useState(percent)
@@ -196,7 +216,9 @@ function OpacitySlider({ value, onCommit }: { value: number; onCommit: (next: nu
       max={100}
       step={OPACITY_STEP}
       label={(current) => `${current}%`}
-      aria-label="Layer opacity"
+      // Per-layer, not the static "Layer opacity": with two overlays active a
+      // shared label would announce two identically-named sliders.
+      aria-label={`${label} opacity`}
     />
   )
 }

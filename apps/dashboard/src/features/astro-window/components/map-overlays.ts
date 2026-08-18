@@ -2,7 +2,7 @@ import type { AddLayerObject, Map as MapLibreMap } from 'maplibre-gl'
 import {
   BASE_STACK_INDEX,
   baseLayer,
-  LP_ATTRIBUTION,
+  lpAttribution,
   LP_RAMP,
   LP_STACK_INDEX,
   lpTileUrl,
@@ -37,7 +37,18 @@ const OWN_PREFIX = 'argo-'
 
 const lpLayerId = (year: number) => `${OWN_PREFIX}lp-${year}`
 const weatherLayerId = (id: WeatherLayerId) => `${OWN_PREFIX}wx-${id}`
-const radarFrameLayerId = (index: number) => `${OWN_PREFIX}wx-radar-${index}`
+
+/**
+ * The `time` is baked into the id, not just the index. `installOverlays` decides what to add/keep
+ * by comparing ids against its `wanted` set — if a recomputed `radarTimes` (the clock moving on
+ * while `radarActive` stays true) kept the same index-only ids, the OLD sources would look
+ * "already wanted" and never get swept, so the map would keep rendering frames whose baked-in
+ * `&time=` disagrees with whatever a clock label next to it now shows. Folding `time` into the id
+ * makes that mismatch structurally impossible: a new batch of times is a new set of ids, so the
+ * stale ones fall out of `wanted` and get removed like any other overlay change.
+ */
+const radarFrameLayerId = (index: number, time: string) =>
+  `${OWN_PREFIX}wx-radar-${index}-${time.replace(/[:.]/g, '-')}`
 
 // ── The light-pollution ramp ───────────────────────────────────────────────
 
@@ -173,7 +184,7 @@ function desiredStack(state: OverlayState): StackEntry[] {
         minzoom: 5,
         maxzoom: 9,
         encoding: 'terrarium',
-        attribution: LP_ATTRIBUTION,
+        attribution: lpAttribution(state.lpYear),
       },
       layer: {
         id,
@@ -206,7 +217,7 @@ function desiredStack(state: OverlayState): StackEntry[] {
       state.radarTimes.forEach((time, index) => {
         stack.push(
           rasterEntry({
-            id: radarFrameLayerId(index),
+            id: radarFrameLayerId(index, time),
             stackIndex: entry.stackIndex,
             tiles: [wmsTileUrl({ host: entry.host, layer: entry.wmsLayer, time })],
             attribution: entry.attribution,
@@ -342,8 +353,8 @@ export function paintOverlays(map: MapLibreMap, state: OverlayState, radarFrame:
     if (entry === undefined) continue
 
     if (entry.animated) {
-      state.radarTimes.forEach((_, index) => {
-        const id = radarFrameLayerId(index)
+      state.radarTimes.forEach((time, index) => {
+        const id = radarFrameLayerId(index, time)
         if (map.getLayer(id) === undefined) return
         map.setPaintProperty(id, 'raster-opacity', index === radarFrame ? selection.opacity : 0)
       })

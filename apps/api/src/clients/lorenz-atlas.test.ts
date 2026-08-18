@@ -214,7 +214,10 @@ describe('fetchSkyglow', () => {
     expect(tiles).toContain('binary_tile_32_26.dat.gz')
   })
 
-  it('still answers when a neighbouring tile is unavailable', async () => {
+  it('answers in full once every tile the march reaches is available', async () => {
+    // Munich's 120 km march crosses ~0.04° into tile 38:23, west of its own
+    // 39:23 — both are now committed fixtures (see the README), so a healthy
+    // upstream resolves the whole march.
     const { fetchImpl } = fixtureFetch()
     const result = await fetchSkyglow({ ...MUNICH, ...core }, { fetchImpl })
 
@@ -223,6 +226,21 @@ describe('fetchSkyglow', () => {
     expect(result?.profile.azimuths).toHaveLength(72)
     expect(result?.profile.mpsas).toHaveLength(result?.profile.altitudes.length ?? 0)
     expect(result?.core.domePenaltyMag).toBeGreaterThan(0)
+  })
+
+  it('refuses a partial march instead of scoring a missing sector as darkness', async () => {
+    // Serves every fixture EXCEPT tile 38:23 — the one neighbour Munich's march
+    // needs beyond its own site tile. A pre-fix `fetchSkyglow` would silently
+    // skip the NaN samples from the missing tile and answer anyway, reading the
+    // unfetched sector as pristine sky rather than as a failed upstream.
+    const { fetchImpl: base } = fixtureFetch()
+    const fetchImpl: FetchImpl = async (input) => {
+      if (hrefOf(input).includes('binary_tile_38_23'))
+        return new Response('not found', { status: 404 })
+      return base(input)
+    }
+
+    expect(await fetchSkyglow({ ...MUNICH, ...core }, { fetchImpl })).toBeNull()
   })
 
   it('returns null instead of throwing when the upstream errors', async () => {
@@ -253,24 +271,43 @@ describe('fetchLpTile', () => {
 
   it('enumerates every atlas tile a z5 map tile touches, not just its corners', async () => {
     const { fetchImpl, calls } = anyTileFetch()
-    // x=3 y=16 is the measured worst case on the globe: a z5 tile spans ~11° of
-    // longitude, which is more than two 5° atlas tiles, so a corner-only
-    // enumeration would silently drop the columns in between.
+    // x=3 y=16: a z5 tile spans ~11° of longitude, which is more than two 5°
+    // atlas tiles, so a corner-only enumeration (at most 4 distinct tiles) would
+    // silently drop the columns in between. This particular tile's box also
+    // lands its northern edge exactly on the equator — a 5° atlas graticule —
+    // so `tileSpanSamples`'s boundary fix (see its docstring) correctly drops
+    // the tile just north of it, landing on 9 rather than a pre-fix 16.
     const tile = await fetchLpTile({ x: 3, y: 16, z: 5 }, { fetchImpl })
 
-    expect(tile?.tilesRequested).toBe(16)
-    expect(tile?.tilesResolved).toBe(16)
-    expect(new Set(calls).size).toBe(16)
+    expect(tile?.tilesRequested).toBe(9)
+    expect(tile?.tilesResolved).toBe(9)
+    expect(new Set(calls).size).toBe(9)
     expect([...(tile?.png.subarray(0, 8) ?? [])]).toEqual([
       0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
     ])
+  })
+
+  it('does not request the tile on the far side of the date line for the easternmost z5 column', async () => {
+    const { fetchImpl, calls } = anyTileFetch()
+    // x=31 is the LAST column at z5 (n = 2^5 = 32): `tileBounds` puts its
+    // `maxLon` at exactly 180, which `locateTile` resolves to tx=1 — the tile
+    // bordering the date line from the WEST, on the far side from this tile's
+    // real span of [168.75°, 180°). y=18 is picked to avoid the equator's own
+    // coincidental 5°-graticule alignment, so this pins the longitude fix in
+    // isolation.
+    const tile = await fetchLpTile({ x: 31, y: 18, z: 5 }, { fetchImpl })
+
+    expect(tile?.tilesRequested).toBe(9)
+    expect(tile?.tilesResolved).toBe(9)
+    expect(new Set(calls).size).toBe(9)
+    expect(calls.some((href) => /binary_tile_1_\d+\.dat\.gz$/.test(href))).toBe(false)
   })
 
   it('serves a repeat render from the PNG cache without re-reading a single grid', async () => {
     const { fetchImpl, calls } = anyTileFetch()
     const first = await fetchLpTile({ x: 3, y: 16, z: 5 }, { fetchImpl })
     const afterFirst = calls.length
-    expect(afterFirst).toBe(16)
+    expect(afterFirst).toBe(9)
 
     const second = await fetchLpTile({ x: 3, y: 16, z: 5 }, { fetchImpl })
     expect(calls.length).toBe(afterFirst)
@@ -279,18 +316,19 @@ describe('fetchLpTile', () => {
   })
 
   it('does NOT cache a partial render, so the missing tiles get another chance', async () => {
-    // The committed fixture set covers 39:23 only, so this Munich z5 tile
-    // resolves 1 of 6 — exactly the partial case.
+    // The committed fixture set covers 39:23 and 40:23 (the latter added for the
+    // skyglow march fixtures), so this Munich z5 tile resolves 2 of 6 — still
+    // exactly the partial case.
     const { fetchImpl, calls } = fixtureFetch()
     const first = await fetchLpTile({ x: 17, y: 11, z: 5 }, { fetchImpl })
     expect(first?.tilesRequested).toBe(6)
-    expect(first?.tilesResolved).toBe(1)
+    expect(first?.tilesResolved).toBe(2)
 
     calls.length = 0
     const second = await fetchLpTile({ x: 17, y: 11, z: 5 }, { fetchImpl })
-    // The 5 that failed are retried; the 1 that worked is still grid-cached.
-    expect(calls).toHaveLength(5)
-    expect(second?.tilesResolved).toBe(1)
+    // The 4 that failed are retried; the 2 that worked are still grid-cached.
+    expect(calls).toHaveLength(4)
+    expect(second?.tilesResolved).toBe(2)
   })
 
   it('one low-zoom render does not evict the grids the point lookups live on', async () => {
@@ -298,8 +336,9 @@ describe('fetchLpTile', () => {
     await fetchSkyglow({ ...MUNICH, coreAzimuthDeg: 180, coreAltitudeDeg: 13 }, { fetchImpl })
     calls.length = 0
 
-    // 16 grids at once — more than the old 12-entry cap, which flushed the
-    // astro engine's own tiles and sent /astro/skyglow back to the network.
+    // 9 grids at once — a render this size used to flush the astro engine's own
+    // tiles under the old 12-entry cap, sending /astro/skyglow back to the
+    // network; CACHE_MAX_ENTRIES=32 is sized to keep both working sets resident.
     await fetchLpTile({ x: 3, y: 16, z: 5 }, { fetchImpl })
     calls.length = 0
 

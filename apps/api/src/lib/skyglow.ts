@@ -57,7 +57,30 @@ export const PROFILE_ALTITUDES = [5, 8, 10, 13, 15, 20, 30] as const
 /** The altitude the dominant-direction call is made at — the light-dome peak (§2.3). */
 const DOMINANT_ALTITUDE_DEG = 10
 
-const KM_PER_DEG_LAT = 111.32
+// `skyglowProfile`'s `dominant` search below only fires on an EXACT altitude
+// match against this constant, so retuning `PROFILE_ALTITUDES` without keeping
+// this row in it would silently leave `dominant.mpsas` at its `Infinity` seed
+// forever — `JSON.stringify` turns that into `null`, and the route's response
+// schema (`z.number()`) then 500s on a one-line constant edit. Asserted here,
+// at module load, instead of tracking the max over the nearest altitude row:
+// "dominant direction" is defined as the reading AT the light-dome peak
+// altitude, not at whichever row happens to be closest, so silently
+// substituting a neighbour would change the figure's meaning, not just its
+// availability.
+if (!(PROFILE_ALTITUDES as readonly number[]).includes(DOMINANT_ALTITUDE_DEG)) {
+  throw new Error(
+    `DOMINANT_ALTITUDE_DEG (${DOMINANT_ALTITUDE_DEG}) must be one of PROFILE_ALTITUDES`,
+  )
+}
+
+/**
+ * Kilometres per degree of latitude. Exported because `../clients/lorenz-atlas.ts`
+ * uses the SAME figure to decide which tiles to prefetch for the exact march this
+ * module performs — a private, drifted copy there would silently stop covering
+ * the march path (a retune here would then read as a missing-tile bug, not a
+ * one-line constant edit).
+ */
+export const KM_PER_DEG_LAT = 111.32
 const EARTH_RADIUS_KM = 6371
 const AIRGLOW_LAYER_KM = 90
 
@@ -154,11 +177,6 @@ export function vanRhijnAirglow(altitudeDeg: number, layerKm = AIRGLOW_LAYER_KM)
   return 1 / Math.sqrt(1 - Math.pow(ratio * Math.sin(zenithAngle), 2))
 }
 
-/** Relative optical airmass, Kasten & Young 1989. ~4.3 at the 13° core altitude (§4). */
-export function relativeAirmass(altitudeDeg: number): number {
-  return 1 / (Math.sin(toRadians(altitudeDeg)) + 0.50572 * Math.pow(altitudeDeg + 6.07995, -1.6364))
-}
-
 export type SkyglowProfile = {
   azimuths: number[]
   altitudes: number[]
@@ -178,19 +196,25 @@ export type SkyglowProfile = {
  * which is the site's own atlas cell. It is kept anyway because it states the
  * intent and stays correct if the kernel ever changes. It is a no-op, not a bug;
  * do not "fix" it away.
+ *
+ * Exported so a caller that needs BOTH `skyglowProfile` and `coreDirectionGlow`
+ * for the same site — `fetchSkyglow` does, every request — can compute this
+ * once and hand the result to both instead of re-marching the (degenerate but
+ * not free) zenith ray twice.
  */
-function calibration(args: {
+export function computeCalibration(args: {
   sampler: LpiSampler
   site: { lat: number; lon: number }
   zenithLpi: number
-  model: SkyglowModel
+  model?: SkyglowModel
 }): number {
+  const model = args.model ?? SKYGLOW_MODEL
   const zenithRay = marchRay({
     sampler: args.sampler,
     site: args.site,
     azimuthDeg: 0,
     altitudeDeg: 90,
-    model: args.model,
+    model,
   })
   // Identity, not zero: the march is already in atlas units, so an uncalibratable
   // site (a genuinely pristine cell reads exactly 0 LPI, and 63% of the Mauna Kea
@@ -206,9 +230,11 @@ export function skyglowProfile(args: {
   site: { lat: number; lon: number }
   zenithLpi: number
   model?: SkyglowModel
+  /** Pre-computed `computeCalibration` result — pass when a caller already has one for this site. */
+  calibration?: number
 }): SkyglowProfile {
   const model = args.model ?? SKYGLOW_MODEL
-  const k = calibration({ ...args, model })
+  const k = args.calibration ?? computeCalibration({ ...args, model })
 
   const azimuths: number[] = []
   for (let az = 0; az < 360; az += PROFILE_AZIMUTH_STEP) azimuths.push(az)
@@ -262,9 +288,11 @@ export function coreDirectionGlow(args: {
   coreAzimuthDeg: number
   coreAltitudeDeg: number
   model?: SkyglowModel
+  /** Pre-computed `computeCalibration` result — pass when a caller already has one for this site. */
+  calibration?: number
 }): CoreDirection {
   const model = args.model ?? SKYGLOW_MODEL
-  const k = calibration({ ...args, model })
+  const k = args.calibration ?? computeCalibration({ ...args, model })
   const artificial =
     k *
     marchRay({

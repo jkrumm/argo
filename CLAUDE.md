@@ -102,7 +102,7 @@ see `docs/archive/`.
 
 - `docs/GARMIN-HEALTH.md` — metric definitions, formulas, composite signals (health page)
 - `docs/ASTRO-WINDOW-BRIEF.md` / `docs/ASTRO-WINDOW-PROGRESS.md` — the astro + marine window planner: the decided design, the measured acceptance numbers, and every decision taken during the build
-- `docs/ASTRO-MAP-RESEARCH.md` — **Phase 1 shipped** (`/astro/light-pollution` + `/astro/skyglow`); the map itself is not built yet. The decision record for the map rebuild: light-pollution sources and their licences, the Lorenz binary-tile decode, a direction-resolved skyglow model that re-orders the site ranking, terrain horizons, aerosols vs 7Timer, inter-model cloud disagreement, and the verified overlay/basemap endpoints. POC scripts in `docs/poc/astro-map/` (lint-excluded) reproduce every number in it
+- `docs/ASTRO-MAP-RESEARCH.md` — **shipped**: `/astro/light-pollution` + `/astro/skyglow` (the point-lookup endpoints), `GET /astro/tiles/lp/{year}/{z}/{x}/{y}.png` (the terrarium-encoded raster tile route the map paints), and the Map tab itself — basemap/imagery catalogue, the light-pollution ramp overlay, live weather layers and the settings drawer. The decision record for the map rebuild: light-pollution sources and their licences, the Lorenz binary-tile decode, a direction-resolved skyglow model that re-orders the site ranking, terrain horizons, aerosols vs 7Timer, inter-model cloud disagreement, and the verified overlay/basemap endpoints. POC scripts in `docs/poc/astro-map/` (lint-excluded) reproduce every number in it
 - `docs/STRENGTH-ANALYTICS.md` — metric definitions, INOL, ACWR, e1RM formulas (strength page)
 
 <!-- basalt:begin 1.13.0 -->

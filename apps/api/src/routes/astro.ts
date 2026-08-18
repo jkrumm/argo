@@ -1,5 +1,4 @@
 import { Elysia } from 'elysia'
-import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import {
   cloudAt,
@@ -386,11 +385,19 @@ const SkyglowResponseSchema = z.object({
   profile: SkyglowProfileSchema,
   model: z
     .object({
-      hScatKm: z.number(),
-      rangeKm: z.number(),
-      stepKm: z.number(),
-      coreRadiusKm: z.number(),
-      falloffExponent: z.number(),
+      hScatKm: z
+        .number()
+        .describe('Scattering scale height, km — how fast ground glow fades with altitude'),
+      rangeKm: z.number().describe('How far the ray-march reaches outward from the site, km'),
+      stepKm: z.number().describe('Distance between samples along each march ray, km'),
+      coreRadiusKm: z
+        .number()
+        .describe(
+          "The march's r0, km — keeps the site's own cell from behaving like a point source overhead",
+        ),
+      falloffExponent: z
+        .number()
+        .describe('Exponent on the `1 + (r/coreRadiusKm)^falloffExponent` falloff term'),
     })
     .describe('The ray-march kernel the numbers came out of — echoed so a result is reproducible'),
   source: z.string(),
@@ -454,10 +461,6 @@ const LP_TILE_CACHE_CONTROL = 'private, max-age=2592000, stale-while-revalidate=
  */
 const LP_TILE_PARTIAL_CACHE_CONTROL = 'no-store'
 
-function lpTileEtag(png: Uint8Array<ArrayBuffer>): string {
-  return `"${createHash('sha256').update(png).digest('hex').slice(0, 32)}"`
-}
-
 export type AstroRouteDeps = {
   fetchUpstreams: typeof fetchAstroUpstreams
   lightPollution: typeof fetchLightPollution
@@ -508,6 +511,23 @@ function resolveAtlasPlace(query: {
     timeZone: DEFAULT_SITE.timeZone,
     siteId: DEFAULT_SITE.id,
   }
+}
+
+/**
+ * `lat` and `lon` are only meaningful together — a lone one would otherwise
+ * fall through `resolveAtlasPlace` to whichever fallback comes next (a named
+ * site, or Munich), and these two endpoints' entire output is coordinate-
+ * specific: a confidently wrong place is worse than a 422 naming the mistake.
+ *
+ * `GET /astro/window`'s `resolvePlace` deliberately keeps its own historical
+ * fallback chain (`site` > `lat`+`lon` > `city` > Munich) — this check is
+ * scoped to the two atlas point-lookup endpoints only.
+ */
+function hasIncompleteCoordinatePair(query: {
+  lat?: number | undefined
+  lon?: number | undefined
+}): boolean {
+  return (query.lat === undefined) !== (query.lon === undefined)
 }
 
 /**
@@ -1063,6 +1083,9 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
     .get(
       '/light-pollution',
       async ({ query, status }) => {
+        if (hasIncompleteCoordinatePair(query)) {
+          return status(422, 'lat and lon must be provided together.')
+        }
         const place = resolveAtlasPlace(query)
         if (!place) return status(404, `Unknown site "${query.site}". See GET /astro/sites.`)
 
@@ -1084,13 +1107,14 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
         response: {
           200: LightPollutionResponseSchema,
           404: z.string(),
+          422: z.string(),
           502: z.string(),
         },
         detail: {
           tags: ['Astro & Marine'],
           summary: 'Zenith light pollution for a coordinate, from the Lorenz atlas',
           description:
-            "Returns measured ZENITH sky brightness for one point: `lpi` (artificial over natural zenith brightness), `mpsas` (total zenith brightness in mag/arcsec², higher is darker), the Lorenz `0a`..`7b` zone band, and `trend10yPercent` (the change in LPI from the 2016 atlas to the requested year, which runs +25% per decade at some German sites and flat at others). Values come from David J. Lorenz's binary tiles at 30-arcsec resolution; `year` selects the vintage (2016, 2020, 2022, 2023, 2024, 2025 — default the latest). Location resolves `site` > `lat`+`lon` > Munich. A subjective whole-sky darkness class is deliberately NOT offered: those scales are driven mostly by light domes near the horizon, which a zenith map cannot produce, and the atlas author asks explicitly that the two not be conflated. Treat absolute `mpsas` as ±0.2 mag, because the 22.0 mag/arcsec² natural baseline it is measured against is a convention rather than a constant. This endpoint describes the part of the sky a Milky Way frame never contains; for the direction that actually matters use GET /astro/skyglow, and for the full go/no-go verdict use GET /astro/window. Returns 502 when the atlas is unreachable — there is no cached or modelled value to degrade to.",
+            "Returns measured ZENITH sky brightness for one point: `lpi` (artificial over natural zenith brightness), `mpsas` (total zenith brightness in mag/arcsec², higher is darker), the Lorenz `0a`..`7b` zone band, and `trend10yPercent` (the change in LPI from the 2016 atlas to the requested year, which runs +25% per decade at some German sites and flat at others). Values come from David J. Lorenz's binary tiles at 30-arcsec resolution; `year` selects the vintage (2016, 2020, 2022, 2023, 2024, 2025 — default the latest). Location resolves `site` > `lat`+`lon` > Munich. A subjective whole-sky darkness class is deliberately NOT offered: those scales are driven mostly by light domes near the horizon, which a zenith map cannot produce, and the atlas author asks explicitly that the two not be conflated. Treat absolute `mpsas` as ±0.2 mag, because the 22.0 mag/arcsec² natural baseline it is measured against is a convention rather than a constant. This endpoint describes the part of the sky a Milky Way frame never contains; for the direction that actually matters use GET /astro/skyglow, and for the full go/no-go verdict use GET /astro/window. Returns 422 when only one of `lat`/`lon` is given, and 502 when the atlas is unreachable — there is no cached or modelled value to degrade to.",
           security: [{ BearerAuth: [] }],
         },
       },
@@ -1098,6 +1122,9 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
     .get(
       '/skyglow',
       async ({ query, status }) => {
+        if (hasIncompleteCoordinatePair(query)) {
+          return status(422, 'lat and lon must be provided together.')
+        }
         const place = resolveAtlasPlace(query)
         if (!place) return status(404, `Unknown site "${query.site}". See GET /astro/sites.`)
 
@@ -1146,7 +1173,7 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
           tags: ['Astro & Marine'],
           summary: 'Direction-resolved skyglow and the sky brightness where the core actually sits',
           description:
-            'Returns an azimuth × altitude rose of ARTIFICIAL skyglow around one point (`profile.mpsas[altitudeIndex][azimuthIndex]`, azimuths 0–355° in 5° steps, altitudes 5/8/10/13/15/20/30°), the dominant light-dome direction at 10°, and — the number this endpoint exists for — `core.mpsas`: sky brightness in the direction the galactic core peaks on this night, with `core.domePenaltyMag` giving how many magnitudes darker the published zenith figure reads than that direction. It re-orders real sites: the darkest zenith of the four shipped sites loses its lead entirely once the light dome sits where the camera points. Every number is a deterministic ray-march over Lorenz atlas tiles weighted by a scattering kernel (echoed back in `model`); NO model computes any figure here, and the ephemeris behind `coreTime`/`core.azimuthDeg`/`core.altitudeDeg` is the same one GET /astro/window uses. `profile` is artificial glow ALONE — airglow enters only `core.mpsas`, so the rose reads as "what the lights cost me". `date` (YYYY-MM-DD) picks the night and defaults to today in the location timezone; `year` picks the atlas vintage; location resolves `site` > `lat`+`lon` > Munich. Absolute dome penalties move ±0.35 mag across nine kernel variants, but the ORDERING of sites is invariant across all nine — rank with this, do not quote it as a measurement. For the zenith value on its own use GET /astro/light-pollution. Returns 422 above ~61°N, where the core never clears the horizon and there is no direction to measure, and 502 when the atlas is unreachable.',
+            'Returns an azimuth × altitude rose of ARTIFICIAL skyglow around one point (`profile.mpsas[altitudeIndex][azimuthIndex]`, azimuths 0–355° in 5° steps, altitudes 5/8/10/13/15/20/30°), the dominant light-dome direction at 10°, and — the number this endpoint exists for — `core.mpsas`: sky brightness in the direction the galactic core peaks on this night, with `core.domePenaltyMag` giving how many magnitudes darker the published zenith figure reads than that direction. It re-orders real sites: the darkest zenith of the four shipped sites loses its lead entirely once the light dome sits where the camera points. Every number is a deterministic ray-march over Lorenz atlas tiles weighted by a scattering kernel (echoed back in `model`); NO model computes any figure here, and the ephemeris behind `coreTime`/`core.azimuthDeg`/`core.altitudeDeg` is the same one GET /astro/window uses. `profile` is artificial glow ALONE — airglow enters only `core.mpsas`, so the rose reads as "what the lights cost me". `date` (YYYY-MM-DD) picks the night and defaults to today in the location timezone; `year` picks the atlas vintage; location resolves `site` > `lat`+`lon` > Munich. Absolute dome penalties move ±0.35 mag across nine kernel variants, but the ORDERING of sites is invariant across all nine — rank with this, do not quote it as a measurement. For the zenith value on its own use GET /astro/light-pollution. Returns 422 above ~61°N (where the core never clears the horizon and there is no direction to measure) or when only one of `lat`/`lon` is given, and 502 when the atlas is unreachable.',
           security: [{ BearerAuth: [] }],
         },
       },
@@ -1179,7 +1206,7 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
         })
         if (!tile) return status(502, 'Light Pollution Atlas unavailable.')
 
-        const etag = lpTileEtag(tile.png)
+        const etag = tile.etag
         // A partial render must not outlive the request that produced it — see
         // LP_TILE_PARTIAL_CACHE_CONTROL.
         const partial = tile.tilesResolved < tile.tilesRequested

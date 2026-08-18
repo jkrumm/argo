@@ -256,11 +256,16 @@ export default function SiteMap({
   // The radar loop's only per-frame work: one `setPaintProperty` per frame layer. Never a
   // re-add and never a re-request — the frames are already sources, and MapLibre's default
   // paint transition turns the step into a crossfade.
+  //
+  // `overlayState` deliberately stays OUT of the dep array and is read off the ref instead: the
+  // effect above already re-paints on every real `overlayState` change (right after
+  // `installOverlays` syncs the sources/layers it may have just added), so keeping it here too
+  // ran a second, redundant `paintOverlays` pass on every drawer toggle or opacity commit.
   useEffect(() => {
     const map = mapRef.current
     if (!map || !hasStyleLoadedRef.current) return
-    paintOverlays(map, overlayState, frame)
-  }, [frame, overlayState])
+    paintOverlays(map, overlayStateRef.current, frame)
+  }, [frame])
 
   /*
    * The loop itself. Two shutdown paths, both required:
@@ -352,8 +357,18 @@ export default function SiteMap({
     ]
     const fit = () => map.fitBounds(bounds, FIT_BOUNDS_OPTIONS)
     // Same ref, same reason as the markers effect above — not `map.isStyleLoaded()`.
-    if (hasStyleLoadedRef.current) fit()
-    else map.once('style.load', fit)
+    if (hasStyleLoadedRef.current) {
+      fit()
+      return
+    }
+    map.once('style.load', fit)
+    // Symmetric with the markers effect above: a pending `once` listener must be
+    // cancelled on cleanup too, or a remount before the style finishes loading
+    // leaves a stale `fit` closure (over a `bounds` from an earlier `data`)
+    // registered against the map.
+    return () => {
+      map.off('style.load', fit)
+    }
   }, [data])
 
   const closeDrawer = useCallback(() => setDrawerOpen(false), [])
