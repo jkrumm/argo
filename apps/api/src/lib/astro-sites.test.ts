@@ -96,6 +96,7 @@ describe('ASTRO_SITES', () => {
       'coreDirectionMpsas',
       'domePenaltyMag',
       'driveMinutes',
+      'horizonDeg',
       'id',
       'lat',
       'lon',

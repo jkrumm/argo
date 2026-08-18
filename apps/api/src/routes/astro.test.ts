@@ -374,7 +374,14 @@ describe('GET /astro/window — the verdict', () => {
     const { app } = build()
     const { body } = await get(app, '/astro/window?site=alpenvorland&nights=1')
     const ids = body.nights[0].factors.map((f: { id: string }) => f.id)
-    expect(ids).toEqual(['cloud-low', 'transparency', 'cloud-mid', 'core-darkness', 'cloud-high'])
+    expect(ids).toEqual([
+      'cloud-low',
+      'transparency',
+      'cloud-mid',
+      'core-clearance',
+      'core-darkness',
+      'cloud-high',
+    ])
     expect(ids).not.toContain('seeing')
     expect(body.nights[0].coverage).toBe(1)
   })
@@ -398,6 +405,30 @@ describe('GET /astro/window — the verdict', () => {
     const { app, calls } = build()
     await get(app, '/astro/window?nights=10')
     expect(calls.upstreams).toBe(1)
+  })
+
+  it('surfaces the committed skyline and terrain fields for a named site', async () => {
+    const { app } = build()
+    const { body } = await get(app, '/astro/window?site=alpenvorland&nights=1')
+    expect(body.location.southHorizonDeg).toBe(3.8)
+    expect(body.nights[0].peakCoreClearanceDeg).toBeGreaterThan(0)
+    expect(body.detail.hourly.length).toBeGreaterThan(0)
+    for (const point of body.detail.hourly) {
+      expect(typeof point.moonBehindTerrain).toBe('boolean')
+      expect(point.coreClearance === null || typeof point.coreClearance === 'number').toBe(true)
+    }
+  })
+
+  it('has no committed skyline for a raw lat/lon, even one near a known site', async () => {
+    const { app } = build()
+    const { body } = await get(app, '/astro/window?lat=47.60&lon=11.33&nights=1')
+    expect(body.location.siteId).toBeNull()
+    expect(body.location.southHorizonDeg).toBeNull()
+    expect(body.nights[0].peakCoreClearanceDeg).toBeNull()
+    for (const point of body.detail.hourly) {
+      expect(point.coreClearance).toBeNull()
+      expect(point.moonBehindTerrain).toBe(false)
+    }
   })
 })
 

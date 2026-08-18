@@ -40,11 +40,20 @@ import {
   maxCoreAltitude,
   type Observer,
 } from './astro-ephemeris.js'
+import { horizonDegAt } from './terrain-horizon.js'
 
 const MS_PER_MINUTE = 60_000
 
 /** Sun altitude defining astronomical night. */
 export const ASTRO_DARK_SUN_ALTITUDE = -18
+
+/**
+ * Sky the frame needs above the ridge, degrees, added to the measured skyline
+ * to get the per-sample core floor. This is a PHOTOGRAPHIC judgement, not a
+ * measurement (`docs/ASTRO-HORIZON-RESEARCH.md` §7) — the ridge altitude
+ * itself is geometry, but how much clear sky a frame needs above it is taste.
+ */
+export const FRAMING_MARGIN_DEG = 2
 
 /**
  * Observer elevation fed to the ephemeris, metres. Kept at sea level: the API
@@ -64,6 +73,14 @@ export type NightOptions = {
   minCoreAltitude: number
   /** Sample spacing in minutes. Default 5. */
   stepMinutes?: number
+  /**
+   * The site's committed skyline, degrees per azimuth ascending from 0°. When present
+   * the core floor becomes `max(minCoreAltitude, skyline(coreAzimuth) + framingMarginDeg)`
+   * per sample, and the moon counts as down when it is below the skyline at its own azimuth.
+   */
+  horizonDeg?: readonly number[] | undefined
+  /** Sky the frame needs above the ridge, degrees. Default {@link FRAMING_MARGIN_DEG}. */
+  framingMarginDeg?: number | undefined
 }
 
 export type NightSample = {
@@ -76,10 +93,20 @@ export type NightSample = {
   sunAltitude: number
   /** Apparent (refracted, topocentric) moon altitude, degrees. */
   moonAltitude: number
+  /** Moon azimuth, degrees from north through east. */
+  moonAzimuth: number
   /** True when the sun is below −18°. */
   astroDark: boolean
-  /** True when the core clears `minCoreAltitude`. */
+  /** True when the core clears the per-sample floor (`minCoreAltitude`, or the measured ridge plus framing margin when a profile was supplied). */
   coreUp: boolean
+  /** Skyline altitude at `coreAzimuth`, degrees. NaN when no profile was supplied. */
+  terrainAtCore: number
+  /** `coreAltitude − terrainAtCore`. NaN without a profile. */
+  coreClearance: number
+  /** Skyline altitude at `moonAzimuth`, degrees. NaN without a profile. */
+  terrainAtMoon: number
+  /** True when the moon is ABOVE 0° but BELOW the skyline at its own azimuth. */
+  moonBehindTerrain: boolean
 }
 
 export type ShootingWindow = {
@@ -94,6 +121,8 @@ export type ShootingWindow = {
   peakCoreAzimuth: number
   /** Highest moon altitude inside the window, degrees. Negative = moon down throughout. */
   maxMoonAltitude: number
+  /** Tightest `coreClearance` inside the window, degrees — how close the ridge came. NaN without a profile. */
+  minCoreClearance: number
 }
 
 export type AstroNight = {
@@ -126,6 +155,8 @@ export type AstroNight = {
   window: ShootingWindow | null
   /** The full sampling grid, for charting and for the caller to downsample. */
   samples: NightSample[]
+  /** Highest `coreClearance` across samples that are astronomically dark. Null without a profile. */
+  peakCoreClearance: number | null
 }
 
 /** Offset of `timeZone` from UTC, in minutes, at `date`. */
@@ -218,11 +249,25 @@ export function sunAltitudeDeg(time: Date, observer: Observer): number {
   return Horizon(time, astroObserver, equatorial.ra, equatorial.dec).altitude
 }
 
-/** Apparent topocentric moon altitude in degrees, refraction included. */
-export function moonAltitudeDeg(time: Date, observer: Observer): number {
+/**
+ * Apparent topocentric moon horizontal coordinates, refraction included —
+ * altitude AND azimuth from the same `Horizon()` call, so a caller that needs
+ * both (comparing the moon against the terrain at its own azimuth) never
+ * risks the two coming from different instants.
+ */
+export function moonHorizontal(
+  time: Date,
+  observer: Observer,
+): { altitude: number; azimuth: number } {
   const astroObserver = toAstroObserver(observer)
   const equatorial = Equator(Body.Moon, time, astroObserver, true, true)
-  return Horizon(time, astroObserver, equatorial.ra, equatorial.dec, 'normal').altitude
+  const horizontal = Horizon(time, astroObserver, equatorial.ra, equatorial.dec, 'normal')
+  return { altitude: horizontal.altitude, azimuth: horizontal.azimuth }
+}
+
+/** Apparent topocentric moon altitude in degrees, refraction included. */
+export function moonAltitudeDeg(time: Date, observer: Observer): number {
+  return moonHorizontal(time, observer).altitude
 }
 
 /**
@@ -267,7 +312,18 @@ export function moonPhaseDeg(time: Date): number {
  */
 export function resolveNight(options: NightOptions): AstroNight {
   const { observer, timeZone, date, minCoreAltitude } = options
+  /*
+   * Length-checked, not truthiness-checked: `[]` is truthy, `horizonDegAt`
+   * returns NaN for it, and `Math.max(floor, NaN)` is NaN — so every
+   * `coreAltitude > coreFloor` would read false and the site would silently
+   * report no usable night, ever, with no error anywhere.
+   */
+  const horizonDeg =
+    options.horizonDeg !== undefined && options.horizonDeg.length > 0
+      ? options.horizonDeg
+      : undefined
   const stepMinutes = options.stepMinutes ?? 5
+  const framingMarginDeg = options.framingMarginDeg ?? FRAMING_MARGIN_DEG
   const { year, month, day } = parseIsoDate(date)
   const astroObserver = toAstroObserver(observer)
 
@@ -315,20 +371,41 @@ export function resolveNight(options: NightOptions): AstroNight {
     const time = new Date(t)
     const core = galacticCorePosition(observer, time)
     const sunAltitude = sunAltitudeDeg(time, observer)
-    const moonAltitude = moonAltitudeDeg(time, observer)
+    const moon = moonHorizontal(time, observer)
     const inDark =
       darkStart !== null &&
       darkEnd !== null &&
       time.getTime() >= darkStart.getTime() &&
       time.getTime() <= darkEnd.getTime()
+
+    // Terrain-aware fields are NaN whole-night when no profile was supplied —
+    // `horizonDegAt` never runs, so there is nothing to compare against.
+    const terrainAtCore = horizonDeg ? horizonDegAt(horizonDeg, core.azimuth) : Number.NaN
+    const coreClearance = horizonDeg ? core.altitude - terrainAtCore : Number.NaN
+    const terrainAtMoon = horizonDeg ? horizonDegAt(horizonDeg, moon.azimuth) : Number.NaN
+    // Strictly ABOVE 0° and below the ridge — below 0° the earth already did
+    // the work, and crediting terrain there would count something it did not do.
+    const moonBehindTerrain = horizonDeg
+      ? moon.altitude > 0 && moon.altitude < terrainAtMoon
+      : false
+
+    const coreFloor = horizonDeg
+      ? Math.max(minCoreAltitude, terrainAtCore + framingMarginDeg)
+      : minCoreAltitude
+
     samples.push({
       time,
       coreAltitude: core.altitude,
       coreAzimuth: core.azimuth,
       sunAltitude,
-      moonAltitude,
+      moonAltitude: moon.altitude,
+      moonAzimuth: moon.azimuth,
       astroDark: inDark,
-      coreUp: core.altitude > minCoreAltitude,
+      coreUp: core.altitude > coreFloor,
+      terrainAtCore,
+      coreClearance,
+      terrainAtMoon,
+      moonBehindTerrain,
     })
   }
 
@@ -351,7 +428,18 @@ export function resolveNight(options: NightOptions): AstroNight {
     moonSet,
     window: shootRun ? summarizeWindow(samples, shootRun) : null,
     samples,
+    peakCoreClearance: peakCoreClearanceInDarkness(samples),
   }
+}
+
+/** Highest `coreClearance` across samples that are astronomically dark. Null without a profile. */
+function peakCoreClearanceInDarkness(samples: NightSample[]): number | null {
+  let peak: number | null = null
+  for (const sample of samples) {
+    if (!sample.astroDark || Number.isNaN(sample.coreClearance)) continue
+    if (peak === null || sample.coreClearance > peak) peak = sample.coreClearance
+  }
+  return peak
 }
 
 function clampToSpan(date: Date | null, start: Date, end: Date): Date | null {
@@ -387,10 +475,15 @@ function longestRun(samples: NightSample[], predicate: (s: NightSample) => boole
 function summarizeWindow(samples: NightSample[], run: Run): ShootingWindow {
   let peak = samples[run.startIndex]!
   let maxMoonAltitude = -90
+  // Sentinel stays +Infinity, converted to NaN below, when every sample in
+  // the run has NaN clearance (no profile) — `NaN < Infinity` is false, so
+  // it never gets overwritten by a real comparison.
+  let minCoreClearance = Number.POSITIVE_INFINITY
   for (let i = run.startIndex; i <= run.endIndex; i++) {
     const sample = samples[i]!
     if (sample.coreAltitude > peak.coreAltitude) peak = sample
     if (sample.moonAltitude > maxMoonAltitude) maxMoonAltitude = sample.moonAltitude
+    if (sample.coreClearance < minCoreClearance) minCoreClearance = sample.coreClearance
   }
   return {
     start: run.start,
@@ -400,6 +493,7 @@ function summarizeWindow(samples: NightSample[], run: Run): ShootingWindow {
     peakTime: peak.time,
     peakCoreAzimuth: peak.coreAzimuth,
     maxMoonAltitude,
+    minCoreClearance: Number.isFinite(minCoreClearance) ? minCoreClearance : Number.NaN,
   }
 }
 

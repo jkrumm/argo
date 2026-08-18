@@ -6,6 +6,7 @@ import {
   NEAR_FIELD_M,
   SOUTH_ARC,
   horizonAt,
+  horizonDegAt,
   horizonProfile,
   southernHorizon,
   terrariumElevation,
@@ -216,5 +217,28 @@ describe('horizonAt', () => {
     const profile = [point(355, 10), point(0, 20)]
     expect(horizonAt(profile, -1)).toBeCloseTo(horizonAt(profile, 359), 10)
     expect(horizonAt(profile, 361)).toBeCloseTo(horizonAt(profile, 1), 10)
+  })
+})
+
+describe('horizonDegAt', () => {
+  // A regular 72-point profile at HORIZON_AZIMUTH_STEP_DEG spacing, exactly
+  // the shape `AstroSite.horizonDeg` ships — same data fed to both functions
+  // via the two representations, so any divergence is a real bug.
+  const flatDeg = Array.from({ length: 72 }, (_, i) => Math.sin((i * Math.PI) / 36) * 10)
+  const profile = flatDeg.map((altitudeDeg, i) => point(i * HORIZON_AZIMUTH_STEP_DEG, altitudeDeg))
+
+  it('agrees with horizonAt on the same data, at samples and in between', () => {
+    for (const az of [0, 2.5, 5, 47.5, 180, 357.5, 359.9]) {
+      expect(horizonDegAt(flatDeg, az)).toBeCloseTo(horizonAt(profile, az), 10)
+    }
+  })
+
+  it('wraps across 355°→0° the same way horizonAt does', () => {
+    expect(horizonDegAt(flatDeg, -1)).toBeCloseTo(horizonAt(profile, -1), 10)
+    expect(horizonDegAt(flatDeg, 361)).toBeCloseTo(horizonAt(profile, 361), 10)
+  })
+
+  it('returns NaN for an empty array', () => {
+    expect(horizonDegAt([], 90)).toBeNaN()
   })
 })

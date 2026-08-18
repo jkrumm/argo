@@ -40,9 +40,11 @@ import { galacticCorePosition } from '../src/lib/astro-ephemeris.js'
 import { ASTRO_SITES } from '../src/lib/astro-sites.js'
 import { LATEST_LORENZ_YEAR } from '../src/lib/lorenz-decode.js'
 import {
+  HORIZON_AZIMUTH_STEP_DEG,
   HORIZON_DEM_ZOOM,
   HORIZON_RANGE_M,
   horizonProfile,
+  SOUTH_ARC,
   southernHorizon,
 } from '../src/lib/terrain-horizon.js'
 import { terrariumDem } from './terrarium-dem.js'
@@ -162,6 +164,8 @@ type Measurement = {
   siteElevationM: number
   highestHorizonDeg: number
   highestHorizonAzimuthDeg: number
+  /** The committed skyline: far-band altitude per azimuth, ascending from 0°, 2 dp. */
+  horizonDeg: number[]
 }
 
 /**
@@ -254,6 +258,11 @@ async function measure(): Promise<{ rows: Measurement[]; fetchFailures: FetchFai
     const profile = horizonProfile({ sampler: dem.sampler, site: point })
     const south = southernHorizon(profile)
     const highest = profile.points.reduce((a, b) => (b.altitudeDeg > a.altitudeDeg ? b : a))
+    // The committed skyline: one entry per azimuth, ascending from 0° — exactly
+    // `profile.points`' own order, since `horizonProfile` already walks 0..355
+    // in `HORIZON_AZIMUTH_STEP_DEG` steps. Never re-derive this by re-marching;
+    // it must be the SAME far-band values `southHorizonDeg` was reduced from.
+    const horizonDeg = profile.points.map((point_) => round2(point_.altitudeDeg))
 
     measurements.push({
       id: site.id,
@@ -273,6 +282,7 @@ async function measure(): Promise<{ rows: Measurement[]; fetchFailures: FetchFai
       siteElevationM: profile.elevationM,
       highestHorizonDeg: highest.altitudeDeg,
       highestHorizonAzimuthDeg: highest.azimuthDeg,
+      horizonDeg,
     })
   }
 
@@ -292,6 +302,7 @@ function printFetchFailures(failures: FetchFailure[]): void {
 
 const pad = (value: string, width: number) => value.padEnd(width)
 const num = (value: number, digits = 2) => value.toFixed(digits)
+const round2 = (value: number) => Math.round(value * 100) / 100
 
 function printTable(rows: Measurement[]): void {
   console.log('\n── measured ────────────────────────────────────────────────────────────')
@@ -334,6 +345,7 @@ function printLiteral(rows: Measurement[], computedOn: string): void {
     console.log(`    domePenaltyMag: ${num(row.domePenaltyMag)},`)
     console.log(`    southHorizonDeg: ${num(row.southHorizonDeg, 1)},`)
     console.log(`    siteElevationM: ${num(row.siteElevationM, 0)},`)
+    console.log(`    horizonDeg: [${row.horizonDeg.map((deg) => num(deg)).join(', ')}],`)
   }
 }
 
@@ -359,6 +371,48 @@ function checkNumber(args: {
     ok,
     tol: `±${args.tolerance}${args.unit}`,
   }
+}
+
+/**
+ * Self-check on the paste-ready `horizonDeg` array itself, independent of the
+ * hand-typed `EXPECTED` table: the array must have exactly one entry per
+ * `HORIZON_AZIMUTH_STEP_DEG` step around the compass, and its max over
+ * `SOUTH_ARC` must equal the committed `southHorizonDeg` to 0.01° — the same
+ * reduction `southernHorizon()` performs on the profile this array was cut
+ * from. This is what catches a stale paste (one column pasted, the other
+ * forgotten) rather than a wrong measurement.
+ */
+function horizonDegSelfCheck(row: Measurement): Check[] {
+  const expectedLength = 360 / HORIZON_AZIMUTH_STEP_DEG
+  const lengthOk = row.horizonDeg.length === expectedLength
+
+  let southMax = Number.NEGATIVE_INFINITY
+  for (let i = 0; i < row.horizonDeg.length; i++) {
+    const azimuthDeg = i * HORIZON_AZIMUTH_STEP_DEG
+    if (azimuthDeg < SOUTH_ARC.fromDeg || azimuthDeg > SOUTH_ARC.toDeg) continue
+    const altitudeDeg = row.horizonDeg[i]!
+    if (altitudeDeg > southMax) southMax = altitudeDeg
+  }
+
+  return [
+    {
+      site: row.id,
+      quantity: 'horizonDeg length',
+      got: String(row.horizonDeg.length),
+      want: String(expectedLength),
+      ok: lengthOk,
+      tol: 'exact',
+    },
+    checkNumber({
+      site: row.id,
+      quantity: 'horizonDeg S-max',
+      got: southMax,
+      want: row.southHorizonDeg,
+      tolerance: 0.01,
+      unit: '°',
+      digits: 2,
+    }),
+  ]
 }
 
 function acceptance(rows: Measurement[]): Check[] {
@@ -460,6 +514,7 @@ function acceptance(rows: Measurement[]): Check[] {
         digits: 0,
       }),
     )
+    checks.push(...horizonDegSelfCheck(row))
   }
 
   return checks

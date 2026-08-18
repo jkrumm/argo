@@ -168,6 +168,12 @@ const NightSchema = z.object({
   transit: z.string().describe('ISO 8601 UTC — galactic core upper transit'),
   localTransit: z.string(),
   maxCoreAltitude: z.number().describe('degrees at transit; ~12.8° is the Munich ceiling'),
+  peakCoreClearanceDeg: z
+    .number()
+    .nullable()
+    .describe(
+      'Highest core altitude ABOVE the measured ridge while astronomically dark, degrees. Null when the location has no committed skyline (see `location.southHorizonDeg`) — a flat gate has nothing certain to say about clearance',
+    ),
   moon: MoonSchema,
   weather: WeatherSchema,
 })
@@ -180,6 +186,15 @@ const HourlyPointSchema = z.object({
   sunAltitude: z.number(),
   moonAltitude: z.number(),
   astroDark: z.boolean(),
+  coreClearance: z
+    .number()
+    .nullable()
+    .describe(
+      'coreAltitude minus the measured ridge at coreAzimuth, degrees. Null without a profile',
+    ),
+  moonBehindTerrain: z
+    .boolean()
+    .describe('True when the moon is above 0° but below the measured ridge at its own azimuth'),
   cloudLow: z.number().nullable(),
   cloudMid: z.number().nullable(),
   cloudHigh: z.number().nullable(),
@@ -201,6 +216,12 @@ const LocationSchema = z.object({
     .nullable()
     .describe(
       'How many magnitudes brighter the core direction is than the zenith. Measured at the site when `darknessSource` is `site`; inherited verbatim from the nearest site (up to 150 km away) when it is `nearest-site`. Null when unknown or when `coreDirectionMpsas` was overridden by the caller',
+    ),
+  southHorizonDeg: z
+    .number()
+    .nullable()
+    .describe(
+      'Highest terrain horizon across the 150–215° arc the core crosses, degrees — the same figure GET /astro/sites publishes. Only present when the location resolved to a committed site (`siteId` non-null); null for a raw lat/lon or city, which never fetches a DEM here — scoring stays synchronous, GET /astro/horizon is the door for an arbitrary coordinate',
     ),
   darknessSource: z
     .enum(['site', 'nearest-site', 'query', 'unknown'])
@@ -937,6 +958,7 @@ function serializeNight(
     transit: night.transit.toISOString(),
     localTransit: formatLocalTime(night.transit, timeZone),
     maxCoreAltitude: round1(night.maxCoreAltitude),
+    peakCoreClearanceDeg: night.peakCoreClearance === null ? null : round1(night.peakCoreClearance),
     moon: {
       illumination: round3(night.moonIllumination),
       phase: round1(night.moonPhase),
@@ -962,6 +984,8 @@ function serializeHourly(night: AstroNight, upstreams: AstroUpstreams) {
       sunAltitude: round1(sample.sunAltitude),
       moonAltitude: round1(sample.moonAltitude),
       astroDark: sample.astroDark,
+      coreClearance: Number.isNaN(sample.coreClearance) ? null : round1(sample.coreClearance),
+      moonBehindTerrain: sample.moonBehindTerrain,
       cloudLow: cloud?.low ?? null,
       cloudMid: cloud?.mid ?? null,
       cloudHigh: cloud?.high ?? null,
@@ -1082,6 +1106,10 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
             timeZone: place.timeZone,
             date,
             minCoreAltitude: MIN_CORE_ALTITUDE,
+            // Only a committed site (`?site=`) carries a measured skyline — a
+            // raw lat/lon never fetches a DEM here, scoring stays synchronous
+            // and I/O-free, and `GET /astro/horizon` is the async door for that.
+            horizonDeg: place.site?.horizonDeg,
           })
           const weather = nightWeather(night, upstreams)
           const input: AstroScoreInput = {
@@ -1091,6 +1119,7 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
             cloudHigh: weather.cloudHigh,
             transparency: weather.transparency,
             coreDirectionMpsas: place.coreDirectionMpsas,
+            coreClearanceDeg: night.peakCoreClearance,
           }
           const scored = scoreWindow(astroWindowConfig, input)
           scoredNights.push({ night, scored, serialized: serializeNight(night, scored, weather) })
@@ -1141,6 +1170,7 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
             timeZone: place.timeZone,
             coreDirectionMpsas: place.coreDirectionMpsas,
             domePenaltyMag: place.domePenaltyMag,
+            southHorizonDeg: place.site?.southHorizonDeg ?? null,
             darknessSource: place.darknessSource,
             siteId: place.site?.id ?? null,
             nearestSiteId: near.id,
@@ -1173,7 +1203,7 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
           tags: ['Astro & Marine'],
           summary: 'Score the next N nights for Milky Way nightscape photography',
           description:
-            'Answers "is tonight (or this week) worth going out for?" for one place. Every night in the range gets a verdict from hard gates (galactic-core altitude above 8°, moon under 25% illuminated or below the horizon, and true astronomical night that overlaps the core window) plus weighted factors (low/mid/high cloud, atmospheric transparency, and the measured sky brightness in the direction the core sits). A night that fails a gate returns verdict `out` with a named reason in `killers` — that is different information from a low score and the two are never conflated. Top-level `verdict`/`score`/`bestWindow`/`killers` describe the BEST night in the range, not tonight; `nights[]` carries every night for an at-a-glance strip, and `detail.hourly` carries the 30-minute series for one night (the best one unless `detailDate` says otherwise). Location resolves in the order `site` > `lat`+`lon` > `city` > Munich; a raw lat/lon inherits `coreDirectionMpsas` from the nearest known site within 150 km, unless `coreMpsas` overrides it — beyond that radius `darknessSource` is `unknown`, darkness drops out of the score and `coverage` falls. All astronomy is computed locally from an ephemeris and never by a model — `summary` is the one model-generated field and is null when the model is unavailable. For plain weather use GET /weather/forecast; for the candidate sites and their measured sky use GET /astro/sites.',
+            'Answers "is tonight (or this week) worth going out for?" for one place. Every night in the range gets a verdict from hard gates (galactic-core altitude above 8° AND above the measured terrain skyline plus a 2° framing margin when the location resolved to a committed site — see `location.southHorizonDeg`; moon under 25% illuminated, or below the horizon, or behind that same skyline; and true astronomical night that overlaps the core window) plus weighted factors (low/mid/high cloud, atmospheric transparency, the measured sky brightness in the direction the core sits, and — only when a skyline was resolved — how many degrees of clear sky the core keeps above the ridge, `peakCoreClearanceDeg` on each night and `coreClearance` per hour). A night gated on terrain names the ridge in `killers` (`"the ridge to the south stands at X° — the core never clears it while dark"`) rather than the generic flat-floor message. A night that fails a gate returns verdict `out` with a named reason in `killers` — that is different information from a low score and the two are never conflated. Top-level `verdict`/`score`/`bestWindow`/`killers` describe the BEST night in the range, not tonight; `nights[]` carries every night for an at-a-glance strip, and `detail.hourly` carries the 30-minute series for one night (the best one unless `detailDate` says otherwise). Location resolves in the order `site` > `lat`+`lon` > `city` > Munich; a raw lat/lon inherits `coreDirectionMpsas` from the nearest known site within 150 km, unless `coreMpsas` overrides it — beyond that radius `darknessSource` is `unknown`, darkness drops out of the score and `coverage` falls. Terrain is different: it is ONLY applied when the location resolved to one of the four committed sites (`?site=`) — a raw lat/lon never fetches a DEM here, so scoring stays synchronous and I/O-free; use GET /astro/horizon for an arbitrary coordinate\'s profile. All astronomy is computed locally from an ephemeris and never by a model — `summary` is the one model-generated field and is null when the model is unavailable. For plain weather use GET /weather/forecast; for the candidate sites and their measured sky use GET /astro/sites.',
           security: [{ BearerAuth: [] }],
         },
       },

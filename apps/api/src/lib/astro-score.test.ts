@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'bun:test'
-import { resolveNight } from './astro-night.js'
+import { resolveNight, type NightOptions } from './astro-night.js'
 import { findSite } from './astro-sites.js'
 import {
   ASTRO_WEIGHTS,
   astroWindowConfig,
+  CORE_CLEARANCE_RANGE,
   evaluationSamples,
   MAX_MOON_ILLUMINATION,
   MIN_CORE_ALTITUDE,
@@ -16,8 +17,18 @@ import { scoreWindow } from './window-score.js'
 const MUNICH = { lat: 48.1374, lon: 11.5755 }
 const TZ = 'Europe/Berlin'
 
-function night(date: string, observer = MUNICH) {
-  return resolveNight({ observer, timeZone: TZ, date, minCoreAltitude: MIN_CORE_ALTITUDE })
+function night(
+  date: string,
+  observer = MUNICH,
+  overrides: Partial<Pick<NightOptions, 'horizonDeg' | 'framingMarginDeg'>> = {},
+) {
+  return resolveNight({
+    observer,
+    timeZone: TZ,
+    date,
+    minCoreAltitude: MIN_CORE_ALTITUDE,
+    ...overrides,
+  })
 }
 
 function input(date: string, weather: Partial<AstroScoreInput> = {}): AstroScoreInput {
@@ -28,6 +39,7 @@ function input(date: string, weather: Partial<AstroScoreInput> = {}): AstroScore
     cloudHigh: 0,
     transparency: 1,
     coreDirectionMpsas: 19.7,
+    coreClearanceDeg: null,
     ...weather,
   }
 }
@@ -99,11 +111,81 @@ describe('hard gates', () => {
   })
 })
 
+describe('terrain-aware gates', () => {
+  const MUNICH_SITE = findSite('munich')!
+
+  // Munich never clears ~13°, well under a uniform 20° ridge plus framing margin.
+  const WALL_HORIZON = Array.from({ length: 72 }, () => 20)
+
+  it('kills a night on the ridge and names it, not the flat floor', () => {
+    const result = scoreWindow(
+      astroWindowConfig,
+      input('2026-08-15', { night: night('2026-08-15', MUNICH, { horizonDeg: WALL_HORIZON }) }),
+    )
+    expect(result.gated).toBe(true)
+    const killer = result.killers.find((k) => k.id === 'core-altitude')
+    expect(killer).toBeDefined()
+    expect(killer!.reason).toMatch(/ridge to the south stands at 20(\.0)?°/)
+    expect(killer!.reason).not.toMatch(new RegExp(`${MIN_CORE_ALTITUDE}° floor`))
+  })
+
+  it('does NOT blame the ridge on a night the ridge had nothing to do with', () => {
+    /*
+     * Munich in December: the core peaks around −20°, twelve degrees below even
+     * the flat floor, and the site's real skyline is 0.97°. Attributing that to
+     * terrain would be false twice — the ridge is not the tighter floor, and the
+     * core is nowhere near either of them. Regression for exactly that wording.
+     */
+    const result = scoreWindow(
+      astroWindowConfig,
+      input('2026-12-15', {
+        night: night('2026-12-15', MUNICH, { horizonDeg: MUNICH_SITE.horizonDeg }),
+      }),
+    )
+    const killer = result.killers.find((k) => k.id === 'core-altitude')
+    expect(killer).toBeDefined()
+    expect(killer!.reason).not.toMatch(/ridge/)
+    expect(killer!.reason).toMatch(/below the 8° floor$/)
+  })
+
+  it('keeps the flat-floor wording verbatim when no profile was supplied', () => {
+    const result = scoreWindow(astroWindowConfig, input('2026-12-15'))
+    const killer = result.killers.find((k) => k.id === 'core-altitude')
+    expect(killer!.reason).toMatch(/^core peaks at -?[\d.]+° during darkness, below the 8° floor$/)
+    expect(killer!.reason).not.toMatch(/ridge/)
+  })
+
+  it('rescues a bright moon that sits behind the measured ridge, not just below the horizon', () => {
+    // 2026-08-27: a waxing gibbous well above the horizon after dark at flat
+    // terrain (the ungated case fails — see the "hard gates" block above).
+    const flat = scoreWindow(astroWindowConfig, input('2026-08-27'))
+    expect(flat.killers.map((k) => k.id)).toContain('moon')
+
+    // Directional ridge: 25° blocking the moon's own sector (it sits around
+    // azimuth 134–142° through the window that night), left low (3°, well
+    // under the flat 8° floor) everywhere the core actually crosses — so the
+    // core still clears and only the moon is the thing terrain changes.
+    const MOON_WALL = Array.from({ length: 72 }, (_, i) => (i >= 23 && i <= 32 ? 25 : 3))
+    const withRidge = scoreWindow(
+      astroWindowConfig,
+      input('2026-08-27', {
+        night: night('2026-08-27', MUNICH, { horizonDeg: MOON_WALL }),
+      }),
+    )
+    expect(withRidge.gated).toBe(false)
+    expect(withRidge.killers.map((k) => k.id)).not.toContain('moon')
+  })
+})
+
 describe('weighted factors', () => {
   const clear = input('2026-08-15')
 
   it('scores a perfectly clear, dark, transparent night near 100', () => {
-    const result = scoreWindow(astroWindowConfig, { ...clear, coreDirectionMpsas: 21.5 })
+    const result = scoreWindow(astroWindowConfig, {
+      ...clear,
+      coreDirectionMpsas: 21.5,
+      coreClearanceDeg: CORE_CLEARANCE_RANGE.good,
+    })
     expect(result.score).toBe(100)
     expect(result.coverage).toBe(1)
     expect(result.verdict).toBe('excellent')
@@ -184,6 +266,54 @@ describe('weighted factors', () => {
     expect(result.factors.find((f) => f.id === 'cloud-low')!.detail).toBe('12%')
     expect(result.factors.find((f) => f.id === 'core-darkness')!.detail).toBe('19.70 mag/arcsec²')
     expect(result.factors.find((f) => f.id === 'transparency')!.detail).toBe('band 1/8')
+  })
+
+  it('drops the clearance factor out of coverage rather than scoring it 0 when no profile was supplied', () => {
+    const result = scoreWindow(astroWindowConfig, { ...clear, coreClearanceDeg: null })
+    expect(result.factors.find((f) => f.id === 'core-clearance')!.value).toBeNull()
+    expect(result.coverage).toBeLessThan(1)
+  })
+
+  // The decision §4.1 exists to show: clearance and darkness rank the same
+  // four sites in OPPOSITE order. Walchensee has the darkest core direction of
+  // the set and the tightest clearance; Munich is the flattest and brightest.
+  it('orders the four committed sites by peak clearance, reversing the darkness ranking', () => {
+    // docs/ASTRO-HORIZON-RESEARCH.md §4.1, "Peak clearance" column, degrees —
+    // the raw measurement is strictly ordered Munich > Wald > Alpenvorland >
+    // Walchensee.
+    const PEAK_CLEARANCE = {
+      munich: 12.5,
+      alpenvorland: 10.5,
+      'bayerischer-wald': 11.9,
+      walchensee: 8.5,
+    } as const
+    expect(PEAK_CLEARANCE.munich).toBeGreaterThan(PEAK_CLEARANCE['bayerischer-wald'])
+    expect(PEAK_CLEARANCE['bayerischer-wald']).toBeGreaterThan(PEAK_CLEARANCE.alpenvorland)
+    expect(PEAK_CLEARANCE.alpenvorland).toBeGreaterThan(PEAK_CLEARANCE.walchensee)
+
+    const clearanceValue = (id: keyof typeof PEAK_CLEARANCE) =>
+      scoreWindow(astroWindowConfig, {
+        ...clear,
+        coreClearanceDeg: PEAK_CLEARANCE[id],
+      }).factors.find((f) => f.id === 'core-clearance')!.value!
+
+    // CORE_CLEARANCE_RANGE.good = 10° — every site at or above that ceiling
+    // (Munich, Wald, Alpenvorland) reads as equally "plenty of sky", which is
+    // the intended saturation, not a bug; only Walchensee sits below it.
+    expect(clearanceValue('munich')).toBe(1)
+    expect(clearanceValue('bayerischer-wald')).toBe(1)
+    expect(clearanceValue('alpenvorland')).toBe(1)
+    expect(clearanceValue('walchensee')).toBeLessThan(1)
+
+    // The reversal against darkness: Walchensee is the darkest of the four
+    // where the core sits, and yet the worst of the four on clearance.
+    expect(findSite('walchensee')!.coreDirectionMpsas).toBeGreaterThan(
+      findSite('munich')!.coreDirectionMpsas,
+    )
+    expect(findSite('walchensee')!.coreDirectionMpsas).toBeGreaterThan(
+      findSite('bayerischer-wald')!.coreDirectionMpsas,
+    )
+    expect(clearanceValue('walchensee')).toBeLessThan(clearanceValue('munich'))
   })
 })
 

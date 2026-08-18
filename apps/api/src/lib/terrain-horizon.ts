@@ -239,3 +239,28 @@ export function horizonAt(points: readonly HorizonPoint[], azimuthDeg: number): 
   }
   return points[0]!.altitudeDeg
 }
+
+/**
+ * Skyline altitude at an arbitrary bearing, from a flat per-azimuth array (see
+ * `AstroSite.horizonDeg`) rather than a `HorizonPoint[]` profile. Scoring reads
+ * the committed site constants through THIS function, never `horizonAt`, so no
+ * caller ever fabricates a `HorizonPoint` just to reuse the other one's
+ * interpolation. Spacing is derived from the array's own length — `360 /
+ * horizonDeg.length` — so it stays correct if `HORIZON_AZIMUTH_STEP_DEG` ever
+ * changes. Same wrap-around linear interpolation as `horizonAt`; returns `NaN`
+ * for an empty array, since there is no spacing to derive and nothing to wrap.
+ */
+export function horizonDegAt(horizonDeg: readonly number[], azimuthDeg: number): number {
+  const n = horizonDeg.length
+  if (n === 0) return Number.NaN
+
+  const stepDeg = 360 / n
+  const az = ((azimuthDeg % 360) + 360) % 360
+  const index = az / stepDeg
+  const i = Math.floor(index)
+  const fraction = index - i
+
+  const a = horizonDeg[i % n]!
+  const b = horizonDeg[(i + 1) % n]!
+  return a + (b - a) * fraction
+}

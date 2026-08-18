@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import {
   addDays,
+  FRAMING_MARGIN_DEG,
   formatLocalDate,
   formatLocalTime,
   moonEvents,
@@ -87,6 +88,75 @@ describe('mid-August — the shape the whole feature exists for', () => {
   it('has a thin waxing crescent well clear of the window', () => {
     expect(august.moonIllumination).toBeLessThan(0.2)
     expect(august.window!.maxMoonAltitude).toBeLessThan(0)
+  })
+})
+
+describe('terrain-aware gate', () => {
+  const FLAT_HORIZON = Array.from({ length: 72 }, () => 0)
+  const WALL_HORIZON = Array.from({ length: 72 }, () => 20)
+
+  it('behaves identically to no profile at all when the skyline is flat 0°', () => {
+    const plain = night('2026-08-15')
+    const flat = night('2026-08-15', { horizonDeg: FLAT_HORIZON })
+    expect(flat.window!.peakCoreAltitude).toBeCloseTo(plain.window!.peakCoreAltitude, 6)
+    expect(flat.darkMinutes).toBe(plain.darkMinutes)
+    for (const sample of flat.samples) {
+      expect(sample.terrainAtCore).toBeCloseTo(0, 6)
+      expect(sample.coreClearance).toBeCloseTo(sample.coreAltitude, 6)
+    }
+  })
+
+  it('raises the per-sample core floor above a measured ridge and can gate the whole night out', () => {
+    // Munich never clears ~13°, well under a uniform 20° ridge plus margin.
+    const walled = night('2026-08-15', { horizonDeg: WALL_HORIZON })
+    expect(walled.window).toBeNull()
+    for (const sample of walled.samples) {
+      expect(sample.coreUp).toBe(false)
+      expect(sample.terrainAtCore).toBeCloseTo(20, 6)
+      expect(sample.coreClearance).toBeCloseTo(sample.coreAltitude - 20, 6)
+    }
+  })
+
+  it('reports peakCoreClearance as null without a profile and a number with one', () => {
+    expect(night('2026-08-15').peakCoreClearance).toBeNull()
+    const withProfile = night('2026-08-15', { horizonDeg: WALL_HORIZON })
+    expect(withProfile.peakCoreClearance).not.toBeNull()
+    expect(withProfile.peakCoreClearance!).toBeLessThan(0)
+  })
+
+  it('honours a custom framing margin', () => {
+    const tight = night('2026-08-15', { horizonDeg: FLAT_HORIZON, framingMarginDeg: 0 })
+    const loose = night('2026-08-15', {
+      horizonDeg: FLAT_HORIZON,
+      framingMarginDeg: FRAMING_MARGIN_DEG + 5,
+    })
+    // A bigger margin never opens a window a smaller one closed.
+    expect(tight.window).not.toBeNull()
+    expect(loose.darkMinutes).toBe(tight.darkMinutes)
+  })
+
+  it('marks the moon behind terrain exactly when it is above 0° and below the ridge at its own azimuth, never below 0°', () => {
+    const withRidge = night('2026-08-27', { horizonDeg: WALL_HORIZON })
+    let sawBehind = false
+    for (const sample of withRidge.samples) {
+      expect(sample.moonBehindTerrain).toBe(
+        sample.moonAltitude > 0 && sample.moonAltitude < sample.terrainAtMoon,
+      )
+      expect(sample.terrainAtMoon).toBeCloseTo(20, 6)
+      if (sample.moonBehindTerrain) {
+        sawBehind = true
+        expect(sample.moonAltitude).toBeGreaterThan(0)
+      }
+    }
+    // The moon does cross below the 20° ridge at some point on this date.
+    expect(sawBehind).toBe(true)
+  })
+
+  it('never counts a below-horizon moon as behind terrain — the earth already did that work', () => {
+    const withRidge = night('2026-08-15', { horizonDeg: WALL_HORIZON })
+    for (const sample of withRidge.samples) {
+      if (sample.moonAltitude <= 0) expect(sample.moonBehindTerrain).toBe(false)
+    }
   })
 })
 

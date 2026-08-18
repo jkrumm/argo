@@ -649,3 +649,41 @@ nothing above about the engine, the thresholds or the two upstream-bug fixes is
 stale. The surf face gets rebuilt deliberately on top of those endpoints later; this
 document stays the record of what it looked like and which four defects a flat week
 exposed.
+
+## Addendum — 2026-08-18: the core-altitude gate is no longer flat
+
+Everything above this line — `MIN_CORE_ALTITUDE = 8`, "the core-altitude gate" — was
+written when the gate was a single scalar: the core counts as up once it clears a
+flat 8° everywhere, at every site. `docs/ASTRO-HORIZON-RESEARCH.md` measured that
+this is not conservative, it is wrong in the direction that sends you to the worst
+spot — a flat gate spreads eight Bavarian candidates across only a 1.8× annual-hours
+range where the terrain-aware one spreads them 16×. Phase 2 of the map rebuild
+(`docs/ASTRO-MAP-RESEARCH.md`) wired the fix into this engine:
+
+- `astro-night.ts`'s `resolveNight` takes an optional `horizonDeg` (the site's
+  committed skyline from `astro-sites.ts`) and `framingMarginDeg` (default
+  `FRAMING_MARGIN_DEG = 2`, a photographic judgement, not a measurement). When
+  present, each sample's floor becomes `max(minCoreAltitude, skyline(coreAzimuth) +
+framingMarginDeg)` instead of the bare scalar, and the moon counts as down when it
+  sits below the skyline at its own azimuth (`moonBehindTerrain`) — a mountain
+  blocks moonlight exactly as well as the earth's own curvature does, and nothing
+  before this measured that.
+- `astro-score.ts`'s `core-altitude` gate reads the resulting per-sample `coreUp`
+  flag rather than re-deriving the flat comparison, and — only when a profile was
+  supplied — names the ridge in the failure reason instead of the generic "below the
+  8° floor" wording, which stays verbatim when there is no profile. The `moon` gate's
+  survivability check is `moonBehindTerrain || altitude < 0`, not `altitude < 0`
+  alone. A new weighted factor, `core-clearance` (weight 2, level with mid cloud,
+  because it is equally decisive and — unlike any cloud figure — certain), scores how
+  many degrees of clear sky the core keeps above the ridge.
+- At the four committed sites this changes **nothing** — their measured southern
+  horizons are all ≤5.7°, under the 8° atmospheric floor already — which is why it
+  was safe to land without moving any acceptance number in this document. Terrain
+  only becomes the binding constraint once the map lets someone score a valley or a
+  summit, which is the point of building it now.
+
+`GET /astro/window`'s response gained `location.southHorizonDeg`,
+`nights[].peakCoreClearanceDeg`, and `detail.hourly[].coreClearance` /
+`moonBehindTerrain` — all null/false for anything that isn't one of the four
+committed sites, since scoring stays synchronous and never fetches a DEM itself
+(`GET /astro/horizon` is the async door for an arbitrary coordinate).
