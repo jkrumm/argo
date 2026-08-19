@@ -406,11 +406,10 @@ function MapLayerSections({
                           handleWeatherToggle(entry.id, event.currentTarget.checked)
                         }
                         label={entry.label}
-                        description={entry.description}
+                        // One dimmed paragraph, not a separate "Coverage:" line underneath — the
+                        // user's own words were that this panel is already overcomplicated.
+                        description={`${entry.description} Coverage: ${entry.coverage}`}
                       />
-                      <Text size="xs" c="dimmed">
-                        Coverage: {entry.coverage}
-                      </Text>
                       {selection !== undefined && (
                         <OpacitySlider
                           label={entry.label}

@@ -159,21 +159,29 @@ below reuse the same token at a different alpha rather than mint a new one — `
 seven members and stays there; an intermediate row is a finer step through one of those seven, not
 an eighth hue.
 
-| Series name  | Light hex | Dark hex  | `defineSeries` key | Role / earned reason                                                                                                     |
-| ------------ | --------- | --------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| LP: city     | `#cd4246` | `#e76a6e` | `lpCity`           | Warm end, stop `1800`, alpha `.90` — red                                                                                 |
-| LP: urban    | `#d33d17` | `#eb6847` | `lpUrban`          | Stop `1960`, alpha `.62` — vermilion                                                                                     |
-| LP: suburban | `#c87619` | `#ec9a3c` | `lpSuburban`       | Stop `2060`, alpha `.40`; and again at stop `2095`, alpha `.24` — orange, fading toward the crossing                     |
-| LP: rural    | `#d1980b` | `#f0b726` | `lpRural`          | The neutral crossing and the ALPHA MINIMUM, stop `2130`, alpha `.12`; opening back up at stop `2145`, alpha `.15` — gold |
-| LP: dark     | `#0284c7` | `#38bdf8` | `lpDark`           | Sky, stop `2155`, alpha `.18` — the band our sites live in; and again at stop `2170`, alpha `.25`                        |
-| LP: darker   | `#0284c7` | `#38bdf8` | `lpDarker`         | Sky, stop `2180`, alpha `.31`; and again at stop `2190`, alpha `.37` — same hue, deeper alpha                            |
-| LP: pristine | `#0284c7` | `#38bdf8` | `lpPristine`       | Cool end, stop `2200`, alpha `.44` — same hue, deepest alpha                                                             |
+| Series name  | Light hex | Dark hex  | `defineSeries` key | Role / earned reason                                                                                 |
+| ------------ | --------- | --------- | ------------------ | ---------------------------------------------------------------------------------------------------- |
+| LP: city     | `#cd4246` | `#e76a6e` | `lpCity`           | Warm end, stop `1800`, alpha `.72` — red                                                             |
+| LP: urban    | `#d33d17` | `#eb6847` | `lpUrban`          | Stop `1960`, alpha `.66` — vermilion                                                                 |
+| LP: suburban | `#c87619` | `#ec9a3c` | `lpSuburban`       | Stop `2060`, alpha `.62`; and again at stop `2095`, alpha `.58` — orange, approaching the crossing   |
+| LP: rural    | `#d1980b` | `#f0b726` | `lpRural`          | The neutral crossing, stop `2130`, alpha `.56`; and again past it at stop `2145`, alpha `.56` — gold |
+| LP: dark     | `#0284c7` | `#38bdf8` | `lpDark`           | Sky, stop `2155`, alpha `.58` — the band our sites live in; and again at stop `2170`, alpha `.62`    |
+| LP: darker   | `#0284c7` | `#38bdf8` | `lpDarker`         | Sky, stop `2180`, alpha `.66`; and again at stop `2190`, alpha `.70` — same hue, deeper alpha        |
+| LP: pristine | `#0284c7` | `#38bdf8` | `lpPristine`       | Cool end, stop `2200`, alpha `.74` — same hue, deepest alpha                                         |
 
-The alpha minimum sits exactly on `lpRural`'s crossing stop (`2130`) rather than one stop past it —
-a diverging ramp has to fade to its most transparent exactly at the point it diverges around, or
-the map reads as flat colour blocks with an offset, near-invisible gap rather than a gradient.
-Alpha rises monotonically in both directions away from that minimum, with no dip anywhere else in
-the table.
+**Corrected 2026-08-19.** This ramp used to put the alpha MINIMUM exactly on `lpRural`'s crossing
+stop (`2130`, `.12`, rising to `.44` at the pristine end) on the theory that a diverging ramp has to
+fade to its most transparent exactly at the point it diverges around, or the map reads as flat
+colour blocks with an offset, near-invisible gap rather than a gradient. Rendered against real
+tiles and shown on screen, that theory was WRONG in practice: the user's own words were "red, then
+nothing, then blue" — the entire rural plateau this map exists to distinguish (21.2–21.8, right
+around the crossing) washed out to a barely-visible grey, with no yellow anywhere. The fix keeps
+alpha roughly FLAT (`.56`–`.74`, rising gently toward both ends rather than dipping) so HUE alone
+carries the ramp — a continuous red → orange → gold-across-the-rural-band → blue gradient, verified
+side by side against the old ladder. The reasoning that survives: this is still a DIVERGING ramp
+(the crossing stays the alpha minimum, `lpRural` stays neutral gold), and it still never drops to
+fully transparent anywhere — a transparent crossing is exactly what erased the band the map is read
+for, whether that transparency is near-zero (the old `.12`) or literal zero.
 
 The `LP.*` group is reused verbatim (same tokens, same stops, same alpha ladder) for the sky
 panorama's skyglow field on the Forecast tab: `GET /astro/skyglow`'s rose is the same mag/arcsec²
@@ -225,15 +233,21 @@ empty section is the correct default; do not invent deviations to fill it.
   ramp fades out where nothing is wrong; this one is DIVERGING, so the cool half is the actual
   answer — "go here" — and fading it out would erase the only band the map exists to show. Those
   rows therefore all take `p(BP.blue)` — the sky family every other blue series in the app is drawn
-  from — and separate by alpha alone (`.18` → `.25` → `.31` → `.37` → `.44`), which is why the alpha
-  ladder lives with the ramp stops in the map component rather than in the token. The crossing
-  itself — `lpRural`, gold, at stops `2130`/`2145` — carries the ramp's actual ALPHA MINIMUM
-  (`.12`, rising to `.15`), and it sits exactly on the crossing rather than one stop past it: that
-  is what makes the ramp read as diverging rather than as two disconnected halves, fading smoothly
-  through neutral instead of jumping from warm colour to an offset, near-invisible gap to blue.
-  The minimum is a FLOOR, not zero: much of the rural band this map is read for sits at 21.2–21.4,
-  so a crossing that faded to nothing would blank the very region being scouted. `.12` is a
-  present-but-unemphatic tint — the ramp never disappears anywhere along its domain.
+  from — and separate by alpha alone (`.58` → `.62` → `.66` → `.70` → `.74`), which is why the alpha
+  ladder lives with the ramp stops in the map component rather than in the token.
+  **Corrected 2026-08-19: alpha stays near-flat across the WHOLE table, not just the cool half.**
+  The crossing itself — `lpRural`, gold, at stops `2130`/`2145` — used to carry the ramp's ALPHA
+  MINIMUM at `.12` (rising to `.15`), on the theory that a diverging ramp has to fade to its most
+  transparent exactly at the point it diverges around, or the map reads as two disconnected halves
+  rather than one gradient. Tested on screen against real tiles, that theory produced exactly the
+  failure it was meant to avoid: the crossing's near-zero alpha erased the entire rural plateau this
+  map is read for (21.2–21.8, centred on the crossing) into a barely-visible grey hole, described in
+  the moment as "red, then nothing, then blue" with no yellow anywhere. The corrected minimum is
+  `.56`, still the ramp's lowest value and still exactly on the crossing (so the diverging structure
+  — one continuous gradient, not two disconnected halves — survives), but no longer transparent
+  enough to blank the band it sits on. The rest of the table rises gently from that floor rather
+  than climbing steeply from a near-zero one, which is what keeps hue doing the work of separating
+  city from suburb from rural from dark instead of alpha doing it by fading half the ramp away.
 - **`VX.muted` is used instead of `VX.tooltipMuted`** in two bespoke tooltip/legend labels
   (readiness-strain, time-of-day): the opaque secondary-ink token reads equivalently there. Note
   this is now a preference, not a constraint — basalt-ui 1.0.0 does export `VX.tooltipMuted`

@@ -29,6 +29,8 @@ import {
   wmsTileUrl,
   weatherLayer,
   weatherLayerTime,
+  type BaseLayer,
+  type BaseLayerId,
   type HillshadeMethod,
   type MapLayerState,
   type WeatherLayerId,
@@ -60,6 +62,27 @@ const OWN_PREFIX = 'argo-'
 const lpLayerId = (year: number) => `${OWN_PREFIX}lp-${year}`
 const weatherLayerId = (id: WeatherLayerId) => `${OWN_PREFIX}wx-${id}`
 const TRAILS_LAYER_ID = `${OWN_PREFIX}trails`
+
+/** An `imagery` base's own raster layer id — this app's own layer, prefixed like every other
+ * source it owns. Shared between `desiredStack` (below, where it is mounted) and `syncBaseWash`
+ * (where its paint is washed for the pollution ramp), so the two can never drift apart. */
+const baseLayerId = (id: BaseLayerId) => `${OWN_PREFIX}base-${id}`
+
+/** A `raster-style` base's own layer id — NOT this app's own layer (no `OWN_PREFIX`): it is baked
+ * into the inline `StyleSpecification` `site-map.tsx`'s `mapStyle` builds for that base kind
+ * (OpenTopoMap), and this id has to match that literal exactly for `syncBaseWash` to find it.
+ * Exported so `site-map.tsx` builds the SAME string rather than a second copy that could drift. */
+export const rasterStyleLayerId = (id: BaseLayerId) => `${id}-layer`
+
+/** `syncBaseWash`'s verified values — see that function's own doc for the reasoning. */
+const BASE_WASH_OPACITY = 0.55
+const BASE_WASH_SATURATION = -0.55
+const BASE_WASH_BRIGHTNESS_MAX = 0.75
+
+/** `raster-brightness-max`'s own MapLibre default — the value `syncBaseWash` restores when the
+ * ramp goes back off, so the base returns to its normal (un-washed) paint rather than staying
+ * dimmed. */
+const DEFAULT_RASTER_BRIGHTNESS_MAX = 1
 
 /**
  * ONE `raster-dem` source doubles as both the hillshade layer's input AND the `setTerrain`
@@ -127,14 +150,22 @@ const radarFrameLayerId = (index: number, time: string) =>
   `${OWN_PREFIX}wx-radar-${index}-${time.replace(/[:.]/g, '-')}`
 
 /**
- * The same id-changing discipline as `radarFrameLayerId` above, for every `'wms'` row
- * (`radar-de`/`lightning`/`cells`/`cloud-top`): each carries a baked `time`, floored onto its own
- * `timeGrid` by `weatherLayerTime` (`map-layers.ts`), and if its id did not move when that time
- * refreshes, `installOverlays` would see the stale source as still "wanted" and never sweep it —
- * the map would keep painting a slot that has aged out of its own grid's extent.
+ * The same id-changing discipline as `radarFrameLayerId` above, for the one remaining plain
+ * `'wms'` row (`lightning`): it carries a baked `time`, floored onto its own `timeGrid` by
+ * `weatherLayerTime` (`map-layers.ts`), and if its id did not move when that time refreshes,
+ * `installOverlays` would see the stale source as still "wanted" and never sweep it — the map
+ * would keep painting a slot that has aged out of its own grid's extent.
  */
 const staticTimedLayerId = (id: WeatherLayerId, time: string) =>
   `${OWN_PREFIX}wx-${id}-${time.replace(/[:.]/g, '-')}`
+
+/**
+ * The same id-changing discipline, for a `'wms-multi'` row's per-disc layers (`cloud-top`'s two
+ * discs). Indexed like `cloudLayerId`/`gibsLayerId` below rather than sharing `staticTimedLayerId`
+ * verbatim, since a `'wms-multi'` row needs one id PER DISC, not one id for the whole row.
+ */
+const wmsMultiLayerId = (id: WeatherLayerId, index: number, time: string) =>
+  `${OWN_PREFIX}wx-${id}-${index}-${time.replace(/[:.]/g, '-')}`
 
 /**
  * `cloud`'s two EUMETSAT discs (`msg_fes:clm`, `msg_iodc:clm`) share one catalogue row but mount
@@ -148,7 +179,7 @@ const cloudLayerId = (index: number) => `${weatherLayerId('cloud')}-${index}`
  * `cloud-ir`'s three GIBS satellites share one catalogue row but mount as three independent
  * raster sources, each carrying the same id-changing discipline as `staticTimedLayerId` — GIBS'
  * own `TIME` dimension refreshes on `OverlayState.gibsTime`, a different grid on a different
- * clock from the DWD one `staticTimedLayerId` serves.
+ * clock from the EUMETSAT `timeGrid` grid `staticTimedLayerId` serves.
  */
 const gibsLayerId = (index: number, time: string) =>
   `${OWN_PREFIX}wx-cloud-ir-${index}-${time.replace(/[:.]/g, '-')}`
@@ -210,11 +241,11 @@ export function buildLpRamp(range: readonly [number, number] = LP_RANGE_FULL): L
 // ── The cloud mask ramp ──────────────────────────────────────────────────────
 
 /**
- * `cloud`'s decode ramp — `CLOUD_RAMP`'s stops are already the raw 0–255 domain the `raster-dem`
- * `encoding: 'custom'` source decodes the EUMETSAT red channel into (see that constant's own
- * doc), so unlike `buildLpRamp` there is no remap step: every stop is used verbatim. Read fresh on
- * every `style.load` and scheme flip, same as `buildLpRamp`, since `cloudHigh` resolves to a
- * different hex per scheme.
+ * `cloud`'s decode ramp — `CLOUD_RAMP`'s stops are already the raw channel-SUM domain the
+ * `raster-dem` `encoding: 'custom'` source decodes the EUMETSAT pixel into (see that constant's
+ * own doc), so unlike `buildLpRamp` there is no remap step: every stop is used verbatim. Read
+ * fresh on every `style.load` and scheme flip, same as `buildLpRamp`, since `cloudHigh` resolves
+ * to a different hex per scheme.
  */
 export function buildCloudRamp(): LpRampExpression {
   const cs = getComputedStyle(document.documentElement)
@@ -433,10 +464,13 @@ function desiredStack(state: OverlayState): StackEntry[] {
   if (base.kind === 'imagery') {
     stack.push(
       rasterEntry({
-        id: `${OWN_PREFIX}base-${base.id}`,
+        id: baseLayerId(base.id),
         stackIndex: BASE_STACK_INDEX,
         tiles: base.tiles,
         attribution: base.attribution ?? '',
+        // The wash-vs-normal paint is applied by `syncBaseWash`, called right after every
+        // `installOverlays`/`style.load` — this initial opacity is only what a brand new source
+        // starts painting with for the one frame before that call lands.
         opacity: base.defaultOpacity,
         maxzoom: base.maxzoom,
       }),
@@ -626,8 +660,9 @@ function desiredStack(state: OverlayState): StackEntry[] {
 
     if (entry.source === 'cloud-mask') {
       // Two independent EUMETSAT discs, each its own `raster-dem` + `color-relief` pair — see
-      // `CLOUD_RAMP`'s doc for the decode (`encoding: 'custom'` reading the red channel as
-      // elevation) and `buildCloudRamp` for the paint expression it feeds.
+      // `CLOUD_RAMP`'s doc for the decode (`encoding: 'custom'`, factors `1, 1, 1` — the channel
+      // SUM, never a zero factor, see that doc for why) and `buildCloudRamp` for the paint
+      // expression it feeds.
       entry.hosts.forEach((host, index) => {
         const wmsLayer = entry.wmsLayers[index]
         if (wmsLayer === undefined) return
@@ -640,9 +675,13 @@ function desiredStack(state: OverlayState): StackEntry[] {
             tiles: [wmsTileUrl({ host, layer: wmsLayer })],
             tileSize: 256,
             encoding: 'custom',
+            // No factor may ever be zero — MapLibre re-packs `elevation` back into RGB through
+            // this SAME factor vector to feed the shader, and a zero factor makes that repack
+            // degenerate (every pixel saturates to the ramp's top stop). See `CLOUD_RAMP`'s doc
+            // for the full mechanism and the on-screen bug this fixed.
             redFactor: 1,
-            greenFactor: 0,
-            blueFactor: 0,
+            greenFactor: 1,
+            blueFactor: 1,
             baseShift: 0,
             attribution: entry.attribution,
           },
@@ -670,7 +709,7 @@ function desiredStack(state: OverlayState): StackEntry[] {
 
     if (entry.source === 'gibs-ir') {
       // Three independent satellites, one toggle. `gibsLayerId` folds the shared `gibsTime` into
-      // each id, the same discipline `staticTimedLayerId` uses for the DWD grid.
+      // each id, the same discipline `staticTimedLayerId` uses for `lightning`'s grid.
       entry.gibsLayers.forEach((layer, index) => {
         stack.push(
           rasterEntry({
@@ -686,12 +725,31 @@ function desiredStack(state: OverlayState): StackEntry[] {
       continue
     }
 
-    // `entry.source === 'wms'` — every remaining catalogue row (`radar-de`, `lightning`, `cells`,
-    // `cloud-top`). Same one-source-per-timestamp shape as the radar frames, just with exactly one
-    // frame: none of the four has a nowcast to animate, but the `time` its OWN `timeGrid` resolves
-    // to (`weatherLayerTime`, `map-layers.ts`) still ages out of that grid's extent, so the id has
-    // to move with it — see `staticTimedLayerId`. A new WMS row is a new row in the table and
-    // nothing here changes, since `timeGrid` is required on every row rather than branched on here.
+    if (entry.source === 'wms-multi') {
+      // `cloud-top`'s two discs — the SAME plain-raster `GetMap` shape as a bare `'wms'` row
+      // (opaque PNG, no decode), just mounted once per disc off parallel `hosts`/`wmsLayers`
+      // arrays sharing one `timeGrid` — see `wmsMultiLayerId`'s own doc.
+      const time = weatherLayerTime(entry, new Date(state.nowMs))
+      entry.hosts.forEach((host, index) => {
+        const wmsLayer = entry.wmsLayers[index]
+        if (wmsLayer === undefined) return
+        stack.push(
+          rasterEntry({
+            id: wmsMultiLayerId(entry.id, index, time),
+            stackIndex: entry.stackIndex,
+            tiles: [wmsTileUrl({ host, layer: wmsLayer, time })],
+            attribution: entry.attribution,
+            opacity: selection.opacity,
+          }),
+        )
+      })
+      continue
+    }
+
+    // `entry.source === 'wms'` — only `lightning` remains. Same one-source-per-timestamp shape as
+    // the radar frames, just with exactly one frame: it has no nowcast to animate, but the `time`
+    // its OWN `timeGrid` resolves to (`weatherLayerTime`, `map-layers.ts`) still ages out of that
+    // grid's extent, so the id has to move with it — see `staticTimedLayerId`.
     const time = weatherLayerTime(entry, new Date(state.nowMs))
     stack.push(
       rasterEntry({
@@ -840,12 +898,13 @@ export function paintRadarFrame(map: MapLibreMap, state: OverlayState, radarFram
  * its tiles stay put and only the paint value changes, where re-adding the layer would drop the
  * tile cache and re-request everything for a drag of a few pixels.
  *
- * Everything here is drawer-commit state — lp opacity/resampling/range, the five non-animated
- * weather kinds (`radar-de`/`lightning`/`cells`/`cloud-top`, `cloud`'s two discs, `cloud-ir`'s
- * three satellites), trails opacity, hillshade exaggeration/method — independent of `radarFrame`,
- * so it belongs on the state-change path (`site-map.tsx`'s `[overlayState]` effect and the `style.load`
- * handler) and NOT on the per-frame radar loop: writing these same values twice a second for no
- * reason was FIX 4 of the map-overlays review, split out into {@link paintRadarFrame} above.
+ * Everything here is drawer-commit state — lp opacity/resampling/range, the base wash
+ * (`syncBaseWash`, below), the four non-animated weather kinds (`lightning`, `cloud-top`'s two
+ * discs, `cloud`'s two discs, `cloud-ir`'s three GIBS satellites), trails opacity, hillshade
+ * exaggeration/method — independent of `radarFrame`, so it belongs on the state-change path
+ * (`site-map.tsx`'s `[overlayState]` effect and the `style.load` handler) and NOT on the per-frame
+ * radar loop: writing these same values twice a second for no reason was FIX 4 of the
+ * map-overlays review, split out into {@link paintRadarFrame} above.
  *
  * `hillshade-exaggeration`, `-method` and the illumination direction/altitude pair all follow the
  * same discipline: each is a drawer control value, so a change is one `setPaintProperty` call,
@@ -896,12 +955,24 @@ export function paintOverlayState(map: MapLibreMap, state: OverlayState, radarFr
       continue
     }
 
-    // `entry.source === 'wms'` — every row here bakes a `time` off its own `timeGrid`, so the id
-    // is always the timed form; see the identical branch in `desiredStack` above.
+    if (entry.source === 'wms-multi') {
+      const time = weatherLayerTime(entry, new Date(state.nowMs))
+      entry.hosts.forEach((_host, index) => {
+        const id = wmsMultiLayerId(entry.id, index, time)
+        if (map.getLayer(id) === undefined) return
+        map.setPaintProperty(id, 'raster-opacity', selection.opacity)
+      })
+      continue
+    }
+
+    // `entry.source === 'wms'` — only `lightning` bakes a `time` off its own `timeGrid` this way
+    // now; see the identical branch in `desiredStack` above.
     const id = staticTimedLayerId(entry.id, weatherLayerTime(entry, new Date(state.nowMs)))
     if (map.getLayer(id) === undefined) continue
     map.setPaintProperty(id, 'raster-opacity', selection.opacity)
   }
+
+  syncBaseWash(map, state)
 
   if (state.terrain.trails !== null && map.getLayer(TRAILS_LAYER_ID) !== undefined) {
     map.setPaintProperty(TRAILS_LAYER_ID, 'raster-opacity', state.terrain.trails)
@@ -953,6 +1024,50 @@ export function refreshCloudRamp(map: MapLibreMap, state: OverlayState): void {
     if (map.getLayer(id) === undefined) return
     map.setPaintProperty(id, 'color-relief-color', buildCloudRamp())
   })
+}
+
+// ── Base wash ────────────────────────────────────────────────────────────────
+
+/**
+ * When the base is a raster kind (`imagery`/`raster-style`) and the pollution ramp is ALSO on, the
+ * ramp needs to read over the base rather than fight it for attention — a Satellite/Topographic
+ * base at full saturation and brightness under a semi-transparent ramp reads as visual noise, not
+ * as two readable layers. Automatic, not a drawer control: the user's own words were that the
+ * settings are already overcomplicated, so this is derived from the two controls that already
+ * exist (base pick, ramp on/off) rather than a third toggle.
+ *
+ * Verified values: washing the base to 55% opacity, -55% saturation and a 0.75 brightness ceiling
+ * reads as a desaturated backdrop the ramp sits on top of, legible either way. A vector `'style'`
+ * base has no raster layer to wash at all — `baseWashLayerId` returns `undefined` for it and this
+ * no-ops, same guard shape as `refreshLpRamp`/`refreshCloudRamp` above.
+ *
+ * Always a `setPaintProperty` on the base layer that ALREADY exists — never a re-add, which would
+ * drop its tile cache. Called from {@link paintOverlayState} (both the `style.load` handler and
+ * the panel-change effect already call that on every commit), so toggling the ramp or picking a
+ * new base both update the wash live with no separate wiring in `site-map.tsx`.
+ */
+export function syncBaseWash(map: MapLibreMap, state: OverlayState): void {
+  const base = baseLayer(state.base)
+  const id = baseWashLayerId(base)
+  if (id === undefined || map.getLayer(id) === undefined) return
+  const washed = state.lpYear !== null
+  map.setPaintProperty(id, 'raster-opacity', washed ? BASE_WASH_OPACITY : base.defaultOpacity)
+  map.setPaintProperty(id, 'raster-saturation', washed ? BASE_WASH_SATURATION : 0)
+  map.setPaintProperty(
+    id,
+    'raster-brightness-max',
+    washed ? BASE_WASH_BRIGHTNESS_MAX : DEFAULT_RASTER_BRIGHTNESS_MAX,
+  )
+}
+
+/** The base layer id to wash — `imagery` mounts through this app's own `desiredStack` (see
+ * `baseLayerId`); `raster-style` (OpenTopoMap) is baked into `site-map.tsx`'s inline style object
+ * instead (see `rasterStyleLayerId`'s own doc for why the two need separate builders). `'style'`
+ * vector bases have no raster layer at all. */
+function baseWashLayerId(base: BaseLayer): string | undefined {
+  if (base.kind === 'imagery') return baseLayerId(base.id)
+  if (base.kind === 'raster-style') return rasterStyleLayerId(base.id)
+  return undefined
 }
 
 /**

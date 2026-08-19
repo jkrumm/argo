@@ -46,6 +46,7 @@ import {
   baseLayer,
   CONTOUR_GLYPHS_URL,
   gibsTime,
+  legendSource,
   legendUrl,
   LP_RAMP,
   LP_SITE_BAND,
@@ -54,15 +55,16 @@ import {
   remapLpRampStops,
   SCHEME_STYLE_URL,
   weatherLayer,
+  type LegendableWeatherLayer,
   type MapLayerState,
   type WeatherSelection,
-  type WmsWeatherLayer,
 } from '../map-layers'
 import {
   detachTerrainIfUnwanted,
   installOverlays,
   paintOverlayState,
   paintRadarFrame,
+  rasterStyleLayerId,
   refreshCloudRamp,
   refreshContours,
   refreshHillshade,
@@ -148,8 +150,8 @@ export default function SiteMap({
   const resolvedScheme = useComputedColorScheme('dark')
 
   /**
-   * The DWD legend's `LEGEND_OPTIONS` `fontColor`, re-resolved from the live palette whenever the
-   * scheme flips. Producing a NEW string on the dependency change is what makes the legend
+   * The EUMETSAT legend's `LEGEND_OPTIONS` `fontColor`, re-resolved from the live palette whenever
+   * the scheme flips. Producing a NEW string on the dependency change is what makes the legend
    * `<Image>` re-request: React re-renders with a different `src`, which is enough on its own —
    * see `legendUrl` in `map-layers.ts` for why a hardcoded colour was wrong in the first place.
    */
@@ -195,7 +197,10 @@ export default function SiteMap({
             attribution: base.attribution ?? '',
           },
         },
-        layers: [{ id: `${base.id}-layer`, type: 'raster', source: sourceId }],
+        // `rasterStyleLayerId`, not an inline template — `syncBaseWash` (`map-overlays.ts`) needs
+        // the exact same id string to wash this layer when the pollution ramp is on, and a second
+        // hand-written copy of the template is how those two would drift apart silently.
+        layers: [{ id: rasterStyleLayerId(base.id), type: 'raster', source: sourceId }],
       }
     }
     return SCHEME_STYLE_URL[resolvedScheme]
@@ -204,9 +209,12 @@ export default function SiteMap({
   const radarActive = layers.weather.some(
     (selection) => weatherLayer(selection.id)?.source === 'rainviewer',
   )
-  const staticTimeActive = layers.weather.some(
-    (selection) => weatherLayer(selection.id)?.source === 'wms',
-  )
+  const staticTimeActive = layers.weather.some((selection) => {
+    const source = weatherLayer(selection.id)?.source
+    return source === 'wms' || source === 'wms-multi'
+  })
+  // `'cloud-ir'` (`source: 'gibs-ir'`) is the only consumer of `gibsTime` — its three GIBS
+  // satellites, plain undecoded rasters with no `timeGrid` of their own.
   const gibsActive = layers.weather.some(
     (selection) => weatherLayer(selection.id)?.source === 'gibs-ir',
   )
@@ -214,8 +222,8 @@ export default function SiteMap({
   /**
    * The global radar's own frames. RainViewer publishes a new mosaic every 5 minutes and this
    * query refetches on that same cadence (`rainviewerQueries.radar()`'s own `refetchInterval`), so
-   * the DWD-grid epoch clock below no longer has to drive it — the animated layer refreshes off
-   * the query, not off this component's own interval. `enabled: radarActive` keeps this
+   * the EUMETSAT-grid epoch clock below no longer has to drive it — the animated layer refreshes
+   * off the query, not off this component's own interval. `enabled: radarActive` keeps this
    * third-party request off the wire entirely while the layer is off, matching the settings
    * panel's own "leave on only what you are reading" copy. A loading or failed query resolves to
    * `[]` (never `undefined`), so `desiredStack` (`map-overlays.ts`) renders that as "no frames"
@@ -233,10 +241,10 @@ export default function SiteMap({
 
   /**
    * The shared refresh clock for `nowMs` and `gibsTimeValue` below — bumped every
-   * `RADAR_REFRESH_MS` while any `'wms'` weather layer (`radar-de`/`lightning`/`cells`/
-   * `cloud-top`, each carrying its own `timeGrid`) OR the GIBS infrared layer is on, paused while
+   * `RADAR_REFRESH_MS` while any `'wms'`/`'wms-multi'` weather layer (`lightning`/`cloud-top`,
+   * each carrying its own `timeGrid`) OR the GIBS infrared layer (`cloud-ir`) is on, paused while
    * the tab is backgrounded (the same `visibilitychange` discipline the radar playback loop below
-   * already uses). One clock drives every grid — DWD's and EUMETSAT's PT5M/PT15M `timeGrid`s
+   * already uses). One clock drives every grid — EUMETSAT's PT5M/PT15M `timeGrid`s
    * (`weatherLayerTime`, `map-layers.ts`) and GIBS' PT10M — so there is never a second interval to
    * keep in sync — the animated global radar needs no clock here at all anymore, see `radarFrames`
    * above.
@@ -282,12 +290,12 @@ export default function SiteMap({
   }, [timeSensitiveActive])
 
   /**
-   * The wall clock every `'wms'` row's baked `time` is computed against — each row floors this
-   * against its OWN `timeGrid` via `weatherLayerTime` (`map-layers.ts`) rather than reading a
-   * precomputed grid slot off this component, so a new WMS row needs no new field here. Refreshed
-   * on the `epoch` clock above, for the same reason it always was: none of the four `'wms'` rows
-   * carries a nowcast of its own, so an unrefreshed anchor eventually points at a slot the host
-   * has stopped publishing.
+   * The wall clock every `'wms'`/`'wms-multi'` row's baked `time` is computed against — each row
+   * floors this against its OWN `timeGrid` via `weatherLayerTime` (`map-layers.ts`) rather than
+   * reading a precomputed grid slot off this component, so a new row needs no new field here.
+   * Refreshed on the `epoch` clock above, for the same reason it always was: none of these rows
+   * carries a nowcast of its own, so an unrefreshed anchor eventually points at a slot the host has
+   * stopped publishing.
    */
   const nowMs = useMemo(
     () => Date.now(),
@@ -475,7 +483,8 @@ export default function SiteMap({
    * new style, so nothing fires `style.load` and the ramp — the cloud mask's ramp, the hillshade
    * relief, and the contour line/label colours, the same palette-derived-paint problem in four
    * places now — would keep painting the other scheme's shades. Re-resolving each paint expression
-   * is cheap and touches no source.
+   * is cheap and touches no source. `cloud-ir` needs no entry here: it paints GIBS' own raw tiles
+   * (plain RGBA raster, no decode), so it has no palette-derived paint to re-resolve.
    */
   useEffect(() => {
     const map = mapRef.current
@@ -855,11 +864,12 @@ function LpLegend({ year, range }: { year: number; range: readonly [number, numb
 // ── Weather legends ────────────────────────────────────────────────────────
 
 /**
- * The active weather layers' own WMS legends — DWD's and, since `cloud-top`/`lightning`, EUMETSAT's
- * too (`legendUrl`'s `GetLegendGraphic` builder is generic GeoServer, not host-specific) — a
- * separate, bottom-RIGHT cluster so it never collides with `LpLegend` at bottom-left. Answers the
- * two halves of "toggle it on, nothing appears, is this broken": what colour means what (the
- * legend image), and what an empty render means (`entry.emptyMeans`, right under it — a quiet
+ * The active weather layers' own WMS legends — EUMETSAT's, both the single-disc (`lightning`) and
+ * two-disc (`cloud-top`) shapes (`legendUrl`'s `GetLegendGraphic` builder is generic GeoServer, not
+ * host- or disc-specific — `legendSource` resolves either shape to the one `{host, wmsLayer}` pair
+ * it needs) — a separate, bottom-RIGHT cluster so it never collides with `LpLegend` at bottom-left.
+ * Answers the two halves of "toggle it on, nothing appears, is this broken": what colour means what
+ * (the legend image), and what an empty render means (`entry.emptyMeans`, right under it — a quiet
  * night is data, not a failure).
  */
 function WeatherLegends({
@@ -871,7 +881,10 @@ function WeatherLegends({
 }) {
   const active = weather
     .map((selection) => weatherLayer(selection.id))
-    .filter((entry): entry is WmsWeatherLayer => entry?.legend === true && entry.source === 'wms')
+    .filter(
+      (entry): entry is LegendableWeatherLayer =>
+        entry?.legend === true && (entry.source === 'wms' || entry.source === 'wms-multi'),
+    )
   if (active.length === 0) return null
   return (
     <Box pos="absolute" bottom={8} right={8}>
@@ -897,12 +910,18 @@ const LEGEND_MAX_HEIGHT = 180
  * `imageFailed` tracks the `src` it failed FOR, not a bare boolean latch: this component is keyed
  * by `entry.id` and stays mounted across a colour-scheme flip, but `fontColor` — and so `src` —
  * changes on every flip. A latch with no `src` awareness would hide the legend for the rest of the
- * session after one transient failure against DWD, even once a scheme flip produces a URL that
- * would load fine. Same derive-during-render reset `OpacitySlider` uses in
+ * session after one transient failure against EUMETSAT, even once a scheme flip produces a URL
+ * that would load fine. Same derive-during-render reset `OpacitySlider` uses in
  * `map-settings-panel.tsx` for its `committed`/`draft` pair, preferred over a `useEffect`.
  */
-function WeatherLegendCard({ entry, fontColor }: { entry: WmsWeatherLayer; fontColor: string }) {
-  const src = legendUrl(entry, fontColor)
+function WeatherLegendCard({
+  entry,
+  fontColor,
+}: {
+  entry: LegendableWeatherLayer
+  fontColor: string
+}) {
+  const src = legendUrl(legendSource(entry), fontColor)
   const [trackedSrc, setTrackedSrc] = useState(src)
   const [imageFailed, setImageFailed] = useState(false)
   if (trackedSrc !== src) {

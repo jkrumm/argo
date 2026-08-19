@@ -39,10 +39,15 @@ import { LP, SERIES } from '../../lib/series'
  * `radar.nowcast` and `satellite.infrared` are both permanently empty arrays. Nothing here reads
  * either.
  *
- * Every DWD/EUMETSAT product above is Germany-or-Europe-only — deliberate for the earlier build,
- * wrong for an owner who hikes in Spain, Morocco, Senegal, South America and the US. Checked
- * 2026-08-19 for a global replacement of each regional layer and rejected for the reason given:
+ * Every DWD product was Germany-or-neighbours-only — deliberate for the earlier build, wrong for
+ * an owner who hikes in Spain, Morocco, Senegal, South America and the US. Checked 2026-08-19 for
+ * a global replacement of each regional layer:
  *
+ * - **`radar-de`** (DWD RV precipitation composite) and **`cells`** (DWD Gewitterzellen) were
+ *   DELETED outright, not replaced — RainViewer's `radar` row above already covers 1200+ radars
+ *   across 150+ countries including Germany, and no free global storm-cell-tracking product
+ *   exists to take `cells`' place. Keeping either as a Germany-only extra was exactly the
+ *   "fuck the rest of the world" default this pass exists to remove.
  * - **A globally-covered free lightning tile source still does not exist.** `lightning` moved off
  *   DWD onto EUMETSAT's MTG-I Lightning Imager (`mtg_fd:li_afa`, re-probed 2026-08-19) the same
  *   day this line was corrected — a hemispheric MTG-I disc (±70°) at PT5M instead of Germany
@@ -50,28 +55,47 @@ import { LP, SERIES } from '../../lib/series'
  *   Asia still have no free lightning source, and the four findings that established that still
  *   stand — NASA GIBS serves GLM only as netCDF from the GHRC DAAC, not as WMTS tiles; Open-Meteo
  *   has no lightning tile variable at all; MET Norway discontinued its lightning products in 2019;
- *   Tomorrow.io gates lightning behind an Enterprise plan. `cells` stays DWD, Germany and
- *   immediate neighbours only — storm-cell polygons and tracks (`WEATHER_LAYERS`'s `cells` row)
- *   are a different product the lightning imager does not provide — its `coverage` string says so
- *   plainly rather than implying otherwise.
+ *   Tomorrow.io gates lightning behind an Enterprise plan. Its `coverage` string says so plainly
+ *   rather than implying otherwise.
  * - **`@openmeteo/weather-map-layer`** serves exactly the right products (global cloud cover
  *   total/low/mid/high, cloud top height) but was rejected on inspection: version `0.0.20` ships
  *   no `license` field in its `package.json`, and it depends on `maplibre-gl: ^5.20.1` against
  *   this app's v6 — installing it would pull a second, incompatible copy of MapLibre into the
  *   bundle. `bunx basalt-ui check-theme`'s dependency hygiene is not the blocker here; the
  *   license gap and the duplicate-MapLibre cost are. Cloud-top height specifically is now served
- *   natively instead, via EUMETSAT's own `msg_fes:cth` (`cloud-top` below) — one more reason this
- *   package was never worth the duplicate-MapLibre cost.
+ *   natively instead, via EUMETSAT's own `msg_fes:cth`/`msg_iodc:cth` (`cloud-top` below) — one
+ *   more reason this package was never worth the duplicate-MapLibre cost.
  * - **MET Norway's `cloud-area-fraction`** is genuinely global (59 hourly steps to +2.5 days),
  *   CORS-open and CC BY 4.0 — the licensing and coverage are both fine. Rejected anyway: its
  *   tiles are a DATA ENCODING with no published decode (unlike EUMETSAT's cloud mask, whose red
  *   channel this file now decodes explicitly), so there is no documented way to turn its pixels
  *   into a number this app could paint honestly.
  *
- * The two products that DO have a workable global (or global-ish) path are built below instead:
- * RainViewer's radar mosaic (`radar`, 1200+ ground radars, 150+ countries, keyless, CORS-open)
- * and NASA GIBS' GOES-East/West + Himawari infrared composite (`cloud-ir`, keyless, CORS-open,
- * covering roughly the hemisphere the EUMETSAT cloud mask's two discs do not reach).
+ * The remaining five rows all have a genuinely global (or global-ish) path. RainViewer's radar
+ * mosaic (`radar`) and the EUMETSAT cloud mask (`cloud`, already both discs) were already this
+ * shape. `cloud-top` was widened 2026-08-19: it now reads BOTH EUMETSAT MSG discs (0°, 45.5°E)
+ * instead of one.
+ *
+ * **EUMETSAT's own IR channel was tried and dropped as `cloud-ir`'s global complement, same day.**
+ * `msg_fes:ir108`/`msg_iodc:ir108`'s greyscale is compressed into roughly 31–108 of the available
+ * 0–255 — cloud and clear barely separate (measured per-channel means: 56.3 over cloudy pixels vs
+ * 52.8 over clear land, fully overlapping ranges), and three candidate decode ramps rendered side
+ * by side against `msg_fes:clm` as ground truth all produced either a faint smear or a uniform
+ * bright wash, none reproducing the mask's structure. There is no ramp that fixes it — the
+ * information is not in the product, so `cloud-ir` stays the plain NASA GIBS trio it always was.
+ * **GIBS is deliberately NOT decoded, either.** `GOES-East/West_ABI_Band13_Clean_Infrared` and
+ * `Himawari_AHI_Band13_Clean_Infrared` are not plain greyscale — they carry a colour enhancement
+ * for cold convective tops (storms render red/yellow/green over a grey field), and running that
+ * through `color-relief` at either candidate ramp collapsed it to a flat pale wash with the storm
+ * enhancement gone entirely. Rendered raw at `raster-opacity: 0.6` it is the best cloud picture in
+ * the whole catalogue, basemap still legible underneath — so `cloud-ir` mounts its three GIBS
+ * sources as plain RGBA rasters, undecoded, same as before this was tried.
+ *
+ * No SINGLE cloud layer here is global — `cloud`/`cloud-top` cover the two EUMETSAT discs' fixed
+ * footprint, `cloud-ir` covers the Americas, the Pacific and eastern Asia (GOES-East/West plus
+ * Himawari). Together, mask/top over the Meteosat discs and infrared over the rest, they reach
+ * effectively the whole globe — that honest three-layer framing is the map's actual answer to
+ * "is there a cloud layer for here", not any one row in isolation.
  */
 
 // ── Ids ────────────────────────────────────────────────────────────────────
@@ -87,23 +111,18 @@ export type BaseLayerId =
 /**
  * Ids ride in a URL search param, so they carry no `.` — that is the delimiter.
  *
- * `radar` is now global (RainViewer-backed) and `radar-de` is DWD's own regional nowcast —
- * see the `WeatherLayer.source` doc for why they had to become two rows rather than one.
- * `cloudmask` was renamed `cloud` when it moved from an opaque raster wash to a decoded,
- * transparent `color-relief` layer (see `CLOUD_RAMP`); `cloud-ir` is the new global infrared
- * complement built on NASA GIBS. `lightning` kept its id but moved providers 2026-08-19 — DWD
- * Blitzdichte (Germany only) to EUMETSAT's MTG-I Lightning Imager (the whole Meteosat disc) — so
- * existing shared URLs keep resolving to the same toggle. `cloud-top` is new: EUMETSAT cloud-top
- * height, the MSG disc's answer to "how high", not just "is there any".
+ * Five rows, all global or global-ish — `radar-de` (DWD RV precipitation) and `cells` (DWD
+ * Gewitterzellen) were DELETED 2026-08-19, both Germany-only with no free global equivalent (see
+ * the module docstring). `cloudmask` was renamed `cloud` when it moved from an opaque raster wash
+ * to a decoded, transparent `color-relief` layer (see `CLOUD_RAMP`); `cloud-ir` is the global-ish
+ * infrared complement, NASA GIBS' GOES-East/West + Himawari trio, plain undecoded rasters — see
+ * the module docstring for why a EUMETSAT IR half and a decoded GIBS paint were both tried and
+ * dropped 2026-08-19. `lightning` kept its id but moved providers 2026-08-19 — DWD Blitzdichte
+ * (Germany only) to EUMETSAT's MTG-I Lightning Imager (the whole Meteosat disc) — so existing
+ * shared URLs keep resolving to the same toggle. `cloud-top` is EUMETSAT cloud-top height, the
+ * MSG discs' answer to "how high", not just "is there any" — widened to both discs 2026-08-19.
  */
-export type WeatherLayerId =
-  | 'radar'
-  | 'radar-de'
-  | 'lightning'
-  | 'cells'
-  | 'cloud'
-  | 'cloud-ir'
-  | 'cloud-top'
+export type WeatherLayerId = 'radar' | 'lightning' | 'cloud' | 'cloud-ir' | 'cloud-top'
 
 /**
  * Atlas vintages. `apps/api/src/lib/lorenz-decode.ts` → `LORENZ_YEARS` is the AUTHORITY — the
@@ -141,9 +160,9 @@ export const DEFAULT_LP_YEAR: LpYear = 2025
  * there IS cloud, transparent everywhere else — a probed tile ran 3 061 B, almost entirely
  * transparent) and it is the one that answers "how high", the one distinction the binary mask
  * cannot make — burying it under either wash would waste the one row that answers a question
- * neither of the other two can. Radar (30/32, global then regional), storm cells (40) and
- * lightning (50) stay above both — increasingly urgent, sparse annotations that a city-dome-height
- * cloud wash would make worthless to bury under.
+ * neither of the other two can. Radar (30, global) and lightning (50) stay above both —
+ * increasingly urgent, sparse annotations that a city-dome-height cloud wash would make worthless
+ * to bury under.
  *
  * Hillshade sits between the base and everything else: it is CONTEXT for reading the ramp (which
  * ridge blocks which valley), not an answer of its own, so it renders under the pollution ramp
@@ -177,7 +196,6 @@ export const TRAILS_STACK_INDEX = 18
 
 // ── WMS plumbing ───────────────────────────────────────────────────────────
 
-const DWD_WMS = 'https://maps.dwd.de/geoserver/dwd/wms'
 const EUMETSAT_WMS = 'https://view.eumetsat.int/geoserver/wms'
 
 /** Both WMS hosts are asked for 256 px tiles, matching MapLibre's default raster tile size. */
@@ -210,13 +228,15 @@ export function wmsTileUrl({
 }
 
 /**
- * `GetLegendGraphic` for a `'wms'` layer — a plain PNG, no bbox/tile plumbing needed. Verified
- * against DWD 2026-08-18/19 (see the module docstring's live-probe date): radar 5367 B,
- * Blitzdichte 4906 B, Gewitterzellen 2762 B at 161×80 px. `GetLegendGraphic` is a generic
- * GeoServer request, not a DWD-specific one — confirmed working against EUMETSAT's own GeoServer
- * too when `cloud-top` and the replacement `lightning` row were added 2026-08-19, so this same
- * builder covers both hosts unchanged. Callers must still not call this for a `WeatherLayer` with
- * `legend` unset — the guard exists for a future host that does not run GeoServer at all.
+ * `GetLegendGraphic` for a WMS layer — a plain PNG, no bbox/tile plumbing needed. `GetLegendGraphic`
+ * is a generic GeoServer request, not a DWD-specific one — confirmed working against EUMETSAT's own
+ * GeoServer too when `cloud-top` and the replacement `lightning` row were added 2026-08-19, so this
+ * same builder covers both hosts unchanged (DWD's own rows, `radar-de`/`cells`, were deleted
+ * 2026-08-19 — see the module docstring — so only the EUMETSAT host reaches this now). Takes the
+ * bare `{host, wmsLayer}` pair rather than a whole catalogue row so a `'wms-multi'` row (two
+ * discs, one shared legend) can hand it its first disc without a type that claims a single host.
+ * Callers must still not call this for a `WeatherLayer` with `legend` unset — the guard exists for
+ * a future host that does not run GeoServer at all.
  *
  * `transparent=true` plus `LEGEND_OPTIONS` are both required, not cosmetic: the plain URL returns
  * colour-type 2 (RGB, no alpha) with a solid WHITE background — a glaring slab on this app's dark
@@ -228,17 +248,26 @@ export function wmsTileUrl({
  * hardcoded so it can be resolved from the live palette (`resolveLegendFontColor` in
  * `components/map-overlays.ts`) and re-requested on a scheme flip.
  */
-export function legendUrl(entry: WmsWeatherLayer, fontColor: string): string {
+export function legendUrl(source: { host: string; wmsLayer: string }, fontColor: string): string {
   const query = new URLSearchParams({
     service: 'WMS',
     version: '1.1.1',
     request: 'GetLegendGraphic',
     format: 'image/png',
-    layer: entry.wmsLayer,
+    layer: source.wmsLayer,
     transparent: 'true',
     LEGEND_OPTIONS: `fontColor:${fontColor};fontAntiAliasing:true;bgColor:0x000000;fontSize:10;dpi:96`,
   })
-  return `${entry.host}?${query.toString()}`
+  return `${source.host}?${query.toString()}`
+}
+
+/** The `{host, wmsLayer}` pair to request a legend for — the first disc for a `'wms-multi'` row
+ * (both discs share the same product's legend graphic), the row's own pair for a plain `'wms'`
+ * row. */
+export function legendSource(entry: LegendableWeatherLayer): { host: string; wmsLayer: string } {
+  return entry.source === 'wms'
+    ? { host: entry.host, wmsLayer: entry.wmsLayer }
+    : { host: entry.hosts[0], wmsLayer: entry.wmsLayers[0] }
 }
 
 // ── Attribution ────────────────────────────────────────────────────────────
@@ -248,8 +277,11 @@ export function legendUrl(entry: WmsWeatherLayer, fontColor: string): string {
  * measured that passing both prints the credit twice. A `null` here means the provider's own
  * style JSON / TileJSON already carries the string and MapLibre will compose it unaided.
  */
-const DWD_ATTRIBUTION = '<a href="https://www.dwd.de" target="_blank">DWD</a>'
 const EUMETSAT_ATTRIBUTION = '<a href="https://www.eumetsat.int" target="_blank">EUMETSAT</a>'
+
+/** NASA's own mandated GIBS credit — shared by the three GIBS satellites in `cloud-ir` below. */
+const GIBS_ATTRIBUTION =
+  'We acknowledge the use of imagery provided by services from NASA\'s <a href="https://www.earthdata.nasa.gov/eosdis/science-system-description/eosdis-components/gibs" target="_blank">Global Imagery Browse Services (GIBS)</a>, part of NASA\'s Earth Science Data and Information System (ESDIS).'
 
 /**
  * EOX's own credit, condensed to one attribution line — NOT verbatim, which is worth writing down
@@ -506,25 +538,33 @@ export const LP_OPACITY_DEFAULT = 1
  * `alpha` is ramp GEOMETRY, not series identity — several rows below reuse ONE token at more
  * than one alpha, the pattern the cool end already established (`lpDark`/`lpDarker`/`lpPristine`
  * are one hue each, separated only by opacity) — so it lives here beside the stops rather than in
- * the token. The MINIMUM sits exactly on `lpRural`'s stop (2130, the neutral crossing this ramp
- * is diverging around — see DESIGN.md): a diverging ramp has to fade to its most transparent
- * exactly AT the crossing, not one stop past it, or the map reads as flat colour blocks rather
- * than a gradient. Alpha then rises monotonically in both directions away from that minimum — no
- * dips anywhere else in the table. The ladder is recorded in DESIGN.md under "Light pollution
- * ramp".
+ * the token.
+ *
+ * **CORRECTED 2026-08-19.** This table used to put the alpha MINIMUM exactly on `lpRural`'s
+ * crossing stop (`.12`, rising in both directions away from it) on the theory that a diverging
+ * ramp has to fade to its most transparent exactly at the point it diverges around. Rendered
+ * against real tiles and shown on screen, that read as "red, then nothing, then blue" — the entire
+ * rural plateau this map exists to distinguish (21.2–21.8, right around the crossing) washed out to
+ * a barely-visible grey, with no yellow anywhere. The theory was wrong in practice: alpha needs to
+ * stay roughly FLAT so hue alone carries the ramp, because a transparent crossing erases exactly
+ * the band the map is read for. The ladder below (`.56`–`.74`, rising gently toward both ends
+ * rather than dipping) renders a continuous red → orange → gold-across-the-rural-band → blue
+ * gradient with every step distinguishable — verified side by side against the old ladder. The
+ * corrected ladder is recorded in DESIGN.md under "Light pollution ramp", including what was tried
+ * and why it failed.
  */
 export const LP_RAMP: ReadonlyArray<{ stop: number; token: string; alpha: number }> = [
-  { stop: 1800, token: LP.lpCity, alpha: 0.9 }, // 18.00 — inner city
-  { stop: 1960, token: LP.lpUrban, alpha: 0.62 }, // 19.60
-  { stop: 2060, token: LP.lpSuburban, alpha: 0.4 }, // 20.60
-  { stop: 2095, token: LP.lpSuburban, alpha: 0.24 }, // 20.95 — suburban fading toward the crossing
-  { stop: 2130, token: LP.lpRural, alpha: 0.12 }, // 21.30 — the neutral crossing, the alpha minimum
-  { stop: 2145, token: LP.lpRural, alpha: 0.15 }, // 21.45 — rural opening back up past the crossing
-  { stop: 2155, token: LP.lpDark, alpha: 0.18 }, // 21.55 — the band our sites live in
-  { stop: 2170, token: LP.lpDark, alpha: 0.25 }, // 21.70
-  { stop: 2180, token: LP.lpDarker, alpha: 0.31 }, // 21.80
-  { stop: 2190, token: LP.lpDarker, alpha: 0.37 }, // 21.90
-  { stop: 2200, token: LP.lpPristine, alpha: 0.44 }, // 22.00 — natural sky
+  { stop: 1800, token: LP.lpCity, alpha: 0.72 }, // 18.00 — inner city
+  { stop: 1960, token: LP.lpUrban, alpha: 0.66 }, // 19.60
+  { stop: 2060, token: LP.lpSuburban, alpha: 0.62 }, // 20.60
+  { stop: 2095, token: LP.lpSuburban, alpha: 0.58 }, // 20.95 — suburban approaching the crossing
+  { stop: 2130, token: LP.lpRural, alpha: 0.56 }, // 21.30 — the neutral crossing
+  { stop: 2145, token: LP.lpRural, alpha: 0.56 }, // 21.45 — rural, past the crossing
+  { stop: 2155, token: LP.lpDark, alpha: 0.58 }, // 21.55 — the band our sites live in
+  { stop: 2170, token: LP.lpDark, alpha: 0.62 }, // 21.70
+  { stop: 2180, token: LP.lpDarker, alpha: 0.66 }, // 21.80
+  { stop: 2190, token: LP.lpDarker, alpha: 0.7 }, // 21.90
+  { stop: 2200, token: LP.lpPristine, alpha: 0.74 }, // 22.00 — natural sky
 ]
 
 /** The two ends of the ramp, in mpsas × 100 — the legend's axis and the gradient's domain. */
@@ -692,26 +732,14 @@ export const LP_YEAR_NOTES: Record<LpYear, string> = {
 // ── Weather now (multi) ────────────────────────────────────────────────────
 
 /**
- * DWD's own `PT5M` grid — `radar-de`'s single current frame and `cells`' static frame ride it via
- * their own `timeGrid` (see `WeatherTimeGrid` below). It used to also drive twelve animated
- * `radar` frames, back when `radar` WAS `dwd:Radar_rv_product_1x1km_ger` — the animated global
- * radar is RainViewer-backed now (see `WeatherLayer.source`), so this grid is purely a DWD-request
- * concern, not a radar-animation one. `lightning` also happens to publish on this same PT5M
- * cadence (it moved off DWD onto EUMETSAT's MTG-I imager 2026-08-19), but with its own, larger
- * measured lag — see `WeatherTimeGrid`'s table for why it does not reuse `RADAR_LAG_MINUTES`.
+ * EUMETSAT's own `PT5M` grid — `lightning`'s static frame rides it via its own `timeGrid` (see
+ * `WeatherTimeGrid` below). It used to also drive DWD's `radar-de`/`cells` rows (deleted
+ * 2026-08-19 — both Germany-only, see the module docstring) and twelve animated `radar` frames,
+ * back when `radar` WAS `dwd:Radar_rv_product_1x1km_ger`; the animated global radar is
+ * RainViewer-backed now (see `WeatherLayer.source`), so this grid is purely `lightning`'s request
+ * concern today.
  */
 export const RADAR_STEP_MINUTES = 5
-
-/**
- * How far behind the wall clock a DWD request is allowed to reach. The WMS advertises its newest
- * analysis in `REFERENCE_TIME`, which trailed the clock by ~7 min when this was probed; 15 min is
- * that lag with room to spare, so a request never lands on a timestamp DWD has not published yet.
- * Asking for an unpublished or off-grid time returns a `ServiceExceptionReport`, not a blank tile
- * — loud, but still worth not triggering. Reused verbatim by `radar-de` and `cells` — see
- * `WeatherTimeGrid`'s table for why `lightning`, on the same PT5M step but a different host, needs
- * its own, larger lag instead.
- */
-export const RADAR_LAG_MINUTES = 15
 
 /** Milliseconds per RainViewer radar frame. `raster-opacity` transitions by default, so the step
  * crossfades. */
@@ -720,10 +748,10 @@ export const RADAR_FRAME_MS = 500
 const MINUTE_MS = 60_000
 
 /**
- * How often the static `time` baked into every `'wms'` row's request (`weatherLayerTime`, via its
- * own `timeGrid`), and the GIBS `TIME` baked into `cloud-ir` (below), get recomputed while on
- * screen. Matches `RADAR_STEP_MINUTES`, the FINEST of the grids anchored off it: DWD's (and,
- * coincidentally, `lightning`'s EUMETSAT one) advances every 5 minutes, so refreshing faster buys
+ * How often the static `time` baked into every `'wms'`/`'wms-multi'` row's request
+ * (`weatherLayerTime`, via its own `timeGrid`), and the GIBS `TIME` baked into `cloud-ir` (below),
+ * get recomputed while on screen. Matches `RADAR_STEP_MINUTES`, the FINEST of the grids anchored
+ * off it: `lightning`'s EUMETSAT PT5M grid advances every 5 minutes, so refreshing faster buys
  * nothing there — and the coarser grids sharing this same clock (`cloud-top`'s PT15M, GIBS' PT10M)
  * simply recompute the same floored value on most ticks and step to a new bucket on the ticks
  * where their own grid actually moves. The animated `radar` layer needs no clock of its own
@@ -734,48 +762,47 @@ const MINUTE_MS = 60_000
 export const RADAR_REFRESH_MS = RADAR_STEP_MINUTES * MINUTE_MS
 
 /** Floored to an arbitrary `stepMinutes` grid, lagged by `lagMinutes` — the pure anchor logic
- * every `'wms'` row's `timeGrid` builds on via `weatherLayerTime` below. */
+ * every `'wms'`/`'wms-multi'` row's `timeGrid` builds on via `weatherLayerTime` below. */
 function gridAnchorMs(now: Date, stepMinutes: number, lagMinutes: number): number {
   const step = stepMinutes * MINUTE_MS
   return Math.floor((now.getTime() - lagMinutes * MINUTE_MS) / step) * step
 }
 
 /**
- * The grid a `'wms'` row's baked `time` param is floored onto — `stepMinutes` is the host's own
- * publish cadence, `lagMinutes` is how far behind the wall clock a request is allowed to reach
- * before asking for a slot the host has not published yet. That distinction matters because
- * **asking ahead of a host's newest published slot returns a `ServiceExceptionReport`, not a
- * blank tile** — the module docstring's WMS 1.1.1 trap note is the same failure family: a request
- * that looks reasonable fails loudly rather than rendering an empty layer.
+ * The grid a `'wms'`/`'wms-multi'` row's baked `time` param is floored onto — `stepMinutes` is the
+ * host's own publish cadence, `lagMinutes` is how far behind the wall clock a request is allowed
+ * to reach before asking for a slot the host has not published yet. That distinction matters
+ * because **asking ahead of a host's newest published slot returns a `ServiceExceptionReport`,
+ * not a blank tile** — the module docstring's WMS 1.1.1 trap note is the same failure family: a
+ * request that looks reasonable fails loudly rather than rendering an empty layer.
  *
  * `lagMinutes` is always the row's MEASURED publish lag plus AT LEAST one full `stepMinutes` of
  * margin, never the bare measurement — a measurement is a snapshot, and the next publish can
- * always land a little later than the one that was probed. Every lag below was measured from the
- * host's own live `GetCapabilities` time extent at wall-clock `2026-08-19T08:30:00Z`:
+ * always land a little later than the one that was probed. Every EUMETSAT-measured lag below was
+ * read from the host's own live `GetCapabilities` time extent at wall-clock `2026-08-19T08:30:00Z`
+ * (DWD's own `radar-de`/`cells` rows, and `RADAR_LAG_MINUTES`, the constant that used to carry
+ * their shared margin, were deleted the same day — see the module docstring):
  *
  * | row | grid | newest published | measured lag | `lagMinutes` |
  * |-|-|-|-|-|
- * | `radar-de` (DWD, `dwd:Radar_rv_product_1x1km_ger`) | PT5M | `REFERENCE_TIME` trailed ~7 min | ~7 min | 15 |
- * | `cells` (DWD, `dwd:Gewitterzellen`) | PT5M | same DWD host as `radar-de` | ~7 min | 15 |
  * | `lightning` (EUMETSAT, `mtg_fd:li_afa`) | PT5M | `08:15:00Z` | 15 min | 25 |
- * | `cloud-top` (EUMETSAT, `msg_fes:cth`) | PT15M | `08:00:00Z` | 30 min | 35 |
+ * | `cloud-top` (EUMETSAT, `msg_fes:cth`/`msg_iodc:cth`) | PT15M | `08:00:00Z` | 30 min | 35 |
  *
- * `radar-de`/`cells` keep `RADAR_LAG_MINUTES` (15) — DWD's own extent already trails the clock by
- * only ~7 min, so 15 already carries margin; `cells` in particular must not go any staler than
- * that, since storm-cell polygons move. `lightning` reused `RADAR_LAG_MINUTES` before this table
- * was measured, which landed a request exactly on the newest published slot with ZERO margin — one
- * slow publish and the layer went blank with no error surfaced — so it now carries its own 25
- * (measured 15 plus two full 5-minute steps). `cloud-top` measured 30 min of lag on its PT15M
- * grid; 35 floors back past one grid boundary (at `now = 08:30` this lands on `07:45`) and is
- * still comfortably inside what the host had published.
+ * `lightning` measured 15 min of lag on its PT5M grid; 25 is that plus two full 5-minute steps —
+ * reusing a bare 15 min margin (`RADAR_LAG_MINUTES`'s old value) landed a request exactly on the
+ * newest published slot with ZERO margin, and one slow publish blanked the layer with no error
+ * surfaced. `cloud-top` measured 30 min of lag on its PT15M grid; 35 floors back past one grid
+ * boundary (at `now = 08:30` this lands on `07:45`) and is still comfortably inside what the host
+ * had published.
  */
 export type WeatherTimeGrid = { stepMinutes: number; lagMinutes: number }
 
-/** The `TIME` a `'wms'` row's request bakes in, floored onto that row's own `timeGrid` — see
- * `WeatherTimeGrid` for the measured lag table and the margin rule behind every value in it. Same
- * millisecond-bearing ISO form every DWD/EUMETSAT time extent uses (`gibsTime` below is the one
- * that has to strip them). */
-export function weatherLayerTime(entry: WmsWeatherLayer, now: Date): string {
+/** The `TIME` a `'wms'`/`'wms-multi'` row's request bakes in, floored onto that row's own
+ * `timeGrid` — see `WeatherTimeGrid` for the measured lag table and the margin rule behind every
+ * value in it. Takes the bare `{timeGrid}` shape structurally, not a specific catalogue variant,
+ * since both `WmsWeatherLayer` and `WmsMultiWeatherLayer` carry one. Same millisecond-bearing ISO
+ * form every EUMETSAT time extent uses (`gibsTime` below is the one that has to strip them). */
+export function weatherLayerTime(entry: { timeGrid: WeatherTimeGrid }, now: Date): string {
   return new Date(
     gridAnchorMs(now, entry.timeGrid.stepMinutes, entry.timeGrid.lagMinutes),
   ).toISOString()
@@ -808,7 +835,8 @@ export const GIBS_MAXZOOM = 6
 
 /** GIBS' own time dimension is a `PT10M` grid; observed latency is ~20–40 min, so the anchor is
  * lagged by the safe end of that range before flooring to the grid — the same "never ask ahead of
- * what's published" discipline `RADAR_LAG_MINUTES` already applies to DWD. */
+ * what's published" discipline every `WeatherTimeGrid` lag in the EUMETSAT table above already
+ * applies. */
 export const GIBS_STEP_MINUTES = 10
 export const GIBS_LAG_MINUTES = 40
 
@@ -833,51 +861,73 @@ export function gibsTileUrl(layer: string, time: string): string {
 }
 
 /**
- * The cloud mask's decode ramp — `elevation` here is the EUMETSAT tile's own RED channel (0–255),
- * decoded via the `raster-dem` `encoding: 'custom'` + `redFactor: 1, greenFactor: 0, blueFactor: 0,
- * baseShift: 0` source options in `map-overlays.ts` (`msg_fes:clm`'s pixel census: cloud = white
- * `(255,255,255)`, clear land = `(0,192,0)` — the red channel alone is a clean 0-vs-255 split).
+ * The cloud mask's decode ramp. `raster-dem` `encoding: 'custom'` decodes `elevation` as
+ * `r*redFactor + g*greenFactor + b*blueFactor - baseShift`, but MapLibre's `color-relief` layer
+ * then RE-PACKS that same `elevation` back into RGB through the identical factor vector
+ * (`pack()`/`getUnpackVector()` in the shipped `maplibre-gl` source) to feed the shader — so a
+ * ZERO factor makes the repack degenerate and the whole layer paints one flat saturated stop,
+ * regardless of the source pixel. This shipped for a while as `redFactor: 1, greenFactor: 0,
+ * blueFactor: 0` (intended to read only the red channel) and was the map's actual blocking bug:
+ * a diagnostic ramp rendered the entire cloud mask at its top stop on screen, while the identical
+ * source with `redFactor: 1, greenFactor: 1, blueFactor: 1` rendered correct structure matching
+ * the raw raster. **No factor in a `raster-dem` source built from a colour image may ever be
+ * zero** — the fix in `map-overlays.ts` is `1, 1, 1`, `baseShift: 0`, and this ramp's own domain
+ * changed to match: with all three factors at 1, `elevation` is the pixel's channel SUM, not its
+ * red channel alone. Measured on a real tile (`msg_fes:clm`'s pixel census): cloud = white
+ * `(255,255,255)` → **765**, clear land `(0,192,0)` → **192**, clear sea `(0,0,255)` → **255**.
  *
  * A single binary field earns no hue per DESIGN.md ("ink earns its colour") — `cloudHigh`, the
  * dictionary's existing neutral cloud-severity token, carries every stop here at ascending alpha
- * rather than a newly-minted colour. `0`→`96` both fully transparent (this is also what off-disc
- * BLACK decodes to, so the disc edge needs no special case: nothing paints past the product
- * footprint either way), `128` half the layer's own alpha, `255` full alpha. The ramp is
- * deliberately steep rather than smoothly graded across the whole 0–255 domain: a census of one
- * tile found 7 034 distinct colours, nearly all of them anti-aliasing at cloud edges, and painting
- * every one of those intermediate reds would keep exactly the antialiasing haze `resampling:
- * 'nearest'` (set on the layer, not here — see `map-overlays.ts`'s `buildCloudRamp`) exists to
- * avoid.
+ * rather than a newly-minted colour. `0`→`400` both fully transparent — `400` clears BOTH clear
+ * classes (192 and 255) while staying below the cloud sum (765), so neither clear-land nor
+ * clear-sea pixels paint anything (this is also what off-disc BLACK decodes to, so the disc edge
+ * needs no special case). `520` and `765` are the steep rise into cloud, at `0.55`/`0.85` rather
+ * than a smooth 1.0 top so the ramp reads as an overlay wash over the ground truth, not a second
+ * opaque basemap. Verified rendering correctly with these exact stops.
  */
 export const CLOUD_RAMP: ReadonlyArray<{ stop: number; token: string; alpha: number }> = [
   { stop: 0, token: SERIES.cloudHigh, alpha: 0 },
-  { stop: 96, token: SERIES.cloudHigh, alpha: 0 },
-  { stop: 128, token: SERIES.cloudHigh, alpha: 0.5 },
-  { stop: 255, token: SERIES.cloudHigh, alpha: 1 },
+  { stop: 400, token: SERIES.cloudHigh, alpha: 0 },
+  { stop: 520, token: SERIES.cloudHigh, alpha: 0.55 },
+  { stop: 765, token: SERIES.cloudHigh, alpha: 0.85 },
 ]
 
 /**
  * A layer's tile plumbing is genuinely different per provider, not a cosmetic difference in field
  * names — this is why `source` is a real discriminant rather than an optional `host`/`wmsLayer`
- * pair every row carries and some ignore:
+ * pair every row carries and some ignore. DWD's own `'wms'` rows (`radar-de`, `cells`) were
+ * deleted 2026-08-19 (see the module docstring) — every remaining `'wms'`/`'wms-multi'` row is
+ * EUMETSAT now:
  *
- * - `'wms'` — a single DWD/EUMETSAT `GetMap` layer, built by `wmsTileUrl`. `radar-de` and `cells`
- *   (DWD); `lightning` and `cloud-top` (EUMETSAT).
+ * - `'wms'` — a single EUMETSAT `GetMap` layer, built by `wmsTileUrl`. Only `lightning` now.
+ * - `'wms-multi'` — the SAME plain-raster `GetMap` shape as `'wms'`, mounted once per disc off
+ *   parallel `hosts`/`wmsLayers` arrays (the same "index `i` of one pairs with index `i` of the
+ *   other" convention `'cloud-mask'` already uses) sharing one `timeGrid`. `cloud-top` is the one
+ *   row here: both MSG discs, no decode, just two independent opaque-PNG raster layers.
  * - `'rainviewer'` — the global radar. Its tile URLs are RUNTIME DATA from
  *   `lib/queries/rainviewer.ts` (RainViewer publishes a new radar mosaic hash every 5 minutes),
  *   not a static template this catalogue could spell out — modelling that honestly here (no
  *   `host`/`wmsLayer` on this branch at all) is what stops a placeholder string from being
- *   smuggled in where real tile data belongs. `radar` used to BE the DWD `Radar_rv_product_1x1km_ger`
- *   WMS layer (Germany-only, animated); DWD's own +105 min nowcast baked into that product's WMS
- *   time extent has no equivalent on RainViewer, which is why DWD's radar survives as the separate
- *   `radar-de` row below rather than being dropped outright.
+ *   smuggled in where real tile data belongs.
  * - `'cloud-mask'` — two EUMETSAT `msg_fes:clm`/`msg_iodc:clm` `raster-dem` sources, each painted
  *   through `CLOUD_RAMP`. `hosts`/`wmsLayers` are parallel arrays (index `i` of one pairs with
  *   index `i` of the other) rather than an array of `{host, layer}` pairs, matching this file's
  *   existing preference for flat arrays over one-off object shapes.
  * - `'gibs-ir'` — three independent NASA GIBS WMTS sources (GOES-East, GOES-West, Himawari),
- *   mounted together as one toggle.
+ *   mounted together as one toggle, plain undecoded RGBA rasters. Deliberately NOT `raster-dem` +
+ *   `color-relief`: GIBS' Clean Infrared product carries a colour enhancement for cold convective
+ *   tops that `color-relief` discards (see the module docstring for the 2026-08-19 finding) — the
+ *   raw tile IS the picture.
  */
+/**
+ * At least one element. The parallel `hosts`/`wmsLayers` arrays below are a STATIC catalogue, so
+ * "this row has a first disc" is a fact the compiler can hold rather than a fallback every reader
+ * has to re-check — `legendSource` used to spell that as `?? ''`, which would have built a
+ * `GetLegendGraphic` URL with an empty host and failed silently in the network layer instead of
+ * loudly at the malformed row.
+ */
+type NonEmpty<T> = readonly [T, ...T[]]
+
 export type WeatherLayer = {
   id: WeatherLayerId
   label: string
@@ -887,21 +937,19 @@ export type WeatherLayer = {
   /**
    * Where the layer sits in the raster stack, low number = further down — on the SAME scale as
    * `BASE_STACK_INDEX` and `LP_STACK_INDEX`. See the module's "Stack order" section for the
-   * current derivation (cloud/cloud-ir/cloud-top just above the ramp, then radar/radar-de, then
-   * cells and lightning on top as the most urgent, sparse annotations). This is NOT the order the
-   * drawer lists them in — ordering the stack by usefulness and listing the rows by familiarity are
-   * two different jobs.
+   * current derivation (cloud/cloud-ir/cloud-top just above the ramp, then radar, then lightning
+   * on top as the most urgent, sparse annotation). This is NOT the order the drawer lists them in
+   * — ordering the stack by usefulness and listing the rows by familiarity are two different jobs.
    */
   stackIndex: number
   /**
-   * True for the four `'wms'` layers — `radar-de`/`cells` (DWD) and `lightning`/`cloud-top`
-   * (EUMETSAT). `legendUrl`'s `GetLegendGraphic` request is a generic GeoServer operation, not a
-   * DWD-specific one, so both hosts satisfy the same shape (re-verified against EUMETSAT
-   * 2026-08-19 alongside `cloud-top`'s own live probe) — omitted, never `false`, so a future layer
-   * whose host does not run GeoServer can't accidentally opt in by inheriting a default. `radar`,
-   * `cloud` and `cloud-ir` are explicitly `false`: none of the three has a
-   * `GetLegendGraphic`-shaped legend, so each carries a plain `emptyMeans` line instead — "I
-   * turned it on and nothing appeared" still needs an answer without one.
+   * True for the two GeoServer-shaped layers — `lightning` (`'wms'`) and `cloud-top`
+   * (`'wms-multi'`, legend requested off its first disc — see `legendSource`). `legendUrl`'s
+   * `GetLegendGraphic` request is a generic GeoServer operation, so both satisfy the same shape —
+   * omitted, never `false`, so a future layer whose host does not run GeoServer can't accidentally
+   * opt in by inheriting a default. `radar`, `cloud` and `cloud-ir` are explicitly `false`: none
+   * of the three has a `GetLegendGraphic`-shaped legend, so each carries a plain `emptyMeans` line
+   * instead — "I turned it on and nothing appeared" still needs an answer without one.
    */
   legend?: boolean
   /** What an empty render means, in the user's words. Shown next to the layer's legend (or in its
@@ -915,25 +963,37 @@ export type WeatherLayer = {
       host: string
       wmsLayer: string
       attribution: string
-      /** Required, not optional — every `'wms'` row bakes a `time` param (`weatherLayerTime`), so
-       * a new row cannot forget to state its own measured grid. See `WeatherTimeGrid` for the
-       * lag table and the margin rule every value here has to satisfy. */
+      /** Required, not optional — every `'wms'`/`'wms-multi'` row bakes a `time` param
+       * (`weatherLayerTime`), so a new row cannot forget to state its own measured grid. See
+       * `WeatherTimeGrid` for the lag table and the margin rule every value here has to satisfy. */
+      timeGrid: WeatherTimeGrid
+    }
+  | {
+      source: 'wms-multi'
+      hosts: NonEmpty<string>
+      wmsLayers: NonEmpty<string>
+      attribution: string
       timeGrid: WeatherTimeGrid
     }
   | { source: 'rainviewer'; attribution: string }
   | {
       source: 'cloud-mask'
-      hosts: readonly string[]
-      wmsLayers: readonly string[]
+      hosts: NonEmpty<string>
+      wmsLayers: NonEmpty<string>
       attribution: string
     }
-  | { source: 'gibs-ir'; gibsLayers: readonly string[]; attribution: string }
+  | { source: 'gibs-ir'; gibsLayers: NonEmpty<string>; attribution: string }
 )
 
-/** The narrowed shape `legendUrl` (below) and every GeoServer-`'wms'` call site actually need —
- * only the four `'wms'` rows ever set `legend: true`, since `legendUrl` only knows the
- * `GetLegendGraphic` shape both DWD and EUMETSAT's GeoServer hosts share. */
+/** The narrowed shape every plain GeoServer-`'wms'` call site actually needs. */
 export type WmsWeatherLayer = Extract<WeatherLayer, { source: 'wms' }>
+
+/** The two-disc sibling of `WmsWeatherLayer` — `cloud-top`, the only `'wms-multi'` row. */
+export type WmsMultiWeatherLayer = Extract<WeatherLayer, { source: 'wms-multi' }>
+
+/** Either GeoServer shape — the union `legendSource`/`WeatherLegends` (`site-map.tsx`) actually
+ * render off, since a legend card does not care whether its row has one disc or two. */
+export type LegendableWeatherLayer = WmsWeatherLayer | WmsMultiWeatherLayer
 
 export const WEATHER_LAYERS: readonly WeatherLayer[] = [
   {
@@ -952,23 +1012,6 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
     coverage: 'Global — 1200+ radars across 150+ countries.',
   },
   {
-    id: 'radar-de',
-    label: 'Radar nowcast (Germany)',
-    description:
-      "DWD RV precipitation composite, 1 km — a single current frame. Its own product carries a +0…+105 min nowcast inside its WMS time extent that RainViewer's global feed above has no equivalent of anywhere; this row exists to keep that reach for the region it still covers.",
-    source: 'wms',
-    host: DWD_WMS,
-    wmsLayer: 'dwd:Radar_rv_product_1x1km_ger',
-    // DWD's own PT5M grid, DWD's own measured lag — see `WeatherTimeGrid`'s table.
-    timeGrid: { stepMinutes: RADAR_STEP_MINUTES, lagMinutes: RADAR_LAG_MINUTES },
-    defaultOpacity: 0.75,
-    attribution: DWD_ATTRIBUTION,
-    stackIndex: 32,
-    legend: true,
-    emptyMeans: 'Blank means no precipitation in range.',
-    coverage: 'Germany and immediate neighbours.',
-  },
-  {
     id: 'lightning',
     label: 'Lightning density',
     description:
@@ -976,9 +1019,9 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
     source: 'wms',
     host: EUMETSAT_WMS,
     wmsLayer: 'mtg_fd:li_afa',
-    // EUMETSAT's own PT5M grid, but NOT `RADAR_LAG_MINUTES` — measured lag is also 15, so reusing
-    // DWD's constant would land exactly on the newest published slot with zero margin. 25 is that
-    // 15 plus two full 5-minute steps — see `WeatherTimeGrid`'s table.
+    // EUMETSAT's own PT5M grid — 25 is the measured 15 min lag plus two full 5-minute steps of
+    // margin, so a request never lands exactly on the newest published slot with zero room to
+    // spare. See `WeatherTimeGrid`'s table.
     timeGrid: { stepMinutes: RADAR_STEP_MINUTES, lagMinutes: 25 },
     defaultOpacity: 0.9,
     attribution: EUMETSAT_ATTRIBUTION,
@@ -987,24 +1030,6 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
     emptyMeans: 'Blank means no flashes detected — normal on a quiet night.',
     coverage:
       'The MTG-I disc, roughly ±70° — the Americas, the Pacific and eastern Asia still have no free lightning source (see the module docstring).',
-  },
-  {
-    id: 'cells',
-    label: 'Storm cells',
-    description:
-      'DWD Gewitterzellen — the outlines of thunderstorm cells the nowcast is TRACKING, with their tracks. Lightning says where it struck; this says where the cell is going.',
-    source: 'wms',
-    host: DWD_WMS,
-    wmsLayer: 'dwd:Gewitterzellen',
-    // DWD's own PT5M grid, DWD's own measured lag — storm-cell polygons move, so this must not go
-    // any staler than `radar-de`'s own margin. See `WeatherTimeGrid`'s table.
-    timeGrid: { stepMinutes: RADAR_STEP_MINUTES, lagMinutes: RADAR_LAG_MINUTES },
-    defaultOpacity: 0.9,
-    attribution: DWD_ATTRIBUTION,
-    stackIndex: 40,
-    legend: true,
-    emptyMeans: 'Blank means the nowcast is tracking no cells.',
-    coverage: 'Germany and immediate neighbours.',
   },
   {
     id: 'cloud',
@@ -1025,35 +1050,36 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
   },
   {
     id: 'cloud-ir',
-    label: 'Infrared cloud (global)',
+    label: 'Infrared cloud',
     description:
-      'NASA GIBS GOES-East/West + Himawari infrared (10.8 µm), covering the hemisphere the EUMETSAT mask above cannot reach. Complements it, does not replace it: infrared reads high cold cloud well but under-reports low cloud — measured here at IR 56.3 over cloudy pixels vs 52.8 over clear land, with fully overlapping ranges. Low cloud is exactly what ends an astro night, so treat a clear read here as a hint, not a verdict.',
+      "NASA GIBS GOES-East/West + Himawari infrared (10.8 µm), covering the hemisphere the EUMETSAT mask above cannot reach. Rendered as the provider's own colour-enhanced Clean Infrared product (cold convective tops render red/yellow/green over a grey field) rather than a decoded ramp — see the module docstring for why decoding it was tried and dropped. Complements the cloud mask, does not replace it: infrared reads high cold cloud well but under-reports low cloud — measured here at IR 56.3 over cloudy pixels vs 52.8 over clear land, with fully overlapping ranges. Low cloud is exactly what ends an astro night, so treat a clear read here as a hint, not a verdict.",
     source: 'gibs-ir',
     gibsLayers: [
       'GOES-East_ABI_Band13_Clean_Infrared',
       'GOES-West_ABI_Band13_Clean_Infrared',
       'Himawari_AHI_Band13_Clean_Infrared',
     ],
-    attribution:
-      'We acknowledge the use of imagery provided by services from NASA\'s <a href="https://www.earthdata.nasa.gov/eosdis/science-system-description/eosdis-components/gibs" target="_blank">Global Imagery Browse Services (GIBS)</a>, part of NASA\'s Earth Science Data and Information System (ESDIS).',
+    attribution: GIBS_ATTRIBUTION,
     defaultOpacity: 0.6,
     stackIndex: 22,
     legend: false,
     emptyMeans:
       "A tile past a satellite's disc edge returns nothing and MapLibre renders it blank — the edge of coverage, not a broken layer.",
     coverage:
-      'The Americas and the Atlantic (GOES-East/West) plus East Asia, Australia and the western Pacific (Himawari) — roughly the hemisphere the EUMETSAT cloud mask above does not reach, with a gap over the open Pacific between the discs.',
+      'The Americas and the Atlantic (GOES-East/West) plus East Asia, Australia and the western Pacific (Himawari) — roughly the hemisphere the EUMETSAT cloud mask above does not reach, with a gap over the open Pacific between the discs. NOT global on its own — see the module docstring for why no single cloud layer here is.',
   },
   {
     id: 'cloud-top',
     label: 'Cloud top height',
     description:
-      'EUMETSAT MSG cloud-top height — distinguishes thin high cirrus (which costs contrast but rarely ends a session) from a low deck (which does), the one distinction the binary cloud mask above cannot make. Refreshed every 15 minutes across the MSG 0° disc.',
-    source: 'wms',
-    host: EUMETSAT_WMS,
-    wmsLayer: 'msg_fes:cth',
+      'EUMETSAT MSG cloud-top height, both discs — distinguishes thin high cirrus (which costs contrast but rarely ends a session) from a low deck (which does), the one distinction the binary cloud mask above cannot make. Refreshed every 15 minutes.',
+    source: 'wms-multi',
+    hosts: [EUMETSAT_WMS, EUMETSAT_WMS],
+    wmsLayers: ['msg_fes:cth', 'msg_iodc:cth'],
     // EUMETSAT's own PT15M grid — measured lag 30, so 35 floors back past one grid boundary and
-    // still lands inside what the host had published. See `WeatherTimeGrid`'s table.
+    // still lands inside what the host had published. `msg_iodc:cth` (probed 2026-08-19: HTTP 200,
+    // `image/png`, colour type 6) mounts exactly like `msg_fes:cth`, same grid. See
+    // `WeatherTimeGrid`'s table.
     timeGrid: { stepMinutes: 15, lagMinutes: 35 },
     defaultOpacity: 0.9,
     attribution: EUMETSAT_ATTRIBUTION,
@@ -1062,7 +1088,7 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
     emptyMeans:
       'Nothing drawn means no cloud top was retrieved over that area — usually clear sky. The product paints only where there IS cloud (a probed tile ran 3 061 B, almost entirely transparent), so a mostly-empty render is the normal case, not a broken request.',
     coverage:
-      'The MSG 0° disc, roughly ±77° — Europe, Africa, the Middle East, western Asia, the eastern Atlantic and eastern South America, the same footprint the cloud mask above states. NOT global.',
+      'Both MSG discs — 0° and 45.5°E, roughly ±77° each — Europe, Africa, the Middle East, western and southern Asia, the eastern Atlantic and eastern South America, the same footprint the cloud mask above states. NOT the Americas or the Pacific.',
   },
 ]
 
@@ -1284,8 +1310,15 @@ export type TerrainSelection = {
   contours: boolean
 }
 
-export const TERRAIN_OFF: TerrainSelection = {
-  hillshade: false,
+/**
+ * The scheme's default terrain selection — what an untouched URL resolves to. Hillshade is ON by
+ * default (2026-08-19 — "Hillshade should always be enabled right?!"); everything else stays off.
+ * Named for what it actually IS, not `TERRAIN_OFF`: that name lied the moment hillshade stopped
+ * being one of the things a fresh URL turns off. The checkbox in `map-settings-panel.tsx` still
+ * lets it be turned off — this is only the untouched-URL default.
+ */
+export const TERRAIN_DEFAULT: TerrainSelection = {
+  hillshade: true,
   hillshadeExaggeration: HILLSHADE_EXAGGERATION_DEFAULT,
   hillshadeMethod: HILLSHADE_METHOD_DEFAULT,
   extruded: false,
@@ -1301,10 +1334,15 @@ export const TERRAIN_OFF: TerrainSelection = {
  * (`HillshadeMethod`) are both drawer sliders/toggles now, so an unrecognised or absent method
  * token falls back to `HILLSHADE_METHOD_DEFAULT` — the same never-throw contract every other
  * token in this codec already keeps.
+ *
+ * Hillshade being ON BY DEFAULT (`TERRAIN_DEFAULT`) flips the omit-when-default direction for this
+ * ONE field versus every other token here: an absent `hillshade`/`no-hillshade` token means "on,
+ * at catalogue defaults", not "off". Turning it explicitly OFF therefore needs its own token,
+ * `no-hillshade` — there is no way to omit-to-mean-off when off is no longer the implicit state.
  */
 export function parseTerrainParam(raw: string | undefined): TerrainSelection {
-  if (raw === undefined || raw === '') return TERRAIN_OFF
-  let hillshade = false
+  if (raw === undefined || raw === '') return TERRAIN_DEFAULT
+  let hillshade = true
   let hillshadeExaggeration = HILLSHADE_EXAGGERATION_DEFAULT
   let hillshadeMethod = HILLSHADE_METHOD_DEFAULT
   let extruded = false
@@ -1317,6 +1355,10 @@ export function parseTerrainParam(raw: string | undefined): TerrainSelection {
     }
     if (token === 'contours') {
       contours = true
+      continue
+    }
+    if (token === 'no-hillshade') {
+      hillshade = false
       continue
     }
     const [id, ...suffixParts] = token.split(':')
@@ -1332,16 +1374,17 @@ export function parseTerrainParam(raw: string | undefined): TerrainSelection {
   return { hillshade, hillshadeExaggeration, hillshadeMethod, extruded, trails, contours }
 }
 
-/** Inverse of `parseTerrainParam`. Returns `undefined` for all-off so the key leaves the URL. */
+/** Inverse of `parseTerrainParam`. Returns `undefined` for the untouched default (hillshade on at
+ * catalogue defaults, everything else off) so the key leaves the URL. Hillshade being explicitly
+ * OFF is the one state that needs its own token (`no-hillshade`) rather than an omission — see
+ * `parseTerrainParam`'s doc for why the omit-when-default direction flips for this field. */
 export function formatTerrainParam(selection: TerrainSelection): string | undefined {
   const tokens: string[] = []
   if (selection.hillshade) {
     const percent = Math.round(selection.hillshadeExaggeration * 100)
     const percentDefault = Math.round(HILLSHADE_EXAGGERATION_DEFAULT * 100) === percent
     const methodDefault = selection.hillshadeMethod === HILLSHADE_METHOD_DEFAULT
-    if (percentDefault && methodDefault) {
-      tokens.push('hillshade')
-    } else {
+    if (!percentDefault || !methodDefault) {
       // A non-default method needs the percent slot filled even when the percent itself is
       // default — `hillshade::igor` is not a token this codec accepts, so the position has to
       // carry a real value once anything past it is non-default.
@@ -1349,6 +1392,9 @@ export function formatTerrainParam(selection: TerrainSelection): string | undefi
       if (!methodDefault) parts.push(selection.hillshadeMethod)
       tokens.push(parts.join(':'))
     }
+    // else: on, at every catalogue default — the implicit, untouched-URL state, omitted entirely.
+  } else {
+    tokens.push('no-hillshade')
   }
   if (selection.extruded) tokens.push('3d')
   if (selection.contours) tokens.push('contours')

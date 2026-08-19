@@ -1,0 +1,81 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Cloud mask decode POC</title>
+<link href="/node_modules/.bun/maplibre-gl@6.3.0/node_modules/maplibre-gl/dist/maplibre-gl.css" rel="stylesheet" />
+<style>
+  body { margin:0; background:#18181b; color:#e4e4e7; font:12px system-ui; }
+  .row { display:flex; height:50vh; }
+  .pane { flex:1; position:relative; border:1px solid #3f3f46; }
+  .label { position:absolute; z-index:2; top:4px; left:4px; background:#000c; padding:2px 6px; }
+  .map { width:100%; height:100%; }
+</style>
+</head>
+<body>
+<div class="row">
+  <div class="pane"><div class="label">A — raw raster (truth)</div><div id="a" class="map"></div></div>
+  <div class="pane"><div class="label">B — diagnostic ramp, factors 1/0/0</div><div id="b" class="map"></div></div>
+</div>
+<div class="row">
+  <div class="pane"><div class="label">C — diagnostic ramp, factors 1/1/1 (spec defaults)</div><div id="c" class="map"></div></div>
+  <div class="pane"><div class="label">D — diagnostic ramp, factors 1/0/0, resampling linear</div><div id="d" class="map"></div></div>
+</div>
+<script type="module">
+import { Map as MLMap } from "/node_modules/.bun/maplibre-gl@6.3.0/node_modules/maplibre-gl/dist/maplibre-gl.mjs";
+const EUM = 'https://view.eumetsat.int/geoserver/wms'
+function wms(layer) {
+  const p = new URLSearchParams({
+    service:'WMS', version:'1.1.1', request:'GetMap', layers:layer, styles:'',
+    format:'image/png', transparent:'true', width:'256', height:'256', srs:'EPSG:3857',
+  })
+  return `${EUM}?${p.toString()}&bbox={bbox-epsg-3857}`
+}
+const BASE = {
+  version: 8,
+  sources: { osm: { type:'raster', tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize:256 } },
+  layers: [
+    { id:'bg', type:'background', paint:{ 'background-color':'#18181b' } },
+    { id:'osm', type:'raster', source:'osm', paint:{ 'raster-opacity':0.3, 'raster-saturation':-0.9 } },
+  ],
+}
+const CENTER = [11.4, 48.5], ZOOM = 4
+const mk = (id) => new MLMap({ container:id, style: structuredClone(BASE), center:CENTER, zoom:ZOOM, attributionControl:false })
+
+// Diagnostic ramp: each band a distinct saturated hue, so the painted colour
+// reveals the DECODED value rather than hiding it behind alpha.
+const DIAG = ['interpolate',['linear'],['elevation'],
+  -1,   'rgba(255,0,255,1)',   // magenta: negative
+  0,    'rgba(0,0,0,1)',       // black:   0
+  1,    'rgba(255,0,0,1)',     // red:     ~1
+  64,   'rgba(255,128,0,1)',   // orange:  64
+  128,  'rgba(255,255,0,1)',   // yellow:  128
+  192,  'rgba(0,255,0,1)',     // green:   192
+  255,  'rgba(0,128,255,1)',   // blue:    255
+  512,  'rgba(255,255,255,1)', // white:   512
+  765,  'rgba(128,0,255,1)']   // violet:  765
+
+const a = mk('a')
+a.on('load', () => {
+  a.addSource('clm', { type:'raster', tiles:[wms('msg_fes:clm')], tileSize:256 })
+  a.addLayer({ id:'clm', type:'raster', source:'clm' })
+})
+
+function diag(el, factors, resampling) {
+  const m = mk(el)
+  m.on('load', () => {
+    m.addSource('src', {
+      type:'raster-dem', tiles:[wms('msg_fes:clm')], tileSize:256,
+      encoding:'custom', redFactor:factors[0], greenFactor:factors[1], blueFactor:factors[2], baseShift:0,
+    })
+    m.addLayer({ id:'relief', type:'color-relief', source:'src',
+      paint:{ 'color-relief-color': DIAG, 'color-relief-opacity':1, resampling } })
+  })
+  return m
+}
+diag('b', [1,0,0], 'nearest')
+diag('c', [1,1,1], 'nearest')
+diag('d', [1,0,0], 'linear')
+</script>
+</body>
+</html>

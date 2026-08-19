@@ -79,8 +79,9 @@ const SearchSchema = z.object({
     .optional()
     .catch(undefined)
     .transform((raw) => formatWeatherParam(parseWeatherParam(raw))),
-  // Same normalise-don't-reject shape as `wx` — `parseTerrainParam` already falls back to both
-  // toggles off for anything it does not recognise.
+  // Same normalise-don't-reject shape as `wx` — `parseTerrainParam` already falls back to
+  // hillshade on (the untouched-URL default, `TERRAIN_DEFAULT`) with everything else off for
+  // anything it does not recognise.
   terrain: z
     .string()
     .optional()

@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>GIBS IR check</title>
+<link href="/node_modules/.bun/maplibre-gl@6.3.0/node_modules/maplibre-gl/dist/maplibre-gl.css" rel="stylesheet" />
+<style>
+  body { margin:0; background:#18181b; color:#e4e4e7; font:12px system-ui; }
+  .row { display:flex; height:50vh; }
+  .pane { flex:1; position:relative; border:1px solid #3f3f46; }
+  .label { position:absolute; z-index:2; top:4px; left:4px; background:#000c; padding:2px 6px; }
+  .map { width:100%; height:100%; }
+</style>
+</head>
+<body>
+<div class="row">
+  <div class="pane"><div class="label">A — GOES-East raw RGBA raster (truth)</div><div id="a" class="map"></div></div>
+  <div class="pane"><div class="label">B — GOES-East decoded, shipped 200/380/560/765</div><div id="b" class="map"></div></div>
+</div>
+<div class="row">
+  <div class="pane"><div class="label">C — GOES-East decoded, 380/520/700</div><div id="c" class="map"></div></div>
+  <div class="pane"><div class="label">D — GOES-East raw at raster-opacity .6</div><div id="d" class="map"></div></div>
+</div>
+<script type="module">
+import { Map as MLMap } from "/node_modules/.bun/maplibre-gl@6.3.0/node_modules/maplibre-gl/dist/maplibre-gl.mjs";
+const G = '212,212,216'
+const OSM = ['https://tile.openstreetmap.org/{z}/{x}/{y}.png']
+const style = () => ({ version:8,
+  sources:{ base:{ type:'raster', tiles:OSM, tileSize:256 } },
+  layers:[ { id:'bg', type:'background', paint:{ 'background-color':'#18181b' } },
+           { id:'base', type:'raster', source:'base', paint:{ 'raster-opacity':0.8, 'raster-saturation':-0.9 } } ] })
+
+// Floor now-40min onto the PT10M grid, same as the app's gibsTime.
+const t = new Date(Math.floor((Date.now() - 40*60000) / 600000) * 600000)
+  .toISOString().replace(/\.\d{3}Z$/, 'Z')
+const url = `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/GOES-East_ABI_Band13_Clean_Infrared/default/${t}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png`
+// Centre on the Americas — inside GOES-East's disc, unlike Europe.
+const C = [-60, -5], Z = 3
+
+function raw(el, opacity) {
+  const m = new MLMap({ container:el, style: style(), center:C, zoom:Z, attributionControl:false })
+  m.on('load', () => {
+    m.addSource('s', { type:'raster', tiles:[url], tileSize:256, maxzoom:6 })
+    m.addLayer({ id:'l', type:'raster', source:'s', paint:{ 'raster-opacity':opacity } })
+  })
+}
+function decoded(el, stops) {
+  const m = new MLMap({ container:el, style: style(), center:C, zoom:Z, attributionControl:false })
+  m.on('load', () => {
+    m.addSource('s', { type:'raster-dem', tiles:[url], tileSize:256, maxzoom:6,
+      encoding:'custom', redFactor:1, greenFactor:1, blueFactor:1, baseShift:0 })
+    m.addLayer({ id:'l', type:'color-relief', source:'s',
+      paint:{ 'color-relief-color': ['interpolate',['linear'],['elevation'], ...stops], 'color-relief-opacity':1, resampling:'linear' } })
+  })
+}
+raw('a', 1)
+decoded('b',[0,`rgba(${G},0)`,200,`rgba(${G},0)`,380,`rgba(${G},0.35)`,560,`rgba(${G},0.6)`,765,`rgba(${G},0.8)`])
+decoded('c',[0,`rgba(${G},0)`,380,`rgba(${G},0)`,520,`rgba(${G},0.5)`,700,`rgba(${G},0.85)`])
+raw('d', 0.6)
+</script>
+</body>
+</html>

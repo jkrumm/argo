@@ -665,15 +665,13 @@ param as a fourth positional slot, `<year>[:<percent>[:<smooth|sharp>[:<min>-<ma
 
 ### 9.3 Weather sources — every row probed live from this machine, 2026-08-19
 
-| Layer       | Product                                                                      | Cadence                     | Coverage                                  | PNG type              | Key  |
-| ----------- | ---------------------------------------------------------------------------- | --------------------------- | ----------------------------------------- | --------------------- | ---- |
-| `radar`     | RainViewer `weather-maps.json` → `{host}{path}/256/{z}/{x}/{y}/2/1_1.png`    | 5 min, ~2 h past            | **Global** — 1200+ radars, 150+ countries | 6 (RGBA)              | none |
-| `radar-de`  | DWD `dwd:Radar_rv_product_1x1km_ger`                                         | 5 min, **+105 min nowcast** | Germany + neighbours                      | —                     | none |
-| `cloud`     | EUMETSAT `msg_fes:clm` + `msg_iodc:clm`                                      | PT15M                       | Two ±77° discs at 0° and 45.5°E           | 2 (opaque — see §9.4) | none |
-| `cloud-ir`  | NASA GIBS `GOES-East` / `GOES-West` / `Himawari_AHI` `Band13_Clean_Infrared` | PT10M, ~30 min latency      | The hemisphere the discs miss             | 6 (RGBA)              | none |
-| `cloud-top` | EUMETSAT `msg_fes:cth`                                                       | PT15M                       | MSG 0° disc, ±77°                         | 6 (RGBA)              | none |
-| `lightning` | EUMETSAT `mtg_fd:li_afa` (MTG-I Lightning Imager)                            | **PT5M**                    | MTG-I disc, ±70°                          | 6 (RGBA)              | none |
-| `cells`     | DWD `dwd:Gewitterzellen`                                                     | 5 min                       | Germany + neighbours                      | —                     | none |
+| Layer       | Product                                                                      | Cadence                | Coverage                                  | PNG type              | Key  |
+| ----------- | ---------------------------------------------------------------------------- | ---------------------- | ----------------------------------------- | --------------------- | ---- |
+| `radar`     | RainViewer `weather-maps.json` → `{host}{path}/256/{z}/{x}/{y}/2/1_1.png`    | 5 min, ~2 h past       | **Global** — 1200+ radars, 150+ countries | 6 (RGBA)              | none |
+| `cloud`     | EUMETSAT `msg_fes:clm` + `msg_iodc:clm`                                      | PT15M                  | Two ±77° discs at 0° and 45.5°E           | 2 (opaque — see §9.4) | none |
+| `cloud-ir`  | NASA GIBS `GOES-East` / `GOES-West` / `Himawari_AHI` `Band13_Clean_Infrared` | PT10M, ~30 min latency | The Americas, the Pacific, eastern Asia   | 6 (RGBA)              | none |
+| `cloud-top` | EUMETSAT `msg_fes:cth` + `msg_iodc:cth`                                      | PT15M                  | Both discs, 0° and 45.5°E                 | 6 (RGBA)              | none |
+| `lightning` | EUMETSAT `mtg_fd:li_afa` (MTG-I Lightning Imager)                            | **PT5M**               | MTG-I disc, ±70°                          | 6 (RGBA)              | none |
 
 Every WMS row bakes an explicit `TIME`, and asking for a slot the host has not published yet
 returns a `ServiceExceptionReport` — not an empty tile — so the layer silently shows nothing.
@@ -733,6 +731,47 @@ actually separates thin high cirrus from a low deck.
 | OpenWeatherMap / Tomorrow.io                | Key-gated, weather maps behind paid tiers; Tomorrow.io gates lightning to Enterprise                                                                                                                                                  |
 | Meteoblue                                   | No free tier — Tile API needs a ≥€2 400/year plan                                                                                                                                                                                     |
 | `raster-color` recolouring                  | A Mapbox GL JS v3 feature. Not in MapLibre's `paint_raster`, verified against the installed style spec                                                                                                                                |
+
+### 9.8 What the browser showed that four green gates could not
+
+Everything in §9.1–§9.7 passed format, lint, typecheck, the palette guard, 170 tests and a clean
+build — and three of the things it shipped were visibly wrong. They were only found by rendering
+the real tiles in a browser (`docs/poc/astro-map/{cloudmask,rampcheck,verify,irthresh,gibscheck}.html`;
+they read light-pollution tiles from a gitignored `.cache/lp/` mirror, since that route is
+bearer-guarded and CORS-closed to a local origin).
+
+**A zero factor breaks MapLibre's custom DEM encoding.** The cloud mask was mounted with
+`redFactor: 1, greenFactor: 0, blueFactor: 0` to isolate the red channel. It rendered as one flat
+grey slab. MapLibre decodes `r*redFactor + g*greenFactor + b*blueFactor - baseShift` and then
+RE-PACKS that elevation back into RGB through the same factor vector (`pack()` /
+`getUnpackVector()`); a zero factor makes the repack degenerate and every pixel saturates. With
+`1/1/1` the same source renders correctly, and the mask's classes separate on the channel SUM
+instead — cloud `(255,255,255)` → 765, clear land `(0,192,0)` → 192, clear sea `(0,0,255)` → 255,
+so the ramp's transparent threshold sits at 400, above both clear classes. **No factor may ever be
+zero.**
+
+**The diverging alpha ladder erased the band the map exists for.** §9.2's ramp faded to `.12` alpha
+at its neutral crossing — which sits at 21.3 mag, in the middle of the rural plateau. Rendered, it
+read as red city cores, a washed-out grey hole across all of Bavaria, then blue in the Alps: no
+yellow anywhere. The written argument for it ("a diverging ramp has to fade to its most transparent
+exactly at the point it diverges around") was coherent and wrong. Alpha is now near-flat
+(.56 → .74, rising gently toward both ends) and HUE alone carries the ramp; the same tiles then
+render a continuous red → orange → gold → blue gradient with every step distinguishable.
+
+**Infrared cannot be made global, in either direction.** Two attempts, both rejected on screen:
+
+| Attempt                                                                             | Result                                                                                                                                                                                                                                                                                                          |
+| ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Decode the EUMETSAT IR discs (`msg_fes:ir108`, `msg_iodc:ir108`) into the same ramp | Impossible. The product's greyscale is compressed into 31–108 of 0–255, and cloud vs clear means are 56.3 vs 52.8 with fully overlapping ranges. Three candidate thresholds were rendered against the `clm` mask as ground truth; all produced a smear or a uniform wash. The information is not in the product |
+| Decode GIBS `Band13_Clean_Infrared` for a consistent look                           | Actively destructive. That product is not plain greyscale — it carries a colour enhancement for cold convective tops, and `color-relief` discards it, collapsing the best cloud picture in the catalogue into a flat pale wash. It stays a **plain RGBA raster** at `raster-opacity` 0.6                        |
+
+So no single cloud layer is global. The three together are: mask and cloud-top height over the two
+Meteosat discs, infrared over the hemisphere they miss.
+
+**The topographic base and the ramp needed a wash, not a redesign.** OpenTopoMap carries its own
+hypsometric tint, which is why the two were originally made mutually exclusive (§9.1). Washing the
+base raster — `raster-opacity` 0.55, `raster-saturation` −0.55, `raster-brightness-max` 0.75, applied
+only while the ramp is on — makes both legible at once, with no control to configure.
 
 ### 9.7 Still not solved
 

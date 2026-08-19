@@ -1,0 +1,95 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Ramp check POC</title>
+<link href="/node_modules/.bun/maplibre-gl@6.3.0/node_modules/maplibre-gl/dist/maplibre-gl.css" rel="stylesheet" />
+<style>
+  body { margin:0; background:#18181b; color:#e4e4e7; font:12px system-ui; }
+  .row { display:flex; height:50vh; }
+  .pane { flex:1; position:relative; border:1px solid #3f3f46; }
+  .label { position:absolute; z-index:2; top:4px; left:4px; background:#000c; padding:2px 6px; }
+  .map { width:100%; height:100%; }
+</style>
+</head>
+<body>
+<div class="row">
+  <div class="pane"><div class="label">A — LP ramp AS SHIPPED (diverging alpha .12 min)</div><div id="a" class="map"></div></div>
+  <div class="pane"><div class="label">B — LP ramp PROPOSED (flat alpha, hue carries it)</div><div id="b" class="map"></div></div>
+</div>
+<div class="row">
+  <div class="pane"><div class="label">C — proposed LP over OpenTopoMap, base washed</div><div id="c" class="map"></div></div>
+  <div class="pane"><div class="label">D — cloud mask, factors 1/1/1 + proposed ramp</div><div id="d" class="map"></div></div>
+</div>
+<script type="module">
+import { Map as MLMap } from "/node_modules/.bun/maplibre-gl@6.3.0/node_modules/maplibre-gl/dist/maplibre-gl.mjs";
+import { TOKEN } from "./.cache/token.js";
+
+const LP_TILES = './.cache/lp/{z}/{x}/{y}.png'
+const OTM = ['https://a.tile.opentopomap.org/{z}/{x}/{y}.png','https://b.tile.opentopomap.org/{z}/{x}/{y}.png']
+const OSM = ['https://tile.openstreetmap.org/{z}/{x}/{y}.png']
+
+// Dark-scheme hexes straight out of DESIGN.md's LP table.
+const C = { city:'231,106,110', urban:'235,104,71', sub:'236,154,60', rural:'240,183,38', dark:'56,189,255' }
+const rgba = (c,a) => `rgba(${c},${a})`
+
+const SHIPPED = [
+  [1800,C.city,0.90],[1960,C.urban,0.62],[2060,C.sub,0.40],[2095,C.sub,0.24],
+  [2130,C.rural,0.12],[2145,C.rural,0.15],[2155,C.dark,0.18],[2170,C.dark,0.25],
+  [2180,C.dark,0.31],[2190,C.dark,0.37],[2200,C.dark,0.44],
+]
+// Proposed: alpha near-constant so HUE does the work; every band visible, yellow included.
+const PROPOSED = [
+  [1800,C.city,0.72],[1960,C.urban,0.66],[2060,C.sub,0.62],[2095,C.sub,0.58],
+  [2130,C.rural,0.56],[2145,C.rural,0.56],[2155,C.dark,0.58],[2170,C.dark,0.62],
+  [2180,C.dark,0.66],[2190,C.dark,0.70],[2200,C.dark,0.74],
+]
+const ramp = (rows) => ['interpolate',['linear'],['elevation'], ...rows.flatMap(([s,c,a]) => [s, rgba(c,a)])]
+
+function baseStyle(tiles, wash) {
+  return {
+    version:8,
+    sources:{ base:{ type:'raster', tiles, tileSize:256 } },
+    layers:[
+      { id:'bg', type:'background', paint:{ 'background-color':'#18181b' } },
+      { id:'base', type:'raster', source:'base', paint: wash
+          ? { 'raster-opacity':0.55, 'raster-saturation':-0.55, 'raster-brightness-max':0.75 }
+          : { 'raster-opacity':0.8, 'raster-saturation':-0.9 } },
+    ],
+  }
+}
+const transformRequest = (url) =>
+  url.startsWith('https://argo.jkrumm.com') ? { url, headers:{ Authorization:`Bearer ${TOKEN}` } } : { url }
+
+function lpPane(el, rows, tiles, wash) {
+  const m = new MLMap({ container:el, style: baseStyle(tiles, wash), center:[11.4,47.9], zoom:7,
+    attributionControl:false, transformRequest })
+  m.on('load', () => {
+    m.addSource('lp', { type:'raster-dem', tiles:[LP_TILES], tileSize:256, minzoom:6, maxzoom:7, encoding:'terrarium' })
+    m.addLayer({ id:'lp', type:'color-relief', source:'lp',
+      paint:{ 'color-relief-color': ramp(rows), 'color-relief-opacity':1, resampling:'linear' } })
+  })
+  return m
+}
+lpPane('a', SHIPPED, OSM, false)
+lpPane('b', PROPOSED, OSM, false)
+lpPane('c', PROPOSED, OTM, true)
+
+// Cloud mask with the CORRECTED factors. Decode is r*rF + g*gF + b*bF - baseShift and MapLibre
+// re-packs through the same vector, so a zero factor is degenerate — all three must be non-zero.
+// With 1/1/1: cloud (255,255,255) = 765, clear land (0,192,0) = 192, clear sea (0,0,255) = 255.
+const EUM = 'https://view.eumetsat.int/geoserver/wms'
+const wms = (layer) => `${EUM}?${new URLSearchParams({ service:'WMS',version:'1.1.1',request:'GetMap',
+  layers:layer,styles:'',format:'image/png',transparent:'true',width:'256',height:'256',srs:'EPSG:3857'})}&bbox={bbox-epsg-3857}`
+const CLOUD = ['interpolate',['linear'],['elevation'],
+  0,'rgba(212,212,216,0)', 400,'rgba(212,212,216,0)', 520,'rgba(212,212,216,0.55)', 765,'rgba(212,212,216,0.85)']
+const d = new MLMap({ container:'d', style: baseStyle(OSM, false), center:[11.4,47.0], zoom:4, attributionControl:false })
+d.on('load', () => {
+  d.addSource('clm', { type:'raster-dem', tiles:[wms('msg_fes:clm')], tileSize:256,
+    encoding:'custom', redFactor:1, greenFactor:1, blueFactor:1, baseShift:0 })
+  d.addLayer({ id:'clm', type:'color-relief', source:'clm',
+    paint:{ 'color-relief-color': CLOUD, 'color-relief-opacity':1, resampling:'nearest' } })
+})
+</script>
+</body>
+</html>

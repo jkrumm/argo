@@ -29,5 +29,17 @@ pulls a few hundred MB; every run after that is offline.
 | `relief.html`                        | Proves `color-relief` works on the shipped MapLibre 6.3.0                                                                        |
 | `lp-tiles-gen.py`                    | Encodes the Lorenz grid as terrarium PNG tiles (`mpsas × 100`) — the tile format the API would serve                             |
 | `ramp-compare.html`                  | Basemap × ramp comparison over those tiles; how §6.6 was decided                                                                 |
+| `cloudmask.html`                     | Why the `raster-dem` custom encoding rendered a flat slab — a zero factor breaks MapLibre's repack (§9.8)                        |
+| `rampcheck.html` / `verify.html`     | The LP alpha ladder side by side with its replacement, the OpenTopoMap base wash, and both cloud decodes at shipped values       |
+| `irthresh.html`                      | Three IR thresholds against the `clm` mask as ground truth — why the EUMETSAT IR discs were dropped (§9.8)                       |
+| `gibscheck.html`                     | GIBS Clean Infrared raw vs decoded — why `color-relief` is NOT applied to it (§9.8)                                              |
 
 `horizon.py` needs `numpy` and `pillow`; everything else is plain Bun with no dependencies.
+
+The five HTML pages above load MapLibre as an ES module from a **version-pinned** path under
+`node_modules/.bun/maplibre-gl@6.3.0/`, so they need that exact version installed and they need an
+HTTP origin — `file://` blocks module imports. Serve the repo root (`python3 -m http.server 8791`)
+and open them from there. `rampcheck.html`/`verify.html` additionally read light-pollution tiles
+from a gitignored `.cache/lp/{z}/{x}/{y}.png` mirror, because `/astro/tiles/lp/...` is bearer-
+guarded and sends no CORS headers to a local origin; mirror a few tiles with `curl` and an
+`Authorization: Bearer` header first.

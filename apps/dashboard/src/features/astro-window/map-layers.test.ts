@@ -24,9 +24,8 @@ const {
   LP_RANGE_MIN,
   LP_RANGE_MIN_WIDTH,
   LP_RESAMPLING_DEFAULT,
-  RADAR_LAG_MINUTES,
   RADAR_STEP_MINUTES,
-  TERRAIN_OFF,
+  TERRAIN_DEFAULT,
   TRAILS_DEFAULT_OPACITY,
   WEATHER_LAYERS,
   baseLayer,
@@ -68,13 +67,14 @@ describe('weather param codec', () => {
     expect(parseWeatherParam(encoded)).toEqual(selection)
   })
 
-  it('round-trips every new catalogue id at its default opacity', () => {
-    for (const id of ['radar-de', 'cloud', 'cloud-ir', 'cloud-top'] as const) {
+  it('round-trips every catalogue id at its default opacity — the five-row catalogue', () => {
+    for (const id of ['radar', 'cloud', 'cloud-ir', 'cloud-top', 'lightning'] as const) {
       const decoded = parseWeatherParam(id)
       expect(decoded).toHaveLength(1)
       expect(decoded[0]!.id).toBe(id)
       expect(formatWeatherParam(decoded)).toBe(id)
     }
+    expect(WEATHER_LAYERS).toHaveLength(5)
   })
 
   it('sorts a decoded selection into stack order regardless of URL order', () => {
@@ -89,16 +89,16 @@ describe('weather param codec', () => {
     expect(decoded.map((s) => s.id)).toEqual(['cloud-ir', 'cloud-top', 'radar'])
   })
 
-  it('sorts the full six-layer catalogue into the derived stack order', () => {
-    // cloud (20) < cloud-ir (22) < radar (30) < radar-de (32) < cells (40) < lightning (50) —
-    // see map-layers.ts's "Stack order" section for the reasoning.
-    const decoded = parseWeatherParam('lightning.radar-de.cloud-ir.cells.radar.cloud')
+  it('sorts the full five-layer catalogue into the derived stack order', () => {
+    // cloud (20) < cloud-ir (22) < cloud-top (24) < radar (30) < lightning (50) — see
+    // map-layers.ts's "Stack order" section for the reasoning. radar-de/cells were deleted
+    // 2026-08-19 (Germany-only, see the module docstring).
+    const decoded = parseWeatherParam('lightning.cloud-top.cloud-ir.radar.cloud')
     expect(decoded.map((s) => s.id)).toEqual([
       'cloud',
       'cloud-ir',
+      'cloud-top',
       'radar',
-      'radar-de',
-      'cells',
       'lightning',
     ])
   })
@@ -338,55 +338,73 @@ describe('LP_RAMP geometry', () => {
     }
   })
 
-  it('has its alpha minimum exactly at the neutral crossing (stop 2130), rising monotonically in both directions away from it — no dips anywhere else', () => {
+  it('keeps alpha roughly flat (never below .56, never above .74) — the corrected 2026-08-19 ladder', () => {
+    // The old ladder dipped to an alpha MINIMUM (.12) exactly at the neutral crossing (stop 2130)
+    // — rendered on screen, that erased the entire rural band the map exists to show ("red, then
+    // nothing, then blue"). The correction keeps alpha near-flat so hue alone carries the ramp.
+    for (const row of LP_RAMP) {
+      expect(row.alpha).toBeGreaterThanOrEqual(0.56)
+      expect(row.alpha).toBeLessThanOrEqual(0.74)
+    }
+  })
+
+  it('rises gently toward both ends from a shared minimum at the crossing, never dipping elsewhere', () => {
     let minIndex = 0
     for (let i = 1; i < LP_RAMP.length; i += 1) {
       if (LP_RAMP[i]!.alpha < LP_RAMP[minIndex]!.alpha) minIndex = i
     }
+    // The minimum still sits at the crossing (stop 2130) — the diverging structure is intact,
+    // only its depth changed.
     expect(LP_RAMP[minIndex]!.stop).toBe(2130)
-
     for (let i = 1; i <= minIndex; i += 1) {
-      expect(LP_RAMP[i]!.alpha).toBeLessThan(LP_RAMP[i - 1]!.alpha)
+      expect(LP_RAMP[i]!.alpha).toBeLessThanOrEqual(LP_RAMP[i - 1]!.alpha)
     }
     for (let i = minIndex + 1; i < LP_RAMP.length; i += 1) {
-      expect(LP_RAMP[i]!.alpha).toBeGreaterThan(LP_RAMP[i - 1]!.alpha)
+      expect(LP_RAMP[i]!.alpha).toBeGreaterThanOrEqual(LP_RAMP[i - 1]!.alpha)
     }
   })
 })
 
 describe('terrain param codec', () => {
-  it('round-trips both-off through the absent-param case', () => {
-    expect(formatTerrainParam(TERRAIN_OFF)).toBeUndefined()
-    expect(parseTerrainParam(undefined)).toEqual(TERRAIN_OFF)
-    expect(parseTerrainParam('')).toEqual(TERRAIN_OFF)
+  it('round-trips the untouched default (hillshade ON, everything else off) through the absent-param case', () => {
+    expect(TERRAIN_DEFAULT.hillshade).toBe(true)
+    expect(formatTerrainParam(TERRAIN_DEFAULT)).toBeUndefined()
+    expect(parseTerrainParam(undefined)).toEqual(TERRAIN_DEFAULT)
+    expect(parseTerrainParam('')).toEqual(TERRAIN_DEFAULT)
   })
 
-  it('round-trips hillshade alone, 3D alone, and both together', () => {
-    const hillshadeOnly = { ...TERRAIN_OFF, hillshade: true }
-    const extrudedOnly = { ...TERRAIN_OFF, extruded: true }
-    const both = { ...TERRAIN_OFF, hillshade: true, extruded: true }
+  it('round-trips hillshade explicitly OFF — the one state that needs its own token', () => {
+    const hillshadeOff = { ...TERRAIN_DEFAULT, hillshade: false }
+    expect(formatTerrainParam(hillshadeOff)).toBe('no-hillshade')
+    expect(parseTerrainParam('no-hillshade')).toEqual(hillshadeOff)
+  })
 
-    expect(formatTerrainParam(hillshadeOnly)).toBe('hillshade')
-    expect(parseTerrainParam('hillshade')).toEqual(hillshadeOnly)
+  it('round-trips 3D alone (hillshade stays on, implicitly) and both toggles explicitly off together', () => {
+    const extrudedOnly = { ...TERRAIN_DEFAULT, extruded: true }
+    const bothOff = { ...TERRAIN_DEFAULT, hillshade: false, extruded: true }
 
     expect(formatTerrainParam(extrudedOnly)).toBe('3d')
     expect(parseTerrainParam('3d')).toEqual(extrudedOnly)
 
-    expect(formatTerrainParam(both)).toBe('hillshade.3d')
-    expect(parseTerrainParam('hillshade.3d')).toEqual(both)
+    expect(formatTerrainParam(bothOff)).toBe('no-hillshade.3d')
+    expect(parseTerrainParam('no-hillshade.3d')).toEqual(bothOff)
     // Token order in the URL must not matter for the decode.
-    expect(parseTerrainParam('3d.hillshade')).toEqual(both)
+    expect(parseTerrainParam('3d.no-hillshade')).toEqual(bothOff)
   })
 
   it('drops an id the catalogue does not know, without throwing', () => {
-    expect(parseTerrainParam('not-a-real-layer')).toEqual(TERRAIN_OFF)
-    expect(parseTerrainParam('__proto__')).toEqual(TERRAIN_OFF)
+    expect(parseTerrainParam('not-a-real-layer')).toEqual(TERRAIN_DEFAULT)
+    expect(parseTerrainParam('__proto__')).toEqual(TERRAIN_DEFAULT)
   })
 
   it('round-trips the trails overlay at its default and a committed opacity', () => {
-    const trailsDefault = { ...TERRAIN_OFF, trails: TRAILS_DEFAULT_OPACITY }
-    const trailsCustom = { ...TERRAIN_OFF, trails: 0.4 }
-    const trailsWithHillshade = { ...TERRAIN_OFF, hillshade: true, trails: TRAILS_DEFAULT_OPACITY }
+    const trailsDefault = { ...TERRAIN_DEFAULT, trails: TRAILS_DEFAULT_OPACITY }
+    const trailsCustom = { ...TERRAIN_DEFAULT, trails: 0.4 }
+    const trailsWithHillshadeOff = {
+      ...TERRAIN_DEFAULT,
+      hillshade: false,
+      trails: TRAILS_DEFAULT_OPACITY,
+    }
 
     // A default-opacity trails toggle drops the percent — same convention as `wx`.
     expect(formatTerrainParam(trailsDefault)).toBe('trails')
@@ -395,31 +413,30 @@ describe('terrain param codec', () => {
     expect(formatTerrainParam(trailsCustom)).toBe('trails:40')
     expect(parseTerrainParam('trails:40')).toEqual(trailsCustom)
 
-    // Token order must not matter, and trails composes with the other two toggles.
-    expect(formatTerrainParam(trailsWithHillshade)).toBe('hillshade.trails')
-    expect(parseTerrainParam('hillshade.trails')).toEqual(trailsWithHillshade)
-    expect(parseTerrainParam('trails.hillshade')).toEqual(trailsWithHillshade)
+    // Token order must not matter, and trails composes with hillshade being explicitly off.
+    expect(formatTerrainParam(trailsWithHillshadeOff)).toBe('no-hillshade.trails')
+    expect(parseTerrainParam('no-hillshade.trails')).toEqual(trailsWithHillshadeOff)
+    expect(parseTerrainParam('trails.no-hillshade')).toEqual(trailsWithHillshadeOff)
   })
 
   it('round-trips hillshade exaggeration at its default and a committed value', () => {
-    const hillshadeDefault = { ...TERRAIN_OFF, hillshade: true }
-    const hillshadeCustom = { ...TERRAIN_OFF, hillshade: true, hillshadeExaggeration: 0.8 }
-
-    // A default-exaggeration hillshade toggle drops the percent — same convention as `trails`.
-    expect(formatTerrainParam(hillshadeDefault)).toBe('hillshade')
-    expect(parseTerrainParam('hillshade')).toEqual(hillshadeDefault)
-
+    // At the default exaggeration, hillshade being ON needs no token at all — it is the implicit,
+    // untouched-URL state.
+    expect(formatTerrainParam(TERRAIN_DEFAULT)).toBeUndefined()
+    const hillshadeCustom = { ...TERRAIN_DEFAULT, hillshadeExaggeration: 0.8 }
     expect(formatTerrainParam(hillshadeCustom)).toBe('hillshade:80')
     expect(parseTerrainParam('hillshade:80')).toEqual(hillshadeCustom)
 
-    // Exaggeration is dropped from the URL once hillshade itself is off, mirroring trails'
-    // opacity-follows-toggle shape — the custom value never round-trips through an off state.
-    expect(formatTerrainParam({ ...TERRAIN_OFF, hillshadeExaggeration: 0.8 })).toBeUndefined()
+    // A custom exaggeration carried while hillshade is OFF never reaches the URL — off collapses
+    // to the single `no-hillshade` token regardless of what the (irrelevant) exaggeration was.
+    expect(
+      formatTerrainParam({ ...TERRAIN_DEFAULT, hillshade: false, hillshadeExaggeration: 0.8 }),
+    ).toBe('no-hillshade')
   })
 
   it('round-trips a non-default hillshade method, filling the percent slot to reach it', () => {
-    const standard = { ...TERRAIN_OFF, hillshade: true, hillshadeMethod: 'standard' as const }
-    const multi = { ...TERRAIN_OFF, hillshade: true, hillshadeMethod: 'multidirectional' as const }
+    const standard = { ...TERRAIN_DEFAULT, hillshadeMethod: 'standard' as const }
+    const multi = { ...TERRAIN_DEFAULT, hillshadeMethod: 'multidirectional' as const }
 
     // The percent slot has to carry the real (default) value once the method past it is
     // non-default — `hillshade::standard` is not a token this codec accepts.
@@ -434,13 +451,12 @@ describe('terrain param codec', () => {
     expect(parseTerrainParam(formatTerrainParam(multi))).toEqual(multi)
 
     // The catalogue default itself needs no suffix at all.
-    expect(formatTerrainParam({ ...TERRAIN_OFF, hillshade: true })).toBe('hillshade')
+    expect(formatTerrainParam(TERRAIN_DEFAULT)).toBeUndefined()
   })
 
   it('round-trips a non-default method together with a non-default exaggeration', () => {
     const custom = {
-      ...TERRAIN_OFF,
-      hillshade: true,
+      ...TERRAIN_DEFAULT,
       hillshadeExaggeration: 0.4,
       hillshadeMethod: 'standard' as const,
     }
@@ -451,29 +467,26 @@ describe('terrain param codec', () => {
 
   it('falls back to the default hillshade method for an unrecognised method token, without throwing', () => {
     expect(parseTerrainParam('hillshade:70:not-a-method')).toEqual({
-      ...TERRAIN_OFF,
-      hillshade: true,
+      ...TERRAIN_DEFAULT,
       hillshadeExaggeration: 0.7,
       hillshadeMethod: HILLSHADE_METHOD_DEFAULT,
     })
-    // No percent at all, straight to an (unrecognised) third slot — still never throws.
-    expect(parseTerrainParam('hillshade:__proto__')).toEqual({
-      ...TERRAIN_OFF,
-      hillshade: true,
-    })
+    // No percent at all, straight to an (unrecognised) third slot — still never throws, and
+    // resolves back to the plain default (hillshade on, exaggeration/method at default).
+    expect(parseTerrainParam('hillshade:__proto__')).toEqual(TERRAIN_DEFAULT)
   })
 
-  it('round-trips the contours toggle, bare and composed with the other toggles', () => {
-    const contoursOnly = { ...TERRAIN_OFF, contours: true }
-    const contoursWithHillshade = { ...TERRAIN_OFF, hillshade: true, contours: true }
+  it('round-trips the contours toggle, bare and composed with hillshade explicitly off', () => {
+    const contoursOnly = { ...TERRAIN_DEFAULT, contours: true }
+    const contoursWithHillshadeOff = { ...TERRAIN_DEFAULT, hillshade: false, contours: true }
 
     expect(formatTerrainParam(contoursOnly)).toBe('contours')
     expect(parseTerrainParam('contours')).toEqual(contoursOnly)
 
-    expect(formatTerrainParam(contoursWithHillshade)).toBe('hillshade.contours')
-    expect(parseTerrainParam('hillshade.contours')).toEqual(contoursWithHillshade)
+    expect(formatTerrainParam(contoursWithHillshadeOff)).toBe('no-hillshade.contours')
+    expect(parseTerrainParam('no-hillshade.contours')).toEqual(contoursWithHillshadeOff)
     // Token order must not matter for the decode.
-    expect(parseTerrainParam('contours.hillshade')).toEqual(contoursWithHillshade)
+    expect(parseTerrainParam('contours.no-hillshade')).toEqual(contoursWithHillshadeOff)
   })
 })
 
@@ -487,7 +500,7 @@ function stateFixture(overrides: Partial<MapLayerState>): MapLayerState {
     lpResampling: LP_RESAMPLING_DEFAULT,
     lpRange: LP_RANGE_FULL,
     weather: [],
-    terrain: TERRAIN_OFF,
+    terrain: TERRAIN_DEFAULT,
     ...overrides,
   }
 }
@@ -526,44 +539,44 @@ describe('weatherLayerTime', () => {
   // The wall-clock instant every lag in `WeatherTimeGrid`'s table was measured against.
   const FIXED_NOW = new Date('2026-08-19T08:30:00.000Z')
 
-  it('every wms row carries a timeGrid whose lag is at least a full step past the grid', () => {
+  it('every wms/wms-multi row carries a timeGrid whose lag is at least a full step past the grid', () => {
     for (const entry of WEATHER_LAYERS) {
-      if (entry.source !== 'wms') continue
+      if (entry.source !== 'wms' && entry.source !== 'wms-multi') continue
       expect(entry.timeGrid.stepMinutes).toBeGreaterThan(0)
       expect(entry.timeGrid.lagMinutes).toBeGreaterThanOrEqual(entry.timeGrid.stepMinutes)
     }
   })
 
-  it('floors radar-de and cells to the DWD PT5M grid, lagged by RADAR_LAG_MINUTES (15)', () => {
-    expect(RADAR_LAG_MINUTES).toBe(15)
+  it('floors lightning to its own EUMETSAT PT5M lag (25 — measured 15 plus two 5-minute steps)', () => {
     expect(RADAR_STEP_MINUTES).toBe(5)
-    for (const id of ['radar-de', 'cells']) {
-      const entry = wmsRow(id)
-      expect(entry.timeGrid).toEqual({
-        stepMinutes: RADAR_STEP_MINUTES,
-        lagMinutes: RADAR_LAG_MINUTES,
-      })
-      // 08:30:00Z minus 15 min = 08:15:00Z, already on the 5-minute grid.
-      expect(weatherLayerTime(entry, FIXED_NOW)).toBe('2026-08-19T08:15:00.000Z')
-    }
-  })
-
-  it('floors lightning to its own EUMETSAT PT5M lag (25 — measured 15 plus two 5-minute steps, not RADAR_LAG_MINUTES)', () => {
     const entry = wmsRow('lightning')
     expect(entry.timeGrid).toEqual({ stepMinutes: 5, lagMinutes: 25 })
     // 08:30:00Z minus 25 min = 08:05:00Z, already on the 5-minute grid.
     expect(weatherLayerTime(entry, FIXED_NOW)).toBe('2026-08-19T08:05:00.000Z')
   })
 
-  it('floors cloud-top to its own EUMETSAT PT15M grid, lagged by 35 (measured 30 plus one 15-minute step)', () => {
-    const entry = wmsRow('cloud-top')
+  it('floors cloud-top (both discs, one shared grid) to its own EUMETSAT PT15M grid, lagged by 35 (measured 30 plus one 15-minute step)', () => {
+    const entry = WEATHER_LAYERS.find((row) => row.id === 'cloud-top')
+    if (entry === undefined || entry.source !== 'wms-multi') throw new Error('missing cloud-top')
     expect(entry.timeGrid).toEqual({ stepMinutes: 15, lagMinutes: 35 })
+    expect(entry.hosts).toHaveLength(2)
+    expect(entry.wmsLayers).toEqual(['msg_fes:cth', 'msg_iodc:cth'])
     // 08:30:00Z minus 35 min = 07:55:00Z, floored to the 15-minute grid = 07:45:00Z.
     expect(weatherLayerTime(entry, FIXED_NOW)).toBe('2026-08-19T07:45:00.000Z')
   })
 
+  it('cloud-ir is a plain gibs-ir row, undecoded and carrying no timeGrid of its own', () => {
+    const entry = WEATHER_LAYERS.find((row) => row.id === 'cloud-ir')
+    if (entry === undefined || entry.source !== 'gibs-ir') throw new Error('missing cloud-ir')
+    expect(entry.gibsLayers).toEqual([
+      'GOES-East_ABI_Band13_Clean_Infrared',
+      'GOES-West_ABI_Band13_Clean_Infrared',
+      'Himawari_AHI_Band13_Clean_Infrared',
+    ])
+  })
+
   it('is a pure function of the clock it is given, not of the real one', () => {
-    const entry = wmsRow('radar-de')
+    const entry = wmsRow('lightning')
     expect(weatherLayerTime(entry, FIXED_NOW)).toBe(
       weatherLayerTime(entry, new Date(FIXED_NOW.getTime())),
     )
@@ -642,10 +655,20 @@ describe('CLOUD_RAMP', () => {
     }
   })
 
-  it('is fully transparent for clear sky (0, 96) and fully opaque at the top (255)', () => {
+  it('is fully transparent for clear sky (0, 400) and reaches its highest opacity at the cloud sum (765)', () => {
     expect(CLOUD_RAMP[0]!.alpha).toBe(0)
     expect(CLOUD_RAMP[1]!.alpha).toBe(0)
-    expect(CLOUD_RAMP.at(-1)!.alpha).toBe(1)
+    expect(CLOUD_RAMP.at(-1)!.stop).toBe(765)
+    expect(CLOUD_RAMP.at(-1)!.alpha).toBeGreaterThan(0)
+  })
+
+  it('keeps its transparent threshold above both clear-pixel channel sums (192, 255) and below the cloud sum (765)', () => {
+    // redFactor/greenFactor/blueFactor all being 1 decodes `elevation` to the channel SUM, not the
+    // red channel alone — clear land (0,192,0) sums to 192, clear sea (0,0,255) sums to 255, cloud
+    // (255,255,255) sums to 765. The ramp's last zero-alpha stop must clear both clear classes.
+    const lastTransparent = CLOUD_RAMP.filter((row) => row.alpha === 0).at(-1)!
+    expect(lastTransparent.stop).toBeGreaterThan(255)
+    expect(lastTransparent.stop).toBeLessThan(765)
   })
 })
 
