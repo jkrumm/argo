@@ -582,7 +582,8 @@ export const strengthRoutes = new Elysia({ prefix: '/workouts' })
         summary: 'Z-scored composite signals for a single exercise',
         description:
           'Velocity / tonnage-growth / INOL z-scored against a 90-day baseline (SD floors 0.05 / 0.02 / 0.1) ' +
-          'plus a 7-entry trailing ZMA per component.',
+          'plus a 7-entry trailing ZMA per component. One point per DATE: if a lift was trained ' +
+          'twice in a day, the higher-e1RM session represents it (tonnage still sums both).',
         security: [{ BearerAuth: [] }],
       },
     },

@@ -240,9 +240,14 @@ export function velocityAtDate(
   dateStr: string,
   windowDays = 28,
 ): number | null {
-  const filtered = workouts
-    .filter((w) => w.estimated_1rm !== null && w.date <= dateStr)
-    .toSorted((a, b) => a.date.localeCompare(b.date))
+  // One point per DATE, not per row: the slope below is a regression over (day, e1RM) pairs, so
+  // two same-day sessions would sit at the identical x and silently double-weight that date.
+  // (Unlike tonnage, which legitimately sums both sessions — a sum is not a fit.)
+  const filtered = Array.from(
+    bestWorkoutPerDate(
+      workouts.filter((w) => w.estimated_1rm !== null && w.date <= dateStr),
+    ).values(),
+  ).toSorted((a, b) => a.date.localeCompare(b.date))
   if (filtered.length < 2) return null
   const latest = filtered[filtered.length - 1]!
   const windowStart = addDays(dateStr, -windowDays)
@@ -458,6 +463,32 @@ export function buildWeeklyVolumeSeries(
 }
 
 /**
+ * The `workouts` table has no unique index on (date, exercise_id) and two
+ * sessions of the same lift on one calendar day are storable and do occur.
+ * Fold them down to one workout per date — the best (highest e1RM) session —
+ * so every date-keyed series downstream agrees on what "a day" means. Shared
+ * by `buildOneRmSeries` and `buildCompositeSeries`, which both run over the
+ * same workout rows.
+ */
+function bestWorkoutPerDate(workouts: WorkoutWithSets[]): Map<string, WorkoutWithSets> {
+  const byDate = new Map<string, WorkoutWithSets>()
+  for (const w of workouts) {
+    const cur = byDate.get(w.date)
+    if (!cur) {
+      byDate.set(w.date, w)
+      continue
+    }
+    const e = w.estimated_1rm ?? -Infinity
+    const curE = cur.estimated_1rm ?? -Infinity
+    // `loadWorkoutsRange` orders by date alone, so two same-date rows arrive in whatever order
+    // Postgres returns them. Break an e1RM tie on `id` so the representative is the row, not the
+    // query plan — the same determinism `foldWeightByDate` gets from averaging.
+    if (e > curE || (e === curE && w.id > cur.id)) byDate.set(w.date, w)
+  }
+  return byDate
+}
+
+/**
  * §1.12 — Per-exercise e1RM series with date-based 30-day MA, INOL, max weight,
  * best set, and volume. Input must already be filtered to one exercise.
  */
@@ -475,13 +506,7 @@ export function buildOneRmSeries(
 }> {
   if (workouts.length === 0) return []
   // Pick the best workout per date (highest e1RM).
-  const byDate = new Map<string, WorkoutWithSets>()
-  for (const w of workouts) {
-    const cur = byDate.get(w.date)
-    if (!cur) byDate.set(w.date, w)
-    else if ((w.estimated_1rm ?? -Infinity) > (cur.estimated_1rm ?? -Infinity))
-      byDate.set(w.date, w)
-  }
+  const byDate = bestWorkoutPerDate(workouts)
   const dates = Array.from(byDate.keys()).toSorted()
 
   // Date-based 30-day MA: at each date, average of e1RM values in [d-30, d].
@@ -582,12 +607,23 @@ export function buildCompositeSeries(
   const sorted = workouts.toSorted((a, b) => a.date.localeCompare(b.date))
   if (sorted.length === 0) return []
 
-  const raw = sorted.map((w) => ({
-    date: w.date,
-    velocity: velocityAtDate(sorted, w.date),
-    tonnageGrowth: tonnageGrowthRatio(sorted, w.date),
-    inol: sessionInol(w, bwAt(w.date)),
-  }))
+  // Fold to one workout per date (highest e1RM) before deriving anything — mirrors
+  // buildOneRmSeries so the two series stop disagreeing about what "a day" means.
+  // `sorted` (all rows, not deduped) still feeds velocity/tonnage below: those
+  // aggregate by date internally, and tonnage in particular needs the real sum of
+  // same-day sessions, not just the best-e1RM one.
+  const byDate = bestWorkoutPerDate(sorted)
+  const dedupedDates = Array.from(byDate.keys()).toSorted()
+
+  const raw = dedupedDates.map((date) => {
+    const w = byDate.get(date)!
+    return {
+      date,
+      velocity: velocityAtDate(sorted, date),
+      tonnageGrowth: tonnageGrowthRatio(sorted, date),
+      inol: sessionInol(w, bwAt(date)),
+    }
+  })
 
   const lastDate = sorted[sorted.length - 1]!.date
   const cutoff = addDays(lastDate, -90)

@@ -2,12 +2,15 @@ import { describe, it, expect } from 'bun:test'
 import {
   sessionInol,
   velocityPctPerDay,
+  velocityAtDate,
   strengthDirection,
   computeAcwrSeries,
   volumeLandmarks,
   dotsAdjusted,
   computeStrengthRatios,
   findPRPoints,
+  buildOneRmSeries,
+  buildCompositeSeries,
   detectAchievements,
   classifyAcwrZone,
   trailingRateKgPerWeek,
@@ -320,6 +323,144 @@ describe('findPRPoints', () => {
     const bw = () => 80
     const prs = findPRPoints(ws, 'max_weight', bw)
     expect(prs).toHaveLength(0)
+  })
+})
+
+// Regression: the `workouts` table has no unique index on (date, exercise_id) and
+// POST /workouts does no existence check, so two sessions of the same lift on one
+// calendar day are storable and do occur. Both date-keyed series must fold same-date
+// workouts into a single point — otherwise a categorical date x-axis silently drops
+// one of the two (last-wins, no error). Best-e1RM-per-date is the established answer.
+describe('buildOneRmSeries — same-date fold', () => {
+  it('folds two same-date workouts into one point, keeping the higher-e1RM session', () => {
+    const ws: WorkoutWithSets[] = [
+      mkWorkout(
+        1,
+        'bench_press',
+        '2025-01-01',
+        [{ set_type: 'work', weight_kg: 80, reps: 5 }],
+        90,
+        400,
+      ),
+      mkWorkout(
+        2,
+        'bench_press',
+        '2025-01-01',
+        [{ set_type: 'work', weight_kg: 100, reps: 3 }],
+        110,
+        300,
+      ),
+    ]
+    const bwAt = () => 80
+    const points = buildOneRmSeries(ws, bwAt)
+    expect(points).toHaveLength(1)
+    expect(points[0]!.date).toBe('2025-01-01')
+    expect(points[0]!.e1rm).toBe(110)
+    expect(points[0]!.volume).toBe(300)
+  })
+
+  it('keeps distinct dates separate — the fold only collapses genuine duplicates', () => {
+    const ws: WorkoutWithSets[] = [
+      mkWorkout(
+        1,
+        'bench_press',
+        '2025-01-01',
+        [{ set_type: 'work', weight_kg: 80, reps: 5 }],
+        90,
+        400,
+      ),
+      mkWorkout(
+        2,
+        'bench_press',
+        '2025-01-01',
+        [{ set_type: 'work', weight_kg: 100, reps: 3 }],
+        110,
+        300,
+      ),
+      mkWorkout(
+        3,
+        'bench_press',
+        '2025-01-08',
+        [{ set_type: 'work', weight_kg: 105, reps: 3 }],
+        115,
+        315,
+      ),
+    ]
+    const bwAt = () => 80
+    const points = buildOneRmSeries(ws, bwAt)
+    expect(points).toHaveLength(2)
+    expect(points.map((p) => p.date)).toEqual(['2025-01-01', '2025-01-08'])
+  })
+})
+
+const bench = (id: number, date: string, e1rm: number) =>
+  mkWorkout(id, 'bench_press', date, [], e1rm, 1000)
+const flatBw = () => 80
+
+describe('velocityAtDate — same-date fold', () => {
+  it('regresses one point per DATE, so a duplicated day cannot double-weight the slope', () => {
+    // The slope is an OLS fit over (day, e1RM) pairs. Two sessions on one date sit at the SAME x,
+    // so before the fold they were two pairs and tilted the fit toward that date. (Tonnage
+    // legitimately sums both sessions — a sum is not a fit, which is why only this one folds.)
+    const base = [
+      bench(1, '2026-01-01', 100),
+      bench(2, '2026-01-15', 110),
+      bench(3, '2026-01-20', 105),
+    ]
+    const withDuplicate = [...base, bench(4, '2026-01-15', 108)]
+    expect(velocityAtDate(withDuplicate, '2026-01-20')).toBe(velocityAtDate(base, '2026-01-20'))
+  })
+
+  it('is unaffected by the order two same-date rows arrive in', () => {
+    const a = bench(7, '2026-02-10', 120)
+    const b = bench(9, '2026-02-10', 118)
+    const earlier = bench(1, '2026-02-01', 100)
+    expect(velocityAtDate([earlier, a, b], '2026-02-10')).toBe(
+      velocityAtDate([earlier, b, a], '2026-02-10'),
+    )
+  })
+})
+
+describe('bestWorkoutPerDate — tie-break determinism', () => {
+  it('resolves an identical-e1RM same-date tie by id, not by row order', () => {
+    // `loadWorkoutsRange` orders by date alone, so Postgres may return these two in either order.
+    const a = mkWorkout(7, 'bench_press', '2026-02-01', [], 100, 1000)
+    const b = mkWorkout(9, 'bench_press', '2026-02-01', [], 100, 2000)
+    const forward = buildOneRmSeries([a, b], flatBw)
+    const reversed = buildOneRmSeries([b, a], flatBw)
+    expect(forward).toHaveLength(1)
+    expect(reversed).toHaveLength(1)
+    expect(forward[0]).toEqual(reversed[0]!)
+  })
+})
+
+describe('buildCompositeSeries — same-date fold', () => {
+  it('folds two same-date workouts into one point, reflecting the higher-e1RM session', () => {
+    const ws: WorkoutWithSets[] = [
+      mkWorkout(
+        1,
+        'bench_press',
+        '2025-01-01',
+        [{ set_type: 'work', weight_kg: 80, reps: 5 }],
+        90,
+        400,
+      ),
+      mkWorkout(
+        2,
+        'bench_press',
+        '2025-01-01',
+        [{ set_type: 'work', weight_kg: 100, reps: 3 }],
+        110,
+        300,
+      ),
+    ]
+    const bwAt = () => 80
+    const points = buildCompositeSeries(ws, bwAt)
+    expect(points).toHaveLength(1)
+    expect(points[0]!.date).toBe('2025-01-01')
+    // inolRaw must come from the higher-e1RM (110) session, not the 90 one.
+    const inolFromHigherE1rm = sessionInol(ws[1]!, 80)
+    expect(points[0]!.inolRaw).toBeCloseTo(inolFromHigherE1rm!, 6)
   })
 })
 

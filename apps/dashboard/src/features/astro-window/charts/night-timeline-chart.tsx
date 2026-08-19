@@ -6,14 +6,13 @@ import {
   curveMonotoneX,
   Line,
   LinePath,
-  TooltipRow,
   VX,
   type ChartSeries,
   type XZoneSpec,
 } from 'basalt-ui/charts'
 import { SERIES } from '../../../lib/series'
 import { CHART_HEIGHT, METRIC_TOOLTIPS } from '../constants'
-import { fmtDegrees, fmtPercent100 } from '../formulas'
+import { fmtDegrees, hourlyTimeLabel } from '../formulas'
 import type { HourlyPoint, Night } from '../types'
 import { ChartEmpty } from './empty'
 
@@ -74,13 +73,13 @@ function darkRuns(hourly: HourlyPoint[]): [number, number][] {
  * Interpolated plot x for an arbitrary ISO instant, between the two samples straddling it — so the
  * shooting window's arbitrary start/end timestamps are not snapped to the sampling grid.
  */
-function timeToX(hourly: HourlyPoint[], iso: string, xAt: (localTime: string) => number): number {
+function timeToX(hourly: HourlyPoint[], iso: string, xAt: (time: string) => number): number {
   const target = new Date(iso).getTime()
   const first = hourly[0]
   const last = hourly[hourly.length - 1]
   if (!first || !last) return 0
-  if (target <= new Date(first.time).getTime()) return xAt(first.localTime)
-  if (target >= new Date(last.time).getTime()) return xAt(last.localTime)
+  if (target <= new Date(first.time).getTime()) return xAt(first.time)
+  if (target >= new Date(last.time).getTime()) return xAt(last.time)
   for (let i = 0; i < hourly.length - 1; i++) {
     const a = hourly[i]!
     const b = hourly[i + 1]!
@@ -88,19 +87,22 @@ function timeToX(hourly: HourlyPoint[], iso: string, xAt: (localTime: string) =>
     const t1 = new Date(b.time).getTime()
     if (target >= t0 && target <= t1) {
       const frac = t1 === t0 ? 0 : (target - t0) / (t1 - t0)
-      const x0 = xAt(a.localTime)
-      const x1 = xAt(b.localTime)
+      const x0 = xAt(a.time)
+      const x1 = xAt(b.time)
       return x0 + (x1 - x0) * frac
     }
   }
-  return xAt(last.localTime)
+  return xAt(last.time)
 }
 
 /**
  * Bespoke composition — the shooting-window band + a 3-line altitude plot share no shipped kind's
  * config surface, so those marks are drawn by hand over `CartesianChart` (the astro-dark bands
- * ride the `xZones` prop instead). `localTime` ("HH:MM") is the x domain key, shared with
- * `cloud-layers-chart` so a hover in either chart lands on the same instant in the other.
+ * ride the `xZones` prop instead). `time` (the ISO instant) is the x domain key — unlike
+ * `localTime` ("HH:MM") it stays unique across the Europe/Berlin DST fall-back night, when 02:00
+ * and 02:30 local occur twice and would otherwise collapse onto one x position. Shared with
+ * `cloud-layers-chart` so a hover in either chart lands on the same instant in the other; the tick
+ * and tooltip-header LABEL still renders as `localTime` via `formatX`/`tooltip.formatHeader`.
  */
 export default function NightTimelineChart({
   hourly,
@@ -119,14 +121,18 @@ export default function NightTimelineChart({
     () =>
       darkRuns(hourly).map(
         ([start, end]): XZoneSpec => ({
-          from: hourly[start]!.localTime,
-          to: hourly[end]!.localTime,
+          from: hourly[start]!.time,
+          to: hourly[end]!.time,
           fill: alpha(VX.accent, 0.1),
           align: 'edge',
         }),
       ),
     [hourly],
   )
+
+  // `formatX` only receives the domain key (no datum), so the localTime label needs this lookup;
+  // `tooltip.formatHeader` gets the hovered datum directly and can read `d.localTime` off it.
+  const formatX = hourlyTimeLabel(hourly)
 
   return (
     <ChartCard title="Night Timeline" tooltip={METRIC_TOOLTIPS.nightTimeline}>
@@ -136,7 +142,8 @@ export default function NightTimelineChart({
         <CartesianChart
           data={hourly}
           chartId={CHART_ID}
-          getX={(d) => d.localTime}
+          getX={(d) => d.time}
+          formatX={formatX}
           series={PLOT_SERIES}
           y={{ domain: Y_DOMAIN, ticks: Y_TICKS, format: (v) => `${v}°`, grid: false }}
           xZones={darkZones}
@@ -144,34 +151,13 @@ export default function NightTimelineChart({
           // The sun is a reference line explaining where the dark bands come from — it carries a
           // tooltip row but never a cursor dot.
           cursorValue={(point, s) => (s.key === 'sun' ? null : s.getValue(point))}
-          tooltip={{
-            extraRows: (d) => (
-              <>
-                <TooltipRow
-                  color={SERIES.cloudLow}
-                  label="Cloud low"
-                  value={fmtPercent100(d.cloudLow)}
-                  shape="dot"
-                />
-                <TooltipRow
-                  color={SERIES.cloudMid}
-                  label="Cloud mid"
-                  value={fmtPercent100(d.cloudMid)}
-                  shape="dot"
-                />
-                <TooltipRow
-                  color={SERIES.cloudHigh}
-                  label="Cloud high"
-                  value={fmtPercent100(d.cloudHigh)}
-                  shape="dot"
-                />
-              </>
-            ),
-          }}
+          // Cloud low/mid/high are reported by `cloud-layers-chart` (`onFollow: true`) so it can
+          // speak for its own series — no hand-authored rows duplicating that data here.
+          tooltip={{ formatHeader: (_key, d) => d.localTime }}
           ariaLabel="Galactic core, moon and sun altitude across the night, with dark and shooting-window bands"
         >
           {({ visible, xScale, yScale, xMax, yMax }) => {
-            const xAt = (localTime: string) => xScale(localTime) ?? 0
+            const xAt = (time: string) => xScale(time) ?? 0
             const band =
               win === null
                 ? null
@@ -215,7 +201,7 @@ export default function NightTimelineChart({
                   <LinePath<HourlyPoint>
                     key={s.key}
                     data={hourly}
-                    x={(d) => xAt(d.localTime)}
+                    x={(d) => xAt(d.time)}
                     y={(d) => yScale(s.getValue(d) ?? 0)}
                     stroke={s.color}
                     strokeWidth={s.strokeWidth}

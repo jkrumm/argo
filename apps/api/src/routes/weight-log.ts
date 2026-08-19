@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { asc, count, desc, eq, gte, lte, and } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { weightLog } from '../db/schema.js'
-import { computeStats } from '../lib/formulas.js'
+import { computeStats, foldWeightByDate } from '../lib/formulas.js'
 import { trailingRateKgPerWeek, classifyWeightPhase } from '../lib/strength-formulas.js'
 import { WindowQuerySchema, parseWindow } from '../lib/window.js'
 
@@ -15,7 +15,12 @@ const WeightLogSchema = z.object({
 })
 
 const WeightLogSummarySchema = z.object({
-  current: z.number().nullable().describe('Most recent weight entry in window (kg)'),
+  current: z
+    .number()
+    .nullable()
+    .describe(
+      "Most recent day in window (kg). Multiple weigh-ins on that day are averaged, so this is the day's value rather than one raw entry.",
+    ),
   ma7: z
     .number()
     .nullable()
@@ -64,11 +69,17 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
       const toStr = to.toISOString().slice(0, 10)
 
       // Most-recent-first for computeStats
-      const rows = await db
+      const rawRows = await db
         .select({ date: weightLog.date, weight_kg: weightLog.weight_kg })
         .from(weightLog)
         .where(and(gte(weightLog.date, fromStr), lte(weightLog.date, toStr)))
         .orderBy(desc(weightLog.date))
+
+      // Fold same-date weigh-ins BEFORE any stat is derived — computeStats,
+      // weeklyDelta/monthlyDelta and trailingRateKgPerWeek all slice this list
+      // positionally (most-recent-first), so an un-folded duplicate date would
+      // double-weight that day in every moving average and delta.
+      const rows = foldWeightByDate(rawRows)
 
       if (rows.length === 0) {
         return {
@@ -113,10 +124,11 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
         tags: ['Garmin Health'],
         summary: 'Body weight summary',
         description:
-          'Server-computed rolling weight stats. ' +
-          'ma7/ma30 = average of most-recent 7/30 entries. ' +
-          'weeklyDelta = latest − oldest within last 7 entries (positive = gaining). ' +
-          'monthlyDelta = latest − oldest within last 30 entries. ' +
+          'Server-computed rolling weight stats, folded to one entry per calendar day ' +
+          '(same-day weigh-ins are averaged) before any average or delta is computed. ' +
+          'ma7/ma30 = average of most-recent 7/30 daily entries. ' +
+          'weeklyDelta = latest − oldest within last 7 daily entries (positive = gaining). ' +
+          'monthlyDelta = latest − oldest within last 30 daily entries. ' +
           'Trend: ma7 vs ma30 — up >0.5% = gaining, down >0.5% = losing. ' +
           'Accept `?window=7d|30d|90d|all` (default 30d) or `?from=YYYY-MM-DD&to=YYYY-MM-DD`. ' +
           'Example: GET /weight-log/summary?window=90d',
@@ -131,13 +143,19 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
       const fromStr = from.toISOString().slice(0, 10)
       const toStr = to.toISOString().slice(0, 10)
 
-      const rows = await db
+      const rawRows = await db
         .select({ date: weightLog.date, weight_kg: weightLog.weight_kg })
         .from(weightLog)
         .where(and(gte(weightLog.date, fromStr), lte(weightLog.date, toStr)))
         .orderBy(asc(weightLog.date))
 
-      return { points: rows.map((r) => ({ date: r.date, weightKg: r.weight_kg })) }
+      // Multiple weigh-ins on the same calendar day are averaged into one point —
+      // `weightLog` has no unique index on `date`, and without this fold two
+      // same-day rows would silently collapse onto one x position in the chart
+      // (last write wins) with no error or warning.
+      const points = foldWeightByDate(rawRows).map((r) => ({ date: r.date, weightKg: r.weight_kg }))
+
+      return { points }
     },
     {
       query: WindowQuerySchema,
@@ -153,7 +171,8 @@ export const weightLogRoutes = new Elysia({ prefix: '/weight-log' })
         tags: ['Garmin Health'],
         summary: 'Body weight time series',
         description:
-          'One data point per weight log entry for charting weight trends. ' +
+          'One data point per calendar day for charting weight trends — multiple same-day ' +
+          'entries are averaged into a single point. ' +
           'Accept `?window=7d|30d|90d|all` (default 30d) or `?from=YYYY-MM-DD&to=YYYY-MM-DD`. ' +
           'Example: GET /weight-log/series?window=all',
         security: [{ BearerAuth: [] }],

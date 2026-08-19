@@ -8,7 +8,7 @@ import {
 } from 'basalt-ui/charts'
 import { SERIES } from '../../../lib/series'
 import { CHART_HEIGHT, METRIC_TOOLTIPS } from '../constants'
-import { fmtPercent100 } from '../formulas'
+import { fmtPercent100, hourlyTimeLabel } from '../formulas'
 import type { HourlyPoint } from '../types'
 import { ChartEmpty } from './empty'
 
@@ -63,10 +63,16 @@ function toSeries(def: CloudSeriesDef, hourly: HourlyPoint[]): ChartSeries<Hourl
 }
 
 /**
- * Uses `d.localTime` as the x domain key, drawn by the same `CartesianChart` primitive as
- * `night-timeline-chart` — the two charts must land a vertical line on the same instant, which one
- * chart owning its own scale, margins or tick thinning would silently break even given an
- * identical domain array.
+ * Uses `d.time` (the ISO instant) as the x domain key, drawn by the same `CartesianChart`
+ * primitive as `night-timeline-chart` — the two charts must land a vertical line on the same
+ * instant, which one chart owning its own scale, margins or tick thinning would silently break
+ * even given an identical domain array. `localTime` ("HH:MM") is not unique across the
+ * Europe/Berlin DST fall-back night (02:00/02:30 occur twice), so it can only be the tick/tooltip
+ * LABEL (via `formatX`/`tooltip.formatHeader`), never the domain key itself.
+ *
+ * `tooltip.onFollow` is set so this chart still reports its own cloud rows when
+ * `night-timeline-chart` (the paired chart, sharing the same cursor) owns the hovered pointer —
+ * that pairing is exactly why `night-timeline-chart` no longer hand-authors cloud rows of its own.
  *
  * A series with no data for the whole night is dropped from both the plot and the legend, rather
  * than drawn as an invisible line at a value no one asked about.
@@ -76,6 +82,8 @@ export default function CloudLayersChart({ hourly }: { hourly: HourlyPoint[] }) 
     toSeries(def, hourly),
   )
 
+  const formatX = hourlyTimeLabel(hourly)
+
   return (
     <ChartCard title="Cloud Layers" tooltip={METRIC_TOOLTIPS.cloudLayers}>
       {series.length === 0 ? (
@@ -84,10 +92,12 @@ export default function CloudLayersChart({ hourly }: { hourly: HourlyPoint[] }) 
         <CartesianChart
           data={hourly}
           chartId={CHART_ID}
-          getX={(d) => d.localTime}
+          getX={(d) => d.time}
+          formatX={formatX}
           series={series}
           y={{ domain: Y_DOMAIN, ticks: Y_TICKS, format: (v) => `${v}%` }}
           height={CHART_HEIGHT}
+          tooltip={{ formatHeader: (_key, d) => d.localTime, onFollow: true }}
           ariaLabel="Low, mid and high cloud cover across the night"
         >
           {({ visible, xScale, yScale }) =>
@@ -95,7 +105,7 @@ export default function CloudLayersChart({ hourly }: { hourly: HourlyPoint[] }) 
               <LinePath<HourlyPoint>
                 key={s.key}
                 data={hourly.filter((d) => s.getValue(d) !== null)}
-                x={(d) => xScale(d.localTime) ?? 0}
+                x={(d) => xScale(d.time) ?? 0}
                 y={(d) => yScale(s.getValue(d) ?? 0)}
                 stroke={s.color}
                 strokeWidth={s.strokeWidth}

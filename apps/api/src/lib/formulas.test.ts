@@ -2,6 +2,23 @@ import { describe, it, expect } from 'bun:test'
 import { makeBodyweightResolver, computeMetrics, deriveTrend, computeStats } from './formulas.js'
 
 describe('makeBodyweightResolver', () => {
+  it('averages two weigh-ins on the same date instead of picking one', () => {
+    // `weightLog` has no unique index on `date`. Before the fold the loop kept whichever row the
+    // DB returned last, so the resolved bodyweight depended on tie order.
+    const entries = [
+      { date: '2026-01-01', weight_kg: 80 },
+      { date: '2026-01-02', weight_kg: 82 },
+      { date: '2026-01-02', weight_kg: 84 },
+    ]
+    expect(makeBodyweightResolver(entries, 75)('2026-01-02')).toBe(83)
+    // `orderBy(asc(date))` leaves the order of two rows sharing a date arbitrary, which is the
+    // actual bug: swapping them used to move the answer from 84 to 82. Averaging is commutative,
+    // so it no longer can. (Date-ascending input is the resolver's contract either way — the
+    // `break` depends on it — so only the intra-day pair is swapped here.)
+    const swappedSameDay = [entries[0]!, entries[2]!, entries[1]!]
+    expect(makeBodyweightResolver(swappedSameDay, 75)('2026-01-02')).toBe(83)
+  })
+
   it('returns profile fallback when entries array is empty', () => {
     const resolve = makeBodyweightResolver([], 75)
     expect(resolve('2024-01-01')).toBe(75)

@@ -134,3 +134,15 @@ export function killerLabel(night: Night): string {
       return killer.label.toLowerCase()
   }
 }
+
+/**
+ * Maps an hourly point's domain key (`time`, a unique ISO instant) back to its `localTime` label
+ * for `formatX`. The key cannot BE `localTime`: that is an "HH:MM" wall clock, and on the DST
+ * fall-back night 02:00/02:30 occur twice — duplicate keys collapse onto one position on the
+ * charts' categorical x axis and one sample silently stops being drawn. Shared by the two charts
+ * that plot the same hourly array so their keys, and therefore their shared cursor, cannot drift.
+ */
+export function hourlyTimeLabel(hourly: readonly { time: string; localTime: string }[]) {
+  const byTime = new Map(hourly.map((d) => [d.time, d.localTime]))
+  return (key: string) => byTime.get(key) ?? key
+}

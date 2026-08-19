@@ -6,10 +6,33 @@ export const HARD_FALLBACK_BW = 80
 
 export type WeightEntry = { date: string; weight_kg: number }
 
+/**
+ * One weigh-in per date, averaging same-day entries. `weightLog` has no unique index on `date`
+ * (two weigh-ins in a day are storable), and every consumer of these rows — the series chart's
+ * categorical x axis, the summary's moving averages, the resolver below — is wrong in its own way
+ * without this: the chart silently drops one, the averages double-weight the day, and the resolver
+ * picks whichever row the DB happened to return last. Repeated same-day weigh-ins are noise around
+ * one true value, so averaging is the reading; insertion order is preserved so callers may pass
+ * rows ascending or descending.
+ */
+export function foldWeightByDate<T extends WeightEntry>(rows: T[]): WeightEntry[] {
+  const byDate = new Map<string, number[]>()
+  for (const r of rows) {
+    const existing = byDate.get(r.date)
+    if (existing) existing.push(r.weight_kg)
+    else byDate.set(r.date, [r.weight_kg])
+  }
+  return Array.from(byDate, ([date, values]) => ({
+    date,
+    weight_kg: Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10,
+  }))
+}
+
 export function makeBodyweightResolver(
-  entries: WeightEntry[],
+  rawEntries: WeightEntry[],
   profileFallback: number,
 ): (date: string) => number {
+  const entries = foldWeightByDate(rawEntries)
   if (entries.length === 0) return () => profileFallback
   const earliest = entries[0]!.weight_kg
   return (date: string) => {
