@@ -10,25 +10,38 @@ import type { MapLayerState, WeatherSelection } from './map-layers'
 process.env['VITE_API_URL'] = 'http://test.local/api'
 
 const {
+  CLOUD_RAMP,
   DEFAULT_LP_YEAR,
+  GIBS_LAG_MINUTES,
+  GIBS_STEP_MINUTES,
+  HILLSHADE_EXAGGERATION_DEFAULT,
+  HILLSHADE_METHOD_DEFAULT,
   LP_OPACITY_DEFAULT,
   LP_PARAM_OFF,
   LP_RAMP,
+  LP_RANGE_FULL,
+  LP_RANGE_MAX,
+  LP_RANGE_MIN,
+  LP_RANGE_MIN_WIDTH,
   LP_RESAMPLING_DEFAULT,
-  RADAR_FRAME_COUNT,
   RADAR_LAG_MINUTES,
   RADAR_STEP_MINUTES,
   TERRAIN_OFF,
   TRAILS_DEFAULT_OPACITY,
+  WEATHER_LAYERS,
+  baseLayer,
   formatLpParam,
   formatTerrainParam,
   formatWeatherParam,
+  gibsTileUrl,
+  gibsTime,
   lpTileUrl,
-  normaliseLayerState,
   parseLpParam,
   parseTerrainParam,
   parseWeatherParam,
-  radarFrameTimes,
+  rainviewerTileUrl,
+  remapLpRampStops,
+  weatherLayerTime,
   wmsTileUrl,
 } = await import('./map-layers')
 
@@ -42,24 +55,52 @@ describe('weather param codec', () => {
   })
 
   it('round-trips a selection with a default and an overridden opacity', () => {
-    // cloudmask (stackIndex 10) sits before lightning (stackIndex 40) — already
+    // cloud (stackIndex 20) sits before lightning (stackIndex 50) — already
     // in the order `parseWeatherParam` sorts to, so a clean round-trip proves
     // the codec rather than incidentally proving the sort too.
     const selection: WeatherSelection[] = [
-      { id: 'cloudmask', opacity: 0.45 }, // matches the catalogue default — encodes bare
+      { id: 'cloud', opacity: 1 }, // matches the catalogue default — encodes bare
       { id: 'lightning', opacity: 0.3 }, // overrides the catalogue default (0.9) — encodes `:30`
     ]
 
     const encoded = formatWeatherParam(selection)
-    expect(encoded).toBe('cloudmask.lightning:30')
+    expect(encoded).toBe('cloud.lightning:30')
     expect(parseWeatherParam(encoded)).toEqual(selection)
   })
 
+  it('round-trips every new catalogue id at its default opacity', () => {
+    for (const id of ['radar-de', 'cloud', 'cloud-ir', 'cloud-top'] as const) {
+      const decoded = parseWeatherParam(id)
+      expect(decoded).toHaveLength(1)
+      expect(decoded[0]!.id).toBe(id)
+      expect(formatWeatherParam(decoded)).toBe(id)
+    }
+  })
+
   it('sorts a decoded selection into stack order regardless of URL order', () => {
-    // lightning (40) written before radar (20) in the URL — the decode must
+    // lightning (50) written before radar (30) in the URL — the decode must
     // still hand back bottom-first stack order, not URL order.
     const decoded = parseWeatherParam('lightning.radar')
     expect(decoded.map((s) => s.id)).toEqual(['radar', 'lightning'])
+  })
+
+  it('sorts cloud-top (24) above cloud-ir (22) and below radar (30) — the new cloud group slot', () => {
+    const decoded = parseWeatherParam('radar.cloud-top.cloud-ir')
+    expect(decoded.map((s) => s.id)).toEqual(['cloud-ir', 'cloud-top', 'radar'])
+  })
+
+  it('sorts the full six-layer catalogue into the derived stack order', () => {
+    // cloud (20) < cloud-ir (22) < radar (30) < radar-de (32) < cells (40) < lightning (50) —
+    // see map-layers.ts's "Stack order" section for the reasoning.
+    const decoded = parseWeatherParam('lightning.radar-de.cloud-ir.cells.radar.cloud')
+    expect(decoded.map((s) => s.id)).toEqual([
+      'cloud',
+      'cloud-ir',
+      'radar',
+      'radar-de',
+      'cells',
+      'lightning',
+    ])
   })
 
   it('drops an id the catalogue does not know, without throwing', () => {
@@ -85,20 +126,35 @@ describe('weather param codec', () => {
 })
 
 describe('lp param codec', () => {
-  it('round-trips every published year and the off switch, at the default opacity and resampling', () => {
+  it('round-trips every published year and the off switch, at every default', () => {
     for (const year of [2016, 2020, 2022, 2023, 2024, 2025] as const) {
-      const selection = { year, opacity: LP_OPACITY_DEFAULT, resampling: LP_RESAMPLING_DEFAULT }
+      const selection = {
+        year,
+        opacity: LP_OPACITY_DEFAULT,
+        resampling: LP_RESAMPLING_DEFAULT,
+        range: LP_RANGE_FULL,
+      }
       const encoded = formatLpParam(selection)
-      expect(encoded).toBe(String(year)) // no `:<percent>[:sharp]` suffix at the defaults
+      expect(encoded).toBe(String(year)) // no suffix at the defaults
       expect(parseLpParam(encoded)).toEqual(selection)
     }
-    const off = { year: null, opacity: LP_OPACITY_DEFAULT, resampling: LP_RESAMPLING_DEFAULT }
+    const off = {
+      year: null,
+      opacity: LP_OPACITY_DEFAULT,
+      resampling: LP_RESAMPLING_DEFAULT,
+      range: LP_RANGE_FULL,
+    }
     expect(formatLpParam(off)).toBe(LP_PARAM_OFF)
     expect(parseLpParam(LP_PARAM_OFF)).toEqual(off)
   })
 
-  it('round-trips a committed opacity, dropping the resampling suffix while it stays default', () => {
-    const selection = { year: 2025 as const, opacity: 0.6, resampling: LP_RESAMPLING_DEFAULT }
+  it('round-trips a committed opacity, dropping the resampling/range suffixes while both stay default', () => {
+    const selection = {
+      year: 2025 as const,
+      opacity: 0.6,
+      resampling: LP_RESAMPLING_DEFAULT,
+      range: LP_RANGE_FULL,
+    }
     const encoded = formatLpParam(selection)
     expect(encoded).toBe('2025:60')
     expect(parseLpParam(encoded)).toEqual(selection)
@@ -109,6 +165,7 @@ describe('lp param codec', () => {
       year: 2025 as const,
       opacity: LP_OPACITY_DEFAULT,
       resampling: 'nearest' as const,
+      range: LP_RANGE_FULL,
     }
     const encoded = formatLpParam(selection)
     expect(encoded).toBe('2025:100:sharp')
@@ -116,10 +173,110 @@ describe('lp param codec', () => {
   })
 
   it('round-trips a committed opacity together with sharp resampling', () => {
-    const selection = { year: 2025 as const, opacity: 0.6, resampling: 'nearest' as const }
+    const selection = {
+      year: 2025 as const,
+      opacity: 0.6,
+      resampling: 'nearest' as const,
+      range: LP_RANGE_FULL,
+    }
     const encoded = formatLpParam(selection)
     expect(encoded).toBe('2025:60:sharp')
     expect(parseLpParam(encoded)).toEqual(selection)
+  })
+
+  it('round-trips a narrowed sensitivity range, filling the resampling slot with "smooth" to reach it', () => {
+    const selection = {
+      year: 2025 as const,
+      opacity: LP_OPACITY_DEFAULT,
+      resampling: LP_RESAMPLING_DEFAULT,
+      range: [2100, 2200] as const,
+    }
+    const encoded = formatLpParam(selection)
+    expect(encoded).toBe('2025:100:smooth:2100-2200')
+    expect(parseLpParam(encoded)).toEqual(selection)
+  })
+
+  it('round-trips a narrowed range together with sharp resampling', () => {
+    const selection = {
+      year: 2025 as const,
+      opacity: 0.6,
+      resampling: 'nearest' as const,
+      range: [1900, 2150] as const,
+    }
+    const encoded = formatLpParam(selection)
+    expect(encoded).toBe('2025:60:sharp:1900-2150')
+    expect(parseLpParam(encoded)).toEqual(selection)
+  })
+
+  it('accepts "smooth" as an explicit synonym for linear, reaching the range slot without it', () => {
+    expect(parseLpParam('2025:100:smooth:2100-2200')).toEqual({
+      year: 2025,
+      opacity: LP_OPACITY_DEFAULT,
+      resampling: 'linear',
+      range: [2100, 2200],
+    })
+  })
+
+  it('falls back to the full range for a malformed range token, without touching the other fields', () => {
+    const fallback = { year: 2025, opacity: 0.6, resampling: 'linear', range: LP_RANGE_FULL }
+    expect(parseLpParam('2025:60:smooth:not-a-range')).toEqual(fallback)
+    expect(parseLpParam('2025:60:smooth:2200-2100')).toEqual(fallback) // reversed
+    expect(parseLpParam('2025:60:smooth:1000-3000')).toEqual(fallback) // outside LP_RANGE_MIN/MAX
+  })
+
+  it('falls back to the full range for a degenerate (too-narrow) window', () => {
+    expect(parseLpParam('2025:100:smooth:2000-2000').range).toEqual(LP_RANGE_FULL)
+    expect(parseLpParam('2025:100:smooth:2000-2001').range).toEqual(LP_RANGE_FULL)
+  })
+
+  it('falls back to the full range for a window one unit narrower than LP_RANGE_MIN_WIDTH', () => {
+    const min = 2100
+    const max = min + LP_RANGE_MIN_WIDTH - 1
+    expect(parseLpParam(`2025:100:smooth:${min}-${max}`).range).toEqual(LP_RANGE_FULL)
+  })
+
+  it('round-trips a window exactly LP_RANGE_MIN_WIDTH wide, and remaps it to strictly ascending stops', () => {
+    const min = 2100
+    const max = min + LP_RANGE_MIN_WIDTH
+    const selection = {
+      year: 2025 as const,
+      opacity: LP_OPACITY_DEFAULT,
+      resampling: LP_RESAMPLING_DEFAULT,
+      range: [min, max] as const,
+    }
+    const encoded = formatLpParam(selection)
+    expect(parseLpParam(encoded)).toEqual(selection)
+    const stops = remapLpRampStops([min, max])
+    for (let i = 1; i < stops.length; i += 1) {
+      expect(stops[i]!).toBeGreaterThan(stops[i - 1]!)
+    }
+  })
+
+  it('keeps every legacy 1-, 2- and 3-slot form parsing exactly as before, defaulting the range', () => {
+    expect(parseLpParam('off')).toEqual({
+      year: null,
+      opacity: LP_OPACITY_DEFAULT,
+      resampling: LP_RESAMPLING_DEFAULT,
+      range: LP_RANGE_FULL,
+    })
+    expect(parseLpParam('2025')).toEqual({
+      year: 2025,
+      opacity: LP_OPACITY_DEFAULT,
+      resampling: LP_RESAMPLING_DEFAULT,
+      range: LP_RANGE_FULL,
+    })
+    expect(parseLpParam('2025:60')).toEqual({
+      year: 2025,
+      opacity: 0.6,
+      resampling: LP_RESAMPLING_DEFAULT,
+      range: LP_RANGE_FULL,
+    })
+    expect(parseLpParam('2025:60:sharp')).toEqual({
+      year: 2025,
+      opacity: 0.6,
+      resampling: 'nearest',
+      range: LP_RANGE_FULL,
+    })
   })
 
   it('falls back to the default year rather than returning NaN or undefined for a hostile string', () => {
@@ -134,6 +291,7 @@ describe('lp param codec', () => {
       year: 2025 as const,
       opacity: LP_OPACITY_DEFAULT,
       resampling: LP_RESAMPLING_DEFAULT,
+      range: LP_RANGE_FULL,
     }
     expect(parseLpParam('2025:notanumber')).toEqual(fallback)
     expect(parseLpParam('2025:999')).toEqual(fallback)
@@ -143,6 +301,33 @@ describe('lp param codec', () => {
   it('treats anything other than the literal "sharp" suffix as linear', () => {
     expect(parseLpParam('2025:60:hack').resampling).toBe('linear')
     expect(parseLpParam('2025:60').resampling).toBe('linear')
+  })
+})
+
+describe('remapLpRampStops', () => {
+  it('reconstructs the canonical stops exactly for the full range', () => {
+    expect(remapLpRampStops(LP_RANGE_FULL)).toEqual(LP_RAMP.map((row) => row.stop))
+  })
+
+  it('always produces strictly ascending stops, including at the minimum non-degenerate width', () => {
+    const ranges: ReadonlyArray<readonly [number, number]> = [
+      LP_RANGE_FULL,
+      [2100, 2200],
+      [1900, 2150],
+      [LP_RANGE_MIN, LP_RANGE_MAX],
+      [2190, 2200], // as narrow as the tightest canonical gap — degenerate, falls back, still ascends
+    ]
+    for (const range of ranges) {
+      const stops = remapLpRampStops(range)
+      for (let i = 1; i < stops.length; i += 1) {
+        expect(stops[i]!).toBeGreaterThan(stops[i - 1]!)
+      }
+    }
+  })
+
+  it('falls back to the canonical stops for a window too narrow to keep every stop distinct', () => {
+    // A 1-unit-wide window cannot possibly hold 11 distinct integer stops.
+    expect(remapLpRampStops([2100, 2101])).toEqual(LP_RAMP.map((row) => row.stop))
   })
 })
 
@@ -232,6 +417,52 @@ describe('terrain param codec', () => {
     expect(formatTerrainParam({ ...TERRAIN_OFF, hillshadeExaggeration: 0.8 })).toBeUndefined()
   })
 
+  it('round-trips a non-default hillshade method, filling the percent slot to reach it', () => {
+    const standard = { ...TERRAIN_OFF, hillshade: true, hillshadeMethod: 'standard' as const }
+    const multi = { ...TERRAIN_OFF, hillshade: true, hillshadeMethod: 'multidirectional' as const }
+
+    // The percent slot has to carry the real (default) value once the method past it is
+    // non-default — `hillshade::standard` is not a token this codec accepts.
+    expect(formatTerrainParam(standard)).toBe(
+      `hillshade:${Math.round(HILLSHADE_EXAGGERATION_DEFAULT * 100)}:standard`,
+    )
+    expect(parseTerrainParam(formatTerrainParam(standard))).toEqual(standard)
+
+    expect(formatTerrainParam(multi)).toBe(
+      `hillshade:${Math.round(HILLSHADE_EXAGGERATION_DEFAULT * 100)}:multidirectional`,
+    )
+    expect(parseTerrainParam(formatTerrainParam(multi))).toEqual(multi)
+
+    // The catalogue default itself needs no suffix at all.
+    expect(formatTerrainParam({ ...TERRAIN_OFF, hillshade: true })).toBe('hillshade')
+  })
+
+  it('round-trips a non-default method together with a non-default exaggeration', () => {
+    const custom = {
+      ...TERRAIN_OFF,
+      hillshade: true,
+      hillshadeExaggeration: 0.4,
+      hillshadeMethod: 'standard' as const,
+    }
+    const encoded = formatTerrainParam(custom)
+    expect(encoded).toBe('hillshade:40:standard')
+    expect(parseTerrainParam(encoded)).toEqual(custom)
+  })
+
+  it('falls back to the default hillshade method for an unrecognised method token, without throwing', () => {
+    expect(parseTerrainParam('hillshade:70:not-a-method')).toEqual({
+      ...TERRAIN_OFF,
+      hillshade: true,
+      hillshadeExaggeration: 0.7,
+      hillshadeMethod: HILLSHADE_METHOD_DEFAULT,
+    })
+    // No percent at all, straight to an (unrecognised) third slot — still never throws.
+    expect(parseTerrainParam('hillshade:__proto__')).toEqual({
+      ...TERRAIN_OFF,
+      hillshade: true,
+    })
+  })
+
   it('round-trips the contours toggle, bare and composed with the other toggles', () => {
     const contoursOnly = { ...TERRAIN_OFF, contours: true }
     const contoursWithHillshade = { ...TERRAIN_OFF, hillshade: true, contours: true }
@@ -246,7 +477,7 @@ describe('terrain param codec', () => {
   })
 })
 
-// ── normaliseLayerState — the imagery/LP exclusion, both directions ────────
+// ── base + light pollution coexistence (the exclusion rule is gone) ────────
 
 function stateFixture(overrides: Partial<MapLayerState>): MapLayerState {
   return {
@@ -254,68 +485,103 @@ function stateFixture(overrides: Partial<MapLayerState>): MapLayerState {
     lpYear: null,
     lpOpacity: LP_OPACITY_DEFAULT,
     lpResampling: LP_RESAMPLING_DEFAULT,
+    lpRange: LP_RANGE_FULL,
     weather: [],
     terrain: TERRAIN_OFF,
     ...overrides,
   }
 }
 
-describe('normaliseLayerState', () => {
-  it('clears the pollution ramp when the base is satellite imagery', () => {
-    const state = stateFixture({ base: 'eox-s2cloudless', lpYear: 2025 })
-    expect(normaliseLayerState(state).lpYear).toBeNull()
-  })
+describe('base + light pollution coexistence', () => {
+  it('keeps a raster base and a pollution year together through the same param round-trip', () => {
+    // A raster base (Satellite, Topographic) used to zero `lpYear` on decode
+    // (`normaliseLayerState`, since removed) and the drawer used to swing the base back to a
+    // vector style the moment a year was picked. Neither exists anymore — the two controls are
+    // independent, and a state carrying both survives a round-trip through the `lp` codec intact.
+    const state = stateFixture({ base: 'eox-s2cloudless', lpYear: 2025, lpOpacity: 0.6 })
+    const encoded = formatLpParam({
+      year: state.lpYear,
+      opacity: state.lpOpacity,
+      resampling: state.lpResampling,
+      range: state.lpRange,
+    })
+    const decoded = parseLpParam(encoded)
 
-  it('clears the pollution ramp when the base is the OpenTopoMap raster-style base', () => {
-    const state = stateFixture({ base: 'otm', lpYear: 2025 })
-    expect(normaliseLayerState(state).lpYear).toBeNull()
-  })
-
-  it('leaves the ramp alone when the base is imagery but the ramp is already off', () => {
-    const state = stateFixture({ base: 'eox-s2cloudless', lpYear: null })
-    expect(normaliseLayerState(state)).toEqual(state)
-  })
-
-  it('leaves the ramp alone when the base is a vector style, not imagery', () => {
-    const state = stateFixture({ base: 'ofm-fiord', lpYear: 2025 })
-    expect(normaliseLayerState(state)).toEqual(state)
+    expect(baseLayer(state.base).kind).not.toBe('style') // a genuinely raster base
+    expect(decoded.year).toBe(2025) // still on
+    expect(decoded.opacity).toBe(0.6)
+    expect(state.base).toBe('eox-s2cloudless') // nothing swings it back to a vector style
   })
 })
 
-// ── radarFrameTimes ──────────────────────────────────────────────────────────
+// ── weatherLayerTime / gibsTime ────────────────────────────────────────────
 
-describe('radarFrameTimes', () => {
-  const FIXED_NOW = new Date('2026-08-18T22:47:33.123Z')
+function wmsRow(id: string) {
+  const entry = WEATHER_LAYERS.find((row) => row.id === id)
+  if (entry === undefined || entry.source !== 'wms') throw new Error(`missing wms row '${id}'`)
+  return entry
+}
 
-  it('returns exactly RADAR_FRAME_COUNT frames', () => {
-    expect(radarFrameTimes(FIXED_NOW)).toHaveLength(RADAR_FRAME_COUNT)
-  })
+describe('weatherLayerTime', () => {
+  // The wall-clock instant every lag in `WeatherTimeGrid`'s table was measured against.
+  const FIXED_NOW = new Date('2026-08-19T08:30:00.000Z')
 
-  it('aligns every frame to the 5-minute grid in UTC, on the hundredth second', () => {
-    for (const iso of radarFrameTimes(FIXED_NOW)) {
-      const frame = new Date(iso)
-      expect(frame.getUTCMinutes() % RADAR_STEP_MINUTES).toBe(0)
-      expect(frame.getUTCSeconds()).toBe(0)
-      expect(frame.getUTCMilliseconds()).toBe(0)
+  it('every wms row carries a timeGrid whose lag is at least a full step past the grid', () => {
+    for (const entry of WEATHER_LAYERS) {
+      if (entry.source !== 'wms') continue
+      expect(entry.timeGrid.stepMinutes).toBeGreaterThan(0)
+      expect(entry.timeGrid.lagMinutes).toBeGreaterThanOrEqual(entry.timeGrid.stepMinutes)
     }
   })
 
-  it('opens on the documented lag behind the wall clock, floored to the grid', () => {
+  it('floors radar-de and cells to the DWD PT5M grid, lagged by RADAR_LAG_MINUTES (15)', () => {
     expect(RADAR_LAG_MINUTES).toBe(15)
-    const [first] = radarFrameTimes(FIXED_NOW)
-    // 22:47:33.123Z minus 15 min = 22:32:33.123Z, floored to the 5-minute grid.
-    expect(first).toBe('2026-08-18T22:30:00.000Z')
+    expect(RADAR_STEP_MINUTES).toBe(5)
+    for (const id of ['radar-de', 'cells']) {
+      const entry = wmsRow(id)
+      expect(entry.timeGrid).toEqual({
+        stepMinutes: RADAR_STEP_MINUTES,
+        lagMinutes: RADAR_LAG_MINUTES,
+      })
+      // 08:30:00Z minus 15 min = 08:15:00Z, already on the 5-minute grid.
+      expect(weatherLayerTime(entry, FIXED_NOW)).toBe('2026-08-19T08:15:00.000Z')
+    }
   })
 
-  it('produces strictly ascending timestamps, exactly one step apart', () => {
-    const frames = radarFrameTimes(FIXED_NOW).map((iso) => new Date(iso).getTime())
-    for (let i = 1; i < frames.length; i += 1) {
-      expect(frames[i]! - frames[i - 1]!).toBe(RADAR_STEP_MINUTES * 60_000)
-    }
+  it('floors lightning to its own EUMETSAT PT5M lag (25 — measured 15 plus two 5-minute steps, not RADAR_LAG_MINUTES)', () => {
+    const entry = wmsRow('lightning')
+    expect(entry.timeGrid).toEqual({ stepMinutes: 5, lagMinutes: 25 })
+    // 08:30:00Z minus 25 min = 08:05:00Z, already on the 5-minute grid.
+    expect(weatherLayerTime(entry, FIXED_NOW)).toBe('2026-08-19T08:05:00.000Z')
+  })
+
+  it('floors cloud-top to its own EUMETSAT PT15M grid, lagged by 35 (measured 30 plus one 15-minute step)', () => {
+    const entry = wmsRow('cloud-top')
+    expect(entry.timeGrid).toEqual({ stepMinutes: 15, lagMinutes: 35 })
+    // 08:30:00Z minus 35 min = 07:55:00Z, floored to the 15-minute grid = 07:45:00Z.
+    expect(weatherLayerTime(entry, FIXED_NOW)).toBe('2026-08-19T07:45:00.000Z')
   })
 
   it('is a pure function of the clock it is given, not of the real one', () => {
-    expect(radarFrameTimes(FIXED_NOW)).toEqual(radarFrameTimes(new Date(FIXED_NOW.getTime())))
+    const entry = wmsRow('radar-de')
+    expect(weatherLayerTime(entry, FIXED_NOW)).toBe(
+      weatherLayerTime(entry, new Date(FIXED_NOW.getTime())),
+    )
+  })
+})
+
+describe('gibsTime', () => {
+  const FIXED_NOW = new Date('2026-08-19T07:37:12.456Z')
+
+  it('floors to the GIBS PT10M grid, lagged by GIBS_LAG_MINUTES, with no milliseconds', () => {
+    expect(GIBS_LAG_MINUTES).toBe(40)
+    expect(GIBS_STEP_MINUTES).toBe(10)
+    // 07:37:12.456Z minus 40 min = 06:57:12.456Z, floored to the 10-minute grid.
+    expect(gibsTime(FIXED_NOW)).toBe('2026-08-19T06:50:00Z')
+  })
+
+  it('never emits a `.000Z`-style millisecond suffix, unlike weatherLayerTime', () => {
+    expect(gibsTime(FIXED_NOW)).not.toContain('.')
   })
 })
 
@@ -336,6 +602,50 @@ describe('wmsTileUrl', () => {
     const withTime = wmsTileUrl({ host: 'https://x', layer: 'l', time: '2026-08-18T22:30:00.000Z' })
     expect(withoutTime).not.toContain('time=')
     expect(withTime).toContain('time=2026-08-18T22%3A30%3A00.000Z')
+  })
+})
+
+describe('rainviewerTileUrl', () => {
+  it('builds a well-formed tile template — colour scheme 2, options 1_1, literal {z}/{x}/{y}', () => {
+    const url = rainviewerTileUrl('https://tilecache.rainviewer.com', '/v2/radar/1755000000')
+    expect(url).toBe(
+      'https://tilecache.rainviewer.com/v2/radar/1755000000/256/{z}/{x}/{y}/2/1_1.png',
+    )
+  })
+
+  it('leaves the MapLibre placeholders un-encoded', () => {
+    const url = rainviewerTileUrl('https://tilecache.rainviewer.com', '/v2/radar/x')
+    expect(url).toContain('{z}/{x}/{y}')
+  })
+})
+
+describe('gibsTileUrl', () => {
+  it('uses WMTS z/y/x order — NOT z/x/y, unlike every other row in this catalogue', () => {
+    const url = gibsTileUrl('GOES-East_ABI_Band13_Clean_Infrared', '2026-08-19T07:00:00Z')
+    const marker = '/GoogleMapsCompatible_Level6/'
+    const template = url.slice(url.lastIndexOf(marker) + marker.length)
+    expect(template).toBe('{z}/{y}/{x}.png')
+  })
+
+  it('bakes the layer and time into the path', () => {
+    const url = gibsTileUrl('Himawari_AHI_Band13_Clean_Infrared', '2026-08-19T07:00:00Z')
+    expect(url).toBe(
+      'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/Himawari_AHI_Band13_Clean_Infrared/default/2026-08-19T07:00:00Z/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png',
+    )
+  })
+})
+
+describe('CLOUD_RAMP', () => {
+  it('ascends strictly in stop, as MapLibre interpolate requires', () => {
+    for (let i = 1; i < CLOUD_RAMP.length; i += 1) {
+      expect(CLOUD_RAMP[i]!.stop).toBeGreaterThan(CLOUD_RAMP[i - 1]!.stop)
+    }
+  })
+
+  it('is fully transparent for clear sky (0, 96) and fully opaque at the top (255)', () => {
+    expect(CLOUD_RAMP[0]!.alpha).toBe(0)
+    expect(CLOUD_RAMP[1]!.alpha).toBe(0)
+    expect(CLOUD_RAMP.at(-1)!.alpha).toBe(1)
   })
 })
 

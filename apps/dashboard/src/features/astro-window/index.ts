@@ -50,7 +50,6 @@ export {
   formatTerrainParam,
   formatWeatherParam,
   LP_YEARS,
-  normaliseLayerState,
   parseLpParam,
   parseTerrainParam,
   parseWeatherParam,

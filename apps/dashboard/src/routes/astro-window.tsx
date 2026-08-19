@@ -26,7 +26,6 @@ import {
   formatLpParam,
   formatTerrainParam,
   formatWeatherParam,
-  normaliseLayerState,
   parseLpParam,
   parseTerrainParam,
   parseWeatherParam,
@@ -41,8 +40,8 @@ const ViewEnum = z.enum(['tonight', 'map', 'forecast'])
 
 /**
  * The map's configuration rides in the URL so a configured map is linkable and survives a reload
- * — but COMPACTLY. Four weather overlays with an opacity each would be eight query keys; `wx`
- * carries them as one delimited string (`radar.cloudmask:30`), decoded by the catalogue.
+ * — but COMPACTLY. Six weather overlays with an opacity each would be twelve query keys; `wx`
+ * carries them as one delimited string (`radar.cloud:30`), decoded by the catalogue.
  *
  * `base` is deliberately OPTIONAL rather than defaulted: absent means "follow the colour scheme",
  * which is what keeps a dark/light toggle swapping the basemap for anyone who never opened the
@@ -229,18 +228,15 @@ function AstroWindowPage() {
 
   const layers = useMemo<MapLayerState>(() => {
     const lp = parseLpParam(search.lp)
-    // `normaliseLayerState` applies the imagery/pollution exclusion HERE rather than only in the
-    // drawer's handlers, so a shared or hand-trimmed link cannot mount a combination the drawer
-    // would refuse to produce — `?base=eox-s2cloudless` alone is enough, since `lp` defaults to
-    // the latest vintage rather than to off.
-    return normaliseLayerState({
+    return {
       base: search.base ?? schemeDefaultBase,
       lpYear: lp.year,
       lpOpacity: lp.opacity,
       lpResampling: lp.resampling,
+      lpRange: lp.range,
       weather: parseWeatherParam(search.wx),
       terrain: parseTerrainParam(search.terrain),
-    })
+    }
   }, [search.base, search.lp, search.wx, search.terrain, schemeDefaultBase])
 
   const handleLayersChange = useCallback(
@@ -254,6 +250,7 @@ function AstroWindowPage() {
             year: next.lpYear,
             opacity: next.lpOpacity,
             resampling: next.lpResampling,
+            range: next.lpRange,
           }),
           wx: formatWeatherParam(next.weather),
           terrain: formatTerrainParam(next.terrain),

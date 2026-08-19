@@ -625,6 +625,129 @@ panel, which is where this session started.
 
 ---
 
+## 9. The 2026-08-19 rebuild — global weather, and two bugs the map shipped with
+
+**Verdict:** the weather overlays were Germany-shaped because of a source choice, not a
+limitation — four keyless, CORS-open providers cover the globe for radar and most of a
+hemisphere for everything else. Two of the reported problems were not taste at all: the
+hillshade and the light-pollution ramp were both broken by the same class of mistake, a
+palette token used where a physical quantity belonged.
+
+### 9.1 Two bugs, one root cause
+
+**The hillshade rendered no relief.** `hillshade-shadow-color` was wired to `--vx-surface-bg`
+and `-highlight-color` to `--vx-surface-elevated` — two adjacent steps of the same zinc surface
+ladder. Their luminance differs by a few percent, so shadow ≈ highlight and the shading
+cancelled. MapLibre's spec defaults are `#000000`/`#FFFFFF` for exactly this reason. Relief is a
+physical light model, not palette ink; the three achromatic vars now live in `series.ts`'s
+`ARGO_DERIVED` alongside `--vx-optimalZone`. `hillshade-method` also became a control
+(`standard` / `multidirectional` / `igor`, verified against
+`@maplibre/maplibre-gl-style-spec@26.2.1`, which also ships `basic` and `combined`), defaulting
+to `igor` — the method designed to sit under a basemap that already carries its own colour.
+Exaggeration default `0.5` → `0.7`.
+
+**Light pollution and the topographic base were mutually exclusive.** `normaliseLayerState`
+nulled the atlas year on any non-vector base and the drawer swung the base back when a year was
+picked, so switching basemaps silently turned the ramp off. The rule was written for the
+satellite mosaic — green and brown under a warm ramp really is unreadable — and then extended to
+OpenTopoMap by analogy. That was wrong: readability at a given opacity is the reader's call, and
+the ramp already had an opacity slider. Rule deleted, both halves.
+
+### 9.2 Sensitivity, not just intensity
+
+The ramp always spanned its full canonical domain (1800–2200, mag/arcsec² × 100), so the band
+actually worth scouting — roughly 21.2–21.8 — got four of eleven stops. `LpSelection.range` now
+windows it: `remapLpRampStops` linearly remaps every canonical stop onto the selected window and
+falls back to the full domain whenever integer rounding would break strict ascension (the stops
+are unevenly spaced — 160 apart at the polluted end, 10 at the pristine one — so a width
+threshold cannot guarantee it; checking the remapped outcome can). Rides in the `lp` search
+param as a fourth positional slot, `<year>[:<percent>[:<smooth|sharp>[:<min>-<max>]]]`.
+
+### 9.3 Weather sources — every row probed live from this machine, 2026-08-19
+
+| Layer       | Product                                                                      | Cadence                     | Coverage                                  | PNG type              | Key  |
+| ----------- | ---------------------------------------------------------------------------- | --------------------------- | ----------------------------------------- | --------------------- | ---- |
+| `radar`     | RainViewer `weather-maps.json` → `{host}{path}/256/{z}/{x}/{y}/2/1_1.png`    | 5 min, ~2 h past            | **Global** — 1200+ radars, 150+ countries | 6 (RGBA)              | none |
+| `radar-de`  | DWD `dwd:Radar_rv_product_1x1km_ger`                                         | 5 min, **+105 min nowcast** | Germany + neighbours                      | —                     | none |
+| `cloud`     | EUMETSAT `msg_fes:clm` + `msg_iodc:clm`                                      | PT15M                       | Two ±77° discs at 0° and 45.5°E           | 2 (opaque — see §9.4) | none |
+| `cloud-ir`  | NASA GIBS `GOES-East` / `GOES-West` / `Himawari_AHI` `Band13_Clean_Infrared` | PT10M, ~30 min latency      | The hemisphere the discs miss             | 6 (RGBA)              | none |
+| `cloud-top` | EUMETSAT `msg_fes:cth`                                                       | PT15M                       | MSG 0° disc, ±77°                         | 6 (RGBA)              | none |
+| `lightning` | EUMETSAT `mtg_fd:li_afa` (MTG-I Lightning Imager)                            | **PT5M**                    | MTG-I disc, ±70°                          | 6 (RGBA)              | none |
+| `cells`     | DWD `dwd:Gewitterzellen`                                                     | 5 min                       | Germany + neighbours                      | —                     | none |
+
+Every WMS row bakes an explicit `TIME`, and asking for a slot the host has not published yet
+returns a `ServiceExceptionReport` — not an empty tile — so the layer silently shows nothing.
+Publish lag measured from each host's live `GetCapabilities` extent at `2026-08-19T08:30:00Z`:
+`mtg_fd:li_afa` 15 min (newest `08:15Z`, PT5M), `msg_fes:cth` and both `clm` discs 30 min (newest
+`08:00Z`, PT15M), DWD's `REFERENCE_TIME` ~7 min. Each row therefore carries its own
+`timeGrid: { stepMinutes, lagMinutes }` where the lag is the measured value plus at least one full
+grid step of margin — 15 for the two DWD rows, 25 for `lightning`, 35 for `cloud-top`. It lives on
+the catalogue row rather than in the mount, so a new source stays a new row.
+
+GIBS carries **no Meteosat** — verified by grepping its own `WMTSCapabilities.xml` for
+`MSG`/`SEVIRI`/`Meteosat`/`MTG`/`FCI`: zero hits, only GOES-East, GOES-West and Himawari. Europe
+therefore has no GIBS geostationary source and the EUMETSAT rows are not redundant with it.
+GIBS tiles are `{TileMatrix}/{TileRow}/{TileCol}` — **z/y/x**, unlike every other template in the
+catalogue. Getting that backwards does not error; the tiles simply land in the wrong place.
+
+### 9.4 The cloud mask needed decoding, not a lower opacity
+
+`msg_fes:clm` is **colour type 2 — opaque RGB, no alpha channel at all**; `transparent=true`
+only clears outside the satellite disc. Mounted as a plain raster it is a sheet across the whole
+viewport, which is why it originally had to sit _under_ the pollution ramp to stay legible.
+
+Pixel census of one tile over central Europe: cloud `(255,255,255)` 19 000 px, clear land
+`(0,192,0)` 15 111 px, plus ~7 000 distinct anti-aliasing colours at the boundaries. **The red
+channel alone is a clean 0-vs-255 split.** MapLibre's `raster-dem` `encoding: "custom"`
+(`redFactor: 1, greenFactor: 0, blueFactor: 0, baseShift: 0`, js 3.4.0+) decodes it to a scalar
+field, and `color-relief` then paints it through `CLOUD_RAMP` — transparent below 96, half alpha
+at 128, full at 255 — in the dictionary's existing neutral `cloudHigh` token. `resampling` is
+`nearest`, not `linear`: smoothing a binary field across those boundary colours turns a mask
+into a haze. Off-disc black decodes to 0 and is transparent by construction, so the disc edge
+needs no special case. Being honestly transparent, the layer moved from under the ramp to above
+it.
+
+### 9.5 What infrared cannot do
+
+IR 10.8 measures temperature, so low cloud sits at ground temperature and disappears into it.
+Measured, correlating one `msg_fes:ir108` tile against the `msg_fes:clm` mask over the same
+bbox:
+
+| Mask class         | n      | IR mean | IR range |
+| ------------------ | ------ | ------- | -------- |
+| cloud (white)      | 29 205 | 56.3    | 31–100   |
+| clear land (green) | 36 330 | 52.8    | 32–108   |
+
+Fully overlapping. Low cloud is exactly what ends an astro night, so `cloud-ir` is documented as
+a complement to the mask, never a replacement — and `msg_fes:cth` (cloud-top height) is what
+actually separates thin high cirrus from a low deck.
+
+### 9.6 Rejected, with the reason
+
+| Candidate                                   | Why not                                                                                                                                                                                                                               |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@openmeteo/weather-map-layer`              | Serves exactly the right products (global cloud cover total/low/mid/high, cloud top height) but is `0.0.20`, declares **no `license` field**, and depends on `maplibre-gl@^5` against this app's v6 — a second MapLibre in the bundle |
+| MET Norway `cloud-area-fraction`            | Genuinely global, 59 hourly steps to +2.5 days, CORS-open, CC BY 4.0 — but the tiles are a data encoding (35 794 distinct colours) with no published decode, rendered by their own client's shader                                    |
+| EUMETSAT `msg_fes:ir108` as the European IR | Colour type 2, same opaque-sheet problem as the mask, and §9.5 says IR is the weaker product anyway                                                                                                                                   |
+| Windy                                       | Key-gated; tile endpoint undocumented and MapLibre-unsupported; free tier disallows production use                                                                                                                                    |
+| OpenWeatherMap / Tomorrow.io                | Key-gated, weather maps behind paid tiers; Tomorrow.io gates lightning to Enterprise                                                                                                                                                  |
+| Meteoblue                                   | No free tier — Tile API needs a ≥€2 400/year plan                                                                                                                                                                                     |
+| `raster-color` recolouring                  | A Mapbox GL JS v3 feature. Not in MapLibre's `paint_raster`, verified against the installed style spec                                                                                                                                |
+
+### 9.7 Still not solved
+
+- **Lightning outside the MTG-I disc.** The Americas, the Pacific and eastern Asia have no free
+  source. GIBS serves GLM only as netCDF from GHRC DAAC, Open-Meteo has no lightning tile
+  variable, MET Norway discontinued its lightning products in 2019, Tomorrow.io gates it behind
+  Enterprise.
+- **Low cloud from space, generally.** The mask answers yes/no over its two discs; nothing free
+  answers it for the other hemisphere.
+- **Nothing here has been checked against what the map actually looks like.** Every endpoint is
+  verified and every gate is green; contrast, legibility and whether the ramps read is a human
+  judgement no probe replaces.
+
+---
+
 ## Reproducing the numbers
 
 Scripts live in `docs/poc/astro-map/`. They are research artifacts — lint-clean but not

@@ -189,8 +189,20 @@ export const argoPaletteGroups: Record<string, SeriesMap> = {
  * `packages/charts/src/theme-vars.ts` DERIVED block), so it can't live in `defineSeries`. Carried
  * forward via `paletteOptions.derived` so the var name and formula stay identical.
  */
+/**
+ * `--vx-hillshade{Shadow,Highlight,Accent}` are relief shading, not palette ink — a PHYSICAL
+ * light model (which slope faces the sun, which faces away), so they are legitimately black/white
+ * rather than a `--vx-surface-*` step. An earlier version pointed the map's hillshade paint at two
+ * adjacent zinc surface tokens whose luminance differs by only a few percent, which rendered as no
+ * visible relief at all — see `map-overlays.ts`'s `HILLSHADE_SHADOW_VAR` docblock for the full
+ * story. MapLibre's own spec defaults are the same `#000000`/`#FFFFFF` pair for the same reason:
+ * the widest luminance span available is what makes shaded relief legible.
+ */
 export const ARGO_DERIVED = [
   '--vx-optimalZone: color-mix(in srgb, var(--vx-good-solid) 10%, transparent);',
+  '--vx-hillshadeShadow: rgb(0 0 0);',
+  '--vx-hillshadeHighlight: rgb(255 255 255);',
+  '--vx-hillshadeAccent: rgb(0 0 0);',
 ]
 
 declare module 'basalt-ui' {

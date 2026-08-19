@@ -1,19 +1,24 @@
 import { addProtocol, type AddLayerObject, type Map as MapLibreMap } from 'maplibre-gl'
 import mlcontour from 'maplibre-contour'
+import type { RainViewerFrame } from '../../../lib/queries/rainviewer'
 import {
   BASE_STACK_INDEX,
   baseLayer,
+  CLOUD_RAMP,
   CONTOUR_ELEVATION_KEY,
   CONTOUR_LABEL_FONT,
   CONTOUR_LAYER_NAME,
   CONTOUR_LEVEL_KEY,
   CONTOUR_STACK_INDEX,
   CONTOUR_THRESHOLDS,
+  gibsTileUrl,
+  GIBS_MAXZOOM,
   lpAttribution,
   LP_RAMP,
+  LP_RANGE_FULL,
   LP_STACK_INDEX,
   lpTileUrl,
-  needsStaticTime,
+  remapLpRampStops,
   TERRAIN_3D_EXAGGERATION,
   TERRAIN_ATTRIBUTION,
   TERRAIN_DEM_URL,
@@ -23,6 +28,8 @@ import {
   TRAILS_TILES,
   wmsTileUrl,
   weatherLayer,
+  weatherLayerTime,
+  type HillshadeMethod,
   type MapLayerState,
   type WeatherLayerId,
 } from '../map-layers'
@@ -107,25 +114,44 @@ const CONTOUR_TILE_OPTIONS = {
 }
 
 /**
- * The `time` is baked into the id, not just the index. `installOverlays` decides what to add/keep
- * by comparing ids against its `wanted` set — if a recomputed `radarTimes` (the clock moving on
- * while `radarActive` stays true) kept the same index-only ids, the OLD sources would look
- * "already wanted" and never get swept, so the map would keep rendering frames whose baked-in
- * `&time=` disagrees with whatever a clock label next to it now shows. Folding `time` into the id
- * makes that mismatch structurally impossible: a new batch of times is a new set of ids, so the
- * stale ones fall out of `wanted` and get removed like any other overlay change.
+ * The frame's own timestamp is baked into the id, not just the index. `installOverlays` decides
+ * what to add/keep by comparing ids against its `wanted` set — if RainViewer's `refetchInterval`
+ * publishing a fresh `radarFrames` array kept the same index-only ids, the OLD sources would look
+ * "already wanted" and never get swept, so the map would keep rendering frames whose tile URL
+ * (baked to a specific RainViewer mosaic hash) disagrees with whatever a clock label next to it
+ * now shows. Folding the timestamp into the id makes that mismatch structurally impossible: a new
+ * batch of frames is a new set of ids, so the stale ones fall out of `wanted` and get removed like
+ * any other overlay change.
  */
 const radarFrameLayerId = (index: number, time: string) =>
   `${OWN_PREFIX}wx-radar-${index}-${time.replace(/[:.]/g, '-')}`
 
 /**
- * The same id-changing discipline as `radarFrameLayerId` above, for `lightning`/`cells`: those two
- * now carry a baked `time` too (`needsStaticTime`, `map-layers.ts`), and if their id did not move
- * when that time refreshes, `installOverlays` would see the stale source as still "wanted" and
- * never sweep it — the map would keep painting a slot that has aged out of DWD's extent.
+ * The same id-changing discipline as `radarFrameLayerId` above, for every `'wms'` row
+ * (`radar-de`/`lightning`/`cells`/`cloud-top`): each carries a baked `time`, floored onto its own
+ * `timeGrid` by `weatherLayerTime` (`map-layers.ts`), and if its id did not move when that time
+ * refreshes, `installOverlays` would see the stale source as still "wanted" and never sweep it —
+ * the map would keep painting a slot that has aged out of its own grid's extent.
  */
 const staticTimedLayerId = (id: WeatherLayerId, time: string) =>
   `${OWN_PREFIX}wx-${id}-${time.replace(/[:.]/g, '-')}`
+
+/**
+ * `cloud`'s two EUMETSAT discs (`msg_fes:clm`, `msg_iodc:clm`) share one catalogue row but mount
+ * as two independent `raster-dem` + `color-relief` sources — this is the per-disc id. No `time`
+ * baked in: `cloud` keeps asking for the latest slot with no `time` param at all, same as the
+ * opaque wash it replaced.
+ */
+const cloudLayerId = (index: number) => `${weatherLayerId('cloud')}-${index}`
+
+/**
+ * `cloud-ir`'s three GIBS satellites share one catalogue row but mount as three independent
+ * raster sources, each carrying the same id-changing discipline as `staticTimedLayerId` — GIBS'
+ * own `TIME` dimension refreshes on `OverlayState.gibsTime`, a different grid on a different
+ * clock from the DWD one `staticTimedLayerId` serves.
+ */
+const gibsLayerId = (index: number, time: string) =>
+  `${OWN_PREFIX}wx-cloud-ir-${index}-${time.replace(/[:.]/g, '-')}`
 
 // ── The light-pollution ramp ───────────────────────────────────────────────
 
@@ -158,15 +184,41 @@ function resolveStopColor(cs: CSSStyleDeclaration, token: string, opacity: numbe
 }
 
 /**
- * Reads the live palette and returns the paint expression. Called on every `style.load` AND on a
- * bare scheme flip, so the ramp is always built from the shades that are actually mounted rather
- * than from whichever scheme happened to be current when the layer was added. The cast is
- * unavoidable: spreading a variable-length stop list widens the tuple that
- * `ExpressionSpecification` is, and the shape is validated by the style spec at runtime anyway.
+ * Reads the live palette and returns the paint expression. Called on every `style.load`, on a
+ * bare scheme flip, AND on a sensitivity-range commit, so the ramp is always built from the
+ * shades actually mounted and the domain the drawer's `RangeSlider` currently asks for — not from
+ * whichever scheme or range happened to be current when the layer was added.
+ *
+ * `range` defaults to `LP_RANGE_FULL` (the ramp's own un-windowed domain) so every existing call
+ * site that has not been taught about sensitivity yet keeps painting the same stops as before.
+ * The actual remap is `remapLpRampStops` (`map-layers.ts`) — pure and DOM-free, so its own
+ * correctness is unit-tested directly; this function's job is only to pair each remapped stop
+ * back up with its row's resolved colour. The cast is unavoidable: spreading a variable-length
+ * stop list widens the tuple that `ExpressionSpecification` is, and the shape is validated by the
+ * style spec at runtime anyway.
  */
-export function buildLpRamp(): LpRampExpression {
+export function buildLpRamp(range: readonly [number, number] = LP_RANGE_FULL): LpRampExpression {
   const cs = getComputedStyle(document.documentElement)
-  const stops = LP_RAMP.flatMap(({ stop, token, alpha: opacity }) => [
+  const remappedStops = remapLpRampStops(range)
+  const stops = LP_RAMP.flatMap(({ token, alpha: opacity }, index) => [
+    remappedStops[index]!,
+    resolveStopColor(cs, token, opacity),
+  ])
+  return ['interpolate', ['linear'], ['elevation'], ...stops] as LpRampExpression
+}
+
+// ── The cloud mask ramp ──────────────────────────────────────────────────────
+
+/**
+ * `cloud`'s decode ramp — `CLOUD_RAMP`'s stops are already the raw 0–255 domain the `raster-dem`
+ * `encoding: 'custom'` source decodes the EUMETSAT red channel into (see that constant's own
+ * doc), so unlike `buildLpRamp` there is no remap step: every stop is used verbatim. Read fresh on
+ * every `style.load` and scheme flip, same as `buildLpRamp`, since `cloudHigh` resolves to a
+ * different hex per scheme.
+ */
+export function buildCloudRamp(): LpRampExpression {
+  const cs = getComputedStyle(document.documentElement)
+  const stops = CLOUD_RAMP.flatMap(({ stop, token, alpha: opacity }) => [
     stop,
     resolveStopColor(cs, token, opacity),
   ])
@@ -179,35 +231,70 @@ type HillshadeLayer = Extract<AddLayerObject, { type: 'hillshade' }>
 type HillshadePaint = NonNullable<HillshadeLayer['paint']>
 
 /**
- * Neutral zinc tokens chosen by ROLE, not by literal darkness, so the same pair reads correctly
- * in both schemes without a light/dark branch: `--vx-surface-bg` is this app's most RECESSED
- * surface and `--vx-surface-elevated` its most RAISED one, by construction (`basalt-tokens.md`'s
- * surface ladder) — "shadow = the recessed tone, highlight = the raised tone" is exactly the
- * relief metaphor, in whichever scheme those tokens currently resolve to. `--vx-surface-border`,
- * the hairline token, doubles as the accent light's subtle ridge tint for the same reason.
+ * Achromatic, not palette tokens — deliberately NOT `--vx-surface-*`. An earlier version pointed
+ * shadow/highlight at `--vx-surface-bg`/`--vx-surface-elevated`, two adjacent steps of the SAME
+ * zinc surface ladder: their luminance differs by only a few percent, so the relief rendered as
+ * two near-identical greys and read as no relief at all. Hillshading is a physical LIGHT model
+ * (which slope faces the sun, which faces away), not palette ink, and MapLibre's own spec
+ * defaults are `#000000`/`#FFFFFF` for exactly this reason — the widest luminance span available.
+ * `series.ts`'s `ARGO_DERIVED` is the guard-exempt file such achromatic values legitimately live
+ * in; see `--vx-hillshadeShadow`/`--vx-hillshadeHighlight`/`--vx-hillshadeAccent` there.
+ * `hillshade-accent-color` shares the shadow's own black rather than minting a third tone —
+ * MapLibre's own default does the same (`accent` only diverges from `shadow` on a style that
+ * wants a tinted ridge outline, which this calm-neutral relief deliberately does not).
  */
-const HILLSHADE_SHADOW_VAR = '--vx-surface-bg'
-const HILLSHADE_HIGHLIGHT_VAR = '--vx-surface-elevated'
-const HILLSHADE_ACCENT_VAR = '--vx-surface-border'
+const HILLSHADE_SHADOW_VAR = '--vx-hillshadeShadow'
+const HILLSHADE_HIGHLIGHT_VAR = '--vx-hillshadeHighlight'
+const HILLSHADE_ACCENT_VAR = '--vx-hillshadeAccent'
+
+/** MapLibre's own single-light defaults (`hillshade-illumination-direction`/`-altitude`), reused
+ * verbatim for `standard` and `igor` — a single-light method has nothing to distribute across
+ * multiple directions, so a 4-element array here would be silently ignored by the renderer. */
+const HILLSHADE_SINGLE_DIRECTION = 335
+const HILLSHADE_SINGLE_ALTITUDE = 45
 
 /**
- * Swiss-style multidirectional relief, palette-derived. `hillshade-illumination-direction` /
- * `-altitude` are MapLibre's own official multidirectional example (Austria/Switzerland-centred);
- * that example's rainbow `hillshade-shadow-color`/`-highlight-color` arrays exist only to
- * demonstrate the ARRAY FORM `ColorArraySpecification` (`string | string[]`) allows for a
- * per-direction colour — cartography, not colour choice, so they are not reused here. A single
- * resolved string per colour applies uniformly to all four lights instead, which is what "calm
- * neutral zinc shading, not tinted colour" (the brief this shipped against) asks for.
- *
+ * Swiss-style multidirectional relief's own light rig — MapLibre's official multidirectional
+ * example (Austria/Switzerland-centred). That example's rainbow `hillshade-shadow-color`/
+ * `-highlight-color` arrays exist only to demonstrate the ARRAY FORM `ColorArraySpecification`
+ * (`string | string[]`) allows for a per-direction colour — cartography, not colour choice, so
+ * they are not reused here. A single resolved string per colour applies uniformly to all four
+ * lights instead, which is what "calm neutral zinc shading, not tinted colour" (the brief this
+ * shipped against) asks for. Only `multidirectional` reads a 4-element direction/altitude array;
+ * `standard`/`igor` read the scalar MapLibre defaults above.
+ */
+const HILLSHADE_MULTI_DIRECTIONS = [270, 315, 0, 45]
+const HILLSHADE_MULTI_ALTITUDES = [30, 30, 30, 30]
+
+/** The illumination direction/altitude pair for a given light model — shared by
+ * `buildHillshadePaint` and every `setPaintProperty` call site that pushes a method change
+ * without a full re-add (`paintOverlayState`, `refreshHillshade`), so the two never drift. */
+function hillshadeIllumination(method: HillshadeMethod): {
+  direction: number | number[]
+  altitude: number | number[]
+} {
+  return method === 'multidirectional'
+    ? { direction: HILLSHADE_MULTI_DIRECTIONS, altitude: HILLSHADE_MULTI_ALTITUDES }
+    : { direction: HILLSHADE_SINGLE_DIRECTION, altitude: HILLSHADE_SINGLE_ALTITUDE }
+}
+
+/**
  * Called on every `style.load` AND on a bare scheme flip (`refreshHillshade`, mirroring
  * `buildLpRamp`/`refreshLpRamp`), so the relief always paints the shades actually mounted.
  */
-export function buildHillshadePaint(exaggeration: number): HillshadePaint {
+export function buildHillshadePaint({
+  exaggeration,
+  method,
+}: {
+  exaggeration: number
+  method: HillshadeMethod
+}): HillshadePaint {
   const cs = getComputedStyle(document.documentElement)
+  const { direction, altitude } = hillshadeIllumination(method)
   return {
-    'hillshade-method': 'multidirectional',
-    'hillshade-illumination-direction': [270, 315, 0, 45],
-    'hillshade-illumination-altitude': [30, 30, 30, 30],
+    'hillshade-method': method,
+    'hillshade-illumination-direction': direction,
+    'hillshade-illumination-altitude': altitude,
     'hillshade-exaggeration': exaggeration,
     'hillshade-shadow-color': resolveStopColor(cs, HILLSHADE_SHADOW_VAR, 1),
     'hillshade-highlight-color': resolveStopColor(cs, HILLSHADE_HIGHLIGHT_VAR, 1),
@@ -280,11 +367,20 @@ type StackEntry = {
 
 /** The layer state plus the derived, periodically-refreshed weather timestamps. */
 export type OverlayState = MapLayerState & {
-  /** Empty unless the radar layer is on. Refreshed on the shared epoch clock — see `site-map.tsx`. */
-  radarTimes: readonly string[]
-  /** The one grid slot `lightning`/`cells` bake into their id — see `needsStaticTime`. Always
-   * populated (cheap to compute) even when neither layer is on. */
-  weatherTime: string
+  /** Empty unless the RainViewer global radar is on. Sourced from `rainviewerQueries.radar()` in
+   * `site-map.tsx`, not computed here — a dead/loading third-party feed resolves to `[]`, which
+   * `desiredStack` below already renders as "no frames" rather than a broken layer. */
+  radarFrames: readonly RainViewerFrame[]
+  /** The wall clock every `'wms'` row's baked `time` is computed against — each row floors this
+   * against its OWN `timeGrid` via `weatherLayerTime` (`map-layers.ts`), so one `nowMs` now
+   * anchors every grid (DWD's PT5M, EUMETSAT's PT5M and PT15M) instead of one field per grid.
+   * Refreshed on `site-map.tsx`'s shared `epoch` clock, not read live off `Date.now()` here, so a
+   * re-render between ticks reuses the exact instant every other derived value in this state was
+   * computed from. Always populated (cheap to compute) even when no `'wms'` row is on. */
+  nowMs: number
+  /** The one GIBS grid slot `cloud-ir` bakes into its id — see `gibsTime` in `map-layers.ts`.
+   * Always populated for the same reason `nowMs` is. */
+  gibsTime: string
 }
 
 function rasterEntry({
@@ -320,11 +416,15 @@ function rasterEntry({
  * The stack the current state asks for, ordered BOTTOM first.
  *
  * Order is the whole contract here, and it is decided by ONE number per entry — the catalogue's
- * shared stack scale — not by the order these branches run in. That is what lets the cloud mask
- * (an opaque full-disc wash) sit UNDER the pollution ramp while the sparse annotations sit over
- * it; a stack assembled imagery → ramp → weather could only ever put every overlay on top.
+ * shared stack scale — not by the order these branches run in. See `map-layers.ts`'s "Stack
+ * order" section for the current derivation: the cloud layer decodes to real transparency now
+ * (`CLOUD_RAMP`), so it no longer needs to sit UNDER the pollution ramp the way the old opaque
+ * EUMETSAT wash did — it sits just above it instead, grouped with its infrared complement, with
+ * radar/storm cells/lightning stacked above both as the more urgent, sparser annotations.
  *
- * The sort is stable (ES2019+), so the radar's twelve frames keep the order they were pushed in.
+ * The sort is stable (ES2019+), so a multi-frame source's frames (radar's RainViewer-sized set,
+ * cloud's two EUMETSAT discs, cloud-ir's three GIBS satellites) keep the order they were pushed
+ * in.
  */
 function desiredStack(state: OverlayState): StackEntry[] {
   const stack: StackEntry[] = []
@@ -364,7 +464,10 @@ function desiredStack(state: OverlayState): StackEntry[] {
           id: TERRAIN_SOURCE_ID,
           type: 'hillshade',
           source: TERRAIN_SOURCE_ID,
-          paint: buildHillshadePaint(state.terrain.hillshadeExaggeration),
+          paint: buildHillshadePaint({
+            exaggeration: state.terrain.hillshadeExaggeration,
+            method: state.terrain.hillshadeMethod,
+          }),
           // The source is mounted whenever hillshade OR 3D terrain is on — `setTerrain` (called
           // from `syncTerrain`, below) needs the source to already exist in the style — but the
           // shaded RENDER only draws when hillshade itself is requested. 3D-only leaves this
@@ -462,7 +565,7 @@ function desiredStack(state: OverlayState): StackEntry[] {
           type: 'color-relief',
           source: id,
           paint: {
-            'color-relief-color': buildLpRamp(),
+            'color-relief-color': buildLpRamp(state.lpRange),
             'color-relief-opacity': state.lpOpacity,
             // `resampling`, NOT `raster-resampling`. The latter is a RASTER-layer property; the
             // style-spec validator rejects it on a color-relief layer with `unknown property
@@ -498,17 +601,20 @@ function desiredStack(state: OverlayState): StackEntry[] {
     const entry = weatherLayer(selection.id)
     if (entry === undefined) continue
 
-    if (entry.animated) {
+    if (entry.source === 'rainviewer') {
       // Pattern 3 from ASTRO-MAP-RESEARCH §6.5: one source PER FRAME, crossfaded by animating
       // `raster-opacity`. It beats `setTiles` (a full re-request every frame) and `updateImage`
       // because the frames stay in the tile cache, and at opacity 0 MapLibre skips the layer
-      // entirely in render — so eleven idle frames cost nothing per draw.
-      state.radarTimes.forEach((time, index) => {
+      // entirely in render — so idle frames cost nothing per draw. Tile URLs come straight off
+      // the query's already-resolved frames (`rainviewerQueries.radar()`), not `wmsTileUrl` —
+      // RainViewer is not a WMS host. A loading or failed query resolves `state.radarFrames` to
+      // `[]` here, so this branch simply pushes nothing — a dead third-party feed does not mount.
+      state.radarFrames.forEach((frame, index) => {
         stack.push(
           rasterEntry({
-            id: radarFrameLayerId(index, time),
+            id: radarFrameLayerId(index, frame.time.toISOString()),
             stackIndex: entry.stackIndex,
-            tiles: [wmsTileUrl({ host: entry.host, layer: entry.wmsLayer, time })],
+            tiles: [frame.tileUrl],
             attribution: entry.attribution,
             // Every frame starts invisible; `paintOverlayState`/`paintRadarFrame` reveal exactly one.
             opacity: 0,
@@ -518,27 +624,80 @@ function desiredStack(state: OverlayState): StackEntry[] {
       continue
     }
 
-    if (needsStaticTime(entry.id)) {
-      // Same one-source-per-timestamp shape as the radar frames, just with exactly one frame:
-      // lightning/cells have no nowcast to animate, but their `time` still ages out of DWD's
-      // extent, so the id has to move with it — see `staticTimedLayerId`.
-      stack.push(
-        rasterEntry({
-          id: staticTimedLayerId(entry.id, state.weatherTime),
+    if (entry.source === 'cloud-mask') {
+      // Two independent EUMETSAT discs, each its own `raster-dem` + `color-relief` pair — see
+      // `CLOUD_RAMP`'s doc for the decode (`encoding: 'custom'` reading the red channel as
+      // elevation) and `buildCloudRamp` for the paint expression it feeds.
+      entry.hosts.forEach((host, index) => {
+        const wmsLayer = entry.wmsLayers[index]
+        if (wmsLayer === undefined) return
+        const id = cloudLayerId(index)
+        stack.push({
+          id,
           stackIndex: entry.stackIndex,
-          tiles: [wmsTileUrl({ host: entry.host, layer: entry.wmsLayer, time: state.weatherTime })],
-          attribution: entry.attribution,
-          opacity: selection.opacity,
-        }),
-      )
+          source: {
+            type: 'raster-dem',
+            tiles: [wmsTileUrl({ host, layer: wmsLayer })],
+            tileSize: 256,
+            encoding: 'custom',
+            redFactor: 1,
+            greenFactor: 0,
+            blueFactor: 0,
+            baseShift: 0,
+            attribution: entry.attribution,
+          },
+          layers: [
+            {
+              id,
+              type: 'color-relief',
+              source: id,
+              paint: {
+                'color-relief-color': buildCloudRamp(),
+                'color-relief-opacity': selection.opacity,
+                // NOT `linear` (MapLibre's own default): a boundary-pixel census of one tile
+                // found 7 034 distinct colours, nearly all of them anti-aliasing at cloud edges —
+                // smoothing between them would smear the mask's genuinely binary field into a
+                // haze. `resampling`, not `raster-resampling` — see the LP ramp's own paint block
+                // above for why the latter fails the style-spec validator on this layer type.
+                resampling: 'nearest',
+              },
+            },
+          ],
+        })
+      })
       continue
     }
 
+    if (entry.source === 'gibs-ir') {
+      // Three independent satellites, one toggle. `gibsLayerId` folds the shared `gibsTime` into
+      // each id, the same discipline `staticTimedLayerId` uses for the DWD grid.
+      entry.gibsLayers.forEach((layer, index) => {
+        stack.push(
+          rasterEntry({
+            id: gibsLayerId(index, state.gibsTime),
+            stackIndex: entry.stackIndex,
+            tiles: [gibsTileUrl(layer, state.gibsTime)],
+            attribution: entry.attribution,
+            opacity: selection.opacity,
+            maxzoom: GIBS_MAXZOOM,
+          }),
+        )
+      })
+      continue
+    }
+
+    // `entry.source === 'wms'` — every remaining catalogue row (`radar-de`, `lightning`, `cells`,
+    // `cloud-top`). Same one-source-per-timestamp shape as the radar frames, just with exactly one
+    // frame: none of the four has a nowcast to animate, but the `time` its OWN `timeGrid` resolves
+    // to (`weatherLayerTime`, `map-layers.ts`) still ages out of that grid's extent, so the id has
+    // to move with it — see `staticTimedLayerId`. A new WMS row is a new row in the table and
+    // nothing here changes, since `timeGrid` is required on every row rather than branched on here.
+    const time = weatherLayerTime(entry, new Date(state.nowMs))
     stack.push(
       rasterEntry({
-        id: weatherLayerId(entry.id),
+        id: staticTimedLayerId(entry.id, time),
         stackIndex: entry.stackIndex,
-        tiles: [wmsTileUrl({ host: entry.host, layer: entry.wmsLayer })],
+        tiles: [wmsTileUrl({ host: entry.host, layer: entry.wmsLayer, time })],
         attribution: entry.attribution,
         opacity: selection.opacity,
       }),
@@ -667,9 +826,9 @@ export function installOverlays(map: MapLibreMap, state: OverlayState): void {
 export function paintRadarFrame(map: MapLibreMap, state: OverlayState, radarFrame: number): void {
   for (const selection of state.weather) {
     const entry = weatherLayer(selection.id)
-    if (entry === undefined || !entry.animated) continue
-    state.radarTimes.forEach((time, index) => {
-      const id = radarFrameLayerId(index, time)
+    if (entry === undefined || entry.source !== 'rainviewer') continue
+    state.radarFrames.forEach((frame, index) => {
+      const id = radarFrameLayerId(index, frame.time.toISOString())
       if (map.getLayer(id) === undefined) return
       map.setPaintProperty(id, 'raster-opacity', index === radarFrame ? selection.opacity : 0)
     })
@@ -681,20 +840,22 @@ export function paintRadarFrame(map: MapLibreMap, state: OverlayState, radarFram
  * its tiles stay put and only the paint value changes, where re-adding the layer would drop the
  * tile cache and re-request everything for a drag of a few pixels.
  *
- * Everything here is drawer-commit state — lp opacity/resampling, the two static weather kinds,
- * trails opacity, hillshade exaggeration — independent of `radarFrame`, so it belongs on the
- * state-change path (`site-map.tsx`'s `[overlayState]` effect and the `style.load` handler) and
- * NOT on the per-frame radar loop: writing these same four values twice a second for no reason
- * was FIX 4 of the map-overlays review, split out into {@link paintRadarFrame} above.
+ * Everything here is drawer-commit state — lp opacity/resampling/range, the five non-animated
+ * weather kinds (`radar-de`/`lightning`/`cells`/`cloud-top`, `cloud`'s two discs, `cloud-ir`'s
+ * three satellites), trails opacity, hillshade exaggeration/method — independent of `radarFrame`,
+ * so it belongs on the state-change path (`site-map.tsx`'s `[overlayState]` effect and the `style.load`
+ * handler) and NOT on the per-frame radar loop: writing these same values twice a second for no
+ * reason was FIX 4 of the map-overlays review, split out into {@link paintRadarFrame} above.
  *
- * `hillshade-exaggeration` follows the same discipline: it is a drawer slider value, so a drag
- * has to be one `setPaintProperty` call, never a layer re-add (that would drop the DEM tile cache
- * and re-decode every visible tile for a drag of a few pixels).
+ * `hillshade-exaggeration`, `-method` and the illumination direction/altitude pair all follow the
+ * same discipline: each is a drawer control value, so a change is one `setPaintProperty` call,
+ * never a layer re-add (that would drop the DEM tile cache and re-decode every visible tile for a
+ * drag of a few pixels or a flip of the `SegmentedControl`).
  *
- * The pollution ramp's own opacity and resampling mode follow the identical discipline — both are
- * drawer control values (a slider, a smooth/sharp toggle), so both are `setPaintProperty` calls on
- * the already-mounted `color-relief` layer rather than a re-add that would drop the atlas tile
- * cache for a drag of a few pixels.
+ * The pollution ramp's own opacity, resampling mode AND sensitivity range follow the identical
+ * discipline — all three are drawer control values (a slider, a smooth/sharp toggle, a
+ * `RangeSlider`), so all three are `setPaintProperty` calls on the already-mounted `color-relief`
+ * layer rather than a re-add that would drop the atlas tile cache for a drag of a few pixels.
  *
  * Ends by calling {@link paintRadarFrame} for the CURRENT frame — `installOverlays` may have just
  * mounted a brand new set of frame layers (all starting at opacity 0), and this is the one call on
@@ -706,16 +867,38 @@ export function paintOverlayState(map: MapLibreMap, state: OverlayState, radarFr
     if (map.getLayer(id) !== undefined) {
       map.setPaintProperty(id, 'color-relief-opacity', state.lpOpacity)
       map.setPaintProperty(id, 'resampling', state.lpResampling)
+      // The sensitivity window is a drawer control like opacity/resampling above, not a source
+      // reload — `RangeSlider`'s `onChangeEnd` lands here on the same commit path, never a
+      // re-add (that would drop the atlas tile cache for a drag of the range handles).
+      map.setPaintProperty(id, 'color-relief-color', buildLpRamp(state.lpRange))
     }
   }
 
   for (const selection of state.weather) {
     const entry = weatherLayer(selection.id)
-    if (entry === undefined || entry.animated) continue
+    if (entry === undefined || entry.source === 'rainviewer') continue
 
-    const id = needsStaticTime(entry.id)
-      ? staticTimedLayerId(entry.id, state.weatherTime)
-      : weatherLayerId(entry.id)
+    if (entry.source === 'cloud-mask') {
+      entry.hosts.forEach((_host, index) => {
+        const id = cloudLayerId(index)
+        if (map.getLayer(id) === undefined) return
+        map.setPaintProperty(id, 'color-relief-opacity', selection.opacity)
+      })
+      continue
+    }
+
+    if (entry.source === 'gibs-ir') {
+      entry.gibsLayers.forEach((_layer, index) => {
+        const id = gibsLayerId(index, state.gibsTime)
+        if (map.getLayer(id) === undefined) return
+        map.setPaintProperty(id, 'raster-opacity', selection.opacity)
+      })
+      continue
+    }
+
+    // `entry.source === 'wms'` — every row here bakes a `time` off its own `timeGrid`, so the id
+    // is always the timed form; see the identical branch in `desiredStack` above.
+    const id = staticTimedLayerId(entry.id, weatherLayerTime(entry, new Date(state.nowMs)))
     if (map.getLayer(id) === undefined) continue
     map.setPaintProperty(id, 'raster-opacity', selection.opacity)
   }
@@ -730,6 +913,12 @@ export function paintOverlayState(map: MapLibreMap, state: OverlayState, radarFr
       'hillshade-exaggeration',
       state.terrain.hillshadeExaggeration,
     )
+    // The light model is a drawer `SegmentedControl`, not a source reload — a method flip has to
+    // land here (never a layer re-add) for the same DEM-tile-cache reason as exaggeration above.
+    const { direction, altitude } = hillshadeIllumination(state.terrain.hillshadeMethod)
+    map.setPaintProperty(TERRAIN_SOURCE_ID, 'hillshade-method', state.terrain.hillshadeMethod)
+    map.setPaintProperty(TERRAIN_SOURCE_ID, 'hillshade-illumination-direction', direction)
+    map.setPaintProperty(TERRAIN_SOURCE_ID, 'hillshade-illumination-altitude', altitude)
   }
 
   paintRadarFrame(map, state, radarFrame)
@@ -746,7 +935,24 @@ export function refreshLpRamp(map: MapLibreMap, state: OverlayState): void {
   if (state.lpYear === null) return
   const id = lpLayerId(state.lpYear)
   if (map.getLayer(id) === undefined) return
-  map.setPaintProperty(id, 'color-relief-color', buildLpRamp())
+  map.setPaintProperty(id, 'color-relief-color', buildLpRamp(state.lpRange))
+}
+
+/**
+ * Same shape, same guard as {@link refreshLpRamp} — `cloud`'s `cloudHigh` token also resolves to
+ * a different hex per scheme, so a bare dark/light flip with no style reload would otherwise
+ * leave both EUMETSAT discs painting the other scheme's shade.
+ */
+export function refreshCloudRamp(map: MapLibreMap, state: OverlayState): void {
+  const selection = state.weather.find((entry) => entry.id === 'cloud')
+  if (selection === undefined) return
+  const entry = weatherLayer('cloud')
+  if (entry === undefined || entry.source !== 'cloud-mask') return
+  entry.hosts.forEach((_host, index) => {
+    const id = cloudLayerId(index)
+    if (map.getLayer(id) === undefined) return
+    map.setPaintProperty(id, 'color-relief-color', buildCloudRamp())
+  })
 }
 
 /**
@@ -754,12 +960,31 @@ export function refreshLpRamp(map: MapLibreMap, state: OverlayState): void {
  * colours are palette-derived, so a bare scheme flip with no style reload leaves them painting the
  * other scheme's tokens until this re-resolves them. `hillshade-exaggeration` is deliberately NOT
  * touched here — it is drawer state, not palette state, and `paintOverlayState` already keeps it
- * in sync on every state change.
+ * in sync on every state change. `hillshade-method` and the illumination direction/altitude pair
+ * ARE pushed here too, alongside the colours: they come out of the same `buildHillshadePaint`
+ * call as the colours, so re-resolving one without the other would need a second source of truth
+ * for what `state.terrain.hillshadeMethod` currently is — `paintOverlayState` already keeps them
+ * current on every drawer change, so this is redundant-but-cheap on that path and load-bearing
+ * on the scheme-flip-with-no-source-touch path this function exists for.
  */
 export function refreshHillshade(map: MapLibreMap, state: OverlayState): void {
   if (!state.terrain.hillshade && !state.terrain.extruded) return
   if (map.getLayer(TERRAIN_SOURCE_ID) === undefined) return
-  const paint = buildHillshadePaint(state.terrain.hillshadeExaggeration)
+  const paint = buildHillshadePaint({
+    exaggeration: state.terrain.hillshadeExaggeration,
+    method: state.terrain.hillshadeMethod,
+  })
+  map.setPaintProperty(TERRAIN_SOURCE_ID, 'hillshade-method', paint['hillshade-method'])
+  map.setPaintProperty(
+    TERRAIN_SOURCE_ID,
+    'hillshade-illumination-direction',
+    paint['hillshade-illumination-direction'],
+  )
+  map.setPaintProperty(
+    TERRAIN_SOURCE_ID,
+    'hillshade-illumination-altitude',
+    paint['hillshade-illumination-altitude'],
+  )
   map.setPaintProperty(TERRAIN_SOURCE_ID, 'hillshade-shadow-color', paint['hillshade-shadow-color'])
   map.setPaintProperty(
     TERRAIN_SOURCE_ID,

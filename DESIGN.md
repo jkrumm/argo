@@ -183,8 +183,14 @@ generically (by length and index), so it tracks this ramp's shape with no code c
 
 The ramp's own opacity and its `color-relief` resampling mode (`linear`, smooth and the default —
 `nearest`, the atlas's true 30 arcsec granularity) are both drawer-controlled, riding in the `lp`
-search param as `<year>[:<percent>[:sharp]]`. Neither is ramp geometry — they scale/soften the whole
-table above rather than reshape it — so neither lives in this table.
+search param as `<year>[:<percent>[:<smooth|sharp>[:<min>-<max>]]]`. Neither is ramp geometry — they
+scale/soften the whole table above rather than reshape it — so neither lives in this table. The
+trailing `<min>-<max>` slot is the ramp's SENSITIVITY window (a drawer `RangeSlider`, mag×100): it
+linearly remaps the table's eleven stops onto an arbitrary domain narrower or wider than the
+canonical one, so the whole ramp can be spent on a band as tight as the one an actual scouting trip
+cares about. The stop values in the table above are the CANONICAL, un-windowed positions — what a
+window of `[1800, 2200]` (the default, spanning the whole domain) reduces to — not what is
+necessarily painted on screen once a narrower window is selected.
 
 Rules for this table (from the `basalt-tokens` / `basalt-charts` rules — do not relax):
 
@@ -207,7 +213,13 @@ empty section is the correct default; do not invent deviations to fill it.
   the night; mid steps down to orange and high goes fully NEUTRAL, because by "ink earns its
   colour" a layer that only costs a little contrast has not earned a hue. Read as an escalation,
   the same way the effort ramp (`intensityMin` → `vigorousMin`) is. Sepia was tried for the high
-  layer first and read as a second orange against mid on the same axis.
+  layer first and read as a second orange against mid on the same axis. The map's cloud-mask
+  overlay reuses `cloudHigh` alone, at ascending alpha (`CLOUD_RAMP` in
+  `features/astro-window/map-layers.ts`), rather than minting a token of its own — the same
+  argument the `LP.*` group's reuse for the skyglow rose already makes: a satellite cloud mask is a
+  single BINARY field, and by "ink earns its colour" a lone series that is neither a trend nor a
+  status nor a categorical set does not earn a hue. `cloudHigh` is already the dictionary's neutral
+  cloud ink, so the mask reads as cloud without spending the accent.
 - **The light-pollution ramp's dark end is opaque, not transparent, and its five cool-side rows
   (across the three sky-blue tokens `lpDark`/`lpDarker`/`lpPristine`) share one hue.** A severity
   ramp fades out where nothing is wrong; this one is DIVERGING, so the cool half is the actual

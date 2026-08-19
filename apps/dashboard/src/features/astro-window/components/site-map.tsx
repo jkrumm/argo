@@ -3,6 +3,7 @@ import {
   ActionIcon,
   Box,
   Card,
+  Flex,
   Group,
   Image,
   Paper,
@@ -12,8 +13,9 @@ import {
   Tooltip,
   useComputedColorScheme,
 } from '@mantine/core'
+import { useMediaQuery } from '@mantine/hooks'
 import { IconAdjustments, IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react'
-import { useSuspenseQuery } from '@tanstack/react-query'
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import {
   AttributionControl,
   Map as MapLibreMap,
@@ -32,8 +34,10 @@ import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&ur
 // The map primitive's own stylesheet — imported here (not globally) so it only ships to the
 // bundle when this lazy-loaded component is actually reached.
 import 'maplibre-gl/dist/maplibre-gl.css'
+import { createPersistedState } from 'basalt-ui/state'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { astroQueries } from '../../../lib/queries/astro'
+import { rainviewerQueries } from '../../../lib/queries/rainviewer'
 import { apiBase } from '../../../lib/api-base'
 import { getToken } from '../../../lib/auth'
 import { MAP_MIN_HEIGHT } from '../constants'
@@ -41,28 +45,25 @@ import { ChartEmpty } from '../charts/empty'
 import {
   baseLayer,
   CONTOUR_GLYPHS_URL,
+  gibsTime,
   legendUrl,
   LP_RAMP,
-  LP_RAMP_MAX,
-  LP_RAMP_MIN,
   LP_SITE_BAND,
-  needsStaticTime,
   RADAR_FRAME_MS,
   RADAR_REFRESH_MS,
-  radarFrameTimes,
-  SCHEME_DEFAULT_BASE,
+  remapLpRampStops,
   SCHEME_STYLE_URL,
-  staticWeatherTime,
   weatherLayer,
   type MapLayerState,
-  type WeatherLayer,
   type WeatherSelection,
+  type WmsWeatherLayer,
 } from '../map-layers'
 import {
   detachTerrainIfUnwanted,
   installOverlays,
   paintOverlayState,
   paintRadarFrame,
+  refreshCloudRamp,
   refreshContours,
   refreshHillshade,
   refreshLpRamp,
@@ -70,7 +71,7 @@ import {
   syncTerrain,
   type OverlayState,
 } from './map-overlays'
-import { MapSettingsDrawer } from './map-settings-drawer'
+import { MapSettingsPanel } from './map-settings-panel'
 import { ScoutPanel } from './scout-panel'
 
 /*
@@ -107,6 +108,22 @@ function transformRequest(url: string): RequestParameters {
   const token = getToken()
   return token === null ? { url } : { url, headers: { Authorization: `Bearer ${token}` } }
 }
+
+/**
+ * Whether the settings panel is open — a VIEWING preference (see the call site's own comment),
+ * not part of a shareable map configuration, so it lives outside the URL. `createPersistedState`
+ * (`basalt-ui/state`) replaces the earlier `@mantine/hooks` `useLocalStorage`: it is the
+ * framework's own versioned/namespaced primitive, the same one `lib/gym-profile.ts`'s
+ * `useGymMirror` and `strength-tracker/components/weight-popover.tsx`'s `useWeightView` already
+ * use — called once here at module scope, per that shared convention, not inside the component.
+ * The key is un-namespaced on purpose (`createPersistedState` prefixes it to
+ * `basalt:astro-map:settings-open` itself); a hand-rolled `argo:` prefix would just double up.
+ */
+const usePanelOpen = createPersistedState({
+  key: 'astro-map:settings-open',
+  version: 1,
+  initial: false,
+})
 
 // ── Component ──────────────────────────────────────────────────────────────
 
@@ -184,24 +201,54 @@ export default function SiteMap({
     return SCHEME_STYLE_URL[resolvedScheme]
   }, [base, resolvedScheme])
 
-  const radarActive = layers.weather.some((selection) => weatherLayer(selection.id)?.animated)
-  const staticTimeActive = layers.weather.some((selection) => needsStaticTime(selection.id))
+  const radarActive = layers.weather.some(
+    (selection) => weatherLayer(selection.id)?.source === 'rainviewer',
+  )
+  const staticTimeActive = layers.weather.some(
+    (selection) => weatherLayer(selection.id)?.source === 'wms',
+  )
+  const gibsActive = layers.weather.some(
+    (selection) => weatherLayer(selection.id)?.source === 'gibs-ir',
+  )
 
   /**
-   * The shared refresh clock for `radarTimes` and `weatherTime` below — bumped every
-   * `RADAR_REFRESH_MS` while radar OR a static-time layer (lightning/cells) is on, paused while
+   * The global radar's own frames. RainViewer publishes a new mosaic every 5 minutes and this
+   * query refetches on that same cadence (`rainviewerQueries.radar()`'s own `refetchInterval`), so
+   * the DWD-grid epoch clock below no longer has to drive it — the animated layer refreshes off
+   * the query, not off this component's own interval. `enabled: radarActive` keeps this
+   * third-party request off the wire entirely while the layer is off, matching the settings
+   * panel's own "leave on only what you are reading" copy. A loading or failed query resolves to
+   * `[]` (never `undefined`), so `desiredStack` (`map-overlays.ts`) renders that as "no frames"
+   * and `frameCount > 0` below already keeps the clock/play-pause UI from mounting on an empty
+   * set — a dead third-party feed must not break the map.
+   */
+  const { data: rainviewerFrames } = useQuery({
+    ...rainviewerQueries.radar(),
+    enabled: radarActive,
+  })
+  const radarFrames = useMemo(
+    () => (radarActive ? (rainviewerFrames ?? []) : []),
+    [radarActive, rainviewerFrames],
+  )
+
+  /**
+   * The shared refresh clock for `nowMs` and `gibsTimeValue` below — bumped every
+   * `RADAR_REFRESH_MS` while any `'wms'` weather layer (`radar-de`/`lightning`/`cells`/
+   * `cloud-top`, each carrying its own `timeGrid`) OR the GIBS infrared layer is on, paused while
    * the tab is backgrounded (the same `visibilitychange` discipline the radar playback loop below
-   * already uses). One clock drives both, so there is never a second interval to keep in sync.
+   * already uses). One clock drives every grid — DWD's and EUMETSAT's PT5M/PT15M `timeGrid`s
+   * (`weatherLayerTime`, `map-layers.ts`) and GIBS' PT10M — so there is never a second interval to
+   * keep in sync — the animated global radar needs no clock here at all anymore, see `radarFrames`
+   * above.
    *
    * Restoring visibility also bumps `epoch` immediately, not just restarts the interval: a tab
    * hidden for longer than `RADAR_REFRESH_MS` would otherwise keep painting the timestamps it was
-   * last mounted with for up to another interval on return — which is exactly the DWD
-   * `ServiceExceptionReport` failure mode this clock exists to prevent (a request past the
-   * published time extent returns a service exception, not a tile). A redundant bump on first
-   * activation is harmless: the recomputed timestamps are identical, so `installOverlays` finds
-   * every source id already in `wanted` and does nothing.
+   * last mounted with for up to another interval on return — which is exactly the
+   * `ServiceExceptionReport`/stale-GIBS-slot failure mode this clock exists to prevent. A
+   * redundant bump on first activation is harmless: the recomputed timestamps are identical, so
+   * `installOverlays` finds every source id already in `wanted` and does nothing.
    */
-  const timeSensitiveActive = radarActive || staticTimeActive
+  const timeSensitiveActive = staticTimeActive || gibsActive
   const [epoch, setEpoch] = useState(0)
   useEffect(() => {
     if (!timeSensitiveActive) return
@@ -235,41 +282,63 @@ export default function SiteMap({
   }, [timeSensitiveActive])
 
   /**
-   * The frame timestamps, refreshed every `RADAR_REFRESH_MS` while radar is active via `epoch` —
-   * held steady in between so a re-render, a restyle or a theme flip re-mounts the same twelve
-   * sources rather than a shifted set, but NOT frozen forever: a map left open for an hour would
-   * otherwise keep requesting frames that have fallen behind DWD's moving `PT5M` extent, and once
-   * a frame passes the extent it returns a `ServiceExceptionReport` instead of a tile (module
-   * docstring, facts 1–2). The on-screen clock next to the loop reads whichever frame is live.
+   * The wall clock every `'wms'` row's baked `time` is computed against — each row floors this
+   * against its OWN `timeGrid` via `weatherLayerTime` (`map-layers.ts`) rather than reading a
+   * precomputed grid slot off this component, so a new WMS row needs no new field here. Refreshed
+   * on the `epoch` clock above, for the same reason it always was: none of the four `'wms'` rows
+   * carries a nowcast of its own, so an unrefreshed anchor eventually points at a slot the host
+   * has stopped publishing.
    */
-  // `epoch` is a bump-only counter, deliberately unread inside the callback — it exists purely to
-  // force this memo to recompute on the interval above.
-  const radarTimes = useMemo(
-    () => (radarActive ? radarFrameTimes(new Date()) : []),
+  const nowMs = useMemo(
+    () => Date.now(),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [radarActive, epoch],
+    [epoch],
   )
 
-  /**
-   * The single grid slot `lightning`/`cells` bake into their request — see `staticWeatherTime` in
-   * `map-layers.ts`. Refreshed on the same `epoch` clock as `radarTimes`, for the identical reason:
-   * neither layer carries a nowcast of its own (fact 3), so an unrefreshed anchor eventually points
-   * at a slot DWD has stopped publishing.
-   */
-  const weatherTime = useMemo(
-    () => staticWeatherTime(new Date()),
+  /** The single GIBS grid slot `cloud-ir` bakes into its request — see `gibsTime` in
+   * `map-layers.ts`. Refreshed on the same `epoch` clock as `nowMs`, for the same reason: GIBS'
+   * PT10M grid moves on regardless of whether anything here has re-rendered. */
+  const gibsTimeValue = useMemo(
+    () => gibsTime(new Date()),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [epoch],
   )
 
   const overlayState = useMemo<OverlayState>(
-    () => ({ ...layers, radarTimes, weatherTime }),
-    [layers, radarTimes, weatherTime],
+    () => ({
+      ...layers,
+      radarFrames,
+      nowMs,
+      gibsTime: gibsTimeValue,
+    }),
+    [layers, radarFrames, nowMs, gibsTimeValue],
+  )
+
+  /** ISO timestamps for `RadarClock`/`frameCount` below — a thin projection of `radarFrames`, not
+   * itself carried in `OverlayState` (which needs each frame's tile URL too, not just its time). */
+  const radarTimes = useMemo(
+    () => radarFrames.map((frame) => frame.time.toISOString()),
+    [radarFrames],
   )
 
   const [frame, setFrame] = useState(0)
   const [playing, setPlaying] = useState(true)
-  const [drawerOpen, setDrawerOpen] = useState(false)
+  // Persisted, not URL state — this is a VIEWING preference (is the panel visible), not part of
+  // a shareable map configuration; every control the panel itself renders IS in the URL (see
+  // `MapLayerSections`'s own footnote), which is exactly why this one deliberately isn't. See
+  // `usePanelOpen`'s own doc for why this rides `createPersistedState` rather than
+  // `@mantine/hooks`' `useLocalStorage`.
+  const [panelOpen, setPanelOpen] = usePanelOpen()
+  // Below this breakpoint there is no room to dock a 320px column next to a still-usable map —
+  // `MapSettingsPanel` falls back to the overlay `Drawer` it used to always be. Computed here
+  // (not inside that component) because the resize effect below needs it too, and because a
+  // docked→overlay switch changes THIS container's width exactly like an open/close does.
+  // `getInitialValueInEffect: false` reads `window.matchMedia` synchronously on the initial
+  // render instead of defaulting to `false` and flipping after mount — safe here because this
+  // whole component is CSR-only (lazy-loaded, Suspense-gated), so there is no SSR-hydration
+  // mismatch to protect against, and without it a phone renders the docked column for one frame
+  // before swapping to the `Drawer`.
+  const isNarrow = useMediaQuery('(max-width: 48em)', undefined, { getInitialValueInEffect: false })
   // The last clicked coordinate — held even after the panel closes, so reopening it (or clicking
   // the same spot again) reads from cache instead of re-fetching. `null` until the first click.
   const [scoutPoint, setScoutPoint] = useState<{ lat: number; lon: number } | null>(null)
@@ -373,7 +442,7 @@ export default function SiteMap({
    * Style swap, step by step — the one thing most likely to be silently broken:
    *
    * 1. `mapStyle` changes, either because the colour scheme flipped (no base pinned) or because
-   *    a base was picked in the drawer. This effect calls `setStyle` with the new one — a URL for
+   *    a base was picked in the panel. This effect calls `setStyle` with the new one — a URL for
    *    a `style`/scheme-default `imagery` base, an inline object for a `raster-style` base.
    * 2. `diff: false` is LOAD-BEARING. MapLibre's default (`diff: true`) fetches the new style
    *    and reconciles it against the current one with `Style.setState` — and because our own
@@ -382,7 +451,7 @@ export default function SiteMap({
    *    the overlays would vanish on the first toggle and never come back. `diff: false` forces a
    *    full rebuild, which is exactly what fires `style.load`.
    * 3. `style.load` (subscribed once, in the create effect) runs `installOverlays` against the
-   *    CURRENT state ref, so exactly the layers the drawer says are on come back — not a
+   *    CURRENT state ref, so exactly the layers the panel says are on come back — not a
    *    hardcoded set — and `buildLpRamp` re-reads the CSS vars, so the ramp's stops are the new
    *    scheme's shades. It resolves after the style fetch, long after Mantine has flipped
    *    `data-mantine-color-scheme`, so there is no read-too-early race.
@@ -403,20 +472,21 @@ export default function SiteMap({
   /*
    * The scheme and the style URL stopped being the same event the moment a base could be pinned:
    * flipping dark/light with an explicit base selected changes every CSS variable but loads no
-   * new style, so nothing fires `style.load` and the ramp — and the hillshade relief, and the
-   * contour line/label colours, the same palette-derived-paint problem in three places — would
-   * keep painting the other scheme's shades. Re-resolving each paint expression is cheap and
-   * touches no source.
+   * new style, so nothing fires `style.load` and the ramp — the cloud mask's ramp, the hillshade
+   * relief, and the contour line/label colours, the same palette-derived-paint problem in four
+   * places now — would keep painting the other scheme's shades. Re-resolving each paint expression
+   * is cheap and touches no source.
    */
   useEffect(() => {
     const map = mapRef.current
     if (!map || !hasStyleLoadedRef.current) return
     refreshLpRamp(map, overlayStateRef.current)
+    refreshCloudRamp(map, overlayStateRef.current)
     refreshHillshade(map, overlayStateRef.current)
     refreshContours(map, overlayStateRef.current)
   }, [resolvedScheme])
 
-  // Drawer changes: add/remove sources and layers, then paint. Guarded on the style being up —
+  // Panel changes: add/remove sources and layers, then paint. Guarded on the style being up —
   // when it is not, `style.load` will run both against the same ref and nothing is lost.
   useEffect(() => {
     const map = mapRef.current
@@ -430,15 +500,15 @@ export default function SiteMap({
   }, [overlayState])
 
   // The radar loop's only per-frame work: one `setPaintProperty` per frame layer, via
-  // `paintRadarFrame` — never the drawer-state paint work (`paintOverlayState`), and never a
+  // `paintRadarFrame` — never the panel-state paint work (`paintOverlayState`), and never a
   // re-add or re-request. The frames are already sources, and MapLibre's default paint transition
   // turns the step into a crossfade.
   //
   // `overlayState` deliberately stays OUT of the dep array and is read off the ref instead: the
-  // effect above already re-paints every drawer-state value on every real `overlayState` change
+  // effect above already re-paints every panel-state value on every real `overlayState` change
   // (right after `installOverlays` syncs the sources/layers it may have just added, including the
   // current radar frame — see `paintOverlayState`'s docblock), so keeping it here too would run a
-  // second, redundant paint pass on every drawer toggle or opacity commit.
+  // second, redundant paint pass on every panel toggle or opacity commit.
   useEffect(() => {
     const map = mapRef.current
     if (!map || !hasStyleLoadedRef.current) return
@@ -455,6 +525,21 @@ export default function SiteMap({
    *   does cost a GPU repaint every 500 ms for a canvas nobody is looking at.
    */
   const frameCount = radarTimes.length
+  /**
+   * `radarFrames` (and so `frameCount`) can SHRINK between refetches — RainViewer republishes a
+   * new catalogue with fewer past frames on its own 5-minute cadence. Left unclamped, `frame`
+   * could keep pointing past the new end for up to one refresh tick: `paintRadarFrame`
+   * (`map-overlays.ts`) matches `index === radarFrame` against the frame count it actually has,
+   * so an out-of-range `frame` matches nothing and every radar layer flashes to zero opacity — a
+   * visible blank that only self-corrects on the NEXT tick's modulo wrap. Derived during render,
+   * the same pattern this file already uses (`OpacitySlider`'s committed/draft pair,
+   * `WeatherLegendCard`'s `trackedSrc`), rather than a reset `useEffect`.
+   */
+  const [trackedFrameCount, setTrackedFrameCount] = useState(frameCount)
+  if (trackedFrameCount !== frameCount) {
+    setTrackedFrameCount(frameCount)
+    if (frameCount > 0 && frame > frameCount - 1) setFrame(Math.min(frame, frameCount - 1))
+  }
   useEffect(() => {
     if (!playing || frameCount === 0) return
     let timer: number | undefined
@@ -557,60 +642,80 @@ export default function SiteMap({
     }
   }, [data])
 
-  const closeDrawer = useCallback(() => setDrawerOpen(false), [])
+  // The settings panel opening/closing (or switching between the docked column and the narrow
+  // overlay) changes THIS container's own width, and MapLibre has no internal resize observer of
+  // its own — the same fact the ResizeObserver in the create effect above exists to work around.
+  // That observer, watching this same container, likely already catches this exact transition on
+  // its own; this effect calls `resize()` again anyway, deliberately and cheaply redundant, so the
+  // fix is tied explicitly to the state transition rather than resting entirely on the observer's
+  // independent notification path. A bare call (no `requestAnimationFrame`) is enough: `useEffect`s
+  // run after the browser has already painted, and a browser cannot paint before it has finished
+  // layout, so the container has already settled into its new width by the time this runs — a call
+  // here can only ever be redundant with the observer, never premature. (Reasoned from React's
+  // effect-timing contract; not watched live in devtools, since this task runs with no dev server.)
+  useEffect(() => {
+    mapRef.current?.resize()
+  }, [panelOpen, isNarrow])
+
+  const closePanel = useCallback(() => setPanelOpen(false), [setPanelOpen])
   const closeScoutPanel = useCallback(() => setScoutOpen(false), [])
   const compareSite = data.data.find((site) => site.id === siteId)
 
   return (
-    <Card
-      py={0}
-      px={0}
-      h={height}
-      mih={MAP_MIN_HEIGHT}
-      pos="relative"
-      style={{ overflow: 'hidden' }}
-    >
-      <Box ref={containerRef} h="100%" style={{ visibility: failed ? 'hidden' : 'visible' }} />
-      {failed ? (
-        <Box pos="absolute" inset={0}>
-          <ChartEmpty height="100%" message="Map unavailable — could not reach the tile server." />
+    <Card py={0} px={0} h={height} mih={MAP_MIN_HEIGHT} style={{ overflow: 'hidden' }}>
+      <Flex h="100%" wrap="nowrap">
+        {/* The map's own column — `pos="relative"` moved here (off the outer `Card`) so every
+            absolutely-positioned overlay cluster below anchors to the MAP, not to the settings
+            panel sitting beside it. `minWidth: 0` is what lets a flex child actually shrink below
+            its content size when the panel column claims 320px. */}
+        <Box pos="relative" style={{ flex: 1, minWidth: 0 }}>
+          <Box ref={containerRef} h="100%" style={{ visibility: failed ? 'hidden' : 'visible' }} />
+          {failed ? (
+            <Box pos="absolute" inset={0}>
+              <ChartEmpty
+                height="100%"
+                message="Map unavailable — could not reach the tile server."
+              />
+            </Box>
+          ) : (
+            <>
+              {/* One cluster, laid out by a Group — the radar clock appears beside the settings
+                  trigger rather than at a second hand-guessed offset. */}
+              <Box pos="absolute" top={8} left={8}>
+                <Group gap="xs" wrap="nowrap" align="flex-start">
+                  <Tooltip label={panelOpen ? 'Hide map layers' : 'Show map layers'}>
+                    <ActionIcon
+                      variant="default"
+                      aria-label={panelOpen ? 'Hide map layers' : 'Show map layers'}
+                      aria-expanded={panelOpen}
+                      onClick={() => setPanelOpen(!panelOpen)}
+                    >
+                      <IconAdjustments size={16} />
+                    </ActionIcon>
+                  </Tooltip>
+                  {frameCount > 0 && (
+                    <RadarClock
+                      times={radarTimes}
+                      frame={frame}
+                      playing={playing}
+                      onToggle={() => setPlaying((current) => !current)}
+                    />
+                  )}
+                </Group>
+              </Box>
+              {layers.lpYear !== null && <LpLegend year={layers.lpYear} range={layers.lpRange} />}
+              <WeatherLegends weather={layers.weather} fontColor={legendFontColor} />
+            </>
+          )}
         </Box>
-      ) : (
-        <>
-          {/* One cluster, laid out by a Group — the radar clock appears beside the settings
-              trigger rather than at a second hand-guessed offset. */}
-          <Box pos="absolute" top={8} left={8}>
-            <Group gap="xs" wrap="nowrap" align="flex-start">
-              <Tooltip label="Map layers">
-                <ActionIcon
-                  variant="default"
-                  aria-label="Map layers"
-                  onClick={() => setDrawerOpen(true)}
-                >
-                  <IconAdjustments size={16} />
-                </ActionIcon>
-              </Tooltip>
-              {frameCount > 0 && (
-                <RadarClock
-                  times={radarTimes}
-                  frame={frame}
-                  playing={playing}
-                  onToggle={() => setPlaying((current) => !current)}
-                />
-              )}
-            </Group>
-          </Box>
-          {layers.lpYear !== null && <LpLegend year={layers.lpYear} />}
-          <WeatherLegends weather={layers.weather} fontColor={legendFontColor} />
-        </>
-      )}
-      <MapSettingsDrawer
-        opened={drawerOpen}
-        onClose={closeDrawer}
-        state={layers}
-        onChange={onLayersChange}
-        schemeDefaultBase={SCHEME_DEFAULT_BASE[resolvedScheme]}
-      />
+        <MapSettingsPanel
+          opened={panelOpen}
+          onClose={closePanel}
+          narrow={isNarrow}
+          state={layers}
+          onChange={onLayersChange}
+        />
+      </Flex>
       <ScoutPanel
         opened={scoutOpen}
         onClose={closeScoutPanel}
@@ -674,46 +779,67 @@ function RadarClock({
 
 // ── Legend ─────────────────────────────────────────────────────────────────
 
-/** Where a stop sits along the gradient, as a percentage of the ramp's span. */
-const stopOffset = (stop: number) =>
-  Math.round(((stop - LP_RAMP_MIN) / (LP_RAMP_MAX - LP_RAMP_MIN)) * 100)
+/** Where a remapped stop sits along the gradient, as a percentage of the WINDOW's own span —
+ * not the canonical ramp's, so the gradient always fills edge-to-edge regardless of how narrow
+ * the panel's sensitivity window is. */
+const stopOffset = (stop: number, [min, max]: readonly [number, number]) =>
+  Math.round(((stop - min) / (max - min)) * 100)
 
 /**
- * The same stops as the paint expression (`LP_RAMP.length` of them — read the count off the
- * table, not restated as a literal here), as a CSS gradient. Here the tokens stay tokens and the
+ * The same stops the paint expression uses (`remapLpRampStops`, `map-layers.ts`), rebuilt as a CSS
+ * gradient over the CURRENT sensitivity window — narrowing the range in the panel spends the
+ * legend's own gradient on that window too, the same way the map's paint does. `LP_RAMP.length` of
+ * them, read off the table rather than restated as a literal here. Tokens stay tokens and the
  * alpha goes through `alpha()` (a `color-mix`), because a browser understands both — no runtime
  * resolution needed, and it follows the scheme for free.
  */
-const LEGEND_GRADIENT = `linear-gradient(90deg, ${LP_RAMP.map(
-  ({ stop, token, alpha: opacity }) => `${alpha(token, opacity)} ${stopOffset(stop)}%`,
-).join(', ')})`
+function legendGradient(range: readonly [number, number]): string {
+  const remapped = remapLpRampStops(range)
+  const stops = LP_RAMP.map(({ token, alpha: opacity }, index) => {
+    const stop = remapped[index] ?? 0
+    return `${alpha(token, opacity)} ${stopOffset(stop, range)}%`
+  })
+  return `linear-gradient(90deg, ${stops.join(', ')})`
+}
 
 const fmtMag = (stop: number) => (stop / 100).toFixed(1)
 
+/** Index of `lpDark`'s first stop within `LP_RAMP` — read once at module scope by matching on the
+ * already-exported `LP_SITE_BAND` value, rather than re-importing the `LP` token map here just to
+ * repeat `map-layers.ts`'s own `.find`. `LpLegend` reads the REMAPPED value at this same index, so
+ * the "blue from" reading moves with the window the same way the two end labels do. */
+const LP_SITE_BAND_INDEX = LP_RAMP.findIndex((row) => row.stop === LP_SITE_BAND)
+
 /**
  * Seven stops are too many to label one by one, so the legend names only the three readings that
- * decide anything: the two ends, and the value the site markers have to clear. The atlas vintage
- * rides along because the drawer can now change it — a legend that did not say which year it was
+ * decide anything: the two ends, and the value the site markers have to clear — all three now
+ * read off the panel's own sensitivity window (`range`) rather than the ramp's fixed canonical
+ * domain, so the legend never disagrees with what the ramp is actually painting. The atlas vintage
+ * rides along because the panel can now change it — a legend that did not say which year it was
  * describing would be the wrong kind of quiet. Numerals in JetBrains Mono per DESIGN.md.
  */
-function LpLegend({ year }: { year: number }) {
+function LpLegend({ year, range }: { year: number; range: readonly [number, number] }) {
+  const remappedSiteBand = remapLpRampStops(range)[LP_SITE_BAND_INDEX] ?? LP_SITE_BAND
   return (
     <Box pos="absolute" bottom={8} left={8}>
       <Paper py="xs" px="sm">
         <Stack gap={4} w={148}>
-          <Box h={6} style={{ backgroundImage: LEGEND_GRADIENT, borderRadius: VX.radiusCard }} />
+          <Box
+            h={6}
+            style={{ backgroundImage: legendGradient(range), borderRadius: VX.radiusCard }}
+          />
           <Group justify="space-between" gap={4}>
             <Text ff="monospace" size="xs" c="dimmed">
-              {fmtMag(LP_RAMP_MIN)}
+              {fmtMag(range[0])}
             </Text>
             <Text ff="monospace" size="xs" c="dimmed">
-              {fmtMag(LP_RAMP_MAX)}
+              {fmtMag(range[1])}
             </Text>
           </Group>
           <Text size="xs" c="dimmed">
             mag/arcsec² — blue from{' '}
             <Text span ff="monospace" size="xs" c="dimmed">
-              {fmtMag(LP_SITE_BAND)}
+              {fmtMag(remappedSiteBand)}
             </Text>
             , where the sites sit{' '}
             <Text span ff="monospace" size="xs" c="dimmed">
@@ -729,10 +855,12 @@ function LpLegend({ year }: { year: number }) {
 // ── Weather legends ────────────────────────────────────────────────────────
 
 /**
- * The active weather layers' own DWD legends — a separate, bottom-RIGHT cluster so it never
- * collides with `LpLegend` at bottom-left. Answers the two halves of "toggle it on, nothing
- * appears, is this broken": what colour means what (the legend image), and what an empty render
- * means (`entry.emptyMeans`, right under it — a quiet night is data, not a failure).
+ * The active weather layers' own WMS legends — DWD's and, since `cloud-top`/`lightning`, EUMETSAT's
+ * too (`legendUrl`'s `GetLegendGraphic` builder is generic GeoServer, not host-specific) — a
+ * separate, bottom-RIGHT cluster so it never collides with `LpLegend` at bottom-left. Answers the
+ * two halves of "toggle it on, nothing appears, is this broken": what colour means what (the
+ * legend image), and what an empty render means (`entry.emptyMeans`, right under it — a quiet
+ * night is data, not a failure).
  */
 function WeatherLegends({
   weather,
@@ -743,7 +871,7 @@ function WeatherLegends({
 }) {
   const active = weather
     .map((selection) => weatherLayer(selection.id))
-    .filter((entry): entry is WeatherLayer => entry?.legend === true)
+    .filter((entry): entry is WmsWeatherLayer => entry?.legend === true && entry.source === 'wms')
   if (active.length === 0) return null
   return (
     <Box pos="absolute" bottom={8} right={8}>
@@ -756,8 +884,9 @@ function WeatherLegends({
   )
 }
 
-/** The legend's max box height — a scroll region past this rather than a squash. Blitzdichte's
- * legend is 344 px tall; `mah={60}` (the old value) rendered it unreadably compressed. */
+/** The legend's max box height — a scroll region past this rather than a squash. DWD Blitzdichte's
+ * legend (formerly `lightning`'s own, before it moved to EUMETSAT's MTG-I imager) measured 344 px
+ * tall; `mah={60}` (the old value) rendered it unreadably compressed. */
 const LEGEND_MAX_HEIGHT = 180
 
 /**
@@ -770,9 +899,9 @@ const LEGEND_MAX_HEIGHT = 180
  * changes on every flip. A latch with no `src` awareness would hide the legend for the rest of the
  * session after one transient failure against DWD, even once a scheme flip produces a URL that
  * would load fine. Same derive-during-render reset `OpacitySlider` uses in
- * `map-settings-drawer.tsx` for its `committed`/`draft` pair, preferred over a `useEffect`.
+ * `map-settings-panel.tsx` for its `committed`/`draft` pair, preferred over a `useEffect`.
  */
-function WeatherLegendCard({ entry, fontColor }: { entry: WeatherLayer; fontColor: string }) {
+function WeatherLegendCard({ entry, fontColor }: { entry: WmsWeatherLayer; fontColor: string }) {
   const src = legendUrl(entry, fontColor)
   const [trackedSrc, setTrackedSrc] = useState(src)
   const [imageFailed, setImageFailed] = useState(false)
