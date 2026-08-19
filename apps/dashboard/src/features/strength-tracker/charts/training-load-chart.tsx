@@ -201,6 +201,9 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
           data={merged}
           chartId="training-load"
           getX={(d) => d.date}
+          // Keys are Monday week-starts (`weeklyTonnageSeries` -> `weekStart`), i.e. a bucket's
+          // LEADING edge, so a back-half hover must not resolve to the following week.
+          cursorResolution="leading"
           series={chartSeries}
           y={{ domain: [0, yMax], ticks: 5, format: (v) => v.toFixed(1) }}
           zones={zones}
