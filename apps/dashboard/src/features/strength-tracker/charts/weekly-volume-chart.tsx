@@ -123,6 +123,7 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
           height={280}
           chartId="weekly-volume"
           getX={(d) => d.date}
+          cursorResolution="leading"
           getValue={getValue}
           positiveBars={[
             { key: 'warmup', label: 'Warm-up', color: exColor },
@@ -147,8 +148,7 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
             { value: landmarks.mav, color: VX.warnRef, dashed: true },
             { value: landmarks.mrv, color: VX.badRef, dashed: true },
           ]}
-          leftAxis={{ domain: 'auto', formatTick: fmtTonnage, numTicks: 5 }}
-          formatValue={fmtTonnage}
+          y={{ domain: 'auto', format: fmtTonnage, ticks: 5 }}
         />
       )}
       {/* MEV/MAV/MRV are refLines, not part of the bar/line series — Bars' derived legend can't

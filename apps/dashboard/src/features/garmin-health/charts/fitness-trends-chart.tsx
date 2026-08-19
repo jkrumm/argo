@@ -1,30 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Box } from '@mantine/core'
 import {
-  AxisBottomDate,
-  AxisLeftNumeric,
+  CartesianChart,
   ChartCard,
-  ChartFrame,
-  ChartLegend,
-  ChartTooltip,
-  Crosshair,
-  GridRows,
   Group,
-  HoverOverlay,
   LinePath,
-  TooltipBody,
-  TooltipHeader,
-  TooltipRow,
   VX,
+  alpha,
   curveMonotoneX,
-  deriveLegend,
-  scaleLinear,
-  scalePoint,
-  smartTicks,
-  useHoverSync,
-  useTooltipStyles,
-  type SeriesStyle,
+  type ChartSeries,
 } from 'basalt-ui/charts'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { SERIES } from '../../../lib/series'
@@ -35,18 +20,7 @@ import { ChartEmpty } from './empty'
 
 const CHART_HEIGHT = 280
 const CHART_ID = 'fitness-trends'
-
-const FITNESS_LEGEND_SERIES: readonly SeriesStyle[] = [
-  {
-    key: 'rhr',
-    label: 'RHR (lower = fitter)',
-    color: SERIES.restingHr,
-    mark: 'line',
-    strokeWidth: 2.5,
-  },
-  { key: 'hrv', label: 'HRV (7d avg)', color: SERIES.hrv, mark: 'line', strokeWidth: 2.5 },
-  { key: 'vo2', label: 'VO2 Max', color: SERIES.vo2max, mark: 'bar' },
-]
+const LINE_WIDTH = 2.5
 
 // ── Local helpers ────────────────────────────────────────────────────────
 
@@ -93,6 +67,40 @@ type FitnessPoint = {
   hrvZ: number | null
   vo2Z: number | null
 }
+
+// The z-score axis is the plot; each row pairs the plotted σ with its raw 7d value, read straight
+// off the hovered datum.
+const FITNESS_SERIES: ChartSeries<FitnessPoint>[] = [
+  {
+    key: 'rhr',
+    label: 'RHR (lower = fitter)',
+    color: SERIES.restingHr,
+    mark: 'line',
+    strokeWidth: LINE_WIDTH,
+    getValue: (d) => d.rhrZ,
+    formatValue: (v, d) =>
+      d.rhrMA === null ? fmtSigma(v) : `${Math.round(d.rhrMA)} bpm · ${fmtSigma(v)}`,
+  },
+  {
+    key: 'hrv',
+    label: 'HRV (7d avg)',
+    color: SERIES.hrv,
+    mark: 'line',
+    strokeWidth: LINE_WIDTH,
+    getValue: (d) => d.hrvZ,
+    formatValue: (v, d) =>
+      d.hrvMA === null ? fmtSigma(v) : `${Math.round(d.hrvMA)} ms · ${fmtSigma(v)}`,
+  },
+  {
+    key: 'vo2',
+    label: 'VO2 Max',
+    color: SERIES.vo2max,
+    mark: 'bar',
+    getValue: (d) => d.vo2Z,
+    formatValue: (v, d) =>
+      d.vo2max === null ? fmtSigma(v) : `${d.vo2max.toFixed(1)} · ${fmtSigma(v)}`,
+  },
+]
 
 function buildFitnessData(points: SeriesPoint[]): FitnessPoint[] {
   const rhrMA = movingAverage(
@@ -153,239 +161,10 @@ function computeFitnessSummary(points: SeriesPoint[]) {
   return { vo2max, rhrDelta, hrvDelta }
 }
 
-// ── Inner chart (bespoke — dual-line + scatter doesn't fit any shipped kind) ─
-//
-// Composes `ChartFrame` + `useHoverSync` directly (the sanctioned escape hatch): a fixed
-// symmetric z-score axis with a dashed zero baseline and a scatter-only VO2 series is not
-// expressible via `MultiLine`'s config surface (line-only series).
-
-function FitnessTrendsInner({
-  data,
-  width,
-  height,
-  highlighted,
-}: {
-  data: FitnessPoint[]
-  width: number
-  height: number
-  highlighted: string | null
-}) {
-  const dim = (key: string): number => (highlighted === null || highlighted === key ? 1 : 0.15)
-
-  const MARGIN_LOCAL = useMemo(() => ({ ...VX.margin, left: Math.max(VX.margin.left, 48) }), [])
-  const xMax = width - MARGIN_LOCAL.left - MARGIN_LOCAL.right
-  const yMax = height - MARGIN_LOCAL.top - MARGIN_LOCAL.bottom
-
-  const xScale = useMemo(
-    () =>
-      scalePoint<string>({
-        domain: data.map((d) => d.date),
-        range: [0, xMax],
-        padding: 0.3,
-      }),
-    [data, xMax],
-  )
-
-  // Fixed z-score axis −2.5σ → +2.5σ per spec.
-  const yScale = useMemo(
-    () => scaleLinear<number>({ domain: [-2.5, 2.5], range: [yMax, 0] }),
-    [yMax],
-  )
-
-  const tooltipStyles = useTooltipStyles()
-  const { tip, tooltipRef, syncedPoint, isDirectHover, handleMouse, handleLeave } =
-    useHoverSync<FitnessPoint>({
-      data,
-      chartId: CHART_ID,
-      getKey: (d) => d.date,
-      xScale,
-      marginLeft: MARGIN_LOCAL.left,
-    })
-
-  const tickValues = useMemo(
-    () =>
-      smartTicks(
-        data.map((d) => d.date),
-        xMax,
-      ),
-    [data, xMax],
-  )
-
-  const rhrValid = useMemo(
-    () => data.filter((d): d is FitnessPoint & { rhrZ: number } => d.rhrZ !== null),
-    [data],
-  )
-  const hrvValid = useMemo(
-    () => data.filter((d): d is FitnessPoint & { hrvZ: number } => d.hrvZ !== null),
-    [data],
-  )
-  const vo2Valid = useMemo(
-    () =>
-      data.filter(
-        (d): d is FitnessPoint & { vo2Z: number; vo2max: number } =>
-          d.vo2Z !== null && d.vo2max !== null,
-      ),
-    [data],
-  )
-
-  return (
-    <div style={{ position: 'relative' }}>
-      <svg width={width} height={height}>
-        <Group left={MARGIN_LOCAL.left} top={MARGIN_LOCAL.top}>
-          <GridRows scale={yScale} width={xMax} stroke={VX.grid} numTicks={5} />
-
-          {/* Zero baseline — "your baseline" */}
-          <line
-            x1={0}
-            x2={xMax}
-            y1={yScale(0)}
-            y2={yScale(0)}
-            stroke={VX.axis}
-            strokeWidth={1}
-            strokeDasharray="2 4"
-            strokeOpacity={0.6}
-          />
-
-          <LinePath<FitnessPoint & { rhrZ: number }>
-            data={rhrValid}
-            x={(d) => xScale(d.date) ?? 0}
-            y={(d) => yScale(d.rhrZ)}
-            stroke={SERIES.restingHr}
-            strokeWidth={2.5}
-            strokeOpacity={dim('rhr')}
-            curve={curveMonotoneX}
-          />
-          <LinePath<FitnessPoint & { hrvZ: number }>
-            data={hrvValid}
-            x={(d) => xScale(d.date) ?? 0}
-            y={(d) => yScale(d.hrvZ)}
-            stroke={SERIES.hrv}
-            strokeWidth={2.5}
-            strokeOpacity={dim('hrv')}
-            curve={curveMonotoneX}
-          />
-
-          {vo2Valid.map((d) => (
-            <circle
-              key={`vo2-${d.date}`}
-              cx={xScale(d.date) ?? 0}
-              cy={yScale(d.vo2Z)}
-              r={5}
-              fill={SERIES.vo2max}
-              fillOpacity={dim('vo2')}
-              stroke={VX.dotStroke}
-              strokeWidth={2}
-              strokeOpacity={dim('vo2')}
-            />
-          ))}
-
-          {syncedPoint && (
-            <>
-              <Crosshair x={xScale(syncedPoint.date) ?? 0} top={0} bottom={yMax} />
-              {syncedPoint.rhrZ !== null && (
-                <circle
-                  cx={xScale(syncedPoint.date) ?? 0}
-                  cy={yScale(syncedPoint.rhrZ)}
-                  r={4}
-                  fill={SERIES.restingHr}
-                  stroke={VX.dotStroke}
-                  strokeWidth={2}
-                />
-              )}
-              {syncedPoint.hrvZ !== null && (
-                <circle
-                  cx={xScale(syncedPoint.date) ?? 0}
-                  cy={yScale(syncedPoint.hrvZ)}
-                  r={4}
-                  fill={SERIES.hrv}
-                  stroke={VX.dotStroke}
-                  strokeWidth={2}
-                />
-              )}
-            </>
-          )}
-
-          <AxisLeftNumeric scale={yScale} numTicks={5} tickFormat={(v) => fmtSigma(Number(v))} />
-          <AxisBottomDate top={yMax} scale={xScale} tickValues={tickValues} />
-
-          <HoverOverlay width={xMax} height={yMax} onMove={handleMouse} onLeave={handleLeave} />
-        </Group>
-      </svg>
-      <ChartTooltip tip={isDirectHover ? tip : null} tooltipRef={tooltipRef} styles={tooltipStyles}>
-        {tip && isDirectHover && (
-          <>
-            <TooltipHeader date={tip.data.date} />
-            <TooltipBody>
-              {tip.data.rhrZ !== null && tip.data.rhrMA !== null && (
-                <TooltipRow
-                  color={SERIES.restingHr}
-                  label="RHR (7d)"
-                  value={`${Math.round(tip.data.rhrMA)} bpm · ${fmtSigma(tip.data.rhrZ)}`}
-                  shape="line"
-                  strokeWidth={2.5}
-                />
-              )}
-              {tip.data.hrvZ !== null && tip.data.hrvMA !== null && (
-                <TooltipRow
-                  color={SERIES.hrv}
-                  label="HRV (7d)"
-                  value={`${Math.round(tip.data.hrvMA)} ms · ${fmtSigma(tip.data.hrvZ)}`}
-                  shape="line"
-                  strokeWidth={2.5}
-                />
-              )}
-              {tip.data.vo2max !== null && (
-                <TooltipRow
-                  color={SERIES.vo2max}
-                  label="VO2 Max"
-                  value={
-                    tip.data.vo2Z !== null
-                      ? `${tip.data.vo2max.toFixed(1)} · ${fmtSigma(tip.data.vo2Z)}`
-                      : tip.data.vo2max.toFixed(1)
-                  }
-                  shape="dot"
-                />
-              )}
-            </TooltipBody>
-          </>
-        )}
-      </ChartTooltip>
-    </div>
-  )
-}
-
-function FitnessTrendsFrame({
-  data,
-  highlighted,
-}: {
-  data: FitnessPoint[]
-  highlighted: string | null
-}) {
-  return (
-    <ChartFrame
-      series={[]}
-      chartId={CHART_ID}
-      height={CHART_HEIGHT}
-      legend={false}
-      ariaLabel="Resting heart rate and HRV trend z-scores with VO2 max markers"
-    >
-      {(plot) => (
-        <FitnessTrendsInner
-          data={data}
-          width={plot.width}
-          height={plot.height}
-          highlighted={highlighted}
-        />
-      )}
-    </ChartFrame>
-  )
-}
-
 // ── Public chart ─────────────────────────────────────────────────────────
 
 export default function FitnessTrendsChart({ params }: { params: SummaryParams }) {
   const { data } = useSuspenseQuery(dailyMetricsQueries.series(params))
-  const [highlighted, setHighlighted] = useState<string | null>(null)
 
   const seriesPoints: SeriesPoint[] = useMemo(
     () =>
@@ -456,13 +235,58 @@ export default function FitnessTrendsChart({ params }: { params: SummaryParams }
       {chartData.length === 0 ? (
         <ChartEmpty height={CHART_HEIGHT} />
       ) : (
-        <FitnessTrendsFrame data={chartData} highlighted={highlighted} />
+        <CartesianChart
+          data={chartData}
+          chartId={CHART_ID}
+          getX={(d) => d.date}
+          series={FITNESS_SERIES}
+          y={{ domain: [-2.5, 2.5], ticks: 5, format: fmtSigma }}
+          refLines={[{ value: 0, color: alpha(VX.axis, 0.6), dashed: true }]}
+          height={CHART_HEIGHT}
+          ariaLabel="Resting heart rate and HRV trend z-scores with VO2 max markers"
+        >
+          {({ visible, xScale, yScale, highlighted }) =>
+            visible.map((s) => {
+              const opacity = highlighted === null || highlighted === s.key ? 1 : 0.15
+              if (s.mark === 'line') {
+                return (
+                  <LinePath<FitnessPoint>
+                    key={s.key}
+                    data={chartData.filter((d) => s.getValue(d) !== null)}
+                    x={(d) => xScale(d.date) ?? 0}
+                    y={(d) => yScale(s.getValue(d) ?? 0)}
+                    stroke={s.color}
+                    strokeWidth={LINE_WIDTH}
+                    strokeOpacity={opacity}
+                    curve={curveMonotoneX}
+                  />
+                )
+              }
+              return (
+                <Group key={s.key}>
+                  {chartData.map((d) => {
+                    const v = s.getValue(d)
+                    if (v === null) return null
+                    return (
+                      <circle
+                        key={d.date}
+                        cx={xScale(d.date) ?? 0}
+                        cy={yScale(v)}
+                        r={5}
+                        fill={s.color}
+                        fillOpacity={opacity}
+                        stroke={VX.dotStroke}
+                        strokeWidth={2}
+                        strokeOpacity={opacity}
+                      />
+                    )
+                  })}
+                </Group>
+              )
+            })
+          }
+        </CartesianChart>
       )}
-      <ChartLegend
-        items={deriveLegend(FITNESS_LEGEND_SERIES)}
-        highlighted={highlighted}
-        onHighlight={setHighlighted}
-      />
     </ChartCard>
   )
 }

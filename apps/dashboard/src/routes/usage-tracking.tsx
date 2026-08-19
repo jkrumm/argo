@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Suspense, useCallback, useMemo } from 'react'
 import { Box, Grid, Stack } from '@mantine/core'
 import { z } from 'zod'
-import { ChartHoverSync } from 'basalt-ui/charts'
 import { usageQueries } from '../lib/queries/usage'
 import { PageActions } from 'basalt-ui'
 import { FilterBar } from '../features/usage-tracking/filter-bar'
@@ -99,7 +98,7 @@ function UsageTrackingPage() {
   )
 
   return (
-    <ChartHoverSync>
+    <>
       {/* Page controls live in the shared top-bar slot; the breadcrumb names the page. */}
       <PageActions>
         <FilterBar
@@ -176,6 +175,6 @@ function UsageTrackingPage() {
           </Suspense>
         </Section>
       </Stack>
-    </ChartHoverSync>
+    </>
   )
 }

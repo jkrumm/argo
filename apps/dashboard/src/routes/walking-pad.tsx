@@ -2,7 +2,6 @@ import { Suspense, useCallback, useMemo } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Grid, Group, SimpleGrid, Stack } from '@mantine/core'
 import { useElementSize, useMediaQuery } from '@mantine/hooks'
-import { ChartHoverSync } from 'basalt-ui/charts'
 import { z } from 'zod'
 import { PageActions } from 'basalt-ui'
 import {
@@ -76,7 +75,7 @@ function WalkingPadPage() {
   const bottomMatchHeight = isLg === true && historyHeight > 0 ? historyHeight : undefined
 
   return (
-    <ChartHoverSync>
+    <>
       {/* Page controls live in the shared top-bar slot; the breadcrumb names the page. */}
       <PageActions>
         <Group gap="sm" wrap="nowrap">
@@ -148,6 +147,6 @@ function WalkingPadPage() {
           </Grid.Col>
         </Grid>
       </Stack>
-    </ChartHoverSync>
+    </>
   )
 }

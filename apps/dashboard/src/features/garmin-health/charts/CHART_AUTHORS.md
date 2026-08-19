@@ -65,23 +65,40 @@ be skipped when data is null, fall back to `useQuery` and render nothing.
 - **Never** hardcode hex literals in charts. Add a new metric to `apps/dashboard/src/lib/series.ts`
   if a new semantic/series color is required.
 
-## Chart hover sync
+## Chart cursor sync
 
-If your chart should sync crosshairs with other charts on the page, wire it in via
-`useHoverSync(chartId, getX)` (`basalt-ui/charts`). The route wraps the page's chart section in
-`<ChartHoverSync>` (also `basalt-ui/charts`) — no manual context provider needed. Use a stable
-`chartId` matching the chart name (e.g. `'recovery-trend'`, `'acwr'`).
+The cursor is shared page-wide **by default** — no provider, no hook to wire. Every chart that
+composes `CartesianChart` (directly or through a kind) joins it; just give it a stable `chartId`
+matching the chart name (e.g. `'recovery-trend'`, `'acwr'`). Resolution is domain-aware (exact key,
+then nearest parsed date/number within one domain step), so a chart that folds or downsamples its
+own x domain still tracks a sibling's hover. `ChartCursorScope` opts a subtree **out** of sharing —
+reach for it only when a group must not follow the page.
 
 ## Primitive contract — required
 
 1. `ChartCard` wrapper (title + tooltip + headerExtra slot)
-2. `ChartLegend` for any legend markup — never hand-rolled; pass series/legend items as data, not JSX
-3. `ChartTooltip` + `TooltipHeader` / `TooltipRow` / `TooltipBody`
-4. `AxisLeftNumeric` / `AxisBottomDate` — never raw visx axes
-5. `HoverOverlay` for mouse capture
-6. `useChartTooltip` for tooltip open/close state
-7. Every chart entry point (`ZonedLine`, `MultiLine`, etc.) needs an `ariaLabel` prop — enforced by
-   `bunx basalt-ui check-theme`.
+2. `CartesianChart` for every single-plot cartesian chart — directly, or through a kind
+   (`ZonedLine`, `Bars`, `StackedArea`, `MultiLine`) that composes it. It owns the measured
+   margins, both y scales + domains, the x scale + tick thinning, grid, zones, axes, the shared
+   cursor, the crosshair + per-series dots, the hover/keyboard overlay, and the derived tooltip.
+   Draw **only marks** in its `children` render prop, and draw them off `ctx.visible` — never off
+   the `series` prop, or legend toggling won't remove the mark. Hand-assembling
+   `AxisLeftNumeric` / `AxisRightNumeric` / `AxisBottomDate` / `HoverOverlay` / `Crosshair`
+   outside it fails `basalt/hand-rolled-plot`.
+3. `series` is the single source of truth — legend entries and tooltip rows are DERIVED from it.
+   Never hand-author a `ChartLegend` `items` array literal (`basalt/chart-legend-literal`).
+4. A genuinely non-single-plot shape (multi-pane, radial, matrix) composes `ChartFrame` +
+   `useChartCursor` + `ChartTooltipFloat` instead, and declares itself with a `theme-allow`
+   comment carrying a one-line reason — `divergence-chart.tsx` is the worked example.
+5. Axis config is one `AxisConfig` object per axis: `y={{ domain, autoMaxFloor, autoMinCeil,
+autoPad, ticks, format, grid }}` and `y2` for the right axis. Passing `y2` is what makes a
+   chart dual-axis. Margins are measured from the tick labels actually painted — never nudge them
+   by hand.
+6. Tooltip config is one object too: `tooltip={{ label, prependRows, extraRows, follow }}`, or
+   `tooltip={false}` to drop the tooltip and its crosshair dots.
+7. `isPending` for an in-flight query — never fake it with `data ?? []`.
+8. Every chart entry point (`CartesianChart`, `ZonedLine`, `MultiLine`, …) needs an `ariaLabel`
+   prop — enforced by `bunx basalt-ui check-theme`.
 
 Kind components (`ZonedLine`, `MultiLine`, `DualPanel`, `Heatmap`, …) take a `series: ChartSeries<T>[]`
 descriptor array (`{ key, label, color, mark, getValue }`) rather than ad-hoc per-series props — see
@@ -110,10 +127,11 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import {
   ChartCard,
   ChartLegend,
-  ZonedLine,
+  deriveLegend,
   VX,
+  ZonedLine,
   type ChartSeries,
-  type ZonedLineTooltipLabel,
+  type SeriesStyle,
 } from 'basalt-ui/charts'
 import { recoveryQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
@@ -123,49 +141,92 @@ import { ChartEmpty } from './empty'
 
 type RecoveryPoint = { date: string; recovery: number | null }
 
-function recoveryZoneLabel(v: number): ZonedLineTooltipLabel {
+function recoveryZoneLabel(v: number): { text: string; color: string } {
   if (v >= 70) return { text: 'Push', color: VX.goodSolid }
   if (v >= 40) return { text: 'Normal', color: VX.warnSolid }
   return { text: 'Rest', color: VX.badSolid }
 }
 
 const RECOVERY_SERIES: ChartSeries<RecoveryPoint>[] = [
-  { key: 'recovery', label: 'Recovery', color: VX.line, mark: 'line', getValue: (d) => d.recovery },
+  {
+    key: 'recovery',
+    label: 'Recovery',
+    color: VX.line,
+    mark: 'line',
+    getValue: (d) => d.recovery,
+    formatValue: (v) => String(Math.round(v)),
+  },
+]
+
+// The legend is DERIVED, never a hand-written `items` literal. Extra zone entries are declared as
+// SeriesStyle so `deriveLegend` still owns the shape.
+const RECOVERY_LEGEND_SERIES: readonly SeriesStyle[] = [
+  { key: 'recovery', label: 'Recovery Score', color: VX.line, mark: 'line' },
+  { key: 'push', label: 'Push (>70)', color: VX.goodSolid, mark: 'bar' },
+  { key: 'rest', label: 'Rest (<40)', color: VX.badSolid, mark: 'bar' },
 ]
 
 export default function RecoveryTrendChart({ params }: { params: SummaryParams }) {
   const { data } = useSuspenseQuery(recoveryQueries.series(params))
-  const points = useMemo(
+  const points = useMemo<RecoveryPoint[]>(
     () => applyVisibilityFilter(data.points as RecoveryPoint[], (p) => p.date),
     [data.points],
   )
   const hasRecovery = points.some((p) => p.recovery !== null)
 
   return (
-    <ChartCard title="Recovery" tooltip={METRIC_TOOLTIPS.recoveryScore}>
+    <ChartCard title="Recovery Trend" tooltip={METRIC_TOOLTIPS.recoveryScore}>
       {!hasRecovery ? (
-        <ChartEmpty height={240} />
+        <ChartEmpty height={280} />
       ) : (
-        <ZonedLine<RecoveryPoint>
+        <ZonedLine
+          ariaLabel="Recovery score trend with push/normal/rest zones"
           data={points}
-          height={240}
+          height={280}
           chartId="recovery-trend"
           getX={(d) => d.date}
           series={RECOVERY_SERIES}
-          yDomain={[0, 100]}
+          y={{ domain: [0, 100] }}
           zones={[
             { from: 70, to: 100, fill: VX.good },
             { from: 40, to: 70, fill: VX.warn },
             { from: 0, to: 40, fill: VX.bad },
           ]}
-          formatValue={(v) => String(Math.round(v))}
-          tooltipLabel={(d) => (d.recovery === null ? null : recoveryZoneLabel(d.recovery))}
+          tooltip={{ label: (d) => (d.recovery === null ? null : recoveryZoneLabel(d.recovery)) }}
           legend={false}
-          ariaLabel="Recovery score trend with push/normal/rest zones"
         />
       )}
-      <ChartLegend items={[{ key: 'recovery', label: 'Recovery Score', color: VX.line }]} />
+      <ChartLegend items={deriveLegend(RECOVERY_LEGEND_SERIES)} />
     </ChartCard>
   )
 }
+```
+
+## Bespoke single-plot chart
+
+When no kind fits, compose `CartesianChart` yourself and draw only marks — off `ctx.visible`:
+
+```tsx
+<CartesianChart
+  data={rows}
+  chartId="sessions"
+  getX={(d) => d.date}
+  series={SESSION_SERIES}
+  y={{ format: fmtInt }}
+  y2={{ format: (v) => `$${v}k` }}
+  height={260}
+  ariaLabel="Sessions against revenue"
+>
+  {({ visible, xScale, yScale, y2Scale }) =>
+    visible.map((s) => (
+      <LinePath
+        key={s.key}
+        data={rows}
+        x={(d) => xScale(d.date) ?? 0}
+        y={(d) => (s.axis === 'right' && y2Scale ? y2Scale : yScale)(s.getValue(d) ?? 0)}
+        stroke={s.color}
+      />
+    ))
+  }
+</CartesianChart>
 ```

@@ -106,7 +106,7 @@ see `docs/archive/`.
 - `docs/ASTRO-HORIZON-RESEARCH.md` — the terrain-horizon rebuild, **shipped in five phases**. `GET /astro/horizon` serves the per-azimuth near/far-split skyline (`lib/terrain-horizon.ts`'s `horizonProfile`/`horizonAt`) for an arbitrary coordinate from the AWS terrarium DEM (`clients/terrarium-dem.ts`); `/astro/window`'s per-night gate is `max(8°, farHorizon(coreAzimuth) + 2°)`, evaluated per sample rather than once per night, and the moon counts as down when it sits behind that same skyline (`resolveNight` in `lib/astro-night.ts`); `GET /astro/visibility` (`lib/astro-visibility.ts`'s `annualVisibility`) integrates a whole calendar year on a 10-minute grid into the deterministic, weather-free annual budget — "is this spot worth the drive at all" — under three progressively honest gates (`flat`/`terrain`/`terrainMoon`). On the dashboard, the **Forecast** tab carries the sky panorama (`charts/sky-panorama.tsx` — terrain silhouette, skyglow rose and the sun/moon/core tracks on one azimuth × altitude pair of axes, with the gate drawn and the clearing segment emphasised) plus the monthly budget chart, and the **Map** tab carries hillshade + optional 3D terrain off one shared terrarium `raster-dem` source and click-anywhere scouting (`components/scout-panel.tsx`, comparing any coordinate against the selected site). **Not built:** the §5 clearance raster layer — measured at 0.34 ms/cell and rasterable, but no tile route exists. The record: the PVGIS validation, why the near field (≤500 m) is DEM-unstable and ships advisory-only, what terrain does to the core and to moonlight, the annual-budget numbers that reorder the site ranking 16× under a terrain-aware gate, and the re-verified library landscape (`astronomy-engine` is upstream-abandoned, `suncalc` 2.0 is now viable for sun/moon only). POC scripts in `docs/poc/astro-horizon/` reproduce every number in it
 - `docs/STRENGTH-ANALYTICS.md` — metric definitions, INOL, ACWR, e1RM formulas (strength page)
 
-<!-- basalt:begin 1.13.0 -->
+<!-- basalt:begin 1.17.0 -->
 
 ## basalt-ui (managed — do not hand-edit)
 
@@ -116,12 +116,15 @@ or the `basalt-*` rules instead; manual changes here are overwritten on the next
 
 **Stack:** React 19 + Mantine v9, themed by `basalt-ui` (`BasaltProvider` + `createBasaltTheme`).
 Colors come from the three-tier `--vx-*` token system — read `VX.*` / a `defineSeries` token,
-never a raw hex/`rgb()`/`hsl()`. Charts are visx via `basalt-ui/charts` (compose the primitives:
-`ChartCard`, `ChartLegend`, the `ChartTooltip` family, `AxisLeftNumeric`/`AxisBottomDate`); add a
-kind on the third repeat, don't loosen the primitives. `basalt-ui/charts` and `basalt-ui/tokens`
-are Mantine-free internally (a framework invariant, not something your own app code must follow)
-— never import `@visx/*` outside a `charts/` directory (oxlint-enforced). Toolchain is oxlint +
-oxfmt (no ESLint/Biome/Prettier) and `basalt-ui check-theme` guards the palette. Runtime is Bun.
+never a raw hex/`rgb()`/`hsl()`. Charts are visx via `basalt-ui/charts`: every single-plot chart
+composes `CartesianChart` (owns margins, scales, axes, grid, cursor, tooltip — draw only marks);
+legends/tooltip rows are DERIVED from `series`, never hand-authored (`basalt/hand-rolled-plot` +
+`basalt/chart-legend-literal` enforce both); `DualPanel`/`Donut`/`Heatmap` are the declared
+exceptions. Add a kind on the third repeat, don't loosen the primitives. `basalt-ui/charts` and
+`basalt-ui/tokens` are Mantine-free internally (a framework invariant, not something your own app
+code must follow) — never import `@visx/*` outside a `charts/` directory (oxlint-enforced).
+Toolchain is oxlint + oxfmt (no ESLint/Biome/Prettier) and `basalt-ui check-theme` guards the
+palette. Runtime is Bun.
 
 **Before guessing an import, check the installed package's machine docs**:
 `node_modules/basalt-ui/llms.txt` (per-subpath import map), `node_modules/basalt-ui/AGENTS.md`, or

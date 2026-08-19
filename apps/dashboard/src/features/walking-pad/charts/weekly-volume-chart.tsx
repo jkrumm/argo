@@ -1,14 +1,20 @@
 import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Box, Group } from '@mantine/core'
-import { Bars, ChartCard, TooltipRow } from 'basalt-ui/charts'
+import {
+  Bars,
+  ChartCard,
+  TooltipRow,
+  type BarsBar,
+  type CartesianTooltipRowContext,
+} from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { METRIC_DEFS, fmtSteps, useMetricSelection, type MetricKey } from '../metric-toggle'
 import { ChartEmpty } from './empty'
 
 type Point = {
-  date: string // Monday week-start YYYY-MM-DD — Bars treats it as a categorical x.
+  date: string // Monday week-start YYYY-MM-DD — treated as a categorical x.
   distance_m: number
   duration_s: number
   steps: number
@@ -92,20 +98,20 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
     return raw / max
   }
 
-  const positiveBars = enabled.map((m) => ({
-    key: m,
-    label: METRIC_DEFS[m].label,
-    color: isMulti ? METRIC_DEFS[m].color : VX.line,
-    formatValue: METRIC_DEFS[m].format,
-  }))
-
   const singleMetric = enabled[0]
   const singleDef = singleMetric !== undefined ? METRIC_DEFS[singleMetric] : null
   const singleConfig = singleMetric !== undefined ? WEEKLY_METRICS[singleMetric] : null
 
-  // Weekly steps totals reach 6 digits ("100,000"). Widen the left margin
-  // when steps is alone on the y-axis; default 44px is tight even for "20,000".
-  const marginLeft = !isMulti && singleMetric === 'steps' ? 64 : undefined
+  const positiveBars: BarsBar<Point>[] = enabled.map((m) => ({
+    key: m,
+    label: METRIC_DEFS[m].label,
+    color: isMulti ? METRIC_DEFS[m].color : VX.line,
+    // Normalized bars carry a fraction of the metric's own window max, which
+    // reads as a meaningless percent — the absolute values come in as extra
+    // tooltip rows instead.
+    tooltip: !isMulti,
+    formatValue: METRIC_DEFS[m].format,
+  }))
 
   const headerSummary = (
     <Group gap="sm" wrap="wrap">
@@ -124,24 +130,26 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
     </Group>
   )
 
-  const renderExtraTooltipRows = isMulti
-    ? (d: Point) => (
-        <>
-          {enabled.map((m) => {
-            const raw = WEEKLY_METRICS[m].pick(d)
-            return (
-              <TooltipRow
-                key={m}
-                color={METRIC_DEFS[m].color}
-                label={METRIC_DEFS[m].label}
-                value={raw > 0 ? METRIC_DEFS[m].format(raw) : '—'}
-                shape="bar"
-              />
-            )
-          })}
-        </>
-      )
-    : undefined
+  // When normalized, the bars are suppressed from the derived rows and these
+  // carry the raw per-metric values in their own units — filtered to the
+  // legend's currently visible series so a hidden metric drops out here too.
+  const extraRows = (d: Point, ctx: CartesianTooltipRowContext<Point>) => (
+    <>
+      {enabled.map((m) => {
+        if (ctx.hidden.has(m)) return null
+        const raw = WEEKLY_METRICS[m].pick(d)
+        return (
+          <TooltipRow
+            key={m}
+            color={METRIC_DEFS[m].color}
+            label={METRIC_DEFS[m].label}
+            value={raw > 0 ? METRIC_DEFS[m].format(raw) : '—'}
+            shape="bar"
+          />
+        )
+      })}
+    </>
+  )
 
   return (
     <ChartCard
@@ -162,16 +170,18 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
           getValue={getValue}
           positiveBars={positiveBars}
           barLayout={isMulti ? 'grouped' : 'stacked'}
-          leftAxis={{
+          y={{
             domain: isMulti ? [0, 1] : 'auto',
-            formatTick: isMulti ? fmtPct : (singleDef?.format ?? fmtPct),
-            numTicks: 5,
             autoMaxFloor: isMulti ? undefined : singleConfig?.autoMaxFloor,
+            format: isMulti ? fmtPct : (singleDef?.format ?? fmtPct),
+            ticks: 5,
+            nice: true,
           }}
-          formatValue={isMulti ? fmtPct : (singleDef?.format ?? fmtPct)}
-          marginLeft={marginLeft}
-          hideBarTooltipRows={isMulti}
-          renderExtraTooltipRows={renderExtraTooltipRows}
+          tooltip={isMulti ? { extraRows } : {}}
+          // `getX` returns the Monday week-start — a bucket's leading edge, not an instant — so a
+          // hover in the back half of the week must still resolve to that week's own bar, not the
+          // next one.
+          cursorResolution="leading"
         />
       )}
       <Box

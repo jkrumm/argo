@@ -1,15 +1,14 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
 import { Box, Group as MGroup, Stack, Text } from '@mantine/core'
-import { useMemo } from 'react'
+import { useMemo, useState, type MouseEvent } from 'react'
 import {
   ChartCard,
-  ChartTooltip,
+  ChartTooltipFloat,
   Group,
   TooltipBody,
+  TooltipHeader,
   TooltipRow,
-  useChartTooltip,
-  useTooltipStyles,
+  useChartSize,
 } from 'basalt-ui/charts'
 import { VX, alpha } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
@@ -25,12 +24,15 @@ const HOUR_SPAN = MAX_HOUR - MIN_HOUR // 18 columns
 const HOUR_TICKS = [6, 9, 12, 15, 18, 21]
 
 type Cell = { hour: number; dow: number; sessions: number; distance_m: number }
+type Tip = { cell: Cell; anchor: { x: number; y: number } }
 
 /**
- * Local hour-of-day × day-of-week heatmap. Bespoke (no kind primitive matches)
- * but stays inside the chart contract — pulls colors from theme-aware VX
- * CSS-var tokens. Cells fade from a neutral grid color (no walks) toward the
- * WalkingPad distance hue (max walks in the window).
+ * Local hour-of-day × day-of-week heatmap. Bespoke rather than the shipped
+ * `Heatmap` kind: that kind labels every column (18 hour ticks here, against
+ * the 6 this reads with), puts its gradient legend below the grid instead of
+ * in the right margin, and hands `renderTooltip` only `{row, col, value}` —
+ * which can't reach the per-cell distance this tooltip shows. No cartesian
+ * assembly primitive is rendered, so `basalt/hand-rolled-plot` does not apply.
  */
 // Chrome eaten by ChartCard around the SVG body when `matchHeight` is set:
 // ~44px header (title+subtitle row + 1px border) + 16px body vertical padding
@@ -41,8 +43,7 @@ const CHART_CARD_CHROME = 82
 const DEFAULT_HEIGHT = 240
 
 /** WalkingPad distance hue (theme-aware) at a given opacity — drives the heat intensity. */
-const distFill = (opacity: number) =>
-  `color-mix(in srgb, ${SERIES.walkingDistance} ${Math.round(opacity * 100)}%, transparent)`
+const distFill = (opacity: number) => alpha(SERIES.walkingDistance, opacity)
 
 export function TimeOfDayChart({
   params,
@@ -52,9 +53,8 @@ export function TimeOfDayChart({
   matchHeight?: number
 }) {
   const { data } = useSuspenseQuery(walkingPadQueries.hourOfDay(params))
-  const { ref, width } = useElementSize<HTMLDivElement>()
-  const tooltipStyles = useTooltipStyles()
-  const { tip, show, hide, tooltipRef } = useChartTooltip<Cell>()
+  const { ref, width } = useChartSize()
+  const [tip, setTip] = useState<Tip | null>(null)
   const cells: Cell[] = useMemo(
     () => (data.cells as Cell[]).filter((c) => c.hour >= MIN_HOUR && c.hour < MAX_HOUR),
     [data.cells],
@@ -98,6 +98,11 @@ export function TimeOfDayChart({
   const gridW = Math.max(0, width - padLeft - padRight)
   const cellW = gridW / HOUR_SPAN
   const cellH = (height - padTop - padBottom) / 7
+
+  const show = (cell: Cell, event: MouseEvent<SVGRectElement>) => {
+    setTip({ cell, anchor: { x: event.clientX, y: event.clientY } })
+  }
+  const hide = () => setTip(null)
 
   // Find the busiest cell for the badge.
   const busiest = cells.reduce<Cell | null>(
@@ -198,42 +203,27 @@ export function TimeOfDayChart({
           every hour it touched
         </Text>
       </MGroup>
-      <ChartTooltip tip={tip} tooltipRef={tooltipRef} styles={tooltipStyles}>
-        {tip !== null && (
-          <>
-            <Box
-              px="xs"
-              py={6}
-              style={{
-                // Already routed through the alpha() token helper (basalt-tokens.md: "opacity via
-                // alpha(), never rgba()"); the static guard can't see through the call to VX.neutral
-                // inside the template literal.
-                borderBottom: `1px solid ${alpha(VX.neutral, 0.2)}`, // theme-allow: on-token via alpha()
-              }}
-            >
-              <MGroup justify="space-between" align="center" gap="md" wrap="nowrap">
-                <span style={{ fontSize: VX.text.micro, color: VX.muted }}>
-                  {DAY_LABELS[tip.data.dow]} · {String(tip.data.hour).padStart(2, '0')}:00 UTC
-                </span>
-              </MGroup>
-            </Box>
-            <TooltipBody>
-              <TooltipRow
-                color={distFill(0.9)}
-                shape="bar"
-                label="Sessions"
-                value={`${tip.data.sessions}`}
-              />
-              <TooltipRow
-                color={distFill(0.45)}
-                shape="bar"
-                label="Distance"
-                value={`${(tip.data.distance_m / 1000).toFixed(2)} km`}
-              />
-            </TooltipBody>
-          </>
-        )}
-      </ChartTooltip>
+      {tip !== null && (
+        <ChartTooltipFloat anchor={tip.anchor}>
+          <TooltipHeader
+            date={`${DAY_LABELS[tip.cell.dow]} · ${String(tip.cell.hour).padStart(2, '0')}:00 UTC`}
+          />
+          <TooltipBody>
+            <TooltipRow
+              color={distFill(0.9)}
+              shape="bar"
+              label="Sessions"
+              value={`${tip.cell.sessions}`}
+            />
+            <TooltipRow
+              color={distFill(0.45)}
+              shape="bar"
+              label="Distance"
+              value={`${(tip.cell.distance_m / 1000).toFixed(2)} km`}
+            />
+          </TooltipBody>
+        </ChartTooltipFloat>
+      )}
       <Stack gap={0} style={{ display: 'none' }}>
         {/* SR-only fallback summary so the chart isn't silent for screen readers. */}
         {cells.map((c) => (

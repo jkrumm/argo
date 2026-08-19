@@ -1,7 +1,14 @@
 import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Box, Group } from '@mantine/core'
-import { Bars, ChartCard, TooltipRow } from 'basalt-ui/charts'
+import {
+  Bars,
+  ChartCard,
+  TooltipRow,
+  type BarsBar,
+  type BarsLine,
+  type CartesianTooltipRowContext,
+} from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { METRIC_DEFS, fmtSteps, useMetricSelection, type MetricKey } from '../metric-toggle'
@@ -94,20 +101,32 @@ export function DailyActivityChart({ params }: { params: WalkingPadWindowParams 
     return raw / max
   }
 
-  const positiveBars = enabled.map((m) => ({
-    key: m,
-    label: METRIC_DEFS[m].label,
-    color: isMulti ? METRIC_DEFS[m].color : VX.line,
-    formatValue: METRIC_DEFS[m].format,
-  }))
-
   const singleMetric = enabled[0]
   const singleDef = singleMetric !== undefined ? METRIC_DEFS[singleMetric] : null
   const singleConfig = singleMetric !== undefined ? DAILY_METRICS[singleMetric] : null
 
-  // Y-axis labels for steps run up to 5 digits ("12,000"); default 44px is
-  // tight. Multi-metric mode normalizes to 0-100% which fits fine.
-  const marginLeft = !isMulti && singleMetric === 'steps' ? 56 : undefined
+  const positiveBars: BarsBar<Point>[] = enabled.map((m) => ({
+    key: m,
+    label: METRIC_DEFS[m].label,
+    color: isMulti ? METRIC_DEFS[m].color : VX.line,
+    // Normalized bars carry a fraction of the metric's own window max, which
+    // reads as a meaningless percent — the absolute values come in as extra
+    // tooltip rows instead.
+    tooltip: !isMulti,
+    formatValue: METRIC_DEFS[m].format,
+  }))
+
+  const lines: BarsLine<Point>[] = [
+    {
+      key: 'sessions',
+      label: 'Sessions',
+      color: VX.line2,
+      axisSide: 'right',
+      dashed: true,
+      strokeWidth: 1.5,
+      formatValue: (v) => String(Math.round(v)),
+    },
+  ]
 
   // Header summary: one line per enabled metric.
   const headerSummary = (
@@ -130,26 +149,26 @@ export function DailyActivityChart({ params }: { params: WalkingPadWindowParams 
     </Group>
   )
 
-  // Custom tooltip rows: when normalized, show raw values per metric instead
-  // of the auto-generated percent rows. Always show sessions count too.
-  const renderExtraTooltipRows = isMulti
-    ? (d: Point) => (
-        <>
-          {enabled.map((m) => {
-            const raw = DAILY_METRICS[m].pick(d)
-            return (
-              <TooltipRow
-                key={m}
-                color={METRIC_DEFS[m].color}
-                label={METRIC_DEFS[m].label}
-                value={raw > 0 ? METRIC_DEFS[m].format(raw) : '—'}
-                shape="bar"
-              />
-            )
-          })}
-        </>
-      )
-    : undefined
+  // When normalized, the bars are suppressed from the derived rows and these
+  // carry the raw per-metric values in their own units — filtered to the
+  // legend's currently visible series so a hidden metric drops out here too.
+  const extraRows = (d: Point, ctx: CartesianTooltipRowContext<Point>) => (
+    <>
+      {enabled.map((m) => {
+        if (ctx.hidden.has(m)) return null
+        const raw = DAILY_METRICS[m].pick(d)
+        return (
+          <TooltipRow
+            key={m}
+            color={METRIC_DEFS[m].color}
+            label={METRIC_DEFS[m].label}
+            value={raw > 0 ? METRIC_DEFS[m].format(raw) : '—'}
+            shape="bar"
+          />
+        )
+      })}
+    </>
+  )
 
   return (
     <ChartCard
@@ -170,33 +189,21 @@ export function DailyActivityChart({ params }: { params: WalkingPadWindowParams 
           getValue={getValue}
           positiveBars={positiveBars}
           barLayout={isMulti ? 'grouped' : 'stacked'}
-          lines={[
-            {
-              key: 'sessions',
-              label: 'Sessions',
-              color: VX.line2,
-              axisSide: 'right',
-              dashed: true,
-              strokeWidth: 1.5,
-              formatValue: (v) => String(Math.round(v)),
-            },
-          ]}
-          leftAxis={{
+          lines={lines}
+          y={{
             domain: isMulti ? [0, 1] : 'auto',
-            formatTick: isMulti ? fmtPct : (singleDef?.format ?? fmtPct),
-            numTicks: 5,
             autoMaxFloor: isMulti ? undefined : singleConfig?.autoMaxFloor,
+            format: isMulti ? fmtPct : (singleDef?.format ?? fmtPct),
+            ticks: 5,
+            nice: true,
           }}
-          rightAxis={{
+          y2={{
             domain: 'auto',
-            formatTick: (v) => String(Math.round(v)),
-            numTicks: 4,
+            format: (v) => String(Math.round(v)),
+            ticks: 4,
             autoMaxFloor: 3,
           }}
-          formatValue={isMulti ? fmtPct : (singleDef?.format ?? fmtPct)}
-          marginLeft={marginLeft}
-          hideBarTooltipRows={isMulti}
-          renderExtraTooltipRows={renderExtraTooltipRows}
+          tooltip={isMulti ? { extraRows } : {}}
         />
       )}
       <Box

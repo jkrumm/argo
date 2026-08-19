@@ -36,7 +36,14 @@ export default function LatencyP95({
   const hasData = points.some((p) => p.p95 !== null)
 
   const series: ChartSeries<Point>[] = [
-    { key: 'p95', label: 'p95 latency', color: VX.line, mark: 'line', getValue: (d) => d.p95 },
+    {
+      key: 'p95',
+      label: 'p95 latency',
+      color: VX.line,
+      mark: 'line',
+      getValue: (d) => d.p95,
+      formatValue: fmtMs,
+    },
   ]
 
   return (
@@ -52,10 +59,9 @@ export default function LatencyP95({
           height={240}
           chartId="usage-latency-p95"
           getX={(d) => d.date}
+          cursorResolution="leading"
           series={series}
-          yDomain="auto"
-          yAutoMinCeil={0}
-          formatValue={fmtMs}
+          y={{ autoMinCeil: 0 }}
         />
       )}
     </ChartCard>

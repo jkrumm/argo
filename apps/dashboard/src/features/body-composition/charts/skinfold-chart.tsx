@@ -5,27 +5,12 @@ import {
   AreaClosed,
   AreaGradient,
   areaFillUrl,
-  AxisBottomDate,
-  AxisLeftNumeric,
+  CartesianChart,
   ChartCard,
-  ChartLegend,
-  ChartTooltip,
-  GridRows,
-  Group,
-  HoverOverlay,
   LinePath,
-  TooltipBody,
-  TooltipHeader,
-  TooltipRow,
   VX,
   curveMonotoneX,
-  scaleLinear,
-  scalePoint,
-  smartTicks,
-  useChartSize,
-  useHoverSync,
-  useTooltipStyles,
-  type LegendEntry,
+  type ChartSeries,
 } from 'basalt-ui/charts'
 import { SERIES } from '../../../lib/series'
 import {
@@ -34,7 +19,6 @@ import {
   type SkinfoldWindowParams,
 } from '../../../lib/queries/skinfold-log'
 import { METRIC_TOOLTIPS, SKINFOLD_SITES } from '../constants'
-import { skinfoldSiteLabel } from '../formulas'
 import { ChartEmpty } from './empty'
 
 type ApiPoint = {
@@ -49,7 +33,6 @@ type ChartPoint = {
   bySite: Partial<Record<SkinfoldSite, number>>
 }
 
-const MARGIN = { top: 16, right: 24, bottom: 32, left: 44 }
 const CHART_HEIGHT = 260
 const AREA_ID = 'skinfold-average-area'
 
@@ -57,6 +40,29 @@ const SITE_COLORS: Record<SkinfoldSite, string> = {
   abdominal: SERIES.skinfoldAbdominal,
   suprailiac: SERIES.skinfoldSuprailiac,
 }
+
+const fmtMm = (v: number): string => `${v.toFixed(1)} mm`
+
+const SKINFOLD_SERIES: ChartSeries<ChartPoint>[] = [
+  {
+    key: 'average',
+    label: 'Average',
+    color: VX.line,
+    mark: 'line',
+    strokeWidth: 3,
+    getValue: (d) => d.average,
+    formatValue: fmtMm,
+  },
+  ...SKINFOLD_SITES.map((site) => ({
+    key: site.key,
+    label: site.label,
+    color: SITE_COLORS[site.key],
+    mark: 'line' as const,
+    strokeWidth: 1.75,
+    getValue: (d: ChartPoint) => d.bySite[site.key] ?? null,
+    formatValue: fmtMm,
+  })),
+]
 
 function toChartPoints(points: ApiPoint[]): ChartPoint[] {
   return points
@@ -68,200 +74,26 @@ function toChartPoints(points: ApiPoint[]): ChartPoint[] {
     })
 }
 
-function SkinfoldChartInner({
-  data,
-  width,
-  height,
-}: {
-  data: ChartPoint[]
-  width: number
-  height: number
-}) {
-  const xMax = width - MARGIN.left - MARGIN.right
-  const yMax = height - MARGIN.top - MARGIN.bottom
-
-  const xScale = useMemo(
-    () => scalePoint<string>({ domain: data.map((d) => d.date), range: [0, xMax], padding: 0.4 }),
-    [data, xMax],
-  )
-
-  const yScale = useMemo(() => {
-    const vals: number[] = []
-    for (const pt of data) {
-      vals.push(pt.average)
-      for (const site of SKINFOLD_SITES) {
-        const v = pt.bySite[site.key]
-        if (v !== undefined) vals.push(v)
-      }
+function skinfoldDomain(
+  data: readonly ChartPoint[],
+  visible: readonly ChartSeries<ChartPoint>[],
+): [number, number] {
+  const vals: number[] = []
+  for (const d of data) {
+    for (const s of visible) {
+      const v = s.getValue(d)
+      if (v !== null) vals.push(v)
     }
-    if (vals.length === 0) return scaleLinear<number>({ domain: [0, 50], range: [yMax, 0] })
-    const min = Math.min(...vals)
-    const max = Math.max(...vals)
-    const pad = Math.max((max - min) * 0.2, 1)
-    return scaleLinear<number>({
-      domain: [Math.max(min - pad, 0), max + pad],
-      range: [yMax, 0],
-      nice: true,
-    })
-  }, [data, yMax])
-
-  const tooltipStyles = useTooltipStyles()
-  const { tip, tooltipRef, syncedPoint, isDirectHover, handleMouse, handleLeave } =
-    useHoverSync<ChartPoint>({
-      data,
-      chartId: 'skinfold',
-      getKey: (d) => d.date,
-      xScale,
-      marginLeft: MARGIN.left,
-    })
-
-  const tickValues = useMemo(
-    () =>
-      smartTicks(
-        data.map((d) => d.date),
-        xMax,
-      ),
-    [data, xMax],
-  )
-
-  const dotR = data.length > 60 ? 2.5 : data.length > 20 ? 3.5 : 4.5
-
-  return (
-    <div style={{ position: 'relative' }}>
-      <svg width={width} height={height}>
-        <Group left={MARGIN.left} top={MARGIN.top}>
-          <defs>
-            <AreaGradient id={AREA_ID} color={VX.line} />
-          </defs>
-          <GridRows scale={yScale} width={xMax} stroke={VX.grid} numTicks={5} />
-
-          <AreaClosed<ChartPoint>
-            data={data}
-            x={(d) => xScale(d.date) ?? 0}
-            y={(d) => yScale(d.average)}
-            yScale={yScale}
-            curve={curveMonotoneX}
-            fill={areaFillUrl(AREA_ID)}
-          />
-
-          {/* Per-site lines — thinner, distinct categorical colors */}
-          {SKINFOLD_SITES.map((site) => {
-            const pts = data.filter((d) => d.bySite[site.key] !== undefined)
-            if (pts.length === 0) return null
-            return (
-              <LinePath<ChartPoint>
-                key={site.key}
-                data={pts}
-                x={(d) => xScale(d.date) ?? 0}
-                y={(d) => yScale(d.bySite[site.key] as number)}
-                stroke={SITE_COLORS[site.key]}
-                strokeWidth={1.75}
-                curve={curveMonotoneX}
-              />
-            )
-          })}
-
-          {/* Bold average line — the belly-fat trend, primary emphasis */}
-          <LinePath<ChartPoint>
-            data={data}
-            x={(d) => xScale(d.date) ?? 0}
-            y={(d) => yScale(d.average)}
-            stroke={VX.line}
-            strokeWidth={3}
-            curve={curveMonotoneX}
-          />
-
-          {/* Dots per data point */}
-          {SKINFOLD_SITES.map((site) =>
-            data
-              .filter((d) => d.bySite[site.key] !== undefined)
-              .map((d) => (
-                <circle
-                  key={`dot-${site.key}-${d.date}`}
-                  cx={xScale(d.date) ?? 0}
-                  cy={yScale(d.bySite[site.key] as number)}
-                  r={dotR - 1}
-                  fill={SITE_COLORS[site.key]}
-                  stroke={VX.dotStroke}
-                  strokeWidth={1}
-                />
-              )),
-          )}
-          {data.map((d) => (
-            <circle
-              key={`dot-average-${d.date}`}
-              cx={xScale(d.date) ?? 0}
-              cy={yScale(d.average)}
-              r={dotR}
-              fill={VX.line}
-              stroke={VX.dotStroke}
-              strokeWidth={1.5}
-            />
-          ))}
-
-          {syncedPoint !== null && (
-            <>
-              <line
-                x1={xScale(syncedPoint.date) ?? 0}
-                x2={xScale(syncedPoint.date) ?? 0}
-                y1={0}
-                y2={yMax}
-                stroke={VX.crosshair}
-                strokeWidth={1}
-              />
-              <circle
-                cx={xScale(syncedPoint.date) ?? 0}
-                cy={yScale(syncedPoint.average)}
-                r={VX.dotR}
-                fill={VX.line}
-                stroke={VX.dotStroke}
-                strokeWidth={2}
-              />
-            </>
-          )}
-
-          <AxisLeftNumeric scale={yScale} numTicks={5} />
-          <AxisBottomDate top={yMax} scale={xScale} tickValues={tickValues} />
-          <HoverOverlay width={xMax} height={yMax} onMove={handleMouse} onLeave={handleLeave} />
-        </Group>
-      </svg>
-      <ChartTooltip tip={isDirectHover ? tip : null} tooltipRef={tooltipRef} styles={tooltipStyles}>
-        {tip && isDirectHover && (
-          <>
-            <TooltipHeader date={tip.data.date} />
-            <TooltipBody>
-              <TooltipRow
-                color={VX.line}
-                label="Average"
-                value={`${tip.data.average.toFixed(1)} mm`}
-                shape="line"
-                strokeWidth={3}
-              />
-              {SKINFOLD_SITES.map((site) => {
-                const v = tip.data.bySite[site.key]
-                if (v === undefined) return null
-                return (
-                  <TooltipRow
-                    key={site.key}
-                    color={SITE_COLORS[site.key]}
-                    label={site.label}
-                    value={`${v.toFixed(1)} mm`}
-                    shape="line"
-                    strokeWidth={1.75}
-                  />
-                )
-              })}
-            </TooltipBody>
-          </>
-        )}
-      </ChartTooltip>
-    </div>
-  )
+  }
+  if (vals.length === 0) return [0, 50]
+  const min = Math.min(...vals)
+  const max = Math.max(...vals)
+  const pad = Math.max((max - min) * 0.2, 1)
+  return [Math.max(min - pad, 0), max + pad]
 }
 
 export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams }) {
   const { data } = useSuspenseQuery(skinfoldLogQueries.series(params))
-  const { ref, width } = useChartSize()
 
   const apiPoints = data.points as ApiPoint[]
   const chartData = useMemo(() => toChartPoints(apiPoints), [apiPoints])
@@ -276,17 +108,6 @@ export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams
     </span>
   ) : null
 
-  const legendItems: LegendEntry[] = [
-    { key: 'average', label: 'Average', color: VX.line, strokeWidth: 3, shape: 'line' },
-    ...SKINFOLD_SITES.map((site) => ({
-      key: site.key,
-      label: skinfoldSiteLabel(site.key),
-      color: SITE_COLORS[site.key],
-      strokeWidth: 1.75,
-      shape: 'line' as const,
-    })),
-  ]
-
   return (
     <ChartCard
       title="Skinfold / Belly Fat"
@@ -294,17 +115,106 @@ export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams
       tooltip={METRIC_TOOLTIPS.skinfoldChart}
       extra={headerExtra}
     >
-      <Box ref={ref} h={CHART_HEIGHT} w="100%">
-        {chartData.length === 0 ? (
-          <ChartEmpty
-            height={CHART_HEIGHT}
-            message="No readings yet — log your first caliper session to start the trend."
-          />
-        ) : width > 0 ? (
-          <SkinfoldChartInner data={chartData} width={Math.max(width, 200)} height={CHART_HEIGHT} />
-        ) : null}
-      </Box>
-      <ChartLegend items={legendItems} highlighted={null} onHighlight={() => {}} />
+      {chartData.length === 0 ? (
+        <ChartEmpty
+          height={CHART_HEIGHT}
+          message="No readings yet — log your first caliper session to start the trend."
+        />
+      ) : (
+        <CartesianChart
+          data={chartData}
+          chartId="skinfold"
+          getX={(d) => d.date}
+          series={SKINFOLD_SERIES}
+          y={{ domain: skinfoldDomain, ticks: 5, nice: true }}
+          height={CHART_HEIGHT}
+          ariaLabel="Skinfold caliper readings per site and their average, over time"
+        >
+          {({ visible, xScale, yScale }) => {
+            const dotR = chartData.length > 60 ? 2.5 : chartData.length > 20 ? 3.5 : 4.5
+            const shown = new Set(visible.map((s) => s.key))
+            return (
+              <>
+                <defs>
+                  <AreaGradient id={AREA_ID} color={VX.line} />
+                </defs>
+
+                {shown.has('average') && (
+                  <AreaClosed<ChartPoint>
+                    data={chartData}
+                    x={(d) => xScale(d.date) ?? 0}
+                    y={(d) => yScale(d.average)}
+                    yScale={yScale}
+                    curve={curveMonotoneX}
+                    fill={areaFillUrl(AREA_ID)}
+                  />
+                )}
+
+                {/* Per-site lines — thinner, distinct categorical colors */}
+                {SKINFOLD_SITES.map((site) => {
+                  if (!shown.has(site.key)) return null
+                  const pts = chartData.filter((d) => d.bySite[site.key] !== undefined)
+                  if (pts.length === 0) return null
+                  return (
+                    <LinePath<ChartPoint>
+                      key={site.key}
+                      data={pts}
+                      x={(d) => xScale(d.date) ?? 0}
+                      y={(d) => yScale(d.bySite[site.key] as number)}
+                      stroke={SITE_COLORS[site.key]}
+                      strokeWidth={1.75}
+                      curve={curveMonotoneX}
+                    />
+                  )
+                })}
+
+                {/* Bold average line — the belly-fat trend, primary emphasis */}
+                {shown.has('average') && (
+                  <LinePath<ChartPoint>
+                    data={chartData}
+                    x={(d) => xScale(d.date) ?? 0}
+                    y={(d) => yScale(d.average)}
+                    stroke={VX.line}
+                    strokeWidth={3}
+                    curve={curveMonotoneX}
+                  />
+                )}
+
+                {/* Dots per data point */}
+                {SKINFOLD_SITES.map((site) =>
+                  !shown.has(site.key)
+                    ? null
+                    : chartData
+                        .filter((d) => d.bySite[site.key] !== undefined)
+                        .map((d) => (
+                          <circle
+                            key={`dot-${site.key}-${d.date}`}
+                            cx={xScale(d.date) ?? 0}
+                            cy={yScale(d.bySite[site.key] as number)}
+                            r={dotR - 1}
+                            fill={SITE_COLORS[site.key]}
+                            stroke={VX.dotStroke}
+                            strokeWidth={1}
+                          />
+                        )),
+                )}
+                {shown.has('average') &&
+                  chartData.map((d) => (
+                    <circle
+                      key={`dot-average-${d.date}`}
+                      cx={xScale(d.date) ?? 0}
+                      cy={yScale(d.average)}
+                      r={dotR}
+                      fill={VX.line}
+                      stroke={VX.dotStroke}
+                      strokeWidth={1.5}
+                    />
+                  ))}
+              </>
+            )
+          }}
+        </CartesianChart>
+      )}
     </ChartCard>
   )
 }

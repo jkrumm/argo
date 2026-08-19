@@ -101,15 +101,19 @@ come from `src/lib/series.ts` (Argo's `defineSeries`-based data dictionary, fed 
 
 ```ts
 import {
+  CartesianChart,
   ChartCard,
   ChartLegend,
-  ZonedLine,
+  deriveLegend,
   VX,
-  useHoverSync,
-  ChartHoverSync,
+  ZonedLine,
 } from 'basalt-ui/charts'
 import { SERIES } from '../../../lib/series'
 ```
+
+Every single-plot cartesian chart composes `CartesianChart` (directly or through a kind) and draws
+only marks off `ctx.visible`; the page-wide cursor is shared by default, so there is no hover-sync
+provider or hook to wire.
 
 See `.claude/rules/basalt-charts.md` for the full primitive and kind contract, and `DESIGN.md` for
 Argo's series dictionary.

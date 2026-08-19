@@ -74,8 +74,9 @@ export default function CostOverTime({
           height={280}
           chartId="usage-cost-over-time"
           getX={(d) => d.bucket}
+          cursorResolution="leading"
           series={series}
-          formatValue={fmtUsd}
+          y={{ format: fmtUsd }}
         />
       )}
     </ChartCard>

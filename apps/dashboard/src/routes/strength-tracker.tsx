@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Suspense, useCallback, useMemo } from 'react'
 import { Grid, Group, SimpleGrid, Stack } from '@mantine/core'
 import { z } from 'zod'
-import { ChartHoverSync } from 'basalt-ui/charts'
 import { PageActions } from 'basalt-ui'
 import {
   ChartSkeleton,
@@ -195,7 +194,7 @@ function StrengthTrackerPage() {
   const hasWorkouts = workoutsList.total > 0
 
   return (
-    <ChartHoverSync>
+    <>
       {/* Page controls live in the shared top-bar slot; the breadcrumb names the page. */}
       <PageActions>
         <Group gap="sm" wrap="nowrap">
@@ -246,7 +245,7 @@ function StrengthTrackerPage() {
           </Grid.Col>
         </Grid>
       </Stack>
-    </ChartHoverSync>
+    </>
   )
 }
 

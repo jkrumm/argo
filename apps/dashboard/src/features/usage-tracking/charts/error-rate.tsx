@@ -57,8 +57,9 @@ export default function ErrorRate({
           height={240}
           chartId="usage-errors-over-time"
           getX={(d) => d.bucket}
+          cursorResolution="leading"
           series={series}
-          formatValue={fmtCount}
+          y={{ format: fmtCount }}
           legend={{ maxRows: 8 }}
         />
       )}

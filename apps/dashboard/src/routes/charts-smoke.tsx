@@ -2,7 +2,6 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Box, Stack, Title } from '@mantine/core'
 import {
   ChartCard,
-  ChartHoverSync,
   ChartLegend,
   deriveLegend,
   LineSparkline,
@@ -90,45 +89,41 @@ function ChartsSmokeRoute() {
         />
       </Box>
 
-      <ChartHoverSync>
-        <Stack gap={24}>
-          {/* Kind: ZonedLine */}
-          <ChartCard title="HRV Trend" tooltip="7-day rolling average HRV from Garmin">
-            <ZonedLine
-              ariaLabel="HRV trend, smoke test"
-              data={SMOKE_DATA}
-              height={200}
-              chartId="smoke-zoned-line"
-              getX={(d) => d.date}
-              series={[
-                {
-                  key: 'hrv',
-                  label: 'HRV',
-                  color: SERIES.hrv,
-                  mark: 'line',
-                  getValue: (d) => d.value,
-                },
-              ]}
-              yDomain="auto"
-              formatValue={(v) => `${Math.round(v)} ms`}
-            />
-          </ChartCard>
+      <Stack gap={24}>
+        {/* Kind: ZonedLine */}
+        <ChartCard title="HRV Trend" tooltip="7-day rolling average HRV from Garmin">
+          <ZonedLine
+            ariaLabel="HRV trend, smoke test"
+            data={SMOKE_DATA}
+            height={200}
+            chartId="smoke-zoned-line"
+            getX={(d) => d.date}
+            series={[
+              {
+                key: 'hrv',
+                label: 'HRV',
+                color: SERIES.hrv,
+                mark: 'line',
+                getValue: (d) => d.value,
+              },
+            ]}
+            y={{ domain: 'auto', format: (v: number) => `${Math.round(v)} ms` }}
+          />
+        </ChartCard>
 
-          {/* Kind: MultiLine */}
-          <ChartCard title="HRV vs Resting HR" tooltip="Two series sharing one y-axis">
-            <MultiLine
-              ariaLabel="HRV vs resting HR, smoke test"
-              data={MULTI_LINE_DATA}
-              height={200}
-              chartId="smoke-multi-line"
-              getX={(d) => d.date}
-              series={MULTI_LINE_SERIES}
-              yDomain="auto"
-              formatValue={(v) => `${Math.round(v)} ms`}
-            />
-          </ChartCard>
-        </Stack>
-      </ChartHoverSync>
+        {/* Kind: MultiLine */}
+        <ChartCard title="HRV vs Resting HR" tooltip="Two series sharing one y-axis">
+          <MultiLine
+            ariaLabel="HRV vs resting HR, smoke test"
+            data={MULTI_LINE_DATA}
+            height={200}
+            chartId="smoke-multi-line"
+            getX={(d) => d.date}
+            series={MULTI_LINE_SERIES}
+            y={{ domain: 'auto', format: (v: number) => `${Math.round(v)} ms` }}
+          />
+        </ChartCard>
+      </Stack>
     </Box>
   )
 }

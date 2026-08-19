@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Bars, ChartCard, TooltipRow, VX } from 'basalt-ui/charts'
+import { Bars, ChartCard, TooltipRow, VX, type CartesianTooltipRowContext } from 'basalt-ui/charts'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { SERIES } from '../../../lib/series'
 import { METRIC_TOOLTIPS } from '../constants'
@@ -161,35 +161,39 @@ export default function SleepBreakdownChart({ params }: { params: SummaryParams 
             },
           ]}
           zones={[{ from: 7, to: 9, fill: VX.goodSoft, axisSide: 'left' }]}
-          leftAxis={{
+          y={{
             domain: 'auto',
             autoPad: 1.05,
             autoMaxFloor: 9,
             autoMinCeil: -1,
-            numTicks: 6,
-            formatTick: (v) => (v < 0 ? `−${Math.abs(v)}h` : `${v}h`),
+            ticks: 6,
+            format: (v) => (v < 0 ? `−${Math.abs(v)}h` : `${v}h`),
           }}
-          rightAxis={{ domain: [0, 100], numTicks: 4 }}
-          tooltipLabel={(d) =>
-            d.sleepScore === null
-              ? null
-              : {
-                  text: String(Math.round(d.sleepScore)),
-                  color: sleepScoreColor(d.sleepScore),
-                }
-          }
-          renderPrefixTooltipRows={(d) => {
-            const total = d.deep + d.light + d.rem
-            if (total <= 0) return null
-            return (
-              <TooltipRow
-                color={VX.line}
-                label="Total sleep"
-                value={fmtHours(total)}
-                shape="line"
-                strokeWidth={2}
-              />
-            )
+          y2={{ domain: [0, 100], ticks: 4 }}
+          tooltip={{
+            label: (d) =>
+              d.sleepScore === null
+                ? null
+                : {
+                    text: String(Math.round(d.sleepScore)),
+                    color: sleepScoreColor(d.sleepScore),
+                  },
+            prependRows: (d, ctx: CartesianTooltipRowContext<SleepPoint>) => {
+              const total =
+                (ctx.hidden.has(SLEEP_KEYS.deep) ? 0 : d.deep) +
+                (ctx.hidden.has(SLEEP_KEYS.light) ? 0 : d.light) +
+                (ctx.hidden.has(SLEEP_KEYS.rem) ? 0 : d.rem)
+              if (total <= 0) return null
+              return (
+                <TooltipRow
+                  color={VX.line}
+                  label="Total sleep"
+                  value={fmtHours(total)}
+                  shape="line"
+                  strokeWidth={2}
+                />
+              )
+            },
           }}
         />
       )}

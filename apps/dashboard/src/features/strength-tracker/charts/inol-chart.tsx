@@ -1,31 +1,15 @@
 import { useMemo, useState } from 'react'
 import { Box, Flex, Select } from '@mantine/core'
-import { useElementSize } from '@mantine/hooks'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import {
   alpha,
-  AxisBottomDate,
-  AxisLeftNumeric,
+  CartesianChart,
   ChartCard,
-  ChartLegend,
-  ChartTooltip,
+  type ChartSeries,
   curveMonotoneX,
-  deriveLegend,
-  GridRows,
-  Group,
-  HoverOverlay,
   LinePath,
-  scaleLinear,
-  scalePoint,
-  smartTicks,
-  TooltipBody,
-  TooltipHeader,
   TooltipRow,
-  type SeriesStyle,
-  useHoverSync,
-  useTooltipStyles,
   VX,
-  ZoneRects,
   type ZoneSpec,
 } from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
@@ -34,7 +18,6 @@ import { DEFAULT_EXERCISES, EXERCISE_COLORS, METRIC_TOOLTIPS, type ExerciseKey }
 import { exerciseLabel, inolDotColor } from '../formulas'
 import { ChartEmpty } from './empty'
 
-const MARGIN = { top: 16, right: 24, bottom: 32, left: 56 }
 const HEIGHT = 280
 
 type InolPoint = {
@@ -59,6 +42,12 @@ const INOL_ZONES: ZoneSpec[] = [
   { from: 1.5, to: Infinity, fill: alpha(VX.status.bad, 0.08) },
 ]
 
+const INOL_REF_LINES = [
+  { value: 0.6, color: VX.goodRef, dashed: true },
+  { value: 1.0, color: VX.warnRef, dashed: true },
+  { value: 1.5, color: VX.badRef, dashed: true },
+]
+
 /** Trailing moving average; null until `min` non-null values are present. */
 function trailingMA(values: (number | null)[], window: number, min = 3): (number | null)[] {
   const out: (number | null)[] = []
@@ -78,192 +67,15 @@ function trailingMA(values: (number | null)[], window: number, min = 3): (number
   return out
 }
 
-function InolChartInner({
-  data,
-  exerciseColor,
-  width,
-  height,
-  chartId,
-}: {
-  data: InolPoint[]
-  exerciseColor: string
-  width: number
-  height: number
-  chartId: string
-}) {
-  const xMax = width - MARGIN.left - MARGIN.right
-  const yMax = height - MARGIN.top - MARGIN.bottom
-
-  const xScale = useMemo(
-    () =>
-      scalePoint<string>({
-        domain: data.map((d) => d.date),
-        range: [0, xMax],
-        padding: 0.3,
-      }),
-    [data, xMax],
-  )
-
-  const yScale = useMemo(() => {
-    const vals = data.map((d) => d.inol).filter((v): v is number => v !== null && !Number.isNaN(v))
-    const maxV = vals.length ? Math.max(...vals, 1.5) : 2
-    const upper = Math.max(2, maxV) * 1.1
-    return scaleLinear<number>({ domain: [0, upper], range: [yMax, 0], nice: true })
-  }, [data, yMax])
-
-  const tooltipStyles = useTooltipStyles()
-  const { tip, tooltipRef, syncedPoint, isDirectHover, handleMouse, handleLeave } =
-    useHoverSync<InolPoint>({
-      data,
-      chartId,
-      getKey: (d) => d.date,
-      xScale,
-      marginLeft: MARGIN.left,
-    })
-
-  const tickValues = useMemo(
-    () =>
-      smartTicks(
-        data.map((d) => d.date),
-        xMax,
-      ),
-    [data, xMax],
-  )
-
-  const validDots = data.filter((d) => d.inol !== null) as (InolPoint & { inol: number })[]
-  const validMA = data.filter((d) => d.ma10 !== null) as (InolPoint & { ma10: number })[]
-
-  return (
-    <div style={{ position: 'relative' }}>
-      <svg width={width} height={height}>
-        <Group left={MARGIN.left} top={MARGIN.top}>
-          <ZoneRects zones={INOL_ZONES} width={xMax} leftScale={yScale} />
-          <GridRows scale={yScale} width={xMax} stroke={VX.grid} numTicks={5} />
-
-          {[0.6, 1.0, 1.5].map((v) => (
-            <line
-              key={v}
-              x1={0}
-              x2={xMax}
-              y1={yScale(v)}
-              y2={yScale(v)}
-              stroke={v === 0.6 ? VX.goodRef : v === 1.0 ? VX.warnRef : VX.badRef}
-              strokeWidth={1}
-              strokeDasharray="4 3"
-            />
-          ))}
-
-          {validDots.length >= 2 && (
-            <LinePath<InolPoint & { inol: number }>
-              data={validDots}
-              x={(d) => xScale(d.date) ?? 0}
-              y={(d) => yScale(d.inol)}
-              stroke={exerciseColor}
-              strokeOpacity={0.35}
-              strokeWidth={1.25}
-              curve={curveMonotoneX}
-            />
-          )}
-
-          {validDots.map((d) => {
-            const sx = xScale(d.date)
-            if (sx === undefined) return null
-            return (
-              <circle
-                key={d.date}
-                cx={sx}
-                cy={yScale(d.inol)}
-                r={4}
-                fill={inolDotColor(d.inol)}
-                fillOpacity={0.85}
-                stroke="none"
-              />
-            )
-          })}
-
-          {validMA.length >= 2 && (
-            <LinePath<InolPoint & { ma10: number }>
-              data={validMA}
-              x={(d) => xScale(d.date) ?? 0}
-              y={(d) => yScale(d.ma10)}
-              stroke={exerciseColor}
-              strokeWidth={2.25}
-              strokeDasharray="6 4"
-              curve={curveMonotoneX}
-            />
-          )}
-
-          {syncedPoint && (
-            <>
-              <line
-                x1={xScale(syncedPoint.date) ?? 0}
-                x2={xScale(syncedPoint.date) ?? 0}
-                y1={0}
-                y2={yMax}
-                stroke={VX.crosshair}
-                strokeWidth={1}
-              />
-              {syncedPoint.inol !== null && (
-                <circle
-                  cx={xScale(syncedPoint.date) ?? 0}
-                  cy={yScale(syncedPoint.inol)}
-                  r={5}
-                  fill={inolDotColor(syncedPoint.inol)}
-                  stroke={VX.dotStroke}
-                  strokeWidth={2}
-                />
-              )}
-            </>
-          )}
-
-          <AxisLeftNumeric scale={yScale} numTicks={5} tickFormat={(v) => Number(v).toFixed(1)} />
-          <AxisBottomDate top={yMax} scale={xScale} tickValues={tickValues} />
-
-          <HoverOverlay width={xMax} height={yMax} onMove={handleMouse} onLeave={handleLeave} />
-        </Group>
-      </svg>
-      <ChartTooltip tip={isDirectHover ? tip : null} tooltipRef={tooltipRef} styles={tooltipStyles}>
-        {tip && isDirectHover && (
-          <>
-            <TooltipHeader
-              date={tip.data.date}
-              {...(tip.data.inol !== null
-                ? { label: inolZoneLabel(tip.data.inol), labelColor: inolDotColor(tip.data.inol) }
-                : {})}
-            />
-            <TooltipBody>
-              {tip.data.inol !== null && (
-                <TooltipRow
-                  color={inolDotColor(tip.data.inol)}
-                  label="INOL"
-                  value={tip.data.inol.toFixed(2)}
-                  shape="bar"
-                />
-              )}
-              {tip.data.ma10 !== null && (
-                <TooltipRow
-                  color={exerciseColor}
-                  label="10-session MA"
-                  value={tip.data.ma10.toFixed(2)}
-                  shape="line"
-                  dashed
-                  strokeWidth={2.25}
-                />
-              )}
-              {tip.data.inol === null && (
-                <TooltipRow color={VX.line} label="INOL" value="—" shape="bar" />
-              )}
-            </TooltipBody>
-          </>
-        )}
-      </ChartTooltip>
-    </div>
-  )
+/** Floors the domain at 2.0 so the 1.5 "Excessive" refLine always has headroom — `nice: true` on
+ * the axis rounds the resulting bound. */
+function inolDomain(data: readonly InolPoint[]): [number, number] {
+  const vals = data.map((d) => d.inol).filter((v): v is number => v !== null && !Number.isNaN(v))
+  return [0, Math.max(2, ...vals) * 1.1]
 }
 
 export default function InolChart({ params }: { params: StrengthQueryParams }) {
   const { data } = useSuspenseQuery(strengthQueries.seriesDetailed(params))
-  const { ref, width } = useElementSize<HTMLDivElement>()
 
   const availableExercises = data.byExercise.filter((e) => e.points.length > 0)
   const fallback =
@@ -319,8 +131,18 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
     </Flex>
   )
 
-  const legendSeries: readonly SeriesStyle[] = [
-    { key: 'session', label: 'Session', color: VX.goodSolid, mark: 'bar' },
+  const series: ChartSeries<InolPoint>[] = [
+    {
+      key: 'session',
+      label: 'Session',
+      color: VX.goodSolid,
+      // 'area' keeps the block swatch of the zone entries below while still carrying a cursor dot,
+      // whose color `getMarker` resolves per point from the INOL zone.
+      mark: 'area',
+      tooltip: false,
+      getValue: (d) => d.inol,
+      getMarker: (d) => (d.inol === null ? null : { color: inolDotColor(d.inol) }),
+    },
     {
       key: 'ma',
       label: '10-session MA',
@@ -328,10 +150,33 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
       mark: 'line',
       strokeWidth: 2.25,
       dash: 'dashed',
+      getValue: (d) => d.ma10,
+      formatValue: (v) => v.toFixed(2),
     },
-    { key: 'opt', label: 'Optimal (0.6–1.0)', color: VX.goodSolid, mark: 'bar' },
-    { key: 'hard', label: 'Hard (1.0–1.5)', color: SERIES.calories, mark: 'bar' },
-    { key: 'exc', label: 'Excessive (>1.5)', color: VX.badSolid, mark: 'bar' },
+    {
+      key: 'opt',
+      label: 'Optimal (0.6–1.0)',
+      color: VX.goodSolid,
+      mark: 'bar',
+      tooltip: false,
+      getValue: () => null,
+    },
+    {
+      key: 'hard',
+      label: 'Hard (1.0–1.5)',
+      color: SERIES.calories,
+      mark: 'bar',
+      tooltip: false,
+      getValue: () => null,
+    },
+    {
+      key: 'exc',
+      label: 'Excessive (>1.5)',
+      color: VX.badSolid,
+      mark: 'bar',
+      tooltip: false,
+      getValue: () => null,
+    },
   ]
 
   return (
@@ -341,20 +186,97 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
       tooltip={METRIC_TOOLTIPS.inol}
       extra={headerExtra}
     >
-      <Box ref={ref} h={HEIGHT} w="100%">
-        {!hasData ? (
-          <ChartEmpty height={HEIGHT} message="No sessions in this window" />
-        ) : width > 0 ? (
-          <InolChartInner
+      <Box h={HEIGHT} w="100%">
+        {hasData ? (
+          <CartesianChart
             data={chartData}
-            exerciseColor={exerciseColor}
-            width={Math.max(width, 200)}
-            height={HEIGHT}
             chartId="inol"
-          />
-        ) : null}
+            getX={(d) => d.date}
+            series={series}
+            y={{ domain: inolDomain, ticks: 5, format: (v) => v.toFixed(1), nice: true }}
+            zones={INOL_ZONES}
+            refLines={INOL_REF_LINES}
+            height={HEIGHT}
+            ariaLabel="INOL per session with a 10-session moving average"
+            tooltip={{
+              label: (d) =>
+                d.inol === null
+                  ? null
+                  : { text: inolZoneLabel(d.inol), color: inolDotColor(d.inol) },
+              // The row's color is per-point (zone-dependent) — `formatValue` can only vary the
+              // value text, so this stays hand-authored. Gated on `ctx.hidden` so it disappears
+              // along with the 'session' mark when the legend toggles it off.
+              prependRows: (d, ctx) => {
+                if (ctx.hidden.has('session')) return null
+                return d.inol === null ? (
+                  <TooltipRow color={VX.line} label="INOL" value="—" shape="bar" />
+                ) : (
+                  <TooltipRow
+                    color={inolDotColor(d.inol)}
+                    label="INOL"
+                    value={d.inol.toFixed(2)}
+                    shape="bar"
+                  />
+                )
+              },
+            }}
+          >
+            {({ data: rows, visible, xScale, yScale }) => {
+              const dots = visible.some((s) => s.key === 'session')
+                ? rows.filter((d): d is InolPoint & { inol: number } => d.inol !== null)
+                : []
+              const maPoints = visible.some((s) => s.key === 'ma')
+                ? rows.filter((d): d is InolPoint & { ma10: number } => d.ma10 !== null)
+                : []
+              return (
+                <>
+                  {dots.length >= 2 && (
+                    <LinePath<InolPoint & { inol: number }>
+                      data={dots}
+                      x={(d) => xScale(d.date) ?? 0}
+                      y={(d) => yScale(d.inol)}
+                      stroke={exerciseColor}
+                      strokeOpacity={0.35}
+                      strokeWidth={1.25}
+                      curve={curveMonotoneX}
+                    />
+                  )}
+
+                  {dots.map((d) => {
+                    const sx = xScale(d.date)
+                    if (sx === undefined) return null
+                    return (
+                      <circle
+                        key={d.date}
+                        cx={sx}
+                        cy={yScale(d.inol)}
+                        r={4}
+                        fill={inolDotColor(d.inol)}
+                        fillOpacity={0.85}
+                        stroke="none"
+                      />
+                    )
+                  })}
+
+                  {maPoints.length >= 2 && (
+                    <LinePath<InolPoint & { ma10: number }>
+                      data={maPoints}
+                      x={(d) => xScale(d.date) ?? 0}
+                      y={(d) => yScale(d.ma10)}
+                      stroke={exerciseColor}
+                      strokeWidth={2.25}
+                      strokeDasharray="6 4"
+                      curve={curveMonotoneX}
+                    />
+                  )}
+                </>
+              )
+            }}
+          </CartesianChart>
+        ) : (
+          <ChartEmpty height={HEIGHT} message="No sessions in this window" />
+        )}
       </Box>
-      <ChartLegend items={deriveLegend(legendSeries)} highlighted={null} onHighlight={() => {}} />
     </ChartCard>
   )
 }

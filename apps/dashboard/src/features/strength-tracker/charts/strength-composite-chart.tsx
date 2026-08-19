@@ -1,29 +1,15 @@
 import { useMemo, useState } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useElementSize } from '@mantine/hooks'
-import { Box, Flex, Select } from '@mantine/core'
+import { Flex, Select } from '@mantine/core'
 import {
-  AxisBottomDate,
-  AxisLeftNumeric,
+  CartesianChart,
   ChartCard,
-  ChartLegend,
-  ChartTooltip,
-  deriveLegend,
-  GridRows,
-  Group,
-  HoverOverlay,
   LinePath,
-  TooltipBody,
-  TooltipHeader,
   TooltipRow,
   VX,
+  alpha,
+  type ChartSeries,
   curveMonotoneX,
-  scaleLinear,
-  scalePoint,
-  type SeriesStyle,
-  smartTicks,
-  useHoverSync,
-  useTooltipStyles,
 } from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { SERIES } from '../../../lib/series'
@@ -53,6 +39,7 @@ const COMPOSITE_COLORS = {
 } as const
 
 const Y_DOMAIN: [number, number] = [-3, 3]
+const STROKE_WIDTH = 2.5
 
 function fmtSigma(v: number): string {
   return `${v >= 0 ? '+' : ''}${v.toFixed(1)}σ`
@@ -65,6 +52,38 @@ function clamp(v: number | null): number | null {
   return v
 }
 
+// The plotted value is the trailing ZMA; the tooltip reports the raw metric plus
+// its own z-score, so those rows are authored rather than derived.
+const COMPOSITE_SERIES: ChartSeries<CompositePoint>[] = [
+  {
+    key: 'velocity',
+    label: 'Velocity',
+    color: COMPOSITE_COLORS.velocity,
+    mark: 'line',
+    strokeWidth: STROKE_WIDTH,
+    tooltip: false,
+    getValue: (d) => clamp(d.velocityZma),
+  },
+  {
+    key: 'tonnage',
+    label: 'Tonnage Growth',
+    color: COMPOSITE_COLORS.tonnage,
+    mark: 'line',
+    strokeWidth: STROKE_WIDTH,
+    tooltip: false,
+    getValue: (d) => clamp(d.tonnageGrowthZma),
+  },
+  {
+    key: 'inol',
+    label: 'INOL Quality',
+    color: COMPOSITE_COLORS.inol,
+    mark: 'line',
+    strokeWidth: STROKE_WIDTH,
+    tooltip: false,
+    getValue: (d) => clamp(d.inolZma),
+  },
+]
+
 function parseExercises(exercises: string | undefined): string[] {
   if (!exercises) return [...DEFAULT_EXERCISES]
   return exercises
@@ -73,202 +92,41 @@ function parseExercises(exercises: string | undefined): string[] {
     .filter(Boolean)
 }
 
-function CompositeInner({
-  data,
-  width,
-  height,
-  highlighted,
-}: {
-  data: CompositePoint[]
-  width: number
-  height: number
-  highlighted: string | null
-}) {
-  const dim = (key: string): number => (highlighted === null || highlighted === key ? 1 : 0.15)
-
-  const MARGIN_LOCAL = useMemo(() => ({ ...VX.margin, left: Math.max(VX.margin.left, 48) }), [])
-  const xMax = width - MARGIN_LOCAL.left - MARGIN_LOCAL.right
-  const yMax = height - MARGIN_LOCAL.top - MARGIN_LOCAL.bottom
-
-  const xScale = useMemo(
-    () =>
-      scalePoint<string>({
-        domain: data.map((d) => d.date),
-        range: [0, xMax],
-        padding: 0.3,
-      }),
-    [data, xMax],
-  )
-
-  const yScale = useMemo(() => scaleLinear<number>({ domain: Y_DOMAIN, range: [yMax, 0] }), [yMax])
-
-  const tooltipStyles = useTooltipStyles()
-  const { tip, tooltipRef, syncedPoint, isDirectHover, handleMouse, handleLeave } =
-    useHoverSync<CompositePoint>({
-      data,
-      chartId: 'strength-composite',
-      getKey: (d) => d.date,
-      xScale,
-      marginLeft: MARGIN_LOCAL.left,
-    })
-
-  const tickValues = useMemo(
-    () =>
-      smartTicks(
-        data.map((d) => d.date),
-        xMax,
-      ),
-    [data, xMax],
-  )
-
-  const velValid = data.filter(
-    (d): d is CompositePoint & { velocityZma: number } => d.velocityZma !== null,
-  )
-  const tonValid = data.filter(
-    (d): d is CompositePoint & { tonnageGrowthZma: number } => d.tonnageGrowthZma !== null,
-  )
-  const inolValid = data.filter(
-    (d): d is CompositePoint & { inolZma: number } => d.inolZma !== null,
-  )
-
+// Hand-authored, not `formatValue`-derived: each row reports the RAW metric and its own unsmoothed
+// z-score, which is a different quantity — and a different null-gate — than the plotted (clamped)
+// ZMA `getValue` returns. Gated on `ctx.hidden` so a row disappears the moment the legend hides its
+// series, instead of naming a line the plot no longer draws.
+function tooltipRows(d: CompositePoint, ctx: { hidden: ReadonlySet<string> }) {
   return (
-    <div style={{ position: 'relative' }}>
-      <svg width={width} height={height}>
-        <Group left={MARGIN_LOCAL.left} top={MARGIN_LOCAL.top}>
-          <GridRows scale={yScale} width={xMax} stroke={VX.grid} numTicks={7} />
-
-          {/* ±1σ subtle bands */}
-          <rect
-            x={0}
-            y={yScale(1)}
-            width={xMax}
-            height={Math.max(0, yScale(-1) - yScale(1))}
-            fill={VX.grid}
-            opacity={0.5}
-          />
-
-          {/* Zero baseline */}
-          <line
-            x1={0}
-            x2={xMax}
-            y1={yScale(0)}
-            y2={yScale(0)}
-            stroke={VX.axis}
-            strokeWidth={1}
-            strokeDasharray="2 4"
-            strokeOpacity={0.6}
-          />
-
-          <LinePath<CompositePoint & { velocityZma: number }>
-            data={velValid}
-            x={(d) => xScale(d.date) ?? 0}
-            y={(d) => yScale(clamp(d.velocityZma) ?? 0)}
-            stroke={COMPOSITE_COLORS.velocity}
-            strokeWidth={2.5}
-            strokeOpacity={dim('velocity')}
-            curve={curveMonotoneX}
-          />
-          <LinePath<CompositePoint & { tonnageGrowthZma: number }>
-            data={tonValid}
-            x={(d) => xScale(d.date) ?? 0}
-            y={(d) => yScale(clamp(d.tonnageGrowthZma) ?? 0)}
-            stroke={COMPOSITE_COLORS.tonnage}
-            strokeWidth={2.5}
-            strokeOpacity={dim('tonnage')}
-            curve={curveMonotoneX}
-          />
-          <LinePath<CompositePoint & { inolZma: number }>
-            data={inolValid}
-            x={(d) => xScale(d.date) ?? 0}
-            y={(d) => yScale(clamp(d.inolZma) ?? 0)}
-            stroke={COMPOSITE_COLORS.inol}
-            strokeWidth={2.5}
-            strokeOpacity={dim('inol')}
-            curve={curveMonotoneX}
-          />
-
-          {syncedPoint !== null &&
-            (() => {
-              const sx = xScale(syncedPoint.date) ?? 0
-              return (
-                <>
-                  <line x1={sx} x2={sx} y1={0} y2={yMax} stroke={VX.crosshair} strokeWidth={1} />
-                  {syncedPoint.velocityZma !== null && (
-                    <circle
-                      cx={sx}
-                      cy={yScale(clamp(syncedPoint.velocityZma) ?? 0)}
-                      r={4}
-                      fill={COMPOSITE_COLORS.velocity}
-                      stroke={VX.dotStroke}
-                      strokeWidth={2}
-                    />
-                  )}
-                  {syncedPoint.tonnageGrowthZma !== null && (
-                    <circle
-                      cx={sx}
-                      cy={yScale(clamp(syncedPoint.tonnageGrowthZma) ?? 0)}
-                      r={4}
-                      fill={COMPOSITE_COLORS.tonnage}
-                      stroke={VX.dotStroke}
-                      strokeWidth={2}
-                    />
-                  )}
-                  {syncedPoint.inolZma !== null && (
-                    <circle
-                      cx={sx}
-                      cy={yScale(clamp(syncedPoint.inolZma) ?? 0)}
-                      r={4}
-                      fill={COMPOSITE_COLORS.inol}
-                      stroke={VX.dotStroke}
-                      strokeWidth={2}
-                    />
-                  )}
-                </>
-              )
-            })()}
-
-          <AxisLeftNumeric scale={yScale} numTicks={7} tickFormat={(v) => fmtSigma(Number(v))} />
-          <AxisBottomDate top={yMax} scale={xScale} tickValues={tickValues} />
-          <HoverOverlay width={xMax} height={yMax} onMove={handleMouse} onLeave={handleLeave} />
-        </Group>
-      </svg>
-      <ChartTooltip tip={isDirectHover ? tip : null} tooltipRef={tooltipRef} styles={tooltipStyles}>
-        {tip && isDirectHover && (
-          <>
-            <TooltipHeader date={tip.data.date} />
-            <TooltipBody>
-              {tip.data.velocityZ !== null && (
-                <TooltipRow
-                  color={COMPOSITE_COLORS.velocity}
-                  label="Velocity"
-                  value={`${tip.data.velocityRaw !== null ? `${tip.data.velocityRaw.toFixed(3)}%/d` : '—'} · ${fmtSigma(tip.data.velocityZ)}`}
-                  shape="line"
-                  strokeWidth={2.5}
-                />
-              )}
-              {tip.data.tonnageGrowthZ !== null && (
-                <TooltipRow
-                  color={COMPOSITE_COLORS.tonnage}
-                  label="Tonnage"
-                  value={`${tip.data.tonnageGrowthRaw !== null ? `×${tip.data.tonnageGrowthRaw.toFixed(2)}` : '—'} · ${fmtSigma(tip.data.tonnageGrowthZ)}`}
-                  shape="line"
-                  strokeWidth={2.5}
-                />
-              )}
-              {tip.data.inolZ !== null && (
-                <TooltipRow
-                  color={COMPOSITE_COLORS.inol}
-                  label="INOL"
-                  value={`${tip.data.inolRaw !== null ? tip.data.inolRaw.toFixed(2) : '—'} · ${fmtSigma(tip.data.inolZ)}`}
-                  shape="line"
-                  strokeWidth={2.5}
-                />
-              )}
-            </TooltipBody>
-          </>
-        )}
-      </ChartTooltip>
-    </div>
+    <>
+      {!ctx.hidden.has('velocity') && d.velocityZ !== null && (
+        <TooltipRow
+          color={COMPOSITE_COLORS.velocity}
+          label="Velocity"
+          value={`${d.velocityRaw !== null ? `${d.velocityRaw.toFixed(3)}%/d` : '—'} · ${fmtSigma(d.velocityZ)}`}
+          shape="line"
+          strokeWidth={STROKE_WIDTH}
+        />
+      )}
+      {!ctx.hidden.has('tonnage') && d.tonnageGrowthZ !== null && (
+        <TooltipRow
+          color={COMPOSITE_COLORS.tonnage}
+          label="Tonnage"
+          value={`${d.tonnageGrowthRaw !== null ? `×${d.tonnageGrowthRaw.toFixed(2)}` : '—'} · ${fmtSigma(d.tonnageGrowthZ)}`}
+          shape="line"
+          strokeWidth={STROKE_WIDTH}
+        />
+      )}
+      {!ctx.hidden.has('inol') && d.inolZ !== null && (
+        <TooltipRow
+          color={COMPOSITE_COLORS.inol}
+          label="INOL"
+          value={`${d.inolRaw !== null ? d.inolRaw.toFixed(2) : '—'} · ${fmtSigma(d.inolZ)}`}
+          shape="line"
+          strokeWidth={STROKE_WIDTH}
+        />
+      )}
+    </>
   )
 }
 
@@ -288,8 +146,6 @@ export default function StrengthCompositeChart({
     to: params.to,
   }
   const { data } = useSuspenseQuery(strengthQueries.composite(compositeParams))
-  const { ref, width } = useElementSize<HTMLDivElement>()
-  const [highlighted, setHighlighted] = useState<string | null>(null)
 
   const points = data.points as CompositePoint[]
 
@@ -353,30 +209,6 @@ export default function StrengthCompositeChart({
     </Flex>
   )
 
-  const legendSeries: readonly SeriesStyle[] = [
-    {
-      key: 'velocity',
-      label: 'Velocity',
-      color: COMPOSITE_COLORS.velocity,
-      mark: 'line',
-      strokeWidth: 2.5,
-    },
-    {
-      key: 'tonnage',
-      label: 'Tonnage Growth',
-      color: COMPOSITE_COLORS.tonnage,
-      mark: 'line',
-      strokeWidth: 2.5,
-    },
-    {
-      key: 'inol',
-      label: 'INOL Quality',
-      color: COMPOSITE_COLORS.inol,
-      mark: 'line',
-      strokeWidth: 2.5,
-    },
-  ]
-
   return (
     <ChartCard
       title="Strength Composite"
@@ -384,30 +216,44 @@ export default function StrengthCompositeChart({
       tooltip={METRIC_TOOLTIPS.strengthComposite}
       extra={headerExtra}
     >
-      <Box ref={ref} h={280} w="100%">
-        {!hasLines ? (
-          <ChartEmpty
-            height={280}
-            message={
-              points.length === 0
-                ? `No composite data for ${exerciseLabel(selected)}`
-                : `Not enough sessions for ${exerciseLabel(selected)} yet — needs at least 3`
-            }
-          />
-        ) : width > 0 ? (
-          <CompositeInner
-            data={points}
-            width={Math.max(width, 200)}
-            height={280}
-            highlighted={highlighted}
-          />
-        ) : null}
-      </Box>
-      <ChartLegend
-        items={deriveLegend(legendSeries)}
-        highlighted={highlighted}
-        onHighlight={setHighlighted}
-      />
+      {hasLines ? (
+        <CartesianChart
+          data={points}
+          chartId="strength-composite"
+          getX={(d) => d.date}
+          series={COMPOSITE_SERIES}
+          y={{ domain: Y_DOMAIN, ticks: 7, format: fmtSigma }}
+          zones={[{ from: -1, to: 1, fill: alpha(VX.grid, 0.5) }]}
+          refLines={[{ value: 0, color: alpha(VX.axis, 0.6), dashed: true }]}
+          tooltip={{ prependRows: tooltipRows }}
+          height={280}
+          ariaLabel="Strength composite z-scores"
+        >
+          {({ visible, xScale, yScale, highlighted }) =>
+            visible.map((s) => (
+              <LinePath<CompositePoint>
+                key={s.key}
+                data={points.filter((d) => s.getValue(d) !== null)}
+                x={(d) => xScale(d.date) ?? 0}
+                y={(d) => yScale(s.getValue(d) ?? 0)}
+                stroke={s.color}
+                strokeWidth={STROKE_WIDTH}
+                strokeOpacity={highlighted === null || highlighted === s.key ? 1 : 0.15}
+                curve={curveMonotoneX}
+              />
+            ))
+          }
+        </CartesianChart>
+      ) : (
+        <ChartEmpty
+          height={280}
+          message={
+            points.length === 0
+              ? `No composite data for ${exerciseLabel(selected)}`
+              : `Not enough sessions for ${exerciseLabel(selected)} yet — needs at least 3`
+          }
+        />
+      )}
     </ChartCard>
   )
 }

@@ -1,37 +1,20 @@
-import { Box, Stack, Text } from '@mantine/core'
-import { useElementSize } from '@mantine/hooks'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useState } from 'react'
 import {
   alpha,
-  AxisBottomDate,
-  AxisLeftNumeric,
+  CartesianChart,
   ChartCard,
-  ChartLegend,
-  ChartTooltip,
   curveMonotoneX,
-  GridRows,
-  Group,
-  HoverOverlay,
   LinePath,
-  scaleLinear,
-  scalePoint,
-  smartTicks,
-  TooltipBody,
-  TooltipHeader,
-  TooltipRow,
-  useHoverSync,
-  useTooltipStyles,
   VX,
-  ZoneRects,
+  type ChartSeries,
+  type PlotContext,
   type ZoneSpec,
-  type SeriesStyle,
-  deriveLegend,
 } from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { SERIES } from '../../../lib/series'
 import { EXERCISE_COLORS, METRIC_TOOLTIPS, type ExerciseKey } from '../constants'
 import { acwrZoneColor, acwrZoneLabel, exerciseLabel } from '../formulas'
+import { ChartEmpty } from './empty'
 
 type AcwrZone = 'undertrained' | 'optimal' | 'caution' | 'danger'
 
@@ -55,18 +38,8 @@ type MergedPoint = {
   >
 }
 
-const MARGIN = { top: 16, right: 24, bottom: 32, left: 56 } as const
 const HEIGHT = 280
-
-function ChartEmpty({ height = HEIGHT, label }: { height?: number; label: string }) {
-  return (
-    <Stack justify="center" align="center" h={height} gap={4}>
-      <Text size="sm" c="dimmed">
-        {label}
-      </Text>
-    </Stack>
-  )
-}
+const STROKE_WIDTH = 2.5
 
 function mergePoints(series: ExerciseSeries[]): MergedPoint[] {
   const byDate = new Map<string, MergedPoint>()
@@ -88,35 +61,14 @@ function mergePoints(series: ExerciseSeries[]): MergedPoint[] {
   return [...byDate.values()].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
 }
 
+const exerciseColor = (ex: string): string =>
+  EXERCISE_COLORS[ex as ExerciseKey] ?? SERIES.benchPress
+
 export default function TrainingLoadChart({ params }: { params: StrengthQueryParams }) {
   const { data } = useSuspenseQuery(strengthQueries.trainingLoad(params))
-  const { ref, width: containerWidth } = useElementSize<HTMLDivElement>()
-  const tooltipStyles = useTooltipStyles()
-  const [highlighted, setHighlighted] = useState<string | null>(null)
 
   const series = data.byExercise as ExerciseSeries[]
   const exercises = series.map((s) => s.exercise_id)
-
-  const legendSeries: readonly SeriesStyle[] = [
-    ...exercises.map(
-      (ex): SeriesStyle => ({
-        key: ex,
-        label: exerciseLabel(ex),
-        color: EXERCISE_COLORS[ex as ExerciseKey] ?? VX.line,
-        mark: 'line',
-        strokeWidth: 2.5,
-      }),
-    ),
-    {
-      key: 'zone-under',
-      label: 'Undertrained',
-      color: alpha(SERIES.benchPress, 0.4),
-      mark: 'bar',
-    },
-    { key: 'zone-opt', label: 'Optimal', color: VX.goodSolid, mark: 'bar' },
-    { key: 'zone-caut', label: 'Caution', color: VX.warnSolid, mark: 'bar' },
-    { key: 'zone-danger', label: 'Danger', color: VX.badSolid, mark: 'bar' },
-  ]
   const merged = mergePoints(series)
 
   // Need at least 2 ACWR points across any exercise to render.
@@ -152,30 +104,58 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
           .find((p) => p.acwr !== null) ?? null)
       : null
 
-  const width = Math.max(containerWidth, 200)
-  const xMax = width - MARGIN.left - MARGIN.right
-  const yPlotMax = HEIGHT - MARGIN.top - MARGIN.bottom
-
-  const xScale = scalePoint<string>({
-    domain: merged.map((d) => d.date),
-    range: [0, xMax],
-    padding: 0.3,
-  })
-  const yScale = scaleLinear<number>({ domain: [0, yMax], range: [yPlotMax, 0] })
-
-  const { tip, tooltipRef, syncedPoint, isDirectHover, handleMouse, handleLeave } =
-    useHoverSync<MergedPoint>({
-      data: merged,
-      chartId: 'training-load',
-      getKey: (d) => d.date,
-      xScale,
-      marginLeft: MARGIN.left,
-    })
-
-  const tickValues = smartTicks(
-    merged.map((d) => d.date),
-    xMax,
-  )
+  // The four zone bands ride the legend as swatches only — they draw no mark and own no tooltip
+  // row, so `getValue` is null everywhere.
+  const chartSeries: ChartSeries<MergedPoint>[] = [
+    ...exercises.map(
+      (ex): ChartSeries<MergedPoint> => ({
+        key: ex,
+        label: exerciseLabel(ex),
+        color: exerciseColor(ex),
+        mark: 'line',
+        strokeWidth: STROKE_WIDTH,
+        getValue: (d) => d.per[ex]?.acwr ?? null,
+        formatValue: (v, d) => {
+          const row = d.per[ex]
+          const zoneStr = row?.zone ? ` · ${acwrZoneLabel(row.zone)}` : ''
+          return `${v.toFixed(2)}${zoneStr} · A ${row?.acute.toFixed(1) ?? '—'} / C ${row?.chronic.toFixed(1) ?? '—'}`
+        },
+      }),
+    ),
+    {
+      key: 'zone-under',
+      label: 'Undertrained',
+      color: SERIES.benchPress,
+      fillOpacity: 0.4,
+      mark: 'bar',
+      tooltip: false,
+      getValue: () => null,
+    },
+    {
+      key: 'zone-opt',
+      label: 'Optimal',
+      color: VX.goodSolid,
+      mark: 'bar',
+      tooltip: false,
+      getValue: () => null,
+    },
+    {
+      key: 'zone-caut',
+      label: 'Caution',
+      color: VX.warnSolid,
+      mark: 'bar',
+      tooltip: false,
+      getValue: () => null,
+    },
+    {
+      key: 'zone-danger',
+      label: 'Danger',
+      color: VX.badSolid,
+      mark: 'bar',
+      tooltip: false,
+      getValue: () => null,
+    },
+  ]
 
   const zones: ZoneSpec[] = [
     { from: 0, to: 0.8, fill: alpha(SERIES.benchPress, 0.08) },
@@ -184,14 +164,12 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
     { from: 1.5, to: yMax, fill: VX.bad },
   ]
 
-  const refLines: { value: number; color: string }[] = [
-    { value: 1.0, color: VX.grid },
-    { value: 0.8, color: VX.goodRef },
-    { value: 1.3, color: VX.warnRef },
-    { value: 1.5, color: VX.badRef },
+  const refLines = [
+    { value: 1.0, color: VX.grid, dashed: true },
+    { value: 0.8, color: VX.goodRef, dashed: true },
+    { value: 1.3, color: VX.warnRef, dashed: true },
+    { value: 1.5, color: VX.badRef, dashed: true },
   ]
-
-  const opa = (key: string): number => (highlighted === null || highlighted === key ? 1 : 0.12)
 
   return (
     <ChartCard
@@ -218,133 +196,40 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
         ) : null
       }
     >
-      <Box ref={ref} h={HEIGHT} w="100%">
-        {!enoughData ? (
-          <ChartEmpty height={HEIGHT} label="Not enough data — need at least 2 weeks of sessions" />
-        ) : containerWidth > 0 ? (
-          <div style={{ position: 'relative' }}>
-            <svg width={width} height={HEIGHT}>
-              <Group left={MARGIN.left} top={MARGIN.top}>
-                <ZoneRects zones={zones} width={xMax} leftScale={yScale} />
-                <GridRows scale={yScale} width={xMax} stroke={VX.grid} numTicks={5} />
-                {refLines.map((r, i) => (
-                  <line
-                    key={`ref-${i}`}
-                    x1={0}
-                    x2={xMax}
-                    y1={yScale(r.value)}
-                    y2={yScale(r.value)}
-                    stroke={r.color}
-                    strokeWidth={1}
-                    strokeDasharray="4 3"
-                  />
-                ))}
-                {exercises.map((ex) => {
-                  const exColor = EXERCISE_COLORS[ex as ExerciseKey] ?? VX.line
-                  const pts = merged.filter((d) => {
-                    const v = d.per[ex]?.acwr
-                    return v !== null && v !== undefined
-                  })
-                  if (pts.length < 2) return null
-                  return (
-                    <LinePath<MergedPoint>
-                      key={ex}
-                      data={pts}
-                      x={(d) => xScale(d.date) ?? 0}
-                      y={(d) => yScale(d.per[ex]!.acwr!)}
-                      stroke={exColor}
-                      strokeWidth={2.5}
-                      strokeOpacity={opa(ex)}
-                      curve={curveMonotoneX}
-                    />
-                  )
-                })}
-                {syncedPoint !== null &&
-                  (() => {
-                    const sx = xScale(syncedPoint.date) ?? 0
-                    return (
-                      <>
-                        <line
-                          x1={sx}
-                          x2={sx}
-                          y1={0}
-                          y2={yPlotMax}
-                          stroke={VX.crosshair}
-                          strokeWidth={1}
-                        />
-                        {exercises.map((ex) => {
-                          const v = syncedPoint.per[ex]?.acwr
-                          if (v === null || v === undefined) return null
-                          const exColor = EXERCISE_COLORS[ex as ExerciseKey] ?? VX.line
-                          return (
-                            <circle
-                              key={ex}
-                              cx={sx}
-                              cy={yScale(v)}
-                              r={4}
-                              fill={exColor}
-                              stroke={VX.dotStroke}
-                              strokeWidth={2}
-                              opacity={opa(ex)}
-                            />
-                          )
-                        })}
-                      </>
-                    )
-                  })()}
-                <AxisLeftNumeric
-                  scale={yScale}
-                  numTicks={5}
-                  tickFormat={(v) => Number(v).toFixed(1)}
+      {enoughData ? (
+        <CartesianChart
+          data={merged}
+          chartId="training-load"
+          getX={(d) => d.date}
+          series={chartSeries}
+          y={{ domain: [0, yMax], ticks: 5, format: (v) => v.toFixed(1) }}
+          zones={zones}
+          refLines={refLines}
+          height={HEIGHT}
+          ariaLabel="Acute:chronic workload ratio per exercise"
+        >
+          {({ data: rows, visible, xScale, yScale, highlighted }: PlotContext<MergedPoint>) =>
+            visible.map((s) => {
+              const pts = rows.filter((d) => s.getValue(d) !== null)
+              if (pts.length < 2) return null
+              return (
+                <LinePath<MergedPoint>
+                  key={s.key}
+                  data={pts}
+                  x={(d) => xScale(d.date) ?? 0}
+                  y={(d) => yScale(s.getValue(d) ?? 0)}
+                  stroke={s.color}
+                  strokeWidth={s.strokeWidth ?? STROKE_WIDTH}
+                  strokeOpacity={highlighted === null || highlighted === s.key ? 1 : 0.12}
+                  curve={curveMonotoneX}
                 />
-                <AxisBottomDate top={yPlotMax} scale={xScale} tickValues={tickValues} />
-                <HoverOverlay
-                  width={xMax}
-                  height={yPlotMax}
-                  onMove={handleMouse}
-                  onLeave={handleLeave}
-                />
-              </Group>
-            </svg>
-            <ChartTooltip
-              tip={isDirectHover ? tip : null}
-              tooltipRef={tooltipRef}
-              styles={tooltipStyles}
-            >
-              {tip && isDirectHover && (
-                <>
-                  <TooltipHeader date={tip.data.date} />
-                  <TooltipBody>
-                    {exercises.map((ex) => {
-                      const row = tip.data.per[ex]
-                      if (!row || row.acwr === null) return null
-                      const exColor = EXERCISE_COLORS[ex as ExerciseKey] ?? VX.line
-                      const zone = row.zone
-                      return (
-                        <TooltipRow
-                          key={ex}
-                          color={exColor}
-                          label={exerciseLabel(ex)}
-                          value={`${row.acwr.toFixed(2)}${
-                            zone ? ` · ${acwrZoneLabel(zone)}` : ''
-                          } · A ${row.acute.toFixed(1)} / C ${row.chronic.toFixed(1)}`}
-                          shape="line"
-                          strokeWidth={2.5}
-                        />
-                      )
-                    })}
-                  </TooltipBody>
-                </>
-              )}
-            </ChartTooltip>
-          </div>
-        ) : null}
-      </Box>
-      <ChartLegend
-        items={deriveLegend(legendSeries)}
-        highlighted={highlighted}
-        onHighlight={setHighlighted}
-      />
+              )
+            })
+          }
+        </CartesianChart>
+      ) : (
+        <ChartEmpty height={HEIGHT} message="Not enough data — need at least 2 weeks of sessions" />
+      )}
     </ChartCard>
   )
 }

@@ -32,6 +32,11 @@ const AXIS_LABELS: Record<MetricKey, { title: string; subtitle: string; xUnit: s
 
 const fmtSessions = (v: number) => `${Math.round(v)} session${Math.round(v) === 1 ? '' : 's'}`
 
+// The domain key stays the raw, stable `bucketStart` — `fmtBucket` (which needs `bucketWidth`
+// and the `isLast` flag too) is a display concern, wired through `formatX`/`tooltip.formatHeader`
+// instead of being baked into the key itself.
+const getX = (d: Bucket) => String(d.bucketStart)
+
 // Match the Weekly Volume chart's height so the two bottom-row cards align.
 const CHART_HEIGHT = 280
 
@@ -77,8 +82,12 @@ export function LengthHistogramChart({ params }: { params: WalkingPadWindowParam
     )
   }
 
-  const getX = (d: Bucket) =>
-    fmtBucket(d.bucketStart, d.bucketWidth, d.bucketStart === maxBucketStart)
+  const bucketByKey = new Map(buckets.map((b) => [String(b.bucketStart), b]))
+  const formatX = (key: string) => {
+    const b = bucketByKey.get(key)
+    if (b === undefined) return key
+    return fmtBucket(b.bucketStart, b.bucketWidth, b.bucketStart === maxBucketStart)
+  }
 
   // For 2+ metrics the chart still bins by *one* dimension (the first
   // enabled). Annotate so the user understands which dimension is in play.
@@ -112,16 +121,24 @@ export function LengthHistogramChart({ params }: { params: WalkingPadWindowParam
           height={CHART_HEIGHT}
           chartId="walking-pad-length-histogram"
           getX={getX}
+          formatX={formatX}
           getValue={getValue}
-          positiveBars={[{ key: 'sessions', label: 'Sessions', color: METRIC_DEFS[driver].color }]}
-          leftAxis={{
+          positiveBars={[
+            {
+              key: 'sessions',
+              label: 'Sessions',
+              color: METRIC_DEFS[driver].color,
+              formatValue: fmtSessions,
+            },
+          ]}
+          y={{
             domain: 'auto',
-            formatTick: (v) => String(Math.round(v)),
-            numTicks: 4,
+            format: (v: number) => String(Math.round(v)),
+            ticks: 4,
             autoMaxFloor: 3,
           }}
-          formatValue={fmtSessions}
-          numTicksX={driver === 'duration' ? 7 : 6}
+          xTicks={driver === 'duration' ? 7 : 6}
+          tooltip={{ formatHeader: (key) => formatX(key) }}
           legend={false}
         />
       )}

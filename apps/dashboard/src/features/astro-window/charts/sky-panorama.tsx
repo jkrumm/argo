@@ -478,6 +478,12 @@ function PanoramaInner({
             </text>
           </SvgGroup>
         ))}
+        {/* theme-allow basalt/hand-rolled-plot: `CartesianChart` types x as `getX: (d) => string`
+            over a `scalePoint<string>` band scale, so it cannot express a CONTINUOUS numeric x
+            axis. This panorama's x is azimuth in degrees on a `scaleLinear` over `AZ_DOMAIN` —
+            the terrain silhouette, the skyglow rose and the sun/moon/core tracks are all sampled
+            at arbitrary azimuths, not at shared categorical slots. Assembled from the same parts
+            every other chart gets (`ChartFrame`, `AxisLeftNumeric`), just over its own x scale. */}
         <AxisLeftNumeric scale={yScale} numTicks={6} tickFormat={(v) => `${v}°`} />
 
         {/* 4. The gate — a threshold, not a series: neutral reference treatment. */}

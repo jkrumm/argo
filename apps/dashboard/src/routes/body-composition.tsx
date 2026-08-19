@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Suspense, useCallback, useMemo } from 'react'
 import { Group, Stack } from '@mantine/core'
 import { z } from 'zod'
-import { ChartHoverSync } from 'basalt-ui/charts'
 import { PageActions } from 'basalt-ui'
 import {
   presetToParams,
@@ -86,7 +85,7 @@ function BodyCompositionPage() {
   )
 
   return (
-    <ChartHoverSync>
+    <>
       {/* Page controls live in the shared top-bar slot; the breadcrumb names the page. */}
       <PageActions>
         <Group gap="sm" wrap="nowrap">
@@ -113,6 +112,6 @@ function BodyCompositionPage() {
           </Suspense>
         </Section>
       </Stack>
-    </ChartHoverSync>
+    </>
   )
 }

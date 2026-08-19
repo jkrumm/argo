@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Suspense, useCallback, useMemo } from 'react'
 import { Box, Grid, Group, SimpleGrid, Stack } from '@mantine/core'
 import { z } from 'zod'
-import { ChartHoverSync } from 'basalt-ui/charts'
 import {
   HeroStats,
   Section,
@@ -101,7 +100,7 @@ function GarminHealthPage() {
   )
 
   return (
-    <ChartHoverSync>
+    <>
       {/* Page controls live in the shared top-bar slot; the breadcrumb names the page. */}
       <PageActions>
         <Group gap="sm" wrap="nowrap">
@@ -175,6 +174,6 @@ function GarminHealthPage() {
           </SimpleGrid>
         </Section>
       </Stack>
-    </ChartHoverSync>
+    </>
   )
 }

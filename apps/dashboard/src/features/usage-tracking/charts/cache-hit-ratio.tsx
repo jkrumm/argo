@@ -50,7 +50,14 @@ export default function CacheHitRatio({
   const hasData = points.some((p) => p.ratio !== null)
 
   const series: ChartSeries<Point>[] = [
-    { key: 'ratio', label: 'Cache hit', color: VX.line, mark: 'line', getValue: (d) => d.ratio },
+    {
+      key: 'ratio',
+      label: 'Cache hit',
+      color: VX.line,
+      mark: 'line',
+      getValue: (d) => d.ratio,
+      formatValue: fmtPct,
+    },
   ]
 
   return (
@@ -66,13 +73,13 @@ export default function CacheHitRatio({
           height={240}
           chartId="usage-cache-hit-ratio"
           getX={(d) => d.date}
+          cursorResolution="leading"
           series={series}
-          yDomain={[0, 1]}
+          y={{ domain: [0, 1] }}
           zones={[
             { from: 0.6, to: 1, fill: VX.good },
             { from: 0, to: 0.3, fill: VX.bad },
           ]}
-          formatValue={fmtPct}
           legend={false}
         />
       )}

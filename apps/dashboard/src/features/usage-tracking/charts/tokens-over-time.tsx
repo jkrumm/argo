@@ -74,8 +74,9 @@ export default function TokensOverTime({
           height={280}
           chartId="usage-tokens-over-time"
           getX={(d) => d.bucket}
+          cursorResolution="leading"
           series={series}
-          formatValue={fmtCount}
+          y={{ format: fmtCount }}
           legend={{ maxRows: 8 }}
         />
       )}

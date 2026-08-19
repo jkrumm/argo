@@ -3,7 +3,6 @@ import { Suspense, useCallback, useMemo } from 'react'
 import { Grid, Group, Stack, useComputedColorScheme } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { z } from 'zod'
-import { ChartHoverSync } from 'basalt-ui/charts'
 import { BasaltErrorBoundary, PageActions, type BasaltErrorContext } from 'basalt-ui'
 import {
   type AstroView,
@@ -271,7 +270,7 @@ function AstroWindowPage() {
   const selectedNight = data.nights.find((n) => n.date === selectedDate) ?? data.nights[0] ?? null
 
   return (
-    <ChartHoverSync>
+    <>
       {/* Page controls live in the shared top-bar slot; the breadcrumb names the page. */}
       <PageActions>
         <Group gap="sm" wrap="nowrap">
@@ -399,6 +398,6 @@ function AstroWindowPage() {
           </Stack>
         </Section>
       )}
-    </ChartHoverSync>
+    </>
   )
 }

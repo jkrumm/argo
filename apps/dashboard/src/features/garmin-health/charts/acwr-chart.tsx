@@ -30,7 +30,14 @@ type TrainingLoadPoint = {
 }
 
 const ACWR_SERIES: ChartSeries<TrainingLoadPoint>[] = [
-  { key: 'acwr', label: 'ACWR', color: VX.line, mark: 'line', getValue: (d) => d.acwr },
+  {
+    key: 'acwr',
+    label: 'ACWR',
+    color: VX.line,
+    mark: 'line',
+    getValue: (d) => d.acwr,
+    formatValue: (v) => v.toFixed(2),
+  },
 ]
 
 const ACWR_LEGEND_SERIES: readonly SeriesStyle[] = [
@@ -85,8 +92,7 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
           chartId="acwr"
           getX={(d) => d.date}
           series={ACWR_SERIES}
-          yDomain="auto"
-          yAutoMaxFloor={2}
+          y={{ domain: 'auto', autoMaxFloor: 2.2 }}
           zones={[{ from: 0.8, to: 1.3, fill: VX.good }]}
           thresholds={[
             { value: 1.3, side: 'above', fill: VX.bad },
@@ -97,10 +103,12 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
             { value: 1.3, color: VX.goodRef },
             { value: 1.5, color: VX.badRef },
           ]}
-          formatValue={(v) => v.toFixed(2)}
-          tooltipLabel={(d) =>
-            d.zone === null ? null : { text: acwrZoneLabel(d.zone), color: acwrZoneColor(d.zone) }
-          }
+          tooltip={{
+            label: (d) =>
+              d.zone === null
+                ? null
+                : { text: acwrZoneLabel(d.zone), color: acwrZoneColor(d.zone) },
+          }}
           legend={false}
         />
       )}

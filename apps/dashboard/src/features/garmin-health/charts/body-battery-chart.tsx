@@ -18,6 +18,7 @@ const getValue = (d: BodyBatteryPoint, key: string): number | null =>
   key === 'charged' ? d.charged : key === 'drained' ? d.drained : key === 'net' ? d.net : null
 
 const formatNet = (v: number) => `${v >= 0 ? '+' : ''}${Math.round(v)}`
+const formatBar = (v: number) => String(Math.round(v))
 
 export default function BodyBatteryChart({ params }: { params: SummaryParams }) {
   const { data } = useSuspenseQuery(dailyMetricsQueries.series(params))
@@ -75,8 +76,12 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
           chartId="body-battery"
           getX={(d) => d.date}
           getValue={getValue}
-          positiveBars={[{ key: 'charged', label: 'Charged', color: VX.goodSolid }]}
-          negativeBars={[{ key: 'drained', label: 'Drained', color: VX.badSolid }]}
+          positiveBars={[
+            { key: 'charged', label: 'Charged', color: VX.goodSolid, formatValue: formatBar },
+          ]}
+          negativeBars={[
+            { key: 'drained', label: 'Drained', color: VX.badSolid, formatValue: formatBar },
+          ]}
           lines={[
             {
               key: 'net',
@@ -87,13 +92,13 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
               formatValue: formatNet,
             },
           ]}
-          leftAxis={{
+          y={{
             domain: 'auto',
             autoPad: 1.1,
             autoMaxFloor: 50,
             autoMinCeil: -50,
-            numTicks: 5,
-            formatTick: (v) => (v === 0 ? '0' : v > 0 ? `+${v}` : String(v)),
+            ticks: 5,
+            format: (v) => (v === 0 ? '0' : v > 0 ? `+${v}` : String(v)),
           }}
         />
       )}

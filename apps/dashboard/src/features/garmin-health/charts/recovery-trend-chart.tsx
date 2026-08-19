@@ -9,7 +9,6 @@ import {
   deriveLegend,
   type ChartSeries,
   type SeriesStyle,
-  type ZonedLineTooltipLabel,
 } from 'basalt-ui/charts'
 import { recoveryQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
@@ -24,14 +23,23 @@ type RecoveryPoint = {
   bbHigh: number | null
 }
 
-function recoveryZoneLabel(v: number): ZonedLineTooltipLabel {
+type RecoveryZone = { text: string; color: string }
+
+function recoveryZoneLabel(v: number): RecoveryZone {
   if (v >= 70) return { text: 'Push', color: VX.goodSolid }
   if (v >= 40) return { text: 'Normal', color: VX.warnSolid }
   return { text: 'Rest', color: VX.badSolid }
 }
 
 const RECOVERY_SERIES: ChartSeries<RecoveryPoint>[] = [
-  { key: 'recovery', label: 'Recovery', color: VX.line, mark: 'line', getValue: (d) => d.recovery },
+  {
+    key: 'recovery',
+    label: 'Recovery',
+    color: VX.line,
+    mark: 'line',
+    getValue: (d) => d.recovery,
+    formatValue: (v) => String(Math.round(v)),
+  },
 ]
 
 const RECOVERY_LEGEND_SERIES: readonly SeriesStyle[] = [
@@ -79,14 +87,13 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
           chartId="recovery-trend"
           getX={(d) => d.date}
           series={RECOVERY_SERIES}
-          yDomain={[0, 100]}
+          y={{ domain: [0, 100] }}
           zones={[
             { from: 70, to: 100, fill: VX.good },
             { from: 40, to: 70, fill: VX.warn },
             { from: 0, to: 40, fill: VX.bad },
           ]}
-          formatValue={(v) => String(Math.round(v))}
-          tooltipLabel={(d) => (d.recovery === null ? null : recoveryZoneLabel(d.recovery))}
+          tooltip={{ label: (d) => (d.recovery === null ? null : recoveryZoneLabel(d.recovery)) }}
           legend={false}
         />
       )}

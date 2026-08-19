@@ -1,6 +1,14 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
-import { Bars, ChartCard, TooltipRow, VX } from 'basalt-ui/charts'
+import {
+  Bars,
+  ChartCard,
+  TooltipRow,
+  VX,
+  type BarsBar,
+  type BarsLine,
+  type CartesianTooltipRowContext,
+} from 'basalt-ui/charts'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { SERIES } from '../../../lib/series'
 import { METRIC_TOOLTIPS } from '../constants'
@@ -59,7 +67,29 @@ type ActivityPoint = {
   scoreMA: number | null
 }
 
-const activityGetValue = (d: ActivityPoint, key: string): number | null => {
+/**
+ * The three bands carry `tooltip: false`: the tooltip reports the underlying minutes and steps
+ * (`prependRows`), not the MET-minute values the bars are drawn from — stating both would print
+ * every intensity twice.
+ */
+const POSITIVE_BARS: BarsBar<ActivityPoint>[] = [
+  { key: 'walkingScore', label: 'Walking', color: SERIES.intensityWalking, tooltip: false },
+  { key: 'moderateScore', label: 'Moderate', color: SERIES.intensityModerate, tooltip: false },
+  { key: 'vigorousScore', label: 'Vigorous', color: SERIES.intensityVigorous, tooltip: false },
+]
+
+const LINES: BarsLine<ActivityPoint>[] = [
+  {
+    key: 'scoreMA',
+    label: '30d avg',
+    color: VX.line2,
+    dashed: true,
+    strokeWidth: 1.5,
+    formatValue: (v) => `${Math.round(v)} · ${Math.round((v / ACTIVITY_TARGET_SCORE) * 100)}%`,
+  },
+]
+
+function getActivityValue(d: ActivityPoint, key: string): number | null {
   switch (key) {
     case 'walkingScore':
       return d.walkingScore
@@ -136,84 +166,55 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
           height={280}
           chartId="activity-score"
           getX={(d) => d.date}
-          getValue={activityGetValue}
-          positiveBars={[
-            { key: 'walkingScore', label: 'Walking', color: SERIES.intensityWalking },
-            { key: 'moderateScore', label: 'Moderate', color: SERIES.intensityModerate },
-            { key: 'vigorousScore', label: 'Vigorous', color: SERIES.intensityVigorous },
-          ]}
-          barLayout="stacked"
-          lines={[
-            {
-              key: 'scoreMA',
-              label: '30d avg',
-              color: VX.line2,
-              axisSide: 'left',
-              dashed: true,
-              strokeWidth: 1.5,
-              formatValue: (v) =>
-                `${Math.round(v)} · ${Math.round((v / ACTIVITY_TARGET_SCORE) * 100)}%`,
-            },
-          ]}
+          getValue={getActivityValue}
+          positiveBars={POSITIVE_BARS}
+          lines={LINES}
           zones={[
             { from: ACTIVITY_TARGET_SCORE, to: Infinity, fill: VX.goodSoft, axisSide: 'left' },
           ]}
-          refLines={[
-            {
-              value: ACTIVITY_TARGET_SCORE,
-              color: VX.goodRef,
-              dashed: true,
-              axisSide: 'left',
+          refLines={[{ value: ACTIVITY_TARGET_SCORE, color: VX.goodRef, dashed: true }]}
+          // basalt-ui 1.17 clamps autoMaxFloor before padding (not after), so the floor no longer
+          // needs its own hand-added headroom above the target ref line — the framework's autoPad
+          // (1.1) now supplies it. Keeping the old `* 1.2` here would double-pad to 1.32x the target.
+          y={{ autoMaxFloor: ACTIVITY_TARGET_SCORE, ticks: 5 }}
+          tooltip={{
+            label: (d: ActivityPoint) => {
+              if (d.score === null) return null
+              const pct = Math.round((d.score / ACTIVITY_TARGET_SCORE) * 100)
+              return {
+                text: `${Math.round(d.score)} · ${pct}%`,
+                color: d.score >= ACTIVITY_TARGET_SCORE ? VX.goodSolid : VX.muted,
+              }
             },
-          ]}
-          leftAxis={{
-            domain: 'auto',
-            autoMaxFloor: ACTIVITY_TARGET_SCORE * 1.2,
-            numTicks: 5,
+            prependRows: (d: ActivityPoint, ctx: CartesianTooltipRowContext<ActivityPoint>) => (
+              <>
+                {!ctx.hidden.has('vigorousScore') && (
+                  <TooltipRow
+                    color={SERIES.intensityVigorous}
+                    label="Vigorous"
+                    value={`${d.vigorousMin ?? 0} min`}
+                    shape="bar"
+                  />
+                )}
+                {!ctx.hidden.has('moderateScore') && (
+                  <TooltipRow
+                    color={SERIES.intensityModerate}
+                    label="Moderate"
+                    value={`${d.moderateMin ?? 0} min`}
+                    shape="bar"
+                  />
+                )}
+                {!ctx.hidden.has('walkingScore') && (
+                  <TooltipRow
+                    color={SERIES.intensityWalking}
+                    label="Walking"
+                    value={`${d.walkingSteps.toLocaleString()} steps`}
+                    shape="bar"
+                  />
+                )}
+              </>
+            ),
           }}
-          tooltipLabel={(d) => {
-            if (d.score === null) return null
-            const pct = Math.round((d.score / ACTIVITY_TARGET_SCORE) * 100)
-            return {
-              text: `${Math.round(d.score)} · ${pct}%`,
-              color: d.score >= ACTIVITY_TARGET_SCORE ? VX.goodSolid : VX.muted,
-            }
-          }}
-          hideBarTooltipRows
-          renderPrefixTooltipRows={(d) => (
-            <>
-              <TooltipRow
-                color={SERIES.intensityVigorous}
-                label="Vigorous"
-                value={`${d.vigorousMin ?? 0} min`}
-                shape="bar"
-              />
-              <TooltipRow
-                color={SERIES.intensityModerate}
-                label="Moderate"
-                value={`${d.moderateMin ?? 0} min`}
-                shape="bar"
-              />
-              <TooltipRow
-                color={SERIES.intensityWalking}
-                label="Walking"
-                value={`${d.walkingSteps.toLocaleString()} steps`}
-                shape="bar"
-              />
-              {d.scoreMA !== null && (
-                <TooltipRow
-                  color={VX.line2}
-                  label="30d avg"
-                  value={`${Math.round(d.scoreMA)} · ${Math.round(
-                    (d.scoreMA / ACTIVITY_TARGET_SCORE) * 100,
-                  )}%`}
-                  shape="line"
-                  strokeWidth={1.5}
-                  dashed
-                />
-              )}
-            </>
-          )}
         />
       )}
     </ChartCard>

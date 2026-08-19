@@ -23,7 +23,7 @@
     "format:check": "oxfmt 'apps/**' 'packages/**' '!**/generated/**' '!**/dist/**' --check"
   },
   "devDependencies": {
-    "basalt-ui": "1.13.0",
+    "basalt-ui": "1.17.0",
     "concurrently": "^9.2.1",
     "lefthook": "^2.1.6",
     "oxfmt": "^0.45.0",

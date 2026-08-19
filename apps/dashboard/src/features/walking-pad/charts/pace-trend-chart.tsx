@@ -35,9 +35,11 @@ export function PaceTrendChart({ params }: { params: WalkingPadWindowParams }) {
   }))
   const hasData = points.some((p) => p.avg_speed_kmh !== null)
 
+  // 0 and 60 are the constants' stand-ins for the bottom and top of the axis — handed over as the
+  // infinities ZoneRects clamps to the resolved domain edges.
   const zones = PACE_ZONES.map((z) => ({
-    from: z.from,
-    to: z.to,
+    from: z.from === 0 ? -Infinity : z.from,
+    to: z.to === 60 ? Infinity : z.to,
     fill: zoneFill(z.tone),
   }))
 
@@ -48,6 +50,7 @@ export function PaceTrendChart({ params }: { params: WalkingPadWindowParams }) {
       color: SERIES.walkingPace,
       mark: 'line',
       getValue: (d) => d.avg_speed_kmh,
+      formatValue: fmtKmh,
     },
   ]
 
@@ -81,11 +84,8 @@ export function PaceTrendChart({ params }: { params: WalkingPadWindowParams }) {
           chartId="walking-pad-pace-trend"
           getX={(d) => d.date}
           series={series}
-          yDomain="auto"
-          yAutoMaxFloor={6}
-          yAutoMinCeil={1}
+          y={{ domain: 'auto', autoMaxFloor: 6, autoMinCeil: 1, nice: true }}
           zones={zones}
-          formatValue={fmtKmh}
           legend={false}
         />
       )}

@@ -1,7 +1,14 @@
 import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Text } from '@mantine/core'
-import { Bars, ChartCard, TooltipRow, VX, type BarsBar } from 'basalt-ui/charts'
+import {
+  Bars,
+  ChartCard,
+  TooltipRow,
+  VX,
+  type BarsBar,
+  type CartesianTooltipRowContext,
+} from 'basalt-ui/charts'
 import { activitiesQueries } from '../../../lib/queries/daily-metrics'
 import { ACTIVITY } from '../../../lib/series'
 import { METRIC_TOOLTIPS } from '../constants'
@@ -11,6 +18,9 @@ import { ChartEmpty } from './empty'
 
 const CHART_HEIGHT = 240
 const CHART_ID = 'activities'
+
+/** Floor for the auto y-domain — a 20-minute day still reads against a half-hour axis. */
+const AXIS_FLOOR_MIN = 30
 
 type Activity = {
   activity_id: number
@@ -170,12 +180,15 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
   )
   const activeDays = points.length
 
-  const positiveBars: BarsBar[] = useMemo(
+  // `tooltip: false` throughout: the tooltip lists the day's individual activities (`extraRows`),
+  // so a per-type total would repeat a single-activity day's duration verbatim.
+  const positiveBars = useMemo<BarsBar<ActivityDayPoint>[]>(
     () =>
       orderedTypes.map((m) => ({
         key: m.label,
         label: m.label,
         color: m.color,
+        tooltip: false,
       })),
     [orderedTypes],
   )
@@ -202,33 +215,31 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
           getX={(d) => d.date}
           getValue={getDayValue}
           positiveBars={positiveBars}
-          leftAxis={{
-            domain: 'auto',
-            autoMaxFloor: 30,
-            numTicks: 4,
-            formatTick: (v) => fmtMin(v),
+          y={{ autoMaxFloor: AXIS_FLOOR_MIN, ticks: 4, format: (v) => fmtMin(v) }}
+          tooltip={{
+            label: (d: ActivityDayPoint) => {
+              const total = Object.values(d.totals).reduce((a, b) => a + b, 0)
+              return total > 0 ? { text: fmtMin(total), color: VX.axis } : null
+            },
+            extraRows: (d: ActivityDayPoint, ctx: CartesianTooltipRowContext<ActivityDayPoint>) => (
+              <>
+                {d.activities
+                  .filter((a) => !ctx.hidden.has(activityTypeMeta(a.type_key).label))
+                  .map((a) => {
+                    const row = activityRowProps(a)
+                    return (
+                      <TooltipRow
+                        key={a.activity_id}
+                        color={row.color}
+                        shape="bar"
+                        label={row.label}
+                        value={row.value}
+                      />
+                    )
+                  })}
+              </>
+            ),
           }}
-          tooltipLabel={(d) => {
-            const total = Object.values(d.totals).reduce((a, b) => a + b, 0)
-            return total > 0 ? { text: fmtMin(total), color: VX.axis } : null
-          }}
-          hideBarTooltipRows
-          renderExtraTooltipRows={(d) => (
-            <>
-              {d.activities.map((a) => {
-                const row = activityRowProps(a)
-                return (
-                  <TooltipRow
-                    key={a.activity_id}
-                    color={row.color}
-                    shape="bar"
-                    label={row.label}
-                    value={row.value}
-                  />
-                )
-              })}
-            </>
-          )}
         />
       )}
     </ChartCard>

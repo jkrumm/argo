@@ -1,28 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Box } from '@mantine/core'
-import { useElementSize } from '@mantine/hooks'
 import {
-  AxisBottomDate,
-  AxisLeftNumeric,
+  alpha,
+  CartesianChart,
   ChartCard,
-  ChartLegend,
-  ChartTooltip,
-  GridRows,
-  Group,
-  HoverOverlay,
-  LinePath,
-  TooltipBody,
-  TooltipHeader,
-  TooltipRow,
-  VX,
+  type ChartSeries,
   curveMonotoneX,
-  scaleLinear,
-  scalePoint,
-  smartTicks,
-  useHoverSync,
-  useTooltipStyles,
-  type LegendEntry,
+  LinePath,
+  VX,
 } from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { SERIES } from '../../../lib/series'
@@ -30,12 +16,12 @@ import { DEFAULT_EXERCISES, EXERCISE_COLORS, METRIC_TOOLTIPS } from '../constant
 import { exerciseLabel } from '../formulas'
 import { ChartEmpty } from './empty'
 
+const HEIGHT = 280
+
 type RelPoint = {
   date: string
   pct: Record<string, number | null>
 }
-
-const MARGIN = { top: 16, right: 24, bottom: 32, left: 56 }
 
 function colorFor(exId: string): string {
   return EXERCISE_COLORS[exId as keyof typeof EXERCISE_COLORS] ?? SERIES.benchPress
@@ -49,171 +35,30 @@ function parseExercises(exercises: string | undefined): string[] {
     .filter(Boolean)
 }
 
-function RelativeProgressionInner({
-  data,
-  width,
-  height,
-  activeExercises,
-  highlighted,
-}: {
-  data: RelPoint[]
-  width: number
-  height: number
-  activeExercises: string[]
-  highlighted: string | null
-}) {
-  const xMax = width - MARGIN.left - MARGIN.right
-  const yMax = height - MARGIN.top - MARGIN.bottom
+function fmtPct(v: number): string {
+  return `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`
+}
 
-  const dim = (key: string): number => {
-    if (highlighted === null || highlighted === key) return 1
-    if (!activeExercises.includes(highlighted)) return 1
-    return 0.15
-  }
-
-  const xScale = useMemo(
-    () => scalePoint<string>({ domain: data.map((d) => d.date), range: [0, xMax], padding: 0.3 }),
-    [data, xMax],
-  )
-
-  const yScale = useMemo(() => {
-    const vals: number[] = []
-    for (const d of data) {
-      for (const ex of activeExercises) {
-        const v = d.pct[ex]
-        if (v !== null && v !== undefined) vals.push(v)
-      }
+/** Floors the domain at ±10% so a flat window doesn't amplify to a razor-thin band — `nice: true`
+ * on the axis rounds the resulting symmetric bound. */
+function pctDomain(
+  data: readonly RelPoint[],
+  visible: readonly ChartSeries<RelPoint>[],
+): [number, number] {
+  const vals: number[] = []
+  for (const d of data) {
+    for (const s of visible) {
+      const v = s.getValue(d)
+      if (v !== null) vals.push(Math.abs(v))
     }
-    if (!vals.length) return scaleLinear<number>({ domain: [-20, 20], range: [yMax, 0] })
-    const maxAbs = Math.max(10, Math.max(...vals.map(Math.abs)) * 1.15)
-    return scaleLinear<number>({ domain: [-maxAbs, maxAbs], range: [yMax, 0], nice: true })
-  }, [data, yMax, activeExercises])
-
-  const tooltipStyles = useTooltipStyles()
-  const { tip, tooltipRef, syncedPoint, isDirectHover, handleMouse, handleLeave } =
-    useHoverSync<RelPoint>({
-      data,
-      chartId: 'relative-progression',
-      getKey: (d) => d.date,
-      xScale,
-      marginLeft: MARGIN.left,
-    })
-
-  const tickValues = useMemo(
-    () =>
-      smartTicks(
-        data.map((d) => d.date),
-        xMax,
-      ),
-    [data, xMax],
-  )
-
-  return (
-    <div style={{ position: 'relative' }}>
-      <svg width={width} height={height}>
-        <Group left={MARGIN.left} top={MARGIN.top}>
-          <GridRows scale={yScale} width={xMax} stroke={VX.grid} numTicks={5} />
-
-          {/* Zero baseline */}
-          <line
-            x1={0}
-            x2={xMax}
-            y1={yScale(0)}
-            y2={yScale(0)}
-            stroke={VX.axis}
-            strokeWidth={1}
-            strokeDasharray="2 4"
-            strokeOpacity={0.6}
-          />
-
-          {activeExercises.map((ex) => {
-            const valid = data.filter((d) => {
-              const v = d.pct[ex]
-              return v !== null && v !== undefined
-            })
-            if (valid.length < 1) return null
-            return (
-              <LinePath<RelPoint>
-                key={ex}
-                data={valid}
-                x={(d) => xScale(d.date) ?? 0}
-                y={(d) => yScale(d.pct[ex] as number)}
-                stroke={colorFor(ex)}
-                strokeWidth={2.5}
-                strokeOpacity={dim(ex)}
-                curve={curveMonotoneX}
-              />
-            )
-          })}
-
-          {syncedPoint !== null && (
-            <>
-              <line
-                x1={xScale(syncedPoint.date) ?? 0}
-                x2={xScale(syncedPoint.date) ?? 0}
-                y1={0}
-                y2={yMax}
-                stroke={VX.crosshair}
-                strokeWidth={1}
-              />
-              {activeExercises.map((ex) => {
-                const v = syncedPoint.pct[ex]
-                if (v === null || v === undefined) return null
-                return (
-                  <circle
-                    key={ex}
-                    cx={xScale(syncedPoint.date) ?? 0}
-                    cy={yScale(v)}
-                    r={4}
-                    fill={colorFor(ex)}
-                    stroke={VX.dotStroke}
-                    strokeWidth={2}
-                  />
-                )
-              })}
-            </>
-          )}
-
-          <AxisLeftNumeric
-            scale={yScale}
-            numTicks={5}
-            tickFormat={(v) => `${Number(v).toFixed(0)}%`}
-          />
-          <AxisBottomDate top={yMax} scale={xScale} tickValues={tickValues} />
-          <HoverOverlay width={xMax} height={yMax} onMove={handleMouse} onLeave={handleLeave} />
-        </Group>
-      </svg>
-      <ChartTooltip tip={isDirectHover ? tip : null} tooltipRef={tooltipRef} styles={tooltipStyles}>
-        {tip && isDirectHover && (
-          <>
-            <TooltipHeader date={tip.data.date} />
-            <TooltipBody>
-              {activeExercises.map((ex) => {
-                const v = tip.data.pct[ex]
-                if (v === null || v === undefined) return null
-                return (
-                  <TooltipRow
-                    key={ex}
-                    color={colorFor(ex)}
-                    label={exerciseLabel(ex)}
-                    value={`${v >= 0 ? '+' : ''}${v.toFixed(1)}%`}
-                    shape="line"
-                    strokeWidth={2.5}
-                  />
-                )
-              })}
-            </TooltipBody>
-          </>
-        )}
-      </ChartTooltip>
-    </div>
-  )
+  }
+  if (!vals.length) return [-20, 20]
+  const maxAbs = Math.max(10, Math.max(...vals) * 1.15)
+  return [-maxAbs, maxAbs]
 }
 
 export default function RelativeProgressionChart({ params }: { params: StrengthQueryParams }) {
   const { data } = useSuspenseQuery(strengthQueries.relativeProgression(params))
-  const { ref, width } = useElementSize<HTMLDivElement>()
-  const [highlighted, setHighlighted] = useState<string | null>(null)
 
   const activeExercises = useMemo(() => parseExercises(params.exercises), [params.exercises])
 
@@ -253,6 +98,20 @@ export default function RelativeProgressionChart({ params }: { params: StrengthQ
     return best
   }, [points, activeExercises])
 
+  const series = useMemo<ChartSeries<RelPoint>[]>(
+    () =>
+      activeExercises.map((ex) => ({
+        key: ex,
+        label: exerciseLabel(ex),
+        color: colorFor(ex),
+        mark: 'line',
+        strokeWidth: 2.5,
+        getValue: (d: RelPoint) => d.pct[ex] ?? null,
+        formatValue: fmtPct,
+      })),
+    [activeExercises],
+  )
+
   const headerExtra = leader ? (
     <span style={{ fontSize: VX.text.xs }}>
       <span
@@ -271,14 +130,6 @@ export default function RelativeProgressionChart({ params }: { params: StrengthQ
     </span>
   ) : null
 
-  const legendItems: LegendEntry[] = activeExercises.map((ex) => ({
-    key: ex,
-    label: exerciseLabel(ex),
-    color: colorFor(ex),
-    shape: 'line',
-    strokeWidth: 2.5,
-  }))
-
   return (
     <ChartCard
       title="Relative Progression"
@@ -286,20 +137,40 @@ export default function RelativeProgressionChart({ params }: { params: StrengthQ
       tooltip={METRIC_TOOLTIPS.relativeProgression}
       extra={headerExtra}
     >
-      <Box ref={ref} h={280} w="100%">
-        {!hasAny ? (
-          <ChartEmpty height={280} />
-        ) : width > 0 ? (
-          <RelativeProgressionInner
+      <Box h={HEIGHT} w="100%">
+        {hasAny ? (
+          <CartesianChart
             data={points}
-            width={Math.max(width, 200)}
-            height={280}
-            activeExercises={activeExercises}
-            highlighted={highlighted}
-          />
-        ) : null}
+            chartId="relative-progression"
+            getX={(d) => d.date}
+            series={series}
+            y={{ domain: pctDomain, ticks: 5, format: (v) => `${v.toFixed(0)}%`, nice: true }}
+            refLines={[{ value: 0, color: alpha(VX.axis, 0.6), dashed: true }]}
+            height={HEIGHT}
+            ariaLabel="Relative progression per lift, in percent from the window start"
+          >
+            {({ data: rows, visible, xScale, yScale, highlighted }) =>
+              visible.map((s) => {
+                const valid = rows.filter((d) => s.getValue(d) !== null)
+                return (
+                  <LinePath<RelPoint>
+                    key={s.key}
+                    data={valid}
+                    x={(d) => xScale(d.date) ?? 0}
+                    y={(d) => yScale(s.getValue(d) ?? 0)}
+                    stroke={s.color}
+                    strokeWidth={2.5}
+                    strokeOpacity={highlighted === null || highlighted === s.key ? 1 : 0.15}
+                    curve={curveMonotoneX}
+                  />
+                )
+              })
+            }
+          </CartesianChart>
+        ) : (
+          <ChartEmpty height={HEIGHT} />
+        )}
       </Box>
-      <ChartLegend items={legendItems} highlighted={highlighted} onHighlight={setHighlighted} />
     </ChartCard>
   )
 }

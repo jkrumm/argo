@@ -69,23 +69,40 @@ slot in the route passes the prop in.
 - Use the constants in `../constants.ts`: `EXERCISE_COLORS`, `METRIC_TOOLTIPS`, `ZONE_COLORS` (for zone fills).
 - Use the helpers in `../formulas.ts`: `acwrZoneColor`, `acwrZoneLabel`, `inolDotColor`, `directionArrow`, `directionColor`, `exerciseLabel`.
 
-## Chart hover sync
+## Chart cursor sync
 
-If your chart should sync crosshairs with other charts on the page, wire in via
-`useHoverSync(chartId, getX)` (`basalt-ui/charts`). The route wraps the page's chart section in
-`<ChartHoverSync>` (also `basalt-ui/charts`) — no manual context provider needed. Use a stable
-`chartId` matching the chart's filename (e.g. `'one-rm-trend'`, `'training-load'`).
+The cursor is shared page-wide **by default** — no provider, no hook to wire. Every chart that
+composes `CartesianChart` (directly or through a kind) joins it; just give it a stable `chartId`
+matching the chart's filename (e.g. `'one-rm-trend'`, `'training-load'`). Resolution is domain-aware
+(exact key, then nearest parsed date/number within one domain step), so a chart that folds or
+downsamples its own x domain still tracks a sibling's hover. `ChartCursorScope` opts a subtree
+**out** of sharing — reach for it only when a group must not follow the page.
 
 ## Primitive contract — required
 
 1. `ChartCard` wrapper (title + subtitle + tooltip + extra slot)
-2. `ChartLegend` for any legend markup — never hand-rolled; pass series/legend items as data, not JSX
-3. `ChartTooltip` + `TooltipHeader` / `TooltipRow` / `TooltipBody`
-4. `AxisLeftNumeric` / `AxisBottomDate` — never raw visx axes
-5. `HoverOverlay` for mouse capture
-6. `useChartTooltip` for tooltip open/close state
-7. `useElementSize` from `@mantine/hooks` for responsive width
-8. Every chart entry point needs an `ariaLabel` prop — enforced by `bunx basalt-ui check-theme`.
+2. `CartesianChart` for every single-plot cartesian chart — directly, or through a kind
+   (`ZonedLine`, `Bars`, `StackedArea`, `MultiLine`) that composes it. It owns the measured
+   margins, both y scales + domains, the x scale + tick thinning, grid, zones, axes, the shared
+   cursor, the crosshair + per-series dots, the hover/keyboard overlay, and the derived tooltip.
+   Draw **only marks** in its `children` render prop, and draw them off `ctx.visible` — never off
+   the `series` prop, or legend toggling won't remove the mark. Hand-assembling
+   `AxisLeftNumeric` / `AxisRightNumeric` / `AxisBottomDate` / `HoverOverlay` / `Crosshair`
+   outside it fails `basalt/hand-rolled-plot`.
+3. `series` is the single source of truth — legend entries and tooltip rows are DERIVED from it.
+   Never hand-author a `ChartLegend` `items` array literal (`basalt/chart-legend-literal`).
+4. A genuinely non-single-plot shape (multi-pane, radial, matrix) composes `ChartFrame` +
+   `useChartCursor` + `ChartTooltipFloat` instead, and declares itself with a `theme-allow`
+   comment carrying a one-line reason.
+5. Sizing is self-measured: pass `height` / `aspectRatio` / `fill` and nothing else. Never
+   `useElementSize` in a chart file (Mantine is banned inside `charts/**`).
+6. Axis config is one `AxisConfig` object per axis: `y={{ domain, autoMaxFloor, autoMinCeil,
+autoPad, ticks, format, grid }}` and `y2` for the right axis. Passing `y2` is what makes a
+   chart dual-axis. Margins are measured — never nudge them by hand.
+7. Tooltip config is one object: `tooltip={{ label, prependRows, extraRows, follow }}`, or
+   `tooltip={false}` to drop the tooltip and its crosshair dots.
+8. `isPending` for an in-flight query — never fake it with `data ?? []`.
+9. Every chart entry point needs an `ariaLabel` prop — enforced by `bunx basalt-ui check-theme`.
 
 Kind components (`ZonedLine`, `MultiLine`, `DualPanel`, `Heatmap`, …) take a `series: ChartSeries<T>[]`
 descriptor array (`{ key, label, color, mark, getValue }`) rather than ad-hoc per-series props.

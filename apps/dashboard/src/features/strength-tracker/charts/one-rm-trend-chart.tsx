@@ -1,29 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Box } from '@mantine/core'
-import { useElementSize } from '@mantine/hooks'
-import {
-  AxisBottomDate,
-  AxisLeftNumeric,
-  ChartCard,
-  ChartLegend,
-  ChartTooltip,
-  GridRows,
-  Group,
-  HoverOverlay,
-  LinePath,
-  TooltipBody,
-  TooltipHeader,
-  TooltipRow,
-  VX,
-  curveMonotoneX,
-  scaleLinear,
-  scalePoint,
-  smartTicks,
-  useHoverSync,
-  useTooltipStyles,
-  type LegendEntry,
-} from 'basalt-ui/charts'
+import { ChartCard, MultiLine, VX, type ChartSeries } from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { SERIES } from '../../../lib/series'
 import { DEFAULT_EXERCISES, EXERCISE_COLORS, METRIC_TOOLTIPS } from '../constants'
@@ -40,7 +18,9 @@ type MergedPoint = {
   prSet: Set<string>
 }
 
-const MARGIN = { top: 16, right: 24, bottom: 32, left: 56 }
+const LINE_WIDTH = 2.5
+const MA_LINE_WIDTH = 1.5
+const PR_MARKER_R = 6
 
 function colorFor(exId: string): string {
   return EXERCISE_COLORS[exId as keyof typeof EXERCISE_COLORS] ?? SERIES.benchPress
@@ -136,197 +116,24 @@ function trendArrow(
   return diff > 0 ? 'improving' : 'declining'
 }
 
-function OneRmInner({
-  data,
-  width,
-  height,
-  activeExercises,
-  highlighted,
-}: {
-  data: MergedPoint[]
-  width: number
-  height: number
-  activeExercises: string[]
-  highlighted: string | null
-}) {
-  const xMax = width - MARGIN.left - MARGIN.right
-  const yMax = height - MARGIN.top - MARGIN.bottom
-
-  const dim = (key: string): number => {
-    if (highlighted === null || highlighted === key) return 1
-    if (!activeExercises.includes(highlighted)) return 1
-    return 0.15
-  }
-
-  const xScale = useMemo(
-    () => scalePoint<string>({ domain: data.map((d) => d.date), range: [0, xMax], padding: 0.3 }),
-    [data, xMax],
-  )
-
-  const yScale = useMemo(() => {
-    const vals: number[] = []
-    for (const pt of data) {
-      for (const ex of activeExercises) {
-        const v = pt.e1rm[ex]
-        if (v !== null && v !== undefined) vals.push(v)
-        const m = pt.ma[ex]
-        if (m !== null && m !== undefined) vals.push(m)
-      }
+/** Padded envelope over every plotted e1RM and 30d-MA value — `nice: true` on the axis rounds it. */
+function yDomain(
+  rows: readonly MergedPoint[],
+  visible: readonly ChartSeries<MergedPoint>[],
+): [number, number] {
+  const vals: number[] = []
+  for (const pt of rows) {
+    for (const s of visible) {
+      const v = s.getValue(pt)
+      if (v !== null) vals.push(v)
     }
-    if (!vals.length) return scaleLinear<number>({ domain: [0, 200], range: [yMax, 0] })
-    const lo = Math.min(...vals) * 0.92
-    const hi = Math.max(...vals) * 1.08
-    return scaleLinear<number>({ domain: [lo, hi], range: [yMax, 0], nice: true })
-  }, [data, activeExercises, yMax])
-
-  const tooltipStyles = useTooltipStyles()
-  const { tip, tooltipRef, syncedPoint, isDirectHover, handleMouse, handleLeave } =
-    useHoverSync<MergedPoint>({
-      data,
-      chartId: 'one-rm-trend',
-      getKey: (d) => d.date,
-      xScale,
-      marginLeft: MARGIN.left,
-    })
-
-  const tickValues = useMemo(
-    () =>
-      smartTicks(
-        data.map((d) => d.date),
-        xMax,
-      ),
-    [data, xMax],
-  )
-
-  return (
-    <div style={{ position: 'relative' }}>
-      <svg width={width} height={height}>
-        <Group left={MARGIN.left} top={MARGIN.top}>
-          <GridRows scale={yScale} width={xMax} stroke={VX.grid} numTicks={5} />
-
-          {/* 30-day MA dashed overlay */}
-          {activeExercises.map((ex) => {
-            const maValid = data.filter((d) => d.ma[ex] !== null && d.ma[ex] !== undefined)
-            if (maValid.length < 2) return null
-            return (
-              <LinePath<MergedPoint>
-                key={`ma-${ex}`}
-                data={maValid}
-                x={(d) => xScale(d.date) ?? 0}
-                y={(d) => yScale(d.ma[ex] as number)}
-                stroke={colorFor(ex)}
-                strokeWidth={1.5}
-                strokeDasharray="5 5"
-                strokeOpacity={dim(ex) * 0.5}
-                curve={curveMonotoneX}
-              />
-            )
-          })}
-
-          {/* Main e1RM lines */}
-          {activeExercises.map((ex) => {
-            const valid = data.filter((d) => d.e1rm[ex] !== null && d.e1rm[ex] !== undefined)
-            if (!valid.length) return null
-            return (
-              <LinePath<MergedPoint>
-                key={`line-${ex}`}
-                data={valid}
-                x={(d) => xScale(d.date) ?? 0}
-                y={(d) => yScale(d.e1rm[ex] as number)}
-                stroke={colorFor(ex)}
-                strokeWidth={2.5}
-                strokeOpacity={dim(ex)}
-                curve={curveMonotoneX}
-              />
-            )
-          })}
-
-          {/* PR markers (running-max stars rendered as circles with stroke) */}
-          {activeExercises.flatMap((ex) =>
-            data
-              .filter((d) => d.e1rm[ex] !== null && d.e1rm[ex] !== undefined && d.prSet.has(ex))
-              .map((d) => (
-                <circle
-                  key={`pr-${d.date}-${ex}`}
-                  cx={xScale(d.date) ?? 0}
-                  cy={yScale(d.e1rm[ex] as number)}
-                  r={6}
-                  fill={colorFor(ex)}
-                  stroke={VX.dotStroke}
-                  strokeWidth={2}
-                  fillOpacity={dim(ex)}
-                  strokeOpacity={dim(ex)}
-                />
-              )),
-          )}
-
-          {/* Crosshair + hover dots */}
-          {syncedPoint !== null && (
-            <>
-              <line
-                x1={xScale(syncedPoint.date) ?? 0}
-                x2={xScale(syncedPoint.date) ?? 0}
-                y1={0}
-                y2={yMax}
-                stroke={VX.crosshair}
-                strokeWidth={1}
-              />
-              {activeExercises.map((ex) => {
-                const v = syncedPoint.e1rm[ex]
-                if (v === null || v === undefined) return null
-                return (
-                  <circle
-                    key={`hd-${ex}`}
-                    cx={xScale(syncedPoint.date) ?? 0}
-                    cy={yScale(v)}
-                    r={VX.dotR}
-                    fill={colorFor(ex)}
-                    stroke={VX.dotStroke}
-                    strokeWidth={2}
-                  />
-                )
-              })}
-            </>
-          )}
-
-          <AxisLeftNumeric scale={yScale} numTicks={5} />
-          <AxisBottomDate top={yMax} scale={xScale} tickValues={tickValues} />
-          <HoverOverlay width={xMax} height={yMax} onMove={handleMouse} onLeave={handleLeave} />
-        </Group>
-      </svg>
-      <ChartTooltip tip={isDirectHover ? tip : null} tooltipRef={tooltipRef} styles={tooltipStyles}>
-        {tip && isDirectHover && (
-          <>
-            <TooltipHeader date={tip.data.date} />
-            <TooltipBody>
-              {activeExercises.map((ex) => {
-                const v = tip.data.e1rm[ex]
-                if (v === null || v === undefined) return null
-                const bs = tip.data.bestSets[ex]
-                const setStr = bs ? ` (${bs.weight_kg.toFixed(1)} kg × ${bs.reps})` : ''
-                return (
-                  <TooltipRow
-                    key={ex}
-                    color={colorFor(ex)}
-                    label={exerciseLabel(ex)}
-                    value={`${v.toFixed(1)} kg${setStr}`}
-                    shape="line"
-                    strokeWidth={2.5}
-                  />
-                )
-              })}
-            </TooltipBody>
-          </>
-        )}
-      </ChartTooltip>
-    </div>
-  )
+  }
+  if (!vals.length) return [0, 200]
+  return [Math.min(...vals) * 0.92, Math.max(...vals) * 1.08]
 }
 
 export default function OneRmTrendChart({ params }: { params: StrengthQueryParams }) {
   const { data } = useSuspenseQuery(strengthQueries.seriesDetailed(params))
-  const { ref, width } = useElementSize<HTMLDivElement>()
-  const [highlighted, setHighlighted] = useState<string | null>(null)
 
   const activeExercises = useMemo(() => {
     const requested = parseExercises(params.exercises)
@@ -342,6 +149,41 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
     () => buildMergedPoints(data.byExercise as ApiSeriesByExercise[], activeExercises),
     [data.byExercise, activeExercises],
   )
+
+  const series = useMemo<ChartSeries<MergedPoint>[]>(() => {
+    const byExercise = data.byExercise as ApiSeriesByExercise[]
+    const out: ChartSeries<MergedPoint>[] = []
+    for (const ex of activeExercises) {
+      out.push({
+        key: ex,
+        label: `${exerciseLabel(ex)} ${directionArrow(trendArrow(byExercise, ex))}`,
+        color: colorFor(ex),
+        mark: 'line',
+        strokeWidth: LINE_WIDTH,
+        getValue: (d) => d.e1rm[ex] ?? null,
+        formatValue: (v, d) => {
+          const bs = d.bestSets[ex]
+          const setStr = bs ? ` (${bs.weight_kg.toFixed(1)} kg × ${bs.reps})` : ''
+          return `${v.toFixed(1)} kg${setStr}`
+        },
+        getMarker: (d) => (d.prSet.has(ex) ? { r: PR_MARKER_R } : null),
+      })
+      out.push({
+        key: `ma-${ex}`,
+        label: '30d MA',
+        color: colorFor(ex),
+        strokeOpacity: 0.5,
+        mark: 'line',
+        dash: 'dashed',
+        strokeWidth: MA_LINE_WIDTH,
+        legend: false,
+        tooltip: false,
+        parent: ex,
+        getValue: (d) => d.ma[ex] ?? null,
+      })
+    }
+    return out
+  }, [data.byExercise, activeExercises])
 
   const hasAnyPoint = merged.some((p) =>
     activeExercises.some((ex) => p.e1rm[ex] !== null && p.e1rm[ex] !== undefined),
@@ -385,18 +227,6 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
       })()
     : null
 
-  const legendItems: LegendEntry[] = activeExercises.map((ex) => {
-    const dir = trendArrow(data.byExercise as ApiSeriesByExercise[], ex)
-    const arrow = directionArrow(dir)
-    return {
-      key: ex,
-      label: `${exerciseLabel(ex)} ${arrow}`,
-      color: colorFor(ex),
-      shape: 'line',
-      strokeWidth: 2.5,
-    }
-  })
-
   return (
     <ChartCard
       title="Estimated 1RM"
@@ -404,20 +234,19 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
       tooltip={METRIC_TOOLTIPS.oneRmTrend}
       extra={headerExtra}
     >
-      <Box ref={ref} h={280} w="100%">
-        {!hasAnyPoint ? (
-          <ChartEmpty height={280} />
-        ) : width > 0 ? (
-          <OneRmInner
-            data={merged}
-            width={Math.max(width, 200)}
-            height={280}
-            activeExercises={activeExercises}
-            highlighted={highlighted}
-          />
-        ) : null}
-      </Box>
-      <ChartLegend items={legendItems} highlighted={highlighted} onHighlight={setHighlighted} />
+      {!hasAnyPoint ? (
+        <ChartEmpty height={280} />
+      ) : (
+        <MultiLine<MergedPoint>
+          data={merged}
+          chartId="one-rm-trend"
+          getX={(d) => d.date}
+          series={series}
+          y={{ domain: yDomain, nice: true }}
+          height={280}
+          ariaLabel="Estimated 1RM trend per exercise"
+        />
+      )}
     </ChartCard>
   )
 }

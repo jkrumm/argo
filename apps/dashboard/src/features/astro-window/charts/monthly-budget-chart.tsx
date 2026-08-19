@@ -31,10 +31,19 @@ type MonthRow = { month: string; flat: number; terrain: number; terrainMoon: num
  * atmospheric floor), and a grouped layout reads two equal-height bars as agreement rather than a
  * missing series, which a stacked layout would not.
  */
-const BARS: BarsBar[] = [
-  { key: 'flat', label: 'Flat atmospheric floor', color: VX.faint },
-  { key: 'terrain', label: 'Flat + measured skyline', color: VX.muted },
-  { key: 'terrainMoon', label: 'Skyline + moon behind it', color: SERIES.coreAltitude },
+// `formatValue` is per-series now, not a kind-level prop: the axis `format` below drives the
+// ticks (and is the tooltip's fallback), so the tooltip's own precision belongs here.
+const fmtBudget = (v: number) => `${v.toFixed(1)}h`
+
+const BARS: BarsBar<MonthRow>[] = [
+  { key: 'flat', label: 'Flat atmospheric floor', color: VX.faint, formatValue: fmtBudget },
+  { key: 'terrain', label: 'Flat + measured skyline', color: VX.muted, formatValue: fmtBudget },
+  {
+    key: 'terrainMoon',
+    label: 'Skyline + moon behind it',
+    color: SERIES.coreAltitude,
+    formatValue: fmtBudget,
+  },
 ]
 
 function toHours(minutes: number): number {
@@ -82,8 +91,7 @@ export default function MonthlyBudgetChart({ site }: { site: Site }) {
         getValue={getValue}
         positiveBars={BARS}
         barLayout="grouped"
-        leftAxis={{ domain: 'auto', autoMinCeil: 0, formatTick: (v) => `${v}h` }}
-        formatValue={(v) => `${v.toFixed(1)}h`}
+        y={{ domain: 'auto', autoMinCeil: 0, format: (v) => `${v}h` }}
         ariaLabel={`Usable galactic-core hours per month at ${site.name}, under the flat, terrain and terrain-plus-moon gates`}
       />
     </ChartCard>
