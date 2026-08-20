@@ -248,6 +248,21 @@ empty section is the correct default; do not invent deviations to fill it.
   enough to blank the band it sits on. The rest of the table rises gently from that floor rather
   than climbing steeply from a near-zero one, which is what keeps hue doing the work of separating
   city from suburb from rural from dark instead of alpha doing it by fading half the ramp away.
+- **The three Open-Meteo forecast layers paint in a third party's colours, not ours.**
+  `model-cloud` / `model-cloud-low` / `model-precip` are rendered inside
+  `@openmeteo/weather-map-layer`'s `om://` protocol, which rasterises the model field to RGBA on
+  its own before MapLibre ever sees it — so these are the one surface in the app whose colour does
+  not come from a `--vx-*` token, and the theme guard cannot see them (there is no hex in our
+  source to find). Measured from the shipped scales on 2026-08-20 rather than assumed: cloud runs
+  dark-to-light with alpha `0 → .925` across 0–100 %, precipitation is the conventional
+  blue → green → red radar ramp with alpha `0` below 0.055 mm. **Both are fully transparent at
+  zero**, which is the property that actually matters here — a forecast layer that washed the
+  whole viewport at 0 % would bury the pollution ramp the same way the ramp was burying the
+  hillshade. Accepted as-is for the first version because the package's scales are legible and
+  correct; the hook to bring them onto our palette exists (`colorScales` on
+  `OmProtocolSettings`, passed as `omProtocol`'s third argument) and is the right follow-up if
+  these layers ever need to sit alongside our own series ink rather than replace the view.
+
 - **`VX.muted` is used instead of `VX.tooltipMuted`** in two bespoke tooltip/legend labels
   (readiness-strain, time-of-day): the opaque secondary-ink token reads equivalently there. Note
   this is now a preference, not a constraint — basalt-ui 1.0.0 does export `VX.tooltipMuted`

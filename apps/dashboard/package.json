@@ -24,6 +24,7 @@
     "@mantine/notifications": "^9.3.0",
     "@mantine/schedule": "^9.3.0",
     "@mantine/spotlight": "^9.3.0",
+    "@openmeteo/weather-map-layer": "0.0.20",
     "@tabler/icons-react": "^3.44.0",
     "@tanstack/react-hotkeys": "0.10.0",
     "@tanstack/react-query": "^5.101.0",

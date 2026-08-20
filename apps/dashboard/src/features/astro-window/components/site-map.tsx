@@ -8,6 +8,7 @@ import {
   Image,
   Paper,
   ScrollArea,
+  Slider,
   Stack,
   Text,
   Tooltip,
@@ -38,18 +39,23 @@ import { createPersistedState } from 'basalt-ui/state'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { astroQueries } from '../../../lib/queries/astro'
 import { rainviewerQueries } from '../../../lib/queries/rainviewer'
+import { openMeteoMapsQueries } from '../../../lib/queries/open-meteo-maps'
 import { apiBase } from '../../../lib/api-base'
 import { getToken } from '../../../lib/auth'
 import { MAP_MIN_HEIGHT } from '../constants'
 import { ChartEmpty } from '../charts/empty'
 import {
   baseLayer,
+  buildTimeTicks,
   CONTOUR_GLYPHS_URL,
   gibsTime,
   legendSource,
   legendUrl,
   LP_RAMP,
   LP_SITE_BAND,
+  MODEL_FRAME_MS,
+  nearestTimeIndex,
+  nextTickMs,
   RADAR_FRAME_MS,
   RADAR_REFRESH_MS,
   remapLpRampStops,
@@ -218,6 +224,12 @@ export default function SiteMap({
   const gibsActive = layers.weather.some(
     (selection) => weatherLayer(selection.id)?.source === 'gibs-ir',
   )
+  // Whether any `'om-model'` row (`model-cloud`/`model-cloud-low`/`model-precip`) is on — gates
+  // the domain-metadata fetch below the same "leave on only what you are reading" way
+  // `radarActive` gates RainViewer's own query.
+  const omModelActive = layers.weather.some(
+    (selection) => weatherLayer(selection.id)?.source === 'om-model',
+  )
 
   /**
    * The global radar's own frames. RainViewer publishes a new mosaic every 5 minutes and this
@@ -227,8 +239,8 @@ export default function SiteMap({
    * third-party request off the wire entirely while the layer is off, matching the settings
    * panel's own "leave on only what you are reading" copy. A loading or failed query resolves to
    * `[]` (never `undefined`), so `desiredStack` (`map-overlays.ts`) renders that as "no frames"
-   * and `frameCount > 0` below already keeps the clock/play-pause UI from mounting on an empty
-   * set — a dead third-party feed must not break the map.
+   * and `tickCount > 0` below already keeps the scrubber UI from mounting on an empty set — a
+   * dead third-party feed must not break the map.
    */
   const { data: rainviewerFrames } = useQuery({
     ...rainviewerQueries.radar(),
@@ -237,6 +249,23 @@ export default function SiteMap({
   const radarFrames = useMemo(
     () => (radarActive ? (rainviewerFrames ?? []) : []),
     [radarActive, rainviewerFrames],
+  )
+
+  /**
+   * The selected forecast domain's own metadata — `reference_time`/`valid_times[]`, the timeline
+   * the three `'om-model'` rows step through. `enabled: omModelActive` keeps this third-party
+   * request off the wire while none of the three is on, same discipline as `radarActive` above. A
+   * loading/failed query resolves `omValidTimes` to `[]`, which `desiredStack` (`map-overlays.ts`)
+   * already reads as "mount nothing" via `omTimeStep === null` — a dead upstream must not break
+   * the map, same contract `radarFrames` already keeps.
+   */
+  const { data: omMeta } = useQuery({
+    ...openMeteoMapsQueries.meta(layers.omDomain),
+    enabled: omModelActive,
+  })
+  const omValidTimes = useMemo(
+    () => (omModelActive ? (omMeta?.validTimes ?? []) : []),
+    [omModelActive, omMeta],
   )
 
   /**
@@ -312,25 +341,131 @@ export default function SiteMap({
     [epoch],
   )
 
+  /**
+   * The time scrubber's own tick list — the UNION of RainViewer's past frames and the selected
+   * domain's hourly forecast steps (`buildTimeTicks`, `map-layers.ts`), sorted and de-duplicated.
+   *
+   * The EUMETSAT/GIBS observation rows (`lightning`/`cloud`/`cloud-ir`/`cloud-top`) contribute
+   * NOTHING here and do NOT follow this scrubber at all — that is deliberate, not a bug: none of
+   * the four carries a forecast or a history worth scrubbing through, so they keep asking for
+   * "latest published" off their own independent clocks (`weatherLayerTime`'s `timeGrid`s,
+   * `gibsTimeValue` above) regardless of where the scrubber sits. See `TimeScrubber`'s own doc
+   * below for the same point made from the render side.
+   */
+  const ticks = useMemo(
+    () =>
+      buildTimeTicks(
+        radarFrames.map((f) => f.time),
+        omValidTimes,
+      ),
+    [radarFrames, omValidTimes],
+  )
+  const tickCount = ticks.length
+
+  /** Radar's own newest frame — `TimeScrubber` reads this to say plainly that radar has stalled at
+   * its latest reading once the scrubber moves past it, rather than silently implying radar has a
+   * forecast of its own. `null` while radar is off or has no frames yet. */
+  const radarNewestTime = useMemo(
+    () =>
+      radarFrames.reduce<Date | null>(
+        (latest, f) => (latest === null || f.time > latest ? f.time : latest),
+        null,
+      ),
+    [radarFrames],
+  )
+
+  /**
+   * The scrubber's position is held as a TIME, never as an index into `ticks`, and the index is
+   * DERIVED from it every render. That inverts the obvious arrangement for a reason: the tick list
+   * changes shape constantly — RainViewer republishes a smaller past-frame set on its own 5-minute
+   * cadence, toggling a `'om-model'` row adds 49 hourly steps in one go, switching domain replaces
+   * them with a different count — and index 7 of the old list is a different moment in the new one.
+   * Holding the time keeps the scrubber pointing at the same moment across every one of those, and
+   * it makes an out-of-range index structurally impossible rather than something a clamp has to
+   * catch after the fact (which is what the `trackedFrameCount` guard here used to do, for the
+   * radar-only list this replaced).
+   *
+   * Seeded to mount time, so the map OPENS on now rather than on the oldest tick it happens to
+   * have — with a forecast domain on, tick 0 is that model run's reference time, which can be
+   * several hours stale.
+   */
+  const [targetMs, setTargetMs] = useState(() => Date.now())
+  const [playing, setPlaying] = useState(true)
+
+  const tickIndex = useMemo(
+    () => (tickCount === 0 ? 0 : (nearestTimeIndex(ticks, new Date(targetMs)) ?? 0)),
+    [ticks, tickCount, targetMs],
+  )
+  const scrubToTick = useCallback(
+    (index: number) => {
+      const tick = ticks[index]
+      if (tick !== undefined) setTargetMs(tick.getTime())
+    },
+    [ticks],
+  )
+
+  /**
+   * Turning a forecast row on STOPS the loop. A radar-only list is 13 five-minute frames covering
+   * the last hour — looping it by default is the whole point of that layer. A list with a model in
+   * it is up to 49 hourly steps, each of which is a different `time_step` baked into the source id
+   * (`omLayerId`, `map-overlays.ts`) and therefore a fresh fetch, so autoplay there would mean an
+   * endless request cycle over a third-party endpoint nobody asked to animate. Play stays
+   * available — watching 48 h of cloud move is genuinely useful — it just has to be asked for.
+   * Derived during render, the pattern this file already uses rather than a reset `useEffect`.
+   */
+  const [trackedOmActive, setTrackedOmActive] = useState(omModelActive)
+  if (trackedOmActive !== omModelActive) {
+    setTrackedOmActive(omModelActive)
+    if (omModelActive) setPlaying(false)
+  }
+
+  const currentTick = ticks[tickIndex] ?? null
+
+  /**
+   * Read by the playback loop below instead of `ticks` itself, for the same reason
+   * `overlayStateRef` exists: the loop must not be torn down and rebuilt every time RainViewer
+   * republishes its catalogue (every 5 minutes) or the forecast metadata refetches, which is what
+   * putting `ticks` in that effect's dep array would do — the interval would reset mid-cycle and
+   * the animation would stutter on a schedule the user never asked about.
+   */
+  const ticksRef = useRef(ticks)
+  ticksRef.current = ticks
+
+  /**
+   * Each time-following layer snaps to its OWN nearest addressable time off the shared
+   * `currentTick` (`nearestTimeIndex`, `map-layers.ts`) — `null` while the layer is inactive or
+   * its own times have not loaded yet, so `overlayState` mounts nothing for it rather than a
+   * source pointed at a bogus index. Radar needs no special case for "the scrubber moved past
+   * now": RainViewer's own times never extend past "now" (its nowcast was discontinued
+   * 2026-01-01), so once every candidate is behind the target the NEWEST one is already nearest —
+   * see `nearestTimeIndex`'s own doc.
+   */
+  const nearestRadarFrame = useMemo(
+    () =>
+      radarActive && currentTick !== null
+        ? nearestTimeIndex(
+            radarFrames.map((f) => f.time),
+            currentTick,
+          )
+        : null,
+    [radarActive, radarFrames, currentTick],
+  )
+  const omTimeStep = useMemo(
+    () =>
+      omModelActive && currentTick !== null ? nearestTimeIndex(omValidTimes, currentTick) : null,
+    [omModelActive, omValidTimes, currentTick],
+  )
+
   const overlayState = useMemo<OverlayState>(
     () => ({
       ...layers,
       radarFrames,
       nowMs,
       gibsTime: gibsTimeValue,
+      omTimeStep,
     }),
-    [layers, radarFrames, nowMs, gibsTimeValue],
+    [layers, radarFrames, nowMs, gibsTimeValue, omTimeStep],
   )
-
-  /** ISO timestamps for `RadarClock`/`frameCount` below — a thin projection of `radarFrames`, not
-   * itself carried in `OverlayState` (which needs each frame's tile URL too, not just its time). */
-  const radarTimes = useMemo(
-    () => radarFrames.map((frame) => frame.time.toISOString()),
-    [radarFrames],
-  )
-
-  const [frame, setFrame] = useState(0)
-  const [playing, setPlaying] = useState(true)
   // Persisted, not URL state — this is a VIEWING preference (is the panel visible), not part of
   // a shareable map configuration; every control the panel itself renders IS in the URL (see
   // `MapLayerSections`'s own footnote), which is exactly why this one deliberately isn't. See
@@ -365,8 +500,11 @@ export default function SiteMap({
   // it reads the state off refs rather than closing over the values it was subscribed with.
   const overlayStateRef = useRef(overlayState)
   overlayStateRef.current = overlayState
-  const frameRef = useRef(frame)
-  frameRef.current = frame
+  // The radar frame the CURRENT tick resolves to — `0` until the first tick has resolved anything,
+  // the same "safe until real data lands" role `frameRef` used to play before radar's own frame
+  // index became a DERIVED value (`nearestRadarFrame`) rather than independently-cycled state.
+  const radarFrameRef = useRef(nearestRadarFrame ?? 0)
+  radarFrameRef.current = nearestRadarFrame ?? 0
   const [failed, setFailed] = useState(false)
 
   // Create/destroy exactly once. React 19 StrictMode double-invokes effects, so the create and
@@ -399,7 +537,7 @@ export default function SiteMap({
     map.on('style.load', () => {
       hasStyleLoadedRef.current = true
       installOverlays(map, overlayStateRef.current)
-      paintOverlayState(map, overlayStateRef.current, frameRef.current)
+      paintOverlayState(map, overlayStateRef.current, radarFrameRef.current)
       // AFTER installOverlays: `syncTerrain` reads the DEM source `installOverlays` just added,
       // and `setTerrain` against a source that is not yet in the style is the ordering bug the
       // shared source id (`map-overlays.ts`) exists to avoid.
@@ -504,14 +642,17 @@ export default function SiteMap({
     // stop `removeSource` from pulling a source out from under `setTerrain` — see `syncTerrain`.
     detachTerrainIfUnwanted(map, overlayState)
     installOverlays(map, overlayState)
-    paintOverlayState(map, overlayState, frameRef.current)
+    paintOverlayState(map, overlayState, radarFrameRef.current)
     syncTerrain(map, overlayState)
   }, [overlayState])
 
-  // The radar loop's only per-frame work: one `setPaintProperty` per frame layer, via
+  // The scrubber's only per-tick work for radar: one `setPaintProperty` per frame layer, via
   // `paintRadarFrame` — never the panel-state paint work (`paintOverlayState`), and never a
   // re-add or re-request. The frames are already sources, and MapLibre's default paint transition
-  // turns the step into a crossfade.
+  // turns the step into a crossfade. `'om-model'` has no equivalent per-tick paint: a step change
+  // there means a different `time_step` baked into the SOURCE id (`omLayerId`, `map-overlays.ts`),
+  // so it rides the `[overlayState]` effect above (which already includes `omTimeStep`) rather
+  // than a cheap paint-only path — there is no pre-mounted-at-zero-opacity frame to reveal.
   //
   // `overlayState` deliberately stays OUT of the dep array and is read off the ref instead: the
   // effect above already re-paints every panel-state value on every real `overlayState` change
@@ -520,12 +661,14 @@ export default function SiteMap({
   // second, redundant paint pass on every panel toggle or opacity commit.
   useEffect(() => {
     const map = mapRef.current
-    if (!map || !hasStyleLoadedRef.current) return
-    paintRadarFrame(map, overlayStateRef.current, frame)
-  }, [frame])
+    if (!map || !hasStyleLoadedRef.current || nearestRadarFrame === null) return
+    paintRadarFrame(map, overlayStateRef.current, nearestRadarFrame)
+  }, [nearestRadarFrame])
 
   /*
-   * The loop itself. Two shutdown paths, both required:
+   * The playback loop itself — steps `tickIndex` forward through the combined tick list, not
+   * simulated wall-clock time (a mix of 5-minutely and hourly ticks has no single "real time"
+   * speed that would make both feel right). Two shutdown paths, both required:
    *
    * - Leaving the Map tab unmounts this component (the route renders it conditionally), so the
    *   cleanup below is what stops it.
@@ -533,29 +676,13 @@ export default function SiteMap({
    *   instead. The frames are already downloaded, so a hidden loop costs no requests — but it
    *   does cost a GPU repaint every 500 ms for a canvas nobody is looking at.
    */
-  const frameCount = radarTimes.length
-  /**
-   * `radarFrames` (and so `frameCount`) can SHRINK between refetches — RainViewer republishes a
-   * new catalogue with fewer past frames on its own 5-minute cadence. Left unclamped, `frame`
-   * could keep pointing past the new end for up to one refresh tick: `paintRadarFrame`
-   * (`map-overlays.ts`) matches `index === radarFrame` against the frame count it actually has,
-   * so an out-of-range `frame` matches nothing and every radar layer flashes to zero opacity — a
-   * visible blank that only self-corrects on the NEXT tick's modulo wrap. Derived during render,
-   * the same pattern this file already uses (`OpacitySlider`'s committed/draft pair,
-   * `WeatherLegendCard`'s `trackedSrc`), rather than a reset `useEffect`.
-   */
-  const [trackedFrameCount, setTrackedFrameCount] = useState(frameCount)
-  if (trackedFrameCount !== frameCount) {
-    setTrackedFrameCount(frameCount)
-    if (frameCount > 0 && frame > frameCount - 1) setFrame(Math.min(frame, frameCount - 1))
-  }
   useEffect(() => {
-    if (!playing || frameCount === 0) return
+    if (!playing || tickCount === 0) return
     let timer: number | undefined
     const start = () => {
       timer ??= window.setInterval(
-        () => setFrame((current) => (current + 1) % frameCount),
-        RADAR_FRAME_MS,
+        () => setTargetMs((current) => nextTickMs(ticksRef.current, current)),
+        omModelActive ? MODEL_FRAME_MS : RADAR_FRAME_MS,
       )
     }
     const stop = () => {
@@ -570,7 +697,7 @@ export default function SiteMap({
       stop()
       document.removeEventListener('visibilitychange', sync)
     }
-  }, [playing, frameCount])
+  }, [playing, tickCount, omModelActive])
 
   // Markers: one per site, the selected one visually distinct. Re-synced whenever the site list
   // or the selection changes; must wait for the style to finish loading at least once.
@@ -688,7 +815,7 @@ export default function SiteMap({
             </Box>
           ) : (
             <>
-              {/* One cluster, laid out by a Group — the radar clock appears beside the settings
+              {/* One cluster, laid out by a Group — the time scrubber appears beside the settings
                   trigger rather than at a second hand-guessed offset. */}
               <Box pos="absolute" top={8} left={8}>
                 <Group gap="xs" wrap="nowrap" align="flex-start">
@@ -702,12 +829,15 @@ export default function SiteMap({
                       <IconAdjustments size={16} />
                     </ActionIcon>
                   </Tooltip>
-                  {frameCount > 0 && (
-                    <RadarClock
-                      times={radarTimes}
-                      frame={frame}
+                  {tickCount > 0 && (
+                    <TimeScrubber
+                      ticks={ticks}
+                      tickIndex={tickIndex}
                       playing={playing}
                       onToggle={() => setPlaying((current) => !current)}
+                      onScrub={scrubToTick}
+                      radarActive={radarActive}
+                      radarNewestTime={radarNewestTime}
                     />
                   )}
                 </Group>
@@ -735,7 +865,7 @@ export default function SiteMap({
   )
 }
 
-// ── Radar clock ────────────────────────────────────────────────────────────
+// ── Time scrubber ──────────────────────────────────────────────────────────
 
 const CLOCK_FORMAT = new Intl.DateTimeFormat('en-GB', {
   hour: '2-digit',
@@ -743,45 +873,95 @@ const CLOCK_FORMAT = new Intl.DateTimeFormat('en-GB', {
   hour12: false,
 })
 
+/** The `Slider`'s own fixed width — wide enough to read the two ends of a mixed 5-minutely/hourly
+ * tick list without wrapping, narrow enough to sit comfortably beside the settings trigger. */
+const SCRUBBER_WIDTH = 220
+
 /**
- * The frame's own timestamp, in the viewer's local zone, plus the single fact that decides how
- * much to trust it: a frame later than the wall clock is DWD's nowcast, not a measurement.
+ * Replaces the old `RadarClock`. Where that component only ever read `radar`'s own frames, this
+ * one drives EVERY time-following layer off one shared position: `ticks` is the UNION of
+ * RainViewer's 5-minutely past frames and the selected Open-Meteo domain's hourly `valid_times`
+ * (`buildTimeTicks`, `map-layers.ts`), and each layer independently snaps to whichever of its OWN
+ * times sits nearest that position (`nearestTimeIndex`, computed in `site-map.tsx` and threaded
+ * into `OverlayState` as `nearestRadarFrame`/`omTimeStep`) — this component only renders the
+ * shared position, it does not know which layers are actually listening to it.
+ *
+ * The EUMETSAT/GIBS observation rows (`lightning`/`cloud`/`cloud-ir`/`cloud-top`) do NOT follow
+ * this scrubber at all and contribute no ticks to `ticks` — they keep asking for "latest
+ * published" off their own independent clocks. That is deliberate: none of the four carries a
+ * forecast or a history worth scrubbing through, so wiring them in would only let the scrubber
+ * imply a forecast/history that does not exist. See `ticks`'s own doc in `site-map.tsx` for the
+ * same point from the data side.
+ *
  * Numerals in JetBrains Mono per DESIGN.md.
  */
-function RadarClock({
-  times,
-  frame,
+function TimeScrubber({
+  ticks,
+  tickIndex,
   playing,
   onToggle,
+  onScrub,
+  radarActive,
+  radarNewestTime,
 }: {
-  times: readonly string[]
-  frame: number
+  ticks: readonly Date[]
+  tickIndex: number
   playing: boolean
   onToggle: () => void
+  onScrub: (index: number) => void
+  /** Whether `radar` is one of the layers this position is currently driving — gates the "radar
+   * holds at latest" caption below, which would otherwise be a non-sequitur while radar is off. */
+  radarActive: boolean
+  /** Radar's own newest addressable frame, or `null` while radar has none — see `radarActive`. */
+  radarNewestTime: Date | null
 }) {
-  const iso = times[Math.min(frame, times.length - 1)] ?? null
-  if (iso === null) return null
-  const at = new Date(iso)
+  const at = ticks[Math.min(tickIndex, ticks.length - 1)] ?? null
+  if (at === null) return null
   const forecast = at.getTime() > Date.now()
+  // Radar has no forecast of its own (RainViewer discontinued its nowcast 2026-01-01) — once the
+  // scrubber moves past radar's own newest frame, `nearestTimeIndex` (map-layers.ts) already
+  // clamps radar's paint to that frame with no special case; this caption is the one place that
+  // has to SAY so, or a scrubbed-forward radar layer would silently look like a working forecast.
+  const radarHoldsAtLatest =
+    radarActive && radarNewestTime !== null && at.getTime() > radarNewestTime.getTime()
 
   return (
     <Paper py="xs" px="sm">
-      <Group gap="xs" wrap="nowrap">
-        <ActionIcon
-          variant="subtle"
-          size="sm"
-          aria-label={playing ? 'Pause radar loop' : 'Play radar loop'}
-          onClick={onToggle}
-        >
-          {playing ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
-        </ActionIcon>
-        <Text ff="monospace" size="xs">
-          {CLOCK_FORMAT.format(at)}
-        </Text>
-        <Text size="xs" c="dimmed">
-          {forecast ? 'nowcast' : 'observed'}
-        </Text>
-      </Group>
+      <Stack gap={4} w={SCRUBBER_WIDTH}>
+        <Group gap="xs" wrap="nowrap">
+          <ActionIcon
+            variant="subtle"
+            size="sm"
+            aria-label={playing ? 'Pause timeline' : 'Play timeline'}
+            onClick={onToggle}
+          >
+            {playing ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
+          </ActionIcon>
+          <Text ff="monospace" size="xs">
+            {CLOCK_FORMAT.format(at)}
+          </Text>
+          <Text size="xs" c="dimmed">
+            {forecast ? 'forecast' : 'observed'}
+          </Text>
+        </Group>
+        <Slider
+          value={tickIndex}
+          onChange={onScrub}
+          min={0}
+          max={Math.max(ticks.length - 1, 0)}
+          step={1}
+          label={(index) => {
+            const tick = ticks[index]
+            return tick === undefined ? '' : CLOCK_FORMAT.format(tick)
+          }}
+          aria-label="Timeline position"
+        />
+        {radarHoldsAtLatest && (
+          <Text size="xs" c="dimmed">
+            Radar holds at its latest frame past now — it has no forecast of its own.
+          </Text>
+        )}
+      </Stack>
     </Paper>
   )
 }

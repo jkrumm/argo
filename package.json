@@ -29,6 +29,9 @@
     "oxfmt": "^0.45.0",
     "oxlint": "^1.60.0"
   },
+  "overrides": {
+    "maplibre-gl": "6.3.0"
+  },
   "basalt": {
     "roots": [
       "apps/dashboard/src"

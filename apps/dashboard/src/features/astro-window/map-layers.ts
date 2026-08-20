@@ -57,14 +57,24 @@ import { LP, SERIES } from '../../lib/series'
  *   has no lightning tile variable at all; MET Norway discontinued its lightning products in 2019;
  *   Tomorrow.io gates lightning behind an Enterprise plan. Its `coverage` string says so plainly
  *   rather than implying otherwise.
- * - **`@openmeteo/weather-map-layer`** serves exactly the right products (global cloud cover
- *   total/low/mid/high, cloud top height) but was rejected on inspection: version `0.0.20` ships
- *   no `license` field in its `package.json`, and it depends on `maplibre-gl: ^5.20.1` against
- *   this app's v6 — installing it would pull a second, incompatible copy of MapLibre into the
- *   bundle. `bunx basalt-ui check-theme`'s dependency hygiene is not the blocker here; the
- *   license gap and the duplicate-MapLibre cost are. Cloud-top height specifically is now served
- *   natively instead, via EUMETSAT's own `msg_fes:cth`/`msg_iodc:cth` (`cloud-top` below) — one
- *   more reason this package was never worth the duplicate-MapLibre cost.
+ * - **`@openmeteo/weather-map-layer`** was rejected 2026-08-19 on two grounds that turned out to be
+ *   WRONG on re-inspection 2026-08-20 (ASTRO-MAP-RESEARCH §10.3): the package is **GPL-2.0**, not
+ *   unlicensed — there is a LICENSE file — and while `maplibre-gl: ^5.20.1` genuinely is a
+ *   REGULAR dependency (not a peer range), the shipped bundle carries ZERO runtime imports of
+ *   maplibre-gl — it appears only as a TYPE in `om-protocol.d.ts` — so `omProtocol` registers
+ *   cleanly on this app's real maplibre-gl 6.3.0 with no second copy pulled in (verified rendering
+ *   in `docs/poc/astro-map/om-clouds.html`). The one real cost — a 2.1 MB wasm-bindgen `.wasm`
+ *   from the transitive `@openmeteo/file-format-wasm`, loaded through `new
+ *   URL("…", import.meta.url)` — is exactly the pattern Vite rewrites natively, proven by
+ *   `bun run --cwd apps/dashboard build` emitting the asset. Cloud-top height stays on EUMETSAT's
+ *   `msg_fes:cth`/`msg_iodc:cth` (`cloud-top` above) — a satellite READING of where cloud tops
+ *   actually are, not a model forecast, so the two are complements, not substitutes. This package
+ *   is now the source for `model-cloud`/`model-cloud-low`/`model-precip` below: Open-Meteo's own
+ *   NWP model fields, rendered through its `om://` protocol — see the module's "Open-Meteo model
+ *   forecast" section for the full mechanism and ASTRO-MAP-RESEARCH §10.2 for why this, not a
+ *   sharper satellite mask, is what actually answers "why can't our cloud layer look like Windy's"
+ *   (Windy renders NWP model output too, not satellite — `msg_fes:clm` is a categorical product,
+ *   blocky by construction, and no resampling setting fixes that).
  * - **MET Norway's `cloud-area-fraction`** is genuinely global (59 hourly steps to +2.5 days),
  *   CORS-open and CC BY 4.0 — the licensing and coverage are both fine. Rejected anyway: its
  *   tiles are a DATA ENCODING with no published decode (unlike EUMETSAT's cloud mask, whose red
@@ -121,8 +131,20 @@ export type BaseLayerId =
  * (Germany only) to EUMETSAT's MTG-I Lightning Imager (the whole Meteosat disc) — so existing
  * shared URLs keep resolving to the same toggle. `cloud-top` is EUMETSAT cloud-top height, the
  * MSG discs' answer to "how high", not just "is there any" — widened to both discs 2026-08-19.
+ * `model-cloud`/`model-cloud-low`/`model-precip` joined 2026-08-20 — Open-Meteo NWP model fields
+ * (`source: 'om-model'`, see that section below), the map's first genuinely FORECAST layers rather
+ * than "now" or "the last two hours". They answer a different question than the five rows above:
+ * not "what is the sky doing right now" but "what is a model expecting it to do next".
  */
-export type WeatherLayerId = 'radar' | 'lightning' | 'cloud' | 'cloud-ir' | 'cloud-top'
+export type WeatherLayerId =
+  | 'radar'
+  | 'lightning'
+  | 'cloud'
+  | 'cloud-ir'
+  | 'cloud-top'
+  | 'model-cloud'
+  | 'model-cloud-low'
+  | 'model-precip'
 
 /**
  * Atlas vintages. `apps/api/src/lib/lorenz-decode.ts` → `LORENZ_YEARS` is the AUTHORITY — the
@@ -186,6 +208,18 @@ export const DEFAULT_LP_YEAR: LpYear = 2025
  * ANSWER ("can I walk there"), not context, so burying it under a city dome would make it
  * pointless. It still sits below the weather annotations, because a storm cell or lightning
  * strike is more urgent than the path it may be closing.
+ *
+ * **The three Open-Meteo model rows (2026-08-20) sit at 26/27/28, directly under `radar` (30) —
+ * no renumbering of the existing satellite/radar group was needed.** The gap between `cloud-top`
+ * (24) and `radar` (30) already had five spare slots; `model-cloud`/`model-cloud-low`/
+ * `model-precip` fill three of them and stay contiguous with each other, which is what "keep each
+ * group contiguous" asks for without disturbing 20/22/24/30/50. The placement itself follows the
+ * same logic every other tier in this list already argues from, just applied to a new pair: a
+ * model FIELD is forecast CONTEXT, a satellite or radar READING is OBSERVED TRUTH, and truth draws
+ * on top of context — `model-precip` sits immediately below `radar` for the identical reason a
+ * live radar mosaic outranks a rain forecast (precipitation you can see happening beats
+ * precipitation a model expects), and the other two model rows ride along contiguously rather than
+ * reaching up into the satellite cloud group's own 20/22/24, which this change leaves untouched.
  */
 export const BASE_STACK_INDEX = 0
 export const LP_STACK_INDEX = 15
@@ -763,6 +797,16 @@ export const RADAR_STEP_MINUTES = 5
  * crossfades. */
 export const RADAR_FRAME_MS = 500
 
+/**
+ * Milliseconds per tick while a `'om-model'` row is on. Deliberately far slower than
+ * `RADAR_FRAME_MS`: a radar step only flips `raster-opacity` between frames that are already
+ * mounted, but a model step is a different `time_step` baked into the SOURCE id (`omLayerId`,
+ * `map-overlays.ts`), so every step is a fresh set of tile requests against a third-party
+ * endpoint. 500 ms there would be a request storm; this gives each step time to actually paint
+ * before the next one is asked for.
+ */
+export const MODEL_FRAME_MS = 1_400
+
 const MINUTE_MS = 60_000
 
 /**
@@ -910,6 +954,190 @@ export const CLOUD_RAMP: ReadonlyArray<{ stop: number; token: string; alpha: num
   { stop: 765, token: SERIES.cloudHigh, alpha: 0.85 },
 ]
 
+// ── Open-Meteo model forecast (multi) ───────────────────────────────────────
+
+/**
+ * `@openmeteo/weather-map-layer`'s three domains this app exposes, exactly the three from
+ * ASTRO-MAP-RESEARCH §10.3's live-probed table — the other domains there (`knmi_harmonie_...`,
+ * `meteofrance_arome_france_hd`, `ncep_gfs025`) are dropped: AROME France has no TOTAL cloud
+ * cover (low/mid/high only), GFS has none of the four at all, and KNMI is redundant with ICON-EU
+ * at a similar resolution over a similar box. Ordered finest-to-coarsest, which is also
+ * smallest-box-to-global — the order the domain picker renders them in.
+ */
+export type OmDomainId = 'dwd_icon_d2' | 'dwd_icon_eu' | 'ecmwf_ifs025'
+
+export type OmDomain = {
+  id: OmDomainId
+  label: string
+  /** Native grid spacing — the honest ceiling on how sharp this domain can ever look, independent
+   * of `OM_MAXZOOM` (the tile pyramid's own limit). */
+  resolution: string
+  /** Where the domain's own bbox stops — plain prose, the same register every other catalogue
+   * row's `coverage` field already uses, so a model row reads the same as a satellite one when
+   * nothing paints past its edge. */
+  coverage: string
+  /** How far ahead the domain forecasts, and at what cadence. */
+  horizon: string
+}
+
+export const OM_DOMAINS: readonly OmDomain[] = [
+  {
+    id: 'dwd_icon_d2',
+    label: 'ICON-D2',
+    resolution: '2.2 km',
+    coverage:
+      'The Alps and Central Europe only — 43.18°N to 58.08°N, 3.94°W to 20.34°E. Nothing paints outside that box.',
+    horizon: '48 h, hourly steps.',
+  },
+  {
+    id: 'dwd_icon_eu',
+    label: 'ICON-EU',
+    resolution: '7 km',
+    coverage: 'Europe only — 29.5°N to 70.5°N, 23.5°W to 62.5°E. Nothing paints outside that box.',
+    horizon: '~30 h, hourly steps.',
+  },
+  {
+    id: 'ecmwf_ifs025',
+    label: 'ECMWF IFS',
+    resolution: '25 km',
+    coverage: 'Global — the only one of the three domains with no bbox to run past.',
+    horizon:
+      '15 days — 3-hourly for the first six, 6-hourly after that (measured 2026-08-20: 85 steps, 48 three-hour gaps then 36 six-hour ones). The scrubber steps through them as published, so a step here is not an hour.',
+  },
+]
+
+/** The default domain a fresh URL resolves to — the owner's own scouting sits inside its box, and
+ * "focus on EU weather view" was the explicit ask this catalogue was built against. */
+export const DEFAULT_OM_DOMAIN: OmDomainId = 'dwd_icon_d2'
+
+const OM_DOMAIN_BY_ID = new Map(OM_DOMAINS.map((entry) => [entry.id, entry]))
+
+/** The Zod-shaped id list, same convention as `BASE_LAYER_IDS`. */
+export const OM_DOMAIN_IDS = OM_DOMAINS.map((entry) => entry.id) as [OmDomainId, ...OmDomainId[]]
+
+/** Type guard, not a bare `as` — same shape as `isBaseLayerId`/`isHillshadeMethod`. Used by both
+ * the `wx` codec below (a hand-edited or stale URL must not smuggle an unknown domain id into a
+ * tile request) and the settings panel's domain `Radio.Group` handler. */
+export function isOmDomainId(value: string): value is OmDomainId {
+  return (OM_DOMAIN_IDS as readonly string[]).includes(value)
+}
+
+/** Same fallback shape as `baseLayer` — a malformed id resolves to the default domain rather than
+ * leaving the map with no forecast layer at all. */
+export function omDomain(id: OmDomainId): OmDomain {
+  return OM_DOMAIN_BY_ID.get(id) ?? (OM_DOMAINS[0] as OmDomain)
+}
+
+/**
+ * The package's own recommended tile pyramid ceiling (`@openmeteo/weather-map-layer`'s own
+ * examples) — OM tiles are generated per-request off the domain's native grid, not read off a
+ * fixed pre-rendered pyramid, so this is the point past which MapLibre overzooms the last real
+ * tile rather than asking the protocol for detail no domain here actually has.
+ */
+export const OM_MAXZOOM = 12
+
+const OPEN_METEO_TILES_HOST = 'https://map-tiles.open-meteo.com/data_spatial'
+
+/**
+ * Open-Meteo's own metadata endpoint for a domain — `completed`, `crs_wkt` (a `BBOX[...]` this
+ * app does not parse, since `OmDomain.coverage` above is already hand-written prose off the same
+ * numbers), `last_modified_time`, `reference_time`, `valid_times[]` and `variables[]`. The SAME
+ * URL is also the tile source's `om://` payload below — Open-Meteo's protocol reads the metadata
+ * and the tile bytes off one endpoint, not two. `variable` has to be a real member of that
+ * domain's `variables[]` — every domain in `OM_DOMAINS` was verified 2026-08-20 to carry all
+ * three variables this catalogue reads (`cloud_cover`, `cloud_cover_low`, `precipitation`).
+ */
+export function openMeteoMetaUrl(domain: OmDomainId, variable: string): string {
+  return `${OPEN_METEO_TILES_HOST}/${domain}/latest.json?variable=${variable}`
+}
+
+/**
+ * The `om://` MapLibre source URL — the metadata URL above, plus the three params the protocol
+ * reads off it: `time_step` (an INTEGER INDEX into that variable's `valid_times[]`, never a
+ * timestamp of its own — `lib/queries/open-meteo-maps.ts` resolves the index, this function only
+ * spells it into the URL), `interpolation` (`linear` — smooth, matching how Windy itself renders
+ * these same NWP fields, ASTRO-MAP-RESEARCH §10.2) and `dark` (`true`, this app's own scheme).
+ */
+export function omTileUrl({
+  domain,
+  variable,
+  timeStep,
+}: {
+  domain: OmDomainId
+  variable: string
+  timeStep: number
+}): string {
+  return `om://${openMeteoMetaUrl(domain, variable)}&time_step=${timeStep}&interpolation=linear&dark=true`
+}
+
+/** Required by the data's CC BY 4.0 licence — wired through the same `attribution` field every
+ * other catalogue row's source declares, so MapLibre composes it the same way. */
+export const OPEN_METEO_ATTRIBUTION =
+  'Weather data by <a href="https://open-meteo.com/">Open-Meteo.com</a>'
+
+/**
+ * The time scrubber's pure half (`components/site-map.tsx`'s `TimeScrubber`) — DOM-free so its
+ * own correctness is directly unit-testable, the same split `remapLpRampStops`/`buildLpRamp`
+ * already draw between "compute the numbers" and "touch the live map".
+ *
+ * Each addressable-time layer (RainViewer's 5-minutely past frames, an Open-Meteo domain's hourly
+ * `valid_times`) independently snaps to whichever of its OWN times sits nearest the scrubber's
+ * chosen instant. This needs no special case for a layer with no future — RainViewer discontinued
+ * its own nowcast 2026-01-01, so `radar`'s times never extend past "now", and once the scrubber
+ * moves past every one of them the NEWEST frame is already the nearest one on plain absolute
+ * difference. Returns `null` for an empty list: nothing to snap to.
+ */
+export function nearestTimeIndex(times: readonly Date[], target: Date): number | null {
+  if (times.length === 0) return null
+  const targetMs = target.getTime()
+  let bestIndex = 0
+  let bestDiffMs = Math.abs((times[0] as Date).getTime() - targetMs)
+  for (let index = 1; index < times.length; index++) {
+    const diffMs = Math.abs((times[index] as Date).getTime() - targetMs)
+    if (diffMs < bestDiffMs) {
+      bestDiffMs = diffMs
+      bestIndex = index
+    }
+  }
+  return bestIndex
+}
+
+/**
+ * The next tick after the one nearest `fromMs`, wrapping at the end — the playback loop's single
+ * step, expressed in the same TIME currency the scrubber's position is held in (`site-map.tsx`)
+ * rather than an index, so a tick list that changed shape between two interval firings advances
+ * from wherever the position actually landed rather than from a stale ordinal.
+ *
+ * Returns `fromMs` unchanged for an empty list: a loop with nothing to step through holds still.
+ */
+export function nextTickMs(ticks: readonly Date[], fromMs: number): number {
+  const current = nearestTimeIndex(ticks, new Date(fromMs))
+  if (current === null) return fromMs
+  const next = ticks[(current + 1) % ticks.length]
+  return next === undefined ? fromMs : next.getTime()
+}
+
+/**
+ * The scrubber's own tick list — the UNION of every time-following layer's own addressable times,
+ * sorted ascending and de-duplicated to the millisecond. The EUMETSAT/GIBS observation rows
+ * (`lightning`/`cloud`/`cloud-ir`/`cloud-top`) contribute NO ticks here and do not follow the
+ * scrubber at all — see `TimeScrubber`'s own doc in `site-map.tsx` for why that is deliberate, not
+ * an oversight.
+ */
+export function buildTimeTicks(...timeSets: ReadonlyArray<readonly Date[]>): readonly Date[] {
+  const seenMs = new Set<number>()
+  const merged: Date[] = []
+  for (const times of timeSets) {
+    for (const time of times) {
+      const ms = time.getTime()
+      if (seenMs.has(ms)) continue
+      seenMs.add(ms)
+      merged.push(time)
+    }
+  }
+  return merged.toSorted((a, b) => a.getTime() - b.getTime())
+}
+
 /**
  * A layer's tile plumbing is genuinely different per provider, not a cosmetic difference in field
  * names — this is why `source` is a real discriminant rather than an optional `host`/`wmsLayer`
@@ -936,6 +1164,16 @@ export const CLOUD_RAMP: ReadonlyArray<{ stop: number; token: string; alpha: num
  *   `color-relief`: GIBS' Clean Infrared product carries a colour enhancement for cold convective
  *   tops that `color-relief` discards (see the module docstring for the 2026-08-19 finding) — the
  *   raw tile IS the picture.
+ * - `'om-model'` — an Open-Meteo NWP model field, rendered through `@openmeteo/weather-map-layer`'s
+ *   `om://` protocol rather than a template this catalogue builds by hand: the source URL bakes in
+ *   the domain, the variable AND a `time_step` index resolved from the time scrubber
+ *   (`site-map.tsx`), so `map-overlays.ts` reads `variable` off the row and `domain`/`timeStep` off
+ *   `OverlayState` rather than this catalogue trying to spell out every domain × timestep
+ *   combination as a static field. No `timeGrid` — that concept is the EUMETSAT/GIBS rows' publish-
+ *   lag margin, and a model addresses its own forecast steps by INDEX instead, which is exactly
+ *   what `time_step` already is. The package renders its own colour scale for now (`legend: false`
+ *   — see `emptyMeans` instead); a future pass can pass `colorScales` through `OmProtocolSettings`
+ *   to bring it onto this app's own palette, but v1 accepts the library default.
  */
 /**
  * At least one element. The parallel `hosts`/`wmsLayers` arrays below are a STATIC catalogue, so
@@ -1001,6 +1239,7 @@ export type WeatherLayer = {
       attribution: string
     }
   | { source: 'gibs-ir'; gibsLayers: NonEmpty<string>; attribution: string }
+  | { source: 'om-model'; variable: string; attribution: string }
 )
 
 /** The narrowed shape every plain GeoServer-`'wms'` call site actually needs. */
@@ -1108,6 +1347,54 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
     coverage:
       'Both MSG discs — 0° and 45.5°E, roughly ±77° each — Europe, Africa, the Middle East, western and southern Asia, the eastern Atlantic and eastern South America, the same footprint the cloud mask above states. NOT the Americas or the Pacific.',
   },
+  {
+    id: 'model-cloud',
+    label: 'Cloud cover (forecast)',
+    description:
+      "Open-Meteo's own NWP model total cloud cover, at the selected domain's native resolution — smooth and structured the way Windy's cloud layer is, because it is the same kind of object (a model field, not a satellite mask) rendered the same way (bilinear, not nearest-neighbour on a categorical class). Unlike every row above, this one has a real FORECAST: step through the domain's own valid times with the scrubber, hours or days ahead.",
+    source: 'om-model',
+    variable: 'cloud_cover',
+    attribution: OPEN_METEO_ATTRIBUTION,
+    defaultOpacity: 0.7,
+    stackIndex: 26,
+    legend: false,
+    emptyMeans:
+      "Blank means the selected forecast domain's own box does not reach this location — see the domain picker below — or a clear-sky forecast step, which is real data, not a broken layer.",
+    coverage:
+      "Follows whichever domain is picked below: ICON-D2/ICON-EU stop hard at their own European box, ECMWF IFS is the only one of the three that's actually global.",
+  },
+  {
+    id: 'model-cloud-low',
+    label: 'Low cloud cover (forecast)',
+    description:
+      'The same model field, restricted to the low-altitude layer — the one that actually ends a night at the horizon. High cirrus the total-cloud row above would flag stays invisible here on purpose, the model equivalent of the distinction `cloud-top` draws for the satellite mask.',
+    source: 'om-model',
+    variable: 'cloud_cover_low',
+    attribution: OPEN_METEO_ATTRIBUTION,
+    defaultOpacity: 0.7,
+    stackIndex: 27,
+    legend: false,
+    emptyMeans:
+      "Blank means a clear low layer at this forecast step, or the selected domain's box does not reach this location — same two readings as the total-cloud row above.",
+    coverage:
+      "Follows whichever domain is picked below: ICON-D2/ICON-EU stop hard at their own European box, ECMWF IFS is the only one of the three that's actually global.",
+  },
+  {
+    id: 'model-precip',
+    label: 'Precipitation (forecast)',
+    description:
+      "Model precipitation, hours or days ahead of `radar` above — radar only shows what is already falling; this is the same question with an actual answer for tomorrow night's plan, not just tonight's.",
+    source: 'om-model',
+    variable: 'precipitation',
+    attribution: OPEN_METEO_ATTRIBUTION,
+    defaultOpacity: 0.75,
+    stackIndex: 28,
+    legend: false,
+    emptyMeans:
+      "Blank means the model forecasts no precipitation there at this step, or the selected domain's box does not reach this location.",
+    coverage:
+      "Follows whichever domain is picked below: ICON-D2/ICON-EU stop hard at their own European box, ECMWF IFS is the only one of the three that's actually global.",
+  },
 ]
 
 const WEATHER_BY_ID = new Map(WEATHER_LAYERS.map((entry) => [entry.id, entry]))
@@ -1136,6 +1423,18 @@ export type MapLayerState = {
   weather: readonly WeatherSelection[]
   /** Hillshade and 3D terrain — two independent toggles over the same DEM source. */
   terrain: TerrainSelection
+  /** Which Open-Meteo domain the three `'om-model'` rows read from — one shared pick, not a
+   * per-row field, since a domain switch has to move all three forecast layers together or they'd
+   * disagree about which box they cover. Carried the same way as `lpOpacity`/`lpResampling`
+   * above: it survives every `'om-model'` row being toggled off and only resets on a fresh URL. */
+  omDomain: OmDomainId
+}
+
+/** `parseWeatherParam`'s decoded result — the active overlay set AND the selected forecast
+ * domain, since both now ride the same `wx` search param (see that function's own doc). */
+export type WeatherAndDomainSelection = {
+  weather: readonly WeatherSelection[]
+  omDomain: OmDomainId
 }
 
 /**
@@ -1143,40 +1442,57 @@ export type MapLayerState = {
  * each optionally carrying `:<percent>` when its opacity differs from the catalogue default.
  * Six booleans and six floats would otherwise be twelve query keys for one control panel.
  *
- * Unknown ids and malformed opacities are DROPPED rather than rejected: a hand-edited or stale
- * URL should open a slightly different map, not a route error on a page whose whole job is to be
- * linkable.
+ * The forecast domain rides the SAME param as a `dom:<id>` token (2026-08-20) — `dom:` is not a
+ * `WeatherLayerId`, so it can never collide with a layer token, and folding it in here means one
+ * fewer top-level search-param key for a control that, like the others in this string, only makes
+ * sense alongside the layers it drives. Position within the string does not matter: every token is
+ * parsed independently, unlike `lp`'s positional suffix chain.
+ *
+ * Unknown ids, unknown domains and malformed opacities are DROPPED rather than rejected: a
+ * hand-edited or stale URL should open a slightly different map, not a route error on a page whose
+ * whole job is to be linkable.
  */
-export function parseWeatherParam(raw: string | undefined): WeatherSelection[] {
-  if (raw === undefined || raw === '') return []
+export function parseWeatherParam(raw: string | undefined): WeatherAndDomainSelection {
+  if (raw === undefined || raw === '') return { weather: [], omDomain: DEFAULT_OM_DOMAIN }
   const seen = new Set<WeatherLayerId>()
   const parsed: WeatherSelection[] = []
+  let omDomainId: OmDomainId = DEFAULT_OM_DOMAIN
   for (const token of raw.split('.')) {
+    if (token.startsWith('dom:')) {
+      const candidate = token.slice('dom:'.length)
+      if (isOmDomainId(candidate)) omDomainId = candidate
+      continue
+    }
     const [rawId, rawOpacity] = token.split(':')
     const entry = rawId === undefined ? undefined : WEATHER_BY_ID.get(rawId as WeatherLayerId)
     if (entry === undefined || seen.has(entry.id)) continue
     seen.add(entry.id)
     parsed.push({ id: entry.id, opacity: parseOpacity(rawOpacity) ?? entry.defaultOpacity })
   }
-  return parsed.toSorted((a, b) => stackIndexOf(a.id) - stackIndexOf(b.id))
+  return {
+    weather: parsed.toSorted((a, b) => stackIndexOf(a.id) - stackIndexOf(b.id)),
+    omDomain: omDomainId,
+  }
 }
 
 function stackIndexOf(id: WeatherLayerId): number {
   return WEATHER_BY_ID.get(id)?.stackIndex ?? 0
 }
 
-/** Inverse of `parseWeatherParam`. Returns `undefined` for an empty set so the key leaves the URL. */
-export function formatWeatherParam(selection: readonly WeatherSelection[]): string | undefined {
-  if (selection.length === 0) return undefined
-  return selection
-    .map(({ id, opacity }) => {
-      const entry = WEATHER_BY_ID.get(id)
-      const percent = Math.round(opacity * 100)
-      return entry !== undefined && Math.round(entry.defaultOpacity * 100) === percent
-        ? id
-        : `${id}:${percent}`
-    })
-    .join('.')
+/** Inverse of `parseWeatherParam`. Returns `undefined` for an empty set at the default domain so
+ * the key leaves the URL — the same omit-when-default convention `formatLpParam`/
+ * `formatTerrainParam` already use. */
+export function formatWeatherParam(selection: WeatherAndDomainSelection): string | undefined {
+  const layerTokens = selection.weather.map(({ id, opacity }) => {
+    const entry = WEATHER_BY_ID.get(id)
+    const percent = Math.round(opacity * 100)
+    return entry !== undefined && Math.round(entry.defaultOpacity * 100) === percent
+      ? id
+      : `${id}:${percent}`
+  })
+  const domainToken = selection.omDomain === DEFAULT_OM_DOMAIN ? [] : [`dom:${selection.omDomain}`]
+  const tokens = [...layerTokens, ...domainToken]
+  return tokens.length === 0 ? undefined : tokens.join('.')
 }
 
 export function weatherLayer(id: WeatherLayerId): WeatherLayer | undefined {

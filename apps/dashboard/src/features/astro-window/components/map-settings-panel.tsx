@@ -24,6 +24,7 @@ import {
   isBaseLayerId,
   isHillshadeMethod,
   isLpResampling,
+  isOmDomainId,
   LP_OPACITY_DEFAULT,
   LP_PARAM_OFF,
   LP_RANGE_FULL,
@@ -34,6 +35,7 @@ import {
   LP_RESAMPLING_DEFAULT,
   LP_YEAR_NOTES,
   LP_YEARS,
+  OM_DOMAINS,
   parseLpParam,
   TRAILS_DEFAULT_OPACITY,
   TRAILS_DESCRIPTION,
@@ -83,6 +85,17 @@ const SETTINGS_PANEL_WIDTH = 320
 /** Sections opened by default — the two controls read most often (what's the base, how bright is
  * the sky) stay visible; terrain and the live weather overlays start collapsed. */
 const DEFAULT_OPEN_SECTIONS = ['base', 'lp']
+
+/**
+ * `WEATHER_LAYERS` split in two — OBSERVATION rows (radar/lightning/cloud/cloud-ir/cloud-top,
+ * "what is the sky doing now") render in the existing "Weather now" section below;
+ * `'om-model'` rows (2026-08-20, "what is a model expecting next") get their own "Forecast"
+ * section with the domain picker in front of them. Split once at module scope rather than
+ * filtering inline in two render paths, so the two lists can never silently drift out of sync
+ * with each other.
+ */
+const OBSERVATION_WEATHER_LAYERS = WEATHER_LAYERS.filter((entry) => entry.source !== 'om-model')
+const MODEL_WEATHER_LAYERS = WEATHER_LAYERS.filter((entry) => entry.source === 'om-model')
 
 export type MapSettingsPanelProps = {
   opened: boolean
@@ -213,6 +226,12 @@ function MapLayerSections({
 
   const handleHillshadeMethod = (next: string) => {
     handleTerrain({ hillshadeMethod: isHillshadeMethod(next) ? next : HILLSHADE_METHOD_DEFAULT })
+  }
+
+  const handleOmDomain = (next: string) => {
+    // Same ignore-rather-than-throw contract as `handleBase`/`handleLpResampling` above — a
+    // hand-edited URL or a stray value must not smuggle an unknown domain id into a tile request.
+    if (isOmDomainId(next)) onChange({ ...state, omDomain: next })
   }
 
   return (
@@ -398,7 +417,7 @@ function MapLayerSections({
                 are reading.
               </Text>
               <Stack gap="sm">
-                {WEATHER_LAYERS.map((entry) => {
+                {OBSERVATION_WEATHER_LAYERS.map((entry) => {
                   const selection = state.weather.find((active) => active.id === entry.id)
                   return (
                     <Stack key={entry.id} gap={4}>
@@ -411,6 +430,59 @@ function MapLayerSections({
                         // One dimmed paragraph, not a separate "Coverage:" line underneath — the
                         // user's own words were that this panel is already overcomplicated.
                         description={`${entry.description} Coverage: ${entry.coverage}`}
+                      />
+                      {selection !== undefined && (
+                        <OpacitySlider
+                          label={entry.label}
+                          value={selection.opacity}
+                          onCommit={(opacity) => handleOpacity(entry.id, opacity)}
+                        />
+                      )}
+                    </Stack>
+                  )
+                })}
+              </Stack>
+            </Stack>
+          </Accordion.Panel>
+        </Accordion.Item>
+
+        <Accordion.Item value="forecast">
+          <Accordion.Control>Forecast (model)</Accordion.Control>
+          <Accordion.Panel>
+            <Stack gap="xs">
+              <Text size="xs" c="dimmed">
+                Open-Meteo&apos;s own NWP model fields — smooth and forward-looking where the
+                satellite mask above is sharp-edged and &quot;now only&quot;. Pick the domain first;
+                its own box is where all three rows below stop painting.
+              </Text>
+              <Radio.Group
+                value={state.omDomain}
+                onChange={handleOmDomain}
+                label={<VisuallyHidden>Forecast domain</VisuallyHidden>}
+              >
+                <Stack gap="xs">
+                  {OM_DOMAINS.map((domain) => (
+                    <Radio
+                      key={domain.id}
+                      value={domain.id}
+                      label={`${domain.label} (${domain.resolution})`}
+                      description={`${domain.coverage} ${domain.horizon}`}
+                    />
+                  ))}
+                </Stack>
+              </Radio.Group>
+              <Stack gap="sm">
+                {MODEL_WEATHER_LAYERS.map((entry) => {
+                  const selection = state.weather.find((active) => active.id === entry.id)
+                  return (
+                    <Stack key={entry.id} gap={4}>
+                      <Checkbox
+                        checked={selection !== undefined}
+                        onChange={(event) =>
+                          handleWeatherToggle(entry.id, event.currentTarget.checked)
+                        }
+                        label={entry.label}
+                        description={entry.description}
                       />
                       {selection !== undefined && (
                         <OpacitySlider

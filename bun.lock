@@ -64,6 +64,7 @@
         "@mantine/notifications": "^9.3.0",
         "@mantine/schedule": "^9.3.0",
         "@mantine/spotlight": "^9.3.0",
+        "@openmeteo/weather-map-layer": "0.0.20",
         "@tabler/icons-react": "^3.44.0",
         "@tanstack/react-hotkeys": "0.10.0",
         "@tanstack/react-query": "^5.101.0",
@@ -120,6 +121,9 @@
         "vite-plugin-pwa": "^1.3.0",
       },
     },
+  },
+  "overrides": {
+    "maplibre-gl": "6.3.0",
   },
   "packages": {
     "@ai-sdk/gateway": ["@ai-sdk/gateway@2.0.97", "", { "dependencies": { "@ai-sdk/provider": "2.0.3", "@ai-sdk/provider-utils": "3.0.25", "@vercel/oidc": "3.1.0" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-8lM9IuiUcYNw9aYKKsD9Rwr7tfbBxIgsCNlktGBGS7IQHe7bLbK0AZzQKKVWz3JxJn/nhVbGtiFNt3fUnHahvQ=="],
@@ -482,6 +486,8 @@
 
     "@mapbox/point-geometry": ["@mapbox/point-geometry@1.1.0", "", {}, "sha512-YGcBz1cg4ATXDCM/71L9xveh4dynfGmcLDqufR+nQQy3fKwsAZsWd/x4621/6uJaeB9mwOHE6hPeDgXz9uViUQ=="],
 
+    "@mapbox/tilebelt": ["@mapbox/tilebelt@2.0.3", "", {}, "sha512-HSscGw2yBlcm0GdLI3S5i8Xw/ffP2fTT2qmRbR1/AkJ02PnNN52yY+zzfw705LKKjesy8jJ/H1dieuioqN0Slw=="],
+
     "@mapbox/tiny-sdf": ["@mapbox/tiny-sdf@2.2.0", "", {}, "sha512-LVL4wgI9YAum5V+LNVQO6QgFBPw7/MIIY4XJPNsPDMrjEwcE+JfKk1LuIl8GnF197ejVdC9QdPaxrx5gfgdGXg=="],
 
     "@mapbox/unitbezier": ["@mapbox/unitbezier@1.0.0", "", {}, "sha512-fqd515fjBmANKGGsQ286E2Wvj/XvDFpGzwJxq4CI6jMQue6Oy04uCKp+JWKF00xRTmk6cEu1jPJ9p3xqH8YWqQ=="],
@@ -497,6 +503,12 @@
     "@maplibre/vt-pbf": ["@maplibre/vt-pbf@4.3.2", "", { "dependencies": { "@mapbox/point-geometry": "^1.1.0", "@types/geojson": "^7946.0.16", "pbf": "^5.1.0" } }, "sha512-j6p0AdjvAR19Z3XaCysle7A4ZSo08tYOzxD0Y9NQylwPAkwJJeYub5b2eVucdeDh7erhv69DahoLOevDRERRUw=="],
 
     "@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.1.6", "", { "dependencies": { "@tybys/wasm-util": "^0.10.3" }, "peerDependencies": { "@emnapi/core": "^1.7.1", "@emnapi/runtime": "^1.7.1" } }, "sha512-ZLv/JdUfkvOy9eCnnBaGfiO+XimbjebAeO+MRQqD/B+FR1tnRN0tpKSJHRbE8sFfS6aqsXZ67TQjfwfsxULVbg=="],
+
+    "@openmeteo/file-format-wasm": ["@openmeteo/file-format-wasm@0.0.16", "", {}, "sha512-VHqIPVys9rYTYz8g87jYj3friz2dExT4tmKusLlEBU2kzvxWmrWSqswd/3FAznU0ZcQdvHcF2EZz7FvbCRU81A=="],
+
+    "@openmeteo/file-reader": ["@openmeteo/file-reader@0.0.16", "", { "dependencies": { "@openmeteo/file-format-wasm": "^0.0.16" } }, "sha512-B88uMVscPLqdyPGziD7gF0Y2Cy75rORCXSN+EMjfa/qe+VgI1gqHI4cdWZNuCEtU9wDO/4CvWxS77nOFhkVTAQ=="],
+
+    "@openmeteo/weather-map-layer": ["@openmeteo/weather-map-layer@0.0.20", "", { "dependencies": { "@mapbox/tilebelt": "^2.0.3", "@mapbox/vector-tile": "^3.0.0", "@openmeteo/file-reader": "^0.0.16", "maplibre-gl": "^5.20.1", "pbf": "^5.1.0", "point-in-polygon-hao": "^1.2.4" } }, "sha512-raVmrF33t7mbfxRqC6/QYs/ZousupCN11lpVUlTvZbxepMulVtnMTkxpuYONT5ToAEgR9wOcyTWohtPaQtffWQ=="],
 
     "@opentelemetry/api": ["@opentelemetry/api@1.9.1", "", {}, "sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q=="],
 
@@ -1659,6 +1671,8 @@
     "picomatch": ["picomatch@4.0.4", "", {}, "sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A=="],
 
     "pkg-types": ["pkg-types@2.3.1", "", { "dependencies": { "confbox": "^0.2.4", "exsolve": "^1.0.8", "pathe": "^2.0.3" } }, "sha512-y+ichcgc2LrADuhLNAx8DFjVfgz91pRxfZdI3UDhxHvcVEZsenLO+7XaU5vOp0u/7V/wZ+plyuQxtrDlZJ+yeg=="],
+
+    "point-in-polygon-hao": ["point-in-polygon-hao@1.2.4", "", { "dependencies": { "robust-predicates": "^3.0.2" } }, "sha512-x2pcvXeqhRHlNRdhLs/tgFapAbSSe86wa/eqmj1G6pWftbEs5aVRJhRGM6FYSUERKu0PjekJzMq0gsI2XyiclQ=="],
 
     "possible-typed-array-names": ["possible-typed-array-names@1.1.0", "", {}, "sha512-/+5VFTchJDoVj3bhoqi6UeymcD00DAwb1nJwamzPvHEszJ4FpF6SNNbUbOS8yI56qHzdV8eK0qEfOSiodkTdxg=="],
 

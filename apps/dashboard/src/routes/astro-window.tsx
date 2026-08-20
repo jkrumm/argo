@@ -229,13 +229,15 @@ function AstroWindowPage() {
 
   const layers = useMemo<MapLayerState>(() => {
     const lp = parseLpParam(search.lp)
+    const wx = parseWeatherParam(search.wx)
     return {
       base: search.base ?? schemeDefaultBase,
       lpYear: lp.year,
       lpOpacity: lp.opacity,
       lpResampling: lp.resampling,
       lpRange: lp.range,
-      weather: parseWeatherParam(search.wx),
+      weather: wx.weather,
+      omDomain: wx.omDomain,
       terrain: parseTerrainParam(search.terrain),
     }
   }, [search.base, search.lp, search.wx, search.terrain, schemeDefaultBase])
@@ -253,7 +255,7 @@ function AstroWindowPage() {
             resampling: next.lpResampling,
             range: next.lpRange,
           }),
-          wx: formatWeatherParam(next.weather),
+          wx: formatWeatherParam({ weather: next.weather, omDomain: next.omDomain }),
           terrain: formatTerrainParam(next.terrain),
         },
         // A layer toggle is a view setting, not a place — stacking one history entry per

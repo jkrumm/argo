@@ -10,12 +10,15 @@ import type { MapLayerState, WeatherSelection } from './map-layers'
 process.env['VITE_API_URL'] = 'http://test.local/api'
 
 const {
+  buildTimeTicks,
   CLOUD_RAMP,
   DEFAULT_LP_YEAR,
+  DEFAULT_OM_DOMAIN,
   GIBS_LAG_MINUTES,
   GIBS_STEP_MINUTES,
   HILLSHADE_EXAGGERATION_DEFAULT,
   HILLSHADE_METHOD_DEFAULT,
+  isOmDomainId,
   LP_OPACITY_DEFAULT,
   LP_PARAM_OFF,
   LP_RAMP,
@@ -24,6 +27,9 @@ const {
   LP_RANGE_MIN,
   LP_RANGE_MIN_WIDTH,
   LP_RESAMPLING_DEFAULT,
+  nearestTimeIndex,
+  nextTickMs,
+  OM_DOMAINS,
   RADAR_STEP_MINUTES,
   TERRAIN_DEFAULT,
   TRAILS_DEFAULT_OPACITY,
@@ -35,6 +41,9 @@ const {
   gibsTileUrl,
   gibsTime,
   lpTileUrl,
+  omDomain,
+  omTileUrl,
+  openMeteoMetaUrl,
   parseLpParam,
   parseTerrainParam,
   parseWeatherParam,
@@ -48,80 +57,222 @@ const {
 
 describe('weather param codec', () => {
   it('round-trips an empty selection through the absent-param case', () => {
-    expect(formatWeatherParam([])).toBeUndefined()
-    expect(parseWeatherParam(undefined)).toEqual([])
-    expect(parseWeatherParam('')).toEqual([])
+    expect(formatWeatherParam({ weather: [], omDomain: DEFAULT_OM_DOMAIN })).toBeUndefined()
+    expect(parseWeatherParam(undefined)).toEqual({ weather: [], omDomain: DEFAULT_OM_DOMAIN })
+    expect(parseWeatherParam('')).toEqual({ weather: [], omDomain: DEFAULT_OM_DOMAIN })
   })
 
   it('round-trips a selection with a default and an overridden opacity', () => {
     // cloud (stackIndex 20) sits before lightning (stackIndex 50) — already
     // in the order `parseWeatherParam` sorts to, so a clean round-trip proves
     // the codec rather than incidentally proving the sort too.
-    const selection: WeatherSelection[] = [
+    const weather: WeatherSelection[] = [
       { id: 'cloud', opacity: 1 }, // matches the catalogue default — encodes bare
       { id: 'lightning', opacity: 0.3 }, // overrides the catalogue default (0.9) — encodes `:30`
     ]
 
-    const encoded = formatWeatherParam(selection)
+    const encoded = formatWeatherParam({ weather, omDomain: DEFAULT_OM_DOMAIN })
     expect(encoded).toBe('cloud.lightning:30')
-    expect(parseWeatherParam(encoded)).toEqual(selection)
+    expect(parseWeatherParam(encoded)).toEqual({ weather, omDomain: DEFAULT_OM_DOMAIN })
   })
 
-  it('round-trips every catalogue id at its default opacity — the five-row catalogue', () => {
-    for (const id of ['radar', 'cloud', 'cloud-ir', 'cloud-top', 'lightning'] as const) {
+  it('round-trips every catalogue id at its default opacity — the eight-row catalogue', () => {
+    for (const id of [
+      'radar',
+      'cloud',
+      'cloud-ir',
+      'cloud-top',
+      'lightning',
+      'model-cloud',
+      'model-cloud-low',
+      'model-precip',
+    ] as const) {
       const decoded = parseWeatherParam(id)
-      expect(decoded).toHaveLength(1)
-      expect(decoded[0]!.id).toBe(id)
+      expect(decoded.weather).toHaveLength(1)
+      expect(decoded.weather[0]!.id).toBe(id)
       expect(formatWeatherParam(decoded)).toBe(id)
     }
-    expect(WEATHER_LAYERS).toHaveLength(5)
+    expect(WEATHER_LAYERS).toHaveLength(8)
   })
 
   it('sorts a decoded selection into stack order regardless of URL order', () => {
     // lightning (50) written before radar (30) in the URL — the decode must
     // still hand back bottom-first stack order, not URL order.
     const decoded = parseWeatherParam('lightning.radar')
-    expect(decoded.map((s) => s.id)).toEqual(['radar', 'lightning'])
+    expect(decoded.weather.map((s) => s.id)).toEqual(['radar', 'lightning'])
   })
 
   it('sorts cloud-top (24) above cloud-ir (22) and below radar (30) — the new cloud group slot', () => {
     const decoded = parseWeatherParam('radar.cloud-top.cloud-ir')
-    expect(decoded.map((s) => s.id)).toEqual(['cloud-ir', 'cloud-top', 'radar'])
+    expect(decoded.weather.map((s) => s.id)).toEqual(['cloud-ir', 'cloud-top', 'radar'])
   })
 
-  it('sorts the full five-layer catalogue into the derived stack order', () => {
-    // cloud (20) < cloud-ir (22) < cloud-top (24) < radar (30) < lightning (50) — see
-    // map-layers.ts's "Stack order" section for the reasoning. radar-de/cells were deleted
-    // 2026-08-19 (Germany-only, see the module docstring).
-    const decoded = parseWeatherParam('lightning.cloud-top.cloud-ir.radar.cloud')
-    expect(decoded.map((s) => s.id)).toEqual([
+  it('sorts the three model rows (26/27/28) between cloud-top (24) and radar (30)', () => {
+    const decoded = parseWeatherParam('radar.model-precip.cloud-top.model-cloud.model-cloud-low')
+    expect(decoded.weather.map((s) => s.id)).toEqual([
+      'cloud-top',
+      'model-cloud',
+      'model-cloud-low',
+      'model-precip',
+      'radar',
+    ])
+  })
+
+  it('sorts the full eight-layer catalogue into the derived stack order', () => {
+    // cloud (20) < cloud-ir (22) < cloud-top (24) < model-cloud (26) < model-cloud-low (27) <
+    // model-precip (28) < radar (30) < lightning (50) — see map-layers.ts's "Stack order" section
+    // for the derivation. radar-de/cells were deleted 2026-08-19 (Germany-only, module docstring).
+    const decoded = parseWeatherParam(
+      'lightning.cloud-top.model-precip.cloud-ir.radar.cloud.model-cloud-low.model-cloud',
+    )
+    expect(decoded.weather.map((s) => s.id)).toEqual([
       'cloud',
       'cloud-ir',
       'cloud-top',
+      'model-cloud',
+      'model-cloud-low',
+      'model-precip',
       'radar',
       'lightning',
     ])
   })
 
   it('drops an id the catalogue does not know, without throwing', () => {
-    expect(parseWeatherParam('not-a-real-layer')).toEqual([])
+    expect(parseWeatherParam('not-a-real-layer').weather).toEqual([])
     // A `Map`-backed catalogue lookup, not a plain object — `__proto__` is just
     // an unknown key, never a prototype-pollution vector.
-    expect(parseWeatherParam('__proto__:60')).toEqual([])
+    expect(parseWeatherParam('__proto__:60').weather).toEqual([])
   })
 
   it('falls back to the catalogue default opacity for a garbage or out-of-range value', () => {
-    expect(parseWeatherParam('radar:notanumber')).toEqual([{ id: 'radar', opacity: 0.75 }])
-    expect(parseWeatherParam('radar:999')).toEqual([{ id: 'radar', opacity: 0.75 }])
-    expect(parseWeatherParam('radar:-5')).toEqual([{ id: 'radar', opacity: 0.75 }])
+    expect(parseWeatherParam('radar:notanumber').weather).toEqual([{ id: 'radar', opacity: 0.75 }])
+    expect(parseWeatherParam('radar:999').weather).toEqual([{ id: 'radar', opacity: 0.75 }])
+    expect(parseWeatherParam('radar:-5').weather).toEqual([{ id: 'radar', opacity: 0.75 }])
   })
 
   it('ignores extra `:`-delimited segments rather than choking on them', () => {
-    expect(parseWeatherParam('radar:50:hack:more')).toEqual([{ id: 'radar', opacity: 0.5 }])
+    expect(parseWeatherParam('radar:50:hack:more').weather).toEqual([{ id: 'radar', opacity: 0.5 }])
   })
 
   it('keeps only the first occurrence of a repeated id', () => {
-    expect(parseWeatherParam('radar.radar:10')).toEqual([{ id: 'radar', opacity: 0.75 }])
+    expect(parseWeatherParam('radar.radar:10').weather).toEqual([{ id: 'radar', opacity: 0.75 }])
+  })
+
+  it('round-trips a non-default forecast domain via the `dom:` token', () => {
+    const decoded = parseWeatherParam('model-cloud.dom:ecmwf_ifs025')
+    expect(decoded.omDomain).toBe('ecmwf_ifs025')
+    expect(decoded.weather.map((s) => s.id)).toEqual(['model-cloud'])
+    const encoded = formatWeatherParam(decoded)
+    expect(encoded).toBe('model-cloud.dom:ecmwf_ifs025')
+    expect(parseWeatherParam(encoded)).toEqual(decoded)
+  })
+
+  it('omits the `dom:` token at the default domain, even with a domain-less selection', () => {
+    expect(formatWeatherParam({ weather: [], omDomain: DEFAULT_OM_DOMAIN })).toBeUndefined()
+    expect(
+      formatWeatherParam({
+        weather: [{ id: 'radar', opacity: 0.75 }],
+        omDomain: DEFAULT_OM_DOMAIN,
+      }),
+    ).toBe('radar')
+  })
+
+  it('still emits `dom:` alone when only the domain differs from default', () => {
+    const encoded = formatWeatherParam({ weather: [], omDomain: 'dwd_icon_eu' })
+    expect(encoded).toBe('dom:dwd_icon_eu')
+    expect(parseWeatherParam(encoded)).toEqual({ weather: [], omDomain: 'dwd_icon_eu' })
+  })
+
+  it('falls back to the default domain for an unknown `dom:` token, without throwing', () => {
+    expect(parseWeatherParam('radar.dom:not-a-real-domain')).toEqual({
+      weather: [{ id: 'radar', opacity: 0.75 }],
+      omDomain: DEFAULT_OM_DOMAIN,
+    })
+  })
+})
+
+describe('Open-Meteo domain catalogue', () => {
+  it('exposes exactly the three domains, finest-to-coarsest', () => {
+    expect(OM_DOMAINS.map((d) => d.id)).toEqual(['dwd_icon_d2', 'dwd_icon_eu', 'ecmwf_ifs025'])
+  })
+
+  it('isOmDomainId accepts every catalogue id and rejects everything else', () => {
+    for (const domain of OM_DOMAINS) expect(isOmDomainId(domain.id)).toBe(true)
+    expect(isOmDomainId('not-a-domain')).toBe(false)
+  })
+
+  it('omDomain falls back to the first catalogue entry for an unknown id', () => {
+    // Only reachable through a bare cast — the codec above already keeps a malformed `dom:`
+    // token out of `MapLayerState`, but `omDomain` itself must still not crash on one.
+    expect(omDomain('bogus' as never).id).toBe(OM_DOMAINS[0]!.id)
+  })
+
+  it('builds the om:// tile URL around the same metadata URL the protocol reads', () => {
+    const metaUrl = openMeteoMetaUrl('dwd_icon_d2', 'cloud_cover')
+    expect(metaUrl).toBe(
+      'https://map-tiles.open-meteo.com/data_spatial/dwd_icon_d2/latest.json?variable=cloud_cover',
+    )
+    expect(omTileUrl({ domain: 'dwd_icon_d2', variable: 'cloud_cover', timeStep: 3 })).toBe(
+      `om://${metaUrl}&time_step=3&interpolation=linear&dark=true`,
+    )
+  })
+})
+
+/** ISO-string shorthand for the time-scrubber tests below — module scope, not per-`describe`, so
+ * oxlint's `consistent-function-scoping` does not flag it as a closure recreated on every call. */
+const t = (iso: string) => new Date(iso)
+
+describe('time scrubber helpers', () => {
+  it('nearestTimeIndex returns null for an empty list', () => {
+    expect(nearestTimeIndex([], t('2026-08-20T12:00:00Z'))).toBeNull()
+  })
+
+  it('nearestTimeIndex snaps to the closest candidate on either side', () => {
+    const times = [t('2026-08-20T10:00:00Z'), t('2026-08-20T12:00:00Z'), t('2026-08-20T14:00:00Z')]
+    expect(nearestTimeIndex(times, t('2026-08-20T10:30:00Z'))).toBe(0)
+    expect(nearestTimeIndex(times, t('2026-08-20T13:00:01Z'))).toBe(2)
+  })
+
+  it('nearestTimeIndex clamps to the newest candidate once the target is past every one of them', () => {
+    // The exact shape radar needs: no future frames, so a target past "now" still resolves to
+    // the newest (last) frame rather than throwing or picking an arbitrary one.
+    const times = [t('2026-08-20T10:00:00Z'), t('2026-08-20T10:05:00Z')]
+    expect(nearestTimeIndex(times, t('2026-08-20T23:00:00Z'))).toBe(1)
+  })
+
+  it('buildTimeTicks merges, sorts and de-duplicates to the millisecond', () => {
+    const radar = [t('2026-08-20T10:05:00Z'), t('2026-08-20T10:00:00Z')]
+    const model = [t('2026-08-20T10:05:00Z'), t('2026-08-20T11:00:00Z')]
+    expect(buildTimeTicks(radar, model)).toEqual([
+      t('2026-08-20T10:00:00Z'),
+      t('2026-08-20T10:05:00Z'),
+      t('2026-08-20T11:00:00Z'),
+    ])
+  })
+
+  it('buildTimeTicks handles no time sets and empty ones alike', () => {
+    expect(buildTimeTicks()).toEqual([])
+    expect(buildTimeTicks([], [])).toEqual([])
+  })
+
+  it('nextTickMs steps forward from wherever the position actually landed', () => {
+    const ticks = [t('2026-08-20T10:00:00Z'), t('2026-08-20T11:00:00Z'), t('2026-08-20T12:00:00Z')]
+    // A position BETWEEN two ticks still advances past the one it is nearest, not to it.
+    expect(nextTickMs(ticks, t('2026-08-20T10:50:00Z').getTime())).toBe(
+      t('2026-08-20T12:00:00Z').getTime(),
+    )
+    expect(nextTickMs(ticks, t('2026-08-20T10:00:00Z').getTime())).toBe(
+      t('2026-08-20T11:00:00Z').getTime(),
+    )
+  })
+
+  it('nextTickMs wraps at the end and holds still on an empty list', () => {
+    const ticks = [t('2026-08-20T10:00:00Z'), t('2026-08-20T11:00:00Z')]
+    expect(nextTickMs(ticks, t('2026-08-20T11:00:00Z').getTime())).toBe(
+      t('2026-08-20T10:00:00Z').getTime(),
+    )
+    const orphaned = t('2026-08-20T11:00:00Z').getTime()
+    expect(nextTickMs([], orphaned)).toBe(orphaned)
   })
 })
 
@@ -501,6 +652,7 @@ function stateFixture(overrides: Partial<MapLayerState>): MapLayerState {
     lpRange: LP_RANGE_FULL,
     weather: [],
     terrain: TERRAIN_DEFAULT,
+    omDomain: DEFAULT_OM_DOMAIN,
     ...overrides,
   }
 }

@@ -1,5 +1,6 @@
 import { addProtocol, type AddLayerObject, type Map as MapLibreMap } from 'maplibre-gl'
 import mlcontour from 'maplibre-contour'
+import { omProtocol } from '@openmeteo/weather-map-layer'
 import type { RainViewerFrame } from '../../../lib/queries/rainviewer'
 import {
   BASE_STACK_INDEX,
@@ -18,6 +19,8 @@ import {
   LP_RANGE_FULL,
   LP_STACK_INDEX,
   lpTileUrl,
+  OM_MAXZOOM,
+  omTileUrl,
   remapLpRampStops,
   TERRAIN_3D_EXAGGERATION,
   TERRAIN_ATTRIBUTION,
@@ -33,6 +36,7 @@ import {
   type BaseLayerId,
   type HillshadeMethod,
   type MapLayerState,
+  type OmDomainId,
   type WeatherLayerId,
 } from '../map-layers'
 
@@ -129,6 +133,16 @@ const demSource = new mlcontour.DemSource({
 })
 demSource.setupMaplibre({ addProtocol })
 
+/**
+ * `@openmeteo/weather-map-layer`'s own MapLibre protocol, registered at MODULE SCOPE for the
+ * identical reason `demSource.setupMaplibre` is above it — a module is evaluated exactly once by
+ * the ESM loader no matter how many times a consuming effect re-runs, so this needs no React 19
+ * StrictMode double-registration guard the way a `useEffect` call would. `addProtocol('om', ...)`
+ * is the same `maplibre-gl` import `demSource.setupMaplibre` already uses, not a second import of
+ * the function from the package.
+ */
+addProtocol('om', omProtocol)
+
 const CONTOUR_TILE_OPTIONS = {
   thresholds: CONTOUR_THRESHOLDS,
   contourLayer: CONTOUR_LAYER_NAME,
@@ -183,6 +197,16 @@ const cloudLayerId = (index: number) => `${weatherLayerId('cloud')}-${index}`
  */
 const gibsLayerId = (index: number, time: string) =>
   `${OWN_PREFIX}wx-cloud-ir-${index}-${time.replace(/[:.]/g, '-')}`
+
+/**
+ * The same id-changing discipline as `staticTimedLayerId`, for an `'om-model'` row — folds the
+ * DOMAIN in as well as the step, not just the id: switching from ICON-D2 to ECMWF IFS is a
+ * different tile URL entirely (a different metadata endpoint, not just a different index into the
+ * same one), so the old domain's source has to fall out of `installOverlays`' `wanted` set exactly
+ * the way an aged-out WMS timestamp already does.
+ */
+const omLayerId = (id: WeatherLayerId, domain: OmDomainId, timeStep: number) =>
+  `${OWN_PREFIX}wx-${id}-${domain}-${timeStep}`
 
 // ── The light-pollution ramp ───────────────────────────────────────────────
 
@@ -412,6 +436,15 @@ export type OverlayState = MapLayerState & {
   /** The one GIBS grid slot `cloud-ir` bakes into its id — see `gibsTime` in `map-layers.ts`.
    * Always populated for the same reason `nowMs` is. */
   gibsTime: string
+  /**
+   * The `time_step` INDEX `'om-model'` rows bake into their tile URL — resolved in `site-map.tsx`
+   * by snapping the scrubber's current tick to the nearest entry in the selected domain's own
+   * `valid_times` (`nearestTimeIndex`, `map-layers.ts`), not computed here. `null` while no
+   * `'om-model'` row is active or the domain's metadata hasn't loaded yet — `desiredStack` below
+   * mounts nothing for the whole `'om-model'` group in that case rather than a source pointed at
+   * a bogus step.
+   */
+  omTimeStep: number | null
 }
 
 function rasterEntry({
@@ -439,6 +472,34 @@ function rasterEntry({
       attribution,
       ...(maxzoom !== undefined && { maxzoom }),
     },
+    layers: [{ id, type: 'raster', source: id, paint: { 'raster-opacity': opacity } }],
+  }
+}
+
+/**
+ * `'om-model'`'s own raster entry — a `url` TileJSON endpoint, not a `tiles` template array, per
+ * `@openmeteo/weather-map-layer`'s own contract (see `omTileUrl`'s doc in `map-layers.ts`). Kept
+ * separate from `rasterEntry` above rather than widening that helper's signature: every other
+ * raster row in this catalogue is a `tiles` array, and threading an either/or through one helper
+ * for a single caller would obscure the one place that actually differs.
+ */
+function omRasterEntry({
+  id,
+  stackIndex,
+  url,
+  attribution,
+  opacity,
+}: {
+  id: string
+  stackIndex: number
+  url: string
+  attribution: string
+  opacity: number
+}): StackEntry {
+  return {
+    id,
+    stackIndex,
+    source: { type: 'raster', url, maxzoom: OM_MAXZOOM, attribution },
     layers: [{ id, type: 'raster', source: id, paint: { 'raster-opacity': opacity } }],
   }
 }
@@ -746,6 +807,28 @@ function desiredStack(state: OverlayState): StackEntry[] {
       continue
     }
 
+    if (entry.source === 'om-model') {
+      // No addressable step yet — either no `'om-model'` row is on (unreachable here, since we
+      // are inside this row's own selection) or the selected domain's metadata hasn't resolved a
+      // `time_step` yet (`site-map.tsx`'s `nearestTimeIndex` over its own `validTimes`). Mounting
+      // nothing is the honest render: a source pointed at a bogus step is worse than no source.
+      if (state.omTimeStep === null) continue
+      stack.push(
+        omRasterEntry({
+          id: omLayerId(entry.id, state.omDomain, state.omTimeStep),
+          stackIndex: entry.stackIndex,
+          url: omTileUrl({
+            domain: state.omDomain,
+            variable: entry.variable,
+            timeStep: state.omTimeStep,
+          }),
+          attribution: entry.attribution,
+          opacity: selection.opacity,
+        }),
+      )
+      continue
+    }
+
     // `entry.source === 'wms'` — only `lightning` remains. Same one-source-per-timestamp shape as
     // the radar frames, just with exactly one frame: it has no nowcast to animate, but the `time`
     // its OWN `timeGrid` resolves to (`weatherLayerTime`, `map-layers.ts`) still ages out of that
@@ -962,6 +1045,14 @@ export function paintOverlayState(map: MapLibreMap, state: OverlayState, radarFr
         if (map.getLayer(id) === undefined) return
         map.setPaintProperty(id, 'raster-opacity', selection.opacity)
       })
+      continue
+    }
+
+    if (entry.source === 'om-model') {
+      if (state.omTimeStep === null) continue
+      const id = omLayerId(entry.id, state.omDomain, state.omTimeStep)
+      if (map.getLayer(id) === undefined) continue
+      map.setPaintProperty(id, 'raster-opacity', selection.opacity)
       continue
     }
 

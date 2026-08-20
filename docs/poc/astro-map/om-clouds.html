@@ -61,6 +61,13 @@ const model = (domain, variable, step, interpolation) => (m) => {
   m.addLayer({ id:'om', type:'raster', source:'om', paint:{ 'raster-opacity':0.85 } })
 }
 
+// Mounts a verbatim om:// url — no builder of this page's own, so what renders here is exactly
+// what the app asks for.
+const shipped = (url) => (m) => {
+  m.addSource('om', { type:'raster', url, maxzoom:12 })
+  m.addLayer({ id:'om', type:'raster', source:'om', paint:{ 'raster-opacity':0.85 } })
+}
+
 const CASES = [
   { label:'A — SHIPPED: EUMETSAT clm mask, nearest', add: mask('nearest') },
   { label:'B — same mask, resampling: linear',       add: mask('linear') },
@@ -68,6 +75,10 @@ const CASES = [
   { label:'D — ICON-D2 cloud_cover +12 h',           add: model('dwd_icon_d2','cloud_cover',12,'linear') },
   { label:'E — ICON-D2 cloud_cover_low, cubic',      add: model('dwd_icon_d2','cloud_cover_low',0,'cubic') },
   { label:'F — ECMWF IFS 0.25° cloud_cover now',     add: model('ecmwf_ifs025','cloud_cover',0,'linear') },
+  // Row 3 — the SHIPPED urls, dumped straight out of map-layers.ts' `omTileUrl`, not retyped.
+  { label:'G — SHIPPED Cloud cover (forecast)', add: shipped("om://https://map-tiles.open-meteo.com/data_spatial/dwd_icon_d2/latest.json?variable=cloud_cover&time_step=0&interpolation=linear&dark=true") },
+  { label:'H — SHIPPED Low cloud cover (forecast)', add: shipped("om://https://map-tiles.open-meteo.com/data_spatial/dwd_icon_d2/latest.json?variable=cloud_cover_low&time_step=0&interpolation=linear&dark=true") },
+  { label:'I — SHIPPED Precipitation (forecast)', add: shipped("om://https://map-tiles.open-meteo.com/data_spatial/dwd_icon_d2/latest.json?variable=precipitation&time_step=0&interpolation=linear&dark=true") },
 ]
 
 const grid = document.getElementById('grid')
