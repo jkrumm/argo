@@ -1,0 +1,110 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Hillshade — does it actually do anything?</title>
+<link href="/node_modules/.bun/maplibre-gl@6.3.0/node_modules/maplibre-gl/dist/maplibre-gl.css" rel="stylesheet" />
+<style>
+  body { margin:0; background:#18181b; color:#e4e4e7; font:12px system-ui; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); grid-auto-rows:33vh; }
+  .pane { position:relative; border:1px solid #3f3f46; }
+  .label { position:absolute; z-index:2; top:4px; left:4px; background:#000c; padding:2px 6px; }
+  .score { position:absolute; z-index:2; bottom:4px; left:4px; background:#000c; padding:2px 6px; color:#f0b726; }
+  .map { width:100%; height:100%; }
+</style>
+</head>
+<body>
+<div class="grid" id="grid"></div>
+<script type="module">
+import { Map as MLMap } from "/node_modules/.bun/maplibre-gl@6.3.0/node_modules/maplibre-gl/dist/maplibre-gl.mjs";
+
+// Shipped constants, dumped from map-overlays.ts / map-layers.ts — not retyped by hand.
+const SHADOW = 'rgb(0 0 0)', HIGHLIGHT = 'rgb(255 255 255)', ACCENT = 'rgb(0 0 0)'
+const MULTI_DIR = [270,315,0,45], MULTI_ALT = [30,30,30,30]
+const SINGLE_DIR = 335, SINGLE_ALT = 45
+const DEM = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'
+const FIORD = 'https://tiles.openfreemap.org/styles/fiord'
+
+// Karwendel / Achensee — real alpine relief, the terrain that decides an actual scouting drive.
+const C = [11.44, 47.42], Z = 11
+
+function paint(method, exaggeration) {
+  const multi = method === 'multidirectional'
+  return {
+    'hillshade-method': method,
+    'hillshade-illumination-direction': multi ? MULTI_DIR : SINGLE_DIR,
+    'hillshade-illumination-altitude': multi ? MULTI_ALT : SINGLE_ALT,
+    'hillshade-exaggeration': exaggeration,
+    'hillshade-shadow-color': SHADOW,
+    'hillshade-highlight-color': HIGHLIGHT,
+    'hillshade-accent-color': ACCENT,
+  }
+}
+
+const CASES = [
+  { label: 'A — control: NO hillshade', hs: null },
+  { label: 'B — igor 0.7 (SHIPPED DEFAULT)', hs: paint('igor', 0.7) },
+  { label: 'C — standard 0.7', hs: paint('standard', 0.7) },
+  { label: 'D — standard 1.0', hs: paint('standard', 1.0) },
+  { label: 'E — multidirectional 0.7', hs: paint('multidirectional', 0.7) },
+  { label: 'F — combined 1.0 (not exposed today)', hs: paint('combined', 1.0) },
+]
+
+const maps = []
+const grid = document.getElementById('grid')
+CASES.forEach((c, i) => {
+  const pane = document.createElement('div')
+  pane.className = 'pane'
+  pane.innerHTML = `<div class="label">${c.label}</div><div class="score" id="s${i}">…</div><div class="map" id="m${i}"></div>`
+  grid.appendChild(pane)
+  const m = new MLMap({ container:`m${i}`, style:FIORD, center:C, zoom:Z,
+    attributionControl:false, preserveDrawingBuffer:true })
+  m.on('load', () => {
+    if (!c.hs) return
+    m.addSource('dem', { type:'raster-dem', tiles:[DEM], tileSize:256, maxzoom:15, encoding:'terrarium' })
+    // Same anchor rule the app uses: first symbol layer after the last ground fill.
+    const layers = m.getStyle().layers
+    const GROUND = new Set(['background','fill','fill-extrusion'])
+    const lastFill = layers.map(l=>l.type).lastIndexOf ? (() => {
+      let idx = -1; layers.forEach((l,j)=>{ if (GROUND.has(l.type)) idx = j }); return idx })() : -1
+    const anchor = layers.find((l,j)=> l.type==='symbol' && j>lastFill)?.id
+    m.addLayer({ id:'hs', type:'hillshade', source:'dem', paint:c.hs }, anchor)
+  })
+  maps.push(m)
+})
+
+// Mean absolute per-pixel difference against pane A, in 0–255 units. Reported once every map
+// reports idle, so the numbers describe fully-drawn tiles rather than a half-loaded frame.
+window.measure = async () => {
+  // `once('idle')` never re-fires for a map that already went idle before this ran, so poll
+  // `loaded()` instead — the check that is true whether idle happened before or after the call.
+  const deadline = Date.now() + 30000
+  while (Date.now() < deadline && !maps.every(m => m.loaded())) {
+    await new Promise(res => setTimeout(res, 250))
+  }
+  const px = (m) => {
+    const cv = m.getCanvas()
+    const off = document.createElement('canvas')
+    off.width = 300; off.height = 200
+    const ctx = off.getContext('2d')
+    ctx.drawImage(cv, 0, 0, 300, 200)
+    return ctx.getImageData(0, 0, 300, 200).data
+  }
+  const base = px(maps[0])
+  const out = []
+  maps.forEach((m, i) => {
+    const d = px(m)
+    let sum = 0, n = 0
+    for (let k = 0; k < d.length; k += 4) {
+      sum += Math.abs(d[k]-base[k]) + Math.abs(d[k+1]-base[k+1]) + Math.abs(d[k+2]-base[k+2])
+      n += 3
+    }
+    const score = (sum/n).toFixed(2)
+    document.getElementById('s'+i).textContent = `Δ vs control: ${score}`
+    out.push({ case: CASES[i].label, meanAbsDelta: Number(score) })
+  })
+  return out
+}
+</script>
+</body>
+</html>

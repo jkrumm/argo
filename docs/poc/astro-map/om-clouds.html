@@ -1,0 +1,83 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Model cloud (Open-Meteo om://) vs the shipped satellite mask</title>
+<link href="/node_modules/.bun/maplibre-gl@6.3.0/node_modules/maplibre-gl/dist/maplibre-gl.css" rel="stylesheet" />
+<style>
+  body { margin:0; background:#18181b; color:#e4e4e7; font:12px system-ui; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); grid-auto-rows:44vh; }
+  .pane { position:relative; border:1px solid #3f3f46; }
+  .label { position:absolute; z-index:2; top:4px; left:4px; background:#000c; padding:2px 6px; }
+  .map { width:100%; height:100%; }
+</style>
+</head>
+<body>
+<div class="grid" id="grid"></div>
+<script src="./.cache/om-layer-0.0.20.umd.js"></script>
+<script type="module">
+import { Map as MLMap, addProtocol } from "/node_modules/.bun/maplibre-gl@6.3.0/node_modules/maplibre-gl/dist/maplibre-gl.mjs";
+// The UMD build, not `dist/index.mjs`: the ESM entry leaves `@openmeteo/file-reader` as a bare
+// external specifier a browser cannot resolve. The UMD bundle inlines it (3 MB, hence .cache).
+const { omProtocol } = window.OMWeatherMapLayer
+
+addProtocol('om', omProtocol)
+
+const G = '212,212,216'   // SERIES.cloudHigh dark — the shipped cloud-mask ink
+// The shipped CLOUD_RAMP, dumped from map-layers.ts (channel-sum domain: cloud 765, land 192, sea 255).
+const CLOUD_STOPS = [0,`rgba(${G},0)`,400,`rgba(${G},0)`,520,`rgba(${G},0.55)`,765,`rgba(${G},0.85)`]
+
+const FIORD = 'https://tiles.openfreemap.org/styles/fiord'
+const EUM = 'https://view.eumetsat.int/geoserver/wms'
+const wms = (layer) => `${EUM}?${new URLSearchParams({ service:'WMS',version:'1.1.1',request:'GetMap',
+  layers:layer,styles:'',format:'image/png',transparent:'true',width:'256',height:'256',srs:'EPSG:3857'})}&bbox={bbox-epsg-3857}`
+
+const OM = 'https://map-tiles.open-meteo.com/data_spatial'
+const omUrl = (domain, variable, step, interpolation) =>
+  `om://${OM}/${domain}/latest.json?variable=${variable}&time_step=${step}` +
+  `&interpolation=${interpolation}&dark=true`
+
+const C = [11.40, 47.60], Z = 6
+
+function mount(el, add) {
+  const m = new MLMap({ container:el, style:FIORD, center:C, zoom:Z, attributionControl:false })
+  m.on('load', () => add(m))
+  m.on('error', (e) => console.error(el, e && e.error && e.error.message))
+  return m
+}
+
+// The shipped satellite mask: raster-dem 1/1/1 + color-relief, `resampling` switchable.
+const mask = (resampling) => (m) => {
+  m.addSource('s', { type:'raster-dem', tiles:[wms('msg_fes:clm')], tileSize:256,
+    encoding:'custom', redFactor:1, greenFactor:1, blueFactor:1, baseShift:0 })
+  m.addLayer({ id:'l', type:'color-relief', source:'s',
+    paint:{ 'color-relief-color':['interpolate',['linear'],['elevation'], ...CLOUD_STOPS],
+            'color-relief-opacity':1, resampling } })
+}
+
+// The model field, rendered by Open-Meteo's own om:// protocol.
+const model = (domain, variable, step, interpolation) => (m) => {
+  m.addSource('om', { type:'raster', url: omUrl(domain, variable, step, interpolation), maxzoom:12 })
+  m.addLayer({ id:'om', type:'raster', source:'om', paint:{ 'raster-opacity':0.85 } })
+}
+
+const CASES = [
+  { label:'A — SHIPPED: EUMETSAT clm mask, nearest', add: mask('nearest') },
+  { label:'B — same mask, resampling: linear',       add: mask('linear') },
+  { label:'C — ICON-D2 cloud_cover now, linear',     add: model('dwd_icon_d2','cloud_cover',0,'linear') },
+  { label:'D — ICON-D2 cloud_cover +12 h',           add: model('dwd_icon_d2','cloud_cover',12,'linear') },
+  { label:'E — ICON-D2 cloud_cover_low, cubic',      add: model('dwd_icon_d2','cloud_cover_low',0,'cubic') },
+  { label:'F — ECMWF IFS 0.25° cloud_cover now',     add: model('ecmwf_ifs025','cloud_cover',0,'linear') },
+]
+
+const grid = document.getElementById('grid')
+CASES.forEach((c,i) => {
+  const pane = document.createElement('div')
+  pane.className = 'pane'
+  pane.innerHTML = `<div class="label">${c.label}</div><div class="map" id="m${i}"></div>`
+  grid.appendChild(pane)
+  mount(`m${i}`, c.add)
+})
+</script>
+</body>
+</html>

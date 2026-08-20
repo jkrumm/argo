@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Hillshade in the app's real stack</title>
+<link href="/node_modules/.bun/maplibre-gl@6.3.0/node_modules/maplibre-gl/dist/maplibre-gl.css" rel="stylesheet" />
+<style>
+  :root {
+    --vx-lp-lpCity:#e76a6e; --vx-lp-lpUrban:#eb6847; --vx-lp-lpSuburban:#ec9a3c;
+    --vx-lp-lpRural:#f0b726; --vx-lp-lpDark:#38bdf8; --vx-lp-lpDarker:#38bdf8;
+    --vx-lp-lpPristine:#38bdf8;
+  }
+  body { margin:0; background:#18181b; color:#e4e4e7; font:12px system-ui; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); grid-auto-rows:44vh; }
+  .pane { position:relative; border:1px solid #3f3f46; }
+  .label { position:absolute; z-index:2; top:4px; left:4px; background:#000c; padding:2px 6px; }
+  .map { width:100%; height:100%; }
+</style>
+</head>
+<body>
+<div class="grid" id="grid"></div>
+<script type="module">
+import { Map as MLMap } from "/node_modules/.bun/maplibre-gl@6.3.0/node_modules/maplibre-gl/dist/maplibre-gl.mjs";
+
+// Shipped LP ramp, dumped from map-layers.ts.
+const LP = [{"stop":1800,"token":"var(--vx-lp-lpCity)","alpha":0.72},{"stop":1960,"token":"var(--vx-lp-lpUrban)","alpha":0.66},{"stop":2060,"token":"var(--vx-lp-lpSuburban)","alpha":0.62},{"stop":2095,"token":"var(--vx-lp-lpSuburban)","alpha":0.58},{"stop":2130,"token":"var(--vx-lp-lpRural)","alpha":0.56},{"stop":2145,"token":"var(--vx-lp-lpRural)","alpha":0.56},{"stop":2155,"token":"var(--vx-lp-lpDark)","alpha":0.58},{"stop":2170,"token":"var(--vx-lp-lpDark)","alpha":0.62},{"stop":2180,"token":"var(--vx-lp-lpDarker)","alpha":0.66},{"stop":2190,"token":"var(--vx-lp-lpDarker)","alpha":0.7},{"stop":2200,"token":"var(--vx-lp-lpPristine)","alpha":0.74}]
+const cs = getComputedStyle(document.documentElement)
+const resolve = (t,a) => { const hex = cs.getPropertyValue(t.slice(4,-1)).trim(); const n = parseInt(hex.slice(1),16)
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})` }
+const lpRamp = ['interpolate',['linear'],['elevation'], ...LP.flatMap(r=>[r.stop, resolve(r.token,r.alpha)])]
+
+const SHADOW='rgb(0 0 0)', HIGHLIGHT='rgb(255 255 255)', ACCENT='rgb(0 0 0)'
+const hs = (method, ex) => ({ 'hillshade-method':method,
+  'hillshade-illumination-direction': method==='multidirectional' ? [270,315,0,45] : 335,
+  'hillshade-illumination-altitude': method==='multidirectional' ? [30,30,30,30] : 45,
+  'hillshade-exaggeration':ex,
+  'hillshade-shadow-color':SHADOW, 'hillshade-highlight-color':HIGHLIGHT, 'hillshade-accent-color':ACCENT })
+const HS = hs('igor', 0.7)
+const DEM = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'
+const FIORD = 'https://tiles.openfreemap.org/styles/fiord'
+const OTM = ['https://a.tile.opentopomap.org/{z}/{x}/{y}.png','https://b.tile.opentopomap.org/{z}/{x}/{y}.png']
+// The shipped base-wash from map-overlays.ts syncBaseWash — what a raster base gets while LP is on.
+const WASH = { 'raster-opacity':0.55, 'raster-saturation':-0.55, 'raster-brightness-max':0.75 }
+
+// Munich plain in the north, Karwendel/Wetterstein in the south — the view that shows BOTH why
+// hillshade is invisible where this app centres and dramatic where the drive actually goes.
+const C = [11.40, 47.75], Z = 8
+
+const otmStyle = (paint) => ({ version:8,
+  sources:{ base:{ type:'raster', tiles:OTM, tileSize:256, maxzoom:17 } },
+  layers:[{ id:'bg', type:'background', paint:{ 'background-color':'#18181b' } },
+          { id:'base', type:'raster', source:'base', paint }] })
+
+const CASES = [
+  { label:'A — fiord, NO hillshade',                 style:FIORD,               hs:false, lp:false },
+  { label:'B — fiord + hillshade (app default)',     style:FIORD,               hs:true,  lp:false },
+  { label:'C — fiord + hillshade + LP ramp',         style:FIORD,               hs:true,  lp:true  },
+  { label:'D — LP + igor 0.7 ABOVE ramp',   style:FIORD, hs:true, lp:true, hsOnTop:true, paint:hs('igor',0.7) },
+  { label:'E — LP + standard 0.5 ABOVE',    style:FIORD, hs:true, lp:true, hsOnTop:true, paint:hs('standard',0.5) },
+  { label:'F — LP + multidirectional 0.5',  style:FIORD, hs:true, lp:true, hsOnTop:true, paint:hs('multidirectional',0.5) },
+]
+
+const grid = document.getElementById('grid')
+CASES.forEach((c,i) => {
+  const pane = document.createElement('div')
+  pane.className = 'pane'
+  pane.innerHTML = `<div class="label">${c.label}</div><div class="map" id="m${i}"></div>`
+  grid.appendChild(pane)
+  const m = new MLMap({ container:`m${i}`, style:c.style, center:C, zoom:Z, attributionControl:false })
+  m.on('load', () => {
+    const layers = m.getStyle().layers
+    const GROUND = new Set(['background','fill','fill-extrusion','raster'])
+    let lastFill = -1; layers.forEach((l,j)=>{ if (GROUND.has(l.type)) lastFill = j })
+    const anchor = layers.find((l,j)=> l.type==='symbol' && j>lastFill)?.id
+    const addHs = () => {
+      m.addSource('dem', { type:'raster-dem', tiles:[DEM], tileSize:256, maxzoom:15, encoding:'terrarium' })
+      m.addLayer({ id:'hs', type:'hillshade', source:'dem', paint:c.paint ?? HS }, anchor)
+    }
+    if (c.hs && !c.hsOnTop) addHs()
+    if (c.lp) {
+      m.addSource('lp', { type:'raster-dem', tiles:['./.cache/lp/{z}/{x}/{y}.png'], tileSize:256,
+        minzoom:6, maxzoom:7, encoding:'terrarium' })
+      m.addLayer({ id:'lp', type:'color-relief', source:'lp',
+        paint:{ 'color-relief-color':lpRamp, 'color-relief-opacity':1, resampling:'linear' } }, anchor)
+    }
+    if (c.hs && c.hsOnTop) addHs()
+  })
+})
+</script>
+</body>
+</html>

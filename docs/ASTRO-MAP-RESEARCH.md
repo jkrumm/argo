@@ -787,6 +787,126 @@ only while the ramp is on — makes both legible at once, with no control to con
 
 ---
 
+## 10. The 2026-08-20 round — relief under the ramp, and why the cloud mask cannot look like Windy
+
+Three complaints drove this round: the light-pollution ramp and the topographic base do not blend,
+"Hillshade seemingly doesn't change anything", and "how can Windy display that sooo much better —
+our Cloud mask is very rough and pixelated". Two of the three turned out to be the same bug, and
+the third is not a rendering problem at all.
+
+### 10.1 The hillshade was never broken — it was buried
+
+Rendered in isolation (`docs/poc/astro-map/hillshade.html`, six panes over the Karwendel at z11),
+the shipped hillshade paint is dramatic: `igor` at 0.7 turns a flat blue-grey basemap into legible
+alpine relief, and `standard`/`multidirectional`/`combined` differ from each other clearly. Nothing
+about the DEM, the `maplibre-contour` shared protocol, the paint properties or the terrarium decode
+is wrong.
+
+The failure is the STACK ORDER. `TERRAIN_STACK_INDEX` was 5 and `LP_STACK_INDEX` 15, so the relief
+drew UNDER the pollution ramp — and since the flat-alpha correction (§9, DESIGN.md) that ramp
+paints at alpha .56–.74 at _every_ stop, everywhere. A relief under a near-opaque colour field is
+an invisible relief. Toggling the checkbox with the ramp on genuinely changed nothing on screen,
+which is exactly what was reported.
+
+`hillshade-context.html` renders the four combinations side by side against the same tiles. With
+the ramp on top, the Alps are a flat orange-and-blue wash. With the relief moved above the ramp,
+every ridge and valley reads and the ramp's colour is undiminished — the classic cartographic
+pairing of a hypsometric tint carrying the value and shaded relief carrying the form. The same
+comparison over OpenTopoMap answers the "topographic and light pollution don't blend" half: they
+never blended because the base's own baked relief was being flattened by the ramp too.
+
+Method, re-picked over the ramp rather than over a bare basemap:
+
+| method                 | over the ramp                                              |
+| ---------------------- | ---------------------------------------------------------- |
+| `igor` 0.7             | relief reads, ramp colour intact — **kept as the default** |
+| `standard` 0.5         | slightly flatter, colour intact                            |
+| `multidirectional` 0.5 | crushes the darker slopes to black, unusable               |
+
+New order: base 0 → ramp 15 → hillshade 16 → contours 17 → trails 18 → weather 20+. The rule this
+replaces — "the ramp is the answer and the hillshade is context, so the relief goes under" — was
+sound as a statement about IMPORTANCE and wrong as a statement about COMPOSITING. Importance
+decides what earns colour; it does not decide draw order when the upper layer is opaque.
+
+### 10.2 The cloud mask cannot be made to look like Windy, and the reason is the data
+
+Windy does not render satellite cloud for its cloud layer at all. It renders NWP model output —
+ECMWF IFS (~9 km), ICON (~13 km), ICON-EU (~7 km), ICON-D2 (2.2 km), AROME (~1.25 km) — as
+pre-rendered XYZ PNG tiles (`tiles.windy.com/tiles/v9.0/{layer}/{z}/{x}/{y}.png`), bilinearly
+filtered on the GPU. Windy staff confirm "simple bi-linear is used… for scalar fields like cloud
+cover or precipitation", and the timeline steps discretely between forecast hours with no time
+interpolation — each FRAME is smooth, the jump is between frames.
+
+`msg_fes:clm` is a different kind of object. It is a Level-2 CATEGORICAL product: every 3 km pixel
+is one of clear-water (0), clear-land (1), cloud (2), no-data (3). A class label cannot be
+interpolated — halfway between "clear" and "cloudy" has no physical meaning — which is why every
+guide prescribes nearest-neighbour for it, and why reprojecting the geostationary grid to Web
+Mercator stair-steps the edges. It is blocky BY CONSTRUCTION.
+
+Proven rather than argued (`om-clouds.html`, panes A and B): switching the mask's `resampling`
+from `nearest` to `linear` changes almost nothing on screen. The blocks survive because the data
+underneath them is binary. No renderer setting fixes this.
+
+The same page's panes C–F show what does: Open-Meteo's model fields through the `om://` protocol
+render smooth, structured cloud over the Alps at ICON-D2's 2.2 km — finer than anything Windy
+serves on its free tier — and pane D is the same field twelve hours ahead, which is the other half
+of the complaint. Every layer the map carries today is an OBSERVATION (satellite now, radar past);
+observations cannot have a forecast. That is why "nothing has forecast" was true and why a model
+source, not a better satellite source, is the fix.
+
+### 10.3 Forecast tile sources, re-probed live 2026-08-20
+
+| source                 | cloud total / low-mid-high                          | forecast                   | key              | CORS                          | verdict                                                                           |
+| ---------------------- | --------------------------------------------------- | -------------------------- | ---------------- | ----------------------------- | --------------------------------------------------------------------------------- |
+| **Open-Meteo `om://`** | ✅ all four                                         | ✅ hourly                  | none             | `*`                           | **chosen**                                                                        |
+| DWD GeoServer WMS      | ❌ none — precip only; ICON-D2 not published at all | ✅                         | none             | unconfirmed                   | rejected                                                                          |
+| ECMWF eccharts WMS     | ❌ not in the `token=public` subset                 | ✅                         | registered token | n/a                           | rejected                                                                          |
+| Meteomatics free tier  | ❌ cloud not in the 15 free params; WMS is paid     | ✅                         | yes              | n/a                           | rejected                                                                          |
+| MET Norway yr-maps     | ⚠ total only, max z5                                | ✅                         | none             | simple GET only, no preflight | rejected                                                                          |
+| RainViewer nowcast     | ❌ radar only                                       | ❌ discontinued 2026-01-01 | none             | ✅                            | past radar kept                                                                   |
+| Windy Map Forecast     | ✅ (paid)                                           | ✅                         | yes              | n/a                           | raw tile use is "copyright infringement" per Windy staff; library is Leaflet-only |
+| NASA GIBS              | ❌ satellite + reanalysis only                      | ❌ no NWP at all           | none             | ✅                            | rejected                                                                          |
+
+Open-Meteo domains, each probed live from this machine on 2026-08-20 against
+`https://map-tiles.open-meteo.com/data_spatial/{domain}/latest.json?variable=cloud_cover`:
+
+| domain                        | resolution | bbox (lat/lon)             | steps            | cloud total + low/mid/high  |
+| ----------------------------- | ---------- | -------------------------- | ---------------- | --------------------------- |
+| `dwd_icon_d2`                 | 2.2 km     | 43.18/-3.94 → 58.08/20.34  | 49 hourly (48 h) | ✅                          |
+| `knmi_harmonie_arome_europe`  | 2.5 km     | 39.74/-25.16 → 62.62/38.76 | 61               | ✅                          |
+| `dwd_icon_eu`                 | 7 km       | 29.5/-23.5 → 70.5/62.5     | 31               | ✅                          |
+| `ecmwf_ifs025`                | 25 km      | global                     | 85 (15 d)        | ✅                          |
+| `meteofrance_arome_france_hd` | 1.25 km    | 37.5/-12.0 → 55.4/16.0     | 52               | low/mid/high only, no total |
+| `ncep_gfs025`                 | 25 km      | global                     | 209 (16 d)       | ❌ no `cloud_cover`         |
+
+Responses carry `access-control-allow-origin: *` and expose `ETag, Content-Range` (the protocol
+reads byte ranges), plus `reference_time`, `valid_times[]` and the full `variables[]` list — 93
+variables on ICON-D2, including `precipitation`, `rain`, `visibility`, `cape` and
+`lightning_potential`.
+
+**Corrections to the 2026-08-19 record.** That round rejected `@openmeteo/weather-map-layer` on
+three grounds; two were wrong. It is **GPL-2.0**, not unlicensed — there is a LICENSE file, and the
+data itself is CC BY 4.0 requiring a "Weather data by Open-Meteo.com" credit. And `maplibre-gl` is
+a **regular dependency pinned to `^5.20.1`**, not a peer range — which is worse on paper but
+harmless in fact: the bundle contains ZERO runtime imports of maplibre-gl (it appears only in
+`om-protocol.d.ts` as a type), and `omProtocol` was registered on our maplibre-gl **6.3.0** and
+rendered correctly in `om-clouds.html`. The surviving objection is real: the package self-describes
+as "still under construction and not yet fully production-ready", and its transitive
+`@openmeteo/file-format-wasm` ships a 2.1 MB `.wasm` loaded through the wasm-bindgen
+`new URL("…​.wasm", import.meta.url)` pattern — which Vite rewrites natively, but which has to be
+proven by an actual build rather than assumed.
+
+### 10.4 What is still not answered
+
+- **One time axis over two kinds of time.** Model steps are hourly and run forward; RainViewer
+  frames are 5-minutely and run backward; the EUMETSAT observation layers only have "latest".
+  A single scrubber has to be honest about which of its layers can follow it into the future.
+- **Domain switching by viewport.** ICON-D2 stops at its bbox with no visual cue, the same
+  `coverage` problem every satellite row already has. Picking the model by hand is the honest
+  first version; picking it from the viewport is the better one.
+
+---
+
 ## Reproducing the numbers
 
 Scripts live in `docs/poc/astro-map/`. They are research artifacts — lint-clean but not

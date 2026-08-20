@@ -329,7 +329,7 @@ function MapLayerSections({
                   checked={state.terrain.hillshade}
                   onChange={(event) => handleTerrain({ hillshade: event.currentTarget.checked })}
                   label="Hillshade"
-                  description="Flat-toned relief from the same DEM the horizon march reads."
+                  description="Shades the slopes so the ground reads as ridges and valleys instead of flat colour — which peak stands between a spot and the southern sky, and where the walk in actually climbs. Drawn ON TOP of the pollution ramp, so it survives with the ramp on."
                 />
                 {state.terrain.hillshade && (
                   <>
@@ -344,8 +344,10 @@ function MapLayerSections({
                       fullWidth
                     />
                     <Text size="xs" c="dimmed">
-                      Igor: flat-toned, reads best over a coloured base. Standard: one low sun,
-                      strongest shadows. Multidirectional: four lights, softest.
+                      Igor: flat-toned, the default — the only one that keeps the ramp&apos;s colour
+                      readable underneath it. Standard: one low sun, deeper shadows, slightly
+                      flatter over the ramp. Multidirectional: four lights, and over the ramp it
+                      crushes the darker slopes to black.
                     </Text>
                     <OpacitySlider
                       label="Hillshade"

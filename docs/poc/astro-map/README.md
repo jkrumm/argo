@@ -33,13 +33,23 @@ pulls a few hundred MB; every run after that is offline.
 | `rampcheck.html` / `verify.html`     | The LP alpha ladder side by side with its replacement, the OpenTopoMap base wash, and both cloud decodes at shipped values       |
 | `irthresh.html`                      | Three IR thresholds against the `clm` mask as ground truth — why the EUMETSAT IR discs were dropped (§9.8)                       |
 | `gibscheck.html`                     | GIBS Clean Infrared raw vs decoded — why `color-relief` is NOT applied to it (§9.8)                                              |
+| `hillshade.html`                     | Six hillshade methods/exaggerations over a bare basemap — proves the relief paint itself was never broken (§10.1)                |
+| `hillshade-context.html`             | The same relief under vs above the pollution ramp, on fiord and OpenTopoMap — how the stack order was decided (§10.1)            |
+| `om-clouds.html`                     | The shipped EUMETSAT mask (nearest and linear) beside Open-Meteo ICON-D2/IFS model cloud, now and +12 h (§10.2)                  |
 
 `horizon.py` needs `numpy` and `pillow`; everything else is plain Bun with no dependencies.
 
-The five HTML pages above load MapLibre as an ES module from a **version-pinned** path under
+The HTML pages above load MapLibre as an ES module from a **version-pinned** path under
 `node_modules/.bun/maplibre-gl@6.3.0/`, so they need that exact version installed and they need an
 HTTP origin — `file://` blocks module imports. Serve the repo root (`python3 -m http.server 8791`)
 and open them from there. `rampcheck.html`/`verify.html` additionally read light-pollution tiles
 from a gitignored `.cache/lp/{z}/{x}/{y}.png` mirror, because `/astro/tiles/lp/...` is bearer-
 guarded and sends no CORS headers to a local origin; mirror a few tiles with `curl` and an
-`Authorization: Bearer` header first.
+`Authorization: Bearer` header first. `hillshade-context.html` reads the same mirror.
+
+`om-clouds.html` needs one more artifact that is deliberately NOT vendored: the **UMD** build of
+`@openmeteo/weather-map-layer`, at `.cache/om-layer-<version>.umd.js`. The UMD bundle rather than
+`dist/index.mjs`, because the ESM entry leaves `@openmeteo/file-reader` as a bare specifier no
+browser can resolve; the UMD inlines it (~3 MB, GPL-2.0, hence the gitignored cache rather than the
+repo). Fetch it from the npm tarball, or from
+`https://unpkg.com/@openmeteo/weather-map-layer@<version>/dist/index.js`.

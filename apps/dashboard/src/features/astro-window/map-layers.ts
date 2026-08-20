@@ -164,10 +164,23 @@ export const DEFAULT_LP_YEAR: LpYear = 2025
  * increasingly urgent, sparse annotations that a city-dome-height cloud wash would make worthless
  * to bury under.
  *
- * Hillshade sits between the base and everything else: it is CONTEXT for reading the ramp (which
- * ridge blocks which valley), not an answer of its own, so it renders under the pollution ramp
- * and under the weather group too (`docs/ASTRO-HORIZON-RESEARCH.md` §6 — "the ramp is the answer
- * and the hillshade is context").
+ * Hillshade sits ABOVE the pollution ramp, and this is a CORRECTION (2026-08-20) of the rule that
+ * used to live here. The old rule put it between the base and everything else, reasoning that
+ * relief is CONTEXT for reading the ramp (which ridge blocks which valley), not an answer of its
+ * own, so it belonged under the ramp and under the weather group too — "the ramp is the answer
+ * and the hillshade is context". The conclusion did not survive being rendered: the ramp is a
+ * near-opaque colour field (`LP_RAMP`, alpha .56–.74 at EVERY stop since the flat-alpha
+ * correction), so a relief drawn
+ * UNDER it is erased everywhere the ramp paints — which is everywhere. Toggling hillshade with the
+ * ramp on changed nothing on screen, and the map lost the one thing a scouting trip is planned
+ * from. Above the ramp it reads exactly like the cartographic pairing it always was: a
+ * hypsometric tint carrying the value, shaded relief on top carrying the form. Verified side by
+ * side in `docs/poc/astro-map/hillshade-context.html` — same tiles, same paint, only the order
+ * changed. `igor` at 0.7 stays the default; `standard` reads slightly flatter over the ramp and
+ * `multidirectional` crushes it to black (`.cache/hillshade-method.png` in that POC).
+ *
+ * Contours follow the hillshade above the ramp for the same reason, one step higher so the stable
+ * sort never has to break a tie between two conceptually different terrain layers.
  *
  * The Waymarked Trails hiking overlay sits above the ramp for the opposite reason: a trail is an
  * ANSWER ("can I walk there"), not context, so burying it under a city dome would make it
@@ -175,17 +188,22 @@ export const DEFAULT_LP_YEAR: LpYear = 2025
  * strike is more urgent than the path it may be closing.
  */
 export const BASE_STACK_INDEX = 0
-export const TERRAIN_STACK_INDEX = 5
+export const LP_STACK_INDEX = 15
+
+/**
+ * The shaded relief, ABOVE the ramp — see the "Stack order" section above for why that is a
+ * correction rather than the original arrangement. Still below the trails (18) and the weather
+ * group (20+): relief is the form of the ground, a trail or a storm cell is an answer about it.
+ */
+export const TERRAIN_STACK_INDEX = 16
 
 /**
  * The contour lines — terrain context, the same argument `TERRAIN_STACK_INDEX`'s comment already
- * makes for the hillshade, not an answer of its own. Sits above the hillshade (5) and below the
- * cloud mask / pollution ramp (10/15): a deliberate gap of its own rather than sharing the cloud
- * mask's 10, so the stable sort never has to break a tie between two conceptually different
- * layers.
+ * makes for the hillshade, not an answer of its own. One step above the hillshade (16) and below
+ * the trails (18): a deliberate gap of its own rather than sharing the hillshade's index, so the
+ * stable sort never has to break a tie between two conceptually different terrain layers.
  */
-export const CONTOUR_STACK_INDEX = 8
-export const LP_STACK_INDEX = 15
+export const CONTOUR_STACK_INDEX = 17
 
 /**
  * The Waymarked Trails hiking overlay. Above the ramp — a path buried under a 90 % alpha city-dome
