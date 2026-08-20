@@ -37,8 +37,13 @@ export type RecordUsageFn = (params: RecordUsageParams) => Promise<void>
 const DEEPSEEK_RATES: Record<string, { input: number; output: number }> = {
   'deepseek-v4-flash': { input: 0.14, output: 0.28 },
   'deepseek-v4-pro': { input: 0.435, output: 0.87 },
-  // OpenRouter reference pricing — NOT confirmed as IU's actual billed rate for this model.
-  'gpt-5.6-luna': { input: 0.1, output: 0.6 },
+  // OpenAI list price, short context (<=272k); Azure OpenAI matches exactly.
+  // Corrected 2026-08-20 from the OpenRouter reference figure ($0.10/$0.60), which
+  // was wrong — OpenAI cut this model 80% on 2026-07-30 and $0.20/$1.20 is the
+  // post-cut rate; $0.10/$0.60 is the *batch* tier (50% off), not a later cut —
+  // do not "correct" these down to it. Still not confirmed as IU's actual billed
+  // rate: IU no longer returns a `cost` field on any route.
+  'gpt-5.6-luna': { input: 0.2, output: 1.2 },
 }
 
 /**
