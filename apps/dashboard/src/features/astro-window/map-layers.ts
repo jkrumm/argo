@@ -1053,10 +1053,25 @@ export function openMeteoMetaUrl(domain: OmDomainId, variable: string): string {
 
 /**
  * The `om://` MapLibre source URL — the metadata URL above, plus the three params the protocol
- * reads off it: `time_step` (an INTEGER INDEX into that variable's `valid_times[]`, never a
- * timestamp of its own — `lib/queries/open-meteo-maps.ts` resolves the index, this function only
- * spells it into the URL), `interpolation` (`linear` — smooth, matching how Windy itself renders
- * these same NWP fields, ASTRO-MAP-RESEARCH §10.2) and `dark` (`true`, this app's own scheme).
+ * reads off it: `time_step`, `interpolation` (`linear` — smooth, matching how Windy itself
+ * renders these same NWP fields, ASTRO-MAP-RESEARCH §10.2) and `dark` (`true`, this app's own
+ * scheme).
+ *
+ * `time_step` is `valid_times_<index>` and NOT the bare index, which is the whole reason this
+ * function has a docblock. The protocol parses the param against
+ * `/(?<capture>(current_time|valid_times))(_)?(?<modifier>(\+|-))?(?<amountAndUnit>.*)?/`
+ * (`dist/index.mjs`, read at 0.0.20) — the `current_time|valid_times` capture is MANDATORY and
+ * the regex is unanchored, so a bare `7` does not match at all. The failure is silent and it is
+ * the worst possible one: an unmatched `time_step` falls through to
+ * `t = new Date(meta.valid_times[0])`, so EVERY step resolves to the run's own reference hour and
+ * the layer renders the identical `.om` file at every scrubber position. Shipped that way on
+ * 2026-08-20 and caught only by a human noticing the clouds never moved (§10.5) — the POC that
+ * "verified" the layer proved it RENDERED, never that two steps DIFFERED.
+ *
+ * The grammar also accepts `current_time` with an offset (`current_time+3H`, `-30M`, `+1d`,
+ * `+1m`), which this app deliberately does not use: the scrubber owns one shared time axis across
+ * every layer, so the step has to be addressed by the same absolute instant the radar frames are,
+ * not by an offset the protocol re-resolves against its own clock.
  */
 export function omTileUrl({
   domain,
@@ -1067,7 +1082,7 @@ export function omTileUrl({
   variable: string
   timeStep: number
 }): string {
-  return `om://${openMeteoMetaUrl(domain, variable)}&time_step=${timeStep}&interpolation=linear&dark=true`
+  return `om://${openMeteoMetaUrl(domain, variable)}&time_step=valid_times_${timeStep}&interpolation=linear&dark=true`
 }
 
 /** Required by the data's CC BY 4.0 licence — wired through the same `attribution` field every

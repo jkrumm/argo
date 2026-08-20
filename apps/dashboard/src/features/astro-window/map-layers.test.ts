@@ -213,8 +213,30 @@ describe('Open-Meteo domain catalogue', () => {
       'https://map-tiles.open-meteo.com/data_spatial/dwd_icon_d2/latest.json?variable=cloud_cover',
     )
     expect(omTileUrl({ domain: 'dwd_icon_d2', variable: 'cloud_cover', timeStep: 3 })).toBe(
-      `om://${metaUrl}&time_step=3&interpolation=linear&dark=true`,
+      `om://${metaUrl}&time_step=valid_times_3&interpolation=linear&dark=true`,
     )
+  })
+
+  it('spells time_step in the grammar the protocol actually parses', () => {
+    // Regression guard for the silent failure documented on `omTileUrl`: 0.0.20 matches this
+    // param against /(current_time|valid_times)(_)?([+-])?(.*)?/ with the capture MANDATORY and
+    // the regex UNANCHORED, then falls back to `valid_times[0]` when it does not match. A bare
+    // integer therefore renders the run's reference hour at every scrubber position instead of
+    // throwing — which is why asserting the literal string above is not enough on its own, and
+    // why this test asserts against the protocol's own regex rather than against our format.
+    const protocolGrammar =
+      /(?<capture>current_time|valid_times)(_)?(?<modifier>[+-])?(?<amountAndUnit>.*)?/
+    for (const timeStep of [0, 3, 48]) {
+      const step = new URL(
+        omTileUrl({ domain: 'dwd_icon_d2', variable: 'cloud_cover', timeStep }).replace(
+          'om://',
+          '',
+        ),
+      ).searchParams.get('time_step')
+      const match = step?.match(protocolGrammar)
+      expect(match?.groups?.capture).toBe('valid_times')
+      expect(Number(match?.groups?.amountAndUnit)).toBe(timeStep)
+    }
   })
 })
 

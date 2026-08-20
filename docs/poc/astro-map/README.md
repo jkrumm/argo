@@ -36,6 +36,7 @@ pulls a few hundred MB; every run after that is offline.
 | `hillshade.html`                     | Six hillshade methods/exaggerations over a bare basemap — proves the relief paint itself was never broken (§10.1)                |
 | `hillshade-context.html`             | The same relief under vs above the pollution ramp, on fiord and OpenTopoMap — how the stack order was decided (§10.1)            |
 | `om-clouds.html`                     | The shipped EUMETSAT mask (nearest and linear) beside Open-Meteo ICON-D2/IFS model cloud, now and +12 h (§10.2)                  |
+| `om-timestep.html`                   | `time_step` as a bare index vs `valid_times_N` — the four panes that caught the frozen forecast (§10.5)                          |
 
 `horizon.py` needs `numpy` and `pillow`; everything else is plain Bun with no dependencies.
 
@@ -47,9 +48,10 @@ from a gitignored `.cache/lp/{z}/{x}/{y}.png` mirror, because `/astro/tiles/lp/.
 guarded and sends no CORS headers to a local origin; mirror a few tiles with `curl` and an
 `Authorization: Bearer` header first. `hillshade-context.html` reads the same mirror.
 
-`om-clouds.html` needs one more artifact that is deliberately NOT vendored: the **UMD** build of
+`om-clouds.html` and `om-timestep.html` need one more artifact that is deliberately NOT vendored: the **UMD** build of
 `@openmeteo/weather-map-layer`, at `.cache/om-layer-<version>.umd.js`. The UMD bundle rather than
 `dist/index.mjs`, because the ESM entry leaves `@openmeteo/file-reader` as a bare specifier no
 browser can resolve; the UMD inlines it (~3 MB, GPL-2.0, hence the gitignored cache rather than the
 repo). Fetch it from the npm tarball, or from
-`https://unpkg.com/@openmeteo/weather-map-layer@<version>/dist/index.js`.
+`https://unpkg.com/@openmeteo/weather-map-layer@<version>/dist/index.js`. It attaches itself to
+`window.OMWeatherMapLayer` — confirmed in the browser, not guessed from the package name.

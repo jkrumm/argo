@@ -896,6 +896,52 @@ as "still under construction and not yet fully production-ready", and its transi
 `new URL("…​.wasm", import.meta.url)` pattern — which Vite rewrites natively, but which has to be
 proven by an actual build rather than assumed.
 
+### 10.5 The forecast layer shipped frozen — a string grammar, not a number
+
+`model-cloud` / `model-cloud-low` / `model-precip` went to production on 2026-08-20 rendering the
+**same hour at every scrubber position**. Reported by eye ("the forecast and clouds don't seem to
+be moving at all") before any gate noticed, because no gate could.
+
+The cause is one parameter's grammar. `@openmeteo/weather-map-layer` 0.0.20 parses `time_step` in
+`dist/index.mjs` against
+
+```
+/(?<capture>(current_time|valid_times))(_)?(?<modifier>(\+|-))?(?<amountAndUnit>.*)?/
+```
+
+The `current_time|valid_times` capture is **mandatory** and the regex is **unanchored**, so a bare
+`7` does not match it at all. There is no throw on the miss — the `else` branch is
+`t = new Date(meta.valid_times[0])`. An unparseable step therefore resolves to the run's own
+reference hour, silently, and keeps rendering a perfectly plausible cloud field. We were passing
+`time_step=<index>`; the protocol wants `time_step=valid_times_<index>`.
+
+Two things made this survive to production:
+
+- **The POC verified the wrong property.** `om-clouds.html` had panes for "now" and "+12 h" and
+  both drew clouds, which was read as the layer working. Two panes drawing clouds is not evidence
+  that they draw _different_ clouds. `om-timestep.html` is the version that tests the actual
+  claim: four panes off one helper, differing only in how the param is spelled. A/B (bare `0` and
+  bare `24`) and C (`valid_times_0`) come out pixel-identical; only D (`valid_times_24`) shows
+  different weather.
+- **The unit test asserted our own format back to itself.** It compared `omTileUrl(…)` to a
+  hand-written string containing `time_step=3` — green, and green _because_ it encoded the bug.
+  The replacement asserts the URL against the protocol's own regex, extracted from its dist, so
+  the test can fail when the two disagree.
+
+The resolved `.om` files are per-step and per-run, verified live: `dwd_icon_d2/2026/08/20/0900Z/`
+holds `2026-08-20T0900.om` (24.9 MB), `…T1500.om` (29.6 MB), `…T2100.om` (26.4 MB) and
+`2026-08-21T0900.om` (27.7 MB) — four distinct payloads, all HTTP 200, none of which the shipped
+build ever requested.
+
+The same grammar also accepts `current_time` with an offset (`current_time+3H`, `-30M`, `+1d`,
+`+1m`). Deliberately unused: the scrubber owns one absolute time axis shared with the radar
+frames, and an offset the protocol re-resolves against its own clock would drift off it.
+
+`om-timestep.html` also shows two things worth carrying into the next round: ICON-D2's bbox is a
+**hard-edged parallelogram** across Central Europe with no fade (visible in pane D), so it is the
+wrong default for a European overview even though it is the finest grid; and the package's cloud
+scale climbs to a near-white wash that flattens the basemap under it at high cloud fraction.
+
 ### 10.4 What is still not answered
 
 - **One time axis over two kinds of time.** Model steps are hourly and run forward; RainViewer
@@ -903,7 +949,16 @@ proven by an actual build rather than assumed.
   A single scrubber has to be honest about which of its layers can follow it into the future.
 - **Domain switching by viewport.** ICON-D2 stops at its bbox with no visual cue, the same
   `coverage` problem every satellite row already has. Picking the model by hand is the honest
-  first version; picking it from the viewport is the better one.
+  first version; picking it from the viewport is the better one. §10.5's pane D shows how sharp
+  that edge actually is.
+- **The scrubber's axis is index-linear, not time-linear.** Measured 2026-08-20: the union is 60
+  ticks, of which 13 are RainViewer's 10-minutely frames over the last 2 h and 47 are hourly model
+  steps over the next 48 h. So ~22 % of the slider covers 2 hours and ~78 % covers two days. It
+  addresses every layer correctly; it just does not _look_ like time.
+- **Whether this catalogue should be this large at all.** Three separate satellite cloud rows
+  (`cloud`, `cloud-ir`, `cloud-top`) exist because none of them answered the question; §10.2
+  established that none of them can, and the model rows now do. Keeping all four is how a settings
+  panel becomes a list of failed attempts.
 
 ---
 

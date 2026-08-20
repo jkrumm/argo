@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>om:// time_step grammar — bare index vs valid_times_N</title>
+<link href="/node_modules/.bun/maplibre-gl@6.3.0/node_modules/maplibre-gl/dist/maplibre-gl.css" rel="stylesheet" />
+<style>
+  body { margin:0; background:#18181b; color:#e4e4e7; font:12px system-ui; }
+  .row { display:flex; height:50vh; }
+  .pane { flex:1; position:relative; border:1px solid #3f3f46; }
+  .label { position:absolute; z-index:2; top:4px; left:4px; background:#000c; padding:2px 6px; }
+  .map { width:100%; height:100%; }
+</style>
+</head>
+<body>
+<!--
+  Why this page exists: `om-clouds.html` proved the Open-Meteo layer RENDERS, and that was mistaken
+  for proof that the time axis WORKS. It does not follow. 0.0.20 parses `time_step` against
+  /(current_time|valid_times)(_)?([+-])?(.*)?/ with the capture mandatory and no anchors, so a bare
+  integer silently falls through to `valid_times[0]`. Top row is the shipped-on-2026-08-20 bug:
+  two different steps, identical picture. Bottom row is the fix: the same two steps, different
+  weather. Panes are wired from the same helper so the ONLY difference is the param spelling.
+-->
+<div class="row">
+  <div class="pane"><div class="label">A — BUG: time_step=0 (bare)</div><div id="a" class="map"></div></div>
+  <div class="pane"><div class="label">B — BUG: time_step=24 (bare) — must look identical to A</div><div id="b" class="map"></div></div>
+</div>
+<div class="row">
+  <div class="pane"><div class="label">C — FIX: time_step=valid_times_0</div><div id="c" class="map"></div></div>
+  <div class="pane"><div class="label">D — FIX: time_step=valid_times_24 (+24 h) — must differ from C</div><div id="d" class="map"></div></div>
+</div>
+<script src="./.cache/om-layer-0.0.20.umd.js"></script>
+<script type="module">
+import { Map as MLMap, addProtocol } from "/node_modules/.bun/maplibre-gl@6.3.0/node_modules/maplibre-gl/dist/maplibre-gl.mjs";
+
+const om = window.OMWeatherMapLayer; // UMD global name, confirmed in the browser — not guessed
+console.log("UMD export keys:", Object.keys(om ?? {}));
+addProtocol("om", om.omProtocol);
+
+const META = "https://map-tiles.open-meteo.com/data_spatial/dwd_icon_d2/latest.json?variable=cloud_cover";
+const url = (step) => `om://${META}&time_step=${step}&interpolation=linear&dark=true`;
+
+const style = { version:8,
+  sources:{ base:{ type:'raster', tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize:256 } },
+  layers:[ { id:'bg', type:'background', paint:{ 'background-color':'#18181b' } },
+           { id:'base', type:'raster', source:'base', paint:{ 'raster-opacity':0.8, 'raster-saturation':-0.9 } } ] };
+
+function pane(el, step) {
+  const m = new MLMap({ container:el, style: structuredClone(style), center:[10.5,50.0], zoom:4.6, attributionControl:false });
+  m.on('load', () => {
+    m.addSource('om', { type:'raster', url: url(step), maxzoom:12 });
+    m.addLayer({ id:'om', type:'raster', source:'om', paint:{ 'raster-opacity':0.85 } });
+  });
+  return m;
+}
+pane('a', 0); pane('b', 24);
+pane('c', 'valid_times_0'); pane('d', 'valid_times_24');
+</script>
+</body>
+</html>
