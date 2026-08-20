@@ -52,6 +52,11 @@ GITLAB_TOKEN=op://vps/argo/GITLAB_TOKEN
 # Hardcover.app — book shelf sync (optional, daily cron disabled when absent).
 HARDCOVER_API_KEY=op://vps/argo/HARDCOVER_API_KEY
 
+# Self-hosted Open-Meteo instance (optional). When set, the astro window's DWD
+# ICON cloud upstream (only) is pointed at it instead of api.open-meteo.com —
+# see clients/astro-upstreams.ts. Not a secret, no op:// ref needed.
+# METEO_SELFHOSTED_URL=https://meteo.mini.jkrumm.com
+
 # ── Hermes Chat (docs/HERMES-CHAT-PRD.md) ────────────────────────────────────
 # All optional. Local dev does NOT talk to the live Hermes Mac Mini / audio-proxy
 # / DeepSeek bridge — these are provisioned on prod in Group 0 and exercised via

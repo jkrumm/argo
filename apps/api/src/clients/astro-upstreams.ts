@@ -11,7 +11,12 @@
  *   - DWD ICON (`/v1/dwd-icon`) — primary cloud cover, 2.2 km resolution over
  *     Bavaria. Real horizon is ~7.5 days even when `forecast_days` asks for
  *     more (the tail comes back `null`), which is exactly why the global
- *     forecast exists as a fallback.
+ *     forecast exists as a fallback. When `METEO_SELFHOSTED_URL` is set, this
+ *     one upstream (only) is pointed at that self-hosted Open-Meteo instance
+ *     instead of `api.open-meteo.com` — same `/v1/dwd-icon` path, same
+ *     response shape. A self-hosted failure degrades `health.dwdIcon` exactly
+ *     like a public-API failure does; it never falls back to the public API
+ *     mid-request (see `fetchAstroUpstreams`).
  *   - Open-Meteo global forecast (`/v1/forecast`) — same params, coarser
  *     model, but a genuine 16-day horizon. Fills the holes ICON leaves.
  *   - 7Timer ASTRO (`7timer.info`) — `transparency` only. Its `seeing` field
@@ -29,6 +34,7 @@
  */
 
 import { SpanKind, SpanStatusCode, type AttributeValue } from '@opentelemetry/api'
+import { env } from '../env.js'
 import { tracedFetch, type TraceOptions } from '../lib/traced-fetch.js'
 import { log, tracer } from '../telemetry.js'
 
@@ -78,6 +84,17 @@ const CACHE_MAX_ENTRIES = 200
 
 function clampDays(days: number): number {
   return Math.min(MAX_DAYS, Math.max(MIN_DAYS, Math.trunc(days)))
+}
+
+/**
+ * `selfHostedUrl` empty (the default, from `env.METEO_SELFHOSTED_URL`) → the
+ * public API. Set → the self-hosted instance, same `/v1/dwd-icon` path — a
+ * stock Open-Meteo binary serves an identical response shape.
+ */
+function dwdIconHost(selfHostedUrl: string): string {
+  return selfHostedUrl
+    ? `${selfHostedUrl.replace(/\/$/, '')}/v1/dwd-icon`
+    : 'https://api.open-meteo.com/v1/dwd-icon'
 }
 
 // ── Cache ────────────────────────────────────────────────────────────────
@@ -325,9 +342,10 @@ async function fetchSevenTimer(opts: {
  */
 export async function fetchAstroUpstreams(
   input: { lat: number; lon: number; days: number },
-  deps?: { fetchImpl?: FetchImpl },
+  deps?: { fetchImpl?: FetchImpl; selfHostedMeteoUrl?: string },
 ): Promise<AstroUpstreams> {
   const fetchImpl: FetchImpl = deps?.fetchImpl ?? tracedFetch
+  const selfHostedMeteoUrl = deps?.selfHostedMeteoUrl ?? env.METEO_SELFHOSTED_URL
   const days = clampDays(input.days)
   const { lat, lon } = input
 
@@ -342,7 +360,7 @@ export async function fetchAstroUpstreams(
         const [iconResult, globalResult, sevenTimerResult] = await Promise.allSettled([
           fetchCloudUpstream({
             source: 'dwd-icon',
-            host: 'https://api.open-meteo.com/v1/dwd-icon',
+            host: dwdIconHost(selfHostedMeteoUrl),
             lat,
             lon,
             days,

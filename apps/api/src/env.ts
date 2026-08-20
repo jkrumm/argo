@@ -47,6 +47,14 @@ export const Env = z.object({
   GITLAB_BASE_URL: z.string().default('https://gitlab.com'),
   GITLAB_TOKEN: z.string().default(''),
   HARDCOVER_API_KEY: z.string().default(''),
+  // Self-hosted Open-Meteo instance (a stock Open-Meteo binary, same API
+  // contract as api.open-meteo.com), e.g. https://meteo.mini.jkrumm.com.
+  // Empty (the default) keeps the astro window's DWD ICON cloud upstream on
+  // the public API, byte-for-byte unchanged. Set to point ONLY that upstream
+  // at the self-hosted instance — see `clients/astro-upstreams.ts`. A
+  // self-hosted failure degrades the existing dwd-icon health flag exactly
+  // like a public-API failure; it never silently falls back to the public API.
+  METEO_SELFHOSTED_URL: z.string().default(''),
 
   // ── Hermes Chat (see docs/HERMES-CHAT-PRD.md) ─────────────────────────────
   // All optional so the API boots in test/CI without live cross-machine
