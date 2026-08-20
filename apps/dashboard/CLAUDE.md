@@ -75,13 +75,42 @@ export const myQueries = {
 
 Eden Treaty maps hyphenated path segments with bracket notation (`api['my-resource']`). Nested paths use chaining: `api.docker.homelab.containers.get()`.
 
-### 3. Add the sidebar entry
+### 3. Add the nav entry — `src/lib/nav.tsx`, and nowhere else
 
-In `src/routes/__root.tsx`, add a `NavLink` alongside the existing entries. Use `useMatchRoute` for active state detection.
+`src/lib/nav.tsx` is the app's ONE navigation definition. Add an item to the right `navGroup`:
+
+```tsx
+{
+  id: 'my-page',
+  label: 'My Page',
+  short: 'Mine',              // bar/menu label; falls back to `label`
+  mobile: 'tab',              // 'tab' | 'more' (default) | 'hidden' — max 4 tabs + More
+  icon: <IconSparkles size={ICON} />,
+  link: linkOptions({ to: '/my-page', search: { window: '30d' } }),
+}
+```
+
+That single entry drives the sidebar row, its active state, the mobile bar slot, the Spotlight
+"Go to My Page" command and the breadcrumb. `routes/__root.tsx` only calls
+`useNav(NAV, { badges })` and spreads the result onto `<BasaltShell {...nav} />` — never add a
+`NavLink`, a `useMatchRoute` call or a `renderNavLink` there again. To point anything else at a
+page (an index redirect, an imperative navigate), use `navTarget(NAV, 'my-page')` rather than
+restating `to` + `search`.
+
+`nav.tsx` is a LEAF: it may import `@tanstack/react-router`, `basalt-ui/router-tanstack`, icons
+and `date-fns` — never `routeTree.gen`, `__root.tsx`, or a feature module. `lib/commands.tsx`
+imports it, and `lib/commands.tsx` → `lib/router.ts` → route tree → `__root.tsx`; an edge back
+would close that cycle.
 
 ### 4. Add the nav link default search
 
-When the route has `validateSearch`, a `redirect` from `index.tsx` or a `NavLink` that pushes to the route must include `search` — otherwise TypeScript raises a `MakeRequiredSearchParams` error.
+Put every one of the route's default search params in the `linkOptions({ search })` above —
+`linkOptions` checks `to` and the route's required search keys, so a missing one is a compile
+error (`MakeRequiredSearchParams`). Keys the schema marks OPTIONAL are NOT checked, so a default
+that lives in an optional key can still be dropped silently: diff against the route's own zod
+`SearchSchema` by hand. `routes/astro-window.tsx` is the worked example — its `.transform()`ed
+params are required, and the nav entry hands them the same empty/absent input the URL used to
+carry so the route's own codecs resolve the live defaults.
 
 See `.claude/rules/tanstack-query.md` for the mutation + invalidation pattern.
 
