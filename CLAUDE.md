@@ -106,12 +106,13 @@ see `docs/archive/`.
 - `docs/ASTRO-HORIZON-RESEARCH.md` — the terrain-horizon rebuild, **shipped in five phases**. `GET /astro/horizon` serves the per-azimuth near/far-split skyline (`lib/terrain-horizon.ts`'s `horizonProfile`/`horizonAt`) for an arbitrary coordinate from the AWS terrarium DEM (`clients/terrarium-dem.ts`); `/astro/window`'s per-night gate is `max(8°, farHorizon(coreAzimuth) + 2°)`, evaluated per sample rather than once per night, and the moon counts as down when it sits behind that same skyline (`resolveNight` in `lib/astro-night.ts`); `GET /astro/visibility` (`lib/astro-visibility.ts`'s `annualVisibility`) integrates a whole calendar year on a 10-minute grid into the deterministic, weather-free annual budget — "is this spot worth the drive at all" — under three progressively honest gates (`flat`/`terrain`/`terrainMoon`). On the dashboard, the **Forecast** tab carries the sky panorama (`charts/sky-panorama.tsx` — terrain silhouette, skyglow rose and the sun/moon/core tracks on one azimuth × altitude pair of axes, with the gate drawn and the clearing segment emphasised) plus the monthly budget chart, and the **Map** tab carries hillshade + optional 3D terrain off one shared terrarium `raster-dem` source and click-anywhere scouting (`components/scout-panel.tsx`, comparing any coordinate against the selected site). **Not built:** the §5 clearance raster layer — measured at 0.34 ms/cell and rasterable, but no tile route exists. The record: the PVGIS validation, why the near field (≤500 m) is DEM-unstable and ships advisory-only, what terrain does to the core and to moonlight, the annual-budget numbers that reorder the site ranking 16× under a terrain-aware gate, and the re-verified library landscape (`astronomy-engine` is upstream-abandoned, `suncalc` 2.0 is now viable for sun/moon only). POC scripts in `docs/poc/astro-horizon/` reproduce every number in it
 - `docs/STRENGTH-ANALYTICS.md` — metric definitions, INOL, ACWR, e1RM formulas (strength page)
 
-<!-- basalt:begin 1.20.0 -->
+<!-- basalt:begin 1.21.0 -->
 
 ## basalt-ui (managed — do not hand-edit)
 
-Scaffolded by `bunx basalt-ui init` and refreshed by `bunx basalt-ui sync` (run it after a basalt-ui
-upgrade; `basalt-ui sync --check` gates drift in CI). This block is framework-owned — edit `DESIGN.md`
+Scaffolded by `bunx basalt-ui init` (the one command that legitimately predates the install) and
+refreshed by the locally installed `basalt-ui sync` after every upgrade; `basalt-ui sync --check`
+gates drift in CI. This block is framework-owned — edit `DESIGN.md`
 or the `basalt-*` rules instead; manual changes here are overwritten on the next sync.
 
 **Stack:** React 19 + Mantine v9, themed by `basalt-ui` (`BasaltProvider` + `createBasaltTheme`).
@@ -126,9 +127,14 @@ code must follow) — never import `@visx/*` outside a `charts/` directory (oxli
 Toolchain is oxlint + oxfmt (no ESLint/Biome/Prettier) and `basalt-ui check-theme` guards the
 palette. Runtime is Bun.
 
-**Before guessing an import, check the installed package's machine docs**:
-`node_modules/basalt-ui/llms.txt` (per-subpath import map), `node_modules/basalt-ui/AGENTS.md`, or
-run `bunx basalt-ui info --json`.
+**Before guessing an import, read the installed package's machine docs — `llms.txt` (per-subpath
+import map) and `AGENTS.md`, at the install directory.** That is `./node_modules/basalt-ui` only on
+a single-package app. In a workspace, basalt resolves under the package that depends on it
+(`packages/<name>/node_modules/basalt-ui`), and the repo root may have no copy at all. Run
+`basalt-ui doctor` — its `basalt-resolves` line prints the resolved install dir and version; read
+the two files there. Invoke the CLI through the **locally installed** bin (the `lint:basalt` script
+seeded by `init` shows the path); `bunx basalt-ui` fetches a second copy from npm and can answer
+for a different version than the one you are building against.
 
 **DESIGN.md is law.** `./DESIGN.md` (imported below) records this app's palette identity and series
 dictionary. Precedence: **DESIGN.md > `basalt-*` rules > skills.** When building or restyling any
