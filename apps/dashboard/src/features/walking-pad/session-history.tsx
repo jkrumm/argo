@@ -133,9 +133,6 @@ export function SessionHistoryTable() {
       <BasaltDataTable
         data={data.data}
         columns={columns}
-        // The rows in `data` are ONE page fetched newest-first. Client-side sorting would reorder
-        // that page alone while presenting as a sort of all `data.total` rows, so the control is
-        // off rather than lying — `manualPagination` does not imply it.
         enableSorting={false}
         maxHeight={TABLE_BODY_MAX_HEIGHT}
         minWidth={640}
