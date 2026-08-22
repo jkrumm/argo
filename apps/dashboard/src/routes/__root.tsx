@@ -11,11 +11,11 @@ import {
   IconSun,
 } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
-import { useLocalStorage } from '@mantine/hooks'
 import { BasaltShell, ThemeToggle } from 'basalt-ui'
 import { NotificationBell } from 'basalt-ui/notifications'
 import type { SettingsMenuItem } from 'basalt-ui'
 import { useNav } from 'basalt-ui/router-tanstack'
+import { useSidebarCollapsed } from '../lib/sidebar-collapsed'
 import { RefreshButton, TimerNavWidget, useTimerEngine } from '../components/timer-nav'
 import { useSidebarBadges } from '../components/app-shell/use-sidebar-badges'
 import { HermesVoiceButton } from '../features/hermes-chat/hermes-voice-button'
@@ -55,16 +55,14 @@ function RootLayout() {
     return () => registerColorSchemeSetter(null)
   }, [setColorScheme])
 
-  // Controlled sidebar collapse (BasaltShell's controlled seam) — persistence stays on the same
-  // 'argo-sidebar' key the shell used internally, and the Mod+B command drives it via the bridge.
-  const [sidebarCollapsed, setSidebarCollapsed] = useLocalStorage<boolean>({
-    key: 'argo-sidebar',
-    defaultValue: false,
-  })
+  // Controlled sidebar collapse (BasaltShell's controlled seam). The Mod+B command drives it
+  // through the bridge; persistence is `createPersistedState`, the same mechanism the shell's own
+  // uncontrolled path moved to at basalt-ui 1.21.0 — see `lib/sidebar-collapsed.ts`.
+  const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed()
   useEffect(() => {
-    registerSidebarToggle(() => setSidebarCollapsed((c) => !c))
+    registerSidebarToggle(() => setSidebarCollapsed(!sidebarCollapsed))
     return () => registerSidebarToggle(null)
-  }, [setSidebarCollapsed])
+  }, [sidebarCollapsed, setSidebarCollapsed])
 
   // Theme lives in the sidebar Settings menu (not basalt's globalActions `ThemeToggle`) — the
   // Settings row only renders when `settingsMenuItems` is non-empty, and it also carries the

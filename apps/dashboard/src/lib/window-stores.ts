@@ -6,7 +6,8 @@
  * `basalt:<key>`, cross-tab, Standard-Schema validated). The store's own `validateSearch` is
  * deliberately unused — every one of these routes also carries `from`/`to` (and strength carries
  * `tab`/`exercises`), while the store models exactly ONE enum param. The route's zod schema stays
- * the validator and calls `readStored()` for the default; `useStore()` writes the mirror.
+ * the validator and calls `readStored()` for the default; `useStore()` writes the mirror; and
+ * `linkSearch` is what `lib/nav.tsx` hands the router, so no link restates a fallback.
  *
  * They live HERE, not in the feature, because `lib/nav.tsx` needs them too and is a leaf by
  * contract (no feature imports). Stating them once is what keeps the nav link's default and the

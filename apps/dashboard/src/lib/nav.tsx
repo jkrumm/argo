@@ -22,8 +22,9 @@
  * page opens with. Diff against the route's own zod `SearchSchema` defaults by hand.
  *
  * The `window` key is the exception: it is no longer stated twice. `lib/window-stores.ts` owns it,
- * and both this file's click-time thunk and the route's `validateSearch` read the SAME
- * `readStored()`, so the nav link and the route cannot disagree about what the page opens with.
+ * and the links here pass the store's own `linkSearch` thunk (basalt-ui 1.21.0) while the route's
+ * `validateSearch` reads the same `readStored()`, so the nav link and the route cannot disagree
+ * about what the page opens with — and the fallback literal exists in exactly one place.
  */
 import { linkOptions } from '@tanstack/react-router'
 import { defineNav, navGroup } from 'basalt-ui/router-tanstack'
@@ -90,13 +91,11 @@ export const NAV = defineNav({
         short: 'Garmin',
         mobile: 'tab',
         icon: <IconHeartbeat size={ICON} />,
-        // Thunk, not a literal: re-evaluated at click time so arriving from outside the page
-        // restores the last window rather than forcing the factory default back on. The store
-        // IS the default — `readStored()` here and in the route's `validateSearch` are one source.
-        link: linkOptions({
-          to: '/garmin-health',
-          search: () => ({ window: garminWindowStore.readStored() ?? '30d' }),
-        }),
+        // `linkSearch`, BY REFERENCE — the store's own click-time thunk (basalt-ui 1.21.0), so
+        // arriving from outside the page restores the last window instead of forcing the factory
+        // default back on. A module-scope literal here would pin the fallback on every click, and
+        // the fallback itself now lives only in `window-stores.ts`.
+        link: linkOptions({ to: '/garmin-health', search: garminWindowStore.linkSearch }),
       },
       {
         id: 'strength',
@@ -106,8 +105,10 @@ export const NAV = defineNav({
         icon: <IconBarbell size={ICON} />,
         link: linkOptions({
           to: '/strength-tracker',
+          // Hand-composed rather than `linkSearch` by reference: this link carries three params
+          // and the store models one. Spreading the store's thunk keeps its fallback single-source.
           search: () => ({
-            window: strengthWindowStore.readStored() ?? 'all',
+            ...strengthWindowStore.linkSearch(),
             tab: 'charts',
             exercises: 'bench_press,deadlift,squat,pull_ups',
           }),
@@ -120,7 +121,7 @@ export const NAV = defineNav({
         icon: <IconRulerMeasure size={ICON} />,
         link: linkOptions({
           to: '/body-composition',
-          search: () => ({ window: bodyCompWindowStore.readStored() ?? '90d' }),
+          search: bodyCompWindowStore.linkSearch,
         }),
       },
       {

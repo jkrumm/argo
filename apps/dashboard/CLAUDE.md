@@ -98,10 +98,12 @@ page (an index redirect, an imperative navigate), use `navTarget(NAV, 'my-page')
 restating `to` + `search`.
 
 A page whose search carries a **`window` preset** does not state the default here at all: declare
-the store in `src/lib/window-stores.ts` and make the link a click-time thunk —
-`search: () => ({ window: myWindowStore.readStored() ?? '30d' })`. The route's `validateSearch`
-reads the same `readStored()`, so the nav link and the route cannot disagree, and the page reopens
-on whatever window it was left on.
+the store in `src/lib/window-stores.ts` and hand the link the store's own click-time thunk —
+`search: myWindowStore.linkSearch`, **by reference, never called** (basalt-ui 1.21.0). A link that
+also carries other params spreads it instead: `search: () => ({ ...store.linkSearch(), tab })`.
+The route's `validateSearch` reads the same `readStored()`, so the nav link and the route cannot
+disagree, the fallback literal exists in exactly one place, and the page reopens on whatever window
+it was left on.
 
 `nav.tsx` is a LEAF: it may import `@tanstack/react-router`, `basalt-ui/router-tanstack`, icons
 and `date-fns` — never `routeTree.gen`, `__root.tsx`, or a feature module. `lib/commands.tsx`
@@ -123,6 +125,18 @@ See `.claude/rules/tanstack-query.md` for the mutation + invalidation pattern.
 ## Theme Toggle
 
 `useMantineColorScheme()` from Mantine — reads/writes `mantine-color-scheme-value` in localStorage. The inline script in `index.html` sets `data-mantine-color-scheme` before first paint, which does two things: it prevents the flash of the wrong scheme, and it **disarms** `basaltAppPlugin`'s anti-FOUC `<style>`, scoped `html:not([data-mantine-color-scheme])` since basalt-ui 1.21.0. After that line Mantine's own layered `color-scheme` rule owns the native controls in both schemes. The inline `style.colorScheme` this script used to write is gone — it existed only to beat the unlayered rule 1.20.0 emitted.
+
+## Persisted UI state
+
+`createPersistedState` from `basalt-ui/state` is the house API — versioned `{ v, value }` envelope
+under `basalt:<key>`, cross-tab, SSR-safe. Sidebar collapse moved onto it at basalt-ui 1.21.0
+(`src/lib/sidebar-collapsed.ts`), which is when `BasaltShell`'s own uncontrolled path did; the
+module-scope one-time read that carries the pre-1.21.0 raw `argo-sidebar` value forward is what
+keeps an already-collapsed sidebar collapsed, and `sidebar-collapsed.test.ts` pins it. Three raw
+`localStorage` reads remain and each has a stated reason: `walking-pad/achievements-toast.tsx`
+(module-level watermark, no React subscriber), `hermes-chat/voice/audio-player-card.tsx` (per-id
+dynamic keys — `createPersistedState` is one key per module factory) and
+`strength-tracker/components/timer-core.ts`.
 
 ## Head metadata, manifest & service worker
 
