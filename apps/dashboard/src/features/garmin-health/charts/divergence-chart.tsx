@@ -103,10 +103,16 @@ const DIVERGENCE_LEGEND_ITEMS: LegendEntry[] = [
 ]
 
 /**
+ * theme-allow-file hand-rolled-plot — TWO panes over one x scale is not a single cartesian plot,
+ * so `CartesianChart` (one plot rect, one or two y axes) cannot express it. File scope, not node
+ * scope: this file is that one chart and every assembly primitive in it belongs to the same
+ * decision — there is no second, properly-composed chart here for a narrower waiver to protect.
+ *
  * Bespoke composition (dual-pane line + signed-histogram with a DIVERGING two-tone fill-between —
  * `basalt-ui`'s `DualPanel.fillBetween` only accepts a single fill color, so it can't express
  * "green when acute < chronic, red when acute > chronic". Composes `ChartFrame` + `useChartCursor`
- * directly, the sanctioned escape hatch for a shape no shipped kind's config surface covers.
+ * directly, assembled from the same parts every other chart gets — `autoMargin` +
+ * `probeAxisLabels`, `useChartCursor`, `ChartTooltipFloat`.
  */
 function DivergencePlot({
   data,
@@ -233,10 +239,6 @@ function DivergencePlot({
 
           {point !== null && (
             <>
-              {/* theme-allow basalt/hand-rolled-plot: TWO panes over one x scale is not a single
-                  cartesian plot, so `CartesianChart` (one plot rect, one or two y axes) cannot
-                  express it. Assembled from the same parts every other chart gets — `ChartFrame`,
-                  `autoMargin` + `probeAxisLabels`, `useChartCursor`, `ChartTooltipFloat`. */}
               <Crosshair x={sx} top={0} bottom={topH} />
               <SeriesDot cx={sx} cy={topYScale(point.acute)} color={VX.goodSolid} />
               <SeriesDot cx={sx} cy={topYScale(point.chronic)} color={VX.badSolid} />

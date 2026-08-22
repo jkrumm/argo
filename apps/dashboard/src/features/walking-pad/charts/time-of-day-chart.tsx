@@ -33,10 +33,11 @@ type Tip = { cell: Cell; anchor: { x: number; y: number } }
  * in the right margin, and hands `renderTooltip` only `{row, col, value}` —
  * which can't reach the per-cell distance this tooltip shows.
  *
- * theme-allow basalt/hand-rolled-plot: a day × hour matrix is not a single cartesian plot, so
- * `CartesianChart` (one plot rect, one x scale, one or two y axes) cannot express it. The rule
- * happens not to fire — no assembly primitive is rendered — but the escape is declared here
- * rather than left to that accident, per the chart doctrine.
+ * A day × hour matrix is not a single cartesian plot, so `CartesianChart` (one plot rect, one x
+ * scale, one or two y axes) cannot express it. There is deliberately NO `hand-rolled-plot` waiver
+ * here: this file renders no assembly primitive, so the rule does not fire and a waiver would
+ * suppress nothing today while silently covering the next real finding. If it ever fires, that is
+ * a signal worth reading rather than one already answered.
  */
 // Chrome eaten by ChartCard around the SVG body when `matchHeight` is set:
 // ~44px header (title+subtitle row + 1px border) + 16px body vertical padding

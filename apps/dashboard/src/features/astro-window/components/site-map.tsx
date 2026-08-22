@@ -98,12 +98,9 @@ setWorkerUrl(maplibreWorkerUrl)
 
 /**
  * MapLibre's `fitBounds` inset, in MAP pixels — not CSS spacing, so no Mantine
- * spacing token can express it. Hoisted out of the effect so the theme guard's
- * inline-spacing kind (which cannot tell a map API argument from a CSS literal)
- * has nothing to trip on.
+ * spacing token can express it. basalt-ui 1.21.0 stopped reading a unitless number
+ * in a plain options bag as CSS, so the waiver this used to carry is gone.
  */
-// maplibre fitBounds viewport padding, in map pixels — not a CSS spacing value.
-// theme-allow inline-spacing — a map-viewport inset has no Mantine spacing token
 const FIT_BOUNDS_OPTIONS = { padding: 48, duration: 0 } as const
 
 /**
