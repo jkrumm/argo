@@ -8,10 +8,10 @@
 
 .plateTotal {
   font-family: var(--basalt-font-mono);
-  /* Sits between xl (18) and h2 (21): a secondary readout that must beat body type without
-     reading as a section title. */
-  /* theme-allow inline-font-size — no ladder step between xl and h2 */
-  font-size: 20px;
+  /* A secondary readout that must beat body type without reading as a section title. h2 (21)
+     rather than the 20px this used to hardcode: 21/20 = 1.05 is below every step in the ladder,
+     so a 20px rung was deliberately rejected and h2 is the remedy. */
+  font-size: var(--vx-text-h2);
   font-weight: 600;
 }
 
@@ -91,9 +91,9 @@
 
 .barEndLabel {
   font-family: var(--basalt-font-mono);
-  /* Plate/bar engraving label: micro (11) is the ladder's floor and overflows a 24px plate face. */
-  /* theme-allow inline-font-size — no ladder step below micro */
-  font-size: 10px;
+  /* Plate/bar engraving label: micro (11) overflows a 24px plate face; nano (10) is the rung
+     basalt-ui 1.21.0 added below it. */
+  font-size: var(--vx-text-nano);
   color: color-mix(in srgb, var(--vx-neutral) 75%, transparent);
 }
 
@@ -151,9 +151,9 @@
 
 .plateLabel {
   font-family: var(--basalt-font-mono);
-  /* Plate/bar engraving label: micro (11) is the ladder's floor and overflows a 24px plate face. */
-  /* theme-allow inline-font-size — no ladder step below micro */
-  font-size: 10px;
+  /* Plate/bar engraving label: micro (11) overflows a 24px plate face; nano (10) is the rung
+     basalt-ui 1.21.0 added below it. */
+  font-size: var(--vx-text-nano);
   font-weight: 600;
   color: color-mix(in srgb, var(--vx-neutral) 85%, transparent);
 }
