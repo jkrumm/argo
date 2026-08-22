@@ -40,6 +40,25 @@ const getX = (d: Bucket) => String(d.bucketStart)
 // Match the Weekly Volume chart's height so the two bottom-row cards align.
 const CHART_HEIGHT = 280
 
+// The bucket grid is fixed server-side (`HISTOGRAM_SPECS` in the API's walking-pad-formulas):
+// 19 duration buckets, 21 for distance and steps. A tick COUNT cannot express "label every Nth
+// bucket AND always label the overflow bucket" — `smartTicksEvery` appends the final key
+// unconditionally, so any count whose stride misses the last index paints two labels on top of
+// each other at the right edge. The counts this used to pass (7 / 6) only avoided that because
+// they happened to divide those two grid sizes exactly; change `maxBucket` upstream and the
+// right edge doubles up silently. Stride by bucket instead and drop a stepped tick that would
+// land adjacent to the overflow bucket.
+const TICK_STRIDE: Record<MetricKey, number> = { duration: 3, distance: 4, steps: 4 }
+
+const bucketTicks =
+  (stride: number) =>
+  (keys: readonly string[]): readonly string[] => {
+    const last = keys.length - 1
+    if (last < 1) return keys
+    const stepped = keys.filter((_, i) => i % stride === 0 && last - i > 1)
+    return [...stepped, keys[last] as string]
+  }
+
 export function LengthHistogramChart({ params }: { params: WalkingPadWindowParams }) {
   const { enabled } = useMetricSelection()
   // The toggle picks the *bucketing dimension*. With multiple enabled, the
@@ -137,7 +156,7 @@ export function LengthHistogramChart({ params }: { params: WalkingPadWindowParam
             ticks: 4,
             autoMaxFloor: 3,
           }}
-          xTicks={driver === 'duration' ? 7 : 6}
+          xTickValues={bucketTicks(TICK_STRIDE[driver])}
           tooltip={{ formatHeader: (key) => formatX(key) }}
           legend={false}
         />

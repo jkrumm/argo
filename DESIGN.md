@@ -1,6 +1,6 @@
 # Argo — Design
 
-> Managed by basalt-ui (1.0.0). This is a **thin** instantiation — it records this app's **deltas
+> Managed by basalt-ui — run `basalt-ui doctor` for the version. This is a **thin** instantiation — it records this app's **deltas
 > only** on top of the shipped `basalt-*` rules. The universal law (earned color, neutral-by-default,
 > three-tier `--vx-*` tokens, theme-is-data, the chart primitive contract, the elevation/density/shape
 > doctrine) lives in those rules and the `/basalt:design` skill, and is **not** repeated here. Touch
