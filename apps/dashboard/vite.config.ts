@@ -1,9 +1,8 @@
 import { defineConfig, mergeConfig } from 'vite'
-import { basaltViteConfig } from 'basalt-ui/vite'
+import { basaltAppPlugin, basaltViteConfig } from 'basalt-ui/vite'
 import react from '@vitejs/plugin-react'
 import babel from 'vite-plugin-babel'
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite'
-import { VitePWA } from 'vite-plugin-pwa'
 import { resolve } from 'path'
 import { readFileSync } from 'fs'
 
@@ -39,27 +38,20 @@ export default defineConfig(
       TanStackRouterVite({ target: 'react', autoCodeSplitting: true }),
       babel({ babelConfig: { plugins: ['babel-plugin-react-compiler'] } }),
       react(),
-      VitePWA({
-        // New service worker activates in the background; fresh assets are picked
-        // up on the next launch/navigation (no forced mid-session reload).
-        registerType: 'autoUpdate',
-        // Plugin injects the registration script — no app code needed.
-        injectRegister: 'auto',
-        // Keep the hand-tuned public/site.webmanifest + icon set; don't generate one.
-        manifest: false,
-        workbox: {
-          // App-shell precache only — no /api caching, so health/strength data is
-          // always fetched fresh (offline shows the shell with fetch errors).
-          globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
-          navigateFallback: '/index.html',
-          navigateFallbackDenylist: [/^\/api/, /^\/v1\//],
-          cleanupOutdatedCaches: true,
-          clientsClaim: true,
-          // Some Mantine/charts chunks exceed the 2 MB default; precache them too.
-          maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+      // Owns the head metadata, site.webmanifest and service worker that used to be
+      // hand-written in index.html / public/site.webmanifest / a local VitePWA block.
+      // The theme-color pair and the manifest's theme_color/background_color are
+      // resolved from basalt's own SURFACE.bg token, so no hex is hand-computed here.
+      ...basaltAppPlugin({
+        name: 'Argo',
+        description: 'Personal homelab dashboard — Garmin health, strength training, and M365.',
+        serviceWorker: {
+          workbox: {
+            // Beyond the preset's `/api` denial: the OTel receiver paths must not
+            // fall back to the app shell either.
+            navigateFallbackDenylist: [/^\/api/, /^\/v1\//],
+          },
         },
-        // SW stays off in dev so it can't cache stale assets during `bun dev`.
-        devOptions: { enabled: false },
       }),
     ],
     server: {

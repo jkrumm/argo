@@ -2,25 +2,21 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#EDEFF2" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#242424" />
-    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="shortcut icon" href="/favicon.ico" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <meta name="apple-mobile-web-app-title" content="Argo" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="manifest" href="/site.webmanifest" />
-    <meta name="darkreader-lock" />
     <title>Argo</title>
     <script>
-      // ColorSchemeScript: prevents flash of wrong color scheme on load
+      // Color scheme, before first paint. Two jobs:
+      //   1. data-mantine-color-scheme, so Mantine's tokens resolve to the stored scheme.
+      //   2. an INLINE color-scheme, because basaltAppPlugin's anti-FOUC <style> pins
+      //      `html{color-scheme:dark}` UNLAYERED — which outranks Mantine's own
+      //      `@layer mantine{:root{color-scheme:var(--mantine-color-scheme)}}` in every
+      //      scheme, so light mode would otherwise get dark scrollbars and native
+      //      controls. Only an inline style attribute outranks an unlayered rule.
+      //      Remove once the plugin stops hardcoding the dark scheme.
       try {
-        var stored = localStorage.getItem('mantine-color-scheme-value')
-        document.documentElement.setAttribute('data-mantine-color-scheme', stored || 'dark')
+        var stored = localStorage.getItem('mantine-color-scheme-value') || 'dark'
+        var root = document.documentElement
+        root.setAttribute('data-mantine-color-scheme', stored)
+        root.style.colorScheme = stored === 'auto' ? 'light dark' : stored
       } catch (e) {}
     </script>
   </head>

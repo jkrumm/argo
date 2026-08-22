@@ -116,7 +116,11 @@ See `.claude/rules/tanstack-query.md` for the mutation + invalidation pattern.
 
 ## Theme Toggle
 
-`useMantineColorScheme()` from Mantine — reads/writes `mantine-color-scheme-value` in localStorage. The inline script in `index.html` prevents flash of wrong scheme on load.
+`useMantineColorScheme()` from Mantine — reads/writes `mantine-color-scheme-value` in localStorage. The inline script in `index.html` prevents flash of wrong scheme on load, and also writes an **inline** `color-scheme` on `<html>`: `basaltAppPlugin`'s anti-FOUC `<style>` pins `html{color-scheme:dark}` unlayered, which outranks Mantine's own layered rule, so only an inline style attribute keeps light mode's native controls light. Remove that line if the plugin stops hardcoding it.
+
+## Head metadata, manifest & service worker
+
+Owned by `basaltAppPlugin` in `vite.config.ts` — the dual `theme-color` metas, the favicon/apple-touch links, the `apple-mobile-web-app-*` set, `darkreader-lock`, the viewport tag, `site.webmanifest` (generated, **not** a file in `public/`) and the `vite-plugin-pwa` service worker. The theme colors are resolved from basalt's `SURFACE.bg` token, so **never hand-write a hex in `index.html` or a manifest** — `basalt-ui check-theme` scans both. `index.html` keeps only `<meta charset>`, `<title>`, the color-scheme script and the module entry; `public/` keeps only the icon files. See `.claude/rules/basalt-app.md`.
 
 ## Charts
 
@@ -170,6 +174,6 @@ The dashboard uses `babel-plugin-react-compiler` via `vite-plugin-babel`. All co
 
 `VITE_HYPERDX_API_KEY` is a placeholder string locally (`local-dev-no-auth` in `.env.local.tpl`) — the SDK requires non-empty but `:4319` ignores the value. **Never set `VITE_HYPERDX_ENDPOINT` to a relative path** like `/` — the OTLP exporter requires absolute URLs and silently falls back to HyperDX Cloud.
 
-`__APP_VERSION__` is injected by Vite at build time (sourced from `package.json` `version`, override via `BUILD_VERSION` env). Surfaced as the `app.version` resource attribute in HyperDX for release diffs.
+`__APP_VERSION__` is injected by Vite at build time (sourced from `package.json` `version`, override via `BUILD_VERSION` env). Surfaced as the `app.version` resource attribute in HyperDX for release diffs. Its ambient declaration ships with basalt-ui (≥1.20.0) via the root barrel — there is no local `declare const` to maintain.
 
 See `.claude/rules/observability.md` for the full configuration contract — first-import constraint, `tracePropagationTargets` regex rules, `ignoreUrls`, prod routing, common pitfalls.
