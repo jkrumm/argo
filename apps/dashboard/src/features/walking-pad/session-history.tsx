@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Badge, Card, Group, Pagination, Stack, Table, Text } from '@mantine/core'
+import { Badge, Card, Group, Stack, Text } from '@mantine/core'
+import type { PaginationState } from '@tanstack/react-table'
+import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
 import { walkingPadQueries } from '../../lib/queries/walking-pad'
 import { formatDurationClock, formatKcal, formatKm, formatPace, formatSteps } from './formatters'
 
@@ -32,10 +34,79 @@ function dateLabel(iso: string): { date: string; time: string } {
   }
 }
 
+const columnHelper = createColumnHelper<SessionRow>()
+
+// Every numeric accessor gets the mono-numeral cell style automatically, which is what the
+// duration column used to hand-roll as `fontVariantNumeric: 'tabular-nums'`. The two columns that
+// opt OUT are the two whose cell draws its own chrome: a weighted accent `Text` and a `Badge` both
+// lose their typeface to the `td`'s monospace otherwise.
+const columns = [
+  columnHelper.accessor('started_at', {
+    header: 'When',
+    cell: (ctx) => {
+      const start = dateLabel(ctx.getValue())
+      return (
+        <Stack gap={0}>
+          <Text size="sm" fw={500}>
+            {start.date}
+          </Text>
+          <Text size="xs" c="dimmed">
+            {start.time}
+          </Text>
+        </Stack>
+      )
+    },
+  }),
+  columnHelper.accessor('distance_m', {
+    header: 'Distance',
+    meta: { numeral: false },
+    cell: (ctx) => (
+      <Text size="sm" fw={600} c="blue">
+        {formatKm(ctx.getValue())}
+      </Text>
+    ),
+  }),
+  columnHelper.accessor('duration_s', {
+    header: 'Duration',
+    cell: (ctx) => formatDurationClock(ctx.getValue()),
+  }),
+  columnHelper.accessor('avg_speed_kmh', {
+    header: 'Avg pace',
+    cell: (ctx) => formatPace(ctx.getValue(), 2),
+  }),
+  columnHelper.accessor('max_speed_kmh', {
+    header: 'Peak',
+    cell: (ctx) => formatPace(ctx.getValue(), 2),
+  }),
+  columnHelper.accessor('steps', { header: 'Steps', cell: (ctx) => formatSteps(ctx.getValue()) }),
+  columnHelper.accessor('kcal', { header: 'Kcal', cell: (ctx) => formatKcal(ctx.getValue()) }),
+  columnHelper.accessor('pause_count', {
+    header: 'Pauses',
+    meta: { numeral: false },
+    cell: (ctx) =>
+      ctx.getValue() === 0 ? (
+        <Text size="sm" c="dimmed">
+          —
+        </Text>
+      ) : (
+        <Badge size="sm" color="gray" variant="light">
+          {ctx.getValue()}
+        </Badge>
+      ),
+  }),
+]
+
 export function SessionHistoryTable() {
-  const [page, setPage] = useState(1)
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: PAGE_SIZE,
+  })
   const { data } = useSuspenseQuery(
-    walkingPadQueries.list({ page, limit: PAGE_SIZE, order: 'desc' }),
+    walkingPadQueries.list({
+      page: pagination.pageIndex + 1,
+      limit: pagination.pageSize,
+      order: 'desc',
+    }),
   )
 
   if (data.total === 0) {
@@ -48,8 +119,6 @@ export function SessionHistoryTable() {
     )
   }
 
-  const totalPages = Math.max(1, Math.ceil(data.total / PAGE_SIZE))
-
   return (
     // theme-allow card-inset — flush table card: header/body/footer manage their own px/py
     <Card padding={0}>
@@ -61,76 +130,26 @@ export function SessionHistoryTable() {
           {data.total} session{data.total === 1 ? '' : 's'} total
         </Text>
       </Group>
-      {/* `type="native"` is required, not a preference: ScrollArea's custom viewport is the
-          positioning context a sticky <thead> resolves against, so the default `scrollarea`
-          type pins the header to the viewport top instead of the table's. */}
-      <Table.ScrollContainer type="native" minWidth={640} maxHeight={TABLE_BODY_MAX_HEIGHT}>
-        <Table verticalSpacing="xs" striped highlightOnHover stickyHeader>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>When</Table.Th>
-              <Table.Th>Distance</Table.Th>
-              <Table.Th>Duration</Table.Th>
-              <Table.Th>Avg pace</Table.Th>
-              <Table.Th>Peak</Table.Th>
-              <Table.Th>Steps</Table.Th>
-              <Table.Th>Kcal</Table.Th>
-              <Table.Th>Pauses</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {data.data.map((s) => (
-              <SessionRow key={s.uuid} session={s as SessionRow} />
-            ))}
-          </Table.Tbody>
-        </Table>
-      </Table.ScrollContainer>
-      {totalPages > 1 && (
-        <Group justify="center" p="sm">
-          <Pagination value={page} onChange={setPage} total={totalPages} size="sm" />
-        </Group>
-      )}
+      <BasaltDataTable
+        data={data.data}
+        columns={columns}
+        // The rows in `data` are ONE page fetched newest-first. Client-side sorting would reorder
+        // that page alone while presenting as a sort of all `data.total` rows, so the control is
+        // off rather than lying — `manualPagination` does not imply it.
+        enableSorting={false}
+        maxHeight={TABLE_BODY_MAX_HEIGHT}
+        minWidth={640}
+        stickyHeader
+        striped
+        highlightOnHover
+        verticalSpacing="xs"
+        withTableBorder={false}
+        enablePagination
+        manualPagination
+        rowCount={data.total}
+        initialPagination={{ pageIndex: 0, pageSize: PAGE_SIZE }}
+        onPaginationChange={setPagination}
+      />
     </Card>
-  )
-}
-
-function SessionRow({ session }: { session: SessionRow }) {
-  const start = dateLabel(session.started_at)
-  return (
-    <Table.Tr>
-      <Table.Td>
-        <Stack gap={0}>
-          <Text size="sm" fw={500}>
-            {start.date}
-          </Text>
-          <Text size="xs" c="dimmed">
-            {start.time}
-          </Text>
-        </Stack>
-      </Table.Td>
-      <Table.Td>
-        <Text size="sm" fw={600} c="blue">
-          {formatKm(session.distance_m)}
-        </Text>
-      </Table.Td>
-      <Table.Td style={{ fontVariantNumeric: 'tabular-nums' }}>
-        {formatDurationClock(session.duration_s)}
-      </Table.Td>
-      <Table.Td>{formatPace(session.avg_speed_kmh, 2)}</Table.Td>
-      <Table.Td>{formatPace(session.max_speed_kmh, 2)}</Table.Td>
-      <Table.Td>{formatSteps(session.steps)}</Table.Td>
-      <Table.Td>{formatKcal(session.kcal)}</Table.Td>
-      <Table.Td>
-        {session.pause_count === 0 ? (
-          <Text size="sm" c="dimmed">
-            —
-          </Text>
-        ) : (
-          <Badge size="sm" color="gray" variant="light">
-            {session.pause_count}
-          </Badge>
-        )}
-      </Table.Td>
-    </Table.Tr>
   )
 }

@@ -1,8 +1,38 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Card, Group, Stack, Table, Text } from '@mantine/core'
+import { Card, Group, Stack, Text } from '@mantine/core'
+import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
 import { usageQueries, type Range } from '../../../lib/queries/usage'
 import type { BillingValue, WorkspaceValue } from '../types'
 import { fmtPct, fmtUsd } from '../constants'
+
+type ProjectRow = { key: string; value: number; share: number }
+
+const columnHelper = createColumnHelper<ProjectRow>()
+
+// `align` on the column def rather than `textAlign` on the `th` AND the `td`: the header and the
+// cells cannot drift apart, and a typo'd key is a tsc error instead of a money column that quietly
+// left-aligns. `value` and `share` keep the automatic mono numerals — both are plain figures, which
+// is exactly what that style is for.
+const columns = [
+  columnHelper.accessor('key', {
+    header: 'Project',
+    cell: (ctx) => <Text size="sm">{ctx.getValue()}</Text>,
+  }),
+  columnHelper.accessor('value', {
+    header: 'Cost',
+    meta: { align: 'right' },
+    cell: (ctx) => fmtUsd(ctx.getValue()),
+  }),
+  columnHelper.accessor('share', {
+    header: 'Share',
+    meta: { align: 'right' },
+    cell: (ctx) => (
+      <Text size="sm" c="dimmed">
+        {fmtPct(ctx.getValue())}
+      </Text>
+    ),
+  }),
+]
 
 export default function TopProjects({
   range,
@@ -33,38 +63,20 @@ export default function TopProjects({
             Total {fmtUsd(data.total)}
           </Text>
         </Group>
-        {data.rows.length === 0 ? (
-          <Text size="sm" c="dimmed">
-            No data in this window.
-          </Text>
-        ) : (
-          <Table striped highlightOnHover withRowBorders={false} verticalSpacing="xs">
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Project</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>Cost</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>Share</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {data.rows.map((r) => (
-                <Table.Tr key={r.key}>
-                  <Table.Td>
-                    <Text size="sm">{r.key}</Text>
-                  </Table.Td>
-                  <Table.Td style={{ textAlign: 'right' }}>
-                    <Text size="sm">{fmtUsd(r.value)}</Text>
-                  </Table.Td>
-                  <Table.Td style={{ textAlign: 'right' }}>
-                    <Text size="sm" c="dimmed">
-                      {fmtPct(r.share)}
-                    </Text>
-                  </Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
-        )}
+        <BasaltDataTable
+          data={data.rows}
+          columns={columns}
+          striped
+          highlightOnHover
+          withRowBorders={false}
+          withTableBorder={false}
+          verticalSpacing="xs"
+          emptyState={
+            <Text size="sm" c="dimmed">
+              No data in this window.
+            </Text>
+          }
+        />
       </Stack>
     </Card>
   )
