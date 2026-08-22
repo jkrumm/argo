@@ -4,19 +4,16 @@
     <meta charset="UTF-8" />
     <title>Argo</title>
     <script>
-      // Color scheme, before first paint. Two jobs:
-      //   1. data-mantine-color-scheme, so Mantine's tokens resolve to the stored scheme.
-      //   2. an INLINE color-scheme, because basaltAppPlugin's anti-FOUC <style> pins
-      //      `html{color-scheme:dark}` UNLAYERED — which outranks Mantine's own
-      //      `@layer mantine{:root{color-scheme:var(--mantine-color-scheme)}}` in every
-      //      scheme, so light mode would otherwise get dark scrollbars and native
-      //      controls. Only an inline style attribute outranks an unlayered rule.
-      //      Remove once the plugin stops hardcoding the dark scheme.
+      // The stored color scheme, before first paint, so Mantine's tokens resolve to it.
+      // Setting the attribute also DISARMS basaltAppPlugin's anti-FOUC <style>, which is
+      // scoped `html:not([data-mantine-color-scheme])` since basalt-ui 1.21.0 — after this
+      // line Mantine's own layered `color-scheme` rule owns the native controls. The inline
+      // `style.colorScheme` this used to write is gone with the unlayered rule that forced it.
       try {
-        var stored = localStorage.getItem('mantine-color-scheme-value') || 'dark'
-        var root = document.documentElement
-        root.setAttribute('data-mantine-color-scheme', stored)
-        root.style.colorScheme = stored === 'auto' ? 'light dark' : stored
+        document.documentElement.setAttribute(
+          'data-mantine-color-scheme',
+          localStorage.getItem('mantine-color-scheme-value') || 'dark',
+        )
       } catch (e) {}
     </script>
   </head>

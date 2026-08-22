@@ -44,6 +44,10 @@ export default defineConfig(
       // resolved from basalt's own SURFACE.bg token, so no hex is hand-computed here.
       ...basaltAppPlugin({
         name: 'Argo',
+        // Mirrors BasaltProvider's `defaultColorScheme` in main.tsx — the anti-FOUC <style>
+        // paints the scheme the app opens on, then disarms itself the moment index.html's boot
+        // script writes `data-mantine-color-scheme`.
+        colorScheme: 'dark',
         description: 'Personal homelab dashboard — Garmin health, strength training, and M365.',
         serviceWorker: {
           workbox: {
