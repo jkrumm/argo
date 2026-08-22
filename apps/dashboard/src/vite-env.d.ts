@@ -1,7 +1,5 @@
 /// <reference types="vite/client" />
 
-declare const __APP_VERSION__: string
-
 interface ImportMetaEnv {
   /**
    * Dev-only bearer token to auto-seed the auth store so the AuthGate never blocks local dev /
