@@ -905,17 +905,20 @@ feature.
 
 ## 33. Cross-chart hover sync
 
-A single `HoverContext` provider wraps each page. Hovering any chart broadcasts the
-date; every other chart draws a ghost crosshair at the same x. The same session reads
-the same on every chart simultaneously. Implemented via `useHoverSync<T>` — never
-reimplement the closest-point loop inline. The user isn't choosing between charts;
-they're reading one coherent view of a day.
+The cursor is shared by default — a module-level store, no provider to mount. Hovering
+any chart broadcasts the domain key; every other chart draws a ghost crosshair at the
+same x. The same session reads the same on every chart simultaneously. `ChartCursorScope`
+ISOLATES a subtree when a page genuinely needs two independent cursors; there is nothing
+to opt into for the shared case. The user isn't choosing between charts; they're reading
+one coherent view of a day.
 
 ## 34. Visx primitives only
 
 Recharts is out. Every chart wraps in `ChartCard` (title + subtitle + header-extra +
-info-tooltip), legends are `ChartLegend`, tooltips are `ChartTooltip` + `TooltipHeader` +
-`TooltipRow` + `TooltipBody`, axes are `AxisLeftNumeric` / `AxisBottomDate`. Theme-aware
+info-tooltip); every single-plot cartesian chart composes `CartesianChart`, which owns
+the measured margins, scales, axes, crosshair and the DERIVED tooltip — a chart supplies
+`series` plus a child that draws only marks. Legends and tooltip rows derive from that
+same `series`, never a hand-authored array. Theme-aware
 colors via `useVxTheme()`; semantic palette (good/bad/warn/grid) and per-metric series
 colors (VX.series.hrv, VX.series.deadlift, …) live in a single `tokens.ts`. No raw hex
 literals in chart files. No `@visx/tooltip` imports (banned by oxlint). No

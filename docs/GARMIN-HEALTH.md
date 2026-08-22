@@ -327,7 +327,7 @@ Activity sits next to Fitness Trends — pairs "what I did today" (cause) with "
 
 ### 4.2 Cross-Chart Hover Sync
 
-`HoverContext` provider wraps the page. Hovering any chart's overlay broadcasts the date; every other chart draws a ghost crosshair at the same x. Direct hover also shows the tooltip. Implemented via `useHoverSync<T>` hook — never reimplement the closest-point loop inline.
+The cursor is shared by default — a module-level store, no provider to mount. Hovering any chart's overlay broadcasts the date; every other chart draws a ghost crosshair at the same x. Direct hover also shows the tooltip; a follower opts into its own reading with `tooltip.onFollow`. Never reimplement the closest-point loop inline — `ChartCursorScope` is the only seam, and it isolates rather than enables.
 
 ### 4.3 Chart-Specific Treatments
 
