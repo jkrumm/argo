@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Box, Group as MGroup, Stack, Text } from '@mantine/core'
+import { Box, Group as MGroup, Stack, Text, VisuallyHidden } from '@mantine/core'
 import { useMemo, useState, type MouseEvent } from 'react'
 import {
   ChartCard,
@@ -31,8 +31,12 @@ type Tip = { cell: Cell; anchor: { x: number; y: number } }
  * `Heatmap` kind: that kind labels every column (18 hour ticks here, against
  * the 6 this reads with), puts its gradient legend below the grid instead of
  * in the right margin, and hands `renderTooltip` only `{row, col, value}` —
- * which can't reach the per-cell distance this tooltip shows. No cartesian
- * assembly primitive is rendered, so `basalt/hand-rolled-plot` does not apply.
+ * which can't reach the per-cell distance this tooltip shows.
+ *
+ * theme-allow basalt/hand-rolled-plot: a day × hour matrix is not a single cartesian plot, so
+ * `CartesianChart` (one plot rect, one x scale, one or two y axes) cannot express it. The rule
+ * happens not to fire — no assembly primitive is rendered — but the escape is declared here
+ * rather than left to that accident, per the chart doctrine.
  */
 // Chrome eaten by ChartCard around the SVG body when `matchHeight` is set:
 // ~44px header (title+subtitle row + 1px border) + 16px body vertical padding
@@ -125,7 +129,15 @@ export function TimeOfDayChart({
     >
       <Box ref={ref} h={height} w="100%">
         {width > 0 ? (
-          <svg width={width} height={height}>
+          <svg
+            width={width}
+            height={height}
+            // Named, but with no explicit `role`. `role="img"` would make every descendant
+            // presentational per ARIA (the bug basalt-ui fixed in `ChartFrame` in 1.16), and
+            // basalt's oxlint preset enables jsx-a11y/prefer-tag-over-role, which rejects both
+            // `img` and `group` on an <svg> and proposes HTML tags that cannot carry one.
+            aria-label="Walking sessions by day of week and hour of day"
+          >
             <Group left={padLeft} top={padTop}>
               {cells.map((c) => {
                 const x = (c.hour - MIN_HOUR) * cellW
@@ -224,14 +236,17 @@ export function TimeOfDayChart({
           </TooltipBody>
         </ChartTooltipFloat>
       )}
-      <Stack gap={0} style={{ display: 'none' }}>
-        {/* SR-only fallback summary so the chart isn't silent for screen readers. */}
-        {cells.map((c) => (
-          <span key={`a-${c.dow}-${c.hour}`}>
-            {DAY_LABELS[c.dow]} {c.hour}: {c.sessions}
-          </span>
-        ))}
-      </Stack>
+      {/* SR-only fallback summary. `display: none` would prune it from the accessibility tree
+          entirely — `VisuallyHidden` is the only form a screen reader actually reads. */}
+      <VisuallyHidden>
+        <Stack gap={0}>
+          {cells.map((c) => (
+            <span key={`a-${c.dow}-${c.hour}`}>
+              {DAY_LABELS[c.dow]} {c.hour}: {c.sessions}
+            </span>
+          ))}
+        </Stack>
+      </VisuallyHidden>
     </ChartCard>
   )
 }
