@@ -8,6 +8,9 @@
 
 .plateTotal {
   font-family: var(--basalt-font-mono);
+  /* Sits between xl (18) and h2 (21): a secondary readout that must beat body type without
+     reading as a section title. */
+  /* theme-allow inline-font-size — no ladder step between xl and h2 */
   font-size: 20px;
   font-weight: 600;
 }
@@ -75,7 +78,7 @@
   height: 20px;
   flex-shrink: 0;
   padding: 0 5px;
-  border-radius: 10px;
+  border-radius: var(--vx-radius-pill);
   background: color-mix(in srgb, var(--vx-neutral) 30%, var(--vx-surface-panel));
 }
 
@@ -88,6 +91,8 @@
 
 .barEndLabel {
   font-family: var(--basalt-font-mono);
+  /* Plate/bar engraving label: micro (11) is the ladder's floor and overflows a 24px plate face. */
+  /* theme-allow inline-font-size — no ladder step below micro */
   font-size: 10px;
   color: color-mix(in srgb, var(--vx-neutral) 75%, transparent);
 }
@@ -119,7 +124,7 @@
   height: var(--plate-height, 48px);
   flex-shrink: 0;
   border: 1px solid color-mix(in srgb, var(--vx-neutral) 30%, transparent);
-  border-radius: 5px;
+  border-radius: var(--vx-radius-tight);
   background: linear-gradient(
     170deg,
     color-mix(in srgb, var(--vx-neutral) var(--plate-tone-hi, 12%), var(--vx-surface-elevated)) 0%,
@@ -146,6 +151,8 @@
 
 .plateLabel {
   font-family: var(--basalt-font-mono);
+  /* Plate/bar engraving label: micro (11) is the ladder's floor and overflows a 24px plate face. */
+  /* theme-allow inline-font-size — no ladder step below micro */
   font-size: 10px;
   font-weight: 600;
   color: color-mix(in srgb, var(--vx-neutral) 85%, transparent);
@@ -155,7 +162,7 @@
 .emptyBar {
   padding-left: 8px;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: var(--vx-text-micro);
   color: color-mix(in srgb, var(--vx-neutral) 45%, transparent);
 }
 
@@ -166,7 +173,7 @@
   background: var(--vx-surface-subtle);
   color: inherit;
   font-family: var(--basalt-font-mono);
-  font-size: 13px;
+  font-size: var(--vx-text-sm);
   cursor: pointer;
   transition: background-color 0.15s;
 }

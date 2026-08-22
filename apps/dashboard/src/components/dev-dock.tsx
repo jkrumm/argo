@@ -39,7 +39,9 @@ export function DevToolsPanel({ tool, onClose }: { tool: DevTool | null; onClose
         zIndex: 400,
         background: 'var(--mantine-color-body)',
         borderTop: '1px solid var(--mantine-color-default-border)',
-        boxShadow: 'var(--mantine-shadow-lg)',
+        // Floating tier: a fixed dock sits above the page like a menu/drawer, so it takes
+        // basalt's overlay depth token rather than Mantine's raw shadow ramp.
+        boxShadow: 'var(--vx-shadow-overlay)',
       }}
     >
       <Group
@@ -61,7 +63,7 @@ export function DevToolsPanel({ tool, onClose }: { tool: DevTool | null; onClose
           <IconX size={15} />
         </ActionIcon>
       </Group>
-      {/* theme-allow — hosts third-party devtools panels sized to height: 100%; they need a real overflow ancestor, not ScrollArea's custom viewport. */}
+      {/* theme-allow raw-scroll-container — hosts third-party devtools panels sized to height: 100%; they need a real overflow ancestor, not ScrollArea's custom viewport. */}
       <Box style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         {tool === 'router' && (
           <TanStackRouterDevtoolsPanel

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Badge, Box, Card, Group, Pagination, Stack, Table, Text } from '@mantine/core'
+import { Badge, Card, Group, Pagination, Stack, Table, Text } from '@mantine/core'
 import { walkingPadQueries } from '../../lib/queries/walking-pad'
 import { formatDurationClock, formatKcal, formatKm, formatPace, formatSteps } from './formatters'
 
@@ -51,7 +51,7 @@ export function SessionHistoryTable() {
   const totalPages = Math.max(1, Math.ceil(data.total / PAGE_SIZE))
 
   return (
-    // theme-allow: flush table card — header/body/footer manage their own px/py, no card inset
+    // theme-allow card-inset — flush table card: header/body/footer manage their own px/py
     <Card padding={0}>
       <Group justify="space-between" px="md" py="sm">
         <Text fw={600} size="sm">
@@ -61,8 +61,10 @@ export function SessionHistoryTable() {
           {data.total} session{data.total === 1 ? '' : 's'} total
         </Text>
       </Group>
-      {/* theme-allow — capped-height table body with a sticky header owns its own scroll node; a ScrollArea would clip the sticky thead's positioning context. */}
-      <Box style={{ maxHeight: TABLE_BODY_MAX_HEIGHT, overflowX: 'auto', overflowY: 'auto' }}>
+      {/* `type="native"` is required, not a preference: ScrollArea's custom viewport is the
+          positioning context a sticky <thead> resolves against, so the default `scrollarea`
+          type pins the header to the viewport top instead of the table's. */}
+      <Table.ScrollContainer type="native" minWidth={640} maxHeight={TABLE_BODY_MAX_HEIGHT}>
         <Table verticalSpacing="xs" striped highlightOnHover stickyHeader>
           <Table.Thead>
             <Table.Tr>
@@ -82,7 +84,7 @@ export function SessionHistoryTable() {
             ))}
           </Table.Tbody>
         </Table>
-      </Box>
+      </Table.ScrollContainer>
       {totalPages > 1 && (
         <Group justify="center" p="sm">
           <Pagination value={page} onChange={setPage} total={totalPages} size="sm" />

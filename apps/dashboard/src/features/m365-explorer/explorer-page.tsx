@@ -208,7 +208,7 @@ export function M365ExplorerPage(): React.ReactElement {
       />
 
       <Group align="stretch" gap="md" wrap="nowrap" style={{ minHeight: '70vh' }}>
-        {/* theme-allow: flush edge card — inner Box/ScrollArea own their own padding */}
+        {/* theme-allow card-inset — flush edge card: inner Box/ScrollArea own their own padding */}
         <Card p={0} display="flex" style={{ flex: '0 0 360px', flexDirection: 'column' }}>
           <Box p="sm">
             <TextInput
@@ -307,7 +307,7 @@ export function M365ExplorerPage(): React.ReactElement {
           </ScrollArea>
         </Card>
 
-        {/* theme-allow: flush edge card — DetailPane owns its own padding */}
+        {/* theme-allow card-inset — flush edge card: DetailPane owns its own padding */}
         <Card display="flex" style={{ flex: 1, flexDirection: 'column' }} p={0}>
           {!selected ? (
             <Stack

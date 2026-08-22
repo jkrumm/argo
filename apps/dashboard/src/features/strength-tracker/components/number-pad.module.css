@@ -6,6 +6,9 @@
 
 .valueText {
   font-family: var(--basalt-font-mono);
+  /* Display numeral for a one-handed keypad: the type scale tops out at kpi (24) and h1 (26),
+     neither of which is legible at arm's length mid-set. */
+  /* theme-allow inline-font-size — no ladder step above h1 */
   font-size: 32px;
   font-weight: 600;
   line-height: 1.1;
@@ -31,7 +34,7 @@
   background: var(--vx-surface-subtle);
   color: inherit;
   font-family: var(--basalt-font-mono);
-  font-size: 16px;
+  font-size: var(--vx-text-lg);
   cursor: pointer;
   transition: background-color 0.15s;
 }
@@ -52,7 +55,7 @@
   background: var(--vx-surface-subtle);
   color: inherit;
   font: inherit;
-  font-size: 15px;
+  font-size: var(--vx-text-md);
   cursor: pointer;
   transition: background-color 0.15s;
 }
@@ -67,7 +70,7 @@
 @media (pointer: coarse) {
   .digitKey {
     height: 46px;
-    font-size: 18px;
+    font-size: var(--vx-text-xl);
   }
 
   .stepperBtn {

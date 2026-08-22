@@ -73,8 +73,8 @@ function TimerRing({
             </Text>
           )}
           {flipIcon ? (
-            <div style={{ perspective: 500 }}>
-              <div
+            <Box style={{ perspective: 500 }}>
+              <Box
                 style={{
                   position: 'relative',
                   width: 96,
@@ -114,8 +114,8 @@ function TimerRing({
                 >
                   {flipIcon}
                 </Flex>
-              </div>
-            </div>
+              </Box>
+            </Box>
           ) : (
             <Text ta="center" fw={700} size="xl" style={{ fontVariantNumeric: 'tabular-nums' }}>
               {label}

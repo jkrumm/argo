@@ -15,7 +15,7 @@
 }
 
 .headCell {
-  font-size: 11px;
+  font-size: var(--vx-text-micro);
   color: color-mix(in srgb, var(--vx-neutral) 50%, transparent);
 }
 
@@ -54,7 +54,7 @@
   border: none;
   background: transparent;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--vx-text-xs);
   font-weight: 600;
   text-align: left;
   cursor: pointer;
@@ -79,7 +79,7 @@
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--vx-text-sm);
   line-height: 1;
   cursor: pointer;
   opacity: 0;
@@ -121,11 +121,11 @@
   min-width: 0;
   padding: 2px 4px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--vx-radius-fine);
   background: transparent;
   color: inherit;
   font-family: var(--basalt-font-mono);
-  font-size: 15px;
+  font-size: var(--vx-text-md);
   line-height: 1.35;
   text-align: center;
   cursor: pointer;
@@ -159,7 +159,7 @@
   flex: 1;
   padding: 2px 4px;
   font-family: var(--basalt-font-mono);
-  font-size: 15px;
+  font-size: var(--vx-text-md);
   line-height: 1.35;
   text-align: center;
 }

@@ -20,6 +20,11 @@ import classes from './thread-feed-row.module.css'
 // literal duplicate stream replay (the exact defect this file replaces). Own it here in plain CSS
 // so an upstream Mantine default change can never flip this out from under the chat.
 //
+// Named `HermesThreadRow`, not `ThreadFeedRow`: basalt-ui 1.20.0's `basalt/shadow-basalt-export`
+// flags a local component whose name collides with a live basalt export, and it is right to — the
+// name claimed to be the shipped composite while being a fork. The fork itself stays, for the
+// reasons below; only the misleading name goes.
+//
 // We don't use basalt's own `ThreadFeedRow`/`ThreadFeed` composite (though both are on the
 // program's frozen-import allowlist): its header hardcodes `thread.outcome?.title ?? 'Untitled
 // thread'` (node_modules/basalt-ui/src/agent-chat/thread-feed-row.tsx, `rowTitle`) and has no pin/
@@ -58,7 +63,7 @@ function metaString(meta: Record<string, unknown> | undefined, key: string): str
   return typeof value === 'string' && value.length > 0 ? value : null
 }
 
-export function ThreadFeedRow({
+export function HermesThreadRow({
   thread,
   expanded,
   onToggle,

@@ -8,7 +8,7 @@ import { useAgentThreadRuns } from 'basalt-ui/agent'
 import type { AgentThread, ThreadsStore, AgentPart } from 'basalt-ui/agent'
 import { hermesQueries } from '../../lib/queries/hermes'
 import { useUiStore } from '../../lib/store'
-import { ThreadFeedRow } from './thread-feed-row'
+import { HermesThreadRow } from './thread-feed-row'
 import { HERMES_CHAT_FEATURES } from './features'
 import { useVoicePlayback } from './voice/voice-playback'
 import { useVoiceRecorder } from './voice/use-voice-recorder'
@@ -231,7 +231,7 @@ function HermesChatFeedReady({ store }: { store: ThreadsStore<AgentPart> }) {
 
   return (
     <Stack h={FILL_HEIGHT} gap={0} style={{ margin: BLEED_MARGIN }}>
-      {/* theme-allow — scrollRef reads scrollTop/scrollHeight directly for scrollToBottom(); ScrollArea's viewport is an internal implementation detail, not a ref-able node. */}
+      {/* theme-allow raw-scroll-container — scrollRef reads scrollTop/scrollHeight directly for scrollToBottom(); ScrollArea's viewport is an internal implementation detail, not a ref-able node. */}
       <Box ref={scrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         <Stack gap="xs" p="sm" mih="100%" justify="flex-end">
           {ordered.length === 0 ? (
@@ -240,7 +240,7 @@ function HermesChatFeedReady({ store }: { store: ThreadsStore<AgentPart> }) {
             </Text>
           ) : (
             ordered.map((thread) => (
-              <ThreadFeedRow
+              <HermesThreadRow
                 key={thread.id}
                 thread={thread}
                 expanded={thread.id === expandedId}

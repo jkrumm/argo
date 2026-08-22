@@ -33,14 +33,6 @@ body {
   user-select: none;
 }
 
-/* Safety net: any input that escapes the theme defaults still renders at 16px
-   on small screens, so iOS never zooms the viewport on focus. */
-@media (max-width: 48em) {
-  .mantine-Input-input {
-    font-size: 16px;
-  }
-}
-
 /* Installed PWA: clear the home indicator and the landscape notch. The iOS
    status bar uses the opaque `default` style, so no top inset is needed.
    Left inset is handled by the navbar so Mantine's grid offset stays intact. */

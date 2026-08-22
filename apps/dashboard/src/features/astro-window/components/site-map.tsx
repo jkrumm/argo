@@ -102,7 +102,9 @@ setWorkerUrl(maplibreWorkerUrl)
  * inline-spacing kind (which cannot tell a map API argument from a CSS literal)
  * has nothing to trip on.
  */
-const FIT_BOUNDS_OPTIONS = { padding: 48, duration: 0 } as const // theme-allow
+// maplibre fitBounds viewport padding, in map pixels — not a CSS spacing value.
+// theme-allow inline-spacing — a map-viewport inset has no Mantine spacing token
+const FIT_BOUNDS_OPTIONS = { padding: 48, duration: 0 } as const
 
 /**
  * Our tile route is bearer-guarded, and `transformRequest` is the only place MapLibre lets an
