@@ -132,10 +132,10 @@ export function TimeOfDayChart({
           <svg
             width={width}
             height={height}
-            // Named, but with no explicit `role`. `role="img"` would make every descendant
-            // presentational per ARIA (the bug basalt-ui fixed in `ChartFrame` in 1.16), and
-            // basalt's oxlint preset enables jsx-a11y/prefer-tag-over-role, which rejects both
-            // `img` and `group` on an <svg> and proposes HTML tags that cannot carry one.
+            // `group`, never `img`: per ARIA every descendant of a `role="img"` element is
+            // presentational, which is the bug basalt-ui fixed in `ChartFrame` at 1.16. This
+            // matches what `ChartFrame` itself puts on a chart root.
+            role="group"
             aria-label="Walking sessions by day of week and hour of day"
           >
             <Group left={padLeft} top={padTop}>
