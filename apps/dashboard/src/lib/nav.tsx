@@ -20,9 +20,14 @@
  * `validateSearch: (raw: Record<string, unknown>) => T`, which makes every search key optional on
  * the INPUT side. Dropping a default search key here compiles clean and silently changes what the
  * page opens with. Diff against the route's own zod `SearchSchema` defaults by hand.
+ *
+ * The `window` key is the exception: it is no longer stated twice. `lib/window-stores.ts` owns it,
+ * and both this file's click-time thunk and the route's `validateSearch` read the SAME
+ * `readStored()`, so the nav link and the route cannot disagree about what the page opens with.
  */
 import { linkOptions } from '@tanstack/react-router'
 import { defineNav, navGroup } from 'basalt-ui/router-tanstack'
+import { bodyCompWindowStore, garminWindowStore, strengthWindowStore } from './window-stores'
 import { format } from 'date-fns'
 import {
   IconActivity,
@@ -85,7 +90,13 @@ export const NAV = defineNav({
         short: 'Garmin',
         mobile: 'tab',
         icon: <IconHeartbeat size={ICON} />,
-        link: linkOptions({ to: '/garmin-health', search: { window: '30d' } }),
+        // Thunk, not a literal: re-evaluated at click time so arriving from outside the page
+        // restores the last window rather than forcing the factory default back on. The store
+        // IS the default — `readStored()` here and in the route's `validateSearch` are one source.
+        link: linkOptions({
+          to: '/garmin-health',
+          search: () => ({ window: garminWindowStore.readStored() ?? '30d' }),
+        }),
       },
       {
         id: 'strength',
@@ -95,11 +106,11 @@ export const NAV = defineNav({
         icon: <IconBarbell size={ICON} />,
         link: linkOptions({
           to: '/strength-tracker',
-          search: {
-            window: 'all',
+          search: () => ({
+            window: strengthWindowStore.readStored() ?? 'all',
             tab: 'charts',
             exercises: 'bench_press,deadlift,squat,pull_ups',
-          },
+          }),
         }),
       },
       {
@@ -107,7 +118,10 @@ export const NAV = defineNav({
         label: 'Body Composition',
         short: 'Body',
         icon: <IconRulerMeasure size={ICON} />,
-        link: linkOptions({ to: '/body-composition', search: { window: '90d' } }),
+        link: linkOptions({
+          to: '/body-composition',
+          search: () => ({ window: bodyCompWindowStore.readStored() ?? '90d' }),
+        }),
       },
       {
         id: 'walkingpad',

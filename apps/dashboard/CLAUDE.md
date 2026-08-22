@@ -97,6 +97,12 @@ That single entry drives the sidebar row, its active state, the mobile bar slot,
 page (an index redirect, an imperative navigate), use `navTarget(NAV, 'my-page')` rather than
 restating `to` + `search`.
 
+A page whose search carries a **`window` preset** does not state the default here at all: declare
+the store in `src/lib/window-stores.ts` and make the link a click-time thunk —
+`search: () => ({ window: myWindowStore.readStored() ?? '30d' })`. The route's `validateSearch`
+reads the same `readStored()`, so the nav link and the route cannot disagree, and the page reopens
+on whatever window it was left on.
+
 `nav.tsx` is a LEAF: it may import `@tanstack/react-router`, `basalt-ui/router-tanstack`, icons
 and `date-fns` — never `routeTree.gen`, `__root.tsx`, or a feature module. `lib/commands.tsx`
 imports it, and `lib/commands.tsx` → `lib/router.ts` → route tree → `__root.tsx`; an edge back

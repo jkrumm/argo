@@ -1,5 +1,6 @@
-import { useSyncExternalStore } from 'react'
 import { Chip, Group, Text } from '@mantine/core'
+import { createPersistedState } from 'basalt-ui/state'
+import { z } from 'zod'
 import { SERIES } from '../../lib/series'
 
 export type MetricKey = 'distance' | 'duration' | 'steps'
@@ -29,75 +30,28 @@ export const METRIC_DEFS: Record<
   steps: { label: 'Steps', color: SERIES.walkingSteps, format: fmtSteps },
 }
 
-// ── Global selection (localStorage-backed, cross-tab via storage event) ────
+// ── Global selection ────────────────────────────────────────────────────────
 
-const STORAGE_KEY = 'walkingpad-metrics-enabled'
-const DEFAULT_SELECTION: ReadonlyArray<MetricKey> = ['distance']
-const CHANGE_EVENT = 'walkingpad-metrics-changed'
+// `createPersistedState` is the house persistence API — versioned envelope, Standard-Schema
+// validation, cross-tab `storage` event, and a snapshot cached on the raw string so the array
+// keeps a stable reference while the stored set is unchanged. This module used to hand-roll all
+// four (a module-scoped `useSyncExternalStore` store, ~50 lines). Writes normalize to
+// `ALL_METRICS` order, so equal sets serialize identically and the cached snapshot never churns.
+//
+// The key is un-namespaced on purpose — the store prefixes it to `basalt:walking-pad:metrics`.
+// That is a NEW key: a selection stored under the old `walkingpad-metrics-enabled` is not
+// migrated and falls back to the default once.
 
-type Snapshot = ReadonlyArray<MetricKey>
+const MetricSelectionSchema = z.array(z.enum(['distance', 'duration', 'steps']))
 
-function readStorage(): Snapshot {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw === null) return DEFAULT_SELECTION
-    const parsed = JSON.parse(raw) as unknown
-    if (!Array.isArray(parsed)) return DEFAULT_SELECTION
-    const filtered = parsed.filter(
-      (v): v is MetricKey =>
-        typeof v === 'string' && (ALL_METRICS as ReadonlyArray<string>).includes(v),
-    )
-    // Sort by ALL_METRICS order so referential equality is stable across
-    // toggle order changes that produce the same logical set.
-    return ALL_METRICS.filter((m) => filtered.includes(m))
-  } catch {
-    return DEFAULT_SELECTION
-  }
-}
+const DEFAULT_SELECTION: MetricKey[] = ['distance']
 
-let snapshot: Snapshot = readStorage()
-const listeners = new Set<() => void>()
-
-function emit() {
-  for (const l of listeners) l()
-}
-
-function writeStorage(next: Snapshot) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-  } catch {
-    // Ignore — selection still updates in memory.
-  }
-}
-
-function setSelection(next: Snapshot) {
-  // Normalize to ALL_METRICS order so equal sets are reference-equal.
-  const normalized = ALL_METRICS.filter((m) => next.includes(m))
-  snapshot = normalized
-  writeStorage(normalized)
-  emit()
-}
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('storage', (e) => {
-    if (e.key !== STORAGE_KEY) return
-    snapshot = readStorage()
-    emit()
-  })
-  window.addEventListener(CHANGE_EVENT, () => {
-    snapshot = readStorage()
-    emit()
-  })
-}
-
-function subscribe(l: () => void) {
-  listeners.add(l)
-  return () => listeners.delete(l)
-}
-
-function getSnapshot(): Snapshot {
-  return snapshot
-}
+const useStoredMetrics = createPersistedState<MetricKey[]>({
+  key: 'walking-pad:metrics',
+  version: 1,
+  initial: DEFAULT_SELECTION,
+  schema: MetricSelectionSchema,
+})
 
 /**
  * Subscribes a component to the global walking-pad metric selection.
@@ -106,18 +60,18 @@ function getSnapshot(): Snapshot {
  * tabs via the storage event.
  */
 export function useMetricSelection(): {
-  enabled: Snapshot
+  enabled: ReadonlyArray<MetricKey>
   toggle: (m: MetricKey) => void
   setEnabled: (next: ReadonlyArray<MetricKey>) => void
 } {
-  const enabled = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+  const [enabled, setStored] = useStoredMetrics()
+  const setEnabled = (next: ReadonlyArray<MetricKey>) =>
+    setStored(ALL_METRICS.filter((m) => next.includes(m)))
   return {
     enabled,
-    toggle: (m) => {
-      const next = enabled.includes(m) ? enabled.filter((x) => x !== m) : [...enabled, m]
-      setSelection(next)
-    },
-    setEnabled: (next) => setSelection(next),
+    toggle: (m) =>
+      setEnabled(enabled.includes(m) ? enabled.filter((x) => x !== m) : [...enabled, m]),
+    setEnabled,
   }
 }
 

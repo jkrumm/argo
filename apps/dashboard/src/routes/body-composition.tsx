@@ -2,12 +2,14 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Suspense, useCallback, useMemo } from 'react'
 import { Group, Stack } from '@mantine/core'
 import { z } from 'zod'
+import { bodyCompWindowStore } from '../lib/window-stores'
 import { PageActions } from 'basalt-ui'
 import {
   presetToParams,
   Section,
   SkinfoldPanel,
   WeightPanel,
+  WINDOW_PRESET_VALUES,
   WindowSelector,
   type SummaryParams,
   type WindowPreset,
@@ -18,7 +20,7 @@ import { weightLogQueries } from '../lib/queries/weight-log'
 
 // ── Search params ──────────────────────────────────────────────────────────
 
-const PresetEnum = z.enum(['7d', '30d', '90d', 'all'])
+const PresetEnum = z.enum(WINDOW_PRESET_VALUES)
 
 const SearchSchema = z.object({
   window: PresetEnum.default('90d'),
@@ -38,7 +40,14 @@ function resolveWindow(search: SearchParams): SummaryParams {
 // ── Route definition ───────────────────────────────────────────────────────
 
 export const Route = createFileRoute('/body-composition')({
-  validateSearch: (raw: Record<string, unknown>) => SearchSchema.parse(raw),
+  // An absent `?window=` falls back to the last preset this page was left on
+  // (`bodyCompWindowStore`, basalt's search-param store) before zod's own schema default —
+  // `lib/nav.tsx`'s click-time thunk reads the same value, so the two cannot disagree.
+  validateSearch: (raw: Record<string, unknown>) =>
+    SearchSchema.parse({
+      ...raw,
+      window: raw['window'] ?? bodyCompWindowStore.readStored() ?? undefined,
+    }),
   loaderDeps: ({ search }: { search: SearchParams }) => ({
     window: search.window,
     from: search.from,

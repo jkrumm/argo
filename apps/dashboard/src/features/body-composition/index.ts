@@ -2,7 +2,7 @@ export {
   METRIC_TOOLTIPS,
   SKINFOLD_SITES,
   WINDOW_PRESET_OPTIONS,
-  WINDOW_STORAGE_KEY,
+  WINDOW_PRESET_VALUES,
   type WindowPreset,
 } from './constants'
 
@@ -23,7 +23,7 @@ export {
 } from './formulas'
 
 export { Section } from './section'
-export { WindowSelector, presetToParams, getInitialPreset } from './window-selector'
+export { WindowSelector, presetToParams } from './window-selector'
 
 export { WeightPanel } from './components/weight-panel'
 export { SkinfoldPanel } from './components/skinfold-panel'

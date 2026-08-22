@@ -2,10 +2,12 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Suspense, useCallback, useMemo } from 'react'
 import { Box, Grid, Group, SimpleGrid, Stack } from '@mantine/core'
 import { z } from 'zod'
+import { garminWindowStore } from '../lib/window-stores'
 import {
   HeroStats,
   Section,
   SyncControl,
+  WINDOW_PRESET_VALUES,
   WindowSelector,
   presetToParams,
   type SummaryParams,
@@ -33,7 +35,7 @@ function ChartFallback({ height = 320 }: { height?: number }) {
 
 // ── Search params ──────────────────────────────────────────────────────────
 
-const PresetEnum = z.enum(['7d', '30d', '3m', '1y', 'all'])
+const PresetEnum = z.enum(WINDOW_PRESET_VALUES)
 
 const SearchSchema = z.object({
   window: PresetEnum.default('30d'),
@@ -46,7 +48,14 @@ type SearchParams = z.infer<typeof SearchSchema>
 // ── Route definition ───────────────────────────────────────────────────────
 
 export const Route = createFileRoute('/garmin-health')({
-  validateSearch: (raw: Record<string, unknown>) => SearchSchema.parse(raw),
+  // An absent `?window=` falls back to the last preset this page was left on
+  // (`garminWindowStore`, basalt's search-param store) before zod's own schema default —
+  // `lib/nav.tsx`'s click-time thunk reads the same value, so the two cannot disagree.
+  validateSearch: (raw: Record<string, unknown>) =>
+    SearchSchema.parse({
+      ...raw,
+      window: raw['window'] ?? garminWindowStore.readStored() ?? undefined,
+    }),
   loaderDeps: ({ search }: { search: SearchParams }) => ({
     window: search.window,
     from: search.from,

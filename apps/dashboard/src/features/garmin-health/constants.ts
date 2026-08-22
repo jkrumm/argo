@@ -1,4 +1,5 @@
 import { VX } from 'basalt-ui/tokens'
+import { GARMIN_WINDOW_VALUES } from '../../lib/window-stores'
 
 /**
  * Hard floor on visible data. Anything before this date is dropped from the
@@ -16,11 +17,6 @@ export const VISIBLE_DATE_MIN = '2026-04-15'
 export const HIDE_TODAY_BEFORE_HOUR = 22
 
 /**
- * localStorage key for persisting the selected window preset.
- */
-export const WINDOW_STORAGE_KEY = 'argo:garmin-health:window'
-
-/**
  * Polling interval while a Garmin sync is queued or running (ms).
  */
 export const SYNC_POLL_INTERVAL_MS = 5_000
@@ -30,7 +26,11 @@ export const SYNC_POLL_INTERVAL_MS = 5_000
  */
 export const SYNC_STALE_THRESHOLD_MS = 60 * 60 * 1000 // 1 hour
 
-export type WindowPreset = '7d' | '30d' | '3m' | '1y' | 'all'
+/** Re-exported from the leaf store module so the values, the type, the Select options,
+ * the route's zod enum and the store's accepted set are all ONE declaration. */
+export const WINDOW_PRESET_VALUES = GARMIN_WINDOW_VALUES
+
+export type WindowPreset = (typeof WINDOW_PRESET_VALUES)[number]
 
 export const WINDOW_PRESET_OPTIONS: { value: WindowPreset; label: string }[] = [
   { value: '7d', label: '7D' },

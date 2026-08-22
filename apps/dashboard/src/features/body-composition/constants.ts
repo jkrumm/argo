@@ -1,6 +1,11 @@
 import type { SkinfoldSite } from '../../lib/queries/skinfold-log'
+import { BODY_COMP_WINDOW_VALUES } from '../../lib/window-stores'
 
-export type WindowPreset = '7d' | '30d' | '90d' | 'all'
+/** Re-exported from the leaf store module so the values, the type, the Select options,
+ * the route's zod enum and the store's accepted set are all ONE declaration. */
+export const WINDOW_PRESET_VALUES = BODY_COMP_WINDOW_VALUES
+
+export type WindowPreset = (typeof WINDOW_PRESET_VALUES)[number]
 
 export const WINDOW_PRESET_OPTIONS: { value: WindowPreset; label: string }[] = [
   { value: '7d', label: '7D' },
@@ -8,8 +13,6 @@ export const WINDOW_PRESET_OPTIONS: { value: WindowPreset; label: string }[] = [
   { value: '90d', label: '90D' },
   { value: 'all', label: 'All' },
 ]
-
-export const WINDOW_STORAGE_KEY = 'argo:body-composition:window'
 
 /**
  * UI registry for skinfold caliper sites — order = display order. Keys must match the

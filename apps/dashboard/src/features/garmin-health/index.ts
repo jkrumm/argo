@@ -1,7 +1,7 @@
 export {
   VISIBLE_DATE_MIN,
   HIDE_TODAY_BEFORE_HOUR,
-  WINDOW_STORAGE_KEY,
+  WINDOW_PRESET_VALUES,
   WINDOW_PRESET_OPTIONS,
   METRIC_TOOLTIPS,
   ZONE_COLORS,
@@ -9,7 +9,7 @@ export {
 } from './constants'
 export { HeroStats, Placeholder } from './hero-stats'
 export { SyncControl } from './sync-control'
-export { WindowSelector, presetToParams, getInitialPreset } from './window-selector'
+export { WindowSelector, presetToParams } from './window-selector'
 export { Section } from './section'
 export { applyVisibilityFilter, shouldHideTodayNow } from './visibility'
 export {

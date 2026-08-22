@@ -1,18 +1,20 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Suspense, useCallback, useMemo } from 'react'
-import { Grid, Group, SimpleGrid, Stack } from '@mantine/core'
+import { Card, Grid, Group, SimpleGrid, Stack } from '@mantine/core'
+import { IconBarbell } from '@tabler/icons-react'
 import { z } from 'zod'
-import { PageActions } from 'basalt-ui'
+import { strengthWindowStore } from '../lib/window-stores'
+import { EmptyState, PageActions } from 'basalt-ui'
 import {
   ChartSkeleton,
   DEFAULT_EXERCISES,
-  EmptyState,
   ExerciseFilter,
   ExerciseSummaryCards,
   RecentRecords,
   Section,
   TimerCard,
   ViewTabs,
+  WINDOW_PRESET_VALUES,
   WindowSelector,
   WorkoutForm,
   WorkoutsTable,
@@ -42,7 +44,7 @@ import { useWorkoutDraftSync } from '../lib/queries/workout-draft'
 
 // ── Search params ──────────────────────────────────────────────────────────
 
-const PresetEnum = z.enum(['7d', '30d', '3m', '6m', '1y', 'ytd', 'all'])
+const PresetEnum = z.enum(WINDOW_PRESET_VALUES)
 const ViewEnum = z.enum(['charts', 'train', 'history'])
 
 const SearchSchema = z.object({
@@ -65,7 +67,14 @@ function resolveWindow(search: SearchParams): SummaryParams {
 // ── Route definition ───────────────────────────────────────────────────────
 
 export const Route = createFileRoute('/strength-tracker')({
-  validateSearch: (raw: Record<string, unknown>) => SearchSchema.parse(raw),
+  // An absent `?window=` falls back to the last preset this page was left on
+  // (`strengthWindowStore`, basalt's search-param store) before zod's own schema default —
+  // `lib/nav.tsx`'s click-time thunk reads the same value, so the two cannot disagree.
+  validateSearch: (raw: Record<string, unknown>) =>
+    SearchSchema.parse({
+      ...raw,
+      window: raw['window'] ?? strengthWindowStore.readStored() ?? undefined,
+    }),
   loaderDeps: ({ search }: { search: SearchParams }) => ({
     window: search.window,
     from: search.from,
@@ -220,7 +229,13 @@ function StrengthTrackerPage() {
                 multiExercise={activeExercises.length > 1}
               />
             ) : !hasWorkouts ? (
-              <EmptyState />
+              <Card py="xs" px="sm">
+                <EmptyState
+                  icon={<IconBarbell size={28} stroke={1.5} />}
+                  title="No workouts yet"
+                  description="Log your first workout to see your strength dashboard come to life."
+                />
+              </Card>
             ) : (
               <>
                 {search.tab === 'charts' && (

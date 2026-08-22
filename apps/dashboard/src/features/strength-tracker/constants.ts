@@ -1,5 +1,6 @@
 import { VX } from 'basalt-ui/tokens'
 import { SERIES } from '../../lib/series'
+import { STRENGTH_WINDOW_VALUES } from '../../lib/window-stores'
 
 export type ExerciseKey = 'bench_press' | 'deadlift' | 'squat' | 'pull_ups'
 
@@ -13,7 +14,11 @@ export type MetricKey =
   | 'work_sets'
   | 'avg_intensity'
 
-export type WindowPreset = '7d' | '30d' | '3m' | '6m' | '1y' | 'ytd' | 'all'
+/** Re-exported from the leaf store module so the values, the type, the Select options,
+ * the route's zod enum and the store's accepted set are all ONE declaration. */
+export const WINDOW_PRESET_VALUES = STRENGTH_WINDOW_VALUES
+
+export type WindowPreset = (typeof WINDOW_PRESET_VALUES)[number]
 
 export const DEFAULT_EXERCISES: ExerciseKey[] = ['bench_press', 'deadlift', 'squat', 'pull_ups']
 
@@ -57,7 +62,6 @@ export const WINDOW_PRESET_OPTIONS: { value: WindowPreset; label: string }[] = [
   { value: 'all', label: 'All' },
 ]
 
-export const WINDOW_STORAGE_KEY = 'argo:strength-tracker:window'
 export const EXERCISES_STORAGE_KEY = 'argo:strength-tracker:exercises'
 export const VIEW_STORAGE_KEY = 'argo:strength-tracker:view'
 

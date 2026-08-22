@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { Group, Select, Text } from '@mantine/core'
 import { DatePickerInput } from '@mantine/dates'
-import { WINDOW_PRESET_OPTIONS, WINDOW_STORAGE_KEY, type WindowPreset } from './constants'
+import { strengthWindowStore as windowStore } from '../../lib/window-stores'
+import { WINDOW_PRESET_OPTIONS, type WindowPreset } from './constants'
 import type { SummaryParams } from './types'
 
 /**
@@ -42,25 +43,6 @@ export function presetToParams(preset: WindowPreset): SummaryParams {
   }
 }
 
-function readStoredPreset(): WindowPreset | null {
-  try {
-    const raw = localStorage.getItem(WINDOW_STORAGE_KEY)
-    if (raw === null) return null
-    const value = JSON.parse(raw) as WindowPreset
-    return WINDOW_PRESET_OPTIONS.some((opt) => opt.value === value) ? value : null
-  } catch {
-    return null
-  }
-}
-
-function writeStoredPreset(preset: WindowPreset) {
-  try {
-    localStorage.setItem(WINDOW_STORAGE_KEY, JSON.stringify(preset))
-  } catch {
-    /* localStorage unavailable — ignore */
-  }
-}
-
 export type WindowSelectorProps = {
   preset: WindowPreset
   from: string | undefined
@@ -78,9 +60,12 @@ export function WindowSelector({
   onPresetChange,
   onRangeChange,
 }: WindowSelectorProps) {
+  // Mirror the active preset into the store so the next visit without an explicit `?window=`
+  // opens on it — `validateSearch` reads it back through `windowStore.readStored()`.
+  const [, persistPreset] = windowStore.useStore()
   useEffect(() => {
-    writeStoredPreset(preset)
-  }, [preset])
+    persistPreset(preset)
+  }, [preset, persistPreset])
 
   return (
     <Group gap="xs">
@@ -108,12 +93,4 @@ export function WindowSelector({
       )}
     </Group>
   )
-}
-
-/**
- * One-shot helper: returns the persisted preset (or fallback) for use in the
- * route's initial search-param resolution.
- */
-export function getInitialPreset(fallback: WindowPreset = 'all'): WindowPreset {
-  return readStoredPreset() ?? fallback
 }

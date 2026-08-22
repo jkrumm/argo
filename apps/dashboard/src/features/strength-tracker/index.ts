@@ -6,7 +6,7 @@ export {
   METRICS,
   SET_TYPE_OPTIONS,
   WINDOW_PRESET_OPTIONS,
-  WINDOW_STORAGE_KEY,
+  WINDOW_PRESET_VALUES,
   EXERCISES_STORAGE_KEY,
   VIEW_STORAGE_KEY,
   ZONE_COLORS,
@@ -44,9 +44,8 @@ export {
 export type { SummaryParams, SummaryParamsWithExercises, ExerciseFilterState } from './types'
 
 export { ChartSkeleton, HeroStats, HeroStatsSkeleton, Placeholder } from './hero-stats'
-export { EmptyState } from './empty-state'
 export { Section } from './section'
-export { WindowSelector, presetToParams, getInitialPreset } from './window-selector'
+export { WindowSelector, presetToParams } from './window-selector'
 export { ViewTabs, type StrengthView } from './view-tabs'
 export { ExerciseFilter } from './exercise-filter'
 export { showAchievements } from './achievements-toast'
