@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { ChartCard, ChartLegend, ZonedLine, type ChartSeries } from 'basalt-ui/charts'
+import { ChartCard, ZonedLine, type ChartSeries } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { PACE_ZONES } from '../constants'
@@ -13,18 +13,22 @@ type Point = {
 
 const fmtKmh = (v: number) => `${v.toFixed(2)} km/h`
 
-const zoneFill = (tone: (typeof PACE_ZONES)[number]['tone']) => {
-  switch (tone) {
-    case 'soft':
-      return VX.warn
-    case 'neutral':
-      return alpha(VX.neutral, 0.06)
-    case 'good':
-      return VX.good
-    case 'strong':
-      return VX.goodSoft
-  }
-}
+// ONE table for the zone bands and their legend swatches. `band` is the wash painted behind the
+// line; `swatch` is its solid counterpart, because a 6%-alpha chip is invisible at legend size.
+// Two columns, one source — before this they were two independent ladders and had already drifted:
+// the Power band was green while its legend chip was the gold pace hue.
+const ZONE_TONE = {
+  soft: { band: VX.warn, swatch: VX.warnSolid, swatchOpacity: 1 },
+  neutral: { band: alpha(VX.neutral, 0.06), swatch: VX.neutral, swatchOpacity: 0.6 },
+  good: { band: VX.good, swatch: VX.goodSolid, swatchOpacity: 1 },
+  strong: { band: VX.goodSoft, swatch: VX.goodSolid, swatchOpacity: 0.55 },
+} as const satisfies Record<
+  (typeof PACE_ZONES)[number]['tone'],
+  { band: string; swatch: string; swatchOpacity: number }
+>
+
+const zoneLabel = (z: (typeof PACE_ZONES)[number]) =>
+  `${z.label} (${z.from}-${z.to === 60 ? '6+' : z.to} km/h)`
 
 export function PaceTrendChart({ params }: { params: WalkingPadWindowParams }) {
   const { data } = useSuspenseQuery(walkingPadQueries.series({ ...params, bucket: 'day' }))
@@ -40,9 +44,13 @@ export function PaceTrendChart({ params }: { params: WalkingPadWindowParams }) {
   const zones = PACE_ZONES.map((z) => ({
     from: z.from === 0 ? -Infinity : z.from,
     to: z.to === 60 ? Infinity : z.to,
-    fill: zoneFill(z.tone),
+    fill: ZONE_TONE[z.tone].band,
   }))
 
+  // The zone key is DERIVED from the same table the bands paint, via the reference-series idiom
+  // (`mark: 'bar'` + `getValue: () => null` + `tooltip: false`) — so `ZonedLine` builds the legend
+  // and a hand-authored second list cannot go stale. `role: 'reference'` groups them apart from
+  // the plotted series.
   const series: ChartSeries<Point>[] = [
     {
       key: 'pace',
@@ -52,6 +60,18 @@ export function PaceTrendChart({ params }: { params: WalkingPadWindowParams }) {
       getValue: (d) => d.avg_speed_kmh,
       formatValue: fmtKmh,
     },
+    ...PACE_ZONES.map(
+      (z): ChartSeries<Point> => ({
+        key: `zone-${z.label}`,
+        label: zoneLabel(z),
+        color: ZONE_TONE[z.tone].swatch,
+        fillOpacity: ZONE_TONE[z.tone].swatchOpacity,
+        mark: 'bar',
+        role: 'reference',
+        tooltip: false,
+        getValue: () => null,
+      }),
+    ),
   ]
 
   return (
@@ -86,24 +106,9 @@ export function PaceTrendChart({ params }: { params: WalkingPadWindowParams }) {
           series={series}
           y={{ domain: 'auto', autoMaxFloor: 6, autoMinCeil: 1, nice: true }}
           zones={zones}
-          legend={false}
+          legend={{ groups: true, toggle: false }}
         />
       )}
-      <ChartLegend
-        items={PACE_ZONES.map((z) => ({
-          key: z.label,
-          label: `${z.label} (${z.from}-${z.to === 60 ? '6+' : z.to} km/h)`,
-          color:
-            z.tone === 'good'
-              ? VX.goodSolid
-              : z.tone === 'strong'
-                ? SERIES.walkingPace
-                : z.tone === 'soft'
-                  ? VX.warnSolid
-                  : alpha(VX.neutral, 0.6),
-          shape: 'bar',
-        }))}
-      />
     </ChartCard>
   )
 }
