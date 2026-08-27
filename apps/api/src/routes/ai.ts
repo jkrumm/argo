@@ -82,6 +82,9 @@ function bearer(key: string): Record<string, string> {
   return key ? { authorization: `Bearer ${key}` } : {}
 }
 
+/** Caller identity forwarded to the audio-gateway for `audio.caller` attribution. */
+const AUDIO_SOURCE_HEADER: Record<string, string> = { 'x-audio-source': 'argo-api' }
+
 /**
  * Re-wrap an upstream response for the client: keep the content-type, drop the
  * body's transfer encoding/length (fetch already decoded it), and disable proxy
@@ -314,6 +317,7 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
           `${deps.audioGatewayUrl}/v1/audio/transcriptions`,
           {
             method: 'POST',
+            headers: AUDIO_SOURCE_HEADER,
             body: form,
           },
           { streamLifecycle: true },
@@ -350,7 +354,7 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
           `${deps.audioGatewayUrl}/v1/audio/speech`,
           {
             method: 'POST',
-            headers: { 'content-type': 'application/json' },
+            headers: { 'content-type': 'application/json', ...AUDIO_SOURCE_HEADER },
             body: JSON.stringify(body),
           },
           { streamLifecycle: true },
@@ -400,7 +404,7 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
           `${deps.audioGatewayUrl}/v1/audio/speech`,
           {
             method: 'POST',
-            headers: { 'content-type': 'application/json' },
+            headers: { 'content-type': 'application/json', ...AUDIO_SOURCE_HEADER },
             body: JSON.stringify({ input: script }),
           },
           { streamLifecycle: true },

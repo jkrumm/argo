@@ -250,6 +250,7 @@ describe('POST /ai/v1/audio/transcriptions (proxy)', () => {
     expect(call?.method).toBe('POST')
     // Content-Type must NOT be set manually — fetch sets the multipart boundary.
     expect(call?.headers.get('content-type')).toBeNull()
+    expect(call?.headers.get('x-audio-source')).toBe('argo-api')
     const forwarded = call?.body as FormData
     expect(forwarded).toBeInstanceOf(FormData)
     expect(forwarded.get('file')).toBeInstanceOf(Blob)
@@ -293,6 +294,7 @@ describe('POST /ai/v1/audio/speech (proxy)', () => {
     expect(call?.url).toBe(`${AUDIO_GATEWAY}/v1/audio/speech`)
     expect(call?.method).toBe('POST')
     expect(call?.headers.get('content-type')).toBe('application/json')
+    expect(call?.headers.get('x-audio-source')).toBe('argo-api')
     // summarize flag flows through transparently
     const sent = JSON.parse(String(call?.body)) as Record<string, unknown>
     expect(sent['summarize']).toBe(true)
@@ -478,6 +480,7 @@ describe('POST /ai/v1/audio/podcast', () => {
     const sent = JSON.parse(String(speechCalls[0]!.body)) as Record<string, unknown>
     expect(sent['input']).toBe('Hello podcast world')
     expect(sent['model']).toBeUndefined()
+    expect(speechCalls[0]!.headers.get('x-audio-source')).toBe('argo-api')
   })
 
   it('cache hit — second POST with same script does NOT call gateway again', async () => {
