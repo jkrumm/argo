@@ -3,7 +3,8 @@ import { Box } from '@mantine/core'
 import { Bars, ChartCard } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
-import { METRIC_DEFS, useMetricSelection, type MetricKey } from '../metric-toggle'
+import { walkingStore } from '../../../lib/window-stores'
+import { METRIC_DEFS, type MetricKey } from '../metrics'
 import { ChartEmpty } from './empty'
 
 type Bucket = { bucketStart: number; bucketWidth: number; sessions: number }
@@ -60,7 +61,7 @@ const bucketTicks =
   }
 
 export function LengthHistogramChart({ params }: { params: WalkingPadWindowParams }) {
-  const { enabled } = useMetricSelection()
+  const [enabled] = walkingStore.field.metrics.use()
   // The toggle picks the *bucketing dimension*. With multiple enabled, the
   // first one drives this chart; with none enabled we still need to fetch
   // something so the empty-state has a sensible default — fall back to
@@ -91,7 +92,7 @@ export function LengthHistogramChart({ params }: { params: WalkingPadWindowParam
       <ChartCard
         title={labels.title}
         subtitle={labels.subtitle}
-        tooltip="Frequency histogram of sessions across buckets of the toggled metric. Pick one or more metrics from the page header to populate."
+        info="Frequency histogram of sessions across buckets of the toggled metric. Pick one or more metrics from the page header to populate."
       >
         <ChartEmpty
           height={CHART_HEIGHT}
@@ -119,13 +120,13 @@ export function LengthHistogramChart({ params }: { params: WalkingPadWindowParam
     <ChartCard
       title={labels.title}
       subtitle={labels.subtitle}
-      tooltip={
+      info={
         `Frequency histogram of sessions bucketed by ${labels.xUnit}. ` +
         `Y-axis is the number of sessions whose ${METRIC_DEFS[driver].label.toLowerCase()} falls into each bucket. ` +
         `Top bucket is a clamped overflow.` +
         multiNote
       }
-      extra={
+      actions={
         totalSessions > 0 && modeLabel !== null ? (
           <span style={{ fontSize: VX.text.xs, fontWeight: 600 }}>most common: {modeLabel}</span>
         ) : null

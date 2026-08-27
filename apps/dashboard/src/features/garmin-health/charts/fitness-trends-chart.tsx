@@ -229,8 +229,8 @@ export default function FitnessTrendsChart({ params }: { params: SummaryParams }
     <ChartCard
       title="Fitness Trends"
       subtitle="Is my body adapting?"
-      tooltip={METRIC_TOOLTIPS.fitnessTrends}
-      extra={headerExtra}
+      info={METRIC_TOOLTIPS.fitnessTrends}
+      actions={headerExtra}
     >
       {chartData.length === 0 ? (
         <ChartEmpty height={CHART_HEIGHT} />

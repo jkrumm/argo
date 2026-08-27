@@ -1,3 +1,5 @@
+// theme-allow-file in-body-page-title — dev-only chart smoke route: it is not a nav destination,
+// has no breadcrumb of its own, and the <Title order={2}> IS its only name.
 import { createFileRoute } from '@tanstack/react-router'
 import { Box, Stack, Title } from '@mantine/core'
 import {
@@ -91,7 +93,7 @@ function ChartsSmokeRoute() {
 
       <Stack gap={24}>
         {/* Kind: ZonedLine */}
-        <ChartCard title="HRV Trend" tooltip="7-day rolling average HRV from Garmin">
+        <ChartCard title="HRV Trend" info="7-day rolling average HRV from Garmin">
           <ZonedLine
             ariaLabel="HRV trend, smoke test"
             data={SMOKE_DATA}
@@ -112,7 +114,7 @@ function ChartsSmokeRoute() {
         </ChartCard>
 
         {/* Kind: MultiLine */}
-        <ChartCard title="HRV vs Resting HR" tooltip="Two series sharing one y-axis">
+        <ChartCard title="HRV vs Resting HR" info="Two series sharing one y-axis">
           <MultiLine
             ariaLabel="HRV vs resting HR, smoke test"
             data={MULTI_LINE_DATA}

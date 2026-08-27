@@ -81,7 +81,7 @@ export default function MonthlyBudgetChart({ site }: { site: Site }) {
     <ChartCard
       title="Annual Visibility Budget"
       subtitle={`Usable galactic-core hours per month at ${site.name} — is the site worth the drive at all`}
-      tooltip={METRIC_TOOLTIPS.monthlyBudget}
+      info={METRIC_TOOLTIPS.monthlyBudget}
     >
       <Bars<MonthRow>
         data={rows}

@@ -28,7 +28,7 @@ export default function BillingSplit({
     <ChartCard
       title="Billing split (cost)"
       subtitle="$ by billing class over the window"
-      tooltip="Max = sunk value of the Max subscription (already paid). IU = real per-token spend through the IU gateway. Unknown = rows the source did not tag — most often pre-instrumentation data."
+      info="Max = sunk value of the Max subscription (already paid). IU = real per-token spend through the IU gateway. Unknown = rows the source did not tag — most often pre-instrumentation data."
     >
       {slices.length > 0 && (
         <Donut

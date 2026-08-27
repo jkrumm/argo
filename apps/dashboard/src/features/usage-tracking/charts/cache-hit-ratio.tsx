@@ -64,7 +64,7 @@ export default function CacheHitRatio({
     <ChartCard
       title="Cache hit ratio"
       subtitle="cache_read / (cache_read + input), weighted per bucket"
-      tooltip="Weighted cache hit ratio over time. >60% means prompt caching is doing its job; sustained <30% usually means the cache key is changing too often."
+      info="Weighted cache hit ratio over time. >60% means prompt caching is doing its job; sustained <30% usually means the cache key is changing too often."
     >
       {hasData && (
         <ZonedLine

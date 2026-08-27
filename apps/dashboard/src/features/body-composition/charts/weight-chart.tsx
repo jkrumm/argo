@@ -173,8 +173,8 @@ export default function WeightChart({ params }: { params: WeightLogWindowParams 
     <ChartCard
       title="Body Weight"
       subtitle="Am I trending toward my goal?"
-      tooltip={METRIC_TOOLTIPS.bodyWeight}
-      extra={headerExtra}
+      info={METRIC_TOOLTIPS.bodyWeight}
+      actions={headerExtra}
     >
       {chartData.length === 0 ? (
         <ChartEmpty

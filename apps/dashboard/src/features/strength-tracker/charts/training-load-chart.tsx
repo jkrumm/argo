@@ -175,8 +175,8 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
     <ChartCard
       title="Training Load (ACWR)"
       subtitle="Am I loading smart?"
-      tooltip={METRIC_TOOLTIPS.trainingLoad}
-      extra={
+      info={METRIC_TOOLTIPS.trainingLoad}
+      actions={
         leaderLast && leaderLast.acwr !== null ? (
           <span style={{ fontSize: VX.text.xs }}>
             <span

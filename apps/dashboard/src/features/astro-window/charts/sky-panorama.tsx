@@ -238,7 +238,7 @@ export default function SkyPanorama({
 
   if (samples.length === 0) {
     return (
-      <ChartCard title="Sky Panorama" tooltip={METRIC_TOOLTIPS.skyPanorama}>
+      <ChartCard title="Sky Panorama" info={METRIC_TOOLTIPS.skyPanorama}>
         <ChartEmpty height={PANORAMA_HEIGHT} message="No hourly data for this night" />
       </ChartCard>
     )
@@ -305,8 +305,8 @@ function PanoramaLoaded({
     <ChartCard
       title="Sky Panorama"
       subtitle={`${site.name} — where the core, moon and sun sit against the measured skyline`}
-      tooltip={METRIC_TOOLTIPS.skyPanorama}
-      extra={
+      info={METRIC_TOOLTIPS.skyPanorama}
+      actions={
         <Box component="span" style={{ fontSize: VX.text.xs }}>
           <Box component="span" style={{ fontWeight: 600, fontSize: VX.text.md }}>
             {fmtMinutes(gateMinutes)}

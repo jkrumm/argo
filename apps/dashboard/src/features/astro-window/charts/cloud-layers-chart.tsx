@@ -85,7 +85,7 @@ export default function CloudLayersChart({ hourly }: { hourly: HourlyPoint[] }) 
   const formatX = hourlyTimeLabel(hourly)
 
   return (
-    <ChartCard title="Cloud Layers" tooltip={METRIC_TOOLTIPS.cloudLayers}>
+    <ChartCard title="Cloud Layers" info={METRIC_TOOLTIPS.cloudLayers}>
       {series.length === 0 ? (
         <ChartEmpty height={CHART_HEIGHT} message="No cloud data for this night" />
       ) : (

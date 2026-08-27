@@ -6,7 +6,10 @@
 - **Icons:** `@tabler/icons-react`
 - **Routing:** TanStack Router — file-based via `@tanstack/router-plugin/vite`
 - **Data:** TanStack Query + Eden Treaty (`@elysiajs/eden`) for type-safe API calls — configured with `{ parseDate: false }` so `YYYY-MM-DD` strings stay strings (matches the API's wire format and TS types)
-- **Client state:** Zustand (`persist` middleware) — sidebar collapse state only
+- **URL + persisted UI state:** one `createSearchStore` per page in `src/lib/window-stores.ts`
+  (basalt-ui 1.26.0) — typed fields, URL ⊳ localStorage ⊳ fallback. Zustand survives only for the
+  two stores with no URL at all: the rest-timer engine (`lib/timer-store.ts`) and auth
+  (`lib/auth.ts`)
 - **Charts:** `basalt-ui/charts` (visx primitives) + `src/lib/series.ts` (Argo's per-metric series identity)
 - **Dates:** `date-fns` (frontend only; backend sends ISO strings)
 
@@ -21,41 +24,66 @@ Routes live in `src/routes/`. The generated route tree (`src/routeTree.gen.ts`) 
 
 ## Adding a Page
 
-### 1. Create the route file
+### 1. Declare the page's store
+
+`src/lib/window-stores.ts` is the ONE place a page's search shape lives — one
+`createSearchStore` per page, over `field.*` descriptors. It is a leaf module (`lib/nav.tsx` reads
+it too), and the value tuples in it are the single source for the type, the control's options and
+the route's validator; a feature's `constants.ts` re-exports them.
+
+```ts
+export const myStore = createSearchStore({
+  key: 'my-page',
+  fields: {
+    window: field.range({ presets: ['7d', '30d', '90d', 'all'], fallback: '30d', custom: true }),
+    tab: field.enum(['charts', 'history'], 'charts'),
+  },
+}).labels({ window: { '7d': '7D', '30d': '30D', '90d': '90D', all: 'All' } })
+```
+
+### 2. Create the route file
 
 `src/routes/<page-name>.tsx`:
 
-```ts
-import { createFileRoute } from '@tanstack/react-router'
-import { useSuspenseQuery } from '@tanstack/react-query'
-import { z } from 'zod'
-import { myQueries } from '../lib/queries/my-resource'
-
-const SearchSchema = z.object({
-  window: z.enum(['7d', '30d', '90d', 'all']).default('30d'),
-})
-type SearchParams = z.infer<typeof SearchSchema>
-
+```tsx
 export const Route = createFileRoute('/my-page')({
-  validateSearch: (raw: Record<string, unknown>) => SearchSchema.parse(raw),
-  loaderDeps: ({ search }: { search: SearchParams }) => ({
-    window: search.window,
-  }),
+  validateSearch: myStore.validateSearch,
+  loaderDeps: ({ search }) => search,
   loader: ({ context, deps }) =>
-    context.queryClient.ensureQueryData(myQueries.summary(deps)),
+    context.queryClient.ensureQueryData(myQueries.summary(resolveWindow(deps))),
   component: MyPage,
 })
 
 function MyPage() {
-  const search = Route.useSearch()
-  const { data } = useSuspenseQuery(myQueries.summary({ window: search.window }))
-  return <div>{/* render data */}</div>
+  const search = myStore.useValues()
+  return (
+    <>
+      <PageBar
+        tabs={<ViewTabs field={myStore.field.tab} />}
+        filters={
+          <FilterSet>
+            <RangeFilter field={myStore.field.window} customPicker={DateRangePicker} />
+          </FilterSet>
+        }
+      />
+      {/* … */}
+    </>
+  )
 }
 ```
 
-Use `loaderDeps` to forward search params to the loader — without it, changes to search params do not re-trigger the loader. See `.claude/rules/tanstack-router.md` for the full template.
+A route whose search carries keys the field vocabulary cannot express (a free date, a
+`.transform()`ed codec) hand-writes Zod for THOSE and composes:
+`validateSearch: (raw) => ({ ...myStore.validateSearch(raw), ...MapSchema.parse(raw) })` —
+`routes/{calendar,astro-window}.tsx` are the two worked examples.
 
-### 2. Create the query factory
+**`toWindow` is not `presetToParams`.** `field.range.toWindow(v)` projects a preset to
+`{ window }` and a custom range to `{ from, to }`, but it cannot know that argo's API only accepts
+`7d`/`30d`/`90d`/`all` — so each window-carrying feature keeps a ~30-line `window.ts` turning
+`3m`/`6m`/`1y`/`ytd` into explicit dates. See `.claude/rules/basalt-state.md` and
+`.claude/rules/basalt-controls.md` for the full law.
+
+### 3. Create the query factory
 
 `src/lib/queries/<resource>.ts`:
 
@@ -75,7 +103,7 @@ export const myQueries = {
 
 Eden Treaty maps hyphenated path segments with bracket notation (`api['my-resource']`). Nested paths use chaining: `api.docker.homelab.containers.get()`.
 
-### 3. Add the nav entry — `src/lib/nav.tsx`, and nowhere else
+### 4. Add the nav entry — `src/lib/nav.tsx`, and nowhere else
 
 `src/lib/nav.tsx` is the app's ONE navigation definition. Add an item to the right `navGroup`:
 
@@ -97,20 +125,20 @@ That single entry drives the sidebar row, its active state, the mobile bar slot,
 page (an index redirect, an imperative navigate), use `navTarget(NAV, 'my-page')` rather than
 restating `to` + `search`.
 
-A page whose search carries a **`window` preset** does not state the default here at all: declare
-the store in `src/lib/window-stores.ts` and hand the link the store's own click-time thunk —
-`search: myWindowStore.linkSearch`, **by reference, never called** (basalt-ui 1.21.0). A link that
-also carries other params spreads it instead: `search: () => ({ ...store.linkSearch(), tab })`.
-The route's `validateSearch` reads the same `readStored()`, so the nav link and the route cannot
-disagree, the fallback literal exists in exactly one place, and the page reopens on whatever window
-it was left on.
+A page backed by a store does not state ANY of its defaults here: hand the link the store's own
+click-time thunk — `search: myStore.linkSearch`, **by reference, never called**. A link that also
+carries a key the store does not model spreads it instead:
+`search: () => ({ ...myStore.linkSearch(), date })` (calendar and astro are the only two). The
+route hands the SAME store its `validateSearch`, so the nav link and the route cannot disagree, the
+fallback literal exists in exactly one place, and the page reopens on whatever it was left on. A
+`search:` literal inside `defineNav` is `basalt/search-literal-link`.
 
 `nav.tsx` is a LEAF: it may import `@tanstack/react-router`, `basalt-ui/router-tanstack`, icons
 and `date-fns` — never `routeTree.gen`, `__root.tsx`, or a feature module. `lib/commands.tsx`
 imports it, and `lib/commands.tsx` → `lib/router.ts` → route tree → `__root.tsx`; an edge back
 would close that cycle.
 
-### 4. Add the nav link default search
+### 5. Add the nav link default search
 
 Put every one of the route's default search params in the `linkOptions({ search })` above —
 `linkOptions` checks `to` and the route's required search keys, so a missing one is a compile
@@ -128,8 +156,16 @@ See `.claude/rules/tanstack-query.md` for the mutation + invalidation pattern.
 
 ## Persisted UI state
 
-`createPersistedState` from `basalt-ui/state` is the house API — versioned `{ v, value }` envelope
-under `basalt:<key>`, cross-tab, SSR-safe. Sidebar collapse moved onto it at basalt-ui 1.21.0
+A value a CONTROL reads or writes — a filter, a tab, a per-chart select — is a store field, never
+`createPersistedState` and never `useState` (law C3). Page-level fields live on the page's
+`createSearchStore`; a per-card select is a `createLocalStore` declared at module scope in the card's
+own file (`strength-tracker/charts/{momentum,inol,weekly-volume,strength-composite}-chart.tsx`,
+`components/recent-records.tsx` — five of them, keyed `strength:<card>`), and walking-pad's metric
+set is a `{ url: false }` field on `walkingStore` rather than a standalone persisted array.
+
+`createPersistedState` from `basalt-ui/state` remains the house API for everything ELSE that must
+survive a reload — versioned `{ v, value }` envelope under `basalt:<key>`, cross-tab, SSR-safe.
+Sidebar collapse moved onto it at basalt-ui 1.21.0
 (`src/lib/sidebar-collapsed.ts`), which is when `BasaltShell`'s own uncontrolled path did; the
 module-scope one-time read that carries the pre-1.21.0 raw `argo-sidebar` value forward is what
 keeps an already-collapsed sidebar collapsed, and `sidebar-collapsed.test.ts` pins it. Three raw

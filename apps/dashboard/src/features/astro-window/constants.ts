@@ -1,9 +1,3 @@
-export const NIGHTS_OPTIONS: { value: string; label: string }[] = [
-  { value: '5', label: '5N' },
-  { value: '10', label: '10N' },
-  { value: '14', label: '14N' },
-]
-
 export const METRIC_TOOLTIPS = {
   nightTimeline:
     'Galactic core, moon and sun altitude across the night. Shaded bands mark astronomical dark (faint) and the recommended shooting window (stronger, with a top rule). The sun line explains where the dark bands come from.',

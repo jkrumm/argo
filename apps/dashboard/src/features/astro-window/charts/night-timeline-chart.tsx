@@ -135,7 +135,7 @@ export default function NightTimelineChart({
   const formatX = hourlyTimeLabel(hourly)
 
   return (
-    <ChartCard title="Night Timeline" tooltip={METRIC_TOOLTIPS.nightTimeline}>
+    <ChartCard title="Night Timeline" info={METRIC_TOOLTIPS.nightTimeline}>
       {hourly.length === 0 ? (
         <ChartEmpty height={CHART_HEIGHT} message="No hourly data for this night" />
       ) : (

@@ -125,7 +125,7 @@ export function ScoutPanel({ opened, onClose, point, compareSite }: ScoutPanelPr
 
             <SettingsSection
               title="Sky brightness"
-              description="Zenith brightness from the Lorenz atlas — the direction the core points can differ."
+              subtitle="Zenith brightness from the Lorenz atlas — the direction the core points can differ."
             >
               {lightPollutionQuery.isLoading ? (
                 <Text size="xs" c="dimmed">
@@ -157,7 +157,7 @@ export function ScoutPanel({ opened, onClose, point, compareSite }: ScoutPanelPr
 
             <SettingsSection
               title="Skyline"
-              description="Southern-arc terrain profile — the ridge the galactic core actually crosses."
+              subtitle="Southern-arc terrain profile — the ridge the galactic core actually crosses."
             >
               {horizonQuery.isLoading ? (
                 <Text size="xs" c="dimmed">
@@ -198,7 +198,7 @@ export function ScoutPanel({ opened, onClose, point, compareSite }: ScoutPanelPr
 
             <SettingsSection
               title="Annual budget"
-              description="Is this spot worth the drive at all — a deterministic, weather-free year."
+              subtitle="Is this spot worth the drive at all — a deterministic, weather-free year."
             >
               <Stack gap="xs">
                 {!measureRequested ? (

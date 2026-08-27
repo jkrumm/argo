@@ -139,8 +139,8 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
     <ChartCard
       title="Daily Activity"
       subtitle="Am I moving enough?"
-      tooltip={METRIC_TOOLTIPS.activityScore}
-      extra={
+      info={METRIC_TOOLTIPS.activityScore}
+      actions={
         latest?.score !== null && latest?.score !== undefined ? (
           <span style={{ fontSize: VX.text.xs }}>
             <span

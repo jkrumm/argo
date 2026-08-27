@@ -56,8 +56,8 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
     <ChartCard
       title="Strength Balance"
       subtitle="DOTS-adjusted lift ratios"
-      tooltip={METRIC_TOOLTIPS.strengthRatios}
-      extra={headerExtra}
+      info={METRIC_TOOLTIPS.strengthRatios}
+      actions={headerExtra}
     >
       {!hasData ? (
         <ChartEmpty height={180} message="Need data for multiple lifts" />

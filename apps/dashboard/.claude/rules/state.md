@@ -3,39 +3,29 @@ paths:
   - apps/dashboard/**
 ---
 
-# Client State — Zustand
+# Client State — where each kind lives
 
-## Scope
+`.claude/rules/basalt-state.md` (shipped by basalt-ui) is the law. This file is the argo delta.
 
-Zustand manages only UI state that must survive navigation but is not appropriate for URL params:
+| Kind                                                          | Home                                                                                |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| anything a control reads or writes — filter, tab, range, view | a **field** on the page's `createSearchStore` (`src/lib/window-stores.ts`)          |
+| a per-card select (one chart's exercise, one card's metric)   | a module-scope `createLocalStore` in that card's own file, keyed `<feature>:<card>` |
+| server data                                                   | TanStack Query                                                                      |
+| a preference that must survive a reload but no control reads  | `createPersistedState` from `basalt-ui/state`                                       |
+| color scheme                                                  | `useMantineColorScheme()` — never a store                                           |
+| genuinely shared mutable state with no owning component       | Zustand — and only the two below                                                    |
 
-- Sidebar collapsed/open (`sidebarCollapsed`)
-- Any other persistent UI preferences
+**Never `useState` for a filter, a tab, a range or a view** (law C3): it resets on navigation, it
+cannot be linked, and a basalt control refuses to take it (`value`/`onChange` do not exist on one).
 
-URL state (filters, active tab, pagination) → `validateSearch` in TanStack Router.
-Server state (API data) → TanStack Query.
-Theme (color scheme) → `useMantineColorScheme()` from Mantine — **not Zustand**.
+## The two remaining Zustand stores, and why
 
-## Store Pattern
+- `src/lib/timer-store.ts` — the rest/interval timer. It ticks from an app-level engine mounted in
+  `__root.tsx` and is read by a header widget, a card and a bus subscriber at once. No URL, no
+  owning component.
+- `src/lib/auth.ts` — the session gate, `persist` middleware.
 
-```ts
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-
-type UiState = {
-  sidebarCollapsed: boolean
-  setSidebarCollapsed: (v: boolean) => void
-}
-
-export const useUiStore = create<UiState>()(
-  persist(
-    (set) => ({
-      sidebarCollapsed: false,
-      setSidebarCollapsed: (v) => set({ sidebarCollapsed: v }),
-    }),
-    { name: 'argo-ui' },
-  ),
-)
-```
-
-The store lives in `src/lib/store.ts`. Keep it small — resist the urge to put query results or derived data here.
+Sidebar collapse is NOT here: it moved to `createPersistedState`
+(`src/lib/sidebar-collapsed.ts`) when `BasaltShell`'s own uncontrolled path did. Do not add a
+third Zustand store for UI state a store field or `createPersistedState` can hold.

@@ -1,28 +1,21 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Suspense, useCallback, useMemo } from 'react'
-import { Card, Grid, Group, SimpleGrid, Stack } from '@mantine/core'
+import { createFileRoute } from '@tanstack/react-router'
+import { Suspense, useMemo } from 'react'
+import { Card, Grid, SimpleGrid, Stack } from '@mantine/core'
 import { IconBarbell } from '@tabler/icons-react'
-import { z } from 'zod'
-import { strengthWindowStore } from '../lib/window-stores'
-import { EmptyState, PageActions } from 'basalt-ui'
+import { EmptyState, PageBar, Section } from 'basalt-ui'
+import { FilterSet, MultiSelectFilter, RangeFilter, ViewTabs } from 'basalt-ui/controls'
+import { DateRangePicker } from 'basalt-ui/controls-dates'
+import { strengthStore } from '../lib/window-stores'
 import {
   ChartSkeleton,
   DEFAULT_EXERCISES,
-  ExerciseFilter,
   ExerciseSummaryCards,
   RecentRecords,
-  Section,
+  resolveWindow,
   TimerCard,
-  ViewTabs,
-  WINDOW_PRESET_VALUES,
-  WindowSelector,
   WorkoutForm,
   WorkoutsTable,
-  presetToParams,
   type ExerciseKey,
-  type StrengthView,
-  type SummaryParams,
-  type WindowPreset,
 } from '../features/strength-tracker'
 import AlignmentMatrixChart from '../features/strength-tracker/charts/alignment-matrix-chart'
 import InolChart from '../features/strength-tracker/charts/inol-chart'
@@ -42,49 +35,23 @@ import { workoutsQueries } from '../lib/queries/workouts'
 import { useGymSync } from '../lib/queries/gym'
 import { useWorkoutDraftSync } from '../lib/queries/workout-draft'
 
-// ── Search params ──────────────────────────────────────────────────────────
-
-const PresetEnum = z.enum(WINDOW_PRESET_VALUES)
-const ViewEnum = z.enum(['charts', 'train', 'history'])
-
-const SearchSchema = z.object({
-  window: PresetEnum.default('all'),
-  from: z.string().optional(),
-  to: z.string().optional(),
-  tab: ViewEnum.default('charts'),
-  exercises: z.string().default('bench_press,deadlift,squat,pull_ups'),
-})
-
-type SearchParams = z.infer<typeof SearchSchema>
-
-function resolveWindow(search: SearchParams): SummaryParams {
-  if (search.from !== undefined && search.to !== undefined) {
-    return { from: search.from, to: search.to }
-  }
-  return presetToParams(search.window)
+/**
+ * An EMPTY selection is the multi field's way of saying "no constraint", and every strength query
+ * wants the full set instead — so the page substitutes the default four. The API takes them as one
+ * comma-separated string; the URL carries them as an array.
+ */
+function activeExercises(selected: ReadonlyArray<ExerciseKey>): ReadonlyArray<ExerciseKey> {
+  return selected.length > 0 ? selected : DEFAULT_EXERCISES
 }
 
 // ── Route definition ───────────────────────────────────────────────────────
 
 export const Route = createFileRoute('/strength-tracker')({
-  // An absent `?window=` falls back to the last preset this page was left on
-  // (`strengthWindowStore`, basalt's search-param store) before zod's own schema default —
-  // `lib/nav.tsx`'s click-time thunk reads the same value, so the two cannot disagree.
-  validateSearch: (raw: Record<string, unknown>) =>
-    SearchSchema.parse({
-      ...raw,
-      window: raw['window'] ?? strengthWindowStore.readStored() ?? undefined,
-    }),
-  loaderDeps: ({ search }: { search: SearchParams }) => ({
-    window: search.window,
-    from: search.from,
-    to: search.to,
-    tab: search.tab,
-    exercises: search.exercises,
-  }),
+  validateSearch: strengthStore.validateSearch,
+  loaderDeps: ({ search }) => search,
   loader: ({ context, deps }) => {
-    const windowParams = resolveWindow(deps as SearchParams)
-    const params = { ...windowParams, exercises: deps.exercises }
+    const windowParams = resolveWindow(deps)
+    const params = { ...windowParams, exercises: activeExercises(deps.exercises).join(',') }
 
     const base: Promise<unknown>[] = [
       context.queryClient.ensureQueryData(strengthQueries.heroes(params)),
@@ -107,95 +74,16 @@ export const Route = createFileRoute('/strength-tracker')({
 // ── Page component ─────────────────────────────────────────────────────────
 
 function StrengthTrackerPage() {
-  const search = Route.useSearch()
-  const navigate = useNavigate()
+  const search = strengthStore.useValues()
 
   // Single owner of the gym-config poll — every `useGyms` consumer below reads
   // the cache it fills. Mounting this more than once multiplies the request rate.
   useGymSync()
   useWorkoutDraftSync()
 
-  const windowParams = useMemo<SummaryParams>(() => resolveWindow(search), [search])
-  const queryParams = useMemo(
-    () => ({ ...windowParams, exercises: search.exercises }),
-    [windowParams, search.exercises],
-  )
-
-  const activeExercises = useMemo<ReadonlyArray<ExerciseKey>>(() => {
-    const tokens = search.exercises
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s): s is ExerciseKey => DEFAULT_EXERCISES.includes(s as ExerciseKey))
-    return tokens.length > 0 ? tokens : DEFAULT_EXERCISES
-  }, [search.exercises])
-
-  const handlePresetChange = useCallback(
-    (preset: WindowPreset) => {
-      void navigate({
-        to: '/strength-tracker',
-        search: {
-          window: preset,
-          from: undefined,
-          to: undefined,
-          tab: search.tab,
-          exercises: search.exercises,
-        },
-      })
-    },
-    [navigate, search.tab, search.exercises],
-  )
-
-  const handleRangeChange = useCallback(
-    (from: string | undefined, to: string | undefined) => {
-      void navigate({
-        to: '/strength-tracker',
-        search: {
-          window: search.window,
-          from,
-          to,
-          tab: search.tab,
-          exercises: search.exercises,
-        },
-      })
-    },
-    [navigate, search.window, search.tab, search.exercises],
-  )
-
-  const handleTabChange = useCallback(
-    (next: StrengthView) => {
-      void navigate({
-        to: '/strength-tracker',
-        search: {
-          window: search.window,
-          from: search.from,
-          to: search.to,
-          tab: next,
-          exercises: search.exercises,
-        },
-      })
-    },
-    [navigate, search.window, search.from, search.to, search.exercises],
-  )
-
-  const handleExerciseToggle = useCallback(
-    (ex: ExerciseKey) => {
-      const next = activeExercises.includes(ex)
-        ? activeExercises.filter((e) => e !== ex)
-        : [...activeExercises, ex]
-      const value = next.length > 0 ? next.join(',') : DEFAULT_EXERCISES.join(',')
-      void navigate({
-        to: '/strength-tracker',
-        search: {
-          window: search.window,
-          from: search.from,
-          to: search.to,
-          tab: search.tab,
-          exercises: value,
-        },
-      })
-    },
-    [activeExercises, navigate, search.window, search.from, search.to, search.tab],
-  )
+  const windowParams = resolveWindow(search)
+  const exercises = activeExercises(search.exercises)
+  const queryParams = { ...windowParams, exercises: exercises.join(',') }
 
   // Total workout count drives the page-level empty state. The list query is
   // already prefetched in the loader, so this hits the cache.
@@ -204,20 +92,33 @@ function StrengthTrackerPage() {
 
   return (
     <>
-      {/* Page controls live in the shared top-bar slot; the breadcrumb names the page. */}
-      <PageActions>
-        <Group gap="sm" wrap="nowrap">
-          <ViewTabs value={search.tab} onChange={handleTabChange} />
-          <WindowSelector
-            preset={search.window}
-            from={search.from}
-            to={search.to}
-            onPresetChange={handlePresetChange}
-            onRangeChange={handleRangeChange}
+      <PageBar
+        tabs={
+          // `only: 'sm-down'` is how the phone-only Train tab is declared — the desktop track
+          // shows two segments, the phone track three, one mount, CSS-only swap (law C9). The
+          // page's own `tab === 'train'` branch below still runs on desktop if a URL says so:
+          // the control cannot coerce the value, and silently rewriting it would fight the link.
+          <ViewTabs
+            field={strengthStore.field.tab}
+            label="View"
+            options={[
+              { value: 'train', label: 'Train', only: 'sm-down' },
+              { value: 'charts', label: 'Charts' },
+              { value: 'history', label: 'History' },
+            ]}
           />
-          <ExerciseFilter active={activeExercises} onToggle={handleExerciseToggle} />
-        </Group>
-      </PageActions>
+        }
+        filters={
+          <FilterSet>
+            <RangeFilter field={strengthStore.field.window} customPicker={DateRangePicker} />
+            <MultiSelectFilter
+              field={strengthStore.field.exercises}
+              label="All exercises"
+              noun="lifts"
+            />
+          </FilterSet>
+        }
+      />
 
       <Stack gap="md">
         <Grid>
@@ -226,7 +127,7 @@ function StrengthTrackerPage() {
               <TrainingTools
                 params={queryParams}
                 hasWorkouts={hasWorkouts}
-                multiExercise={activeExercises.length > 1}
+                multiExercise={exercises.length > 1}
               />
             ) : !hasWorkouts ? (
               <Card py="xs" px="sm">
@@ -239,7 +140,7 @@ function StrengthTrackerPage() {
             ) : (
               <>
                 {search.tab === 'charts' && (
-                  <ChartsPanel params={queryParams} activeExercises={activeExercises} />
+                  <ChartsPanel params={queryParams} activeExercises={exercises} />
                 )}
                 {search.tab === 'history' && (
                   <Suspense fallback={<ChartSkeleton height={320} />}>
@@ -255,7 +156,7 @@ function StrengthTrackerPage() {
             <TrainingTools
               params={queryParams}
               hasWorkouts={hasWorkouts}
-              multiExercise={activeExercises.length > 1}
+              multiExercise={exercises.length > 1}
             />
           </Grid.Col>
         </Grid>
@@ -369,8 +270,7 @@ function CompositeChartSlot({
 }
 
 function ExerciseSummaryCardsSlot() {
-  const search = Route.useSearch()
-  const windowParams = useMemo<SummaryParams>(() => resolveWindow(search), [search])
+  const windowParams = resolveWindow(strengthStore.useValues())
   return <ExerciseSummaryCards params={windowParams} />
 }
 

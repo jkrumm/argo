@@ -78,8 +78,8 @@ export function PaceTrendChart({ params }: { params: WalkingPadWindowParams }) {
     <ChartCard
       title="Pace trend"
       subtitle="Am I walking faster over time?"
-      tooltip="Per-day distance-weighted average walking speed. Zones (stroll / walking / brisk / power) are calibrated against typical desk-treadmill ranges. A long slow session counts more than a tiny fast one — the headline number reflects how you actually moved, not the peak."
-      extra={
+      info="Per-day distance-weighted average walking speed. Zones (stroll / walking / brisk / power) are calibrated against typical desk-treadmill ranges. A long slow session counts more than a tiny fast one — the headline number reflects how you actually moved, not the peak."
+      actions={
         hasData ? (
           <span style={{ fontSize: VX.text.xs, fontWeight: 600, color: SERIES.walkingPace }}>
             {fmtKmh(

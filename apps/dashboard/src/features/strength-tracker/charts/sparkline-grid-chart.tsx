@@ -36,7 +36,7 @@ export default function SparklineGridChart({ params }: { params: StrengthQueryPa
     <ChartCard
       title="Strength Scan"
       subtitle="All lifts at a glance"
-      tooltip={METRIC_TOOLTIPS.strengthScan}
+      info={METRIC_TOOLTIPS.strengthScan}
     >
       {!hasData ? (
         <ChartEmpty height={180} message="No data — start logging workouts." />

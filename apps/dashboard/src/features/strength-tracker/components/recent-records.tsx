@@ -1,21 +1,36 @@
-import { useState } from 'react'
-import { Box, Card, Group, ScrollArea, Select, Stack, Text } from '@mantine/core'
+import { Box, Card, Group, ScrollArea, Stack, Text } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { IconTrophy } from '@tabler/icons-react'
+import { WidgetHeader } from 'basalt-ui'
+import { SelectFilter } from 'basalt-ui/controls'
+import { createLocalStore, field } from 'basalt-ui/state'
 import { alpha, VX } from 'basalt-ui/tokens'
-import { strengthQueries, type StrengthRecordsParams } from '../../../lib/queries/strength'
+import { strengthQueries } from '../../../lib/queries/strength'
 import { METRICS, EXERCISE_COLORS, type ExerciseKey } from '../constants'
 import { exerciseLabel, metricLabel } from '../formulas'
 
-type MetricFilter = StrengthRecordsParams['metric']
+/** A static tuple, not `METRICS.map()`: `field.enum` closes over its values at definition, and a
+ * derived array widens to `string[]`. `avg_intensity` is deliberately absent — a percentage has no
+ * personal record. */
+const METRIC_FILTER_VALUES = [
+  'all',
+  'estimated_1rm',
+  'max_weight',
+  'total_volume',
+  'total_reps',
+  'work_sets',
+] as const
 
-const FILTER_OPTIONS: { value: NonNullable<MetricFilter>; label: string }[] = [
-  { value: 'all', label: 'All' },
-  ...METRICS.filter((m) => m.value !== 'avg_intensity').map((m) => ({
-    value: m.value as NonNullable<MetricFilter>,
-    label: m.label,
-  })),
-]
+/** Per-card select → a local store field, not `useState` (law C3). Persisted per card. */
+const local = createLocalStore({
+  key: 'strength:recent-records',
+  fields: { metric: field.enum(METRIC_FILTER_VALUES, 'all') },
+}).labels({
+  metric: {
+    all: 'All',
+    ...Object.fromEntries(METRICS.map((m) => [m.value, m.label])),
+  },
+})
 
 export function RecentRecords({
   params,
@@ -24,7 +39,7 @@ export function RecentRecords({
   params: { window?: '7d' | '30d' | '90d' | 'all'; from?: string; to?: string; exercises?: string }
   multiExercise: boolean
 }) {
-  const [metricFilter, setMetricFilter] = useState<NonNullable<MetricFilter>>('all')
+  const [metricFilter] = local.field.metric.use()
 
   const { data, isLoading } = useQuery(strengthQueries.records({ ...params, metric: metricFilter }))
 
@@ -32,23 +47,14 @@ export function RecentRecords({
 
   return (
     <Card py="xs" px="sm">
-      <Group justify="space-between" mb="sm">
-        <Group gap={6}>
-          <IconTrophy size={16} color={VX.status.warn} />
-          <Text fw={600} size="sm">
-            Recent Records
-          </Text>
-        </Group>
-        <Select
-          size="xs"
-          w={120}
-          data={FILTER_OPTIONS}
-          value={metricFilter}
-          onChange={(v) => v !== null && setMetricFilter(v as NonNullable<MetricFilter>)}
-          allowDeselect={false}
-          comboboxProps={{ withinPortal: true }}
-        />
-      </Group>
+      {/* A real home (law C1/C8): the title row is a `WidgetHeader`, so its `actions` slot sizes
+          the filter and no hand-rolled `Group` decides the heading's weight. */}
+      <WidgetHeader
+        tier="widget"
+        title="Recent Records"
+        icon={<IconTrophy size={16} color={VX.status.warn} />}
+        actions={<SelectFilter field={local.field.metric} label="Metric" />}
+      />
 
       {isLoading && records.length === 0 ? (
         <Text size="xs" c="dimmed">

@@ -91,8 +91,8 @@ export default function StressChart({ params }: { params: SummaryParams }) {
     <ChartCard
       title="Stress Levels"
       subtitle="How calm was my day?"
-      tooltip={METRIC_TOOLTIPS.stress}
-      extra={
+      info={METRIC_TOOLTIPS.stress}
+      actions={
         latest && latest.avgStress !== null && latestZone ? (
           <span style={{ fontSize: VX.text.xs }}>
             <span

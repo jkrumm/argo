@@ -76,7 +76,7 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
       : null
 
   return (
-    <ChartCard title="Recovery Trend" tooltip={METRIC_TOOLTIPS.recoveryScore} extra={headerExtra}>
+    <ChartCard title="Recovery Trend" info={METRIC_TOOLTIPS.recoveryScore} actions={headerExtra}>
       {!hasRecovery ? (
         <ChartEmpty height={280} />
       ) : (

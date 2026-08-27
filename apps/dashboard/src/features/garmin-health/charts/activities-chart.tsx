@@ -197,8 +197,8 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
     <ChartCard
       title="Activities"
       subtitle="What did I do?"
-      tooltip={METRIC_TOOLTIPS.activities}
-      extra={
+      info={METRIC_TOOLTIPS.activities}
+      actions={
         <Text size="sm" c="dimmed">
           {activeDays} active · {fmtMin(totalMin)}
         </Text>

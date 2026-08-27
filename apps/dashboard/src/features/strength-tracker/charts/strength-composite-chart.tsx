@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Flex, Select } from '@mantine/core'
+import { Flex } from '@mantine/core'
 import {
   CartesianChart,
   ChartCard,
@@ -11,11 +11,20 @@ import {
   type ChartSeries,
   curveMonotoneX,
 } from 'basalt-ui/charts'
+import { SelectFilter } from 'basalt-ui/controls'
+import { createLocalStore, field } from 'basalt-ui/state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { SERIES } from '../../../lib/series'
+import { EXERCISE_KEYS } from '../../../lib/window-stores'
 import { DEFAULT_EXERCISES, EXERCISES, METRIC_TOOLTIPS } from '../constants'
 import { exerciseLabel } from '../formulas'
 import { ChartEmpty } from './empty'
+
+/** Per-card select → a local store field, not `useState` (law C3). Persisted per chart. */
+const local = createLocalStore({
+  key: 'strength:composite',
+  fields: { exercise: field.enum(EXERCISE_KEYS, 'bench_press') },
+})
 
 type CompositePoint = {
   date: string
@@ -137,7 +146,13 @@ export default function StrengthCompositeChart({
   params: StrengthQueryParams
   exerciseId: string
 }) {
-  const [selected, setSelected] = useState(initialExerciseId)
+  // The store's own fallback is a CONSTANT, and this chart's default is COMPUTED by the caller (the
+  // strength-direction leader with enough sessions). `readStored()` is what tells the two apart: a
+  // field never written is absent from the record, so a first visit still lands on the leader, and
+  // a lift the reader picked wins from then on — until it drops out of the active filter.
+  const [stored] = local.field.exercise.use()
+  const everPicked = local.readStored().exercise !== undefined
+  const selected = everPicked ? stored : initialExerciseId
 
   const compositeParams = {
     exerciseId: selected,
@@ -195,17 +210,7 @@ export default function StrengthCompositeChart({
           i {latest.i !== null ? fmtSigma(latest.i) : '—'}
         </span>
       </span>
-      <Select
-        size="xs"
-        w={140}
-        value={selected}
-        onChange={(value) => {
-          if (value) setSelected(value)
-        }}
-        data={activeOptions}
-        allowDeselect={false}
-        aria-label="Exercise"
-      />
+      <SelectFilter field={local.field.exercise} label="Exercise" options={activeOptions} />
     </Flex>
   )
 
@@ -213,8 +218,8 @@ export default function StrengthCompositeChart({
     <ChartCard
       title="Strength Composite"
       subtitle="Three signals on one σ axis"
-      tooltip={METRIC_TOOLTIPS.strengthComposite}
-      extra={headerExtra}
+      info={METRIC_TOOLTIPS.strengthComposite}
+      actions={headerExtra}
     >
       {hasLines ? (
         <CartesianChart

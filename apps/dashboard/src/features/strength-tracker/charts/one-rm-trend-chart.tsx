@@ -231,8 +231,8 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
     <ChartCard
       title="Estimated 1RM"
       subtitle="Am I getting stronger?"
-      tooltip={METRIC_TOOLTIPS.oneRmTrend}
-      extra={headerExtra}
+      info={METRIC_TOOLTIPS.oneRmTrend}
+      actions={headerExtra}
     >
       {!hasAnyPoint ? (
         <ChartEmpty height={280} />

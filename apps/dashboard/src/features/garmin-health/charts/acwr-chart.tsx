@@ -60,8 +60,8 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
     <ChartCard
       title="Training Load (ACWR)"
       subtitle="Am I overloading?"
-      tooltip={METRIC_TOOLTIPS.trainingLoad}
-      extra={
+      info={METRIC_TOOLTIPS.trainingLoad}
+      actions={
         latest?.acwr !== null && latest?.acwr !== undefined ? (
           <Box component="span" style={{ fontSize: VX.text.lg, fontWeight: 600 }}>
             <Box component="span" style={{ color: acwrZoneColor(latest.zone) }}>

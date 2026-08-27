@@ -8,9 +8,8 @@ export {
   type WindowPreset,
 } from './constants'
 export { HeroStats, Placeholder } from './hero-stats'
-export { SyncControl } from './sync-control'
-export { WindowSelector, presetToParams } from './window-selector'
-export { Section } from './section'
+export { useGarminSync, type GarminSync } from './use-garmin-sync'
+export { resolveWindow, type WindowSearch } from './window'
 export { applyVisibilityFilter, shouldHideTodayNow } from './visibility'
 export {
   scoreColor,

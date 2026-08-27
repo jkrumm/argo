@@ -50,7 +50,7 @@ export default function LatencyP95({
     <ChartCard
       title="p95 latency"
       subtitle="Per-call duration, p95 within each bucket"
-      tooltip="95th-percentile latency over time (only rows with duration_ms set are counted). Sudden steps up usually mean a slower model is taking over the workload, or an upstream slowdown."
+      info="95th-percentile latency over time (only rows with duration_ms set are counted). Sudden steps up usually mean a slower model is taking over the workload, or an upstream slowdown."
     >
       {hasData && (
         <ZonedLine

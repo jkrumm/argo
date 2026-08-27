@@ -1,11 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Group, Stack, Text } from '@mantine/core'
-import { useQuery } from '@tanstack/react-query'
+import { Stack } from '@mantine/core'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { PageBar } from 'basalt-ui'
+import { emit } from 'basalt-ui/notifications'
+import { api, unwrap } from '../lib/eden'
 import { readingQueries } from '../lib/queries/reading'
 import { HeroStats } from '../features/reading/hero-stats'
 import { ShelfSection } from '../features/reading/shelf-section'
 import { EmptyShelf } from '../features/reading/empty-state'
-import { SyncButton } from '../features/reading/sync-button'
 import { UnmatchedSection } from '../features/reading/unmatched-section'
 
 export const Route = createFileRoute('/reading')({
@@ -22,40 +24,78 @@ const SHELF_GROUPS: { statusId: number; label: string }[] = [
   { statusId: 5, label: 'Did Not Finish' },
 ]
 
+/**
+ * Triggers an on-demand Hardcover shelf sync (the same job the daily cron runs) and refetches the
+ * shelf on success. The BUTTON is basalt's `SyncButton` via `PageBar.sync` (law C12) — this owns
+ * only the mutation and its notifications.
+ */
+function useShelfSync() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async () => unwrap(await api.reading.sync.post()),
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: readingQueries.all() })
+      if (result.errors > 0) {
+        emit(
+          'reading:partial',
+          {
+            message: `Synced ${result.upserted} book(s) with ${result.errors} error(s) — check server logs.`,
+          },
+          { title: 'Sync complete' },
+        )
+      } else {
+        emit(
+          'reading:success',
+          { message: `Synced ${result.upserted} book(s) from Hardcover.` },
+          { title: 'Sync complete' },
+        )
+      }
+    },
+    onError: () => {
+      emit(
+        'reading:error',
+        { message: 'Could not run the Hardcover sync. Check the server logs.' },
+        { title: 'Sync failed' },
+      )
+    },
+  })
+}
+
 function ReadingPage() {
   const { data } = useQuery(readingQueries.shelf())
+  const sync = useShelfSync()
 
   const shelf = data?.shelf ?? []
 
   return (
-    <Stack gap="md">
-      <Group justify="space-between" align="flex-start" wrap="nowrap">
-        <Stack gap={2}>
-          <Text fw={700} size="xl">
-            Reading
-          </Text>
-          <Text size="sm" c="dimmed">
-            Your Hardcover shelf — what you've read, rated, and want to read next.
-          </Text>
-        </Stack>
-        <SyncButton />
-      </Group>
+    <>
+      {/* The in-body `Reading` title is gone: the breadcrumb names the page (law C8). */}
+      <PageBar
+        sync={{
+          syncing: sync.isPending,
+          onSync: () => sync.mutate(),
+          label: 'Sync now',
+        }}
+      />
 
-      <HeroStats />
+      <Stack gap="md">
+        <HeroStats />
 
-      <UnmatchedSection />
+        <UnmatchedSection />
 
-      {shelf.length === 0 ? (
-        <EmptyShelf />
-      ) : (
-        <Stack gap="md">
-          {SHELF_GROUPS.map(({ statusId, label }) => {
-            const books = shelf.filter((b) => b.statusId === statusId)
-            if (books.length === 0) return null
-            return <ShelfSection key={statusId} title={label} books={books} />
-          })}
-        </Stack>
-      )}
-    </Stack>
+        {shelf.length === 0 ? (
+          <EmptyShelf />
+        ) : (
+          <Stack gap="md">
+            {SHELF_GROUPS.map(({ statusId, label }) => {
+              const books = shelf.filter((b) => b.statusId === statusId)
+              if (books.length === 0) return null
+              return <ShelfSection key={statusId} title={label} books={books} />
+            })}
+          </Stack>
+        )}
+      </Stack>
+    </>
   )
 }

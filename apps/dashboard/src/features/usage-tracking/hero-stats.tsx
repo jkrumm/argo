@@ -1,45 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { Card, Group, SimpleGrid, Skeleton, Text } from '@mantine/core'
-import { VX } from 'basalt-ui/tokens'
+import { Card, SimpleGrid, Skeleton, Text } from '@mantine/core'
+import { StatCard } from 'basalt-ui'
 import { usageQueries } from '../../lib/queries/usage'
 import { fmtCount, fmtMs, fmtPct, fmtUsd, relativeTime } from './constants'
-
-function HeroCard({
-  label,
-  value,
-  subLabel,
-  breakdown,
-  valueColor,
-}: {
-  label: string
-  value: string
-  subLabel?: string
-  breakdown?: string
-  valueColor?: string
-}) {
-  return (
-    <Card py="xs" px="sm" h="100%">
-      <Text size="xs" c="dimmed" mb={6}>
-        {label}
-      </Text>
-      <Group gap={8} align="baseline">
-        <Text style={{ fontSize: VX.text.kpi, fontWeight: 700, lineHeight: 1, color: valueColor }}>
-          {value}
-        </Text>
-        {subLabel !== undefined && subLabel.length > 0 && (
-          <Text size="sm" c="dimmed">
-            {subLabel}
-          </Text>
-        )}
-      </Group>
-      {breakdown !== undefined && breakdown.length > 0 && (
-        <Text size="xs" c="dimmed" mt={6}>
-          {breakdown}
-        </Text>
-      )}
-    </Card>
-  )
-}
 
 function HeroCardSkeleton({ label }: { label: string }) {
   return (
@@ -68,37 +31,37 @@ export function HeroStats() {
     )
   }
 
-  const costBreakdown = `Max ${fmtUsd(data.costMaxBilling30d)} · IU ${fmtUsd(data.costIuBilling30d)}`
   const drift = relativeTime(data.maxTs)
-  const last7 = `Last 7d ${fmtUsd(data.costUsd7d)}`
 
+  // `StatCard`'s `subtitle` is the muted unit/basis line the old hand-rolled `HeroCard` called
+  // `breakdown`; its `subLabel` (a second figure beside the value) has no `StatCard` slot, so the
+  // cost card's "last 7d" figure rides the same line as the billing split.
   return (
     <SimpleGrid cols={{ base: 1, sm: 2, lg: 5 }} spacing="sm">
-      <HeroCard
-        label="Cost (30d)"
+      <StatCard
+        title="Cost (30d)"
         value={fmtUsd(data.costUsd30d)}
-        subLabel={last7}
-        breakdown={costBreakdown}
+        subtitle={`Last 7d ${fmtUsd(data.costUsd7d)} · Max ${fmtUsd(data.costMaxBilling30d)} · IU ${fmtUsd(data.costIuBilling30d)}`}
       />
-      <HeroCard
-        label="Tokens (30d)"
+      <StatCard
+        title="Tokens (30d)"
         value={fmtCount(data.tokens30d)}
-        breakdown={`${data.sourcesActive} active sources`}
+        subtitle={`${data.sourcesActive} active sources`}
       />
-      <HeroCard
-        label="Error rate (30d)"
+      <StatCard
+        title="Error rate (30d)"
         value={fmtPct(data.errorRate30d)}
-        breakdown={drift !== '—' ? `Last event ${drift}` : undefined}
+        {...(drift !== '—' && { subtitle: `Last event ${drift}` })}
       />
-      <HeroCard
-        label="p95 latency (30d)"
+      <StatCard
+        title="p95 latency (30d)"
         value={fmtMs(data.p95Ms30d)}
-        breakdown={`${data.recordsTotal.toLocaleString()} rows lifetime`}
+        subtitle={`${data.recordsTotal.toLocaleString()} rows lifetime`}
       />
-      <HeroCard
-        label="Cache hit (30d)"
+      <StatCard
+        title="Cache hit (30d)"
         value={fmtPct(data.cacheHitRatio30d)}
-        breakdown="read / (read + input)"
+        subtitle="read / (read + input)"
       />
     </SimpleGrid>
   )

@@ -1,19 +1,11 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Suspense, useCallback, useMemo } from 'react'
-import { Box, Grid, Group, SimpleGrid, Stack } from '@mantine/core'
-import { z } from 'zod'
-import { garminWindowStore } from '../lib/window-stores'
-import {
-  HeroStats,
-  Section,
-  SyncControl,
-  WINDOW_PRESET_VALUES,
-  WindowSelector,
-  presetToParams,
-  type SummaryParams,
-  type WindowPreset,
-} from '../features/garmin-health'
-import { PageActions } from 'basalt-ui'
+import { createFileRoute } from '@tanstack/react-router'
+import { Suspense } from 'react'
+import { Box, Grid, SimpleGrid, Stack } from '@mantine/core'
+import { PageBar, Section } from 'basalt-ui'
+import { FilterSet, RangeFilter } from 'basalt-ui/controls'
+import { DateRangePicker } from 'basalt-ui/controls-dates'
+import { garminStore } from '../lib/window-stores'
+import { HeroStats, resolveWindow, useGarminSync } from '../features/garmin-health'
 import ActivitiesChart from '../features/garmin-health/charts/activities-chart'
 import ActivityScoreChart from '../features/garmin-health/charts/activity-score-chart'
 import AcwrChart from '../features/garmin-health/charts/acwr-chart'
@@ -33,36 +25,15 @@ function ChartFallback({ height = 320 }: { height?: number }) {
   return <Box h={height} w="100%" />
 }
 
-// ── Search params ──────────────────────────────────────────────────────────
-
-const PresetEnum = z.enum(WINDOW_PRESET_VALUES)
-
-const SearchSchema = z.object({
-  window: PresetEnum.default('30d'),
-  from: z.string().optional(),
-  to: z.string().optional(),
-})
-
-type SearchParams = z.infer<typeof SearchSchema>
-
 // ── Route definition ───────────────────────────────────────────────────────
 
 export const Route = createFileRoute('/garmin-health')({
-  // An absent `?window=` falls back to the last preset this page was left on
-  // (`garminWindowStore`, basalt's search-param store) before zod's own schema default —
-  // `lib/nav.tsx`'s click-time thunk reads the same value, so the two cannot disagree.
-  validateSearch: (raw: Record<string, unknown>) =>
-    SearchSchema.parse({
-      ...raw,
-      window: raw['window'] ?? garminWindowStore.readStored() ?? undefined,
-    }),
-  loaderDeps: ({ search }: { search: SearchParams }) => ({
-    window: search.window,
-    from: search.from,
-    to: search.to,
-  }),
+  // One store owns the window: `validateSearch` resolves URL ⊳ localStorage ⊳ fallback, and
+  // `lib/nav.tsx`'s link reads the same store — so the two cannot disagree about what opens.
+  validateSearch: garminStore.validateSearch,
+  loaderDeps: ({ search }) => search,
   loader: ({ context, deps }) => {
-    const params = resolveParams(deps)
+    const params = resolveWindow(deps)
     // Prefetch the three hero-card queries; charts prefetch their own data.
     return Promise.all([
       context.queryClient.ensureQueryData(recoveryQueries.summary(params)),
@@ -73,56 +44,23 @@ export const Route = createFileRoute('/garmin-health')({
   component: GarminHealthPage,
 })
 
-function resolveParams(search: SearchParams): SummaryParams {
-  if (search.from !== undefined && search.to !== undefined) {
-    return { from: search.from, to: search.to }
-  }
-  return presetToParams(search.window)
-}
-
 // ── Page component ─────────────────────────────────────────────────────────
 
 function GarminHealthPage() {
-  const search = Route.useSearch()
-  const navigate = useNavigate()
-
-  const params = useMemo<SummaryParams>(() => resolveParams(search), [search])
-
-  const handlePresetChange = useCallback(
-    (preset: WindowPreset) => {
-      void navigate({
-        to: '/garmin-health',
-        search: { window: preset, from: undefined, to: undefined },
-      })
-    },
-    [navigate],
-  )
-
-  const handleRangeChange = useCallback(
-    (from: string | undefined, to: string | undefined) => {
-      void navigate({
-        to: '/garmin-health',
-        search: { window: search.window, from, to },
-      })
-    },
-    [navigate, search.window],
-  )
+  const search = garminStore.useValues()
+  const params = resolveWindow(search)
+  const sync = useGarminSync()
 
   return (
     <>
-      {/* Page controls live in the shared top-bar slot; the breadcrumb names the page. */}
-      <PageActions>
-        <Group gap="sm" wrap="nowrap">
-          <SyncControl />
-          <WindowSelector
-            preset={search.window}
-            from={search.from}
-            to={search.to}
-            onPresetChange={handlePresetChange}
-            onRangeChange={handleRangeChange}
-          />
-        </Group>
-      </PageActions>
+      <PageBar
+        sync={sync}
+        filters={
+          <FilterSet>
+            <RangeFilter field={garminStore.field.window} customPicker={DateRangePicker} />
+          </FilterSet>
+        }
+      />
 
       <Stack gap="md">
         {/* Hero composite cards */}

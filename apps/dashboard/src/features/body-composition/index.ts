@@ -22,8 +22,7 @@ export {
   type WeightTrend,
 } from './formulas'
 
-export { Section } from './section'
-export { WindowSelector, presetToParams } from './window-selector'
+export { resolveWindow, type WindowSearch } from './window'
 
 export { WeightPanel } from './components/weight-panel'
 export { SkinfoldPanel } from './components/skinfold-panel'

@@ -1,10 +1,10 @@
 import { useEffect } from 'react'
-import { ActionIcon, Button, Tooltip } from '@mantine/core'
+import { Button, Tooltip } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
-import { IconClock, IconRefresh } from '@tabler/icons-react'
-import { useIsFetching, useQueryClient } from '@tanstack/react-query'
+import { IconClock } from '@tabler/icons-react'
 import { useNavigate } from '@tanstack/react-router'
 import { useTimerStore } from '../lib/timer-store'
+import { strengthStore } from '../lib/window-stores'
 import { subscribeRestTimer } from '../features/strength-tracker/components/rest-timer-bus'
 import { formatClock, phaseInfo } from '../features/strength-tracker/components/timer-core'
 
@@ -65,40 +65,17 @@ export function TimerNavWidget() {
         onClick={() =>
           void navigate({
             to: '/strength-tracker',
-            search: {
-              window: 'all',
-              tab: isWide ? 'charts' : 'train',
-              exercises: 'bench_press,deadlift,squat,pull_ups',
-            },
+            // The store owns every one of these params, so its own thunk states the defaults —
+            // only `tab` is this call site's business (`exercises` is now an ARRAY on the URL).
+            search: () => ({
+              ...strengthStore.linkSearch(),
+              tab: isWide ? ('charts' as const) : ('train' as const),
+            }),
           })
         }
       >
         {formatClock(Math.ceil(remaining))} · {label}
       </Button>
-    </Tooltip>
-  )
-}
-
-/**
- * Soft refresh for mobile / installed PWA, where there's no browser reload and
- * pull-to-refresh is disabled. Refetches every active query (keeps the app shell
- * and scroll position) and spins while data is in flight.
- */
-export function RefreshButton() {
-  const queryClient = useQueryClient()
-  const fetching = useIsFetching() > 0
-
-  return (
-    <Tooltip label="Refresh data" withArrow>
-      <ActionIcon
-        variant="subtle"
-        color="gray"
-        aria-label="Refresh data"
-        loading={fetching}
-        onClick={() => void queryClient.invalidateQueries()}
-      >
-        <IconRefresh size={18} />
-      </ActionIcon>
     </Tooltip>
   )
 }

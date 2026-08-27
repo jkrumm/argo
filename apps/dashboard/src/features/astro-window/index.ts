@@ -1,7 +1,6 @@
 import { lazy } from 'react'
 
 export {
-  NIGHTS_OPTIONS,
   METRIC_TOOLTIPS,
   CHART_HEIGHT,
   PANORAMA_HEIGHT,
@@ -63,10 +62,6 @@ export {
   type WeatherSelection,
 } from './map-layers'
 
-export { Section } from './section'
-
-export { SiteSelector, type SiteSelectorProps } from './components/site-selector'
-export { ViewTabs, type AstroView } from './components/view-tabs'
 export { VerdictHero } from './components/verdict-hero'
 export { NightStrip } from './components/night-strip'
 export { NightFacts } from './components/night-facts'

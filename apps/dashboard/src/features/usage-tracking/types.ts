@@ -1,4 +1,4 @@
-import type { Range, Grain, TimeseriesGroupBy } from '../../lib/queries/usage'
+import type { TimeseriesGroupBy } from '../../lib/queries/usage'
 
 export type CostGroupBy = Extract<TimeseriesGroupBy, 'source' | 'machine' | 'billing'>
 export type TokensGroupBy = Extract<
@@ -7,14 +7,3 @@ export type TokensGroupBy = Extract<
 >
 export type BillingValue = 'max' | 'iu' | 'unknown'
 export type WorkspaceValue = 'work' | 'private'
-
-export type UsageSearch = {
-  range: Range
-  grain: Grain
-  sources?: string[]
-  machines?: string[]
-  billing?: BillingValue[]
-  workspace?: WorkspaceValue[]
-  costGroupBy: CostGroupBy
-  tokensGroupBy: TokensGroupBy
-}

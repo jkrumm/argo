@@ -66,8 +66,8 @@ export default function AlignmentMatrixChart({ params }: { params: StrengthQuery
       <ChartCard
         title="Training × Recovery Alignment"
         subtitle="Where do my sessions land?"
-        tooltip={METRIC_TOOLTIPS.trainingRecoveryAlignment}
-        extra={headerExtra}
+        info={METRIC_TOOLTIPS.trainingRecoveryAlignment}
+        actions={headerExtra}
       >
         <ChartEmpty height={200} message="No sessions to chart" />
       </ChartCard>
@@ -87,8 +87,8 @@ export default function AlignmentMatrixChart({ params }: { params: StrengthQuery
     <ChartCard
       title="Training × Recovery Alignment"
       subtitle="Where do my sessions land?"
-      tooltip={METRIC_TOOLTIPS.trainingRecoveryAlignment}
-      extra={headerExtra}
+      info={METRIC_TOOLTIPS.trainingRecoveryAlignment}
+      actions={headerExtra}
     >
       <Stack gap="xs" p="md">
         {/* Column headers */}

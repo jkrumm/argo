@@ -1,17 +1,15 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ActionIcon, Button, Loader, Tooltip } from '@mantine/core'
-import { IconRefresh } from '@tabler/icons-react'
 import {
   dailyMetricsQueries,
   triggerSyncRefresh,
   activitiesQueries,
 } from '../../lib/queries/daily-metrics'
 import { SYNC_POLL_INTERVAL_MS, SYNC_STALE_THRESHOLD_MS } from './constants'
-import { formatRelativeTime, isStale } from './formulas'
+import { isStale } from './formulas'
 
 // Eden type inference for the sync-status endpoint falls through to `{}` —
-// declare the wire shape explicitly to keep the component typed.
+// declare the wire shape explicitly to keep the hook typed.
 type SyncStatus = {
   refresh_requested: boolean
   in_progress: boolean
@@ -21,11 +19,20 @@ type SyncStatus = {
   last_message: string | null
 }
 
+/** What `PageBar.sync` takes, minus the `scope` the bar fixes itself. */
+export type GarminSync = {
+  syncing: boolean
+  lastCompletedAt: Date | null
+  onSync: () => void
+  error?: string
+}
+
 /**
- * Garmin sync UI — manual refresh button, spinner during in-progress,
- * last-sync tooltip, polling loop, and auto-trigger on mount when stale.
+ * The Garmin sync engine, headless: the status poll, the auto-trigger on a stale mount, the
+ * invalidate on completion, and the manual trigger. The CHROME is basalt's `SyncButton` (law C12) —
+ * hand this straight to `PageBar.sync`, which renders the spinner, the age and the error tone.
  */
-export function SyncControl() {
+export function useGarminSync(): GarminSync {
   const queryClient = useQueryClient()
   const autoTriggered = useRef(false)
   const wasInProgress = useRef(false)
@@ -79,37 +86,18 @@ export function SyncControl() {
     }
   }, [status, invalidate])
 
-  const syncing = Boolean(status?.in_progress || status?.refresh_requested || refresh.isPending)
+  const onSync = useCallback(() => {
+    refresh.mutate()
+  }, [refresh])
+
   const lastCompleted = status?.last_completed_at ?? null
-  const errorState = status?.last_status === 'error'
+  const errorMessage =
+    status?.last_status === 'error' ? (status.last_message ?? 'Last sync failed.') : undefined
 
-  const tooltip = syncing
-    ? 'Syncing Garmin Connect…'
-    : `Last sync: ${formatRelativeTime(lastCompleted)}${errorState ? ' (error)' : ''}${
-        status?.last_message !== null && status?.last_message !== undefined
-          ? ` — ${status.last_message}`
-          : ''
-      }`
-
-  return (
-    <Tooltip label={tooltip} withArrow position="bottom">
-      <Button
-        size="xs"
-        variant="default"
-        leftSection={
-          syncing ? (
-            <Loader size={12} />
-          ) : (
-            <ActionIcon component="span" size="xs" variant="transparent" color="gray">
-              <IconRefresh size={14} />
-            </ActionIcon>
-          )
-        }
-        onClick={() => refresh.mutate()}
-        disabled={syncing}
-      >
-        {syncing ? 'Syncing…' : formatRelativeTime(lastCompleted)}
-      </Button>
-    </Tooltip>
-  )
+  return {
+    syncing: Boolean(status?.in_progress || status?.refresh_requested || refresh.isPending),
+    lastCompletedAt: lastCompleted !== null ? new Date(lastCompleted) : null,
+    onSync,
+    ...(errorMessage !== undefined && { error: errorMessage }),
+  }
 }

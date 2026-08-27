@@ -1,13 +1,8 @@
-export type WindowPreset = '7d' | '30d' | '90d' | '6m' | '1y' | 'all'
+import { WALKING_WINDOW_VALUES } from '../../lib/window-stores'
 
-export const WINDOW_PRESET_OPTIONS: ReadonlyArray<{ value: WindowPreset; label: string }> = [
-  { value: '7d', label: 'Last 7 days' },
-  { value: '30d', label: 'Last 30 days' },
-  { value: '90d', label: 'Last 90 days' },
-  { value: '6m', label: 'Last 6 months' },
-  { value: '1y', label: 'Last year' },
-  { value: 'all', label: 'All time' },
-]
+/** Re-exported from the leaf store module so the values, the type, the filter's options and the
+ * store's accepted set are all ONE declaration. The LABELS live on the store (`.labels()`). */
+export type WindowPreset = (typeof WALKING_WINDOW_VALUES)[number]
 
 // Pace zones (km/h). Calibrated against typical desk-treadmill ranges — most
 // users stroll 2.5–4.5 km/h while typing, brisk 4.5–5.5 when no calls, fast

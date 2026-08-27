@@ -1,8 +1,8 @@
 import { VX } from 'basalt-ui/tokens'
 import { SERIES } from '../../lib/series'
-import { STRENGTH_WINDOW_VALUES } from '../../lib/window-stores'
+import { EXERCISE_KEYS, STRENGTH_WINDOW_VALUES } from '../../lib/window-stores'
 
-export type ExerciseKey = 'bench_press' | 'deadlift' | 'squat' | 'pull_ups'
+export type ExerciseKey = (typeof EXERCISE_KEYS)[number]
 
 export type SetType = 'warmup' | 'work' | 'drop' | 'amrap'
 
@@ -20,7 +20,7 @@ export const WINDOW_PRESET_VALUES = STRENGTH_WINDOW_VALUES
 
 export type WindowPreset = (typeof WINDOW_PRESET_VALUES)[number]
 
-export const DEFAULT_EXERCISES: ExerciseKey[] = ['bench_press', 'deadlift', 'squat', 'pull_ups']
+export const DEFAULT_EXERCISES: ReadonlyArray<ExerciseKey> = EXERCISE_KEYS
 
 export const EXERCISES: { value: ExerciseKey; label: string }[] = [
   { value: 'bench_press', label: 'Bench Press' },
@@ -51,19 +51,6 @@ export const METRICS: { value: MetricKey; label: string; unit: string }[] = [
   { value: 'work_sets', label: 'Work Sets', unit: 'sets' },
   { value: 'avg_intensity', label: 'Avg Intensity', unit: '%' },
 ]
-
-export const WINDOW_PRESET_OPTIONS: { value: WindowPreset; label: string }[] = [
-  { value: '7d', label: '7D' },
-  { value: '30d', label: '30D' },
-  { value: '3m', label: '3M' },
-  { value: '6m', label: '6M' },
-  { value: '1y', label: '1Y' },
-  { value: 'ytd', label: 'YTD' },
-  { value: 'all', label: 'All' },
-]
-
-export const EXERCISES_STORAGE_KEY = 'argo:strength-tracker:exercises'
-export const VIEW_STORAGE_KEY = 'argo:strength-tracker:view'
 
 export const METRIC_TOOLTIPS = {
   oneRmTrend:

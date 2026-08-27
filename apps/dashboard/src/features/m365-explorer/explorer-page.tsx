@@ -22,18 +22,23 @@ import {
   Tooltip,
 } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { PageActions } from 'basalt-ui'
+import { PageBar } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import {
   IconCheck,
   IconCopy,
-  IconRefresh,
   IconStar,
   IconStarFilled,
   IconTag,
   IconTrash,
 } from '@tabler/icons-react'
-import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import {
+  useIsFetching,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  useSuspenseQuery,
+} from '@tanstack/react-query'
 import { m365Mutations, m365Queries, type LabelKind } from '../../lib/queries/m365'
 
 const SUGGESTED_LABELS = ['alerts', 'pr-reviews', 'general', 'noise']
@@ -90,6 +95,7 @@ function chatTitle(chat: { topic: string | null; members: Array<{ name: string }
 
 export function M365ExplorerPage(): React.ReactElement {
   const qc = useQueryClient()
+  const m365Fetching = useIsFetching({ queryKey: m365Queries.all() })
   const [filter, setFilter] = useState('')
   const [selected, setSelected] = useState<SourceRef | null>(null)
   const [tagsModalOpened, tagsModal] = useDisclosure(false)
@@ -168,30 +174,28 @@ export function M365ExplorerPage(): React.ReactElement {
 
   return (
     <Stack gap="md">
-      {/* Page actions live in the shared top-bar slot; the breadcrumb names the page. */}
-      <PageActions>
-        <Group gap="xs" wrap="nowrap">
-          <Button
-            variant="light"
-            size="xs"
-            leftSection={<IconTag size={14} />}
-            onClick={tagsModal.open}
-            disabled={tagCounts.length === 0}
-          >
-            Manage tags ({tagCounts.length})
-          </Button>
-          <Tooltip label="Refresh chats + channels">
-            <ActionIcon
-              variant="light"
-              onClick={() => {
-                void qc.invalidateQueries({ queryKey: m365Queries.all() })
-              }}
-            >
-              <IconRefresh size={16} />
-            </ActionIcon>
-          </Tooltip>
-        </Group>
-      </PageActions>
+      {/* Refresh is a `SyncButton` (law C12), not a bare `ActionIcon` with its own tooltip — one
+          shape for refresh everywhere, with the spinner and the age handled by basalt. */}
+      <PageBar
+        actions={{
+          secondary: [
+            {
+              key: 'tags',
+              label: `Manage tags (${tagCounts.length})`,
+              icon: <IconTag size={16} />,
+              onClick: tagsModal.open,
+              disabled: tagCounts.length === 0,
+            },
+          ],
+        }}
+        sync={{
+          syncing: m365Fetching > 0,
+          onSync: () => {
+            void qc.invalidateQueries({ queryKey: m365Queries.all() })
+          },
+          label: 'Refresh chats + channels',
+        }}
+      />
 
       <Text c="dimmed" size="sm">
         Browse your Teams chats and channels, then star the ones worth surfacing in agent feeds.

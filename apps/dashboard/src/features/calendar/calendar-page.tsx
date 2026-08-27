@@ -1,18 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useQueries, useQuery } from '@tanstack/react-query'
-import {
-  ActionIcon,
-  Alert,
-  Anchor,
-  Box,
-  Button,
-  Group,
-  SegmentedControl,
-  Stack,
-  Text,
-  Tooltip,
-  useMantineColorScheme,
-} from '@mantine/core'
+import { Alert, Anchor, Box, Group, Stack, Text, useMantineColorScheme } from '@mantine/core'
 import { MonthView, WeekView } from '@mantine/schedule'
 import type { ScheduleEventData } from '@mantine/schedule'
 import {
@@ -35,7 +23,10 @@ import {
 } from '../../lib/queries/calendar'
 import { VX } from 'basalt-ui/tokens'
 import { SERIES } from '../../lib/series'
-import { PageActions } from 'basalt-ui'
+import { PageBar } from 'basalt-ui'
+import type { BarAction } from 'basalt-ui'
+import { ViewTabs } from 'basalt-ui/controls'
+import { calendarStore } from '../../lib/window-stores'
 
 const DAYS_RANGE = 60
 
@@ -47,11 +38,6 @@ export type CalendarPageProps = {
   view: CalendarView
   date: string
 }
-
-const VIEW_OPTIONS = [
-  { label: 'Week', value: 'week' as const },
-  { label: 'Month', value: 'month' as const },
-]
 
 function todayISO(): string {
   return format(new Date(), 'yyyy-MM-dd')
@@ -194,51 +180,63 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
     )
   }
 
+  /*
+   * `‹ Today ›` as typed action DATA, not a hand-rolled row: `group: true` on the three joins them
+   * into one `ControlGroup` (shared hairlines, radius on the outer ends), the two that ship an icon
+   * render icon-only with the label demoted to the accessible name, and basalt folds whatever does
+   * not fit into the header's single kebab. Four secondaries is exactly the `page-bar-budget` limit.
+   */
+  const dateActions: BarAction[] = [
+    {
+      key: 'prev',
+      label: view === 'week' ? 'Previous week' : 'Previous month',
+      icon: <IconChevronLeft size={16} />,
+      group: true,
+      onClick: () => setSearch({ date: shiftDate(date, view, -1) }),
+    },
+    {
+      key: 'today',
+      label: 'Today',
+      group: true,
+      onClick: () => setSearch({ date: todayISO() }),
+    },
+    {
+      key: 'next',
+      label: view === 'week' ? 'Next week' : 'Next month',
+      icon: <IconChevronRight size={16} />,
+      group: true,
+      onClick: () => setSearch({ date: shiftDate(date, view, 1) }),
+    },
+    {
+      key: 'label',
+      kind: 'custom',
+      // The 48px header has no room for a date range beside the breadcrumb on a phone; the view
+      // itself already names the week.
+      mobile: 'hidden',
+      node: (
+        <Text fw={600} size="sm" style={{ whiteSpace: 'nowrap' }}>
+          {headerLabel(date, view)}
+        </Text>
+      ),
+    },
+  ]
+
   return (
     <Stack
       gap="xs"
       style={{
-        height: 'calc(100dvh - 100px)',
+        // Both sticky bars, measured rather than guessed: the shell header is a token and
+        // `--basalt-page-bar-h` is published by `PageBar`'s own row 2 in the layout phase, so the
+        // hardcoded 100px (and the 49px it was wrong by on a phone) is gone.
+        height:
+          'calc(100dvh - var(--app-shell-header-height) - var(--basalt-page-bar-h, 0px) - var(--vx-space-stack-md, 16px))',
         minHeight: 0,
       }}
     >
-      {/* Nav + date label + view toggle live in the shared top-bar slot. */}
-      <PageActions>
-        <Group gap="sm" wrap="nowrap">
-          <Group gap={4} wrap="nowrap">
-            <Tooltip label={view === 'week' ? 'Previous week' : 'Previous month'}>
-              <ActionIcon
-                variant="default"
-                aria-label="Previous"
-                onClick={() => setSearch({ date: shiftDate(date, view, -1) })}
-              >
-                <IconChevronLeft size={16} />
-              </ActionIcon>
-            </Tooltip>
-            <Button variant="default" size="xs" onClick={() => setSearch({ date: todayISO() })}>
-              Today
-            </Button>
-            <Tooltip label={view === 'week' ? 'Next week' : 'Next month'}>
-              <ActionIcon
-                variant="default"
-                aria-label="Next"
-                onClick={() => setSearch({ date: shiftDate(date, view, 1) })}
-              >
-                <IconChevronRight size={16} />
-              </ActionIcon>
-            </Tooltip>
-          </Group>
-          <Text fw={600} size="sm" style={{ whiteSpace: 'nowrap' }}>
-            {headerLabel(date, view)}
-          </Text>
-          <SegmentedControl
-            size="xs"
-            value={view}
-            data={VIEW_OPTIONS}
-            onChange={(value) => setSearch({ view: value as CalendarView })}
-          />
-        </Group>
-      </PageActions>
+      <PageBar
+        actions={{ secondary: dateActions }}
+        tabs={<ViewTabs field={calendarStore.field.view} label="Calendar view" />}
+      />
 
       <Legend entries={legendEntries} />
 

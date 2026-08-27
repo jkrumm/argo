@@ -134,8 +134,8 @@ export default function RelativeProgressionChart({ params }: { params: StrengthQ
     <ChartCard
       title="Relative Progression"
       subtitle="Which lifts are gaining most?"
-      tooltip={METRIC_TOOLTIPS.relativeProgression}
-      extra={headerExtra}
+      info={METRIC_TOOLTIPS.relativeProgression}
+      actions={headerExtra}
     >
       <Box h={HEIGHT} w="100%">
         {hasAny ? (

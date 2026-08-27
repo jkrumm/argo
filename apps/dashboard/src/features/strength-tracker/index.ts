@@ -5,10 +5,7 @@ export {
   METRIC_TOOLTIPS,
   METRICS,
   SET_TYPE_OPTIONS,
-  WINDOW_PRESET_OPTIONS,
   WINDOW_PRESET_VALUES,
-  EXERCISES_STORAGE_KEY,
-  VIEW_STORAGE_KEY,
   ZONE_COLORS,
   type ExerciseKey,
   type MetricKey,
@@ -44,10 +41,7 @@ export {
 export type { SummaryParams, SummaryParamsWithExercises, ExerciseFilterState } from './types'
 
 export { ChartSkeleton, HeroStats, HeroStatsSkeleton, Placeholder } from './hero-stats'
-export { Section } from './section'
-export { WindowSelector, presetToParams } from './window-selector'
-export { ViewTabs, type StrengthView } from './view-tabs'
-export { ExerciseFilter } from './exercise-filter'
+export { resolveWindow, type WindowSearch } from './window'
 export { showAchievements } from './achievements-toast'
 
 export { WorkoutForm } from './components/workout-form'

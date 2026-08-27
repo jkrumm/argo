@@ -1,11 +1,19 @@
-import { Flex, Select, Stack, Text } from '@mantine/core'
+import { Flex, Stack, Text } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { useState } from 'react'
 import { Bars, ChartCard, ChartLegend, deriveLegend, VX, type SeriesStyle } from 'basalt-ui/charts'
+import { SelectFilter } from 'basalt-ui/controls'
+import { createLocalStore, field } from 'basalt-ui/state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { SERIES } from '../../../lib/series'
+import { EXERCISE_KEYS } from '../../../lib/window-stores'
 import { EXERCISE_COLORS, METRIC_TOOLTIPS, type ExerciseKey } from '../constants'
 import { exerciseLabel } from '../formulas'
+
+/** Per-card select → a local store field, not `useState` (law C3). Persisted per chart. */
+const local = createLocalStore({
+  key: 'strength:weekly-volume',
+  fields: { exercise: field.enum(EXERCISE_KEYS, 'bench_press') },
+})
 
 type WeeklyVolumePoint = {
   date: string
@@ -65,14 +73,12 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
   const { data } = useSuspenseQuery(strengthQueries.weeklyVolume(params))
 
   const availableExercises = data.byExercise.map((b) => b.exercise_id)
-  const [selectedExercise, setSelectedExercise] = useState<string>(
-    () => availableExercises[0] ?? 'bench_press',
-  )
+  const [selectedExercise] = local.field.exercise.use()
 
   // If the active exercise filter changes and our selection is no longer
   // available, fall back to the first option. Reading during render is fine
   // (React Compiler will keep it stable when inputs don't change).
-  const effectiveSelected = availableExercises.includes(selectedExercise)
+  const effectiveSelected: string = availableExercises.includes(selectedExercise)
     ? selectedExercise
     : (availableExercises[0] ?? selectedExercise)
 
@@ -87,14 +93,10 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
 
   const selectorNode =
     availableExercises.length > 1 ? (
-      <Select
-        size="xs"
-        value={effectiveSelected}
-        onChange={(v) => v && setSelectedExercise(v)}
-        data={availableExercises.map((ex) => ({ value: ex, label: exerciseLabel(ex) }))}
-        allowDeselect={false}
-        comboboxProps={{ withinPortal: true, width: 'target' }}
-        style={{ minWidth: 130 }}
+      <SelectFilter
+        field={local.field.exercise}
+        label="Exercise"
+        options={availableExercises.map((ex) => ({ value: ex, label: exerciseLabel(ex) }))}
       />
     ) : null
 
@@ -102,8 +104,8 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
     <ChartCard
       title="Weekly Volume"
       subtitle="Is my training load sustainable?"
-      tooltip={METRIC_TOOLTIPS.weeklyVolume}
-      extra={
+      info={METRIC_TOOLTIPS.weeklyVolume}
+      actions={
         <Flex display="inline-flex" align="center" gap="xs">
           {hasData && latest && latest.total > 0 ? (
             <span style={{ fontSize: VX.text.xs, color: exColor, fontWeight: 600 }}>

@@ -1,5 +1,4 @@
 export {
-  WINDOW_PRESET_OPTIONS,
   PACE_ZONES,
   DAILY_DISTANCE_GOAL_M,
   WEEKLY_DISTANCE_GOAL_M,
@@ -19,13 +18,12 @@ export {
   formatDeltaKmh,
   relativeTime,
 } from './formatters'
-export { WindowSelector, presetToParams } from './window-selector'
-export { MetricToggle, useMetricSelection, METRIC_DEFS, type MetricKey } from './metric-toggle'
+export { resolveWindow, type WindowSearch } from './window'
+export { METRIC_DEFS, type MetricKey } from './metrics'
 export { LiveCard, LiveCardSkeleton } from './live-card'
 export { HeroStats, HeroStatsSkeleton, ChartSkeleton } from './hero-stats'
 export { useAchievementWatcher } from './achievements-toast'
 export { AchievementsGallery } from './achievements-gallery'
-export { Section } from './section'
 export { SessionHistoryTable } from './session-history'
 
 // Charts

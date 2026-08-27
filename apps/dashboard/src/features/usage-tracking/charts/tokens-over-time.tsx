@@ -1,17 +1,11 @@
 import { useMemo } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { SegmentedControl } from '@mantine/core'
+import { ViewTabs } from 'basalt-ui/controls'
 import { ChartCard, StackedArea, type ChartSeries } from 'basalt-ui/charts'
 import { usageQueries, type Grain, type Range } from '../../../lib/queries/usage'
+import { usageStore } from '../../../lib/window-stores'
 import type { BillingValue, TokensGroupBy, WorkspaceValue } from '../types'
 import { colorForKey, colorForSource, fmtCount } from '../constants'
-
-const GROUPBY_OPTIONS = [
-  { label: 'Sub-tool', value: 'sub_tool' },
-  { label: 'Model', value: 'model_norm' },
-  { label: 'Project', value: 'project' },
-  { label: 'Source', value: 'source' },
-]
 
 type Bucket = { bucket: string; groups: Record<string, number | null> }
 
@@ -26,14 +20,12 @@ export default function TokensOverTime({
   billing,
   workspace,
   groupBy,
-  onGroupByChange,
 }: {
   range: Range
   grain: Grain
   billing?: BillingValue[]
   workspace?: WorkspaceValue[]
   groupBy: TokensGroupBy
-  onGroupByChange: (g: TokensGroupBy) => void
 }) {
   const { data } = useSuspenseQuery(
     usageQueries.timeseries({ range, grain, metric: 'tokens', groupBy, billing, workspace }),
@@ -51,21 +43,12 @@ export default function TokensOverTime({
     getValue: (d) => d.groups[k] ?? 0,
   }))
 
-  const headerExtra = (
-    <SegmentedControl
-      size="xs"
-      value={groupBy}
-      onChange={(v) => onGroupByChange(v as TokensGroupBy)}
-      data={GROUPBY_OPTIONS}
-    />
-  )
-
   return (
     <ChartCard
       title="Tokens over time"
       subtitle="Sum of incremental token columns, bucketed"
-      tooltip="Total token volume (input + output + cache_write + reasoning) over time. cache_read is excluded — it's the full prior context re-read from cache on every turn, not a delta, so summing it across rows would inflate the total. Group by sub-tool to see which sideclaw workflows burn tokens."
-      extra={headerExtra}
+      info="Total token volume (input + output + cache_write + reasoning) over time. cache_read is excluded — it's the full prior context re-read from cache on every turn, not a delta, so summing it across rows would inflate the total. Group by sub-tool to see which sideclaw workflows burn tokens."
+      actions={<ViewTabs field={usageStore.field.tokensGroupBy} label="Group by" />}
     >
       {buckets.length > 0 && (
         <StackedArea

@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Card, Group, Stack, Text } from '@mantine/core'
+import { Text } from '@mantine/core'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
 import { usageQueries, type Range } from '../../../lib/queries/usage'
 import type { BillingValue, WorkspaceValue } from '../types'
@@ -55,29 +55,22 @@ export default function TopProjects({
   )
 
   return (
-    <Card py="xs" px="sm">
-      <Stack gap="sm">
-        <Group justify="space-between" align="baseline">
-          <Text fw={600}>Top projects (cost)</Text>
-          <Text size="xs" c="dimmed">
-            Total {fmtUsd(data.total)}
-          </Text>
-        </Group>
-        <BasaltDataTable
-          data={data.rows}
-          columns={columns}
-          striped
-          highlightOnHover
-          withRowBorders={false}
-          withTableBorder={false}
-          verticalSpacing="xs"
-          emptyState={
-            <Text size="sm" c="dimmed">
-              No data in this window.
-            </Text>
-          }
-        />
-      </Stack>
-    </Card>
+    // The table's own `WidgetHeader` carries the title and the window total (`subtitle`) — the
+    // `Card` + `Group` wrapper that used to draw them is gone.
+    <BasaltDataTable
+      title="Top projects (cost)"
+      subtitle={`Total ${fmtUsd(data.total)}`}
+      data={data.rows}
+      columns={columns}
+      striped
+      highlightOnHover
+      withRowBorders={false}
+      verticalSpacing="xs"
+      emptyState={
+        <Text size="sm" c="dimmed">
+          No data in this window.
+        </Text>
+      }
+    />
   )
 }

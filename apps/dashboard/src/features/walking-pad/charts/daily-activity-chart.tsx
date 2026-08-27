@@ -11,7 +11,8 @@ import {
 } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
-import { METRIC_DEFS, fmtSteps, useMetricSelection, type MetricKey } from '../metric-toggle'
+import { walkingStore } from '../../../lib/window-stores'
+import { METRIC_DEFS, fmtSteps, type MetricKey } from '../metrics'
 import { ChartEmpty } from './empty'
 
 type Point = {
@@ -55,7 +56,7 @@ const fmtPct = (v: number) => `${Math.round(v * 100)}%`
 
 export function DailyActivityChart({ params }: { params: WalkingPadWindowParams }) {
   const { data } = useSuspenseQuery(walkingPadQueries.series({ ...params, bucket: 'day' }))
-  const { enabled } = useMetricSelection()
+  const [enabled] = walkingStore.field.metrics.use()
 
   const points: Point[] = data.points
 
@@ -83,7 +84,7 @@ export function DailyActivityChart({ params }: { params: WalkingPadWindowParams 
       <ChartCard
         title="Daily activity"
         subtitle="How much did I walk each day?"
-        tooltip="Per-UTC-day total of the selected metrics. Pick one or more metrics from the page header to populate."
+        info="Per-UTC-day total of the selected metrics. Pick one or more metrics from the page header to populate."
       >
         <ChartEmpty height={280} label="No metric selected — toggle one in the page header." />
       </ChartCard>
@@ -174,8 +175,8 @@ export function DailyActivityChart({ params }: { params: WalkingPadWindowParams 
     <ChartCard
       title="Daily activity"
       subtitle="How much did I walk each day?"
-      tooltip="Per-UTC-day total of each enabled metric. With 2+ metrics, bars are normalized to each metric's own window-max so the rhythm is comparable; tooltips show absolute values. The dashed line is the per-day session count on the right axis."
-      extra={hasData ? headerSummary : null}
+      info="Per-UTC-day total of each enabled metric. With 2+ metrics, bars are normalized to each metric's own window-max so the rhythm is comparable; tooltips show absolute values. The dashed line is the per-day session count on the right axis."
+      actions={hasData ? headerSummary : null}
     >
       {!hasData ? (
         <ChartEmpty height={280} label="No walks in this window" />

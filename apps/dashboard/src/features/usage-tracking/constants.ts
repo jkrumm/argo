@@ -1,5 +1,4 @@
 import { USAGE_BILLING, USAGE_OUTCOME, USAGE_SOURCE } from '../../lib/series'
-import type { BillingValue, WorkspaceValue } from './types'
 
 const SOURCE_KEY_TO_TOKEN: Record<string, keyof typeof USAGE_SOURCE> = {
   'claude-code': 'claudeCode',
@@ -63,9 +62,6 @@ function hashKey(key: string): number {
 export function colorForKey(key: string): string {
   return FALLBACK_PALETTE[hashKey(key) % FALLBACK_PALETTE.length] ?? USAGE_SOURCE.other
 }
-
-export const ALL_BILLING: BillingValue[] = ['max', 'iu', 'unknown']
-export const ALL_WORKSPACES: WorkspaceValue[] = ['work', 'private']
 
 export function fmtUsd(n: number | null | undefined): string {
   if (n === null || n === undefined || Number.isNaN(n)) return '—'

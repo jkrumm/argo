@@ -63,8 +63,8 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
     <ChartCard
       title="Body Battery"
       subtitle="Net recovery or deficit?"
-      tooltip={METRIC_TOOLTIPS.bodyBattery}
-      extra={headerExtra}
+      info={METRIC_TOOLTIPS.bodyBattery}
+      actions={headerExtra}
     >
       {points.length === 0 ? (
         <ChartEmpty height={280} />

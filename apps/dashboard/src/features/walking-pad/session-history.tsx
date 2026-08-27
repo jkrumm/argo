@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Badge, Card, Group, Stack, Text } from '@mantine/core'
+import { Badge, Card, Stack, Text } from '@mantine/core'
 import type { PaginationState } from '@tanstack/react-table'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
 import { walkingPadQueries } from '../../lib/queries/walking-pad'
@@ -120,33 +120,27 @@ export function SessionHistoryTable() {
   }
 
   return (
-    // theme-allow card-inset — flush table card: header/body/footer manage their own px/py
-    <Card padding={0}>
-      <Group justify="space-between" px="md" py="sm">
-        <Text fw={600} size="sm">
-          Session history
-        </Text>
-        <Text size="xs" c="dimmed">
-          {data.total} session{data.total === 1 ? '' : 's'} total
-        </Text>
-      </Group>
-      <BasaltDataTable
-        data={data.data}
-        columns={columns}
-        enableSorting={false}
-        maxHeight={TABLE_BODY_MAX_HEIGHT}
-        minWidth={640}
-        stickyHeader
-        striped
-        highlightOnHover
-        verticalSpacing="xs"
-        withTableBorder={false}
-        enablePagination
-        manualPagination
-        rowCount={data.total}
-        initialPagination={{ pageIndex: 0, pageSize: PAGE_SIZE }}
-        onPaginationChange={setPagination}
-      />
-    </Card>
+    // The table owns its own header now (`title`/`subtitle` → `WidgetHeader tier="widget"`), so the
+    // hand-rolled `Card padding={0}` wrapper and its `card-inset` waiver are gone. The TOTAL rides
+    // `subtitle`, not the header's `count`: under `manualPagination` basalt's own count is
+    // `getRowCount()` — this page's 25 rows, not the 900 sessions behind them (C11).
+    <BasaltDataTable
+      title="Session history"
+      subtitle={`${data.total} session${data.total === 1 ? '' : 's'} total`}
+      data={data.data}
+      columns={columns}
+      enableSorting={false}
+      maxHeight={TABLE_BODY_MAX_HEIGHT}
+      minWidth={640}
+      stickyHeader
+      striped
+      highlightOnHover
+      verticalSpacing="xs"
+      enablePagination
+      manualPagination
+      rowCount={data.total}
+      initialPagination={{ pageIndex: 0, pageSize: PAGE_SIZE }}
+      onPaginationChange={setPagination}
+    />
   )
 }

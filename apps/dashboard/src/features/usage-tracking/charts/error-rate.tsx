@@ -48,7 +48,7 @@ export default function ErrorRate({
     <ChartCard
       title="Errors over time"
       subtitle="Count of outcome='error' per source"
-      tooltip="Per-source error counts over the window. Healthy systems sit near zero; spikes correlate with bridge incidents, upstream model issues, or rate-limit storms."
+      info="Per-source error counts over the window. Healthy systems sit near zero; spikes correlate with bridge incidents, upstream model issues, or rate-limit storms."
     >
       {hasAnyError && (
         <StackedArea

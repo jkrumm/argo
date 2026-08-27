@@ -106,52 +106,43 @@ see `docs/archive/`.
 - `docs/ASTRO-HORIZON-RESEARCH.md` — the terrain-horizon rebuild, **shipped in five phases**. `GET /astro/horizon` serves the per-azimuth near/far-split skyline (`lib/terrain-horizon.ts`'s `horizonProfile`/`horizonAt`) for an arbitrary coordinate from the AWS terrarium DEM (`clients/terrarium-dem.ts`); `/astro/window`'s per-night gate is `max(8°, farHorizon(coreAzimuth) + 2°)`, evaluated per sample rather than once per night, and the moon counts as down when it sits behind that same skyline (`resolveNight` in `lib/astro-night.ts`); `GET /astro/visibility` (`lib/astro-visibility.ts`'s `annualVisibility`) integrates a whole calendar year on a 10-minute grid into the deterministic, weather-free annual budget — "is this spot worth the drive at all" — under three progressively honest gates (`flat`/`terrain`/`terrainMoon`). On the dashboard, the **Forecast** tab carries the sky panorama (`charts/sky-panorama.tsx` — terrain silhouette, skyglow rose and the sun/moon/core tracks on one azimuth × altitude pair of axes, with the gate drawn and the clearing segment emphasised) plus the monthly budget chart, and the **Map** tab carries hillshade + optional 3D terrain off one shared terrarium `raster-dem` source and click-anywhere scouting (`components/scout-panel.tsx`, comparing any coordinate against the selected site). **Not built:** the §5 clearance raster layer — measured at 0.34 ms/cell and rasterable, but no tile route exists. The record: the PVGIS validation, why the near field (≤500 m) is DEM-unstable and ships advisory-only, what terrain does to the core and to moonlight, the annual-budget numbers that reorder the site ranking 16× under a terrain-aware gate, and the re-verified library landscape (`astronomy-engine` is upstream-abandoned, `suncalc` 2.0 is now viable for sun/moon only). POC scripts in `docs/poc/astro-horizon/` reproduce every number in it
 - `docs/STRENGTH-ANALYTICS.md` — metric definitions, INOL, ACWR, e1RM formulas (strength page)
 
-<!-- basalt:begin 1.25.0 -->
+<!-- basalt:begin 1.26.0 -->
 
 ## basalt-ui (managed — do not hand-edit)
 
-Scaffolded by `bunx basalt-ui init` (the one command that legitimately predates the install) and
-refreshed by the locally installed `basalt-ui sync` after every upgrade; `basalt-ui sync --check`
-gates drift in CI. This block is framework-owned — edit `DESIGN.md`
-or the `basalt-*` rules instead; manual changes here are overwritten on the next sync.
+Placed by `bunx basalt-ui init` and refreshed by `basalt-ui sync` after every upgrade
+(`sync --check` gates drift in CI). Framework-owned: edit `DESIGN.md` or your own files instead —
+changes here are overwritten on the next sync.
 
-**Stack:** React 19 + Mantine v9, themed by `basalt-ui` (`BasaltProvider` + `createBasaltTheme`).
-Colors come from the three-tier `--vx-*` token system — read `VX.*` / a `defineSeries` token,
-never a raw hex/`rgb()`/`hsl()`. Charts are visx via `basalt-ui/charts`: every single-plot chart
-composes `CartesianChart` (owns margins, scales, axes, grid, cursor, tooltip — draw only marks);
-legends/tooltip rows are DERIVED from `series`, never hand-authored (`basalt/hand-rolled-plot` +
-`basalt/chart-legend-literal` enforce both); `DualPanel`/`BandStrip`/`MirroredBars` declare
-themselves exceptions, and `Donut`/`Heatmap` render no plot-assembly element so the rule never
-fires on them. Add a kind on the third repeat, don't loosen the primitives. `basalt-ui/charts` and
-`basalt-ui/tokens` are Mantine-free internally (a framework invariant, not something your own app
-code must follow) — never import `@visx/*` outside a `charts/` directory (oxlint-enforced).
-Toolchain is oxlint + oxfmt (no ESLint/Biome/Prettier) and `basalt-ui check-theme` guards the
-palette. Runtime is Bun.
+**Stack:** React 19 + Mantine v9, themed by `basalt-ui` (`BasaltProvider` + `createBasaltTheme`), Bun
+runtime, oxlint + oxfmt (no ESLint/Biome/Prettier), no Tailwind. Color comes from the three-tier
+`--vx-*` token system — read `VX.*` or a series token, never a raw hex/`rgb()`/`hsl()`. Charts are
+visx via `basalt-ui/charts`. `basalt-ui check-theme` plus the `basalt/*` oxlint rules are the teeth.
 
-**Before guessing an import, read the installed package's machine docs — `llms.txt` (per-subpath
-import map) and `AGENTS.md`, at the install directory.** That is `./node_modules/basalt-ui` only on
-a single-package app. In a workspace, basalt resolves under the package that depends on it
-(`packages/<name>/node_modules/basalt-ui`), and the repo root may have no copy at all. Run
-`basalt-ui doctor` — its `basalt-resolves` line prints the resolved install dir and version; read
-the two files there. Invoke the CLI through the **locally installed** bin (the `lint:basalt` script
-seeded by `init` shows the path); `bunx basalt-ui` fetches a second copy from npm and can answer
-for a different version than the one you are building against.
+**Precedence — the only statement of it.** Highest wins; a lower layer fills gaps and never
+overrides a higher one:
 
-**DESIGN.md is law.** `./DESIGN.md` (imported below) records this app's palette identity and series
-dictionary. Precedence: **DESIGN.md > `basalt-*` rules > skills.** When building or restyling any
-UI, that law wins over habit, over library defaults, and over a skill's instinct. The design/charts
-workflows are the managed skills in `.claude/skills/` (`/basalt-design`, `/basalt-charts`) — they
-defer to DESIGN.md.
+> consumer `DESIGN.md` (app deltas) > the six shipped `basalt-*` rules > the `basalt-*` skills
+
+**All six rules are law** — `basalt-tokens`, `basalt-mantine`, `basalt-charts`, `basalt-state`,
+`basalt-controls`, `basalt-batteries` in `.claude/rules/`, each carrying a generated
+`<!-- basalt:coverage -->` header naming what enforces it and what is only advisory. The skills
+(`/basalt-app`, `/basalt-design`, `/basalt-charts`) are the METHOD that obeys them, never law.
+
+**Run the LOCAL bin, not `bunx`** — `./node_modules/.bin/basalt-ui`, or a `package.json` script.
+`bunx` does not re-resolve a cached package, so it can answer for a version you upgraded away from;
+`init` is the one legitimate `bunx` invocation, because nothing is installed yet.
+
+**Before guessing an import, read the installed package's machine docs** — `llms.txt` (per-subpath
+import map) and `AGENTS.md`, at the install directory. In a workspace that is under the package that
+depends on basalt, not the repo root; `basalt-ui doctor`'s `basalt-resolves` line prints where.
 
 @./DESIGN.md
 
-**Restraint override (supersedes `/frontend-design`).** This app is a calm, data-dense,
-dark-first professional surface — not a showcase. Ignore `/frontend-design`'s push toward a "BOLD
-aesthetic direction", gradient meshes, noise/grain, and dramatic motion. Here: the shipped
-three-font system (Nunito Sans body, Hubot Sans condensed headings, JetBrains Mono for every
-numeral/micro-label), depth via a whisper shadow + 1px ring (`shadow-card` on panels,
-`shadow-raised` on controls — never a decorative drop shadow, never a hover lift), neutral
-zinc-by-default with the single saturated accent spent only when earned (trend /
-signal / categorical separation). Restraint **is** the identity.
+**Restraint override (supersedes `/frontend-design`).** This app is a calm, data-dense professional
+surface, not a showcase. Ignore the push toward a "BOLD aesthetic direction", gradient meshes,
+noise/grain and dramatic motion. Here: the shipped three-font system, depth from a whisper shadow
+with a 1px ring, neutral-by-default with the single accent spent only when earned — trend, signal,
+or genuine categorical separation. Restraint **is** the identity.
 
 <!-- basalt:end -->

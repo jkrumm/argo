@@ -1,9 +1,10 @@
-import { Suspense, useCallback, useMemo } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Grid, Group, SimpleGrid, Stack } from '@mantine/core'
+import { Suspense } from 'react'
+import { createFileRoute } from '@tanstack/react-router'
+import { Grid, SimpleGrid, Stack } from '@mantine/core'
 import { useElementSize, useMediaQuery } from '@mantine/hooks'
-import { z } from 'zod'
-import { PageActions } from 'basalt-ui'
+import { PageBar, Section } from 'basalt-ui'
+import { FilterSet, MultiSelectFilter, RangeFilter } from 'basalt-ui/controls'
+import { walkingStore } from '../lib/window-stores'
 import {
   AchievementsGallery,
   ChartSkeleton,
@@ -13,30 +14,21 @@ import {
   LengthHistogramChart,
   LiveCard,
   LiveCardSkeleton,
-  MetricToggle,
   PaceTrendChart,
-  Section,
+  resolveWindow,
   SessionHistoryTable,
   SparklineGridChart,
   TimeOfDayChart,
   WeeklyVolumeChart,
-  WindowSelector,
-  presetToParams,
   useAchievementWatcher,
-  type WindowPreset,
 } from '../features/walking-pad'
 import { walkingPadQueries } from '../lib/queries/walking-pad'
 
-const SearchSchema = z.object({
-  window: z.enum(['7d', '30d', '90d', '6m', '1y', 'all']).default('30d'),
-})
-type SearchParams = z.infer<typeof SearchSchema>
-
 export const Route = createFileRoute('/walking-pad')({
-  validateSearch: (raw: Record<string, unknown>) => SearchSchema.parse(raw),
-  loaderDeps: ({ search }: { search: SearchParams }) => ({ window: search.window }),
+  validateSearch: walkingStore.validateSearch,
+  loaderDeps: ({ search }) => search,
   loader: ({ context, deps }) => {
-    const params = presetToParams(deps.window)
+    const params = resolveWindow(deps)
     return Promise.all([
       context.queryClient.ensureQueryData(walkingPadQueries.heroes(params)),
       context.queryClient.ensureQueryData(walkingPadQueries.list({ page: 1, limit: 1 })),
@@ -47,16 +39,7 @@ export const Route = createFileRoute('/walking-pad')({
 })
 
 function WalkingPadPage() {
-  const search = Route.useSearch()
-  const navigate = useNavigate()
-  const params = useMemo(() => presetToParams(search.window), [search.window])
-
-  const handleWindowChange = useCallback(
-    (next: WindowPreset) => {
-      void navigate({ to: '/walking-pad', search: { window: next } })
-    },
-    [navigate],
-  )
+  const params = resolveWindow(walkingStore.useValues())
 
   // Toast + confetti on new achievement unlocks. Side-effect hook.
   useAchievementWatcher()
@@ -76,13 +59,18 @@ function WalkingPadPage() {
 
   return (
     <>
-      {/* Page controls live in the shared top-bar slot; the breadcrumb names the page. */}
-      <PageActions>
-        <Group gap="sm" wrap="nowrap">
-          <MetricToggle />
-          <WindowSelector value={search.window} onChange={handleWindowChange} />
-        </Group>
-      </PageActions>
+      <PageBar
+        filters={
+          <FilterSet>
+            <RangeFilter field={walkingStore.field.window} />
+            <MultiSelectFilter
+              field={walkingStore.field.metrics}
+              label="All metrics"
+              noun="metrics"
+            />
+          </FilterSet>
+        }
+      />
 
       <Stack gap="md">
         <Grid>

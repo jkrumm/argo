@@ -112,8 +112,8 @@ export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams
     <ChartCard
       title="Skinfold / Belly Fat"
       subtitle="Am I trending leaner?"
-      tooltip={METRIC_TOOLTIPS.skinfoldChart}
-      extra={headerExtra}
+      info={METRIC_TOOLTIPS.skinfoldChart}
+      actions={headerExtra}
     >
       {chartData.length === 0 ? (
         <ChartEmpty

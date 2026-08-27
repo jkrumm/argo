@@ -10,7 +10,8 @@ import {
 } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
-import { METRIC_DEFS, fmtSteps, useMetricSelection, type MetricKey } from '../metric-toggle'
+import { walkingStore } from '../../../lib/window-stores'
+import { METRIC_DEFS, fmtSteps, type MetricKey } from '../metrics'
 import { ChartEmpty } from './empty'
 
 type Point = {
@@ -55,7 +56,7 @@ const fmtPct = (v: number) => `${Math.round(v * 100)}%`
 
 export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }) {
   const { data } = useSuspenseQuery(walkingPadQueries.series({ ...params, bucket: 'week' }))
-  const { enabled } = useMetricSelection()
+  const [enabled] = walkingStore.field.metrics.use()
 
   const points: Point[] = data.points
 
@@ -80,7 +81,7 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
       <ChartCard
         title="Weekly volume"
         subtitle="Is the habit holding week to week?"
-        tooltip="ISO-week buckets within the window. Pick one or more metrics from the page header to populate."
+        info="ISO-week buckets within the window. Pick one or more metrics from the page header to populate."
       >
         <ChartEmpty height={280} label="No metric selected — toggle one in the page header." />
       </ChartCard>
@@ -155,8 +156,8 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
     <ChartCard
       title="Weekly volume"
       subtitle="Is the habit holding week to week?"
-      tooltip="ISO-week buckets within the window. With 2+ metrics, bars are normalized to each metric's own window-max so the rhythm is comparable; tooltips show absolute values."
-      extra={hasData ? headerSummary : null}
+      info="ISO-week buckets within the window. With 2+ metrics, bars are normalized to each metric's own window-max so the rhythm is comparable; tooltips show absolute values."
+      actions={hasData ? headerSummary : null}
     >
       {!hasData ? (
         <ChartEmpty height={280} label="No weekly data in this window." />

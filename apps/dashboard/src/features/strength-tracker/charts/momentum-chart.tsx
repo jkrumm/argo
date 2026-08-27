@@ -1,12 +1,22 @@
-import { useMemo, useState } from 'react'
-import { Flex, Select } from '@mantine/core'
+import { useMemo } from 'react'
+import { Flex } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { ChartCard, type ChartSeries, DualPanel, VX } from 'basalt-ui/charts'
+import { SelectFilter } from 'basalt-ui/controls'
+import { createLocalStore, field } from 'basalt-ui/state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { SERIES } from '../../../lib/series'
-import { DEFAULT_EXERCISES, EXERCISE_COLORS, METRIC_TOOLTIPS, type ExerciseKey } from '../constants'
+import { EXERCISE_KEYS } from '../../../lib/window-stores'
+import { EXERCISE_COLORS, METRIC_TOOLTIPS } from '../constants'
 import { directionArrow, directionColor, exerciseLabel, type StrengthDirection } from '../formulas'
 import { ChartEmpty } from './empty'
+
+/** A per-chart select is store state like any filter (law C3) — a LOCAL store, because which lift
+ * this one card plots is not worth a query param. Persisted, so it survives a reload. */
+const local = createLocalStore({
+  key: 'strength:momentum',
+  fields: { exercise: field.enum(EXERCISE_KEYS, 'bench_press') },
+})
 
 const HEIGHT = 260
 /** Top pane share of the inner plot — keeps the e1RM line dominant over the velocity histogram. */
@@ -90,15 +100,9 @@ function directionFromVelocity(velPctPerDay: number | null): StrengthDirection |
 export default function MomentumChart({ params }: { params: StrengthQueryParams }) {
   const { data } = useSuspenseQuery(strengthQueries.seriesDetailed(params))
 
-  const eligible = data.byExercise.filter(
-    (e) => e.points.filter((p) => p.e1rm !== null).length >= 2,
-  )
-  const fallback =
-    (eligible[0]?.exercise_id as ExerciseKey | undefined) ??
-    (data.byExercise[0]?.exercise_id as ExerciseKey | undefined) ??
-    DEFAULT_EXERCISES[0]!
-  const [selectedExercise, setSelectedExercise] = useState<string>(fallback)
+  const [selectedExercise] = local.field.exercise.use()
 
+  // Render-time guard, unchanged: the stored lift may not be in this window's data at all.
   const activeExercise =
     data.byExercise.find((e) => e.exercise_id === selectedExercise) ?? data.byExercise[0]
 
@@ -119,7 +123,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
     .filter((v): v is number => v !== null && !Number.isNaN(v))
   const hasData = e1rmVals.length >= 2
 
-  const exerciseColor = EXERCISE_COLORS[selectedExercise as ExerciseKey] ?? SERIES.benchPress
+  const exerciseColor = EXERCISE_COLORS[selectedExercise] ?? SERIES.benchPress
 
   const series: ChartSeries<MomentumPoint>[] = [
     {
@@ -168,14 +172,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
         </span>
       ) : null}
       {selectOptions.length > 1 && (
-        <Select
-          size="xs"
-          w={140}
-          value={selectedExercise}
-          onChange={(v) => v && setSelectedExercise(v)}
-          data={selectOptions}
-          allowDeselect={false}
-        />
+        <SelectFilter field={local.field.exercise} label="Exercise" options={selectOptions} />
       )}
     </Flex>
   )
@@ -184,8 +181,8 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
     <ChartCard
       title="Momentum"
       subtitle="Is the trend accelerating?"
-      tooltip={METRIC_TOOLTIPS.momentum}
-      extra={headerExtra}
+      info={METRIC_TOOLTIPS.momentum}
+      actions={headerExtra}
     >
       {!hasData ? (
         <ChartEmpty height={HEIGHT} message="Need at least 2 sessions per exercise" />

@@ -7,62 +7,52 @@ paths:
 
 ## Adding a Page
 
-1. Create `src/routes/<page-name>.tsx`
-2. Export `Route` using `createFileRoute('/<page-name>')`
-3. Add `validateSearch` with a Zod schema parsed via a function — not passed directly as `SearchSchema`
-4. Define `loaderDeps` to forward search params to the loader (required for search-param-driven queries)
+1. Declare the page's store in `src/lib/window-stores.ts` (`createSearchStore` over `field.*`)
+2. Create `src/routes/<page-name>.tsx`, export `Route` from `createFileRoute('/<page-name>')`
+3. `validateSearch: <store>.validateSearch` — pass the store's own function, not a Zod schema
+4. `loaderDeps: ({ search }) => search` — without it, a search change does not re-trigger the loader
 5. Add a `loader` that calls `ensureQueryData` for each query the page needs
-6. Add the nav link in `__root.tsx`
+6. Add the nav entry in `src/lib/nav.tsx` with `search: <store>.linkSearch` **by reference**
 
 ## Route Structure
 
-```ts
-import { createFileRoute } from '@tanstack/react-router'
-import { useSuspenseQuery } from '@tanstack/react-query'
-import { z } from 'zod'
-import { myQueries } from '../lib/queries/my-resource'
-
-const SearchSchema = z.object({
-  window: z.enum(['7d', '30d', '90d', 'all']).default('30d'),
-  from: z.string().optional(),
-  to: z.string().optional(),
-})
-type SearchParams = z.infer<typeof SearchSchema>
-
+```tsx
 export const Route = createFileRoute('/my-page')({
-  validateSearch: (raw: Record<string, unknown>) => SearchSchema.parse(raw),
-  loaderDeps: ({ search }: { search: SearchParams }) => ({
-    window: search.window,
-    from: search.from,
-    to: search.to,
-  }),
+  validateSearch: myStore.validateSearch,
+  loaderDeps: ({ search }) => search,
   loader: ({ context, deps }) =>
     Promise.all([
-      context.queryClient.ensureQueryData(myQueries.summary(deps)),
-      context.queryClient.ensureQueryData(myQueries.series(deps)),
+      context.queryClient.ensureQueryData(myQueries.summary(resolveWindow(deps))),
+      context.queryClient.ensureQueryData(myQueries.series(resolveWindow(deps))),
     ]),
   component: MyPage,
 })
 
 function MyPage() {
-  const search = Route.useSearch()
-  const { data } = useSuspenseQuery(
-    myQueries.summary({
-      window: search.window,
-      from: search.from,
-      to: search.to,
-    }),
-  )
-  // render...
+  const search = myStore.useValues()
+  // controls take `field`, never value/onChange — see .claude/rules/basalt-controls.md
 }
 ```
 
 ## validateSearch
 
-- Always parse with the schema function form: `(raw) => SearchSchema.parse(raw)`.
-- Default values live in the schema (`.default()`), not in the component.
-- Access via `const search = Route.useSearch()`.
-- Update via `navigate({ search: { window: 'all', from: undefined, to: undefined } })` — prefer plain objects over reducers to avoid `| undefined` assignability errors when the schema has defaults.
+- **The store's `validateSearch` is the default answer.** It returns every URL-lane param
+  unconditionally, resolved URL ⊳ localStorage ⊳ fallback, which is also what makes `linkSearch`
+  satisfy `MakeRequiredSearchParams` by construction.
+- **Zod survives only for keys the field vocabulary cannot express** — a free ISO date
+  (`routes/calendar.tsx`) or a `.transform()`ed codec (`routes/astro-window.tsx`'s `lp`/`wx`/
+  `terrain`). Write Zod for THOSE and compose:
+  `validateSearch: (raw) => ({ ...myStore.validateSearch(raw), ...MapSchema.parse(raw) })`.
+  There is no schema-backed store variant and none is coming.
+- Read with `<store>.useValues()`, or take the value as a **prop**. Never
+  `useSearch({ from: '<literal>' })` — a sibling route fails that `from`, and it is
+  `basalt/use-search-from-literal`.
+- **A store field's setter owns its own navigate.** Do not hand-write one beside a control. Where
+  you DO hand-write one (a route with its own composed keys) use the reducer form,
+  `navigate({ search: (prev) => ({ ...prev, … }) })`, so unrelated params survive — and note the
+  limit it hits in `astro-window.tsx`: a store write cannot clear a sibling non-store key, which is
+  why picking a site on the MAP still uses a hand-written navigate to drop `detailDate`.
+- Every store-issued navigate carries `resetScroll: false`. Do not add it by hand next to one.
 
 ## loaderDeps
 

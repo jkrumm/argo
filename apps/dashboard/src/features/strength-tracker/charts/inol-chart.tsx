@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Box, Flex, Select } from '@mantine/core'
+import { useMemo } from 'react'
+import { Box, Flex } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import {
   alpha,
@@ -12,11 +12,20 @@ import {
   VX,
   type ZoneSpec,
 } from 'basalt-ui/charts'
+import { SelectFilter } from 'basalt-ui/controls'
+import { createLocalStore, field } from 'basalt-ui/state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { SERIES } from '../../../lib/series'
-import { DEFAULT_EXERCISES, EXERCISE_COLORS, METRIC_TOOLTIPS, type ExerciseKey } from '../constants'
+import { EXERCISE_KEYS } from '../../../lib/window-stores'
+import { EXERCISE_COLORS, METRIC_TOOLTIPS } from '../constants'
 import { exerciseLabel, inolDotColor } from '../formulas'
 import { ChartEmpty } from './empty'
+
+/** Per-card select → a local store field, not `useState` (law C3). Persisted per chart. */
+const local = createLocalStore({
+  key: 'strength:inol',
+  fields: { exercise: field.enum(EXERCISE_KEYS, 'bench_press') },
+})
 
 const HEIGHT = 280
 
@@ -78,10 +87,9 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
   const { data } = useSuspenseQuery(strengthQueries.seriesDetailed(params))
 
   const availableExercises = data.byExercise.filter((e) => e.points.length > 0)
-  const fallback =
-    (availableExercises[0]?.exercise_id as ExerciseKey | undefined) ?? DEFAULT_EXERCISES[0]!
-  const [selectedExercise, setSelectedExercise] = useState<string>(fallback)
+  const [selectedExercise] = local.field.exercise.use()
 
+  // Render-time guard, unchanged: the stored lift may carry no points in this window.
   const activeExercise =
     data.byExercise.find((e) => e.exercise_id === selectedExercise) ?? availableExercises[0]
 
@@ -99,7 +107,7 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
   const hasData = chartData.some((d) => d.inol !== null)
   const latest = [...chartData].reverse().find((d) => d.inol !== null)
 
-  const exerciseColor = EXERCISE_COLORS[selectedExercise as ExerciseKey] ?? SERIES.benchPress
+  const exerciseColor = EXERCISE_COLORS[selectedExercise] ?? SERIES.benchPress
 
   const selectOptions = data.byExercise.map((e) => ({
     value: e.exercise_id,
@@ -119,14 +127,7 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
         </span>
       ) : null}
       {selectOptions.length > 1 && (
-        <Select
-          size="xs"
-          w={140}
-          value={selectedExercise}
-          onChange={(v) => v && setSelectedExercise(v)}
-          data={selectOptions}
-          allowDeselect={false}
-        />
+        <SelectFilter field={local.field.exercise} label="Exercise" options={selectOptions} />
       )}
     </Flex>
   )
@@ -183,8 +184,8 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
     <ChartCard
       title="INOL — Session Quality"
       subtitle="Intensity × Number of Lifts"
-      tooltip={METRIC_TOOLTIPS.inol}
-      extra={headerExtra}
+      info={METRIC_TOOLTIPS.inol}
+      actions={headerExtra}
     >
       <Box h={HEIGHT} w="100%">
         {hasData ? (

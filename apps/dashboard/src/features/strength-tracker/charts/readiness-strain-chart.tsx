@@ -80,8 +80,8 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
     <ChartCard
       title="Readiness × Strain"
       subtitle="Should I push, sustain, or rest today?"
-      tooltip={METRIC_TOOLTIPS.readinessStrain}
-      extra={headerExtra}
+      info={METRIC_TOOLTIPS.readinessStrain}
+      actions={headerExtra}
     >
       {!hasData ? (
         <ChartEmpty height={HEIGHT} message="Need ≥ 7 days of Garmin daily metrics" />

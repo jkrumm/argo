@@ -1,11 +1,12 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Suspense, useCallback, useMemo } from 'react'
-import { Grid, Group, Stack, useComputedColorScheme } from '@mantine/core'
+import { Grid, Stack, useComputedColorScheme } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { z } from 'zod'
-import { BasaltErrorBoundary, PageActions, type BasaltErrorContext } from 'basalt-ui'
+import { BasaltErrorBoundary, PageBar, Section, type BasaltErrorContext } from 'basalt-ui'
+import { FilterSet, SelectFilter, ViewTabs } from 'basalt-ui/controls'
+import { astroStore } from '../lib/window-stores'
 import {
-  type AstroView,
   CHART_HEIGHT,
   ChartEmpty,
   CloudLayersChart,
@@ -15,12 +16,9 @@ import {
   NightStrip,
   NightTimelineChart,
   PANORAMA_HEIGHT,
-  Section,
   SiteMap,
-  SiteSelector,
   SkyPanorama,
   VerdictHero,
-  ViewTabs,
   BASE_LAYER_IDS,
   DEFAULT_LP_YEAR,
   formatLpParam,
@@ -36,9 +34,13 @@ import { astroQueries, type AstroWindowParams } from '../lib/queries/astro'
 
 // ── Search params ──────────────────────────────────────────────────────────
 
-const ViewEnum = z.enum(['tonight', 'map', 'forecast'])
-
 /**
+ * `MapSchema` — the map's own five keys, plus `detailDate`. `site`/`nights`/`tab` moved onto
+ * `astroStore`; these cannot follow, because three carry `.transform()` codecs and one is a free
+ * date, none of which the field vocabulary expresses. `validateSearch` below COMPOSES the two
+ * halves, which is the documented shape for a route with a genuinely wider search
+ * (`.claude/rules/basalt-state.md`).
+ *
  * The map's configuration rides in the URL so a configured map is linkable and survives a reload
  * — but COMPACTLY. Six weather overlays with an opacity each would be twelve query keys; `wx`
  * carries them as one delimited string (`radar.cloud:30`), decoded by the catalogue.
@@ -57,11 +59,8 @@ const ViewEnum = z.enum(['tonight', 'map', 'forecast'])
  * `parseLpParam`'s unknown-year clamp, `baseLayer`'s unknown-id fallback — reachable code rather
  * than dead code behind a validator that already threw.
  */
-const SearchSchema = z.object({
-  site: z.string().default('alpenvorland'),
-  nights: z.number().int().min(1).max(14).default(10),
+const MapSchema = z.object({
   detailDate: z.string().optional(),
-  tab: ViewEnum.default('tonight'),
   base: z.enum(BASE_LAYER_IDS).optional().catch(undefined),
   // Same normalise-don't-reject shape as `wx`/`terrain` below — `parseLpParam` already falls back
   // to the default vintage for anything it does not recognise, and now carries the ramp's own
@@ -89,17 +88,23 @@ const SearchSchema = z.object({
     .transform((raw) => formatTerrainParam(parseTerrainParam(raw))),
 })
 
-type SearchParams = z.infer<typeof SearchSchema>
+type SearchParams = ReturnType<typeof validateSearch>
+
+function validateSearch(raw: Record<string, unknown>) {
+  return { ...astroStore.validateSearch(raw), ...MapSchema.parse(raw) }
+}
 
 // ── Route definition ───────────────────────────────────────────────────────
 
 export const Route = createFileRoute('/astro-window')({
-  validateSearch: (raw: Record<string, unknown>) => SearchSchema.parse(raw),
+  validateSearch,
   // `tab` rides along even though no query keys off it — without it in the deps the loader does
   // not re-run on a tab change, and a future per-tab prefetch would silently never fire.
   loaderDeps: ({ search }: { search: SearchParams }) => ({
     site: search.site,
-    nights: search.nights,
+    // `nights` is a string enum on the store (there is no numeric filter control), so the query
+    // gets the number here rather than the page doing it three times over.
+    nights: Number(search.nights),
     detailDate: search.detailDate,
     tab: search.tab,
   }),
@@ -165,7 +170,7 @@ function AstroWindowPage() {
   const params = useMemo<AstroWindowParams>(
     () => ({
       site: search.site,
-      nights: search.nights,
+      nights: Number(search.nights),
       ...(search.detailDate !== undefined && { detailDate: search.detailDate }),
     }),
     [search.site, search.nights, search.detailDate],
@@ -184,6 +189,13 @@ function AstroWindowPage() {
    * types `prev` as the union of every route's search params, so `site`/`nights` come back
    * optional and the result no longer satisfies this route's schema.
    */
+  /*
+   * `site` from the MAP keeps a hand-written navigate, because picking a site there must also drop
+   * `detailDate` — a store field's setter writes its own params and nothing else, so it cannot
+   * clear a sibling key the store does not model. The bar's own site pill therefore leaves
+   * `detailDate` standing; the API resolves an out-of-window date to the nearest night, so that is
+   * a nuance rather than a break.
+   */
   const handleSiteChange = useCallback(
     (site: string) => {
       void navigate({
@@ -194,26 +206,9 @@ function AstroWindowPage() {
     [navigate, search],
   )
 
-  const handleNightsChange = useCallback(
-    (nights: number) => {
-      void navigate({
-        to: '/astro-window',
-        search: { ...search, nights, detailDate: undefined },
-      })
-    },
-    [navigate, search],
-  )
-
   const handleSelectDate = useCallback(
     (detailDate: string) => {
       void navigate({ to: '/astro-window', search: { ...search, detailDate } })
-    },
-    [navigate, search],
-  )
-
-  const handleTabChange = useCallback(
-    (tab: AstroView) => {
-      void navigate({ to: '/astro-window', search: { ...search, tab } })
     },
     [navigate, search],
   )
@@ -271,18 +266,25 @@ function AstroWindowPage() {
 
   return (
     <>
-      {/* Page controls live in the shared top-bar slot; the breadcrumb names the page. */}
-      <PageActions>
-        <Group gap="sm" wrap="nowrap">
-          <ViewTabs value={search.tab} onChange={handleTabChange} />
-          <SiteSelector
-            site={search.site}
-            nights={search.nights}
-            onSiteChange={handleSiteChange}
-            onNightsChange={handleNightsChange}
-          />
-        </Group>
-      </PageActions>
+      <PageBar
+        tabs={<ViewTabs field={astroStore.field.tab} label="View" />}
+        filters={
+          <FilterSet>
+            {/* A `field.string` + a RUNTIME catalogue: the site list is fetched and each label
+                carries live figures (`mag`, drive minutes), which no closed enum can express. */}
+            <SelectFilter
+              field={astroStore.field.site}
+              label="Site"
+              options={sites.data.map((s) => ({
+                value: s.id,
+                // The core direction, not the zenith: it is the number the ranking turns on.
+                label: `${s.name} · ${s.coreDirectionMpsas.toFixed(2)} mag · ${s.driveMinutes}min`,
+              }))}
+            />
+            <SelectFilter field={astroStore.field.nights} label="Nights" />
+          </FilterSet>
+        }
+      />
 
       {/*
         The Map tab is deliberately unwrapped: no Section heading, no night strip, nothing above

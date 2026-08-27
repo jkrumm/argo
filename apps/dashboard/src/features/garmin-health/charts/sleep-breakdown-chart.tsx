@@ -109,8 +109,8 @@ export default function SleepBreakdownChart({ params }: { params: SummaryParams 
     <ChartCard
       title="Sleep Breakdown"
       subtitle="How well did I sleep?"
-      tooltip={METRIC_TOOLTIPS.sleepStages}
-      extra={headerExtra}
+      info={METRIC_TOOLTIPS.sleepStages}
+      actions={headerExtra}
     >
       {sleepData.length === 0 ? (
         <ChartEmpty height={CHART_HEIGHT} />

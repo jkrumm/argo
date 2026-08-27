@@ -374,8 +374,8 @@ export default function DivergenceChart({ params }: { params: SummaryParams }) {
     <ChartCard
       title="Short vs Long Load"
       subtitle="Is load spiking or tapering?"
-      tooltip={METRIC_TOOLTIPS.loadBalance}
-      extra={headerExtra}
+      info={METRIC_TOOLTIPS.loadBalance}
+      actions={headerExtra}
     >
       {points.length === 0 ? (
         <ChartEmpty height={CHART_HEIGHT} />
