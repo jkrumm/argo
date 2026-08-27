@@ -27,6 +27,7 @@ function TokenPrompt() {
     <Container size="xs" pt={120} pb={64}>
       <Stack gap="lg">
         <Stack gap={4}>
+          {/* theme-allow in-body-page-title — shell-less surface */}
           <Title order={2}>Argo</Title>
           <Text c="dimmed" size="sm">
             Enter your API bearer token to continue. It's stored in this browser's localStorage and

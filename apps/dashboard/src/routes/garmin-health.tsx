@@ -4,8 +4,8 @@ import { Box, Grid, SimpleGrid, Stack } from '@mantine/core'
 import { PageBar, Section } from 'basalt-ui'
 import { FilterSet, RangeFilter } from 'basalt-ui/controls'
 import { DateRangePicker } from 'basalt-ui/controls-dates'
-import { garminStore } from '../lib/window-stores'
-import { HeroStats, resolveWindow, useGarminSync } from '../features/garmin-health'
+import { garminStore, toApiWindow } from '../lib/window-stores'
+import { HeroStats, useGarminSync } from '../features/garmin-health'
 import ActivitiesChart from '../features/garmin-health/charts/activities-chart'
 import ActivityScoreChart from '../features/garmin-health/charts/activity-score-chart'
 import AcwrChart from '../features/garmin-health/charts/acwr-chart'
@@ -33,7 +33,13 @@ export const Route = createFileRoute('/garmin-health')({
   validateSearch: garminStore.validateSearch,
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps }) => {
-    const params = resolveWindow(deps)
+    // `3m`/`1y` are the two presets the backend's `WindowQuerySchema` refuses; the field's own
+    // `window:` resolvers turn them into `from`/`to` here. `toApiWindow` folds only the unreachable
+    // dateless-`custom` branch onto the field's fallback.
+    const params = toApiWindow(
+      garminStore.field.window.toWindow({ preset: deps.window, from: deps.from, to: deps.to }),
+      '30d',
+    )
     // Prefetch the three hero-card queries; charts prefetch their own data.
     return Promise.all([
       context.queryClient.ensureQueryData(recoveryQueries.summary(params)),
@@ -48,7 +54,10 @@ export const Route = createFileRoute('/garmin-health')({
 
 function GarminHealthPage() {
   const search = garminStore.useValues()
-  const params = resolveWindow(search)
+  const params = toApiWindow(
+    garminStore.field.window.toWindow({ preset: search.window, from: search.from, to: search.to }),
+    '30d',
+  )
   const sync = useGarminSync()
 
   return (

@@ -1,79 +1,32 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Box, Card, Group, SimpleGrid, Skeleton, Stack, Text, Tooltip } from '@mantine/core'
-import { IconInfoCircle } from '@tabler/icons-react'
-import { VX } from 'basalt-ui/tokens'
+import { Card, SimpleGrid, Skeleton, Stack, Text } from '@mantine/core'
+import { StatCard, type StatCardBreakdownRow } from 'basalt-ui'
 import { strengthQueries, type StrengthQueryParams } from '../../lib/queries/strength'
-import { METRIC_TOOLTIPS, ZONE_COLORS } from './constants'
+import { METRIC_TOOLTIPS } from './constants'
 import {
-  balanceColor,
   balanceLabel,
   balanceSymbol,
+  balanceTone,
   directionArrow,
-  directionColor,
+  directionTone,
   exerciseLabel,
-  loadQualityColor,
   loadQualityLabel,
+  loadQualityTone,
   momentumLabel,
-  readinessColor,
+  readinessTone,
 } from './formulas'
 
-function InfoIcon({ tooltip }: { tooltip: string }) {
-  return (
-    <Tooltip label={tooltip} multiline w={320} withArrow position="bottom-start">
-      <Box component="span" ml={4} style={{ display: 'inline-block', verticalAlign: 'middle' }}>
-        <IconInfoCircle size={12} style={{ opacity: 0.45, cursor: 'help' }} />
-      </Box>
-    </Tooltip>
-  )
-}
+/**
+ * The three hero cards are `StatCard`s (basalt-ui 1.27.0), not a local `HeroCard` — see the
+ * docblock in `garmin-health/hero-stats.tsx` for the two shape changes that came with it (the
+ * verdict word moves from beside the value to the `subtitle` line, and the zone colour moves from
+ * the value's ink to the card's `tone` rail).
+ */
 
-function HeroCard({
-  label,
-  tooltip,
-  value,
-  unit,
-  color,
-  subLabel,
-  breakdown,
-}: {
-  label: string
-  tooltip: string
-  value: string
-  unit?: string
-  color: string
-  subLabel?: string
-  breakdown?: string
-}) {
-  return (
-    <Card py="xs" px="sm" h="100%">
-      <Group gap={0} mb={6}>
-        <Text size="xs" c="dimmed">
-          {label}
-        </Text>
-        <InfoIcon tooltip={tooltip} />
-      </Group>
-      <Group gap={8} align="baseline">
-        <Text style={{ fontSize: VX.text.kpi, fontWeight: 700, lineHeight: 1, color }}>
-          {value}
-        </Text>
-        {unit !== undefined && unit.length > 0 && (
-          <Text size="sm" c="dimmed">
-            {unit}
-          </Text>
-        )}
-        {subLabel !== undefined && subLabel.length > 0 && (
-          <Text size="sm" fw={500} style={{ color }}>
-            {subLabel}
-          </Text>
-        )}
-      </Group>
-      {breakdown !== undefined && breakdown.length > 0 && (
-        <Text size="xs" c="dimmed" mt={6}>
-          {breakdown}
-        </Text>
-      )}
-    </Card>
-  )
+/** `WidgetHeader` renders `subtitle` whenever it is not `undefined`, so an empty verdict — every
+ *  label helper returns `''` for a null reading — must become `undefined`, not a blank line. */
+function orUndefined(label: string): string | undefined {
+  return label.length > 0 ? label : undefined
 }
 
 export function HeroStats({ params }: { params: StrengthQueryParams }) {
@@ -81,29 +34,29 @@ export function HeroStats({ params }: { params: StrengthQueryParams }) {
 
   // ── Strength direction ────────────────────────────────────────────────
   const dir = data.strengthDirection
-  const dirColor = directionColor(dir.direction)
-  const dirSub = dir.leaderExercise !== null ? exerciseLabel(dir.leaderExercise) : ''
-  const dirBreakdown = [
-    dir.leaderVelocityPctPerMonth !== null
-      ? `${dir.leaderVelocityPctPerMonth > 0 ? '+' : ''}${dir.leaderVelocityPctPerMonth.toFixed(1)}%/mo`
-      : null,
-    momentumLabel(dir.momentumSign),
+  const dirBreakdown: StatCardBreakdownRow[] = [
+    ...(dir.leaderVelocityPctPerMonth !== null
+      ? [
+          {
+            label: 'Velocity',
+            value: `${dir.leaderVelocityPctPerMonth > 0 ? '+' : ''}${dir.leaderVelocityPctPerMonth.toFixed(1)}%/mo`,
+          },
+        ]
+      : []),
+    ...(momentumLabel(dir.momentumSign).length > 0
+      ? [{ label: 'Momentum', value: momentumLabel(dir.momentumSign) }]
+      : []),
   ]
-    .filter((v): v is string => v !== null && v.length > 0)
-    .join(' · ')
 
   // ── Load quality ──────────────────────────────────────────────────────
   const lq = data.loadQuality
-  const lqColor = loadQualityColor(lq.score)
-  const lqBreakdown =
+  const lqBreakdown: StatCardBreakdownRow[] =
     lq.dragComponent !== null
-      ? `Drag: ${lq.dragComponent}`
+      ? [{ label: 'Drag', value: lq.dragComponent }]
       : [
-          lq.latestInol !== null ? `INOL ${lq.latestInol.toFixed(2)}` : null,
-          lq.latestAcwr !== null ? `ACWR ${lq.latestAcwr.toFixed(2)}` : null,
+          ...(lq.latestInol !== null ? [{ label: 'INOL', value: lq.latestInol.toFixed(2) }] : []),
+          ...(lq.latestAcwr !== null ? [{ label: 'ACWR', value: lq.latestAcwr.toFixed(2) }] : []),
         ]
-          .filter((v): v is string => v !== null)
-          .join(' · ')
 
   // ── Third card: readiness if available, else balance ─────────────────
   const readiness = data.readiness
@@ -111,43 +64,45 @@ export function HeroStats({ params }: { params: StrengthQueryParams }) {
 
   return (
     <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
-      <HeroCard
-        label="Strength Direction"
-        tooltip={METRIC_TOOLTIPS.heroStrength}
+      <StatCard
+        title="Strength Direction"
+        info={METRIC_TOOLTIPS.heroStrength}
         value={directionArrow(dir.direction)}
-        color={dirColor}
-        subLabel={dirSub}
-        breakdown={dirBreakdown.length > 0 ? dirBreakdown : undefined}
+        subtitle={dir.leaderExercise !== null ? exerciseLabel(dir.leaderExercise) : undefined}
+        breakdown={dirBreakdown}
+        tone={directionTone(dir.direction)}
       />
-      <HeroCard
-        label="Load Quality"
-        tooltip={METRIC_TOOLTIPS.heroLoadQuality}
+      <StatCard
+        title="Load Quality"
+        info={METRIC_TOOLTIPS.heroLoadQuality}
         value={String(Math.round(lq.score))}
-        color={lqColor}
-        subLabel={loadQualityLabel(lq.verdict)}
-        breakdown={lqBreakdown.length > 0 ? lqBreakdown : undefined}
+        subtitle={orUndefined(loadQualityLabel(lq.verdict))}
+        breakdown={lqBreakdown}
+        tone={loadQualityTone(lq.score)}
       />
       {readiness !== null ? (
-        <HeroCard
-          label="Readiness"
-          tooltip={METRIC_TOOLTIPS.heroReadiness}
+        <StatCard
+          title="Readiness"
+          info={METRIC_TOOLTIPS.heroReadiness}
           value={readiness.score !== null ? String(Math.round(readiness.score)) : '—'}
-          color={readiness.score !== null ? readinessColor(readiness.score) : ZONE_COLORS.neutral}
-          subLabel={readiness.verdict}
-          breakdown={readiness.driver ?? undefined}
+          subtitle={readiness.verdict}
+          breakdown={
+            readiness.driver !== null ? [{ label: 'Driver', value: readiness.driver }] : []
+          }
+          tone={readinessTone(readiness.score)}
         />
       ) : (
-        <HeroCard
-          label="Balance"
-          tooltip={METRIC_TOOLTIPS.heroBalance}
+        <StatCard
+          title="Balance"
+          info={METRIC_TOOLTIPS.heroBalance}
           value={balanceSymbol(balance.status)}
-          color={balanceColor(balance.status)}
-          subLabel={balanceLabel(balance.status)}
+          subtitle={orUndefined(balanceLabel(balance.status))}
           breakdown={
             balance.worstPair !== null
-              ? `${balance.worstPair.label}: ${balance.worstPair.ratio.toFixed(2)}`
-              : undefined
+              ? [{ label: balance.worstPair.label, value: balance.worstPair.ratio.toFixed(2) }]
+              : []
           }
+          tone={balanceTone(balance.status)}
         />
       )}
     </SimpleGrid>

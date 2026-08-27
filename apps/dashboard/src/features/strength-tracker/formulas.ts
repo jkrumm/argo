@@ -1,3 +1,4 @@
+import type { StatCardTone } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { SERIES } from '../../lib/series'
 import { EXERCISES, METRICS, ZONE_COLORS, type ExerciseKey, type MetricKey } from './constants'
@@ -44,6 +45,20 @@ export function directionColor(dir: StrengthDirection | null): string {
   }
 }
 
+/** The `StatCard` verdict for a strength direction — the same thresholds `directionColor` paints. */
+export function directionTone(dir: StrengthDirection | null): StatCardTone | undefined {
+  switch (dir) {
+    case 'improving':
+      return 'good'
+    case 'stable':
+      return 'warn'
+    case 'declining':
+      return 'bad'
+    default:
+      return undefined
+  }
+}
+
 export function momentumLabel(sign: MomentumSign | null): string {
   switch (sign) {
     case 'accelerating':
@@ -59,11 +74,12 @@ export function momentumLabel(sign: MomentumSign | null): string {
 
 // ── Load quality (hero 2) ───────────────────────────────────────────────────
 
-export function loadQualityColor(score: number | null): string {
-  if (score === null) return ZONE_COLORS.neutral
-  if (score >= 75) return ZONE_COLORS.excellent
-  if (score >= 50) return ZONE_COLORS.warn
-  return ZONE_COLORS.bad
+/** The `StatCard` verdict for a 0–100 load-quality score. `undefined` covers an absent reading. */
+export function loadQualityTone(score: number | null): StatCardTone | undefined {
+  if (score === null) return undefined
+  if (score >= 75) return 'good'
+  if (score >= 50) return 'warn'
+  return 'bad'
 }
 
 export function loadQualityLabel(verdict: LoadQualityVerdict | null): string {
@@ -72,6 +88,20 @@ export function loadQualityLabel(verdict: LoadQualityVerdict | null): string {
 }
 
 // ── Balance (hero 3a) ───────────────────────────────────────────────────────
+
+/** The `StatCard` verdict for a ratio balance — the same thresholds `balanceColor` paints. */
+export function balanceTone(status: RatioStatus | null): StatCardTone | undefined {
+  switch (status) {
+    case 'balanced':
+      return 'good'
+    case 'imbalanced':
+      return 'warn'
+    case 'critical':
+      return 'bad'
+    default:
+      return undefined
+  }
+}
 
 export function balanceColor(status: RatioStatus | null): string {
   switch (status) {
@@ -114,11 +144,12 @@ export function balanceLabel(status: RatioStatus | null): string {
 
 // ── Readiness (hero 3b) ─────────────────────────────────────────────────────
 
-export function readinessColor(score: number | null): string {
-  if (score === null) return ZONE_COLORS.neutral
-  if (score >= 70) return ZONE_COLORS.excellent
-  if (score >= 40) return ZONE_COLORS.warn
-  return ZONE_COLORS.bad
+/** The `StatCard` verdict for a 0–100 readiness score. `undefined` covers an absent reading. */
+export function readinessTone(score: number | null): StatCardTone | undefined {
+  if (score === null) return undefined
+  if (score >= 70) return 'good'
+  if (score >= 40) return 'warn'
+  return 'bad'
 }
 
 export function readinessVerdictColor(verdict: ReadinessVerdict | null): string {

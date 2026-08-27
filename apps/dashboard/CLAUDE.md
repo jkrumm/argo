@@ -7,7 +7,7 @@
 - **Routing:** TanStack Router — file-based via `@tanstack/router-plugin/vite`
 - **Data:** TanStack Query + Eden Treaty (`@elysiajs/eden`) for type-safe API calls — configured with `{ parseDate: false }` so `YYYY-MM-DD` strings stay strings (matches the API's wire format and TS types)
 - **URL + persisted UI state:** one `createSearchStore` per page in `src/lib/window-stores.ts`
-  (basalt-ui 1.26.0) — typed fields, URL ⊳ localStorage ⊳ fallback. Zustand survives only for the
+  (basalt-ui 1.27.0) — typed fields, URL ⊳ localStorage ⊳ fallback. Zustand survives only for the
   two stores with no URL at all: the rest-timer engine (`lib/timer-store.ts`) and auth
   (`lib/auth.ts`)
 - **Charts:** `basalt-ui/charts` (visx primitives) + `src/lib/series.ts` (Argo's per-metric series identity)
@@ -50,7 +50,7 @@ export const Route = createFileRoute('/my-page')({
   validateSearch: myStore.validateSearch,
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps }) =>
-    context.queryClient.ensureQueryData(myQueries.summary(resolveWindow(deps))),
+    context.queryClient.ensureQueryData(myQueries.summary(myStore.field.window.toWindow(deps))),
   component: MyPage,
 })
 
@@ -77,11 +77,18 @@ A route whose search carries keys the field vocabulary cannot express (a free da
 `validateSearch: (raw) => ({ ...myStore.validateSearch(raw), ...MapSchema.parse(raw) })` —
 `routes/{calendar,astro-window}.tsx` are the two worked examples.
 
-**`toWindow` is not `presetToParams`.** `field.range.toWindow(v)` projects a preset to
-`{ window }` and a custom range to `{ from, to }`, but it cannot know that argo's API only accepts
-`7d`/`30d`/`90d`/`all` — so each window-carrying feature keeps a ~30-line `window.ts` turning
-`3m`/`6m`/`1y`/`ytd` into explicit dates. See `.claude/rules/basalt-state.md` and
-`.claude/rules/basalt-controls.md` for the full law.
+**`toWindow` IS the projection — there is no `resolveWindow`.** `field.range.toWindow(v)` gives
+`{ window }` for a preset and `{ from, to }` for a custom range, and the presets argo's API refuses
+(`3m`/`6m`/`1y`/`ytd`) declare a `window:` resolver ON THE FIELD in `lib/window-stores.ts`, so they
+come back as explicit dates and are dropped from the `{ window }` branch — the result assigns to the
+API param type with no cast. The four per-feature `window.ts` helpers were deleted at basalt-ui
+1.27.0. One guard survives on a `custom: true` field (a dateless `'custom'`, unreachable at
+runtime): `toApiWindow(resolved, fallback)`, also in `lib/window-stores.ts`. See
+`.claude/rules/tanstack-router.md` and the root `.claude/rules/basalt-state.md` for the full law.
+
+**A numeric param is `field.number` + `NumberFilter`, never a string enum.** `astroStore.nights`
+carries a real number in the URL (`?nights=10`) with `min`/`max`/`int` on the FIELD, so nothing
+downstream parses it and the control bounds its own stepper.
 
 ### 3. Create the query factory
 

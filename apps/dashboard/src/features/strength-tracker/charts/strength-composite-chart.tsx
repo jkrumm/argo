@@ -20,10 +20,26 @@ import { DEFAULT_EXERCISES, EXERCISES, METRIC_TOOLTIPS } from '../constants'
 import { exerciseLabel } from '../formulas'
 import { ChartEmpty } from './empty'
 
+/**
+ * The caller's computed default, in a module slot the field's fallback THUNK reads.
+ *
+ * This chart's default is not a constant: it is the strength-direction leader with enough sessions
+ * to draw a trend, computed from two queries by `CompositeChartSlot` and handed down as
+ * `exerciseId`. A `createLocalStore` fallback had to be a constant before basalt-ui 1.27.0, which is
+ * why the old code probed `readStored()` to tell "never picked" from "picked the value that happens
+ * to equal the fallback". A thunk fallback resolves at READ time and is never itself persisted, so
+ * the computed leader IS the fallback: while nothing is written the field reads it, the first pick
+ * wins from then on, and `clear()` goes back to following the leader instead of pinning yesterday's.
+ *
+ * The write below is a deliberate render-phase assignment into module scope: the value is derived
+ * purely from a prop and is consumed synchronously by the `use()` call on the next line.
+ */
+let computedDefault: (typeof EXERCISE_KEYS)[number] = 'bench_press'
+
 /** Per-card select → a local store field, not `useState` (law C3). Persisted per chart. */
 const local = createLocalStore({
   key: 'strength:composite',
-  fields: { exercise: field.enum(EXERCISE_KEYS, 'bench_press') },
+  fields: { exercise: field.enum(EXERCISE_KEYS, () => computedDefault) },
 })
 
 type CompositePoint = {
@@ -141,18 +157,13 @@ function tooltipRows(d: CompositePoint, ctx: { hidden: ReadonlySet<string> }) {
 
 export default function StrengthCompositeChart({
   params,
-  exerciseId: initialExerciseId,
+  exerciseId,
 }: {
   params: StrengthQueryParams
-  exerciseId: string
+  exerciseId: (typeof EXERCISE_KEYS)[number]
 }) {
-  // The store's own fallback is a CONSTANT, and this chart's default is COMPUTED by the caller (the
-  // strength-direction leader with enough sessions). `readStored()` is what tells the two apart: a
-  // field never written is absent from the record, so a first visit still lands on the leader, and
-  // a lift the reader picked wins from then on — until it drops out of the active filter.
-  const [stored] = local.field.exercise.use()
-  const everPicked = local.readStored().exercise !== undefined
-  const selected = everPicked ? stored : initialExerciseId
+  computedDefault = exerciseId
+  const [selected] = local.field.exercise.use()
 
   const compositeParams = {
     exerciseId: selected,

@@ -15,7 +15,6 @@ import {
   LiveCard,
   LiveCardSkeleton,
   PaceTrendChart,
-  resolveWindow,
   SessionHistoryTable,
   SparklineGridChart,
   TimeOfDayChart,
@@ -28,7 +27,13 @@ export const Route = createFileRoute('/walking-pad')({
   validateSearch: walkingStore.validateSearch,
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps }) => {
-    const params = resolveWindow(deps)
+    // The field declares no `custom`, and its `window:` resolvers turn `6m`/`1y` — the two presets
+    // the backend refuses — into `from`/`to`, so `toWindow` IS the whole projection here.
+    const params = walkingStore.field.window.toWindow({
+      preset: deps.window,
+      from: deps.from,
+      to: deps.to,
+    })
     return Promise.all([
       context.queryClient.ensureQueryData(walkingPadQueries.heroes(params)),
       context.queryClient.ensureQueryData(walkingPadQueries.list({ page: 1, limit: 1 })),
@@ -39,7 +44,12 @@ export const Route = createFileRoute('/walking-pad')({
 })
 
 function WalkingPadPage() {
-  const params = resolveWindow(walkingStore.useValues())
+  const search = walkingStore.useValues()
+  const params = walkingStore.field.window.toWindow({
+    preset: search.window,
+    from: search.from,
+    to: search.to,
+  })
 
   // Toast + confetti on new achievement unlocks. Side-effect hook.
   useAchievementWatcher()

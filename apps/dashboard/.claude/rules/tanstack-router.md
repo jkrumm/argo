@@ -22,8 +22,9 @@ export const Route = createFileRoute('/my-page')({
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps }) =>
     Promise.all([
-      context.queryClient.ensureQueryData(myQueries.summary(resolveWindow(deps))),
-      context.queryClient.ensureQueryData(myQueries.series(resolveWindow(deps))),
+      // `field.toWindow` IS the projection — see "The window projection" below.
+      context.queryClient.ensureQueryData(myQueries.summary(windowOf(deps))),
+      context.queryClient.ensureQueryData(myQueries.series(windowOf(deps))),
     ]),
   component: MyPage,
 })
@@ -47,12 +48,37 @@ function MyPage() {
 - Read with `<store>.useValues()`, or take the value as a **prop**. Never
   `useSearch({ from: '<literal>' })` — a sibling route fails that `from`, and it is
   `basalt/use-search-from-literal`.
-- **A store field's setter owns its own navigate.** Do not hand-write one beside a control. Where
-  you DO hand-write one (a route with its own composed keys) use the reducer form,
-  `navigate({ search: (prev) => ({ ...prev, … }) })`, so unrelated params survive — and note the
-  limit it hits in `astro-window.tsx`: a store write cannot clear a sibling non-store key, which is
-  why picking a site on the MAP still uses a hand-written navigate to drop `detailDate`.
+- **A store field's setter owns its own navigate.** Do not hand-write one beside a control. To
+  clear a sibling key the store does not model, pass the setter a `patch` rather than a second
+  navigate — `setSite(id, { patch: { detailDate: undefined } })` in `astro-window.tsx` is the
+  worked example, and it is ONE navigate, so the field's write cannot be lost. A patch key another
+  field of the same store owns throws in dev: write that one through its own setter.
+- Where you still hand-write a navigate (a route with its own composed keys — `astro-window.tsx`'s
+  `detailDate` and map layers) spread the CURRENT search rather than listing keys, so unrelated
+  params survive. The reducer form `(prev) => …` does not typecheck on a route with required
+  composed keys: TanStack types `prev` as the union of every route's search.
 - Every store-issued navigate carries `resetScroll: false`. Do not add it by hand next to one.
+
+## The window projection
+
+`field.range.toWindow(v)` is the ONLY projection from a range value into API query params: a preset
+becomes `{ window }`, a custom range `{ from, to }`. There is no `resolveWindow` helper and no
+`presetToParams` — a preset the API refuses (`3m`, `6m`, `1y`, `ytd`) declares a resolver on the
+field itself and comes back as `{ from, to }`:
+
+```ts
+window: field.range({
+  presets: ['7d', '30d', '3m', 'all'],
+  fallback: '30d',
+  custom: true,
+  window: { '3m': (now) => ({ from: iso(subMonths(now, 3)), to: iso(now) }) },
+})
+```
+
+Those presets are dropped from `toWindow`'s `{ window }` branch, so the result assigns to the API
+param type with **no cast**. One guard survives, and only on a `custom: true` field: a dateless
+`'custom'` types as `{ window: 'custom' }` (unreachable — the codec rejects it), which
+`toApiWindow(resolved, fallback)` in `lib/window-stores.ts` folds onto the API default.
 
 ## loaderDeps
 

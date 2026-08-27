@@ -5,13 +5,12 @@ import { IconBarbell } from '@tabler/icons-react'
 import { EmptyState, PageBar, Section } from 'basalt-ui'
 import { FilterSet, MultiSelectFilter, RangeFilter, ViewTabs } from 'basalt-ui/controls'
 import { DateRangePicker } from 'basalt-ui/controls-dates'
-import { strengthStore } from '../lib/window-stores'
+import { strengthStore, toApiWindow } from '../lib/window-stores'
 import {
   ChartSkeleton,
   DEFAULT_EXERCISES,
   ExerciseSummaryCards,
   RecentRecords,
-  resolveWindow,
   TimerCard,
   WorkoutForm,
   WorkoutsTable,
@@ -50,7 +49,13 @@ export const Route = createFileRoute('/strength-tracker')({
   validateSearch: strengthStore.validateSearch,
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps }) => {
-    const windowParams = resolveWindow(deps)
+    // `3m`/`6m`/`1y`/`ytd` are the four presets the backend's `WindowQuerySchema` refuses; the
+    // field's own `window:` resolvers turn them into `from`/`to`. `toApiWindow` folds only the
+    // unreachable dateless-`custom` branch onto the field's fallback.
+    const windowParams = toApiWindow(
+      strengthStore.field.window.toWindow({ preset: deps.window, from: deps.from, to: deps.to }),
+      'all',
+    )
     const params = { ...windowParams, exercises: activeExercises(deps.exercises).join(',') }
 
     const base: Promise<unknown>[] = [
@@ -81,7 +86,14 @@ function StrengthTrackerPage() {
   useGymSync()
   useWorkoutDraftSync()
 
-  const windowParams = resolveWindow(search)
+  const windowParams = toApiWindow(
+    strengthStore.field.window.toWindow({
+      preset: search.window,
+      from: search.from,
+      to: search.to,
+    }),
+    'all',
+  )
   const exercises = activeExercises(search.exercises)
   const queryParams = { ...windowParams, exercises: exercises.join(',') }
 
@@ -256,11 +268,14 @@ function CompositeChartSlot({
   // queries are prefetched in the loader, so this hits the cache.
   const { data: heroes } = useSuspenseQuery(strengthQueries.heroes(params))
   const { data: sparks } = useSuspenseQuery(strengthQueries.sparklines(params))
-  const initial = useMemo(() => {
+  const initial = useMemo<ExerciseKey>(() => {
     const sessions = new Map(sparks.byExercise.map((r) => [r.exercise_id, r.e1rm.length]))
     const enough = (ex: string) => (sessions.get(ex) ?? 0) >= 3
-    const leader = heroes.strengthDirection.leaderExercise
-    if (leader !== null && enough(leader)) return leader
+    // Matched against the ACTIVE set rather than taken raw: the API types `leaderExercise` as a
+    // bare string, and a leader the exercise filter has hidden is not one the chart's own select
+    // offers — it would render a lift with no matching option.
+    const leader = activeExercises.find((e) => e === heroes.strengthDirection.leaderExercise)
+    if (leader !== undefined && enough(leader)) return leader
     const mostData = [...activeExercises].toSorted(
       (a, b) => (sessions.get(b) ?? 0) - (sessions.get(a) ?? 0),
     )[0]
@@ -270,7 +285,15 @@ function CompositeChartSlot({
 }
 
 function ExerciseSummaryCardsSlot() {
-  const windowParams = resolveWindow(strengthStore.useValues())
+  const search = strengthStore.useValues()
+  const windowParams = toApiWindow(
+    strengthStore.field.window.toWindow({
+      preset: search.window,
+      from: search.from,
+      to: search.to,
+    }),
+    'all',
+  )
   return <ExerciseSummaryCards params={windowParams} />
 }
 

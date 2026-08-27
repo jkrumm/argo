@@ -4,7 +4,7 @@ import { Grid, Stack, useComputedColorScheme } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { BasaltErrorBoundary, PageBar, Section, type BasaltErrorContext } from 'basalt-ui'
-import { FilterSet, SelectFilter, ViewTabs } from 'basalt-ui/controls'
+import { FilterSet, NumberFilter, SelectFilter, ViewTabs } from 'basalt-ui/controls'
 import { astroStore } from '../lib/window-stores'
 import {
   CHART_HEIGHT,
@@ -102,9 +102,7 @@ export const Route = createFileRoute('/astro-window')({
   // not re-run on a tab change, and a future per-tab prefetch would silently never fire.
   loaderDeps: ({ search }: { search: SearchParams }) => ({
     site: search.site,
-    // `nights` is a string enum on the store (there is no numeric filter control), so the query
-    // gets the number here rather than the page doing it three times over.
-    nights: Number(search.nights),
+    nights: search.nights,
     detailDate: search.detailDate,
     tab: search.tab,
   }),
@@ -170,7 +168,7 @@ function AstroWindowPage() {
   const params = useMemo<AstroWindowParams>(
     () => ({
       site: search.site,
-      nights: Number(search.nights),
+      nights: search.nights,
       ...(search.detailDate !== undefined && { detailDate: search.detailDate }),
     }),
     [search.site, search.nights, search.detailDate],
@@ -181,29 +179,30 @@ function AstroWindowPage() {
   const selectedSite = sites.data.find((s) => s.id === search.site)
 
   /*
-   * Every handler spreads the CURRENT search rather than listing the keys it cares about. With
-   * the map's three keys now in the schema, the old key-by-key form silently dropped them:
-   * changing the site would have reset the basemap, the atlas year and every weather overlay.
+   * The two handlers below write keys the STORE does not model, so they still navigate by hand —
+   * and each spreads the CURRENT search rather than listing the keys it cares about. With the
+   * map's three keys in the schema, the old key-by-key form silently dropped them: changing one
+   * would have reset the basemap, the atlas year and every weather overlay.
    *
    * A `(prev) => …` reducer is the obvious alternative and does not typecheck here — TanStack
    * types `prev` as the union of every route's search params, so `site`/`nights` come back
    * optional and the result no longer satisfies this route's schema.
    */
   /*
-   * `site` from the MAP keeps a hand-written navigate, because picking a site there must also drop
-   * `detailDate` — a store field's setter writes its own params and nothing else, so it cannot
-   * clear a sibling key the store does not model. The bar's own site pill therefore leaves
-   * `detailDate` standing; the API resolves an out-of-window date to the nearest night, so that is
-   * a nuance rather than a break.
+   * `site` from the MAP goes through the store's OWN setter with a `patch` (basalt-ui 1.27.0):
+   * picking a site there must also drop `detailDate`, a key the store does not model, and `patch`
+   * merges it into the SAME navigate as the field's write — one history entry, and the field's own
+   * params still win. This replaces the hand-written navigate that spread the whole search.
+   *
+   * The bar's own site pill has no patch and therefore leaves `detailDate` standing; the API
+   * resolves an out-of-window date to the nearest night, so that is a nuance rather than a break.
    */
+  const [, setSite] = astroStore.field.site.use()
   const handleSiteChange = useCallback(
     (site: string) => {
-      void navigate({
-        to: '/astro-window',
-        search: { ...search, site, detailDate: undefined },
-      })
+      setSite(site, { patch: { detailDate: undefined } })
     },
-    [navigate, search],
+    [setSite],
   )
 
   const handleSelectDate = useCallback(
@@ -281,7 +280,18 @@ function AstroWindowPage() {
                 label: `${s.name} · ${s.coreDirectionMpsas.toFixed(2)} mag · ${s.driveMinutes}min`,
               }))}
             />
-            <SelectFilter field={astroStore.field.nights} label="Nights" />
+            {/* `field.number` + `NumberFilter` (basalt-ui 1.27.0): the URL keeps a NUMBER, and
+                `min`/`max`/`int` come off the HANDLE, so the presets are the only thing stated
+                here. */}
+            <NumberFilter
+              field={astroStore.field.nights}
+              label="Nights"
+              options={[
+                { value: 5, label: '5 nights' },
+                { value: 10, label: '10 nights' },
+                { value: 14, label: '14 nights' },
+              ]}
+            />
           </FilterSet>
         }
       />

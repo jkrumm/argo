@@ -22,8 +22,6 @@ export {
   type WeightTrend,
 } from './formulas'
 
-export { resolveWindow, type WindowSearch } from './window'
-
 export { WeightPanel } from './components/weight-panel'
 export { SkinfoldPanel } from './components/skinfold-panel'
 export { SkinfoldEntryForm } from './components/skinfold-entry-form'

@@ -18,7 +18,6 @@ export {
   formatDeltaKmh,
   relativeTime,
 } from './formatters'
-export { resolveWindow, type WindowSearch } from './window'
 export { METRIC_DEFS, type MetricKey } from './metrics'
 export { LiveCard, LiveCardSkeleton } from './live-card'
 export { HeroStats, HeroStatsSkeleton, ChartSkeleton } from './hero-stats'

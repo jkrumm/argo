@@ -33,6 +33,7 @@ export class ErrorBoundary extends Component<Props, State> {
       <Container size="sm" pt={64} pb={64}>
         <Stack gap="lg">
           <Stack gap={4}>
+            {/* theme-allow in-body-page-title — shell-less surface */}
             <Title order={2}>Something went wrong</Title>
             <Text c="dimmed" size="sm">
               The page hit an unexpected error and was unloaded to keep the app stable.

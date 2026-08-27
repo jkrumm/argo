@@ -4,8 +4,8 @@ import { Stack } from '@mantine/core'
 import { PageBar, Section } from 'basalt-ui'
 import { FilterSet, RangeFilter } from 'basalt-ui/controls'
 import { DateRangePicker } from 'basalt-ui/controls-dates'
-import { bodyCompStore } from '../lib/window-stores'
-import { resolveWindow, SkinfoldPanel, WeightPanel } from '../features/body-composition'
+import { bodyCompStore, toApiWindow } from '../lib/window-stores'
+import { SkinfoldPanel, WeightPanel } from '../features/body-composition'
 import { ChartSkeleton } from '../features/strength-tracker'
 import { skinfoldLogQueries } from '../lib/queries/skinfold-log'
 import { weightLogQueries } from '../lib/queries/weight-log'
@@ -16,7 +16,13 @@ export const Route = createFileRoute('/body-composition')({
   validateSearch: bodyCompStore.validateSearch,
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps }) => {
-    const params = resolveWindow(deps)
+    // `toWindow` is the whole projection: every preset here is one the backend's
+    // `WindowQuerySchema` accepts, so the field declares no `window:` resolvers, and `toApiWindow`
+    // only folds the unreachable dateless-`custom` branch onto the API's own default.
+    const params = toApiWindow(
+      bodyCompStore.field.window.toWindow({ preset: deps.window, from: deps.from, to: deps.to }),
+      '90d',
+    )
     return Promise.all([
       context.queryClient.ensureQueryData(weightLogQueries.summary(params)),
       context.queryClient.ensureQueryData(weightLogQueries.series(params)),
@@ -30,7 +36,15 @@ export const Route = createFileRoute('/body-composition')({
 // ── Page component ─────────────────────────────────────────────────────────
 
 function BodyCompositionPage() {
-  const params = resolveWindow(bodyCompStore.useValues())
+  const search = bodyCompStore.useValues()
+  const params = toApiWindow(
+    bodyCompStore.field.window.toWindow({
+      preset: search.window,
+      from: search.from,
+      to: search.to,
+    }),
+    '90d',
+  )
 
   return (
     <>
