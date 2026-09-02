@@ -1,18 +1,11 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "basalt-ui/configs/tsconfig.react-app.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "jsx": "react-jsx",
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "verbatimModuleSyntax": true,
-    "isolatedModules": true,
-    "noEmit": true,
-    "skipLibCheck": true,
+    // TODO(basalt-1.29): re-enable, 83 sites
+    "noPropertyAccessFromIndexSignature": false,
+    // TODO(basalt-1.29): re-enable, 56 sites
+    "exactOptionalPropertyTypes": false,
     "paths": {
       "@argo/api": ["../api/src/index.ts"]
     }

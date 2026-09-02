@@ -1,5 +1,5 @@
 import { Button, Container, PasswordInput, Stack, Text, Title } from '@mantine/core'
-import { field, useBasaltForm } from 'basalt-ui/forms'
+import { fieldKey, inputProps, useBasaltForm } from 'basalt-ui/forms'
 import type { ReactNode } from 'react'
 import { z } from 'zod'
 import { useAuthStore } from './auth'
@@ -45,7 +45,8 @@ function TokenPrompt() {
               label="API token"
               placeholder="Bearer token"
               autoComplete="current-password"
-              {...field(form, 'token')}
+              key={fieldKey(form, 'token')}
+              {...inputProps(form, 'token')}
             />
             <Button type="submit">Sign in</Button>
           </Stack>

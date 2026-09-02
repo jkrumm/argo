@@ -1,7 +1,4 @@
-// Shared API base URL, resolved once — the single definition for this origin. Also declared
-// verbatim in features/hermes-chat/transport.ts (lane-3-owned; that file is deleted in a later
-// phase of the Hermes Chat v2 program) — the duplication is deliberate during the migration
-// rather than editing a file this lane doesn't own.
+// Shared API base URL, resolved once — the single definition for this origin.
 //
 // Trailing slashes are stripped so every caller can concatenate `/path` unconditionally, and an
 // empty or slash-only VITE_API_URL falls back to the same-origin `/api` instead of collapsing to
