@@ -70,7 +70,7 @@ export const hermesQueries = {
       // A 404 (the thread hasn't been lazily created server-side yet — e.g. a
       // just-`create()`d local thread that hasn't had a first turn sent) reads as
       // "no messages yet", not a query error: the caller (threads-store.ts's
-      // `useHermesThreads`, chat-view.tsx) always has an optimistic overlay to
+      // `useHermesThreads`, hermes-row.tsx) always has an optimistic overlay to
       // show regardless, and surfacing this as a thrown error would flip the
       // whole view into an error state for what is normal, expected timing.
       queryFn: async (): Promise<{ data: HermesMessage[]; total: number }> => {
@@ -98,24 +98,10 @@ export type CreateThreadBody = {
   sessionKey?: string
 }
 
-export type PatchThreadBody = {
-  id: string
-  title?: string
-  pinned?: boolean
-  archived?: boolean
-}
-
 export const hermesMutations = {
   createThread: () => ({
     mutationFn: (body: CreateThreadBody = {}): Promise<HermesThread> =>
       api.hermes.threads.post(body).then((r) => unwrap(r)),
-  }),
-  patchThread: () => ({
-    mutationFn: ({ id, ...body }: PatchThreadBody): Promise<HermesThread> =>
-      api.hermes
-        .threads({ id })
-        .patch(body)
-        .then((r) => unwrap(r)),
   }),
   deleteThread: () => ({
     mutationFn: (id: string): Promise<{ id: string }> =>

@@ -4,11 +4,11 @@ import { Badge, Group, Loader } from '@mantine/core'
 import { IconPin } from '@tabler/icons-react'
 import { ThreadFeedRow } from 'basalt-ui/agent-chat'
 import type { ComposerHandle } from 'basalt-ui/agent-chat'
-import type { AgentPart, AgentThread, ChatMessage, ThreadRunState } from 'basalt-ui/agent'
+import type { AgentPart, AgentThread, ThreadRunState } from 'basalt-ui/agent'
 import { hermesQueries } from '../../lib/queries/hermes'
 import type { HermesThreadType } from '../../lib/queries/hermes'
-import { getFailedClientMessageIds, getOutboundClientMessageIds } from './hermes-transport'
 import { mergeOptimisticMessages, toChatMessage } from './threads-store'
+import type { HermesChatMessage } from './threads-store'
 import { hermesThreadRenderers } from './thread-renderers'
 import { useHermesThreadVoice } from './use-hermes-thread-voice'
 import classes from './hermes-row.module.css'
@@ -74,30 +74,13 @@ export function HermesRow({
     () =>
       (data?.data ?? [])
         .map((row) => toChatMessage(row))
-        .filter((message): message is ChatMessage<AgentPart> => message !== null),
-    [data],
-  )
-
-  const confirmedClientMessageIds = useMemo(
-    () =>
-      new Set(
-        (data?.data ?? [])
-          .map((row) => row.client_message_id)
-          .filter((id): id is string => id !== null),
-      ),
+        .filter((message): message is HermesChatMessage => message !== null),
     [data],
   )
 
   const messages = useMemo(
-    () =>
-      mergeOptimisticMessages(
-        serverMessages,
-        thread.messages,
-        confirmedClientMessageIds,
-        getOutboundClientMessageIds(thread.id),
-        getFailedClientMessageIds(thread.id),
-      ),
-    [serverMessages, thread.messages, confirmedClientMessageIds, thread.id],
+    () => mergeOptimisticMessages(serverMessages, thread.messages),
+    [serverMessages, thread.messages],
   )
 
   const composerRef = useRef<ComposerHandle>(null)

@@ -11,7 +11,6 @@ import {
 } from 'basalt-ui/agent'
 import { hermesQueries } from '../../lib/queries/hermes'
 import type { HermesMessage, HermesThread } from '../../lib/queries/hermes'
-import { clearThreadTransportState } from './hermes-transport'
 
 // A DIRECT ThreadsStore implementation over Argo's React Query cache — see
 // docs/HERMES-CHAT-V2.md for the ruling this replaces (`createAdapterThreadsStore`
@@ -33,39 +32,16 @@ import { clearThreadTransportState } from './hermes-transport'
 // store, is the system of record for writes), and merges in server truth in two
 // places only: the threads LIST (title/summary/pin/archive — this store never
 // guesses those) and, for a thread the caller has open, its message TRANSCRIPT
-// (see `mergeOptimisticMessages`, consumed by chat-view.tsx). Thread ids are
+// (see `mergeOptimisticMessages`, consumed by hermes-row.tsx). Thread ids are
 // stable across the optimistic/confirmed boundary — `create()` mints the id
 // client-side and the server's `ensureThread` (hermes.ts) ADOPTS it verbatim on
 // the first `POST /hermes/chat` — so the threads-list merge below is a plain
 // upsert-by-id, no revalidate-and-prune dance required.
 //
-// Message ids are NOT stable across that boundary — the server always mints its
-// own row id via `messageIdGen()` (see persistMessages) — so `mergeOptimisticMessages`
-// does NOT compare `ChatMessage.id`s at all (an earlier version of this file compared
-// each optimistic message's `createdAt` against the confirmed query's `dataUpdatedAt`;
-// that raced a brand-new thread's first-ever fetch — a 404-turned-empty-success — which
-// settles at almost the exact instant the message was appended, dropping it from the
-// merge for the rest of the turn). The replacement is an EXACT key, but not
-// `ChatMessage.id`: the server's `client_message_id` (exposed by `MessageSchema`, see
-// `HermesMessage` below) is bound to the WIRE UIMessage.id `aiSdkTransport.stream()`
-// mints internally (node_modules/basalt-ui/src/agent/ai-sdk-transport.ts) — a
-// DIFFERENT, independently-minted id from the one `useAgentThreadRuns.start()` mints
-// for the optimistic `ChatMessage` it appends here (`start()` only ever passes the raw
-// input STRING into `transport.stream()`, never the ChatMessage). Neither basalt
-// internal surfaces its id to the other, so this store's overlay message can never
-// literally equal a `client_message_id`. `hermes-transport.ts`'s `hermesFetch` is the
-// one seam in Argo's own code that sees the real wire id before it's sent — it records
-// each turn's id, per thread, in SEND ORDER (`getOutboundClientMessageIds`) —
-// `mergeOptimisticMessages` pairs that ordered list 1:1 against the confirmed
-// transcript's `client_message_id`s (turns are strictly sequential per thread — the
-// server itself 409s a second concurrent turn — so position is an exact, not
-// timing-based, key). The assistant message has no client id at all (the server mints
-// it), but is only ever appended locally once its row is ALREADY durably persisted
-// (`consumeAndFinalize`/`finalizeStop` append after the stream has fully closed, and
-// the server's own `flush()` awaits `persistMessages` before that happens) — so it is
-// paired against the confirmed transcript by COUNT instead: the Nth optimistic
-// assistant message is dropped once the confirmed transcript holds at least N+1
-// assistant rows, since assistant turns are exactly as sequential as user turns.
+// Message ids ARE now stable across that boundary (R1 — MIGRATING.md's `AgentTransport.stream`
+// `ctx.messageId`): `aiSdkTransport` sends the SAME id `useAgentThreadRuns.start()` minted for the
+// optimistic `ChatMessage` as the wire UIMessage.id, so the server's `client_message_id` for a
+// confirmed user turn literally equals the overlay entry's own `id` — see `mergeOptimisticMessages`.
 
 // ── server row → basalt shape conversion (unchanged from the retired adapter) ──
 
@@ -114,7 +90,14 @@ function toFinish(status: HermesMessage['status']): 'complete' | 'stopped' | 'er
 /** A server message row → a basalt ChatMessage. Returns null for a 'system' row —
  * ChatMessage.role is 'user' | 'assistant' only; system rows (if any ever land in
  * this table) have nowhere to go in the transcript. */
-export function toChatMessage(row: HermesMessage): ChatMessage<AgentPart> | null {
+export type HermesChatMessage = ChatMessage<AgentPart> & {
+  /** The server's `client_message_id` for a user-role row — R1 (MIGRATING.md's `AgentTransport.stream`
+   * `ctx.messageId`) means this is the SAME id `useAgentThreadRuns.start()` minted for the optimistic
+   * `ChatMessage` this row confirms. `undefined` for an assistant row (server-minted, no client id). */
+  readonly clientMessageId?: string
+}
+
+export function toChatMessage(row: HermesMessage): HermesChatMessage | null {
   if (row.role === 'system') return null
   const parts = row.parts
     .map((raw, index) => toAgentPart(raw, `${row.id}:${index}`))
@@ -126,11 +109,12 @@ export function toChatMessage(row: HermesMessage): ChatMessage<AgentPart> | null
     parts,
     createdAt: new Date(row.created_at).getTime(),
     ...(finish ? { finish } : {}),
+    ...(row.client_message_id !== null ? { clientMessageId: row.client_message_id } : {}),
   }
 }
 
 /** Server-only fields `AgentThread` has no typed slot for — the render layer
- * (thread-feed-row.tsx) reads these directly off `thread.meta`. */
+ * (hermes-row.tsx) reads these directly off `thread.meta`. */
 function toMeta(row: HermesThread): Record<string, unknown> {
   return {
     pinned: row.pinned !== 0,
@@ -178,7 +162,7 @@ function rowToThread(
 //
 // Every ThreadsStore method below is a thin useCallback wrapping one of these —
 // kept as free functions, not inlined, so the merge/dedupe logic that matters
-// (mergeServerThreads' upsert-by-id, mergeOptimisticMessages' timestamp filter)
+// (mergeServerThreads' upsert-by-id, mergeOptimisticMessages' id/count filter)
 // is testable without a React rendering harness.
 
 export type ThreadsMap = ReadonlyMap<string, AgentThread<AgentPart>>
@@ -218,7 +202,7 @@ export function insertThread(map: ThreadsMap, thread: AgentThread<AgentPart>): T
  * closed, i.e. after the server's own persist-on-finish already ran) or is about
  * to be sent in the SAME sequence (the user message — appended synchronously
  * before the POST is even issued). The former is always read-after-write safe;
- * the latter is covered by `mergeOptimisticMessages`' timestamp filter instead
+ * the latter is covered by `mergeOptimisticMessages`' id-based filter instead
  * of a forced fetch, precisely to avoid the exact race this design replaces (a
  * "proving" GET beating the POST that lazily creates the thread).
  */
@@ -277,6 +261,28 @@ export function markReadInMap(map: ThreadsMap, id: string): ThreadsMap {
   return next
 }
 
+/**
+ * Drops the newest optimistic USER message of a thread — the rollback for a turn the server
+ * rejected outright (409 `stream_in_progress` / `duplicate_turn`): nothing was stored, so no
+ * server row will ever confirm that id and `mergeOptimisticMessages` would keep the bubble
+ * forever. Only the last user message is touched; assistant parts are never rolled back here.
+ */
+export function removeLastUserMessageFromMap(map: ThreadsMap, id: string): ThreadsMap {
+  const thread = map.get(id)
+  if (thread === undefined) return map
+  let idx = -1
+  for (let i = thread.messages.length - 1; i >= 0; i--) {
+    if (thread.messages[i]?.role === 'user') {
+      idx = i
+      break
+    }
+  }
+  if (idx === -1) return map
+  const next = new Map(map)
+  next.set(id, { ...thread, messages: thread.messages.filter((_, i) => i !== idx) })
+  return next
+}
+
 export function removeFromMap(map: ThreadsMap, id: string): ThreadsMap {
   if (!map.has(id)) return map
   const next = new Map(map)
@@ -323,69 +329,44 @@ export function sortThreadsNewestFirst(map: ThreadsMap): AgentThread<AgentPart>[
 
 /**
  * The message-level dedupe: confirmed server messages, plus any optimistic overlay
- * entries not yet covered by the confirmed fetch — see this file's header doc for why
- * this is an EXACT key, not a timestamp comparison, and why user/assistant messages
- * each need a different key (neither can ever equal a `ChatMessage.id`).
+ * entries not yet covered by the confirmed fetch.
  *
- * PASS 0 — SEEDED-DUPLICATE filter (fixes the reload/cross-tab/resume double-render). A thread
- * reporting `streaming: true` is hydrated with its FULL CONFIRMED transcript up front
- * (`useHermesThreads`'s first-hydration effect, via `mergeServerThreads`/`rowToThread`) so
- * `useAgentThreadRuns`'s mount-only reconcile can find a last user message to resume from — that
- * seeded transcript lands in `overlay` (`AgentThread.messages`) even though every entry in it is
- * ALREADY in `serverMessages` too. `getOutboundClientMessageIds` is a per-tab, in-memory map —
- * empty after a reload or in a freshly-opened tab — so those seeded entries would otherwise hit
- * the "wire id not recorded yet → always keep" branch below and render twice, and the ghost then
- * permanently misaligns every later position-based pairing for the rest of the tab's session (it
- * occupies slot 0 of the overlay, so the next genuinely-new send pairs against slot 1, which never
- * fills). The seeded entries carry the SAME `id` as the server row they were built from
- * (`toChatMessage(row)` in both `fetchThreadMessages` and `useQuery(hermesQueries.messages(...))`
- * — see chat-view.tsx); a genuinely-optimistic entry mints its own id
- * (`agent-message-<uuid>`/`mintMessageId()`) that can never collide with a server row id. So any
- * overlay entry whose `id` already appears among `serverMessages` is dropped FIRST, before the
- * positional/count logic below ever sees it — that logic is only valid for genuinely-optimistic
- * entries, and after this pass it only ever receives those.
+ * USER overlay messages are matched by ID (R1 — MIGRATING.md's `AgentTransport.stream`
+ * `ctx.messageId`): `aiSdkTransport` now sends the SAME id `useAgentThreadRuns.start()` minted
+ * for the optimistic `ChatMessage` as the wire UIMessage.id, so a user overlay entry is dropped
+ * once its `id` equals either a confirmed server message's own `id` (the reload/cross-tab/resume
+ * case — `useHermesThreads`'s first-hydration effect seeds `AgentThread.messages` with the full
+ * confirmed transcript via `toChatMessage`, so the seeded entry carries the SAME id as the server
+ * row it came from) OR a confirmed server message's `clientMessageId` (the live-send case — the
+ * server persists the wire id as `client_message_id`, exposed on `HermesChatMessage`). A user
+ * message that matches neither is always kept — never hidden.
  *
- * PASS 1 — the position/count logic itself, over the survivors of pass 0:
- * - USER overlay messages are matched by POSITION against `outboundClientMessageIds`
- *   (this thread's wire ids, in send order — `hermes-transport.ts`): the Kth user-role
- *   overlay entry is dropped once its corresponding wire id (the Kth entry of
- *   `outboundClientMessageIds`) appears in `confirmedClientMessageIds`. A user message
- *   whose wire id hasn't been recorded yet (`hermesFetch` hasn't run for this turn at
- *   render time) is always kept — never hidden, matching the "never render neither"
- *   requirement. Once genuinely confirmed it is dropped for good: `confirmedClientMessageIds`
- *   is built fresh from whatever the LATEST successful fetch returned, and a full
- *   transcript fetch never loses an earlier turn's row, so the confirmation can't flap.
- *   A wire id that instead landed in `failedClientMessageIds` (a 409/503/401/network-throw —
- *   never an abort, see `hermes-transport.ts`'s `hermesFetch`) is dropped unconditionally: the
- *   server never persisted that turn, so it can NEVER reach `confirmedClientMessageIds` — without
- *   this, the "never confirmed → always keep" rule above would keep that orphaned bubble forever.
- * - ASSISTANT overlay messages are matched by COUNT: the Nth assistant-role overlay
- *   entry is dropped once `serverMessages` holds more than N confirmed assistant rows.
- *   This is safe (not a race) only because every call site that appends one already
- *   waited for the server to durably persist it first — see this file's header doc.
+ * ASSISTANT overlay messages have no client id at all (the server mints their row id), so they're
+ * matched by COUNT instead: the Nth assistant-role overlay entry is dropped once `serverMessages`
+ * holds more than N confirmed assistant rows. This is safe (not a race) only because every call
+ * site that appends one already waited for the server to durably persist it first — see this
+ * file's header doc.
  */
 export function mergeOptimisticMessages(
-  serverMessages: readonly ChatMessage<AgentPart>[],
+  serverMessages: readonly HermesChatMessage[],
   overlay: readonly ChatMessage<AgentPart>[],
-  confirmedClientMessageIds: ReadonlySet<string>,
-  outboundClientMessageIds: readonly string[],
-  failedClientMessageIds: ReadonlySet<string> = new Set(),
 ): ChatMessage<AgentPart>[] {
   const serverMessageIds = new Set(serverMessages.map((message) => message.id))
-  const dedupedOverlay = overlay.filter((message) => !serverMessageIds.has(message.id))
+  const confirmedClientMessageIds = new Set(
+    serverMessages
+      .map((message) => message.clientMessageId)
+      .filter((id): id is string => id !== undefined),
+  )
+  const dedupedOverlay = overlay.filter(
+    (message) => !serverMessageIds.has(message.id) && !confirmedClientMessageIds.has(message.id),
+  )
 
   const confirmedAssistantCount = serverMessages.filter(
     (message) => message.role === 'assistant',
   ).length
-  let userIndex = 0
   let assistantIndex = 0
   const pending = dedupedOverlay.filter((message) => {
-    if (message.role === 'user') {
-      const wireId = outboundClientMessageIds[userIndex]
-      userIndex += 1
-      if (wireId !== undefined && failedClientMessageIds.has(wireId)) return false
-      return wireId === undefined || !confirmedClientMessageIds.has(wireId)
-    }
+    if (message.role === 'user') return true
     const index = assistantIndex
     assistantIndex += 1
     return index >= confirmedAssistantCount
@@ -413,7 +394,12 @@ async function fetchThreadMessages(
 
 const THREADS_LIST_OPTS = { limit: 200 } as const
 
-export function useHermesThreads(): ThreadsStore<AgentPart> {
+export type HermesThreadsStore = ThreadsStore<AgentPart> & {
+  /** Rollback for a server-rejected turn — see `removeLastUserMessageFromMap`. */
+  removeLastUserMessage: (id: string) => void
+}
+
+export function useHermesThreads(): HermesThreadsStore {
   const queryClient = useQueryClient()
   const listQuery = useQuery(hermesQueries.threads('all', THREADS_LIST_OPTS))
 
@@ -476,6 +462,10 @@ export function useHermesThreads(): ThreadsStore<AgentPart> {
     setThreadsMap((prev) => appendMessageToMap(prev, id, message))
   }, [])
 
+  const removeLastUserMessage = useCallback((id: string): void => {
+    setThreadsMap((prev) => removeLastUserMessageFromMap(prev, id))
+  }, [])
+
   const setOutcome = useCallback((id: string, outcome: AgentOutcome): void => {
     setThreadsMap((prev) => setOutcomeInMap(prev, id, outcome))
   }, [])
@@ -495,9 +485,6 @@ export function useHermesThreads(): ThreadsStore<AgentPart> {
   const remove = useCallback((id: string): void => {
     setThreadsMap((prev) => removeFromMap(prev, id))
     setActiveId((prev) => (prev === id ? null : prev))
-    // The other half of hermes-transport.ts's per-thread growth bound — a cap only bounds a LIVE
-    // thread's tracked ids; a removed thread's entries must be dropped outright (defect 3).
-    clearThreadTransportState(id)
   }, [])
 
   const clear = useCallback((): void => {
@@ -513,6 +500,7 @@ export function useHermesThreads(): ThreadsStore<AgentPart> {
     select,
     create,
     appendMessage,
+    removeLastUserMessage,
     setOutcome,
     setStatus,
     setResumeToken,
