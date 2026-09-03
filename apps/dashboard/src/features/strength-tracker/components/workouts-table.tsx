@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ActionIcon, Badge, Box, Group, Stack, Text, Tooltip } from '@mantine/core'
-import { modals } from '@mantine/modals'
+import { overlays } from 'basalt-ui/commands'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { IconEdit, IconTrash } from '@tabler/icons-react'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
@@ -66,16 +66,17 @@ export function WorkoutsTable() {
   const [editing, setEditing] = useState<EditableWorkout | null>(null)
 
   function handleDelete(workout: WorkoutRow) {
-    modals.openConfirmModal({
+    void overlays.confirm({
       title: 'Delete workout',
-      children: (
+      body: (
         <Text size="sm">
           Delete {workout.exercise_name ?? workout.exercise_id} on {workout.date}? This cannot be
           undone.
         </Text>
       ),
-      labels: { confirm: 'Delete', cancel: 'Cancel' },
-      confirmProps: { color: 'red' },
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      danger: true,
       onConfirm: () => deleteWorkout.mutate(workout.id),
     })
   }

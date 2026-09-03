@@ -14,7 +14,7 @@ import {
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { IconSettings, IconTrophy } from '@tabler/icons-react'
 import { VX } from 'basalt-ui/tokens'
-import { modals } from '@mantine/modals'
+import { overlays } from 'basalt-ui/commands'
 import { format, formatDistanceToNowStrict } from 'date-fns'
 import {
   invalidateWorkoutData,
@@ -364,16 +364,17 @@ export function WorkoutForm() {
   // with them — otherwise the other device keeps the old session and pushes it
   // straight back.
   function handleReset() {
-    modals.openConfirmModal({
+    void overlays.confirm({
       title: 'Reset this session?',
-      children: (
+      body: (
         <Text size="sm">
           {completedCount} completed {completedCount === 1 ? 'set' : 'sets'} will be discarded —
           here and on any other device following this session.
         </Text>
       ),
-      labels: { confirm: 'Reset', cancel: 'Keep going' },
-      confirmProps: { color: 'red' },
+      confirmLabel: 'Reset',
+      cancelLabel: 'Keep going',
+      danger: true,
       onConfirm: () => {
         touchedRef.current = false
         seenRef.current[exercise] = false

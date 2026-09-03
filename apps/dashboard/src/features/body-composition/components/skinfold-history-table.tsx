@@ -1,5 +1,5 @@
 import { ActionIcon, Group, Stack, Text, Tooltip } from '@mantine/core'
-import { modals } from '@mantine/modals'
+import { overlays } from 'basalt-ui/commands'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { IconTrash } from '@tabler/icons-react'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
@@ -23,16 +23,17 @@ export function SkinfoldHistoryTable() {
   const deleteSkinfoldLog = useDeleteSkinfoldLog()
 
   function handleDelete(reading: SkinfoldRow) {
-    modals.openConfirmModal({
+    void overlays.confirm({
       title: 'Delete reading',
-      children: (
+      body: (
         <Text size="sm">
           Delete {skinfoldSiteLabel(reading.site)} reading of {reading.value_mm} mm on{' '}
           {reading.date}? This cannot be undone.
         </Text>
       ),
-      labels: { confirm: 'Delete', cancel: 'Cancel' },
-      confirmProps: { color: 'red' },
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      danger: true,
       onConfirm: () => deleteSkinfoldLog.mutate(reading.id),
     })
   }

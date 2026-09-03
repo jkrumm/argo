@@ -1,8 +1,8 @@
 import { Suspense } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { Grid, SimpleGrid, Stack } from '@mantine/core'
-import { useElementSize, useMediaQuery } from '@mantine/hooks'
-import { PageBar, Section } from 'basalt-ui'
+import { useElementSize } from '@mantine/hooks'
+import { PageBar, Section, useBreakpoint } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, MultiSelectFilter, RangeFilter } from 'basalt-ui/controls'
 import { walkingStore } from '../lib/window-stores'
@@ -58,7 +58,7 @@ function WalkingPadPage() {
   // two columns line up. Below lg the columns stack — the prop drops back to
   // undefined and the gallery uses its own default scroll height.
   const { ref: leftColRef, height: leftColHeight } = useElementSize<HTMLDivElement>()
-  const isLg = useMediaQuery('(min-width: 75em)')
+  const isLg = useBreakpoint('lg')
   const matchHeight = isLg === true && leftColHeight > 0 ? leftColHeight : undefined
 
   // Same trick for the bottom row: the (capped) history card drives the
