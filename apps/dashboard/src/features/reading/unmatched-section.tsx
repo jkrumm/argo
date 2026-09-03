@@ -1,8 +1,9 @@
 import { Button, Card, Group, Image, Stack, Text } from '@mantine/core'
 import { emit } from 'basalt-ui/notifications'
+import { unwrap } from 'basalt-ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { api, unwrap } from '../../lib/eden'
+import { api } from '../../lib/eden'
 import { readingQueries } from '../../lib/queries/reading'
 
 export function UnmatchedSection() {

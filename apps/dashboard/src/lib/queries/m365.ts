@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
-import { api, unwrap } from '../eden'
+import { api } from '../eden'
+import { unwrap } from 'basalt-ui'
 
 export type LabelKind = 'chat' | 'channel'
 
@@ -76,16 +77,27 @@ export const m365Queries = {
 
 export const m365Mutations = {
   upsertLabel: () => ({
-    mutationFn: (body: LabelUpsertBody) => api.m365.labels.post(body).then(unwrap),
+    mutationFn: (body: LabelUpsertBody) => api.m365.labels.post(body).then((r) => unwrap(r)),
   }),
   deleteLabel: () => ({
-    mutationFn: (sourceId: string) => api.m365.labels({ sourceId }).delete().then(unwrap),
+    mutationFn: (sourceId: string) =>
+      api.m365
+        .labels({ sourceId })
+        .delete()
+        .then((r) => unwrap(r)),
   }),
   renameTag: () => ({
     mutationFn: ({ tag, to }: { tag: string; to: string }) =>
-      api.m365.tags({ tag }).patch({ to }).then(unwrap),
+      api.m365
+        .tags({ tag })
+        .patch({ to })
+        .then((r) => unwrap(r)),
   }),
   deleteTag: () => ({
-    mutationFn: (tag: string) => api.m365.tags({ tag }).delete().then(unwrap),
+    mutationFn: (tag: string) =>
+      api.m365
+        .tags({ tag })
+        .delete()
+        .then((r) => unwrap(r)),
   }),
 }

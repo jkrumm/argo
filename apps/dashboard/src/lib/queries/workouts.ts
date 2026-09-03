@@ -1,5 +1,6 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api, unwrap } from '../eden'
+import { api } from '../eden'
+import { unwrap } from 'basalt-ui'
 import { strengthQueries } from './strength'
 
 export type WorkoutWindowParams = {
@@ -105,7 +106,7 @@ export function invalidateWorkoutData(qc: ReturnType<typeof useQueryClient>) {
 export function useCreateWorkout() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: CreateWorkoutInput) => api.workouts.post(body).then(unwrap),
+    mutationFn: (body: CreateWorkoutInput) => api.workouts.post(body).then((r) => unwrap(r)),
     onSuccess: () => invalidateWorkoutData(qc),
   })
 }
@@ -117,7 +118,7 @@ export function useUpdateWorkout() {
       api
         .workouts({ id: String(id) })
         .patch({ date, exercise_id, notes, sets })
-        .then(unwrap),
+        .then((r) => unwrap(r)),
     onSuccess: () => invalidateWorkoutData(qc),
   })
 }
@@ -129,7 +130,7 @@ export function useDeleteWorkout() {
       api
         .workouts({ id: String(id) })
         .delete()
-        .then(unwrap),
+        .then((r) => unwrap(r)),
     onSuccess: () => invalidateWorkoutData(qc),
   })
 }

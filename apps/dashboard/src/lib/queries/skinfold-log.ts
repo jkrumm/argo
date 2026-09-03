@@ -1,5 +1,6 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api, unwrap } from '../eden'
+import { api } from '../eden'
+import { unwrap } from 'basalt-ui'
 
 export type SkinfoldSite = 'abdominal' | 'suprailiac'
 
@@ -43,7 +44,8 @@ export const skinfoldLogQueries = {
 export function useCreateSkinfoldLog() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: CreateSkinfoldLogInput) => api['skinfold-log'].post(body).then(unwrap),
+    mutationFn: (body: CreateSkinfoldLogInput) =>
+      api['skinfold-log'].post(body).then((r) => unwrap(r)),
     onSuccess: () => void qc.invalidateQueries({ queryKey: skinfoldLogQueries.all() }),
   })
 }
@@ -54,7 +56,7 @@ export function useDeleteSkinfoldLog() {
     mutationFn: (id: number) =>
       api['skinfold-log']({ id: String(id) })
         .delete()
-        .then(unwrap),
+        .then((r) => unwrap(r)),
     onSuccess: () => void qc.invalidateQueries({ queryKey: skinfoldLogQueries.all() }),
   })
 }

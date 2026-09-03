@@ -1,7 +1,8 @@
 import { queryOptions } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import type { ScheduleEventData } from '@mantine/schedule'
-import { api, unwrap } from '../eden'
+import { api } from '../eden'
+import { unwrap } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { SERIES } from '../series'
 
