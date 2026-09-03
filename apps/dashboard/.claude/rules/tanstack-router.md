@@ -3,97 +3,23 @@ paths:
   - apps/dashboard/**
 ---
 
-# TanStack Router — File-Based Routing Conventions
+# TanStack Router — Argo Deltas
 
-## Adding a Page
+Delta over `.claude/rules/basalt-state.md` — everything else about search stores lives there.
 
-1. Declare the page's store in `src/lib/window-stores.ts` (`createSearchStore` over `field.*`)
-2. Create `src/routes/<page-name>.tsx`, export `Route` from `createFileRoute('/<page-name>')`
-3. `validateSearch: <store>.validateSearch` — pass the store's own function, not a Zod schema
-4. `loaderDeps: ({ search }) => search` — without it, a search change does not re-trigger the loader
-5. Add a `loader` that calls `ensureQueryData` for each query the page needs
-6. Add the nav entry in `src/lib/nav.tsx` with `search: <store>.linkSearch` **by reference**
+- Hand-written navigates (routes with composed keys, e.g. `astro-window.tsx`'s `detailDate`/map
+  layers) spread the CURRENT search, not the reducer form — TanStack types `prev` as the union of
+  every route's search, so `(prev) => …` won't typecheck. This contradicts basalt-state.md's
+  reducer advice for multi-route apps; argo's form wins here.
+- Every store-issued navigate carries `resetScroll: false` — never add it by hand.
+- `field.range.toWindow(v)` is the ONLY window→params projection (preset → `{ window }`, custom →
+  `{ from, to }`). Presets the API refuses (`3m`/`6m`/`1y`/`ytd`) declare a `window:` resolver on
+  the field and come back as `{ from, to }`, dropped from the `{ window }` branch — no cast needed.
+  `toApiWindow(resolved, fallback)` in `lib/window-stores.ts` folds the one unreachable
+  `custom: true` guard onto the API default.
+- Define `loaderDeps` whenever the loader depends on search params — without it, changes don't
+  re-trigger the loader. Use `ensureQueryData` (not `fetchQuery`) so cached data is reused.
 
-## Route Structure
-
-```tsx
-export const Route = createFileRoute('/my-page')({
-  validateSearch: myStore.validateSearch,
-  loaderDeps: ({ search }) => search,
-  loader: ({ context, deps }) =>
-    Promise.all([
-      // `field.toWindow` IS the projection — see "The window projection" below.
-      context.queryClient.ensureQueryData(myQueries.summary(windowOf(deps))),
-      context.queryClient.ensureQueryData(myQueries.series(windowOf(deps))),
-    ]),
-  component: MyPage,
-})
-
-function MyPage() {
-  const search = myStore.useValues()
-  // controls take `field`, never value/onChange — see .claude/rules/basalt-controls.md
-}
-```
-
-## validateSearch
-
-- **The store's `validateSearch` is the default answer.** It returns every URL-lane param
-  unconditionally, resolved URL ⊳ localStorage ⊳ fallback, which is also what makes `linkSearch`
-  satisfy `MakeRequiredSearchParams` by construction.
-- **Zod survives only for keys the field vocabulary cannot express** — a free ISO date
-  (`routes/calendar.tsx`) or a `.transform()`ed codec (`routes/astro-window.tsx`'s `lp`/`wx`/
-  `terrain`). Write Zod for THOSE and compose:
-  `validateSearch: (raw) => ({ ...myStore.validateSearch(raw), ...MapSchema.parse(raw) })`.
-  There is no schema-backed store variant and none is coming.
-- Read with `<store>.useValues()`, or take the value as a **prop**. Never
-  `useSearch({ from: '<literal>' })` — a sibling route fails that `from`, and it is
-  `basalt/use-search-from-literal`.
-- **A store field's setter owns its own navigate.** Do not hand-write one beside a control. To
-  clear a sibling key the store does not model, pass the setter a `patch` rather than a second
-  navigate — `setSite(id, { patch: { detailDate: undefined } })` in `astro-window.tsx` is the
-  worked example, and it is ONE navigate, so the field's write cannot be lost. A patch key another
-  field of the same store owns throws in dev: write that one through its own setter.
-- Where you still hand-write a navigate (a route with its own composed keys — `astro-window.tsx`'s
-  `detailDate` and map layers) spread the CURRENT search rather than listing keys, so unrelated
-  params survive. The reducer form `(prev) => …` does not typecheck on a route with required
-  composed keys: TanStack types `prev` as the union of every route's search.
-- Every store-issued navigate carries `resetScroll: false`. Do not add it by hand next to one.
-
-## The window projection
-
-`field.range.toWindow(v)` is the ONLY projection from a range value into API query params: a preset
-becomes `{ window }`, a custom range `{ from, to }`. There is no `resolveWindow` helper and no
-`presetToParams` — a preset the API refuses (`3m`, `6m`, `1y`, `ytd`) declares a resolver on the
-field itself and comes back as `{ from, to }`:
-
-```ts
-window: field.range({
-  presets: ['7d', '30d', '3m', 'all'],
-  fallback: '30d',
-  custom: true,
-  window: { '3m': (now) => ({ from: iso(subMonths(now, 3)), to: iso(now) }) },
-})
-```
-
-Those presets are dropped from `toWindow`'s `{ window }` branch, so the result assigns to the API
-param type with **no cast**. One guard survives, and only on a `custom: true` field: a dateless
-`'custom'` types as `{ window: 'custom' }` (unreachable — the codec rejects it), which
-`toApiWindow(resolved, fallback)` in `lib/window-stores.ts` folds onto the API default.
-
-## loaderDeps
-
-- Define `loaderDeps` whenever the loader depends on search params. Without it, changes to search params do not re-trigger the loader.
-- The `deps` object is forwarded to the loader and should be passed directly to `ensureQueryData` query factories.
-
-## Loaders
-
-- Use `ensureQueryData` (not `fetchQuery`) so cached data is reused.
-- The loader receives `context: { queryClient }` — wired in `main.tsx` router config.
-- Loaders do not return data to the component — components read via `useSuspenseQuery`.
-- When a redirect from another route points here, include the required `search` params or TypeScript raises `MakeRequiredSearchParams`.
-
-## Route Tree
-
-`src/routeTree.gen.ts` is auto-generated by the Vite plugin — never edit it. Regenerated by `tsr generate` (also runs during `typecheck`). File names starting with `__` are reserved by the generator; only `__root.tsx` is valid.
-
-See `~/SourceRoot/dotfiles/rules/tanstack-router.md` for general TanStack Router best practices.
+`src/routeTree.gen.ts` is auto-generated — never edit it (`tsr generate`, also runs in
+`typecheck`). File names starting with `__` are reserved by the generator; only `__root.tsx` is
+valid.
