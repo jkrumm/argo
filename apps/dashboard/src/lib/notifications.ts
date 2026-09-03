@@ -36,6 +36,9 @@ export const NOTIFICATIONS = defineNotifications({
 
   // ── Strength-tracker timer (rest / interval done) ─────────────────────────
   'timer:done': { intent: 'info', toMessage },
+
+  // ── Achievements
+  'achievement:unlocked': { intent: 'success', toMessage },
 })
 
 declare module 'basalt-ui' {

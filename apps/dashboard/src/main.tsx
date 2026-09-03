@@ -6,18 +6,16 @@ import '@mantine/spotlight/styles.layer.css'
 import 'basalt-ui/styles.css'
 import '@mantine/dates/styles.layer.css'
 import '@mantine/schedule/styles.layer.css'
-import './styles/native.css'
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BasaltProvider, createBasaltTheme } from 'basalt-ui'
+import { BasaltErrorBoundary, BasaltProvider, createBasaltTheme } from 'basalt-ui'
 import { BasaltOverlays } from 'basalt-ui/commands'
 import { applyOverrides, loadOverrides } from 'basalt-ui/theme-lab'
-import { ModalsProvider } from '@mantine/modals'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
 import { AuthGate } from './lib/auth-gate'
-import { ErrorBoundary } from './lib/error-boundary'
+import { CrashFallback, reportCrash } from './lib/error-boundary'
 import { queryClient } from './lib/query-client'
 import { router } from './lib/router'
 import { argoPaletteGroups, ARGO_DERIVED } from './lib/series'
@@ -46,21 +44,18 @@ createRoot(rootEl).render(
       // oxlint-disable-next-line no-console
       onError={(error, ctx) => console.error('[basalt]', ctx, error)}
     >
-      <ErrorBoundary>
-        {/* modals stay manually mounted below (unchanged) — disabled here so BasaltOverlays
-            doesn't double-mount ModalsProvider. Notifications now mounts through BasaltOverlays
-            (default flag) instead of a manual <Notifications /> — same bottom-right/limit=5
-            behavior the bare component previously fell back to via Mantine's own defaults. */}
-        <BasaltOverlays modals={false}>
-          <ModalsProvider>
-            <QueryClientProvider client={queryClient}>
-              <AuthGate>
-                <RouterProvider router={router} />
-              </AuthGate>
-            </QueryClientProvider>
-          </ModalsProvider>
+      <BasaltErrorBoundary
+        onError={reportCrash}
+        fallback={(error) => <CrashFallback error={error} />}
+      >
+        <BasaltOverlays>
+          <QueryClientProvider client={queryClient}>
+            <AuthGate>
+              <RouterProvider router={router} />
+            </AuthGate>
+          </QueryClientProvider>
         </BasaltOverlays>
-      </ErrorBoundary>
+      </BasaltErrorBoundary>
     </BasaltProvider>
   </StrictMode>,
 )

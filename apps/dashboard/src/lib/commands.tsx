@@ -11,28 +11,31 @@
  * Spotlight palette), so no hook is available. `lib/nav.tsx` is a leaf that imports nothing from
  * this app, so pulling it in here does not close the import cycle described below.
  *
- * Theme commands need `setColorScheme` (a Mantine hook return value) from the same outside-React
- * context — bridged via `lib/color-scheme-bridge.ts` (`__root.tsx` registers it on mount), the same
- * register-a-setter pattern basalt-ui's own playground uses for its demo:toggle command. It's a
- * separate leaf module rather than living here, to avoid a circular import (this file imports
- * `lib/router.ts`, which imports the generated route tree, which imports `__root.tsx` — so
- * `__root.tsx` importing anything back from THIS file would close the cycle).
- *
  * `help:shortcuts`'s `run` carries an explicit `: void` return-type annotation — without it, TS
  * must INFER the return type from `overlays.open(...)`, which resolves through `BasaltRegister`,
  * which this very file is also augmenting (`commands: typeof COMMANDS`, declared below) — a
  * self-referential cycle ("`COMMANDS` implicitly has type `any`... referenced in its own
  * initializer"). The explicit annotation gives TS a concrete type up front and breaks it.
  */
-import { defineCommands, overlays, type Command } from 'basalt-ui/commands'
+import {
+  defineCommands,
+  defineOverlays,
+  overlays,
+  setColorScheme,
+  ShortcutsHelp,
+  toggleSidebar,
+  type Command,
+} from 'basalt-ui/commands'
 import { flattenNav, type NavItemId } from 'basalt-ui/router-tanstack'
 import { router } from './router'
 import { NAV } from './nav'
-import { setColorScheme } from './color-scheme-bridge'
-import { toggleSidebar } from './sidebar-bridge'
-// Side-effect import: registers the overlays.open('help:shortcuts', …) target used below. Kept in
-// its own file/BasaltRegister augmentation — see overlays.tsx header for why.
-import './overlays'
+
+export const OVERLAYS = defineOverlays({
+  'help:shortcuts': {
+    title: 'Keyboard shortcuts',
+    render: () => <ShortcutsHelp title="Keyboard shortcuts" />,
+  },
+})
 
 /**
  * "Go to …" for every enabled destination in `NAV`, in sidebar order, grouped by its nav section.
@@ -116,5 +119,6 @@ export const COMMANDS = defineCommands({
 declare module 'basalt-ui' {
   interface BasaltRegister {
     commands: typeof COMMANDS
+    overlays: typeof OVERLAYS
   }
 }

@@ -1,4 +1,5 @@
-import { Button, Container, PasswordInput, Stack, Text, Title } from '@mantine/core'
+import { Button, Container, PasswordInput, Stack, Text } from '@mantine/core'
+import { PageTitle } from 'basalt-ui'
 import { fieldKey, inputProps, useBasaltForm } from 'basalt-ui/forms'
 import type { ReactNode } from 'react'
 import { z } from 'zod'
@@ -27,8 +28,7 @@ function TokenPrompt() {
     <Container size="xs" pt={120} pb={64}>
       <Stack gap="lg">
         <Stack gap={4}>
-          {/* theme-allow in-body-page-title — shell-less surface */}
-          <Title order={2}>Argo</Title>
+          <PageTitle title="Argo" />
           <Text c="dimmed" size="sm">
             Enter your API bearer token to continue. It's stored in this browser's localStorage and
             reused on every request.

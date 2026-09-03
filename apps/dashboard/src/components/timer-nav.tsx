@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
 import { Button, Tooltip } from '@mantine/core'
-import { useMediaQuery } from '@mantine/hooks'
 import { IconClock } from '@tabler/icons-react'
 import { useNavigate } from '@tanstack/react-router'
+import { useBreakpoint } from 'basalt-ui'
 import { useTimerStore } from '../lib/timer-store'
 import { strengthStore } from '../lib/window-stores'
 import { subscribeRestTimer } from '../features/strength-tracker/components/rest-timer-bus'
@@ -36,7 +36,7 @@ export function useTimerEngine() {
 /** Compact running-timer pill for the nav. Renders nothing while idle. */
 export function TimerNavWidget() {
   const navigate = useNavigate()
-  const isWide = useMediaQuery('(min-width: 48em)')
+  const isWide = useBreakpoint('sm')
   const restRunning = useTimerStore((s) => s.restRunning)
   const restRemaining = useTimerStore((s) => s.restRemaining)
   const intervalRunning = useTimerStore((s) => s.intervalRunning)
