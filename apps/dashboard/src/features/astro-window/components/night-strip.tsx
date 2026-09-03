@@ -1,6 +1,7 @@
 import { Box, Card, SimpleGrid, Stack, Text, UnstyledButton } from '@mantine/core'
 import { VX } from 'basalt-ui/tokens'
-import { fmtDayLabel, fmtPercent, killerLabel, verdictTone } from '../formulas'
+import { percent } from 'basalt-ui/format'
+import { fmtDayLabel, killerLabel, verdictTone } from '../formulas'
 import type { Night } from '../types'
 
 /**
@@ -62,7 +63,7 @@ export function NightStrip({
                   {night.window?.localStart ?? '—'}
                 </Text>
                 <Text ff="monospace" size="xs" c="dimmed">
-                  {isOut ? killerLabel(night) : fmtPercent(night.moon.illumination)}
+                  {isOut ? killerLabel(night) : percent(night.moon.illumination)}
                 </Text>
               </Stack>
             </UnstyledButton>

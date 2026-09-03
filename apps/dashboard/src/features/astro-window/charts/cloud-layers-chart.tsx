@@ -6,9 +6,10 @@ import {
   VX,
   type ChartSeries,
 } from 'basalt-ui/charts'
+import { percent } from 'basalt-ui/format'
 import { SERIES } from '../../../lib/series'
 import { CHART_HEIGHT, METRIC_TOOLTIPS } from '../constants'
-import { fmtPercent100, hourlyTimeLabel } from '../formulas'
+import { hourlyTimeLabel } from '../formulas'
 import type { HourlyPoint } from '../types'
 
 const CHART_ID = 'astro-cloud-layers'
@@ -55,7 +56,7 @@ function toSeries(def: CloudSeriesDef, hourly: HourlyPoint[]): ChartSeries<Hourl
     mark: 'line',
     strokeWidth: def.strokeWidth,
     getValue: (d) => d[def.key],
-    formatValue: fmtPercent100,
+    formatValue: (v) => percent(v, { input: 'percent' }),
     ...(def.dash !== undefined && { dash: def.dash }),
     ...(flat !== null && { note: `${flat}% all night` }),
   }

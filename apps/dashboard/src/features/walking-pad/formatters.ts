@@ -1,11 +1,9 @@
 // Pure formatters for WalkingPad numbers. No deps on Mantine or charts.
 
-export function formatKm(meters: number, digits = 2): string {
-  return `${(meters / 1000).toFixed(digits)} km`
-}
+import { km } from 'basalt-ui/format'
 
 export function formatMeters(meters: number): string {
-  if (meters >= 1000) return formatKm(meters)
+  if (meters >= 1000) return km(meters)
   return `${Math.round(meters)} m`
 }
 
@@ -20,33 +18,8 @@ export function formatDuration(seconds: number): string {
   return `${m}m`
 }
 
-export function formatDurationClock(seconds: number): string {
-  const total = Math.max(0, Math.round(seconds))
-  const h = Math.floor(total / 3600)
-  const m = Math.floor((total % 3600) / 60)
-  const s = total % 60
-  const mm = String(m).padStart(2, '0')
-  const ss = String(s).padStart(2, '0')
-  if (h > 0) return `${h}:${mm}:${ss}`
-  return `${mm}:${ss}`
-}
-
-export function formatKcal(kcal: number): string {
-  if (kcal >= 1000) return `${(kcal / 1000).toFixed(2)} k cal`
-  return `${Math.round(kcal)} kcal`
-}
-
 export function formatPace(kmh: number, digits = 2): string {
   return `${kmh.toFixed(digits)} km/h`
-}
-
-export function formatSteps(steps: number): string {
-  return steps.toLocaleString('en-US')
-}
-
-export function formatPct(pct: number, digits = 0): string {
-  const sign = pct > 0 ? '+' : ''
-  return `${sign}${(pct * 100).toFixed(digits)}%`
 }
 
 export function formatDeltaKmh(delta: number, digits = 2): string {

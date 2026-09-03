@@ -8,13 +8,8 @@ export {
 } from './constants'
 export {
   formatDuration,
-  formatDurationClock,
-  formatKcal,
-  formatKm,
   formatMeters,
   formatPace,
-  formatPct,
-  formatSteps,
   formatDeltaKmh,
   relativeTime,
 } from './formatters'
