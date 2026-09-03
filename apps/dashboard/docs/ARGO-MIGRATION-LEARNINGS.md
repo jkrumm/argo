@@ -28,4 +28,14 @@ Ledger of every basalt export this migration adopted, rejected or found a gap in
 | W4b | DualPanel + fillBetween.aboveFill | adopt | features/garmin-health/charts/divergence-chart.tsx | 397 → 138 lines, file waiver gone; losses: two-tone legend swatch, hover-dim |
 | W4b | MirroredBars | reject | same | two independent magnitudes, not one signed quantity |
 | W4b | guard chart-missing-aria-label | gap | same | a bare `>=` inside an inline arrow prop truncates the guard's tag regex before `ariaLabel`; ternary hoisted into a helper until basalt fixes the matcher |
+| W4a | PageAside | adopt | features/astro-window/components/site-map.tsx | replaces MapSettingsPanel (docked column + Drawer + resize effect + corner toggle); persistKey astro-map-layers |
+| W4a | AxisBottomNumeric (tickValues) | adopt | features/astro-window/charts/sky-panorama.tsx | compass axis; the hand-rolled plot stays behind a file waiver (continuous azimuth x, basalt #52) |
+| W4a | ChartCard state (empty string) | adopt | astro-window charts + routes/astro-window.tsx error fallbacks | the last local ChartEmpty is deleted; error-boundary fallbacks render ChartCard empty copy |
+| W4a | PanelRow / SliderControl / ToggleFilter | candidate | features/astro-window/components/map-settings-panel.tsx (OpacitySlider ×5, LpRangeSlider, SegmentedControl ×3) | not adopted; 1.30.0 decides on the 300px wrap check |
+| W4c | StatCard sparkline + StatGroup | adopt | features/walking-pad/charts/sparkline-grid-chart.tsx | 136 → 113 lines; StatGroupCols caps at 5 so six tiles wrap 4+2 (note for basalt) |
+| W4c | SparklineGrid | reject | strength-tracker table of sparklines | only instance of that shape across consumers (Rule of Three) |
+| W4c | useBreakpoint | adopt | src/routes/walking-pad.tsx | replaces the last raw useMediaQuery in a route |
+| W4c | emit (achievement:unlocked) | adopt | features/{walking-pad,strength-tracker}/achievements-toast.tsx | per-type colour dropped for one success intent |
+| W4c | overlays.confirm | adopt ×4 | skinfold-history-table, workouts-table, gym-settings-modal, workout-form | @mantine/modals no longer imported by the app |
+| W5a | ThreadFeedRow (title/summary/headerLeft/headerRight/messages/height/classNames) | adopt | features/hermes-chat/hermes-row.tsx | thread-feed-row, chat-view, chat-conversation deleted (−404); voice logic in use-hermes-thread-voice.ts; rows now carded (root slot) |
 Guidance (W6): forms.md, tanstack-query.md, CHART_AUTHORS.md ×2 deleted; tanstack-router.md → 25 lines, CLAUDE.md → 109 lines; charts.md carries the argo chart delta.
