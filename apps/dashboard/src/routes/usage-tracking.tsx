@@ -1,7 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Suspense } from 'react'
-import { Box, Grid, Stack } from '@mantine/core'
+import { Grid, Stack } from '@mantine/core'
 import { PageBar, Section } from 'basalt-ui'
+import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, MultiSelectFilter, SelectFilter } from 'basalt-ui/controls'
 import { usageQueries } from '../lib/queries/usage'
 import { usageStore } from '../lib/window-stores'
@@ -13,10 +14,6 @@ import ErrorRate from '../features/usage-tracking/charts/error-rate'
 import LatencyP95 from '../features/usage-tracking/charts/latency-p95'
 import BillingSplit from '../features/usage-tracking/charts/billing-split'
 import TopProjects from '../features/usage-tracking/charts/top-projects'
-
-function ChartFallback({ height = 280 }: { height?: number }) {
-  return <Box h={height} w="100%" />
-}
 
 export const Route = createFileRoute('/usage-tracking')({
   validateSearch: usageStore.validateSearch,
@@ -62,12 +59,12 @@ function UsageTrackingPage() {
         <Section title="Cost">
           <Grid>
             <Grid.Col span={{ base: 12, lg: 8 }}>
-              <Suspense fallback={<ChartFallback />}>
+              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
                 <CostOverTime {...tsBase} groupBy={search.costGroupBy} />
               </Suspense>
             </Grid.Col>
             <Grid.Col span={{ base: 12, lg: 4 }}>
-              <Suspense fallback={<ChartFallback />}>
+              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
                 <BillingSplit range={search.range} workspace={workspace} />
               </Suspense>
             </Grid.Col>
@@ -77,12 +74,12 @@ function UsageTrackingPage() {
         <Section title="Volume">
           <Grid>
             <Grid.Col span={{ base: 12, lg: 8 }}>
-              <Suspense fallback={<ChartFallback />}>
+              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
                 <TokensOverTime {...tsBase} groupBy={search.tokensGroupBy} />
               </Suspense>
             </Grid.Col>
             <Grid.Col span={{ base: 12, lg: 4 }}>
-              <Suspense fallback={<ChartFallback height={240} />}>
+              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
                 <CacheHitRatio {...tsBase} />
               </Suspense>
             </Grid.Col>
@@ -92,12 +89,12 @@ function UsageTrackingPage() {
         <Section title="Health">
           <Grid>
             <Grid.Col span={{ base: 12, lg: 6 }}>
-              <Suspense fallback={<ChartFallback height={240} />}>
+              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
                 <ErrorRate {...tsBase} />
               </Suspense>
             </Grid.Col>
             <Grid.Col span={{ base: 12, lg: 6 }}>
-              <Suspense fallback={<ChartFallback height={240} />}>
+              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
                 <LatencyP95 {...tsBase} />
               </Suspense>
             </Grid.Col>
@@ -105,7 +102,7 @@ function UsageTrackingPage() {
         </Section>
 
         <Section title="Top projects">
-          <Suspense fallback={<ChartFallback height={280} />}>
+          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
             <TopProjects range={search.range} billing={billing} workspace={workspace} />
           </Suspense>
         </Section>

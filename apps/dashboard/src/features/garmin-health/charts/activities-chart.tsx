@@ -14,7 +14,6 @@ import { ACTIVITY } from '../../../lib/series'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
-import { ChartEmpty } from './empty'
 
 const CHART_HEIGHT = 240
 const CHART_ID = 'activities'
@@ -203,45 +202,43 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
           {activeDays} active · {fmtMin(totalMin)}
         </Text>
       }
+      state={{ empty: points.length === 0 }}
+      placeholderHeight={CHART_HEIGHT}
     >
-      {points.length === 0 ? (
-        <ChartEmpty height={CHART_HEIGHT} />
-      ) : (
-        <Bars
-          ariaLabel="Daily activities stacked by type"
-          data={points}
-          height={CHART_HEIGHT}
-          chartId={CHART_ID}
-          getX={(d) => d.date}
-          getValue={getDayValue}
-          positiveBars={positiveBars}
-          y={{ autoMaxFloor: AXIS_FLOOR_MIN, ticks: 4, format: (v) => fmtMin(v) }}
-          tooltip={{
-            label: (d: ActivityDayPoint) => {
-              const total = Object.values(d.totals).reduce((a, b) => a + b, 0)
-              return total > 0 ? { text: fmtMin(total), color: VX.axis } : null
-            },
-            extraRows: (d: ActivityDayPoint, ctx: CartesianTooltipRowContext<ActivityDayPoint>) => (
-              <>
-                {d.activities
-                  .filter((a) => !ctx.hidden.has(activityTypeMeta(a.type_key).label))
-                  .map((a) => {
-                    const row = activityRowProps(a)
-                    return (
-                      <TooltipRow
-                        key={a.activity_id}
-                        color={row.color}
-                        shape="bar"
-                        label={row.label}
-                        value={row.value}
-                      />
-                    )
-                  })}
-              </>
-            ),
-          }}
-        />
-      )}
+      <Bars
+        ariaLabel="Daily activities stacked by type"
+        data={points}
+        height={CHART_HEIGHT}
+        chartId={CHART_ID}
+        getX={(d) => d.date}
+        getValue={getDayValue}
+        positiveBars={positiveBars}
+        y={{ autoMaxFloor: AXIS_FLOOR_MIN, ticks: 4, format: (v) => fmtMin(v) }}
+        tooltip={{
+          label: (d: ActivityDayPoint) => {
+            const total = Object.values(d.totals).reduce((a, b) => a + b, 0)
+            return total > 0 ? { text: fmtMin(total), color: VX.axis } : null
+          },
+          extraRows: (d: ActivityDayPoint, ctx: CartesianTooltipRowContext<ActivityDayPoint>) => (
+            <>
+              {d.activities
+                .filter((a) => !ctx.hidden.has(activityTypeMeta(a.type_key).label))
+                .map((a) => {
+                  const row = activityRowProps(a)
+                  return (
+                    <TooltipRow
+                      key={a.activity_id}
+                      color={row.color}
+                      shape="bar"
+                      label={row.label}
+                      value={row.value}
+                    />
+                  )
+                })}
+            </>
+          ),
+        }}
+      />
     </ChartCard>
   )
 }

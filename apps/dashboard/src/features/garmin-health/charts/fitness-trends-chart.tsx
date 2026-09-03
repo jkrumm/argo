@@ -16,7 +16,6 @@ import { SERIES } from '../../../lib/series'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
-import { ChartEmpty } from './empty'
 
 const CHART_HEIGHT = 280
 const CHART_ID = 'fitness-trends'
@@ -231,62 +230,60 @@ export default function FitnessTrendsChart({ params }: { params: SummaryParams }
       subtitle="Is my body adapting?"
       info={METRIC_TOOLTIPS.fitnessTrends}
       actions={headerExtra}
+      state={{ empty: chartData.length === 0 }}
+      placeholderHeight={CHART_HEIGHT}
     >
-      {chartData.length === 0 ? (
-        <ChartEmpty height={CHART_HEIGHT} />
-      ) : (
-        <CartesianChart
-          data={chartData}
-          chartId={CHART_ID}
-          getX={(d) => d.date}
-          series={FITNESS_SERIES}
-          y={{ domain: [-2.5, 2.5], ticks: 5, format: fmtSigma }}
-          refLines={[{ value: 0, color: alpha(VX.axis, 0.6), dashed: true }]}
-          height={CHART_HEIGHT}
-          ariaLabel="Resting heart rate and HRV trend z-scores with VO2 max markers"
-        >
-          {({ visible, xScale, yScale, highlighted }) =>
-            visible.map((s) => {
-              const opacity = highlighted === null || highlighted === s.key ? 1 : 0.15
-              if (s.mark === 'line') {
-                return (
-                  <LinePath<FitnessPoint>
-                    key={s.key}
-                    data={chartData.filter((d) => s.getValue(d) !== null)}
-                    x={(d) => xScale(d.date) ?? 0}
-                    y={(d) => yScale(s.getValue(d) ?? 0)}
-                    stroke={s.color}
-                    strokeWidth={LINE_WIDTH}
-                    strokeOpacity={opacity}
-                    curve={curveMonotoneX}
-                  />
-                )
-              }
+      <CartesianChart
+        data={chartData}
+        chartId={CHART_ID}
+        getX={(d) => d.date}
+        series={FITNESS_SERIES}
+        y={{ domain: [-2.5, 2.5], ticks: 5, format: fmtSigma }}
+        refLines={[{ value: 0, color: alpha(VX.axis, 0.6), dashed: true }]}
+        height={CHART_HEIGHT}
+        ariaLabel="Resting heart rate and HRV trend z-scores with VO2 max markers"
+      >
+        {({ visible, xScale, yScale, highlighted }) =>
+          visible.map((s) => {
+            const opacity = highlighted === null || highlighted === s.key ? 1 : 0.15
+            if (s.mark === 'line') {
               return (
-                <Group key={s.key}>
-                  {chartData.map((d) => {
-                    const v = s.getValue(d)
-                    if (v === null) return null
-                    return (
-                      <circle
-                        key={d.date}
-                        cx={xScale(d.date) ?? 0}
-                        cy={yScale(v)}
-                        r={5}
-                        fill={s.color}
-                        fillOpacity={opacity}
-                        stroke={VX.dotStroke}
-                        strokeWidth={2}
-                        strokeOpacity={opacity}
-                      />
-                    )
-                  })}
-                </Group>
+                <LinePath<FitnessPoint>
+                  key={s.key}
+                  data={chartData.filter((d) => s.getValue(d) !== null)}
+                  x={(d) => xScale(d.date) ?? 0}
+                  y={(d) => yScale(s.getValue(d) ?? 0)}
+                  stroke={s.color}
+                  strokeWidth={LINE_WIDTH}
+                  strokeOpacity={opacity}
+                  curve={curveMonotoneX}
+                />
               )
-            })
-          }
-        </CartesianChart>
-      )}
+            }
+            return (
+              <Group key={s.key}>
+                {chartData.map((d) => {
+                  const v = s.getValue(d)
+                  if (v === null) return null
+                  return (
+                    <circle
+                      key={d.date}
+                      cx={xScale(d.date) ?? 0}
+                      cy={yScale(v)}
+                      r={5}
+                      fill={s.color}
+                      fillOpacity={opacity}
+                      stroke={VX.dotStroke}
+                      strokeWidth={2}
+                      strokeOpacity={opacity}
+                    />
+                  )
+                })}
+              </Group>
+            )
+          })
+        }
+      </CartesianChart>
     </ChartCard>
   )
 }

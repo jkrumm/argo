@@ -2,11 +2,11 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Suspense } from 'react'
 import { Stack } from '@mantine/core'
 import { PageBar, Section } from 'basalt-ui'
+import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, RangeFilter } from 'basalt-ui/controls'
 import { DateRangePicker } from 'basalt-ui/controls-dates'
 import { bodyCompStore, toApiWindow } from '../lib/window-stores'
 import { SkinfoldPanel, WeightPanel } from '../features/body-composition'
-import { ChartSkeleton } from '../features/strength-tracker'
 import { skinfoldLogQueries } from '../lib/queries/skinfold-log'
 import { weightLogQueries } from '../lib/queries/weight-log'
 
@@ -58,13 +58,13 @@ function BodyCompositionPage() {
 
       <Stack gap="md">
         <Section title="Body Weight" subtitle="Am I trending toward my goal?">
-          <Suspense fallback={<ChartSkeleton height={420} />}>
+          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={420} />}>
             <WeightPanel params={params} />
           </Suspense>
         </Section>
 
         <Section title="Skinfold / Belly Fat" subtitle="Am I trending leaner?">
-          <Suspense fallback={<ChartSkeleton height={420} />}>
+          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={420} />}>
             <SkinfoldPanel params={params} />
           </Suspense>
         </Section>

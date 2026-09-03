@@ -37,7 +37,6 @@ import { trainingLoadQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
-import { ChartEmpty } from './empty'
 
 const CHART_HEIGHT = 280
 const CHART_ID = 'divergence'
@@ -376,20 +375,18 @@ export default function DivergenceChart({ params }: { params: SummaryParams }) {
       subtitle="Is load spiking or tapering?"
       info={METRIC_TOOLTIPS.loadBalance}
       actions={headerExtra}
+      state={{ empty: points.length === 0 }}
+      placeholderHeight={CHART_HEIGHT}
     >
-      {points.length === 0 ? (
-        <ChartEmpty height={CHART_HEIGHT} />
-      ) : (
-        <ChartFrame
-          series={DIVERGENCE_SERIES}
-          chartId={CHART_ID}
-          height={CHART_HEIGHT}
-          legend={false}
-          ariaLabel={ARIA_LABEL}
-        >
-          {(plot) => <DivergencePlot data={points} plot={plot} highlighted={highlighted} />}
-        </ChartFrame>
-      )}
+      <ChartFrame
+        series={DIVERGENCE_SERIES}
+        chartId={CHART_ID}
+        height={CHART_HEIGHT}
+        legend={false}
+        ariaLabel={ARIA_LABEL}
+      >
+        {(plot) => <DivergencePlot data={points} plot={plot} highlighted={highlighted} />}
+      </ChartFrame>
       <ChartLegend
         items={DIVERGENCE_LEGEND_ITEMS}
         highlighted={highlighted}

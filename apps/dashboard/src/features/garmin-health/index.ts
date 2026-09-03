@@ -7,7 +7,7 @@ export {
   ZONE_COLORS,
   type WindowPreset,
 } from './constants'
-export { HeroStats, Placeholder } from './hero-stats'
+export { HeroStats } from './hero-stats'
 export { useGarminSync, type GarminSync } from './use-garmin-sync'
 export { applyVisibilityFilter, shouldHideTodayNow } from './visibility'
 export {

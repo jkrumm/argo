@@ -6,7 +6,6 @@ import { SERIES } from '../../../lib/series'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
-import { ChartEmpty } from './empty'
 
 const CHART_HEIGHT = 280
 const CHART_ID = 'sleep-breakdown'
@@ -111,92 +110,90 @@ export default function SleepBreakdownChart({ params }: { params: SummaryParams 
       subtitle="How well did I sleep?"
       info={METRIC_TOOLTIPS.sleepStages}
       actions={headerExtra}
+      state={{ empty: sleepData.length === 0 }}
+      placeholderHeight={CHART_HEIGHT}
     >
-      {sleepData.length === 0 ? (
-        <ChartEmpty height={CHART_HEIGHT} />
-      ) : (
-        <Bars
-          ariaLabel="Sleep stages breakdown with sleep score overlay"
-          data={sleepData}
-          height={CHART_HEIGHT}
-          chartId={CHART_ID}
-          getX={(d) => d.date}
-          getValue={sleepGetValue}
-          positiveBars={[
-            {
-              key: SLEEP_KEYS.deep,
-              label: 'Deep',
-              color: SERIES.deep,
-              formatValue: fmtHours,
-            },
-            {
-              key: SLEEP_KEYS.light,
-              label: 'Light',
-              color: SERIES.light,
-              formatValue: fmtHours,
-            },
-            {
-              key: SLEEP_KEYS.rem,
-              label: 'REM',
-              color: SERIES.rem,
-              formatValue: fmtHours,
-            },
-          ]}
-          negativeBars={[
-            {
-              key: SLEEP_KEYS.awake,
-              label: 'Awake',
-              color: SERIES.awake,
-              formatValue: fmtHours,
-            },
-          ]}
-          lines={[
-            {
-              key: SLEEP_KEYS.sleepScore,
-              label: 'Sleep Score',
-              color: VX.line,
-              axisSide: 'right',
-              strokeWidth: 2,
-              formatValue: (v) => String(Math.round(v)),
-            },
-          ]}
-          zones={[{ from: 7, to: 9, fill: VX.goodSoft, axisSide: 'left' }]}
-          y={{
-            domain: 'auto',
-            autoPad: 1.05,
-            autoMaxFloor: 9,
-            autoMinCeil: -1,
-            ticks: 6,
-            format: (v) => (v < 0 ? `−${Math.abs(v)}h` : `${v}h`),
-          }}
-          y2={{ domain: [0, 100], ticks: 4 }}
-          tooltip={{
-            label: (d) =>
-              d.sleepScore === null
-                ? null
-                : {
-                    text: String(Math.round(d.sleepScore)),
-                    color: sleepScoreColor(d.sleepScore),
-                  },
-            prependRows: (d, ctx: CartesianTooltipRowContext<SleepPoint>) => {
-              const total =
-                (ctx.hidden.has(SLEEP_KEYS.deep) ? 0 : d.deep) +
-                (ctx.hidden.has(SLEEP_KEYS.light) ? 0 : d.light) +
-                (ctx.hidden.has(SLEEP_KEYS.rem) ? 0 : d.rem)
-              if (total <= 0) return null
-              return (
-                <TooltipRow
-                  color={VX.line}
-                  label="Total sleep"
-                  value={fmtHours(total)}
-                  shape="line"
-                  strokeWidth={2}
-                />
-              )
-            },
-          }}
-        />
-      )}
+      <Bars
+        ariaLabel="Sleep stages breakdown with sleep score overlay"
+        data={sleepData}
+        height={CHART_HEIGHT}
+        chartId={CHART_ID}
+        getX={(d) => d.date}
+        getValue={sleepGetValue}
+        positiveBars={[
+          {
+            key: SLEEP_KEYS.deep,
+            label: 'Deep',
+            color: SERIES.deep,
+            formatValue: fmtHours,
+          },
+          {
+            key: SLEEP_KEYS.light,
+            label: 'Light',
+            color: SERIES.light,
+            formatValue: fmtHours,
+          },
+          {
+            key: SLEEP_KEYS.rem,
+            label: 'REM',
+            color: SERIES.rem,
+            formatValue: fmtHours,
+          },
+        ]}
+        negativeBars={[
+          {
+            key: SLEEP_KEYS.awake,
+            label: 'Awake',
+            color: SERIES.awake,
+            formatValue: fmtHours,
+          },
+        ]}
+        lines={[
+          {
+            key: SLEEP_KEYS.sleepScore,
+            label: 'Sleep Score',
+            color: VX.line,
+            axisSide: 'right',
+            strokeWidth: 2,
+            formatValue: (v) => String(Math.round(v)),
+          },
+        ]}
+        zones={[{ from: 7, to: 9, fill: VX.goodSoft, axisSide: 'left' }]}
+        y={{
+          domain: 'auto',
+          autoPad: 1.05,
+          autoMaxFloor: 9,
+          autoMinCeil: -1,
+          ticks: 6,
+          format: (v) => (v < 0 ? `−${Math.abs(v)}h` : `${v}h`),
+        }}
+        y2={{ domain: [0, 100], ticks: 4 }}
+        tooltip={{
+          label: (d) =>
+            d.sleepScore === null
+              ? null
+              : {
+                  text: String(Math.round(d.sleepScore)),
+                  color: sleepScoreColor(d.sleepScore),
+                },
+          prependRows: (d, ctx: CartesianTooltipRowContext<SleepPoint>) => {
+            const total =
+              (ctx.hidden.has(SLEEP_KEYS.deep) ? 0 : d.deep) +
+              (ctx.hidden.has(SLEEP_KEYS.light) ? 0 : d.light) +
+              (ctx.hidden.has(SLEEP_KEYS.rem) ? 0 : d.rem)
+            if (total <= 0) return null
+            return (
+              <TooltipRow
+                color={VX.line}
+                label="Total sleep"
+                value={fmtHours(total)}
+                shape="line"
+                strokeWidth={2}
+              />
+            )
+          },
+        }}
+      />
     </ChartCard>
   )
 }

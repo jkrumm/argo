@@ -15,7 +15,6 @@ import { METRIC_TOOLTIPS } from '../constants'
 import { acwrZoneColor, acwrZoneLabel } from '../formulas'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
-import { ChartEmpty } from './empty'
 
 type TrainingLoadPoint = {
   date: string
@@ -81,37 +80,33 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
           </Box>
         ) : null
       }
+      state={{ empty: !hasAcwr }}
+      placeholderHeight={280}
     >
-      {!hasAcwr ? (
-        <ChartEmpty height={280} />
-      ) : (
-        <ZonedLine
-          ariaLabel="Acute:chronic training load ratio with optimal zone"
-          data={points}
-          height={280}
-          chartId="acwr"
-          getX={(d) => d.date}
-          series={ACWR_SERIES}
-          y={{ domain: 'auto', autoMaxFloor: 2.2 }}
-          zones={[{ from: 0.8, to: 1.3, fill: VX.good }]}
-          thresholds={[
-            { value: 1.3, side: 'above', fill: VX.bad },
-            { value: 0.8, side: 'below', fill: VX.warn },
-          ]}
-          refLines={[
-            { value: 0.8, color: VX.warnRef },
-            { value: 1.3, color: VX.goodRef },
-            { value: 1.5, color: VX.badRef },
-          ]}
-          tooltip={{
-            label: (d) =>
-              d.zone === null
-                ? null
-                : { text: acwrZoneLabel(d.zone), color: acwrZoneColor(d.zone) },
-          }}
-          legend={false}
-        />
-      )}
+      <ZonedLine
+        ariaLabel="Acute:chronic training load ratio with optimal zone"
+        data={points}
+        height={280}
+        chartId="acwr"
+        getX={(d) => d.date}
+        series={ACWR_SERIES}
+        y={{ domain: 'auto', autoMaxFloor: 2.2 }}
+        zones={[{ from: 0.8, to: 1.3, fill: VX.good }]}
+        thresholds={[
+          { value: 1.3, side: 'above', fill: VX.bad },
+          { value: 0.8, side: 'below', fill: VX.warn },
+        ]}
+        refLines={[
+          { value: 0.8, color: VX.warnRef },
+          { value: 1.3, color: VX.goodRef },
+          { value: 1.5, color: VX.badRef },
+        ]}
+        tooltip={{
+          label: (d) =>
+            d.zone === null ? null : { text: acwrZoneLabel(d.zone), color: acwrZoneColor(d.zone) },
+        }}
+        legend={false}
+      />
       <ChartLegend items={deriveLegend(ACWR_LEGEND_SERIES)} />
     </ChartCard>
   )

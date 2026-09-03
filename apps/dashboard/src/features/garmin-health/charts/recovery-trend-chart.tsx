@@ -14,7 +14,6 @@ import { recoveryQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
-import { ChartEmpty } from './empty'
 
 type RecoveryPoint = {
   date: string
@@ -76,27 +75,29 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
       : null
 
   return (
-    <ChartCard title="Recovery Trend" info={METRIC_TOOLTIPS.recoveryScore} actions={headerExtra}>
-      {!hasRecovery ? (
-        <ChartEmpty height={280} />
-      ) : (
-        <ZonedLine
-          ariaLabel="Recovery score trend with push/normal/rest zones"
-          data={points}
-          height={280}
-          chartId="recovery-trend"
-          getX={(d) => d.date}
-          series={RECOVERY_SERIES}
-          y={{ domain: [0, 100] }}
-          zones={[
-            { from: 70, to: 100, fill: VX.good },
-            { from: 40, to: 70, fill: VX.warn },
-            { from: 0, to: 40, fill: VX.bad },
-          ]}
-          tooltip={{ label: (d) => (d.recovery === null ? null : recoveryZoneLabel(d.recovery)) }}
-          legend={false}
-        />
-      )}
+    <ChartCard
+      title="Recovery Trend"
+      info={METRIC_TOOLTIPS.recoveryScore}
+      actions={headerExtra}
+      state={{ empty: !hasRecovery }}
+      placeholderHeight={280}
+    >
+      <ZonedLine
+        ariaLabel="Recovery score trend with push/normal/rest zones"
+        data={points}
+        height={280}
+        chartId="recovery-trend"
+        getX={(d) => d.date}
+        series={RECOVERY_SERIES}
+        y={{ domain: [0, 100] }}
+        zones={[
+          { from: 70, to: 100, fill: VX.good },
+          { from: 40, to: 70, fill: VX.warn },
+          { from: 0, to: 40, fill: VX.bad },
+        ]}
+        tooltip={{ label: (d) => (d.recovery === null ? null : recoveryZoneLabel(d.recovery)) }}
+        legend={false}
+      />
       <ChartLegend items={deriveLegend(RECOVERY_LEGEND_SERIES)} />
     </ChartCard>
   )
