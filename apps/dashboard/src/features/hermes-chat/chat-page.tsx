@@ -8,7 +8,7 @@ import { useAgentThreadRuns } from 'basalt-ui/agent'
 import type { AgentThread, ThreadsStore, AgentPart } from 'basalt-ui/agent'
 import { hermesQueries } from '../../lib/queries/hermes'
 import { useUiStore } from '../../lib/store'
-import { HermesThreadRow } from './thread-feed-row'
+import { HermesRow } from './hermes-row'
 import { HERMES_CHAT_FEATURES } from './features'
 import { useVoicePlayback } from './voice/voice-playback'
 import { useVoiceRecorder } from './voice/use-voice-recorder'
@@ -119,7 +119,7 @@ function HermesChatFeedReady({ store }: { store: ThreadsStore<AgentPart> }) {
   // A thread's run entry is deleted from `runs` the moment it finishes (basalt's documented
   // contract — see UseAgentThreadRunsReturn's doc). That transition is the trigger to (a)
   // invalidate the thread's independent messages query so the just-persisted final message
-  // replaces the optimistic overlay (see chat-view.tsx / threads-store.ts's `mergeOptimisticMessages`
+  // replaces the optimistic overlay (see hermes-row.tsx / threads-store.ts's `mergeOptimisticMessages`
   // for why the store's own `thread.messages` is deliberately just that overlay, not the full
   // transcript), and (b) start polling the threads list for the server's async title/summary.
   const prevRunningRef = useRef<ReadonlySet<string>>(new Set())
@@ -240,7 +240,7 @@ function HermesChatFeedReady({ store }: { store: ThreadsStore<AgentPart> }) {
             </Text>
           ) : (
             ordered.map((thread) => (
-              <HermesThreadRow
+              <HermesRow
                 key={thread.id}
                 thread={thread}
                 expanded={thread.id === expandedId}
