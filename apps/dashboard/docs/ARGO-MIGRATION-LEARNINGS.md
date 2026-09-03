@@ -38,4 +38,15 @@ Ledger of every basalt export this migration adopted, rejected or found a gap in
 | W4c | emit (achievement:unlocked) | adopt | features/{walking-pad,strength-tracker}/achievements-toast.tsx | per-type colour dropped for one success intent |
 | W4c | overlays.confirm | adopt ×4 | skinfold-history-table, workouts-table, gym-settings-modal, workout-form | @mantine/modals no longer imported by the app |
 | W5a | ThreadFeedRow (title/summary/headerLeft/headerRight/messages/height/classNames) | adopt | features/hermes-chat/hermes-row.tsx | thread-feed-row, chat-view, chat-conversation deleted (−404); voice logic in use-hermes-thread-voice.ts; rows now carded (root slot) |
+| W2 | format.durationClock / integer / km / kcal / deltaPct | adopt | features/walking-pad/formatters.ts (13 sites) | byte-identical on every sample; deltaPct was dead code |
+| W2 | format.percent / weekday | adopt | features/astro-window/formulas.ts (9 sites) | percent needs input:'percent' + `?? NaN` for nullable inputs; weekday needs locale en-GB |
+| W2 | format.duration | reject | walking-pad formatDuration, reading formatReadTime, astro fmtMinutes | basalt zero-pads minutes ("1h 00m") and renders 0 as "0s"; argo wants "1h 0m" / "0m" — candidate: a compact/no-pad option |
+| W2 | format.relativeTime | reject | walking-pad relativeTime, garmin formatRelativeTime | basalt says "just now" / "3 minutes ago"; argo wants "30s ago" / "3m ago" — candidate: a narrow style option |
+| W5b | AgentTransport.stream ctx.messageId (R1) | adopt | features/hermes-chat/hermes-transport.ts, threads-store.ts | outbound/failed id trackers deleted; mergeOptimisticMessages is id-based |
+| W5b | useAgentThreadRuns.onError (R2) | adopt | features/hermes-chat/chat-page.tsx | generator wrapper deleted; argo rolls back the optimistic bubble itself on a 409 |
+| W5b | onError payload lacks the failed turn's messageId | gap | features/hermes-chat/chat-page.tsx | argo removes "the last user message" of the thread; basalt should pass messageId so the rollback is exact |
+| W5b | reconcile on store.hydrated (R3) | adopt | features/hermes-chat/chat-page.tsx | HermesChatFeed/HermesChatFeedReady collapsed into one component |
+| W5b | ThreadFeed anchor="end" (B5) | adopt | features/hermes-chat/chat-page.tsx | raw scroll box, scrollToBottom and the raw-scroll-container waiver deleted |
+| W5b | createThreadsStore / createAdapterThreadsStore | reject | features/hermes-chat/threads-store.ts | the paginated list endpoint returns no messages; three measured defects when tried |
+| W5b | ThreadWorkspace / ThreadDetailPanel / ThreadOutcomeCard | reject | features/hermes-chat | no renderer/composer seams, hook mounted before hydration, layout not overridable |
 Guidance (W6): forms.md, tanstack-query.md, CHART_AUTHORS.md ×2 deleted; tanstack-router.md → 25 lines, CLAUDE.md → 109 lines; charts.md carries the argo chart delta.
