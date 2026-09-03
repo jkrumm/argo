@@ -21,4 +21,11 @@ Ledger of every basalt export this migration adopted, rejected or found a gap in
 | W3a  | shell PWA chrome (native.css rules)                      | adopt   | src/styles/native.css deleted                                               | html/#root height stays in index.html                                                                           |
 | W3a  | --vx-space-touch-target                                  | reject  | 4 (pointer: coarse) blocks in feature CSS modules                           | component design numbers, not a shared target size                                                              |
 
+| W1b | ChartCard state/placeholderHeight | adopt | 20 chart files, routes/{strength-tracker,walking-pad,astro-window}.tsx | deletes 2 empty.tsx + ChartSkeleton ×2 + Placeholder; DOM-drawn bodies use the same prop; files with two ChartEmpty sites collapse to one `state.empty` OR-chain and drop the shorter-info variant |
+| W3b | unwrap (root) | adopt | src/lib/eden.ts + 84 sites | argo's copy deleted; direct calls type-check |
+| W3b | unwrap overloads vs bare `.then(unwrap)` | gap | src/lib/queries/\*.ts (17 sites) | the two overloads lose inference when passed as a bare callback (2 hard errors, 15 silent `unknown`); argo wraps in `(r) => unwrap(r)` until basalt ships one conditional-typed signature |
+| W3b | EmptyState | adopt | src/routes/reading.tsx | replaces the 22-line EmptyShelf |
+| W4b | DualPanel + fillBetween.aboveFill | adopt | features/garmin-health/charts/divergence-chart.tsx | 397 → 138 lines, file waiver gone; losses: two-tone legend swatch, hover-dim |
+| W4b | MirroredBars | reject | same | two independent magnitudes, not one signed quantity |
+| W4b | guard chart-missing-aria-label | gap | same | a bare `>=` inside an inline arrow prop truncates the guard's tag regex before `ariaLabel`; ternary hoisted into a helper until basalt fixes the matcher |
 Guidance (W6): forms.md, tanstack-query.md, CHART_AUTHORS.md ×2 deleted; tanstack-router.md → 25 lines, CLAUDE.md → 109 lines; charts.md carries the argo chart delta.
