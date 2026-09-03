@@ -1,21 +1,15 @@
 import { useState } from 'react'
 import {
   Accordion,
-  Box,
   Checkbox,
-  CloseButton,
-  Drawer,
-  Group,
   Radio,
   RangeSlider,
-  ScrollArea,
   SegmentedControl,
   Slider,
   Stack,
   Text,
   VisuallyHidden,
 } from '@mantine/core'
-import { VX } from 'basalt-ui/tokens'
 import {
   BASE_LAYERS,
   DEFAULT_LP_YEAR,
@@ -52,17 +46,10 @@ import {
  * The map's layer controls, rendered ENTIRELY from the catalogue in `map-layers.ts` — no control
  * is written per layer, so adding a source is a new row in the table and nothing here changes.
  *
- * Docked, not overlaid: every control below repaints the map live, so a panel that COVERS the map
- * while it is being configured means configuring blind — the original `Drawer` this component used
- * to be did exactly that, and the fix is structural rather than cosmetic. On a wide viewport
- * `MapSettingsPanel` renders as a fixed-width column (`SETTINGS_PANEL_WIDTH`) docked beside the
- * map — `site-map.tsx` sizes it as a sibling in a flex row, so the map SHRINKS to make room rather
- * than getting covered. Below the `(max-width: 48em)` breakpoint there is no room to dock a 320px
- * column next to a still-usable map, so the exact same `MapLayerSections` markup mounts inside a
- * `Drawer` instead — the one mount that still overlays, because at that width there is no live map
- * underneath worth protecting. Both mounts render the identical section stack; only the chrome
- * around it (docked column vs. overlay) differs, driven by the `narrow` prop `site-map.tsx` already
- * needs for its own layout decision.
+ * `MapLayerSections` is mounted by `site-map.tsx` inside a `PageAside` — basalt's shell aside
+ * region owns the docked-column-vs-overlay chrome (desktop column, phone `Panel` pill) that this
+ * module used to hand-roll as `MapSettingsPanel`; every control below still repaints the map
+ * live, so configuring never happens with the map covered.
  *
  * The base map and the pollution ramp are independent controls — a raster base (Satellite,
  * Topographic) and the ramp can be on together. Readability across that combination is the
@@ -76,11 +63,6 @@ import {
 
 /** Percent steps — a 1 % opacity slider is a precision nobody wants on a raster wash. */
 const OPACITY_STEP = 5
-
-/** The docked column's fixed width — narrow enough to leave the map most of the card, wide enough
- * that the sliders and segmented controls below don't wrap. Below the `(max-width: 48em)` mobile
- * breakpoint this component never renders it; see the module docblock. */
-const SETTINGS_PANEL_WIDTH = 320
 
 /** Sections opened by default — the two controls read most often (what's the base, how bright is
  * the sky) stay visible; terrain and the live weather overlays start collapsed. */
@@ -97,73 +79,16 @@ const DEFAULT_OPEN_SECTIONS = ['base', 'lp']
 const OBSERVATION_WEATHER_LAYERS = WEATHER_LAYERS.filter((entry) => entry.source !== 'om-model')
 const MODEL_WEATHER_LAYERS = WEATHER_LAYERS.filter((entry) => entry.source === 'om-model')
 
-export type MapSettingsPanelProps = {
-  opened: boolean
-  onClose: () => void
-  /** Below `(max-width: 48em)` there is no room to dock a column next to a usable map — this
-   * component falls back to the overlay `Drawer` it used to always be. Computed once in
-   * `site-map.tsx` (which needs the same breakpoint for its own layout) rather than re-queried
-   * here, so the two never disagree about which mode is active. */
-  narrow: boolean
-  state: MapLayerState
-  onChange: (next: MapLayerState) => void
-}
-
-export function MapSettingsPanel({
-  opened,
-  onClose,
-  narrow,
-  state,
-  onChange,
-}: MapSettingsPanelProps) {
-  if (narrow) {
-    return (
-      <Drawer opened={opened} onClose={onClose} position="right" size="md" title="Map layers">
-        <MapLayerSections state={state} onChange={onChange} />
-      </Drawer>
-    )
-  }
-
-  // Collapsed: render nothing, not a zero-width column — a `width: 0` box still costs a flex
-  // sibling and a hairline, and `site-map.tsx`'s map column can't fully reclaim the width.
-  if (!opened) return null
-
-  return (
-    <Box
-      h="100%"
-      style={{
-        width: SETTINGS_PANEL_WIDTH,
-        flexShrink: 0,
-        borderLeft: `1px solid ${VX.surface.border}`,
-      }}
-    >
-      <ScrollArea h="100%" type="hover" scrollbars="y" scrollbarSize={9}>
-        <Stack gap="sm" p="sm">
-          <Group justify="space-between" wrap="nowrap" align="center">
-            <Text fw={600} size="sm">
-              Map layers
-            </Text>
-            {/* A second close control: the map-corner toggle that opens this panel is easy to
-                lose at 320px once the eye has moved into the controls below it. */}
-            <CloseButton aria-label="Hide map layers" onClick={onClose} />
-          </Group>
-          <MapLayerSections state={state} onChange={onChange} />
-        </Stack>
-      </ScrollArea>
-    </Box>
-  )
-}
-
 /**
- * The section stack itself — every layer control, shared verbatim between the docked column and
- * the narrow-viewport `Drawer` (see the module docblock). Collapsible via a plain Mantine
- * `Accordion` — `Accordion.Control` carries the section's title (the ONLY visible heading; an
- * earlier version also wrapped each panel's body in `SettingsSection`, whose own title rendered a
- * second, identical heading and whose Card nested a third surface inside the accordion panel
- * inside the docked column). `Accordion.Panel`'s first child is the section's description, plain
- * dimmed text — the same copy `SettingsSection` used to carry, now with nothing wrapping it.
+ * The section stack itself — every layer control, mounted verbatim inside `site-map.tsx`'s
+ * `PageAside`. Collapsible via a plain Mantine `Accordion` — `Accordion.Control` carries the
+ * section's title (the ONLY visible heading; an earlier version also wrapped each panel's body in
+ * `SettingsSection`, whose own title rendered a second, identical heading and whose Card nested a
+ * third surface inside the accordion panel inside the aside). `Accordion.Panel`'s first child is
+ * the section's description, plain dimmed text — the same copy `SettingsSection` used to carry,
+ * now with nothing wrapping it.
  */
-function MapLayerSections({
+export function MapLayerSections({
   state,
   onChange,
 }: {

@@ -1,8 +1,11 @@
+/* theme-allow-file hand-rolled-plot — single plot over a CONTINUOUS azimuth x (basalt #52); no
+   cursor/tooltip/legend-toggle, so CartesianChart's job list does not apply. */
 import { useState } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Box, Group, Slider, Text } from '@mantine/core'
 import {
   alpha,
+  AxisBottomNumeric,
   AxisLeftNumeric,
   ChartCard,
   ChartFrame,
@@ -23,7 +26,6 @@ import { LP_RAMP } from '../map-layers'
 import { METRIC_TOOLTIPS, PANORAMA_HEIGHT } from '../constants'
 import { fmtDegrees, fmtMinutes } from '../formulas'
 import type { HourlyPoint, Site } from '../types'
-import { ChartEmpty } from './empty'
 
 const MARGIN = VX.margin
 const CHART_ID = 'astro-sky-panorama'
@@ -238,9 +240,12 @@ export default function SkyPanorama({
 
   if (samples.length === 0) {
     return (
-      <ChartCard title="Sky Panorama" info={METRIC_TOOLTIPS.skyPanorama}>
-        <ChartEmpty height={PANORAMA_HEIGHT} message="No hourly data for this night" />
-      </ChartCard>
+      <ChartCard
+        title="Sky Panorama"
+        info={METRIC_TOOLTIPS.skyPanorama}
+        state={{ empty: 'No hourly data for this night' }}
+        placeholderHeight={PANORAMA_HEIGHT}
+      />
     )
   }
 
@@ -456,35 +461,24 @@ function PanoramaInner({
         </SvgGroup>
 
         {/* 3. Grid + axis labels. AxisBottomDate is typed for a string/band domain, so the
-            compass axis (a continuous 0–360° scale) is hand-drawn here — same visual treatment
-            (VX.faint text, VX.grid lines, the mono axis font) as every other bottom axis. */}
+            compass grid lines are drawn per azimuth here; the labels themselves come from
+            AxisBottomNumeric below, over the same continuous 0–360° scale. */}
         <GridRows scale={yScale} width={xMax} stroke={VX.grid} numTicks={6} />
-        {COMPASS.map(({ az, label }) => (
-          <SvgGroup key={az}>
-            <Line
-              from={{ x: xScale(az), y: 0 }}
-              to={{ x: xScale(az), y: yMax }}
-              stroke={az === 180 ? VX.divider : VX.grid}
-            />
-            <text
-              x={xScale(az)}
-              y={yMax + 18}
-              textAnchor="middle"
-              fontFamily="var(--basalt-font-mono)"
-              fontSize={VX.axisFont}
-              fill={VX.faint}
-            >
-              {label}
-            </text>
-          </SvgGroup>
+        {COMPASS.map(({ az }) => (
+          <Line
+            key={az}
+            from={{ x: xScale(az), y: 0 }}
+            to={{ x: xScale(az), y: yMax }}
+            stroke={az === 180 ? VX.divider : VX.grid}
+          />
         ))}
-        {/* theme-allow basalt/hand-rolled-plot: `CartesianChart` types x as `getX: (d) => string`
-            over a `scalePoint<string>` band scale, so it cannot express a CONTINUOUS numeric x
-            axis. This panorama's x is azimuth in degrees on a `scaleLinear` over `AZ_DOMAIN` —
-            the terrain silhouette, the skyglow rose and the sun/moon/core tracks are all sampled
-            at arbitrary azimuths, not at shared categorical slots. Assembled from the same parts
-            every other chart gets (`ChartFrame`, `AxisLeftNumeric`), just over its own x scale. */}
         <AxisLeftNumeric scale={yScale} numTicks={6} tickFormat={(v) => `${v}°`} />
+        <AxisBottomNumeric
+          scale={xScale}
+          top={yMax}
+          tickValues={COMPASS.map((c) => c.az)}
+          tickFormat={(v) => COMPASS.find((c) => c.az === v)?.label ?? ''}
+        />
 
         {/* 4. The gate — a threshold, not a series: neutral reference treatment. */}
         <path
