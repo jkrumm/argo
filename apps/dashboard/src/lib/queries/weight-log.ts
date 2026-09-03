@@ -1,5 +1,6 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api, unwrap } from '../eden'
+import { api } from '../eden'
+import { unwrap } from 'basalt-ui'
 
 export type WeightLogWindowParams = {
   window?: '7d' | '30d' | '90d' | 'all'
@@ -25,7 +26,7 @@ export function useCreateWeightLog() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: { date: string; weight_kg: number }) =>
-      api['weight-log'].post(body).then(unwrap),
+      api['weight-log'].post(body).then((r) => unwrap(r)),
     onSuccess: () => void qc.invalidateQueries({ queryKey: weightLogQueries.all() }),
   })
 }
@@ -36,7 +37,7 @@ export function useDeleteWeightLog() {
     mutationFn: (id: number) =>
       api['weight-log']({ id: String(id) })
         .delete()
-        .then(unwrap),
+        .then((r) => unwrap(r)),
     onSuccess: () => void qc.invalidateQueries({ queryKey: weightLogQueries.all() }),
   })
 }

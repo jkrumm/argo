@@ -1,13 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Stack } from '@mantine/core'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { PageBar } from 'basalt-ui'
+import { EmptyState, PageBar, unwrap } from 'basalt-ui'
 import { emit } from 'basalt-ui/notifications'
-import { api, unwrap } from '../lib/eden'
+import { IconBooks } from '@tabler/icons-react'
+import { api } from '../lib/eden'
 import { readingQueries } from '../lib/queries/reading'
 import { HeroStats } from '../features/reading/hero-stats'
 import { ShelfSection } from '../features/reading/shelf-section'
-import { EmptyShelf } from '../features/reading/empty-state'
 import { UnmatchedSection } from '../features/reading/unmatched-section'
 
 export const Route = createFileRoute('/reading')({
@@ -85,7 +85,11 @@ function ReadingPage() {
         <UnmatchedSection />
 
         {shelf.length === 0 ? (
-          <EmptyShelf />
+          <EmptyState
+            icon={<IconBooks size={28} />}
+            title="Your shelf is empty"
+            description="Books appear here once you add them to your shelf on Hardcover. Sync runs daily."
+          />
         ) : (
           <Stack gap="md">
             {SHELF_GROUPS.map(({ statusId, label }) => {

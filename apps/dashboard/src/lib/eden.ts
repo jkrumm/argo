@@ -10,9 +10,3 @@ export const api = treaty<App>(apiBase, {
     return token ? { Authorization: `Bearer ${token}` } : {}
   },
 })
-
-export function unwrap<T>({ data, error }: { data: T | null; error: unknown }): T {
-  if (error) throw error
-  if (data === null || data === undefined) throw new Error('Unexpected null response')
-  return data
-}

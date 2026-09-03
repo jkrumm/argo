@@ -6,7 +6,8 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query'
-import { api, unwrap } from '../eden'
+import { api } from '../eden'
+import { unwrap } from 'basalt-ui'
 
 // The workout being ENTERED, synced across devices — start a session on the Mac,
 // finish it on the phone in the gym, come back. Backed by `/workout-draft`,
@@ -134,7 +135,9 @@ export function useWorkoutDrafts(): {
   const save = useMutation({
     mutationKey: DRAFT_SAVE_KEY,
     mutationFn: ({ exerciseId, draft }: { exerciseId: string; draft: DraftInput }) =>
-      api['workout-draft']({ exerciseId }).put(draft).then(unwrap),
+      api['workout-draft']({ exerciseId })
+        .put(draft)
+        .then((r) => unwrap(r)),
     // The server echoes the whole map, so there is nothing to invalidate — and
     // deliberately no optimistic update: the local copy IS the source of truth
     // until it lands, and writing it into the cache too would make the equality
@@ -144,7 +147,10 @@ export function useWorkoutDrafts(): {
 
   const remove = useMutation({
     mutationKey: DRAFT_SAVE_KEY,
-    mutationFn: (exerciseId: string) => api['workout-draft']({ exerciseId }).delete().then(unwrap),
+    mutationFn: (exerciseId: string) =>
+      api['workout-draft']({ exerciseId })
+        .delete()
+        .then((r) => unwrap(r)),
     onSuccess: (data) => qc.setQueryData(queryKey, data),
   })
 

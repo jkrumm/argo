@@ -1,6 +1,7 @@
 import { queryOptions } from '@tanstack/react-query'
 import { EdenFetchError } from '@elysiajs/eden'
-import { api, unwrap } from '../eden'
+import { api } from '../eden'
+import { unwrap } from 'basalt-ui'
 
 function isNotFoundError(error: unknown): boolean {
   return error instanceof EdenFetchError && error.status === 404
@@ -107,14 +108,20 @@ export type PatchThreadBody = {
 export const hermesMutations = {
   createThread: () => ({
     mutationFn: (body: CreateThreadBody = {}): Promise<HermesThread> =>
-      api.hermes.threads.post(body).then(unwrap),
+      api.hermes.threads.post(body).then((r) => unwrap(r)),
   }),
   patchThread: () => ({
     mutationFn: ({ id, ...body }: PatchThreadBody): Promise<HermesThread> =>
-      api.hermes.threads({ id }).patch(body).then(unwrap),
+      api.hermes
+        .threads({ id })
+        .patch(body)
+        .then((r) => unwrap(r)),
   }),
   deleteThread: () => ({
     mutationFn: (id: string): Promise<{ id: string }> =>
-      api.hermes.threads({ id }).delete().then(unwrap),
+      api.hermes
+        .threads({ id })
+        .delete()
+        .then((r) => unwrap(r)),
   }),
 }

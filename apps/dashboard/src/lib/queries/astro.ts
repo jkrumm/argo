@@ -1,6 +1,7 @@
 import { queryOptions } from '@tanstack/react-query'
 import type { HorizonResponse, VisibilityResponse } from '@argo/api'
-import { api, unwrap } from '../eden'
+import { api } from '../eden'
+import { unwrap } from 'basalt-ui'
 
 export type AstroWindowParams = {
   site: string

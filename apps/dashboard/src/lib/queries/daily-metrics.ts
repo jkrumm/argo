@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query'
-import { api, unwrap } from '../eden'
+import { api } from '../eden'
+import { unwrap } from 'basalt-ui'
 
 export type WindowParams = {
   window?: '7d' | '30d' | '90d' | 'all'
