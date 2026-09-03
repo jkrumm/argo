@@ -19,63 +19,21 @@ Routes live in `src/routes/`. The generated route tree (`src/routeTree.gen.ts`) 
 
 - `__root.tsx` — AppShell sidebar layout + theme toggle + `<Outlet />`
 - `index.tsx` — redirects to `/garmin-health`
+- `astro-window.tsx` — Astro Window page
+- `body-composition.tsx` — Body Composition page
+- `calendar.tsx` — Calendar page
+- `charts-smoke.tsx` — chart smoke-test page
 - `garmin-health.tsx` — Garmin Health page
+- `hermes-chat.tsx` — Hermes Chat page
+- `m365-explorer.tsx` — M365 Explorer page
+- `reading.tsx` — Reading page
 - `strength-tracker.tsx` — Strength Tracker page
+- `usage-tracking.tsx` — Usage Tracking page
+- `walking-pad.tsx` — Walking Pad page
 
-## Adding a Page
+## Adding a page
 
-### 1. Declare the page's store
-
-`src/lib/window-stores.ts` is the ONE place a page's search shape lives — one
-`createSearchStore` per page, over `field.*` descriptors. It is a leaf module (`lib/nav.tsx` reads
-it too), and the value tuples in it are the single source for the type, the control's options and
-the route's validator; a feature's `constants.ts` re-exports them.
-
-```ts
-export const myStore = createSearchStore({
-  key: 'my-page',
-  fields: {
-    window: field.range({ presets: ['7d', '30d', '90d', 'all'], fallback: '30d', custom: true }),
-    tab: field.enum(['charts', 'history'], 'charts'),
-  },
-}).labels({ window: { '7d': '7D', '30d': '30D', '90d': '90D', all: 'All' } })
-```
-
-### 2. Create the route file
-
-`src/routes/<page-name>.tsx`:
-
-```tsx
-export const Route = createFileRoute('/my-page')({
-  validateSearch: myStore.validateSearch,
-  loaderDeps: ({ search }) => search,
-  loader: ({ context, deps }) =>
-    context.queryClient.ensureQueryData(myQueries.summary(myStore.field.window.toWindow(deps))),
-  component: MyPage,
-})
-
-function MyPage() {
-  const search = myStore.useValues()
-  return (
-    <>
-      <PageBar
-        tabs={<ViewTabs field={myStore.field.tab} />}
-        filters={
-          <FilterSet>
-            <RangeFilter field={myStore.field.window} customPicker={DateRangePicker} />
-          </FilterSet>
-        }
-      />
-      {/* … */}
-    </>
-  )
-}
-```
-
-A route whose search carries keys the field vocabulary cannot express (a free date, a
-`.transform()`ed codec) hand-writes Zod for THOSE and composes:
-`validateSearch: (raw) => ({ ...myStore.validateSearch(raw), ...MapSchema.parse(raw) })` —
-`routes/{calendar,astro-window}.tsx` are the two worked examples.
+See `.claude/rules/basalt-state.md`.
 
 **`toWindow` IS the projection — there is no `resolveWindow`.** `field.range.toWindow(v)` gives
 `{ window }` for a preset and `{ from, to }` for a custom range, and the presets argo's API refuses
@@ -90,7 +48,7 @@ runtime): `toApiWindow(resolved, fallback)`, also in `lib/window-stores.ts`. See
 carries a real number in the URL (`?nights=10`) with `min`/`max`/`int` on the FIELD, so nothing
 downstream parses it and the control bounds its own stepper.
 
-### 3. Create the query factory
+### Query factory
 
 `src/lib/queries/<resource>.ts`:
 
@@ -110,52 +68,7 @@ export const myQueries = {
 
 Eden Treaty maps hyphenated path segments with bracket notation (`api['my-resource']`). Nested paths use chaining: `api.docker.homelab.containers.get()`.
 
-### 4. Add the nav entry — `src/lib/nav.tsx`, and nowhere else
-
-`src/lib/nav.tsx` is the app's ONE navigation definition. Add an item to the right `navGroup`:
-
-```tsx
-{
-  id: 'my-page',
-  label: 'My Page',
-  short: 'Mine',              // bar/menu label; falls back to `label`
-  mobile: 'tab',              // 'tab' | 'more' (default) | 'hidden' — max 4 tabs + More
-  icon: <IconSparkles size={ICON} />,
-  link: linkOptions({ to: '/my-page', search: { window: '30d' } }),
-}
-```
-
-That single entry drives the sidebar row, its active state, the mobile bar slot, the Spotlight
-"Go to My Page" command and the breadcrumb. `routes/__root.tsx` only calls
-`useNav(NAV, { badges })` and spreads the result onto `<BasaltShell {...nav} />` — never add a
-`NavLink`, a `useMatchRoute` call or a `renderNavLink` there again. To point anything else at a
-page (an index redirect, an imperative navigate), use `navTarget(NAV, 'my-page')` rather than
-restating `to` + `search`.
-
-A page backed by a store does not state ANY of its defaults here: hand the link the store's own
-click-time thunk — `search: myStore.linkSearch`, **by reference, never called**. A link that also
-carries a key the store does not model spreads it instead:
-`search: () => ({ ...myStore.linkSearch(), date })` (calendar and astro are the only two). The
-route hands the SAME store its `validateSearch`, so the nav link and the route cannot disagree, the
-fallback literal exists in exactly one place, and the page reopens on whatever it was left on. A
-`search:` literal inside `defineNav` is `basalt/search-literal-link`.
-
-`nav.tsx` is a LEAF: it may import `@tanstack/react-router`, `basalt-ui/router-tanstack`, icons
-and `date-fns` — never `routeTree.gen`, `__root.tsx`, or a feature module. `lib/commands.tsx`
-imports it, and `lib/commands.tsx` → `lib/router.ts` → route tree → `__root.tsx`; an edge back
-would close that cycle.
-
-### 5. Add the nav link default search
-
-Put every one of the route's default search params in the `linkOptions({ search })` above —
-`linkOptions` checks `to` and the route's required search keys, so a missing one is a compile
-error (`MakeRequiredSearchParams`). Keys the schema marks OPTIONAL are NOT checked, so a default
-that lives in an optional key can still be dropped silently: diff against the route's own zod
-`SearchSchema` by hand. `routes/astro-window.tsx` is the worked example — its `.transform()`ed
-params are required, and the nav entry hands them the same empty/absent input the URL used to
-carry so the route's own codecs resolve the live defaults.
-
-See `.claude/rules/tanstack-query.md` for the mutation + invalidation pattern.
+**Nav entry:** see `.claude/rules/basalt-state.md`.
 
 ## Theme Toggle
 
@@ -163,65 +76,19 @@ See `.claude/rules/tanstack-query.md` for the mutation + invalidation pattern.
 
 ## Persisted UI state
 
-A value a CONTROL reads or writes — a filter, a tab, a per-chart select — is a store field, never
-`createPersistedState` and never `useState` (law C3). Page-level fields live on the page's
-`createSearchStore`; a per-card select is a `createLocalStore` declared at module scope in the card's
-own file (`strength-tracker/charts/{momentum,inol,weekly-volume,strength-composite}-chart.tsx`,
-`components/recent-records.tsx` — five of them, keyed `strength:<card>`), and walking-pad's metric
-set is a `{ url: false }` field on `walkingStore` rather than a standalone persisted array.
-
-`createPersistedState` from `basalt-ui/state` remains the house API for everything ELSE that must
-survive a reload — versioned `{ v, value }` envelope under `basalt:<key>`, cross-tab, SSR-safe.
-Sidebar collapse moved onto it at basalt-ui 1.21.0
-(`src/lib/sidebar-collapsed.ts`), which is when `BasaltShell`'s own uncontrolled path did; the
-module-scope one-time read that carries the pre-1.21.0 raw `argo-sidebar` value forward is what
-keeps an already-collapsed sidebar collapsed, and `sidebar-collapsed.test.ts` pins it. Three raw
-`localStorage` reads remain and each has a stated reason: `walking-pad/achievements-toast.tsx`
-(module-level watermark, no React subscriber), `hermes-chat/voice/audio-player-card.tsx` (per-id
-dynamic keys — `createPersistedState` is one key per module factory) and
-`strength-tracker/components/timer-core.ts`.
+See `.claude/rules/basalt-state.md`.
 
 ## Head metadata, manifest & service worker
 
-Owned by `basaltAppPlugin` in `vite.config.ts` — the dual `theme-color` metas, the favicon/apple-touch links, the `apple-mobile-web-app-*` set, `darkreader-lock`, the viewport tag, `site.webmanifest` (generated, **not** a file in `public/`) and the `vite-plugin-pwa` service worker. The theme colors are resolved from basalt's `SURFACE.bg` token, so **never hand-write a hex in `index.html` or a manifest** — `basalt-ui check-theme` scans both. `colorScheme: 'dark'` mirrors `BasaltProvider`'s `defaultColorScheme` in `main.tsx` — keep the two in step. `index.html` keeps only `<meta charset>`, `<title>`, the color-scheme script and the module entry (`<meta charset>` is hoisted to the top of `<head>` by the plugin as of 1.21.0, byte 52 of the built document); `public/` keeps only the icon files. See `.claude/rules/basalt-app.md`.
+Owned by `basaltAppPlugin` in `vite.config.ts` — the dual `theme-color` metas, the favicon/apple-touch links, the `apple-mobile-web-app-*` set, `darkreader-lock`, the viewport tag, `site.webmanifest` (generated, **not** a file in `public/`) and the `vite-plugin-pwa` service worker. The theme colors are resolved from basalt's `SURFACE.bg` token, so **never hand-write a hex in `index.html` or a manifest** — `basalt-ui check-theme` scans both. `colorScheme: 'dark'` mirrors `BasaltProvider`'s `defaultColorScheme` in `main.tsx` — keep the two in step. `index.html` keeps only `<meta charset>`, `<title>`, the color-scheme script and the module entry (`<meta charset>` is hoisted to the top of `<head>` by the plugin as of 1.21.0, byte 52 of the built document); `public/` keeps only the icon files. See `.claude/rules/basalt-batteries.md`.
 
 ## Charts
 
-`basalt-ui/charts` ships the visx primitives and is theme-agnostic; `BasaltProvider` (mounted in
-`main.tsx`) bridges Mantine's color scheme to the charts internally — there is no local bridge file
-to maintain.
-
-All chart imports in route components go directly to `basalt-ui/charts`; per-metric series colors
-come from `src/lib/series.ts` (Argo's `defineSeries`-based data dictionary, fed into
-`BasaltProvider`'s `paletteOptions`):
-
-```ts
-import {
-  CartesianChart,
-  ChartCard,
-  ChartLegend,
-  deriveLegend,
-  VX,
-  ZonedLine,
-} from 'basalt-ui/charts'
-import { SERIES } from '../../../lib/series'
-```
-
-Every single-plot cartesian chart composes `CartesianChart` (directly or through a kind) and draws
-only marks off `ctx.visible`; the page-wide cursor is shared by default, so there is no hover-sync
-provider or hook to wire.
-
-See `.claude/rules/basalt-charts.md` for the full primitive and kind contract, and `DESIGN.md` for
-Argo's series dictionary.
+See `.claude/rules/basalt-charts.md` and `.claude/rules/charts.md`.
 
 ## Commands palette & notifications
 
-`main.tsx` mounts `BasaltOverlays` (from `basalt-ui/commands`) inside `BasaltProvider`, which bundles
-the Spotlight command palette (`Cmd/Ctrl+K`), modals, and the notifications toast/history stack.
-The app's command and notification registries are defined once via `defineCommands`/`defineNotifications`
-in `src/lib/commands.tsx` / `src/lib/notifications.ts` (side-effect imported at boot in `main.tsx`,
-before `BasaltOverlays` mounts) — see `.claude/rules/basalt-commands.md` and
-`.claude/rules/basalt-notifications.md` for the registry contract.
+See `.claude/rules/basalt-batteries.md`.
 
 ## Path Aliases
 
