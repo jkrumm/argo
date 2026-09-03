@@ -62,23 +62,31 @@ export function HeroStats({ params }: { params: StrengthQueryParams }) {
   const readiness = data.readiness
   const balance = data.balance
 
+  const dirSubtitle = dir.leaderExercise !== null ? exerciseLabel(dir.leaderExercise) : undefined
+  const dirTone = directionTone(dir.direction)
+  const lqSubtitle = orUndefined(loadQualityLabel(lq.verdict))
+  const lqTone = loadQualityTone(lq.score)
+  const readinessToneValue = readiness !== null ? readinessTone(readiness.score) : undefined
+  const balanceSubtitle = orUndefined(balanceLabel(balance.status))
+  const balanceToneValue = balanceTone(balance.status)
+
   return (
     <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
       <StatCard
         title="Strength Direction"
         info={METRIC_TOOLTIPS.heroStrength}
         value={directionArrow(dir.direction)}
-        subtitle={dir.leaderExercise !== null ? exerciseLabel(dir.leaderExercise) : undefined}
         breakdown={dirBreakdown}
-        tone={directionTone(dir.direction)}
+        {...(dirSubtitle !== undefined && { subtitle: dirSubtitle })}
+        {...(dirTone !== undefined && { tone: dirTone })}
       />
       <StatCard
         title="Load Quality"
         info={METRIC_TOOLTIPS.heroLoadQuality}
         value={String(Math.round(lq.score))}
-        subtitle={orUndefined(loadQualityLabel(lq.verdict))}
         breakdown={lqBreakdown}
-        tone={loadQualityTone(lq.score)}
+        {...(lqSubtitle !== undefined && { subtitle: lqSubtitle })}
+        {...(lqTone !== undefined && { tone: lqTone })}
       />
       {readiness !== null ? (
         <StatCard
@@ -89,20 +97,20 @@ export function HeroStats({ params }: { params: StrengthQueryParams }) {
           breakdown={
             readiness.driver !== null ? [{ label: 'Driver', value: readiness.driver }] : []
           }
-          tone={readinessTone(readiness.score)}
+          {...(readinessToneValue !== undefined && { tone: readinessToneValue })}
         />
       ) : (
         <StatCard
           title="Balance"
           info={METRIC_TOOLTIPS.heroBalance}
           value={balanceSymbol(balance.status)}
-          subtitle={orUndefined(balanceLabel(balance.status))}
           breakdown={
             balance.worstPair !== null
               ? [{ label: balance.worstPair.label, value: balance.worstPair.ratio.toFixed(2) }]
               : []
           }
-          tone={balanceTone(balance.status)}
+          {...(balanceSubtitle !== undefined && { subtitle: balanceSubtitle })}
+          {...(balanceToneValue !== undefined && { tone: balanceToneValue })}
         />
       )}
     </SimpleGrid>

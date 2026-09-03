@@ -68,7 +68,7 @@ export function remarkHermesAccents() {
       const directive = node as unknown as DirectiveNode
       const data = directive.data ?? (directive.data = {})
       if (directive.name === 'badge') {
-        const raw = directive.attributes?.color ?? 'blue'
+        const raw = directive.attributes?.['color'] ?? 'blue'
         const color = raw && BADGE_COLORS.has(raw) ? raw : 'gray'
         data.hName = 'hermes-badge'
         data.hProperties = { className: ['hermes-badge', `c-${color}`] }

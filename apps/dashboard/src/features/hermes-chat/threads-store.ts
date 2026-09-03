@@ -61,12 +61,12 @@ import type { HermesMessage, HermesThread } from '../../lib/queries/hermes'
 function toAgentPart(raw: unknown, fallbackId: string): AgentPart | null {
   if (raw === null || typeof raw !== 'object') return null
   const obj = raw as Record<string, unknown>
-  const type = obj.type === 'dynamic-tool' ? 'tool' : obj.type
+  const type = obj['type'] === 'dynamic-tool' ? 'tool' : obj['type']
   const id =
-    typeof obj.id === 'string'
-      ? obj.id
-      : typeof obj.toolCallId === 'string'
-        ? obj.toolCallId
+    typeof obj['id'] === 'string'
+      ? obj['id']
+      : typeof obj['toolCallId'] === 'string'
+        ? obj['toolCallId']
         : fallbackId
   return parseAgentPart({ ...obj, type, id })
 }

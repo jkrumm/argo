@@ -96,7 +96,7 @@ export function SkinfoldEntryForm() {
               type="submit"
               size="md"
               loading={createSkinfoldLog.isPending}
-              color={justSaved ? 'green' : undefined}
+              {...(justSaved ? { color: 'green' } : {})}
               leftSection={
                 <Transition mounted={justSaved} transition="pop" duration={180}>
                   {(styles) => <IconCheck size={16} style={styles} />}

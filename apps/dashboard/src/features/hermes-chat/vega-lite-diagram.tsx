@@ -166,7 +166,7 @@ function VegaLiteDiagramImpl({ source }: { source: string }) {
       // expressionInterpreter prevents expression injection. dangerouslySetInnerHTML
       // is safe here for the same reason mermaid-diagram.tsx uses it.
       // eslint-disable-next-line react/no-danger
-      <div className={classes.root} dangerouslySetInnerHTML={{ __html: svg }} />
+      <div className={classes['root']} dangerouslySetInnerHTML={{ __html: svg }} />
     )
   }
 

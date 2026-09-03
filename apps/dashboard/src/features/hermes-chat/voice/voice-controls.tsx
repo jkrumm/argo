@@ -55,7 +55,7 @@ export function VoiceControls({
           size={36}
           variant={isRecording ? 'filled' : 'subtle'}
           color={isRecording ? 'red' : 'gray'}
-          disabled={isTranscribing || audioAvailable === false || micDisabled}
+          disabled={isTranscribing || audioAvailable === false || (micDisabled ?? false)}
           onClick={onMicClick}
           aria-label={isRecording ? 'Stop recording' : 'Voice input'}
         >

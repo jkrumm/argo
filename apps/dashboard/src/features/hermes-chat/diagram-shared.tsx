@@ -26,7 +26,7 @@ export function DiagramError({
   children?: ReactNode
 }) {
   return (
-    <Stack gap="xs" className={classes.error}>
+    <Stack gap="xs" className={classes['error']}>
       <Text size="xs" c="dimmed">
         {message}
       </Text>

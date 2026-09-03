@@ -54,7 +54,7 @@ export function TimeOfDayChart({
   matchHeight,
 }: {
   params: WalkingPadWindowParams
-  matchHeight?: number
+  matchHeight?: number | undefined
 }) {
   const { data } = useSuspenseQuery(walkingPadQueries.hourOfDay(params))
   const { ref, width } = useChartSize()

@@ -26,7 +26,7 @@ const TYPE_COLOR: Record<SetType, string> = {
 export interface SetEditorProps {
   sets: SetEntry[]
   onChange?: (sets: SetEntry[]) => void
-  previousSets?: SetEntry[]
+  previousSets?: SetEntry[] | undefined
   readOnly?: boolean
   /**
    * Guided check-off flow: only the first unchecked set is editable + checkable,
@@ -45,9 +45,9 @@ export interface SetEditorProps {
   /** Which bar the exercise uses, when `loadingMode` is 'barbell'. */
   barId?: string
   /** Persists a bar change back to the exercise's entry in the gym profile. */
-  onBarChange?: (barId: string) => void
+  onBarChange?: ((barId: string) => void) | undefined
   /** Opens the gym-equipment settings modal (owned by the parent form). */
-  onOpenSettings?: () => void
+  onOpenSettings?: (() => void) | undefined
   /**
    * True while a keypad popover is open. Weight and reps are buttons, not text
    * fields, so `:focus-within` on the form can't see them — the popovers render
@@ -163,7 +163,7 @@ export function SetEditor({
   return (
     <Box>
       {/* Header row */}
-      <Flex align="center" className={`${cls.header} ${cls.headCell}`}>
+      <Flex align="center" className={`${cls['header']} ${cls['headCell']}`}>
         <Box component="span" w={30} pl={2}>
           Set
         </Box>
@@ -172,10 +172,10 @@ export function SetEditor({
             Previous
           </Box>
         )}
-        <Box component="span" className={cls.cell} ta="center">
+        <Box component="span" className={cls['cell']} ta="center">
           KG
         </Box>
-        <Box component="span" className={cls.cell} ta="center">
+        <Box component="span" className={cls['cell']} ta="center">
           Reps
         </Box>
         {!readOnly && <Box component="span" w={checklist ? 52 : 26} />}
@@ -194,7 +194,7 @@ export function SetEditor({
           <Flex
             key={i}
             align="center"
-            className={cls.row}
+            className={cls['row']}
             data-checklist={checklist}
             data-active={isActive}
             data-hovered={isHovered}
@@ -205,7 +205,7 @@ export function SetEditor({
             {/* Set type label (click to cycle) */}
             <button
               type="button"
-              className={cls.typeButton}
+              className={cls['typeButton']}
               onClick={() => editable && cycleType(i)}
               disabled={!editable}
               style={{ color: TYPE_COLOR[s.set_type] }}
@@ -228,8 +228,8 @@ export function SetEditor({
 
             {/* Weight column */}
             {readOnly ? (
-              <Flex align="center" className={cls.cell}>
-                <Box component="span" className={cls.readOnlyValue}>
+              <Flex align="center" className={cls['cell']}>
+                <Box component="span" className={cls['readOnlyValue']}>
                   {s.weight_kg}
                 </Box>
               </Flex>
@@ -249,10 +249,10 @@ export function SetEditor({
                 }}
                 onOpenSettings={onOpenSettings}
               >
-                <Flex align="center" className={cls.cell}>
+                <Flex align="center" className={cls['cell']}>
                   <button
                     type="button"
-                    className={cls.stepper}
+                    className={cls['stepper']}
                     onClick={() => updateSet(i, 'weight_kg', Math.max(0, s.weight_kg - 0.5))}
                     aria-label="Decrement weight"
                   >
@@ -260,7 +260,7 @@ export function SetEditor({
                   </button>
                   <button
                     type="button"
-                    className={cls.cellTrigger}
+                    className={cls['cellTrigger']}
                     onClick={() => (openRow === i ? setOpenRow(null) : openWeight(i, null))}
                     onKeyDown={(e) => {
                       // Tab still hands off to reps, so the row stays keyboard-fast.
@@ -284,7 +284,7 @@ export function SetEditor({
                   </button>
                   <button
                     type="button"
-                    className={cls.stepper}
+                    className={cls['stepper']}
                     onClick={() => updateSet(i, 'weight_kg', s.weight_kg + 0.5)}
                     aria-label="Increment weight"
                   >
@@ -295,11 +295,11 @@ export function SetEditor({
             )}
 
             {/* Reps column */}
-            <Flex align="center" className={cls.cell}>
+            <Flex align="center" className={cls['cell']}>
               {editable && (
                 <button
                   type="button"
-                  className={cls.stepper}
+                  className={cls['stepper']}
                   onClick={() => updateSet(i, 'reps', Math.max(1, s.reps - 1))}
                   aria-label="Decrement reps"
                 >
@@ -307,7 +307,7 @@ export function SetEditor({
                 </button>
               )}
               {readOnly ? (
-                <Box component="span" className={cls.readOnlyValue}>
+                <Box component="span" className={cls['readOnlyValue']}>
                   {s.reps}
                 </Box>
               ) : (
@@ -323,7 +323,7 @@ export function SetEditor({
                       repsRefs.current[i] = el
                     }}
                     type="button"
-                    className={cls.cellTrigger}
+                    className={cls['cellTrigger']}
                     onClick={() => (openReps === i ? setOpenReps(null) : openRepsPad(i, null))}
                     onKeyDown={(e) => {
                       if (/^[0-9]$/.test(e.key)) {
@@ -342,7 +342,7 @@ export function SetEditor({
               {editable && (
                 <button
                   type="button"
-                  className={cls.stepper}
+                  className={cls['stepper']}
                   onClick={() => updateSet(i, 'reps', Math.min(100, s.reps + 1))}
                   aria-label="Increment reps"
                 >
@@ -358,7 +358,7 @@ export function SetEditor({
                 justify="flex-end"
                 align="center"
                 gap={2}
-                className={cls.actions}
+                className={cls['actions']}
               >
                 {checklist && (
                   /*

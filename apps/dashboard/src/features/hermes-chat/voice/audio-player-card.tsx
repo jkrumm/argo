@@ -365,8 +365,7 @@ export function AudioPlayerCard({
               <Menu.Item
                 key={opt.value}
                 onClick={() => provider.setRate(opt.value)}
-                fw={provider.rate === opt.value ? 'semibold' : undefined}
-                c={provider.rate === opt.value ? 'blue' : undefined}
+                {...(provider.rate === opt.value ? { fw: 'semibold', c: 'blue' } : {})}
               >
                 {opt.label}
               </Menu.Item>

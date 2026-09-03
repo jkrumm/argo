@@ -33,7 +33,7 @@ export interface WeightPopoverProps {
   /** Which bar this exercise uses (from the gym profile's per-exercise config). */
   barId: string
   /** Picking a different bar here persists it for the exercise, not just this set. */
-  onBarChange?: (barId: string) => void
+  onBarChange?: ((barId: string) => void) | undefined
   opened: boolean
   onClose: () => void
   /**
@@ -44,7 +44,7 @@ export interface WeightPopoverProps {
   /** Fires after a keypad commit — caller focuses the reps input. */
   onCommit?: () => void
   /** Fires when the gear icon is tapped — caller owns the gym-settings modal. */
-  onOpenSettings?: () => void
+  onOpenSettings?: (() => void) | undefined
   children: ReactNode
 }
 
@@ -321,13 +321,13 @@ export function WeightPopover({
           ) : (
             <Stack gap="sm">
               <Group justify="center">
-                <Text component="span" className={cls.plateTotal}>
+                <Text component="span" className={cls['plateTotal']}>
                   {formatNumber(total)} kg
                 </Text>
               </Group>
 
               {seedHint !== null && (
-                <Text component="span" size="xs" className={cls.hint}>
+                <Text component="span" size="xs" className={cls['hint']}>
                   {seedHint}
                 </Text>
               )}
@@ -351,45 +351,47 @@ export function WeightPopover({
                 ))}
 
               <Stack gap={4}>
-                <Text component="span" size="xs" className={cls.sideLabel}>
+                <Text component="span" size="xs" className={cls['sideLabel']}>
                   {loadingMode === 'barbell' ? 'per side' : 'total'}
                 </Text>
                 {/* Assembled in flow, inboard end first: weight pill → shaft → collar → plates →
                     sleeve → cap. The sleeve absorbs the leftover width, so the loaded stack always
                     butts against the collar and the empty sleeve shows what's left to load. */}
-                <Box className={cls.barStage}>
+                <Box className={cls['barStage']}>
                   {loadingMode === 'barbell' && (
                     <>
-                      <Box className={cls.barWeightPill}>
-                        <Text component="span" className={cls.barEndLabel}>
+                      <Box className={cls['barWeightPill']}>
+                        <Text component="span" className={cls['barEndLabel']}>
                           {formatNumber(config.barWeight)}
                         </Text>
                       </Box>
-                      <Box className={`${cls.metal} ${cls.shaftInner}`} />
+                      <Box className={`${cls['metal']} ${cls['shaftInner']}`} />
                     </>
                   )}
-                  <Box className={cls.collar} />
-                  <Box className={cls.plateGroup}>
+                  <Box className={cls['collar']} />
+                  <Box className={cls['plateGroup']}>
                     {plateInstances.map(({ weight_kg, key }) => (
                       <button
                         key={key}
                         type="button"
-                        className={cls.plate}
+                        className={cls['plate']}
                         data-highlight={lastAdded === weight_kg}
                         style={plateStyle(weight_kg, denomHeights)}
                         onClick={() => handleRemovePlate(weight_kg)}
                         aria-label={`Remove ${weight_kg} kg plate`}
                       >
-                        <span className={cls.plateLabel}>{weight_kg}</span>
+                        <span className={cls['plateLabel']}>{weight_kg}</span>
                       </button>
                     ))}
                   </Box>
                   {plateInstances.length === 0 && (
-                    <Text component="span" className={cls.emptyBar}>
+                    <Text component="span" className={cls['emptyBar']}>
                       {loadingMode === 'barbell' ? 'bar only' : 'no weight'}
                     </Text>
                   )}
-                  {loadingMode === 'barbell' && <Box className={`${cls.metal} ${cls.sleeve}`} />}
+                  {loadingMode === 'barbell' && (
+                    <Box className={`${cls['metal']} ${cls['sleeve']}`} />
+                  )}
                 </Box>
               </Stack>
 
@@ -402,7 +404,7 @@ export function WeightPopover({
                     <button
                       key={weight_kg}
                       type="button"
-                      className={cls.denomChip}
+                      className={cls['denomChip']}
                       disabled={!availableWeights.includes(weight_kg)}
                       onClick={() => handleAddPlate(weight_kg)}
                     >

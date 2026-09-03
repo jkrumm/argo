@@ -360,7 +360,7 @@ function SourceRow(props: {
   badge?: string
   badgeColor?: string
   selected?: boolean
-  label?: string
+  label?: string | undefined
   onClick: () => void
 }) {
   return (

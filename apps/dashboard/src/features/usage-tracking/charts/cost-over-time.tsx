@@ -24,8 +24,8 @@ export default function CostOverTime({
 }: {
   range: Range
   grain: Grain
-  billing?: BillingValue[]
-  workspace?: WorkspaceValue[]
+  billing?: BillingValue[] | undefined
+  workspace?: WorkspaceValue[] | undefined
   groupBy: CostGroupBy
 }) {
   const { data } = useSuspenseQuery(

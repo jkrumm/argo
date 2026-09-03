@@ -14,7 +14,7 @@ export type Factor = {
   weight: number
   value: number | null
   weighted: number | null
-  detail?: string
+  detail?: string | undefined
 }
 
 export type ShootingWindow = {

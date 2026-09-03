@@ -33,7 +33,7 @@ export interface Bar {
 export interface ExerciseLoading {
   mode: LoadingMode
   /** Which bar, when `mode` is 'barbell'. Falls back to the profile default. */
-  barId?: string
+  barId?: string | undefined
 }
 
 export interface GymProfile {

@@ -42,6 +42,7 @@ export function HeroStats({ params }: { params: WalkingPadWindowParams }) {
         : vol.direction === 'stable'
           ? 'flat'
           : 'na'
+  const volTone = toneFor(volDir)
   const volSubtitle =
     vol.direction === 'insufficient'
       ? 'Not enough prior data to compare yet.'
@@ -59,6 +60,7 @@ export function HeroStats({ params }: { params: WalkingPadWindowParams }) {
         : pace.direction === 'stable'
           ? 'flat'
           : 'na'
+  const paceTone = toneFor(paceDir)
   const paceSubtitle =
     pace.currentAvgKmh === null
       ? 'No walks in this window.'
@@ -83,7 +85,7 @@ export function HeroStats({ params }: { params: WalkingPadWindowParams }) {
         // A percentage, so the card's own default format is the right one — `deltaPct` is a
         // FRACTION on the wire, hence the ×100.
         {...(vol.deltaPct !== null && { delta: vol.deltaPct * 100 })}
-        tone={toneFor(volDir)}
+        {...(volTone !== undefined && { tone: volTone })}
       />
       <StatCard
         title="Pace"
@@ -98,7 +100,7 @@ export function HeroStats({ params }: { params: WalkingPadWindowParams }) {
           deltaFormat: (d: number) => formatDeltaKmh(d, 1),
           deltaGlyph: false,
         })}
-        tone={toneFor(paceDir)}
+        {...(paceTone !== undefined && { tone: paceTone })}
       />
       <StatCard
         title="Streak"

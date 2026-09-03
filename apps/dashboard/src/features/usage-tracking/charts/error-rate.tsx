@@ -15,8 +15,8 @@ export default function ErrorRate({
 }: {
   range: Range
   grain: Grain
-  billing?: BillingValue[]
-  workspace?: WorkspaceValue[]
+  billing?: BillingValue[] | undefined
+  workspace?: WorkspaceValue[] | undefined
 }) {
   const { data } = useSuspenseQuery(
     usageQueries.timeseries({

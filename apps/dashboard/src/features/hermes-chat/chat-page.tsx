@@ -51,7 +51,7 @@ export function HermesChatPage() {
 }
 
 function isPinned(thread: AgentThread): boolean {
-  return thread.meta?.pinned === true
+  return thread.meta?.['pinned'] === true
 }
 
 // `store.threads` is newest-first (the store's own contract). Argo renders bottom-anchored,

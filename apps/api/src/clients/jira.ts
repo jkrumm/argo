@@ -86,7 +86,7 @@ async function jiraWrite<T>(
       Accept: 'application/json',
       'Content-Type': 'application/json',
     },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   })
   const text = await res.text()
   if (!res.ok) {

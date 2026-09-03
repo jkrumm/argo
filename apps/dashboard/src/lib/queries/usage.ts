@@ -32,10 +32,10 @@ export type TimeseriesParams = {
   grain: Grain
   metric: Metric
   groupBy: TimeseriesGroupBy
-  sources?: string[]
-  machines?: string[]
-  billing?: ('max' | 'iu' | 'unknown')[]
-  workspace?: WorkspaceValue[]
+  sources?: string[] | undefined
+  machines?: string[] | undefined
+  billing?: ('max' | 'iu' | 'unknown')[] | undefined
+  workspace?: WorkspaceValue[] | undefined
 }
 
 export type BreakdownParams = {
@@ -43,10 +43,10 @@ export type BreakdownParams = {
   metric: BreakdownMetric
   dimension: BreakdownDimension
   limit?: number
-  sources?: string[]
-  machines?: string[]
-  billing?: ('max' | 'iu' | 'unknown')[]
-  workspace?: WorkspaceValue[]
+  sources?: string[] | undefined
+  machines?: string[] | undefined
+  billing?: ('max' | 'iu' | 'unknown')[] | undefined
+  workspace?: WorkspaceValue[] | undefined
 }
 
 export const usageQueries = {

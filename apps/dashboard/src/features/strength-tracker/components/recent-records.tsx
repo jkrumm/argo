@@ -36,7 +36,12 @@ export function RecentRecords({
   params,
   multiExercise,
 }: {
-  params: { window?: '7d' | '30d' | '90d' | 'all'; from?: string; to?: string; exercises?: string }
+  params: {
+    window?: '7d' | '30d' | '90d' | 'all' | undefined
+    from?: string | undefined
+    to?: string | undefined
+    exercises?: string | undefined
+  }
   multiExercise: boolean
 }) {
   const [metricFilter] = local.field.metric.use()

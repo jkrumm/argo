@@ -8,7 +8,7 @@ import classes from './recording-indicator.module.css'
 export function RecordingIndicator({ recordingMs }: { recordingMs: number }) {
   return (
     <Group gap="xs" align="center" wrap="nowrap" mb="xs">
-      <Box className={classes.dot} />
+      <Box className={classes['dot']} />
       <Text size="xs" c="dimmed">
         Recording
       </Text>

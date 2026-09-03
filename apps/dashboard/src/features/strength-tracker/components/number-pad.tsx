@@ -92,23 +92,23 @@ export function NumberPad({
   return (
     <Stack gap="sm">
       <Group justify="center" gap={4} align="baseline">
-        <Text component="span" className={cls.valueText}>
+        <Text component="span" className={cls['valueText']}>
           {buffer || '0'}
         </Text>
         {unit !== undefined && (
-          <Text component="span" size="sm" className={cls.unit}>
+          <Text component="span" size="sm" className={cls['unit']}>
             {unit}
           </Text>
         )}
       </Group>
 
       <Flex gap="sm">
-        <Box className={cls.digitGrid}>
+        <Box className={cls['digitGrid']}>
           {DIGITS.map((key) => (
             <button
               key={key}
               type="button"
-              className={cls.digitKey}
+              className={cls['digitKey']}
               onClick={() => onDigit(key)}
               aria-label={key}
             >
@@ -120,7 +120,7 @@ export function NumberPad({
           {decimal ? (
             <button
               type="button"
-              className={cls.digitKey}
+              className={cls['digitKey']}
               onClick={() => onDigit('.')}
               aria-label="Decimal point"
             >
@@ -131,7 +131,7 @@ export function NumberPad({
           )}
           <button
             type="button"
-            className={cls.digitKey}
+            className={cls['digitKey']}
             onClick={() => onDigit('0')}
             aria-label="0"
           >
@@ -139,7 +139,7 @@ export function NumberPad({
           </button>
           <button
             type="button"
-            className={cls.digitKey}
+            className={cls['digitKey']}
             onClick={() => onDigit('⌫')}
             aria-label="Backspace"
           >
@@ -150,7 +150,7 @@ export function NumberPad({
         <Stack gap={6} w={44}>
           <button
             type="button"
-            className={cls.stepperBtn}
+            className={cls['stepperBtn']}
             onClick={() => onStep(-stepBy)}
             aria-label={`Decrease ${stepBy}`}
           >
@@ -158,7 +158,7 @@ export function NumberPad({
           </button>
           <button
             type="button"
-            className={cls.stepperBtn}
+            className={cls['stepperBtn']}
             onClick={() => onStep(stepBy)}
             aria-label={`Increase ${stepBy}`}
           >
