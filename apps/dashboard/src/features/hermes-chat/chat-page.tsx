@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Alert, Box, Center, Loader, Stack, Text } from '@mantine/core'
 import { IconAlertTriangle } from '@tabler/icons-react'
-import { Composer } from 'basalt-ui/agent-chat'
+import { Composer, ThreadFeed } from 'basalt-ui/agent-chat'
 import type { ComposerHandle, ComposerSubmit } from 'basalt-ui/agent-chat'
 import { useAgentThreadRuns } from 'basalt-ui/agent'
-import type { AgentThread, ThreadsStore, AgentPart } from 'basalt-ui/agent'
+import type { AgentThread } from 'basalt-ui/agent'
 import { hermesQueries } from '../../lib/queries/hermes'
 import { useUiStore } from '../../lib/store'
 import { HermesRow } from './hermes-row'
@@ -15,7 +15,13 @@ import { useVoiceRecorder } from './voice/use-voice-recorder'
 import { VoiceControls } from './voice/voice-controls'
 import { RecordingIndicator } from './voice/recording-indicator'
 import { useHermesThreads } from './threads-store'
-import { hermesTransport, resolveHermesOutcome, stopHermesThread } from './hermes-transport'
+import {
+  hermesTransport,
+  notifyHermesChatError,
+  resolveHermesOutcome,
+  stopHermesThread,
+  isRejectedTurnError,
+} from './hermes-transport'
 
 // Title/summary polling cadence (mirrors the old client's 1.5s×6 window): Hermes' auto-title pass
 // is fire-and-forget AFTER a turn finishes, so it can land after the run-finish invalidate below
@@ -44,40 +50,6 @@ export function HermesChatPage() {
   return <HermesChatFeed />
 }
 
-// `useAgentThreadRuns`'s mount-time reconcile effect (the resume-after-reload path) is
-// MOUNT-ONLY (`[]` deps) and reads `store.threads` off whatever the store reports at that
-// instant. Mounting it before the store has actually loaded means it sees an empty list and
-// resume is dead — see threads-store.ts's header doc. So the component that calls it is only
-// ever mounted once `store.hydrated` is true, mirroring what basalt's own `ThreadWorkspace`
-// does internally (see `ThreadsStore.hydrated`'s doc, node_modules/basalt-ui/src/agent/thread.d.ts).
-function HermesChatFeed() {
-  const store = useHermesThreads()
-
-  if (!store.hydrated) {
-    if (store.error !== undefined) {
-      return (
-        <Center h={FILL_HEIGHT}>
-          <Alert
-            icon={<IconAlertTriangle size={16} />}
-            color="red"
-            title="Couldn't load threads"
-            maw={420}
-          >
-            {store.error instanceof Error ? store.error.message : 'Failed to load Hermes threads.'}
-          </Alert>
-        </Center>
-      )
-    }
-    return (
-      <Center h={FILL_HEIGHT}>
-        <Loader />
-      </Center>
-    )
-  }
-
-  return <HermesChatFeedReady store={store} />
-}
-
 function isPinned(thread: AgentThread): boolean {
   return thread.meta?.pinned === true
 }
@@ -94,7 +66,12 @@ function orderedFeed(threads: readonly AgentThread[]): AgentThread[] {
   return [...rest.toReversed(), ...pinned.toReversed()]
 }
 
-function HermesChatFeedReady({ store }: { store: ThreadsStore<AgentPart> }) {
+// `useAgentThreadRuns`'s mount-time reconcile effect (the resume-after-reload path) now
+// RE-SWEEPS whenever `store.hydrated` flips true (basalt 1.29 — MIGRATING.md's R3), not just at
+// mount, so both hooks below are called UNCONDITIONALLY (rules-of-hooks) and only the RENDER is
+// gated on hydration, below — no more separate mount-delaying wrapper component.
+function HermesChatFeed() {
+  const store = useHermesThreads()
   const queryClient = useQueryClient()
   const {
     runs,
@@ -104,6 +81,10 @@ function HermesChatFeedReady({ store }: { store: ThreadsStore<AgentPart> }) {
     transport: (threadId) => hermesTransport.forThread(threadId),
     store,
     resolveOutcome: resolveHermesOutcome,
+    onError: ({ threadId, error }) => {
+      if (isRejectedTurnError(error)) store.removeLastUserMessage(threadId)
+      notifyHermesChatError(error)
+    },
   })
 
   // D-A: always ask the server first and inspect `stopped` before touching local state.
@@ -140,34 +121,24 @@ function HermesChatFeedReady({ store }: { store: ThreadsStore<AgentPart> }) {
   }, [runs, queryClient])
 
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const scrollRef = useRef<HTMLDivElement>(null)
   const composerRef = useRef<ComposerHandle>(null)
 
   // After an F5 mid-turn, `useAgentThreadRuns`'s mount-time reconcile resumes the live stream
   // (see hermes-transport.ts / basalt's own doc) but nothing else about the page changes — the row
   // stays collapsed with no visible cue besides the plain elapsed-time label. Auto-open the one
-  // thread that's already streaming as of this mount, so a resumed turn isn't silently invisible
-  // until the user happens to click it. `[]` deps, same "one-time sweep of whatever was persisted
-  // at mount" contract as that reconcile effect: it reads `store.threads` exactly once (mount-only,
-  // gated on `store.hydrated` — see HermesChatFeed above), so it can never re-open a row the user
-  // has since collapsed, and the `expandedId !== null` guard means it never overrides an
-  // already-expanded row either (e.g. a `hermesIntent` `open` that raced it).
+  // thread that's already streaming as of the FIRST hydration, so a resumed turn isn't silently
+  // invisible until the user happens to click it. Same "one-time sweep of whatever was persisted"
+  // contract as before, now keyed on `store.hydrated` flipping true instead of raw mount — this
+  // component's hooks all run before the store has actually loaded (see the doc above), so a
+  // mount-only `[]` effect would see an empty `store.threads` here. The `expandedId !== null` guard
+  // means it never overrides an already-expanded row either (e.g. a `hermesIntent` `open` that
+  // raced it).
   useEffect(() => {
-    if (expandedId !== null) return
+    if (!store.hydrated || expandedId !== null) return
     const streaming = store.threads.filter((thread) => thread.status === 'streaming')
     if (streaming.length === 1 && streaming[0]) setExpandedId(streaming[0].id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  function scrollToBottom() {
-    const el = scrollRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }
-
-  // Start pinned to the newest (bottom) thread, chat-style.
-  useEffect(() => {
-    scrollToBottom()
-  }, [])
+  }, [store.hydrated])
 
   function startChatWith(text: string) {
     const trimmed = text.trim()
@@ -175,7 +146,6 @@ function HermesChatFeedReady({ store }: { store: ThreadsStore<AgentPart> }) {
     const id = store.create()
     setExpandedId(id)
     start(id, trimmed)
-    requestAnimationFrame(() => requestAnimationFrame(scrollToBottom))
   }
 
   function handleComposerSubmit({ text }: ComposerSubmit) {
@@ -227,21 +197,47 @@ function HermesChatFeedReady({ store }: { store: ThreadsStore<AgentPart> }) {
     setExpandedId((prev) => (prev === id ? null : id))
   }
 
+  if (!store.hydrated) {
+    if (store.error !== undefined) {
+      return (
+        <Center h={FILL_HEIGHT}>
+          <Alert
+            icon={<IconAlertTriangle size={16} />}
+            color="red"
+            title="Couldn't load threads"
+            maw={420}
+          >
+            {store.error instanceof Error ? store.error.message : 'Failed to load Hermes threads.'}
+          </Alert>
+        </Center>
+      )
+    }
+    return (
+      <Center h={FILL_HEIGHT}>
+        <Loader />
+      </Center>
+    )
+  }
+
   const ordered = orderedFeed(store.threads)
 
   return (
     <Stack h={FILL_HEIGHT} gap={0} style={{ margin: BLEED_MARGIN }}>
-      {/* theme-allow raw-scroll-container — scrollRef reads scrollTop/scrollHeight directly for scrollToBottom(); ScrollArea's viewport is an internal implementation detail, not a ref-able node. */}
-      <Box ref={scrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-        <Stack gap="xs" p="sm" mih="100%" justify="flex-end">
-          {ordered.length === 0 ? (
+      <Box style={{ flex: 1, minHeight: 0 }}>
+        {ordered.length === 0 ? (
+          <Center h="100%">
             <Text c="dimmed" size="sm" ta="center" py="xl">
               No threads yet. Type below to start.
             </Text>
-          ) : (
-            ordered.map((thread) => (
+          </Center>
+        ) : (
+          <ThreadFeed
+            threads={ordered}
+            activeId={null}
+            onSelect={() => {}}
+            anchor="end"
+            renderRow={(thread) => (
               <HermesRow
-                key={thread.id}
                 thread={thread}
                 expanded={thread.id === expandedId}
                 onToggle={() => toggleThread(thread.id)}
@@ -249,9 +245,9 @@ function HermesChatFeedReady({ store }: { store: ThreadsStore<AgentPart> }) {
                 onSend={(text) => start(thread.id, text)}
                 onStop={() => void handleStop(thread.id)}
               />
-            ))
-          )}
-        </Stack>
+            )}
+          />
+        )}
       </Box>
 
       <Box

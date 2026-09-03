@@ -35,7 +35,7 @@ import classes from './hermes-widget.module.css'
 // ring and the send button. Everything else stays neutral gray.
 
 // Allowed Mantine accents only (DESIGN.md: no teal/violet/grape/indigo/pink).
-// Mirrors thread-feed-row.tsx so the type badges read identically everywhere.
+// Mirrors hermes-row.tsx so the type badges read identically everywhere.
 const TYPE_COLOR: Record<HermesThreadType, string> = {
   todo: 'blue',
   podcast: 'orange',
