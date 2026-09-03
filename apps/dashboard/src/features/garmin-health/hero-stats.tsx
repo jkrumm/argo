@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Card, SimpleGrid, Skeleton, Stack, Text } from '@mantine/core'
+import { Card, SimpleGrid, Skeleton, Text } from '@mantine/core'
 import { StatCard, type StatCardBreakdownRow } from 'basalt-ui'
 import {
   fitnessDirectionQueries,
@@ -124,22 +124,5 @@ export function HeroStats({ params }: { params: SummaryParams }) {
       <FitnessDirectionCard params={params} />
       <TrainingLoadCard params={params} />
     </SimpleGrid>
-  )
-}
-
-/**
- * Lightweight placeholder used while chart subagents are still in flight.
- * Renders a Mantine Card with the chart name and a "Coming soon" message.
- */
-export function Placeholder({ label, height = 240 }: { label: string; height?: number }) {
-  return (
-    <Card py="xs" px="sm">
-      <Stack gap={4} justify="center" align="center" h={height}>
-        <Text fw={600}>{label}</Text>
-        <Text size="xs" c="dimmed">
-          Coming soon
-        </Text>
-      </Stack>
-    </Card>
   )
 }

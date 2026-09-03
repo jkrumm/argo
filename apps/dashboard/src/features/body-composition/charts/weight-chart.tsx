@@ -5,7 +5,6 @@ import { ChartCard, MultiLine, VX, type ChartSeries } from 'basalt-ui/charts'
 import { api, unwrap } from '../../../lib/eden'
 import { weightLogQueries, type WeightLogWindowParams } from '../../../lib/queries/weight-log'
 import { METRIC_TOOLTIPS } from '../constants'
-import { ChartEmpty } from './empty'
 
 type ApiPoint = { date: string; weightKg: number }
 type ChartPoint = {
@@ -175,23 +174,21 @@ export default function WeightChart({ params }: { params: WeightLogWindowParams 
       subtitle="Am I trending toward my goal?"
       info={METRIC_TOOLTIPS.bodyWeight}
       actions={headerExtra}
+      state={{
+        empty:
+          chartData.length === 0 && 'No entries yet — log your first weight to start the trend.',
+      }}
+      placeholderHeight={CHART_HEIGHT}
     >
-      {chartData.length === 0 ? (
-        <ChartEmpty
-          height={CHART_HEIGHT}
-          message="No entries yet — log your first weight to start the trend."
-        />
-      ) : (
-        <MultiLine
-          ariaLabel="Body weight trend over time"
-          data={chartData}
-          height={CHART_HEIGHT}
-          chartId="body-weight"
-          getX={(d) => d.date}
-          series={series}
-          y={{ domain: yDomain }}
-        />
-      )}
+      <MultiLine
+        ariaLabel="Body weight trend over time"
+        data={chartData}
+        height={CHART_HEIGHT}
+        chartId="body-weight"
+        getX={(d) => d.date}
+        series={series}
+        y={{ domain: yDomain }}
+      />
     </ChartCard>
   )
 }

@@ -14,7 +14,6 @@ import { SERIES } from '../../../lib/series'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
-import { ChartEmpty } from './empty'
 
 /**
  * Daily activity target in MET-minutes — matches the WHO weekly floor at 86/day,
@@ -156,67 +155,63 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
           </span>
         ) : null
       }
+      state={{ empty: !hasData }}
+      placeholderHeight={280}
     >
-      {!hasData ? (
-        <ChartEmpty height={280} />
-      ) : (
-        <Bars
-          ariaLabel="Daily activity score by intensity with 30-day average"
-          data={chartData}
-          height={280}
-          chartId="activity-score"
-          getX={(d) => d.date}
-          getValue={getActivityValue}
-          positiveBars={POSITIVE_BARS}
-          lines={LINES}
-          zones={[
-            { from: ACTIVITY_TARGET_SCORE, to: Infinity, fill: VX.goodSoft, axisSide: 'left' },
-          ]}
-          refLines={[{ value: ACTIVITY_TARGET_SCORE, color: VX.goodRef, dashed: true }]}
-          // basalt-ui 1.17 clamps autoMaxFloor before padding (not after), so the floor no longer
-          // needs its own hand-added headroom above the target ref line — the framework's autoPad
-          // (1.1) now supplies it. Keeping the old `* 1.2` here would double-pad to 1.32x the target.
-          y={{ autoMaxFloor: ACTIVITY_TARGET_SCORE, ticks: 5 }}
-          tooltip={{
-            label: (d: ActivityPoint) => {
-              if (d.score === null) return null
-              const pct = Math.round((d.score / ACTIVITY_TARGET_SCORE) * 100)
-              return {
-                text: `${Math.round(d.score)} · ${pct}%`,
-                color: d.score >= ACTIVITY_TARGET_SCORE ? VX.goodSolid : VX.muted,
-              }
-            },
-            prependRows: (d: ActivityPoint, ctx: CartesianTooltipRowContext<ActivityPoint>) => (
-              <>
-                {!ctx.hidden.has('vigorousScore') && (
-                  <TooltipRow
-                    color={SERIES.intensityVigorous}
-                    label="Vigorous"
-                    value={`${d.vigorousMin ?? 0} min`}
-                    shape="bar"
-                  />
-                )}
-                {!ctx.hidden.has('moderateScore') && (
-                  <TooltipRow
-                    color={SERIES.intensityModerate}
-                    label="Moderate"
-                    value={`${d.moderateMin ?? 0} min`}
-                    shape="bar"
-                  />
-                )}
-                {!ctx.hidden.has('walkingScore') && (
-                  <TooltipRow
-                    color={SERIES.intensityWalking}
-                    label="Walking"
-                    value={`${d.walkingSteps.toLocaleString()} steps`}
-                    shape="bar"
-                  />
-                )}
-              </>
-            ),
-          }}
-        />
-      )}
+      <Bars
+        ariaLabel="Daily activity score by intensity with 30-day average"
+        data={chartData}
+        height={280}
+        chartId="activity-score"
+        getX={(d) => d.date}
+        getValue={getActivityValue}
+        positiveBars={POSITIVE_BARS}
+        lines={LINES}
+        zones={[{ from: ACTIVITY_TARGET_SCORE, to: Infinity, fill: VX.goodSoft, axisSide: 'left' }]}
+        refLines={[{ value: ACTIVITY_TARGET_SCORE, color: VX.goodRef, dashed: true }]}
+        // basalt-ui 1.17 clamps autoMaxFloor before padding (not after), so the floor no longer
+        // needs its own hand-added headroom above the target ref line — the framework's autoPad
+        // (1.1) now supplies it. Keeping the old `* 1.2` here would double-pad to 1.32x the target.
+        y={{ autoMaxFloor: ACTIVITY_TARGET_SCORE, ticks: 5 }}
+        tooltip={{
+          label: (d: ActivityPoint) => {
+            if (d.score === null) return null
+            const pct = Math.round((d.score / ACTIVITY_TARGET_SCORE) * 100)
+            return {
+              text: `${Math.round(d.score)} · ${pct}%`,
+              color: d.score >= ACTIVITY_TARGET_SCORE ? VX.goodSolid : VX.muted,
+            }
+          },
+          prependRows: (d: ActivityPoint, ctx: CartesianTooltipRowContext<ActivityPoint>) => (
+            <>
+              {!ctx.hidden.has('vigorousScore') && (
+                <TooltipRow
+                  color={SERIES.intensityVigorous}
+                  label="Vigorous"
+                  value={`${d.vigorousMin ?? 0} min`}
+                  shape="bar"
+                />
+              )}
+              {!ctx.hidden.has('moderateScore') && (
+                <TooltipRow
+                  color={SERIES.intensityModerate}
+                  label="Moderate"
+                  value={`${d.moderateMin ?? 0} min`}
+                  shape="bar"
+                />
+              )}
+              {!ctx.hidden.has('walkingScore') && (
+                <TooltipRow
+                  color={SERIES.intensityWalking}
+                  label="Walking"
+                  value={`${d.walkingSteps.toLocaleString()} steps`}
+                  shape="bar"
+                />
+              )}
+            </>
+          ),
+        }}
+      />
     </ChartCard>
   )
 }

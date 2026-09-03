@@ -5,7 +5,6 @@ import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
-import { ChartEmpty } from './empty'
 
 type BodyBatteryPoint = {
   date: string
@@ -65,43 +64,41 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
       subtitle="Net recovery or deficit?"
       info={METRIC_TOOLTIPS.bodyBattery}
       actions={headerExtra}
+      state={{ empty: points.length === 0 }}
+      placeholderHeight={280}
     >
-      {points.length === 0 ? (
-        <ChartEmpty height={280} />
-      ) : (
-        <Bars
-          ariaLabel="Body battery charged vs drained per day with net line"
-          data={points}
-          height={280}
-          chartId="body-battery"
-          getX={(d) => d.date}
-          getValue={getValue}
-          positiveBars={[
-            { key: 'charged', label: 'Charged', color: VX.goodSolid, formatValue: formatBar },
-          ]}
-          negativeBars={[
-            { key: 'drained', label: 'Drained', color: VX.badSolid, formatValue: formatBar },
-          ]}
-          lines={[
-            {
-              key: 'net',
-              label: 'Net',
-              color: VX.line,
-              axisSide: 'left',
-              strokeWidth: 2,
-              formatValue: formatNet,
-            },
-          ]}
-          y={{
-            domain: 'auto',
-            autoPad: 1.1,
-            autoMaxFloor: 50,
-            autoMinCeil: -50,
-            ticks: 5,
-            format: (v) => (v === 0 ? '0' : v > 0 ? `+${v}` : String(v)),
-          }}
-        />
-      )}
+      <Bars
+        ariaLabel="Body battery charged vs drained per day with net line"
+        data={points}
+        height={280}
+        chartId="body-battery"
+        getX={(d) => d.date}
+        getValue={getValue}
+        positiveBars={[
+          { key: 'charged', label: 'Charged', color: VX.goodSolid, formatValue: formatBar },
+        ]}
+        negativeBars={[
+          { key: 'drained', label: 'Drained', color: VX.badSolid, formatValue: formatBar },
+        ]}
+        lines={[
+          {
+            key: 'net',
+            label: 'Net',
+            color: VX.line,
+            axisSide: 'left',
+            strokeWidth: 2,
+            formatValue: formatNet,
+          },
+        ]}
+        y={{
+          domain: 'auto',
+          autoPad: 1.1,
+          autoMaxFloor: 50,
+          autoMinCeil: -50,
+          ticks: 5,
+          format: (v) => (v === 0 ? '0' : v > 0 ? `+${v}` : String(v)),
+        }}
+      />
     </ChartCard>
   )
 }

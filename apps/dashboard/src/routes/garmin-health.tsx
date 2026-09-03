@@ -1,7 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Suspense } from 'react'
-import { Box, Grid, SimpleGrid, Stack } from '@mantine/core'
+import { Grid, SimpleGrid, Stack } from '@mantine/core'
 import { PageBar, Section } from 'basalt-ui'
+import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, RangeFilter } from 'basalt-ui/controls'
 import { DateRangePicker } from 'basalt-ui/controls-dates'
 import { garminStore, toApiWindow } from '../lib/window-stores'
@@ -20,10 +21,6 @@ import {
   recoveryQueries,
   trainingLoadQueries,
 } from '../lib/queries/daily-metrics'
-
-function ChartFallback({ height = 320 }: { height?: number }) {
-  return <Box h={height} w="100%" />
-}
 
 // ── Route definition ───────────────────────────────────────────────────────
 
@@ -77,17 +74,17 @@ function GarminHealthPage() {
 
         {/* Section 1: Activity & Fitness */}
         <Section title="Activity & Fitness">
-          <Suspense fallback={<ChartFallback height={240} />}>
+          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
             <ActivitiesChart params={params} />
           </Suspense>
           <Grid>
             <Grid.Col span={{ base: 12, lg: 6 }}>
-              <Suspense fallback={<ChartFallback />}>
+              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
                 <ActivityScoreChart params={params} />
               </Suspense>
             </Grid.Col>
             <Grid.Col span={{ base: 12, lg: 6 }}>
-              <Suspense fallback={<ChartFallback />}>
+              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
                 <FitnessTrendsChart params={params} />
               </Suspense>
             </Grid.Col>
@@ -97,10 +94,10 @@ function GarminHealthPage() {
         {/* Section 2: Training Load */}
         <Section title="Training Load">
           <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-            <Suspense fallback={<ChartFallback />}>
+            <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <AcwrChart params={params} />
             </Suspense>
-            <Suspense fallback={<ChartFallback />}>
+            <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <DivergenceChart params={params} />
             </Suspense>
           </SimpleGrid>
@@ -109,10 +106,10 @@ function GarminHealthPage() {
         {/* Section 3: Recovery & Sleep */}
         <Section title="Recovery & Sleep">
           <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-            <Suspense fallback={<ChartFallback />}>
+            <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <RecoveryTrendChart params={params} />
             </Suspense>
-            <Suspense fallback={<ChartFallback />}>
+            <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <SleepBreakdownChart params={params} />
             </Suspense>
           </SimpleGrid>
@@ -121,10 +118,10 @@ function GarminHealthPage() {
         {/* Section 4: Energy & Stress */}
         <Section title="Energy & Stress">
           <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-            <Suspense fallback={<ChartFallback />}>
+            <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <BodyBatteryChart params={params} />
             </Suspense>
-            <Suspense fallback={<ChartFallback />}>
+            <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <StressChart params={params} />
             </Suspense>
           </SimpleGrid>

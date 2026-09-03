@@ -13,7 +13,6 @@ import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
-import { ChartEmpty } from './empty'
 
 const CHART_HEIGHT = 280
 const CHART_ID = 'stress'
@@ -108,12 +107,10 @@ export default function StressChart({ params }: { params: SummaryParams }) {
           </span>
         ) : null
       }
+      state={{ empty: chartData.length === 0 }}
+      placeholderHeight={CHART_HEIGHT}
     >
-      {chartData.length === 0 ? (
-        <ChartEmpty height={CHART_HEIGHT} />
-      ) : (
-        <StressPlot data={chartData} />
-      )}
+      <StressPlot data={chartData} />
     </ChartCard>
   )
 }
