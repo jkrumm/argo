@@ -77,27 +77,16 @@ export const m365Queries = {
 
 export const m365Mutations = {
   upsertLabel: () => ({
-    mutationFn: (body: LabelUpsertBody) => api.m365.labels.post(body).then((r) => unwrap(r)),
+    mutationFn: (body: LabelUpsertBody) => api.m365.labels.post(body).then(unwrap),
   }),
   deleteLabel: () => ({
-    mutationFn: (sourceId: string) =>
-      api.m365
-        .labels({ sourceId })
-        .delete()
-        .then((r) => unwrap(r)),
+    mutationFn: (sourceId: string) => api.m365.labels({ sourceId }).delete().then(unwrap),
   }),
   renameTag: () => ({
     mutationFn: ({ tag, to }: { tag: string; to: string }) =>
-      api.m365
-        .tags({ tag })
-        .patch({ to })
-        .then((r) => unwrap(r)),
+      api.m365.tags({ tag }).patch({ to }).then(unwrap),
   }),
   deleteTag: () => ({
-    mutationFn: (tag: string) =>
-      api.m365
-        .tags({ tag })
-        .delete()
-        .then((r) => unwrap(r)),
+    mutationFn: (tag: string) => api.m365.tags({ tag }).delete().then(unwrap),
   }),
 }

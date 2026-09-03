@@ -14,10 +14,10 @@
     ".claude/skills/basalt-app/SKILL.md": "9797c65dd0a137894f7e29cb64ee42871fd72668e33fda68bcfa5f3badb1aba7",
     ".claude/skills/basalt-design/SKILL.md": "989ce7b4dbb7f94309459428c1b83de47d9aca2233aebbd68adb0b6cbaccfc42",
     ".claude/skills/basalt-charts/SKILL.md": "29c7c8e8844e607c027b40088f3e833975071952f954718a263c12e917e21b9a",
-    ".claude/rules/basalt-batteries.md": "7006637b37251981836fd19eea81ca520826bca09c6f659e09bdef28e7b4c055",
+    ".claude/rules/basalt-batteries.md": "2303de24358da0463ec123828dd9ec2a3d0863a42ab2d21c95b910ec4e1a5f85",
     ".claude/rules/basalt-controls.md": "b8e8665f8b795a426a84de50e5df9ccaab0341533ba3abd7865ca567f27a00a4"
   },
-  "basaltVersion": "1.29.0",
+  "basaltVersion": "1.29.2",
   "spacingScale": {
     "xs": 11,
     "sm": 13,

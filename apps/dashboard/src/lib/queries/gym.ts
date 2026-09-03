@@ -102,7 +102,7 @@ export function useGyms(): {
 
   const save = useMutation({
     mutationKey: GYM_SAVE_KEY,
-    mutationFn: (next: GymState) => api.gym.put(next).then((r) => unwrap(r)),
+    mutationFn: (next: GymState) => api.gym.put(next).then(unwrap),
     // Optimistic, because every caller is a settings control the user is
     // actively dragging — waiting on a round-trip would make the plate rack
     // feel broken. The mirror moves with it, so a reload mid-flight isn't a

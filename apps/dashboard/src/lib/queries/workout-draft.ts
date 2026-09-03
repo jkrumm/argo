@@ -135,9 +135,7 @@ export function useWorkoutDrafts(): {
   const save = useMutation({
     mutationKey: DRAFT_SAVE_KEY,
     mutationFn: ({ exerciseId, draft }: { exerciseId: string; draft: DraftInput }) =>
-      api['workout-draft']({ exerciseId })
-        .put(draft)
-        .then((r) => unwrap(r)),
+      api['workout-draft']({ exerciseId }).put(draft).then(unwrap),
     // The server echoes the whole map, so there is nothing to invalidate — and
     // deliberately no optimistic update: the local copy IS the source of truth
     // until it lands, and writing it into the cache too would make the equality
@@ -147,10 +145,7 @@ export function useWorkoutDrafts(): {
 
   const remove = useMutation({
     mutationKey: DRAFT_SAVE_KEY,
-    mutationFn: (exerciseId: string) =>
-      api['workout-draft']({ exerciseId })
-        .delete()
-        .then((r) => unwrap(r)),
+    mutationFn: (exerciseId: string) => api['workout-draft']({ exerciseId }).delete().then(unwrap),
     onSuccess: (data) => qc.setQueryData(queryKey, data),
   })
 
