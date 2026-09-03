@@ -106,7 +106,7 @@ export function invalidateWorkoutData(qc: ReturnType<typeof useQueryClient>) {
 export function useCreateWorkout() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: CreateWorkoutInput) => api.workouts.post(body).then((r) => unwrap(r)),
+    mutationFn: (body: CreateWorkoutInput) => api.workouts.post(body).then(unwrap),
     onSuccess: () => invalidateWorkoutData(qc),
   })
 }
@@ -118,7 +118,7 @@ export function useUpdateWorkout() {
       api
         .workouts({ id: String(id) })
         .patch({ date, exercise_id, notes, sets })
-        .then((r) => unwrap(r)),
+        .then(unwrap),
     onSuccess: () => invalidateWorkoutData(qc),
   })
 }
@@ -130,7 +130,7 @@ export function useDeleteWorkout() {
       api
         .workouts({ id: String(id) })
         .delete()
-        .then((r) => unwrap(r)),
+        .then(unwrap),
     onSuccess: () => invalidateWorkoutData(qc),
   })
 }

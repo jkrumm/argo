@@ -152,11 +152,7 @@ function RootLayout() {
         <Outlet />
       </BasaltShell>
       {import.meta.env.DEV && (
-        // `router` cast: basalt-ui's `DevDockRouter` type has no property overlap with the real
-        // TanStack `Router` instance (TS "weak type" detection) and its `Record<string, unknown>`
-        // fallback branch has no index signature either — the real value is passed through
-        // untouched, only the type is bridged at this boundary. BASALT GAP, see report.
-        <BasaltDevDock tool={devTool} onClose={() => setDevTool(null)} router={router as never} />
+        <BasaltDevDock tool={devTool} onClose={() => setDevTool(null)} router={router} />
       )}
     </VoicePlaybackProvider>
   )

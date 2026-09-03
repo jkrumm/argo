@@ -101,13 +101,10 @@ export type CreateThreadBody = {
 export const hermesMutations = {
   createThread: () => ({
     mutationFn: (body: CreateThreadBody = {}): Promise<HermesThread> =>
-      api.hermes.threads.post(body).then((r) => unwrap(r)),
+      api.hermes.threads.post(body).then(unwrap),
   }),
   deleteThread: () => ({
     mutationFn: (id: string): Promise<{ id: string }> =>
-      api.hermes
-        .threads({ id })
-        .delete()
-        .then((r) => unwrap(r)),
+      api.hermes.threads({ id }).delete().then(unwrap),
   }),
 }

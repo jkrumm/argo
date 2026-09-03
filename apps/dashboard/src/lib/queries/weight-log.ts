@@ -26,7 +26,7 @@ export function useCreateWeightLog() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: { date: string; weight_kg: number }) =>
-      api['weight-log'].post(body).then((r) => unwrap(r)),
+      api['weight-log'].post(body).then(unwrap),
     onSuccess: () => void qc.invalidateQueries({ queryKey: weightLogQueries.all() }),
   })
 }
@@ -37,7 +37,7 @@ export function useDeleteWeightLog() {
     mutationFn: (id: number) =>
       api['weight-log']({ id: String(id) })
         .delete()
-        .then((r) => unwrap(r)),
+        .then(unwrap),
     onSuccess: () => void qc.invalidateQueries({ queryKey: weightLogQueries.all() }),
   })
 }

@@ -44,8 +44,7 @@ export const skinfoldLogQueries = {
 export function useCreateSkinfoldLog() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: CreateSkinfoldLogInput) =>
-      api['skinfold-log'].post(body).then((r) => unwrap(r)),
+    mutationFn: (body: CreateSkinfoldLogInput) => api['skinfold-log'].post(body).then(unwrap),
     onSuccess: () => void qc.invalidateQueries({ queryKey: skinfoldLogQueries.all() }),
   })
 }
@@ -56,7 +55,7 @@ export function useDeleteSkinfoldLog() {
     mutationFn: (id: number) =>
       api['skinfold-log']({ id: String(id) })
         .delete()
-        .then((r) => unwrap(r)),
+        .then(unwrap),
     onSuccess: () => void qc.invalidateQueries({ queryKey: skinfoldLogQueries.all() }),
   })
 }
