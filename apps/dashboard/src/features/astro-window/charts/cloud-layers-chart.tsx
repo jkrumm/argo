@@ -10,7 +10,6 @@ import { SERIES } from '../../../lib/series'
 import { CHART_HEIGHT, METRIC_TOOLTIPS } from '../constants'
 import { fmtPercent100, hourlyTimeLabel } from '../formulas'
 import type { HourlyPoint } from '../types'
-import { ChartEmpty } from './empty'
 
 const CHART_ID = 'astro-cloud-layers'
 // The 0 gridline is not the plot floor — a series pinned at 0% (a common outcome for "low cloud")
@@ -85,37 +84,38 @@ export default function CloudLayersChart({ hourly }: { hourly: HourlyPoint[] }) 
   const formatX = hourlyTimeLabel(hourly)
 
   return (
-    <ChartCard title="Cloud Layers" info={METRIC_TOOLTIPS.cloudLayers}>
-      {series.length === 0 ? (
-        <ChartEmpty height={CHART_HEIGHT} message="No cloud data for this night" />
-      ) : (
-        <CartesianChart
-          data={hourly}
-          chartId={CHART_ID}
-          getX={(d) => d.time}
-          formatX={formatX}
-          series={series}
-          y={{ domain: Y_DOMAIN, ticks: Y_TICKS, format: (v) => `${v}%` }}
-          height={CHART_HEIGHT}
-          tooltip={{ formatHeader: (_key, d) => d.localTime, onFollow: true }}
-          ariaLabel="Low, mid and high cloud cover across the night"
-        >
-          {({ visible, xScale, yScale }) =>
-            visible.map((s) => (
-              <LinePath<HourlyPoint>
-                key={s.key}
-                data={hourly.filter((d) => s.getValue(d) !== null)}
-                x={(d) => xScale(d.time) ?? 0}
-                y={(d) => yScale(s.getValue(d) ?? 0)}
-                stroke={s.color}
-                strokeWidth={s.strokeWidth}
-                strokeDasharray={s.dash === 'dashed' ? VX.dashArray : undefined}
-                curve={curveMonotoneX}
-              />
-            ))
-          }
-        </CartesianChart>
-      )}
+    <ChartCard
+      title="Cloud Layers"
+      info={METRIC_TOOLTIPS.cloudLayers}
+      state={{ empty: series.length === 0 && 'No cloud data for this night' }}
+      placeholderHeight={CHART_HEIGHT}
+    >
+      <CartesianChart
+        data={hourly}
+        chartId={CHART_ID}
+        getX={(d) => d.time}
+        formatX={formatX}
+        series={series}
+        y={{ domain: Y_DOMAIN, ticks: Y_TICKS, format: (v) => `${v}%` }}
+        height={CHART_HEIGHT}
+        tooltip={{ formatHeader: (_key, d) => d.localTime, onFollow: true }}
+        ariaLabel="Low, mid and high cloud cover across the night"
+      >
+        {({ visible, xScale, yScale }) =>
+          visible.map((s) => (
+            <LinePath<HourlyPoint>
+              key={s.key}
+              data={hourly.filter((d) => s.getValue(d) !== null)}
+              x={(d) => xScale(d.time) ?? 0}
+              y={(d) => yScale(s.getValue(d) ?? 0)}
+              stroke={s.color}
+              strokeWidth={s.strokeWidth}
+              strokeDasharray={s.dash === 'dashed' ? VX.dashArray : undefined}
+              curve={curveMonotoneX}
+            />
+          ))
+        }
+      </CartesianChart>
     </ChartCard>
   )
 }

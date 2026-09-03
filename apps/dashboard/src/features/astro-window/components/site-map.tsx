@@ -11,11 +11,9 @@ import {
   Slider,
   Stack,
   Text,
-  Tooltip,
   useComputedColorScheme,
 } from '@mantine/core'
-import { useMediaQuery } from '@mantine/hooks'
-import { IconAdjustments, IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react'
+import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import {
   AttributionControl,
@@ -35,7 +33,7 @@ import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&ur
 // The map primitive's own stylesheet — imported here (not globally) so it only ships to the
 // bundle when this lazy-loaded component is actually reached.
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { createPersistedState } from 'basalt-ui/state'
+import { PageAside } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { astroQueries } from '../../../lib/queries/astro'
 import { rainviewerQueries } from '../../../lib/queries/rainviewer'
@@ -43,7 +41,6 @@ import { openMeteoMapsQueries } from '../../../lib/queries/open-meteo-maps'
 import { apiBase } from '../../../lib/api-base'
 import { getToken } from '../../../lib/auth'
 import { MAP_MIN_HEIGHT } from '../constants'
-import { ChartEmpty } from '../charts/empty'
 import {
   baseLayer,
   buildTimeTicks,
@@ -79,7 +76,7 @@ import {
   syncTerrain,
   type OverlayState,
 } from './map-overlays'
-import { MapSettingsPanel } from './map-settings-panel'
+import { MapLayerSections } from './map-settings-panel'
 import { ScoutPanel } from './scout-panel'
 
 /*
@@ -115,22 +112,6 @@ function transformRequest(url: string): RequestParameters {
   const token = getToken()
   return token === null ? { url } : { url, headers: { Authorization: `Bearer ${token}` } }
 }
-
-/**
- * Whether the settings panel is open — a VIEWING preference (see the call site's own comment),
- * not part of a shareable map configuration, so it lives outside the URL. `createPersistedState`
- * (`basalt-ui/state`) replaces the earlier `@mantine/hooks` `useLocalStorage`: it is the
- * framework's own versioned/namespaced primitive, the same one `lib/gym-profile.ts`'s
- * `useGymMirror` and `strength-tracker/components/weight-popover.tsx`'s `useWeightView` already
- * use — called once here at module scope, per that shared convention, not inside the component.
- * The key is un-namespaced on purpose (`createPersistedState` prefixes it to
- * `basalt:astro-map:settings-open` itself); a hand-rolled `argo:` prefix would just double up.
- */
-const usePanelOpen = createPersistedState({
-  key: 'astro-map:settings-open',
-  version: 1,
-  initial: false,
-})
 
 // ── Component ──────────────────────────────────────────────────────────────
 
@@ -465,22 +446,6 @@ export default function SiteMap({
     }),
     [layers, radarFrames, nowMs, gibsTimeValue, omTimeStep],
   )
-  // Persisted, not URL state — this is a VIEWING preference (is the panel visible), not part of
-  // a shareable map configuration; every control the panel itself renders IS in the URL (see
-  // `MapLayerSections`'s own footnote), which is exactly why this one deliberately isn't. See
-  // `usePanelOpen`'s own doc for why this rides `createPersistedState` rather than
-  // `@mantine/hooks`' `useLocalStorage`.
-  const [panelOpen, setPanelOpen] = usePanelOpen()
-  // Below this breakpoint there is no room to dock a 320px column next to a still-usable map —
-  // `MapSettingsPanel` falls back to the overlay `Drawer` it used to always be. Computed here
-  // (not inside that component) because the resize effect below needs it too, and because a
-  // docked→overlay switch changes THIS container's width exactly like an open/close does.
-  // `getInitialValueInEffect: false` reads `window.matchMedia` synchronously on the initial
-  // render instead of defaulting to `false` and flipping after mount — safe here because this
-  // whole component is CSR-only (lazy-loaded, Suspense-gated), so there is no SSR-hydration
-  // mismatch to protect against, and without it a phone renders the docked column for one frame
-  // before swapping to the `Drawer`.
-  const isNarrow = useMediaQuery('(max-width: 48em)', undefined, { getInitialValueInEffect: false })
   // The last clicked coordinate — held even after the panel closes, so reopening it (or clicking
   // the same spot again) reads from cache instead of re-fetching. `null` until the first click.
   const [scoutPoint, setScoutPoint] = useState<{ lat: number; lon: number } | null>(null)
@@ -777,22 +742,6 @@ export default function SiteMap({
     }
   }, [data])
 
-  // The settings panel opening/closing (or switching between the docked column and the narrow
-  // overlay) changes THIS container's own width, and MapLibre has no internal resize observer of
-  // its own — the same fact the ResizeObserver in the create effect above exists to work around.
-  // That observer, watching this same container, likely already catches this exact transition on
-  // its own; this effect calls `resize()` again anyway, deliberately and cheaply redundant, so the
-  // fix is tied explicitly to the state transition rather than resting entirely on the observer's
-  // independent notification path. A bare call (no `requestAnimationFrame`) is enough: `useEffect`s
-  // run after the browser has already painted, and a browser cannot paint before it has finished
-  // layout, so the container has already settled into its new width by the time this runs — a call
-  // here can only ever be redundant with the observer, never premature. (Reasoned from React's
-  // effect-timing contract; not watched live in devtools, since this task runs with no dev server.)
-  useEffect(() => {
-    mapRef.current?.resize()
-  }, [panelOpen, isNarrow])
-
-  const closePanel = useCallback(() => setPanelOpen(false), [setPanelOpen])
   const closeScoutPanel = useCallback(() => setScoutOpen(false), [])
   const compareSite = data.data.find((site) => site.id === siteId)
 
@@ -800,34 +749,25 @@ export default function SiteMap({
     <Card py={0} px={0} h={height} mih={MAP_MIN_HEIGHT} style={{ overflow: 'hidden' }}>
       <Flex h="100%" wrap="nowrap">
         {/* The map's own column — `pos="relative"` moved here (off the outer `Card`) so every
-            absolutely-positioned overlay cluster below anchors to the MAP, not to the settings
-            panel sitting beside it. `minWidth: 0` is what lets a flex child actually shrink below
-            its content size when the panel column claims 320px. */}
+            absolutely-positioned overlay cluster below anchors to the MAP. The settings panel now
+            portals into the shell's aside region via `PageAside` below, so this is the only flex
+            child. */}
         <Box pos="relative" style={{ flex: 1, minWidth: 0 }}>
           <Box ref={containerRef} h="100%" style={{ visibility: failed ? 'hidden' : 'visible' }} />
           {failed ? (
             <Box pos="absolute" inset={0}>
-              <ChartEmpty
-                height="100%"
-                message="Map unavailable — could not reach the tile server."
-              />
+              <Stack justify="center" align="center" h="100%" gap={4}>
+                <Text size="sm" c="dimmed">
+                  Map unavailable — could not reach the tile server.
+                </Text>
+              </Stack>
             </Box>
           ) : (
             <>
-              {/* One cluster, laid out by a Group — the time scrubber appears beside the settings
-                  trigger rather than at a second hand-guessed offset. */}
+              {/* One cluster, laid out by a Group — the time scrubber anchors here rather than at
+                  a second hand-guessed offset. */}
               <Box pos="absolute" top={8} left={8}>
                 <Group gap="xs" wrap="nowrap" align="flex-start">
-                  <Tooltip label={panelOpen ? 'Hide map layers' : 'Show map layers'}>
-                    <ActionIcon
-                      variant="default"
-                      aria-label={panelOpen ? 'Hide map layers' : 'Show map layers'}
-                      aria-expanded={panelOpen}
-                      onClick={() => setPanelOpen(!panelOpen)}
-                    >
-                      <IconAdjustments size={16} />
-                    </ActionIcon>
-                  </Tooltip>
                   {tickCount > 0 && (
                     <TimeScrubber
                       ticks={ticks}
@@ -846,14 +786,10 @@ export default function SiteMap({
             </>
           )}
         </Box>
-        <MapSettingsPanel
-          opened={panelOpen}
-          onClose={closePanel}
-          narrow={isNarrow}
-          state={layers}
-          onChange={onLayersChange}
-        />
       </Flex>
+      <PageAside title="Map layers" persistKey="astro-map-layers">
+        <MapLayerSections state={layers} onChange={onLayersChange} />
+      </PageAside>
       <ScoutPanel
         opened={scoutOpen}
         onClose={closeScoutPanel}

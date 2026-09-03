@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Suspense, useCallback, useMemo } from 'react'
-import { Grid, Stack, useComputedColorScheme } from '@mantine/core'
+import { Center, Grid, Loader, Stack, useComputedColorScheme } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { BasaltErrorBoundary, PageBar, Section, type BasaltErrorContext } from 'basalt-ui'
@@ -9,7 +9,6 @@ import { FilterSet, NumberFilter, SelectFilter, ViewTabs } from 'basalt-ui/contr
 import { astroStore } from '../lib/window-stores'
 import {
   CHART_HEIGHT,
-  ChartEmpty,
   CloudLayersChart,
   MAP_FULL_BLEED_HEIGHT,
   MonthlyBudgetChart,
@@ -309,7 +308,13 @@ function AstroWindowPage() {
         the tab exists to reclaim.
       */}
       {search.tab === 'map' ? (
-        <Suspense fallback={<ChartEmpty height={MAP_FULL_BLEED_HEIGHT} message="Loading map…" />}>
+        <Suspense
+          fallback={
+            <Center h={MAP_FULL_BLEED_HEIGHT}>
+              <Loader size="sm" />
+            </Center>
+          }
+        >
           <SiteMap
             siteId={search.site}
             onSelectSite={handleSiteChange}
@@ -365,9 +370,12 @@ function AstroWindowPage() {
                     <BasaltErrorBoundary
                       onError={reportChartError}
                       fallback={
-                        <ChartEmpty
-                          height={PANORAMA_HEIGHT}
-                          message="Terrain or sky-brightness data is unavailable for this site right now."
+                        <ChartCard
+                          state={{
+                            empty:
+                              'Terrain or sky-brightness data is unavailable for this site right now.',
+                          }}
+                          placeholderHeight={PANORAMA_HEIGHT}
                         />
                       }
                     >
@@ -391,9 +399,11 @@ function AstroWindowPage() {
                     <BasaltErrorBoundary
                       onError={reportChartError}
                       fallback={
-                        <ChartEmpty
-                          height={CHART_HEIGHT}
-                          message="The annual budget is unavailable for this site right now."
+                        <ChartCard
+                          state={{
+                            empty: 'The annual budget is unavailable for this site right now.',
+                          }}
+                          placeholderHeight={CHART_HEIGHT}
                         />
                       }
                     >
@@ -407,7 +417,10 @@ function AstroWindowPage() {
                     </BasaltErrorBoundary>
                   </>
                 ) : (
-                  <ChartEmpty height={PANORAMA_HEIGHT} message="Unknown site" />
+                  <ChartCard
+                    state={{ empty: 'Unknown site' }}
+                    placeholderHeight={PANORAMA_HEIGHT}
+                  />
                 )}
               </>
             )}

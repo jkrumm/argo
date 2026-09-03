@@ -14,7 +14,6 @@ import { SERIES } from '../../../lib/series'
 import { CHART_HEIGHT, METRIC_TOOLTIPS } from '../constants'
 import { fmtDegrees, hourlyTimeLabel } from '../formulas'
 import type { HourlyPoint, Night } from '../types'
-import { ChartEmpty } from './empty'
 
 const CHART_ID = 'astro-timeline'
 const Y_DOMAIN: [number, number] = [-20, 20]
@@ -135,85 +134,86 @@ export default function NightTimelineChart({
   const formatX = hourlyTimeLabel(hourly)
 
   return (
-    <ChartCard title="Night Timeline" info={METRIC_TOOLTIPS.nightTimeline}>
-      {hourly.length === 0 ? (
-        <ChartEmpty height={CHART_HEIGHT} message="No hourly data for this night" />
-      ) : (
-        <CartesianChart
-          data={hourly}
-          chartId={CHART_ID}
-          getX={(d) => d.time}
-          formatX={formatX}
-          series={PLOT_SERIES}
-          y={{ domain: Y_DOMAIN, ticks: Y_TICKS, format: (v) => `${v}°`, grid: false }}
-          xZones={darkZones}
-          height={CHART_HEIGHT}
-          // The sun is a reference line explaining where the dark bands come from — it carries a
-          // tooltip row but never a cursor dot.
-          cursorValue={(point, s) => (s.key === 'sun' ? null : s.getValue(point))}
-          // Cloud low/mid/high are reported by `cloud-layers-chart` (`onFollow: true`) so it can
-          // speak for its own series — no hand-authored rows duplicating that data here.
-          tooltip={{ formatHeader: (_key, d) => d.localTime }}
-          ariaLabel="Galactic core, moon and sun altitude across the night, with dark and shooting-window bands"
-        >
-          {({ visible, xScale, yScale, xMax, yMax }) => {
-            const xAt = (time: string) => xScale(time) ?? 0
-            const band =
-              win === null
-                ? null
-                : (() => {
-                    const a = timeToX(hourly, win.start, xAt)
-                    const b = timeToX(hourly, win.end, xAt)
-                    return { x: Math.min(a, b), width: Math.abs(b - a) }
-                  })()
+    <ChartCard
+      title="Night Timeline"
+      info={METRIC_TOOLTIPS.nightTimeline}
+      state={{ empty: hourly.length === 0 && 'No hourly data for this night' }}
+      placeholderHeight={CHART_HEIGHT}
+    >
+      <CartesianChart
+        data={hourly}
+        chartId={CHART_ID}
+        getX={(d) => d.time}
+        formatX={formatX}
+        series={PLOT_SERIES}
+        y={{ domain: Y_DOMAIN, ticks: Y_TICKS, format: (v) => `${v}°`, grid: false }}
+        xZones={darkZones}
+        height={CHART_HEIGHT}
+        // The sun is a reference line explaining where the dark bands come from — it carries a
+        // tooltip row but never a cursor dot.
+        cursorValue={(point, s) => (s.key === 'sun' ? null : s.getValue(point))}
+        // Cloud low/mid/high are reported by `cloud-layers-chart` (`onFollow: true`) so it can
+        // speak for its own series — no hand-authored rows duplicating that data here.
+        tooltip={{ formatHeader: (_key, d) => d.localTime }}
+        ariaLabel="Galactic core, moon and sun altitude across the night, with dark and shooting-window bands"
+      >
+        {({ visible, xScale, yScale, xMax, yMax }) => {
+          const xAt = (time: string) => xScale(time) ?? 0
+          const band =
+            win === null
+              ? null
+              : (() => {
+                  const a = timeToX(hourly, win.start, xAt)
+                  const b = timeToX(hourly, win.end, xAt)
+                  return { x: Math.min(a, b), width: Math.abs(b - a) }
+                })()
 
-            return (
-              <>
-                {/* The recommended shooting window — stronger fill + a top rule, unmistakable.
+          return (
+            <>
+              {/* The recommended shooting window — stronger fill + a top rule, unmistakable.
                     Stays hand-drawn: its start/end are arbitrary ISO instants interpolated
                     between two straddling samples, not `getX` domain keys `xZones` can resolve. */}
-                {band !== null && (
-                  <>
-                    <rect
-                      x={band.x}
-                      y={0}
-                      width={band.width}
-                      height={yMax}
-                      fill={alpha(VX.accent, 0.22)}
-                    />
-                    <Line
-                      from={{ x: band.x, y: 0 }}
-                      to={{ x: band.x + band.width, y: 0 }}
-                      stroke={VX.accent}
-                      strokeWidth={2}
-                    />
-                  </>
-                )}
-
-                {/* Horizon. */}
-                <Line
-                  from={{ x: 0, y: yScale(0) }}
-                  to={{ x: xMax, y: yScale(0) }}
-                  stroke={VX.divider}
-                />
-
-                {visible.map((s) => (
-                  <LinePath<HourlyPoint>
-                    key={s.key}
-                    data={hourly}
-                    x={(d) => xAt(d.time)}
-                    y={(d) => yScale(s.getValue(d) ?? 0)}
-                    stroke={s.color}
-                    strokeWidth={s.strokeWidth}
-                    strokeDasharray={s.dash === 'dashed' ? VX.dashArray : undefined}
-                    curve={curveMonotoneX}
+              {band !== null && (
+                <>
+                  <rect
+                    x={band.x}
+                    y={0}
+                    width={band.width}
+                    height={yMax}
+                    fill={alpha(VX.accent, 0.22)}
                   />
-                ))}
-              </>
-            )
-          }}
-        </CartesianChart>
-      )}
+                  <Line
+                    from={{ x: band.x, y: 0 }}
+                    to={{ x: band.x + band.width, y: 0 }}
+                    stroke={VX.accent}
+                    strokeWidth={2}
+                  />
+                </>
+              )}
+
+              {/* Horizon. */}
+              <Line
+                from={{ x: 0, y: yScale(0) }}
+                to={{ x: xMax, y: yScale(0) }}
+                stroke={VX.divider}
+              />
+
+              {visible.map((s) => (
+                <LinePath<HourlyPoint>
+                  key={s.key}
+                  data={hourly}
+                  x={(d) => xAt(d.time)}
+                  y={(d) => yScale(s.getValue(d) ?? 0)}
+                  stroke={s.color}
+                  strokeWidth={s.strokeWidth}
+                  strokeDasharray={s.dash === 'dashed' ? VX.dashArray : undefined}
+                  curve={curveMonotoneX}
+                />
+              ))}
+            </>
+          )
+        }}
+      </CartesianChart>
     </ChartCard>
   )
 }

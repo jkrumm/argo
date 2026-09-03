@@ -68,11 +68,10 @@ export { NightFacts } from './components/night-facts'
 
 // Lazy-loaded: maplibre-gl is ~253kB gzipped and this is the only page that uses it, so the
 // bundle should only pay for it when this page is actually opened. The route wraps this in
-// <Suspense fallback={<ChartEmpty .../>}>.
+// <Suspense fallback={<Center><Loader /></Center>}>.
 export const SiteMap = lazy(() => import('./components/site-map'))
 
 export { default as NightTimelineChart } from './charts/night-timeline-chart'
 export { default as CloudLayersChart } from './charts/cloud-layers-chart'
 export { default as SkyPanorama } from './charts/sky-panorama'
 export { default as MonthlyBudgetChart } from './charts/monthly-budget-chart'
-export { ChartEmpty } from './charts/empty'
