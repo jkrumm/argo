@@ -1,8 +1,7 @@
-import { createRootRouteWithContext, Outlet } from '@tanstack/react-router'
+import { createRootRouteWithContext, Outlet, useRouter } from '@tanstack/react-router'
 import type { QueryClient } from '@tanstack/react-query'
 import { useMantineColorScheme } from '@mantine/core'
 import {
-  IconCheck,
   IconDatabase,
   IconDeviceDesktop,
   IconMoon,
@@ -10,12 +9,18 @@ import {
   IconRoute,
   IconSun,
 } from '@tabler/icons-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useIsFetching, useQueryClient } from '@tanstack/react-query'
-import { BasaltShell, ThemeToggle } from 'basalt-ui'
+import {
+  BasaltDevDock,
+  BasaltShell,
+  ThemeToggle,
+  type BasaltDevDockTool,
+  type GlobalAction,
+  type SettingsMenuItem,
+} from 'basalt-ui'
 import { SyncButton } from 'basalt-ui/controls'
 import { NotificationBell } from 'basalt-ui/notifications'
-import type { GlobalAction, SettingsMenuItem } from 'basalt-ui'
 import { useNav } from 'basalt-ui/router-tanstack'
 import { useSidebarCollapsed } from '../lib/sidebar-collapsed'
 import { TimerNavWidget, useTimerEngine } from '../components/timer-nav'
@@ -24,9 +29,6 @@ import { useSidebarBlocks } from '../components/app-shell/use-sidebar-blocks'
 import { HermesVoiceButton } from '../features/hermes-chat/hermes-voice-button'
 import { HermesWidget } from '../features/hermes-chat/hermes-widget'
 import { VoicePlaybackProvider } from '../features/hermes-chat/voice/voice-playback'
-import { DevToolsPanel, type DevTool } from '../components/dev-dock'
-import { registerColorSchemeSetter } from '../lib/color-scheme-bridge'
-import { registerSidebarToggle } from '../lib/sidebar-bridge'
 import { NAV } from '../lib/nav'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -41,9 +43,10 @@ const THEME_OPTIONS = [
 
 function RootLayout() {
   const { colorScheme, setColorScheme } = useMantineColorScheme()
-  const [devTool, setDevTool] = useState<DevTool | null>(null)
+  const [devTool, setDevTool] = useState<BasaltDevDockTool | null>(null)
   const queryClient = useQueryClient()
   const anyFetching = useIsFetching() > 0
+  const router = useRouter()
 
   useTimerEngine()
   const badges = useSidebarBadges()
@@ -54,34 +57,23 @@ function RootLayout() {
   // from that definition, so a renamed destination is a compile error here.
   const nav = useNav(NAV, { badges: { calendar: badges.calendar, m365: badges.m365 } })
 
-  // Bridges the live setColorScheme setter to lib/commands.tsx's theme:* commands, which run
-  // outside the React tree (Spotlight) and have no hook access of their own.
-  useEffect(() => {
-    registerColorSchemeSetter(setColorScheme)
-    return () => registerColorSchemeSetter(null)
-  }, [setColorScheme])
-
   // Controlled sidebar collapse (BasaltShell's controlled seam). The Mod+B command drives it
-  // through the bridge; persistence is `createPersistedState`, the same mechanism the shell's own
-  // uncontrolled path moved to at basalt-ui 1.21.0 — see `lib/sidebar-collapsed.ts`.
+  // through `toggleSidebar()` (basalt-ui/commands, wired automatically by BasaltShell); persistence
+  // is `createPersistedState`, the same mechanism the shell's own uncontrolled path moved to at
+  // basalt-ui 1.21.0 — see `lib/sidebar-collapsed.ts`.
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed()
-  useEffect(() => {
-    registerSidebarToggle(() => setSidebarCollapsed(!sidebarCollapsed))
-    return () => registerSidebarToggle(null)
-  }, [sidebarCollapsed, setSidebarCollapsed])
 
   // Theme lives in the sidebar Settings menu (not basalt's globalActions `ThemeToggle`) — the
   // Settings row only renders when `settingsMenuItems` is non-empty, and it also carries the
   // `brand.version` label, so keeping Theme here preserves that footer version display in
-  // production (where the DevTools entries below are absent). The active option's icon swaps to a
-  // checkmark — basalt's `SettingsMenuItem` has no dedicated "active" slot (a flat `Menu.Item`
-  // list, no nested submenus like the old hand-rolled sidebar), so this is the closest available
-  // affordance. See migration report for the full shell-gap note.
+  // production (where the DevTools entries below are absent). The active option is flagged via
+  // `active` — basalt renders the trailing check glyph itself.
   const settingsMenuItems: SettingsMenuItem[] = [
     ...THEME_OPTIONS.map((o) => ({
       key: `theme-${o.value}`,
       label: o.label,
-      icon: colorScheme === o.value ? <IconCheck size={16} /> : o.icon,
+      icon: o.icon,
+      active: colorScheme === o.value,
       onClick: () => setColorScheme(o.value),
     })),
     ...(import.meta.env.DEV
@@ -159,7 +151,13 @@ function RootLayout() {
       >
         <Outlet />
       </BasaltShell>
-      {import.meta.env.DEV && <DevToolsPanel tool={devTool} onClose={() => setDevTool(null)} />}
+      {import.meta.env.DEV && (
+        // `router` cast: basalt-ui's `DevDockRouter` type has no property overlap with the real
+        // TanStack `Router` instance (TS "weak type" detection) and its `Record<string, unknown>`
+        // fallback branch has no index signature either — the real value is passed through
+        // untouched, only the type is bridged at this boundary. BASALT GAP, see report.
+        <BasaltDevDock tool={devTool} onClose={() => setDevTool(null)} router={router as never} />
+      )}
     </VoicePlaybackProvider>
   )
 }
