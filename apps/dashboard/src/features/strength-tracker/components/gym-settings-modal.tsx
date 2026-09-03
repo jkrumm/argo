@@ -13,7 +13,7 @@ import {
   TextInput,
   Tooltip,
 } from '@mantine/core'
-import { modals } from '@mantine/modals'
+import { overlays } from 'basalt-ui/commands'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
 import { canRemoveProfile, loadingFor, type Bar } from '../../../lib/gym-profile'
 import { useGyms } from '../../../lib/queries/gym'
@@ -192,16 +192,17 @@ function GymSettingsForm({
 
   function handleDeleteProfile() {
     if (!canRemoveProfile(profiles)) return
-    modals.openConfirmModal({
+    void overlays.confirm({
       title: 'Delete gym profile',
-      children: (
+      body: (
         <Text size="sm">
           Delete &quot;{active.name}&quot;? Its bars and plate rack are removed. This cannot be
           undone.
         </Text>
       ),
-      labels: { confirm: 'Delete', cancel: 'Cancel' },
-      confirmProps: { color: 'red' },
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      danger: true,
       onConfirm: () => removeProfile(active.id),
     })
   }

@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Box, Card, SimpleGrid, Stack, Text } from '@mantine/core'
-import { LineSparkline, useChartSize } from 'basalt-ui/charts'
+import { StatCard, StatGroup } from 'basalt-ui'
+import { LineSparkline } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 
@@ -78,59 +78,36 @@ export function SparklineGridChart({ params }: { params: WalkingPadWindowParams 
   const { data } = useSuspenseQuery(walkingPadQueries.series({ ...params, bucket: 'day' }))
   const points: SeriesPoint[] = data.points
 
-  if (points.length === 0) {
-    return (
-      <Card py="xs" px="sm">
-        <Text size="sm" c="dimmed">
-          No walks in this window — sparklines unlock on first session.
-        </Text>
-      </Card>
-    )
-  }
-
   return (
-    <Card py="xs" px="sm">
-      <Text fw={600} size="sm" mb="xs">
-        At-a-glance trends
-      </Text>
-      <SimpleGrid cols={{ base: 2, sm: 3, lg: 6 }} spacing="sm">
-        {METRICS.map((m) => (
-          <SparkTile key={m.key} metric={m} points={points} />
-        ))}
-      </SimpleGrid>
-    </Card>
-  )
-}
+    <StatGroup>
+      {METRICS.map((m) => {
+        const values = points.map((p) => m.pick(p)).filter((v): v is number => v !== null && v > 0)
+        const latest = values.length > 0 ? (values[values.length - 1] ?? null) : null
+        const max = values.length > 0 ? Math.max(...values) : 0
+        const avg = values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : 0
 
-function SparkTile({ metric, points }: { metric: Metric; points: SeriesPoint[] }) {
-  const { ref, width } = useChartSize()
-  const values = points.map((p) => metric.pick(p)).filter((v): v is number => v !== null && v > 0)
-  const latest = values.length > 0 ? (values[values.length - 1] ?? null) : null
-  const max = values.length > 0 ? Math.max(...values) : 0
-  const avg = values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : 0
-
-  return (
-    <Stack gap={2}>
-      <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
-        {metric.label}
-      </Text>
-      <Text fw={700} size="lg" lh={1.1}>
-        {latest !== null ? metric.format(latest) : '—'}
-      </Text>
-      <Box ref={ref} h={36} w="100%" aria-label={metric.ariaLabel}>
-        {width > 0 ? (
-          <LineSparkline
-            ariaLabel={metric.ariaLabel}
-            data={points.map((p) => metric.pick(p) ?? 0)}
-            width={Math.max(width, 60)}
-            height={36}
-            color={metric.color}
+        return (
+          <StatCard
+            key={m.key}
+            title={m.label}
+            value={latest !== null ? m.format(latest) : '—'}
+            subtitle={
+              points.length === 0
+                ? 'No walks in this window'
+                : `avg ${m.format(avg)} · best ${m.format(max)}`
+            }
+            sparkline={({ width, height }) => (
+              <LineSparkline
+                ariaLabel={m.ariaLabel}
+                data={points.map((p) => m.pick(p) ?? 0)}
+                width={width}
+                height={height}
+                color={m.color}
+              />
+            )}
           />
-        ) : null}
-      </Box>
-      <Text size="xs" c="dimmed">
-        avg {metric.format(avg)} · best {metric.format(max)}
-      </Text>
-    </Stack>
+        )
+      })}
+    </StatGroup>
   )
 }

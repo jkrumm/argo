@@ -7,8 +7,7 @@
  *
  * Kinds are grouped by domain + intent (not one-off per call site) — e.g. every red "the reading
  * feature failed to do X" toast in hermes-chat shares `chat:error`; only the message/title differ.
- * Achievement toasts (walking-pad, strength-tracker) are NOT registered here — see the header
- * comment in those two files for why.
+ * Achievement toasts (walking-pad, strength-tracker) share `achievement:unlocked`.
  */
 import type { ReactNode } from 'react'
 import { defineNotifications } from 'basalt-ui/notifications'

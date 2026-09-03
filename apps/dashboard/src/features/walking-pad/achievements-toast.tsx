@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { notifications } from '@mantine/notifications'
+import { emit } from 'basalt-ui/notifications'
 import confetti from 'canvas-confetti'
 import { walkingPadQueries } from '../../lib/queries/walking-pad'
 import { ACHIEVEMENT_LAST_SEEN_ID_KEY, ACHIEVEMENT_WATERMARK_KEY } from './constants'
@@ -11,15 +11,6 @@ function fireConfetti() {
     confetti({ particleCount: 40, angle: 60, spread: 55, origin: { x: 0, y: 0.65 } })
     confetti({ particleCount: 40, angle: 120, spread: 55, origin: { x: 1, y: 0.65 } })
   }, 200)
-}
-
-function colorFor(type: string): string {
-  if (type === 'first_walk') return 'blue'
-  if (type.startsWith('distance_milestone')) return 'yellow'
-  if (type.startsWith('streak_')) return 'orange'
-  if (type === 'weekly_distance_pr') return 'red'
-  if (type === 'multi_walk_day') return 'green'
-  return 'gray'
 }
 
 /**
@@ -50,12 +41,7 @@ export function useAchievementWatcher() {
 
     if (fresh.some((a) => a.confetti)) fireConfetti()
     for (const a of fresh) {
-      notifications.show({
-        color: colorFor(a.type),
-        title: a.title,
-        message: a.description,
-        autoClose: 7000,
-      })
+      emit('achievement:unlocked', { message: a.description }, { title: a.title, autoClose: 7000 })
     }
 
     const maxId = fresh.reduce((m, a) => (a.id > m ? a.id : m), lastSeenId.current)

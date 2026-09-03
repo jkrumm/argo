@@ -1,6 +1,6 @@
-import { notifications } from '@mantine/notifications'
+import { emit } from 'basalt-ui/notifications'
 import confetti from 'canvas-confetti'
-import type { Achievement, AchievementType } from '../../lib/queries/workouts'
+import type { Achievement } from '../../lib/queries/workouts'
 
 /**
  * Mirrors the old strength-tracker `fireConfetti` — a central burst plus two
@@ -12,18 +12,6 @@ function fireConfetti() {
     confetti({ particleCount: 40, angle: 60, spread: 55, origin: { x: 0, y: 0.65 } })
     confetti({ particleCount: 40, angle: 120, spread: 55, origin: { x: 1, y: 0.65 } })
   }, 200)
-}
-
-/** Distinct color per achievement type for visual hierarchy. */
-function colorFor(type: AchievementType): string {
-  switch (type) {
-    case 'first_workout':
-      return 'blue'
-    case 'volume_pr':
-      return 'gray'
-    default:
-      return 'green'
-  }
 }
 
 /**
@@ -38,11 +26,6 @@ export function showAchievements(achievements: Achievement[] | undefined) {
   if (achievements.some((a) => a.confetti)) fireConfetti()
 
   for (const a of achievements) {
-    notifications.show({
-      color: colorFor(a.type),
-      title: a.title,
-      message: a.description,
-      autoClose: 6000,
-    })
+    emit('achievement:unlocked', { message: a.description }, { title: a.title, autoClose: 6000 })
   }
 }
