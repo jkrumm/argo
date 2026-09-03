@@ -34,8 +34,8 @@ const hermesFetch = async (
   } catch {
     return fetch(input, { ...init, headers })
   }
-  const threadId = typeof body.id === 'string' ? body.id : undefined
-  const messages = Array.isArray(body.messages) ? body.messages : []
+  const threadId = typeof body['id'] === 'string' ? body['id'] : undefined
+  const messages = Array.isArray(body['messages']) ? body['messages'] : []
   const rewritten = {
     ...body,
     ...(threadId !== undefined ? { threadId } : {}),
@@ -159,7 +159,7 @@ export const resolveHermesOutcome: OutcomeResolver<AgentPart> = (thread) => {
 export async function stopHermesThread(threadId: string): Promise<{ stopped: boolean } | null> {
   const token = getToken()
   const headers: Record<string, string> = {}
-  if (token) headers.Authorization = `Bearer ${token}`
+  if (token) headers['Authorization'] = `Bearer ${token}`
   try {
     const res = await fetch(`${apiBase}/hermes/chat/${threadId}/stop`, { method: 'POST', headers })
     if (!res.ok) return null

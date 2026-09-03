@@ -9,7 +9,7 @@ export default function BillingSplit({
   workspace,
 }: {
   range: Range
-  workspace?: WorkspaceValue[]
+  workspace?: WorkspaceValue[] | undefined
 }) {
   const { data } = useSuspenseQuery(
     usageQueries.breakdown({

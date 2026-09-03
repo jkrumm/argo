@@ -35,7 +35,7 @@ function colorFor(type: string): string {
   return 'gray'
 }
 
-export function AchievementsGallery({ matchHeight }: { matchHeight?: number }) {
+export function AchievementsGallery({ matchHeight }: { matchHeight?: number | undefined }) {
   const { data } = useSuspenseQuery(walkingPadQueries.achievements({ limit: 50 }))
   if (data.data.length === 0) {
     return (

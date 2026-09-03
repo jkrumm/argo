@@ -40,8 +40,8 @@ export default function TopProjects({
   workspace,
 }: {
   range: Range
-  billing?: BillingValue[]
-  workspace?: WorkspaceValue[]
+  billing?: BillingValue[] | undefined
+  workspace?: WorkspaceValue[] | undefined
 }) {
   const { data } = useSuspenseQuery(
     usageQueries.breakdown({

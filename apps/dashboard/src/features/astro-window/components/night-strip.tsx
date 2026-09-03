@@ -43,7 +43,7 @@ export function NightStrip({
                   ff="monospace"
                   size="xs"
                   fw={selected ? 700 : 500}
-                  c={selected ? undefined : 'dimmed'}
+                  {...(selected ? {} : { c: 'dimmed' })}
                 >
                   {weekday} {day}
                 </Text>

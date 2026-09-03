@@ -211,7 +211,7 @@ const omLayerId = (id: WeatherLayerId, domain: OmDomainId, timeStep: number) =>
 // ── The light-pollution ramp ───────────────────────────────────────────────
 
 type ColorReliefLayer = Extract<AddLayerObject, { type: 'color-relief' }>
-type LpRampExpression = NonNullable<ColorReliefLayer['paint']>['color-relief-color']
+type LpRampExpression = NonNullable<NonNullable<ColorReliefLayer['paint']>['color-relief-color']>
 
 const CSS_VAR_REF = /^var\(\s*(--[\w-]+)\s*\)$/
 const SIX_DIGIT_HEX = /^#[\da-fA-F]{6}$/

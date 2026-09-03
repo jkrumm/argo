@@ -10,7 +10,7 @@ export type CalendarSource = 'google' | 'm365' | 'ticktick'
 
 export type CalendarEventPayload = {
   source: CalendarSource
-  isAllDay?: boolean
+  isAllDay?: boolean | undefined
   location?: string | null
   organizer?: string | null
   videoLink?: string | null
@@ -19,7 +19,7 @@ export type CalendarEventPayload = {
   calendarName?: string | null
   projectName?: string | null
   projectColor?: string | null
-  priority?: number
+  priority?: number | undefined
 }
 
 // Per-Google-calendar palette — mirrors Apple Calendar's hues for these calendars.

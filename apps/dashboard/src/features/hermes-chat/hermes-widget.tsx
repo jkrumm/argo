@@ -195,7 +195,7 @@ export function HermesWidget() {
           </Group>
 
           <UnstyledButton
-            className={classes.openFull}
+            className={classes['openFull']}
             onClick={goToChat}
             aria-label="Open full chat"
           >
@@ -220,7 +220,7 @@ function ThreadRow({
 }) {
   return (
     <UnstyledButton
-      className={classes.threadRow}
+      className={classes['threadRow']}
       onClick={onClick}
       aria-label={thread.title ?? 'New chat'}
     >

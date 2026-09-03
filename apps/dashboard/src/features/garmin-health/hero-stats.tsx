@@ -57,19 +57,21 @@ function RecoveryCard({ params }: { params: SummaryParams }) {
   const { data, isLoading } = useQuery(recoveryQueries.summary(params))
   if (isLoading || data === undefined) return <HeroCardSkeleton label="Recovery" />
   const score = data.recovery
+  const subtitle = orUndefined(recoveryActionLabel(score))
+  const tone = scoreTone(score)
 
   return (
     <StatCard
       title="Recovery"
       info={METRIC_TOOLTIPS.recoveryScore}
       value={score !== null ? String(Math.round(score)) : '—'}
-      subtitle={orUndefined(recoveryActionLabel(score))}
       breakdown={measuredRows([
         ['HRV', data.components.hrv],
         ['Sleep', data.components.sleep],
         ['RHR', data.components.rhr],
       ])}
-      tone={scoreTone(score)}
+      {...(subtitle !== undefined && { subtitle })}
+      {...(tone !== undefined && { tone })}
     />
   )
 }
@@ -84,13 +86,15 @@ function FitnessDirectionCard({ params }: { params: SummaryParams }) {
     ...(data.vo2max !== null ? [{ label: 'VO2', value: data.vo2max.toFixed(1) }] : []),
   ]
 
+  const subtitle = orUndefined(data.label)
+
   return (
     <StatCard
       title="Fitness"
       info={METRIC_TOOLTIPS.fitnessTrends}
       value={data.symbol}
-      subtitle={orUndefined(data.label)}
       breakdown={breakdown}
+      {...(subtitle !== undefined && { subtitle })}
     />
   )
 }
@@ -101,18 +105,20 @@ function TrainingLoadCard({ params }: { params: SummaryParams }) {
   const latest = data.points.at(-1) ?? null
   const zone = latest?.zone ?? null
   const acwr = latest?.acwr ?? null
+  const subtitle = orUndefined(acwrZoneLabel(zone))
+  const tone = acwrZoneTone(zone)
 
   return (
     <StatCard
       title="Training Load"
       info={METRIC_TOOLTIPS.trainingLoad}
       value={acwr !== null ? acwr.toFixed(2) : '—'}
-      subtitle={orUndefined(acwrZoneLabel(zone))}
       breakdown={measuredRows([
         ['Acute', latest?.acute ?? null],
         ['Chronic', latest?.chronic ?? null],
       ])}
-      tone={acwrZoneTone(zone)}
+      {...(subtitle !== undefined && { subtitle })}
+      {...(tone !== undefined && { tone })}
     />
   )
 }

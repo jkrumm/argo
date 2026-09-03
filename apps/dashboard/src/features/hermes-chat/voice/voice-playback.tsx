@@ -28,7 +28,11 @@ import { decodeAudioTitle, SILENT_WAV } from './audio-utils'
 
 type ReadAloudOpts = { summarize?: boolean; threadId?: string }
 
-type PlaySourceOpts = { title?: string; threadId?: string; startAt?: number }
+type PlaySourceOpts = {
+  title?: string | undefined
+  threadId?: string | undefined
+  startAt?: number | undefined
+}
 
 type VoicePlaybackValue = {
   /** Message id currently playing OR fetching audio, else null. */

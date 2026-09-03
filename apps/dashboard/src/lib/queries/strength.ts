@@ -7,14 +7,14 @@ import { unwrap } from 'basalt-ui'
  * Matches the API's `WindowQuerySchema`.
  */
 export type StrengthWindowParams = {
-  window?: '7d' | '30d' | '90d' | 'all'
-  from?: string
-  to?: string
+  window?: '7d' | '30d' | '90d' | 'all' | undefined
+  from?: string | undefined
+  to?: string | undefined
 }
 
 export type StrengthQueryParams = StrengthWindowParams & {
   /** Comma-separated exercise IDs (default: bench_press,deadlift,squat,pull_ups). */
-  exercises?: string
+  exercises?: string | undefined
 }
 
 export type StrengthRecordsParams = StrengthQueryParams & {
@@ -23,8 +23,8 @@ export type StrengthRecordsParams = StrengthQueryParams & {
 
 export type StrengthCompositeParams = StrengthWindowParams & { exerciseId: string }
 
-export type StrengthAlignmentParams = { exercises?: string }
-export type StrengthDeloadParams = { exercises?: string }
+export type StrengthAlignmentParams = { exercises?: string | undefined }
+export type StrengthDeloadParams = { exercises?: string | undefined }
 
 // The strength page is the one surface genuinely used from two devices in the
 // same session, so it opts out of the app-wide `refetchOnWindowFocus: false` /

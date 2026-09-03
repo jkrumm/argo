@@ -164,7 +164,9 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
         barLayout={isMulti ? 'grouped' : 'stacked'}
         y={{
           domain: isMulti ? [0, 1] : 'auto',
-          autoMaxFloor: isMulti ? undefined : singleConfig?.autoMaxFloor,
+          ...(!isMulti && singleConfig?.autoMaxFloor !== undefined
+            ? { autoMaxFloor: singleConfig.autoMaxFloor }
+            : {}),
           format: isMulti ? fmtPct : (singleDef?.format ?? fmtPct),
           ticks: 5,
           nice: true,

@@ -606,7 +606,7 @@ export function WorkoutForm() {
           onClick={handleSubmit}
           loading={createWorkout.isPending}
           disabled={!allChecked}
-          color={allChecked ? 'green' : undefined}
+          {...(allChecked ? { color: 'green' } : {})}
           fullWidth
         >
           Save Workout

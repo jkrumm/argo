@@ -4,7 +4,7 @@ import HyperDX from '@hyperdx/browser'
 // Must be the FIRST import in main.tsx so the fetch patch is in place
 // before Eden Treaty or TanStack Query capture the original fetch.
 if (typeof window !== 'undefined') {
-  const apiKey = import.meta.env.VITE_HYPERDX_API_KEY
+  const apiKey = import.meta.env['VITE_HYPERDX_API_KEY']
   if (apiKey) {
     // Dev-only: filter Vite HMR client errors before HyperDX's unhandledrejection
     // listener sees them. @vite/client fires "send was called before connect" during
@@ -23,12 +23,12 @@ if (typeof window !== 'undefined') {
 
     HyperDX.init({
       apiKey,
-      service: import.meta.env.VITE_HYPERDX_SERVICE_NAME ?? 'argo-dashboard',
+      service: import.meta.env['VITE_HYPERDX_SERVICE_NAME'] ?? 'argo-dashboard',
       // SDK appends /v1/traces and /v1/logs. URL MUST be absolute — relative
       // paths silently fall back to HyperDX Cloud. window.location.origin works
       // because the dashboard origin proxies /v1/traces and /v1/logs to ClickStack
       // (Vite proxy in dev, Traefik in prod).
-      url: import.meta.env.VITE_HYPERDX_ENDPOINT || window.location.origin,
+      url: import.meta.env['VITE_HYPERDX_ENDPOINT'] || window.location.origin,
       // Regex must match the absolute outgoing URL. Cover all three origins
       // the dashboard runs under so traceparent is injected on browser→API calls.
       tracePropagationTargets: [

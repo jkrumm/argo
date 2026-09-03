@@ -11,10 +11,11 @@ import { redactSecretsDeep, redactSecretText } from './secret-redaction'
 // state machine still renders correctly.
 function sanitizeToolPart(part: ToolCallPart): ToolCallPart {
   const clone: Record<string, unknown> = { ...part }
-  if ('input' in clone) clone.input = redactSecretsDeep(clone.input)
-  if ('output' in clone) clone.output = redactSecretsDeep(clone.output)
-  if ('rawInput' in clone) clone.rawInput = redactSecretsDeep(clone.rawInput)
-  if (typeof clone.errorText === 'string') clone.errorText = redactSecretText(clone.errorText)
+  if ('input' in clone) clone['input'] = redactSecretsDeep(clone['input'])
+  if ('output' in clone) clone['output'] = redactSecretsDeep(clone['output'])
+  if ('rawInput' in clone) clone['rawInput'] = redactSecretsDeep(clone['rawInput'])
+  if (typeof clone['errorText'] === 'string')
+    clone['errorText'] = redactSecretText(clone['errorText'])
   return clone as ToolCallPart
 }
 

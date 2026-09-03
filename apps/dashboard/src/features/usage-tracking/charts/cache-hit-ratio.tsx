@@ -29,8 +29,8 @@ export default function CacheHitRatio({
 }: {
   range: Range
   grain: Grain
-  billing?: BillingValue[]
-  workspace?: WorkspaceValue[]
+  billing?: BillingValue[] | undefined
+  workspace?: WorkspaceValue[] | undefined
 }) {
   const { data } = useSuspenseQuery(
     usageQueries.timeseries({

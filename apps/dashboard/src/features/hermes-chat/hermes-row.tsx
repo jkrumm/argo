@@ -88,8 +88,8 @@ export function HermesRow({
 
   const title = metaString(thread.meta, 'title') ?? 'New chat'
   const summary = metaString(thread.meta, 'summary') ?? undefined
-  const type = thread.meta?.type as HermesThreadType | null | undefined
-  const pinned = thread.meta?.pinned === true
+  const type = thread.meta?.['type'] as HermesThreadType | null | undefined
+  const pinned = thread.meta?.['pinned'] === true
 
   return (
     <ThreadFeedRow
@@ -98,11 +98,11 @@ export function HermesRow({
       expanded={expanded}
       onToggle={() => onToggle()}
       title={title}
-      summary={summary}
+      {...(summary !== undefined && { summary })}
       headerLeft={
         pinned || type ? (
           <Group gap={4} wrap="nowrap" style={{ flexShrink: 0 }}>
-            {pinned && <IconPin size={12} className={classes.pin} />}
+            {pinned && <IconPin size={12} className={classes['pin']} />}
             {type && (
               <Badge
                 size="xs"
@@ -123,9 +123,12 @@ export function HermesRow({
         ) : null
       }
       height={ROW_HEIGHT}
-      classNames={{ header: classes.header, body: classes.body }}
-      liveParts={run?.parts}
-      liveStatus={run ? 'streaming' : undefined}
+      classNames={{
+        ...(classes['header'] !== undefined ? { header: classes['header'] } : {}),
+        ...(classes['body'] !== undefined ? { body: classes['body'] } : {}),
+      }}
+      {...(run?.parts !== undefined && { liveParts: run.parts })}
+      {...(run !== undefined && { liveStatus: 'streaming' as const })}
       onSend={(payload) => onSend(payload.text)}
       onStop={onStop}
       renderers={hermesThreadRenderers}

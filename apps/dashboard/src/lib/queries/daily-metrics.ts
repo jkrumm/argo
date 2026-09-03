@@ -61,7 +61,12 @@ export const trainingLoadQueries = {
 
 export const activitiesQueries = {
   all: () => ['activities'] as const,
-  list: (params: { dateFrom?: string; dateTo?: string; limit?: number; page?: number }) =>
+  list: (params: {
+    dateFrom?: string | undefined
+    dateTo?: string | undefined
+    limit?: number
+    page?: number
+  }) =>
     queryOptions({
       queryKey: [...activitiesQueries.all(), 'list', params] as const,
       queryFn: async () => unwrap(await api.activities.get({ query: params })),

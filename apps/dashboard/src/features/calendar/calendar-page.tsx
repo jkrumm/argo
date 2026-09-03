@@ -133,7 +133,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
   const errors: Array<{
     source: CalendarSource
     message: string
-    reauthUrl?: string
+    reauthUrl?: string | undefined
   }> = []
   if (googleQuery.error) {
     errors.push({

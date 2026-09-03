@@ -23,8 +23,8 @@ export default function TokensOverTime({
 }: {
   range: Range
   grain: Grain
-  billing?: BillingValue[]
-  workspace?: WorkspaceValue[]
+  billing?: BillingValue[] | undefined
+  workspace?: WorkspaceValue[] | undefined
   groupBy: TokensGroupBy
 }) {
   const { data } = useSuspenseQuery(
