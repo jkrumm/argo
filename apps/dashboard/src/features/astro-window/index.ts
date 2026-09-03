@@ -28,11 +28,8 @@ export type {
 export {
   verdictTone,
   verdictLabel,
-  fmtPercent,
-  fmtPercent100,
   fmtDegrees,
   fmtMinutes,
-  fmtWeekday,
   fmtDayLabel,
   fmtLocalClock,
   moonPhaseLabel,

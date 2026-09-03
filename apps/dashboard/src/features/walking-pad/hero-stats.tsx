@@ -2,9 +2,10 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { Card, SimpleGrid, Skeleton } from '@mantine/core'
 import { IconFlame, IconRoute, IconWalk } from '@tabler/icons-react'
 import { StatCard, type StatCardTone } from 'basalt-ui'
+import { km } from 'basalt-ui/format'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../lib/queries/walking-pad'
 import { HERO_TOOLTIPS } from './constants'
-import { formatDeltaKmh, formatKm, formatPace } from './formatters'
+import { formatDeltaKmh, formatPace } from './formatters'
 
 /**
  * The three hero cards are `StatCard`s (basalt-ui 1.27.0), not a local `HeroCard`. Three of the
@@ -46,7 +47,7 @@ export function HeroStats({ params }: { params: WalkingPadWindowParams }) {
       ? 'Not enough prior data to compare yet.'
       : vol.deltaPct === null
         ? 'First window with data — no prior to compare.'
-        : `vs prior ${formatKm(vol.priorDistanceM)}`
+        : `vs prior ${km(vol.priorDistanceM)}`
 
   // ── Pace ───────────────────────────────────────────────────────────────
   const pace = data.pace

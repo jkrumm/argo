@@ -9,9 +9,10 @@ import {
   type CartesianTooltipRowContext,
 } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
+import { integer } from 'basalt-ui/format'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { walkingStore } from '../../../lib/window-stores'
-import { METRIC_DEFS, fmtSteps, type MetricKey } from '../metrics'
+import { METRIC_DEFS, type MetricKey } from '../metrics'
 
 type Point = {
   date: string // Monday week-start YYYY-MM-DD — treated as a categorical x.
@@ -45,8 +46,8 @@ const WEEKLY_METRICS: Record<MetricKey, WeeklyMetric> = {
   },
   steps: {
     pick: (p) => p.steps,
-    formatTotal: (v) => `${fmtSteps(v)} steps total`,
-    formatAvg: (v) => `${fmtSteps(Math.round(v))} steps/week`,
+    formatTotal: (v) => `${integer(v, { locale: 'en-US' })} steps total`,
+    formatAvg: (v) => `${integer(Math.round(v), { locale: 'en-US' })} steps/week`,
     autoMaxFloor: 15_000,
   },
 }

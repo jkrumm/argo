@@ -1,13 +1,7 @@
 import { Badge, Card, Group, Stack, Text } from '@mantine/core'
 import { VX } from 'basalt-ui/tokens'
-import {
-  dataHealthLine,
-  fmtMinutes,
-  fmtWeekday,
-  limitingFactor,
-  verdictLabel,
-  verdictTone,
-} from '../formulas'
+import { weekday } from 'basalt-ui/format'
+import { dataHealthLine, fmtMinutes, limitingFactor, verdictLabel, verdictTone } from '../formulas'
 import type { WindowResponse } from '../types'
 
 /**
@@ -53,7 +47,7 @@ export function VerdictHero({ data }: { data: WindowResponse }) {
           {bestWindow && (
             <Stack gap={0}>
               <Text size="xs" c="dimmed">
-                {fmtWeekday(bestWindow.date)} {bestWindow.date}
+                {weekday(bestWindow.date, { locale: 'en-GB' })} {bestWindow.date}
               </Text>
               <Text ff="monospace" fw={600} style={{ fontSize: VX.text.h1, lineHeight: 1.2 }}>
                 {bestWindow.localStart}–{bestWindow.localEnd}

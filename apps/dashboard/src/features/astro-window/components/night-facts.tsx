@@ -1,15 +1,9 @@
 import type { ReactNode } from 'react'
 import { Box, Card, Group, ScrollArea, Stack, Text } from '@mantine/core'
 import { VX } from 'basalt-ui/tokens'
+import { percent } from 'basalt-ui/format'
 import { SIDE_PANEL_HEIGHT } from '../constants'
-import {
-  fmtDegrees,
-  fmtLocalClock,
-  fmtMinutes,
-  fmtPercent,
-  fmtPercent100,
-  moonPhaseLabel,
-} from '../formulas'
+import { fmtDegrees, fmtLocalClock, fmtMinutes, moonPhaseLabel } from '../formulas'
 import type { Factor, Location, Night } from '../types'
 
 function FactGroup({ title, children }: { title: string; children: ReactNode }) {
@@ -115,7 +109,7 @@ export function NightFacts({
           </FactGroup>
 
           <FactGroup title="Moon">
-            <FactRow label="Illumination" value={fmtPercent(night.moon.illumination)} />
+            <FactRow label="Illumination" value={percent(night.moon.illumination)} />
             <FactRow label="Phase" value={moonPhaseLabel(night.moon.phase)} />
             <FactRow label="Rise" value={fmtLocalClock(night.moon.rise, timeZone)} />
             <FactRow label="Set" value={fmtLocalClock(night.moon.set, timeZone)} />
@@ -126,9 +120,18 @@ export function NightFacts({
           </FactGroup>
 
           <FactGroup title="Sky">
-            <FactRow label="Cloud low" value={fmtPercent100(night.weather.cloudLow)} />
-            <FactRow label="Cloud mid" value={fmtPercent100(night.weather.cloudMid)} />
-            <FactRow label="Cloud high" value={fmtPercent100(night.weather.cloudHigh)} />
+            <FactRow
+              label="Cloud low"
+              value={percent(night.weather.cloudLow ?? Number.NaN, { input: 'percent' })}
+            />
+            <FactRow
+              label="Cloud mid"
+              value={percent(night.weather.cloudMid ?? Number.NaN, { input: 'percent' })}
+            />
+            <FactRow
+              label="Cloud high"
+              value={percent(night.weather.cloudHigh ?? Number.NaN, { input: 'percent' })}
+            />
             <FactRow
               label="Transparency"
               value={night.weather.transparency !== null ? `${night.weather.transparency}/8` : '—'}

@@ -3,8 +3,9 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { Badge, Card, Stack, Text } from '@mantine/core'
 import type { PaginationState } from '@tanstack/react-table'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
+import { durationClock, integer, kcal, km } from 'basalt-ui/format'
 import { walkingPadQueries } from '../../lib/queries/walking-pad'
-import { formatDurationClock, formatKcal, formatKm, formatPace, formatSteps } from './formatters'
+import { formatPace } from './formatters'
 
 const PAGE_SIZE = 25
 // Cap the table body so the history card doesn't blow out vertically. With
@@ -62,13 +63,13 @@ const columns = [
     meta: { numeral: false },
     cell: (ctx) => (
       <Text size="sm" fw={600} c="blue">
-        {formatKm(ctx.getValue())}
+        {km(ctx.getValue())}
       </Text>
     ),
   }),
   columnHelper.accessor('duration_s', {
     header: 'Duration',
-    cell: (ctx) => formatDurationClock(ctx.getValue()),
+    cell: (ctx) => durationClock(ctx.getValue()),
   }),
   columnHelper.accessor('avg_speed_kmh', {
     header: 'Avg pace',
@@ -78,8 +79,11 @@ const columns = [
     header: 'Peak',
     cell: (ctx) => formatPace(ctx.getValue(), 2),
   }),
-  columnHelper.accessor('steps', { header: 'Steps', cell: (ctx) => formatSteps(ctx.getValue()) }),
-  columnHelper.accessor('kcal', { header: 'Kcal', cell: (ctx) => formatKcal(ctx.getValue()) }),
+  columnHelper.accessor('steps', {
+    header: 'Steps',
+    cell: (ctx) => integer(ctx.getValue(), { locale: 'en-US' }),
+  }),
+  columnHelper.accessor('kcal', { header: 'Kcal', cell: (ctx) => kcal(ctx.getValue()) }),
   columnHelper.accessor('pause_count', {
     header: 'Pauses',
     meta: { numeral: false },

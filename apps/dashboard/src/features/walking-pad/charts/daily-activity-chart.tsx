@@ -10,9 +10,10 @@ import {
   type CartesianTooltipRowContext,
 } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
+import { integer } from 'basalt-ui/format'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { walkingStore } from '../../../lib/window-stores'
-import { METRIC_DEFS, fmtSteps, type MetricKey } from '../metrics'
+import { METRIC_DEFS, type MetricKey } from '../metrics'
 
 type Point = {
   date: string
@@ -45,8 +46,8 @@ const DAILY_METRICS: Record<MetricKey, DailyMetric> = {
   },
   steps: {
     pick: (p) => p.steps,
-    formatTotal: fmtSteps,
-    formatAvg: (v) => `${fmtSteps(Math.round(v))} steps/day`,
+    formatTotal: (v) => integer(v, { locale: 'en-US' }),
+    formatAvg: (v) => `${integer(Math.round(v), { locale: 'en-US' })} steps/day`,
     autoMaxFloor: 3000,
   },
 }

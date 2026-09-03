@@ -11,16 +11,9 @@ import {
 } from '@tabler/icons-react'
 import { useDocumentVisibility } from '@mantine/hooks'
 import { VX } from 'basalt-ui/tokens'
+import { durationClock, integer, kcal, km } from 'basalt-ui/format'
 import { walkingPadQueries } from '../../lib/queries/walking-pad'
-import {
-  formatDurationClock,
-  formatKcal,
-  formatKm,
-  formatMeters,
-  formatPace,
-  formatSteps,
-  relativeTime,
-} from './formatters'
+import { formatMeters, formatPace, relativeTime } from './formatters'
 
 /**
  * Live WalkingPad session card.
@@ -102,26 +95,26 @@ function LiveCardActive({ live }: { live: LiveSnapshot }) {
         <Group grow gap="md" wrap="wrap">
           <BigTile
             label="Elapsed"
-            value={formatDurationClock(elapsedS)}
+            value={durationClock(elapsedS)}
             icon={<IconActivity size={16} />}
             color={VX.line}
             mono
           />
           <BigTile
             label="Distance"
-            value={formatKm(live.distance_m)}
+            value={km(live.distance_m)}
             icon={<IconRoute size={16} />}
             color={VX.line}
           />
           <BigTile
             label="Steps"
-            value={formatSteps(live.steps)}
+            value={integer(live.steps, { locale: 'en-US' })}
             icon={<IconShoe size={16} />}
             color={VX.line}
           />
           <BigTile
             label="Energy"
-            value={formatKcal(live.kcal)}
+            value={kcal(live.kcal)}
             icon={<IconFlame size={16} />}
             color={VX.line}
           />
@@ -178,15 +171,19 @@ function LiveCardIdle() {
               </Badge>
             </Group>
             <Text size="xs" c="dimmed">
-              Last walk {relativeTime(last.ended_at)} · {formatKm(last.distance_m)} in{' '}
-              {formatDurationClock(last.duration_s)} · avg {formatPace(last.avg_speed_kmh, 1)}
+              Last walk {relativeTime(last.ended_at)} · {km(last.distance_m)} in{' '}
+              {durationClock(last.duration_s)} · avg {formatPace(last.avg_speed_kmh, 1)}
             </Text>
           </Stack>
         </Group>
         <Group gap="lg">
           <MiniStat label="Distance" value={formatMeters(last.distance_m)} color={VX.line} />
-          <MiniStat label="Steps" value={formatSteps(last.steps)} color={VX.line} />
-          <MiniStat label="Kcal" value={formatKcal(last.kcal)} color={VX.line} />
+          <MiniStat
+            label="Steps"
+            value={integer(last.steps, { locale: 'en-US' })}
+            color={VX.line}
+          />
+          <MiniStat label="Kcal" value={kcal(last.kcal)} color={VX.line} />
         </Group>
       </Group>
     </Card>

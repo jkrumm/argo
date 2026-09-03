@@ -1,4 +1,5 @@
 import { VX } from 'basalt-ui/tokens'
+import { percent, weekday } from 'basalt-ui/format'
 import type { Location, Night, Sources, Verdict } from './types'
 
 /** Verdict → tone. `out` is a hard gate, not a low score, so it reads neutral, never red. */
@@ -23,16 +24,6 @@ export function verdictLabel(verdict: Verdict): string {
   return verdict.charAt(0).toUpperCase() + verdict.slice(1)
 }
 
-/** `v` is a 0..1 fraction (moon illumination, factor value). */
-export function fmtPercent(v: number | null): string {
-  return v === null ? '—' : `${Math.round(v * 100)}%`
-}
-
-/** `v` is already a 0..100 percentage (cloud cover means from the API). */
-export function fmtPercent100(v: number | null): string {
-  return v === null ? '—' : `${Math.round(v)}%`
-}
-
 export function fmtDegrees(v: number | null): string {
   return v === null ? '—' : `${v.toFixed(1)}°`
 }
@@ -45,18 +36,10 @@ export function fmtMinutes(v: number | null): string {
   return `${h}h ${m}m`
 }
 
-/** `dateString` is a local calendar date (`YYYY-MM-DD`) — parsed as a local date, not UTC, so the
- * weekday never shifts a day depending on the reader's timezone. */
-export function fmtWeekday(dateString: string): string {
-  const [y, m, d] = dateString.split('-').map(Number)
-  const date = new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1)
-  return new Intl.DateTimeFormat('en-GB', { weekday: 'short' }).format(date)
-}
-
 /** Weekday abbreviation + day-of-month, for the night-strip cell header. */
 export function fmtDayLabel(dateString: string): { weekday: string; day: number } {
   const [, , d] = dateString.split('-').map(Number)
-  return { weekday: fmtWeekday(dateString), day: d ?? 0 }
+  return { weekday: weekday(dateString, { locale: 'en-GB' }), day: d ?? 0 }
 }
 
 /** Converts an ISO instant (UTC) to a local `HH:MM` clock string for fields the API leaves in UTC
@@ -125,7 +108,7 @@ export function killerLabel(night: Night): string {
   if (killer === undefined) return '—'
   switch (killer.id) {
     case 'moon':
-      return `moon ${fmtPercent(night.moon.illumination)}`
+      return `moon ${percent(night.moon.illumination)}`
     case 'core-altitude':
       return 'core low'
     case 'darkness':
