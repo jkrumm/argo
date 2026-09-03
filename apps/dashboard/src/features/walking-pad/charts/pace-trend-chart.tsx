@@ -4,7 +4,6 @@ import { alpha, VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { PACE_ZONES } from '../constants'
 import { SERIES } from '../../../lib/series'
-import { ChartEmpty } from './empty'
 
 type Point = {
   date: string
@@ -93,22 +92,20 @@ export function PaceTrendChart({ params }: { params: WalkingPadWindowParams }) {
           </span>
         ) : null
       }
+      state={{ empty: !hasData && 'No pace data — log a session first.' }}
+      placeholderHeight={280}
     >
-      {!hasData ? (
-        <ChartEmpty height={280} label="No pace data — log a session first." />
-      ) : (
-        <ZonedLine
-          ariaLabel="Pace trend, daily average walking speed with zone bands"
-          data={points}
-          height={280}
-          chartId="walking-pad-pace-trend"
-          getX={(d) => d.date}
-          series={series}
-          y={{ domain: 'auto', autoMaxFloor: 6, autoMinCeil: 1, nice: true }}
-          zones={zones}
-          legend={{ groups: true, toggle: false }}
-        />
-      )}
+      <ZonedLine
+        ariaLabel="Pace trend, daily average walking speed with zone bands"
+        data={points}
+        height={280}
+        chartId="walking-pad-pace-trend"
+        getX={(d) => d.date}
+        series={series}
+        y={{ domain: 'auto', autoMaxFloor: 6, autoMinCeil: 1, nice: true }}
+        zones={zones}
+        legend={{ groups: true, toggle: false }}
+      />
     </ChartCard>
   )
 }

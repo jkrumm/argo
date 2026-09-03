@@ -129,12 +129,3 @@ export function HeroStatsSkeleton() {
     </SimpleGrid>
   )
 }
-
-export function ChartSkeleton({ height = 320 }: { height?: number }) {
-  return (
-    <Card py="xs" px="sm">
-      <Skeleton height={14} width={140} radius="sm" mb="sm" />
-      <Skeleton height={height - 40} radius="sm" />
-    </Card>
-  )
-}

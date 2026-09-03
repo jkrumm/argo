@@ -14,7 +14,6 @@ import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/
 import { SERIES } from '../../../lib/series'
 import { EXERCISE_COLORS, METRIC_TOOLTIPS, type ExerciseKey } from '../constants'
 import { acwrZoneColor, acwrZoneLabel, exerciseLabel } from '../formulas'
-import { ChartEmpty } from './empty'
 
 type AcwrZone = 'undertrained' | 'optimal' | 'caution' | 'danger'
 
@@ -195,44 +194,42 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
           </span>
         ) : null
       }
+      state={{ empty: !enoughData && 'Not enough data — need at least 2 weeks of sessions' }}
+      placeholderHeight={HEIGHT}
     >
-      {enoughData ? (
-        <CartesianChart
-          data={merged}
-          chartId="training-load"
-          getX={(d) => d.date}
-          // Keys are Monday week-starts (`weeklyTonnageSeries` -> `weekStart`), i.e. a bucket's
-          // LEADING edge, so a back-half hover must not resolve to the following week.
-          cursorResolution="leading"
-          series={chartSeries}
-          y={{ domain: [0, yMax], ticks: 5, format: (v) => v.toFixed(1) }}
-          zones={zones}
-          refLines={refLines}
-          height={HEIGHT}
-          ariaLabel="Acute:chronic workload ratio per exercise"
-        >
-          {({ data: rows, visible, xScale, yScale, highlighted }: PlotContext<MergedPoint>) =>
-            visible.map((s) => {
-              const pts = rows.filter((d) => s.getValue(d) !== null)
-              if (pts.length < 2) return null
-              return (
-                <LinePath<MergedPoint>
-                  key={s.key}
-                  data={pts}
-                  x={(d) => xScale(d.date) ?? 0}
-                  y={(d) => yScale(s.getValue(d) ?? 0)}
-                  stroke={s.color}
-                  strokeWidth={s.strokeWidth ?? STROKE_WIDTH}
-                  strokeOpacity={highlighted === null || highlighted === s.key ? 1 : 0.12}
-                  curve={curveMonotoneX}
-                />
-              )
-            })
-          }
-        </CartesianChart>
-      ) : (
-        <ChartEmpty height={HEIGHT} message="Not enough data — need at least 2 weeks of sessions" />
-      )}
+      <CartesianChart
+        data={merged}
+        chartId="training-load"
+        getX={(d) => d.date}
+        // Keys are Monday week-starts (`weeklyTonnageSeries` -> `weekStart`), i.e. a bucket's
+        // LEADING edge, so a back-half hover must not resolve to the following week.
+        cursorResolution="leading"
+        series={chartSeries}
+        y={{ domain: [0, yMax], ticks: 5, format: (v) => v.toFixed(1) }}
+        zones={zones}
+        refLines={refLines}
+        height={HEIGHT}
+        ariaLabel="Acute:chronic workload ratio per exercise"
+      >
+        {({ data: rows, visible, xScale, yScale, highlighted }: PlotContext<MergedPoint>) =>
+          visible.map((s) => {
+            const pts = rows.filter((d) => s.getValue(d) !== null)
+            if (pts.length < 2) return null
+            return (
+              <LinePath<MergedPoint>
+                key={s.key}
+                data={pts}
+                x={(d) => xScale(d.date) ?? 0}
+                y={(d) => yScale(s.getValue(d) ?? 0)}
+                stroke={s.color}
+                strokeWidth={s.strokeWidth ?? STROKE_WIDTH}
+                strokeOpacity={highlighted === null || highlighted === s.key ? 1 : 0.12}
+                curve={curveMonotoneX}
+              />
+            )
+          })
+        }
+      </CartesianChart>
     </ChartCard>
   )
 }

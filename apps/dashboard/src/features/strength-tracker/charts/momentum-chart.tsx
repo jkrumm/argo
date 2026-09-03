@@ -9,7 +9,6 @@ import { SERIES } from '../../../lib/series'
 import { EXERCISE_KEYS } from '../../../lib/window-stores'
 import { EXERCISE_COLORS, METRIC_TOOLTIPS } from '../constants'
 import { directionArrow, directionColor, exerciseLabel, type StrengthDirection } from '../formulas'
-import { ChartEmpty } from './empty'
 
 /** A per-chart select is store state like any filter (law C3) — a LOCAL store, because which lift
  * this one card plots is not worth a query param. Persisted, so it survives a reload. */
@@ -183,29 +182,27 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
       subtitle="Is the trend accelerating?"
       info={METRIC_TOOLTIPS.momentum}
       actions={headerExtra}
+      state={{ empty: !hasData && 'Need at least 2 sessions per exercise' }}
+      placeholderHeight={HEIGHT}
     >
-      {!hasData ? (
-        <ChartEmpty height={HEIGHT} message="Need at least 2 sessions per exercise" />
-      ) : (
-        <DualPanel<MomentumPoint>
-          data={chartData}
-          height={HEIGHT}
-          chartId="momentum"
-          getX={(d) => d.date}
-          series={series}
-          topFraction={TOP_FRACTION}
-          getBar={(d) => d.velocity}
-          barLabel="Velocity"
-          barColorPositive={VX.goodSolid}
-          barColorNegative={VX.badSolid}
-          formatTop={fmtTop}
-          formatBottom={fmtVelocity}
-          formatBar={fmtVelocityBar}
-          bottomYDomain="auto"
-          bottomMaxAbsFloor={BOTTOM_MAX_ABS_FLOOR}
-          ariaLabel="Estimated 1RM trend with its trailing regression, over a velocity histogram of percent change per day"
-        />
-      )}
+      <DualPanel<MomentumPoint>
+        data={chartData}
+        height={HEIGHT}
+        chartId="momentum"
+        getX={(d) => d.date}
+        series={series}
+        topFraction={TOP_FRACTION}
+        getBar={(d) => d.velocity}
+        barLabel="Velocity"
+        barColorPositive={VX.goodSolid}
+        barColorNegative={VX.badSolid}
+        formatTop={fmtTop}
+        formatBottom={fmtVelocity}
+        formatBar={fmtVelocityBar}
+        bottomYDomain="auto"
+        bottomMaxAbsFloor={BOTTOM_MAX_ABS_FLOOR}
+        ariaLabel="Estimated 1RM trend with its trailing regression, over a velocity histogram of percent change per day"
+      />
     </ChartCard>
   )
 }

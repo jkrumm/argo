@@ -3,11 +3,11 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Grid, SimpleGrid, Stack } from '@mantine/core'
 import { useElementSize, useMediaQuery } from '@mantine/hooks'
 import { PageBar, Section } from 'basalt-ui'
+import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, MultiSelectFilter, RangeFilter } from 'basalt-ui/controls'
 import { walkingStore } from '../lib/window-stores'
 import {
   AchievementsGallery,
-  ChartSkeleton,
   DailyActivityChart,
   HeroStats,
   HeroStatsSkeleton,
@@ -92,13 +92,13 @@ function WalkingPadPage() {
               <Suspense fallback={<HeroStatsSkeleton />}>
                 <HeroStats params={params} />
               </Suspense>
-              <Suspense fallback={<ChartSkeleton height={200} />}>
+              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={200} />}>
                 <SparklineGridChart params={params} />
               </Suspense>
             </Stack>
           </Grid.Col>
           <Grid.Col span={{ base: 12, lg: 4 }}>
-            <Suspense fallback={<ChartSkeleton height={320} />}>
+            <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <AchievementsGallery matchHeight={matchHeight} />
             </Suspense>
           </Grid.Col>
@@ -106,10 +106,10 @@ function WalkingPadPage() {
 
         <Section title="Daily rhythm" subtitle="How is each day adding up?">
           <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-            <Suspense fallback={<ChartSkeleton />}>
+            <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <DailyActivityChart params={params} />
             </Suspense>
-            <Suspense fallback={<ChartSkeleton />}>
+            <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <PaceTrendChart params={params} />
             </Suspense>
           </SimpleGrid>
@@ -117,10 +117,10 @@ function WalkingPadPage() {
 
         <Section title="Volume" subtitle="Am I keeping the habit alive week to week?">
           <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-            <Suspense fallback={<ChartSkeleton />}>
+            <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <WeeklyVolumeChart params={params} />
             </Suspense>
-            <Suspense fallback={<ChartSkeleton height={280} />}>
+            <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
               <LengthHistogramChart params={params} />
             </Suspense>
           </SimpleGrid>
@@ -129,7 +129,7 @@ function WalkingPadPage() {
         <Grid>
           <Grid.Col span={{ base: 12, lg: 4 }}>
             <Section title="Patterns" subtitle="When do I tend to walk?">
-              <Suspense fallback={<ChartSkeleton height={240} />}>
+              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
                 <TimeOfDayChart params={params} matchHeight={bottomMatchHeight} />
               </Suspense>
             </Section>
@@ -137,7 +137,9 @@ function WalkingPadPage() {
           <Grid.Col span={{ base: 12, lg: 8 }}>
             <Section title="History" subtitle="Every closed session, newest first.">
               <div ref={historyRef}>
-                <Suspense fallback={<ChartSkeleton height={420} />}>
+                <Suspense
+                  fallback={<ChartCard state={{ pending: true }} placeholderHeight={420} />}
+                >
                   <SessionHistoryTable />
                 </Suspense>
               </div>

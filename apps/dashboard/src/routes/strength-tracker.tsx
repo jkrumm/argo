@@ -3,11 +3,11 @@ import { Suspense, useMemo } from 'react'
 import { Card, Grid, SimpleGrid, Stack } from '@mantine/core'
 import { IconBarbell } from '@tabler/icons-react'
 import { EmptyState, PageBar, Section } from 'basalt-ui'
+import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, MultiSelectFilter, RangeFilter, ViewTabs } from 'basalt-ui/controls'
 import { DateRangePicker } from 'basalt-ui/controls-dates'
 import { strengthStore, toApiWindow } from '../lib/window-stores'
 import {
-  ChartSkeleton,
   DEFAULT_EXERCISES,
   ExerciseSummaryCards,
   RecentRecords,
@@ -155,7 +155,9 @@ function StrengthTrackerPage() {
                   <ChartsPanel params={queryParams} activeExercises={exercises} />
                 )}
                 {search.tab === 'history' && (
-                  <Suspense fallback={<ChartSkeleton height={320} />}>
+                  <Suspense
+                    fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}
+                  >
                     <WorkoutsTable />
                   </Suspense>
                 )}
@@ -186,11 +188,11 @@ function ChartsPanel({
 }) {
   return (
     <Stack gap="md">
-      <Suspense fallback={<ChartSkeleton height={420} />}>
+      <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={420} />}>
         <SparklineGridChart params={params} />
       </Suspense>
 
-      <Suspense fallback={<ChartSkeleton height={120} />}>
+      <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={120} />}>
         <ExerciseSummaryCardsSlot />
       </Suspense>
 
@@ -199,10 +201,10 @@ function ChartsPanel({
         subtitle="Am I getting stronger on the lifts I care about?"
       >
         <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-          <Suspense fallback={<ChartSkeleton />}>
+          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
             <OneRmTrendChart params={params} />
           </Suspense>
-          <Suspense fallback={<ChartSkeleton />}>
+          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
             <CompositeChartSlot params={params} activeExercises={activeExercises} />
           </Suspense>
         </SimpleGrid>
@@ -210,10 +212,10 @@ function ChartsPanel({
 
       <Section title="Load Quality" subtitle="Am I loading smart or just hard?">
         <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-          <Suspense fallback={<ChartSkeleton />}>
+          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
             <WeeklyVolumeChart params={params} />
           </Suspense>
-          <Suspense fallback={<ChartSkeleton />}>
+          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
             <TrainingLoadChart params={params} />
           </Suspense>
         </SimpleGrid>
@@ -221,10 +223,10 @@ function ChartsPanel({
 
       <Section title="Efficiency & Momentum" subtitle="Are my sessions producing quality work?">
         <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-          <Suspense fallback={<ChartSkeleton />}>
+          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
             <InolChart params={params} />
           </Suspense>
-          <Suspense fallback={<ChartSkeleton />}>
+          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
             <MomentumChart params={params} />
           </Suspense>
         </SimpleGrid>
@@ -232,10 +234,10 @@ function ChartsPanel({
 
       <Section title="Balance" subtitle="Are my lifts proportional?">
         <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-          <Suspense fallback={<ChartSkeleton />}>
+          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
             <RelativeProgressionChart params={params} />
           </Suspense>
-          <Suspense fallback={<ChartSkeleton />}>
+          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
             <StrengthRatiosChart params={params} />
           </Suspense>
         </SimpleGrid>
@@ -243,10 +245,10 @@ function ChartsPanel({
 
       <Section title="Readiness" subtitle="Is today a push, sustain, or rest day?">
         <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
-          <Suspense fallback={<ChartSkeleton />}>
+          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
             <ReadinessStrainChart params={params} />
           </Suspense>
-          <Suspense fallback={<ChartSkeleton />}>
+          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
             <AlignmentMatrixChart params={params} />
           </Suspense>
         </SimpleGrid>
@@ -310,7 +312,7 @@ function TrainingTools({
 }) {
   return (
     <Stack gap="md">
-      <Suspense fallback={<ChartSkeleton height={320} />}>
+      <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
         <WorkoutForm />
       </Suspense>
       <TimerCard />

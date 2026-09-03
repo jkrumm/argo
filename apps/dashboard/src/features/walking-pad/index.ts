@@ -20,7 +20,7 @@ export {
 } from './formatters'
 export { METRIC_DEFS, type MetricKey } from './metrics'
 export { LiveCard, LiveCardSkeleton } from './live-card'
-export { HeroStats, HeroStatsSkeleton, ChartSkeleton } from './hero-stats'
+export { HeroStats, HeroStatsSkeleton } from './hero-stats'
 export { useAchievementWatcher } from './achievements-toast'
 export { AchievementsGallery } from './achievements-gallery'
 export { SessionHistoryTable } from './session-history'

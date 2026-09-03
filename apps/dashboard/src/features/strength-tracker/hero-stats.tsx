@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Card, SimpleGrid, Skeleton, Stack, Text } from '@mantine/core'
+import { Card, SimpleGrid, Skeleton, Text } from '@mantine/core'
 import { StatCard, type StatCardBreakdownRow } from 'basalt-ui'
 import { strengthQueries, type StrengthQueryParams } from '../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from './constants'
@@ -133,35 +133,5 @@ export function HeroStatsSkeleton() {
       <HeroCardSkeleton label="Load Quality" />
       <HeroCardSkeleton label="Readiness" />
     </SimpleGrid>
-  )
-}
-
-/**
- * Chart skeleton — used as the Suspense fallback for individual chart cards.
- * Renders a card-like shell with a faded title and a single Skeleton block.
- */
-export function ChartSkeleton({ height = 320 }: { height?: number }) {
-  return (
-    <Card py="xs" px="sm">
-      <Skeleton height={14} width={140} radius="sm" mb="sm" />
-      <Skeleton height={height - 40} radius="sm" />
-    </Card>
-  )
-}
-
-/**
- * Lightweight placeholder used while chart subagents are still in flight.
- * Renders a Mantine Card with the chart name and a "Coming soon" message.
- */
-export function Placeholder({ label, height = 320 }: { label: string; height?: number }) {
-  return (
-    <Card py="xs" px="sm">
-      <Stack gap={4} justify="center" align="center" h={height}>
-        <Text fw={600}>{label}</Text>
-        <Text size="xs" c="dimmed">
-          Chart coming in Phase 4
-        </Text>
-      </Stack>
-    </Card>
   )
 }

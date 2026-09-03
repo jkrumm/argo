@@ -14,7 +14,6 @@ import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/
 import { SERIES } from '../../../lib/series'
 import { DEFAULT_EXERCISES, EXERCISE_COLORS, METRIC_TOOLTIPS } from '../constants'
 import { exerciseLabel } from '../formulas'
-import { ChartEmpty } from './empty'
 
 const HEIGHT = 280
 
@@ -136,40 +135,38 @@ export default function RelativeProgressionChart({ params }: { params: StrengthQ
       subtitle="Which lifts are gaining most?"
       info={METRIC_TOOLTIPS.relativeProgression}
       actions={headerExtra}
+      state={{ empty: !hasAny }}
+      placeholderHeight={HEIGHT}
     >
       <Box h={HEIGHT} w="100%">
-        {hasAny ? (
-          <CartesianChart
-            data={points}
-            chartId="relative-progression"
-            getX={(d) => d.date}
-            series={series}
-            y={{ domain: pctDomain, ticks: 5, format: (v) => `${v.toFixed(0)}%`, nice: true }}
-            refLines={[{ value: 0, color: alpha(VX.axis, 0.6), dashed: true }]}
-            height={HEIGHT}
-            ariaLabel="Relative progression per lift, in percent from the window start"
-          >
-            {({ data: rows, visible, xScale, yScale, highlighted }) =>
-              visible.map((s) => {
-                const valid = rows.filter((d) => s.getValue(d) !== null)
-                return (
-                  <LinePath<RelPoint>
-                    key={s.key}
-                    data={valid}
-                    x={(d) => xScale(d.date) ?? 0}
-                    y={(d) => yScale(s.getValue(d) ?? 0)}
-                    stroke={s.color}
-                    strokeWidth={2.5}
-                    strokeOpacity={highlighted === null || highlighted === s.key ? 1 : 0.15}
-                    curve={curveMonotoneX}
-                  />
-                )
-              })
-            }
-          </CartesianChart>
-        ) : (
-          <ChartEmpty height={HEIGHT} />
-        )}
+        <CartesianChart
+          data={points}
+          chartId="relative-progression"
+          getX={(d) => d.date}
+          series={series}
+          y={{ domain: pctDomain, ticks: 5, format: (v) => `${v.toFixed(0)}%`, nice: true }}
+          refLines={[{ value: 0, color: alpha(VX.axis, 0.6), dashed: true }]}
+          height={HEIGHT}
+          ariaLabel="Relative progression per lift, in percent from the window start"
+        >
+          {({ data: rows, visible, xScale, yScale, highlighted }) =>
+            visible.map((s) => {
+              const valid = rows.filter((d) => s.getValue(d) !== null)
+              return (
+                <LinePath<RelPoint>
+                  key={s.key}
+                  data={valid}
+                  x={(d) => xScale(d.date) ?? 0}
+                  y={(d) => yScale(s.getValue(d) ?? 0)}
+                  stroke={s.color}
+                  strokeWidth={2.5}
+                  strokeOpacity={highlighted === null || highlighted === s.key ? 1 : 0.15}
+                  curve={curveMonotoneX}
+                />
+              )
+            })
+          }
+        </CartesianChart>
       </Box>
     </ChartCard>
   )

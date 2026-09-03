@@ -13,7 +13,6 @@ import {
 import { VX, alpha } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { SERIES } from '../../../lib/series'
-import { ChartEmpty } from './empty'
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 // Treadmill is never used between midnight and 06:00 — hide that quarter of
@@ -70,21 +69,6 @@ export function TimeOfDayChart({
   // because a single session contributes to every hour it touched.
   const totalSessions = data.totalSessions
 
-  if (totalSessions === 0) {
-    return (
-      <ChartCard
-        title="Time of day"
-        subtitle="When do I tend to walk?"
-        info="Heatmap of walking activity by day-of-week × hour-of-day (UTC). Each session lights up every hour it touched, not just its start hour — so a 2-hour walk starting at 14:00 colours 14:00, 15:00, and the partial overlap at 16:00. Darker cells = more sessions active in that hour. Useful for spotting whether the desk-treadmill habit aligns with your meeting calendar or evening routine."
-      >
-        <ChartEmpty
-          height={DEFAULT_HEIGHT}
-          label="No walks yet — heatmap unlocks on first session."
-        />
-      </ChartCard>
-    )
-  }
-
   const height =
     matchHeight !== undefined
       ? Math.max(DEFAULT_HEIGHT, matchHeight - CHART_CARD_CHROME)
@@ -127,6 +111,8 @@ export function TimeOfDayChart({
           </span>
         ) : null
       }
+      state={{ empty: totalSessions === 0 && 'No walks yet — heatmap unlocks on first session.' }}
+      placeholderHeight={DEFAULT_HEIGHT}
     >
       <Box ref={ref} h={height} w="100%">
         {width > 0 ? (

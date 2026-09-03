@@ -18,7 +18,6 @@ import { SERIES } from '../../../lib/series'
 import { EXERCISE_KEYS } from '../../../lib/window-stores'
 import { DEFAULT_EXERCISES, EXERCISES, METRIC_TOOLTIPS } from '../constants'
 import { exerciseLabel } from '../formulas'
-import { ChartEmpty } from './empty'
 
 /**
  * The caller's computed default, in a module slot the field's fallback THUNK reads.
@@ -231,45 +230,42 @@ export default function StrengthCompositeChart({
       subtitle="Three signals on one σ axis"
       info={METRIC_TOOLTIPS.strengthComposite}
       actions={headerExtra}
+      state={{
+        empty:
+          !hasLines &&
+          (points.length === 0
+            ? `No composite data for ${exerciseLabel(selected)}`
+            : `Not enough sessions for ${exerciseLabel(selected)} yet — needs at least 3`),
+      }}
+      placeholderHeight={280}
     >
-      {hasLines ? (
-        <CartesianChart
-          data={points}
-          chartId="strength-composite"
-          getX={(d) => d.date}
-          series={COMPOSITE_SERIES}
-          y={{ domain: Y_DOMAIN, ticks: 7, format: fmtSigma }}
-          zones={[{ from: -1, to: 1, fill: alpha(VX.grid, 0.5) }]}
-          refLines={[{ value: 0, color: alpha(VX.axis, 0.6), dashed: true }]}
-          tooltip={{ prependRows: tooltipRows }}
-          height={280}
-          ariaLabel="Strength composite z-scores"
-        >
-          {({ visible, xScale, yScale, highlighted }) =>
-            visible.map((s) => (
-              <LinePath<CompositePoint>
-                key={s.key}
-                data={points.filter((d) => s.getValue(d) !== null)}
-                x={(d) => xScale(d.date) ?? 0}
-                y={(d) => yScale(s.getValue(d) ?? 0)}
-                stroke={s.color}
-                strokeWidth={STROKE_WIDTH}
-                strokeOpacity={highlighted === null || highlighted === s.key ? 1 : 0.15}
-                curve={curveMonotoneX}
-              />
-            ))
-          }
-        </CartesianChart>
-      ) : (
-        <ChartEmpty
-          height={280}
-          message={
-            points.length === 0
-              ? `No composite data for ${exerciseLabel(selected)}`
-              : `Not enough sessions for ${exerciseLabel(selected)} yet — needs at least 3`
-          }
-        />
-      )}
+      <CartesianChart
+        data={points}
+        chartId="strength-composite"
+        getX={(d) => d.date}
+        series={COMPOSITE_SERIES}
+        y={{ domain: Y_DOMAIN, ticks: 7, format: fmtSigma }}
+        zones={[{ from: -1, to: 1, fill: alpha(VX.grid, 0.5) }]}
+        refLines={[{ value: 0, color: alpha(VX.axis, 0.6), dashed: true }]}
+        tooltip={{ prependRows: tooltipRows }}
+        height={280}
+        ariaLabel="Strength composite z-scores"
+      >
+        {({ visible, xScale, yScale, highlighted }) =>
+          visible.map((s) => (
+            <LinePath<CompositePoint>
+              key={s.key}
+              data={points.filter((d) => s.getValue(d) !== null)}
+              x={(d) => xScale(d.date) ?? 0}
+              y={(d) => yScale(s.getValue(d) ?? 0)}
+              stroke={s.color}
+              strokeWidth={STROKE_WIDTH}
+              strokeOpacity={highlighted === null || highlighted === s.key ? 1 : 0.15}
+              curve={curveMonotoneX}
+            />
+          ))
+        }
+      </CartesianChart>
     </ChartCard>
   )
 }

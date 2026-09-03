@@ -6,7 +6,6 @@ import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/
 import { SERIES } from '../../../lib/series'
 import { DEFAULT_EXERCISES, EXERCISE_COLORS, METRIC_TOOLTIPS } from '../constants'
 import { directionArrow, directionColor, exerciseLabel } from '../formulas'
-import { ChartEmpty } from './empty'
 
 type BestSet = { weight_kg: number; reps: number; e1rm: number } | null
 
@@ -233,20 +232,18 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
       subtitle="Am I getting stronger?"
       info={METRIC_TOOLTIPS.oneRmTrend}
       actions={headerExtra}
+      state={{ empty: !hasAnyPoint }}
+      placeholderHeight={280}
     >
-      {!hasAnyPoint ? (
-        <ChartEmpty height={280} />
-      ) : (
-        <MultiLine<MergedPoint>
-          data={merged}
-          chartId="one-rm-trend"
-          getX={(d) => d.date}
-          series={series}
-          y={{ domain: yDomain, nice: true }}
-          height={280}
-          ariaLabel="Estimated 1RM trend per exercise"
-        />
-      )}
+      <MultiLine<MergedPoint>
+        data={merged}
+        chartId="one-rm-trend"
+        getX={(d) => d.date}
+        series={series}
+        y={{ domain: yDomain, nice: true }}
+        height={280}
+        ariaLabel="Estimated 1RM trend per exercise"
+      />
     </ChartCard>
   )
 }

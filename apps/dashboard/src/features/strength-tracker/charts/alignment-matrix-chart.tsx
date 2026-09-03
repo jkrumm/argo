@@ -3,7 +3,6 @@ import { Box, SimpleGrid, Stack, Text, Tooltip } from '@mantine/core'
 import { ChartCard, VX } from 'basalt-ui/charts'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from '../constants'
-import { ChartEmpty } from './empty'
 
 type VerdictType = 'good' | 'warn' | 'bad'
 type RecoveryRow = 'high' | 'normal' | 'low'
@@ -61,19 +60,6 @@ export default function AlignmentMatrixChart({ params }: { params: StrengthQuery
       </Text>
     ) : null
 
-  if (totalCount === 0) {
-    return (
-      <ChartCard
-        title="Training × Recovery Alignment"
-        subtitle="Where do my sessions land?"
-        info={METRIC_TOOLTIPS.trainingRecoveryAlignment}
-        actions={headerExtra}
-      >
-        <ChartEmpty height={200} message="No sessions to chart" />
-      </ChartCard>
-    )
-  }
-
   // Order grid rows + columns by ROW_ORDER / COL_ORDER from the cell metadata
   // (rather than trusting array index).
   const byRow = new Map<RecoveryRow, Map<AcwrCol, AlignmentCell>>()
@@ -89,6 +75,8 @@ export default function AlignmentMatrixChart({ params }: { params: StrengthQuery
       subtitle="Where do my sessions land?"
       info={METRIC_TOOLTIPS.trainingRecoveryAlignment}
       actions={headerExtra}
+      state={{ empty: totalCount === 0 && 'No sessions to chart' }}
+      placeholderHeight={200}
     >
       <Stack gap="xs" p="md">
         {/* Column headers */}
