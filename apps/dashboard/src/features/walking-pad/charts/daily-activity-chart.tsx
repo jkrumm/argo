@@ -13,7 +13,6 @@ import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { walkingStore } from '../../../lib/window-stores'
 import { METRIC_DEFS, fmtSteps, type MetricKey } from '../metrics'
-import { ChartEmpty } from './empty'
 
 type Point = {
   date: string
@@ -78,18 +77,6 @@ export function DailyActivityChart({ params }: { params: WalkingPadWindowParams 
   const hasData = enabled.some((m) => (metricMax[m] ?? 0) > 0)
   const isMulti = enabled.length > 1
   const totalSessions = points.reduce((s, p) => s + p.sessions, 0)
-
-  if (enabled.length === 0) {
-    return (
-      <ChartCard
-        title="Daily activity"
-        subtitle="How much did I walk each day?"
-        info="Per-UTC-day total of the selected metrics. Pick one or more metrics from the page header to populate."
-      >
-        <ChartEmpty height={280} label="No metric selected — toggle one in the page header." />
-      </ChartCard>
-    )
-  }
 
   const getValue = (d: Point, key: string): number | null => {
     const m = key as MetricKey
@@ -177,36 +164,38 @@ export function DailyActivityChart({ params }: { params: WalkingPadWindowParams 
       subtitle="How much did I walk each day?"
       info="Per-UTC-day total of each enabled metric. With 2+ metrics, bars are normalized to each metric's own window-max so the rhythm is comparable; tooltips show absolute values. The dashed line is the per-day session count on the right axis."
       actions={hasData ? headerSummary : null}
+      state={{
+        empty:
+          (enabled.length === 0 && 'No metric selected — toggle one in the page header.') ||
+          (!hasData && 'No walks in this window'),
+      }}
+      placeholderHeight={280}
     >
-      {!hasData ? (
-        <ChartEmpty height={280} label="No walks in this window" />
-      ) : (
-        <Bars
-          ariaLabel="Daily activity, per-day totals of the enabled walking metrics"
-          data={points}
-          height={280}
-          chartId="walking-pad-daily-activity"
-          getX={(d) => d.date}
-          getValue={getValue}
-          positiveBars={positiveBars}
-          barLayout={isMulti ? 'grouped' : 'stacked'}
-          lines={lines}
-          y={{
-            domain: isMulti ? [0, 1] : 'auto',
-            autoMaxFloor: isMulti ? undefined : singleConfig?.autoMaxFloor,
-            format: isMulti ? fmtPct : (singleDef?.format ?? fmtPct),
-            ticks: 5,
-            nice: true,
-          }}
-          y2={{
-            domain: 'auto',
-            format: (v) => String(Math.round(v)),
-            ticks: 4,
-            autoMaxFloor: 3,
-          }}
-          tooltip={isMulti ? { extraRows } : {}}
-        />
-      )}
+      <Bars
+        ariaLabel="Daily activity, per-day totals of the enabled walking metrics"
+        data={points}
+        height={280}
+        chartId="walking-pad-daily-activity"
+        getX={(d) => d.date}
+        getValue={getValue}
+        positiveBars={positiveBars}
+        barLayout={isMulti ? 'grouped' : 'stacked'}
+        lines={lines}
+        y={{
+          domain: isMulti ? [0, 1] : 'auto',
+          autoMaxFloor: isMulti ? undefined : singleConfig?.autoMaxFloor,
+          format: isMulti ? fmtPct : (singleDef?.format ?? fmtPct),
+          ticks: 5,
+          nice: true,
+        }}
+        y2={{
+          domain: 'auto',
+          format: (v) => String(Math.round(v)),
+          ticks: 4,
+          autoMaxFloor: 3,
+        }}
+        tooltip={isMulti ? { extraRows } : {}}
+      />
       <Box
         component="span"
         mt={4}
@@ -223,8 +212,4 @@ export function DailyActivityChart({ params }: { params: WalkingPadWindowParams 
       </Box>
     </ChartCard>
   )
-}
-
-export function DailyActivityChartSkeleton() {
-  return <ChartEmpty height={280} label="Loading…" />
 }

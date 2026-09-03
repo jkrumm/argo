@@ -4,6 +4,7 @@ import { Grid, Stack, useComputedColorScheme } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { BasaltErrorBoundary, PageBar, Section, type BasaltErrorContext } from 'basalt-ui'
+import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, NumberFilter, SelectFilter, ViewTabs } from 'basalt-ui/controls'
 import { astroStore } from '../lib/window-stores'
 import {
@@ -372,7 +373,10 @@ function AstroWindowPage() {
                     >
                       <Suspense
                         fallback={
-                          <ChartEmpty height={PANORAMA_HEIGHT} message="Measuring the skyline…" />
+                          <ChartCard
+                            state={{ pending: true }}
+                            placeholderHeight={PANORAMA_HEIGHT}
+                          />
                         }
                       >
                         <SkyPanorama
@@ -395,7 +399,7 @@ function AstroWindowPage() {
                     >
                       <Suspense
                         fallback={
-                          <ChartEmpty height={CHART_HEIGHT} message="Integrating the year…" />
+                          <ChartCard state={{ pending: true }} placeholderHeight={CHART_HEIGHT} />
                         }
                       >
                         <MonthlyBudgetChart site={selectedSite} />

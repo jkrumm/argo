@@ -12,7 +12,6 @@ import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { walkingStore } from '../../../lib/window-stores'
 import { METRIC_DEFS, fmtSteps, type MetricKey } from '../metrics'
-import { ChartEmpty } from './empty'
 
 type Point = {
   date: string // Monday week-start YYYY-MM-DD — treated as a categorical x.
@@ -75,18 +74,6 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
 
   const hasData = enabled.some((m) => (metricMax[m] ?? 0) > 0)
   const isMulti = enabled.length > 1
-
-  if (enabled.length === 0) {
-    return (
-      <ChartCard
-        title="Weekly volume"
-        subtitle="Is the habit holding week to week?"
-        info="ISO-week buckets within the window. Pick one or more metrics from the page header to populate."
-      >
-        <ChartEmpty height={280} label="No metric selected — toggle one in the page header." />
-      </ChartCard>
-    )
-  }
 
   const getValue = (d: Point, key: string): number | null => {
     const m = key as MetricKey
@@ -158,33 +145,35 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
       subtitle="Is the habit holding week to week?"
       info="ISO-week buckets within the window. With 2+ metrics, bars are normalized to each metric's own window-max so the rhythm is comparable; tooltips show absolute values."
       actions={hasData ? headerSummary : null}
+      state={{
+        empty:
+          (enabled.length === 0 && 'No metric selected — toggle one in the page header.') ||
+          (!hasData && 'No weekly data in this window.'),
+      }}
+      placeholderHeight={280}
     >
-      {!hasData ? (
-        <ChartEmpty height={280} label="No weekly data in this window." />
-      ) : (
-        <Bars
-          ariaLabel="Weekly volume, ISO-week totals of the enabled walking metrics"
-          data={points}
-          height={280}
-          chartId="walking-pad-weekly-volume"
-          getX={(d) => d.date}
-          getValue={getValue}
-          positiveBars={positiveBars}
-          barLayout={isMulti ? 'grouped' : 'stacked'}
-          y={{
-            domain: isMulti ? [0, 1] : 'auto',
-            autoMaxFloor: isMulti ? undefined : singleConfig?.autoMaxFloor,
-            format: isMulti ? fmtPct : (singleDef?.format ?? fmtPct),
-            ticks: 5,
-            nice: true,
-          }}
-          tooltip={isMulti ? { extraRows } : {}}
-          // `getX` returns the Monday week-start — a bucket's leading edge, not an instant — so a
-          // hover in the back half of the week must still resolve to that week's own bar, not the
-          // next one.
-          cursorResolution="leading"
-        />
-      )}
+      <Bars
+        ariaLabel="Weekly volume, ISO-week totals of the enabled walking metrics"
+        data={points}
+        height={280}
+        chartId="walking-pad-weekly-volume"
+        getX={(d) => d.date}
+        getValue={getValue}
+        positiveBars={positiveBars}
+        barLayout={isMulti ? 'grouped' : 'stacked'}
+        y={{
+          domain: isMulti ? [0, 1] : 'auto',
+          autoMaxFloor: isMulti ? undefined : singleConfig?.autoMaxFloor,
+          format: isMulti ? fmtPct : (singleDef?.format ?? fmtPct),
+          ticks: 5,
+          nice: true,
+        }}
+        tooltip={isMulti ? { extraRows } : {}}
+        // `getX` returns the Monday week-start — a bucket's leading edge, not an instant — so a
+        // hover in the back half of the week must still resolve to that week's own bar, not the
+        // next one.
+        cursorResolution="leading"
+      />
       <Box
         component="span"
         mt={4}

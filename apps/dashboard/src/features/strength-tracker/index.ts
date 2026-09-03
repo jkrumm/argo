@@ -42,7 +42,7 @@ export {
 
 export type { SummaryParams, SummaryParamsWithExercises, ExerciseFilterState } from './types'
 
-export { ChartSkeleton, HeroStats, HeroStatsSkeleton, Placeholder } from './hero-stats'
+export { HeroStats, HeroStatsSkeleton } from './hero-stats'
 export { showAchievements } from './achievements-toast'
 
 export { WorkoutForm } from './components/workout-form'

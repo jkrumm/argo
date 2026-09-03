@@ -19,7 +19,6 @@ import { SERIES } from '../../../lib/series'
 import { EXERCISE_KEYS } from '../../../lib/window-stores'
 import { EXERCISE_COLORS, METRIC_TOOLTIPS } from '../constants'
 import { exerciseLabel, inolDotColor } from '../formulas'
-import { ChartEmpty } from './empty'
 
 /** Per-card select → a local store field, not `useState` (law C3). Persisted per chart. */
 const local = createLocalStore({
@@ -186,97 +185,93 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
       subtitle="Intensity × Number of Lifts"
       info={METRIC_TOOLTIPS.inol}
       actions={headerExtra}
+      state={{ empty: !hasData && 'No sessions in this window' }}
+      placeholderHeight={HEIGHT}
     >
       <Box h={HEIGHT} w="100%">
-        {hasData ? (
-          <CartesianChart
-            data={chartData}
-            chartId="inol"
-            getX={(d) => d.date}
-            series={series}
-            y={{ domain: inolDomain, ticks: 5, format: (v) => v.toFixed(1), nice: true }}
-            zones={INOL_ZONES}
-            refLines={INOL_REF_LINES}
-            height={HEIGHT}
-            ariaLabel="INOL per session with a 10-session moving average"
-            tooltip={{
-              label: (d) =>
-                d.inol === null
-                  ? null
-                  : { text: inolZoneLabel(d.inol), color: inolDotColor(d.inol) },
-              // The row's color is per-point (zone-dependent) — `formatValue` can only vary the
-              // value text, so this stays hand-authored. Gated on `ctx.hidden` so it disappears
-              // along with the 'session' mark when the legend toggles it off.
-              prependRows: (d, ctx) => {
-                if (ctx.hidden.has('session')) return null
-                return d.inol === null ? (
-                  <TooltipRow color={VX.line} label="INOL" value="—" shape="bar" />
-                ) : (
-                  <TooltipRow
-                    color={inolDotColor(d.inol)}
-                    label="INOL"
-                    value={d.inol.toFixed(2)}
-                    shape="bar"
-                  />
-                )
-              },
-            }}
-          >
-            {({ data: rows, visible, xScale, yScale }) => {
-              const dots = visible.some((s) => s.key === 'session')
-                ? rows.filter((d): d is InolPoint & { inol: number } => d.inol !== null)
-                : []
-              const maPoints = visible.some((s) => s.key === 'ma')
-                ? rows.filter((d): d is InolPoint & { ma10: number } => d.ma10 !== null)
-                : []
-              return (
-                <>
-                  {dots.length >= 2 && (
-                    <LinePath<InolPoint & { inol: number }>
-                      data={dots}
-                      x={(d) => xScale(d.date) ?? 0}
-                      y={(d) => yScale(d.inol)}
-                      stroke={exerciseColor}
-                      strokeOpacity={0.35}
-                      strokeWidth={1.25}
-                      curve={curveMonotoneX}
-                    />
-                  )}
-
-                  {dots.map((d) => {
-                    const sx = xScale(d.date)
-                    if (sx === undefined) return null
-                    return (
-                      <circle
-                        key={d.date}
-                        cx={sx}
-                        cy={yScale(d.inol)}
-                        r={4}
-                        fill={inolDotColor(d.inol)}
-                        fillOpacity={0.85}
-                        stroke="none"
-                      />
-                    )
-                  })}
-
-                  {maPoints.length >= 2 && (
-                    <LinePath<InolPoint & { ma10: number }>
-                      data={maPoints}
-                      x={(d) => xScale(d.date) ?? 0}
-                      y={(d) => yScale(d.ma10)}
-                      stroke={exerciseColor}
-                      strokeWidth={2.25}
-                      strokeDasharray="6 4"
-                      curve={curveMonotoneX}
-                    />
-                  )}
-                </>
+        <CartesianChart
+          data={chartData}
+          chartId="inol"
+          getX={(d) => d.date}
+          series={series}
+          y={{ domain: inolDomain, ticks: 5, format: (v) => v.toFixed(1), nice: true }}
+          zones={INOL_ZONES}
+          refLines={INOL_REF_LINES}
+          height={HEIGHT}
+          ariaLabel="INOL per session with a 10-session moving average"
+          tooltip={{
+            label: (d) =>
+              d.inol === null ? null : { text: inolZoneLabel(d.inol), color: inolDotColor(d.inol) },
+            // The row's color is per-point (zone-dependent) — `formatValue` can only vary the
+            // value text, so this stays hand-authored. Gated on `ctx.hidden` so it disappears
+            // along with the 'session' mark when the legend toggles it off.
+            prependRows: (d, ctx) => {
+              if (ctx.hidden.has('session')) return null
+              return d.inol === null ? (
+                <TooltipRow color={VX.line} label="INOL" value="—" shape="bar" />
+              ) : (
+                <TooltipRow
+                  color={inolDotColor(d.inol)}
+                  label="INOL"
+                  value={d.inol.toFixed(2)}
+                  shape="bar"
+                />
               )
-            }}
-          </CartesianChart>
-        ) : (
-          <ChartEmpty height={HEIGHT} message="No sessions in this window" />
-        )}
+            },
+          }}
+        >
+          {({ data: rows, visible, xScale, yScale }) => {
+            const dots = visible.some((s) => s.key === 'session')
+              ? rows.filter((d): d is InolPoint & { inol: number } => d.inol !== null)
+              : []
+            const maPoints = visible.some((s) => s.key === 'ma')
+              ? rows.filter((d): d is InolPoint & { ma10: number } => d.ma10 !== null)
+              : []
+            return (
+              <>
+                {dots.length >= 2 && (
+                  <LinePath<InolPoint & { inol: number }>
+                    data={dots}
+                    x={(d) => xScale(d.date) ?? 0}
+                    y={(d) => yScale(d.inol)}
+                    stroke={exerciseColor}
+                    strokeOpacity={0.35}
+                    strokeWidth={1.25}
+                    curve={curveMonotoneX}
+                  />
+                )}
+
+                {dots.map((d) => {
+                  const sx = xScale(d.date)
+                  if (sx === undefined) return null
+                  return (
+                    <circle
+                      key={d.date}
+                      cx={sx}
+                      cy={yScale(d.inol)}
+                      r={4}
+                      fill={inolDotColor(d.inol)}
+                      fillOpacity={0.85}
+                      stroke="none"
+                    />
+                  )
+                })}
+
+                {maPoints.length >= 2 && (
+                  <LinePath<InolPoint & { ma10: number }>
+                    data={maPoints}
+                    x={(d) => xScale(d.date) ?? 0}
+                    y={(d) => yScale(d.ma10)}
+                    stroke={exerciseColor}
+                    strokeWidth={2.25}
+                    strokeDasharray="6 4"
+                    curve={curveMonotoneX}
+                  />
+                )}
+              </>
+            )
+          }}
+        </CartesianChart>
       </Box>
     </ChartCard>
   )

@@ -1,4 +1,4 @@
-import { Flex, Stack, Text } from '@mantine/core'
+import { Flex } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Bars, ChartCard, ChartLegend, deriveLegend, VX, type SeriesStyle } from 'basalt-ui/charts'
 import { SelectFilter } from 'basalt-ui/controls'
@@ -59,16 +59,6 @@ const barOpacityFor = (_: WeeklyVolumePoint, key: string): number => {
   return 0.9
 }
 
-function ChartEmpty({ height = 280, label }: { height?: number; label: string }) {
-  return (
-    <Stack justify="center" align="center" h={height} gap={4}>
-      <Text size="sm" c="dimmed">
-        {label}
-      </Text>
-    </Stack>
-  )
-}
-
 export default function WeeklyVolumeChart({ params }: { params: StrengthQueryParams }) {
   const { data } = useSuspenseQuery(strengthQueries.weeklyVolume(params))
 
@@ -115,44 +105,42 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
           {selectorNode}
         </Flex>
       }
+      state={{ empty: !hasData && `No volume data for ${exLabel}` }}
+      placeholderHeight={280}
     >
-      {!hasData ? (
-        <ChartEmpty height={280} label={`No volume data for ${exLabel}`} />
-      ) : (
-        <Bars
-          ariaLabel={`Weekly volume for ${exLabel}`}
-          data={points}
-          height={280}
-          chartId="weekly-volume"
-          getX={(d) => d.date}
-          cursorResolution="leading"
-          getValue={getValue}
-          positiveBars={[
-            { key: 'warmup', label: 'Warm-up', color: exColor },
-            { key: 'work', label: 'Work', color: exColor },
-            { key: 'drop', label: 'Drop', color: exColor },
-            { key: 'amrap', label: 'AMRAP', color: VX.warnSolid },
-          ]}
-          barLayout="stacked"
-          barOpacity={barOpacityFor}
-          lines={[
-            {
-              key: 'ma',
-              label: '4w MA',
-              color: VX.line2,
-              dashed: true,
-              strokeWidth: 1.5,
-              formatValue: fmtTonnage,
-            },
-          ]}
-          refLines={[
-            { value: landmarks.mev, color: VX.goodRef, dashed: true },
-            { value: landmarks.mav, color: VX.warnRef, dashed: true },
-            { value: landmarks.mrv, color: VX.badRef, dashed: true },
-          ]}
-          y={{ domain: 'auto', format: fmtTonnage, ticks: 5 }}
-        />
-      )}
+      <Bars
+        ariaLabel={`Weekly volume for ${exLabel}`}
+        data={points}
+        height={280}
+        chartId="weekly-volume"
+        getX={(d) => d.date}
+        cursorResolution="leading"
+        getValue={getValue}
+        positiveBars={[
+          { key: 'warmup', label: 'Warm-up', color: exColor },
+          { key: 'work', label: 'Work', color: exColor },
+          { key: 'drop', label: 'Drop', color: exColor },
+          { key: 'amrap', label: 'AMRAP', color: VX.warnSolid },
+        ]}
+        barLayout="stacked"
+        barOpacity={barOpacityFor}
+        lines={[
+          {
+            key: 'ma',
+            label: '4w MA',
+            color: VX.line2,
+            dashed: true,
+            strokeWidth: 1.5,
+            formatValue: fmtTonnage,
+          },
+        ]}
+        refLines={[
+          { value: landmarks.mev, color: VX.goodRef, dashed: true },
+          { value: landmarks.mav, color: VX.warnRef, dashed: true },
+          { value: landmarks.mrv, color: VX.badRef, dashed: true },
+        ]}
+        y={{ domain: 'auto', format: fmtTonnage, ticks: 5 }}
+      />
       {/* MEV/MAV/MRV are refLines, not part of the bar/line series — Bars' derived legend can't
        * express them. The kind keeps its own interactive legend for bars + MA; this supplementary
        * static row only carries the landmark chips, styled to match the dashed refLines. */}

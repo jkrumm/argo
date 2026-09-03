@@ -5,7 +5,6 @@ import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { walkingStore } from '../../../lib/window-stores'
 import { METRIC_DEFS, type MetricKey } from '../metrics'
-import { ChartEmpty } from './empty'
 
 type Bucket = { bucketStart: number; bucketWidth: number; sessions: number }
 
@@ -87,21 +86,6 @@ export function LengthHistogramChart({ params }: { params: WalkingPadWindowParam
       ? fmtBucket(mode.bucketStart, mode.bucketWidth, mode.bucketStart === maxBucketStart)
       : null
 
-  if (enabled.length === 0) {
-    return (
-      <ChartCard
-        title={labels.title}
-        subtitle={labels.subtitle}
-        info="Frequency histogram of sessions across buckets of the toggled metric. Pick one or more metrics from the page header to populate."
-      >
-        <ChartEmpty
-          height={CHART_HEIGHT}
-          label="No metric selected — toggle one in the page header."
-        />
-      </ChartCard>
-    )
-  }
-
   const bucketByKey = new Map(buckets.map((b) => [String(b.bucketStart), b]))
   const formatX = (key: string) => {
     const b = bucketByKey.get(key)
@@ -131,37 +115,39 @@ export function LengthHistogramChart({ params }: { params: WalkingPadWindowParam
           <span style={{ fontSize: VX.text.xs, fontWeight: 600 }}>most common: {modeLabel}</span>
         ) : null
       }
+      state={{
+        empty:
+          (enabled.length === 0 && 'No metric selected — toggle one in the page header.') ||
+          (totalSessions === 0 && 'No sessions in this window.'),
+      }}
+      placeholderHeight={CHART_HEIGHT}
     >
-      {totalSessions === 0 ? (
-        <ChartEmpty height={CHART_HEIGHT} label="No sessions in this window." />
-      ) : (
-        <Bars
-          ariaLabel="Session length histogram, frequency of sessions by bucket"
-          data={buckets}
-          height={CHART_HEIGHT}
-          chartId="walking-pad-length-histogram"
-          getX={getX}
-          formatX={formatX}
-          getValue={getValue}
-          positiveBars={[
-            {
-              key: 'sessions',
-              label: 'Sessions',
-              color: METRIC_DEFS[driver].color,
-              formatValue: fmtSessions,
-            },
-          ]}
-          y={{
-            domain: 'auto',
-            format: (v: number) => String(Math.round(v)),
-            ticks: 4,
-            autoMaxFloor: 3,
-          }}
-          xTickValues={bucketTicks(TICK_STRIDE[driver])}
-          tooltip={{ formatHeader: (key) => formatX(key) }}
-          legend={false}
-        />
-      )}
+      <Bars
+        ariaLabel="Session length histogram, frequency of sessions by bucket"
+        data={buckets}
+        height={CHART_HEIGHT}
+        chartId="walking-pad-length-histogram"
+        getX={getX}
+        formatX={formatX}
+        getValue={getValue}
+        positiveBars={[
+          {
+            key: 'sessions',
+            label: 'Sessions',
+            color: METRIC_DEFS[driver].color,
+            formatValue: fmtSessions,
+          },
+        ]}
+        y={{
+          domain: 'auto',
+          format: (v: number) => String(Math.round(v)),
+          ticks: 4,
+          autoMaxFloor: 3,
+        }}
+        xTickValues={bucketTicks(TICK_STRIDE[driver])}
+        tooltip={{ formatHeader: (key) => formatX(key) }}
+        legend={false}
+      />
       <Box
         component="span"
         mt={4}
