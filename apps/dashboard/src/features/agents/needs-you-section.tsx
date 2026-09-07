@@ -43,7 +43,7 @@ export function NeedsYouSection({ humanQueue, agents }: Props) {
                   {item.askedAt ? (
                     <Text size="xs" c="dimmed">
                       {relativeTime(item.askedAt)}
-                      {item.host ? ` · ${item.host}` : ''}
+                      {item['host'] ? ` · ${String(item['host'])}` : ''}
                     </Text>
                   ) : null}
                 </Group>
