@@ -29,7 +29,7 @@ The backend also serves a curated OpenAPI (`/openapi`) consumed by AI agents —
 
 - Bun
 - Docker
-- 1Password CLI (`op`) signed into the `tkrumm` account
+- Secrets through the `secrets-run` shim from dotfiles (a drop-in `op`): on the MacBook the 1Password CLI (`op`) with the `tkrumm` account unlocked and biometric; on the Mac mini the age-encrypted headless cache — a direct `op read` there hangs on a biometric prompt no one can answer
 - `~/SourceRoot/vps` cloned — argo connects to the shared dev cluster defined there (Postgres 18 + ClickStack + Valkey)
 
 ### Start
@@ -82,4 +82,5 @@ apps/dashboard/   — Vite + React 19 frontend, themed by basalt-ui
 - `DESIGN.md` — Argo's design-system app-delta record (basalt-ui is the design system)
 - `docs/GARMIN-HEALTH.md` — Health metric formulas and composite signals (analytics reference)
 - `docs/STRENGTH-ANALYTICS.md` — Strength metric formulas (analytics reference)
-- `docs/THE-QUANTIFIED-ATHLETE.md` — Narrative field guide to every metric on the dashboard
+- `docs/ASTRO-WINDOW.md` — The astro + marine window planner: status, decisions, what is not verified
+- `docs/HERMES-CHAT-V2.md` — Hermes Chat design reference (shipped; what is deferred is in its header)

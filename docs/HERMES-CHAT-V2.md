@@ -1,12 +1,8 @@
 # Hermes Chat v2 — Spec and Implementation Guide
 
-> **Supersedes `docs/HERMES-CHAT-PRD.md` and `docs/HERMES-CHAT-PHASE-B.md`.** Both are stale in
-> ways that would actively mislead a rebuild — they name a retired `packages/charts`, a rejected
-> sandboxed-iframe diagram design, the Blueprint palette, `check-theme.mjs`, an audio-proxy that no
-> longer exists, and AI SDK v5. Read this file instead; the old two are kept only as history.
->
-> Status: **specified, not started.** Grounded in a 2026-08-02 audit of `argo`, `basalt-ui` and the
-> installed `hermes-agent v0.19.1`.
+> **Status (2026-09-07): shipped.** P0–P1, B1–B4 (basalt-ui 1.10–1.13), A1–A3 and A5 landed — the thin idempotent proxy, the named-event transport, the dashboard on basalt's agent primitives, voice on the composer slots.
+> **Deferred:** A4 (Slack rows in the feed — the bot token carries `chat:write`, but `sendMessage` still lacks the `not_in_channel` join retry and no dashboard Slack surface exists) and the hermes-agent half of A6 (its `CLAUDE.md` `API_SERVER_ENABLED` correction).
+> This file is the design reference; the phase-by-phase record and the two earlier specs it superseded were retired — `git log` from 2026-08-02 is the build history.
 
 ---
 
@@ -349,7 +345,7 @@ too; handing it off means re-passing all the source in the brief.
 | ----------------------------------------------------- | -------------------------------------------------------------------------- |
 | `~/SourceRoot/basalt-ui/docs/AGENT-CHAT-SPEC.md`      | The framework API specification for B1–B4                                  |
 | `docs/diagrams/ChatWireframe.svg`                     | Target layout                                                              |
-| `docs/migrations/hermes-chat-phase-{a,b}.md`          | What was actually built, and its gotchas                                   |
+| `git log --since=2026-08-02 -- apps/api/src/routes/hermes.ts apps/dashboard/src/features/hermes-chat` | What was actually built, phase by phase — the migration record was retired 2026-09-07 |
 | `CLAUDE.md`, `DESIGN.md`, `.claude/rules/basalt-*.md` | Design law. Precedence: DESIGN.md > basalt rules > skills                  |
 | `apps/api/.claude/rules/openapi.md`                   | The agent-facing API contract                                              |
 | `~/SourceRoot/hermes-agent/CLAUDE.md`                 | Hermes operating contract (note the `API_SERVER_ENABLED` correction in A6) |

@@ -18,7 +18,7 @@
  * numbers checked against USNO to the minute.
  *
  * Solar and lunar positions come from `astronomy-engine`, not `suncalc`. That
- * is a deliberate reversal of the brief — see `docs/ASTRO-WINDOW-PROGRESS.md`,
+ * is a deliberate reversal of the brief — see `docs/ASTRO-WINDOW.md`,
  * decision D2: suncalc's moonrise/set is 3–11 minutes off USNO at Munich,
  * against a 2-minute acceptance bar, while astronomy-engine lands inside one
  * minute. The galactic-core geometry stays hand-rolled in `astro-ephemeris.ts`.

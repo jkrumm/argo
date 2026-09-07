@@ -1,6 +1,6 @@
 # RALPH_NOTES
 
-Things noticed while building the astro window planner (`docs/ASTRO-WINDOW-BRIEF.md`)
+Things noticed while building the astro window planner (`docs/ASTRO-WINDOW.md`)
 that were **not** fixed, because fixing them was outside the ask. Each is written so it
 can be picked up cold. Nothing here is blocking.
 

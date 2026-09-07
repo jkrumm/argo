@@ -4,7 +4,9 @@ App ID: `A0BV9MFTM9R` (created 2026-09-07 via `apps.manifest.create`; use it for
 
 `app-manifest.json` declares this stack's own Slack bot, so messages it posts
 are attributable at a glance (HomeLab, Hermes, VPS and Argo are four apps, not
-four usernames on one bot).
+four usernames on one bot). **It posts only** — every Slack read endpoint in
+Argo runs on the HomeLab app's token, `SLACK_READ_TOKEN`; without it the read
+routes 500 (see "Reading vs posting" below).
 
 Create or update it with an **app configuration token** — a human-only,
 12-hour credential minted at https://api.slack.com/apps → *Your App

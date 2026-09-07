@@ -342,7 +342,7 @@ export const walkingPadAchievements = argoSchema.table(
   ],
 )
 
-// ── Hermes Chat (see docs/HERMES-CHAT-PRD.md) ────────────────────────────────
+// ── Hermes Chat (see docs/HERMES-CHAT-V2.md) ────────────────────────────────
 //
 // Argo owns the verbatim display transcript; Hermes owns only compressed agent
 // state keyed by X-Hermes-Session-Id. One thread = one session id (fresh id =

@@ -38,7 +38,7 @@ Every route MUST use exactly one of these sixteen tags:
 
 If a new route doesn't fit one of these, **expand the taxonomy in this file first**, in lockstep with **both** `tags:` arrays in `src/app.ts` — the `documentation.tags` objects handed to the openapi plugin, and the hardcoded `tags` string list in the `/` discovery route. Free-form tags break the agent contract.
 
-(Routes mount in `src/app.ts`, not `src/index.ts` — `index.ts` only boots the listener. Older references to `index.ts` in this file and in `apps/api/CLAUDE.md` are stale.)
+(Routes mount in `src/app.ts`, not `src/index.ts` — `index.ts` only boots the listener.)
 
 ## Path conventions
 

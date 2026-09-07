@@ -265,7 +265,7 @@ this project over."_ Last npm release 2023-12-14, last commit 2025-01-27, no mil
 
 That is a supply-chain fact, not a correctness one, and it changes nothing today. The
 package is pure arithmetic with no network or filesystem surface, it is pinned exactly,
-and `ASTRO-WINDOW-PROGRESS.md` decision D2 already validated its moonrise/set against
+and `ASTRO-WINDOW.md` decision D2 already validated its moonrise/set against
 USNO to inside a minute. Swapping a validated ephemeris in the middle of a terrain
 feature would be the wrong trade. Two things to hold:
 

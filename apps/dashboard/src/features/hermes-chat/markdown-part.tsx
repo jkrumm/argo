@@ -13,7 +13,7 @@ import { vegaLiteFenceRenderer } from './vega-lite-diagram'
 // prop of their own, and the built-in TextRenderer hardcodes
 // `<Markdown streaming contentTrust density>` with no fence registry. Overriding the `text` part
 // renderer via ThreadTranscript's `renderers` prop (consulted BEFORE the built-in union — a
-// consumer key always wins) is the documented workaround. See docs/HERMES-CHAT-PRD.md →
+// consumer key always wins) is the documented workaround. See docs/HERMES-CHAT-V2.md →
 // Rendering.
 
 // Accent color the badge directive carried, encoded as a `c-<color>` className by

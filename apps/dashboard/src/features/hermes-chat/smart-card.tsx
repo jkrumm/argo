@@ -18,7 +18,7 @@ import {
 // returns null so the fence renderer declines to a plain code block (never throws,
 // and only ever runs once the fence has fully settled — see `cardFenceRenderer`).
 // Card catalog v1: infra / todo / note / audio.
-// See docs/HERMES-CHAT-PRD.md → Rendering, "Cards live in markdown".
+// See docs/HERMES-CHAT-V2.md → Rendering, "Cards live in markdown".
 
 export type { AudioCardData, SmartCardData }
 export { AudioCard, parseCard }

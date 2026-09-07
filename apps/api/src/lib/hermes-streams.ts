@@ -6,7 +6,7 @@ import { log } from '../telemetry.js'
 // Extracted from routes/hermes.ts (Phase A1) so the CAS + stream-liveness logic
 // guarding POST /hermes/chat can be exercised in memory, without Postgres or an
 // HTTP round trip. This logic guards against real, previously-shipped bugs — see
-// docs/HERMES-CHAT-PRD.md and the doc comments on each function below, which
+// docs/HERMES-CHAT-V2.md and the doc comments on each function below, which
 // encode the multi-process honesty argument and the register-before-CAS
 // ordering. Move faithfully; do not redesign.
 

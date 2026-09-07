@@ -9,7 +9,7 @@ import type { Root, RootContent } from 'mdast'
 // Both emit custom hast elements that the sanitize schema allowlists and the
 // react-markdown `components` map renders Mantine-native. Unhandled directives
 // degrade to a passthrough span/div so a stray `:foo` never drops content.
-// See docs/HERMES-CHAT-PRD.md → Rendering.
+// See docs/HERMES-CHAT-V2.md → Rendering.
 
 // Accent colors the badge may carry — constrained to the DESIGN.md identity set
 // (blue/gray + status hues). Anything else collapses to neutral gray.

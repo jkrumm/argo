@@ -11,7 +11,7 @@ function isNotFoundError(error: unknown): boolean {
 // Group 4 read-CRUD routes (`GET /hermes/threads`, `GET /hermes/threads/:id/messages`);
 // "new chat" / rename / archive via the mutations below. The live chat turn does
 // NOT go through Eden — it streams via useChat → /api/hermes/chat (see
-// features/hermes-chat/transport.ts). See docs/HERMES-CHAT-PRD.md.
+// features/hermes-chat/transport.ts). See docs/HERMES-CHAT-V2.md.
 
 export type ThreadStatusFilter = 'active' | 'archived' | 'all'
 

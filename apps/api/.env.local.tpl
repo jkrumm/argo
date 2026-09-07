@@ -57,7 +57,7 @@ HARDCOVER_API_KEY=op://vps/argo/HARDCOVER_API_KEY
 # see clients/astro-upstreams.ts. Not a secret, no op:// ref needed.
 # METEO_SELFHOSTED_URL=https://meteo.mini.jkrumm.com
 
-# ── Hermes Chat (docs/HERMES-CHAT-PRD.md) ────────────────────────────────────
+# ── Hermes Chat (docs/HERMES-CHAT-V2.md) ────────────────────────────────────
 # All optional. Local dev does NOT talk to the live Hermes Mac Mini / audio-proxy
 # / DeepSeek bridge — these are provisioned on prod in Group 0 and exercised via
 # mocked upstreams in tests. Uncomment + wire the op refs once Group 0 lands the

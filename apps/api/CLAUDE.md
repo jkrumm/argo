@@ -126,16 +126,20 @@ export const myResourceRoutes = new Elysia({ prefix: '/my-resource' }).get(
 )
 ```
 
-### 3. Mount in `src/index.ts`
+### 3. Mount in `src/app.ts`
 
-After the `authGuard` `.use()`:
+Inside `buildApp()`, after the `authGuard` `.use()` (`src/index.ts` only boots the listener — it imports the built `app` from `app.ts`):
 
 ```ts
 import { myResourceRoutes } from './routes/my-resource.js'
 
-export const app = new Elysia()
-  // ...existing plugins and auth guard...
-  .use(myResourceRoutes)
+export function buildApp() {
+  return (
+    new Elysia()
+      // ...existing plugins and auth guard...
+      .use(myResourceRoutes)
+  )
+}
 ```
 
 ### 4. Add tests
@@ -144,7 +148,7 @@ export const app = new Elysia()
 
 ```ts
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
-import { app } from '../index.js'
+import { app } from '../app.js'
 import { db } from '../db/index.js'
 import { myTable } from '../db/schema.js'
 

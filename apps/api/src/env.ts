@@ -57,7 +57,7 @@ export const Env = z.object({
   // like a public-API failure; it never silently falls back to the public API.
   METEO_SELFHOSTED_URL: z.string().default(''),
 
-  // ── Hermes Chat (see docs/HERMES-CHAT-PRD.md) ─────────────────────────────
+  // ── Hermes Chat (see docs/HERMES-CHAT-V2.md) ──────────────────────────────
   // All optional so the API boots in test/CI without live cross-machine
   // upstreams (Hermes Mac Mini, audio-proxy, IU AI endpoint). Real values are
   // provisioned in Group 0 (op://vps/argo/*). Group 1 wires config only — no
