@@ -25,3 +25,25 @@ Then install it to the workspace once in the UI (*OAuth & Permissions → Instal
 and store the Bot User OAuth Token in 1Password; the repo reads it through its
 `.env.tpl` ref. Re-install after every scope change — the token keeps its value
 but only gains scopes on install.
+
+## Reading vs posting — two apps, on purpose
+
+The Argo app is the **posting** identity only. It is a member of no channel and,
+with `chat:write.public`, does not need to be one. Every read path
+(`conversations.history`, `conversations.replies`, `conversations.list`,
+`users.list`) still runs on the HomeLab app's token, which *is* a member
+everywhere and is the only one holding `im:read`, `mpim:read` and `channels:join`
+— the last one is what the client's `not_in_channel` auto-join fallback needs.
+
+    SLACK_BOT_TOKEN  = op://common/slack/ARGO_BOT_TOKEN   # posts as Argo
+    SLACK_READ_TOKEN = op://common/slack/BOT_TOKEN        # reads as HomeLab
+    SLACK_USER_TOKEN = op://common/slack/USER_TOKEN       # search.messages only
+
+Pointing `SLACK_BOT_TOKEN` at the Argo app *without* adding `SLACK_READ_TOKEN`
+takes every Slack read endpoint down with a 500 (`conversations.history:
+not_in_channel`), and `watchdog-poll.py` swallows that silently — its
+`slack_alert` / `slack_update` sources simply stop. That happened on 2026-09-07.
+
+To make Argo a reader too, add `channels:join`, `im:read` and `mpim:read` to the
+manifest, update, **re-install**, and invite it to each channel; until then the
+split above is the supported shape.

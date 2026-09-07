@@ -1,7 +1,19 @@
 import { env } from '../env.js'
 import { tracedFetch } from '../lib/traced-fetch.js'
 
+// Three tokens, three jobs — do not collapse them.
+//   SLACK_BOT_TOKEN  — the POSTING identity (the Argo app). `chat:write.public` lets it
+//                      post into a public channel it is not a member of, so it never needs
+//                      an invite. It is a member of nothing, which is why it cannot read.
+//   SLACK_READ_TOKEN — the workspace READER (the HomeLab app): a member of every channel
+//                      and the only token holding `im:read`/`mpim:read`/`channels:join`,
+//                      which `conversations.list` (types include im,mpim) and the
+//                      not_in_channel auto-join fallback both require.
+//   SLACK_USER_TOKEN — `search.messages`, which only a user token may call.
+// Falls back to the posting token when unset, so a half-configured env degrades rather
+// than 500s on every read.
 const SLACK_BOT_TOKEN = env.SLACK_BOT_TOKEN
+const SLACK_READ_TOKEN = env.SLACK_READ_TOKEN || env.SLACK_BOT_TOKEN
 const SLACK_USER_TOKEN = env.SLACK_USER_TOKEN
 
 // ─── Slack Web API client ───────────────────────────────────────────────────
@@ -11,7 +23,7 @@ async function slackApi<T>(
   params?: Record<string, unknown>,
   token?: string,
 ): Promise<T> {
-  const authToken = token ?? SLACK_BOT_TOKEN
+  const authToken = token ?? SLACK_READ_TOKEN
   const allPrimitive =
     !params ||
     Object.values(params).every(
@@ -430,12 +442,16 @@ export async function sendMessage(
     unfurl_links?: boolean
   },
 ): Promise<{ ts: string; channel: string }> {
-  const res = await slackApi<{ ts: string; channel: string }>('chat.postMessage', {
-    channel: channelId,
-    text,
-    ...(opts?.thread_ts ? { thread_ts: opts.thread_ts } : {}),
-    unfurl_links: opts?.unfurl_links ?? true,
-  })
+  const res = await slackApi<{ ts: string; channel: string }>(
+    'chat.postMessage',
+    {
+      channel: channelId,
+      text,
+      ...(opts?.thread_ts ? { thread_ts: opts.thread_ts } : {}),
+      unfurl_links: opts?.unfurl_links ?? true,
+    },
+    SLACK_BOT_TOKEN,
+  )
   return { ts: res.ts, channel: res.channel }
 }
 

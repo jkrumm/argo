@@ -11,6 +11,7 @@ export const Env = z.object({
   OTEL_SERVICE_NAME: z.string().default('argo-api'),
   OTEL_SERVICE_VERSION: z.string().default('0.0.0'),
   SLACK_BOT_TOKEN: z.string().default(''),
+  SLACK_READ_TOKEN: z.string().default(''),
   SLACK_USER_TOKEN: z.string().default(''),
   UPTIME_KUMA_URL: z.string().default(''),
   UPTIME_KUMA_USERNAME: z.string().default('admin'),
