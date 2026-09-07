@@ -39,7 +39,7 @@ import { readingRoutes } from './routes/reading.js'
 import { userProfileRoutes } from './routes/user-profile.js'
 import { gymRoutes } from './routes/gym.js'
 import { workoutDraftRoutes } from './routes/workout-draft.js'
-import { hermesRoutes } from './routes/hermes.js'
+import { hermesRoutes, hermesPublicHealthRoute } from './routes/hermes.js'
 import { aiRoutes, audioFileRoutes } from './routes/ai.js'
 import { agentRoutes } from './routes/agents.js'
 import { authGuard } from './lib/auth-guard.js'
@@ -62,7 +62,10 @@ export function buildApp() {
           checkIfShouldTrace: (req) => {
             const u = new URL(req.url)
             return (
-              u.pathname !== '/' && u.pathname !== '/health' && !u.pathname.startsWith('/openapi')
+              u.pathname !== '/' &&
+              u.pathname !== '/health' &&
+              u.pathname !== '/hermes/health/public' &&
+              !u.pathname.startsWith('/openapi')
             )
           },
         }),
@@ -91,7 +94,7 @@ export function buildApp() {
               title: 'Argo API',
               version: '1.0.0',
               description:
-                'Personal stack API for Johannes Krumm. Powers the Argo dashboard (Garmin Health + Strength Tracker pages) and is consumed as an AI-agent endpoint by Hermes Agent and external tools. Start at `GET /` for discovery. All routes except `/`, `/health`, and `/oauth/*` require `Authorization: Bearer <API_SECRET>`. Served behind Traefik path-strip on `argo.jkrumm.com/api`.',
+                'Personal stack API for Johannes Krumm. Powers the Argo dashboard (Garmin Health + Strength Tracker pages) and is consumed as an AI-agent endpoint by Hermes Agent and external tools. Start at `GET /` for discovery. All routes except `/`, `/health`, `/hermes/health/public`, and `/oauth/*` require `Authorization: Bearer <API_SECRET>`. Served behind Traefik path-strip on `argo.jkrumm.com/api`.',
             },
             servers: [{ url: 'https://argo.jkrumm.com/api', description: 'Argo (VPS, Tailscale)' }],
             components: {
@@ -200,6 +203,7 @@ export function buildApp() {
             public: [
               'GET /',
               'GET /health',
+              'GET /hermes/health/public',
               'GET /oauth/google/init',
               'GET /oauth/google/callback',
             ],
@@ -248,6 +252,7 @@ export function buildApp() {
         },
       )
       .use(healthRoute)
+      .use(hermesPublicHealthRoute)
       .use(oauthRoutes)
       .use(audioFileRoutes)
       // Everything below this line is auth-gated by authGuard. This ordering

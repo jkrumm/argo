@@ -656,45 +656,70 @@ async function persistMessages(args: {
 // without Postgres — see that module's doc comments for the multi-process
 // honesty argument and the register-before-CAS ordering. Imported above.
 
+/** Pings the Hermes agent core's `/health`; never throws — unconfigured or unreachable is `degraded`. */
+async function probeHermes(deps: Pick<HermesRouteDeps, 'baseURL' | 'fetchImpl'>) {
+  if (!deps.baseURL) return { status: 'degraded' as const, upstream: { reachable: false } }
+  try {
+    const res = await deps.fetchImpl(new URL('/health', deps.baseURL).toString(), {
+      method: 'GET',
+    })
+    return {
+      status: res.ok ? ('ok' as const) : ('degraded' as const),
+      upstream: { reachable: res.ok, status: res.status },
+    }
+  } catch {
+    return { status: 'degraded' as const, upstream: { reachable: false } }
+  }
+}
+
+/**
+ * The unauthenticated twin of `GET /hermes/health`, for Uptime Kuma: the bearer-gated route
+ * cannot be probed by a monitor, and this one leaks nothing — two booleans, no upstream URL,
+ * no status code. Mounted in `app.ts` ABOVE the auth guard, on purpose.
+ */
+export function createHermesPublicHealthRoute(overrides: Partial<HermesRouteDeps> = {}) {
+  const deps = { ...defaultDeps(), ...overrides }
+  return new Elysia({ name: 'hermes-public-health' }).get(
+    '/hermes/health/public',
+    async () => {
+      const probe = await probeHermes(deps)
+      const ok = probe.status === 'ok'
+      return { ok, degraded: !ok }
+    },
+    {
+      response: z.object({ ok: z.boolean(), degraded: z.boolean() }),
+      detail: {
+        tags: ['Hermes Chat'],
+        summary: 'Hermes upstream liveness (public probe)',
+        description:
+          'Unauthenticated liveness probe for uptime monitors: `{ ok, degraded }` and nothing else — no upstream address, no HTTP status. `ok` when the Hermes agent core answers its `/health`; `degraded` when it is unconfigured or unreachable. For the detailed, bearer-gated view use GET /hermes/health.',
+      },
+    },
+  )
+}
+
 export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
   const deps = { ...defaultDeps(), ...overrides }
   const threadPointerStore = createDrizzleThreadPointerStore(db)
   const turnLedger = createDrizzleTurnLedger(db)
 
   return new Elysia({ name: 'hermes', prefix: '/hermes' })
-    .get(
-      '/health',
-      async () => {
-        if (!deps.baseURL) return { status: 'degraded' as const, upstream: { reachable: false } }
-        try {
-          const res = await deps.fetchImpl(new URL('/health', deps.baseURL).toString(), {
-            method: 'GET',
-          })
-          return {
-            status: res.ok ? ('ok' as const) : ('degraded' as const),
-            upstream: { reachable: res.ok, status: res.status },
-          }
-        } catch {
-          return { status: 'degraded' as const, upstream: { reachable: false } }
-        }
-      },
-      {
-        response: z.object({
-          status: z.enum(['ok', 'degraded']),
-          upstream: z.object({
-            reachable: z.boolean(),
-            status: z.number().int().describe('Upstream HTTP status, if reached').optional(),
-          }),
+    .get('/health', () => probeHermes(deps), {
+      response: z.object({
+        status: z.enum(['ok', 'degraded']),
+        upstream: z.object({
+          reachable: z.boolean(),
+          status: z.number().int().describe('Upstream HTTP status, if reached').optional(),
         }),
-        detail: {
-          tags: ['Hermes Chat'],
-          summary: 'Hermes upstream liveness',
-          description:
-            'Pings the Hermes agent core `/health` over Tailscale and reports reachability. Returns `degraded` (never errors) when Hermes is unconfigured or unreachable, so the dashboard can show a soft "Hermes offline" state rather than a hard failure.',
-          security: [{ BearerAuth: [] }],
-        },
+      }),
+      detail: {
+        tags: ['Hermes Chat'],
+        summary: 'Hermes upstream liveness',
+        description:
+          'Pings the Hermes agent core `/health` over Tailscale and reports reachability. Returns `degraded` (never errors) when Hermes is unconfigured or unreachable, so the dashboard can show a soft "Hermes offline" state rather than a hard failure.',
+        security: [{ BearerAuth: [] }],
       },
-    )
+    })
     .post(
       '/chat',
       async ({ body, request, server, status }) => {
@@ -1510,3 +1535,4 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
 }
 
 export const hermesRoutes = createHermesRoutes()
+export const hermesPublicHealthRoute = createHermesPublicHealthRoute()

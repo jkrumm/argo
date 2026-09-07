@@ -1,7 +1,12 @@
 import { describe, it, expect, beforeAll, afterEach } from 'bun:test'
 import { Elysia } from 'elysia'
 import { eq } from 'drizzle-orm'
-import { createHermesRoutes, type FetchImpl, type HermesRouteDeps } from './hermes.js'
+import {
+  createHermesPublicHealthRoute,
+  createHermesRoutes,
+  type FetchImpl,
+  type HermesRouteDeps,
+} from './hermes.js'
 import type { HermesStreaming } from '../lib/resumable.js'
 import { client, db } from '../db/index.js'
 import { hermesMessage, hermesThread } from '../db/schema.js'
@@ -1183,6 +1188,37 @@ describe('GET /hermes/health', () => {
     const body = (await res.json()) as { status: string; upstream: { reachable: boolean } }
     expect(body.status).toBe('degraded')
     expect(body.upstream.reachable).toBe(false)
+  })
+})
+
+describe('GET /hermes/health/public', () => {
+  it('is reachable without a bearer on the composed app, while /hermes/health is not', async () => {
+    const { buildApp: buildFullApp } = await import('../app.js')
+    const composed = buildFullApp()
+    const gated = await composed.handle(new Request('http://localhost/hermes/health'))
+    expect(gated.status).toBe(401)
+    const open = await composed.handle(new Request('http://localhost/hermes/health/public'))
+    expect(open.status).toBe(200)
+    expect(Object.keys((await open.json()) as object).toSorted()).toEqual(['degraded', 'ok'])
+  })
+
+  it('reports ok when the upstream is reachable', async () => {
+    const app = new Elysia().use(
+      createHermesPublicHealthRoute({
+        baseURL: 'http://hermes.test/v1',
+        fetchImpl: fakeHermes().fetchImpl,
+      }),
+    )
+    const res = await app.handle(new Request('http://localhost/hermes/health/public'))
+    expect(await res.json()).toEqual({ ok: true, degraded: false })
+  })
+
+  it('reports degraded with no details when Hermes is unconfigured', async () => {
+    const app = new Elysia().use(
+      createHermesPublicHealthRoute({ baseURL: '', fetchImpl: fakeHermes().fetchImpl }),
+    )
+    const res = await app.handle(new Request('http://localhost/hermes/health/public'))
+    expect(await res.json()).toEqual({ ok: false, degraded: true })
   })
 })
 
