@@ -41,6 +41,7 @@ import { gymRoutes } from './routes/gym.js'
 import { workoutDraftRoutes } from './routes/workout-draft.js'
 import { hermesRoutes } from './routes/hermes.js'
 import { aiRoutes, audioFileRoutes } from './routes/ai.js'
+import { agentRoutes } from './routes/agents.js'
 import { authGuard } from './lib/auth-guard.js'
 
 /**
@@ -169,6 +170,11 @@ export function buildApp() {
                   'Book reading vertical. Synced daily from Hardcover.app (shelf + book metadata). Generic reading-stat telemetry ingested from a homelab reading-stats job. Phase A: read-only shelf + stats ingest. `/reading` returns the full shelf with a summary; `POST /reading/stats` accepts batch telemetry. Phase C adds status/date write-back to Hardcover: `GET /reading/unmatched` + `POST /reading/match` (confirm a matched book), `POST /reading/reconcile` (run match-scan + write-back), `POST /reading/want-to-read`.',
               },
               {
+                name: 'Agents',
+                description:
+                  'Agent observation surface. sideclaw on the dev host pushes its deterministic overview snapshot (every Claude Code agent with a derived state, per-agent recommendation, git status per project, the human queue) to POST /agents/overview; the narrator upserts one prose summary per project to POST /agents/narratives. GET /agents/overview is the latest snapshot, GET /agents/overview/history the state counts over time, GET /agents/narratives the prose. Argo stores and serves; it derives nothing — the producer owns the semantics.',
+              },
+              {
                 name: 'System',
                 description:
                   'Discovery, health, observability, and auth plumbing: `/` (API discovery), `/health` (liveness), `/summary` (aggregated infra snapshot), `/query` (read-only SQL), `/oauth/google/*` (Google auth dance for Gmail + Calendar). M365 tokens are installed via the laptop bootstrap script — see POST /m365/seed.',
@@ -183,7 +189,7 @@ export function buildApp() {
           name: 'Argo API',
           version: '1.0.0',
           description:
-            'Personal stack API for Johannes Krumm. Health/training domains (Garmin Health, Strength, WalkingPad) plus integration groups (Productivity, M365, Atlassian, GitLab, Infrastructure, External Data, System). See docs for the full surface.',
+            'Personal stack API for Johannes Krumm. Health/training domains (Garmin Health, Strength, WalkingPad) plus integration groups (Productivity, M365, Atlassian, GitLab, Infrastructure, External Data, Agents, System). See docs for the full surface.',
           docs: {
             scalar: '/openapi',
             json: '/openapi/json',
@@ -213,6 +219,7 @@ export function buildApp() {
             'Hermes Chat',
             'AI Gateway',
             'Reading',
+            'Agents',
             'System',
           ],
         }),
@@ -284,6 +291,7 @@ export function buildApp() {
       .use(readingRoutes)
       .use(hermesRoutes)
       .use(aiRoutes)
+      .use(agentRoutes)
   )
 }
 

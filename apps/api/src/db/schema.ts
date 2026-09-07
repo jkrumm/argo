@@ -564,3 +564,36 @@ export const bookSyncMap = argoSchema.table('book_sync_map', {
   created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 })
+
+// ── Agent observation (sideclaw overview snapshots + narratives) ─────────────
+//
+// `agentOverviewSnapshot` stores the raw JSON a producer POSTs to
+// /agents/overview — the sideclaw `GET /api/overview` payload plus `machine`,
+// `generatedAt` and an optional `humanQueue`. Argo never derives state itself:
+// it keeps the latest snapshot per machine and a 7-day history (pruned on every
+// ingest) so the dashboard, Hermes and the brain page read ONE record.
+// `agentNarrative` is one summary row per project, upserted by the narrator.
+
+export const agentOverviewSnapshot = argoSchema.table(
+  'agent_overview_snapshots',
+  {
+    id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
+    machine: text('machine').notNull(),
+    generated_at: timestamp('generated_at', { withTimezone: true, mode: 'string' }).notNull(),
+    received_at: timestamp('received_at', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
+    raw: jsonb('raw').notNull(),
+  },
+  (t) => [index('idx_agent_overview_machine_received').on(t.machine, t.received_at.desc())],
+)
+
+export const agentNarrative = argoSchema.table('agent_narratives', {
+  project: text('project').primaryKey(),
+  summary: text('summary').notNull(),
+  page: text('page'),
+  revised_at: timestamp('revised_at', { withTimezone: true, mode: 'string' }).notNull(),
+  updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' })
+    .notNull()
+    .defaultNow(),
+})
