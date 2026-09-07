@@ -87,8 +87,8 @@ export interface HermesRouteDeps {
   /** Underlying transport the proxy wraps (defaults to the OTel-traced fetch). */
   fetchImpl: FetchImpl
   /**
-   * Titler for fresh threads (DeepSeek v4 Flash via the AI gateway by default).
-   * Injectable so tests title against a mock without a live bridge.
+   * Titler for fresh threads (the configured gateway model via /ai/v1 by default).
+   * Injectable so tests title against a mock without a live upstream.
    */
   generateTitle: GenerateTitle
   /**

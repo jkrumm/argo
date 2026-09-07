@@ -3,7 +3,7 @@ import { z } from 'zod'
 export const Env = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   // HTTP listen port. Defaults to 4000 (prod). Local dev overrides to 4040 via
-  // apps/api/.env.local.tpl to avoid colliding with the LiteLLM bridge on :4000.
+  // apps/api/.env.local.tpl so a local run never collides with another :4000.
   PORT: z.coerce.number().int().default(4000),
   DATABASE_URL: z.string().min(1),
   API_SECRET: z.string().min(1),
@@ -81,8 +81,8 @@ export const Env = z.object({
   // Slack #hermes group key for Johannes — see .env.local.tpl for derivation.
   HERMES_SESSION_KEY: z.string().default('agent:main:slack:group:C0ASRUD7K1U:U0AS54FURPE'),
 
-  // General AI gateway (/ai/v1/*) — gpt-5.6-luna, called directly on the IU
-  // unified endpoint's OpenAI-compatible transport (no LiteLLM bridge). The same
+  // General AI gateway (/ai/v1/*) — the model named by DEEPSEEK_MODEL, called
+  // directly on the IU unified endpoint's OpenAI-compatible transport. The same
   // public endpoint serves local + prod. DEEPSEEK_BASE_URL must include the
   // OpenAI path prefix; the gateway appends `/chat/completions`. The model
   // live-verifies as EU-resident (Azure Sweden Central, via IU response headers)

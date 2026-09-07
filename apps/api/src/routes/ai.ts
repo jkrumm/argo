@@ -15,8 +15,8 @@ import {
 // General-purpose AI gateway — an OpenAI-compatible surface at /ai/v1/* backing
 // Argo's own AI features (NOT the Hermes agent; that lives under /hermes).
 //
-//   • POST /ai/v1/chat/completions   — DeepSeek v4 Flash on the IU unified
-//                                       endpoint (thread titling, classification)
+//   • POST /ai/v1/chat/completions   — the model named by DEEPSEEK_MODEL on the
+//                                       IU unified endpoint (thread titling, classification)
 //   • POST /ai/v1/audio/transcriptions — proxied to the audio-gateway service
 //   • POST /ai/v1/audio/speech        — proxied to the audio-gateway service
 //   • GET  /ai/v1/models              — advertise the configured model(s)
@@ -25,7 +25,7 @@ import {
 // server-side (never leaked to the client). The audio handlers forward requests
 // to the audio-gateway service (the single source of truth for STT + TTS).
 // `aiComplete()` is the in-process seam thread titling imports without an HTTP hop.
-// All upstreams are reached via `tracedFetch` (OTel CLIENT spans). See docs/HERMES-CHAT-PRD.md.
+// All upstreams are reached via `tracedFetch` (OTel CLIENT spans). See docs/HERMES-CHAT-V2.md.
 
 /**
  * Minimal fetch shape (no `preconnect`) — matches `tracedFetch`, so the gateway
@@ -43,7 +43,7 @@ export type FetchImpl = (
 
 /** Injectable upstream config so tests can point at fake endpoint / audio-gateway. */
 export interface AiRouteDeps {
-  /** DeepSeek base URL (IU unified endpoint, OpenAI transport), incl. `/v1`. */
+  /** Chat upstream base URL (IU unified endpoint, OpenAI transport), incl. `/v1`. */
   deepseekBaseURL: string
   deepseekApiKey: string
   deepseekModel: string
@@ -102,7 +102,7 @@ function proxyHeaders(upstream: Headers, fallbackContentType: string): Headers {
 }
 
 const ModelSchema = z.object({
-  id: z.string().describe('Model id (e.g. DeepSeek-V4-Flash)'),
+  id: z.string().describe('Model id, as configured by DEEPSEEK_MODEL'),
   object: z.literal('model'),
   owned_by: z.string().describe('Provider that owns the model'),
 })
@@ -111,7 +111,7 @@ const ChatCompletionsBodySchema = z
   .object({
     model: z
       .string()
-      .describe('Model id. Defaults to the configured DeepSeek model when omitted.')
+      .describe('Model id. Defaults to the configured model (DEEPSEEK_MODEL) when omitted.')
       .optional(),
     messages: z.array(z.unknown()).describe('OpenAI chat messages.').optional(),
     stream: z.boolean().describe('Stream the completion as SSE. Default: false.').optional(),
@@ -144,7 +144,7 @@ const PodcastBodySchema = z
   .passthrough()
 
 /**
- * In-process helper: a single non-streaming DeepSeek completion returning the
+ * In-process helper: a single non-streaming chat completion returning the
  * assistant text. Group 4's thread titling imports this directly (no HTTP hop).
  * Token usage is recorded fire-and-forget into argo.usage_record (source='argo')
  * when the upstream returns a usage object.
@@ -246,7 +246,7 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
           tags: ['AI Gateway'],
           summary: 'List available gateway models',
           description:
-            'OpenAI-compatible model listing for the general AI gateway. Advertises the configured DeepSeek model (served directly by the IU unified endpoint, EU/GDPR) used for titling/classification. STT/TTS run through /ai/v1/audio/* and are not selectable here. This is the Argo-owned gateway — to chat with the Hermes agent use POST /hermes/chat instead.',
+            'OpenAI-compatible model listing for the general AI gateway. Advertises the configured model (`DEEPSEEK_MODEL`, served directly by the IU unified endpoint, EU/GDPR) used for titling/classification. STT/TTS run through /ai/v1/audio/* and are not selectable here. This is the Argo-owned gateway — to chat with the Hermes agent use POST /hermes/chat instead.',
           security: [{ BearerAuth: [] }],
         },
       },
@@ -259,7 +259,7 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
             error: { message: 'AI gateway not configured', type: 'config_error' },
           })
         }
-        // Default the model to the configured DeepSeek model; an explicit
+        // Default the model to the configured one (DEEPSEEK_MODEL); an explicit
         // `model` in the body wins. Routing to the EU-resident IU endpoint is
         // what keeps the request GDPR-compliant regardless of the model field.
         const payload = { model: deps.deepseekModel, ...(body as Record<string, unknown>) }
@@ -281,9 +281,9 @@ export function createAiRoutes(overrides: Partial<AiRouteDeps> = {}) {
         body: ChatCompletionsBodySchema,
         detail: {
           tags: ['AI Gateway'],
-          summary: 'OpenAI-compatible chat completion (DeepSeek v4 Flash, EU)',
+          summary: 'OpenAI-compatible chat completion (configured model, EU)',
           description:
-            'Proxies an OpenAI chat-completion request to DeepSeek v4 Flash on the IU unified endpoint (OpenAI transport), with the endpoint API key kept server-side. Used for fast Argo-side tasks like thread titling and classification. `model` defaults to the configured DeepSeek model; routing always targets the EU-resident IU endpoint (GDPR). Supports non-streaming (default) and `stream: true` SSE. Response mirrors the upstream OpenAI shape.',
+            'Proxies an OpenAI chat-completion request to the configured model (`DEEPSEEK_MODEL`) on the IU unified endpoint (OpenAI transport), with the endpoint API key kept server-side. Used for fast Argo-side tasks like thread titling and classification. `model` defaults to that configured model; routing always targets the EU-resident IU endpoint (GDPR). Supports non-streaming (default) and `stream: true` SSE. Response mirrors the upstream OpenAI shape.',
           security: [{ BearerAuth: [] }],
         },
       },

@@ -149,8 +149,7 @@ export function buildApp() {
               },
               {
                 name: 'External Data',
-                description:
-                  'Third-party read-only data feeds: weather via Open-Meteo (geocoded), and Wild Rift (League of Legends: Wild Rift) champion win/pick/ban rates from public Tencent endpoints (China server only).',
+                description: 'Third-party read-only data feeds: weather via Open-Meteo (geocoded).',
               },
               {
                 name: 'Astro & Marine',
@@ -165,7 +164,7 @@ export function buildApp() {
               {
                 name: 'AI Gateway',
                 description:
-                  'General-purpose, OpenAI-compatible AI gateway (`/ai/v1/*`) backing Argo-side AI features (NOT the Hermes agent): gpt-5.6-luna via the LiteLLM EU bridge for titling/classification, plus STT (transcriptions) and TTS (speech) via the audio-gateway.',
+                  'General-purpose, OpenAI-compatible AI gateway (`/ai/v1/*`) backing Argo-side AI features (NOT the Hermes agent): the model configured by `DEEPSEEK_MODEL` on the IU unified endpoint for titling/classification, plus STT (transcriptions) and TTS (speech) via the audio-gateway.',
               },
               {
                 name: 'Reading',
