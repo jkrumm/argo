@@ -1,8 +1,6 @@
 # Garmin Health Analytics — Reference
 
 > **Analytics reference.** This document describes metric definitions, formulas, and composite signals — the _what_ and _why_. For implementation conventions (route structure, query factories, chart primitives), see `apps/dashboard/CLAUDE.md` and `.claude/rules/basalt-charts.md`.
->
-> **Note:** Flow diagrams in this document still reference SQLite. The API uses Postgres. The pipeline and metric definitions are otherwise current.
 
 ---
 
@@ -33,7 +31,7 @@ graph LR
     GS[garmin-sync sidecar<br/>Python · 6h cadence · 7-day backfill]
   end
   subgraph Storage
-    DB[(SQLite WAL)]
+    DB[(Postgres · schema argo)]
   end
   subgraph Compute
     API[Elysia API<br/>GET /daily-metrics]
@@ -356,27 +354,13 @@ The dashboard reads top-to-bottom: answer → evidence → date-level detail.
 
 ---
 
-## Part 6 — Implementation Status
+## Part 6 — Naming reference
 
-| Phase                                          | Status     | Notes                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| ---------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Data pipeline                                  | ✅ done    | garmin-sync sidecar (6h, 7-day backfill), 33-field daily_metrics, API CRUD, monitoring                                                                                                                                                                                                                                                                                                                                              |
-| Raw dashboard                                  | ✅ done    | 6 stat cards, 5 raw charts, ACWR + Load Balance, Fitness Trends, tooltip context                                                                                                                                                                                                                                                                                                                                                    |
-| Composite hero cards                           | ✅ done    | Recovery, Fitness Direction, Training Balance                                                                                                                                                                                                                                                                                                                                                                                       |
-| Visx migration — primitives + ZonedLine + Bars | ✅ done    | `AxisRightNumeric`, `Bars` kind (stacked/grouped, weights, dual axis), tokens, `VX.goodSoft`/`vigorousMin`                                                                                                                                                                                                                                                                                                                          |
-| Sleep diverging redesign                       | ✅ done    | Bars kind with negativeBars, target band, score line on right axis                                                                                                                                                                                                                                                                                                                                                                  |
-| Daily Activity → MET-min Score                 | ✅ done    | Stacked walking/moderate/vigorous, 30d trend, header chip, target zone                                                                                                                                                                                                                                                                                                                                                              |
-| Activity tooltip cleanup + layout reorg        | ✅ done    | Score → header only, dropped duplicate rows. Activity 50/50 next to Fitness Trends.                                                                                                                                                                                                                                                                                                                                                 |
-| Unify computeTrainingLoad on MET-min           | ✅ done    | Replaced `mod×1 + vig×1.8`; ACWR/Divergence share the Activity effort metric                                                                                                                                                                                                                                                                                                                                                        |
-| Recovery + strain-debt adjustment              | ✅ done    | Subtracts up to 20% based on yesterday's Activity Score                                                                                                                                                                                                                                                                                                                                                                             |
-| Migrate Fitness Trends to visx                 | ✅ done    | Bespoke dual-axis (RHR bpm left, HRV ms + VO2 dots right)                                                                                                                                                                                                                                                                                                                                                                           |
-| Migrate Body Battery to visx                   | ✅ done    | `Bars` kind diverging — charged above / drained below. No line overlay (bb_lowest semantic is "daily min", not "morning BB").                                                                                                                                                                                                                                                                                                       |
-| Migrate Stress Levels to visx                  | ✅ done    | Gradient-filled area under avg_stress (green→yellow→red) + Overnight as grey dashed line. max_stress omitted (near-constant, no signal).                                                                                                                                                                                                                                                                                            |
-| Naming + UX review pass                        | ✅ done    | Renames: "Training" → "Training Load" (hero); section 1 → "Activity & Fitness"; section 4 → "Energy & Stress"; "Load Divergence" → "Short vs Long Load"; "Sleep Breakdown" → "Sleep Quality"; "Body Battery" → "Energy Balance"; hero submetric "BB" → "Morning BB"; Fitness Direction collapsed 5→3 levels; `activityScore` tooltip key replaces `intensityMinutes` on the Activity card; RHR legend reads "RHR (lower = fitter)". |
-| Chart subtitles + header extras                | ✅ done    | `ChartCard` gained a `subtitle` slot — every chart shows the question it answers. Divergence, Recovery, Sleep gained "today's reading" header extras (previously only 5/8 had them).                                                                                                                                                                                                                                                |
-| Drop recharts from dashboard                   | ⏳ pending | Blocked on strength-tracker migration (out of scope here)                                                                                                                                                                                                                                                                                                                                                                           |
-
-See `docs/CHARTS-VISX-MIGRATION.md` for phase-by-phase implementation prompts.
+Renames worth knowing when reading the dashboard against older screenshots or git history:
+"Training" → "Training Load" (hero); "Load Divergence" → "Short vs Long Load"; "Sleep Breakdown" →
+"Sleep Quality"; "Body Battery" → "Energy Balance" (hero submetric "BB" → "Morning BB"); Fitness
+Direction collapsed 5→3 levels. All charts are visx (`recharts` is fully retired from the
+dashboard). Build history: `git log -- apps/dashboard/src/features/garmin-health`.
 
 ---
 

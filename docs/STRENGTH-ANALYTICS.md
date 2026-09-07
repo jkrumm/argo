@@ -1,8 +1,6 @@
-# Strength Tracker v2 — Analytics Reference
+# Strength Analytics — Reference
 
 > **Analytics reference.** This document describes metric definitions, formulas, and composite signals — the _what_ and _why_. For implementation conventions (route structure, query factories, chart primitives), see `apps/dashboard/CLAUDE.md` and `.claude/rules/basalt-charts.md`.
->
-> **Note:** The schema section references `SQLite` in flow diagrams. The API uses Postgres. Table definitions and metric formulas are otherwise current.
 
 ---
 
@@ -66,7 +64,7 @@ graph LR
     WL[Manual Weight Log]
   end
   subgraph Storage
-    DB[(SQLite)]
+    DB[(Postgres · schema argo)]
   end
   subgraph Compute
     API[Elysia API<br/>raw CRUD + per-workout aggregates]
@@ -683,43 +681,6 @@ tokens and `useVxTheme`. Each sparkline is < 60 px tall.
 | Tier 4 — Raw        | Sparkline grid + History view    | Dense scan / session-level edit               |
 
 Reading flow: answer → evidence → detail → raw. Matches Garmin Health exactly.
-
----
-
-## Part 6 — What stays from v1, what changes
-
-### Stays
-
-- Manual set-level logging (weight / reps / set_type) — the core input pattern.
-- SQLite + Drizzle + Elysia + Refine v5 stack.
-- Brzycki + Epley 1RM estimation (Mayhew dropped — see 2.2).
-- PR detection with 1.5 s fade-in animation on the 1RM chart.
-- Auto-load last session in the workout form.
-- WorkoutForm + RecentRecords sidebar layout.
-- Filter bar: date presets, active-lift chips, demo-data toggle, reset.
-- `useLocalState` + `ST_KEYS` for persisted preferences.
-
-### Changes
-
-| v1                                                    | v2                                                          | Why                                                  |
-| ----------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------- |
-| 4 hardcoded exercises                                 | `exercises` reference table + `exercise_id` FK              | Add lifts without code                               |
-| No RIR                                                | RIR on `workouts`, feeds e1RM validity gate                 | Reject sandbagged sets                               |
-| Mayhew in e1RM average                                | Dropped, Brzycki+Epley only                                 | Mayhew over-fits bench                               |
-| No INOL                                               | INOL per workout, zone-classified                           | Distinguishes quality from junk volume               |
-| No derivatives                                        | f'(t) and f''(t) per lift                                   | Answers "where am I heading"                         |
-| Recharts                                              | Visx primitives (`ZonedLine`, `Bars`, bespoke)              | One chart library, one tooltip contract              |
-| `TOOLTIP_STYLE` hard-coded rgba                       | `CartesianChart`'s derived tooltip + `useVxTheme`           | Theme-reactive                                       |
-| Hardcoded `PULL_UPS_BODYWEIGHT = 70`                  | Dynamic `body_weight(date)`                                 | Accurate when BW changes                             |
-| `EXERCISE_COLORS` with raw hex                        | `VX.series.<exercise>` tokens                               | Palette hygiene                                      |
-| Dual-axis metric selector (MainChart "left vs right") | Dropped — replaced by dedicated charts with clear questions | "Pick any two metrics" was flexible but insight-poor |
-| `AreaMetricChart` (stacked area of any metric)        | Dropped — replaced by Weekly Volume (stacked `Bars`)        | Clearer semantic: volume is the thing you stack      |
-| `FrequencyChart`                                      | Folded into Weekly Volume tooltip rows                      | Free up section space                                |
-| No training state                                     | Strength Direction + Load Quality + Deload Signal           | Hero-level verdicts, not just charts                 |
-| No balance analysis                                   | DOTS-adjusted ratio chart + relative progression            | Compares lifts fairly across BW changes              |
-| No readiness integration                              | Readiness × Strain + Alignment matrix                       | Connects wearable data to training decisions         |
-| No volume landmarks                                   | Personal MEV/MAV/MRV from p25/p50/p90                       | "Am I in the right volume range for me"              |
-| No PR density                                         | PR count per 4-week block in hero drill-down                | Mesocycle effectiveness signal                       |
 
 ---
 
