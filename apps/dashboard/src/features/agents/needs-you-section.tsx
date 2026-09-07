@@ -37,12 +37,12 @@ export function NeedsYouSection({ humanQueue, agents }: Props) {
                 human queue
               </Badge>
               <Stack gap={2} miw={0}>
-                <Text size="sm">{item.text}</Text>
+                <Text size="sm">{item.question}</Text>
                 <Group gap="xs">
                   {item.cmd ? <Code>{item.cmd}</Code> : null}
-                  {item.created ? (
+                  {item.askedAt ? (
                     <Text size="xs" c="dimmed">
-                      {relativeTime(item.created)}
+                      {relativeTime(item.askedAt)}
                       {item.host ? ` · ${item.host}` : ''}
                     </Text>
                   ) : null}

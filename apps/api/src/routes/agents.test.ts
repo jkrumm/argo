@@ -36,7 +36,7 @@ const snapshot = (overrides: Record<string, unknown> = {}) => ({
   ],
   overview: { generatedAt: NOW - 120_000, model: 'claude-haiku', backend: 'iu', ageMs: 120_000 },
   humanQueue: [
-    { id: '20260907T100000-1', text: 'run make secrets-seed', cmd: 'make secrets-seed' },
+    { id: '20260907T100000-1', question: 'run make secrets-seed', cmd: 'make secrets-seed' },
   ],
   warnings: [],
   ...overrides,

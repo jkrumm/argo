@@ -96,13 +96,17 @@ const OverviewMetaSchema = z.looseObject({
   ageMs: z.number().optional(),
 })
 
-/** One `ask-human.sh` request as the mini's human-queue writes it. */
+/**
+ * One pending `ask-human.sh` request, in the shape sideclaw's `/api/overview` publishes it —
+ * not the shape of the `.req` file on disk. sideclaw renames `created`/`text` to
+ * `askedAt`/`question` on the way out, and that published shape is the contract its other
+ * consumer (the Slack digest) already reads, so this mirrors the producer rather than the file.
+ * Loose, so a producer that adds `host`/`cwd` back is stored rather than rejected.
+ */
 const HumanQueueItemSchema = z.looseObject({
   id: z.string(),
-  created: z.string().optional().describe('ISO 8601'),
-  host: z.string().optional(),
-  cwd: z.string().optional(),
-  text: z.string(),
+  askedAt: z.string().nullable().optional().describe('ISO 8601'),
+  question: z.string(),
   cmd: z.string().nullable().optional(),
 })
 
