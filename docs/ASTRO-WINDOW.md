@@ -129,6 +129,16 @@ Dated, in the order taken. Each reversal of the original brief is marked.
 - **The marine page's four defects only appear when every day in the range is gated** — in a flat
   European August that is every range, so it is the common case. They are recorded in git history
   (2026-08-18) for the rebuild.
+- **7Timer is the whole latency budget** — 431 ms of a 471 ms cold `/astro/window` request, against
+  ~20 ms each for the two Open-Meteo calls. It is also the least reliable of the three upstreams (a
+  bare `api.pl` CGI endpoint). If transparency ever stops being worth the wait, dropping it costs one
+  factor's weight and the score degrades through `coverage` rather than breaking.
+- **Two spots in the engine are O(n·m) and cheap only because n and m are small.** `transparencyAt`
+  linearly scans the whole series per lookup (~a few hundred thousand comparisons per request at ten
+  nights × ~240 samples × ~160 slots) — a sorted-array binary search is the fix if the horizon ever
+  grows a lot. `resolveNight` samples every night at 5-minute resolution even for the strip, where
+  only the verdict and window bounds are read (~2,400 ephemeris evaluations per 10-night request) —
+  a coarser grid for non-detail nights is the lever if the endpoint ever needs to be faster.
 
 ## Next
 
