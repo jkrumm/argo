@@ -1,15 +1,15 @@
 # Astro horizon — making terrain a first-class input
 
-The shipped scorer gates on `MIN_CORE_ALTITUDE = 8`, a flat number standing in for
-"something is in the way". Measured against real terrain that gate is not conservative,
-it is **wrong, and wrong in the direction that sends you to the worst spot**: it rates
-eight Bavarian candidates inside a 1.8× spread of annual core hours, where the
-terrain-aware gate spreads them 16×. A 1134 m summit — Wallberg — comes out one of the
-worst Milky Way sites in the set, because the Alps stand 20° high directly south of it.
-No amount of light-pollution modelling can see that.
+**Shipped**, in five phases (status: `docs/ASTRO-WINDOW.md`). This is the research and decision
+record for why: the scorer used to gate on `MIN_CORE_ALTITUDE = 8`, a flat number standing in for
+"something is in the way". Measured against real terrain that gate was not conservative, it was
+**wrong, and wrong in the direction that sends you to the worst spot**: it rated eight Bavarian
+candidates inside a 1.8× spread of annual core hours, where a terrain-aware gate spreads them 16×.
+A 1134 m summit — Wallberg — came out one of the worst Milky Way sites in the set, because the
+Alps stand 20° high directly south of it. No amount of light-pollution modelling can see that.
 
-This record covers what was measured, what it costs, and what the API and the two views
-should therefore look like. Every number reproduces from `docs/poc/astro-horizon/`.
+This record covers what was measured, what it cost, and what the API and the two views were built
+to. Every number reproduces from `docs/poc/astro-horizon/`.
 
 Scope note: `ASTRO-MAP-RESEARCH.md` is the record for light pollution and the map's
 raster layers, and it stands. This one is about the other half of the sky budget.

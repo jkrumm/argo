@@ -1,7 +1,9 @@
 # Astro Map — Data Sources, Computations, Mappings
 
-Research and quantitative POC session, **2026-08-18**. Nothing here is implemented.
-This is the decision record the implementation session works from.
+Research and decision record, **2026-08-18 through 2026-08-20**. **Shipped** — the map, the
+light-pollution overlay and the weather catalogue described here are in production (status:
+`docs/ASTRO-WINDOW.md`). This stays the authoritative record for the map's data sources, decode
+methods and rejected alternatives.
 
 Everything below was **measured**, not read off a docs page: every URL was fetched from
 this machine, every number produced by a script in `docs/poc/astro-map/` (see
@@ -625,43 +627,37 @@ panel, which is where this session started.
 
 ---
 
-## 9. The 2026-08-19 rebuild — global weather, and two bugs the map shipped with
+## 9. Global weather, and two shipped bugs (2026-08-19)
 
 **Verdict:** the weather overlays were Germany-shaped because of a source choice, not a
 limitation — four keyless, CORS-open providers cover the globe for radar and most of a
-hemisphere for everything else. Two of the reported problems were not taste at all: the
-hillshade and the light-pollution ramp were both broken by the same class of mistake, a
-palette token used where a physical quantity belonged.
+hemisphere for everything else. Two other reported problems were not taste, but the same class
+of bug: a palette token used where a physical quantity belonged.
 
 ### 9.1 Two bugs, one root cause
 
-**The hillshade rendered no relief.** `hillshade-shadow-color` was wired to `--vx-surface-bg`
-and `-highlight-color` to `--vx-surface-elevated` — two adjacent steps of the same zinc surface
-ladder. Their luminance differs by a few percent, so shadow ≈ highlight and the shading
-cancelled. MapLibre's spec defaults are `#000000`/`#FFFFFF` for exactly this reason. Relief is a
-physical light model, not palette ink; the three achromatic vars now live in `series.ts`'s
-`ARGO_DERIVED` alongside `--vx-optimalZone`. `hillshade-method` also became a control
-(`standard` / `multidirectional` / `igor`, verified against
-`@maplibre/maplibre-gl-style-spec@26.2.1`, which also ships `basic` and `combined`), defaulting
-to `igor` — the method designed to sit under a basemap that already carries its own colour.
-Exaggeration default `0.5` → `0.7`.
+**The hillshade rendered no relief** — `hillshade-shadow-color`/`-highlight-color` were wired to
+two adjacent steps of the same zinc surface ladder (luminance differs by a few percent, so
+shadow ≈ highlight and the shading cancelled; MapLibre's spec defaults are `#000000`/`#FFFFFF`
+for exactly this reason). Fix: three achromatic vars in `series.ts`'s `ARGO_DERIVED`, plus a
+`hillshade-method` control (`standard`/`multidirectional`/`igor`/`basic`/`combined` per
+`@maplibre/maplibre-gl-style-spec@26.2.1`), defaulting to `igor` at exaggeration `0.7`.
 
-**Light pollution and the topographic base were mutually exclusive.** `normaliseLayerState`
-nulled the atlas year on any non-vector base and the drawer swung the base back when a year was
-picked, so switching basemaps silently turned the ramp off. The rule was written for the
-satellite mosaic — green and brown under a warm ramp really is unreadable — and then extended to
-OpenTopoMap by analogy. That was wrong: readability at a given opacity is the reader's call, and
-the ramp already had an opacity slider. Rule deleted, both halves.
+**Light pollution and the topographic base were mutually exclusive** — `normaliseLayerState`
+nulled the atlas year on any non-vector base (a rule written for the satellite mosaic and wrongly
+extended to OpenTopoMap by analogy). Readability at a given opacity is the reader's call, and the
+ramp already had an opacity slider; rule deleted.
 
-### 9.2 Sensitivity, not just intensity
+### 9.2 Ramp sensitivity, not just intensity
 
-The ramp always spanned its full canonical domain (1800–2200, mag/arcsec² × 100), so the band
-actually worth scouting — roughly 21.2–21.8 — got four of eleven stops. `LpSelection.range` now
-windows it: `remapLpRampStops` linearly remaps every canonical stop onto the selected window and
-falls back to the full domain whenever integer rounding would break strict ascension (the stops
-are unevenly spaced — 160 apart at the polluted end, 10 at the pristine one — so a width
-threshold cannot guarantee it; checking the remapped outcome can). Rides in the `lp` search
-param as a fourth positional slot, `<year>[:<percent>[:<smooth|sharp>[:<min>-<max>]]]`.
+The ramp spans the full canonical domain (1800–2200, mag/arcsec² × 100); the band worth scouting
+(≈21.2–21.8) got four of eleven stops. `LpSelection.range` now windows it: `remapLpRampStops`
+linearly remaps every canonical stop onto the selected window, falling back to the full domain
+when integer rounding would break strict ascension (stops are unevenly spaced — 160 apart at the
+polluted end, 10 at the pristine one). Rides in the `lp` search param as a fourth positional slot,
+`<year>[:<percent>[:<smooth|sharp>[:<min>-<max>]]]`. Alpha is near-flat (`.56` → `.74`, rising
+gently toward both ends) with **hue alone carrying the ramp** — a diverging alpha ladder fading
+to its most transparent at the neutral crossing erases exactly the band the map exists to show.
 
 ### 9.3 Weather sources — every row probed live from this machine, 2026-08-19
 
@@ -691,19 +687,20 @@ catalogue. Getting that backwards does not error; the tiles simply land in the w
 ### 9.4 The cloud mask needed decoding, not a lower opacity
 
 `msg_fes:clm` is **colour type 2 — opaque RGB, no alpha channel at all**; `transparent=true`
-only clears outside the satellite disc. Mounted as a plain raster it is a sheet across the whole
-viewport, which is why it originally had to sit _under_ the pollution ramp to stay legible.
+only clears outside the satellite disc, so mounted as a plain raster it is a sheet across the
+whole viewport. Pixel census of one tile over central Europe: cloud `(255,255,255)` 19 000 px,
+clear land `(0,192,0)` 15 111 px, plus ~7 000 anti-aliasing colours at the boundaries — **the red
+channel alone is a clean 0-vs-255 split**. Decode: MapLibre `raster-dem` `encoding: "custom"`
+(`redFactor: 1, greenFactor: 0, blueFactor: 0, baseShift: 0`, js 3.4.0+) into a scalar field, then
+`color-relief` through `CLOUD_RAMP` (transparent below 96, half alpha at 128, full at 255) into
+the neutral `cloudHigh` token. `resampling: 'nearest'`, not `linear` — smoothing a binary field
+across boundary colours turns a mask into a haze. Now honestly transparent, so it sits above the
+pollution ramp rather than under it.
 
-Pixel census of one tile over central Europe: cloud `(255,255,255)` 19 000 px, clear land
-`(0,192,0)` 15 111 px, plus ~7 000 distinct anti-aliasing colours at the boundaries. **The red
-channel alone is a clean 0-vs-255 split.** MapLibre's `raster-dem` `encoding: "custom"`
-(`redFactor: 1, greenFactor: 0, blueFactor: 0, baseShift: 0`, js 3.4.0+) decodes it to a scalar
-field, and `color-relief` then paints it through `CLOUD_RAMP` — transparent below 96, half alpha
-at 128, full at 255 — in the dictionary's existing neutral `cloudHigh` token. `resampling` is
-`nearest`, not `linear`: smoothing a binary field across those boundary colours turns a mask
-into a haze. Off-disc black decodes to 0 and is transparent by construction, so the disc edge
-needs no special case. Being honestly transparent, the layer moved from under the ramp to above
-it.
+**No decode factor may ever be zero** — MapLibre re-packs decoded elevation back into RGB through
+the *same* factor vector (`pack()`/`getUnpackVector()`), so an isolating `0/0/1` degenerates the
+repack and saturates every pixel. Use `1/1/1` and separate classes on the channel SUM instead
+(cloud → 765, clear land → 192, clear sea → 255; ramp threshold at 400).
 
 ### 9.5 What infrared cannot do
 
@@ -718,7 +715,13 @@ bbox:
 
 Fully overlapping. Low cloud is exactly what ends an astro night, so `cloud-ir` is documented as
 a complement to the mask, never a replacement — and `msg_fes:cth` (cloud-top height) is what
-actually separates thin high cirrus from a low deck.
+actually separates thin high cirrus from a low deck. No single cloud layer is global: decoding
+either EUMETSAT IR disc into the same ramp is impossible (the product's greyscale is compressed
+into 31–108 of 0–255, mean cloud vs clear only 56.3 vs 52.8); decoding GIBS
+`Band13_Clean_Infrared` is actively destructive (its colour enhancement for cold convective tops
+is exactly what `color-relief` discards). The three together — mask + cloud-top height over the
+two Meteosat discs, `cloud-ir` as a plain RGBA raster (`raster-opacity` 0.6) over the hemisphere
+they miss — is the covering set, not a single source.
 
 ### 9.6 Rejected, with the reason
 
@@ -732,46 +735,10 @@ actually separates thin high cirrus from a low deck.
 | Meteoblue                                   | No free tier — Tile API needs a ≥€2 400/year plan                                                                                                                                                                                     |
 | `raster-color` recolouring                  | A Mapbox GL JS v3 feature. Not in MapLibre's `paint_raster`, verified against the installed style spec                                                                                                                                |
 
-### 9.8 What the browser showed that four green gates could not
-
-Everything in §9.1–§9.7 passed format, lint, typecheck, the palette guard, 170 tests and a clean
-build — and three of the things it shipped were visibly wrong. They were only found by rendering
-the real tiles in a browser (`docs/poc/astro-map/{cloudmask,rampcheck,verify,irthresh,gibscheck}.html`;
-they read light-pollution tiles from a gitignored `.cache/lp/` mirror, since that route is
-bearer-guarded and CORS-closed to a local origin).
-
-**A zero factor breaks MapLibre's custom DEM encoding.** The cloud mask was mounted with
-`redFactor: 1, greenFactor: 0, blueFactor: 0` to isolate the red channel. It rendered as one flat
-grey slab. MapLibre decodes `r*redFactor + g*greenFactor + b*blueFactor - baseShift` and then
-RE-PACKS that elevation back into RGB through the same factor vector (`pack()` /
-`getUnpackVector()`); a zero factor makes the repack degenerate and every pixel saturates. With
-`1/1/1` the same source renders correctly, and the mask's classes separate on the channel SUM
-instead — cloud `(255,255,255)` → 765, clear land `(0,192,0)` → 192, clear sea `(0,0,255)` → 255,
-so the ramp's transparent threshold sits at 400, above both clear classes. **No factor may ever be
-zero.**
-
-**The diverging alpha ladder erased the band the map exists for.** §9.2's ramp faded to `.12` alpha
-at its neutral crossing — which sits at 21.3 mag, in the middle of the rural plateau. Rendered, it
-read as red city cores, a washed-out grey hole across all of Bavaria, then blue in the Alps: no
-yellow anywhere. The written argument for it ("a diverging ramp has to fade to its most transparent
-exactly at the point it diverges around") was coherent and wrong. Alpha is now near-flat
-(.56 → .74, rising gently toward both ends) and HUE alone carries the ramp; the same tiles then
-render a continuous red → orange → gold → blue gradient with every step distinguishable.
-
-**Infrared cannot be made global, in either direction.** Two attempts, both rejected on screen:
-
-| Attempt                                                                             | Result                                                                                                                                                                                                                                                                                                          |
-| ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Decode the EUMETSAT IR discs (`msg_fes:ir108`, `msg_iodc:ir108`) into the same ramp | Impossible. The product's greyscale is compressed into 31–108 of 0–255, and cloud vs clear means are 56.3 vs 52.8 with fully overlapping ranges. Three candidate thresholds were rendered against the `clm` mask as ground truth; all produced a smear or a uniform wash. The information is not in the product |
-| Decode GIBS `Band13_Clean_Infrared` for a consistent look                           | Actively destructive. That product is not plain greyscale — it carries a colour enhancement for cold convective tops, and `color-relief` discards it, collapsing the best cloud picture in the catalogue into a flat pale wash. It stays a **plain RGBA raster** at `raster-opacity` 0.6                        |
-
-So no single cloud layer is global. The three together are: mask and cloud-top height over the two
-Meteosat discs, infrared over the hemisphere they miss.
-
-**The topographic base and the ramp needed a wash, not a redesign.** OpenTopoMap carries its own
-hypsometric tint, which is why the two were originally made mutually exclusive (§9.1). Washing the
-base raster — `raster-opacity` 0.55, `raster-saturation` −0.55, `raster-brightness-max` 0.75, applied
-only while the ramp is on — makes both legible at once, with no control to configure.
+**The topographic base and the ramp needed a wash, not a redesign** (following on from §9.1):
+OpenTopoMap carries its own hypsometric tint, which the ramp used to flatten entirely. Washing the
+base raster — `raster-opacity` 0.55, `raster-saturation` −0.55, `raster-brightness-max` 0.75,
+applied only while the ramp is on — makes both legible at once, with no control to configure.
 
 ### 9.7 Still not solved
 
@@ -787,33 +754,16 @@ only while the ramp is on — makes both legible at once, with no control to con
 
 ---
 
-## 10. The 2026-08-20 round — relief under the ramp, and why the cloud mask cannot look like Windy
-
-Three complaints drove this round: the light-pollution ramp and the topographic base do not blend,
-"Hillshade seemingly doesn't change anything", and "how can Windy display that sooo much better —
-our Cloud mask is very rough and pixelated". Two of the three turned out to be the same bug, and
-the third is not a rendering problem at all.
+## 10. Relief under the ramp, and why the cloud mask cannot look like Windy (2026-08-20)
 
 ### 10.1 The hillshade was never broken — it was buried
 
-Rendered in isolation (`docs/poc/astro-map/hillshade.html`, six panes over the Karwendel at z11),
-the shipped hillshade paint is dramatic: `igor` at 0.7 turns a flat blue-grey basemap into legible
-alpine relief, and `standard`/`multidirectional`/`combined` differ from each other clearly. Nothing
-about the DEM, the `maplibre-contour` shared protocol, the paint properties or the terrarium decode
-is wrong.
-
-The failure is the STACK ORDER. `TERRAIN_STACK_INDEX` was 5 and `LP_STACK_INDEX` 15, so the relief
-drew UNDER the pollution ramp — and since the flat-alpha correction (§9, DESIGN.md) that ramp
-paints at alpha .56–.74 at _every_ stop, everywhere. A relief under a near-opaque colour field is
-an invisible relief. Toggling the checkbox with the ramp on genuinely changed nothing on screen,
-which is exactly what was reported.
-
-`hillshade-context.html` renders the four combinations side by side against the same tiles. With
-the ramp on top, the Alps are a flat orange-and-blue wash. With the relief moved above the ramp,
-every ridge and valley reads and the ramp's colour is undiminished — the classic cartographic
-pairing of a hypsometric tint carrying the value and shaded relief carrying the form. The same
-comparison over OpenTopoMap answers the "topographic and light pollution don't blend" half: they
-never blended because the base's own baked relief was being flattened by the ramp too.
+The shipped hillshade paint (`igor` at 0.7) is not wrong in isolation — verified over the Karwendel
+at z11, it turns a flat blue-grey basemap into legible alpine relief. The failure is stack order:
+`TERRAIN_STACK_INDEX` was 5 and `LP_STACK_INDEX` 15, so relief drew *under* the near-opaque
+pollution ramp (alpha .56–.74 at every stop, §9.2) — invisible by construction, not by taste. Same
+root cause as "topographic and light pollution don't blend": the base's own baked relief was being
+flattened by the ramp too.
 
 Method, re-picked over the ramp rather than over a bare basemap:
 
@@ -823,36 +773,21 @@ Method, re-picked over the ramp rather than over a bare basemap:
 | `standard` 0.5         | slightly flatter, colour intact                            |
 | `multidirectional` 0.5 | crushes the darker slopes to black, unusable               |
 
-New order: base 0 → ramp 15 → hillshade 16 → contours 17 → trails 18 → weather 20+. The rule this
-replaces — "the ramp is the answer and the hillshade is context, so the relief goes under" — was
-sound as a statement about IMPORTANCE and wrong as a statement about COMPOSITING. Importance
-decides what earns colour; it does not decide draw order when the upper layer is opaque.
+New z-order: base 0 → ramp 15 → hillshade 16 → contours 17 → trails 18 → weather 20+. The
+importance of a layer (what earns colour) does not decide its draw order once the layer above it
+is opaque.
 
-### 10.2 The cloud mask cannot be made to look like Windy, and the reason is the data
+### 10.2 The cloud mask cannot be made to look like Windy — the data, not the renderer
 
-Windy does not render satellite cloud for its cloud layer at all. It renders NWP model output —
-ECMWF IFS (~9 km), ICON (~13 km), ICON-EU (~7 km), ICON-D2 (2.2 km), AROME (~1.25 km) — as
-pre-rendered XYZ PNG tiles (`tiles.windy.com/tiles/v9.0/{layer}/{z}/{x}/{y}.png`), bilinearly
-filtered on the GPU. Windy staff confirm "simple bi-linear is used… for scalar fields like cloud
-cover or precipitation", and the timeline steps discretely between forecast hours with no time
-interpolation — each FRAME is smooth, the jump is between frames.
-
-`msg_fes:clm` is a different kind of object. It is a Level-2 CATEGORICAL product: every 3 km pixel
-is one of clear-water (0), clear-land (1), cloud (2), no-data (3). A class label cannot be
-interpolated — halfway between "clear" and "cloudy" has no physical meaning — which is why every
-guide prescribes nearest-neighbour for it, and why reprojecting the geostationary grid to Web
-Mercator stair-steps the edges. It is blocky BY CONSTRUCTION.
-
-Proven rather than argued (`om-clouds.html`, panes A and B): switching the mask's `resampling`
-from `nearest` to `linear` changes almost nothing on screen. The blocks survive because the data
-underneath them is binary. No renderer setting fixes this.
-
-The same page's panes C–F show what does: Open-Meteo's model fields through the `om://` protocol
-render smooth, structured cloud over the Alps at ICON-D2's 2.2 km — finer than anything Windy
-serves on its free tier — and pane D is the same field twelve hours ahead, which is the other half
-of the complaint. Every layer the map carries today is an OBSERVATION (satellite now, radar past);
-observations cannot have a forecast. That is why "nothing has forecast" was true and why a model
-source, not a better satellite source, is the fix.
+Windy's cloud layer is not satellite cloud at all — it's NWP model output (ECMWF IFS ~9 km, ICON
+~13 km, ICON-D2 2.2 km, AROME ~1.25 km) as pre-rendered, bilinearly-filtered XYZ tiles, stepping
+discretely between forecast hours. `msg_fes:clm` is a Level-2 **categorical** product instead
+(clear-water/clear-land/cloud/no-data per 3 km pixel) — a class label can't be interpolated, so
+nearest-neighbour is correct and the reprojected edges are blocky *by construction*. Confirmed:
+switching the mask's `resampling` from `nearest` to `linear` changes almost nothing on screen — the
+blocks are the data, not the filter. The fix is a model source, not a better satellite source:
+every layer the map carries is an *observation* (satellite now, radar past), and observations have
+no forecast.
 
 ### 10.3 Forecast tile sources, re-probed live 2026-08-20
 
@@ -898,35 +833,18 @@ proven by an actual build rather than assumed.
 
 ### 10.5 The forecast layer shipped frozen — a string grammar, not a number
 
-`model-cloud` / `model-cloud-low` / `model-precip` went to production on 2026-08-20 rendering the
-**same hour at every scrubber position**. Reported by eye ("the forecast and clouds don't seem to
-be moving at all") before any gate noticed, because no gate could.
+`model-cloud` / `model-cloud-low` / `model-precip` rendered the **same hour at every scrubber
+position**. Root cause: `@openmeteo/weather-map-layer` 0.0.20 parses `time_step` against a
+**mandatory, unanchored** regex requiring a `current_time`/`valid_times` prefix
+(`dist/index.mjs`); a bare index like `time_step=7` doesn't match, and the miss has no throw —
+the `else` branch silently falls back to `meta.valid_times[0]`, rendering a perfectly plausible
+but frozen field. The protocol wants `time_step=valid_times_<index>`, not a bare index.
 
-The cause is one parameter's grammar. `@openmeteo/weather-map-layer` 0.0.20 parses `time_step` in
-`dist/index.mjs` against
-
-```
-/(?<capture>(current_time|valid_times))(_)?(?<modifier>(\+|-))?(?<amountAndUnit>.*)?/
-```
-
-The `current_time|valid_times` capture is **mandatory** and the regex is **unanchored**, so a bare
-`7` does not match it at all. There is no throw on the miss — the `else` branch is
-`t = new Date(meta.valid_times[0])`. An unparseable step therefore resolves to the run's own
-reference hour, silently, and keeps rendering a perfectly plausible cloud field. We were passing
-`time_step=<index>`; the protocol wants `time_step=valid_times_<index>`.
-
-Two things made this survive to production:
-
-- **The POC verified the wrong property.** `om-clouds.html` had panes for "now" and "+12 h" and
-  both drew clouds, which was read as the layer working. Two panes drawing clouds is not evidence
-  that they draw _different_ clouds. `om-timestep.html` is the version that tests the actual
-  claim: four panes off one helper, differing only in how the param is spelled. A/B (bare `0` and
-  bare `24`) and C (`valid_times_0`) come out pixel-identical; only D (`valid_times_24`) shows
-  different weather.
-- **The unit test asserted our own format back to itself.** It compared `omTileUrl(…)` to a
-  hand-written string containing `time_step=3` — green, and green _because_ it encoded the bug.
-  The replacement asserts the URL against the protocol's own regex, extracted from its dist, so
-  the test can fail when the two disagree.
+Two things let it ship green: the POC's two panes ("now", "+12h") both drew clouds, which reads
+as "working" without proving they draw *different* clouds (a four-pane test differing only in
+param spelling is what actually catches it); and the unit test asserted `omTileUrl(…)` against a
+hand-written string containing the same bug, so it was green *because* it encoded the mistake —
+the fix is to assert against the protocol's own regex instead.
 
 The resolved `.om` files are per-step and per-run, verified live: `dwd_icon_d2/2026/08/20/0900Z/`
 holds `2026-08-20T0900.om` (24.9 MB), `…T1500.om` (29.6 MB), `…T2100.om` (26.4 MB) and
@@ -947,10 +865,9 @@ scale climbs to a near-white wash that flattens the basemap under it at high clo
 - **One time axis over two kinds of time.** Model steps are hourly and run forward; RainViewer
   frames are 5-minutely and run backward; the EUMETSAT observation layers only have "latest".
   A single scrubber has to be honest about which of its layers can follow it into the future.
-- **Domain switching by viewport.** ICON-D2 stops at its bbox with no visual cue, the same
-  `coverage` problem every satellite row already has. Picking the model by hand is the honest
-  first version; picking it from the viewport is the better one. §10.5's pane D shows how sharp
-  that edge actually is.
+- **Domain switching by viewport.** ICON-D2 stops at its bbox with a hard, un-faded edge (no
+  visual cue), the same `coverage` problem every satellite row already has. Picking the model by
+  hand is the honest first version; picking it from the viewport is the better one.
 - **The scrubber's axis is index-linear, not time-linear.** Measured 2026-08-20: the union is 60
   ticks, of which 13 are RainViewer's 10-minutely frames over the last 2 h and 47 are hourly model
   steps over the next 48 h. So ~22 % of the slider covers 2 hours and ~78 % covers two days. It
