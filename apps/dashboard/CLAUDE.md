@@ -19,6 +19,7 @@ Routes live in `src/routes/`. The generated route tree (`src/routeTree.gen.ts`) 
 
 - `__root.tsx` — AppShell sidebar layout + theme toggle + `<Outlet />`
 - `index.tsx` — redirects to `/garmin-health`
+- `agents.tsx` — Agents page (System → the sideclaw overview snapshot Argo stores)
 - `astro-window.tsx` — Astro Window page
 - `body-composition.tsx` — Body Composition page
 - `calendar.tsx` — Calendar page

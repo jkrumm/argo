@@ -40,19 +40,17 @@ import {
 } from './window-stores'
 import { format } from 'date-fns'
 import {
-  IconActivity,
   IconArchive,
   IconBarbell,
   IconBook,
-  IconBox,
   IconBrandTeams,
   IconCalendar,
   IconChartHistogram,
-  IconChecklist,
   IconCompass,
   IconHeartbeat,
   IconMessageChatbot,
   IconMoonStars,
+  IconRobot,
   IconRulerMeasure,
   IconServer,
   IconShoe,
@@ -172,30 +170,12 @@ export const NAV = defineNav({
         icon: <IconChartHistogram size={ICON} />,
         link: linkOptions({ to: '/usage-tracking', search: usageStore.linkSearch }),
       },
-      // Placeholders for pages that do not exist yet. `link` is required by the type but never
-      // read: every surface short-circuits on `disabled` before it reaches the anchor, and
-      // `commands.tsx` filters them out of Spotlight. They point at Usage Tracking purely so the
-      // field carries a real, type-checked route rather than a fiction.
       {
-        id: 'docker',
-        label: 'Docker',
-        icon: <IconBox size={ICON} />,
-        disabled: true,
-        link: linkOptions({ to: '/usage-tracking', search: usageStore.linkSearch }),
-      },
-      {
-        id: 'monitoring',
-        label: 'Monitoring',
-        icon: <IconActivity size={ICON} />,
-        disabled: true,
-        link: linkOptions({ to: '/usage-tracking', search: usageStore.linkSearch }),
-      },
-      {
-        id: 'tasks',
-        label: 'Tasks',
-        icon: <IconChecklist size={ICON} />,
-        disabled: true,
-        link: linkOptions({ to: '/usage-tracking', search: usageStore.linkSearch }),
+        id: 'agents',
+        label: 'Agents',
+        short: 'Agents',
+        icon: <IconRobot size={ICON} />,
+        link: linkOptions({ to: '/agents' }),
       },
     ]),
     // No `mobile` key: the old `mobileTab: false` only suppressed a SECTION tab, which is already
