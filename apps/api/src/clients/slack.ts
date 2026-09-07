@@ -1,5 +1,6 @@
 import { env } from '../env.js'
 import { tracedFetch } from '../lib/traced-fetch.js'
+import { log } from '../telemetry.js'
 
 // Three tokens, three jobs — do not collapse them.
 //   SLACK_BOT_TOKEN  — the POSTING identity (the Argo app). `chat:write.public` lets it
@@ -15,6 +16,16 @@ import { tracedFetch } from '../lib/traced-fetch.js'
 const SLACK_BOT_TOKEN = env.SLACK_BOT_TOKEN
 const SLACK_READ_TOKEN = env.SLACK_READ_TOKEN || env.SLACK_BOT_TOKEN
 const SLACK_USER_TOKEN = env.SLACK_USER_TOKEN
+
+// The fallback above is a fail-open onto exactly the outage it exists to prevent, so say so
+// at boot rather than letting it surface as 500s on every read endpoint hours later.
+if (env.SLACK_BOT_TOKEN && !env.SLACK_READ_TOKEN) {
+  log.warn(
+    'SLACK_READ_TOKEN is unset — Slack reads fall back to the posting token, which is a ' +
+      'member of no channel; conversations.history and conversations.list will fail with ' +
+      'not_in_channel',
+  )
+}
 
 // ─── Slack Web API client ───────────────────────────────────────────────────
 
