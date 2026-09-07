@@ -1,0 +1,32 @@
+{
+  "display_information": {
+    "name": "Argo",
+    "description": "Argo — the personal API and dashboard; its Slack module and notifications post under this identity",
+    "background_color": "#1b4332"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "Argo",
+      "always_online": false
+    }
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": [
+        "chat:write",
+        "chat:write.public",
+        "channels:read",
+        "channels:history",
+        "groups:read",
+        "groups:history",
+        "search:read.public",
+        "users:read"
+      ]
+    }
+  },
+  "settings": {
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}
