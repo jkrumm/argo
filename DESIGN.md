@@ -36,8 +36,8 @@ three-font system (Nunito Sans body / Hubot Sans condensed headings / JetBrains 
   system**: it collapses Mantine's raw ramp steps onto the `--vx-surface-*` tokens, so every component
   shares one bg/radius/depth. **Use Mantine primitives, not raw HTML**
   (`Box`/`Flex`/`Grid`/`SimpleGrid`/`Stack`/`Group`/`Paper`/`Card` over `<div>`/`<span>` with inline
-  `style`) — also enforced by `check-theme`. See `docs/DESIGN-SPEC.md` in the basalt-ui repo for the
-  full 2026-07 visual spec this identity is drawn from.
+  `style`) — also enforced by `check-theme`. See `docs/DESIGN-CORE.md` in the basalt-ui repo for the
+  full visual spec this identity is drawn from.
 
 * **Accent hue:** blue (default: the saturated sky accent — `var(--vx-line)` neutral is still the
   default for single-series marks)

@@ -1,15 +1,23 @@
 # Argo
 
-Personal homelab dashboard for health metrics and strength training, served at `https://argo.jkrumm.com`.
+Personal dashboard + agent-backbone API, served at `https://argo.jkrumm.com`.
 
 ## What It Does
 
-Two pages:
+Health/training core, plus a growing set of personal-agent surfaces, grouped in the sidebar:
 
-- **Garmin Health** — HRV, resting HR, sleep score, stress, steps, recovery score, fitness direction, training load. Data synced every 6 hours from Garmin Connect via a Python sidecar.
-- **Strength Tracker** — Set-level workout logging, e1RM estimation (Brzycki + Epley), PR detection, weekly volume, ACWR, body weight log.
+- **Health** — Garmin Health (HRV, resting HR, sleep score, stress, steps, recovery score,
+  fitness direction, training load — synced every 6 hours from Garmin Connect via a Python
+  sidecar), Strength Tracker (set-level logging, e1RM, PR detection, ACWR, body weight), Body
+  Composition, WalkingPad, Reading.
+- **Assistant** — Hermes Chat (a Slack-shaped feed over Hermes agent threads + Slack channels) and
+  Calendar.
+- **Outdoors** — Astro Window (is tonight worth a Milky Way shoot).
+- **System** — Usage Tracking (Claude Code spend) and Agents (the sideclaw dev-agent overview).
+- **Other** — M365 Explorer (IU Teams).
 
-The backend also serves a curated OpenAPI (`/openapi`) consumed by AI agents — the same summary endpoints used by the dashboard.
+The backend also serves a curated OpenAPI (`/openapi`) consumed by AI agents — an AI Gateway,
+Hermes Chat, and Slack read/write live behind the same bearer as the dashboard's own endpoints.
 
 ## Stack
 
@@ -83,4 +91,6 @@ apps/dashboard/   — Vite + React 19 frontend, themed by basalt-ui
 - `docs/GARMIN-HEALTH.md` — Health metric formulas and composite signals (analytics reference)
 - `docs/STRENGTH-ANALYTICS.md` — Strength metric formulas (analytics reference)
 - `docs/ASTRO-WINDOW.md` — The astro + marine window planner: status, decisions, what is not verified
+- `docs/ASTRO-MAP-RESEARCH.md` / `docs/ASTRO-HORIZON-RESEARCH.md` — The map and terrain-horizon research/decision records the window planner is built on
 - `docs/HERMES-CHAT-V2.md` — Hermes Chat design reference (shipped; what is deferred is in its header)
+- `slack/README.md` — The two-Slack-app split (posting vs reading) and where each token lives

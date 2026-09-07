@@ -2,13 +2,41 @@
 
 ## What Argo Is
 
-Personal homelab dashboard for Johannes Krumm. The health/training core is **Garmin Health** (HRV, resting HR, sleep, stress, daily metrics, recovery score) and **Strength Tracker** (workouts, sets, e1RM, volume, ACWR, PR detection, body weight), alongside **M365 Explorer** (browse IU Teams chats + channels, label important ones to drive `GET /m365/important`) and the other surfaces in the sidebar. A Garmin sync sidecar feeds health data every 6 hours; strength data is logged manually.
+Personal dashboard + agent-backbone API for Johannes Krumm, deployed on the VPS at
+`https://argo.jkrumm.com`. Health/training core: **Garmin Health** (HRV, resting HR, sleep,
+stress, daily metrics, recovery score) and **Strength Tracker** (workouts, sets, e1RM, volume,
+ACWR, PR detection, body weight) — a Garmin sync sidecar feeds health data every 6 hours, strength
+data is logged manually. Alongside them: **Hermes Chat** (a Slack-shaped feed over Hermes threads
++ Slack channels, streamed through a thin idempotent proxy — `docs/HERMES-CHAT-V2.md`), a general
+**AI Gateway** (`/ai/v1/*`, OpenAI-compatible, backs Argo's own thread-titling/classification —
+not Hermes), **Slack** (read + post, split across two app identities — see "Slack" below),
+**Usage Tracking** (Claude Code spend ingest from `usage-tracker`, delta-only), **Reading**
+(Hardcover sync + reading stats), **M365 Explorer** (browse IU Teams chats/channels), **GitLab**
+and **Atlassian** surfaces, **WalkingPad**, and the **Agents** page (below).
 
 **Astro Window** answers "is tonight (or this week) worth going out for?" for Milky Way nightscapes. It is scored by a deterministic engine (`apps/api/src/lib/window-score.ts` — hard gates that name _why_ a night is out, plus weighted 0–1 factors) instantiated per domain (`astro-score.ts`). **The model never computes a number**: the ephemeris, the thresholds and the score are all deterministic, and `aiComplete()` only writes one sentence about an already-finished verdict — see `docs/ASTRO-WINDOW.md`.
 
 The **marine** half of that feature exists **API-only**: `/marine/window` and `/marine/spots` run over the same engine (`marine-score.ts`, `marine-spots.ts`, `clients/marine-upstreams.ts`) and are tested, but the dashboard page was removed on 2026-08-18 — the surf face gets rebuilt deliberately, step by step, on top of the shipped endpoints.
 
-The API doubles as an AI-agent endpoint. Discovery is anchored at three URLs: `GET /` returns a small JSON pointing at the docs and listing the tag groups, `GET /openapi` serves the Scalar interactive UI, and `GET /openapi/json` exposes the raw spec. The OpenAPI contract (paths, tag taxonomy, description quality) is the agent interface — see `apps/api/.claude/rules/openapi.md`.
+The API doubles as an AI-agent endpoint. Discovery is anchored at three URLs: `GET /` returns a small JSON pointing at the docs and listing the tag groups, `GET /openapi` serves the Scalar interactive UI, and `GET /openapi/json` exposes the raw spec. The OpenAPI contract (paths, tag taxonomy, description quality) is the agent interface — see `apps/api/.claude/rules/openapi.md`. All routes require a bearer except `GET /hermes/health/public` (unauthenticated, `{ok, degraded}` only, for Uptime Kuma).
+
+## Agents — the sideclaw overview surface
+
+`POST /agents/overview` ingests the sideclaw overview payload (machine, generatedAt, optional
+`humanQueue`) pushed every 10 minutes from every dev host; `GET /agents/overview[?machine=]` and
+`/agents/overview/history?hours=` (max 168) read it back — raw jsonb, loosely validated, 7-day
+retention pruned on ingest. `POST`/`GET /agents/narratives` stores the per-project narrative
+upserts from `hermes-agent`'s `project-narratives.py`. The dashboard's **System → Agents** page
+(`/agents`) is the one surface for all of it: hero stats + 24h sparklines, a Needs-you block, the
+agents table with sideclaw's recommendation glyphs, narratives, a 30-minute stale banner; polls
+Argo every 60s. Table owner: `apps/api/src/db/schema.ts` (`agent_overview_snapshots`,
+`agent_narratives`).
+
+## Slack
+
+Argo posts under its own app identity but reads through HomeLab's — `slack/README.md` has the
+full split and the token-scope story. The three refs: `SLACK_BOT_TOKEN` (posts as Argo),
+`SLACK_READ_TOKEN` (reads as HomeLab), `SLACK_USER_TOKEN` (search only) — all `op://common/slack/*`.
 
 ## Workspace Layout
 
@@ -101,7 +129,7 @@ was retired 2026-09-07; basalt-ui's own theming docs (shipped with the framework
 
 - `docs/GARMIN-HEALTH.md` — metric definitions, formulas, composite signals (health page)
 - `docs/ASTRO-WINDOW.md` — the astro + marine window planner: status per piece, the response contract, every decision taken during the build (D1–D11), what is still unverified
-- `docs/ASTRO-MAP-RESEARCH.md` — **shipped**: `/astro/light-pollution` + `/astro/skyglow` (the point-lookup endpoints), `GET /astro/tiles/lp/{year}/{z}/{x}/{y}.png` (the terrarium-encoded raster tile route the map paints), and the Map tab itself — basemap/imagery catalogue, the light-pollution ramp overlay, live weather layers and the settings drawer. The decision record for the map rebuild: light-pollution sources and their licences, the Lorenz binary-tile decode, a direction-resolved skyglow model that re-orders the site ranking, terrain horizons, aerosols vs 7Timer, inter-model cloud disagreement, and the verified overlay/basemap endpoints. **§9 is the 2026-08-19 rebuild**: the settings surface is now a docked collapsible panel (not an overlay drawer), the pollution ramp takes a sensitivity window as well as an opacity, the hillshade's shadow/highlight are achromatic `series.ts` vars (palette tokens collapsed the relief) with a `hillshade-method` control, and the weather catalogue is global — RainViewer radar, EUMETSAT cloud mask decoded through `raster-dem` `encoding: 'custom'` into our own transparent ramp, cloud-top height, the MTG-I lightning imager, and NASA GIBS infrared for the hemisphere the Meteosat discs miss. **§10 is the 2026-08-20 round**: the hillshade was never broken, it was drawn UNDER the near-opaque pollution ramp — relief and contours now sit above it (base 0 → ramp 15 → hillshade 16 → contours 17 → trails 18 → weather 20+), which also fixes "topographic and light pollution don't blend"; and the EUMETSAT cloud mask is a 4-class CATEGORICAL product, so it is blocky by construction and no resampling setting fixes it — the Windy-class answer is NWP model cloud, which is also the only way any layer gets a forecast. POC scripts in `docs/poc/astro-map/` (lint-excluded) reproduce every number in it
+- `docs/ASTRO-MAP-RESEARCH.md` — **shipped**: `/astro/light-pollution` + `/astro/skyglow` (point-lookup), `GET /astro/tiles/lp/{year}/{z}/{x}/{y}.png` (the terrarium-encoded raster tile route), and the Map tab — basemap/imagery catalogue, the light-pollution ramp overlay, a global weather layer catalogue (RainViewer radar, decoded EUMETSAT cloud products, NASA GIBS infrared, Open-Meteo model forecasts) and the settings drawer. The decision record: light-pollution sources and licences, the Lorenz binary-tile decode, a direction-resolved skyglow model, terrain horizons, cloud/weather source selection and two shipped-then-fixed rendering bugs (§9–§10). POC scripts in `docs/poc/astro-map/` (lint-excluded) reproduce every number in it
 - `docs/ASTRO-HORIZON-RESEARCH.md` — the terrain-horizon rebuild, **shipped in five phases**. `GET /astro/horizon` serves the per-azimuth near/far-split skyline (`lib/terrain-horizon.ts`'s `horizonProfile`/`horizonAt`) for an arbitrary coordinate from the AWS terrarium DEM (`clients/terrarium-dem.ts`); `/astro/window`'s per-night gate is `max(8°, farHorizon(coreAzimuth) + 2°)`, evaluated per sample rather than once per night, and the moon counts as down when it sits behind that same skyline (`resolveNight` in `lib/astro-night.ts`); `GET /astro/visibility` (`lib/astro-visibility.ts`'s `annualVisibility`) integrates a whole calendar year on a 10-minute grid into the deterministic, weather-free annual budget — "is this spot worth the drive at all" — under three progressively honest gates (`flat`/`terrain`/`terrainMoon`). On the dashboard, the **Forecast** tab carries the sky panorama (`charts/sky-panorama.tsx` — terrain silhouette, skyglow rose and the sun/moon/core tracks on one azimuth × altitude pair of axes, with the gate drawn and the clearing segment emphasised) plus the monthly budget chart, and the **Map** tab carries hillshade + optional 3D terrain off one shared terrarium `raster-dem` source and click-anywhere scouting (`components/scout-panel.tsx`, comparing any coordinate against the selected site). **Not built:** the §5 clearance raster layer — measured at 0.34 ms/cell and rasterable, but no tile route exists. The record: the PVGIS validation, why the near field (≤500 m) is DEM-unstable and ships advisory-only, what terrain does to the core and to moonlight, the annual-budget numbers that reorder the site ranking 16× under a terrain-aware gate, and the re-verified library landscape (`astronomy-engine` is upstream-abandoned, `suncalc` 2.0 is now viable for sun/moon only). POC scripts in `docs/poc/astro-horizon/` reproduce every number in it
 - `docs/STRENGTH-ANALYTICS.md` — metric definitions, INOL, ACWR, e1RM formulas (strength page)
 
