@@ -1,12 +1,23 @@
+import { useMemo } from 'react'
 import { Badge, Group, Stack, Text } from '@mantine/core'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
+import { Section, useBreakpoint } from 'basalt-ui'
 import { relativeTime } from 'basalt-ui/format'
-import type { OverviewSnapshot } from '../../lib/queries/agents'
-import { RECOMMENDATION_ICON, STATE_COLOR, STATE_LABEL, type AgentRow } from './model'
+import type { OverviewSnapshot, OverviewSummary } from '../../lib/queries/agents'
+import {
+  breakdownLine,
+  RECOMMENDATION_ICON,
+  sortAgentsForCards,
+  STATE_COLOR,
+  STATE_LABEL,
+  type AgentRow,
+} from './model'
+import { AgentCard } from './agent-card'
 
 type Props = {
   agents: AgentRow[]
   overview: OverviewSnapshot['overview'] | undefined
+  summary: OverviewSummary | undefined
 }
 
 const columnHelper = createColumnHelper<AgentRow>()
@@ -89,6 +100,7 @@ const columns = [
     },
   }),
   columnHelper.accessor('source', {
+    id: 'source',
     header: 'Source',
     cell: (ctx) => (
       <Text size="sm" c="dimmed">
@@ -99,25 +111,69 @@ const columns = [
   }),
 ]
 
-function overviewLine(overview: Props['overview']): string {
-  if (!overview) return 'No recommendation run yet — states are deterministic, next steps absent.'
-  const backend = overview.backend ? ` on ${overview.backend}` : ''
-  return `Recommendations by ${overview.model}${backend} · ${relativeTime(overview.generatedAt)}`
+/** Below `lg` there isn't room for a low-value provenance column beside the two free-prose ones. */
+const columnsWithoutSource = columns.filter((c) => c.id !== 'source')
+
+/** A table-width floor for `stickyHeader` to stick against (basalt requires one of `maxHeight` /
+ * `minWidth` to pair with `stickyHeader`, or the header has no scroll range to stick within). Six
+ * columns, two of them free prose (Standing, Next) — basalt's own note measured a 5-column table
+ * at ~448px of min-content, so 720 gives the extra column and both prose columns room to breathe
+ * before the row compresses. */
+const TABLE_MIN_WIDTH = 720
+
+function overviewLine(overview: Props['overview'], summary: OverviewSummary | undefined): string {
+  const breakdown = breakdownLine(summary)
+  const base = overview
+    ? `Recommendations by ${overview.model}${overview.backend ? ` on ${overview.backend}` : ''} · ${relativeTime(overview.generatedAt)}`
+    : 'No recommendation run yet — states are deterministic, next steps absent.'
+  return breakdown ? `${base} · ${breakdown}` : base
 }
 
-export function AgentsTable({ agents, overview }: Props) {
+const emptyState = (
+  <Text size="sm" c="dimmed">
+    No agents in the latest snapshot.
+  </Text>
+)
+
+/**
+ * The agents record list. `BasaltDataTable` on desktop (`sm` and up); below it the table's own
+ * 6-column, no-card-fallback shape is unusable on a phone (two free-prose columns, no
+ * column-visibility control — see the module's own `minWidth`/`stickyHeader` note), so it swaps to
+ * one `AgentCard` per agent, most-urgent-first.
+ */
+export function AgentsTable({ agents, overview, summary }: Props) {
+  const isDesktop = useBreakpoint('sm')
+  const showSource = useBreakpoint('lg')
+  const subtitle = overviewLine(overview, summary)
+  const tableColumns = useMemo(() => (showSource ? columns : columnsWithoutSource), [showSource])
+
+  if (!isDesktop) {
+    const cards = sortAgentsForCards(agents)
+    return (
+      <Section title="Agents" subtitle={subtitle} count={agents.length}>
+        {cards.length === 0 ? (
+          emptyState
+        ) : (
+          <Stack gap="xs">
+            {cards.map((agent) => (
+              <AgentCard key={agent.id} agent={agent} />
+            ))}
+          </Stack>
+        )}
+      </Section>
+    )
+  }
+
   return (
     <BasaltDataTable
       title="Agents"
-      subtitle={overviewLine(overview)}
+      subtitle={subtitle}
       data={agents}
-      columns={columns}
+      columns={tableColumns}
       getRowId={(row) => row.id}
-      emptyState={
-        <Text size="sm" c="dimmed">
-          No agents in the latest snapshot.
-        </Text>
-      }
+      stickyHeader
+      minWidth={TABLE_MIN_WIDTH}
+      emptyState={emptyState}
     />
   )
 }
