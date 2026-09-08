@@ -44,9 +44,9 @@ function AgentsPage() {
 
       <Stack gap="md">
         <StaleBanner latest={latest} />
-        <HeroStats summary={snapshot?.summary} history={historyQuery.data?.data} />
+        <HeroStats summary={snapshot?.summary} history={historyQuery.data?.data} agents={agents} />
         <NeedsYouSection humanQueue={snapshot?.humanQueue ?? []} agents={agents} />
-        <AgentsTable agents={agents} overview={snapshot?.overview} />
+        <AgentsTable agents={agents} overview={snapshot?.overview} summary={snapshot?.summary} />
         <NarrativesSection query={narrativesQuery} />
       </Stack>
     </>
