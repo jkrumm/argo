@@ -11,13 +11,13 @@
     ".github/workflows/check.yml": "f6e4999d3479614a03c7a7e24ac995dc1dca2bbf99461efea657b089dec70743",
     ".oxlintrc.json": "edb58b25c29f977f712ff892b59d28a74420f424ddf465ba7f29a7c713b388ec",
     ".oxfmtrc.json": "6b56ddca73ac1f170fe161ad32aa830dad40a6dc687964c8a852cb928c395039",
-    ".claude/skills/basalt-app/SKILL.md": "9797c65dd0a137894f7e29cb64ee42871fd72668e33fda68bcfa5f3badb1aba7",
+    ".claude/skills/basalt-app/SKILL.md": "351392572638d58b0ca3e7e628569fd51c8efb20fa8b535afa8abe31eb777c65",
     ".claude/skills/basalt-design/SKILL.md": "989ce7b4dbb7f94309459428c1b83de47d9aca2233aebbd68adb0b6cbaccfc42",
     ".claude/skills/basalt-charts/SKILL.md": "29c7c8e8844e607c027b40088f3e833975071952f954718a263c12e917e21b9a",
     ".claude/rules/basalt-batteries.md": "2303de24358da0463ec123828dd9ec2a3d0863a42ab2d21c95b910ec4e1a5f85",
-    ".claude/rules/basalt-controls.md": "b8e8665f8b795a426a84de50e5df9ccaab0341533ba3abd7865ca567f27a00a4"
+    ".claude/rules/basalt-controls.md": "dd5fe1d210b6ca3b667fe530fbc2b510aacd5bb9edc075655caf88e5a6a63c65"
   },
-  "basaltVersion": "1.29.2",
+  "basaltVersion": "1.30.0",
   "spacingScale": {
     "xs": 11,
     "sm": 13,

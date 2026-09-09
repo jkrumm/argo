@@ -210,7 +210,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
     {
       key: 'label',
       kind: 'custom',
-      // The 48px header has no room for a date range beside the breadcrumb on a phone; the view
+      // The 44px header has no room for a date range beside the breadcrumb on a phone; the view
       // itself already names the week.
       mobile: 'hidden',
       node: (
