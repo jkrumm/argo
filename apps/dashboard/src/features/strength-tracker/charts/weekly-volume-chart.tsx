@@ -81,15 +81,6 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
   const latest = points[points.length - 1]
   const exLabel = exerciseLabel(effectiveSelected)
 
-  const selectorNode =
-    availableExercises.length > 1 ? (
-      <SelectFilter
-        field={local.field.exercise}
-        label="Exercise"
-        options={availableExercises.map((ex) => ({ value: ex, label: exerciseLabel(ex) }))}
-      />
-    ) : null
-
   return (
     <ChartCard
       title="Weekly Volume"
@@ -102,7 +93,13 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
               {fmtTonnage(latest.total)} this week
             </span>
           ) : null}
-          {selectorNode}
+          {availableExercises.length > 1 ? (
+            <SelectFilter
+              field={local.field.exercise}
+              label="Exercise"
+              options={availableExercises.map((ex) => ({ value: ex, label: exerciseLabel(ex) }))}
+            />
+          ) : null}
         </Flex>
       }
       state={{ empty: !hasData && `No volume data for ${exLabel}` }}
