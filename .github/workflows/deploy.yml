@@ -34,6 +34,11 @@ jobs:
           image_name: argo-api
           dockerfile: apps/api/Dockerfile
           context: .
+          # Baked in so /health can report WHICH commit is serving. A probe
+          # that only proves the container is up cannot tell a landed deploy
+          # from a container that restarted for an unrelated reason.
+          build_args: |
+            GIT_SHA=${{ github.sha }}
 
   dashboard:
     name: Deploy argo-dashboard
