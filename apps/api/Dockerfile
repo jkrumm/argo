@@ -34,6 +34,13 @@ RUN mkdir -p /app/data && chown app:app /app/data
 ENV NODE_ENV=production
 EXPOSE 4000
 
+# The commit this image was built from, surfaced at GET /health. Declared in
+# the runner stage because that is where it is read; an ARG only exists in the
+# stage that declares it. Defaults to "unknown" so a local `docker build` with
+# no --build-arg still produces a valid response rather than an empty string.
+ARG GIT_SHA=unknown
+ENV GIT_SHA=${GIT_SHA}
+
 USER app
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
