@@ -42,6 +42,7 @@ import { workoutDraftRoutes } from './routes/workout-draft.js'
 import { hermesRoutes, hermesPublicHealthRoute } from './routes/hermes.js'
 import { aiRoutes, audioFileRoutes } from './routes/ai.js'
 import { agentRoutes } from './routes/agents.js'
+import { wardenRoutes } from './routes/warden.js'
 import { authGuard } from './lib/auth-guard.js'
 
 /**
@@ -177,6 +178,11 @@ export function buildApp() {
                   'Agent observation surface. sideclaw on the dev host pushes its deterministic overview snapshot (every Claude Code agent with a derived state, per-agent recommendation, git status per project, the human queue) to POST /agents/overview; the narrator upserts one prose summary per project to POST /agents/narratives. GET /agents/overview is the latest snapshot, GET /agents/overview/history the state counts over time, GET /agents/narratives the prose. Argo stores and serves; it derives nothing — the producer owns the semantics.',
               },
               {
+                name: 'Warden',
+                description:
+                  "The Warden control plane's board — a deterministic loop over its own SQLite ledger on the mini, pushing one JSON snapshot after every tick (POST /warden/snapshot): health/poller liveness, the six funnel metrics, the board (state counts + open items), the dispatch budget, per-item timelines, and recorded intents. Argo cannot reach the ledger directly and derives nothing — GET /warden/snapshot reads the latest push back verbatim.",
+              },
+              {
                 name: 'System',
                 description:
                   'Discovery, health, observability, and auth plumbing: `/` (API discovery), `/health` (liveness), `/summary` (aggregated infra snapshot), `/query` (read-only SQL), `/oauth/google/*` (Google auth dance for Gmail + Calendar). M365 tokens are installed via the laptop bootstrap script — see POST /m365/seed.',
@@ -223,6 +229,7 @@ export function buildApp() {
             'AI Gateway',
             'Reading',
             'Agents',
+            'Warden',
             'System',
           ],
         }),
@@ -296,6 +303,7 @@ export function buildApp() {
       .use(hermesRoutes)
       .use(aiRoutes)
       .use(agentRoutes)
+      .use(wardenRoutes)
   )
 }
 

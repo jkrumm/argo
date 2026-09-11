@@ -13,7 +13,8 @@ Health/training core, plus a growing set of personal-agent surfaces, grouped in 
 - **Assistant** — Hermes Chat (a Slack-shaped feed over Hermes agent threads + Slack channels) and
   Calendar.
 - **Outdoors** — Astro Window (is tonight worth a Milky Way shoot).
-- **System** — Usage Tracking (Claude Code spend) and Agents (the sideclaw dev-agent overview).
+- **System** — Usage Tracking (Claude Code spend), Agents (the sideclaw dev-agent overview), and
+  Warden (the mini's control-plane board — funnel metrics, open items, dispatch budget).
 - **Other** — M365 Explorer (IU Teams).
 
 The backend also serves a curated OpenAPI (`/openapi`) consumed by AI agents — an AI Gateway,

@@ -32,6 +32,19 @@ agents table with sideclaw's recommendation glyphs, narratives, a 30-minute stal
 Argo every 60s. Table owner: `apps/api/src/db/schema.ts` (`agent_overview_snapshots`,
 `agent_narratives`).
 
+## Warden — the control-plane board
+
+`POST /warden/snapshot` ingests a JSON snapshot pushed by Warden (the mini's deterministic loop
+over its own SQLite ledger) after every loop tick, roughly every 10 minutes — Argo on the VPS
+cannot reach that ledger directly. `GET /warden/snapshot[?machine=]` reads the latest push back.
+Same contract as Agents: raw jsonb, validated loosely, 7-day retention pruned on ingest, Argo
+derives nothing. The payload carries health/poller liveness, the six funnel metrics (each leaf a
+`{value, unavailable}` pair — `value: null` always pairs with a non-empty `unavailable` reason,
+**never** rendered as 0), the board (state counts + open items), the dispatch budget, per-item
+timelines (transitions, dispatches, operations, approvals) and recorded intents (a wish, not an
+authorization). The dashboard's **System → Warden** page (`/warden`) is the one surface for all of
+it. Table owner: `apps/api/src/db/schema.ts` (`warden_snapshots`).
+
 ## Slack
 
 Argo posts under its own app identity but reads through HomeLab's — `slack/README.md` has the

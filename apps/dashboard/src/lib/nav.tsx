@@ -53,6 +53,7 @@ import {
   IconRobot,
   IconRulerMeasure,
   IconServer,
+  IconShieldCheck,
   IconShoe,
 } from '@tabler/icons-react'
 
@@ -176,6 +177,13 @@ export const NAV = defineNav({
         short: 'Agents',
         icon: <IconRobot size={ICON} />,
         link: linkOptions({ to: '/agents' }),
+      },
+      {
+        id: 'warden',
+        label: 'Warden',
+        short: 'Warden',
+        icon: <IconShieldCheck size={ICON} />,
+        link: linkOptions({ to: '/warden' }),
       },
     ]),
     // No `mobile` key: the old `mobileTab: false` only suppressed a SECTION tab, which is already
