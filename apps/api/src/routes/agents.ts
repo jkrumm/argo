@@ -1,8 +1,17 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { and, desc, eq, gte, lt, notInArray, sql } from 'drizzle-orm'
+import { desc, gte, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { agentNarrative, agentOverviewSnapshot } from '../db/schema.js'
+import {
+  exceedsSnapshotBytes,
+  HISTORY_DAYS,
+  insertAndPruneSnapshot,
+  latestSnapshotRow,
+  MAX_SNAPSHOT_BYTES,
+  pgIso,
+  toIso,
+} from '../lib/snapshot-store.js'
 
 // Agent observation surface — Argo stores what sideclaw's deterministic
 // overview (`GET /api/overview` on the mini) and the narrator produce, and
@@ -12,28 +21,10 @@ import { agentNarrative, agentOverviewSnapshot } from '../db/schema.js'
 // new sideclaw field never 422s the ingest. Retention: the latest snapshot per
 // machine plus a rolling 7-day history, pruned on every ingest.
 
-const HISTORY_DAYS = 7
-// The global maxRequestBodySize (50 MB, index.ts) is the only other bound and
-// the snapshot is stored verbatim on every push; a real overview is ~10-50 KB.
-const MAX_SNAPSHOT_BYTES = 1_000_000
-// `Date` cannot represent |ms| beyond this; `toISOString()` throws past it.
-const MAX_EPOCH_MS = 8.64e15
-
 /** Accepts sideclaw's epoch-ms `generatedAt` as well as an ISO string. */
 const TimestampInput = z
   .union([z.number(), z.string()])
   .describe('Epoch milliseconds (sideclaw) or an ISO 8601 timestamp')
-
-function toIso(value: number | string): string | null {
-  const ms = typeof value === 'number' ? value : Date.parse(value)
-  if (!Number.isFinite(ms) || Math.abs(ms) > MAX_EPOCH_MS) return null
-  return new Date(ms).toISOString()
-}
-
-/** Drizzle's `mode: 'string'` hands back Postgres text (`2026-09-07 15:29:43.791+00`); the API promises ISO 8601. */
-function pgIso(value: string): string {
-  return new Date(value).toISOString()
-}
 
 const AgentStateEnum = z.enum(['needs_you', 'working', 'idle', 'stale', 'done', 'unknown'])
 
@@ -160,6 +151,12 @@ const NarrativeSchema = z.object({
   updatedAt: z.string().describe('ISO 8601'),
 })
 
+const AgentOverviewColumns = {
+  id: agentOverviewSnapshot.id,
+  machine: agentOverviewSnapshot.machine,
+  received_at: agentOverviewSnapshot.received_at,
+}
+
 function toOverviewRecord(row: typeof agentOverviewSnapshot.$inferSelect) {
   return {
     id: row.id,
@@ -188,37 +185,15 @@ export const agentRoutes = new Elysia({ prefix: '/agents' })
       if (!generatedAt) return status(400, 'generatedAt is not a valid timestamp')
 
       const { machine, ...snapshot } = body
-      if (JSON.stringify(snapshot).length > MAX_SNAPSHOT_BYTES) {
+      if (exceedsSnapshotBytes(snapshot)) {
         return status(413, `Snapshot exceeds ${MAX_SNAPSHOT_BYTES} bytes`)
       }
-      const cutoff = new Date(Date.now() - HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString()
-      const inserted = await db.transaction(async (tx) => {
-        const [row] = await tx
-          .insert(agentOverviewSnapshot)
-          .values({
-            machine,
-            generated_at: generatedAt,
-            raw: { ...snapshot, generatedAt: Date.parse(generatedAt) },
-          })
-          .returning({
-            id: agentOverviewSnapshot.id,
-            received_at: agentOverviewSnapshot.received_at,
-          })
-        const newestPerMachine = tx
-          .select({ id: sql`max(${agentOverviewSnapshot.id})` })
-          .from(agentOverviewSnapshot)
-          .groupBy(agentOverviewSnapshot.machine)
-        await tx
-          .delete(agentOverviewSnapshot)
-          .where(
-            and(
-              lt(agentOverviewSnapshot.received_at, cutoff),
-              notInArray(agentOverviewSnapshot.id, newestPerMachine),
-            ),
-          )
-        return row!
+      const inserted = await insertAndPruneSnapshot(agentOverviewSnapshot, AgentOverviewColumns, {
+        machine,
+        generated_at: generatedAt,
+        raw: { ...snapshot, generatedAt: Date.parse(generatedAt) },
       })
-      return status(201, { id: inserted.id, receivedAt: pgIso(inserted.received_at) })
+      return status(201, inserted)
     },
     {
       body: OverviewIngestSchema,
@@ -239,12 +214,11 @@ export const agentRoutes = new Elysia({ prefix: '/agents' })
   .get(
     '/overview',
     async ({ query }) => {
-      const [row] = await db
-        .select()
-        .from(agentOverviewSnapshot)
-        .where(query.machine ? eq(agentOverviewSnapshot.machine, query.machine) : undefined)
-        .orderBy(desc(agentOverviewSnapshot.received_at))
-        .limit(1)
+      const row = await latestSnapshotRow<typeof agentOverviewSnapshot.$inferSelect>(
+        agentOverviewSnapshot,
+        AgentOverviewColumns,
+        query.machine,
+      )
       return { latest: row ? toOverviewRecord(row) : null }
     },
     {
