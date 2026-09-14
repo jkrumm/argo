@@ -1,6 +1,8 @@
+import { relativeTime } from 'basalt-ui/format'
 import type {
   WardenBoardItem,
   WardenIntents,
+  WardenItems,
   WardenMetrics,
   WardenRaw,
 } from '../../lib/queries/warden'
@@ -269,4 +271,248 @@ export function intentSummary(intents: WardenIntents | undefined): IntentSummary
     rejected: intents?.rejected ?? 0,
     entries: intents?.entries ?? [],
   }
+}
+
+// ── Item timeline ────────────────────────────────────────────────────────────
+// `item-timeline.tsx` renders one item/event pair plus its transitions, dispatches, operations and
+// approvals. Every read here is defensive — field names vary slightly between warden's producers —
+// so the derivations live here, pure and unit-tested, rather than inline in JSX where a dozen small
+// branches add up to one unreadable, untestable function.
+
+/** The item/event/dispatch/operation/transition/approval rows all arrive as loosely-validated
+ * jsonb — a generic key/value bag rather than one exact shape. */
+export type Row = Record<string, unknown>
+
+export function str(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null
+}
+
+/** Counts and totals arrive as real numbers when warden computes them; an absent field — several
+ * (the reminder counts, the `*_total` caps) are only now being added warden-side — reads as null
+ * rather than 0, so a reminder line never renders for a count that was never reported. */
+export function num(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+/** Matches by name, not an exact list — `secret`/`token` alone missed `password`, `nonce`,
+ * `signature` and any `*_key` field a producer might add later. */
+const SENSITIVE_KEY_PATTERN = /secret|token|password|nonce|signature|key$/i
+
+/** A compact `"key: value"` line over every field but the ones already rendered explicitly and
+ * any field whose name looks sensitive — defensive against field names varying slightly between
+ * warden's producers. */
+export function summarizeRow(row: Row, skip: string[]): string {
+  const skipSet = new Set(skip)
+  return Object.entries(row)
+    .filter(
+      ([key, value]) =>
+        !skipSet.has(key) &&
+        !SENSITIVE_KEY_PATTERN.test(key) &&
+        value !== null &&
+        value !== undefined,
+    )
+    .map(
+      ([key, value]) =>
+        `${key}: ${typeof value === 'object' ? JSON.stringify(value) : String(value)}`,
+    )
+    .join(' · ')
+}
+
+function pluralize(count: number, word: string): string {
+  return `${count} ${word}${count === 1 ? '' : 's'}`
+}
+
+function externalIdOf(event: Row | null): string | null {
+  const raw = event?.['external_id']
+  return str(raw) ?? (typeof raw === 'number' ? String(raw) : null)
+}
+
+function seenParts(item: Row | null): string[] {
+  const firstSeen = str(item?.['first_seen'])
+  const lastSeen = str(item?.['last_seen'])
+  return [
+    firstSeen ? `first seen ${relativeTime(firstSeen)}` : null,
+    lastSeen ? `last seen ${relativeTime(lastSeen)}` : null,
+  ].filter((part): part is string => part !== null)
+}
+
+/** "first seen … · last seen … · N occurrences" — any of the three parts may be absent; `null`
+ * only when none of them are present. */
+function seenAndOccurrencesLine(item: Row | null): string | null {
+  const occurrences = num(item?.['occurrences'])
+  const occurrenceText = occurrences !== null ? pluralize(occurrences, 'occurrence') : null
+  const parts = [...seenParts(item), occurrenceText].filter((part): part is string => part !== null)
+  return parts.length > 0 ? parts.join(' · ') : null
+}
+
+function resolvedLine(event: Row | null): string | null {
+  const resolvedAt = str(event?.['resolved_at'])
+  return resolvedAt ? `resolved ${relativeTime(resolvedAt)}` : null
+}
+
+function deadlineLine(item: Row | null): string | null {
+  const deadline = str(item?.['state_deadline'])
+  return deadline ? `deadline ${relativeTime(deadline)}` : null
+}
+
+function alertReminderLine(event: Row | null): string | null {
+  const count = num(event?.['reminder_count'])
+  if (count === null || count <= 0) return null
+  const last = str(event?.['last_reminder_at'])
+  return `Alert reminders: ${count}${last ? ` (last ${relativeTime(last)})` : ''}`
+}
+
+function needsHumanReminderLine(item: Row | null): string | null {
+  const count = num(item?.['reminder_count'])
+  return count !== null && count > 0 ? `Needs-human reminders: ${count}` : null
+}
+
+/** The tracking-facts lines below the identity header, in fixed order — only the ones with
+ * something to say. */
+function buildFactLines(item: Row | null, event: Row | null): string[] {
+  return [
+    seenAndOccurrencesLine(item),
+    resolvedLine(event),
+    deadlineLine(item),
+    alertReminderLine(event),
+    needsHumanReminderLine(item),
+  ].filter((line): line is string => line !== null)
+}
+
+function isPlainRow(value: unknown): value is Row {
+  return value !== null && typeof value === 'object'
+}
+
+/** An alert-origin item's raw event payload, shown only when warden gave the item no `brief` of
+ * its own — a brief always wins because it is written for a human, the payload is not. */
+function payloadSummary(
+  event: Row | null,
+  origin: string | null,
+  brief: string | null,
+): string | null {
+  if (origin !== 'alert' || brief) return null
+  return isPlainRow(event?.['payload']) ? summarizeRow(event['payload'] as Row, []) : null
+}
+
+/** An alert signature neither repo nor verb maps to — the owner should know warden is only
+ * tracking it, not routing it. */
+function isUnmapped(item: Row | null, origin: string | null): boolean {
+  return origin === 'alert' && !str(item?.['repo']) && !str(item?.['verb'])
+}
+
+export type ItemFacts = {
+  title: string | null
+  source: string | null
+  externalId: string | null
+  state: string | null
+  origin: string | null
+  signature: string | null
+  lines: string[]
+  note: string | null
+  brief: string | null
+  payloadSummary: string | null
+  unmapped: boolean
+}
+
+/**
+ * Every derived value `ItemSummary` renders: identity (title, `source:external_id`, state/origin,
+ * signature), the tracking-fact lines (seen/occurrences, resolved, deadline, the two reminder
+ * counts) and the prose (note, brief, or — for a brief-less alert — the event payload). Fields vary
+ * between warden's producers, so every read is defensive.
+ */
+export function buildItemFacts(item: Row | null, event: Row | null): ItemFacts {
+  const origin = str(item?.['origin'])
+  const brief = str(item?.['brief'])
+  return {
+    title: str(event?.['title']) ?? str(item?.['title']),
+    source: str(event?.['source']),
+    externalId: externalIdOf(event),
+    state: str(item?.['state']),
+    origin,
+    signature: str(item?.['signature']),
+    lines: buildFactLines(item, event),
+    note: str(item?.['note']),
+    brief,
+    payloadSummary: payloadSummary(event, origin, brief),
+    unmapped: isUnmapped(item, origin),
+  }
+}
+
+export type TimelineView = {
+  item: Row | null
+  event: Row | null
+  transitions: Row[]
+  transitionsTotal: number | undefined
+  dispatches: Row[]
+  operations: Row[]
+  operationsTotal: number | undefined
+  approvals: Row[]
+}
+
+function asRows(value: unknown): Row[] {
+  return Array.isArray(value) ? (value as Row[]) : []
+}
+
+function asRow(value: unknown): Row | null {
+  return isPlainRow(value) ? value : null
+}
+
+function resolveTimelineView(timeline: Row | undefined): TimelineView {
+  const source = timeline ?? {}
+  return {
+    item: asRow(source['item']),
+    event: asRow(source['event']),
+    transitions: asRows(source['transitions']),
+    transitionsTotal: num(source['transitions_total']) ?? undefined,
+    dispatches: asRows(source['dispatches']),
+    operations: asRows(source['operations']),
+    operationsTotal: num(source['operations_total']) ?? undefined,
+    approvals: asRows(source['approvals']),
+  }
+}
+
+export type ItemModalView = {
+  opened: boolean
+  title: string
+  timeline: Row | undefined
+  facts: TimelineView
+}
+
+/**
+ * Everything `ItemTimeline` needs to render, resolved once from `eventId` + the snapshot's `items`
+ * map. When the id is absent from the map (the snapshot truncates per-item timelines past a cap)
+ * `timeline` is `undefined` — the modal says so rather than rendering an empty, misleadingly-
+ * complete block.
+ */
+export function resolveItemModal(
+  eventId: number | null,
+  items: WardenItems | undefined,
+): ItemModalView {
+  const timeline = eventId !== null ? items?.[String(eventId)] : undefined
+  return {
+    opened: eventId !== null,
+    title: eventId !== null ? `Item #${eventId}` : '',
+    timeline: timeline as Row | undefined,
+    facts: resolveTimelineView(timeline as Row | undefined),
+  }
+}
+
+/** A dispatch's verdict, one line: the summary, then whichever of next-action/confidence/outcome
+ * the verdict carries. */
+function verdictDetailParts(verdict: Row): string[] {
+  return [
+    str(verdict['nextAction']) ? `next: ${str(verdict['nextAction'])}` : null,
+    str(verdict['confidence']) ? `confidence: ${str(verdict['confidence'])}` : null,
+    str(verdict['outcome']) ? `outcome: ${str(verdict['outcome'])}` : null,
+  ].filter((part): part is string => part !== null)
+}
+
+export function formatVerdictLine(verdict: Row): string {
+  const summary = str(verdict['summary']) ?? '—'
+  return [summary, ...verdictDetailParts(verdict)].join(' · ')
+}
+
+/** `"source:external_id"` — `—` when `source` is absent, the id suffixed on only when present. */
+export function formatSourceLine(source: string | null, externalId: string | null): string {
+  return `${source ?? '—'}${externalId ? `:${externalId}` : ''}`
 }

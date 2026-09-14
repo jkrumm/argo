@@ -1,15 +1,20 @@
 import { describe, expect, it } from 'bun:test'
 import {
   BUCKET_ORDER,
+  buildItemFacts,
   deriveBoard,
   deriveFunnel,
+  formatSourceLine,
   formatTileNumber,
   formatTileValue,
+  formatVerdictLine,
   intentSummary,
   isDeferredItem,
   isStale,
+  resolveItemModal,
+  type Row,
 } from './model'
-import type { WardenBoardItem, WardenMetrics } from '../../lib/queries/warden'
+import type { WardenBoardItem, WardenItems, WardenMetrics } from '../../lib/queries/warden'
 
 const item = (overrides: Partial<WardenBoardItem> = {}): WardenBoardItem =>
   ({
@@ -238,5 +243,154 @@ describe('intentSummary', () => {
       rejected: 2,
       entries,
     })
+  })
+})
+
+describe('formatSourceLine', () => {
+  it('defaults an absent source to an em dash', () => {
+    expect(formatSourceLine(null, '42')).toBe('—:42')
+  })
+
+  it('suffixes the external id only when present', () => {
+    expect(formatSourceLine('github', null)).toBe('github')
+    expect(formatSourceLine('github', '42')).toBe('github:42')
+  })
+})
+
+describe('formatVerdictLine', () => {
+  it('falls back to an em dash with no summary or detail parts', () => {
+    expect(formatVerdictLine({})).toBe('—')
+  })
+
+  it('joins the summary with whichever detail parts are present', () => {
+    expect(
+      formatVerdictLine({
+        summary: 'looks fine',
+        nextAction: 'merge',
+        confidence: 'high',
+        outcome: 'fixed',
+      }),
+    ).toBe('looks fine · next: merge · confidence: high · outcome: fixed')
+  })
+
+  it('drops an absent detail part rather than rendering an empty segment', () => {
+    expect(formatVerdictLine({ summary: 'ok', outcome: 'fixed' })).toBe('ok · outcome: fixed')
+  })
+})
+
+describe('buildItemFacts', () => {
+  it('reads every field as absent when both item and event are null', () => {
+    const facts = buildItemFacts(null, null)
+    expect(facts).toEqual({
+      title: null,
+      source: null,
+      externalId: null,
+      state: null,
+      origin: null,
+      signature: null,
+      lines: [],
+      note: null,
+      brief: null,
+      payloadSummary: null,
+      unmapped: false,
+    })
+  })
+
+  it("prefers the event's title over the item's", () => {
+    expect(buildItemFacts({ title: 'item title' }, { title: 'event title' }).title).toBe(
+      'event title',
+    )
+    expect(buildItemFacts({ title: 'item title' }, null).title).toBe('item title')
+  })
+
+  it('reads a numeric external_id as a string', () => {
+    expect(buildItemFacts(null, { external_id: 42 }).externalId).toBe('42')
+    expect(buildItemFacts(null, { external_id: '42' }).externalId).toBe('42')
+  })
+
+  it('combines seen and occurrence facts into one line, in order', () => {
+    const facts = buildItemFacts(
+      { first_seen: '2026-09-01T00:00:00Z', last_seen: '2026-09-02T00:00:00Z', occurrences: 3 },
+      null,
+    )
+    expect(facts.lines[0]).toContain('first seen')
+    expect(facts.lines[0]).toContain('last seen')
+    expect(facts.lines[0]).toContain('3 occurrences')
+  })
+
+  it('renders occurrences alone when neither seen timestamp is present', () => {
+    const facts = buildItemFacts({ occurrences: 1 }, null)
+    expect(facts.lines).toEqual(['1 occurrence'])
+  })
+
+  it('never renders a seen/occurrences line when none of the three are present', () => {
+    expect(buildItemFacts({}, {}).lines).toEqual([])
+  })
+
+  it('reports resolved, deadline and both reminder counts as separate lines', () => {
+    const facts = buildItemFacts(
+      { state_deadline: '2026-09-05T00:00:00Z', reminder_count: 2 },
+      {
+        resolved_at: '2026-09-04T00:00:00Z',
+        reminder_count: 5,
+        last_reminder_at: '2026-09-03T00:00:00Z',
+      },
+    )
+    expect(facts.lines.some((line) => line.startsWith('resolved '))).toBe(true)
+    expect(facts.lines.some((line) => line.startsWith('deadline '))).toBe(true)
+    expect(facts.lines.some((line) => line.startsWith('Alert reminders: 5'))).toBe(true)
+    expect(facts.lines.some((line) => line === 'Needs-human reminders: 2')).toBe(true)
+  })
+
+  it('never renders a reminder line for a zero or absent count', () => {
+    const facts = buildItemFacts({ reminder_count: 0 }, { reminder_count: 0 })
+    expect(facts.lines.some((line) => line.includes('reminders'))).toBe(false)
+  })
+
+  it('summarizes the event payload only for a brief-less alert-origin item', () => {
+    const payload = { status: 'firing' }
+    expect(buildItemFacts({ origin: 'alert' }, { payload }).payloadSummary).toBe('status: firing')
+    expect(
+      buildItemFacts({ origin: 'alert', brief: 'has a brief' }, { payload }).payloadSummary,
+    ).toBeNull()
+    expect(buildItemFacts({ origin: 'other' }, { payload }).payloadSummary).toBeNull()
+  })
+
+  it('flags an alert item unmapped only when it has neither a repo nor a verb', () => {
+    expect(buildItemFacts({ origin: 'alert' }, null).unmapped).toBe(true)
+    expect(buildItemFacts({ origin: 'alert', repo: 'argo' }, null).unmapped).toBe(false)
+    expect(buildItemFacts({ origin: 'alert', verb: 'restart' }, null).unmapped).toBe(false)
+    expect(buildItemFacts({ origin: 'other' }, null).unmapped).toBe(false)
+  })
+})
+
+describe('resolveItemModal', () => {
+  const items = {
+    '1': { item: { state: 'new' }, event: { title: 'e1' }, transitions_total: 9 },
+  } as unknown as WardenItems
+
+  it('is closed with no title when eventId is null', () => {
+    const modal = resolveItemModal(null, items)
+    expect(modal.opened).toBe(false)
+    expect(modal.title).toBe('')
+    expect(modal.timeline).toBeUndefined()
+  })
+
+  it('says the timeline is missing when the event id is not in the snapshot', () => {
+    const modal = resolveItemModal(2, items)
+    expect(modal.opened).toBe(true)
+    expect(modal.title).toBe('Item #2')
+    expect(modal.timeline).toBeUndefined()
+  })
+
+  it('resolves the item/event pair and defaults every list to empty', () => {
+    const modal = resolveItemModal(1, items)
+    expect(modal.timeline).toBeDefined()
+    expect((modal.facts.item as Row)['state']).toBe('new')
+    expect((modal.facts.event as Row)['title']).toBe('e1')
+    expect(modal.facts.transitionsTotal).toBe(9)
+    expect(modal.facts.dispatches).toEqual([])
+    expect(modal.facts.operations).toEqual([])
+    expect(modal.facts.approvals).toEqual([])
   })
 })
