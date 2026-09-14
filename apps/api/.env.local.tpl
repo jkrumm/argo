@@ -75,17 +75,19 @@ HERMES_API_KEY=op://vps/argo/HERMES_API_KEY
 # The env.ts default already carries this; override here only to change scope.
 # HERMES_SESSION_KEY=agent:main:slack:group:C0ASRUD7K1U:U0AS54FURPE
 #
-# General AI gateway (/ai/v1/*) — gpt-5.6-luna, called DIRECTLY on the IU
-# unified endpoint's OpenAI-compatible transport. No LiteLLM bridge, no localhost:
-# the same public HTTPS endpoint is reachable from local dev and the prod VPS, so
-# one config serves both. The model live-verifies as EU-resident (Azure Sweden
-# Central, via IU response headers) — Azure deployment type is unconfirmed; see
+# General AI gateway (/ai/v1/*) — deepseek-v4.1-flash (env.ts default, effort
+# "high"), called DIRECTLY on the IU unified endpoint's OpenAI-compatible
+# transport. No LiteLLM bridge, no localhost: the same public HTTPS endpoint is
+# reachable from local dev and the prod VPS, so one config serves both. The
+# model live-verifies as EU-resident (Azure Sweden Central, via IU response
+# headers) — Azure deployment type is unconfirmed; see
 # modelpick/docs/decisions/hermes-brain.md. The base URL already carries the
 # OpenAI `/v1` path; the gateway appends `/chat/completions`. Reuses the shared
-# IU creds in op://common/anthropic.
+# IU creds in op://common/anthropic. DEEPSEEK_MODEL / DEEPSEEK_REASONING_EFFORT
+# are NOT set here — env.ts's default is the single source; override here only
+# to test a different model/effort locally.
 DEEPSEEK_BASE_URL=op://common/anthropic/OPENAI_BASE_URL
 DEEPSEEK_API_KEY=op://common/anthropic/API_KEY
-DEEPSEEK_MODEL=DeepSeek-V4-Flash
 #
 # Audio (STT + TTS) — forwarded to the audio-gateway service. Local dev points at
 # the gateway's own `bun run dev` on the Mac (:7714); in-cluster prod uses the

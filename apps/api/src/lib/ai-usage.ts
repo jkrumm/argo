@@ -6,6 +6,10 @@ export interface AiUsageData {
   prompt_tokens: number
   completion_tokens: number
   total_tokens: number
+  /** Cached portion of `prompt_tokens` (`prompt_tokens_details.cached_tokens`), when the upstream reports it. */
+  cached_tokens?: number
+  /** `completion_tokens_details.reasoning_tokens`, when the upstream reports it. */
+  reasoning_tokens?: number
 }
 
 /** Matches the domain accepted by the ingest side (`routes/usage.ts`'s `BillingEnum`). */
@@ -34,7 +38,7 @@ export type RecordUsageFn = (params: RecordUsageParams) => Promise<void>
 
 // DeepSeek rates USD per 1M tokens.
 // usage-tracker/src/pricing.ts is the authoritative source — keep in sync when rates change.
-const DEEPSEEK_RATES: Record<string, { input: number; output: number }> = {
+const DEEPSEEK_RATES: Record<string, { input: number; output: number; cachedInput?: number }> = {
   'deepseek-v4-flash': { input: 0.14, output: 0.28 },
   'deepseek-v4-pro': { input: 0.435, output: 0.87 },
   // OpenAI list price, short context (<=272k); Azure OpenAI matches exactly.
@@ -43,7 +47,14 @@ const DEEPSEEK_RATES: Record<string, { input: number; output: number }> = {
   // post-cut rate; $0.10/$0.60 is the *batch* tier (50% off), not a later cut —
   // do not "correct" these down to it. Still not confirmed as IU's actual billed
   // rate: IU no longer returns a `cost` field on any route.
-  'gpt-5.6-luna': { input: 0.2, output: 1.2 },
+  'gpt-5.6-luna': { input: 0.2, output: 1.2, cachedInput: 0.02 },
+  // The general AI gateway's current model (DEEPSEEK_MODEL) — see
+  // modelpick/docs/decisions/model-configs.md. Measured 2026-09-13 against the
+  // IU unified endpoint's own reported `usage.cost` (supersedes the earlier
+  // $0.30/$1.20 estimate).
+  'deepseek-v4.1-flash': { input: 0.5, output: 1.5, cachedInput: 0.05 },
+  // Measured 2026-09-13 against the IU unified endpoint's own reported `usage.cost`.
+  'glm-5.3-flash': { input: 0.15, output: 0.5, cachedInput: 0.03 },
 }
 
 /**
@@ -56,9 +67,15 @@ export function normalizeDeepseekModel(raw: string): string {
   return m.replace(/-eu$/, '').replace(/-\d{8}$/, '')
 }
 
-function computeCost(
+/**
+ * `uncachedTokens` and `cachedTokens` must already be split (see `recordAiUsage`) —
+ * this only prices them. Cached tokens fall back to the full input rate when a
+ * model has no `cachedInput` entry (i.e. no cache discount is known for it).
+ */
+export function computeCost(
   modelNorm: string,
-  promptTokens: number,
+  uncachedTokens: number,
+  cachedTokens: number,
   completionTokens: number,
 ): { cost_usd: number | null; cost_source: string } {
   const rates = DEEPSEEK_RATES[modelNorm]
@@ -71,8 +88,11 @@ function computeCost(
     }
     return { cost_usd: null, cost_source: 'none' }
   }
+  const cachedRate = rates.cachedInput ?? rates.input
   return {
-    cost_usd: (promptTokens * rates.input + completionTokens * rates.output) / 1_000_000,
+    cost_usd:
+      (uncachedTokens * rates.input + cachedTokens * cachedRate + completionTokens * rates.output) /
+      1_000_000,
     cost_source: 'computed',
   }
 }
@@ -85,9 +105,16 @@ function computeCost(
  */
 export async function recordAiUsage(params: RecordUsageParams): Promise<void> {
   const modelNorm = normalizeDeepseekModel(params.model)
+  // `usage_record.input_tokens` is the uncached-only convention (see
+  // `routes/usage.ts`'s `cache_hit_ratio` / `tokens` metrics, which sum
+  // input_tokens and cache_read_tokens as disjoint quantities) — split the
+  // upstream's `cached_tokens` out of `prompt_tokens` before storing either.
+  const cachedTokens = Math.min(params.usage.cached_tokens ?? 0, params.usage.prompt_tokens)
+  const uncachedTokens = params.usage.prompt_tokens - cachedTokens
   const { cost_usd, cost_source } = computeCost(
     modelNorm,
-    params.usage.prompt_tokens,
+    uncachedTokens,
+    cachedTokens,
     params.usage.completion_tokens,
   )
   const now = new Date().toISOString()
@@ -105,11 +132,11 @@ export async function recordAiUsage(params: RecordUsageParams): Promise<void> {
       billing: params.billing ?? 'iu',
       machine: null,
       outcome: params.outcome ?? 'ok',
-      input_tokens: params.usage.prompt_tokens,
+      input_tokens: uncachedTokens,
       output_tokens: params.usage.completion_tokens,
-      cache_read_tokens: 0,
+      cache_read_tokens: cachedTokens,
       cache_write_tokens: 0,
-      reasoning_tokens: 0,
+      reasoning_tokens: params.usage.reasoning_tokens ?? 0,
       duration_ms: params.durationMs,
       cost_usd,
       cost_source,

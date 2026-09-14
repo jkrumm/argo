@@ -8,40 +8,28 @@
  * is an enhancement, and a model outage must not cost the caller their forecast.
  *
  * **The trap this module exists for.** The model behind `aiComplete` is a
- * *reasoning* model, and `max_tokens` caps hidden reasoning tokens and visible
- * content **together**. Size the budget for the sentence and the whole
- * allowance is spent thinking: the call returns HTTP 200 with
- * `finish_reason: "length"` and an **empty** content string. No error, no
- * exception — just a summary that is silently always null, which reads like the
- * model being unhelpful rather than like a bug.
- *
- * Worse, the budget needed is not a constant. Measured against these two
- * prompts: a tightly-specified astro prompt spent 288 reasoning tokens, while
- * the more open-ended "tell them not to go" marine prompt blew straight past
- * 900 on two spots out of three. The *tighter* the style instruction, the more
- * the model deliberates — which is the opposite of the intuition, and why
- * picking a single number and moving on does not work.
- *
- * So: start at a budget that comfortably covers the observed range, and if the
- * content still comes back empty, retry **once** at three times the budget
- * before giving up. The retry costs nothing on the common path, and the log
- * line tells you which prompt is drifting.
+ * *reasoning* model, and `max_completion_tokens` caps hidden reasoning tokens
+ * and visible content **together**. Size the budget for the sentence and the
+ * whole allowance is spent thinking: the call returns HTTP 200 with
+ * `finish_reason: "length"` and an **empty** content string. `aiComplete` itself
+ * now retries once at double the budget and throws if that still comes back
+ * empty — this module only has to turn that throw into a null, never let a
+ * sentence outage cost the caller their forecast.
  */
 
 import { log } from '../telemetry.js'
 
 /**
- * Opening budget. Well above the ~290–600 completion tokens both prompts
- * actually use, because the failure mode of being slightly too low is silent.
+ * Budget for the one-sentence completion. Well above the ~290–600 completion
+ * tokens either prompt actually uses, because the failure mode of being
+ * slightly too low is silent — `aiComplete` doubles this once internally
+ * before giving up.
  */
-export const SENTENCE_BASE_TOKENS = 1200
-
-/** Retry budget, used once when the first attempt returns empty content. */
-export const SENTENCE_RETRY_TOKENS = SENTENCE_BASE_TOKENS * 3
+export const SENTENCE_TOKENS = 16000
 
 export type SentenceCompleter = (
   prompt: string,
-  opts: { system?: string; temperature?: number; maxTokens?: number; sub_tool?: string },
+  opts: { system?: string; maxTokens?: number; sub_tool?: string },
 ) => Promise<string>
 
 /**
@@ -56,30 +44,23 @@ export async function completeSentence(
   prompt: string,
   opts: { system: string; subTool: string },
 ): Promise<string | null> {
-  for (const maxTokens of [SENTENCE_BASE_TOKENS, SENTENCE_RETRY_TOKENS]) {
-    try {
-      const text = await complete(prompt, {
-        system: opts.system,
-        temperature: 0.2,
-        maxTokens,
-        sub_tool: opts.subTool,
-      })
-      const trimmed = text.trim()
-      if (trimmed) return trimmed
-      log.warn('one-sentence completion came back empty', {
-        subTool: opts.subTool,
-        maxTokens,
-        willRetry: maxTokens === SENTENCE_BASE_TOKENS,
-      })
-    } catch (error) {
-      // A transport or upstream failure is not going to be fixed by a bigger
-      // budget, so it ends the attempt rather than falling through to the retry.
-      log.warn('one-sentence completion unavailable', {
-        subTool: opts.subTool,
-        error: error instanceof Error ? error.message : String(error),
-      })
-      return null
-    }
+  try {
+    const text = await complete(prompt, {
+      system: opts.system,
+      maxTokens: SENTENCE_TOKENS,
+      sub_tool: opts.subTool,
+    })
+    const trimmed = text.trim()
+    if (trimmed) return trimmed
+    log.warn('one-sentence completion came back empty', { subTool: opts.subTool })
+    return null
+  } catch (error) {
+    // A transport/upstream failure, or aiComplete's own retry exhausted — either
+    // way, a sentence outage must never cost the caller their forecast.
+    log.warn('one-sentence completion unavailable', {
+      subTool: opts.subTool,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return null
   }
-  return null
 }

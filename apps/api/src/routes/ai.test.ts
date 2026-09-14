@@ -5,6 +5,7 @@ import {
   createAiRoutes,
   createAudioFileRoutes,
   aiComplete,
+  AI_DEFAULT_MAX_COMPLETION_TOKENS,
   type FetchImpl,
   type AiRouteDeps,
   type AudioFileDeps,
@@ -454,6 +455,88 @@ describe('aiComplete()', () => {
       }),
     ).rejects.toThrow('AI completion failed: 500')
   })
+
+  it('retries once with doubled max_completion_tokens when the first response is empty, and returns the second attempt', async () => {
+    const calls: Captured[] = []
+    let attempt = 0
+    const fetchImpl: FetchImpl = (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      calls.push({
+        url,
+        method: init?.method ?? 'GET',
+        headers: new Headers(init?.headers ?? {}),
+        body: init?.body,
+      })
+      attempt++
+      const content = attempt === 1 ? '' : 'Second attempt content'
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content }, finish_reason: attempt === 1 ? 'length' : 'stop' }],
+            usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      )
+    }
+
+    const out = await aiComplete('Make a title', { deps: buildDeps(fetchImpl) })
+    expect(out).toBe('Second attempt content')
+    expect(calls).toHaveLength(2)
+    const firstBody = JSON.parse(String(calls[0]?.body)) as { max_completion_tokens: number }
+    const secondBody = JSON.parse(String(calls[1]?.body)) as { max_completion_tokens: number }
+    expect(firstBody.max_completion_tokens).toBe(AI_DEFAULT_MAX_COMPLETION_TOKENS)
+    expect(secondBody.max_completion_tokens).toBe(AI_DEFAULT_MAX_COMPLETION_TOKENS * 2)
+  })
+
+  it('throws when two attempts in a row return truncated content', async () => {
+    const fetchImpl: FetchImpl = () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: '' }, finish_reason: 'length' }],
+            usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      )
+
+    await expect(aiComplete('Make a title', { deps: buildDeps(fetchImpl) })).rejects.toThrow(
+      'AI completion returned no usable content',
+    )
+  })
+
+  it('records the discarded truncated attempt as outcome "error", never "ok"', async () => {
+    const captured: Parameters<AiRouteDeps['recordUsage']>[0][] = []
+    let attempt = 0
+    const fetchImpl: FetchImpl = () => {
+      attempt++
+      const content = attempt === 1 ? '' : 'Recovered content'
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content }, finish_reason: attempt === 1 ? 'length' : 'stop' }],
+            usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      )
+    }
+
+    const out = await aiComplete('Make a title', {
+      deps: {
+        ...buildDeps(fetchImpl),
+        recordUsage: async (p) => {
+          captured.push(p)
+        },
+      },
+    })
+
+    expect(out).toBe('Recovered content')
+    expect(captured).toHaveLength(2)
+    expect(captured[0]?.outcome).toBe('error')
+    expect(captured[1]?.outcome ?? 'ok').toBe('ok')
+  })
 })
 
 describe('POST /ai/v1/audio/podcast', () => {
@@ -850,5 +933,30 @@ describe('recordAiUsage() — DB integration', () => {
     expect(rows).toHaveLength(1)
     expect(rows[0]!.billing).toBe('unknown')
     expect(rows[0]!.outcome).toBe('error')
+  })
+
+  it('splits cached_tokens out of input_tokens into cache_read_tokens, and records reasoning_tokens', async () => {
+    await recordAiUsage({
+      model: 'deepseek-v4.1-flash',
+      usage: {
+        prompt_tokens: 1000,
+        completion_tokens: 200,
+        total_tokens: 1200,
+        cached_tokens: 300,
+        reasoning_tokens: 50,
+      },
+      startedAt: new Date().toISOString(),
+      durationMs: 400,
+    })
+
+    const rows = await db.select().from(usageRecord).where(eq(usageRecord.source, 'argo'))
+    expect(rows).toHaveLength(1)
+    const row = rows[0]!
+    expect(row.input_tokens).toBe(700)
+    expect(row.cache_read_tokens).toBe(300)
+    expect(row.output_tokens).toBe(200)
+    expect(row.reasoning_tokens).toBe(50)
+    // 700 uncached @ $0.50 + 300 cached @ $0.05 + 200 output @ $1.50, per 1M tokens
+    expect(row.cost_usd).toBeCloseTo((700 * 0.5 + 300 * 0.05 + 200 * 1.5) / 1_000_000, 10)
   })
 })

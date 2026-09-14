@@ -7,7 +7,7 @@ import { db } from '../db/index.js'
 import { book, bookSyncMap, readingStat } from '../db/schema.js'
 import { hardcover, type HardcoverSearchHit } from '../clients/hardcover.js'
 import { upsertBook } from './book-store.js'
-import { aiComplete } from '../routes/ai.js'
+import { aiComplete, AI_DEFAULT_MAX_COMPLETION_TOKENS } from '../routes/ai.js'
 import { env } from '../env.js'
 import { parseLLMVerdict, decideMatch, stringAutoConfirms } from './reading-match-logic.js'
 
@@ -58,8 +58,7 @@ async function disambiguateWithLLM(
 
     const raw = await aiComplete(prompt, {
       system,
-      temperature: 0,
-      maxTokens: 80,
+      maxTokens: AI_DEFAULT_MAX_COMPLETION_TOKENS,
       sub_tool: 'reading-match',
     })
 

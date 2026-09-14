@@ -41,7 +41,7 @@ import {
 } from '../lib/hermes-streams.js'
 import { getHermesStreaming, type HermesStreaming } from '../lib/resumable.js'
 import { rewriteUnknownFinishReason } from '../lib/finish-reason-transform.js'
-import { aiComplete } from './ai.js'
+import { aiComplete, AI_DEFAULT_MAX_COMPLETION_TOKENS } from './ai.js'
 import { recordAiUsage, type RecordUsageFn } from '../lib/ai-usage.js'
 import { env } from '../env.js'
 import { log, tracer } from '../telemetry.js'
@@ -139,7 +139,7 @@ const deepseekTitle: GenerateTitle = ({ userText, assistantText }) =>
       `User: ${userText.slice(0, 500)}`,
       `Assistant: ${assistantText.slice(0, 500)}`,
     ].join('\n'),
-    { system: TITLE_SYSTEM, temperature: 0.3, maxTokens: 24, sub_tool: 'titling' },
+    { system: TITLE_SYSTEM, maxTokens: AI_DEFAULT_MAX_COMPLETION_TOKENS, sub_tool: 'titling' },
   )
 
 const SUMMARIZE_SYSTEM =
@@ -155,7 +155,11 @@ const deepseekSummarize: GenerateSummary = async ({ userText, assistantText }) =
       `User: ${userText.slice(0, 500)}`,
       `Assistant: ${assistantText.slice(0, 500)}`,
     ].join('\n'),
-    { system: SUMMARIZE_SYSTEM, temperature: 0.3, maxTokens: 64, sub_tool: 'summarization' },
+    {
+      system: SUMMARIZE_SYSTEM,
+      maxTokens: AI_DEFAULT_MAX_COMPLETION_TOKENS,
+      sub_tool: 'summarization',
+    },
   )
   // Strip optional code fences then parse defensively.
   const stripped = raw.replace(/^```(?:json)?\n?|\n?```$/g, '').trim()

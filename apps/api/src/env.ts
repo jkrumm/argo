@@ -90,7 +90,12 @@ export const Env = z.object({
   // see modelpick/docs/decisions/hermes-brain.md.
   DEEPSEEK_BASE_URL: z.string().default(''),
   DEEPSEEK_API_KEY: z.string().default(''),
-  DEEPSEEK_MODEL: z.string().default('gpt-5.6-luna'),
+  DEEPSEEK_MODEL: z.string().default('deepseek-v4.1-flash'),
+  // Top-level `reasoning_effort` sent with every DEEPSEEK_MODEL call (aiComplete).
+  // `high` is the settled choice for this mid-size, single-shot lane — see
+  // modelpick/docs/decisions/model-configs.md. Enum is the set live-probed for
+  // deepseek-v4.1-flash ("medium" is not accepted).
+  DEEPSEEK_REASONING_EFFORT: z.enum(['low', 'high', 'xhigh', 'max']).default('high'),
 
   // Audio (STT + TTS) — forwarded to the audio-gateway service (audio-gateway:7714).
   // The gateway is the single source of truth for all audio processing; Argo proxies.
