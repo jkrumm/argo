@@ -38,6 +38,10 @@ export const NOTIFICATIONS = defineNotifications({
 
   // ── Achievements
   'achievement:unlocked': { intent: 'success', toMessage },
+
+  // ── Warden owner actions (github-issue triage) ────────────────────────────
+  'warden:action-queued': { intent: 'success', toMessage },
+  'warden:action-error': { intent: 'error', toMessage },
 })
 
 declare module 'basalt-ui' {

@@ -58,6 +58,11 @@ const MetricsSchema = z.looseObject({
   reverts_and_reopens: FunnelMetricSchema.optional(),
 })
 
+// The closed verb list an owner action against a board item may carry — mirrored from warden's own
+// `ARGO_ACTION_VERBS`; keep both in sync if either changes. Hoisted above `BoardItemSchema` so the
+// board payload's own `availableActions` field can reuse it.
+const WARDEN_ACTION_VERBS = ['implement', 'merge', 'dismiss', 'reinvestigate', 'note'] as const
+
 const BoardItemSchema = z.looseObject({
   event_id: z.number(),
   origin: z.string().nullable().optional(),
@@ -76,6 +81,26 @@ const BoardItemSchema = z.looseObject({
   updated_at: z.string().optional(),
   origin_channel: z.string().nullable().optional(),
   origin_thread_ts: z.string().nullable().optional(),
+  // A plain `z.string()`, not `z.enum(WARDEN_ACTION_VERBS)` — warden and Argo are deployed
+  // separately with this vocabulary manually mirrored between them (see the comment above), and a
+  // hard enum here would 422 the ENTIRE snapshot (health, metrics, budget, board, intents) over one
+  // item carrying a verb the two repos haven't synced on yet. The dashboard already only renders
+  // buttons for verbs it recognizes (`VERB_LABEL`).
+  availableActions: z.array(z.string()).optional(),
+  issue: z
+    .looseObject({
+      repo: z.string(),
+      number: z.number(),
+      url: z.string(),
+      // Less certain to always be present than repo/number/url — a deleted GitHub account, for
+      // instance, can leave `author` unresolvable — so these two stay optional rather than 422ing
+      // the snapshot over a single item's missing field.
+      author: z.string().optional(),
+      trusted: z.boolean().optional(),
+      labels: z.array(z.string()).optional(),
+    })
+    .nullable()
+    .optional(),
 })
 
 const BoardSchema = z.looseObject({
@@ -171,10 +196,8 @@ function toWardenRecord(row: typeof wardenSnapshot.$inferSelect) {
 // The dashboard queues an action against a board item; warden's loop polls
 // for its machine's pending rows and reports the outcome. Warden owns every
 // verb-level and state-gate decision server-side (`apply_argo_actions()`) —
-// this queue only carries the request and its eventual outcome. The closed
-// verb list is mirrored from warden's own `ARGO_ACTION_VERBS`; keep both in
-// sync if either changes.
-const WARDEN_ACTION_VERBS = ['implement', 'merge', 'dismiss', 'reinvestigate', 'note'] as const
+// this queue only carries the request and its eventual outcome. `WARDEN_ACTION_VERBS` itself is
+// declared above `BoardItemSchema`, which also reuses it.
 const WARDEN_ACK_STATUSES = ['applied', 'rejected', 'failed'] as const
 // 'pulled' is the internal in-flight marker GET /warden/actions atomically
 // claims a row into — see the schema.ts comment. No route response ever

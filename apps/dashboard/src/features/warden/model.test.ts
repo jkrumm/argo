@@ -4,14 +4,23 @@ import {
   buildItemFacts,
   deriveBoard,
   deriveFunnel,
+  deriveWardenPage,
   formatSourceLine,
   formatTileNumber,
   formatTileValue,
   formatVerdictLine,
+  GITHUB_ISSUE_GROUPS,
+  groupIssueItems,
   intentSummary,
   isDeferredItem,
+  isSafeHttpUrl,
   isStale,
+  issueRefLabel,
+  PENDING_ACTION_TIMEOUT_MS,
+  reconcilePendingActions,
   resolveItemModal,
+  withPendingAction,
+  type PendingActions,
   type Row,
 } from './model'
 import type { WardenBoardItem, WardenItems, WardenMetrics } from '../../lib/queries/warden'
@@ -55,6 +64,28 @@ describe('isDeferredItem', () => {
   })
 })
 
+describe('deriveWardenPage', () => {
+  it('derives buckets, issue groups and a flat item list from raw, empty-safe', () => {
+    const view = deriveWardenPage(undefined)
+    expect(view.buckets.map((b) => b.key)).toEqual([...BUCKET_ORDER])
+    expect(view.issueGroups.map((g) => g.key)).toEqual([...GITHUB_ISSUE_GROUPS])
+    expect(view.boardItems).toEqual([])
+  })
+
+  it('threads board.items through to buckets, issue groups and boardItems consistently', () => {
+    const items = [
+      item({ event_id: 1, state: 'needs_human', origin: 'github_issue' }),
+      item({ event_id: 2, state: 'investigating' }),
+    ]
+    const view = deriveWardenPage({ board: { items } } as never)
+    expect(view.boardItems).toBe(items)
+    const byBucket = Object.fromEntries(view.buckets.map((b) => [b.key, b.items]))
+    expect(byBucket['needs_human']!.map((i) => i.event_id)).toEqual([1])
+    const byGroup = Object.fromEntries(view.issueGroups.map((g) => [g.key, g.items]))
+    expect(byGroup['needs_you']!.map((i) => i.event_id)).toEqual([1])
+  })
+})
+
 describe('deriveBoard', () => {
   it('returns every bucket, in fixed order, even when empty', () => {
     const buckets = deriveBoard(undefined)
@@ -83,6 +114,126 @@ describe('deriveBoard', () => {
     expect(byKey['new']!.map((i) => i.event_id)).toEqual([2])
     const total = buckets.reduce((sum, b) => sum + b.items.length, 0)
     expect(total).toBe(items.length)
+  })
+})
+
+describe('groupIssueItems', () => {
+  it('returns every group, in fixed order, even when empty', () => {
+    const groups = groupIssueItems([])
+    expect(groups.map((g) => g.key)).toEqual([...GITHUB_ISSUE_GROUPS])
+    expect(groups.every((g) => g.items.length === 0)).toBe(true)
+  })
+
+  it('ignores an item whose origin is not github_issue', () => {
+    const groups = groupIssueItems([item({ event_id: 1, origin: 'alert', state: 'needs_human' })])
+    expect(groups.every((g) => g.items.length === 0)).toBe(true)
+  })
+
+  it('maps needs_human, merge_blocked and verdict to needs_you', () => {
+    const items = [
+      item({ event_id: 1, origin: 'github_issue', state: 'needs_human' }),
+      item({ event_id: 2, origin: 'github_issue', state: 'merge_blocked' }),
+      item({ event_id: 3, origin: 'github_issue', state: 'verdict' }),
+    ]
+    const byKey = Object.fromEntries(groupIssueItems(items).map((g) => [g.key, g.items]))
+    expect(byKey['needs_you']!.map((i) => i.event_id)).toEqual([1, 2, 3])
+  })
+
+  it('maps new and investigating to running', () => {
+    const items = [
+      item({ event_id: 1, origin: 'github_issue', state: 'new' }),
+      item({ event_id: 2, origin: 'github_issue', state: 'investigating' }),
+    ]
+    const byKey = Object.fromEntries(groupIssueItems(items).map((g) => [g.key, g.items]))
+    expect(byKey['running']!.map((i) => i.event_id)).toEqual([1, 2])
+  })
+
+  it('maps implementing and validating to auto_implementing', () => {
+    const items = [
+      item({ event_id: 1, origin: 'github_issue', state: 'implementing' }),
+      item({ event_id: 2, origin: 'github_issue', state: 'validating' }),
+    ]
+    const byKey = Object.fromEntries(groupIssueItems(items).map((g) => [g.key, g.items]))
+    expect(byKey['auto_implementing']!.map((i) => i.event_id)).toEqual([1, 2])
+  })
+
+  it('maps merged to done', () => {
+    const items = [item({ event_id: 1, origin: 'github_issue', state: 'merged' })]
+    const byKey = Object.fromEntries(groupIssueItems(items).map((g) => [g.key, g.items]))
+    expect(byKey['done']!.map((i) => i.event_id)).toEqual([1])
+  })
+
+  it('falls back to running for a state outside the mapped vocabulary', () => {
+    const items = [item({ event_id: 1, origin: 'github_issue', state: 'snoozed' })]
+    const byKey = Object.fromEntries(groupIssueItems(items).map((g) => [g.key, g.items]))
+    expect(byKey['running']!.map((i) => i.event_id)).toEqual([1])
+  })
+})
+
+describe('issueRefLabel', () => {
+  it('formats repo#number', () => {
+    expect(issueRefLabel({ repo: 'argo', number: 42 } as never)).toBe('argo#42')
+  })
+})
+
+describe('isSafeHttpUrl', () => {
+  it('accepts http(s) URLs', () => {
+    expect(isSafeHttpUrl('https://github.com/jkrumm/argo/issues/1')).toBe(true)
+    expect(isSafeHttpUrl('http://example.com')).toBe(true)
+  })
+
+  it('rejects non-http(s) schemes and unparsable strings', () => {
+    expect(isSafeHttpUrl('javascript:alert(1)')).toBe(false)
+    expect(isSafeHttpUrl('data:text/html,<script>alert(1)</script>')).toBe(false)
+    expect(isSafeHttpUrl('not a url')).toBe(false)
+  })
+})
+
+describe('withPendingAction', () => {
+  it('adds an entry keyed by event id, carrying the verb and queuedAt', () => {
+    const pending = withPendingAction({}, 1, 'implement', 1000)
+    expect(pending).toEqual({ 1: { verb: 'implement', queuedAt: 1000 } })
+  })
+
+  it('overwrites an existing entry for the same event id rather than merging', () => {
+    const first = withPendingAction({}, 1, 'implement', 1000)
+    const second = withPendingAction(first, 1, 'dismiss', 2000)
+    expect(second).toEqual({ 1: { verb: 'dismiss', queuedAt: 2000 } })
+  })
+})
+
+describe('reconcilePendingActions', () => {
+  const pendingFor = (eventId: number, verb: 'implement' | 'dismiss', queuedAt: number) =>
+    ({ [eventId]: { verb, queuedAt } }) as PendingActions
+
+  it('drops a pending entry once the item updated after it was queued', () => {
+    const pending = pendingFor(1, 'implement', 1000)
+    const items = [item({ event_id: 1, updated_at: new Date(2000).toISOString() })]
+    expect(reconcilePendingActions(pending, items, 3000)).toEqual({})
+  })
+
+  it('keeps a pending entry when the item has not updated since it was queued', () => {
+    const pending = pendingFor(1, 'implement', 2000)
+    const items = [item({ event_id: 1, updated_at: new Date(1000).toISOString() })]
+    expect(reconcilePendingActions(pending, items, 2500)).toEqual(pending)
+  })
+
+  it('keeps a pending entry for an item absent from the snapshot until it times out', () => {
+    const pending = pendingFor(1, 'implement', 1000)
+    expect(reconcilePendingActions(pending, [], 1000 + PENDING_ACTION_TIMEOUT_MS - 1)).toEqual(
+      pending,
+    )
+  })
+
+  it('drops a pending entry once it has been pending longer than the timeout', () => {
+    const pending = pendingFor(1, 'implement', 1000)
+    expect(reconcilePendingActions(pending, [], 1000 + PENDING_ACTION_TIMEOUT_MS + 1)).toEqual({})
+  })
+
+  it('returns the same reference when nothing was dropped, to avoid a needless re-render', () => {
+    const pending = pendingFor(1, 'implement', 2000)
+    const items = [item({ event_id: 1, updated_at: new Date(1000).toISOString() })]
+    expect(reconcilePendingActions(pending, items, 2500)).toBe(pending)
   })
 })
 

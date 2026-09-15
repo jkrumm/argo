@@ -4,6 +4,7 @@ import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
 import { Section, useBreakpoint } from 'basalt-ui'
 import { relativeTime } from 'basalt-ui/format'
 import type { WardenBoardItem } from '../../lib/queries/warden'
+import { AgeText, StateBadge } from './board-item-cells'
 import type { Bucket } from './model'
 
 type Props = {
@@ -40,24 +41,12 @@ function columnsFor(bucketKey: string) {
     }),
     columnHelper.accessor('state', {
       header: 'State',
-      cell: (ctx) => (
-        // Mantine's Badge clips to an ellipsis by default (`width: fit-content` + `overflow:
-        // hidden`), which collapses its min-content width to ~0 under table-layout auto — so the
-        // browser happily shrinks the column and truncates `liveness_pending` to `NE…`. Overriding
-        // overflow back to visible restores the badge's real min-content width, which is the
-        // column's own fixed-width floor — the TITLE column (lineClamp) is the one meant to give.
-        <Badge variant="light" color="gray" style={{ overflow: 'visible', textOverflow: 'clip' }}>
-          {ctx.getValue()}
-        </Badge>
-      ),
+      cell: (ctx) => <StateBadge state={ctx.getValue()} />,
     }),
     columnHelper.accessor((row) => row.updated_at ?? row.created_at ?? '', {
       id: 'age',
       header: 'Age',
-      cell: (ctx) => {
-        const at = ctx.getValue()
-        return at ? <Text size="sm">{relativeTime(at)}</Text> : <Text c="dimmed">—</Text>
-      },
+      cell: (ctx) => <AgeText at={ctx.getValue()} />,
     }),
     columnHelper.display({
       id: 'pr',

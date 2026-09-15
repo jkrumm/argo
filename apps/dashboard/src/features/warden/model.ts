@@ -1,11 +1,15 @@
 import { relativeTime } from 'basalt-ui/format'
 import type {
+  WardenActionVerb,
   WardenBoardItem,
   WardenIntents,
+  WardenIssueInfo,
   WardenItems,
   WardenMetrics,
   WardenRaw,
 } from '../../lib/queries/warden'
+
+export type { WardenActionVerb, WardenIssueInfo }
 
 // Pure derivations for the Warden board. Argo derives nothing warden itself didn't already
 // compute — these functions only bucket, format and stale-check what the snapshot already carries.
@@ -84,6 +88,150 @@ export function deriveBoard(board: WardenRaw['board'] | undefined): Bucket[] {
     buckets.get(key)?.push(item)
   }
   return BUCKET_ORDER.map((key) => ({ key, label: BUCKET_LABEL[key], items: buckets.get(key)! }))
+}
+
+// ── GitHub issue groups ──────────────────────────────────────────────────────
+// A separate view over the same board, scoped to `origin: "github_issue"` items only and grouped
+// by pipeline stage rather than by raw `state` — the generic board (above) still shows everything.
+
+export const GITHUB_ISSUE_GROUPS = ['needs_you', 'running', 'auto_implementing', 'done'] as const
+
+export type GithubIssueGroupKey = (typeof GITHUB_ISSUE_GROUPS)[number]
+
+export const GITHUB_ISSUE_GROUP_LABEL: Record<GithubIssueGroupKey, string> = {
+  needs_you: 'Needs you',
+  running: 'Running',
+  auto_implementing: 'Auto-implementing',
+  done: 'Done',
+}
+
+export type IssueGroup = { key: GithubIssueGroupKey; label: string; items: WardenBoardItem[] }
+
+function issueGroupKeyForState(state: string): GithubIssueGroupKey {
+  switch (state) {
+    case 'needs_human':
+    case 'merge_blocked':
+    case 'verdict':
+      return 'needs_you'
+    case 'new':
+    case 'investigating':
+      return 'running'
+    case 'implementing':
+    case 'validating':
+      return 'auto_implementing'
+    case 'merged':
+      return 'done'
+    default:
+      // Any state outside the mapped vocabulary is still mid-pipeline — "running" is the safest
+      // default, never dropping the item or inventing a new group for it.
+      return 'running'
+  }
+}
+
+/**
+ * Groups every `origin: "github_issue"` item into the four pipeline-stage groups above, in fixed
+ * order. Every key is present, even with an empty `items` array — same shape contract as
+ * `deriveBoard`. Non-issue items never participate, even if passed in.
+ */
+export function groupIssueItems(items: WardenBoardItem[]): IssueGroup[] {
+  const groups = new Map<GithubIssueGroupKey, WardenBoardItem[]>(
+    GITHUB_ISSUE_GROUPS.map((key) => [key, []]),
+  )
+  for (const item of items) {
+    if (item.origin !== 'github_issue') continue
+    groups.get(issueGroupKeyForState(item.state))!.push(item)
+  }
+  return GITHUB_ISSUE_GROUPS.map((key) => ({
+    key,
+    label: GITHUB_ISSUE_GROUP_LABEL[key],
+    items: groups.get(key)!,
+  }))
+}
+
+export type WardenPageView = {
+  buckets: Bucket[]
+  issueGroups: IssueGroup[]
+  boardItems: WardenBoardItem[]
+}
+
+// A stable reference (not a fresh `?? []` literal on every call) — `use-warden-actions.ts` keys a
+// reconciliation effect off `boardItems`, and a new array identity on every render before the
+// first snapshot loads would fire that effect every render.
+const EMPTY_BOARD_ITEMS: WardenBoardItem[] = []
+
+/** Everything `WardenPage` needs derived from one snapshot's `raw` — pulled out of the page
+ * component (which otherwise accumulates a branch per optional-chained field) so page composition
+ * stays a plain render, matching this file's ownership of every other board derivation. */
+export function deriveWardenPage(raw: WardenRaw | undefined): WardenPageView {
+  const boardItems = raw?.board?.items ?? EMPTY_BOARD_ITEMS
+  return { buckets: deriveBoard(raw?.board), issueGroups: groupIssueItems(boardItems), boardItems }
+}
+
+/** `"repo#number"` — the compact reference a GitHub-issue-origin row links out with. */
+export function issueRefLabel(issue: WardenIssueInfo): string {
+  return `${issue.repo}#${issue.number}`
+}
+
+/** Guards `issue.url` before it is used as an `href` — a `github_issue`-origin item's payload can
+ * originate from a third-party (untrusted) author, so a non-http(s) scheme (`javascript:`,
+ * `data:`, …) must never render as a clickable link. */
+export function isSafeHttpUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:'
+  } catch {
+    return false
+  }
+}
+
+// ── Pending owner actions ────────────────────────────────────────────────────
+// A queued action (`POST /warden/items/:eventId/actions`) doesn't take effect until warden's own
+// loop pulls it and pushes a fresher snapshot — this tracks "queued" client-side in the meantime so
+// a click doesn't look like a no-op.
+
+export type PendingAction = { verb: WardenActionVerb; queuedAt: number }
+export type PendingActions = Record<number, PendingAction>
+
+export function withPendingAction(
+  pending: PendingActions,
+  eventId: number,
+  verb: WardenActionVerb,
+  now = Date.now(),
+): PendingActions {
+  return { ...pending, [eventId]: { verb, queuedAt: now } }
+}
+
+// warden polls its action queue roughly every 10 minutes (see warden/docs/api.md) — one poll of
+// margin before a queued action that never got applied is treated as failed, not pending forever.
+export const PENDING_ACTION_TIMEOUT_MS = 15 * 60 * 1000
+
+/** Drops a pending entry once the item's own `updated_at` has moved past the moment the action was
+ * queued (warden applied it and pushed a fresher snapshot), or once it has been pending longer than
+ * `PENDING_ACTION_TIMEOUT_MS`. An item absent from the latest snapshot's items only ages out on the
+ * timeout — it never resolves as "applied" on absence alone. */
+export function reconcilePendingActions(
+  pending: PendingActions,
+  items: WardenBoardItem[],
+  now = Date.now(),
+): PendingActions {
+  const itemsById = new Map(items.map((item) => [item.event_id, item]))
+  const next: PendingActions = {}
+  let changed = false
+  for (const [key, action] of Object.entries(pending)) {
+    const eventId = Number(key)
+    const updatedAtMs = Date.parse(itemsById.get(eventId)?.updated_at ?? '')
+    const appliedSincePush = Number.isFinite(updatedAtMs) && updatedAtMs > action.queuedAt
+    const timedOut = now - action.queuedAt > PENDING_ACTION_TIMEOUT_MS
+    if (appliedSincePush || timedOut) {
+      changed = true
+      continue
+    }
+    next[eventId] = action
+  }
+  // Returns the same reference when nothing was dropped — the 30s reconciliation timer
+  // (`use-warden-actions.ts`) calls this unconditionally, and a fresh object every tick with no
+  // actual change would re-render the page's whole subtree for no reason.
+  return changed ? next : pending
 }
 
 // ── Funnel metrics ───────────────────────────────────────────────────────────
