@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
 import { existsSync, readFileSync } from 'node:fs'
 import { app } from '../app.js'
 import { db } from '../db/index.js'
-import { wardenSnapshot } from '../db/schema.js'
+import { wardenAction, wardenSnapshot } from '../db/schema.js'
 
 const REAL_SNAPSHOT_PATH = '/tmp/warden-snapshot.json'
 
@@ -95,9 +95,11 @@ async function get(path: string) {
 
 beforeEach(async () => {
   await db.delete(wardenSnapshot)
+  await db.delete(wardenAction)
 })
 afterEach(async () => {
   await db.delete(wardenSnapshot)
+  await db.delete(wardenAction)
 })
 
 describe('/warden/snapshot', () => {
@@ -251,5 +253,153 @@ describe('/warden/snapshot', () => {
       machine: string
     }
     expect(pinned.machine).toBe('iumac')
+  })
+})
+
+describe('warden owner action queue', () => {
+  it('enqueues an action against a board item', async () => {
+    const res = await post('/warden/items/986/actions', {
+      machine: 'mini',
+      verb: 'implement',
+      payload: { reason: 'owner click' },
+    })
+    expect(res.status).toBe(201)
+    const body = (await res.json()) as {
+      id: number
+      eventId: number
+      machine: string
+      verb: string
+      status: string
+    }
+    expect(body.eventId).toBe(986)
+    expect(body.machine).toBe('mini')
+    expect(body.verb).toBe('implement')
+    expect(body.status).toBe('pending')
+  })
+
+  it('rejects an unknown verb with 400', async () => {
+    const res = await post('/warden/items/986/actions', { machine: 'mini', verb: 'delete-repo' })
+    expect(res.status).toBe(400)
+    expect(await db.select().from(wardenAction)).toHaveLength(0)
+  })
+
+  it('pulls only pending actions for the requested machine', async () => {
+    await post('/warden/items/1/actions', { machine: 'mini', verb: 'implement' })
+    await post('/warden/items/2/actions', {
+      machine: 'mini',
+      verb: 'dismiss',
+      payload: { reason: 'stale' },
+    })
+    await post('/warden/items/3/actions', { machine: 'iumac', verb: 'merge' })
+    const ids = (
+      await db.select({ id: wardenAction.id }).from(wardenAction).orderBy(wardenAction.id)
+    ).map((r) => r.id)
+    expect(ids).toHaveLength(3)
+    const secondId = ids[1]!
+    await app.handle(
+      new Request(`http://localhost/warden/actions/${secondId}/ack`, {
+        method: 'POST',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ status: 'applied' }),
+      }),
+    )
+
+    const res = await get('/warden/actions?machine=mini&status=pending')
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { id: number; event_id: number; verb: string }[]
+    expect(body).toHaveLength(1)
+    expect(body[0]!.event_id).toBe(1)
+    expect(body[0]!.verb).toBe('implement')
+  })
+
+  it('acks an action, transitioning it out of pending, and is idempotent on a repeat ack', async () => {
+    const enqueued = (await (
+      await post('/warden/items/986/actions', { machine: 'mini', verb: 'merge' })
+    ).json()) as { id: number }
+
+    const first = await post(`/warden/actions/${enqueued.id}/ack`, {
+      status: 'applied',
+      result: { pr_url: 'https://github.com/jkrumm/argo/pull/1' },
+    })
+    expect(first.status).toBe(200)
+    const firstBody = (await first.json()) as { status: string }
+    expect(firstBody.status).toBe('applied')
+
+    const second = await post(`/warden/actions/${enqueued.id}/ack`, {
+      status: 'applied',
+      result: { pr_url: 'https://github.com/jkrumm/argo/pull/1' },
+    })
+    expect(second.status).toBe(200)
+    expect(((await second.json()) as { status: string }).status).toBe('applied')
+
+    const pending = await get('/warden/actions?machine=mini&status=pending')
+    expect(((await pending.json()) as unknown[]).length).toBe(0)
+  })
+
+  it('404s acking an id that was never queued', async () => {
+    const res = await post('/warden/actions/999999/ack', {
+      status: 'failed',
+      error: 'no such item',
+    })
+    expect(res.status).toBe(404)
+  })
+
+  it('atomically claims pending rows so a concurrent pull cannot double-deliver the same action', async () => {
+    await post('/warden/items/1/actions', { machine: 'mini', verb: 'implement' })
+
+    const first = await get('/warden/actions?machine=mini&status=pending')
+    expect(((await first.json()) as { event_id: number }[]).length).toBe(1)
+
+    const second = await get('/warden/actions?machine=mini&status=pending')
+    expect(((await second.json()) as unknown[]).length).toBe(0)
+  })
+
+  it('reclaims a pulled action once its claim lease has expired', async () => {
+    await db.insert(wardenAction).values({
+      machine: 'mini',
+      event_id: 5,
+      verb: 'implement',
+      status: 'pulled',
+      pulled_at: new Date(Date.now() - 11 * 60_000).toISOString(),
+    })
+
+    const res = await get('/warden/actions?machine=mini&status=pending')
+    const body = (await res.json()) as { event_id: number }[]
+    expect(body.map((b) => b.event_id)).toContain(5)
+  })
+
+  it('does not reclaim a pulled action still inside its lease window', async () => {
+    await db.insert(wardenAction).values({
+      machine: 'mini',
+      event_id: 6,
+      verb: 'implement',
+      status: 'pulled',
+      pulled_at: new Date(Date.now() - 2 * 60_000).toISOString(),
+    })
+
+    const res = await get('/warden/actions?machine=mini&status=pending')
+    const body = (await res.json()) as { event_id: number }[]
+    expect(body.map((b) => b.event_id)).not.toContain(6)
+  })
+
+  it('rejects an oversized enqueue payload with 413', async () => {
+    const res = await post('/warden/items/986/actions', {
+      machine: 'mini',
+      verb: 'implement',
+      payload: { huge: 'x'.repeat(100_001) },
+    })
+    expect(res.status).toBe(413)
+    expect(await db.select().from(wardenAction)).toHaveLength(0)
+  })
+
+  it('rejects an oversized ack result with 413', async () => {
+    const enqueued = (await (
+      await post('/warden/items/986/actions', { machine: 'mini', verb: 'merge' })
+    ).json()) as { id: number }
+    const res = await post(`/warden/actions/${enqueued.id}/ack`, {
+      status: 'applied',
+      result: { huge: 'x'.repeat(100_001) },
+    })
+    expect(res.status).toBe(413)
   })
 })

@@ -1,6 +1,8 @@
 import { Elysia } from 'elysia'
 import { z } from 'zod'
-import { wardenSnapshot } from '../db/schema.js'
+import { and, eq, lt, or } from 'drizzle-orm'
+import { db } from '../db/index.js'
+import { wardenAction, wardenSnapshot } from '../db/schema.js'
 import {
   exceedsSnapshotBytes,
   insertAndPruneSnapshot,
@@ -164,6 +166,94 @@ function toWardenRecord(row: typeof wardenSnapshot.$inferSelect) {
   }
 }
 
+// ── Owner action queue ───────────────────────────────────────────────────
+//
+// The dashboard queues an action against a board item; warden's loop polls
+// for its machine's pending rows and reports the outcome. Warden owns every
+// verb-level and state-gate decision server-side (`apply_argo_actions()`) —
+// this queue only carries the request and its eventual outcome. The closed
+// verb list is mirrored from warden's own `ARGO_ACTION_VERBS`; keep both in
+// sync if either changes.
+const WARDEN_ACTION_VERBS = ['implement', 'merge', 'dismiss', 'reinvestigate', 'note'] as const
+const WARDEN_ACK_STATUSES = ['applied', 'rejected', 'failed'] as const
+// 'pulled' is the internal in-flight marker GET /warden/actions atomically
+// claims a row into — see the schema.ts comment. No route response ever
+// returns it, but it's a real column value, so every place that reads
+// `status` back off a row (the enum below, toActionRecord's guard) has to
+// account for it.
+const WARDEN_ACTION_STATUSES = ['pending', 'pulled', ...WARDEN_ACK_STATUSES] as const
+
+// A dismiss reason or a `{pr_url}` result is a few dozen bytes; this is
+// generous headroom, not a real budget — it exists only so the shared
+// bearer token can't be used to grow this table unbounded the way an
+// unrelated snapshot cap already guards `warden_snapshots`.
+const MAX_ACTION_JSON_BYTES = 100_000
+
+function exceedsActionJsonBytes(value: unknown): boolean {
+  return value !== undefined && JSON.stringify(value).length > MAX_ACTION_JSON_BYTES
+}
+
+// PostgreSQL UPDATE...RETURNING is per-row atomic: a second concurrent
+// UPDATE with the same WHERE re-checks it against each row's committed
+// state, so it can never also match a row the first UPDATE already flipped
+// to 'pulled'. Reclaims a pulled row after this lease elapses with no ack —
+// warden polls roughly every 10 minutes, so a claim older than that is
+// either a crashed tick or one that will never ack.
+const PULL_CLAIM_LEASE_MS = 10 * 60 * 1000
+
+const EnqueueActionSchema = z.object({
+  machine: z
+    .string()
+    .min(1)
+    .max(64)
+    .describe('The warden host this action is queued for, e.g. "mini"'),
+  verb: z
+    .string()
+    .min(1)
+    .describe(`One of: ${WARDEN_ACTION_VERBS.join(', ')}`),
+  payload: z.record(z.string(), z.unknown()).optional(),
+})
+
+const ActionRecordSchema = z.object({
+  id: z.number().int(),
+  eventId: z.number().int(),
+  machine: z.string(),
+  verb: z.string(),
+  status: z.enum(WARDEN_ACTION_STATUSES),
+  createdAt: z.string().describe('ISO 8601'),
+})
+
+function toActionRecord(row: typeof wardenAction.$inferSelect) {
+  if (!(WARDEN_ACTION_STATUSES as readonly string[]).includes(row.status)) {
+    throw new Error(`warden_actions row ${row.id} has an unrecognized status: ${row.status}`)
+  }
+  return {
+    id: row.id,
+    eventId: row.event_id,
+    machine: row.machine,
+    verb: row.verb,
+    status: row.status as (typeof WARDEN_ACTION_STATUSES)[number],
+    createdAt: pgIso(row.created_at),
+  }
+}
+
+// The shape warden's `fetch_actions()` parses with plain dict `.get()` calls
+// (scripts/clients/argo.py) — `event_id`/`payload` stay snake_case here even
+// though every other Argo response is camelCase, because this one is a
+// wire contract with warden's Python client, not with the dashboard.
+const PulledActionSchema = z.object({
+  id: z.number().int(),
+  event_id: z.number().int(),
+  verb: z.string(),
+  payload: z.record(z.string(), z.unknown()).nullable(),
+})
+
+const AckActionSchema = z.object({
+  status: z.enum(WARDEN_ACK_STATUSES),
+  result: z.record(z.string(), z.unknown()).optional(),
+  error: z.string().optional(),
+})
+
 export const wardenRoutes = new Elysia({ prefix: '/warden' })
   .post(
     '/snapshot',
@@ -219,6 +309,133 @@ export const wardenRoutes = new Elysia({ prefix: '/warden' })
         summary: 'Latest Warden control-plane snapshot',
         description:
           'Returns the most recently received Warden snapshot (404 before the first ingest, or for a `?machine=` that never pushed). Pass ?machine= to pin one host when several push. `ageMs` is milliseconds since `receivedAt`, for a stale-feed banner. The snapshot carries `health` (loop/poller liveness), `metrics` (the six funnel numbers), `board` (counts + open items), `budget` (dispatch spend today), `items` (per-event timelines, keyed by event id) and `intents` (recorded, unauthorized wishes).',
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
+  .post(
+    '/items/:eventId/actions',
+    async ({ params, body, status }) => {
+      if (!(WARDEN_ACTION_VERBS as readonly string[]).includes(body.verb)) {
+        return status(400, `unknown verb: ${body.verb}`)
+      }
+      if (exceedsActionJsonBytes(body.payload)) {
+        return status(413, `payload exceeds ${MAX_ACTION_JSON_BYTES} bytes`)
+      }
+      const [row] = await db
+        .insert(wardenAction)
+        .values({
+          machine: body.machine,
+          event_id: params.eventId,
+          verb: body.verb,
+          payload: body.payload ?? null,
+        })
+        .returning()
+      return status(201, toActionRecord(row!))
+    },
+    {
+      params: z.object({ eventId: z.coerce.number().int() }),
+      body: EnqueueActionSchema,
+      response: { 201: ActionRecordSchema, 400: z.string(), 413: z.string() },
+      detail: {
+        tags: ['Warden'],
+        summary: 'Queue an owner action against a Warden board item',
+        description:
+          "Queues implement/merge/dismiss/reinvestigate/note against the board item {eventId} for the owner's Warden machine. This is a request only — warden's loop (loopback-only, cannot be pushed to) pulls it via GET /warden/actions and owns every verb-level and state-gate decision; nothing here mutates the ledger. Returns 201 with the queued row (status always starts `pending`); an unrecognized verb is rejected with 400 before it ever reaches the queue, an oversized payload with 413. Track the outcome via the next GET /warden/snapshot, whose board items carry `availableActions`.",
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
+  .get(
+    '/actions',
+    async ({ query, status: statusFn }) => {
+      const wantedStatus = query.status ?? 'pending'
+      // Pulling 'pending' is warden's own poll — atomically claim it (flip to
+      // 'pulled') in the same statement that selects it, so two overlapping
+      // polls can never both fetch the same row. Any other ?status= is a
+      // plain read with no side effect. See PULL_CLAIM_LEASE_MS's docstring
+      // for why a stale 'pulled' row is reclaimed rather than lost forever.
+      const rows =
+        wantedStatus === 'pending'
+          ? await db
+              .update(wardenAction)
+              .set({ status: 'pulled', pulled_at: new Date().toISOString() })
+              .where(
+                and(
+                  eq(wardenAction.machine, query.machine),
+                  or(
+                    eq(wardenAction.status, 'pending'),
+                    and(
+                      eq(wardenAction.status, 'pulled'),
+                      lt(
+                        wardenAction.pulled_at,
+                        new Date(Date.now() - PULL_CLAIM_LEASE_MS).toISOString(),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+              .returning()
+          : await db
+              .select()
+              .from(wardenAction)
+              .where(
+                and(eq(wardenAction.machine, query.machine), eq(wardenAction.status, wantedStatus)),
+              )
+      const sorted = rows.toSorted((a, b) => a.created_at.localeCompare(b.created_at))
+      return statusFn(
+        200,
+        sorted.map((row) => ({
+          id: row.id,
+          event_id: row.event_id,
+          verb: row.verb,
+          payload: row.payload,
+        })),
+      )
+    },
+    {
+      query: z.object({
+        machine: z.string().min(1).max(64).describe('The warden host pulling its own queue'),
+        status: z.enum(WARDEN_ACTION_STATUSES).optional().describe('Defaults to "pending"'),
+      }),
+      response: { 200: z.array(PulledActionSchema) },
+      detail: {
+        tags: ['Warden'],
+        summary: "Pull one machine's queued owner actions",
+        description:
+          "Called by warden's own loop, never the dashboard — the one endpoint whose response shape (`id`/`event_id`/`payload` snake_case) mirrors clients/argo.py's `fetch_actions()` parser rather than the rest of this API's camelCase convention. Returns queued rows for `?machine=`, filtered to `?status=` (default `pending`), oldest first. A `pending` pull atomically claims the rows it returns (flips them to an internal `pulled` state) so a second overlapping pull never receives the same row; an abandoned claim is reclaimed after 10 minutes. Report each one back via POST /warden/actions/{id}/ack once applied.",
+        security: [{ BearerAuth: [] }],
+      },
+    },
+  )
+  .post(
+    '/actions/:id/ack',
+    async ({ params, body, status }) => {
+      if (exceedsActionJsonBytes(body.result)) {
+        return status(413, `result exceeds ${MAX_ACTION_JSON_BYTES} bytes`)
+      }
+      const [row] = await db
+        .update(wardenAction)
+        .set({
+          status: body.status,
+          result: body.result ?? null,
+          error: body.error ?? null,
+          acked_at: new Date().toISOString(),
+        })
+        .where(eq(wardenAction.id, params.id))
+        .returning()
+      if (!row) return status(404, 'No queued action with this id')
+      return toActionRecord(row)
+    },
+    {
+      params: z.object({ id: z.coerce.number().int() }),
+      body: AckActionSchema,
+      response: { 200: ActionRecordSchema, 404: z.string(), 413: z.string() },
+      detail: {
+        tags: ['Warden'],
+        summary: 'Report the outcome of one queued owner action',
+        description:
+          "Called by warden after it applies (or rejects) a queued action — `status` is the action's own outcome (applied/rejected/failed), never an HTTP status. Idempotent: acking an already-acked id overwrites its status/result/error/ackedAt rather than erroring, since a redelivered ack (the first POST's response was lost) must resolve the same way twice. 404 only for an id that was never queued.",
         security: [{ BearerAuth: [] }],
       },
     },

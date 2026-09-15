@@ -180,7 +180,7 @@ export function buildApp() {
               {
                 name: 'Warden',
                 description:
-                  "The Warden control plane's board — a deterministic loop over its own SQLite ledger on the mini, pushing one JSON snapshot after every tick (POST /warden/snapshot): health/poller liveness, the six funnel metrics, the board (state counts + open items), the dispatch budget, per-item timelines, and recorded intents. Argo cannot reach the ledger directly and derives nothing — GET /warden/snapshot reads the latest push back verbatim.",
+                  "The Warden control plane's board — a deterministic loop over its own SQLite ledger on the mini, pushing one JSON snapshot after every tick (POST /warden/snapshot): health/poller liveness, the six funnel metrics, the board (state counts + open items), the dispatch budget, per-item timelines, and recorded intents. Argo cannot reach the ledger directly and derives nothing — GET /warden/snapshot reads the latest push back verbatim. The owner queues actions (implement/merge/dismiss/reinvestigate/note) against a board item with POST /warden/items/{eventId}/actions; warden's loop pulls its pending queue (GET /warden/actions) and reports outcomes back (POST /warden/actions/{id}/ack) — Argo never applies an action itself.",
               },
               {
                 name: 'System',

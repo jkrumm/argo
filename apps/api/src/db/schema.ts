@@ -620,3 +620,46 @@ export const wardenSnapshot = argoSchema.table(
   },
   (t) => [index('idx_warden_machine_received').on(t.machine, t.received_at.desc())],
 )
+
+// ── Warden owner action queue ─────────────────────────────────────────────
+//
+// Warden is loopback-only on the mini and pulls rather than being pushed to
+// (same reason it pushes its own board snapshot above instead of Argo
+// reaching in). The owner clicks an action against a board item on Argo's
+// /warden page; that queues a row here. Warden's loop polls
+// GET /warden/actions for its machine's pending rows before every tick's own
+// snapshot push, applies each one against its ledger (verb-level validation
+// and every state transition are entirely warden's — this table only carries
+// the request and its eventual outcome), and reports back via
+// POST /warden/actions/:id/ack. See warden/docs/api.md § Argo push and
+// scripts/clients/argo.py's fetch_actions()/ack_action().
+//
+// `status` includes 'pulled' — an internal-only transient value never
+// returned by any route response. GET /warden/actions atomically flips
+// pending rows to 'pulled' (an UPDATE...RETURNING, not a plain SELECT) so
+// two overlapping warden polls can never both fetch the same row and
+// double-apply a non-idempotent verb; `pulled_at` past PULL_CLAIM_LEASE_MS
+// (warden.ts) is treated as an abandoned claim and reclaimed. Rows are kept
+// forever, not pruned like wardenSnapshot above — this is a low-volume,
+// owner-triggered queue, not a 10-minutes-forever feed, and the acked
+// history doubles as an audit trail.
+
+export const wardenAction = argoSchema.table(
+  'warden_actions',
+  {
+    id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
+    machine: text('machine').notNull(),
+    event_id: integer('event_id').notNull(),
+    verb: text('verb').notNull(), // 'implement' | 'merge' | 'dismiss' | 'reinvestigate' | 'note'
+    payload: jsonb('payload').$type<Record<string, unknown>>(),
+    status: text('status').notNull().default('pending'), // 'pending' | 'pulled' | 'applied' | 'rejected' | 'failed'
+    result: jsonb('result').$type<Record<string, unknown>>(),
+    error: text('error'),
+    created_at: timestamp('created_at', { withTimezone: true, mode: 'string' })
+      .notNull()
+      .defaultNow(),
+    pulled_at: timestamp('pulled_at', { withTimezone: true, mode: 'string' }),
+    acked_at: timestamp('acked_at', { withTimezone: true, mode: 'string' }),
+  },
+  (t) => [index('idx_warden_actions_machine_status').on(t.machine, t.status, t.created_at)],
+)
