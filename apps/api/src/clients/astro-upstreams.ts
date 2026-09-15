@@ -11,7 +11,7 @@
  *   - DWD ICON (`/v1/dwd-icon`) — primary cloud cover, 2.2 km resolution over
  *     Bavaria. Real horizon is ~7.5 days even when `forecast_days` asks for
  *     more (the tail comes back `null`), which is exactly why the global
- *     forecast exists as a fallback. When `METEO_SELFHOSTED_URL` is set, this
+ *     forecast exists as a fallback. When `WEATHERORB_SELFHOSTED_URL` is set, this
  *     one upstream (only) is pointed at that self-hosted Open-Meteo instance
  *     instead of `api.open-meteo.com` — same `/v1/dwd-icon` path, same
  *     response shape. A self-hosted failure degrades `health.dwdIcon` exactly
@@ -87,7 +87,7 @@ function clampDays(days: number): number {
 }
 
 /**
- * `selfHostedUrl` empty (the default, from `env.METEO_SELFHOSTED_URL`) → the
+ * `selfHostedUrl` empty (the default, from `env.WEATHERORB_SELFHOSTED_URL`) → the
  * public API. Set → the self-hosted instance, same `/v1/dwd-icon` path — a
  * stock Open-Meteo binary serves an identical response shape.
  */
@@ -342,10 +342,10 @@ async function fetchSevenTimer(opts: {
  */
 export async function fetchAstroUpstreams(
   input: { lat: number; lon: number; days: number },
-  deps?: { fetchImpl?: FetchImpl; selfHostedMeteoUrl?: string },
+  deps?: { fetchImpl?: FetchImpl; selfHostedWeatherOrbUrl?: string },
 ): Promise<AstroUpstreams> {
   const fetchImpl: FetchImpl = deps?.fetchImpl ?? tracedFetch
-  const selfHostedMeteoUrl = deps?.selfHostedMeteoUrl ?? env.METEO_SELFHOSTED_URL
+  const selfHostedWeatherOrbUrl = deps?.selfHostedWeatherOrbUrl ?? env.WEATHERORB_SELFHOSTED_URL
   const days = clampDays(input.days)
   const { lat, lon } = input
 
@@ -360,7 +360,7 @@ export async function fetchAstroUpstreams(
         const [iconResult, globalResult, sevenTimerResult] = await Promise.allSettled([
           fetchCloudUpstream({
             source: 'dwd-icon',
-            host: dwdIconHost(selfHostedMeteoUrl),
+            host: dwdIconHost(selfHostedWeatherOrbUrl),
             lat,
             lon,
             days,

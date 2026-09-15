@@ -341,7 +341,7 @@ describe('days clamping', () => {
   })
 })
 
-// ── Self-hosted Open-Meteo (METEO_SELFHOSTED_URL) ──────────────────────────
+// ── Self-hosted Open-Meteo (WEATHERORB_SELFHOSTED_URL) ──────────────────────────
 
 describe('self-hosted DWD ICON upstream', () => {
   it('unset (the default) requests the public API', async () => {
@@ -366,11 +366,11 @@ describe('self-hosted DWD ICON upstream', () => {
 
     await fetchAstroUpstreams(
       { lat: LAT, lon: LON, days: 3 },
-      { fetchImpl: fake.fetchImpl, selfHostedMeteoUrl: 'https://meteo.mini.jkrumm.com' },
+      { fetchImpl: fake.fetchImpl, selfHostedWeatherOrbUrl: 'https://weatherorb.mini.jkrumm.com' },
     )
 
     const iconUrl = fake.calls.find((c) => c.kind === 'icon')?.url
-    expect(iconUrl).toStartWith('https://meteo.mini.jkrumm.com/v1/dwd-icon')
+    expect(iconUrl).toStartWith('https://weatherorb.mini.jkrumm.com/v1/dwd-icon')
   })
 
   it('a self-hosted failure degrades the health flag without ever calling the public API', async () => {
@@ -387,13 +387,13 @@ describe('self-hosted DWD ICON upstream', () => {
 
     const result = await fetchAstroUpstreams(
       { lat: LAT, lon: LON, days: 3 },
-      { fetchImpl, selfHostedMeteoUrl: 'https://meteo.mini.jkrumm.com' },
+      { fetchImpl, selfHostedWeatherOrbUrl: 'https://weatherorb.mini.jkrumm.com' },
     )
 
     expect(result.health.dwdIcon).toBe(false)
     const iconCalls = calls.filter((c) => c.kind === 'icon')
     expect(iconCalls).toHaveLength(1)
-    expect(iconCalls[0]?.url).toStartWith('https://meteo.mini.jkrumm.com/v1/dwd-icon')
+    expect(iconCalls[0]?.url).toStartWith('https://weatherorb.mini.jkrumm.com/v1/dwd-icon')
     // No fallback call to the public dwd-icon host — the failure is honest, not silently patched.
     expect(calls.some((c) => c.url.startsWith('https://api.open-meteo.com/v1/dwd-icon'))).toBe(
       false,

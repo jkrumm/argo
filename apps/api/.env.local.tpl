@@ -55,7 +55,7 @@ HARDCOVER_API_KEY=op://vps/argo/HARDCOVER_API_KEY
 # Self-hosted Open-Meteo instance (optional). When set, the astro window's DWD
 # ICON cloud upstream (only) is pointed at it instead of api.open-meteo.com —
 # see clients/astro-upstreams.ts. Not a secret, no op:// ref needed.
-# METEO_SELFHOSTED_URL=https://meteo.mini.jkrumm.com
+# WEATHERORB_SELFHOSTED_URL=https://weatherorb.mini.jkrumm.com
 
 # ── Hermes Chat (docs/HERMES-CHAT-V2.md) ────────────────────────────────────
 # All optional. Local dev does NOT talk to the live Hermes Mac Mini / audio-proxy
