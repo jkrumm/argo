@@ -86,8 +86,8 @@ apps/dashboard/   — Vite + React 19 frontend, themed by basalt-ui
 
 ## Docs
 
-- `apps/api/CLAUDE.md` — API conventions, route patterns, DB setup
-- `apps/dashboard/CLAUDE.md` — Dashboard conventions, adding a page
+- `apps/api/AGENTS.md` — API conventions, route patterns, DB setup
+- `apps/dashboard/AGENTS.md` — Dashboard conventions, adding a page
 - `DESIGN.md` — Argo's design-system app-delta record (basalt-ui is the design system)
 - `docs/GARMIN-HEALTH.md` — Health metric formulas and composite signals (analytics reference)
 - `docs/STRENGTH-ANALYTICS.md` — Strength metric formulas (analytics reference)

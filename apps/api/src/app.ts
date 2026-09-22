@@ -122,7 +122,7 @@ export function buildApp() {
               {
                 name: 'M365',
                 description:
-                  'IU Microsoft 365 surface — proxied through the IU MCP server (Microsoft Graph wrapper covering Outlook calendar, mail, Teams chats/channels). The MCP server exposes ~270 Graph operations behind 3 meta-tools (search-tools, get-tool-schema, execute-tool); curated read-only REST endpoints will be added incrementally as use cases land. Tokens are installed via the laptop bootstrap script (`bun m365:auth*`) which POSTs to /m365/seed — see apps/api/CLAUDE.md.',
+                  'IU Microsoft 365 surface — proxied through the IU MCP server (Microsoft Graph wrapper covering Outlook calendar, mail, Teams chats/channels). The MCP server exposes ~270 Graph operations behind 3 meta-tools (search-tools, get-tool-schema, execute-tool); curated read-only REST endpoints will be added incrementally as use cases land. Tokens are installed via the laptop bootstrap script (`bun m365:auth*`) which POSTs to /m365/seed — see apps/api/AGENTS.md.',
               },
               {
                 name: 'Atlassian',

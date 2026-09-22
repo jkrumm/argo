@@ -1,6 +1,6 @@
 # Garmin Health Analytics — Reference
 
-> **Analytics reference.** This document describes metric definitions, formulas, and composite signals — the _what_ and _why_. For implementation conventions (route structure, query factories, chart primitives), see `apps/dashboard/CLAUDE.md` and `.claude/rules/basalt-charts.md`.
+> **Analytics reference.** This document describes metric definitions, formulas, and composite signals — the _what_ and _why_. For implementation conventions (route structure, query factories, chart primitives), see `apps/dashboard/AGENTS.md` and `.claude/rules/basalt-charts.md`.
 
 ---
 
