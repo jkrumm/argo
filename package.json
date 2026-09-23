@@ -24,13 +24,13 @@
   },
   "devDependencies": {
     "basalt-ui": "1.30.2",
-    "concurrently": "^9.2.1",
+    "concurrently": "^9.2.4",
     "lefthook": "^2.1.14",
     "oxfmt": "^0.45.0",
     "oxlint": "^1.60.0"
   },
   "overrides": {
-    "maplibre-gl": "6.3.0"
+    "maplibre-gl": "6.10.0"
   },
   "basalt": {
     "roots": [
