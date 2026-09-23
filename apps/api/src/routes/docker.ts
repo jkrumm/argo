@@ -176,7 +176,7 @@ function createDockerRoutes(proxyUrl: string, host: 'HomeLab' | 'VPS') {
 
     .get(
       '/logs/:name',
-      async ({ params, query }) => {
+      async ({ params, query, status }) => {
         const tail = query.tail ?? '100'
 
         const containers = await dockerGet<DockerContainer[]>('/containers/json?all=1')
@@ -186,7 +186,7 @@ function createDockerRoutes(proxyUrl: string, host: 'HomeLab' | 'VPS') {
             c.Id.startsWith(params.name),
         )
         if (!match) {
-          throw new Error(`Container "${params.name}" not found`)
+          return status(404, `Container "${params.name}" not found`)
         }
 
         const res = await fetch(
@@ -222,15 +222,18 @@ function createDockerRoutes(proxyUrl: string, host: 'HomeLab' | 'VPS') {
       {
         params: z.object({ name: z.string() }),
         query: z.object({ tail: z.string().optional() }),
-        response: z.object({
-          container: z.string(),
-          tail: z.number().describe('Number of log lines requested'),
-          lines: z.array(z.string().describe('Log line with RFC3339 timestamp prefix')),
-        }),
+        response: {
+          200: z.object({
+            container: z.string(),
+            tail: z.number().describe('Number of log lines requested'),
+            lines: z.array(z.string().describe('Log line with RFC3339 timestamp prefix')),
+          }),
+          404: z.string(),
+        },
         detail: {
           tags: [tag],
           summary: `Fetch recent log lines for a ${host} container`,
-          description: `Returns the most recent N log lines (default 100) for a container on ${host}, identified by name or short id prefix. Logs are streamed from Docker's binary log format, ANSI escape sequences stripped, and empty lines filtered. RFC3339 timestamps are preserved as the line prefix. Returns 500 if the container is not found or if the Docker API errors.`,
+          description: `Returns the most recent N log lines (default 100) for a container on ${host}, identified by name or short id prefix. Logs are streamed from Docker's binary log format, ANSI escape sequences stripped, and empty lines filtered. RFC3339 timestamps are preserved as the line prefix. Returns 404 if the container is not found, 500 if the Docker API errors.`,
           security: [{ BearerAuth: [] }],
         },
       },
