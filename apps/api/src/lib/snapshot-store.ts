@@ -32,6 +32,30 @@ export function exceedsSnapshotBytes(snapshot: unknown): boolean {
   return JSON.stringify(snapshot).length > MAX_SNAPSHOT_BYTES
 }
 
+/**
+ * Recursively strips `\u0000` from every string value AND object key of an
+ * arbitrary, producer-controlled JSON value. Postgres `jsonb` rejects the
+ * NUL codepoint with `22P05` (unsupported Unicode escape sequence) — the
+ * producers here forward whatever text landed in their own logs/payloads, so
+ * a stray NUL is a "when", not an "if". Non-string leaves (numbers,
+ * booleans, null) pass through untouched.
+ */
+export function stripNulBytes<T>(value: T): T {
+  if (typeof value === 'string') {
+    // eslint-disable-next-line no-control-regex
+    return value.replace(/\u0000/g, '') as T
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => stripNulBytes(item)) as T
+  }
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, val]) => [stripNulBytes(key), stripNulBytes(val)]),
+    ) as T
+  }
+  return value
+}
+
 type SnapshotColumns = { id: PgColumn; machine: PgColumn; received_at: PgColumn }
 
 /**
@@ -64,9 +88,10 @@ export async function insertAndPruneSnapshot(
   values: { machine: string; generated_at: string; raw: unknown },
 ): Promise<{ id: number; receivedAt: string }> {
   return db.transaction(async (tx) => {
+    const sanitized = { ...values, raw: stripNulBytes(values.raw) }
     const [row] = await (tx as unknown as PgTransaction<never, never, never>)
       .insert(table)
-      .values(values as never)
+      .values(sanitized as never)
       .returning({ id: columns.id, received_at: columns.received_at })
     await prunePastHistory(tx as unknown as PgTransaction<never, never, never>, table, columns)
     return { id: row!['id'] as number, receivedAt: pgIso(row!['received_at'] as string) }
