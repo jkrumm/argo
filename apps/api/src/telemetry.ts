@@ -133,7 +133,9 @@ export const telemetryConfig = {
 // shipped transitively by NodeSDK drifts from ours and TS rejects the union.
 const loggerProvider = new LoggerProvider({
   resource,
-  processors: [new BatchLogRecordProcessor(new OTLPLogExporter({ url: `${base}/v1/logs` }))],
+  processors: [
+    new BatchLogRecordProcessor({ exporter: new OTLPLogExporter({ url: `${base}/v1/logs` }) }),
+  ],
 })
 logs.setGlobalLoggerProvider(loggerProvider)
 
