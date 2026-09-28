@@ -1,6 +1,7 @@
 import { relativeTime } from 'basalt-ui/format'
 import type {
   WardenActionVerb,
+  WardenAwaitingOwnerEntry,
   WardenBoardItem,
   WardenIntents,
   WardenIssueInfo,
@@ -165,6 +166,65 @@ const EMPTY_BOARD_ITEMS: WardenBoardItem[] = []
 export function deriveWardenPage(raw: WardenRaw | undefined): WardenPageView {
   const boardItems = raw?.board?.items ?? EMPTY_BOARD_ITEMS
   return { buckets: deriveBoard(raw?.board), issueGroups: groupIssueItems(boardItems), boardItems }
+}
+
+// ── Waiting on you ───────────────────────────────────────────────────────────
+// The one list warden itself flags as "cannot finish without a human" — rendered first on the
+// page (`awaiting-owner-section.tsx`) so nothing here rots invisibly.
+
+/** An entry reads as stale once it has waited this many days or longer — the point past which
+ * "waiting on you" stops being a normal queue depth and starts being neglect. */
+export const AWAITING_OWNER_STALE_DAYS = 3
+
+export type AwaitingOwnerRow = {
+  kind: WardenAwaitingOwnerEntry['kind']
+  eventId: number | null
+  repo: string | null
+  title: string | null
+  state: string | null
+  prUrl: string | null
+  ageDays: number | null
+  ageLabel: string
+  stale: boolean
+  reason: string | null
+  parkedRecurrences: number
+  revisionCount: number
+  availableActions: string[]
+}
+
+/** `"5.1 d"` / `"< 1 d"` / `"—"` for an unreported age — never a bare number with no unit. */
+export function formatAgeDays(ageDays: number | null): string {
+  if (ageDays === null) return '—'
+  if (ageDays < 1) return '< 1 d'
+  return `${ageDays.toFixed(1)} d`
+}
+
+const EMPTY_AWAITING_OWNER: AwaitingOwnerRow[] = []
+
+/**
+ * Derives the "Waiting on you" rows from `board.awaiting_owner`, preserving warden's own
+ * oldest-first order — this never re-sorts. Missing on an older snapshot reads as an empty list,
+ * never a crash. `stale` flags an entry that has waited `AWAITING_OWNER_STALE_DAYS` or longer; an
+ * unreported age never counts as stale (no fabricated urgency out of a missing number).
+ */
+export function deriveAwaitingOwner(board: WardenRaw['board'] | undefined): AwaitingOwnerRow[] {
+  const entries = board?.awaiting_owner
+  if (!entries || entries.length === 0) return EMPTY_AWAITING_OWNER
+  return entries.map((entry) => ({
+    kind: entry.kind,
+    eventId: entry.event_id,
+    repo: entry.repo,
+    title: entry.title,
+    state: entry.state,
+    prUrl: entry.pr_url,
+    ageDays: entry.age_days,
+    ageLabel: formatAgeDays(entry.age_days),
+    stale: entry.age_days !== null && entry.age_days >= AWAITING_OWNER_STALE_DAYS,
+    reason: entry.reason,
+    parkedRecurrences: entry.parked_recurrences,
+    revisionCount: entry.revision_count,
+    availableActions: entry.availableActions ?? [],
+  }))
 }
 
 /** `"repo#number"` — the compact reference a GitHub-issue-origin row links out with. */

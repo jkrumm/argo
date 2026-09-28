@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'bun:test'
 import {
+  AWAITING_OWNER_STALE_DAYS,
   BUCKET_ORDER,
   buildItemFacts,
+  deriveAwaitingOwner,
   deriveBoard,
   deriveFunnel,
   deriveWardenPage,
+  formatAgeDays,
   formatSourceLine,
   formatTileNumber,
   formatTileValue,
@@ -23,7 +26,12 @@ import {
   type PendingActions,
   type Row,
 } from './model'
-import type { WardenBoardItem, WardenItems, WardenMetrics } from '../../lib/queries/warden'
+import type {
+  WardenAwaitingOwnerEntry,
+  WardenBoardItem,
+  WardenItems,
+  WardenMetrics,
+} from '../../lib/queries/warden'
 
 const item = (overrides: Partial<WardenBoardItem> = {}): WardenBoardItem =>
   ({
@@ -186,6 +194,93 @@ describe('isSafeHttpUrl', () => {
     expect(isSafeHttpUrl('javascript:alert(1)')).toBe(false)
     expect(isSafeHttpUrl('data:text/html,<script>alert(1)</script>')).toBe(false)
     expect(isSafeHttpUrl('not a url')).toBe(false)
+  })
+})
+
+describe('formatAgeDays', () => {
+  it('renders an em dash for an unreported age', () => {
+    expect(formatAgeDays(null)).toBe('—')
+  })
+
+  it('renders under a day as "< 1 d"', () => {
+    expect(formatAgeDays(0.4)).toBe('< 1 d')
+  })
+
+  it('renders a day or more to one decimal with a "d" unit', () => {
+    expect(formatAgeDays(5.14)).toBe('5.1 d')
+    expect(formatAgeDays(1)).toBe('1.0 d')
+  })
+})
+
+describe('deriveAwaitingOwner', () => {
+  const entry = (overrides: Partial<WardenAwaitingOwnerEntry> = {}): WardenAwaitingOwnerEntry =>
+    ({
+      kind: 'item',
+      event_id: 1,
+      repo: 'argo',
+      title: 'Something parked',
+      state: 'needs_human',
+      pr_url: null,
+      age_days: 5,
+      reason: 'awaiting a decision',
+      parked_recurrences: 0,
+      revision_count: 0,
+      availableActions: ['implement', 'dismiss'],
+      ...overrides,
+    }) as WardenAwaitingOwnerEntry
+
+  it('reads an empty list when the field is missing, never crashing', () => {
+    expect(deriveAwaitingOwner(undefined)).toEqual([])
+    expect(deriveAwaitingOwner({} as never)).toEqual([])
+  })
+
+  it('preserves warden-supplied order rather than re-sorting', () => {
+    const entries = [entry({ event_id: 1 }), entry({ event_id: 2 }), entry({ event_id: 3 })]
+    const rows = deriveAwaitingOwner({ awaiting_owner: entries } as never)
+    expect(rows.map((r) => r.eventId)).toEqual([1, 2, 3])
+  })
+
+  it('formats age and flags stale at the threshold, never below it', () => {
+    const entries = [
+      entry({ event_id: 1, age_days: AWAITING_OWNER_STALE_DAYS }),
+      entry({ event_id: 2, age_days: AWAITING_OWNER_STALE_DAYS - 0.1 }),
+      entry({ event_id: 3, age_days: null }),
+    ]
+    const rows = deriveAwaitingOwner({ awaiting_owner: entries } as never)
+    expect(rows[0]!.stale).toBe(true)
+    expect(rows[0]!.ageLabel).toBe(`${AWAITING_OWNER_STALE_DAYS.toFixed(1)} d`)
+    expect(rows[1]!.stale).toBe(false)
+    expect(rows[2]!.stale).toBe(false)
+    expect(rows[2]!.ageLabel).toBe('—')
+  })
+
+  it('defaults a missing availableActions to an empty array', () => {
+    const rows = deriveAwaitingOwner({
+      awaiting_owner: [entry({ availableActions: undefined })],
+    } as never)
+    expect(rows[0]!.availableActions).toEqual([])
+  })
+
+  it('passes through a stranded_pr entry with no available actions', () => {
+    const rows = deriveAwaitingOwner({
+      awaiting_owner: [
+        entry({
+          kind: 'stranded_pr',
+          event_id: null,
+          state: null,
+          pr_url: 'https://github.com/jkrumm/argo/pull/1',
+          reason: 'item ended while the PR stayed open',
+          availableActions: [],
+        }),
+      ],
+    } as never)
+    expect(rows[0]).toMatchObject({
+      kind: 'stranded_pr',
+      eventId: null,
+      state: null,
+      prUrl: 'https://github.com/jkrumm/argo/pull/1',
+      availableActions: [],
+    })
   })
 })
 

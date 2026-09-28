@@ -28,8 +28,8 @@ type Props = {
 
 /** The two verbs that ask for a short reason/note before they fire — every other verb fires
  * immediately with no payload. */
-type PromptVerb = 'dismiss' | 'note'
-type PromptState = { eventId: number; verb: PromptVerb } | null
+export type PromptVerb = 'dismiss' | 'note'
+export type PromptState = { eventId: number; verb: PromptVerb } | null
 
 const VERB_LABEL: Record<WardenActionVerb, string> = {
   implement: 'Implement',
@@ -39,19 +39,22 @@ const VERB_LABEL: Record<WardenActionVerb, string> = {
   note: 'Note',
 }
 
-function needsPrompt(verb: WardenActionVerb): verb is PromptVerb {
+export function needsPrompt(verb: WardenActionVerb): verb is PromptVerb {
   return verb === 'dismiss' || verb === 'note'
 }
 
 const columnHelper = createColumnHelper<WardenBoardItem>()
 
-function ActionButtons({
+/** Exported for reuse by `awaiting-owner-section.tsx` — only reads `availableActions`, so it takes
+ * that one field rather than a full `WardenBoardItem` (a board item still satisfies this shape
+ * structurally, so every existing caller here is unaffected). */
+export function ActionButtons({
   item,
   pendingAction,
   onFire,
   onPrompt,
 }: {
-  item: WardenBoardItem
+  item: { availableActions?: string[] | undefined }
   pendingAction: PendingAction | undefined
   onFire: (verb: WardenActionVerb) => void
   onPrompt: (verb: PromptVerb) => void
@@ -314,7 +317,9 @@ function IssueGroupBlock({
   )
 }
 
-function ActionPromptModal({
+/** Exported for reuse by `awaiting-owner-section.tsx` — one shared modal instance per section,
+ * reused across every item/verb prompt in that section. */
+export function ActionPromptModal({
   prompt,
   onClose,
   onSubmit,

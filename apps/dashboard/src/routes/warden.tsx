@@ -4,9 +4,10 @@ import { useQuery } from '@tanstack/react-query'
 import { Stack } from '@mantine/core'
 import { PageBar } from 'basalt-ui'
 import { wardenQueries } from '../lib/queries/warden'
-import { deriveWardenPage } from '../features/warden/model'
+import { deriveAwaitingOwner, deriveWardenPage } from '../features/warden/model'
 import { StaleBanner } from '../features/warden/stale-banner'
 import { FunnelStats } from '../features/warden/funnel-stats'
+import { AwaitingOwnerSection } from '../features/warden/awaiting-owner-section'
 import { BoardSections } from '../features/warden/board-section'
 import { GithubIssuesSection } from '../features/warden/issues-section'
 import { useWardenActions } from '../features/warden/use-warden-actions'
@@ -32,6 +33,7 @@ function WardenPage() {
   const snapshot = snapshotQuery.data ?? null
   const raw = snapshot?.raw
   const { buckets, issueGroups, boardItems } = deriveWardenPage(raw)
+  const awaitingOwner = deriveAwaitingOwner(raw?.board)
   const { pending, handleAction } = useWardenActions(snapshot?.machine, boardItems)
 
   return (
@@ -45,6 +47,12 @@ function WardenPage() {
       />
 
       <Stack gap="md">
+        <AwaitingOwnerSection
+          rows={awaitingOwner}
+          pending={pending}
+          onSelectItem={setSelectedEventId}
+          onAction={handleAction}
+        />
         <StaleBanner snapshot={snapshot} />
         <FunnelStats metrics={raw?.metrics} budget={raw?.budget} />
         <GithubIssuesSection

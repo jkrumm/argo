@@ -32,6 +32,9 @@ export type WardenBudget = NonNullable<WardenRaw['budget']>
 export type WardenItems = NonNullable<WardenRaw['items']>
 export type WardenItemTimeline = WardenItems[string]
 export type WardenIntents = NonNullable<WardenRaw['intents']>
+/** One "cannot finish without a human" row — a parked board item or a stranded PR warden opened
+ * whose item already ended. Oldest first (see `deriveAwaitingOwner` in `features/warden/model.ts`). */
+export type WardenAwaitingOwnerEntry = NonNullable<WardenBoard['awaiting_owner']>[number]
 /**
  * What the owner can click for a board item — mirrors warden's own closed verb allowlist
  * (`apply_argo_actions()`) and the API's `WARDEN_ACTION_VERBS`. Hand-declared, NOT derived from

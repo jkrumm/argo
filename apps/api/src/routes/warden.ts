@@ -103,6 +103,26 @@ const BoardItemSchema = z.looseObject({
     .optional(),
 })
 
+// One row of "cannot finish without a human" — either a parked board item (`needs_human` /
+// `merge_blocked`) or a PR warden opened whose item already ended while the PR stayed open
+// (`stranded_pr`, no actions). Oldest first; the dashboard never re-sorts it. `z.looseObject` so a
+// field warden adds later never 422s the whole snapshot, same posture as `BoardItemSchema`.
+const AwaitingOwnerEntrySchema = z.looseObject({
+  kind: z.enum(['item', 'stranded_pr']),
+  event_id: z.number().nullable(),
+  repo: z.string().nullable(),
+  title: z.string().nullable(),
+  state: z.string().nullable(),
+  pr_url: z.string().nullable(),
+  age_days: z.number().nullable(),
+  reason: z.string().nullable(),
+  parked_recurrences: z.number(),
+  revision_count: z.number(),
+  // Same closed-list-on-warden's-side/open-string-here posture as `BoardItemSchema.availableActions`
+  // — always empty for `stranded_pr`, the same verb vocabulary as a board item for `kind: "item"`.
+  availableActions: z.array(z.string()).optional(),
+})
+
 const BoardSchema = z.looseObject({
   generated_at: z.string().optional(),
   schema_version: z.number().optional(),
@@ -110,6 +130,9 @@ const BoardSchema = z.looseObject({
   items: z.array(BoardItemSchema).optional(),
   terminal_24h: z.number().optional(),
   truncated: z.boolean().optional(),
+  // Everything warden cannot finish without the owner, oldest first — absent on an older snapshot,
+  // never inferred from `items` client-side (see `deriveAwaitingOwner` in the dashboard's model.ts).
+  awaiting_owner: z.array(AwaitingOwnerEntrySchema).optional(),
 })
 
 const BudgetSchema = z.looseObject({
