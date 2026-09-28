@@ -227,7 +227,7 @@ OTEL_SERVICE_VERSION=                              # optional; falls back to pac
 
 All env vars are validated at startup via Zod in `src/env.ts`. Missing required vars cause a fail-fast error on boot.
 
-## Google (Gmail + Calendar)
+## Google (Calendar)
 
 In-browser OAuth, refresh-token based. Local and prod are independent grants — each holds its own `google` slice in `data/oauth-tokens.json` (alongside the M365 slice).
 
@@ -243,7 +243,7 @@ Paste into a browser signed into one of the allowlisted Google accounts. On comp
 
 ### Local Google auth — intentionally disabled
 
-Google refresh tokens grant ~6 months of Gmail + Calendar read access. On prod they sit behind container isolation + VPS root, an acceptable risk. On a laptop they would sit in plain JSON owned by the user, readable by anything running as that user — other dev tooling, IDE extensions, stray transitive deps. The marginal benefit of `bun dev` reaching Google directly does not justify that attack surface.
+Google refresh tokens grant ~6 months of Calendar read access. On prod they sit behind container isolation + VPS root, an acceptable risk. On a laptop they would sit in plain JSON owned by the user, readable by anything running as that user — other dev tooling, IDE extensions, stray transitive deps. The marginal benefit of `bun dev` reaching Google directly does not justify that attack surface.
 
 Therefore `apps/api/.env.local.tpl` does not wire `GOOGLE_*` env vars, and `data/oauth-tokens.json` should never contain a `google` slice on a developer laptop. For Google-backed features, use `bun dev:prod-api` — the local dashboard proxies `/api/*` to `argo.jkrumm.com`, which holds the prod tokens.
 
@@ -255,7 +255,7 @@ Under `bun dev`, `/calendar` returns 503 and the dashboard renders its standard 
 
 ### When to re-auth
 
-- The Google Cloud OAuth client is in **"Testing"** publishing status → refresh tokens expire after **7 days**. Either re-auth weekly with `bun google:auth*`, or publish the OAuth app (Google Cloud Console → OAuth consent screen → **Publish App**) to lift refresh tokens to the standard 6-month-idle policy. **This is the most likely cause of recurring 503s on `/calendar` and Gmail endpoints.**
+- The Google Cloud OAuth client is in **"Testing"** publishing status → refresh tokens expire after **7 days**. Either re-auth weekly with `bun google:auth*`, or publish the OAuth app (Google Cloud Console → OAuth consent screen → **Publish App**) to lift refresh tokens to the standard 6-month-idle policy. **This is the most likely cause of recurring 503s on `/calendar`.**
 - The Google account password changed, or the user revoked the grant at https://myaccount.google.com/permissions.
 - The token file was deleted.
 

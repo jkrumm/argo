@@ -24,16 +24,16 @@ NODE_ENV=development
 # PORT, so it keeps the env.ts default of 4000.
 PORT=4040
 
-# Google (Gmail + Calendar) is INTENTIONALLY NOT wired locally.
+# Google (Calendar) is INTENTIONALLY NOT wired locally.
 #
-# Reason: Google OAuth tokens grant ~6 months of Gmail + Calendar read access
+# Reason: Google OAuth tokens grant ~6 months of Calendar read access
 # via the refresh token. On prod they live behind container isolation + VPS
 # root; on a laptop they would live in plain JSON owned by the user, readable
 # by any process running as that user (other dev tooling, IDE extensions,
 # stray deps). The marginal value of `bun dev` calling Google directly does
 # not justify the extra attack surface.
 #
-# For Google-backed features (calendar, gmail, /summary), use `bun dev:prod-api`
+# For Google-backed features (calendar, /summary), use `bun dev:prod-api`
 # instead — the local dashboard proxies /api/* to argo.jkrumm.com which holds
 # the prod tokens. The local /calendar endpoint will return 503 under `bun dev`
 # and the dashboard alert prompts re-auth (intentional behavior).
