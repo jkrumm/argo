@@ -22,7 +22,8 @@ import {
   useAchievementWatcher,
 } from '../features/walking-pad'
 import { walkingPadQueries } from '../lib/queries/walking-pad'
-import { CONTAINER_WIDE, CQ_COMPACT, CQ_REGULAR, CQ_WIDE } from '../lib/container-grid'
+import { CONTAINER_CLASSES } from 'basalt-ui/tokens'
+import { CQ_COMPACT, CQ_REGULAR, CQ_WIDE } from '../lib/container-grid'
 
 // Grid.Col spans resolve through this map; basalt/raw-breakpoint only trusts a same-file literal.
 const GRID_BREAKPOINTS = { xs: CQ_COMPACT, sm: CQ_REGULAR, md: CQ_WIDE, lg: CQ_WIDE, xl: CQ_WIDE }
@@ -63,7 +64,7 @@ function WalkingPadPage() {
   // through). Stacked, the prop drops back to undefined and the gallery uses its own default
   // scroll height.
   const { ref: pageRef, width: pageWidth } = useElementSize<HTMLDivElement>()
-  const sideBySide = pageWidth >= CONTAINER_WIDE
+  const sideBySide = pageWidth >= CONTAINER_CLASSES.wide
   const { ref: leftColRef, height: leftColHeight } = useElementSize<HTMLDivElement>()
   const matchHeight = sideBySide && leftColHeight > 0 ? leftColHeight : undefined
 

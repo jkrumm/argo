@@ -571,7 +571,6 @@ function DetailPane(props: {
           <Stack gap="xs" w={320}>
             <FormRow label="Label">
               <Stack gap="xs">
-                {/* theme-allow raw-selection-control — homed in FormRow (a declared form-row home); the check-theme text lane does not list FormRow as a host, the oxlint AST lane does */}
                 <Select
                   size="xs"
                   placeholder="Pick a label"
