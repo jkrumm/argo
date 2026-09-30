@@ -343,7 +343,7 @@ function AstroWindowPage() {
                     stretched across the full page the two halves of every row drift apart. The
                     columns the map used to occupy stay empty on purpose; the skyglow rose is
                     what fills them, once something renders it. */}
-                <Grid.Col span={{ base: 12, md: 7, lg: 5 }}>
+                <Grid.Col span={{ base: 12, sm: 7, lg: 5 }}>
                   <NightFacts
                     night={selectedNight}
                     coreDirectionMpsas={data.location.coreDirectionMpsas}

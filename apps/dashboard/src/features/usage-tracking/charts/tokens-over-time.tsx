@@ -60,7 +60,6 @@ export default function TokensOverTime({
           cursorResolution="leading"
           series={series}
           y={{ format: fmtCount }}
-          legend={{ maxRows: 8 }}
         />
       )}
     </ChartCard>

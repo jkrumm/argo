@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Badge, Group, Stack, Text } from '@mantine/core'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
-import { Section, useBreakpoint } from 'basalt-ui'
+import { Section, useSizeClass } from 'basalt-ui'
 import { relativeTime } from 'basalt-ui/format'
 import type { OverviewSnapshot, OverviewSummary } from '../../lib/queries/agents'
 import {
@@ -142,8 +142,9 @@ const emptyState = (
  * one `AgentCard` per agent, most-urgent-first.
  */
 export function AgentsTable({ agents, overview, summary }: Props) {
-  const isDesktop = useBreakpoint('sm')
-  const showSource = useBreakpoint('lg')
+  const sizeClass = useSizeClass()
+  const isDesktop = sizeClass !== 'compact'
+  const showSource = sizeClass === 'expanded'
   const subtitle = overviewLine(overview, summary)
   const tableColumns = useMemo(() => (showSource ? columns : columnsWithoutSource), [showSource])
 

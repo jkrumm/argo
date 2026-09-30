@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { Grid, SimpleGrid, Stack } from '@mantine/core'
 import { useElementSize } from '@mantine/hooks'
-import { PageBar, Section, useBreakpoint } from 'basalt-ui'
+import { PageBar, Section, useSizeClass } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, MultiSelectFilter, RangeFilter } from 'basalt-ui/controls'
 import { walkingStore } from '../lib/window-stores'
@@ -58,14 +58,14 @@ function WalkingPadPage() {
   // two columns line up. Below lg the columns stack — the prop drops back to
   // undefined and the gallery uses its own default scroll height.
   const { ref: leftColRef, height: leftColHeight } = useElementSize<HTMLDivElement>()
-  const isLg = useBreakpoint('lg')
-  const matchHeight = isLg === true && leftColHeight > 0 ? leftColHeight : undefined
+  const isLg = useSizeClass() === 'expanded'
+  const matchHeight = isLg && leftColHeight > 0 ? leftColHeight : undefined
 
   // Same trick for the bottom row: the (capped) history card drives the
   // time-of-day heatmap so the two cards line up at lg+. Below lg the
   // columns stack and `bottomMatchHeight` drops back to undefined.
   const { ref: historyRef, height: historyHeight } = useElementSize<HTMLDivElement>()
-  const bottomMatchHeight = isLg === true && historyHeight > 0 ? historyHeight : undefined
+  const bottomMatchHeight = isLg && historyHeight > 0 ? historyHeight : undefined
 
   return (
     <>

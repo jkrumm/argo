@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Anchor, Badge, Card, Group, Stack, Text, Tooltip } from '@mantine/core'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
-import { EmptyState, Section, useBreakpoint } from 'basalt-ui'
+import { EmptyState, Section, useSizeClass } from 'basalt-ui'
 import { IconCircleCheck } from '@tabler/icons-react'
 import type { WardenActionVerb } from '../../lib/queries/warden'
 import { StateBadge } from './board-item-cells'
@@ -239,7 +239,7 @@ function AwaitingOwnerCard({
  * rows carry no actions — the PR link and the reason are all there is to show.
  */
 export function AwaitingOwnerSection({ rows, pending, onSelectItem, onAction }: Props) {
-  const isDesktop = useBreakpoint('sm')
+  const isDesktop = useSizeClass() !== 'compact'
   const [prompt, setPrompt] = useState<PromptState>(null)
 
   const openPrompt = useCallback(

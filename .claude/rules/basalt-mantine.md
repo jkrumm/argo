@@ -8,7 +8,7 @@ paths:
 
 <!-- basalt:coverage -->
 <!-- GENERATED from src/surfaces.ts — `bun scripts/check-coverage.ts --write`. Do not hand-edit. -->
-<!-- backed by: guard kinds — card-with-border, hidden-inline-style, in-body-page-title, inline-display, inline-spacing, mantine-shade-index, raw-form-control, raw-html-layout, raw-motion-value, raw-spacing, sub-16-input-font · oxlint rules — basalt/card-inset, basalt/deprecated-export, basalt/hand-rolled-shell, basalt/in-body-page-title, basalt/no-import-meta-env, basalt/page-bar-budget, basalt/provider-above-router, basalt/raw-scroll-container, basalt/shadow-basalt-export -->
+<!-- backed by: guard kinds — card-with-border, hidden-inline-style, in-body-page-title, inline-display, inline-spacing, mantine-shade-index, raw-form-control, raw-html-layout, raw-media-query, raw-motion-value, raw-spacing, sub-16-input-font · oxlint rules — basalt/card-inset, basalt/deprecated-export, basalt/hand-rolled-shell, basalt/in-body-page-title, basalt/no-import-meta-env, basalt/page-bar-budget, basalt/provider-above-router, basalt/raw-breakpoint, basalt/raw-scroll-container, basalt/shadow-basalt-export -->
 <!-- not guarded: no second cssVariablesResolver — don't hand-build createTheme or re-add the resolver basalt already installs -->
 <!-- /basalt:coverage -->
 

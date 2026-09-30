@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Anchor, Badge, Card, Group, Stack, Text } from '@mantine/core'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
-import { Section, useBreakpoint } from 'basalt-ui'
+import { Section, useSizeClass } from 'basalt-ui'
 import { relativeTime } from 'basalt-ui/format'
 import type { WardenBoardItem } from '../../lib/queries/warden'
 import { AgeText, StateBadge } from './board-item-cells'
@@ -167,7 +167,7 @@ function BucketBlock({
   bucket: Bucket
   onSelectItem: (eventId: number) => void
 }) {
-  const isDesktop = useBreakpoint('sm')
+  const isDesktop = useSizeClass() !== 'compact'
   const columns = useMemo(() => columnsFor(bucket.key), [bucket.key])
 
   if (!isDesktop) {

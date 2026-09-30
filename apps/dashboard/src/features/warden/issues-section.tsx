@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { Anchor, Badge, Button, Card, Group, Modal, Stack, Text, Textarea } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
-import { Section, useBreakpoint } from 'basalt-ui'
+import { Section, useSizeClass } from 'basalt-ui'
 import {
   isKnownActionVerb,
   type WardenActionVerb,
@@ -376,7 +376,7 @@ export function ActionPromptModal({
  * `dismiss`/`note` first collect a short text via `ActionPromptModal`.
  */
 export function GithubIssuesSection({ groups, pending, onSelectItem, onAction }: Props) {
-  const isDesktop = useBreakpoint('sm')
+  const isDesktop = useSizeClass() !== 'compact'
   const [prompt, setPrompt] = useState<PromptState>(null)
   const nonEmpty = groups.filter((g) => g.items.length > 0)
 

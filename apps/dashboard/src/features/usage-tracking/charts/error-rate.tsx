@@ -60,7 +60,6 @@ export default function ErrorRate({
           cursorResolution="leading"
           series={series}
           y={{ format: fmtCount }}
-          legend={{ maxRows: 8 }}
         />
       )}
     </ChartCard>

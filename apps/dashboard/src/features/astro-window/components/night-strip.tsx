@@ -20,7 +20,7 @@ export function NightStrip({
 }) {
   return (
     <Card py="xs" px="sm">
-      <SimpleGrid cols={{ base: 5, md: 10 }} spacing={4}>
+      <SimpleGrid cols={{ base: 5, sm: 10 }} spacing={4}>
         {nights.map((night) => {
           const selected = night.date === selectedDate
           const isOut = night.verdict === 'out'
