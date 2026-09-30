@@ -15,6 +15,7 @@ import {
   momentumLabel,
   readinessTone,
 } from './formulas'
+import { CQ_REGULAR } from '../../lib/container-grid'
 
 /**
  * The three hero cards are `StatCard`s (basalt-ui 1.27.0), not a local `HeroCard` — see the
@@ -71,7 +72,7 @@ export function HeroStats({ params }: { params: StrengthQueryParams }) {
   const balanceToneValue = balanceTone(balance.status)
 
   return (
-    <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+    <SimpleGrid type="container" cols={{ base: 1, [CQ_REGULAR]: 3 }} spacing="sm">
       <StatCard
         title="Strength Direction"
         info={METRIC_TOOLTIPS.heroStrength}
@@ -136,7 +137,7 @@ function HeroCardSkeleton({ label }: { label: string }) {
 
 export function HeroStatsSkeleton() {
   return (
-    <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+    <SimpleGrid type="container" cols={{ base: 1, [CQ_REGULAR]: 3 }} spacing="sm">
       <HeroCardSkeleton label="Strength Direction" />
       <HeroCardSkeleton label="Load Quality" />
       <HeroCardSkeleton label="Readiness" />

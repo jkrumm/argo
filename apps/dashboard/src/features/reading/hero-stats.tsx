@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Card, SimpleGrid, Skeleton, Text } from '@mantine/core'
 import { StatCard } from 'basalt-ui'
 import { readingQueries } from '../../lib/queries/reading'
+import { CQ_REGULAR, CQ_WIDE } from '../../lib/container-grid'
 
 function HeroCardSkeleton({ label }: { label: string }) {
   return (
@@ -20,7 +21,7 @@ export function HeroStats() {
 
   if (isLoading || data === undefined) {
     return (
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 5 }} spacing="sm">
+      <SimpleGrid type="container" cols={{ base: 1, [CQ_REGULAR]: 2, [CQ_WIDE]: 5 }} spacing="sm">
         <HeroCardSkeleton label="Total Books" />
         <HeroCardSkeleton label="Read" />
         <HeroCardSkeleton label="Currently Reading" />
@@ -38,7 +39,7 @@ export function HeroStats() {
       : '—'
 
   return (
-    <SimpleGrid cols={{ base: 1, sm: 2, lg: 5 }} spacing="sm">
+    <SimpleGrid type="container" cols={{ base: 1, [CQ_REGULAR]: 2, [CQ_WIDE]: 5 }} spacing="sm">
       <StatCard title="Total Books" value={String(summary.total)} subtitle="across all shelves" />
       <StatCard title="Read" value={String(summary.read)} />
       <StatCard title="Currently Reading" value={String(summary.currentlyReading)} />

@@ -42,6 +42,7 @@ import {
   SOUND_OPTIONS,
   type Phase,
 } from './timer-core'
+import cls from './timer-card.module.css'
 
 function TimerRing({
   pct,
@@ -151,126 +152,128 @@ function RestTimerPanel() {
   const ringColor = done ? 'green' : remaining <= 15 ? 'orange' : running ? 'blue' : 'gray'
 
   return (
-    <Flex direction={{ base: 'column', sm: 'row' }} align="center" gap="md" w="100%">
-      <TimerRing
-        pct={pct}
-        color={ringColor}
-        label={formatClock(Math.ceil(remaining))}
-        flipIcon={<IconBarbell size={34} stroke={1.8} />}
-        flipped={done}
-      />
-      <Stack gap="xs" w="100%" miw={0} style={{ flex: 1 }}>
-        <Group gap={4} wrap="nowrap">
-          {presets.map((seconds, i) => (
+    <Box className={cls['root']}>
+      <Flex className={cls['panel']} align="center" gap="md" w="100%">
+        <TimerRing
+          pct={pct}
+          color={ringColor}
+          label={formatClock(Math.ceil(remaining))}
+          flipIcon={<IconBarbell size={34} stroke={1.8} />}
+          flipped={done}
+        />
+        <Stack gap="xs" w="100%" miw={0} style={{ flex: 1 }}>
+          <Group gap={4} wrap="nowrap">
+            {presets.map((seconds, i) => (
+              <Button
+                key={`${seconds}-${i}`}
+                size="compact-xs"
+                px={4}
+                style={{ flex: 1 }}
+                variant={duration === seconds ? 'filled' : 'default'}
+                color="blue"
+                onClick={() => selectPreset(seconds)}
+              >
+                {presetLabel(seconds)}
+              </Button>
+            ))}
+          </Group>
+          <Group gap={4} wrap="nowrap">
             <Button
-              key={`${seconds}-${i}`}
-              size="compact-xs"
-              px={4}
               style={{ flex: 1 }}
-              variant={duration === seconds ? 'filled' : 'default'}
-              color="blue"
-              onClick={() => selectPreset(seconds)}
+              size="sm"
+              variant={running ? 'light' : 'filled'}
+              color={running ? 'gray' : 'blue'}
+              leftSection={
+                running ? <IconPlayerPauseFilled size={16} /> : <IconPlayerPlayFilled size={16} />
+              }
+              onClick={running ? pause : start}
             >
-              {presetLabel(seconds)}
+              {running ? 'Pause' : done ? 'Restart' : 'Start'}
             </Button>
-          ))}
-        </Group>
-        <Group gap={4} wrap="nowrap">
-          <Button
-            style={{ flex: 1 }}
-            size="sm"
-            variant={running ? 'light' : 'filled'}
-            color={running ? 'gray' : 'blue'}
-            leftSection={
-              running ? <IconPlayerPauseFilled size={16} /> : <IconPlayerPlayFilled size={16} />
-            }
-            onClick={running ? pause : start}
-          >
-            {running ? 'Pause' : done ? 'Restart' : 'Start'}
-          </Button>
-          <Popover
-            opened={editOpen}
-            onChange={setEditOpen}
-            position="bottom-end"
-            withArrow
-            shadow="md"
-          >
-            <Popover.Target>
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                onClick={() => setEditOpen((o) => !o)}
-                aria-label="Edit presets"
-              >
-                <IconPencil size={16} />
-              </ActionIcon>
-            </Popover.Target>
-            <Popover.Dropdown>
-              <Stack gap="xs" w={180}>
-                <Text size="xs" fw={600}>
-                  Edit presets
-                </Text>
-                <SimpleGrid cols={2} spacing="xs">
-                  {presets.map((seconds, i) => (
-                    <NumberInput
-                      key={`edit-${i}`}
-                      size="xs"
-                      min={0.5}
-                      max={60}
-                      step={0.5}
-                      suffix=" m"
-                      value={seconds / 60}
-                      onChange={(v) => updatePreset(i, typeof v === 'number' ? v : Number(v))}
-                    />
-                  ))}
-                </SimpleGrid>
-              </Stack>
-            </Popover.Dropdown>
-          </Popover>
-          <Popover
-            opened={soundOpen}
-            onChange={setSoundOpen}
-            position="bottom-end"
-            withArrow
-            shadow="md"
-          >
-            <Popover.Target>
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                onClick={() => setSoundOpen((o) => !o)}
-                aria-label="Edit sound"
-              >
-                <IconMusic size={16} />
-              </ActionIcon>
-            </Popover.Target>
-            <Popover.Dropdown>
-              <Stack gap="xs" w={210}>
-                <Text size="xs" c="dimmed">
-                  Volume
-                </Text>
-                <Slider
-                  size="sm"
-                  value={Math.round(restSound.volume * 100)}
-                  onChange={(v) => updateRestSound({ volume: v / 100 })}
-                  onChangeEnd={(v) => playSound(restSound.sound, v / 100)}
-                />
-                <Divider />
-                <SoundPicker
-                  title="Completion sound"
-                  value={restSound.sound}
-                  volume={restSound.volume}
-                  onSelect={(v) => updateRestSound({ sound: v })}
-                />
-              </Stack>
-            </Popover.Dropdown>
-          </Popover>
-          <ActionIcon variant="subtle" color="gray" onClick={reset} aria-label="Reset timer">
-            <IconRotateClockwise2 size={16} />
-          </ActionIcon>
-        </Group>
-      </Stack>
-    </Flex>
+            <Popover
+              opened={editOpen}
+              onChange={setEditOpen}
+              position="bottom-end"
+              withArrow
+              shadow="md"
+            >
+              <Popover.Target>
+                <ActionIcon
+                  variant="subtle"
+                  color="gray"
+                  onClick={() => setEditOpen((o) => !o)}
+                  aria-label="Edit presets"
+                >
+                  <IconPencil size={16} />
+                </ActionIcon>
+              </Popover.Target>
+              <Popover.Dropdown>
+                <Stack gap="xs" w={180}>
+                  <Text size="xs" fw={600}>
+                    Edit presets
+                  </Text>
+                  <SimpleGrid cols={2} spacing="xs">
+                    {presets.map((seconds, i) => (
+                      <NumberInput
+                        key={`edit-${i}`}
+                        size="xs"
+                        min={0.5}
+                        max={60}
+                        step={0.5}
+                        suffix=" m"
+                        value={seconds / 60}
+                        onChange={(v) => updatePreset(i, typeof v === 'number' ? v : Number(v))}
+                      />
+                    ))}
+                  </SimpleGrid>
+                </Stack>
+              </Popover.Dropdown>
+            </Popover>
+            <Popover
+              opened={soundOpen}
+              onChange={setSoundOpen}
+              position="bottom-end"
+              withArrow
+              shadow="md"
+            >
+              <Popover.Target>
+                <ActionIcon
+                  variant="subtle"
+                  color="gray"
+                  onClick={() => setSoundOpen((o) => !o)}
+                  aria-label="Edit sound"
+                >
+                  <IconMusic size={16} />
+                </ActionIcon>
+              </Popover.Target>
+              <Popover.Dropdown>
+                <Stack gap="xs" w={210}>
+                  <Text size="xs" c="dimmed">
+                    Volume
+                  </Text>
+                  <Slider
+                    size="sm"
+                    value={Math.round(restSound.volume * 100)}
+                    onChange={(v) => updateRestSound({ volume: v / 100 })}
+                    onChangeEnd={(v) => playSound(restSound.sound, v / 100)}
+                  />
+                  <Divider />
+                  <SoundPicker
+                    title="Completion sound"
+                    value={restSound.sound}
+                    volume={restSound.volume}
+                    onSelect={(v) => updateRestSound({ sound: v })}
+                  />
+                </Stack>
+              </Popover.Dropdown>
+            </Popover>
+            <ActionIcon variant="subtle" color="gray" onClick={reset} aria-label="Reset timer">
+              <IconRotateClockwise2 size={16} />
+            </ActionIcon>
+          </Group>
+        </Stack>
+      </Flex>
+    </Box>
   )
 }
 
@@ -406,145 +409,147 @@ function IntervalTimerPanel() {
   const onPrimary = running ? pause : active ? resume : startFresh
 
   return (
-    <Flex direction={{ base: 'column', sm: 'row' }} align="center" gap="md" w="100%">
-      <TimerRing
-        pct={pct}
-        color={ringColor}
-        label={formatClock(Math.ceil(remaining))}
-        sublabel={sublabel}
-      />
+    <Box className={cls['root']}>
+      <Flex className={cls['panel']} align="center" gap="md" w="100%">
+        <TimerRing
+          pct={pct}
+          color={ringColor}
+          label={formatClock(Math.ceil(remaining))}
+          sublabel={sublabel}
+        />
 
-      <Stack gap="xs" w="100%" miw={0} style={{ flex: 1 }}>
-        {(active || finished) && (
-          <Text size="xs" c="dimmed" ta="right">
-            {configSummary}
-          </Text>
-        )}
-
-        {(active || finished) && (
-          <>
-            <PhaseBar
-              phases={phases}
-              phaseIndex={phaseIndex}
-              markerPct={totalFrac * 100}
-              finished={finished}
-            />
-            <Text size="xs" c="dimmed" fw={500} ta="right">
-              {totalPct}% complete
+        <Stack gap="xs" w="100%" miw={0} style={{ flex: 1 }}>
+          {(active || finished) && (
+            <Text size="xs" c="dimmed" ta="right">
+              {configSummary}
             </Text>
-          </>
-        )}
+          )}
 
-        {!active && !finished && (
-          <SimpleGrid cols={2} spacing="xs">
-            <NumberInput
-              label="Work"
-              size="xs"
-              min={5}
-              max={600}
-              suffix=" s"
-              value={config.work}
-              onChange={(v) => updateConfig({ work: clampNum(v, 5, 600, DEFAULT_INTERVAL.work) })}
-            />
-            <NumberInput
-              label="Rest"
-              size="xs"
-              min={0}
-              max={600}
-              suffix=" s"
-              value={config.rest}
-              onChange={(v) => updateConfig({ rest: clampNum(v, 0, 600, DEFAULT_INTERVAL.rest) })}
-            />
-            <NumberInput
-              label="Rounds"
-              size="xs"
-              min={1}
-              max={30}
-              value={config.reps}
-              onChange={(v) => updateConfig({ reps: clampNum(v, 1, 30, DEFAULT_INTERVAL.reps) })}
-            />
-            <Input.Wrapper label="Sound" size="xs">
-              <Popover
-                opened={soundOpen}
-                onChange={setSoundOpen}
-                position="bottom-end"
-                withArrow
-                shadow="md"
+          {(active || finished) && (
+            <>
+              <PhaseBar
+                phases={phases}
+                phaseIndex={phaseIndex}
+                markerPct={totalFrac * 100}
+                finished={finished}
+              />
+              <Text size="xs" c="dimmed" fw={500} ta="right">
+                {totalPct}% complete
+              </Text>
+            </>
+          )}
+
+          {!active && !finished && (
+            <SimpleGrid cols={2} spacing="xs">
+              <NumberInput
+                label="Work"
+                size="xs"
+                min={5}
+                max={600}
+                suffix=" s"
+                value={config.work}
+                onChange={(v) => updateConfig({ work: clampNum(v, 5, 600, DEFAULT_INTERVAL.work) })}
+              />
+              <NumberInput
+                label="Rest"
+                size="xs"
+                min={0}
+                max={600}
+                suffix=" s"
+                value={config.rest}
+                onChange={(v) => updateConfig({ rest: clampNum(v, 0, 600, DEFAULT_INTERVAL.rest) })}
+              />
+              <NumberInput
+                label="Rounds"
+                size="xs"
+                min={1}
+                max={30}
+                value={config.reps}
+                onChange={(v) => updateConfig({ reps: clampNum(v, 1, 30, DEFAULT_INTERVAL.reps) })}
+              />
+              <Input.Wrapper label="Sound" size="xs">
+                <Popover
+                  opened={soundOpen}
+                  onChange={setSoundOpen}
+                  position="bottom-end"
+                  withArrow
+                  shadow="md"
+                >
+                  <Popover.Target>
+                    <Button
+                      fullWidth
+                      size="xs"
+                      variant="default"
+                      leftSection={<IconMusic size={14} />}
+                      onClick={() => setSoundOpen((o) => !o)}
+                    >
+                      Adjust
+                    </Button>
+                  </Popover.Target>
+                  <Popover.Dropdown>
+                    <Stack gap="xs" w={210}>
+                      <Text size="xs" c="dimmed">
+                        Volume
+                      </Text>
+                      <Slider
+                        size="sm"
+                        value={Math.round(sound.volume * 100)}
+                        onChange={(v) => updateSound({ volume: v / 100 })}
+                        onChangeEnd={(v) => playSound(sound.work, v / 100)}
+                      />
+                      <Divider />
+                      <SoundPicker
+                        title="Work signal"
+                        value={sound.work}
+                        volume={sound.volume}
+                        onSelect={(v) => updateSound({ work: v })}
+                      />
+                      <SoundPicker
+                        title="Rest signal"
+                        value={sound.rest}
+                        volume={sound.volume}
+                        onSelect={(v) => updateSound({ rest: v })}
+                      />
+                    </Stack>
+                  </Popover.Dropdown>
+                </Popover>
+              </Input.Wrapper>
+            </SimpleGrid>
+          )}
+
+          {active || finished ? (
+            <Group gap="xs" w="100%" wrap="nowrap">
+              <Button
+                size="sm"
+                style={{ flex: 1 }}
+                variant={running ? 'light' : 'filled'}
+                color={running ? 'gray' : 'blue'}
+                leftSection={
+                  running ? <IconPlayerPauseFilled size={16} /> : <IconPlayerPlayFilled size={16} />
+                }
+                onClick={onPrimary}
               >
-                <Popover.Target>
-                  <Button
-                    fullWidth
-                    size="xs"
-                    variant="default"
-                    leftSection={<IconMusic size={14} />}
-                    onClick={() => setSoundOpen((o) => !o)}
-                  >
-                    Adjust
-                  </Button>
-                </Popover.Target>
-                <Popover.Dropdown>
-                  <Stack gap="xs" w={210}>
-                    <Text size="xs" c="dimmed">
-                      Volume
-                    </Text>
-                    <Slider
-                      size="sm"
-                      value={Math.round(sound.volume * 100)}
-                      onChange={(v) => updateSound({ volume: v / 100 })}
-                      onChangeEnd={(v) => playSound(sound.work, v / 100)}
-                    />
-                    <Divider />
-                    <SoundPicker
-                      title="Work signal"
-                      value={sound.work}
-                      volume={sound.volume}
-                      onSelect={(v) => updateSound({ work: v })}
-                    />
-                    <SoundPicker
-                      title="Rest signal"
-                      value={sound.rest}
-                      volume={sound.volume}
-                      onSelect={(v) => updateSound({ rest: v })}
-                    />
-                  </Stack>
-                </Popover.Dropdown>
-              </Popover>
-            </Input.Wrapper>
-          </SimpleGrid>
-        )}
-
-        {active || finished ? (
-          <Group gap="xs" w="100%" wrap="nowrap">
+                {primaryLabel}
+              </Button>
+              <Button size="sm" variant="default" color="gray" onClick={reset}>
+                Reset
+              </Button>
+            </Group>
+          ) : (
             <Button
+              fullWidth
               size="sm"
-              style={{ flex: 1 }}
-              variant={running ? 'light' : 'filled'}
-              color={running ? 'gray' : 'blue'}
-              leftSection={
-                running ? <IconPlayerPauseFilled size={16} /> : <IconPlayerPlayFilled size={16} />
-              }
+              variant="filled"
+              color="blue"
+              leftSection={<IconPlayerPlayFilled size={16} />}
               onClick={onPrimary}
             >
               {primaryLabel}
             </Button>
-            <Button size="sm" variant="default" color="gray" onClick={reset}>
-              Reset
-            </Button>
-          </Group>
-        ) : (
-          <Button
-            fullWidth
-            size="sm"
-            variant="filled"
-            color="blue"
-            leftSection={<IconPlayerPlayFilled size={16} />}
-            onClick={onPrimary}
-          >
-            {primaryLabel}
-          </Button>
-        )}
-      </Stack>
-    </Flex>
+          )}
+        </Stack>
+      </Flex>
+    </Box>
   )
 }
 
@@ -555,6 +560,7 @@ export function TimerCard() {
   return (
     <Paper py="xs" px="sm">
       <Stack gap="sm" align="center">
+        {/* theme-allow control-outside-home, raw-selection-control — live timer runtime mode in the shared zustand timer store (read by TimerNavWidget and the running timer), not page view state — a URL/local FieldHandle would fork it */}
         <SegmentedControl
           fullWidth
           size="xs"

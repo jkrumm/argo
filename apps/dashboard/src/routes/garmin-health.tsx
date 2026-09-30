@@ -21,6 +21,10 @@ import {
   recoveryQueries,
   trainingLoadQueries,
 } from '../lib/queries/daily-metrics'
+import { CQ_COMPACT, CQ_REGULAR, CQ_WIDE } from '../lib/container-grid'
+
+// Grid.Col spans resolve through this map; basalt/raw-breakpoint only trusts a same-file literal.
+const GRID_BREAKPOINTS = { xs: CQ_COMPACT, sm: CQ_REGULAR, md: CQ_WIDE, lg: CQ_WIDE, xl: CQ_WIDE }
 
 // ── Route definition ───────────────────────────────────────────────────────
 
@@ -77,7 +81,7 @@ function GarminHealthPage() {
           <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
             <ActivitiesChart params={params} />
           </Suspense>
-          <Grid>
+          <Grid type="container" breakpoints={GRID_BREAKPOINTS}>
             <Grid.Col span={{ base: 12, lg: 6 }}>
               <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
                 <ActivityScoreChart params={params} />
@@ -93,7 +97,7 @@ function GarminHealthPage() {
 
         {/* Section 2: Training Load */}
         <Section title="Training Load">
-          <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
+          <SimpleGrid type="container" cols={{ base: 1, [CQ_WIDE]: 2 }} spacing="md">
             <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <AcwrChart params={params} />
             </Suspense>
@@ -105,7 +109,7 @@ function GarminHealthPage() {
 
         {/* Section 3: Recovery & Sleep */}
         <Section title="Recovery & Sleep">
-          <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
+          <SimpleGrid type="container" cols={{ base: 1, [CQ_WIDE]: 2 }} spacing="md">
             <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <RecoveryTrendChart params={params} />
             </Suspense>
@@ -117,7 +121,7 @@ function GarminHealthPage() {
 
         {/* Section 4: Energy & Stress */}
         <Section title="Energy & Stress">
-          <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
+          <SimpleGrid type="container" cols={{ base: 1, [CQ_WIDE]: 2 }} spacing="md">
             <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <BodyBatteryChart params={params} />
             </Suspense>

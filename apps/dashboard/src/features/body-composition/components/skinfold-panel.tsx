@@ -18,6 +18,7 @@ import {
 import { SkinfoldEntryForm } from './skinfold-entry-form'
 import { SkinfoldHistoryTable } from './skinfold-history-table'
 import SkinfoldChart from '../charts/skinfold-chart'
+import { CQ_REGULAR, CQ_WIDE } from '../../../lib/container-grid'
 
 type SkinfoldSummary = {
   current: number | null
@@ -45,7 +46,7 @@ function SkinfoldSummaryCards({ summary }: { summary: SkinfoldSummary }) {
 
   return (
     <Stack gap="sm">
-      <SimpleGrid cols={{ base: 2, sm: 3, lg: 6 }}>
+      <SimpleGrid type="container" cols={{ base: 2, [CQ_REGULAR]: 3, [CQ_WIDE]: 6 }}>
         <Card py="xs" px="sm">
           <Group justify="space-between">
             <Text size="xs" c="dimmed">

@@ -3,6 +3,7 @@ import { VX } from 'basalt-ui/tokens'
 import { percent } from 'basalt-ui/format'
 import { fmtDayLabel, killerLabel, verdictTone } from '../formulas'
 import type { Night } from '../types'
+import { CQ_REGULAR } from '../../../lib/container-grid'
 
 /**
  * One cell per night, tight top-to-bottom: weekday/day, a verdict-tone bar (the at-a-glance
@@ -20,7 +21,7 @@ export function NightStrip({
 }) {
   return (
     <Card py="xs" px="sm">
-      <SimpleGrid cols={{ base: 5, sm: 10 }} spacing={4}>
+      <SimpleGrid type="container" cols={{ base: 5, [CQ_REGULAR]: 10 }} spacing={4}>
         {nights.map((night) => {
           const selected = night.date === selectedDate
           const isOut = night.verdict === 'out'

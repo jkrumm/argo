@@ -23,6 +23,7 @@ import {
 } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { PageBar } from 'basalt-ui'
+import { FormRow } from 'basalt-ui/forms'
 import { VX } from 'basalt-ui/tokens'
 import {
   IconCheck,
@@ -568,34 +569,41 @@ function DetailPane(props: {
             <Code style={{ fontSize: VX.text.micro }}>{sourceId}</Code>
           </Stack>
           <Stack gap="xs" w={320}>
-            <Select
-              size="xs"
-              placeholder="Pick a label"
-              value={null}
-              data={props.suggestedLabels}
-              searchable
-              clearable
-              onChange={(v) => v && setLabelDraft(v)}
-              comboboxProps={{ withinPortal: true }}
-            />
-            <TextInput
-              size="xs"
-              placeholder="custom label"
-              value={labelDraft}
-              onChange={(e) => setLabelDraft(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSave()
-              }}
-            />
-            <Textarea
-              size="xs"
-              placeholder="notes (optional — visible to agents via GET /m365/labels)"
-              value={notesDraft}
-              onChange={(e) => setNotesDraft(e.currentTarget.value)}
-              autosize
-              minRows={2}
-              maxRows={6}
-            />
+            <FormRow label="Label">
+              <Stack gap="xs">
+                {/* theme-allow raw-selection-control — homed in FormRow (a declared form-row home); the check-theme text lane does not list FormRow as a host, the oxlint AST lane does */}
+                <Select
+                  size="xs"
+                  placeholder="Pick a label"
+                  value={null}
+                  data={props.suggestedLabels}
+                  searchable
+                  clearable
+                  onChange={(v) => v && setLabelDraft(v)}
+                  comboboxProps={{ withinPortal: true }}
+                />
+                <TextInput
+                  size="xs"
+                  placeholder="custom label"
+                  value={labelDraft}
+                  onChange={(e) => setLabelDraft(e.currentTarget.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSave()
+                  }}
+                />
+              </Stack>
+            </FormRow>
+            <FormRow label="Notes">
+              <Textarea
+                size="xs"
+                placeholder="notes (optional — visible to agents via GET /m365/labels)"
+                value={notesDraft}
+                onChange={(e) => setNotesDraft(e.currentTarget.value)}
+                autosize
+                minRows={2}
+                maxRows={6}
+              />
+            </FormRow>
             <Group justify="space-between" gap="xs">
               <Button
                 size="xs"

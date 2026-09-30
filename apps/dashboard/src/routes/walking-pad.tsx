@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { Grid, SimpleGrid, Stack } from '@mantine/core'
 import { useElementSize } from '@mantine/hooks'
-import { PageBar, Section, useSizeClass } from 'basalt-ui'
+import { PageBar, Section } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, MultiSelectFilter, RangeFilter } from 'basalt-ui/controls'
 import { walkingStore } from '../lib/window-stores'
@@ -22,6 +22,10 @@ import {
   useAchievementWatcher,
 } from '../features/walking-pad'
 import { walkingPadQueries } from '../lib/queries/walking-pad'
+import { CONTAINER_WIDE, CQ_COMPACT, CQ_REGULAR, CQ_WIDE } from '../lib/container-grid'
+
+// Grid.Col spans resolve through this map; basalt/raw-breakpoint only trusts a same-file literal.
+const GRID_BREAKPOINTS = { xs: CQ_COMPACT, sm: CQ_REGULAR, md: CQ_WIDE, lg: CQ_WIDE, xl: CQ_WIDE }
 
 export const Route = createFileRoute('/walking-pad')({
   validateSearch: walkingStore.validateSearch,
@@ -54,18 +58,20 @@ function WalkingPadPage() {
   // Toast + confetti on new achievement unlocks. Side-effect hook.
   useAchievementWatcher()
 
-  // Mirror the left column's height into the achievements card on lg+ so the
-  // two columns line up. Below lg the columns stack — the prop drops back to
-  // undefined and the gallery uses its own default scroll height.
+  // Mirror the left column's height into the achievements card while the grids sit side by side
+  // (their own width at the `wide` container class — the same key their `lg` spans resolve
+  // through). Stacked, the prop drops back to undefined and the gallery uses its own default
+  // scroll height.
+  const { ref: pageRef, width: pageWidth } = useElementSize<HTMLDivElement>()
+  const sideBySide = pageWidth >= CONTAINER_WIDE
   const { ref: leftColRef, height: leftColHeight } = useElementSize<HTMLDivElement>()
-  const isLg = useSizeClass() === 'expanded'
-  const matchHeight = isLg && leftColHeight > 0 ? leftColHeight : undefined
+  const matchHeight = sideBySide && leftColHeight > 0 ? leftColHeight : undefined
 
   // Same trick for the bottom row: the (capped) history card drives the
-  // time-of-day heatmap so the two cards line up at lg+. Below lg the
-  // columns stack and `bottomMatchHeight` drops back to undefined.
+  // time-of-day heatmap so the two cards line up side by side; stacked,
+  // `bottomMatchHeight` drops back to undefined.
   const { ref: historyRef, height: historyHeight } = useElementSize<HTMLDivElement>()
-  const bottomMatchHeight = isLg && historyHeight > 0 ? historyHeight : undefined
+  const bottomMatchHeight = sideBySide && historyHeight > 0 ? historyHeight : undefined
 
   return (
     <>
@@ -82,8 +88,8 @@ function WalkingPadPage() {
         }
       />
 
-      <Stack gap="md">
-        <Grid>
+      <Stack gap="md" ref={pageRef}>
+        <Grid type="container" breakpoints={GRID_BREAKPOINTS}>
           <Grid.Col span={{ base: 12, lg: 8 }}>
             <Stack gap="md" ref={leftColRef}>
               <Suspense fallback={<LiveCardSkeleton />}>
@@ -105,7 +111,7 @@ function WalkingPadPage() {
         </Grid>
 
         <Section title="Daily rhythm" subtitle="How is each day adding up?">
-          <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
+          <SimpleGrid type="container" cols={{ base: 1, [CQ_WIDE]: 2 }} spacing="md">
             <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <DailyActivityChart params={params} />
             </Suspense>
@@ -116,7 +122,7 @@ function WalkingPadPage() {
         </Section>
 
         <Section title="Volume" subtitle="Am I keeping the habit alive week to week?">
-          <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
+          <SimpleGrid type="container" cols={{ base: 1, [CQ_WIDE]: 2 }} spacing="md">
             <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <WeeklyVolumeChart params={params} />
             </Suspense>
@@ -126,7 +132,7 @@ function WalkingPadPage() {
           </SimpleGrid>
         </Section>
 
-        <Grid>
+        <Grid type="container" breakpoints={GRID_BREAKPOINTS}>
           <Grid.Col span={{ base: 12, lg: 4 }}>
             <Section title="Patterns" subtitle="When do I tend to walk?">
               <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>

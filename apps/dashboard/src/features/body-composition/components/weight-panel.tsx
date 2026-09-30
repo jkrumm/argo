@@ -22,6 +22,7 @@ import {
 } from '../../../lib/queries/weight-log'
 import { weightPhaseColor, weightTrendColor, type WeightPhase, type WeightTrend } from '../formulas'
 import WeightChart from '../charts/weight-chart'
+import { CQ_REGULAR, CQ_WIDE } from '../../../lib/container-grid'
 
 type WeightSummary = {
   current: number | null
@@ -56,7 +57,7 @@ function WeightSummaryCards({ summary }: { summary: WeightSummary }) {
     )
 
   return (
-    <SimpleGrid cols={{ base: 2, sm: 3, lg: 6 }}>
+    <SimpleGrid type="container" cols={{ base: 2, [CQ_REGULAR]: 3, [CQ_WIDE]: 6 }}>
       <Card py="xs" px="sm">
         <Group justify="space-between">
           <Text size="xs" c="dimmed">

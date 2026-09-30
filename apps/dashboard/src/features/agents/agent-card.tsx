@@ -7,12 +7,11 @@ type Props = {
 }
 
 /**
- * One agent, one card, no horizontal scroll — the phone replacement for a row of
- * `AgentsTable`'s 6-column table (see `agents-table.tsx` for why the table itself cannot flex
- * below `sm`: two of its six columns are free prose, and basalt's own note measured a 5-column
- * table at 448px of min-content). Four lines: state + project + last activity, the title, the
- * standing/blocker prose, and a compact recommendation + source/tier line — the same fields the
- * table renders, just stacked instead of scrolled.
+ * One agent, one card, no horizontal scroll — `AgentsTable`'s `renderCard` projection, shown in
+ * place of the 6-column table while the table's own box is narrower than the `regular` container
+ * class (two of its six columns are free prose, so it cannot flex that far down). Four lines:
+ * state + project + last activity, the title, the standing/blocker prose, and a compact
+ * recommendation + source/tier line — the same fields the table renders, just stacked.
  */
 export function AgentCard({ agent }: Props) {
   const standingText = agent.blocker ?? agent.standing

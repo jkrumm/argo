@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from 'react'
 import { Anchor, Badge, Button, Card, Group, Modal, Stack, Text, Textarea } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
-import { Section, useSizeClass } from 'basalt-ui'
 import {
   isKnownActionVerb,
   type WardenActionVerb,
@@ -197,43 +196,19 @@ function columnsFor({
   ]
 }
 
-function issueCardLabel(item: WardenBoardItem): string {
-  if (item.title) return item.title
-  if (item.issue) return issueRefLabel(item.issue)
-  return `event ${item.event_id}`
-}
-
 function IssueCard({
   item,
   pendingAction,
-  onSelect,
   onFire,
   onPrompt,
 }: {
   item: WardenBoardItem
   pendingAction: PendingAction | undefined
-  onSelect: () => void
   onFire: (verb: WardenActionVerb) => void
   onPrompt: (verb: PromptVerb) => void
 }) {
   return (
-    <Card
-      padding="sm"
-      onClick={onSelect}
-      onKeyDown={(e) => {
-        // Nested real controls (the action Buttons, the issue Anchor) have their own keyboard
-        // behaviour — only a key landing on the Card itself (not bubbled from a focused child)
-        // should open the timeline modal.
-        if (e.target !== e.currentTarget) return
-        if (e.key !== 'Enter' && e.key !== ' ') return
-        e.preventDefault()
-        onSelect()
-      }}
-      role="button"
-      tabIndex={0}
-      aria-label={`Open ${issueCardLabel(item)}`}
-      style={{ cursor: 'pointer' }}
-    >
+    <Card padding="sm">
       <Stack gap={4}>
         <Group justify="space-between" wrap="nowrap" gap="xs">
           <Group gap="xs" wrap="nowrap" miw={0}>
@@ -270,14 +245,12 @@ function IssueCard({
 function IssueGroupBlock({
   group,
   pending,
-  isDesktop,
   onSelectItem,
   onFire,
   onPrompt,
 }: {
   group: IssueGroup
   pending: PendingActions
-  isDesktop: boolean
   onSelectItem: (eventId: number) => void
   onFire: (eventId: number, verb: WardenActionVerb) => void
   onPrompt: (eventId: number, verb: PromptVerb) => void
@@ -287,25 +260,6 @@ function IssueGroupBlock({
     [pending, onFire, onPrompt],
   )
 
-  if (!isDesktop) {
-    return (
-      <Section title={group.label} count={group.items.length}>
-        <Stack gap="xs">
-          {group.items.map((item) => (
-            <IssueCard
-              key={item.event_id}
-              item={item}
-              pendingAction={pending[item.event_id]}
-              onSelect={() => onSelectItem(item.event_id)}
-              onFire={(verb) => onFire(item.event_id, verb)}
-              onPrompt={(verb) => onPrompt(item.event_id, verb)}
-            />
-          ))}
-        </Stack>
-      </Section>
-    )
-  }
-
   return (
     <BasaltDataTable
       title={group.label}
@@ -313,6 +267,14 @@ function IssueGroupBlock({
       columns={columns}
       getRowId={(row) => String(row.event_id)}
       onRowActivate={(row) => onSelectItem(row.event_id)}
+      renderCard={(item) => (
+        <IssueCard
+          item={item}
+          pendingAction={pending[item.event_id]}
+          onFire={(verb) => onFire(item.event_id, verb)}
+          onPrompt={(verb) => onPrompt(item.event_id, verb)}
+        />
+      )}
     />
   )
 }
@@ -376,7 +338,6 @@ export function ActionPromptModal({
  * `dismiss`/`note` first collect a short text via `ActionPromptModal`.
  */
 export function GithubIssuesSection({ groups, pending, onSelectItem, onAction }: Props) {
-  const isDesktop = useSizeClass() !== 'compact'
   const [prompt, setPrompt] = useState<PromptState>(null)
   const nonEmpty = groups.filter((g) => g.items.length > 0)
 
@@ -405,7 +366,6 @@ export function GithubIssuesSection({ groups, pending, onSelectItem, onAction }:
               key={group.key}
               group={group}
               pending={pending}
-              isDesktop={isDesktop}
               onSelectItem={onSelectItem}
               onFire={onAction}
               onPrompt={openPrompt}

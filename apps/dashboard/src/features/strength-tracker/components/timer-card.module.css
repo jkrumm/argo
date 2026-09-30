@@ -1,0 +1,21 @@
+/*
+ * A timer panel's ring-beside-controls swap: stacked while the card is narrow, side by side once
+ * its OWN width opens the regular class. A container decision, not a viewport one — the card sits
+ * in a rail or a full-width column — so it keys on basalt's `basalt-grid` container at the
+ * CONTAINER_CLASSES.regular boundary (basalt-ui MIGRATING.md § 1.32.0, `basalt/raw-breakpoint`).
+ */
+
+.root {
+  container: basalt-grid / inline-size;
+  width: 100%;
+}
+
+.panel {
+  flex-direction: column;
+}
+
+@container basalt-grid (min-width: 480px) {
+  .panel {
+    flex-direction: row;
+  }
+}

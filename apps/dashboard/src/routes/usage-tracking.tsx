@@ -14,6 +14,10 @@ import ErrorRate from '../features/usage-tracking/charts/error-rate'
 import LatencyP95 from '../features/usage-tracking/charts/latency-p95'
 import BillingSplit from '../features/usage-tracking/charts/billing-split'
 import TopProjects from '../features/usage-tracking/charts/top-projects'
+import { CQ_COMPACT, CQ_REGULAR, CQ_WIDE } from '../lib/container-grid'
+
+// Grid.Col spans resolve through this map; basalt/raw-breakpoint only trusts a same-file literal.
+const GRID_BREAKPOINTS = { xs: CQ_COMPACT, sm: CQ_REGULAR, md: CQ_WIDE, lg: CQ_WIDE, xl: CQ_WIDE }
 
 export const Route = createFileRoute('/usage-tracking')({
   validateSearch: usageStore.validateSearch,
@@ -57,7 +61,7 @@ function UsageTrackingPage() {
         <HeroStats />
 
         <Section title="Cost">
-          <Grid>
+          <Grid type="container" breakpoints={GRID_BREAKPOINTS}>
             <Grid.Col span={{ base: 12, lg: 8 }}>
               <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
                 <CostOverTime {...tsBase} groupBy={search.costGroupBy} />
@@ -72,7 +76,7 @@ function UsageTrackingPage() {
         </Section>
 
         <Section title="Volume">
-          <Grid>
+          <Grid type="container" breakpoints={GRID_BREAKPOINTS}>
             <Grid.Col span={{ base: 12, lg: 8 }}>
               <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
                 <TokensOverTime {...tsBase} groupBy={search.tokensGroupBy} />
@@ -87,7 +91,7 @@ function UsageTrackingPage() {
         </Section>
 
         <Section title="Health">
-          <Grid>
+          <Grid type="container" breakpoints={GRID_BREAKPOINTS}>
             <Grid.Col span={{ base: 12, lg: 6 }}>
               <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
                 <ErrorRate {...tsBase} />

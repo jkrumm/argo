@@ -33,6 +33,10 @@ import { strengthQueries, type StrengthQueryParams } from '../lib/queries/streng
 import { workoutsQueries } from '../lib/queries/workouts'
 import { useGymSync } from '../lib/queries/gym'
 import { useWorkoutDraftSync } from '../lib/queries/workout-draft'
+import { CQ_COMPACT, CQ_REGULAR, CQ_WIDE } from '../lib/container-grid'
+
+// Grid.Col spans resolve through this map; basalt/raw-breakpoint only trusts a same-file literal.
+const GRID_BREAKPOINTS = { xs: CQ_COMPACT, sm: CQ_REGULAR, md: CQ_WIDE, lg: CQ_WIDE, xl: CQ_WIDE }
 
 /**
  * An EMPTY selection is the multi field's way of saying "no constraint", and every strength query
@@ -133,7 +137,7 @@ function StrengthTrackerPage() {
       />
 
       <Stack gap="md">
-        <Grid>
+        <Grid type="container" breakpoints={GRID_BREAKPOINTS}>
           <Grid.Col span={{ base: 12, lg: 8 }}>
             {search.tab === 'train' ? (
               <TrainingTools
@@ -166,6 +170,7 @@ function StrengthTrackerPage() {
           </Grid.Col>
 
           {/* Right rail — desktop/tablet only; on phones it moves to the Train tab. */}
+          {/* theme-allow raw-breakpoint — paired with the Train tab (ViewTabs only: 'sm-down'), which is size-class keyed — the rail must hide on the same axis or TrainingTools is unreachable */}
           <Grid.Col span={{ base: 12, lg: 4 }} visibleFrom="sm">
             <TrainingTools
               params={queryParams}
@@ -200,7 +205,7 @@ function ChartsPanel({
         title="Strength Trajectory"
         subtitle="Am I getting stronger on the lifts I care about?"
       >
-        <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
+        <SimpleGrid type="container" cols={{ base: 1, [CQ_WIDE]: 2 }} spacing="md">
           <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
             <OneRmTrendChart params={params} />
           </Suspense>
@@ -211,7 +216,7 @@ function ChartsPanel({
       </Section>
 
       <Section title="Load Quality" subtitle="Am I loading smart or just hard?">
-        <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
+        <SimpleGrid type="container" cols={{ base: 1, [CQ_WIDE]: 2 }} spacing="md">
           <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
             <WeeklyVolumeChart params={params} />
           </Suspense>
@@ -222,7 +227,7 @@ function ChartsPanel({
       </Section>
 
       <Section title="Efficiency & Momentum" subtitle="Are my sessions producing quality work?">
-        <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
+        <SimpleGrid type="container" cols={{ base: 1, [CQ_WIDE]: 2 }} spacing="md">
           <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
             <InolChart params={params} />
           </Suspense>
@@ -233,7 +238,7 @@ function ChartsPanel({
       </Section>
 
       <Section title="Balance" subtitle="Are my lifts proportional?">
-        <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
+        <SimpleGrid type="container" cols={{ base: 1, [CQ_WIDE]: 2 }} spacing="md">
           <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
             <RelativeProgressionChart params={params} />
           </Suspense>
@@ -244,7 +249,7 @@ function ChartsPanel({
       </Section>
 
       <Section title="Readiness" subtitle="Is today a push, sustain, or rest day?">
-        <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
+        <SimpleGrid type="container" cols={{ base: 1, [CQ_WIDE]: 2 }} spacing="md">
           <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
             <ReadinessStrainChart params={params} />
           </Suspense>

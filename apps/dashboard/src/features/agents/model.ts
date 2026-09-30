@@ -67,8 +67,8 @@ export function snapshotAgeMs(latest: OverviewRecord | null, now = Date.now()): 
   return Math.max(0, now - Date.parse(latest.receivedAt))
 }
 
-// Mobile card list — the phone replacement for `AgentsTable`'s 6-column table
-// (see agents-table.tsx for why the table itself cannot flex below `sm`).
+// Row order for `AgentsTable` — `renderCard` projects the table's own row order, so sorting the
+// data most-urgent-first keeps the phone card list in triage order (and the table with it).
 
 /** Card-list sort priority: `needs_you` first, then `working`, everything else after — on a phone
  * the top of the list is all that's visible, so the two actionable states must lead. Equal

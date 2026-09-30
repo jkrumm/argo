@@ -4,6 +4,7 @@ import { alpha, VX } from 'basalt-ui/tokens'
 import { workoutsQueries, type WorkoutWindowParams } from '../../../lib/queries/workouts'
 import { EXERCISE_COLORS, type ExerciseKey } from '../constants'
 import { exerciseLabel } from '../formulas'
+import { CQ_REGULAR, CQ_WIDE } from '../../../lib/container-grid'
 
 type ExerciseSummaryItem = {
   exercise_id: string
@@ -39,7 +40,7 @@ export function ExerciseSummaryCards({ params }: { params: WorkoutWindowParams }
   }
 
   return (
-    <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="sm">
+    <SimpleGrid type="container" cols={{ base: 1, [CQ_REGULAR]: 2, [CQ_WIDE]: 4 }} spacing="sm">
       {items.map((item) => (
         <Card key={item.exercise_id} py="xs" px="sm">
           <Group gap={6} mb={4}>

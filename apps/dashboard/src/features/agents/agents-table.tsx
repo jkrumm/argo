@@ -1,7 +1,5 @@
-import { useMemo } from 'react'
 import { Badge, Group, Stack, Text } from '@mantine/core'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
-import { Section, useSizeClass } from 'basalt-ui'
 import { relativeTime } from 'basalt-ui/format'
 import type { OverviewSnapshot, OverviewSummary } from '../../lib/queries/agents'
 import {
@@ -102,6 +100,8 @@ const columns = [
   columnHelper.accessor('source', {
     id: 'source',
     header: 'Source',
+    // A low-value provenance column: folds first when the table is too narrow for all six.
+    meta: { priority: 10 },
     cell: (ctx) => (
       <Text size="sm" c="dimmed">
         {ctx.getValue() ?? '—'}
@@ -110,16 +110,6 @@ const columns = [
     ),
   }),
 ]
-
-/** Below `lg` there isn't room for a low-value provenance column beside the two free-prose ones. */
-const columnsWithoutSource = columns.filter((c) => c.id !== 'source')
-
-/** A table-width floor for `stickyHeader` to stick against (basalt requires one of `maxHeight` /
- * `minWidth` to pair with `stickyHeader`, or the header has no scroll range to stick within). Six
- * columns, two of them free prose (Standing, Next) — basalt's own note measured a 5-column table
- * at ~448px of min-content, so 720 gives the extra column and both prose columns room to breathe
- * before the row compresses. */
-const TABLE_MIN_WIDTH = 720
 
 function overviewLine(overview: Props['overview'], summary: OverviewSummary | undefined): string {
   const breakdown = breakdownLine(summary)
@@ -136,45 +126,23 @@ const emptyState = (
 )
 
 /**
- * The agents record list. `BasaltDataTable` on desktop (`sm` and up); below it the table's own
- * 6-column, no-card-fallback shape is unusable on a phone (two free-prose columns, no
- * column-visibility control — see the module's own `minWidth`/`stickyHeader` note), so it swaps to
- * one `AgentCard` per agent, most-urgent-first.
+ * The agents record list. `BasaltDataTable` while it has room; once its own box is narrower than
+ * the `regular` container class it projects one `AgentCard` per agent (`renderCard`) — the
+ * 6-column table has two free-prose columns, so it cannot flex down to a phone. Between the two,
+ * the column fold sheds `source` first. Rows are most-urgent-first (needs you → working → rest)
+ * so the card list keeps the triage order it had before — renderCard projects the table's order.
  */
 export function AgentsTable({ agents, overview, summary }: Props) {
-  const sizeClass = useSizeClass()
-  const isDesktop = sizeClass !== 'compact'
-  const showSource = sizeClass === 'expanded'
-  const subtitle = overviewLine(overview, summary)
-  const tableColumns = useMemo(() => (showSource ? columns : columnsWithoutSource), [showSource])
-
-  if (!isDesktop) {
-    const cards = sortAgentsForCards(agents)
-    return (
-      <Section title="Agents" subtitle={subtitle} count={agents.length}>
-        {cards.length === 0 ? (
-          emptyState
-        ) : (
-          <Stack gap="xs">
-            {cards.map((agent) => (
-              <AgentCard key={agent.id} agent={agent} />
-            ))}
-          </Stack>
-        )}
-      </Section>
-    )
-  }
-
   return (
     <BasaltDataTable
       title="Agents"
-      subtitle={subtitle}
-      data={agents}
-      columns={tableColumns}
+      subtitle={overviewLine(overview, summary)}
+      data={sortAgentsForCards(agents)}
+      columns={columns}
       getRowId={(row) => row.id}
       stickyHeader
-      minWidth={TABLE_MIN_WIDTH}
       emptyState={emptyState}
+      renderCard={(agent) => <AgentCard agent={agent} />}
     />
   )
 }

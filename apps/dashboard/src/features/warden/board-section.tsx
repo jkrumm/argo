@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { Anchor, Badge, Card, Group, Stack, Text } from '@mantine/core'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
-import { Section, useSizeClass } from 'basalt-ui'
 import { relativeTime } from 'basalt-ui/format'
 import type { WardenBoardItem } from '../../lib/queries/warden'
 import { AgeText, StateBadge } from './board-item-cells'
@@ -88,31 +87,10 @@ function columnsFor(bucketKey: string) {
   ]
 }
 
-function ItemCard({
-  item,
-  bucketKey,
-  onSelect,
-}: {
-  item: WardenBoardItem
-  bucketKey: string
-  onSelect: () => void
-}) {
+function ItemCard({ item, bucketKey }: { item: WardenBoardItem; bucketKey: string }) {
   const color = noteColor(bucketKey)
-  const label = item.title ?? item.repo ?? item.origin ?? `event ${item.event_id}`
   return (
-    <Card
-      padding="sm"
-      onClick={onSelect}
-      onKeyDown={(e) => {
-        if (e.key !== 'Enter' && e.key !== ' ') return
-        e.preventDefault()
-        onSelect()
-      }}
-      role="button"
-      tabIndex={0}
-      aria-label={`Open ${label}`}
-      style={{ cursor: 'pointer' }}
-    >
+    <Card padding="sm">
       <Stack gap={4}>
         <Group justify="space-between" wrap="nowrap" gap="xs">
           <Group gap="xs" wrap="nowrap" miw={0}>
@@ -167,25 +145,7 @@ function BucketBlock({
   bucket: Bucket
   onSelectItem: (eventId: number) => void
 }) {
-  const isDesktop = useSizeClass() !== 'compact'
   const columns = useMemo(() => columnsFor(bucket.key), [bucket.key])
-
-  if (!isDesktop) {
-    return (
-      <Section title={bucket.label} count={bucket.items.length}>
-        <Stack gap="xs">
-          {bucket.items.map((item) => (
-            <ItemCard
-              key={item.event_id}
-              item={item}
-              bucketKey={bucket.key}
-              onSelect={() => onSelectItem(item.event_id)}
-            />
-          ))}
-        </Stack>
-      </Section>
-    )
-  }
 
   return (
     <BasaltDataTable
@@ -194,6 +154,7 @@ function BucketBlock({
       columns={columns}
       getRowId={(row) => String(row.event_id)}
       onRowActivate={(row) => onSelectItem(row.event_id)}
+      renderCard={(item) => <ItemCard item={item} bucketKey={bucket.key} />}
     />
   )
 }

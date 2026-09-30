@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Anchor, Badge, Card, Group, Stack, Text, Tooltip } from '@mantine/core'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
-import { EmptyState, Section, useSizeClass } from 'basalt-ui'
+import { EmptyState, Section } from 'basalt-ui'
 import { IconCircleCheck } from '@tabler/icons-react'
 import type { WardenActionVerb } from '../../lib/queries/warden'
 import { StateBadge } from './board-item-cells'
@@ -173,33 +173,16 @@ function columnsFor({
 function AwaitingOwnerCard({
   row,
   pendingAction,
-  onSelect,
   onFire,
   onPrompt,
 }: {
   row: AwaitingOwnerRow
   pendingAction: PendingAction | undefined
-  onSelect: () => void
   onFire: (verb: WardenActionVerb) => void
   onPrompt: (verb: PromptVerb) => void
 }) {
-  const label = row.title ?? row.repo ?? `event ${row.eventId ?? '—'}`
-  const clickable = row.kind === 'item' && row.eventId !== null
   return (
-    <Card
-      padding="sm"
-      onClick={clickable ? onSelect : undefined}
-      onKeyDown={(e) => {
-        if (!clickable) return
-        if (e.key !== 'Enter' && e.key !== ' ') return
-        e.preventDefault()
-        onSelect()
-      }}
-      role={clickable ? 'button' : undefined}
-      tabIndex={clickable ? 0 : undefined}
-      aria-label={clickable ? `Open ${label}` : undefined}
-      style={clickable ? { cursor: 'pointer' } : undefined}
-    >
+    <Card padding="sm">
       <Stack gap={4}>
         <Group justify="space-between" wrap="nowrap" gap="xs">
           <Group gap="xs" wrap="nowrap" miw={0}>
@@ -239,7 +222,6 @@ function AwaitingOwnerCard({
  * rows carry no actions — the PR link and the reason are all there is to show.
  */
 export function AwaitingOwnerSection({ rows, pending, onSelectItem, onAction }: Props) {
-  const isDesktop = useSizeClass() !== 'compact'
   const [prompt, setPrompt] = useState<PromptState>(null)
 
   const openPrompt = useCallback(
@@ -275,7 +257,7 @@ export function AwaitingOwnerSection({ rows, pending, onSelectItem, onAction }: 
             title="Nothing waiting on you"
             description="Warden has nothing parked that needs your decision right now."
           />
-        ) : isDesktop ? (
+        ) : (
           <BasaltDataTable
             data={rows}
             columns={columns}
@@ -283,20 +265,15 @@ export function AwaitingOwnerSection({ rows, pending, onSelectItem, onAction }: 
             onRowActivate={(row) => {
               if (row.kind === 'item' && row.eventId !== null) onSelectItem(row.eventId)
             }}
-          />
-        ) : (
-          <Stack gap="xs">
-            {rows.map((row, index) => (
+            renderCard={(row) => (
               <AwaitingOwnerCard
-                key={`${row.kind}-${row.eventId ?? 'none'}-${index}`}
                 row={row}
                 pendingAction={row.eventId !== null ? pending[row.eventId] : undefined}
-                onSelect={() => row.eventId !== null && onSelectItem(row.eventId)}
                 onFire={(verb) => row.eventId !== null && fireOrPrompt(row.eventId, verb)}
                 onPrompt={(verb) => row.eventId !== null && openPrompt(row.eventId, verb)}
               />
-            ))}
-          </Stack>
+            )}
+          />
         )}
       </Section>
 

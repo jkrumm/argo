@@ -9,6 +9,7 @@ import {
 import { METRIC_TOOLTIPS } from './constants'
 import { acwrZoneLabel, acwrZoneTone, recoveryActionLabel, scoreTone } from './formulas'
 import type { SummaryParams } from './types'
+import { CQ_REGULAR } from '../../lib/container-grid'
 
 /**
  * The three hero cards are `StatCard`s (basalt-ui 1.27.0), not a local `HeroCard`: `unit`,
@@ -125,7 +126,7 @@ function TrainingLoadCard({ params }: { params: SummaryParams }) {
 
 export function HeroStats({ params }: { params: SummaryParams }) {
   return (
-    <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+    <SimpleGrid type="container" cols={{ base: 1, [CQ_REGULAR]: 3 }} spacing="sm">
       <RecoveryCard params={params} />
       <FitnessDirectionCard params={params} />
       <TrainingLoadCard params={params} />
