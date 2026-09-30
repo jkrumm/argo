@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Suspense, useMemo } from 'react'
 import { Card, Grid, SimpleGrid, Stack } from '@mantine/core'
 import { IconBarbell } from '@tabler/icons-react'
-import { EmptyState, PageBar, Section } from 'basalt-ui'
+import { EmptyState, PageBar, Section, useSizeClass } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, MultiSelectFilter, RangeFilter, ViewTabs } from 'basalt-ui/controls'
 import { DateRangePicker } from 'basalt-ui/controls-dates'
@@ -84,6 +84,11 @@ export const Route = createFileRoute('/strength-tracker')({
 
 function StrengthTrackerPage() {
   const search = strengthStore.useValues()
+  // The right rail and the phone-only Train tab (`only: 'sm-down'` below) are one decision on the
+  // size-class axis: exactly one of them holds TrainingTools. The main column's width follows the
+  // same read — keyed on the grid's container alone it went 8/12 beside a hidden rail between an
+  // 800px grid and an 840px viewport, leaving the right third blank.
+  const hasRail = useSizeClass() !== 'compact'
 
   // Single owner of the gym-config poll — every `useGyms` consumer below reads
   // the cache it fills. Mounting this more than once multiplies the request rate.
@@ -138,7 +143,7 @@ function StrengthTrackerPage() {
 
       <Stack gap="md">
         <Grid type="container" breakpoints={GRID_BREAKPOINTS}>
-          <Grid.Col span={{ base: 12, lg: 8 }}>
+          <Grid.Col span={{ base: 12, lg: hasRail ? 8 : 12 }}>
             {search.tab === 'train' ? (
               <TrainingTools
                 params={queryParams}
@@ -170,14 +175,15 @@ function StrengthTrackerPage() {
           </Grid.Col>
 
           {/* Right rail — desktop/tablet only; on phones it moves to the Train tab. */}
-          {/* theme-allow raw-breakpoint — paired with the Train tab (ViewTabs only: 'sm-down'), which is size-class keyed — the rail must hide on the same axis or TrainingTools is unreachable */}
-          <Grid.Col span={{ base: 12, lg: 4 }} visibleFrom="sm">
-            <TrainingTools
-              params={queryParams}
-              hasWorkouts={hasWorkouts}
-              multiExercise={exercises.length > 1}
-            />
-          </Grid.Col>
+          {hasRail && (
+            <Grid.Col span={{ base: 12, lg: 4 }}>
+              <TrainingTools
+                params={queryParams}
+                hasWorkouts={hasWorkouts}
+                multiExercise={exercises.length > 1}
+              />
+            </Grid.Col>
+          )}
         </Grid>
       </Stack>
     </>
