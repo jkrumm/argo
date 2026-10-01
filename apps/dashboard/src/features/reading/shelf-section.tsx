@@ -1,6 +1,6 @@
 import { SimpleGrid, Stack, Text } from '@mantine/core'
+import { CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
 import { BookCard } from './book-card'
-import { CQ_REGULAR, CQ_WIDE } from '../../lib/container-grid'
 
 type ShelfItem = {
   hardcoverBookId: number
@@ -40,7 +40,7 @@ export function ShelfSection({ title, books }: { title: string; books: ShelfItem
           ({books.length})
         </Text>
       </Text>
-      <SimpleGrid type="container" cols={{ base: 1, [CQ_REGULAR]: 2, [CQ_WIDE]: 3 }} spacing="sm">
+      <SimpleGrid type="container" cols={{ base: 1, [CQ.regular]: 2, [CQ.wide]: 3 }} spacing="sm">
         {books.map((book) => (
           <BookCard key={book.hardcoverBookId} book={book} />
         ))}

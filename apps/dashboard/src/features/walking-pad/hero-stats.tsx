@@ -3,10 +3,10 @@ import { Card, SimpleGrid, Skeleton } from '@mantine/core'
 import { IconFlame, IconRoute, IconWalk } from '@tabler/icons-react'
 import { StatCard, type StatCardTone } from 'basalt-ui'
 import { km } from 'basalt-ui/format'
+import { CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../lib/queries/walking-pad'
 import { HERO_TOOLTIPS } from './constants'
 import { formatDeltaKmh, formatPace } from './formatters'
-import { CQ_REGULAR } from '../../lib/container-grid'
 
 /**
  * The three hero cards are `StatCard`s (basalt-ui 1.27.0), not a local `HeroCard`. Three of the
@@ -75,7 +75,7 @@ export function HeroStats({ params }: { params: WalkingPadWindowParams }) {
     s.momentum === 'accelerating' ? 'Accelerating' : s.momentum === 'cooling' ? 'Cooling' : 'Steady'
 
   return (
-    <SimpleGrid type="container" cols={{ base: 1, [CQ_REGULAR]: 3 }} spacing="sm">
+    <SimpleGrid type="container" cols={{ base: 1, [CQ.regular]: 3 }} spacing="sm">
       <StatCard
         title="Volume"
         info={HERO_TOOLTIPS.volume}
@@ -122,7 +122,7 @@ export function HeroStats({ params }: { params: WalkingPadWindowParams }) {
 
 export function HeroStatsSkeleton() {
   return (
-    <SimpleGrid type="container" cols={{ base: 1, [CQ_REGULAR]: 3 }} spacing="sm">
+    <SimpleGrid type="container" cols={{ base: 1, [CQ.regular]: 3 }} spacing="sm">
       {Array.from({ length: 3 }).map((_, i) => (
         <Card key={i} py="xs" px="sm" h="100%">
           <Skeleton height={12} width={100} mb={8} />

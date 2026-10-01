@@ -22,8 +22,11 @@ import {
   useAchievementWatcher,
 } from '../features/walking-pad'
 import { walkingPadQueries } from '../lib/queries/walking-pad'
-import { CONTAINER_CLASSES, CONTAINER_GRID_BREAKPOINTS } from 'basalt-ui/tokens'
-import { CQ_WIDE } from '../lib/container-grid'
+import {
+  CONTAINER_CLASSES,
+  CONTAINER_GRID_BREAKPOINTS,
+  CONTAINER_KEYS as CQ,
+} from 'basalt-ui/tokens'
 
 export const Route = createFileRoute('/walking-pad')({
   validateSearch: walkingStore.validateSearch,
@@ -109,7 +112,7 @@ function WalkingPadPage() {
         </Grid>
 
         <Section title="Daily rhythm" subtitle="How is each day adding up?">
-          <SimpleGrid type="container" cols={{ base: 1, [CQ_WIDE]: 2 }} spacing="md">
+          <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
             <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <DailyActivityChart params={params} />
             </Suspense>
@@ -120,7 +123,7 @@ function WalkingPadPage() {
         </Section>
 
         <Section title="Volume" subtitle="Am I keeping the habit alive week to week?">
-          <SimpleGrid type="container" cols={{ base: 1, [CQ_WIDE]: 2 }} spacing="md">
+          <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
             <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <WeeklyVolumeChart params={params} />
             </Suspense>

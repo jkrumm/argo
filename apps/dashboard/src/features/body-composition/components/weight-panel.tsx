@@ -15,6 +15,7 @@ import {
 import { emit } from 'basalt-ui/notifications'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { IconCheck, IconMinus, IconTrendingDown, IconTrendingUp } from '@tabler/icons-react'
+import { CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
 import {
   useCreateWeightLog,
   weightLogQueries,
@@ -22,7 +23,6 @@ import {
 } from '../../../lib/queries/weight-log'
 import { weightPhaseColor, weightTrendColor, type WeightPhase, type WeightTrend } from '../formulas'
 import WeightChart from '../charts/weight-chart'
-import { CQ_REGULAR, CQ_WIDE } from '../../../lib/container-grid'
 
 type WeightSummary = {
   current: number | null
@@ -57,7 +57,7 @@ function WeightSummaryCards({ summary }: { summary: WeightSummary }) {
     )
 
   return (
-    <SimpleGrid type="container" cols={{ base: 2, [CQ_REGULAR]: 3, [CQ_WIDE]: 6 }}>
+    <SimpleGrid type="container" cols={{ base: 2, [CQ.regular]: 3, [CQ.wide]: 6 }}>
       <Card py="xs" px="sm">
         <Group justify="space-between">
           <Text size="xs" c="dimmed">

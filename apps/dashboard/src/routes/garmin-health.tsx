@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Suspense } from 'react'
 import { Grid, SimpleGrid, Stack } from '@mantine/core'
 import { PageBar, Section } from 'basalt-ui'
-import { CONTAINER_GRID_BREAKPOINTS } from 'basalt-ui/tokens'
+import { CONTAINER_GRID_BREAKPOINTS, CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
 import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, RangeFilter } from 'basalt-ui/controls'
 import { DateRangePicker } from 'basalt-ui/controls-dates'
@@ -22,7 +22,6 @@ import {
   recoveryQueries,
   trainingLoadQueries,
 } from '../lib/queries/daily-metrics'
-import { CQ_WIDE } from '../lib/container-grid'
 
 // ── Route definition ───────────────────────────────────────────────────────
 
@@ -95,7 +94,7 @@ function GarminHealthPage() {
 
         {/* Section 2: Training Load */}
         <Section title="Training Load">
-          <SimpleGrid type="container" cols={{ base: 1, [CQ_WIDE]: 2 }} spacing="md">
+          <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
             <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <AcwrChart params={params} />
             </Suspense>
@@ -107,7 +106,7 @@ function GarminHealthPage() {
 
         {/* Section 3: Recovery & Sleep */}
         <Section title="Recovery & Sleep">
-          <SimpleGrid type="container" cols={{ base: 1, [CQ_WIDE]: 2 }} spacing="md">
+          <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
             <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <RecoveryTrendChart params={params} />
             </Suspense>
@@ -119,7 +118,7 @@ function GarminHealthPage() {
 
         {/* Section 4: Energy & Stress */}
         <Section title="Energy & Stress">
-          <SimpleGrid type="container" cols={{ base: 1, [CQ_WIDE]: 2 }} spacing="md">
+          <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
             <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <BodyBatteryChart params={params} />
             </Suspense>

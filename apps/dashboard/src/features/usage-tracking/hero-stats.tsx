@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { Card, SimpleGrid, Skeleton, Text } from '@mantine/core'
 import { StatCard } from 'basalt-ui'
+import { CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
 import { usageQueries } from '../../lib/queries/usage'
 import { fmtCount, fmtMs, fmtPct, fmtUsd, relativeTime } from './constants'
-import { CQ_REGULAR, CQ_WIDE } from '../../lib/container-grid'
 
 function HeroCardSkeleton({ label }: { label: string }) {
   return (
@@ -22,7 +22,7 @@ export function HeroStats() {
 
   if (isLoading || data === undefined) {
     return (
-      <SimpleGrid type="container" cols={{ base: 1, [CQ_REGULAR]: 2, [CQ_WIDE]: 5 }} spacing="sm">
+      <SimpleGrid type="container" cols={{ base: 1, [CQ.regular]: 2, [CQ.wide]: 5 }} spacing="sm">
         <HeroCardSkeleton label="Cost (30d)" />
         <HeroCardSkeleton label="Tokens (30d)" />
         <HeroCardSkeleton label="Error rate" />
@@ -38,7 +38,7 @@ export function HeroStats() {
   // `breakdown`; its `subLabel` (a second figure beside the value) has no `StatCard` slot, so the
   // cost card's "last 7d" figure rides the same line as the billing split.
   return (
-    <SimpleGrid type="container" cols={{ base: 1, [CQ_REGULAR]: 2, [CQ_WIDE]: 5 }} spacing="sm">
+    <SimpleGrid type="container" cols={{ base: 1, [CQ.regular]: 2, [CQ.wide]: 5 }} spacing="sm">
       <StatCard
         title="Cost (30d)"
         value={fmtUsd(data.costUsd30d)}
