@@ -23,7 +23,7 @@ import {
 } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { PageBar } from 'basalt-ui'
-import { FormRow } from 'basalt-ui/forms'
+import { FormRow } from 'basalt-ui/controls'
 import { VX } from 'basalt-ui/tokens'
 import {
   IconCheck,
