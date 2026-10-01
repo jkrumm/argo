@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Suspense } from 'react'
 import { Grid, SimpleGrid, Stack } from '@mantine/core'
 import { PageBar, Section } from 'basalt-ui'
+import { CONTAINER_GRID_BREAKPOINTS } from 'basalt-ui/tokens'
 import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, RangeFilter } from 'basalt-ui/controls'
 import { DateRangePicker } from 'basalt-ui/controls-dates'
@@ -21,10 +22,7 @@ import {
   recoveryQueries,
   trainingLoadQueries,
 } from '../lib/queries/daily-metrics'
-import { CQ_COMPACT, CQ_REGULAR, CQ_WIDE } from '../lib/container-grid'
-
-// Grid.Col spans resolve through this map; basalt/raw-breakpoint only trusts a same-file literal.
-const GRID_BREAKPOINTS = { xs: CQ_COMPACT, sm: CQ_REGULAR, md: CQ_WIDE, lg: CQ_WIDE, xl: CQ_WIDE }
+import { CQ_WIDE } from '../lib/container-grid'
 
 // ── Route definition ───────────────────────────────────────────────────────
 
@@ -81,7 +79,7 @@ function GarminHealthPage() {
           <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
             <ActivitiesChart params={params} />
           </Suspense>
-          <Grid type="container" breakpoints={GRID_BREAKPOINTS}>
+          <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
             <Grid.Col span={{ base: 12, lg: 6 }}>
               <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
                 <ActivityScoreChart params={params} />

@@ -22,11 +22,8 @@ import {
   useAchievementWatcher,
 } from '../features/walking-pad'
 import { walkingPadQueries } from '../lib/queries/walking-pad'
-import { CONTAINER_CLASSES } from 'basalt-ui/tokens'
-import { CQ_COMPACT, CQ_REGULAR, CQ_WIDE } from '../lib/container-grid'
-
-// Grid.Col spans resolve through this map; basalt/raw-breakpoint only trusts a same-file literal.
-const GRID_BREAKPOINTS = { xs: CQ_COMPACT, sm: CQ_REGULAR, md: CQ_WIDE, lg: CQ_WIDE, xl: CQ_WIDE }
+import { CONTAINER_CLASSES, CONTAINER_GRID_BREAKPOINTS } from 'basalt-ui/tokens'
+import { CQ_WIDE } from '../lib/container-grid'
 
 export const Route = createFileRoute('/walking-pad')({
   validateSearch: walkingStore.validateSearch,
@@ -90,7 +87,7 @@ function WalkingPadPage() {
       />
 
       <Stack gap="md" ref={pageRef}>
-        <Grid type="container" breakpoints={GRID_BREAKPOINTS}>
+        <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
           <Grid.Col span={{ base: 12, lg: 8 }}>
             <Stack gap="md" ref={leftColRef}>
               <Suspense fallback={<LiveCardSkeleton />}>
@@ -133,7 +130,7 @@ function WalkingPadPage() {
           </SimpleGrid>
         </Section>
 
-        <Grid type="container" breakpoints={GRID_BREAKPOINTS}>
+        <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
           <Grid.Col span={{ base: 12, lg: 4 }}>
             <Section title="Patterns" subtitle="When do I tend to walk?">
               <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>

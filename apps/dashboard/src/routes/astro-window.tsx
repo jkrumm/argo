@@ -4,6 +4,7 @@ import { Center, Grid, Loader, Stack, useComputedColorScheme } from '@mantine/co
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { BasaltErrorBoundary, PageBar, Section, type BasaltErrorContext } from 'basalt-ui'
+import { CONTAINER_GRID_BREAKPOINTS } from 'basalt-ui/tokens'
 import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, NumberFilter, SelectFilter, ViewTabs } from 'basalt-ui/controls'
 import { astroStore } from '../lib/window-stores'
@@ -31,10 +32,6 @@ import {
   type MapLayerState,
 } from '../features/astro-window'
 import { astroQueries, type AstroWindowParams } from '../lib/queries/astro'
-import { CQ_COMPACT, CQ_REGULAR, CQ_WIDE } from '../lib/container-grid'
-
-// Grid.Col spans resolve through this map; basalt/raw-breakpoint only trusts a same-file literal.
-const GRID_BREAKPOINTS = { xs: CQ_COMPACT, sm: CQ_REGULAR, md: CQ_WIDE, lg: CQ_WIDE, xl: CQ_WIDE }
 
 // ── Search params ──────────────────────────────────────────────────────────
 
@@ -342,7 +339,12 @@ function AstroWindowPage() {
             />
 
             {search.tab === 'tonight' && selectedNight && (
-              <Grid type="container" breakpoints={GRID_BREAKPOINTS} gap="sm" align="stretch">
+              <Grid
+                type="container"
+                breakpoints={CONTAINER_GRID_BREAKPOINTS}
+                gap="sm"
+                align="stretch"
+              >
                 {/* The facts panel keeps its column width — it is a label/value list, and
                     stretched across the full page the two halves of every row drift apart. The
                     columns the map used to occupy stay empty on purpose; the skyglow rose is

@@ -3,6 +3,7 @@ import { Suspense, useMemo } from 'react'
 import { Card, Grid, SimpleGrid, Stack } from '@mantine/core'
 import { IconBarbell } from '@tabler/icons-react'
 import { EmptyState, PageBar, Section, useSizeClass } from 'basalt-ui'
+import { CONTAINER_GRID_BREAKPOINTS } from 'basalt-ui/tokens'
 import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, MultiSelectFilter, RangeFilter, ViewTabs } from 'basalt-ui/controls'
 import { DateRangePicker } from 'basalt-ui/controls-dates'
@@ -33,10 +34,7 @@ import { strengthQueries, type StrengthQueryParams } from '../lib/queries/streng
 import { workoutsQueries } from '../lib/queries/workouts'
 import { useGymSync } from '../lib/queries/gym'
 import { useWorkoutDraftSync } from '../lib/queries/workout-draft'
-import { CQ_COMPACT, CQ_REGULAR, CQ_WIDE } from '../lib/container-grid'
-
-// Grid.Col spans resolve through this map; basalt/raw-breakpoint only trusts a same-file literal.
-const GRID_BREAKPOINTS = { xs: CQ_COMPACT, sm: CQ_REGULAR, md: CQ_WIDE, lg: CQ_WIDE, xl: CQ_WIDE }
+import { CQ_WIDE } from '../lib/container-grid'
 
 /**
  * An EMPTY selection is the multi field's way of saying "no constraint", and every strength query
@@ -142,7 +140,7 @@ function StrengthTrackerPage() {
       />
 
       <Stack gap="md">
-        <Grid type="container" breakpoints={GRID_BREAKPOINTS}>
+        <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
           <Grid.Col span={{ base: 12, lg: hasRail ? 8 : 12 }}>
             {search.tab === 'train' ? (
               <TrainingTools
