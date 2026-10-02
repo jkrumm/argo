@@ -41,9 +41,10 @@ Same contract as Agents: raw jsonb, validated loosely, 7-day retention pruned on
 derives nothing. The payload carries health/poller liveness, the six funnel metrics (each leaf a
 `{value, unavailable}` pair — `value: null` always pairs with a non-empty `unavailable` reason,
 **never** rendered as 0), the board (state counts + open items), the dispatch budget, per-item
-timelines (transitions, dispatches, operations, approvals) and recorded intents (a wish, not an
-authorization). The dashboard's **System → Warden** page (`/warden`) is the one surface for all of
-it. Table owner: `apps/api/src/db/schema.ts` (`warden_snapshots`).
+timelines (transitions, dispatches, operations). The dashboard's **System → Warden** page
+(`/warden`) is the one surface for all of it: one "Needs you" list (`needs_decision` items — the
+decision question plus its actions), a quieter "Failed" list, then the board. Table owner:
+`apps/api/src/db/schema.ts` (`warden_snapshots`).
 
 ## Slack
 

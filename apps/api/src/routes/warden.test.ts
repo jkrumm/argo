@@ -33,7 +33,7 @@ const snapshot = (overrides: Record<string, unknown> = {}) => ({
       numerator: 13,
       denominator: 18,
     },
-    median_needs_human_to_decision_hours: {
+    median_needs_decision_to_decision_hours: {
       value: null,
       unavailable: 'window start predates history_since',
     },
@@ -41,19 +41,37 @@ const snapshot = (overrides: Record<string, unknown> = {}) => ({
   board: {
     generated_at: new Date(NOW).toISOString(),
     schema_version: 8,
-    counts: { new: 0, needs_human: 8, merge_blocked: 4 },
+    counts: { new: 0, needs_decision: 2, failed: 1 },
     items: [
       {
         event_id: 986,
         origin: 'github_issue',
         repo: 'argo',
-        state: 'needs_human',
+        state: 'needs_decision',
         title: 'flaky test',
+        note: 'Revert the retry or fix the race?',
+        strikes: 0,
+        retry_at: null,
+        close_reason: null,
         occurrences: 3,
         futureField: { nested: true },
       },
     ],
     terminal_24h: 47,
+    awaiting_owner: [
+      {
+        kind: 'item',
+        event_id: 986,
+        repo: 'argo',
+        title: 'flaky test',
+        state: 'needs_decision',
+        pr_url: null,
+        age_days: 1.2,
+        reason: 'Revert the retry or fix the race?',
+        revision_count: 0,
+        availableActions: ['implement', 'dismiss', 'reinvestigate', 'note'],
+      },
+    ],
   },
   budget: {
     usedToday: 15,
@@ -70,12 +88,10 @@ const snapshot = (overrides: Record<string, unknown> = {}) => ({
       event: { id: 986 },
       dispatches: [],
       operations: [],
-      approvals: [],
       transitions: [],
     },
   },
   itemsTruncated: false,
-  intents: { pending: 0, rejected: 2, entries: [] },
   ...overrides,
 })
 
@@ -129,10 +145,7 @@ describe('/warden/snapshot', () => {
   })
 
   it('rejects a snapshot over 1 MB with 413', async () => {
-    const res = await post(
-      '/warden/snapshot',
-      snapshot({ intents: { pending: 0, rejected: 0, entries: [], huge: 'x'.repeat(1_000_001) } }),
-    )
+    const res = await post('/warden/snapshot', snapshot({ huge: 'x'.repeat(1_000_001) }))
     expect(res.status).toBe(413)
     expect(await db.select().from(wardenSnapshot)).toHaveLength(0)
   })
@@ -204,6 +217,22 @@ describe('/warden/snapshot', () => {
     await post('/warden/snapshot', snapshot())
     const rows = await db.select().from(wardenSnapshot)
     expect(rows.length).toBe(2)
+  })
+
+  it('accepts an unknown item state and a closed item with its close_reason, never 422ing', async () => {
+    const res = await post(
+      '/warden/snapshot',
+      snapshot({
+        board: {
+          items: [
+            { event_id: 1, state: 'some_future_state' },
+            { event_id: 2, state: 'closed', close_reason: 'duplicate', strikes: 0 },
+            { event_id: 3, state: 'failed', strikes: 3, retry_at: '2026-10-02T12:00:00Z' },
+          ],
+        },
+      }),
+    )
+    expect(res.status).toBe(201)
   })
 
   it('accepts the composite reverts_and_reopens metric (no top-level value/unavailable)', async () => {

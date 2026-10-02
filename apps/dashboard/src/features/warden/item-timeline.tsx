@@ -7,7 +7,6 @@ import {
   formatVerdictLine,
   resolveItemModal,
   str,
-  summarizeRow,
   type ItemFacts,
   type Row,
   type TimelineView,
@@ -215,23 +214,6 @@ function OperationsBlock({
   )
 }
 
-function ApprovalsBlock({ approvals }: { approvals: Row[] }) {
-  return (
-    <Stack gap={4}>
-      <SubHeading title="Approvals" count={approvals.length} />
-      {approvals.length === 0 ? (
-        <EmptyLine />
-      ) : (
-        approvals.map((a, i) => (
-          <Text key={i} size="xs" c="dimmed">
-            {summarizeRow(a, ['secret', 'token'])}
-          </Text>
-        ))
-      )}
-    </Stack>
-  )
-}
-
 function FactLine({ children }: { children: ReactNode }) {
   return (
     <Text size="xs" c="dimmed">
@@ -394,8 +376,6 @@ function TimelineBody({ facts }: { facts: TimelineView }) {
       <DispatchesBlock dispatches={facts.dispatches} />
       <Divider />
       <OperationsBlock operations={facts.operations} total={facts.operationsTotal} />
-      <Divider />
-      <ApprovalsBlock approvals={facts.approvals} />
     </Stack>
   )
 }

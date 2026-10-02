@@ -1,9 +1,7 @@
 import { relativeTime } from 'basalt-ui/format'
 import type {
   WardenActionVerb,
-  WardenAwaitingOwnerEntry,
   WardenBoardItem,
-  WardenIntents,
   WardenIssueInfo,
   WardenItems,
   WardenMetrics,
@@ -29,50 +27,73 @@ export function isStale(receivedAt: string | null | undefined, now = Date.now())
 // ── Board buckets ────────────────────────────────────────────────────────────
 
 export const BUCKET_ORDER = [
-  'needs_human',
+  'needs_decision',
+  'failed',
   'deferred',
-  'merge_blocked',
   'new',
-  'investigating',
-  'verdict',
-  'implementing',
-  'validating',
-  'merged',
-  'liveness_pending',
-  'split',
+  'triaged',
+  'working',
+  'merging',
+  'verifying',
   'unknown',
 ] as const
 
 export type BucketKey = (typeof BUCKET_ORDER)[number]
 
 export const BUCKET_LABEL: Record<BucketKey, string> = {
-  needs_human: 'Needs human',
+  needs_decision: 'Needs decision',
+  failed: 'Failed',
   deferred: 'Deferred — budget',
-  merge_blocked: 'Merge blocked',
   new: 'New',
-  investigating: 'Investigating',
-  verdict: 'Verdict',
-  implementing: 'Implementing',
-  validating: 'Validating',
-  merged: 'Merged',
-  liveness_pending: 'Liveness pending',
-  split: 'Split',
+  triaged: 'Triaged',
+  working: 'Working',
+  merging: 'Merging',
+  verifying: 'Verifying',
   unknown: "Unknown state — not in the board's vocabulary",
+}
+
+// ── State presentation ───────────────────────────────────────────────────────
+// Warden's state vocabulary: non-terminal `new, triaged, working, merging, verifying,
+// needs_decision, failed`; terminal `fixed, quiet, closed`. `closed` always carries a
+// `close_reason` (duplicate | fixed_by | ignored | resolved). The board only lists non-terminal
+// items, but the colors/labels cover the whole vocabulary.
+
+const STATE_COLOR: Record<string, string> = {
+  needs_decision: 'orange',
+  failed: 'red',
+  new: 'gray',
+  triaged: 'gray',
+  working: 'blue',
+  merging: 'violet',
+  verifying: 'teal',
+  fixed: 'green',
+  quiet: 'gray',
+  closed: 'gray',
+}
+
+/** Mantine color name for a state badge — an unknown state falls back to gray, never throws. */
+export function stateColor(state: string): string {
+  return STATE_COLOR[state] ?? 'gray'
+}
+
+/** `"closed · duplicate"` for a closed item that carries its reason, the bare state otherwise. */
+export function stateLabel(state: string, closeReason?: string | null): string {
+  return state === 'closed' && closeReason ? `${state} · ${closeReason}` : state
 }
 
 export type Bucket = { key: BucketKey; label: string; items: WardenBoardItem[] }
 
-/** A `verdict` item deferred by the daily budget — warden marks it with a `note` starting
- * `"deferred: …"`. It must never render as a plain `verdict` item: the note IS the finding
+/** A `working` item deferred by the daily budget — warden marks it with a `note` starting
+ * `"deferred: …"`. It must never render as a plain `working` item: the note IS the finding
  * (what budget was hit), not incidental detail. */
 export function isDeferredItem(item: WardenBoardItem): boolean {
   return (
-    item.state === 'verdict' && typeof item.note === 'string' && item.note.startsWith('deferred:')
+    item.state === 'working' && typeof item.note === 'string' && item.note.startsWith('deferred:')
   )
 }
 
 /**
- * Buckets every board item into the fixed order above. `deferred` is carved out of `verdict`
+ * Buckets every board item into the fixed order above. `deferred` is carved out of `working`
  * items whose note marks a budget deferral — it is not one of warden's own `board.state` values.
  * Every key is present, even with an empty `items` array; the caller (`board-section.tsx`) decides
  * whether an empty bucket renders a `Section` at all.
@@ -94,15 +115,16 @@ export function deriveBoard(board: WardenRaw['board'] | undefined): Bucket[] {
 // ── GitHub issue groups ──────────────────────────────────────────────────────
 // A separate view over the same board, scoped to `origin: "github_issue"` items only and grouped
 // by pipeline stage rather than by raw `state` — the generic board (above) still shows everything.
+// `needs_decision` and `failed` items are deliberately absent: they live in the dedicated Needs you /
+// Failed queues (`awaiting-owner-section.tsx`), and listing them here too would show each twice.
 
-export const GITHUB_ISSUE_GROUPS = ['needs_you', 'running', 'auto_implementing', 'done'] as const
+export const GITHUB_ISSUE_GROUPS = ['running', 'landing', 'done'] as const
 
 export type GithubIssueGroupKey = (typeof GITHUB_ISSUE_GROUPS)[number]
 
 export const GITHUB_ISSUE_GROUP_LABEL: Record<GithubIssueGroupKey, string> = {
-  needs_you: 'Needs you',
   running: 'Running',
-  auto_implementing: 'Auto-implementing',
+  landing: 'Merging & verifying',
   done: 'Done',
 }
 
@@ -110,29 +132,26 @@ export type IssueGroup = { key: GithubIssueGroupKey; label: string; items: Warde
 
 function issueGroupKeyForState(state: string): GithubIssueGroupKey {
   switch (state) {
-    case 'needs_human':
-    case 'merge_blocked':
-    case 'verdict':
-      return 'needs_you'
-    case 'new':
-    case 'investigating':
-      return 'running'
-    case 'implementing':
-    case 'validating':
-      return 'auto_implementing'
-    case 'merged':
+    case 'merging':
+    case 'verifying':
+      return 'landing'
+    case 'fixed':
+    case 'quiet':
+    case 'closed':
       return 'done'
     default:
-      // Any state outside the mapped vocabulary is still mid-pipeline — "running" is the safest
-      // default, never dropping the item or inventing a new group for it.
+      // `new`, `triaged`, `working` — and any state outside the mapped vocabulary, which is still
+      // mid-pipeline: "running" is the safest default, never dropping the item or inventing a new
+      // group for it.
       return 'running'
   }
 }
 
 /**
- * Groups every `origin: "github_issue"` item into the four pipeline-stage groups above, in fixed
+ * Groups every `origin: "github_issue"` item into the three pipeline-stage groups above, in fixed
  * order. Every key is present, even with an empty `items` array — same shape contract as
- * `deriveBoard`. Non-issue items never participate, even if passed in.
+ * `deriveBoard`. Non-issue items never participate, even if passed in, and neither do
+ * `needs_decision` / `failed` items (the dedicated queues own those).
  */
 export function groupIssueItems(items: WardenBoardItem[]): IssueGroup[] {
   const groups = new Map<GithubIssueGroupKey, WardenBoardItem[]>(
@@ -140,6 +159,7 @@ export function groupIssueItems(items: WardenBoardItem[]): IssueGroup[] {
   )
   for (const item of items) {
     if (item.origin !== 'github_issue') continue
+    if (item.state === 'needs_decision' || item.state === 'failed') continue
     groups.get(issueGroupKeyForState(item.state))!.push(item)
   }
   return GITHUB_ISSUE_GROUPS.map((key) => ({
@@ -168,28 +188,39 @@ export function deriveWardenPage(raw: WardenRaw | undefined): WardenPageView {
   return { buckets: deriveBoard(raw?.board), issueGroups: groupIssueItems(boardItems), boardItems }
 }
 
-// ── Waiting on you ───────────────────────────────────────────────────────────
-// The one list warden itself flags as "cannot finish without a human" — rendered first on the
-// page (`awaiting-owner-section.tsx`) so nothing here rots invisibly.
+// ── Needs you / Failed ───────────────────────────────────────────────────────
+// `board.awaiting_owner` is warden's own list of everything it cannot finish without the owner:
+// every `needs_decision` item (the decision question is the item note, `reason` here) and every
+// `failed` one. Rendered first on the page (`awaiting-owner-section.tsx`) so nothing here rots
+// invisibly — `needs_decision` as the one "needs you" list, `failed` as a separate, quieter one,
+// and any entry in a state neither knows as a visible `other` list (mirrors `deriveBoard`'s `unknown`).
 
 /** An entry reads as stale once it has waited this many days or longer — the point past which
  * "waiting on you" stops being a normal queue depth and starts being neglect. */
 export const AWAITING_OWNER_STALE_DAYS = 3
 
 export type AwaitingOwnerRow = {
-  kind: WardenAwaitingOwnerEntry['kind']
-  eventId: number | null
+  eventId: number
   repo: string | null
   title: string | null
+  /** The entry's raw state — the badge of the `other` list, which holds states outside the vocabulary. */
   state: string | null
   prUrl: string | null
   ageDays: number | null
   ageLabel: string
   stale: boolean
+  /** The decision question for `needs_decision`, the failure note for `failed`. */
   reason: string | null
-  parkedRecurrences: number
+  strikes: number
   revisionCount: number
   availableActions: string[]
+}
+
+export type AwaitingOwnerView = {
+  needsDecision: AwaitingOwnerRow[]
+  failed: AwaitingOwnerRow[]
+  /** Entries in neither `needs_decision` nor `failed` — never dropped silently. */
+  other: AwaitingOwnerRow[]
 }
 
 /** `"5.1 d"` / `"< 1 d"` / `"—"` for an unreported age — never a bare number with no unit. */
@@ -199,32 +230,44 @@ export function formatAgeDays(ageDays: number | null): string {
   return `${ageDays.toFixed(1)} d`
 }
 
-const EMPTY_AWAITING_OWNER: AwaitingOwnerRow[] = []
+const EMPTY_AWAITING_OWNER: AwaitingOwnerView = { needsDecision: [], failed: [], other: [] }
 
 /**
- * Derives the "Waiting on you" rows from `board.awaiting_owner`, preserving warden's own
- * oldest-first order — this never re-sorts. Missing on an older snapshot reads as an empty list,
- * never a crash. `stale` flags an entry that has waited `AWAITING_OWNER_STALE_DAYS` or longer; an
- * unreported age never counts as stale (no fabricated urgency out of a missing number).
+ * Splits `board.awaiting_owner` into the `needs_decision`, `failed` and `other` lists, preserving
+ * warden's own oldest-first order — this never re-sorts. Missing on an older snapshot reads as
+ * empty lists, never a crash; an entry in any other state lands in `other`, and only an entry with
+ * no event id to act on is dropped.
+ * `strikes` is not on the awaiting entry itself, so it is looked up from the same item on
+ * `board.items` (0 when the item is past the board cap). `stale` flags an entry that has waited
+ * `AWAITING_OWNER_STALE_DAYS` or longer; an unreported age never counts as stale (no fabricated
+ * urgency out of a missing number).
  */
-export function deriveAwaitingOwner(board: WardenRaw['board'] | undefined): AwaitingOwnerRow[] {
+export function deriveAwaitingOwner(board: WardenRaw['board'] | undefined): AwaitingOwnerView {
   const entries = board?.awaiting_owner
   if (!entries || entries.length === 0) return EMPTY_AWAITING_OWNER
-  return entries.map((entry) => ({
-    kind: entry.kind,
-    eventId: entry.event_id,
-    repo: entry.repo,
-    title: entry.title,
-    state: entry.state,
-    prUrl: entry.pr_url,
-    ageDays: entry.age_days,
-    ageLabel: formatAgeDays(entry.age_days),
-    stale: entry.age_days !== null && entry.age_days >= AWAITING_OWNER_STALE_DAYS,
-    reason: entry.reason,
-    parkedRecurrences: entry.parked_recurrences,
-    revisionCount: entry.revision_count,
-    availableActions: entry.availableActions ?? [],
-  }))
+  const strikesById = new Map((board?.items ?? []).map((item) => [item.event_id, item.strikes]))
+  const view: AwaitingOwnerView = { needsDecision: [], failed: [], other: [] }
+  for (const entry of entries) {
+    if (entry.event_id === null) continue
+    const row: AwaitingOwnerRow = {
+      eventId: entry.event_id,
+      repo: entry.repo,
+      title: entry.title,
+      state: entry.state,
+      prUrl: entry.pr_url,
+      ageDays: entry.age_days,
+      ageLabel: formatAgeDays(entry.age_days),
+      stale: entry.age_days !== null && entry.age_days >= AWAITING_OWNER_STALE_DAYS,
+      reason: entry.reason,
+      strikes: strikesById.get(entry.event_id) ?? 0,
+      revisionCount: entry.revision_count,
+      availableActions: entry.availableActions ?? [],
+    }
+    if (entry.state === 'needs_decision') view.needsDecision.push(row)
+    else if (entry.state === 'failed') view.failed.push(row)
+    else view.other.push(row)
+  }
+  return view
 }
 
 /** `"repo#number"` — the compact reference a GitHub-issue-origin row links out with. */
@@ -319,9 +362,9 @@ const FUNNEL_DEFS: { key: keyof WardenMetrics; label: string; description: strin
     description: 'Verified fixes vs silence',
   },
   {
-    key: 'median_needs_human_to_decision_hours',
-    label: 'Human → decision (h)',
-    description: 'Needs-human → decision (median h)',
+    key: 'median_needs_decision_to_decision_hours',
+    label: 'Decision wait (h)',
+    description: 'Needs-decision → decision (median h)',
   },
   {
     key: 'verified_unattended_fixes_per_week',
@@ -463,31 +506,13 @@ export function formatTileValue(tile: FunnelTile): string {
   return formatTileNumber(tile.value)
 }
 
-// ── Intents ──────────────────────────────────────────────────────────────────
-
-export type IntentSummary = {
-  pending: number
-  rejected: number
-  entries: NonNullable<WardenIntents['entries']>
-}
-
-/** A recorded intent is a wish, never an authorization — see `intents-section.tsx`. This only
- * normalizes the counts and entry list so a missing `intents` block reads as "none recorded". */
-export function intentSummary(intents: WardenIntents | undefined): IntentSummary {
-  return {
-    pending: intents?.pending ?? 0,
-    rejected: intents?.rejected ?? 0,
-    entries: intents?.entries ?? [],
-  }
-}
-
 // ── Item timeline ────────────────────────────────────────────────────────────
-// `item-timeline.tsx` renders one item/event pair plus its transitions, dispatches, operations and
-// approvals. Every read here is defensive — field names vary slightly between warden's producers —
+// `item-timeline.tsx` renders one item/event pair plus its transitions, dispatches, and operations.
+// Every read here is defensive — field names vary slightly between warden's producers —
 // so the derivations live here, pure and unit-tested, rather than inline in JSX where a dozen small
 // branches add up to one unreadable, untestable function.
 
-/** The item/event/dispatch/operation/transition/approval rows all arrive as loosely-validated
+/** The item/event/dispatch/operation/transition rows all arrive as loosely-validated
  * jsonb — a generic key/value bag rather than one exact shape. */
 export type Row = Record<string, unknown>
 
@@ -526,7 +551,7 @@ export function summarizeRow(row: Row, skip: string[]): string {
     .join(' · ')
 }
 
-function pluralize(count: number, word: string): string {
+export function pluralize(count: number, word: string): string {
   return `${count} ${word}${count === 1 ? '' : 's'}`
 }
 
@@ -558,11 +583,6 @@ function resolvedLine(event: Row | null): string | null {
   return resolvedAt ? `resolved ${relativeTime(resolvedAt)}` : null
 }
 
-function deadlineLine(item: Row | null): string | null {
-  const deadline = str(item?.['state_deadline'])
-  return deadline ? `deadline ${relativeTime(deadline)}` : null
-}
-
 function alertReminderLine(event: Row | null): string | null {
   const count = num(event?.['reminder_count'])
   if (count === null || count <= 0) return null
@@ -570,9 +590,15 @@ function alertReminderLine(event: Row | null): string | null {
   return `Alert reminders: ${count}${last ? ` (last ${relativeTime(last)})` : ''}`
 }
 
-function needsHumanReminderLine(item: Row | null): string | null {
-  const count = num(item?.['reminder_count'])
-  return count !== null && count > 0 ? `Needs-human reminders: ${count}` : null
+/** Strikes and the retry gate — warden's one retry rule: three consecutive infrastructure failures
+ * of a step park the item in `failed`; a submitting poller skips the row until `retry_at`. */
+function retryLines(item: Row | null): string[] {
+  const strikes = num(item?.['strikes'])
+  const retryAt = str(item?.['retry_at'])
+  return [
+    strikes !== null && strikes > 0 ? `${pluralize(strikes, 'strike')}` : null,
+    retryAt ? `retry ${relativeTime(retryAt)}` : null,
+  ].filter((line): line is string => line !== null)
 }
 
 /** The tracking-facts lines below the identity header, in fixed order — only the ones with
@@ -581,9 +607,8 @@ function buildFactLines(item: Row | null, event: Row | null): string[] {
   return [
     seenAndOccurrencesLine(item),
     resolvedLine(event),
-    deadlineLine(item),
     alertReminderLine(event),
-    needsHumanReminderLine(item),
+    ...retryLines(item),
   ].filter((line): line is string => line !== null)
 }
 
@@ -624,18 +649,20 @@ export type ItemFacts = {
 
 /**
  * Every derived value `ItemSummary` renders: identity (title, `source:external_id`, state/origin,
- * signature), the tracking-fact lines (seen/occurrences, resolved, deadline, the two reminder
- * counts) and the prose (note, brief, or — for a brief-less alert — the event payload). Fields vary
- * between warden's producers, so every read is defensive.
+ * signature), the tracking-fact lines (seen/occurrences, resolved, alert reminders, strikes/retry)
+ * and the prose (note, brief, or — for a brief-less alert — the event payload). A closed item's
+ * `state` carries its `close_reason`. Fields vary between warden's producers, so every read is
+ * defensive.
  */
 export function buildItemFacts(item: Row | null, event: Row | null): ItemFacts {
   const origin = str(item?.['origin'])
   const brief = str(item?.['brief'])
+  const state = str(item?.['state'])
   return {
     title: str(event?.['title']) ?? str(item?.['title']),
     source: str(event?.['source']),
     externalId: externalIdOf(event),
-    state: str(item?.['state']),
+    state: state ? stateLabel(state, str(item?.['close_reason'])) : null,
     origin,
     signature: str(item?.['signature']),
     lines: buildFactLines(item, event),
@@ -654,7 +681,6 @@ export type TimelineView = {
   dispatches: Row[]
   operations: Row[]
   operationsTotal: number | undefined
-  approvals: Row[]
 }
 
 function asRows(value: unknown): Row[] {
@@ -675,7 +701,6 @@ function resolveTimelineView(timeline: Row | undefined): TimelineView {
     dispatches: asRows(source['dispatches']),
     operations: asRows(source['operations']),
     operationsTotal: num(source['operations_total']) ?? undefined,
-    approvals: asRows(source['approvals']),
   }
 }
 

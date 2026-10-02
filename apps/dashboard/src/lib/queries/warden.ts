@@ -31,9 +31,8 @@ export type WardenBoardItem = NonNullable<WardenBoard['items']>[number]
 export type WardenBudget = NonNullable<WardenRaw['budget']>
 export type WardenItems = NonNullable<WardenRaw['items']>
 export type WardenItemTimeline = WardenItems[string]
-export type WardenIntents = NonNullable<WardenRaw['intents']>
-/** One "cannot finish without a human" row — a parked board item or a stranded PR warden opened
- * whose item already ended. Oldest first (see `deriveAwaitingOwner` in `features/warden/model.ts`). */
+/** One "cannot finish without a human" row — a `needs_decision` or `failed` board item. Oldest
+ * first (see `deriveAwaitingOwner` in `features/warden/model.ts`). */
 export type WardenAwaitingOwnerEntry = NonNullable<WardenBoard['awaiting_owner']>[number]
 /**
  * What the owner can click for a board item — mirrors warden's own closed verb allowlist

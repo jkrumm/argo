@@ -15,7 +15,7 @@ import {
 // Warden control-plane board — warden (the mini's deterministic loop over its
 // own SQLite ledger) pushes one JSON snapshot after every loop tick: health,
 // the six funnel metrics, the board (counts + open items), the dispatch
-// budget, per-item timelines, and recorded intents. Argo derives nothing —
+// budget, and per-item timelines. Argo derives nothing —
 // the snapshot is stored as raw jsonb, validated LOOSELY (`looseObject`
 // throughout, only `machine`/`generatedAt` checked strictly) so a new warden
 // field never 422s the ingest, and served back verbatim. Retention mirrors
@@ -52,7 +52,7 @@ const MetricsSchema = z.looseObject({
   history_since: z.string().nullable().optional(),
   verdicts_recorded_disposition: FunnelMetricSchema.optional(),
   verified_fixes_vs_silence: FunnelMetricSchema.optional(),
-  median_needs_human_to_decision_hours: FunnelMetricSchema.optional(),
+  median_needs_decision_to_decision_hours: FunnelMetricSchema.optional(),
   verified_unattended_fixes_per_week: FunnelMetricSchema.optional(),
   poller_ages: FunnelMetricSchema.optional(),
   reverts_and_reopens: FunnelMetricSchema.optional(),
@@ -67,8 +67,13 @@ const BoardItemSchema = z.looseObject({
   event_id: z.number(),
   origin: z.string().nullable().optional(),
   repo: z.string().nullable().optional(),
+  // A plain string, never an enum — an unknown state must never 422 the whole snapshot.
   state: z.string(),
-  state_deadline: z.string().nullable().optional(),
+  // Set only on a `closed` item: duplicate | fixed_by | ignored | resolved. Open string for the
+  // same reason as `state`.
+  close_reason: z.string().nullable().optional(),
+  strikes: z.number().optional(),
+  retry_at: z.string().nullable().optional(),
   max_tier: z.string().nullable().optional(),
   title: z.string().nullable().optional(),
   note: z.string().nullable().optional(),
@@ -77,6 +82,7 @@ const BoardItemSchema = z.looseObject({
   implement_job: z.string().nullable().optional(),
   validation_job: z.string().nullable().optional(),
   occurrences: z.number().optional(),
+  revision_count: z.number().optional(),
   created_at: z.string().optional(),
   updated_at: z.string().optional(),
   origin_channel: z.string().nullable().optional(),
@@ -103,12 +109,11 @@ const BoardItemSchema = z.looseObject({
     .optional(),
 })
 
-// One row of "cannot finish without a human" — either a parked board item (`needs_human` /
-// `merge_blocked`) or a PR warden opened whose item already ended while the PR stayed open
-// (`stranded_pr`, no actions). Oldest first; the dashboard never re-sorts it. `z.looseObject` so a
-// field warden adds later never 422s the whole snapshot, same posture as `BoardItemSchema`.
+// One row of "cannot finish without a human" — a board item in `needs_decision` (the decision
+// question is `reason`) or `failed` (only an owner action moves it). Oldest first; the dashboard
+// never re-sorts it. `z.looseObject` so a field warden adds later never 422s the whole snapshot,
+// same posture as `BoardItemSchema`.
 const AwaitingOwnerEntrySchema = z.looseObject({
-  kind: z.enum(['item', 'stranded_pr']),
   event_id: z.number().nullable(),
   repo: z.string().nullable(),
   title: z.string().nullable(),
@@ -116,10 +121,8 @@ const AwaitingOwnerEntrySchema = z.looseObject({
   pr_url: z.string().nullable(),
   age_days: z.number().nullable(),
   reason: z.string().nullable(),
-  parked_recurrences: z.number(),
   revision_count: z.number(),
-  // Same closed-list-on-warden's-side/open-string-here posture as `BoardItemSchema.availableActions`
-  // — always empty for `stranded_pr`, the same verb vocabulary as a board item for `kind: "item"`.
+  // Same closed-list-on-warden's-side/open-string-here posture as `BoardItemSchema.availableActions`.
   availableActions: z.array(z.string()).optional(),
 })
 
@@ -145,29 +148,13 @@ const BudgetSchema = z.looseObject({
   warnings: z.array(z.string()).optional(),
 })
 
-/** One item's per-event timeline — item/event rows, dispatches, operations, approvals, transitions. */
+/** One item's per-event timeline — item/event rows, dispatches, operations, transitions. */
 const ItemTimelineSchema = z.looseObject({
   item: z.looseObject({}).optional(),
   event: z.looseObject({}).optional(),
   dispatches: z.array(z.looseObject({})).optional(),
   operations: z.array(z.looseObject({})).optional(),
-  approvals: z.array(z.looseObject({})).optional(),
   transitions: z.array(z.looseObject({})).optional(),
-})
-
-const IntentEntrySchema = z.looseObject({
-  file: z.string().optional(),
-  kind: z.string().optional(),
-  created_at: z.string().optional(),
-  source: z.string().optional(),
-  decision: z.string().optional(),
-  status: z.string().optional(),
-})
-
-const IntentsSchema = z.looseObject({
-  pending: z.number().optional(),
-  rejected: z.number().optional(),
-  entries: z.array(IntentEntrySchema).optional(),
 })
 
 /** The stored snapshot — warden's board payload; every field past `generatedAt` is optional. */
@@ -179,7 +166,6 @@ const SnapshotSchema = z.looseObject({
   budget: BudgetSchema.optional(),
   items: z.record(z.string(), ItemTimelineSchema).optional(),
   itemsTruncated: z.boolean().optional(),
-  intents: IntentsSchema.optional(),
 })
 
 const WardenIngestSchema = SnapshotSchema.extend({
@@ -329,7 +315,7 @@ export const wardenRoutes = new Elysia({ prefix: '/warden' })
         tags: ['Warden'],
         summary: 'Ingest a Warden control-plane snapshot',
         description:
-          'Stores one Warden loop-tick snapshot (health, the six funnel metrics, the board counts + open items, the dispatch budget, per-item timelines, recorded intents) tagged with the producing `machine`. Pushed by the mini roughly every 10 minutes — Argo on the VPS cannot reach the ledger directly. Unknown fields are kept verbatim — the snapshot is stored as raw JSON, and a metric leaf whose `value` is null always carries a non-empty `unavailable` reason (never render it as 0). Every ingest prunes snapshots older than 7 days, keeping the newest per machine. Snapshots over 1 MB are rejected with 413. Read it back with GET /warden/snapshot.',
+          'Stores one Warden loop-tick snapshot (health, the six funnel metrics, the board counts + open items, the dispatch budget, per-item timelines) tagged with the producing `machine`. Pushed by the mini roughly every 10 minutes — Argo on the VPS cannot reach the ledger directly. Unknown fields are kept verbatim — the snapshot is stored as raw JSON, and a metric leaf whose `value` is null always carries a non-empty `unavailable` reason (never render it as 0). Every ingest prunes snapshots older than 7 days, keeping the newest per machine. Snapshots over 1 MB are rejected with 413. Read it back with GET /warden/snapshot.',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -354,7 +340,7 @@ export const wardenRoutes = new Elysia({ prefix: '/warden' })
         tags: ['Warden'],
         summary: 'Latest Warden control-plane snapshot',
         description:
-          'Returns the most recently received Warden snapshot (404 before the first ingest, or for a `?machine=` that never pushed). Pass ?machine= to pin one host when several push. `ageMs` is milliseconds since `receivedAt`, for a stale-feed banner. The snapshot carries `health` (loop/poller liveness), `metrics` (the six funnel numbers), `board` (counts + open items), `budget` (dispatch spend today), `items` (per-event timelines, keyed by event id) and `intents` (recorded, unauthorized wishes).',
+          'Returns the most recently received Warden snapshot (404 before the first ingest, or for a `?machine=` that never pushed). Pass ?machine= to pin one host when several push. `ageMs` is milliseconds since `receivedAt`, for a stale-feed banner. The snapshot carries `health` (loop/poller liveness), `metrics` (the six funnel numbers), `board` (counts + open items), `budget` (dispatch spend today), and `items` (per-event timelines, keyed by event id). `board.awaiting_owner` lists every `needs_decision` and `failed` item, oldest first.',
         security: [{ BearerAuth: [] }],
       },
     },

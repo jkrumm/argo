@@ -158,9 +158,15 @@ function columnsFor({
       header: 'Trust',
       cell: (ctx) => <ThirdPartyBadge item={ctx.row.original} fallback />,
     }),
-    columnHelper.accessor('state', {
+    columnHelper.display({
+      id: 'state',
       header: 'State',
-      cell: (ctx) => <StateBadge state={ctx.getValue()} />,
+      cell: (ctx) => (
+        <StateBadge
+          state={ctx.row.original.state}
+          closeReason={ctx.row.original.close_reason ?? null}
+        />
+      ),
     }),
     columnHelper.accessor((row) => row.note ?? '', {
       id: 'note',
@@ -212,7 +218,11 @@ function IssueCard({
       <Stack gap={4}>
         <Group justify="space-between" wrap="nowrap" gap="xs">
           <Group gap="xs" wrap="nowrap" miw={0}>
-            <StateBadge state={item.state} style={{ flexShrink: 0 }} />
+            <StateBadge
+              state={item.state}
+              closeReason={item.close_reason ?? null}
+              style={{ flexShrink: 0 }}
+            />
             <IssueRefLink item={item} />
             <ThirdPartyBadge item={item} />
           </Group>

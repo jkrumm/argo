@@ -602,8 +602,8 @@ export const agentNarrative = argoSchema.table('agent_narratives', {
 //
 // warden (the mini's deterministic loop over its own SQLite ledger) pushes a
 // full JSON snapshot after every loop tick — health, the six funnel metrics,
-// the board (counts + open items), the dispatch budget, per-item timelines,
-// and recorded intents. Argo stores it raw and derives nothing, same
+// the board (counts + open items), the dispatch budget, and per-item
+// timelines. Argo stores it raw and derives nothing, same
 // contract as `agentOverviewSnapshot` above: latest snapshot per machine plus
 // a 7-day history, pruned on ingest.
 

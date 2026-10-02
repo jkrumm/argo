@@ -14,14 +14,16 @@ import {
   formatVerdictLine,
   GITHUB_ISSUE_GROUPS,
   groupIssueItems,
-  intentSummary,
   isDeferredItem,
   isSafeHttpUrl,
   isStale,
   issueRefLabel,
   PENDING_ACTION_TIMEOUT_MS,
+  pluralize,
   reconcilePendingActions,
   resolveItemModal,
+  stateColor,
+  stateLabel,
   withPendingAction,
   type PendingActions,
   type Row,
@@ -62,13 +64,13 @@ describe('isStale', () => {
 })
 
 describe('isDeferredItem', () => {
-  it('is true only for a verdict item whose note starts with "deferred:"', () => {
-    expect(isDeferredItem(item({ state: 'verdict', note: 'deferred: implement budget 5/5' }))).toBe(
+  it('is true only for a working item whose note starts with "deferred:"', () => {
+    expect(isDeferredItem(item({ state: 'working', note: 'deferred: implement budget 5/5' }))).toBe(
       true,
     )
-    expect(isDeferredItem(item({ state: 'verdict', note: 'something else' }))).toBe(false)
+    expect(isDeferredItem(item({ state: 'working', note: 'something else' }))).toBe(false)
     expect(isDeferredItem(item({ state: 'new', note: 'deferred: x' }))).toBe(false)
-    expect(isDeferredItem(item({ state: 'verdict' }))).toBe(false)
+    expect(isDeferredItem(item({ state: 'working' }))).toBe(false)
   })
 })
 
@@ -82,15 +84,14 @@ describe('deriveWardenPage', () => {
 
   it('threads board.items through to buckets, issue groups and boardItems consistently', () => {
     const items = [
-      item({ event_id: 1, state: 'needs_human', origin: 'github_issue' }),
-      item({ event_id: 2, state: 'investigating' }),
+      item({ event_id: 1, state: 'needs_decision', origin: 'github_issue' }),
+      item({ event_id: 2, state: 'working' }),
     ]
     const view = deriveWardenPage({ board: { items } } as never)
     expect(view.boardItems).toBe(items)
     const byBucket = Object.fromEntries(view.buckets.map((b) => [b.key, b.items]))
-    expect(byBucket['needs_human']!.map((i) => i.event_id)).toEqual([1])
-    const byGroup = Object.fromEntries(view.issueGroups.map((g) => [g.key, g.items]))
-    expect(byGroup['needs_you']!.map((i) => i.event_id)).toEqual([1])
+    expect(byBucket['needs_decision']!.map((i) => i.event_id)).toEqual([1])
+    expect(view.issueGroups.flatMap((g) => g.items)).toEqual([])
   })
 })
 
@@ -101,21 +102,21 @@ describe('deriveBoard', () => {
     expect(buckets.every((b) => b.items.length === 0)).toBe(true)
   })
 
-  it('carves deferred verdict items out of the verdict bucket', () => {
+  it('carves deferred working items out of the working bucket', () => {
     const items = [
-      item({ event_id: 1, state: 'verdict', note: 'deferred: implement budget 5/5 used today' }),
-      item({ event_id: 2, state: 'verdict', note: 'ship it' }),
-      item({ event_id: 3, state: 'needs_human' }),
+      item({ event_id: 1, state: 'working', note: 'deferred: implement budget 5/5 used today' }),
+      item({ event_id: 2, state: 'working', note: 'investigating' }),
+      item({ event_id: 3, state: 'needs_decision' }),
     ]
     const buckets = deriveBoard({ items })
     const byKey = Object.fromEntries(buckets.map((b) => [b.key, b.items]))
     expect(byKey['deferred']!.map((i) => i.event_id)).toEqual([1])
-    expect(byKey['verdict']!.map((i) => i.event_id)).toEqual([2])
-    expect(byKey['needs_human']!.map((i) => i.event_id)).toEqual([3])
+    expect(byKey['working']!.map((i) => i.event_id)).toEqual([2])
+    expect(byKey['needs_decision']!.map((i) => i.event_id)).toEqual([3])
   })
 
   it('collects an item whose state is outside the vocabulary into unknown, never dropping it', () => {
-    const items = [item({ event_id: 1, state: 'snoozed' }), item({ event_id: 2, state: 'new' })]
+    const items = [item({ event_id: 1, state: 'needs_human' }), item({ event_id: 2, state: 'new' })]
     const buckets = deriveBoard({ items })
     const byKey = Object.fromEntries(buckets.map((b) => [b.key, b.items]))
     expect(byKey['unknown']!.map((i) => i.event_id)).toEqual([1])
@@ -133,46 +134,53 @@ describe('groupIssueItems', () => {
   })
 
   it('ignores an item whose origin is not github_issue', () => {
-    const groups = groupIssueItems([item({ event_id: 1, origin: 'alert', state: 'needs_human' })])
+    const groups = groupIssueItems([
+      item({ event_id: 1, origin: 'alert', state: 'needs_decision' }),
+    ])
     expect(groups.every((g) => g.items.length === 0)).toBe(true)
   })
 
-  it('maps needs_human, merge_blocked and verdict to needs_you', () => {
+  it('excludes needs_decision and failed — the dedicated queues own them', () => {
     const items = [
-      item({ event_id: 1, origin: 'github_issue', state: 'needs_human' }),
-      item({ event_id: 2, origin: 'github_issue', state: 'merge_blocked' }),
-      item({ event_id: 3, origin: 'github_issue', state: 'verdict' }),
+      item({ event_id: 1, origin: 'github_issue', state: 'needs_decision' }),
+      item({ event_id: 2, origin: 'github_issue', state: 'failed' }),
+      item({ event_id: 3, origin: 'github_issue', state: 'working' }),
     ]
-    const byKey = Object.fromEntries(groupIssueItems(items).map((g) => [g.key, g.items]))
-    expect(byKey['needs_you']!.map((i) => i.event_id)).toEqual([1, 2, 3])
+    const groups = groupIssueItems(items)
+    expect(groups.flatMap((g) => g.items.map((i) => i.event_id))).toEqual([3])
   })
 
-  it('maps new and investigating to running', () => {
+  it('maps new, triaged and working to running', () => {
     const items = [
       item({ event_id: 1, origin: 'github_issue', state: 'new' }),
-      item({ event_id: 2, origin: 'github_issue', state: 'investigating' }),
+      item({ event_id: 2, origin: 'github_issue', state: 'triaged' }),
+      item({ event_id: 3, origin: 'github_issue', state: 'working' }),
     ]
     const byKey = Object.fromEntries(groupIssueItems(items).map((g) => [g.key, g.items]))
-    expect(byKey['running']!.map((i) => i.event_id)).toEqual([1, 2])
+    expect(byKey['running']!.map((i) => i.event_id)).toEqual([1, 2, 3])
   })
 
-  it('maps implementing and validating to auto_implementing', () => {
+  it('maps merging and verifying to landing', () => {
     const items = [
-      item({ event_id: 1, origin: 'github_issue', state: 'implementing' }),
-      item({ event_id: 2, origin: 'github_issue', state: 'validating' }),
+      item({ event_id: 1, origin: 'github_issue', state: 'merging' }),
+      item({ event_id: 2, origin: 'github_issue', state: 'verifying' }),
     ]
     const byKey = Object.fromEntries(groupIssueItems(items).map((g) => [g.key, g.items]))
-    expect(byKey['auto_implementing']!.map((i) => i.event_id)).toEqual([1, 2])
+    expect(byKey['landing']!.map((i) => i.event_id)).toEqual([1, 2])
   })
 
-  it('maps merged to done', () => {
-    const items = [item({ event_id: 1, origin: 'github_issue', state: 'merged' })]
+  it('maps the terminal states to done', () => {
+    const items = [
+      item({ event_id: 1, origin: 'github_issue', state: 'fixed' }),
+      item({ event_id: 2, origin: 'github_issue', state: 'quiet' }),
+      item({ event_id: 3, origin: 'github_issue', state: 'closed' }),
+    ]
     const byKey = Object.fromEntries(groupIssueItems(items).map((g) => [g.key, g.items]))
-    expect(byKey['done']!.map((i) => i.event_id)).toEqual([1])
+    expect(byKey['done']!.map((i) => i.event_id)).toEqual([1, 2, 3])
   })
 
   it('falls back to running for a state outside the mapped vocabulary', () => {
-    const items = [item({ event_id: 1, origin: 'github_issue', state: 'snoozed' })]
+    const items = [item({ event_id: 1, origin: 'github_issue', state: 'needs_human' })]
     const byKey = Object.fromEntries(groupIssueItems(items).map((g) => [g.key, g.items]))
     expect(byKey['running']!.map((i) => i.event_id)).toEqual([1])
   })
@@ -212,6 +220,23 @@ describe('formatAgeDays', () => {
   })
 })
 
+describe('stateColor / stateLabel', () => {
+  it('colors every state in the vocabulary and falls back to gray for an unknown one', () => {
+    expect(stateColor('needs_decision')).toBe('orange')
+    expect(stateColor('failed')).toBe('red')
+    expect(stateColor('working')).toBe('blue')
+    expect(stateColor('fixed')).toBe('green')
+    expect(stateColor('needs_human')).toBe('gray')
+  })
+
+  it('appends the close_reason to a closed state only', () => {
+    expect(stateLabel('closed', 'duplicate')).toBe('closed · duplicate')
+    expect(stateLabel('closed', null)).toBe('closed')
+    expect(stateLabel('closed')).toBe('closed')
+    expect(stateLabel('working', 'duplicate')).toBe('working')
+  })
+})
+
 describe('deriveAwaitingOwner', () => {
   const entry = (overrides: Partial<WardenAwaitingOwnerEntry> = {}): WardenAwaitingOwnerEntry =>
     ({
@@ -219,25 +244,61 @@ describe('deriveAwaitingOwner', () => {
       event_id: 1,
       repo: 'argo',
       title: 'Something parked',
-      state: 'needs_human',
+      state: 'needs_decision',
       pr_url: null,
       age_days: 5,
-      reason: 'awaiting a decision',
-      parked_recurrences: 0,
+      reason: 'Revert the retry or fix the race?',
       revision_count: 0,
       availableActions: ['implement', 'dismiss'],
       ...overrides,
     }) as WardenAwaitingOwnerEntry
 
-  it('reads an empty list when the field is missing, never crashing', () => {
-    expect(deriveAwaitingOwner(undefined)).toEqual([])
-    expect(deriveAwaitingOwner({} as never)).toEqual([])
+  it('reads two empty lists when the field is missing, never crashing', () => {
+    expect(deriveAwaitingOwner(undefined)).toEqual({ needsDecision: [], failed: [], other: [] })
+    expect(deriveAwaitingOwner({} as never)).toEqual({ needsDecision: [], failed: [], other: [] })
   })
 
-  it('preserves warden-supplied order rather than re-sorting', () => {
-    const entries = [entry({ event_id: 1 }), entry({ event_id: 2 }), entry({ event_id: 3 })]
-    const rows = deriveAwaitingOwner({ awaiting_owner: entries } as never)
-    expect(rows.map((r) => r.eventId)).toEqual([1, 2, 3])
+  it('splits needs_decision from failed, preserving warden-supplied order', () => {
+    const entries = [
+      entry({ event_id: 1 }),
+      entry({ event_id: 2, state: 'failed' }),
+      entry({ event_id: 3 }),
+      entry({ event_id: 4, state: 'failed' }),
+    ]
+    const view = deriveAwaitingOwner({ awaiting_owner: entries } as never)
+    expect(view.needsDecision.map((r) => r.eventId)).toEqual([1, 3])
+    expect(view.failed.map((r) => r.eventId)).toEqual([2, 4])
+  })
+
+  it('carries the decision question as reason', () => {
+    const view = deriveAwaitingOwner({ awaiting_owner: [entry()] } as never)
+    expect(view.needsDecision[0]!.reason).toBe('Revert the retry or fix the race?')
+  })
+
+  it('routes an entry in any other state to other, dropping only one without an event id', () => {
+    const entries = [
+      entry({ event_id: 1, state: 'needs_human' }),
+      entry({ event_id: null }),
+      entry({ event_id: 3, state: null }),
+    ]
+    const view = deriveAwaitingOwner({ awaiting_owner: entries } as never)
+    expect(view.needsDecision).toEqual([])
+    expect(view.failed).toEqual([])
+    expect(view.other.map((r) => [r.eventId, r.state])).toEqual([
+      [1, 'needs_human'],
+      [3, null],
+    ])
+  })
+
+  it('reads strikes off the matching board item, 0 when it is not on the board', () => {
+    const view = deriveAwaitingOwner({
+      awaiting_owner: [
+        entry({ event_id: 1, state: 'failed' }),
+        entry({ event_id: 2, state: 'failed' }),
+      ],
+      items: [{ event_id: 1, state: 'failed', strikes: 3 }],
+    } as never)
+    expect(view.failed.map((r) => r.strikes)).toEqual([3, 0])
   })
 
   it('formats age and flags stale at the threshold, never below it', () => {
@@ -246,7 +307,7 @@ describe('deriveAwaitingOwner', () => {
       entry({ event_id: 2, age_days: AWAITING_OWNER_STALE_DAYS - 0.1 }),
       entry({ event_id: 3, age_days: null }),
     ]
-    const rows = deriveAwaitingOwner({ awaiting_owner: entries } as never)
+    const rows = deriveAwaitingOwner({ awaiting_owner: entries } as never).needsDecision
     expect(rows[0]!.stale).toBe(true)
     expect(rows[0]!.ageLabel).toBe(`${AWAITING_OWNER_STALE_DAYS.toFixed(1)} d`)
     expect(rows[1]!.stale).toBe(false)
@@ -255,32 +316,18 @@ describe('deriveAwaitingOwner', () => {
   })
 
   it('defaults a missing availableActions to an empty array', () => {
-    const rows = deriveAwaitingOwner({
+    const view = deriveAwaitingOwner({
       awaiting_owner: [entry({ availableActions: undefined })],
     } as never)
-    expect(rows[0]!.availableActions).toEqual([])
+    expect(view.needsDecision[0]!.availableActions).toEqual([])
   })
+})
 
-  it('passes through a stranded_pr entry with no available actions', () => {
-    const rows = deriveAwaitingOwner({
-      awaiting_owner: [
-        entry({
-          kind: 'stranded_pr',
-          event_id: null,
-          state: null,
-          pr_url: 'https://github.com/jkrumm/argo/pull/1',
-          reason: 'item ended while the PR stayed open',
-          availableActions: [],
-        }),
-      ],
-    } as never)
-    expect(rows[0]).toMatchObject({
-      kind: 'stranded_pr',
-      eventId: null,
-      state: null,
-      prUrl: 'https://github.com/jkrumm/argo/pull/1',
-      availableActions: [],
-    })
+describe('pluralize', () => {
+  it('pluralizes everything but exactly one', () => {
+    expect(pluralize(0, 'strike')).toBe('0 strikes')
+    expect(pluralize(1, 'strike')).toBe('1 strike')
+    expect(pluralize(2, 'strike')).toBe('2 strikes')
   })
 })
 
@@ -338,7 +385,7 @@ describe('deriveFunnel', () => {
     expect(tiles.map((t) => t.key)).toEqual([
       'verdicts_recorded_disposition',
       'verified_fixes_vs_silence',
-      'median_needs_human_to_decision_hours',
+      'median_needs_decision_to_decision_hours',
       'verified_unattended_fixes_per_week',
       'poller_ages',
       'reverts_and_reopens',
@@ -361,7 +408,7 @@ describe('deriveFunnel', () => {
         numerator: 13,
         denominator: 18,
       },
-      median_needs_human_to_decision_hours: {
+      median_needs_decision_to_decision_hours: {
         value: null,
         unavailable: 'window start predates history_since',
         pairs: 0,
@@ -373,7 +420,7 @@ describe('deriveFunnel', () => {
     expect(disposition.unavailable).toBeNull()
     expect(disposition.detail).toBe('numerator: 13 · denominator: 18')
 
-    const median = tiles.find((t) => t.key === 'median_needs_human_to_decision_hours')!
+    const median = tiles.find((t) => t.key === 'median_needs_decision_to_decision_hours')!
     expect(median.value).toBeNull()
     expect(median.unavailable).toBe('window start predates history_since')
     expect(median.detail).toBe('pairs: 0')
@@ -418,7 +465,7 @@ describe('deriveFunnel', () => {
         unavailable: null,
         numerator: 13,
         denominator: 18,
-        item_states: { closed: 4, fixed: 1, merge_blocked: 4, needs_human: 8, quiet: 9 },
+        item_states: { closed: 4, fixed: 1, failed: 4, needs_decision: 8, quiet: 9 },
         item_states_note: '…',
         excluded_interactive: 11,
         excluded_interactive_note: '…',
@@ -427,7 +474,7 @@ describe('deriveFunnel', () => {
     } as unknown as WardenMetrics
     const tile = deriveFunnel(metrics).find((t) => t.key === 'verdicts_recorded_disposition')!
     expect(tile.detail).toBe(
-      'numerator: 13 · denominator: 18 · item_states · closed 4 · fixed 1 · merge_blocked 4 · needs_human 8 · quiet 9 · excluded_interactive: 11',
+      'numerator: 13 · denominator: 18 · item_states · closed 4 · fixed 1 · failed 4 · needs_decision 8 · quiet 9 · excluded_interactive: 11',
     )
     expect(tile.detail).not.toContain('windowed')
     expect(tile.detail).not.toContain('{')
@@ -474,21 +521,6 @@ describe('formatTileValue', () => {
   it('renders every other metric rounded to at most one decimal', () => {
     expect(formatTileValue(tile({ key: 'poller_ages', value: 4.695051216666667 }))).toBe('4.7')
     expect(formatTileValue(tile({ key: 'reverts_and_reopens', value: 0 }))).toBe('0')
-  })
-})
-
-describe('intentSummary', () => {
-  it('reads none recorded when intents is absent', () => {
-    expect(intentSummary(undefined)).toEqual({ pending: 0, rejected: 0, entries: [] })
-  })
-
-  it('passes through the counts and entries', () => {
-    const entries = [{ file: 'x', kind: 'approval_decision' }]
-    expect(intentSummary({ pending: 1, rejected: 2, entries } as never)).toEqual({
-      pending: 1,
-      rejected: 2,
-      entries,
-    })
   })
 })
 
@@ -573,9 +605,9 @@ describe('buildItemFacts', () => {
     expect(buildItemFacts({}, {}).lines).toEqual([])
   })
 
-  it('reports resolved, deadline and both reminder counts as separate lines', () => {
+  it('reports resolved, the alert reminder count and strikes/retry as separate lines', () => {
     const facts = buildItemFacts(
-      { state_deadline: '2026-09-05T00:00:00Z', reminder_count: 2 },
+      { strikes: 2, retry_at: '2026-09-05T00:00:00Z' },
       {
         resolved_at: '2026-09-04T00:00:00Z',
         reminder_count: 5,
@@ -583,14 +615,21 @@ describe('buildItemFacts', () => {
       },
     )
     expect(facts.lines.some((line) => line.startsWith('resolved '))).toBe(true)
-    expect(facts.lines.some((line) => line.startsWith('deadline '))).toBe(true)
     expect(facts.lines.some((line) => line.startsWith('Alert reminders: 5'))).toBe(true)
-    expect(facts.lines.some((line) => line === 'Needs-human reminders: 2')).toBe(true)
+    expect(facts.lines).toContain('2 strikes')
+    expect(facts.lines.some((line) => line.startsWith('retry '))).toBe(true)
   })
 
-  it('never renders a reminder line for a zero or absent count', () => {
-    const facts = buildItemFacts({ reminder_count: 0 }, { reminder_count: 0 })
-    expect(facts.lines.some((line) => line.includes('reminders'))).toBe(false)
+  it('never renders a reminder or strike line for a zero or absent count', () => {
+    const facts = buildItemFacts({ strikes: 0 }, { reminder_count: 0 })
+    expect(facts.lines).toEqual([])
+  })
+
+  it("shows a closed item's close_reason on its state", () => {
+    expect(buildItemFacts({ state: 'closed', close_reason: 'duplicate' }, null).state).toBe(
+      'closed · duplicate',
+    )
+    expect(buildItemFacts({ state: 'working', close_reason: null }, null).state).toBe('working')
   })
 
   it('summarizes the event payload only for a brief-less alert-origin item', () => {
@@ -637,6 +676,5 @@ describe('resolveItemModal', () => {
     expect(modal.facts.transitionsTotal).toBe(9)
     expect(modal.facts.dispatches).toEqual([])
     expect(modal.facts.operations).toEqual([])
-    expect(modal.facts.approvals).toEqual([])
   })
 })

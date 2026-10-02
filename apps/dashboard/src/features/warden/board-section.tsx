@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Anchor, Badge, Card, Group, Stack, Text } from '@mantine/core'
+import { Anchor, Card, Group, Stack, Text } from '@mantine/core'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
 import { relativeTime } from 'basalt-ui/format'
 import type { WardenBoardItem } from '../../lib/queries/warden'
@@ -38,9 +38,15 @@ function columnsFor(bucketKey: string) {
         </Text>
       ),
     }),
-    columnHelper.accessor('state', {
+    columnHelper.display({
+      id: 'state',
       header: 'State',
-      cell: (ctx) => <StateBadge state={ctx.getValue()} />,
+      cell: (ctx) => (
+        <StateBadge
+          state={ctx.row.original.state}
+          closeReason={ctx.row.original.close_reason ?? null}
+        />
+      ),
     }),
     columnHelper.accessor((row) => row.updated_at ?? row.created_at ?? '', {
       id: 'age',
@@ -94,9 +100,11 @@ function ItemCard({ item, bucketKey }: { item: WardenBoardItem; bucketKey: strin
       <Stack gap={4}>
         <Group justify="space-between" wrap="nowrap" gap="xs">
           <Group gap="xs" wrap="nowrap" miw={0}>
-            <Badge variant="light" color="gray" style={{ flexShrink: 0 }}>
-              {item.state}
-            </Badge>
+            <StateBadge
+              state={item.state}
+              closeReason={item.close_reason ?? null}
+              style={{ flexShrink: 0 }}
+            />
             <Text size="sm" fw={600} lineClamp={1}>
               {item.repo ?? item.origin ?? '—'}
             </Text>
@@ -160,8 +168,8 @@ function BucketBlock({
 }
 
 /** One `Section`/table per non-empty bucket, in `deriveBoard`'s fixed order. The `deferred` bucket
- * (a budget-blocked `verdict`) carries its own label and a prominently-colored note column/line —
- * it must never blend into a plain `verdict` block. */
+ * (a budget-blocked `working` item) carries its own label and a prominently-colored note column/line —
+ * it must never blend into a plain `working` block. */
 export function BoardSections({ buckets, onSelectItem }: Props) {
   const nonEmpty = buckets.filter((b) => b.items.length > 0)
   if (nonEmpty.length === 0) {

@@ -12,7 +12,6 @@ import { BoardSections } from '../features/warden/board-section'
 import { GithubIssuesSection } from '../features/warden/issues-section'
 import { useWardenActions } from '../features/warden/use-warden-actions'
 import { ItemTimeline } from '../features/warden/item-timeline'
-import { IntentsSection } from '../features/warden/intents-section'
 
 export const Route = createFileRoute('/warden')({
   loader: ({ context }) => context.queryClient.ensureQueryData(wardenQueries.snapshot()),
@@ -48,7 +47,7 @@ function WardenPage() {
 
       <Stack gap="md">
         <AwaitingOwnerSection
-          rows={awaitingOwner}
+          view={awaitingOwner}
           pending={pending}
           onSelectItem={setSelectedEventId}
           onAction={handleAction}
@@ -62,7 +61,6 @@ function WardenPage() {
           onAction={handleAction}
         />
         <BoardSections buckets={buckets} onSelectItem={setSelectedEventId} />
-        <IntentsSection intents={raw?.intents} />
       </Stack>
 
       <ItemTimeline

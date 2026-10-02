@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { Anchor, Badge, Card, Group, Stack, Text, Tooltip } from '@mantine/core'
+import { Anchor, Card, Group, Stack, Text, Tooltip } from '@mantine/core'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
 import { EmptyState, Section } from 'basalt-ui'
 import { IconCircleCheck } from '@tabler/icons-react'
@@ -14,7 +14,9 @@ import {
 } from './issues-section'
 import {
   isSafeHttpUrl,
+  pluralize,
   type AwaitingOwnerRow,
+  type AwaitingOwnerView,
   type PendingAction,
   type PendingActions,
 } from './model'
@@ -22,7 +24,7 @@ import {
 type OnAction = (eventId: number, verb: WardenActionVerb, payload?: Record<string, unknown>) => void
 
 type Props = {
-  rows: AwaitingOwnerRow[]
+  view: AwaitingOwnerView
   pending: PendingActions
   onSelectItem: (eventId: number) => void
   onAction: OnAction
@@ -38,47 +40,36 @@ function AgeCell({ row }: { row: AwaitingOwnerRow }) {
   )
 }
 
-/** A `stranded_pr` row carries no board `state` at all — it renders its own badge rather than a
- * blank/`unknown` `StateBadge`. */
-function StateCell({ row }: { row: AwaitingOwnerRow }) {
-  if (row.kind === 'stranded_pr') {
-    return (
-      <Badge variant="light" color="blue" style={{ flexShrink: 0 }}>
-        stranded PR
-      </Badge>
-    )
-  }
-  return <StateBadge state={row.state ?? 'unknown'} />
-}
-
-/** The full reason always reaches the tooltip — the cell itself clamps to two lines so a long
- * warden-written reason never blows out the row height. */
+/** The full text always reaches the tooltip — the cell itself clamps to three lines so a long
+ * warden-written decision question never blows out the row height. */
 function ReasonCell({ reason }: { reason: string | null }) {
   if (!reason) return <Text c="dimmed">—</Text>
   return (
     <Tooltip label={reason} multiline maw={360} withArrow>
-      <Text size="sm" lineClamp={2}>
+      <Text size="sm" lineClamp={3}>
         {reason}
       </Text>
     </Tooltip>
   )
 }
 
-/** "recurred N× since parked" and "revision N" — only the ones with something to say, joined onto
- * one dimmed line. */
-function flagParts(row: AwaitingOwnerRow): string[] {
+/** `failed` rows only: "N strikes · revision N" — only the parts with something to say, joined
+ * onto one dimmed line. */
+function failureFlags(row: AwaitingOwnerRow): string {
   return [
-    row.parkedRecurrences > 0 ? `recurred ${row.parkedRecurrences}× since parked` : null,
+    row.strikes > 0 ? pluralize(row.strikes, 'strike') : null,
     row.revisionCount > 0 ? `revision ${row.revisionCount}` : null,
-  ].filter((part): part is string => part !== null)
+  ]
+    .filter((part): part is string => part !== null)
+    .join(' · ')
 }
 
-function FlagsCell({ row }: { row: AwaitingOwnerRow }) {
-  const parts = flagParts(row)
-  if (parts.length === 0) return <Text c="dimmed">—</Text>
+function FailureFlagsCell({ row }: { row: AwaitingOwnerRow }) {
+  const flags = failureFlags(row)
+  if (!flags) return <Text c="dimmed">—</Text>
   return (
     <Text size="xs" c="dimmed">
-      {parts.join(' · ')}
+      {flags}
     </Text>
   )
 }
@@ -99,13 +90,17 @@ function PrCell({ prUrl }: { prUrl: string | null }) {
   )
 }
 
+type QueueKind = 'needs_decision' | 'failed' | 'other'
+
 const columnHelper = createColumnHelper<AwaitingOwnerRow>()
 
 function columnsFor({
+  kind,
   pending,
   onFire,
   onPrompt,
 }: {
+  kind: QueueKind
   pending: PendingActions
   onFire: (eventId: number, verb: WardenActionVerb) => void
   onPrompt: (eventId: number, verb: PromptVerb) => void
@@ -126,24 +121,23 @@ function columnsFor({
       ),
     }),
     columnHelper.display({
-      id: 'state',
-      header: 'State',
-      cell: (ctx) => <StateCell row={ctx.row.original} />,
+      id: 'reason',
+      header: kind === 'needs_decision' ? 'Decision' : 'Note',
+      cell: (ctx) => <ReasonCell reason={ctx.row.original.reason} />,
     }),
+    ...(kind !== 'needs_decision'
+      ? [
+          columnHelper.display({
+            id: 'flags',
+            header: 'Flags',
+            cell: (ctx) => <FailureFlagsCell row={ctx.row.original} />,
+          }),
+        ]
+      : []),
     columnHelper.display({
       id: 'age',
       header: 'Waiting',
       cell: (ctx) => <AgeCell row={ctx.row.original} />,
-    }),
-    columnHelper.display({
-      id: 'reason',
-      header: 'Reason',
-      cell: (ctx) => <ReasonCell reason={ctx.row.original.reason} />,
-    }),
-    columnHelper.display({
-      id: 'flags',
-      header: 'Flags',
-      cell: (ctx) => <FlagsCell row={ctx.row.original} />,
     }),
     columnHelper.display({
       id: 'pr',
@@ -154,12 +148,10 @@ function columnsFor({
       id: 'actions',
       header: 'Actions',
       cell: (ctx) => {
-        const row = ctx.row.original
-        if (row.kind !== 'item' || row.eventId === null) return <Text c="dimmed">—</Text>
-        const eventId = row.eventId
+        const eventId = ctx.row.original.eventId
         return (
           <ActionButtons
-            item={row}
+            item={ctx.row.original}
             pendingAction={pending[eventId]}
             onFire={(verb) => onFire(eventId, verb)}
             onPrompt={(verb) => onPrompt(eventId, verb)}
@@ -170,12 +162,14 @@ function columnsFor({
   ]
 }
 
-function AwaitingOwnerCard({
+function QueueCard({
+  kind,
   row,
   pendingAction,
   onFire,
   onPrompt,
 }: {
+  kind: QueueKind
   row: AwaitingOwnerRow
   pendingAction: PendingAction | undefined
   onFire: (verb: WardenActionVerb) => void
@@ -186,7 +180,7 @@ function AwaitingOwnerCard({
       <Stack gap={4}>
         <Group justify="space-between" wrap="nowrap" gap="xs">
           <Group gap="xs" wrap="nowrap" miw={0}>
-            <StateCell row={row} />
+            <StateBadge state={row.state ?? 'unknown'} style={{ flexShrink: 0 }} />
             <Text size="sm" fw={600} lineClamp={1}>
               {row.repo ?? '—'}
             </Text>
@@ -199,29 +193,68 @@ function AwaitingOwnerCard({
           </Text>
         ) : null}
         <ReasonCell reason={row.reason} />
-        <FlagsCell row={row} />
+        {kind !== 'needs_decision' ? <FailureFlagsCell row={row} /> : null}
         <PrCell prUrl={row.prUrl} />
-        {row.kind === 'item' && row.eventId !== null ? (
-          <ActionButtons
-            item={row}
-            pendingAction={pendingAction}
-            onFire={onFire}
-            onPrompt={onPrompt}
-          />
-        ) : null}
+        <ActionButtons
+          item={row}
+          pendingAction={pendingAction}
+          onFire={onFire}
+          onPrompt={onPrompt}
+        />
       </Stack>
     </Card>
   )
 }
 
+function QueueTable({
+  kind,
+  rows,
+  pending,
+  onSelectItem,
+  onFire,
+  onPrompt,
+}: {
+  kind: QueueKind
+  rows: AwaitingOwnerRow[]
+  pending: PendingActions
+  onSelectItem: (eventId: number) => void
+  onFire: (eventId: number, verb: WardenActionVerb) => void
+  onPrompt: (eventId: number, verb: PromptVerb) => void
+}) {
+  const columns = useMemo(
+    () => columnsFor({ kind, pending, onFire, onPrompt }),
+    [kind, pending, onFire, onPrompt],
+  )
+
+  return (
+    <BasaltDataTable
+      data={rows}
+      columns={columns}
+      getRowId={(row) => String(row.eventId)}
+      onRowActivate={(row) => onSelectItem(row.eventId)}
+      renderCard={(row) => (
+        <QueueCard
+          kind={kind}
+          row={row}
+          pendingAction={pending[row.eventId]}
+          onFire={(verb) => onFire(row.eventId, verb)}
+          onPrompt={(verb) => onPrompt(row.eventId, verb)}
+        />
+      )}
+    />
+  )
+}
+
 /**
- * "Waiting on you" — everything warden's snapshot itself flags as unable to proceed without the
- * owner (`board.awaiting_owner`), rendered first on `/warden` so nothing here rots invisibly.
- * `kind: "item"` rows reuse the same action buttons/prompt flow as `GithubIssuesSection`
- * (`ActionButtons`/`ActionPromptModal`, exported from `issues-section.tsx`); `kind: "stranded_pr"`
- * rows carry no actions — the PR link and the reason are all there is to show.
+ * The one "Needs you" list — every `needs_decision` item, the decision question (the item note)
+ * beside the actions that answer it — rendered first on `/warden` so nothing here rots invisibly.
+ * `failed` items (a step that struck out; only an owner action moves them) get their own quieter
+ * list below it, rendered only when there is one; an entry in any other state gets an "Unknown
+ * state" list after that, so nothing awaiting the owner is ever dropped. Both come from `board.awaiting_owner` (see
+ * `deriveAwaitingOwner`) and reuse the action buttons/prompt flow of `GithubIssuesSection`
+ * (`ActionButtons`/`ActionPromptModal`, exported from `issues-section.tsx`).
  */
-export function AwaitingOwnerSection({ rows, pending, onSelectItem, onAction }: Props) {
+export function AwaitingOwnerSection({ view, pending, onSelectItem, onAction }: Props) {
   const [prompt, setPrompt] = useState<PromptState>(null)
 
   const openPrompt = useCallback(
@@ -229,10 +262,13 @@ export function AwaitingOwnerSection({ rows, pending, onSelectItem, onAction }: 
     [],
   )
 
-  function fireOrPrompt(eventId: number, verb: WardenActionVerb) {
-    if (needsPrompt(verb)) openPrompt(eventId, verb)
-    else onAction(eventId, verb)
-  }
+  const fireOrPrompt = useCallback(
+    (eventId: number, verb: WardenActionVerb) => {
+      if (needsPrompt(verb)) openPrompt(eventId, verb)
+      else onAction(eventId, verb)
+    },
+    [onAction, openPrompt],
+  )
 
   function submitPrompt(text: string) {
     if (!prompt) return
@@ -241,41 +277,53 @@ export function AwaitingOwnerSection({ rows, pending, onSelectItem, onAction }: 
     setPrompt(null)
   }
 
-  const columns = useMemo(
-    () => columnsFor({ pending, onFire: fireOrPrompt, onPrompt: openPrompt }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pending, onAction, openPrompt],
-  )
-
   return (
     <>
-      <Section title="Waiting on you" count={rows.length}>
-        {rows.length === 0 ? (
+      <Section title="Needs you" count={view.needsDecision.length}>
+        {view.needsDecision.length === 0 ? (
           <EmptyState
             tier="section"
             icon={<IconCircleCheck size={28} />}
-            title="Nothing waiting on you"
-            description="Warden has nothing parked that needs your decision right now."
+            title="Nothing needs you"
+            description="Warden has no decision waiting on you right now."
           />
         ) : (
-          <BasaltDataTable
-            data={rows}
-            columns={columns}
-            getRowId={(row, index) => `${row.kind}-${row.eventId ?? 'none'}-${index}`}
-            onRowActivate={(row) => {
-              if (row.kind === 'item' && row.eventId !== null) onSelectItem(row.eventId)
-            }}
-            renderCard={(row) => (
-              <AwaitingOwnerCard
-                row={row}
-                pendingAction={row.eventId !== null ? pending[row.eventId] : undefined}
-                onFire={(verb) => row.eventId !== null && fireOrPrompt(row.eventId, verb)}
-                onPrompt={(verb) => row.eventId !== null && openPrompt(row.eventId, verb)}
-              />
-            )}
+          <QueueTable
+            kind="needs_decision"
+            rows={view.needsDecision}
+            pending={pending}
+            onSelectItem={onSelectItem}
+            onFire={fireOrPrompt}
+            onPrompt={openPrompt}
           />
         )}
       </Section>
+
+      {view.failed.length > 0 ? (
+        <Section title="Failed" count={view.failed.length}>
+          <QueueTable
+            kind="failed"
+            rows={view.failed}
+            pending={pending}
+            onSelectItem={onSelectItem}
+            onFire={fireOrPrompt}
+            onPrompt={openPrompt}
+          />
+        </Section>
+      ) : null}
+
+      {view.other.length > 0 ? (
+        <Section title="Unknown state" count={view.other.length}>
+          <QueueTable
+            kind="other"
+            rows={view.other}
+            pending={pending}
+            onSelectItem={onSelectItem}
+            onFire={fireOrPrompt}
+            onPrompt={openPrompt}
+          />
+        </Section>
+      ) : null}
 
       <ActionPromptModal prompt={prompt} onClose={() => setPrompt(null)} onSubmit={submitPrompt} />
     </>
