@@ -73,19 +73,71 @@ bun db:migrate                                 # apply pending Drizzle migration
 # Single-app
 bun run --cwd apps/api start                  # API on :4040 (needs secrets-run/op wrapper for env)
 bun run --cwd apps/api db:generate            # generate migration after schema changes
+```
+
+Validation and deploy entry points are `make check` / `make deploy` / `make verify` / `make logs` —
+see [Validate](#validate), [Deploy](#deploy) and [Verify & Monitor](#verify--monitor) below.
+
+**Dev infra prerequisite:** the local Postgres + ClickStack + Valkey come from `~/SourceRoot/vps/compose.dev.yml`. Start once with `cd ~/SourceRoot/vps && make up` (and `make postgres-setup` the first time to provision the `argo` role + schema). The `bun dev` command then connects to the shared cluster on `localhost:5432` and pipes OTel to ClickStack on `localhost:4318`.
+
+## Validate
+
+`make check` runs exactly the gates CI runs on every PR and on push to `master`
+(`.github/workflows/check.yml`): basalt managed-file drift, then `oxlint` + `check-theme`, then
+`oxfmt --check`, then both workspace typechecks, then the DB-free unit tests. Non-zero on the first
+failure; no side effects.
+
+```bash
+./node_modules/.bin/basalt-ui sync --check    # managed files match the installed basalt-ui
+bun run lint                                  # oxlint + basalt-ui check-theme
+bun run format:check                          # oxfmt
 bun run --cwd apps/api typecheck
 bun run --cwd apps/dashboard typecheck
 
-# Tests — wraps secrets-run + assembles DATABASE_URL (needs dev Postgres up)
-bun test:api                                  # all API tests
-bun test:api src/routes/workouts.summary.test.ts  # pass-through filter
+# Unit tests (pure logic, no DB connection) — placeholders satisfy the env schema for module init:
+DATABASE_URL=postgres://localhost:5432/placeholder API_SECRET=ci-placeholder \
+  bun --cwd apps/api test src/env.test.ts src/lib/
 
-# Root (all workspaces)
-bun run lint                                  # oxlint
-bun run format:check                          # oxfmt
+# Integration tests (src/routes/*.test.ts) need the dev Postgres up; they are NOT part of CI:
+bun test:api                                  # wraps secrets-run + assembles DATABASE_URL
+bun test:api src/routes/workouts.summary.test.ts  # pass-through filter
 ```
 
-**Dev infra prerequisite:** the local Postgres + ClickStack + Valkey come from `~/SourceRoot/vps/compose.dev.yml`. Start once with `cd ~/SourceRoot/vps && make up` (and `make postgres-setup` the first time to provision the `argo` role + schema). The `bun dev` command then connects to the shared cluster on `localhost:5432` and pipes OTel to ClickStack on `localhost:4318`.
+## Deploy
+
+API and dashboard run on the VPS via Docker. Push to `master` → RollHook → rolling restart — there
+is **no manual deploy step**, so `make deploy` only confirms the CI path and exits 0. Compose:
+`~/SourceRoot/vps/apps/argo/compose.yml`; the workflow is `.github/workflows/deploy.yml` (GitHub
+OIDC → RollHook, images `argo-api` / `argo-dashboard`). Migrations apply automatically on API boot —
+**there is no manual prod migrate step** (see `apps/api/AGENTS.md`).
+
+## Verify & Monitor
+
+`make verify` probes the production health endpoint, which returns `{status, commit}`. `commit` is
+the `GIT_SHA` baked into the api image by the deploy workflow, so a landed deploy is confirmed once
+it equals `git rev-parse origin/master` (see `docs/DEPLOY-VERIFICATION.md`). The endpoint is
+unauthenticated and does not touch the database.
+
+- Full health URL: `https://argo.jkrumm.com/api/health`
+- Uptime Kuma monitors (group `Argo`): `Argo / API - HTTP` (the `/api/health` probe), `Argo / Dashboard - HTTP`,
+  and `Argo / Hermes - HTTP` (`GET /hermes/health/public`).
+- OTel `service.name`: `argo-api` (via `OTEL_SERVICE_NAME`; the dashboard is `argo-dashboard`).
+- Tail recent production logs: `make logs`.
+- The dashboard image carries no SHA (its build only bakes `VITE_HYPERDX_API_KEY`), so only the API
+  can be verified this way.
+
+## Gotchas
+
+- **`bun db:sync` wipes local data.** It uses `pg_dump --clean --if-exists`; run it _before_
+  generating a new migration, never after — otherwise the unreleased migration is wiped from the
+  local DB (re-run `bun db:migrate` to re-apply the committed SQL).
+- **Never `op read`/`op run` on the Mac mini** — it hangs on a biometric prompt no one can answer.
+  Use the `secrets-run` shim there (live `op` on the MacBook, headless cache on the mini).
+- **Prod OAuth tokens are per-grant runtime state**, not env or 1Password: local
+  `apps/api/data/oauth-tokens.json`, prod `/var/lib/argo/data/oauth-tokens.json` (survives
+  redeploys). Google features only work on prod or `bun dev:prod-api`.
+- **`make logs` assumes the container is named `argo-api`**, taken from the deploy image name; if
+  the VPS compose service differs, adjust the target.
 
 ## Secrets
 
@@ -111,10 +163,6 @@ bun dev                                  # API :4040 + dashboard :7715 (https://
 ```
 
 The dashboard proxies `/api/*` to the API (strips `/api` prefix) and `/v1/traces` + `/v1/logs` to ClickStack on `:4318`.
-
-## Production
-
-API and dashboard run on the VPS via Docker. Compose: `~/SourceRoot/vps/apps/argo/compose.yml`. Push to `master` → RollHook → rolling restart.
 
 ## Design System
 
