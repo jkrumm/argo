@@ -158,7 +158,7 @@ export const usageStore = createSearchStore({
     // window here, so three params would be two more than the page can use.
     range: field.enum(['7d', '30d', '90d', 'all'], '30d'),
     grain: field.enum(['day', 'week'], 'day'),
-    billing: field.multi(['max', 'iu', 'unknown'], []),
+    billing: field.multi(['max', 'iu', 'openrouter', 'unknown'], []),
     workspace: field.multi(['work', 'private'], []),
     costGroupBy: field.enum(['source', 'machine', 'billing'], 'source'),
     tokensGroupBy: field.enum(['sub_tool', 'model_norm', 'project', 'source'], 'sub_tool'),
@@ -166,7 +166,7 @@ export const usageStore = createSearchStore({
 }).labels({
   range: { '7d': '7d', '30d': '30d', '90d': '90d', all: 'All' },
   grain: { day: 'Day', week: 'Week' },
-  billing: { max: 'Max', iu: 'IU', unknown: 'Unknown' },
+  billing: { max: 'Max', iu: 'IU', openrouter: 'OpenRouter', unknown: 'Unknown' },
   workspace: { work: 'Work', private: 'Private' },
   costGroupBy: { source: 'Source', machine: 'Machine', billing: 'Billing' },
   tokensGroupBy: {

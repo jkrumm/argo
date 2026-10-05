@@ -115,11 +115,12 @@ const USAGE_SOURCE_MAP = defineSeries({
   audioProxy: p(BP.forest),
   feuer: p(BP.vermilion),
   opencode: p(BP.orange),
-  // The two standalone VPS gateways. Without their own identity both fell to
+  // The standalone VPS gateways. Without their own identity they fell to
   // `other`, so they rendered as the same grey as each other and as every
   // genuinely unknown source.
   researchGateway: p(BP.violet),
   imageGen: p(BP.turquoise),
+  emailGateway: p(BP.indigo),
   other: p(BP.gray),
 } satisfies SeriesMap)
 
@@ -127,6 +128,7 @@ const USAGE_SOURCE_MAP = defineSeries({
 const USAGE_BILLING_MAP = defineSeries({
   max: p(BP.gold),
   iu: p(BP.blue),
+  openrouter: p(BP.rose),
   unknown: p(BP.gray),
 } satisfies SeriesMap)
 

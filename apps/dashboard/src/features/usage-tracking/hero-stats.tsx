@@ -42,7 +42,7 @@ export function HeroStats() {
       <StatCard
         title="Cost (30d)"
         value={fmtUsd(data.costUsd30d)}
-        subtitle={`Last 7d ${fmtUsd(data.costUsd7d)} · Max ${fmtUsd(data.costMaxBilling30d)} · IU ${fmtUsd(data.costIuBilling30d)}`}
+        subtitle={`Last 7d ${fmtUsd(data.costUsd7d)} · Max ${fmtUsd(data.costMaxBilling30d)} · IU ${fmtUsd(data.costIuBilling30d)} · OpenRouter ${fmtUsd(data.costOpenrouterBilling30d)}`}
       />
       <StatCard
         title="Tokens (30d)"

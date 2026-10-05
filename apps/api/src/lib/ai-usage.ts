@@ -13,7 +13,7 @@ export interface AiUsageData {
 }
 
 /** Matches the domain accepted by the ingest side (`routes/usage.ts`'s `BillingEnum`). */
-export type UsageBilling = 'max' | 'iu' | 'unknown'
+export type UsageBilling = 'max' | 'iu' | 'openrouter' | 'unknown'
 
 /** Matches `usage_record.outcome`'s two known values (see `db/schema.ts`). */
 export type UsageOutcome = 'ok' | 'error'

@@ -17,7 +17,7 @@ import {
 } from '../lib/usage-query.js'
 import { classifyWorkspace, normalizeProject } from '../lib/project-normalize.js'
 
-const BillingEnum = z.enum(['max', 'iu', 'unknown'])
+const BillingEnum = z.enum(['max', 'iu', 'openrouter', 'unknown'])
 
 /**
  * Accept either a single scalar or an array for filter query params.
@@ -262,6 +262,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
           COALESCE(SUM(cost_usd) FILTER (WHERE ts >= ${f7}), 0)::float AS cost_usd_7d,
           COALESCE(SUM(cost_usd) FILTER (WHERE billing = 'max' AND ts >= ${f30}), 0)::float AS cost_max_billing_30d,
           COALESCE(SUM(cost_usd) FILTER (WHERE billing = 'iu' AND ts >= ${f30}), 0)::float AS cost_iu_billing_30d,
+          COALESCE(SUM(cost_usd) FILTER (WHERE billing = 'openrouter' AND ts >= ${f30}), 0)::float AS cost_openrouter_billing_30d,
           -- cache_read_tokens excluded: it's the full re-read prior context on every
           -- turn, not a delta, so summing it across rows re-counts the same tokens.
           COALESCE(SUM(input_tokens::bigint + output_tokens::bigint + cache_write_tokens::bigint + reasoning_tokens::bigint) FILTER (WHERE ts >= ${f30}), 0)::bigint AS tokens_30d,
@@ -287,6 +288,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         costUsd7d: Number(r['cost_usd_7d'] ?? 0),
         costMaxBilling30d: Number(r['cost_max_billing_30d'] ?? 0),
         costIuBilling30d: Number(r['cost_iu_billing_30d'] ?? 0),
+        costOpenrouterBilling30d: Number(r['cost_openrouter_billing_30d'] ?? 0),
         tokens30d: Number(r['tokens_30d'] ?? 0),
         errorRate30d: Number(r['error_rate_30d'] ?? 0),
         p95Ms30d:
@@ -309,6 +311,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
           costUsd7d: z.number(),
           costMaxBilling30d: z.number(),
           costIuBilling30d: z.number(),
+          costOpenrouterBilling30d: z.number(),
           tokens30d: z.number().int(),
           errorRate30d: z.number(),
           p95Ms30d: z.number().nullable(),

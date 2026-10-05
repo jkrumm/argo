@@ -9,6 +9,7 @@ const SOURCE_KEY_TO_TOKEN: Record<string, keyof typeof USAGE_SOURCE> = {
   'sideclaw-iu': 'sideclaw',
   'research-gateway': 'researchGateway',
   'image-gen-gateway': 'imageGen',
+  'email-gateway': 'emailGateway',
   hermes: 'hermesAgent',
   'hermes-agent': 'hermesAgent',
   hermesAgent: 'hermesAgent',
@@ -29,6 +30,7 @@ export function colorForSource(source: string): string {
 export function colorForBilling(billing: string): string {
   if (billing === 'max') return USAGE_BILLING.max
   if (billing === 'iu') return USAGE_BILLING.iu
+  if (billing === 'openrouter') return USAGE_BILLING.openrouter
   return USAGE_BILLING.unknown
 }
 

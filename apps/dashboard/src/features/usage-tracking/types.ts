@@ -5,5 +5,5 @@ export type TokensGroupBy = Extract<
   TimeseriesGroupBy,
   'sub_tool' | 'model_norm' | 'project' | 'source'
 >
-export type BillingValue = 'max' | 'iu' | 'unknown'
+export type BillingValue = 'max' | 'iu' | 'openrouter' | 'unknown'
 export type WorkspaceValue = 'work' | 'private'

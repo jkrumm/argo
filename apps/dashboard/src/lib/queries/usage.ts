@@ -34,7 +34,7 @@ export type TimeseriesParams = {
   groupBy: TimeseriesGroupBy
   sources?: string[] | undefined
   machines?: string[] | undefined
-  billing?: ('max' | 'iu' | 'unknown')[] | undefined
+  billing?: ('max' | 'iu' | 'openrouter' | 'unknown')[] | undefined
   workspace?: WorkspaceValue[] | undefined
 }
 
@@ -45,7 +45,7 @@ export type BreakdownParams = {
   limit?: number
   sources?: string[] | undefined
   machines?: string[] | undefined
-  billing?: ('max' | 'iu' | 'unknown')[] | undefined
+  billing?: ('max' | 'iu' | 'openrouter' | 'unknown')[] | undefined
   workspace?: WorkspaceValue[] | undefined
 }
 
