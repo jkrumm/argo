@@ -71,8 +71,9 @@ const WARDEN_ACTION_VERBS = [
 ] as const
 
 // Why a `failed` item failed — non-null only when `state === 'failed'`. Both this and `redrives`
-// are optional so a snapshot from an older warden still validates.
-const FailureClassSchema = z.enum(['infra', 'policy', 'work']).nullable().optional()
+// are optional so a snapshot from an older warden still validates. An open string, like `state`:
+// warden owns the vocabulary (infra | policy | work today), so a new class never 422s the snapshot.
+const FailureClassSchema = z.string().nullable().optional()
 
 const BoardItemSchema = z.looseObject({
   event_id: z.number(),

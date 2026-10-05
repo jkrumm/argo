@@ -281,10 +281,18 @@ describe('/warden/snapshot', () => {
     expect(res.status).toBe(201)
   })
 
-  it('rejects an unknown failure_class with 422', async () => {
+  it('accepts a failure_class this Argo does not know yet (warden owns the vocabulary)', async () => {
     const res = await post(
       '/warden/snapshot',
-      snapshot({ board: { items: [{ event_id: 4, state: 'failed', failure_class: 'bogus' }] } }),
+      snapshot({ board: { items: [{ event_id: 4, state: 'failed', failure_class: 'future' }] } }),
+    )
+    expect(res.status).toBe(201)
+  })
+
+  it('rejects a non-string failure_class with 422', async () => {
+    const res = await post(
+      '/warden/snapshot',
+      snapshot({ board: { items: [{ event_id: 4, state: 'failed', failure_class: 7 }] } }),
     )
     expect(res.status).toBe(422)
   })
