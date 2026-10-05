@@ -43,13 +43,20 @@ export type WardenAwaitingOwnerEntry = NonNullable<WardenBoard['awaiting_owner']
  * consumer of `item.availableActions` must filter through `KNOWN_ACTION_VERBS`/`isKnownActionVerb`
  * before treating a raw string as this type — an un-filtered value can be any string.
  */
-export type WardenActionVerb = 'implement' | 'merge' | 'dismiss' | 'reinvestigate' | 'note'
+export type WardenActionVerb =
+  | 'implement'
+  | 'merge'
+  | 'dismiss'
+  | 'reinvestigate'
+  | 'retry'
+  | 'note'
 
 export const KNOWN_ACTION_VERBS: readonly WardenActionVerb[] = [
   'implement',
   'merge',
   'dismiss',
   'reinvestigate',
+  'retry',
   'note',
 ]
 

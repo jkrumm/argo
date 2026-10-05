@@ -650,7 +650,7 @@ export const wardenAction = argoSchema.table(
     id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
     machine: text('machine').notNull(),
     event_id: integer('event_id').notNull(),
-    verb: text('verb').notNull(), // 'implement' | 'merge' | 'dismiss' | 'reinvestigate' | 'note'
+    verb: text('verb').notNull(), // 'implement' | 'merge' | 'dismiss' | 'reinvestigate' | 'retry' | 'note'
     payload: jsonb('payload').$type<Record<string, unknown>>(),
     status: text('status').notNull().default('pending'), // 'pending' | 'pulled' | 'applied' | 'rejected' | 'failed'
     result: jsonb('result').$type<Record<string, unknown>>(),

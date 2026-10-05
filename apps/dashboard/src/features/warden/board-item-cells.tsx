@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { Badge, Text } from '@mantine/core'
+import { Badge, Group, Text } from '@mantine/core'
 import { relativeTime } from 'basalt-ui/format'
 import { stateColor, stateLabel } from './model'
 
@@ -30,6 +30,38 @@ export function StateBadge({
     >
       {stateLabel(state, closeReason)}
     </Badge>
+  )
+}
+
+const FAILURE_CLASS_COLOR: Record<string, string> = { infra: 'blue', policy: 'orange', work: 'red' }
+
+/**
+ * A `failed` item's failure class (infra | policy | work) as a small badge, plus "re-driven N×"
+ * when warden has re-driven it. Renders nothing when neither is known (non-failed item, or an
+ * older warden that does not report them). An unrecognized class still shows, in gray.
+ */
+export function FailureInfo({
+  failureClass,
+  redrives,
+}: {
+  failureClass: string | null | undefined
+  redrives: number | undefined
+}) {
+  const redriven = redrives !== undefined && redrives > 0
+  if (!failureClass && !redriven) return null
+  return (
+    <Group gap="xs" wrap="nowrap">
+      {failureClass ? (
+        <Badge variant="outline" color={FAILURE_CLASS_COLOR[failureClass] ?? 'gray'}>
+          {failureClass}
+        </Badge>
+      ) : null}
+      {redriven ? (
+        <Text size="xs" c="dimmed">
+          re-driven {redrives}×
+        </Text>
+      ) : null}
+    </Group>
   )
 }
 

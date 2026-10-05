@@ -235,6 +235,60 @@ describe('/warden/snapshot', () => {
     expect(res.status).toBe(201)
   })
 
+  it('accepts a failed item with failure_class/redrives and the retry action, read back verbatim', async () => {
+    const failed = {
+      event_id: 4,
+      state: 'failed',
+      failure_class: 'infra',
+      redrives: 2,
+      availableActions: ['retry', 'dismiss'],
+    }
+    const res = await post(
+      '/warden/snapshot',
+      snapshot({
+        board: {
+          items: [failed, { event_id: 5, state: 'working', failure_class: null, redrives: 0 }],
+          awaiting_owner: [
+            {
+              event_id: 4,
+              repo: 'argo',
+              title: 'x',
+              state: 'failed',
+              pr_url: null,
+              age_days: 0.5,
+              reason: 'infra down',
+              revision_count: 0,
+              failure_class: 'infra',
+              redrives: 2,
+              availableActions: ['retry', 'dismiss'],
+            },
+          ],
+        },
+      }),
+    )
+    expect(res.status).toBe(201)
+    const read = (await (await get('/warden/snapshot')).json()) as {
+      raw: { board: { items: unknown[] } }
+    }
+    expect(read.raw.board.items[0]).toEqual(failed)
+  })
+
+  it('accepts a failed item without failure_class/redrives (older warden)', async () => {
+    const res = await post(
+      '/warden/snapshot',
+      snapshot({ board: { items: [{ event_id: 4, state: 'failed', strikes: 3 }] } }),
+    )
+    expect(res.status).toBe(201)
+  })
+
+  it('rejects an unknown failure_class with 422', async () => {
+    const res = await post(
+      '/warden/snapshot',
+      snapshot({ board: { items: [{ event_id: 4, state: 'failed', failure_class: 'bogus' }] } }),
+    )
+    expect(res.status).toBe(422)
+  })
+
   it('accepts the composite reverts_and_reopens metric (no top-level value/unavailable)', async () => {
     const res = await post(
       '/warden/snapshot',
@@ -303,6 +357,14 @@ describe('warden owner action queue', () => {
     expect(body.eventId).toBe(986)
     expect(body.machine).toBe('mini')
     expect(body.verb).toBe('implement')
+    expect(body.status).toBe('pending')
+  })
+
+  it('accepts the retry verb', async () => {
+    const res = await post('/warden/items/986/actions', { machine: 'mini', verb: 'retry' })
+    expect(res.status).toBe(201)
+    const body = (await res.json()) as { verb: string; status: string }
+    expect(body.verb).toBe('retry')
     expect(body.status).toBe('pending')
   })
 

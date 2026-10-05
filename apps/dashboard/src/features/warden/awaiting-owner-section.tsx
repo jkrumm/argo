@@ -4,7 +4,7 @@ import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
 import { EmptyState, Section } from 'basalt-ui'
 import { IconCircleCheck } from '@tabler/icons-react'
 import type { WardenActionVerb } from '../../lib/queries/warden'
-import { StateBadge } from './board-item-cells'
+import { FailureInfo, StateBadge } from './board-item-cells'
 import {
   ActionButtons,
   ActionPromptModal,
@@ -66,11 +66,16 @@ function failureFlags(row: AwaitingOwnerRow): string {
 
 function FailureFlagsCell({ row }: { row: AwaitingOwnerRow }) {
   const flags = failureFlags(row)
-  if (!flags) return <Text c="dimmed">—</Text>
+  if (!flags && !row.failureClass && row.redrives === 0) return <Text c="dimmed">—</Text>
   return (
-    <Text size="xs" c="dimmed">
-      {flags}
-    </Text>
+    <Stack gap={2} align="flex-start">
+      <FailureInfo failureClass={row.failureClass} redrives={row.redrives} />
+      {flags ? (
+        <Text size="xs" c="dimmed">
+          {flags}
+        </Text>
+      ) : null}
+    </Stack>
   )
 }
 

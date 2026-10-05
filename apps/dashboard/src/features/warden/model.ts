@@ -213,6 +213,10 @@ export type AwaitingOwnerRow = {
   reason: string | null
   strikes: number
   revisionCount: number
+  /** `failed` rows only (null otherwise, or on an older warden): infra | policy | work. */
+  failureClass: string | null
+  /** Automatic re-drives warden has done; 0 when unreported. */
+  redrives: number
   availableActions: string[]
 }
 
@@ -238,17 +242,19 @@ const EMPTY_AWAITING_OWNER: AwaitingOwnerView = { needsDecision: [], failed: [],
  * empty lists, never a crash; an entry in any other state lands in `other`, and only an entry with
  * no event id to act on is dropped.
  * `strikes` is not on the awaiting entry itself, so it is looked up from the same item on
- * `board.items` (0 when the item is past the board cap). `stale` flags an entry that has waited
+ * `board.items` (0 when the item is past the board cap); `failure_class`/`redrives` prefer the
+ * entry and fall back to that item the same way. `stale` flags an entry that has waited
  * `AWAITING_OWNER_STALE_DAYS` or longer; an unreported age never counts as stale (no fabricated
  * urgency out of a missing number).
  */
 export function deriveAwaitingOwner(board: WardenRaw['board'] | undefined): AwaitingOwnerView {
   const entries = board?.awaiting_owner
   if (!entries || entries.length === 0) return EMPTY_AWAITING_OWNER
-  const strikesById = new Map((board?.items ?? []).map((item) => [item.event_id, item.strikes]))
+  const itemsById = new Map((board?.items ?? []).map((item) => [item.event_id, item]))
   const view: AwaitingOwnerView = { needsDecision: [], failed: [], other: [] }
   for (const entry of entries) {
     if (entry.event_id === null) continue
+    const boardItem = itemsById.get(entry.event_id)
     const row: AwaitingOwnerRow = {
       eventId: entry.event_id,
       repo: entry.repo,
@@ -259,8 +265,10 @@ export function deriveAwaitingOwner(board: WardenRaw['board'] | undefined): Awai
       ageLabel: formatAgeDays(entry.age_days),
       stale: entry.age_days !== null && entry.age_days >= AWAITING_OWNER_STALE_DAYS,
       reason: entry.reason,
-      strikes: strikesById.get(entry.event_id) ?? 0,
+      strikes: boardItem?.strikes ?? 0,
       revisionCount: entry.revision_count,
+      failureClass: entry.failure_class ?? boardItem?.failure_class ?? null,
+      redrives: entry.redrives ?? boardItem?.redrives ?? 0,
       availableActions: entry.availableActions ?? [],
     }
     if (entry.state === 'needs_decision') view.needsDecision.push(row)

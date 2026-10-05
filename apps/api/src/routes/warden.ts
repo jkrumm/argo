@@ -61,7 +61,18 @@ const MetricsSchema = z.looseObject({
 // The closed verb list an owner action against a board item may carry — mirrored from warden's own
 // `ARGO_ACTION_VERBS`; keep both in sync if either changes. Hoisted above `BoardItemSchema` so the
 // board payload's own `availableActions` field can reuse it.
-const WARDEN_ACTION_VERBS = ['implement', 'merge', 'dismiss', 'reinvestigate', 'note'] as const
+const WARDEN_ACTION_VERBS = [
+  'implement',
+  'merge',
+  'dismiss',
+  'reinvestigate',
+  'retry',
+  'note',
+] as const
+
+// Why a `failed` item failed — non-null only when `state === 'failed'`. Both this and `redrives`
+// are optional so a snapshot from an older warden still validates.
+const FailureClassSchema = z.enum(['infra', 'policy', 'work']).nullable().optional()
 
 const BoardItemSchema = z.looseObject({
   event_id: z.number(),
@@ -72,6 +83,9 @@ const BoardItemSchema = z.looseObject({
   // Set only on a `closed` item: duplicate | fixed_by | ignored | resolved. Open string for the
   // same reason as `state`.
   close_reason: z.string().nullable().optional(),
+  failure_class: FailureClassSchema,
+  // Automatic re-drives warden has already done on this item.
+  redrives: z.number().int().min(0).optional(),
   strikes: z.number().optional(),
   retry_at: z.string().nullable().optional(),
   max_tier: z.string().nullable().optional(),
@@ -122,6 +136,8 @@ const AwaitingOwnerEntrySchema = z.looseObject({
   age_days: z.number().nullable(),
   reason: z.string().nullable(),
   revision_count: z.number(),
+  failure_class: FailureClassSchema,
+  redrives: z.number().int().min(0).optional(),
   // Same closed-list-on-warden's-side/open-string-here posture as `BoardItemSchema.availableActions`.
   availableActions: z.array(z.string()).optional(),
 })
@@ -373,7 +389,7 @@ export const wardenRoutes = new Elysia({ prefix: '/warden' })
         tags: ['Warden'],
         summary: 'Queue an owner action against a Warden board item',
         description:
-          "Queues implement/merge/dismiss/reinvestigate/note against the board item {eventId} for the owner's Warden machine. This is a request only — warden's loop (loopback-only, cannot be pushed to) pulls it via GET /warden/actions and owns every verb-level and state-gate decision; nothing here mutates the ledger. Returns 201 with the queued row (status always starts `pending`); an unrecognized verb is rejected with 400 before it ever reaches the queue, an oversized payload with 413. Track the outcome via the next GET /warden/snapshot, whose board items carry `availableActions`.",
+          "Queues implement/merge/dismiss/reinvestigate/retry/note against the board item {eventId} for the owner's Warden machine. This is a request only — warden's loop (loopback-only, cannot be pushed to) pulls it via GET /warden/actions and owns every verb-level and state-gate decision; nothing here mutates the ledger. Returns 201 with the queued row (status always starts `pending`); an unrecognized verb is rejected with 400 before it ever reaches the queue, an oversized payload with 413. Track the outcome via the next GET /warden/snapshot, whose board items carry `availableActions`.",
         security: [{ BearerAuth: [] }],
       },
     },

@@ -7,7 +7,7 @@ import {
   type WardenActionVerb,
   type WardenBoardItem,
 } from '../../lib/queries/warden'
-import { AgeText, StateBadge } from './board-item-cells'
+import { AgeText, FailureInfo, StateBadge } from './board-item-cells'
 import {
   isSafeHttpUrl,
   issueRefLabel,
@@ -35,6 +35,7 @@ const VERB_LABEL: Record<WardenActionVerb, string> = {
   merge: 'Merge',
   dismiss: 'Dismiss',
   reinvestigate: 'Re-investigate',
+  retry: 'Retry',
   note: 'Note',
 }
 
@@ -162,10 +163,16 @@ function columnsFor({
       id: 'state',
       header: 'State',
       cell: (ctx) => (
-        <StateBadge
-          state={ctx.row.original.state}
-          closeReason={ctx.row.original.close_reason ?? null}
-        />
+        <Stack gap={2} align="flex-start">
+          <StateBadge
+            state={ctx.row.original.state}
+            closeReason={ctx.row.original.close_reason ?? null}
+          />
+          <FailureInfo
+            failureClass={ctx.row.original.failure_class}
+            redrives={ctx.row.original.redrives}
+          />
+        </Stack>
       ),
     }),
     columnHelper.accessor((row) => row.note ?? '', {
@@ -236,6 +243,7 @@ function IssueCard({
             {item.title}
           </Text>
         ) : null}
+        <FailureInfo failureClass={item.failure_class} redrives={item.redrives} />
         {item.note ? (
           <Text size="sm" lineClamp={3}>
             {item.note}
