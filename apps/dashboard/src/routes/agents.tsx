@@ -19,7 +19,7 @@ export const Route = createFileRoute('/agents')({
 
 /**
  * The agent observation surface: what every Claude Code agent on the dev host is doing, what
- * needs the human, and the narrator's prose per project. Argo only renders what sideclaw pushed —
+ * needs the human, and the narrator's prose per project. Argo only renders what agent-gateway pushed —
  * the states, recommendations and counts are the producer's; the page derives nothing but the
  * feed's own age (`StaleBanner`).
  */

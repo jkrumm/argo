@@ -13,7 +13,7 @@ type Props = {
 
 /**
  * Everything waiting on the human, in one block: the mini's human-queue requests (a biometric
- * `op`, an ACL push — things only a present person can do) and the agents sideclaw derived as
+ * `op`, an ACL push — things only a present person can do) and the agents agent-gateway derived as
  * `needs_you` (a permission prompt, a question, a dialog). Both are answered elsewhere — this
  * block only makes sure they are seen.
  *

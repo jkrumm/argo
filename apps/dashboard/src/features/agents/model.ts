@@ -7,7 +7,7 @@ import type {
 } from '../../lib/queries/agents'
 
 // Presentation vocabulary for the agents page. The STATE and RECOMMENDATION
-// enums are sideclaw's (server/lib/agents.ts); Argo only maps them to a label,
+// enums are agent-gateway's (server/lib/agents.ts); Argo only maps them to a label,
 // a Mantine hue and the same glyph the herdr overview pane prints, so the
 // phone pane and this page read identically.
 
@@ -50,7 +50,7 @@ export type AgentRow = OverviewAgent & { project: string }
 /**
  * One flat row per agent. A producer may send a flattened `agents[]` (each
  * carrying `project`); otherwise the rows come from `projects[].agents[]`,
- * already sorted most-urgent-first by sideclaw.
+ * already sorted most-urgent-first by agent-gateway.
  */
 export function flattenAgents(snapshot: OverviewSnapshot | undefined): AgentRow[] {
   if (!snapshot) return []
@@ -72,7 +72,7 @@ export function snapshotAgeMs(latest: OverviewRecord | null, now = Date.now()): 
 
 /** Card-list sort priority: `needs_you` first, then `working`, everything else after — on a phone
  * the top of the list is all that's visible, so the two actionable states must lead. Equal
- * priorities keep their original (sideclaw's own most-urgent-first) order — `Array.prototype.sort`
+ * priorities keep their original (agent-gateway's own most-urgent-first) order — `Array.prototype.sort`
  * is stable. */
 const CARD_SORT_PRIORITY: Record<AgentState, number> = {
   needs_you: 0,

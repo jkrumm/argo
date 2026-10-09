@@ -20,7 +20,7 @@ OTEL_SERVICE_NAME=argo-api
 NODE_ENV=development
 
 # Local API listen port. 4040 avoids colliding with the LiteLLM bridge on :4000
-# (sideclaw's DeepSeek workers + `bun dev` can't share a port). Prod sets no
+# (agent-gateway's DeepSeek workers + `bun dev` can't share a port). Prod sets no
 # PORT, so it keeps the env.ts default of 4000.
 PORT=4040
 

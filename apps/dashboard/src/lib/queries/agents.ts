@@ -2,7 +2,7 @@ import { queryOptions } from '@tanstack/react-query'
 import { api } from '../eden'
 import { unwrap } from 'basalt-ui'
 
-// Agent observation — the sideclaw overview snapshot Argo stores (see
+// Agent observation — the agent-gateway overview snapshot Argo stores (see
 // apps/api/src/routes/agents.ts). The feed is a push from the mini, so the
 // page polls Argo on a one-minute cadence rather than the producer.
 

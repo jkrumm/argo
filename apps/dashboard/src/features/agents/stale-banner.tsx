@@ -11,7 +11,7 @@ type Props = {
 /**
  * Renders only when the feed itself is suspect: no snapshot at all, or the latest one older than
  * 30 minutes. A quiet machine still pushes on schedule, so age is a statement about the producer
- * (sideclaw on the dev host), not about the agents.
+ * (agent-gateway on the dev host), not about the agents.
  */
 export function StaleBanner({ latest }: Props) {
   const age = snapshotAgeMs(latest)

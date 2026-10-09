@@ -13,18 +13,18 @@ import {
   toIso,
 } from '../lib/snapshot-store.js'
 
-// Agent observation surface — Argo stores what sideclaw's deterministic
+// Agent observation surface — Argo stores what agent-gateway's deterministic
 // overview (`GET /api/overview` on the mini) and the narrator produce, and
 // serves it back to the dashboard, Hermes and the brain page. Argo derives
 // nothing: the snapshot is stored as raw jsonb and validated LOOSELY (every
 // object below is `looseObject`, unknown fields ride through untouched) so a
-// new sideclaw field never 422s the ingest. Retention: the latest snapshot per
+// new agent-gateway field never 422s the ingest. Retention: the latest snapshot per
 // machine plus a rolling 7-day history, pruned on every ingest.
 
-/** Accepts sideclaw's epoch-ms `generatedAt` as well as an ISO string. */
+/** Accepts agent-gateway's epoch-ms `generatedAt` as well as an ISO string. */
 const TimestampInput = z
   .union([z.number(), z.string()])
-  .describe('Epoch milliseconds (sideclaw) or an ISO 8601 timestamp')
+  .describe('Epoch milliseconds (agent-gateway) or an ISO 8601 timestamp')
 
 const AgentStateEnum = z.enum(['needs_you', 'working', 'idle', 'stale', 'done', 'unknown'])
 
@@ -88,8 +88,8 @@ const OverviewMetaSchema = z.looseObject({
 })
 
 /**
- * One pending `ask-human.sh` request, in the shape sideclaw's `/api/overview` publishes it —
- * not the shape of the `.req` file on disk. sideclaw renames `created`/`text` to
+ * One pending `ask-human.sh` request, in the shape agent-gateway's `/api/overview` publishes it —
+ * not the shape of the `.req` file on disk. agent-gateway renames `created`/`text` to
  * `askedAt`/`question` on the way out, and that published shape is the contract its other
  * consumer (the Slack digest) already reads, so this mirrors the producer rather than the file.
  * Loose, so a producer that adds `host`/`cwd` back is stored rather than rejected.
@@ -101,7 +101,7 @@ const HumanQueueItemSchema = z.looseObject({
   cmd: z.string().nullable().optional(),
 })
 
-/** The stored snapshot — sideclaw's overview payload; every field past `generatedAt` is optional. */
+/** The stored snapshot — agent-gateway's overview payload; every field past `generatedAt` is optional. */
 const SnapshotSchema = z.looseObject({
   generatedAt: z.number().describe('Epoch ms the deterministic snapshot was produced'),
   staleAfterHours: z.number().optional(),
@@ -206,7 +206,7 @@ export const agentRoutes = new Elysia({ prefix: '/agents' })
         tags: ['Agents'],
         summary: 'Ingest an agent overview snapshot',
         description:
-          'Stores one sideclaw `GET /api/overview` payload (summary counts, projects with their agents and per-agent recommendation, the overview job metadata, optional human-queue items) tagged with the producing `machine`. Unknown fields are kept verbatim — the snapshot is stored as raw JSON. Every ingest prunes snapshots older than 7 days, keeping the newest per machine. Snapshots over 1 MB are rejected with 413. Read it back with GET /agents/overview (latest) and GET /agents/overview/history (summary counts over time).',
+          'Stores one agent-gateway `GET /api/overview` payload (summary counts, projects with their agents and per-agent recommendation, the overview job metadata, optional human-queue items) tagged with the producing `machine`. Unknown fields are kept verbatim — the snapshot is stored as raw JSON. Every ingest prunes snapshots older than 7 days, keeping the newest per machine. Snapshots over 1 MB are rejected with 413. Read it back with GET /agents/overview (latest) and GET /agents/overview/history (summary counts over time).',
         security: [{ BearerAuth: [] }],
       },
     },

@@ -5,6 +5,7 @@ const SOURCE_KEY_TO_TOKEN: Record<string, keyof typeof USAGE_SOURCE> = {
   claudeCode: 'claudeCode',
   litellm: 'litellm',
   'litellm-bridge': 'litellm',
+  // Persisted source/lane value: the service is agent-gateway now, rows keep the old name.
   sideclaw: 'sideclaw',
   'sideclaw-iu': 'sideclaw',
   'research-gateway': 'researchGateway',

@@ -565,10 +565,10 @@ export const bookSyncMap = argoSchema.table('book_sync_map', {
   updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 })
 
-// ── Agent observation (sideclaw overview snapshots + narratives) ─────────────
+// ── Agent observation (agent-gateway overview snapshots + narratives) ─────────────
 //
 // `agentOverviewSnapshot` stores the raw JSON a producer POSTs to
-// /agents/overview — the sideclaw `GET /api/overview` payload plus `machine`,
+// /agents/overview — the agent-gateway `GET /api/overview` payload plus `machine`,
 // `generatedAt` and an optional `humanQueue`. Argo never derives state itself:
 // it keeps the latest snapshot per machine and a 7-day history (pruned on every
 // ingest) so the dashboard, Hermes and the brain page read ONE record.

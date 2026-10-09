@@ -221,7 +221,7 @@ describe('/agents/narratives', () => {
     })
     expect(first.status).toBe(200)
     await post('/agents/narratives', {
-      project: 'sideclaw',
+      project: 'agent-gateway',
       summary: 'Overview job shipped.',
       revisedAt: NOW - 7_200_000,
     })
@@ -238,7 +238,7 @@ describe('/agents/narratives', () => {
     const list = (await (await get('/agents/narratives')).json()) as {
       data: { project: string; summary: string }[]
     }
-    expect(list.data.map((n) => n.project)).toEqual(['argo', 'sideclaw'])
+    expect(list.data.map((n) => n.project)).toEqual(['argo', 'agent-gateway'])
     expect(list.data[0]!.summary).toBe('Agents page shipped.')
   })
 

@@ -47,7 +47,7 @@ export default function TokensOverTime({
     <ChartCard
       title="Tokens over time"
       subtitle="Sum of incremental token columns, bucketed"
-      info="Total token volume (input + output + cache_write + reasoning) over time. cache_read is excluded — it's the full prior context re-read from cache on every turn, not a delta, so summing it across rows would inflate the total. Group by sub-tool to see which sideclaw workflows burn tokens."
+      info="Total token volume (input + output + cache_write + reasoning) over time. cache_read is excluded — it's the full prior context re-read from cache on every turn, not a delta, so summing it across rows would inflate the total. Group by sub-tool to see which agent-gateway workflows burn tokens."
       actions={<ViewTabs field={usageStore.field.tokensGroupBy} label="Group by" />}
     >
       {buckets.length > 0 && (

@@ -175,7 +175,7 @@ export function buildApp() {
               {
                 name: 'Agents',
                 description:
-                  'Agent observation surface. sideclaw on the dev host pushes its deterministic overview snapshot (every Claude Code agent with a derived state, per-agent recommendation, git status per project, the human queue) to POST /agents/overview; the narrator upserts one prose summary per project to POST /agents/narratives. GET /agents/overview is the latest snapshot, GET /agents/overview/history the state counts over time, GET /agents/narratives the prose. Argo stores and serves; it derives nothing — the producer owns the semantics.',
+                  'Agent observation surface. agent-gateway on the dev host pushes its deterministic overview snapshot (every Claude Code agent with a derived state, per-agent recommendation, git status per project, the human queue) to POST /agents/overview; the narrator upserts one prose summary per project to POST /agents/narratives. GET /agents/overview is the latest snapshot, GET /agents/overview/history the state counts over time, GET /agents/narratives the prose. Argo stores and serves; it derives nothing — the producer owns the semantics.',
               },
               {
                 name: 'Warden',
