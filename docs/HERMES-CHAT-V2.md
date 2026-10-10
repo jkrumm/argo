@@ -82,5 +82,5 @@ function** (an additions-only object can't express removal, and basalt appends i
 |-|-|
 | `~/SourceRoot/basalt-ui/docs/AGENT-CHAT-SPEC.md` | The framework API specification for the agent-chat primitives Argo consumes |
 | `git log --since=2026-08-02 -- apps/api/src/routes/hermes.ts apps/dashboard/src/features/hermes-chat` | What was actually built, phase by phase — the migration record was retired 2026-09-07 |
-| `CLAUDE.md`, `DESIGN.md`, `.claude/rules/basalt-*.md` | Design law. Precedence: DESIGN.md > basalt rules > skills |
+| `AGENTS.md` (basalt block), `DESIGN.md`, `.claude/rules/basalt-*.md` | Design law. Precedence: DESIGN.md > basalt rules > skills |
 | `apps/api/.claude/rules/openapi.md` | The agent-facing API contract |
