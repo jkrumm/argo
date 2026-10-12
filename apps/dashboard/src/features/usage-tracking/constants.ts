@@ -9,7 +9,9 @@ const SOURCE_KEY_TO_TOKEN: Record<string, keyof typeof USAGE_SOURCE> = {
   sideclaw: 'sideclaw',
   'sideclaw-iu': 'sideclaw',
   'research-gateway': 'researchGateway',
+  // Persisted source value: the service is image-gateway now, rows keep the old name.
   'image-gen-gateway': 'imageGen',
+  'image-gateway': 'imageGen',
   'email-gateway': 'emailGateway',
   hermes: 'hermesAgent',
   'hermes-agent': 'hermesAgent',
