@@ -110,7 +110,7 @@ const ACTIVITY_MAP = defineSeries({
 const USAGE_SOURCE_MAP = defineSeries({
   claudeCode: p(BP.blue),
   litellm: p(BP.cerulean),
-  sideclaw: p(BP.gold),
+  agentGateway: p(BP.gold),
   hermesAgent: p(BP.red),
   audioProxy: p(BP.forest),
   feuer: p(BP.vermilion),

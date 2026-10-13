@@ -5,9 +5,8 @@ const SOURCE_KEY_TO_TOKEN: Record<string, keyof typeof USAGE_SOURCE> = {
   claudeCode: 'claudeCode',
   litellm: 'litellm',
   'litellm-bridge': 'litellm',
-  // Persisted source/lane value: the service is agent-gateway now, rows keep the old name.
-  sideclaw: 'sideclaw',
-  'sideclaw-iu': 'sideclaw',
+  'agent-gateway': 'agentGateway',
+  'agent-gateway-iu': 'agentGateway',
   'research-gateway': 'researchGateway',
   // Persisted source value: the service is image-gateway now, rows keep the old name.
   'image-gen-gateway': 'imageGen',
@@ -50,7 +49,7 @@ export function colorForOutcome(outcome: string): string {
 const FALLBACK_PALETTE = [
   USAGE_SOURCE.claudeCode,
   USAGE_SOURCE.litellm,
-  USAGE_SOURCE.sideclaw,
+  USAGE_SOURCE.agentGateway,
   USAGE_SOURCE.hermesAgent,
   USAGE_SOURCE.audioProxy,
   USAGE_SOURCE.feuer,

@@ -123,16 +123,16 @@ export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 
 ### Usage tracker — source (`usage-` prefix — `USAGE_SOURCE.*`)
 
-| Series name  | Light hex | Dark hex  | `defineSeries` key | Role / earned reason |
-| ------------ | --------- | --------- | ------------------ | -------------------- |
-| Claude Code  | `#0284c7` | `#38bdf8` | `claudeCode`       | Sky                  |
-| LiteLLM      | `#147eb3` | `#3fa6da` | `litellm`          | Cerulean             |
-| sideclaw     | `#d1980b` | `#f0b726` | `sideclaw`         | Gold                 |
-| Hermes Agent | `#cd4246` | `#e76a6e` | `hermesAgent`      | Red                  |
-| Audio proxy  | `#29a634` | `#43bf4d` | `audioProxy`       | Forest               |
-| Feuer        | `#d33d17` | `#eb6847` | `feuer`            | Vermilion            |
-| OpenCode     | `#c87619` | `#ec9a3c` | `opencode`         | Orange               |
-| Other        | `#a1a1aa` | `#d4d4d8` | `other`            | Neutral (catch-all)  |
+| Series name   | Light hex | Dark hex  | `defineSeries` key | Role / earned reason |
+| ------------- | --------- | --------- | ------------------ | -------------------- |
+| Claude Code   | `#0284c7` | `#38bdf8` | `claudeCode`       | Sky                  |
+| LiteLLM       | `#147eb3` | `#3fa6da` | `litellm`          | Cerulean             |
+| agent-gateway | `#d1980b` | `#f0b726` | `agentGateway`     | Gold                 |
+| Hermes Agent  | `#cd4246` | `#e76a6e` | `hermesAgent`      | Red                  |
+| Audio proxy   | `#29a634` | `#43bf4d` | `audioProxy`       | Forest               |
+| Feuer         | `#d33d17` | `#eb6847` | `feuer`            | Vermilion            |
+| OpenCode      | `#c87619` | `#ec9a3c` | `opencode`         | Orange               |
+| Other         | `#a1a1aa` | `#d4d4d8` | `other`            | Neutral (catch-all)  |
 
 ### Usage tracker — billing (`billing-` prefix — `USAGE_BILLING.*`)
 
