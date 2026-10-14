@@ -1,5 +1,5 @@
 import { aiSdkTransport } from 'basalt-ui/agent'
-import type { AgentPart, OutcomeResolver } from 'basalt-ui/agent'
+import type { AgentError, AgentPart, OutcomeResolver } from 'basalt-ui/agent'
 import { emit } from 'basalt-ui/commands'
 import { getToken } from '../../lib/auth'
 import { apiBase } from '../../lib/api-base'
@@ -58,18 +58,17 @@ export const hermesTransport = aiSdkTransport<AgentPart>({
 
 // ── surfacing a rejected turn to the user ──────────────────────────────────────
 //
-// `useAgentThreadRuns({ onError })` (basalt 1.29 — MIGRATING.md's R2) fires from the SAME catch
-// branch that sets the thread's failure status, for any genuine (non-abort) stream failure — a
-// 409 (already generating / duplicate turn), a 503 (Hermes not configured), a 401 — so chat-page.tsx
-// wires it straight to `notifyHermesChatError` below instead of this file wrapping the transport
-// itself to intercept the throw.
+// `useAgentThreadRuns({ onError })` fires from the SAME catch branch that sets the thread's failure
+// status, for any genuine (non-abort) stream failure, and hands over the RAW thrown value — the
+// closed `AgentError` union lives on `ThreadRunState.error` and in the `chat.turn` telemetry, and
+// basalt does not export its classifier. `classifyChatError` below mirrors it (duck-typed, same
+// precedence) so the handlers can switch on `kind` exhaustively. An `http` failure keeps its body:
+// AI SDK's `APICallError` carries the response text as `message`/`responseBody`, and argo's
+// structured `{ error, message }` bodies (409 stream_in_progress/duplicate_turn, 503
+// hermes_unconfigured, 422 attachment_limit_exceeded — see ChatBodySchema's `response` map in
+// hermes.ts) are the copy the toast shows.
 
-/** The `{ error, message }` body every structured Hermes-chat error response
- * carries (409 stream_in_progress/duplicate_turn, 503 hermes_unconfigured, 422
- * attachment_limit_exceeded — see ChatBodySchema's `response` map in hermes.ts).
- * AI SDK's `DefaultChatTransport` throws `new Error(await response.text())` on a
- * non-ok response (node_modules/ai's http-chat-transport.ts), so the raw JSON
- * body arrives as the thrown Error's `message` — this re-parses it. */
+/** The `{ error, message }` body every structured Hermes-chat error response carries. */
 type HermesChatErrorBody = { readonly error: string; readonly message: string }
 
 function parseHermesChatErrorBody(raw: string): HermesChatErrorBody | null {
@@ -90,6 +89,33 @@ function parseHermesChatErrorBody(raw: string): HermesChatErrorBody | null {
   return null
 }
 
+function stringField(value: unknown, key: string): string | undefined {
+  if (typeof value !== 'object' || value === null) return undefined
+  const field = (value as Record<string, unknown>)[key]
+  return typeof field === 'string' ? field : undefined
+}
+
+type ClassifiedChatError = {
+  readonly error: AgentError
+  /** The raw message (an `http` failure: the response body text). */
+  readonly raw: string
+}
+
+function classifyChatError(err: unknown): ClassifiedChatError {
+  const raw = stringField(err, 'message') ?? String(err)
+  // By name, not `instanceof Error`: a `fetch` abort is a DOMException, which is not an Error.
+  if (stringField(err, 'name') === 'AbortError') return { error: { kind: 'aborted' }, raw }
+  const status =
+    typeof err === 'object' && err !== null ? (err as Record<string, unknown>)['statusCode'] : null
+  if (typeof status === 'number') return { error: { kind: 'http', status }, raw }
+  const chunkType = stringField(err, 'chunkType')
+  const chunkId = stringField(err, 'chunkId')
+  if (chunkType !== undefined && chunkId !== undefined) {
+    return { error: { kind: 'stream', chunkType, chunkId }, raw }
+  }
+  return { error: { kind: 'server', message: raw }, raw }
+}
+
 const HERMES_CHAT_ERROR_TITLES: Record<string, string> = {
   stream_in_progress: 'Already generating',
   duplicate_turn: 'Message already sent',
@@ -99,40 +125,72 @@ const HERMES_CHAT_ERROR_TITLES: Record<string, string> = {
 
 /** A turn the server refused before storing anything (another run is active, or the same
  * client message id was already taken) — the optimistic user bubble must be rolled back locally
- * because no server row will ever confirm it. */
+ * because no server row will ever confirm it. Only an `http` failure can be one. */
 export function isRejectedTurnError(err: unknown): boolean {
-  const raw = err instanceof Error ? err.message : String(err)
-  const body = parseHermesChatErrorBody(raw)
-  return body?.error === 'stream_in_progress' || body?.error === 'duplicate_turn'
+  const { error, raw } = classifyChatError(err)
+  switch (error.kind) {
+    case 'http': {
+      const body = parseHermesChatErrorBody(raw)
+      return body?.error === 'stream_in_progress' || body?.error === 'duplicate_turn'
+    }
+    case 'server':
+    case 'stream':
+    case 'aborted':
+      return false
+    default:
+      return error satisfies never
+  }
 }
 
-/** Surfaces a genuine (non-abort) Hermes chat-stream failure as a toast. Wired via
+/** Surfaces a genuine Hermes chat-stream failure as a toast. Wired via
  * `useAgentThreadRuns({ onError: ({ error }) => notifyHermesChatError(error) })` in chat-page.tsx. */
 export function notifyHermesChatError(err: unknown): void {
-  // An abort is a deliberate cancellation (the user's own Stop, or a superseding
-  // run) — not a rejection to surface. `useAgentThreadRuns`'s `onError` never fires
-  // for one (see consumeAndFinalize's own guard), but this stays defensive.
-  if (err instanceof Error && err.name === 'AbortError') return
-  const raw = err instanceof Error ? err.message : String(err)
-  const body = parseHermesChatErrorBody(raw)
-  if (body) {
-    emit(
-      'chat:error',
-      { message: body.message },
-      { title: HERMES_CHAT_ERROR_TITLES[body.error] ?? 'Chat error' },
-    )
-    return
+  const { error, raw } = classifyChatError(err)
+  switch (error.kind) {
+    case 'aborted':
+      // A deliberate cancellation (the user's own Stop, or a superseding run) is not a rejection
+      // to surface; basalt also fires `onError` for an abort nothing here issued, which is a
+      // dropped connection and falls through to no toast as well — the run keeps its error state.
+      return
+    case 'http': {
+      const body = parseHermesChatErrorBody(raw)
+      if (body) {
+        emit(
+          'chat:error',
+          { message: body.message },
+          { title: HERMES_CHAT_ERROR_TITLES[body.error] ?? 'Chat error' },
+        )
+        return
+      }
+      emit(
+        'chat:error',
+        {
+          message:
+            error.status === 401
+              ? 'Your session has expired — sign in again.'
+              : raw || 'The chat request failed.',
+        },
+        { title: 'Chat error' },
+      )
+      return
+    }
+    case 'stream':
+      emit(
+        'chat:error',
+        { message: 'The reply stream was malformed and was cut off.' },
+        { title: 'Chat error' },
+      )
+      return
+    case 'server':
+      emit(
+        'chat:error',
+        { message: error.message || 'The chat request failed.' },
+        { title: 'Chat error' },
+      )
+      return
+    default:
+      return error satisfies never
   }
-  emit(
-    'chat:error',
-    {
-      message:
-        raw === 'Unauthorized'
-          ? 'Your session has expired — sign in again.'
-          : raw || 'The chat request failed.',
-    },
-    { title: 'Chat error' },
-  )
 }
 
 // Argo's thread title/summary are computed server-side, asynchronously, by Hermes' own
