@@ -10,6 +10,8 @@ import { NeedsYouSection } from '../features/agents/needs-you-section'
 import { AgentsTable } from '../features/agents/agents-table'
 import { NarrativesSection } from '../features/agents/narratives-section'
 
+const HISTORY_HOURS = 24
+
 export const Route = createFileRoute('/agents')({
   loader: ({ context }) => context.queryClient.ensureQueryData(agentsQueries.latest()),
   component: AgentsPage,
@@ -24,6 +26,8 @@ export const Route = createFileRoute('/agents')({
 function AgentsPage() {
   const latestQuery = useQuery(agentsQueries.latest())
   const narrativesQuery = useQuery(agentsQueries.narratives())
+
+  const historyQuery = useQuery(agentsQueries.history(HISTORY_HOURS))
 
   const latest = latestQuery.data?.latest ?? null
   const snapshot = latest?.snapshot
@@ -41,7 +45,7 @@ function AgentsPage() {
 
       <Stack gap="md">
         <StaleBanner latest={latest} />
-        <HeroStats summary={snapshot?.summary} agents={agents} />
+        <HeroStats summary={snapshot?.summary} history={historyQuery.data?.data} agents={agents} />
         <NeedsYouSection humanQueue={snapshot?.humanQueue ?? []} agents={agents} />
         <AgentsTable agents={agents} overview={snapshot?.overview} summary={snapshot?.summary} />
         <NarrativesSection query={narrativesQuery} />
