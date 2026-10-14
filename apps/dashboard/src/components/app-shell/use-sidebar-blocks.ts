@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import type { SidebarBlock } from 'basalt-ui'
-import { navTarget } from 'basalt-ui/router-tanstack'
+import { navTarget } from 'basalt-ui'
 import { NAV } from '../../lib/nav'
 import { readingQueries } from '../../lib/queries/reading'
 

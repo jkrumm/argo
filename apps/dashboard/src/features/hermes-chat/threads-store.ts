@@ -169,7 +169,7 @@ export type ThreadsMap = ReadonlyMap<string, AgentThread<AgentPart>>
 
 export function createThreadEntry(
   id: string,
-  opts?: { readonly meta?: Record<string, unknown> },
+  opts?: { readonly meta?: Record<string, unknown> | undefined },
 ): AgentThread<AgentPart> {
   const now = Date.now()
   return {
@@ -406,16 +406,12 @@ export function useHermesThreads(): HermesThreadsStore {
   const [threadsMap, setThreadsMap] = useState<ThreadsMap>(() => new Map())
   const [activeId, setActiveId] = useState<string | null>(null)
   const [hydrated, setHydrated] = useState(false)
-  const [error, setError] = useState<unknown>(undefined)
   // Mirrors `hydrated` synchronously — the hydration effect below reads this to
   // decide "first load" vs "later refetch" without depending on a state value
   // that only updates on the NEXT render.
   const hydratedRef = useRef(false)
 
-  useEffect(() => {
-    if (listQuery.isError) setError(listQuery.error)
-    else if (listQuery.isSuccess) setError(undefined)
-  }, [listQuery.isError, listQuery.error, listQuery.isSuccess])
+  const error: unknown = listQuery.isError ? listQuery.error : undefined
 
   // Merges the threads list into local state. The FIRST successful load also
   // eagerly fetches messages for any currently-streaming thread(s) — normally
@@ -449,12 +445,15 @@ export function useHermesThreads(): HermesThreadsStore {
     }
   }, [listQuery.data, queryClient])
 
-  const create = useCallback((opts?: { readonly meta?: Record<string, unknown> }): string => {
-    const id = crypto.randomUUID()
-    const thread = createThreadEntry(id, opts)
-    setThreadsMap((prev) => insertThread(prev, thread))
-    return id
-  }, [])
+  const create = useCallback(
+    (opts?: { readonly meta?: Record<string, unknown> | undefined }): string => {
+      const id = crypto.randomUUID()
+      const thread = createThreadEntry(id, opts)
+      setThreadsMap((prev) => insertThread(prev, thread))
+      return id
+    },
+    [],
+  )
 
   const select = useCallback((id: string | null): void => setActiveId(id), [])
 

@@ -1,7 +1,6 @@
 import { Alert, Button, Code, Container, Group, Stack, Text } from '@mantine/core'
 import { IconAlertTriangle, IconRefresh } from '@tabler/icons-react'
-import { BasaltErrorBoundary, PageTitle } from 'basalt-ui'
-import type { BasaltErrorContext } from 'basalt-ui'
+import { PageTitle } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { HyperDX } from './hyperdx'
 
@@ -50,12 +49,3 @@ export function CrashFallback({ error: raw }: { error: unknown }) {
     </Container>
   )
 }
-
-export function reportCrash(error: unknown, ctx: BasaltErrorContext): void {
-  // oxlint-disable-next-line no-console
-  console.error('[basalt]', ctx, error)
-}
-
-// HyperDX patches the exported class so that any caught error is forwarded to
-// recordException with the React componentStack attribute.
-HyperDX.attachToReactErrorBoundary(BasaltErrorBoundary)

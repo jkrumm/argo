@@ -1,11 +1,11 @@
 /**
  * nav.tsx — Argo's single navigation definition. Every surface that needs to reach a page reads
- * THIS: the sidebar and the mobile bar (`useNav(NAV)` in `routes/__root.tsx`), the Spotlight
+ * THIS: the sidebar and the mobile bar (`BasaltShell nav={NAV}` in `routes/__root.tsx`), the Spotlight
  * "Go to …" commands (`flattenNav(NAV)` in `lib/commands.tsx`), and the `/` redirect
  * (`navTarget(NAV, 'garmin')` in `routes/index.tsx`). A destination and its default search params
  * are stated once, here, and nowhere else.
  *
- * LEAF MODULE BY CONTRACT: it imports `@tanstack/react-router`, `basalt-ui/router-tanstack`,
+ * LEAF MODULE BY CONTRACT: it imports `@tanstack/react-router`, `basalt-ui`,
  * icons and `date-fns` — and NOTHING from this app. In particular never `routeTree.gen` or
  * `routes/__root.tsx`, because `lib/commands.tsx` imports this file and also imports
  * `lib/router.ts` → the generated route tree → `__root.tsx`; an edge back from here would close
@@ -28,7 +28,7 @@
  * store does not model (calendar's `date`, astro's three map params) is still written out here.
  */
 import { linkOptions } from '@tanstack/react-router'
-import { defineNav, navGroup } from 'basalt-ui/router-tanstack'
+import { defineNav, navGroup } from 'basalt-ui'
 import {
   astroStore,
   bodyCompStore,

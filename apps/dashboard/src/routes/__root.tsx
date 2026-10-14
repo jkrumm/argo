@@ -1,27 +1,16 @@
-import { createRootRouteWithContext, Outlet, useRouter } from '@tanstack/react-router'
-import type { QueryClient } from '@tanstack/react-query'
+import { createRootRouteWithContext, Outlet } from '@tanstack/react-router'
 import { useMantineColorScheme } from '@mantine/core'
-import {
-  IconDatabase,
-  IconDeviceDesktop,
-  IconMoon,
-  IconPalette,
-  IconRoute,
-  IconSun,
-} from '@tabler/icons-react'
-import { useState } from 'react'
+import { IconDeviceDesktop, IconMoon, IconSun } from '@tabler/icons-react'
 import { useIsFetching, useQueryClient } from '@tanstack/react-query'
 import {
-  BasaltDevDock,
   BasaltShell,
   ThemeToggle,
-  type BasaltDevDockTool,
-  type GlobalAction,
+  type BasaltRouterContext,
   type SettingsMenuItem,
 } from 'basalt-ui'
-import { SyncButton } from 'basalt-ui/controls'
-import { NotificationBell } from 'basalt-ui/notifications'
-import { useNav } from 'basalt-ui/router-tanstack'
+import { SyncButton, type GlobalAction } from 'basalt-ui/controls'
+import { NotificationBell } from 'basalt-ui/commands'
+import { AuthGate } from '../lib/auth-gate'
 import { useSidebarCollapsed } from '../lib/sidebar-collapsed'
 import { TimerNavWidget, useTimerEngine } from '../components/timer-nav'
 import { useSidebarBadges } from '../components/app-shell/use-sidebar-badges'
@@ -31,8 +20,14 @@ import { HermesWidget } from '../features/hermes-chat/hermes-widget'
 import { VoicePlaybackProvider } from '../features/hermes-chat/voice/voice-playback'
 import { NAV } from '../lib/nav'
 
-export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  component: RootLayout,
+export const Route = createRootRouteWithContext<BasaltRouterContext>()({
+  // AuthGate lives inside the router now (`BasaltProvider` owns `RouterProvider`), so it wraps the
+  // shell here: nothing below it mounts — and no badge/timer query fires — until a token exists.
+  component: () => (
+    <AuthGate>
+      <RootLayout />
+    </AuthGate>
+  ),
 })
 
 const THEME_OPTIONS = [
@@ -43,19 +38,17 @@ const THEME_OPTIONS = [
 
 function RootLayout() {
   const { colorScheme, setColorScheme } = useMantineColorScheme()
-  const [devTool, setDevTool] = useState<BasaltDevDockTool | null>(null)
   const queryClient = useQueryClient()
   const anyFetching = useIsFetching() > 0
-  const router = useRouter()
 
   useTimerEngine()
   const badges = useSidebarBadges()
   const sidebarBlocks = useSidebarBlocks()
 
-  // The whole navigation — sidebar sections, active state, per-destination TanStack anchors and
-  // the mobile bar — resolved from the single definition in `lib/nav.tsx`. Badge keys autocomplete
-  // from that definition, so a renamed destination is a compile error here.
-  const nav = useNav(NAV, { badges: { calendar: badges.calendar, m365: badges.m365 } })
+  // The whole navigation — sidebar sections, active state, per-destination TanStack anchors, the
+  // mobile bar and breadcrumbs — is resolved by `BasaltShell` from the single definition in
+  // `lib/nav.tsx`. Badge keys autocomplete from that definition, so a renamed destination is a
+  // compile error here.
 
   // Controlled sidebar collapse (BasaltShell's controlled seam). The Mod+B command drives it
   // through `toggleSidebar()` (basalt-ui/commands, wired automatically by BasaltShell); persistence
@@ -66,39 +59,15 @@ function RootLayout() {
   // Theme lives in the sidebar Settings menu (not basalt's globalActions `ThemeToggle`) — the
   // Settings row only renders when `settingsMenuItems` is non-empty, and it also carries the
   // `brand.version` label, so keeping Theme here preserves that footer version display in
-  // production (where the DevTools entries below are absent). The active option is flagged via
+  // production. The active option is flagged via
   // `active` — basalt renders the trailing check glyph itself.
-  const settingsMenuItems: SettingsMenuItem[] = [
-    ...THEME_OPTIONS.map((o) => ({
-      key: `theme-${o.value}`,
-      label: o.label,
-      icon: o.icon,
-      active: colorScheme === o.value,
-      onClick: () => setColorScheme(o.value),
-    })),
-    ...(import.meta.env.DEV
-      ? [
-          {
-            key: 'devtools-router',
-            label: 'Router',
-            icon: <IconRoute size={16} />,
-            onClick: () => setDevTool('router'),
-          },
-          {
-            key: 'devtools-query',
-            label: 'Query',
-            icon: <IconDatabase size={16} />,
-            onClick: () => setDevTool('query'),
-          },
-          {
-            key: 'devtools-theme',
-            label: 'Theme Lab',
-            icon: <IconPalette size={16} />,
-            onClick: () => setDevTool('theme'),
-          },
-        ]
-      : []),
-  ]
+  const settingsMenuItems: SettingsMenuItem[] = THEME_OPTIONS.map((o) => ({
+    key: `theme-${o.value}`,
+    label: o.label,
+    icon: o.icon,
+    active: colorScheme === o.value,
+    onClick: () => setColorScheme(o.value),
+  }))
 
   /*
    * `GlobalAction[]`, not a `ReactNode` fragment (basalt-ui 1.26.0): basalt owns the mobile
@@ -139,7 +108,8 @@ function RootLayout() {
     <VoicePlaybackProvider>
       <BasaltShell
         brand={{ name: 'Argo', logoSrc: '/favicon.svg', version: __APP_VERSION__ }}
-        {...nav}
+        nav={NAV}
+        badges={{ calendar: badges.calendar, m365: badges.m365 }}
         globalActions={globalActions}
         sidebarBlocks={sidebarBlocks}
         settingsMenuItems={settingsMenuItems}
@@ -151,9 +121,6 @@ function RootLayout() {
       >
         <Outlet />
       </BasaltShell>
-      {import.meta.env.DEV && (
-        <BasaltDevDock tool={devTool} onClose={() => setDevTool(null)} router={router} />
-      )}
     </VoicePlaybackProvider>
   )
 }
