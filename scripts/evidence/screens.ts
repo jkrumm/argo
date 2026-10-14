@@ -60,6 +60,11 @@ export const screens: Lane = async ({ baseUrl, rawDir, routes }) => {
   } finally {
     await browser.close().catch(() => undefined)
   }
+  if (failed.length) {
+    throw new Error(
+      `${failed.length} screenshot(s) failed, first: ${failed[0]!.name}: ${failed[0]!.error.split('\n')[0]}`,
+    )
+  }
   return {
     rows: [
       { metric: 'routes', value: routes.length },

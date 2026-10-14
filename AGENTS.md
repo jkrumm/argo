@@ -128,10 +128,10 @@ unauthenticated and does not touch the database.
 
 `make evidence LABEL=<l>` is the real-data before/after baseline for UI work: it builds the dashboard,
 serves `dist` on an ephemeral port with `/api` proxied to production (GETs only — any other method is
-blocked and fails the run), injects the bearer into `localStorage` (read via `secrets-run`, never
-printed or written), then runs the bundle / screens (13 routes × light/dark × desktop/mobile) /
+answered 405 and listed under `## blocked writes`, but does not fail the run), injects the bearer into `localStorage` (read via `secrets-run`, never
+printed or written; the run aborts unless it authenticates), then runs the bundle / screens (13 routes × light/dark × desktop/mobile) /
 lighthouse (median of 3) lanes. Output: `docs/waves/evidence/<l>.md`; raw screenshots and Lighthouse
-JSON land in the gitignored `docs/waves/evidence/.raw/<l>/`. Code: `scripts/evidence/`.
+JSON land in the gitignored `docs/waves/evidence/.raw/<l>/`. Needs `secrets-run` and a locally installed Google Chrome. Code: `scripts/evidence/`.
 
 ## Gotchas
 
