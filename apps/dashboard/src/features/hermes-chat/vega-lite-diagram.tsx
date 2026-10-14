@@ -4,6 +4,7 @@ import * as vega from 'vega'
 import { expressionInterpreter } from 'vega-interpreter'
 import { useComputedColorScheme } from '@mantine/core'
 import { settledOnly, type FenceRenderer } from 'basalt-ui/content'
+import { SERIES } from '../../lib/series'
 import classes from './diagram.module.css'
 import { useDebouncedDiagram, DiagramError } from './diagram-shared'
 
@@ -22,14 +23,15 @@ import { useDebouncedDiagram, DiagramError } from './diagram-shared'
 // Source is debounced to avoid thrashing compile+render while a fence is streaming.
 
 // On-palette series hues (same set as the retired diagram-frame.tsx).
+// `SERIES.*` are `var(--vx-series-<name>)` refs; `getPropertyValue` wants the bare property name.
 const SERIES_VARS = [
-  '--vx-hrv',
-  '--vx-restingHr',
-  '--vx-calories',
-  '--vx-vo2max',
-  '--vx-squat',
-  '--vx-spo2',
-]
+  SERIES.hrv,
+  SERIES.restingHr,
+  SERIES.calories,
+  SERIES.vo2max,
+  SERIES.squat,
+  SERIES.spo2,
+].map((ref) => ref.slice('var('.length, -1))
 
 function readThemeColors() {
   const cs = getComputedStyle(document.documentElement)

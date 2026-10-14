@@ -358,11 +358,12 @@ function AstroWindowPage() {
                 {selectedSite ? (
                   <>
                     {/*
-                      Each chart owns its own Suspense. Both read upstreams that legitimately 502
-                      (the DEM bucket, the Lorenz atlas), and neither is worth the rest of the page.
-                      The per-chart error boundary is gone with 2.0 (`BasaltErrorBoundary` was
-                      deleted); both charts are Wave 9 stubs that fetch nothing, and
-                      their port renders the failure through `ChartCard state={{ error }}`.
+                      Each chart owns its own Suspense. Both charts are Wave 9 stubs that fetch
+                      nothing today. Their upstreams legitimately 502 (the DEM bucket, the Lorenz
+                      atlas), and the 1.x per-chart error boundary is gone (`BasaltErrorBoundary`
+                      was deleted), so the port must render the failure through
+                      `ChartCard state={{ error }}` or one chart's 502 reaches the route's error
+                      component.
                     */}
                     <Suspense
                       fallback={

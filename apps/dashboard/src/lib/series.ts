@@ -15,11 +15,12 @@
  *    before, so the sibling/anchor shade relationships are preserved.
  *  - `p(family, lightIndex, darkIndex)` (re-exported from basalt) picks the theme-shade pair;
  *    default indices (2 light / 3 dark) match basalt's own dark-mode-lift convention.
- *  - Emitted var names are IDENTICAL to argo's pre-migration `--vx-*` set (unprefixed series,
- *    `--vx-activity-*`, `--vx-usage-*`, `--vx-billing-*`, `--vx-outcome-*`) so `packages/charts`
- *    keeps resolving correctly until Phase 2 swaps chart imports over to `basalt-ui/charts`.
+ *  - Every series lives in a named group, so the emitted vars are `--vx-series-*`,
+ *    `--vx-activity-*`, `--vx-usage-*`, `--vx-billing-*`, `--vx-outcome-*` and `--vx-lp-*`
+ *    (basalt-ui 2.0 has no unprefixed group). Read series through the `SERIES.*` / group refs,
+ *    never by literal var name.
  *  - Values here are a mechanical carry-over, not a final visual pass — iterate live via the
- *    basalt-ui theme lab (`basalt-ui/theme-lab`) once Phase 2/3 land.
+ *    theme lab (provider-mounted in dev).
  */
 import { BP, defineSeries, groupTokens, p, type SeriesMap } from 'basalt-ui/tokens'
 

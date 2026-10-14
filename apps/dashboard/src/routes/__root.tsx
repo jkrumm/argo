@@ -10,7 +10,9 @@ import {
 } from 'basalt-ui'
 import { SyncButton, type GlobalAction } from 'basalt-ui/controls'
 import { NotificationBell } from 'basalt-ui/commands'
-import { AuthGate } from '../lib/auth-gate'
+import { AuthRequiredError, requireToken } from '../lib/auth'
+import { AuthGate, TokenPrompt } from '../lib/auth-gate'
+import { CrashFallback } from '../lib/error-boundary'
 import { useSidebarCollapsed } from '../lib/sidebar-collapsed'
 import { TimerNavWidget, useTimerEngine } from '../components/timer-nav'
 import { useSidebarBadges } from '../components/app-shell/use-sidebar-badges'
@@ -21,8 +23,13 @@ import { VoicePlaybackProvider } from '../features/hermes-chat/voice/voice-playb
 import { NAV } from '../lib/nav'
 
 export const Route = createRootRouteWithContext<BasaltRouterContext>()({
-  // AuthGate lives inside the router now (`BasaltProvider` owns `RouterProvider`), so it wraps the
-  // shell here: nothing below it mounts — and no badge/timer query fires — until a token exists.
+  // `BasaltProvider` owns `RouterProvider`, so auth is enforced in the router itself: `beforeLoad`
+  // keeps every child loader from firing without a token and `errorComponent` shows the prompt for
+  // that case; `AuthGate` covers the token being cleared mid-session (a 401), when `beforeLoad` does
+  // not re-run. Nothing below the gate mounts — and no badge/timer query fires — without a token.
+  beforeLoad: requireToken,
+  errorComponent: ({ error }) =>
+    error instanceof AuthRequiredError ? <TokenPrompt /> : <CrashFallback error={error} />,
   component: () => (
     <AuthGate>
       <RootLayout />

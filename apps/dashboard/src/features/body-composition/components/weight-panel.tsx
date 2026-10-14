@@ -154,7 +154,7 @@ function WeightSummaryCards({ summary }: { summary: WeightSummary }) {
 
 function WeightEntryForm({ defaultWeight }: { defaultWeight: number | null }) {
   const [date, setDate] = useState(today())
-  const [typedWeight, setWeight] = useState<number | ''>(defaultWeight ?? '')
+  const [typedWeight, setTypedWeight] = useState<number | ''>(defaultWeight ?? '')
   const [justSaved, setJustSaved] = useState(false)
   const createWeightLog = useCreateWeightLog()
 
@@ -214,7 +214,7 @@ function WeightEntryForm({ defaultWeight }: { defaultWeight: number | null }) {
               style={{ flex: 1 }}
               inputMode="decimal"
               value={weight}
-              onChange={(v) => setWeight(typeof v === 'number' ? v : '')}
+              onChange={(v) => setTypedWeight(typeof v === 'number' ? v : '')}
             />
             <Button
               type="submit"

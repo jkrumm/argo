@@ -1,5 +1,6 @@
 import { StatCard, StatGroup } from 'basalt-ui'
-import type { HistoryPoint, OverviewSummary } from '../../lib/queries/agents'
+import { useNow } from '../../lib/use-now'
+import type { OverviewSummary } from '../../lib/queries/agents'
 import {
   ABANDONED_AFTER_MS,
   formatWaitDuration,
@@ -10,12 +11,12 @@ import {
 
 type Props = {
   summary: OverviewSummary | undefined
-  history: HistoryPoint[] | undefined
   agents: AgentRow[]
 }
 
 // MIGRATION-STUB(w7): the 24 h trend sparklines under the Needs you / Active tiles (inventory a40)
-// are dropped until their port to `Sparkline`; the tiles themselves are unchanged.
+// are dropped until their port to `Sparkline`; the tiles themselves are unchanged. The port
+// re-adds a `history` prop and `routes/agents.tsx`'s `agentsQueries.history(24)` query.
 /**
  * Three verdict tiles, replacing the old six raw state counts (`needsYou, working, idle, stale,
  * done, dispatch`). Two faults drove the cut: `dispatch` counted `source === 'dispatch'` and so
@@ -29,7 +30,7 @@ type Props = {
 export function HeroStats({ summary, agents }: Props) {
   const needsYou = summary?.needsYou
   const working = summary?.working
-  const oldest = oldestNeedsYouWait(agents)
+  const oldest = oldestNeedsYouWait(agents, useNow())
   const oldestTone =
     oldest === null
       ? undefined

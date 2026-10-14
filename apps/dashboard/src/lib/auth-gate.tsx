@@ -17,7 +17,7 @@ export function AuthGate({ children }: Props) {
   return <TokenPrompt />
 }
 
-function TokenPrompt() {
+export function TokenPrompt() {
   const setToken = useAuthStore((s) => s.setToken)
   const form = useBasaltForm({
     initialValues: { token: '' },
