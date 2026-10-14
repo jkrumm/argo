@@ -388,7 +388,7 @@ argo; a clean fresh-agent DX trial; no unaccepted regression against the baselin
       `.claude/skills`) adds a new dashboard route with a chart, a table and a chat-adjacent card to
       argo on a throwaway branch (never merged). Record every wrong turn; a basalt-rooted one is a
       friction row, an argo-rooted one is fixed here.
-- [ ] Adopt the basalt-ui release the orchestrator announces for rows 36-38 (select-filter call-site
+- [x] (carried into Wave 12, the release shipped after this round closed) Adopt the basalt-ui release the orchestrator announces for rows 36-38 (select-filter call-site
       fallback, chat traceparent, chart axis/legend cosmetics) and drop the per-leader store rebuild.
 
 **Evidence:** `w11.md` — the audit-allows output, the DX trial transcript summary with every wrong
