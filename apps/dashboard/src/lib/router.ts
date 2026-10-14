@@ -31,9 +31,9 @@ export const router = createBasaltRouter({
       onError: onUnauthorized,
     }),
     defaultOptions: {
+      // basalt merges `queries` shallowly over {staleTime 30s, gcTime 5min, retry 2, refetchOnWindowFocus false}: only the two real overrides live here.
       queries: {
         staleTime: 60_000,
-        refetchOnWindowFocus: false,
         retry: (failureCount, error) => {
           if (isUnauthorizedError(error)) return false
           return failureCount < 1
