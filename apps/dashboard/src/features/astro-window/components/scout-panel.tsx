@@ -4,6 +4,7 @@ import { IconAlertTriangle } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { EdenFetchError } from '@elysiajs/eden'
 import { DeltaBadge, SettingsSection } from 'basalt-ui'
+import { Sparkline } from 'basalt-ui/charts'
 import { astroQueries } from '../../../lib/queries/astro'
 import { fmtDegrees, fmtMinutes } from '../formulas'
 import type { Site } from '../types'
@@ -18,6 +19,9 @@ import type { Site } from '../types'
  * The comparison against the currently selected site is the entire point of this panel — every
  * number rides next to a `DeltaBadge` rather than sitting in a second table.
  */
+
+const SPARK_W = 240
+const SPARK_H = 40
 
 export type ScoutPanelProps = {
   opened: boolean
@@ -98,6 +102,14 @@ export function ScoutPanel({ opened, onClose, point, compareSite }: ScoutPanelPr
   })
 
   const horizon = horizonQuery.data
+  const southProfile = horizon
+    ? horizon.profile
+        .filter(
+          (p) => p.azimuthDeg >= horizon.southArc.fromDeg && p.azimuthDeg <= horizon.southArc.toDeg,
+        )
+        .map((p) => p.altitudeDeg)
+    : []
+
   return (
     <Drawer opened={opened} onClose={onClose} position="right" size="md" title="Scouted point">
       <Stack gap="sm">
@@ -159,7 +171,14 @@ export function ScoutPanel({ opened, onClose, point, compareSite }: ScoutPanelPr
               ) : horizon ? (
                 <Stack gap={6}>
                   {!horizon.complete && <ProvisionalBadge />}
-                  {/* MIGRATION-STUB(w9): southern-arc terrain sparkline (inventory a39), ported with the astro charts. */}
+                  {southProfile.length > 0 && (
+                    <Sparkline
+                      data={southProfile}
+                      width={SPARK_W}
+                      height={SPARK_H}
+                      ariaLabel="Southern-arc terrain skyline, altitude by azimuth"
+                    />
+                  )}
                   <ScoutRow label="Ridge max" value={fmtDegrees(horizon.south.maxDeg)} />
                   <ScoutRow label="Ridge mean" value={fmtDegrees(horizon.south.meanDeg)} />
                   {compareSite && (

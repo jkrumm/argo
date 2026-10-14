@@ -119,14 +119,28 @@ export function killerLabel(night: Night): string {
 }
 
 /**
- * Maps an hourly point's domain key (`time`, a unique ISO instant) back to its `localTime` label
- * for `formatX`. The key cannot BE `localTime`: that is an "HH:MM" wall clock, and on the DST
- * fall-back night 02:00/02:30 occur twice — duplicate keys collapse onto one position on the
- * charts' categorical x axis and one sample silently stops being drawn. Shared by the two charts
- * that plot the same hourly array so their keys, and therefore their shared cursor, cannot drift.
+ * Maps an hourly point's instant (the x `Date`, epoch ms) back to its `localTime` label for
+ * `formatX`. The label cannot BE the key: `localTime` is an "HH:MM" wall clock, and on the DST
+ * fall-back night 02:00/02:30 occur twice — keyed by it, two samples would share one entry. The
+ * epoch is unique per sample, so both fall-back hours keep their own label. Shared by the two
+ * charts that plot the same hourly array so their x values, and therefore their shared cursor,
+ * cannot drift. An instant that is not a sample has no wall-clock label here, hence `''`.
  */
-// MIGRATION-STUB(w9): parked — its only callers were the astro charts stubbed in Wave 3.
 export function hourlyTimeLabel(hourly: readonly { time: string; localTime: string }[]) {
-  const byTime = new Map(hourly.map((d) => [d.time, d.localTime]))
-  return (key: string) => byTime.get(key) ?? key
+  const byInstant = new Map(hourly.map((d) => [new Date(d.time).getTime(), d.localTime]))
+  return (x: Date) => byInstant.get(x.getTime()) ?? ''
+}
+
+/**
+ * Tick instants for the hourly x axis: the on-the-hour samples, thinned to at most `max` evenly
+ * strided ones. Explicit ticks always land on a sample, so `hourlyTimeLabel` always has a label —
+ * the default time ticks fall on arbitrary instants it cannot name.
+ */
+export function hourlyTicks(
+  hourly: readonly { time: string; localTime: string }[],
+  max = 7,
+): Date[] {
+  const onTheHour = hourly.filter((d) => d.localTime.endsWith(':00'))
+  const stride = Math.max(1, Math.ceil(onTheHour.length / max))
+  return onTheHour.filter((_, i) => i % stride === 0).map((d) => new Date(d.time))
 }
