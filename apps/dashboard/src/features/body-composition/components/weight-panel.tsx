@@ -195,14 +195,14 @@ function WeightEntryForm({ defaultWeight }: { defaultWeight: number | null }) {
           <Text fw={600} size="sm">
             Log Weight
           </Text>
-          <Group align="flex-end" gap="sm">
+          <Group align="flex-end" gap="sm" wrap="wrap">
             <TextInput
               type="date"
               label="Date"
               value={date}
               onChange={(e) => setDate(e.currentTarget.value)}
               size="md"
-              style={{ flex: 1 }}
+              style={{ flex: 1, minWidth: 140 }}
             />
             <NumberInput
               label="Weight (kg)"
@@ -211,7 +211,7 @@ function WeightEntryForm({ defaultWeight }: { defaultWeight: number | null }) {
               step={0.1}
               decimalScale={1}
               size="md"
-              style={{ flex: 1 }}
+              style={{ flex: 1, minWidth: 140 }}
               inputMode="decimal"
               value={weight}
               onChange={(v) => setTypedWeight(typeof v === 'number' ? v : '')}
