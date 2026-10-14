@@ -18,18 +18,8 @@ jobs:
       # against (observed: a 1.20.0 cache answering for a 1.22.0 install).
       - name: basalt drift gate (managed files match the installed basalt-ui)
         run: ./node_modules/.bin/basalt-ui sync --check
-      - run: bun run lint
-      - run: bun run format:check
-      - run: bun --cwd apps/api typecheck
-      - run: bun --cwd apps/dashboard typecheck
-      - name: unit tests (pure logic, no DB connection)
-        # DATABASE_URL/API_SECRET are placeholders to satisfy env schema for
-        # module init only — the lib/* tests don't actually connect to the DB.
-        # Integration tests (routes/*.test.ts) only run locally.
-        env:
-          DATABASE_URL: postgres://localhost:5432/placeholder
-          API_SECRET: ci-placeholder
-        run: bun --cwd apps/api test src/env.test.ts src/lib/
+      # lint, theme guard, format, typechecks and unit tests: the same gates as local `make check`.
+      - run: make check
       - name: fallow analysis (report-only)
         continue-on-error: true
         run: bunx fallow --json | tee fallow-report.json
