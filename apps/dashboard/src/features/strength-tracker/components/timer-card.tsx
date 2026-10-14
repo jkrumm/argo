@@ -1,4 +1,6 @@
 import { useState, type ReactNode } from 'react'
+import { WidgetHeader } from 'basalt-ui'
+import { ViewTabs } from 'basalt-ui/controls'
 import { VX } from 'basalt-ui/tokens'
 import {
   ActionIcon,
@@ -13,7 +15,6 @@ import {
   Popover,
   RingProgress,
   ScrollArea,
-  SegmentedControl,
   SimpleGrid,
   Slider,
   Stack,
@@ -29,7 +30,7 @@ import {
   IconRotateClockwise2,
 } from '@tabler/icons-react'
 import { SERIES } from '../../../lib/series'
-import { useTimerStore } from '../../../lib/timer-store'
+import { timerMode, useTimerStore } from '../../../lib/timer-store'
 import {
   clampNum,
   DEFAULT_INTERVAL,
@@ -555,22 +556,14 @@ function IntervalTimerPanel() {
 
 export function TimerCard() {
   const mode = useTimerStore((s) => s.mode)
-  const setMode = useTimerStore((s) => s.setMode)
 
   return (
     <Paper py="xs" px="sm">
       <Stack gap="sm" align="center">
-        {/* theme-allow control-outside-home, raw-selection-control — live timer runtime mode in the shared zustand timer store (read by TimerNavWidget and the running timer), not page view state — a URL/local FieldHandle would fork it */}
-        <SegmentedControl
-          fullWidth
-          size="xs"
-          w="100%"
-          value={mode}
-          onChange={(v) => setMode(v as 'rest' | 'interval')}
-          data={[
-            { label: 'Rest Timer', value: 'rest' },
-            { label: 'Interval Timer', value: 'interval' },
-          ]}
+        <WidgetHeader
+          tier="widget"
+          title="Timer"
+          actions={<ViewTabs field={timerMode} label="Timer mode" />}
         />
         {mode === 'rest' ? <RestTimerPanel /> : <IntervalTimerPanel />}
       </Stack>

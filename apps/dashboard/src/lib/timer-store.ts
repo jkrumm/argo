@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { emit } from 'basalt-ui/commands'
+import { externalField } from 'basalt-ui/state'
 import {
   buildPhases,
   clampNum,
@@ -262,3 +263,19 @@ export const useTimerStore = create<TimerState>()((set, get) => ({
     }
   },
 }))
+
+/**
+ * The timer mode as a basalt field over the zustand slice — shared with `TimerNavWidget` and the
+ * running timer, so it has no URL or localStorage lane of its own. Writes go through `setMode`,
+ * which persists to the existing localStorage key.
+ */
+export const timerMode = externalField({
+  values: ['rest', 'interval'],
+  fallback: 'rest',
+  labels: { rest: 'Rest Timer', interval: 'Interval Timer' },
+  store: {
+    get: () => useTimerStore.getState().mode,
+    set: (mode) => useTimerStore.getState().setMode(mode),
+    subscribe: (onChange) => useTimerStore.subscribe(() => onChange()),
+  },
+})
