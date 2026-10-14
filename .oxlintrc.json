@@ -2,7 +2,7 @@
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "extends": ["./node_modules/basalt-ui/configs/oxlint.json"],
   "plugins": ["react-perf", "jsdoc"],
-  "ignorePatterns": ["apps/api/src/generated/**", "scripts/**"],
+  "ignorePatterns": ["apps/api/src/generated/**", "scripts/**", "docs/poc/**"],
   "overrides": [
     {
       "files": ["apps/dashboard/src/**"],
