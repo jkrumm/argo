@@ -9,13 +9,16 @@ import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from './chart-state'
+import { latestWith } from './latest'
 import { localDay } from './local-day'
+import { movingAverage } from './moving-average'
 
 /**
  * Daily activity target in MET-minutes — matches the WHO weekly floor at 86/day,
  * rounded to 600 to align with the server-side aggregate target.
  */
 const ACTIVITY_TARGET_SCORE = 600
+const CHART_HEIGHT = 280
 
 /** MET multipliers — must mirror server-side `garmin-formulas.ts`. */
 const VIGOROUS_MET = 8
@@ -23,38 +26,10 @@ const MODERATE_MET = 4
 const STEPS_PER_INTENSITY_MIN = 100
 const STEPS_MET_PER_STEP = 0.03
 
-/**
- * Trailing simple moving average. Returns null when fewer than `min` non-null
- * samples are in the window so early days don't render a misleading flat line.
- */
-function movingAverage(
-  values: (number | null)[],
-  window: number,
-  min = Math.min(3, window),
-): (number | null)[] {
-  const out: (number | null)[] = []
-  for (let i = 0; i < values.length; i++) {
-    const start = Math.max(0, i - window + 1)
-    let sum = 0
-    let count = 0
-    for (let j = start; j <= i; j++) {
-      const v = values[j]
-      if (v !== null && v !== undefined && !Number.isNaN(v)) {
-        sum += v
-        count += 1
-      }
-    }
-    out.push(count >= min ? sum / count : null)
-  }
-  return out
-}
-
 type ActivityPoint = {
-  date: string
   day: Date
   vigorousMin: number | null
   moderateMin: number | null
-  steps: number | null
   walkingSteps: number
   /** `null` on a day with no reading at all, so it is a gap rather than a zero-height bar. */
   walkingScore: number | null
@@ -112,19 +87,17 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
     const points = query.data?.points ?? []
     const scores = points.map((p) => p.activityScore)
     const ma = movingAverage(scores, 30)
-    const all: ActivityPoint[] = points.map((p, i) => {
+    const all = points.map((p, i) => {
       const measured =
         p.steps !== null || p.moderateIntensityMin !== null || p.vigorousIntensityMin !== null
       const vig = p.vigorousIntensityMin ?? 0
       const mod = p.moderateIntensityMin ?? 0
       const steps = p.steps ?? 0
       const walkingSteps = Math.max(0, steps - (vig + mod) * STEPS_PER_INTENSITY_MIN)
-      return {
-        date: p.date,
+      const point: ActivityPoint = {
         day: localDay(p.date),
         vigorousMin: p.vigorousIntensityMin,
         moderateMin: p.moderateIntensityMin,
-        steps: p.steps,
         walkingSteps,
         walkingScore: measured ? walkingSteps * STEPS_MET_PER_STEP : null,
         moderateScore: measured ? mod * MODERATE_MET : null,
@@ -132,13 +105,14 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
         score: p.activityScore,
         scoreMA: ma[i] ?? null,
       }
+      return { date: p.date, point }
     })
-    return applyVisibilityFilter(all, (p) => p.date)
+    return applyVisibilityFilter(all, (p) => p.date).map((p) => p.point)
   }, [query.data])
 
   const hasData = chartData.some((d) => d.score !== null)
 
-  const latest = chartData.at(-1)
+  const latest = latestWith(chartData, (d) => d.score)
 
   return (
     <ChartCard
@@ -163,12 +137,13 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
         ) : null
       }
       state={chartStateOf(query, !hasData && 'No activity in this window')}
-      placeholderHeight={280}
+      placeholderHeight={CHART_HEIGHT}
     >
       <Bars
         ariaLabel="Daily activity score by intensity with 30-day average"
         data={chartData}
-        height={280}
+        height={CHART_HEIGHT}
+        cursorResolution="leading"
         x={(d) => d.day}
         bars={BARS}
         lines={LINES}

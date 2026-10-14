@@ -95,6 +95,7 @@ export default function StressChart({ params }: { params: SummaryParams }) {
       placeholderHeight={CHART_HEIGHT}
     >
       <Lines
+        cursorResolution="leading"
         ariaLabel="Average and overnight stress with a gradient zone fill"
         data={chartData}
         height={CHART_HEIGHT}

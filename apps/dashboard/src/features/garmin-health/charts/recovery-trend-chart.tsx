@@ -8,6 +8,7 @@ import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from './chart-state'
+import { latestWith } from './latest'
 import { localDay } from './local-day'
 
 type RecoveryPoint = {
@@ -62,18 +63,19 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
     [query.data],
   )
   const hasRecovery = points.some((p) => p.recovery !== null)
-  const latest = points.at(-1)
-  const latestZone = latest && latest.recovery !== null ? recoveryZoneLabel(latest.recovery) : null
+  const latest = latestWith(points, (p) => p.recovery)
+  const latestRecovery = latest?.recovery ?? null
+  const latestZone = latestRecovery === null ? null : recoveryZoneLabel(latestRecovery)
 
   return (
     <ChartCard
       title="Recovery Trend"
       info={METRIC_TOOLTIPS.recoveryScore}
       actions={
-        latest && latestZone ? (
+        latestRecovery !== null && latestZone ? (
           <Group gap={6} align="baseline" wrap="nowrap">
             <Text span fw={600} size="md" c={latestZone.color}>
-              {Math.round(latest.recovery ?? 0)}
+              {Math.round(latestRecovery)}
             </Text>
             <Text span size="xs" c={latestZone.color}>
               {latestZone.text}
@@ -85,6 +87,7 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
       placeholderHeight={280}
     >
       <Lines
+        cursorResolution="leading"
         ariaLabel="Recovery score trend with push/normal/rest zones"
         data={points}
         height={280}

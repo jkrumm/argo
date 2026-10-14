@@ -102,6 +102,7 @@ export default function DivergenceChart({ params }: { params: SummaryParams }) {
       placeholderHeight={CHART_HEIGHT}
     >
       <DualPanel
+        cursorResolution="leading"
         ariaLabel="Short-term vs long-term training load, with the divergence between them"
         data={points}
         height={CHART_HEIGHT}

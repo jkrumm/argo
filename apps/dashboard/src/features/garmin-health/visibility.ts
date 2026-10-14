@@ -21,7 +21,7 @@ function todayLocalIso(): string {
  *
  * Sleep / fitness-trend metrics lock in overnight, so they pass `hideToday: false`.
  */
-export function shouldHideTodayNow(): boolean {
+function shouldHideTodayNow(): boolean {
   return new Date().getHours() < HIDE_TODAY_BEFORE_HOUR
 }
 
