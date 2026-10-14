@@ -3,7 +3,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check deploy verify logs
+.PHONY: help check deploy verify logs evidence
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-8s\033[0m %s\n", $$1, $$2}'
@@ -24,3 +24,7 @@ verify: ## Probe the production health endpoint (exit 0 = live and healthy)
 
 logs: ## Tail the last 200 lines of production API logs, then exit (no follow)
 	ssh vps 'docker logs --tail 200 $$(docker ps -q --filter "label=com.docker.compose.service=argo-api" | head -n1)'
+
+evidence: ## Real-data baseline (bundle/screens/lighthouse): make evidence LABEL=<label>
+	@test -n "$(LABEL)" || { echo "usage: make evidence LABEL=<label>"; exit 2; }
+	@bun scripts/evidence/index.ts "$(LABEL)"

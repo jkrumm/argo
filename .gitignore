@@ -16,3 +16,6 @@ node_modules/
 
 .fallow/
 .gauntlet/
+
+# make evidence: raw screenshots + lighthouse JSON
+/docs/waves/evidence/.raw/

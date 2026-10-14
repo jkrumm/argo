@@ -1,0 +1,14 @@
+# Non-dev dashboard routes (apps/dashboard/src/routes, minus charts-smoke). One path per line.
+/
+/agents
+/astro-window
+/body-composition
+/calendar
+/garmin-health
+/hermes-chat
+/m365-explorer
+/reading
+/strength-tracker
+/usage-tracking
+/walking-pad
+/warden
