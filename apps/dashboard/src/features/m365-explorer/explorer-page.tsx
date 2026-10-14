@@ -320,7 +320,7 @@ export function M365ExplorerPage(): React.ReactElement {
         </Card>
 
         <Card display="flex" style={{ flex: 1, flexDirection: 'column' }}>
-          <Card.Section style={{ flex: 1 }}>
+          <Card.Section style={{ flex: 1, minHeight: 0 }}>
             <Flex direction="column" h="100%">
               {!selected ? (
                 <Stack
