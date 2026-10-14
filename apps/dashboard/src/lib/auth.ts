@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { redirect } from '@tanstack/react-router'
 import { persist } from 'zustand/middleware'
 
 type AuthState = {
@@ -21,7 +22,7 @@ export const useAuthStore = create<AuthState>()(
 export const getToken = (): string | null => useAuthStore.getState().token
 export const clearToken = (): void => useAuthStore.getState().clearToken()
 
-// Dev-only auto-auth: seed the bearer from VITE_DEV_API_TOKEN so the AuthGate never blocks local
+// Dev-only auto-auth: seed the bearer from VITE_DEV_API_TOKEN so the login route never blocks local
 // dev or screenshot validation. Runs once at module load; only when no token is already persisted
 // (a manually-entered token still wins). Inert in prod — the DEV guard and the absence of the var
 // in prod builds both prevent it.
@@ -35,19 +36,33 @@ export function isUnauthorizedError(error: unknown): boolean {
   return status === 401
 }
 
-/** Thrown by `requireToken` so the root route's `errorComponent` can show the token prompt. */
-export class AuthRequiredError extends Error {
-  constructor() {
-    super('API token required')
-    this.name = 'AuthRequiredError'
-  }
+const isControlChar = (c: string): boolean => {
+  const code = c.charCodeAt(0)
+  return code < 0x20 || code === 0x7f
+}
+
+/**
+ * Accepts only a same-origin relative path (`/a/b?c=d#e`): one leading slash, no scheme, no
+ * authority (`//host`), no backslash tricks (`/\\host` is read as `//host` by browsers), no control
+ * characters. Anything else, and `/login` itself (a redirect loop), yields `undefined` so callers
+ * fall back to `/`.
+ */
+export function safeRedirect(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined
+  if (!raw.startsWith('/') || raw.startsWith('//')) return undefined
+  if (raw.includes('\\') || [...raw].some(isControlChar)) return undefined
+  const probe = new URL(raw, 'http://redirect.invalid')
+  if (probe.origin !== 'http://redirect.invalid') return undefined
+  if (probe.pathname === '/login') return undefined
+  return raw
 }
 
 /**
  * Root-route `beforeLoad` guard. A parent's `beforeLoad` settles before any child loader starts, so
- * throwing here keeps every loader from firing unauthenticated at boot; entering a token reloads the
- * page (`TokenPrompt`), which re-runs the guard with a token present.
+ * redirecting here keeps every loader from firing unauthenticated at boot, and the first paint is
+ * already `/login` — no frame of the authenticated shell. `/login` itself is exempt.
  */
-export function requireToken(): void {
-  if (!getToken()) throw new AuthRequiredError()
+export function requireToken(location: { pathname: string; href: string }): void {
+  if (location.pathname === '/login' || getToken()) return
+  throw redirect({ to: '/login', search: { redirect: safeRedirect(location.href) } })
 }

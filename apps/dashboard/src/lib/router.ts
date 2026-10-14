@@ -1,10 +1,15 @@
 import { MutationCache, QueryCache } from '@tanstack/react-query'
 import { createBasaltRouter } from 'basalt-ui'
-import { clearToken, isUnauthorizedError } from './auth'
+import { clearToken, isUnauthorizedError, safeRedirect } from './auth'
 import { routeTree } from '../routeTree.gen'
 
 const onUnauthorized = (error: unknown): void => {
-  if (isUnauthorizedError(error)) clearToken()
+  if (!isUnauthorizedError(error)) return
+  clearToken()
+  // `router` is assigned below; the handler only runs after a request fails, long after module init.
+  const { pathname, href } = router.state.location
+  if (pathname === '/login') return
+  void router.navigate({ to: '/login', search: { redirect: safeRedirect(href) } })
 }
 
 /**
