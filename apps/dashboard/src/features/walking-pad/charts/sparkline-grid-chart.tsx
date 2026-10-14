@@ -103,12 +103,11 @@ export function SparklineGridChart({ params }: { params: WalkingPadWindowParams 
                   : `avg ${m.format(avg)} · best ${m.format(max)}`,
             })}
             query={query}
-            sparkline={({ width, height }) => (
+            sparkline={(size) => (
               <Sparkline
+                {...size}
                 ariaLabel={m.ariaLabel}
                 data={points.map((p) => plotted(m.pick(p)))}
-                width={width}
-                height={height}
                 color={m.color}
               />
             )}

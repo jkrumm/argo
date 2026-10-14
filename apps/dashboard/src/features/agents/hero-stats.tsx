@@ -1,4 +1,4 @@
-import { StatCard, StatGroup } from 'basalt-ui'
+import { StatCard, StatGroup, type StatCardSparklineSize } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { useNow } from '../../lib/use-now'
@@ -23,11 +23,10 @@ function sparklineSlot(title: string, trend: number[], hours: number) {
   if (trend.length <= 1) return {}
   return {
     subtitle: `last ${hours} h`,
-    sparkline: ({ width, height }: { width: number; height: number }) => (
+    sparkline: (size: StatCardSparklineSize) => (
       <Sparkline
+        {...size}
         data={trend}
-        width={width}
-        height={height}
         color={VX.line}
         ariaLabel={`${title} over the last ${hours} hours`}
       />
