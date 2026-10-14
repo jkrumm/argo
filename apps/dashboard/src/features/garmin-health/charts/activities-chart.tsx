@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Text } from '@mantine/core'
 import { Bars, ChartCard, type BarsBar } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
-import { activitiesQueries } from '../../../lib/queries/daily-metrics'
+import { activitiesWindowQueries } from '../../../lib/queries/activities'
 import { ACTIVITY } from '../../../lib/series'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
@@ -17,8 +17,8 @@ const CHART_HEIGHT = 240
 const AXIS_FLOOR_MIN = 30
 
 type Activity = Awaited<
-  ReturnType<NonNullable<ReturnType<typeof activitiesQueries.list>['queryFn']>>
->['data'][number]
+  ReturnType<NonNullable<ReturnType<typeof activitiesWindowQueries.list>['queryFn']>>
+>[number]
 
 type ActivityTypeMeta = { label: string; color: string }
 
@@ -139,16 +139,10 @@ function activityRowProps(activity: Activity) {
 }
 
 export default function ActivitiesChart({ params }: { params: SummaryParams }) {
-  const query = useQuery(
-    activitiesQueries.list({
-      dateFrom: params.from,
-      dateTo: params.to,
-      limit: 200,
-    }),
-  )
+  const query = useQuery(activitiesWindowQueries.list(params))
 
   const activities = useMemo(
-    () => applyVisibilityFilter(query.data?.data ?? [], (a) => a.date),
+    () => applyVisibilityFilter(query.data ?? [], (a) => a.date),
     [query.data],
   )
   const points = useMemo(() => buildPoints(activities), [activities])
