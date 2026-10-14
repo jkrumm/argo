@@ -133,16 +133,16 @@ Ships to production (still 1.x); the last wave that deploys before cutover.
   `scripts/tsconfig.json` + `make check` entry is a small follow-up if the orchestrator wants it.
 - **Friction rows for `argo-friction.md`:** none from this wave.
 
-## Wave 3 — The 2.0 bump (atomic, D1) <!-- status: active -->
+## Wave 3 — The 2.0 bump (atomic, D1) <!-- status: done -->
 
 One worker on one branch (D1 forbids splitting the bump); the lead reviews and merges it. Starting
 point: `w1.md` §§ 1–4 are the checklist.
 
-- [ ] Dependencies: `basalt-ui` 2.0.0 exact in both `package.json`s, the peers of `w1.md` § 2 (font
+- [x] Dependencies: `basalt-ui` 2.0.0 exact in both `package.json`s, the peers of `w1.md` § 2 (font
       peers exact as published), oxlint ≥ 1.87 and the oxfmt the preset expects, every `@visx/*`
       removed. `basalt-ui sync`, then `doctor` until clean (tsconfig-base, retired-lint-rules,
       dropped-subpaths, app-wiring); drop `basalt.chartMissingAriaLabel`.
-- [ ] Wiring per V2-SPEC § 2: `main.tsx` → `BasaltProvider router telemetry fallback paletteOptions`
+- [x] Wiring per V2-SPEC § 2: `main.tsx` → `BasaltProvider router telemetry fallback paletteOptions`
       (groups as `SeriesGroup[]` from `groupTokens`); `lib/router.ts` → `createBasaltRouter({ routeTree,
       context, query })` carrying argo's 401 `queryCache`/`mutationCache` and retry rules;
       `routes/__root.tsx` → `createRootRouteWithContext<BasaltRouterContext>()`, `BasaltShell nav={NAV}`
@@ -151,12 +151,12 @@ point: `w1.md` §§ 1–4 are the checklist.
       `BasaltOverlays`, `BasaltErrorBoundary`, `createBasaltQueryClient`. Telemetry sink is a
       dev-console stub here; Wave 4 makes it real. Keep `@mantine/dates`/`@mantine/schedule` layer CSS
       after `basalt-ui/styles.css`.
-- [ ] The import moves of `w1.md` § 1, `PageBar`/`Section` action tuples, the `RangeField` handle in
+- [x] The import moves of `w1.md` § 1, `PageBar`/`Section` action tuples, the `RangeField` handle in
       `routes/strength-tracker.tsx`, the ~17 lint findings fixed at source.
-- [ ] Silent semantics (D2): the three chat liveness sites test `run.status` (`'submitted' |
+- [x] Silent semantics (D2): the three chat liveness sites test `run.status` (`'submitted' |
       'streaming'`), and a failed run stays visibly failed; every table `sortFn` is one of the four
       registered names.
-- [ ] Every chart file that does not compile becomes a `MIGRATION-STUB(w7|w8|w9)` stub per D1
+- [x] Every chart file that does not compile becomes a `MIGRATION-STUB(w7|w8|w9)` stub per D1
       (owner wave from the inventory group: usage/walking-pad/agents/smoke → w7, garmin/body → w8,
       strength/astro → w9). Charts that compile as-is stay.
 
@@ -165,7 +165,18 @@ of the non-chart surfaces (shell, tables, chat, forms) against the baseline.
 
 **Left behind:**
 
-## Wave 4 — Shell, routing, transitions, telemetry <!-- status: pending -->
+- **Landed:** PR #22 merged to master (`a36f135`); `deploy.yml` still disabled. basalt-ui 2.0.0 exact, peers per `w1.md` §2, visx gone. Gate: `make check` + dashboard build green on the merged head; `sync --check` clean; 0 new `basalt/*` suppressions (theme-allow count 6 → 5).
+- **Stubs:** 37 files carry `MIGRATION-STUB(w7|w8|w9)` (34 whole charts, 3 partial: `agents/hero-stats`, `astro-window/scout-panel`, `routes/charts-smoke`), plus parked-unused helpers (`applyVisibilityFilter`, `hourlyTimeLabel`, `acwrZoneColor`, `formatRelativeTime`) tagged for their wave. List in `w3.md`. Wave 7 re-adds the agents history query dropped from `routes/agents.tsx`.
+- **Auth (Wave 4 inherits):** review caught that loaders fire before `AuthGate` renders. Interim fix: root `beforeLoad: requireToken` + `errorComponent` showing `TokenPrompt`; `AuthGate` stays for mid-session 401. Wave 4's login route replaces this. `lib/auth.test.ts` is not in `make check` (dashboard tests are not run by the gate).
+- **Telemetry:** `lib/telemetry.ts` is a DEV-console stub; the crash fallback no longer claims "Reported". Production errors reach nothing until Wave 4.
+- **Series CSS vars:** `SERIES` is now `groupTokens('series')` → `--vx-series-*`. `DESIGN.md` still shows `seriesTokens` and "unprefixed" — stale, update with Wave 4 or 8. `docs/poc/astro-map/verify.html` reads old names (lint-excluded POC, left).
+- **Not verified:** chat failed-turn path never exercised live (Wave 6); only 3 of 52 `make evidence LABEL=w3` screenshots checked by eye; chart-page numbers are stub placeholders, not comparable to baseline. Bundle JS gzip 2.33 → 2.13 MB; hermes-chat chunk 297 → 349 KB (check in Wave 6).
+- **Not done (review improvements skipped, out of scope):** one shared `MigrationPlaceholder` instead of 36 copies (deleted anyway by w7–w9); fallow dead exports (`ACTIVITY`, `colorFor*`, `OVERLAYS`/`COMMANDS`, `NOTIFICATIONS`, `workoutDraftQueries`, devDeps `@types/unist`, `concurrently`); `use-warden-actions.ts` `Date.now()` default in render.
+- **Doctor:** at the repo root `basalt-ui doctor` fails `tsconfig-base` and `app-wiring` (expects root `tsconfig.json` / `src/main.tsx`); in `apps/dashboard` it fails on missing `.basalt/manifest.json`. Not monorepo-aware; no root files added to appease it.
+- **For the orchestrator to file in `argo-friction.md`** (not worked around): (1) `doctor` is not monorepo-aware (above); (2) `basalt-ui sync` seeds `src/main.tsx`, `src/lib/nav.tsx`, `src/routes/__root.tsx` at the repo root and recreates them each run (manifest lists them; worker deleted them); (3) `groupTokens` has no unprefixed form, so the former `''` group could not be kept — var names changed; (4) `PageBar.actions` requires a `primary` first, so the calendar date nav moved to `filtersEnd`; (5) `keyof` of a `groupTokens` result includes the brand symbol (needs `Extract<…, string>`); (6) no auth seam in `createBasaltRouter`/`BasaltProvider` — argo used router `beforeLoad` (Wave 10 SSR will need one); (7) rows 1–3 already known (fixed in 2.0.1).
+- **Review:** `/review` (agent-gateway) on PR #22: 2 blocking (auth/loaders, vega var rename) both verified and fixed, 7 improvements fixed, rest listed above.
+
+## Wave 4 — Shell, routing, transitions, telemetry <!-- status: active -->
 
 Fan-out on disjoint files.
 
