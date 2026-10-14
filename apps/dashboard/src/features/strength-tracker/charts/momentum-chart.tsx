@@ -140,7 +140,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
           positive: VX.goodSolid,
           negative: VX.badSolid,
           format: fmtVelocity,
-          formatValue: (v) => fmtVelocityBar(v),
+          tooltipFormat: fmtVelocityBar,
           maxAbsFloor: BOTTOM_MAX_ABS_FLOOR,
         }}
       />

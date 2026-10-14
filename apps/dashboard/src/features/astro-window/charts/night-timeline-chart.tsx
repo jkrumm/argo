@@ -1,14 +1,5 @@
 import { useMemo } from 'react'
-import { lineY } from '@tanstack/charts/line'
-import { rect } from '@tanstack/charts/rect'
-import { ruleX } from '@tanstack/charts/rule'
-import {
-  CartesianChart,
-  ChartCard,
-  type ChartMarks,
-  type ChartSeries,
-  type XZoneSpec,
-} from 'basalt-ui/charts'
+import { ChartCard, Lines, type ChartSeries, type XZoneSpec } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { SERIES } from '../../../lib/series'
 import { CHART_HEIGHT, METRIC_TOOLTIPS } from '../constants'
@@ -106,6 +97,22 @@ export default function NightTimelineChart({
     [hourly],
   )
 
+  // The recommended shooting window, ruled at both sides by the zone's own `edge`.
+  const zones: XZoneSpec<Date>[] = useMemo(() => {
+    const first = hourly[0]
+    const last = hourly.at(-1)
+    if (win === null || first === undefined || last === undefined) return darkZones
+    return [
+      ...darkZones,
+      {
+        from: clampToNight(win.start, new Date(first.time), new Date(last.time)),
+        to: clampToNight(win.end, new Date(first.time), new Date(last.time)),
+        fill: alpha(VX.accent, 0.22),
+        edge: { side: 'both', color: VX.accent, width: 2 },
+      },
+    ]
+  }, [darkZones, hourly, win])
+
   return (
     <ChartCard
       title="Night Timeline"
@@ -113,7 +120,7 @@ export default function NightTimelineChart({
       state={{ empty: hourly.length === 0 && 'No hourly data for this night' }}
       placeholderHeight={CHART_HEIGHT}
     >
-      <CartesianChart
+      <Lines
         ariaLabel="Galactic core, moon and sun altitude across the night, with dark and shooting-window bands"
         data={hourly}
         height={CHART_HEIGHT}
@@ -122,46 +129,11 @@ export default function NightTimelineChart({
         formatX={hourlyTimeLabel(hourly)}
         series={PLOT_SERIES}
         y={{ domain: Y_DOMAIN, ticks: Y_TICKS, format: (v) => `${v}°`, grid: false }}
-        xZones={darkZones}
+        xZones={zones}
         refLines={HORIZON}
         // Cloud low/mid/high are reported by `cloud-layers-chart` (`onFollow: true`) so it can
         // speak for its own series — no hand-authored rows duplicating that data here.
         tooltip={{ formatHeader: (_x, d) => d.localTime }}
-        marks={(plot) => {
-          const first = hourly[0]
-          const last = hourly.at(-1)
-          const band: ChartMarks =
-            win === null || first === undefined || last === undefined
-              ? []
-              : (() => {
-                  const from = clampToNight(win.start, new Date(first.time), new Date(last.time))
-                  const to = clampToNight(win.end, new Date(first.time), new Date(last.time))
-                  return [
-                    rect([{ from, to }], {
-                      x1: 'from',
-                      x2: 'to',
-                      y1: () => plot.yDomain[0],
-                      y2: () => plot.yDomain[1],
-                      fill: alpha(VX.accent, 0.22),
-                    }),
-                    ruleX([from, to], { x: (d) => d, stroke: VX.accent, strokeWidth: 2 }),
-                  ]
-                })()
-          return [
-            ...band,
-            ...plot.visible.map((s) =>
-              lineY(plot.rows(s.key), {
-                id: s.key,
-                x: 'x',
-                y: 'y',
-                z: 'series',
-                stroke: s.color,
-                ...(s.strokeWidth !== undefined && { strokeWidth: s.strokeWidth }),
-                ...(s.dash === 'dashed' && { strokeDasharray: VX.dashArray }),
-              }),
-            ),
-          ]
-        }}
       />
     </ChartCard>
   )

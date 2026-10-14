@@ -53,6 +53,7 @@ export default function RelativeProgressionChart({ params }: { params: StrengthQ
         label: exerciseLabel(ex),
         color: exerciseColor(ex),
         strokeWidth: 2.5,
+        gaps: 'connect',
         getValue: (d: RelPoint) => d.pct[ex] ?? null,
         formatValue: fmtPct,
       })),

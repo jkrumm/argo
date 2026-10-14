@@ -43,27 +43,6 @@ const barOpacityFor = (_: WeeklyVolumePoint, key: string): number => {
   return 0.9
 }
 
-/** The MEV/MAV/MRV landmarks are refLines; these legend-only lines (always null) key them in the
- * legend, which the Bars kind derives from its series. */
-const landmarkLegend = (
-  key: string,
-  label: string,
-  color: string,
-): BarsLine<WeeklyVolumePoint> => ({
-  key,
-  label,
-  color,
-  dash: 'dashed',
-  role: 'reference',
-  getValue: () => null,
-})
-
-const LANDMARK_LEGEND = [
-  landmarkLegend('mev', 'MEV', VX.goodRef),
-  landmarkLegend('mav', 'MAV', VX.warnRef),
-  landmarkLegend('mrv', 'MRV', VX.badRef),
-]
-
 export default function WeeklyVolumeChart({ params }: { params: StrengthQueryParams }) {
   const query = useQuery(strengthQueries.weeklyVolume(params))
   const byExercise = query.data?.byExercise
@@ -112,7 +91,6 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
       getValue: (d) => d.ma,
       formatValue: fmtTonnage,
     },
-    ...LANDMARK_LEGEND,
   ]
 
   const hasData = points.some((p) => p.total > 0)
@@ -156,9 +134,9 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
         refLines={
           landmarks
             ? [
-                { value: landmarks.mev, color: VX.goodRef, dashed: true },
-                { value: landmarks.mav, color: VX.warnRef, dashed: true },
-                { value: landmarks.mrv, color: VX.badRef, dashed: true },
+                { value: landmarks.mev, color: VX.goodRef, dashed: true, legend: { label: 'MEV' } },
+                { value: landmarks.mav, color: VX.warnRef, dashed: true, legend: { label: 'MAV' } },
+                { value: landmarks.mrv, color: VX.badRef, dashed: true, legend: { label: 'MRV' } },
               ]
             : []
         }

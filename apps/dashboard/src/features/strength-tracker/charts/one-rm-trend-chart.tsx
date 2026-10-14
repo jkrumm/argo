@@ -48,6 +48,7 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
           label: `${exerciseLabel(ex)} ${directionArrow(trendArrow(byExercise, ex))}`,
           color: exerciseColor(ex),
           strokeWidth: LINE_WIDTH,
+          gaps: 'connect' as const,
           getValue: (d: MergedPoint) => d.e1rm[ex] ?? null,
           formatValue: (v: number, d: MergedPoint) => {
             const bs = d.bestSets[ex]
@@ -63,6 +64,7 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
           strokeOpacity: 0.5,
           dash: 'dashed' as const,
           strokeWidth: MA_LINE_WIDTH,
+          gaps: 'connect' as const,
           legend: false,
           tooltip: false,
           parent: ex,
