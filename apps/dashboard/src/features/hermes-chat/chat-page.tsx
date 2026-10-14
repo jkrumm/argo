@@ -14,12 +14,12 @@ import { hermesQueries } from '../../lib/queries/hermes'
 import { useUiStore } from '../../lib/store'
 import { HermesRow } from './hermes-row'
 import { HERMES_CHAT_FEATURES } from './features'
-import { isLiveRun } from './run-liveness'
+import { isLiveRun, settledRunIds } from './run-liveness'
 import { useVoicePlayback } from './voice/voice-playback'
 import { useVoiceRecorder } from './voice/use-voice-recorder'
 import { VoiceControls } from './voice/voice-controls'
 import { RecordingIndicator } from './voice/recording-indicator'
-import { useHermesThreads } from './threads-store'
+import { isThreadPersisted, useHermesThreads } from './threads-store'
 import {
   hermesTransport,
   notifyHermesChatError,
@@ -34,6 +34,8 @@ import {
 // server title/summary reaches `thread.meta` (threads-store.ts's `mergeServerThreads`).
 const TITLE_POLL_DELAY_MS = 1500
 const TITLE_POLL_ATTEMPTS = 6
+// Upper bound while a settled thread still has no server row (e.g. a failed first turn).
+const PERSIST_POLL_MAX_ATTEMPTS = 20
 
 // Single-column Slack-style thread feed, chat-anchored: the feed scrolls with the
 // newest thread at the BOTTOM (older scroll up), and a single composer is pinned to
@@ -111,17 +113,28 @@ function HermesChatFeed() {
   // for why the store's own `thread.messages` is deliberately just that overlay, not the full
   // transcript), and (b) start polling the threads list for the server's async title/summary.
   const prevRunningRef = useRef<ReadonlySet<string>>(new Set())
+  // One refresh chain per settled thread, so a settle never waits on (or is lost behind) another
+  // thread's chain. The latest threads feed the chain's stop condition.
+  const pollTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  const threadsRef = useRef(store.threads)
+  threadsRef.current = store.threads
   useEffect(() => {
     const nowRunning = new Set<string>()
     for (const [id, run] of runs) if (isLiveRun(run)) nowRunning.add(id)
-    for (const id of prevRunningRef.current) {
-      if (nowRunning.has(id)) continue
+    for (const id of settledRunIds(prevRunningRef.current, nowRunning)) {
       void queryClient.invalidateQueries({ queryKey: hermesQueries.messages(id).queryKey })
+      clearTimeout(pollTimersRef.current.get(id))
       let attempts = 0
       const poll = (): void => {
         attempts += 1
         void queryClient.invalidateQueries({ queryKey: hermesQueries.all() })
-        if (attempts < TITLE_POLL_ATTEMPTS) setTimeout(poll, TITLE_POLL_DELAY_MS)
+        const thread = threadsRef.current.find((t) => t.id === id)
+        const settled = attempts >= TITLE_POLL_ATTEMPTS && (!thread || isThreadPersisted(thread))
+        if (settled || attempts >= PERSIST_POLL_MAX_ATTEMPTS) {
+          pollTimersRef.current.delete(id)
+          return
+        }
+        pollTimersRef.current.set(id, setTimeout(poll, TITLE_POLL_DELAY_MS))
       }
       // First pass is immediate: it is what flips a just-created thread to persisted (see
       // `isThreadPersisted`) so its messages query can enable and replace the overlay.
@@ -129,6 +142,13 @@ function HermesChatFeed() {
     }
     prevRunningRef.current = nowRunning
   }, [runs, queryClient])
+  useEffect(() => {
+    const timers = pollTimersRef.current
+    return () => {
+      for (const timer of timers.values()) clearTimeout(timer)
+      timers.clear()
+    }
+  }, [])
 
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const composerRef = useRef<ComposerHandle>(null)

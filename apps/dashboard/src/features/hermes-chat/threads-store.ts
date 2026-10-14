@@ -113,6 +113,9 @@ export function toChatMessage(row: HermesMessage): HermesChatMessage | null {
   }
 }
 
+/** `thread.meta` key set only on server-backed threads (see `isThreadPersisted`). */
+const PERSISTED_META_KEY = 'persisted'
+
 /** Server-only fields `AgentThread` has no typed slot for — the render layer
  * (hermes-row.tsx) reads these directly off `thread.meta`. */
 function toMeta(row: HermesThread): Record<string, unknown> {
@@ -124,7 +127,7 @@ function toMeta(row: HermesThread): Record<string, unknown> {
     sessionId: row.session_id,
     sessionKey: row.session_key,
     type: row.type,
-    persisted: true,
+    [PERSISTED_META_KEY]: true,
   }
 }
 
@@ -134,7 +137,7 @@ function toMeta(row: HermesThread): Record<string, unknown> {
  * messages before then can only 404.
  */
 export function isThreadPersisted(thread: AgentThread<AgentPart>): boolean {
-  return thread.meta?.['persisted'] === true
+  return thread.meta?.[PERSISTED_META_KEY] === true
 }
 
 /**
