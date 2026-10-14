@@ -209,15 +209,15 @@ telemetry events captured (`route.navigate`, `query.error`) with their attribute
 - **Basalt friction to file in `argo-friction.md`:** (A) **collapsed-rail badges never render**: in the collapsed rail the link's right section holding the Badge is `display: none`, so the Calendar count and the sidebar block's `rail: 'dot'` do not show, and a non-primary group ("Other") has no rail entry so M365's badge is unreachable; severity medium, parity regression vs the expanded shell. (B) `doctor` `app-wiring` fails in the monorepo: it wants `src/main.tsx` to use `createBasaltRouter`, but argo creates the router in `lib/router.ts` (a module singleton the 401 handler also needs); not restructured to appease it. (C) `check.yml` managed → CI cannot gain gates (above). (D) Commands: the provider's Spotlight and `defineCommands` both emit nav entries (`nav.<id>` vs a consumer's own), a consumer has no way to label the provider's ones "Go to …" (low).
 - **Not verified:** `Back/Forward` transition behaviour beyond one history-back; no 1.41 collapsed-rail baseline exists; total JS is +188 KB gzip vs `w3` with no route-chunk growth, growth is in non-route chunks and **not attributed** (check in Wave 5/6: telemetry + OTel/hyperdx are the prime suspects); `docs/poc/astro-map/verify.html` still reads old series var names (lint-excluded).
 
-## Wave 5 — Data and tables <!-- status: active -->
+## Wave 5 — Data and tables <!-- status: done -->
 
-- [ ] The 8 `BasaltDataTable` sites on Table v9 behaviour: string columns sort naturally
+- [x] The 8 `BasaltDataTable` sites on Table v9 behaviour: string columns sort naturally
       (`alphanumeric`), facets/search use `includesString`, `columnMeta` (`align`/`numeral`/`priority`)
       typed per table, the 250 ms search debounce, `PaginationState` from v9 in
       `walking-pad/session-history.tsx`.
-- [ ] `./state` stores (`lib/window-stores.ts` and its consumers): URL ⊳ localStorage ⊳ fallback lanes
+- [x] `./state` stores (`lib/window-stores.ts` and its consumers): URL ⊳ localStorage ⊳ fallback lanes
       unchanged across reloads and back/forward; `./forms` sites (`auth-gate`, `issues-section`).
-- [ ] Query: routes load through `context.queryClient` (`ensureQueryData` in loaders where a route
+- [x] Query: routes load through `context.queryClient` (`ensureQueryData` in loaders where a route
       already prefetches), `query-fn-unwrap` clean, basalt's query defaults merged with argo's
       deliberately — prepares Wave 10's streamed sections.
 
@@ -226,7 +226,14 @@ delta vs baseline (accepted upstream at +3.4 KB).
 
 **Left behind:**
 
-## Wave 6 — AI chat and the OTel join <!-- status: pending -->
+- **Landed:** PR #27 (`14b2eeb`), tests + a deliberate query-defaults merge; `deploy.yml` still disabled. The tables needed **no source change** (audit + browser run, `w5.md`); `./state` and `./forms` were already on 2.0, 15 store-contract tests added. Review: `/review` skipped on #27 (test file plus one config line, diff read by the lead); the tables worker produced no diff.
+- **The +188 KB is attributed:** not telemetry (+4.8 KB, Wave 3 → 4 on clean builds); it is stale `shiki` in this machine's `node_modules` (not in `bun.lock`) bundling ~190 KB of lazy grammars. The 1.41 baseline total is inflated by the same. Compare bundles only across `--frozen-lockfile` trees. Detail and table in `w5.md`.
+- **Wave 6 decision (content):** argo's lockfile has no `shiki`/`@shikijs/*`, so in a lockfile-faithful (= production) build every code-highlight chunk is a stub that throws "Could not resolve …". Add the three as deliberate deps, or accept unhighlighted code blocks; check what `Markdown` does when the lazy import rejects.
+- **Not verified:** natural number order (no live string column has numeric suffixes); sort on skinfold (no rows) and the 8 warden tables (one row each); table bundle delta (`./table` +3.4 KB upstream) not isolable, the route chunks moved with the stubs; reload/back-forward lane order is covered by unit tests, not driven in a browser.
+- **Basalt friction to file in `argo-friction.md` (not worked around):** (E) `stickyHeader` on the agents table lets rows show through a ~12 px strip above the header when the page is scrolled (header ~25 px below the app bar, no `stickyHeaderOffset` set), medium-low; (F) a build against a tree without the optional `@shikijs/*` peers succeeds and emits chunks that throw at load instead of failing or omitting them (`vite build` prints nothing), low-medium; (G) agents State badge truncates `WORKING` to `WOR…` at 1280 px, mobile strength-tracker table has an empty leading header column and walking-pad clips at "Peak" (low, needs a basalt look before filing as a bug vs argo column widths). Rows 10-13 untouched.
+- **Cleanup:** worker worktrees removed with `rd fan --clean`; nothing stale left in docs.
+
+## Wave 6 — AI chat and the OTel join <!-- status: active -->
 
 - [ ] `hermes-transport.ts`: response-body parsing becomes a switch on `AgentError['kind']`
       (`http`/`server`/`stream`/`aborted`, exhaustive with `satisfies never`); failures now reject the
