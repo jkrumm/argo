@@ -17,20 +17,23 @@
     "google:auth:prod": "printf 'https://argo.jkrumm.com/api/oauth/google/init' | pbcopy && echo 'https://argo.jkrumm.com/api/oauth/google/init' && echo 'Copied to clipboard — paste into a browser to authorize.'",
     "lint": "oxlint . && ./node_modules/.bin/basalt-ui check-theme",
     "lint:fix": "oxlint --fix .",
+    "typecheck:scripts": "tsc -p scripts/tsconfig.json",
     "check:theme": "./node_modules/.bin/basalt-ui check-theme",
     "check:design": "npx -y @google/design.md@0.2.0 lint DESIGN.md",
     "format": "oxfmt 'apps/**' 'packages/**' '!**/generated/**' '!**/dist/**' --write",
     "format:check": "oxfmt 'apps/**' 'packages/**' '!**/generated/**' '!**/dist/**' --check"
   },
   "devDependencies": {
-    "basalt-ui": "2.0.0",
+    "@types/bun": "^1.4.2",
+    "basalt-ui": "2.0.1",
     "chrome-launcher": "1.2.2",
     "concurrently": "^9.2.4",
     "lefthook": "^2.1.14",
     "lighthouse": "13.5.0",
     "oxfmt": "^0.72.0",
     "oxlint": "^1.87.0",
-    "playwright-core": "1.63.0"
+    "playwright-core": "1.63.0",
+    "typescript": "^5"
   },
   "overrides": {
     "maplibre-gl": "6.10.0"

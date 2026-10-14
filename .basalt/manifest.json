@@ -10,7 +10,7 @@
     ".github/workflows/check.yml": "f6e4999d3479614a03c7a7e24ac995dc1dca2bbf99461efea657b089dec70743",
     ".oxlintrc.json": "edb58b25c29f977f712ff892b59d28a74420f424ddf465ba7f29a7c713b388ec",
     ".oxfmtrc.json": "6b56ddca73ac1f170fe161ad32aa830dad40a6dc687964c8a852cb928c395039",
-    ".claude/skills/basalt-app/SKILL.md": "cc231c65903f7cc2072f8b0e4532942a132bf5883aff48bbb47eda5dffc5634a",
+    ".claude/skills/basalt-app/SKILL.md": "2b725f38b22a471e1f06e9f0f6c3c9f1c93751b7da85528e27ed8e90e41374cf",
     ".claude/skills/basalt-design/SKILL.md": "66a6dd6d9a2203148ab83609afef73cef6aa3a79df9a4e743d0057da3976fa65",
     ".claude/skills/basalt-charts/SKILL.md": "267cba533e6ff979ac03ba3f7b19ee4a954692c9382c83d04f49f46b86a3aeae",
     ".claude/rules/basalt-batteries.md": "05f6a484fbdd08f1898722d2de4802001542ba1516784dbc12e2f4afd7d697ff",
@@ -20,7 +20,7 @@
     "src/routes/__root.tsx": "ffdc98db74069bc45a18a18aa3e9bc0d6ef2f1418126ddf9ea1f5cc8be9c3a43",
     "src/main.tsx": "7fd50babd5d11404b6d778f1df294cba3b85e791ee5fb83b61711eb9e38ba125"
   },
-  "basaltVersion": "2.0.0",
+  "basaltVersion": "2.0.1",
   "spacingScale": {
     "xs": 11,
     "sm": 13,

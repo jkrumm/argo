@@ -26,7 +26,7 @@ declare module '@tanstack/react-router' {
 createRoot(document.getElementById('root')!).render(<BasaltProvider router={router} />)
 ```
 
-3. If you use `basalt-ui/controls-dates`, import `@mantine/dates/styles.layer.css` after `basalt-ui/styles.css` (core must precede dates in `@layer mantine`).
+3. Import extension layer CSS (`@mantine/dates` for `basalt-ui/controls-dates`, `@mantine/schedule`) after `basalt-ui/styles.css` (core must precede them in `@layer mantine`).
 4. Install the peers of each subpath you import: read its `Install: bun add …` line in `node_modules/basalt-ui/llms.txt`; a subpath with no `Install:` line needs only the required peers listed at the top of that file.
 5. In `vite.config.ts` spread `...basaltViteConfig({ port, apiTarget })` and register, in this order, `plugins: [tanstackRouter({ target: 'react', autoCodeSplitting: true }), react(), ...basaltAppPlugin({ name, description })]`. Run `bun add -d @tanstack/router-plugin` and import `tanstackRouter` from `@tanstack/router-plugin/vite`.
 6. Run `vite build` once so the plugin writes `src/routeTree.gen.ts`; commit it (`tsc -b` fails without it).
