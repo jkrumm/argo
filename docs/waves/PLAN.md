@@ -405,19 +405,19 @@ turn classified, before/after screens for the fixes, and the exit-criterion tabl
 - **Known, not fixed:** `explorer-page.tsx` `M365ExplorerPage`/`DetailPane` are very-high complexity (fallow), nested `badgeColor` ternary; after a failed first turn the list and thread composers both show (not investigated). The gateway review of #41 diffs against a stale worktree base and reports merged work as deleted; read `git diff origin/master...HEAD` after `git fetch` instead.
 - **Cleanup:** worktrees for merged branches removed with `rd fan --clean`; `w11/dx-trial` worktree kept deliberately.
 
-## Wave 12 — Loop round 2: adopt 2.6, zero waivers, second DX trial <!-- status: active -->
+## Wave 12 — Loop round 2: adopt 2.6, zero waivers, second DX trial <!-- status: done -->
 
 Round 2 of the loop on live master. The exit criterion is the same four-part one (Wave 11 intro); this
 round must record each part as met or name the friction row that keeps it open.
 
-- [ ] Bump both pins to basalt-ui 2.6.0 exact; `basalt-ui doctor` and `sync --check` clean. 2.6.0 makes
+- [x] Bump both pins to basalt-ui 2.6.0 exact; `basalt-ui doctor` and `sync --check` clean. 2.6.0 makes
       `basalt/query-fn-unwrap` live again (dead since 1.29.0): fix every new finding at the source.
-- [ ] Adopt the fixes for rows 36-41: strength-composite binds `store.field.exercise.withFallback(leader)`
+- [x] Adopt the fixes for rows 36-41: strength-composite binds `store.field.exercise.withFallback(leader)`
       (drop the per-leader store); timer-card binds `externalField({ values, fallback, labels, store })`
       over the zustand store and mounts `ViewTabs` in the card header slot (drop the last `theme-allow`);
       the telemetry sink gets `startChatTurn` so the chat request carries `traceparent` (CORS on the API
       allows it); check garmin-health y labels and the weekly-volume landmark swatches in dark mode.
-- [ ] Exit-criterion evidence: `check-theme --audit-allows` shows zero `basalt/*` waivers; a FRESH DX
+- [x] Exit-criterion evidence: `check-theme --audit-allows` shows zero `basalt/*` waivers; a FRESH DX
       trial (new agent, new throwaway branch, never merged, different task from round 1: a page with a
       filtered table and a chart sharing one store field) records every wrong turn; `make evidence` bundle
       and Lighthouse re-run against `baseline-1.41.md`, regressions accepted or filed; ClickStack shows
@@ -426,6 +426,15 @@ round must record each part as met or name the friction row that keeps it open.
 **Evidence:** `w12.md` — the four-part exit table for round 2, each part met or blocked by a named row.
 
 **Left behind:**
+
+- **Landed on master** (`rd merge`, one worker per change, `make check` green, each deploy verified with `make verify` + `make logs`): #42 basalt-ui **2.6.0** exact in both pins (`doctor` and `sync --check` clean, `query-fn-unwrap` live with 0 findings), #43 strength-composite on `store.field.exercise.withFallback(leader)` (per-leader store gone), #44 timer-card on `externalField` + `ViewTabs` in `WidgetHeader` (`timerMode` in `lib/timer-store.ts`; last waiver gone), #45 `startChatTurn` in `lib/telemetry.ts` (the event decorates the open `chat.turn` span instead of a second span), #46 a docs commit plus the `ignoreUrls` fix below. Master `16f331e` is live. Gateway `/review` on #43-#45: 1 blocking (span registry overwrite on a second turn per thread) and 9 improvements, fixed in `0ba5142` (diff read by the lead, not re-reviewed). #46's one-line fix was read by the lead, not reviewed.
+- **Exit criterion, round 2** (`w12.md`): zero waivers **met** (`--audit-allows` 0); DX trial **met** with doc friction; no unaccepted regression **met** (JS +3.0% vs baseline, scores within noise, mobile LCP lower); the full-wave and trace criteria **met**: ClickStack shows a real turn whose `hermes.stream-lifecycle` is a descendant of the dashboard's `chat.turn`.
+- **Found only by the live check:** the first `traceparent` never reached the API. HyperDX's fetch instrumentation overwrites the sink's header on same-origin requests (a `HTTP POST` fetch span became the parent, in a separate trace). Fixed in argo by putting the chat POST in HyperDX `ignoreUrls` (`lib/hyperdx.ts`); the chat request now has no fetch span of its own. Filed as a friction row below, since the `startChatTurn` docs say nothing about it.
+- **DX trial 2:** branch `w12/dx-trial-2` (pushed, never merged, no PR; delete when no longer needed). 8 wrong turns: argo-rooted ones fixed in `apps/dashboard/AGENTS.md` (page stores live in `lib/window-stores.ts`, `routeTree.gen.ts` is gitignored, the repo's gates, a minimal route to copy). Runtime (reload survival of the shared filter) was not exercised in a browser.
+- **Basalt friction for `argo-friction.md`** (none worked around): (Z) `startChatTurn` docs/example do not mention that a fetch instrumentation (OTel web, HyperDX) overwrites the returned `traceparent` on same-origin requests; consumers must ignore the chat URL in the instrumentation or make the turn span the active context, low-medium; (AA) `llms.txt` lists subpaths and exports but gives signatures only for `format`; `state`/`table`/`controls`/`charts` need `dist/**/*.d.ts`, low; (AB) the `basalt-app` skill says to commit `src/routeTree.gen.ts` and the `basalt-charts` skill says `bun run lint:basalt` / bare `tsc`, which are wrong for a monorepo whose route tree is gitignored, low; (AC) `basalt-batteries` names `unwrap` but not its import path, and `EnumFilter` ships a `.d.ts` without being exported from `controls`, papercut.
+- **Not verified:** the DX-trial route at runtime; walking-pad charts and skinfold with data (windows still empty); the Heatmap hour labels; the Warm-up/Work/Drop legend swatches compute to one colour while the bars use three shades (seen by the verifier in dark mode, not fixed, outside the ask).
+- **Known, not fixed:** the two Hermes threads created by the trace checks (`1fcd4ce3…`, `907d7101…`) remain in production; basalt `chat.turn` emits no span when the turn is `stopped` (the sink span still ends via `settle`).
+- **Cleanup:** worker worktrees removed with `rd fan --clean`; `w12/dx-trial-2` kept deliberately. Wave 13 stays `pending` on owner call D4; not spawned.
 
 ## Wave 13 — Rendering: SSR-first, streamed sections <!-- status: pending (blocked on D4) -->
 
