@@ -63,7 +63,7 @@ export const METRIC_TOOLTIPS = {
     'Acute:chronic workload ratio — 4-week vs 16-week EWMA of weekly tonnage per exercise. Green zone (0.8–1.3) = optimal adaptation stimulus. Below 0.8 = undertrained. 1.3–1.5 = caution. Above 1.5 = injury risk.',
   inol: 'INOL (Intensity × Number Of Lifts) = Σ reps / (100 − %1RM) per session. Optimal zone 0.6–1.0. Below is underdosing, above is high CNS fatigue. Only work/AMRAP sets with 1–12 reps count.',
   momentum:
-    'e1RM trend with 8-session moving average (top). Velocity (%/day, 28-day linear regression) in the bottom panel — green bars = positive trend, red = decline.',
+    'e1RM trend with 30-day moving average (top). Velocity (%/day, 28-day linear regression) in the bottom panel — green bars = positive trend, red = decline.',
   relativeProgression:
     'Each lift normalized to 100% at the start of the selected date range. Shows relative momentum — which lifts are gaining, which are stalling — independent of absolute strength levels.',
   strengthRatios:

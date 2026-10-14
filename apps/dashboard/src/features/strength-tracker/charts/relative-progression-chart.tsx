@@ -5,25 +5,13 @@ import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
-import { SERIES } from '../../../lib/series'
 import { localDay } from '../../garmin-health/charts/local-day'
-import { DEFAULT_EXERCISES, EXERCISE_COLORS, METRIC_TOOLTIPS } from '../constants'
+import { METRIC_TOOLTIPS } from '../constants'
 import { exerciseLabel } from '../formulas'
+import { exerciseColor, parseExercises } from './exercise-helpers'
 import { pctDomain, type RelPoint } from './relative-progression-data'
 
 const HEIGHT = 280
-
-function colorFor(exId: string): string {
-  return EXERCISE_COLORS[exId as keyof typeof EXERCISE_COLORS] ?? SERIES.benchPress
-}
-
-function parseExercises(exercises: string | undefined): string[] {
-  if (!exercises) return [...DEFAULT_EXERCISES]
-  return exercises
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-}
 
 function fmtPct(v: number): string {
   return `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`
@@ -63,7 +51,7 @@ export default function RelativeProgressionChart({ params }: { params: StrengthQ
       activeExercises.map((ex) => ({
         key: ex,
         label: exerciseLabel(ex),
-        color: colorFor(ex),
+        color: exerciseColor(ex),
         strokeWidth: 2.5,
         getValue: (d: RelPoint) => d.pct[ex] ?? null,
         formatValue: fmtPct,
