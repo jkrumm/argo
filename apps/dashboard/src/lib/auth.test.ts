@@ -62,6 +62,8 @@ describe('safeRedirect', () => {
     '/\n/evil.example',
     '/login',
     '/login?redirect=%2Fx',
+    '/login/',
+    '/a/../../..//evil.example',
     undefined,
     null,
     42,

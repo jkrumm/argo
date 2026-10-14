@@ -115,6 +115,7 @@ function RootLayout() {
         // The three theme rows are CONTROLS, not destinations, so the ≤3 flat-footer rule reads
         // them wrong — a radio group flattened into the footer is a widget pile. Force the menu.
         settingsMenu="menu"
+        // Must stay `argo-sidebar`: it keys the `basalt:argo-sidebar` envelope already in users' browsers.
         storageKey="argo-sidebar"
       >
         <Outlet />

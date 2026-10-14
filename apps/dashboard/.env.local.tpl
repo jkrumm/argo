@@ -18,7 +18,7 @@
 VITE_HYPERDX_API_KEY=local-dev-no-auth
 VITE_HYPERDX_SERVICE_NAME=argo-dashboard
 
-# Dev-only auto-auth: seeds the bearer token so the AuthGate never blocks local
+# Dev-only auto-auth: seeds the bearer token so the login route never blocks local
 # dev (or screenshot validation). `op run` resolves this reference at runtime —
 # the secret value never lands on disk, only the op:// path does. The seed site
 # (src/lib/auth.ts) is guarded by import.meta.env.DEV, so a prod build ignores it.

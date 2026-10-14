@@ -13,9 +13,9 @@
   "dependencies": {
     "@ai-sdk/provider": "^4.0.26",
     "@elysiajs/eden": "^1.4.9",
-    "@fontsource-variable/hubot-sans": "5.2.8",
-    "@fontsource-variable/jetbrains-mono": "5.2.8",
-    "@fontsource-variable/nunito-sans": "5.2.7",
+    "@fontsource-variable/hubot-sans": "5.3.0",
+    "@fontsource-variable/jetbrains-mono": "5.3.0",
+    "@fontsource-variable/nunito-sans": "5.3.0",
     "@hyperdx/browser": "^0.23.1",
     "@mantine/core": "^9.7.0",
     "@mantine/dates": "^9.7.0",

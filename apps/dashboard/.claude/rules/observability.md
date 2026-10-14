@@ -91,7 +91,7 @@ Don't fire `addAction` from render or effect cleanup — only from event handler
 - ❌ Write `tracePropagationTargets: ['/api']` — substring match against the absolute URL works by accident, but a regex matching the origin is what we mean.
 - ❌ Set `advancedNetworkCapture: true` in prod for any view that fetches large payloads (it captures full headers + bodies; bandwidth heavy).
 - ❌ Enable session replay in dev — HMR causes constant DOM churn and you'll waste rrweb capture on noise.
-- ❌ Import `@opentelemetry/api` to wrap things in spans on the client. HyperDX's auto-fetch is enough; manual spans usually double-instrument.
+- ❌ Import `@opentelemetry/api` to wrap things in spans on the client. HyperDX's auto-fetch is enough; manual spans usually double-instrument. The one exception is `lib/telemetry.ts`, basalt-ui's `BasaltEvent` sink (one span per event, `@opentelemetry/api` pinned to 1.8.0 to match HyperDX).
 
 ## Verifying locally
 

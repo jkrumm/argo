@@ -53,8 +53,10 @@ export function safeRedirect(raw: unknown): string | undefined {
   if (raw.includes('\\') || [...raw].some(isControlChar)) return undefined
   const probe = new URL(raw, 'http://redirect.invalid')
   if (probe.origin !== 'http://redirect.invalid') return undefined
-  if (probe.pathname === '/login') return undefined
-  return raw
+  // Dot segments can normalise to `//host`; judge, and return, the normalised form.
+  if (probe.pathname.startsWith('//')) return undefined
+  if (/^\/login\/*$/.test(probe.pathname)) return undefined
+  return probe.pathname + probe.search + probe.hash
 }
 
 /**
