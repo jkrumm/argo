@@ -1,28 +1,35 @@
 import { useMemo } from 'react'
 import { Text } from '@mantine/core'
-import { queryOptions, useQuery } from '@tanstack/react-query'
-import { unwrap } from 'basalt-ui'
+import { useQuery } from '@tanstack/react-query'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
-import { api } from '../../../lib/eden'
+import { userProfileQueries } from '../../../lib/queries/user-profile'
 import { weightLogQueries, type WeightLogWindowParams } from '../../../lib/queries/weight-log'
 import { METRIC_TOOLTIPS } from '../constants'
-import { thirtyDayMean, toWeightChartPoints, type WeightChartPoint } from './series-data'
+import {
+  markerRadiusFor,
+  thirtyDayMean,
+  toWeightChartPoints,
+  type WeightChartPoint,
+} from './series-data'
 
 const CHART_HEIGHT = 240
 
-// Inline user-profile query — single row, used here only.
-const userProfileQuery = queryOptions({
-  queryKey: ['user-profile'] as const,
-  queryFn: async () => unwrap(await api['user-profile'].get()),
-})
+// A change inside ±this many kg of the 30-day mean reads as flat.
+const FLAT_DELTA_KG = 0.05
+
+function deltaColor(delta: number): string {
+  if (delta < -FLAT_DELTA_KG) return VX.goodSolid
+  if (delta > FLAT_DELTA_KG) return VX.warnSolid
+  return 'inherit'
+}
 
 const fmtKg = (v: number): string => `${v.toFixed(2)} kg`
 const fmtGoalKg = (v: number): string => `${v.toFixed(1)} kg`
 
 export default function WeightChart({ params }: { params: WeightLogWindowParams }) {
   const query = useQuery(weightLogQueries.series(params))
-  const { data: profile } = useQuery(userProfileQuery)
+  const { data: profile } = useQuery(userProfileQueries.detail())
 
   const apiPoints = query.data?.points
   const goal = profile?.goal_weight_kg ?? null
@@ -31,7 +38,7 @@ export default function WeightChart({ params }: { params: WeightLogWindowParams 
   const latest = chartData[chartData.length - 1] ?? null
   const ma30 = useMemo(() => thirtyDayMean(apiPoints ?? []), [apiPoints])
   const delta = latest !== null && ma30 !== null ? latest.weightKg - ma30 : null
-  const dotR = chartData.length > 60 ? 2.5 : chartData.length > 20 ? 3.5 : 4.5
+  const dotR = markerRadiusFor(chartData.length)
 
   const series: ChartSeries<WeightChartPoint>[] = [
     {
@@ -70,7 +77,7 @@ export default function WeightChart({ params }: { params: WeightLogWindowParams 
   // Fixed domain over weight/MA/goal: 'auto' floors at a zero baseline unless told otherwise, which
   // would flatten a 70–90 kg line against the top of the plot.
   const yDomain = useMemo<[number, number]>(() => {
-    const values = chartData.flatMap((d) => (d.ma !== null ? [d.weightKg, d.ma] : [d.weightKg]))
+    const values = chartData.flatMap((d) => [d.weightKg, d.ma])
     if (goal !== null) values.push(goal)
     if (values.length === 0) return [0, 1]
     const min = Math.min(...values)
@@ -80,7 +87,7 @@ export default function WeightChart({ params }: { params: WeightLogWindowParams 
   }, [chartData, goal])
 
   const empty =
-    chartData.length === 0 && 'No entries yet — log your first weight to start the trend.'
+    chartData.length === 0 ? 'No entries yet — log your first weight to start the trend.' : false
 
   return (
     <ChartCard
@@ -99,8 +106,8 @@ export default function WeightChart({ params }: { params: WeightLogWindowParams 
                   span
                   ml={8}
                   fw={600}
-                  c={delta < -0.05 ? VX.goodSolid : delta > 0.05 ? VX.warnSolid : 'inherit'}
-                  opacity={Math.abs(delta) < 0.05 ? 0.6 : 1}
+                  c={deltaColor(delta)}
+                  opacity={Math.abs(delta) < FLAT_DELTA_KG ? 0.6 : 1}
                 >
                   {delta >= 0 ? '+' : ''}
                   {delta.toFixed(2)} kg
