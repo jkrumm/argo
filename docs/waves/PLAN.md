@@ -309,22 +309,30 @@ Inventory rows a13–a21, a33–a34.
 - **Bugs found, not fixed (outside the ask):** Activities chart ignores the preset window (inherited from 1.x, above): fix by deriving `dateFrom` from `window` and paginating on `total`; the garmin and walking-pad `chart-state.ts` are byte-identical (hoist when w9 adds a third); `activity-score-chart.tsx` duplicates the server's MET constants (carried from 1.x).
 - **Cleanup:** worker worktrees removed with `rd fan --clean`; no stale docs. The two workers' panes had a stray `merge it` in their input line; nothing sent it, nothing merged from them.
 
-## Wave 9 — Charts C: strength, astro; no stub left <!-- status: active -->
+## Wave 9 — Charts C: strength, astro; no stub left <!-- status: done -->
 
 Inventory rows a22–a32, a35–a39. Strength splits across two workers by file.
 
-- [ ] `strength-tracker/charts/*` (a22–a32): `CartesianChart` (a22 per-point marker colour),
+- [x] `strength-tracker/charts/*` (a22–a32): `CartesianChart` (a22 per-point marker colour),
       `DualPanel` (a23), `Lines` ×6 (a24 child MA series, PR markers), `Sparkline` ×3 at 80×28 in a
       table row, `Bars` (a32 `barOpacity`).
-- [ ] `astro-window` (a35–a39): `Lines` with `tooltip.onFollow` (a35), `Bars` (a36), `CartesianChart`
+- [x] `astro-window` (a35–a39): `Lines` with `tooltip.onFollow` (a35), `Bars` (a36), `CartesianChart`
       with x-zones and `rect`/`ruleX` annotations (a37), the sky panorama on numeric x — azimuth,
       `areaY`, glow `rect`s, `tooltip={false}` — with its waiver gone (a38), the scout sparkline (a39).
-- [ ] `grep -r MIGRATION-STUB apps` is empty; no `@visx` in `bun.lock`.
+- [x] `grep -r MIGRATION-STUB apps` is empty; no `@visx` in `bun.lock`.
 
 **Evidence:** `w9.md` — as Wave 7, Lighthouse on `/strength-tracker` vs baseline; a full screens run
 of every route.
 
 **Left behind:**
+
+- **Landed on master** (`rd merge`, one worker per directory per D5; strength split across two workers): #34 strength (1/2: one-rm-trend, momentum, relative-progression, strength-composite, weekly-volume), #35 strength (2/2: inol, readiness-strain, training-load, sparkline-grid), #36 astro-window (a35–a39, sky panorama on numeric azimuth, waiver gone), #33 the Activities fix (preset window derives `dateFrom`, pages on `total` in batches, dead `activitiesQueries.list` deleted, tested). `grep MIGRATION-STUB apps` is empty, `@visx` is not in `bun.lock`, no new `basalt/*` suppressions (the 5 `theme-allow`s predate this wave). `chart-state.ts` hoisted to `lib/chart-state.ts` before the fan-out (third consumer). **basalt-ui 2.3.0** exact in both pins: stress chart is `area: 'zones'` plus three zones (replaces the >75 threshold fill), fitness-trends RHR/HRV lines take `chartCurve('monotone')`, and `chartStateOf`'s `empty` is `string | undefined` (the `: false` idiom is gone everywhere).
+- **Review:** gateway `/review` on all four PRs. Blockers fixed: #35 INOL empty-selection fallback never fired, #33 unbounded page fan-out, #34 momentum colour from a stale selection, composite store rebuilt per leader, first-in-window flagged as PR, client direction thresholds diverged from the server's. #36 had none (perf: skyglow mark dedup, duplicated gate formula, `?? 0` months, slider aria-label, fixed). The #34 first review hung on the frontend angle and was re-run with `typescript` + `qa` only, so #34 had no frontend-angle review. Fix commits and the 2.3.0 commit were read by the lead, not re-reviewed.
+- **Gate:** `make check` green, dashboard build green. **Evidence:** `w9.md` (bundle, screens 52/52, Lighthouse incl. `/strength-tracker`), run on the 2.3.0 tree. Compare with `w8.md`/`baseline-1.41.md`.
+- **Not verified:** the screens are viewport-only: the sky panorama, night timeline, stress zone fill, fitness-trends curve, and every strength chart below the Strength Scan were not seen rendered. Walking-pad charts, the Peak column at 390 px and the Heatmap ticks are still **unverified with data** (harness window empty, last walk 75 days ago); keep them listed. Dark mode/mobile for the new charts only via the screens run.
+- **Friction (none worked around)** for `argo-friction.md`: (R) strength-composite's default exercise follows a prop (the leader) but `createLocalStore` cannot take a prop-derived fallback: it is rebuilt per leader via `useMemo` (same key), cost is a new store instance on leader change; (S) tooltip rows carry only `{label, value, color}`: no dashed swatch (Garmin Recovery), no per-point coloured row; (T) `Bars` has no legend entry for a ref line, so the weekly-volume MEV/MAV/MRV legend is three always-null `reference` series; (U) `DualPanelBar.format` serves both axis and tooltip (momentum keeps `formatValue` for the tooltip); (V) astro: no `cursorValue` (the sun track now has a cursor dot), `marks` has no curve access in 2.2 (fixed for lines by 2.3's `chartCurve`; night-timeline tracks were not re-checked), `rect` takes one fill string (skyglow = one mark per bucket), no top-edge rule for the shooting-window band (two `ruleX` at the sides). Friction rows 24/25 are closed by design, 26–28 are fixed in 2.3.0.
+- **Known, not fixed:** the glow field and the Suspense wrappers in `routes/astro-window.tsx` are now inert (the charts use `useQuery` + state); strength charts share `localDay`/`latestWith` from garmin-health (cross-feature import, candidate for `lib/`); `trailing-ma.ts` duplicates garmin-health's `movingAverage`; `activity-score-chart.tsx` still duplicates the server's MET constants.
+- **Cleanup:** worker worktrees removed with `rd fan --clean`; no stale docs. A stray `git stash pop` of the old parked wildrift stash was reverted (the stash entry is intact).
 
 ## Wave 10 — Rendering: SSR-first, streamed sections <!-- status: pending -->
 
