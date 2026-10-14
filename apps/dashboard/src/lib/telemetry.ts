@@ -1,4 +1,4 @@
-import { isSpanContextValid, SpanStatusCode, trace } from '@opentelemetry/api'
+import { isSpanContextValid, type Span, SpanStatusCode, trace } from '@opentelemetry/api'
 import type { BasaltEvent, ChatTurnTrace, Telemetry } from 'basalt-ui'
 
 // `@opentelemetry/api` is pinned to 1.8.0, the version `@hyperdx/browser` registers its global
@@ -10,10 +10,18 @@ import type { BasaltEvent, ChatTurnTrace, Telemetry } from 'basalt-ui'
 // lazily, so module order against `lib/hyperdx.ts` does not matter.
 const tracer = trace.getTracer('basalt-ui')
 
+// Open `chat.turn` spans by thread. `settle` runs right after the turn's `chat.turn` event, so the
+// event decorates the span `startChatTurn` opened instead of becoming a second span for the turn.
+const openTurns = new Map<string, Span>()
+
 function onEvent(e: BasaltEvent): void {
-  // The turn is already represented by the `chat.turn` span `startChatTurn` opens (the one the API
-  // span joins), so the event would be a second span for the same turn.
-  if (e.type === 'chat.turn') return
+  const open =
+    e.type === 'chat.turn' ? openTurns.get(e.attributes['basalt.chat.thread_id']) : undefined
+  if (open) {
+    open.setAttributes({ ...e.attributes })
+    if (e.failed) open.setStatus({ code: SpanStatusCode.ERROR })
+    return
+  }
   const span = tracer.startSpan(e.type, { startTime: e.start, attributes: { ...e.attributes } })
   if (e.failed) span.setStatus({ code: SpanStatusCode.ERROR })
   span.end('duration' in e ? e.start + e.duration : e.start)
@@ -22,8 +30,10 @@ function onEvent(e: BasaltEvent): void {
 /** Opens the turn's `chat.turn` span and hands its W3C `traceparent` to the chat request. */
 function startChatTurn({ threadId }: { threadId: string }): ChatTurnTrace | undefined {
   const span = tracer.startSpan('chat.turn', { attributes: { 'basalt.chat.thread_id': threadId } })
+  openTurns.set(threadId, span)
   const settle: ChatTurnTrace['settle'] = (end) => {
     if (end === 'failed') span.setStatus({ code: SpanStatusCode.ERROR })
+    if (openTurns.get(threadId) === span) openTurns.delete(threadId)
     span.end()
   }
   const ctx = span.spanContext()

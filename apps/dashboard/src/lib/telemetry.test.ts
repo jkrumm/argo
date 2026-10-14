@@ -25,6 +25,9 @@ const fakeProvider = {
       }
       recorded.push(record)
       return {
+        setAttributes: (attrs: Record<string, unknown>) => {
+          record.attributes = { ...record.attributes, ...attrs }
+        },
         setStatus: (status: { code: SpanStatusCode }) => {
           record.status = status
         },
@@ -95,16 +98,57 @@ describe('telemetry sink', () => {
     })
   })
 
-  test('chat.turn events add no span (startChatTurn owns the turn)', () => {
-    const before = recorded.length
+  test('chat.turn event decorates the open turn span instead of adding one', () => {
+    const turn = telemetry.startChatTurn?.({ threadId: 't2', messageId: 'm2' })
+    const count = recorded.length
+    ended = false
+    telemetry({
+      type: 'chat.turn',
+      failed: true,
+      start: 3000,
+      duration: 40,
+      attributes: {
+        'basalt.chat.thread_id': 't2',
+        'basalt.chat.ttft_ms': 5,
+        'basalt.chat.parts': 1,
+      },
+    } as never)
+    expect(recorded).toHaveLength(count)
+    expect(recorded.at(-1)).toMatchObject({
+      name: 'chat.turn',
+      attributes: { 'basalt.chat.ttft_ms': 5, 'basalt.chat.parts': 1 },
+      status: { code: SpanStatusCode.ERROR },
+    })
+    expect(ended).toBe(false)
+    turn?.settle?.('failed')
+    expect(ended).toBe(true)
+  })
+
+  test('chat.turn event without an open turn (resume) emits its own span', () => {
+    const count = recorded.length
     telemetry({
       type: 'chat.turn',
       failed: false,
-      start: 3000,
-      duration: 40,
-      attributes: { 'basalt.chat.thread_id': 't1' },
+      start: 4000,
+      duration: 10,
+      attributes: { 'basalt.chat.thread_id': 'resumed' },
     } as never)
-    expect(recorded).toHaveLength(before)
+    expect(recorded).toHaveLength(count + 1)
+    expect(recorded.at(-1)).toMatchObject({ name: 'chat.turn', startTime: 4000, endTime: 4010 })
+  })
+
+  test('settle clears the open turn, also when stopped', () => {
+    const turn = telemetry.startChatTurn?.({ threadId: 't3', messageId: 'm3' })
+    turn?.settle?.('stopped')
+    const count = recorded.length
+    telemetry({
+      type: 'chat.turn',
+      failed: false,
+      start: 5000,
+      duration: 1,
+      attributes: { 'basalt.chat.thread_id': 't3' },
+    } as never)
+    expect(recorded).toHaveLength(count + 1)
   })
 
   test('startChatTurn returns a W3C traceparent and settle ends the span', () => {
