@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { StatCard, StatGroup } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
+import { kcal } from 'basalt-ui/format'
 import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 
@@ -68,11 +69,14 @@ const METRICS: Metric[] = [
     key: 'kcal',
     label: 'Energy',
     color: VX.line,
-    format: (v) => (v >= 1000 ? `${(v / 1000).toFixed(2)} k cal` : `${Math.round(v)} kcal`),
+    format: (v) => kcal(v),
     pick: (p) => p.kcal,
     ariaLabel: 'kcal per day',
   },
 ]
+
+/** A day with no walk is a gap, not a zero — the same rule the headline's latest/avg/best follow. */
+const plotted = (v: number | null): number => (v !== null && v > 0 ? v : Number.NaN)
 
 export function SparklineGridChart({ params }: { params: WalkingPadWindowParams }) {
   const query = useQuery(walkingPadQueries.series({ ...params, bucket: 'day' }))
@@ -102,7 +106,7 @@ export function SparklineGridChart({ params }: { params: WalkingPadWindowParams 
             sparkline={({ width, height }) => (
               <Sparkline
                 ariaLabel={m.ariaLabel}
-                data={points.map((p) => m.pick(p) ?? 0)}
+                data={points.map((p) => plotted(m.pick(p)))}
                 width={width}
                 height={height}
                 color={m.color}

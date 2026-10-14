@@ -52,7 +52,7 @@ export function TimeOfDayChart({
     <ChartCard
       title="Time of day"
       subtitle="When do I tend to walk?"
-      info="Heatmap of walking activity by day-of-week × hour-of-day (UTC). Each session lights up every hour it touched, not just its start hour — so a 2-hour walk starting at 14:00 colours 14:00, 15:00, and the partial overlap at 16:00. Darker cells = more sessions active in that hour. Useful for spotting whether the desk-treadmill habit aligns with your meeting calendar or evening routine."
+      info="Heatmap of walking activity by day-of-week × hour-of-day (UTC), 06:00–23:59 only — the treadmill is never used overnight. Each session lights up every hour it touched, not just its start hour — so a 2-hour walk starting at 14:00 colours 14:00, 15:00, and the partial overlap at 16:00. Darker cells = more sessions active in that hour. Useful for spotting whether the desk-treadmill habit aligns with your meeting calendar or evening routine."
       actions={
         busiest !== null && busiest.sessions > 0 ? (
           <Text span size="xs" fw={600}>

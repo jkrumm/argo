@@ -6,11 +6,14 @@ import { alpha, VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { PACE_ZONES } from '../constants'
 import { SERIES } from '../../../lib/series'
-import { chartStateOf, utcDay } from './chart-state'
+import { chartStateOf } from './chart-state'
+import { utcDay } from './utc-day'
 
 type Point = {
   date: Date
   avg_speed_kmh: number | null
+  distance_m: number
+  duration_s: number
 }
 
 const fmtKmh = (v: number) => `${v.toFixed(2)} km/h`
@@ -68,11 +71,20 @@ export function PaceTrendChart({ params }: { params: WalkingPadWindowParams }) {
       (query.data?.points ?? []).map((p) => ({
         date: utcDay(p.date),
         avg_speed_kmh: p.avg_speed_kmh,
+        distance_m: p.distance_m,
+        duration_s: p.duration_s,
       })),
     [query.data],
   )
-  const measured = points.flatMap((p) => (p.avg_speed_kmh === null ? [] : [p.avg_speed_kmh]))
+  const measured = points.filter((p) => p.avg_speed_kmh !== null)
   const hasData = measured.length > 0
+  // Distance-weighted, as the info text says: total distance over total time, so a long slow
+  // session counts more than a tiny fast one.
+  const totalSeconds = measured.reduce((s, p) => s + p.duration_s, 0)
+  const windowAvgKmh =
+    totalSeconds > 0
+      ? measured.reduce((s, p) => s + p.distance_m, 0) / 1000 / (totalSeconds / 3600)
+      : null
 
   return (
     <ChartCard
@@ -80,9 +92,9 @@ export function PaceTrendChart({ params }: { params: WalkingPadWindowParams }) {
       subtitle="Am I walking faster over time?"
       info="Per-day distance-weighted average walking speed. Zones (stroll / walking / brisk / power) are calibrated against typical desk-treadmill ranges. A long slow session counts more than a tiny fast one — the headline number reflects how you actually moved, not the peak."
       actions={
-        hasData ? (
+        windowAvgKmh !== null ? (
           <Text span size="xs" fw={600} c={SERIES.walkingPace}>
-            {fmtKmh(measured.reduce((s, v) => s + v, 0) / measured.length)} window avg
+            {fmtKmh(windowAvgKmh)} window avg
           </Text>
         ) : null
       }
