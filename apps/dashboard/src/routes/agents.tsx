@@ -45,7 +45,12 @@ function AgentsPage() {
 
       <Stack gap="md">
         <StaleBanner latest={latest} />
-        <HeroStats summary={snapshot?.summary} history={historyQuery.data?.data} agents={agents} />
+        <HeroStats
+          summary={snapshot?.summary}
+          history={historyQuery.data?.data}
+          hours={HISTORY_HOURS}
+          agents={agents}
+        />
         <NeedsYouSection humanQueue={snapshot?.humanQueue ?? []} agents={agents} />
         <AgentsTable agents={agents} overview={snapshot?.overview} summary={snapshot?.summary} />
         <NarrativesSection query={narrativesQuery} />

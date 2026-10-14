@@ -6,9 +6,10 @@ import {
   isAbandonedWait,
   oldestNeedsYouWait,
   sortAgentsForCards,
+  trendSeries,
 } from './model'
 import type { AgentRow } from './model'
-import type { OverviewSummary } from '../../lib/queries/agents'
+import type { HistoryPoint, OverviewSummary } from '../../lib/queries/agents'
 
 const agent = (overrides: Partial<AgentRow> = {}): AgentRow => ({
   id: overrides.id ?? 'agent-1',
@@ -162,5 +163,22 @@ describe('breakdownLine', () => {
 
   it('is empty with no summary', () => {
     expect(breakdownLine(undefined)).toBe('')
+  })
+})
+
+// ── trendSeries ─────────────────────────────────────────────────────────────
+
+describe('trendSeries', () => {
+  it('omits points without a summary instead of plotting them as 0', () => {
+    const history = [
+      { summary: { needsYou: 2, working: 1 } },
+      { summary: null },
+      { summary: { needsYou: 3, working: 0 } },
+    ] as unknown as HistoryPoint[]
+    expect(trendSeries(history, 'needsYou')).toEqual([2, 3])
+  })
+
+  it('is empty without history', () => {
+    expect(trendSeries(undefined, 'working')).toEqual([])
   })
 })

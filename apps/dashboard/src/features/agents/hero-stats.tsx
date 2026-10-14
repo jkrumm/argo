@@ -8,30 +8,28 @@ import {
   formatWaitDuration,
   OLDEST_WAIT_WARN_MS,
   oldestNeedsYouWait,
+  trendSeries,
   type AgentRow,
 } from './model'
 
 type Props = {
   summary: OverviewSummary | undefined
   history: HistoryPoint[] | undefined
+  hours: number
   agents: AgentRow[]
 }
 
-function series(history: HistoryPoint[] | undefined, key: 'needsYou' | 'working'): number[] {
-  return (history ?? []).map((p) => p.summary?.[key] ?? 0)
-}
-
-function sparklineSlot(title: string, trend: number[]) {
+function sparklineSlot(title: string, trend: number[], hours: number) {
   if (trend.length <= 1) return {}
   return {
-    subtitle: 'last 24 h',
+    subtitle: `last ${hours} h`,
     sparkline: ({ width, height }: { width: number; height: number }) => (
       <Sparkline
         data={trend}
         width={width}
         height={height}
         color={VX.line}
-        ariaLabel={`${title} over the last 24 hours`}
+        ariaLabel={`${title} over the last ${hours} hours`}
       />
     ),
   }
@@ -47,7 +45,7 @@ function sparklineSlot(title: string, trend: number[]) {
  * express — HOW LONG the current needs-you items have waited — is its own tile now: `needsYou: 1`
  * reads identically whether that one item has waited five minutes or 21 days.
  */
-export function HeroStats({ summary, history, agents }: Props) {
+export function HeroStats({ summary, history, hours, agents }: Props) {
   const needsYou = summary?.needsYou
   const working = summary?.working
   const oldest = oldestNeedsYouWait(agents, useNow())
@@ -66,7 +64,7 @@ export function HeroStats({ summary, history, agents }: Props) {
         title="Needs you"
         value={needsYou === undefined ? '—' : String(needsYou)}
         {...(needsYou !== undefined && needsYou > 0 && { tone: 'warn' as const })}
-        {...sparklineSlot('Needs you', series(history, 'needsYou'))}
+        {...sparklineSlot('Needs you', trendSeries(history, 'needsYou'), hours)}
       />
       <StatCard
         title="Oldest wait"
@@ -77,7 +75,7 @@ export function HeroStats({ summary, history, agents }: Props) {
       <StatCard
         title="Active"
         value={working === undefined ? '—' : String(working)}
-        {...sparklineSlot('Active', series(history, 'working'))}
+        {...sparklineSlot('Active', trendSeries(history, 'working'), hours)}
       />
     </StatGroup>
   )
