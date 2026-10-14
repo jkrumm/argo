@@ -16,19 +16,9 @@ const CHART_HEIGHT = 240
 /** Floor for the auto y-domain — a 20-minute day still reads against a half-hour axis. */
 const AXIS_FLOOR_MIN = 30
 
-type Activity = {
-  activity_id: number
-  date: string
-  start_time_local: string
-  type_key: string
-  activity_name: string | null
-  duration_sec: number | null
-  avg_hr: number | null
-  max_hr: number | null
-  aerobic_te: number | null
-  anaerobic_te: number | null
-  training_load: number | null
-}
+type Activity = Awaited<
+  ReturnType<NonNullable<ReturnType<typeof activitiesQueries.list>['queryFn']>>
+>['data'][number]
 
 type ActivityTypeMeta = { label: string; color: string }
 
@@ -158,7 +148,7 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
   )
 
   const activities = useMemo(
-    () => applyVisibilityFilter((query.data?.data ?? []) as Activity[], (a) => a.date),
+    () => applyVisibilityFilter(query.data?.data ?? [], (a) => a.date),
     [query.data],
   )
   const points = useMemo(() => buildPoints(activities), [activities])
@@ -201,6 +191,7 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
       placeholderHeight={CHART_HEIGHT}
     >
       <Bars
+        cursorResolution="leading"
         ariaLabel="Daily activities stacked by type"
         data={points}
         height={CHART_HEIGHT}

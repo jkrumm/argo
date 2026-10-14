@@ -117,6 +117,7 @@ export default function SleepBreakdownChart({ params }: { params: SummaryParams 
       placeholderHeight={CHART_HEIGHT}
     >
       <Bars
+        cursorResolution="leading"
         ariaLabel="Sleep stages breakdown with sleep score overlay"
         data={sleepData}
         height={CHART_HEIGHT}

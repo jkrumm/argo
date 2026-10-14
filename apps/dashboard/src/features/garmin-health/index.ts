@@ -9,14 +9,13 @@ export {
 } from './constants'
 export { HeroStats } from './hero-stats'
 export { useGarminSync, type GarminSync } from './use-garmin-sync'
-export { applyVisibilityFilter, shouldHideTodayNow } from './visibility'
+export { applyVisibilityFilter } from './visibility'
 export {
   scoreTone,
   recoveryActionLabel,
   acwrZoneColor,
   acwrZoneLabel,
   acwrZoneTone,
-  formatRelativeTime,
   isStale,
   type AcwrZone,
 } from './formulas'

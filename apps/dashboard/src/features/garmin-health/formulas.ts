@@ -73,23 +73,6 @@ export function acwrZoneColor(zone: AcwrZone | null): string {
   }
 }
 
-/**
- * Format an absolute ISO timestamp as a short relative phrase ("12m ago").
- * Returns "never" for null and "just now" for under one minute.
- */
-export function formatRelativeTime(iso: string | null): string {
-  if (iso === null) return 'never'
-  const ms = Date.now() - Date.parse(iso)
-  if (Number.isNaN(ms)) return iso
-  const min = Math.round(ms / 60_000)
-  if (min < 1) return 'just now'
-  if (min < 60) return `${min}m ago`
-  const hr = Math.round(min / 60)
-  if (hr < 24) return `${hr}h ago`
-  const days = Math.round(hr / 24)
-  return `${days}d ago`
-}
-
 export function isStale(lastCompletedAt: string | null, thresholdMs: number): boolean {
   if (lastCompletedAt === null) return true
   const last = Date.parse(lastCompletedAt)

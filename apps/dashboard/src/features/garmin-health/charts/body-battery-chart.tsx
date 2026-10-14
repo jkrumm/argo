@@ -89,6 +89,7 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
       placeholderHeight={280}
     >
       <Bars
+        cursorResolution="leading"
         ariaLabel="Body battery charged vs drained per day with net line"
         data={points}
         height={280}

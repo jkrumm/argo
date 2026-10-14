@@ -9,6 +9,7 @@ import { acwrZoneColor, acwrZoneLabel, type AcwrZone } from '../formulas'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from './chart-state'
+import { latestWith } from './latest'
 import { localDay } from './local-day'
 
 type TrainingLoadPoint = {
@@ -59,7 +60,7 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
     [query.data],
   )
   const hasAcwr = points.some((p) => p.acwr !== null)
-  const latest = points.findLast((p) => p.acwr !== null) ?? null
+  const latest = latestWith(points, (p) => p.acwr)
 
   return (
     <ChartCard
@@ -67,7 +68,7 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
       subtitle="Am I overloading?"
       info={METRIC_TOOLTIPS.trainingLoad}
       actions={
-        latest?.acwr != null ? (
+        latest !== null && latest.acwr !== null ? (
           <Group gap={6} align="baseline" wrap="nowrap">
             <Text span fw={600} size="lg" c={acwrZoneColor(latest.zone)}>
               {latest.acwr.toFixed(2)}
@@ -82,6 +83,7 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
       placeholderHeight={280}
     >
       <Lines
+        cursorResolution="leading"
         ariaLabel="Acute:chronic training load ratio with optimal zone"
         data={points}
         height={280}
