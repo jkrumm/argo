@@ -16,8 +16,8 @@ type CloudSeriesDef = { key: CloudSeriesKey; label: string; strokeWidth: number;
 /**
  * Styled as a severity ramp, not three peers: low cloud is the thickest solid line (it ends a
  * night outright), mid a thinner solid line, high a dashed line (cirrus only costs contrast).
- * Distinct DASH, not just hue, so severity reads in greyscale too — the two near-identical
- * oranges the critic flagged were indistinguishable by shape alone.
+ * Distinct DASH, not just hue, so severity reads in greyscale too — mid and high cloud are
+ * near-identical oranges that shape alone would not separate.
  */
 const SERIES_DEFS: CloudSeriesDef[] = [
   { key: 'cloudLow', label: 'Low cloud', strokeWidth: 2.5 },
@@ -37,9 +37,9 @@ function constantValue(hourly: HourlyPoint[], key: CloudSeriesKey): number | nul
 
 function toSeries(def: CloudSeriesDef, hourly: HourlyPoint[]): ChartSeries<HourlyPoint> {
   // A layer that holds one value all night draws as a straight line sitting on a gridline, which
-  // reads as chart furniture rather than data — and for low cloud, "0% all night" is the single
-  // best piece of news on the page. State it in the legend instead of expecting the eye to find
-  // the line.
+  // is easy to read as chart furniture — and for low cloud, "0% all night" is the single best
+  // piece of news on the page. The line stays plotted (it is still data, and the legend toggle
+  // needs its entry); the legend note states the finding in words.
   const flat = constantValue(hourly, def.key)
   return {
     key: def.key,

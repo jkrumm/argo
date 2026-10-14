@@ -56,13 +56,13 @@ const HORIZON = [{ value: 0, color: VX.divider }]
 function darkRuns(hourly: HourlyPoint[]): [number, number][] {
   const runs: [number, number][] = []
   let start: number | null = null
-  hourly.forEach((point, i) => {
+  for (const [i, point] of hourly.entries()) {
     if (point.astroDark && start === null) start = i
     if (!point.astroDark && start !== null) {
       runs.push([start, i - 1])
       start = null
     }
-  })
+  }
   if (start !== null) runs.push([start, hourly.length - 1])
   return runs
 }

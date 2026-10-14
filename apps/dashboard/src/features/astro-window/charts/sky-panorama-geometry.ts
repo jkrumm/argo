@@ -79,6 +79,17 @@ export function bandValue(
   return points[0]?.[key] ?? 0
 }
 
+/** The framing gate at an azimuth: the flat atmospheric floor, or the skyline plus the framing
+ * margin where the terrain is higher. */
+export function gateAt(
+  profile: readonly HorizonProfilePoint[],
+  atmosphericFloorDeg: number,
+  framingMarginDeg: number,
+  azDeg: number,
+): number {
+  return Math.max(atmosphericFloorDeg, bandValue(profile, 'altitudeDeg', azDeg) + framingMarginDeg)
+}
+
 export type ProfileRow = { az: number; skyline: number; near: number; gate: number }
 
 /** The skyline, the advisory near band and the framing gate sampled every 2° from 0° to 360°
@@ -117,4 +128,19 @@ export function glowCells(rose: SkyglowRose): GlowCell[] {
     }
   }
   return cells
+}
+
+/** Brightness resolution of the skyglow field, mag/arcsec². Finer than the eye separates two
+ * ramp colours, coarse enough that the field is a few dozen fills instead of one per cell. */
+export const GLOW_BUCKET_MPSAS = 0.1
+
+/** Cells grouped by brightness bucket (the quantised mpsas), so a mark per bucket draws the whole
+ * field. Each entry's `mpsas` is the bucket's value; its cells keep their own geometry. */
+export function glowBuckets(cells: readonly GlowCell[]): { mpsas: number; cells: GlowCell[] }[] {
+  const buckets = new Map<number, GlowCell[]>()
+  for (const cell of cells) {
+    const key = Math.round(cell.mpsas / GLOW_BUCKET_MPSAS)
+    buckets.set(key, [...(buckets.get(key) ?? []), cell])
+  }
+  return [...buckets].map(([key, group]) => ({ mpsas: key * GLOW_BUCKET_MPSAS, cells: group }))
 }

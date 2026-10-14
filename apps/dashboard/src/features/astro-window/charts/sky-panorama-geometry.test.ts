@@ -4,6 +4,8 @@ import {
   bandValue,
   darkness,
   glowAt,
+  gateAt,
+  glowBuckets,
   glowCells,
   profileRows,
   type HorizonProfilePoint,
@@ -61,6 +63,17 @@ describe('glowAt', () => {
   })
 })
 
+describe('gateAt', () => {
+  test('is the flat floor where the skyline plus margin is lower', () => {
+    expect(gateAt(PROFILE, 8, 2, 0)).toBe(12)
+    expect(gateAt(PROFILE, 15, 2, 0)).toBe(15)
+  })
+
+  test('is the skyline plus margin where the terrain is higher', () => {
+    expect(gateAt(PROFILE, 8, 2, 180)).toBe(32)
+  })
+})
+
 describe('profileRows', () => {
   test('spans 0° to 360° inclusive every 2°', () => {
     const rows = profileRows(PROFILE, () => 8)
@@ -81,5 +94,29 @@ describe('glowCells', () => {
     expect(cells).toHaveLength(36 * 13)
     expect(Math.max(...cells.map((c) => c.alt1))).toBe(ALT_DOMAIN[1])
     expect(Math.max(...cells.map((c) => c.az1))).toBe(360)
+  })
+})
+
+describe('glowBuckets', () => {
+  const gradient: SkyglowRose = {
+    azimuths: [0, 90, 180, 270],
+    altitudes: [0, 50],
+    mpsas: [
+      [18, 19, 20, 21],
+      [19, 20, 21, 22],
+    ],
+  }
+
+  test('collapses ~470 cells to a few dozen buckets without losing a cell', () => {
+    const cells = glowCells(gradient)
+    const buckets = glowBuckets(cells)
+    expect(buckets.length).toBeLessThanOrEqual(41)
+    expect(buckets.reduce((n, b) => n + b.cells.length, 0)).toBe(cells.length)
+  })
+
+  test('every cell sits within half a bucket of its bucket value', () => {
+    for (const b of glowBuckets(glowCells(gradient))) {
+      for (const c of b.cells) expect(Math.abs(c.mpsas - b.mpsas)).toBeLessThanOrEqual(0.05 + 1e-9)
+    }
   })
 })

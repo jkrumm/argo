@@ -18,7 +18,9 @@ import {
   ALT_DOMAIN,
   bandValue,
   darkness,
+  gateAt,
   glowAt,
+  glowBuckets,
   glowCells,
   profileRows,
   type HorizonProfilePoint,
@@ -269,7 +271,7 @@ function PanoramaLoaded({
   const { atmosphericFloorDeg, framingMarginDeg } = visibility
 
   const skyline = (az: number) => bandValue(profile, 'altitudeDeg', az)
-  const gate = (az: number) => Math.max(atmosphericFloorDeg, skyline(az) + framingMarginDeg)
+  const gate = (az: number) => gateAt(profile, atmosphericFloorDeg, framingMarginDeg, az)
 
   const stepMinutes = stepMinutesOf(samples)
   const gateMinutes =
@@ -289,21 +291,16 @@ function PanoramaLoaded({
   // Static geometry — depends on the site and night, never on the scrub index, so dragging the
   // slider recomputes none of it.
   const rows = useMemo(
-    () =>
-      profileRows(profile, (az) =>
-        Math.max(atmosphericFloorDeg, bandValue(profile, 'altitudeDeg', az) + framingMarginDeg),
-      ),
+    () => profileRows(profile, (az) => gateAt(profile, atmosphericFloorDeg, framingMarginDeg, az)),
     [profile, atmosphericFloorDeg, framingMarginDeg],
   )
-  // Cells grouped by fill: a rect mark takes one fill, and the engine draws a mark per call.
-  const glowGroups = useMemo(() => {
-    const byFill = new Map<string, ReturnType<typeof glowCells>>()
-    for (const cell of glowCells(rose)) {
-      const fill = rampFill(cell.mpsas)
-      byFill.set(fill, [...(byFill.get(fill) ?? []), cell])
-    }
-    return [...byFill]
-  }, [rose])
+  // Cells bucketed by brightness: a rect mark takes one fill and the engine draws a mark per
+  // call, so the field is one mark per 0.1 mag bucket rather than one per distinct colour.
+  const glowGroups = useMemo(
+    () =>
+      glowBuckets(glowCells(rose)).map(({ mpsas, cells }) => ({ fill: rampFill(mpsas), cells })),
+    [rose],
+  )
   const sunTrack = useMemo(
     () => trackOf(samples, (s) => ({ az: s.sunAzimuth, alt: s.sunAltitude })),
     [samples],
@@ -340,7 +337,7 @@ function PanoramaLoaded({
 
     // 2. Skyglow field — only visible once darkness has set in.
     if (on('glow')) {
-      for (const [fill, cells] of glowGroups) {
+      for (const { fill, cells } of glowGroups) {
         out.push(
           rect(cells, {
             x1: 'az0',
@@ -507,6 +504,7 @@ function PanoramaLoaded({
 
       <Box mt="sm">
         <Slider
+          aria-label="Scrub the night: time of the instant shown on the panorama"
           value={idx}
           onChange={setScrub}
           min={0}
@@ -516,7 +514,7 @@ function PanoramaLoaded({
         />
       </Box>
       <Group gap="md" mt="xs" wrap="wrap">
-        <Text size="sm" c="dimmed">
+        <Text size="sm" c={VX.muted}>
           {sample.localTime}
         </Text>
         <Text size="sm">
@@ -534,7 +532,7 @@ function PanoramaLoaded({
         <Text size="sm" style={{ color: moonGood ? VX.goodSolid : VX.badSolid }}>
           Moon {moonState}
         </Text>
-        <Text size="sm" c={coreClearsNow ? 'green' : 'dimmed'}>
+        <Text size="sm" c={coreClearsNow ? VX.goodSolid : VX.muted}>
           {coreClearsNow ? 'Core clears the gate now' : 'Core does not clear the gate now'}
         </Text>
       </Group>

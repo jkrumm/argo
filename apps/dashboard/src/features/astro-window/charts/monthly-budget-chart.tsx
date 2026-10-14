@@ -23,7 +23,13 @@ const MONTH_LABELS = [
   'Dec',
 ]
 
-type MonthRow = { month: string; flat: number; terrain: number; terrainMoon: number }
+/** `null` is a month the API sent no value for — a gap, never a zero-hour month. */
+type MonthRow = {
+  month: string
+  flat: number | null
+  terrain: number | null
+  terrainMoon: number | null
+}
 
 // `formatValue` is per-bar: the axis `format` below drives the ticks (and is the tooltip's
 // fallback), so the tooltip's own precision belongs here.
@@ -59,8 +65,8 @@ const BARS: BarsBar<MonthRow>[] = [
   },
 ]
 
-function toHours(minutes: number): number {
-  return Math.round((minutes / 60) * 10) / 10
+function toHours(minutes: number | undefined): number | null {
+  return minutes === undefined ? null : Math.round((minutes / 60) * 10) / 10
 }
 
 export default function MonthlyBudgetChart({ site }: { site: Site }) {
@@ -73,9 +79,9 @@ export default function MonthlyBudgetChart({ site }: { site: Site }) {
         ? []
         : MONTH_LABELS.map((month, i) => ({
             month,
-            flat: toHours(data.flat.byMonth[i] ?? 0),
-            terrain: toHours(data.terrain.byMonth[i] ?? 0),
-            terrainMoon: toHours(data.terrainMoon.byMonth[i] ?? 0),
+            flat: toHours(data.flat.byMonth[i]),
+            terrain: toHours(data.terrain.byMonth[i]),
+            terrainMoon: toHours(data.terrainMoon.byMonth[i]),
           })),
     [data],
   )
