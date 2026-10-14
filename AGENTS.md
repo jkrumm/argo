@@ -111,9 +111,8 @@ is **no manual deploy step**, so `make deploy` only confirms the CI path and exi
 OIDC → RollHook, images `argo-api` / `argo-dashboard`). Migrations apply automatically on API boot —
 **there is no manual prod migrate step** (see `apps/api/AGENTS.md`).
 
-**Deploys are paused** for the basalt-ui 2.0 migration (`gh workflow disable deploy.yml`, since
-2026-10-14): pushes to `master` do not ship, and production keeps serving the last 1.41 build until
-Wave 10 (the cutover) of `docs/waves/PLAN.md` re-enables the workflow.
+The dashboard image is the static nginx build of the basalt-ui 2.x app (cutover 2026-10-14, `docs/waves/PLAN.md` Wave 10;
+SSR is Wave 11). Rollback: `gh workflow disable deploy.yml`, then pin the previous image SHAs with `make argo-up` in `~/SourceRoot/vps`.
 
 ## Verify & Monitor
 
