@@ -334,7 +334,7 @@ of every route.
 - **Known, not fixed:** the glow field and the Suspense wrappers in `routes/astro-window.tsx` are now inert (the charts use `useQuery` + state); strength charts share `localDay`/`latestWith` from garmin-health (cross-feature import, candidate for `lib/`); `trailing-ma.ts` duplicates garmin-health's `movingAverage`; `activity-score-chart.tsx` still duplicates the server's MET constants.
 - **Cleanup:** worker worktrees removed with `rd fan --clean`; no stale docs. A stray `git stash pop` of the old parked wildrift stash was reverted (the stash entry is intact).
 
-## Wave 10 — Cutover (static build) <!-- status: active -->
+## Wave 10 — Cutover (static build) <!-- status: done -->
 
 Outward-facing: the orchestrator decides when it runs. Functional parity is the bar; polish happens
 live afterwards (basalt-ui W14). Warden watches argo in production and will react to cutover errors.
@@ -360,13 +360,17 @@ ported, no stub); SSR (Wave 11) waits on owner call D4 and ships live as its own
 **Evidence:** `w10.md` — the live checks above, the final numbers table (bundle, Lighthouse) against
 the 1.41 baseline with every regression accepted or filed.
 
-**Left behind:** (in progress, cutover NOT shipped)
+**Left behind:**
 
-- **Cutover held.** `deploy.yml` is still disabled; nothing was pushed to production. Pre-flight and rollback (1.x `ff81fc1`) are in `w10.md`. The full-page visual check found one blocker: **friction row 34** for `argo-friction.md` (not yet filed in the ledger): `Lines` breaks the line at null rows and has no connect-gaps option, so strength-tracker Relative Progression and Estimated 1RM draw disconnected stubs where 1.x drew continuous lines (1.x filtered nulls per lift). Severity: workaround (argo's only fix is interpolating the data). Blocks the cutover until basalt-ui ships the option, or the orchestrator accepts the regression.
-- The screens lane (`scripts/evidence/screens.ts`) now captures full pages (inner scroll container) and includes the astro forecast and map tabs.
-- Cosmetic gaps (garmin-health tick labels, Fitness Trends clipping, Weekly Volume legend swatches, walking-pad empty message, 390 px clipping) are listed in `w10.md`; they become friction rows if the orchestrator wants them tracked.
+- **Shipped 2026-10-14 21:22 UTC**, commit `90e1c96`: the static nginx build on basalt-ui 2.4.0, live and verified. `deploy.yml` is enabled again, `AGENTS.md` § Deploy restored. Rollback to 1.x `ff81fc1` is in `w10.md`.
+- **The first visual check held the cutover:** `Lines` broke strength-tracker Relative Progression and Estimated 1RM at null rows (friction row 34). basalt-ui 2.4.0 shipped `gaps: 'connect'`; the re-check was clean. Also adopted from 2.4.0: `RefLine.legend` (weekly-volume landmarks), DualPanel `tooltipFormat` (momentum), `XZoneSpec.edge` (night-timeline shooting window; the chart is now `Lines`). Row 35 (pre-commit on all-ignored files) fixed in 2.4.0 too.
+- **Live checks (all green, details in `w10.md`):** `make verify` commit = `origin/master`; Uptime Kuma Argo group, Dashboard, API, Hermes up; `make logs` clean; ClickStack has 16 `route.navigate` from `argo-dashboard` over 11 routes and a `chat.turn` that joins `hermes.stream-lifecycle` on `basalt.chat.thread_id`; a live browser pass of all 13 routes; Warden opened no argo item in 13 minutes.
+- **Not verified:** the night-timeline shooting-window band and its edge rules (no night in the data has a window), walking-pad charts and skinfold with data (empty windows), tooltips, and the `SelectFilter`/`cursorValue` items below. The screens are gitignored raw output under `docs/waves/evidence/.raw/w10/`.
+- **Friction still open, accepted post-cutover:** row 9 (auth seam, SSR needs it), row 29 (`createLocalStore` `use({ fallback })` exists in 2.4.0, but `SelectFilter` has no call-site fallback, so the dropdown would show another lift than the chart; the per-leader store stays: file as a new row), row 33's sun-track `cursorValue` (the panorama's sun dot is a scrub marker, nothing to replace).
+- **Found, not argo-caused (loop items):** `GET /hermes/threads/:id/messages` 404s for a brand-new thread (12 in 24 h, 3 threads, span status Ok): a read-after-create race. No `traceparent` from the dashboard's `chat.turn` to the API's `hermes.stream-lifecycle`: they join on the business attribute only. MapLibre `circle-11` image warning on the Map tab. Cosmetic: garmin-health y-ticks inside the plot, weekly-volume landmark swatches low contrast on dark, walking-pad "No walks yet" ignores sessions older than the window, 390 px clipping (body-composition input, strength scan table), Heatmap and `Needs you` hero vs section counts differ by design.
+- **Process:** `rd close` is for the orchestrator; Wave 11 stays `pending` on owner call D4 (session cookie vs shell-only SSR). Not spawned.
 
-## Wave 11 — Rendering: SSR-first, streamed sections <!-- status: pending -->
+## Wave 11 — Rendering: SSR-first, streamed sections <!-- status: pending (blocked on D4) -->
 
 Blocked on D4. Pattern: basalt-ui `docs/waves/evidence/w10/ssr.md` and the `basalt-app` skill's
 "Stream a slow section".
