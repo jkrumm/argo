@@ -21,6 +21,8 @@ function todayLocalIso(): string {
  *
  * Sleep / fitness-trend metrics lock in overnight, so they pass `hideToday: false`.
  */
+// MIGRATION-STUB(w8): parked — its only callers were the Garmin charts stubbed in Wave 3; the port
+// uses it again or deletes it.
 export function shouldHideTodayNow(): boolean {
   return new Date().getHours() < HIDE_TODAY_BEFORE_HOUR
 }
@@ -44,6 +46,7 @@ export type VisibilityOptions = {
  * The accessor stays generic so the helper works for daily-metrics points,
  * activities, recovery series, training-load series, etc.
  */
+// MIGRATION-STUB(w8): parked — see `shouldHideTodayNow`.
 export function applyVisibilityFilter<T>(
   points: readonly T[],
   getDate: (p: T) => string,

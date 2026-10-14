@@ -125,6 +125,7 @@ export function killerLabel(night: Night): string {
  * charts' categorical x axis and one sample silently stops being drawn. Shared by the two charts
  * that plot the same hourly array so their keys, and therefore their shared cursor, cannot drift.
  */
+// MIGRATION-STUB(w9): parked — its only callers were the astro charts stubbed in Wave 3.
 export function hourlyTimeLabel(hourly: readonly { time: string; localTime: string }[]) {
   const byTime = new Map(hourly.map((d) => [d.time, d.localTime]))
   return (key: string) => byTime.get(key) ?? key

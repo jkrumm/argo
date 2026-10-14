@@ -3,6 +3,10 @@ import { createBasaltRouter } from 'basalt-ui'
 import { clearToken, isUnauthorizedError } from './auth'
 import { routeTree } from '../routeTree.gen'
 
+const onUnauthorized = (error: unknown): void => {
+  if (isUnauthorizedError(error)) clearToken()
+}
+
 /**
  * The app's single router instance. Extracted from `main.tsx` (rather than created inline) so
  * `lib/commands.tsx` can import it and call `router.navigate(...)` imperatively from a command
@@ -16,14 +20,10 @@ export const router = createBasaltRouter({
   routeTree,
   query: {
     queryCache: new QueryCache({
-      onError: (error) => {
-        if (isUnauthorizedError(error)) clearToken()
-      },
+      onError: onUnauthorized,
     }),
     mutationCache: new MutationCache({
-      onError: (error) => {
-        if (isUnauthorizedError(error)) clearToken()
-      },
+      onError: onUnauthorized,
     }),
     defaultOptions: {
       queries: {

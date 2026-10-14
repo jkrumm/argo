@@ -2,11 +2,9 @@ import { Alert, Button, Code, Container, Group, Stack, Text } from '@mantine/cor
 import { IconAlertTriangle, IconRefresh } from '@tabler/icons-react'
 import { PageTitle } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
-import { HyperDX } from './hyperdx'
 
 export function CrashFallback({ error: raw }: { error: unknown }) {
   const error = raw instanceof Error ? raw : new Error(String(raw))
-  const sessionId = HyperDX.getSessionId()
 
   return (
     <Container size="sm" pt={64} pb={64}>
@@ -39,12 +37,6 @@ export function CrashFallback({ error: raw }: { error: unknown }) {
             Reload page
           </Button>
         </Group>
-
-        {sessionId && (
-          <Text size="xs" c="dimmed">
-            Reported. Session: <Code>{sessionId}</Code>
-          </Text>
-        )}
       </Stack>
     </Container>
   )

@@ -34,3 +34,20 @@ export function isUnauthorizedError(error: unknown): boolean {
   const status = (error as { status?: unknown }).status
   return status === 401
 }
+
+/** Thrown by `requireToken` so the root route's `errorComponent` can show the token prompt. */
+export class AuthRequiredError extends Error {
+  constructor() {
+    super('API token required')
+    this.name = 'AuthRequiredError'
+  }
+}
+
+/**
+ * Root-route `beforeLoad` guard. A parent's `beforeLoad` settles before any child loader starts, so
+ * throwing here keeps every loader from firing unauthenticated at boot; entering a token reloads the
+ * page (`TokenPrompt`), which re-runs the guard with a token present.
+ */
+export function requireToken(): void {
+  if (!getToken()) throw new AuthRequiredError()
+}
