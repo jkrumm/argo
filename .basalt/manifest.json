@@ -4,7 +4,7 @@
     ".claude/rules/basalt-mantine.md": "7c0b9f2490d9482aee23b720116ac5936fb4aecfd1a37fdc8aaf6187ed9c05ab",
     ".claude/rules/basalt-charts.md": "fbaa0347ddbc231b2a65f307630176a24bbf4b5fc79462b739c3492a4f0918bc",
     ".claude/rules/basalt-tokens.md": "681cda3782872f27516938cbe3ab27d8d549948dbdd80539daade14a5dca60f0",
-    ".claude/rules/basalt-state.md": "d5bd082f000de5fa91fd0f047d6b7b29227e078199c39af7ef9750b072d634a4",
+    ".claude/rules/basalt-state.md": "f36d3969dab79e4ce870eead74d5e329524f7a2652a99f49df032052847d7517",
     "DESIGN.md": "c32facc4a2efa27130d2090c2ee107fd650ea9b188c380e2773bdf079126c518",
     "lefthook.yml": "695fb214cccac2c4579e14340d97cacce472d5987b7cdfec22f211c7e1a7ef42",
     ".github/workflows/check.yml": "f6e4999d3479614a03c7a7e24ac995dc1dca2bbf99461efea657b089dec70743",
@@ -20,7 +20,7 @@
     "src/routes/__root.tsx": "ffdc98db74069bc45a18a18aa3e9bc0d6ef2f1418126ddf9ea1f5cc8be9c3a43",
     "src/main.tsx": "7fd50babd5d11404b6d778f1df294cba3b85e791ee5fb83b61711eb9e38ba125"
   },
-  "basaltVersion": "2.3.0",
+  "basaltVersion": "2.4.0",
   "spacingScale": {
     "xs": 11,
     "sm": 13,
