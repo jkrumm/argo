@@ -1,6 +1,9 @@
 import { SpanStatusCode, trace } from '@opentelemetry/api'
 import type { BasaltEvent } from 'basalt-ui'
 
+// `@opentelemetry/api` is pinned to 1.8.0, the version `@hyperdx/browser` registers its global
+// provider under: the API ignores a global registered by a LOWER minor than its own, so 1.9.x here
+// silently yields a no-op tracer (observed live in the Wave 4 evidence run).
 // `@hyperdx/browser` registers the global tracer provider inside `HyperDX.init`
 // (`@hyperdx/otel-web` `provider.register`), so this tracer exports through it. Without init the
 // API hands back a no-op tracer and `telemetry` is inert. `ProxyTracer` resolves the provider

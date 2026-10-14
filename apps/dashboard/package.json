@@ -26,7 +26,7 @@
     "@mantine/schedule": "^9.7.0",
     "@mantine/spotlight": "^9.7.0",
     "@openmeteo/weather-map-layer": "0.0.20",
-    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/api": "1.8.0",
     "@tabler/icons-react": "^3.47.0",
     "@tanstack/charts": "1.1.0",
     "@tanstack/react-hotkeys": "0.13.0",
