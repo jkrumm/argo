@@ -124,7 +124,17 @@ function toMeta(row: HermesThread): Record<string, unknown> {
     sessionId: row.session_id,
     sessionKey: row.session_key,
     type: row.type,
+    persisted: true,
   }
+}
+
+/**
+ * True once the server has a row for this thread (its `meta` came from `toMeta`). A thread minted
+ * by `create()` is local-only until `POST /hermes/chat` lazily persists it, so reading its
+ * messages before then can only 404.
+ */
+export function isThreadPersisted(thread: AgentThread<AgentPart>): boolean {
+  return thread.meta?.['persisted'] === true
 }
 
 /**

@@ -15,6 +15,7 @@ const {
   createThreadEntry,
   removeLastUserMessageFromMap,
   insertThread,
+  isThreadPersisted,
   markReadInMap,
   mergeOptimisticMessages,
   mergeServerThreads,
@@ -380,5 +381,24 @@ describe('toChatMessage', () => {
 
   it('never sets finish on a user row', () => {
     expect(toChatMessage(seedMessage({ role: 'user', status: 'complete' }))?.finish).toBeUndefined()
+  })
+})
+
+describe('isThreadPersisted', () => {
+  it('is false for a locally minted thread, so no messages request is issued for it', () => {
+    expect(isThreadPersisted(createThreadEntry('t1'))).toBe(false)
+    expect(isThreadPersisted(createThreadEntry('t1', { meta: { title: 'x' } }))).toBe(false)
+  })
+
+  it('is true once the server row is merged in', () => {
+    const local = insertThread(new Map(), createThreadEntry('t1'))
+    const merged = mergeServerThreads(local, [seedThread({ id: 't1' })])
+    const thread = merged.get('t1')
+    expect(thread && isThreadPersisted(thread)).toBe(true)
+  })
+
+  it('is true for a thread seeded from a server row', () => {
+    const thread = mergeServerThreads(new Map(), [seedThread({ id: 't2' })]).get('t2')
+    expect(thread && isThreadPersisted(thread)).toBe(true)
   })
 })
