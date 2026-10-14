@@ -113,7 +113,7 @@ OIDC → RollHook, images `argo-api` / `argo-dashboard`). Migrations apply autom
 
 **Deploys are paused** for the basalt-ui 2.0 migration (`gh workflow disable deploy.yml`, since
 2026-10-14): pushes to `master` do not ship, and production keeps serving the last 1.41 build until
-Wave 11 of `docs/waves/PLAN.md` re-enables the workflow.
+Wave 10 (the cutover) of `docs/waves/PLAN.md` re-enables the workflow.
 
 ## Verify & Monitor
 
