@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'bun:test'
-import { localDay, thirtyDayMean, toSkinfoldChartPoints, toWeightChartPoints } from './series-data'
+import {
+  compareByDate,
+  localDay,
+  markerRadiusFor,
+  thirtyDayMean,
+  toSkinfoldChartPoints,
+  toWeightChartPoints,
+} from './series-data'
 
 describe('localDay', () => {
   test('parses as the local calendar day', () => {
@@ -31,6 +38,25 @@ describe('thirtyDayMean', () => {
         { date: '2026-03-01', weightKg: 82 },
       ]),
     ).toBe(81)
+  })
+})
+
+describe('thirtyDayMean boundary', () => {
+  test('day 30 is in the window, day 31 is out', () => {
+    const latest = { date: '2026-03-31', weightKg: 80 }
+    expect(thirtyDayMean([{ date: '2026-03-01', weightKg: 90 }, latest])).toBe(85)
+    expect(thirtyDayMean([{ date: '2026-02-28', weightKg: 90 }, latest])).toBe(80)
+  })
+})
+
+describe('helpers', () => {
+  test('compareByDate orders ascending', () => {
+    expect([{ date: '2026-02-01' }, { date: '2026-01-01' }].toSorted(compareByDate)[0]!.date).toBe(
+      '2026-01-01',
+    )
+  })
+  test('markerRadiusFor shrinks with density', () => {
+    expect([10, 21, 61].map(markerRadiusFor)).toEqual([4.5, 3.5, 2.5])
   })
 })
 

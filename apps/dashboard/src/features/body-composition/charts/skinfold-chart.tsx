@@ -6,7 +6,7 @@ import { VX } from 'basalt-ui/tokens'
 import { SERIES } from '../../../lib/series'
 import { skinfoldLogQueries, type SkinfoldWindowParams } from '../../../lib/queries/skinfold-log'
 import { METRIC_TOOLTIPS, SKINFOLD_SITES } from '../constants'
-import { toSkinfoldChartPoints, type SkinfoldChartPoint } from './series-data'
+import { markerRadiusFor, toSkinfoldChartPoints, type SkinfoldChartPoint } from './series-data'
 
 const CHART_HEIGHT = 260
 
@@ -36,7 +36,7 @@ export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams
   const apiPoints = query.data?.points
   const chartData = useMemo(() => toSkinfoldChartPoints(apiPoints ?? []), [apiPoints])
   const latest = chartData[chartData.length - 1] ?? null
-  const dotR = chartData.length > 60 ? 2.5 : chartData.length > 20 ? 3.5 : 4.5
+  const dotR = markerRadiusFor(chartData.length)
 
   const series: ChartSeries<SkinfoldChartPoint>[] = [
     {
@@ -62,7 +62,9 @@ export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams
   ]
 
   const empty =
-    chartData.length === 0 && 'No readings yet — log your first caliper session to start the trend.'
+    chartData.length === 0
+      ? 'No readings yet — log your first caliper session to start the trend.'
+      : false
 
   return (
     <ChartCard
