@@ -1,6 +1,8 @@
 import { StatCard, StatGroup } from 'basalt-ui'
+import { Sparkline } from 'basalt-ui/charts'
+import { VX } from 'basalt-ui/tokens'
 import { useNow } from '../../lib/use-now'
-import type { OverviewSummary } from '../../lib/queries/agents'
+import type { HistoryPoint, OverviewSummary } from '../../lib/queries/agents'
 import {
   ABANDONED_AFTER_MS,
   formatWaitDuration,
@@ -11,12 +13,30 @@ import {
 
 type Props = {
   summary: OverviewSummary | undefined
+  history: HistoryPoint[] | undefined
   agents: AgentRow[]
 }
 
-// MIGRATION-STUB(w7): the 24 h trend sparklines under the Needs you / Active tiles (inventory a40)
-// are dropped until their port to `Sparkline`; the tiles themselves are unchanged. The port
-// re-adds a `history` prop and `routes/agents.tsx`'s `agentsQueries.history(24)` query.
+function series(history: HistoryPoint[] | undefined, key: 'needsYou' | 'working'): number[] {
+  return (history ?? []).map((p) => p.summary?.[key] ?? 0)
+}
+
+function sparklineSlot(title: string, trend: number[]) {
+  if (trend.length <= 1) return {}
+  return {
+    subtitle: 'last 24 h',
+    sparkline: ({ width, height }: { width: number; height: number }) => (
+      <Sparkline
+        data={trend}
+        width={width}
+        height={height}
+        color={VX.line}
+        ariaLabel={`${title} over the last 24 hours`}
+      />
+    ),
+  }
+}
+
 /**
  * Three verdict tiles, replacing the old six raw state counts (`needsYou, working, idle, stale,
  * done, dispatch`). Two faults drove the cut: `dispatch` counted `source === 'dispatch'` and so
@@ -27,7 +47,7 @@ type Props = {
  * express — HOW LONG the current needs-you items have waited — is its own tile now: `needsYou: 1`
  * reads identically whether that one item has waited five minutes or 21 days.
  */
-export function HeroStats({ summary, agents }: Props) {
+export function HeroStats({ summary, history, agents }: Props) {
   const needsYou = summary?.needsYou
   const working = summary?.working
   const oldest = oldestNeedsYouWait(agents, useNow())
@@ -46,6 +66,7 @@ export function HeroStats({ summary, agents }: Props) {
         title="Needs you"
         value={needsYou === undefined ? '—' : String(needsYou)}
         {...(needsYou !== undefined && needsYou > 0 && { tone: 'warn' as const })}
+        {...sparklineSlot('Needs you', series(history, 'needsYou'))}
       />
       <StatCard
         title="Oldest wait"
@@ -53,7 +74,11 @@ export function HeroStats({ summary, agents }: Props) {
         {...(oldest !== null && { subtitle: oldest.project })}
         {...(oldestTone !== undefined && { tone: oldestTone })}
       />
-      <StatCard title="Active" value={working === undefined ? '—' : String(working)} />
+      <StatCard
+        title="Active"
+        value={working === undefined ? '—' : String(working)}
+        {...sparklineSlot('Active', series(history, 'working'))}
+      />
     </StatGroup>
   )
 }
