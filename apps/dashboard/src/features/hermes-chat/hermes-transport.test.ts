@@ -10,7 +10,8 @@ await mock.module('basalt-ui/commands', () => ({
   },
 }))
 
-const { isRejectedTurnError, notifyHermesChatError } = await import('./hermes-transport')
+const { hermesTransport, isRejectedTurnError, notifyHermesChatError } =
+  await import('./hermes-transport')
 
 // What AI SDK's `APICallError` looks like when it reaches `useAgentThreadRuns({ onError })`:
 // the response text is the message, the status rides on `statusCode`.
@@ -70,5 +71,26 @@ describe('hermes chat failures, by AgentError kind', () => {
     emitted.length = 0
     notifyHermesChatError(new DOMException('stop', 'AbortError'))
     expect(emitted).toEqual([])
+  })
+
+  test('the error the real transport throws for a 409 is classified as a rejected turn', async () => {
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ error: 'stream_in_progress', message: 'busy' }), {
+        status: 409,
+      })) as unknown as typeof fetch
+    try {
+      const stream = hermesTransport.forThread('thread-1').stream('hi')
+      let thrown: unknown
+      try {
+        for await (const _part of stream) void _part
+      } catch (err) {
+        thrown = err
+      }
+      expect(thrown).toBeDefined()
+      expect(isRejectedTurnError(thrown)).toBe(true)
+    } finally {
+      globalThis.fetch = realFetch
+    }
   })
 })

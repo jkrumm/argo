@@ -14,14 +14,14 @@ Object.assign(globalThis, {
 const { hermesRenderers } = await import('./markdown-part')
 
 const Text = hermesRenderers['text']!
-const ctx = (text: string, settled: boolean) =>
+const ctx = (text: string, settled: boolean): Parameters<typeof Text>[0] =>
   ({
     part: { type: 'text', id: 'p', text },
     messageId: 'm',
     partId: 'p',
     settled,
     role: 'assistant',
-  }) as never
+  }) as unknown as Parameters<typeof Text>[0]
 
 // `prerender` waits out the Suspense boundary around Markdown's lazy react-markdown import, so
 // this is the real markdown pipeline, not the plain-text fallback `renderToString` would emit.
@@ -38,6 +38,7 @@ test('an untrusted remote image is blocked and renders its alt text, not an <img
   const html = await render('![tracking pixel](https://evil.example/x.png)')
   expect(html).not.toContain('<span style="white-space:pre-wrap">') // real pipeline, not fallback
   expect(html).not.toContain('<img')
+  expect(html).not.toContain('](') // markdown syntax was parsed, not echoed
   expect(html).toContain('tracking pixel')
 })
 

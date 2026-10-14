@@ -102,7 +102,7 @@ type ClassifiedChatError = {
 }
 
 function classifyChatError(err: unknown): ClassifiedChatError {
-  const raw = stringField(err, 'message') ?? String(err)
+  const raw = stringField(err, 'message') ?? (typeof err === 'string' ? err : '')
   // By name, not `instanceof Error`: a `fetch` abort is a DOMException, which is not an Error.
   if (stringField(err, 'name') === 'AbortError') return { error: { kind: 'aborted' }, raw }
   const status =
@@ -138,7 +138,8 @@ export function isRejectedTurnError(err: unknown): boolean {
     case 'aborted':
       return false
     default:
-      return error satisfies never
+      error satisfies never
+      return false
   }
 }
 
@@ -189,7 +190,7 @@ export function notifyHermesChatError(err: unknown): void {
       )
       return
     default:
-      return error satisfies never
+      error satisfies never
   }
 }
 
