@@ -19,7 +19,7 @@ fans out with `rd fan`, lands with `rd merge`, and does NOT spawn the next wave.
 **Deploys during the migration:** argo deploys every push to master (`deploy.yml`, no path filter),
 and 1.x and 2.x cannot coexist in one app. Instead of a long-lived branch (the `rd fan`/`rd merge`
 tooling only bases on and lands to master), the migration lands on master with `deploy.yml`
-DISABLED (`gh workflow disable deploy.yml`) from the 2.0 bump (Wave 3) until cutover (Wave 11);
+DISABLED (`gh workflow disable deploy.yml`) from the 2.0 bump (Wave 3) until cutover (Wave 10);
 production keeps serving the last 1.x build, so Warden sees no migration noise. `check.yml` stays on.
 
 **Friction rule:** argo never works around basalt-ui. Every basalt friction goes into
@@ -55,13 +55,13 @@ basalt-ui's `docs/waves/v2-chart-inventory.md` rows a1–a43 (40 production char
   (every non-dev route × light/dark × 1280×800/390×844, the 1.36 baseline's matrix), Lighthouse
   (`/`, `/garmin-health`, `/strength-tracker`; mobile + desktop; median of 3). GETs only — no lane
   posts to production.
-- **D4 — Owner call before Wave 10.** SSR with argo's bearer-in-`localStorage` auth can render only
+- **D4 — Owner call before Wave 11 (SSR).** SSR with argo's bearer-in-`localStorage` auth can render only
   the shell: the server cannot fetch data on the user's behalf. Option A: an HttpOnly, Secure,
   SameSite=Strict session cookie minted from the bearer, accepted by the API next to the bearer, so
   loaders run on the server and sections stream with data (security-adjacent API change). Option B:
   SSR the shell plus sized pending boxes, data stays client-side (no auth change, a much smaller win
   over today's SPA). Tendency: A — B is not "SSR-first with streamed sections" for an authenticated
-  dashboard. Wave 10 does not start until the owner picks.
+  dashboard. Wave 11 does not start until the owner picks.
 - **D5 — Group-per-worker charts.** Chart waves fan out one worker per feature directory (disjoint
   files); a kind that cannot express an inventory row's "must support" column is a friction row and
   that chart stays a stub until the fixing minor.
@@ -334,7 +334,35 @@ of every route.
 - **Known, not fixed:** the glow field and the Suspense wrappers in `routes/astro-window.tsx` are now inert (the charts use `useQuery` + state); strength charts share `localDay`/`latestWith` from garmin-health (cross-feature import, candidate for `lib/`); `trailing-ma.ts` duplicates garmin-health's `movingAverage`; `activity-score-chart.tsx` still duplicates the server's MET constants.
 - **Cleanup:** worker worktrees removed with `rd fan --clean`; no stale docs. A stray `git stash pop` of the old parked wildrift stash was reverted (the stash entry is intact).
 
-## Wave 10 — Rendering: SSR-first, streamed sections <!-- status: pending -->
+## Wave 10 — Cutover (static build) <!-- status: active -->
+
+Outward-facing: the orchestrator decides when it runs. Functional parity is the bar; polish happens
+live afterwards (basalt-ui W14). Warden watches argo in production and will react to cutover errors.
+Reordered 2026-10-14 by the orchestrator: the cutover ships the static nginx build now (every chart
+ported, no stub); SSR (Wave 11) waits on owner call D4 and ships live as its own deploy afterwards.
+
+- [ ] Pre-flight: Gate green, no `MIGRATION-STUB`, zero `basalt/*` suppressions, every argo row in
+      `argo-friction.md` closed or explicitly accepted as a post-cutover loop item, `basalt-ui sync
+      --check` clean.
+- [ ] Look before shipping: full-page (not viewport) screenshots of every route, light and dark, 1280
+      and 390, against production data via `make evidence`, reviewed by eye with `@verifier`; every
+      chart Waves 7-9 left "not seen rendered" is seen here. A broken chart blocks the cutover; a
+      cosmetic gap becomes a friction row.
+- [ ] `gh workflow enable deploy.yml`, restore `AGENTS.md` § Deploy, push; the deploy fires (static
+      nginx image, no vps change).
+- [ ] Verify live: `make verify` commit = `origin/master`; Uptime Kuma `Argo / API`, `Argo / Dashboard`,
+      `Argo / Hermes` green; `make logs` clean; ClickStack shows `route.navigate` from
+      `argo-dashboard` and one chat turn whose `chat.turn` joins `hermes.stream-lifecycle` on
+      `basalt.chat.thread_id`; screens of every route against `baseline-1.41.md`.
+- [ ] Rollback written before the push: re-pin the last 1.x images (`make argo-up` with the previous
+      SHAs in `vps`) and re-disable deploys.
+
+**Evidence:** `w10.md` — the live checks above, the final numbers table (bundle, Lighthouse) against
+the 1.41 baseline with every regression accepted or filed.
+
+**Left behind:**
+
+## Wave 11 — Rendering: SSR-first, streamed sections <!-- status: pending -->
 
 Blocked on D4. Pattern: basalt-ui `docs/waves/evidence/w10/ssr.md` and the `basalt-app` skill's
 "Stream a slow section".
@@ -351,31 +379,10 @@ Blocked on D4. Pattern: basalt-ui `docs/waves/evidence/w10/ssr.md` and the `basa
       (MapLibre map, voice, vega) client-only.
 - [ ] Packaging: the dashboard image runs the Bun server instead of nginx (`apps/dashboard/Dockerfile`,
       static assets still immutable-cached, `/v1/*` OTLP proxy kept). Prepare the matching
-      `~/SourceRoot/vps/apps/argo/compose.yml` change as a ready diff; it lands in Wave 11, in step
-      with the first 2.x image.
+      `~/SourceRoot/vps/apps/argo/compose.yml` change; it lands in step with the first SSR image, and
+      this wave verifies it live like Wave 10 did (Uptime Kuma, logs, traces, screens).
 
-**Evidence:** `w10.md` — TTFB, shell flush, per-section reveal, FCP/LCP, CLS 0, hydration time, at 1x
+**Evidence:** `w11.md` — TTFB, shell flush, per-section reveal, FCP/LCP, CLS 0, hydration time, at 1x
 and 4x CPU, against the baseline Lighthouse; a Chrome UA (bots get a buffered document).
-
-**Left behind:**
-
-## Wave 11 — Cutover <!-- status: pending -->
-
-Outward-facing: the orchestrator decides when it runs. Functional parity is the bar; polish happens
-live afterwards (basalt-ui W14). Warden watches argo in production and will react to cutover errors.
-
-- [ ] Pre-flight: Gate green, no `MIGRATION-STUB`, zero `basalt/*` suppressions, every argo row in
-      `argo-friction.md` closed or explicitly accepted, `basalt-ui sync --check` clean.
-- [ ] Land the vps compose change (if Wave 10 changed the serving model), `gh workflow enable
-      deploy.yml`, restore `AGENTS.md` § Deploy, push; the deploy fires.
-- [ ] Verify live: `make verify` commit = `origin/master`; Uptime Kuma `Argo / API`, `Argo / Dashboard`,
-      `Argo / Hermes` green; `make logs` clean; ClickStack shows `route.navigate` from
-      `argo-dashboard` and one chat turn whose `chat.turn` joins `hermes.stream-lifecycle` on
-      `basalt.chat.thread_id`; screens of every route against `baseline-1.41.md`.
-- [ ] Rollback written before the push: re-pin the last 1.x images (`make argo-up` with the previous
-      SHAs in `vps`) and re-disable deploys.
-
-**Evidence:** `w11.md` — the live checks above, the final numbers table (bundle, Lighthouse, SSR)
-against the 1.41 baseline with every regression accepted or filed.
 
 **Left behind:**
