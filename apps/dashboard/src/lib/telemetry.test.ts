@@ -13,6 +13,7 @@ type Recorded = {
 }
 
 const recorded: Recorded[] = []
+let ended = false
 
 const fakeProvider = {
   getTracer: () => ({
@@ -27,8 +28,14 @@ const fakeProvider = {
         setStatus: (status: { code: SpanStatusCode }) => {
           record.status = status
         },
-        end: (endTime: number) => {
+        spanContext: () => ({
+          traceId: '0af7651916cd43dd8448eb211c80319c',
+          spanId: 'b7ad6b7169203331',
+          traceFlags: 1,
+        }),
+        end: (endTime?: number) => {
           record.endTime = endTime
+          ended = true
         },
       } as unknown as Span
     },
@@ -59,6 +66,9 @@ const queryError: BasaltEvent = {
 describe('telemetry sink', () => {
   test('is inert before a provider is registered', () => {
     expect(() => telemetry(navigate)).not.toThrow()
+    const turn = telemetry.startChatTurn?.({ threadId: 't0', messageId: 'm0' })
+    expect(turn?.headers).toBeUndefined()
+    expect(() => turn?.settle?.('settled')).not.toThrow()
     expect(() => telemetry(queryError)).not.toThrow()
     expect(recorded).toHaveLength(0)
   })
@@ -85,21 +95,28 @@ describe('telemetry sink', () => {
     })
   })
 
-  test('failed event with a duration ends at start + duration', () => {
+  test('chat.turn events add no span (startChatTurn owns the turn)', () => {
+    const before = recorded.length
     telemetry({
       type: 'chat.turn',
-      failed: true,
+      failed: false,
       start: 3000,
       duration: 40,
-      attributes: {
-        'basalt.chat.thread_id': 't1',
-        'basalt.chat.ttft_ms': 5,
-        'basalt.chat.parts': 1,
-        'basalt.chat.status': 'error',
-        'exception.type': 'Error',
-        'basalt.error.kind': 'network',
-      },
+      attributes: { 'basalt.chat.thread_id': 't1' },
     } as never)
-    expect(recorded.at(-1)).toMatchObject({ status: { code: SpanStatusCode.ERROR }, endTime: 3040 })
+    expect(recorded).toHaveLength(before)
+  })
+
+  test('startChatTurn returns a W3C traceparent and settle ends the span', () => {
+    const turn = telemetry.startChatTurn?.({ threadId: 't1', messageId: 'm1' })
+    expect(turn?.headers?.traceparent).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$/)
+    expect(recorded.at(-1)).toMatchObject({
+      name: 'chat.turn',
+      attributes: { 'basalt.chat.thread_id': 't1' },
+    })
+    expect(recorded.at(-1)?.endTime).toBeUndefined()
+    turn?.settle?.('failed')
+    expect(recorded.at(-1)?.status).toEqual({ code: SpanStatusCode.ERROR })
+    expect(ended).toBe(true)
   })
 })
