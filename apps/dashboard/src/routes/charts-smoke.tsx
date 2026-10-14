@@ -1,7 +1,6 @@
-// theme-allow-file in-body-page-title — dev-only chart smoke route: it is not a nav destination,
-// has no breadcrumb of its own, and the <Title order={2}> IS its only name.
 import { createFileRoute } from '@tanstack/react-router'
 import { Box, Stack, Title } from '@mantine/core'
+import { PageBar } from 'basalt-ui'
 import { ChartCard, Lines, Sparkline } from 'basalt-ui/charts'
 import type { ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
@@ -53,9 +52,7 @@ function ChartsSmokeRoute() {
 
   return (
     <Box p={24} maw={800}>
-      <Title order={2} mb="md">
-        basalt-ui/charts smoke test
-      </Title>
+      <PageBar title="basalt-ui/charts smoke test" />
 
       <Stack gap="xl">
         <Box>

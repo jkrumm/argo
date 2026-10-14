@@ -10,6 +10,7 @@ import {
   Code,
   CopyButton,
   Divider,
+  Flex,
   Group,
   Loader,
   Modal,
@@ -212,139 +213,151 @@ export function M365ExplorerPage(): React.ReactElement {
       />
 
       <Group align="stretch" gap="md" wrap="nowrap" style={{ minHeight: '70vh' }}>
-        {/* theme-allow card-inset — flush edge card: inner Box/ScrollArea own their own padding */}
-        <Card p={0} display="flex" style={{ flex: '0 0 360px', flexDirection: 'column' }}>
-          <Box p="sm">
-            <TextInput
-              placeholder="Filter chats / teams…"
-              value={filter}
-              onChange={(e) => setFilter(e.currentTarget.value)}
-              size="xs"
-            />
-          </Box>
-          <Divider />
-          <ScrollArea style={{ flex: 1 }} type="auto">
-            <Stack gap={2} p="xs">
-              <Text fw={600} size="xs" c="dimmed" tt="uppercase" pl={4}>
-                Chats ({chats.length})
-              </Text>
-              {chats.map((c) => {
-                const id = sourceIdFor(c.ref)
-                const labeled = labelsBySourceId.get(id)
-                const isSelected = selected?.kind === 'chat' && selected.chatId === c.ref.chatId
-                return (
-                  <SourceRow
-                    key={id}
-                    title={c.ref.displayName}
-                    subtitle={
-                      c.lastPreview?.text
-                        ? `${c.lastPreview.from ?? '?'}: ${c.lastPreview.text}`
-                        : 'No messages yet'
-                    }
-                    rightTop={formatTime(c.lastUpdatedAt)}
-                    badge={c.chatType}
-                    badgeColor={
-                      c.chatType === 'meeting' ? 'gray' : c.chatType === 'group' ? 'blue' : 'green'
-                    }
-                    selected={isSelected}
-                    label={labeled?.label}
-                    onClick={() => setSelected(c.ref)}
-                  />
-                )
-              })}
-
-              <Text fw={600} size="xs" c="dimmed" tt="uppercase" pl={4} mt="md">
-                Teams ({teamsData.teams.length})
-              </Text>
-              {teamsData.teams.map((team) => {
-                const isOpen = expandedTeamId === team.id
-                return (
-                  <Stack gap={2} key={team.id}>
+        <Card display="flex" style={{ flex: '0 0 360px', flexDirection: 'column' }}>
+          <Card.Section>
+            <Box p="sm">
+              <TextInput
+                placeholder="Filter chats / teams…"
+                value={filter}
+                onChange={(e) => setFilter(e.currentTarget.value)}
+                size="xs"
+              />
+            </Box>
+            <Divider />
+          </Card.Section>
+          <Card.Section style={{ flex: 1, minHeight: 0 }}>
+            <ScrollArea h="100%" type="auto">
+              <Stack gap={2} p="xs">
+                <Text fw={600} size="xs" c="dimmed" tt="uppercase" pl={4}>
+                  Chats ({chats.length})
+                </Text>
+                {chats.map((c) => {
+                  const id = sourceIdFor(c.ref)
+                  const labeled = labelsBySourceId.get(id)
+                  const isSelected = selected?.kind === 'chat' && selected.chatId === c.ref.chatId
+                  return (
                     <SourceRow
-                      title={team.displayName}
-                      subtitle={team.description ?? ''}
-                      badge={isOpen ? 'open' : 'team'}
-                      badgeColor={isOpen ? 'green' : 'gray'}
-                      onClick={() => setExpandedTeamId(isOpen ? null : team.id)}
+                      key={id}
+                      title={c.ref.displayName}
+                      subtitle={
+                        c.lastPreview?.text
+                          ? `${c.lastPreview.from ?? '?'}: ${c.lastPreview.text}`
+                          : 'No messages yet'
+                      }
+                      rightTop={formatTime(c.lastUpdatedAt)}
+                      badge={c.chatType}
+                      badgeColor={
+                        c.chatType === 'meeting'
+                          ? 'gray'
+                          : c.chatType === 'group'
+                            ? 'blue'
+                            : 'green'
+                      }
+                      selected={isSelected}
+                      label={labeled?.label}
+                      onClick={() => setSelected(c.ref)}
                     />
-                    {isOpen && (
-                      <Stack gap={2} pl="md">
-                        {channelsQuery.isLoading && expandedTeamId === team.id && (
-                          <Group gap="xs" pl="md">
-                            <Loader size="xs" />
-                            <Text size="xs" c="dimmed">
-                              Loading channels…
-                            </Text>
-                          </Group>
-                        )}
-                        {channelsQuery.data?.channels.map((ch) => {
-                          const ref: SourceRef = {
-                            kind: 'channel',
-                            teamId: team.id,
-                            channelId: ch.id,
-                            displayName: ch.displayName,
-                            teamName: team.displayName,
-                          }
-                          const id = sourceIdFor(ref)
-                          const labeled = labelsBySourceId.get(id)
-                          const isSelected =
-                            selected?.kind === 'channel' && selected.channelId === ch.id
-                          return (
-                            <SourceRow
-                              key={id}
-                              title={`# ${ch.displayName}`}
-                              subtitle={ch.description ?? ''}
-                              badge={ch.membershipType}
-                              badgeColor="blue"
-                              selected={isSelected}
-                              label={labeled?.label}
-                              onClick={() => setSelected(ref)}
-                            />
-                          )
-                        })}
-                      </Stack>
-                    )}
-                  </Stack>
-                )
-              })}
-            </Stack>
-          </ScrollArea>
+                  )
+                })}
+
+                <Text fw={600} size="xs" c="dimmed" tt="uppercase" pl={4} mt="md">
+                  Teams ({teamsData.teams.length})
+                </Text>
+                {teamsData.teams.map((team) => {
+                  const isOpen = expandedTeamId === team.id
+                  return (
+                    <Stack gap={2} key={team.id}>
+                      <SourceRow
+                        title={team.displayName}
+                        subtitle={team.description ?? ''}
+                        badge={isOpen ? 'open' : 'team'}
+                        badgeColor={isOpen ? 'green' : 'gray'}
+                        onClick={() => setExpandedTeamId(isOpen ? null : team.id)}
+                      />
+                      {isOpen && (
+                        <Stack gap={2} pl="md">
+                          {channelsQuery.isLoading && expandedTeamId === team.id && (
+                            <Group gap="xs" pl="md">
+                              <Loader size="xs" />
+                              <Text size="xs" c="dimmed">
+                                Loading channels…
+                              </Text>
+                            </Group>
+                          )}
+                          {channelsQuery.data?.channels.map((ch) => {
+                            const ref: SourceRef = {
+                              kind: 'channel',
+                              teamId: team.id,
+                              channelId: ch.id,
+                              displayName: ch.displayName,
+                              teamName: team.displayName,
+                            }
+                            const id = sourceIdFor(ref)
+                            const labeled = labelsBySourceId.get(id)
+                            const isSelected =
+                              selected?.kind === 'channel' && selected.channelId === ch.id
+                            return (
+                              <SourceRow
+                                key={id}
+                                title={`# ${ch.displayName}`}
+                                subtitle={ch.description ?? ''}
+                                badge={ch.membershipType}
+                                badgeColor="blue"
+                                selected={isSelected}
+                                label={labeled?.label}
+                                onClick={() => setSelected(ref)}
+                              />
+                            )
+                          })}
+                        </Stack>
+                      )}
+                    </Stack>
+                  )
+                })}
+              </Stack>
+            </ScrollArea>
+          </Card.Section>
         </Card>
 
-        {/* theme-allow card-inset — flush edge card: DetailPane owns its own padding */}
-        <Card display="flex" style={{ flex: 1, flexDirection: 'column' }} p={0}>
-          {!selected ? (
-            <Stack
-              gap="xs"
-              p="lg"
-              style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
-            >
-              <Text c="dimmed">
-                Pick a chat or channel on the left to preview its latest messages.
-              </Text>
-              <Text c="dimmed" size="xs">
-                {labelsData.labels.length} sources labeled so far
-              </Text>
-            </Stack>
-          ) : (
-            <DetailPane
-              selected={selected}
-              existing={labelsBySourceId.get(sourceIdFor(selected)) ?? null}
-              suggestedLabels={[...new Set([...SUGGESTED_LABELS, ...tagCounts.map(([t]) => t)])]}
-              onSave={(label, notes) =>
-                upsertLabel.mutate({
-                  sourceId: sourceIdFor(selected),
-                  kind: selected.kind,
-                  label,
-                  displayName: selected.displayName,
-                  notes,
-                })
-              }
-              onRemove={() => deleteLabel.mutate(sourceIdFor(selected))}
-              saving={upsertLabel.isPending}
-              removing={deleteLabel.isPending}
-            />
-          )}
+        <Card display="flex" style={{ flex: 1, flexDirection: 'column' }}>
+          <Card.Section style={{ flex: 1 }}>
+            <Flex direction="column" h="100%">
+              {!selected ? (
+                <Stack
+                  gap="xs"
+                  p="lg"
+                  style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+                >
+                  <Text c="dimmed">
+                    Pick a chat or channel on the left to preview its latest messages.
+                  </Text>
+                  <Text c="dimmed" size="xs">
+                    {labelsData.labels.length} sources labeled so far
+                  </Text>
+                </Stack>
+              ) : (
+                <DetailPane
+                  selected={selected}
+                  existing={labelsBySourceId.get(sourceIdFor(selected)) ?? null}
+                  suggestedLabels={[
+                    ...new Set([...SUGGESTED_LABELS, ...tagCounts.map(([t]) => t)]),
+                  ]}
+                  onSave={(label, notes) =>
+                    upsertLabel.mutate({
+                      sourceId: sourceIdFor(selected),
+                      kind: selected.kind,
+                      label,
+                      displayName: selected.displayName,
+                      notes,
+                    })
+                  }
+                  onRemove={() => deleteLabel.mutate(sourceIdFor(selected))}
+                  saving={upsertLabel.isPending}
+                  removing={deleteLabel.isPending}
+                />
+              )}
+            </Flex>
+          </Card.Section>
         </Card>
       </Group>
 
