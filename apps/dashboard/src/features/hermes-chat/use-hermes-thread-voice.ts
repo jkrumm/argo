@@ -6,10 +6,17 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react'
-import type { AgentPart, ChatMessage, ThreadRunState, TranscriptPart } from 'basalt-ui/agent'
-import type { ComposerHandle, MessageAffordances } from 'basalt-ui/agent-chat'
+import type {
+  AgentPart,
+  ChatMessage,
+  ComposerHandle,
+  MessageAffordances,
+  ThreadRunState,
+  TranscriptPart,
+} from 'basalt-ui/agent'
 import { useUiStore } from '../../lib/store'
 import { HERMES_CHAT_FEATURES } from './features'
+import { isLiveRun } from './run-liveness'
 import { useVoiceRecorder } from './voice/use-voice-recorder'
 import { useVoicePlayback } from './voice/voice-playback'
 import { VoiceControls } from './voice/voice-controls'
@@ -45,14 +52,16 @@ export function useHermesThreadVoice({
   rightSection: ReactNode
   recordingIndicator: ReactNode
 } {
-  const isStreaming = run !== undefined
+  const isStreaming = isLiveRun(run)
 
   // ── Voice: mode toggle + shared TTS playback ─────────────────────────────────
   const voiceMode = useUiStore((s) => s.voiceMode)
   const toggleVoiceMode = useUiStore((s) => s.toggleVoiceMode)
   const { audioAvailable, setAudioAvailable, primePlayback, readAloud } = useVoicePlayback()
   const voiceModeRef = useRef(voiceMode)
-  voiceModeRef.current = voiceMode
+  useEffect(() => {
+    voiceModeRef.current = voiceMode
+  }, [voiceMode])
 
   // ── Voice: auto-speak a finished reply, deferred while backgrounded ──────────
   const lastLiveTextRef = useRef('')
