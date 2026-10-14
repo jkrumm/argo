@@ -55,13 +55,13 @@ basalt-ui's `docs/waves/v2-chart-inventory.md` rows a1–a43 (40 production char
   (every non-dev route × light/dark × 1280×800/390×844, the 1.36 baseline's matrix), Lighthouse
   (`/`, `/garmin-health`, `/strength-tracker`; mobile + desktop; median of 3). GETs only — no lane
   posts to production.
-- **D4 — Owner call before Wave 12 (SSR).** SSR with argo's bearer-in-`localStorage` auth can render only
+- **D4 — Owner call before Wave 13 (SSR).** SSR with argo's bearer-in-`localStorage` auth can render only
   the shell: the server cannot fetch data on the user's behalf. Option A: an HttpOnly, Secure,
   SameSite=Strict session cookie minted from the bearer, accepted by the API next to the bearer, so
   loaders run on the server and sections stream with data (security-adjacent API change). Option B:
   SSR the shell plus sized pending boxes, data stays client-side (no auth change, a much smaller win
   over today's SPA). Tendency: A — B is not "SSR-first with streamed sections" for an authenticated
-  dashboard. Wave 12 does not start until the owner picks.
+  dashboard. Wave 13 does not start until the owner picks.
 - **D5 — Group-per-worker charts.** Chart waves fan out one worker per feature directory (disjoint
   files); a kind that cannot express an inventory row's "must support" column is a friction row and
   that chart stays a stub until the fixing minor.
@@ -339,7 +339,7 @@ of every route.
 Outward-facing: the orchestrator decides when it runs. Functional parity is the bar; polish happens
 live afterwards (basalt-ui W14). Warden watches argo in production and will react to cutover errors.
 Reordered 2026-10-14 by the orchestrator: the cutover ships the static nginx build now (every chart
-ported, no stub); SSR (Wave 12) waits on owner call D4 and ships live as its own deploy afterwards.
+ported, no stub); SSR (Wave 13) waits on owner call D4 and ships live as its own deploy afterwards.
 
 - [x] Pre-flight: Gate green, no `MIGRATION-STUB`, zero `basalt/*` suppressions, every argo row in
       `argo-friction.md` closed or explicitly accepted as a post-cutover loop item, `basalt-ui sync
@@ -405,7 +405,29 @@ turn classified, before/after screens for the fixes, and the exit-criterion tabl
 - **Known, not fixed:** `explorer-page.tsx` `M365ExplorerPage`/`DetailPane` are very-high complexity (fallow), nested `badgeColor` ternary; after a failed first turn the list and thread composers both show (not investigated). The gateway review of #41 diffs against a stale worktree base and reports merged work as deleted; read `git diff origin/master...HEAD` after `git fetch` instead.
 - **Cleanup:** worktrees for merged branches removed with `rd fan --clean`; `w11/dx-trial` worktree kept deliberately.
 
-## Wave 12 — Rendering: SSR-first, streamed sections <!-- status: pending (blocked on D4) -->
+## Wave 12 — Loop round 2: adopt 2.6, zero waivers, second DX trial <!-- status: active -->
+
+Round 2 of the loop on live master. The exit criterion is the same four-part one (Wave 11 intro); this
+round must record each part as met or name the friction row that keeps it open.
+
+- [ ] Bump both pins to basalt-ui 2.6.0 exact; `basalt-ui doctor` and `sync --check` clean. 2.6.0 makes
+      `basalt/query-fn-unwrap` live again (dead since 1.29.0): fix every new finding at the source.
+- [ ] Adopt the fixes for rows 36-41: strength-composite binds `store.field.exercise.withFallback(leader)`
+      (drop the per-leader store); timer-card binds `externalField({ values, fallback, labels, store })`
+      over the zustand store and mounts `ViewTabs` in the card header slot (drop the last `theme-allow`);
+      the telemetry sink gets `startChatTurn` so the chat request carries `traceparent` (CORS on the API
+      allows it); check garmin-health y labels and the weekly-volume landmark swatches in dark mode.
+- [ ] Exit-criterion evidence: `check-theme --audit-allows` shows zero `basalt/*` waivers; a FRESH DX
+      trial (new agent, new throwaway branch, never merged, different task from round 1: a page with a
+      filtered table and a chart sharing one store field) records every wrong turn; `make evidence` bundle
+      and Lighthouse re-run against `baseline-1.41.md`, regressions accepted or filed; ClickStack shows
+      one chat turn whose API span is a child of the dashboard's `chat.turn` span.
+
+**Evidence:** `w12.md` — the four-part exit table for round 2, each part met or blocked by a named row.
+
+**Left behind:**
+
+## Wave 13 — Rendering: SSR-first, streamed sections <!-- status: pending (blocked on D4) -->
 
 Blocked on D4. Pattern: basalt-ui `docs/waves/evidence/w10/ssr.md` and the `basalt-app` skill's
 "Stream a slow section".
