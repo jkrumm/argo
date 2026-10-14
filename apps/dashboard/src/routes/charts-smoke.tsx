@@ -11,15 +11,24 @@ export const Route = createFileRoute('/charts-smoke')({
   component: ChartsSmokeRoute,
 })
 
-const HRV = [45, 52, 48, 61, 55, 59, 63]
-const RESTING_HR = [58, 56, 57, 54, 55, 53, 52]
+const PAIRS: readonly (readonly [hrv: number, restingHr: number])[] = [
+  [45, 58],
+  [52, 56],
+  [48, 57],
+  [61, 54],
+  [55, 55],
+  [59, 53],
+  [63, 52],
+]
+
+const HRV = PAIRS.map(([hrv]) => hrv)
 
 type Row = { date: Date; hrv: number; restingHr: number }
 
-const ROWS: Row[] = HRV.map((hrv, i) => ({
+const ROWS: Row[] = PAIRS.map(([hrv, restingHr], i) => ({
   date: new Date(Date.UTC(2026, 3, i + 1)),
   hrv,
-  restingHr: RESTING_HR[i] ?? 0,
+  restingHr,
 }))
 
 const HRV_SERIES: ChartSeries<Row> = {
@@ -37,6 +46,7 @@ const RESTING_HR_SERIES: ChartSeries<Row> = {
 }
 
 const formatMs = (v: number) => `${Math.round(v)} ms`
+const formatRounded = (v: number) => String(Math.round(v))
 
 function ChartsSmokeRoute() {
   if (!import.meta.env.DEV) return null
@@ -47,9 +57,9 @@ function ChartsSmokeRoute() {
         basalt-ui/charts smoke test
       </Title>
 
-      <Stack gap={24}>
+      <Stack gap="xl">
         <Box>
-          <Title order={3} mb={8} fz={VX.text.md}>
+          <Title order={3} mb="sm" fz={VX.text.md}>
             Sparkline
           </Title>
           <Sparkline
@@ -80,7 +90,7 @@ function ChartsSmokeRoute() {
             height={200}
             x={(d) => d.date}
             series={[HRV_SERIES, RESTING_HR_SERIES]}
-            y={{ domain: 'auto', format: formatMs }}
+            y={{ domain: 'auto', format: formatRounded }}
           />
         </ChartCard>
       </Stack>

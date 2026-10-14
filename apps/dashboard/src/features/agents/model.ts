@@ -4,6 +4,7 @@ import type {
   OverviewRecord,
   OverviewSnapshot,
   OverviewSummary,
+  HistoryPoint,
 } from '../../lib/queries/agents'
 
 // Presentation vocabulary for the agents page. The STATE and RECOMMENDATION
@@ -154,4 +155,12 @@ export function breakdownLine(summary: OverviewSummary | undefined): string {
     .filter(({ value }) => typeof value === 'number' && value > 0)
     .map(({ key, value }) => `${value} ${key}`)
     .join(' · ')
+}
+
+/** One count's trend over the history window. A point without a summary is omitted, not plotted as 0. */
+export function trendSeries(
+  history: HistoryPoint[] | undefined,
+  key: 'needsYou' | 'working',
+): number[] {
+  return (history ?? []).flatMap((p) => (p.summary ? [p.summary[key] ?? 0] : []))
 }
