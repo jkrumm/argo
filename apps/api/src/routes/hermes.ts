@@ -30,6 +30,7 @@ import {
   type FetchImpl,
 } from '../lib/hermes-upstream.js'
 import { parseHermesEvents } from '../lib/hermes-events.js'
+import { hermesTraceAttributes } from '../lib/hermes-trace.js'
 import { createHermesChunkMapper } from '../lib/hermes-chunks.js'
 import {
   clearActiveStream,
@@ -965,11 +966,7 @@ export function createHermesRoutes(overrides: Partial<HermesRouteDeps> = {}) {
             const mapper = createHermesChunkMapper()
             mapperRef.current = mapper
 
-            const traceAttributes = {
-              'argo.hermes.thread_id': threadId,
-              'argo.hermes.stream_id': streamId,
-              'argo.hermes.session_id': sessionId,
-            }
+            const traceAttributes = hermesTraceAttributes({ threadId, streamId, sessionId })
             let hermesSpan: Span | undefined
             const usageStartedAt = new Date().toISOString()
             const usageStartMs = Date.now()
