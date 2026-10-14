@@ -1,16 +1,10 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { ViewTabs } from 'basalt-ui/controls'
-import { ChartCard, StackedArea, type StackedAreaBand } from 'basalt-ui/charts'
+import { ChartCard, StackedArea } from 'basalt-ui/charts'
 import { usageQueries, type Grain, type Range } from '../../../lib/queries/usage'
 import { usageStore } from '../../../lib/window-stores'
-import type { BillingValue, CostGroupBy, TimeBucket, WorkspaceValue } from '../types'
-import { colorForBilling, colorForKey, colorForSource, fmtUsd } from '../constants'
-
-function colorForGroup(groupBy: CostGroupBy): (key: string) => string {
-  if (groupBy === 'source') return colorForSource
-  if (groupBy === 'billing') return colorForBilling
-  return colorForKey
-}
+import type { BillingValue, CostGroupBy, WorkspaceValue } from '../types'
+import { colorForGroup, fmtUsd, groupBands, toTimePoints } from '../constants'
 
 export default function CostOverTime({
   range,
@@ -29,14 +23,8 @@ export default function CostOverTime({
     usageQueries.timeseries({ range, grain, metric: 'cost', groupBy, billing, workspace }),
   )
 
-  const buckets = data.buckets as TimeBucket[]
-  const colorFn = colorForGroup(groupBy)
-  const series: StackedAreaBand<TimeBucket>[] = data.groupKeys.map((k) => ({
-    key: k,
-    label: k,
-    color: colorFn(k),
-    getValue: (d) => d.groups[k] ?? 0,
-  }))
+  const points = toTimePoints(data.buckets)
+  const series = groupBands(data.groupKeys, colorForGroup(groupBy))
 
   return (
     <ChartCard
@@ -47,13 +35,13 @@ export default function CostOverTime({
     >
       <StackedArea
         ariaLabel="Cost over time, stacked by group"
-        data={buckets}
+        data={points}
         height={280}
-        x={(d) => new Date(d.bucket)}
+        x={(d) => d.date}
         cursorResolution="leading"
         series={series}
         y={{ format: fmtUsd }}
-        state={{ empty: buckets.length === 0 || series.length === 0 }}
+        state={{ empty: series.length === 0 }}
       />
     </ChartCard>
   )

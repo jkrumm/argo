@@ -2,8 +2,8 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { usageQueries, type Grain, type Range } from '../../../lib/queries/usage'
-import type { BillingValue, TimeBucket, WorkspaceValue } from '../types'
-import { fmtMs } from '../constants'
+import type { BillingValue, WorkspaceValue } from '../types'
+import { dayToDate, fmtMs } from '../constants'
 
 type Point = { date: Date; p95: number | null }
 
@@ -39,8 +39,8 @@ export default function LatencyP95({
     }),
   )
 
-  const points: Point[] = (data.buckets as TimeBucket[]).map((b) => ({
-    date: new Date(b.bucket),
+  const points: Point[] = data.buckets.map((b) => ({
+    date: dayToDate(b.bucket),
     p95: b.groups['value'] ?? null,
   }))
 
