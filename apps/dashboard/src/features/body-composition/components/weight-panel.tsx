@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   Badge,
   Button,
@@ -12,7 +12,7 @@ import {
   TextInput,
   Transition,
 } from '@mantine/core'
-import { emit } from 'basalt-ui/notifications'
+import { emit } from 'basalt-ui/commands'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { IconCheck, IconMinus, IconTrendingDown, IconTrendingUp } from '@tabler/icons-react'
 import { CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
@@ -154,13 +154,12 @@ function WeightSummaryCards({ summary }: { summary: WeightSummary }) {
 
 function WeightEntryForm({ defaultWeight }: { defaultWeight: number | null }) {
   const [date, setDate] = useState(today())
-  const [weight, setWeight] = useState<number | ''>(defaultWeight ?? '')
+  const [typedWeight, setWeight] = useState<number | ''>(defaultWeight ?? '')
   const [justSaved, setJustSaved] = useState(false)
   const createWeightLog = useCreateWeightLog()
 
-  useEffect(() => {
-    if (weight === '' && defaultWeight !== null) setWeight(defaultWeight)
-  }, [defaultWeight, weight])
+  // An empty field falls back to the default weight as soon as one is known.
+  const weight = typedWeight === '' && defaultWeight !== null ? defaultWeight : typedWeight
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

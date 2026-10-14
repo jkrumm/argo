@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { emit } from 'basalt-ui/notifications'
+import { emit } from 'basalt-ui/commands'
 import { getToken } from '../../../lib/auth'
 import { apiBase } from '../../../lib/api-base'
 import { mimeToExt, pickRecordingMime } from './audio-utils'
@@ -39,7 +39,9 @@ export function useVoiceRecorder(opts: UseVoiceRecorderOpts): VoiceRecorder {
 
   // Keep callbacks in refs so the recorder handlers stay stable across renders.
   const cbRef = useRef(opts)
-  cbRef.current = opts
+  useEffect(() => {
+    cbRef.current = opts
+  })
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current)

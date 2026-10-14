@@ -4,6 +4,7 @@ import { relativeTime } from 'basalt-ui/format'
 import { VX } from 'basalt-ui/tokens'
 import { IconAlertTriangle, IconCircleCheck } from '@tabler/icons-react'
 import type { HumanQueueItem } from '../../lib/queries/agents'
+import { useNow } from '../../lib/use-now'
 import { formatWaitDuration, isAbandonedWait, STATE_COLOR, type AgentRow } from './model'
 
 type Props = {
@@ -23,9 +24,10 @@ type Props = {
  * and must read that way rather than blend into the same list.
  */
 export function NeedsYouSection({ humanQueue, agents }: Props) {
+  const now = useNow()
   const waiting = agents.filter((a) => a.state === 'needs_you')
-  const liveWaiting = waiting.filter((a) => !isAbandonedWait(a))
-  const abandonedWaiting = waiting.filter((a) => isAbandonedWait(a))
+  const liveWaiting = waiting.filter((a) => !isAbandonedWait(a, now))
+  const abandonedWaiting = waiting.filter((a) => isAbandonedWait(a, now))
   const count = humanQueue.length + waiting.length
 
   return (
@@ -97,7 +99,7 @@ export function NeedsYouSection({ humanQueue, agents }: Props) {
                     <Text size="xs" c="red">
                       {agent.blocker ?? agent.waitingFor ?? agent.standing ?? 'waiting on you'}
                       {agent.lastActivityAt
-                        ? ` · waiting ${formatWaitDuration(Date.now() - agent.lastActivityAt)}`
+                        ? ` · waiting ${formatWaitDuration(now - agent.lastActivityAt)}`
                         : ''}
                     </Text>
                   </Stack>

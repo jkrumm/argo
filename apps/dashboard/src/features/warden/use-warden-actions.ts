@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { emit } from 'basalt-ui/notifications'
+import { emit } from 'basalt-ui/commands'
 import {
   enqueueWardenAction,
   type WardenActionVerb,
@@ -26,7 +26,9 @@ export function useWardenActions(
 ) {
   const [pending, setPending] = useState<PendingActions>({})
   const boardItemsRef = useRef(boardItems)
-  boardItemsRef.current = boardItems
+  useEffect(() => {
+    boardItemsRef.current = boardItems
+  }, [boardItems])
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -35,10 +37,13 @@ export function useWardenActions(
     return () => clearInterval(id)
   }, [])
 
-  useEffect(() => {
-    if (!boardItems) return
-    setPending((prev) => reconcilePendingActions(prev, boardItems))
-  }, [boardItems])
+  // Reconcile as soon as a new board arrives — adjusting state during render (keyed on the
+  // previous `boardItems`) rather than in an effect, so there is no extra committed render.
+  const [reconciledItems, setReconciledItems] = useState(boardItems)
+  if (boardItems !== reconciledItems) {
+    setReconciledItems(boardItems)
+    if (boardItems) setPending((prev) => reconcilePendingActions(prev, boardItems))
+  }
 
   const { mutate } = useMutation({
     mutationFn: (params: {

@@ -157,9 +157,12 @@ export function useWorkoutDrafts(): {
   // below out of the effect dependency lists, so the flush listeners register
   // once rather than on every mutation state change.
   const saveRef = useRef(save.mutate)
-  saveRef.current = save.mutate
   const savingRef = useRef(false)
-  savingRef.current = save.isPending || remove.isPending
+  const saving = save.isPending || remove.isPending
+  useEffect(() => {
+    saveRef.current = save.mutate
+    savingRef.current = saving
+  }, [save.mutate, saving])
 
   const flush = useCallback(() => {
     if (timerRef.current !== null) {
