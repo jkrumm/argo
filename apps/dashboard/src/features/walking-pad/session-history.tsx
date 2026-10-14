@@ -135,7 +135,6 @@ export function SessionHistoryTable() {
       columns={columns}
       enableSorting={false}
       maxHeight={TABLE_BODY_MAX_HEIGHT}
-      minWidth={640}
       stickyHeader
       striped
       highlightOnHover
