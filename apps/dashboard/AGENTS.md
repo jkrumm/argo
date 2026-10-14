@@ -36,6 +36,14 @@ Routes live in `src/routes/`. The generated route tree (`src/routeTree.gen.ts`) 
 
 See `.claude/rules/basalt-state.md`.
 
+**Where things live.** A page is a file route in `src/routes/<name>.tsx` (the route tree is
+generated) plus a feature directory `src/features/<name>/`. The nav is `NAV` in `src/lib/nav.tsx`
+(`defineNav`, groups such as System); a shell page renders `<PageBar />` first, the breadcrumb comes
+from the nav `label`. A new chart metric needs a `defineSeries` row in `src/lib/series.ts` and a
+`DESIGN.md` dictionary row only when it is one of several series; a lone single-series chart stays
+neutral (`var(--vx-line)`). A fresh git worktree needs `bun install` before `node_modules/basalt-ui`
+(`llms.txt`, `MIGRATING.md`, the rules' targets) exists.
+
 **`toWindow` IS the projection — there is no `resolveWindow`.** `field.range.toWindow(v)` gives
 `{ window }` for a preset and `{ from, to }` for a custom range, and the presets argo's API refuses
 (`3m`/`6m`/`1y`/`ytd`) declare a `window:` resolver ON THE FIELD in `lib/window-stores.ts`, so they
