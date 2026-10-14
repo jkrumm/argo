@@ -26,6 +26,5 @@ cannot be linked, and a basalt control refuses to take it (`value`/`onChange` do
   owning component.
 - `src/lib/auth.ts` — the session gate, `persist` middleware.
 
-Sidebar collapse is NOT here: it moved to `createPersistedState`
-(`src/lib/sidebar-collapsed.ts`) when `BasaltShell`'s own uncontrolled path did. Do not add a
-third Zustand store for UI state a store field or `createPersistedState` can hold.
+Sidebar collapse is NOT here: `BasaltShell` persists it itself (`storageKey="argo-sidebar"`). Do
+not add a third Zustand store for UI state a store field or `createPersistedState` can hold.
