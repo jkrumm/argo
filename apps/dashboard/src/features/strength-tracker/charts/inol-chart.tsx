@@ -141,7 +141,7 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
           )}
         </Group>
       }
-      state={chartStateOf(query, latest === undefined && 'No sessions in this window')}
+      state={chartStateOf(query, latest === undefined ? 'No sessions in this window' : undefined)}
       placeholderHeight={HEIGHT}
     >
       <Lines

@@ -98,7 +98,7 @@ export function PaceTrendChart({ params }: { params: WalkingPadWindowParams }) {
           </Text>
         ) : null
       }
-      state={chartStateOf(query, !hasData && 'No pace data — log a session first.')}
+      state={chartStateOf(query, !hasData ? 'No pace data — log a session first.' : undefined)}
       placeholderHeight={280}
     >
       <Lines

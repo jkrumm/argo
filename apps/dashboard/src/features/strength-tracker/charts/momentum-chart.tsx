@@ -123,7 +123,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
           )}
         </Group>
       }
-      state={chartStateOf(query, !hasData && 'Need at least 2 sessions per exercise')}
+      state={chartStateOf(query, !hasData ? 'Need at least 2 sessions per exercise' : undefined)}
       placeholderHeight={HEIGHT}
     >
       <DualPanel

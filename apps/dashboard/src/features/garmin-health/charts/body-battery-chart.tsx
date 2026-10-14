@@ -85,7 +85,10 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
           </Group>
         ) : null
       }
-      state={chartStateOf(query, points.length === 0 && 'No body battery in this window')}
+      state={chartStateOf(
+        query,
+        points.length === 0 ? 'No body battery in this window' : undefined,
+      )}
       placeholderHeight={280}
     >
       <Bars

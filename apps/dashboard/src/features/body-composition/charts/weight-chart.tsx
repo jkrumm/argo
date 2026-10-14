@@ -87,7 +87,9 @@ export default function WeightChart({ params }: { params: WeightLogWindowParams 
   }, [chartData, goal])
 
   const empty =
-    chartData.length === 0 ? 'No entries yet — log your first weight to start the trend.' : false
+    chartData.length === 0
+      ? 'No entries yet — log your first weight to start the trend.'
+      : undefined
 
   return (
     <ChartCard

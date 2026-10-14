@@ -33,7 +33,7 @@ const STRESS_SERIES: ChartSeries<StressPoint>[] = [
     label: 'Avg Stress',
     color: VX.line,
     strokeWidth: 2,
-    area: true,
+    area: 'zones',
     getValue: (d) => d.avgStress,
     formatValue: fmtStress,
   },
@@ -53,6 +53,13 @@ const ZONE_LINES = [
   { value: 25, color: VX.goodRef, dashed: true },
   { value: 50, color: VX.warnRef, dashed: true },
   { value: 75, color: VX.badRef, dashed: true },
+]
+
+/** Rest and low share the good hue; the area gradient hard-stops at each boundary. */
+const STRESS_ZONES = [
+  { from: 0, to: 50, fill: VX.good },
+  { from: 50, to: 75, fill: VX.warn },
+  { from: 75, to: 100, fill: VX.bad },
 ]
 
 export default function StressChart({ params }: { params: SummaryParams }) {
@@ -91,7 +98,10 @@ export default function StressChart({ params }: { params: SummaryParams }) {
           </Group>
         ) : null
       }
-      state={chartStateOf(query, chartData.length === 0 && 'No stress readings in this window')}
+      state={chartStateOf(
+        query,
+        chartData.length === 0 ? 'No stress readings in this window' : undefined,
+      )}
       placeholderHeight={CHART_HEIGHT}
     >
       <Lines
@@ -103,7 +113,7 @@ export default function StressChart({ params }: { params: SummaryParams }) {
         series={STRESS_SERIES}
         y={{ domain: [0, 100], ticks: 5 }}
         refLines={ZONE_LINES}
-        thresholds={[{ value: 75, side: 'above', fill: VX.bad }]}
+        zones={STRESS_ZONES}
         tooltip={{
           rows: (d) => {
             if (d.avgStress === null) return []

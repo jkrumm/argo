@@ -136,7 +136,7 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
           </Group>
         ) : null
       }
-      state={chartStateOf(query, !hasData && 'No activity in this window')}
+      state={chartStateOf(query, !hasData ? 'No activity in this window' : undefined)}
       placeholderHeight={CHART_HEIGHT}
     >
       <Bars

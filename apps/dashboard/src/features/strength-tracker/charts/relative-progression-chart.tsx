@@ -76,7 +76,7 @@ export default function RelativeProgressionChart({ params }: { params: StrengthQ
           </Group>
         ) : null
       }
-      state={chartStateOf(query, !hasAny && 'No progression data in this window')}
+      state={chartStateOf(query, !hasAny ? 'No progression data in this window' : undefined)}
       placeholderHeight={HEIGHT}
     >
       <Lines

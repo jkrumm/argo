@@ -102,7 +102,7 @@ export function LengthHistogramChart({ params }: { params: WalkingPadWindowParam
         query,
         (enabled.length === 0 && 'No metric selected — toggle one in the page header.') ||
           (totalSessions === 0 && 'No sessions in this window.') ||
-          false,
+          undefined,
       )}
       placeholderHeight={CHART_HEIGHT}
     >

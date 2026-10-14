@@ -110,7 +110,7 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
           </Group>
         ) : null
       }
-      state={chartStateOf(query, !hasAnyPoint && 'No estimated 1RM in this window')}
+      state={chartStateOf(query, !hasAnyPoint ? 'No estimated 1RM in this window' : undefined)}
       placeholderHeight={HEIGHT}
     >
       <Lines

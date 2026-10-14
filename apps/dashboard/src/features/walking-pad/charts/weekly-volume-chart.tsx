@@ -75,7 +75,7 @@ export function WeeklyVolumeChart({ params }: { params: WalkingPadWindowParams }
         query,
         (enabled.length === 0 && 'No metric selected — toggle one in the page header.') ||
           (!hasData && 'No weekly data in this window.') ||
-          false,
+          undefined,
       )}
       placeholderHeight={280}
     >

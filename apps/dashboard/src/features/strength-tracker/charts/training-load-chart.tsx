@@ -108,7 +108,7 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
       }
       state={chartStateOf(
         query,
-        !enoughData && 'Not enough data — need at least 2 weeks of sessions',
+        !enoughData ? 'Not enough data — need at least 2 weeks of sessions' : undefined,
       )}
       placeholderHeight={HEIGHT}
     >

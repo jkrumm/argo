@@ -198,10 +198,11 @@ export default function StrengthCompositeChart({
       }
       state={chartStateOf(
         query,
-        !hasLines &&
-          (points.length === 0
+        hasLines
+          ? undefined
+          : points.length === 0
             ? `No composite data for ${exerciseLabel(selected)}`
-            : `Not enough sessions for ${exerciseLabel(selected)} yet — needs at least 3`),
+            : `Not enough sessions for ${exerciseLabel(selected)} yet — needs at least 3`,
       )}
       placeholderHeight={HEIGHT}
     >

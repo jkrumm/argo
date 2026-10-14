@@ -140,7 +140,7 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
           ) : null}
         </Group>
       }
-      state={chartStateOf(query, !hasData && `No volume data for ${exLabel}`)}
+      state={chartStateOf(query, !hasData ? `No volume data for ${exLabel}` : undefined)}
       placeholderHeight={HEIGHT}
     >
       <Bars

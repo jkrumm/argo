@@ -83,7 +83,7 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
           </Group>
         ) : null
       }
-      state={chartStateOf(query, !hasRecovery && 'No recovery scores in this window')}
+      state={chartStateOf(query, !hasRecovery ? 'No recovery scores in this window' : undefined)}
       placeholderHeight={280}
     >
       <Lines

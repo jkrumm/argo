@@ -181,7 +181,7 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
           {activeDays} active · {fmtMin(totalMin)}
         </Text>
       }
-      state={chartStateOf(query, points.length === 0 && 'No activities in this window')}
+      state={chartStateOf(query, points.length === 0 ? 'No activities in this window' : undefined)}
       placeholderHeight={CHART_HEIGHT}
     >
       <Bars

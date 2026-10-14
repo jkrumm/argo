@@ -79,7 +79,7 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
           </Group>
         ) : null
       }
-      state={chartStateOf(query, !hasAcwr && 'No training load in this window')}
+      state={chartStateOf(query, !hasAcwr ? 'No training load in this window' : undefined)}
       placeholderHeight={280}
     >
       <Lines

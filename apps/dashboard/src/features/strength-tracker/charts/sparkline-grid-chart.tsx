@@ -62,7 +62,7 @@ export default function SparklineGridChart({ params }: { params: StrengthQueryPa
       title="Strength Scan"
       subtitle="All lifts at a glance"
       info={METRIC_TOOLTIPS.strengthScan}
-      state={chartStateOf(query, !hasData && 'No data — start logging workouts.')}
+      state={chartStateOf(query, !hasData ? 'No data — start logging workouts.' : undefined)}
       placeholderHeight={180}
     >
       <Table verticalSpacing="xs" horizontalSpacing="sm" striped="even">

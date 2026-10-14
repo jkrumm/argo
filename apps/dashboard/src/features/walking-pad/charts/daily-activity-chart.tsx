@@ -94,7 +94,7 @@ export function DailyActivityChart({ params }: { params: WalkingPadWindowParams 
         query,
         (enabled.length === 0 && 'No metric selected — toggle one in the page header.') ||
           (!hasData && 'No walks in this window') ||
-          false,
+          undefined,
       )}
       placeholderHeight={280}
     >

@@ -62,7 +62,7 @@ export function TimeOfDayChart({
       }
       state={chartStateOf(
         query,
-        totalSessions === 0 && 'No walks yet — heatmap unlocks on first session.',
+        totalSessions === 0 ? 'No walks yet — heatmap unlocks on first session.' : undefined,
       )}
       placeholderHeight={DEFAULT_HEIGHT}
     >

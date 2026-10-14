@@ -98,7 +98,10 @@ export default function DivergenceChart({ params }: { params: SummaryParams }) {
           </Group>
         ) : null
       }
-      state={chartStateOf(query, points.length === 0 && 'No training load in this window')}
+      state={chartStateOf(
+        query,
+        points.length === 0 ? 'No training load in this window' : undefined,
+      )}
       placeholderHeight={CHART_HEIGHT}
     >
       <DualPanel

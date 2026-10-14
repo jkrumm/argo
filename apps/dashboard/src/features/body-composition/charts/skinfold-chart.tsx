@@ -64,7 +64,7 @@ export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams
   const empty =
     chartData.length === 0
       ? 'No readings yet — log your first caliper session to start the trend.'
-      : false
+      : undefined
 
   return (
     <ChartCard

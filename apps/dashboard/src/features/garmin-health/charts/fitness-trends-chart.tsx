@@ -4,7 +4,7 @@ import { Group, Text } from '@mantine/core'
 import { dot } from '@tanstack/charts/dot'
 import { lineY } from '@tanstack/charts/line'
 import { decorative } from '@tanstack/charts/mark/decorative'
-import { CartesianChart, ChartCard, type ChartSeries } from 'basalt-ui/charts'
+import { CartesianChart, ChartCard, chartCurve, type ChartSeries } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { SERIES } from '../../../lib/series'
@@ -144,7 +144,10 @@ export default function FitnessTrendsChart({ params }: { params: SummaryParams }
       subtitle="Is my body adapting?"
       info={METRIC_TOOLTIPS.fitnessTrends}
       actions={headerExtra}
-      state={chartStateOf(query, chartData.length === 0 && 'No fitness readings in this window')}
+      state={chartStateOf(
+        query,
+        chartData.length === 0 ? 'No fitness readings in this window' : undefined,
+      )}
       placeholderHeight={CHART_HEIGHT}
     >
       <CartesianChart
@@ -182,6 +185,7 @@ export default function FitnessTrendsChart({ params }: { params: SummaryParams }
               x: 'x',
               y: 'y',
               z: 'series',
+              curve: chartCurve('monotone'),
               stroke: s.color,
               strokeWidth: LINE_WIDTH,
               strokeOpacity: opacity,

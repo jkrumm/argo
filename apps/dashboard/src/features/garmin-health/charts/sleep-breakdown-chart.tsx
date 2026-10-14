@@ -113,7 +113,7 @@ export default function SleepBreakdownChart({ params }: { params: SummaryParams 
           </Group>
         ) : null
       }
-      state={chartStateOf(query, sleepData.length === 0 && 'No sleep in this window')}
+      state={chartStateOf(query, sleepData.length === 0 ? 'No sleep in this window' : undefined)}
       placeholderHeight={CHART_HEIGHT}
     >
       <Bars

@@ -97,7 +97,10 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
           </Group>
         ) : null
       }
-      state={chartStateOf(query, latest === null && 'Need ≥ 7 days of Garmin daily metrics')}
+      state={chartStateOf(
+        query,
+        latest === null ? 'Need ≥ 7 days of Garmin daily metrics' : undefined,
+      )}
       placeholderHeight={HEIGHT}
     >
       <Lines

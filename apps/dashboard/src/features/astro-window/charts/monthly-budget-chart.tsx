@@ -91,7 +91,10 @@ export default function MonthlyBudgetChart({ site }: { site: Site }) {
       title="Annual Visibility Budget"
       subtitle={`Usable galactic-core hours per month at ${site.name} — is the site worth the drive at all`}
       info={METRIC_TOOLTIPS.monthlyBudget}
-      state={chartStateOf(query, rows.length === 0 && 'No visibility budget for this site')}
+      state={chartStateOf(
+        query,
+        rows.length === 0 ? 'No visibility budget for this site' : undefined,
+      )}
       placeholderHeight={CHART_HEIGHT}
     >
       <Bars
