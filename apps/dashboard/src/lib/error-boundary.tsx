@@ -1,4 +1,4 @@
-import { Alert, Button, Code, Container, Group, Stack, Text } from '@mantine/core'
+import { Alert, Button, Code, Container, Group, ScrollArea, Stack, Text } from '@mantine/core'
 import { IconAlertTriangle, IconRefresh } from '@tabler/icons-react'
 import { PageTitle } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
@@ -26,10 +26,11 @@ export function CrashFallback({ error: raw }: { error: unknown }) {
         </Alert>
 
         {import.meta.env.DEV && error.stack && (
-          // theme-allow raw-scroll-container — crash-fallback stack trace: renders when something upstream broke, so it stays a plain scrollable node rather than depending on ScrollArea/theme context that may itself be implicated.
-          <Code block style={{ fontSize: VX.text.micro, maxHeight: 280, overflow: 'auto' }}>
-            {error.stack}
-          </Code>
+          <ScrollArea.Autosize mah={280}>
+            <Code block style={{ fontSize: VX.text.micro }}>
+              {error.stack}
+            </Code>
+          </ScrollArea.Autosize>
         )}
 
         <Group gap="sm">
