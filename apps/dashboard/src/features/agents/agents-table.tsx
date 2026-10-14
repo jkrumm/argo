@@ -1,5 +1,5 @@
 import { Badge, Group, Stack, Text } from '@mantine/core'
-import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
+import { BasaltDataTable, createColumnHelper } from 'basalt-ui/table'
 import { relativeTime } from 'basalt-ui/format'
 import type { OverviewSnapshot, OverviewSummary } from '../../lib/queries/agents'
 import {

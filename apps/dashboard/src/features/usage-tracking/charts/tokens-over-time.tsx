@@ -1,67 +1,15 @@
-import { useMemo } from 'react'
-import { useSuspenseQuery } from '@tanstack/react-query'
-import { ViewTabs } from 'basalt-ui/controls'
-import { ChartCard, StackedArea, type ChartSeries } from 'basalt-ui/charts'
-import { usageQueries, type Grain, type Range } from '../../../lib/queries/usage'
-import { usageStore } from '../../../lib/window-stores'
+import { type Grain, type Range } from '../../../lib/queries/usage'
 import type { BillingValue, TokensGroupBy, WorkspaceValue } from '../types'
-import { colorForKey, colorForSource, fmtCount } from '../constants'
+import { ChartCard } from 'basalt-ui/charts'
 
-type Bucket = { bucket: string; groups: Record<string, number | null> }
-
-function colorForGroup(groupBy: TokensGroupBy): (key: string) => string {
-  if (groupBy === 'source') return colorForSource
-  return colorForKey
-}
-
-export default function TokensOverTime({
-  range,
-  grain,
-  billing,
-  workspace,
-  groupBy,
-}: {
+// MIGRATION-STUB(w7): TokensOverTime is not ported to basalt-ui 2.0 yet; the signature is kept so
+// callers compile, and the port (docs/waves/PLAN.md, Wave 7) replaces this body.
+export default function TokensOverTime(_props: {
   range: Range
   grain: Grain
   billing?: BillingValue[] | undefined
   workspace?: WorkspaceValue[] | undefined
   groupBy: TokensGroupBy
 }) {
-  const { data } = useSuspenseQuery(
-    usageQueries.timeseries({ range, grain, metric: 'tokens', groupBy, billing, workspace }),
-  )
-
-  const colorFn = useMemo(() => colorForGroup(groupBy), [groupBy])
-  const buckets = data.buckets as Bucket[]
-  const groupKeys = data.groupKeys
-
-  const series: ChartSeries<Bucket>[] = groupKeys.map((k) => ({
-    key: k,
-    label: k,
-    color: colorFn(k),
-    mark: 'area' as const,
-    getValue: (d) => d.groups[k] ?? 0,
-  }))
-
-  return (
-    <ChartCard
-      title="Tokens over time"
-      subtitle="Sum of incremental token columns, bucketed"
-      info="Total token volume (input + output + cache_write + reasoning) over time. cache_read is excluded — it's the full prior context re-read from cache on every turn, not a delta, so summing it across rows would inflate the total. Group by sub-tool to see which agent-gateway workflows burn tokens."
-      actions={<ViewTabs field={usageStore.field.tokensGroupBy} label="Group by" />}
-    >
-      {buckets.length > 0 && (
-        <StackedArea
-          ariaLabel="Tokens over time, stacked by group"
-          data={buckets}
-          height={280}
-          chartId="usage-tokens-over-time"
-          getX={(d) => d.bucket}
-          cursorResolution="leading"
-          series={series}
-          y={{ format: fmtCount }}
-        />
-      )}
-    </ChartCard>
-  )
+  return <ChartCard title="Tokens over time" state={{ empty: 'Migrating to basalt-ui 2.0' }} />
 }

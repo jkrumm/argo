@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { emit } from 'basalt-ui/notifications'
+import { emit } from 'basalt-ui/commands'
 import {
   buildPhases,
   clampNum,

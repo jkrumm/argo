@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Anchor, Card, Group, Stack, Text, Tooltip } from '@mantine/core'
-import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
+import { BasaltDataTable, createColumnHelper } from 'basalt-ui/table'
 import { EmptyState, Section } from 'basalt-ui'
 import { IconCircleCheck } from '@tabler/icons-react'
 import type { WardenActionVerb } from '../../lib/queries/warden'

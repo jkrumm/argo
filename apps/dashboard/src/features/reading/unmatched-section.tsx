@@ -1,5 +1,5 @@
 import { Button, Card, Group, Image, Stack, Text } from '@mantine/core'
-import { emit } from 'basalt-ui/notifications'
+import { emit } from 'basalt-ui/commands'
 import { unwrap } from 'basalt-ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'

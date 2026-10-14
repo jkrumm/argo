@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Anchor, Card, Group, Stack, Text } from '@mantine/core'
-import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
+import { BasaltDataTable, createColumnHelper } from 'basalt-ui/table'
 import { relativeTime } from 'basalt-ui/format'
 import type { WardenBoardItem } from '../../lib/queries/warden'
 import { AgeText, StateBadge } from './board-item-cells'

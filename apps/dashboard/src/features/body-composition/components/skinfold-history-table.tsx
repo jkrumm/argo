@@ -2,7 +2,7 @@ import { ActionIcon, Group, Stack, Text, Tooltip } from '@mantine/core'
 import { overlays } from 'basalt-ui/commands'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { IconTrash } from '@tabler/icons-react'
-import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
+import { BasaltDataTable, createColumnHelper } from 'basalt-ui/table'
 import { skinfoldLogQueries, useDeleteSkinfoldLog } from '../../../lib/queries/skinfold-log'
 import { skinfoldSiteLabel } from '../formulas'
 

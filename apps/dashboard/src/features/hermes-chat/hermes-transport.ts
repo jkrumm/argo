@@ -1,6 +1,6 @@
 import { aiSdkTransport } from 'basalt-ui/agent'
 import type { AgentPart, OutcomeResolver } from 'basalt-ui/agent'
-import { emit } from 'basalt-ui/notifications'
+import { emit } from 'basalt-ui/commands'
 import { getToken } from '../../lib/auth'
 import { apiBase } from '../../lib/api-base'
 

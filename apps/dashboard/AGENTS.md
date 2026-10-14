@@ -10,7 +10,7 @@
   (basalt-ui 1.27.0) — typed fields, URL ⊳ localStorage ⊳ fallback. Zustand survives only for the
   two stores with no URL at all: the rest-timer engine (`lib/timer-store.ts`) and auth
   (`lib/auth.ts`)
-- **Charts:** `basalt-ui/charts` (visx primitives) + `src/lib/series.ts` (Argo's per-metric series identity)
+- **Charts:** `basalt-ui/charts` (TanStack Charts kinds; most chart files are placeholder stubs until Waves 7–9 of `docs/waves/PLAN.md`) + `src/lib/series.ts` (Argo's per-metric series identity)
 - **Dates:** `date-fns` (frontend only; backend sends ISO strings)
 
 ## Route Structure

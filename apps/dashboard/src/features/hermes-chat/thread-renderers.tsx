@@ -1,4 +1,4 @@
-import { ToolChip } from 'basalt-ui/agent-chat'
+import { ToolChip } from 'basalt-ui/agent'
 import type { ForeignPart, PartRenderer, PartRenderers, ToolCallPart } from 'basalt-ui/agent'
 import { hermesRenderers } from './markdown-part'
 import { redactSecretsDeep, redactSecretText } from './secret-redaction'
