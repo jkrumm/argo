@@ -370,21 +370,21 @@ the 1.41 baseline with every regression accepted or filed.
 - **Found, not argo-caused (loop items):** `GET /hermes/threads/:id/messages` 404s for a brand-new thread (12 in 24 h, 3 threads, span status Ok): a read-after-create race. No `traceparent` from the dashboard's `chat.turn` to the API's `hermes.stream-lifecycle`: they join on the business attribute only. MapLibre `circle-11` image warning on the Map tab. Cosmetic: garmin-health y-ticks inside the plot, weekly-volume landmark swatches low contrast on dark, walking-pad "No walks yet" ignores sessions older than the window, 390 px clipping (body-composition input, strength scan table), Heatmap and `Needs you` hero vs section counts differ by design.
 - **Process:** `rd close` is for the orchestrator; Wave 11 stays `pending` on owner call D4 (session cookie vs shell-only SSR). Not spawned.
 
-## Wave 11 — Loop round 1: suppressions, DX trial, live fixes <!-- status: active -->
+## Wave 11 — Loop round 1: suppressions, DX trial, live fixes <!-- status: done -->
 
 The first round of the basalt-ui ⇄ argo loop (basalt-ui `docs/waves/PLAN.md` W14), on live master. Its
 exit criterion is basalt-ui's, recorded per round in `docs/waves/evidence/w<n>.md`: a full argo wave
 with zero new friction that needed a workaround or a basalt change; zero `basalt/*` suppressions in
 argo; a clean fresh-agent DX trial; no unaccepted regression against the baseline.
 
-- [ ] Zero basalt suppressions: remove the 5 `theme-allow` waivers that predate the migration by fixing
+- [x] Zero basalt suppressions: remove the 5 `theme-allow` waivers that predate the migration by fixing
       each at the source (or, if one is a basalt gap, a friction row and the waiver stays until the
       fixing minor). `basalt-ui check-theme --audit-allows` clean.
-- [ ] argo-side live bugs: the `GET /hermes/threads/:id/messages` 404 on a brand-new thread (read
+- [x] argo-side live bugs: the `GET /hermes/threads/:id/messages` 404 on a brand-new thread (read
       after create), the MapLibre `circle-11` image warning, walking-pad "No walks yet" ignoring
       sessions older than the window, 390 px clipping on the body-composition input and the strength
       scan table. Each fixed with a test or a screenshot.
-- [ ] DX trial: a fresh agent with only argo's shipped basalt layer (AGENTS.md block, `.claude/rules`,
+- [x] DX trial: a fresh agent with only argo's shipped basalt layer (AGENTS.md block, `.claude/rules`,
       `.claude/skills`) adds a new dashboard route with a chart, a table and a chat-adjacent card to
       argo on a throwaway branch (never merged). Record every wrong turn; a basalt-rooted one is a
       friction row, an argo-rooted one is fixed here.
@@ -395,6 +395,15 @@ argo; a clean fresh-agent DX trial; no unaccepted regression against the baselin
 turn classified, before/after screens for the fixes, and the exit-criterion table for this round.
 
 **Left behind:**
+
+- **Landed on master** (`rd merge`, `make check` green, `make verify` + `make logs` after each; `deploy.yml` live): #38 waivers, #40 weight row at 390 px, #39 new-thread 404, #37 `circle-11` + walking-pad empty state, #41 Strength Scan table; plus a docs commit closing the argo-rooted DX gaps (`apps/dashboard/AGENTS.md` "Adding a page"). Master `204b625` is live. Evidence: `w11.md` (audit output, fixes, DX log, exit table). Gateway `/review` on all five; blockers on #39 and #37 fixed and re-merged; fix diffs read by the lead, not re-reviewed.
+- **Step 1 done with one waiver kept:** `timer-card.tsx:563` (`control-outside-home` + `raw-selection-control`) is a basalt gap, not worked around.
+- **Step 4 NOT done (left unticked):** the basalt release for rows 36-38 is not published (npm `latest` is 2.4.0, installed). The per-leader `strength-composite` store rebuild stays. Wave 11's exit criterion is therefore not met; the orchestrator decides whether to open a round 2 after that release.
+- **DX trial:** branch `w11/dx-trial` (pushed, never merged, no PR; delete when no longer needed). Green first try in 114 s, zero suppressions. Wrong turns: 3 argo-rooted (fixed), 3 basalt-rooted (below).
+- **Basalt friction for `argo-friction.md`** (none worked around): (W) no bound control for a runtime-mode switch backed by an external zustand store inside a card body (`timer-card` rest/interval; `ViewTabs`/`field` need `createSearchStore`/`createLocalStore`), low; (X) the `basalt-app` skill's route example is `<h2>` with no `PageBar`, and no doc says whether a shell page renders `<PageBar />` or which of `ChartCard`/`Lines` owns `state`, low; (Y) `query-fn-unwrap` reads unconditional but lint fires only on API-client results, so a mock `queryFn` cannot tell if it complies, low.
+- **Not verified:** `circle-11` warning gone (no browser look at the Map tab), 404 count in ClickStack after deploy, explorer two-pane layout after `Card.Section`, walking-pad "last walk <date>" copy (no data in window), Scan table below 390 px with real folds opened. No bundle/Lighthouse re-run this wave.
+- **Known, not fixed:** `explorer-page.tsx` `M365ExplorerPage`/`DetailPane` are very-high complexity (fallow), nested `badgeColor` ternary; after a failed first turn the list and thread composers both show (not investigated). The gateway review of #41 diffs against a stale worktree base and reports merged work as deleted; read `git diff origin/master...HEAD` after `git fetch` instead.
+- **Cleanup:** worktrees for merged branches removed with `rd fan --clean`; `w11/dx-trial` worktree kept deliberately.
 
 ## Wave 12 — Rendering: SSR-first, streamed sections <!-- status: pending (blocked on D4) -->
 
