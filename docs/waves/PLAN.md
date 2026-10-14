@@ -360,7 +360,11 @@ ported, no stub); SSR (Wave 11) waits on owner call D4 and ships live as its own
 **Evidence:** `w10.md` — the live checks above, the final numbers table (bundle, Lighthouse) against
 the 1.41 baseline with every regression accepted or filed.
 
-**Left behind:**
+**Left behind:** (in progress, cutover NOT shipped)
+
+- **Cutover held.** `deploy.yml` is still disabled; nothing was pushed to production. Pre-flight and rollback (1.x `ff81fc1`) are in `w10.md`. The full-page visual check found one blocker: **friction row 34** for `argo-friction.md` (not yet filed in the ledger): `Lines` breaks the line at null rows and has no connect-gaps option, so strength-tracker Relative Progression and Estimated 1RM draw disconnected stubs where 1.x drew continuous lines (1.x filtered nulls per lift). Severity: workaround (argo's only fix is interpolating the data). Blocks the cutover until basalt-ui ships the option, or the orchestrator accepts the regression.
+- The screens lane (`scripts/evidence/screens.ts`) now captures full pages (inner scroll container) and includes the astro forecast and map tabs.
+- Cosmetic gaps (garmin-health tick labels, Fitness Trends clipping, Weekly Volume legend swatches, walking-pad empty message, 390 px clipping) are listed in `w10.md`; they become friction rows if the orchestrator wants them tracked.
 
 ## Wave 11 — Rendering: SSR-first, streamed sections <!-- status: pending -->
 

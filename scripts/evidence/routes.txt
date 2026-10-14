@@ -2,6 +2,8 @@
 /
 /agents
 /astro-window
+/astro-window?tab=forecast
+/astro-window?tab=map
 /body-composition
 /calendar
 /garmin-health

@@ -1,4 +1,4 @@
-/** Screens lane — every route × light/dark × desktop/mobile, DPR 1, PNGs into `<rawDir>/screens/`. */
+/** Screens lane — every route × light/dark × desktop/mobile, DPR 1, full-page PNGs into `<rawDir>/screens/`. */
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { chromium } from 'playwright-core'
@@ -10,9 +10,11 @@ const VIEWPORTS = [
 ] as const
 const SCHEMES = ['light', 'dark'] as const
 const NAV_TIMEOUT_MS = 30_000
+const MAX_PAGE_HEIGHT = 9000
 
 /** `/garmin-health` → `garmin-health`; `/` → `root`. */
-const routeSlug = (route: string): string => route.replace(/^\/|\/$/g, '') || 'root'
+const routeSlug = (route: string): string =>
+  route.replace(/^\/|\/$/g, '').replace(/[?=]/g, '-') || 'root'
 
 export const screens: Lane = async ({ baseUrl, rawDir, routes }) => {
   const dir = join(rawDir, 'screens')
@@ -44,6 +46,22 @@ export const screens: Lane = async ({ baseUrl, rawDir, routes }) => {
           try {
             await page.goto(baseUrl + route, { waitUntil: 'networkidle' })
             await page.evaluate(() => document.fonts.ready.then(() => undefined))
+            await page.setViewportSize({ width: vp.width, height: vp.height })
+            // The app scrolls inside an inner container, so `fullPage` captures one viewport:
+            // grow the viewport to the tallest scroll container instead.
+            const contentHeight = await page.evaluate(() =>
+              Math.max(
+                document.documentElement.scrollHeight,
+                ...Array.from(document.querySelectorAll<HTMLElement>('*'))
+                  .filter((el) => /(auto|scroll)/.test(getComputedStyle(el).overflowY))
+                  .map((el) => el.scrollHeight),
+              ),
+            )
+            await page.setViewportSize({
+              width: vp.width,
+              height: Math.min(Math.max(contentHeight, vp.height), MAX_PAGE_HEIGHT),
+            })
+            await page.waitForTimeout(1500)
             await page.screenshot({
               path: join(dir, `${name}.png`),
               animations: 'disabled',
