@@ -15,19 +15,14 @@ import { exerciseLabel } from '../formulas'
 import { parseExercises } from './exercise-helpers'
 
 /**
- * Per-card select → a local store field, not `useState` (law C3). Persisted per chart.
- *
- * The default is not a constant: it is the strength-direction leader with enough sessions to draw a
- * trend, computed by `CompositeChartSlot` and handed down as `exerciseId`. The store is therefore
- * built per leader (same persistence key, so a pick is shared and survives a reload) with the
- * leader as the fallback: until the user picks, the field follows the leader; the first pick wins.
+ * Per-card select → a local store field, not `useState` (law C3). Persisted per chart. The unset
+ * value is the strength-direction leader `CompositeChartSlot` hands down as `exerciseId`, bound at
+ * the call site with `withFallback`: a persisted pick wins, a reset returns to the leader.
  */
-function createExerciseStore(fallback: (typeof EXERCISE_KEYS)[number]) {
-  return createLocalStore({
-    key: 'strength:composite',
-    fields: { exercise: field.enum(EXERCISE_KEYS, fallback) },
-  })
-}
+const exerciseStore = createLocalStore({
+  key: 'strength:composite',
+  fields: { exercise: field.enum(EXERCISE_KEYS, EXERCISE_KEYS[0]) },
+})
 
 const HEIGHT = 280
 
@@ -130,8 +125,8 @@ export default function StrengthCompositeChart({
   params: StrengthQueryParams
   exerciseId: (typeof EXERCISE_KEYS)[number]
 }) {
-  const local = useMemo(() => createExerciseStore(exerciseId), [exerciseId])
-  const [selected] = local.field.exercise.use()
+  const exerciseField = exerciseStore.field.exercise.withFallback(exerciseId)
+  const [selected] = exerciseField.use()
 
   const query = useQuery(
     strengthQueries.composite({
@@ -193,7 +188,7 @@ export default function StrengthCompositeChart({
               i {sigma(latest.i)}
             </Text>
           </Group>
-          <SelectFilter field={local.field.exercise} label="Exercise" options={activeOptions} />
+          <SelectFilter field={exerciseField} label="Exercise" options={activeOptions} />
         </Group>
       }
       state={chartStateOf(
