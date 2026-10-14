@@ -1,10 +1,176 @@
-import { type StrengthQueryParams } from '../../../lib/queries/strength'
-import { ChartCard } from 'basalt-ui/charts'
+import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Group, Text } from '@mantine/core'
+import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
+import { SelectFilter } from 'basalt-ui/controls'
+import { createLocalStore, field } from 'basalt-ui/state'
+import { alpha, VX } from 'basalt-ui/tokens'
+import { chartStateOf } from '../../../lib/chart-state'
+import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
+import { SERIES } from '../../../lib/series'
+import { EXERCISE_KEYS } from '../../../lib/window-stores'
+import { localDay } from '../../garmin-health/charts/local-day'
+import { EXERCISE_COLORS, METRIC_TOOLTIPS } from '../constants'
+import { exerciseLabel, inolDotColor } from '../formulas'
+import { trailingMA } from './trailing-ma'
 
-// MIGRATION-STUB(w9): InolChart is not ported to basalt-ui 2.0 yet; the signature is kept so
-// callers compile, and the port (docs/waves/PLAN.md, Wave 9) replaces this body.
-export default function InolChart(_props: { params: StrengthQueryParams }) {
+/** Per-card select → a local store field, not `useState` (law C3). Persisted per chart. */
+const local = createLocalStore({
+  key: 'strength:inol',
+  fields: { exercise: field.enum(EXERCISE_KEYS, 'bench_press') },
+})
+
+const HEIGHT = 280
+
+type InolPoint = {
+  day: Date
+  inol: number | null
+  ma10: number | null
+}
+
+function inolZoneLabel(v: number): string {
+  if (v < 0.4) return 'Too Light'
+  if (v < 0.6) return 'Recovery'
+  if (v <= 1.0) return 'Optimal'
+  if (v <= 1.5) return 'Hard'
+  return 'Excessive'
+}
+
+export default function InolChart({ params }: { params: StrengthQueryParams }) {
+  const query = useQuery(strengthQueries.seriesDetailed(params))
+  const byExercise = query.data?.byExercise
+  const [selectedExercise] = local.field.exercise.use()
+
+  // Render-time guard: the stored lift may carry no points in this window.
+  const activeExercise =
+    byExercise?.find((e) => e.exercise_id === selectedExercise) ??
+    byExercise?.find((e) => e.points.length > 0)
+
+  const chartData = useMemo<InolPoint[]>(() => {
+    if (!activeExercise) return []
+    const ma = trailingMA(
+      activeExercise.points.map((p) => p.inol),
+      10,
+    )
+    return activeExercise.points.map((p, i) => ({
+      day: localDay(p.date),
+      inol: p.inol,
+      ma10: ma[i] ?? null,
+    }))
+  }, [activeExercise])
+
+  const latest = chartData.findLast((d) => d.inol !== null)
+  const exerciseColor = EXERCISE_COLORS[selectedExercise] ?? SERIES.benchPress
+
+  const series = useMemo<ChartSeries<InolPoint>[]>(
+    () => [
+      {
+        key: 'session',
+        label: 'Session',
+        color: exerciseColor,
+        // A faint connector; the per-point zone colour rides on the marker.
+        strokeWidth: 1.25,
+        strokeOpacity: 0.35,
+        getValue: (d) => d.inol,
+        formatValue: (v) => v.toFixed(2),
+        getMarker: (d) => (d.inol === null ? null : { color: inolDotColor(d.inol), r: 4 }),
+      },
+      {
+        key: 'ma',
+        label: '10-session MA',
+        color: exerciseColor,
+        dash: 'dashed',
+        strokeWidth: 2.25,
+        getValue: (d) => d.ma10,
+        formatValue: (v) => v.toFixed(2),
+      },
+      // Legend-only zone keys: `getValue` is always null, so they draw nothing and own no tooltip row.
+      {
+        key: 'opt',
+        label: 'Optimal (0.6–1.0)',
+        color: VX.goodSolid,
+        mark: 'bar',
+        role: 'reference',
+        getValue: () => null,
+      },
+      {
+        key: 'hard',
+        label: 'Hard (1.0–1.5)',
+        color: SERIES.calories,
+        mark: 'bar',
+        role: 'reference',
+        getValue: () => null,
+      },
+      {
+        key: 'exc',
+        label: 'Excessive (>1.5)',
+        color: VX.badSolid,
+        mark: 'bar',
+        role: 'reference',
+        getValue: () => null,
+      },
+    ],
+    [exerciseColor],
+  )
+
+  const selectOptions = (byExercise ?? []).map((e) => ({
+    value: e.exercise_id,
+    label: exerciseLabel(e.exercise_id),
+  }))
+
   return (
-    <ChartCard title="INOL — Session Quality" state={{ empty: 'Migrating to basalt-ui 2.0' }} />
+    <ChartCard
+      title="INOL — Session Quality"
+      subtitle="Intensity × Number of Lifts"
+      info={METRIC_TOOLTIPS.inol}
+      actions={
+        <Group gap={8} wrap="nowrap">
+          {latest?.inol != null && (
+            <Group gap={6} align="baseline" wrap="nowrap">
+              <Text span fw={600} size="md" c={inolDotColor(latest.inol)}>
+                {latest.inol.toFixed(2)}
+              </Text>
+              <Text span size="xs" c={inolDotColor(latest.inol)}>
+                {inolZoneLabel(latest.inol)}
+              </Text>
+            </Group>
+          )}
+          {selectOptions.length > 1 && (
+            <SelectFilter field={local.field.exercise} label="Exercise" options={selectOptions} />
+          )}
+        </Group>
+      }
+      state={chartStateOf(query, latest === undefined && 'No sessions in this window')}
+      placeholderHeight={HEIGHT}
+    >
+      <Lines
+        cursorResolution="exact"
+        ariaLabel="INOL per session with a 10-session moving average"
+        data={chartData}
+        height={HEIGHT}
+        x={(d) => d.day}
+        series={series}
+        // Floors the domain at 2.0 so the 1.5 "Excessive" ref line always has headroom.
+        y={{ domain: 'auto', autoMaxFloor: 2, ticks: 5, format: (v) => v.toFixed(1), nice: true }}
+        zones={[
+          { from: 0, to: 0.4, fill: alpha(VX.status.neutral, 0.06) },
+          { from: 0.4, to: 0.6, fill: alpha(VX.status.good, 0.06) },
+          { from: 0.6, to: 1.0, fill: alpha(VX.status.excellent, 0.08) },
+          { from: 1.0, to: 1.5, fill: alpha(VX.status.warn, 0.08) },
+          { from: 1.5, to: Infinity, fill: alpha(VX.status.bad, 0.08) },
+        ]}
+        refLines={[
+          { value: 0.6, color: VX.goodRef, dashed: true },
+          { value: 1.0, color: VX.warnRef, dashed: true },
+          { value: 1.5, color: VX.badRef, dashed: true },
+        ]}
+        tooltip={{
+          rows: (d) =>
+            d.inol === null
+              ? []
+              : [{ label: 'Zone', value: inolZoneLabel(d.inol), color: inolDotColor(d.inol) }],
+        }}
+      />
+    </ChartCard>
   )
 }

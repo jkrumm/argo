@@ -178,7 +178,6 @@ export function inolDotColor(inol: number | null): string {
 
 // ── ACWR ────────────────────────────────────────────────────────────────────
 
-// MIGRATION-STUB(w9): parked — its only callers were the strength charts stubbed in Wave 3.
 export function acwrZoneColor(zone: AcwrZone | null): string {
   switch (zone) {
     case 'optimal':
