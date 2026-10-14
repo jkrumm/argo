@@ -6,7 +6,8 @@ import { km } from 'basalt-ui/format'
 import { CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../lib/queries/walking-pad'
 import { HERO_TOOLTIPS } from './constants'
-import { formatDeltaKmh, formatPace } from './formatters'
+import { emptyWindowMessage, formatDeltaKmh, formatPace } from './formatters'
+import { useLastWalkEndedAtSuspense } from './last-walk'
 
 /**
  * The three hero cards are `StatCard`s (basalt-ui 1.27.0), not a local `HeroCard`. Three of the
@@ -52,6 +53,7 @@ export function HeroStats({ params }: { params: WalkingPadWindowParams }) {
         : `vs prior ${km(vol.priorDistanceM)}`
 
   // ── Pace ───────────────────────────────────────────────────────────────
+  const lastWalkEndedAt = useLastWalkEndedAtSuspense()
   const pace = data.pace
   const paceDir: Direction =
     pace.direction === 'faster'
@@ -64,7 +66,7 @@ export function HeroStats({ params }: { params: WalkingPadWindowParams }) {
   const paceTone = toneFor(paceDir)
   const paceSubtitle =
     pace.currentAvgKmh === null
-      ? 'No walks in this window.'
+      ? emptyWindowMessage(lastWalkEndedAt)
       : pace.deltaKmh === null
         ? 'First window — no prior pace to compare.'
         : `vs prior ${pace.priorAvgKmh !== null ? formatPace(pace.priorAvgKmh, 1) : '—'}`

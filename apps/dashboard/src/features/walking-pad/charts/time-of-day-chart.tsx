@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Text } from '@mantine/core'
 import { ChartCard, Heatmap } from 'basalt-ui/charts'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
+import { emptyWindowMessage } from '../formatters'
+import { useLastWalkEndedAt } from '../last-walk'
 import { SERIES } from '../../../lib/series'
 import { chartStateOf } from '../../../lib/chart-state'
 
@@ -32,6 +34,7 @@ export function TimeOfDayChart({
   matchHeight?: number | undefined
 }) {
   const query = useQuery(walkingPadQueries.hourOfDay(params))
+  const lastWalkEndedAt = useLastWalkEndedAt()
   const cells = useMemo<Cell[]>(
     () => (query.data?.cells ?? []).filter((c) => c.hour >= MIN_HOUR && c.hour < MAX_HOUR),
     [query.data],
@@ -62,7 +65,7 @@ export function TimeOfDayChart({
       }
       state={chartStateOf(
         query,
-        totalSessions === 0 ? 'No walks yet — heatmap unlocks on first session.' : undefined,
+        totalSessions === 0 ? emptyWindowMessage(lastWalkEndedAt) : undefined,
       )}
       placeholderHeight={DEFAULT_HEIGHT}
     >

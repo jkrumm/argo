@@ -50,6 +50,7 @@ import {
   legendSource,
   legendUrl,
   LP_RAMP,
+  fallbackIcon,
   LP_SITE_BAND,
   MODEL_FRAME_MS,
   nearestTimeIndex,
@@ -494,6 +495,12 @@ export default function SiteMap({
     // are third-party hosts we do not control.
     map.on('error', () => {
       if (!hasStyleLoadedRef.current) setFailed(true)
+    })
+
+    // Third-party styles reference sprite images their sprite lacks (`circle-11`); register a
+    // fallback instead of letting MapLibre warn on every tile.
+    map.on('styleimagemissing', ({ id }) => {
+      if (!map.hasImage(id)) map.addImage(id, fallbackIcon(id))
     })
 
     // `style.load` fires once for the initial style AND again for every style the map loads
