@@ -31,8 +31,9 @@ async function readToken(): Promise<string> {
     timeout: 30_000,
   })
   const token = (await new Response(proc.stdout).text()).trim()
-  if ((await proc.exited) !== 0 || !token)
-    throw new Error('secrets-run could not read the API secret')
+  const code = await proc.exited
+  if (code !== 0 || !token)
+    throw new Error(`secrets-run failed to read the API secret (exit ${code})`)
   return token
 }
 
@@ -44,7 +45,8 @@ async function buildDashboard(): Promise<void> {
     stderr: 'inherit',
     timeout: 600_000,
   })
-  if ((await proc.exited) !== 0) throw new Error('dashboard build failed')
+  const code = await proc.exited
+  if (code !== 0) throw new Error(`dashboard build failed (exit ${code})`)
 }
 
 const cell = (value: string | number | undefined): string => String(value ?? '')
@@ -60,7 +62,7 @@ function table(rows: Row[]): string {
 
 async function main(): Promise<number> {
   const label = process.argv[2]
-  if (!label || !/^[\w.-]+$/.test(label)) {
+  if (!label || !/^[A-Za-z0-9][\w.-]*$/.test(label)) {
     console.error('usage: make evidence LABEL=<label>')
     return 2
   }
@@ -68,7 +70,6 @@ async function main(): Promise<number> {
   await mkdir(rawDir, { recursive: true })
 
   const token = await readToken()
-  await buildDashboard()
   const routes = (await Bun.file(join(import.meta.dirname, 'routes.txt')).text())
     .split('\n')
     .map((l) => l.trim())
@@ -78,6 +79,17 @@ async function main(): Promise<number> {
   const sections: string[] = []
   let failed = false
   try {
+    // Prove the bearer authenticates through the same proxy path the pages use, before spending a build.
+    const probe = await fetch(`${server.origin}/api/daily-metrics/sync-status`, {
+      headers: { authorization: `Bearer ${token}` },
+    })
+    if (!probe.ok) {
+      throw new Error(
+        `bearer rejected by production: GET /daily-metrics/sync-status -> ${probe.status}`,
+      )
+    }
+    await buildDashboard()
+
     for (const [name, lane] of LANES) {
       console.log(`[evidence] ${name}…`)
       let body: string

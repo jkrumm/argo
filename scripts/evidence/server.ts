@@ -22,9 +22,10 @@ export type DistServer = {
 export function serveDist(distDir: string, token: string): DistServer {
   const root = resolve(distDir)
   const blocked: string[] = []
+  // `<` is escaped so a token can never close the script element.
   const seed = `<script>localStorage.setItem(${JSON.stringify(AUTH_STORAGE_KEY)},${JSON.stringify(
     JSON.stringify({ state: { token }, version: 0 }),
-  )})</script>`
+  ).replaceAll('<', '\\u003c')})</script>`
   const gzCache = new Map<string, Uint8Array<ArrayBuffer>>()
 
   const resolveFile = (pathname: string): string | null => {
@@ -37,14 +38,6 @@ export function serveDist(distDir: string, token: string): DistServer {
   }
 
   const proxy = async (req: Request, url: URL): Promise<Response> => {
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      const attempt = `${req.method} ${url.pathname}`
-      if (!blocked.includes(attempt)) {
-        blocked.push(attempt)
-        console.error(`[evidence] BLOCKED ${attempt} — evidence is GET-only`)
-      }
-      return new Response('evidence proxy is GET-only', { status: 405 })
-    }
     const headers = new Headers(req.headers)
     headers.delete('host')
     headers.set('accept-encoding', 'identity')
@@ -63,6 +56,15 @@ export function serveDist(distDir: string, token: string): DistServer {
     hostname: '127.0.0.1',
     async fetch(req) {
       const url = new URL(req.url)
+      // Nothing that is not a read is accepted anywhere, API or static.
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        const attempt = `${req.method} ${url.pathname}`
+        if (!blocked.includes(attempt)) {
+          blocked.push(attempt)
+          console.error(`[evidence] BLOCKED ${attempt} — evidence is GET-only`)
+        }
+        return new Response('evidence server is GET-only', { status: 405 })
+      }
       if (url.pathname === '/api' || url.pathname.startsWith('/api/')) {
         return proxy(req, url).catch(() => new Response('upstream unreachable', { status: 502 }))
       }
@@ -78,14 +80,15 @@ export function serveDist(distDir: string, token: string): DistServer {
       const blob = Bun.file(file)
       let body: Uint8Array<ArrayBuffer> | Blob = blob
       if (file.endsWith('index.html')) {
-        body = new TextEncoder().encode(
-          (await blob.text()).replace('<head>', `<head>${seed}`),
-        ) as Uint8Array<ArrayBuffer>
+        const html = await blob.text()
+        const seeded = html.replace('<head>', () => `<head>${seed}`)
+        if (seeded === html) throw new Error('index.html has no <head> to inject the bearer')
+        body = new TextEncoder().encode(seeded) as Uint8Array<ArrayBuffer>
         headers['content-type'] = 'text/html; charset=utf-8'
       } else if (!COMPRESSIBLE.test(file)) {
         return new Response(blob, { headers })
       }
-      if (!COMPRESSIBLE.test(file) || !req.headers.get('accept-encoding')?.includes('gzip')) {
+      if (!req.headers.get('accept-encoding')?.includes('gzip')) {
         return new Response(body, { headers })
       }
       const cacheKey = file.endsWith('index.html') ? '' : file
