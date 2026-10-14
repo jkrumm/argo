@@ -123,7 +123,9 @@ function HermesChatFeed() {
         void queryClient.invalidateQueries({ queryKey: hermesQueries.all() })
         if (attempts < TITLE_POLL_ATTEMPTS) setTimeout(poll, TITLE_POLL_DELAY_MS)
       }
-      setTimeout(poll, TITLE_POLL_DELAY_MS)
+      // First pass is immediate: it is what flips a just-created thread to persisted (see
+      // `isThreadPersisted`) so its messages query can enable and replace the overlay.
+      poll()
     }
     prevRunningRef.current = nowRunning
   }, [runs, queryClient])

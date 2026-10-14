@@ -11,7 +11,7 @@ import {
 } from 'basalt-ui/agent'
 import { hermesQueries } from '../../lib/queries/hermes'
 import type { HermesThreadType } from '../../lib/queries/hermes'
-import { mergeOptimisticMessages, toChatMessage } from './threads-store'
+import { isThreadPersisted, mergeOptimisticMessages, toChatMessage } from './threads-store'
 import type { HermesChatMessage } from './threads-store'
 import { hermesThreadRenderers } from './thread-renderers'
 import { useHermesThreadVoice } from './use-hermes-thread-voice'
@@ -72,7 +72,10 @@ export function HermesRow({
   const [hasOpened, setHasOpened] = useState(expanded)
   if (expanded && !hasOpened) setHasOpened(true)
 
-  const { data } = useQuery({ ...hermesQueries.messages(thread.id), enabled: hasOpened })
+  const { data } = useQuery({
+    ...hermesQueries.messages(thread.id),
+    enabled: hasOpened && isThreadPersisted(thread),
+  })
 
   const serverMessages = useMemo(
     () =>
