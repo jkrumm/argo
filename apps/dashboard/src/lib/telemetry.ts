@@ -12,6 +12,7 @@ const tracer = trace.getTracer('basalt-ui')
 
 // Open `chat.turn` spans by thread. `settle` runs right after the turn's `chat.turn` event, so the
 // event decorates the span `startChatTurn` opened instead of becoming a second span for the turn.
+// The ERROR status has one owner: `settle('failed')`, which always follows a failed event.
 const openTurns = new Map<string, Span>()
 
 function onEvent(e: BasaltEvent): void {
@@ -19,7 +20,6 @@ function onEvent(e: BasaltEvent): void {
     e.type === 'chat.turn' ? openTurns.get(e.attributes['basalt.chat.thread_id']) : undefined
   if (open) {
     open.setAttributes({ ...e.attributes })
-    if (e.failed) open.setStatus({ code: SpanStatusCode.ERROR })
     return
   }
   const span = tracer.startSpan(e.type, { startTime: e.start, attributes: { ...e.attributes } })
@@ -30,16 +30,24 @@ function onEvent(e: BasaltEvent): void {
 /** Opens the turn's `chat.turn` span and hands its W3C `traceparent` to the chat request. */
 function startChatTurn({ threadId }: { threadId: string }): ChatTurnTrace | undefined {
   const span = tracer.startSpan('chat.turn', { attributes: { 'basalt.chat.thread_id': threadId } })
+  // The event carries only the thread id, so a newer turn on the same thread replaces (and ends)
+  // the older one rather than leaking it.
+  openTurns.get(threadId)?.end()
   openTurns.set(threadId, span)
+  let settled = false
   const settle: ChatTurnTrace['settle'] = (end) => {
+    if (settled) return
+    settled = true
     if (end === 'failed') span.setStatus({ code: SpanStatusCode.ERROR })
     if (openTurns.get(threadId) === span) openTurns.delete(threadId)
     span.end()
   }
   const ctx = span.spanContext()
-  // A no-op tracer yields the all-zero invalid context: send no header, still settle.
+  // Hand-built from the span context so it does not depend on whichever propagator HyperDX
+  // registers; `tracestate` is intentionally not sent. A no-op tracer yields the invalid all-zero
+  // context: send no header, still settle.
   if (!isSpanContextValid(ctx)) return { settle }
-  const flags = (ctx.traceFlags & 0xff).toString(16).padStart(2, '0')
+  const flags = ctx.traceFlags.toString(16).padStart(2, '0')
   return { headers: { traceparent: `00-${ctx.traceId}-${ctx.spanId}-${flags}` }, settle }
 }
 
