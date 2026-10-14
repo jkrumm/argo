@@ -1,6 +1,6 @@
 import { USAGE_BILLING, USAGE_OUTCOME, USAGE_SOURCE } from '../../lib/series'
 
-const SOURCE_KEY_TO_TOKEN: Record<string, Extract<keyof typeof USAGE_SOURCE, string>> = {
+const SOURCE_KEY_TO_TOKEN: Record<string, keyof typeof USAGE_SOURCE> = {
   'claude-code': 'claudeCode',
   claudeCode: 'claudeCode',
   litellm: 'litellm',
