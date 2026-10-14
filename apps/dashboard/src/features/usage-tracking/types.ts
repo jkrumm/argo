@@ -7,3 +7,5 @@ export type TokensGroupBy = Extract<
 >
 export type BillingValue = 'max' | 'iu' | 'openrouter' | 'unknown'
 export type WorkspaceValue = 'work' | 'private'
+
+export type TimeBucket = { bucket: string; groups: Record<string, number | null> }
