@@ -4,12 +4,8 @@
  * eagerly (side-effect) by main.tsx, before `BasaltProvider` mounts, so Spotlight/ShortcutsHelp see
  * the full registry from boot.
  *
- * Navigation commands are DERIVED from `lib/nav.tsx`'s single `NAV` definition via `flattenNav`,
- * so a destination and its default search params are never restated here. They call
- * `router.navigate` directly (the module-level router singleton from `lib/router.ts`) rather than a
- * React `useNavigate` hook — commands run outside the component tree (e.g. triggered from the
- * Spotlight palette), so no hook is available. `lib/nav.tsx` is a leaf that imports nothing from
- * this app, so pulling it in here does not close the import cycle described below.
+ * Navigation is not registered here: the provider builds the "go to" Spotlight entries from the
+ * active `NAV` itself.
  *
  * `help:shortcuts`'s `run` carries an explicit `: void` return-type annotation — without it, TS
  * must INFER the return type from `overlays.open(...)`, which resolves through `BasaltRegister`,
@@ -24,11 +20,7 @@ import {
   setColorScheme,
   ShortcutsHelp,
   toggleSidebar,
-  type Command,
 } from 'basalt-ui/commands'
-import { flattenNav, type NavItemId } from 'basalt-ui'
-import { router } from './router'
-import { NAV } from './nav'
 
 export const OVERLAYS = defineOverlays({
   'help:shortcuts': {
@@ -37,52 +29,9 @@ export const OVERLAYS = defineOverlays({
   },
 })
 
-/**
- * "Go to …" for every enabled destination in `NAV`, in sidebar order, grouped by its nav section.
- * Disabled placeholders (Docker / Monitoring / Tasks) are filtered out — they have no page.
- *
- * The single `as never` is at `router.navigate`'s own boundary: this maps over a HETEROGENEOUS
- * array whose per-element `to`/`search` pair TypeScript has already erased into a union, which
- * `NavigateOptions` cannot accept. It is not a nav-target cast — for one typed destination use
- * `navTarget(NAV, 'garmin')`, which needs none (see `routes/index.tsx`).
- *
- * `Object.fromEntries` itself only ever returns a `{ [k: string]: … }` index signature, which would
- * widen `CommandId` (`Extract<keyof Commands, string>` in basalt-ui's `define-commands.ts`) from a
- * literal union down to plain `string` — silently deleting the "unknown id is a tsc error" contract
- * `runCommand`'s own JSDoc documents. `NavCommandId` below is a template-literal union built from
- * `NavItemId` (basalt-ui's compile-time id union for `flattenNav`/`navTarget`), and the built object
- * is cast to it to restore that literal key set.
- *
- * `Partial<Record<NavCommandId, Command>>`, not the bare `Record`: the `disabled` filter above means
- * some `nav:*` ids are genuinely absent from the object at runtime, and `Partial` says so honestly
- * instead of claiming every id resolves. `runCommand` already `console.warn`s on an id with no
- * matching entry, so a disabled destination's id typechecks but degrades safely if ever called.
- *
- * Checked first: basalt-ui's `defineCommands` has no field that fully unregisters an entry from
- * both the palette AND `runCommand` — `Command.when` only gates palette/hotkey visibility (see
- * `projectors.ts`/`useCommandHotkeys.ts`), so swapping this filter for `when: () => !d.disabled`
- * would make disabled destinations `runCommand`-reachable (silently landing on the Usage Tracking
- * placeholder) instead of correctly-typed-but-absent. The runtime filter stays; only the type widens
- * to describe it.
- */
-type NavCommandId = `nav:${NavItemId<typeof NAV.groups>}`
-
-const NAV_COMMANDS = Object.fromEntries(
-  flattenNav(NAV)
-    .filter((d) => !d.disabled)
-    .map((d) => [
-      `nav:${d.id}`,
-      {
-        label: `Go to ${d.label}`,
-        // The nav section, not a flat 'Navigation' — the palette's dividers then mirror the
-        // sidebar the user already reads.
-        group: d.groupLabel,
-        icon: d.icon,
-        run: () => void router.navigate(d.link as never),
-      },
-    ]),
-) as Partial<Record<NavCommandId, Command>>
-
+// No "Go to …" commands here: the provider's Spotlight already lists every enabled NAV destination
+// (`nav.<id>`, grouped by nav section, from `getActiveNav()`), so registering them again would show
+// each twice.
 export const COMMANDS = defineCommands({
   'ui:toggle-sidebar': {
     label: 'Toggle sidebar',
@@ -90,7 +39,6 @@ export const COMMANDS = defineCommands({
     shortcut: 'Mod+B',
     run: () => toggleSidebar(),
   },
-  ...NAV_COMMANDS,
   'theme:light': {
     label: 'Theme: Light',
     group: 'Theme',
