@@ -5,6 +5,8 @@ import { Bars, ChartCard, type BarsLine } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { integer } from 'basalt-ui/format'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
+import { emptyWindowMessage } from '../formatters'
+import { useLastWalkEndedAt } from '../last-walk'
 import { walkingStore } from '../../../lib/window-stores'
 import { METRIC_DEFS, type MetricKey } from '../metrics'
 import { chartStateOf } from '../../../lib/chart-state'
@@ -57,6 +59,7 @@ const SESSION_LINES: BarsLine<Point>[] = [
 
 export function DailyActivityChart({ params }: { params: WalkingPadWindowParams }) {
   const query = useQuery(walkingPadQueries.series({ ...params, bucket: 'day' }))
+  const lastWalkEndedAt = useLastWalkEndedAt()
   const [enabled] = walkingStore.field.metrics.use()
 
   const points = useMemo<Point[]>(
@@ -93,7 +96,7 @@ export function DailyActivityChart({ params }: { params: WalkingPadWindowParams 
       state={chartStateOf(
         query,
         (enabled.length === 0 && 'No metric selected — toggle one in the page header.') ||
-          (!hasData && 'No walks in this window') ||
+          (!hasData && emptyWindowMessage(lastWalkEndedAt)) ||
           undefined,
       )}
       placeholderHeight={280}

@@ -1755,3 +1755,29 @@ export function formatTerrainParam(selection: TerrainSelection): string | undefi
   }
   return tokens.length === 0 ? undefined : tokens.join('.')
 }
+
+/**
+ * The OpenFreeMap sprite (`ofm_f384`) does not ship `circle-11`, yet the fiord and dark styles
+ * reference it as the `icon-image` of their town/city dot layers, so MapLibre warns `Image
+ * "circle-11" could not be loaded` on every tile. The map answers `styleimagemissing` with this
+ * image: a solid dot for the one id we know the style means as a dot, a transparent square for any
+ * other id (still registered, so a missing image warns once rather than once per tile).
+ */
+export const FALLBACK_DOT_IMAGE_ID = 'circle-11'
+
+export function fallbackIcon(
+  id: string,
+  size = 11,
+): { width: number; height: number; data: Uint8Array } {
+  const data = new Uint8Array(size * size * 4)
+  if (id !== FALLBACK_DOT_IMAGE_ID) return { width: size, height: size, data }
+  const c = (size - 1) / 2
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      if (Math.hypot(x - c, y - c) > size / 2 - 0.5) continue
+      const i = (y * size + x) * 4
+      data.set([113, 113, 122, 255], i)
+    }
+  }
+  return { width: size, height: size, data }
+}

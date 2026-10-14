@@ -35,3 +35,18 @@ export function relativeTime(iso: string, now = new Date()): string {
   if (diffS < 86_400) return `${Math.round(diffS / 3600)}h ago`
   return `${Math.round(diffS / 86_400)}d ago`
 }
+
+/**
+ * Empty-state copy for a window with no walks. `lastEndedAt` is the newest session ANYWHERE
+ * (not just in the window): present → older walks exist, so say when; `undefined` → none ever.
+ */
+export function emptyWindowMessage(lastEndedAt: string | undefined): string {
+  if (lastEndedAt === undefined) return 'No walks yet'
+  const date = new Date(lastEndedAt).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+  return `No walks in this window — last walk ${date}`
+}

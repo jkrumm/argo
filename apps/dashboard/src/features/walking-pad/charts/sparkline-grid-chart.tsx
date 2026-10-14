@@ -4,6 +4,8 @@ import { Sparkline } from 'basalt-ui/charts'
 import { kcal } from 'basalt-ui/format'
 import { VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
+import { emptyWindowMessage } from '../formatters'
+import { useLastWalkEndedAt } from '../last-walk'
 
 type Metric = {
   key: string
@@ -80,6 +82,7 @@ const plotted = (v: number | null): number => (v !== null && v > 0 ? v : Number.
 
 export function SparklineGridChart({ params }: { params: WalkingPadWindowParams }) {
   const query = useQuery(walkingPadQueries.series({ ...params, bucket: 'day' }))
+  const lastWalkEndedAt = useLastWalkEndedAt()
   const points: SeriesPoint[] = query.data?.points ?? []
   const loaded = query.data !== undefined
 
@@ -99,7 +102,7 @@ export function SparklineGridChart({ params }: { params: WalkingPadWindowParams 
             {...(loaded && {
               subtitle:
                 points.length === 0
-                  ? 'No walks in this window'
+                  ? emptyWindowMessage(lastWalkEndedAt)
                   : `avg ${m.format(avg)} · best ${m.format(max)}`,
             })}
             query={query}
