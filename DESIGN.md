@@ -55,16 +55,16 @@ elsewhere.
 
 ```ts
 // apps/dashboard/src/lib/series.ts — the app's guard-exempt series file
-import { BP, defineSeries, groupTokens, p, seriesTokens, type SeriesMap } from 'basalt-ui/tokens'
+import { BP, defineSeries, groupTokens, p, type SeriesMap } from 'basalt-ui/tokens'
 
 const SERIES_MAP = defineSeries({ hrv: p(BP.blue) /* … */ } satisfies SeriesMap)
 
-export const SERIES = seriesTokens(SERIES_MAP)
+export const SERIES = groupTokens('series', SERIES_MAP)
 export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 // …USAGE_SOURCE / USAGE_BILLING / USAGE_OUTCOME follow the same groupTokens() shape.
 ```
 
-### Recovery / sleep / effort / movement (unprefixed — `SERIES.*`)
+### Recovery / sleep / effort / movement (`series-` prefix — `SERIES.*`, vars `--vx-series-*`)
 
 | Series name             | Light hex | Dark hex  | `defineSeries` key   | Role / earned reason                          |
 | ----------------------- | --------- | --------- | -------------------- | --------------------------------------------- |
