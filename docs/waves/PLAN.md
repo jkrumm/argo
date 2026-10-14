@@ -341,20 +341,20 @@ live afterwards (basalt-ui W14). Warden watches argo in production and will reac
 Reordered 2026-10-14 by the orchestrator: the cutover ships the static nginx build now (every chart
 ported, no stub); SSR (Wave 12) waits on owner call D4 and ships live as its own deploy afterwards.
 
-- [ ] Pre-flight: Gate green, no `MIGRATION-STUB`, zero `basalt/*` suppressions, every argo row in
+- [x] Pre-flight: Gate green, no `MIGRATION-STUB`, zero `basalt/*` suppressions, every argo row in
       `argo-friction.md` closed or explicitly accepted as a post-cutover loop item, `basalt-ui sync
       --check` clean.
-- [ ] Look before shipping: full-page (not viewport) screenshots of every route, light and dark, 1280
+- [x] Look before shipping: full-page (not viewport) screenshots of every route, light and dark, 1280
       and 390, against production data via `make evidence`, reviewed by eye with `@verifier`; every
       chart Waves 7-9 left "not seen rendered" is seen here. A broken chart blocks the cutover; a
       cosmetic gap becomes a friction row.
-- [ ] `gh workflow enable deploy.yml`, restore `AGENTS.md` § Deploy, push; the deploy fires (static
+- [x] `gh workflow enable deploy.yml`, restore `AGENTS.md` § Deploy, push; the deploy fires (static
       nginx image, no vps change).
-- [ ] Verify live: `make verify` commit = `origin/master`; Uptime Kuma `Argo / API`, `Argo / Dashboard`,
+- [x] Verify live: `make verify` commit = `origin/master`; Uptime Kuma `Argo / API`, `Argo / Dashboard`,
       `Argo / Hermes` green; `make logs` clean; ClickStack shows `route.navigate` from
       `argo-dashboard` and one chat turn whose `chat.turn` joins `hermes.stream-lifecycle` on
       `basalt.chat.thread_id`; screens of every route against `baseline-1.41.md`.
-- [ ] Rollback written before the push: re-pin the last 1.x images (`make argo-up` with the previous
+- [x] Rollback written before the push: re-pin the last 1.x images (`make argo-up` with the previous
       SHAs in `vps`) and re-disable deploys.
 
 **Evidence:** `w10.md` — the live checks above, the final numbers table (bundle, Lighthouse) against
