@@ -46,11 +46,12 @@ import {
   baseLayer,
   buildTimeTicks,
   CONTOUR_GLYPHS_URL,
+  FALLBACK_DOT_IMAGE_ID,
+  fallbackDotImage,
   gibsTime,
   legendSource,
   legendUrl,
   LP_RAMP,
-  fallbackIcon,
   LP_SITE_BAND,
   MODEL_FRAME_MS,
   nearestTimeIndex,
@@ -497,10 +498,9 @@ export default function SiteMap({
       if (!hasStyleLoadedRef.current) setFailed(true)
     })
 
-    // Third-party styles reference sprite images their sprite lacks (`circle-11`); register a
-    // fallback instead of letting MapLibre warn on every tile.
+    // OpenFreeMap's sprite lacks `circle-11`, which its town/city layers use (see map-layers.ts).
     map.on('styleimagemissing', ({ id }) => {
-      if (!map.hasImage(id)) map.addImage(id, fallbackIcon(id))
+      if (id === FALLBACK_DOT_IMAGE_ID && !map.hasImage(id)) map.addImage(id, fallbackDotImage())
     })
 
     // `style.load` fires once for the initial style AND again for every style the map loads
