@@ -32,7 +32,5 @@ export function mergePoints(series: readonly ExerciseSeries[]): MergedPoint[] {
       row.per[s.exercise_id] = point
     }
   }
-  return [...byDate.entries()]
-    .toSorted(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-    .map(([, row]) => row)
+  return [...byDate.entries()].toSorted(([a], [b]) => a.localeCompare(b)).map(([, row]) => row)
 }
