@@ -176,23 +176,23 @@ of the non-chart surfaces (shell, tables, chat, forms) against the baseline.
 - **For the orchestrator to file in `argo-friction.md`** (not worked around): (1) `doctor` is not monorepo-aware (above); (2) `basalt-ui sync` seeds `src/main.tsx`, `src/lib/nav.tsx`, `src/routes/__root.tsx` at the repo root and recreates them each run (manifest lists them; worker deleted them); (3) `groupTokens` has no unprefixed form, so the former `''` group could not be kept — var names changed; (4) `PageBar.actions` requires a `primary` first, so the calendar date nav moved to `filtersEnd`; (5) `keyof` of a `groupTokens` result includes the brand symbol (needs `Extract<…, string>`); (6) no auth seam in `createBasaltRouter`/`BasaltProvider` — argo used router `beforeLoad` (Wave 10 SSR will need one); (7) rows 1–3 already known (fixed in 2.0.1).
 - **Review:** `/review` (agent-gateway) on PR #22: 2 blocking (auth/loaders, vega var rename) both verified and fixed, 7 improvements fixed, rest listed above.
 
-## Wave 4 — Shell, routing, transitions, telemetry <!-- status: active -->
+## Wave 4 — Shell, routing, transitions, telemetry <!-- status: done -->
 
 Fan-out on disjoint files.
 
-- [ ] Telemetry: `lib/telemetry.ts` per V2-SPEC § 7. Answer Open #6 first, from the installed
+- [x] Telemetry: `lib/telemetry.ts` per V2-SPEC § 7. Answer Open #6 first, from the installed
       `@hyperdx/browser`: if it registers the global `@opentelemetry/api` tracer provider, use the
       spec's adapter verbatim; otherwise map `BasaltEvent` to HyperDX. `service.name` stays
       `argo-dashboard`; `lib/hyperdx.ts` still initialises before anything captures `fetch`.
-- [ ] Route transitions: confirm nav-order `defaultViewTransition` fires on every route change in
+- [x] Route transitions: confirm nav-order `defaultViewTransition` fires on every route change in
       Chrome (count `startViewTransition` per navigation across the 13 routes, basalt W10's method);
       no `<ViewTransition>` around `<Outlet>`; reduced motion honoured.
-- [ ] Shell parity: sidebar blocks, badges on the collapsed rail, the settings menu, `globalActions`
+- [x] Shell parity: sidebar blocks, badges on the collapsed rail, the settings menu, `globalActions`
       mobile projection, breadcrumbs from nav labels — against the baseline at 1280 and 390. Delete
       argo code the shell now owns (e.g. `lib/sidebar-collapsed` if `BasaltShell` persists it).
-- [ ] Commands: `lib/commands.tsx` on `@tanstack/react-hotkeys` 0.13 types (`CommandDef.shortcut` is
+- [x] Commands: `lib/commands.tsx` on `@tanstack/react-hotkeys` 0.13 types (`CommandDef.shortcut` is
       the peer's `Hotkey`), Spotlight from `flattenNav`, the provider's `dev.*` commands present in dev.
-- [ ] Auth in the router context: a login route, 401 → clear token → redirect, no flash of an
+- [x] Auth in the router context: a login route, 401 → clear token → redirect, no flash of an
       authenticated shell.
 
 **Evidence:** `w4.md` — screens (shell, nav, mobile) vs baseline, transitions count per route,
@@ -200,7 +200,16 @@ telemetry events captured (`route.navigate`, `query.error`) with their attribute
 
 **Left behind:**
 
-## Wave 5 — Data and tables <!-- status: pending -->
+- **Landed on master** (`rd merge` of four branches, then follow-ups; `deploy.yml` still disabled): basalt-ui **2.0.2** exact (doctor now monorepo-aware; passes at root and in `apps/dashboard` except `app-wiring`, below), `make check` now also runs the dashboard unit tests and `tsc -p scripts/tsconfig.json` (root `typescript` + `@types/bun` devDeps), `DESIGN.md` on `groupTokens('series')` / `--vx-series-*`, the `Extract<keyof …, string>` workaround removed. Evidence: `w4.md`.
+- **CI gap:** `.github/workflows/check.yml` is a basalt-managed file (edits show as drift), so CI does not run the two new gates; only `make check` does. Fix upstream or accept; not worked around.
+- **Telemetry:** `lib/telemetry.ts` is the spec adapter verbatim. **Open #6 answered: yes**, `HyperDX.init` registers the global tracer provider. Live gotcha, found only by the evidence run: `@opentelemetry/api` must be **1.8.0** exact (HyperDX registers under 1.8.0 and the API ignores a global from a lower minor, so 1.9.1 gave a silent no-op tracer). Verified live against a local OTLP capture: `route.navigate` (`basalt.route.id`, `basalt.route.from`, `url.path`), `query.error` (`basalt.query.hash`, `basalt.query.failure_count`, `exception.type`, `basalt.error.kind`), `route.error`; `service.name` `argo-dashboard`; no message/stack in basalt attributes. **Privacy note:** HyperDX itself stamps `location.href` (with search params) on every span and `http.url` on fetch spans; that is HyperDX, not the basalt sink, and was already true on 1.x.
+- **Transitions:** 1 `startViewTransition` per route change across 12 destinations (forward, reverse, history back), 0 on first load and on search-only changes; reduced motion yields 0 view-transition animations. `/` redirects to Garmin so was not clicked separately.
+- **Auth:** `/login` route outside the shell (`lib/auth-gate.tsx` `ShellGate` + `LoginPage`; the page body lives in `lib/` so `PageTitle` is legal without a suppression), root `beforeLoad` redirects to `/login?redirect=<safe path+search>`, 401 clears the token and navigates there, token entry navigates back without a reload. Live: no shell frame, 0 API calls unauthenticated, 401 round trip OK. `safeRedirect` is unit-tested against open-redirect shapes.
+- **Shell:** `BasaltShell` now persists collapse (`storageKey="argo-sidebar"`, same `basalt:` envelope, so existing state survives; the pre-1.21 raw `'true'/'false'` migration is gone); `lib/sidebar-collapsed.ts` deleted. Argo's `nav:*` Spotlight commands deleted (the provider lists NAV destinations itself, they showed twice); `dev.router/query/theme` come from the provider, not the registry, so `defineCommands` cannot drop them.
+- **Basalt friction to file in `argo-friction.md`:** (A) **collapsed-rail badges never render**: in the collapsed rail the link's right section holding the Badge is `display: none`, so the Calendar count and the sidebar block's `rail: 'dot'` do not show, and a non-primary group ("Other") has no rail entry so M365's badge is unreachable; severity medium, parity regression vs the expanded shell. (B) `doctor` `app-wiring` fails in the monorepo: it wants `src/main.tsx` to use `createBasaltRouter`, but argo creates the router in `lib/router.ts` (a module singleton the 401 handler also needs); not restructured to appease it. (C) `check.yml` managed → CI cannot gain gates (above). (D) Commands: the provider's Spotlight and `defineCommands` both emit nav entries (`nav.<id>` vs a consumer's own), a consumer has no way to label the provider's ones "Go to …" (low).
+- **Not verified:** `Back/Forward` transition behaviour beyond one history-back; no 1.41 collapsed-rail baseline exists; total JS is +188 KB gzip vs `w3` with no route-chunk growth, growth is in non-route chunks and **not attributed** (check in Wave 5/6: telemetry + OTel/hyperdx are the prime suspects); `docs/poc/astro-map/verify.html` still reads old series var names (lint-excluded).
+
+## Wave 5 — Data and tables <!-- status: active -->
 
 - [ ] The 8 `BasaltDataTable` sites on Table v9 behaviour: string columns sort naturally
       (`alphanumeric`), facets/search use `includesString`, `columnMeta` (`align`/`numeral`/`priority`)
