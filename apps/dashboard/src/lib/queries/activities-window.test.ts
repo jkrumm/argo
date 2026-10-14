@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'bun:test'
-import { activitiesRange, remainingPages } from './activities-window'
+import { activitiesRange, chunk, remainingPages } from './activities-window'
 
 const now = new Date(2026, 9, 14, 12)
 
 describe('activitiesRange', () => {
-  it('derives dateFrom from a preset window (old code sent undefined)', () => {
+  it('derives dateFrom from a preset window', () => {
     expect(activitiesRange({ window: '7d' }, now)).toEqual({
       dateFrom: '2026-10-07',
       dateTo: undefined,
@@ -34,8 +34,15 @@ describe('remainingPages', () => {
     expect(remainingPages(200)).toEqual([])
   })
 
-  it('pages on total (old code stopped at 200 rows)', () => {
+  it('lists every page after the first for a given total', () => {
     expect(remainingPages(201)).toEqual([2])
     expect(remainingPages(450)).toEqual([2, 3])
+  })
+})
+
+describe('chunk', () => {
+  it('splits into batches of at most the given size', () => {
+    expect(chunk([2, 3, 4, 5, 6], 4)).toEqual([[2, 3, 4, 5], [6]])
+    expect(chunk([], 4)).toEqual([])
   })
 })

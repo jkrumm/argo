@@ -23,7 +23,14 @@ export function activitiesRange(
 }
 
 /** Pages still to fetch after page 1, given the response's `total`. */
-export function remainingPages(total: number, pageSize: number = ACTIVITIES_PAGE_SIZE): number[] {
-  const pages = Math.ceil(total / pageSize)
+export function remainingPages(total: number): number[] {
+  const pages = Math.ceil(total / ACTIVITIES_PAGE_SIZE)
   return Array.from({ length: Math.max(0, pages - 1) }, (_, i) => i + 2)
+}
+
+/** Split page numbers into batches so a large `all` window never fires every request at once. */
+export function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size))
+  return out
 }
