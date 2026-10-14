@@ -261,15 +261,15 @@ join test; commit counts per reply if the throttle moved.
 - **Not verified:** streaming and resumed-turn screens (no live Hermes in the harness); `@types/unist` is flagged unused by fallow (untouched). The Calendar dot with real counts.
 - **Cleanup:** no worktrees were used; nothing stale left in docs.
 
-## Wave 7 — Charts A: usage, walking pad, agents, smoke <!-- status: active -->
+## Wave 7 — Charts A: usage, walking pad, agents, smoke <!-- status: done -->
 
 Inventory rows a1–a12, a40–a43; one worker per directory.
 
-- [ ] `usage-tracking/charts/*` (a1–a6): `Donut`, `Lines` ×2, `StackedArea` ×3.
-- [ ] `walking-pad/charts/*` (a7–a12): `Bars` ×3, `Lines`, `Sparkline` in `StatCard`, `Heatmap` for
+- [x] `usage-tracking/charts/*` (a1–a6): `Donut`, `Lines` ×2, `StackedArea` ×3.
+- [x] `walking-pad/charts/*` (a7–a12): `Bars` ×3, `Lines`, `Sparkline` in `StatCard`, `Heatmap` for
       the bespoke time-of-day grid (a11).
-- [ ] `agents/hero-stats.tsx` (a40) and the dev `routes/charts-smoke.tsx` (a41–a43) on `Sparkline`/`Lines`.
-- [ ] Every ported chart: `ariaLabel`, `state` from its query (never `data ?? []`), Date x where the
+- [x] `agents/hero-stats.tsx` (a40) and the dev `routes/charts-smoke.tsx` (a41–a43) on `Sparkline`/`Lines`.
+- [x] Every ported chart: `ariaLabel`, `state` from its query (never `data ?? []`), Date x where the
       data is temporal, `cursorResolution="leading"` where the inventory says leading; its
       `MIGRATION-STUB(w7)` gone.
 
@@ -278,7 +278,15 @@ chunks vs baseline, Lighthouse on `/usage-tracking` and `/walking-pad`.
 
 **Left behind:**
 
-## Wave 8 — Charts B: Garmin health, body composition <!-- status: pending -->
+- **Landed on master** (`rd merge` of three PRs, 1 worker per directory per D5): #29 usage-tracking (a1–a6), #28 agents hero sparklines + charts-smoke (a40–a43), #30 walking-pad (a7–a12). Every row was expressible; **no chart stayed a stub**, `grep MIGRATION-STUB(w7)` is empty. Review: gateway `/review` on all three; 1 blocking each on #28 (null summary plotted as 0) and #29 (day buckets parsed as UTC) and 3 on #30 (sparkline `?? 0`, unweighted pace average vs "distance-weighted" copy, time-of-day hours), all fixed and re-merged; the follow-up diffs were read by the lead, not re-reviewed. `deploy.yml` still disabled.
+- **Also landed:** `use-stick-to-bottom` 1.1.6 and `@tanstack/react-virtual` 3.14.14 exact (basalt's peers are ranges; its own devDep pins the virtual one); a clean `--frozen-lockfile` production build now bundles both in `hermes-chat` and carries no stub chunk (`w7.md`). basalt-ui **2.1.0** exact in both pins (via 2.0.5), `classifyChatError` now wraps `toAgentError` (no `Response` is classified in the transport, so no `statusCode` shim), `check.yml` was red on one env-dependent test (`lpTileUrl`, fixed in `7043271`, green since). Lighthouse lane also covers `/usage-tracking` and `/walking-pad`.
+- **Evidence:** `w7.md` — bundle (+77 / +76 KB on the two routes = the charts runtime, re-measure after Wave 9), screens 52/52, Lighthouse for five routes, and the M365 collapsed-rail check: **friction (H) is closed by 2.1.0** (`M365 Explorer, 10` with a dot, real data; the Calendar dot only with a mocked count, production's is 0).
+- **Not verified:** walking-pad charts and the Peak column at 390 px with data (the harness's 30-day window is empty, last walk 75 days ago). The worker removed `minWidth={640}` from the session-history table (no column had an explicit size), so Peak's clip is unconfirmed; the Heatmap's 18 hour labels (no tick stride) are unseen with data; the sparkline NaN gaps are unseen. Dark mode and mobile were not looked at for the usage charts beyond the screens run.
+- **doctor:** `subpath-peers` (new in 2.0.5, still in 2.1.0) fails at the repo root and in `apps/dashboard`: it reports every peer (`ai`, `shiki`, `@tanstack/charts`, …) as not installed because it reads the root `package.json`, while they are declared in `apps/dashboard`. Everything else passes. Not worked around (no peers copied into the root).
+- **Friction rows for `argo-friction.md`** (none worked around): (I) `doctor` `subpath-peers` not monorepo-aware (above), medium-low; (J) `Sparkline` has no `state` (pending/error/empty), `StatCard.query` only wraps `breakdown`, so a loading sparkline tile needs hand-rolled `'—'`, low; (K) `StatCardSparklineSize` is not exported, and `react/no-unstable-nested-components` warns on the documented `StatCard` `sparkline` render prop (preset leaves `allowAsProps` off), one lint warning remains, low; (L) `Heatmap` has no x-tick stride (18 labels where 1.x drew 6), and `matchHeight` still needs a pixel height from a measured parent, low; (M) `ChartState.empty` cannot say "loaded, filtered to zero" apart from "no data" beyond a label, low; (N) 1.x `ZonedLine` per-point zone colouring has no equivalent (dev smoke route only), low.
+- **Cleanup:** worker worktrees removed with `rd fan --clean`; no stale docs.
+
+## Wave 8 — Charts B: Garmin health, body composition <!-- status: active -->
 
 Inventory rows a13–a21, a33–a34.
 
