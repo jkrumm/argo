@@ -96,28 +96,44 @@ basalt-ui's `docs/waves/v2-chart-inventory.md` rows a1–a43 (40 production char
 - **Owner call pending:** D4 (SSR auth), needed before Wave 10, not before.
 - **Plan review: none** — a doc-only wave; the orchestrator reviews this plan before spawning Wave 2.
 
-## Wave 2 — 1.41 live, the evidence command, the real baseline <!-- status: active -->
+## Wave 2 — 1.41 live, the evidence command, the real baseline <!-- status: done -->
 
 Ships to production (still 1.x); the last wave that deploys before cutover.
 
-- [ ] Align both pins on `basalt-ui` 1.41.0 exact (`apps/dashboard` from 1.36.0; root already 1.41.0)
+- [x] Align both pins on `basalt-ui` 1.41.0 exact (`apps/dashboard` from 1.36.0; root already 1.41.0)
       and clear what 1.37–1.41 changed for argo (installed `MIGRATING.md` § 1.37.0–1.41.0: forms
       layout moved to `./controls`, content inset 20 → 16, `maxRows` deprecations). `basalt-ui sync`,
       `doctor` clean.
-- [ ] Push; the deploy fires; confirm with `make verify` that `commit` equals `origin/master`, Uptime
+- [x] Push; the deploy fires; confirm with `make verify` that `commit` equals `origin/master`, Uptime
       Kuma's three `Argo` monitors are green, and `make logs` shows no new errors.
-- [ ] Build `make evidence` per D3 (`scripts/evidence/`, a `routes.txt` with the 13 non-dev routes);
+- [x] Build `make evidence` per D3 (`scripts/evidence/`, a `routes.txt` with the 13 non-dev routes);
       document it in `AGENTS.md` § Verify & Monitor.
-- [ ] Record `docs/waves/evidence/baseline-1.41.md` with real data: all three lanes. It is the
+- [x] Record `docs/waves/evidence/baseline-1.41.md` with real data: all three lanes. It is the
       before-picture for every later wave.
-- [ ] Turn deploys off: `gh workflow disable deploy.yml`; note in `AGENTS.md` § Deploy that deploys
+- [x] Turn deploys off: `gh workflow disable deploy.yml`; note in `AGENTS.md` § Deploy that deploys
       are paused for the 2.0 migration until Wave 11 of `docs/waves/PLAN.md`.
 
 **Evidence:** `w2.md` — the 1.41 deploy verification and the baseline run's own log.
 
 **Left behind:**
 
-## Wave 3 — The 2.0 bump (atomic, D1) <!-- status: pending -->
+- **Live:** production runs 1.41 at `ff81fc1`; `deploy.yml` is disabled (`disabled_manually`) and
+  `AGENTS.md` § Deploy says so. Re-enable is Wave 11's step.
+- **Evidence:** `w2.md` (deploy verification) and `baseline-1.41.md` (the real-data before-picture).
+  `make evidence LABEL=<l>` is the command; it needs `secrets-run` and local Google Chrome and
+  takes ~5 min. The app POSTs `/api/daily-metrics/refresh` on load — blocked and listed, by design.
+- **Plan wording to know:** `charts-smoke` appears in the baseline's route chunks (a dev route, not
+  among the 13 screened routes).
+- **Uptime Kuma:** the three `Argo` monitors were not read from Kuma (no headless handle); the same
+  three endpoints were probed directly and were green.
+- **Review:** PR #21 (`make evidence`) reviewed; 3 blocking + hardening fixed. The pin alignment
+  (two lines + lockfile) merged without `/review`: nothing to review beyond the version string.
+- **Not done in this wave (plan-external, left for the orchestrator):** typechecking and formatting of
+  `scripts/**` is outside every gate (`.oxlintrc.json` ignores it, `tsc` never sees it); a
+  `scripts/tsconfig.json` + `make check` entry is a small follow-up if the orchestrator wants it.
+- **Friction rows for `argo-friction.md`:** none from this wave.
+
+## Wave 3 — The 2.0 bump (atomic, D1) <!-- status: active -->
 
 One worker on one branch (D1 forbids splitting the bump); the lead reviews and merges it. Starting
 point: `w1.md` §§ 1–4 are the checklist.
