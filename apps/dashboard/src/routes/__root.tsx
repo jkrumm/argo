@@ -10,8 +10,8 @@ import {
 } from 'basalt-ui'
 import { SyncButton, type GlobalAction } from 'basalt-ui/controls'
 import { NotificationBell } from 'basalt-ui/commands'
-import { AuthRequiredError, requireToken } from '../lib/auth'
-import { AuthGate, TokenPrompt } from '../lib/auth-gate'
+import { requireToken } from '../lib/auth'
+import { ShellGate } from '../lib/auth-gate'
 import { CrashFallback } from '../lib/error-boundary'
 import { useSidebarCollapsed } from '../lib/sidebar-collapsed'
 import { TimerNavWidget, useTimerEngine } from '../components/timer-nav'
@@ -24,16 +24,15 @@ import { NAV } from '../lib/nav'
 
 export const Route = createRootRouteWithContext<BasaltRouterContext>()({
   // `BasaltProvider` owns `RouterProvider`, so auth is enforced in the router itself: `beforeLoad`
-  // keeps every child loader from firing without a token and `errorComponent` shows the prompt for
-  // that case; `AuthGate` covers the token being cleared mid-session (a 401), when `beforeLoad` does
-  // not re-run. Nothing below the gate mounts — and no badge/timer query fires — without a token.
-  beforeLoad: requireToken,
-  errorComponent: ({ error }) =>
-    error instanceof AuthRequiredError ? <TokenPrompt /> : <CrashFallback error={error} />,
+  // redirects to `/login` before any child loader fires (so the first paint is already the login
+  // page), and `ShellGate` renders `/login` bare and the shell only while a token exists — it covers
+  // the token being cleared mid-session (a 401), when `beforeLoad` does not re-run.
+  beforeLoad: ({ location }) => requireToken(location),
+  errorComponent: ({ error }) => <CrashFallback error={error} />,
   component: () => (
-    <AuthGate>
+    <ShellGate>
       <RootLayout />
-    </AuthGate>
+    </ShellGate>
   ),
 })
 
