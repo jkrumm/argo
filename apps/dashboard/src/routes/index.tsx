@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { navTarget } from 'basalt-ui/router-tanstack'
+import { navTarget } from 'basalt-ui'
 import { NAV } from '../lib/nav'
 
 export const Route = createFileRoute('/')({

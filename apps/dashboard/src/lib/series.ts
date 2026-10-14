@@ -21,7 +21,7 @@
  *  - Values here are a mechanical carry-over, not a final visual pass — iterate live via the
  *    basalt-ui theme lab (`basalt-ui/theme-lab`) once Phase 2/3 land.
  */
-import { BP, defineSeries, groupTokens, p, seriesTokens, type SeriesMap } from 'basalt-ui/tokens'
+import { BP, defineSeries, groupTokens, p, type SeriesMap } from 'basalt-ui/tokens'
 
 /** Per-metric series identity — see the module doctrine above for the family choices. */
 const SERIES_MAP = defineSeries({
@@ -165,7 +165,7 @@ const LP_MAP = defineSeries({
   lpPristine: p(BP.blue),
 } satisfies SeriesMap)
 
-export const SERIES = seriesTokens(SERIES_MAP)
+export const SERIES = groupTokens('series', SERIES_MAP)
 export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 export const USAGE_SOURCE = groupTokens('usage', USAGE_SOURCE_MAP)
 export const USAGE_BILLING = groupTokens('billing', USAGE_BILLING_MAP)
@@ -176,14 +176,7 @@ export const LP = groupTokens('lp', LP_MAP)
  * `paletteOptions.groups` shape for `BasaltProvider` — appends argo's domain series on top of
  * basalt's framework primitives. Prefixes match the `--vx-*` names above exactly.
  */
-export const argoPaletteGroups: Record<string, SeriesMap> = {
-  '': SERIES_MAP,
-  'activity-': ACTIVITY_MAP,
-  'usage-': USAGE_SOURCE_MAP,
-  'billing-': USAGE_BILLING_MAP,
-  'outcome-': USAGE_OUTCOME_MAP,
-  'lp-': LP_MAP,
-}
+export const argoPaletteGroups = [SERIES, ACTIVITY, USAGE_SOURCE, USAGE_BILLING, USAGE_OUTCOME, LP]
 
 /**
  * `optimalZone` (`packages/charts/src/tokens.ts` → `VX.series.optimalZone`) is not a per-theme

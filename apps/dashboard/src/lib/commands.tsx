@@ -1,7 +1,7 @@
 /**
  * commands.ts — Argo's single global command registry (see basalt-ui/commands: `defineCommands`'s
  * contract is "call it once — the app's single command registry; the last call wins"). Imported
- * eagerly (side-effect) by main.tsx, before `BasaltOverlays` mounts, so Spotlight/ShortcutsHelp see
+ * eagerly (side-effect) by main.tsx, before `BasaltProvider` mounts, so Spotlight/ShortcutsHelp see
  * the full registry from boot.
  *
  * Navigation commands are DERIVED from `lib/nav.tsx`'s single `NAV` definition via `flattenNav`,
@@ -26,7 +26,7 @@ import {
   toggleSidebar,
   type Command,
 } from 'basalt-ui/commands'
-import { flattenNav, type NavItemId } from 'basalt-ui/router-tanstack'
+import { flattenNav, type NavItemId } from 'basalt-ui'
 import { router } from './router'
 import { NAV } from './nav'
 

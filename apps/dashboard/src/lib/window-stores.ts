@@ -21,7 +21,7 @@
  * `resolveWindow` helpers.
  */
 import { format, startOfYear, subMonths, subYears } from 'date-fns'
-import { createSearchStore, field, type RangeWindow } from 'basalt-ui/router-tanstack'
+import { createSearchStore, field, type RangeWindow } from 'basalt-ui/state'
 
 const iso = (d: Date) => format(d, 'yyyy-MM-dd')
 
