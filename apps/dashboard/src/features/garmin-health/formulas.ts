@@ -58,7 +58,6 @@ export function acwrZoneTone(zone: AcwrZone | null): StatCardTone | undefined {
   }
 }
 
-// MIGRATION-STUB(w8): parked — its only callers were the Garmin charts stubbed in Wave 3.
 export function acwrZoneColor(zone: AcwrZone | null): string {
   switch (zone) {
     case 'optimal':
@@ -78,7 +77,6 @@ export function acwrZoneColor(zone: AcwrZone | null): string {
  * Format an absolute ISO timestamp as a short relative phrase ("12m ago").
  * Returns "never" for null and "just now" for under one minute.
  */
-// MIGRATION-STUB(w8): parked — its only callers were the Garmin charts stubbed in Wave 3.
 export function formatRelativeTime(iso: string | null): string {
   if (iso === null) return 'never'
   const ms = Date.now() - Date.parse(iso)
