@@ -1,6 +1,7 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Box, SimpleGrid, Stack, Text, Tooltip } from '@mantine/core'
-import { ChartCard, VX } from 'basalt-ui/charts'
+import { ChartCard } from 'basalt-ui/charts'
+import { VX } from 'basalt-ui/tokens'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from '../constants'
 

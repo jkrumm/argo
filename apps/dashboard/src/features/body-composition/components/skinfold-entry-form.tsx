@@ -9,7 +9,7 @@ import {
   TextInput,
   Transition,
 } from '@mantine/core'
-import { emit } from 'basalt-ui/notifications'
+import { emit } from 'basalt-ui/commands'
 import { IconCheck } from '@tabler/icons-react'
 import { useCreateSkinfoldLog, type SkinfoldSite } from '../../../lib/queries/skinfold-log'
 import { SKINFOLD_SITES } from '../constants'

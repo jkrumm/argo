@@ -24,7 +24,7 @@ import {
 import { VX } from 'basalt-ui/tokens'
 import { SERIES } from '../../lib/series'
 import { PageBar } from 'basalt-ui'
-import type { BarAction } from 'basalt-ui'
+import type { BarAction } from 'basalt-ui/controls'
 import { ViewTabs } from 'basalt-ui/controls'
 import { calendarStore } from '../../lib/window-stores'
 
@@ -184,7 +184,8 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
    * `‹ Today ›` as typed action DATA, not a hand-rolled row: `group: true` on the three joins them
    * into one `ControlGroup` (shared hairlines, radius on the outer ends), the two that ship an icon
    * render icon-only with the label demoted to the accessible name, and basalt folds whatever does
-   * not fit into the header's single kebab. Four secondaries is exactly the `page-bar-budget` limit.
+   * not fit into the single kebab. They ride `filtersEnd`: 2.0's `actions` tuple demands a primary first,
+   * and the date nav has none.
    */
   const dateActions: BarAction[] = [
     {
@@ -234,7 +235,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
       }}
     >
       <PageBar
-        actions={{ secondary: dateActions }}
+        filtersEnd={dateActions}
         tabs={<ViewTabs field={calendarStore.field.view} label="Calendar view" />}
       />
 

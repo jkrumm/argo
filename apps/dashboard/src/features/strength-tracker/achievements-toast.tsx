@@ -1,4 +1,4 @@
-import { emit } from 'basalt-ui/notifications'
+import { emit } from 'basalt-ui/commands'
 import confetti from 'canvas-confetti'
 import type { Achievement } from '../../lib/queries/workouts'
 

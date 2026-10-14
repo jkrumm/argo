@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Text } from '@mantine/core'
-import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
+import { BasaltDataTable, createColumnHelper } from 'basalt-ui/table'
 import { usageQueries, type Range } from '../../../lib/queries/usage'
 import type { BillingValue, WorkspaceValue } from '../types'
 import { fmtPct, fmtUsd } from '../constants'

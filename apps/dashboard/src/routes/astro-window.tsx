@@ -3,7 +3,7 @@ import { Suspense, useCallback, useMemo } from 'react'
 import { Center, Grid, Loader, Stack, useComputedColorScheme } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { z } from 'zod'
-import { BasaltErrorBoundary, PageBar, Section, type BasaltErrorContext } from 'basalt-ui'
+import { PageBar, Section } from 'basalt-ui'
 import { CONTAINER_GRID_BREAKPOINTS } from 'basalt-ui/tokens'
 import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, NumberFilter, SelectFilter, ViewTabs } from 'basalt-ui/controls'
@@ -149,16 +149,6 @@ export const Route = createFileRoute('/astro-window')({
   },
   component: AstroWindowPage,
 })
-
-/**
- * A chart-level boundary must not swallow the error: the fallback tells the reader the data is
- * missing, this keeps the reason reachable in the console, the same sink `BasaltProvider`'s own
- * `onError` uses in `main.tsx`.
- */
-function reportChartError(error: unknown, ctx: BasaltErrorContext): void {
-  // eslint-disable-next-line no-console
-  console.error('[astro-window]', ctx, error)
-}
 
 // ── Page component ─────────────────────────────────────────────────────────
 
@@ -368,59 +358,32 @@ function AstroWindowPage() {
                 {selectedSite ? (
                   <>
                     {/*
-                      Each chart owns its own Suspense AND error boundary. Both read upstreams
-                      that legitimately 502 (the DEM bucket, the Lorenz atlas), and neither is
-                      worth the rest of the page: a failed skyline should cost the panorama, not
-                      the verdict above it.
+                      Each chart owns its own Suspense. Both read upstreams that legitimately 502
+                      (the DEM bucket, the Lorenz atlas), and neither is worth the rest of the page.
+                      The per-chart error boundary is gone with 2.0 (`BasaltErrorBoundary` was
+                      deleted); both charts are Wave 9 stubs that fetch nothing, and
+                      their port renders the failure through `ChartCard state={{ error }}`.
                     */}
-                    <BasaltErrorBoundary
-                      onError={reportChartError}
+                    <Suspense
                       fallback={
-                        <ChartCard
-                          state={{
-                            empty:
-                              'Terrain or sky-brightness data is unavailable for this site right now.',
-                          }}
-                          placeholderHeight={PANORAMA_HEIGHT}
-                        />
+                        <ChartCard state={{ pending: true }} placeholderHeight={PANORAMA_HEIGHT} />
                       }
                     >
-                      <Suspense
-                        fallback={
-                          <ChartCard
-                            state={{ pending: true }}
-                            placeholderHeight={PANORAMA_HEIGHT}
-                          />
-                        }
-                      >
-                        <SkyPanorama
-                          key={`${selectedSite.id}-${selectedDate}`}
-                          site={selectedSite}
-                          detailDate={selectedDate}
-                          hourly={data.detail.hourly}
-                          moonIllumination={selectedNight.moon.illumination}
-                        />
-                      </Suspense>
-                    </BasaltErrorBoundary>
-                    <BasaltErrorBoundary
-                      onError={reportChartError}
+                      <SkyPanorama
+                        key={`${selectedSite.id}-${selectedDate}`}
+                        site={selectedSite}
+                        detailDate={selectedDate}
+                        hourly={data.detail.hourly}
+                        moonIllumination={selectedNight.moon.illumination}
+                      />
+                    </Suspense>
+                    <Suspense
                       fallback={
-                        <ChartCard
-                          state={{
-                            empty: 'The annual budget is unavailable for this site right now.',
-                          }}
-                          placeholderHeight={CHART_HEIGHT}
-                        />
+                        <ChartCard state={{ pending: true }} placeholderHeight={CHART_HEIGHT} />
                       }
                     >
-                      <Suspense
-                        fallback={
-                          <ChartCard state={{ pending: true }} placeholderHeight={CHART_HEIGHT} />
-                        }
-                      >
-                        <MonthlyBudgetChart site={selectedSite} />
-                      </Suspense>
-                    </BasaltErrorBoundary>
+                      <MonthlyBudgetChart site={selectedSite} />
+                    </Suspense>
                   </>
                 ) : (
                   <ChartCard

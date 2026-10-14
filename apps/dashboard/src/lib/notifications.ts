@@ -10,7 +10,7 @@
  * Achievement toasts (walking-pad, strength-tracker) share `achievement:unlocked`.
  */
 import type { ReactNode } from 'react'
-import { defineNotifications } from 'basalt-ui/notifications'
+import { defineNotifications } from 'basalt-ui/commands'
 
 type MessagePayload = { message: ReactNode }
 

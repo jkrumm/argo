@@ -3,7 +3,7 @@ import { ActionIcon, Badge, Box, Group, Stack, Text, Tooltip } from '@mantine/co
 import { overlays } from 'basalt-ui/commands'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { IconEdit, IconTrash } from '@tabler/icons-react'
-import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
+import { BasaltDataTable, createColumnHelper } from 'basalt-ui/table'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { useDeleteWorkout, workoutsQueries } from '../../../lib/queries/workouts'
 import { EXERCISE_COLORS, type ExerciseKey } from '../constants'

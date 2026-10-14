@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Anchor, Badge, Button, Card, Group, Modal, Stack, Text, Textarea } from '@mantine/core'
 import { useForm } from '@mantine/form'
-import { BasaltDataTable, createColumnHelper } from 'basalt-ui/data/table'
+import { BasaltDataTable, createColumnHelper } from 'basalt-ui/table'
 import {
   isKnownActionVerb,
   type WardenActionVerb,
