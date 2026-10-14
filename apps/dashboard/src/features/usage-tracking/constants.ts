@@ -1,4 +1,6 @@
+import type { StackedAreaBand } from 'basalt-ui/charts'
 import { USAGE_BILLING, USAGE_OUTCOME, USAGE_SOURCE } from '../../lib/series'
+import type { CostGroupBy, TimePoint } from './types'
 
 const SOURCE_KEY_TO_TOKEN: Record<string, keyof typeof USAGE_SOURCE> = {
   'claude-code': 'claudeCode',
@@ -100,4 +102,37 @@ export function relativeTime(iso: string | null | undefined): string {
   if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m ago`
   if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h ago`
   return `${Math.floor(ms / 86_400_000)}d ago`
+}
+
+// Day buckets arrive as `YYYY-MM-DD` text; a bare date parses as UTC midnight, which labels the
+// bucket a day early west of UTC. Parse as local midnight, once per bucket.
+export function dayToDate(day: string): Date {
+  return new Date(`${day}T00:00:00`)
+}
+
+export function toTimePoints(
+  buckets: ReadonlyArray<{ bucket: string; groups: Record<string, number | null> }>,
+): TimePoint[] {
+  return buckets.map((b) => ({ date: dayToDate(b.bucket), groups: b.groups }))
+}
+
+export function colorForGroup(
+  groupBy: CostGroupBy | 'sub_tool' | 'model_norm' | 'project',
+): (key: string) => string {
+  if (groupBy === 'source') return colorForSource
+  if (groupBy === 'billing') return colorForBilling
+  return colorForKey
+}
+
+// One band per group key, coloured by `color`; a missing bucket value stacks as 0.
+export function groupBands(
+  groupKeys: readonly string[],
+  color: (key: string) => string,
+): StackedAreaBand<TimePoint>[] {
+  return groupKeys.map((k) => ({
+    key: k,
+    label: k,
+    color: color(k),
+    getValue: (d) => d.groups[k] ?? 0,
+  }))
 }

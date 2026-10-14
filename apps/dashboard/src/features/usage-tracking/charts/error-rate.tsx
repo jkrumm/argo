@@ -1,8 +1,8 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { ChartCard, StackedArea, type StackedAreaBand } from 'basalt-ui/charts'
+import { ChartCard, StackedArea } from 'basalt-ui/charts'
 import { usageQueries, type Grain, type Range } from '../../../lib/queries/usage'
-import type { BillingValue, TimeBucket, WorkspaceValue } from '../types'
-import { colorForSource, fmtCount } from '../constants'
+import type { BillingValue, WorkspaceValue } from '../types'
+import { colorForSource, fmtCount, groupBands, toTimePoints } from '../constants'
 
 export default function ErrorRate({
   range,
@@ -26,14 +26,9 @@ export default function ErrorRate({
     }),
   )
 
-  const buckets = data.buckets as TimeBucket[]
-  const series: StackedAreaBand<TimeBucket>[] = data.groupKeys.map((k) => ({
-    key: k,
-    label: k,
-    color: colorForSource(k),
-    getValue: (d) => d.groups[k] ?? 0,
-  }))
-  const hasAnyError = buckets.some((b) => data.groupKeys.some((g) => (b.groups[g] ?? 0) > 0))
+  const points = toTimePoints(data.buckets)
+  const series = groupBands(data.groupKeys, colorForSource)
+  const hasAnyError = points.some((p) => series.some((s) => (s.getValue(p) ?? 0) > 0))
 
   return (
     <ChartCard
@@ -43,13 +38,13 @@ export default function ErrorRate({
     >
       <StackedArea
         ariaLabel="Errors over time by source"
-        data={buckets}
+        data={points}
         height={240}
-        x={(d) => new Date(d.bucket)}
+        x={(d) => d.date}
         cursorResolution="leading"
         series={series}
         y={{ format: fmtCount }}
-        state={{ empty: hasAnyError ? false : 'No errors in this window' }}
+        state={{ empty: !hasAnyError && 'No errors in this window' }}
       />
     </ChartCard>
   )
