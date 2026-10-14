@@ -233,17 +233,17 @@ delta vs baseline (accepted upstream at +3.4 KB).
 - **Basalt friction to file in `argo-friction.md` (not worked around):** (E) `stickyHeader` on the agents table lets rows show through a ~12 px strip above the header when the page is scrolled (header ~25 px below the app bar, no `stickyHeaderOffset` set), medium-low; (F) a build against a tree without the optional `@shikijs/*` peers succeeds and emits chunks that throw at load instead of failing or omitting them (`vite build` prints nothing), low-medium; (G) agents State badge truncates `WORKING` to `WOR…` at 1280 px, mobile strength-tracker table has an empty leading header column and walking-pad clips at "Peak" (low, needs a basalt look before filing as a bug vs argo column widths). Rows 10-13 untouched.
 - **Cleanup:** worker worktrees removed with `rd fan --clean`; nothing stale left in docs.
 
-## Wave 6 — AI chat and the OTel join <!-- status: active -->
+## Wave 6 — AI chat and the OTel join <!-- status: done -->
 
-- [ ] `hermes-transport.ts`: response-body parsing becomes a switch on `AgentError['kind']`
+- [x] `hermes-transport.ts`: response-body parsing becomes a switch on `AgentError['kind']`
       (`http`/`server`/`stream`/`aborted`, exhaustive with `satisfies never`); failures now reject the
       stream — re-check the F5-mid-turn resume path and stop/supersede in `chat-page.tsx`.
-- [ ] `useAgentThreadRuns({ throttle, telemetry })`: keep the 100 ms default unless a profile says
+- [x] `useAgentThreadRuns({ throttle, telemetry })`: keep the 100 ms default unless a profile says
       otherwise; `chat.turn` reaches the Wave 4 sink.
-- [ ] Content: every model output through `<Markdown streaming contentTrust="untrusted">`; argo's own
+- [x] Content: every model output through `<Markdown streaming contentTrust="untrusted">`; argo's own
       mermaid/vega fences still render (2.0 made `CodeBlock`/`MermaidDiagram` private); blocked images
       render their alt text.
-- [ ] The join: `apps/api` `hermes.stream-lifecycle` (`routes/hermes.ts:968`) also carries
+- [x] The join: `apps/api` `hermes.stream-lifecycle` (`routes/hermes.ts:968`) also carries
       `basalt.chat.thread_id` with the same thread id `chat.turn` reports; a test asserts both sides
       use one value. The live ClickStack join is a Wave 11 check.
 
@@ -252,7 +252,16 @@ join test; commit counts per reply if the throttle moved.
 
 **Left behind:**
 
-## Wave 7 — Charts A: usage, walking pad, agents, smoke <!-- status: pending -->
+- **Landed on master (unpushed until the close-out push below), no PR:** `4187770` shiki + `@shikijs/langs|themes` exact `4.5.0` (basalt's peer range is `^4.5.0`); `47c6113` API `basalt.chat.thread_id` via `lib/hermes-trace.ts`; `7112548` + `55f5293` `hermes-transport.ts` switch on `AgentError['kind']` with a local `classifyChatError` (basalt does not export `toAgentError`; a test drives the real 409 through the transport) and the Markdown trust tests; `de51913` basalt-ui 2.0.3 (both pins); `250b2bc` `check.yml` now runs `make check`. `deploy.yml` still disabled. Review: gateway `/review` on the first four commits, 0 blockers, all code findings fixed; the 2.0.3 bump and `check.yml` diff were read by the lead, not reviewed.
+- **Wave 5 shiki decision done:** proven in a clean `--frozen-lockfile` clone (`w6.md` § chat). When the highlighter import rejects, `Markdown` degrades silently: `highlightCode` catches to `null`, `CodeBlock` stays plain mono, the build still succeeds. Transport, resume and stop code needed no change beyond the error switch (liveness was already by `status`); throttle stays 100 ms.
+- **Content step needed no source change:** the one Markdown site (`markdown-part.tsx`) already used `streaming contentTrust="untrusted"` and keeps argo's `card`/`vega-lite` fences; mermaid stays basalt's built-in. Tests cover blocked images (alt text), raw HTML, accent directives.
+- **2.0.3 verified:** doctor `app-wiring` passes; `make check` green. Collapsed rail: Calendar dot and `Calendar, N` name confirmed with mocked counts (prod count was 0). **New friction (H):** M365 Explorer sits in the non-primary "OTHER" group and has no collapsed-rail entry, so its count (10) is invisible when collapsed; medium-low, needs a basalt call (surface non-primary badges, or argo promotes the item).
+- **Basalt friction still unfiled in `argo-friction.md`:** rows 14-16 were filed by the orchestrator; (H) above is new. `use-stick-to-bottom` and `@tanstack/react-virtual` are also missing from argo's lockfile, so the production build carries stubs for them (the same silent-optional-peer class as row 15): chat degrades to a plain scroll div without auto-stick. Not added, as no step asked for it; orchestrator decides whether chat wants `use-stick-to-bottom`.
+- **Observed, not attributed:** after a failed first turn the list composer and the thread's own composer are both visible; the thread's messages query re-404s (designed 404 → empty, via the invalidate-and-poll after a settled run). Neither looks caused by this wave, neither checked against the 1.41 baseline.
+- **Not verified:** streaming and resumed-turn screens (no live Hermes in the harness); `@types/unist` is flagged unused by fallow (untouched). The Calendar dot with real counts.
+- **Cleanup:** no worktrees were used; nothing stale left in docs.
+
+## Wave 7 — Charts A: usage, walking pad, agents, smoke <!-- status: active -->
 
 Inventory rows a1–a12, a40–a43; one worker per directory.
 
