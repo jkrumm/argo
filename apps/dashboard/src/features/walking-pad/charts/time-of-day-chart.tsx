@@ -65,7 +65,11 @@ export function TimeOfDayChart({
       }
       state={chartStateOf(
         query,
-        totalSessions === 0 ? emptyWindowMessage(lastWalkEndedAt) : undefined,
+        totalSessions === 0
+          ? lastWalkEndedAt === null
+            ? 'No walks yet — heatmap unlocks on first session.'
+            : emptyWindowMessage(lastWalkEndedAt)
+          : undefined,
       )}
       placeholderHeight={DEFAULT_HEIGHT}
     >

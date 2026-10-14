@@ -856,13 +856,12 @@ describe('lpTileUrl', () => {
   })
 })
 
-describe('fallbackIcon', () => {
-  it('draws a solid dot for circle-11 and a transparent square for any other id', async () => {
-    const { fallbackIcon } = await import('./map-layers')
-    const dot = fallbackIcon('circle-11')
+describe('fallbackDotImage', () => {
+  it('draws a solid centre, a transparent corner', async () => {
+    const { fallbackDotImage } = await import('./map-layers')
+    const dot = fallbackDotImage()
     expect(dot.data.length).toBe(11 * 11 * 4)
     expect(dot.data[(5 * 11 + 5) * 4 + 3]).toBe(255)
     expect(dot.data[3]).toBe(0)
-    expect(fallbackIcon('anything-else').data.every((v) => v === 0)).toBe(true)
   })
 })

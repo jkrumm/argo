@@ -1759,24 +1759,24 @@ export function formatTerrainParam(selection: TerrainSelection): string | undefi
 /**
  * The OpenFreeMap sprite (`ofm_f384`) does not ship `circle-11`, yet the fiord and dark styles
  * reference it as the `icon-image` of their town/city dot layers, so MapLibre warns `Image
- * "circle-11" could not be loaded` on every tile. The map answers `styleimagemissing` with this
- * image: a solid dot for the one id we know the style means as a dot, a transparent square for any
- * other id (still registered, so a missing image warns once rather than once per tile).
+ * "circle-11" could not be loaded` on every tile. The map answers `styleimagemissing` for THIS id
+ * only (any other missing image keeps MapLibre's warning — it would be a real style bug).
  */
 export const FALLBACK_DOT_IMAGE_ID = 'circle-11'
 
-export function fallbackIcon(
-  id: string,
-  size = 11,
-): { width: number; height: number; data: Uint8Array } {
+const FALLBACK_DOT_SIZE = 11
+/** Zinc-500, the neutral data ink; the dot sits under label text on the basemap. */
+const FALLBACK_DOT_RGBA = [113, 113, 122, 255] as const
+
+export function fallbackDotImage(): { width: number; height: number; data: Uint8Array } {
+  const size = FALLBACK_DOT_SIZE
   const data = new Uint8Array(size * size * 4)
-  if (id !== FALLBACK_DOT_IMAGE_ID) return { width: size, height: size, data }
-  const c = (size - 1) / 2
+  const center = (size - 1) / 2
+  const radius = size / 2 - 0.5
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      if (Math.hypot(x - c, y - c) > size / 2 - 0.5) continue
-      const i = (y * size + x) * 4
-      data.set([113, 113, 122, 255], i)
+      if (Math.hypot(x - center, y - center) > radius) continue
+      data.set(FALLBACK_DOT_RGBA, (y * size + x) * 4)
     }
   }
   return { width: size, height: size, data }

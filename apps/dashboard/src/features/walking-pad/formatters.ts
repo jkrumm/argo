@@ -37,16 +37,16 @@ export function relativeTime(iso: string, now = new Date()): string {
 }
 
 /**
- * Empty-state copy for a window with no walks. `lastEndedAt` is the newest session ANYWHERE
- * (not just in the window): present → older walks exist, so say when; `undefined` → none ever.
+ * Empty-state copy for a window with no walks. `lastEndedAt` is the newest session ANYWHERE, as a
+ * tri-state: a string → older walks exist, say when; `null` → none ever; `undefined` → not known
+ * yet (loading/error), which must never claim "No walks yet".
  */
-export function emptyWindowMessage(lastEndedAt: string | undefined): string {
-  if (lastEndedAt === undefined) return 'No walks yet'
-  const date = new Date(lastEndedAt).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'UTC',
-  })
-  return `No walks in this window — last walk ${date}`
+export function emptyWindowMessage(lastEndedAt: string | null | undefined): string {
+  if (lastEndedAt === null) return 'No walks yet'
+  const plain = 'No walks in this window'
+  if (lastEndedAt === undefined) return plain
+  const d = new Date(lastEndedAt)
+  if (Number.isNaN(d.getTime())) return plain
+  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return `${plain} — last walk ${date}`
 }
