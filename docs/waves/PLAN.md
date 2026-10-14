@@ -55,13 +55,13 @@ basalt-ui's `docs/waves/v2-chart-inventory.md` rows a1–a43 (40 production char
   (every non-dev route × light/dark × 1280×800/390×844, the 1.36 baseline's matrix), Lighthouse
   (`/`, `/garmin-health`, `/strength-tracker`; mobile + desktop; median of 3). GETs only — no lane
   posts to production.
-- **D4 — Owner call before Wave 11 (SSR).** SSR with argo's bearer-in-`localStorage` auth can render only
+- **D4 — Owner call before Wave 12 (SSR).** SSR with argo's bearer-in-`localStorage` auth can render only
   the shell: the server cannot fetch data on the user's behalf. Option A: an HttpOnly, Secure,
   SameSite=Strict session cookie minted from the bearer, accepted by the API next to the bearer, so
   loaders run on the server and sections stream with data (security-adjacent API change). Option B:
   SSR the shell plus sized pending boxes, data stays client-side (no auth change, a much smaller win
   over today's SPA). Tendency: A — B is not "SSR-first with streamed sections" for an authenticated
-  dashboard. Wave 11 does not start until the owner picks.
+  dashboard. Wave 12 does not start until the owner picks.
 - **D5 — Group-per-worker charts.** Chart waves fan out one worker per feature directory (disjoint
   files); a kind that cannot express an inventory row's "must support" column is a friction row and
   that chart stays a stub until the fixing minor.
@@ -339,7 +339,7 @@ of every route.
 Outward-facing: the orchestrator decides when it runs. Functional parity is the bar; polish happens
 live afterwards (basalt-ui W14). Warden watches argo in production and will react to cutover errors.
 Reordered 2026-10-14 by the orchestrator: the cutover ships the static nginx build now (every chart
-ported, no stub); SSR (Wave 11) waits on owner call D4 and ships live as its own deploy afterwards.
+ported, no stub); SSR (Wave 12) waits on owner call D4 and ships live as its own deploy afterwards.
 
 - [ ] Pre-flight: Gate green, no `MIGRATION-STUB`, zero `basalt/*` suppressions, every argo row in
       `argo-friction.md` closed or explicitly accepted as a post-cutover loop item, `basalt-ui sync
@@ -370,7 +370,33 @@ the 1.41 baseline with every regression accepted or filed.
 - **Found, not argo-caused (loop items):** `GET /hermes/threads/:id/messages` 404s for a brand-new thread (12 in 24 h, 3 threads, span status Ok): a read-after-create race. No `traceparent` from the dashboard's `chat.turn` to the API's `hermes.stream-lifecycle`: they join on the business attribute only. MapLibre `circle-11` image warning on the Map tab. Cosmetic: garmin-health y-ticks inside the plot, weekly-volume landmark swatches low contrast on dark, walking-pad "No walks yet" ignores sessions older than the window, 390 px clipping (body-composition input, strength scan table), Heatmap and `Needs you` hero vs section counts differ by design.
 - **Process:** `rd close` is for the orchestrator; Wave 11 stays `pending` on owner call D4 (session cookie vs shell-only SSR). Not spawned.
 
-## Wave 11 — Rendering: SSR-first, streamed sections <!-- status: pending (blocked on D4) -->
+## Wave 11 — Loop round 1: suppressions, DX trial, live fixes <!-- status: active -->
+
+The first round of the basalt-ui ⇄ argo loop (basalt-ui `docs/waves/PLAN.md` W14), on live master. Its
+exit criterion is basalt-ui's, recorded per round in `docs/waves/evidence/w<n>.md`: a full argo wave
+with zero new friction that needed a workaround or a basalt change; zero `basalt/*` suppressions in
+argo; a clean fresh-agent DX trial; no unaccepted regression against the baseline.
+
+- [ ] Zero basalt suppressions: remove the 5 `theme-allow` waivers that predate the migration by fixing
+      each at the source (or, if one is a basalt gap, a friction row and the waiver stays until the
+      fixing minor). `basalt-ui check-theme --audit-allows` clean.
+- [ ] argo-side live bugs: the `GET /hermes/threads/:id/messages` 404 on a brand-new thread (read
+      after create), the MapLibre `circle-11` image warning, walking-pad "No walks yet" ignoring
+      sessions older than the window, 390 px clipping on the body-composition input and the strength
+      scan table. Each fixed with a test or a screenshot.
+- [ ] DX trial: a fresh agent with only argo's shipped basalt layer (AGENTS.md block, `.claude/rules`,
+      `.claude/skills`) adds a new dashboard route with a chart, a table and a chat-adjacent card to
+      argo on a throwaway branch (never merged). Record every wrong turn; a basalt-rooted one is a
+      friction row, an argo-rooted one is fixed here.
+- [ ] Adopt the basalt-ui release the orchestrator announces for rows 36-38 (select-filter call-site
+      fallback, chat traceparent, chart axis/legend cosmetics) and drop the per-leader store rebuild.
+
+**Evidence:** `w11.md` — the audit-allows output, the DX trial transcript summary with every wrong
+turn classified, before/after screens for the fixes, and the exit-criterion table for this round.
+
+**Left behind:**
+
+## Wave 12 — Rendering: SSR-first, streamed sections <!-- status: pending (blocked on D4) -->
 
 Blocked on D4. Pattern: basalt-ui `docs/waves/evidence/w10/ssr.md` and the `basalt-app` skill's
 "Stream a slow section".
