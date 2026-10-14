@@ -1,8 +1,138 @@
-import { type StrengthQueryParams } from '../../../lib/queries/strength'
-import { ChartCard } from 'basalt-ui/charts'
+import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Group, Text } from '@mantine/core'
+import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
+import { chartStateOf } from '../../../lib/chart-state'
+import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
+import { SERIES } from '../../../lib/series'
+import { DEFAULT_EXERCISES, EXERCISE_COLORS, METRIC_TOOLTIPS } from '../constants'
+import { directionArrow, directionColor, exerciseLabel } from '../formulas'
+import {
+  buildMergedPoints,
+  trendArrow,
+  yDomain,
+  type ApiSeriesByExercise,
+  type MergedPoint,
+} from './one-rm-data'
 
-// MIGRATION-STUB(w9): OneRmTrendChart is not ported to basalt-ui 2.0 yet; the signature is kept so
-// callers compile, and the port (docs/waves/PLAN.md, Wave 9) replaces this body.
-export default function OneRmTrendChart(_props: { params: StrengthQueryParams }) {
-  return <ChartCard title="Estimated 1RM" state={{ empty: 'Migrating to basalt-ui 2.0' }} />
+const HEIGHT = 280
+const LINE_WIDTH = 2.5
+const MA_LINE_WIDTH = 1.5
+const PR_MARKER_R = 6
+const NO_SERIES: readonly ApiSeriesByExercise[] = []
+
+function colorFor(exId: string): string {
+  return EXERCISE_COLORS[exId as keyof typeof EXERCISE_COLORS] ?? SERIES.benchPress
+}
+
+function parseExercises(exercises: string | undefined): string[] {
+  if (!exercises) return [...DEFAULT_EXERCISES]
+  return exercises
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+export default function OneRmTrendChart({ params }: { params: StrengthQueryParams }) {
+  const query = useQuery(strengthQueries.seriesDetailed(params))
+  const byExercise = (query.data?.byExercise ?? NO_SERIES) as readonly ApiSeriesByExercise[]
+
+  const activeExercises = useMemo(() => {
+    const requested = parseExercises(params.exercises)
+    // Keep only exercises that actually have data.
+    const haveData = new Set(
+      byExercise.filter((e) => e.points.length > 0).map((e) => e.exercise_id),
+    )
+    const filtered = requested.filter((id) => haveData.has(id))
+    return filtered.length > 0 ? filtered : requested
+  }, [byExercise, params.exercises])
+
+  const merged = useMemo(
+    () => buildMergedPoints(byExercise, activeExercises),
+    [byExercise, activeExercises],
+  )
+
+  const series = useMemo<ChartSeries<MergedPoint>[]>(
+    () =>
+      activeExercises.flatMap((ex) => [
+        {
+          key: ex,
+          label: `${exerciseLabel(ex)} ${directionArrow(trendArrow(byExercise, ex))}`,
+          color: colorFor(ex),
+          strokeWidth: LINE_WIDTH,
+          getValue: (d: MergedPoint) => d.e1rm[ex] ?? null,
+          formatValue: (v: number, d: MergedPoint) => {
+            const bs = d.bestSets[ex]
+            const setStr = bs ? ` (${bs.weight_kg.toFixed(1)} kg × ${bs.reps})` : ''
+            return `${v.toFixed(1)} kg${setStr}`
+          },
+          getMarker: (d: MergedPoint) => (d.prSet.has(ex) ? { r: PR_MARKER_R } : null),
+        },
+        {
+          key: `ma-${ex}`,
+          label: '30d MA',
+          color: colorFor(ex),
+          strokeOpacity: 0.5,
+          dash: 'dashed' as const,
+          strokeWidth: MA_LINE_WIDTH,
+          legend: false,
+          tooltip: false,
+          parent: ex,
+          getValue: (d: MergedPoint) => d.ma[ex] ?? null,
+        },
+      ]),
+    [byExercise, activeExercises],
+  )
+
+  const hasAnyPoint = merged.some((p) => activeExercises.some((ex) => p.e1rm[ex] != null))
+
+  // Leader = active exercise with the highest most-recent e1RM.
+  const leader = useMemo(() => {
+    let best: { ex: string; latest: number } | null = null
+    for (const ex of activeExercises) {
+      for (let i = merged.length - 1; i >= 0; i--) {
+        const v = merged[i]?.e1rm[ex]
+        if (v === null || v === undefined) continue
+        if (best === null || v > best.latest) best = { ex, latest: v }
+        break
+      }
+    }
+    return best
+  }, [merged, activeExercises])
+
+  const dir = leader ? trendArrow(byExercise, leader.ex) : null
+
+  return (
+    <ChartCard
+      title="Estimated 1RM"
+      subtitle="Am I getting stronger?"
+      info={METRIC_TOOLTIPS.oneRmTrend}
+      actions={
+        leader ? (
+          <Group gap={6} align="baseline" wrap="nowrap">
+            <Text span fw={600} size="md" c={colorFor(leader.ex)}>
+              {leader.latest.toFixed(1)} kg
+            </Text>
+            <Text span size="xs" c="dimmed">
+              {exerciseLabel(leader.ex)}
+            </Text>
+            <Text span fw={600} size="xs" c={directionColor(dir)}>
+              {directionArrow(dir)}
+            </Text>
+          </Group>
+        ) : null
+      }
+      state={chartStateOf(query, !hasAnyPoint && 'No estimated 1RM in this window')}
+      placeholderHeight={HEIGHT}
+    >
+      <Lines
+        ariaLabel="Estimated 1RM trend per exercise"
+        data={merged}
+        height={HEIGHT}
+        x={(d) => d.day}
+        series={series}
+        y={{ domain: yDomain, nice: true }}
+      />
+    </ChartCard>
+  )
 }
