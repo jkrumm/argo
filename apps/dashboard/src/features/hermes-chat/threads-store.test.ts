@@ -394,11 +394,13 @@ describe('isThreadPersisted', () => {
     const local = insertThread(new Map(), createThreadEntry('t1'))
     const merged = mergeServerThreads(local, [seedThread({ id: 't1' })])
     const thread = merged.get('t1')
-    expect(thread && isThreadPersisted(thread)).toBe(true)
+    expect(thread).toBeDefined()
+    if (thread) expect(isThreadPersisted(thread)).toBe(true)
   })
 
   it('is true for a thread seeded from a server row', () => {
     const thread = mergeServerThreads(new Map(), [seedThread({ id: 't2' })]).get('t2')
-    expect(thread && isThreadPersisted(thread)).toBe(true)
+    expect(thread).toBeDefined()
+    if (thread) expect(isThreadPersisted(thread)).toBe(true)
   })
 })
