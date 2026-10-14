@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { Box, Table, Text, Tooltip } from '@mantine/core'
+import { Box, Text, Tooltip } from '@mantine/core'
 import { ChartCard, Sparkline } from 'basalt-ui/charts'
+import { BasaltDataTable, createColumnHelper } from 'basalt-ui/table'
 import { VX } from 'basalt-ui/tokens'
 import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
@@ -51,6 +52,107 @@ function SparkCell({
   )
 }
 
+const columnHelper = createColumnHelper<SparkRow>()
+
+function HelpHeader({ label, tip }: { label: string; tip: string }) {
+  return (
+    <Tooltip label={tip} withArrow position="top">
+      <span style={{ cursor: 'help' }}>{label}</span>
+    </Tooltip>
+  )
+}
+
+// `meta.priority`: the HIGHEST number folds first when the card is too narrow, so INOL and Volume
+// go before Status and Momentum; Exercise and 1RM stay. Folded columns remain one tap away in the
+// per-row disclosure.
+const columns = [
+  columnHelper.accessor('exercise_name', {
+    header: 'Exercise',
+    meta: { priority: 0 },
+    cell: (ctx) => (
+      <Text size="sm" fw={600} c={VX.line}>
+        {ctx.getValue()}
+      </Text>
+    ),
+  }),
+  columnHelper.display({
+    id: 'e1rm',
+    header: () => <HelpHeader label="1RM" tip="1RM (last 20 sessions)" />,
+    enableSorting: false,
+    meta: { priority: 1 },
+    cell: (ctx) => (
+      <SparkCell
+        data={ctx.row.original.e1rm}
+        mark="line"
+        ariaLabel={`${ctx.row.original.exercise_name} 1RM trend, last 20 sessions`}
+      />
+    ),
+  }),
+  columnHelper.display({
+    id: 'volume',
+    header: () => <HelpHeader label="Volume" tip="Volume (last 10 weeks)" />,
+    enableSorting: false,
+    meta: { priority: 4 },
+    cell: (ctx) => (
+      <SparkCell
+        data={ctx.row.original.volume}
+        mark="bar"
+        ariaLabel={`${ctx.row.original.exercise_name} volume trend, last 10 weeks`}
+      />
+    ),
+  }),
+  columnHelper.display({
+    id: 'inol',
+    header: () => <HelpHeader label="INOL" tip="INOL (last 15 sessions)" />,
+    enableSorting: false,
+    meta: { priority: 5 },
+    cell: (ctx) => (
+      <SparkCell
+        data={ctx.row.original.inol}
+        mark="line"
+        ariaLabel={`${ctx.row.original.exercise_name} INOL trend, last 15 sessions`}
+      />
+    ),
+  }),
+  columnHelper.display({
+    id: 'momentum',
+    header: () => <HelpHeader label="Momentum" tip="Momentum (28d velocity %/day)" />,
+    enableSorting: false,
+    meta: { priority: 2 },
+    cell: (ctx) => {
+      const { dir, vel } = ctx.row.original
+      return (
+        <Text size="sm" c={directionColor(dir)}>
+          <Text component="span" fw={700}>
+            {directionArrow(dir)}
+          </Text>
+          {vel !== null && (
+            <Text component="span" ml={4}>
+              {vel >= 0 ? '+' : ''}
+              {vel.toFixed(2)}%/d
+            </Text>
+          )}
+        </Text>
+      )
+    },
+  }),
+  columnHelper.display({
+    id: 'status',
+    header: 'Status',
+    enableSorting: false,
+    meta: { priority: 3 },
+    cell: (ctx) => (
+      <Box
+        display="inline-block"
+        w={10}
+        h={10}
+        bdrs="xl"
+        bg={directionColor(ctx.row.original.dir)}
+      />
+    ),
+  }),
+]
+
 export default function SparklineGridChart({ params }: { params: StrengthQueryParams }) {
   const query = useQuery(strengthQueries.sparklines(params))
 
@@ -65,86 +167,15 @@ export default function SparklineGridChart({ params }: { params: StrengthQueryPa
       state={chartStateOf(query, !hasData ? 'No data — start logging workouts.' : undefined)}
       placeholderHeight={180}
     >
-      <Table verticalSpacing="xs" horizontalSpacing="sm" striped="even">
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>Exercise</Table.Th>
-            <Table.Th>
-              <Tooltip label="1RM (last 20 sessions)" withArrow position="top">
-                <span style={{ cursor: 'help' }}>1RM</span>
-              </Tooltip>
-            </Table.Th>
-            <Table.Th>
-              <Tooltip label="Volume (last 10 weeks)" withArrow position="top">
-                <span style={{ cursor: 'help' }}>Volume</span>
-              </Tooltip>
-            </Table.Th>
-            <Table.Th>
-              <Tooltip label="INOL (last 15 sessions)" withArrow position="top">
-                <span style={{ cursor: 'help' }}>INOL</span>
-              </Tooltip>
-            </Table.Th>
-            <Table.Th>
-              <Tooltip label="Momentum (28d velocity %/day)" withArrow position="top">
-                <span style={{ cursor: 'help' }}>Momentum</span>
-              </Tooltip>
-            </Table.Th>
-            <Table.Th>Status</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {rows.map((row) => {
-            const dirColor = directionColor(row.dir)
-            const arrow = directionArrow(row.dir)
-            return (
-              <Table.Tr key={row.exercise_id}>
-                <Table.Td>
-                  <Text size="sm" fw={600} c={VX.line}>
-                    {row.exercise_name}
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  <SparkCell
-                    data={row.e1rm}
-                    mark="line"
-                    ariaLabel={`${row.exercise_name} 1RM trend, last 20 sessions`}
-                  />
-                </Table.Td>
-                <Table.Td>
-                  <SparkCell
-                    data={row.volume}
-                    mark="bar"
-                    ariaLabel={`${row.exercise_name} volume trend, last 10 weeks`}
-                  />
-                </Table.Td>
-                <Table.Td>
-                  <SparkCell
-                    data={row.inol}
-                    mark="line"
-                    ariaLabel={`${row.exercise_name} INOL trend, last 15 sessions`}
-                  />
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm" c={dirColor}>
-                    <Text component="span" fw={700}>
-                      {arrow}
-                    </Text>
-                    {row.vel !== null && (
-                      <Text component="span" ml={4}>
-                        {row.vel >= 0 ? '+' : ''}
-                        {row.vel.toFixed(2)}%/d
-                      </Text>
-                    )}
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  <Box display="inline-block" w={10} h={10} bdrs="xl" bg={dirColor} />
-                </Table.Td>
-              </Table.Tr>
-            )
-          })}
-        </Table.Tbody>
-      </Table>
+      <BasaltDataTable
+        data={rows}
+        columns={columns}
+        getRowId={(row) => row.exercise_id}
+        enableSorting={false}
+        striped="even"
+        verticalSpacing="xs"
+        horizontalSpacing="sm"
+      />
     </ChartCard>
   )
 }
