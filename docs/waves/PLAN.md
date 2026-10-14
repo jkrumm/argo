@@ -286,21 +286,30 @@ chunks vs baseline, Lighthouse on `/usage-tracking` and `/walking-pad`.
 - **Friction rows for `argo-friction.md`** (none worked around): (I) `doctor` `subpath-peers` not monorepo-aware (above), medium-low; (J) `Sparkline` has no `state` (pending/error/empty), `StatCard.query` only wraps `breakdown`, so a loading sparkline tile needs hand-rolled `'—'`, low; (K) `StatCardSparklineSize` is not exported, and `react/no-unstable-nested-components` warns on the documented `StatCard` `sparkline` render prop (preset leaves `allowAsProps` off), one lint warning remains, low; (L) `Heatmap` has no x-tick stride (18 labels where 1.x drew 6), and `matchHeight` still needs a pixel height from a measured parent, low; (M) `ChartState.empty` cannot say "loaded, filtered to zero" apart from "no data" beyond a label, low; (N) 1.x `ZonedLine` per-point zone colouring has no equivalent (dev smoke route only), low.
 - **Cleanup:** worker worktrees removed with `rd fan --clean`; no stale docs.
 
-## Wave 8 — Charts B: Garmin health, body composition <!-- status: active -->
+## Wave 8 — Charts B: Garmin health, body composition <!-- status: done -->
 
 Inventory rows a13–a21, a33–a34.
 
-- [ ] `garmin-health/charts/*` (a13–a21): `Bars` ×4, `Lines` ×3 (a15 thresholds above and below, a21
+- [x] `garmin-health/charts/*` (a13–a21): `Bars` ×4, `Lines` ×3 (a15 thresholds above and below, a21
       area gradient + thresholds), `DualPanel` (a17 `differenceY` fill-between), `CartesianChart` (a18).
-- [ ] `body-composition/charts/*` (a33–a34): `Lines` with markers, overlay MA, constant reference
+- [x] `body-composition/charts/*` (a33–a34): `Lines` with markers, overlay MA, constant reference
       series, per-series area.
-- [ ] Same per-chart bar as Wave 7; `MIGRATION-STUB(w8)` gone.
+- [x] Same per-chart bar as Wave 7; `MIGRATION-STUB(w8)` gone.
 
 **Evidence:** `w8.md` — as Wave 7, Lighthouse on `/garmin-health` vs baseline.
 
 **Left behind:**
 
-## Wave 9 — Charts C: strength, astro; no stub left <!-- status: pending -->
+- **Landed on master** (`rd merge`, one worker per directory per D5): #31 body-composition (a33–a34), #32 garmin-health (a13–a21). Every row was expressible; **no chart stayed a stub**, `grep MIGRATION-STUB(w8)` is empty (16 markers remain, all w9: strength-tracker, astro-window). Also landed: **basalt-ui 2.2.0** exact in both pins (`2f7a3a4`): `StatCard` sparkline sites spread `size` into `Sparkline` (`walking-pad/charts/sparkline-grid-chart.tsx`, `agents/hero-stats.tsx`, `StatCardSparklineSize` imported), the `no-unstable-nested-components` warning is gone, `doctor` at the repo root is fully green (`subpath-peers` fixed upstream). Friction rows 20–25 status below.
+- **Review:** gateway `/review` on both PRs. #31: one blocker, a false positive (`weight_kg` is `notNull`, nothing can be null), the rest fixed (shared `compareByDate`/`markerRadiusFor`, `ma: number`, `userProfileQueries` moved to `lib/queries/user-profile.ts`, 30-day boundary documented and tested). #32: 4 blockers — `cursorResolution="leading"` on all nine (fixed), VO2-only rows dropped by `buildFitnessData` (fixed, tested), plus two NOT fixed on purpose (stress gradient = basalt gap, activities window = inherited, both below); improvements fixed: strict null checks, one `latest` rule, shared `movingAverage`, dead `formatRelativeTime` deleted. Follow-up diffs read by the lead, not re-reviewed.
+- **Evidence:** `w8.md` — screens 52/52, bundle, Lighthouse; Garmin chunk +78 KB beyond initial (charts runtime, paid once), Lighthouse within noise.
+- **Wave 7 unverified items:** walking-pad charts/Peak at 390 px with data, the Heatmap hour labels, the sparkline gaps: the harness's 30-day window is still empty for walking-pad, so still **unverified**; the 2.2.0 Heatmap stride and Sparkline `state` are adopted-by-bump only, unseen with data.
+- **Not verified:** only the first chart per page was seen rendered (viewport screenshots): seven of nine Garmin charts and skinfold were not looked at; negative-bar stacking in body-battery and sleep-breakdown, DualPanel `differenceY` fill, and acwr/stress thresholds are checked against the 1.x source by the reviewer, not by eye. Dark mode and mobile for the new charts only for the one screenshot above.
+- **Basalt friction for `argo-friction.md`** (none worked around): (O) `Lines` `area` cannot express the 1.x stress chart's vertical zone-coloured gradient (rest/low/moderate/high); the port keeps a series area plus the >75 fill, so the chart is plainer than 1.x, low-medium; (P) the monotone curve is not exported to `CartesianChart`, so fitness-trends' RHR/HRV lines use the engine's default curve, low; (Q) `ChartState` rejects `empty: undefined` under `exactOptionalPropertyTypes` (workers pass `false`), so `cond ? msg : false` is the idiom, papercut. Rows 20–25: 20, 21, 22, 23 fixed in 2.2.0 and adopted/verified by `doctor`, lint and the sparkline spread (23 unseen with data); 24 (`empty` cannot tell filtered-to-zero from no data) and 25 (`ZonedLine` per-point zones) not addressed in the 2.2.0 notes the orchestrator gave, so they stay open.
+- **Bugs found, not fixed (outside the ask):** Activities chart ignores the preset window (inherited from 1.x, above): fix by deriving `dateFrom` from `window` and paginating on `total`; the garmin and walking-pad `chart-state.ts` are byte-identical (hoist when w9 adds a third); `activity-score-chart.tsx` duplicates the server's MET constants (carried from 1.x).
+- **Cleanup:** worker worktrees removed with `rd fan --clean`; no stale docs. The two workers' panes had a stray `merge it` in their input line; nothing sent it, nothing merged from them.
+
+## Wave 9 — Charts C: strength, astro; no stub left <!-- status: active -->
 
 Inventory rows a22–a32, a35–a39. Strength splits across two workers by file.
 
