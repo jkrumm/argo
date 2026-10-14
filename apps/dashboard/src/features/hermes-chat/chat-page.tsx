@@ -2,14 +2,19 @@ import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Alert, Box, Center, Loader, Stack, Text } from '@mantine/core'
 import { IconAlertTriangle } from '@tabler/icons-react'
-import { Composer, ThreadFeed } from 'basalt-ui/agent-chat'
-import type { ComposerHandle, ComposerSubmit } from 'basalt-ui/agent-chat'
-import { useAgentThreadRuns } from 'basalt-ui/agent'
-import type { AgentThread } from 'basalt-ui/agent'
+import {
+  Composer,
+  ThreadFeed,
+  useAgentThreadRuns,
+  type AgentThread,
+  type ComposerHandle,
+  type ComposerSubmit,
+} from 'basalt-ui/agent'
 import { hermesQueries } from '../../lib/queries/hermes'
 import { useUiStore } from '../../lib/store'
 import { HermesRow } from './hermes-row'
 import { HERMES_CHAT_FEATURES } from './features'
+import { isLiveRun } from './run-liveness'
 import { useVoicePlayback } from './voice/voice-playback'
 import { useVoiceRecorder } from './voice/use-voice-recorder'
 import { VoiceControls } from './voice/voice-controls'
@@ -97,15 +102,18 @@ function HermesChatFeed() {
     if (result?.stopped) stopRun(threadId)
   }
 
-  // A thread's run entry is deleted from `runs` the moment it finishes (basalt's documented
-  // contract — see UseAgentThreadRunsReturn's doc). That transition is the trigger to (a)
+  // A thread's run settles when it leaves the live statuses: a successful or stopped turn deletes
+  // its `runs` entry, a failed one keeps it with `status: 'error'` (basalt's documented contract —
+  // see ThreadRunState's doc), so "live" is tested on `status`, never on entry presence. That
+  // transition is the trigger to (a)
   // invalidate the thread's independent messages query so the just-persisted final message
   // replaces the optimistic overlay (see hermes-row.tsx / threads-store.ts's `mergeOptimisticMessages`
   // for why the store's own `thread.messages` is deliberately just that overlay, not the full
   // transcript), and (b) start polling the threads list for the server's async title/summary.
   const prevRunningRef = useRef<ReadonlySet<string>>(new Set())
   useEffect(() => {
-    const nowRunning = new Set(runs.keys())
+    const nowRunning = new Set<string>()
+    for (const [id, run] of runs) if (isLiveRun(run)) nowRunning.add(id)
     for (const id of prevRunningRef.current) {
       if (nowRunning.has(id)) continue
       void queryClient.invalidateQueries({ queryKey: hermesQueries.messages(id).queryKey })

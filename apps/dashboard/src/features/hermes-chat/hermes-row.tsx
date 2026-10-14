@@ -2,9 +2,13 @@ import { useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Badge, Group, Loader } from '@mantine/core'
 import { IconPin } from '@tabler/icons-react'
-import { ThreadFeedRow } from 'basalt-ui/agent-chat'
-import type { ComposerHandle } from 'basalt-ui/agent-chat'
-import type { AgentPart, AgentThread, ThreadRunState } from 'basalt-ui/agent'
+import {
+  ThreadFeedRow,
+  type AgentPart,
+  type AgentThread,
+  type ComposerHandle,
+  type ThreadRunState,
+} from 'basalt-ui/agent'
 import { hermesQueries } from '../../lib/queries/hermes'
 import type { HermesThreadType } from '../../lib/queries/hermes'
 import { mergeOptimisticMessages, toChatMessage } from './threads-store'
@@ -128,7 +132,7 @@ export function HermesRow({
         ...(classes['body'] !== undefined ? { body: classes['body'] } : {}),
       }}
       {...(run?.parts !== undefined && { liveParts: run.parts })}
-      {...(run !== undefined && { liveStatus: 'streaming' as const })}
+      {...(run !== undefined && { liveStatus: run.status })}
       onSend={(payload) => onSend(payload.text)}
       onStop={onStop}
       renderers={hermesThreadRenderers}
