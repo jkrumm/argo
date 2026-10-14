@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { emit } from 'basalt-ui/notifications'
+import { emit } from 'basalt-ui/commands'
 import confetti from 'canvas-confetti'
 import { walkingPadQueries } from '../../lib/queries/walking-pad'
 import { ACHIEVEMENT_LAST_SEEN_ID_KEY, ACHIEVEMENT_WATERMARK_KEY } from './constants'
@@ -24,11 +24,11 @@ function fireConfetti() {
  * response payload, but is no longer the dedup signal.
  */
 export function useAchievementWatcher() {
-  const initialWatermark = useRef<string>(getWatermark())
+  const [initialWatermark] = useState<string>(getWatermark)
   const lastSeenId = useRef<number>(getLastSeenId())
 
   const { data } = useQuery({
-    ...walkingPadQueries.achievements({ since: initialWatermark.current, limit: 20 }),
+    ...walkingPadQueries.achievements({ since: initialWatermark, limit: 20 }),
     refetchInterval: 5000,
     refetchIntervalInBackground: false,
     staleTime: 0,
@@ -50,10 +50,10 @@ export function useAchievementWatcher() {
 
     const newest = fresh.reduce(
       (acc, a) => (a.unlocked_at > acc ? a.unlocked_at : acc),
-      initialWatermark.current,
+      initialWatermark,
     )
     setWatermark(newest)
-  }, [data])
+  }, [data, initialWatermark])
 }
 
 function getWatermark(): string {

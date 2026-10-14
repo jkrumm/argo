@@ -178,17 +178,16 @@ export function M365ExplorerPage(): React.ReactElement {
       {/* Refresh is a `SyncButton` (law C12), not a bare `ActionIcon` with its own tooltip — one
           shape for refresh everywhere, with the spinner and the age handled by basalt. */}
       <PageBar
-        actions={{
-          secondary: [
-            {
-              key: 'tags',
-              label: `Manage tags (${tagCounts.length})`,
-              icon: <IconTag size={16} />,
-              onClick: tagsModal.open,
-              disabled: tagCounts.length === 0,
-            },
-          ],
-        }}
+        actions={[
+          {
+            key: 'tags',
+            label: `Manage tags (${tagCounts.length})`,
+            icon: <IconTag size={16} />,
+            primary: true,
+            onClick: tagsModal.open,
+            disabled: tagCounts.length === 0,
+          },
+        ]}
         sync={{
           syncing: m365Fetching > 0,
           onSync: () => {
@@ -510,9 +509,9 @@ function DetailPane(props: {
   const [labelDraft, setLabelDraft] = useState(existing?.label ?? '')
   const [notesDraft, setNotesDraft] = useState(existing?.notes ?? '')
   const formKey = sourceId + '|' + (existing?.label ?? '') + '|' + (existing?.notes ?? '')
-  const lastKey = React.useRef(formKey)
-  if (lastKey.current !== formKey) {
-    lastKey.current = formKey
+  const [lastKey, setLastKey] = useState(formKey)
+  if (lastKey !== formKey) {
+    setLastKey(formKey)
     setLabelDraft(existing?.label ?? '')
     setNotesDraft(existing?.notes ?? '')
   }

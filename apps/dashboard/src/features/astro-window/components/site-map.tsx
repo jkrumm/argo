@@ -40,6 +40,7 @@ import { rainviewerQueries } from '../../../lib/queries/rainviewer'
 import { openMeteoMapsQueries } from '../../../lib/queries/open-meteo-maps'
 import { apiBase } from '../../../lib/api-base'
 import { getToken } from '../../../lib/auth'
+import { useNow } from '../../../lib/use-now'
 import { MAP_MIN_HEIGHT } from '../constants'
 import {
   baseLayer,
@@ -850,9 +851,10 @@ function TimeScrubber({
   /** Radar's own newest addressable frame, or `null` while radar has none — see `radarActive`. */
   radarNewestTime: Date | null
 }) {
+  const now = useNow()
   const at = ticks[Math.min(tickIndex, ticks.length - 1)] ?? null
   if (at === null) return null
-  const forecast = at.getTime() > Date.now()
+  const forecast = at.getTime() > now
   // Radar has no forecast of its own (RainViewer discontinued its nowcast 2026-01-01) — once the
   // scrubber moves past radar's own newest frame, `nearestTimeIndex` (map-layers.ts) already
   // clamps radar's paint to that frame with no special case; this caption is the one place that

@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { emit } from 'basalt-ui/notifications'
+import { emit } from 'basalt-ui/commands'
 import { getToken } from '../../../lib/auth'
 import { useUiStore } from '../../../lib/store'
 import { apiBase } from '../../../lib/api-base'
@@ -91,19 +91,21 @@ export function VoicePlaybackProvider({ children }: { children: ReactNode }) {
   const [currentTimeSec, setCurrentTimeSec] = useState(0)
   const [durationSec, setDurationSec] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [rate, setRateState] = useState(1)
   const [audioAvailable, setAudioAvailableState] = useState<boolean | null>(null)
 
-  // Read persisted playback rate from store on mount
-  const storedRate = useUiStore((s) => s.playbackRate)
+  // The persisted playback rate IS the rate — every change goes through the store.
+  const rate = useUiStore((s) => s.playbackRate)
   const setPlaybackRate = useUiStore((s) => s.setPlaybackRate)
 
   const audioElRef = useRef<HTMLAudioElement | null>(null)
   // Mirrors playingMessageId so async playback can re-check the latest value after
   // an await — the closed-over state would be stale if the user stopped meanwhile.
-  // Assigned in render (no effect) to avoid a frame of staleness.
+  // Written together with the state in `updatePlayingMessageId` so it is never a frame stale.
   const playingMessageIdRef = useRef<string | null>(null)
-  playingMessageIdRef.current = playingMessageId
+  const updatePlayingMessageId = useCallback((id: string | null) => {
+    playingMessageIdRef.current = id
+    setPlayingMessageId(id)
+  }, [])
 
   // Track the current duration for seek clamping (mirrors durationSec state, no extra re-renders)
   const durationRef = useRef(0)
@@ -111,7 +113,7 @@ export function VoicePlaybackProvider({ children }: { children: ReactNode }) {
   const setAudioAvailable = useCallback((v: boolean) => setAudioAvailableState(v), [])
 
   const resetPlayback = useCallback(() => {
-    setPlayingMessageId(null)
+    updatePlayingMessageId(null)
     setPlayingThreadId(null)
     setIsBuffering(false)
     setProgress(0)
@@ -120,7 +122,7 @@ export function VoicePlaybackProvider({ children }: { children: ReactNode }) {
     setDurationSec(0)
     setIsPlaying(false)
     durationRef.current = 0
-  }, [])
+  }, [updatePlayingMessageId])
 
   const updatePositionState = useCallback((el: HTMLAudioElement) => {
     if (!('mediaSession' in navigator)) return
@@ -192,11 +194,6 @@ export function VoicePlaybackProvider({ children }: { children: ReactNode }) {
     return audioElRef.current
   }, [resetPlayback, updatePositionState])
 
-  // Sync the persisted rate into local state on first render
-  useEffect(() => {
-    setRateState(storedRate)
-  }, [storedRate])
-
   const primePlayback = useCallback(() => {
     const el = getPlaybackEl()
     el.src = SILENT_WAV
@@ -247,7 +244,6 @@ export function VoicePlaybackProvider({ children }: { children: ReactNode }) {
     (newRate: number) => {
       const el = audioElRef.current
       if (el) el.playbackRate = newRate
-      setRateState(newRate)
       setPlaybackRate(newRate)
     },
     [setPlaybackRate],
@@ -269,7 +265,7 @@ export function VoicePlaybackProvider({ children }: { children: ReactNode }) {
       }
 
       el.pause()
-      setPlayingMessageId(messageId)
+      updatePlayingMessageId(messageId)
       setPlayingThreadId(opts?.threadId ?? null)
       setIsBuffering(true)
       setProgress(0)
@@ -281,7 +277,6 @@ export function VoicePlaybackProvider({ children }: { children: ReactNode }) {
       // Apply current rate
       const currentRate = useUiStore.getState().playbackRate
       el.playbackRate = currentRate
-      setRateState(currentRate)
 
       // If a startAt is requested, apply it once metadata loads
       if (opts?.startAt && opts.startAt > 0) {
@@ -331,7 +326,7 @@ export function VoicePlaybackProvider({ children }: { children: ReactNode }) {
         if (playingMessageIdRef.current === messageId) resetPlayback()
       }
     },
-    [getPlaybackEl, resetPlayback, seek, stop],
+    [getPlaybackEl, resetPlayback, seek, stop, updatePlayingMessageId],
   )
 
   const readAloud = useCallback(
@@ -343,7 +338,7 @@ export function VoicePlaybackProvider({ children }: { children: ReactNode }) {
         resetPlayback()
         return
       }
-      setPlayingMessageId(messageId)
+      updatePlayingMessageId(messageId)
       setPlayingThreadId(opts?.threadId ?? null)
       setIsBuffering(true)
       setProgress(0)
@@ -400,7 +395,7 @@ export function VoicePlaybackProvider({ children }: { children: ReactNode }) {
         resetPlayback()
       }
     },
-    [getPlaybackEl, resetPlayback, stop],
+    [getPlaybackEl, resetPlayback, stop, updatePlayingMessageId],
   )
 
   // Pause + release the audio element on unmount of the whole chat feature.
