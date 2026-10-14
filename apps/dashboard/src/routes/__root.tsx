@@ -13,7 +13,6 @@ import { NotificationBell } from 'basalt-ui/commands'
 import { requireToken } from '../lib/auth'
 import { ShellGate } from '../lib/auth-gate'
 import { CrashFallback } from '../lib/error-boundary'
-import { useSidebarCollapsed } from '../lib/sidebar-collapsed'
 import { TimerNavWidget, useTimerEngine } from '../components/timer-nav'
 import { useSidebarBadges } from '../components/app-shell/use-sidebar-badges'
 import { useSidebarBlocks } from '../components/app-shell/use-sidebar-blocks'
@@ -55,12 +54,6 @@ function RootLayout() {
   // mobile bar and breadcrumbs — is resolved by `BasaltShell` from the single definition in
   // `lib/nav.tsx`. Badge keys autocomplete from that definition, so a renamed destination is a
   // compile error here.
-
-  // Controlled sidebar collapse (BasaltShell's controlled seam). The Mod+B command drives it
-  // through `toggleSidebar()` (basalt-ui/commands, wired automatically by BasaltShell); persistence
-  // is `createPersistedState`, the same mechanism the shell's own uncontrolled path moved to at
-  // basalt-ui 1.21.0 — see `lib/sidebar-collapsed.ts`.
-  const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed()
 
   // Theme lives in the sidebar Settings menu (not basalt's globalActions `ThemeToggle`) — the
   // Settings row only renders when `settingsMenuItems` is non-empty, and it also carries the
@@ -122,8 +115,7 @@ function RootLayout() {
         // The three theme rows are CONTROLS, not destinations, so the ≤3 flat-footer rule reads
         // them wrong — a radio group flattened into the footer is a widget pile. Force the menu.
         settingsMenu="menu"
-        collapsed={sidebarCollapsed}
-        onCollapsedChange={setSidebarCollapsed}
+        storageKey="argo-sidebar"
       >
         <Outlet />
       </BasaltShell>
