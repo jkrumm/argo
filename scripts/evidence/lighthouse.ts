@@ -6,8 +6,8 @@ import { launch } from 'chrome-launcher'
 import { median, withTimeout } from './types'
 import type { Lane, Row } from './types'
 
-// Fixed trio, not routes.txt: one landing route and the two heaviest data pages, to bound run time.
-const ROUTES = ['/', '/garmin-health', '/strength-tracker']
+// Fixed set, not routes.txt: one landing route and the heaviest data pages, to bound run time.
+const ROUTES = ['/', '/garmin-health', '/strength-tracker', '/usage-tracking', '/walking-pad']
 const RUNS = 3
 const RUN_TIMEOUT_MS = 120_000
 const METRICS = ['score', 'lcp', 'tbt', 'cls'] as const
