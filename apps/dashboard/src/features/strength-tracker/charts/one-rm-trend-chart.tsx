@@ -4,8 +4,7 @@ import { Group, Text } from '@mantine/core'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
-import { SERIES } from '../../../lib/series'
-import { DEFAULT_EXERCISES, EXERCISE_COLORS, METRIC_TOOLTIPS } from '../constants'
+import { METRIC_TOOLTIPS } from '../constants'
 import { directionArrow, directionColor, exerciseLabel } from '../formulas'
 import {
   buildMergedPoints,
@@ -14,24 +13,13 @@ import {
   type ApiSeriesByExercise,
   type MergedPoint,
 } from './one-rm-data'
+import { exerciseColor, parseExercises } from './exercise-helpers'
 
 const HEIGHT = 280
 const LINE_WIDTH = 2.5
 const MA_LINE_WIDTH = 1.5
 const PR_MARKER_R = 6
 const NO_SERIES: readonly ApiSeriesByExercise[] = []
-
-function colorFor(exId: string): string {
-  return EXERCISE_COLORS[exId as keyof typeof EXERCISE_COLORS] ?? SERIES.benchPress
-}
-
-function parseExercises(exercises: string | undefined): string[] {
-  if (!exercises) return [...DEFAULT_EXERCISES]
-  return exercises
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-}
 
 export default function OneRmTrendChart({ params }: { params: StrengthQueryParams }) {
   const query = useQuery(strengthQueries.seriesDetailed(params))
@@ -58,7 +46,7 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
         {
           key: ex,
           label: `${exerciseLabel(ex)} ${directionArrow(trendArrow(byExercise, ex))}`,
-          color: colorFor(ex),
+          color: exerciseColor(ex),
           strokeWidth: LINE_WIDTH,
           getValue: (d: MergedPoint) => d.e1rm[ex] ?? null,
           formatValue: (v: number, d: MergedPoint) => {
@@ -71,7 +59,7 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
         {
           key: `ma-${ex}`,
           label: '30d MA',
-          color: colorFor(ex),
+          color: exerciseColor(ex),
           strokeOpacity: 0.5,
           dash: 'dashed' as const,
           strokeWidth: MA_LINE_WIDTH,
@@ -110,7 +98,7 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
       actions={
         leader ? (
           <Group gap={6} align="baseline" wrap="nowrap">
-            <Text span fw={600} size="md" c={colorFor(leader.ex)}>
+            <Text span fw={600} size="md" c={exerciseColor(leader.ex)}>
               {leader.latest.toFixed(1)} kg
             </Text>
             <Text span size="xs" c="dimmed">

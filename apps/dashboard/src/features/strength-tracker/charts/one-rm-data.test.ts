@@ -28,8 +28,11 @@ describe('buildMergedPoints', () => {
   })
 
   test('flags a PR only when the running max is beaten', () => {
-    expect(rows.map((r) => r.prSet.has('bench_press'))).toEqual([true, false, true])
-    expect(rows.map((r) => r.prSet.has('squat'))).toEqual([false, true, false])
+    expect(rows.map((r) => r.prSet.has('bench_press'))).toEqual([false, false, true])
+  })
+
+  test('the first value in a window is a baseline, never a PR', () => {
+    expect(rows.every((r) => !r.prSet.has('squat'))).toBe(true)
   })
 
   test('a lift missing on a date is null, not zero', () => {

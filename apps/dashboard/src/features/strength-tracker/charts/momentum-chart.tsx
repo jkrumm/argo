@@ -7,11 +7,11 @@ import { createLocalStore, field } from 'basalt-ui/state'
 import { VX } from 'basalt-ui/tokens'
 import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
-import { SERIES } from '../../../lib/series'
 import { EXERCISE_KEYS } from '../../../lib/window-stores'
 import { localDay } from '../../garmin-health/charts/local-day'
-import { EXERCISE_COLORS, METRIC_TOOLTIPS } from '../constants'
+import { METRIC_TOOLTIPS } from '../constants'
 import { directionArrow, directionColor, exerciseLabel } from '../formulas'
+import { exerciseColor } from './exercise-helpers'
 import { directionFromVelocity, rollingVelocityPctPerDay } from './momentum-data'
 
 /** A per-chart select is store state like any filter (law C3) — a LOCAL store, because which lift
@@ -62,24 +62,25 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
 
   const hasData = chartData.filter((d) => d.e1rm !== null && !Number.isNaN(d.e1rm)).length >= 2
 
-  const exerciseColor = EXERCISE_COLORS[selectedExercise] ?? SERIES.benchPress
+  // Colour follows the lift actually plotted — the stored pick may not be in this window's data.
+  const lineColor = exerciseColor(activeExercise?.exercise_id ?? selectedExercise)
 
   const series: DualPanelLine<MomentumPoint>[] = [
     {
       key: 'e1rm',
       label: 'e1RM',
-      color: exerciseColor,
+      color: lineColor,
       strokeOpacity: 0.5,
       strokeWidth: 1.5,
       getValue: (d) => d.e1rm,
       formatValue: fmtE1rm,
       getMarker: (d) =>
-        d.e1rm === null ? null : { r: 2.5, color: exerciseColor, ring: false, fillOpacity: 0.7 },
+        d.e1rm === null ? null : { r: 2.5, color: lineColor, ring: false, fillOpacity: 0.7 },
     },
     {
       key: 'ma30',
       label: '30d MA',
-      color: exerciseColor,
+      color: lineColor,
       strokeWidth: 2.25,
       dash: 'dashed',
       getValue: (d) => d.e1rmMA,

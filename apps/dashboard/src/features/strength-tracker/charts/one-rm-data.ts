@@ -59,10 +59,9 @@ export function buildMergedPoints(
 
       if (v === null) continue
       const prev = runningMax[ex] ?? null
-      if (prev === null || v > prev + 1e-6) {
-        prSet.add(ex)
-        runningMax[ex] = v
-      }
+      // The window carries no history, so its first value is the baseline, not a PR.
+      if (prev !== null && v > prev + 1e-6) prSet.add(ex)
+      if (prev === null || v > prev) runningMax[ex] = v
     }
 
     return { day: localDay(date), e1rm, ma, bestSets, prSet }

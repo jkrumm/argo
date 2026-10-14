@@ -53,10 +53,14 @@ export function rollingVelocityPctPerDay(
   return out
 }
 
+// Mirrors `strengthDirection` in apps/api/src/lib/strength-formulas.ts (>0.1 improving, <-0.05
+// declining) so the chart header agrees with the server's verdict on the same velocity.
+const IMPROVING_ABOVE = 0.1
+const DECLINING_BELOW = -0.05
+
 export function directionFromVelocity(velPctPerDay: number | null): StrengthDirection | null {
   if (velPctPerDay === null) return null
-  // ≈ 0.07%/day ≈ 2%/month threshold for "stable"
-  if (velPctPerDay > 0.07) return 'improving'
-  if (velPctPerDay < -0.07) return 'declining'
+  if (velPctPerDay > IMPROVING_ABOVE) return 'improving'
+  if (velPctPerDay < DECLINING_BELOW) return 'declining'
   return 'stable'
 }

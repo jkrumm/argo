@@ -7,11 +7,11 @@ import { createLocalStore, field } from 'basalt-ui/state'
 import { VX } from 'basalt-ui/tokens'
 import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
-import { SERIES } from '../../../lib/series'
 import { EXERCISE_KEYS } from '../../../lib/window-stores'
 import { localDay } from '../../garmin-health/charts/local-day'
-import { EXERCISE_COLORS, METRIC_TOOLTIPS, type ExerciseKey } from '../constants'
+import { METRIC_TOOLTIPS } from '../constants'
 import { exerciseLabel } from '../formulas'
+import { exerciseColor } from './exercise-helpers'
 
 /** Per-card select → a local store field, not `useState` (law C3). Persisted per chart. */
 const local = createLocalStore({
@@ -77,8 +77,8 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
     : (availableExercises[0] ?? selectedExercise)
 
   const selectedBlock = byExercise?.find((b) => b.exercise_id === effectiveSelected) ?? null
-  const landmarks = selectedBlock?.landmarks ?? { mev: 0, mav: 0, mrv: 0 }
-  const exColor = EXERCISE_COLORS[effectiveSelected as ExerciseKey] ?? SERIES.benchPress
+  const landmarks = selectedBlock?.landmarks ?? null
+  const exColor = exerciseColor(effectiveSelected)
 
   const points = useMemo<WeeklyVolumePoint[]>(
     () =>
@@ -153,11 +153,15 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
         layout="stacked"
         barOpacity={barOpacityFor}
         lines={lines}
-        refLines={[
-          { value: landmarks.mev, color: VX.goodRef, dashed: true },
-          { value: landmarks.mav, color: VX.warnRef, dashed: true },
-          { value: landmarks.mrv, color: VX.badRef, dashed: true },
-        ]}
+        refLines={
+          landmarks
+            ? [
+                { value: landmarks.mev, color: VX.goodRef, dashed: true },
+                { value: landmarks.mav, color: VX.warnRef, dashed: true },
+                { value: landmarks.mrv, color: VX.badRef, dashed: true },
+              ]
+            : []
+        }
         y={{ domain: 'auto', format: fmtTonnage, ticks: 5 }}
       />
     </ChartCard>

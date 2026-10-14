@@ -10,8 +10,9 @@ import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/
 import { SERIES } from '../../../lib/series'
 import { EXERCISE_KEYS } from '../../../lib/window-stores'
 import { localDay } from '../../garmin-health/charts/local-day'
-import { DEFAULT_EXERCISES, EXERCISES, METRIC_TOOLTIPS } from '../constants'
+import { EXERCISES, METRIC_TOOLTIPS } from '../constants'
 import { exerciseLabel } from '../formulas'
+import { parseExercises } from './exercise-helpers'
 
 /**
  * Per-card select → a local store field, not `useState` (law C3). Persisted per chart.
@@ -90,14 +91,6 @@ const COMPOSITE_SERIES: ChartSeries<CompositePoint>[] = [
     getValue: (d) => clamp(d.inolZma),
   },
 ]
-
-function parseExercises(exercises: string | undefined): string[] {
-  if (!exercises) return [...DEFAULT_EXERCISES]
-  return exercises
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-}
 
 /** Gated on `ctx.visible` so a row disappears the moment the legend hides its series. */
 function tooltipRows(

@@ -32,10 +32,12 @@ describe('rollingVelocityPctPerDay', () => {
 })
 
 describe('directionFromVelocity', () => {
-  test('thresholds at ±0.07 %/day', () => {
-    expect(directionFromVelocity(0.1)).toBe('improving')
-    expect(directionFromVelocity(-0.1)).toBe('declining')
-    expect(directionFromVelocity(0.05)).toBe('stable')
+  test('mirrors the server: >0.1 improving, <-0.05 declining, bounds are stable', () => {
+    expect(directionFromVelocity(0.1)).toBe('stable')
+    expect(directionFromVelocity(0.1001)).toBe('improving')
+    expect(directionFromVelocity(-0.05)).toBe('stable')
+    expect(directionFromVelocity(-0.0501)).toBe('declining')
+    expect(directionFromVelocity(0.08)).toBe('stable')
     expect(directionFromVelocity(null)).toBeNull()
   })
 })
