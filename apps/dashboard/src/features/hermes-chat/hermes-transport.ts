@@ -1,4 +1,4 @@
-import { aiSdkTransport } from 'basalt-ui/agent'
+import { aiSdkTransport, toAgentError } from 'basalt-ui/agent'
 import type { AgentError, AgentPart, OutcomeResolver } from 'basalt-ui/agent'
 import { emit } from 'basalt-ui/commands'
 import { getToken } from '../../lib/auth'
@@ -60,9 +60,9 @@ export const hermesTransport = aiSdkTransport<AgentPart>({
 //
 // `useAgentThreadRuns({ onError })` fires from the SAME catch branch that sets the thread's failure
 // status, for any genuine (non-abort) stream failure, and hands over the RAW thrown value — the
-// closed `AgentError` union lives on `ThreadRunState.error` and in the `chat.turn` telemetry, and
-// basalt does not export its classifier. `classifyChatError` below mirrors it (duck-typed, same
-// precedence) so the handlers can switch on `kind` exhaustively. An `http` failure keeps its body:
+// closed `AgentError` union lives on `ThreadRunState.error` and in the `chat.turn` telemetry.
+// `classifyChatError` below runs basalt's own `toAgentError` over it so the handlers can switch on
+// `kind` exhaustively. An `http` failure keeps its body:
 // AI SDK's `APICallError` carries the response text as `message`/`responseBody`, and argo's
 // structured `{ error, message }` bodies (409 stream_in_progress/duplicate_turn, 503
 // hermes_unconfigured, 422 attachment_limit_exceeded — see ChatBodySchema's `response` map in
@@ -103,17 +103,7 @@ type ClassifiedChatError = {
 
 function classifyChatError(err: unknown): ClassifiedChatError {
   const raw = stringField(err, 'message') ?? (typeof err === 'string' ? err : '')
-  // By name, not `instanceof Error`: a `fetch` abort is a DOMException, which is not an Error.
-  if (stringField(err, 'name') === 'AbortError') return { error: { kind: 'aborted' }, raw }
-  const status =
-    typeof err === 'object' && err !== null ? (err as Record<string, unknown>)['statusCode'] : null
-  if (typeof status === 'number') return { error: { kind: 'http', status }, raw }
-  const chunkType = stringField(err, 'chunkType')
-  const chunkId = stringField(err, 'chunkId')
-  if (chunkType !== undefined && chunkId !== undefined) {
-    return { error: { kind: 'stream', chunkType, chunkId }, raw }
-  }
-  return { error: { kind: 'server', message: raw }, raw }
+  return { error: toAgentError(err), raw }
 }
 
 const HERMES_CHAT_ERROR_TITLES: Record<string, string> = {
