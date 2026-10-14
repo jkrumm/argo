@@ -36,11 +36,12 @@ createRoot(document.getElementById('root')!).render(<BasaltProvider router={rout
 ```tsx
 // @check
 import { Link, createFileRoute, linkOptions } from '@tanstack/react-router'
-import { defineNav, navGroup, navTarget } from 'basalt-ui'
-// src/routes/dashboard.tsx — the breadcrumb and page title come from the nav item's `label`; export the component too (react/only-export-components)
+import { PageBar, defineNav, navGroup, navTarget } from 'basalt-ui'
+// src/routes/dashboard.tsx — the nav item's `label` is the page name (breadcrumb); export the component too (react/only-export-components)
 export const Route = createFileRoute('/dashboard')({ component: Dashboard })
 export function Dashboard() {
-  return <h2>Dashboard</h2>
+  // a PageBar only fills slots (actions, sync, tabs, filters); the body has no title
+  return <PageBar actions={[{ key: 'export', label: 'Export', primary: true }]} />
 }
 // src/lib/nav.tsx
 export const NAV = defineNav({
@@ -241,8 +242,7 @@ export function Chat() {
 
 ## Refresh after any upgrade
 
-1. `./node_modules/.bin/basalt-ui sync` (`--check` in CI, `--force` overwrites local edits).
-2. Read its output: edited files are skipped, retired files are deleted, the AGENTS.md block is rewritten.
+1. `./node_modules/.bin/basalt-ui sync` (`--check` in CI, `--force` overwrites local edits); read its output: edited files are skipped, retired files are deleted, the AGENTS.md block is rewritten.
 
 ## Upgrade 1.x to 2.0
 
