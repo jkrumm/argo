@@ -1,8 +1,270 @@
+import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Group, Text } from '@mantine/core'
+import { dot } from '@tanstack/charts/dot'
+import { lineY } from '@tanstack/charts/line'
+import { decorative } from '@tanstack/charts/mark/decorative'
+import { CartesianChart, ChartCard, type ChartSeries } from 'basalt-ui/charts'
+import { alpha, VX } from 'basalt-ui/tokens'
+import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
+import { SERIES } from '../../../lib/series'
+import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
-import { ChartCard } from 'basalt-ui/charts'
+import { applyVisibilityFilter } from '../visibility'
+import { chartStateOf } from './chart-state'
+import { localDay } from './local-day'
 
-// MIGRATION-STUB(w8): FitnessTrendsChart is not ported to basalt-ui 2.0 yet; the signature is kept so
-// callers compile, and the port (docs/waves/PLAN.md, Wave 8) replaces this body.
-export default function FitnessTrendsChart(_props: { params: SummaryParams }) {
-  return <ChartCard title="Fitness Trends" state={{ empty: 'Migrating to basalt-ui 2.0' }} />
+const CHART_HEIGHT = 280
+const DIMMED = 0.15
+const LINE_WIDTH = 2.5
+
+// ── Local helpers ────────────────────────────────────────────────────────
+
+function movingAverage(values: (number | null)[], window: number): (number | null)[] {
+  return values.map((_, i) => {
+    const start = Math.max(0, i - window + 1)
+    const slice = values.slice(start, i + 1).filter((v): v is number => v !== null)
+    return slice.length >= Math.min(3, window)
+      ? Math.round((slice.reduce((a, b) => a + b, 0) / slice.length) * 10) / 10
+      : null
+  })
+}
+
+function sampleStdDev(values: number[]): number | null {
+  if (values.length < 2) return null
+  const mean = values.reduce((a, b) => a + b, 0) / values.length
+  const sq = values.reduce((a, v) => a + (v - mean) * (v - mean), 0)
+  return Math.sqrt(sq / (values.length - 1))
+}
+
+function fmtSigma(v: number): string {
+  return `${v >= 0 ? '+' : ''}${v.toFixed(1)}σ`
+}
+
+function zScore(v: number | null, mean: number | null, sd: number, flip = false): number | null {
+  if (v === null || mean === null) return null
+  const raw = (v - mean) / sd
+  return flip ? -raw : raw
+}
+
+type SeriesPoint = {
+  date: string
+  restingHr: number | null
+  hrv: number | null
+  vo2Max: number | null
+}
+
+type FitnessPoint = {
+  day: Date
+  rhrMA: number | null
+  hrvMA: number | null
+  vo2max: number | null
+  rhrZ: number | null
+  hrvZ: number | null
+  vo2Z: number | null
+}
+
+// The z-score axis is the plot; each row pairs the plotted σ with its raw 7d value, read straight
+// off the hovered datum.
+const FITNESS_SERIES: ChartSeries<FitnessPoint>[] = [
+  {
+    key: 'rhr',
+    label: 'RHR (lower = fitter)',
+    color: SERIES.restingHr,
+    strokeWidth: LINE_WIDTH,
+    getValue: (d) => d.rhrZ,
+    formatValue: (v, d) =>
+      d.rhrMA === null ? fmtSigma(v) : `${Math.round(d.rhrMA)} bpm · ${fmtSigma(v)}`,
+  },
+  {
+    key: 'hrv',
+    label: 'HRV (7d avg)',
+    color: SERIES.hrv,
+    strokeWidth: LINE_WIDTH,
+    getValue: (d) => d.hrvZ,
+    formatValue: (v, d) =>
+      d.hrvMA === null ? fmtSigma(v) : `${Math.round(d.hrvMA)} ms · ${fmtSigma(v)}`,
+  },
+  {
+    key: 'vo2',
+    label: 'VO2 Max',
+    color: SERIES.vo2max,
+    mark: 'bar', // legend swatch only — the marks below draw VO2 as dots
+    getValue: (d) => d.vo2Z,
+    formatValue: (v, d) =>
+      d.vo2max === null ? fmtSigma(v) : `${d.vo2max.toFixed(1)} · ${fmtSigma(v)}`,
+  },
+]
+
+function buildFitnessData(points: SeriesPoint[]): FitnessPoint[] {
+  const rhrMA = movingAverage(
+    points.map((d) => d.restingHr),
+    7,
+  )
+  const hrvMA = movingAverage(
+    points.map((d) => d.hrv),
+    7,
+  )
+
+  const rhrMAVals = rhrMA.filter((v): v is number => v !== null)
+  const hrvMAVals = hrvMA.filter((v): v is number => v !== null)
+  const vo2Vals = points.map((d) => d.vo2Max).filter((v): v is number => v !== null)
+
+  const rhrMean = rhrMAVals.length ? rhrMAVals.reduce((a, b) => a + b, 0) / rhrMAVals.length : null
+  const hrvMean = hrvMAVals.length ? hrvMAVals.reduce((a, b) => a + b, 0) / hrvMAVals.length : null
+  const vo2Mean = vo2Vals.length ? vo2Vals.reduce((a, b) => a + b, 0) / vo2Vals.length : null
+
+  const rhrSd = Math.max(sampleStdDev(rhrMAVals) ?? 0, 0.5)
+  const hrvSd = Math.max(sampleStdDev(hrvMAVals) ?? 0, 1)
+  const vo2Sd = Math.max(sampleStdDev(vo2Vals) ?? 0, 0.2)
+
+  return points
+    .map((d, i) => ({
+      day: localDay(d.date),
+      rhrMA: rhrMA[i] ?? null,
+      hrvMA: hrvMA[i] ?? null,
+      vo2max: d.vo2Max,
+      rhrZ: zScore(rhrMA[i] ?? null, rhrMean, rhrSd, true),
+      hrvZ: zScore(hrvMA[i] ?? null, hrvMean, hrvSd),
+      vo2Z: zScore(d.vo2Max, vo2Mean, vo2Sd),
+    }))
+    .filter((d) => d.rhrMA !== null || d.hrvMA !== null)
+}
+
+function fieldAvg(points: SeriesPoint[], field: 'restingHr' | 'hrv'): number | null {
+  const vals = points.map((p) => p[field]).filter((v): v is number => v !== null)
+  if (vals.length === 0) return null
+  return vals.reduce((a, b) => a + b, 0) / vals.length
+}
+
+function computeFitnessSummary(points: SeriesPoint[]) {
+  const vo2Values = points.filter((d) => d.vo2Max !== null)
+  const vo2max = vo2Values.length > 0 ? (vo2Values[vo2Values.length - 1]?.vo2Max ?? null) : null
+
+  const halfFirst = Math.min(7, Math.floor(points.length / 2))
+  const halfLast = Math.min(7, Math.ceil(points.length / 2))
+
+  const rhrFirst = fieldAvg(points.slice(0, halfFirst), 'restingHr')
+  const rhrLast = fieldAvg(points.slice(-halfLast), 'restingHr')
+  const rhrDelta = rhrFirst !== null && rhrLast !== null ? rhrLast - rhrFirst : null
+
+  const hrvFirst = fieldAvg(points.slice(0, halfFirst), 'hrv')
+  const hrvLast = fieldAvg(points.slice(-halfLast), 'hrv')
+  const hrvDelta = hrvFirst !== null && hrvLast !== null ? hrvLast - hrvFirst : null
+
+  return { vo2max, rhrDelta, hrvDelta }
+}
+
+// ── Public chart ─────────────────────────────────────────────────────────
+
+export default function FitnessTrendsChart({ params }: { params: SummaryParams }) {
+  const query = useQuery(dailyMetricsQueries.series(params))
+
+  const seriesPoints: SeriesPoint[] = useMemo(
+    () =>
+      applyVisibilityFilter(
+        (query.data?.points ?? []).map((p) => ({
+          date: p.date,
+          restingHr: p.restingHr,
+          hrv: p.hrv,
+          vo2Max: p.vo2Max,
+        })),
+        (p) => p.date,
+        { hideToday: false },
+      ),
+    [query.data],
+  )
+
+  const chartData = useMemo(() => buildFitnessData(seriesPoints), [seriesPoints])
+  const summary = useMemo(() => computeFitnessSummary(seriesPoints), [seriesPoints])
+
+  const headerExtra = (
+    <Group gap="sm" wrap="nowrap">
+      {summary.vo2max !== null && (
+        <Group gap={4} align="baseline" wrap="nowrap">
+          <Text span fw={600} size="md" c={SERIES.vo2max}>
+            {summary.vo2max.toFixed(1)}
+          </Text>
+          <Text span size="xs" c="dimmed">
+            VO2
+          </Text>
+        </Group>
+      )}
+      {summary.rhrDelta !== null && (
+        <Group gap={4} align="baseline" wrap="nowrap">
+          <Text span fw={600} size="xs" c={summary.rhrDelta <= 0 ? VX.goodSolid : VX.badSolid}>
+            {summary.rhrDelta > 0 ? '+' : ''}
+            {summary.rhrDelta.toFixed(0)}
+          </Text>
+          <Text span size="xs" c="dimmed">
+            bpm RHR
+          </Text>
+        </Group>
+      )}
+      {summary.hrvDelta !== null && (
+        <Group gap={4} align="baseline" wrap="nowrap">
+          <Text span fw={600} size="xs" c={summary.hrvDelta >= 0 ? VX.goodSolid : VX.badSolid}>
+            {summary.hrvDelta > 0 ? '+' : ''}
+            {summary.hrvDelta.toFixed(0)}
+          </Text>
+          <Text span size="xs" c="dimmed">
+            ms HRV
+          </Text>
+        </Group>
+      )}
+    </Group>
+  )
+
+  return (
+    <ChartCard
+      title="Fitness Trends"
+      subtitle="Is my body adapting?"
+      info={METRIC_TOOLTIPS.fitnessTrends}
+      actions={headerExtra}
+      state={chartStateOf(query, chartData.length === 0 && 'No fitness readings in this window')}
+      placeholderHeight={CHART_HEIGHT}
+    >
+      <CartesianChart
+        ariaLabel="Resting heart rate and HRV trend z-scores with VO2 max markers"
+        data={chartData}
+        height={CHART_HEIGHT}
+        x={(d) => d.day}
+        series={FITNESS_SERIES}
+        y={{ domain: [-2.5, 2.5], ticks: 5, format: fmtSigma }}
+        refLines={[{ value: 0, color: alpha(VX.axis, 0.6), dashed: true }]}
+        marks={(plot) =>
+          plot.visible.map((s) => {
+            const opacity = plot.highlighted === null || plot.highlighted === s.key ? 1 : DIMMED
+            if (s.mark === 'bar') {
+              return decorative(
+                dot(
+                  plot.rows(s.key).filter((r) => r.y !== null),
+                  {
+                    id: s.key,
+                    x: 'x',
+                    y: 'y',
+                    r: 5,
+                    fill: s.color,
+                    fillOpacity: opacity,
+                    stroke: VX.dotStroke,
+                    strokeWidth: 2,
+                    strokeOpacity: opacity,
+                  },
+                ),
+              )
+            }
+            return lineY(plot.rows(s.key), {
+              id: s.key,
+              x: 'x',
+              y: 'y',
+              z: 'series',
+              stroke: s.color,
+              strokeWidth: LINE_WIDTH,
+              strokeOpacity: opacity,
+            })
+          })
+        }
+      />
+    </ChartCard>
+  )
 }
