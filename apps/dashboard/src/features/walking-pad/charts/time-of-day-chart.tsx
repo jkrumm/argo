@@ -4,7 +4,7 @@ import { Text } from '@mantine/core'
 import { ChartCard, Heatmap } from 'basalt-ui/charts'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { SERIES } from '../../../lib/series'
-import { chartStateOf } from './chart-state'
+import { chartStateOf } from '../../../lib/chart-state'
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 // Treadmill is never used between midnight and 06:00 — hide that quarter of the chart so the

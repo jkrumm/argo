@@ -4,7 +4,7 @@ import { Bars, ChartCard } from 'basalt-ui/charts'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { walkingStore } from '../../../lib/window-stores'
 import { METRIC_DEFS, type MetricKey } from '../metrics'
-import { chartStateOf } from './chart-state'
+import { chartStateOf } from '../../../lib/chart-state'
 
 type Bucket = { bucketStart: number; bucketWidth: number; sessions: number }
 

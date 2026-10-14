@@ -6,7 +6,7 @@ import { integer } from 'basalt-ui/format'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { walkingStore } from '../../../lib/window-stores'
 import { METRIC_DEFS, type MetricKey } from '../metrics'
-import { chartStateOf } from './chart-state'
+import { chartStateOf } from '../../../lib/chart-state'
 import { utcDay } from './utc-day'
 import { useVolumeBars, type VolumeMetric } from './volume-bars'
 

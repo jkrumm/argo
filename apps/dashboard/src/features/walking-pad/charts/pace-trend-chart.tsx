@@ -6,7 +6,7 @@ import { alpha, VX } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../../lib/queries/walking-pad'
 import { PACE_ZONES } from '../constants'
 import { SERIES } from '../../../lib/series'
-import { chartStateOf } from './chart-state'
+import { chartStateOf } from '../../../lib/chart-state'
 import { utcDay } from './utc-day'
 
 type Point = {

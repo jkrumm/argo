@@ -8,7 +8,7 @@ import { SERIES } from '../../../lib/series'
 import { METRIC_TOOLTIPS } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
-import { chartStateOf } from './chart-state'
+import { chartStateOf } from '../../../lib/chart-state'
 import { localDay } from './local-day'
 
 const CHART_HEIGHT = 280
