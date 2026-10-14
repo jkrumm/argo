@@ -847,7 +847,11 @@ describe('CLOUD_RAMP', () => {
 })
 
 describe('lpTileUrl', () => {
-  it('builds off the shared API base, not a hardcoded origin', () => {
-    expect(lpTileUrl(2025)).toBe('http://test.local/api/astro/tiles/lp/2025/{z}/{x}/{y}.png')
+  it('builds off the shared API base, not a hardcoded origin', async () => {
+    // `api-base` is evaluated once per bun process, so whichever test file loads it first fixes the
+    // base (a DOM-registering file gives `http://localhost/api`); derive the expectation from the
+    // module instead of pinning a host this file does not control.
+    const { apiBase } = await import('../../lib/api-base')
+    expect(lpTileUrl(2025)).toBe(`${apiBase}/astro/tiles/lp/2025/{z}/{x}/{y}.png`)
   })
 })
