@@ -10,10 +10,10 @@ type Recorded = {
   attributes: Record<string, unknown> | undefined
   status?: { code: SpanStatusCode }
   endTime?: number
+  ended?: boolean
 }
 
 const recorded: Recorded[] = []
-let ended = false
 
 const fakeProvider = {
   getTracer: () => ({
@@ -38,7 +38,7 @@ const fakeProvider = {
         }),
         end: (endTime?: number) => {
           record.endTime = endTime
-          ended = true
+          record.ended = true
         },
       } as unknown as Span
     },
@@ -65,13 +65,19 @@ const queryError: BasaltEvent = {
   } as never,
 }
 
+function startTurn(init: { threadId: string; messageId: string }) {
+  const turn = telemetry.startChatTurn?.(init)
+  expect(turn).toBeDefined()
+  return turn as NonNullable<typeof turn>
+}
+
 // The global provider can be set once per process, so the inert case must run first.
 describe('telemetry sink', () => {
   test('is inert before a provider is registered', () => {
     expect(() => telemetry(navigate)).not.toThrow()
-    const turn = telemetry.startChatTurn?.({ threadId: 't0', messageId: 'm0' })
-    expect(turn?.headers).toBeUndefined()
-    expect(() => turn?.settle?.('settled')).not.toThrow()
+    const turn = startTurn({ threadId: 't0', messageId: 'm0' })
+    expect(turn.headers).toBeUndefined()
+    expect(() => turn.settle?.('settled')).not.toThrow()
     expect(() => telemetry(queryError)).not.toThrow()
     expect(recorded).toHaveLength(0)
   })
@@ -85,6 +91,7 @@ describe('telemetry sink', () => {
       startTime: 1000,
       attributes: navigate.attributes,
       endTime: 1025,
+      ended: true,
     })
   })
 
@@ -99,9 +106,8 @@ describe('telemetry sink', () => {
   })
 
   test('chat.turn event decorates the open turn span instead of adding one', () => {
-    const turn = telemetry.startChatTurn?.({ threadId: 't2', messageId: 'm2' })
+    const turn = startTurn({ threadId: 't2', messageId: 'm2' })
     const count = recorded.length
-    ended = false
     telemetry({
       type: 'chat.turn',
       failed: true,
@@ -117,11 +123,11 @@ describe('telemetry sink', () => {
     expect(recorded.at(-1)).toMatchObject({
       name: 'chat.turn',
       attributes: { 'basalt.chat.ttft_ms': 5, 'basalt.chat.parts': 1 },
-      status: { code: SpanStatusCode.ERROR },
     })
-    expect(ended).toBe(false)
-    turn?.settle?.('failed')
-    expect(ended).toBe(true)
+    expect(recorded.at(-1)?.status).toBeUndefined()
+    expect(recorded.at(-1)?.ended).toBeUndefined()
+    turn.settle?.('failed')
+    expect(recorded.at(-1)?.ended).toBe(true)
   })
 
   test('chat.turn event without an open turn (resume) emits its own span', () => {
@@ -137,9 +143,24 @@ describe('telemetry sink', () => {
     expect(recorded.at(-1)).toMatchObject({ name: 'chat.turn', startTime: 4000, endTime: 4010 })
   })
 
+  test('a second turn on one thread ends the first; settle is idempotent', () => {
+    const first = startTurn({ threadId: 't4', messageId: 'm4a' })
+    const firstRecord = recorded.at(-1)
+    const second = startTurn({ threadId: 't4', messageId: 'm4b' })
+    const secondRecord = recorded.at(-1)
+    expect(firstRecord?.ended).toBe(true)
+    expect(secondRecord?.ended).toBeUndefined()
+    first.settle?.('stopped')
+    expect(secondRecord?.ended).toBeUndefined()
+    second.settle?.('settled')
+    expect(secondRecord?.ended).toBe(true)
+    second.settle?.('failed')
+    expect(secondRecord?.status).toBeUndefined()
+  })
+
   test('settle clears the open turn, also when stopped', () => {
-    const turn = telemetry.startChatTurn?.({ threadId: 't3', messageId: 'm3' })
-    turn?.settle?.('stopped')
+    const turn = startTurn({ threadId: 't3', messageId: 'm3' })
+    turn.settle?.('stopped')
     const count = recorded.length
     telemetry({
       type: 'chat.turn',
@@ -152,15 +173,15 @@ describe('telemetry sink', () => {
   })
 
   test('startChatTurn returns a W3C traceparent and settle ends the span', () => {
-    const turn = telemetry.startChatTurn?.({ threadId: 't1', messageId: 'm1' })
-    expect(turn?.headers?.traceparent).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$/)
+    const turn = startTurn({ threadId: 't1', messageId: 'm1' })
+    expect(turn.headers?.traceparent).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$/)
     expect(recorded.at(-1)).toMatchObject({
       name: 'chat.turn',
       attributes: { 'basalt.chat.thread_id': 't1' },
     })
     expect(recorded.at(-1)?.endTime).toBeUndefined()
-    turn?.settle?.('failed')
+    turn.settle?.('failed')
     expect(recorded.at(-1)?.status).toEqual({ code: SpanStatusCode.ERROR })
-    expect(ended).toBe(true)
+    expect(recorded.at(-1)?.ended).toBe(true)
   })
 })
