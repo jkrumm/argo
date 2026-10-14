@@ -10,8 +10,9 @@ import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/
 import { SERIES } from '../../../lib/series'
 import { EXERCISE_KEYS } from '../../../lib/window-stores'
 import { localDay } from '../../garmin-health/charts/local-day'
-import { EXERCISE_COLORS, METRIC_TOOLTIPS } from '../constants'
+import { EXERCISE_COLORS, METRIC_TOOLTIPS, type ExerciseKey } from '../constants'
 import { exerciseLabel, inolDotColor } from '../formulas'
+import { pickActiveExercise } from './active-exercise'
 import { trailingMA } from './trailing-ma'
 
 /** Per-card select → a local store field, not `useState` (law C3). Persisted per chart. */
@@ -21,11 +22,12 @@ const local = createLocalStore({
 })
 
 const HEIGHT = 280
+const MA_WINDOW = 10
 
 type InolPoint = {
   day: Date
   inol: number | null
-  ma10: number | null
+  ma: number | null
 }
 
 function inolZoneLabel(v: number): string {
@@ -41,26 +43,25 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
   const byExercise = query.data?.byExercise
   const [selectedExercise] = local.field.exercise.use()
 
-  // Render-time guard: the stored lift may carry no points in this window.
-  const activeExercise =
-    byExercise?.find((e) => e.exercise_id === selectedExercise) ??
-    byExercise?.find((e) => e.points.length > 0)
+  const activeExercise = pickActiveExercise(byExercise, selectedExercise)
 
   const chartData = useMemo<InolPoint[]>(() => {
     if (!activeExercise) return []
     const ma = trailingMA(
       activeExercise.points.map((p) => p.inol),
-      10,
+      MA_WINDOW,
     )
     return activeExercise.points.map((p, i) => ({
       day: localDay(p.date),
       inol: p.inol,
-      ma10: ma[i] ?? null,
+      ma: ma[i] ?? null,
     }))
   }, [activeExercise])
 
   const latest = chartData.findLast((d) => d.inol !== null)
-  const exerciseColor = EXERCISE_COLORS[selectedExercise] ?? SERIES.benchPress
+  const exerciseColor =
+    EXERCISE_COLORS[(activeExercise?.exercise_id ?? selectedExercise) as ExerciseKey] ??
+    SERIES.benchPress
 
   const series = useMemo<ChartSeries<InolPoint>[]>(
     () => [
@@ -77,11 +78,11 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
       },
       {
         key: 'ma',
-        label: '10-session MA',
+        label: `${MA_WINDOW}-session MA`,
         color: exerciseColor,
         dash: 'dashed',
         strokeWidth: 2.25,
-        getValue: (d) => d.ma10,
+        getValue: (d) => d.ma,
         formatValue: (v) => v.toFixed(2),
       },
       // Legend-only zone keys: `getValue` is always null, so they draw nothing and own no tooltip row.
@@ -145,7 +146,7 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
     >
       <Lines
         cursorResolution="exact"
-        ariaLabel="INOL per session with a 10-session moving average"
+        ariaLabel={`INOL per session with a ${MA_WINDOW}-session moving average`}
         data={chartData}
         height={HEIGHT}
         x={(d) => d.day}

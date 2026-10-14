@@ -6,8 +6,8 @@ import { alpha, VX } from 'basalt-ui/tokens'
 import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { SERIES } from '../../../lib/series'
-import { EXERCISE_COLORS, METRIC_TOOLTIPS, type ExerciseKey } from '../constants'
-import { acwrZoneColor, acwrZoneLabel, exerciseLabel } from '../formulas'
+import { EXERCISE_COLORS, METRIC_TOOLTIPS, ZONE_COLORS, type ExerciseKey } from '../constants'
+import { acwrZoneLabel, exerciseLabel, type AcwrZone } from '../formulas'
 import { mergePoints, type ExerciseSeries, type MergedPoint } from './merge-acwr'
 
 const HEIGHT = 280
@@ -16,43 +16,28 @@ const STROKE_WIDTH = 2.5
 const exerciseColor = (ex: string): string =>
   EXERCISE_COLORS[ex as ExerciseKey] ?? SERIES.benchPress
 
-// The four zone bands ride the legend as swatches only — `getValue` is null everywhere, so they
-// draw nothing and own no tooltip row.
-const ZONE_SERIES: ChartSeries<MergedPoint>[] = [
-  {
-    key: 'zone-under',
-    label: 'Undertrained',
-    color: SERIES.benchPress,
-    fillOpacity: 0.4,
-    mark: 'bar',
-    role: 'reference',
-    getValue: () => null,
-  },
-  {
-    key: 'zone-opt',
-    label: 'Optimal',
-    color: VX.goodSolid,
-    mark: 'bar',
-    role: 'reference',
-    getValue: () => null,
-  },
-  {
-    key: 'zone-caut',
-    label: 'Caution',
-    color: VX.warnSolid,
-    mark: 'bar',
-    role: 'reference',
-    getValue: () => null,
-  },
-  {
-    key: 'zone-danger',
-    label: 'Danger',
-    color: VX.badSolid,
-    mark: 'bar',
-    role: 'reference',
-    getValue: () => null,
-  },
+// One source for the zone bands, the legend swatches and the header badge. Undertrained is
+// neutral, not an exercise hue and not amber: it is "under-loaded", not a warning.
+const ZONES: { key: AcwrZone; label: string; color: string }[] = [
+  { key: 'undertrained', label: 'Undertrained', color: ZONE_COLORS.neutral },
+  { key: 'optimal', label: 'Optimal', color: VX.goodSolid },
+  { key: 'caution', label: 'Caution', color: VX.warnSolid },
+  { key: 'danger', label: 'Danger', color: VX.badSolid },
 ]
+
+const zoneColor = (zone: AcwrZone | null): string =>
+  ZONES.find((z) => z.key === zone)?.color ?? ZONE_COLORS.neutral
+
+// The zone keys ride the legend as swatches only — `getValue` is null everywhere, so they draw
+// nothing and own no tooltip row.
+const ZONE_SERIES: ChartSeries<MergedPoint>[] = ZONES.map((z) => ({
+  key: `zone-${z.key}`,
+  label: z.label,
+  color: z.color,
+  mark: 'bar',
+  role: 'reference',
+  getValue: () => null,
+}))
 
 export default function TrainingLoadChart({ params }: { params: StrengthQueryParams }) {
   const query = useQuery(strengthQueries.trainingLoad(params))
@@ -109,13 +94,13 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
       actions={
         leaderLast && leaderLast.acwr !== null ? (
           <Group gap={6} align="baseline" wrap="nowrap">
-            <Text span fw={600} size="md" c={acwrZoneColor(leaderLast.zone)}>
+            <Text span fw={600} size="md" c={zoneColor(leaderLast.zone)}>
               {leaderLast.acwr.toFixed(2)}
             </Text>
             <Text span size="xs" c="dimmed">
               ACWR ·
             </Text>
-            <Text span fw={600} size="xs" c={acwrZoneColor(leaderLast.zone)}>
+            <Text span fw={600} size="xs" c={zoneColor(leaderLast.zone)}>
               {acwrZoneLabel(leaderLast.zone)}
             </Text>
           </Group>
@@ -138,7 +123,7 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
         series={series}
         y={{ domain: 'auto', autoMaxFloor: 2, ticks: 5, format: (v) => v.toFixed(1) }}
         zones={[
-          { from: 0, to: 0.8, fill: alpha(SERIES.benchPress, 0.08) },
+          { from: 0, to: 0.8, fill: alpha(ZONE_COLORS.neutral, 0.08) },
           { from: 0.8, to: 1.3, fill: VX.good },
           { from: 1.3, to: 1.5, fill: VX.warn },
           { from: 1.5, to: Infinity, fill: VX.bad },

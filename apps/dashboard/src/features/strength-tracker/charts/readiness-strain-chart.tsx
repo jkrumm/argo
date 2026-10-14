@@ -61,10 +61,10 @@ const READINESS_SERIES: ChartSeries<ReadinessPoint>[] = [
 ]
 
 export default function ReadinessStrainChart({ params }: { params: StrengthQueryParams }) {
-  // readiness endpoint only accepts window/from/to — strip exercises.
-  const { exercises: _ignored, ...windowParams } = params
-  void _ignored
-  const query = useQuery(strengthQueries.readiness(windowParams))
+  // readiness endpoint only accepts window/from/to — leave exercises out.
+  const query = useQuery(
+    strengthQueries.readiness({ window: params.window, from: params.from, to: params.to }),
+  )
 
   const points = useMemo<ReadinessPoint[]>(
     () =>
