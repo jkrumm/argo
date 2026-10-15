@@ -83,6 +83,50 @@ export const Revenue = ({ rows }: { rows: Row[] }) => (
 )
 ```
 
+## Add a form dialog
+
+A form dialog is a `defineOverlays` entry opened from a `BasaltDataTable` row action; success is an `emit` of a kind registered in `defineNotifications`. The form component lives in a `*-modal.tsx`:
+
+```tsx
+// @check
+import { Button, TextInput } from '@mantine/core'
+import { defineNotifications, defineOverlays, emit, overlays } from 'basalt-ui/commands'
+import { fieldKey, inputProps, useBasaltForm } from 'basalt-ui/forms'
+
+export const NOTIFICATIONS = defineNotifications({
+  'item:saved': { intent: 'success', toMessage: (p: { name: string }) => `Saved ${p.name}` },
+})
+function ItemForm({ name }: { name: string }) {
+  const form = useBasaltForm({ initialValues: { name } })
+  const save = form.onSubmit((v) => {
+    overlays.close() // after the mutation succeeds
+    emit('item:saved', { name: v.name })
+  })
+  return (
+    <form onSubmit={save}>
+      <TextInput key={fieldKey(form, 'name')} {...inputProps(form, 'name')} label="Name" />
+      <Button type="submit">Save</Button>
+    </form>
+  )
+}
+export const OVERLAYS = defineOverlays({
+  'item:edit': { title: 'Edit item', render: (p: { name: string }) => <ItemForm name={p.name} /> },
+})
+declare module 'basalt-ui' {
+  interface BasaltRegister {
+    notifications: typeof NOTIFICATIONS
+    overlays: typeof OVERLAYS
+  }
+}
+// BasaltDataTable rowActions entry
+export const editAction = {
+  key: 'edit',
+  label: 'Edit',
+  icon: <i />,
+  onClick: (row: { name: string }) => overlays.open('item:edit', { name: row.name }),
+}
+```
+
 ## Stream a slow section
 
 The shell holds no promise; the loader returns the slow promise unawaited (settled, so a failure renders the chart's error state), and the fallback is the same chart pending (it fills the final box):
