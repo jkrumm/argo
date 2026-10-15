@@ -37,6 +37,6 @@ paths:
 
 ## Agent
 
-- Chat uses `basalt-ui/agent` (`useAgentThreadRuns`, `ThreadFeed`, `Composer`); never `useChat` or `Chat` from `@ai-sdk/react`. [basalt/agent-no-raw-usechat]
+- Chat uses `basalt-ui/agent` (`useAgentThreadRuns`, `ThreadFeed`, `Composer`); never `useChat` or `Chat` from `@ai-sdk/react`. A turn is live only while `runs.get(id)?.status` is `'submitted'` or `'streaming'`; a failed turn keeps its entry as `'error'`. [basalt/agent-no-raw-usechat] [type ThreadRunState]
 - Keep `ai` and `@ai-sdk/*` on one major across packages; an intentional split is waived with `basalt-agent-allow`, never `theme-allow`. [basalt/ai-sdk-major]
 - End every switch over `AgentPart` with `default: return part satisfies never`. [type AgentPart]

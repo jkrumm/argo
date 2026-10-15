@@ -1,7 +1,7 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Card, SimpleGrid, Skeleton } from '@mantine/core'
 import { IconFlame, IconRoute, IconWalk } from '@tabler/icons-react'
-import { StatCard, type StatCardTone } from 'basalt-ui'
+import { StatCard, type Tone } from 'basalt-ui'
 import { km } from 'basalt-ui/format'
 import { CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../lib/queries/walking-pad'
@@ -20,7 +20,7 @@ import { useLastWalkEndedAtSuspense } from './last-walk'
 
 type Direction = 'up' | 'flat' | 'down' | 'na'
 
-function toneFor(d: Direction): StatCardTone | undefined {
+function toneFor(d: Direction): Tone | undefined {
   switch (d) {
     case 'up':
       return 'good'

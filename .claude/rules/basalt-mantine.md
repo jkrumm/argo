@@ -18,7 +18,7 @@ paths:
 
 ## Provider
 
-- Mount once: `createBasaltRouter({ routeTree })`, then `<BasaltProvider router={router} />`. It owns Mantine, Query, modals, notifications, Spotlight and the router. [type BasaltProvider]
+- Mount once: `createBasaltRouter({ routeTree })`, then `<BasaltProvider router={router} />`; in a router you do not own (TanStack Start root route) pass `children` instead, with `context.queryClient`. `spotlight={false}` for an app with its own Cmd+K. It owns Mantine, Query, modals, notifications and Spotlight. [type BasaltProvider]
 - Never pass `cssVariablesResolver` to `BasaltProvider`; retune with `theme={createBasaltTheme(...)}`. [type BasaltProvider]
 - Read and write the color scheme with `useMantineColorScheme()` only. [check-theme localstorage-theme]
 

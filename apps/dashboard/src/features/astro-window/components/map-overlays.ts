@@ -382,7 +382,7 @@ function buildContourColors(): { line: string; halo: string } {
 }
 
 /** `--vx-muted` — the same opaque secondary-ink token DESIGN.md documents using in place of
- * `--vx-tooltipMuted` for bespoke labels, which this WMS legend caption is. */
+ * `VX.tooltipMuted` for bespoke labels, which this WMS legend caption is. */
 const LEGEND_FONT_VAR = '--vx-muted'
 
 /** Neutral zinc-400 — never actually reached (`--vx-muted` always resolves to a 6-digit hex in
