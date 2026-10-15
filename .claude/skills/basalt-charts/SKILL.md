@@ -36,5 +36,5 @@ import { lineY } from '@tanstack/charts/line'
 ```
 
 5. Wrap it in `ChartCard`; pass `state={{ pending, error, empty }}` from the query.
-6. Run `bun run lint:basalt` and `bunx tsc --noEmit`; fix every finding at its source.
+6. Run the repo's own gate (e.g. `make check`), which runs lint, the theme guard and typecheck; fix every finding at its source.
 7. Check both color schemes and a pending query.
