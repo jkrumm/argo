@@ -1,0 +1,17 @@
+# DX trial 5 — chat-adjacent page (throwaway)
+
+Page `/trial-chat`: `PageAside` holding a Hermes chat panel (`useAgentThreadRuns` + `Composer` + reused `HermesRow`), a `Lines` HRV chart fed by `GET /daily-metrics/series`, `RangeFilter` in the `PageBar` over a new `trialChatStore`, and a `chat:reply-complete` notification emitted when a run settles without error. Not added to `NAV` (outside owned files); reachable by URL.
+
+Wall-clock from first command to green `make check` + build: ~137 s (includes reading).
+
+| # | Tried | Error / surprise | Resolved by | Consulted |
+|-|-|-|-|-|
+| 1 | `<Box style={{ overflow: 'auto' }}>` for the chat scroll area | `basalt(raw-scroll-container): Raw overflow: auto/scroll — use Mantine ScrollArea …` (only at `make check`; `vite build` passed) | `<ScrollArea style={{ flex: 1, minHeight: 0 }}>` | the lint message itself; no rule file mentions it |
+| 2 | Guessed `p.hrv` on a `/daily-metrics/series` point | Compiled first time — guess, no error | — | `stress-chart.tsx` for the point shape |
+| 3 | Guessed `emit` imports from `basalt-ui/commands` and that the kind must be registered in `lib/notifications.ts` | Right first time | — | `basalt-batteries.md`, `lib/notifications.ts` header |
+| 4 | Guessed `PageAside` needs `title` and takes `persistKey`, rendered as a sibling of `PageBar` inside the route component | Right first time; whether a page may render it outside a `BasaltShell` child is untested (no dev server per contract) | — | `dist/shell/page-aside.d.ts` — `llms.txt` lists only the signature, not the props |
+| 5 | Guessed a settled run has `status === 'error'` only when failed (success deletes the entry) | Unverified at runtime; taken from `chat-page.tsx`'s comment, not from a basalt doc | — | `chat-page.tsx` |
+
+Not covered: no browser run, so the aside layout and the toast are typechecked and built, not seen.
+
+5 rows (1 real failure, 4 guesses).

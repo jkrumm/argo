@@ -489,21 +489,29 @@ Round 4 of the convergence check (same four exit parts as Wave 13).
 - **Not verified:** the new row actions and the trial page in a browser; no `make evidence` re-run. The trial worker's input box held an unsent German line ("Trial 5 mit den Doc-Fixes …"), not a wave instruction; no trial 5 was started.
 - **Cleanup:** worker worktrees removed with `rd fan --clean`; Wave 15 stays `pending` on owner call D4; not spawned.
 
-## Wave 15 — Loop round 5: adopt 2.7.1, a fifth trial <!-- status: active -->
+## Wave 15 — Loop round 5: adopt 2.7.1, a fifth trial <!-- status: done -->
 
 Round 5 of the convergence check (same four exit parts as Wave 13).
 
-- [ ] Bump both pins to basalt-ui 2.7.1 exact; `doctor`, `sync --check`, `check-theme --audit-allows`
+- [x] Bump both pins to basalt-ui 2.7.1 exact; `doctor`, `sync --check`, `check-theme --audit-allows`
       clean, zero lint warnings from basalt rules. Verify rows 52-55 live: the momentum legend shows the
       split up/down swatch; `DataTableRowAction` imports from `basalt-ui/table`.
-- [ ] Trial 5: a fresh agent, a new throwaway branch (never merged), a task no earlier trial covered: a
+- [x] Trial 5: a fresh agent, a new throwaway branch (never merged), a task no earlier trial covered: a
       chat-adjacent page (an AI chat panel in a `PageAside` next to a `Lines` chart whose range is a
       `RangeFilter` in the `PageBar`, with a notification on a completed reply), using only argo's shipped
       basalt layer, `llms.txt` and the installed types. Keep the brief neutral and record each
       misstep with its cause (basalt, argo, model, brief).
-- [ ] Exit table for round 5 in `w15.md`.
+- [x] Exit table for round 5 in `w15.md`.
 
 **Left behind:**
+
+- **Landed on master:** #51 basalt-ui **2.7.1** exact in both pins (`rd merge`, `make check` + dashboard build green; deploy `b645191` verified: `make verify` commit = `origin/master`, `make logs` clean). Review: none on #51, a version string plus sync output, read by the lead. Then a docs commit (trial log, `w15.md`, one `apps/dashboard/AGENTS.md` paragraph on the chat-settle trigger and `ScrollArea`). Evidence: `w15.md`.
+- **Rows 52-55 verified live:** Momentum legend is split green/red in light and dark; `DataTableRowAction` exports from `basalt-ui/table`.
+- **Exit criterion, round 5: NOT converged under the strict rule** (`w15.md`). Waivers **met**, regression **met by inspection**; clean trial **not met**: two basalt-rooted rows, nothing worked around.
+- **Basalt friction for `argo-friction.md`:** (AM) no rule or skill line says a scrolling region must be a Mantine `ScrollArea`; `basalt/raw-scroll-container` is reachable only at lint time and `vite build` passes, low; (AN) `PageAside` props (`title`, `persistKey`) exist only in `dist/shell/page-aside.d.ts`, `llms.txt` has the signature only (row AA/AG class, still open), low; (AO) DualPanel signed-bar legend swatch is a split 10 px square on Momentum but a split 8 px circle on Garmin "Divergence", shape inconsistency, low (cause not traced).
+- **DX trial 5:** `origin/w15/dx-trial-5` (never merged, no PR; delete when no longer needed). 5 rows: 2 basalt, 1 argo (fixed), 2 correct guesses. Runtime not exercised in a browser.
+- **Not verified:** the trial page at runtime (aside layout, toast); no `make evidence` re-run; legend screenshots are in `/tmp`, not committed.
+- **Cleanup:** worker worktrees removed with `rd fan --clean`; Wave 16 stays `pending` on owner call D4; not spawned.
 
 ## Wave 16 — Rendering: SSR-first, streamed sections <!-- status: pending (blocked on D4) -->
 

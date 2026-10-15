@@ -119,6 +119,11 @@ See `.claude/rules/basalt-batteries.md`. `emit(kind, { message })` needs the kin
 `src/lib/notifications.ts` (the app's single `defineNotifications` registry); `toMessage` is typed
 `{ message: ReactNode }`, so `emit` checks the payload.
 
+A chat reply "completes" when its thread's run leaves the live statuses (`submitted`/`streaming`): a
+successful or stopped turn deletes its `runs` entry, a failed one keeps it with `status: 'error'`.
+Trigger on that transition (`isLiveRun` / `settledRunIds` in `features/hermes-chat/run-liveness.ts`),
+never on entry presence. A scrolling panel uses Mantine `ScrollArea` (`basalt/raw-scroll-container`).
+
 ## Forms and dialogs
 
 A table row action is `rowActions` on `BasaltDataTable`, never a menu in a cell. A form dialog is a
