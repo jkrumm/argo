@@ -29,7 +29,7 @@ createRoot(document.getElementById('root')!).render(<BasaltProvider router={rout
 3. Import extension layer CSS (`@mantine/dates` for `basalt-ui/controls-dates`, `@mantine/schedule`) after `basalt-ui/styles.css` (core must precede them in `@layer mantine`).
 4. Install the peers of each subpath you import: read its `Install: bun add …` line in `node_modules/basalt-ui/llms.txt`; a subpath with no `Install:` line needs only the required peers listed at the top of that file.
 5. In `vite.config.ts` spread `...basaltViteConfig({ port, apiTarget })` and register, in this order, `plugins: [tanstackRouter({ target: 'react', autoCodeSplitting: true }), react(), ...basaltAppPlugin({ name, description })]`. Run `bun add -d @tanstack/router-plugin` and import `tanstackRouter` from `@tanstack/router-plugin/vite`.
-6. Run `vite build` once so the plugin writes `src/routeTree.gen.ts`; commit it (`tsc -b` fails without it).
+6. Run `vite build` once so the router plugin writes `src/routeTree.gen.ts` (`tsc -b` fails without it). Follow the repo's own convention for that file: commit it or gitignore it, never both.
 7. In `src/routes/__root.tsx`: `<BasaltShell brand={{ name }} nav={NAV}><Outlet /></BasaltShell>`; build `NAV` with `defineNav` in `src/lib/nav.tsx`.
 8. Add a page as a file route, and link to it with `navTarget`:
 
@@ -237,8 +237,7 @@ export function Chat() {
 
 1. `./node_modules/.bin/basalt-ui doctor`; read to the last line. `SKIPPED` exits non-zero.
 2. Fix every finding doctor prints, then rerun until it is clean.
-3. `bun run lint:basalt` (`oxlint . && basalt-ui check-theme`); fix every finding at its source.
-4. `bunx tsc --noEmit`; fix every error without `as never` or `any`.
+3. Run the repo's own gate (e.g. `make check`), which runs lint, the theme guard (`basalt-ui check-theme`) and typecheck; fix every finding at its source, and every type error without `as never` or `any`.
 
 ## Refresh after any upgrade
 

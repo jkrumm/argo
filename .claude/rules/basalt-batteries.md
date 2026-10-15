@@ -18,7 +18,7 @@ paths:
 
 ## Query
 
-- Wrap every API-client `queryFn` response in `unwrap()` (it throws on the error branch and on `null` data); a mock returning plain data needs none, and the lint sees only an inline `queryFn` calling `fetch(`. [basalt/query-fn-unwrap]
+- Wrap every API-client `queryFn` response in `unwrap()` from `basalt-ui` (it throws on the error branch and on `null` data); a mock returning plain data needs none, and the lint sees only an inline `queryFn` calling `fetch(`. [basalt/query-fn-unwrap]
 - The client comes from `createBasaltRouter`; extend it via its `query:` option. [type createBasaltRouter]
 
 ## Forms

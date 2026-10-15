@@ -14,5 +14,5 @@ Method only; the law is `.claude/rules/basalt-*.md` and `./DESIGN.md`.
 4. Build with Mantine primitives and the composites; take every color from `VX.*` or a series token.
 5. Tune by eye in the running app: open the theme lab with the `dev.theme` Spotlight command (dev only) and adjust in both color schemes.
 6. Bake the values back: identity changes go into the `derive` knobs of `createBasaltTheme`, series colors into `src/lib/series.ts` as `{ light, dark }` pairs. Clear the lab overrides and confirm the baked result matches.
-7. Run `bun run lint:basalt`; fix every finding at its source.
+7. Run the repo's own gate (e.g. `make check`), which runs lint, the theme guard and typecheck; fix every finding at its source.
 8. Check both schemes, and below and above the `sm` breakpoint.
