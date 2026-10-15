@@ -436,24 +436,31 @@ round must record each part as met or name the friction row that keeps it open.
 - **Known, not fixed:** the two Hermes threads created by the trace checks (`1fcd4ce3…`, `907d7101…`) remain in production; basalt `chat.turn` emits no span when the turn is `stopped` (the sink span still ends via `settle`).
 - **Cleanup:** worker worktrees removed with `rd fan --clean`; `w12/dx-trial-2` kept deliberately. Wave 13 stays `pending` on owner call D4; not spawned.
 
-## Wave 13 — Loop round 3: the convergence check <!-- status: active -->
+## Wave 13 — Loop round 3: the convergence check <!-- status: done -->
 
 Round 3 exists to close the loop. If this wave records zero new basalt friction that needed a
 workaround or a basalt change, and the other three exit parts hold, the loop is converged
 (basalt-ui `docs/waves/PLAN.md` W14).
 
-- [ ] Bump both pins to basalt-ui 2.6.1 exact; `doctor`, `sync --check`, `check-theme --audit-allows`
+- [x] Bump both pins to basalt-ui 2.6.1 exact; `doctor`, `sync --check`, `check-theme --audit-allows`
       clean (still zero waivers). Verify rows 42-46 live: the trace docs match argo's setup, the strength
       legend swatches match their bar shades in dark mode.
-- [ ] DX trial 3: a fresh agent, a new throwaway branch (never merged), a task neither earlier trial
+- [x] DX trial 3: a fresh agent, a new throwaway branch (never merged), a task neither earlier trial
       covered: a settings-style page with a form (`basalt-ui/forms`), a `DataTable` with a row action, and
       a `Sparkline` in a `StatCard`. It may use only argo's shipped basalt layer, `llms.txt` and the
       installed types. Record every wrong turn and classify it (basalt / argo / model).
-- [ ] Clean up the round 1 and 2 trial branches (`w11/dx-trial`, `w12/dx-trial-2`) and the two Hermes
+- [x] Clean up the round 1 and 2 trial branches (`w11/dx-trial`, `w12/dx-trial-2`) and the two Hermes
       threads created by the trace checks.
-- [ ] Exit table for round 3 in `w13.md`: each of the four parts met, or the friction row that blocks it.
+- [x] Exit table for round 3 in `w13.md`: each of the four parts met, or the friction row that blocks it.
 
 **Left behind:**
+
+- **Landed on master:** #48 basalt-ui **2.6.1** exact in both pins (`rd merge`, `make check` + dashboard build green; deploy `a5dabaf` verified: `make verify` commit = `origin/master`, `deploy.yml` and `check` success). `doctor` all green, `sync --check` clean, `--audit-allows` 0. Review: none on #48, the diff is a version string, the lockfile and `basalt-ui sync` output (read by the lead). Then a docs commit: three argo-rooted DX fixes in `apps/dashboard/AGENTS.md` (`unwrap` from `basalt-ui`, an inline minimal route, the OpenAPI pointer) and the two older trial logs. Evidence: `w13.md`.
+- **Exit criterion, round 3: NOT converged.** Zero waivers **met**; no regression **met by inspection** (patch bump, no `make evidence` re-run); full-wave and clean-DX-trial **not met**: the trial hit new basalt-rooted friction, one gap routed around (rows AD-AH).
+- **Rows verified live:** Z closed (the `startChatTurn` doc now names `ignoreUrls`, matching `lib/hyperdx.ts`), AB and the `unwrap` half of AC closed by 2.6.1 skill/rule text. Dark-mode strength legends: swatches match the bars on every chart checked; the round 2 "Warm-up/Work/Drop is one colour" does not reproduce (that legend is Weekly Volume). Momentum's legend has one swatch for green and red bars (minor, uninvestigated).
+- **Basalt friction for `argo-friction.md`** (none worked around in argo; the trial branch used a plain Mantine `Menu` for AE): (AD) `llms.txt` `controls` description and the `dist/forms/index.d.ts` header name exports that do not exist (`FormSection`, `FormActions`, `OverflowMenu`, `ActionGroup`; `useFormSubmit`, `FormStateProvider`, `useFieldArray`, `useFormDraft`), 3 TS2305 and guesses, medium; (AE) no per-row action seam on `BasaltDataTable` (only `onRowActivate`, `bulkActions`, table-level `actions`), the `basalt-controls` "Homes" rule is silent and lint accepts a bare `Menu` in a `col.display` cell, medium; (AF) `inputProps` has no checkbox/switch binding (`{ type: 'checkbox' }` is TS2554), low-medium; (AG) `llms.txt` still gives signatures without prop shapes for `table`/`charts`/`forms` (row AA unfixed in 2.6.1), low-medium; (AH) `form.errors` is an index signature (TS4111 on dot access) and `FormRow.error` takes a node with no helper from `inputProps`, low.
+- **DX trial 3:** branch `w13/dx-trial-3` (pushed, never merged, no PR; delete when no longer needed). 15 wrong turns: 6 basalt-rooted (strict), 4 argo-rooted (fixed), 1 caused by the lead's brief, 4 model. Runtime not exercised in a browser.
+- **Cleanup:** `w11/dx-trial`, `w12/dx-trial-2` and their worktrees deleted; the two Hermes trace-check threads deleted from production; worker worktrees removed; `origin/w13/dx-trial-3` kept deliberately (local branch deleted). Wave 14 stays `pending` on owner call D4; not spawned.
 
 ## Wave 14 — Rendering: SSR-first, streamed sections <!-- status: pending (blocked on D4) -->
 

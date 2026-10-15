@@ -1,0 +1,27 @@
+# DX trial 2 — filtered table + chart on one store field
+
+Route `/dx-trial`: `SelectFilter` bound to `dxTrialStore.field.type` (URL `?type=`, localStorage mirror);
+the same value filters the `BasaltDataTable` rows and the `Bars` weekly-minutes chart. Data: `GET /activities`.
+Pending/error/empty come from `ChartCard state` and `BasaltDataTable query`.
+
+- Time to first green `make check`: ~135 s from start (incl. `bun install`); `bun run --cwd apps/dashboard build` green.
+- Suppressions: 0.
+
+## Wrong turns
+
+| # | What happened | Sent by | Class |
+|-|-|-|-|
+| 1 | `node_modules/basalt-ui` and `.bin/basalt-ui` absent in a fresh worktree; `basalt-ui doctor` failed. Recovered only because apps/dashboard/AGENTS.md says to `bun install` first. | worktree state; AGENTS covers it | none (doc worked) |
+| 2 | `llms.txt` lists subpaths and exports but no signatures for `state`/`table`/`controls`/`charts` (only `format` has `Signature:`). Had to read `dist/**/*.d.ts` to learn `field.enum`, `BasaltDataTableProps`, `SelectFilter`, `Bars`. | llms.txt | basalt-rooted |
+| 3 | Task named `EnumFilter`; `dist/controls/enum-filter.d.ts` exists but `controls/index` exports only `SelectFilter`. llms.txt names `SelectFilter` only, so the prompt was wrong, not the docs. | task prompt | none |
+| 4 | New store first placed in `features/dx-trial/store.ts`. `nav.tsx` is a leaf module (header: imports nothing from the app) and must link with `store.linkSearch`, so the store had to move into `lib/window-stores.ts`. AGENTS "Adding a page" never says page stores live in `window-stores.ts`; found by reading the nav.tsx header. Forced edit outside new files: `lib/window-stores.ts`, `lib/nav.tsx`. | apps/dashboard/AGENTS.md | argo-rooted |
+| 5 | `import { unwrap } from 'basalt-ui'` plus `import { PageBar } from 'basalt-ui'` → lint `import(no-duplicates)`. My slip; the batteries rule says to use `unwrap` but not which entry it is exported from (found via the existing queries file). | own error / basalt-batteries rule gives no import path | basalt-rooted (minor doc gap) |
+| 6 | basalt-app skill step 6 says "commit `src/routeTree.gen.ts`"; Argo gitignores it (`apps/dashboard/.gitignore`). The prompt also listed "generated routeTree" as an owned file. Nothing to commit; `make check` typechecks fine because the dev/build step regenerates it. | basalt-app skill vs repo | argo-rooted (AGENTS does not say it is ignored) |
+| 7 | basalt-charts skill step 6 says `bun run lint:basalt` and `bunx tsc --noEmit`; the repo's gates are `make check` / per-workspace `typecheck`. Did not run them as written. | basalt-charts skill | argo-rooted |
+| 8 | Peeked at `routes/walking-pad.tsx` and `window-stores.ts` for the route pattern after the docs left `loader`/`validateSearch` wiring unclear (taint note: viewed before writing the route; route written from docs, only `validateSearch` + `component` used). | AGENTS "Adding a page" has no minimal route example | argo-rooted |
+
+## Not wrong turns (worked from docs)
+
+`createSearchStore` + `.labels()` + `SelectFilter field=`; `ChartCard state`; `BasaltDataTable query`;
+`VX.line` as the neutral single-series ink (AGENTS: lone chart stays neutral) — no `defineSeries` row.
+Runtime behaviour (reload survival, live query states) was not exercised in a browser: dev servers are off-limits here, so only `make check` and the production build back this trial.
