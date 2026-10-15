@@ -20,6 +20,7 @@ paths:
 
 - Wrap every API-client `queryFn` response in `unwrap()` from `basalt-ui` (it throws on the error branch and on `null` data); a mock returning plain data needs none, and the lint sees only an inline `queryFn` calling `fetch(`. [basalt/query-fn-unwrap]
 - The client comes from `createBasaltRouter`; extend it via its `query:` option. [type createBasaltRouter]
+- Register every kind in `defineNotifications` (augment `BasaltRegister` `notifications`) before calling `emit('kind', payload)`; an unregistered kind is a type error. [type emit]
 
 ## Forms
 
@@ -37,6 +38,5 @@ paths:
 ## Agent
 
 - Chat uses `basalt-ui/agent` (`useAgentThreadRuns`, `ThreadFeed`, `Composer`); never `useChat` or `Chat` from `@ai-sdk/react`. [basalt/agent-no-raw-usechat]
-- Keep `ai` and `@ai-sdk/*` on one major across packages. [basalt/ai-sdk-major]
+- Keep `ai` and `@ai-sdk/*` on one major across packages; an intentional split is waived with `basalt-agent-allow`, never `theme-allow`. [basalt/ai-sdk-major]
 - End every switch over `AgentPart` with `default: return part satisfies never`. [type AgentPart]
-- An intentional `ai` major split is waived with `basalt-agent-allow`, never `theme-allow`. [basalt/ai-sdk-major]
