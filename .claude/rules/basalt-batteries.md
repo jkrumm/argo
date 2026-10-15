@@ -23,7 +23,7 @@ paths:
 
 ## Forms
 
-- A field is two calls: `key={fieldKey(form, path)}` and `{...inputProps(form, path)}`, from `basalt-ui/forms`. [basalt/forms-field-key]
+- A field is two calls: `key={fieldKey(form, path)}` and `{...inputProps(form, path)}`, from `basalt-ui/forms`. [basalt/forms-field-key] A boolean field (`Checkbox`/`Switch`) adds `{ type: 'checkbox' }`; read a field error as `inputProps(form, path).error`, never `form.errors.x` (TS4111), and hand it to `FormRow error` only for a raw control. [type inputProps]
 - `useBasaltForm` takes a Standard Schema validator, not a `ZodSchema`. [type useBasaltForm]
 
 ## Table

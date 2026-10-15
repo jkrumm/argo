@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ActionIcon, Badge, Box, Group, Stack, Text, Tooltip } from '@mantine/core'
+import { Badge, Box, Group, Stack, Text } from '@mantine/core'
 import { overlays } from 'basalt-ui/commands'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { IconEdit, IconTrash } from '@tabler/icons-react'
@@ -129,40 +129,6 @@ export function WorkoutsTable() {
         )
       },
     }),
-    columnHelper.display({
-      id: 'actions',
-      header: '',
-      enableSorting: false,
-      cell: (ctx) => {
-        const w = ctx.row.original
-        return (
-          <Group gap={4} justify="flex-end">
-            <Tooltip label="Edit" withArrow>
-              <ActionIcon
-                variant="subtle"
-                size="sm"
-                onClick={() => setEditing(w as unknown as EditableWorkout)}
-                aria-label="Edit"
-              >
-                <IconEdit size={14} />
-              </ActionIcon>
-            </Tooltip>
-            <Tooltip label="Delete" withArrow>
-              <ActionIcon
-                variant="subtle"
-                color="red"
-                size="sm"
-                loading={deleteWorkout.isPending && deleteWorkout.variables === w.id}
-                onClick={() => handleDelete(w)}
-                aria-label="Delete"
-              >
-                <IconTrash size={14} />
-              </ActionIcon>
-            </Tooltip>
-          </Group>
-        )
-      },
-    }),
   ]
 
   return (
@@ -171,6 +137,22 @@ export function WorkoutsTable() {
       <BasaltDataTable
         data={workouts}
         columns={columns}
+        rowActions={[
+          {
+            key: 'edit',
+            label: 'Edit',
+            icon: <IconEdit size={14} />,
+            onClick: (w) => setEditing(w as unknown as EditableWorkout),
+          },
+          {
+            key: 'delete',
+            label: 'Delete',
+            icon: <IconTrash size={14} />,
+            danger: true,
+            loading: (w) => deleteWorkout.isPending && deleteWorkout.variables === w.id,
+            onClick: handleDelete,
+          },
+        ]}
         striped
         highlightOnHover
         emptyState={

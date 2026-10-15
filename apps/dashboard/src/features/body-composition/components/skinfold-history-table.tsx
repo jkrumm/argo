@@ -1,4 +1,4 @@
-import { ActionIcon, Group, Stack, Text, Tooltip } from '@mantine/core'
+import { Stack, Text } from '@mantine/core'
 import { overlays } from 'basalt-ui/commands'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { IconTrash } from '@tabler/icons-react'
@@ -48,30 +48,6 @@ export function SkinfoldHistoryTable() {
       header: 'Thickness',
       cell: (ctx) => `${ctx.getValue().toFixed(1)} mm`,
     }),
-    columnHelper.display({
-      id: 'actions',
-      header: '',
-      enableSorting: false,
-      cell: (ctx) => {
-        const r = ctx.row.original
-        return (
-          <Group gap={4} justify="flex-end">
-            <Tooltip label="Delete" withArrow>
-              <ActionIcon
-                variant="subtle"
-                color="red"
-                size="sm"
-                loading={deleteSkinfoldLog.isPending && deleteSkinfoldLog.variables === r.id}
-                onClick={() => handleDelete(r)}
-                aria-label="Delete"
-              >
-                <IconTrash size={14} />
-              </ActionIcon>
-            </Tooltip>
-          </Group>
-        )
-      },
-    }),
   ]
 
   return (
@@ -79,6 +55,16 @@ export function SkinfoldHistoryTable() {
       <BasaltDataTable
         data={readings}
         columns={columns}
+        rowActions={[
+          {
+            key: 'delete',
+            label: 'Delete',
+            icon: <IconTrash size={14} />,
+            danger: true,
+            loading: (r) => deleteSkinfoldLog.isPending && deleteSkinfoldLog.variables === r.id,
+            onClick: handleDelete,
+          },
+        ]}
         striped
         highlightOnHover
         emptyState={
