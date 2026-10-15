@@ -513,21 +513,29 @@ Round 5 of the convergence check (same four exit parts as Wave 13).
 - **Not verified:** the trial page at runtime (aside layout, toast); no `make evidence` re-run; legend screenshots are in `/tmp`, not committed.
 - **Cleanup:** worker worktrees removed with `rd fan --clean`; Wave 16 stays `pending` on owner call D4; not spawned.
 
-## Wave 16 — Loop round 6: adopt 2.7.2, a sixth trial <!-- status: active -->
+## Wave 16 — Loop round 6: adopt 2.7.2, a sixth trial <!-- status: done -->
 
 Round 6 of the convergence check (same four exit parts as Wave 13).
 
-- [ ] Bump both pins to basalt-ui 2.7.2 exact; `doctor`, `sync --check`, `check-theme --audit-allows`
+- [x] Bump both pins to basalt-ui 2.7.2 exact; `doctor`, `sync --check`, `check-theme --audit-allows`
       clean, zero basalt lint warnings. Spot-check `llms.txt`: `PageAside` and `FilterSet` carry props.
-- [ ] Trial 6: a fresh agent, a new throwaway branch (never merged), a task no earlier trial covered: a
+- [x] Trial 6: a fresh agent, a new throwaway branch (never merged), a task no earlier trial covered: a
       content page (a `Markdown`/`Prose` article from an API field with a table of contents in a
       `PageAside`, a `SearchFilter` filtering a list of articles, and a `Heatmap` of reading activity),
       using only argo's shipped basalt layer, `llms.txt` and the installed types. Keep the brief neutral;
       record each misstep with its cause (basalt, argo, model, brief), checking a claimed basalt cause
       against the shipped rules and lint before recording it.
-- [ ] Exit table for round 6 in `w16.md`.
+- [x] Exit table for round 6 in `w16.md`.
 
 **Left behind:**
+
+- **Landed on master:** #52 basalt-ui **2.7.2** exact in both pins (`rd merge`, `make check` + dashboard build green; deploy `f9e5ee1` verified: `make verify` commit = `origin/master`, `make logs` clean). Review: none on #52, version strings plus sync output, read by the lead. Then a docs commit (`w16.md`, the trial log). `llms.txt` spot-check: `PageAside` and `FilterSet` carry props.
+- **Exit criterion, round 6: NOT converged under the strict rule** (`w16.md`). Waivers **met**, regression **met by inspection**; clean trial **not met**: two basalt-rooted rows, nothing worked around.
+- **Basalt friction for `argo-friction.md`:** (AP) `TableOfContents` props and its dependence on `Markdown` heading ids are documented only in `src/content/toc.tsx`; `llms.txt` lists the signature only (AA/AG class), low; (AQ) `WidgetHeader` requires `tier` but neither `llms.txt` nor a rule says so (types catch it at once), low. Row 8 (`Date.now()` in render) was a model misstep: `react(purity)` covers it, not basalt.
+- **DX trial 6:** `origin/w16/dx-trial-6` (never merged, no PR; delete when no longer needed). 15 journal rows: 2 basalt, 3 model/tooling, 2 brief. Runtime not exercised in a browser.
+- **Not verified:** the trial page at runtime (TOC collection, heading ids, heatmap on real data); no `make evidence` re-run.
+- **Cleanup:** worker worktrees removed with `rd fan --clean`; Wave 17 stays `pending` on owner call D4; not spawned.
+
 
 ## Wave 17 — Rendering: SSR-first, streamed sections <!-- status: pending (blocked on D4) -->
 
