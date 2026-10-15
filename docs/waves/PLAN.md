@@ -55,13 +55,13 @@ basalt-ui's `docs/waves/v2-chart-inventory.md` rows a1–a43 (40 production char
   (every non-dev route × light/dark × 1280×800/390×844, the 1.36 baseline's matrix), Lighthouse
   (`/`, `/garmin-health`, `/strength-tracker`; mobile + desktop; median of 3). GETs only — no lane
   posts to production.
-- **D4 — Owner call before Wave 14 (SSR).** SSR with argo's bearer-in-`localStorage` auth can render only
+- **D4 — Owner call before Wave 15 (SSR).** SSR with argo's bearer-in-`localStorage` auth can render only
   the shell: the server cannot fetch data on the user's behalf. Option A: an HttpOnly, Secure,
   SameSite=Strict session cookie minted from the bearer, accepted by the API next to the bearer, so
   loaders run on the server and sections stream with data (security-adjacent API change). Option B:
   SSR the shell plus sized pending boxes, data stays client-side (no auth change, a much smaller win
   over today's SPA). Tendency: A — B is not "SSR-first with streamed sections" for an authenticated
-  dashboard. Wave 14 does not start until the owner picks.
+  dashboard. Wave 15 does not start until the owner picks.
 - **D5 — Group-per-worker charts.** Chart waves fan out one worker per feature directory (disjoint
   files); a kind that cannot express an inventory row's "must support" column is a friction row and
   that chart stays a stub until the fixing minor.
@@ -339,7 +339,7 @@ of every route.
 Outward-facing: the orchestrator decides when it runs. Functional parity is the bar; polish happens
 live afterwards (basalt-ui W14). Warden watches argo in production and will react to cutover errors.
 Reordered 2026-10-14 by the orchestrator: the cutover ships the static nginx build now (every chart
-ported, no stub); SSR (Wave 14) waits on owner call D4 and ships live as its own deploy afterwards.
+ported, no stub); SSR (Wave 15) waits on owner call D4 and ships live as its own deploy afterwards.
 
 - [x] Pre-flight: Gate green, no `MIGRATION-STUB`, zero `basalt/*` suppressions, every argo row in
       `argo-friction.md` closed or explicitly accepted as a post-cutover loop item, `basalt-ui sync
@@ -462,7 +462,26 @@ workaround or a basalt change, and the other three exit parts hold, the loop is 
 - **DX trial 3:** branch `w13/dx-trial-3` (pushed, never merged, no PR; delete when no longer needed). 15 wrong turns: 6 basalt-rooted (strict), 4 argo-rooted (fixed), 1 caused by the lead's brief, 4 model. Runtime not exercised in a browser.
 - **Cleanup:** `w11/dx-trial`, `w12/dx-trial-2` and their worktrees deleted; the two Hermes trace-check threads deleted from production; worker worktrees removed; `origin/w13/dx-trial-3` kept deliberately (local branch deleted). Wave 14 stays `pending` on owner call D4; not spawned.
 
-## Wave 14 — Rendering: SSR-first, streamed sections <!-- status: pending (blocked on D4) -->
+## Wave 14 — Loop round 4: adopt 2.7, a fourth DX trial <!-- status: active -->
+
+Round 4 of the convergence check (same four exit parts as Wave 13).
+
+- [ ] Bump both pins to basalt-ui 2.7.0 exact; `doctor`, `sync --check`, `check-theme --audit-allows`
+      clean. 2.7.0 lints a Menu/ActionIcon in a table `cell` (warn in apps): move argo's
+      `workouts-table.tsx` (Edit + Delete) and `skinfold-history-table.tsx` (Delete, with `loading`) to
+      `rowActions`; bind any boolean form field with `inputProps(form, path, { type: 'checkbox' })`; read
+      field errors through `inputProps(...).error`. Zero new warnings left.
+- [ ] Check the momentum chart legend (one swatch for green and red bars, seen in round 3): basalt gap or
+      argo config; fix argo's side or record a row.
+- [ ] DX trial 4: a fresh agent, a new throwaway branch (never merged), a task no earlier trial covered:
+      an editable list page (a `DataTable` with `rowActions` Edit/Delete opening a modal form with a
+      checkbox and validation errors, saving through a mutation, a toast on success), using only argo's
+      shipped basalt layer, `llms.txt` and the installed types. Classify every wrong turn strictly.
+- [ ] Exit table for round 4 in `w14.md`.
+
+**Left behind:**
+
+## Wave 15 — Rendering: SSR-first, streamed sections <!-- status: pending (blocked on D4) -->
 
 Blocked on D4. Pattern: basalt-ui `docs/waves/evidence/w10/ssr.md` and the `basalt-app` skill's
 "Stream a slow section".
