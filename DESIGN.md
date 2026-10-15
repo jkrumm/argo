@@ -208,7 +208,7 @@ Rules for this table (from the `basalt-tokens` / `basalt-charts` rules — do no
 - Light is one shade **deeper**, dark one shade **lighter** — same hue, never the same hex.
 
 `ARGO_DERIVED` in `series.ts` also carries one derived (non-`defineSeries`) var: `--vx-optimalZone`,
-a `color-mix` tint of `--vx-goodSolid` fed to `BasaltProvider`'s `paletteOptions.derived` — not a
+a `color-mix` tint of `--vx-good-solid` fed to `BasaltProvider`'s `paletteOptions.derived` — not a
 per-metric series, so it isn't in the table above.
 
 ## App deviations

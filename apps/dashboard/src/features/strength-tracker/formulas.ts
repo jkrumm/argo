@@ -1,4 +1,4 @@
-import type { StatCardTone } from 'basalt-ui'
+import type { Tone } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { SERIES } from '../../lib/series'
 import { EXERCISES, METRICS, ZONE_COLORS, type ExerciseKey, type MetricKey } from './constants'
@@ -46,7 +46,7 @@ export function directionColor(dir: StrengthDirection | null): string {
 }
 
 /** The `StatCard` verdict for a strength direction — the same thresholds `directionColor` paints. */
-export function directionTone(dir: StrengthDirection | null): StatCardTone | undefined {
+export function directionTone(dir: StrengthDirection | null): Tone | undefined {
   switch (dir) {
     case 'improving':
       return 'good'
@@ -75,7 +75,7 @@ export function momentumLabel(sign: MomentumSign | null): string {
 // ── Load quality (hero 2) ───────────────────────────────────────────────────
 
 /** The `StatCard` verdict for a 0–100 load-quality score. `undefined` covers an absent reading. */
-export function loadQualityTone(score: number | null): StatCardTone | undefined {
+export function loadQualityTone(score: number | null): Tone | undefined {
   if (score === null) return undefined
   if (score >= 75) return 'good'
   if (score >= 50) return 'warn'
@@ -90,7 +90,7 @@ export function loadQualityLabel(verdict: LoadQualityVerdict | null): string {
 // ── Balance (hero 3a) ───────────────────────────────────────────────────────
 
 /** The `StatCard` verdict for a ratio balance — the same thresholds `balanceColor` paints. */
-export function balanceTone(status: RatioStatus | null): StatCardTone | undefined {
+export function balanceTone(status: RatioStatus | null): Tone | undefined {
   switch (status) {
     case 'balanced':
       return 'good'
@@ -145,7 +145,7 @@ export function balanceLabel(status: RatioStatus | null): string {
 // ── Readiness (hero 3b) ─────────────────────────────────────────────────────
 
 /** The `StatCard` verdict for a 0–100 readiness score. `undefined` covers an absent reading. */
-export function readinessTone(score: number | null): StatCardTone | undefined {
+export function readinessTone(score: number | null): Tone | undefined {
   if (score === null) return undefined
   if (score >= 70) return 'good'
   if (score >= 40) return 'warn'

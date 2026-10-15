@@ -1,4 +1,4 @@
-import type { StatCardTone } from 'basalt-ui'
+import type { Tone } from 'basalt-ui'
 import { ZONE_COLORS } from './constants'
 
 /**
@@ -12,7 +12,7 @@ import { ZONE_COLORS } from './constants'
  * The `StatCard` verdict for a 0–100 score. `undefined` is NOT 'good' — it covers a reading that is
  * absent, so a card with nothing measured never renders a green rail.
  */
-export function scoreTone(score: number | null): StatCardTone | undefined {
+export function scoreTone(score: number | null): Tone | undefined {
   if (score === null) return undefined
   if (score >= 80) return 'good'
   if (score >= 60) return 'warn'
@@ -44,7 +44,7 @@ export function acwrZoneLabel(zone: AcwrZone | null): string {
 }
 
 /** The `StatCard` verdict for an ACWR zone — the same thresholds `acwrZoneColor` paints. */
-export function acwrZoneTone(zone: AcwrZone | null): StatCardTone | undefined {
+export function acwrZoneTone(zone: AcwrZone | null): Tone | undefined {
   switch (zone) {
     case 'optimal':
       return 'good'

@@ -9,7 +9,7 @@ Procedure only; the law is `.claude/rules/basalt-*.md`.
 ## Scaffold
 
 1. `bun add basalt-ui && bunx basalt-ui init` (the only `bunx` call; use `./node_modules/.bin/basalt-ui` after).
-2. Check the seeded `src/main.tsx` (`init` writes it when absent); `basalt-ui/styles.css` is the only stylesheet import:
+2. Check the seeded `src/main.tsx` (`init` writes it when absent; on a TanStack Start app it seeds none: render `<BasaltProvider><Outlet /></BasaltProvider>` with no `router` in the root route component, `context.queryClient` set in `getRouter()`); `spotlight={false}` drops Basalt's Cmd+K for an app with its own. `basalt-ui/styles.css` is the only stylesheet import:
 
 ```tsx
 // @check
@@ -30,7 +30,7 @@ createRoot(document.getElementById('root')!).render(<BasaltProvider router={rout
 4. Install the peers of each subpath you import: read its `Install: bun add …` line in `node_modules/basalt-ui/llms.txt`; a subpath with no `Install:` line needs only the required peers listed at the top of that file.
 5. In `vite.config.ts` spread `...basaltViteConfig({ port, apiTarget })` and register, in this order, `plugins: [tanstackRouter({ target: 'react', autoCodeSplitting: true }), react(), ...basaltAppPlugin({ name, description })]`. Run `bun add -d @tanstack/router-plugin` and import `tanstackRouter` from `@tanstack/router-plugin/vite`.
 6. Run `vite build` once so the router plugin writes `src/routeTree.gen.ts` (`tsc -b` fails without it). Follow the repo's own convention for that file: commit it or gitignore it, never both.
-7. In `src/routes/__root.tsx`: `<BasaltShell brand={{ name }} nav={NAV}><Outlet /></BasaltShell>`; build `NAV` with `defineNav` in `src/lib/nav.tsx`.
+7. In `src/routes/__root.tsx`: `<BasaltShell brand={{ name }} nav={NAV}><Outlet /></BasaltShell>`; build `NAV` with `defineNav` in `src/lib/nav.tsx`. basalt has no auth seam and loaders fire before any gate component renders: gate an authenticated app in the root route's `beforeLoad` (throw `redirect`).
 8. Add a page as a file route, and link to it with `navTarget`:
 
 ```tsx
@@ -287,12 +287,12 @@ export function Chat() {
 
 1. `./node_modules/.bin/basalt-ui sync` (`--check` in CI, `--force` overwrites local edits); read its output: edited files are skipped, retired files are deleted, the AGENTS.md block is rewritten.
 
-## Upgrade 1.x to 2.0
+## Upgrade 1.x to 2.x
 
-1. `bun add basalt-ui@latest`, then `./node_modules/.bin/basalt-ui sync`; it prunes retired managed files and rewrites the AGENTS.md block.
-2. `./node_modules/.bin/basalt-ui doctor`; fix each of doctor's checks: a tsconfig that does not extend the shipped base, `basalt/*` rule ids the plugin no longer has, and imports of subpaths 2.0 dropped.
-3. Work through `MIGRATING.md` § 2.0 (in the installed package): one row per removal or move; apply each that your code touches.
-4. Run the Verify steps above.
+1. Be on `1.41.0` with its deprecations cleared and the gate green first (2.0 retires the deprecation lifecycle, so a consumer below 1.41 stalls on removed names). Then `bun add basalt-ui@latest`, the peers each imported subpath needs from its `Install:` line in `llms.txt` (exact pins: `bun add` accepts a mismatch silently, `doctor` `exact-peers` names it) and an `oxlint` the shipped preset supports; then `./node_modules/.bin/basalt-ui sync` (prunes retired managed files, rewrites the AGENTS.md block).
+2. `./node_modules/.bin/basalt-ui doctor`; in a monorepo it targets the app package (`basalt.app` in the root `package.json` when two qualify). Fix each check: a tsconfig that does not extend the shipped base, retired `basalt/*` rule ids, dead `basalt` config keys, dropped subpaths.
+3. Fix `tsc` in this order, because errors cascade: (a) specifier moves, mechanical, CSS imports included (`MIGRATING.md` § Subpaths, peers and gates; `basalt-ui/tokens.css` is gone and only `vite build` reports it: emit `basalt-ui tokens:css --out src/tokens.css` and import that file); (b) wiring: `createBasaltRouter` + `BasaltProvider` + `interface Register` (until `Register` exists every router and query-client use is `never`: dozens of unrelated errors); (c) removed root exports; (d) charts, one file at a time, not mechanical: hand-composed marks become `Lines`/`Bars`/`Sparkline`/`Heatmap` or `CartesianChart`.
+4. Read what compiles clean but behaves differently (`MIGRATING.md` § Agent runtime: `runs.has(id)` no longer means live; § Table v9: closed sort registry, debounced search; § Transitions) and grep your code for each. Fix the preset's newly-`error` React rules (`react/refs`, `react/set-state-in-effect`, `react/immutability`, `react/globals`) at the source, never with a waiver. Then run the Verify steps above.
 
 ## Not a React app
 
