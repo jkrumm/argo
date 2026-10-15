@@ -55,7 +55,10 @@ basalt-ui's `docs/waves/v2-chart-inventory.md` rows a1–a43 (40 production char
   (every non-dev route × light/dark × 1280×800/390×844, the 1.36 baseline's matrix), Lighthouse
   (`/`, `/garmin-health`, `/strength-tracker`; mobile + desktop; median of 3). GETs only — no lane
   posts to production.
-- **D4 — Owner call before Wave 17 (SSR).** SSR with argo's bearer-in-`localStorage` auth can render only
+- **D4 — DECIDED 2026-10-15: no SSR for argo.** Owner: argo is personal software with no SEO need, so it
+  stays a client-rendered SPA; no session cookie, no new auth surface. basalt-ui keeps its opt-in SSR
+  patterns at full strength without trading anything for argo; their real-consumer proof is weatherorb
+  (TanStack Start). Wave 17 is dropped. Original framing: SSR with argo's bearer-in-`localStorage` auth can render only
   the shell: the server cannot fetch data on the user's behalf. Option A: an HttpOnly, Secure,
   SameSite=Strict session cookie minted from the bearer, accepted by the API next to the bearer, so
   loaders run on the server and sections stream with data (security-adjacent API change). Option B:
@@ -93,7 +96,7 @@ basalt-ui's `docs/waves/v2-chart-inventory.md` rows a1–a43 (40 production char
   `@mantine/dates` layer CSS, and `@mantine/schedule` unmentioned; (2) exact `5.2.x` font peers lag
   the published `5.3.0` and `bun` accepts the mismatch silently. Blocks nothing yet; Wave 3 complies
   (exact peers, dates/schedule layer CSS after `basalt-ui/styles.css`).
-- **Owner call pending:** D4 (SSR auth), needed before Wave 10, not before.
+- **D4 decided 2026-10-15:** no SSR for argo (Wave 17 dropped).
 - **Plan review: none** — a doc-only wave; the orchestrator reviews this plan before spawning Wave 2.
 
 ## Wave 2 — 1.41 live, the evidence command, the real baseline <!-- status: done -->
@@ -537,7 +540,10 @@ Round 6 of the convergence check (same four exit parts as Wave 13).
 - **Cleanup:** worker worktrees removed with `rd fan --clean`; Wave 17 stays `pending` on owner call D4; not spawned.
 
 
-## Wave 17 — Rendering: SSR-first, streamed sections <!-- status: pending (blocked on D4) -->
+## Wave 17 — Rendering: SSR-first, streamed sections <!-- status: dropped -->
+
+**Dropped 2026-10-15 (D4):** argo is personal software with no SEO need; it stays client-rendered. Kept
+below for the record; basalt-ui's SSR patterns are proven on weatherorb instead.
 
 Blocked on D4. Pattern: basalt-ui `docs/waves/evidence/w10/ssr.md` and the `basalt-app` skill's
 "Stream a slow section".
