@@ -14,7 +14,7 @@ import { defineNotifications } from 'basalt-ui/commands'
 
 type MessagePayload = { message: ReactNode }
 
-const toMessage = (payload: unknown): ReactNode => (payload as MessagePayload).message
+const toMessage = (payload: MessagePayload): ReactNode => payload.message
 
 export const NOTIFICATIONS = defineNotifications({
   // ── Reading (Hardcover match + shelf sync) ───────────────────────────────

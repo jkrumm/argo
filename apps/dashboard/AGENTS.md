@@ -115,7 +115,17 @@ See `.claude/rules/basalt-charts.md` and `.claude/rules/charts.md`.
 
 ## Commands palette & notifications
 
-See `.claude/rules/basalt-batteries.md`.
+See `.claude/rules/basalt-batteries.md`. `emit(kind, { message })` needs the kind registered first in
+`src/lib/notifications.ts` (the app's single `defineNotifications` registry); `toMessage` is typed
+`{ message: ReactNode }`, so `emit` checks the payload.
+
+## Forms and dialogs
+
+A table row action is `rowActions` on `BasaltDataTable`, never a menu in a cell. A form dialog is a
+Mantine `Modal` in a `*-modal.tsx` file (the `basalt-controls` filename carve-out) holding the row in
+`useState`; `overlays.confirmDelete` covers delete confirmation. Boolean fields bind with
+`inputProps(form, path, { type: 'checkbox' })`. In a fresh worktree run `bun install` before reading
+`node_modules/basalt-ui` (`llms.txt`, `dist/**/*.d.ts`), and `oxfmt <dir>` fixes a `format:check` failure.
 
 ## Path Aliases
 

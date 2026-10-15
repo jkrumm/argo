@@ -462,24 +462,32 @@ workaround or a basalt change, and the other three exit parts hold, the loop is 
 - **DX trial 3:** branch `w13/dx-trial-3` (pushed, never merged, no PR; delete when no longer needed). 15 wrong turns: 6 basalt-rooted (strict), 4 argo-rooted (fixed), 1 caused by the lead's brief, 4 model. Runtime not exercised in a browser.
 - **Cleanup:** `w11/dx-trial`, `w12/dx-trial-2` and their worktrees deleted; the two Hermes trace-check threads deleted from production; worker worktrees removed; `origin/w13/dx-trial-3` kept deliberately (local branch deleted). Wave 14 stays `pending` on owner call D4; not spawned.
 
-## Wave 14 — Loop round 4: adopt 2.7, a fourth DX trial <!-- status: active -->
+## Wave 14 — Loop round 4: adopt 2.7, a fourth DX trial <!-- status: done -->
 
 Round 4 of the convergence check (same four exit parts as Wave 13).
 
-- [ ] Bump both pins to basalt-ui 2.7.0 exact; `doctor`, `sync --check`, `check-theme --audit-allows`
+- [x] Bump both pins to basalt-ui 2.7.0 exact; `doctor`, `sync --check`, `check-theme --audit-allows`
       clean. 2.7.0 lints a Menu/ActionIcon in a table `cell` (warn in apps): move argo's
       `workouts-table.tsx` (Edit + Delete) and `skinfold-history-table.tsx` (Delete, with `loading`) to
       `rowActions`; bind any boolean form field with `inputProps(form, path, { type: 'checkbox' })`; read
       field errors through `inputProps(...).error`. Zero new warnings left.
-- [ ] Check the momentum chart legend (one swatch for green and red bars, seen in round 3): basalt gap or
+- [x] Check the momentum chart legend (one swatch for green and red bars, seen in round 3): basalt gap or
       argo config; fix argo's side or record a row.
-- [ ] DX trial 4: a fresh agent, a new throwaway branch (never merged), a task no earlier trial covered:
+- [x] DX trial 4: a fresh agent, a new throwaway branch (never merged), a task no earlier trial covered:
       an editable list page (a `DataTable` with `rowActions` Edit/Delete opening a modal form with a
       checkbox and validation errors, saving through a mutation, a toast on success), using only argo's
       shipped basalt layer, `llms.txt` and the installed types. Classify every wrong turn strictly.
-- [ ] Exit table for round 4 in `w14.md`.
+- [x] Exit table for round 4 in `w14.md`.
 
 **Left behind:**
+
+- **Landed on master** (`rd merge`, `make check` green, deploy `879da18` verified: `make verify` commit = `origin/master`, `make logs` clean): #50 basalt-ui **2.7.0** exact + `rowActions` for the workouts and skinfold tables (gateway review: 2 false blockers, `loading` exists in the installed types; read by the lead), #49 momentum finding (docs only), then a docs/fix commit: `toMessage` typed, "Forms and dialogs" in `apps/dashboard/AGENTS.md`, the trial log and `w14.md`.
+- **Exit criterion, round 4: NOT converged** (`w14.md`). Suppressions **met**, regression **met by inspection**; full-wave and clean-trial **not met**: basalt friction rows AI-AL, none worked around.
+- **Basalt friction for `argo-friction.md`:** (AI) `DualPanel` legend has one swatch for a two-colour signed bar series (Momentum), low; (AJ) `DataTableRowAction<T>` not exported from `basalt-ui/table` despite MIGRATING 2.7.0 (TS2305), and no pattern for state-dependent `rowActions` under the stable-reference advice, low-medium; (AK) `emit` kinds must be registered in the app's `defineNotifications` first, undocumented in the rule and `llms.txt`, low; (AL) no documented seam for a form dialog (`overlays.open` needs `defineOverlays` + `BasaltRegister`; `basalt-controls` has only the `*-modal.tsx` filename carve-out), medium.
+- **DX trial 4:** `origin/w14/dx-trial-4` (never merged, no PR; delete when no longer needed). 6 journal rows: 2 basalt, 1 argo (fixed), 3 model/brief. Runtime not exercised in a browser.
+- **Incident:** the first trial worker's session was refused by the platform safeguard (`reasoning_extraction`) on every prompt, including a trivial one, before any work; a fresh worker with a differently worded brief ran clean. Worth knowing if a brief that asks for a "log of every wrong turn" recurs.
+- **Not verified:** the new row actions and the trial page in a browser; no `make evidence` re-run. The trial worker's input box held an unsent German line ("Trial 5 mit den Doc-Fixes …"), not a wave instruction; no trial 5 was started.
+- **Cleanup:** worker worktrees removed with `rd fan --clean`; Wave 15 stays `pending` on owner call D4; not spawned.
 
 ## Wave 15 — Rendering: SSR-first, streamed sections <!-- status: pending (blocked on D4) -->
 
