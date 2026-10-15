@@ -20,7 +20,7 @@
     "src/routes/__root.tsx": "ffdc98db74069bc45a18a18aa3e9bc0d6ef2f1418126ddf9ea1f5cc8be9c3a43",
     "src/main.tsx": "7fd50babd5d11404b6d778f1df294cba3b85e791ee5fb83b61711eb9e38ba125"
   },
-  "basaltVersion": "2.7.1",
+  "basaltVersion": "2.7.2",
   "spacingScale": {
     "xs": 11,
     "sm": 13,
