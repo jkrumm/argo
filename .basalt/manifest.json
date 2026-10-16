@@ -1,16 +1,16 @@
 {
   "version": 1,
   "files": {
-    ".claude/rules/basalt-mantine.md": "850dccc661ee4b6b728b2213838ecc6f48a09b8151cfcb4b87f9b588b7ebee72",
+    ".claude/rules/basalt-mantine.md": "8b4ea65fd862125157be317c20de0a7e898ec43bc47102d105a91f14b2466247",
     ".claude/rules/basalt-charts.md": "9a2ba493a9aa57855713485ef35464350854c2beebe5dd83bce5400d0da7e13c",
     ".claude/rules/basalt-tokens.md": "681cda3782872f27516938cbe3ab27d8d549948dbdd80539daade14a5dca60f0",
-    ".claude/rules/basalt-state.md": "1f62f9f628c801368b851d7105095e5b6a271e6e52fc75e62e54da1f2b4ec6ab",
+    ".claude/rules/basalt-state.md": "5cf5b0eab830b9534d9bbfc4218df893572bdc81306f5dc4ae7a39297c0783ba",
     "DESIGN.md": "c32facc4a2efa27130d2090c2ee107fd650ea9b188c380e2773bdf079126c518",
     "lefthook.yml": "695fb214cccac2c4579e14340d97cacce472d5987b7cdfec22f211c7e1a7ef42",
     ".github/workflows/check.yml": "f6e4999d3479614a03c7a7e24ac995dc1dca2bbf99461efea657b089dec70743",
     ".oxlintrc.json": "edb58b25c29f977f712ff892b59d28a74420f424ddf465ba7f29a7c713b388ec",
     ".oxfmtrc.json": "6b56ddca73ac1f170fe161ad32aa830dad40a6dc687964c8a852cb928c395039",
-    ".claude/skills/basalt-app/SKILL.md": "159ff7db2ac932d06ce35d88c43a3b6ff46ec596cdf5f461d98b98595a3e323f",
+    ".claude/skills/basalt-app/SKILL.md": "5b10f0fcec03be4fa559ad0024b7b6921bf8a370e8a6353cf8aae643dddb8a79",
     ".claude/skills/basalt-design/SKILL.md": "9affe0419e00cc4c9744d7e5d82b00c6d051d995b74d27290bb226b4fe4b33cc",
     ".claude/skills/basalt-charts/SKILL.md": "f723aa1ecae41bdfcd4179ee82a5d87ad3de302b613a15a5b0854cc6c5dad38c",
     ".claude/rules/basalt-batteries.md": "272737ef85af6a5393c52ad7c2897c27817a08e2f8a8ed286add7334e9fa9fdc",
@@ -20,7 +20,7 @@
     "src/routes/__root.tsx": "ffdc98db74069bc45a18a18aa3e9bc0d6ef2f1418126ddf9ea1f5cc8be9c3a43",
     "src/main.tsx": "7fd50babd5d11404b6d778f1df294cba3b85e791ee5fb83b61711eb9e38ba125"
   },
-  "basaltVersion": "2.11.1",
+  "basaltVersion": "2.13.1",
   "spacingScale": {
     "xs": 11,
     "sm": 13,
