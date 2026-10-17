@@ -1,10 +1,9 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Text } from '@mantine/core'
-import { DeltaBadge } from 'basalt-ui'
+import { BarList, DeltaBadge, Meter } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
-import { BarList, Meter } from '../../components/upstream'
 import {
   dailyMetricsQueries,
   fitnessDirectionQueries,
