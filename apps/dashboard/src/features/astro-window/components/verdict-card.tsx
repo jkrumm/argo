@@ -1,6 +1,5 @@
 import { Box } from '@mantine/core'
 import { Meter } from 'basalt-ui'
-import { alpha, VX } from 'basalt-ui/tokens'
 import { CORE_METER_MAX_DEG } from '../constants'
 import { DecisionCard } from '../../../components/upstream/decision-card'
 import { fmtDegrees, fmtMinutes, fmtShortDay, gapToGate, limitingFactor } from '../formulas'
@@ -52,7 +51,7 @@ export function VerdictCard({ night }: { night: Night }) {
               value={reading}
               max={CORE_METER_MAX_DEG}
               target={gate}
-              color={alpha(VX.muted, 0.35)}
+              tone="muted"
               format={fmtDegrees}
               startCaption={`core ${fmtDegrees(reading)} at closest`}
               endCaption={`gate ${fmtDegrees(gate)} · scale 0–${CORE_METER_MAX_DEG}°`}

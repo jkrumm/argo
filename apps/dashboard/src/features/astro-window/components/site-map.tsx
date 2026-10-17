@@ -754,7 +754,7 @@ export default function SiteMap({
   const compareSite = data.data.find((site) => site.id === siteId)
 
   return (
-    <Card py={0} px={0} h={height} mih={MAP_MIN_HEIGHT} style={{ overflow: 'hidden' }}>
+    <Card variant="flush" h={height} mih={MAP_MIN_HEIGHT} style={{ overflow: 'hidden' }}>
       <Flex h="100%" wrap="nowrap">
         {/* The map's own column — `pos="relative"` moved here (off the outer `Card`) so every
             absolutely-positioned overlay cluster below anchors to the MAP. The settings panel now
@@ -870,7 +870,7 @@ function TimeScrubber({
     radarActive && radarNewestTime !== null && at.getTime() > radarNewestTime.getTime()
 
   return (
-    <Paper py="sm" px="md">
+    <Paper>
       <Stack gap={4} w={SCRUBBER_WIDTH}>
         <Group gap="xs" wrap="nowrap">
           <ActionIcon
@@ -955,7 +955,7 @@ function LpLegend({ year, range }: { year: number; range: readonly [number, numb
   const remappedSiteBand = remapLpRampStops(range)[LP_SITE_BAND_INDEX] ?? LP_SITE_BAND
   return (
     <Box pos="absolute" bottom={8} left={8}>
-      <Paper py="sm" px="md">
+      <Paper>
         <Stack gap={4} w={148}>
           <Box
             h={6}
@@ -1053,7 +1053,7 @@ function WeatherLegendCard({
     setImageFailed(false)
   }
   return (
-    <Paper py="sm" px="md">
+    <Paper>
       <Stack gap={4} w={168}>
         <Text size="xs" fw={600}>
           {entry.label}

@@ -1,11 +1,9 @@
 import type { ReactNode } from 'react'
 import { Card, Group, Stack, Text } from '@mantine/core'
 import { Meter, StatusDot } from 'basalt-ui'
-import { alpha, VX } from 'basalt-ui/tokens'
+import { VX } from 'basalt-ui/tokens'
 import { fmtDegrees, fmtShortDay } from '../formulas'
 import type { Night } from '../types'
-
-const NEUTRAL_FILL = alpha(VX.muted, 0.35)
 
 function GateRow({
   failed,
@@ -90,7 +88,7 @@ export function GatesCard({ night, moonLimit }: { night: Night; moonLimit: numbe
             value={pct}
             max={100}
             target={limitPct}
-            color={NEUTRAL_FILL}
+            tone="muted"
             format={(v) => `${v.toFixed(0)} %`}
             startCaption={null}
             endCaption={`limit ${limitPct} %`}

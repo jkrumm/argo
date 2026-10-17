@@ -24,7 +24,7 @@ export function NightStrip({
 }) {
   const allOut = nights.every((n) => n.verdict === 'out')
   return (
-    <Card py="sm" px="md" data-shot="night-strip">
+    <Card data-shot="night-strip">
       <Box className={classes.host}>
         <Box
           className={classes.scroller}
