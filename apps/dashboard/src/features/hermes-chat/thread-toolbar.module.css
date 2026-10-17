@@ -1,0 +1,18 @@
+.root {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--vx-space-stack-sm);
+}
+
+/* Chips take the row's free width and scroll sideways on one line instead of wrapping. */
+.chips {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
+.search {
+  flex: 1 1 14rem;
+  max-width: 22rem;
+  min-width: 0;
+}
