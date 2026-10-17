@@ -6,11 +6,13 @@ import { MonthView, WeekView } from '@mantine/schedule'
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
 import { addMonths, addWeeks, endOfWeek, format, startOfWeek } from 'date-fns'
 import {
+  CALENDAR_DAYS_RANGE,
   calendarQueries,
   googleToEvents,
   m365ToEvents,
   tickTickToEvents,
 } from '../../lib/queries/calendar'
+import type { SourceClass } from '../../lib/queries/calendar'
 import { PageBar, useSizeClass } from 'basalt-ui'
 import type { BarAction } from 'basalt-ui/controls'
 import { ViewTabs } from 'basalt-ui/controls'
@@ -30,10 +32,7 @@ import {
   type CalendarItem,
   type CalendarView,
   type DayKey,
-  type SourceSplit,
 } from './derive'
-
-const DAYS_RANGE = 60
 
 type SearchState = { view: CalendarView; date: string }
 
@@ -83,6 +82,13 @@ function failureReason(error: unknown, source: string): string {
   return `could not load ${source} events.`
 }
 
+const unanswered = (query: {
+  isPending: boolean
+  isError: boolean
+  isPlaceholderData: boolean
+  data: unknown
+}) => query.isPending || (query.isError && (query.data === undefined || query.isPlaceholderData))
+
 export function CalendarPage({ view, date }: CalendarPageProps) {
   const navigate = useNavigate({ from: '/calendar' })
   const { colorScheme } = useMantineColorScheme()
@@ -90,8 +96,8 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
 
   const nowMs = useNow()
   const fromKey = queryFromKey(view, date, dayKey(new Date(nowMs)))
-  const googleQuery = useQuery(calendarQueries.google(DAYS_RANGE, fromKey))
-  const m365Query = useQuery(calendarQueries.m365(DAYS_RANGE, fromKey))
+  const googleQuery = useQuery(calendarQueries.google(CALENDAR_DAYS_RANGE, fromKey))
+  const m365Query = useQuery(calendarQueries.m365(CALENDAR_DAYS_RANGE, fromKey))
   const projectsQuery = useQuery(calendarQueries.ticktickProjects())
 
   const projects = ((projectsQuery.data as { data?: unknown } | undefined)?.data ?? []) as Array<{
@@ -123,9 +129,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
   }, [view, meetings, projects, ...taskData])
 
   const errors: SourceError[] = []
-  const unknown = new Set<keyof SourceSplit>()
   if (googleQuery.error) {
-    unknown.add('personal')
     errors.push({
       label: 'Google',
       reason: failureReason(googleQuery.error, 'Google'),
@@ -133,9 +137,19 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
     })
   }
   if (m365Query.error) {
-    unknown.add('work')
     errors.push({ label: 'Microsoft 365', reason: failureReason(m365Query.error, 'Microsoft 365') })
   }
+
+  // A source that has not answered (still loading, or failed with nothing of this window cached)
+  // makes every figure that depends on it unknown — a dash, never a zero or "free".
+  const personalUnknown = unanswered(googleQuery)
+  const workUnknown = unanswered(m365Query)
+  const unknown = useMemo(() => {
+    const set = new Set<SourceClass>()
+    if (personalUnknown) set.add('personal')
+    if (workUnknown) set.add('work')
+    return set
+  }, [personalUnknown, workUnknown])
 
   function setSearch(patch: Partial<SearchState>) {
     void navigate({
@@ -216,7 +230,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
         <AgendaView
           events={events}
           errors={errors}
-          loading={googleQuery.isPending && m365Query.isPending}
+          loading={personalUnknown && workUnknown && googleQuery.isPending && m365Query.isPending}
           unknown={unknown}
         />
       )}
@@ -237,6 +251,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
           allDay={Object.fromEntries(compactKeys.map((k) => [k, allDayEvents(meetings, k)]))}
           now={new Date(nowMs)}
           next={null}
+          incomplete={unknown.size > 0}
         />
       )}
 

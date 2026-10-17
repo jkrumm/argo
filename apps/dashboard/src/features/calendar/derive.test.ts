@@ -92,8 +92,14 @@ describe('booked hours', () => {
   test('week total is the sum of the day loads', () => {
     expect(weekBookedMin(events, weekKeys(D))).toBe(210)
   })
-  test('split by source class merges within a class only', () => {
-    expect(bookedBySourceClass(events, weekKeys(D))).toEqual({ work: 150, personal: 90 })
+  test('split attributes a shared minute once, so Work + Personal is the booked total', () => {
+    const split = bookedBySourceClass(events, weekKeys(D))
+    expect(split).toEqual({ work: 150, personal: 60 })
+    expect(split.work + split.personal).toBe(weekBookedMin(events, weekKeys(D)))
+  })
+  test('an incomplete load is unknown, never zero', () => {
+    const load = dayLoad(events, weekKeys(D), true)
+    expect(load.every((d) => d.bookedMin === null && d.count === null)).toBe(true)
   })
   test('all-day items and tasks never book time', () => {
     const items = [
@@ -215,7 +221,17 @@ describe('nextEvent / agendaSummary', () => {
     const s = agendaSummary(events, now)
     expect(s.weekKeys).toEqual(weekKeys(D))
     expect(s.weekBookedMin).toBe(s.todayBookedMin)
-    expect(s.weekBookedMin).toBe(dayLoad(events, s.weekKeys).reduce((a, d) => a + d.bookedMin, 0))
+    expect(s.weekBookedMin).toBe(
+      dayLoad(events, s.weekKeys).reduce((a, d) => a + (d.bookedMin ?? 0), 0),
+    )
+  })
+  test('a source that has not answered makes every figure unknown, not zero', () => {
+    const s = agendaSummary(events, now, new Set(['work']))
+    expect(s.incomplete).toBe(true)
+    expect(s.todayCount).toBeNull()
+    expect(s.todayBookedMin).toBeNull()
+    expect(s.weekBookedMin).toBeNull()
+    expect(s.next).toBeNull()
   })
 })
 
@@ -228,8 +244,9 @@ describe('queryFromKey', () => {
     // 2026-10-01 is a Thursday.
     expect(queryFromKey('month', '2026-10-20', D)).toBe('2026-09-28')
   })
-  test('a Monday anchors itself', () => {
-    expect(queryFromKey('week', '2026-10-12', D)).toBe('2026-10-12')
+  test('a Monday selection fetches the week before, so the phone window keeps its Sunday', () => {
+    expect(queryFromKey('week', '2026-10-12', D)).toBe('2026-10-05')
+    expect(queryFromKey('week', '2026-10-13', D)).toBe('2026-10-12')
   })
 })
 

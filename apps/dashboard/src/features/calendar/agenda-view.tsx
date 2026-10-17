@@ -4,6 +4,7 @@ import { Section } from 'basalt-ui'
 import { format } from 'date-fns'
 import { StatStrip, StripCell } from '../garmin-health/stat-strip'
 import { formatDurationMin } from '../../components/upstream/schedule-row-model'
+import type { SourceClass } from '../../lib/queries/calendar'
 import { countdown, summarySentence } from './summary'
 import { useNow } from '../../lib/use-now'
 import classes from './agenda.module.css'
@@ -21,7 +22,6 @@ import {
   tasksDue,
   type CalendarItem,
   type DayKey,
-  type SourceSplit,
 } from './derive'
 
 const NEXT_DAYS = 7
@@ -39,12 +39,12 @@ export function AgendaView({
   events: readonly CalendarItem[]
   errors: readonly SourceError[]
   loading: boolean
-  unknown: ReadonlySet<keyof SourceSplit>
+  unknown: ReadonlySet<SourceClass>
 }) {
   const nowMs = useNow()
   const now = useMemo(() => new Date(nowMs), [nowMs])
   const model = useMemo(() => {
-    const summary = agendaSummary(events, now)
+    const summary = agendaSummary(events, now, unknown)
     const { todayKey } = summary
     const nextKeys = Array.from({ length: NEXT_DAYS }, (_, i) => addDays(todayKey, i + 1))
     const days = agendaDays(events, nextKeys)
@@ -52,17 +52,17 @@ export function AgendaView({
     for (const key of nextKeys) allDay[key] = allDayEvents(events, key)
     return {
       summary,
-      free: longestFreeBlock(events, todayKey, now),
+      free: summary.incomplete ? null : longestFreeBlock(events, todayKey, now),
       today: eventsOnDay(events, todayKey),
       todayAllDay: allDayEvents(events, todayKey),
       days,
       nextCount: days.reduce((sum, d) => sum + d.events.length, 0),
       allDay,
-      load: dayLoad(events, summary.weekKeys),
+      load: dayLoad(events, summary.weekKeys, summary.incomplete),
       split: bookedBySourceClass(events, summary.weekKeys),
       tasks: tasksDue(events, todayKey),
     }
-  }, [events, now])
+  }, [events, now, unknown])
 
   const { summary, free } = model
   return (
@@ -91,10 +91,15 @@ export function AgendaView({
           <Box className={classes.col}>
             <Box className={classes.oToday} data-shot="today">
               <Card py="sm" px="md">
-                <Section title="Today" count={model.today.length}>
+                <Section
+                  title="Today"
+                  {...(summary.incomplete ? {} : { count: model.today.length })}
+                >
                   {model.today.length === 0 ? (
                     <Text className={classes.muted}>
-                      No events today{countdown(summary) ? ` · ${countdown(summary)}` : ''}
+                      {summary.incomplete
+                        ? '—'
+                        : `No events today${countdown(summary) ? ` · ${countdown(summary)}` : ''}`}
                     </Text>
                   ) : (
                     <EventRows events={model.today} now={now} next={summary.next} />
@@ -104,12 +109,16 @@ export function AgendaView({
             </Box>
             <Box className={classes.oNext} data-shot="next-days">
               <Card py="sm" px="md">
-                <Section title="Next 7 days" count={model.nextCount}>
+                <Section
+                  title="Next 7 days"
+                  {...(summary.incomplete ? {} : { count: model.nextCount })}
+                >
                   <DayGroups
                     days={model.days}
                     allDay={model.allDay}
                     now={now}
                     next={summary.next}
+                    incomplete={summary.incomplete}
                   />
                 </Section>
               </Card>
@@ -132,7 +141,11 @@ export function AgendaView({
                   qualifier="today"
                   value={free ? formatDurationMin(free.minutes) : '—'}
                   footer={
-                    free ? `${hhmm(free.start)}–${hhmm(free.end)}` : 'none left in 08:00–18:00'
+                    summary.incomplete
+                      ? 'a calendar has not answered'
+                      : free
+                        ? `${hhmm(free.start)}–${hhmm(free.end)}`
+                        : 'none left in 08:00–18:00'
                   }
                 />
               </StatStrip>

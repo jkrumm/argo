@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { CalendarEventPayload } from '../../lib/queries/calendar'
 import { agendaSummary, longestFreeBlock, type CalendarItem } from './derive'
-import { countdown, summarySentence } from './summary'
+import { countdown, summarySentence, untilLabel } from './summary'
 
 const D = '2026-10-14'
 const ev = (id: string, start: string, end: string): CalendarItem => ({
@@ -22,7 +22,7 @@ describe('summarySentence', () => {
   test('a busy day carries the count, booked time, the countdown and the week total', () => {
     const summary = agendaSummary(events, now)
     const sentence = summarySentence(summary, longestFreeBlock(events, D, now))
-    expect(sentence).toBe('3 meetings today, 2h 40m booked · next in 20 min · 2h 40m this week')
+    expect(sentence).toBe('3 meetings today, 2h 40m booked · next in 20m · 2h 40m this week')
     // at least three live numbers plus the countdown
     expect(sentence.match(/\d+/g)?.length).toBeGreaterThanOrEqual(4)
   })
@@ -35,6 +35,22 @@ describe('summarySentence', () => {
   test('a lone meeting reads singular', () => {
     const summary = agendaSummary([events[1] as CalendarItem], now)
     expect(summarySentence(summary, null)).toStartWith('1 meeting today, 40m booked')
+  })
+})
+
+describe('summarySentence — unknown sources', () => {
+  test('dashes, never "No events", while a calendar has not answered', () => {
+    const summary = agendaSummary([], now, new Set(['work']))
+    expect(summarySentence(summary, null)).toBe('— meetings today · next — · — this week')
+  })
+})
+
+describe('untilLabel', () => {
+  test('one wording for the pill and the summary', () => {
+    expect(untilLabel(20)).toBe('in 20m')
+    expect(untilLabel(90)).toBe('in 1h 30m')
+    const within = agendaSummary([ev('x', `${D} 12:30:00`, `${D} 13:00:00`)], now)
+    expect(countdown(within)).toBe(`next ${untilLabel(90)}`)
   })
 })
 
