@@ -61,7 +61,7 @@ function SourceBar({ sources }: { sources: Record<string, number> }) {
           key={name}
           component="span"
           className={classes.shareFill}
-          style={{ width: `${(n / total) * 100}%`, opacity: 1 - i * 0.35 }}
+          style={{ width: `${(n / total) * 100}%`, opacity: Math.max(0.25, 1 - i * 0.35) }}
         />
       ))}
     </span>
