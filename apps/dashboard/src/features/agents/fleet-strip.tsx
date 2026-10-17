@@ -24,7 +24,7 @@ const FLEET_COLOR: Record<FleetState, string> = {
   idle: alpha(VX.line, 0.55),
   stale: VX.status.warn,
   done: alpha(VX.line, 0.28),
-  unknown: alpha(VX.line, 0.12),
+  unknown: alpha(VX.line, 0.18),
 }
 
 type Props = {
@@ -71,7 +71,7 @@ function peakFooter(
       : peak.value === 0
         ? `none in ${hours} h`
         : `peak ${peak.value} in ${hours} h`
-  if (queued > 0) return `+${queued} queued · ${trend}`
+  if (queued > 0) return `+${queued} in queue · ${trend}`
   return peak !== null && peak.value > 0 ? `${trend} · ${ageAgo(now - peak.atMs)}` : trend
 }
 

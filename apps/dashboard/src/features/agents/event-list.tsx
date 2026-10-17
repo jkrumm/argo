@@ -70,7 +70,7 @@ function Row({ row }: { row: EventRow }) {
   const [expanded, setExpanded] = useState(false)
   const titleId = useId()
   return (
-    <div role="listitem" className={classes.row}>
+    <div role="listitem" className={classes.row} data-expanded={expanded || undefined}>
       <Text className={classes.actor} size="sm" fw={600} truncate>
         {row.actor}
       </Text>

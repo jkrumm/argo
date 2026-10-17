@@ -65,6 +65,7 @@
 }
 
 .unit {
+  white-space: nowrap;
   font-size: var(--vx-text-sm);
   color: var(--vx-muted);
   overflow: hidden;

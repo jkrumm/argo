@@ -104,4 +104,10 @@
   .chip {
     display: none;
   }
+
+  .row[data-expanded] .chip {
+    display: block;
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
 }
