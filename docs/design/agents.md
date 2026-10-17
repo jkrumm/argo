@@ -78,3 +78,25 @@ Stays: the sync control in `PageBar`, `StaleBanner`. Changes: hero tiles, Needs 
 6. Narratives are day-grouped by `revisedAt` with mono times at the right edge; the sentence is the `summary` field.
 7. At 390 nothing overflows and no row wraps; the strip is one column.
 8. No coloured left edges; hue appears only on states `needs_you` / `stale` and wait thresholds.
+
+## Wave 19 rounds
+
+Shots are the gitignored `.design-shots/w19-agents-r<N>/`. The reviewer is `basalt-design-reviewer`; it had no `metrics.json` for the `make design-shot` harness, so every `[measured]` item scored `unverified` (counted as fail) and the verdicts below are the visual items only.
+
+### Round 1 (fleet strip, project cards, BandStrip, narratives, summary; Needs you still the old list)
+
+- Reviewer: the strip, cards, BarList, BandStrip and narratives all failed on at least one Craft/Expression/Communication item; the page itself passed. Top defects: the summary total ({n_summary} agents) disagreed with the strip total ({n_strip}); the fleet legend clipped its last caption; a zero segment carried a status hue; the oldest-wait cell was a bare dash with no ticks; the SOURCE cell truncated; the quiet `BarList` bars were full-width and encoded nothing; one band cell had an unexplained tint; narrative chips were long uppercase paths; relative times were German.
+- Keel read: the crew card's four cells each carry a different micro-visual; ours were plain text, and the whole page read as stacked boxes of the same weight.
+- Changed (round 2): summary total comes from the fleet parts; legend wraps and drops hue on zeros; BarList bars scale to the busiest project; `wiki page` chips replace path chips; SOURCE became a smaller value plus a share bar.
+
+### Round 2–3
+
+- Changed: oldest-wait meter always draws its 24 h tick and 7 d end caption (value `None · agents waiting` when no agent waits); the summary names `oldest ask` when only the human queue waits; the needs-you cell footer adds `+<n> in human queue` so `0 agents` and `<n> items` reconcile; git cell reads `in sync` / `↑a ↓b`; the band strip's caption only appears when an hour has no snapshot.
+
+### Round 4
+
+- Reviewer (r4): summary line, strip, BarList, BandStrip still failed individual items. Remaining defects: the oldest-wait cell as a bare dash against the summary's ask figure (fixed in r5 as above), SOURCE clipping on two-source cards (fixed: the cell wraps), idle and done segments close in tone (fixed: stepped strengths), orphaned `done` legend caption (fixed: zero parts leave the legend), BarList without a heading (fixed: `No agent running · <n> projects`), band caption narrating the UI (removed). The old Needs-you list failed pass criterion 3 as known-pending.
+
+### Round 5 (basalt-ui 2.18 `Meter` / `BarList`)
+
+- Switched the page to the shipped `Meter` and `BarList`; no behaviour change. Needs you is still the interim list pending the shared decision card.
