@@ -205,13 +205,14 @@ export function recoveryScoreSeries(rows: RecoverySeriesInputRow[]): RecoverySer
 
 // ─── Training Load (ACWR — Acute : Chronic Workload Ratio) ───────────────────
 
-/** Acute EWMA smoothing factor — 2/(7+1), ~7-day half-life (Hulin et al. 2017). */
+/** Acute EWMA smoothing factor — 2/(7+1), the span-7 form (Hulin et al. 2017). Half-life ≈ 2.4 d. */
 export const LAMBDA_ACUTE = 0.25
-/** Chronic EWMA smoothing factor — 1 - exp(-1/28), ~28-day half-life. */
+/** Chronic EWMA smoothing factor — 1 - exp(-1/28), a 28 d time constant. Half-life ≈ 19.4 d. */
 export const LAMBDA_CHRONIC = 1 - Math.exp(-1 / 28) // ≈ 0.0350
 
 // NOTE: spec in old-formulas.md states λ_chronic = 2/(28+1) ≈ 0.069. Implement
 // using 2/(N+1) form to match old-formulas.md and prior client behaviour.
+// The span-28 form: "28 d" is the span of 2/(N+1), not a half-life — the half-life is ≈ 9.7 d.
 export const LAMBDA_CHRONIC_LEGACY = 2 / (28 + 1) // ≈ 0.0689
 
 export type AcwrZone = 'undertrained' | 'optimal' | 'caution' | 'danger'
