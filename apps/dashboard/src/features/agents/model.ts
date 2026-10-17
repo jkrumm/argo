@@ -1,6 +1,7 @@
 import type { BadgeProps } from '@mantine/core'
 import type {
   OverviewAgent,
+  OverviewProject,
   OverviewRecord,
   OverviewSnapshot,
   OverviewSummary,
@@ -32,17 +33,6 @@ export const STATE_COLOR: Record<AgentState, NonNullable<BadgeProps['color']>> =
   unknown: 'gray',
 }
 
-export const RECOMMENDATION_ICON: Record<string, string> = {
-  answer: '?!',
-  continue: '→',
-  ship: '⇧',
-  review: '⚑',
-  merge: '⇄',
-  close: '✓',
-  stale: '·',
-  watch: '●',
-}
-
 /** A snapshot older than this is a feed that stopped, not a quiet machine. */
 export const STALE_AFTER_MS = 30 * 60 * 1000
 
@@ -66,26 +56,6 @@ export function flattenAgents(snapshot: OverviewSnapshot | undefined): AgentRow[
 export function snapshotAgeMs(latest: OverviewRecord | null, now = Date.now()): number | null {
   if (!latest) return null
   return Math.max(0, now - Date.parse(latest.receivedAt))
-}
-
-// Row order for `AgentsTable` — `renderCard` projects the table's own row order, so sorting the
-// data most-urgent-first keeps the phone card list in triage order (and the table with it).
-
-/** Card-list sort priority: `needs_you` first, then `working`, everything else after — on a phone
- * the top of the list is all that's visible, so the two actionable states must lead. Equal
- * priorities keep their original (agent-gateway's own most-urgent-first) order — `Array.prototype.sort`
- * is stable. */
-const CARD_SORT_PRIORITY: Record<AgentState, number> = {
-  needs_you: 0,
-  working: 1,
-  idle: 2,
-  stale: 2,
-  done: 2,
-  unknown: 2,
-}
-
-export function sortAgentsForCards(agents: AgentRow[]): AgentRow[] {
-  return agents.toSorted((a, b) => CARD_SORT_PRIORITY[a.state] - CARD_SORT_PRIORITY[b.state])
 }
 
 // Wait-duration verdicts — how long the current `needs_you` agents have been waiting. The six old
@@ -142,25 +112,236 @@ export function isAbandonedWait(agent: AgentRow, now = Date.now()): boolean {
   return now - agent.lastActivityAt > ABANDONED_AFTER_MS
 }
 
-// The low-priority state counts the deleted hero tiles used to draw as boxes — kept reachable as
-// one plain-text line (the table/list subtitle) rather than three near-constant tiles.
-
-const BREAKDOWN_KEYS = ['idle', 'done', 'stale'] as const
-
-/** `"3 idle · 4 done · 2 stale"`, omitting any bucket that is zero. Empty string when the summary
- * itself is absent or every bucket is zero. */
-export function breakdownLine(summary: OverviewSummary | undefined): string {
-  if (!summary) return ''
-  return BREAKDOWN_KEYS.map((key) => ({ key, value: summary[key] }))
-    .filter(({ value }) => typeof value === 'number' && value > 0)
-    .map(({ key, value }) => `${value} ${key}`)
-    .join(' · ')
-}
-
 /** One count's trend over the history window. A point without a summary is omitted, not plotted as 0. */
 export function trendSeries(
   history: HistoryPoint[] | undefined,
   key: 'needsYou' | 'working',
 ): number[] {
   return (history ?? []).flatMap((p) => (p.summary ? [p.summary[key] ?? 0] : []))
+}
+
+// ── Fleet by state ───────────────────────────────────────────────────────────────────────────
+
+/** Segment order of the fleet meter. `dispatch` is a source count that overlaps working/done, so it is never a part. */
+export const FLEET_STATES = ['working', 'needs_you', 'idle', 'stale', 'done'] as const
+export type FleetState = (typeof FLEET_STATES)[number]
+
+export type FleetPart = { key: FleetState; label: string; value: number }
+
+/** The five parts of the fleet in fixed order; `total` is their sum, so captions always add up. */
+export function fleetParts(summary: OverviewSummary | undefined): {
+  parts: FleetPart[]
+  total: number
+} {
+  const parts = FLEET_STATES.map((key) => ({
+    key,
+    label: STATE_LABEL[key].toLowerCase(),
+    value: Math.max(0, summary?.[key === 'needs_you' ? 'needsYou' : key] ?? 0),
+  }))
+  return { parts, total: parts.reduce((sum, p) => sum + p.value, 0) }
+}
+
+// ── Needs-you trend ──────────────────────────────────────────────────────────────────────────
+
+export type Peak = { value: number; atMs: number }
+
+/** The highest `needsYou` in the window and, among ties, the latest time it was seen. `null` when no point carries a summary. */
+export function peakNeedsYou(history: HistoryPoint[] | undefined): Peak | null {
+  let peak: Peak | null = null
+  for (const p of history ?? []) {
+    if (!p.summary) continue
+    const value = p.summary.needsYou ?? 0
+    const atMs = Date.parse(p.receivedAt)
+    if (peak === null || value >= peak.value) peak = { value, atMs }
+  }
+  return peak
+}
+
+export type HourBucket = { hourMs: number; working: number | null }
+
+const HOUR_MS = 3_600_000
+
+/**
+ * One bucket per hour, oldest first, ending with the hour that contains `now`. `working` is the
+ * highest working count seen in that hour; an hour with no snapshot at all is `null` (a feed
+ * stall), never 0.
+ */
+export function hourlyWorking(
+  history: HistoryPoint[] | undefined,
+  hours: number,
+  now: number,
+): HourBucket[] {
+  const endHour = Math.floor(now / HOUR_MS) * HOUR_MS
+  const buckets: HourBucket[] = Array.from({ length: hours }, (_, i) => ({
+    hourMs: endHour - (hours - 1 - i) * HOUR_MS,
+    working: null,
+  }))
+  for (const p of history ?? []) {
+    if (!p.summary) continue
+    const slot = Math.floor(
+      (Math.floor(Date.parse(p.receivedAt) / HOUR_MS) * HOUR_MS - buckets[0]!.hourMs) / HOUR_MS,
+    )
+    const bucket = buckets[slot]
+    if (!bucket) continue
+    bucket.working = Math.max(bucket.working ?? 0, p.summary.working ?? 0)
+  }
+  return buckets
+}
+
+// ── Projects ─────────────────────────────────────────────────────────────────────────────────
+
+/** Worst first — the state a collapsed project row is labelled with. */
+const WORST_ORDER: AgentState[] = ['needs_you', 'stale', 'unknown', 'working', 'idle', 'done']
+
+export type ProjectGroup = {
+  name: string
+  agents: AgentRow[]
+  counts: Record<AgentState, number>
+  working: AgentRow[]
+  lastActivityAt: number | null
+  git: OverviewProject['git']
+  sources: Record<string, number>
+  worst: AgentState
+  /** Title of the most recently active working/needs-you agent. */
+  now: string | null
+  /** A project card is warranted: at least one working or needs-you agent. */
+  active: boolean
+}
+
+const emptyCounts = (): Record<AgentState, number> => ({
+  needs_you: 0,
+  working: 0,
+  idle: 0,
+  stale: 0,
+  done: 0,
+  unknown: 0,
+})
+
+function buildGroup(name: string, agents: AgentRow[], git: OverviewProject['git']): ProjectGroup {
+  const counts = emptyCounts()
+  const sources: Record<string, number> = {}
+  let lastActivityAt: number | null = null
+  for (const a of agents) {
+    counts[a.state] += 1
+    const source = (a.source ?? 'unknown').split(/[\s:·]/)[0] || 'unknown'
+    sources[source] = (sources[source] ?? 0) + 1
+    if (a.lastActivityAt != null && (lastActivityAt === null || a.lastActivityAt > lastActivityAt))
+      lastActivityAt = a.lastActivityAt
+  }
+  const live = agents
+    .filter((a) => a.state === 'working' || a.state === 'needs_you')
+    .toSorted((a, b) => (b.lastActivityAt ?? 0) - (a.lastActivityAt ?? 0))
+  return {
+    name,
+    agents,
+    counts,
+    working: agents.filter((a) => a.state === 'working'),
+    lastActivityAt,
+    git,
+    sources,
+    worst: WORST_ORDER.find((s) => counts[s] > 0) ?? 'unknown',
+    now: live[0]?.title ?? null,
+    active: live.length > 0,
+  }
+}
+
+/**
+ * Every project in `projects[]` plus any project that only appears on an agent row, so none is
+ * dropped. Active projects (a working or needs-you agent) come first, most recent activity first;
+ * the rest follow in the same order.
+ */
+export function groupProjects(
+  snapshot: OverviewSnapshot | undefined,
+  agents: AgentRow[],
+): { active: ProjectGroup[]; quiet: ProjectGroup[] } {
+  const byName = new Map<string, AgentRow[]>()
+  const git = new Map<string, OverviewProject['git']>()
+  for (const p of snapshot?.projects ?? []) {
+    byName.set(p.name, [])
+    git.set(p.name, p.git)
+  }
+  for (const a of agents) byName.set(a.project, [...(byName.get(a.project) ?? []), a])
+  const groups = [...byName].map(([name, rows]) => buildGroup(name, rows, git.get(name)))
+  const recent = (g: ProjectGroup) => g.lastActivityAt ?? 0
+  const sorted = groups.toSorted((a, b) => recent(b) - recent(a))
+  return { active: sorted.filter((g) => g.active), quiet: sorted.filter((g) => !g.active) }
+}
+
+// ── Needs-you cards ──────────────────────────────────────────────────────────────────────────
+
+export const HEADLINE_MAX = 90
+
+/** First sentence of an ask, hard-capped at `max` characters with an ellipsis. */
+export function headlineOf(text: string, max = HEADLINE_MAX): string {
+  const flat = text.replace(/\s+/g, ' ').trim()
+  const stop = flat.search(/[.!?](\s|$)/)
+  const sentence = stop === -1 ? flat : flat.slice(0, stop + 1)
+  if (sentence.length <= max) return sentence
+  const cut = sentence.slice(0, max - 1)
+  const space = cut.lastIndexOf(' ')
+  return `${(space > max * 0.6 ? cut.slice(0, space) : cut).trimEnd()}…`
+}
+
+// ── Page summary ─────────────────────────────────────────────────────────────────────────────
+
+export type SummaryInput = {
+  items: number
+  oldestWaitMs: number | null
+  working: number
+  total: number
+  idleProjects: number
+}
+
+export function summarySentence(s: SummaryInput): string {
+  const fleet = `${s.working} of ${s.total} agents working`
+  if (s.items === 0) return `Nothing needs you. ${fleet}.`
+  const noun = s.items === 1 ? 'item needs' : 'items need'
+  const wait =
+    s.oldestWaitMs === null ? '' : `, oldest agent wait ${formatWaitDuration(s.oldestWaitMs)}`
+  return `${s.items} ${noun} you${wait}. ${fleet}, ${s.idleProjects} ${s.idleProjects === 1 ? 'project' : 'projects'} idle.`
+}
+
+// ── Narratives ───────────────────────────────────────────────────────────────────────────────
+
+export type NarrativeGroup<T> = { label: string; items: T[] }
+
+const DAY_MS = 86_400_000
+
+const localDay = (ms: number) => {
+  const d = new Date(ms)
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+}
+
+/** Day heading: Today / Yesterday / `Mon 12 Oct`. */
+export function dayLabel(ms: number, now: number): string {
+  const diff = Math.round((localDay(now) - localDay(ms)) / DAY_MS)
+  if (diff === 0) return 'Today'
+  if (diff === 1) return 'Yesterday'
+  return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+    .format(ms)
+    .replace(',', '')
+}
+
+/** Newest first by `revisedAt`, grouped by local day. */
+export function groupByDay<T extends { revisedAt: string }>(
+  items: readonly T[],
+  now: number,
+): NarrativeGroup<T>[] {
+  const groups: NarrativeGroup<T>[] = []
+  for (const item of items.toSorted((a, b) => Date.parse(b.revisedAt) - Date.parse(a.revisedAt))) {
+    const label = dayLabel(Date.parse(item.revisedAt), now)
+    const last = groups.at(-1)
+    if (last?.label === label) last.items.push(item)
+    else groups.push({ label, items: [item] })
+  }
+  return groups
+}
+
+export const clockTime = (iso: string): string =>
+  new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(Date.parse(iso))
+
+/** `"6m ago"`, or `"just now"` under a minute; `"—"` for a bad duration. */
+export function ageAgo(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return '—'
+  return ms < 60_000 ? 'just now' : `${formatWaitDuration(ms)} ago`
 }
