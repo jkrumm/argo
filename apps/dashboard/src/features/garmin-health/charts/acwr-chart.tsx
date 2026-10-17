@@ -6,6 +6,7 @@ import { VX } from 'basalt-ui/tokens'
 import { trainingLoadQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import { FactsLine } from '../facts-line'
+import { RefetchDim } from '../refetch-dim'
 import { ZONE_FILL } from '../zone-fills'
 import { acwrZoneColor, acwrZoneLabel, type AcwrZone } from '../formulas'
 import { acwrFact, divergenceFact } from '../model'
@@ -98,57 +99,59 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
 
   return (
     <ChartCard
-      title="Training load (ACWR)"
+      title="ACWR"
       info={METRIC_TOOLTIPS.trainingLoad}
       state={chartStateOf(query, !hasAcwr ? 'No training load in this window' : undefined)}
       placeholderHeight={280}
     >
-      <FactsLine fact={fact} />
-      <Lines
-        cursorResolution="leading"
-        ariaLabel="Acute:chronic training load ratio with optimal zone"
-        data={points}
-        height={220}
-        x={(d) => d.day}
-        series={ACWR_SERIES}
-        {...(compact && { legend: false as const })}
-        {...(xDomain && { xDomain })}
-        xTicks={xTicks}
-        y={{ domain: 'auto', autoMaxFloor: 1.8, format: (v) => v.toFixed(1) }}
-        zones={[{ from: 0.8, to: 1.3, fill: ZONE_FILL.good }]}
-        thresholds={[
-          { value: 1.3, side: 'above', fill: ZONE_FILL.bad },
-          { value: 0.8, side: 'below', fill: ZONE_FILL.warn },
-        ]}
-        refLines={[
-          { value: 0.8, color: VX.warnRef },
-          { value: 1.3, color: VX.goodRef },
-          { value: 1.5, color: VX.badRef },
-        ]}
-        tooltip={{
-          rows: (d) =>
-            d.zone === null
-              ? []
-              : [{ label: 'Zone', value: acwrZoneLabel(d.zone), color: acwrZoneColor(d.zone) }],
-        }}
-      />
-      <FactsLine
-        fact={divergenceFact({
-          divergence: latestWith(points, (p) => p.divergence)?.divergence ?? null,
-        })}
-      />
-      <Bars
-        cursorResolution="leading"
-        ariaLabel="Acute minus chronic training load per day"
-        data={points}
-        height={DIVERGENCE_HEIGHT}
-        x={(d) => d.day}
-        bars={DIVERGENCE_BARS}
-        {...(xDomain && { xDomain })}
-        xTicks={xTicks}
-        legend={false}
-        y={{ domain: 'auto', ticks: 2, autoMaxFloor: 5, autoMinCeil: -5 }}
-      />
+      <RefetchDim active={query.isPlaceholderData}>
+        <FactsLine fact={fact} />
+        <Lines
+          cursorResolution="leading"
+          ariaLabel="Acute:chronic training load ratio with optimal zone"
+          data={points}
+          height={220}
+          x={(d) => d.day}
+          series={ACWR_SERIES}
+          {...(compact && { legend: false as const })}
+          {...(xDomain && { xDomain })}
+          xTicks={xTicks}
+          y={{ domain: 'auto', autoMaxFloor: 1.6, format: (v) => v.toFixed(1) }}
+          zones={[{ from: 0.8, to: 1.3, fill: ZONE_FILL.good }]}
+          thresholds={[
+            { value: 1.3, side: 'above', fill: ZONE_FILL.bad },
+            { value: 0.8, side: 'below', fill: ZONE_FILL.warn },
+          ]}
+          refLines={[
+            { value: 0.8, color: VX.warnRef },
+            { value: 1.3, color: VX.goodRef },
+            { value: 1.5, color: VX.badRef },
+          ]}
+          tooltip={{
+            rows: (d) =>
+              d.zone === null
+                ? []
+                : [{ label: 'Zone', value: acwrZoneLabel(d.zone), color: acwrZoneColor(d.zone) }],
+          }}
+        />
+        <FactsLine
+          fact={divergenceFact({
+            divergence: latestWith(points, (p) => p.divergence)?.divergence ?? null,
+          })}
+        />
+        <Bars
+          cursorResolution="leading"
+          ariaLabel="Acute minus chronic training load per day"
+          data={points}
+          height={DIVERGENCE_HEIGHT}
+          x={(d) => d.day}
+          bars={DIVERGENCE_BARS}
+          {...(xDomain && { xDomain })}
+          xTicks={xTicks}
+          legend={false}
+          y={{ domain: 'auto', ticks: 2, autoMaxFloor: 5, autoMinCeil: -5 }}
+        />
+      </RefetchDim>
     </ChartCard>
   )
 }

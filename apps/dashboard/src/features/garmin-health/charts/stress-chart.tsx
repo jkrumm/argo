@@ -5,6 +5,7 @@ import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { FactsLine } from '../facts-line'
+import { RefetchDim } from '../refetch-dim'
 import { ZONE_FILL } from '../zone-fills'
 import { STRESS_REST_BELOW, countWhere, stressFact } from '../model'
 import type { SummaryParams } from '../types'
@@ -100,26 +101,28 @@ export default function StressChart({ params }: { params: SummaryParams }) {
       )}
       placeholderHeight={CHART_HEIGHT}
     >
-      <FactsLine fact={fact} />
-      <Lines
-        cursorResolution="leading"
-        ariaLabel="Average and overnight stress with a gradient zone fill"
-        data={chartData}
-        height={CHART_HEIGHT}
-        x={(d) => d.day}
-        series={STRESS_SERIES}
-        {...(compact && { legend: false as const })}
-        y={{ domain: [0, 100], ticks: 5 }}
-        refLines={ZONE_LINES}
-        zones={STRESS_ZONES}
-        tooltip={{
-          rows: (d) => {
-            if (d.avgStress === null) return []
-            const zone = stressZoneLabel(d.avgStress)
-            return [{ label: 'Zone', value: zone.text, color: zone.color }]
-          },
-        }}
-      />
+      <RefetchDim active={query.isPlaceholderData}>
+        <FactsLine fact={fact} />
+        <Lines
+          cursorResolution="leading"
+          ariaLabel="Average and overnight stress with a gradient zone fill"
+          data={chartData}
+          height={CHART_HEIGHT}
+          x={(d) => d.day}
+          series={STRESS_SERIES}
+          {...(compact && { legend: false as const })}
+          y={{ domain: [0, 100], ticks: 5 }}
+          refLines={ZONE_LINES}
+          zones={STRESS_ZONES}
+          tooltip={{
+            rows: (d) => {
+              if (d.avgStress === null) return []
+              const zone = stressZoneLabel(d.avgStress)
+              return [{ label: 'Zone', value: zone.text, color: zone.color }]
+            },
+          }}
+        />
+      </RefetchDim>
     </ChartCard>
   )
 }

@@ -59,7 +59,9 @@
 }
 
 .value {
-  font-family: var(--basalt-font-mono);
+  /* Hero figures are proportional; tabular numerals stay in columns and axes. */
+  font-family: var(--basalt-font-sans);
+  font-variant-numeric: proportional-nums;
   font-size: var(--vx-text-kpi);
   font-weight: 600;
   line-height: 1.1;

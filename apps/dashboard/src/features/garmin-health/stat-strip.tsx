@@ -30,6 +30,8 @@ export type StripCellProps = {
   footer?: string
   /** Names the cell for `basalt-ui shot` (`data-shot`). */
   shot?: string
+  /** Dims the cell while a refetch shows the previous window's data. */
+  stale?: boolean
   /** Swaps the hero for a skeleton while the cell's data is in flight. */
   loading?: boolean
 }
@@ -43,9 +45,10 @@ export function StripCell({
   footer,
   loading = false,
   shot,
+  stale = false,
 }: StripCellProps) {
   return (
-    <Box className={classes.cell} data-shot={shot}>
+    <Box className={classes.cell} data-shot={shot} opacity={stale ? 0.55 : 1}>
       <Box className={classes.caption}>
         <span>{caption}</span>
         {qualifier !== undefined && <span className={classes.qualifier}>· {qualifier}</span>}

@@ -5,6 +5,7 @@ import { VX } from 'basalt-ui/tokens'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import { FactsLine } from '../facts-line'
+import { RefetchDim } from '../refetch-dim'
 import { ACTIVITY_TARGET_SCORE, activityScoreFact, fmtNum, mean } from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
@@ -63,29 +64,31 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
       state={chartStateOf(query, !hasData ? 'No activity in this window' : undefined)}
       placeholderHeight={CHART_HEIGHT}
     >
-      <FactsLine fact={fact} />
-      <Bars
-        ariaLabel="Daily activity score in MET-minutes against the 600 target"
-        cursorResolution="leading"
-        data={chartData}
-        height={CHART_HEIGHT}
-        x={(d) => d.day}
-        bars={BARS}
-        legend={false}
-        refLines={[{ value: ACTIVITY_TARGET_SCORE, color: VX.muted, dashed: true }]}
-        y={{ autoMaxFloor: ACTIVITY_TARGET_SCORE, ticks: 5 }}
-        tooltip={{
-          rows: (d) => [
-            { label: 'Vigorous', value: `${fmtNum(d.vigorousMin)} min`, color: VX.muted },
-            { label: 'Moderate', value: `${fmtNum(d.moderateMin)} min`, color: VX.muted },
-            {
-              label: 'Steps',
-              value: d.steps === null ? '—' : d.steps.toLocaleString(),
-              color: VX.muted,
-            },
-          ],
-        }}
-      />
+      <RefetchDim active={query.isPlaceholderData}>
+        <FactsLine fact={fact} />
+        <Bars
+          ariaLabel="Daily activity score in MET-minutes against the 600 target"
+          cursorResolution="leading"
+          data={chartData}
+          height={CHART_HEIGHT}
+          x={(d) => d.day}
+          bars={BARS}
+          legend={false}
+          refLines={[{ value: ACTIVITY_TARGET_SCORE, color: VX.muted, dashed: true }]}
+          y={{ autoMaxFloor: ACTIVITY_TARGET_SCORE, ticks: 5 }}
+          tooltip={{
+            rows: (d) => [
+              { label: 'Vigorous', value: `${fmtNum(d.vigorousMin)} min`, color: VX.muted },
+              { label: 'Moderate', value: `${fmtNum(d.moderateMin)} min`, color: VX.muted },
+              {
+                label: 'Steps',
+                value: d.steps === null ? '—' : d.steps.toLocaleString(),
+                color: VX.muted,
+              },
+            ],
+          }}
+        />
+      </RefetchDim>
     </ChartCard>
   )
 }

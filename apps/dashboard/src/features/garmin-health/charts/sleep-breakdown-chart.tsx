@@ -5,6 +5,7 @@ import { VX } from 'basalt-ui/tokens'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { SERIES } from '../../../lib/series'
 import { FactsLine } from '../facts-line'
+import { RefetchDim } from '../refetch-dim'
 import { hoursFromSec, mean, sleepFact } from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
@@ -87,36 +88,38 @@ export default function SleepBreakdownChart({ params }: { params: SummaryParams 
       state={chartStateOf(query, sleepData.length === 0 ? 'No sleep in this window' : undefined)}
       placeholderHeight={CHART_HEIGHT}
     >
-      <FactsLine fact={fact} />
-      <Bars
-        cursorResolution="leading"
-        ariaLabel="Sleep stages in hours per night"
-        data={sleepData}
-        height={CHART_HEIGHT}
-        x={(d) => d.day}
-        bars={BARS}
-        zones={[{ from: 7, to: 9, fill: VX.goodSoft, axisSide: 'left' }]}
-        y={{
-          domain: 'auto',
-          autoPad: 1.05,
-          autoMaxFloor: 9,
-          autoMinCeil: -1,
-          ticks: 6,
-          format: (v) => (v < 0 ? `−${Math.abs(v)}h` : `${v}h`),
-        }}
-        tooltip={{
-          rows: (d, ctx) => {
-            const hidden = new Set(ctx.hidden.map((s) => s.key))
-            const total =
-              (hidden.has('deep') ? 0 : (d.deep ?? 0)) +
-              (hidden.has('light') ? 0 : (d.light ?? 0)) +
-              (hidden.has('rem') ? 0 : (d.rem ?? 0))
-            return total > 0
-              ? [{ label: 'Total sleep', value: fmtHours(total), color: VX.line }]
-              : []
-          },
-        }}
-      />
+      <RefetchDim active={query.isPlaceholderData}>
+        <FactsLine fact={fact} />
+        <Bars
+          cursorResolution="leading"
+          ariaLabel="Sleep stages in hours per night"
+          data={sleepData}
+          height={CHART_HEIGHT}
+          x={(d) => d.day}
+          bars={BARS}
+          zones={[{ from: 7, to: 9, fill: VX.goodSoft, axisSide: 'left' }]}
+          y={{
+            domain: 'auto',
+            autoPad: 1.05,
+            autoMaxFloor: 9,
+            autoMinCeil: -1,
+            ticks: 6,
+            format: (v) => (v < 0 ? `−${Math.abs(v)}h` : `${v}h`),
+          }}
+          tooltip={{
+            rows: (d, ctx) => {
+              const hidden = new Set(ctx.hidden.map((s) => s.key))
+              const total =
+                (hidden.has('deep') ? 0 : (d.deep ?? 0)) +
+                (hidden.has('light') ? 0 : (d.light ?? 0)) +
+                (hidden.has('rem') ? 0 : (d.rem ?? 0))
+              return total > 0
+                ? [{ label: 'Total sleep', value: fmtHours(total), color: VX.line }]
+                : []
+            },
+          }}
+        />
+      </RefetchDim>
     </ChartCard>
   )
 }
