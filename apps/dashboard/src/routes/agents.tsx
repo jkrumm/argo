@@ -6,6 +6,7 @@ import { agentsQueries } from '../lib/queries/agents'
 import { useNow } from '../lib/use-now'
 import {
   fleetParts,
+  oldestAskMs,
   flattenAgents,
   groupProjects,
   oldestNeedsYouWait,
@@ -64,9 +65,10 @@ function AgentsPage() {
           summary={{
             items: humanQueue.length + waiting,
             oldestWaitMs: oldest?.ms ?? null,
+            oldestAskMs: oldestAskMs(humanQueue, now),
             working: snapshot?.summary?.working ?? 0,
             total: fleetParts(snapshot?.summary).total,
-            idleProjects: quiet.length,
+            idleProjects: quiet.filter((g) => g.worst === 'idle').length,
           }}
         />
         <FleetStrip

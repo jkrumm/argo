@@ -1,4 +1,4 @@
-import { Group, Text } from '@mantine/core'
+import { Flex, Group, Text } from '@mantine/core'
 import { Sparkline } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { Meter } from '../../components/upstream'
@@ -90,13 +90,12 @@ export function FleetStrip({ summary, history, hours, oldest, now }: Props) {
           visual: (
             <Meter
               label="Oldest agent wait against the 24 h and 7 d marks"
-              value={oldest?.ms ?? null}
+              value={oldest?.ms ?? 0}
               max={ABANDONED_AFTER_MS}
               target={OLDEST_WAIT_WARN_MS}
               format={formatWaitDuration}
               startCaption="warn at 24 h"
               endCaption="abandoned at 7 d"
-              emptyText="No agent is waiting"
               {...(oldestTone !== undefined && { color: oldestTone })}
             />
           ),
@@ -120,16 +119,16 @@ export function FleetStrip({ summary, history, hours, oldest, now }: Props) {
             />
           ),
           footer: (
-            <Group gap="xs" rowGap={2}>
+            <Flex gap="xs" wrap="wrap">
               {parts.map((p) => (
                 <Group key={p.key} gap={4} wrap="nowrap">
-                  <Dot color={FLEET_COLOR[p.key]} />
+                  <Dot color={p.value > 0 ? FLEET_COLOR[p.key] : VX.muted} />
                   <Text size="xs" ff="monospace" c="dimmed" span>
                     {p.value} {p.label}
                   </Text>
                 </Group>
               ))}
-            </Group>
+            </Flex>
           ),
         },
       ]}

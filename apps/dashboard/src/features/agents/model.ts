@@ -287,6 +287,8 @@ export function headlineOf(text: string, max = HEADLINE_MAX): string {
 export type SummaryInput = {
   items: number
   oldestWaitMs: number | null
+  /** Oldest human-queue ask; named only when no agent is waiting. */
+  oldestAskMs?: number | null
   working: number
   total: number
   idleProjects: number
@@ -297,7 +299,11 @@ export function summarySentence(s: SummaryInput): string {
   if (s.items === 0) return `Nothing needs you. ${fleet}.`
   const noun = s.items === 1 ? 'item needs' : 'items need'
   const wait =
-    s.oldestWaitMs === null ? '' : `, oldest agent wait ${formatWaitDuration(s.oldestWaitMs)}`
+    s.oldestWaitMs !== null
+      ? `, oldest agent wait ${formatWaitDuration(s.oldestWaitMs)}`
+      : s.oldestAskMs != null
+        ? `, oldest ask ${formatWaitDuration(s.oldestAskMs)}`
+        : ''
   return `${s.items} ${noun} you${wait}. ${fleet}, ${s.idleProjects} ${s.idleProjects === 1 ? 'project' : 'projects'} idle.`
 }
 
@@ -419,4 +425,15 @@ export function needsYouCards(
       }
     })
   return [...asks, ...waiting].toSorted((a, b) => b.waitMs - a.waitMs)
+}
+
+/** Age of the oldest human-queue ask that carries a timestamp; `null` when none does. */
+export function oldestAskMs(
+  humanQueue: readonly { askedAt?: string | null | undefined }[],
+  now: number,
+): number | null {
+  const ages = humanQueue.flatMap((i) =>
+    i.askedAt ? [Math.max(0, now - Date.parse(i.askedAt))] : [],
+  )
+  return ages.length === 0 ? null : Math.max(...ages)
 }
