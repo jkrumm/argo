@@ -31,6 +31,7 @@ import {
   type RawCalendarEvent,
 } from './model'
 import { NeedsYou } from './needs-you'
+import { applyVisibilityFilter } from '../garmin-health/visibility'
 import { acwrCell, agentsCell, budgetCell, meetingCell, recoveryCell } from './strip-cells'
 import classes from './home.module.css'
 
@@ -140,7 +141,12 @@ export function TodayPage() {
         now,
       )
     : null
-  const acwr = loadQuery.data ? acwrReading(loadQuery.data.points) : null
+  const acwr = loadQuery.data
+    ? acwrReading(
+        // The Garmin Health strip's visibility rule, so both pages name the same "latest" day.
+        applyVisibilityFilter(loadQuery.data.points, (p) => p.date),
+      )
+    : null
 
   // ── Activity ───────────────────────────────────────────────────────────────────────────────
   const stream = activityStream(

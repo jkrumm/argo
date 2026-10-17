@@ -19,6 +19,7 @@ import {
   todayAgenda,
   type ActivityEvent,
   type RawCalendarEvent,
+  stripShortcodes,
 } from './model'
 import type { Decision } from '../../lib/decisions'
 
@@ -170,6 +171,14 @@ const ev = (key: string, ms: number): ActivityEvent => ({
   ms,
   actor: 'warden',
   title: '{t}',
+})
+
+describe('stripShortcodes', () => {
+  it('unwraps the bracketed form and drops bare shortcodes', () => {
+    expect(stripShortcodes('[red_circle: build failed]')).toBe('build failed')
+    expect(stripShortcodes(':warning: disk  almost full')).toBe('disk almost full')
+    expect(stripShortcodes('standup at 10:30:45')).toBe('standup at 10:30:45')
+  })
 })
 
 describe('activityStream', () => {

@@ -125,10 +125,9 @@
 
 .feedSentence {
   min-width: 0;
-  display: -webkit-box;
   overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .feedDetail {

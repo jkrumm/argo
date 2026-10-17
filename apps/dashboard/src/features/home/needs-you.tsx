@@ -1,8 +1,9 @@
 import { Box, Button, Group, Stack, Text } from '@mantine/core'
 import { EmptyState, Section, useSizeClass } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
-import { IconCircleCheck } from '@tabler/icons-react'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { useClipboard } from '@mantine/hooks'
+import { IconCheck, IconCircleCheck, IconCopy } from '@tabler/icons-react'
 import { DecisionCard } from '../../components/upstream/decision-card'
 import type { Decision } from '../../lib/decisions'
 import { NEEDS_YOU_SOURCES } from './model'
@@ -45,6 +46,15 @@ function Kicker({ facts }: { facts: Decision['facts'] }) {
 }
 
 function Card({ decision }: { decision: Decision }) {
+  const navigate = useNavigate()
+  const clipboard = useClipboard({ timeout: 1500 })
+  const open = {
+    label: `Open in ${PAGE_LABEL[decision.href]}`,
+    onClick: () => void navigate({ to: decision.href }),
+  }
+  // A human-queue ask carries the command to run: copying it is the in-place verb. Everything
+  // else has no command in its payload, so opening the owning page is the primary.
+  const command = decision.source === 'queue' ? decision.evidence : null
   const narrow = useSizeClass() === 'compact'
   const evidence = decision.evidence ? (
     <Text size="sm" {...(!narrow && { lineClamp: 3 })}>
@@ -61,11 +71,16 @@ function Card({ decision }: { decision: Decision }) {
       {...(decision.abandoned && { status: <StatusChip tone="bad" label="Abandoned" /> })}
       {...(!narrow && evidence && { evidence })}
       {...(narrow && evidence && { disclosure: { label: 'Details', content: evidence } })}
-      meta={
-        <Button component={Link} to={decision.href} variant="default" size="xs">
-          Open in {PAGE_LABEL[decision.href]}
-        </Button>
-      }
+      {...(command === null
+        ? { primary: open }
+        : {
+            primary: {
+              label: clipboard.error ? 'Copy failed' : clipboard.copied ? 'Copied' : 'Copy command',
+              icon: clipboard.copied ? <IconCheck size={14} /> : <IconCopy size={14} />,
+              onClick: () => clipboard.copy(command),
+            },
+            secondary: open,
+          })}
     />
   )
 }
