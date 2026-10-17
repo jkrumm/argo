@@ -9,6 +9,7 @@ import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { EXERCISE_KEYS } from '../../../lib/window-stores'
 import { localDay } from '../../garmin-health/charts/local-day'
+import { dayLabel } from '../model'
 import { METRIC_TOOLTIPS } from '../constants'
 import { exerciseLabel } from '../formulas'
 import { exerciseColor } from './exercise-helpers'
@@ -23,6 +24,7 @@ const HEIGHT = 280
 
 type WeeklyVolumePoint = {
   week: Date
+  iso: string
   warmup: number
   work: number
   drop: number
@@ -33,6 +35,9 @@ type WeeklyVolumePoint = {
 
 const fmtTonnage = (v: number): string =>
   v >= 1000 ? `${(v / 1000).toFixed(1)}t` : `${Math.round(v)}`
+
+/** `fmtTonnage` drops the unit under 1 t; a sentence needs it. */
+const withUnit = (v: string): string => (v.endsWith('t') ? v : `${v} kg`)
 
 const positive = (v: number): number | null => (v > 0 ? v : null)
 
@@ -63,6 +68,7 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
     () =>
       (selectedBlock?.points ?? []).map((p) => ({
         week: localDay(p.date),
+        iso: p.date,
         warmup: p.warmup,
         work: p.work,
         drop: p.drop,
@@ -99,14 +105,13 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
 
   return (
     <ChartCard
-      title="Weekly Volume"
-      subtitle="Is my training load sustainable?"
+      title="Weekly volume"
       info={METRIC_TOOLTIPS.weeklyVolume}
       actions={
         <Group gap="xs" wrap="nowrap">
           {hasData && latest && latest.total > 0 ? (
-            <Text span fw={600} size="xs" c={exColor}>
-              {fmtTonnage(latest.total)} this week
+            <Text span size="xs" c="dimmed">
+              {withUnit(fmtTonnage(latest.total))} week of {dayLabel(latest.iso)}
             </Text>
           ) : null}
           {availableExercises.length > 1 ? (
@@ -135,7 +140,12 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
           landmarks
             ? [
                 { value: landmarks.mev, color: VX.goodRef, dashed: true, legend: { label: 'MEV' } },
-                { value: landmarks.mav, color: VX.warnRef, dashed: true, legend: { label: 'MAV' } },
+                {
+                  value: landmarks.mav,
+                  color: VX.warnRef,
+                  dashed: true,
+                  legend: { label: 'MAV' },
+                },
                 { value: landmarks.mrv, color: VX.badRef, dashed: true, legend: { label: 'MRV' } },
               ]
             : []

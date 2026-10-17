@@ -8,6 +8,15 @@ import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/
 import { SERIES } from '../../../lib/series'
 import { EXERCISE_COLORS, METRIC_TOOLTIPS, ZONE_COLORS, type ExerciseKey } from '../constants'
 import { acwrZoneLabel, exerciseLabel, type AcwrZone } from '../formulas'
+import {
+  acwrAsOf,
+  ACWR_FLOOR,
+  ACWR_METHOD,
+  ACWR_OPTIMAL_TO,
+  acwrZoneWord,
+  meanAcwr,
+  shortDate,
+} from '../model'
 import { mergePoints, type ExerciseSeries, type MergedPoint } from './merge-acwr'
 
 const HEIGHT = 280
@@ -24,9 +33,6 @@ const ZONES: { key: AcwrZone; label: string; color: string }[] = [
   { key: 'caution', label: 'Caution', color: VX.warnSolid },
   { key: 'danger', label: 'Danger', color: VX.badSolid },
 ]
-
-const zoneColor = (zone: AcwrZone | null): string =>
-  ZONES.find((z) => z.key === zone)?.color ?? ZONE_COLORS.neutral
 
 // The zone keys ride the legend as swatches only — `getValue` is null everywhere, so they draw
 // nothing and own no tooltip row.
@@ -55,17 +61,8 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
   )
   const enoughData = totalAcwrPoints >= 2 && merged.length >= 2
 
-  // Pick the strongest-signal exercise (most ACWR points) for the header badge.
-  let leader: ExerciseSeries | null = null
-  let leaderCount = -1
-  for (const s of exerciseSeries) {
-    const c = s.points.filter((p) => p.acwr !== null).length
-    if (c > leaderCount) {
-      leaderCount = c
-      leader = s
-    }
-  }
-  const leaderLast = leader?.points.findLast((p) => p.acwr !== null) ?? null
+  const acwr = meanAcwr(query.data?.byExercise ?? [])
+  const asOf = acwrAsOf(query.data?.byExercise ?? [])
 
   const series = useMemo<ChartSeries<MergedPoint>[]>(
     () => [
@@ -88,20 +85,17 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
 
   return (
     <ChartCard
-      title="Training Load (ACWR)"
-      subtitle="Am I loading smart?"
+      title="ACWR"
       info={METRIC_TOOLTIPS.trainingLoad}
       actions={
-        leaderLast && leaderLast.acwr !== null ? (
+        acwr !== null ? (
           <Group gap={6} align="baseline" wrap="nowrap">
-            <Text span fw={600} size="md" c={zoneColor(leaderLast.zone)}>
-              {leaderLast.acwr.toFixed(2)}
+            <Text span fw={600} size="md">
+              {acwr.toFixed(2)}
             </Text>
             <Text span size="xs" c="dimmed">
-              ACWR ·
-            </Text>
-            <Text span fw={600} size="xs" c={zoneColor(leaderLast.zone)}>
-              {acwrZoneLabel(leaderLast.zone)}
+              {acwrZoneWord(acwr)} · band {ACWR_FLOOR}–{ACWR_OPTIMAL_TO} · {ACWR_METHOD}
+              {asOf === null ? '' : `, week of ${shortDate(asOf)}`}
             </Text>
           </Group>
         ) : null

@@ -121,8 +121,7 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
 
   return (
     <ChartCard
-      title="INOL — Session Quality"
-      subtitle="Intensity × Number of Lifts"
+      title="INOL per session"
       info={METRIC_TOOLTIPS.inol}
       actions={
         <Group gap="xs" wrap="nowrap">

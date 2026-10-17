@@ -62,17 +62,17 @@ export default function RelativeProgressionChart({ params }: { params: StrengthQ
 
   return (
     <ChartCard
-      title="Relative Progression"
-      subtitle="Which lifts are gaining most?"
+      title="Relative progression"
       info={METRIC_TOOLTIPS.relativeProgression}
       actions={
         leader ? (
           <Group gap={6} align="baseline" wrap="nowrap">
             <Text span fw={600} size="md" c={leader.pct >= 0 ? VX.goodSolid : VX.badSolid}>
+              {leader.pct >= 0 ? '▲ ' : '▼ '}
               {fmtPct(leader.pct)}
             </Text>
             <Text span size="xs" c="dimmed">
-              {exerciseLabel(leader.ex)}
+              {exerciseLabel(leader.ex)} since its first session in the window
             </Text>
           </Group>
         ) : null

@@ -12,6 +12,7 @@ import { localDay } from '../../garmin-health/charts/local-day'
 import { METRIC_TOOLTIPS } from '../constants'
 import { directionArrow, directionColor, exerciseLabel } from '../formulas'
 import { exerciseColor } from './exercise-helpers'
+import { perMonth, signed } from '../model'
 import { directionFromVelocity, rollingVelocityPctPerDay } from './momentum-data'
 
 /** A per-chart select is store state like any filter (law C3) — a LOCAL store, because which lift
@@ -90,7 +91,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
 
   const latestVel = [...chartData].reverse().find((d) => d.velocity !== null)?.velocity ?? null
   const dir = directionFromVelocity(latestVel)
-  const monthly = latestVel !== null ? latestVel * 30 : null
+  const monthly = perMonth(latestVel)
 
   const selectOptions = (query.data?.byExercise ?? []).map((e) => ({
     value: e.exercise_id,
@@ -100,18 +101,16 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
   return (
     <ChartCard
       title="Momentum"
-      subtitle="Is the trend accelerating?"
       info={METRIC_TOOLTIPS.momentum}
       actions={
         <Group gap="xs" wrap="nowrap">
           {monthly !== null ? (
             <Group gap={4} align="baseline" wrap="nowrap">
               <Text span fw={600} size="md" c={directionColor(dir)}>
-                {monthly >= 0 ? '+' : ''}
-                {monthly.toFixed(2)}%
+                {signed(monthly)}
               </Text>
               <Text span size="xs" c="dimmed">
-                /mo
+                %/mo
               </Text>
               <Text span fw={600} size="xs" c={directionColor(dir)}>
                 {directionArrow(dir)}

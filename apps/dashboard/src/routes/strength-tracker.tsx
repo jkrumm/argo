@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Suspense, useMemo } from 'react'
-import { Card, Grid, SimpleGrid, Stack } from '@mantine/core'
+import { Box, Card, Grid, SimpleGrid, Stack } from '@mantine/core'
 import { IconBarbell } from '@tabler/icons-react'
 import { EmptyState, PageBar, Section, useSizeClass } from 'basalt-ui'
 import { CONTAINER_GRID_BREAKPOINTS, CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
@@ -10,7 +10,6 @@ import { DateRangePicker } from 'basalt-ui/controls-dates'
 import { strengthStore, toApiWindow } from '../lib/window-stores'
 import {
   DEFAULT_EXERCISES,
-  ExerciseSummaryCards,
   RecentRecords,
   TimerCard,
   WorkoutForm,
@@ -23,6 +22,8 @@ import MomentumChart from '../features/strength-tracker/charts/momentum-chart'
 import OneRmTrendChart from '../features/strength-tracker/charts/one-rm-trend-chart'
 import ReadinessStrainChart from '../features/strength-tracker/charts/readiness-strain-chart'
 import RelativeProgressionChart from '../features/strength-tracker/charts/relative-progression-chart'
+import { OverviewStack } from '../features/strength-tracker/overview'
+import { periodLabel } from '../features/strength-tracker/model'
 import SparklineGridChart from '../features/strength-tracker/charts/sparkline-grid-chart'
 import StrengthCompositeChart from '../features/strength-tracker/charts/strength-composite-chart'
 import StrengthRatiosChart from '../features/strength-tracker/charts/strength-ratios-chart'
@@ -70,6 +71,17 @@ export const Route = createFileRoute('/strength-tracker')({
     } else if (deps.tab === 'charts') {
       base.push(context.queryClient.ensureQueryData(workoutsQueries.summaryStrength(windowParams)))
       base.push(context.queryClient.ensureQueryData(strengthQueries.sparklines(params)))
+      base.push(context.queryClient.ensureQueryData(strengthQueries.trainingLoad(params)))
+      base.push(
+        context.queryClient.ensureQueryData(
+          strengthQueries.deloadSignal({ exercises: params.exercises }),
+        ),
+      )
+      base.push(
+        context.queryClient.ensureQueryData(
+          strengthQueries.seriesDetailed({ window: 'all', exercises: params.exercises }),
+        ),
+      )
     }
 
     return Promise.all(base)
@@ -151,8 +163,8 @@ function StrengthTrackerPage() {
               <Card py="sm" px="md">
                 <EmptyState
                   icon={<IconBarbell size={28} stroke={1.5} />}
-                  title="No workouts yet"
-                  description="Log your first workout to see your strength dashboard come to life."
+                  title="No workouts logged"
+                  description="Log a set in the form to start the 28-day trend."
                 />
               </Card>
             ) : (
@@ -194,73 +206,81 @@ function ChartsPanel({
   params: StrengthQueryParams
   activeExercises: ReadonlyArray<ExerciseKey>
 }) {
+  const search = strengthStore.useValues()
+  const period = periodLabel(search.window, search.from, search.to)
+  const pending = <ChartCard state={{ pending: true }} placeholderHeight={320} />
   return (
     <Stack gap="md">
       <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={420} />}>
+        <OverviewStack params={params} exercises={activeExercises} />
+      </Suspense>
+
+      <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={180} />}>
         <SparklineGridChart params={params} />
       </Suspense>
 
-      <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={120} />}>
-        <ExerciseSummaryCardsSlot />
-      </Suspense>
+      <Box data-shot="sec-strength">
+        <Section title={`Strength, ${period}`}>
+          <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
+            <Suspense fallback={pending}>
+              <OneRmTrendChart params={params} />
+            </Suspense>
+            <Suspense fallback={pending}>
+              <MomentumChart params={params} />
+            </Suspense>
+          </SimpleGrid>
+        </Section>
+      </Box>
 
-      <Section
-        title="Strength Trajectory"
-        subtitle="Am I getting stronger on the lifts I care about?"
-      >
-        <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
-          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
-            <OneRmTrendChart params={params} />
-          </Suspense>
-          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
-            <CompositeChartSlot params={params} activeExercises={activeExercises} />
-          </Suspense>
-        </SimpleGrid>
-      </Section>
+      <Box data-shot="sec-load">
+        <Section title={`Load, ${period}`}>
+          <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
+            <Suspense fallback={pending}>
+              <WeeklyVolumeChart params={params} />
+            </Suspense>
+            <Suspense fallback={pending}>
+              <TrainingLoadChart params={params} />
+            </Suspense>
+            <Suspense fallback={pending}>
+              <InolChart params={params} />
+            </Suspense>
+          </SimpleGrid>
+        </Section>
+      </Box>
 
-      <Section title="Load Quality" subtitle="Am I loading smart or just hard?">
-        <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
-          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
-            <WeeklyVolumeChart params={params} />
-          </Suspense>
-          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
-            <TrainingLoadChart params={params} />
-          </Suspense>
-        </SimpleGrid>
-      </Section>
+      <Box data-shot="sec-balance">
+        <Section title="Balance">
+          <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
+            <Suspense fallback={pending}>
+              <RelativeProgressionChart params={params} />
+            </Suspense>
+            <Suspense fallback={pending}>
+              <StrengthRatiosChart params={params} />
+            </Suspense>
+          </SimpleGrid>
+        </Section>
+      </Box>
 
-      <Section title="Efficiency & Momentum" subtitle="Are my sessions producing quality work?">
-        <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
-          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
-            <InolChart params={params} />
-          </Suspense>
-          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
-            <MomentumChart params={params} />
-          </Suspense>
-        </SimpleGrid>
-      </Section>
-
-      <Section title="Balance" subtitle="Are my lifts proportional?">
-        <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
-          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
-            <RelativeProgressionChart params={params} />
-          </Suspense>
-          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
-            <StrengthRatiosChart params={params} />
-          </Suspense>
-        </SimpleGrid>
-      </Section>
-
-      <Section title="Readiness" subtitle="Is today a push, sustain, or rest day?">
-        <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
-          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
+      <Box data-shot="sec-readiness">
+        <Section title={`Readiness, ${period}`}>
+          <Suspense fallback={pending}>
             <ReadinessStrainChart params={params} />
           </Suspense>
-          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
-            <AlignmentMatrixChart params={params} />
-          </Suspense>
-        </SimpleGrid>
-      </Section>
+        </Section>
+      </Box>
+
+      <Box data-shot="sec-diagnostics">
+        <Section title="Diagnostics" collapsible defaultOpen={false}>
+          <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
+            <Suspense fallback={pending}>
+              <CompositeChartSlot params={params} activeExercises={activeExercises} />
+            </Suspense>
+            <Suspense fallback={pending}>
+              <AlignmentMatrixChart params={params} />
+            </Suspense>
+          </SimpleGrid>
+        </Section>
+      </Box>
     </Stack>
   )
 }
@@ -292,19 +312,6 @@ function CompositeChartSlot({
     return mostData ?? activeExercises[0] ?? 'bench_press'
   }, [sparks, heroes, activeExercises])
   return <StrengthCompositeChart params={params} exerciseId={initial} />
-}
-
-function ExerciseSummaryCardsSlot() {
-  const search = strengthStore.useValues()
-  const windowParams = toApiWindow(
-    strengthStore.field.window.toWindow({
-      preset: search.window,
-      from: search.from,
-      to: search.to,
-    }),
-    'all',
-  )
-  return <ExerciseSummaryCards params={windowParams} />
 }
 
 // Workout logger + rest/interval timer + recent PRs. Rendered in the desktop

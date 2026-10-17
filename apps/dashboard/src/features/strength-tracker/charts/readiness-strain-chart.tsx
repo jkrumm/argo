@@ -82,17 +82,19 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
 
   return (
     <ChartCard
-      title="Readiness × Strain"
-      subtitle="Should I push, sustain, or rest today?"
+      title="Adjusted readiness"
       info={METRIC_TOOLTIPS.readinessStrain}
       actions={
         latest?.readiness != null && latestZone ? (
           <Group gap={6} align="baseline" wrap="nowrap">
             <Text span fw={600} size="md" c={latestZone.color}>
-              {Math.round(latest.readiness)}
+              {Math.round(latest.readiness)}/100
             </Text>
             <Text span size="xs" c={latestZone.color}>
               {latestZone.text}
+            </Text>
+            <Text span size="xs" c="dimmed">
+              {latest.day.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
             </Text>
           </Group>
         ) : null

@@ -1,10 +1,12 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Box, Group, Stack, Text } from '@mantine/core'
+import { Group, Stack, Text } from '@mantine/core'
+import { Meter } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from '../constants'
-import { balanceColor, balanceLabel, balanceSymbol, type RatioStatus } from '../formulas'
+import { type RatioStatus } from '../formulas'
+import { bandOffset, EM_DASH, ratioName, ratioNote, statusWord } from '../model'
 
 type Ratio = {
   label: string
@@ -14,112 +16,80 @@ type Ratio = {
   scaleMax: number
 }
 
-function statusColor(status: RatioStatus | null): string {
+const MUTED_FILL = alpha(VX.muted, 0.35)
+
+function statusInk(status: RatioStatus | null): string {
   switch (status) {
     case 'balanced':
-      return VX.goodSolid
+      return VX.status.good
     case 'imbalanced':
-      return VX.warnSolid
+      return VX.status.warn
     case 'critical':
-      return VX.badSolid
+      return VX.status.bad
     default:
-      return alpha(VX.neutral, 0.5)
+      return 'dimmed'
   }
 }
 
-function symbolFor(status: RatioStatus | null): string | null {
-  if (status === null) return null
-  return balanceSymbol(status)
-}
-
-function toPercent(v: number, scaleMax: number): number {
-  return Math.max(0, Math.min(100, (v / scaleMax) * 100))
-}
-
+/** Value, band and verdict on one row each: lift pair, ratio, the Meter with its band, then the
+ *  status word and how far the ratio sits from the band. */
 export default function StrengthRatiosChart({ params }: { params: StrengthQueryParams }) {
   const { data } = useSuspenseQuery(strengthQueries.heroes(params))
-
   const ratios = data.balance.ratios as Ratio[]
-  const balanceStatus = data.balance.status
-  const worstPair = data.balance.worstPair
-
-  const headerExtra =
-    balanceStatus !== null && worstPair !== null ? (
-      <Text size="xs" fw={600} c={balanceColor(balanceStatus)}>
-        {worstPair.label} · {balanceLabel(balanceStatus)} · {worstPair.ratio.toFixed(2)}
-      </Text>
-    ) : null
-
   const hasData = ratios.some((r) => r.ratio !== null)
 
   return (
     <ChartCard
-      title="Strength Balance"
-      subtitle="DOTS-adjusted lift ratios"
+      title="Strength balance, DOTS-adjusted"
       info={METRIC_TOOLTIPS.strengthRatios}
-      actions={headerExtra}
       state={{ empty: !hasData && 'Need data for multiple lifts' }}
       placeholderHeight={180}
     >
-      <Stack gap="sm" p="md">
+      <Stack gap="md" p="md" data-shot="strength-balance">
         {ratios.map((pair) => {
-          const color = statusColor(pair.status)
-          const sym = symbolFor(pair.status)
-          const lowPct = toPercent(pair.range[0], pair.scaleMax)
-          const hiPct = toPercent(pair.range[1], pair.scaleMax)
-          const ratioPct = pair.ratio !== null ? toPercent(pair.ratio, pair.scaleMax) : null
-
+          const [lo, hi] = pair.range
+          const offset = bandOffset(pair.ratio, pair.range)
           return (
-            <Group key={pair.label} justify="space-between" gap="sm" wrap="nowrap">
-              <Text size="xs" c="dimmed" ta="right" style={{ width: 100, flexShrink: 0 }}>
-                {pair.label}
-              </Text>
-              <Box
-                style={{
-                  flex: 1,
-                  height: 10,
-                  position: 'relative',
-                  background: alpha(VX.neutral, 0.08),
-                }}
-                bdrs={3}
-              >
-                <Box
-                  style={{
-                    position: 'absolute',
-                    left: `${lowPct}%`,
-                    width: `${Math.max(0, hiPct - lowPct)}%`,
-                    top: 0,
-                    bottom: 0,
-                    background: VX.good,
-                  }}
-                  bdrs={3}
-                />
-                {ratioPct !== null && (
-                  <Box
-                    style={{
-                      position: 'absolute',
-                      left: `${ratioPct}%`,
-                      top: -2,
-                      bottom: -2,
-                      width: 3,
-                      background: color,
-                      transform: 'translateX(-50%)',
-                    }}
-                    bdrs={2}
-                  />
-                )}
-              </Box>
-              <Group gap={4} wrap="nowrap" style={{ width: 70, flexShrink: 0 }}>
-                <Text size="xs" fw={600} style={{ minWidth: 40 }}>
-                  {pair.ratio !== null ? pair.ratio.toFixed(2) : '—'}
+            <Stack key={pair.label} gap={4}>
+              <Group justify="space-between" gap="sm" wrap="nowrap">
+                <Text size="sm" fw={500}>
+                  {ratioName(pair.label)}
                 </Text>
-                {sym !== null && (
-                  <Text size="sm" fw={700} c={color}>
-                    {sym}
-                  </Text>
-                )}
+                <Text size="sm" fw={600}>
+                  {pair.ratio === null ? EM_DASH : pair.ratio.toFixed(2)}
+                </Text>
               </Group>
-            </Group>
+              {pair.ratio === null ? null : (
+                <Meter
+                  label={`${ratioName(pair.label)} ratio against its ${lo}–${hi} band`}
+                  value={pair.ratio}
+                  min={0}
+                  max={pair.scaleMax}
+                  format={(v) => v.toFixed(2)}
+                  zones={[
+                    { from: 0, to: lo, label: 'Under', color: MUTED_FILL },
+                    { from: lo, to: hi, label: 'Band', color: VX.good },
+                    { from: hi, to: pair.scaleMax, label: 'Over', color: MUTED_FILL },
+                  ]}
+                  startCaption={null}
+                  endCaption={null}
+                />
+              )}
+              <Text size="xs" c="dimmed">
+                <Text
+                  span
+                  size="xs"
+                  c={
+                    statusWord(pair.status, offset) === 'near band'
+                      ? 'dimmed'
+                      : statusInk(pair.status)
+                  }
+                >
+                  {statusWord(pair.status, offset)}
+                </Text>
+                {` · band ${lo}–${hi} · ${ratioNote(pair.status, offset).split(' · ').slice(1).join(' · ')}`}
+              </Text>
+            </Stack>
           )
         })}
       </Stack>

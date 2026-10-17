@@ -173,7 +173,6 @@ export default function StrengthCompositeChart({
   return (
     <ChartCard
       title="Strength Composite"
-      subtitle="Three signals on one σ axis"
       info={METRIC_TOOLTIPS.strengthComposite}
       actions={
         <Group gap="xs" wrap="nowrap">
