@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Group, Text } from '@mantine/core'
+import { Box, Group, Text } from '@mantine/core'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { SelectFilter } from 'basalt-ui/controls'
 import { createLocalStore, field } from 'basalt-ui/state'
@@ -127,10 +127,11 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
         <Group gap="xs" wrap="nowrap">
           {latest?.inol != null && (
             <Group gap={6} align="baseline" wrap="nowrap">
-              <Text span fw={600} size="md" c={inolDotColor(latest.inol)}>
+              <Box component="span" w={8} h={8} bdrs="50%" bg={inolDotColor(latest.inol)} />
+              <Text span fw={600} size="md">
                 {latest.inol.toFixed(2)}
               </Text>
-              <Text span size="xs" c={inolDotColor(latest.inol)}>
+              <Text span size="xs" c="dimmed">
                 {inolZoneLabel(latest.inol)}
               </Text>
             </Group>

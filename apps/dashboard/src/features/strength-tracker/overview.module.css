@@ -68,9 +68,27 @@
 }
 
 .footer {
-  font-family: var(--basalt-font-mono);
   font-size: var(--vx-text-micro);
   color: var(--vx-muted);
+}
+
+.sparkRow {
+  display: flex;
+  align-items: center;
+  gap: var(--vx-space-stack-sm);
+  min-width: 0;
+}
+
+.spark {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.limit {
+  flex: none;
+  font-size: var(--vx-text-micro);
+  color: var(--vx-muted);
+  white-space: nowrap;
 }
 
 /* Verdict card evidence: the readiness Meter and the ACWR Meter, each with its method line. */

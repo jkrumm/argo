@@ -7,6 +7,7 @@ import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { latestWith } from '../../garmin-health/charts/latest'
 import { localDay } from '../../garmin-health/charts/local-day'
+import { READINESS_PUSH_FROM, READINESS_REST_BELOW } from '../model'
 import { METRIC_TOOLTIPS } from '../constants'
 
 const HEIGHT = 280
@@ -20,8 +21,8 @@ type ReadinessPoint = {
 }
 
 function readinessZoneLabel(v: number): { text: string; color: string } {
-  if (v >= 70) return { text: 'Push', color: VX.goodSolid }
-  if (v >= 40) return { text: 'Normal', color: VX.warnSolid }
+  if (v >= READINESS_PUSH_FROM) return { text: 'Push', color: VX.goodSolid }
+  if (v >= READINESS_REST_BELOW) return { text: 'Normal', color: VX.warnSolid }
   return { text: 'Rest', color: VX.badSolid }
 }
 
