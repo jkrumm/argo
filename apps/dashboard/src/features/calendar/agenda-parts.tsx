@@ -4,7 +4,7 @@
  */
 import { ActionIcon, Box, Card, Text } from '@mantine/core'
 import { Meter, Section } from 'basalt-ui'
-import { VX } from 'basalt-ui/tokens'
+import { VX, alpha } from 'basalt-ui/tokens'
 import { IconVideo } from '@tabler/icons-react'
 import { ScheduleRow } from '../../components/upstream/schedule-row'
 import { formatDurationMin } from '../../components/upstream/schedule-row-model'
@@ -37,6 +37,9 @@ const MAX_RATIO_ATTENDEES = 12
  */
 const PILL_WITHIN_MIN = 12 * 60
 const SPLIT_LABEL = { work: 'Work', personal: 'Personal' } as const
+
+/** A load is not a verdict: a quiet neutral, not full-opacity ink (near-white in dark). */
+const QUIET_FILL = alpha(VX.muted, 0.35)
 
 const clock = (local: string) => local.slice(11, 16)
 
@@ -212,7 +215,7 @@ export function WeekStrip({
                   value={hours}
                   max={DAY_TARGET_H}
                   target={DAY_TARGET_H}
-                  color={hours !== null && hours > DAY_TARGET_H ? VX.status.warn : VX.muted}
+                  color={hours !== null && hours > DAY_TARGET_H ? VX.status.warn : QUIET_FILL}
                   startCaption={null}
                   endCaption={null}
                 />

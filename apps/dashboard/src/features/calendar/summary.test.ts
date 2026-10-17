@@ -22,7 +22,9 @@ describe('summarySentence', () => {
   test('a busy day carries the count, booked time, the countdown and the week total', () => {
     const summary = agendaSummary(events, now)
     const sentence = summarySentence(summary, longestFreeBlock(events, D, now))
-    expect(sentence).toBe('3 meetings today, 2h 40m booked · next in 20m · 2h 40m this week')
+    expect(sentence).toBe(
+      '3 meetings today, 2h\u00a040m booked · next in 20m · 2h\u00a040m booked this week',
+    )
     // at least three live numbers plus the countdown
     expect(sentence.match(/\d+/g)?.length).toBeGreaterThanOrEqual(4)
   })
@@ -41,7 +43,16 @@ describe('summarySentence', () => {
 describe('summarySentence — unknown sources', () => {
   test('dashes, never "No events", while a calendar has not answered', () => {
     const summary = agendaSummary([], now, new Set(['work']))
-    expect(summarySentence(summary, null)).toBe('— meetings today · next — · — this week')
+    expect(summarySentence(summary, null)).toBe('— meetings today · next — · — booked this week')
+  })
+})
+
+describe('durations in the sentence', () => {
+  test('never break between hours and minutes', () => {
+    const long = [ev('l', `${D} 12:00:00`, `${D} 23:05:00`)]
+    const sentence = summarySentence(agendaSummary(long, now), null)
+    expect(sentence).toContain('11h\u00a05m')
+    expect(sentence).not.toMatch(/\d+h \d+m/)
   })
 })
 

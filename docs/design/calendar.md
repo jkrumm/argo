@@ -106,3 +106,7 @@ Open after r4, basalt-side: the free-block cell's 1 px gap and `Section`'s mono 
 - **Split.** Work + Personal equals the booked total: a minute both calendars hold counts once, as Work.
 - **One countdown wording.** `untilLabel` (`in 20m`, `in 1h 30m`) serves the pill and the summary; the pill shows under 12 h.
 - **`from` validation.** A real calendar date (`2026-02-31` is a 422) and an explicit `Z` / `±hh:mm` offset on datetimes.
+
+## Wave 20 live round
+
+Post-deploy score on production failed four owner rules. Fixed: the strip's non-verdict fill is `alpha(VX.muted, 0.35)` (full-opacity `VX.muted` read near-white in dark; `status.warn` past 8 h stays); the free block's `now` rounds up to a whole minute so its length matches the printed `{start}–{end}`; the summary reads `{x} booked this week`; durations in the summary use a non-breaking space so `11h 5m` never wraps at 390 (applied in `summary.ts`, not the shared `formatDurationMin`, which this page does not own).

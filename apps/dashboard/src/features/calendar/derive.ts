@@ -205,10 +205,12 @@ export function longestFreeBlock(
   key: DayKey,
   notBefore?: Date,
 ): FreeBlock | null {
-  const windowStart = Math.max(
-    atHourMs(key, FREE_WINDOW.startH),
-    notBefore?.getTime() ?? Number.NEGATIVE_INFINITY,
-  )
+  // Rounded UP to a whole minute: the block's length and the printed `HH:mm` start then agree
+  // (a raw `now` carries seconds, which made `15:00–18:00` read as 2h 59m).
+  const from = notBefore
+    ? Math.ceil(notBefore.getTime() / MIN_MS) * MIN_MS
+    : Number.NEGATIVE_INFINITY
+  const windowStart = Math.max(atHourMs(key, FREE_WINDOW.startH), from)
   const windowEnd = atHourMs(key, FREE_WINDOW.endH)
   if (windowEnd <= windowStart) return null
 

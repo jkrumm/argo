@@ -157,6 +157,13 @@ describe('longestFreeBlock (08:00–18:00)', () => {
     expect(longestFreeBlock([], D, now)?.minutes).toBe(180)
     expect(longestFreeBlock([], D, new Date(2026, 9, 14, 19, 0, 0))).toBeNull()
   })
+  test('a start with seconds rounds up so the length matches the printed times', () => {
+    const block = longestFreeBlock([], D, new Date(2026, 9, 14, 15, 0, 20))
+    expect(block?.start.getMinutes()).toBe(1)
+    expect(block?.start.getSeconds()).toBe(0)
+    expect(block?.minutes).toBe(179)
+    expect(longestFreeBlock([], D, new Date(2026, 9, 14, 15, 0, 0))?.minutes).toBe(180)
+  })
   test('all-day items do not take free time', () => {
     const allDay = [ev('d', `${D} 00:00:00`, `${addDays(D, 1)} 00:00:00`, { isAllDay: true })]
     expect(longestFreeBlock(allDay, D)?.minutes).toBe(600)
