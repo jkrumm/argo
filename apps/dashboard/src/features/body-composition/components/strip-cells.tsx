@@ -100,10 +100,12 @@ export function WeightCell({
 export function RateCell({
   summary,
   stats,
+  rateDays,
   latestDate,
 }: {
   summary: WeightSummary
   stats: WeightWindowStats
+  rateDays: number
   latestDate: string | null
 }) {
   const rate = summary.kgPerWeek
@@ -112,7 +114,7 @@ export function RateCell({
     <StripCell
       shot="strip-rate"
       caption="Rate"
-      qualifier={`28 d slope to ${dateLabel(latestDate) ?? 'latest entry'}`}
+      qualifier={`${rateDays} d slope to ${dateLabel(latestDate) ?? 'latest entry'}`}
       value={signed(rate, 2)}
       unit="kg/wk"
       heroExtra={
