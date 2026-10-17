@@ -147,14 +147,14 @@ export function M365ExplorerPage(): ReactElement {
     if (l.kind === 'chat') {
       const chatId = l.sourceId.replace(/^chat:/, '')
       const row = chatRows.find((r) => r.ref.chatId === chatId)
-      setSelected(row?.ref ?? { kind: 'chat', chatId, displayName: l.displayName ?? chatId })
+      select(row?.ref ?? { kind: 'chat', chatId, displayName: l.displayName ?? chatId })
       return
     }
     const parts = parseChannelId(l.sourceId)
     if (!parts) return
     const team = teams.find((t) => t.id === parts.teamId)
     const channel = channelsByTeam.get(parts.teamId)?.channels.find((c) => c.id === parts.channelId)
-    setSelected({
+    select({
       kind: 'channel',
       ...parts,
       displayName: channel?.displayName ?? l.displayName ?? parts.channelId,
@@ -177,6 +177,13 @@ export function M365ExplorerPage(): ReactElement {
       ? upsertLabel.error.message
       : null) ??
     (deleteLabel.error && deleteLabel.variables === selectedId ? deleteLabel.error.message : null)
+
+  /** One door for selection: a write error belongs to the record it happened on, so leaving clears it. */
+  const select = (ref: SourceRef | null): void => {
+    upsertLabel.reset()
+    deleteLabel.reset()
+    setSelected(ref)
+  }
 
   const record = selected ? (
     <RecordPane
@@ -204,7 +211,7 @@ export function M365ExplorerPage(): ReactElement {
         })
       }
       onRemove={() => deleteLabel.mutate(sourceIdFor(selected))}
-      onClose={compact ? undefined : () => setSelected(null)}
+      onClose={compact ? undefined : () => select(null)}
     />
   ) : null
 
@@ -213,6 +220,7 @@ export function M365ExplorerPage(): ReactElement {
       labels={labels}
       tag={tag}
       selectedId={selectedId}
+      error={deleteLabel.error ? deleteLabel.error.message : null}
       removingId={deleteLabel.isPending ? (deleteLabel.variables ?? null) : null}
       onOpen={openLabeled}
       onRemove={(id) => deleteLabel.mutate(id)}
@@ -307,7 +315,7 @@ export function M365ExplorerPage(): ReactElement {
                   query={query}
                   now={now}
                   selected={selected}
-                  onSelect={setSelected}
+                  onSelect={select}
                 />
               )}
             </Card.Section>
@@ -322,7 +330,7 @@ export function M365ExplorerPage(): ReactElement {
       </div>
 
       {compact ? (
-        <PreviewDrawer opened={selected !== null} onClose={() => setSelected(null)}>
+        <PreviewDrawer opened={selected !== null} onClose={() => select(null)}>
           {record}
         </PreviewDrawer>
       ) : null}

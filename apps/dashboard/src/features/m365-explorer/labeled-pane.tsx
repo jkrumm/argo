@@ -1,4 +1,4 @@
-import { ScrollArea } from '@mantine/core'
+import { Alert, ScrollArea } from '@mantine/core'
 import { labelsByTag, type LabelLite } from './model'
 import { SourceRow } from './source-row'
 import classes from './m365.module.css'
@@ -10,6 +10,8 @@ export type LabeledPaneProps = {
   selectedId: string | null
   /** The source whose label is being removed right now. */
   removingId: string | null
+  /** The last failed remove, shown above the groups. */
+  error: string | null
   onOpen: (label: LabelLite) => void
   onRemove: (sourceId: string) => void
 }
@@ -28,6 +30,11 @@ export function LabeledPane(props: LabeledPaneProps) {
   }
   return (
     <ScrollArea className={classes.paneScroll} type="auto" data-shot="labeled-pane">
+      {props.error ? (
+        <Alert color="red" variant="light" m="sm">
+          {props.error}
+        </Alert>
+      ) : null}
       {groups.map((g) => (
         <section key={g.tag} aria-label={g.tag}>
           <h3 className={classes.groupHeading}>

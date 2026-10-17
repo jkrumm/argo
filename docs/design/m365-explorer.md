@@ -96,6 +96,14 @@ Shots on live data via `basalt-ui shot` (r1–r3, 1440 / 390, light / dark) plus
 - Channel lists load four teams ahead of the settled count, and Sync no longer re-fires every team's list.
 - The label panel is a Popover (inputs keep their own keyboard handling) with Copy source id kept from the old page; the mobile sheet has one back affordance; the notes comparison is trimmed on both sides.
 
+## Wave 22 code-review fixes (round 2, scope frozen)
+
+- Recency and time labels compare against the one reference time (`isSameDay(d, now)`), so no test or render reads the system clock.
+- An active "Labeled" filter always renders its chip; a failed remove from the labeled pane shows its error there; a write error clears when the selection changes.
+- A filtered team row reads `{k} of {n} channels`.
+- The label panel's Escape closes only the panel (not the mobile sheet) and its Tab order reaches an in-panel apply button; verified in a browser at 390.
+- Bug found while verifying: the detail pane was not hidden below 800 px (CSS rule order), so the record rendered under the list as well as in the sheet. Fixed by ordering `.detailPane` after `.pane`.
+
 ## Wave 22 deviations kept from the concept
 
 - Active tag chip is neutral (ink fill), not accent: basalt's "selection never takes the accent" rule wins over criterion 3 (owner ruling).

@@ -32,7 +32,7 @@ export function TagChips({ active, counts, onChange }: TagChipsProps) {
   return (
     <div className={classes.toolbar} role="group" aria-label="Filter by tag" data-shot="tag-chips">
       <Chip label="All" count={counts.all} active={active === ''} onClick={() => onChange('')} />
-      {counts.labeled > 0 ? (
+      {counts.labeled > 0 || active === LABELED_FILTER ? (
         <Chip
           label="Labeled"
           count={counts.labeled}

@@ -11,8 +11,8 @@ declare const classes: {
   readonly reading: string
   readonly value: string
   readonly unit: string
-  readonly footer: string
   readonly visual: string
+  readonly footer: string
   readonly split: string
   readonly pane: string
   readonly detailPane: string

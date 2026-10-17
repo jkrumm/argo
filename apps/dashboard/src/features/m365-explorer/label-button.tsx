@@ -3,6 +3,12 @@ import { IconCheck, IconChevronDown, IconCopy, IconStar, IconStarFilled } from '
 import { useState } from 'react'
 import classes from './m365.module.css'
 
+/**
+ * Mantine's modal/drawer closes on a window-level Escape unless the event target carries this
+ * attribute; spread on every focusable inside the panel so Escape closes only the popover.
+ */
+const KEEP_SHEET_OPEN = { 'data-mantine-stop-propagation': true } as const
+
 export type LabelButtonProps = {
   existing: { label: string; notes: string | null } | null
   /** Known tags, most-used first. */
@@ -79,6 +85,7 @@ export function LabelButton({
                     variant={t === trimmedTag ? 'light' : 'subtle'}
                     color="gray"
                     onClick={() => setTag(t)}
+                    {...KEEP_SHEET_OPEN}
                   >
                     {t}
                   </Button>
@@ -90,6 +97,7 @@ export function LabelButton({
               placeholder="new or existing tag"
               value={tag}
               onChange={(e) => setTag(e.currentTarget.value)}
+              {...KEEP_SHEET_OPEN}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') apply()
               }}
@@ -99,6 +107,7 @@ export function LabelButton({
               placeholder="optional, visible to agents"
               value={notes}
               onChange={(e) => setNotes(e.currentTarget.value)}
+              {...KEEP_SHEET_OPEN}
               autosize
               minRows={2}
               maxRows={5}
@@ -111,11 +120,22 @@ export function LabelButton({
                   color="gray"
                   leftSection={copied ? <IconCheck size={12} /> : <IconCopy size={12} />}
                   onClick={copy}
+                  {...KEEP_SHEET_OPEN}
                 >
                   {copied ? 'Copied' : 'Copy source id'}
                 </Button>
               )}
             </CopyButton>
+            <Button
+              size="compact-sm"
+              leftSection={<IconStar size={14} />}
+              onClick={apply}
+              loading={saving}
+              disabled={!dirty || !trimmedTag}
+              {...KEEP_SHEET_OPEN}
+            >
+              {trimmedTag ? `Label as ${trimmedTag}` : 'Label as…'}
+            </Button>
             {existing ? (
               <Button
                 size="compact-xs"
@@ -125,6 +145,7 @@ export function LabelButton({
                   setOpened(false)
                   onRemove()
                 }}
+                {...KEEP_SHEET_OPEN}
               >
                 Remove label
               </Button>

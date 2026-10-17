@@ -89,6 +89,17 @@
   align-items: start;
 }
 
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.detailPane {
+  display: none;
+}
+
 @container (min-width: 800px) {
   .split {
     grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
@@ -101,17 +112,6 @@
   .detailPane {
     display: flex;
   }
-}
-
-.detailPane {
-  display: none;
-}
-
-.pane {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
 }
 
 .paneBody {
