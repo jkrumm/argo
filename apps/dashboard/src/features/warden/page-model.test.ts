@@ -644,9 +644,10 @@ describe('deriveSummary health and window', () => {
 })
 
 describe('sentenceCase', () => {
-  it('turns enum casing into a sentence', () => {
+  it('turns enum-like values into a sentence', () => {
     expect(sentenceCase('BLOCKER')).toBe('Blocker')
     expect(sentenceCase('data_loss')).toBe('Data loss')
+    expect(sentenceCase('DATA_LOSS')).toBe('Data loss')
     expect(sentenceCase(' needs_decision ')).toBe('Needs decision')
   })
 
@@ -655,9 +656,18 @@ describe('sentenceCase', () => {
     expect(sentenceCase('a__b')).toBe('A b')
   })
 
-  it('keeps short all-caps acronyms', () => {
+  it('leaves mixed-case tokens and short acronyms as written', () => {
+    expect(sentenceCase('GitHub')).toBe('GitHub')
+    expect(sentenceCase('OOMKilled')).toBe('OOMKilled')
+    expect(sentenceCase('iOS')).toBe('iOS')
     expect(sentenceCase('OOM')).toBe('OOM')
     expect(sentenceCase('CI failed')).toBe('CI failed')
+  })
+
+  it('is null for blank or underscore-only input', () => {
+    expect(sentenceCase('')).toBeNull()
+    expect(sentenceCase('  ')).toBeNull()
+    expect(sentenceCase('___')).toBeNull()
   })
 })
 

@@ -7,5 +7,6 @@ import { VX } from 'basalt-ui/tokens'
  * names what kind of thing needs the owner, not a verdict, so it never takes a status hue.
  */
 export function StatusChip({ label }: { label: string }) {
-  return <StatusVerdict color={VX.muted} word={sentenceCase(label)} />
+  const word = sentenceCase(label)
+  return word === null ? null : <StatusVerdict color={VX.muted} word={word} />
 }
