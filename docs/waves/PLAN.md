@@ -764,8 +764,6 @@ merges.
     - The managed `basalt-design` skill's live-data `shot` recipe sends production captures to the
       reviewer's provider. This is the accepted Part 2 practice, but a reviewer flagged it; it belongs
       upstream.
-    - An untracked personal `sc-note.md` sits at the repo root. It is not from this wave and was left
-      untouched; move it out of the repo.
 
 ## Wave 20 — Calendar and the home page <!-- status: active -->
 
