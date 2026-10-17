@@ -20,7 +20,7 @@ Method only; the law is `.claude/rules/basalt-*.md` and `./DESIGN.md`.
    | Part of a whole, 2–6 parts    | one segmented (stacked) bar, parts in order — not a donut plus a total card, not a row of N `StatCard`s | `Bars` (stacked, the default)               |
    | Distribution                  | small axis-less histogram                                                                               | `Bars` in a `ChartCard`                     |
    | Status over time              | band strip; a heat grid for daily data                                                                  | `BandStrip` / `Heatmap`                     |
-   | Many rows, several attributes | table, right-aligned mono figures                                                                       | `BasaltDataTable`                           |
+   | Many rows, several attributes | table, right-aligned tabular figures                                                                    | `BasaltDataTable`                           |
    | Nothing yet / failed          | why + what to do                                                                                        | `EmptyState` / the component's own state    |
 
    No row fits the data → say so; never default to a number in a box.

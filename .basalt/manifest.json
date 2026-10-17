@@ -1,8 +1,8 @@
 {
   "version": 1,
   "files": {
-    ".claude/rules/basalt-mantine.md": "ad114cbf19860a7677a7fbfa2e2a3b2803928aa459bf58efe81e540a5dc4a878",
-    ".claude/rules/basalt-charts.md": "a147493756c672c6802d7575d22eac49af1468292c63553a1ca58c3be35bbf94",
+    ".claude/rules/basalt-mantine.md": "4469f86816430071d8b28d12b360b4c58c75da3cbd7253d8eb201916147cae0a",
+    ".claude/rules/basalt-charts.md": "ef9321c38730a76b67c0a9149db99fff410cbd78c84fa5fdd83924d252eaf177",
     ".claude/rules/basalt-tokens.md": "83199c44460afc9eb49d586f2b3b05d7bcdd221d8f0cd1240199da69c6b8ebc6",
     ".claude/rules/basalt-state.md": "003cf0ae90fe568f7a46b00d48fee064de569b6a4b1594e61e75c29e992b5b13",
     "DESIGN.md": "c32facc4a2efa27130d2090c2ee107fd650ea9b188c380e2773bdf079126c518",
@@ -10,8 +10,8 @@
     ".github/workflows/check.yml": "f6e4999d3479614a03c7a7e24ac995dc1dca2bbf99461efea657b089dec70743",
     ".oxlintrc.json": "edb58b25c29f977f712ff892b59d28a74420f424ddf465ba7f29a7c713b388ec",
     ".oxfmtrc.json": "6b56ddca73ac1f170fe161ad32aa830dad40a6dc687964c8a852cb928c395039",
-    ".claude/skills/basalt-app/SKILL.md": "5b10f0fcec03be4fa559ad0024b7b6921bf8a370e8a6353cf8aae643dddb8a79",
-    ".claude/skills/basalt-design/SKILL.md": "c2e21686516aa68ad65f781967d3d4342d21bfc1c369e3e49c3ed4f130927e8b",
+    ".claude/skills/basalt-app/SKILL.md": "d526d5ad3b95a91a1271e4f96d978ad9569b8c24b505014a2d6a5d6087e59f02",
+    ".claude/skills/basalt-design/SKILL.md": "6bf23a53a739562ee7cbce36d24487a3235772c99a914c832a99f1dadd65dbec",
     ".claude/skills/basalt-charts/SKILL.md": "f723aa1ecae41bdfcd4179ee82a5d87ad3de302b613a15a5b0854cc6c5dad38c",
     ".claude/rules/basalt-batteries.md": "afc29979842eb0a96c2a4a7a2f1e863e7525268e555925598952943cd9cd6074",
     ".claude/rules/basalt-controls.md": "31dda6d616fb500f84f8db932e3add50e537c5478a5bacaf8dc04a0dd33a19a1",
@@ -21,7 +21,7 @@
     "src/main.tsx": "7fd50babd5d11404b6d778f1df294cba3b85e791ee5fb83b61711eb9e38ba125",
     ".claude/agents/basalt-design-reviewer.md": "95a12c13392a3b286b20a80f8730e0705c87c95d28d4f156fc27700f2210192e"
   },
-  "basaltVersion": "2.19.0",
+  "basaltVersion": "2.20.0",
   "spacingScale": {
     "xs": 8,
     "sm": 12,

@@ -32,7 +32,7 @@ paths:
 ## Surfaces
 
 - Never pass `withBorder` to `Card` or `Paper`; the theme draws the ring (`<Card.Section withBorder>` is fine). [check-theme card-with-border]
-- Card/Paper insets are `py="sm" px="md"` with the theme radius; no explicit `p`, `padding` or `radius`. [basalt/card-inset]
+- The theme owns the Card/Paper inset (12/16) and radius: write no `p`, `padding`, `py`, `px` or `radius`, not even `py="sm" px="md"`. Flush is `variant="flush"` (whole card) or `<Card.Section>` (a full-bleed region). [basalt/card-inset]
 - Lay out with `Box`/`Flex`/`Grid`/`Stack`/`Group`, not a `<div>` with `style`. [check-theme raw-html-layout] [check-theme hidden-inline-style]
 - No inline `display: flex|grid`; no inline spacing; spacing props take `xs..xl`. [check-theme inline-display] [check-theme inline-spacing] [check-theme raw-spacing]
 - Inputs come from `@mantine/core`, never `<input>`, `<select>` or `<textarea>`. [check-theme raw-form-control]

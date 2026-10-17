@@ -74,7 +74,7 @@ const columns = [
   col.accessor('revenue', {
     header: 'Revenue',
     sortFn: 'basic', // v9 `sortFn`, not v8 `sortingFn`
-    meta: { align: 'right' }, // numbers are mono-numeral by default; `numeral: false` opts out
+    meta: { align: 'right' }, // table number columns are mono-numeral by default (Wave 37 revisits the table face); `numeral: false` opts out
     cell: (c) => money(c.getValue(), { currency: 'USD' }),
   }),
 ]
