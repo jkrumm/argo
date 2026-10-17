@@ -13,7 +13,14 @@ export const USAGE_DATA_FLOOR_ISO = '2026-05-28T11:00:00Z'
 
 export const RangeEnum = z.enum(['7d', '30d', '90d', 'all'])
 export const GrainEnum = z.enum(['day', 'week'])
-export const MetricEnum = z.enum(['cost', 'tokens', 'errors', 'latency_p95', 'cache_ratio'])
+export const MetricEnum = z.enum([
+  'cost',
+  'tokens',
+  'errors',
+  'error_rate',
+  'latency_p95',
+  'cache_ratio',
+])
 export const TimeseriesGroupByEnum = z.enum([
   'source',
   'machine',
