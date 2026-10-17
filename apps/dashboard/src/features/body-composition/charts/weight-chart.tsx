@@ -8,7 +8,15 @@ import { VX } from 'basalt-ui/tokens'
 import { weightLogQueries, type WeightLogWindowParams } from '../../../lib/queries/weight-log'
 import stripClasses from '../components/body-strip.module.css'
 import { METRIC_TOOLTIPS } from '../constants'
-import { ageLabel, deltaFromMean, fixed, isStale, weightDeltaPolarity, windowLabel } from '../model'
+import {
+  ageLabel,
+  deltaFromMean,
+  fixed,
+  isStale,
+  weightDeltaPolarity,
+  windowLabel,
+  windowDays,
+} from '../model'
 import type { WeightSummary, WeightWindowStats } from '../types'
 import {
   localDay,
@@ -41,7 +49,8 @@ export default function WeightChart({
   const query = useQuery(weightLogQueries.series(params))
   const apiPoints = query.data?.points
 
-  const chartData = useMemo(() => toWeightChartPoints(apiPoints ?? []), [apiPoints])
+  const span = windowDays(params)
+  const chartData = useMemo(() => toWeightChartPoints(apiPoints ?? [], span), [apiPoints, span])
   const delta = deltaFromMean(summary.current, stats.mean30)
   // Drawn to today, so a stale last entry shows as empty plot rather than a line that just stops.
   const first = chartData[0]
@@ -75,7 +84,7 @@ export default function WeightChart({
   // Fixed domain over weight/MA/goal: 'auto' floors at a zero baseline unless told otherwise, which
   // would flatten a 70–90 kg line against the top of the plot.
   const yDomain = useMemo<[number, number]>(() => {
-    const values = chartData.flatMap((d) => [d.weightKg, d.ma])
+    const values = chartData.flatMap((d) => (d.ma === null ? [d.weightKg] : [d.weightKg, d.ma]))
     if (goal !== null) values.push(goal)
     if (values.length === 0) return [0, 1]
     const min = Math.min(...values)

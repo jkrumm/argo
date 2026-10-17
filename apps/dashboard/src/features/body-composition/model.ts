@@ -3,7 +3,13 @@
  * once, so the summary line, the strip cells and the chart header read the same number.
  */
 import type { SkinfoldSite } from '../../lib/queries/skinfold-log'
-import { compareByDate, type SkinfoldPoint } from './charts/series-data'
+import {
+  compareByDate,
+  coveredWindow,
+  MEAN_DAYS,
+  trailingMean,
+  type SkinfoldPoint,
+} from './charts/series-data'
 import { SKINFOLD_SITES } from './constants'
 import type { WeightWindowStats } from './types'
 
@@ -196,35 +202,14 @@ export function windowDays(params: WindowParams): number | null {
   return null
 }
 
-/** A period's figure needs entries spanning at least this share of it; one entry is not a "30 d mean". */
-export const COVERAGE_SHARE = 0.7
-
-/**
- * Entries dated within `days` days of the newest one (inclusive, the API's `date >= last - days`), or `[]` when the window is
- * shorter than the period or the entries do not span {@link COVERAGE_SHARE} of it.
- */
-function coveredSlice(
-  points: readonly DatedWeight[],
-  days: number,
-  span: number | null,
-): DatedWeight[] {
-  if (span !== null && span < days) return []
-  const last = latestDate(points)
-  if (last === null) return []
-  const slice = points.filter((p) => daysBetween(p.date, last) <= days).toSorted(compareByDate)
-  const first = slice.at(0)
-  if (first === undefined || daysBetween(first.date, last) < days * COVERAGE_SHARE) return []
-  return slice
-}
-
 /** Mean weight of the last `days` days up to the newest entry; `null` when not covered. */
 export function meanOverDays(
   points: readonly DatedWeight[],
   days: number,
   span: number | null,
 ): number | null {
-  const slice = coveredSlice(points, days, span)
-  return slice.length === 0 ? null : slice.reduce((a, p) => a + p.weightKg, 0) / slice.length
+  const last = latestDate(points)
+  return last === null ? null : trailingMean(points, last, days, span)
 }
 
 /**
@@ -237,7 +222,8 @@ export function slopeOverDays(
   days: number,
   span: number | null,
 ): number | null {
-  const slice = coveredSlice(points, days, span)
+  const last0 = latestDate(points)
+  const slice = last0 === null ? [] : coveredWindow(points, last0, days, span)
   const first = slice.at(0)
   const last = slice.at(-1)
   if (first === undefined || last === undefined || daysBetween(first.date, last.date) < 3) {
@@ -255,6 +241,11 @@ export function slopeOverDays(
     den += dx * dx
   })
   return den === 0 ? null : (num / den) * 7
+}
+
+/** The RATE cell footer: the 7 d slope only; the 28 d hero above it is the one long-span rate. */
+export function rateFooter(slope7: number | null): string {
+  return `${signed(slope7, 2)} kg/wk over ${MEAN_DAYS} d`
 }
 
 /** The kg/week range of the API's intensity tier for a rate ("0.1\u20130.3 kg/wk", "\u2265 0.6 kg/wk"). */
@@ -275,7 +266,7 @@ export function weightWindowStats(
   span: number | null,
 ): WeightWindowStats {
   return {
-    mean7: meanOverDays(points, 7, span),
+    mean7: meanOverDays(points, MEAN_DAYS, span),
     mean30: meanOverDays(points, 30, span),
     slope7: slopeOverDays(points, 7, span),
   }

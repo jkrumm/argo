@@ -10,6 +10,7 @@ import {
   entryAgeDays,
   goalProgress,
   intensityBand,
+  rateFooter,
   isStale,
   meanOverDays,
   signed,
@@ -270,14 +271,32 @@ describe('one fixture, two live-review items', () => {
     ])
   })
 
+  test('the rendered RATE footer names 7 d only, no 30 d slope', () => {
+    const text = rateFooter(weightWindowStats(pts, null).slope7)
+    expect(text).toBe('\u22123.50 kg/wk over 7 d')
+    expect(text).not.toMatch(/30/)
+    expect(rateFooter(null)).toBe('\u2014 kg/wk over 7 d')
+  })
+
+  test('where the header says a dash, the chart line has a gap', () => {
+    const sparse = [
+      { date: '2026-06-29', weightKg: 80 },
+      { date: '2026-06-30', weightKg: 79 },
+    ]
+    expect(weightWindowStats(sparse, null).mean7).toBeNull()
+    expect(toWeightChartPoints(sparse, null).at(-1)!.ma).toBeNull()
+  })
+
   test('the header 7 d mean is the chart line value at the newest date', () => {
-    const line = toWeightChartPoints(pts).at(-1)!.ma
+    const line = toWeightChartPoints(pts, null).at(-1)!.ma
     expect(weightWindowStats(pts, null).mean7).toBeCloseTo(line)
     expect(line).toBeCloseTo(100 - 0.5 * 35.5)
   })
 
   test('same on a noisy log', () => {
     const noisy = daily(40, 100, 0).map((p, i) => ({ ...p, weightKg: 100 + (i % 3) }))
-    expect(weightWindowStats(noisy, null).mean7).toBeCloseTo(toWeightChartPoints(noisy).at(-1)!.ma)
+    expect(weightWindowStats(noisy, null).mean7).toBeCloseTo(
+      toWeightChartPoints(noisy, null).at(-1)!.ma,
+    )
   })
 })
