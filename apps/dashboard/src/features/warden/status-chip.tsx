@@ -15,7 +15,7 @@ const TONE_COLOR: Record<ChipTone, string> = {
  */
 export function StatusChip({ tone, label }: { tone: ChipTone; label: string }) {
   return (
-    <Badge variant="light" color={TONE_COLOR[tone]} size="sm">
+    <Badge variant="light" color={TONE_COLOR[tone]} size="md">
       {label}
     </Badge>
   )
