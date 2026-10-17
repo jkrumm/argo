@@ -1,6 +1,6 @@
 # Home (Today) — concept
 
-Route `/` (new, Wave 21; replaces the redirect in `apps/dashboard/src/routes/index.tsx`), source files to create: `apps/dashboard/src/routes/index.tsx`, `apps/dashboard/src/features/home/`. Reads existing endpoints only: Warden snapshot, Agents overview + history, Calendar (Google, M365, TickTick), Garmin recovery / training load, Warden item timelines.
+Route `/` (new, Wave 21; replaces the redirect in `apps/dashboard/src/routes/index.tsx`), source files to create: `apps/dashboard/src/routes/index.tsx`, `apps/dashboard/src/features/home/`. Reads existing endpoints only: Warden snapshot, Agents overview + history + narratives, Calendar (Google, M365, TickTick), Garmin recovery / training load, Warden item timelines.
 
 ## Baseline verdict
 
@@ -26,7 +26,7 @@ Decision: act on the top decision card, or leave knowing nothing else is waiting
 | Tasks due | TickTick `overdue`, `dueSoon` | Part of a whole | Calendar legend entry | Single line `3 overdue · 5 due soon` under the meetings, overdue count `status-bad` text | Two counts, one line | `activity-item--dark--desktop.png` |
 | Recovery today | `/recovery` snapshot {recovery 0–100, components hrv/sleep/rhr, ceiling, strainDebt, penalty} + series | Progress to a target + trend | n/a | Strip cell `RECOVERY · today` value `<n>` muted `/100`, linear Meter 0–100 with a tick at the 7 d mean and the day's `ceiling`, sparkline 7 d with end dot | Recovery against its own baseline is the question | `metric-card-gauge--dark--desktop.png` |
 | Training load | `/training-load` (ACWR, acute/chronic, zone) | Progress to a target (zone) | n/a | Strip cell `ACWR · 7 d / 28 d` value `1.1`, zone band under/optimal/over with marker | A number without a zone is not a reading | `metric-card-bar--dark--desktop.png` |
-| Activity stream | Warden `items[].transitions` and dispatches (latest across items), Agents history deltas (state changes), calendar prep events | Event sequence | n/a | `Activity · Live` EventList (feed density), day groups, actor (`warden`, `agent`), verb + entity (`<repo>` as chip), mono time right; 12 rows, newest first | One chronological feed for both systems | `activity-item--dark--desktop.png`, `timeline-event--dark--desktop.png` |
+| Activity stream | Real fields only: Warden `raw.items[eventId].transitions` and `.dispatches` (timestamped rows; the snapshot carries the timelines the board's items reference), agent narratives (`/agents/narratives` `updatedAt`, `revisedAt`, `summary`), today's calendar events (`start`). **Not available:** agent state changes (`/history` carries only per-point `summary` counts) and calendar prep events (no route). Adding either is a prerequisite API change, not part of this concept | Event sequence | n/a | `Activity · Live` EventList (feed density), day groups, actor (`warden`, `narrator`, `calendar`), verb + entity (`<repo>` as chip), mono time right; newest first, up to 12 rows | One chronological feed from sources that exist; the `Live` pulse is shown only while the snapshot is under 30 min old | `activity-item--dark--desktop.png`, `timeline-event--dark--desktop.png` |
 
 ## Layout
 
@@ -64,6 +64,6 @@ All new; no current chart is reused. The Calendar page keeps its week/month grid
 3. The Needs-you list merges Warden and Agent items, sorted by age, each with source and age in the facts line, and links to the page for the remainder.
 4. Meetings render as an agenda with no empty-hour rows; empty day says `No meetings today.`
 5. The strip has five cells, each with unit and period in its caption and a visual (meter, ticks, band or sparkline); recovery shows its 7 d mean tick.
-6. The activity stream is day-grouped with mono times, a `Live` indicator, and ≥ 8 rows on real data.
+6. The activity stream is day-grouped with mono times and a `Live` indicator while the feed is fresh; it shows all available rows up to 12, and an empty state (`No events since <time>.`) when there are none; every row traces to a transition, dispatch, narrative or calendar field.
 7. No meeting title, message text or repo task text appears in docs or committed fixtures.
 8. At 390 the order is Needs you → Meetings → Activity with no horizontal scroll.
