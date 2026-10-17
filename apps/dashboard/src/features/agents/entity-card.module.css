@@ -65,7 +65,7 @@
 }
 
 .unit {
-  font-size: var(--vx-text-xs);
+  font-size: var(--vx-text-sm);
   color: var(--vx-muted);
   overflow: hidden;
   text-overflow: ellipsis;

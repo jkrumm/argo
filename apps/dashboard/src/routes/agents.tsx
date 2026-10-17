@@ -43,7 +43,9 @@ function AgentsPage() {
   const agents = flattenAgents(snapshot)
   const now = useNow()
   const humanQueue = snapshot?.humanQueue ?? []
-  const oldest = oldestNeedsYouWait(agents, now)
+  const askMs = oldestAskMs(humanQueue, now)
+  const oldestAgent = oldestNeedsYouWait(agents, now)
+  const oldest = oldestAgent ?? (askMs === null ? null : { ms: askMs, project: 'human queue' })
   const { active, quiet } = groupProjects(snapshot, agents)
   const waiting = agents.filter((a) => a.state === 'needs_you').length
 
@@ -64,8 +66,8 @@ function AgentsPage() {
           now={now}
           summary={{
             items: humanQueue.length + waiting,
-            oldestWaitMs: oldest?.ms ?? null,
-            oldestAskMs: oldestAskMs(humanQueue, now),
+            oldestWaitMs: oldestAgent?.ms ?? null,
+            oldestAskMs: askMs,
             working: snapshot?.summary?.working ?? 0,
             total: fleetParts(snapshot?.summary).total,
             idleProjects: quiet.filter((g) => g.worst === 'idle').length,
