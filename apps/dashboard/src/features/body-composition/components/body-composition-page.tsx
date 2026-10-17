@@ -80,7 +80,7 @@ export function BodyCompositionPage({ params }: { params: Params }) {
       <StatGroup
         variant="strip"
         label="Body composition at a glance"
-        cols={cells.length as 2 | 3}
+        cols={sessions.length > 0 ? 3 : 2}
         cells={cells}
       />
 

@@ -2,11 +2,14 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { Group, Stack, Text } from '@mantine/core'
 import { Meter } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
-import { VX } from 'basalt-ui/tokens'
+import { alpha, VX } from 'basalt-ui/tokens'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from '../constants'
 import { type RatioStatus } from '../formulas'
 import { bandOffset, EM_DASH, ratioName, ratioNote, statusWord } from '../model'
+
+/** `MeterZone` has no tone, and `Meter`'s default zone fill is near-white in dark mode. */
+const MUTED_FILL = alpha(VX.muted, 0.35)
 
 type Ratio = {
   label: string
@@ -65,9 +68,9 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
                   max={pair.scaleMax}
                   format={(v) => v.toFixed(2)}
                   zones={[
-                    { from: 0, to: lo, label: 'Under' },
+                    { from: 0, to: lo, label: 'Under', color: MUTED_FILL },
                     { from: lo, to: hi, label: 'Band', color: VX.good },
-                    { from: hi, to: pair.scaleMax, label: 'Over' },
+                    { from: hi, to: pair.scaleMax, label: 'Over', color: MUTED_FILL },
                   ]}
                   startCaption={null}
                   endCaption={null}
