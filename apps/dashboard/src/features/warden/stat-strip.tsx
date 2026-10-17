@@ -44,7 +44,6 @@ export function StatStrip({
                 <Text
                   fz="xl"
                   fw={600}
-                  ff="monospace"
                   lh={1.1}
                   {...(cell.valueColor ? { c: cell.valueColor } : {})}
                 >
