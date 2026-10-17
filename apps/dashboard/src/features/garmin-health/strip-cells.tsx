@@ -75,7 +75,7 @@ function LoadRows({
     <BarList
       label="Acute and chronic load in MET-min per day"
       variant="thin"
-      items={load}
+      items={load.map((l) => ({ ...l, key: l.label }))}
       max={max}
       format={(v) => `${v.toFixed(0)} MET-min/day`}
       emptyText="No load measured"

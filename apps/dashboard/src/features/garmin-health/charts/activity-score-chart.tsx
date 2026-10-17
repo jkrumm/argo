@@ -4,15 +4,9 @@ import { Bars, ChartCard, type BarsBar } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
+import { toChartFact } from '../chart-facts'
 import { RefetchDim } from '../refetch-dim'
-import {
-  ACTIVITY_TARGET_SCORE,
-  activityScoreFact,
-  toChartFact,
-  dayLabel,
-  fmtNum,
-  mean,
-} from '../model'
+import { ACTIVITY_TARGET_SCORE, activityScoreFact, dayLabel, fmtNum, mean } from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'

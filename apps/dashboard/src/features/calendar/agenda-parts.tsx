@@ -212,8 +212,9 @@ export function WeekStrip({
                   value={hours}
                   max={DAY_TARGET_H}
                   target={DAY_TARGET_H}
-                  tone="muted"
-                  {...(hours !== null && hours > DAY_TARGET_H && { color: VX.status.warn })}
+                  {...(hours !== null && hours > DAY_TARGET_H
+                    ? { color: VX.status.warn }
+                    : { tone: 'muted' as const })}
                   size="row"
                 />
                 <span className={classes.stripBooked}>
