@@ -1,5 +1,5 @@
-import { Box, Group, SimpleGrid, Stack, Text } from '@mantine/core'
-import { BarList, Section } from 'basalt-ui'
+import { Box, SimpleGrid, Stack, Text } from '@mantine/core'
+import { Section } from 'basalt-ui'
 import { CONTAINER_KEYS } from 'basalt-ui/tokens'
 import { EntityCard, type EntityCardCell } from './entity-card'
 import { StatusChip, type StatusTone } from './status-chip'
@@ -134,20 +134,26 @@ function ProjectCard({ group, now }: { group: ProjectGroup; now: number }) {
   )
 }
 
-function quietRows(groups: ProjectGroup[], now: number) {
-  return groups.map((g) => ({
-    key: g.name,
-    label: g.name,
-    value: g.agents.length,
-    secondary: (
-      <Group gap="sm" wrap="nowrap" component="span">
-        <StatusChip tone={STATE_TONE[g.worst]} label={STATE_LABEL[g.worst]} />
-        <Text size="sm" ff="monospace" c="dimmed" span>
-          {g.lastActivityAt === null ? '—' : ageAgo(now - g.lastActivityAt)}
-        </Text>
-      </Group>
-    ),
-  }))
+/** One line per project without a running agent: name, agent count, worst state, age. */
+function QuietList({ groups, now }: { groups: ProjectGroup[]; now: number }) {
+  return (
+    <ul className={classes.quiet} aria-label="Projects without a running agent">
+      {groups.map((g) => (
+        <li key={g.name} className={classes.quietRow}>
+          <Text size="sm" truncate>
+            {g.name}
+          </Text>
+          <Text size="sm" ff="monospace" c="dimmed" span>
+            {plural(g.agents.length, 'agent', 'agents')}
+          </Text>
+          <StatusChip tone={STATE_TONE[g.worst]} label={STATE_LABEL[g.worst]} />
+          <Text size="sm" ff="monospace" c="dimmed" span className={classes.quietAge}>
+            {g.lastActivityAt === null ? '—' : ageAgo(now - g.lastActivityAt)}
+          </Text>
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 type Props = {
@@ -158,11 +164,10 @@ type Props = {
 
 /**
  * One entity card per project with a working or waiting agent, then every other project as one
- * `BarList` row (agent count, worst state, last activity) so no project is dropped.
+ * compact row (agent count, worst state, last activity) so no project is dropped.
  */
 export function ProjectCards({ active, quiet, now }: Props) {
   const count = active.length + quiet.length
-  const busiest = Math.max(1, ...[...active, ...quiet].map((g) => g.agents.length))
   if (count === 0) return null
   return (
     <Section title="Projects" count={count}>
@@ -180,14 +185,9 @@ export function ProjectCards({ active, quiet, now }: Props) {
           </SimpleGrid>
         ) : null}
         {quiet.length > 0 ? (
-          <Stack gap="xs" data-shot="quiet-projects">
+          <Stack gap="xs" className={classes.quietBox} data-shot="quiet-projects">
             <Text className={classes.listHead}>No agent running · {quiet.length} projects</Text>
-            <BarList
-              label="Projects without a running agent"
-              items={quietRows(quiet, now)}
-              max={busiest}
-              format={(n) => plural(n, 'agent', 'agents')}
-            />
+            <QuietList groups={quiet} now={now} />
           </Stack>
         ) : null}
       </Stack>

@@ -8,5 +8,9 @@ declare const classes: {
   readonly share: string
   readonly shareFill: string
   readonly listHead: string
+  readonly quiet: string
+  readonly quietBox: string
+  readonly quietRow: string
+  readonly quietAge: string
 }
 export default classes
