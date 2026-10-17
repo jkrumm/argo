@@ -6,6 +6,7 @@ import {
   trainingLoadQueries,
 } from '../../lib/queries/daily-metrics'
 import { summarySentence } from './model'
+import { applyVisibilityFilter } from './visibility'
 import type { SummaryParams } from './types'
 
 /** The page's one-line answer: recovery, load and fitness direction, each with unit and scale. */
@@ -18,7 +19,9 @@ export function SummaryLine({ params }: { params: SummaryParams }) {
     return <Skeleton height={20} width="60%" radius="sm" />
   }
 
-  const acwr = load.data.points.findLast((p) => p.acwr !== null)?.acwr ?? null
+  const acwr =
+    applyVisibilityFilter(load.data.points, (p) => p.date).findLast((p) => p.acwr !== null)?.acwr ??
+    null
   return (
     <Text size="sm" c="dimmed">
       {summarySentence({

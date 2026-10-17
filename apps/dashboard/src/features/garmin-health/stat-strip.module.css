@@ -131,3 +131,7 @@
 .factContext {
   color: var(--vx-muted);
 }
+
+.factContext {
+  white-space: nowrap;
+}

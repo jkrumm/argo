@@ -36,9 +36,9 @@ const ACTIVITY_TYPE_META: Record<string, ActivityTypeMeta> = {
   running: { label: 'Running', color: ACTIVITY.running },
   trail_running: { label: 'Trail Run', color: ACTIVITY.running },
   treadmill_running: { label: 'Treadmill', color: ACTIVITY.running },
-  hiking: { label: 'Wandern', color: ACTIVITY.hiking },
-  surfing_v2: { label: 'Surfen', color: ACTIVITY.surfing },
-  surfing: { label: 'Surfen', color: ACTIVITY.surfing },
+  hiking: { label: 'Hiking', color: ACTIVITY.hiking },
+  surfing_v2: { label: 'Surfing', color: ACTIVITY.surfing },
+  surfing: { label: 'Surfing', color: ACTIVITY.surfing },
 }
 
 const ACTIVITY_TYPE_OTHER: ActivityTypeMeta = {
