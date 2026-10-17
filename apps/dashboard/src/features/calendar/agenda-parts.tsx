@@ -135,7 +135,7 @@ export function DayGroups({
             <Box className={classes.groupHead}>
               <span className={classes.caption}>{dayLabel(day.key)}</span>
               <span className={classes.muted}>
-                {incomplete ? '—' : dayHeadLabel(day, formatDurationMin)}
+                {incomplete ? '—' : dayHeadLabel(day, formatDurationMin, chips.length)}
               </span>
             </Box>
             {chips.length > 0 && (

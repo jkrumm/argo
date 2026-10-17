@@ -357,10 +357,15 @@ describe('cancelled meetings', () => {
       '{title c}',
     )
   })
+  test('a bare prefix title keeps a placeholder', () => {
+    const bare: CalendarItem = { ...ev('p', `${D} 09:00:00`, `${D} 10:00:00`), title: 'Cancelled:' }
+    expect(displayTitle(bare)).toBe('Untitled meeting')
+  })
   test('a day of only cancelled meetings reads "all cancelled"', () => {
     const fmt = (m: number) => `${m}m`
     const only = agendaDay([cancelled('b', 'Abgesagt:', `${D} 13:00:00`, `${D} 14:00:00`)], D)
     expect(dayHeadLabel(only, fmt)).toBe('all cancelled')
+    expect(dayHeadLabel(only, fmt, 1)).toBe('no meetings')
     expect(dayHeadLabel(agendaDay([], D), fmt)).toBe('no meetings')
     expect(dayHeadLabel(agendaDay([ev('a', `${D} 09:00:00`, `${D} 10:00:00`)], D), fmt)).toBe(
       '1 event · 60m',

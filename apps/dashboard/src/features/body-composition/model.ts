@@ -73,6 +73,10 @@ export function signed(value: number | null, digits = 1): string {
 export const fixed = (value: number | null, digits = 1): string =>
   value === null ? '—' : value.toFixed(digits)
 
+/** `80.1 kg` / `0.4 kg/wk`: the value never parts from its unit. */
+export const withKg = (value: number, digits = 1, unit = 'kg'): string =>
+  `${value.toFixed(digits)}\u00a0${unit}`
+
 export type GoalProgress = {
   /** Kilograms still to go, always >= 0. */
   toGo: number

@@ -19,6 +19,7 @@ import {
   signed,
   weightDeltaPolarity,
   type SiteRow,
+  withKg,
 } from '../model'
 import { localDay } from '../charts/series-data'
 import type { SkinfoldSummary, WeightSummary, WeightWindowStats } from '../types'
@@ -62,7 +63,7 @@ export function weightCell({
         <DeltaBadge
           value={delta}
           polarity={weightDeltaPolarity(summary.current, goal)}
-          format={(v) => `${Math.abs(v).toFixed(1)} kg`}
+          format={(v) => withKg(Math.abs(v))}
           period="30 d mean"
         />
       ),
@@ -77,9 +78,9 @@ export function weightCell({
             min={0}
             max={progress.span}
             target={progress.span}
-            format={(v) => `${v.toFixed(1)} kg`}
-            startCaption={`start ${fixed(startWeight)} kg${startDate === null ? '' : ` \u00b7 ${dateLabel(startDate)}`}`}
-            endCaption={`${fixed(goal)} kg goal`}
+            format={(v) => withKg(v)}
+            startCaption={`start ${withKg(startWeight)}${startDate === null ? '' : ` \u00b7 ${dateLabel(startDate)}`}`}
+            endCaption={`${withKg(goal)} goal`}
             tone="muted"
           />
         ),
@@ -124,7 +125,7 @@ export function rateCell({
         value={rate}
         min={-RATE_SCALE_KG_WK}
         max={RATE_SCALE_KG_WK}
-        format={(v) => `${signed(v, 2)} kg/wk`}
+        format={(v) => `${signed(v, 2)}\u00a0kg/wk`}
         zones={[
           { from: -RATE_SCALE_KG_WK, to: -RATE_NEUTRAL_KG_WK, label: 'Cut' },
           {
