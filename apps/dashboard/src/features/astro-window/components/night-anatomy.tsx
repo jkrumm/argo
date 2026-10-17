@@ -1,8 +1,8 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { Box } from '@mantine/core'
 import { Meter, StatGroup, type StatStripRow } from 'basalt-ui'
-import { CORE_METER_MAX_DEG, SKY_DARK_THRESHOLD, SKY_METER_MAX, SKY_METER_MIN } from '../constants'
-import { fmtDegrees, fmtLocalClock, fmtMinutes, moonPhaseLabel } from '../formulas'
+import { SKY_DARK_THRESHOLD, SKY_METER_MAX, SKY_METER_MIN } from '../constants'
+import { fmtLocalClock, fmtMinutes, moonPhaseLabel } from '../formulas'
 import { LP_RAMP, LP_RAMP_MAX, LP_RAMP_MIN } from '../map-layers'
 import type { Location, Night } from '../types'
 import classes from './night-anatomy.module.css'
@@ -66,8 +66,8 @@ function gauge(label: string, value: number | null, max: number, target: number 
 }
 
 /**
- * The selected night in five readings — Dark, Core, Moon, Cloud, Sky — as a `StatGroup` strip. Every micro-visual is a reading against a
- * target: the core against its gate, the moon against its limit, the sky against the dark threshold.
+ * The selected night in five readings — Dark, Core transit, Moon, Cloud, Sky — as a `StatGroup` strip. The core altitude against its gate is
+ * stated once, on the verdict card. Every micro-visual is a reading against a target: the moon against its limit, the sky against the dark threshold.
  */
 export function NightAnatomy({
   night,
@@ -79,8 +79,6 @@ export function NightAnatomy({
   moonLimit: number
 }) {
   const { timeZone } = location
-  const reading = night.gateCoreAltitude
-  const gate = night.coreGateDeg
   const limitPct = Math.round(moonLimit * 100)
   const moonPct = Math.round(night.moon.illumination * 100)
   const sky = location.darknessSource === 'unknown' ? null : location.coreDirectionMpsas
@@ -109,15 +107,8 @@ export function NightAnatomy({
           {
             key: 'core',
             caption: 'Core',
-            value: reading === null ? null : fmtDegrees(reading),
-            ...(reading === null ? {} : { unit: 'at closest to the gate' }),
-            visual: gauge(
-              gate === null ? 'Core altitude' : `Core altitude against a ${fmtDegrees(gate)} gate`,
-              reading,
-              CORE_METER_MAX_DEG,
-              gate,
-            ),
-            footer: `${gate === null ? 'no gate' : `gate ${fmtDegrees(gate)}`} · transit ${night.localTransit}`,
+            value: night.localTransit,
+            unit: 'transit',
           },
           {
             key: 'moon',
