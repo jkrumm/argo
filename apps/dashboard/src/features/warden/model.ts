@@ -4,7 +4,6 @@ import type {
   WardenBoardItem,
   WardenIssueInfo,
   WardenItems,
-  WardenMetrics,
   WardenRaw,
 } from '../../lib/queries/warden'
 
@@ -22,34 +21,6 @@ export function isStale(receivedAt: string | null | undefined, now = Date.now())
   const receivedMs = Date.parse(receivedAt)
   if (!Number.isFinite(receivedMs)) return true
   return now - receivedMs > STALE_AFTER_MS
-}
-
-// ── Board buckets ────────────────────────────────────────────────────────────
-
-export const BUCKET_ORDER = [
-  'needs_decision',
-  'failed',
-  'deferred',
-  'new',
-  'triaged',
-  'working',
-  'merging',
-  'verifying',
-  'unknown',
-] as const
-
-export type BucketKey = (typeof BUCKET_ORDER)[number]
-
-export const BUCKET_LABEL: Record<BucketKey, string> = {
-  needs_decision: 'Needs decision',
-  failed: 'Failed',
-  deferred: 'Deferred — budget',
-  new: 'New',
-  triaged: 'Triaged',
-  working: 'Working',
-  merging: 'Merging',
-  verifying: 'Verifying',
-  unknown: "Unknown state — not in the board's vocabulary",
 }
 
 // ── State presentation ───────────────────────────────────────────────────────
@@ -81,8 +52,6 @@ export function stateLabel(state: string, closeReason?: string | null): string {
   return state === 'closed' && closeReason ? `${state} · ${closeReason}` : state
 }
 
-export type Bucket = { key: BucketKey; label: string; items: WardenBoardItem[] }
-
 /** A `working` item deferred by the daily budget — warden marks it with a `note` starting
  * `"deferred: …"`. It must never render as a plain `working` item: the note IS the finding
  * (what budget was hit), not incidental detail. */
@@ -90,102 +59,6 @@ export function isDeferredItem(item: WardenBoardItem): boolean {
   return (
     item.state === 'working' && typeof item.note === 'string' && item.note.startsWith('deferred:')
   )
-}
-
-/**
- * Buckets every board item into the fixed order above. `deferred` is carved out of `working`
- * items whose note marks a budget deferral — it is not one of warden's own `board.state` values.
- * Every key is present, even with an empty `items` array; the caller (`board-section.tsx`) decides
- * whether an empty bucket renders a `Section` at all.
- */
-export function deriveBoard(board: WardenRaw['board'] | undefined): Bucket[] {
-  const buckets = new Map<BucketKey, WardenBoardItem[]>(BUCKET_ORDER.map((key) => [key, []]))
-  const knownStates = new Set<string>(BUCKET_ORDER)
-  for (const item of board?.items ?? []) {
-    const key: BucketKey = isDeferredItem(item)
-      ? 'deferred'
-      : knownStates.has(item.state)
-        ? (item.state as BucketKey)
-        : 'unknown'
-    buckets.get(key)?.push(item)
-  }
-  return BUCKET_ORDER.map((key) => ({ key, label: BUCKET_LABEL[key], items: buckets.get(key)! }))
-}
-
-// ── GitHub issue groups ──────────────────────────────────────────────────────
-// A separate view over the same board, scoped to `origin: "github_issue"` items only and grouped
-// by pipeline stage rather than by raw `state` — the generic board (above) still shows everything.
-// `needs_decision` and `failed` items are deliberately absent: they live in the dedicated Needs you /
-// Failed queues (`awaiting-owner-section.tsx`), and listing them here too would show each twice.
-
-export const GITHUB_ISSUE_GROUPS = ['running', 'landing', 'done'] as const
-
-export type GithubIssueGroupKey = (typeof GITHUB_ISSUE_GROUPS)[number]
-
-export const GITHUB_ISSUE_GROUP_LABEL: Record<GithubIssueGroupKey, string> = {
-  running: 'Running',
-  landing: 'Merging & verifying',
-  done: 'Done',
-}
-
-export type IssueGroup = { key: GithubIssueGroupKey; label: string; items: WardenBoardItem[] }
-
-function issueGroupKeyForState(state: string): GithubIssueGroupKey {
-  switch (state) {
-    case 'merging':
-    case 'verifying':
-      return 'landing'
-    case 'fixed':
-    case 'quiet':
-    case 'closed':
-      return 'done'
-    default:
-      // `new`, `triaged`, `working` — and any state outside the mapped vocabulary, which is still
-      // mid-pipeline: "running" is the safest default, never dropping the item or inventing a new
-      // group for it.
-      return 'running'
-  }
-}
-
-/**
- * Groups every `origin: "github_issue"` item into the three pipeline-stage groups above, in fixed
- * order. Every key is present, even with an empty `items` array — same shape contract as
- * `deriveBoard`. Non-issue items never participate, even if passed in, and neither do
- * `needs_decision` / `failed` items (the dedicated queues own those).
- */
-export function groupIssueItems(items: WardenBoardItem[]): IssueGroup[] {
-  const groups = new Map<GithubIssueGroupKey, WardenBoardItem[]>(
-    GITHUB_ISSUE_GROUPS.map((key) => [key, []]),
-  )
-  for (const item of items) {
-    if (item.origin !== 'github_issue') continue
-    if (item.state === 'needs_decision' || item.state === 'failed') continue
-    groups.get(issueGroupKeyForState(item.state))!.push(item)
-  }
-  return GITHUB_ISSUE_GROUPS.map((key) => ({
-    key,
-    label: GITHUB_ISSUE_GROUP_LABEL[key],
-    items: groups.get(key)!,
-  }))
-}
-
-export type WardenPageView = {
-  buckets: Bucket[]
-  issueGroups: IssueGroup[]
-  boardItems: WardenBoardItem[]
-}
-
-// A stable reference (not a fresh `?? []` literal on every call) — `use-warden-actions.ts` keys a
-// reconciliation effect off `boardItems`, and a new array identity on every render before the
-// first snapshot loads would fire that effect every render.
-const EMPTY_BOARD_ITEMS: WardenBoardItem[] = []
-
-/** Everything `WardenPage` needs derived from one snapshot's `raw` — pulled out of the page
- * component (which otherwise accumulates a branch per optional-chained field) so page composition
- * stays a plain render, matching this file's ownership of every other board derivation. */
-export function deriveWardenPage(raw: WardenRaw | undefined): WardenPageView {
-  const boardItems = raw?.board?.items ?? EMPTY_BOARD_ITEMS
-  return { buckets: deriveBoard(raw?.board), issueGroups: groupIssueItems(boardItems), boardItems }
 }
 
 // ── Needs you / Failed ───────────────────────────────────────────────────────
@@ -343,175 +216,6 @@ export function reconcilePendingActions(
   // (`use-warden-actions.ts`) calls this unconditionally, and a fresh object every tick with no
   // actual change would re-render the page's whole subtree for no reason.
   return changed ? next : pending
-}
-
-// ── Funnel metrics ───────────────────────────────────────────────────────────
-
-export type FunnelTile = {
-  key: string
-  label: string
-  /** The long, descriptive form of `label` — kept off the tile itself (short labels fit a 390px
-   * two-column mobile grid) and surfaced instead through the tile's `info` tooltip. */
-  description: string
-  value: number | null
-  unavailable: string | null
-  detail: string
-}
-
-const FUNNEL_DEFS: { key: keyof WardenMetrics; label: string; description: string }[] = [
-  {
-    key: 'verdicts_recorded_disposition',
-    label: 'Verdicts recorded',
-    description: 'Verdicts recorded',
-  },
-  {
-    key: 'verified_fixes_vs_silence',
-    label: 'Fixes vs silence',
-    description: 'Verified fixes vs silence',
-  },
-  {
-    key: 'median_needs_decision_to_decision_hours',
-    label: 'Decision wait (h)',
-    description: 'Needs-decision → decision (median h)',
-  },
-  {
-    key: 'verified_unattended_fixes_per_week',
-    label: 'Unattended fixes / wk',
-    description: 'Verified unattended fixes / week',
-  },
-  { key: 'poller_ages', label: 'Poller age (min)', description: 'Poller ages' },
-  { key: 'reverts_and_reopens', label: 'Reverts & reopens', description: 'Reverts & reopens' },
-]
-
-/** A scalar the detail lines are allowed to render directly — anything else (an array, a nested
- * object) needs its own handling rather than a bare `String()`/`JSON.stringify()`. */
-type Scalar = number | string | boolean | null
-
-function isScalar(value: unknown): value is Scalar {
-  return (
-    value === null ||
-    typeof value === 'number' ||
-    typeof value === 'string' ||
-    typeof value === 'boolean'
-  )
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-/** Detail lines never exceed this — past it the full metric is not worth cramming into a tile;
- * it stays reachable through the tile's `info` tooltip instead. */
-const MAX_DETAIL_LINES = 4
-
-/**
- * Renders every field beside `value`/`unavailable` as a compact `"key: value"` line — the extra
- * fields differ per metric (numerator/denominator, fixed/quiet/closed/dismissed, pairs, …) and this
- * stays generic rather than hardcoding each metric's shape.
- *
- * A key ending in `_note` is dropped — it is prose written for the API doc, not a number the tile
- * should surface. A nested object (e.g. `item_states`) never stringifies to JSON: it collapses into
- * ONE line naming its own scalar children (`item_states · closed 4 · fixed 1 · …`). Capped at
- * `MAX_DETAIL_LINES` lines total.
- */
-function detailFromMetric(metric: Record<string, unknown> | undefined): string {
-  if (!metric) return ''
-  const skip = new Set(['value', 'unavailable'])
-  const lines: string[] = []
-  for (const [key, value] of Object.entries(metric)) {
-    if (skip.has(key) || key.endsWith('_note')) continue
-    if (isScalar(value)) {
-      lines.push(`${key}: ${String(value)}`)
-      continue
-    }
-    if (isPlainObject(value)) {
-      const children = Object.entries(value)
-        .filter(([childKey, childValue]) => !childKey.endsWith('_note') && isScalar(childValue))
-        .map(([childKey, childValue]) => `${childKey} ${String(childValue)}`)
-      if (children.length > 0) lines.push([key, ...children].join(' · '))
-    }
-  }
-  return lines.slice(0, MAX_DETAIL_LINES).join(' · ')
-}
-
-/** A metric with no top-level `value` key at all (only `reverts_and_reopens` today) is a
- * composite — its children are themselves `{value, unavailable}` pairs, not siblings of a leaf. */
-function isCompositeMetric(
-  metric: Record<string, unknown> | undefined,
-): metric is Record<string, Record<string, unknown>> {
-  return metric !== undefined && !('value' in metric)
-}
-
-/** Renders one composite child as `key: n/a — reason` or `key: value` — a real `0` prints as `0`,
- * never as "n/a", per the same never-fabricate-zero rule as a leaf metric. */
-function formatCompositeChild(child: Record<string, unknown> | undefined): string {
-  const value = child?.['value']
-  if (typeof value === 'number') return String(value)
-  const reason = typeof child?.['unavailable'] === 'string' ? child['unavailable'] : 'not reported'
-  return `n/a — ${reason}`
-}
-
-function detailFromComposite(metric: Record<string, Record<string, unknown>>): string {
-  return Object.entries(metric)
-    .map(([key, child]) => `${key}: ${formatCompositeChild(child)}`)
-    .join(' · ')
-}
-
-/**
- * The six funnel tiles, fixed order. A `null` value ALWAYS pairs with a non-empty `unavailable`
- * reason — including when warden omitted the metric entirely, which reads as "not reported" rather
- * than a silent zero. `reverts_and_reopens` is a composite (see `isCompositeMetric`): its headline
- * is the first child with a non-null `value` — a real measurement like `reverts: 0`, not a
- * fabricated zero — falling back to "n/a" with the first child's reason when every child is null.
- */
-export function deriveFunnel(metrics: WardenMetrics | undefined): FunnelTile[] {
-  return FUNNEL_DEFS.map(({ key, label, description }) => {
-    const metric = metrics?.[key] as Record<string, unknown> | undefined
-
-    if (isCompositeMetric(metric)) {
-      const children = Object.values(metric)
-      const headline = children.find((child) => typeof child['value'] === 'number')
-      const value = typeof headline?.['value'] === 'number' ? (headline['value'] as number) : null
-      const unavailable =
-        value === null
-          ? typeof children[0]?.['unavailable'] === 'string'
-            ? (children[0]['unavailable'] as string)
-            : 'not reported'
-          : null
-      return { key, label, description, value, unavailable, detail: detailFromComposite(metric) }
-    }
-
-    const rawValue = metric?.['value']
-    const value = typeof rawValue === 'number' ? rawValue : null
-    const rawUnavailable = metric?.['unavailable']
-    const unavailable =
-      typeof rawUnavailable === 'string' ? rawUnavailable : value === null ? 'not reported' : null
-    return { key, label, description, value, unavailable, detail: detailFromMetric(metric) }
-  })
-}
-
-// ── Tile formatting ──────────────────────────────────────────────────────────
-
-/** The two ratio-shaped metrics (already fractions 0..1) — everything else on the board is a plain
- * measurement (hours, minutes, a count), never a percentage. */
-const PERCENT_KEYS = new Set(['verdicts_recorded_disposition', 'verified_fixes_vs_silence'])
-
-/** Rounds to at most one decimal place and drops a trailing `.0` — `4.695051216666667` reads as
- * `4.7`, a whole number like `0` or `5` stays an integer, never `"5.0"`. */
-export function formatTileNumber(value: number): string {
-  const fixed = value.toFixed(1)
-  return fixed.endsWith('.0') ? fixed.slice(0, -2) : fixed
-}
-
-/**
- * The tile headline. `null` reads as `"n/a"` (paired with `tile.unavailable`'s reason, surfaced
- * separately). The two ratio keys render as a whole percent; every other tile — hours, minutes,
- * counts — renders through `formatTileNumber`, never the raw float a metric was measured at.
- */
-export function formatTileValue(tile: FunnelTile): string {
-  if (tile.value === null) return 'n/a'
-  if (PERCENT_KEYS.has(tile.key)) return `${Math.round(tile.value * 100)}%`
-  return formatTileNumber(tile.value)
 }
 
 // ── Item timeline ────────────────────────────────────────────────────────────
