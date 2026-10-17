@@ -339,6 +339,8 @@ export type SummaryInput = {
   paceKmh: number | null
   paceDeltaKmh: number | null
   prior: string
+  /** The window the pace averages over, e.g. "30 d" or "all time". */
+  period: string
 }
 
 /** "{km} km this week in {n} walks; streak {d} d; pace {p} km/h, {delta} vs the prior 30 d." */
@@ -350,6 +352,6 @@ export function summarySentence(s: SummaryInput): string {
   const pace =
     s.paceKmh === null
       ? 'pace —'
-      : `pace ${fmtKmh(s.paceKmh)} km/h${s.paceDeltaKmh === null ? ', no prior window to compare' : `, ${fmtSignedKmh(s.paceDeltaKmh)} vs the ${s.prior}`}`
+      : `pace ${fmtKmh(s.paceKmh)} km/h${s.paceDeltaKmh === null ? ` over ${s.period}, no prior window to compare` : `, ${fmtSignedKmh(s.paceDeltaKmh)} vs the ${s.prior}`}`
   return `${week}; streak ${s.streakDays} d; ${pace}.`
 }

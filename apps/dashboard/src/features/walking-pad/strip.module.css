@@ -183,9 +183,13 @@
   font-variant-numeric: proportional-nums;
 }
 
-.factUnit,
-.factContext {
+.factUnit {
   font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+}
+
+.factContext {
   font-size: var(--vx-text-sm);
   color: var(--vx-muted);
 }
