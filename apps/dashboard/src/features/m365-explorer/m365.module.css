@@ -50,11 +50,9 @@
   min-height: 0;
 }
 
-/* The one scroll container of a pane: native, so the thumb is one piece (no nested viewports). */
 .paneScroll {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
 }
 
 .toolbar {
@@ -164,6 +162,10 @@
     display: block;
     white-space: nowrap;
     text-overflow: ellipsis;
+  }
+
+  .rowMain {
+    overflow: hidden;
   }
 }
 

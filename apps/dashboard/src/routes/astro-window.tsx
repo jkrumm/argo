@@ -302,7 +302,7 @@ function AstroWindowPage() {
               options={sites.data.map((s) => ({
                 value: s.id,
                 // The core direction, not the zenith: it is the number the ranking turns on.
-                label: `${s.name} · ${s.coreDirectionMpsas.toFixed(2)} · ${s.driveMinutes}min`,
+                label: `${s.name} · ${s.coreDirectionMpsas.toFixed(2)} mag · ${s.driveMinutes}min`,
               }))}
             />
             {/* `field.number` + `NumberFilter` (basalt-ui 1.27.0): the URL keeps a NUMBER, and

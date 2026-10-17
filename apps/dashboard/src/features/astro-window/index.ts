@@ -33,13 +33,14 @@ export {
   fmtDayLabel,
   fmtLocalClock,
   moonPhaseLabel,
-  dataHealthLine,
   limitingFactor,
   killerLabel,
   fmtShortDay,
   usableNightCount,
   bestNightOf,
   gapToGate,
+  coreGateFailure,
+  coreMeterReading,
 } from './formulas'
 
 export {

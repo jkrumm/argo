@@ -68,7 +68,11 @@ export function SourceRow(props: SourceRowProps): ReactNode {
         <span className={classes.rowName} title={props.name}>
           {props.name}
         </span>
-        {props.meta ? <span className={classes.rowMeta}>{props.meta}</span> : null}
+        {props.meta ? (
+          <span className={classes.rowMeta} title={props.meta}>
+            {props.meta}
+          </span>
+        ) : null}
       </span>
       {props.starLabel ? (
         <span className={classes.star} role="img" aria-label={`Labeled ${props.starLabel}`}>

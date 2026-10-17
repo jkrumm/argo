@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'bun:test'
-import { hourlyTicks, hourlyTimeLabel, nightNote } from './formulas'
+import {
+  coreGateFailure,
+  coreMeterReading,
+  hourlyTicks,
+  hourlyTimeLabel,
+  nightNote,
+} from './formulas'
 import type { Night } from './types'
 
 // Europe/Berlin fall-back night 2026-10-25: 02:00 and 02:30 local occur twice (CEST, then CET).
@@ -77,5 +83,25 @@ describe('nightNote', () => {
       window: { minutes: 150 },
     } as unknown as Night
     expect(nightNote(night)).toBe('2h 30m')
+  })
+})
+
+describe('coreGateFailure', () => {
+  const night = (killers: { id: string }[]) => ({ killers }) as unknown as Night
+  test('true only when the core-altitude gate ruled the night out', () => {
+    expect(coreGateFailure(night([{ id: 'core-altitude' }]))).toBe(true)
+    expect(coreGateFailure(night([{ id: 'moon' }]))).toBe(false)
+    expect(coreGateFailure(night([]))).toBe(false)
+  })
+})
+
+describe('coreMeterReading', () => {
+  test('a night that clears the gate still carries its reading and gate', () => {
+    const night = { killers: [], gateCoreAltitude: 12.4, coreGateDeg: 8 } as unknown as Night
+    expect(coreMeterReading(night)).toEqual({ reading: 12.4, gate: 8 })
+  })
+  test('no dark stretch, no reading', () => {
+    const night = { killers: [], gateCoreAltitude: null, coreGateDeg: null } as unknown as Night
+    expect(coreMeterReading(night)).toBeNull()
   })
 })

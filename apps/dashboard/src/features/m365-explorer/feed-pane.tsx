@@ -1,4 +1,4 @@
-import { Alert } from '@mantine/core'
+import { Alert, ScrollArea } from '@mantine/core'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { m365Queries } from '../../lib/queries/m365'
 import { MessageRow, MessageSkeleton } from './message-row'
@@ -26,7 +26,7 @@ export function FeedPane({ tag }: { tag: string }) {
             : '—'}
         </span>
       </header>
-      <div className={classes.paneScroll}>
+      <ScrollArea className={classes.paneScroll} type="auto" scrollbars="y">
         {q.error ? (
           <Alert color="red" variant="light" m="sm">
             {q.error instanceof Error ? q.error.message : 'Failed to load the feed'}
@@ -47,7 +47,7 @@ export function FeedPane({ tag }: { tag: string }) {
             meta={[item.label, item.displayName, item.notes].filter(Boolean).join(' · ')}
           />
         ))}
-      </div>
+      </ScrollArea>
     </>
   )
 }

@@ -2,12 +2,14 @@ import { UnstyledButton } from '@mantine/core'
 import { LABELED_FILTER, type ChipCounts } from './model'
 import classes from './m365.module.css'
 
+export type ChipScope = 'chats' | 'channels' | 'sources'
+
 export type TagChipsProps = {
   /** `''` = all sources, `*` = every labeled source, otherwise a tag. */
   active: string
   counts: ChipCounts
   /** What the counts range over (`chats`, `channels`, `sources`), so "Labeled" names its scope. */
-  scope: string
+  scope: ChipScope
   onChange: (tag: string) => void
 }
 
@@ -42,17 +44,15 @@ export function TagChips({ active, counts, scope, onChange }: TagChipsProps) {
           onClick={() => onChange(LABELED_FILTER)}
         />
       ) : null}
-      {counts.tags
-        .filter(([tag, count]) => count > 0 || active === tag)
-        .map(([tag, count]) => (
-          <Chip
-            key={tag}
-            label={tag}
-            count={count}
-            active={active === tag}
-            onClick={() => onChange(tag)}
-          />
-        ))}
+      {counts.tags.map(([tag, count]) => (
+        <Chip
+          key={tag}
+          label={tag}
+          count={count}
+          active={active === tag}
+          onClick={() => onChange(tag)}
+        />
+      ))}
     </div>
   )
 }
