@@ -1,7 +1,7 @@
 import { Flex, Group, Text } from '@mantine/core'
 import { Sparkline } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
-import { Meter } from '../../components/upstream'
+import { Meter } from 'basalt-ui'
 import type { HistoryPoint, OverviewSummary } from '../../lib/queries/agents'
 import {
   ABANDONED_AFTER_MS,
