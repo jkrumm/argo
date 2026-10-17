@@ -6,6 +6,13 @@
 }
 
 /* One column when the strip itself is narrow (390), regardless of the viewport. */
+/* Six cells at desktop: the Fixes cell (second) is wider so its legend stays on one line. */
+@container (min-width: 800px) {
+  .cells {
+    grid-template-columns: 1fr 1.4fr 1fr 1fr 1fr 1fr;
+  }
+}
+
 @container (max-width: 479.9px) {
   .cells {
     grid-template-columns: 1fr;

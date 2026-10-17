@@ -8,7 +8,7 @@
 }
 
 .preview {
-  flex: 0 1 16rem;
+  flex: 0 1 11rem;
   min-width: 0;
   padding: var(--vx-space-stack-md, 0.75rem);
   border-radius: var(--vx-radius-fine);

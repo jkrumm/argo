@@ -1,4 +1,4 @@
-import { Stack, Text } from '@mantine/core'
+import { Group, Stack, Text } from '@mantine/core'
 import { VX } from 'basalt-ui/tokens'
 import type { ReactNode } from 'react'
 import type { WardenBudget, WardenHealth, WardenMetrics } from '../../lib/queries/warden'
@@ -6,7 +6,7 @@ import { Meter } from 'basalt-ui'
 import { StatStrip, type StatStripCell } from './stat-strip'
 import {
   POLLER_SCALE_MIN,
-  deriveBudget,
+  deriveBudgetFooter,
   deriveStrip,
   formatNumber,
   type BudgetMeter,
@@ -83,16 +83,17 @@ function fixesCell({ fixes }: StripModel): StatStripCell {
     qualifier: (
       <>
         all time · share of fixed + quiet
-        <br />
-        <Text span size="xs" c={VX.status.good}>
-          fixed&nbsp;{fixes.fixed ?? '—'}
-        </Text>
-        {' · '}
-        <Text span size="xs" c={VX.status.warn}>
-          quiet&nbsp;{fixes.quiet ?? '—'}
-        </Text>
-        {' · closed\u00a0'}
-        {fixes.closed ?? '—'}
+        <Group gap={8} wrap="nowrap">
+          <Text span size="xs" c={VX.status.good}>
+            fixed {fixes.fixed ?? '—'}
+          </Text>
+          <Text span size="xs" c={VX.status.warn}>
+            quiet {fixes.quiet ?? '—'}
+          </Text>
+          <Text span size="xs">
+            closed {fixes.closed ?? '—'}
+          </Text>
+        </Group>
       </>
     ),
     visual: (
@@ -264,9 +265,22 @@ export function HealthStrip({ metrics, health, budget }: Props) {
     pollerCell(model),
     revertsCell(model),
   ]
-  const footer = deriveBudget(budget).map((meter) => ({
-    key: meter.key,
-    content: <BudgetMeterRow meter={meter} />,
-  }))
+  const budgetFooter = deriveBudgetFooter(budget)
+  const footer =
+    budgetFooter.kind === 'not-reported'
+      ? [
+          {
+            key: 'budget',
+            content: (
+              <Text size="xs" c="dimmed">
+                Dispatch budget — not reported by Warden
+              </Text>
+            ),
+          },
+        ]
+      : budgetFooter.meters.map((meter) => ({
+          key: meter.key,
+          content: <BudgetMeterRow meter={meter} />,
+        }))
   return <StatStrip cells={cells} footer={footer} />
 }

@@ -150,7 +150,7 @@ export function DecisionCard({
   return (
     <Card>
       <Group align="stretch" gap="md" wrap="wrap">
-        <Stack gap="sm" flex="1 1 18rem" miw={0}>
+        <Stack gap="sm" flex="1 1 14rem" miw={0}>
           {isRenderable(actor) && (
             <Text size="xs" c="dimmed">
               {actor}

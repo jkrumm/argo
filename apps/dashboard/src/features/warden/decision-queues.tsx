@@ -4,7 +4,8 @@ import { useDisclosure } from '@mantine/hooks'
 import { EmptyState, Section, useSizeClass } from 'basalt-ui'
 import { CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
 import { IconCircleCheck, IconListDetails } from '@tabler/icons-react'
-import type { WardenActionVerb } from '../../lib/queries/warden'
+import type { WardenActionVerb, WardenItems } from '../../lib/queries/warden'
+import { HistoryPreview } from './history-preview'
 import { DecisionCard, type DecisionCardAction } from '../../components/upstream/decision-card'
 import { ActionPromptModal } from './action-prompt'
 import { VERB_LABEL, needsPrompt, type PromptState, type PromptVerb } from './action-verbs'
@@ -20,6 +21,9 @@ import {
   needsCards,
   planActions,
   retryQuestion,
+  recentTransitions,
+  tagChip,
+  type TransitionLine,
   splitReason,
   type QueueKind,
 } from './page-model'
@@ -29,6 +33,7 @@ type OnAction = (eventId: number, verb: WardenActionVerb, payload?: Record<strin
 
 type Props = {
   view: AwaitingOwnerView
+  items: WardenItems | undefined
   pending: PendingActions
   onSelectItem: (eventId: number) => void
   onAction: OnAction
@@ -68,6 +73,7 @@ function QueueCard({
   kind,
   pending,
   narrow,
+  history,
   onFire,
   onSelectItem,
 }: {
@@ -75,6 +81,7 @@ function QueueCard({
   kind: QueueKind
   pending: PendingActions[number] | undefined
   narrow: boolean
+  history: TransitionLine[]
   onFire: (verb: WardenActionVerb) => void
   onSelectItem: () => void
 }) {
@@ -94,7 +101,12 @@ function QueueCard({
     kind === 'failed'
       ? { question: retryQuestion(title), rest: row.reason }
       : splitReason(row.reason, title)
-  const chip = kind === 'failed' ? failureChip(row.failureClass) : null
+  const chip =
+    kind === 'failed'
+      ? failureChip(row.failureClass)
+      : 'tag' in split && split.tag !== null
+        ? tagChip(split.tag)
+        : null
   const status =
     chip !== null ? (
       <StatusChip tone={chip.tone} label={chip.label} />
@@ -109,9 +121,16 @@ function QueueCard({
         question={split.question}
         facts={cardFacts(row)}
         status={status}
-        actor={kind === 'decision' && split.question !== title ? title : undefined}
+        actor={
+          kind === 'decision' && split.question !== title ? (
+            <Text component="span" fz="xs" lineClamp={1} title={title}>
+              {title}
+            </Text>
+          ) : undefined
+        }
         {...(!narrow && evidence ? { evidence } : {})}
         {...(narrow && evidence ? { disclosure: { label: 'Full reason', content: evidence } } : {})}
+        {...(!narrow && history.length > 0 ? { preview: <HistoryPreview lines={history} /> } : {})}
         primary={plan.primary ? toAction(plan.primary) : undefined}
         secondary={plan.secondary ? toAction(plan.secondary) : undefined}
         menu={menu}
@@ -135,11 +154,13 @@ function CardGrid({
   rows,
   kind,
   pending,
+  items,
   onFire,
   onSelectItem,
 }: {
   rows: readonly AwaitingOwnerRow[]
   kind: QueueKind
+  items: WardenItems | undefined
   pending: PendingActions
   onFire: (eventId: number, verb: WardenActionVerb) => void
   onSelectItem: (eventId: number) => void
@@ -154,6 +175,7 @@ function CardGrid({
           kind={kind}
           pending={pending[row.eventId]}
           narrow={narrow}
+          history={recentTransitions(items?.[String(row.eventId)])}
           onFire={(verb) => onFire(row.eventId, verb)}
           onSelectItem={() => onSelectItem(row.eventId)}
         />
@@ -168,7 +190,7 @@ function CardGrid({
  * `dismiss`/`note` collect a short text first (`ActionPromptModal`); the write contract
  * (`onAction` → `use-warden-actions`) is unchanged.
  */
-export function DecisionQueues({ view, pending, onSelectItem, onAction }: Props) {
+export function DecisionQueues({ view, items, pending, onSelectItem, onAction }: Props) {
   const [prompt, setPrompt] = useState<PromptState>(null)
   const needs = needsCards(view)
 
@@ -205,6 +227,7 @@ export function DecisionQueues({ view, pending, onSelectItem, onAction }: Props)
           <CardGrid
             rows={needs}
             kind="decision"
+            items={items}
             pending={pending}
             onFire={fire}
             onSelectItem={onSelectItem}
@@ -216,6 +239,7 @@ export function DecisionQueues({ view, pending, onSelectItem, onAction }: Props)
           <CardGrid
             rows={view.failed}
             kind="failed"
+            items={items}
             pending={pending}
             onFire={fire}
             onSelectItem={onSelectItem}
