@@ -4,10 +4,9 @@
  * is `caption · period`, a hero value, one micro-visual and a comparison or target. A failed or
  * missing reading is `—`, never 0.
  */
-import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Box, Skeleton, Text } from '@mantine/core'
-import { Meter } from 'basalt-ui'
+import { Skeleton, Stack, Text } from '@mantine/core'
+import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { BandStrip, Sparkline } from 'basalt-ui/charts'
 import type { BandSpan } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
@@ -39,7 +38,7 @@ import {
 } from './model'
 import classes from './usage.module.css'
 
-/** A reading that is not a verdict: `Meter`'s neutral fill (`VX.line`) is near-white in dark mode. */
+/** The ring's progress arc: not a verdict, and `VX.line` is near-white in dark mode. */
 const MUTED_FILL = alpha(VX.muted, 0.35)
 const SPARK_HEIGHT = 36
 const RING_SIZE = 56
@@ -47,53 +46,8 @@ const RING_STROKE = 6
 
 type Daily = { date: Date; value: number | null }
 
-type CellProps = {
-  id: string
-  caption: string
-  qualifier: string
-  value: string
-  unit?: string | undefined
-  loading?: boolean
-  visual?: ReactNode
-  footer?: ReactNode[]
-}
-
-function Cell({
-  id,
-  caption,
-  qualifier,
-  value,
-  unit,
-  loading = false,
-  visual,
-  footer = [],
-}: CellProps) {
-  return (
-    <Box className={classes.cell} data-shot={`strip-${id}`}>
-      <Text className={classes.caption}>
-        {caption} <span className={classes.qualifier}>· {qualifier}</span>
-      </Text>
-      {loading ? (
-        <Skeleton height={28} width={96} radius="sm" />
-      ) : (
-        <div className={classes.reading}>
-          <span className={classes.value}>{value}</span>
-          {unit ? <span className={classes.unit}>{unit}</span> : null}
-        </div>
-      )}
-      {visual ? <div className={classes.visual}>{visual}</div> : null}
-      {footer.length > 0 && (
-        <div className={classes.footer}>
-          {footer.map((line, i) => (
-            <span key={i} className={classes.footerLine}>
-              {line}
-            </span>
-          ))}
-        </div>
-      )}
-    </Box>
-  )
-}
+/** Footer lines in one muted line; a stat-strip cell footer is a single node. */
+const footerOf = (lines: readonly string[]): string => lines.join(' · ')
 
 function useDaily(metric: 'cost' | 'tokens' | 'latency_p95' | 'error_rate') {
   const query = useQuery(
@@ -231,137 +185,141 @@ export function UsageStrip() {
     text === null ? `${noun} —` : `30 d ${noun} ${text}`
   const ratio = h?.cacheHitRatio30d ?? null
 
-  return (
-    <section className={classes.strip} aria-label="Usage over the last 30 days">
-      <div className={classes.grid}>
-        <Cell
-          id="cost"
-          caption="Cost"
-          qualifier="30 d"
-          value={fmtUsdWhole(h?.costUsd30d)}
-          loading={loading}
-          visual={
-            <Trend
-              label="Cost per day over the last 30 days"
-              days={cost.days}
-              loading={cost.loading}
-            />
-          }
-          footer={[
-            meanLine(costMean === null ? null : `${fmtUsdWhole(costMean)} a day`),
-            priorOf(h?.costUsd30d, h?.costUsdPrior30d, deltaPctText),
-            `${fmtUsdWhole(h?.costUsd7d)} in the last 7 d`,
-          ]}
+  const cells: StatStripCell[] = [
+    {
+      key: 'cost',
+      caption: 'Cost',
+      qualifier: '30 d',
+      value: fmtUsdWhole(h?.costUsd30d),
+      loading,
+      visual: (
+        <Trend label="Cost per day over the last 30 days" days={cost.days} loading={cost.loading} />
+      ),
+      footer: footerOf([
+        meanLine(costMean === null ? null : `${fmtUsdWhole(costMean)} a day`),
+        priorOf(h?.costUsd30d, h?.costUsdPrior30d, deltaPctText),
+        `${fmtUsdWhole(h?.costUsd7d)} in the last 7 d`,
+      ]),
+    },
+    {
+      key: 'tokens',
+      caption: 'Tokens',
+      qualifier: '30 d',
+      value: tokenQty.value,
+      ...(tokenQty.unit ? { unit: tokenQty.unit } : {}),
+      loading,
+      visual: (
+        <Trend
+          label="Tokens per day over the last 30 days"
+          days={tokens.days}
+          loading={tokens.loading}
         />
-        <Cell
-          id="tokens"
-          caption="Tokens"
-          qualifier="30 d"
-          value={tokenQty.value}
-          unit={tokenQty.unit}
-          loading={loading}
-          visual={
-            <Trend
-              label="Tokens per day over the last 30 days"
-              days={tokens.days}
-              loading={tokens.loading}
-            />
-          }
-          footer={[
-            meanLine(tokensMean === null ? null : `${fmtTokens(tokensMean)} a day`),
-            priorOf(h?.tokens30d, h?.tokensPrior30d, deltaPctText),
-            h ? `${h.sourcesActive} sources` : EM_DASH,
-            'cache reads excluded',
-          ]}
-        />
-        <Cell
-          id="errors"
-          caption="Errors"
-          qualifier="30 d"
-          value={errorRateReading(h?.errorRate30d, h?.calls30d)}
-          unit={h?.calls30d === 0 ? undefined : 'of calls'}
-          loading={loading}
-          visual={
-            errors.days.length > 0 ? (
-              <ErrorBand days={errors.days} />
-            ) : (
-              <Text size="sm" c="dimmed">
-                {errors.loading
-                  ? EM_DASH
-                  : errors.failed
-                    ? 'Daily error rate failed to load'
-                    : 'No daily error rate yet'}
-              </Text>
-            )
-          }
-          footer={
-            errors.days.length === 0
-              ? [priorError]
-              : [
-                  `${badDayCount(errors.days.map((d) => d.value))} bad days · > ${fmtPct(ERROR_BAD_ABOVE, 0)}`,
-                  priorError,
-                  `warn from ${fmtPct(ERROR_WARN_FROM, 0)} a day`,
-                ]
-          }
-        />
-        <Cell
-          id="p95"
-          caption="p95 latency"
-          qualifier="30 d"
-          value={p95Qty.value}
-          unit={p95Qty.unit}
-          loading={loading}
-          visual={
-            <Trend
-              label="p95 latency per day over the last 30 days"
-              days={p95.days}
-              loading={p95.loading}
-            />
-          }
-          footer={[
-            meanLine(
-              p95Mean === null ? null : `${secondsQuantity(p95Mean).value} s`,
-              'mean daily p95',
-            ),
-            priorOf(h?.p95Ms30d, h?.p95MsPrior30d, deltaSecondsText),
-          ]}
-        />
-        <Cell
-          id="cache"
-          caption="Cache hit"
-          qualifier="30 d"
-          value={fmtPct(ratio)}
-          loading={loading}
-          visual={ratio === null ? undefined : <CacheRing ratio={ratio} />}
-          footer={[`target ${fmtPct(CACHE_HIT_TARGET, 0)}`, 'read ÷ (read + input)']}
-        />
-        <Box className={classes.billing} data-shot="strip-billing">
-          <Text className={classes.caption}>
-            Billing split <span className={classes.qualifier}>· 30 d</span>
+      ),
+      footer: footerOf([
+        meanLine(tokensMean === null ? null : `${fmtTokens(tokensMean)} a day`),
+        priorOf(h?.tokens30d, h?.tokensPrior30d, deltaPctText),
+        h ? `${h.sourcesActive} sources` : EM_DASH,
+        'cache reads excluded',
+      ]),
+    },
+    {
+      key: 'errors',
+      caption: 'Errors',
+      qualifier: '30 d',
+      value: errorRateReading(h?.errorRate30d, h?.calls30d),
+      ...(h?.calls30d === 0 ? {} : { unit: 'of calls' }),
+      loading,
+      visual:
+        errors.days.length > 0 ? (
+          <ErrorBand days={errors.days} />
+        ) : (
+          <Text size="sm" c="dimmed">
+            {errors.loading
+              ? EM_DASH
+              : errors.failed
+                ? 'Daily error rate failed to load'
+                : 'No daily error rate yet'}
           </Text>
-          {loading ? (
-            <Skeleton height={28} radius="sm" />
-          ) : h === undefined || parts.every((p) => p.value <= 0) ? (
-            <Text size="sm" c="dimmed">
-              No cost recorded in the last 30 d
-            </Text>
-          ) : (
-            <Meter
-              label="Cost by billing lane over the last 30 days"
-              max={h.costUsd30d}
-              format={(v) => `${fmtUsdWhole(v)} · ${fmtShare(v / h.costUsd30d)}`}
-              segments={parts
-                .filter((p) => p.value > 0)
-                .map((p) => ({
-                  label: p.label,
-                  value: p.value,
-                  color: BILLING_COLOR[p.key],
-                }))}
-              startCaption={`total ${fmtUsdWhole(h.costUsd30d)}`}
-            />
-          )}
-        </Box>
-      </div>
-    </section>
+        ),
+      footer: footerOf(
+        errors.days.length === 0
+          ? [priorError]
+          : [
+              `${badDayCount(errors.days.map((d) => d.value))} bad days · > ${fmtPct(ERROR_BAD_ABOVE, 0)}`,
+              priorError,
+              `warn from ${fmtPct(ERROR_WARN_FROM, 0)} a day`,
+            ],
+      ),
+    },
+    {
+      key: 'p95',
+      caption: 'p95 latency',
+      qualifier: '30 d',
+      value: p95Qty.value,
+      ...(p95Qty.unit ? { unit: p95Qty.unit } : {}),
+      loading,
+      visual: (
+        <Trend
+          label="p95 latency per day over the last 30 days"
+          days={p95.days}
+          loading={p95.loading}
+        />
+      ),
+      footer: footerOf([
+        meanLine(p95Mean === null ? null : `${secondsQuantity(p95Mean).value} s`, 'mean daily p95'),
+        priorOf(h?.p95Ms30d, h?.p95MsPrior30d, deltaSecondsText),
+      ]),
+    },
+    {
+      key: 'cache',
+      caption: 'Cache hit',
+      qualifier: '30 d',
+      value: fmtPct(ratio),
+      loading,
+      visual: ratio === null ? undefined : <CacheRing ratio={ratio} />,
+      footer: footerOf([`target ${fmtPct(CACHE_HIT_TARGET, 0)}`, 'read ÷ (read + input)']),
+    },
+  ]
+
+  return (
+    <StatGroup
+      variant="strip"
+      label="Usage over the last 30 days"
+      cols={5}
+      cells={cells}
+      footer={[
+        {
+          key: 'billing',
+          content: (
+            <Stack gap="xs">
+              <Text size="xs" c="dimmed">
+                Billing split · 30 d
+              </Text>
+              {loading ? (
+                <Skeleton height={28} radius="sm" />
+              ) : h === undefined || parts.every((p) => p.value <= 0) ? (
+                <Text size="sm" c="dimmed">
+                  No cost recorded in the last 30 d
+                </Text>
+              ) : (
+                <Meter
+                  label="Cost by billing lane over the last 30 days"
+                  max={h.costUsd30d}
+                  format={(v) => `${fmtUsdWhole(v)} · ${fmtShare(v / h.costUsd30d)}`}
+                  segments={parts
+                    .filter((p) => p.value > 0)
+                    .map((p) => ({
+                      label: p.label,
+                      value: p.value,
+                      color: BILLING_COLOR[p.key],
+                    }))}
+                  startCaption={`total ${fmtUsdWhole(h.costUsd30d)}`}
+                />
+              )}
+            </Stack>
+          ),
+        },
+      ]}
+    />
   )
 }
