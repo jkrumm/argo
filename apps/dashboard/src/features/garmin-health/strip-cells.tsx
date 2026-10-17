@@ -204,7 +204,7 @@ function SignalLine({ spec }: { spec: SignalSpec }) {
         present.length > 1 && new Set(present).size > 1 ? (
           <Sparkline
             data={present}
-            height={20}
+            height={36}
             color={VX.line}
             emphasizeLast
             ariaLabel={`${spec.label} over the last ${FITNESS_DAYS} days`}

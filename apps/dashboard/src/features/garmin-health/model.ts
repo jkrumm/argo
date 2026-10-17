@@ -161,7 +161,7 @@ export function activitiesFact(input: {
     context: [
       fmtMinutes(input.totalMin),
       input.dayCount > 0
-        ? `${((input.sessions / input.dayCount) * 7).toFixed(1)} per week`
+        ? `${((input.sessions / input.dayCount) * 7).toFixed(1)} sessions per week`
         : EM_DASH,
       `last ${days(input.dayCount)}`,
     ],
@@ -225,9 +225,9 @@ export function bodyBatteryFact(input: {
 }): Fact {
   return {
     value: signed(input.net),
-    unit: 'net points today',
+    unit: 'pts net today',
     context: [
-      `${signed(input.mean)} points mean over ${days(input.dayCount)}`,
+      `${signed(input.mean)} pts mean over ${days(input.dayCount)}`,
       `high ${fmtNum(input.high)}/100, low ${fmtNum(input.low)}/100`,
     ],
   }

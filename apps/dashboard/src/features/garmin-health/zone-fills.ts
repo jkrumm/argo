@@ -5,7 +5,7 @@ import { alpha, VX } from 'basalt-ui/tokens'
  * strength, so a band tints the plot without outweighing the ink drawn over it.
  */
 export const ZONE_FILL = {
-  good: alpha(VX.goodSolid, 0.1),
-  warn: alpha(VX.warnSolid, 0.1),
-  bad: alpha(VX.badSolid, 0.1),
+  good: alpha(VX.goodSolid, 0.06),
+  warn: alpha(VX.warnSolid, 0.06),
+  bad: alpha(VX.badSolid, 0.06),
 } as const

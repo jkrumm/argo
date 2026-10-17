@@ -12,9 +12,12 @@ export function FactsLine({ fact }: { fact: Fact }) {
     <Box className={classes.facts}>
       <span className={classes.factValue}>{fact.value}</span>
       {fact.unit !== undefined && <span className={classes.factUnit}>{fact.unit}</span>}
-      {fact.context.map((c) => (
+      {/* The separator trails its item, so a wrapped line ends in a dot instead of starting with one. */}
+      {fact.context.map((c, i) => (
         <span key={c} className={classes.factContext}>
-          · {c}
+          {i === 0 ? '· ' : ''}
+          {c}
+          {i < fact.context.length - 1 ? ' ·' : ''}
         </span>
       ))}
     </Box>
