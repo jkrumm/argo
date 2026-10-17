@@ -48,7 +48,7 @@ function ClampedText({ text }: { text: string }) {
   const clampable = text.length > CLAMP_MIN_CHARS
   return (
     <Stack gap={4} align="flex-start">
-      <Text id={textId} size="sm" {...(clampable && !expanded ? { lineClamp: 3 } : {})}>
+      <Text id={textId} size="xs" {...(clampable && !expanded ? { lineClamp: 3 } : {})}>
         {text}
       </Text>
       {clampable ? (
@@ -117,9 +117,9 @@ function QueueCard({
         : null
   const status =
     chip !== null ? (
-      <StatusChip tone={chip.tone} label={chip.label} />
+      <StatusChip label={chip.label} />
     ) : row.state !== 'needs_decision' && row.state !== 'failed' && row.state !== null ? (
-      <StatusChip tone="neutral" label={row.state} />
+      <StatusChip label={row.state} />
     ) : undefined
   const evidence = split.rest !== null ? <ClampedText text={split.rest} /> : undefined
 
@@ -131,7 +131,7 @@ function QueueCard({
         status={status}
         actor={
           kind === 'decision' && split.question !== title ? (
-            <Text component="span" fz="xs" lineClamp={1} title={title}>
+            <Text component="span" fz="xs">
               {title}
             </Text>
           ) : undefined
