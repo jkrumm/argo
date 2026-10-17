@@ -1,6 +1,6 @@
 # M365 Explorer — concept
 
-Route `/m365-explorer` · `apps/dashboard/src/routes/m365-explorer.tsx`, `apps/dashboard/src/features/m365-explorer/explorer-page.tsx` (one 824-line file) · API `GET /m365/chats`, `/m365/teams`, `/m365/teams/:id/channels`, `.../messages`, `GET|POST|DELETE /m365/labels`, `GET /m365/important`.
+Route `/m365-explorer` · `apps/dashboard/src/routes/m365-explorer.tsx`, `apps/dashboard/src/features/m365-explorer/explorer-page.tsx` (one 824-line file) · API `GET /m365/chats`, `/m365/teams`, `/m365/teams/:id/channels`, `.../messages`, `GET|POST /m365/labels`, `DELETE /m365/labels/{sourceId}`, `GET /m365/important`.
 
 ## Baseline verdict
 
