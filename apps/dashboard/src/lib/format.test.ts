@@ -1,27 +1,15 @@
 import { describe, expect, test } from 'bun:test'
-import { APP_LOCALE, pinLocale } from './format'
+import { defineFormat, relativeTime } from 'basalt-ui/format'
+import { APP_LOCALE } from './format'
 
-function spy() {
-  const calls: unknown[] = []
-  const pinned = pinLocale((_value, options) => {
-    calls.push(options)
-    return ''
-  })
-  return { calls, pinned }
-}
+const FOUR_DAYS_AGO = Date.now() - 4 * 86_400_000
 
-describe('pinLocale', () => {
-  test('passes the app locale, which basalt does not take from the provider', () => {
-    const { calls, pinned } = spy()
-    pinned(0, { now: 1 })
-    pinned(0)
-    expect(calls).toEqual([{ now: 1, locale: APP_LOCALE }, { locale: APP_LOCALE }])
-  })
-
-  test('an explicit locale wins, an undefined one does not unpin', () => {
-    const { calls, pinned } = spy()
-    pinned(0, { locale: 'de' })
-    pinned(0, { locale: undefined })
-    expect(calls).toEqual([{ locale: 'de' }, { locale: APP_LOCALE }])
+describe('relativeTime', () => {
+  test('follows the configured app locale, not the runtime one', () => {
+    defineFormat({ locale: 'de-DE' })
+    const german = relativeTime(FOUR_DAYS_AGO)
+    defineFormat({ locale: APP_LOCALE })
+    expect(relativeTime(FOUR_DAYS_AGO)).not.toBe(german)
+    expect(relativeTime(FOUR_DAYS_AGO)).toMatch(/days ago/)
   })
 })

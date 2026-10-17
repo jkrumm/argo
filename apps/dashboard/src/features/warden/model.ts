@@ -1,4 +1,4 @@
-import { relativeTime } from '../../lib/format'
+import { relativeTime } from 'basalt-ui/format'
 import type {
   WardenActionVerb,
   WardenBoardItem,
