@@ -69,10 +69,14 @@ function SourceBar({ sources }: { sources: Record<string, number> }) {
   )
 }
 
-function sourceCell(sources: Record<string, number>): Pick<EntityCardCell, 'value' | 'small'> {
+function sourceCell(
+  sources: Record<string, number>,
+): Pick<EntityCardCell, 'value' | 'small' | 'unit'> {
   const entries = Object.entries(sources).toSorted((a, b) => b[1] - a[1])
   if (entries.length === 0) return { value: '—' }
-  return { value: entries.map(([name, n]) => `${name} ${n}`).join(' · '), small: true }
+  const [first, ...rest] = entries
+  const unit = rest.map(([name, n]) => `${name} ${n}`).join(' · ')
+  return { value: `${first![0]} ${first![1]}`, small: true, ...(unit && { unit }) }
 }
 
 function gitCell(git: ProjectGroup['git']): Pick<EntityCardCell, 'value' | 'unit'> {
