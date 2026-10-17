@@ -1,7 +1,7 @@
 import { Box, Button, Group, Stack, Text } from '@mantine/core'
 import { EmptyState, Section, useSizeClass } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link } from '@tanstack/react-router'
 import { useClipboard } from '@mantine/hooks'
 import { IconCheck, IconCircleCheck, IconCopy } from '@tabler/icons-react'
 import { DecisionCard } from '../../components/upstream/decision-card'
@@ -46,11 +46,10 @@ function Kicker({ facts }: { facts: Decision['facts'] }) {
 }
 
 function Card({ decision }: { decision: Decision }) {
-  const navigate = useNavigate()
   const clipboard = useClipboard({ timeout: 1500 })
   const open = {
     label: `Open in ${PAGE_LABEL[decision.href]}`,
-    onClick: () => void navigate({ to: decision.href }),
+    href: decision.href,
   }
   // A human-queue ask carries the command to run: copying it is the in-place verb. Everything
   // else has no command in its payload, so opening the owning page is the primary.

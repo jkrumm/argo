@@ -10,6 +10,7 @@
 import { ActionIcon, Box, Button, Card, Collapse, Group, Menu, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { IconChevronDown, IconDots } from '@tabler/icons-react'
+import { Link } from '@tanstack/react-router'
 import { Fragment, useId, type ReactNode } from 'react'
 import classes from './decision-card.module.css'
 import { VX } from 'basalt-ui/tokens'
@@ -58,7 +59,9 @@ function ActionButton({
     <Button
       size="xs"
       variant={variant}
-      onClick={action.onClick}
+      {...(action.href === undefined
+        ? { onClick: action.onClick }
+        : { component: Link, to: action.href })}
       loading={action.loading ?? false}
       disabled={isInactive(action)}
       leftSection={action.icon}
@@ -97,7 +100,9 @@ function ActionRow({
                 key={action.key ?? action.label}
                 leftSection={action.icon}
                 disabled={isInactive(action)}
-                onClick={action.onClick}
+                {...(action.href === undefined
+                  ? { onClick: action.onClick }
+                  : { component: Link, to: action.href })}
               >
                 {action.label}
               </Menu.Item>

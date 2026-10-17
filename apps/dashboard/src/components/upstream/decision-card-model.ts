@@ -1,3 +1,4 @@
+import type { LinkProps } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 
 /** True when a slot node would render something: not undefined, null, a boolean or an empty string. */
@@ -9,7 +10,10 @@ export type DecisionCardAction = {
   label: string
   /** Stable React key for menu items; defaults to `label`. */
   key?: string
-  onClick: () => void
+  /** Callback verb (copy, retry). Navigation verbs set `href` instead. */
+  onClick?: () => void
+  /** Navigation verb, rendered as a router link so middle- and cmd-click work. */
+  href?: LinkProps['to']
   loading?: boolean
   disabled?: boolean
   icon?: ReactNode
