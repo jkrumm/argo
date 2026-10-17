@@ -226,7 +226,7 @@ export function progressPercent(book: ShelfItem): number | null {
 // ── Ratings ──────────────────────────────────────────────────────────────────────────────────
 
 export type RatingShape = {
-  /** Books per 1–5 ★ bucket; a half star rounds up (`2.5` → the 3 ★ bucket). */
+  /** Books per 1–5 ★ bucket: whole stars, rounded down (`2.5` → the 2 ★ bucket, `0.5` → 1 ★). */
   buckets: [number, number, number, number, number]
   n: number
   mean: number | null
@@ -238,7 +238,7 @@ export function ratingShape(shelf: readonly ShelfItem[]): RatingShape {
   const buckets: RatingShape['buckets'] = [0, 0, 0, 0, 0]
   const rated = shelf.filter((b) => b.rating !== null)
   for (const book of rated) {
-    const bucket = Math.min(5, Math.max(1, Math.round(book.rating as number)))
+    const bucket = Math.min(5, Math.max(1, Math.floor(book.rating as number)))
     buckets[bucket - 1] = (buckets[bucket - 1] as number) + 1
   }
   const community = rated.filter((b) => b.communityRating !== null)

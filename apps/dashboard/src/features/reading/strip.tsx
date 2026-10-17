@@ -88,8 +88,8 @@ function RatingsCell({ shelf }: { shelf: readonly ShelfItem[] }) {
     )
   }
   const peak = Math.max(...shape.buckets)
-  // A bucket's centre sits at (i − ½) / 5 of the track, so a mean of m lands at (m − ½) / 5.
-  const meanAt = Math.min(100, Math.max(0, ((shape.mean - 0.5) / 5) * 100))
+  // Bucket i holds [i, i + 1), so the track spans 1…6 and a mean of m lands at (m − 1) / 5.
+  const meanAt = Math.min(100, Math.max(0, ((shape.mean - 1) / 5) * 100))
   return (
     <Cell
       shot="ratings"
@@ -121,11 +121,14 @@ function RatingsCell({ shelf }: { shelf: readonly ShelfItem[] }) {
           </div>
         </div>
       }
-      footer={
-        shape.community === null
-          ? undefined
-          : `community mean ${shape.community.mean.toFixed(1)} ★ on ${shape.community.n} of the same books`
-      }
+      footer={[
+        'whole stars, rounded down (2.5 → 2★)',
+        ...(shape.community === null
+          ? []
+          : [
+              `community mean ${shape.community.mean.toFixed(1)} ★ on ${shape.community.n} of the same books`,
+            ]),
+      ].join(' · ')}
     />
   )
 }

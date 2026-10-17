@@ -178,14 +178,30 @@ describe('timeRead', () => {
 })
 
 describe('ratingShape', () => {
-  test('half stars round up; community mean covers the same rated books', () => {
+  test('every rating lands in the whole-star bin a reader expects (rounded down)', () => {
+    const ratings = [0.5, 1, 2.5, 3, 3.5, 4, 4.5, 5]
+    const shelf = ratings.map((rating) => book({ statusId: 3, readDate: '2026-01-01', rating }))
+    const { buckets } = ratingShape(shelf)
+    expect(buckets).toEqual([2, 1, 2, 2, 1])
+    // A book is never binned above its own rating (except 0.5, shown in the lowest bin).
+    for (const rating of ratings) {
+      const single = ratingShape([book({ rating })]).buckets
+      const star = single.findIndex((n) => n === 1) + 1
+      expect(star).toBe(Math.max(1, Math.floor(rating)))
+      expect(star).toBeLessThanOrEqual(Math.max(1, rating))
+    }
+    // The Finished list's `★ {rating}` and the histogram bin agree for the half star.
+    expect(ratingShape([book({ rating: 2.5 })]).buckets).toEqual([0, 1, 0, 0, 0])
+  })
+
+  test('community mean covers the same rated books', () => {
     const shape = ratingShape([
       book({ rating: 4, communityRating: 4 }),
       book({ rating: 2.5, communityRating: 3 }),
       book({ rating: 3, communityRating: null }),
       book({ rating: null, communityRating: 5 }),
     ])
-    expect(shape.buckets).toEqual([0, 0, 2, 1, 0])
+    expect(shape.buckets).toEqual([0, 1, 1, 1, 0])
     expect(shape.n).toBe(3)
     expect(shape.mean).toBeCloseTo(3.1667)
     expect(shape.community).toEqual({ mean: 3.5, n: 2 })
