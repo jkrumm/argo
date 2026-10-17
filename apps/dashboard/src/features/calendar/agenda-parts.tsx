@@ -16,6 +16,7 @@ import {
   DAY_TARGET_H,
   durationMin,
   dayLabel,
+  isCancelled,
   shortDate,
   toDate,
   type AgendaDay,
@@ -83,19 +84,22 @@ export function EventRows({
       {events.map((event) => {
         const payload = event.payload
         const videoLink = payload?.videoLink
-        const meta = eventMeta(payload)
+        const cancelled = isCancelled(event)
+        const meta = cancelled
+          ? ['Cancelled', eventMeta(payload)].filter(Boolean).join(' · ')
+          : eventMeta(payload)
         return (
           <ScheduleRow
             key={String(event.id)}
             start={clock(String(event.start))}
             durationMin={durationMin(event)}
             title={event.title}
-            past={toDate(String(event.end)).getTime() <= now.getTime()}
+            past={cancelled || toDate(String(event.end)).getTime() <= now.getTime()}
             {...(meta ? { meta } : {})}
-            {...(next?.event.id === event.id && next.inMin < PILL_WITHIN_MIN
+            {...(!cancelled && next?.event.id === event.id && next.inMin < PILL_WITHIN_MIN
               ? { pill: untilLabel(next.inMin) }
               : {})}
-            {...(videoLink && isHttpUrl(videoLink)
+            {...(!cancelled && videoLink && isHttpUrl(videoLink)
               ? {
                   action: (
                     <ActionIcon
@@ -155,9 +159,9 @@ export function DayGroups({
               <span className={classes.muted}>
                 {incomplete
                   ? '—'
-                  : day.events.length === 0
+                  : day.count === 0
                     ? 'no meetings'
-                    : `${day.events.length} ${day.events.length === 1 ? 'event' : 'events'} · ${formatDurationMin(day.bookedMin)}`}
+                    : `${day.count} ${day.count === 1 ? 'event' : 'events'} · ${formatDurationMin(day.bookedMin)}`}
               </span>
             </Box>
             {chips.length > 0 && (

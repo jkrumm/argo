@@ -9,6 +9,9 @@ import {
   allDayEvents,
   bookedBySourceClass,
   bookedMinOnDay,
+  isCancelled,
+  listedEventsOnDay,
+  eventsOnDay,
   dayLoad,
   longestFreeBlock,
   nextEvent,
@@ -315,5 +318,31 @@ describe('DST day (Europe/Berlin)', () => {
     const events = [ev('a', '2026-03-29 01:00:00', '2026-03-29 04:00:00')]
     expect(bookedMinOnDay(events, '2026-03-29')).toBe(elapsed / 60_000)
     expect(dayLoad(events, weekKeys('2026-03-29')).filter((d) => d.count > 0)).toHaveLength(1)
+  })
+})
+
+const cancelled = (id: string, prefix: string, start: string, end: string): CalendarItem => ({
+  ...ev(id, start, end),
+  title: `${prefix} {title ${id}}`,
+})
+
+describe('cancelled meetings', () => {
+  test('the detector knows the M365 prefixes and nothing else', () => {
+    for (const prefix of ['Abgesagt:', 'Canceled:', 'Cancelled:', 'abgesagt :'])
+      expect(isCancelled(cancelled('x', prefix, `${D} 09:00:00`, `${D} 10:00:00`))).toBe(true)
+    expect(isCancelled(ev('y', `${D} 09:00:00`, `${D} 10:00:00`))).toBe(false)
+    expect(
+      isCancelled({ ...ev('z', `${D} 09:00:00`, `${D} 10:00:00`), title: 'Canceled lunch' }),
+    ).toBe(false)
+  })
+  test('they stay listed but leave counts, booked time and next', () => {
+    const events = [
+      ev('a', `${D} 09:00:00`, `${D} 10:00:00`),
+      cancelled('b', 'Abgesagt:', `${D} 13:00:00`, `${D} 14:00:00`),
+    ]
+    expect(listedEventsOnDay(events, D)).toHaveLength(2)
+    expect(eventsOnDay(events, D)).toHaveLength(1)
+    expect(bookedMinOnDay(events, D)).toBe(60)
+    expect(nextEvent(events, new Date(2026, 9, 14, 11, 0))).toBeNull()
   })
 })

@@ -8,7 +8,7 @@ const weekdayShort = (key: string) =>
 /** The one countdown wording, shared by the summary and the agenda pill: `in 20m`, `in 1h 30m`. */
 export const untilLabel = (minutes: number): string => `in ${formatDurationMin(minutes)}`
 
-/** `next in 20m` inside two hours, else when: `next at 15:00`, `next tomorrow 09:30`, `next Mon 10:45`. */
+/** `next in 20m` inside two hours, else when and what: `next at 15:00 {title}`, `next tomorrow 09:30 {title}`. */
 export function countdown(summary: AgendaSummary): string | null {
   const next = summary.next
   if (!next) return null
@@ -16,9 +16,10 @@ export function countdown(summary: AgendaSummary): string | null {
   const start = String(next.event.start)
   const startKey = start.slice(0, 10)
   const time = start.slice(11, 16)
-  if (startKey === summary.todayKey) return `next at ${time}`
-  if (startKey === addDays(summary.todayKey, 1)) return `next tomorrow ${time}`
-  return `next ${weekdayShort(startKey)} ${time}`
+  const title = next.event.title
+  if (startKey === summary.todayKey) return `next at ${time} ${title}`
+  if (startKey === addDays(summary.todayKey, 1)) return `next tomorrow ${time} ${title}`
+  return `next ${weekdayShort(startKey)} ${time} ${title}`
 }
 
 /** One sentence, built from the same derivation as the lists and the strip beside it. */

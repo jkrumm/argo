@@ -95,8 +95,17 @@ export function isTimed(event: CalendarItem): boolean {
   return !isTask(event) && event.payload?.isAllDay !== true
 }
 
+/** M365 keeps a cancelled meeting on the calendar and prefixes its title (en and de). */
+const CANCELLED_PREFIX = /^\s*(abgesagt|canceled|cancelled)\s*:/i
+
+/** The API carries no cancelled flag, so the title prefix is the only signal. */
+export function isCancelled(event: CalendarItem): boolean {
+  return CANCELLED_PREFIX.test(event.title)
+}
+
+/** Meetings that still happen: the basis of every count, booked hour, free block and "next". */
 export function timedEvents(events: readonly CalendarItem[]): CalendarItem[] {
-  return events.filter(isTimed)
+  return events.filter((e) => isTimed(e) && !isCancelled(e))
 }
 
 export function durationMin(event: CalendarItem): number {
@@ -141,9 +150,18 @@ export function bookedMinOnDay(events: readonly CalendarItem[], key: DayKey): nu
 }
 
 export function eventsOnDay(events: readonly CalendarItem[], key: DayKey): CalendarItem[] {
+  return rowsOnDay(timedEvents(events), key)
+}
+
+/** Every timed meeting on `key` for the list, cancelled ones included (rendered muted, uncounted). */
+export function listedEventsOnDay(events: readonly CalendarItem[], key: DayKey): CalendarItem[] {
+  return rowsOnDay(events.filter(isTimed), key)
+}
+
+function rowsOnDay(timed: readonly CalendarItem[], key: DayKey): CalendarItem[] {
   const from = dayStartMs(key)
   const to = dayEndMs(key)
-  return timedEvents(events)
+  return timed
     .filter((e) => {
       const start = toDate(String(e.start)).getTime()
       const end = toDate(String(e.end)).getTime()
@@ -267,14 +285,18 @@ export function hourToTime(hour: number): string {
 
 export type AgendaDay = {
   key: DayKey
+  /** The rows to render, cancelled meetings included. */
   events: CalendarItem[]
+  /** Meetings that still happen; `bookedMin` covers the same set. */
+  count: number
   bookedMin: number
 }
 
 export function agendaDays(events: readonly CalendarItem[], keys: readonly DayKey[]): AgendaDay[] {
   return keys.map((key) => ({
     key,
-    events: eventsOnDay(events, key),
+    events: listedEventsOnDay(events, key),
+    count: eventsOnDay(events, key).length,
     bookedMin: bookedMinOnDay(events, key),
   }))
 }
