@@ -10,9 +10,9 @@
 import { ActionIcon, Box, Button, Card, Collapse, Group, Menu, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { IconChevronDown, IconDots } from '@tabler/icons-react'
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import classes from './decision-card.module.css'
-import { factsLine, hasActions, type DecisionCardAction } from './decision-card-model'
+import { factsLine, hasActions, isInactive, type DecisionCardAction } from './decision-card-model'
 
 export type { DecisionCardAction } from './decision-card-model'
 
@@ -52,7 +52,7 @@ function ActionButton({
       variant={variant}
       onClick={action.onClick}
       loading={action.loading ?? false}
-      disabled={action.disabled ?? false}
+      disabled={isInactive(action)}
       leftSection={action.icon}
     >
       {action.label}
@@ -61,10 +61,11 @@ function ActionButton({
 }
 
 function ActionRow({
+  question,
   primary,
   secondary,
   menu,
-}: Pick<DecisionCardProps, 'primary' | 'secondary' | 'menu'>) {
+}: Pick<DecisionCardProps, 'question' | 'primary' | 'secondary' | 'menu'>) {
   if (!hasActions(primary, secondary, menu)) return null
   return (
     <Group gap="xs" wrap="wrap">
@@ -73,16 +74,21 @@ function ActionRow({
       {menu !== undefined && menu.length > 0 && (
         <Menu position="bottom-start" withinPortal>
           <Menu.Target>
-            <ActionIcon variant="subtle" color="gray" size="md" aria-label="More actions">
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="md"
+              aria-label={`More actions: ${question}`}
+            >
               <IconDots size={16} />
             </ActionIcon>
           </Menu.Target>
           <Menu.Dropdown>
             {menu.map((action) => (
               <Menu.Item
-                key={action.label}
+                key={action.key ?? action.label}
                 leftSection={action.icon}
-                disabled={(action.disabled ?? false) || (action.loading ?? false)}
+                disabled={isInactive(action)}
                 onClick={action.onClick}
               >
                 {action.label}
@@ -97,6 +103,7 @@ function ActionRow({
 
 function Disclosure({ label, content }: { label: string; content: ReactNode }) {
   const [opened, { toggle }] = useDisclosure(false)
+  const contentId = useId()
   return (
     <Stack gap="xs">
       <Button
@@ -106,11 +113,14 @@ function Disclosure({ label, content }: { label: string; content: ReactNode }) {
         onClick={toggle}
         rightSection={<IconChevronDown size={12} />}
         aria-expanded={opened}
+        aria-controls={contentId}
         w="fit-content"
       >
         {label}
       </Button>
-      <Collapse expanded={opened}>{content}</Collapse>
+      <Collapse id={contentId} expanded={opened}>
+        {content}
+      </Collapse>
     </Stack>
   )
 }
@@ -138,7 +148,7 @@ export function DecisionCard({
               {actor}
             </Text>
           )}
-          <Text fw={600} size="md" lh="snug" className={classes.question}>
+          <Text component="h3" m={0} fw={600} size="md" lh={1.35} className={classes.question}>
             {question}
           </Text>
           {(status !== undefined || line !== '') && (
@@ -153,7 +163,7 @@ export function DecisionCard({
           )}
           {evidence !== undefined && <Box className={classes.inset}>{evidence}</Box>}
           {disclosure !== undefined && <Disclosure {...disclosure} />}
-          <ActionRow primary={primary} secondary={secondary} menu={menu} />
+          <ActionRow question={question} primary={primary} secondary={secondary} menu={menu} />
           {meta !== undefined && (
             <Text size="xs" c="dimmed">
               {meta}
