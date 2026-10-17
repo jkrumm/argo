@@ -191,7 +191,7 @@ export function WeekStrip({
   unknown: ReadonlySet<keyof SourceSplit>
 }) {
   const total = split.work + split.personal
-  const hasUnknown = unknown.size > 0
+  const showSplitBar = unknown.size === 0 && split.work > 0 && split.personal > 0
   return (
     <Card py="sm" px="md" data-shot="week-strip">
       <Section title={title}>
@@ -227,7 +227,7 @@ export function WeekStrip({
             )
           })}
         </div>
-        {!hasUnknown && split.work > 0 && split.personal > 0 && (
+        {showSplitBar && (
           <Meter
             label="Booked hours by source"
             max={Math.max(total, 1)}
@@ -243,7 +243,9 @@ export function WeekStrip({
         <Box className={classes.split}>
           {(['work', 'personal'] as const).map((key) => (
             <span key={key}>
-              <Box component="span" className={classes.swatch} bg={SPLIT_COLOR[key]} />
+              {showSplitBar && (
+                <Box component="span" className={classes.swatch} bg={SPLIT_COLOR[key]} />
+              )}
               {SPLIT_LABEL[key]} {unknown.has(key) ? '—' : formatDurationMin(split[key])}
             </span>
           ))}
