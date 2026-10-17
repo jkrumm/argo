@@ -36,6 +36,10 @@ export {
   dataHealthLine,
   limitingFactor,
   killerLabel,
+  fmtShortDay,
+  usableNightCount,
+  bestNightOf,
+  gapToGate,
 } from './formulas'
 
 export {
@@ -59,9 +63,13 @@ export {
   type WeatherSelection,
 } from './map-layers'
 
-export { VerdictHero } from './components/verdict-hero'
+export { VerdictCard } from './components/verdict-card'
+export { TonightTop } from './components/tonight-top'
+export { GatesCard } from './components/gates-card'
 export { NightStrip } from './components/night-strip'
-export { NightFacts } from './components/night-facts'
+export { NightAnatomy } from './components/night-anatomy'
+export { ScoreCard } from './components/score-card'
+export { SourcesFooter } from './components/sources-footer'
 
 // Lazy-loaded: maplibre-gl is ~253kB gzipped and this is the only page that uses it, so the
 // bundle should only pay for it when this page is actually opened. The route wraps this in

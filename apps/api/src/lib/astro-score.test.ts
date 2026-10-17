@@ -5,6 +5,7 @@ import {
   ASTRO_WEIGHTS,
   astroWindowConfig,
   CORE_CLEARANCE_RANGE,
+  coreGateReading,
   evaluationSamples,
   MAX_MOON_ILLUMINATION,
   MIN_CORE_ALTITUDE,
@@ -342,5 +343,39 @@ describe('window helpers', () => {
     const overall = resolved.samples.reduce((m, s) => Math.max(m, s.coreAltitude), -90)
     expect(duringDark).toBeLessThan(overall)
     expect(duringDark).toBeCloseTo(resolved.window!.peakCoreAltitude, 5)
+  })
+})
+
+describe('coreGateReading', () => {
+  // A ridge of 9° everywhere except 14° across the due-south arc (indices 33–39 of 72, 5° steps).
+  const SOUTH_BUMP = Array.from({ length: 72 }, (_, i) => (i >= 33 && i <= 39 ? 14 : 9))
+  const MUNICH_CORE = { lat: 48.1374, lon: 11.5755 }
+
+  it('names the sample closest to the gate, not the highest one, on an out ridge night', () => {
+    const resolved = night('2026-08-15', MUNICH_CORE, { horizonDeg: SOUTH_BUMP })
+    const reading = coreGateReading(resolved)!
+    const peak = peakCoreAltitudeInDarkness(resolved)!
+    // The highest sample sits under the 14° bump (floor 16°); a lower one in the 9° stretch
+    // (floor 11°) comes closer to its own floor, so the two figures differ.
+    expect(reading.altitude).toBeLessThan(peak)
+    expect(reading.floor).toBeGreaterThan(MIN_CORE_ALTITUDE)
+    expect(reading.altitude).toBeLessThanOrEqual(reading.floor)
+
+    const result = scoreWindow(astroWindowConfig, input('2026-08-15', { night: resolved }))
+    const killer = result.killers.find((k) => k.id === 'core-altitude')!
+    expect(killer.reason).toContain(`${Math.round(reading.altitude * 10) / 10}°`)
+  })
+
+  it('reads above its floor, unrounded, on a night that passes', () => {
+    const lowBump = Array.from({ length: 72 }, (_, i) => (i >= 33 && i <= 39 ? 13 : 8))
+    const resolved = night('2026-08-15', MUNICH_CORE, { horizonDeg: lowBump })
+    const reading = coreGateReading(resolved)!
+    expect(reading.altitude).toBeGreaterThan(reading.floor)
+    const result = scoreWindow(astroWindowConfig, input('2026-08-15', { night: resolved }))
+    expect(result.killers.map((k) => k.id)).not.toContain('core-altitude')
+  })
+
+  it('is null with no astronomical night', () => {
+    expect(coreGateReading(night('2026-06-21', { lat: 48.6, lon: MUNICH.lon }))).toBeNull()
   })
 })

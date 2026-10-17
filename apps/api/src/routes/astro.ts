@@ -62,6 +62,8 @@ import {
   astroWindowConfig,
   evaluationSamples,
   MIN_CORE_ALTITUDE,
+  coreGateReading,
+  MAX_MOON_ILLUMINATION,
   type AstroScoreInput,
 } from '../lib/astro-score.js'
 import { geocodeCity } from '../lib/geocode.js'
@@ -182,6 +184,18 @@ const NightSchema = z.object({
   transit: z.string().describe('ISO 8601 UTC — galactic core upper transit'),
   localTransit: z.string(),
   maxCoreAltitude: z.number().describe('degrees at transit; ~12.8° is the Munich ceiling'),
+  gateCoreAltitude: z
+    .number()
+    .nullable()
+    .describe(
+      'Core altitude, degrees, at the astronomically-dark sample that comes closest to clearing the core-altitude gate (smallest `coreGateDeg` minus altitude). The night passes that gate exactly when this is strictly above `coreGateDeg`. Null when there is no dark sample',
+    ),
+  coreGateDeg: z
+    .number()
+    .nullable()
+    .describe(
+      'The floor, degrees, at that same sample: the 8° atmospheric floor, raised to the measured ridge at the core azimuth plus the 2° framing margin when a committed skyline is resolved. Null when there is no dark sample',
+    ),
   peakCoreClearanceDeg: z
     .number()
     .nullable()
@@ -256,6 +270,17 @@ const WindowResponseSchema = z.object({
   verdict: z.enum(['excellent', 'good', 'marginal', 'poor', 'out']).describe('The best night’s'),
   score: z.number(),
   killers: z.array(KillerSchema).describe('Of the best night; empty unless every night is out'),
+  bestDate: z
+    .string()
+    .nullable()
+    .describe(
+      'Date (YYYY-MM-DD) of the best-scoring night the top-level fields describe; set even when every night is out (then it is the first night, not the night closest to passing). Null only with no nights',
+    ),
+  moonMaxIllumination: z
+    .number()
+    .describe(
+      'Moon-gate limit as a 0–1 fraction: a night fails the moon gate at or above it while the moon is up and clear of the skyline',
+    ),
   bestWindow: ShootingWindowSchema.nullable().describe('Null when no night in the range is usable'),
   summary: z
     .string()
@@ -1137,6 +1162,10 @@ function round1(value: number): number {
   return Math.round(value * 10) / 10
 }
 
+function roundOrNull(value: number | null): number | null {
+  return value === null ? null : round1(value)
+}
+
 function round3(value: number): number {
   return Math.round(value * 1000) / 1000
 }
@@ -1161,6 +1190,8 @@ function serializeNight(
     transit: night.transit.toISOString(),
     localTransit: formatLocalTime(night.transit, timeZone),
     maxCoreAltitude: round1(night.maxCoreAltitude),
+    gateCoreAltitude: roundOrNull(coreGateReading(night)?.altitude ?? null),
+    coreGateDeg: roundOrNull(coreGateReading(night)?.floor ?? null),
     peakCoreClearanceDeg: night.peakCoreClearance === null ? null : round1(night.peakCoreClearance),
     moon: {
       illumination: round3(night.moonIllumination),
@@ -1391,6 +1422,8 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
             | 'out',
           score: best?.scored.score ?? 0,
           killers: best?.scored.killers ?? [],
+          bestDate: best?.night.date ?? null,
+          moonMaxIllumination: MAX_MOON_ILLUMINATION,
           bestWindow,
           summary,
           detail: {

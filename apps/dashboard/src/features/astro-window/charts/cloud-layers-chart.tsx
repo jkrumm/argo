@@ -2,7 +2,7 @@ import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { percent } from 'basalt-ui/format'
 import { SERIES } from '../../../lib/series'
 import { CHART_HEIGHT, METRIC_TOOLTIPS } from '../constants'
-import { hourlyTicks, hourlyTimeLabel } from '../formulas'
+import { fmtShortDay, hourlyTicks, hourlyTimeLabel } from '../formulas'
 import type { HourlyPoint } from '../types'
 
 // The 0 gridline is not the plot floor — a series pinned at 0% (a common outcome for "low cloud")
@@ -67,14 +67,20 @@ function toSeries(def: CloudSeriesDef, hourly: HourlyPoint[]): ChartSeries<Hourl
  * A series with no data for the whole night is dropped from both the plot and the legend, rather
  * than drawn as an invisible line at a value no one asked about.
  */
-export default function CloudLayersChart({ hourly }: { hourly: HourlyPoint[] }) {
+export default function CloudLayersChart({
+  hourly,
+  date,
+}: {
+  hourly: HourlyPoint[]
+  date: string
+}) {
   const series = SERIES_DEFS.filter((def) => hourly.some((d) => d[def.key] !== null)).map((def) =>
     toSeries(def, hourly),
   )
 
   return (
     <ChartCard
-      title="Cloud Layers"
+      title={`Cloud cover by layer · ${fmtShortDay(date)}`}
       info={METRIC_TOOLTIPS.cloudLayers}
       state={{ empty: series.length === 0 && 'No cloud data for this night' }}
       placeholderHeight={CHART_HEIGHT}

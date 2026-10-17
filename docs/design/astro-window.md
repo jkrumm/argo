@@ -73,3 +73,49 @@ Format is binding; figures are placeholders.
 5. No filler question is a subtitle; the page summary sentence contains a live count of usable nights.
 6. Panorama skyline and gate line are legible at first glance in dark and light.
 7. At 390 px the strip scrolls with snap and nothing overflows the viewport.
+
+## Wave 22 build notes
+
+- **Additive API fields** (`apps/api/src/routes/astro.ts`, tested): each night carries `gateCoreAltitude` and `coreGateDeg`: the altitude and floor at the dark sample closest to clearing the core gate, from the same per-sample floor `resolveNight` builds `coreUp` from, so out + core killer ⇒ altitude ≤ floor and pass ⇒ altitude > floor (tested; both null with no astronomical night). `maxCoreAltitude` is the transit altitude, which can fall in daylight and contradicted the killer sentence. The response also carries `bestDate` (set even when every night is out) and `moonMaxIllumination`, so the UI mirrors no threshold or guess. No behaviour change for existing callers.
+- **Kept deviations from the concept:** the "Why not" column is a **Gates** card (all three hard gates, pass/fail word each, moon meter against its 25 % limit) beside the verdict card; the verdict card carries the core-gap meter (0–30° with the gate tick) so the gap is drawn once. Cloud mini-bars are muted (owner rule) instead of the severity ramp. The Sky meter is a local gradient track from the map's `LP_RAMP` (no Meter `stops`). Selected strip cell is ringed in neutral ink. The Tonight summary is a heading with the live count plus one visible line, because `Section.subtitle` folds into the info glyph below 480 px.
+- **Panorama:** the skyglow field's own opacity ceiling (`GLOW_ALPHA` in `charts/sky-panorama.tsx`) lowers it on top of the twilight fade; the `LP.*` alpha ladder in DESIGN.md is untouched. The 8° core gate is a named dashed reference line on the night timeline.
+- **Not verified live:** the `GO` verdict state and a gated-by-terrain night (every night in range was out when shot); the strip's scroll-snap is CSS-only and checked on stills.
+
+## Wave 22 rounds
+
+- r0: baseline shot of the three tabs before any change.
+- r1: own read — page crashed against a production API that lacked the new fields; shots now run against a local `/astro` route harness with other GETs proxied to production.
+- r2: reviewer fail on every Tonight component — verdict gap not drawn, accent ring on selection, colour-only gate state, cloud and sky fills not muted, duplicate figures. Changed: gap meter in the verdict card, neutral ring, pass/fail words, muted cloud bars, gate line on the timeline, odd last anatomy cell spans the row.
+- r3: reviewer fail on gates card empty space, panorama glow still dominant, bare mpsas unit, unexplained "0m", unnamed gate line, summary duplicating the verdict. Changed: glow ceiling 0.4 → 0.25, unit, labels, legend entry for the gate, shorter summary.
+- r4: reviewer fail on skyglow still dominant, `none time` label, gate legend glyph identical to the sun's, summary repeating the verdict. Changed: glow ceiling 0.25 → 0.12, `No time` label, solid gate line, summary reduced to the closest night.
+- r5: reviewer pass on verdict card, night strip, score card, cloud layers and both pages; panorama criterion 6 passes in both schemes. Remaining fails left as-is: font-size count on gates card and panorama, sources row wrapping at 390, tooltip over the timeline legend on hover, undefined `dome`/`transparency` labels, bare `mag/arcsec²` readout in the panorama's scrub line (criterion 4).
+
+## Wave 22 friction
+
+| Export | Needed prop | argo case | What argo does instead |
+|-|-|-|-|
+| `StatusDot` / `StatusVerdict` | exported from a barrel | killer/gate and source rows | `components/status-dot.tsx` built on `ColorSwatch` |
+| `Meter` | `stops` (custom ramp) + multi-`ticks` + `tone="muted"` | sky brightness on the `LP.*` ramp with value marker and 21.6 threshold tick | local `SkyScale` / `Gauge` in `components/night-anatomy.tsx` |
+| `BandStrip` | text slot under a cell | 10-night strip cells | local button cells in `components/night-strip.tsx` |
+| `StatGroup` | `variant="strip"` | five-reading Night anatomy | local grid in `components/night-anatomy.module.css` |
+| `BarList` | trailing meta column | score weight | `secondary` carries `w {share} %` |
+| `Section` | subtitle that never folds | summary line at 390 | visible `Text` line in the body |
+
+Local prototypes: `components/night-anatomy.tsx` (`Cell`, `Gauge {value,max,target,label}`, `SkyScale {mpsas}`), `components/night-strip.tsx` (`{nights, selectedDate, markedDate, onSelect}`), `components/tonight-top.tsx` (`{verdict, gates, timeline}`).
+
+- r6: reviewer on live (all out) and a pinned-clock fixture (mid-August: four GO nights, the rest out; fixture only, nothing committed). Pass: both verdict cards, anatomy (OUT), strip (OUT), cloud layers (OUT), pages (OUT), GO timeline window band, BEST marker. Fail and left: gates-card font-size count, timeline tooltip over the next card's title (OUT hover), sticky bars clipping crops at 390, sources dots without a status word, GO score `w` label (renamed `weight`), window repeated in summary/verdict/title (GO). Fixed in r6: sources one line at 390, legend moved to the chart header, dome/transparency defined, panorama readout names the 21.6 dark threshold, panorama font sizes.
+- r7 (after code-review round 1): verdict, gates and timeline now all follow the selected night; the strip marker and summary name the API's `bestDate`; one-decimal degrees everywhere; night switching goes through `useDeferredValue` so the previous frame stays. Shot live and with the fixture; not re-scored.
+
+## Wave 22 Keel read
+
+Side by side with `decision-card`, `stat-strip`, `metric-card-bar` and `status-pill` (dark desktop).
+
+Holds: the verdict card follows decision-card anatomy (one question line, a `·` facts line, evidence inset); the Night anatomy card is the stat-strip idea (hairline-divided cells, caption + value + qualifier); the core and moon meters follow metric-card-bar (a neutral fill, a tick at the limit, a caption naming it); every figure is proportional sans with mono only on captions and times.
+
+Does not hold: Keel's decision card carries a real action row and a context preview with a sparkline; ours has neither (read-only, the timeline sits beside it instead). Keel's meters caption both ends (`$0` / `$1.60M target`) and use hatching for the forecast part; ours name the gate but the Moon meter drops its start caption. Keel's stat-strip has a status-pill row; ours uses a plain dot and word (`passed` / `failed`) because `StatusDot` is not exported. Keel's cells are taller with a larger value size; ours are denser (value at `--vx-text-lg`).
+
+## Wave 22 code review round 2
+
+- The core-altitude killer now reads the same closest-to-gate sample as `gateCoreAltitude`/`coreGateDeg` (one derivation); the ridge wording reads "gets no higher than Y° there". The dashboard labels the figure "closest to the gate" in the verdict card, gates and anatomy.
+- `coreGateReading` has unit tests on synthetic ridge nights (an out night whose highest sample differs from the closest one, a passing night compared unrounded, no darkness).
+- The page resolves its selected site from the deferred params, so a site switch never pairs the old night with the new site.

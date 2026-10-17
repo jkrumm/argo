@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Suspense, useCallback, useMemo } from 'react'
-import { Center, Grid, Loader, Stack, useComputedColorScheme } from '@mantine/core'
+import { Suspense, useCallback, useDeferredValue, useMemo } from 'react'
+import { Box, Center, Grid, Loader, Stack, Text, useComputedColorScheme } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { PageBar, Section } from 'basalt-ui'
@@ -13,13 +13,21 @@ import {
   CloudLayersChart,
   MAP_FULL_BLEED_HEIGHT,
   MonthlyBudgetChart,
-  NightFacts,
+  GatesCard,
+  NightAnatomy,
   NightStrip,
   NightTimelineChart,
   PANORAMA_HEIGHT,
   SiteMap,
+  ScoreCard,
   SkyPanorama,
-  VerdictHero,
+  SourcesFooter,
+  TonightTop,
+  VerdictCard,
+  bestNightOf,
+  fmtShortDay,
+  fmtMinutes,
+  usableNightCount,
   BASE_LAYER_IDS,
   DEFAULT_LP_YEAR,
   formatLpParam,
@@ -30,6 +38,8 @@ import {
   parseWeatherParam,
   SCHEME_DEFAULT_BASE,
   type MapLayerState,
+  type Night,
+  type WindowResponse,
 } from '../features/astro-window'
 import { astroQueries, type AstroWindowParams } from '../lib/queries/astro'
 
@@ -152,6 +162,24 @@ export const Route = createFileRoute('/astro-window')({
 
 // ── Page component ─────────────────────────────────────────────────────────
 
+/** The page's one summary sentence, split heading/subtitle: the live usable count, then what decides it. */
+function summaryOf(data: WindowResponse, best: Night | null) {
+  const usable = usableNightCount(data.nights)
+  const title = `${usable} of ${data.nights.length} nights usable`
+  if (best === null) return { title, detail: undefined }
+  if (data.bestWindow !== null) {
+    const w = data.bestWindow
+    return {
+      title,
+      detail: `best ${fmtShortDay(w.date)} · ${w.localStart}–${w.localEnd} · ${fmtMinutes(w.minutes)}`,
+    }
+  }
+  return {
+    title,
+    detail: `closest night ${fmtShortDay(best.date)}`,
+  }
+}
+
 function AstroWindowPage() {
   const search = Route.useSearch()
   const navigate = useNavigate()
@@ -165,9 +193,13 @@ function AstroWindowPage() {
     [search.site, search.nights, search.detailDate],
   )
 
-  const { data } = useSuspenseQuery(astroQueries.window(params))
+  // Deferred params: picking another night re-keys the query, and a plain suspense read would swap
+  // the whole page for the route fallback. A deferred value keeps the previous frame until it lands.
+  const deferredParams = useDeferredValue(params)
+  const { data } = useSuspenseQuery(astroQueries.window(deferredParams))
   const { data: sites } = useSuspenseQuery(astroQueries.sites())
-  const selectedSite = sites.data.find((s) => s.id === search.site)
+  // Resolved from the deferred params so a site switch never pairs the old night with the new site.
+  const selectedSite = sites.data.find((s) => s.id === deferredParams.site)
 
   /*
    * The two handlers below write keys the STORE does not model, so they still navigate by hand —
@@ -253,6 +285,8 @@ function AstroWindowPage() {
 
   const selectedDate = data.detail.date
   const selectedNight = data.nights.find((n) => n.date === selectedDate) ?? data.nights[0] ?? null
+  const bestNight = bestNightOf(data)
+  const summary = summaryOf(data, bestNight)
 
   return (
     <>
@@ -315,46 +349,62 @@ function AstroWindowPage() {
           />
         </Suspense>
       ) : (
-        <Section
-          title="Astro Window"
-          subtitle="Is tonight worth going out for Milky Way nightscapes?"
-        >
+        <Section title={summary.title}>
           <Stack gap="sm">
-            {search.tab === 'tonight' && <VerdictHero data={data} />}
+            {summary.detail !== undefined && (
+              <Text size="sm" c="dimmed">
+                {summary.detail}
+              </Text>
+            )}
+            {search.tab === 'tonight' && selectedNight && (
+              <TonightTop
+                verdict={<VerdictCard night={selectedNight} />}
+                gates={<GatesCard night={selectedNight} moonLimit={data.moonMaxIllumination} />}
+                timeline={<NightTimelineChart hourly={data.detail.hourly} night={selectedNight} />}
+              />
+            )}
 
             <NightStrip
               nights={data.nights}
               selectedDate={selectedDate}
+              markedDate={bestNight?.date ?? null}
               onSelect={handleSelectDate}
             />
 
             {search.tab === 'tonight' && selectedNight && (
-              <Grid
-                type="container"
-                breakpoints={CONTAINER_GRID_BREAKPOINTS}
-                gap="sm"
-                align="stretch"
-              >
-                {/* The facts panel keeps its column width — it is a label/value list, and
-                    stretched across the full page the two halves of every row drift apart. The
-                    columns the map used to occupy stay empty on purpose; the skyglow rose is
-                    what fills them, once something renders it. */}
-                <Grid.Col span={{ base: 12, sm: 7, lg: 5 }}>
-                  <NightFacts
-                    night={selectedNight}
-                    coreDirectionMpsas={data.location.coreDirectionMpsas}
-                    domePenaltyMag={data.location.domePenaltyMag}
-                    darknessSource={data.location.darknessSource}
-                    timeZone={data.location.timeZone}
-                  />
-                </Grid.Col>
-              </Grid>
+              <>
+                <Grid
+                  type="container"
+                  breakpoints={CONTAINER_GRID_BREAKPOINTS}
+                  gap="sm"
+                  align="stretch"
+                >
+                  <Grid.Col span={{ base: 12, lg: 9 }}>
+                    <NightAnatomy
+                      night={selectedNight}
+                      location={data.location}
+                      moonLimit={data.moonMaxIllumination}
+                    />
+                  </Grid.Col>
+                  <Grid.Col span={{ base: 12, lg: 3 }}>
+                    <ScoreCard night={selectedNight} />
+                  </Grid.Col>
+                </Grid>
+                <SourcesFooter
+                  sources={data.sources}
+                  darknessSource={data.location.darknessSource}
+                />
+              </>
             )}
 
             {search.tab === 'forecast' && selectedNight && (
               <>
-                <NightTimelineChart hourly={data.detail.hourly} night={selectedNight} />
-                <CloudLayersChart hourly={data.detail.hourly} />
+                <Box data-shot="night-timeline">
+                  <NightTimelineChart hourly={data.detail.hourly} night={selectedNight} />
+                </Box>
+                <Box data-shot="cloud-layers">
+                  <CloudLayersChart hourly={data.detail.hourly} date={selectedDate} />
+                </Box>
                 {selectedSite ? (
                   <>
                     {/*
@@ -370,20 +420,24 @@ function AstroWindowPage() {
                         <ChartCard state={{ pending: true }} placeholderHeight={PANORAMA_HEIGHT} />
                       }
                     >
-                      <SkyPanorama
-                        key={`${selectedSite.id}-${selectedDate}`}
-                        site={selectedSite}
-                        detailDate={selectedDate}
-                        hourly={data.detail.hourly}
-                        moonIllumination={selectedNight.moon.illumination}
-                      />
+                      <Box data-shot="sky-panorama">
+                        <SkyPanorama
+                          key={`${selectedSite.id}-${selectedDate}`}
+                          site={selectedSite}
+                          detailDate={selectedDate}
+                          hourly={data.detail.hourly}
+                          moonIllumination={selectedNight.moon.illumination}
+                        />
+                      </Box>
                     </Suspense>
                     <Suspense
                       fallback={
                         <ChartCard state={{ pending: true }} placeholderHeight={CHART_HEIGHT} />
                       }
                     >
-                      <MonthlyBudgetChart site={selectedSite} />
+                      <Box data-shot="annual-budget">
+                        <MonthlyBudgetChart site={selectedSite} />
+                      </Box>
                     </Suspense>
                   </>
                 ) : (

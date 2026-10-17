@@ -3,7 +3,7 @@ import { ChartCard, Lines, type ChartSeries, type XZoneSpec } from 'basalt-ui/ch
 import { alpha, VX } from 'basalt-ui/tokens'
 import { SERIES } from '../../../lib/series'
 import { CHART_HEIGHT, METRIC_TOOLTIPS } from '../constants'
-import { fmtDegrees, hourlyTicks, hourlyTimeLabel } from '../formulas'
+import { fmtDegrees, fmtShortDay, hourlyTicks, hourlyTimeLabel } from '../formulas'
 import type { HourlyPoint, Night } from '../types'
 
 const Y_DOMAIN: [number, number] = [-20, 20]
@@ -82,6 +82,17 @@ export default function NightTimelineChart({
   night: Night
 }) {
   const win = night.window
+  const refLines =
+    night.coreGateDeg === null
+      ? HORIZON
+      : [
+          ...HORIZON,
+          {
+            value: night.coreGateDeg,
+            color: VX.muted,
+            legend: { label: `Core gate ${fmtDegrees(night.coreGateDeg)}` },
+          },
+        ]
 
   // Astronomical-dark bands — the faint "when it's actually dark" layer. `align: 'edge'` widens
   // each band by half a step at its terminal bounds, so a run covers the full sampling cell of
@@ -115,7 +126,7 @@ export default function NightTimelineChart({
 
   return (
     <ChartCard
-      title="Night Timeline"
+      title={`Core, moon and sun altitude · ${fmtShortDay(night.date)}${win === null ? '' : ` · ${win.localStart}–${win.localEnd}`}`}
       info={METRIC_TOOLTIPS.nightTimeline}
       state={{ empty: hourly.length === 0 && 'No hourly data for this night' }}
       placeholderHeight={CHART_HEIGHT}
@@ -130,7 +141,8 @@ export default function NightTimelineChart({
         series={PLOT_SERIES}
         y={{ domain: Y_DOMAIN, ticks: Y_TICKS, format: (v) => `${v}°`, grid: false }}
         xZones={zones}
-        refLines={HORIZON}
+        legend={{ placement: 'header' }}
+        refLines={refLines}
         // Cloud low/mid/high are reported by `cloud-layers-chart` (`onFollow: true`) so it can
         // speak for its own series — no hand-authored rows duplicating that data here.
         tooltip={{ formatHeader: (_x, d) => d.localTime }}

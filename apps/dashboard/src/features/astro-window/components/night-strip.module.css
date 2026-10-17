@@ -1,0 +1,80 @@
+/* NightStrip — ten date cells that scroll and snap on a phone, tile the card from the regular
+   container class up. */
+
+.host {
+  container-type: inline-size;
+}
+
+.scroller {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 5.25rem;
+  gap: 4px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.scroller::-webkit-scrollbar {
+  display: none;
+}
+
+@container (min-width: 800px) {
+  .scroller {
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    grid-template-columns: repeat(var(--night-count), minmax(0, 1fr));
+    overflow-x: visible;
+  }
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  padding: 6px 4px;
+  scroll-snap-align: start;
+  border: 0;
+  border-radius: var(--vx-radius-fine);
+  background: transparent;
+  color: var(--vx-ink);
+  cursor: pointer;
+}
+
+.cell[aria-pressed='true'] {
+  box-shadow: inset 0 0 0 1.5px var(--vx-ink);
+  background: var(--vx-surface-subtle);
+}
+
+.date {
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-xs);
+  color: var(--vx-muted);
+}
+
+.cell[aria-pressed='true'] .date {
+  color: var(--vx-ink);
+  font-weight: 700;
+}
+
+.band {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.note {
+  font-size: var(--vx-text-xs);
+  color: var(--vx-muted);
+  text-align: center;
+  line-height: 1.25;
+}
+
+.marker {
+  min-height: 0.9rem;
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  letter-spacing: 0.04em;
+  color: var(--vx-ink);
+}

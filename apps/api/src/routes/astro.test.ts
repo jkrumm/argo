@@ -412,11 +412,43 @@ describe('GET /astro/window — the verdict', () => {
     const { body } = await get(app, '/astro/window?site=alpenvorland&nights=1')
     expect(body.location.southHorizonDeg).toBe(3.8)
     expect(body.nights[0].peakCoreClearanceDeg).toBeGreaterThan(0)
+    expect(body.nights[0].coreGateDeg).toBeGreaterThanOrEqual(8)
     expect(body.detail.hourly.length).toBeGreaterThan(0)
     for (const point of body.detail.hourly) {
       expect(typeof point.moonBehindTerrain).toBe('boolean')
       expect(point.coreClearance === null || typeof point.coreClearance === 'number').toBe(true)
     }
+  })
+
+  it('reports the core-gate reading on the same predicate the gate uses', async () => {
+    for (const now of [AUGUST, DECEMBER]) {
+      for (const query of ['site=alpenvorland', 'lat=47.60&lon=11.33']) {
+        const { app } = build({ now: () => now })
+        const { body } = await get(app, `/astro/window?${query}&nights=14`)
+        for (const night of body.nights) {
+          const coreKiller = night.killers.some((k: { id: string }) => k.id === 'core-altitude')
+          expect(night.gateCoreAltitude).not.toBeNull()
+          expect(night.coreGateDeg).toBeGreaterThanOrEqual(8)
+          if (coreKiller) {
+            expect(night.gateCoreAltitude).toBeLessThanOrEqual(night.coreGateDeg)
+          } else if (night.darkMinutes > 0) {
+            expect(night.gateCoreAltitude).toBeGreaterThan(night.coreGateDeg)
+          }
+        }
+      }
+    }
+  })
+
+  it('has null gate fields with no astronomical night, and names the best date', async () => {
+    const { app } = build({ now: () => new Date('2026-06-21T12:00:00Z') })
+    const { body } = await get(app, '/astro/window?lat=65&lon=11&nights=3')
+    for (const night of body.nights) {
+      expect(night.darkMinutes).toBe(0)
+      expect(night.gateCoreAltitude).toBeNull()
+      expect(night.coreGateDeg).toBeNull()
+    }
+    expect(body.bestDate).toBe(body.nights[0].date)
+    expect(body.moonMaxIllumination).toBe(0.25)
   })
 
   it('has no committed skyline for a raw lat/lon, even one near a known site', async () => {
@@ -425,6 +457,8 @@ describe('GET /astro/window — the verdict', () => {
     expect(body.location.siteId).toBeNull()
     expect(body.location.southHorizonDeg).toBeNull()
     expect(body.nights[0].peakCoreClearanceDeg).toBeNull()
+    // No skyline: the gate is the flat atmospheric floor.
+    expect(body.nights[0].coreGateDeg).toBe(8)
     for (const point of body.detail.hourly) {
       expect(point.coreClearance).toBeNull()
       expect(point.moonBehindTerrain).toBe(false)

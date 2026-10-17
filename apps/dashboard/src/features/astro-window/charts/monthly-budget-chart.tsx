@@ -86,10 +86,16 @@ export default function MonthlyBudgetChart({ site }: { site: Site }) {
     [data],
   )
 
+  const peakRow = rows.reduce<MonthRow | null>(
+    (best, row) => ((row.terrainMoon ?? -1) > (best?.terrainMoon ?? -1) ? row : best),
+    null,
+  )
+  const peakTitle =
+    peakRow?.terrainMoon != null ? ` · peak ${peakRow.month} ${peakRow.terrainMoon} h` : ''
+
   return (
     <ChartCard
-      title="Annual Visibility Budget"
-      subtitle={`Usable galactic-core hours per month at ${site.name} — is the site worth the drive at all`}
+      title={`Usable core hours per month${peakTitle}`}
       info={METRIC_TOOLTIPS.monthlyBudget}
       state={chartStateOf(
         query,

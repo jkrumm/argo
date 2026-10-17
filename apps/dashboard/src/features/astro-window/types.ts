@@ -61,6 +61,10 @@ export type Night = {
   transit: string
   localTransit: string
   maxCoreAltitude: number
+  /** Core altitude at the dark sample closest to clearing the core gate; the gate passes when it is above `coreGateDeg`. Null without a dark stretch. */
+  gateCoreAltitude: number | null
+  /** The floor at that same sample, degrees: 8° flat, raised by a resolved ridge plus margin. Null without a dark stretch. */
+  coreGateDeg: number | null
   moon: Moon
   weather: Weather
 }
@@ -110,6 +114,10 @@ export type WindowResponse = {
   verdict: Verdict
   score: number
   killers: Killer[]
+  /** The night the top-level fields describe; set even when every night is out. */
+  bestDate: string | null
+  /** Moon-gate limit, 0–1. */
+  moonMaxIllumination: number
   bestWindow: ShootingWindow | null
   summary: string | null
   detail: { date: string; hourly: HourlyPoint[] }
