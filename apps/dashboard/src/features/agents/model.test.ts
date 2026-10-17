@@ -268,6 +268,17 @@ describe('groupProjects', () => {
   })
 })
 
+describe('groupProjects with an unexpected state', () => {
+  it('counts it as unknown instead of producing NaN', () => {
+    const { quiet } = groupProjects(undefined, [
+      agent({ id: 'p', project: 'solo', state: 'paused' as AgentRow['state'] }),
+    ])
+    expect(quiet[0]?.counts.unknown).toBe(1)
+    expect(quiet[0]?.worst).toBe('unknown')
+    expect(Object.values(quiet[0]?.counts ?? {}).every(Number.isFinite)).toBe(true)
+  })
+})
+
 // ── headlineOf ──────────────────────────────────────────────────────────────
 
 describe('headlineOf', () => {

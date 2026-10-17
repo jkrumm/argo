@@ -242,7 +242,8 @@ function buildGroup(name: string, agents: AgentRow[], git: OverviewProject['git'
   const sources: Record<string, number> = {}
   let lastActivityAt: number | null = null
   for (const a of agents) {
-    counts[a.state] += 1
+    const state = a.state in counts ? a.state : 'unknown'
+    counts[state] += 1
     const source = (a.source ?? 'unknown').split(/[\s:·]/)[0] || 'unknown'
     sources[source] = (sources[source] ?? 0) + 1
     if (a.lastActivityAt != null && (lastActivityAt === null || a.lastActivityAt > lastActivityAt))
