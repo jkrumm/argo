@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Card, Group, Stack, Text } from '@mantine/core'
 import { Meter, StatusDot } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
-import { coreGateFailure, fmtShortDay } from '../formulas'
+import { coreGateDetail, coreGateFailure, fmtShortDay } from '../formulas'
 import type { Night } from '../types'
 
 function GateRow({
@@ -42,7 +42,6 @@ function GateRow({
 export function GatesCard({ night, moonLimit }: { night: Night; moonLimit: number }) {
   const failedIds = new Set(night.killers.map((k) => k.id))
   const reasonOf = (id: string) => night.killers.find((k) => k.id === id)?.reason
-  const reading = night.gateCoreAltitude
   const pct = Math.round(night.moon.illumination * 100)
   const limitPct = Math.round(moonLimit * 100)
   const dark = night.darkMinutes > 0
@@ -54,12 +53,7 @@ export function GatesCard({ night, moonLimit }: { night: Night; moonLimit: numbe
       : night.moon.illumination < moonLimit
         ? `${pct} % lit · under the limit`
         : `${pct} % lit · down in the window`)
-  // The reading itself is stated once, on the verdict card; the gate row only rules.
-  const coreDetail = coreGateFailure(night)
-    ? 'below the gate at its closest'
-    : reading === null || night.coreGateDeg === null
-      ? 'no astronomical night'
-      : 'clears the gate'
+  const coreDetail = coreGateDetail(night)
 
   return (
     <Card data-shot="gates-card" h="100%">

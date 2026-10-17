@@ -209,24 +209,26 @@ export type ChipCounts = {
   tags: Array<[string, number]>
 }
 
-/**
- * Chip counts for ONE view: every figure counts the rows that view would show for that chip. A tag
- * with no rows in this view is noise and is dropped, unless it is the `active` filter (the user must
- * still see and be able to clear what they selected).
- */
+/** Chip counts for ONE view: every figure counts the rows that view would show for that chip. */
 export function chipCounts(
   tags: readonly string[],
   rows: ReadonlyArray<{ label: string | undefined }>,
   all: number | null,
-  active = '',
 ): ChipCounts {
   return {
     all,
     labeled: rows.filter((r) => r.label !== undefined).length,
-    tags: tags
-      .map((t): [string, number] => [t, rows.filter((r) => r.label === t).length])
-      .filter(([t, count]) => count > 0 || t === active),
+    tags: tags.map((t) => [t, rows.filter((r) => r.label === t).length]),
   }
+}
+
+/**
+ * Drops tags with no rows in this view — noise — except the `active` filter, and except while the
+ * row set is incomplete (`all === null`: channel lists still loading), when a zero is not yet a fact.
+ */
+export function visibleChipCounts(counts: ChipCounts, active: string): ChipCounts {
+  if (counts.all === null) return counts
+  return { ...counts, tags: counts.tags.filter(([t, n]) => n > 0 || t === active) }
 }
 
 /** A persisted tag filter only survives while the tag still exists. */

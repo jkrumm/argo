@@ -26,7 +26,7 @@ export function SourcesFooter({
         <Group key={key} gap={6} wrap="nowrap">
           <StatusDot color={sources[key] ? VX.status.good : VX.status.bad} />
           <Text size="xs" c="dimmed">
-            {name} {sources[key] ? 'ok' : 'down'}
+            {sources[key] ? name : `${name} down`}
           </Text>
         </Group>
       ))}
