@@ -16,7 +16,7 @@ export function ThreadRecordHeader({
   busy,
   onBack,
   onPin,
-  onArchive,
+  onSetArchived,
   onDelete,
 }: {
   entry: ThreadEntry
@@ -24,7 +24,7 @@ export function ThreadRecordHeader({
   busy: boolean
   onBack: () => void
   onPin: (pinned: boolean) => void
-  onArchive: () => void
+  onSetArchived: (archived: boolean) => void
   onDelete: () => void
 }) {
   const compact = useSizeClass() === 'compact'
@@ -60,10 +60,14 @@ export function ThreadRecordHeader({
               </ActionIcon>
             </Menu.Target>
             <Menu.Dropdown>
-              <Menu.Item onClick={() => onPin(!entry.pinned)}>
-                {entry.pinned ? 'Unpin' : 'Pin'}
+              {!entry.archived && (
+                <Menu.Item onClick={() => onPin(!entry.pinned)}>
+                  {entry.pinned ? 'Unpin' : 'Pin'}
+                </Menu.Item>
+              )}
+              <Menu.Item onClick={() => onSetArchived(!entry.archived)}>
+                {entry.archived ? 'Unarchive' : 'Archive'}
               </Menu.Item>
-              <Menu.Item onClick={onArchive}>Archive</Menu.Item>
               <Menu.Item color="red" onClick={confirmDelete}>
                 Delete
               </Menu.Item>

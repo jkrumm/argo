@@ -28,6 +28,7 @@ function entry(over: Partial<ThreadEntry> & { id: string }): ThreadEntry {
     summary: null,
     type: null,
     pinned: false,
+    archived: false,
     streaming: false,
     persisted: true,
     createdAt: NOW - 30 * DAY,
@@ -69,6 +70,17 @@ describe('groupEntries', () => {
     ])
   })
 
+  it('keeps the week boundary on calendar days across a DST change', () => {
+    // 2026-10-25 is the EU clock change; six calendar days back from the 27th is the 21st.
+    const now = new Date(2026, 9, 27, 12, 0).getTime()
+    const edge = new Date(2026, 9, 21, 0, 30).getTime()
+    const before = new Date(2026, 9, 20, 23, 30).getTime()
+    const [g] = groupEntries([entry({ id: 'e', updatedAt: edge })], now)
+    expect(g?.key).toBe('week')
+    const [h] = groupEntries([entry({ id: 'b', updatedAt: before })], now)
+    expect(h?.key).toBe('earlier')
+  })
+
   it('marks a group live when any row streams', () => {
     const [group] = groupEntries([entry({ id: 'a', streaming: true })], NOW)
     expect(group?.live).toBe(true)
@@ -83,39 +95,63 @@ describe('buildView', () => {
     entry({ id: 'u2', title: null, updatedAt: NOW - 9 * DAY }),
     entry({ id: 'live', title: null, streaming: true }),
     entry({ id: 'local', title: null, persisted: false }),
+    entry({ id: 'pinned', title: null, pinned: true, updatedAt: NOW - 5 * DAY }),
+    entry({ id: 'fresh', title: null, updatedAt: NOW - 10_000 }),
   ]
+  const archived = [entry({ id: 'old', title: 'Old chat', archived: true, pinned: true })]
+  const view = (type: Parameters<typeof buildView>[0]['filter']['type'], query = '') =>
+    buildView({ entries, archived, filter: { type, query }, now: NOW })
+  const ids = (v: ReturnType<typeof view>) =>
+    v.groups.flatMap((g) => g.rows.map((r) => r.id)).toSorted()
 
-  it('folds only quiet persisted untitled threads', () => {
-    expect(entries.filter(isUntitled).map((e) => e.id)).toEqual(['u1', 'u2'])
-    const view = buildView(entries, { type: 'all', query: '' }, NOW)
-    expect(view.untitled.map((e) => e.id)).toEqual(['u1', 'u2'])
-    expect(view.groups.flatMap((g) => g.rows.map((r) => r.id)).toSorted()).toEqual([
-      'infra',
-      'live',
-      'local',
-      'todo',
-    ])
-    expect(view.total).toBe(6)
+  it('folds only quiet, persisted, unpinned, settled untitled threads', () => {
+    expect(entries.filter((e) => isUntitled(e, NOW)).map((e) => e.id)).toEqual(['u1', 'u2'])
+    const v = view('all')
+    expect(v.untitled.map((e) => e.id)).toEqual(['u1', 'u2'])
+    expect(ids(v)).toEqual(['fresh', 'infra', 'live', 'local', 'pinned', 'todo'])
+    expect(v.groups[0]?.key).toBe('pinned')
+    expect(v.total).toBe(8)
   })
 
-  it('counts types over every thread and hides the fold while a filter narrows the list', () => {
-    const view = buildView(entries, { type: 'todo', query: '' }, NOW)
-    expect(view.typeCounts.todo).toBe(1)
-    expect(view.typeCounts.infra).toBe(1)
-    expect(view.untitled).toEqual([])
-    expect(view.groups.flatMap((g) => g.rows.map((r) => r.id))).toEqual(['todo'])
+  it('counts type chips over the rows they reveal and hides the fold while filtered', () => {
+    const v = view('todo')
+    expect(v.typeCounts.todo).toBe(1)
+    expect(v.typeCounts.infra).toBe(1)
+    expect(v.untitled).toEqual([])
+    expect(ids(v)).toEqual(['todo'])
   })
 
-  it('shows only the fold under the Untitled filter and counts it for the chip', () => {
-    const view = buildView(entries, { type: 'untitled', query: '' }, NOW)
-    expect(view.groups).toEqual([])
-    expect(view.untitled.map((e) => e.id)).toEqual(['u1', 'u2'])
-    expect(view.untitledCount).toBe(2)
+  it('does not count a folded untitled thread toward a type chip', () => {
+    const withType = [
+      ...entries,
+      entry({ id: 'ut', title: null, type: 'infra', updatedAt: NOW - DAY }),
+    ]
+    const v = buildView({
+      entries: withType,
+      archived,
+      filter: { type: 'infra', query: '' },
+      now: NOW,
+    })
+    expect(v.typeCounts.infra).toBe(1)
+    expect(ids(v)).toEqual(['infra'])
+  })
+
+  it('shows only the fold under the Untitled filter', () => {
+    const v = view('untitled')
+    expect(v.groups).toEqual([])
+    expect(v.untitled.map((e) => e.id)).toEqual(['u1', 'u2'])
+    expect(v.untitledCount).toBe(2)
+  })
+
+  it('lists archived threads under the Archived filter, never as Pinned', () => {
+    const v = view('archived')
+    expect(v.archivedCount).toBe(1)
+    expect(v.groups.map((g) => g.key)).toEqual(['today'])
+    expect(v.untitled).toEqual([])
   })
 
   it('searches title and summary, case-insensitively', () => {
-    const view = buildView(entries, { type: 'all', query: 'EGGS' }, NOW)
-    expect(view.groups.flatMap((g) => g.rows.map((r) => r.id))).toEqual(['todo'])
+    expect(ids(view('all', 'EGGS'))).toEqual(['todo'])
   })
 })
 

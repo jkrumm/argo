@@ -4,7 +4,7 @@ import type { HermesThreadType } from '../../lib/queries/hermes'
 import { THREAD_TYPES, TYPE_LABEL } from './thread-list-model'
 import classes from './thread-toolbar.module.css'
 
-export type TypeFilter = HermesThreadType | 'all' | 'untitled'
+export type TypeFilter = HermesThreadType | 'all' | 'untitled' | 'archived'
 
 /**
  * Counted filter chips (`All {n}`, `Infra {n}`, …; the active one filled) plus a search field.
@@ -15,6 +15,7 @@ export function ThreadToolbar({
   total,
   typeCounts,
   untitledCount,
+  archivedCount,
   type,
   query,
   onType,
@@ -23,6 +24,7 @@ export function ThreadToolbar({
   total: number
   typeCounts: Record<HermesThreadType, number>
   untitledCount: number
+  archivedCount: number
   type: TypeFilter
   query: string
   onType: (next: TypeFilter) => void
@@ -38,12 +40,15 @@ export function ThreadToolbar({
     ...(untitledCount > 0 || type === 'untitled'
       ? [{ key: 'untitled' as const, label: 'Untitled', count: untitledCount }]
       : []),
+    ...(archivedCount > 0 || type === 'archived'
+      ? [{ key: 'archived' as const, label: 'Archived', count: archivedCount }]
+      : []),
   ]
 
   return (
     <Box className={classes['root']} data-shot="thread-toolbar">
       <ScrollArea className={classes['chips']} type="never" scrollbars="x">
-        <Group gap="xs" wrap="nowrap" p={2}>
+        <Group gap="xs" wrap="nowrap" p={4}>
           {chips.map((chip) => (
             <Button
               key={chip.key}

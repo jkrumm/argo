@@ -32,6 +32,7 @@ export type ThreadEntry = {
   summary: string | null
   type: HermesThreadType | null
   pinned: boolean
+  archived: boolean
   streaming: boolean
   /** False for a chat minted locally that the server has no row for yet. */
   persisted: boolean
@@ -49,7 +50,6 @@ export const GROUP_LABEL: Record<GroupKey, string> = {
 }
 
 const GROUP_ORDER: readonly GroupKey[] = ['pinned', 'today', 'week', 'earlier']
-const DAY_MS = 86_400_000
 
 function metaString(meta: Record<string, unknown> | undefined, key: string): string | null {
   const value = meta?.[key]
@@ -67,10 +67,9 @@ function firstUserText(thread: AgentThread<AgentPart>): string | null {
   return null
 }
 
-/** Live (non-archived) threads of the store as list entries, newest activity first. */
+/** Every thread of the store (archived included) as list entries, newest activity first. */
 export function toEntries(threads: readonly AgentThread<AgentPart>[]): ThreadEntry[] {
   return threads
-    .filter((thread) => thread.meta?.['archived'] !== true)
     .map((thread) => {
       const type = thread.meta?.['type']
       return {
@@ -79,6 +78,7 @@ export function toEntries(threads: readonly AgentThread<AgentPart>[]): ThreadEnt
         summary: metaString(thread.meta, 'summary') ?? firstUserText(thread),
         type: typeof type === 'string' ? (type as HermesThreadType) : null,
         pinned: thread.meta?.['pinned'] === true,
+        archived: thread.meta?.['archived'] === true,
         streaming: thread.status === 'streaming',
         persisted: isThreadPersisted(thread),
         createdAt: thread.createdAt,
@@ -88,12 +88,22 @@ export function toEntries(threads: readonly AgentThread<AgentPart>[]): ThreadEnt
     .toSorted((a, b) => b.updatedAt - a.updatedAt)
 }
 
+/** A fresh persisted chat may still be waiting for its server title (the title pass is async). */
+const TITLE_GRACE_MS = 60_000
+
 /**
- * A thread the disclosure row owns: never titled, and quiet. A chat that is streaming or not yet
- * persisted stays in the main list so its pulse and its first line stay visible.
+ * A thread the disclosure row owns: never titled, persisted, quiet and not fresh. A chat that is
+ * streaming, pinned, not yet persisted or younger than the title grace stays in the main list, so
+ * its pulse, its pin and its first line stay visible and "Delete all" cannot reach it.
  */
-export function isUntitled(entry: ThreadEntry): boolean {
-  return entry.title === null && entry.persisted && !entry.streaming
+export function isUntitled(entry: ThreadEntry, now: number): boolean {
+  return (
+    entry.title === null &&
+    entry.persisted &&
+    !entry.streaming &&
+    !entry.pinned &&
+    now - entry.updatedAt >= TITLE_GRACE_MS
+  )
 }
 
 export function startOfDay(ms: number): number {
@@ -106,7 +116,9 @@ export function groupOf(entry: ThreadEntry, now: number): GroupKey {
   if (entry.pinned) return 'pinned'
   const today = startOfDay(now)
   if (entry.updatedAt >= today) return 'today'
-  if (entry.updatedAt >= today - 6 * DAY_MS) return 'week'
+  const weekStart = new Date(today)
+  weekStart.setDate(weekStart.getDate() - 6)
+  if (entry.updatedAt >= weekStart.getTime()) return 'week'
   return 'earlier'
 }
 
@@ -126,19 +138,24 @@ export function groupEntries(entries: readonly ThreadEntry[], now: number): Thre
 }
 
 export type ThreadView = {
-  /** Every non-archived thread — the figure the summary and the `All` chip share. */
+  /** Every non-archived thread: the figure the summary and the `All` chip share. */
   total: number
-  /** Titled rows after the type and search filters. */
+  /** Titled rows after the type and search filters (the archived ones under that filter). */
   groups: ThreadGroup[]
   /** The fold: untitled threads, shown only when no filter narrows the list. */
   untitled: ThreadEntry[]
-  /** Per type, over every non-archived thread. */
+  /** Per type, over the titled rows a chip reveals. */
   typeCounts: Record<HermesThreadType, number>
   /** Size of the fold, whatever the filter: the `Untitled` chip's count. */
   untitledCount: number
+  /** Archived threads: the `Archived` chip's count. */
+  archivedCount: number
 }
 
-export type ThreadFilter = { type: HermesThreadType | 'all' | 'untitled'; query: string }
+export type ThreadFilter = {
+  type: HermesThreadType | 'all' | 'untitled' | 'archived'
+  query: string
+}
 
 function matchesQuery(entry: ThreadEntry, query: string): boolean {
   const needle = query.trim().toLowerCase()
@@ -146,26 +163,38 @@ function matchesQuery(entry: ThreadEntry, query: string): boolean {
   return `${entry.title ?? ''} ${entry.summary ?? ''}`.toLowerCase().includes(needle)
 }
 
-export function buildView(
-  entries: readonly ThreadEntry[],
-  filter: ThreadFilter,
-  now: number,
-): ThreadView {
+/** `entries` are the non-archived threads, `archived` the archived ones. */
+export function buildView({
+  entries,
+  archived,
+  filter,
+  now,
+}: {
+  entries: readonly ThreadEntry[]
+  archived: readonly ThreadEntry[]
+  filter: ThreadFilter
+  now: number
+}): ThreadView {
+  const untitled = entries.filter((entry) => isUntitled(entry, now))
+  const titledAll = entries.filter((entry) => !isUntitled(entry, now))
   const typeCounts = Object.fromEntries(THREAD_TYPES.map((type) => [type, 0])) as Record<
     HermesThreadType,
     number
   >
-  for (const entry of entries) if (entry.type !== null) typeCounts[entry.type] += 1
+  for (const entry of titledAll) if (entry.type !== null) typeCounts[entry.type] += 1
 
   const narrowed = filter.type !== 'all' || filter.query.trim() !== ''
-  const untitled = entries.filter(isUntitled)
-  const titled =
-    filter.type === 'untitled'
-      ? []
-      : entries
-          .filter((entry) => !isUntitled(entry))
-          .filter((entry) => filter.type === 'all' || entry.type === filter.type)
-          .filter((entry) => matchesQuery(entry, filter.query))
+  let titled: readonly ThreadEntry[]
+  if (filter.type === 'untitled') titled = []
+  else if (filter.type === 'archived')
+    titled = archived
+      .filter((e) => matchesQuery(e, filter.query))
+      .map((e) => ({ ...e, pinned: false }))
+  else {
+    titled = titledAll
+      .filter((entry) => filter.type === 'all' || entry.type === filter.type)
+      .filter((entry) => matchesQuery(entry, filter.query))
+  }
 
   return {
     total: entries.length,
@@ -173,6 +202,7 @@ export function buildView(
     untitled: !narrowed || filter.type === 'untitled' ? untitled : [],
     typeCounts,
     untitledCount: untitled.length,
+    archivedCount: archived.length,
   }
 }
 
@@ -240,7 +270,7 @@ export function summarize(entries: readonly ThreadEntry[], now: number): ThreadS
   )
   return {
     threads: entries.length,
-    untitled: entries.filter(isUntitled).length,
+    untitled: entries.filter((entry) => isUntitled(entry, now)).length,
     pinned: entries.filter((entry) => entry.pinned).length,
     today: entries.filter((entry) => entry.updatedAt >= today).length,
     lastReply: newest === null ? null : listTime(newest, now),
