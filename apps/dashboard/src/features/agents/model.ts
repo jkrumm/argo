@@ -345,3 +345,78 @@ export function ageAgo(ms: number): string {
   if (!Number.isFinite(ms) || ms < 0) return '—'
   return ms < 60_000 ? 'just now' : `${formatWaitDuration(ms)} ago`
 }
+
+// ── Needs-you cards (view models) ────────────────────────────────────────────────────────────
+
+export type NeedsYouCard = {
+  key: string
+  kind: 'human-queue' | 'agent'
+  headline: string
+  /** `<host> · asked 6m ago` / `<project> · waiting 6m`, parts already joined. */
+  facts: string
+  /** Mono inset body: the command, or the blocker. */
+  inset: string | null
+  /** The one copy action, backed by a payload field. */
+  copy: { label: string; value: string } | null
+  /** The full ask, behind a disclosure. */
+  fullAsk: { label: string; text: string } | null
+  abandoned: boolean
+  /** Sort key, oldest wait first. */
+  waitMs: number
+}
+
+type QueueItem = {
+  id: string
+  askedAt?: string | null | undefined
+  question: string
+  cmd?: string | null | undefined
+  [key: string]: unknown
+}
+
+/** Human-queue asks and `needs_you` agents as one list, longest wait first. */
+export function needsYouCards(
+  humanQueue: readonly QueueItem[],
+  agents: readonly AgentRow[],
+  now: number,
+): NeedsYouCard[] {
+  const asks: NeedsYouCard[] = humanQueue.map((item) => {
+    const waitMs = item.askedAt ? Math.max(0, now - Date.parse(item.askedAt)) : -1
+    const host = typeof item['host'] === 'string' ? item['host'] : null
+    const facts = [host, waitMs >= 0 ? `asked ${ageAgo(waitMs)}` : null].filter(Boolean).join(' · ')
+    const headline = headlineOf(item.question)
+    const long = headline !== item.question.replace(/\s+/g, ' ').trim()
+    return {
+      key: `hq-${item.id}`,
+      kind: 'human-queue',
+      headline,
+      facts,
+      inset: item.cmd?.trim() || null,
+      copy: item.cmd?.trim() ? { label: 'Copy command', value: item.cmd.trim() } : null,
+      fullAsk: long
+        ? { label: `Full ask · ${item.question.length} chars`, text: item.question }
+        : null,
+      abandoned: false,
+      waitMs,
+    }
+  })
+  const waiting: NeedsYouCard[] = agents
+    .filter((a) => a.state === 'needs_you')
+    .map((a) => {
+      const waitMs = a.lastActivityAt == null ? -1 : Math.max(0, now - a.lastActivityAt)
+      const facts = [a.project, waitMs >= 0 ? `waiting ${formatWaitDuration(waitMs)}` : null]
+        .filter(Boolean)
+        .join(' · ')
+      return {
+        key: `agent-${a.id}`,
+        kind: 'agent',
+        headline: headlineOf(a.title ?? a.lastPrompt ?? a.id),
+        facts,
+        inset: a.blocker ?? a.waitingFor ?? a.standing ?? null,
+        copy: a.paneId ? { label: 'Copy pane id', value: a.paneId } : null,
+        fullAsk: null,
+        abandoned: isAbandonedWait(a, now),
+        waitMs,
+      }
+    })
+  return [...asks, ...waiting].toSorted((a, b) => b.waitMs - a.waitMs)
+}

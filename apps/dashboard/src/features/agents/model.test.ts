@@ -13,6 +13,7 @@ import {
   summarySentence,
   dayLabel,
   ageAgo,
+  needsYouCards,
   groupByDay,
 } from './model'
 import type { AgentRow } from './model'
@@ -316,5 +317,64 @@ describe('ageAgo', () => {
     expect(ageAgo(30_000)).toBe('just now')
     expect(ageAgo(5 * 60_000)).toBe('5m ago')
     expect(ageAgo(-1)).toBe('—')
+  })
+})
+
+describe('needsYouCards', () => {
+  const now = Date.parse('2026-01-10T12:00:00Z')
+
+  it('merges both queues, longest wait first, with one copy action each from payload fields', () => {
+    const cards = needsYouCards(
+      [
+        {
+          id: 'a',
+          askedAt: '2026-01-10T11:00:00Z',
+          question: 'Run the thing. Then reply.',
+          cmd: ' make go ',
+          host: 'mini',
+        },
+        { id: 'b', askedAt: null, question: 'No clock' },
+      ],
+      [
+        agent({
+          id: 'x',
+          state: 'needs_you',
+          title: 'Pick a branch',
+          blocker: 'dialog open',
+          paneId: 'p1',
+          lastActivityAt: now - 8 * 86_400_000,
+        }),
+        agent({ id: 'y', state: 'working' }),
+      ],
+      now,
+    )
+    expect(cards.map((c) => c.key)).toEqual(['agent-x', 'hq-a', 'hq-b'])
+    expect(cards[0]).toMatchObject({
+      abandoned: true,
+      copy: { label: 'Copy pane id', value: 'p1' },
+      inset: 'dialog open',
+    })
+    expect(cards[1]).toMatchObject({
+      facts: 'mini · asked 1h 0m ago',
+      headline: 'Run the thing.',
+      inset: 'make go',
+      copy: { label: 'Copy command', value: 'make go' },
+    })
+    expect(cards[2]?.copy).toBeNull()
+    expect(cards[2]?.facts).toBe('')
+  })
+
+  it('offers the full ask only when the headline cut something', () => {
+    const [short] = needsYouCards([{ id: 's', question: 'Short ask.' }], [], now)
+    expect(short?.fullAsk).toBeNull()
+    const [long] = needsYouCards(
+      [{ id: 'l', question: 'First. Second sentence follows.' }],
+      [],
+      now,
+    )
+    expect(long?.fullAsk).toEqual({
+      label: 'Full ask · 31 chars',
+      text: 'First. Second sentence follows.',
+    })
   })
 })

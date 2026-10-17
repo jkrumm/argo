@@ -84,7 +84,7 @@ export function FleetStrip({ summary, history, hours, oldest, now }: Props) {
           footer: peakFooter(history, hours, now),
         },
         {
-          caption: `Oldest wait · ${oldest?.project ?? 'no agent waiting'}`,
+          caption: oldest === null ? 'Oldest wait' : `Oldest wait · ${oldest.project}`,
           value: oldest === null ? '—' : formatWaitDuration(oldest.ms),
           ...(oldestTone !== undefined && { tone: oldestTone }),
           visual: (
@@ -120,7 +120,7 @@ export function FleetStrip({ summary, history, hours, oldest, now }: Props) {
             />
           ),
           footer: (
-            <Group gap="xs" wrap="nowrap">
+            <Group gap="xs" rowGap={2}>
               {parts.map((p) => (
                 <Group key={p.key} gap={4} wrap="nowrap">
                   <Dot color={FLEET_COLOR[p.key]} />

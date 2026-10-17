@@ -4,7 +4,12 @@ import { Stack } from '@mantine/core'
 import { PageBar } from 'basalt-ui'
 import { agentsQueries } from '../lib/queries/agents'
 import { useNow } from '../lib/use-now'
-import { flattenAgents, groupProjects, oldestNeedsYouWait } from '../features/agents/model'
+import {
+  fleetParts,
+  flattenAgents,
+  groupProjects,
+  oldestNeedsYouWait,
+} from '../features/agents/model'
 import { StaleBanner } from '../features/agents/stale-banner'
 import { PageSummary } from '../features/agents/page-summary'
 import { FleetStrip } from '../features/agents/fleet-strip'
@@ -60,7 +65,7 @@ function AgentsPage() {
             items: humanQueue.length + waiting,
             oldestWaitMs: oldest?.ms ?? null,
             working: snapshot?.summary?.working ?? 0,
-            total: agents.length,
+            total: fleetParts(snapshot?.summary).total,
             idleProjects: quiet.length,
           }}
         />
