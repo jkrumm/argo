@@ -279,8 +279,16 @@ export function summarySentence(input: {
       : `${exerciseLabel(leader)} e1RM ${e1rm === null ? EM_DASH : `${e1rm.toFixed(1)} kg`}`
   const move = leader === null || e1rm === null ? '' : `, ${delta.phrase}`
   const load = acwr === null ? 'ACWR —' : `ACWR ${acwr.toFixed(2)} ${acwrZoneWord(acwr)}`
-  const own = `readiness ${score === null ? EM_DASH : `${Math.round(score)}/100`} ${call.readinessVerdict}${call.asOf === null ? '' : `, ${call.asOf}`}`
-  const ready = call.verdict === call.readinessVerdict ? own : `${own} · call ${call.verdict}`
+  const figure = `readiness ${score === null ? EM_DASH : `${Math.round(score)}/100`}`
+  const when = call.asOf === null ? '' : `, ${call.asOf}`
+  const ready =
+    call.verdict === call.readinessVerdict
+      ? `${figure} ${call.readinessVerdict}${when}`
+      : `${figure} (${call.readinessVerdict})${when}, ${
+          call.overridden
+            ? `overridden to ${call.verdict} by the deload signal`
+            : `capped to ${call.verdict} by a monitor signal`
+        }`
   return `${lift}${move} · ${load} · ${ready}`
 }
 

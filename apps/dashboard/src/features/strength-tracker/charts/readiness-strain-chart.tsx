@@ -5,7 +5,6 @@ import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
-import { latestWith } from '../../garmin-health/charts/latest'
 import { localDay } from '../../garmin-health/charts/local-day'
 import {
   READINESS_PUSH_FROM,
@@ -83,16 +82,14 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
       })),
     [query.data],
   )
-  const latest = latestWith(points, (p) => p.readiness)
+  const hasData = points.some((p) => p.readiness !== null)
   // The header is the verdict card's reading, from the same fixed-window query and function: the
   // server's score depends on the window it is computed over, so the plotted window must not
   // decide the headline figure.
   const headerQuery = useQuery(strengthQueries.readiness({ window: '30d' }))
-  const header = readinessHeader(readinessReading(headerQuery.data?.points ?? []))
-  const headerZone =
-    header === null
-      ? null
-      : readinessZoneLabel(readinessReading(headerQuery.data?.points ?? [])?.score ?? 0)
+  const reading = readinessReading(headerQuery.data?.points ?? [])
+  const header = readinessHeader(reading)
+  const headerZone = reading?.score == null ? null : readinessZoneLabel(reading.score)
 
   return (
     <ChartCard
@@ -107,18 +104,13 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
             <Text span size="xs" c={headerZone.color}>
               {headerZone.text}
             </Text>
-            {header.date === null ? null : (
-              <Text span size="xs" c="dimmed">
-                {header.date}
-              </Text>
-            )}
+            <Text span size="xs" c="dimmed">
+              latest{header.date === null ? '' : ` · ${header.date}`}
+            </Text>
           </Group>
         ) : null
       }
-      state={chartStateOf(
-        query,
-        latest === null ? 'Need ≥ 7 days of Garmin daily metrics' : undefined,
-      )}
+      state={chartStateOf(query, !hasData ? 'Need ≥ 7 days of Garmin daily metrics' : undefined)}
       placeholderHeight={HEIGHT}
     >
       <Lines

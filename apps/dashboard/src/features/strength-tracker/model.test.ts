@@ -80,6 +80,11 @@ describe('deload recency', () => {
     expect(recentDeload(active, null, NOW)?.verdict).toBe('stale')
     expect(recentDeload(undefined, '2026-10-10', NOW)).toBeUndefined()
   })
+  test('exactly 28 d ago is stale, a day later is recent', () => {
+    const midnight = Date.parse('2026-10-17')
+    expect(recentDeload(active, '2026-09-19', midnight)?.verdict).toBe('stale')
+    expect(recentDeload(active, '2026-09-20', midnight)?.verdict).toBe('monitor')
+  })
   test('the line says what the signal is, never "active" for a stale one', () => {
     expect(deloadLine({ verdict: 'stale', activeSignals: [] }, '2026-09-02')).toBe(
       `Deload signal: no recent sessions, last was ${shortDate('2026-09-02')}`,
@@ -127,7 +132,7 @@ describe('readiness reads one value everywhere', () => {
       call,
       score: reading?.score ?? null,
     })
-    expect(sentence).toContain('readiness 88/100 Push · call Normal')
+    expect(sentence).toContain('readiness 88/100 (Push), capped to Normal by a monitor signal')
   })
   test('no reading is null', () => {
     expect(readinessHeader(null)).toBeNull()
