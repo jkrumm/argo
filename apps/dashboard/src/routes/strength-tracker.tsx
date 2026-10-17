@@ -170,7 +170,7 @@ function StrengthTrackerPage() {
                 multiExercise={exercises.length > 1}
               />
             ) : !hasWorkouts ? (
-              <Card py="sm" px="md">
+              <Card>
                 <EmptyState
                   icon={<IconBarbell size={28} stroke={1.5} />}
                   title="No workouts logged"

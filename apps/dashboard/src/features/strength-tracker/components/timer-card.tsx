@@ -556,7 +556,7 @@ export function TimerCard() {
   const mode = useTimerStore((s) => s.mode)
 
   return (
-    <Paper py="sm" px="md">
+    <Paper>
       <Stack gap="sm" align="center">
         <WidgetHeader
           tier="widget"
