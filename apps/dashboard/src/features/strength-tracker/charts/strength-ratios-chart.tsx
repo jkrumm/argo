@@ -2,7 +2,7 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { Group, Stack, Text } from '@mantine/core'
 import { Meter } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
-import { alpha, VX } from 'basalt-ui/tokens'
+import { VX } from 'basalt-ui/tokens'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from '../constants'
 import { type RatioStatus } from '../formulas'
@@ -15,8 +15,6 @@ type Ratio = {
   status: RatioStatus | null
   scaleMax: number
 }
-
-const MUTED_FILL = alpha(VX.muted, 0.35)
 
 function statusInk(status: RatioStatus | null): string {
   switch (status) {
@@ -67,9 +65,9 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
                   max={pair.scaleMax}
                   format={(v) => v.toFixed(2)}
                   zones={[
-                    { from: 0, to: lo, label: 'Under', color: MUTED_FILL },
+                    { from: 0, to: lo, label: 'Under' },
                     { from: lo, to: hi, label: 'Band', color: VX.good },
-                    { from: hi, to: pair.scaleMax, label: 'Over', color: MUTED_FILL },
+                    { from: hi, to: pair.scaleMax, label: 'Over' },
                   ]}
                   startCaption={null}
                   endCaption={null}
