@@ -58,9 +58,9 @@ function RecoveryCell({ params }: { params: SummaryParams }) {
         min={0}
         max={100}
         zones={[
-          { from: 0, to: RECOVERY_REST_BELOW, label: 'Rest' },
-          { from: RECOVERY_REST_BELOW, to: RECOVERY_PUSH_FROM, label: 'Normal' },
-          { from: RECOVERY_PUSH_FROM, to: 100, label: 'Push' },
+          { from: 0, to: RECOVERY_REST_BELOW, label: 'Rest', color: VX.bad },
+          { from: RECOVERY_REST_BELOW, to: RECOVERY_PUSH_FROM, label: 'Normal', color: VX.warn },
+          { from: RECOVERY_PUSH_FROM, to: 100, label: 'Push', color: VX.good },
         ]}
         startCaption={`rest < ${RECOVERY_REST_BELOW} · push ≥ ${RECOVERY_PUSH_FROM}`}
         endCaption="100"
@@ -110,10 +110,10 @@ function LoadCell({ params }: { params: SummaryParams }) {
         max={ACWR_METER_MAX}
         format={(v) => v.toFixed(2)}
         zones={[
-          { from: 0, to: ACWR_FLOOR, label: 'Under' },
-          { from: ACWR_FLOOR, to: ACWR_OPTIMAL_TO, label: 'Optimal' },
-          { from: ACWR_OPTIMAL_TO, to: ACWR_CAUTION_TO, label: 'Caution' },
-          { from: ACWR_CAUTION_TO, to: ACWR_METER_MAX, label: 'Danger' },
+          { from: 0, to: ACWR_FLOOR, label: 'Under', color: VX.warn },
+          { from: ACWR_FLOOR, to: ACWR_OPTIMAL_TO, label: 'Optimal', color: VX.good },
+          { from: ACWR_OPTIMAL_TO, to: ACWR_CAUTION_TO, label: 'Caution', color: VX.warn },
+          { from: ACWR_CAUTION_TO, to: ACWR_METER_MAX, label: 'Danger', color: VX.bad },
         ]}
         startCaption={`optimal ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO}`}
         endCaption={ACWR_METER_MAX.toFixed(1)}
@@ -123,6 +123,8 @@ function LoadCell({ params }: { params: SummaryParams }) {
       <BarList
         label="Acute and chronic load in MET-min per day"
         items={load}
+        // Headroom past the larger bar keeps the value text off the fill's edge.
+        max={Math.max(...load.map((l) => l.value), 1) * 1.6}
         format={(v) => v.toFixed(0)}
         loading={data === undefined}
         loadingRows={2}
@@ -177,7 +179,7 @@ function SignalLine({ spec }: { spec: SignalSpec }) {
             value={spec.delta}
             polarity={spec.polarity}
             format={(v) => `${signed(v, spec.digits)} ${spec.deltaUnit}`.trim()}
-            withGlyph={false}
+            withGlyph
           />
         )
       }

@@ -35,7 +35,7 @@ const RECOVERY_SERIES: ChartSeries<RecoveryPoint>[] = [
   // Legend-only zone keys: `getValue` is always null, so they draw nothing and own no tooltip row.
   {
     key: 'push',
-    label: 'Push (>70)',
+    label: 'Push (≥ 70)',
     color: VX.goodSolid,
     mark: 'bar',
     role: 'reference',
@@ -43,7 +43,7 @@ const RECOVERY_SERIES: ChartSeries<RecoveryPoint>[] = [
   },
   {
     key: 'rest',
-    label: 'Rest (<40)',
+    label: 'Rest (< 40)',
     color: VX.badSolid,
     mark: 'bar',
     role: 'reference',
