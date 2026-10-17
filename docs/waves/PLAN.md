@@ -1002,14 +1002,18 @@ merges.
   - **For later waves:** the open items above; `apps/dashboard/src/lib/notifications.ts` needs an `m365:error` kind before M365 write
     failures can toast; the shot harness's focus anchors time out on slow upstreams and hidden mobile panes (each costs 30 s).
 
-## Wave 23 — The convergence re-score <!-- status: planned -->
+## Wave 23 — The convergence re-score <!-- status: active -->
 
 Spawn only after basalt Wave 35 ships its props (`StatGroup variant="strip"`, `Meter` `ticks` / `tone="muted"` / `size="row"` /
 `stops`, per-row `BarList` `max`, `Sparkline reference`, `ChartCard facts`, the `relativeTime` locale fix, the `StatusDot` root export,
 `EventList`). First adopt each shipped prop and delete the matching local prototype (one commit per export; drop `lib/format.ts`'s
 `relativeTime` wrapper once basalt honours the provider locale), then re-score.
 
-- [ ] Adopt basalt Wave 35's exports across every page; delete the prototypes listed in `UPSTREAM.md`.
+basalt-ui 2.20.0 shipped Wave 35 on 2026-10-18. `EventList` did not ship (a basalt Wave 36+ item); keep the local one.
+
+- [ ] Adopt basalt 2.20.0 per `docs/design/basalt-2.20-adoption.md` (bump, `sync`, delete each prototype for its export, one
+      commit per export). `make check` green, then live-shoot Garmin, Agents, Warden and Home and score them with a fresh
+      `basalt-design-reviewer`. Report the argo line delta and file every gap as an `UPSTREAM.md` row.
 - [ ] Re-score every page with a fresh reviewer and against Keel. Every page still below the bar gets a Wave 24+ in this shape. The
       loop ends only when a fresh scorer and the owner find nothing worth improving.
 
