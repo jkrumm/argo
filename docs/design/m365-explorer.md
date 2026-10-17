@@ -23,14 +23,14 @@ Decision: label (or unlabel) a chat or channel so it feeds `GET /m365/important`
 
 | Dataset | Source | Shape (SPEC §3) | Today | Chosen | Reason | Keel |
 |-|-|-|-|-|-|-|
-| Coverage | `labels[]` count vs `chats` + `teams` totals | Progress (one bounded ratio) | `9 sources labeled so far` | Strip cell `LABELED` `9` + muted `of 37 sources`, linear `Meter` 0–37, no target tick (there is no target) | A ratio of a known total, not a score | `stat-cell.png` |
+| Coverage | `labels[]` count vs labelable sources: chats + channels (`/m365/chats`, `/m365/teams/:id/channels` summed over the 13 teams; a team itself is not labelable, `kind` is `chat` or `channel`) | Progress (one bounded ratio) | `9 sources labeled so far` | Strip cell `LABELED` `9` + muted `of <n> chats + channels`, linear `Meter` 0–`<n>` (skeleton until the per-team channel counts load), no target tick (there is no target) | A ratio of a known total, not a score | `stat-cell.png` |
 | Source kinds | `chats[].chatType` (oneOnOne, group, meeting), teams | Part of a whole, 2–6 parts | Per-row badges only | Strip cell `CHATS · 24` with a segmented bar `1:1 · group · meeting` and captions; second cell `TEAMS · 13` | The mix is visible without scanning 24 badges | `metric-card-bar.png` |
 | Labels by tag | `labels[].label`, `/m365/labels` | Distribution | 7 gold chips with counts | Filter toolbar: neutral outline chips with counts, active chip filled in the accent, `Manage` as a quiet trailing action | A filter, not a status; tag hue is not earned | `filter-toolbar.png` |
 | Labelled sources | `labels[{sourceId,kind,label,displayName}]` | List of references | Wrapped chip-cards with star + trash | Default state of the right pane: list grouped by tag, heading `alerts · 1`, rows with glyph (chat or channel), display name, tag chip, one remove action on hover | Turns the empty pane into the page's main surface; one control per row | `side-panel-card.png` |
 | Chats by recency | `chats[].lastUpdatedAt`, `chatType`, `topic`, `members`, `lastMessagePreview` | Event sequence | Flat list, absolute dates | `EventList`-style rows grouped `Today · n`, `This week · n`, `Earlier · n`: glyph by `chatType`, name, one muted meta line `meeting · 4 members`, mono time pinned right, a star only when labelled | Recency is the reason to open a chat | `activity-item.png` |
 | Teams and channels | `/m365/teams`, `/teams/:id/channels` | Tree (entity with children) | 13 team rows with description | Segmented control `Chats 24 | Teams 13` replaces the stacked lists; team row expands to its channels (`membershipType` as meta) | One list at a time halves the scroll | `nav-item.png` |
 | Source preview | `GET .../messages`: `from.name`, `createdDateTime`, `bodyText`, `importance`, `replyCount`, `webUrl` | Event sequence | Empty on load | Record header (name, kind chip, facts `meeting · 4 members · last message 09:56`, one primary `Label as…` split-button with the tag select), then an `EventList` of messages: sender + mono time on line one, body clamped to 3 lines, `high` importance as a status dot, `replyCount` as a muted chip for channels | The user labels a source after seeing it, in one place | `record-header.png`, `timeline-event.png` |
-| Agent feed | `GET /m365/important?label=` | Event sequence | Not shown | A third tab `Agent feed` showing what `/important` returns for the active tag, same message rows | Shows the consequence of a label; shape of the response must be confirmed before build | `timeline-event.png` |
+| Agent feed | `GET /m365/important?label=&top=&limit=` → `messages[{source, sourceId, label, displayName, notes, message{id, createdAt, from, subject, importance, bodyText, webUrl, replyCount, isSystem}}]`, newest first, `top` per source (max 20) | Event sequence | Not shown | A third tab `Agent feed` rendering exactly that response for the active tag with the same message rows; each row's meta line adds the label and the source's `notes` | Shows the consequence of a label | `timeline-event.png` |
 | Refresh | the two list queries | Action | Labelled button | Ghost icon-button with a mono fact `synced 12m ago` (query `dataUpdatedAt`) | Facts instead of a verb in a button | `page-header.png` |
 
 ## Layout
@@ -45,8 +45,8 @@ Stay: the label API behaviour, the manage-tags dialog. Change: everything above 
 
 Format is binding; figures other than the baseline ones are illustrative.
 
-- Summary: `9 of 37 sources labeled across 7 tags · 24 chats, 13 teams · latest activity 16 Oct 09:56`
-- Cells: `LABELED · 9 of 37 sources`, `CHATS · 24 · 1:1 6 · group 5 · meeting 13`, `TEAMS · 13 · 41 channels`
+- Summary: `9 of <n> chats and channels labeled across 7 tags · 24 chats, 13 teams · latest activity 16 Oct 09:56`
+- Cells: `LABELED · 9 of <n> chats + channels`, `CHATS · 24 · 1:1 6 · group 5 · meeting 13`, `TEAMS · 13 · <n> channels`
 - Group headings: `alerts · 1`, `daily · 2`, `Today · 3`, `This week · 8`, `Earlier · 13`
 - Row meta: `meeting · 4 members`, `team channel · standard`
 - Empty state (no labels): `No labeled sources — label a chat to include it in /m365/important`; empty search: `No chats match "<query>"`

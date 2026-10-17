@@ -1,6 +1,6 @@
 # Hermes Chat — concept
 
-Route `/hermes-chat` · `apps/dashboard/src/routes/hermes-chat.tsx`, `apps/dashboard/src/features/hermes-chat/` (`chat-page.tsx`, `hermes-row.tsx`, `threads-store.ts`) · API `GET /hermes/threads`, `/hermes/chat/:id`, `GET /hermes/health`.
+Route `/hermes-chat` · `apps/dashboard/src/routes/hermes-chat.tsx`, `apps/dashboard/src/features/hermes-chat/` (`chat-page.tsx`, `hermes-row.tsx`, `threads-store.ts`) · API `GET /hermes/threads`, `GET /hermes/threads/:id/messages` (thread messages), `GET /hermes/chat/:id/stream` (resume), `POST /hermes/chat/:id/stop`, `GET /hermes/health`.
 
 ## Baseline verdict
 
@@ -24,7 +24,7 @@ Decision: resume a thread, start a new one, or clean up dead ones.
 | Dataset | Source | Shape (SPEC §3) | Today | Chosen | Reason | Keel |
 |-|-|-|-|-|-|-|
 | Threads by recency | `threads[].updated_at`, `pinned`, `title`, `summary`, `type` | Event sequence | Flat rows, relative German time | `EventList` day groups: `Pinned · 3`, `Today · 2`, `This week · 4`, `Earlier · 38`; row: type chip, title, one-line summary, mono time pinned right (`14:22` today, `12 Oct` older) | Day groups give rhythm; absolute short times scan faster than "4 Monaten" | `activity-item.png`, `timeline-event.png` |
-| Untitled threads | `title == null && summary == null` | List of references | 5 rows `New chat` | Collapsed to one disclosure row `5 untitled chats · oldest 4 months` with one action `Delete all` | Empty threads are noise; one row, one decision | `empty-state.png` |
+| Untitled threads | `title == null` (any `summary`) | List of references | 5 rows `New chat` | Every thread with `title: null` folds into one disclosure row `5 untitled chats · oldest 4 months` with one action `Delete all`; expanding it lists them with `Untitled · <time>`. No row in the main list reads `New chat` | Empty threads are noise; one row, one decision | `empty-state.png` |
 | Type distribution | `threads[].type` (todo, podcast, infra, note, research, general) | Part of a whole, 2–6 parts | 6 types only as row badges | Filter toolbar: neutral outline chips with counts (`All 47`, `infra 12`, …), active chip filled | The distribution is the filter; no chart needed | `filter-toolbar.png` |
 | Live turn | `threads[].streaming` | Status | Not shown | Pulse dot in the row and `Live` marker in the group heading while true | Streaming is the only thing that changes while the page is open | `status-pill.png` |
 | Hermes reachability | `GET /hermes/health` | Status | Not shown | Status dot + `Hermes reachable` / `degraded` in the `PageBar` meta | Explains why a send will fail before it does | `page-header.png` |
@@ -57,7 +57,7 @@ Stay: composer, message renderer, voice, thread stream behaviour. Change: list r
 ## Pass criteria
 
 1. The list is grouped by `Pinned` / `Today` / `This week` / `Earlier`, each heading carrying a count.
-2. No more than one row reads `New chat`; untitled threads are folded into one disclosure row with a count.
+2. No row in the main list reads `New chat`; every `title: null` thread sits in one disclosure row with a count.
 3. All times are English; today's rows show `HH:mm`, older rows `D Mon`.
 4. A streaming thread shows a pulse dot; Hermes health shows as a dot with a word.
 5. The summary sentence contains the live thread count and the last reply time.
