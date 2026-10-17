@@ -206,7 +206,7 @@ function revertsCell({ reverts }: StripModel): StatStripCell {
       : null,
     reverts.reopens === null
       ? `reopens ${noData(reverts.reopensUnavailable ?? 'not reported')}`
-      : `${reverts.reopens} reopen after fixed · last ${reverts.windowDays} d`,
+      : `${reverts.reopens} reopen after fixed · last\u00a0${reverts.windowDays}\u00a0d`,
   ].filter((part): part is string => part !== null)
   return {
     key: 'reverts',
