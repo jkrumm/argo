@@ -20,6 +20,7 @@ import {
   pollerStaleLabel,
   deferralOf,
   splitReason,
+  cardCategory,
   sentenceCase,
   deriveBudgetFooter,
   recentTransitions,
@@ -553,7 +554,7 @@ describe('recentTransitions', () => {
   })
 
   it('reads a created row as — → state', () => {
-    expect(recentTransitions(timeline, 4)[0]).toMatchObject({ from: '—', to: 'new' })
+    expect(recentTransitions(timeline, 4)[0]).toMatchObject({ from: null, to: 'new' })
   })
 
   it('is empty for missing or malformed timelines', () => {
@@ -647,5 +648,29 @@ describe('sentenceCase', () => {
     expect(sentenceCase('BLOCKER')).toBe('Blocker')
     expect(sentenceCase('data_loss')).toBe('Data loss')
     expect(sentenceCase(' needs_decision ')).toBe('Needs decision')
+  })
+
+  it('has no leading or doubled space from underscores', () => {
+    expect(sentenceCase('_blocker')).toBe('Blocker')
+    expect(sentenceCase('a__b')).toBe('A b')
+  })
+
+  it('keeps short all-caps acronyms', () => {
+    expect(sentenceCase('OOM')).toBe('OOM')
+    expect(sentenceCase('CI failed')).toBe('CI failed')
+  })
+})
+
+describe('cardCategory', () => {
+  it('uses the failure class for failed cards and the tag for decisions', () => {
+    expect(cardCategory('failed', 'x', ' infra ')).toBe('infra')
+    expect(cardCategory('decision', ' blocker ', 'infra')).toBe('blocker')
+  })
+
+  it('is null for blank, whitespace-only or missing text', () => {
+    expect(cardCategory('failed', null, '   ')).toBeNull()
+    expect(cardCategory('failed', null, null)).toBeNull()
+    expect(cardCategory('decision', '   ', null)).toBeNull()
+    expect(cardCategory('decision', null, null)).toBeNull()
   })
 })

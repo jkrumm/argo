@@ -16,6 +16,7 @@ import {
   type PendingActions,
 } from './model'
 import {
+  cardCategory,
   cardFacts,
   needsCards,
   planActions,
@@ -46,7 +47,7 @@ function ClampedText({ text }: { text: string }) {
   const clampable = text.length > CLAMP_MIN_CHARS
   return (
     <Stack gap={4} align="flex-start">
-      <Text id={textId} size="xs" {...(clampable && !expanded ? { lineClamp: 3 } : {})}>
+      <Text id={textId} size="sm" {...(clampable && !expanded ? { lineClamp: 3 } : {})}>
         {text}
       </Text>
       {clampable ? (
@@ -107,10 +108,9 @@ function QueueCard({
     kind === 'failed'
       ? { question: retryQuestion(title), rest: row.reason }
       : splitReason(row.reason, title)
-  const category =
-    kind === 'failed' ? row.failureClass : 'tag' in split && split.tag !== null ? split.tag : null
+  const category = cardCategory(kind, 'tag' in split ? split.tag : null, row.failureClass)
   const status =
-    category !== null && category !== '' ? (
+    category !== null ? (
       <StatusChip label={category} />
     ) : row.state !== 'needs_decision' && row.state !== 'failed' && row.state !== null ? (
       <StatusChip label={row.state} />
@@ -125,7 +125,7 @@ function QueueCard({
         status={status}
         actor={
           kind === 'decision' && split.question !== title ? (
-            <Text component="span" fz="xs">
+            <Text component="span" fz="xs" title={title}>
               {title}
             </Text>
           ) : undefined

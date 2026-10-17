@@ -379,13 +379,29 @@ export function planActions(available: readonly string[], kind: QueueKind): Acti
 /** Warden prefixes some decision text with a bracketed category: `[blocker] Deploy …`. */
 const LEADING_TAG = /^\[([^\]]{1,40})\]\s*/
 
-/** `BLOCKER` / `data_loss` → `Blocker` / `Data loss`: a category word reads as a sentence, not an enum. */
+/** `BLOCKER` / `data_loss` → `Blocker` / `Data loss`: a category word reads as a sentence, not an enum.
+ * Short all-caps tokens (`OOM`, `CI`) are acronyms and keep their case. */
 export function sentenceCase(raw: string): string {
   const words = raw
+    .replaceAll('_', ' ')
     .trim()
-    .replaceAll(/[_\s]+/g, ' ')
-    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => (/^[A-Z]{2,3}$/.test(word) ? word : word.toLowerCase()))
+    .join(' ')
   return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+/** The word a decision/failed card shows before its facts: the failure class, or the lifted `[tag]`.
+ * Blank or whitespace-only text is `null`, so the caller falls back instead of rendering a bare dot. */
+export function cardCategory(
+  kind: QueueKind,
+  tag: string | null,
+  failureClass: string | null,
+): string | null {
+  const raw = kind === 'failed' ? failureClass : tag
+  const trimmed = raw?.trim() ?? ''
+  return trimmed === '' ? null : trimmed
 }
 
 /** The first complete sentence of warden's decision text is the question; whatever follows is the
@@ -527,7 +543,7 @@ export function deferredNote(item: WardenBoardItem): string | null {
 
 // ── Item history (decision-card preview) ────────────────────────────────────
 
-export type TransitionLine = { from: string; to: string; at: string | null }
+export type TransitionLine = { from: string | null; to: string; at: string | null }
 
 /** The last `limit` state changes of one item, oldest first — the context beside a decision. A
  * synthetic `created` row has no `from`, so it reads `— → new`. */
@@ -539,7 +555,7 @@ export function recentTransitions(timeline: unknown, limit = 3): TransitionLine[
     const r = bag(row)
     const to = typeof r?.['to_state'] === 'string' ? r['to_state'] : null
     if (to === null) continue
-    const from = typeof r?.['from_state'] === 'string' ? r['from_state'] : '—'
+    const from = typeof r?.['from_state'] === 'string' ? r['from_state'] : null
     const at = typeof r?.['at'] === 'string' ? r['at'] : null
     lines.push({ from, to, at })
   }

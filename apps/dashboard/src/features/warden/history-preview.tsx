@@ -12,7 +12,7 @@ export function HistoryPreview({ lines }: { lines: readonly TransitionLine[] }) 
       {lines.map((line, index) => (
         <Group key={`${index}-${line.to}`} gap="xs" wrap="nowrap" justify="space-between">
           <Text size="xs">
-            {line.from === '—' ? 'New' : sentenceCase(line.from)} → {sentenceCase(line.to)}
+            {line.from === null ? 'New' : sentenceCase(line.from)} → {sentenceCase(line.to)}
           </Text>
           <Text size="xs" c="dimmed" ff="monospace">
             {line.at ? relativeTime(line.at) : '—'}
