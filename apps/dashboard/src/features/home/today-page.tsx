@@ -1,6 +1,6 @@
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { Stack, Title } from '@mantine/core'
-import { PageBar } from 'basalt-ui'
+import { PageBar, StatGroup } from 'basalt-ui'
 import { agentsQueries } from '../../lib/queries/agents'
 import { calendarQueries } from '../../lib/queries/calendar'
 import { recoveryQueries, trainingLoadQueries } from '../../lib/queries/daily-metrics'
@@ -32,7 +32,6 @@ import {
 } from './model'
 import { NeedsYou } from './needs-you'
 import { acwrCell, agentsCell, budgetCell, meetingCell, recoveryCell } from './strip-cells'
-import { TodayStrip } from './today-strip'
 import classes from './home.module.css'
 
 /** Recovery and its baselines are window-wide, so Today reads the Garmin page's default window. */
@@ -197,7 +196,10 @@ export function TodayPage() {
           <span className={classes.date}>{dateFormat.format(now)}</span>
         </div>
 
-        <TodayStrip
+        <StatGroup
+          variant="strip"
+          label="Today at a glance"
+          cols={5}
           cells={[
             agentsCell(snapshot?.summary, fleet?.total ?? null, historyQuery.data?.data, now),
             budgetCell(wardenRaw?.budget, poller),

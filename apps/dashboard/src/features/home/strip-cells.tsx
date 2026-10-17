@@ -1,6 +1,6 @@
 import { Text } from '@mantine/core'
 import { AgentsBand, DayAxis } from './strip-visuals'
-import { Meter } from 'basalt-ui'
+import { Meter, type StatStripCell } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import type { HistoryPoint, OverviewSummary } from '../../lib/queries/agents'
@@ -24,13 +24,11 @@ import {
   type Meeting,
   type RecoveryReading,
 } from './model'
-import type { StripCellModel } from './today-strip'
 
-const EM_DASH = '—'
 const HISTORY_HOURS = 24
 /** The budget track runs past the cap so an overrun is visible; the tick marks the cap itself. */
 const BUDGET_HEADROOM = 1.25
-/** A reading that is not a verdict: `Meter`'s neutral fill (`VX.line`) is near-white in dark mode. */
+/** The recovery sparkline's ink: a trend, not a verdict (`Meter` has `tone="muted"` for its own fill). */
 const MUTED_FILL = alpha(VX.muted, 0.35)
 
 const clock = (ms: number) =>
@@ -43,13 +41,13 @@ export function agentsCell(
   total: number | null,
   history: HistoryPoint[] | undefined,
   now: number,
-): StripCellModel {
+): StatStripCell {
   const working = summary?.working
   const peak = peakWorking(hourlyWorking(history, HISTORY_HOURS, now))
   return {
-    id: 'agents',
+    key: 'agents',
     caption: 'Agents working · 24 h',
-    value: typeof working === 'number' ? String(working) : EM_DASH,
+    value: typeof working === 'number' ? String(working) : null,
     ...(typeof working === 'number' && total !== null && { unit: `of ${total} agents` }),
     visual: <AgentsBand history={history} fleetSize={total} now={now} />,
     footer:
@@ -64,14 +62,14 @@ export function agentsCell(
 export function budgetCell(
   budget: WardenBudget | undefined,
   poller: { name: string; ageMin: number; stale: boolean } | undefined,
-): StripCellModel {
+): StatStripCell {
   const dispatch = deriveBudget(budget)[0]
   const used = dispatch?.used ?? null
   const max = dispatch?.max ?? null
   return {
-    id: 'budget',
+    key: 'budget',
     caption: 'Dispatch · today',
-    value: used === null ? EM_DASH : String(used),
+    value: used === null ? null : String(used),
     ...(max !== null && { unit: `/ ${max}` }),
     visual:
       used !== null && max !== null && max > 0 ? (
@@ -83,7 +81,7 @@ export function budgetCell(
           format={(v) => String(Math.round(v))}
           startCaption={null}
           endCaption={`cap ${max}`}
-          color={dispatch?.warn ? VX.warn : MUTED_FILL}
+          {...(dispatch?.warn ? { color: VX.warn } : { tone: 'muted' as const })}
         />
       ) : (
         <Text size="sm" c="dimmed">
@@ -107,12 +105,12 @@ export function meetingCell(
   next: Meeting | null,
   later: LaterMeeting | null,
   now: number,
-): StripCellModel {
+): StatStripCell {
   if (agenda === null) {
     return {
-      id: 'meeting',
+      key: 'meeting',
       caption: 'Next meeting',
-      value: EM_DASH,
+      value: null,
       footer: 'calendar unavailable',
     }
   }
@@ -120,7 +118,7 @@ export function meetingCell(
     // Nothing today: say when the next one is, from the 7 days Calendar already fetched.
     if (agenda.unavailable.length === 0 && later !== null) {
       return {
-        id: 'meeting',
+        key: 'meeting',
         caption: 'Next meeting',
         value: weekdayTime(later.startMs),
         footer: (
@@ -134,9 +132,9 @@ export function meetingCell(
       }
     }
     return {
-      id: 'meeting',
+      key: 'meeting',
       caption: 'Next meeting',
-      value: EM_DASH,
+      value: null,
       footer:
         agenda.unavailable.length === 0 ? 'none in the next 7 days' : `${noMeetingsLabel(agenda)}.`,
     }
@@ -144,14 +142,10 @@ export function meetingCell(
   const remaining = agenda.meetings.filter((m) => m.startMs > now).length
   const current = agenda.meetings.find((m) => meetingState(m, now) === 'now')
   return {
-    id: 'meeting',
+    key: 'meeting',
     caption: next === null ? 'Next meeting' : `Next meeting · ${clock(next.startMs)}`,
     value:
-      next === null
-        ? current === undefined
-          ? EM_DASH
-          : 'now'
-        : countdownLabel(next.startMs - now),
+      next === null ? (current === undefined ? null : 'now') : countdownLabel(next.startMs - now),
     visual: <DayAxis meetings={agenda.meetings} next={next} now={now} />,
     footer:
       next === null ? (
@@ -182,18 +176,18 @@ function recoveryDay(date: string | null): string {
     .replace(',', '')
 }
 
-export function recoveryCell(reading: RecoveryReading | null): StripCellModel {
+export function recoveryCell(reading: RecoveryReading | null): StatStripCell {
   if (reading === null || reading.score === null) {
     return {
-      id: 'recovery',
+      key: 'recovery',
       caption: 'Recovery · today',
-      value: EM_DASH,
+      value: null,
       footer: reading === null ? 'unavailable' : 'not measured yet today',
     }
   }
   const { score, mean, days, trend, date, isToday } = reading
   return {
-    id: 'recovery',
+    key: 'recovery',
     caption: isToday ? 'Recovery · today' : `Recovery · ${recoveryDay(date)}`,
     value: String(Math.round(score)),
     unit: '/100',
@@ -204,11 +198,11 @@ export function recoveryCell(reading: RecoveryReading | null): StripCellModel {
           value={score}
           min={0}
           max={100}
-          {...(mean !== null && { target: mean })}
+          {...(mean !== null && { ticks: [{ at: mean, label: `7 d mean ${Math.round(mean)}` }] })}
           format={(v) => String(Math.round(v))}
           startCaption={null}
-          endCaption={mean === null ? null : `7 d mean ${Math.round(mean)}`}
-          color={MUTED_FILL}
+          endCaption={null}
+          tone="muted"
         />
         {trend.length > 1 ? (
           <Sparkline
@@ -229,17 +223,17 @@ export function recoveryCell(reading: RecoveryReading | null): StripCellModel {
 
 // ── Training load ────────────────────────────────────────────────────────────────────────────
 
-export function acwrCell(reading: AcwrReading | null): StripCellModel {
+export function acwrCell(reading: AcwrReading | null): StatStripCell {
   if (reading === null || reading.acwr === null) {
     return {
-      id: 'acwr',
+      key: 'acwr',
       caption: 'ACWR · 7 d / 28 d',
-      value: EM_DASH,
+      value: null,
       footer: reading === null ? 'unavailable' : 'no training load measured',
     }
   }
   return {
-    id: 'acwr',
+    key: 'acwr',
     caption: 'ACWR · 7 d / 28 d',
     value: reading.acwr.toFixed(2),
     ...(reading.zone !== null && { unit: reading.zone }),

@@ -7,15 +7,6 @@ declare const classes: {
   readonly columns: string
   readonly headline: string
   readonly date: string
-  readonly strip: string
-  readonly grid: string
-  readonly cell: string
-  readonly caption: string
-  readonly reading: string
-  readonly value: string
-  readonly unit: string
-  readonly visual: string
-  readonly footer: string
   readonly axis: string
   readonly axisTrack: string
   readonly tick: string
