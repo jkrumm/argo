@@ -73,7 +73,10 @@ Shot harness: `basalt-ui shot` against live data (dist + `/api` proxy), `/hermes
 - **r3 (reviewer):** record header fail, list page fail. Failed: 9 px chip, date-less facts line at 390, chips not summing to `All`. Changed: `Untitled {n}` chip that filters to the fold, dated facts.
 - **r4 (reviewer):** all four fail. Failed: chip still 9 px (Badge ignored the size var), list body unanchored, mid-word summary cut, 390 facts ambiguous. Changed: plain mono type chip, `data-shot` on list and toolbar, summary shown in full in the record header, `last reply {time}` at 390.
 - **r5 (reviewer):** pages pass, `thread-summary` pass; `thread-toolbar`, `thread-list`, `thread-record-header` fail. Failed: clipped focus rings, four font sizes in the list, mid-word summary cut in rows, mono labels in the facts line. After the round (not re-shot): facts line set in sans, focus ring inset, toolbar padding for the ring.
-- **Not converged:** five rounds used. Open: the row summary is clamped mid-sentence by design (the full text sits in the open thread header); the list uses four font sizes (title 15, summary 13, chip/time 11, group caption 11/12).
+- **r6 (reviewer):** `thread-summary`, `thread-list`, `thread-record-header` and both pages pass; `thread-toolbar` fails (chip focus ring clipped by the scroll area). Changed before this round: list reduced to three font sizes (the chip shares the meta size, `Delete all untitled` is `compact-sm`). Row summaries end in an ellipsis; the ellipsis clamp is accepted by design.
+- **r7 (reviewer):** all four anchors and both pages pass. Fix: padding inside the chip scroller so the focus ring is whole. Code review round 1 fixes landed between r6 and r7 (pinned and fresh untitled threads stay out of the fold, `Archived {n}` chip and Unarchive, chip counts equal the rows they reveal, success-gated navigation, partial-delete toast, calendar-day week boundary with a minute tick) and are part of the r7 shots.
+- **Converged at r7.** Superseded: the paragraph below describes r5.
+- **Not converged (as of r5):** five rounds used. Open: the row summary is clamped mid-sentence by design (the full text sits in the open thread header); the list uses four font sizes (title 15, summary 13, chip/time 11, group caption 11/12).
 
 ## Wave 22 friction
 
@@ -91,6 +94,6 @@ Local prototypes: `features/hermes-chat/thread-list.tsx` (`ThreadList{groups: {k
 ## Wave 22 deviations from the concept
 
 - Health sits in the `PageBar` as a custom action, not a meta slot; `New chat` is not offered (the composer starts a chat).
-- Archived threads are hidden from the list; there is no way back yet (no unarchive verb in the UI).
+- Archived threads sit behind an `Archived {n}` chip (shown only when n > 0); the record-header menu offers Unarchive there.
 - An untitled thread that is streaming or not yet persisted stays in the main list under its first line instead of the fold.
 - Opening a thread is a `?thread=` URL param (push), replacing inline expansion.
