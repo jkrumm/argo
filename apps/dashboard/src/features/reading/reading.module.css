@@ -77,38 +77,12 @@
   color: var(--vx-muted);
 }
 
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--vx-space-control-gap) var(--vx-space-stack-md);
-  font-size: var(--vx-text-sm);
-  color: var(--vx-muted);
-}
-
-.legendItem {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--vx-space-control-gap);
-  white-space: nowrap;
-}
-
-.swatch {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
 .paceAxis {
   display: flex;
   justify-content: space-between;
   font-family: var(--basalt-font-mono);
   font-size: var(--vx-text-micro);
   color: var(--vx-muted);
-}
-
-.legendValue {
-  color: var(--vx-ink);
-  font-variant-numeric: tabular-nums;
 }
 
 /* ── Rating histogram: five columns on one track, a tick at the mean ──────────────────────── */

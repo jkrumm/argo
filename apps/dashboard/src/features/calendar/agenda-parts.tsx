@@ -227,29 +227,26 @@ export function WeekStrip({
             )
           })}
         </div>
-        {showSplitBar && (
+        {showSplitBar ? (
           <Meter
             label="Booked hours by source"
             max={Math.max(total, 1)}
+            format={formatDurationMin}
             segments={(['work', 'personal'] as const).map((key) => ({
               value: split[key],
               label: SPLIT_LABEL[key],
               color: SPLIT_COLOR[key],
             }))}
-            startCaption={null}
-            endCaption={null}
           />
+        ) : (
+          <Box className={classes.split}>
+            {(['work', 'personal'] as const).map((key) => (
+              <span key={key}>
+                {SPLIT_LABEL[key]} {unknown.has(key) ? '—' : formatDurationMin(split[key])}
+              </span>
+            ))}
+          </Box>
         )}
-        <Box className={classes.split}>
-          {(['work', 'personal'] as const).map((key) => (
-            <span key={key}>
-              {showSplitBar && (
-                <Box component="span" className={classes.swatch} bg={SPLIT_COLOR[key]} />
-              )}
-              {SPLIT_LABEL[key]} {unknown.has(key) ? '—' : formatDurationMin(split[key])}
-            </span>
-          ))}
-        </Box>
       </Section>
     </Card>
   )

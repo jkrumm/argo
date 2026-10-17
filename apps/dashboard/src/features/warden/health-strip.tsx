@@ -67,16 +67,18 @@ function fixesCell({ fixes }: StripModel): StatStripCell {
       qualifier: noData(fixes.unavailable ?? 'not reported'),
     }
   }
-  // The bar plots what the headline measures (fixed against quiet); closed items stay in the legend.
-  const present = [
+  // The bar plots what the headline measures (fixed against quiet); closed items stay in the qualifier.
+  const parts = [
     { label: 'fixed', value: fixes.fixed, color: VX.status.good },
     { label: 'quiet', value: fixes.quiet, color: VX.status.warn },
-  ].filter((part) => part.value !== null)
+  ]
+  const present = parts.filter((part) => part.value !== null)
+  const unknown = parts.filter((part) => part.value === null).map((part) => `${part.label} —`)
   const total = present.reduce((sum, part) => sum + (part.value ?? 0), 0)
   return {
     key: 'fixes',
     caption,
-    info: 'Fixed as a share of fixed plus quiet items. Closed items are counted in the legend only.',
+    info: 'Fixed as a share of fixed plus quiet items. Closed items are counted in the qualifier only.',
     value: String(Math.round(fixes.pct)),
     unit: '%',
     qualifier: (
@@ -84,14 +86,9 @@ function fixesCell({ fixes }: StripModel): StatStripCell {
         all time · share of fixed + quiet
         <br />
         <Box component="span" className={classes.nowrap}>
-          <Text span size="xs" c={VX.status.good}>
-            fixed {fixes.fixed ?? '—'}
-          </Text>{' '}
-          <Text span size="xs" c={VX.status.warn}>
-            quiet {fixes.quiet ?? '—'}
-          </Text>{' '}
           <Text span size="xs">
             closed {fixes.closed ?? '—'}
+            {unknown.length > 0 && ` · ${unknown.join(' · ')}`}
           </Text>
         </Box>
       </>
@@ -105,8 +102,6 @@ function fixesCell({ fixes }: StripModel): StatStripCell {
           label: part.label,
           color: part.color,
         }))}
-        startCaption={null}
-        endCaption={null}
       />
     ),
   }

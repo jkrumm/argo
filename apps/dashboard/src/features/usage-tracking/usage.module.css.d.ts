@@ -14,9 +14,6 @@ declare const classes: {
   readonly footerLine: string
   readonly ringRow: string
   readonly ring: string
-  readonly billingParts: string
-  readonly billingPart: string
-  readonly billingTotal: string
   readonly billingBar: string
   readonly swatch: string
   readonly share: string

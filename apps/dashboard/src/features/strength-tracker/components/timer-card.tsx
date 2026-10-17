@@ -183,7 +183,6 @@ function RestTimerPanel() {
               style={{ flex: 1 }}
               size="sm"
               variant={running ? 'light' : 'filled'}
-              color={running ? 'gray' : 'blue'}
               leftSection={
                 running ? <IconPlayerPauseFilled size={16} /> : <IconPlayerPlayFilled size={16} />
               }
@@ -524,7 +523,6 @@ function IntervalTimerPanel() {
                 size="sm"
                 style={{ flex: 1 }}
                 variant={running ? 'light' : 'filled'}
-                color={running ? 'gray' : 'blue'}
                 leftSection={
                   running ? <IconPlayerPauseFilled size={16} /> : <IconPlayerPlayFilled size={16} />
                 }

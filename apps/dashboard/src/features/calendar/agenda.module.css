@@ -168,14 +168,6 @@
   color: var(--vx-ink);
 }
 
-.swatch {
-  display: inline-block;
-  width: 0.5rem;
-  height: 0.5rem;
-  margin-right: var(--vx-space-stack-xs);
-  border-radius: 50%;
-}
-
 .task {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

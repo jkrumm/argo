@@ -111,29 +111,7 @@
   flex: none;
 }
 
-/* Billing row: the segmented bar and its captions. */
-.billingParts {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  column-gap: var(--vx-space-stack-lg);
-  row-gap: var(--vx-space-stack-xs);
-  font-size: var(--vx-text-sm);
-  color: var(--vx-muted);
-}
-
-.billingPart {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--vx-space-stack-xs);
-  white-space: nowrap;
-}
-
-.billingTotal {
-  margin-inline-start: auto;
-  white-space: nowrap;
-}
-
+/* Billing row: the segmented bar. */
 .billingBar {
   display: flex;
   flex-direction: column;

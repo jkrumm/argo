@@ -12,11 +12,7 @@ declare const classes: {
   readonly value: string
   readonly unit: string
   readonly footer: string
-  readonly legend: string
-  readonly legendItem: string
-  readonly swatch: string
   readonly paceAxis: string
-  readonly legendValue: string
   readonly histogram: string
   readonly bucket: string
   readonly bar: string

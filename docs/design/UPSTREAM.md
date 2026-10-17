@@ -8,7 +8,7 @@ recurs across pages (or, under "New", a candidate a single page needs), the prop
 missing, the wave prototypes it under `apps/dashboard/src/features/<page>/` with the props below, adds
 its file path in the **Prototype** column (a pattern two or more pages consume goes to the shared `apps/dashboard/src/components/upstream/` instead; switching means deleting it and importing from `basalt-ui`), and the basalt orchestrator promotes the proven version within
 the same cycle. argo then switches to the import and deletes the prototype. Status on 2026-10-17: argo is on
-basalt-ui 2.18.0, which ships `StatCard` (`sparkline`, `breakdown`), `StatGroup` (separate cards only),
+basalt-ui 2.19.0 (2.18.0 shipped the exports below; 2.19.0 refined `Meter` / `BarList`), which ships `StatCard` (`sparkline`, `breakdown`), `StatGroup` (separate cards only),
 `DeltaBadge`, `Sparkline`, `BandStrip`, `EmptyState`, `PageBar`, and since 2.18.0 `Meter` and `BarList`
 (the Wave 19 local prototype of those two is deleted). Nothing else below is shipped yet.
 
@@ -56,8 +56,8 @@ Each row names the exact prop argo needed. Rows from the Wave 19 pages (Garmin H
 | `BarList` | per-row `max` (each row on its own denominator) | garmin-health recovery contributors (40 / 35 / 25 pts) | shared `max` = the largest weight, denominator in `secondary` |
 | `Meter` | a caption size that follows the host text (or one `size` prop) | warden strip cells reach 4–5 type sizes because Meter draws captions in three sizes of its own | none; listed here for basalt |
 | `Meter` | a muted fill option for a non-verdict reading (the neutral `VX.line` fill is near-white in dark mode) | garmin-health contributor rows | none; listed here for basalt |
-| `Meter` with `segments` | per-segment captions under the bar | agents fleet by state | a local legend row under the meter |
-| `BarList` | a thin, label-outside row (today: a full-height rail with the label inside) | garmin-health contributors, agents quiet projects | one `Meter` per row (garmin); a plain row list when values tie (agents) |
+| `Meter` with `segments` | per-segment captions under the bar | agents fleet by state | **Resolved 2.19.0 — adopted.** Categorical `segments` caption every part (swatch, name, value); the local legend row in `features/agents/fleet-strip.tsx` (and its `Dot` import) is deleted. Reading shelf, usage billing split and warden fixes-vs-silence drop their local legends the same way |
+| `BarList` | a thin, label-outside row (today: a full-height rail with the label inside) | garmin-health contributors, agents quiet projects | **Resolved 2.19.0 — shipped, not adoptable here.** The bar now spans the label column only, so the label sits outside it. Garmin contributors stay one `Meter` per row because each row still needs its own `max` (open above); agents quiet projects stay a plain list because a row carries a count, a state chip and an age, which `BarList` does not cover. The existing `BarList` call sites (reading, usage, warden pollers) get the new row with no code change |
 | `BarList` | a per-row tick (a stale mark) | warden pollers | the threshold stated in `secondary` |
 | `Sparkline` | `reference?: number \| 'mean'` or a target band, plus a hover readout | garmin-health fitness rows, agents needs-you trend (Wave 19 rule: a tile visual encodes a limit) | a visible figure beside it (`peak n in 24 h`, the delta) |
 | `DeltaBadge` | `period` composes "vs <period>" itself (today it renders raw text) | garmin-health fitness deltas | the caller writes "vs" |
@@ -69,6 +69,9 @@ Each row names the exact prop argo needed. Rows from the Wave 19 pages (Garmin H
 | `Button` theme | paddings on basalt's spacing scale (Mantine's 14 px default and `compact-xs` 7 px are off-scale) | warden and agents decision cards | none; listed here for basalt |
 | `relativeTime` | honour the `defineFormat`/provider locale: `relativeTimeFormat(locale, …)` in `format/date.js` builds `Intl.RelativeTimeFormat` from the call's `locale` only, while `numberFormat`/`dateFormat` fall back to `defaults.locale` (so it reads "vor 4 Tagen" under `locale="en-GB"` on a German system) | warden state history and board, Home decision cards, agents stale banner; basalt's own `SyncButton` (`controls/sync-button.js`) in the shell chrome, which argo cannot wrap | `lib/format.ts` `relativeTime` wrapper passes `APP_LOCALE` explicitly; drop it once basalt resolves `locale ?? defaults.locale` |
 | `basalt-ui shot` | the `Sparkline` focus state intermittently times out (`boundingBox: Timeout 30000ms`) | garmin-health fitness cell | re-run; one anchor fails per run at most |
+| `StatusDot` / `StatusVerdict` | a root export (2.19.0 ships both under `dist/theme/` and `StatCard`, `Callout` and the notification centre use them, but `package.json` `exports` and `dist/index` do not expose them) | agents `Dot` and `StatusChip` (`features/agents/status-chip.tsx`), the page-summary live dot, warden `StatusChip` | the local 7 px `Dot` stays; switching means deleting it and importing the shared dot once it is exported |
+| light / outline `Button`, `ActionIcon` | (shipped 2.19.0: ink by default) | strength-tracker timer Pause / Start | **Resolved 2.19.0 — adopted.** `color={running ? 'gray' : 'blue'}` is deleted from both timer panels; `light` without a colour is basalt's accent-tinted ink (no longer neutral grey) and `filled` is the primary |
+| `info` glyph focus ring | (shipped 2.19.0: drawn on a glyph-sized pseudo-element) | none | argo carried no workaround; nothing to delete |
 
 <!-- w20-calendar -->
 
@@ -80,7 +83,7 @@ Prototype built: `components/upstream/schedule-row.tsx` — `ScheduleRow{start, 
 |-|-|-|-|
 | `Meter` | `size="row"` (no caption rows, track height of a text line) | the 7-row day-load strip | `startCaption={null} endCaption={null}`; the row's value and count are a CSS-grid sibling |
 | `Meter` | `tone="muted"` (a non-verdict fill that is not near-white in dark) | day-load bars: a load is not a verdict, `VX.line` is loud | `color={alpha(VX.muted, 0.35)}`; `VX.status.warn` past the 8 h target |
-| `Meter` with `segments` | per-segment captions under the bar | Work / Personal booked hours | a local caption row with a swatch per segment |
+| `Meter` with `segments` | per-segment captions under the bar | Work / Personal booked hours | **Resolved 2.19.0 — adopted.** `Meter` captions Work and Personal itself (`format={formatDurationMin}`); the swatch caption row is deleted. The plain text row stays only for the case with no bar (a source unavailable, so its figure reads `—`) |
 | `Meter` | a `target` tick that is visible when `max === target` (the tick lands on the track end) | the 0–8 h strip | none; the tick sits on the track end |
 | `@mantine/schedule` `WeekView` | a visible-days prop (3 days on a phone) | the Week tab at 390 | a day-grouped list of the 3 days (selected ± 1) instead of a grid |
 | `EventList` | day-grouped rows with a leading time column and a trailing action | the Next 7 days list | `DayGroups` in `features/calendar/agenda-parts.tsx` over `ScheduleRow` |
@@ -125,7 +128,7 @@ Each page's full table is in its concept doc under `## Wave 21 friction`. Merged
 | `Sparkline` | `reference` (mean / target / previous PR) and a hover readout | strength, walking-pad, body-composition, usage | the reference stated as visible text beside it (`PR {kg} kg`, `30 d mean {x}`) |
 | `Meter` | `tone="muted"`, multiple `ticks`, `start`/`goal` span, marker on the radius scale, proportional-sans captions, an empty state that reads `—`, a ring `target` tick, per-segment captions | all five | `alpha(VX.muted, .35)` fills; one `target` plus a caption; usage draws its own SVG ring for the 60 % tick |
 | `DeltaBadge` / `BarList` values | a proportional value face (both render mono) | walking-pad, body-composition, reading, usage | left as basalt renders it |
-| `BarList` | a `lead` slot (thumbnail / swatch), label-outside row, per-row hue, a bar that stops short of the value column | reading, usage | plain rows or a clipped label |
+| `BarList` | a `lead` slot (thumbnail / swatch), label-outside row, per-row hue, a bar that stops short of the value column | reading, usage | Label-outside row and the bar stopping short of the value column: **Resolved 2.19.0** (no code change needed). `lead` and per-row hue are still open: usage keeps its share swatch in `secondary` |
 | `EmptyState` | a compact one-row variant with an inline action | walking-pad, body-composition | a local one-row empty state |
 | `ChartCard` | a visible subtitle / period-basis line that survives half width; a `facts` header | strength, walking-pad, usage | the period written into the title or the first child |
 | `EventList` | day/month grouping with a right-pinned value, `collapse` of repeats with a count | strength, walking-pad | local lists |

@@ -27,7 +27,6 @@ declare const classes: {
   readonly stripBooked: string
   readonly stripCount: string
   readonly split: string
-  readonly swatch: string
   readonly task: string
   readonly dot: string
   readonly taskTitle: string

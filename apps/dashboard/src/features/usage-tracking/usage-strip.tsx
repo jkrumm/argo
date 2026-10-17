@@ -199,8 +199,6 @@ const BILLING_COLOR: Record<BillingPart['key'], string> = {
   other: USAGE_BILLING.unknown,
 }
 
-const partCaption = (p: BillingPart) => `${p.label} ${fmtUsdWhole(p.value)} · ${fmtShare(p.share)}`
-
 export function UsageStrip() {
   const headline = useQuery(usageQueries.headline())
   const cost = useDaily('cost')
@@ -348,33 +346,19 @@ export function UsageStrip() {
               No cost recorded in the last 30 d
             </Text>
           ) : (
-            <>
-              <Meter
-                label="Cost by billing lane over the last 30 days"
-                max={h.costUsd30d}
-                format={fmtUsdWhole}
-                segments={parts
-                  .filter((p) => p.value > 0)
-                  .map((p) => ({
-                    label: partCaption(p),
-                    value: p.value,
-                    color: BILLING_COLOR[p.key],
-                  }))}
-                startCaption={null}
-                endCaption={null}
-              />
-              <div className={classes.billingParts}>
-                {parts
-                  .filter((p) => p.value >= 0.5)
-                  .map((p) => (
-                    <span key={p.key} className={classes.billingPart}>
-                      <Box component="span" className={classes.swatch} bg={BILLING_COLOR[p.key]} />
-                      {partCaption(p)}
-                    </span>
-                  ))}
-                <span className={classes.billingTotal}>total {fmtUsdWhole(h.costUsd30d)}</span>
-              </div>
-            </>
+            <Meter
+              label="Cost by billing lane over the last 30 days"
+              max={h.costUsd30d}
+              format={(v) => `${fmtUsdWhole(v)} · ${fmtShare(v / h.costUsd30d)}`}
+              segments={parts
+                .filter((p) => p.value > 0)
+                .map((p) => ({
+                  label: p.label,
+                  value: p.value,
+                  color: BILLING_COLOR[p.key],
+                }))}
+              startCaption={`total ${fmtUsdWhole(h.costUsd30d)}`}
+            />
           )}
         </Box>
       </div>

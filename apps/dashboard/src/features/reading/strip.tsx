@@ -1,6 +1,6 @@
 import { Meter } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
-import { Box, Text } from '@mantine/core'
+import { Text } from '@mantine/core'
 import type { ReactNode } from 'react'
 import {
   NO_PACE_REASON,
@@ -54,27 +54,16 @@ function ShelfCell({ counts }: { counts: ShelfCounts }) {
       value={String(counts.total)}
       unit={counts.total === 1 ? 'book' : 'books'}
       visual={
-        <>
-          <Meter
-            label="Books by shelf status"
-            max={counts.total}
-            startCaption={null}
-            endCaption={null}
-            segments={parts.map((p, i) => ({
-              label: p.label,
-              value: p.value,
-              color: fillAt(i),
-            }))}
-          />
-          <div className={classes.legend}>
-            {parts.map((p, i) => (
-              <span key={p.label} className={classes.legendItem}>
-                <Box className={classes.swatch} bg={fillAt(i)} />
-                {p.label} <span className={classes.legendValue}>{p.value}</span>
-              </span>
-            ))}
-          </div>
-        </>
+        <Meter
+          label="Books by shelf status"
+          max={counts.total}
+          startCaption={null}
+          segments={parts.map((p, i) => ({
+            label: p.label,
+            value: p.value,
+            color: fillAt(i),
+          }))}
+        />
       }
     />
   )

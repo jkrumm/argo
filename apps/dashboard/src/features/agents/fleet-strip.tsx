@@ -1,4 +1,3 @@
-import { Flex, Group, Text } from '@mantine/core'
 import { Sparkline } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { Meter } from 'basalt-ui'
@@ -14,7 +13,6 @@ import {
   type FleetState,
   type OldestWait,
 } from './model'
-import { Dot } from './status-chip'
 import { StatStrip, type StatStripCell } from './stat-strip'
 
 /** Neutral ink at stepped strengths for the calm states; a hue only for needs-you and stale. */
@@ -142,24 +140,11 @@ function fleetCell(fleet: Props['fleet']): StatStripCell {
       <Meter
         label="Agents by state"
         max={total || 1}
-        segments={parts.map((p) => ({ value: p.value, label: p.label, color: FLEET_COLOR[p.key] }))}
-        startCaption={null}
-        endCaption={null}
-      />
-    ),
-    footer: (
-      <Flex gap="xs" wrap="wrap">
-        {parts
+        segments={parts
           .filter((p) => p.value > 0)
-          .map((p) => (
-            <Group key={p.key} gap={4} wrap="nowrap">
-              <Dot color={FLEET_COLOR[p.key]} />
-              <Text size="sm" ff="monospace" c="dimmed" span>
-                {p.value} {p.label}
-              </Text>
-            </Group>
-          ))}
-      </Flex>
+          .map((p) => ({ value: p.value, label: p.label, color: FLEET_COLOR[p.key] }))}
+        startCaption={null}
+      />
     ),
   }
 }
