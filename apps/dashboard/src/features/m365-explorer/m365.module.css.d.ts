@@ -5,14 +5,6 @@
 declare const classes: {
   readonly root: string
   readonly summary: string
-  readonly strip: string
-  readonly cell: string
-  readonly caption: string
-  readonly reading: string
-  readonly value: string
-  readonly unit: string
-  readonly visual: string
-  readonly footer: string
   readonly split: string
   readonly pane: string
   readonly detailPane: string
@@ -45,7 +37,6 @@ declare const classes: {
   readonly meta: string
   readonly empty: string
   readonly sheetBack: string
-  readonly dot: string
   readonly chipStatic: string
   readonly recordName: string
   readonly sheetBody: string
