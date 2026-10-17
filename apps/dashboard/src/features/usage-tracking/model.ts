@@ -6,7 +6,6 @@ import type { TimePoint } from './types'
 
 export const EM_DASH = '—'
 /** Minus sign (U+2212) so a signed figure aligns with `+` in tabular numerals. */
-const MINUS = '−'
 
 /** Cache hit ratio the page calls good — the tick on the ring (`>60%` in the old zone chart). */
 export const CACHE_HIT_TARGET = 0.6
@@ -66,12 +65,6 @@ export function secondsQuantity(ms: number | null | undefined): Quantity {
   return { value: (ms / 1000).toFixed(1), unit: 's' }
 }
 
-function signedText(value: number, digits: number): string {
-  const text = Math.abs(value).toFixed(digits)
-  if (Number(text) === 0) return text
-  return `${value > 0 ? '+' : MINUS}${text}`
-}
-
 /** Relative change against a prior value; `null` when the prior is missing or zero. */
 export function pctChange(current: number | null, prior: number | null): number | null {
   if (current === null || prior === null || prior === 0) return null
@@ -79,21 +72,11 @@ export function pctChange(current: number | null, prior: number | null): number 
   return (current - prior) / Math.abs(prior)
 }
 
-export function deltaPctText(current: number | null, prior: number | null): string | null {
-  const change = pctChange(current, prior)
-  return change === null ? null : `${signedText(change * 100, 0)}%`
-}
-
-/** Seconds delta between two millisecond readings, e.g. `+0.3 s`. */
-export function deltaSecondsText(current: number | null, prior: number | null): string | null {
+/** The one guarded difference: `null` unless both readings are finite, else `(current - prior) * scale`. */
+function difference(current: number | null, prior: number | null, scale: number): number | null {
   if (current === null || prior === null) return null
-  return `${signedText((current - prior) / 1000, 1)} s`
-}
-
-/** Percentage-point delta between two ratios, e.g. `+0.2 pp`. */
-export function deltaPointsText(current: number | null, prior: number | null): string | null {
-  if (current === null || prior === null) return null
-  return `${signedText((current - prior) * 100, 1)} pp`
+  if (!Number.isFinite(current) || !Number.isFinite(prior)) return null
+  return (current - prior) * scale
 }
 
 /** Signed percent change (`12` = +12 %) for a `DeltaBadge`; `null` without a base. */
@@ -102,19 +85,31 @@ export function pctDelta(current: number | null, prior: number | null): number |
   return change === null ? null : change * 100
 }
 
-/** Signed seconds between two millisecond readings; `null` when either is missing. */
-export function secondsDelta(current: number | null, prior: number | null): number | null {
-  if (current === null || prior === null) return null
-  if (!Number.isFinite(current) || !Number.isFinite(prior)) return null
-  return (current - prior) / 1000
-}
+/** Signed seconds between two millisecond readings. */
+export const secondsDelta = (current: number | null, prior: number | null) =>
+  difference(current, prior, 1 / 1000)
 
-/** Signed percentage points between two 0–1 ratios; `null` when either is missing. */
-export function pointsDelta(current: number | null, prior: number | null): number | null {
-  if (current === null || prior === null) return null
-  if (!Number.isFinite(current) || !Number.isFinite(prior)) return null
-  return (current - prior) * 100
+/** Signed percentage points between two 0–1 ratios. */
+export const pointsDelta = (current: number | null, prior: number | null) =>
+  difference(current, prior, 100)
+
+// ── Badge and readout formatters ─────────────────────────────────────────────────────────────
+
+/** Badge magnitudes: the glyph carries the sign, so these print the absolute value. */
+export const fmtPctBadge = (v: number) => `${Math.abs(v).toFixed(1)}%`
+export const fmtPointsBadge = (v: number) => `${Math.abs(v).toFixed(1)} pp`
+export const fmtSecondsBadge = (v: number) => `${Math.abs(v).toFixed(1)} s`
+
+/** Sparkline readouts, each with its unit. */
+export const fmtUsdDay = (v: number) => `$${v.toFixed(2)}`
+export const fmtTokensDay = (v: number) => {
+  const q = tokensQuantity(v)
+  return `${q.value}${q.unit} tokens`
 }
+export const fmtSecondsDay = (v: number) => `${secondsQuantity(v).value} s`
+
+/** `18 Oct`: a daily bucket's tooltip header and axis caption. */
+export const shortDay = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' })
 
 // ── Prior-window comparisons ─────────────────────────────────────────────────────────────────
 
@@ -122,18 +117,17 @@ export function pointsDelta(current: number | null, prior: number | null): numbe
 export type Prior = number | null | undefined
 
 /**
- * The comparison line for a strip cell. An absent field and an absent window are different facts:
- * the first says the reading is unavailable, the second that there is nothing to compare against.
+ * The cell footer's note when the delta badge cannot show: an absent field and an absent window are
+ * different facts, and a prior of zero has no base to compare. `null` when the badge shows.
  */
-export function priorLine(
+export function priorNote(
   current: number | null | undefined,
   prior: Prior,
-  delta: (current: number | null, prior: number | null) => string | null,
-): string {
+  delta: (current: number | null, prior: number | null) => number | null,
+): string | null {
   if (prior === undefined) return 'prior unavailable'
   if (prior === null) return 'no comparable prior 30 d'
-  const text = delta(current ?? null, prior)
-  return text === null ? 'prior 30 d had no base to compare' : `${text} vs prior 30 d`
+  return delta(current ?? null, prior) === null ? 'prior 30 d had no base to compare' : null
 }
 
 /** The error rate comparison, stated as the prior window's own rate. */

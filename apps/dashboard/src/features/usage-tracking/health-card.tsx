@@ -2,25 +2,27 @@
  * Latency and failures as one question: p95 per day on the left, error events per day (top 3 sources
  * plus Other) on the right, divided by a hairline. Both follow the page's range and filters.
  */
-import { useSuspenseQuery } from '@tanstack/react-query'
+import { useSuspenseQueries } from '@tanstack/react-query'
 import { Box } from '@mantine/core'
 import { Bars, ChartCard, Lines } from 'basalt-ui/charts'
-import { VX } from 'basalt-ui/tokens'
+import { alpha, VX } from 'basalt-ui/tokens'
 import { usageQueries, type Grain, type Range } from '../../lib/queries/usage'
 import { dayToDate } from './constants'
 import {
-  ERROR_BAD_ABOVE,
   ERROR_FOLD_TOP_N,
+  fmtPct,
+  ERROR_BAD_ABOVE,
   ERROR_WARN_FROM,
   errorDayState,
   type ErrorDayState,
-  fmtPct,
   fmtShare,
   fmtTokens,
   foldTopN,
   OTHER_KEY,
   periodNoun,
+  fmtSecondsDay,
   secondsQuantity,
+  shortDay,
 } from './model'
 import type { BillingValue, WorkspaceValue } from './types'
 import classes from './usage.module.css'
@@ -28,25 +30,28 @@ import classes from './usage.module.css'
 type ErrorBucket = { date: Date; count: number; state: ErrorDayState }
 type P95Point = { date: Date; v: number }
 
-/** One bar series per verdict, so hue carries the verdict only: neutral, warn, bad by the day's error rate. */
-const VERDICT_BARS = [
-  { state: 'ok', label: `Under ${fmtPct(ERROR_WARN_FROM, 0)}`, color: VX.muted },
-  {
-    state: 'warn',
-    label: `${fmtPct(ERROR_WARN_FROM, 0)}–${fmtPct(ERROR_BAD_ABOVE, 0)}`,
-    color: VX.warn,
-  },
-  { state: 'bad', label: `Over ${fmtPct(ERROR_BAD_ABOVE, 0)}`, color: VX.bad },
-].map(({ state, label, color }) => ({
+/**
+ * One bar series per error-rate verdict, so hue carries the verdict only: neutral under 1 %, warn
+ * 1–3 %, bad over 3 %, and a quiet "no calls" state for a day with nothing to rate (as in the strip's
+ * band). A bucket lands in exactly one series; the others are `null`, so stacking adds nothing.
+ */
+const VERDICT_BARS = (
+  [
+    { state: 'ok', label: `Under ${fmtPct(ERROR_WARN_FROM, 0)}`, color: VX.muted },
+    {
+      state: 'warn',
+      label: `${fmtPct(ERROR_WARN_FROM, 0)}–${fmtPct(ERROR_BAD_ABOVE, 0)}`,
+      color: VX.warn,
+    },
+    { state: 'bad', label: `Over ${fmtPct(ERROR_BAD_ABOVE, 0)}`, color: VX.bad },
+    { state: 'none', label: 'No calls', color: alpha(VX.muted, 0.35) },
+  ] as const
+).map(({ state, label, color }) => ({
   key: state,
-  label: `${label} of calls`,
+  label: state === 'none' ? label : `${label} of calls`,
   color,
-  // A bucket with no calls ('none') carries no verdict and is drawn neutral.
-  getValue: (d: ErrorBucket) =>
-    (state === 'ok' ? d.state === 'ok' || d.state === 'none' : d.state === state) ? d.count : null,
+  getValue: (d: ErrorBucket) => (d.state === state ? d.count : null),
 }))
-
-const shortDate = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' })
 
 export default function HealthCard({
   range,
@@ -59,42 +64,22 @@ export default function HealthCard({
   billing?: BillingValue[] | undefined
   workspace?: WorkspaceValue[] | undefined
 }) {
-  const latency = useSuspenseQuery(
-    usageQueries.timeseries({
-      range,
-      grain,
-      metric: 'latency_p95',
-      groupBy: 'none',
-      billing,
-      workspace,
-    }),
-  ).data
-  const errors = useSuspenseQuery(
-    usageQueries.timeseries({
-      range,
-      grain,
-      metric: 'errors',
-      groupBy: 'source',
-      billing,
-      workspace,
-    }),
-  ).data
-  const rates = useSuspenseQuery(
-    usageQueries.timeseries({
-      range,
-      grain,
-      metric: 'error_rate',
-      groupBy: 'none',
-      billing,
-      workspace,
-    }),
-  ).data
+  const base = { range, grain, billing, workspace }
+  const [{ data: latency }, { data: errors }, { data: rates }] = useSuspenseQueries({
+    queries: [
+      usageQueries.timeseries({ ...base, metric: 'latency_p95', groupBy: 'none' }),
+      usageQueries.timeseries({ ...base, metric: 'errors', groupBy: 'source' }),
+      usageQueries.timeseries({ ...base, metric: 'error_rate', groupBy: 'none' }),
+    ],
+  })
 
   const p95: P95Point[] = latency.buckets.flatMap((b) => {
     const v = b.groups['value']
     return v === null || v === undefined ? [] : [{ date: dayToDate(b.bucket), v }]
   })
-  const rateByBucket = new Map(rates.buckets.map((b) => [b.bucket, b.groups['value'] ?? null]))
+  const rateByDay = new Map(
+    rates.buckets.map((b) => [dayToDate(b.bucket).getTime(), b.groups['value'] ?? null]),
+  )
   const last = p95.at(-1)
   const lastQty = secondsQuantity(last?.v)
   const folded = foldTopN(
@@ -104,17 +89,17 @@ export default function HealthCard({
   )
   // The verdict is the bucket's error RATE (events over calls), not its count: a busy day with many
   // events can be healthy, so the ink follows the same 1 % / 3 % thresholds as the strip's band.
-  const perBucket = folded.points.map((p, i): ErrorBucket => ({
+  const perBucket = folded.points.map((p): ErrorBucket => ({
     date: p.date,
     count: folded.keys.reduce((acc, k) => acc + (p.groups[k] ?? 0), 0),
-    state: errorDayState(rateByBucket.get(errors.buckets[i]?.bucket ?? '') ?? null),
+    state: errorDayState(rateByDay.get(p.date.getTime()) ?? null),
   }))
   const topSource = folded.totals.find((t) => t.key !== OTHER_KEY && t.value > 0)
   const unit = grain === 'day' ? 'day' : 'week'
   return (
     <ChartCard
       title={`Latency and errors · per ${unit} · ${periodNoun(range)}`}
-      info="p95 duration of calls that report one, and the count of calls with outcome 'error', both per bucket. Errors show the three sources with the most events; the rest are summed into Other."
+      info="p95 duration of calls that report one, and the count of calls with outcome 'error', both per bucket. Errors show the three sources with the most events; the rest are summed into Other. Bar ink is the day's error-rate verdict (errors over calls): neutral under 1 %, warn from 1 % to 3 %, bad over 3 %."
     >
       <Box className={classes.healthBox}>
         <Box className={classes.health}>
@@ -132,20 +117,20 @@ export default function HealthCard({
               height={120}
               x={(d: P95Point) => d.date}
               xTicks={2}
-              formatX={(d) => shortDate.format(d)}
+              formatX={(d) => shortDay.format(d)}
               legend={false}
               cursorResolution="leading"
-              y={{ format: (v) => `${secondsQuantity(v).value} s`, ticks: 2 }}
+              y={{ format: fmtSecondsDay, ticks: 2 }}
               series={[
                 {
                   key: 'p95',
                   label: 'p95 latency',
                   color: VX.line,
                   getValue: (d: P95Point) => d.v,
-                  formatValue: (v) => `${secondsQuantity(v).value} s`,
+                  formatValue: fmtSecondsDay,
                 },
               ]}
-              tooltip={{ formatHeader: (x) => shortDate.format(x) }}
+              tooltip={{ formatHeader: (x) => shortDay.format(x) }}
               state={{ empty: p95.length < 2 }}
             />
           </div>
@@ -160,17 +145,17 @@ export default function HealthCard({
               </span>
             </Box>
             <Bars
-              ariaLabel={`Error events per ${unit}`}
+              ariaLabel={`Error events per ${unit}, inked by the error-rate verdict: under ${fmtPct(ERROR_WARN_FROM, 0)}, ${fmtPct(ERROR_WARN_FROM, 0)} to ${fmtPct(ERROR_BAD_ABOVE, 0)}, over ${fmtPct(ERROR_BAD_ABOVE, 0)} of calls`}
               data={perBucket}
               height={120}
               x={(d: ErrorBucket) => d.date}
               xTicks={2}
-              formatX={(d) => shortDate.format(d)}
+              formatX={(d) => shortDay.format(d)}
               legend={{ placement: 'bottom' }}
               cursorResolution="leading"
               y={{ format: fmtTokens, ticks: 2 }}
               bars={VERDICT_BARS}
-              tooltip={{ formatHeader: (x) => shortDate.format(x) }}
+              tooltip={{ formatHeader: (x) => shortDay.format(x) }}
               state={{ empty: folded.total === 0 && 'No errors in this window' }}
             />
           </div>

@@ -2,13 +2,14 @@ import { describe, expect, it } from 'bun:test'
 import {
   badDayCount,
   billingParts,
-  deltaPctText,
-  deltaPointsText,
-  deltaSecondsText,
   errorRateReading,
   meanOf,
   priorErrorLine,
-  priorLine,
+  priorNote,
+  fmtPctBadge,
+  fmtUsdDay,
+  fmtTokensDay,
+  fmtSecondsDay,
   errorDayState,
   fmtPct,
   fmtShare,
@@ -70,15 +71,8 @@ describe('fmtShare', () => {
 describe('deltas', () => {
   it('computes signed relative change and names no value without a prior', () => {
     expect(pctChange(120, 100)).toBeCloseTo(0.2)
-    expect(deltaPctText(120, 100)).toBe('+20%')
-    expect(deltaPctText(80, 100)).toBe('−20%')
-    expect(deltaPctText(100, 0)).toBeNull()
-    expect(deltaPctText(100, null)).toBeNull()
-  })
-  it('signs second and point deltas', () => {
-    expect(deltaSecondsText(4300, 4000)).toBe('+0.3 s')
-    expect(deltaSecondsText(null, 4000)).toBeNull()
-    expect(deltaPointsText(0.012, 0.01)).toBe('+0.2 pp')
+    expect(pctChange(100, 0)).toBeNull()
+    expect(pctChange(100, null)).toBeNull()
   })
 })
 
@@ -167,11 +161,11 @@ describe('freshness and copy', () => {
 })
 
 describe('prior comparisons', () => {
-  it('separates an absent field from an absent window', () => {
-    expect(priorLine(120, undefined, deltaPctText)).toBe('prior unavailable')
-    expect(priorLine(120, null, deltaPctText)).toBe('no comparable prior 30 d')
-    expect(priorLine(120, 100, deltaPctText)).toBe('+20% vs prior 30 d')
-    expect(priorLine(120, 0, deltaPctText)).toBe('prior 30 d had no base to compare')
+  it('separates an absent field from an absent window and shows no note when the badge reads', () => {
+    expect(priorNote(120, undefined, pctDelta)).toBe('prior unavailable')
+    expect(priorNote(120, null, pctDelta)).toBe('no comparable prior 30 d')
+    expect(priorNote(120, 100, pctDelta)).toBeNull()
+    expect(priorNote(120, 0, pctDelta)).toBe('prior 30 d had no base to compare')
     expect(priorErrorLine(undefined)).toBe('prior unavailable')
     expect(priorErrorLine(null)).toBe('no comparable prior 30 d')
     expect(priorErrorLine(0.012)).toBe('vs 1.2% prior 30 d')
@@ -211,5 +205,24 @@ describe('badge deltas', () => {
   it('pointsDelta is the ratio difference in percentage points', () => {
     expect(pointsDelta(0.03, 0.01)).toBeCloseTo(2)
     expect(pointsDelta(null, 0.01)).toBeNull()
+  })
+
+  it('refuses a non-finite reading instead of printing NaN', () => {
+    expect(secondsDelta(Number.NaN, 1000)).toBeNull()
+    expect(pointsDelta(0.1, Number.POSITIVE_INFINITY)).toBeNull()
+    expect(pctDelta(Number.NaN, 10)).toBeNull()
+  })
+})
+
+describe('readout formatters', () => {
+  it('every readout carries its unit', () => {
+    expect(fmtUsdDay(12.4)).toBe('$12.40')
+    expect(fmtTokensDay(3_200_000)).toBe('3.2M tokens')
+    expect(fmtTokensDay(950)).toBe('950 tokens')
+    expect(fmtSecondsDay(1800)).toBe('1.8 s')
+  })
+
+  it('badge magnitudes keep one decimal so a small change is not a red 0%', () => {
+    expect(fmtPctBadge(-0.4)).toBe('0.4%')
   })
 })

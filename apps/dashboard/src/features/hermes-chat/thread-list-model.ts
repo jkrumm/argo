@@ -40,9 +40,9 @@ export type ThreadEntry = {
   updatedAt: number
 }
 
-export type GroupKey = 'pinned' | 'today' | 'week' | 'earlier'
+type GroupKey = 'pinned' | 'today' | 'week' | 'earlier'
 
-export const GROUP_LABEL: Record<GroupKey, string> = {
+const GROUP_LABEL: Record<GroupKey, string> = {
   pinned: 'Pinned',
   today: 'Today',
   week: 'This week',
@@ -112,7 +112,7 @@ export function startOfDay(ms: number): number {
   return d.getTime()
 }
 
-export function groupOf(entry: ThreadEntry, now: number): GroupKey {
+function groupOf(entry: ThreadEntry, now: number): GroupKey {
   if (entry.pinned) return 'pinned'
   const today = startOfDay(now)
   if (entry.updatedAt >= today) return 'today'
@@ -137,7 +137,7 @@ export function groupEntries(entries: readonly ThreadEntry[], now: number): Thre
   })
 }
 
-export type ThreadView = {
+type ThreadView = {
   /** Every non-archived thread: the figure the summary and the `All` chip share. */
   total: number
   /** The `All` chip: every non-archived thread matching the search query. */
@@ -154,7 +154,7 @@ export type ThreadView = {
   archivedCount: number
 }
 
-export type ThreadFilter = {
+type ThreadFilter = {
   type: HermesThreadType | 'all' | 'untitled' | 'archived'
   query: string
 }
@@ -218,22 +218,19 @@ const dayYearFormat = new Intl.DateTimeFormat(APP_LOCALE, {
   year: 'numeric',
 })
 
-/** A date never wraps mid-value at 390: its spaces become no-break spaces. */
-const unbreakable = (text: string) => text.replaceAll(' ', '\u00a0')
-
 /** `HH:mm` for today, `D Mon` for anything older. */
 export function listTime(ms: number, now: number): string {
-  return ms >= startOfDay(now) ? timeFormat.format(ms) : unbreakable(dayFormat.format(ms))
+  return ms >= startOfDay(now) ? timeFormat.format(ms) : dayFormat.format(ms)
 }
 
 /** A start date: `D Mon`, with the year once it is not this year. */
 export function startedDate(ms: number, now: number): string {
   const sameYear = new Date(ms).getFullYear() === new Date(now).getFullYear()
-  return unbreakable((sameYear ? dayFormat : dayYearFormat).format(ms))
+  return (sameYear ? dayFormat : dayYearFormat).format(ms)
 }
 
-/** Wide: `Started {date} · last reply {time}` (the type is the chip beside the title). Compact, no chip: `last reply {time} · {type}`. */
-export function factsLine({
+/** Parts of the facts line, joined by ` · ` at render. Wide: `Started {date}`, `last reply {time}` (the type is the chip beside the title). Compact, no chip: `last reply {time} · {type}`. */
+export function factsParts({
   entry,
   now,
   compact,
@@ -241,7 +238,7 @@ export function factsLine({
   entry: ThreadEntry
   now: number
   compact: boolean
-}): string {
+}): string[] {
   const sameDay = startOfDay(entry.updatedAt) === startOfDay(entry.createdAt)
   const reply = listTime(entry.updatedAt, now)
   const type = entry.type === null ? null : TYPE_LABEL[entry.type]
@@ -253,10 +250,10 @@ export function factsLine({
           `last reply ${timeFormat.format(entry.updatedAt)}`,
         ]
       : [`Started ${startedDate(entry.createdAt, now)}`, `last reply ${reply}`]
-  return parts.filter((part): part is string => part !== null).join(' · ')
+  return parts.filter((part): part is string => part !== null)
 }
 
-export type ThreadSummary = {
+type ThreadSummary = {
   threads: number
   untitled: number
   pinned: number
@@ -280,8 +277,8 @@ export function summarize(entries: readonly ThreadEntry[], now: number): ThreadS
   }
 }
 
-/** `{n} threads · {n} pinned · {n} today · last reply {time}`. */
-export function summaryLine(summary: ThreadSummary): string {
+/** `{n} threads`, `{n} pinned`, `{n} active today`, `last reply {time}`, joined by ` · ` at render. */
+export function summaryParts(summary: ThreadSummary): string[] {
   const parts = [
     `${summary.threads} ${summary.threads === 1 ? 'thread' : 'threads'}`,
     ...(summary.untitled > 0 ? [`${summary.untitled} untitled`] : []),
@@ -289,7 +286,7 @@ export function summaryLine(summary: ThreadSummary): string {
     `${summary.today} active today`,
   ]
   if (summary.lastReply !== null) parts.push(`last reply ${summary.lastReply}`)
-  return parts.join(' · ')
+  return parts
 }
 
 /** The disclosure row: `{n} untitled chats · oldest {age}`. `ageLabel` is the relative age. */

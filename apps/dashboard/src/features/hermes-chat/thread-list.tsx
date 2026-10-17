@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { Box, Button, Text, UnstyledButton } from '@mantine/core'
 import { overlays } from 'basalt-ui/commands'
 import { relativeTime } from 'basalt-ui/format'
@@ -18,6 +19,16 @@ export function TypeChip({ type }: { type: ThreadEntry['type'] }) {
       {TYPE_LABEL[type]}
     </Text>
   )
+}
+
+/** Fragments joined by ` · `; each is unbreakable, so a date never splits across lines. */
+export function JoinedParts({ parts }: { parts: readonly string[] }) {
+  return parts.map((part, i) => (
+    <Fragment key={part}>
+      {i > 0 && ' · '}
+      <span className={classes['part']}>{part}</span>
+    </Fragment>
+  ))
 }
 
 function LiveDot() {

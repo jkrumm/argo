@@ -15,8 +15,8 @@ import { useUiStore } from '../../lib/store'
 import { hermesChatStore } from './chat-store'
 import { HermesHealth } from './hermes-health'
 import { HermesRow } from './hermes-row'
-import { ThreadList } from './thread-list'
-import { buildView, summarize, summaryLine, toEntries } from './thread-list-model'
+import { JoinedParts, ThreadList } from './thread-list'
+import { buildView, summarize, summaryParts, toEntries } from './thread-list-model'
 import { ThreadRecordHeader } from './thread-record-header'
 import { ThreadToolbar } from './thread-toolbar'
 import { ThreadSpeaker } from './use-auto-speak'
@@ -311,7 +311,7 @@ function HermesChatFeed() {
         <>
           <Stack gap="sm" px="md" pt="lg">
             <Text size="sm" c="dimmed" data-shot="thread-summary">
-              {summaryLine(summary)}
+              <JoinedParts parts={summaryParts(summary)} />
             </Text>
             <ThreadToolbar
               allCount={view.allCount}

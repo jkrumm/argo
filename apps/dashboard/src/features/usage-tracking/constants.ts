@@ -1,5 +1,5 @@
 import type { StackedAreaBand } from 'basalt-ui/charts'
-import { USAGE_BILLING, USAGE_OUTCOME, USAGE_SOURCE } from '../../lib/series'
+import { USAGE_BILLING, USAGE_SOURCE } from '../../lib/series'
 import type { CostGroupBy, TimePoint } from './types'
 
 const SOURCE_KEY_TO_TOKEN: Record<string, keyof typeof USAGE_SOURCE> = {
@@ -25,24 +25,17 @@ const SOURCE_KEY_TO_TOKEN: Record<string, keyof typeof USAGE_SOURCE> = {
   opencode: 'opencode',
 }
 
-export function colorForSource(source: string): string {
+function colorForSource(source: string): string {
   const token = SOURCE_KEY_TO_TOKEN[source]
   if (token !== undefined) return USAGE_SOURCE[token]
   return USAGE_SOURCE.other
 }
 
-export function colorForBilling(billing: string): string {
+function colorForBilling(billing: string): string {
   if (billing === 'max') return USAGE_BILLING.max
   if (billing === 'iu') return USAGE_BILLING.iu
   if (billing === 'openrouter') return USAGE_BILLING.openrouter
   return USAGE_BILLING.unknown
-}
-
-export function colorForOutcome(outcome: string): string {
-  if (outcome === 'ok') return USAGE_OUTCOME.ok
-  if (outcome === 'error') return USAGE_OUTCOME.error
-  if (outcome === 'cancelled') return USAGE_OUTCOME.cancelled
-  return USAGE_SOURCE.other
 }
 
 // Deterministic fallback color picker for unknown grouping keys (e.g. machines,
@@ -77,34 +70,8 @@ function hashKey(key: string): number {
   return Math.abs(h)
 }
 
-export function colorForKey(key: string): string {
+function colorForKey(key: string): string {
   return FALLBACK_PALETTE[hashKey(key) % FALLBACK_PALETTE.length] ?? USAGE_SOURCE.other
-}
-
-export function fmtUsd(n: number | null | undefined): string {
-  if (n === null || n === undefined || Number.isNaN(n)) return '—'
-  if (Math.abs(n) >= 1000) return `$${n.toFixed(0)}`
-  if (Math.abs(n) >= 1) return `$${n.toFixed(2)}`
-  if (n === 0) return '$0'
-  return `$${n.toFixed(4)}`
-}
-
-export function fmtCount(n: number | null | undefined): string {
-  if (n === null || n === undefined || Number.isNaN(n)) return '—'
-  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}k`
-  return n.toFixed(0)
-}
-
-export function fmtPct(n: number | null | undefined): string {
-  if (n === null || n === undefined || Number.isNaN(n)) return '—'
-  return `${(n * 100).toFixed(1)}%`
-}
-
-export function fmtMs(n: number | null | undefined): string {
-  if (n === null || n === undefined || Number.isNaN(n)) return '—'
-  if (n >= 1000) return `${(n / 1000).toFixed(2)}s`
-  return `${n.toFixed(0)}ms`
 }
 
 // Day buckets arrive as `YYYY-MM-DD` text; a bare date parses as UTC midnight, which labels the

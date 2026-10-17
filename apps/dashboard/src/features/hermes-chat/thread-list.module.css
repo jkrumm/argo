@@ -81,13 +81,18 @@
   column-gap: var(--vx-space-stack-md);
 }
 
+/* A date-bearing fragment never wraps inside itself: a line breaks only at its ` · ` separators. */
+.part {
+  white-space: nowrap;
+}
+
 /* Quiet sentence-case pill: a tinted ground, no border, no mono caps. */
 .chip {
   padding-inline: var(--vx-space-stack-sm);
   font-size: var(--vx-text-sm);
   line-height: 1.5;
   color: var(--vx-muted);
-  background: var(--vx-surface-panel-hover);
+  background: var(--vx-surface-subtle);
   border-radius: var(--vx-radius-pill);
   grid-area: chip;
   justify-self: start;
@@ -129,6 +134,7 @@
   font-family: var(--basalt-font-mono);
   font-size: var(--vx-text-micro);
   color: var(--vx-faint);
+  white-space: nowrap;
 }
 
 @container (max-width: 479.9px) {
