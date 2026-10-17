@@ -1,8 +1,7 @@
 import { useMemo } from 'react'
 import { Anchor, Box, Card, Stack, Text } from '@mantine/core'
-import { Section } from 'basalt-ui'
+import { Section, StatGroup } from 'basalt-ui'
 import { format } from 'date-fns'
-import { StatStrip, StripCell } from '../garmin-health/stat-strip'
 import { formatDurationMin } from '../../components/upstream/schedule-row-model'
 import type { SourceClass } from '../../lib/queries/calendar'
 import { countdown, summarySentence } from './summary'
@@ -90,7 +89,7 @@ export function AgendaView({
         <Box className={classes.page}>
           <Box className={classes.col}>
             <Box className={classes.oToday} data-shot="today">
-              <Card py="sm" px="md">
+              <Card>
                 <Section
                   title="Today"
                   {...(summary.incomplete ? {} : { count: model.today.length })}
@@ -108,7 +107,7 @@ export function AgendaView({
               </Card>
             </Box>
             <Box className={classes.oNext} data-shot="next-days">
-              <Card py="sm" px="md">
+              <Card>
                 <Section
                   title="Next 7 days"
                   {...(summary.incomplete ? {} : { count: model.nextCount })}
@@ -135,20 +134,23 @@ export function AgendaView({
               />
             </Box>
             <Box className={classes.oFree} data-shot="free-block">
-              <StatStrip>
-                <StripCell
-                  caption="Longest free block"
-                  qualifier="today"
-                  value={free ? formatDurationMin(free.minutes) : '—'}
-                  footer={
-                    summary.incomplete
+              <StatGroup
+                variant="strip"
+                label="Longest free block"
+                cells={[
+                  {
+                    key: 'free-block',
+                    caption: 'Longest free block',
+                    qualifier: 'today',
+                    value: free ? formatDurationMin(free.minutes) : null,
+                    footer: summary.incomplete
                       ? 'a calendar has not answered'
                       : free
                         ? `${hhmm(free.start)}–${hhmm(free.end)}`
-                        : 'none left in 08:00–18:00'
-                  }
-                />
-              </StatStrip>
+                        : 'none left in 08:00–18:00',
+                  },
+                ]}
+              />
             </Box>
             <Box className={classes.oTasks}>
               <TaskList tasks={model.tasks} todayKey={summary.todayKey} />

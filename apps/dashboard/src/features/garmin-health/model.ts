@@ -204,8 +204,7 @@ export function contributorItems(components: Components) {
           {
             label: r.label,
             value: r.value,
-            weight: r.weight,
-            secondary: `/ ${r.weight} pts`,
+            max: r.weight,
             key: r.label,
           },
         ],

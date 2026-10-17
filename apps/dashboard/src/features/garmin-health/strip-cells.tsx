@@ -1,7 +1,14 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Stack, Text } from '@mantine/core'
-import { DeltaBadge, Meter } from 'basalt-ui'
+import { Text } from '@mantine/core'
+import {
+  BarList,
+  DeltaBadge,
+  Meter,
+  StatGroup,
+  type StatStripCell,
+  type StatStripRow,
+} from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import {
@@ -29,11 +36,10 @@ import {
   mean,
   signed,
 } from './model'
-import { SignalRow, StatStrip, StripCell } from './stat-strip'
 import type { SummaryParams } from './types'
 import { applyVisibilityFilter } from './visibility'
 
-/** Thin one-per-row meters: the label and its points sit under the track, the number leads. */
+/** One thin bar per contributor, each on its own scale: "32.0 / 40 pts". */
 function ContributorRows({
   label,
   rows,
@@ -44,21 +50,14 @@ function ContributorRows({
   loading: boolean
 }) {
   if (loading) return <Meter label={label} loading />
-  if (rows.length === 0) return <Meter label={label} emptyText="No contributors measured" />
   return (
-    <Stack gap="xs" role="group" aria-label={label}>
-      {rows.map((r) => (
-        <Meter
-          key={r.key}
-          label={`${r.label} points`}
-          value={r.value}
-          min={0}
-          max={r.weight}
-          startCaption={r.label}
-          endCaption={`${r.value.toFixed(1)} ${r.secondary}`}
-        />
-      ))}
-    </Stack>
+    <BarList
+      label={label}
+      variant="thin"
+      items={rows}
+      format={(v, part) => (part === 'max' ? `${v} pts` : v.toFixed(1))}
+      emptyText="No contributors measured"
+    />
   )
 }
 
@@ -70,28 +69,21 @@ function LoadRows({
   loading: boolean
 }) {
   if (loading) return <Meter label="Acute and chronic load" loading />
-  if (load.length === 0)
-    return <Meter label="Acute and chronic load" emptyText="No load measured" />
   // One shared scale with headroom, so the two bars compare and neither fills its track.
   const max = Math.max(...load.map((l) => l.value), 1) * 1.15
   return (
-    <Stack gap="xs" role="group" aria-label="Acute and chronic load in MET-min per day">
-      {load.map((l) => (
-        <Meter
-          key={l.label}
-          label={`${l.label} load`}
-          value={l.value}
-          min={0}
-          max={max}
-          startCaption={l.label}
-          endCaption={`${l.value.toFixed(0)} MET-min/day`}
-        />
-      ))}
-    </Stack>
+    <BarList
+      label="Acute and chronic load in MET-min per day"
+      variant="thin"
+      items={load}
+      max={max}
+      format={(v) => `${v.toFixed(0)} MET-min/day`}
+      emptyText="No load measured"
+    />
   )
 }
 
-function RecoveryCell({ params }: { params: SummaryParams }) {
+function useRecoveryCell(params: SummaryParams): StatStripCell {
   const summary = useQuery(recoveryQueries.summary(params))
   const series = useQuery(recoveryQueries.series(params))
 
@@ -106,43 +98,43 @@ function RecoveryCell({ params }: { params: SummaryParams }) {
   const score = data?.recovery ?? null
   // The score's own date: today reads "today", a sync gap reads its date.
   const when = dayLabel(data?.date)
-  return (
-    <StripCell
-      shot="strip-recovery"
-      caption="Recovery"
-      qualifier={
-        window.mean === null ? when : `${when} · ${window.days} d mean ${fmtNum(window.mean)}`
-      }
-      value={fmtNum(score)}
-      unit="/100"
-      loading={summary.isPending}
-      stale={summary.isPlaceholderData}
-    >
-      <Meter
-        label="Recovery score"
-        value={score}
-        min={0}
-        max={100}
-        zones={[
-          { from: 0, to: RECOVERY_REST_BELOW, label: 'Rest', color: VX.bad },
-          { from: RECOVERY_REST_BELOW, to: RECOVERY_PUSH_FROM, label: 'Normal', color: VX.warn },
-          { from: RECOVERY_PUSH_FROM, to: 100, label: 'Push', color: VX.good },
-        ]}
-        startCaption={`rest < ${RECOVERY_REST_BELOW} · push ≥ ${RECOVERY_PUSH_FROM}`}
-        endCaption="100"
-        loading={summary.isPending}
-        emptyText="No recovery score"
-      />
-      <ContributorRows
-        label="Recovery contributors, points of their weight"
-        rows={contributorItems(data?.components ?? { hrv: null, sleep: null, rhr: null })}
-        loading={summary.isPending}
-      />
-    </StripCell>
-  )
+  return {
+    key: 'recovery',
+    caption: 'Recovery',
+    qualifier:
+      window.mean === null ? when : `${when} · ${window.days} d mean ${fmtNum(window.mean)}`,
+    value: fmtNum(score),
+    unit: '/100',
+    loading: summary.isPending,
+    stale: summary.isPlaceholderData,
+    visual: (
+      <>
+        <Meter
+          label="Recovery score"
+          value={score}
+          min={0}
+          max={100}
+          zones={[
+            { from: 0, to: RECOVERY_REST_BELOW, label: 'Rest', color: VX.bad },
+            { from: RECOVERY_REST_BELOW, to: RECOVERY_PUSH_FROM, label: 'Normal', color: VX.warn },
+            { from: RECOVERY_PUSH_FROM, to: 100, label: 'Push', color: VX.good },
+          ]}
+          startCaption={`rest < ${RECOVERY_REST_BELOW} · push ≥ ${RECOVERY_PUSH_FROM}`}
+          endCaption="100"
+          loading={summary.isPending}
+          emptyText="No recovery score"
+        />
+        <ContributorRows
+          label="Recovery contributors, points of their weight"
+          rows={contributorItems(data?.components ?? { hrv: null, sleep: null, rhr: null })}
+          loading={summary.isPending}
+        />
+      </>
+    ),
+  }
 }
 
-function LoadCell({ params }: { params: SummaryParams }) {
+function useLoadCell(params: SummaryParams): StatStripCell {
   const query = useQuery(trainingLoadQueries.summary(params))
   const { data, isPlaceholderData } = query
   // Same visibility rule as the ACWR chart below, so the two never show different "latest" days.
@@ -158,37 +150,38 @@ function LoadCell({ params }: { params: SummaryParams }) {
         ]
       : []
 
-  return (
-    <StripCell
-      shot="strip-load"
-      caption="Training load"
-      qualifier="acute ÷ chronic EWMA"
-      value={fmtNum(acwr, 2)}
-      unit="ACWR"
-      loading={query.isPending}
-      stale={isPlaceholderData}
-      footer={`under < ${ACWR_FLOOR} · optimal ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO} · caution ${ACWR_OPTIMAL_TO}–${ACWR_CAUTION_TO} · danger > ${ACWR_CAUTION_TO}`}
-    >
-      <Meter
-        label="Acute to chronic workload ratio"
-        value={acwr}
-        min={0}
-        max={ACWR_METER_MAX}
-        format={(v) => v.toFixed(2)}
-        zones={[
-          { from: 0, to: ACWR_FLOOR, label: 'Under', color: VX.warn },
-          { from: ACWR_FLOOR, to: ACWR_OPTIMAL_TO, label: 'Optimal', color: VX.good },
-          { from: ACWR_OPTIMAL_TO, to: ACWR_CAUTION_TO, label: 'Caution', color: VX.warn },
-          { from: ACWR_CAUTION_TO, to: ACWR_METER_MAX, label: 'Danger', color: VX.bad },
-        ]}
-        startCaption="0"
-        endCaption={ACWR_METER_MAX.toFixed(1)}
-        loading={query.isPending}
-        emptyText="No training load"
-      />
-      <LoadRows load={load} loading={query.isPending} />
-    </StripCell>
-  )
+  return {
+    key: 'load',
+    caption: 'Training load',
+    qualifier: 'acute ÷ chronic EWMA',
+    value: fmtNum(acwr, 2),
+    unit: 'ACWR',
+    loading: query.isPending,
+    stale: isPlaceholderData,
+    footer: `under < ${ACWR_FLOOR} · optimal ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO} · caution ${ACWR_OPTIMAL_TO}–${ACWR_CAUTION_TO} · danger > ${ACWR_CAUTION_TO}`,
+    visual: (
+      <>
+        <Meter
+          label="Acute to chronic workload ratio"
+          value={acwr}
+          min={0}
+          max={ACWR_METER_MAX}
+          format={(v) => v.toFixed(2)}
+          zones={[
+            { from: 0, to: ACWR_FLOOR, label: 'Under', color: VX.warn },
+            { from: ACWR_FLOOR, to: ACWR_OPTIMAL_TO, label: 'Optimal', color: VX.good },
+            { from: ACWR_OPTIMAL_TO, to: ACWR_CAUTION_TO, label: 'Caution', color: VX.warn },
+            { from: ACWR_CAUTION_TO, to: ACWR_METER_MAX, label: 'Danger', color: VX.bad },
+          ]}
+          startCaption="0"
+          endCaption={ACWR_METER_MAX.toFixed(1)}
+          loading={query.isPending}
+          emptyText="No training load"
+        />
+        <LoadRows load={load} loading={query.isPending} />
+      </>
+    ),
+  }
 }
 
 type SignalSpec = {
@@ -208,56 +201,52 @@ type SignalSpec = {
   delta: number | null
 }
 
-function SignalLine({ spec }: { spec: SignalSpec }) {
+function signalRow(spec: SignalSpec): StatStripRow {
   const present = spec.values.filter((v): v is number => v !== null)
   const current = present.at(-1) ?? null
   // A null day is NaN, which the sparkline draws as a gap instead of bridging it.
   const trace = spec.values.map((v) => v ?? Number.NaN)
-  return (
-    <SignalRow
-      label={spec.label}
-      value={
-        spec.hideValue === true
-          ? ''
-          : current === null
-            ? '—'
-            : `${current.toFixed(spec.digits)} ${spec.unit}`
-      }
-      sparkline={
-        present.length > 1 && new Set(present).size > 1 ? (
-          <Sparkline
-            data={trace}
-            height={28}
-            color={VX.line}
-            emphasizeLast
-            ariaLabel={`${spec.label} over ${spec.period}, now ${current === null ? 'unknown' : current.toFixed(spec.digits)} ${spec.unit}`}
-          />
-        ) : (
-          <Text size="xs" c="dimmed">
-            {present.length > 1 ? 'unchanged' : '—'}
-          </Text>
-        )
-      }
-      delta={
-        spec.delta === null || spec.delta === 0 ? (
-          <Text size="xs" c="dimmed">
-            {spec.delta === 0 ? 'unchanged' : '—'}
-          </Text>
-        ) : (
-          <DeltaBadge
-            value={spec.delta}
-            polarity={spec.polarity}
-            format={(v) => `${signed(v, spec.digits)} ${spec.deltaUnit}`.trim()}
-            withGlyph
-            period={`vs ${spec.period}`}
-          />
-        )
-      }
-    />
-  )
+  return {
+    key: spec.label,
+    label: spec.label,
+    value:
+      spec.hideValue === true
+        ? ''
+        : current === null
+          ? null
+          : `${current.toFixed(spec.digits)} ${spec.unit}`,
+    visual:
+      present.length > 1 && new Set(present).size > 1 ? (
+        <Sparkline
+          data={trace}
+          height={28}
+          color={VX.line}
+          emphasizeLast
+          ariaLabel={`${spec.label} over ${spec.period}, now ${current === null ? 'unknown' : current.toFixed(spec.digits)} ${spec.unit}`}
+        />
+      ) : (
+        <Text size="xs" c="dimmed">
+          {present.length > 1 ? 'unchanged' : '—'}
+        </Text>
+      ),
+    delta:
+      spec.delta === null || spec.delta === 0 ? (
+        <Text size="xs" c="dimmed">
+          {spec.delta === 0 ? 'unchanged' : '—'}
+        </Text>
+      ) : (
+        <DeltaBadge
+          value={spec.delta}
+          polarity={spec.polarity}
+          format={(v) => `${signed(v, spec.digits)} ${spec.deltaUnit}`.trim()}
+          withGlyph
+          period={spec.period}
+        />
+      ),
+  }
 }
 
-function FitnessCell() {
+function useFitnessCell(): StatStripCell {
   // Fixed windows keep the copy true ("14 d regression") whatever the page's selector says.
   const range = fitnessRange()
   const direction = useQuery(fitnessDirectionQueries.summary(range))
@@ -287,63 +276,51 @@ function FitnessCell() {
   }, [series.data])
 
   const d = direction.data
-  return (
-    <StripCell
-      shot="strip-fitness"
-      caption="Fitness"
-      qualifier={`${d?.label || '—'} · ${FITNESS_DAYS} d regression`}
-      value={fmtNum(vo2Hero(vo2.values, d?.vo2max), 1)}
-      unit="VO2max ml/kg/min"
-      loading={direction.isPending}
-      stale={direction.isPlaceholderData || series.isPlaceholderData || history.isPlaceholderData}
-    >
-      <SignalLine
-        spec={{
-          label: 'RHR',
-          unit: 'bpm',
-          deltaUnit: 'bpm',
-          digits: 0,
-          polarity: 'up-bad',
-          period: `${FITNESS_DAYS} d`,
-          values: rows.rhr,
-          delta: d?.rhrDelta ?? null,
-        }}
-      />
-      <SignalLine
-        spec={{
-          label: 'HRV',
-          unit: 'ms',
-          deltaUnit: 'ms',
-          digits: 0,
-          polarity: 'up-good',
-          period: `${FITNESS_DAYS} d`,
-          values: rows.hrv,
-          delta: d?.hrvDelta ?? null,
-        }}
-      />
-      <SignalLine
-        spec={{
-          label: 'VO2max',
-          unit: 'ml/kg/min',
-          deltaUnit: 'ml/kg/min',
-          digits: 1,
-          polarity: 'up-good',
-          period: `${vo2.spanDays} d`,
-          hideValue: true,
-          values: vo2.values,
-          delta: firstToLast(vo2.values),
-        }}
-      />
-    </StripCell>
-  )
+  return {
+    key: 'fitness',
+    caption: 'Fitness',
+    qualifier: `${d?.label || '—'} · ${FITNESS_DAYS} d regression`,
+    value: fmtNum(vo2Hero(vo2.values, d?.vo2max), 1),
+    unit: 'VO2max ml/kg/min',
+    loading: direction.isPending,
+    stale: direction.isPlaceholderData || series.isPlaceholderData || history.isPlaceholderData,
+    rows: [
+      signalRow({
+        label: 'RHR',
+        unit: 'bpm',
+        deltaUnit: 'bpm',
+        digits: 0,
+        polarity: 'up-bad',
+        period: `${FITNESS_DAYS} d`,
+        values: rows.rhr,
+        delta: d?.rhrDelta ?? null,
+      }),
+      signalRow({
+        label: 'HRV',
+        unit: 'ms',
+        deltaUnit: 'ms',
+        digits: 0,
+        polarity: 'up-good',
+        period: `${FITNESS_DAYS} d`,
+        values: rows.hrv,
+        delta: d?.hrvDelta ?? null,
+      }),
+      signalRow({
+        label: 'VO2max',
+        unit: 'ml/kg/min',
+        deltaUnit: 'ml/kg/min',
+        digits: 1,
+        polarity: 'up-good',
+        period: `${vo2.spanDays} d`,
+        hideValue: true,
+        values: vo2.values,
+        delta: firstToLast(vo2.values),
+      }),
+    ],
+  }
 }
 
-export function StatStripRow({ params }: { params: SummaryParams }) {
-  return (
-    <StatStrip>
-      <RecoveryCell params={params} />
-      <LoadCell params={params} />
-      <FitnessCell />
-    </StatStrip>
-  )
+export function GarminStrip({ params }: { params: SummaryParams }) {
+  const cells = [useRecoveryCell(params), useLoadCell(params), useFitnessCell()]
+  return <StatGroup variant="strip" label="Recovery, training load and fitness" cells={cells} />
 }
