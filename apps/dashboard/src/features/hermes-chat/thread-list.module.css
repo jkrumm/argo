@@ -187,3 +187,7 @@
   align-items: baseline;
   justify-content: space-between;
 }
+
+.row:focus-visible {
+  outline-offset: -2px;
+}
