@@ -5,6 +5,8 @@ const TONE_COLOR: Record<ChipTone, string> = {
   work: 'red',
   infra: 'blue',
   policy: 'orange',
+  bad: 'red',
+  warn: 'orange',
   neutral: 'gray',
 }
 

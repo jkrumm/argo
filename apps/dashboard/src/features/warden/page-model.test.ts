@@ -17,6 +17,9 @@ import {
   readLeaf,
   retryQuestion,
   splitReason,
+  tagChip,
+  deriveBudgetFooter,
+  recentTransitions,
 } from './page-model'
 
 const NOW = Date.parse('2026-01-01T12:00:00Z')
@@ -266,6 +269,7 @@ describe('planActions', () => {
 describe('splitReason', () => {
   it('takes the first complete sentence as the question and the rest as evidence', () => {
     expect(splitReason('Ship the fix? It touches the loop. Tests pass.', 'x')).toEqual({
+      tag: null,
       question: 'Ship the fix?',
       rest: 'It touches the loop. Tests pass.',
     })
@@ -273,6 +277,7 @@ describe('splitReason', () => {
 
   it('keeps a single sentence whole, with no evidence', () => {
     expect(splitReason('Ship the fix or revert', 'x')).toEqual({
+      tag: null,
       question: 'Ship the fix or revert',
       rest: null,
     })
@@ -284,7 +289,11 @@ describe('splitReason', () => {
   })
 
   it('falls back when there is no reason', () => {
-    expect(splitReason(null, 'Fallback title')).toEqual({ question: 'Fallback title', rest: null })
+    expect(splitReason(null, 'Fallback title')).toEqual({
+      tag: null,
+      question: 'Fallback title',
+      rest: null,
+    })
     expect(splitReason('  ', 'F').question).toBe('F')
   })
 })
@@ -396,5 +405,85 @@ describe('retryQuestion', () => {
   it('does not stack punctuation', () => {
     expect(retryQuestion('fails mid-read.')).toBe('Retry fails mid-read?')
     expect(retryQuestion('is it flaky?')).toBe('Retry is it flaky?')
+  })
+})
+
+describe('leading tag', () => {
+  it('lifts a leading [tag] out of the question', () => {
+    expect(splitReason('[blocker] Deploy now? It touches CI.', 'x')).toEqual({
+      tag: 'blocker',
+      question: 'Deploy now?',
+      rest: 'It touches CI.',
+    })
+  })
+
+  it('keeps a bracket that is not leading', () => {
+    expect(splitReason('Deploy [now]?', 'x')).toMatchObject({
+      tag: null,
+      question: 'Deploy [now]?',
+    })
+  })
+
+  it('falls back when the tag is all there is', () => {
+    expect(splitReason('[no category]', 'Title')).toEqual({
+      tag: 'no category',
+      question: 'Title',
+      rest: null,
+    })
+  })
+})
+
+describe('tagChip', () => {
+  it('tones the known tags and renders any other neutral with its raw label', () => {
+    expect(tagChip('blocker')).toEqual({ tone: 'bad', label: 'blocker' })
+    expect(tagChip('data_loss').tone).toBe('bad')
+    expect(tagChip('security').tone).toBe('warn')
+    expect(tagChip('no category')).toEqual({ tone: 'neutral', label: 'no category' })
+  })
+})
+
+describe('deriveBudgetFooter', () => {
+  it('collapses to one line when warden reports no budget', () => {
+    expect(deriveBudgetFooter(undefined)).toEqual({ kind: 'not-reported' })
+    expect(deriveBudgetFooter({} as never)).toEqual({ kind: 'not-reported' })
+  })
+
+  it('keeps both meters when a budget is present', () => {
+    const footer = deriveBudgetFooter({ usedToday: 2, max: 10, implementToday: 1, implementMax: 5 })
+    expect(footer.kind).toBe('meters')
+    if (footer.kind === 'meters') expect(footer.meters).toHaveLength(2)
+  })
+
+  it('still shows meters when only one budget is reported', () => {
+    expect(deriveBudgetFooter({ usedToday: 2, max: 10 }).kind).toBe('meters')
+  })
+})
+
+describe('recentTransitions', () => {
+  const timeline = {
+    transitions: [
+      { to_state: 'new', synthetic: true, at: '2026-01-01T00:00:00Z' },
+      { from_state: 'new', to_state: 'triaged', at: '2026-01-01T01:00:00Z' },
+      { from_state: 'triaged', to_state: 'working', at: '2026-01-01T02:00:00Z' },
+      { from_state: 'working', to_state: 'needs_decision', at: '2026-01-01T03:00:00Z' },
+    ],
+  }
+
+  it('returns the last few state changes, oldest first', () => {
+    expect(recentTransitions(timeline, 3).map((t) => t.to)).toEqual([
+      'triaged',
+      'working',
+      'needs_decision',
+    ])
+  })
+
+  it('reads a created row as — → state', () => {
+    expect(recentTransitions(timeline, 4)[0]).toMatchObject({ from: '—', to: 'new' })
+  })
+
+  it('is empty for missing or malformed timelines', () => {
+    expect(recentTransitions(undefined)).toEqual([])
+    expect(recentTransitions({ transitions: 'x' })).toEqual([])
+    expect(recentTransitions({ transitions: [{ from_state: 'a' }] })).toEqual([])
   })
 })

@@ -227,6 +227,15 @@ export function deriveBudget(budget: WardenBudget | undefined): BudgetMeter[] {
   ]
 }
 
+/** Both meters missing means warden reports no budget at all: one muted line, not two empty boxes. */
+export type BudgetFooter = { kind: 'not-reported' } | { kind: 'meters'; meters: BudgetMeter[] }
+
+export function deriveBudgetFooter(budget: WardenBudget | undefined): BudgetFooter {
+  const meters = deriveBudget(budget)
+  const reported = meters.some((meter) => meter.used !== null && meter.max !== null)
+  return reported ? { kind: 'meters', meters } : { kind: 'not-reported' }
+}
+
 // ── Summary sentence ────────────────────────────────────────────────────────
 
 /** `"42 min"` / `"3.2 h"` / `"2.1 d"` — a span with a unit, never a bare number. */
@@ -326,19 +335,34 @@ export function planActions(available: readonly string[], kind: QueueKind): Acti
   return { primary, secondary, menu }
 }
 
+/** Warden prefixes some decision text with a bracketed category: `[blocker] Deploy …`. */
+const LEADING_TAG = /^\[([^\]]{1,40})\]\s*/
+
+const TAG_TONE: Record<string, ChipTone> = { blocker: 'bad', data_loss: 'bad', security: 'warn' }
+
+/** A leading `[tag]` as a chip: known tags take a tone, any other renders neutral with its raw label. */
+export function tagChip(tag: string): { tone: ChipTone; label: string } {
+  const key = tag.trim().toLowerCase().replaceAll(' ', '_')
+  return { tone: TAG_TONE[key] ?? 'neutral', label: tag.trim() }
+}
+
 /** The first complete sentence of warden's decision text is the question; whatever follows is the
- * evidence. Nothing is ever cut mid-sentence — a long first sentence is the headline as written. */
+ * evidence. A leading `[tag]` is lifted out as `tag` so the headline starts at the question.
+ * Nothing is ever cut mid-sentence — a long first sentence is the headline as written. */
 export function splitReason(
   reason: string | null,
   fallback: string,
-): { question: string; rest: string | null } {
-  const text = reason?.trim() ?? ''
-  if (text === '') return { question: fallback, rest: null }
+): { tag: string | null; question: string; rest: string | null } {
+  const raw = reason?.trim() ?? ''
+  const tagMatch = LEADING_TAG.exec(raw)
+  const tag = tagMatch?.[1] ?? null
+  const text = tagMatch ? raw.slice(tagMatch[0].length).trim() : raw
+  if (text === '') return { tag, question: fallback, rest: null }
   const match = /^(.+?[.?!])(?:\s+|$)/s.exec(text)
   const first = match?.[1]
-  if (first === undefined || first.length >= text.length) return { question: text, rest: null }
+  if (first === undefined || first.length >= text.length) return { tag, question: text, rest: null }
   const rest = text.slice(match![0].length).trim()
-  return { question: first, rest: rest === '' ? null : rest }
+  return { tag, question: first, rest: rest === '' ? null : rest }
 }
 
 /** `Retry <title>?` — a title that already ends in punctuation does not get a second mark. */
@@ -378,7 +402,7 @@ export function oldestAgeDays(rows: readonly AwaitingOwnerRow[]): number | null 
 
 // ── Failure class ───────────────────────────────────────────────────────────
 
-export type ChipTone = 'work' | 'infra' | 'policy' | 'neutral'
+export type ChipTone = 'work' | 'infra' | 'policy' | 'bad' | 'warn' | 'neutral'
 
 /** `failure_class` is an open string: the three known classes get a fixed tone, any other value is
  * a neutral chip with its raw label, `null` renders no chip at all. */
@@ -450,4 +474,25 @@ export function openCount(columns: readonly BoardColumn[]): number {
 export function deferredNote(item: WardenBoardItem): string | null {
   if (!isDeferredItem(item)) return null
   return item.note?.replace(/^deferred:\s*/, '').trim() || null
+}
+
+// ── Item history (decision-card preview) ────────────────────────────────────
+
+export type TransitionLine = { from: string; to: string; at: string | null }
+
+/** The last `limit` state changes of one item, oldest first — the context beside a decision. A
+ * synthetic `created` row has no `from`, so it reads `— → new`. */
+export function recentTransitions(timeline: unknown, limit = 3): TransitionLine[] {
+  const rows = bag(timeline)?.['transitions']
+  if (!Array.isArray(rows)) return []
+  const lines: TransitionLine[] = []
+  for (const row of rows) {
+    const r = bag(row)
+    const to = typeof r?.['to_state'] === 'string' ? r['to_state'] : null
+    if (to === null) continue
+    const from = typeof r?.['from_state'] === 'string' ? r['from_state'] : '—'
+    const at = typeof r?.['at'] === 'string' ? r['at'] : null
+    lines.push({ from, to, at })
+  }
+  return lines.slice(-limit)
 }
