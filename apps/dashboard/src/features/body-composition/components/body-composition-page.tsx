@@ -1,4 +1,5 @@
 import { Box, Button, Paper, Stack } from '@mantine/core'
+import { StatGroup, type StatStripCell } from 'basalt-ui'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { overlays } from 'basalt-ui/commands'
 import { skinfoldLogQueries, type SkinfoldWindowParams } from '../../../lib/queries/skinfold-log'
@@ -19,10 +20,9 @@ import {
 } from '../model'
 import { compareByDate, type SkinfoldPoint } from '../charts/series-data'
 import type { SkinfoldSummary, WeightSummary } from '../types'
-import { EmptyRow, Strip } from './body-strip'
-import stripClasses from './body-strip.module.css'
+import classes from './body-composition.module.css'
 import { SkinfoldHistoryTable } from './skinfold-history-table'
-import { RateCell, SkinfoldCell, WeightCell } from './strip-cells'
+import { rateCell, skinfoldCell, weightCell } from './strip-cells'
 
 type Params = WeightLogWindowParams & SkinfoldWindowParams
 
@@ -45,11 +45,29 @@ export function BodyCompositionPage({ params }: { params: Params }) {
   const stats = weightWindowStats(weightPoints, windowDays(params))
   const startPoint = weightPoints.toSorted(compareByDate)[0] ?? null
   const rows = siteRows(sessions, skinfoldSummary.perSite)
-  const hasSkinfold = sessions.length > 0
+  const cells: StatStripCell[] = [
+    weightCell({
+      summary,
+      stats,
+      goal,
+      startWeight: startPoint?.weightKg ?? null,
+      startDate: startPoint?.date ?? null,
+      latestDate: latestDate(weightPoints),
+    }),
+    rateCell({
+      summary,
+      stats,
+      rateDays: rateDays(windowDays(params)),
+      latestDate: latestDate(weightPoints),
+    }),
+    ...(sessions.length > 0
+      ? [skinfoldCell({ summary: skinfoldSummary, rows, latestDate: latestDate(sessions) })]
+      : []),
+  ]
 
   return (
     <Stack gap="md">
-      <Box component="p" className={stripClasses.summary}>
+      <Box component="p" className={classes.summary}>
         {summarySentence({
           current: summary.current,
           kgPerWeek: summary.kgPerWeek,
@@ -59,25 +77,12 @@ export function BodyCompositionPage({ params }: { params: Params }) {
         })}
       </Box>
 
-      <Strip>
-        <WeightCell
-          summary={summary}
-          stats={stats}
-          goal={goal}
-          startWeight={startPoint?.weightKg ?? null}
-          startDate={startPoint?.date ?? null}
-          latestDate={latestDate(weightPoints)}
-        />
-        <RateCell
-          summary={summary}
-          stats={stats}
-          rateDays={rateDays(windowDays(params))}
-          latestDate={latestDate(weightPoints)}
-        />
-        {hasSkinfold && (
-          <SkinfoldCell summary={skinfoldSummary} rows={rows} latestDate={latestDate(sessions)} />
-        )}
-      </Strip>
+      <StatGroup
+        variant="strip"
+        label="Body composition at a glance"
+        cols={cells.length as 2 | 3}
+        cells={cells}
+      />
 
       <WeightChart
         params={params}
@@ -91,23 +96,21 @@ export function BodyCompositionPage({ params }: { params: Params }) {
       {sessions.length >= 2 ? (
         <SkinfoldChart params={params} />
       ) : (
-        <Paper py="sm" px="md">
-          <EmptyRow
-            text={
-              sessions.length === 0
+        <Paper>
+          <Box className={classes.emptyRow} data-shot="empty-row">
+            <span>
+              {sessions.length === 0
                 ? 'No caliper session in this window — log abdominal and suprailiac to start a baseline.'
-                : 'One caliper session in this window — a second session draws the trend.'
-            }
-            action={
-              <Button
-                variant="default"
-                size="compact-sm"
-                onClick={() => overlays.open('body-comp:log-skinfold', {})}
-              >
-                Log skinfold
-              </Button>
-            }
-          />
+                : 'One caliper session in this window — a second session draws the trend.'}
+            </span>
+            <Button
+              variant="default"
+              size="compact-sm"
+              onClick={() => overlays.open('body-comp:log-skinfold', {})}
+            >
+              Log skinfold
+            </Button>
+          </Box>
         </Paper>
       )}
 

@@ -6,7 +6,6 @@ import { useQuery } from '@tanstack/react-query'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { weightLogQueries, type WeightLogWindowParams } from '../../../lib/queries/weight-log'
-import stripClasses from '../components/body-strip.module.css'
 import { METRIC_TOOLTIPS } from '../constants'
 import {
   ageLabel,
@@ -103,28 +102,27 @@ export default function WeightChart({
       <ChartCard
         title={`Body weight, ${windowLabel(params)}`}
         info={goal === null ? METRIC_TOOLTIPS.bodyWeight : METRIC_TOOLTIPS.bodyWeightGoal}
-        actions={
-          summary.current === null ? null : (
-            <Box className={stripClasses.facts}>
-              <span className={stripClasses.factValue}>{fixed(summary.current)} kg</span>
-              {delta !== null && (
+        {...(summary.current !== null && {
+          facts: {
+            value: fixed(summary.current),
+            unit: 'kg',
+            ...(delta !== null && {
+              comparison: (
                 <DeltaBadge
                   value={delta}
                   polarity={weightDeltaPolarity(summary.current, goal)}
                   format={(v) => `${Math.abs(v).toFixed(1)} kg`}
-                  period="vs 30 d mean"
+                  period="30 d mean"
                 />
-              )}
-              <span className={stripClasses.factContext}>7 d mean {fixed(stats.mean7)} kg</span>
-              <span className={stripClasses.factContext}>{chartData.length} entries</span>
-              {ageDays !== null && (
-                <span className={isStale(ageDays) ? stripClasses.stale : stripClasses.factContext}>
-                  last entry {ageLabel(ageDays)}
-                </span>
-              )}
-            </Box>
-          )
-        }
+              ),
+            }),
+          },
+          subtitle: [
+            `7 d mean ${fixed(stats.mean7)} kg`,
+            `${chartData.length} entries`,
+            ...(ageDays === null ? [] : [`last entry ${ageLabel(ageDays)}`]),
+          ].join(' · '),
+        })}
         state={{ pending: query.isPending, error: query.isError ? query.error : undefined, empty }}
         placeholderHeight={PLACEHOLDER_HEIGHT}
       >
