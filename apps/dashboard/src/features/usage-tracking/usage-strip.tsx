@@ -229,7 +229,8 @@ export function UsageStrip() {
   const tokensMean = meanOf(tokens.days.map((d) => d.value))
   const p95Mean = meanOf(p95.days.map((d) => d.value))
   const priorError = h === undefined ? EM_DASH : priorErrorLine(h.errorRatePrior30d)
-  const meanLine = (text: string | null) => (text === null ? 'mean —' : `30 d mean ${text}`)
+  const meanLine = (text: string | null, noun = 'mean') =>
+    text === null ? `${noun} —` : `30 d ${noun} ${text}`
   const ratio = h?.cacheHitRatio30d ?? null
 
   return (
@@ -320,7 +321,10 @@ export function UsageStrip() {
             />
           }
           footer={[
-            meanLine(p95Mean === null ? null : `${secondsQuantity(p95Mean).value} s`),
+            meanLine(
+              p95Mean === null ? null : `${secondsQuantity(p95Mean).value} s`,
+              'mean daily p95',
+            ),
             priorOf(h?.p95Ms30d, h?.p95MsPrior30d, deltaSecondsText),
           ]}
         />
