@@ -1,43 +1,52 @@
 import { useMemo } from 'react'
-import { Text } from '@mantine/core'
+import { Box } from '@mantine/core'
+import { DeltaBadge } from 'basalt-ui'
+import { format } from 'date-fns'
 import { useQuery } from '@tanstack/react-query'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
-import { userProfileQueries } from '../../../lib/queries/user-profile'
 import { weightLogQueries, type WeightLogWindowParams } from '../../../lib/queries/weight-log'
+import stripClasses from '../components/body-strip.module.css'
 import { METRIC_TOOLTIPS } from '../constants'
+import { ageLabel, deltaFromMean, fixed, isStale, weightDeltaPolarity, windowLabel } from '../model'
+import type { WeightSummary, WeightWindowStats } from '../types'
 import {
+  localDay,
   markerRadiusFor,
-  thirtyDayMean,
   toWeightChartPoints,
   type WeightChartPoint,
 } from './series-data'
 
-const CHART_HEIGHT = 240
-
-// A change inside ±this many kg of the 30-day mean reads as flat.
-const FLAT_DELTA_KG = 0.05
-
-function deltaColor(delta: number): string {
-  if (delta < -FLAT_DELTA_KG) return VX.goodSolid
-  if (delta > FLAT_DELTA_KG) return VX.warnSolid
-  return 'inherit'
-}
+// 280 px on desktop, 220 px below the regular container class.
+const CHART_HEIGHT = { base: 220, regular: 280 }
+const PLACEHOLDER_HEIGHT = 280
 
 const fmtKg = (v: number): string => `${v.toFixed(2)} kg`
-const fmtGoalKg = (v: number): string => `${v.toFixed(1)} kg`
 
-export default function WeightChart({ params }: { params: WeightLogWindowParams }) {
+export default function WeightChart({
+  params,
+  summary,
+  stats,
+  goal,
+  ageDays,
+  todayKey,
+}: {
+  params: WeightLogWindowParams
+  summary: WeightSummary
+  stats: WeightWindowStats
+  goal: number | null
+  ageDays: number | null
+  todayKey: string
+}) {
   const query = useQuery(weightLogQueries.series(params))
-  const { data: profile } = useQuery(userProfileQueries.detail())
-
   const apiPoints = query.data?.points
-  const goal = profile?.goal_weight_kg ?? null
 
   const chartData = useMemo(() => toWeightChartPoints(apiPoints ?? []), [apiPoints])
-  const latest = chartData[chartData.length - 1] ?? null
-  const ma30 = useMemo(() => thirtyDayMean(apiPoints ?? []), [apiPoints])
-  const delta = latest !== null && ma30 !== null ? latest.weightKg - ma30 : null
+  const delta = deltaFromMean(summary.current, stats.mean30)
+  // Drawn to today, so a stale last entry shows as empty plot rather than a line that just stops.
+  const first = chartData[0]
+  const xDomain: [Date, Date] | null =
+    first === undefined || !isStale(ageDays) ? null : [first.date, localDay(todayKey)]
   const dotR = markerRadiusFor(chartData.length)
 
   const series: ChartSeries<WeightChartPoint>[] = [
@@ -62,17 +71,6 @@ export default function WeightChart({ params }: { params: WeightLogWindowParams 
       formatValue: fmtKg,
     },
   ]
-  if (goal !== null) {
-    series.push({
-      key: 'goal',
-      label: 'Goal',
-      color: VX.goodSolid,
-      dash: 'dashed',
-      role: 'reference',
-      getValue: () => goal,
-      formatValue: fmtGoalKg,
-    })
-  }
 
   // Fixed domain over weight/MA/goal: 'auto' floors at a zero baseline unless told otherwise, which
   // would flatten a 70–90 kg line against the top of the plot.
@@ -88,51 +86,60 @@ export default function WeightChart({ params }: { params: WeightLogWindowParams 
 
   const empty =
     chartData.length === 0
-      ? 'No entries yet — log your first weight to start the trend.'
+      ? 'No entries in this window — log a weight to start the trend.'
       : undefined
 
   return (
-    <ChartCard
-      title="Body Weight"
-      subtitle="Am I trending toward my goal?"
-      info={METRIC_TOOLTIPS.bodyWeight}
-      actions={
-        latest ? (
-          <Text span size="xs">
-            <Text span size="md" fw={600}>
-              {latest.weightKg.toFixed(1)} kg
-            </Text>
-            {delta !== null && (
-              <>
-                <Text
-                  span
-                  ml="xs"
-                  fw={600}
-                  c={deltaColor(delta)}
-                  opacity={Math.abs(delta) < FLAT_DELTA_KG ? 0.6 : 1}
-                >
-                  {delta >= 0 ? '+' : ''}
-                  {delta.toFixed(2)} kg
-                </Text>
-                <Text span ml={4} opacity={0.5}>
-                  vs 30d
-                </Text>
-              </>
-            )}
-          </Text>
-        ) : null
-      }
-      state={{ pending: query.isPending, error: query.isError ? query.error : undefined, empty }}
-      placeholderHeight={CHART_HEIGHT}
-    >
-      <Lines
-        ariaLabel="Body weight trend over time"
-        data={chartData}
-        height={CHART_HEIGHT}
-        x={(d) => d.date}
-        series={series}
-        y={{ domain: yDomain, format: (v) => v.toFixed(0) }}
-      />
-    </ChartCard>
+    <Box data-shot="weight-chart">
+      <ChartCard
+        title={`Body weight, ${windowLabel(params)}`}
+        info={METRIC_TOOLTIPS.bodyWeight}
+        actions={
+          summary.current === null ? null : (
+            <Box className={stripClasses.facts}>
+              <span className={stripClasses.factValue}>{fixed(summary.current)} kg</span>
+              {delta !== null && (
+                <DeltaBadge
+                  value={delta}
+                  polarity={weightDeltaPolarity(summary.current, goal)}
+                  format={(v) => `${Math.abs(v).toFixed(1)} kg`}
+                  period="vs 30 d mean"
+                />
+              )}
+              <span className={stripClasses.factContext}>7 d mean {fixed(stats.mean7)} kg</span>
+              <span className={stripClasses.factContext}>{chartData.length} entries</span>
+              {ageDays !== null && (
+                <span className={isStale(ageDays) ? stripClasses.stale : stripClasses.factContext}>
+                  last entry {ageLabel(ageDays)}
+                </span>
+              )}
+            </Box>
+          )
+        }
+        state={{ pending: query.isPending, error: query.isError ? query.error : undefined, empty }}
+        placeholderHeight={PLACEHOLDER_HEIGHT}
+      >
+        <Lines
+          ariaLabel="Body weight trend over time"
+          data={chartData}
+          height={CHART_HEIGHT}
+          x={(d) => d.date}
+          series={series}
+          tooltip={{ formatHeader: (x) => format(x, 'EEE d MMM yyyy') }}
+          {...(xDomain !== null && { xDomain })}
+          {...(goal !== null && {
+            refLines: [
+              {
+                value: goal,
+                color: VX.muted,
+                dashed: false,
+                legend: { label: `goal ${goal.toFixed(1)}` },
+              },
+            ],
+          })}
+          y={{ domain: yDomain, format: (v) => `${v.toFixed(0)} kg` }}
+        />
+      </ChartCard>
+    </Box>
   )
 }

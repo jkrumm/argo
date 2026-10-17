@@ -29,9 +29,7 @@ export const SKINFOLD_SITES: { key: SkinfoldSite; label: string; description: st
 
 export const METRIC_TOOLTIPS = {
   bodyWeight:
-    'Logged weight (kg) over time with 7-day centered MA. Goal weight shown as horizontal reference line when set in profile.',
-  skinfoldSummary:
-    'Rolling skinfold-thickness stats from manual caliper readings. Each date is reduced to a session average across sites before rolling stats are computed. ma7/ma30 = average of most-recent 7/30 dated averages. Trend: ma7 vs ma30 — down (leaner) is the good direction. direction classifies the trailing 28-day mm/week slope: reducing (good, leaner) · increasing · stable.',
+    'One point per logged day (same-day weigh-ins averaged). Dashed line: centred 7-day mean. Solid goal line: the profile goal weight.',
   skinfoldChart:
-    'One line per caliper site plus a bold average line, per date. Thinner drop in thickness over time indicates reducing body fat.',
+    'One line per caliper site, dashed line: the session average. Thinner folds mean lower body fat.',
 } as const

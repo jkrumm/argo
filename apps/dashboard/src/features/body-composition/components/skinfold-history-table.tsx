@@ -22,6 +22,9 @@ export function SkinfoldHistoryTable() {
 
   const deleteSkinfoldLog = useDeleteSkinfoldLog()
 
+  // Rows are facts: with none, the page shows its empty row instead of an empty table.
+  if (readings.length === 0) return null
+
   function handleDelete(reading: SkinfoldRow) {
     void overlays.confirm({
       title: 'Delete reading',
@@ -45,13 +48,14 @@ export function SkinfoldHistoryTable() {
       header: 'Site',
     }),
     columnHelper.accessor('value_mm', {
-      header: 'Thickness',
-      cell: (ctx) => `${ctx.getValue().toFixed(1)} mm`,
+      header: 'Thickness (mm)',
+      cell: (ctx) => ctx.getValue().toFixed(1),
+      meta: { align: 'right' },
     }),
   ]
 
   return (
-    <Stack gap="xs">
+    <Stack gap="xs" data-shot="skinfold-history">
       <BasaltDataTable
         data={readings}
         columns={columns}
@@ -67,11 +71,6 @@ export function SkinfoldHistoryTable() {
         ]}
         striped
         highlightOnHover
-        emptyState={
-          <Text c="dimmed" ta="center" size="sm" py="sm">
-            No skinfold readings logged yet
-          </Text>
-        }
       />
     </Stack>
   )

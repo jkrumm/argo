@@ -22,7 +22,6 @@ export {
   type WeightTrend,
 } from './formulas'
 
-export { WeightPanel } from './components/weight-panel'
-export { SkinfoldPanel } from './components/skinfold-panel'
-export { SkinfoldEntryForm } from './components/skinfold-entry-form'
-export { SkinfoldHistoryTable } from './components/skinfold-history-table'
+export { BodyCompositionPage } from './components/body-composition-page'
+export { WeightLogForm } from './components/weight-log-modal'
+export { SkinfoldLogForm } from './components/skinfold-log-modal'
