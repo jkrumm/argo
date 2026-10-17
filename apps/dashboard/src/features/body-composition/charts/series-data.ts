@@ -23,15 +23,22 @@ export function markerRadiusFor(count: number): number {
   return 4.5
 }
 
+/** Days a weight's trailing mean looks back (inclusive, the API's `date >= last - days`). */
+export const MEAN_DAYS = 7
+
 /**
- * Centered 7-day moving average — averages every entry within ±3 days of each entry's date.
- * Sparse-data friendly: a single entry per week still produces a smoothed curve.
+ * Trailing 7-day mean — averages every entry dated 0 to 7 days up to and including each entry's
+ * date. The header and the strip's "7 d mean" are this same set of entries at the newest date, so
+ * the dashed line's last value and those figures are one number.
  */
 export function toWeightChartPoints(points: readonly WeightPoint[]): WeightChartPoint[] {
   const sorted = points.toSorted(compareByDate)
   return sorted.map((e) => {
-    const neighbours = sorted.filter((x) => Math.abs(dayNumber(x.date) - dayNumber(e.date)) <= 3)
-    const ma = neighbours.reduce((acc, x) => acc + x.weightKg, 0) / neighbours.length
+    const window = sorted.filter((x) => {
+      const back = dayNumber(e.date) - dayNumber(x.date)
+      return back >= 0 && back <= MEAN_DAYS
+    })
+    const ma = window.reduce((acc, x) => acc + x.weightKg, 0) / window.length
     return { date: localDay(e.date), weightKg: e.weightKg, ma }
   })
 }

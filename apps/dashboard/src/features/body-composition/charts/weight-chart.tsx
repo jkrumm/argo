@@ -61,7 +61,7 @@ export default function WeightChart({
     },
     {
       key: 'ma',
-      label: '7-day avg',
+      label: '7 d mean',
       color: VX.line,
       dash: 'dashed',
       strokeWidth: 1.5,

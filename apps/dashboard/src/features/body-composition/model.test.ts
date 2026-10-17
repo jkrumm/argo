@@ -1,5 +1,6 @@
 // Every fixture is synthetic (round numbers, fixed dates); none is a real reading.
 import { describe, expect, test } from 'bun:test'
+import { toWeightChartPoints } from './charts/series-data'
 import {
   ageLabel,
   rateDays,
@@ -168,7 +169,6 @@ describe('day-based window stats', () => {
     // Inclusive bound (date >= last - 7): entries 32..39.
     expect(meanOverDays(pts, 7, null)).toBeCloseTo(100 - 0.5 * 35.5)
     expect(slopeOverDays(pts, 7, null)).toBeCloseTo(-3.5)
-    expect(slopeOverDays(pts, 30, null)).toBeCloseTo(-3.5)
   })
   test('sparse log: two entries one day apart state no period', () => {
     const pts = [
@@ -203,7 +203,6 @@ describe('day-based window stats', () => {
       const first = pts.at(0)!.weightKg
       const last = pts.at(-1)!.weightKg
       expect(Math.sign(stats.slope7!)).toBe(Math.sign(last - first))
-      expect(Math.sign(stats.slope30!)).toBe(Math.sign(last - first))
     }
   })
   test('slope matches the exact line through synthetic points', () => {
@@ -257,5 +256,28 @@ describe('siteRows', () => {
   test('a site with no reading is unknown', () => {
     const rows = siteRows([], [])
     expect(rows.every((r) => r.current === null && r.delta === null)).toBe(true)
+  })
+})
+
+describe('one fixture, two live-review items', () => {
+  const pts = daily(40, 100, -0.5)
+
+  test('the RATE cell states 7 d only: no 30 d slope beside the 28 d hero', () => {
+    expect(Object.keys(weightWindowStats(pts, null)).toSorted()).toEqual([
+      'mean30',
+      'mean7',
+      'slope7',
+    ])
+  })
+
+  test('the header 7 d mean is the chart line value at the newest date', () => {
+    const line = toWeightChartPoints(pts).at(-1)!.ma
+    expect(weightWindowStats(pts, null).mean7).toBeCloseTo(line)
+    expect(line).toBeCloseTo(100 - 0.5 * 35.5)
+  })
+
+  test('same on a noisy log', () => {
+    const noisy = daily(40, 100, 0).map((p, i) => ({ ...p, weightKg: 100 + (i % 3) }))
+    expect(weightWindowStats(noisy, null).mean7).toBeCloseTo(toWeightChartPoints(noisy).at(-1)!.ma)
   })
 })

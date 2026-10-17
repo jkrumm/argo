@@ -40,5 +40,4 @@ export type WeightWindowStats = {
   mean30: number | null
   /** Least-squares kg/week, the API's method. */
   slope7: number | null
-  slope30: number | null
 }

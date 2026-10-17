@@ -278,6 +278,5 @@ export function weightWindowStats(
     mean7: meanOverDays(points, 7, span),
     mean30: meanOverDays(points, 30, span),
     slope7: slopeOverDays(points, 7, span),
-    slope30: slopeOverDays(points, 30, span),
   }
 }

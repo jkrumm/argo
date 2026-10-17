@@ -16,7 +16,7 @@ describe('localDay', () => {
 })
 
 describe('toWeightChartPoints', () => {
-  test('sorts and averages within ±3 days', () => {
+  test('sorts and averages the 7 days up to each entry', () => {
     const pts = toWeightChartPoints([
       { date: '2026-01-05', weightKg: 80 },
       { date: '2026-01-01', weightKg: 82 },
@@ -24,6 +24,7 @@ describe('toWeightChartPoints', () => {
     ])
     expect(pts.map((p) => p.weightKg)).toEqual([82, 80, 79])
     expect(pts[0]!.ma).toBe(82)
+    expect(pts[1]!.ma).toBe(81)
     expect(pts[2]!.ma).toBe(79)
   })
 })
