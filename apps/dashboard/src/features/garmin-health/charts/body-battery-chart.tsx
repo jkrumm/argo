@@ -5,7 +5,7 @@ import { VX } from 'basalt-ui/tokens'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { FactsLine } from '../facts-line'
 import { RefetchDim } from '../refetch-dim'
-import { bodyBatteryFact, mean } from '../model'
+import { bodyBatteryFact, mean, signed } from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
@@ -20,7 +20,7 @@ type BodyBatteryPoint = {
   lowest: number | null
 }
 
-const formatNet = (v: number) => `${v >= 0 ? '+' : ''}${Math.round(v)}`
+const formatNet = (v: number) => (Math.round(v) === 0 ? '0' : signed(Math.round(v)))
 const formatBar = (v: number) => String(Math.round(Math.abs(v)))
 
 const BARS: BarsBar<BodyBatteryPoint>[] = [
@@ -71,13 +71,14 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
     [query.data],
   )
 
-  const latest = points.at(-1)
+  // Net, high and low come from the latest day that has a net, not whatever the last row holds.
+  const latest = points.findLast((p) => p.net !== null)
   const fact = bodyBatteryFact({
     net: latest?.net ?? null,
     mean: mean(points.map((p) => p.net)),
     high: latest?.highest ?? null,
     low: latest?.lowest ?? null,
-    dayCount: points.length,
+    dayCount: points.filter((p) => p.net !== null).length,
   })
 
   return (
@@ -105,7 +106,7 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
             autoMaxFloor: 50,
             autoMinCeil: -50,
             ticks: 5,
-            format: (v) => (v === 0 ? '0' : v > 0 ? `+${v}` : String(v)),
+            format: (v) => (v === 0 ? '0' : signed(v)),
           }}
         />
       </RefetchDim>

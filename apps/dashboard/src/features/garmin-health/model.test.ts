@@ -11,6 +11,8 @@ import {
   firstToLast,
   fmtMinutes,
   fmtNum,
+  lastDaysRange,
+  windowDayCount,
   mean,
   recoveryFact,
   signed,
@@ -132,5 +134,80 @@ describe('facts headers', () => {
 
   test('singular session', () => {
     expect(activitiesFact({ sessions: 1, totalMin: 30, dayCount: 7 }).unit).toBe('session')
+  })
+})
+
+describe('rounding and non-finite readings', () => {
+  test('fmtMinutes rounds once before splitting, never "1h 60m" or "60m"', () => {
+    expect(fmtMinutes(59.6)).toBe('1h')
+    expect(fmtMinutes(119.5)).toBe('2h')
+    expect(fmtMinutes(59.4)).toBe('59m')
+    expect(fmtMinutes(0)).toBe('0m')
+  })
+
+  test('countWhere and firstToLast skip NaN and Infinity like mean does', () => {
+    expect(countWhere([Number.NaN, 80, Number.POSITIVE_INFINITY, 50], (v) => v >= 70)).toEqual({
+      hits: 1,
+      days: 2,
+    })
+    expect(firstToLast([Number.NaN, 50, 54, Number.NaN])).toBe(4)
+    expect(firstToLast([Number.NaN, Number.NaN])).toBeNull()
+  })
+})
+
+describe('windows', () => {
+  const today = new Date(2026, 9, 17)
+
+  test('lastDaysRange is the last N calendar days ending today, independent of the selector', () => {
+    expect(lastDaysRange(14, today)).toEqual({ from: '2026-10-04', to: '2026-10-17' })
+    expect(lastDaysRange(1, today)).toEqual({ from: '2026-10-17', to: '2026-10-17' })
+    expect(lastDaysRange(180, new Date(2026, 2, 1)).from).toBe('2025-09-03')
+  })
+
+  test('windowDayCount counts calendar days in the window, inclusive', () => {
+    expect(windowDayCount({ dateFrom: '2026-10-11', dateTo: undefined }, '2026-04-15', today)).toBe(
+      7,
+    )
+    expect(
+      windowDayCount({ dateFrom: '2026-10-01', dateTo: '2026-10-10' }, '2026-04-15', today),
+    ).toBe(10)
+  })
+
+  test('windowDayCount clips at the visible floor and runs an open start from it', () => {
+    expect(
+      windowDayCount({ dateFrom: '2026-01-01', dateTo: '2026-04-20' }, '2026-04-15', today),
+    ).toBe(6)
+    expect(windowDayCount({}, '2026-10-10', today)).toBe(8)
+  })
+
+  test('windowDayCount is 0, not negative, for an empty window', () => {
+    expect(
+      windowDayCount({ dateFrom: '2026-11-01', dateTo: '2026-10-10' }, '2026-04-15', today),
+    ).toBe(0)
+  })
+})
+
+describe('null today', () => {
+  test('a null final-day score renders a dash and no percentage', () => {
+    const f = activityScoreFact({ score: null, mean: 410, dayCount: 20 })
+    expect(f.value).toBe('—')
+    expect(f.context[0]).toBe('— % of the 600 target')
+  })
+
+  test('body battery uses one minus glyph and dashes for a missing day', () => {
+    const f = bodyBatteryFact({ net: -12, mean: -3, high: null, low: null, dayCount: 9 })
+    expect(f.value).toBe('−12')
+    expect(f.context.join(' ')).toContain('−3 pts mean over 9 d')
+    expect(f.context.join(' ')).toContain('high —/100, low —/100')
+    expect(f.value.includes('-')).toBe(false)
+  })
+
+  test('activities states no rate and no "last 0 d" without a window length', () => {
+    expect(activitiesFact({ sessions: 4, totalMin: 120, dayCount: 0 }).context).toEqual(['2h'])
+    expect(activitiesFact({ sessions: 4, totalMin: 120, dayCount: 14 }).context).toEqual([
+      '2h',
+      '2.0 sessions per week',
+      'last 14 d',
+    ])
   })
 })

@@ -8,14 +8,20 @@ import type { Fact } from './model'
 import classes from './stat-strip.module.css'
 
 export function FactsLine({ fact }: { fact: Fact }) {
+  const hasContext = fact.context.length > 0
   return (
     <Box className={classes.facts}>
-      <span className={classes.factValue}>{fact.value}</span>
-      <span className={classes.factUnit}>
-        {fact.unit ?? ''}
-        {fact.context.length > 0 ? ' ·' : ''}
+      {/* The separator trails its item (the unit, else the value), so no line starts with a dot. */}
+      <span className={classes.factValue}>
+        {fact.value}
+        {fact.unit === undefined && hasContext ? ' ·' : ''}
       </span>
-      {/* The separator trails its item, so a wrapped line ends in a dot instead of starting with one. */}
+      {fact.unit !== undefined && (
+        <span className={classes.factUnit}>
+          {fact.unit}
+          {hasContext ? ' ·' : ''}
+        </span>
+      )}
       {fact.context.map((c, i) => (
         <span key={c} className={classes.factContext}>
           {c}

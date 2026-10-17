@@ -8,7 +8,7 @@ import { METRIC_TOOLTIPS } from '../constants'
 import { FactsLine } from '../facts-line'
 import { RefetchDim } from '../refetch-dim'
 import { ZONE_FILL } from '../zone-fills'
-import { RECOVERY_PUSH_FROM, countWhere, mean, recoveryFact } from '../model'
+import { RECOVERY_PUSH_FROM, RECOVERY_REST_BELOW, countWhere, mean, recoveryFact } from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
@@ -22,8 +22,8 @@ type RecoveryPoint = {
 type RecoveryZone = { text: string; color: string }
 
 function recoveryZoneLabel(v: number): RecoveryZone {
-  if (v >= 70) return { text: 'Push', color: VX.goodSolid }
-  if (v >= 40) return { text: 'Normal', color: VX.warnSolid }
+  if (v >= RECOVERY_PUSH_FROM) return { text: 'Push', color: VX.goodSolid }
+  if (v >= RECOVERY_REST_BELOW) return { text: 'Normal', color: VX.warnSolid }
   return { text: 'Rest', color: VX.badSolid }
 }
 
@@ -38,7 +38,7 @@ const RECOVERY_SERIES: ChartSeries<RecoveryPoint>[] = [
   // Legend-only zone keys: `getValue` is always null, so they draw nothing and own no tooltip row.
   {
     key: 'push',
-    label: 'Push (≥ 70)',
+    label: `Push (≥ ${RECOVERY_PUSH_FROM})`,
     color: VX.goodSolid,
     mark: 'bar',
     role: 'reference',
@@ -46,7 +46,7 @@ const RECOVERY_SERIES: ChartSeries<RecoveryPoint>[] = [
   },
   {
     key: 'rest',
-    label: 'Rest (< 40)',
+    label: `Rest (< ${RECOVERY_REST_BELOW})`,
     color: VX.badSolid,
     mark: 'bar',
     role: 'reference',
@@ -90,9 +90,9 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
           {...(compact && { legend: false as const })}
           y={{ domain: [0, 100] }}
           zones={[
-            { from: 70, to: 100, fill: ZONE_FILL.good },
-            { from: 40, to: 70, fill: ZONE_FILL.warn },
-            { from: 0, to: 40, fill: ZONE_FILL.bad },
+            { from: RECOVERY_PUSH_FROM, to: 100, fill: ZONE_FILL.good },
+            { from: RECOVERY_REST_BELOW, to: RECOVERY_PUSH_FROM, fill: ZONE_FILL.warn },
+            { from: 0, to: RECOVERY_REST_BELOW, fill: ZONE_FILL.bad },
           ]}
           tooltip={{
             rows: (d) => {

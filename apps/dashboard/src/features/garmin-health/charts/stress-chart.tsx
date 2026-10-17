@@ -7,7 +7,13 @@ import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { FactsLine } from '../facts-line'
 import { RefetchDim } from '../refetch-dim'
 import { ZONE_FILL } from '../zone-fills'
-import { STRESS_REST_BELOW, countWhere, stressFact } from '../model'
+import {
+  STRESS_HIGH_FROM,
+  STRESS_MODERATE_FROM,
+  STRESS_REST_BELOW,
+  countWhere,
+  stressFact,
+} from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
@@ -22,9 +28,9 @@ type StressPoint = {
 }
 
 function stressZoneLabel(v: number): { text: string; color: string } {
-  if (v >= 75) return { text: 'High', color: VX.badSolid }
-  if (v >= 50) return { text: 'Moderate', color: VX.warnSolid }
-  if (v >= 25) return { text: 'Low', color: VX.goodSolid }
+  if (v >= STRESS_HIGH_FROM) return { text: 'High', color: VX.badSolid }
+  if (v >= STRESS_MODERATE_FROM) return { text: 'Moderate', color: VX.warnSolid }
+  if (v >= STRESS_REST_BELOW) return { text: 'Low', color: VX.goodSolid }
   return { text: 'Rest', color: VX.goodSolid }
 }
 
@@ -53,16 +59,16 @@ const STRESS_SERIES: ChartSeries<StressPoint>[] = [
 
 /** Zone boundaries: 25 (rest/low), 50 (low/moderate), 75 (moderate/high). */
 const ZONE_LINES = [
-  { value: 25, color: VX.goodRef, dashed: true },
-  { value: 50, color: VX.warnRef, dashed: true },
-  { value: 75, color: VX.badRef, dashed: true },
+  { value: STRESS_REST_BELOW, color: VX.goodRef, dashed: true },
+  { value: STRESS_MODERATE_FROM, color: VX.warnRef, dashed: true },
+  { value: STRESS_HIGH_FROM, color: VX.badRef, dashed: true },
 ]
 
 /** Rest and low share the good hue; the area gradient hard-stops at each boundary. */
 const STRESS_ZONES = [
-  { from: 0, to: 50, fill: ZONE_FILL.good },
-  { from: 50, to: 75, fill: ZONE_FILL.warn },
-  { from: 75, to: 100, fill: ZONE_FILL.bad },
+  { from: 0, to: STRESS_MODERATE_FROM, fill: ZONE_FILL.good },
+  { from: STRESS_MODERATE_FROM, to: STRESS_HIGH_FROM, fill: ZONE_FILL.warn },
+  { from: STRESS_HIGH_FROM, to: 100, fill: ZONE_FILL.bad },
 ]
 
 export default function StressChart({ params }: { params: SummaryParams }) {

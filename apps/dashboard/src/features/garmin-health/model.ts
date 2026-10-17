@@ -6,10 +6,14 @@
 
 export const EM_DASH = '—'
 
+/** The fitness regression's window and the VO2max trace's window, fixed regardless of the page selector. */
+export const FITNESS_DAYS = 14
+export const VO2_DAYS = 180
+
 /** Daily activity target in MET-min — mirrors `ACTIVITY_TARGET_SCORE` in `garmin-formulas.ts`. */
 export const ACTIVITY_TARGET_SCORE = 600
 
-/** The rest/push cut-offs of `recoveryActionLabel`: below 40 rest, from 70 push. */
+/** The recovery cut-offs: below 40 rest, from 70 push. */
 export const RECOVERY_REST_BELOW = 40
 export const RECOVERY_PUSH_FROM = 70
 
@@ -22,8 +26,10 @@ export const ACWR_OPTIMAL_TO = 1.3
 export const ACWR_CAUTION_TO = 1.5
 export const ACWR_METER_MAX = 2
 
-/** Stress below this is the "rest" zone (`stressZoneLabel`). */
+/** Stress zone edges: below 25 rest, 25–49 low, 50–74 moderate, from 75 high. */
 export const STRESS_REST_BELOW = 25
+export const STRESS_MODERATE_FROM = 50
+export const STRESS_HIGH_FROM = 75
 
 /** Minus sign (U+2212) so a signed figure aligns with `+` in tabular numerals. */
 const MINUS = '−'
@@ -53,7 +59,7 @@ export function countWhere(
   let hits = 0
   let days = 0
   for (const v of values) {
-    if (v === null) continue
+    if (v === null || !Number.isFinite(v)) continue
     days += 1
     if (predicate(v)) hits += 1
   }
@@ -62,7 +68,7 @@ export function countWhere(
 
 /** Last minus first present value — the same delta `fitnessDirection` reports for RHR and HRV. */
 export function firstToLast(values: readonly (number | null)[]): number | null {
-  const present = values.filter((v): v is number => v !== null)
+  const present = values.filter((v): v is number => v !== null && Number.isFinite(v))
   const first = present.at(0)
   const last = present.at(-1)
   return first === undefined || last === undefined ? null : last - first
@@ -73,12 +79,45 @@ export function hoursFromSec(sec: number | null): number | null {
   return sec === null ? null : sec / 3600
 }
 
-/** "45m", "2h", "1h 20m" from minutes. */
+/** "45m", "2h", "1h 20m" from minutes; rounded once before splitting, so never "1h 60m". */
 export function fmtMinutes(min: number): string {
-  if (min < 60) return `${Math.round(min)}m`
-  const h = Math.floor(min / 60)
-  const m = Math.round(min % 60)
+  const total = Math.round(min)
+  if (total < 60) return `${total}m`
+  const h = Math.floor(total / 60)
+  const m = total % 60
   return m === 0 ? `${h}h` : `${h}h ${m}m`
+}
+
+/** A local `YYYY-MM-DD` key. */
+function dayKey(d: Date): string {
+  const y = d.getFullYear()
+  const mo = String(d.getMonth() + 1).padStart(2, '0')
+  const da = String(d.getDate()).padStart(2, '0')
+  return `${y}-${mo}-${da}`
+}
+
+/** The last `days` calendar days ending today, as explicit `from`/`to` — independent of the page's window. */
+export function lastDaysRange(
+  days: number,
+  today: Date = new Date(),
+): { from: string; to: string } {
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (days - 1))
+  return { from: dayKey(start), to: dayKey(today) }
+}
+
+/**
+ * Calendar days in a window, inclusive. An open start (`all`) runs from `floor`; an open end runs to
+ * `today`; a start before `floor` is clipped, since nothing earlier is ever shown.
+ */
+export function windowDayCount(
+  range: { dateFrom?: string | undefined; dateTo?: string | undefined },
+  floor: string,
+  today: Date = new Date(),
+): number {
+  const start = range.dateFrom !== undefined && range.dateFrom > floor ? range.dateFrom : floor
+  const end = range.dateTo ?? dayKey(today)
+  const ms = Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)
+  return ms < 0 ? 0 : Math.round(ms / 86_400_000) + 1
 }
 
 // ── Page summary ───────────────────────────────────────────────────────────
@@ -158,13 +197,15 @@ export function activitiesFact(input: {
   return {
     value: String(input.sessions),
     unit: input.sessions === 1 ? 'session' : 'sessions',
-    context: [
-      fmtMinutes(input.totalMin),
+    // Without a window length there is no rate and no period to state; never "last 0 d".
+    context:
       input.dayCount > 0
-        ? `${((input.sessions / input.dayCount) * 7).toFixed(1)} sessions per week`
-        : EM_DASH,
-      `last ${days(input.dayCount)}`,
-    ],
+        ? [
+            fmtMinutes(input.totalMin),
+            `${((input.sessions / input.dayCount) * 7).toFixed(1)} sessions per week`,
+            `last ${days(input.dayCount)}`,
+          ]
+        : [fmtMinutes(input.totalMin)],
   }
 }
 

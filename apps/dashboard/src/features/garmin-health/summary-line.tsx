@@ -5,31 +5,38 @@ import {
   recoveryQueries,
   trainingLoadQueries,
 } from '../../lib/queries/daily-metrics'
-import { summarySentence } from './model'
-import { applyVisibilityFilter } from './visibility'
+import { FITNESS_DAYS, lastDaysRange, summarySentence } from './model'
+import { RefetchDim } from './refetch-dim'
 import type { SummaryParams } from './types'
+import { applyVisibilityFilter } from './visibility'
 
-/** The page's one-line answer: recovery, load and fitness direction, each with unit and scale. */
+/**
+ * The page's one-line answer: recovery, load and fitness direction, each with unit and scale. A failed
+ * query leaves its figure as `—` rather than holding the skeleton; a refetch dims the previous line.
+ */
 export function SummaryLine({ params }: { params: SummaryParams }) {
   const recovery = useQuery(recoveryQueries.summary(params))
   const load = useQuery(trainingLoadQueries.summary(params))
-  const fitness = useQuery(fitnessDirectionQueries.summary(params))
+  // The deltas are "over 14 d", so they come from a fixed 14-day window, not the page selector.
+  const fitness = useQuery(fitnessDirectionQueries.summary(lastDaysRange(FITNESS_DAYS)))
 
-  if (recovery.data === undefined || load.data === undefined || fitness.data === undefined) {
+  if (recovery.isPending || load.isPending || fitness.isPending) {
     return <Skeleton height={20} width="60%" radius="sm" />
   }
 
   const acwr =
-    applyVisibilityFilter(load.data.points, (p) => p.date).findLast((p) => p.acwr !== null)?.acwr ??
-    null
+    applyVisibilityFilter(load.data?.points ?? [], (p) => p.date).findLast((p) => p.acwr !== null)
+      ?.acwr ?? null
   return (
-    <Text size="sm" c="dimmed">
-      {summarySentence({
-        recovery: recovery.data.recovery,
-        acwr,
-        rhrDelta: fitness.data.rhrDelta,
-        hrvDelta: fitness.data.hrvDelta,
-      })}
-    </Text>
+    <RefetchDim active={recovery.isPlaceholderData || load.isPlaceholderData}>
+      <Text size="sm" c="dimmed">
+        {summarySentence({
+          recovery: recovery.data?.recovery ?? null,
+          acwr,
+          rhrDelta: fitness.data?.rhrDelta ?? null,
+          hrvDelta: fitness.data?.hrvDelta ?? null,
+        })}
+      </Text>
+    </RefetchDim>
   )
 }
