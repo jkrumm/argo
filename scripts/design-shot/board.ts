@@ -9,7 +9,7 @@ const img = (file: string | undefined, label: string): string =>
     ? `<figure><figcaption>${esc(label)}</figcaption><a href="${esc(file)}"><img src="${esc(file)}" loading="lazy"></a></figure>`
     : `<figure><figcaption>${esc(label)} — missing</figcaption></figure>`
 
-export function renderBoard(label: string, results: RouteResult[]): string {
+export function renderBoard(label: string, results: RouteResult[], runNotes: string[]): string {
   const sections = results.map((r) => {
     const crops = r.crops.filter((c) => c.scheme === 'dark')
     return `<section>
@@ -46,6 +46,7 @@ img{max-width:100%;display:block;border:1px solid #3f3f46}
 .fail{color:#f87171}.note{color:#fbbf24}
 </style>
 <h1>design-shot — ${esc(label)}</h1>
+${runNotes.length ? `<ul class="note">${runNotes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
 ${sections.join('\n')}
 `
 }
