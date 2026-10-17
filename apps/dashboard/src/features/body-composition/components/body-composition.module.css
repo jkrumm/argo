@@ -1,0 +1,16 @@
+/* The one-line empty row that replaces an empty chart or cell. */
+.emptyRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vx-space-stack-md);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+}
+
+.summary {
+  margin: 0;
+  font-size: var(--vx-text-md);
+  color: var(--vx-ink);
+}

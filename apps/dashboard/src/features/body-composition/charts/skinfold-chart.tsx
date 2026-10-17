@@ -7,7 +7,6 @@ import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { SERIES } from '../../../lib/series'
 import { skinfoldLogQueries, type SkinfoldWindowParams } from '../../../lib/queries/skinfold-log'
-import stripClasses from '../components/body-strip.module.css'
 import { windowLabel } from '../model'
 import { METRIC_TOOLTIPS, SKINFOLD_SITES } from '../constants'
 import { markerRadiusFor, toSkinfoldChartPoints, type SkinfoldChartPoint } from './series-data'
@@ -71,23 +70,25 @@ export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams
       <ChartCard
         title={`Skinfold, ${windowLabel(params)}`}
         info={METRIC_TOOLTIPS.skinfoldChart}
-        actions={
-          latest ? (
-            <Box className={stripClasses.facts}>
-              <span className={stripClasses.factValue}>{latest.average.toFixed(1)} mm</span>
-              <span className={stripClasses.factContext}>session average</span>
-              <span className={stripClasses.factContext}>{chartData.length} sessions</span>
-              {priorDelta !== null && prior !== null && (
-                <DeltaBadge
-                  value={priorDelta}
-                  polarity="up-bad"
-                  format={(v) => `${Math.abs(v).toFixed(1)} mm`}
-                  period={`vs ${format(prior.date, 'd MMM')}`}
-                />
-              )}
-            </Box>
-          ) : null
-        }
+        {...(latest && {
+          facts: {
+            value: latest.average.toFixed(1),
+            unit: 'mm',
+            period: 'session average',
+            ...(priorDelta !== null &&
+              prior !== null && {
+                comparison: (
+                  <DeltaBadge
+                    value={priorDelta}
+                    polarity="up-bad"
+                    format={(v) => `${Math.abs(v).toFixed(1)} mm`}
+                    period={format(prior.date, 'd MMM')}
+                  />
+                ),
+              }),
+          },
+          subtitle: `${chartData.length} sessions`,
+        })}
         state={{ pending: query.isPending, error: query.isError ? query.error : undefined }}
         placeholderHeight={CHART_HEIGHT}
       >
