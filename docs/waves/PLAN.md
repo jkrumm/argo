@@ -765,16 +765,81 @@ merges.
       reviewer's provider. This is the accepted Part 2 practice, but a reviewer flagged it; it belongs
       upstream.
 
-## Wave 20 — Calendar and the home page <!-- status: active -->
+## Wave 20 — Calendar and the home page <!-- status: done -->
 
-- [ ] Calendar: agenda-first density (empty hours collapse, today's meetings with prep state, the week as
+- [x] Calendar: agenda-first density (empty hours collapse, today's meetings with prep state, the week as
       a compact strip).
-- [ ] Home `/`: a "Today" overview on Keel's model. What needs you (Warden, Agents), today's meetings, a
+- [x] Home `/`: a "Today" overview on Keel's model. What needs you (Warden, Agents), today's meetings, a
       health snapshot and a live activity stream, each with its count.
-- [ ] At least three rounds; deploy; live-verify.
+- [x] At least three rounds; deploy; live-verify.
       **Left behind:**
 
-## Wave 21 — Strength, WalkingPad, Body composition, Reading, Usage <!-- status: pending -->
+  **Closed out (orchestrated): Wave 21 is marked active but not spawned; the orchestrator spawns it.**
+
+  - **Landed (master, deployed, `/api/health` verified after each merge, last `c77343b`):**
+    - `90c51a9` `BasaltProvider locale="en-GB"`: relative times and formatters read English (owner rule (d)).
+    - #66 Calendar: Agenda is the default tab, with a summary sentence, `Today · {n}`, a day-grouped `Next 7 days`, a Monday–Sunday
+      `Booked hours` strip on a shared 0–8 h track, a Work/Personal split, a longest-free-block cell, `Tasks due` as a status-dot
+      list, and a 3-day list for Week at 390. The legend and the yellow source Alerts are gone. `features/calendar/derive.ts` owns
+      every figure. The shared `components/upstream/schedule-row.tsx` and the `calendarWork`/`calendarPersonal` series are registered.
+      **API:** optional `from` on `GET /calendar` and `GET /m365/calendar/upcoming` (a real ISO date, or a datetime with an offset;
+      the default is still now, so agent callers are unaffected), so past days of the week and this morning's meetings exist.
+    - #67 Today at `/` (no Garmin redirect; `Today` nav entry in a new Overview group): a headline sentence, a 5-cell strip, `Needs you`
+      cards from the one merged inbox `lib/decisions.ts`, the meetings agenda on `ScheduleRow`, and an activity feed that folds a
+      burst of Warden steps on one item into one `from → to` row.
+    - #68 / #69 post-live fixes (owner rules found by the live score): a quiet strip fill, a free-block length that matches its
+      printed range, `{x} booked this week`, unbreakable durations, no legend swatch that keys nothing, the next meeting named on an
+      empty day, the stale threshold stated (`stale ≥ {n} d`), one wait format, and card surfaces on the right column.
+  - **Before/after:** before = `.design-shots/w20-r0/` (Calendar: the 15 h empty grid plus a 6-dot legend; `/` redirected to Garmin).
+    After = the live shots `.design-shots/w20-live-final/`. Round boards: `w20-calendar-r1…r5`, `w20-calendar-live-r1`,
+    `w20-home-r1…r9`. All are under `apps/dashboard/.design-shots/` (gitignored; `basalt-ui shot` requires its out dir inside the
+    package) and copied to the MacBook, `~/Downloads/argo-design-review/w20/`.
+  - **Rounds:** Calendar 5 + 1 live, Home 9. All scored by `basalt-design-reviewer` on `basalt-ui shot --api/--local-storage
+    --auto-anchors`, plus a side-by-side read against Keel's root and the record timeline. Each round is recorded in
+    `docs/design/{calendar,home}.md`.
+  - **Reviewer verdict, stated plainly:** a fresh reviewer scored the live deploy and did **not** pass every component. It passes:
+    Calendar Today and Tasks due; Home summary, show-more and the third decision card (last pre-merge round). The four owner-rule
+    fails it found in argo's own code were fixed in #68/#69 and re-shot live. Still open:
+    - **basalt-side** (filed): font-size count in the Meter/BandStrip cells, the heading face's slashed zero, `Section`'s mono count
+      chip, the Sparkline hover value.
+    - **argo-side** (for later waves):
+      - the Warden `HistoryPreview` is mono, a Warden-owned file;
+      - the activity rows still wrap and repeat the actor and verb (Keel uses one line per event with a glyph);
+      - decision cards have no in-place primary verb (Open in Warden only);
+      - the agents band still reads as a grey block;
+      - Home's ACWR (7 d / 28 d) and Garmin's EWMA ACWR can show different values and verdicts, and neither page says why;
+      - cancelled M365 meetings show the provider's German title prefix instead of a cancelled state (needs `isCancelled` from
+        the API);
+      - Today names no next meeting once all of today's meetings have ended.
+  - **Against Keel:** the anatomy now holds: headline sentence, joined strip, decision cards with a preview, counted day-grouped
+    lists, a Live feed, and an agenda without empty hours. It is still weaker on glyphs, the primary verb in place, and one-line feed
+    rows.
+  - **Code review:** #66 and #67 each got two independent rounds (fixes for null-as-zero on a failed source, the phone week's missing
+    Sunday, past meetings that never existed, an unchecked "today" on recovery, a restated Warden threshold, fixed-24 h day math, an ask
+    dedupe keyed on fields production does not send). Then scope froze and the lead read the last fix diff. #68 and #69 each got one
+    independent round, clean with no fixes, so nothing was left for a second round. `make check` ran green in the merge train on every
+    merge. agent-gateway's review queue wedged during the wave (jobs pending 20+ min, none running), so every round ran as
+    independent subagent reviewers.
+  - **basalt friction:** the `w20-calendar` and `w20-home` blocks in `docs/design/UPSTREAM.md`. Top asks:
+    - `Meter`: `tone="muted"` (filed again: two pages hand-roll `alpha(VX.muted, .35)`), `size="row"`, multiple `ticks`, a target
+      tick visible at `max`, per-segment captions;
+    - `BandStrip`: a quiet intensity preset;
+    - `Section`: a `live` pulse, a visible period line, a proportional count chip;
+    - the heading face's slashed zero;
+    - `EventList` with a time column and a trailing action;
+    - `StatGroup variant="strip"`: five cells with an odd one spanning.
+  - **Deviations kept, the owner may revert:**
+    - Today sits in a new one-item Overview group and is not a phone tab (it is under More).
+    - Calendar's Week tab at 390 is a 3-day list, not a grid (`WeekView` has no visible-days prop).
+    - Work + Personal attributes a minute both calendars hold to Work, so the split sums to the booked total.
+    - Any unanswered calendar source blanks every figure on the Calendar page to `—`. If Google's token expires, the whole page
+      dashes until re-auth; per-source figures with a "Personal unavailable" note would be softer.
+  - **For later waves:** the deferred argo-side items above. Promote `ScheduleRow`, `unanswered` and the strip prototypes upstream
+    once basalt ships them. A harness note: a live shot taken right as `/api/health` flips can still catch the old dashboard
+    container. The API image reports the commit, but the dashboard image carries no SHA, so wait for the deploy run to complete
+    before shooting.
+
+## Wave 21 — Strength, WalkingPad, Body composition, Reading, Usage <!-- status: active -->
 
 - [ ] One concept-driven redesign per page, fanned out in parallel. At least three rounds each. Deploy and
       live-verify.
