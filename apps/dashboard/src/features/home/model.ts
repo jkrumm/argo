@@ -187,7 +187,7 @@ const DUE_SOON_DAYS = 7
 
 const pad2 = (n: number) => String(n).padStart(2, '0')
 
-const localKey = (ms: number) => {
+export const localKey = (ms: number) => {
   const d = new Date(ms)
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
 }
@@ -271,14 +271,19 @@ export type ActivityEvent = {
   detail?: string
 }
 
+/** `[red_circle: build failed]` → group 1 is the text worth keeping. */
+const BRACKET_SHORTCODE = /\[:?[a-z][a-z0-9_+-]*:?\s*:\s*([^\]]*)\]/gi
+/** A standalone `:rocket:`; never the colons inside `m365:auth:prod`, `a:b:c` or `10:30:45`. */
+const BARE_SHORTCODE = /(?<![\w:]):[a-z][a-z0-9_+-]*:(?![\w:])/gi
+
 /**
  * Slack-style emoji shortcodes are noise in a one-line feed row: `[red_circle: text]` keeps its
  * `text`, a bare `:name:` is dropped, and the whitespace left behind is collapsed.
  */
 export function stripShortcodes(text: string): string {
   return text
-    .replace(/\[:?[a-z][a-z0-9_+-]*:?\s*:\s*([^\]]*)\]/gi, '$1')
-    .replace(/:[a-z][a-z0-9_+-]*:/gi, '')
+    .replace(BRACKET_SHORTCODE, '$1')
+    .replace(BARE_SHORTCODE, '')
     .replace(/\s+/g, ' ')
     .trim()
 }

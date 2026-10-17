@@ -43,7 +43,12 @@ export function NarrativesSection({ query }: Props) {
       empty={{ title: 'No narratives yet', description: 'The narrator has not written any.' }}
     >
       <Box data-shot="narratives">
-        <EventList label="Project narratives by day" groups={groups} limit={COLLAPSED_ROWS} />
+        <EventList
+          label="Project narratives by day"
+          groups={groups}
+          limit={COLLAPSED_ROWS}
+          narrowLines={2}
+        />
       </Box>
     </Section>
   )

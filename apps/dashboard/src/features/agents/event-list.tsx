@@ -22,13 +22,20 @@ export type EventListProps = {
   groups: readonly EventGroup[]
   /** Rows shown before `Show n more`. Default: all. */
   limit?: number
+  /** Lines a collapsed sentence may take when the list is narrow. Default 1. */
+  narrowLines?: 1 | 2
 }
 
 /**
  * Day-grouped events: group heading with its row count, rows of actor · sentence · chip · mono
  * time pinned right. Collapses to `limit` rows. Prototype of the SPEC §4 `EventList`.
  */
-export function EventList({ label, groups, limit = Number.POSITIVE_INFINITY }: EventListProps) {
+export function EventList({
+  label,
+  groups,
+  limit = Number.POSITIVE_INFINITY,
+  narrowLines = 1,
+}: EventListProps) {
   const [open, setOpen] = useState(false)
   const total = groups.reduce((sum, g) => sum + g.rows.length, 0)
   const cap = open ? total : limit
@@ -38,7 +45,7 @@ export function EventList({ label, groups, limit = Number.POSITIVE_INFINITY }: E
   )
 
   return (
-    <div className={classes.root} aria-label={label}>
+    <div className={classes.root} aria-label={label} data-narrow-lines={narrowLines}>
       {groups.map((group, i) => {
         const rows = group.rows.slice(0, budgets[i])
         if (rows.length === 0) return null

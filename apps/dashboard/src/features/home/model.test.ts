@@ -178,6 +178,10 @@ describe('stripShortcodes', () => {
     expect(stripShortcodes('[red_circle: build failed]')).toBe('build failed')
     expect(stripShortcodes(':warning: disk  almost full')).toBe('disk almost full')
     expect(stripShortcodes('standup at 10:30:45')).toBe('standup at 10:30:45')
+    expect(stripShortcodes('ran bun m365:auth:prod')).toBe('ran bun m365:auth:prod')
+    expect(stripShortcodes('agent:main:slack:group:X')).toBe('agent:main:slack:group:X')
+    expect(stripShortcodes('see http://x:y')).toBe('see http://x:y')
+    expect(stripShortcodes('shipped :rocket: today')).toBe('shipped today')
   })
 })
 
