@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { Alert, Box, Center, Loader, ScrollArea, Stack, Text } from '@mantine/core'
 import { IconAlertTriangle } from '@tabler/icons-react'
 import { PageBar } from 'basalt-ui'
@@ -18,6 +19,7 @@ import { ThreadList } from './thread-list'
 import { buildView, summarize, summaryLine, toEntries } from './thread-list-model'
 import { ThreadRecordHeader } from './thread-record-header'
 import { ThreadToolbar } from './thread-toolbar'
+import { ThreadSpeaker } from './use-auto-speak'
 import { useThreadActions } from './use-thread-actions'
 import { HERMES_CHAT_FEATURES } from './features'
 import { isLiveRun, settledRunIds } from './run-liveness'
@@ -150,7 +152,9 @@ function HermesChatFeed() {
     return () => clearInterval(id)
   }, [])
 
+  const [foldOpen, setFoldOpen] = useState(false)
   const actions = useThreadActions({ onRemoved: store.remove })
+  const navigate = useNavigate({ from: '/hermes-chat' })
   const [openParam, setOpenParam] = hermesChatStore.field.thread.use()
   const [typeFilter, setTypeFilter] = hermesChatStore.field.type.use()
   const [query, setQuery] = hermesChatStore.field.q.use()
@@ -171,7 +175,10 @@ function HermesChatFeed() {
   useEffect(() => {
     if (!store.hydrated) return
     if (expandedId !== null && store.threads.some((thread) => thread.id === expandedId)) return
-    if (expandedId !== null) setExpandedId(null)
+    if (expandedId !== null) {
+      // Replace, not push: a stale link must not leave a history entry that bounces back to it.
+      void navigate({ to: '.', search: (prev) => ({ ...prev, thread: '' }), replace: true })
+    }
     const streaming = store.threads.filter((thread) => thread.status === 'streaming')
     if (streaming.length === 1 && streaming[0]) setExpandedId(streaming[0].id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -262,6 +269,9 @@ function HermesChatFeed() {
 
   return (
     <Stack h={FILL_HEIGHT} gap={0} style={{ margin: BLEED_MARGIN }}>
+      {store.threads.map((thread) => (
+        <ThreadSpeaker key={thread.id} threadId={thread.id} run={runs.get(thread.id)} />
+      ))}
       <PageBar
         actions={[
           { key: 'health', kind: 'custom', node: <HermesHealth />, primary: true, mobile: 'bar' },
@@ -304,7 +314,7 @@ function HermesChatFeed() {
               {summaryLine(summary)}
             </Text>
             <ThreadToolbar
-              total={view.total}
+              allCount={view.allCount}
               typeCounts={view.typeCounts}
               untitledCount={view.untitledCount}
               archivedCount={view.archivedCount}
@@ -330,6 +340,8 @@ function HermesChatFeed() {
                 now={now}
                 busy={actions.busy}
                 foldOpen={typeFilter === 'untitled'}
+                open={foldOpen}
+                onToggleOpen={() => setFoldOpen((v) => !v)}
                 onOpen={setExpandedId}
                 onDeleteUntitled={(ids) => void actions.removeAll(ids)}
               />
