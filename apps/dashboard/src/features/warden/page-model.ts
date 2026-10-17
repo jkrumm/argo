@@ -379,17 +379,19 @@ export function planActions(available: readonly string[], kind: QueueKind): Acti
 /** Warden prefixes some decision text with a bracketed category: `[blocker] Deploy …`. */
 const LEADING_TAG = /^\[([^\]]{1,40})\]\s*/
 
-/** `BLOCKER` / `data_loss` → `Blocker` / `Data loss`: a category word reads as a sentence, not an enum.
- * Short all-caps tokens (`OOM`, `CI`) are acronyms and keep their case. */
-export function sentenceCase(raw: string): string {
-  const words = raw
-    .replaceAll('_', ' ')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((word) => (/^[A-Z]{2,3}$/.test(word) ? word : word.toLowerCase()))
-    .join(' ')
-  return words.charAt(0).toUpperCase() + words.slice(1)
+/** Enum-like values the warden API emits (`data_loss`, `BLOCKER`) read as a sentence: `Data loss`,
+ * `Blocker`. Only all-lowercase or UPPER_SNAKE values are transformed; a token that mixes cases
+ * (`GitHub`, `OOMKilled`) or is a short acronym (`CI`, `HTTP`) is left as written. Blank or
+ * underscore-only input is `null`. */
+export function sentenceCase(raw: string): string | null {
+  const words = raw.split(/[_\s]+/).filter(Boolean)
+  const first = words[0]
+  if (first === undefined) return null
+  const upperEnum =
+    words.every((word) => /^[A-Z0-9]+$/.test(word)) && (words.length > 1 || first.length > 4)
+  const text = (upperEnum ? words.map((word) => word.toLowerCase()) : words).join(' ')
+  // A first token that already carries an uppercase letter (`iOS`, `CI`) is not ours to recase.
+  return /[A-Z]/.test(first) && !upperEnum ? text : text.charAt(0).toUpperCase() + text.slice(1)
 }
 
 /** The word a decision/failed card shows before its facts: the failure class, or the lifted `[tag]`.
@@ -543,10 +545,11 @@ export function deferredNote(item: WardenBoardItem): string | null {
 
 // ── Item history (decision-card preview) ────────────────────────────────────
 
+/** One state change; `from` is `null` for the item's creation, `at` is `null` when untimed. */
 export type TransitionLine = { from: string | null; to: string; at: string | null }
 
 /** The last `limit` state changes of one item, oldest first — the context beside a decision. A
- * synthetic `created` row has no `from`, so it reads `— → new`. */
+ * synthetic `created` row has no `from_state`, so its `from` is `null`. */
 export function recentTransitions(timeline: unknown, limit = 3): TransitionLine[] {
   const rows = bag(timeline)?.['transitions']
   if (!Array.isArray(rows)) return []
