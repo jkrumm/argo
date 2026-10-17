@@ -40,6 +40,10 @@ export const fmtKm = (meters: number): string => (meters / 1000).toFixed(1)
 
 export const fmtKmh = (kmh: number | null): string => (kmh === null ? '—' : kmh.toFixed(1))
 
+/** An unsigned delta figure: the `DeltaBadge` glyph carries the direction. */
+export const fmtKmAbs = (deltaMeters: number): string => `${fmtKm(Math.abs(deltaMeters))} km`
+export const fmtKmhAbs = (delta: number): string => `${Math.abs(delta).toFixed(1)} km/h`
+
 export const fmtSignedKmh = (delta: number): string =>
   `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${Math.abs(delta).toFixed(1)} km/h`
 
@@ -92,6 +96,12 @@ export function windowTitle(preset: string | undefined): string {
 /** "30 d" for a title qualifier, `null` for a window that has no named length. */
 export function windowShort(preset: string | undefined): string | null {
   return preset === undefined ? null : (WINDOW_SHORT[preset] ?? null)
+}
+
+/** "30 d" / "all time" / "range": the period a cell's caption names. */
+export function windowQualifier(preset: string | undefined): string {
+  if (preset === 'all') return 'all time'
+  return windowShort(preset) ?? 'range'
 }
 
 /** "prior 30 d" / "prior window" — what a pace delta is compared against. */
@@ -340,6 +350,6 @@ export function summarySentence(s: SummaryInput): string {
   const pace =
     s.paceKmh === null
       ? 'pace —'
-      : `pace ${fmtKmh(s.paceKmh)} km/h${s.paceDeltaKmh === null ? '' : `, ${fmtSignedKmh(s.paceDeltaKmh)} vs the ${s.prior}`}`
+      : `pace ${fmtKmh(s.paceKmh)} km/h${s.paceDeltaKmh === null ? ', no prior window to compare' : `, ${fmtSignedKmh(s.paceDeltaKmh)} vs the ${s.prior}`}`
   return `${week}; streak ${s.streakDays} d; ${pace}.`
 }

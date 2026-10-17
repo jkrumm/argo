@@ -2,16 +2,17 @@ import { useQuery } from '@tanstack/react-query'
 import { ChartCard, Heatmap } from 'basalt-ui/charts'
 import { chartStateOf } from '../../lib/chart-state'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../lib/queries/walking-pad'
-import { SERIES } from '../../lib/series'
+import { VX } from 'basalt-ui/tokens'
 import { useNow } from '../../lib/use-now'
 import { walkingStore } from '../../lib/window-stores'
 import { busiestCell, fmtKm, firstVisibleHour, shiftCellsToLocal, windowTitle } from './model'
+import { Facts } from './facts'
 
 /** Monday first; the API's `dow` is 0 = Sunday. */
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const dayOf = (dow: number): string => DAYS[(dow + 6) % 7] ?? String(dow)
 const hourKey = (hour: number): string => `${String(hour).padStart(2, '0')}:00`
-const HEIGHT = 140
+const HEIGHT = 180
 
 export function HourGrid({ params }: { params: WalkingPadWindowParams }) {
   const { window: preset } = walkingStore.useValues()
@@ -27,13 +28,15 @@ export function HourGrid({ params }: { params: WalkingPadWindowParams }) {
   return (
     <ChartCard
       title={`Walks by hour, ${windowTitle(preset)}`}
-      {...(peak !== null && {
-        subtitle: `most walks ${dayOf(peak.dow)} ${hourKey(peak.hour)} local time`,
-      })}
-      info="Walks per weekday and hour, in your local time. A walk counts in every hour it touched, so a 2-hour walk starting at 14:00 lights 14:00, 15:00 and the part of 16:00 it reached."
       state={chartStateOf(query, undefined)}
       placeholderHeight={HEIGHT}
     >
+      {peak !== null && (
+        <Facts
+          value={`${dayOf(peak.dow)} ${hourKey(peak.hour)}`}
+          context={`most walks · local time · hours from ${hourKey(first)}`}
+        />
+      )}
       <Heatmap
         ariaLabel="Walks by weekday and hour of day in local time"
         data={cells}
@@ -42,16 +45,13 @@ export function HourGrid({ params }: { params: WalkingPadWindowParams }) {
         getValue={(c) => c.sessions}
         rows={DAYS}
         cols={hours}
-        color={SERIES.walkingDistance}
+        color={VX.muted}
         formatValue={(v) => `${Math.round(v)}`}
         legend={{ label: 'Walks' }}
         tooltip={{
           rows: (c) => [
-            {
-              label: 'Distance',
-              value: `${fmtKm(c.distance_m)} km`,
-              color: SERIES.walkingDistance,
-            },
+            { label: 'Walks', value: String(c.sessions), color: VX.muted },
+            { label: 'Distance', value: `${fmtKm(c.distance_m)} km`, color: VX.muted },
           ],
         }}
         height={HEIGHT}

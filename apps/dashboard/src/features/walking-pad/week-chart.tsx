@@ -7,6 +7,7 @@ import { walkingPadQueries, type WalkingPadWindowParams } from '../../lib/querie
 import { SERIES } from '../../lib/series'
 import { walkingStore } from '../../lib/window-stores'
 import { useNow } from '../../lib/use-now'
+import { Facts } from './facts'
 import { walkingLocal } from './local-store'
 import {
   DAY_VIEW_MAX,
@@ -25,7 +26,7 @@ const dayFormat = new Intl.DateTimeFormat('en-GB', {
   month: 'short',
   timeZone: 'UTC',
 })
-const kmAxis = (v: number) => `${Number(v.toFixed(1))} km`
+const kmAxis = (v: number) => String(Number(v.toFixed(1)))
 
 type Point = SeriesPoint & { at: Date; km: number }
 const toPoint = (p: SeriesPoint): Point => ({ ...p, at: utcDay(p.date), km: p.distance_m / 1000 })
@@ -35,6 +36,7 @@ export function WeekChart({ params }: { params: WalkingPadWindowParams }) {
   const { window: preset } = walkingStore.useValues()
   const [view] = walkingLocal.field.view.use()
   const [targetKm] = walkingLocal.field.weeklyTargetKm.use()
+  const isDefault = walkingLocal.field.weeklyTargetKm.isDefault(targetKm)
   const heroes = useQuery(walkingPadQueries.heroes(params))
   const weekly = useQuery(walkingPadQueries.series({ ...params, bucket: 'week' }))
   const daily = useQuery({
@@ -58,31 +60,37 @@ export function WeekChart({ params }: { params: WalkingPadWindowParams }) {
       : view === 'pace'
         ? `Weekly pace, ${when}`
         : `Weekly distance, ${when}`
-  const subtitle =
+  const paceAvg = heroes.data?.pace.currentAvgKmh ?? null
+  const facts =
     view === 'days'
       ? dayMeanKm === null
-        ? undefined
-        : `mean ${dayMeanKm.toFixed(1)} km/day`
+        ? null
+        : { value: dayMeanKm.toFixed(1), unit: 'km/day', context: `mean over ${days.length} days` }
       : view === 'pace'
-        ? heroes.data?.pace.currentAvgKmh == null
-          ? undefined
-          : `window avg ${fmtKmh(heroes.data.pace.currentAvgKmh)} km/h`
-        : `target ${targetKm} km`
+        ? paceAvg === null
+          ? null
+          : { value: fmtKmh(paceAvg), unit: 'km/h', context: 'window average, weekly points' }
+        : {
+            value: String(targetKm),
+            unit: 'km',
+            context: `${isDefault ? 'default weekly target' : 'weekly target'}, bars are km per week`,
+          }
 
   return (
     <ChartCard
       title={title}
-      {...(subtitle !== undefined && { subtitle })}
       actions={<ViewTabs field={walkingLocal.field.view} label="Chart view" />}
       state={chartStateOf(query, undefined)}
       placeholderHeight={240}
     >
+      {facts !== null && <Facts {...facts} />}
       {view === 'weeks' && (
         <Bars
           ariaLabel="Weekly distance in kilometres against the weekly target"
           data={weeks}
           height={HEIGHT}
           x={(d) => d.at}
+          formatX={(x) => dayFormat.format(x)}
           cursorResolution="leading"
           bars={[
             {
@@ -115,6 +123,7 @@ export function WeekChart({ params }: { params: WalkingPadWindowParams }) {
           data={days}
           height={HEIGHT}
           x={(d) => d.at}
+          formatX={(x) => dayFormat.format(x)}
           bars={[
             {
               key: 'day',
@@ -140,6 +149,7 @@ export function WeekChart({ params }: { params: WalkingPadWindowParams }) {
           data={weeks}
           height={HEIGHT}
           x={(d) => d.at}
+          formatX={(x) => dayFormat.format(x)}
           cursorResolution="leading"
           series={[
             {

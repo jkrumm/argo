@@ -24,6 +24,7 @@ const columnHelper = createColumnHelper<SessionRow>()
 // Units live in the headers; cells carry the bare figure. Numeric accessors get the mono-numeral style.
 const columns = [
   columnHelper.accessor('started_at', {
+    meta: { priority: 0 },
     header: 'When',
     cell: (ctx) => (
       <Tooltip label={dateFormat.format(new Date(ctx.getValue()))}>
@@ -39,32 +40,38 @@ const columns = [
     ),
   }),
   columnHelper.accessor('distance_m', {
+    meta: { priority: 1 },
     header: 'Distance km',
     cell: (ctx) => (ctx.getValue() / 1000).toFixed(2),
   }),
   columnHelper.accessor('duration_s', {
+    meta: { priority: 3 },
     header: 'Duration',
     cell: (ctx) => durationClock(ctx.getValue()),
   }),
   columnHelper.accessor('avg_speed_kmh', {
+    meta: { priority: 2 },
     header: 'Pace km/h',
     cell: (ctx) => ctx.getValue().toFixed(1),
   }),
   columnHelper.accessor('max_speed_kmh', {
+    meta: { priority: 6 },
     header: 'Peak km/h',
     cell: (ctx) => ctx.getValue().toFixed(1),
   }),
   columnHelper.accessor('steps', {
+    meta: { priority: 5 },
     header: 'Steps',
     cell: (ctx) => ctx.getValue().toLocaleString('en-GB'),
   }),
   columnHelper.accessor('kcal', {
+    meta: { priority: 4 },
     header: 'Energy kcal',
     cell: (ctx) => String(Math.round(ctx.getValue())),
   }),
   columnHelper.accessor('pause_count', {
     header: 'Pauses',
-    meta: { numeral: false },
+    meta: { numeral: false, priority: 7 },
     cell: (ctx) =>
       ctx.getValue() === 0 ? (
         <Text size="sm" c="dimmed">
@@ -103,6 +110,8 @@ export function HistoryTable() {
       striped
       highlightOnHover
       verticalSpacing="xs"
+      enablePinning
+      initialColumnPinning={{ start: ['started_at'] }}
       enablePagination
       manualPagination
       rowCount={data.total}

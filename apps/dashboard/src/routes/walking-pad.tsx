@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { Grid, SimpleGrid, Skeleton, Stack } from '@mantine/core'
+import { Box, Grid, SimpleGrid, Skeleton, Stack } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { PageBar } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
@@ -73,25 +73,37 @@ function WalkingPadPage() {
         {summary.isPending ? (
           <Skeleton height={160} radius="md" />
         ) : empty ? (
-          <EmptyWindow />
+          <Box data-shot="empty-window">
+            <EmptyWindow />
+          </Box>
         ) : (
           <>
             <WalkingStrip params={params} />
-            <WeekChart params={params} />
+            <Box data-shot="chart-weeks">
+              <WeekChart params={params} />
+            </Box>
             <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
-              <DistanceChart params={params} />
-              <HourGrid params={params} />
+              <Box data-shot="chart-distance">
+                <DistanceChart params={params} />
+              </Box>
+              <Box data-shot="chart-hours">
+                <HourGrid params={params} />
+              </Box>
             </SimpleGrid>
             <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
               <Grid.Col span={{ base: 12, lg: 8 }}>
                 <Suspense
                   fallback={<ChartCard state={{ pending: true }} placeholderHeight={420} />}
                 >
-                  <HistoryTable />
+                  <Box data-shot="history">
+                    <HistoryTable />
+                  </Box>
                 </Suspense>
               </Grid.Col>
               <Grid.Col span={{ base: 12, lg: 4 }}>
-                <AchievementsList />
+                <Box data-shot="achievements">
+                  <AchievementsList />
+                </Box>
               </Grid.Col>
             </Grid>
           </>

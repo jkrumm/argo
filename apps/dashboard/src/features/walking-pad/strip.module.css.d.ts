@@ -21,5 +21,9 @@ declare const classes: {
   readonly rowLabel: string
   readonly rowValue: string
   readonly rowContext: string
+  readonly facts: string
+  readonly factValue: string
+  readonly factUnit: string
+  readonly factContext: string
 }
 export default classes
