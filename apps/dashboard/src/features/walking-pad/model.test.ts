@@ -10,6 +10,8 @@ import {
   groupByMonth,
   median,
   mondayKey,
+  offsetLabel,
+  overallKmh,
   paceValues,
   priorLabel,
   shiftCellsToLocal,
@@ -60,6 +62,16 @@ const a = (id: number, title: string, unlocked_at: string): Achievement => ({
   unlocked_at,
 })
 
+const day = (date: string, distance_m: number, sessions: number): SeriesPoint => ({
+  date,
+  sessions,
+  duration_s: 0,
+  distance_m,
+  steps: 0,
+  kcal: 0,
+  avg_speed_kmh: null,
+})
+
 // Saturday 2026-10-17 12:00 UTC; its Monday is 2026-10-12.
 const NOW = Date.parse('2026-10-17T12:00:00Z')
 
@@ -70,22 +82,59 @@ describe('weeks', () => {
     expect(mondayKey(Date.parse('2026-10-12T00:00:00Z'))).toBe('2026-10-12')
   })
 
-  it('reads this week against last week from the series', () => {
-    const points = [
-      point('2026-10-05', { distance_m: 9000, sessions: 3 }),
-      point('2026-10-12', { distance_m: 12_400, sessions: 4 }),
+  it('reads this week so far against last week to the same weekday', () => {
+    // NOW is Saturday 2026-10-17: this week is Mon 12 … Sat 17, last week Mon 5 … Sat 10.
+    const days = [
+      day('2026-10-05', 3000, 1),
+      day('2026-10-06', 0, 0),
+      day('2026-10-07', 0, 0),
+      day('2026-10-08', 0, 0),
+      day('2026-10-09', 0, 0),
+      day('2026-10-10', 0, 0),
+      // Sunday 11 Oct is after the comparison weekday and must not count.
+      day('2026-10-11', 9000, 2),
+      day('2026-10-12', 4000, 1),
+      day('2026-10-13', 0, 0),
+      day('2026-10-14', 0, 0),
+      day('2026-10-15', 0, 0),
+      day('2026-10-16', 0, 0),
+      day('2026-10-17', 1000, 1),
     ]
-    expect(weekSummary(points, NOW)).toEqual({
-      distanceM: 12_400,
-      sessions: 4,
-      priorDistanceM: 9000,
-      deltaM: 3400,
+    expect(weekSummary(days, NOW)).toEqual({
+      distanceM: 5000,
+      sessions: 2,
+      priorDistanceM: 3000,
+      deltaM: 2000,
+      weekday: 'Sat',
     })
   })
 
-  it('has no delta when last week is outside the series, and no summary without this week', () => {
-    expect(weekSummary([point('2026-10-12', { distance_m: 5000 })], NOW)?.deltaM).toBeNull()
-    expect(weekSummary([point('2026-10-05')], NOW)).toBeNull()
+  it('compares a Monday with last Monday only', () => {
+    const monday = Date.parse('2026-10-12T08:00:00Z')
+    const days = [day('2026-10-05', 5000, 1), day('2026-10-12', 1000, 1)]
+    expect(weekSummary(days, monday)).toMatchObject({ deltaM: -4000, weekday: 'Mon' })
+  })
+
+  it('has no baseline when last week is outside the series, and no summary without this week', () => {
+    expect(
+      weekSummary([day('2026-10-12', 5000, 1)], Date.parse('2026-10-12T08:00:00Z'))?.deltaM,
+    ).toBeNull()
+    expect(weekSummary([day('2026-10-05', 0, 0)], NOW)).toBeNull()
+  })
+
+  it('rolls the week at the UTC Sunday to Monday boundary, ticks and today included', () => {
+    const sunday = Date.parse('2026-10-18T23:59:00Z')
+    const monday = Date.parse('2026-10-19T00:00:00Z')
+    expect(mondayKey(sunday)).toBe('2026-10-12')
+    expect(mondayKey(monday)).toBe('2026-10-19')
+    const endOfWeek = weekTicks([], sunday)
+    expect(endOfWeek.find((t) => t.today)?.label).toBe('S')
+    expect(endOfWeek.find((t) => t.today)?.key).toBe('2026-10-18')
+    expect(endOfWeek.every((t) => t.state !== 'upcoming')).toBe(true)
+    const newWeek = weekTicks([], monday)
+    expect(newWeek[0]?.today).toBe(true)
+    expect(newWeek[0]?.key).toBe('2026-10-19')
+    expect(newWeek.slice(1).every((t) => t.state === 'upcoming')).toBe(true)
   })
 
   it('draws Mon–Sun ticks with today outlined and the rest of the week upcoming', () => {
@@ -206,6 +255,21 @@ describe('local-time hour grid', () => {
     expect(cell?.hour).toBe(21)
   })
 
+  it('shifts a half-hour zone to the nearest hour and says so', () => {
+    // UTC+5:30 → −330: the 5.5 h shift rounds to 6.
+    const [cell] = shiftCellsToLocal([{ dow: 2, hour: 10, sessions: 1, distance_m: 0 }], -330)
+    expect(cell?.hour).toBe(16)
+    expect(offsetLabel(-330)).toBe('UTC+5:30, rounded to the hour')
+    expect(offsetLabel(-120)).toBe('UTC+2')
+    expect(offsetLabel(300)).toBe('UTC−5')
+  })
+
+  it('shifts by the offset it is given, so a DST change moves the same cell an hour', () => {
+    const cell = { dow: 3, hour: 12, sessions: 1, distance_m: 0 }
+    expect(shiftCellsToLocal([cell], -60)[0]?.hour).toBe(13) // CET, winter
+    expect(shiftCellsToLocal([cell], -120)[0]?.hour).toBe(14) // CEST, summer
+  })
+
   it('finds the busiest cell and widens the visible range for early walks', () => {
     const cells = [
       { dow: 2, hour: 14, sessions: 3, distance_m: 0 },
@@ -258,6 +322,11 @@ describe('achievements', () => {
 })
 
 describe('formats and summary', () => {
+  it('states the overall pace as distance over time', () => {
+    expect(overallKmh(141_700, 43 * 3600 + 19 * 60)).toBeCloseTo(3.27, 2)
+    expect(overallKmh(1000, 0)).toBeNull()
+  })
+
   it('formats durations by magnitude', () => {
     expect(fmtDuration(30)).toBe('30 s')
     expect(fmtDuration(45 * 60)).toBe('45 min')

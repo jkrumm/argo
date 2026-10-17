@@ -144,25 +144,47 @@ export function mondayKey(nowMs: number): string {
 }
 
 export type WeekSummary = {
+  /** This week so far, Monday through today (UTC). */
   distanceM: number
   sessions: number
-  /** Last week's distance, `null` when the series does not carry that bucket. */
+  /** Last week over the same weekdays, `null` when the series does not reach back that far. */
   priorDistanceM: number | null
   deltaM: number | null
+  /** The weekday the comparison runs to, e.g. "Tue". */
+  weekday: string
 }
 
-/** This week (Mon–Sun, UTC) against last week from a week-bucket series; `null` when this week's bucket is missing. */
-export function weekSummary(points: readonly SeriesPoint[], nowMs: number): WeekSummary | null {
-  const monday = mondayKey(nowMs)
-  const current = points.find((p) => p.date === monday)
-  if (current === undefined) return null
-  const lastKey = dayKey(keyMs(monday) - 7 * MS_PER_DAY)
-  const prior = points.find((p) => p.date === lastKey)
+const WEEKDAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+type Totals = { distanceM: number; sessions: number }
+
+/** Sum `count` consecutive UTC days from `startMs`; `null` when a day is missing from the series. */
+function sumDays(points: readonly SeriesPoint[], startMs: number, count: number): Totals | null {
+  const total = { distanceM: 0, sessions: 0 }
+  for (let i = 0; i < count; i += 1) {
+    const day = points.find((p) => p.date === dayKey(startMs + i * MS_PER_DAY))
+    if (day === undefined) return null
+    total.distanceM += day.distance_m
+    total.sessions += day.sessions
+  }
+  return total
+}
+
+/**
+ * This week so far against last week up to the same weekday, both on the UTC clock of the day
+ * series, so a partial week is never read against a full one. `null` when this week's days are missing.
+ */
+export function weekSummary(days: readonly SeriesPoint[], nowMs: number): WeekSummary | null {
+  const monday = keyMs(mondayKey(nowMs))
+  const span = (keyMs(dayKey(nowMs)) - monday) / MS_PER_DAY + 1
+  const current = sumDays(days, monday, span)
+  if (current === null) return null
+  const prior = sumDays(days, monday - 7 * MS_PER_DAY, span)
   return {
-    distanceM: current.distance_m,
-    sessions: current.sessions,
-    priorDistanceM: prior?.distance_m ?? null,
-    deltaM: prior === undefined ? null : current.distance_m - prior.distance_m,
+    ...current,
+    priorDistanceM: prior?.distanceM ?? null,
+    deltaM: prior === null ? null : current.distanceM - prior.distanceM,
+    weekday: WEEKDAY_NAMES[span - 1] ?? '',
   }
 }
 
@@ -249,15 +271,38 @@ export function distanceFacts(
 
 export type HourCell = { hour: number; dow: number; sessions: number; distance_m: number }
 
-/** Shift UTC (dow, hour) cells by a whole-hour offset; `offsetMinutes` is `Date#getTimezoneOffset` (UTC − local). */
+/**
+ * Shift UTC (dow, hour) cells to local time by ONE offset in minutes (`Date#getTimezoneOffset`,
+ * UTC − local). The API returns the grid already summed across dates, so a walk's own offset is
+ * unknown: the caller passes the current one, and a walk from the other side of a DST change lands
+ * an hour off. A zone off the hour (UTC+5:30) rounds to the nearest hour; `offsetLabel` says so.
+ */
 export function shiftCellsToLocal(cells: readonly HourCell[], offsetMinutes: number): HourCell[] {
-  const shift = -Math.round(offsetMinutes / 60)
+  const shift = Math.round(-offsetMinutes / 60)
   return cells.map((c) => {
     const slot = c.dow * 24 + c.hour + shift
     const wrapped = ((slot % 168) + 168) % 168
     return { ...c, dow: Math.floor(wrapped / 24), hour: wrapped % 24 }
   })
 }
+
+/** The basis of a local-time grid: "UTC+2", or "UTC+5:30, rounded to the hour". */
+export function offsetLabel(offsetMinutes: number): string {
+  const east = -offsetMinutes
+  const sign = east < 0 ? '−' : '+'
+  const abs = Math.abs(east)
+  const h = Math.floor(abs / 60)
+  const m = abs % 60
+  return `UTC${sign}${h}${m === 0 ? '' : `:${String(m).padStart(2, '0')}, rounded to the hour`}`
+}
+
+/** Kilometres per hour over the whole window: total distance ÷ total time; `null` without time. */
+export function overallKmh(distanceM: number, durationS: number): number | null {
+  return durationS > 0 ? distanceM / 1000 / (durationS / 3600) : null
+}
+
+/** The weekly target's bounds, shared by the store field and the popover input. */
+export const WEEKLY_TARGET_BOUNDS = { min: 1, max: 200 } as const
 
 export function busiestCell(cells: readonly HourCell[]): HourCell | null {
   const best = cells.reduce<HourCell | null>(

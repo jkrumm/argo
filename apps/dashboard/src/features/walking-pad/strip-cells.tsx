@@ -13,6 +13,7 @@ import {
   fmtKmh,
   fmtKmAbs,
   fmtKmhAbs,
+  overallKmh,
   paceValues,
   priorLabel,
   weekSummary,
@@ -21,7 +22,7 @@ import {
 } from './model'
 import { TargetPopover } from './target-popover'
 import { Strip, StripCell } from './strip'
-import { THIS_WEEK_SERIES, WEEK_DAYS_SERIES } from './week-queries'
+import { WEEK_DAYS_SERIES } from './week-queries'
 import classes from './strip.module.css'
 
 const EM_DASH = '—'
@@ -32,7 +33,7 @@ const TARGET_HEADROOM = 1.25
 
 function WeekCell() {
   const now = useNow()
-  const query = useQuery(THIS_WEEK_SERIES)
+  const query = useQuery(WEEK_DAYS_SERIES)
   const [targetKm] = walkingLocal.field.weeklyTargetKm.use()
   const isDefault = walkingLocal.field.weeklyTargetKm.isDefault(targetKm)
   const week = query.data === undefined ? null : weekSummary(query.data.points, now)
@@ -41,7 +42,7 @@ function WeekCell() {
     <StripCell
       shot="strip-week"
       caption="This week"
-      qualifier="Mon–Sun"
+      qualifier="Mon–Sun, UTC"
       action={<TargetPopover />}
       value={week === null ? EM_DASH : fmtKm(week.distanceM)}
       unit="km"
@@ -52,7 +53,7 @@ function WeekCell() {
             value={week.deltaM}
             format={fmtKmAbs}
             polarity="up-good"
-            period="vs last week"
+            period={`vs last week to ${week.weekday}`}
           />
         ),
       })}
@@ -69,7 +70,7 @@ function WeekCell() {
         max={Math.max(targetKm * TARGET_HEADROOM, km ?? 0)}
         target={targetKm}
         format={(v) => `${v.toFixed(1)} km`}
-        startCaption="0"
+        startCaption="so far"
         endCaption={`${isDefault ? 'default' : 'target'} ${targetKm} km`}
         color={MUTED_FILL}
         loading={query.isPending}
@@ -135,7 +136,7 @@ function StreakCell({ params }: { params: WalkingPadWindowParams }) {
       value={streak === undefined ? EM_DASH : String(streak.currentDays)}
       unit={streak?.currentDays === 1 ? 'day' : 'days'}
       loading={heroes.isPending}
-      footer="days walked this week, UTC"
+      footer={`${ticks.filter((t) => t.state === 'walked').length} walked this week · UTC days`}
     >
       <Box
         className={classes.days}
@@ -181,6 +182,11 @@ function TotalsCell({ params }: { params: WalkingPadWindowParams }) {
             value: fmtDuration(s.duration_s),
             context:
               s.avg_session_min === null ? undefined : `avg ${fmtDuration(s.avg_session_min * 60)}`,
+          },
+          {
+            label: 'Pace',
+            value: `${fmtKmh(overallKmh(s.distance_m, s.duration_s))} km/h`,
+            context: 'distance ÷ time',
           },
           {
             label: 'Energy',

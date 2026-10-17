@@ -2,6 +2,7 @@ import { ActionIcon, NumberInput, Popover } from '@mantine/core'
 import { IconTarget } from '@tabler/icons-react'
 import { SettingsRow } from 'basalt-ui'
 import { walkingLocal } from './local-store'
+import { WEEKLY_TARGET_BOUNDS } from './model'
 
 /** The weekly distance target, edited from the THIS WEEK cell. Persisted on this device only. */
 export function TargetPopover() {
@@ -24,8 +25,8 @@ export function TargetPopover() {
               onChange={(v) => {
                 if (typeof v === 'number') setTarget(v)
               }}
-              min={1}
-              max={200}
+              min={WEEKLY_TARGET_BOUNDS.min}
+              max={WEEKLY_TARGET_BOUNDS.max}
               allowDecimal={false}
               suffix=" km"
             />

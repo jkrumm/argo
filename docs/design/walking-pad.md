@@ -94,6 +94,8 @@ Shots: `apps/dashboard/.design-shots/w21-walking-pad-r{0,1,3,4}` (empty default 
 
 Against Keel (`root--dark--desktop`, the strip and record-header patterns): same anatomy (summary, record header, four-cell strip with caption and qualifier on one mono line, a target tick on the progress bar, facts headers on charts). Weaker than Keel: the pace sparkline carries no reference line or hover value (basalt `Sparkline`), the deltas render in basalt's mono face, and the streak ticks carry no per-day tooltip.
 
+- **r6** (lead review 1; own read of `…-r5` and `…-r5-all`, no reviewer pass). Changed: THIS WEEK compares Monday through today with last week to the same weekday from a 30-day day series, labelled `vs last week to {weekday}`, the meter caption reads `so far`, and the cell names `Mon–Sun, UTC`; the hour grid states `local time, current UTC{offset}` and rounds a half-hour zone to the hour in words; Totals gained a `Pace {overall} km/h · distance ÷ time` row next to the Pace cell's weighted mean; the streak footer counts the walked days in text; the target input takes its bounds from the same constant as the store field. Limit: the API returns the hour grid already summed across dates, so a walk from the other side of a DST change lands an hour off; fixing it needs per-walk timestamps from the API.
+
 ## Wave 21 friction
 
 | Export | Needed prop | argo case | What argo does instead |
