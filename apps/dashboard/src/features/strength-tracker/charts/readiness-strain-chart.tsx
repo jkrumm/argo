@@ -115,13 +115,13 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
         series={READINESS_SERIES}
         y={{ domain: [0, 100], format: (v) => String(Math.round(v)) }}
         zones={[
-          { from: 70, to: 100, fill: VX.good },
-          { from: 40, to: 70, fill: VX.warn },
-          { from: 0, to: 40, fill: VX.bad },
+          { from: READINESS_PUSH_FROM, to: 100, fill: VX.good },
+          { from: READINESS_REST_BELOW, to: READINESS_PUSH_FROM, fill: VX.warn },
+          { from: 0, to: READINESS_REST_BELOW, fill: VX.bad },
         ]}
         refLines={[
-          { value: 70, color: VX.goodRef },
-          { value: 40, color: VX.badRef },
+          { value: READINESS_PUSH_FROM, color: VX.goodRef },
+          { value: READINESS_REST_BELOW, color: VX.badRef },
         ]}
         tooltip={{
           rows: (d) => [
