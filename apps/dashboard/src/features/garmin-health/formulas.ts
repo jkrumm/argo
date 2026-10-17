@@ -1,4 +1,3 @@
-import type { Tone } from 'basalt-ui'
 import { ZONE_COLORS } from './constants'
 
 /**
@@ -7,24 +6,6 @@ import { ZONE_COLORS } from './constants'
  * Heavy formulas (recovery score, training load EWMA, fitness regression)
  * live server-side now and are consumed via the typed API.
  */
-
-/**
- * The `StatCard` verdict for a 0–100 score. `undefined` is NOT 'good' — it covers a reading that is
- * absent, so a card with nothing measured never renders a green rail.
- */
-export function scoreTone(score: number | null): Tone | undefined {
-  if (score === null) return undefined
-  if (score >= 80) return 'good'
-  if (score >= 60) return 'warn'
-  return 'bad'
-}
-
-export function recoveryActionLabel(score: number | null): string {
-  if (score === null) return ''
-  if (score >= 70) return 'Push hard'
-  if (score >= 40) return 'Normal session'
-  return 'Prioritize rest'
-}
 
 export type AcwrZone = 'undertrained' | 'optimal' | 'caution' | 'danger'
 
@@ -40,21 +21,6 @@ export function acwrZoneLabel(zone: AcwrZone | null): string {
       return 'Danger'
     default:
       return ''
-  }
-}
-
-/** The `StatCard` verdict for an ACWR zone — the same thresholds `acwrZoneColor` paints. */
-export function acwrZoneTone(zone: AcwrZone | null): Tone | undefined {
-  switch (zone) {
-    case 'optimal':
-      return 'good'
-    case 'undertrained':
-    case 'caution':
-      return 'warn'
-    case 'danger':
-      return 'bad'
-    default:
-      return undefined
   }
 }
 

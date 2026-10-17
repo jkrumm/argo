@@ -51,8 +51,9 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
 
   const hasData = chartData.some((d) => d.score !== null)
   const measured = chartData.filter((d) => d.score !== null)
+  // The final visible row, so a null last day reads "—" instead of borrowing an older day's score.
   const fact = activityScoreFact({
-    score: measured.at(-1)?.score ?? null,
+    score: chartData.at(-1)?.score ?? null,
     mean: mean(chartData.map((d) => d.score)),
     dayCount: measured.length,
   })
@@ -67,7 +68,7 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
       <RefetchDim active={query.isPlaceholderData}>
         <FactsLine fact={fact} />
         <Bars
-          ariaLabel="Daily activity score in MET-minutes against the 600 target"
+          ariaLabel={`Daily activity score in MET-minutes against the ${ACTIVITY_TARGET_SCORE} target`}
           cursorResolution="leading"
           data={chartData}
           height={CHART_HEIGHT}

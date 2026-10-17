@@ -3,10 +3,11 @@ import { useQuery } from '@tanstack/react-query'
 import { Bars, ChartCard, type BarsBar } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { activitiesWindowQueries } from '../../../lib/queries/activities'
-import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
+import { activitiesRange } from '../../../lib/queries/activities-window'
 import { ACTIVITY } from '../../../lib/series'
 import { FactsLine } from '../facts-line'
-import { activitiesFact } from '../model'
+import { activitiesFact, fmtMinutes, windowDayCount } from '../model'
+import { VISIBLE_DATE_MIN } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
@@ -47,13 +48,6 @@ const ACTIVITY_TYPE_OTHER: ActivityTypeMeta = {
 
 function activityTypeMeta(typeKey: string): ActivityTypeMeta {
   return ACTIVITY_TYPE_META[typeKey] ?? ACTIVITY_TYPE_OTHER
-}
-
-function fmtMin(min: number): string {
-  if (min < 60) return `${Math.round(min)}m`
-  const h = Math.floor(min / 60)
-  const m = Math.round(min % 60)
-  return m === 0 ? `${h}h` : `${h}h ${m}m`
 }
 
 type ActivityDayPoint = {
@@ -135,7 +129,7 @@ function activityRowProps(activity: Activity) {
   return {
     color: meta.color,
     label: detail ? `${labelBase} (${detail})` : labelBase,
-    value: fmtMin(dur),
+    value: fmtMinutes(dur),
   }
 }
 
@@ -149,12 +143,8 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
   const points = useMemo(() => buildPoints(activities), [activities])
   const orderedTypes = useMemo(() => buildOrderedTypes(activities), [activities])
 
-  // The window's length in days, from the same daily series the other charts use (cached).
-  const daily = useQuery(dailyMetricsQueries.series(params))
-  const dayCount = useMemo(
-    () => applyVisibilityFilter(daily.data?.points ?? [], (p) => p.date).length,
-    [daily.data],
-  )
+  // The window's length in calendar days (not the rows returned), clipped at the visible floor.
+  const dayCount = windowDayCount(activitiesRange(params), VISIBLE_DATE_MIN)
 
   const totalMin = useMemo(
     () => points.reduce((s, p) => s + Object.values(p.totals).reduce((acc, v) => acc + v, 0), 0),
@@ -184,7 +174,9 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
       state={chartStateOf(query, points.length === 0 ? 'No activities in this window' : undefined)}
       placeholderHeight={CHART_HEIGHT}
     >
-      <FactsLine fact={activitiesFact({ sessions: activities.length, totalMin, dayCount })} />
+      {query.data !== undefined && (
+        <FactsLine fact={activitiesFact({ sessions: activities.length, totalMin, dayCount })} />
+      )}
       <Bars
         cursorResolution="leading"
         ariaLabel="Daily activities stacked by type"
@@ -192,13 +184,13 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
         height={CHART_HEIGHT}
         x={(d) => d.day}
         bars={bars}
-        y={{ autoMaxFloor: AXIS_FLOOR_MIN, ticks: 4, format: (v) => fmtMin(v) }}
+        y={{ autoMaxFloor: AXIS_FLOOR_MIN, ticks: 4, format: (v) => fmtMinutes(v) }}
         tooltip={{
           rows: (d, ctx) => {
             const hidden = new Set(ctx.hidden.map((s) => s.key))
             const total = Object.values(d.totals).reduce((a, b) => a + b, 0)
             return [
-              { label: 'Total', value: fmtMin(total), color: VX.axis },
+              { label: 'Total', value: fmtMinutes(total), color: VX.axis },
               ...d.activities
                 .filter((a) => !hidden.has(activityTypeMeta(a.type_key).label))
                 .map(activityRowProps),

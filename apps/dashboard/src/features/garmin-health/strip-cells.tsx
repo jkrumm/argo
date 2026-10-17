@@ -15,6 +15,9 @@ import {
   ACWR_FLOOR,
   ACWR_METER_MAX,
   ACWR_OPTIMAL_TO,
+  FITNESS_DAYS,
+  VO2_DAYS,
+  lastDaysRange,
   RECOVERY_PUSH_FROM,
   RECOVERY_REST_BELOW,
   contributorItems,
@@ -26,10 +29,6 @@ import {
 import { SignalRow, StatStrip, StripCell } from './stat-strip'
 import type { SummaryParams } from './types'
 import { applyVisibilityFilter } from './visibility'
-
-const FITNESS_DAYS = 14
-/** Sparkline length for VO2max: the last N readings of the full history. */
-const VO2_SPAN_POINTS = 90
 
 /** Thin one-per-row meters: the label and its points sit under the track, the number leads. */
 function ContributorRows({
@@ -111,7 +110,7 @@ function RecoveryCell({ params }: { params: SummaryParams }) {
       }
       value={fmtNum(score)}
       unit="/100"
-      loading={data === undefined}
+      loading={summary.isPending}
       stale={summary.isPlaceholderData}
     >
       <Meter
@@ -126,20 +125,21 @@ function RecoveryCell({ params }: { params: SummaryParams }) {
         ]}
         startCaption={`rest < ${RECOVERY_REST_BELOW} · push ≥ ${RECOVERY_PUSH_FROM}`}
         endCaption="100"
-        loading={data === undefined}
+        loading={summary.isPending}
         emptyText="No recovery score"
       />
       <ContributorRows
         label="Recovery contributors, points of their weight"
         rows={contributorItems(data?.components ?? { hrv: null, sleep: null, rhr: null })}
-        loading={data === undefined}
+        loading={summary.isPending}
       />
     </StripCell>
   )
 }
 
 function LoadCell({ params }: { params: SummaryParams }) {
-  const { data, isPlaceholderData } = useQuery(trainingLoadQueries.summary(params))
+  const query = useQuery(trainingLoadQueries.summary(params))
+  const { data, isPlaceholderData } = query
   // Same visibility rule as the ACWR chart below, so the two never show different "latest" days.
   const latest =
     applyVisibilityFilter(data?.points ?? [], (p) => p.date).findLast((p) => p.acwr !== null) ??
@@ -160,7 +160,7 @@ function LoadCell({ params }: { params: SummaryParams }) {
       qualifier="acute ÷ chronic EWMA"
       value={fmtNum(acwr, 2)}
       unit="ACWR"
-      loading={data === undefined}
+      loading={query.isPending}
       stale={isPlaceholderData}
       footer={`under < ${ACWR_FLOOR} · optimal ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO} · caution ${ACWR_OPTIMAL_TO}–${ACWR_CAUTION_TO} · danger > ${ACWR_CAUTION_TO}`}
     >
@@ -178,10 +178,10 @@ function LoadCell({ params }: { params: SummaryParams }) {
         ]}
         startCaption="0"
         endCaption={ACWR_METER_MAX.toFixed(1)}
-        loading={data === undefined}
+        loading={query.isPending}
         emptyText="No training load"
       />
-      <LoadRows load={load} loading={data === undefined} />
+      <LoadRows load={load} loading={query.isPending} />
     </StripCell>
   )
 }
@@ -201,13 +201,18 @@ type SignalSpec = {
   hideValue?: boolean
   /** The API's 14 d delta when it has one, else last minus first of the same window. */
   delta: number | null
+  /** Dims the row while its data refetches. */
+  stale?: boolean
 }
 
 function SignalLine({ spec }: { spec: SignalSpec }) {
   const present = spec.values.filter((v): v is number => v !== null)
   const current = present.at(-1) ?? null
+  // A null day is NaN, which the sparkline draws as a gap instead of bridging it.
+  const trace = spec.values.map((v) => v ?? Number.NaN)
   return (
     <SignalRow
+      stale={spec.stale === true}
       label={spec.label}
       value={
         spec.hideValue === true
@@ -219,7 +224,7 @@ function SignalLine({ spec }: { spec: SignalSpec }) {
       sparkline={
         present.length > 1 && new Set(present).size > 1 ? (
           <Sparkline
-            data={present}
+            data={trace}
             height={28}
             color={VX.line}
             emphasizeLast
@@ -250,17 +255,17 @@ function SignalLine({ spec }: { spec: SignalSpec }) {
   )
 }
 
-function FitnessCell({ params }: { params: SummaryParams }) {
-  const direction = useQuery(fitnessDirectionQueries.summary(params))
-  const series = useQuery(dailyMetricsQueries.series(params))
-  // VO2max moves over months, so its trace comes from the full history, not the page window.
-  const history = useQuery(dailyMetricsQueries.series({ window: 'all' }))
+function FitnessCell() {
+  // Fixed windows keep the copy true ("14 d regression") whatever the page's selector says.
+  const fitnessRange = lastDaysRange(FITNESS_DAYS)
+  const direction = useQuery(fitnessDirectionQueries.summary(fitnessRange))
+  const series = useQuery(dailyMetricsQueries.series(fitnessRange))
+  // VO2max moves over months: a bounded 180 d trace, not the page window and not all history.
+  const history = useQuery(dailyMetricsQueries.series(lastDaysRange(VO2_DAYS)))
   const vo2 = useMemo(() => {
     const read = applyVisibilityFilter(history.data?.points ?? [], (p) => p.date, {
       hideToday: false,
-    })
-      .filter((p): p is typeof p & { vo2Max: number } => p.vo2Max !== null)
-      .slice(-VO2_SPAN_POINTS)
+    }).filter((p): p is typeof p & { vo2Max: number } => p.vo2Max !== null)
     const first = read.at(0)
     const last = read.at(-1)
     const spanDays =
@@ -272,7 +277,7 @@ function FitnessCell({ params }: { params: SummaryParams }) {
     // Sleep-derived readings lock in overnight, so today is kept (as the regression's window does).
     const last = applyVisibilityFilter(series.data?.points ?? [], (p) => p.date, {
       hideToday: false,
-    }).slice(-FITNESS_DAYS)
+    })
     return {
       rhr: last.map((p) => p.restingHr),
       hrv: last.map((p) => p.hrv),
@@ -287,8 +292,8 @@ function FitnessCell({ params }: { params: SummaryParams }) {
       qualifier={`${d?.label || '—'} · ${FITNESS_DAYS} d regression`}
       value={fmtNum(d?.vo2max, 1)}
       unit="VO2max ml/kg/min"
-      loading={d === undefined}
-      stale={direction.isPlaceholderData}
+      loading={direction.isPending}
+      stale={direction.isFetching}
     >
       <SignalLine
         spec={{
@@ -300,6 +305,7 @@ function FitnessCell({ params }: { params: SummaryParams }) {
           period: `${FITNESS_DAYS} d`,
           values: rows.rhr,
           delta: d?.rhrDelta ?? null,
+          stale: series.isFetching,
         }}
       />
       <SignalLine
@@ -312,6 +318,7 @@ function FitnessCell({ params }: { params: SummaryParams }) {
           period: `${FITNESS_DAYS} d`,
           values: rows.hrv,
           delta: d?.hrvDelta ?? null,
+          stale: series.isFetching,
         }}
       />
       <SignalLine
@@ -325,6 +332,7 @@ function FitnessCell({ params }: { params: SummaryParams }) {
           hideValue: true,
           values: vo2.values,
           delta: firstToLast(vo2.values),
+          stale: history.isFetching,
         }}
       />
     </StripCell>
@@ -336,7 +344,7 @@ export function StatStripRow({ params }: { params: SummaryParams }) {
     <StatStrip>
       <RecoveryCell params={params} />
       <LoadCell params={params} />
-      <FitnessCell params={params} />
+      <FitnessCell />
     </StatStrip>
   )
 }

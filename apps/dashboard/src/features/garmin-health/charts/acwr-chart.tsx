@@ -9,7 +9,7 @@ import { FactsLine } from '../facts-line'
 import { RefetchDim } from '../refetch-dim'
 import { ZONE_FILL } from '../zone-fills'
 import { acwrZoneColor, acwrZoneLabel, type AcwrZone } from '../formulas'
-import { acwrFact, divergenceFact } from '../model'
+import { ACWR_CAUTION_TO, ACWR_FLOOR, ACWR_OPTIMAL_TO, acwrFact, divergenceFact } from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
@@ -36,7 +36,7 @@ const ACWR_SERIES: ChartSeries<TrainingLoadPoint>[] = [
   // Legend-only zone keys: `getValue` is always null, so they draw nothing and own no tooltip row.
   {
     key: 'optimal',
-    label: 'Optimal (0.8–1.3)',
+    label: `Optimal (${ACWR_FLOOR}–${ACWR_OPTIMAL_TO})`,
     color: VX.goodSolid,
     mark: 'bar',
     role: 'reference',
@@ -44,7 +44,7 @@ const ACWR_SERIES: ChartSeries<TrainingLoadPoint>[] = [
   },
   {
     key: 'danger',
-    label: 'Danger (> 1.5)',
+    label: `Danger (> ${ACWR_CAUTION_TO})`,
     color: VX.badSolid,
     mark: 'bar',
     role: 'reference',
@@ -108,7 +108,7 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
         <FactsLine fact={fact} />
         <Lines
           cursorResolution="leading"
-          ariaLabel="Acute:chronic training load ratio with optimal zone"
+          ariaLabel={`Acute:chronic training load ratio with the ${ACWR_FLOOR} to ${ACWR_OPTIMAL_TO} optimal zone`}
           data={points}
           height={220}
           x={(d) => d.day}
@@ -117,15 +117,15 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
           {...(xDomain && { xDomain })}
           xTicks={xTicks}
           y={{ domain: 'auto', autoMaxFloor: 1.6, autoMinCeil: 0.6, format: (v) => v.toFixed(1) }}
-          zones={[{ from: 0.8, to: 1.3, fill: ZONE_FILL.good }]}
+          zones={[{ from: ACWR_FLOOR, to: ACWR_OPTIMAL_TO, fill: ZONE_FILL.good }]}
           thresholds={[
-            { value: 1.3, side: 'above', fill: ZONE_FILL.bad },
-            { value: 0.8, side: 'below', fill: ZONE_FILL.warn },
+            { value: ACWR_OPTIMAL_TO, side: 'above', fill: ZONE_FILL.bad },
+            { value: ACWR_FLOOR, side: 'below', fill: ZONE_FILL.warn },
           ]}
           refLines={[
-            { value: 0.8, color: VX.warnRef },
-            { value: 1.3, color: VX.goodRef },
-            { value: 1.5, color: VX.badRef },
+            { value: ACWR_FLOOR, color: VX.warnRef },
+            { value: ACWR_OPTIMAL_TO, color: VX.goodRef },
+            { value: ACWR_CAUTION_TO, color: VX.badRef },
           ]}
           tooltip={{
             rows: (d) =>
