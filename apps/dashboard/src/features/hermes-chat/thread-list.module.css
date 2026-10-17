@@ -81,8 +81,15 @@
   column-gap: var(--vx-space-stack-md);
 }
 
-.chip.chip {
-  --badge-fz: var(--vx-text-micro);
+.chip {
+  padding-inline: var(--vx-space-stack-xs);
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  line-height: 1.5;
+  text-transform: uppercase;
+  color: var(--vx-muted);
+  border: 1px solid var(--vx-surface-border);
+  border-radius: var(--vx-radius-ctrl);
   grid-area: chip;
   justify-self: start;
 }
