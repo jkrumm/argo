@@ -923,7 +923,7 @@ merges.
 
 - [x] Adopt basalt-ui 2.19.0's pieces where the page prototypes still hand-rolled them, as its own commit.
 - [x] Redesign the remaining pages: Astro window, Hermes chat, M365 explorer, fanned out on disjoint files.
-- [ ] ~~Re-score every page with a fresh reviewer and against Keel.~~ Moved to Wave 23 (owner, 2026-10-17): the
+- [x] ~~Re-score every page with a fresh reviewer and against Keel.~~ Moved to Wave 23 (owner, 2026-10-17): the
       convergence re-score waits for basalt Wave 35's props.
       **Left behind:**
 
