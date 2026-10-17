@@ -6,22 +6,22 @@ const NOW = new Date(2026, 0, 15, 12, 0).getTime()
 describe('strip cells with no reading', () => {
   it('shows an em dash and a reason, never 0', () => {
     expect(agentsCell(undefined, null, undefined, NOW)).toMatchObject({
-      value: '—',
+      value: null,
       footer: 'no snapshot in 24 h',
     })
-    expect(budgetCell(undefined, undefined)).toMatchObject({ value: '—' })
+    expect(budgetCell(undefined, undefined)).toMatchObject({ value: null })
     expect(meetingCell(null, null, null, NOW)).toMatchObject({
-      value: '—',
+      value: null,
       footer: 'calendar unavailable',
     })
     expect(
       meetingCell({ meetings: [], loaded: ['work', 'personal'], unavailable: [] }, null, null, NOW),
     ).toMatchObject({
-      value: '—',
+      value: null,
       footer: 'none in the next 7 days',
     })
-    expect(recoveryCell(null)).toMatchObject({ value: '—', footer: 'unavailable' })
-    expect(acwrCell(null)).toMatchObject({ value: '—', footer: 'unavailable' })
+    expect(recoveryCell(null)).toMatchObject({ value: null, footer: 'unavailable' })
+    expect(acwrCell(null)).toMatchObject({ value: null, footer: 'unavailable' })
   })
 
   it('labels a recovery that is not today’s with its own day and says it is not scored yet', () => {
