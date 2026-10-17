@@ -88,9 +88,9 @@ Placeholders; the format is the contract.
 
 Round log (placeholders only; shots under `apps/dashboard/.design-shots/w20-calendar-r{N}`, gitignored).
 
-1. **r1** — reviewer failed all six components. Findings: the headline read `0m this week` beside a 7-day list with bookings (window unstated, and the feed has no past days); `No events today` stated twice; day headers carried a bare count; day aggregates, strip values and due dates in mono; overdue dates showed a weekday that read as the future. Changed: rolling 7-day window with its range stated, `Nothing left today.`, `{n} events · {booked}`, proportional values, `overdue · {d MMM}`.
+1. **r1** — reviewer failed all six components. Findings: the headline read `0m this week` beside a 7-day list with bookings (the feed then had no past days); `No events today` stated twice; day headers carried a bare count; day aggregates, strip values and due dates in mono; overdue dates showed a weekday that read as the future. Changed: a window and empty-day copy that r5 later replaced (the real Monday–Sunday week, `No events today · next {when}`), `{n} events · {booked}`, proportional values, `overdue · {d MMM}`.
 2. **r2** — own read against Keel `root` / `schedule-item`: lists sat bare while the right column was cards; the pill read `in 44h`; the time column was too wide. Changed: Today and Next 7 days in cards, the pill only inside 12 h, time column 6.5 rem.
-3. **r3** — reviewer passed summary, today and the page. Remaining: strip tick and per-day count unexplained, `Tasks due` unscoped, four font sizes in the list, truncated titles at 390, emoji in project names (data, not chrome), 1 px free-block gap and mono count chips (basalt prototype / `Section`). Changed: the strip caption names the tick and the count, `Overdue or due within 7 days` under Tasks due.
+3. **r3** — reviewer passed summary, today and the page. Remaining: strip tick and per-day count unexplained, `Tasks due` unscoped, four font sizes in the list, truncated titles at 390, emoji in project names (data, not chrome), 1 px free-block gap and mono count chips (basalt prototype / `Section`). Changed: the strip caption named the tick and the count (replaced in r5 by a column header row), `Overdue or due within 7 days` under Tasks due.
 4. **r4** — reviewer passed summary, today, free-block, tasks-due and the page. Failed: the split bar was one full-width blue segment when a class is 0 (hue separated nothing) — now drawn only when both classes have hours, captions always; next-days keeps four font sizes and truncated titles at 390 (the "rows do not wrap" criterion).
 
 Open after r4, basalt-side: the free-block cell's 1 px gap and `Section`'s mono count chip (`StripCell` prototype and basalt `Section`); titles truncate at 390 by the "rows do not wrap" criterion.
@@ -98,3 +98,11 @@ Open after r4, basalt-side: the free-block cell's 1 px gap and `Section`'s mono 
 ## Wave 20 rounds — lead feedback, round 1
 
 5. **r5** — API `from`, real week strip, shared `useNow`, registered series, a column-headed strip, `{total} people` on large invites. Verdict and criteria checks are in the PR thread. Shots were taken against production, which does not have `from` until this branch deploys, so past days stay empty in r5.
+
+## Wave 20 review fixes
+
+- **Unknown is a dash.** `agendaSummary`, `dayLoad` and `summarySentence` take the set of sources that have not answered (failed with nothing of the window cached, or still loading). Every figure that depends on one is `null` and renders `—`: the summary (`— meetings today · next — · — this week`), the free-block cell, each strip row and every day in Next 7 days (`—`, never `free`). A calendar's own split figure stays exact (`Work —` beside `Personal 3h`); the split bar is drawn only when both classes answered.
+- **Phone Week window.** The queries start at the Monday of `date − 1` (`queryFromKey`), so the 3-day window keeps the Sunday before a Monday; the route's prefetch uses the same helper.
+- **Split.** Work + Personal equals the booked total: a minute both calendars hold counts once, as Work.
+- **One countdown wording.** `untilLabel` (`in 20m`, `in 1h 30m`) serves the pill and the summary; the pill shows under 12 h.
+- **`from` validation.** A real calendar date (`2026-02-31` is a 422) and an explicit `Z` / `±hh:mm` offset on datetimes.

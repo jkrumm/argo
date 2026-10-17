@@ -11,6 +11,7 @@ import { formatDurationMin } from '../../components/upstream/schedule-row-model'
 import type { CalendarEventPayload } from '../../lib/queries/calendar'
 import { SERIES } from '../../lib/series'
 import classes from './agenda.module.css'
+import { untilLabel } from './summary'
 import {
   DAY_TARGET_H,
   durationMin,
@@ -28,9 +29,12 @@ import {
 
 /** Work and Personal are the one categorical split on the page, so they alone earn hues. */
 const SPLIT_COLOR = { work: SERIES.calendarWork, personal: SERIES.calendarPersonal } as const
-/** The `in {n}m` pill only reads as a countdown when the next item is close. */
 /** Past this many invitees the accepted ratio stops being useful ("13/123 accepted"). */
 const MAX_RATIO_ATTENDEES = 12
+/**
+ * The next item carries its `in 1h 30m` pill only while it is under 12 h away; further out the
+ * summary's `next Mon 10:45` already says when, and a pill of `in 44h` is noise.
+ */
 const PILL_WITHIN_MIN = 12 * 60
 const SPLIT_LABEL = { work: 'Work', personal: 'Personal' } as const
 
@@ -89,7 +93,7 @@ export function EventRows({
             past={toDate(String(event.end)).getTime() <= now.getTime()}
             {...(meta ? { meta } : {})}
             {...(next?.event.id === event.id && next.inMin < PILL_WITHIN_MIN
-              ? { pill: `in ${formatDurationMin(next.inMin)}` }
+              ? { pill: untilLabel(next.inMin) }
               : {})}
             {...(videoLink && isHttpUrl(videoLink)
               ? {
@@ -122,12 +126,15 @@ export function DayGroups({
   allDay,
   now,
   next,
+  incomplete = false,
 }: {
   days: readonly AgendaDay[]
   /** All-day items per day key. */
   allDay: Readonly<Record<DayKey, readonly CalendarItem[]>>
   now: Date
   next: NextEvent | null
+  /** A calendar has not answered: an empty day is unknown (`—`), never "free". */
+  incomplete?: boolean
 }) {
   return (
     <div>
@@ -137,7 +144,7 @@ export function DayGroups({
           return (
             <Box key={day.key} className={classes.freeDay}>
               <span className={classes.caption}>{dayLabel(day.key)}</span>
-              <span className={classes.muted}>free</span>
+              <span className={classes.muted}>{incomplete ? '—' : 'free'}</span>
             </Box>
           )
         }
@@ -146,9 +153,11 @@ export function DayGroups({
             <Box className={classes.groupHead}>
               <span className={classes.caption}>{dayLabel(day.key)}</span>
               <span className={classes.muted}>
-                {day.events.length === 0
-                  ? 'no meetings'
-                  : `${day.events.length} ${day.events.length === 1 ? 'event' : 'events'} · ${formatDurationMin(day.bookedMin)}`}
+                {incomplete
+                  ? '—'
+                  : day.events.length === 0
+                    ? 'no meetings'
+                    : `${day.events.length} ${day.events.length === 1 ? 'event' : 'events'} · ${formatDurationMin(day.bookedMin)}`}
               </span>
             </Box>
             {chips.length > 0 && (
@@ -179,6 +188,7 @@ export function WeekStrip({
   unknown: ReadonlySet<keyof SourceSplit>
 }) {
   const total = split.work + split.personal
+  const hasUnknown = unknown.size > 0
   return (
     <Card py="sm" px="md" data-shot="week-strip">
       <Section title={title}>
@@ -190,7 +200,7 @@ export function WeekStrip({
         </Box>
         <div>
           {load.map((day) => {
-            const hours = day.bookedMin / 60
+            const hours = day.bookedMin === null ? null : day.bookedMin / 60
             return (
               <Box
                 key={day.key}
@@ -202,17 +212,19 @@ export function WeekStrip({
                   value={hours}
                   max={DAY_TARGET_H}
                   target={DAY_TARGET_H}
-                  color={hours > DAY_TARGET_H ? VX.status.warn : VX.muted}
+                  color={hours !== null && hours > DAY_TARGET_H ? VX.status.warn : VX.muted}
                   startCaption={null}
                   endCaption={null}
                 />
-                <span className={classes.stripBooked}>{formatDurationMin(day.bookedMin)}</span>
-                <span className={classes.stripCount}>{day.count}</span>
+                <span className={classes.stripBooked}>
+                  {day.bookedMin === null ? '—' : formatDurationMin(day.bookedMin)}
+                </span>
+                <span className={classes.stripCount}>{day.count ?? '—'}</span>
               </Box>
             )
           })}
         </div>
-        {split.work > 0 && split.personal > 0 && (
+        {!hasUnknown && split.work > 0 && split.personal > 0 && (
           <Meter
             label="Booked hours by source"
             max={Math.max(total, 1)}

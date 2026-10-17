@@ -133,7 +133,8 @@ function totalMin(intervals: readonly Interval[]): number {
 
 // ---- day load and booked hours --------------------------------------------------------------
 
-export type DayLoad = { key: DayKey; bookedMin: number; count: number }
+/** `null` figures mean "unknown": a calendar this day depends on has not answered. Never 0. */
+export type DayLoad = { key: DayKey; bookedMin: number | null; count: number | null }
 
 export function bookedMinOnDay(events: readonly CalendarItem[], key: DayKey): number {
   return totalMin(busyWithin(timedEvents(events), dayStartMs(key), dayEndMs(key)))
@@ -151,33 +152,43 @@ export function eventsOnDay(events: readonly CalendarItem[], key: DayKey): Calen
     .toSorted((a, b) => String(a.start).localeCompare(String(b.start)))
 }
 
-export function dayLoad(events: readonly CalendarItem[], keys: readonly DayKey[]): DayLoad[] {
+/** With `incomplete` (a source is failed or still loading) every figure is unknown, not zero. */
+export function dayLoad(
+  events: readonly CalendarItem[],
+  keys: readonly DayKey[],
+  incomplete = false,
+): DayLoad[] {
   return keys.map((key) => ({
     key,
-    bookedMin: bookedMinOnDay(events, key),
-    count: eventsOnDay(events, key).length,
+    bookedMin: incomplete ? null : bookedMinOnDay(events, key),
+    count: incomplete ? null : eventsOnDay(events, key).length,
   }))
 }
 
 export type SourceSplit = Record<SourceClass, number>
 
-/** Booked minutes over `keys` per source class; each class merges its own overlaps. */
+/**
+ * Booked minutes over `keys`, split so that Work + Personal always equals the booked total: Work is
+ * the union of the work events, Personal is the time only personal events cover — a minute both
+ * calendars hold is attributed once, to Work.
+ */
 export function bookedBySourceClass(
   events: readonly CalendarItem[],
   keys: readonly DayKey[],
 ): SourceSplit {
+  const timed = timedEvents(events)
+  const work = timed.filter((e) => e.payload?.sourceClass === 'work')
   const split: SourceSplit = { work: 0, personal: 0 }
-  for (const sourceClass of ['work', 'personal'] as const) {
-    const ofClass = timedEvents(events).filter((e) => e.payload?.sourceClass === sourceClass)
-    for (const key of keys) {
-      split[sourceClass] += totalMin(busyWithin(ofClass, dayStartMs(key), dayEndMs(key)))
-    }
+  for (const key of keys) {
+    const workMin = totalMin(busyWithin(work, dayStartMs(key), dayEndMs(key)))
+    split.work += workMin
+    split.personal += totalMin(busyWithin(timed, dayStartMs(key), dayEndMs(key))) - workMin
   }
   return split
 }
 
 export function weekBookedMin(events: readonly CalendarItem[], keys: readonly DayKey[]): number {
-  return dayLoad(events, keys).reduce((sum, d) => sum + d.bookedMin, 0)
+  return dayLoad(events, keys).reduce((sum, d) => sum + (d.bookedMin ?? 0), 0)
 }
 
 // ---- free time ------------------------------------------------------------------------------
@@ -295,36 +306,50 @@ export type AgendaSummary = {
   todayKey: DayKey
   /** The Monday-start week holding today: the strip's rows and the summary's "this week". */
   weekKeys: DayKey[]
-  todayCount: number
-  todayBookedMin: number
-  weekBookedMin: number
+  /** A calendar is failed or still loading: every figure below is `null` (unknown), never 0. */
+  incomplete: boolean
+  todayCount: number | null
+  todayBookedMin: number | null
+  weekBookedMin: number | null
   next: NextEvent | null
 }
 
 /** The figures of the summary sentence — and of the strip beside it — from one derivation. */
-export function agendaSummary(events: readonly CalendarItem[], now: Date): AgendaSummary {
+export function agendaSummary(
+  events: readonly CalendarItem[],
+  now: Date,
+  unknown: ReadonlySet<SourceClass> = new Set(),
+): AgendaSummary {
   const todayKey = dayKey(now)
   const keys = weekKeys(todayKey)
+  const incomplete = unknown.size > 0
   return {
     todayKey,
     weekKeys: keys,
-    todayCount: eventsOnDay(events, todayKey).length,
-    todayBookedMin: bookedMinOnDay(events, todayKey),
-    weekBookedMin: weekBookedMin(events, keys),
-    next: nextEvent(events, now),
+    incomplete,
+    todayCount: incomplete ? null : eventsOnDay(events, todayKey).length,
+    todayBookedMin: incomplete ? null : bookedMinOnDay(events, todayKey),
+    weekBookedMin: incomplete ? null : weekBookedMin(events, keys),
+    // The next meeting may sit in the calendar that has not answered.
+    next: incomplete ? null : nextEvent(events, now),
   }
 }
 
 export type CalendarView = 'agenda' | 'week' | 'month'
 
 /**
- * The first day the calendar queries must cover for a view: the Monday of the week shown — of
- * today's week on the Agenda, of the selected week on Week, of the month's first week on Month —
- * so the feed holds the past days of that week as well as the days ahead.
+ * The first day the calendar queries must cover for a view, the Monday of: today's week on the
+ * Agenda; the week of the day BEFORE the selected date on Week (the phone's 3-day window starts at
+ * date − 1, the previous week's Sunday when `date` is a Monday); the first week of the month on
+ * Month. The feed then holds the past days of that week as well as the days ahead.
  */
 export function queryFromKey(view: CalendarView, selected: DayKey, today: DayKey): DayKey {
-  if (view === 'agenda') return weekKeys(today)[0] ?? today
-  const anchor = view === 'month' ? `${selected.slice(0, 7)}-01` : selected
+  const anchor =
+    view === 'agenda'
+      ? today
+      : view === 'month'
+        ? `${selected.slice(0, 7)}-01`
+        : addDays(selected, -1)
   return weekKeys(anchor)[0] ?? anchor
 }
 
