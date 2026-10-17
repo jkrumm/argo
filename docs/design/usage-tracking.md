@@ -11,7 +11,7 @@ Shots: `usage-tracking--dark--desktop.png`, crops `usage-tracking--dark--01-cost
 - Cost-over-time legend (crop 06) lists 15 sources; the donut (crop 07) shows a 96 / 4 split that a single bar says better, and its centre repeats the "Cost" card.
 - Top projects (crop 12) is a table with a share column where a ranked bar list exists.
 - Section titles "Cost", "Volume", "Health" and the card captions are bare nouns with no number.
-- Fields in `usage_record` the page never reads: `cost_source` (how a cost was derived: reported vs estimated) and `workspace`/`sub_tool` outside the filter and group-by switches. Token columns, `duration_ms` (p95) and `machine` are already used.
+- Fields in `usage_record` the page never reads: `cost_source` only (how a cost was derived: reported vs estimated). `sub_tool` is a group-by, `workspace` a filter, the token columns feed the tokens metric, `duration_ms` feeds p95, `machine` is a filter and group-by.
 
 **Distance from bar: 4/5.** Real data and sensible metrics, but no dataset has an encoding chosen for its shape and one legend consumes the page.
 
@@ -60,7 +60,7 @@ Format is binding; figures other than the 2026-10-17 baseline ones are illustrat
 - `Meter` `{ value, max, target?, segments?: {label, value}[], shape: 'bar'|'ring', unit }`, maps to planned `Meter` (§4, wave 34).
 - `BarList` `{ rows: {label, value, share?, hue?}[], format, max? }`, maps to planned `BarList`.
 - `StatGroup variant="strip"` with a per-cell micro-visual slot, maps to planned strip.
-- New: series-fold helper (`foldTopN(series, n, otherLabel)`) for stacked `CartesianChart` data; every stacked chart with an open-ended group-by needs it.
+- New: series-fold helper (`foldTopN(series, n, otherLabel)`) for stacked `CartesianChart` data. The top n are chosen once, by aggregate value over the active filtered range (the same totals the adjacent `BarList` ranks), and kept for every bucket; all remaining series sum into Other, so series identity is stable over time and the chart matches the list; every stacked chart with an open-ended group-by needs it.
 - New: threshold-banded `BandStrip` preset from a daily series + thresholds (error days).
 
 ## Pass criteria
