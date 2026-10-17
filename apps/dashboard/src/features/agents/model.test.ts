@@ -13,6 +13,7 @@ import {
   groupProjects,
   headlineOf,
   longestRunMs,
+  clockTime,
   summarySentence,
   dayLabel,
   ageAgo,
@@ -503,5 +504,49 @@ describe('longestRunMs', () => {
     ]
     expect(longestRunMs(rows, 5_000)).toBe(4_000)
     expect(longestRunMs([agent({ id: 'c' })], 5_000)).toBeNull()
+  })
+})
+
+describe('unreadable data never throws or becomes zero', () => {
+  const bad = (receivedAt: string, summary: unknown) =>
+    ({ receivedAt, summary }) as unknown as HistoryPoint
+
+  it('omits non-finite counts and unparseable times from trend, peak and hourly buckets', () => {
+    const history = [
+      bad('2026-01-01T12:10:00Z', { needsYou: 'x', working: undefined }),
+      bad('not a date', { needsYou: 5, working: 5 }),
+      bad('2026-01-01T12:20:00Z', { needsYou: 2, working: 3 }),
+    ]
+    expect(trendSeries(history, 'needsYou')).toEqual([5, 2])
+    expect(peakNeedsYou(history)).toEqual({ value: 2, atMs: Date.parse('2026-01-01T12:20:00Z') })
+    const buckets = hourlyWorking(history, 2, Date.parse('2026-01-01T12:30:00Z'))
+    expect(buckets.map((b) => b.working)).toEqual([null, 3])
+  })
+
+  it('puts unparseable narratives in a trailing dash group', () => {
+    const now = new Date(2026, 0, 10, 12).getTime()
+    const groups = groupByDay(
+      [
+        { revisedAt: 'garbage', id: 'x' },
+        { revisedAt: new Date(2026, 0, 10, 9).toISOString(), id: 'a' },
+      ],
+      now,
+    )
+    expect(groups.map((g) => g.label)).toEqual(['Today', '—'])
+    expect(clockTime('garbage')).toBe('—')
+  })
+
+  it('treats an unparseable ask time as no clock', () => {
+    const [card] = needsYouCards([{ id: 'q', askedAt: 'garbage', question: 'Do it.' }], [], 1_000)
+    expect(card?.facts).toEqual([])
+    expect(card?.waitMs).toBe(-1)
+    expect(oldestAskMs([{ askedAt: 'garbage' }], 1_000)).toBeNull()
+  })
+
+  it('does not treat a prototype key as a known state', () => {
+    const { quiet } = groupProjects(undefined, [
+      agent({ id: 'p', project: 'solo', state: 'toString' as AgentRow['state'] }),
+    ])
+    expect(quiet[0]?.counts.unknown).toBe(1)
   })
 })
