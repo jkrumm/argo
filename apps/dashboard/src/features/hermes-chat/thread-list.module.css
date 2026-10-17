@@ -81,15 +81,14 @@
   column-gap: var(--vx-space-stack-md);
 }
 
+/* Quiet sentence-case pill: a tinted ground, no border, no mono caps. */
 .chip {
-  padding-inline: var(--vx-space-stack-xs);
-  font-family: var(--basalt-font-mono);
+  padding-inline: var(--vx-space-stack-sm);
   font-size: var(--vx-text-sm);
   line-height: 1.5;
-  text-transform: uppercase;
   color: var(--vx-muted);
-  border: 1px solid var(--vx-surface-border);
-  border-radius: var(--vx-radius-ctrl);
+  background: var(--vx-surface-panel-hover);
+  border-radius: var(--vx-radius-pill);
   grid-area: chip;
   justify-self: start;
 }

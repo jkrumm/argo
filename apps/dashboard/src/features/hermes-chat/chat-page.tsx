@@ -309,7 +309,7 @@ function HermesChatFeed() {
         </Stack>
       ) : (
         <>
-          <Stack gap="sm" px="md" pt="md">
+          <Stack gap="sm" px="md" pt="lg">
             <Text size="sm" c="dimmed" data-shot="thread-summary">
               {summaryLine(summary)}
             </Text>

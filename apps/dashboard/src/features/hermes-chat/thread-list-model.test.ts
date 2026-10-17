@@ -40,14 +40,14 @@ function entry(over: Partial<ThreadEntry> & { id: string }): ThreadEntry {
 describe('listTime', () => {
   it('prints HH:mm for today and D Mon for older days, in English', () => {
     expect(listTime(new Date(2026, 9, 17, 9, 5).getTime(), NOW)).toBe('09:05')
-    expect(listTime(new Date(2026, 9, 3, 9, 5).getTime(), NOW)).toBe('3 Oct')
+    expect(listTime(new Date(2026, 9, 3, 9, 5).getTime(), NOW)).toBe('3\u00a0Oct')
   })
 })
 
 describe('startedDate', () => {
   it('adds the year once it is not this year', () => {
-    expect(startedDate(new Date(2026, 2, 4).getTime(), NOW)).toBe('4 Mar')
-    expect(startedDate(new Date(2025, 11, 31).getTime(), NOW)).toBe('31 Dec 2025')
+    expect(startedDate(new Date(2026, 2, 4).getTime(), NOW)).toBe('4\u00a0Mar')
+    expect(startedDate(new Date(2025, 11, 31).getTime(), NOW)).toBe('31\u00a0Dec\u00a02025')
   })
 })
 
@@ -210,8 +210,8 @@ describe('factsLine', () => {
       updatedAt: new Date(2026, 9, 3, 9, 41).getTime(),
     })
     expect(factsLine({ entry: e, now: NOW, compact: false })).toBe(
-      'Started 3 Oct 08:00 · last reply 09:41',
+      'Started 3\u00a0Oct 08:00 · last reply 09:41',
     )
-    expect(factsLine({ entry: e, now: NOW, compact: true })).toBe('last reply 3 Oct · Infra')
+    expect(factsLine({ entry: e, now: NOW, compact: true })).toBe('last reply 3\u00a0Oct · Infra')
   })
 })
