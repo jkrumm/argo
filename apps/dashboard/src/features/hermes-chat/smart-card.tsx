@@ -31,7 +31,7 @@ const STATUS_META = {
 
 type StatusKind = keyof typeof STATUS_META
 
-function StatusDot({ status }: { status: StatusKind }) {
+function StatusIcon({ status }: { status: StatusKind }) {
   const { color, Icon } = STATUS_META[status]
   return (
     <ThemeIcon size="sm" radius="xl" variant="light" color={color}>
@@ -45,7 +45,7 @@ function InfraView({ card }: { card: z.infer<typeof InfraCard> }) {
     <Card py="sm" px="md">
       <Group justify="space-between" wrap="nowrap" mb={card.items?.length ? 'xs' : 0}>
         <Group gap="xs" wrap="nowrap">
-          {card.status && <StatusDot status={card.status} />}
+          {card.status && <StatusIcon status={card.status} />}
           <Text fw="semibold" size="sm">
             {card.title ?? 'Status'}
           </Text>
@@ -66,7 +66,7 @@ function InfraView({ card }: { card: z.infer<typeof InfraCard> }) {
           {card.items.map((item) => (
             <Group key={item.label} justify="space-between" wrap="nowrap" gap="xs">
               <Group gap="xs" wrap="nowrap">
-                {item.status && <StatusDot status={item.status} />}
+                {item.status && <StatusIcon status={item.status} />}
                 <Text size="sm">{item.label}</Text>
               </Group>
               {item.value && (

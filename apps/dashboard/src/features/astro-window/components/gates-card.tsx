@@ -1,10 +1,9 @@
 import type { ReactNode } from 'react'
 import { Card, Group, Stack, Text } from '@mantine/core'
-import { Meter } from 'basalt-ui'
+import { Meter, StatusDot } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { fmtDegrees, fmtShortDay } from '../formulas'
 import type { Night } from '../types'
-import { StatusDot } from './status-dot'
 
 const NEUTRAL_FILL = alpha(VX.muted, 0.35)
 

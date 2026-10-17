@@ -1,7 +1,7 @@
 import { Group, Text } from '@mantine/core'
+import { StatusDot } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import type { Location, Sources } from '../types'
-import { StatusDot } from './status-dot'
 
 const SOURCES: ReadonlyArray<{ key: keyof Sources; name: string }> = [
   { key: 'dwdIcon', name: 'DWD ICON' },
