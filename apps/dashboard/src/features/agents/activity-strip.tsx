@@ -32,6 +32,7 @@ const STATES = [
     formatValue: () => '0 agents',
   },
   { key: 'gap', label: 'No snapshot', color: alpha(VX.status.warn, 0.35) },
+  { key: 'pending', label: 'Hour in progress, no snapshot yet', color: alpha(VX.line, 0.05) },
 ] as const
 
 /**
@@ -43,17 +44,18 @@ export function ActivityStrip({ history, hours, now }: Props) {
     const hourly = hourlyWorking(history, hours, now)
     return { buckets: hourly, peakHour: peakWorking(hourly) }
   }, [history, hours, now])
-  const hasGap = buckets.some((b) => b.working === null)
+  const currentHourMs = buckets.at(-1)?.hourMs
+  const hasGap = buckets.some((b) => b.working === null && b.hourMs !== currentHourMs)
   const peak = peakHour?.value ?? 0
 
   const getBand = useMemo(
     () =>
       (d: HourBucket): BandSpan => {
-        if (d.working === null) return { state: 'gap' }
+        if (d.working === null) return { state: d.hourMs === currentHourMs ? 'pending' : 'gap' }
         if (d.working === 0) return { state: 'quiet' }
         return { state: 'working', fill: alpha(VX.line, 0.25 + 0.75 * (d.working / peak)) }
       },
-    [peak],
+    [peak, currentHourMs],
   )
   const ticks = buckets
     .filter((b) => new Date(b.hourMs).getHours() % SIX_HOURS === 0)
@@ -77,17 +79,17 @@ export function ActivityStrip({ history, hours, now }: Props) {
           legend={false}
           height={48}
         />
-      </Box>
-      <Text size="sm" ff="monospace" c="dimmed" mt="xs">
-        {peakHour === null
-          ? 'No snapshot in the window'
-          : `peak ${peak} at ${clock(peakHour.hourMs)} · latest hour ${buckets.at(-1)?.working ?? '—'}`}
-      </Text>
-      {hasGap ? (
-        <Text size="xs" c="dimmed" mt="xs">
-          Amber: an hour with no snapshot received.
+        <Text size="sm" ff="monospace" c="dimmed" mt="xs">
+          {peakHour === null
+            ? 'No snapshot in the window'
+            : `peak ${peak} at ${clock(peakHour.hourMs)} · latest hour ${buckets.at(-1)?.working ?? '—'}`}
         </Text>
-      ) : null}
+        {hasGap ? (
+          <Text size="xs" c="dimmed" mt="xs">
+            Amber: an hour with no snapshot received.
+          </Text>
+        ) : null}
+      </Box>
     </Section>
   )
 }
