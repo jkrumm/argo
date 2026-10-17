@@ -195,7 +195,9 @@ export function ProjectCards({ active, quiet, now }: Props) {
         ) : null}
         {quiet.length > 0 ? (
           <Stack gap="xs" className={classes.quietBox} data-shot="quiet-projects">
-            <Text className={classes.listHead}>No agent running · {quiet.length} projects</Text>
+            <Text className={classes.listHead}>
+              No agent running · {plural(quiet.length, 'project', 'projects')}
+            </Text>
             <QuietList groups={quiet} now={now} />
           </Stack>
         ) : null}

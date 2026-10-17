@@ -102,12 +102,24 @@ export function isAbandonedWait(agent: AgentRow, now = Date.now()): boolean {
   return now - agent.lastActivityAt > ABANDONED_AFTER_MS
 }
 
-/** One count's trend over the history window. A point without a summary is omitted, not plotted as 0. */
+/** Epoch ms of an ISO timestamp, `null` when absent or unparseable. */
+const parseMs = (iso: string | null | undefined): number | null => {
+  if (!iso) return null
+  const ms = Date.parse(iso)
+  return Number.isFinite(ms) ? ms : null
+}
+
+const isCount = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)
+
+/** One count's trend over the history window. A point without a summary or a finite count is omitted, not plotted as 0. */
 export function trendSeries(
   history: HistoryPoint[] | undefined,
   key: 'needsYou' | 'working',
 ): number[] {
-  return (history ?? []).flatMap((p) => (p.summary ? [p.summary[key] ?? 0] : []))
+  return (history ?? []).flatMap((p) => {
+    const n = p.summary?.[key]
+    return isCount(n) ? [n] : []
+  })
 }
 
 // ── Fleet by state ───────────────────────────────────────────────────────────────────────────
@@ -155,9 +167,9 @@ export type Peak = { value: number; atMs: number }
 export function peakNeedsYou(history: HistoryPoint[] | undefined): Peak | null {
   let peak: Peak | null = null
   for (const p of history ?? []) {
-    if (!p.summary) continue
-    const value = p.summary.needsYou ?? 0
-    const atMs = Date.parse(p.receivedAt)
+    const value = p.summary?.needsYou
+    const atMs = parseMs(p.receivedAt)
+    if (!isCount(value) || atMs === null) continue
     if (peak === null || value > peak.value || (value === peak.value && atMs > peak.atMs))
       peak = { value, atMs }
   }
@@ -185,13 +197,13 @@ export function hourlyWorking(
     working: null,
   }))
   for (const p of history ?? []) {
-    if (!p.summary) continue
-    const slot = Math.floor(
-      (Math.floor(Date.parse(p.receivedAt) / HOUR_MS) * HOUR_MS - buckets[0]!.hourMs) / HOUR_MS,
-    )
+    const working = p.summary?.working
+    const atMs = parseMs(p.receivedAt)
+    if (!isCount(working) || atMs === null) continue
+    const slot = Math.floor((Math.floor(atMs / HOUR_MS) * HOUR_MS - buckets[0]!.hourMs) / HOUR_MS)
     const bucket = buckets[slot]
     if (!bucket) continue
-    bucket.working = Math.max(bucket.working ?? 0, p.summary.working ?? 0)
+    bucket.working = Math.max(bucket.working ?? 0, working)
   }
   return buckets
 }
@@ -242,7 +254,7 @@ function buildGroup(name: string, agents: AgentRow[], git: OverviewProject['git'
   const sources: Record<string, number> = {}
   let lastActivityAt: number | null = null
   for (const a of agents) {
-    const state = a.state in counts ? a.state : 'unknown'
+    const state = Object.hasOwn(counts, a.state) ? a.state : 'unknown'
     counts[state] += 1
     const source = (a.source ?? 'unknown').split(/[\s:·]/)[0] || 'unknown'
     sources[source] = (sources[source] ?? 0) + 1
@@ -374,23 +386,36 @@ export function dayLabel(ms: number, now: number): string {
     .replace(',', '')
 }
 
-/** Newest first by `revisedAt`, grouped by local day. */
+/** Heading of the group for items whose timestamp cannot be read. */
+export const UNDATED = '—'
+
+/** Newest first by `revisedAt`, grouped by local day; unreadable timestamps form a trailing `—` group. */
 export function groupByDay<T extends { revisedAt: string }>(
   items: readonly T[],
   now: number,
 ): NarrativeGroup<T>[] {
+  const dated = items.flatMap((item) => {
+    const ms = parseMs(item.revisedAt)
+    return ms === null ? [] : [{ item, ms }]
+  })
   const groups: NarrativeGroup<T>[] = []
-  for (const item of items.toSorted((a, b) => Date.parse(b.revisedAt) - Date.parse(a.revisedAt))) {
-    const label = dayLabel(Date.parse(item.revisedAt), now)
+  for (const { item, ms } of dated.toSorted((a, b) => b.ms - a.ms)) {
+    const label = dayLabel(ms, now)
     const last = groups.at(-1)
     if (last?.label === label) last.items.push(item)
     else groups.push({ label, items: [item] })
   }
+  const undated = items.filter((item) => parseMs(item.revisedAt) === null)
+  if (undated.length > 0) groups.push({ label: UNDATED, items: undated })
   return groups
 }
 
-export const clockTime = (iso: string): string =>
-  new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(Date.parse(iso))
+/** `HH:MM` of an ISO timestamp, `—` when unreadable. */
+export function clockTime(iso: string): string {
+  const ms = parseMs(iso)
+  if (ms === null) return '—'
+  return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(ms)
+}
 
 /** `"6m ago"`, or `"just now"` under a minute; `"—"` for a bad duration. */
 export function ageAgo(ms: number): string {
@@ -434,7 +459,8 @@ export function needsYouCards(
   now: number,
 ): NeedsYouCard[] {
   const asks: NeedsYouCard[] = humanQueue.map((item) => {
-    const waitMs = item.askedAt ? Math.max(0, now - Date.parse(item.askedAt)) : -1
+    const askedMs = parseMs(item.askedAt)
+    const waitMs = askedMs === null ? -1 : Math.max(0, now - askedMs)
     const host = typeof item['host'] === 'string' ? item['host'] : null
     const facts = [host, waitMs >= 0 ? `asked ${ageAgo(waitMs)}` : null].filter(isText)
     const headline = headlineOf(item.question)
@@ -481,8 +507,9 @@ export function oldestAskMs(
   humanQueue: readonly { askedAt?: string | null | undefined }[],
   now: number,
 ): number | null {
-  const ages = humanQueue.flatMap((i) =>
-    i.askedAt ? [Math.max(0, now - Date.parse(i.askedAt))] : [],
-  )
+  const ages = humanQueue.flatMap((i) => {
+    const ms = parseMs(i.askedAt)
+    return ms === null ? [] : [Math.max(0, now - ms)]
+  })
   return ages.length === 0 ? null : Math.max(...ages)
 }
