@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { Stack, Title } from '@mantine/core'
 import { PageBar, StatGroup } from 'basalt-ui'
@@ -141,12 +142,17 @@ export function TodayPage() {
         now,
       )
     : null
-  const acwr = loadQuery.data
-    ? acwrReading(
-        // The Garmin Health strip's visibility rule, so both pages name the same "latest" day.
-        applyVisibilityFilter(loadQuery.data.points, (p) => p.date),
-      )
-    : null
+  const loadPoints = loadQuery.data?.points
+  // The Garmin Health strip's visibility rule, so both pages name the same "latest" day.
+  const acwr = useMemo(
+    () =>
+      loadPoints === undefined
+        ? null
+        : acwrReading(applyVisibilityFilter(loadPoints, (p) => p.date)),
+    // `now` ticks the hide-today cutoff: the filter reads the clock itself.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [loadPoints, now],
+  )
 
   // ── Activity ───────────────────────────────────────────────────────────────────────────────
   const stream = activityStream(

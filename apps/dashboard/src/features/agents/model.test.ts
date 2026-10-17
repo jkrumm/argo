@@ -489,15 +489,17 @@ describe('needsYouCards', () => {
 })
 
 describe('needsYouCount', () => {
-  it('counts the asks and the needs_you agents the section renders, not the snapshot summary', () => {
-    const agents = [{ state: 'needs_you' }, { state: 'working' }, { state: 'needs_you' }] as const
-    expect(needsYouCount([{ id: 'a' }], agents)).toBe(3)
-    expect(needsYouCount([], [])).toBe(0)
-  })
-  it('matches needsYouCards length', () => {
+  it('is the length of the list the Needs-you section renders', () => {
     const queue = [{ id: 'q1', question: 'Ship it?' }]
-    const agents = [agent({ state: 'needs_you' }), agent({ state: 'idle' })]
-    expect(needsYouCount(queue, agents)).toBe(needsYouCards(queue, agents, Date.now()).length)
+    const agents = [
+      agent({ state: 'needs_you' }),
+      agent({ id: 'agent-2', state: 'needs_you' }),
+      agent({ id: 'agent-3', state: 'idle' }),
+    ]
+    const now = Date.now()
+    expect(needsYouCount(queue, agents, now)).toBe(3)
+    expect(needsYouCount(queue, agents, now)).toBe(needsYouCards(queue, agents, now).length)
+    expect(needsYouCount([], [], now)).toBe(0)
   })
 })
 

@@ -21,7 +21,7 @@ describe('strip cells with no reading', () => {
       footer: 'none in the next 7 days',
     })
     expect(recoveryCell(null)).toMatchObject({ value: null, footer: 'unavailable' })
-    expect(acwrCell(null)).toMatchObject({ value: null, footer: 'unavailable' })
+    expect(acwrCell(null, NOW)).toMatchObject({ value: null, footer: 'unavailable' })
   })
 
   it('labels a recovery that is not today’s with its own day and says it is not scored yet', () => {
@@ -36,6 +36,14 @@ describe('strip cells with no reading', () => {
     })
     expect(cell.caption).toBe('Recovery · Wed 14 Jan')
     expect(cell.footer).toBe('not scored yet today')
+  })
+
+  it('names the reading day in the ACWR footer only when it is not today', () => {
+    const reading = { acwr: 1.1, zone: 'optimal' as const }
+    expect(acwrCell({ ...reading, date: '2026-01-15' }, NOW).footer).toBe('optimal 0.8–1.3')
+    expect(acwrCell({ ...reading, date: '2026-01-14' }, NOW).footer).toBe(
+      'optimal 0.8–1.3 · Wed 14 Jan',
+    )
   })
 
   it('says which calendar is missing when the empty day is partial', () => {

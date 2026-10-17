@@ -452,9 +452,6 @@ type QueueItem = {
   [key: string]: unknown
 }
 
-/** The one rule for which agents the Needs-you section lists. */
-const isNeedsYou = (a: Pick<AgentRow, 'state'>) => a.state === 'needs_you'
-
 /** Human-queue asks and `needs_you` agents as one list, longest wait first. */
 export function needsYouCards(
   humanQueue: readonly QueueItem[],
@@ -482,23 +479,26 @@ export function needsYouCards(
       waitMs,
     }
   })
-  const waiting: NeedsYouCard[] = agents.filter(isNeedsYou).map((a) => {
-    const waitMs = a.lastActivityAt == null ? -1 : Math.max(0, now - a.lastActivityAt)
-    const facts = [a.project, waitMs >= 0 ? `waiting ${formatWaitDuration(waitMs)}` : null].filter(
-      isText,
-    )
-    return {
-      key: `agent-${a.id}`,
-      kind: 'agent',
-      headline: headlineOf(a.title ?? a.lastPrompt ?? a.id),
-      facts,
-      inset: a.blocker ?? a.waitingFor ?? a.standing ?? null,
-      copy: a.paneId ? { label: 'Copy pane id', value: a.paneId } : null,
-      fullAsk: null,
-      abandoned: isAbandonedWait(a, now),
-      waitMs,
-    }
-  })
+  const waiting: NeedsYouCard[] = agents
+    .filter((a) => a.state === 'needs_you')
+    .map((a) => {
+      const waitMs = a.lastActivityAt == null ? -1 : Math.max(0, now - a.lastActivityAt)
+      const facts = [
+        a.project,
+        waitMs >= 0 ? `waiting ${formatWaitDuration(waitMs)}` : null,
+      ].filter(isText)
+      return {
+        key: `agent-${a.id}`,
+        kind: 'agent',
+        headline: headlineOf(a.title ?? a.lastPrompt ?? a.id),
+        facts,
+        inset: a.blocker ?? a.waitingFor ?? a.standing ?? null,
+        copy: a.paneId ? { label: 'Copy pane id', value: a.paneId } : null,
+        fullAsk: null,
+        abandoned: isAbandonedWait(a, now),
+        waitMs,
+      }
+    })
   return [...asks, ...waiting].toSorted((a, b) => b.waitMs - a.waitMs)
 }
 
@@ -508,10 +508,11 @@ export function needsYouCards(
  * only, so it reads 0 while the section lists asks.
  */
 export function needsYouCount(
-  humanQueue: readonly unknown[],
-  agents: readonly Pick<AgentRow, 'state'>[],
+  humanQueue: readonly QueueItem[],
+  agents: readonly AgentRow[],
+  now: number,
 ): number {
-  return humanQueue.length + agents.filter(isNeedsYou).length
+  return needsYouCards(humanQueue, agents, now).length
 }
 
 /** Age of the oldest human-queue ask that carries a timestamp; `null` when none does. */

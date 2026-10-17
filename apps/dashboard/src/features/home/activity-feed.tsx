@@ -69,7 +69,7 @@ export function ActivityFeed({ groups, total, stale, loaded, now }: Props) {
                         component="span"
                         size="sm"
                         className={classes.feedSentence}
-                        title={`${e.actor} ${e.title}`}
+                        title={`${e.actor} ${e.title}${e.chip ? ` ${e.chip}` : ''}`}
                       >
                         <span className={classes.feedActor}>{e.actor}</span> {e.title}
                         {e.chip ? (

@@ -51,7 +51,7 @@ function AgentsPage() {
   const oldestAgent = oldestNeedsYouWait(agents, now)
   const oldest = oldestAgent ?? (askMs === null ? null : { ms: askMs, project: 'the human queue' })
   const { active, quiet } = groupProjects(snapshot, agents)
-  const needsYouItems = needsYouCount(humanQueue, agents)
+  const needsYouItems = needsYouCount(humanQueue, agents, now)
   const fleet = fleetParts(snapshot?.summary, countUnknownAgents(agents))
 
   const feed = feedState({
