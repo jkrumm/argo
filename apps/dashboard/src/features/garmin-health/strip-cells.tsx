@@ -175,7 +175,7 @@ function LoadCell({ params }: { params: SummaryParams }) {
           { from: ACWR_OPTIMAL_TO, to: ACWR_CAUTION_TO, label: 'Caution', color: VX.warn },
           { from: ACWR_CAUTION_TO, to: ACWR_METER_MAX, label: 'Danger', color: VX.bad },
         ]}
-        startCaption={`under < ${ACWR_FLOOR} · optimal ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO} · caution > ${ACWR_OPTIMAL_TO}`}
+        startCaption={`under < ${ACWR_FLOOR} · optimal ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO} · caution ${ACWR_OPTIMAL_TO}–${ACWR_CAUTION_TO} · danger > ${ACWR_CAUTION_TO}`}
         endCaption={ACWR_METER_MAX.toFixed(1)}
         loading={data === undefined}
         emptyText="No training load"
