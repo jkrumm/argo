@@ -5,7 +5,7 @@ import { BandStrip } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import type { BandSpan } from 'basalt-ui/charts'
 import type { HistoryPoint } from '../../lib/queries/agents'
-import { hourlyWorking, type HourBucket } from './model'
+import { hourlyWorking, peakWorking, type HourBucket } from './model'
 
 type Props = {
   history: HistoryPoint[] | undefined
@@ -39,9 +39,12 @@ const STATES = [
  * count, a distinct flat cell where no snapshot landed (a feed stall shows as a hole, not a zero).
  */
 export function ActivityStrip({ history, hours, now }: Props) {
-  const buckets = useMemo(() => hourlyWorking(history, hours, now), [history, hours, now])
+  const { buckets, peakHour } = useMemo(() => {
+    const hourly = hourlyWorking(history, hours, now)
+    return { buckets: hourly, peakHour: peakWorking(hourly) }
+  }, [history, hours, now])
   const hasGap = buckets.some((b) => b.working === null)
-  const peak = buckets.reduce((top, b) => Math.max(top, b.working ?? 0), 0)
+  const peak = peakHour?.value ?? 0
 
   const getBand = useMemo(
     () =>
@@ -57,7 +60,11 @@ export function ActivityStrip({ history, hours, now }: Props) {
     .map((b) => b.hourMs)
 
   return (
-    <Section title="Last 24 h · agents working per hour" value={String(peak)} unit="agents at peak">
+    <Section
+      title="Last 24 h · agents working per hour"
+      value={peakHour === null ? '—' : String(peak)}
+      {...(peakHour !== null && { unit: 'agents at peak' })}
+    >
       <Box data-shot="activity-strip">
         <BandStrip
           ariaLabel={`Agents working per hour over the last ${hours} hours`}
@@ -71,6 +78,11 @@ export function ActivityStrip({ history, hours, now }: Props) {
           height={48}
         />
       </Box>
+      <Text size="sm" ff="monospace" c="dimmed" mt="xs">
+        {peakHour === null
+          ? 'No snapshot in the window'
+          : `peak ${peak} at ${clock(peakHour.hourMs)} · latest hour ${buckets.at(-1)?.working ?? '—'}`}
+      </Text>
       {hasGap ? (
         <Text size="xs" c="dimmed" mt="xs">
           Amber: an hour with no snapshot received.

@@ -12,6 +12,7 @@ type Props = {
 
 /** The page's one sentence (count, oldest wait, fleet) plus feed freshness as a fact on every load. */
 export function PageSummary({ summary, latest, now }: Props) {
+  if (latest === null) return null
   const age = snapshotAgeMs(latest, now)
   const live = age !== null && age < STALE_AFTER_MS
   return (

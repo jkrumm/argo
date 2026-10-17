@@ -10,6 +10,7 @@ import {
   flattenAgents,
   groupProjects,
   oldestNeedsYouWait,
+  countUnknownAgents,
 } from '../features/agents/model'
 import { StaleBanner } from '../features/agents/stale-banner'
 import { PageSummary } from '../features/agents/page-summary'
@@ -48,6 +49,7 @@ function AgentsPage() {
   const oldest = oldestAgent ?? (askMs === null ? null : { ms: askMs, project: 'human queue' })
   const { active, quiet } = groupProjects(snapshot, agents)
   const waiting = agents.filter((a) => a.state === 'needs_you').length
+  const fleet = fleetParts(snapshot?.summary, countUnknownAgents(agents))
 
   return (
     <>
@@ -68,13 +70,13 @@ function AgentsPage() {
             items: humanQueue.length + waiting,
             oldestWaitMs: oldestAgent?.ms ?? null,
             oldestAskMs: askMs,
-            working: snapshot?.summary?.working ?? 0,
-            total: fleetParts(snapshot?.summary).total,
-            idleProjects: quiet.filter((g) => g.worst === 'idle').length,
+            fleet: fleet && { working: fleet.parts[0]?.value ?? 0, total: fleet.total },
+            idleProjects: quiet.length,
           }}
         />
         <FleetStrip
           summary={snapshot?.summary}
+          fleet={fleet}
           history={historyQuery.data?.data}
           hours={HISTORY_HOURS}
           oldest={oldest}

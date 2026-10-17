@@ -1,4 +1,3 @@
-import type { BadgeProps } from '@mantine/core'
 import type {
   OverviewAgent,
   OverviewProject,
@@ -22,15 +21,6 @@ export const STATE_LABEL: Record<AgentState, string> = {
   stale: 'Stale',
   done: 'Done',
   unknown: 'Unknown',
-}
-
-export const STATE_COLOR: Record<AgentState, NonNullable<BadgeProps['color']>> = {
-  needs_you: 'red',
-  working: 'blue',
-  idle: 'gray',
-  stale: 'orange',
-  done: 'green',
-  unknown: 'gray',
 }
 
 /** A snapshot older than this is a feed that stopped, not a quiet machine. */
@@ -123,21 +113,37 @@ export function trendSeries(
 // ── Fleet by state ───────────────────────────────────────────────────────────────────────────
 
 /** Segment order of the fleet meter. `dispatch` is a source count that overlaps working/done, so it is never a part. */
-export const FLEET_STATES = ['working', 'needs_you', 'idle', 'stale', 'done'] as const
-export type FleetState = (typeof FLEET_STATES)[number]
+const FLEET_STATES = ['working', 'needs_you', 'idle', 'stale', 'done'] as const
+type SummaryState = (typeof FLEET_STATES)[number]
+export type FleetState = SummaryState | 'unknown'
 
 export type FleetPart = { key: FleetState; label: string; value: number }
 
-/** The five parts of the fleet in fixed order; `total` is their sum, so captions always add up. */
-export function fleetParts(summary: OverviewSummary | undefined): {
-  parts: FleetPart[]
-  total: number
-} {
-  const parts = FLEET_STATES.map((key) => ({
+/** Agents whose state is `unknown` or none of the five the summary counts. */
+export const countUnknownAgents = (agents: readonly AgentRow[]): number =>
+  agents.filter((a) => !(FLEET_STATES as readonly string[]).includes(a.state)).length
+
+const summaryKey = (key: SummaryState) => (key === 'needs_you' ? 'needsYou' : key)
+
+/**
+ * The fleet in fixed order, `total` their sum so captions always add up. `unknownAgents` (agents
+ * whose state is none of the five) rides as a sixth part only when present, so the total matches
+ * the agent roster. `null` when the snapshot carries no summary or only part of it: an unreported
+ * count is unknown, never a measured zero.
+ */
+export function fleetParts(
+  summary: OverviewSummary | undefined,
+  unknownAgents = 0,
+): { parts: FleetPart[]; total: number } | null {
+  if (!summary) return null
+  const counts = FLEET_STATES.map((key) => summary[summaryKey(key)])
+  if (!counts.every((n) => typeof n === 'number' && Number.isFinite(n))) return null
+  const parts: FleetPart[] = FLEET_STATES.map((key, i) => ({
     key,
     label: STATE_LABEL[key].toLowerCase(),
-    value: Math.max(0, summary?.[key === 'needs_you' ? 'needsYou' : key] ?? 0),
+    value: Math.max(0, counts[i] ?? 0),
   }))
+  if (unknownAgents > 0) parts.push({ key: 'unknown', label: 'unknown', value: unknownAgents })
   return { parts, total: parts.reduce((sum, p) => sum + p.value, 0) }
 }
 
@@ -152,7 +158,8 @@ export function peakNeedsYou(history: HistoryPoint[] | undefined): Peak | null {
     if (!p.summary) continue
     const value = p.summary.needsYou ?? 0
     const atMs = Date.parse(p.receivedAt)
-    if (peak === null || value >= peak.value) peak = { value, atMs }
+    if (peak === null || value > peak.value || (value === peak.value && atMs > peak.atMs))
+      peak = { value, atMs }
   }
   return peak
 }
@@ -171,6 +178,7 @@ export function hourlyWorking(
   hours: number,
   now: number,
 ): HourBucket[] {
+  if (hours < 1) return []
   const endHour = Math.floor(now / HOUR_MS) * HOUR_MS
   const buckets: HourBucket[] = Array.from({ length: hours }, (_, i) => ({
     hourMs: endHour - (hours - 1 - i) * HOUR_MS,
@@ -186,6 +194,18 @@ export function hourlyWorking(
     bucket.working = Math.max(bucket.working ?? 0, p.summary.working ?? 0)
   }
   return buckets
+}
+
+/** The busiest measured hour; `null` when no hour carries a snapshot (nothing was measured, not zero). */
+export function peakWorking(
+  buckets: readonly HourBucket[],
+): { value: number; hourMs: number } | null {
+  let peak: { value: number; hourMs: number } | null = null
+  for (const b of buckets) {
+    if (b.working === null) continue
+    if (peak === null || b.working > peak.value) peak = { value: b.working, hourMs: b.hourMs }
+  }
+  return peak
 }
 
 // ── Projects ─────────────────────────────────────────────────────────────────────────────────
@@ -269,7 +289,7 @@ export function groupProjects(
 
 // ── Needs-you cards ──────────────────────────────────────────────────────────────────────────
 
-export const HEADLINE_MAX = 90
+const HEADLINE_MAX = 90
 
 /** First sentence of an ask, hard-capped at `max` characters with an ellipsis. */
 export function headlineOf(text: string, max = HEADLINE_MAX): string {
@@ -289,14 +309,15 @@ export type SummaryInput = {
   oldestWaitMs: number | null
   /** Oldest human-queue ask; named only when no agent is waiting. */
   oldestAskMs?: number | null
-  working: number
-  total: number
+  /** `null` when the snapshot has no complete summary: the fleet clause is left out, not zeroed. */
+  fleet: { working: number; total: number } | null
+  /** Projects in the quiet bucket the Projects section lists. */
   idleProjects: number
 }
 
 export function summarySentence(s: SummaryInput): string {
-  const fleet = `${s.working} of ${s.total} agents working`
-  if (s.items === 0) return `Nothing needs you. ${fleet}.`
+  const fleet = s.fleet === null ? null : `${s.fleet.working} of ${s.fleet.total} agents working`
+  if (s.items === 0) return fleet === null ? 'Nothing needs you.' : `Nothing needs you. ${fleet}.`
   const noun = s.items === 1 ? 'item needs' : 'items need'
   const wait =
     s.oldestWaitMs !== null
@@ -304,7 +325,8 @@ export function summarySentence(s: SummaryInput): string {
       : s.oldestAskMs != null
         ? `, oldest ask ${formatWaitDuration(s.oldestAskMs)}`
         : ''
-  return `${s.items} ${noun} you${wait}. ${fleet}, ${s.idleProjects} ${s.idleProjects === 1 ? 'project' : 'projects'} idle.`
+  const idle = `${s.idleProjects} ${s.idleProjects === 1 ? 'project' : 'projects'} idle`
+  return `${s.items} ${noun} you${wait}. ${[fleet, idle].filter(Boolean).join(', ')}.`
 }
 
 // ── Narratives ───────────────────────────────────────────────────────────────────────────────

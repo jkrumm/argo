@@ -3,6 +3,8 @@ import type { ReactNode } from 'react'
 import classes from './stat-strip.module.css'
 
 export type StatStripCell = {
+  /** Stable key and `data-shot` suffix. */
+  id: string
   /** Mono caption naming the quantity, e.g. `NEEDS YOU · now`. */
   caption: string
   /** The headline reading. A bare integer must carry a `unit`. */
@@ -30,11 +32,7 @@ export function StatStrip({ label, cells }: StatStripProps) {
     <section className={classes.root} aria-label={label}>
       <div className={classes.grid}>
         {cells.map((cell) => (
-          <div
-            key={cell.caption}
-            className={classes.cell}
-            data-shot={`strip-${cell.caption.split(' · ')[0]?.toLowerCase().replace(/\s+/g, '-')}`}
-          >
+          <div key={cell.id} className={classes.cell} data-shot={`strip-${cell.id}`}>
             <Text className={classes.caption}>{cell.caption}</Text>
             <div className={classes.reading}>
               <Text

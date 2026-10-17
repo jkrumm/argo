@@ -8,6 +8,8 @@ import {
   fleetParts,
   peakNeedsYou,
   hourlyWorking,
+  peakWorking,
+  countUnknownAgents,
   groupProjects,
   headlineOf,
   summarySentence,
@@ -18,7 +20,7 @@ import {
   groupByDay,
 } from './model'
 import type { AgentRow } from './model'
-import type { HistoryPoint } from '../../lib/queries/agents'
+import type { HistoryPoint, OverviewSummary } from '../../lib/queries/agents'
 
 const agent = (overrides: Partial<AgentRow> = {}): AgentRow => ({
   id: overrides.id ?? 'agent-1',
@@ -138,14 +140,28 @@ describe('trendSeries', () => {
 describe('fleetParts', () => {
   it('orders the five parts and totals exactly their sum, leaving dispatch out', () => {
     const summary = { needsYou: 2, working: 5, idle: 3, stale: 1, done: 4, dispatch: 9 }
-    const { parts, total } = fleetParts(summary)
-    expect(parts.map((p) => p.key)).toEqual(['working', 'needs_you', 'idle', 'stale', 'done'])
-    expect(parts.map((p) => p.value)).toEqual([5, 2, 3, 1, 4])
-    expect(total).toBe(15)
+    const fleet = fleetParts(summary)
+    expect(fleet?.parts.map((p) => p.key)).toEqual([
+      'working',
+      'needs_you',
+      'idle',
+      'stale',
+      'done',
+    ])
+    expect(fleet?.parts.map((p) => p.value)).toEqual([5, 2, 3, 1, 4])
+    expect(fleet?.total).toBe(15)
   })
 
-  it('is all zero without a summary', () => {
-    expect(fleetParts(undefined).total).toBe(0)
+  it('adds unknown-state agents as a sixth part so the total matches the roster', () => {
+    const summary = { needsYou: 0, working: 1, idle: 0, stale: 0, done: 0, dispatch: 0 }
+    const fleet = fleetParts(summary, 2)
+    expect(fleet?.parts.at(-1)).toEqual({ key: 'unknown', label: 'unknown', value: 2 })
+    expect(fleet?.total).toBe(3)
+  })
+
+  it('is null, never a zero fleet, without a complete summary', () => {
+    expect(fleetParts(undefined)).toBeNull()
+    expect(fleetParts({ needsYou: 1, working: 2 } as unknown as OverviewSummary)).toBeNull()
   })
 })
 
@@ -160,6 +176,15 @@ describe('peakNeedsYou', () => {
       point('2026-01-01T01:00:00Z', 3),
       point('2026-01-01T02:00:00Z', 1),
       point('2026-01-01T03:00:00Z', 3),
+    ])
+    expect(peak).toEqual({ value: 3, atMs: Date.parse('2026-01-01T03:00:00Z') })
+  })
+
+  it('keeps the latest of two equal peaks even when the history is out of order', () => {
+    const peak = peakNeedsYou([
+      point('2026-01-01T03:00:00Z', 3),
+      point('2026-01-01T01:00:00Z', 3),
+      point('2026-01-01T02:00:00Z', 1),
     ])
     expect(peak).toEqual({ value: 3, atMs: Date.parse('2026-01-01T03:00:00Z') })
   })
@@ -189,6 +214,10 @@ describe('hourlyWorking', () => {
     )
     expect(buckets.map((b) => b.working)).toEqual([null, 1, null, 4])
     expect(buckets.at(-1)?.hourMs).toBe(Date.parse('2026-01-01T12:00:00Z'))
+  })
+
+  it('returns no buckets for a window shorter than an hour', () => {
+    expect(hourlyWorking([point('2026-01-01T12:10:00Z', 0, 2)], 0, now)).toEqual([])
   })
 
   it('ignores points outside the window', () => {
@@ -265,8 +294,7 @@ describe('summarySentence', () => {
       summarySentence({
         items: 3,
         oldestWaitMs: 5 * 3_600_000,
-        working: 4,
-        total: 12,
+        fleet: { working: 4, total: 12 },
         idleProjects: 2,
       }),
     ).toBe('3 items need you, oldest agent wait 5h 0m. 4 of 12 agents working, 2 projects idle.')
@@ -274,13 +302,23 @@ describe('summarySentence', () => {
 
   it('reads the zero case without a wait', () => {
     expect(
-      summarySentence({ items: 0, oldestWaitMs: null, working: 1, total: 5, idleProjects: 0 }),
+      summarySentence({
+        items: 0,
+        oldestWaitMs: null,
+        fleet: { working: 1, total: 5 },
+        idleProjects: 0,
+      }),
     ).toBe('Nothing needs you. 1 of 5 agents working.')
   })
 
   it('omits the wait clause when nothing carries a clock', () => {
     expect(
-      summarySentence({ items: 1, oldestWaitMs: null, working: 0, total: 2, idleProjects: 1 }),
+      summarySentence({
+        items: 1,
+        oldestWaitMs: null,
+        fleet: { working: 0, total: 2 },
+        idleProjects: 1,
+      }),
     ).toBe('1 item needs you. 0 of 2 agents working, 1 project idle.')
   })
 
@@ -290,8 +328,7 @@ describe('summarySentence', () => {
         items: 1,
         oldestWaitMs: null,
         oldestAskMs: 90 * 60_000,
-        working: 0,
-        total: 2,
+        fleet: { working: 0, total: 2 },
         idleProjects: 0,
       }),
     ).toBe('1 item needs you, oldest ask 1h 30m. 0 of 2 agents working, 0 projects idle.')
@@ -323,6 +360,41 @@ describe('groupByDay', () => {
       [groups[2]!.label, ['d']],
     ])
     expect(groups[2]!.label).toMatch(/^Sat 3 Jan$/)
+  })
+})
+
+describe('summarySentence without a fleet', () => {
+  it('leaves the fleet clause out instead of zeroing it', () => {
+    expect(summarySentence({ items: 2, oldestWaitMs: null, fleet: null, idleProjects: 1 })).toBe(
+      '2 items need you. 1 project idle.',
+    )
+    expect(summarySentence({ items: 0, oldestWaitMs: null, fleet: null, idleProjects: 0 })).toBe(
+      'Nothing needs you.',
+    )
+  })
+})
+
+describe('peakWorking', () => {
+  it('is null when no hour was measured, else the busiest measured hour', () => {
+    expect(peakWorking([{ hourMs: 1, working: null }])).toBeNull()
+    expect(
+      peakWorking([
+        { hourMs: 1, working: 2 },
+        { hourMs: 2, working: null },
+        { hourMs: 3, working: 5 },
+      ]),
+    ).toEqual({ value: 5, hourMs: 3 })
+  })
+})
+
+describe('countUnknownAgents', () => {
+  it('counts unknown and unexpected states', () => {
+    const rows = [
+      agent({ state: 'working' }),
+      agent({ state: 'unknown' }),
+      agent({ state: 'paused' as AgentRow['state'] }),
+    ]
+    expect(countUnknownAgents(rows)).toBe(2)
   })
 })
 

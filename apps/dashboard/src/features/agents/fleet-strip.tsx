@@ -6,16 +6,16 @@ import type { HistoryPoint, OverviewSummary } from '../../lib/queries/agents'
 import {
   ABANDONED_AFTER_MS,
   ageAgo,
-  fleetParts,
   formatWaitDuration,
   OLDEST_WAIT_WARN_MS,
   peakNeedsYou,
   trendSeries,
+  type FleetPart,
   type FleetState,
   type OldestWait,
 } from './model'
 import { Dot } from './status-chip'
-import { StatStrip } from './stat-strip'
+import { StatStrip, type StatStripCell } from './stat-strip'
 
 /** Neutral ink at stepped strengths for the calm states; a hue only for needs-you and stale. */
 const FLEET_COLOR: Record<FleetState, string> = {
@@ -24,10 +24,12 @@ const FLEET_COLOR: Record<FleetState, string> = {
   idle: alpha(VX.line, 0.55),
   stale: VX.status.warn,
   done: alpha(VX.line, 0.28),
+  unknown: alpha(VX.line, 0.12),
 }
 
 type Props = {
   summary: OverviewSummary | undefined
+  fleet: { parts: FleetPart[]; total: number } | null
   history: HistoryPoint[] | undefined
   hours: number
   oldest: OldestWait | null
@@ -77,10 +79,8 @@ function peakFooter(
  * The three joined cells under the page summary: needs-you trend, oldest wait against its two
  * thresholds, fleet by state. Replaces the three bare-integer tiles.
  */
-export function FleetStrip({ summary, history, hours, oldest, queued, now }: Props) {
+export function FleetStrip({ summary, fleet, history, hours, oldest, queued, now }: Props) {
   const needsYou = summary?.needsYou
-  const { parts, total } = fleetParts(summary)
-  const working = parts[0]?.value ?? 0
   const oldestTone = oldest === null ? undefined : waitTone(oldest.ms)
 
   return (
@@ -88,6 +88,7 @@ export function FleetStrip({ summary, history, hours, oldest, queued, now }: Pro
       label="Agent fleet"
       cells={[
         {
+          id: 'needs-you',
           caption: 'Needs you · now',
           value: needsYou === undefined ? '—' : String(needsYou),
           ...(needsYou !== undefined && { unit: needsYou === 1 ? 'agent' : 'agents' }),
@@ -96,57 +97,69 @@ export function FleetStrip({ summary, history, hours, oldest, queued, now }: Pro
           footer: peakFooter(history, hours, now, queued),
         },
         {
+          id: 'oldest-wait',
           caption: oldest === null ? 'Oldest wait' : `Oldest wait · ${oldest.project}`,
-          value: oldest === null ? 'None' : formatWaitDuration(oldest.ms),
-          ...(oldest === null && { unit: 'agents waiting' }),
+          value: oldest === null ? '—' : formatWaitDuration(oldest.ms),
           ...(oldestTone !== undefined && { tone: oldestTone }),
           visual: (
             <Meter
               label="Oldest agent wait against the 24 h and 7 d marks"
-              value={oldest?.ms ?? 0}
+              value={oldest?.ms ?? null}
               max={ABANDONED_AFTER_MS}
               target={OLDEST_WAIT_WARN_MS}
               format={formatWaitDuration}
               startCaption="warn at 24 h"
               endCaption="abandoned at 7 d"
+              emptyText="No agent or ask is waiting"
               {...(oldestTone !== undefined && { color: oldestTone })}
             />
           ),
         },
-        {
-          caption: `Fleet · ${total} agents`,
-          value: String(working),
-          unit: `working of ${total}`,
-          visual: (
-            <Meter
-              label="Agents by state"
-              max={total || 1}
-              segments={parts.map((p) => ({
-                value: p.value,
-                label: p.label,
-                color: FLEET_COLOR[p.key],
-              }))}
-              startCaption={null}
-              endCaption={null}
-              emptyText="No agents reported"
-            />
-          ),
-          footer: (
-            <Flex gap="xs" wrap="wrap">
-              {parts
-                .filter((p) => p.value > 0)
-                .map((p) => (
-                  <Group key={p.key} gap={4} wrap="nowrap">
-                    <Dot color={FLEET_COLOR[p.key]} />
-                    <Text size="sm" ff="monospace" c="dimmed" span>
-                      {p.value} {p.label}
-                    </Text>
-                  </Group>
-                ))}
-            </Flex>
-          ),
-        },
+        fleetCell(fleet),
       ]}
     />
   )
+}
+
+function fleetCell(fleet: Props['fleet']): StatStripCell {
+  if (fleet === null) {
+    return {
+      id: 'fleet',
+      caption: 'Fleet',
+      value: '—',
+      visual: (
+        <Meter label="Agents by state" value={null} emptyText="No fleet data in this snapshot" />
+      ),
+    }
+  }
+  const { parts, total } = fleet
+  return {
+    id: 'fleet',
+    caption: `Fleet · ${total} agents`,
+    value: String(parts[0]?.value ?? 0),
+    unit: `working of ${total}`,
+    visual: (
+      <Meter
+        label="Agents by state"
+        max={total || 1}
+        segments={parts.map((p) => ({ value: p.value, label: p.label, color: FLEET_COLOR[p.key] }))}
+        startCaption={null}
+        endCaption={null}
+      />
+    ),
+    footer: (
+      <Flex gap="xs" wrap="wrap">
+        {parts
+          .filter((p) => p.value > 0)
+          .map((p) => (
+            <Group key={p.key} gap={4} wrap="nowrap">
+              <Dot color={FLEET_COLOR[p.key]} />
+              <Text size="sm" ff="monospace" c="dimmed" span>
+                {p.value} {p.label}
+              </Text>
+            </Group>
+          ))}
+      </Flex>
+    ),
+  }
 }
