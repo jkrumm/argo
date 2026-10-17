@@ -67,17 +67,16 @@ function fixesCell({ fixes }: StripModel): StatStripCell {
       qualifier: noData(fixes.unavailable ?? 'not reported'),
     }
   }
-  const parts = [
+  // The bar plots what the headline measures (fixed against quiet); closed items stay in the legend.
+  const present = [
     { label: 'fixed', value: fixes.fixed, color: VX.status.good },
     { label: 'quiet', value: fixes.quiet, color: VX.status.warn },
-    { label: 'closed', value: fixes.closed, color: VX.status.neutral },
-  ] as const
-  const present = parts.filter((part) => part.value !== null)
+  ].filter((part) => part.value !== null)
   const total = present.reduce((sum, part) => sum + (part.value ?? 0), 0)
   return {
     key: 'fixes',
     caption,
-    info: 'Fixed as a share of fixed plus quiet items. Closed items are drawn in the bar but not counted in the percentage.',
+    info: 'Fixed as a share of fixed plus quiet items. Closed items are counted in the legend only.',
     value: String(Math.round(fixes.pct)),
     unit: '%',
     qualifier: (
