@@ -1,0 +1,21 @@
+.clamped {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.toggle {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.ask {
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

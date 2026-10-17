@@ -369,13 +369,13 @@ describe('needsYouCards', () => {
       inset: 'dialog open',
     })
     expect(cards[1]).toMatchObject({
-      facts: 'mini · asked 1h 0m ago',
+      facts: ['mini', 'asked 1h 0m ago'],
       headline: 'Run the thing.',
       inset: 'make go',
       copy: { label: 'Copy command', value: 'make go' },
     })
     expect(cards[2]?.copy).toBeNull()
-    expect(cards[2]?.facts).toBe('')
+    expect(cards[2]?.facts).toEqual([])
   })
 
   it('offers the full ask only when the headline cut something', () => {
