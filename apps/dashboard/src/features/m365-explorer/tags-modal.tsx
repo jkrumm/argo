@@ -1,4 +1,4 @@
-import { ActionIcon, Button, Group, Modal, Stack, Text, TextInput } from '@mantine/core'
+import { ActionIcon, Alert, Button, Group, Modal, Stack, Text, TextInput } from '@mantine/core'
 import { IconTrash } from '@tabler/icons-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
@@ -32,6 +32,11 @@ export function TagsModal(props: {
           Rename a tag to update every source carrying it. Deleting a tag removes the label from
           every source — the chats/channels themselves are not touched.
         </Text>
+        {renameTag.error || deleteTag.error ? (
+          <Alert color="red" variant="light">
+            {(renameTag.error ?? deleteTag.error)?.message ?? 'Tag update failed'}
+          </Alert>
+        ) : null}
         {props.tagCounts.length === 0 ? (
           <Text c="dimmed" size="sm">
             No tags yet.
@@ -45,8 +50,8 @@ export function TagsModal(props: {
                 count={count}
                 onRename={(to) => renameTag.mutate({ tag, to })}
                 onDelete={() => deleteTag.mutate(tag)}
-                renaming={renameTag.isPending}
-                deleting={deleteTag.isPending}
+                renaming={renameTag.isPending && renameTag.variables?.tag === tag}
+                deleting={deleteTag.isPending && deleteTag.variables === tag}
               />
             ))}
           </Stack>

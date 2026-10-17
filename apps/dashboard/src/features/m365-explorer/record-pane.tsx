@@ -11,9 +11,11 @@ export type RecordPaneProps = {
   selected: SourceRef
   /** Chat facts the list already holds (kind, member count, last activity). */
   chatFacts: { chatType: string; memberCount: number; lastUpdatedAt: string | null } | null
-  /** Back to the labeled-sources view. */
-  onClose: () => void
-} & LabelButtonProps
+  /** Back to the labeled-sources view; absent where the surface has its own back affordance. */
+  onClose?: (() => void) | undefined
+  /** The last failed label write for this record, shown inline. */
+  error: string | null
+} & Omit<LabelButtonProps, 'sourceId'>
 
 const MESSAGE_TOP = 20
 
@@ -60,15 +62,17 @@ export function RecordPane(props: RecordPaneProps) {
           <Badge variant="light" color="gray">
             {selected.kind}
           </Badge>
-          <ActionIcon
-            ml="auto"
-            variant="subtle"
-            color="gray"
-            aria-label="Close record"
-            onClick={props.onClose}
-          >
-            <IconX size={14} />
-          </ActionIcon>
+          {props.onClose ? (
+            <ActionIcon
+              ml="auto"
+              variant="subtle"
+              color="gray"
+              aria-label="Close record"
+              onClick={props.onClose}
+            >
+              <IconX size={14} />
+            </ActionIcon>
+          ) : null}
         </div>
         <span className={classes.facts}>{factsOf(props, latest)}</span>
         <div>
@@ -79,8 +83,14 @@ export function RecordPane(props: RecordPaneProps) {
             saving={props.saving}
             onSave={props.onSave}
             onRemove={props.onRemove}
+            sourceId={sourceIdFor(selected)}
           />
         </div>
+        {props.error ? (
+          <Alert color="red" variant="light">
+            {props.error}
+          </Alert>
+        ) : null}
       </header>
       <ScrollArea className={classes.paneScroll} type="auto">
         {q.error ? (

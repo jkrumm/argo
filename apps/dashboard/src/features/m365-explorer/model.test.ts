@@ -2,7 +2,9 @@ import { describe, expect, test } from 'bun:test'
 import {
   chatKindCounts,
   groupByRecency,
-  labelableTotal,
+  chipCounts,
+  coverageOf,
+  validTag,
   matchesTag,
   parseChannelId,
   tagCountsOf,
@@ -12,6 +14,7 @@ import {
 
 const NOW = new Date('2026-10-17T12:00:00')
 const row = (id: string, iso: string | null, chatType: ChatRow['chatType'] = 'group'): ChatRow => ({
+  searchText: id,
   ref: { kind: 'chat', chatId: id, displayName: id },
   chatType,
   memberCount: 2,
@@ -32,7 +35,7 @@ describe('groupByRecency', () => {
     )
     expect(groups.map((g) => [g.group, g.rows.length])).toEqual([
       ['Today', 1],
-      ['This week', 1],
+      ['Last 7 days', 1],
       ['Earlier', 2],
     ])
     expect(groupByRecency([row('c', '2026-09-01T08:00:00')], NOW).map((g) => g.group)).toEqual([
@@ -65,11 +68,33 @@ describe('chatKindCounts', () => {
   })
 })
 
-describe('labelableTotal', () => {
-  test('sums chats and channels, null while a team is loading', () => {
-    expect(labelableTotal(3, [2, 0, 4])).toBe(9)
-    expect(labelableTotal(3, [2, null])).toBeNull()
-    expect(labelableTotal(3, [])).toBe(3)
+const lab = (sourceId: string) => ({
+  sourceId,
+  kind: 'chat' as const,
+  label: 'x',
+  displayName: null,
+  notes: null,
+})
+
+describe('coverageOf', () => {
+  test('counts labeled over the loaded ids only, never more than the total', () => {
+    const c = coverageOf({
+      chatIds: ['a', 'b'],
+      channels: [{ teamId: 'T', state: 'loaded', ids: ['c1'] }],
+      labels: [lab('chat:a'), lab('channel:T:c1'), lab('chat:gone'), lab('channel:T:removed')],
+    })
+    expect(c).toMatchObject({ total: 3, labeled: 2, outside: 2, loading: 0, failed: 0 })
+  })
+  test('a loading or failed team makes the total a lower bound and hides "outside"', () => {
+    const c = coverageOf({
+      chatIds: ['a'],
+      channels: [
+        { teamId: 'T', state: 'failed', ids: [] },
+        { teamId: 'U', state: 'loading', ids: [] },
+      ],
+      labels: [lab('channel:T:c1')],
+    })
+    expect(c).toMatchObject({ total: 1, labeled: 0, outside: 0, loading: 1, failed: 1 })
   })
 })
 
@@ -105,5 +130,24 @@ describe('parseChannelId', () => {
       channelId: '19:abc@thread.tacv2',
     })
     expect(parseChannelId('chat:X')).toBeNull()
+  })
+})
+
+describe('chipCounts / validTag', () => {
+  test('counts the rows of the view, per tag', () => {
+    const c = chipCounts(['a', 'b'], [{ label: 'a' }, { label: 'a' }, { label: undefined }], 3)
+    expect(c).toEqual({
+      all: 3,
+      labeled: 2,
+      tags: [
+        ['a', 2],
+        ['b', 0],
+      ],
+    })
+  })
+  test('validTag drops a tag that no longer exists', () => {
+    expect(validTag('gone', ['a'])).toBe('')
+    expect(validTag('a', ['a'])).toBe('a')
+    expect(validTag(LABELED_FILTER, [])).toBe(LABELED_FILTER)
   })
 })

@@ -1,14 +1,15 @@
 import { Meter } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
-import { Skeleton, Text } from '@mantine/core'
+import { Skeleton, Text, UnstyledButton } from '@mantine/core'
+import type { Coverage } from './model'
 import type { ReactNode } from 'react'
 import classes from './m365.module.css'
 
 const EM_DASH = '—'
 /** A split is not a verdict: stepped neutral fills, never a status colour. */
-const FILL_STRONG = alpha(VX.muted, 0.9)
-const FILL_MID = alpha(VX.muted, 0.6)
-const FILL_FAINT = alpha(VX.muted, 0.3)
+const FILL_STRONG = alpha(VX.muted, 0.95)
+const FILL_MID = alpha(VX.muted, 0.65)
+const FILL_FAINT = alpha(VX.muted, 0.4)
 
 type CellProps = {
   caption: string
@@ -36,34 +37,37 @@ function Cell({ caption, value, unit, visual, footer, shot }: CellProps) {
 }
 
 export type StripProps = {
-  labeled: number
-  /** Chats + channels; null until every team's channel list has loaded. */
-  total: number | null
+  coverage: Coverage
+  /** The chat list is the newest-N window of a longer list. */
+  chatsCapped: boolean
   chats: { total: number; oneOnOne: number; group: number; meeting: number }
   teams: number
-  /** Channels across all teams; null while loading. */
+  /** Channels across the teams that loaded; null while any team is not loaded. */
   channels: number | null
+  onRetry: () => void
 }
 
-export function ExplorerStrip({ labeled, total, chats, teams, channels }: StripProps) {
+export function ExplorerStrip({
+  coverage,
+  chatsCapped,
+  chats,
+  teams,
+  channels,
+  onRetry,
+}: StripProps) {
+  const { labeled, total, loading, failed, outside } = coverage
+  const pending = loading > 0
+  const atLeast = failed > 0 ? '≥' : ''
+  const basis = chatsCapped ? `newest ${chats.total} chats + channels` : 'chats + channels'
   return (
     <section className={classes.strip} aria-label="Coverage summary">
       <Cell
         shot="labeled"
         caption="Labeled"
-        value={String(labeled)}
-        unit={
-          total === null ? (
-            'of …'
-          ) : (
-            <>
-              of {total}
-              <span className={classes.unitLong}> chats + channels</span>
-            </>
-          )
-        }
+        value={pending ? EM_DASH : String(labeled)}
+        unit={pending ? 'of …' : `of ${atLeast}${total} sources`}
         visual={
-          total === null ? (
+          pending ? (
             <Skeleton h={22} />
           ) : (
             <Meter
@@ -77,6 +81,21 @@ export function ExplorerStrip({ labeled, total, chats, teams, channels }: StripP
               ]}
             />
           )
+        }
+        footer={
+          <>
+            {basis}
+            {outside > 0 ? ` · ${outside} outside this set` : ''}
+            {failed > 0 ? (
+              <>
+                {' · '}
+                {failed === 1 ? '1 team failed' : `${failed} teams failed`}{' '}
+                <UnstyledButton className={classes.retry} onClick={onRetry}>
+                  Retry
+                </UnstyledButton>
+              </>
+            ) : null}
+          </>
         }
       />
       <Cell

@@ -8,7 +8,8 @@ export type LabeledPaneProps = {
   /** `''`/`*` show every tag group; a tag shows only its group. */
   tag: string
   selectedId: string | null
-  removing: boolean
+  /** The source whose label is being removed right now. */
+  removingId: string | null
   onOpen: (label: LabelLite) => void
   onRemove: (sourceId: string) => void
 }
@@ -41,7 +42,7 @@ export function LabeledPane(props: LabeledPaneProps) {
               selected={props.selectedId === l.sourceId}
               onSelect={() => props.onOpen(l)}
               onRemove={() => props.onRemove(l.sourceId)}
-              removing={props.removing}
+              removing={props.removingId === l.sourceId}
             />
           ))}
         </section>

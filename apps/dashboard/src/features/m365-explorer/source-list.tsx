@@ -1,4 +1,4 @@
-import { ScrollArea, Skeleton } from '@mantine/core'
+import { ScrollArea, Skeleton, UnstyledButton } from '@mantine/core'
 import { useState } from 'react'
 import {
   CHAT_TYPE_LABEL,
@@ -9,6 +9,7 @@ import {
   matchesTag,
   plural,
   sourceIdFor,
+  type ChannelState,
   type ChatRow,
   type SourceRef,
 } from './model'
@@ -18,11 +19,17 @@ import classes from './m365.module.css'
 type Team = { id: string; displayName: string }
 type Channel = { id: string; displayName: string; membershipType: string }
 
+export type TeamChannels = {
+  state: ChannelState
+  channels: readonly Channel[]
+  retry: () => void
+}
+
 export type SourceListProps = {
   view: 'chats' | 'teams'
   chats: readonly ChatRow[]
   teams: readonly Team[]
-  channelsByTeam: ReadonlyMap<string, readonly Channel[] | undefined>
+  channelsByTeam: ReadonlyMap<string, TeamChannels>
   labelOf: (sourceId: string) => { label: string } | undefined
   tag: string
   query: string
@@ -45,7 +52,7 @@ function ChatGroups(props: SourceListProps) {
   const rows = props.chats.filter(
     (c) =>
       matchesTag(props.tag, props.labelOf(chatSourceId(c.ref.chatId))) &&
-      (term === '' || c.ref.displayName.toLowerCase().includes(term)),
+      (term === '' || c.searchText.includes(term)),
   )
   if (rows.length === 0) {
     return (
@@ -68,7 +75,7 @@ function ChatGroups(props: SourceListProps) {
               glyph={c.chatType}
               name={c.ref.displayName}
               meta={`${CHAT_TYPE_LABEL[c.chatType]} · ${plural(c.memberCount, 'member')}`}
-              time={formatTime(c.lastUpdatedAt)}
+              time={formatTime(c.lastUpdatedAt, props.now)}
               selected={selectedId === c.ref.chatId}
               starLabel={props.labelOf(chatSourceId(c.ref.chatId))?.label}
               onSelect={() => props.onSelect(c.ref)}
@@ -83,36 +90,55 @@ function ChatGroups(props: SourceListProps) {
 function TeamTree(props: SourceListProps) {
   const [openId, setOpenId] = useState<string | null>(null)
   const term = props.query.trim().toLowerCase()
-  const teams = props.teams.filter((t) => {
-    if (term && !t.displayName.toLowerCase().includes(term)) return false
-    if (props.tag === '') return true
-    return (props.channelsByTeam.get(t.id) ?? []).some((ch) =>
-      matchesTag(props.tag, props.labelOf(channelSourceId(t.id, ch.id))),
+  const visible = props.teams.flatMap((team) => {
+    const entry = props.channelsByTeam.get(team.id)
+    const teamMatches = term === '' || team.displayName.toLowerCase().includes(term)
+    const channels = (entry?.channels ?? []).filter(
+      (ch) =>
+        (teamMatches || ch.displayName.toLowerCase().includes(term)) &&
+        matchesTag(props.tag, props.labelOf(channelSourceId(team.id, ch.id))),
     )
+    const keep = props.tag === '' ? teamMatches || channels.length > 0 : channels.length > 0
+    if (!keep) return []
+    return [{ team, entry, channels, autoOpen: term !== '' && !teamMatches && channels.length > 0 }]
   })
-  if (teams.length === 0) {
+  if (visible.length === 0) {
     return (
       <p className={classes.empty}>
-        {term ? `No teams match "${props.query.trim()}"` : 'No teams with this label'}
+        {term ? `No teams or channels match "${props.query.trim()}"` : 'No teams with this label'}
       </p>
     )
   }
   return (
     <section aria-label="Teams">
-      <h3 className={classes.groupHeading}>Teams · {teams.length}</h3>
-      {teams.map((team) => {
-        const channels = props.channelsByTeam.get(team.id)
-        const isOpen = openId === team.id
+      <h3 className={classes.groupHeading}>Teams · {visible.length}</h3>
+      {visible.map(({ team, entry, channels, autoOpen }) => {
+        const isOpen = autoOpen || openId === team.id
+        const state = entry?.state ?? 'loading'
+        const meta =
+          state === 'loaded'
+            ? plural(entry?.channels.length ?? 0, 'channel')
+            : state === 'failed'
+              ? 'channels failed to load'
+              : '— channels'
         return (
           <div key={team.id}>
             <SourceRow
               glyph="team"
               name={team.displayName}
-              meta={channels ? plural(channels.length, 'channel') : '— channels'}
+              meta={meta}
               expanded={isOpen}
-              onSelect={() => setOpenId(isOpen ? null : team.id)}
+              onSelect={() => setOpenId(openId === team.id ? null : team.id)}
             />
-            {isOpen ? <ChannelRows team={team} channels={channels} {...props} /> : null}
+            {isOpen ? (
+              <ChannelRows
+                {...props}
+                team={team}
+                state={state}
+                channels={channels}
+                retry={entry?.retry}
+              />
+            ) : null}
           </div>
         )
       })}
@@ -121,13 +147,28 @@ function TeamTree(props: SourceListProps) {
 }
 
 function ChannelRows(
-  props: SourceListProps & { team: Team; channels: readonly Channel[] | undefined },
+  props: SourceListProps & {
+    team: Team
+    state: ChannelState
+    channels: readonly Channel[]
+    retry: (() => void) | undefined
+  },
 ) {
-  if (!props.channels) {
+  if (props.state === 'loading') {
     return (
       <div className={classes.empty} aria-busy>
         <Skeleton h={14} w="60%" />
       </div>
+    )
+  }
+  if (props.state === 'failed') {
+    return (
+      <p className={classes.empty}>
+        Channels failed to load{' '}
+        <UnstyledButton className={classes.retry} onClick={props.retry}>
+          Retry
+        </UnstyledButton>
+      </p>
     )
   }
   const selectedId = props.selected?.kind === 'channel' ? props.selected.channelId : null
@@ -141,8 +182,6 @@ function ChannelRows(
           displayName: ch.displayName,
           teamName: props.team.displayName,
         }
-        const labeled = props.labelOf(sourceIdFor(ref))
-        if (!matchesTag(props.tag, labeled)) return null
         return (
           <SourceRow
             key={ch.id}
@@ -151,7 +190,7 @@ function ChannelRows(
             name={ch.displayName}
             meta={`team channel · ${ch.membershipType}`}
             selected={selectedId === ch.id}
-            starLabel={labeled?.label}
+            starLabel={props.labelOf(sourceIdFor(ref))?.label}
             onSelect={() => props.onSelect(ref)}
           />
         )
