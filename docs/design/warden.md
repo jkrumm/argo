@@ -1,6 +1,6 @@
 # Warden — concept
 
-Route `/warden` · `apps/dashboard/src/routes/warden.tsx`, `apps/dashboard/src/features/warden/` (`awaiting-owner-section`, `funnel-stats`, `issues-section`, `board-section`, `item-timeline`, `use-warden-actions`, `model.ts`). API: `GET /warden/snapshot[?machine=]`; schema `warden_snapshots` (raw jsonb: health, metrics, board, budget, items).
+Route `/warden` · `apps/dashboard/src/routes/warden.tsx`, `apps/dashboard/src/features/warden/` (`health-strip`, `stat-strip`, `decision-queues`, `board`, `pollers-list`, `status-chip`, `item-timeline`, `use-warden-actions`, `model.ts`, `page-model.ts`). API: `GET /warden/snapshot[?machine=]`; schema `warden_snapshots` (raw jsonb: health, metrics, board, budget, items).
 
 ## Baseline verdict
 
@@ -79,3 +79,49 @@ Stays: item-timeline drawer, `PageBar` sync, `StaleBanner` (as the loop-stalled 
 6. A null metric renders `—` plus its reason, never `0` or `n/a`.
 7. The board has per-column counts, an `Other` column when a state is outside the known set, and at 390 shows one column at a time.
 8. Decision-card headlines are not truncated mid-sentence at 1440.
+
+## Wave 19 rounds
+
+Six shot rounds (`w19-warden-r1` … `r6`); r3 and r4 were scored by the `basalt-design-reviewer`, the rest are self-reads. The harness emits no `metrics.json`, so the reviewer fails every measured Craft item as unverifiable; verdicts below are about what the images show.
+
+**r1 — self-read.** First full build. Defects: board columns clipped inside their scroll areas (long unbroken titles), Fixes caption truncated, two-line captions making strip cells uneven, deferred badge shrunk to `DE…`. Changed: board columns become a flex row (loaded columns share the width, empty ones shrink to a header), text wraps anywhere, captions shortened with the period moved to the qualifier line, deferred becomes an inline text flag.
+
+**r2 — self-read.** Decision cards, strip and 390 layout hold. Defects: board header collision, Fixes counts wrapping, mobile board defaulting to an empty column. Changed: stacked column headers, mobile column store defaults to Working.
+
+**r3 — reviewer: fail on every component, all on unmeasurable Craft items; visible defects:** board header row collided and a column clipped; mid-value truncation of a card ask line, the failed-card inset and a board title; decision-wait tick not at the 24 h mark; Fixes bar had no legend and its headline (fixed share of fixed + quiet) was not explained; Oldest poller had no visual; waits past 2 d carried no tone; failed cards repeated the title; mobile strip two columns; no definition tooltips. Pass criteria 1–4, 6, 8 passed, 5 unverified (budget absent live), 7 with a caveat. Changed: decision-wait meter runs 0–24 h with the tick at 24 h and warn ink past it; Oldest poller gets a 0–30 min meter with the stale tick; a wait past 2 d is warn text in the facts line; failed cards drop the actor line; fixed / quiet / closed legend in status ink; hover definitions on every strip caption.
+
+**r4 — reviewer: same measured-item failures; previous visible defects verified fixed except the 390 strip.** Remaining: strip two columns at 390; budget cells read "no data" without an em dash; Fixes caption lacked its period. Changed: the strip is its own container and collapses to one column below 480 px; the budget empty state is `—` + `no data: budget not reported`; `all time` joins the Fixes qualifier. Wrapped legend text and the clamped inset stay (the text is warden's own).
+
+**r5 / r6 — self-read.** 390 strip is one column; budget cells show the em dash and reason; light and dark hold. A last review pass was not re-run on r6 (diff vs r4 is the three items above).
+
+**Keel read.** Against `root--dark--desktop` (Needs your call) and the record strip: the card anatomy matches (question, facts line, inset evidence, one filled primary, one subtle secondary, one quiet menu); the strip matches the joined cell + footer-row idea. Still short of Keel: no right-hand context preview on the cards (warden has no trend or draft to show), no confidence readout in the inset, board cards carry no column-level totals, and the day-grouped item-timeline event list was not built (the drawer is unchanged).
+
+**Pass criteria (live snapshot):**
+
+| # | Holds | Note |
+|-|-|-|
+| 1 | yes | one primary, one secondary, one menu per card |
+| 2 | yes | no raw keys; every metric has unit and period |
+| 3 | yes | needs-decision / failed / any `awaiting_owner` id are not board cards; unknown states go to Other (unit-tested; Other is empty live) |
+| 4 | yes | fixed / quiet / closed segments sum to the total |
+| 5 | by test | two meters with a max tick and `n / max today`, warn at 90 % (the 90 % threshold is unit-tested, the rendering is not); the live snapshot carries no budget, so the screenshots show the empty state |
+| 6 | yes | null metric is `—` + `no data: <reason>` |
+| 7 | yes | per-column counts, Other when needed, one column at a time at 390 (via the section tabs) |
+| 8 | yes | headlines are whole sentences at 1440; a long first sentence wraps, never cut |
+
+Deviations from the concept: the card headline is the first sentence of warden's decision text with the rest as the inset (the concept's "inset = full reason" would repeat the headline); the 390 board switcher is `ViewTabs` in the `Section` tabs slot (basalt's lint rejects a raw `SegmentedControl`) and renders as a select; the Unattended-fixes delta is always `—` (no snapshot-history query exists); relative times on board cards come from basalt's `relativeTime` and follow the browser locale.
+
+### Upstream (as built)
+
+- `apps/dashboard/src/components/upstream/decision-card.tsx` (shared with Agents, PR #62): `DecisionCardProps { question: string; facts: readonly (string | { text: string; tone: 'warn' | 'bad' })[]; status?: ReactNode; actor?: ReactNode; evidence?: ReactNode; preview?: ReactNode; primary?: Action; secondary?: Action; menu?: readonly Action[]; disclosure?: { label: string; content: ReactNode }; meta?: ReactNode }`, `Action = { label; key?; onClick; loading?; disabled?; icon? }`.
+- `features/warden/stat-strip.tsx`: `StatStrip { cells: { key; caption; info?; value: string; unit?; valueColor?; qualifier?: ReactNode; visual?: ReactNode }[]; footer?: { key; content: ReactNode }[] }`.
+- `features/warden/board.tsx`: `Board { columns: { key; label; items }[]; onSelectItem(eventId) }` plus `board-store.ts` (the mobile column field).
+- `features/warden/status-chip.tsx`: `StatusChip { tone: 'work' | 'infra' | 'policy' | 'neutral'; label }`.
+
+### basalt friction
+
+- `Meter` has one `target` tick: the decision-wait and poller meters need only one, but a budget meter wants a max tick plus an overage region; the track is stretched to 125 % of the cap so the tick sits inside it.
+- `BarList` has no per-row stale tick: the poller list states the 30 min mark in the secondary column instead.
+- `ViewTabs` in `Section.tabs` folds to a select at 390; a segmented row per column (with counts) would read better for a board.
+- `Section.tabs` cannot be conditional without a hoisted ternary (the lint reads the slot); the board passes `undefined` at desktop.
+- `relativeTime` ignores the app's English UI (German strings on an English page).
