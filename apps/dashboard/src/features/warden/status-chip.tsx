@@ -1,24 +1,19 @@
-import { Badge } from '@mantine/core'
-import type { ChipTone } from './page-model'
+import { StatusVerdict } from 'basalt-ui'
+import { VX } from 'basalt-ui/tokens'
 
-const TONE_COLOR: Record<ChipTone, string> = {
-  work: 'red',
-  infra: 'blue',
-  policy: 'orange',
-  bad: 'red',
-  warn: 'orange',
-  neutral: 'gray',
+/** `BLOCKER` / `data_loss` → `Blocker` / `Data loss`: a category word reads as a sentence, not an enum. */
+export function sentenceCase(raw: string): string {
+  const words = raw
+    .trim()
+    .replaceAll(/[_\s]+/g, ' ')
+    .toLowerCase()
+  return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
 /**
- * StatusChip — a small toned label. Prototype of the upstream status chip (docs/design/UPSTREAM.md):
- * `tone` picks the hue, `label` is the text; an unknown value is the caller's `neutral` tone with
- * its raw label.
+ * StatusChip — a category or state as a neutral dot + sentence-case word. A tag or failure class
+ * names what kind of thing needs the owner, not a verdict, so it never takes a status hue.
  */
-export function StatusChip({ tone, label }: { tone: ChipTone; label: string }) {
-  return (
-    <Badge variant="light" color={TONE_COLOR[tone]} size="md">
-      {label}
-    </Badge>
-  )
+export function StatusChip({ label }: { label: string }) {
+  return <StatusVerdict color={VX.muted} word={sentenceCase(label)} />
 }
