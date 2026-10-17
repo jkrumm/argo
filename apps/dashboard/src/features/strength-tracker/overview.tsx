@@ -256,7 +256,7 @@ function liftCell({
           ariaLabel={`${exerciseLabel(id)} e1RM, last ${spark.length} sessions`}
           data={spark}
           height={28}
-          {...(color !== undefined && { color })}
+          color={color ?? MUTED_FILL}
           {...(pr?.bestE1RM != null && { reference: pr.bestE1RM })}
           emphasizeLast
         />
@@ -271,7 +271,7 @@ function liftCell({
           </>
         ) : null}
         {spark.length > 1
-          ? `line: last ${spark.length} sessions, ${shortDate(sparkFrom)}–${shortDate(sparkTo)}, dashed: PR`
+          ? `line: last ${spark.length} sessions, ${shortDate(sparkFrom)}–${shortDate(sparkTo)}${pr?.bestE1RM == null ? '' : ', dashed: PR'}`
           : null}
         {spark.length > 1 ? <br /> : null}
         PR {pr?.bestE1RM == null ? '' : `${pr.bestE1RM.toFixed(1)} kg · `}
@@ -283,7 +283,7 @@ function liftCell({
 }
 
 /** Strip columns by lift count: at least two, at most six. */
-const LIFT_COLS = [2, 2, 2, 3, 4, 5, 6] as const
+const liftCols = (n: number) => Math.min(Math.max(n, 2), 6) as 2 | 3 | 4 | 5 | 6
 
 export function LiftStrip(props: Params) {
   const { series, summary, now } = useOverview(props)
@@ -301,7 +301,7 @@ export function LiftStrip(props: Params) {
     <StatGroup
       variant="strip"
       label="Estimated 1RM per lift"
-      cols={LIFT_COLS[Math.min(cells.length, LIFT_COLS.length - 1)] ?? 4}
+      cols={liftCols(cells.length)}
       cells={cells}
     />
   )
