@@ -33,7 +33,7 @@ Route `/reading` — `apps/dashboard/src/routes/reading.tsx`, `features/reading/
 
 **1440.** Summary sentence under `PageBar`. Then, top to bottom:
 
-1. Joined stat strip (one surface, three cells): `SHELF` segmented bar (36 books) · `RATINGS` histogram cell · `READING PACE` cell `48 pages/h` with caption `median of 4 books`. **Pace is one statistic everywhere:** the median over books with `stats` of `pagesRead ÷ (totalReadSeconds ÷ 3600)`; the ETA, the backlog hours and this cell all use it.
+1. Joined stat strip (one surface, three cells): `SHELF` segmented bar (36 books) · `RATINGS` histogram cell · `READING PACE` cell `48 pages/h` with caption `median of 4 books`. **Pace is one statistic everywhere:** the median of `pagesRead ÷ (totalReadSeconds ÷ 3600)` over the cohort of books with `pagesRead > 0` **and** `totalReadSeconds > 0`; the ETA, the backlog hours and this cell all use it. When no book qualifies the cell, the ETAs and the backlog hours show `—` with the reason `no book has reading time yet`.
 2. `Currently reading · 4` — 2-column grid of entity cards: cover 56 px, title/author, Meter, facts line, `last read` staleness, nothing else.
 3. Two columns: left `Finished · 4` EventList, right `Time read, per book` BarList.
 4. `Backlog · 28` — ranked rows, 8 shown, with the genre BarList on its right at 1440.
@@ -48,7 +48,7 @@ What stays: cover art on the in-progress cards and on thumbnails (identity), the
 Illustrative numbers; the format is the contract.
 
 - Summary sentence: `4 books in progress, median 48 pages/h · 4 finished in 2026 · backlog 28 books ≈ 240 h`
-- Strip captions: `SHELF · 36 books`, `RATINGS · 4 rated`, `READING PACE · median of 4`
+- Strip captions: `SHELF · 36 books`, `RATINGS · 4 rated`, `READING PACE · median of 4 books` (n = the cohort size)
 - Section titles: `Currently reading · 4`, `Finished in 2026 · 4`, `Time read, per book · hours`, `Backlog · 28 books · 11,400 p`, `Backlog by genre · top 5`
 - In-progress facts: `46% · 12h 19m read · 48 pages/h · 42 sessions · ≈ 9h left · last read 3d ago`
 - Finished row: `<book> · <author>   ★ 4   finished Aug 12 · 19 days · 482 p`
