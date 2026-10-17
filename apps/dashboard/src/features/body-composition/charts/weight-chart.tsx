@@ -93,7 +93,7 @@ export default function WeightChart({
     <Box data-shot="weight-chart">
       <ChartCard
         title={`Body weight, ${windowLabel(params)}`}
-        info={METRIC_TOOLTIPS.bodyWeight}
+        info={goal === null ? METRIC_TOOLTIPS.bodyWeight : METRIC_TOOLTIPS.bodyWeightGoal}
         actions={
           summary.current === null ? null : (
             <Box className={stripClasses.facts}>

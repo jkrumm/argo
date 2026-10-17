@@ -29,7 +29,9 @@ export const SKINFOLD_SITES: { key: SkinfoldSite; label: string; description: st
 
 export const METRIC_TOOLTIPS = {
   bodyWeight:
-    'One point per logged day (same-day weigh-ins averaged). Dashed line: centred 7-day mean. Solid goal line: the profile goal weight.',
+    'One point per logged day (same-day weigh-ins averaged). Dashed line: centred 7-day mean.',
+  bodyWeightGoal:
+    'One point per logged day (same-day weigh-ins averaged). Dashed lines: centred 7-day mean and the profile goal weight.',
   skinfoldChart:
     'One line per caliper site, dashed line: the session average. Thinner folds mean lower body fat.',
 } as const
