@@ -5,6 +5,7 @@ import { Bars, ChartCard, Lines, type BarsBar, type ChartSeries } from 'basalt-u
 import { VX } from 'basalt-ui/tokens'
 import { trainingLoadQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
+import { toChartFact } from '../chart-facts'
 import { RefetchDim } from '../refetch-dim'
 import { ZONE_FILL } from '../zone-fills'
 import { acwrZoneColor, acwrZoneLabel, type AcwrZone } from '../formulas'
@@ -13,7 +14,6 @@ import {
   ACWR_FLOOR,
   ACWR_OPTIMAL_TO,
   acwrFact,
-  toChartFact,
   dayLabel,
   divergenceFact,
   signed,
