@@ -18,6 +18,8 @@ import {
   planActions,
   readLeaf,
   retryQuestion,
+  pollerStaleLabel,
+  deferralOf,
   splitReason,
   tagChip,
   deriveBudgetFooter,
@@ -586,5 +588,84 @@ describe('recentTransitions', () => {
     expect(recentTransitions(undefined)).toEqual([])
     expect(recentTransitions({ transitions: 'x' })).toEqual([])
     expect(recentTransitions({ transitions: [{ from_state: 'a' }] })).toEqual([])
+  })
+})
+
+describe('pollerStaleLabel', () => {
+  it('names the poller’s own threshold', () => {
+    expect(pollerStaleLabel({ name: 'a', ageMin: 12, thresholdMin: 10, stale: true })).toBe(
+      'stale at 10 min',
+    )
+  })
+
+  it('falls back to the 30 minute scale without a threshold', () => {
+    expect(pollerStaleLabel({ name: 'a', ageMin: 40, thresholdMin: null, stale: true })).toBe(
+      'stale at 30 min',
+    )
+  })
+
+  it('is null for a fresh poller, even past the scale end', () => {
+    expect(pollerStaleLabel({ name: 'a', ageMin: 45, thresholdMin: 90, stale: false })).toBeNull()
+  })
+})
+
+describe('deferralOf', () => {
+  it('flags a deferred item even when its note carries no detail', () => {
+    expect(deferralOf(item({ state: 'working', note: 'deferred:' }))).toEqual({
+      deferred: true,
+      detail: null,
+    })
+  })
+
+  it('supplies the detail when there is one', () => {
+    expect(deferralOf(item({ state: 'working', note: 'deferred: budget 5/5' }))).toEqual({
+      deferred: true,
+      detail: 'budget 5/5',
+    })
+  })
+
+  it('is not deferred otherwise', () => {
+    expect(deferralOf(item({ state: 'working', note: 'investigating' }))).toEqual({
+      deferred: false,
+      detail: null,
+    })
+  })
+})
+
+describe('deriveSummary health and window', () => {
+  const base = {
+    needsCount: 0,
+    oldestAgeDays: null,
+    receivedAt: new Date(NOW - 60_000).toISOString(),
+    oldestPollerMin: 2,
+    unattendedFixes: 1,
+    windowDays: 7,
+    stalePoller: null,
+    now: NOW,
+  }
+
+  it('never calls a loop with health.ok = false healthy', () => {
+    const summary = deriveSummary({ ...base, healthOk: false })
+    expect(summary.status).toBe('degraded')
+    expect(summary.text).toContain('health check is failing')
+    expect(summary.text).not.toContain('healthy')
+  })
+
+  it('reads health.ok = true or absent as healthy', () => {
+    expect(deriveSummary({ ...base, healthOk: true }).status).toBe('ok')
+    expect(deriveSummary(base).status).toBe('ok')
+  })
+
+  it('uses the unattended metric’s own window, else 7 d', () => {
+    const own: WardenMetrics = {
+      window_days: 30,
+      verified_unattended_fixes_per_week: { value: 2, window_days: 14 },
+    }
+    expect(deriveStrip(own, undefined).unattended.windowDays).toBe(14)
+    const global: WardenMetrics = {
+      window_days: 30,
+      verified_unattended_fixes_per_week: { value: 2 },
+    }
+    expect(deriveStrip(global, undefined).unattended.windowDays).toBe(7)
   })
 })

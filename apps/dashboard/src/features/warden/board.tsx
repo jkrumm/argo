@@ -9,13 +9,7 @@ import type { WardenBoardItem } from '../../lib/queries/warden'
 import { isSafeHttpUrl, issueRefLabel } from './model'
 import classes from './board.module.css'
 import { boardStore } from './board-store'
-import {
-  deferredNote,
-  openCount,
-  originKind,
-  type BoardColumn,
-  type OriginKind,
-} from './page-model'
+import { deferralOf, openCount, originKind, type BoardColumn, type OriginKind } from './page-model'
 
 const ORIGIN_ICON: Record<OriginKind, { Glyph: Icon; label: string }> = {
   alert: { Glyph: IconBell, label: 'Alert' },
@@ -51,7 +45,7 @@ function BoardCard({
   onOpen: (eventId: number) => void
 }) {
   const at = item.updated_at ?? item.created_at
-  const deferred = deferredNote(item)
+  const { deferred, detail } = deferralOf(item)
   const ref = item.issue ? issueRefLabel(item.issue) : null
   const source = [item.repo, ref].filter(Boolean).join(' · ') || `Item #${item.event_id}`
   const title = item.title ?? `Item #${item.event_id}`
@@ -78,13 +72,12 @@ function BoardCard({
             {item.state}
           </Text>
         ) : null}
-        {deferred !== null ? (
+        {deferred ? (
           <Text size="xs" c="dimmed" lineClamp={2} className={classes.text}>
             <Text span size="xs" fw={600} c={VX.status.warn}>
               Deferred
             </Text>
-            {' · '}
-            {deferred}
+            {detail === null ? null : ` · ${detail}`}
           </Text>
         ) : null}
         <Group gap="xs" justify="space-between">

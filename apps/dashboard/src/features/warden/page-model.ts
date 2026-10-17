@@ -176,10 +176,7 @@ export function deriveStrip(
     },
     unattended: {
       fixes: unattendedReading.value,
-      windowDays:
-        numberOf(unattended?.['window_days']) ??
-        numberOf(metrics?.window_days) ??
-        DEFAULT_WINDOW_DAYS,
+      windowDays: numberOf(unattended?.['window_days']) ?? DEFAULT_WINDOW_DAYS,
       unavailable: unattendedReading.unavailable,
     },
     poller: {
@@ -281,6 +278,8 @@ export type SummaryInput = {
   unattendedFixes: number | null
   windowDays: number
   stalePoller: PollerRow | null
+  /** `health.ok` from the snapshot; `false` is never read as a healthy loop. */
+  healthOk?: boolean | undefined
   now?: number
 }
 
@@ -305,6 +304,12 @@ export function deriveSummary(input: SummaryInput): { text: string; status: Summ
   if (input.stalePoller !== null) {
     return {
       text: `${needs}. Loop degraded: ${input.stalePoller.name} is ${formatNumber(input.stalePoller.ageMin)} min old.`,
+      status: 'degraded',
+    }
+  }
+  if (input.healthOk === false) {
+    return {
+      text: `${needs}. Loop degraded: warden's own health check is failing.`,
       status: 'degraded',
     }
   }
@@ -515,6 +520,16 @@ export function deriveBoardColumns(
 
 export function openCount(columns: readonly BoardColumn[]): number {
   return columns.reduce((sum, column) => sum + column.items.length, 0)
+}
+
+/** The label a stale poller carries: its own threshold, else the 30 minute scale. `null` when fresh. */
+export function pollerStaleLabel(poller: PollerRow): string | null {
+  return poller.stale ? `stale at ${poller.thresholdMin ?? POLLER_SCALE_MIN} min` : null
+}
+
+/** Deferral on the board: the marker follows `isDeferredItem`; the note only supplies the detail. */
+export function deferralOf(item: WardenBoardItem): { deferred: boolean; detail: string | null } {
+  return { deferred: isDeferredItem(item), detail: deferredNote(item) }
 }
 
 /** The deferral note without its `deferred:` prefix — what budget was hit. */
