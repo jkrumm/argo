@@ -193,8 +193,28 @@ export function startedDate(ms: number, now: number): string {
   return (sameYear ? dayFormat : dayYearFormat).format(ms)
 }
 
+/** Wide: `Started {date} · last reply {time}` (the type is the chip beside the title). Compact, no chip: `{time} · {type}`. */
+export function factsLine({
+  entry,
+  now,
+  compact,
+}: {
+  entry: ThreadEntry
+  now: number
+  compact: boolean
+}): string {
+  const sameDay = startOfDay(entry.updatedAt) === startOfDay(entry.createdAt)
+  const reply = sameDay ? timeFormat.format(entry.updatedAt) : listTime(entry.updatedAt, now)
+  const type = entry.type === null ? null : TYPE_LABEL[entry.type]
+  const parts = compact
+    ? [reply, type]
+    : [`Started ${startedDate(entry.createdAt, now)}`, `last reply ${reply}`]
+  return parts.filter((part): part is string => part !== null).join(' · ')
+}
+
 export type ThreadSummary = {
   threads: number
+  untitled: number
   pinned: number
   today: number
   /** `null` with no threads. */
@@ -209,6 +229,7 @@ export function summarize(entries: readonly ThreadEntry[], now: number): ThreadS
   )
   return {
     threads: entries.length,
+    untitled: entries.filter(isUntitled).length,
     pinned: entries.filter((entry) => entry.pinned).length,
     today: entries.filter((entry) => entry.updatedAt >= today).length,
     lastReply: newest === null ? null : listTime(newest, now),
@@ -219,6 +240,7 @@ export function summarize(entries: readonly ThreadEntry[], now: number): ThreadS
 export function summaryLine(summary: ThreadSummary): string {
   const parts = [
     `${summary.threads} ${summary.threads === 1 ? 'thread' : 'threads'}`,
+    ...(summary.untitled > 0 ? [`${summary.untitled} untitled`] : []),
     `${summary.pinned} pinned`,
     `${summary.today} today`,
   ]

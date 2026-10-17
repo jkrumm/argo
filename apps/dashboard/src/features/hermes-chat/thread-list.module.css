@@ -82,6 +82,7 @@
 }
 
 .chip {
+  --badge-fz: var(--vx-text-micro);
   grid-area: chip;
   justify-self: start;
 }

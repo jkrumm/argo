@@ -6,6 +6,7 @@ process.env['VITE_API_URL'] = 'http://test.local/api'
 
 const {
   buildView,
+  factsLine,
   groupEntries,
   isUntitled,
   listTime,
@@ -131,5 +132,20 @@ describe('summary', () => {
   it('words the untitled fold', () => {
     expect(untitledLabel(3, '2 months ago')).toBe('3 untitled chats · oldest 2 months ago')
     expect(untitledLabel(1, 'yesterday')).toBe('1 untitled chat · oldest yesterday')
+  })
+})
+
+describe('factsLine', () => {
+  it('drops the repeated date when the thread started and last replied on one day', () => {
+    const e = entry({
+      id: 'f',
+      type: 'infra',
+      createdAt: new Date(2026, 9, 3, 8, 0).getTime(),
+      updatedAt: new Date(2026, 9, 3, 9, 41).getTime(),
+    })
+    expect(factsLine({ entry: e, now: NOW, compact: false })).toBe(
+      'Started 3 Oct · last reply 09:41',
+    )
+    expect(factsLine({ entry: e, now: NOW, compact: true })).toBe('09:41 · Infra')
   })
 })
