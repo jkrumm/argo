@@ -114,3 +114,24 @@ Prototype built: `components/upstream/schedule-row.tsx` — `ScheduleRow{start, 
 | Schedule / agenda row | adopted as is: `features/home/meetings.tsx` renders `components/upstream/schedule-row.tsx`; the countdown wording is Calendar's `untilLabel` |
 | `EventList density="feed" live` | `features/home/activity-feed.tsx` `ActivityFeed{groups, total, stale, loaded, now}`: the sentence is `actor` bold + title + a chip, time pinned right, day groups with a count, `Show n more`; the Agents `EventList` is not reused because its 10 rem actor column does not fit a 40 % column |
 | Merged inbox | `lib/decisions.ts` `deriveDecisions({warden, agents, wardenReceivedAt?, now}) → Decision[]` (`source`, `id`, `headline`, `facts`, `ageMs`, `href`, `evidence`, `history`, `abandoned`), pure and tested; the Home heading, sentence and cards read its length |
+
+### Wave 21 — Strength, WalkingPad, Body composition, Reading, Usage (consolidated)
+
+Each page's full table is in its concept doc under `## Wave 21 friction`. Merged here by export, with the pages that hit it; the more pages, the higher the ask.
+
+| Export | Needed prop | Pages | What argo does instead |
+|-|-|-|-|
+| `StatGroup variant="strip"` | a strip with typed cells (`caption`, `qualifier`, `value`, `unit`, `delta`, `spark`, an `action` on the caption line), multi-row cells, five cells plus a full-width row, `segments` / histogram / dot-on-axis cells | all five | a local strip grid per feature (now five prototypes plus garmin, agents, warden, home) |
+| `Sparkline` | `reference` (mean / target / previous PR) and a hover readout | strength, walking-pad, body-composition, usage | the reference stated as visible text beside it (`PR {kg} kg`, `30 d mean {x}`) |
+| `Meter` | `tone="muted"`, multiple `ticks`, `start`/`goal` span, marker on the radius scale, proportional-sans captions, an empty state that reads `—`, a ring `target` tick, per-segment captions | all five | `alpha(VX.muted, .35)` fills; one `target` plus a caption; usage draws its own SVG ring for the 60 % tick |
+| `DeltaBadge` / `BarList` values | a proportional value face (both render mono) | walking-pad, body-composition, reading, usage | left as basalt renders it |
+| `BarList` | a `lead` slot (thumbnail / swatch), label-outside row, per-row hue, a bar that stops short of the value column | reading, usage | plain rows or a clipped label |
+| `EmptyState` | a compact one-row variant with an inline action | walking-pad, body-composition | a local one-row empty state |
+| `ChartCard` | a visible subtitle / period-basis line that survives half width; a `facts` header | strength, walking-pad, usage | the period written into the title or the first child |
+| `EventList` | day/month grouping with a right-pinned value, `collapse` of repeats with a count | strength, walking-pad | local lists |
+| `RefLine` / `Lines` / `Bars` | an on-line `label`, a distinct goal stroke, day-granular x ticks, hide one axis | body-composition, usage | the target named in the header |
+| `Heatmap` | a neutral single-metric ramp default and a tooltip label other than `Value` | walking-pad | as rendered |
+| record header | a `pulse` status (no motion token exists; walking-pad waives `raw-motion-value` once, `prefers-reduced-motion` honoured) | walking-pad | local CSS keyframe |
+| heading face | numerals without the slashed zero (filed in Wave 20 too) | walking-pad, reading | none |
+| `basalt-ui shot` | the full-page shot renders blank below the first viewport on long pages; sticky headers cover section crops | strength | crops cover the content |
+| series fold | `foldTopN` for stacked data | usage | local fold |

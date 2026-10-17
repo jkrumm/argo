@@ -839,13 +839,82 @@ merges.
     container. The API image reports the commit, but the dashboard image carries no SHA, so wait for the deploy run to complete
     before shooting.
 
-## Wave 21 — Strength, WalkingPad, Body composition, Reading, Usage <!-- status: active -->
+## Wave 21 — Strength, WalkingPad, Body composition, Reading, Usage <!-- status: done -->
 
-- [ ] One concept-driven redesign per page, fanned out in parallel. At least three rounds each. Deploy and
+- [x] One concept-driven redesign per page, fanned out in parallel. At least three rounds each. Deploy and
       live-verify.
       **Left behind:**
 
-## Wave 22 — Astro window, Hermes chat, M365 explorer; the convergence pass <!-- status: pending -->
+  **Closed out (orchestrated): Wave 22 is marked active but not spawned; the orchestrator spawns it.**
+
+  - **Landed (master, deployed, `/api/health` verified, last `094769a`):**
+    - `9ae11b6` / `ea754b6` / `fbf1e3e` the Wave 20 leftover: decision-card state history on `/` and `/warden` read German.
+      Cause, basalt's: 2.18's `relativeTime` builds `Intl.RelativeTimeFormat` from the call's own `locale` only, while
+      `numberFormat`/`dateFormat` fall back to the provider default. `lib/format.ts` `relativeTime` (`pinLocale`) passes
+      `APP_LOCALE`; every argo caller goes through it. basalt's own `SyncButton` hits the same bug in the shell chrome and argo
+      cannot wrap it. Filed in `UPSTREAM.md`. Live shots of `/` and `/warden` now read English only.
+    - #70 Reading, #71 Usage (API: additive `calls30d` and four `*Prior30d` fields on `GET /usage/headline`, `metric=error_rate`
+      on the timeseries), #72 Body composition (log forms moved to `defineOverlays` modals, a goal popover), #73 WalkingPad
+      (a weekly target held as a local preference, default stated), #74 Strength (total-tonnage ACWR, verdict inputs on fixed
+      windows independent of the page window).
+    - Post-live fixes from the fresh live score, all owner rule "no self-contradicting numbers": #77 Strength (one readiness
+      value, recency-gated deload signal, a call that never says Push beside an active signal, the momentum window visible),
+      #75 Body composition (one coverage-guarded 7 d mean for the header, strip and chart line; the 30 d slope that restated the
+      28 d hero is gone), #76 Reading (ratings binned by whole star rounded down, stated).
+  - **Before/after:** before = `w21-<page>-r0`; after = the live shots `w21-live` (all five pages plus `/` and `/warden`) and
+    `w21-live-final` (the three post-live fixes). Round boards `w21-<page>-r1…r7` (+ `-mock` / `-all` injected-data variants for the
+    empty production windows). All under `apps/dashboard/.design-shots/` (gitignored), copied to the MacBook,
+    `~/Downloads/argo-design-review/w21/`.
+  - **Rounds:** Strength 8 (r0–r7) + 1 live, WalkingPad 6 + populated variants, Body composition 6 + mock variants, Reading 8 + 1
+    live, Usage 7. Each scored by a fresh `basalt-design-reviewer` on `basalt-ui shot --api/--local-storage --auto-anchors` at
+    least three times, plus the worker's side-by-side read against Keel. Recorded in each `docs/design/<page>.md` under
+    "Wave 21 rounds".
+  - **Reviewer verdict, stated plainly:** a fresh reviewer scored the live deploy. It passes every **page** as a whole and
+    **fails most components**; no page passes component-complete. Passing components: Reading pace and progress cards, Usage
+    summary, cache ring and freshness, Body composition empty row. Against Keel: Usage is closest (strip, chart, ranked list);
+    Reading and WalkingPad's empty state hold up; Strength and Body composition are weaker.
+    - **argo-side, fixed post-live:** the four figure contradictions above.
+    - **argo-side, open (for Wave 22's convergence pass):**
+      - Usage deltas carry no direction glyph;
+      - the cost-by-source area is one source plus six hairlines (fold to top N);
+      - two near-identical blues in the tokens chart;
+      - saturated sky fills on non-verdict tonnage and cost areas and the billing split;
+      - chart tooltips print a raw `Sun Jun 21 2026 22:00` on daily buckets (check whether basalt's default);
+      - Strength's sticky page bar covers section titles in crops at 390;
+      - bare section titles (`Diagnostics`, `Finished`);
+      - the time-read totals and the record header's steps/kcal name no period;
+      - Strength's per-lift strip sparklines are hued while the scan table draws the same lifts neutral;
+      - the Balance chart's y-axis runs far past its data.
+    - **basalt-side (filed):** mono `DeltaBadge` and `BarList` values (owner rule: values are sans); the heading face's slashed
+      zero ("3θ days", "2θ26"); `Meter` marker radius 1 (off the radius scale) and four caption sizes; `Sparkline` has no
+      `reference`, so no strip sparkline can draw its limit (the limit is stated in visible text beside it instead); the full-page
+      `shot` renders blank below the first viewport on long pages.
+  - **Code review:** each of #70–#74 got two independent rounds, then scope froze and the lead read the last fix diff. Fixes
+    included: null as zero (backlog hours, `0 p`, `0.0 h`, an empty-window error rate, an absent API field read as "no prior"),
+    repeated counts derived from one source, a partial week compared with a full one, a 28 d slope beside a newest-minus-oldest
+    change, an equal-weight mean of per-lift ACWRs, a rested lift dropping out of the ACWR sums, a "Today" verdict under a past
+    page window, and band offsets compared after rounding. #75–#77 each got one independent round plus the lead's read of the last
+    fix diff (#76 was clean, so no second round). `make check` ran green in the merge train on every merge.
+  - **basalt friction:** `docs/design/UPSTREAM.md` § "Wave 21 — … (consolidated)" merges the five per-page tables. The top asks,
+    each hit by four or five pages: `StatGroup variant="strip"` (there are now nine local strip prototypes), `Sparkline reference`,
+    `Meter` (`tone="muted"`, `ticks`, `start`/`goal`, a ring `target`), and a proportional value face for `DeltaBadge`/`BarList`.
+  - **Deviations kept, the owner may revert:**
+    - Strength: an active monitor signal caps the readiness "Push" at Normal, and the summary says so; the concept had monitor keep
+      the readiness verdict.
+    - Strength: the strip sparklines show the last {n} sessions while the delta is 28 d. Both periods are labelled, because a
+      28 d line is empty whenever no recent session exists.
+    - WalkingPad: weeks and the streak run on UTC days (the API's buckets) while the hour grid is local at the current offset; both
+      are stated on the page. The weekly target is a browser-local preference, not synced across devices.
+    - Body composition: the 7 d / 30 d means are day-based from the series, not the API's entry-based `ma7`/`ma30`; the RATE pill
+      is neutral (the gold "bulk" tone contradicted a delta moving away from the goal).
+    - Reading: Finished is grouped by month across years; days-to-finish is absent because no book has a start date (stated once).
+    - Usage: the cache ring is a local SVG (`Meter shape="ring"` takes no target).
+  - **For later waves:** the open argo-side items above; Home's ACWR (7 d / 28 d) still differs in method from Strength's
+    total-tonnage EWMA and Garmin's EWMA ACWR, and the live score saw Home print a value where Strength prints `—` (stale), so
+    one shared ACWR (or each page naming its method) belongs in the convergence pass. A worker ran `git switch` in the main checkout once
+    (reverted, nothing lost): briefs should state that every git command runs inside the worktree.
+
+## Wave 22 — Astro window, Hermes chat, M365 explorer; the convergence pass <!-- status: active -->
 
 - [ ] Redesign the remaining pages.
 - [ ] Re-score every page with a fresh reviewer and against Keel. Every page still below the bar gets a Wave
