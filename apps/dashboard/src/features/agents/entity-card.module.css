@@ -55,6 +55,15 @@
   text-overflow: ellipsis;
 }
 
+.valueSmall {
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-sm);
+  line-height: 1.6;
+  color: var(--vx-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .unit {
   font-size: var(--vx-text-xs);
   color: var(--vx-muted);

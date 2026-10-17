@@ -38,7 +38,7 @@ function AgeBars({ agents, now }: { agents: AgentRow[]; now: number }) {
             key={a.id}
             component="span"
             className={classes.bar}
-            h={`${Math.round(25 + share * 75)}%`}
+            h={`${Math.round(35 + share * 65)}%`}
           />
         )
       })}
@@ -46,12 +46,10 @@ function AgeBars({ agents, now }: { agents: AgentRow[]; now: number }) {
   )
 }
 
-function sourceCell(sources: Record<string, number>): Pick<EntityCardCell, 'value' | 'unit'> {
+function sourceCell(sources: Record<string, number>): Pick<EntityCardCell, 'value' | 'small'> {
   const entries = Object.entries(sources).toSorted((a, b) => b[1] - a[1])
-  const [first, ...rest] = entries
-  if (!first) return { value: '—' }
-  const unit = rest.map(([name, n]) => `${name} ${n}`).join(' · ')
-  return { value: `${first[0]} ${first[1]}`, ...(unit && { unit }) }
+  if (entries.length === 0) return { value: '—' }
+  return { value: entries.map(([name, n]) => `${name} ${n}`).join(' · '), small: true }
 }
 
 function gitCell(git: ProjectGroup['git']): Pick<EntityCardCell, 'value' | 'unit'> {
@@ -132,6 +130,7 @@ type Props = {
  */
 export function ProjectCards({ active, quiet, now }: Props) {
   const count = active.length + quiet.length
+  const busiest = Math.max(1, ...[...active, ...quiet].map((g) => g.agents.length))
   if (count === 0) return null
   return (
     <Section title="Projects" count={count}>
@@ -150,6 +149,7 @@ export function ProjectCards({ active, quiet, now }: Props) {
           <BarList
             label="Projects without a running agent"
             items={quietRows(quiet, now)}
+            max={busiest}
             format={(n) => plural(n, 'agent', 'agents')}
           />
         ) : null}

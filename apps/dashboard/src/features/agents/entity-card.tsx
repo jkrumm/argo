@@ -7,6 +7,8 @@ export type EntityCardCell = {
   caption: string
   value: string
   unit?: string
+  /** Text-sized value, for a reading that is a phrase rather than a figure. */
+  small?: boolean
   /** The cell's micro-visual (age bars, a meter). */
   visual?: ReactNode
 }
@@ -38,7 +40,7 @@ export function EntityCard({ identity, status, cells, now }: EntityCardProps) {
           <div key={cell.caption} className={classes.cell}>
             <Text className={classes.caption}>{cell.caption}</Text>
             <div className={classes.reading}>
-              <span className={classes.value}>{cell.value}</span>
+              <span className={cell.small ? classes.valueSmall : classes.value}>{cell.value}</span>
               {cell.unit ? <span className={classes.unit}>{cell.unit}</span> : null}
               {cell.visual ? <span className={classes.visual}>{cell.visual}</span> : null}
             </div>

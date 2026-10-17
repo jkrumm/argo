@@ -10,6 +10,7 @@ declare const classes: {
   readonly caption: string
   readonly reading: string
   readonly value: string
+  readonly valueSmall: string
   readonly unit: string
   readonly visual: string
   readonly now: string
