@@ -85,4 +85,9 @@
     align-items: baseline;
     gap: var(--vx-space-stack-sm);
   }
+
+  /* `10:45 · 15m` — the separator only exists when the duration sits beside the start. */
+  .duration::before {
+    content: '· ';
+  }
 }

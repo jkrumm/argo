@@ -27,8 +27,10 @@ import {
 } from './derive'
 
 /** Work and Personal are the one categorical split on the page, so they alone earn hues. */
-const SPLIT_COLOR = { work: SERIES.sleepDuration, personal: SERIES.vo2max } as const
+const SPLIT_COLOR = { work: SERIES.calendarWork, personal: SERIES.calendarPersonal } as const
 /** The `in {n}m` pill only reads as a countdown when the next item is close. */
+/** Past this many invitees the accepted ratio stops being useful ("13/123 accepted"). */
+const MAX_RATIO_ATTENDEES = 12
 const PILL_WITHIN_MIN = 12 * 60
 const SPLIT_LABEL = { work: 'Work', personal: 'Personal' } as const
 
@@ -42,8 +44,10 @@ function eventMeta(payload: CalendarEventPayload | undefined): string {
   const parts: string[] = []
   if (payload?.sourceClass) parts.push(SPLIT_LABEL[payload.sourceClass])
   if (payload?.source === 'google' && payload.calendarName) parts.push(payload.calendarName)
-  if (payload?.attendeeTotal)
-    parts.push(`${payload.attendeeAccepted ?? 0}/${payload.attendeeTotal} accepted`)
+  const total = payload?.attendeeTotal ?? 0
+  // A ratio is only legible on a small invite; a large one reads as a head count.
+  if (total > MAX_RATIO_ATTENDEES) parts.push(`${total} people`)
+  else if (total > 0) parts.push(`${payload?.attendeeAccepted ?? 0}/${total} accepted`)
   return parts.join(' · ')
 }
 
@@ -162,15 +166,12 @@ export function DayGroups({
 
 export function WeekStrip({
   title,
-  range,
   load,
   split,
   todayKey,
   unknown,
 }: {
   title: string
-  /** The window the rows cover, stated beside the figures (`Sat 17 – Fri 23`). */
-  range: string
   load: readonly DayLoad[]
   split: SourceSplit
   todayKey: DayKey
@@ -181,9 +182,12 @@ export function WeekStrip({
   return (
     <Card py="sm" px="md" data-shot="week-strip">
       <Section title={title}>
-        <Text className={classes.muted}>
-          {range} · tick at {DAY_TARGET_H} h · number = events · today counts from now
-        </Text>
+        <Box className={`${classes.stripRow} ${classes.stripHead}`} aria-hidden>
+          <span />
+          <span className={classes.stripTarget}>{DAY_TARGET_H} h</span>
+          <span className={classes.stripBooked}>booked</span>
+          <span className={classes.stripCount}>events</span>
+        </Box>
         <div>
           {load.map((day) => {
             const hours = day.bookedMin / 60
@@ -203,7 +207,7 @@ export function WeekStrip({
                   endCaption={null}
                 />
                 <span className={classes.stripBooked}>{formatDurationMin(day.bookedMin)}</span>
-                <span className={classes.stripCount}>{day.count > 0 ? `· ${day.count}` : ''}</span>
+                <span className={classes.stripCount}>{day.count}</span>
               </Box>
             )
           })}

@@ -119,7 +119,7 @@
 /* Day-load strip: weekday · bar · booked · count. Today wears a ring, never a fill. */
 .stripRow {
   display: grid;
-  grid-template-columns: 3.5rem minmax(0, 1fr) 4.5rem 2rem;
+  grid-template-columns: 3.5rem minmax(0, 1fr) 4rem 3rem;
   align-items: center;
   column-gap: var(--vx-space-stack-sm);
   padding: var(--vx-space-stack-xs) var(--vx-space-stack-sm);
@@ -128,11 +128,26 @@
 }
 
 .today {
-  box-shadow: 0 0 0 1px var(--vx-line);
+  box-shadow: 0 0 0 1px var(--vx-surface-border);
 }
 
 .stripDay {
   color: var(--vx-ink);
+}
+
+.stripHead {
+  padding-block: 0;
+  font-size: var(--vx-text-micro);
+  color: var(--vx-muted);
+}
+
+.stripHead .stripBooked,
+.stripHead .stripCount {
+  color: var(--vx-muted);
+}
+
+.stripTarget {
+  text-align: right;
 }
 
 .stripBooked {

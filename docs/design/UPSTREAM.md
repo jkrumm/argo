@@ -84,7 +84,5 @@ Prototype built: `components/upstream/schedule-row.tsx` — `ScheduleRow{start, 
 | `Meter` | a `target` tick that is visible when `max === target` (the tick lands on the track end) | the 0–8 h strip | none; the tick sits on the track end |
 | `@mantine/schedule` `WeekView` | a visible-days prop (3 days on a phone) | the Week tab at 390 | a day-grouped list of the 3 days (selected ± 1) instead of a grid |
 | `EventList` | day-grouped rows with a leading time column and a trailing action | the Next 7 days list | `DayGroups` in `features/calendar/agenda-parts.tsx` over `ScheduleRow` |
-| series | `calendarWork` / `calendarPersonal` series keys | the Work / Personal split | reuses `SERIES.sleepDuration` (sky) and `SERIES.vo2max` (gold); `lib/series.ts` is not a calendar-owned file |
-| argo API | `GET /calendar` and `GET /m365/calendar/upcoming` return `[now, now + days)` only | a week view cannot show past days; today's count is "left today" | strip and summary cover the next 7 days from now, stated beside the figures; the Week tab shows no past events either |
 
 <!-- /w20-calendar -->
