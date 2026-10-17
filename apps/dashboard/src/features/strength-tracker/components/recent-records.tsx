@@ -5,9 +5,11 @@ import { WidgetHeader } from 'basalt-ui'
 import { SelectFilter } from 'basalt-ui/controls'
 import { createLocalStore, field } from 'basalt-ui/state'
 import { alpha, VX } from 'basalt-ui/tokens'
+import { APP_LOCALE } from '../../../lib/format'
 import { strengthQueries } from '../../../lib/queries/strength'
 import { METRICS, EXERCISE_COLORS, type ExerciseKey } from '../constants'
 import { exerciseLabel, metricLabel } from '../formulas'
+import { dayLabel, groupByDay } from '../model'
 
 /** A static tuple, not `METRICS.map()`: `field.enum` closes over its values at definition, and a
  * derived array widens to `string[]`. `avg_intensity` is deliberately absent — a percentage has no
@@ -56,7 +58,7 @@ export function RecentRecords({
           the filter and no hand-rolled `Group` decides the heading's weight. */}
       <WidgetHeader
         tier="widget"
-        title="Recent Records"
+        title="Recent records"
         icon={<IconTrophy size={16} color={VX.status.warn} />}
         actions={<SelectFilter field={local.field.metric} label="Metric" />}
       />
@@ -71,36 +73,37 @@ export function RecentRecords({
         </Text>
       ) : (
         <ScrollArea h={320} type="hover">
-          <Stack gap={4}>
-            {records.map((r, i) => (
-              <Group key={`${r.date}-${r.exercise_id}-${r.metric}-${i}`} gap="xs" wrap="nowrap">
-                {multiExercise && (
-                  <Box
-                    component="span"
-                    w={8}
-                    h={8}
-                    bdrs="50%"
-                    bg={EXERCISE_COLORS[r.exercise_id as ExerciseKey] ?? alpha(VX.neutral, 0.5)}
-                    style={{ flexShrink: 0 }}
-                  />
-                )}
-                <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
-                  <Group gap={6} wrap="nowrap">
-                    <Text size="sm" fw={500} truncate>
+          <Stack gap="sm">
+            {groupByDay(records).map((day) => (
+              <Stack key={day.date} gap={4}>
+                <Text size="xs" c="dimmed">
+                  {dayLabel(day.date)}
+                </Text>
+                {day.rows.map((r) => (
+                  <Group key={`${r.exercise_id}-${r.metric}-${r.value}`} gap="xs" wrap="nowrap">
+                    {multiExercise && (
+                      <Box
+                        component="span"
+                        w={8}
+                        h={8}
+                        bdrs="50%"
+                        bg={EXERCISE_COLORS[r.exercise_id as ExerciseKey] ?? alpha(VX.neutral, 0.5)}
+                        style={{ flexShrink: 0 }}
+                      />
+                    )}
+                    <Text size="sm" fw={500} truncate style={{ flex: 1, minWidth: 0 }}>
                       {r.exercise_name || exerciseLabel(r.exercise_id)}
+                      <Text span size="xs" c="dimmed">
+                        {' · '}
+                        {metricLabel(r.metric)}
+                      </Text>
                     </Text>
-                    <Text size="xs" c="dimmed">
-                      · {metricLabel(r.metric)}
+                    <Text size="sm" fw={600}>
+                      {r.value.toLocaleString(APP_LOCALE, { maximumFractionDigits: 1 })} {r.unit}
                     </Text>
                   </Group>
-                  <Text size="xs" c="dimmed">
-                    {r.date}
-                  </Text>
-                </Stack>
-                <Text size="sm" fw={600}>
-                  {r.value.toLocaleString(undefined, { maximumFractionDigits: 1 })} {r.unit}
-                </Text>
-              </Group>
+                ))}
+              </Stack>
             ))}
           </Stack>
         </ScrollArea>

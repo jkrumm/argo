@@ -5,10 +5,9 @@ import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from '../constants'
-import { directionArrow, directionColor, exerciseLabel } from '../formulas'
+import { exerciseLabel } from '../formulas'
 import {
   buildMergedPoints,
-  trendArrow,
   yDomain,
   type ApiSeriesByExercise,
   type MergedPoint,
@@ -45,7 +44,7 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
       activeExercises.flatMap((ex) => [
         {
           key: ex,
-          label: `${exerciseLabel(ex)} ${directionArrow(trendArrow(byExercise, ex))}`,
+          label: exerciseLabel(ex),
           color: exerciseColor(ex),
           strokeWidth: LINE_WIDTH,
           gaps: 'connect' as const,
@@ -71,7 +70,7 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
           getValue: (d: MergedPoint) => d.ma[ex] ?? null,
         },
       ]),
-    [byExercise, activeExercises],
+    [activeExercises],
   )
 
   const hasAnyPoint = merged.some((p) => activeExercises.some((ex) => p.e1rm[ex] != null))
@@ -90,24 +89,18 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
     return best
   }, [merged, activeExercises])
 
-  const dir = leader ? trendArrow(byExercise, leader.ex) : null
-
   return (
     <ChartCard
       title="Estimated 1RM"
-      subtitle="Am I getting stronger?"
       info={METRIC_TOOLTIPS.oneRmTrend}
       actions={
         leader ? (
           <Group gap={6} align="baseline" wrap="nowrap">
-            <Text span fw={600} size="md" c={exerciseColor(leader.ex)}>
+            <Text span fw={600} size="md">
               {leader.latest.toFixed(1)} kg
             </Text>
             <Text span size="xs" c="dimmed">
-              {exerciseLabel(leader.ex)}
-            </Text>
-            <Text span fw={600} size="xs" c={directionColor(dir)}>
-              {directionArrow(dir)}
+              {exerciseLabel(leader.ex)}, latest session
             </Text>
           </Group>
         ) : null
@@ -121,7 +114,7 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
         height={HEIGHT}
         x={(d) => d.day}
         series={series}
-        y={{ domain: yDomain, nice: true }}
+        y={{ domain: yDomain, nice: true, format: (v) => `${Math.round(v)} kg` }}
       />
     </ChartCard>
   )

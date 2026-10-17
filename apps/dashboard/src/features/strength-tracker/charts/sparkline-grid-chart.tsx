@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Box, Text, Tooltip } from '@mantine/core'
+import { Box, Group, Text, Tooltip } from '@mantine/core'
 import { ChartCard, Sparkline } from 'basalt-ui/charts'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/table'
 import { VX } from 'basalt-ui/tokens'
@@ -7,6 +7,7 @@ import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from '../constants'
 import { directionArrow, directionColor, type StrengthDirection } from '../formulas'
+import { perMonth, signed } from '../model'
 
 const SPARK_W = 80
 const SPARK_H = 28
@@ -77,7 +78,7 @@ const columns = [
   }),
   columnHelper.display({
     id: 'e1rm',
-    header: () => <HelpHeader label="1RM" tip="1RM (last 20 sessions)" />,
+    header: () => <HelpHeader label="e1RM, kg" tip="Estimated 1RM, last 20 sessions" />,
     enableSorting: false,
     meta: { priority: 1 },
     cell: (ctx) => (
@@ -90,7 +91,7 @@ const columns = [
   }),
   columnHelper.display({
     id: 'volume',
-    header: () => <HelpHeader label="Volume" tip="Volume (last 10 weeks)" />,
+    header: () => <HelpHeader label="Volume, kg/wk" tip="Weekly volume, last 10 weeks" />,
     enableSorting: false,
     meta: { priority: 4 },
     cell: (ctx) => (
@@ -103,7 +104,7 @@ const columns = [
   }),
   columnHelper.display({
     id: 'inol',
-    header: () => <HelpHeader label="INOL" tip="INOL (last 15 sessions)" />,
+    header: () => <HelpHeader label="INOL / session" tip="INOL, last 15 sessions" />,
     enableSorting: false,
     meta: { priority: 5 },
     cell: (ctx) => (
@@ -116,22 +117,22 @@ const columns = [
   }),
   columnHelper.display({
     id: 'momentum',
-    header: () => <HelpHeader label="Momentum" tip="Momentum (28d velocity %/day)" />,
+    header: () => (
+      <HelpHeader label="Velocity, %/mo" tip="e1RM velocity over 28 days, as a monthly rate" />
+    ),
     enableSorting: false,
     meta: { priority: 2 },
     cell: (ctx) => {
       const { dir, vel } = ctx.row.original
+      const monthly = perMonth(vel)
       return (
         <Text size="sm" c={directionColor(dir)}>
           <Text component="span" fw={700}>
             {directionArrow(dir)}
           </Text>
-          {vel !== null && (
-            <Text component="span" ml={4}>
-              {vel >= 0 ? '+' : ''}
-              {vel.toFixed(2)}%/d
-            </Text>
-          )}
+          <Text component="span" ml={4}>
+            {monthly === null ? '—' : `${signed(monthly)} %/mo`}
+          </Text>
         </Text>
       )
     },
@@ -142,13 +143,16 @@ const columns = [
     enableSorting: false,
     meta: { priority: 3 },
     cell: (ctx) => (
-      <Box
-        display="inline-block"
-        w={10}
-        h={10}
-        bdrs="xl"
-        bg={directionColor(ctx.row.original.dir)}
-      />
+      <Group gap={6} wrap="nowrap">
+        <Box
+          display="inline-block"
+          w={10}
+          h={10}
+          bdrs="xl"
+          bg={directionColor(ctx.row.original.dir)}
+        />
+        <Text size="sm">{ctx.row.original.dir}</Text>
+      </Group>
     ),
   }),
 ]
@@ -161,8 +165,7 @@ export default function SparklineGridChart({ params }: { params: StrengthQueryPa
 
   return (
     <ChartCard
-      title="Strength Scan"
-      subtitle="All lifts at a glance"
+      title="Strength scan"
       info={METRIC_TOOLTIPS.strengthScan}
       state={chartStateOf(query, !hasData ? 'No data — start logging workouts.' : undefined)}
       placeholderHeight={180}

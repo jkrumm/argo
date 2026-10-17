@@ -73,7 +73,6 @@ export default function AlignmentMatrixChart({ params }: { params: StrengthQuery
   return (
     <ChartCard
       title="Training × Recovery Alignment"
-      subtitle="Where do my sessions land?"
       info={METRIC_TOOLTIPS.trainingRecoveryAlignment}
       actions={headerExtra}
       state={{ empty: totalCount === 0 && 'No sessions to chart' }}
