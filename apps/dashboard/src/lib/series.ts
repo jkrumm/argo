@@ -94,6 +94,11 @@ const SERIES_MAP = defineSeries({
   cloudMid: p(BP.orange),
   cloudHigh: p(BP.gray),
   transparencyBand: p(BP.cerulean),
+  // Calendar — the one categorical split on the page (booked hours by calendar source). Work keeps
+  // the sky anchor; Personal takes violet, a hue no status or metric on the page uses, so the pair
+  // reads as two categories and neither as a verdict (gold would read as a warning).
+  calendarWork: p(BP.blue),
+  calendarPersonal: p(BP.violet),
 } satisfies SeriesMap)
 
 /** Garmin activities — per-type identity. */

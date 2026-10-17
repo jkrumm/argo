@@ -108,6 +108,8 @@ export const ACTIVITY = groupTokens('activity', ACTIVITY_MAP)
 | Cloud: mid              | `#c87619` | `#ec9a3c` | `cloudMid`           | Middle of the severity ramp — orange          |
 | Cloud: high             | `#a1a1aa` | `#d4d4d8` | `cloudHigh`          | Bottom of the severity ramp — neutral         |
 | Transparency band       | `#147eb3` | `#3fa6da` | `transparencyBand`   | Atmospheric clarity — cerulean                |
+| Calendar: work          | `#0284c7` | `#38bdf8` | `calendarWork`       | Booked-hours split, work (M365) — sky         |
+| Calendar: personal      | `#9d3f9d` | `#bd6bbd` | `calendarPersonal`   | Booked-hours split, personal (Google) — violet, no status reading |
 
 ### Garmin activities (`activity-` prefix — `ACTIVITY.*`)
 

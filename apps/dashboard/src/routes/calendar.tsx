@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { calendarStore } from '../lib/window-stores'
 import { CalendarPage } from '../features/calendar/calendar-page'
 import { calendarQueries } from '../lib/queries/calendar'
+import { dayKey, queryFromKey } from '../features/calendar/derive'
 
 const DAYS_RANGE = 60
 
@@ -21,9 +22,12 @@ export const Route = createFileRoute('/calendar')({
     ...calendarStore.validateSearch(raw),
     ...DateSchema.parse(raw),
   }),
-  loader: ({ context }) => {
-    void context.queryClient.prefetchQuery(calendarQueries.google(DAYS_RANGE))
-    void context.queryClient.prefetchQuery(calendarQueries.m365(DAYS_RANGE))
+  loader: ({ context, location }) => {
+    const search = location.search as { view?: string; date?: string }
+    const view = search.view === 'week' || search.view === 'month' ? search.view : 'agenda'
+    const fromKey = queryFromKey(view, search.date ?? dayKey(new Date()), dayKey(new Date()))
+    void context.queryClient.prefetchQuery(calendarQueries.google(DAYS_RANGE, fromKey))
+    void context.queryClient.prefetchQuery(calendarQueries.m365(DAYS_RANGE, fromKey))
     void context.queryClient.prefetchQuery(calendarQueries.ticktickProjects())
   },
   component: CalendarRoute,

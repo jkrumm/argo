@@ -21,6 +21,8 @@ declare const classes: {
   readonly freeDay: string
   readonly stripRow: string
   readonly today: string
+  readonly stripHead: string
+  readonly stripTarget: string
   readonly stripDay: string
   readonly stripBooked: string
   readonly stripCount: string

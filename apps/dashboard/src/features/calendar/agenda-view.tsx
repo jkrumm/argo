@@ -4,7 +4,8 @@ import { Section } from 'basalt-ui'
 import { format } from 'date-fns'
 import { StatStrip, StripCell } from '../garmin-health/stat-strip'
 import { formatDurationMin } from '../../components/upstream/schedule-row-model'
-import { useNow } from './use-now'
+import { countdown, summarySentence } from './summary'
+import { useNow } from '../../lib/use-now'
 import classes from './agenda.module.css'
 import { AllDayChips, DayGroups, EventRows, TaskList, WeekStrip } from './agenda-parts'
 import {
@@ -15,14 +16,11 @@ import {
   bookedBySourceClass,
   dayLoad,
   eventsOnDay,
-  dayLabel,
   keyToDate,
   longestFreeBlock,
   tasksDue,
-  type AgendaSummary,
   type CalendarItem,
   type DayKey,
-  type FreeBlock,
   type SourceSplit,
 } from './derive'
 
@@ -31,33 +29,6 @@ const NEXT_DAYS = 7
 export type SourceError = { label: string; reason: string; reauthUrl?: string | undefined }
 
 const hhmm = (d: Date) => format(d, 'HH:mm')
-
-function countdown(summary: AgendaSummary): string | null {
-  const next = summary.next
-  if (!next) return null
-  if (next.inMin < 120) return `next in ${next.inMin} min`
-  const start = String(next.event.start)
-  const startKey = start.slice(0, 10)
-  const time = start.slice(11, 16)
-  return startKey === summary.todayKey
-    ? `next at ${time}`
-    : startKey === addDays(summary.todayKey, 1)
-      ? `next tomorrow ${time}`
-      : `next ${format(keyToDate(startKey), 'EEE')} ${time}`
-}
-
-/** One sentence, built from the same derivation as the lists and the strip beside it. */
-function summarySentence(summary: AgendaSummary, free: FreeBlock | null): string {
-  const today =
-    summary.todayCount > 0
-      ? `${summary.todayCount} ${summary.todayCount === 1 ? 'meeting' : 'meetings'} left today, ${formatDurationMin(summary.todayBookedMin)} booked`
-      : `No more events today${free ? ` · ${formatDurationMin(free.minutes)} free` : ''}`
-  const week =
-    summary.rangeBookedMin === 0
-      ? 'nothing booked in the next 7 days'
-      : `${formatDurationMin(summary.rangeBookedMin)} booked in the next 7 days`
-  return [today, countdown(summary), week].filter(Boolean).join(' · ')
-}
 
 export function AgendaView({
   events,
@@ -70,24 +41,25 @@ export function AgendaView({
   loading: boolean
   unknown: ReadonlySet<keyof SourceSplit>
 }) {
-  const now = useNow()
+  const nowMs = useNow()
+  const now = useMemo(() => new Date(nowMs), [nowMs])
   const model = useMemo(() => {
     const summary = agendaSummary(events, now)
     const { todayKey } = summary
     const nextKeys = Array.from({ length: NEXT_DAYS }, (_, i) => addDays(todayKey, i + 1))
-    const days = agendaDays(events, nextKeys, now)
+    const days = agendaDays(events, nextKeys)
     const allDay: Record<DayKey, CalendarItem[]> = {}
     for (const key of nextKeys) allDay[key] = allDayEvents(events, key)
     return {
       summary,
       free: longestFreeBlock(events, todayKey, now),
-      today: eventsOnDay(events, todayKey, now),
+      today: eventsOnDay(events, todayKey),
       todayAllDay: allDayEvents(events, todayKey),
       days,
       nextCount: days.reduce((sum, d) => sum + d.events.length, 0),
       allDay,
-      load: dayLoad(events, summary.rangeKeys, now),
-      split: bookedBySourceClass(events, summary.rangeKeys, now),
+      load: dayLoad(events, summary.weekKeys),
+      split: bookedBySourceClass(events, summary.weekKeys),
       tasks: tasksDue(events, todayKey),
     }
   }, [events, now])
@@ -121,7 +93,9 @@ export function AgendaView({
               <Card py="sm" px="md">
                 <Section title="Today" count={model.today.length}>
                   {model.today.length === 0 ? (
-                    <Text className={classes.muted}>Nothing left today.</Text>
+                    <Text className={classes.muted}>
+                      No events today{countdown(summary) ? ` · ${countdown(summary)}` : ''}
+                    </Text>
                   ) : (
                     <EventRows events={model.today} now={now} next={summary.next} />
                   )}
@@ -144,8 +118,7 @@ export function AgendaView({
           <Box className={classes.col}>
             <Box className={classes.oStrip}>
               <WeekStrip
-                title="Booked hours, next 7 days"
-                range={`${dayLabel(summary.rangeKeys[0] ?? summary.todayKey)} – ${dayLabel(summary.rangeKeys[summary.rangeKeys.length - 1] ?? summary.todayKey)}`}
+                title={`Booked hours, week ${format(keyToDate(summary.todayKey), 'I')}`}
                 load={model.load}
                 split={model.split}
                 todayKey={summary.todayKey}

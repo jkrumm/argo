@@ -14,6 +14,7 @@ import {
 import { PageBar, useSizeClass } from 'basalt-ui'
 import type { BarAction } from 'basalt-ui/controls'
 import { ViewTabs } from 'basalt-ui/controls'
+import { useNow } from '../../lib/use-now'
 import { calendarStore } from '../../lib/window-stores'
 import { AgendaView, type SourceError } from './agenda-view'
 import { DayGroups } from './agenda-parts'
@@ -21,17 +22,18 @@ import {
   addDays,
   agendaDays,
   allDayEvents,
+  dayKey,
   hourToTime,
+  queryFromKey,
   weekKeys,
   weekWindow,
   type CalendarItem,
+  type CalendarView,
   type DayKey,
   type SourceSplit,
 } from './derive'
 
 const DAYS_RANGE = 60
-
-export type CalendarView = 'agenda' | 'week' | 'month'
 
 type SearchState = { view: CalendarView; date: string }
 
@@ -86,8 +88,10 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
   const { colorScheme } = useMantineColorScheme()
   const compact = useSizeClass() === 'compact'
 
-  const googleQuery = useQuery(calendarQueries.google(DAYS_RANGE))
-  const m365Query = useQuery(calendarQueries.m365(DAYS_RANGE))
+  const nowMs = useNow()
+  const fromKey = queryFromKey(view, date, dayKey(new Date(nowMs)))
+  const googleQuery = useQuery(calendarQueries.google(DAYS_RANGE, fromKey))
+  const m365Query = useQuery(calendarQueries.m365(DAYS_RANGE, fromKey))
   const projectsQuery = useQuery(calendarQueries.ticktickProjects())
 
   const projects = ((projectsQuery.data as { data?: unknown } | undefined)?.data ?? []) as Array<{
@@ -231,7 +235,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
         <DayGroups
           days={agendaDays(meetings, compactKeys)}
           allDay={Object.fromEntries(compactKeys.map((k) => [k, allDayEvents(meetings, k)]))}
-          now={new Date()}
+          now={new Date(nowMs)}
           next={null}
         />
       )}

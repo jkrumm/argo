@@ -58,22 +58,37 @@ export function colorForGoogleCalendar(name: string | null | undefined): string 
   return GOOGLE_CALENDAR_COLORS[name] ?? GOOGLE_FALLBACK_COLOR
 }
 
+/** `YYYY-MM-DD` → the instant that local day starts, as the ISO datetime the API's `from` takes. */
+function localMidnightISO(dayKey: string): string {
+  return new Date(`${dayKey}T00:00:00`).toISOString()
+}
+
 export const calendarQueries = {
   all: () => ['calendar'] as const,
 
-  google: (days: number) =>
+  google: (days: number, fromKey?: string) =>
     queryOptions({
-      queryKey: [...calendarQueries.all(), 'google', days] as const,
-      queryFn: async () => unwrap(await api.calendar.get({ query: { days: String(days) } })),
+      queryKey: [...calendarQueries.all(), 'google', days, fromKey] as const,
+      queryFn: async () =>
+        unwrap(
+          await api.calendar.get({
+            query: { days: String(days), ...(fromKey ? { from: localMidnightISO(fromKey) } : {}) },
+          }),
+        ),
       staleTime: 60_000,
       retry: false,
       placeholderData: keepPreviousData,
     }),
 
-  m365: (days: number) =>
+  m365: (days: number, fromKey?: string) =>
     queryOptions({
-      queryKey: [...calendarQueries.all(), 'm365', days] as const,
-      queryFn: async () => unwrap(await api.m365.calendar.upcoming.get({ query: { days } })),
+      queryKey: [...calendarQueries.all(), 'm365', days, fromKey] as const,
+      queryFn: async () =>
+        unwrap(
+          await api.m365.calendar.upcoming.get({
+            query: { days, ...(fromKey ? { from: localMidnightISO(fromKey) } : {}) },
+          }),
+        ),
       staleTime: 60_000,
       retry: false,
       placeholderData: keepPreviousData,
