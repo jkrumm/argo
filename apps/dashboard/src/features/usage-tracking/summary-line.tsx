@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { Skeleton, Text } from '@mantine/core'
+import { StatusDot } from 'basalt-ui'
+import { VX } from 'basalt-ui/tokens'
 import { usageQueries } from '../../lib/queries/usage'
-import { relativeTime } from '../../lib/format'
+import { relativeTime } from 'basalt-ui/format'
 import { useNow } from '../../lib/use-now'
 import { footerLine, summarySentence } from './model'
 import classes from './usage.module.css'
@@ -43,7 +45,7 @@ export function FreshnessFooter() {
   const stale = data.maxTs !== null && (now - new Date(data.maxTs).getTime()) / 60_000 > 30
   return (
     <div className={classes.freshness}>
-      <span className={stale ? `${classes.dot} ${classes.dotStale}` : classes.dot} />
+      <StatusDot color={stale ? VX.status.bad : VX.muted} />
       {footerLine({
         records: data.recordsTotal,
         sources: data.sourcesActive,
