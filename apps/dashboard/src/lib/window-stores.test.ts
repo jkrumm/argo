@@ -10,8 +10,15 @@ const localStorage = {
 }
 Object.assign(globalThis, { localStorage, window: { localStorage, addEventListener() {} } })
 
-const { astroStore, garminStore, strengthStore, toApiWindow, usageStore, walkingStore } =
-  await import('./window-stores')
+const {
+  astroStore,
+  calendarStore,
+  garminStore,
+  strengthStore,
+  toApiWindow,
+  usageStore,
+  walkingStore,
+} = await import('./window-stores')
 
 const persist = (key: string, record: Record<string, unknown>) =>
   data.set(`basalt:${key}`, JSON.stringify({ v: 1, value: record }))
@@ -119,5 +126,21 @@ describe('range: toWindow', () => {
     expect(toApiWindow({ window: 'custom' }, '30d')).toEqual({ window: '30d' })
     expect(toApiWindow({ window: '7d' }, '30d')).toEqual({ window: '7d' })
     expect(toApiWindow({ from: 'a', to: 'b' }, '30d')).toEqual({ from: 'a', to: 'b' })
+  })
+})
+
+describe('calendarStore', () => {
+  it('opens on the agenda', () => {
+    expect(calendarStore.validateSearch({}).view).toBe('agenda')
+  })
+
+  it('accepts every tab from the URL', () => {
+    for (const view of ['agenda', 'week', 'month'] as const) {
+      expect(calendarStore.validateSearch({ view }).view).toBe(view)
+    }
+  })
+
+  it('an unknown view falls back to the agenda', () => {
+    expect(calendarStore.validateSearch({ view: 'year' }).view).toBe('agenda')
   })
 })

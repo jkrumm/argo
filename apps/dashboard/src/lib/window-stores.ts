@@ -196,5 +196,5 @@ export const astroStore = createSearchStore({
 
 export const calendarStore = createSearchStore({
   key: 'calendar',
-  fields: { view: field.enum(['week', 'month'], 'week') },
-}).labels({ view: { week: 'Week', month: 'Month' } })
+  fields: { view: field.enum(['agenda', 'week', 'month'], 'agenda') },
+}).labels({ view: { agenda: 'Agenda', week: 'Week', month: 'Month' } })
