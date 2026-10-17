@@ -8,6 +8,7 @@ import { FilterSet, RangeFilter } from 'basalt-ui/controls'
 import { DateRangePicker } from 'basalt-ui/controls-dates'
 import { garminStore, toApiWindow } from '../lib/window-stores'
 import { SummaryLine, StatStripRow, useGarminSync } from '../features/garmin-health'
+import { fitnessRange } from '../features/garmin-health/model'
 import ActivitiesChart from '../features/garmin-health/charts/activities-chart'
 import ActivityScoreChart from '../features/garmin-health/charts/activity-score-chart'
 import AcwrChart from '../features/garmin-health/charts/acwr-chart'
@@ -36,10 +37,11 @@ export const Route = createFileRoute('/garmin-health')({
       garminStore.field.window.toWindow({ preset: deps.window, from: deps.from, to: deps.to }),
       '30d',
     )
-    // Prefetch the strip's three queries; charts prefetch their own data.
+    // Prefetch the strip's three queries; charts prefetch their own data. Fitness reads a fixed
+    // 14-day window, so the loader warms that exact key rather than the page window's.
     return Promise.all([
       context.queryClient.ensureQueryData(recoveryQueries.summary(params)),
-      context.queryClient.ensureQueryData(fitnessDirectionQueries.summary(params)),
+      context.queryClient.ensureQueryData(fitnessDirectionQueries.summary(fitnessRange())),
       context.queryClient.ensureQueryData(trainingLoadQueries.summary(params)),
     ])
   },

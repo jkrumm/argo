@@ -5,7 +5,7 @@ import { VX } from 'basalt-ui/tokens'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { FactsLine } from '../facts-line'
 import { RefetchDim } from '../refetch-dim'
-import { bodyBatteryFact, mean, signed } from '../model'
+import { bodyBatteryFact, dayLabel, mean, signed } from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
@@ -13,6 +13,7 @@ import { localDay } from './local-day'
 
 type BodyBatteryPoint = {
   day: Date
+  date: string
   charged: number | null
   drained: number | null
   net: number | null
@@ -62,6 +63,7 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
         (p) => p.date,
       ).map((p) => ({
         day: localDay(p.date),
+        date: p.date,
         charged: p.bbCharged,
         drained: p.bbDrained,
         net: p.bbNet,
@@ -74,6 +76,7 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
   // Net, high and low come from the latest day that has a net, not whatever the last row holds.
   const latest = points.findLast((p) => p.net !== null)
   const fact = bodyBatteryFact({
+    when: dayLabel(latest?.date),
     net: latest?.net ?? null,
     mean: mean(points.map((p) => p.net)),
     high: latest?.highest ?? null,

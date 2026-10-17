@@ -11,6 +11,12 @@ import {
   firstToLast,
   fmtMinutes,
   fmtNum,
+  dayLabel,
+  FITNESS_DAYS,
+  fitnessRange,
+  hoursFromSec,
+  shortDate,
+  vo2Hero,
   lastDaysRange,
   windowDayCount,
   mean,
@@ -97,12 +103,12 @@ describe('facts headers', () => {
     const facts = [
       activitiesFact({ sessions: 12, totalMin: 600, dayCount: 30 }),
       acwrFact({ acwr: 1.1, zoneLabel: 'Optimal', inZone: 20, dayCount: 30 }),
-      divergenceFact({ divergence: -4.26 }),
+      divergenceFact({ divergence: -4.26, when: 'today' }),
       recoveryFact({ mean: 61.5, high: 9, dayCount: 30 }),
-      sleepFact({ hours: 7.25, score: 81, meanHours: 7.1, dayCount: 30 }),
-      bodyBatteryFact({ net: -3, mean: 5, high: 90, low: 12, dayCount: 30 }),
+      sleepFact({ when: 'last night', hours: 7.25, score: 81, meanHours: 7.1, dayCount: 30 }),
+      bodyBatteryFact({ when: 'today', net: -3, mean: 5, high: 90, low: 12, dayCount: 30 }),
       stressFact({ stress: 28, rest: 4, dayCount: 30 }),
-      activityScoreFact({ score: 300, mean: 450, dayCount: 30 }),
+      activityScoreFact({ when: 'today', score: 300, mean: 450, dayCount: 30 }),
     ]
     for (const f of facts) {
       expect(f.value).not.toBe('')
@@ -112,16 +118,18 @@ describe('facts headers', () => {
   })
 
   test('activity score states the share of the 600 target', () => {
-    expect(activityScoreFact({ score: 300, mean: 450, dayCount: 30 }).context[0]).toBe(
-      '50 % of the 600 target',
-    )
+    expect(
+      activityScoreFact({ when: 'today', score: 300, mean: 450, dayCount: 30 }).context[0],
+    ).toBe('50 % of the 600 target')
   })
 
   test('null readings become em dashes in the header', () => {
-    const f = activityScoreFact({ score: null, mean: null, dayCount: 0 })
+    const f = activityScoreFact({ when: '—', score: null, mean: null, dayCount: 0 })
     expect(f.value).toBe('—')
     expect(f.context.join(' ')).toContain('—')
-    expect(sleepFact({ hours: null, score: null, meanHours: null, dayCount: 0 }).value).toBe('—')
+    expect(
+      sleepFact({ when: '—', hours: null, score: null, meanHours: null, dayCount: 0 }).value,
+    ).toBe('—')
   })
 
   test('acwr names the zone and the days in it', () => {
@@ -189,13 +197,20 @@ describe('windows', () => {
 
 describe('null today', () => {
   test('a null final-day score renders a dash and no percentage', () => {
-    const f = activityScoreFact({ score: null, mean: 410, dayCount: 20 })
+    const f = activityScoreFact({ when: 'Oct 14', score: null, mean: 410, dayCount: 20 })
     expect(f.value).toBe('—')
     expect(f.context[0]).toBe('— % of the 600 target')
   })
 
   test('body battery uses one minus glyph and dashes for a missing day', () => {
-    const f = bodyBatteryFact({ net: -12, mean: -3, high: null, low: null, dayCount: 9 })
+    const f = bodyBatteryFact({
+      when: 'Oct 14',
+      net: -12,
+      mean: -3,
+      high: null,
+      low: null,
+      dayCount: 9,
+    })
     expect(f.value).toBe('−12')
     expect(f.context.join(' ')).toContain('−3 pts mean over 9 d')
     expect(f.context.join(' ')).toContain('high —/100, low —/100')
@@ -209,5 +224,67 @@ describe('null today', () => {
       '2.0 sessions per week',
       'last 14 d',
     ])
+  })
+})
+
+describe('headers name the point they show', () => {
+  const today = new Date(2026, 9, 17)
+
+  test("dayLabel is derived from the point's own date", () => {
+    expect(dayLabel('2026-10-17', 'day', today)).toBe('today')
+    expect(dayLabel('2026-10-17', 'night', today)).toBe('last night')
+    expect(dayLabel('2026-10-16', 'day', today)).toBe('Oct 16')
+    expect(dayLabel('2026-10-16', 'night', today)).toBe('Oct 16')
+    expect(dayLabel('2026-03-02', 'day', today)).toBe('Mar 2')
+    expect(dayLabel(null, 'day', today)).toBe('—')
+    expect(dayLabel(undefined, 'night', today)).toBe('—')
+  })
+
+  test('shortDate falls back to the raw key for a malformed month', () => {
+    expect(shortDate('2026-13-01')).toBe('2026-13-01')
+  })
+
+  test('a header for a historical point never says today or last night', () => {
+    const when = dayLabel('2026-10-14', 'night', today)
+    expect(sleepFact({ when, hours: 7, score: 80, meanHours: 7, dayCount: 9 }).unit).toBe(
+      'h Oct 14',
+    )
+    const day = dayLabel('2026-10-14', 'day', today)
+    expect(activityScoreFact({ when: day, score: 100, mean: 200, dayCount: 9 }).unit).toBe(
+      'MET-min Oct 14',
+    )
+    expect(
+      bodyBatteryFact({ when: day, net: 4, mean: 1, high: 90, low: 20, dayCount: 9 }).unit,
+    ).toBe('pts net Oct 14')
+    expect(divergenceFact({ divergence: 1, when: day }).context).toContain('Oct 14')
+  })
+})
+
+describe('shared fitness window and hero', () => {
+  test('fitnessRange is the fixed 14 day window the loader and the components both read', () => {
+    const today = new Date(2026, 9, 17)
+    expect(fitnessRange(today)).toEqual(lastDaysRange(FITNESS_DAYS, today))
+    expect(fitnessRange(today)).toEqual({ from: '2026-10-04', to: '2026-10-17' })
+  })
+
+  test('the summary names the fitness window by the constant', () => {
+    expect(summarySentence({ recovery: 1, acwr: 1, rhrDelta: 0, hrvDelta: 0 })).toContain(
+      `over ${FITNESS_DAYS} d`,
+    )
+  })
+
+  test("the VO2max hero takes the trace's last value, else the regression figure, else null", () => {
+    expect(vo2Hero([52, 53.2], 50)).toBe(53.2)
+    expect(vo2Hero([], 50)).toBe(50)
+    expect(vo2Hero([], null)).toBeNull()
+    expect(vo2Hero([], undefined)).toBeNull()
+  })
+
+  test('non-finite input is a dash or null, never NaN text', () => {
+    expect(fmtMinutes(Number.NaN)).toBe('—')
+    expect(fmtMinutes(Number.POSITIVE_INFINITY)).toBe('—')
+    expect(hoursFromSec(Number.NaN)).toBeNull()
+    expect(hoursFromSec(7200)).toBe(2)
+    expect(hoursFromSec(null)).toBeNull()
   })
 })

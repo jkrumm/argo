@@ -17,7 +17,10 @@ import {
   ACWR_OPTIMAL_TO,
   FITNESS_DAYS,
   VO2_DAYS,
+  dayLabel,
+  fitnessRange,
   lastDaysRange,
+  vo2Hero,
   RECOVERY_PUSH_FROM,
   RECOVERY_REST_BELOW,
   contributorItems,
@@ -101,12 +104,14 @@ function RecoveryCell({ params }: { params: SummaryParams }) {
 
   const data = summary.data
   const score = data?.recovery ?? null
+  // The score's own date: today reads "today", a sync gap reads its date.
+  const when = dayLabel(data?.date)
   return (
     <StripCell
       shot="strip-recovery"
       caption="Recovery"
       qualifier={
-        window.mean === null ? 'today' : `today · ${window.days} d mean ${fmtNum(window.mean)}`
+        window.mean === null ? when : `${when} · ${window.days} d mean ${fmtNum(window.mean)}`
       }
       value={fmtNum(score)}
       unit="/100"
@@ -201,8 +206,6 @@ type SignalSpec = {
   hideValue?: boolean
   /** The API's 14 d delta when it has one, else last minus first of the same window. */
   delta: number | null
-  /** Dims the row while its data refetches. */
-  stale?: boolean
 }
 
 function SignalLine({ spec }: { spec: SignalSpec }) {
@@ -212,7 +215,6 @@ function SignalLine({ spec }: { spec: SignalSpec }) {
   const trace = spec.values.map((v) => v ?? Number.NaN)
   return (
     <SignalRow
-      stale={spec.stale === true}
       label={spec.label}
       value={
         spec.hideValue === true
@@ -257,9 +259,9 @@ function SignalLine({ spec }: { spec: SignalSpec }) {
 
 function FitnessCell() {
   // Fixed windows keep the copy true ("14 d regression") whatever the page's selector says.
-  const fitnessRange = lastDaysRange(FITNESS_DAYS)
-  const direction = useQuery(fitnessDirectionQueries.summary(fitnessRange))
-  const series = useQuery(dailyMetricsQueries.series(fitnessRange))
+  const range = fitnessRange()
+  const direction = useQuery(fitnessDirectionQueries.summary(range))
+  const series = useQuery(dailyMetricsQueries.series(range))
   // VO2max moves over months: a bounded 180 d trace, not the page window and not all history.
   const history = useQuery(dailyMetricsQueries.series(lastDaysRange(VO2_DAYS)))
   const vo2 = useMemo(() => {
@@ -290,10 +292,10 @@ function FitnessCell() {
       shot="strip-fitness"
       caption="Fitness"
       qualifier={`${d?.label || '—'} · ${FITNESS_DAYS} d regression`}
-      value={fmtNum(d?.vo2max, 1)}
+      value={fmtNum(vo2Hero(vo2.values, d?.vo2max), 1)}
       unit="VO2max ml/kg/min"
       loading={direction.isPending}
-      stale={direction.isFetching}
+      stale={direction.isPlaceholderData || series.isPlaceholderData || history.isPlaceholderData}
     >
       <SignalLine
         spec={{
@@ -305,7 +307,6 @@ function FitnessCell() {
           period: `${FITNESS_DAYS} d`,
           values: rows.rhr,
           delta: d?.rhrDelta ?? null,
-          stale: series.isFetching,
         }}
       />
       <SignalLine
@@ -318,7 +319,6 @@ function FitnessCell() {
           period: `${FITNESS_DAYS} d`,
           values: rows.hrv,
           delta: d?.hrvDelta ?? null,
-          stale: series.isFetching,
         }}
       />
       <SignalLine
@@ -332,7 +332,6 @@ function FitnessCell() {
           hideValue: true,
           values: vo2.values,
           delta: firstToLast(vo2.values),
-          stale: history.isFetching,
         }}
       />
     </StripCell>

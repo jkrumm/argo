@@ -76,11 +76,12 @@ export function firstToLast(values: readonly (number | null)[]): number | null {
 
 /** Hours with one decimal from seconds. */
 export function hoursFromSec(sec: number | null): number | null {
-  return sec === null ? null : sec / 3600
+  return sec === null || !Number.isFinite(sec) ? null : sec / 3600
 }
 
 /** "45m", "2h", "1h 20m" from minutes; rounded once before splitting, so never "1h 60m". */
 export function fmtMinutes(min: number): string {
+  if (!Number.isFinite(min)) return EM_DASH
   const total = Math.round(min)
   if (total < 60) return `${total}m`
   const h = Math.floor(total / 60)
@@ -120,6 +121,42 @@ export function windowDayCount(
   return ms < 0 ? 0 : Math.round(ms / 86_400_000) + 1
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** "Oct 14" from a `YYYY-MM-DD` key. */
+export function shortDate(date: string): string {
+  const month = MONTHS[Number(date.slice(5, 7)) - 1]
+  return month === undefined ? date : `${month} ${Number(date.slice(8, 10))}`
+}
+
+/**
+ * What a header may call the point it shows, from that point's own date: a day reading dated today is
+ * "today", sleep dated today is "last night" (the night that ended this morning), anything else is its
+ * short date — so a historical window, a hidden today or a sync gap never claims a day it is not.
+ */
+export function dayLabel(
+  date: string | null | undefined,
+  kind: 'day' | 'night' = 'day',
+  today: Date = new Date(),
+): string {
+  if (date === null || date === undefined) return EM_DASH
+  if (date === dayKey(today)) return kind === 'night' ? 'last night' : 'today'
+  return shortDate(date)
+}
+
+/** The fixed window the fitness regression and its rows read; the loader prefetches this same key. */
+export function fitnessRange(today: Date = new Date()): { from: string; to: string } {
+  return lastDaysRange(FITNESS_DAYS, today)
+}
+
+/** The Fitness hero: the 180 d trace's latest reading, else the regression's own figure. */
+export function vo2Hero(
+  trace: readonly number[],
+  fallback: number | null | undefined,
+): number | null {
+  return trace.at(-1) ?? fallback ?? null
+}
+
 // ── Page summary ───────────────────────────────────────────────────────────
 
 /** Where the ratio sits against the optimal band, as the phrase the summary uses. */
@@ -143,7 +180,7 @@ export function summarySentence({ recovery, acwr, rhrDelta, hrvDelta }: SummaryI
   const load = acwr === null ? EM_DASH : `${acwr.toFixed(2)} ACWR, ${acwrRelation(acwr)}`
   return (
     `Recovery ${fmtNum(recovery)}/100 · load ${load} · ` +
-    `RHR ${signed(rhrDelta)} bpm and HRV ${signed(hrvDelta)} ms over 14 d`
+    `RHR ${signed(rhrDelta)} bpm and HRV ${signed(hrvDelta)} ms over ${FITNESS_DAYS} d`
   )
 }
 
@@ -225,11 +262,11 @@ export function acwrFact(input: {
   }
 }
 
-export function divergenceFact(input: { divergence: number | null }): Fact {
+export function divergenceFact(input: { divergence: number | null; when: string }): Fact {
   return {
     value: signed(input.divergence, 1),
     unit: 'MET-min/day',
-    context: ['acute minus chronic', 'today'],
+    context: ['acute minus chronic', input.when],
   }
 }
 
@@ -242,6 +279,8 @@ export function recoveryFact(input: { mean: number | null; high: number; dayCoun
 }
 
 export function sleepFact(input: {
+  /** From `dayLabel(date, 'night')`. */
+  when: string
   hours: number | null
   score: number | null
   meanHours: number | null
@@ -249,7 +288,7 @@ export function sleepFact(input: {
 }): Fact {
   return {
     value: fmtNum(input.hours, 1),
-    unit: 'h last night',
+    unit: `h ${input.when}`,
     context: [
       `score ${fmtNum(input.score)}/100`,
       `${fmtNum(input.meanHours, 1)} h mean over ${days(input.dayCount)}`,
@@ -258,6 +297,8 @@ export function sleepFact(input: {
 }
 
 export function bodyBatteryFact(input: {
+  /** From `dayLabel(date)`. */
+  when: string
   net: number | null
   mean: number | null
   high: number | null
@@ -266,7 +307,7 @@ export function bodyBatteryFact(input: {
 }): Fact {
   return {
     value: signed(input.net),
-    unit: 'pts net today',
+    unit: `pts net ${input.when}`,
     context: [
       `${signed(input.mean)} pts mean over ${days(input.dayCount)}`,
       `high ${fmtNum(input.high)}/100, low ${fmtNum(input.low)}/100`,
@@ -283,6 +324,8 @@ export function stressFact(input: { stress: number | null; rest: number; dayCoun
 }
 
 export function activityScoreFact(input: {
+  /** From `dayLabel(date)`. */
+  when: string
   score: number | null
   mean: number | null
   dayCount: number
@@ -291,7 +334,7 @@ export function activityScoreFact(input: {
     input.score === null ? EM_DASH : String(Math.round((input.score / ACTIVITY_TARGET_SCORE) * 100))
   return {
     value: fmtNum(input.score),
-    unit: 'MET-min today',
+    unit: `MET-min ${input.when}`,
     context: [
       `${pct} % of the ${ACTIVITY_TARGET_SCORE} target`,
       `${fmtNum(input.mean)} MET-min mean over ${days(input.dayCount)}`,

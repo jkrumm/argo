@@ -6,7 +6,7 @@ import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { SERIES } from '../../../lib/series'
 import { FactsLine } from '../facts-line'
 import { RefetchDim } from '../refetch-dim'
-import { hoursFromSec, mean, sleepFact } from '../model'
+import { dayLabel, hoursFromSec, mean, sleepFact } from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
@@ -16,6 +16,7 @@ const CHART_HEIGHT = 280
 
 type SleepPoint = {
   day: Date
+  date: string
   /** Hours; `null` is an unmeasured stage, never a zero-height bar. */
   deep: number | null
   light: number | null
@@ -64,6 +65,7 @@ export default function SleepBreakdownChart({ params }: { params: SummaryParams 
         .filter((p) => p.sleepDurationSec !== null)
         .map((p) => ({
           day: localDay(p.date),
+          date: p.date,
           deep: hoursFromSec(p.deepSleepSec),
           light: hoursFromSec(p.lightSleepSec),
           rem: hoursFromSec(p.remSleepSec),
@@ -76,6 +78,7 @@ export default function SleepBreakdownChart({ params }: { params: SummaryParams 
 
   const latest = sleepData.at(-1)
   const fact = sleepFact({
+    when: dayLabel(latest?.date, 'night'),
     hours: latest?.total ?? null,
     score: latest?.sleepScore ?? null,
     meanHours: mean(sleepData.map((d) => d.total)),

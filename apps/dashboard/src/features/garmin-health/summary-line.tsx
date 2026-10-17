@@ -5,7 +5,7 @@ import {
   recoveryQueries,
   trainingLoadQueries,
 } from '../../lib/queries/daily-metrics'
-import { FITNESS_DAYS, lastDaysRange, summarySentence } from './model'
+import { fitnessRange, summarySentence } from './model'
 import { RefetchDim } from './refetch-dim'
 import type { SummaryParams } from './types'
 import { applyVisibilityFilter } from './visibility'
@@ -18,7 +18,7 @@ export function SummaryLine({ params }: { params: SummaryParams }) {
   const recovery = useQuery(recoveryQueries.summary(params))
   const load = useQuery(trainingLoadQueries.summary(params))
   // The deltas are "over 14 d", so they come from a fixed 14-day window, not the page selector.
-  const fitness = useQuery(fitnessDirectionQueries.summary(lastDaysRange(FITNESS_DAYS)))
+  const fitness = useQuery(fitnessDirectionQueries.summary(fitnessRange()))
 
   if (recovery.isPending || load.isPending || fitness.isPending) {
     return <Skeleton height={20} width="60%" radius="sm" />
