@@ -4,13 +4,13 @@ import { useNow } from '../../lib/use-now'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../lib/queries/walking-pad'
 import { walkingStore } from '../../lib/window-stores'
 import { priorLabel, windowQualifier, summarySentence, weekSummary } from './model'
-import { WEEK_DAYS_SERIES } from './week-queries'
+import { weekDaysSeries } from './week-queries'
 
 /** The page's one-line answer; every figure is the one its strip cell shows. */
 export function SummaryLine({ params }: { params: WalkingPadWindowParams }) {
   const now = useNow()
   const { window: preset } = walkingStore.useValues()
-  const week = useQuery(WEEK_DAYS_SERIES)
+  const week = useQuery(weekDaysSeries(now))
   const heroes = useQuery(walkingPadQueries.heroes(params))
   if (week.isPending || heroes.isPending) return <Skeleton height={20} width="60%" radius="sm" />
   const thisWeek = week.data === undefined ? null : weekSummary(week.data.points, now)

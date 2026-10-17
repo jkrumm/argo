@@ -22,7 +22,7 @@ import {
 } from './model'
 import { TargetPopover } from './target-popover'
 import { Strip, StripCell } from './strip'
-import { WEEK_DAYS_SERIES } from './week-queries'
+import { weekDaysSeries } from './week-queries'
 import classes from './strip.module.css'
 
 const EM_DASH = '—'
@@ -33,7 +33,7 @@ const TARGET_HEADROOM = 1.25
 
 function WeekCell() {
   const now = useNow()
-  const query = useQuery(WEEK_DAYS_SERIES)
+  const query = useQuery(weekDaysSeries(now))
   const [targetKm] = walkingLocal.field.weeklyTargetKm.use()
   const isDefault = walkingLocal.field.weeklyTargetKm.isDefault(targetKm)
   const week = query.data === undefined ? null : weekSummary(query.data.points, now)
@@ -125,7 +125,7 @@ function PaceCell({ params }: { params: WalkingPadWindowParams }) {
 function StreakCell({ params }: { params: WalkingPadWindowParams }) {
   const now = useNow()
   const heroes = useQuery(walkingPadQueries.heroes(params))
-  const days = useQuery(WEEK_DAYS_SERIES)
+  const days = useQuery(weekDaysSeries(now))
   const streak = heroes.data?.streak
   const ticks = weekTicks(days.data?.points ?? [], now)
   return (
