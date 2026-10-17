@@ -3,9 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Bars, ChartCard, type BarsBar, type BarsLine } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
-import { FactsLine } from '../facts-line'
 import { RefetchDim } from '../refetch-dim'
-import { bodyBatteryFact, dayLabel, mean, signed } from '../model'
+import { bodyBatteryFact, toChartFact, dayLabel, mean, signed } from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
@@ -92,9 +91,9 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
         points.length === 0 ? 'No body battery in this window' : undefined,
       )}
       placeholderHeight={280}
+      facts={toChartFact(fact)}
     >
       <RefetchDim active={query.isPlaceholderData}>
-        <FactsLine fact={fact} />
         <Bars
           cursorResolution="leading"
           ariaLabel="Body battery charged vs drained per day with net line"

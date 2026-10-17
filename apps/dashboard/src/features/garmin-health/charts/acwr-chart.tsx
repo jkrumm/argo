@@ -5,7 +5,6 @@ import { Bars, ChartCard, Lines, type BarsBar, type ChartSeries } from 'basalt-u
 import { VX } from 'basalt-ui/tokens'
 import { trainingLoadQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
-import { FactsLine } from '../facts-line'
 import { RefetchDim } from '../refetch-dim'
 import { ZONE_FILL } from '../zone-fills'
 import { acwrZoneColor, acwrZoneLabel, type AcwrZone } from '../formulas'
@@ -14,6 +13,7 @@ import {
   ACWR_FLOOR,
   ACWR_OPTIMAL_TO,
   acwrFact,
+  toChartFact,
   dayLabel,
   divergenceFact,
   signed,
@@ -99,6 +99,10 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
   const latest = latestWith(points, (p) => p.acwr)
   const latestDivergence = latestWith(points, (p) => p.divergence)
   const measured = points.filter((p) => p.acwr !== null)
+  const divergence = divergenceFact({
+    divergence: latestDivergence?.divergence ?? null,
+    when: dayLabel(latestDivergence?.date),
+  })
   const fact = acwrFact({
     acwr: latest?.acwr ?? null,
     zoneLabel: acwrZoneLabel(latest?.zone ?? null),
@@ -112,9 +116,9 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
       info={METRIC_TOOLTIPS.trainingLoad}
       state={chartStateOf(query, !hasAcwr ? 'No training load in this window' : undefined)}
       placeholderHeight={280}
+      facts={[toChartFact(fact), toChartFact(divergence)]}
     >
       <RefetchDim active={query.isPlaceholderData}>
-        <FactsLine fact={fact} />
         <Lines
           cursorResolution="leading"
           ariaLabel={`Acute:chronic training load ratio with the ${ACWR_FLOOR} to ${ACWR_OPTIMAL_TO} optimal zone`}
@@ -142,12 +146,6 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
                 ? []
                 : [{ label: 'Zone', value: acwrZoneLabel(d.zone), color: acwrZoneColor(d.zone) }],
           }}
-        />
-        <FactsLine
-          fact={divergenceFact({
-            divergence: latestDivergence?.divergence ?? null,
-            when: dayLabel(latestDivergence?.date),
-          })}
         />
         <Bars
           cursorResolution="leading"

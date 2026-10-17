@@ -4,7 +4,6 @@ import { useSizeClass } from 'basalt-ui'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
-import { FactsLine } from '../facts-line'
 import { RefetchDim } from '../refetch-dim'
 import { ZONE_FILL } from '../zone-fills'
 import {
@@ -13,6 +12,7 @@ import {
   STRESS_REST_BELOW,
   countWhere,
   stressFact,
+  toChartFact,
 } from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
@@ -106,9 +106,9 @@ export default function StressChart({ params }: { params: SummaryParams }) {
         chartData.length === 0 ? 'No stress readings in this window' : undefined,
       )}
       placeholderHeight={CHART_HEIGHT}
+      facts={toChartFact(fact)}
     >
       <RefetchDim active={query.isPlaceholderData}>
-        <FactsLine fact={fact} />
         <Lines
           cursorResolution="leading"
           ariaLabel="Average and overnight stress with a gradient zone fill"

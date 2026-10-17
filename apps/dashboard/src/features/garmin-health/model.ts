@@ -4,6 +4,8 @@
  * so the copy is testable and a null reading is handled once (always `—`, never `0`).
  */
 
+import type { ChartFact } from 'basalt-ui/charts'
+
 export const EM_DASH = '—'
 
 /** The fitness regression's window and the VO2max trace's window, fixed regardless of the page selector. */
@@ -223,6 +225,13 @@ export type Fact = {
   /** Comparison and period, in reading order, `·`-separated on screen. */
   context: readonly string[]
 }
+
+/** A `Fact` as the `ChartCard` `facts` shape: the context folds into the period line. */
+export const toChartFact = (fact: Fact): ChartFact => ({
+  value: fact.value,
+  unit: fact.unit,
+  period: fact.context.join(' · '),
+})
 
 const days = (n: number): string => `${n} d`
 
