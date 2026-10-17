@@ -46,7 +46,7 @@ export function HourGrid({ params }: { params: WalkingPadWindowParams }) {
         />
       )}
       <Heatmap
-        ariaLabel="Walks by weekday and hour of day in local time"
+        ariaLabel="Walks by weekday and hour of day in local time (current UTC offset)"
         data={cells}
         getRow={(c) => dayOf(c.dow)}
         getCol={(c) => hourKey(c.hour)}

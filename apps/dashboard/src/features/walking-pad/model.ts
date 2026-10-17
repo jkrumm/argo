@@ -134,6 +134,8 @@ export const widenLabel = (preset: string): string => `Show ${WIDEN_LABEL[preset
 // ── Weeks ────────────────────────────────────────────────────────────────────
 
 const dayKey = (ms: number): string => new Date(ms).toISOString().slice(0, 10)
+/** The UTC day of an instant as `YYYY-MM-DD`, the API's bucket key. */
+export const utcDayKey = dayKey
 const keyMs = (key: string): number => Date.parse(`${key}T00:00:00Z`)
 
 /** The UTC Monday of the week containing `nowMs`, as the API's `YYYY-MM-DD` bucket key. */
