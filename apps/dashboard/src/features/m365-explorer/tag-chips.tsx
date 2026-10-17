@@ -6,6 +6,8 @@ export type TagChipsProps = {
   /** `''` = all sources, `*` = every labeled source, otherwise a tag. */
   active: string
   counts: ChipCounts
+  /** What the counts range over (`chats`, `channels`, `sources`), so "Labeled" names its scope. */
+  scope: string
   onChange: (tag: string) => void
 }
 
@@ -28,27 +30,29 @@ function Chip(props: {
 }
 
 /** Neutral filter chips with counts; the accent is spent only on the active one. */
-export function TagChips({ active, counts, onChange }: TagChipsProps) {
+export function TagChips({ active, counts, scope, onChange }: TagChipsProps) {
   return (
     <div className={classes.toolbar} role="group" aria-label="Filter by tag" data-shot="tag-chips">
       <Chip label="All" count={counts.all} active={active === ''} onClick={() => onChange('')} />
       {counts.labeled > 0 || active === LABELED_FILTER ? (
         <Chip
-          label="Labeled"
+          label={`Labeled ${scope}`}
           count={counts.labeled}
           active={active === LABELED_FILTER}
           onClick={() => onChange(LABELED_FILTER)}
         />
       ) : null}
-      {counts.tags.map(([tag, count]) => (
-        <Chip
-          key={tag}
-          label={tag}
-          count={count}
-          active={active === tag}
-          onClick={() => onChange(tag)}
-        />
-      ))}
+      {counts.tags
+        .filter(([tag, count]) => count > 0 || active === tag)
+        .map(([tag, count]) => (
+          <Chip
+            key={tag}
+            label={tag}
+            count={count}
+            active={active === tag}
+            onClick={() => onChange(tag)}
+          />
+        ))}
     </div>
   )
 }

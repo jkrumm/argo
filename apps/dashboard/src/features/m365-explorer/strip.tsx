@@ -1,6 +1,6 @@
 import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
-import { Skeleton, UnstyledButton } from '@mantine/core'
+import { Box, Group, Skeleton, UnstyledButton } from '@mantine/core'
 import type { Coverage } from './model'
 import classes from './m365.module.css'
 
@@ -51,7 +51,30 @@ function labeledCell(coverage: Coverage, basis: string, onRetry: () => void): St
   }
 }
 
+/** The Meter's `row` size drops part captions, so the footer names each part: swatch + word + count. */
+function KindLegend({
+  parts,
+}: {
+  parts: ReadonlyArray<{ label: string; value: number; color: string }>
+}) {
+  return (
+    <Group gap="sm" wrap="wrap" component="span">
+      {parts.map((part) => (
+        <Group key={part.label} gap={4} wrap="nowrap" component="span">
+          <Box component="span" w={8} h={8} bdrs="50%" bg={part.color} />
+          {part.label} {part.value}
+        </Group>
+      ))}
+    </Group>
+  )
+}
+
 function chatsCell(chats: Chats): StatStripCell {
+  const parts = [
+    { label: '1:1', value: chats.oneOnOne, color: FILL_STRONG },
+    { label: 'Group', value: chats.group, color: FILL_MID },
+    { label: 'Meeting', value: chats.meeting, color: FILL_FAINT },
+  ]
   return {
     key: 'chats',
     caption: 'Chats',
@@ -59,17 +82,9 @@ function chatsCell(chats: Chats): StatStripCell {
     unit: chats.total === 1 ? 'chat' : 'chats',
     visual:
       chats.total === 0 ? undefined : (
-        <Meter
-          label="Chats by kind"
-          max={chats.total}
-          size="row"
-          segments={[
-            { label: '1:1', value: chats.oneOnOne, color: FILL_STRONG },
-            { label: 'Group', value: chats.group, color: FILL_MID },
-            { label: 'Meeting', value: chats.meeting, color: FILL_FAINT },
-          ]}
-        />
+        <Meter label="Chats by kind" max={chats.total} size="row" segments={parts} />
       ),
+    footer: chats.total === 0 ? undefined : <KindLegend parts={parts} />,
   }
 }
 

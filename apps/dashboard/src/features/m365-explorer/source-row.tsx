@@ -65,7 +65,9 @@ export function SourceRow(props: SourceRowProps): ReactNode {
         <Glyph size={16} />
       </span>
       <span className={classes.rowMain}>
-        <span className={classes.rowName}>{props.name}</span>
+        <span className={classes.rowName} title={props.name}>
+          {props.name}
+        </span>
         {props.meta ? <span className={classes.rowMeta}>{props.meta}</span> : null}
       </span>
       {props.starLabel ? (

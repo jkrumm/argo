@@ -1,4 +1,4 @@
-import { Alert, ScrollArea } from '@mantine/core'
+import { Alert } from '@mantine/core'
 import { labelsByTag, type LabelLite } from './model'
 import { SourceRow } from './source-row'
 import classes from './m365.module.css'
@@ -29,7 +29,7 @@ export function LabeledPane(props: LabeledPaneProps) {
     )
   }
   return (
-    <ScrollArea className={classes.paneScroll} type="auto" data-shot="labeled-pane">
+    <div className={classes.paneScroll} data-shot="labeled-pane">
       {props.error ? (
         <Alert color="red" variant="light" m="sm">
           {props.error}
@@ -54,6 +54,6 @@ export function LabeledPane(props: LabeledPaneProps) {
           ))}
         </section>
       ))}
-    </ScrollArea>
+    </div>
   )
 }
