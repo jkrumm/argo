@@ -134,7 +134,7 @@ export function ThreadList({
               loading={busy}
               onClick={confirmDelete}
             >
-              Delete all
+              Delete all untitled
             </Button>
           </Box>
           {open &&
