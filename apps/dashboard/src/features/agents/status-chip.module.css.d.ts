@@ -4,6 +4,5 @@
  */
 declare const classes: {
   readonly chip: string
-  readonly dot: string
 }
 export default classes

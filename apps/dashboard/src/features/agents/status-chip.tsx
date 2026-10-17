@@ -1,4 +1,5 @@
-import { Box, Group, Text } from '@mantine/core'
+import { Group, Text } from '@mantine/core'
+import { StatusDot } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import classes from './status-chip.module.css'
 
@@ -8,11 +9,6 @@ const TONE_INK: Record<StatusTone, string> = {
   neutral: VX.muted,
   warn: VX.status.warn,
   bad: VX.status.bad,
-}
-
-/** The 7 px state swatch shared by chips and legends. */
-export function Dot({ color }: { color: string }) {
-  return <Box className={classes.dot} bg={color} />
 }
 
 export type StatusChipProps = {
@@ -27,7 +23,7 @@ export type StatusChipProps = {
 export function StatusChip({ tone, label }: StatusChipProps) {
   return (
     <Group gap={6} wrap="nowrap" className={classes.chip}>
-      <Dot color={TONE_INK[tone]} />
+      <StatusDot color={TONE_INK[tone]} />
       <Text size="sm" c={tone === 'neutral' ? 'dimmed' : TONE_INK[tone]}>
         {label}
       </Text>
