@@ -1,6 +1,6 @@
-import { Button, Card, Group, Image, Stack, Text } from '@mantine/core'
+import { Button, Group, Image, Stack, Text } from '@mantine/core'
 import { emit } from 'basalt-ui/commands'
-import { unwrap } from 'basalt-ui'
+import { Section, unwrap } from 'basalt-ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '../../lib/eden'
@@ -13,25 +13,13 @@ export function UnmatchedSection() {
   if (unmatched.length === 0) return null
 
   return (
-    <Card py="sm" px="md">
-      <Stack gap="sm">
-        <Stack gap={2}>
-          <Text fw={600} size="sm">
-            Unmatched reading activity
-          </Text>
-          <Text size="xs" c="dimmed">
-            Reading activity we couldn't auto-link to a Hardcover book. Confirm a match to start
-            syncing status.
-          </Text>
-        </Stack>
-
-        <Stack gap="xs">
-          {unmatched.map((row) => (
-            <UnmatchedRow key={row.bookKey} row={row} />
-          ))}
-        </Stack>
+    <Section title="Unmatched device reads" count={unmatched.length}>
+      <Stack gap="xs">
+        {unmatched.map((row) => (
+          <UnmatchedRow key={row.bookKey} row={row} />
+        ))}
       </Stack>
-    </Card>
+    </Section>
   )
 }
 

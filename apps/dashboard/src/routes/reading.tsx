@@ -1,28 +1,30 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Stack } from '@mantine/core'
+import { Stack, Title } from '@mantine/core'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { EmptyState, PageBar, unwrap } from 'basalt-ui'
 import { emit } from 'basalt-ui/commands'
 import { IconBooks } from '@tabler/icons-react'
 import { api } from '../lib/eden'
 import { readingQueries } from '../lib/queries/reading'
-import { HeroStats } from '../features/reading/hero-stats'
-import { ShelfSection } from '../features/reading/shelf-section'
+import { Backlog } from '../features/reading/backlog'
+import { Finished, TimeRead } from '../features/reading/finished'
+import { InProgress } from '../features/reading/in-progress'
+import {
+  backlog as deriveBacklog,
+  finishedGroups,
+  finishedInYear,
+  readingPace,
+  summarySentence,
+} from '../features/reading/model'
+import classes from '../features/reading/reading.module.css'
+import { ReadingStrip } from '../features/reading/strip'
+import { useNow } from '../lib/use-now'
 import { UnmatchedSection } from '../features/reading/unmatched-section'
 
 export const Route = createFileRoute('/reading')({
   loader: ({ context }) => context.queryClient.ensureQueryData(readingQueries.shelf()),
   component: ReadingPage,
 })
-
-// Status groups in display order — status 6 (Ignored) is intentionally omitted
-const SHELF_GROUPS: { statusId: number; label: string }[] = [
-  { statusId: 2, label: 'Currently Reading' },
-  { statusId: 1, label: 'Want to Read' },
-  { statusId: 3, label: 'Read' },
-  { statusId: 4, label: 'Paused' },
-  { statusId: 5, label: 'Did Not Finish' },
-]
 
 /**
  * Triggers an on-demand Hardcover shelf sync (the same job the daily cron runs) and refetches the
@@ -65,8 +67,12 @@ function useShelfSync() {
 function ReadingPage() {
   const { data } = useQuery(readingQueries.shelf())
   const sync = useShelfSync()
+  const now = useNow()
 
   const shelf = data?.shelf ?? []
+  const pace = readingPace(shelf)
+  const backlog = deriveBacklog(shelf, pace.median)
+  const year = new Date(now).getFullYear()
 
   return (
     <>
@@ -79,27 +85,42 @@ function ReadingPage() {
         }}
       />
 
-      <Stack gap="md">
-        <HeroStats />
-
-        <UnmatchedSection />
-
-        {shelf.length === 0 ? (
+      {data === undefined || shelf.length === 0 ? (
+        <>
+          <UnmatchedSection />
           <EmptyState
             icon={<IconBooks size={28} />}
             title="Your shelf is empty"
             description="Books appear here once you add them to your shelf on Hardcover. Sync runs daily."
           />
-        ) : (
+        </>
+      ) : (
+        <div className={classes.root}>
           <Stack gap="md">
-            {SHELF_GROUPS.map(({ statusId, label }) => {
-              const books = shelf.filter((b) => b.statusId === statusId)
-              if (books.length === 0) return null
-              return <ShelfSection key={statusId} title={label} books={books} />
-            })}
+            <Title order={3} fw={500} data-shot="summary">
+              {summarySentence({
+                summary: data.summary,
+                pace: pace.median,
+                finished: finishedInYear(shelf, year),
+                year,
+                backlogHours: backlog.hours,
+              })}
+            </Title>
+            <ReadingStrip summary={data.summary} shelf={shelf} pace={pace} />
+            <UnmatchedSection />
+            <InProgress shelf={shelf} pace={pace.median} now={now} />
+            <div className={classes.pair}>
+              <div data-shot="finished">
+                <Finished groups={finishedGroups(shelf)} />
+              </div>
+              <div data-shot="time-read">
+                <TimeRead shelf={shelf} />
+              </div>
+            </div>
+            <Backlog backlog={backlog} pace={pace.median} />
           </Stack>
-        )}
-      </Stack>
+        </div>
+      )}
     </>
   )
 }

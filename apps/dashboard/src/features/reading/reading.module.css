@@ -1,0 +1,273 @@
+/* A container, so every grid stacks on the width the page is given, not the viewport's. */
+.root {
+  container-type: inline-size;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--vx-space-stack-lg);
+  align-items: start;
+}
+
+@container (min-width: 800px) {
+  .pair {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ── Strip: joined cells ──────────────────────────────────────────────────────────────────── */
+
+.strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  overflow: hidden;
+  border-radius: var(--vx-radius-card);
+  background: var(--vx-surface-hairline);
+  box-shadow: var(--vx-shadow-card);
+}
+
+@container (min-width: 800px) {
+  .strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vx-space-stack-sm);
+  min-width: 0;
+  padding: var(--vx-space-card-inset-y) var(--vx-space-card-inset-x);
+  background: var(--vx-surface-panel);
+}
+
+.caption {
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vx-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--vx-space-control-gap);
+}
+
+.value {
+  font-size: var(--vx-text-kpi);
+  line-height: 1.1;
+  color: var(--vx-ink);
+  white-space: nowrap;
+}
+
+.unit {
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+}
+
+.footer {
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--vx-space-control-gap) var(--vx-space-stack-md);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--vx-space-control-gap);
+  white-space: nowrap;
+}
+
+.swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.paceAxis {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  color: var(--vx-muted);
+}
+
+.legendValue {
+  color: var(--vx-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Rating histogram: five columns on one track, a tick at the mean ──────────────────────── */
+
+.histogram {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--vx-space-control-gap);
+  align-items: end;
+  height: 40px;
+}
+
+.bucket {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  height: 100%;
+}
+
+.bar {
+  min-height: 2px;
+  border-radius: var(--vx-radius-ctrl);
+  background: var(--vx-surface-hairline);
+}
+
+.barFilled {
+  background: color-mix(in srgb, var(--vx-muted) 35%, transparent);
+}
+
+.meanTick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--vx-ink);
+}
+
+.axis {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--vx-space-control-gap);
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  color: var(--vx-muted);
+  text-align: center;
+}
+
+/* ── Pace dots: one dot per book on a pages/h track, a tick at the median ─────────────────── */
+
+.paceTrack {
+  position: relative;
+  height: 20px;
+}
+
+.paceRail {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  transform: translateY(-50%);
+  border-radius: 1px;
+  background: var(--vx-surface-hairline);
+}
+
+.paceDot {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--vx-muted) 60%, transparent);
+}
+
+.paceMedian {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 1px;
+  background: var(--vx-ink);
+}
+
+/* ── Book rows and cards ──────────────────────────────────────────────────────────────────── */
+
+.cover {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: var(--vx-radius-ctrl);
+  background: var(--vx-surface-subtle);
+  color: var(--vx-muted);
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--vx-space-stack-md);
+}
+
+@container (min-width: 800px) {
+  .cardGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.card {
+  display: flex;
+  gap: var(--vx-space-stack-md);
+  min-width: 0;
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vx-space-stack-sm);
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.facts {
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--vx-space-stack-md);
+  min-width: 0;
+  padding: var(--vx-space-stack-sm) 0;
+  border-top: 1px solid var(--vx-surface-hairline);
+}
+
+.rowBody {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.rowTrail {
+  flex: none;
+  padding-right: 2px;
+  text-align: right;
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+  white-space: nowrap;
+}
+
+.groupHeading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--vx-space-control-gap);
+  padding-top: var(--vx-space-stack-sm);
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vx-muted);
+}
