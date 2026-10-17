@@ -35,6 +35,8 @@ Decision: for each needs-decision item, implement / dismiss / ask again; for eac
 | Board (all states) | `board.items`, `board.counts`, `terminal_24h` | Work items by status | 7 stacked tables | `Board`: columns New / Triaged / Working / Merging / Verifying / **Other**, each with count. **Assumption:** the column set mirrors warden's non-terminal vocabulary (`BUCKET_ORDER` in `model.ts`); `board.items[].state` is an open string, so any state outside that set lands in Other with its raw state as the card's status line, and every item appears exactly once. Needs-decision and Failed are NOT columns (they are the decision cards above); Deferred (`working` with a `deferred:` note, `isDeferredItem`) is a flagged card in Working. Card: repo + title (2-line clamp), origin glyph, age, PR link | Load per stage visible; removes the duplicates | `kanban-column--dark--desktop.png`, `kanban-card--dark--desktop.png` |
 | Item timeline | `items[eventId]` transitions, dispatches, operations | Event sequence | Drawer | EventList (timeline density, rail) in the same drawer: day groups, `state → state` sentence, mono time | Already an event sequence | `timeline-event--dark--desktop.png` |
 
+The `Needs you` and `Failed` cards come from the shared merged-inbox derivation (`apps/dashboard/src/lib/decisions.ts`, specified in `home.md`); this page uses its Warden subset (awaiting-owner + failed), with the board and metrics read directly from `lib/queries/warden`.
+
 ## Layout
 
 1440:
