@@ -3,7 +3,7 @@ import { Anchor, Box, Card, Group, ScrollArea, Stack, Text, UnstyledButton } fro
 import { Section, useSizeClass } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { ViewTabs } from 'basalt-ui/controls'
-import { relativeTime } from 'basalt-ui/format'
+import { relativeTime } from '../../lib/format'
 import { IconBell, IconBrandGithub, IconBriefcase, IconUser, type Icon } from '@tabler/icons-react'
 import type { WardenBoardItem } from '../../lib/queries/warden'
 import { isSafeHttpUrl, issueRefLabel } from './model'

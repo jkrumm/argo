@@ -10,6 +10,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BasaltProvider, createBasaltTheme } from 'basalt-ui'
 import { CrashFallback } from './lib/error-boundary'
+import { APP_LOCALE } from './lib/format'
 import { router } from './lib/router'
 import { argoPaletteGroups, ARGO_DERIVED } from './lib/series'
 import { telemetry } from './lib/telemetry'
@@ -32,7 +33,7 @@ createRoot(rootEl).render(
       fallback={(error) => <CrashFallback error={error} />}
       paletteOptions={{ groups: argoPaletteGroups, derived: ARGO_DERIVED }}
       defaultColorScheme="dark"
-      locale="en-GB"
+      locale={APP_LOCALE}
     />
   </StrictMode>,
 )

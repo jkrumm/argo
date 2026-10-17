@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Anchor, Badge, Divider, Group, Modal, Stack, Text } from '@mantine/core'
-import { relativeTime } from 'basalt-ui/format'
+import { relativeTime } from '../../lib/format'
 import {
   buildItemFacts,
   formatSourceLine,

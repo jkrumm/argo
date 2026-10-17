@@ -1,5 +1,5 @@
 import { Alert, Code, Text } from '@mantine/core'
-import { relativeTime } from 'basalt-ui/format'
+import { relativeTime } from '../../lib/format'
 import { IconAlertTriangle, IconInfoCircle } from '@tabler/icons-react'
 import type { OverviewRecord } from '../../lib/queries/agents'
 import { STALE_AFTER_MS, snapshotAgeMs } from './model'

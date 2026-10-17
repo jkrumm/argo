@@ -1,5 +1,5 @@
 import { Stack, Text } from '@mantine/core'
-import { relativeTime } from 'basalt-ui/format'
+import { relativeTime } from '../../lib/format'
 import type { TransitionLine } from './page-model'
 
 /** The decision card's right-hand context: where the item has been, newest last. */
