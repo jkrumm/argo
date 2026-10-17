@@ -3,7 +3,7 @@ import { Skeleton, Text } from '@mantine/core'
 import { useNow } from '../../lib/use-now'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../lib/queries/walking-pad'
 import { walkingStore } from '../../lib/window-stores'
-import { priorLabel, summarySentence, weekSummary } from './model'
+import { priorLabel, windowQualifier, summarySentence, weekSummary } from './model'
 import { THIS_WEEK_SERIES } from './week-queries'
 
 /** The page's one-line answer; every figure is the one its strip cell shows. */
@@ -23,6 +23,7 @@ export function SummaryLine({ params }: { params: WalkingPadWindowParams }) {
         paceKmh: heroes.data?.pace.currentAvgKmh ?? null,
         paceDeltaKmh: heroes.data?.pace.deltaKmh ?? null,
         prior: priorLabel(preset),
+        period: windowQualifier(preset),
       })}
     </Text>
   )

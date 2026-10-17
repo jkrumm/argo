@@ -107,3 +107,7 @@ Against Keel (`root--dark--desktop`, the strip and record-header patterns): same
 | record header | a `pulse` status | live / idle walk header | local `RecordHeader` with a CSS pulse (`raw-motion-value` waiver) |
 | `EmptyState` | a compact one-row variant with an action | "No walks in {window}" | `tier="section"` with a `Button` action |
 | `Heatmap` | a neutral single-metric ramp default and a tooltip label other than `Value` | walks by hour | passes `VX.muted` and explicit tooltip rows |
+| `Heatmap` | tooltip without the bare `Value` row | walks by hour | the row stays beside `Walks` and `Distance` |
+| `EmptyState` / heading face | a zero that is not slashed in the heading face | "No walks in the last 30 days" reads `3θ` | left as is |
+
+- **r5** (reviewer on r4: record header, Totals and both page states pass; strip cells fail on blank height, chart facts and table on mono figures and four type sizes). Changed after it: the summary names the pace period, facts context is sans, achievements state `{n} unlocks in {m} titles`. Left: strip dead space (cells share the row height), table and heatmap type scales (basalt chrome), the slashed zero and the `Value` tooltip row (basalt-side).

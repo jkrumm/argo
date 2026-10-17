@@ -39,6 +39,27 @@ const point = (date: string, over: Partial<SeriesPoint> = {}): SeriesPoint => ({
   ...over,
 })
 
+const row = (started_at: string, distance_m: number): SessionRow => ({
+  uuid: started_at,
+  started_at,
+  ended_at: started_at,
+  duration_s: 600,
+  distance_m,
+  steps: 0,
+  avg_speed_kmh: 4,
+  max_speed_kmh: 5,
+  kcal: 0,
+  pause_count: 0,
+})
+
+const a = (id: number, title: string, unlocked_at: string): Achievement => ({
+  id,
+  type: 'streak_3',
+  title,
+  description: `d${id}`,
+  unlocked_at,
+})
+
 // Saturday 2026-10-17 12:00 UTC; its Monday is 2026-10-12.
 const NOW = Date.parse('2026-10-17T12:00:00Z')
 
@@ -148,19 +169,6 @@ describe('window naming', () => {
 })
 
 describe('distance facts', () => {
-  const row = (started_at: string, distance_m: number): SessionRow => ({
-    uuid: started_at,
-    started_at,
-    ended_at: started_at,
-    duration_s: 600,
-    distance_m,
-    steps: 0,
-    avg_speed_kmh: 4,
-    max_speed_kmh: 5,
-    kcal: 0,
-    pause_count: 0,
-  })
-
   it('takes the median of an even and an odd count', () => {
     expect(median([3, 1, 2])).toBe(2)
     expect(median([4, 1, 3, 2])).toBe(2.5)
@@ -212,14 +220,6 @@ describe('local-time hour grid', () => {
 })
 
 describe('achievements', () => {
-  const a = (id: number, title: string, unlocked_at: string): Achievement => ({
-    id,
-    type: 'streak_3',
-    title,
-    description: `d${id}`,
-    unlocked_at,
-  })
-
   it('collapses repeats into one row with a count and the newest unlock', () => {
     const rows = collapseAchievements([
       a(1, 'Streak', '2026-08-01T10:00:00Z'),
@@ -279,6 +279,7 @@ describe('formats and summary', () => {
         paceKmh: 4.5,
         paceDeltaKmh: 0.3,
         prior: 'prior 30 d',
+        period: '30 d',
       }),
     ).toBe('12.4 km this week in 4 walks; streak 3 d; pace 4.5 km/h, +0.3 km/h vs the prior 30 d.')
   })
@@ -292,6 +293,7 @@ describe('formats and summary', () => {
         paceKmh: null,
         paceDeltaKmh: null,
         prior: 'prior 30 d',
+        period: '30 d',
       }),
     ).toBe('3.0 km this week in 1 walk; streak 0 d; pace —.')
   })
@@ -305,7 +307,10 @@ describe('formats and summary', () => {
         paceKmh: 3.4,
         paceDeltaKmh: null,
         prior: 'prior window',
+        period: 'all time',
       }),
-    ).toBe('0.0 km this week in 0 walks; streak 0 d; pace 3.4 km/h, no prior window to compare.')
+    ).toBe(
+      '0.0 km this week in 0 walks; streak 0 d; pace 3.4 km/h over all time, no prior window to compare.',
+    )
   })
 })

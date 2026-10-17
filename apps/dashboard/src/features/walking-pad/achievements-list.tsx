@@ -57,6 +57,9 @@ export function AchievementsList() {
         </Text>
       ) : (
         <Stack gap="sm">
+          <Text size="xs" c="dimmed">
+            {items.length} unlocks in {rows.length} titles
+          </Text>
           {groupByMonth(shown).map((g) => (
             <Stack key={g.month} gap="xs">
               <Text size="xs" c="dimmed" ff="monospace" tt="uppercase">
