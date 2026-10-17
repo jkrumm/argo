@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Alert, Box, Center, Loader, ScrollArea, Stack, Text } from '@mantine/core'
 import { IconAlertTriangle } from '@tabler/icons-react'
@@ -142,6 +142,14 @@ function HermesChatFeed() {
     }
   }, [])
 
+  // Group boundaries (today, this week) move at midnight: re-derive them on a minute tick, not
+  // only when the list refetches.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(id)
+  }, [])
+
   const actions = useThreadActions({ onRemoved: store.remove })
   const [openParam, setOpenParam] = hermesChatStore.field.thread.use()
   const [typeFilter, setTypeFilter] = hermesChatStore.field.type.use()
@@ -157,11 +165,13 @@ function HermesChatFeed() {
   // invisible until the user happens to click it. Same "one-time sweep of whatever was persisted"
   // contract as before, now keyed on `store.hydrated` flipping true instead of raw mount — this
   // component's hooks all run before the store has actually loaded (see the doc above), so a
-  // mount-only `[]` effect would see an empty `store.threads` here. The `expandedId !== null` guard
-  // means it never overrides an already-expanded row either (e.g. a `hermesIntent` `open` that
-  // raced it).
+  // mount-only `[]` effect would see an empty `store.threads` here. A `?thread=` that names a
+  // thread the store holds (archived included) is never overridden (e.g. a `hermesIntent` `open`
+  // that raced it); one that names nothing known is stale and is cleared, so it cannot block this.
   useEffect(() => {
-    if (!store.hydrated || expandedId !== null) return
+    if (!store.hydrated) return
+    if (expandedId !== null && store.threads.some((thread) => thread.id === expandedId)) return
+    if (expandedId !== null) setExpandedId(null)
     const streaming = store.threads.filter((thread) => thread.status === 'streaming')
     if (streaming.length === 1 && streaming[0]) setExpandedId(streaming[0].id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -242,11 +252,12 @@ function HermesChatFeed() {
     )
   }
 
-  const now = Date.now()
-  const entries = toEntries(store.threads)
-  const view = buildView(entries, { type: typeFilter, query }, now)
+  const everything = toEntries(store.threads)
+  const entries = everything.filter((entry) => !entry.archived)
+  const archived = everything.filter((entry) => entry.archived)
+  const view = buildView({ entries, archived, filter: { type: typeFilter, query }, now })
   const summary = summarize(entries, now)
-  const openEntry = entries.find((entry) => entry.id === expandedId)
+  const openEntry = everything.find((entry) => entry.id === expandedId)
   const openThread = store.threads.find((thread) => thread.id === expandedId)
 
   return (
@@ -265,8 +276,16 @@ function HermesChatFeed() {
             busy={actions.busy}
             onBack={() => setExpandedId(null)}
             onPin={(pinned) => void actions.pin(openEntry.id, pinned)}
-            onArchive={() => void actions.archive(openEntry.id).then(() => setExpandedId(null))}
-            onDelete={() => void actions.remove(openEntry.id).then(() => setExpandedId(null))}
+            onSetArchived={(next) =>
+              void actions.setArchived(openEntry.id, next).then((ok) => {
+                if (ok && next) setExpandedId(null)
+              })
+            }
+            onDelete={() =>
+              void actions.remove(openEntry.id).then((ok) => {
+                if (ok) setExpandedId(null)
+              })
+            }
           />
           <Box pt="sm" style={{ flex: 1, minHeight: 0 }}>
             <HermesRow
@@ -288,6 +307,7 @@ function HermesChatFeed() {
               total={view.total}
               typeCounts={view.typeCounts}
               untitledCount={view.untitledCount}
+              archivedCount={view.archivedCount}
               type={typeFilter}
               query={query}
               onType={setTypeFilter}

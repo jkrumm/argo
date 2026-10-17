@@ -105,7 +105,7 @@ export function ThreadList({
           className={classes['group']}
           aria-label={group.label}
         >
-          <Text className={classes['heading']}>
+          <Text className={classes['heading']} role="heading" aria-level={2}>
             {group.label} · {group.rows.length}
             {group.live && (
               <Text component="span" className={classes['live']}>
@@ -126,7 +126,8 @@ export function ThreadList({
             <UnstyledButton
               className={classes['foldToggle']}
               aria-expanded={open || foldOpen}
-              onClick={() => setOpen((v) => !v)}
+              aria-disabled={foldOpen || undefined}
+              onClick={() => !foldOpen && setOpen((v) => !v)}
             >
               {untitledLabel(untitled.length, relativeTime(oldestUpdatedAt(untitled)))}
             </UnstyledButton>
