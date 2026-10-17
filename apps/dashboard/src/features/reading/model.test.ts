@@ -16,6 +16,7 @@ import {
   parseTimestamp,
   ratingShape,
   readingPace,
+  scopeLabel,
   shelfParts,
   summarySentence,
   timeRead,
@@ -360,5 +361,14 @@ describe('edge cases', () => {
     ]
     expect(finishedInYear(shelf, 2026)).toBe(1)
     expect(finishedInYear(shelf, 2024)).toBe(0)
+  })
+})
+
+describe('scopeLabel', () => {
+  const g = (label: string) => ({ label, rows: [] })
+  test('is empty with no groups, one month alone, else oldest – newest', () => {
+    expect(scopeLabel([])).toBe('')
+    expect(scopeLabel([g('Mar 2026')])).toBe('Mar 2026')
+    expect(scopeLabel([g('Oct 2026'), g('Jun 2026'), g('Mar 2026')])).toBe('Mar 2026 – Oct 2026')
   })
 })

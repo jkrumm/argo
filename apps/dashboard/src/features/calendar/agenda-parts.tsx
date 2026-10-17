@@ -8,18 +8,18 @@ import { VX } from 'basalt-ui/tokens'
 import { IconVideo } from '@tabler/icons-react'
 import { ScheduleRow } from '../../components/upstream/schedule-row'
 import { formatDurationMin } from '../../components/upstream/schedule-row-model'
-import type { CalendarEventPayload } from '../../lib/queries/calendar'
 import { SERIES } from '../../lib/series'
 import classes from './agenda.module.css'
 import { untilLabel } from './summary'
 import {
   DAY_TARGET_H,
-  durationMin,
   dayLabel,
-  isCancelled,
   shortDate,
   toDate,
+  dayHeadLabel,
+  SPLIT_LABEL,
   type AgendaDay,
+  type AgendaRow,
   type CalendarItem,
   type DayKey,
   type DayLoad,
@@ -30,30 +30,13 @@ import {
 
 /** Work and Personal are the one categorical split on the page, so they alone earn hues. */
 const SPLIT_COLOR = { work: SERIES.calendarWork, personal: SERIES.calendarPersonal } as const
-/** Past this many invitees the accepted ratio stops being useful ("13/123 accepted"). */
-const MAX_RATIO_ATTENDEES = 12
 /**
  * The next item carries its `in 1h 30m` pill only while it is under 12 h away; further out the
  * summary's `next Mon 10:45` already says when, and a pill of `in 44h` is noise.
  */
 const PILL_WITHIN_MIN = 12 * 60
-const SPLIT_LABEL = { work: 'Work', personal: 'Personal' } as const
-
-const clock = (local: string) => local.slice(11, 16)
-
 function isHttpUrl(value: string): boolean {
   return /^https?:\/\//i.test(value)
-}
-
-function eventMeta(payload: CalendarEventPayload | undefined): string {
-  const parts: string[] = []
-  if (payload?.sourceClass) parts.push(SPLIT_LABEL[payload.sourceClass])
-  if (payload?.source === 'google' && payload.calendarName) parts.push(payload.calendarName)
-  const total = payload?.attendeeTotal ?? 0
-  // A ratio is only legible on a small invite; a large one reads as a head count.
-  if (total > MAX_RATIO_ATTENDEES) parts.push(`${total} people`)
-  else if (total > 0) parts.push(`${payload?.attendeeAccepted ?? 0}/${total} accepted`)
-  return parts.join(' · ')
 }
 
 export function AllDayChips({ items }: { items: readonly CalendarItem[] }) {
@@ -71,29 +54,24 @@ export function AllDayChips({ items }: { items: readonly CalendarItem[] }) {
 }
 
 export function EventRows({
-  events,
+  rows,
   now,
   next,
 }: {
-  events: readonly CalendarItem[]
+  rows: readonly AgendaRow[]
   now: Date
   next: NextEvent | null
 }) {
   return (
     <div role="list">
-      {events.map((event) => {
-        const payload = event.payload
-        const videoLink = payload?.videoLink
-        const cancelled = isCancelled(event)
-        const meta = cancelled
-          ? ['Cancelled', eventMeta(payload)].filter(Boolean).join(' · ')
-          : eventMeta(payload)
+      {rows.map(({ event, cancelled, start, durationMin, title, meta }) => {
+        const videoLink = event.payload?.videoLink
         return (
           <ScheduleRow
             key={String(event.id)}
-            start={clock(String(event.start))}
-            durationMin={durationMin(event)}
-            title={event.title}
+            start={start}
+            durationMin={durationMin}
+            title={title}
             past={cancelled || toDate(String(event.end)).getTime() <= now.getTime()}
             {...(meta ? { meta } : {})}
             {...(!cancelled && next?.event.id === event.id && next.inMin < PILL_WITHIN_MIN
@@ -144,7 +122,7 @@ export function DayGroups({
     <div>
       {days.map((day) => {
         const chips = allDay[day.key] ?? []
-        if (day.events.length === 0 && chips.length === 0) {
+        if (day.rows.length === 0 && chips.length === 0) {
           return (
             <Box key={day.key} className={classes.freeDay}>
               <span className={classes.caption}>{dayLabel(day.key)}</span>
@@ -157,11 +135,7 @@ export function DayGroups({
             <Box className={classes.groupHead}>
               <span className={classes.caption}>{dayLabel(day.key)}</span>
               <span className={classes.muted}>
-                {incomplete
-                  ? '—'
-                  : day.count === 0
-                    ? 'no meetings'
-                    : `${day.count} ${day.count === 1 ? 'event' : 'events'} · ${formatDurationMin(day.bookedMin)}`}
+                {incomplete ? '—' : dayHeadLabel(day, formatDurationMin)}
               </span>
             </Box>
             {chips.length > 0 && (
@@ -169,7 +143,7 @@ export function DayGroups({
                 <AllDayChips items={chips} />
               </Box>
             )}
-            <EventRows events={day.events} now={now} next={next} />
+            <EventRows rows={day.rows} now={now} next={next} />
           </Box>
         )
       })}

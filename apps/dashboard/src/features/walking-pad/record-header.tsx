@@ -3,14 +3,8 @@ import { Box, Card, Group, Skeleton, Text } from '@mantine/core'
 import { useDocumentVisibility } from '@mantine/hooks'
 import { durationClock, relativeTime } from 'basalt-ui/format'
 import { walkingPadQueries } from '../../lib/queries/walking-pad'
-import { fmtDuration, fmtKm, fmtKmh } from './model'
+import { fmtDuration, withKcal, withKm, withKmh, withSteps } from './model'
 import classes from './record-header.module.css'
-
-/** A value never parts from its unit (`2.4 km/h`) or its hours from its minutes (`1h 5m`). */
-const unbreakable = (text: string): string =>
-  text
-    .replace(/(\d) (km\/h|km|steps?|kcal|pauses?)\b/g, '$1\u00a0$2')
-    .replace(/(\d+h) (\d+m)/g, '$1\u00a0$2')
 
 function Row({
   dot,
@@ -30,11 +24,11 @@ function Row({
           <Box className={dot === 'live' ? `${classes.dot} ${classes.live}` : classes.dot} />
           <Text fw={600}>{status}</Text>
           <Text size="sm" c="dimmed" className={classes.facts}>
-            {unbreakable(facts)}
+            {facts}
           </Text>
         </Group>
         <Text size="sm" c="dimmed">
-          {unbreakable(stats)}
+          {stats}
         </Text>
       </Group>
     </Card>
@@ -62,8 +56,8 @@ export function RecordHeader() {
       <Row
         dot={paused ? 'idle' : 'live'}
         status={paused ? 'Paused' : 'Walking now'}
-        facts={`${durationClock(s.duration_s)} · ${fmtKm(s.distance_m)} km · ${fmtKmh(paused ? 0 : s.current_speed_kmh)} km/h now · avg ${fmtKmh(s.avg_speed_kmh)} km/h`}
-        stats={`${s.steps.toLocaleString('en-GB')} steps · ${Math.round(s.kcal)} kcal, this walk${s.pause_count > 0 ? ` · ${s.pause_count} ${s.pause_count === 1 ? 'pause' : 'pauses'}` : ''}`}
+        facts={`${durationClock(s.duration_s)} · ${withKm(s.distance_m)} · ${withKmh(paused ? 0 : s.current_speed_kmh)} now · avg ${withKmh(s.avg_speed_kmh)}`}
+        stats={`${withSteps(s.steps)} · ${withKcal(s.kcal)}, this walk${s.pause_count > 0 ? ` · ${s.pause_count}\u00a0${s.pause_count === 1 ? 'pause' : 'pauses'}` : ''}`}
       />
     )
   }
@@ -76,8 +70,8 @@ export function RecordHeader() {
     <Row
       dot="idle"
       status="Idle"
-      facts={`last walk ${relativeTime(walk.ended_at)} · ${fmtKm(walk.distance_m)} km · ${fmtDuration(walk.duration_s)} · ${fmtKmh(walk.avg_speed_kmh)} km/h`}
-      stats={`${walk.steps.toLocaleString('en-GB')} steps · ${Math.round(walk.kcal)} kcal, last walk`}
+      facts={`last walk ${relativeTime(walk.ended_at)} · ${withKm(walk.distance_m)} · ${fmtDuration(walk.duration_s)} · ${withKmh(walk.avg_speed_kmh)}`}
+      stats={`${withSteps(walk.steps)} · ${withKcal(walk.kcal)}, last walk`}
     />
   )
 }

@@ -15,8 +15,7 @@ import {
   allDayEvents,
   bookedBySourceClass,
   dayLoad,
-  eventsOnDay,
-  listedEventsOnDay,
+  agendaDay,
   keyToDate,
   longestFreeBlock,
   tasksDue,
@@ -53,8 +52,7 @@ export function AgendaView({
     return {
       summary,
       free: summary.incomplete ? null : longestFreeBlock(events, todayKey, now),
-      today: listedEventsOnDay(events, todayKey),
-      todayCount: eventsOnDay(events, todayKey).length,
+      today: agendaDay(events, todayKey),
       todayAllDay: allDayEvents(events, todayKey),
       days,
       nextCount: days.reduce((sum, d) => sum + d.count, 0),
@@ -92,15 +90,18 @@ export function AgendaView({
           <Box className={classes.col}>
             <Box className={classes.oToday} data-shot="today">
               <Card>
-                <Section title="Today" {...(summary.incomplete ? {} : { count: model.todayCount })}>
-                  {model.todayCount === 0 && model.today.length === 0 ? (
+                <Section
+                  title="Today"
+                  {...(summary.incomplete ? {} : { count: model.today.count })}
+                >
+                  {model.today.rows.length === 0 ? (
                     <Text className={classes.muted}>
                       {summary.incomplete
                         ? '—'
                         : `No events today${countdown(summary) ? ` · ${countdown(summary)}` : ''}`}
                     </Text>
                   ) : (
-                    <EventRows events={model.today} now={now} next={summary.next} />
+                    <EventRows rows={model.today.rows} now={now} next={summary.next} />
                   )}
                 </Section>
               </Card>

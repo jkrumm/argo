@@ -280,7 +280,11 @@ function ChartsPanel({
       </Box>
 
       <Box data-shot="sec-diagnostics">
-        <Section title={`Composite and alignment, ${period}`} collapsible defaultOpen={false}>
+        <Section
+          title={`Composite, ${period} · Alignment, fixed last 90 d`}
+          collapsible
+          defaultOpen={false}
+        >
           <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
             <Suspense fallback={pending}>
               <CompositeChartSlot params={params} activeExercises={activeExercises} />

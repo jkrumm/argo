@@ -328,15 +328,15 @@ describe('formats and summary', () => {
   })
 
   it('formats durations by magnitude', () => {
-    expect(fmtDuration(30)).toBe('30 s')
-    expect(fmtDuration(45 * 60)).toBe('45 min')
-    expect(fmtDuration(2 * 3600 + 5 * 60)).toBe('2 h 05 min')
+    expect(fmtDuration(30)).toBe('30\u00a0s')
+    expect(fmtDuration(45 * 60)).toBe('45\u00a0min')
+    expect(fmtDuration(2 * 3600 + 5 * 60)).toBe('2\u00a0h 05\u00a0min')
   })
 
   it('signs deltas with a real minus', () => {
-    expect(fmtSignedKmh(0.3)).toBe('+0.3 km/h')
-    expect(fmtSignedKmh(-0.25)).toBe('−0.3 km/h')
-    expect(fmtSignedKm(-1500)).toBe('−1.5 km')
+    expect(fmtSignedKmh(0.3)).toBe('+0.3\u00a0km/h')
+    expect(fmtSignedKmh(-0.25)).toBe('−0.3\u00a0km/h')
+    expect(fmtSignedKm(-1500)).toBe('−1.5\u00a0km')
   })
 
   it('repeats exactly the figures the cells show', () => {
@@ -350,7 +350,9 @@ describe('formats and summary', () => {
         prior: 'prior 30 d',
         period: '30 d',
       }),
-    ).toBe('12.4 km this week in 4 walks; streak 3 d; pace 4.5 km/h, +0.3 km/h vs the prior 30 d.')
+    ).toBe(
+      '12.4 km this week in 4 walks; streak 3 d; pace 4.5 km/h, +0.3\u00a0km/h vs the prior 30 d.',
+    )
   })
 
   it('writes an unknown pace and a single walk plainly', () => {

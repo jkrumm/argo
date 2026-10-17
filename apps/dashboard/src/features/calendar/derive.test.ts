@@ -10,7 +10,9 @@ import {
   bookedBySourceClass,
   bookedMinOnDay,
   isCancelled,
-  listedEventsOnDay,
+  agendaDay,
+  dayHeadLabel,
+  displayTitle,
   eventsOnDay,
   dayLoad,
   longestFreeBlock,
@@ -335,14 +337,41 @@ describe('cancelled meetings', () => {
       isCancelled({ ...ev('z', `${D} 09:00:00`, `${D} 10:00:00`), title: 'Canceled lunch' }),
     ).toBe(false)
   })
-  test('they stay listed but leave counts, booked time and next', () => {
+  test('one derivation owns rows, count and booked time', () => {
     const events = [
       ev('a', `${D} 09:00:00`, `${D} 10:00:00`),
       cancelled('b', 'Abgesagt:', `${D} 13:00:00`, `${D} 14:00:00`),
     ]
-    expect(listedEventsOnDay(events, D)).toHaveLength(2)
+    const day = agendaDay(events, D)
+    expect(day.rows.map((r) => r.cancelled)).toEqual([false, true])
+    expect(day.count).toBe(1)
+    expect(day.bookedMin).toBe(60)
     expect(eventsOnDay(events, D)).toHaveLength(1)
-    expect(bookedMinOnDay(events, D)).toBe(60)
     expect(nextEvent(events, new Date(2026, 9, 14, 11, 0))).toBeNull()
+  })
+  test('the row title drops the prefix and the meta says Cancelled once', () => {
+    const day = agendaDay([cancelled('b', 'Canceled:', `${D} 13:00:00`, `${D} 14:00:00`)], D)
+    expect(day.rows[0]?.title).toBe('{title b}')
+    expect(day.rows[0]?.meta).toBe('Cancelled · Work')
+    expect(displayTitle(cancelled('c', 'Abgesagt:', `${D} 13:00:00`, `${D} 14:00:00`))).toBe(
+      '{title c}',
+    )
+  })
+  test('a day of only cancelled meetings reads "all cancelled"', () => {
+    const fmt = (m: number) => `${m}m`
+    const only = agendaDay([cancelled('b', 'Abgesagt:', `${D} 13:00:00`, `${D} 14:00:00`)], D)
+    expect(dayHeadLabel(only, fmt)).toBe('all cancelled')
+    expect(dayHeadLabel(agendaDay([], D), fmt)).toBe('no meetings')
+    expect(dayHeadLabel(agendaDay([ev('a', `${D} 09:00:00`, `${D} 10:00:00`)], D), fmt)).toBe(
+      '1 event · 60m',
+    )
+  })
+  test('cancelled all-day events are not listed', () => {
+    const allDay = (title: string): CalendarItem => ({
+      ...ev('d', `${D} 00:00:00`, `${addDays(D, 1)} 00:00:00`),
+      title,
+      payload: { source: 'm365', sourceClass: 'work', isAllDay: true },
+    })
+    expect(allDayEvents([allDay('Abgesagt: x'), allDay('x')], D)).toHaveLength(1)
   })
 })

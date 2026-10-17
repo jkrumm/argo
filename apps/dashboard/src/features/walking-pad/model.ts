@@ -35,29 +35,45 @@ export type SessionRow = {
 
 // ── Formats ──────────────────────────────────────────────────────────────────
 
+/** No-break space: a value never parts from its unit. */
+export const NBSP = '\u00a0'
+
+/** `2.4 km/h` with a no-break space, or `—` for a missing speed. */
+export const withKmh = (kmh: number | null): string =>
+  kmh === null ? '—' : `${kmh.toFixed(1)}${NBSP}km/h`
+
+/** `3.2 km` with a no-break space, from metres. */
+export const withKm = (meters: number): string => `${(meters / 1000).toFixed(1)}${NBSP}km`
+
+/** `1,234 steps` / `1 step`, grouped with the en-GB locale. */
+export const withSteps = (n: number): string =>
+  `${n.toLocaleString('en-GB')}${NBSP}${n === 1 ? 'step' : 'steps'}`
+
+export const withKcal = (kcal: number): string => `${Math.round(kcal)}${NBSP}kcal`
+
 /** Kilometres with one decimal and no unit, from metres. */
 export const fmtKm = (meters: number): string => (meters / 1000).toFixed(1)
 
 export const fmtKmh = (kmh: number | null): string => (kmh === null ? '—' : kmh.toFixed(1))
 
 /** An unsigned delta figure: the `DeltaBadge` glyph carries the direction. */
-export const fmtKmAbs = (deltaMeters: number): string => `${fmtKm(Math.abs(deltaMeters))} km`
-export const fmtKmhAbs = (delta: number): string => `${Math.abs(delta).toFixed(1)} km/h`
+export const fmtKmAbs = (deltaMeters: number): string => `${fmtKm(Math.abs(deltaMeters))}${NBSP}km`
+export const fmtKmhAbs = (delta: number): string => `${Math.abs(delta).toFixed(1)}${NBSP}km/h`
 
 export const fmtSignedKmh = (delta: number): string =>
-  `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${Math.abs(delta).toFixed(1)} km/h`
+  `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${Math.abs(delta).toFixed(1)}${NBSP}km/h`
 
 export const fmtSignedKm = (deltaMeters: number): string =>
-  `${deltaMeters > 0 ? '+' : deltaMeters < 0 ? '−' : ''}${fmtKm(Math.abs(deltaMeters))} km`
+  `${deltaMeters > 0 ? '+' : deltaMeters < 0 ? '−' : ''}${fmtKm(Math.abs(deltaMeters))}${NBSP}km`
 
-/** `2 h 05 min` / `45 min` / `30 s`, from seconds. */
+/** `2 h 05 min` / `45 min` / `30 s` from seconds; every value stays glued to its unit. */
 export function fmtDuration(seconds: number): string {
   const total = Math.round(seconds)
-  if (total < 60) return `${total} s`
+  if (total < 60) return `${total}${NBSP}s`
   const h = Math.floor(total / 3600)
   const m = Math.floor((total % 3600) / 60)
-  if (h === 0) return `${m} min`
-  return `${h} h ${String(m).padStart(2, '0')} min`
+  if (h === 0) return `${m}${NBSP}min`
+  return `${h}${NBSP}h ${String(m).padStart(2, '0')}${NBSP}min`
 }
 
 const plural = (n: number, one: string, many = `${one}s`): string => (n === 1 ? one : many)

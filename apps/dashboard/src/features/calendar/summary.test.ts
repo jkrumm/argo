@@ -68,11 +68,11 @@ describe('untilLabel', () => {
 describe('countdown', () => {
   test('later today, tomorrow and later in the week', () => {
     const later = agendaSummary([events[2] as CalendarItem], now)
-    expect(countdown(later)).toBe('next at 15:00 {title c}')
+    expect(countdown(later)).toBe('next at 15:00 — {title c}')
     const tomorrow = agendaSummary([ev('t', '2026-10-15 09:30:00', '2026-10-15 10:00:00')], now)
-    expect(countdown(tomorrow)).toBe('next tomorrow 09:30 {title t}')
+    expect(countdown(tomorrow)).toBe('next tomorrow 09:30 — {title t}')
     const monday = agendaSummary([ev('m', '2026-10-19 10:45:00', '2026-10-19 11:00:00')], now)
-    expect(countdown(monday)).toBe('next Mon 10:45 {title m}')
+    expect(countdown(monday)).toBe('next Mon 10:45 — {title m}')
   })
   test('nothing ahead is no clause', () => {
     expect(countdown(agendaSummary([], now))).toBeNull()
