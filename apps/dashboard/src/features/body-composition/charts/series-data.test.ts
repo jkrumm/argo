@@ -6,6 +6,7 @@ import {
   thirtyDayMean,
   toSkinfoldChartPoints,
   toWeightChartPoints,
+  trailingMean,
 } from './series-data'
 
 describe('localDay', () => {
@@ -16,16 +17,32 @@ describe('localDay', () => {
 })
 
 describe('toWeightChartPoints', () => {
-  test('sorts and averages the 7 days up to each entry', () => {
-    const pts = toWeightChartPoints([
-      { date: '2026-01-05', weightKg: 80 },
-      { date: '2026-01-01', weightKg: 82 },
-      { date: '2026-01-20', weightKg: 79 },
-    ])
+  test('sorts; the mean is null where the 7 days are under-covered', () => {
+    const pts = toWeightChartPoints(
+      [
+        { date: '2026-01-05', weightKg: 80 },
+        { date: '2026-01-01', weightKg: 82 },
+        { date: '2026-01-20', weightKg: 79 },
+      ],
+      null,
+    )
     expect(pts.map((p) => p.weightKg)).toEqual([82, 80, 79])
-    expect(pts[0]!.ma).toBe(82)
-    expect(pts[1]!.ma).toBe(81)
-    expect(pts[2]!.ma).toBe(79)
+    // Each entry alone, or four days of cover, is under 70 % of 7 days (4.9 d).
+    expect(pts.map((p) => p.ma)).toEqual([null, null, null])
+  })
+  test('a covered window gives the trailing mean, the same as trailingMean', () => {
+    const log = Array.from({ length: 10 }, (_, i) => ({
+      date: `2026-01-${String(i + 1).padStart(2, '0')}`,
+      weightKg: 80 + i,
+    }))
+    const pts = toWeightChartPoints(log, null)
+    expect(pts.slice(0, 5).map((p) => p.ma)).toEqual([null, null, null, null, null])
+    expect(pts[5]!.ma).toBe(trailingMean(log, '2026-01-06', 7, null)!)
+    expect(pts[9]!.ma).toBe(84.5 + 1)
+  })
+  test('a window shorter than 7 days has no line', () => {
+    const log = [{ date: '2026-01-10', weightKg: 80 }]
+    expect(toWeightChartPoints(log, 3)[0]!.ma).toBeNull()
   })
 })
 

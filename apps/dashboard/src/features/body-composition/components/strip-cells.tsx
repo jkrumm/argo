@@ -15,6 +15,7 @@ import {
   goalProgress,
   intensityBand,
   RATE_NEUTRAL_KG_WK,
+  rateFooter,
   RATE_SCALE_KG_WK,
   signed,
   weightDeltaPolarity,
@@ -124,7 +125,7 @@ export function RateCell({
           </Badge>
         )
       }
-      footer={<span>{signed(stats.slope7, 2)} kg/wk over 7 d</span>}
+      footer={<span>{rateFooter(stats.slope7)}</span>}
     >
       <Meter
         label="Weight change rate against the maintenance band"

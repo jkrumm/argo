@@ -6,7 +6,8 @@ export function localDay(key: string): Date {
 }
 
 export type WeightPoint = { date: string; weightKg: number }
-export type WeightChartPoint = { date: Date; weightKg: number; ma: number }
+/** `ma` is `null` where the window is under-covered: the line has a gap, never a made-up value. */
+export type WeightChartPoint = { date: Date; weightKg: number; ma: number | null }
 
 const dayNumber = (key: string): number =>
   Date.UTC(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, Number(key.slice(8, 10))) /
@@ -26,21 +27,61 @@ export function markerRadiusFor(count: number): number {
 /** Days a weight's trailing mean looks back (inclusive, the API's `date >= last - days`). */
 export const MEAN_DAYS = 7
 
+/** A period's figure needs entries spanning at least this share of it; one entry is not a "30 d mean". */
+export const COVERAGE_SHARE = 0.7
+
 /**
- * Trailing 7-day mean — averages every entry dated 0 to 7 days up to and including each entry's
- * date. The header and the strip's "7 d mean" are this same set of entries at the newest date, so
- * the dashed line's last value and those figures are one number.
+ * The entries dated 0 to `days` days up to `endDate` (inclusive, the API's `date >= end - days`),
+ * oldest first, or `[]` when the selected window (`span` days, `null` for all) is shorter than the
+ * period or the entries do not span {@link COVERAGE_SHARE} of it. The one definition every
+ * period figure (mean, slope) and the chart's mean line go through.
  */
-export function toWeightChartPoints(points: readonly WeightPoint[]): WeightChartPoint[] {
-  const sorted = points.toSorted(compareByDate)
-  return sorted.map((e) => {
-    const window = sorted.filter((x) => {
-      const back = dayNumber(e.date) - dayNumber(x.date)
-      return back >= 0 && back <= MEAN_DAYS
+export function coveredWindow<T extends { date: string }>(
+  points: readonly T[],
+  endDate: string,
+  days: number,
+  span: number | null,
+): T[] {
+  if (span !== null && span < days) return []
+  const slice = points
+    .filter((p) => {
+      const back = dayNumber(endDate) - dayNumber(p.date)
+      return back >= 0 && back <= days
     })
-    const ma = window.reduce((acc, x) => acc + x.weightKg, 0) / window.length
-    return { date: localDay(e.date), weightKg: e.weightKg, ma }
-  })
+    .toSorted(compareByDate)
+  const first = slice.at(0)
+  if (first === undefined || dayNumber(endDate) - dayNumber(first.date) < days * COVERAGE_SHARE) {
+    return []
+  }
+  return slice
+}
+
+/** Mean weight of the covered window ending at `endDate`; `null` when it is not covered. */
+export function trailingMean(
+  points: readonly WeightPoint[],
+  endDate: string,
+  days: number,
+  span: number | null,
+): number | null {
+  const slice = coveredWindow(points, endDate, days, span)
+  return slice.length === 0 ? null : slice.reduce((a, p) => a + p.weightKg, 0) / slice.length
+}
+
+/**
+ * The chart points with the trailing {@link MEAN_DAYS}-day mean at each entry. The header's and the
+ * strip's "7 d mean" are `trailingMean` at the newest date, so the dashed line's last value is
+ * that same number, and where the header says "—" the line has a gap.
+ */
+export function toWeightChartPoints(
+  points: readonly WeightPoint[],
+  span: number | null,
+): WeightChartPoint[] {
+  const sorted = points.toSorted(compareByDate)
+  return sorted.map((e) => ({
+    date: localDay(e.date),
+    weightKg: e.weightKg,
+    ma: trailingMean(sorted, e.date, MEAN_DAYS, span),
+  }))
 }
 
 /** Mean of the entries dated 0–30 days (both ends inclusive) before the latest one; `null` when empty. */
