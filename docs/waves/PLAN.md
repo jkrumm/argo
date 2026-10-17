@@ -539,6 +539,129 @@ Round 6 of the convergence check (same four exit parts as Wave 13).
 - **Not verified:** the trial page at runtime (TOC collection, heading ids, heatmap on real data); no `make evidence` re-run.
 - **Cleanup:** worker worktrees removed with `rd fan --clean`; Wave 17 stays `pending` on owner call D4; not spawned.
 
+# Part 2 — the redesign loop: expression through data (2026-10-17)
+
+**Owner's verdict (2026-10-17):** after basalt Waves 29–33 argo "basically looks the same", and its pages are
+"slopped out". The examples: Garmin Health's top boxes with a coloured left border and numbers with no
+meaning, Agents, Warden, Calendar. There is no mental concept of how to express each dataset. The owner
+wants an **endless loop** of redesign on argo's real pages until they reach the level of Keel Workspace
+(`https://keel-workspace.vercel.app`). That is the level of the parts the owner named: expression through
+data, a micro-visual chosen per dataset, every number with its unit and context, dense and calm spacing,
+composite cards, decision cards, day-grouped timelines, and copy that is only facts.
+
+**The reference, look-only:** Keel's captures are on this machine at
+`/Users/jkrumm/SourceRoot/basalt-ui/.design-parity/keel/routes/*--desktop.png` and `.../keel/patterns/`.
+Its pattern inventory and measured scales are in `basalt-ui/docs/waves/design-parity/BENCHMARK.md` and
+`SPEC.md` (§ 4 is the data-to-expression catalogue). Keel publishes no code and no licence: take ideas, never
+assets. **Never commit a Keel image here.**
+
+**What Keel does that argo does not (read this before any page):**
+
+- **KPI tiles.** Caption and qualifier sit on one mono line ("WIN RATE · 90 days", "SPEND · of $9").
+  The hero value has a muted unit. Each tile has a micro-visual fitted to its data: a gauge against a
+  target, a ring for a rate, a progress bar with a target tick, a tick distribution, segmented spend
+  against a budget, events on a time axis. No coloured left edge, ever.
+- **Composite cards.** Keel's agent card stacks:
+  - an identity and status line;
+  - a 2×2 inner panel of different micro-visuals, divided by hairlines;
+  - a "Now …" or "Your call …" line;
+  - a mode control and one explaining sentence.
+- **Decision cards.** The title is a question. Then the entity with its facts (`·`-separated), an
+  evidence line with a confidence %, one primary action plus secondaries, and a context preview on
+  the right (a draft, a from → to trend, a stage stepper). Never four stacked buttons.
+- **Timelines and lists.** Day-grouped, with a time column, the actor with a verb, evidence chips and
+  status dots. A heading carries its count, and a "Live" pulse marks streaming data.
+- **Copy.** Facts only ("−18 in 14d", "118 → 92"). No filler questions as subtitles ("What did I do?").
+
+**Method, per page (every wave):**
+
+1. Write a concept in `docs/design/<page>.md`: the user's question, the decision the page supports, each
+   dataset's shape, and the chosen encoding with its reason. Cite the Keel pattern it learns from.
+2. Build it on real data. Use basalt exports first. Missing pieces are prototyped as a local component
+   under `features/<page>/` and listed in `docs/design/UPSTREAM.md` (pattern, props, which pages use
+   it). The basalt orchestrator moves proven ones into basalt within the same cycle, and argo then
+   switches to the import.
+3. Run at least three rounds of live shot → critique → revise. Critique on the three axes (craft,
+   expression, communication) with the `basalt-design-reviewer` subagent installed by `sync`, plus a
+   side-by-side read against the matching Keel capture. A page is done when the reviewer passes it AND it
+   holds up next to Keel.
+4. Push to master (argo deploys on push), verify `/api/health` reports the commit, live-shot the
+   deployed page, and record the before/after in the wave's Left behind.
+
+**Privacy (binding):** argo is a public repo, and its screenshots show the owner's real health, calendar
+and agent data. Boards, shots and crops live only in the gitignored `.design-shots/`. Commit concept docs,
+verdict text and numbers, never images.
+
+**Gate (every wave):** `make check` green; every merged diff independently reviewed (two rounds, then scope
+frozen and the lead reads the last fix diff); the rounds' verdicts in `docs/design/<page>.md`; the page
+live-verified after deploy. The orchestrator copies the boards to the owner's MacBook.
+
+**Mode:** orchestrated from the basalt-ui mother. Leads run on the high wave model. Independent pages run
+in parallel as `rd fan` worktrees (disjoint `features/<page>/` and `routes/<page>.tsx`). A lead does NOT spawn
+the next wave.
+
+## Wave 18 — Live-data shot harness and the page concepts <!-- status: active -->
+
+- [ ] `scripts/design-shot.ts`, run as `make design-shot ROUTES="/garmin-health /agents"`. It builds the
+      dashboard with `VITE_API_URL=https://argo.jkrumm.com/api`, serves `dist` on `http://localhost:7715`
+      (the one localhost origin the API's CORS allows) inside the script for the run only, and seeds the
+      bearer into localStorage `argo-auth` (`{"state":{"token":…},"version":0}`) from
+      `ARGO_TOKEN=$(secrets-run read op://common/api/SECRET)`. It never prints, logs or writes the token. It
+      screenshots each route at 1440 and 390, dark and light, full scroll height (the shell scrolls an inner
+      region, so size the viewport to the content), plus one crop per card or table, into
+      `.design-shots/<label>/`. Add `.design-shots/` to `.gitignore`. When basalt ships `shot --api/--header/--local-storage`
+      (basalt row 167, in flight), switch to it.
+- [ ] Baseline every page: `/`, garmin-health, agents, warden, calendar, strength-tracker, walking-pad,
+      body-composition, reading, usage-tracking, astro-window, hermes-chat and m365-explorer.
+- [ ] One concept doc per page (`docs/design/<page>.md`) as in Method step 1. Rank the pages by how far
+      they are from the bar. Fill `docs/design/UPSTREAM.md` with the patterns that recur across pages (KPI
+      tile micro-visual variants, the inner metric grid, the decision card, the day-grouped timeline, the
+      fact strip, the stepper, status-dot lists).
+- [ ] Owner review point: the orchestrator shows the baseline boards and the concepts.
+      **Left behind:**
+
+## Wave 19 — Garmin Health <!-- status: pending -->
+
+- [ ] The KPI strip: recovery against its scale (a gauge or meter) with the contributors as bars; training
+      load as a zone band (under / optimal / over) with a marker, not "0.69"; the fitness trend as small
+      multiples with from → to deltas. No coloured edges, and no list of bare numbers.
+- [ ] Charts with facts, not filler questions: units, period and comparison in the header.
+- [ ] At least three rounds; deploy; live-verify.
+      **Left behind:**
+
+## Wave 20 — Agents and Warden <!-- status: pending -->
+
+- [ ] Agent cards on Keel's crew anatomy: identity and status, an inner 2×2 micro-visual panel, the "Now"
+      line. The human queue becomes decision cards (question, entity facts, evidence, one primary action,
+      steps collapsed behind one disclosure).
+- [ ] Warden: decision cards instead of the four-button table; facts and confidence; one primary action.
+- [ ] At least three rounds per page; deploy; live-verify.
+      **Left behind:**
+
+## Wave 21 — Calendar and the home page <!-- status: pending -->
+
+- [ ] Calendar: agenda-first density (empty hours collapse, today's meetings with prep state, the week as
+      a compact strip).
+- [ ] Home `/`: a "Today" overview on Keel's model. What needs you (Warden, Agents), today's meetings, a
+      health snapshot and a live activity stream, each with its count.
+- [ ] At least three rounds; deploy; live-verify.
+      **Left behind:**
+
+## Wave 22 — Strength, WalkingPad, Body composition, Reading, Usage <!-- status: pending -->
+
+- [ ] One concept-driven redesign per page, fanned out in parallel. At least three rounds each. Deploy and
+      live-verify.
+      **Left behind:**
+
+## Wave 23 — Astro window, Hermes chat, M365 explorer; the convergence pass <!-- status: pending -->
+
+- [ ] Redesign the remaining pages.
+- [ ] Re-score every page with a fresh reviewer and against Keel. Every page still below the bar gets a Wave
+      24+ in this shape. The loop ends only when a fresh scorer and the owner find nothing worth
+      improving.
+      **Left behind:**
+
+# Part 1, continued
 
 ## Wave 17 — Rendering: SSR-first, streamed sections <!-- status: dropped -->
 
