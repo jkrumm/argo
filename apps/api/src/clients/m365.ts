@@ -699,11 +699,14 @@ export async function listChannelMessages(opts: {
  * Sorted ascending by start. Uses Graph's `/me/calendarView` via the MCP
  * meta-dispatcher (tool: get-calendar-view).
  */
-export async function listUpcomingCalendarEvents(days: number): Promise<CalendarEvent[]> {
-  const now = new Date()
-  const end = new Date(now.getTime() + days * 86_400_000)
+export async function listUpcomingCalendarEvents(
+  days: number,
+  from?: Date,
+): Promise<CalendarEvent[]> {
+  const start = from ?? new Date()
+  const end = new Date(start.getTime() + days * 86_400_000)
   const r = await callGraphTool<{ value?: GraphEvent[] }>('get-calendar-view', {
-    startDateTime: now.toISOString(),
+    startDateTime: start.toISOString(),
     endDateTime: end.toISOString(),
     orderby: ['start/dateTime'],
     top: 200,

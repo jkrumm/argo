@@ -19,6 +19,7 @@ import {
   upsertLabel as storeUpsertLabel,
 } from '../clients/m365-labels-store.js'
 import { readTeam } from '../clients/m365-team-store.js'
+import { CalendarFromSchema } from './calendar.js'
 
 const ToolSchema = z.object({
   name: z.string(),
@@ -323,7 +324,10 @@ export const m365Routes = new Elysia({ prefix: '/m365' })
     '/calendar/upcoming',
     async ({ query, set }) => {
       try {
-        return await listUpcomingCalendarEvents(query.days ?? 14)
+        return await listUpcomingCalendarEvents(
+          query.days ?? 14,
+          query.from ? new Date(query.from) : undefined,
+        )
       } catch (error) {
         set.status = 503
         return error instanceof Error ? error.message : 'M365 calendar error'
@@ -337,15 +341,16 @@ export const m365Routes = new Elysia({ prefix: '/m365' })
           .min(1)
           .max(60)
           .default(14)
-          .describe('Days window from now (default 14, max 60)')
+          .describe('Days window from `from` (default 14, max 60; from defaults to now)')
           .optional(),
+        from: CalendarFromSchema.optional(),
       }),
       response: { 200: z.array(CalendarEventSchema), 503: z.string() },
       detail: {
         tags: ['M365'],
-        summary: 'List upcoming IU Outlook calendar events',
+        summary: 'List IU Outlook calendar events',
         description:
-          'Returns events from the authenticated IU Outlook calendar within `[now, now + days)`, sorted ascending by start. Recurring series are flattened to individual occurrences. Timed events use ISO 8601 UTC timestamps for start/end; all-day events use YYYY-MM-DD. `videoLink` is the Teams meeting joinUrl when `isOnlineMeeting=true`. Use this for work calendar queries ("meetings tomorrow", "agenda this week", "my next call"). For personal/Google calendar use GET /calendar instead. Cap is 60 days; default 14. 503 with "M365 not authenticated" if tokens are missing/expired — user must re-seed via `bun m365:auth:prod`.',
+          'Returns events from the authenticated IU Outlook calendar within `[from, from + days)` (`from` is an ISO date, read as UTC midnight, or an ISO datetime; default now, so upcoming events only — pass an earlier `from` to include past events), sorted ascending by start. Recurring series are flattened to individual occurrences. Timed events use ISO 8601 UTC timestamps for start/end; all-day events use YYYY-MM-DD. `videoLink` is the Teams meeting joinUrl when `isOnlineMeeting=true`. Use this for work calendar queries ("meetings tomorrow", "agenda this week", "my next call"). For personal/Google calendar use GET /calendar instead. Cap is 60 days; default 14. 503 with "M365 not authenticated" if tokens are missing/expired — user must re-seed via `bun m365:auth:prod`.',
         security: [{ BearerAuth: [] }],
       },
     },

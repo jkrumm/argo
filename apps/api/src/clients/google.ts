@@ -434,7 +434,10 @@ export interface CalendarEventItem {
   videoLink?: string
 }
 
-export async function listCalendarEvents(days: number = 30): Promise<CalendarEventItem[]> {
+export async function listCalendarEvents(
+  days: number = 30,
+  from?: Date,
+): Promise<CalendarEventItem[]> {
   const token = await getValidAccessToken()
 
   const calRes = await tracedFetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
@@ -444,9 +447,9 @@ export async function listCalendarEvents(days: number = 30): Promise<CalendarEve
   const calData = (await calRes.json()) as { items: CalendarListEntry[] }
   const calendars = calData.items ?? []
 
-  const now = new Date()
-  const timeMin = now.toISOString()
-  const timeMax = new Date(now.getTime() + days * 86400 * 1000).toISOString()
+  const start = from ?? new Date()
+  const timeMin = start.toISOString()
+  const timeMax = new Date(start.getTime() + days * 86400 * 1000).toISOString()
 
   const allEvents: CalendarEventItem[] = []
 
