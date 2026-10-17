@@ -6,7 +6,7 @@ Route `/warden` · `apps/dashboard/src/routes/warden.tsx`, `apps/dashboard/src/f
 
 Shots: `warden--dark--desktop.png`, crops `warden--dark--01-card.png` … `-15-card.png`, `-03-verdicts-recorded.png`, `-04-fixes-vs-silence.png`, `-05-decision-wait-h.png`, `-06-unattended-fixes-wk.png`, `-07-poller-age-min.png`, `-08-reverts-reopens.png`.
 
-- "Needs you 6" is a six-row table, each row with **four stacked buttons** (Implement, Dismiss, Re-investigate, Note). Title and decision text are both truncated mid-sentence; the question that matters ("Reclaim space or expand the volume?") is cut. Waiting time is the only figure and carries a one-hue colour.
+- "Needs you 6" is a six-row table, each row with **four stacked buttons** (Implement, Dismiss, Re-investigate, Note). Title and decision text are both truncated mid-sentence; the question that matters is cut. Waiting time is the only figure and carries a one-hue colour.
 - "Failed 3" repeats the pattern with five buttons (adds Merge, Retry). The `WORK` flag is a pink chip with no explanation.
 - The six funnel tiles (`03`–`08`) are the worst of the baseline: `75%` over `windowed: false · numerator: 268 · denominator: 357 · it…` — a raw JSON key dump as a footer, truncated. "Poller age (min) 17.1", "Reverts & reopens 0" have no target, no unit meaning, no history. Dispatch budget is a plain sentence below.
 - The lower half re-lists the same items six more times as stacked tables (Running, Merging & verifying, Needs decision, Failed, Deferred — budget, Working, Merging): the six "Needs decision" items appear twice, three "Failed" twice. Deferred rows paint a whole column orange.
