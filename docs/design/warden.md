@@ -24,7 +24,7 @@ Decision: for each needs-decision item, implement / dismiss / ask again; for eac
 | Dataset | Source | Shape (SPEC §3) | Today's encoding | Chosen encoding | Reason | Keel pattern |
 |-|-|-|-|-|-|-|
 | Awaiting-owner items | `board.awaiting_owner[]` {event_id, repo, title, state, pr_url, age_days, reason, revision_count, redrives, availableActions}; `board.items[].availableActions` | Request needing a decision | Table + 4 buttons | Decision card: headline = `reason` as one question; facts `<repo> · waiting 3.4 d · revision 3 · 2 redrives`; inset panel = full `reason` text (3-line clamp, expand on click); primary = first of `availableActions` by fixed priority (implement), secondary = `Dismiss`, quiet menu `Re-investigate · Note`. Age >2 d gets a text `status-warn` figure | One question, one primary; the verbs stay reachable | `decision-card--dark--desktop.png` |
-| Failed items | `board.items` state `failed`, `failure_class` (infra / policy / work), `redrives`, `pr_url` | Request needing a decision | Table + 5 buttons + `WORK` chip | Same decision card, headline `Retry <title>?`, facts line leads with failure class as a status chip (`work`, `infra`, `policy`) + `re-drive 2`; primary `Retry`, secondary `Merge` when offered, quiet menu rest | Class is the cause, so it leads | `status-pill--dark--desktop.png` |
+| Failed items | `board.items` state `failed`, `failure_class` (infra / policy / work), `redrives`, `pr_url` | Request needing a decision | Table + 5 buttons + `WORK` chip | Same decision card, headline `Retry <title>?`, facts line leads with failure class as a status chip + `re-drive 2` (`failure_class` is an open string: `work`, `infra`, `policy` today get fixed tones, any other value renders a neutral chip with the raw label; null renders no chip); primary `Retry`, secondary `Merge` when offered, quiet menu rest | Class is the cause, so it leads | `status-pill--dark--desktop.png` |
 | Verdicts recorded | `metrics.verdicts_recorded_disposition` (fraction, numerator, denominator, windowed) | Progress to a target (one ratio) | `75%` + key dump | Meter 0–100 %, value `75` + muted `%`, caption `VERDICTS RECORDED · all time`, end captions `268 of 357 items`; tooltip carries definition | Numerator/denominator become the caption, not a dump | `metric-card-bar--dark--desktop.png` |
 | Fixes vs silence | `metrics.verified_fixes_vs_silence` {fixed 34, quiet 23, closed 294} | Part of a whole, 2–6 parts | `60%` + key dump | Segmented Meter fixed / quiet / closed with counts; value `60 %` = fixed share of fixed+quiet | Three parts, one bar | `metric-card-bar--dark--desktop.png` |
 | Decision wait | `metrics.median_needs_decision_to_decision_hours` (+ pairs, window_days) | Single value, threshold | `0.5` | StatCard `0.5 h` median, qualifier `7 d · 39 pairs`, tick on a 0–24 h meter at 24 h | Unit and sample size make it interpretable | `metric-card--dark--desktop.png` |
@@ -32,7 +32,7 @@ Decision: for each needs-decision item, implement / dismiss / ask again; for eac
 | Poller age | `metrics.poller_ages` / `health.pollers` | Status over time → liveness | `17.1` | Per-poller BarList rows (poller, bar on a 0–30 min scale, mono `17 min`), the 30-min stale mark as a tick; summarised in the strip as `OLDEST POLLER 17 min` | Ranked list with a threshold | `stat-cell--dark--desktop.png` |
 | Reverts & reopens | `metrics.reverts_and_reopens` {reverts 0, reopen_after_fixed 1} | Single value, status | `0` + dump | Strip cell `0 reverts · 1 reopen`, text figures; `status-bad` text only when reverts >0 | Two counts, one cell, no dump | `stat-cell--dark--desktop.png` |
 | Dispatch budget | `budget` {usedToday, max, implementToday, implementMax} | Progress to a target | Sentence | Two Meters (`DISPATCH`, `IMPLEMENT`) value `12 / 20 today` with a tick at max; `status-warn` ink at ≥90 % | Budget is the second most-read number | `metric-card-bar--dark--desktop.png` |
-| Board (all states) | `board.items`, `board.counts`, `terminal_24h` | Work items by status | 7 stacked tables | `Board`: columns New / Triaged / Working / Merging / Verifying with count; Needs-decision and Failed are NOT columns (they are the decision cards above); Deferred is a flagged card variant in Working, not a column. Card: repo + title (2-line clamp), origin glyph, age, PR link | Load per stage visible; removes the duplicates | `kanban-column--dark--desktop.png`, `kanban-card--dark--desktop.png` |
+| Board (all states) | `board.items`, `board.counts`, `terminal_24h` | Work items by status | 7 stacked tables | `Board`: columns New / Triaged / Working / Merging / Verifying / **Other**, each with count. **Assumption:** the column set mirrors warden's non-terminal vocabulary (`BUCKET_ORDER` in `model.ts`); `board.items[].state` is an open string, so any state outside that set lands in Other with its raw state as the card's status line, and every item appears exactly once. Needs-decision and Failed are NOT columns (they are the decision cards above); Deferred (`working` with a `deferred:` note, `isDeferredItem`) is a flagged card in Working. Card: repo + title (2-line clamp), origin glyph, age, PR link | Load per stage visible; removes the duplicates | `kanban-column--dark--desktop.png`, `kanban-card--dark--desktop.png` |
 | Item timeline | `items[eventId]` transitions, dispatches, operations | Event sequence | Drawer | EventList (timeline density, rail) in the same drawer: day groups, `state → state` sentence, mono time | Already an event sequence | `timeline-event--dark--desktop.png` |
 
 ## Layout
@@ -41,7 +41,7 @@ Decision: for each needs-decision item, implement / dismiss / ask again; for eac
 1. Summary: `3 items need you, oldest 3.4 d. Loop healthy: poller 17 min old, 26 fixes in 7 d.` Unhealthy: `Loop stalled — snapshot 42 min old.`
 2. Joined strip, 6 cells: Verdicts (meter) · Fixes vs silence (segments) · Decision wait · Unattended fixes · Poller age · Reverts & reopens; footer row = the two budget meters.
 3. `Needs you 6` — decision cards, 2 columns (each ~700 px); then `Failed 3` the same.
-4. `Board` — 5 columns, each scrolling alone.
+4. `Board` — 5 state columns plus `Other` (hidden when empty), each scrolling alone.
 5. Poller list as a collapsed `Pollers 4` BarList below the board.
 
 Stays: item-timeline drawer, `PageBar` sync, `StaleBanner` (as the loop-stalled summary variant). Changes: funnel, both queues, board. Goes: the six duplicate stacked tables, the dispatch-budget sentence, the key-dump footers.
@@ -64,15 +64,15 @@ Stays: item-timeline drawer, `PageBar` sync, `StaleBanner` (as the loop-stalled 
 | `Board` | `Board {columns:[{key,label,count,totals}], cards, onOpen, compactSwitcher}` | SPEC §4 `Board` |
 | Decision card (action-menu variant) | `DecisionCard {question, facts, evidence, primary, secondary, menu[]}` | SPEC §3 recipe; shared with agents |
 | Strip footer meters | `StatGroup variant="strip" footer={Meter[]}` | SPEC §4 strip (footer row exists in §6.5) |
-| Failure-class chip | `StatusChip {tone, label}` by class | New thin; SPEC §6.10 chip |
+| Failure-class chip | `StatusChip {tone?, label}`; unknown label → neutral tone | New thin; SPEC §6.10 chip |
 
 ## Pass criteria
 
 1. No row or card carries more than one primary and one secondary visible button; the rest are in one menu.
 2. No tile footer shows a raw key (`windowed:`, `numerator:`); every metric has unit and period in caption.
-3. Each item appears once on the page (needs-decision and failed are not repeated in the board).
+3. Each item appears once on the page (needs-decision and failed are not repeated in the board; unknown states appear in `Other`).
 4. The Fixes-vs-silence cell shows its three counts as segments summing to the total.
 5. The budget is two meters with a max tick and `n / max` values.
 6. A null metric renders `—` plus its reason, never `0` or `n/a`.
-7. The board has per-column counts and at 390 shows one column at a time.
+7. The board has per-column counts, an `Other` column when a state is outside the known set, and at 390 shows one column at a time.
 8. Decision-card headlines are not truncated mid-sentence at 1440.
