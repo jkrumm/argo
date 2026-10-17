@@ -27,9 +27,10 @@ The API doubles as an AI-agent endpoint. Discovery is anchored at three URLs: `G
 `/agents/overview/history?hours=` (max 168) read it back — raw jsonb, loosely validated, 7-day
 retention pruned on ingest. `POST`/`GET /agents/narratives` stores the per-project narrative
 upserts from `hermes-agent`'s `project-narratives.py`. The dashboard's **System → Agents** page
-(`/agents`) is the one surface for all of it: hero stats + 24h sparklines, a Needs-you block, the
-agents table with agent-gateway's recommendation glyphs, narratives, a 30-minute stale banner; polls
-Argo every 60s. Table owner: `apps/api/src/db/schema.ts` (`agent_overview_snapshots`,
+(`/agents`) is the one surface for all of it: a summary sentence, a needs-you / oldest-wait / fleet
+strip, Needs-you decision cards (copy-only, no writes), one card per active project, a 24 h activity
+strip, day-grouped narratives, a 30-minute stale banner; polls Argo every 60s
+(`docs/design/agents.md`). Table owner: `apps/api/src/db/schema.ts` (`agent_overview_snapshots`,
 `agent_narratives`).
 
 ## Warden — the control-plane board
@@ -42,8 +43,9 @@ derives nothing. The payload carries health/poller liveness, the six funnel metr
 `{value, unavailable}` pair — `value: null` always pairs with a non-empty `unavailable` reason,
 **never** rendered as 0), the board (state counts + open items), the dispatch budget, per-item
 timelines (transitions, dispatches, operations). The dashboard's **System → Warden** page
-(`/warden`) is the one surface for all of it: one "Needs you" list (`needs_decision` items — the
-decision question plus its actions), a quieter "Failed" list, then the board. Table owner:
+(`/warden`) is the one surface for all of it: a summary sentence and health strip, "Needs you"
+(`needs_decision`) and "Failed" decision cards (one primary, one secondary, the other verbs in a
+menu), then one board where every other item appears exactly once (`docs/design/warden.md`). Table owner:
 `apps/api/src/db/schema.ts` (`warden_snapshots`).
 
 ## Slack

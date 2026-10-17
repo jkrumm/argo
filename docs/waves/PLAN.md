@@ -669,28 +669,105 @@ the next wave.
       spend, lift e1RMs). Part 2's rule is now tightened: committed docs carry `{placeholders}` only, and
       the concept docs were scrubbed to match.
 
-## Wave 19 — Garmin Health, Agents and Warden, in parallel <!-- status: active -->
+## Wave 19 — Garmin Health, Agents and Warden, in parallel <!-- status: done -->
 
 Three page workers fan out at once on disjoint files (`features/garmin-health/` + `routes/garmin-health.tsx`;
 `features/agents/` + `routes/agents.tsx`; `features/warden/` + `routes/warden.tsx`). A pattern two pages share
 (the decision card for Agents and Warden) is built once by one worker. The other worker adopts it after it
 merges.
 
-- [ ] **Privacy tightening (orchestrator, 2026-10-17):** committed docs carry no real personal values (body
+- [x] **Privacy tightening (orchestrator, 2026-10-17):** committed docs carry no real personal values (body
       weight, health readings, spend, lift numbers, names, titles). Use `{placeholders}`; real values live only in
       `.design-shots/`. Scrub the 13 concept docs in one commit first (history stays, by owner choice on the
       basalt side).
-- [ ] Garmin Health per `docs/design/garmin-health.md`. Use `Meter`, `BarList` and the strip from basalt the
+- [x] Garmin Health per `docs/design/garmin-health.md`. Use `Meter`, `BarList` and the strip from basalt the
       moment they ship (basalt Wave 34 is landing them now); until then, prototype them under the feature with
       the UPSTREAM props. Fix the EWMA half-life comments.
-- [ ] Agents per `docs/design/agents.md`: agent cards on the crew anatomy, and the human queue as decision
+- [x] Agents per `docs/design/agents.md`: agent cards on the crew anatomy, and the human queue as decision
       cards.
-- [ ] Warden per `docs/design/warden.md`: decision cards replace the four-button table.
-- [ ] At least three live-shot rounds per page, scored by the reviewer and against Keel. Deploy, verify
+- [x] Warden per `docs/design/warden.md`: decision cards replace the four-button table.
+- [x] At least three live-shot rounds per page, scored by the reviewer and against Keel. Deploy, verify
       `/api/health`, live-shot. Update `UPSTREAM.md` with what was proven (props as actually built).
       **Left behind:**
 
-## Wave 20 — Calendar and the home page <!-- status: pending -->
+  **Closed out (orchestrated): Wave 20 is marked active but not spawned; the orchestrator spawns it.**
+
+  - **Landed (master, deployed, `/api/health` verified after each merge, last `8c9cdcc`):**
+    - Privacy scrub: the 13 concept docs plus `README.md` and `UPSTREAM.md` carry `{placeholders}` only; Part 2's Privacy rule now forbids
+      real values in committed docs (`338fa22`, `eb21cbb`).
+    - basalt-ui 2.18.0 (`7529cf7`): `Meter` and `BarList` adopted from the package. The short-lived local
+      prototype of them (`769a493`, a port of basalt PR #341) was deleted in `dbb45f3`. The port review's
+      findings were posted on basalt PR #341, not fixed locally.
+    - #62 the shared `DecisionCard` (`components/upstream/decision-card.tsx`), used by Agents and Warden.
+    - #65 Agents, #64 Warden, #63 Garmin Health (incl. the EWMA half-life comments; the route
+      description and `docs/GARMIN-HEALTH.md` were corrected in `e454282`).
+    - `.gitignore` now ignores `node_modules` symlinks (a worker committed one; `8fda93e`).
+  - **Before/after:** before = `.design-shots/baseline/<page>--*`; after = the live shots
+    `.design-shots/w19-live-garmin-health/` and `w19-live-agents-warden/` (basalt `shot --base` on
+    production). The final round boards are `w19-garmin-health-r14`, `w19-agents-r12-basalt` and
+    `w19-warden-r12(-basalt)`. All of them are copied to the MacBook,
+    `~/Downloads/argo-design-review/w19/`. Before → after per page:
+    - Garmin: three left-edge hero cards with bare numbers and eight filler subtitles became a summary
+      sentence, a joined strip (recovery meter with zones and contributors as points of their weight,
+      zoned ACWR meter, three dated sparkline rows) and fact headers on every chart. Each header names
+      its own point's date, so a sync gap never reads as "today". The fitness z-score chart and the
+      three-colour activity stack are gone.
+    - Agents: three bare tiles and a long table of dash columns became a strip (needs-you trend, oldest-wait
+      meter, segmented fleet), decision cards, project cards on Keel's crew anatomy and day-grouped
+      narratives. A failed fetch now reads as unknown, never as an empty fleet.
+    - Warden: tables with four or five stacked buttons and raw key dumps became a 6-cell health strip,
+      decision cards (one primary, one secondary, a menu, a state-history preview) and one board in
+      which every item appears exactly once.
+  - **Rounds:** Garmin 14, Agents 12, Warden 12. Each is recorded in its `docs/design/<page>.md` under
+    "Wave 19 rounds". From round 5 on, rounds were scored on basalt 2.18's `shot` (with `metrics.json`),
+    because the local harness gives the reviewer no measured Craft data. The scoring recipe is
+    `--api /api=https://<argo-host> --local-storage argo-auth=@env:ARGO_AUTH --auto-anchors`.
+  - **Reviewer verdict, stated plainly:** the `basalt-design-reviewer` did not pass every component on
+    any page.
+    - Agents: the page passes; open defects are the fleet strip type sizes and indistinct grey
+      segments, and 390 truncation.
+    - Warden: the decision cards and meters pass; open defects are the clipped one-line kickers, the
+      per-column board scroll and the Meter caption sizes.
+    - Garmin: no full pass in its last scored round (the step is ticked on the Keel read below, not on a reviewer pass).
+    - The orchestrator's side-by-side read against Keel (root, crew, record) holds up on all three
+      pages, and design scope was frozen there.
+    - The residual fails are mostly basalt-side (Meter caption sizes, Button paddings, no Sparkline
+      reference) and are filed below.
+  - **Code review:** every diff got two independent rounds, then scope froze and the lead read the
+    last fix diff (#62, #63, #64, #65, the bump, the scrub). Fixes covered null versus zero
+    (fabricated zero fleets, "0 at peak", stale-day headers), exactly-once board placement,
+    prototype-key crashes, a PR link nested in a button, and the container-query order.
+  - **basalt friction:** 18 rows with the exact prop needed, in `docs/design/UPSTREAM.md` § basalt
+    friction (2.18.0). Top asks:
+    - `Meter`: multiple `ticks`, a caption `size`, a muted fill;
+    - `BarList`: a thin label-outside row and a per-row `max`/tick;
+    - `Sparkline`: `reference`;
+    - `ChartCard`: `facts`;
+    - `relativeTime`: should follow the UI locale (German strings on English pages).
+    - Three diverging `StatStrip` prototypes (garmin, agents, warden) are listed for basalt wave 35 to
+      converge.
+  - **Deviations kept, the owner may revert:**
+    - Agents: "Oldest wait" falls back to the oldest human-queue ask when no agent waits, captioned
+      `human queue`.
+    - Warden: the Fixes bar plots fixed against quiet (the headline percentage's own base), and closed
+      appears only as a count. Criterion 4 is marked amended.
+    - Hero numerals stay mono (tabular): DESIGN.md wins over the landscape study's
+      proportional-figures rule. That conflict is filed as friction.
+  - **For later waves:**
+    - Deferred refactors, out of scope by freeze:
+      - split `features/agents/model.ts`, `features/warden/page-model.ts` and
+        `features/garmin-health/strip-cells.tsx` into per-concern view models;
+      - move the reusable primitives to `components/upstream/`;
+      - pin the dashboard's mirrored Garmin thresholds to the API constants with a test (or serve
+        them from the API).
+    - `basalt-ui shot`: the Garmin fitness sparkline focus anchor times out about once per run.
+    - The managed `basalt-design` skill's live-data `shot` recipe sends production captures to the
+      reviewer's provider. This is the accepted Part 2 practice, but a reviewer flagged it; it belongs
+      upstream.
+    - An untracked personal `sc-note.md` sits at the repo root. It is not from this wave and was left
+      untouched; move it out of the repo.
+
+## Wave 20 — Calendar and the home page <!-- status: active -->
 
 - [ ] Calendar: agenda-first density (empty hours collapse, today's meetings with prep state, the week as
       a compact strip).
