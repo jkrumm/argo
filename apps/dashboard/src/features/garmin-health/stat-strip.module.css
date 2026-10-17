@@ -1,0 +1,133 @@
+/*
+ * StatStrip — one joined surface of cells divided by 1px hairlines (prototype of the future
+ * basalt-ui `StatGroup variant="strip"`). The frame is the elevation: radius and depth come from the
+ * card tokens, the cells are flat panels so the seam is the gap showing the divider colour through.
+ */
+
+.frame {
+  container-type: inline-size;
+}
+
+.strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  overflow: hidden;
+  border-radius: var(--vx-radius-card);
+  background: var(--vx-divider);
+  box-shadow: var(--vx-shadow-card);
+}
+
+@container (min-width: 800px) {
+  .strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vx-space-stack-sm);
+  min-width: 0;
+  padding: var(--vx-space-stack-md) var(--vx-space-stack-lg);
+  background: var(--vx-surface-panel);
+}
+
+.caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--vx-space-stack-sm);
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vx-muted);
+}
+
+.qualifier {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.hero {
+  display: flex;
+  align-items: baseline;
+  gap: var(--vx-space-stack-xs);
+  min-width: 0;
+}
+
+.value {
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-kpi);
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--vx-ink);
+}
+
+.unit {
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+}
+
+.footer {
+  margin-top: auto;
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-xs);
+  color: var(--vx-muted);
+}
+
+/* Fitness rows: label | sparkline | value + unit | delta, one mono line per signal. */
+.fitnessRow {
+  display: grid;
+  grid-template-columns: 4rem minmax(2rem, 1fr) auto auto;
+  align-items: center;
+  column-gap: var(--vx-space-stack-md);
+  min-width: 0;
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-sm);
+}
+
+.rowLabel {
+  color: var(--vx-muted);
+}
+
+.rowSpark {
+  min-width: 0;
+}
+
+.rowValue {
+  color: var(--vx-ink);
+  white-space: nowrap;
+  text-align: end;
+}
+
+.rowDelta {
+  min-width: 4.5rem;
+  white-space: nowrap;
+  text-align: end;
+}
+
+/* Chart facts header: the headline figure, its unit, then comparison and period on one wrapping line. */
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--vx-space-stack-sm);
+  row-gap: 0;
+  margin-bottom: var(--vx-space-stack-sm);
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-sm);
+}
+
+.factValue {
+  font-size: var(--vx-text-lg);
+  font-weight: 600;
+  color: var(--vx-ink);
+}
+
+.factUnit,
+.factContext {
+  color: var(--vx-muted);
+}

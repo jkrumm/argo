@@ -1,14 +1,14 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Group, Text } from '@mantine/core'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { recoveryQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
+import { FactsLine } from '../facts-line'
+import { RECOVERY_PUSH_FROM, countWhere, mean, recoveryFact } from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
-import { latestWith } from './latest'
 import { localDay } from './local-day'
 
 type RecoveryPoint = {
@@ -63,29 +63,18 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
     [query.data],
   )
   const hasRecovery = points.some((p) => p.recovery !== null)
-  const latest = latestWith(points, (p) => p.recovery)
-  const latestRecovery = latest?.recovery ?? null
-  const latestZone = latestRecovery === null ? null : recoveryZoneLabel(latestRecovery)
+  const values = points.map((p) => p.recovery)
+  const high = countWhere(values, (v) => v >= RECOVERY_PUSH_FROM)
+  const fact = recoveryFact({ mean: mean(values), high: high.hits, dayCount: high.days })
 
   return (
     <ChartCard
-      title="Recovery Trend"
+      title="Recovery"
       info={METRIC_TOOLTIPS.recoveryScore}
-      actions={
-        latestRecovery !== null && latestZone ? (
-          <Group gap={6} align="baseline" wrap="nowrap">
-            <Text span fw={600} size="md" c={latestZone.color}>
-              {Math.round(latestRecovery)}
-            </Text>
-            <Text span size="xs" c={latestZone.color}>
-              {latestZone.text}
-            </Text>
-          </Group>
-        ) : null
-      }
       state={chartStateOf(query, !hasRecovery ? 'No recovery scores in this window' : undefined)}
       placeholderHeight={280}
     >
+      <FactsLine fact={fact} />
       <Lines
         cursorResolution="leading"
         ariaLabel="Recovery score trend with push/normal/rest zones"

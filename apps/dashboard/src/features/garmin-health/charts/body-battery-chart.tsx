@@ -1,10 +1,11 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Group, Text } from '@mantine/core'
 import { Bars, ChartCard, type BarsBar, type BarsLine } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
+import { FactsLine } from '../facts-line'
+import { bodyBatteryFact, mean } from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
@@ -15,6 +16,8 @@ type BodyBatteryPoint = {
   charged: number | null
   drained: number | null
   net: number | null
+  highest: number | null
+  lowest: number | null
 }
 
 const formatNet = (v: number) => `${v >= 0 ? '+' : ''}${Math.round(v)}`
@@ -62,35 +65,32 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
         charged: p.bbCharged,
         drained: p.bbDrained,
         net: p.bbNet,
+        highest: p.bbHighest,
+        lowest: p.bbLowest,
       })),
     [query.data],
   )
 
-  const latestNet = points.at(-1)?.net ?? null
+  const latest = points.at(-1)
+  const fact = bodyBatteryFact({
+    net: latest?.net ?? null,
+    mean: mean(points.map((p) => p.net)),
+    high: latest?.highest ?? null,
+    low: latest?.lowest ?? null,
+    dayCount: points.length,
+  })
 
   return (
     <ChartCard
-      title="Body Battery"
-      subtitle="Net recovery or deficit?"
+      title="Body battery"
       info={METRIC_TOOLTIPS.bodyBattery}
-      actions={
-        latestNet !== null ? (
-          <Group gap={6} align="baseline" wrap="nowrap">
-            <Text span fw={600} size="md" c={latestNet >= 0 ? VX.goodSolid : VX.badSolid}>
-              {formatNet(latestNet)}
-            </Text>
-            <Text span size="xs" c="dimmed">
-              {latestNet >= 0 ? 'net charge' : 'net drain'}
-            </Text>
-          </Group>
-        ) : null
-      }
       state={chartStateOf(
         query,
         points.length === 0 ? 'No body battery in this window' : undefined,
       )}
       placeholderHeight={280}
     >
+      <FactsLine fact={fact} />
       <Bars
         cursorResolution="leading"
         ariaLabel="Body battery charged vs drained per day with net line"

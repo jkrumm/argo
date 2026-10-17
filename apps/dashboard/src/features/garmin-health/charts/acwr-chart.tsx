@@ -1,11 +1,12 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Group, Text } from '@mantine/core'
-import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
+import { Bars, ChartCard, Lines, type BarsBar, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { trainingLoadQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
+import { FactsLine } from '../facts-line'
 import { acwrZoneColor, acwrZoneLabel, type AcwrZone } from '../formulas'
+import { acwrFact, divergenceFact } from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
@@ -17,6 +18,8 @@ type TrainingLoadPoint = {
   day: Date
   acwr: number | null
   zone: AcwrZone | null
+  /** Acute minus chronic EWMA, MET-min/day. */
+  divergence: number | null
 }
 
 const ACWR_SERIES: ChartSeries<TrainingLoadPoint>[] = [
@@ -46,6 +49,19 @@ const ACWR_SERIES: ChartSeries<TrainingLoadPoint>[] = [
   },
 ]
 
+/** Signed, so the sign is the bar's side of the axis — one neutral series, no hue. */
+const DIVERGENCE_BARS: BarsBar<TrainingLoadPoint>[] = [
+  {
+    key: 'divergence',
+    label: 'Acute − chronic',
+    color: VX.line,
+    getValue: (d) => d.divergence,
+    formatValue: (v) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)} MET-min/day`,
+  },
+]
+
+const DIVERGENCE_HEIGHT = 60
+
 export default function AcwrChart({ params }: { params: SummaryParams }) {
   const query = useQuery(trainingLoadQueries.summary(params))
 
@@ -56,37 +72,33 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
         day: localDay(p.date),
         acwr: p.acwr,
         zone: p.zone,
+        divergence: p.divergence,
       })),
     [query.data],
   )
   const hasAcwr = points.some((p) => p.acwr !== null)
   const latest = latestWith(points, (p) => p.acwr)
+  const measured = points.filter((p) => p.acwr !== null)
+  const fact = acwrFact({
+    acwr: latest?.acwr ?? null,
+    zoneLabel: acwrZoneLabel(latest?.zone ?? null),
+    inZone: measured.filter((p) => p.zone === 'optimal').length,
+    dayCount: measured.length,
+  })
 
   return (
     <ChartCard
-      title="Training Load (ACWR)"
-      subtitle="Am I overloading?"
+      title="Training load (ACWR)"
       info={METRIC_TOOLTIPS.trainingLoad}
-      actions={
-        latest !== null && latest.acwr !== null ? (
-          <Group gap={6} align="baseline" wrap="nowrap">
-            <Text span fw={600} size="lg" c={acwrZoneColor(latest.zone)}>
-              {latest.acwr.toFixed(2)}
-            </Text>
-            <Text span size="xs" c={acwrZoneColor(latest.zone)}>
-              {acwrZoneLabel(latest.zone)}
-            </Text>
-          </Group>
-        ) : null
-      }
       state={chartStateOf(query, !hasAcwr ? 'No training load in this window' : undefined)}
       placeholderHeight={280}
     >
+      <FactsLine fact={fact} />
       <Lines
         cursorResolution="leading"
         ariaLabel="Acute:chronic training load ratio with optimal zone"
         data={points}
-        height={280}
+        height={220}
         x={(d) => d.day}
         series={ACWR_SERIES}
         y={{ domain: 'auto', autoMaxFloor: 2.2 }}
@@ -106,6 +118,21 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
               ? []
               : [{ label: 'Zone', value: acwrZoneLabel(d.zone), color: acwrZoneColor(d.zone) }],
         }}
+      />
+      <FactsLine
+        fact={divergenceFact({
+          divergence: latestWith(points, (p) => p.divergence)?.divergence ?? null,
+        })}
+      />
+      <Bars
+        cursorResolution="leading"
+        ariaLabel="Acute minus chronic training load per day"
+        data={points}
+        height={DIVERGENCE_HEIGHT}
+        x={(d) => d.day}
+        bars={DIVERGENCE_BARS}
+        legend={false}
+        y={{ domain: 'auto', ticks: 2, autoMaxFloor: 5, autoMinCeil: -5 }}
       />
     </ChartCard>
   )

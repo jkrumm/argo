@@ -1,10 +1,11 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Group, Text } from '@mantine/core'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
+import { FactsLine } from '../facts-line'
+import { STRESS_REST_BELOW, countWhere, stressFact } from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
@@ -78,32 +79,27 @@ export default function StressChart({ params }: { params: SummaryParams }) {
     [query.data],
   )
 
-  const latest = chartData.at(-1)
-  const latestZone = latest && latest.avgStress !== null ? stressZoneLabel(latest.avgStress) : null
+  const rest = countWhere(
+    chartData.map((d) => d.avgStress),
+    (v) => v < STRESS_REST_BELOW,
+  )
+  const fact = stressFact({
+    stress: chartData.at(-1)?.avgStress ?? null,
+    rest: rest.hits,
+    dayCount: rest.days,
+  })
 
   return (
     <ChartCard
-      title="Stress Levels"
-      subtitle="How calm was my day?"
+      title="Stress"
       info={METRIC_TOOLTIPS.stress}
-      actions={
-        latest && latest.avgStress !== null && latestZone ? (
-          <Group gap={6} align="baseline" wrap="nowrap">
-            <Text span fw={600} size="md" c={latestZone.color}>
-              {Math.round(latest.avgStress)}
-            </Text>
-            <Text span size="xs" c="dimmed">
-              {latestZone.text}
-            </Text>
-          </Group>
-        ) : null
-      }
       state={chartStateOf(
         query,
         chartData.length === 0 ? 'No stress readings in this window' : undefined,
       )}
       placeholderHeight={CHART_HEIGHT}
     >
+      <FactsLine fact={fact} />
       <Lines
         cursorResolution="leading"
         ariaLabel="Average and overnight stress with a gradient zone fill"

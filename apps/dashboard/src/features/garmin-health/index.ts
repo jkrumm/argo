@@ -7,7 +7,8 @@ export {
   ZONE_COLORS,
   type WindowPreset,
 } from './constants'
-export { HeroStats } from './hero-stats'
+export { StatStripRow } from './strip-cells'
+export { SummaryLine } from './summary-line'
 export { useGarminSync, type GarminSync } from './use-garmin-sync'
 export { applyVisibilityFilter } from './visibility'
 export {

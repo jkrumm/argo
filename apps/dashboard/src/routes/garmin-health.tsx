@@ -1,19 +1,17 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Suspense } from 'react'
-import { Grid, SimpleGrid, Stack } from '@mantine/core'
+import { SimpleGrid, Stack } from '@mantine/core'
 import { PageBar, Section } from 'basalt-ui'
-import { CONTAINER_GRID_BREAKPOINTS, CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
+import { CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
 import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, RangeFilter } from 'basalt-ui/controls'
 import { DateRangePicker } from 'basalt-ui/controls-dates'
 import { garminStore, toApiWindow } from '../lib/window-stores'
-import { HeroStats, useGarminSync } from '../features/garmin-health'
+import { SummaryLine, StatStripRow, useGarminSync } from '../features/garmin-health'
 import ActivitiesChart from '../features/garmin-health/charts/activities-chart'
 import ActivityScoreChart from '../features/garmin-health/charts/activity-score-chart'
 import AcwrChart from '../features/garmin-health/charts/acwr-chart'
 import BodyBatteryChart from '../features/garmin-health/charts/body-battery-chart'
-import DivergenceChart from '../features/garmin-health/charts/divergence-chart'
-import FitnessTrendsChart from '../features/garmin-health/charts/fitness-trends-chart'
 import RecoveryTrendChart from '../features/garmin-health/charts/recovery-trend-chart'
 import SleepBreakdownChart from '../features/garmin-health/charts/sleep-breakdown-chart'
 import StressChart from '../features/garmin-health/charts/stress-chart'
@@ -38,7 +36,7 @@ export const Route = createFileRoute('/garmin-health')({
       garminStore.field.window.toWindow({ preset: deps.window, from: deps.from, to: deps.to }),
       '30d',
     )
-    // Prefetch the three hero-card queries; charts prefetch their own data.
+    // Prefetch the strip's three queries; charts prefetch their own data.
     return Promise.all([
       context.queryClient.ensureQueryData(recoveryQueries.summary(params)),
       context.queryClient.ensureQueryData(fitnessDirectionQueries.summary(params)),
@@ -70,42 +68,16 @@ function GarminHealthPage() {
       />
 
       <Stack gap="md">
-        {/* Hero composite cards */}
-        <HeroStats params={params} />
+        <SummaryLine params={params} />
+        <StatStripRow params={params} />
 
-        {/* Section 1: Activity & Fitness */}
-        <Section title="Activity & Fitness">
-          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
-            <ActivitiesChart params={params} />
+        <Section title="Load">
+          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
+            <AcwrChart params={params} />
           </Suspense>
-          <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
-            <Grid.Col span={{ base: 12, lg: 6 }}>
-              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
-                <ActivityScoreChart params={params} />
-              </Suspense>
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, lg: 6 }}>
-              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
-                <FitnessTrendsChart params={params} />
-              </Suspense>
-            </Grid.Col>
-          </Grid>
         </Section>
 
-        {/* Section 2: Training Load */}
-        <Section title="Training Load">
-          <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
-            <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
-              <AcwrChart params={params} />
-            </Suspense>
-            <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
-              <DivergenceChart params={params} />
-            </Suspense>
-          </SimpleGrid>
-        </Section>
-
-        {/* Section 3: Recovery & Sleep */}
-        <Section title="Recovery & Sleep">
+        <Section title="Recovery and sleep">
           <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
             <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <RecoveryTrendChart params={params} />
@@ -113,12 +85,6 @@ function GarminHealthPage() {
             <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <SleepBreakdownChart params={params} />
             </Suspense>
-          </SimpleGrid>
-        </Section>
-
-        {/* Section 4: Energy & Stress */}
-        <Section title="Energy & Stress">
-          <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
             <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <BodyBatteryChart params={params} />
             </Suspense>
@@ -126,6 +92,15 @@ function GarminHealthPage() {
               <StressChart params={params} />
             </Suspense>
           </SimpleGrid>
+        </Section>
+
+        <Section title="Training">
+          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
+            <ActivitiesChart params={params} />
+          </Suspense>
+          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
+            <ActivityScoreChart params={params} />
+          </Suspense>
         </Section>
       </Stack>
     </>
