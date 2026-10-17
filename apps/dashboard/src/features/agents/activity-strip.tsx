@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Text } from '@mantine/core'
 import { Section } from 'basalt-ui'
 import { BandStrip } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
@@ -39,6 +40,7 @@ const STATES = [
  */
 export function ActivityStrip({ history, hours, now }: Props) {
   const buckets = useMemo(() => hourlyWorking(history, hours, now), [history, hours, now])
+  const hasGap = buckets.some((b) => b.working === null)
   const peak = buckets.reduce((top, b) => Math.max(top, b.working ?? 0), 0)
 
   const getBand = useMemo(
@@ -67,6 +69,10 @@ export function ActivityStrip({ history, hours, now }: Props) {
         legend={false}
         height={48}
       />
+      <Text size="xs" c="dimmed" mt="xs">
+        One cell per hour, shaded by the most agents working in it
+        {hasGap ? '; the amber cell is an hour with no snapshot received' : ''}.
+      </Text>
     </Section>
   )
 }

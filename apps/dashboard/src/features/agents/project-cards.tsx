@@ -46,6 +46,29 @@ function AgeBars({ agents, now }: { agents: AgentRow[]; now: number }) {
   )
 }
 
+/** The share of each source among the project's agents, as one neutral two-to-three part bar. */
+function SourceBar({ sources }: { sources: Record<string, number> }) {
+  const entries = Object.entries(sources).toSorted((a, b) => b[1] - a[1])
+  const total = entries.reduce((sum, [, n]) => sum + n, 0)
+  if (entries.length < 2) return null
+  return (
+    <span
+      className={classes.share}
+      role="img"
+      aria-label={entries.map(([k, n]) => `${k} ${n}`).join(', ')}
+    >
+      {entries.map(([name, n], i) => (
+        <Box
+          key={name}
+          component="span"
+          className={classes.shareFill}
+          style={{ width: `${(n / total) * 100}%`, opacity: 1 - i * 0.35 }}
+        />
+      ))}
+    </span>
+  )
+}
+
 function sourceCell(sources: Record<string, number>): Pick<EntityCardCell, 'value' | 'small'> {
   const entries = Object.entries(sources).toSorted((a, b) => b[1] - a[1])
   if (entries.length === 0) return { value: '—' }
@@ -85,8 +108,12 @@ function ProjectCard({ group, now }: { group: ProjectGroup; now: number }) {
           caption: 'Last activity',
           value: group.lastActivityAt === null ? '—' : ageAgo(now - group.lastActivityAt),
         },
-        { caption: 'Source', ...sourceCell(group.sources) },
-        { caption: 'Git', ...gitCell(group.git) },
+        {
+          caption: 'Source',
+          ...sourceCell(group.sources),
+          visual: <SourceBar sources={group.sources} />,
+        },
+        { caption: 'Git · ahead / behind', ...gitCell(group.git) },
       ]}
       now={
         <>

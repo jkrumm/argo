@@ -14,6 +14,7 @@ import {
   dayLabel,
   ageAgo,
   needsYouCards,
+  oldestAskMs,
   groupByDay,
 } from './model'
 import type { AgentRow } from './model'
@@ -277,10 +278,23 @@ describe('summarySentence', () => {
     ).toBe('Nothing needs you. 1 of 5 agents working.')
   })
 
-  it('omits the wait clause when only human-queue items wait', () => {
+  it('omits the wait clause when nothing carries a clock', () => {
     expect(
       summarySentence({ items: 1, oldestWaitMs: null, working: 0, total: 2, idleProjects: 1 }),
     ).toBe('1 item needs you. 0 of 2 agents working, 1 project idle.')
+  })
+
+  it('names the oldest ask when only the human queue waits', () => {
+    expect(
+      summarySentence({
+        items: 1,
+        oldestWaitMs: null,
+        oldestAskMs: 90 * 60_000,
+        working: 0,
+        total: 2,
+        idleProjects: 0,
+      }),
+    ).toBe('1 item needs you, oldest ask 1h 30m. 0 of 2 agents working, 0 projects idle.')
   })
 })
 
@@ -376,5 +390,14 @@ describe('needsYouCards', () => {
       label: 'Full ask · 31 chars',
       text: 'First. Second sentence follows.',
     })
+  })
+})
+
+describe('oldestAskMs', () => {
+  it('takes the longest ask age, null without a clock', () => {
+    const now = Date.parse('2026-01-10T12:00:00Z')
+    const asks = [{ askedAt: '2026-01-10T11:00:00Z' }, { askedAt: '2026-01-10T09:00:00Z' }, {}]
+    expect(oldestAskMs(asks, now)).toBe(3 * 3_600_000)
+    expect(oldestAskMs([{}], now)).toBeNull()
   })
 })
