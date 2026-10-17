@@ -3,7 +3,7 @@ import { Anchor, Box, Card, Group, ScrollArea, Stack, Text, UnstyledButton } fro
 import { Section, useSizeClass } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { ViewTabs } from 'basalt-ui/controls'
-import { relativeTime } from '../../lib/format'
+import { relativeTime } from 'basalt-ui/format'
 import { IconBell, IconBrandGithub, IconBriefcase, IconUser, type Icon } from '@tabler/icons-react'
 import type { WardenBoardItem } from '../../lib/queries/warden'
 import { isSafeHttpUrl, issueRefLabel } from './model'
@@ -50,7 +50,7 @@ function BoardCard({
   const source = [item.repo, ref].filter(Boolean).join(' · ') || `Item #${item.event_id}`
   const title = item.title ?? `Item #${item.event_id}`
   return (
-    <Card py="sm" px="md" data-shot={`board-card-${item.event_id}`}>
+    <Card data-shot={`board-card-${item.event_id}`}>
       <Stack gap={6}>
         <Group gap="xs" wrap="nowrap" justify="space-between">
           <Text size="xs" c="dimmed" lineClamp={1} className={classes.text}>
