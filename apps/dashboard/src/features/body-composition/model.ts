@@ -117,7 +117,7 @@ export function summarySentence({
   ageDays: number | null
 }): string {
   if (current === null) return 'No weigh-ins in this window.'
-  const parts = [`${fixed(current)} kg`, `${signed(kgPerWeek, 2)} kg/wk`]
+  const parts = [`${fixed(current)} kg`, `${signed(kgPerWeek, 2)} kg/wk over 28 d`]
   if (goal !== null)
     parts.push(`${fixed(Math.abs(current - goal))} kg to the ${fixed(goal)} kg goal`)
   const head = parts.join(', ')

@@ -120,4 +120,6 @@ Last verdict (r4, per component; production data / injected goal + sessions):
 | skinfold-history | — / fail    | mono numerals (table cell font), ISO dates (fixed after r4, not re-shot)                                                                                                        |
 | empty-row        | pass / —    | —                                                                                                                                                                               |
 
+r5 (after review round 1: one slope method in the rate cell, 70 % coverage guard, dated meter start, synthetic fixtures): rate and change signs agree everywhere, skinfold arithmetic and the goal distance match their cells. Remaining reviewer fails: font-size counts and mono captions (basalt `Meter`/axis), goal swatch identical to the weight swatch (basalt `RefLine`), mono thickness column in the history table (basalt table cell). Two argo items fixed after the r5 shot, not re-shot: the summary sentence now names the rate window ("over 28 d") and the rate meter drops the caption that restated the pill.
+
 Remaining fails are basalt-side (see friction) or fixed after the last shot.
