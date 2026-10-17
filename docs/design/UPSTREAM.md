@@ -69,3 +69,22 @@ Each row names the exact prop argo needed. Rows from the Wave 19 pages (Garmin H
 | `Button` theme | paddings on basalt's spacing scale (Mantine's 14 px default and `compact-xs` 7 px are off-scale) | warden and agents decision cards | none; listed here for basalt |
 | `relativeTime` | follows the app's English UI (renders German strings on an English page in a de-DE browser) | warden state history, agents | none; listed here for basalt |
 | `basalt-ui shot` | the `Sparkline` focus state intermittently times out (`boundingBox: Timeout 30000ms`) | garmin-health fitness cell | re-run; one anchor fails per run at most |
+
+<!-- w20-calendar -->
+
+### Wave 20 — Calendar (`features/calendar`)
+
+Prototype built: `components/upstream/schedule-row.tsx` — `ScheduleRow{start, durationMin, title, meta?, pill?, action?, past?}` (Keel `schedule-item`; the duration sits beside the start at ≥ 480 px of container width and under it below; no domain types in the signature, so Home adopts it as is).
+
+| Export | Needed prop | argo case | What argo does instead |
+|-|-|-|-|
+| `Meter` | `size="row"` (no caption rows, track height of a text line) | the 7-row day-load strip | `startCaption={null} endCaption={null}`; the row's value and count are a CSS-grid sibling |
+| `Meter` | `tone="muted"` (a non-verdict fill that is not near-white in dark) | day-load bars: a load is not a verdict, `VX.line` is loud | `color={VX.muted}`; `VX.status.warn` past the 8 h target |
+| `Meter` with `segments` | per-segment captions under the bar | Work / Personal booked hours | a local caption row with a swatch per segment |
+| `Meter` | a `target` tick that is visible when `max === target` (the tick lands on the track end) | the 0–8 h strip | none; the tick sits on the track end |
+| `@mantine/schedule` `WeekView` | a visible-days prop (3 days on a phone) | the Week tab at 390 | a day-grouped list of the 3 days (selected ± 1) instead of a grid |
+| `EventList` | day-grouped rows with a leading time column and a trailing action | the Next 7 days list | `DayGroups` in `features/calendar/agenda-parts.tsx` over `ScheduleRow` |
+| series | `calendarWork` / `calendarPersonal` series keys | the Work / Personal split | reuses `SERIES.sleepDuration` (sky) and `SERIES.vo2max` (gold); `lib/series.ts` is not a calendar-owned file |
+| argo API | `GET /calendar` and `GET /m365/calendar/upcoming` return `[now, now + days)` only | a week view cannot show past days; today's count is "left today" | strip and summary cover the next 7 days from now, stated beside the figures; the Week tab shows no past events either |
+
+<!-- /w20-calendar -->
