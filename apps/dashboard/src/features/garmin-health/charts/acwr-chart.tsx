@@ -44,7 +44,7 @@ const ACWR_SERIES: ChartSeries<TrainingLoadPoint>[] = [
   },
   {
     key: 'danger',
-    label: 'Overload (>1.5)',
+    label: 'Danger (> 1.5)',
     color: VX.badSolid,
     mark: 'bar',
     role: 'reference',
@@ -116,7 +116,7 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
           {...(compact && { legend: false as const })}
           {...(xDomain && { xDomain })}
           xTicks={xTicks}
-          y={{ domain: 'auto', autoMaxFloor: 1.6, format: (v) => v.toFixed(1) }}
+          y={{ domain: 'auto', autoMaxFloor: 1.6, autoMinCeil: 0.6, format: (v) => v.toFixed(1) }}
           zones={[{ from: 0.8, to: 1.3, fill: ZONE_FILL.good }]}
           thresholds={[
             { value: 1.3, side: 'above', fill: ZONE_FILL.bad },
