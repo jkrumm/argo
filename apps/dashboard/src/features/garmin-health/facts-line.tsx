@@ -11,11 +11,13 @@ export function FactsLine({ fact }: { fact: Fact }) {
   return (
     <Box className={classes.facts}>
       <span className={classes.factValue}>{fact.value}</span>
-      {fact.unit !== undefined && <span className={classes.factUnit}>{fact.unit}</span>}
+      <span className={classes.factUnit}>
+        {fact.unit ?? ''}
+        {fact.context.length > 0 ? ' ·' : ''}
+      </span>
       {/* The separator trails its item, so a wrapped line ends in a dot instead of starting with one. */}
       {fact.context.map((c, i) => (
         <span key={c} className={classes.factContext}>
-          {i === 0 ? '· ' : ''}
           {c}
           {i < fact.context.length - 1 ? ' ·' : ''}
         </span>
