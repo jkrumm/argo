@@ -69,7 +69,6 @@
     padding-inline: var(--vx-space-stack-md);
   }
 
-  .unitLong,
   .visual,
   .footer {
     display: none;
@@ -403,4 +402,16 @@
   display: flex;
   flex-direction: column;
   gap: var(--vx-space-stack-lg);
+}
+
+.retry {
+  color: var(--vx-ink);
+  text-decoration: underline;
+  font-size: inherit;
+}
+
+.tagPick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--vx-space-stack-xs);
 }

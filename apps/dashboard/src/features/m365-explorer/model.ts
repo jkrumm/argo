@@ -1,4 +1,5 @@
 import { differenceInCalendarDays, isToday } from 'date-fns'
+import { APP_LOCALE } from '../../lib/format'
 
 export type LabelKind = 'chat' | 'channel'
 export type ChatType = 'oneOnOne' | 'group' | 'meeting' | 'unknownFutureValue'
@@ -48,21 +49,29 @@ export const CHAT_TYPE_LABEL: Record<ChatType, string> = {
 
 export type ChatRow = {
   ref: Extract<SourceRef, { kind: 'chat' }>
+  /** Topic plus every member name, lower-cased, for search. */
+  searchText: string
   chatType: ChatType
   memberCount: number
   lastUpdatedAt: string | null
   webUrl: string | null
 }
 
-export type RecencyGroup = 'Today' | 'This week' | 'Earlier'
-const GROUP_ORDER: readonly RecencyGroup[] = ['Today', 'This week', 'Earlier']
+export type RecencyGroup = 'Today' | 'Last 7 days' | 'Earlier'
+const GROUP_ORDER: readonly RecencyGroup[] = ['Today', 'Last 7 days', 'Earlier']
+
+/** Epoch ms of an ISO string; unparseable or missing sorts last. */
+export function timeOf(iso: string | null | undefined): number {
+  const t = iso ? Date.parse(iso) : Number.NaN
+  return Number.isNaN(t) ? Number.NEGATIVE_INFINITY : t
+}
 
 export function recencyOf(iso: string | null, now: Date): RecencyGroup {
   if (!iso) return 'Earlier'
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return 'Earlier'
   if (isToday(d)) return 'Today'
-  return differenceInCalendarDays(now, d) < 7 ? 'This week' : 'Earlier'
+  return differenceInCalendarDays(now, d) < 7 ? 'Last 7 days' : 'Earlier'
 }
 
 /** Rows (already newest-first from the API) bucketed into the three recency groups; empty groups dropped. */
@@ -71,9 +80,7 @@ export function groupByRecency(
   now: Date,
 ): Array<{ group: RecencyGroup; rows: ChatRow[] }> {
   const buckets = new Map<RecencyGroup, ChatRow[]>()
-  const newestFirst = rows.toSorted((a, b) =>
-    (b.lastUpdatedAt ?? '').localeCompare(a.lastUpdatedAt ?? ''),
-  )
+  const newestFirst = rows.toSorted((a, b) => timeOf(b.lastUpdatedAt) - timeOf(a.lastUpdatedAt))
   for (const row of newestFirst) {
     const g = recencyOf(row.lastUpdatedAt, now)
     buckets.set(g, [...(buckets.get(g) ?? []), row])
@@ -131,13 +138,38 @@ export function matchesTag(tag: string, labelOf: { label: string } | undefined):
   return labelOf?.label === tag
 }
 
-/** The labelable total: chats plus every channel; null while any team's channel list is still loading. */
-export function labelableTotal(
-  chatCount: number,
-  channelCounts: ReadonlyArray<number | null>,
-): number | null {
-  if (channelCounts.some((n) => n === null)) return null
-  return chatCount + channelCounts.reduce<number>((a, n) => a + (n ?? 0), 0)
+export type ChannelState = 'loading' | 'loaded' | 'failed'
+
+export type Coverage = {
+  /** Chats + loaded channels; a lower bound while a team is loading or failed. */
+  total: number
+  /** Labels whose source is inside the loaded set — never more than `total`. */
+  labeled: number
+  /** Labels pointing at a chat or channel outside the loaded set. */
+  outside: number
+  loading: number
+  failed: number
+}
+
+/** The labelable universe and how much of it is labeled, counted over the SAME loaded ids. */
+export function coverageOf(input: {
+  chatIds: readonly string[]
+  channels: ReadonlyArray<{ teamId: string; state: ChannelState; ids: readonly string[] }>
+  labels: readonly LabelLite[]
+}): Coverage {
+  const known = new Set<string>(input.chatIds.map(chatSourceId))
+  let loading = 0
+  let failed = 0
+  for (const t of input.channels) {
+    if (t.state === 'loading') loading++
+    else if (t.state === 'failed') failed++
+    for (const id of t.ids) known.add(channelSourceId(t.teamId, id))
+  }
+  const labeled = input.labels.filter((l) => known.has(l.sourceId)).length
+  // Labels on channels of a team that has not loaded cannot be judged yet.
+  const unresolved = loading + failed > 0
+  const outside = unresolved ? 0 : input.labels.length - labeled
+  return { total: known.size, labeled, outside, loading, failed }
 }
 
 const FALLBACK_TIME = ''
@@ -146,18 +178,18 @@ export function formatTime(iso: string | null | undefined, now: Date = new Date(
   if (!iso) return FALLBACK_TIME
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return FALLBACK_TIME
-  if (isToday(d)) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  if (isToday(d)) return d.toLocaleTimeString(APP_LOCALE, { hour: '2-digit', minute: '2-digit' })
   if (differenceInCalendarDays(now, d) < 7) {
-    return d.toLocaleDateString([], { weekday: 'short', day: '2-digit' })
+    return d.toLocaleDateString(APP_LOCALE, { weekday: 'short', day: '2-digit' })
   }
-  return d.toLocaleDateString([], { month: 'short', day: '2-digit' })
+  return d.toLocaleDateString(APP_LOCALE, { month: 'short', day: '2-digit' })
 }
 
 export function formatStamp(iso: string | null | undefined): string {
   if (!iso) return FALLBACK_TIME
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return FALLBACK_TIME
-  return d.toLocaleString([], {
+  return d.toLocaleString(APP_LOCALE, {
     month: 'short',
     day: '2-digit',
     hour: '2-digit',
@@ -167,4 +199,29 @@ export function formatStamp(iso: string | null | undefined): string {
 
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`
+}
+
+export type ChipCounts = {
+  /** Rows the view lists unfiltered; null while unknown. */
+  all: number | null
+  labeled: number
+  tags: Array<[string, number]>
+}
+
+/** Chip counts for ONE view: every figure counts the rows that view would show for that chip. */
+export function chipCounts(
+  tags: readonly string[],
+  rows: ReadonlyArray<{ label: string | undefined }>,
+  all: number | null,
+): ChipCounts {
+  return {
+    all,
+    labeled: rows.filter((r) => r.label !== undefined).length,
+    tags: tags.map((t) => [t, rows.filter((r) => r.label === t).length]),
+  }
+}
+
+/** A persisted tag filter only survives while the tag still exists. */
+export function validTag(tag: string, tags: readonly string[]): string {
+  return tag === '' || tag === LABELED_FILTER || tags.includes(tag) ? tag : ''
 }

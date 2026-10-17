@@ -12,7 +12,6 @@ declare const classes: {
   readonly value: string
   readonly unit: string
   readonly footer: string
-  readonly unitLong: string
   readonly visual: string
   readonly split: string
   readonly pane: string
@@ -51,5 +50,7 @@ declare const classes: {
   readonly recordName: string
   readonly sheetBody: string
   readonly stack: string
+  readonly retry: string
+  readonly tagPick: string
 }
 export default classes

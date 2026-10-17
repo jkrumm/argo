@@ -1,5 +1,5 @@
 import { Alert, ScrollArea } from '@mantine/core'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { m365Queries } from '../../lib/queries/m365'
 import { MessageRow, MessageSkeleton } from './message-row'
 import { plural } from './model'
@@ -13,6 +13,7 @@ export function FeedPane({ tag }: { tag: string }) {
   const label = tag === '' || tag === '*' ? undefined : tag
   const q = useQuery({
     ...m365Queries.important({ ...(label ? { label } : {}), top: FEED_TOP, limit: FEED_LIMIT }),
+    placeholderData: keepPreviousData,
   })
   const items = q.data?.messages
   return (
