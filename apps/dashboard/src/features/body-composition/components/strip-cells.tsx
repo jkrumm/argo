@@ -2,6 +2,7 @@
  * The three cells of the body-composition strip. Each takes already-fetched data and returns one
  * question: where is the weight against the goal, how fast is it moving, how thick are the folds.
  */
+import { Box } from '@mantine/core'
 import { DeltaBadge, Meter, type StatStripCell } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
 import { format } from 'date-fns'
@@ -86,9 +87,13 @@ export function weightCell({
     footer: (
       <>
         <span>
-          7 d mean {fixed(stats.mean7)} kg · 30 d mean {fixed(stats.mean30)} kg
+          7 d mean {fixed(stats.mean7)}&nbsp;kg · 30 d mean {fixed(stats.mean30)}&nbsp;kg
         </span>
-        {goal === null && <GoalPopover lastWeight={summary.current} />}
+        {goal === null && (
+          <Box pt="xs">
+            <GoalPopover lastWeight={summary.current} />
+          </Box>
+        )}
       </>
     ),
   }
