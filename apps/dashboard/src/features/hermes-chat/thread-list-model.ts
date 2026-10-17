@@ -134,9 +134,11 @@ export type ThreadView = {
   untitled: ThreadEntry[]
   /** Per type, over every non-archived thread. */
   typeCounts: Record<HermesThreadType, number>
+  /** Size of the fold, whatever the filter: the `Untitled` chip's count. */
+  untitledCount: number
 }
 
-export type ThreadFilter = { type: HermesThreadType | 'all'; query: string }
+export type ThreadFilter = { type: HermesThreadType | 'all' | 'untitled'; query: string }
 
 function matchesQuery(entry: ThreadEntry, query: string): boolean {
   const needle = query.trim().toLowerCase()
@@ -157,16 +159,20 @@ export function buildView(
 
   const narrowed = filter.type !== 'all' || filter.query.trim() !== ''
   const untitled = entries.filter(isUntitled)
-  const titled = entries
-    .filter((entry) => !isUntitled(entry))
-    .filter((entry) => filter.type === 'all' || entry.type === filter.type)
-    .filter((entry) => matchesQuery(entry, filter.query))
+  const titled =
+    filter.type === 'untitled'
+      ? []
+      : entries
+          .filter((entry) => !isUntitled(entry))
+          .filter((entry) => filter.type === 'all' || entry.type === filter.type)
+          .filter((entry) => matchesQuery(entry, filter.query))
 
   return {
     total: entries.length,
     groups: groupEntries(titled, now),
-    untitled: narrowed ? [] : untitled,
+    untitled: !narrowed || filter.type === 'untitled' ? untitled : [],
     typeCounts,
+    untitledCount: untitled.length,
   }
 }
 
@@ -204,11 +210,16 @@ export function factsLine({
   compact: boolean
 }): string {
   const sameDay = startOfDay(entry.updatedAt) === startOfDay(entry.createdAt)
-  const reply = sameDay ? timeFormat.format(entry.updatedAt) : listTime(entry.updatedAt, now)
+  const reply = listTime(entry.updatedAt, now)
   const type = entry.type === null ? null : TYPE_LABEL[entry.type]
   const parts = compact
     ? [reply, type]
-    : [`Started ${startedDate(entry.createdAt, now)}`, `last reply ${reply}`]
+    : sameDay
+      ? [
+          `Started ${startedDate(entry.createdAt, now)} ${timeFormat.format(entry.createdAt)}`,
+          `last reply ${timeFormat.format(entry.updatedAt)}`,
+        ]
+      : [`Started ${startedDate(entry.createdAt, now)}`, `last reply ${reply}`]
   return parts.filter((part): part is string => part !== null).join(' · ')
 }
 

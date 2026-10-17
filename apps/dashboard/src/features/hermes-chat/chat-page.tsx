@@ -287,6 +287,7 @@ function HermesChatFeed() {
             <ThreadToolbar
               total={view.total}
               typeCounts={view.typeCounts}
+              untitledCount={view.untitledCount}
               type={typeFilter}
               query={query}
               onType={setTypeFilter}
@@ -308,6 +309,7 @@ function HermesChatFeed() {
                 untitled={view.untitled}
                 now={now}
                 busy={actions.busy}
+                foldOpen={typeFilter === 'untitled'}
                 onOpen={setExpandedId}
                 onDeleteUntitled={(ids) => void actions.removeAll(ids)}
               />
