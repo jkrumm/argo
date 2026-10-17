@@ -109,7 +109,7 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
         series={ACWR_SERIES}
         {...(xDomain && { xDomain })}
         xTicks={xTicks}
-        y={{ domain: 'auto', autoMaxFloor: 2.2, format: (v) => v.toFixed(1) }}
+        y={{ domain: 'auto', autoMaxFloor: 1.8, format: (v) => v.toFixed(1) }}
         zones={[{ from: 0.8, to: 1.3, fill: VX.good }]}
         thresholds={[
           { value: 1.3, side: 'above', fill: VX.bad },

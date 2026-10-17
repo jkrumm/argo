@@ -204,7 +204,6 @@ export function sleepFact(input: {
     context: [
       `score ${fmtNum(input.score)}/100`,
       `${fmtNum(input.meanHours, 1)} h mean over ${days(input.dayCount)}`,
-      'shaded 7–9 h',
     ],
   }
 }
@@ -218,9 +217,9 @@ export function bodyBatteryFact(input: {
 }): Fact {
   return {
     value: signed(input.net),
-    unit: 'net today',
+    unit: 'net points today',
     context: [
-      `${signed(input.mean)} mean over ${days(input.dayCount)}`,
+      `${signed(input.mean)} points mean over ${days(input.dayCount)}`,
       `high ${fmtNum(input.high)}/100, low ${fmtNum(input.low)}/100`,
     ],
   }
@@ -229,11 +228,8 @@ export function bodyBatteryFact(input: {
 export function stressFact(input: { stress: number | null; rest: number; dayCount: number }): Fact {
   return {
     value: fmtNum(input.stress),
-    unit: 'avg stress',
-    context: [
-      `${input.rest} of ${days(input.dayCount)} in the rest zone (< ${STRESS_REST_BELOW})`,
-      'zones at 25 · 50 · 75',
-    ],
+    unit: '/100 avg stress',
+    context: [`${input.rest} of ${days(input.dayCount)} in the rest zone (< ${STRESS_REST_BELOW})`],
   }
 }
 
@@ -249,7 +245,7 @@ export function activityScoreFact(input: {
     unit: 'MET-min today',
     context: [
       `${pct} % of the ${ACTIVITY_TARGET_SCORE} target`,
-      `${fmtNum(input.mean)} mean over ${days(input.dayCount)}`,
+      `${fmtNum(input.mean)} MET-min mean over ${days(input.dayCount)}`,
     ],
   }
 }
