@@ -1,10 +1,8 @@
-import { Box, Stack, Text } from '@mantine/core'
+import { Stack, Text } from '@mantine/core'
 import { VX } from 'basalt-ui/tokens'
 import type { ReactNode } from 'react'
 import type { WardenBudget, WardenHealth, WardenMetrics } from '../../lib/queries/warden'
-import { Meter } from 'basalt-ui'
-import classes from './stat-strip.module.css'
-import { StatStrip, type StatStripCell } from './stat-strip'
+import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import {
   deriveBudgetFooter,
   deriveStrip,
@@ -32,8 +30,8 @@ function verdictsCell({ verdicts }: StripModel): StatStripCell {
     return {
       key: 'verdicts',
       caption: 'Verdicts recorded',
-      value: '—',
-      qualifier: noData(unavailable ?? 'not reported'),
+      value: null,
+      footer: noData(unavailable ?? 'not reported'),
     }
   }
   return {
@@ -42,7 +40,7 @@ function verdictsCell({ verdicts }: StripModel): StatStripCell {
     info: 'Items warden has recorded a verdict for, out of every item it tracks, since history began.',
     value: String(Math.round(pct)),
     unit: '%',
-    qualifier: 'all time',
+    footer: 'all time',
     visual: (
       <Meter
         label="Verdicts recorded, all time"
@@ -63,8 +61,8 @@ function fixesCell({ fixes }: StripModel): StatStripCell {
     return {
       key: 'fixes',
       caption,
-      value: '—',
-      qualifier: noData(fixes.unavailable ?? 'not reported'),
+      value: null,
+      footer: noData(fixes.unavailable ?? 'not reported'),
     }
   }
   // The bar plots what the headline measures (fixed against quiet); closed items stay in the qualifier.
@@ -81,16 +79,12 @@ function fixesCell({ fixes }: StripModel): StatStripCell {
     info: 'Fixed as a share of fixed plus quiet items. Closed items are counted in the qualifier only.',
     value: String(Math.round(fixes.pct)),
     unit: '%',
-    qualifier: (
+    footer: (
       <>
         all time · share of fixed + quiet
         <br />
-        <Box component="span" className={classes.nowrap}>
-          <Text span size="xs">
-            closed {fixes.closed ?? '—'}
-            {unknown.length > 0 && ` · ${unknown.join(' · ')}`}
-          </Text>
-        </Box>
+        closed {fixes.closed ?? '—'}
+        {unknown.length > 0 && ` · ${unknown.join(' · ')}`}
       </>
     ),
     visual: (
@@ -113,8 +107,8 @@ function waitCell({ wait }: StripModel): StatStripCell {
     return {
       key: 'wait',
       caption,
-      value: '—',
-      qualifier: noData(wait.unavailable ?? 'not reported'),
+      value: null,
+      footer: noData(wait.unavailable ?? 'not reported'),
     }
   }
   const over = wait.hours > WAIT_TICK_H
@@ -124,17 +118,17 @@ function waitCell({ wait }: StripModel): StatStripCell {
     info: 'Median time from needs-decision to the owner’s decision, over the window.',
     value: formatNumber(wait.hours),
     unit: 'h',
-    valueColor: over ? VX.status.warn : undefined,
-    qualifier: `${wait.windowDays} d median${wait.pairs === null ? '' : ` · ${wait.pairs} pairs`}`,
+    ...(over && { tone: 'warn' as const }),
+    footer: `${wait.windowDays} d median${wait.pairs === null ? '' : ` · ${wait.pairs} pairs`}`,
     visual: (
       <Meter
         label="Median decision wait against 24 hours"
         value={wait.hours}
         max={WAIT_TICK_H}
-        target={WAIT_TICK_H}
+        ticks={[{ at: WAIT_TICK_H, label: `${WAIT_TICK_H} h` }]}
         {...(over ? { color: VX.status.warn } : {})}
         startCaption={null}
-        endCaption={`${WAIT_TICK_H} h`}
+        endCaption={null}
       />
     ),
   }
@@ -146,8 +140,8 @@ function unattendedCell({ unattended }: StripModel): StatStripCell {
     return {
       key: 'unattended',
       caption,
-      value: '—',
-      qualifier: noData(unattended.unavailable ?? 'not reported'),
+      value: null,
+      footer: noData(unattended.unavailable ?? 'not reported'),
     }
   }
   return {
@@ -156,7 +150,7 @@ function unattendedCell({ unattended }: StripModel): StatStripCell {
     info: 'Fixes verified without owner input in the window.',
     value: formatNumber(unattended.fixes),
     unit: unattended.fixes === 1 ? 'fix' : 'fixes',
-    qualifier: `last ${unattended.windowDays} d · no prior-window delta`,
+    footer: `last ${unattended.windowDays} d · no prior-window delta`,
   }
 }
 
@@ -166,8 +160,8 @@ function pollerCell({ poller }: StripModel): StatStripCell {
     return {
       key: 'poller',
       caption,
-      value: '—',
-      qualifier: noData(poller.unavailable ?? 'not reported'),
+      value: null,
+      footer: noData(poller.unavailable ?? 'not reported'),
     }
   }
   const limit = poller.thresholdMin
@@ -177,17 +171,17 @@ function pollerCell({ poller }: StripModel): StatStripCell {
     info: `Age of the least recently run poller; at ${limit} min it counts as stale.`,
     value: formatNumber(poller.oldestMin),
     unit: 'min',
-    valueColor: poller.stale ? VX.status.bad : undefined,
-    qualifier: `stale at ${limit} min`,
+    ...(poller.stale && { tone: 'bad' as const }),
+    footer: `stale at ${limit} min`,
     visual: (
       <Meter
         label={`Oldest poller age against ${limit} minutes`}
         value={poller.oldestMin}
         max={limit}
-        target={limit}
+        ticks={[{ at: limit, label: `${limit} min` }]}
         {...(poller.stale ? { color: VX.status.bad } : {})}
         startCaption={null}
-        endCaption={`${limit} min`}
+        endCaption={null}
       />
     ),
   }
@@ -206,10 +200,10 @@ function revertsCell({ reverts }: StripModel): StatStripCell {
   return {
     key: 'reverts',
     caption,
-    value: reverts.reverts === null ? '—' : String(reverts.reverts),
+    value: reverts.reverts === null ? null : String(reverts.reverts),
     unit: reverts.reverts === 1 ? 'revert' : 'reverts',
-    valueColor: reverts.reverts !== null && reverts.reverts > 0 ? VX.status.bad : undefined,
-    qualifier: parts.join(' · '),
+    ...(reverts.reverts !== null && reverts.reverts > 0 && { tone: 'bad' as const }),
+    footer: parts.join(' · '),
   }
 }
 
@@ -277,5 +271,5 @@ export function HealthStrip({ metrics, health, budget }: Props) {
           key: meter.key,
           content: <BudgetMeterRow meter={meter} />,
         }))
-  return <StatStrip cells={cells} footer={footer} />
+  return <StatGroup variant="strip" label="Warden health" cols={6} cells={cells} footer={footer} />
 }
