@@ -140,6 +140,14 @@ export function finishedGroups(shelf: readonly ShelfItem[]): FinishedGroup[] {
   return groups
 }
 
+/** `Mar 2026` or `Mar 2026 – Oct 2026` from the groups (newest first); empty when there are none. */
+export function scopeLabel(groups: readonly FinishedGroup[]): string {
+  const newest = groups[0]
+  const oldest = groups[groups.length - 1]
+  if (newest === undefined || oldest === undefined) return ''
+  return newest.label === oldest.label ? newest.label : `${oldest.label} – ${newest.label}`
+}
+
 export function finishedInYear(shelf: readonly ShelfItem[], year: number): number {
   return shelf.filter(
     (b) => b.statusId === STATUS.read && b.readDate !== null && b.readDate.startsWith(`${year}-`),

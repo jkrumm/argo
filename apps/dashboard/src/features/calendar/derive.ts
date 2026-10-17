@@ -96,11 +96,16 @@ export function isTimed(event: CalendarItem): boolean {
 }
 
 /** M365 keeps a cancelled meeting on the calendar and prefixes its title (en and de). */
-const CANCELLED_PREFIX = /^\s*(abgesagt|canceled|cancelled)\s*:/i
+const CANCELLED_PREFIX = /^\s*(abgesagt|canceled|cancelled)\s*:\s*/i
 
 /** The API carries no cancelled flag, so the title prefix is the only signal. */
 export function isCancelled(event: CalendarItem): boolean {
   return CANCELLED_PREFIX.test(event.title)
+}
+
+/** The title without the cancellation prefix: a cancelled row says "Cancelled" once, in its meta. */
+export function displayTitle(event: CalendarItem): string {
+  return event.title.replace(CANCELLED_PREFIX, '') || event.title
 }
 
 /** Meetings that still happen: the basis of every count, booked hour, free block and "next". */
@@ -149,13 +154,9 @@ export function bookedMinOnDay(events: readonly CalendarItem[], key: DayKey): nu
   return totalMin(busyWithin(timedEvents(events), dayStartMs(key), dayEndMs(key)))
 }
 
+/** The meetings that still happen on `key`. */
 export function eventsOnDay(events: readonly CalendarItem[], key: DayKey): CalendarItem[] {
   return rowsOnDay(timedEvents(events), key)
-}
-
-/** Every timed meeting on `key` for the list, cancelled ones included (rendered muted, uncounted). */
-export function listedEventsOnDay(events: readonly CalendarItem[], key: DayKey): CalendarItem[] {
-  return rowsOnDay(events.filter(isTimed), key)
 }
 
 function rowsOnDay(timed: readonly CalendarItem[], key: DayKey): CalendarItem[] {
@@ -283,28 +284,82 @@ export function hourToTime(hour: number): string {
 
 // ---- agenda ---------------------------------------------------------------------------------
 
+/** Work and Personal labels, shared by the row meta and the booked-hours split. */
+export const SPLIT_LABEL = { work: 'Work', personal: 'Personal' } as const
+/** Past this many invitees the accepted ratio stops being useful ("13/123 accepted"). */
+const MAX_RATIO_ATTENDEES = 12
+
+function eventMeta(payload: CalendarEventPayload | undefined): string {
+  const parts: string[] = []
+  if (payload?.sourceClass) parts.push(SPLIT_LABEL[payload.sourceClass])
+  if (payload?.source === 'google' && payload.calendarName) parts.push(payload.calendarName)
+  const total = payload?.attendeeTotal ?? 0
+  // A ratio is only legible on a small invite; a large one reads as a head count.
+  if (total > MAX_RATIO_ATTENDEES) parts.push(`${total} people`)
+  else if (total > 0) parts.push(`${payload?.attendeeAccepted ?? 0}/${total} accepted`)
+  return parts.join(' · ')
+}
+
+/** One agenda line, fully derived: the component only places these fields. */
+export type AgendaRow = {
+  event: CalendarItem
+  cancelled: boolean
+  start: string
+  durationMin: number
+  /** Without the cancellation prefix. */
+  title: string
+  /** `Cancelled · Work · 3/5 accepted`; empty when there is nothing to say. */
+  meta: string
+}
+
+function agendaRow(event: CalendarItem): AgendaRow {
+  const cancelled = isCancelled(event)
+  return {
+    event,
+    cancelled,
+    start: String(event.start).slice(11, 16),
+    durationMin: durationMin(event),
+    title: displayTitle(event),
+    meta: [cancelled ? 'Cancelled' : '', eventMeta(event.payload)].filter(Boolean).join(' · '),
+  }
+}
+
 export type AgendaDay = {
   key: DayKey
-  /** The rows to render, cancelled meetings included. */
-  events: CalendarItem[]
+  /** Every timed meeting of the day, cancelled ones included (rendered muted). */
+  rows: AgendaRow[]
   /** Meetings that still happen; `bookedMin` covers the same set. */
   count: number
   bookedMin: number
 }
 
-export function agendaDays(events: readonly CalendarItem[], keys: readonly DayKey[]): AgendaDay[] {
-  return keys.map((key) => ({
+/** The one per-day derivation: rows, count and booked time all come from the same filtered array. */
+export function agendaDay(events: readonly CalendarItem[], key: DayKey): AgendaDay {
+  const listed = rowsOnDay(events.filter(isTimed), key)
+  const live = listed.filter((e) => !isCancelled(e))
+  return {
     key,
-    events: listedEventsOnDay(events, key),
-    count: eventsOnDay(events, key).length,
-    bookedMin: bookedMinOnDay(events, key),
-  }))
+    rows: listed.map(agendaRow),
+    count: live.length,
+    bookedMin: totalMin(busyWithin(live, dayStartMs(key), dayEndMs(key))),
+  }
 }
 
-/** All-day events (never tasks) covering `key`, titles intact. */
+export function agendaDays(events: readonly CalendarItem[], keys: readonly DayKey[]): AgendaDay[] {
+  return keys.map((key) => agendaDay(events, key))
+}
+
+/** `2 events · 3h` / `no meetings` / `all cancelled` — the day heading's right-hand side. */
+export function dayHeadLabel(day: AgendaDay, format: (min: number) => string): string {
+  if (day.count > 0)
+    return `${day.count} ${day.count === 1 ? 'event' : 'events'} · ${format(day.bookedMin)}`
+  return day.rows.length > 0 ? 'all cancelled' : 'no meetings'
+}
+
+/** Live all-day events (never tasks, never cancelled) covering `key`, titles intact. */
 export function allDayEvents(events: readonly CalendarItem[], key: DayKey): CalendarItem[] {
   return events.filter((e) => {
-    if (isTask(e) || e.payload?.isAllDay !== true) return false
+    if (isTask(e) || isCancelled(e) || e.payload?.isAllDay !== true) return false
     const startKey = String(e.start).slice(0, 10)
     const endKey = String(e.end).slice(0, 10)
     return startKey <= key && (endKey > startKey ? key < endKey : key === startKey)

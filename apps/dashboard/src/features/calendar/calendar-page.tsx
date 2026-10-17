@@ -24,6 +24,7 @@ import { DayGroups } from './agenda-parts'
 import {
   addDays,
   agendaDays,
+  isCancelled,
   allDayEvents,
   dayKey,
   hourToTime,
@@ -110,6 +111,8 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
     () => [...googleToEvents(googleQuery.data), ...m365ToEvents(m365Query.data)],
     [googleQuery.data, m365Query.data],
   )
+  // The Week and Month grids draw the meetings that still happen; the agenda lists cancelled ones.
+  const liveMeetings = useMemo(() => meetings.filter((m) => !isCancelled(m)), [meetings])
   const taskData = projectQueries.map((query) => query.data)
   const events = useMemo<CalendarItem[]>(() => {
     if (view !== 'agenda') return meetings
@@ -197,7 +200,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
           },
         ]
 
-  const hours = weekWindow(meetings, weekKeys(date))
+  const hours = weekWindow(liveMeetings, weekKeys(date))
   const compactKeys: DayKey[] = [-1, 0, 1].map((n) => addDays(date, n))
 
   return (
@@ -259,7 +262,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
             <WeekView
               date={date}
               onDateChange={(next) => setSearch({ date: next })}
-              events={meetings}
+              events={liveMeetings}
               withHeader={false}
               highlightToday
               withCurrentTimeIndicator
@@ -278,7 +281,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
             <MonthView
               date={date}
               onDateChange={(next) => setSearch({ date: next })}
-              events={meetings}
+              events={liveMeetings}
               withHeader={false}
               highlightToday
               consistentWeeks

@@ -1,7 +1,7 @@
 import { Text } from '@mantine/core'
 import { BarList, Section } from 'basalt-ui'
 import { BookRow } from './book-parts'
-import { shortDate, timeRead, type FinishedGroup, type ShelfItem } from './model'
+import { scopeLabel, shortDate, timeRead, type FinishedGroup, type ShelfItem } from './model'
 import classes from './reading.module.css'
 
 function trail(date: string, pages: number | null): string {
@@ -38,13 +38,10 @@ export function Finished({
         ]
       : []),
   ]
-  const newest = groups[0]?.label
-  const oldest = groups.at(-1)?.label
-  const scope =
-    newest === undefined ? '' : newest === oldest ? ` · ${newest}` : ` · ${oldest} – ${newest}`
+  const scope = scopeLabel(groups)
   return (
     <Section
-      title={`Finished${scope}`}
+      title={scope === '' ? 'Finished' : `Finished · ${scope}`}
       count={total}
       {...(notes.length > 0 && {
         summary: <Text className={classes.facts}>{notes.join(' · ')}</Text>,

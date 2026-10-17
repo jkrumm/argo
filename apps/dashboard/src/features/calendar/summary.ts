@@ -1,6 +1,6 @@
 /** The Agenda's summary sentence — pure, so its wording is tested on synthetic events. */
 import { formatDurationMin } from '../../components/upstream/schedule-row-model'
-import { addDays, keyToDate, type AgendaSummary, type FreeBlock } from './derive'
+import { addDays, displayTitle, keyToDate, type AgendaSummary, type FreeBlock } from './derive'
 
 const weekdayShort = (key: string) =>
   keyToDate(key).toLocaleDateString('en-GB', { weekday: 'short' })
@@ -8,7 +8,7 @@ const weekdayShort = (key: string) =>
 /** The one countdown wording, shared by the summary and the agenda pill: `in 20m`, `in 1h 30m`. */
 export const untilLabel = (minutes: number): string => `in ${formatDurationMin(minutes)}`
 
-/** `next in 20m` inside two hours, else when and what: `next at 15:00 {title}`, `next tomorrow 09:30 {title}`. */
+/** `next in 20m` inside two hours, else when and what: `next at 15:00 — {title}`, `next tomorrow 09:30 — {title}`. */
 export function countdown(summary: AgendaSummary): string | null {
   const next = summary.next
   if (!next) return null
@@ -16,10 +16,10 @@ export function countdown(summary: AgendaSummary): string | null {
   const start = String(next.event.start)
   const startKey = start.slice(0, 10)
   const time = start.slice(11, 16)
-  const title = next.event.title
-  if (startKey === summary.todayKey) return `next at ${time} ${title}`
-  if (startKey === addDays(summary.todayKey, 1)) return `next tomorrow ${time} ${title}`
-  return `next ${weekdayShort(startKey)} ${time} ${title}`
+  const title = displayTitle(next.event)
+  if (startKey === summary.todayKey) return `next at ${time} — ${title}`
+  if (startKey === addDays(summary.todayKey, 1)) return `next tomorrow ${time} — ${title}`
+  return `next ${weekdayShort(startKey)} ${time} — ${title}`
 }
 
 /** One sentence, built from the same derivation as the lists and the strip beside it. */
