@@ -15,6 +15,8 @@ const COLLAPSED_LINES = 3
 type Props = {
   humanQueue: HumanQueueItem[]
   agents: AgentRow[]
+  /** No snapshot is loaded: what needs the human is unknown, not empty. */
+  unknown?: boolean
 }
 
 /** Mono inset: the command or blocker, clamped to three lines with a toggle past that. */
@@ -78,8 +80,17 @@ function Card({ card }: { card: NeedsYouCard }) {
  * `needs_you`, longest wait first. Read-only — the payload has no write endpoint, so the one action
  * is a client-side copy of a field the payload carries. Hidden when nothing waits.
  */
-export function NeedsYouSection({ humanQueue, agents }: Props) {
+export function NeedsYouSection({ humanQueue, agents, unknown = false }: Props) {
   const cards = needsYouCards(humanQueue, agents, useNow())
+  if (unknown) {
+    return (
+      <Section title="Needs you" value="—">
+        <Text size="sm" c="dimmed">
+          Unknown: no agent snapshot is loaded, so nothing can be said about what is waiting.
+        </Text>
+      </Section>
+    )
+  }
   if (cards.length === 0) return null
   return (
     <Section title="Needs you" count={cards.length}>

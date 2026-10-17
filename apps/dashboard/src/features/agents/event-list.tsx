@@ -81,6 +81,7 @@ function Row({ row }: { row: EventRow }) {
         aria-controls={titleId}
       >
         <Text
+          component="span"
           id={titleId}
           className={classes.title}
           data-expanded={expanded || undefined}

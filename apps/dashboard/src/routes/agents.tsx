@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Stack } from '@mantine/core'
+import { Skeleton, Stack } from '@mantine/core'
 import { PageBar } from 'basalt-ui'
 import { agentsQueries } from '../lib/queries/agents'
 import { useNow } from '../lib/use-now'
@@ -11,7 +11,9 @@ import {
   groupProjects,
   oldestNeedsYouWait,
   countUnknownAgents,
+  feedState,
 } from '../features/agents/model'
+import { FeedNotice } from '../features/agents/feed-notice'
 import { StaleBanner } from '../features/agents/stale-banner'
 import { PageSummary } from '../features/agents/page-summary'
 import { FleetStrip } from '../features/agents/fleet-strip'
@@ -51,6 +53,12 @@ function AgentsPage() {
   const waiting = agents.filter((a) => a.state === 'needs_you').length
   const fleet = fleetParts(snapshot?.summary, countUnknownAgents(agents))
 
+  const feed = feedState({
+    hasData: latest !== null,
+    isPending: latestQuery.isPending,
+    isError: latestQuery.isError,
+  })
+
   return (
     <>
       <PageBar
@@ -62,31 +70,50 @@ function AgentsPage() {
       />
 
       <Stack gap="md">
-        <StaleBanner latest={latest} />
-        <PageSummary
-          latest={latest}
-          now={now}
-          summary={{
-            items: humanQueue.length + waiting,
-            oldestWaitMs: oldestAgent?.ms ?? null,
-            oldestAskMs: askMs,
-            fleet: fleet && { working: fleet.parts[0]?.value ?? 0, total: fleet.total },
-            idleProjects: quiet.length,
-          }}
-        />
-        <FleetStrip
-          summary={snapshot?.summary}
-          fleet={fleet}
-          history={historyQuery.data?.data}
-          hours={HISTORY_HOURS}
-          oldest={oldest}
-          queued={humanQueue.length}
-          now={now}
-        />
-        <NeedsYouSection humanQueue={humanQueue} agents={agents} />
-        <ProjectCards active={active} quiet={quiet} now={now} />
-        <ActivityStrip history={historyQuery.data?.data} hours={HISTORY_HOURS} now={now} />
-        <NarrativesSection query={narrativesQuery} />
+        <StaleBanner latest={latest} fetchFailed={feed === 'failed' || feed === 'stale'} />
+        {feed === 'failed' || feed === 'stale' ? (
+          <FeedNotice
+            state={feed}
+            retrying={latestQuery.isFetching}
+            onRetry={() => void latestQuery.refetch()}
+          />
+        ) : null}
+        {feed === 'pending' ? (
+          <Skeleton h="8rem" aria-label="Loading the agent snapshot" />
+        ) : (
+          <Stack gap="md" opacity={feed === 'stale' ? 0.6 : 1}>
+            {feed === 'failed' ? null : (
+              <PageSummary
+                latest={latest}
+                now={now}
+                summary={{
+                  items: humanQueue.length + waiting,
+                  oldestWaitMs: oldestAgent?.ms ?? null,
+                  oldestAskMs: askMs,
+                  fleet: fleet && { working: fleet.parts[0]?.value ?? 0, total: fleet.total },
+                  idleProjects: quiet.length,
+                }}
+              />
+            )}
+            {feed === 'failed' ? null : (
+              <FleetStrip
+                summary={snapshot?.summary}
+                fleet={fleet}
+                history={historyQuery.data?.data}
+                hours={HISTORY_HOURS}
+                oldest={oldest}
+                queued={humanQueue.length}
+                now={now}
+              />
+            )}
+            <NeedsYouSection humanQueue={humanQueue} agents={agents} unknown={latest === null} />
+            {feed === 'failed' ? null : <ProjectCards active={active} quiet={quiet} now={now} />}
+            {feed === 'failed' ? null : (
+              <ActivityStrip history={historyQuery.data?.data} hours={HISTORY_HOURS} now={now} />
+            )}
+            <NarrativesSection query={narrativesQuery} />
+          </Stack>
+        )}
       </Stack>
     </>
   )
