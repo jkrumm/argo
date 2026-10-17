@@ -1,14 +1,6 @@
 import { StatusVerdict } from 'basalt-ui'
+import { sentenceCase } from './page-model'
 import { VX } from 'basalt-ui/tokens'
-
-/** `BLOCKER` / `data_loss` → `Blocker` / `Data loss`: a category word reads as a sentence, not an enum. */
-export function sentenceCase(raw: string): string {
-  const words = raw
-    .trim()
-    .replaceAll(/[_\s]+/g, ' ')
-    .toLowerCase()
-  return words.charAt(0).toUpperCase() + words.slice(1)
-}
 
 /**
  * StatusChip — a category or state as a neutral dot + sentence-case word. A tag or failure class

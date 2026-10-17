@@ -379,12 +379,13 @@ export function planActions(available: readonly string[], kind: QueueKind): Acti
 /** Warden prefixes some decision text with a bracketed category: `[blocker] Deploy …`. */
 const LEADING_TAG = /^\[([^\]]{1,40})\]\s*/
 
-const TAG_TONE: Record<string, ChipTone> = { blocker: 'bad', data_loss: 'bad', security: 'warn' }
-
-/** A leading `[tag]` as a chip: known tags take a tone, any other renders neutral with its raw label. */
-export function tagChip(tag: string): { tone: ChipTone; label: string } {
-  const key = tag.trim().toLowerCase().replaceAll(' ', '_')
-  return { tone: Object.hasOwn(TAG_TONE, key) ? TAG_TONE[key]! : 'neutral', label: tag.trim() }
+/** `BLOCKER` / `data_loss` → `Blocker` / `Data loss`: a category word reads as a sentence, not an enum. */
+export function sentenceCase(raw: string): string {
+  const words = raw
+    .trim()
+    .replaceAll(/[_\s]+/g, ' ')
+    .toLowerCase()
+  return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
 /** The first complete sentence of warden's decision text is the question; whatever follows is the
@@ -439,20 +440,6 @@ export function needsCards(view: AwaitingOwnerView): AwaitingOwnerRow[] {
 export function oldestAgeDays(rows: readonly AwaitingOwnerRow[]): number | null {
   const ages = rows.map((row) => row.ageDays).filter((age): age is number => age !== null)
   return ages.length === 0 ? null : Math.max(...ages)
-}
-
-// ── Failure class ───────────────────────────────────────────────────────────
-
-export type ChipTone = 'work' | 'infra' | 'policy' | 'bad' | 'warn' | 'neutral'
-
-/** `failure_class` is an open string: the three known classes get a fixed tone, any other value is
- * a neutral chip with its raw label, `null` renders no chip at all. */
-export function failureChip(failureClass: string | null): { tone: ChipTone; label: string } | null {
-  if (failureClass === null || failureClass === '') return null
-  if (failureClass === 'work' || failureClass === 'infra' || failureClass === 'policy') {
-    return { tone: failureClass, label: failureClass }
-  }
-  return { tone: 'neutral', label: failureClass }
 }
 
 const ORIGIN_KINDS = { alert: true, github_issue: true, human: true, job: true } as const

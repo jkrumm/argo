@@ -1,7 +1,6 @@
 import { Group, Stack, Text } from '@mantine/core'
 import { relativeTime } from 'basalt-ui/format'
-import type { TransitionLine } from './page-model'
-import { sentenceCase } from './status-chip'
+import { sentenceCase, type TransitionLine } from './page-model'
 
 /** The decision card's right-hand context: the last state changes, newest last, `from → to` with the time in mono. */
 export function HistoryPreview({ lines }: { lines: readonly TransitionLine[] }) {
