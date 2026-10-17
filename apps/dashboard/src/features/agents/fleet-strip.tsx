@@ -62,10 +62,10 @@ function peakFooter(history: HistoryPoint[] | undefined, hours: number, now: num
       : peak.value === 0
         ? `none in ${hours} h`
         : `peak ${peak.value} in ${hours} h`
-  const window = `line is agents needing you, ${hours} h`
+  const scope = `line is agents needing you, ${hours} h`
   return peak !== null && peak.value > 0
-    ? `${trend} · ${ageAgo(now - peak.atMs)} · ${window}`
-    : `${trend} · ${window}`
+    ? `${trend} · ${ageAgo(now - peak.atMs)} · ${scope}`
+    : `${trend} · ${scope}`
 }
 
 /**

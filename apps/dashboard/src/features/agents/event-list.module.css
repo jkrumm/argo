@@ -94,6 +94,20 @@
     grid-row: 2;
   }
 
+  .title:not([data-expanded]) {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .root[data-narrow-lines='2'] .title:not([data-expanded]) {
+    display: -webkit-box;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
   .chip {
     display: none;
   }

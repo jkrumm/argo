@@ -49,9 +49,9 @@ function AgentsPage() {
   const humanQueue = snapshot?.humanQueue ?? []
   const askMs = oldestAskMs(humanQueue, now)
   const oldestAgent = oldestNeedsYouWait(agents, now)
-  const oldest = oldestAgent ?? (askMs === null ? null : { ms: askMs, project: 'human queue' })
+  const oldest = oldestAgent ?? (askMs === null ? null : { ms: askMs, project: 'the human queue' })
   const { active, quiet } = groupProjects(snapshot, agents)
-  const waiting = agents.filter((a) => a.state === 'needs_you').length
+  const needsYouItems = needsYouCount(humanQueue, agents)
   const fleet = fleetParts(snapshot?.summary, countUnknownAgents(agents))
 
   const feed = feedState({
@@ -88,7 +88,7 @@ function AgentsPage() {
                 latest={latest}
                 now={now}
                 summary={{
-                  items: humanQueue.length + waiting,
+                  items: needsYouItems,
                   oldestWaitMs: oldestAgent?.ms ?? null,
                   oldestAskMs: askMs,
                   fleet: fleet && { working: fleet.parts[0]?.value ?? 0, total: fleet.total },
@@ -98,7 +98,7 @@ function AgentsPage() {
             )}
             {feed === 'failed' ? null : (
               <FleetStrip
-                needsYou={latest === null ? null : needsYouCount(humanQueue, agents)}
+                needsYou={latest === null ? null : needsYouItems}
                 fleet={fleet}
                 history={historyQuery.data?.data}
                 hours={HISTORY_HOURS}

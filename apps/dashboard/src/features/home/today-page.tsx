@@ -211,7 +211,7 @@ export function TodayPage() {
             budgetCell(wardenRaw?.budget, poller),
             meetingCell(agenda, next, later, now),
             recoveryCell(recovery),
-            acwrCell(acwr),
+            acwrCell(acwr, now),
           ]}
         />
 

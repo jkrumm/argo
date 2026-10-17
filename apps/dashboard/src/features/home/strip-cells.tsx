@@ -15,6 +15,7 @@ import {
 import { deriveBudget } from '../warden/page-model'
 import {
   countdownLabel,
+  localKey,
   meetingState,
   noMeetingsLabel,
   type Agenda,
@@ -223,7 +224,7 @@ export function recoveryCell(reading: RecoveryReading | null): StatStripCell {
 
 // ── Training load ────────────────────────────────────────────────────────────────────────────
 
-export function acwrCell(reading: AcwrReading | null): StatStripCell {
+export function acwrCell(reading: AcwrReading | null, now: number): StatStripCell {
   if (reading === null || reading.acwr === null) {
     return {
       key: 'acwr',
@@ -254,6 +255,10 @@ export function acwrCell(reading: AcwrReading | null): StatStripCell {
         endCaption={null}
       />
     ),
-    footer: `optimal ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO}`,
+    footer: `optimal ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO}${
+      reading.date === null || reading.date === localKey(now)
+        ? ''
+        : ` · ${recoveryDay(reading.date)}`
+    }`,
   }
 }
