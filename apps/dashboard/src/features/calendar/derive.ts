@@ -105,7 +105,7 @@ export function isCancelled(event: CalendarItem): boolean {
 
 /** The title without the cancellation prefix: a cancelled row says "Cancelled" once, in its meta. */
 export function displayTitle(event: CalendarItem): string {
-  return event.title.replace(CANCELLED_PREFIX, '') || event.title
+  return event.title.replace(CANCELLED_PREFIX, '').trim() || 'Untitled meeting'
 }
 
 /** Meetings that still happen: the basis of every count, booked hour, free block and "next". */
@@ -150,8 +150,13 @@ function totalMin(intervals: readonly Interval[]): number {
 /** `null` figures mean "unknown": a calendar this day depends on has not answered. Never 0. */
 export type DayLoad = { key: DayKey; bookedMin: number | null; count: number | null }
 
+/** Booked minutes of `live` meetings on `key`, overlaps merged: the one clip-and-merge. */
+function bookedMinOf(live: readonly CalendarItem[], key: DayKey): number {
+  return totalMin(busyWithin(live, dayStartMs(key), dayEndMs(key)))
+}
+
 export function bookedMinOnDay(events: readonly CalendarItem[], key: DayKey): number {
-  return totalMin(busyWithin(timedEvents(events), dayStartMs(key), dayEndMs(key)))
+  return bookedMinOf(timedEvents(events), key)
 }
 
 /** The meetings that still happen on `key`. */
@@ -341,7 +346,7 @@ export function agendaDay(events: readonly CalendarItem[], key: DayKey): AgendaD
     key,
     rows: listed.map(agendaRow),
     count: live.length,
-    bookedMin: totalMin(busyWithin(live, dayStartMs(key), dayEndMs(key))),
+    bookedMin: bookedMinOf(live, key),
   }
 }
 
@@ -350,10 +355,15 @@ export function agendaDays(events: readonly CalendarItem[], keys: readonly DayKe
 }
 
 /** `2 events · 3h` / `no meetings` / `all cancelled` — the day heading's right-hand side. */
-export function dayHeadLabel(day: AgendaDay, format: (min: number) => string): string {
+export function dayHeadLabel(
+  day: AgendaDay,
+  format: (min: number) => string,
+  liveAllDay = 0,
+): string {
   if (day.count > 0)
     return `${day.count} ${day.count === 1 ? 'event' : 'events'} · ${format(day.bookedMin)}`
-  return day.rows.length > 0 ? 'all cancelled' : 'no meetings'
+  // A live all-day item means the day is not wholly cancelled.
+  return day.rows.length > 0 && liveAllDay === 0 ? 'all cancelled' : 'no meetings'
 }
 
 /** Live all-day events (never tasks, never cancelled) covering `key`, titles intact. */

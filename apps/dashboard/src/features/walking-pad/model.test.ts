@@ -351,7 +351,7 @@ describe('formats and summary', () => {
         period: '30 d',
       }),
     ).toBe(
-      '12.4 km this week in 4 walks; streak 3 d; pace 4.5 km/h, +0.3\u00a0km/h vs the prior 30 d.',
+      '12.4\u00a0km this week in 4 walks; streak 3 d; pace 4.5\u00a0km/h, +0.3\u00a0km/h vs the prior 30 d.',
     )
   })
 
@@ -366,7 +366,7 @@ describe('formats and summary', () => {
         prior: 'prior 30 d',
         period: '30 d',
       }),
-    ).toBe('3.0 km this week in 1 walk; streak 0 d; pace —.')
+    ).toBe('3.0\u00a0km this week in 1 walk; streak 0 d; pace —.')
   })
 
   it('says when pace has no prior window to compare', () => {
@@ -381,7 +381,7 @@ describe('formats and summary', () => {
         period: 'all time',
       }),
     ).toBe(
-      '0.0 km this week in 0 walks; streak 0 d; pace 3.4 km/h over all time, no prior window to compare.',
+      '0.0\u00a0km this week in 0 walks; streak 0 d; pace 3.4\u00a0km/h over all time, no prior window to compare.',
     )
   })
 })

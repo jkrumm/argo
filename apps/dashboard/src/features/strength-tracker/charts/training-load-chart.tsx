@@ -122,7 +122,7 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
         height={HEIGHT}
         x={(d) => d.day}
         series={series}
-        formatX={(d) => `week of ${date(d, { format: 'medium' })}`}
+        formatX={(d) => date(d, { format: 'medium' })}
         y={{ domain: 'auto', autoMaxFloor: 2, ticks: 5, format: (v) => v.toFixed(1) }}
         zones={[
           { from: 0, to: 0.8, fill: alpha(ZONE_COLORS.neutral, 0.08) },

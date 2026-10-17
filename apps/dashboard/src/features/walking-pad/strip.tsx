@@ -17,6 +17,10 @@ import {
   priorLabel,
   weekSummary,
   weekTicks,
+  NBSP,
+  withKm,
+  withKmh,
+  withSteps,
   windowQualifier,
 } from './model'
 import { TargetPopover } from './target-popover'
@@ -61,9 +65,9 @@ function useWeekCell(): StatStripCell {
         min={0}
         max={Math.max(targetKm * TARGET_HEADROOM, km ?? 0)}
         target={targetKm}
-        format={(v) => `${v.toFixed(1)} km`}
+        format={(v) => `${v.toFixed(1)}${NBSP}km`}
         startCaption="so far"
-        endCaption={`${isDefault ? 'default' : 'target'} ${targetKm} km`}
+        endCaption={`${isDefault ? 'default' : 'target'} ${targetKm}${NBSP}km`}
         tone="muted"
         loading={query.isPending}
         emptyText="No data this week"
@@ -184,7 +188,10 @@ function useTotalsCell(params: WalkingPadWindowParams): StatStripCell {
         {
           key: 'walks',
           label: 'Walks',
-          value: withContext(String(walks), avgKm === null ? undefined : `avg ${fmtKm(avgKm)} km`),
+          value: withContext(
+            String(walks),
+            avgKm === null ? undefined : `avg ${withKm(avgKm * 1000)}`,
+          ),
         },
         {
           key: 'time',
@@ -197,17 +204,14 @@ function useTotalsCell(params: WalkingPadWindowParams): StatStripCell {
         {
           key: 'pace',
           label: 'Pace',
-          value: withContext(
-            `${fmtKmh(overallKmh(s.distance_m, s.duration_s))} km/h`,
-            'distance ÷ time',
-          ),
+          value: withContext(withKmh(overallKmh(s.distance_m, s.duration_s)), 'distance ÷ time'),
         },
         {
           key: 'energy',
           label: 'Energy',
           value: withContext(
-            `${Math.round(s.kcal).toLocaleString('en-GB')} kcal`,
-            `${s.steps.toLocaleString('en-GB')} steps`,
+            `${Math.round(s.kcal).toLocaleString('en-GB')}${NBSP}kcal`,
+            withSteps(s.steps),
           ),
         },
       ],

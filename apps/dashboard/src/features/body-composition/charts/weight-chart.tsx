@@ -15,6 +15,7 @@ import {
   weightDeltaPolarity,
   windowLabel,
   windowDays,
+  withKg,
 } from '../model'
 import type { WeightSummary, WeightWindowStats } from '../types'
 import {
@@ -28,7 +29,7 @@ import {
 const CHART_HEIGHT = { base: 220, regular: 280 }
 const PLACEHOLDER_HEIGHT = 280
 
-const fmtKg = (v: number): string => `${v.toFixed(2)} kg`
+const fmtKg = (v: number): string => withKg(v, 2)
 
 export default function WeightChart({
   params,
@@ -106,13 +107,13 @@ export default function WeightChart({
           facts: {
             value: fixed(summary.current),
             unit: 'kg',
-            period: `7 d mean ${fixed(stats.mean7)} kg · ${chartData.length} entries`,
+            period: `7 d mean ${fixed(stats.mean7)}\u00a0kg · ${chartData.length} entries`,
             ...(delta !== null && {
               comparison: (
                 <DeltaBadge
                   value={delta}
                   polarity={weightDeltaPolarity(summary.current, goal)}
-                  format={(v) => `${Math.abs(v).toFixed(1)} kg`}
+                  format={(v) => withKg(Math.abs(v))}
                   period="30 d mean"
                 />
               ),
@@ -144,7 +145,7 @@ export default function WeightChart({
               },
             ],
           })}
-          y={{ domain: yDomain, format: (v) => `${v.toFixed(0)} kg` }}
+          y={{ domain: yDomain, format: (v) => withKg(v, 0) }}
         />
       </ChartCard>
     </Box>

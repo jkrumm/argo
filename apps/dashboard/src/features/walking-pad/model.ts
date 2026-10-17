@@ -411,10 +411,10 @@ export function summarySentence(s: SummaryInput): string {
   const week =
     s.weekDistanceM === null || s.weekSessions === null
       ? 'this week —'
-      : `${fmtKm(s.weekDistanceM)} km this week in ${s.weekSessions} ${plural(s.weekSessions, 'walk')}`
+      : `${withKm(s.weekDistanceM)} this week in ${s.weekSessions} ${plural(s.weekSessions, 'walk')}`
   const pace =
     s.paceKmh === null
       ? 'pace —'
-      : `pace ${fmtKmh(s.paceKmh)} km/h${s.paceDeltaKmh === null ? ` over ${s.period}, no prior window to compare` : `, ${fmtSignedKmh(s.paceDeltaKmh)} vs the ${s.prior}`}`
+      : `pace ${withKmh(s.paceKmh)}${s.paceDeltaKmh === null ? ` over ${s.period}, no prior window to compare` : `, ${fmtSignedKmh(s.paceDeltaKmh)} vs the ${s.prior}`}`
   return `${week}; streak ${s.streakDays} d; ${pace}.`
 }
