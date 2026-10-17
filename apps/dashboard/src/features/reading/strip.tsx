@@ -6,9 +6,10 @@ import {
   NO_PACE_REASON,
   ratingShape,
   shelfParts,
+  totalReadSeconds,
   type Pace,
   type ShelfItem,
-  type Summary,
+  type ShelfCounts,
 } from './model'
 import { formatReadTime } from './format'
 import classes from './reading.module.css'
@@ -44,19 +45,19 @@ function Cell({ caption, value, unit, visual, footer, shot }: CellProps) {
   )
 }
 
-function ShelfCell({ summary }: { summary: Summary }) {
-  const parts = shelfParts(summary)
+function ShelfCell({ counts }: { counts: ShelfCounts }) {
+  const parts = shelfParts(counts)
   return (
     <Cell
       shot="shelf"
       caption="Shelf · by status"
-      value={String(summary.total)}
-      unit={summary.total === 1 ? 'book' : 'books'}
+      value={String(counts.total)}
+      unit={counts.total === 1 ? 'book' : 'books'}
       visual={
         <>
           <Meter
             label="Books by shelf status"
-            max={summary.total}
+            max={counts.total}
             startCaption={null}
             endCaption={null}
             segments={parts.map((p, i) => ({
@@ -135,7 +136,7 @@ function PaceCell({ pace, shelf }: { pace: Pace; shelf: readonly ShelfItem[] }) 
   }
   const top = Math.max(...pace.paces) * 1.15
   const at = (v: number) => `${(v / top) * 100}%`
-  const seconds = shelf.reduce((sum, b) => sum + (b.stats?.totalReadSeconds ?? 0), 0)
+  const seconds = totalReadSeconds(shelf)
   return (
     <Cell
       shot="pace"
@@ -160,23 +161,23 @@ function PaceCell({ pace, shelf }: { pace: Pace; shelf: readonly ShelfItem[] }) 
           </div>
         </div>
       }
-      footer={`${formatReadTime(seconds)} read in total · one dot per book, tick is the median`}
+      footer={`${formatReadTime(seconds)} read across in-progress and finished books · one dot per book, tick is the median`}
     />
   )
 }
 
 export function ReadingStrip({
-  summary,
+  counts,
   shelf,
   pace,
 }: {
-  summary: Summary
+  counts: ShelfCounts
   shelf: readonly ShelfItem[]
   pace: Pace
 }) {
   return (
     <section className={classes.strip} aria-label="Reading summary">
-      <ShelfCell summary={summary} />
+      <ShelfCell counts={counts} />
       <RatingsCell shelf={shelf} />
       <PaceCell pace={pace} shelf={shelf} />
     </section>

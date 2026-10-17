@@ -17,23 +17,33 @@ function finishedMeta(rating: number | null, days: number | null): string | unde
   return parts.length === 0 ? undefined : parts.join(' · ')
 }
 
-export function Finished({ groups }: { groups: readonly FinishedGroup[] }) {
+export function Finished({
+  groups,
+  undated,
+}: {
+  groups: readonly FinishedGroup[]
+  /** Read books without a read date: on the shelf, not in this list. */
+  undated: number
+}) {
   const total = groups.reduce((sum, g) => sum + g.rows.length, 0)
   const unknownDays = groups.reduce(
     (sum, g) => sum + g.rows.filter((r) => r.days === null).length,
     0,
   )
+  const notes = [
+    ...(undated > 0 ? [`${undated} read without a date, not listed`] : []),
+    ...(unknownDays > 0
+      ? [
+          `days to finish needs a start date; ${unknownDays} of ${total} have none, so no days are shown`,
+        ]
+      : []),
+  ]
   return (
     <Section
       title="Finished"
       count={total}
-      {...(unknownDays > 0 && {
-        summary: (
-          <Text className={classes.facts}>
-            days to finish needs a start date; {unknownDays} of {total} have none, so no days are
-            shown
-          </Text>
-        ),
+      {...(notes.length > 0 && {
+        summary: <Text className={classes.facts}>{notes.join(' · ')}</Text>,
       })}
     >
       {total === 0 ? (
@@ -77,7 +87,7 @@ export function TimeRead({ shelf }: { shelf: readonly ShelfItem[] }) {
           label: r.label,
           value: hours(r.seconds),
         }))}
-        format={(v) => `${v.toFixed(1)} h`}
+        format={(v) => (v < 0.05 ? '< 0.1 h' : `${v.toFixed(1)} h`)}
         emptyText="No device reading time recorded yet."
       />
     </Section>

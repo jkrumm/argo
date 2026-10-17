@@ -2,7 +2,7 @@ import { Button, Text } from '@mantine/core'
 import { BarList, Section, useSizeClass } from 'basalt-ui'
 import { useState } from 'react'
 import { BookRow } from './book-parts'
-import { NO_PACE_REASON, genreCounts, hoursLabel, type BacklogTotals } from './model'
+import { NO_PACE_REASON, approxHours, genreCounts, type BacklogTotals } from './model'
 import classes from './reading.module.css'
 
 const ROWS_WIDE = 8
@@ -12,9 +12,9 @@ function headerFacts(b: BacklogTotals, pace: number | null): string {
   return [
     'ranked by community rating',
     `${b.pages.toLocaleString('en-GB')} p`,
-    b.hours === null || pace === null
-      ? `≈ — h (${NO_PACE_REASON})`
-      : `≈ ${hoursLabel(b.hours)} at ${pace} pages/h (median)`,
+    b.hours !== null && pace !== null
+      ? `${approxHours(b.hours)} at ${pace} pages/h (median)`
+      : `— h (${pace === null ? NO_PACE_REASON : 'no page counts'})`,
     ...(b.withoutPages > 0 ? [`${b.withoutPages} without a page count`] : []),
   ].join(' · ')
 }

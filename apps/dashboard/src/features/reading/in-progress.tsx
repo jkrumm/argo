@@ -5,7 +5,15 @@ import { IconBooks } from '@tabler/icons-react'
 import { relativeTime } from '../../lib/format'
 import { BookTitle, Cover } from './book-parts'
 import { formatReadTime } from './format'
-import { hoursLabel, hoursLeft, parseTimestamp, shortDate, STATUS, type ShelfItem } from './model'
+import {
+  hoursLabel,
+  hoursLeft,
+  parseTimestamp,
+  progressPercent,
+  shortDate,
+  STATUS,
+  type ShelfItem,
+} from './model'
 import classes from './reading.module.css'
 
 /** Progress is not a verdict: the muted fill, never `Meter`'s near-white neutral. */
@@ -35,7 +43,7 @@ function facts(book: ShelfItem, pace: number | null, now: number): string[] {
 }
 
 function ProgressCard({ book, pace, now }: { book: ShelfItem; pace: number | null; now: number }) {
-  const percent = book.stats?.currentPercent ?? null
+  const percent = progressPercent(book)
   return (
     <Card py="sm" px="md" data-shot="progress-card">
       <div className={classes.card}>
