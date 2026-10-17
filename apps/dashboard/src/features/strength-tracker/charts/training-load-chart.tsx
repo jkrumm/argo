@@ -80,7 +80,7 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
         formatValue: (v, d) => {
           const row = d.per[ex]
           const zoneStr = row?.zone ? ` · ${acwrZoneLabel(row.zone)}` : ''
-          return `${v.toFixed(2)}${zoneStr} · A ${row?.acute.toFixed(1) ?? '—'} / C ${row?.chronic.toFixed(1) ?? '—'}`
+          return `${v.toFixed(2)}${zoneStr} · acute ${row?.acute.toFixed(1) ?? '—'} kg / chronic ${row?.chronic.toFixed(1) ?? '—'} kg`
         },
       })),
       ...ZONE_SERIES,
@@ -121,6 +121,9 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
         height={HEIGHT}
         x={(d) => d.day}
         series={series}
+        formatX={(d) =>
+          `week of ${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+        }
         y={{ domain: 'auto', autoMaxFloor: 2, ticks: 5, format: (v) => v.toFixed(1) }}
         zones={[
           { from: 0, to: 0.8, fill: alpha(ZONE_COLORS.neutral, 0.08) },

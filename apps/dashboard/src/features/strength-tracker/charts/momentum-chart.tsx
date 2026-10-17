@@ -36,7 +36,7 @@ type MomentumPoint = {
 }
 
 const fmtE1rm = (v: number) => `${v.toFixed(1)} kg`
-const fmtTop = (v: number) => `${Math.round(v)}`
+const fmtTop = (v: number) => `${Math.round(v)} kg`
 const fmtVelocity = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`
 const fmtVelocityBar = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(3)} %/day`
 
