@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Box } from '@mantine/core'
+import { Text } from '@mantine/core'
 import { DeltaBadge } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
@@ -11,7 +11,6 @@ import {
   recoveryQueries,
   trainingLoadQueries,
 } from '../../lib/queries/daily-metrics'
-import { acwrZoneLabel } from './formulas'
 import {
   ACWR_CAUTION_TO,
   ACWR_FLOOR,
@@ -30,9 +29,6 @@ import type { SummaryParams } from './types'
 import { applyVisibilityFilter } from './visibility'
 
 const FITNESS_DAYS = 14
-
-const recoveryZoneName = (score: number): string =>
-  score >= RECOVERY_PUSH_FROM ? 'Push' : score >= RECOVERY_REST_BELOW ? 'Normal' : 'Rest'
 
 function RecoveryCell({ params }: { params: SummaryParams }) {
   const summary = useQuery(recoveryQueries.summary(params))
@@ -67,8 +63,8 @@ function RecoveryCell({ params }: { params: SummaryParams }) {
           { from: RECOVERY_REST_BELOW, to: RECOVERY_PUSH_FROM, label: 'Normal' },
           { from: RECOVERY_PUSH_FROM, to: 100, label: 'Push' },
         ]}
-        startCaption={score === null ? null : recoveryZoneName(score)}
-        endCaption={`rest < ${RECOVERY_REST_BELOW} · push ≥ ${RECOVERY_PUSH_FROM}`}
+        startCaption={`rest < ${RECOVERY_REST_BELOW} · push ≥ ${RECOVERY_PUSH_FROM}`}
+        endCaption="100"
         loading={data === undefined}
         emptyText="No recovery score"
       />
@@ -87,12 +83,18 @@ function RecoveryCell({ params }: { params: SummaryParams }) {
 
 function LoadCell({ params }: { params: SummaryParams }) {
   const { data } = useQuery(trainingLoadQueries.summary(params))
-  const latest = data?.points.findLast((p) => p.acwr !== null) ?? null
+  // Same visibility rule as the ACWR chart below, so the two never show different "latest" days.
+  const latest =
+    applyVisibilityFilter(data?.points ?? [], (p) => p.date).findLast((p) => p.acwr !== null) ??
+    null
   const acwr = latest?.acwr ?? null
-  const footer =
+  const load =
     latest?.acute != null && latest.chronic != null
-      ? `acute ${latest.acute.toFixed(0)} · chronic ${latest.chronic.toFixed(0)} MET-min/day`
-      : undefined
+      ? [
+          { label: 'Acute', value: latest.acute, secondary: 'MET-min/day', key: 'acute' },
+          { label: 'Chronic', value: latest.chronic, secondary: 'MET-min/day', key: 'chronic' },
+        ]
+      : []
 
   return (
     <StripCell
@@ -100,7 +102,6 @@ function LoadCell({ params }: { params: SummaryParams }) {
       qualifier="acute ÷ chronic EWMA"
       value={fmtNum(acwr, 2)}
       unit="ACWR"
-      {...(footer !== undefined && { footer })}
       loading={data === undefined}
     >
       <Meter
@@ -115,10 +116,18 @@ function LoadCell({ params }: { params: SummaryParams }) {
           { from: ACWR_OPTIMAL_TO, to: ACWR_CAUTION_TO, label: 'Caution' },
           { from: ACWR_CAUTION_TO, to: ACWR_METER_MAX, label: 'Danger' },
         ]}
-        startCaption={latest === null ? null : acwrZoneLabel(latest.zone)}
-        endCaption={`optimal ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO}`}
+        startCaption={`optimal ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO}`}
+        endCaption={ACWR_METER_MAX.toFixed(1)}
         loading={data === undefined}
         emptyText="No training load"
+      />
+      <BarList
+        label="Acute and chronic load in MET-min per day"
+        items={load}
+        format={(v) => v.toFixed(0)}
+        loading={data === undefined}
+        loadingRows={2}
+        emptyText="No load measured"
       />
     </StripCell>
   )
@@ -127,6 +136,8 @@ function LoadCell({ params }: { params: SummaryParams }) {
 type SignalSpec = {
   label: string
   unit: string
+  /** Unit printed after the delta; empty when the value's unit is too long to repeat. */
+  deltaUnit: string
   digits: number
   /** Which way is good: RHR falling is good, HRV and VO2max rising are. */
   polarity: 'up-good' | 'up-bad'
@@ -143,7 +154,7 @@ function SignalLine({ spec }: { spec: SignalSpec }) {
       label={spec.label}
       value={current === null ? '—' : `${current.toFixed(spec.digits)} ${spec.unit}`}
       sparkline={
-        present.length > 1 ? (
+        present.length > 1 && new Set(present).size > 1 ? (
           <Sparkline
             data={present}
             height={20}
@@ -152,17 +163,21 @@ function SignalLine({ spec }: { spec: SignalSpec }) {
             ariaLabel={`${spec.label} over the last ${FITNESS_DAYS} days`}
           />
         ) : (
-          <Box />
+          <Text size="xs" c="dimmed">
+            {present.length > 1 ? 'unchanged' : '—'}
+          </Text>
         )
       }
       delta={
-        spec.delta === null ? (
-          '—'
+        spec.delta === null || spec.delta === 0 ? (
+          <Text size="xs" c="dimmed">
+            {spec.delta === 0 ? 'unchanged' : '—'}
+          </Text>
         ) : (
           <DeltaBadge
             value={spec.delta}
             polarity={spec.polarity}
-            format={(v) => signed(v, spec.digits)}
+            format={(v) => `${signed(v, spec.digits)} ${spec.deltaUnit}`.trim()}
             withGlyph={false}
           />
         )
@@ -183,7 +198,10 @@ function FitnessCell({ params }: { params: SummaryParams }) {
     return {
       rhr: last.map((p) => p.restingHr),
       hrv: last.map((p) => p.hrv),
-      vo2: last.map((p) => p.vo2Max),
+      // VO2max moves slowly, so its sparkline spans the whole window rather than the last 14 d.
+      vo2: applyVisibilityFilter(series.data?.points ?? [], (p) => p.date, {
+        hideToday: false,
+      }).map((p) => p.vo2Max),
     }
   }, [series.data])
 
@@ -199,6 +217,7 @@ function FitnessCell({ params }: { params: SummaryParams }) {
         spec={{
           label: 'RHR',
           unit: 'bpm',
+          deltaUnit: 'bpm',
           digits: 0,
           polarity: 'up-bad',
           values: rows.rhr,
@@ -209,6 +228,7 @@ function FitnessCell({ params }: { params: SummaryParams }) {
         spec={{
           label: 'HRV',
           unit: 'ms',
+          deltaUnit: 'ms',
           digits: 0,
           polarity: 'up-good',
           values: rows.hrv,
@@ -219,10 +239,11 @@ function FitnessCell({ params }: { params: SummaryParams }) {
         spec={{
           label: 'VO2max',
           unit: 'ml/kg/min',
+          deltaUnit: '',
           digits: 1,
           polarity: 'up-good',
           values: rows.vo2,
-          delta: firstToLast(rows.vo2),
+          delta: firstToLast(rows.vo2.slice(-FITNESS_DAYS)),
         }}
       />
     </StripCell>

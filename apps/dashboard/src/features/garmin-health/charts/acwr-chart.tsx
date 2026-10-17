@@ -76,6 +76,12 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
       })),
     [query.data],
   )
+  const first = points.at(0)
+  const last = points.at(-1)
+  // One shared x extent so the divergence strip's days line up under the ratio line's.
+  const xDomain = first && last ? ([first.day, last.day] as const) : undefined
+  // Explicit weekly ticks, identical on both plots, so the day labels sit in the same columns.
+  const xTicks = points.filter((_, i) => i % 7 === 0).map((p) => p.day)
   const hasAcwr = points.some((p) => p.acwr !== null)
   const latest = latestWith(points, (p) => p.acwr)
   const measured = points.filter((p) => p.acwr !== null)
@@ -101,7 +107,9 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
         height={220}
         x={(d) => d.day}
         series={ACWR_SERIES}
-        y={{ domain: 'auto', autoMaxFloor: 2.2 }}
+        {...(xDomain && { xDomain })}
+        xTicks={xTicks}
+        y={{ domain: 'auto', autoMaxFloor: 2.2, format: (v) => v.toFixed(1) }}
         zones={[{ from: 0.8, to: 1.3, fill: VX.good }]}
         thresholds={[
           { value: 1.3, side: 'above', fill: VX.bad },
@@ -131,6 +139,8 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
         height={DIVERGENCE_HEIGHT}
         x={(d) => d.day}
         bars={DIVERGENCE_BARS}
+        {...(xDomain && { xDomain })}
+        xTicks={xTicks}
         legend={false}
         y={{ domain: 'auto', ticks: 2, autoMaxFloor: 5, autoMinCeil: -5 }}
       />

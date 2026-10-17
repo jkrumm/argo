@@ -150,7 +150,13 @@ export function activitiesFact(input: {
   return {
     value: String(input.sessions),
     unit: input.sessions === 1 ? 'session' : 'sessions',
-    context: [fmtMinutes(input.totalMin), `last ${days(input.dayCount)}`],
+    context: [
+      fmtMinutes(input.totalMin),
+      input.dayCount > 0
+        ? `${((input.sessions / input.dayCount) * 7).toFixed(1)} per week`
+        : EM_DASH,
+      `last ${days(input.dayCount)}`,
+    ],
   }
 }
 
@@ -198,6 +204,7 @@ export function sleepFact(input: {
     context: [
       `score ${fmtNum(input.score)}/100`,
       `${fmtNum(input.meanHours, 1)} h mean over ${days(input.dayCount)}`,
+      'shaded 7–9 h',
     ],
   }
 }
@@ -214,7 +221,7 @@ export function bodyBatteryFact(input: {
     unit: 'net today',
     context: [
       `${signed(input.mean)} mean over ${days(input.dayCount)}`,
-      `high ${fmtNum(input.high)}, low ${fmtNum(input.low)}`,
+      `high ${fmtNum(input.high)}/100, low ${fmtNum(input.low)}/100`,
     ],
   }
 }
@@ -223,7 +230,10 @@ export function stressFact(input: { stress: number | null; rest: number; dayCoun
   return {
     value: fmtNum(input.stress),
     unit: 'avg stress',
-    context: [`${input.rest} of ${days(input.dayCount)} in the rest zone (< ${STRESS_REST_BELOW})`],
+    context: [
+      `${input.rest} of ${days(input.dayCount)} in the rest zone (< ${STRESS_REST_BELOW})`,
+      'zones at 25 · 50 · 75',
+    ],
   }
 }
 
