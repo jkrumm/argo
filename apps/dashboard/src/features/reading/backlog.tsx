@@ -11,7 +11,7 @@ const ROWS_NARROW = 5
 function headerFacts(b: BacklogTotals, pace: number | null): string {
   return [
     'ranked by community rating',
-    `${b.pages.toLocaleString('en-GB')} p`,
+    b.pages === 0 && b.withoutPages > 0 ? '— p' : `${b.pages.toLocaleString('en-GB')} p`,
     b.hours !== null && pace !== null
       ? `${approxHours(b.hours)} at ${pace} pages/h (median)`
       : `— h (${pace === null ? NO_PACE_REASON : 'no page counts'})`,

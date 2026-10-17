@@ -63,7 +63,8 @@ export function readingPace(shelf: readonly ShelfItem[]): Pace {
   }
   const mid = median(paces)
   return {
-    median: mid === null ? null : Math.round(mid),
+    // A median that rounds to 0 pages/h is no usable pace.
+    median: mid === null || Math.round(mid) <= 0 ? null : Math.round(mid),
     paces: paces.toSorted((a, b) => a - b).map(Math.round),
   }
 }

@@ -131,7 +131,7 @@ function RatingsCell({ shelf }: { shelf: readonly ShelfItem[] }) {
 }
 
 function PaceCell({ pace, shelf }: { pace: Pace; shelf: readonly ShelfItem[] }) {
-  if (pace.median === null) {
+  if (pace.median === null || pace.median <= 0) {
     return <Cell shot="pace" caption="Reading pace" value={EM_DASH} footer={NO_PACE_REASON} />
   }
   const top = Math.max(...pace.paces) * 1.15
