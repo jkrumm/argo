@@ -166,7 +166,7 @@ export function Board({
           <ColumnBody column={active} onOpen={onSelectItem} />
         ) : null
       ) : (
-        <Box className={classes.columns}>
+        <Box className={classes.columns} data-shot="board">
           {columns.map((column) => (
             <Stack
               key={column.key}

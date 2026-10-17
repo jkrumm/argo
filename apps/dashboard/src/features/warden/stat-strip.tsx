@@ -34,7 +34,7 @@ export function StatStrip({
       <Card.Section className={classes.strip}>
         <Box className={classes.cells}>
           {cells.map((cell) => (
-            <Box key={cell.key} className={classes.cell}>
+            <Box key={cell.key} className={classes.cell} data-shot={`strip-${cell.key}`}>
               <Tooltip label={cell.info} disabled={!cell.info} multiline maw={260} withArrow>
                 <Text size="xs" c="dimmed" ff="monospace" tt="uppercase" w="fit-content">
                   {cell.caption}
@@ -68,7 +68,7 @@ export function StatStrip({
         {footer && footer.length > 0 ? (
           <Box className={classes.footer}>
             {footer.map((entry) => (
-              <Box key={entry.key} className={classes.footerCell}>
+              <Box key={entry.key} className={classes.footerCell} data-shot={`budget-${entry.key}`}>
                 {entry.content}
               </Box>
             ))}
