@@ -14,8 +14,8 @@ Route `/strength-tracker` (Charts / History tabs) — `apps/dashboard/src/routes
 
 ## The question and the decision
 
-- Question on opening: is training going up, is the load right, and is today a push or rest day?
-- Decision: today's session intensity (push / sustain / rest), whether to deload, and which lift to prioritise.
+- Question on opening: is training going up, is the load right, and is today a Push, Normal or Rest day?
+- Decision: today's session intensity (Push / Normal / Rest), whether to deload, and which lift to prioritise.
 
 ## Datasets and encodings
 
@@ -40,7 +40,7 @@ Route `/strength-tracker` (Charts / History tabs) — `apps/dashboard/src/routes
 
 **1440.** Summary sentence under `PageBar`, then the page splits as today (main column + right tool column).
 
-1. Summary: `Deadlift e1RM 169.3 kg, +6.1 kg in 28d · ACWR 0.88 optimal · readiness 87 push`.
+1. Summary: `Deadlift e1RM 169.3 kg, +6.1 kg in 28d · ACWR 0.88 optimal · readiness 87 Push`.
 2. Row: Today's call card (left, 2/3) + per-lift strip (4 cells, below it spanning full width).
 3. Scan table.
 4. Sections reduced from five to four, each a precise noun: `Strength, 90 days` (e1RM + momentum), `Load, 12 weeks` (volume + ACWR + INOL), `Balance` (relative progression + ratios), `Readiness, 180 days`. Composite and alignment move into a collapsed `Diagnostics` section.
@@ -55,7 +55,7 @@ Charts that stay: e1RM, weekly volume, ACWR lines, INOL, momentum, relative prog
 Numbers are illustrative; the format is the contract.
 
 - Section titles: `Strength, 90 days`, `Load, 12 weeks`, `Balance`, `Readiness, 180 days`, `Diagnostics`. No subtitles.
-- Today's call: title `Today: push`; facts `Readiness 87/100 · driver HRV · last session INOL 1.10` ; line `Deload signal: 0 of 4 active`.
+- Today's call: title `Today: Push`; facts `Readiness 87/100 · driver HRV · last session INOL 1.10` ; line `Deload signal: 0 active`.
 - Lift cell: `169.3 kg  e1RM` / `+6.1 kg in 28d` / `PR 2026-08-12 · 10 sessions`
 - Chart headers: `Est. 1RM, 90 days`, `Volume per week · 3.8t this week · MAV 4.6t`, `ACWR 0.88 · optimal 0.8–1.3`, `INOL per session · 1.10 · hard`.
 - Ratio row: `DL / Squat   1.26   balanced · band 1.0–1.4`.
@@ -71,7 +71,7 @@ Numbers are illustrative; the format is the contract.
 
 ## Pass criteria
 
-1. The first row shows a verdict (push/rest) with a Meter and its two zone ticks; no card is a bare number.
+1. The first row shows the readiness verdict (Push / Normal / Rest) with a Meter and its two zone ticks; no card is a bare number.
 2. Every section title is a noun with a period (`Load, 12 weeks`); no subtitle ends in `?`.
 3. Each lift cell shows value with unit, a delta with its period and an end-dot sparkline.
 4. ACWR and readiness are shown against their zone bands at the top, not only inside a chart.
