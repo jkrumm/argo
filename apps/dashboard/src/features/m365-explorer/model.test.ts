@@ -140,11 +140,15 @@ describe('chipCounts / validTag', () => {
     expect(c).toEqual({
       all: 3,
       labeled: 2,
-      tags: [
-        ['a', 2],
-        ['b', 0],
-      ],
+      tags: [['a', 2]],
     })
+  })
+  test('keeps a zero-count tag only while it is the active filter', () => {
+    const rows = [{ label: 'a' }]
+    expect(chipCounts(['a', 'b'], rows, 1, 'b').tags).toEqual([
+      ['a', 1],
+      ['b', 0],
+    ])
   })
   test('validTag drops a tag that no longer exists', () => {
     expect(validTag('gone', ['a'])).toBe('')

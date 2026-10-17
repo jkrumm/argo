@@ -34,7 +34,7 @@ export function SourcesFooter({
         <Group gap={6} wrap="nowrap">
           <StatusDot color={VX.status.warn} />
           <Text size="xs" c="dimmed">
-            Sky darkness degraded
+            Sky darkness unknown
           </Text>
         </Group>
       )}

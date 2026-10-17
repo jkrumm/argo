@@ -39,10 +39,15 @@ import { RecordPane } from './record-pane'
 import { SourceList, type TeamChannels } from './source-list'
 import { ExplorerStrip } from './strip'
 import { explorerStore, type ViewKey } from './store'
-import { TagChips } from './tag-chips'
+import { TagChips, type ChipScope } from './tag-chips'
 import { TagsModal } from './tags-modal'
 import classes from './m365.module.css'
 
+const SCOPE_BY_VIEW: Record<ViewKey, ChipScope> = {
+  chats: 'chats',
+  teams: 'channels',
+  feed: 'sources',
+}
 const CHATS_TOP = 50
 /** Channel lists load this many teams ahead of the ones already settled: a slow Graph call never fans out all at once. */
 const CHANNEL_WINDOW = 4
@@ -116,17 +121,19 @@ export function M365ExplorerPage(): ReactElement {
   )
   const counts =
     view === 'teams'
-      ? chipCounts(tagNames, channelRows, channelsTotal)
+      ? chipCounts(tagNames, channelRows, channelsTotal, tag)
       : view === 'feed'
         ? chipCounts(
             tagNames,
             labels.map((l) => ({ label: l.label })),
             labels.length,
+            tag,
           )
         : chipCounts(
             tagNames,
             chatRows.map((r) => ({ label: labelMap.get(chatSourceId(r.ref.chatId))?.label })),
             chatRows.length,
+            tag,
           )
 
   const latest = chatRows.reduce<string | null>(
@@ -304,7 +311,7 @@ export function M365ExplorerPage(): ReactElement {
               <TagChips
                 active={tag}
                 counts={counts}
-                scope={view === 'teams' ? 'channels' : view === 'feed' ? 'sources' : 'chats'}
+                scope={SCOPE_BY_VIEW[view]}
                 onChange={setTag}
               />
               {view === 'feed' ? (

@@ -1,6 +1,6 @@
 import { VX } from 'basalt-ui/tokens'
 import { percent, weekday } from 'basalt-ui/format'
-import type { Location, Night, Sources, Verdict, WindowResponse } from './types'
+import type { Night, Verdict, WindowResponse } from './types'
 
 /** Verdict → tone. `out` is a hard gate, not a low score, so it reads neutral, never red. */
 export function verdictTone(verdict: Verdict): string {
@@ -68,24 +68,6 @@ export function moonPhaseLabel(phase: number): string {
   return 'Waning crescent'
 }
 
-/** One muted line naming which upstreams are degraded and whether sky darkness could be inferred
- * — the "reduced confidence" surface the brief calls for. Null when everything is healthy. */
-export function dataHealthLine(
-  sources: Sources,
-  darknessSource: Location['darknessSource'],
-): string | null {
-  const down: string[] = []
-  if (!sources.dwdIcon) down.push('DWD ICON')
-  if (!sources.globalForecast) down.push('global forecast')
-  if (!sources.sevenTimer) down.push('7Timer transparency')
-
-  const parts: string[] = []
-  if (down.length > 0) parts.push(`${down.join(', ')} unavailable`)
-  if (darknessSource === 'unknown') parts.push('sky darkness unknown')
-
-  return parts.length > 0 ? parts.join(' · ') : null
-}
-
 /** The lowest-scoring factor for a night, expressed as a percent — but only when it's genuinely
  * limiting (< 80%). Null when every scored factor is ≥ 80%, i.e. nothing is meaningfully holding
  * the night back. Feeds the hero's second row, which must never restate a fact the facts panel
@@ -104,7 +86,7 @@ export function limitingFactor(night: Night): { label: string; pct: number } | n
  * an all-out week still ranks; any other out night names its first killer; a usable night its window. */
 export function nightNote(night: Night): string {
   if (night.verdict !== 'out' && night.window !== null) return fmtMinutes(night.window.minutes)
-  const gap = gapToGate(night)
+  const gap = coreGateFailure(night) ? gapToGate(night) : null
   return gap !== null ? `${gap.toFixed(1)}° short` : killerLabel(night)
 }
 
@@ -169,6 +151,18 @@ export function bestNightOf(data: WindowResponse): Night | null {
   return data.nights.find((n) => n.date === data.bestDate) ?? data.nights[0] ?? null
 }
 
+/** Did the API rule this night out on the core gate? The one place that reads the killer id. */
+export function coreGateFailure(night: Night): boolean {
+  return night.killers.some((k) => k.id === 'core-altitude')
+}
+
+/** The core reading and its gate, for the verdict meter — present on every night with a dark
+ * stretch, whether or not the gate failed, so a clearing night still shows how far it cleared. */
+export function coreMeterReading(night: Night): { reading: number; gate: number } | null {
+  const { gateCoreAltitude: reading, coreGateDeg: gate } = night
+  return reading === null || gate === null ? null : { reading, gate }
+}
+
 /**
  * Degrees the core falls short of its gate at the tightest dark sample. With a `core-altitude`
  * killer the gap is shown even at 0.0° (the API's gate is a strict `>`); null when the core clears
@@ -177,7 +171,6 @@ export function bestNightOf(data: WindowResponse): Night | null {
 export function gapToGate(night: Night): number | null {
   if (night.gateCoreAltitude === null || night.coreGateDeg === null) return null
   const gap = night.coreGateDeg - night.gateCoreAltitude
-  const failed = night.killers.some((k) => k.id === 'core-altitude')
-  if (!failed) return null
+  if (!coreGateFailure(night)) return null
   return Math.round(Math.max(0, gap) * 10) / 10
 }

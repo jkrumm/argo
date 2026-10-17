@@ -2,7 +2,14 @@ import { Box } from '@mantine/core'
 import { Meter } from 'basalt-ui'
 import { CORE_METER_MAX_DEG } from '../constants'
 import { DecisionCard } from '../../../components/upstream/decision-card'
-import { fmtDegrees, fmtMinutes, fmtShortDay, gapToGate, limitingFactor } from '../formulas'
+import {
+  fmtDegrees,
+  fmtMinutes,
+  fmtShortDay,
+  coreMeterReading,
+  gapToGate,
+  limitingFactor,
+} from '../formulas'
 import type { Night } from '../types'
 
 /** `OUT · core 3.9° under the gate` / `GO · Sat 17, 23:10–01:40 · 2h 30m`. The API rules; this phrases. */
@@ -36,8 +43,7 @@ export function VerdictCard({ night }: { night: Night }) {
           ? 'nothing limiting'
           : `limited by ${limiting.label.toLowerCase()} ${limiting.pct} %`,
       ]
-  const reading = night.gateCoreAltitude
-  const gate = night.coreGateDeg
+  const core = coreMeterReading(night)
 
   return (
     <Box data-shot="verdict-card">
@@ -45,16 +51,16 @@ export function VerdictCard({ night }: { night: Night }) {
         question={headline(night)}
         facts={facts}
         evidence={
-          gapToGate(night) !== null && reading !== null && gate !== null ? (
+          core !== null ? (
             <Meter
               label="Core altitude against its gate"
-              value={reading}
+              value={core.reading}
               max={CORE_METER_MAX_DEG}
-              target={gate}
+              target={core.gate}
               tone="muted"
               format={fmtDegrees}
-              startCaption={`core ${fmtDegrees(reading)} at closest`}
-              endCaption={`gate ${fmtDegrees(gate)} · scale 0–${CORE_METER_MAX_DEG}°`}
+              startCaption={`core ${fmtDegrees(core.reading)} at closest`}
+              endCaption={`gate ${fmtDegrees(core.gate)} · scale 0–${CORE_METER_MAX_DEG}°`}
             />
           ) : undefined
         }
