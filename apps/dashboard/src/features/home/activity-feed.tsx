@@ -33,7 +33,7 @@ export function ActivityFeed({ groups, total, stale, loaded, now }: Props) {
   )
   const shown = Math.min(total, cap)
   return (
-    <Card py="sm" px="md">
+    <Card>
       <Section title="Activity">
         <div className={classes.feed} data-shot="activity">
           <span className={classes.live}>

@@ -81,7 +81,7 @@ type Props = {
 /** Today as an agenda, ended meetings dimmed: only hours that hold a meeting are drawn, then the tasks line. */
 export function Meetings({ agenda, next, later, tasks, now }: Props) {
   return (
-    <Card py="sm" px="md">
+    <Card>
       <Section
         title="Meetings today"
         {...(agenda !== null && { count: agenda.meetings.length })}
