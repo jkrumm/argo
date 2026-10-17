@@ -7,7 +7,7 @@
   align-items: flex-start;
 }
 
-.root > div[role='listitem'] {
+.group {
   align-self: stretch;
 }
 
@@ -42,8 +42,22 @@
   grid-column: 1;
 }
 
-.title {
+.titleButton {
   grid-column: 2;
+  min-width: 0;
+  text-align: start;
+}
+
+.title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.title[data-expanded] {
+  display: block;
+  overflow: visible;
 }
 
 .chip {
@@ -75,9 +89,16 @@
     grid-row: 1;
   }
 
-  .title {
+  .titleButton {
     grid-column: 1 / -1;
     grid-row: 2;
+  }
+
+  .title:not([data-expanded]) {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .chip {

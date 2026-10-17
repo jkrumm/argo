@@ -4,10 +4,12 @@
  */
 declare const classes: {
   readonly root: string
+  readonly group: string
   readonly heading: string
   readonly count: string
   readonly row: string
   readonly actor: string
+  readonly titleButton: string
   readonly title: string
   readonly chip: string
   readonly time: string

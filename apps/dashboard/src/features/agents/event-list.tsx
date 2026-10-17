@@ -1,6 +1,6 @@
-import { Button, Text } from '@mantine/core'
+import { Box, Button, Text, UnstyledButton } from '@mantine/core'
 import type { ReactNode } from 'react'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import classes from './event-list.module.css'
 
 export type EventRow = {
@@ -38,29 +38,22 @@ export function EventList({ label, groups, limit = Number.POSITIVE_INFINITY }: E
   )
 
   return (
-    <div className={classes.root} role="list" aria-label={label}>
+    <div className={classes.root} aria-label={label}>
       {groups.map((group, i) => {
         const rows = group.rows.slice(0, budgets[i])
         if (rows.length === 0) return null
         return (
-          <div key={group.label} role="listitem">
+          <section key={group.label} aria-label={group.label} className={classes.group}>
             <Text className={classes.heading}>
               {group.label}
               <span className={classes.count}>{group.rows.length}</span>
             </Text>
-            {rows.map((row) => (
-              <div key={row.key} className={classes.row}>
-                <Text className={classes.actor} size="sm" fw={600} truncate>
-                  {row.actor}
-                </Text>
-                <Text className={classes.title} size="sm" lineClamp={2}>
-                  {row.title}
-                </Text>
-                {row.chip ? <span className={classes.chip}>{row.chip}</span> : null}
-                <Text className={classes.time}>{row.time}</Text>
-              </div>
-            ))}
-          </div>
+            <div role="list">
+              {rows.map((row) => (
+                <Row key={row.key} row={row} />
+              ))}
+            </div>
+          </section>
         )
       })}
       {total > cap ? (
@@ -68,6 +61,36 @@ export function EventList({ label, groups, limit = Number.POSITIVE_INFINITY }: E
           Show {total - cap} more
         </Button>
       ) : null}
+    </div>
+  )
+}
+
+/** The sentence is clamped (one line when narrow); pressing it reveals the whole sentence. */
+function Row({ row }: { row: EventRow }) {
+  const [expanded, setExpanded] = useState(false)
+  const titleId = useId()
+  return (
+    <div role="listitem" className={classes.row}>
+      <Text className={classes.actor} size="sm" fw={600} truncate>
+        {row.actor}
+      </Text>
+      <UnstyledButton
+        className={classes.titleButton}
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        aria-controls={titleId}
+      >
+        <Text
+          id={titleId}
+          className={classes.title}
+          data-expanded={expanded || undefined}
+          size="sm"
+        >
+          {row.title}
+        </Text>
+      </UnstyledButton>
+      {row.chip ? <Box className={classes.chip}>{row.chip}</Box> : null}
+      <Text className={classes.time}>{row.time}</Text>
     </div>
   )
 }
