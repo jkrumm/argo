@@ -466,7 +466,7 @@ export function WorkoutForm() {
   }
 
   return (
-    <Paper ref={formRef} py="sm" px="md">
+    <Paper ref={formRef}>
       <Stack gap="sm">
         {/* Wraps rather than truncates: the title now carries a draft badge as
             well, and on a phone that plus the gym summary is more than one line. */}

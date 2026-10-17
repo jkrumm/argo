@@ -125,7 +125,7 @@ export function HeroStats({ params }: { params: StrengthQueryParams }) {
  */
 function HeroCardSkeleton({ label }: { label: string }) {
   return (
-    <Card py="sm" px="md" h="100%">
+    <Card h="100%">
       <Text size="xs" c="dimmed" mb={6}>
         {label}
       </Text>

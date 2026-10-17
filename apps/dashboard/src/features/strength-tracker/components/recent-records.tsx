@@ -53,7 +53,7 @@ export function RecentRecords({
   const records = (data?.records ?? []).slice(0, 30)
 
   return (
-    <Card py="sm" px="md">
+    <Card>
       {/* A real home (law C1/C8): the title row is a `WidgetHeader`, so its `actions` slot sizes
           the filter and no hand-rolled `Group` decides the heading's weight. */}
       <WidgetHeader
