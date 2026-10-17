@@ -1,10 +1,12 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useSizeClass } from 'basalt-ui'
 import { Bars, ChartCard, Lines, type BarsBar, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { trainingLoadQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import { FactsLine } from '../facts-line'
+import { ZONE_FILL } from '../zone-fills'
 import { acwrZoneColor, acwrZoneLabel, type AcwrZone } from '../formulas'
 import { acwrFact, divergenceFact } from '../model'
 import type { SummaryParams } from '../types'
@@ -54,7 +56,7 @@ const DIVERGENCE_BARS: BarsBar<TrainingLoadPoint>[] = [
   {
     key: 'divergence',
     label: 'Acute − chronic',
-    color: VX.line,
+    color: VX.line2,
     getValue: (d) => d.divergence,
     formatValue: (v) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)} MET-min/day`,
   },
@@ -76,6 +78,8 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
       })),
     [query.data],
   )
+  // At 390 the zone keys in the legend are noise; the card's header and the bands carry them.
+  const compact = useSizeClass() === 'compact'
   const first = points.at(0)
   const last = points.at(-1)
   // One shared x extent so the divergence strip's days line up under the ratio line's.
@@ -107,13 +111,14 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
         height={220}
         x={(d) => d.day}
         series={ACWR_SERIES}
+        {...(compact && { legend: false as const })}
         {...(xDomain && { xDomain })}
         xTicks={xTicks}
         y={{ domain: 'auto', autoMaxFloor: 1.8, format: (v) => v.toFixed(1) }}
-        zones={[{ from: 0.8, to: 1.3, fill: VX.good }]}
+        zones={[{ from: 0.8, to: 1.3, fill: ZONE_FILL.good }]}
         thresholds={[
-          { value: 1.3, side: 'above', fill: VX.bad },
-          { value: 0.8, side: 'below', fill: VX.warn },
+          { value: 1.3, side: 'above', fill: ZONE_FILL.bad },
+          { value: 0.8, side: 'below', fill: ZONE_FILL.warn },
         ]}
         refLines={[
           { value: 0.8, color: VX.warnRef },

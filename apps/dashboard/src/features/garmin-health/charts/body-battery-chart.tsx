@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import { Bars, ChartCard, type BarsBar, type BarsLine } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
-import { METRIC_TOOLTIPS } from '../constants'
 import { FactsLine } from '../facts-line'
 import { bodyBatteryFact, mean } from '../model'
 import type { SummaryParams } from '../types'
@@ -83,7 +82,6 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
   return (
     <ChartCard
       title="Body battery"
-      info={METRIC_TOOLTIPS.bodyBattery}
       state={chartStateOf(
         query,
         points.length === 0 ? 'No body battery in this window' : undefined,

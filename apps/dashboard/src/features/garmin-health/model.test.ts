@@ -84,8 +84,8 @@ describe('summarySentence', () => {
 describe('contributorItems', () => {
   test('rows are points of their weight and an unmeasured component is left out', () => {
     expect(contributorItems({ hrv: 31.2, sleep: null, rhr: 20 })).toEqual([
-      { label: 'HRV', value: 31.2, secondary: '/ 40 pts', key: 'HRV' },
-      { label: 'RHR', value: 20, secondary: '/ 25 pts', key: 'RHR' },
+      { label: 'HRV', value: 31.2, weight: 40, secondary: '/ 40 pts', key: 'HRV' },
+      { label: 'RHR', value: 20, weight: 25, secondary: '/ 25 pts', key: 'RHR' },
     ])
   })
 })

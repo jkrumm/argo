@@ -1,10 +1,12 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useSizeClass } from 'basalt-ui'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { recoveryQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import { FactsLine } from '../facts-line'
+import { ZONE_FILL } from '../zone-fills'
 import { RECOVERY_PUSH_FROM, countWhere, mean, recoveryFact } from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
@@ -63,6 +65,7 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
     [query.data],
   )
   const hasRecovery = points.some((p) => p.recovery !== null)
+  const compact = useSizeClass() === 'compact'
   const values = points.map((p) => p.recovery)
   const high = countWhere(values, (v) => v >= RECOVERY_PUSH_FROM)
   const fact = recoveryFact({ mean: mean(values), high: high.hits, dayCount: high.days })
@@ -82,11 +85,12 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
         height={280}
         x={(d) => d.day}
         series={RECOVERY_SERIES}
+        {...(compact && { legend: false as const })}
         y={{ domain: [0, 100] }}
         zones={[
-          { from: 70, to: 100, fill: VX.good },
-          { from: 40, to: 70, fill: VX.warn },
-          { from: 0, to: 40, fill: VX.bad },
+          { from: 70, to: 100, fill: ZONE_FILL.good },
+          { from: 40, to: 70, fill: ZONE_FILL.warn },
+          { from: 0, to: 40, fill: ZONE_FILL.bad },
         ]}
         tooltip={{
           rows: (d) => {
