@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Box } from '@mantine/core'
 import { Meter, StatGroup, type StatStripRow } from 'basalt-ui'
 import { CORE_METER_MAX_DEG, SKY_DARK_THRESHOLD, SKY_METER_MAX, SKY_METER_MIN } from '../constants'
@@ -51,9 +51,8 @@ function cloudRow(label: string, value: number | null): StatStripRow {
   }
 }
 
-/** A reading against a limit: a muted fill with a tick at `target`. */
-function gauge(label: string, value: number | null, max: number, target: number | null) {
-  if (value === null) return undefined
+/** A reading against a limit: a muted fill with a tick at `target`. A missing reading keeps the track and tick. */
+function gauge(label: string, value: number | null, max: number, target: number | null): ReactNode {
   return (
     <Meter
       label={label}

@@ -28,6 +28,7 @@ function shelfCell(counts: ShelfCounts): StatStripCell {
       <Meter
         label="Books by shelf status"
         max={counts.total}
+        startCaption={null}
         segments={parts.map((p, i) => ({ label: p.label, value: p.value, color: fillAt(i) }))}
       />
     ),
