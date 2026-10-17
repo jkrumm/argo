@@ -32,4 +32,4 @@ evidence: ## Real-data baseline (bundle/screens/lighthouse): make evidence LABEL
 	@bun scripts/evidence/index.ts "$(LABEL)"
 
 design-shot: ## Live-data screenshots + crops board: make design-shot [ROUTES="/agents /warden"] [LABEL=<label>] [SKIP_BUILD=1]
-	@bun scripts/design-shot/index.ts "$(LABEL)" "$(ROUTES)" "$(SKIP_BUILD)"
+	@DESIGN_SHOT_LABEL='$(LABEL)' DESIGN_SHOT_ROUTES='$(ROUTES)' DESIGN_SHOT_SKIP_BUILD='$(SKIP_BUILD)' bun scripts/design-shot/index.ts

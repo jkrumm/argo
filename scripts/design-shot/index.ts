@@ -45,7 +45,11 @@ async function defaultRoutes(): Promise<string[]> {
 }
 
 async function main(): Promise<number> {
-  const [labelArg, routesArg, skipBuild] = process.argv.slice(2)
+  const {
+    DESIGN_SHOT_LABEL: labelArg,
+    DESIGN_SHOT_ROUTES: routesArg,
+    DESIGN_SHOT_SKIP_BUILD: skipBuild,
+  } = process.env
   const label = labelArg || stamp()
   if (!/^[A-Za-z0-9][\w.-]*$/.test(label)) {
     console.error('usage: make design-shot [ROUTES="/a /b"] [LABEL=<label>] [SKIP_BUILD=1]')
@@ -64,11 +68,12 @@ async function main(): Promise<number> {
   try {
     const probe = await fetch(`${server.origin}/api/daily-metrics/sync-status`, {
       headers: { authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(30_000),
     })
     if (!probe.ok) {
-      throw new Error(
-        `bearer rejected by production: GET /daily-metrics/sync-status -> ${probe.status}`,
-      )
+      const verdict =
+        probe.status === 401 || probe.status === 403 ? 'bearer rejected' : 'probe failed'
+      throw new Error(`${verdict}: GET /daily-metrics/sync-status -> ${probe.status}`)
     }
     if (skipBuild !== '1') await buildDashboard()
 
@@ -82,10 +87,22 @@ async function main(): Promise<number> {
     server.stop()
   }
 
-  await writeFile(join(outDir, 'index.html'), renderBoard(label, results))
+  const upstreamNotes = server.upstreamErrors.map(
+    (e) => `upstream ${e.method} ${e.path} -> ${e.status}`,
+  )
+  await writeFile(join(outDir, 'index.html'), renderBoard(label, results, upstreamNotes))
   await writeFile(
     join(outDir, 'manifest.json'),
-    JSON.stringify({ label, routes: results, blockedWrites: server.blocked }, null, 2),
+    JSON.stringify(
+      {
+        label,
+        routes: results,
+        blockedWrites: server.blocked,
+        upstreamErrors: server.upstreamErrors,
+      },
+      null,
+      2,
+    ),
   )
 
   const failures = results.flatMap((r) => r.failures)
@@ -96,7 +113,9 @@ async function main(): Promise<number> {
     .map((r) => `${r.route}=dark ${cropCount(r, 'dark')}/light ${cropCount(r, 'light')}`)
     .join(' ')
   console.log(`[design-shot] ${full} full shots, crops: ${crops}`)
-  for (const n of results.flatMap((r) => r.notes)) console.log(`[design-shot] note ${n}`)
+  for (const n of [...results.flatMap((r) => r.notes), ...upstreamNotes]) {
+    console.log(`[design-shot] note ${n}`)
+  }
   console.log(`[design-shot] ${join(outDir, 'index.html')}`)
   for (const f of failures) console.error(`[design-shot] FAILED ${f}`)
   return failures.length ? 1 : 0

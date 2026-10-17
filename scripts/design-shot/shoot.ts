@@ -1,5 +1,5 @@
 /** One route × scheme × device: full-height shot, plus card/table crops on desktop. */
-import { join, resolve, sep } from 'node:path'
+import { resolve, sep } from 'node:path'
 import type { Browser, Page } from 'playwright-core'
 import { findCrops } from './crops'
 import type { Device, RouteResult, Scheme } from './types'
@@ -58,9 +58,16 @@ export async function shootAll(
   routes: string[],
   outDir: string,
 ): Promise<RouteResult[]> {
+  const seen = new Map<string, number>()
+  const uniqueSlug = (route: string): string => {
+    const base = routeSlug(route)
+    const n = (seen.get(base) ?? 0) + 1
+    seen.set(base, n)
+    return n === 1 ? base : `${base}-${n}`
+  }
   const results = routes.map<RouteResult>((route) => ({
     route,
-    slug: routeSlug(route),
+    slug: uniqueSlug(route),
     full: {},
     crops: [],
     failures: [],

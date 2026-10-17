@@ -10,12 +10,15 @@ import { join, normalize, resolve, sep } from 'node:path'
 const API_ORIGIN = 'https://argo.jkrumm.com'
 const AUTH_STORAGE_KEY = 'argo-auth'
 const COMPRESSIBLE = /\.(?:js|mjs|css|html|json|svg|txt|map|webmanifest)$/
+const UPSTREAM_TIMEOUT_MS = 30_000
 const DROPPED_RESPONSE_HEADERS = ['content-encoding', 'content-length', 'transfer-encoding']
 
 export type DistServer = {
   origin: string
   /** Distinct non-GET requests the app attempted against /api (answered 405, never forwarded). */
   blocked: string[]
+  /** Distinct upstream failures seen by the /api proxy (non-2xx, or unreachable as status 502). */
+  upstreamErrors: Array<{ method: string; path: string; status: number }>
   stop: () => void
 }
 
@@ -36,6 +39,7 @@ export async function readToken(): Promise<string> {
 export function serveDist(distDir: string, token: string): DistServer {
   const root = resolve(distDir)
   const blocked: string[] = []
+  const upstreamErrors: DistServer['upstreamErrors'] = []
   // `<` is escaped so a token can never close the script element.
   const seed = `<script>localStorage.setItem(${JSON.stringify(AUTH_STORAGE_KEY)},${JSON.stringify(
     JSON.stringify({ state: { token }, version: 0 }),
@@ -51,6 +55,14 @@ export function serveDist(distDir: string, token: string): DistServer {
     return existsSync(index) ? index : null
   }
 
+  const noteUpstream = (method: string, path: string, status: number): void => {
+    if (
+      !upstreamErrors.some((e) => e.method === method && e.path === path && e.status === status)
+    ) {
+      upstreamErrors.push({ method, path, status })
+    }
+  }
+
   const proxy = async (req: Request, url: URL): Promise<Response> => {
     const headers = new Headers(req.headers)
     headers.delete('host')
@@ -58,8 +70,9 @@ export function serveDist(distDir: string, token: string): DistServer {
     const upstream = await fetch(API_ORIGIN + url.pathname + url.search, {
       method: req.method,
       headers,
-      signal: req.signal,
+      signal: AbortSignal.any([req.signal, AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)]),
     })
+    if (!upstream.ok) noteUpstream(req.method, url.pathname, upstream.status)
     const out = new Headers(upstream.headers)
     for (const name of DROPPED_RESPONSE_HEADERS) out.delete(name)
     return new Response(upstream.body, { status: upstream.status, headers: out })
@@ -70,6 +83,7 @@ export function serveDist(distDir: string, token: string): DistServer {
     hostname: '127.0.0.1',
     async fetch(req) {
       // The HTML carries the bearer: refuse any Host but our own loopback origin (DNS rebinding).
+      // Other processes on loopback are trusted for the run's lifetime.
       if (req.headers.get('host') !== `127.0.0.1:${server.port}`) {
         return new Response('forbidden host', { status: 403 })
       }
@@ -84,7 +98,10 @@ export function serveDist(distDir: string, token: string): DistServer {
         return new Response('evidence server is GET-only', { status: 405 })
       }
       if (url.pathname === '/api' || url.pathname.startsWith('/api/')) {
-        return proxy(req, url).catch(() => new Response('upstream unreachable', { status: 502 }))
+        return proxy(req, url).catch(() => {
+          noteUpstream(req.method, url.pathname, 502)
+          return new Response('upstream unreachable', { status: 502 })
+        })
       }
       let file: string | null
       try {
@@ -124,6 +141,7 @@ export function serveDist(distDir: string, token: string): DistServer {
   return {
     origin: `http://127.0.0.1:${server.port}`,
     blocked,
+    upstreamErrors,
     stop: () => void server.stop(true),
   }
 }
