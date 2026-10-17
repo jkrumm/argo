@@ -5,6 +5,8 @@ import { IconTrash } from '@tabler/icons-react'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/table'
 import { skinfoldLogQueries, useDeleteSkinfoldLog } from '../../../lib/queries/skinfold-log'
 import { skinfoldSiteLabel } from '../formulas'
+import { localDay } from '../charts/series-data'
+import { format } from 'date-fns'
 
 type SkinfoldRow = {
   id: number
@@ -42,7 +44,10 @@ export function SkinfoldHistoryTable() {
   }
 
   const columns = [
-    columnHelper.accessor('date', { header: 'Date' }),
+    columnHelper.accessor('date', {
+      header: 'Date',
+      cell: (ctx) => format(localDay(ctx.getValue()), 'd MMM yyyy'),
+    }),
     columnHelper.accessor((row) => skinfoldSiteLabel(row.site), {
       id: 'site',
       header: 'Site',
