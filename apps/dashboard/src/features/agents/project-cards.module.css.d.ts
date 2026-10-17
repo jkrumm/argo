@@ -7,5 +7,6 @@ declare const classes: {
   readonly bar: string
   readonly share: string
   readonly shareFill: string
+  readonly listHead: string
 }
 export default classes

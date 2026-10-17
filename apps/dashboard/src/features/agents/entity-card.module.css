@@ -42,8 +42,8 @@
   display: flex;
   align-items: baseline;
   gap: var(--vx-space-control-gap);
+  flex-wrap: wrap;
   min-width: 0;
-  white-space: nowrap;
 }
 
 .value {
