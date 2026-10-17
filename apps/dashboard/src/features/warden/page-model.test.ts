@@ -15,6 +15,7 @@ import {
   oldestAgeDays,
   planActions,
   readLeaf,
+  retryQuestion,
   splitReason,
 } from './page-model'
 
@@ -384,5 +385,16 @@ describe('deferredNote', () => {
       'implement budget 5/5',
     )
     expect(deferredNote(item({ state: 'working', note: 'investigating' }))).toBeNull()
+  })
+})
+
+describe('retryQuestion', () => {
+  it('asks to retry the title', () => {
+    expect(retryQuestion('Push to the mini')).toBe('Retry Push to the mini?')
+  })
+
+  it('does not stack punctuation', () => {
+    expect(retryQuestion('fails mid-read.')).toBe('Retry fails mid-read?')
+    expect(retryQuestion('is it flaky?')).toBe('Retry is it flaky?')
   })
 })

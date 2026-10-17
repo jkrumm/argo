@@ -1,5 +1,6 @@
 import { Anchor, Box, Card, Group, ScrollArea, Stack, Text, UnstyledButton } from '@mantine/core'
 import { Section, useSizeClass } from 'basalt-ui'
+import { VX } from 'basalt-ui/tokens'
 import { ViewTabs } from 'basalt-ui/controls'
 import { relativeTime } from 'basalt-ui/format'
 import { IconBell, IconBrandGithub, IconBriefcase, IconUser, type Icon } from '@tabler/icons-react'
@@ -74,7 +75,7 @@ function BoardCard({
           ) : null}
           {deferred !== null ? (
             <Text size="xs" c="dimmed" lineClamp={2} className={classes.text}>
-              <Text span size="xs" fw={600} c="orange">
+              <Text span size="xs" fw={600} c={VX.status.warn}>
                 Deferred
               </Text>
               {' · '}
@@ -117,7 +118,7 @@ function ColumnBody({
     <Stack gap="xs">
       {column.items.length === 0 ? (
         <Text size="xs" c="dimmed">
-          Empty
+          No items in {column.label}
         </Text>
       ) : (
         column.items.map((item) => (

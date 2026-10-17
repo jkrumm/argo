@@ -19,6 +19,7 @@ import {
   failureChip,
   needsCards,
   planActions,
+  retryQuestion,
   splitReason,
   type QueueKind,
 } from './page-model'
@@ -91,7 +92,7 @@ function QueueCard({
   const title = row.title ?? `Item #${row.eventId}`
   const split =
     kind === 'failed'
-      ? { question: `Retry ${title}?`, rest: row.reason }
+      ? { question: retryQuestion(title), rest: row.reason }
       : splitReason(row.reason, title)
   const chip = kind === 'failed' ? failureChip(row.failureClass) : null
   const status =

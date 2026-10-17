@@ -79,7 +79,12 @@ export type StripModel = {
   }
   unattended: { fixes: number | null; windowDays: number; unavailable: string | null }
   poller: { oldestMin: number | null; unavailable: string | null }
-  reverts: { reverts: number | null; reopens: number | null; unavailable: string | null }
+  reverts: {
+    reverts: number | null
+    reopens: number | null
+    windowDays: number
+    unavailable: string | null
+  }
 }
 
 export type PollerRow = {
@@ -168,6 +173,10 @@ export function deriveStrip(
     reverts: {
       reverts: revertsReading.value,
       reopens: reopensReading.value,
+      windowDays:
+        numberOf(bag(revertsMetric?.['reverts'])?.['window_days']) ??
+        numberOf(metrics?.window_days) ??
+        DEFAULT_WINDOW_DAYS,
       unavailable:
         revertsReading.value === null && reopensReading.value === null
           ? (revertsReading.unavailable ?? 'not reported')
@@ -330,6 +339,11 @@ export function splitReason(
   if (first === undefined || first.length >= text.length) return { question: text, rest: null }
   const rest = text.slice(match![0].length).trim()
   return { question: first, rest: rest === '' ? null : rest }
+}
+
+/** `Retry <title>?` — a title that already ends in punctuation does not get a second mark. */
+export function retryQuestion(title: string): string {
+  return `Retry ${title.trim().replace(/[.!?…:;,]+$/, '')}?`
 }
 
 /** `<repo> · waiting <n> d · revision <n> · <n> redrives` — only the parts warden reported. */

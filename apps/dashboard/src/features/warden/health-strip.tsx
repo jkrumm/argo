@@ -82,7 +82,7 @@ function fixesCell({ fixes }: StripModel): StatStripCell {
     unit: '%',
     qualifier: (
       <>
-        all time
+        all time · share of fixed + quiet
         <br />
         <Text span size="xs" c={VX.status.good}>
           fixed {fixes.fixed ?? '—'}
@@ -213,7 +213,7 @@ function revertsCell({ reverts }: StripModel): StatStripCell {
     value: reverts.reverts === null ? '—' : String(reverts.reverts),
     unit: reverts.reverts === 1 ? 'revert' : 'reverts',
     valueColor: bad ? VX.status.bad : undefined,
-    qualifier: `${reverts.reopens === null ? '—' : reverts.reopens} reopen after fixed`,
+    qualifier: `${reverts.reopens === null ? '—' : reverts.reopens} reopen after fixed · last ${reverts.windowDays} d`,
   }
 }
 
