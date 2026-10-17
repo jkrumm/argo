@@ -26,8 +26,8 @@ export function NarrativesSection({ query }: Props) {
       ...(n.page
         ? {
             chip: (
-              <Badge variant="light" color="gray" size="sm">
-                {n.page}
+              <Badge variant="light" color="gray" size="sm" tt="none" title={n.page}>
+                wiki page
               </Badge>
             ),
           }
