@@ -1,0 +1,10 @@
+.chip {
+  flex: none;
+}
+
+.dot {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 50%;
+  flex: none;
+}

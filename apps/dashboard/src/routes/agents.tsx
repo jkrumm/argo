@@ -3,11 +3,14 @@ import { useQuery } from '@tanstack/react-query'
 import { Stack } from '@mantine/core'
 import { PageBar } from 'basalt-ui'
 import { agentsQueries } from '../lib/queries/agents'
-import { flattenAgents } from '../features/agents/model'
+import { useNow } from '../lib/use-now'
+import { flattenAgents, groupProjects, oldestNeedsYouWait } from '../features/agents/model'
 import { StaleBanner } from '../features/agents/stale-banner'
-import { HeroStats } from '../features/agents/hero-stats'
+import { PageSummary } from '../features/agents/page-summary'
+import { FleetStrip } from '../features/agents/fleet-strip'
 import { NeedsYouSection } from '../features/agents/needs-you-section'
-import { AgentsTable } from '../features/agents/agents-table'
+import { ProjectCards } from '../features/agents/project-cards'
+import { ActivityStrip } from '../features/agents/activity-strip'
 import { NarrativesSection } from '../features/agents/narratives-section'
 
 const HISTORY_HOURS = 24
@@ -32,6 +35,11 @@ function AgentsPage() {
   const latest = latestQuery.data?.latest ?? null
   const snapshot = latest?.snapshot
   const agents = flattenAgents(snapshot)
+  const now = useNow()
+  const humanQueue = snapshot?.humanQueue ?? []
+  const oldest = oldestNeedsYouWait(agents, now)
+  const { active, quiet } = groupProjects(snapshot, agents)
+  const waiting = agents.filter((a) => a.state === 'needs_you').length
 
   return (
     <>
@@ -45,14 +53,27 @@ function AgentsPage() {
 
       <Stack gap="md">
         <StaleBanner latest={latest} />
-        <HeroStats
+        <PageSummary
+          latest={latest}
+          now={now}
+          summary={{
+            items: humanQueue.length + waiting,
+            oldestWaitMs: oldest?.ms ?? null,
+            working: snapshot?.summary?.working ?? 0,
+            total: agents.length,
+            idleProjects: quiet.length,
+          }}
+        />
+        <FleetStrip
           summary={snapshot?.summary}
           history={historyQuery.data?.data}
           hours={HISTORY_HOURS}
-          agents={agents}
+          oldest={oldest}
+          now={now}
         />
-        <NeedsYouSection humanQueue={snapshot?.humanQueue ?? []} agents={agents} />
-        <AgentsTable agents={agents} overview={snapshot?.overview} summary={snapshot?.summary} />
+        <NeedsYouSection humanQueue={humanQueue} agents={agents} />
+        <ProjectCards active={active} quiet={quiet} now={now} />
+        <ActivityStrip history={historyQuery.data?.data} hours={HISTORY_HOURS} now={now} />
         <NarrativesSection query={narrativesQuery} />
       </Stack>
     </>
