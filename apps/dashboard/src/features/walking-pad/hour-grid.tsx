@@ -5,7 +5,14 @@ import { walkingPadQueries, type WalkingPadWindowParams } from '../../lib/querie
 import { VX } from 'basalt-ui/tokens'
 import { useNow } from '../../lib/use-now'
 import { walkingStore } from '../../lib/window-stores'
-import { busiestCell, fmtKm, firstVisibleHour, shiftCellsToLocal, windowTitle } from './model'
+import {
+  busiestCell,
+  fmtKm,
+  firstVisibleHour,
+  offsetLabel,
+  shiftCellsToLocal,
+  windowTitle,
+} from './model'
 import { Facts } from './facts'
 
 /** Monday first; the API's `dow` is 0 = Sunday. */
@@ -19,7 +26,8 @@ export function HourGrid({ params }: { params: WalkingPadWindowParams }) {
   const now = useNow()
   const query = useQuery(walkingPadQueries.hourOfDay(params))
   // The API buckets by UTC; shift each cell by the browser's current offset so the grid reads in local time.
-  const all = shiftCellsToLocal(query.data?.cells ?? [], new Date(now).getTimezoneOffset())
+  const offset = new Date(now).getTimezoneOffset()
+  const all = shiftCellsToLocal(query.data?.cells ?? [], offset)
   const first = firstVisibleHour(all)
   const cells = all.filter((c) => c.hour >= first)
   const hours = Array.from({ length: 24 - first }, (_, i) => hourKey(first + i))
@@ -34,7 +42,7 @@ export function HourGrid({ params }: { params: WalkingPadWindowParams }) {
       {peak !== null && (
         <Facts
           value={`${dayOf(peak.dow)} ${hourKey(peak.hour)}`}
-          context={`most walks · local time · hours from ${hourKey(first)}`}
+          context={`most walks · local time, current ${offsetLabel(offset)} · hours from ${hourKey(first)}`}
         />
       )}
       <Heatmap

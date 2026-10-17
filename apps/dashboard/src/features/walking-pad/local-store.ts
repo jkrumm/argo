@@ -1,5 +1,5 @@
 import { createLocalStore, field } from 'basalt-ui/state'
-import { DEFAULT_WEEKLY_TARGET_KM } from './model'
+import { DEFAULT_WEEKLY_TARGET_KM, WEEKLY_TARGET_BOUNDS } from './model'
 
 export const WEEK_VIEWS = ['weeks', 'days', 'pace'] as const
 
@@ -14,8 +14,7 @@ export const walkingLocal = createLocalStore({
     weeklyTargetKm: field.number({
       fallback: DEFAULT_WEEKLY_TARGET_KM,
       int: true,
-      min: 1,
-      max: 200,
+      ...WEEKLY_TARGET_BOUNDS,
     }),
     view: field.enum(WEEK_VIEWS, 'weeks'),
     showAllAchievements: field.boolean(false),

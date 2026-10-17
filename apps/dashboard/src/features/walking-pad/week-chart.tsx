@@ -102,7 +102,7 @@ export function WeekChart({ params }: { params: WalkingPadWindowParams }) {
             },
             {
               key: 'current',
-              label: 'This week',
+              label: 'This week so far',
               color: SERIES.walkingDistance,
               getValue: (d) => (d.date === thisMonday && d.km > 0 ? d.km : null),
               formatValue: (v) => `${v.toFixed(1)} km`,
