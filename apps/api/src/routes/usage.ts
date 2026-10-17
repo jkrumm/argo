@@ -78,6 +78,10 @@ function groupColumnSql(groupBy: string) {
   }
 }
 
+function nullableNumber(v: unknown): number | null {
+  return v === null || v === undefined ? null : Number(v)
+}
+
 function metricExpr(metric: string) {
   switch (metric) {
     case 'cost':
@@ -90,6 +94,8 @@ function metricExpr(metric: string) {
       return sql`COALESCE(SUM(input_tokens::bigint + output_tokens::bigint + cache_write_tokens::bigint + reasoning_tokens::bigint), 0)`
     case 'errors':
       return sql`COALESCE(SUM(CASE WHEN outcome = 'error' THEN 1 ELSE 0 END), 0)`
+    case 'error_rate':
+      return sql`SUM(CASE WHEN outcome = 'error' THEN 1 ELSE 0 END)::float / NULLIF(COUNT(*), 0)`
     case 'latency_p95':
       return sql`percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms) FILTER (WHERE duration_ms IS NOT NULL)`
     case 'cache_ratio':
@@ -255,6 +261,10 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
       const d30 = new Date(now.getTime() - 30 * 86_400_000).toISOString()
       const f7 = d7 < floor ? floor : d7
       const f30 = d30 < floor ? floor : d30
+      // The prior-30d window [now-60d, now-30d) is only comparable when it lies wholly after the
+      // data floor; a partial window would read as a drop, so its fields come back null instead.
+      const d60 = new Date(now.getTime() - 60 * 86_400_000).toISOString()
+      const priorComparable = d60 >= floor
 
       const [row] = await db.execute(sql`
         SELECT
@@ -277,7 +287,13 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
             / NULLIF(SUM(cache_read_tokens::bigint + input_tokens::bigint) FILTER (WHERE ts >= ${f30}), 0) AS cache_hit_ratio_30d,
           COUNT(DISTINCT source) FILTER (WHERE ts >= ${f30})::int AS sources_active,
           MAX(ts) FILTER (WHERE ts >= ${floor}) AS max_ts,
-          COUNT(*) FILTER (WHERE ts >= ${floor})::bigint AS records_total
+          COUNT(*) FILTER (WHERE ts >= ${floor})::bigint AS records_total,
+          COALESCE(SUM(cost_usd) FILTER (WHERE ts >= ${d60} AND ts < ${f30}), 0)::float AS cost_usd_prior_30d,
+          COALESCE(SUM(input_tokens::bigint + output_tokens::bigint + cache_write_tokens::bigint + reasoning_tokens::bigint) FILTER (WHERE ts >= ${d60} AND ts < ${f30}), 0)::bigint AS tokens_prior_30d,
+          COUNT(*) FILTER (WHERE outcome = 'error' AND ts >= ${d60} AND ts < ${f30})::float
+            / NULLIF(COUNT(*) FILTER (WHERE ts >= ${d60} AND ts < ${f30}), 0) AS error_rate_prior_30d,
+          percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms)
+            FILTER (WHERE duration_ms IS NOT NULL AND ts >= ${d60} AND ts < ${f30}) AS p95_ms_prior_30d
         FROM argo.usage_record
       `)
 
@@ -302,6 +318,10 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         sourcesActive: Number(r['sources_active'] ?? 0),
         maxTs: r['max_ts'] !== null && r['max_ts'] !== undefined ? String(r['max_ts']) : null,
         recordsTotal: Number(r['records_total'] ?? 0),
+        costUsdPrior30d: priorComparable ? Number(r['cost_usd_prior_30d'] ?? 0) : null,
+        tokensPrior30d: priorComparable ? Number(r['tokens_prior_30d'] ?? 0) : null,
+        errorRatePrior30d: priorComparable ? nullableNumber(r['error_rate_prior_30d']) : null,
+        p95MsPrior30d: priorComparable ? nullableNumber(r['p95_ms_prior_30d']) : null,
       }
     },
     {
@@ -319,13 +339,17 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
           sourcesActive: z.number().int(),
           maxTs: z.string().nullable(),
           recordsTotal: z.number().int(),
+          costUsdPrior30d: z.number().nullable(),
+          tokensPrior30d: z.number().int().nullable(),
+          errorRatePrior30d: z.number().nullable(),
+          p95MsPrior30d: z.number().nullable(),
         }),
       },
       detail: {
         tags: ['Usage Tracking'],
         summary: 'Usage headline KPIs',
         description:
-          'One-shot KPI bundle for the Usage Tracking dashboard. All windowed fields use a 30-day lookback unless suffixed (e.g. costUsd7d). p95Ms uses percentile_cont; cacheHitRatio is the weighted ratio sum(cache_read) / sum(cache_read + input).',
+          'One-shot KPI bundle for the Usage Tracking dashboard. All windowed fields use a 30-day lookback unless suffixed (e.g. costUsd7d). The *Prior30d fields cover the 30 days before that window (null when it would reach before the data floor, or has no rows for a ratio). p95Ms uses percentile_cont; cacheHitRatio is the weighted ratio sum(cache_read) / sum(cache_read + input).',
         security: [{ BearerAuth: [] }],
       },
     },
@@ -372,7 +396,8 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
           ORDER BY b.bucket
         `)
 
-        const defaultsToZero = metric !== 'latency_p95' && metric !== 'cache_ratio'
+        const defaultsToZero =
+          metric !== 'latency_p95' && metric !== 'cache_ratio' && metric !== 'error_rate'
         const buckets = (rows as unknown as Array<{ bucket: string; value: unknown }>).map((r) => ({
           bucket: r.bucket,
           groups: {
@@ -413,7 +438,8 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         ORDER BY b.bucket, d.group_key
       `)
 
-      const defaultsToZero = metric !== 'latency_p95' && metric !== 'cache_ratio'
+      const defaultsToZero =
+        metric !== 'latency_p95' && metric !== 'cache_ratio' && metric !== 'error_rate'
       const bucketMap = new Map<string, Map<string, number | null>>()
       const groupKeyTotals = new Map<string, number>()
       const allGroupKeys = new Set<string>()
@@ -488,7 +514,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         tags: ['Usage Tracking'],
         summary: 'Usage timeseries',
         description:
-          'Bucketed usage timeseries. ?range=7d|30d|90d|all, ?grain=day|week, ?metric=cost|tokens|errors|latency_p95|cache_ratio, ?groupBy=source|machine|model_norm|sub_tool|project|billing|outcome|none. Filter via sources[]/machines[]/billing[]. Empty buckets are emitted as 0 (or null for latency_p95/cache_ratio where there is no data). NULL group keys bucket as the literal "(unset)". groupKeys is sorted by descending total over the window.',
+          'Bucketed usage timeseries. ?range=7d|30d|90d|all, ?grain=day|week, ?metric=cost|tokens|errors|error_rate|latency_p95|cache_ratio, ?groupBy=source|machine|model_norm|sub_tool|project|billing|outcome|none. Filter via sources[]/machines[]/billing[]. Empty buckets are emitted as 0 (or null for error_rate/latency_p95/cache_ratio where there is no data; error_rate is errors / calls per bucket). NULL group keys bucket as the literal "(unset)". groupKeys is sorted by descending total over the window.',
         security: [{ BearerAuth: [] }],
       },
     },

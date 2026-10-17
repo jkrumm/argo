@@ -158,4 +158,61 @@ describe('GET /usage/headline', () => {
     expect(body.cacheHitRatio30d).not.toBeNull()
     expect(body.cacheHitRatio30d).toBeCloseTo(0.4, 5)
   })
+
+  it('reports the prior 30 d window separately from the current one', async () => {
+    const now = Date.now()
+    const current = new Date(now - 5 * 86_400_000).toISOString()
+    const prior = new Date(now - 40 * 86_400_000).toISOString()
+    await db.insert(usageRecord).values([
+      {
+        source: 'test',
+        source_id: 'cur',
+        grain: 'event',
+        ts: current,
+        billing: 'max',
+        cost_usd: 2,
+        input_tokens: 100,
+        duration_ms: 1000,
+        ingested_at: current,
+      },
+      {
+        source: 'test',
+        source_id: 'prior-ok',
+        grain: 'event',
+        ts: prior,
+        billing: 'max',
+        cost_usd: 5,
+        input_tokens: 400,
+        duration_ms: 3000,
+        ingested_at: prior,
+      },
+      {
+        source: 'test',
+        source_id: 'prior-err',
+        grain: 'event',
+        ts: prior,
+        billing: 'max',
+        outcome: 'error',
+        cost_usd: 0,
+        input_tokens: 0,
+        ingested_at: prior,
+      },
+    ])
+
+    const app = new Elysia().use(usageRoutes)
+    const res = await app.handle(new Request('http://localhost/usage/headline'))
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      costUsd30d: number
+      costUsdPrior30d: number | null
+      tokensPrior30d: number | null
+      errorRatePrior30d: number | null
+      p95MsPrior30d: number | null
+    }
+    expect(body.costUsd30d).toBeCloseTo(2, 2)
+    expect(body.costUsdPrior30d).toBeCloseTo(5, 2)
+    expect(body.tokensPrior30d).toBe(400)
+    expect(body.errorRatePrior30d).toBeCloseTo(0.5, 5)
+    expect(body.p95MsPrior30d).toBe(3000)
+  })
 })

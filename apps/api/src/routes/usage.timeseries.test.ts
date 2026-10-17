@@ -206,4 +206,36 @@ describe('GET /usage/timeseries', () => {
     })
     expect(today).toBeDefined()
   })
+
+  it('reports error_rate as errors over calls per day, null on a day with no calls', async () => {
+    const ts = new Date().toISOString()
+    await db.insert(usageRecord).values([
+      { source: 'test', source_id: 'ok-1', grain: 'event', ts, billing: 'max', ingested_at: ts },
+      { source: 'test', source_id: 'ok-2', grain: 'event', ts, billing: 'max', ingested_at: ts },
+      { source: 'test', source_id: 'ok-3', grain: 'event', ts, billing: 'max', ingested_at: ts },
+      {
+        source: 'test',
+        source_id: 'err-1',
+        grain: 'event',
+        ts,
+        billing: 'max',
+        outcome: 'error',
+        ingested_at: ts,
+      },
+    ])
+
+    const app = new Elysia().use(usageRoutes)
+    const res = await app.handle(
+      new Request(
+        'http://localhost/usage/timeseries?range=7d&grain=day&metric=error_rate&groupBy=none',
+      ),
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      buckets: Array<{ bucket: string; groups: Record<string, number | null> }>
+    }
+    const values = body.buckets.map((b) => b.groups['value'])
+    expect(values.at(-1)).toBeCloseTo(0.25, 5)
+    expect(values.at(0)).toBeNull()
+  })
 })
