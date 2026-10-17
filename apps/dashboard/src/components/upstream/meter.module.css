@@ -1,5 +1,5 @@
 /*
- * Meter — one neutral track, ordered fills, optional target tick (docs/waves/design-parity/SPEC.md
+ * Meter — one neutral track, ordered fills, optional target tick (basalt-ui docs/waves/design-parity/SPEC.md
  * § 6.3). Flat fills, no hatching. Bar height 6 is the measured reference; the radius is the `fine`
  * step so the track follows the radius knob.
  */

@@ -1,5 +1,5 @@
 /*
- * BarList — ranked rows on one shared scale (docs/waves/design-parity/SPEC.md § 6.4). The bar sits
+ * BarList — ranked rows on one shared scale (basalt-ui docs/waves/design-parity/SPEC.md § 6.4). The bar sits
  * BEHIND the label and value; the row never wraps: the label truncates, the value is nowrap.
  */
 
