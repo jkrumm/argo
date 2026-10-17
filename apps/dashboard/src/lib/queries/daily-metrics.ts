@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query'
+import { keepPreviousData, queryOptions } from '@tanstack/react-query'
 import { api } from '../eden'
 import { unwrap } from 'basalt-ui'
 
@@ -14,11 +14,13 @@ export const dailyMetricsQueries = {
     queryOptions({
       queryKey: [...dailyMetricsQueries.all(), 'summary', params] as const,
       queryFn: async () => unwrap(await api['daily-metrics'].summary.get({ query: params })),
+      placeholderData: keepPreviousData,
     }),
   series: (params: WindowParams) =>
     queryOptions({
       queryKey: [...dailyMetricsQueries.all(), 'series', params] as const,
       queryFn: async () => unwrap(await api['daily-metrics'].series.get({ query: params })),
+      placeholderData: keepPreviousData,
     }),
   syncStatus: () =>
     queryOptions({
@@ -33,11 +35,13 @@ export const recoveryQueries = {
     queryOptions({
       queryKey: [...recoveryQueries.all(), 'summary', params] as const,
       queryFn: async () => unwrap(await api.recovery.get({ query: params })),
+      placeholderData: keepPreviousData,
     }),
   series: (params: WindowParams) =>
     queryOptions({
       queryKey: [...recoveryQueries.all(), 'series', params] as const,
       queryFn: async () => unwrap(await api.recovery.series.get({ query: params })),
+      placeholderData: keepPreviousData,
     }),
 }
 
@@ -47,6 +51,7 @@ export const fitnessDirectionQueries = {
     queryOptions({
       queryKey: [...fitnessDirectionQueries.all(), params] as const,
       queryFn: async () => unwrap(await api['fitness-direction'].get({ query: params })),
+      placeholderData: keepPreviousData,
     }),
 }
 
@@ -56,6 +61,7 @@ export const trainingLoadQueries = {
     queryOptions({
       queryKey: [...trainingLoadQueries.all(), params] as const,
       queryFn: async () => unwrap(await api['training-load'].get({ query: params })),
+      placeholderData: keepPreviousData,
     }),
 }
 

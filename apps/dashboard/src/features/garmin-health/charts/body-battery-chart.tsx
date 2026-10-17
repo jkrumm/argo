@@ -4,6 +4,7 @@ import { Bars, ChartCard, type BarsBar, type BarsLine } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { FactsLine } from '../facts-line'
+import { RefetchDim } from '../refetch-dim'
 import { bodyBatteryFact, mean } from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
@@ -88,24 +89,26 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
       )}
       placeholderHeight={280}
     >
-      <FactsLine fact={fact} />
-      <Bars
-        cursorResolution="leading"
-        ariaLabel="Body battery charged vs drained per day with net line"
-        data={points}
-        height={280}
-        x={(d) => d.day}
-        bars={BARS}
-        lines={LINES}
-        y={{
-          domain: 'auto',
-          autoPad: 1.1,
-          autoMaxFloor: 50,
-          autoMinCeil: -50,
-          ticks: 5,
-          format: (v) => (v === 0 ? '0' : v > 0 ? `+${v}` : String(v)),
-        }}
-      />
+      <RefetchDim active={query.isPlaceholderData}>
+        <FactsLine fact={fact} />
+        <Bars
+          cursorResolution="leading"
+          ariaLabel="Body battery charged vs drained per day with net line"
+          data={points}
+          height={280}
+          x={(d) => d.day}
+          bars={BARS}
+          lines={LINES}
+          y={{
+            domain: 'auto',
+            autoPad: 1.1,
+            autoMaxFloor: 50,
+            autoMinCeil: -50,
+            ticks: 5,
+            format: (v) => (v === 0 ? '0' : v > 0 ? `+${v}` : String(v)),
+          }}
+        />
+      </RefetchDim>
     </ChartCard>
   )
 }

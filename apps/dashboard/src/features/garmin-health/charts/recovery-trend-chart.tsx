@@ -6,6 +6,7 @@ import { VX } from 'basalt-ui/tokens'
 import { recoveryQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import { FactsLine } from '../facts-line'
+import { RefetchDim } from '../refetch-dim'
 import { ZONE_FILL } from '../zone-fills'
 import { RECOVERY_PUSH_FROM, countWhere, mean, recoveryFact } from '../model'
 import type { SummaryParams } from '../types'
@@ -77,29 +78,31 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
       state={chartStateOf(query, !hasRecovery ? 'No recovery scores in this window' : undefined)}
       placeholderHeight={280}
     >
-      <FactsLine fact={fact} />
-      <Lines
-        cursorResolution="leading"
-        ariaLabel="Recovery score trend with push/normal/rest zones"
-        data={points}
-        height={280}
-        x={(d) => d.day}
-        series={RECOVERY_SERIES}
-        {...(compact && { legend: false as const })}
-        y={{ domain: [0, 100] }}
-        zones={[
-          { from: 70, to: 100, fill: ZONE_FILL.good },
-          { from: 40, to: 70, fill: ZONE_FILL.warn },
-          { from: 0, to: 40, fill: ZONE_FILL.bad },
-        ]}
-        tooltip={{
-          rows: (d) => {
-            if (d.recovery === null) return []
-            const zone = recoveryZoneLabel(d.recovery)
-            return [{ label: 'Zone', value: zone.text, color: zone.color }]
-          },
-        }}
-      />
+      <RefetchDim active={query.isPlaceholderData}>
+        <FactsLine fact={fact} />
+        <Lines
+          cursorResolution="leading"
+          ariaLabel="Recovery score trend with push/normal/rest zones"
+          data={points}
+          height={280}
+          x={(d) => d.day}
+          series={RECOVERY_SERIES}
+          {...(compact && { legend: false as const })}
+          y={{ domain: [0, 100] }}
+          zones={[
+            { from: 70, to: 100, fill: ZONE_FILL.good },
+            { from: 40, to: 70, fill: ZONE_FILL.warn },
+            { from: 0, to: 40, fill: ZONE_FILL.bad },
+          ]}
+          tooltip={{
+            rows: (d) => {
+              if (d.recovery === null) return []
+              const zone = recoveryZoneLabel(d.recovery)
+              return [{ label: 'Zone', value: zone.text, color: zone.color }]
+            },
+          }}
+        />
+      </RefetchDim>
     </ChartCard>
   )
 }

@@ -112,6 +112,7 @@ function RecoveryCell({ params }: { params: SummaryParams }) {
       value={fmtNum(score)}
       unit="/100"
       loading={data === undefined}
+      stale={summary.isPlaceholderData}
     >
       <Meter
         label="Recovery score"
@@ -138,7 +139,7 @@ function RecoveryCell({ params }: { params: SummaryParams }) {
 }
 
 function LoadCell({ params }: { params: SummaryParams }) {
-  const { data } = useQuery(trainingLoadQueries.summary(params))
+  const { data, isPlaceholderData } = useQuery(trainingLoadQueries.summary(params))
   // Same visibility rule as the ACWR chart below, so the two never show different "latest" days.
   const latest =
     applyVisibilityFilter(data?.points ?? [], (p) => p.date).findLast((p) => p.acwr !== null) ??
@@ -160,6 +161,7 @@ function LoadCell({ params }: { params: SummaryParams }) {
       value={fmtNum(acwr, 2)}
       unit="ACWR"
       loading={data === undefined}
+      stale={isPlaceholderData}
     >
       <Meter
         label="Acute to chronic workload ratio"
@@ -208,7 +210,7 @@ function SignalLine({ spec }: { spec: SignalSpec }) {
       label={spec.label}
       value={
         spec.hideValue === true
-          ? spec.period
+          ? ''
           : current === null
             ? '—'
             : `${current.toFixed(spec.digits)} ${spec.unit}`
@@ -239,6 +241,7 @@ function SignalLine({ spec }: { spec: SignalSpec }) {
             polarity={spec.polarity}
             format={(v) => `${signed(v, spec.digits)} ${spec.deltaUnit}`.trim()}
             withGlyph
+            period={`vs ${spec.period}`}
           />
         )
       }
@@ -284,6 +287,7 @@ function FitnessCell({ params }: { params: SummaryParams }) {
       value={fmtNum(d?.vo2max, 1)}
       unit="VO2max ml/kg/min"
       loading={d === undefined}
+      stale={direction.isPlaceholderData}
     >
       <SignalLine
         spec={{
