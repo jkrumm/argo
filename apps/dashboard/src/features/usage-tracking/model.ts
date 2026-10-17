@@ -5,7 +5,6 @@
 import type { TimePoint } from './types'
 
 export const EM_DASH = '—'
-/** Minus sign (U+2212) so a signed figure aligns with `+` in tabular numerals. */
 
 /** Cache hit ratio the page calls good — the tick on the ring (`>60%` in the old zone chart). */
 export const CACHE_HIT_TARGET = 0.6
@@ -106,7 +105,10 @@ export const fmtTokensDay = (v: number) => {
   const q = tokensQuantity(v)
   return `${q.value}${q.unit} tokens`
 }
-export const fmtSecondsDay = (v: number) => `${secondsQuantity(v).value} s`
+export const fmtSecondsDay = (v: number) => {
+  const q = secondsQuantity(v)
+  return q.unit === '' ? q.value : `${q.value} ${q.unit}`
+}
 
 /** `18 Oct`: a daily bucket's tooltip header and axis caption. */
 export const shortDay = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' })
@@ -130,11 +132,23 @@ export function priorNote(
   return delta(current ?? null, prior) === null ? 'prior 30 d had no base to compare' : null
 }
 
-/** The error rate comparison, stated as the prior window's own rate. */
-export function priorErrorLine(prior: Prior): string {
-  if (prior === undefined) return 'prior unavailable'
-  if (prior === null) return 'no comparable prior 30 d'
-  return `vs ${fmtPct(prior)} prior 30 d`
+/**
+ * The error-rate comparison as one result: the badge's point delta and the footer note derive from
+ * the same inputs, so they cannot disagree. With a delta the note states the prior rate itself.
+ */
+export function errorComparison(input: {
+  current: number | null | undefined
+  prior: Prior
+  calls: number | null | undefined
+}): { value: number | null; note: string } {
+  const { current, prior, calls } = input
+  if (prior === undefined) return { value: null, note: 'prior unavailable' }
+  if (prior === null) return { value: null, note: 'no comparable prior 30 d' }
+  if (calls === 0) return { value: null, note: 'no calls to rate' }
+  const value = pointsDelta(current ?? null, prior)
+  return value === null
+    ? { value, note: 'prior 30 d had no base to compare' }
+    : { value, note: `vs ${fmtPct(prior)} prior 30 d` }
 }
 
 /** The 30 d error rate, or `—` when the window had no calls (the API reports 0 there, not a rate). */

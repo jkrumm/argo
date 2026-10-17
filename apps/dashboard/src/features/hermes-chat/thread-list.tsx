@@ -24,8 +24,10 @@ export function TypeChip({ type }: { type: ThreadEntry['type'] }) {
 /** Fragments joined by ` · `; each is unbreakable, so a date never splits across lines. */
 export function JoinedParts({ parts }: { parts: readonly string[] }) {
   return parts.map((part, i) => (
-    <Fragment key={part}>
-      {i > 0 && ' · '}
+    // Parts can repeat and never reorder, so the index is the identity.
+    // eslint-disable-next-line react/no-array-index-key
+    <Fragment key={i}>
+      {i > 0 && <span aria-hidden="true"> · </span>}
       <span className={classes['part']}>{part}</span>
     </Fragment>
   ))

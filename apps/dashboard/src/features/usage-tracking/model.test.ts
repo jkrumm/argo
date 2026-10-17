@@ -4,7 +4,7 @@ import {
   billingParts,
   errorRateReading,
   meanOf,
-  priorErrorLine,
+  errorComparison,
   priorNote,
   fmtPctBadge,
   fmtUsdDay,
@@ -166,9 +166,21 @@ describe('prior comparisons', () => {
     expect(priorNote(120, null, pctDelta)).toBe('no comparable prior 30 d')
     expect(priorNote(120, 100, pctDelta)).toBeNull()
     expect(priorNote(120, 0, pctDelta)).toBe('prior 30 d had no base to compare')
-    expect(priorErrorLine(undefined)).toBe('prior unavailable')
-    expect(priorErrorLine(null)).toBe('no comparable prior 30 d')
-    expect(priorErrorLine(0.012)).toBe('vs 1.2% prior 30 d')
+    const calls = 100
+    expect(errorComparison({ current: 0.02, prior: undefined, calls }).note).toBe(
+      'prior unavailable',
+    )
+    expect(errorComparison({ current: 0.02, prior: null, calls }).note).toBe(
+      'no comparable prior 30 d',
+    )
+    expect(errorComparison({ current: 0.02, prior: 0.012, calls })).toEqual({
+      value: expect.closeTo(0.8),
+      note: 'vs 1.2% prior 30 d',
+    })
+    expect(errorComparison({ current: 0, prior: 0.012, calls: 0 })).toEqual({
+      value: null,
+      note: 'no calls to rate',
+    })
   })
 })
 
@@ -220,6 +232,7 @@ describe('readout formatters', () => {
     expect(fmtTokensDay(3_200_000)).toBe('3.2M tokens')
     expect(fmtTokensDay(950)).toBe('950 tokens')
     expect(fmtSecondsDay(1800)).toBe('1.8 s')
+    expect(fmtSecondsDay(Number.NaN)).toBe('—')
   })
 
   it('badge magnitudes keep one decimal so a small change is not a red 0%', () => {

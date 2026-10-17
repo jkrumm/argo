@@ -30,8 +30,7 @@ import {
   fmtUsdWhole,
   meanOf,
   pctDelta,
-  pointsDelta,
-  priorErrorLine,
+  errorComparison,
   priorNote,
   secondsDelta,
   secondsQuantity,
@@ -65,7 +64,12 @@ type Ctx = { h: Headline | undefined; loading: boolean }
 /** Footer lines, one per row, as the strip's single footer node; a `null` line is skipped. */
 const footerOf = (lines: readonly (string | null)[]) => (
   <Stack gap={0}>
-    {lines.flatMap((line) => (line === null ? [] : [<span key={line}>{line}</span>]))}
+    {lines
+      .filter((line): line is string => line !== null)
+      .map((line, i) => (
+        // eslint-disable-next-line react/no-array-index-key -- lines can repeat; order is the identity
+        <span key={i}>{line}</span>
+      ))}
   </Stack>
 )
 
@@ -171,23 +175,29 @@ function tokensCell({ h, loading }: Ctx, tokens: Series): StatStripCell {
 }
 
 function errorsCell({ h, loading }: Ctx, errors: Series): StatStripCell {
-  const priorError = h === undefined ? EM_DASH : priorErrorLine(h.errorRatePrior30d)
-  // No calls: the API reports a rate of 0, not a rate, so there is nothing to compare.
-  const vs = compare({
-    h: h?.calls30d === 0 ? undefined : h,
-    current: h?.errorRate30d,
-    prior: h?.errorRatePrior30d,
-    delta: pointsDelta,
-    format: fmtPointsBadge,
-    polarity: 'up-bad',
-  })
+  const vs =
+    h === undefined
+      ? { value: null, note: EM_DASH }
+      : errorComparison({
+          current: h.errorRate30d,
+          prior: h.errorRatePrior30d,
+          calls: h.calls30d,
+        })
   return {
     key: 'errors',
     caption: 'Errors',
     qualifier: '30 d',
     value: errorRateReading(h?.errorRate30d, h?.calls30d),
     ...(h?.calls30d === 0 ? {} : { unit: 'of calls' }),
-    delta: vs.delta,
+    delta:
+      vs.value === null ? undefined : (
+        <DeltaBadge
+          value={vs.value}
+          format={fmtPointsBadge}
+          polarity="up-bad"
+          period="prior 30 d"
+        />
+      ),
     loading,
     visual:
       errors.days.length > 0 ? (
@@ -203,10 +213,10 @@ function errorsCell({ h, loading }: Ctx, errors: Series): StatStripCell {
       ),
     footer: footerOf(
       errors.days.length === 0
-        ? [priorError]
+        ? [vs.note]
         : [
             `${badDayCount(errors.days.map((d) => d.value))} bad days · > ${fmtPct(ERROR_BAD_ABOVE, 0)}`,
-            priorError,
+            vs.note,
             `warn from ${fmtPct(ERROR_WARN_FROM, 0)} a day`,
           ],
     ),
