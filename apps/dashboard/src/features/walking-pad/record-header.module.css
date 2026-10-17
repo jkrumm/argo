@@ -1,0 +1,28 @@
+.dot {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--vx-radius-pill);
+  background: var(--vx-muted);
+}
+
+.live {
+  background: var(--vx-good-solid);
+  animation: pulse 1.6s ease-in-out infinite; /* theme-allow raw-motion-value — live pulse, basalt ships no motion token for it */
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live {
+    animation: none;
+  }
+}
+
+.facts {
+  font-variant-numeric: proportional-nums;
+}

@@ -1,0 +1,162 @@
+/*
+ * The WalkingPad strip — one joined surface of four cells divided by 1px hairlines (the same idea as
+ * the Garmin strip prototype, copied here so the two can diverge). The frame is the elevation; the
+ * cells are flat panels, so the seam is the gap showing the divider colour through.
+ */
+
+.frame {
+  container-type: inline-size;
+}
+
+.strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border-radius: var(--vx-radius-card);
+  background: var(--vx-divider);
+  box-shadow: var(--vx-shadow-card);
+}
+
+@container (min-width: 800px) {
+  .strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vx-space-stack-sm);
+  min-width: 0;
+  padding: var(--vx-space-stack-md) var(--vx-space-stack-lg);
+  font-size: var(--vx-text-sm);
+  background: var(--vx-surface-panel);
+}
+
+.caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--vx-space-stack-sm);
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vx-muted);
+}
+
+.qualifier {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--vx-space-stack-xs);
+  min-width: 0;
+}
+
+.value {
+  /* Hero figures are proportional; tabular numerals stay in columns and axes. */
+  font-family: var(--basalt-font-sans);
+  font-variant-numeric: proportional-nums;
+  font-size: var(--vx-text-kpi);
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--vx-ink);
+}
+
+.unit {
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+}
+
+.delta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--vx-space-stack-xs);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+}
+
+.footer {
+  margin-top: auto;
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  color: var(--vx-muted);
+}
+
+/* Streak: seven day ticks, Mon–Sun. */
+.days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--vx-space-stack-xs);
+}
+
+.day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  color: var(--vx-muted);
+}
+
+.tick {
+  width: 100%;
+  height: 1.25rem;
+  border-radius: var(--vx-radius-ctrl);
+  background: var(--vx-surface-subtle);
+}
+
+.walked {
+  background: color-mix(in srgb, var(--vx-muted) 55%, transparent);
+}
+
+.upcoming {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--vx-divider);
+}
+
+.today {
+  box-shadow: inset 0 0 0 2px var(--vx-ink);
+}
+
+/* Totals: label · value rows. */
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vx-space-stack-xs);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: var(--vx-space-stack-md);
+}
+
+.rowLabel {
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--vx-muted);
+}
+
+.rowValue {
+  text-align: end;
+  color: var(--vx-ink);
+  font-variant-numeric: proportional-nums;
+}
+
+.rowContext {
+  color: var(--vx-muted);
+}

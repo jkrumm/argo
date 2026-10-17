@@ -1,0 +1,291 @@
+import { describe, expect, it } from 'bun:test'
+import {
+  busiestCell,
+  collapseAchievements,
+  distanceFacts,
+  firstVisibleHour,
+  fmtDuration,
+  fmtSignedKm,
+  fmtSignedKmh,
+  groupByMonth,
+  median,
+  mondayKey,
+  paceValues,
+  priorLabel,
+  shiftCellsToLocal,
+  summarySentence,
+  trimLeadingEmpty,
+  weekSummary,
+  weekTicks,
+  widerPreset,
+  windowPhrase,
+  windowTitle,
+  widenLabel,
+  windowStartMs,
+  type Achievement,
+  type SeriesPoint,
+  type SessionRow,
+} from './model'
+
+const point = (date: string, over: Partial<SeriesPoint> = {}): SeriesPoint => ({
+  date,
+  sessions: 0,
+  duration_s: 0,
+  distance_m: 0,
+  steps: 0,
+  kcal: 0,
+  avg_speed_kmh: null,
+  ...over,
+})
+
+// Saturday 2026-10-17 12:00 UTC; its Monday is 2026-10-12.
+const NOW = Date.parse('2026-10-17T12:00:00Z')
+
+describe('weeks', () => {
+  it('keys the UTC Monday, including on a Sunday and on the Monday itself', () => {
+    expect(mondayKey(NOW)).toBe('2026-10-12')
+    expect(mondayKey(Date.parse('2026-10-18T23:59:00Z'))).toBe('2026-10-12')
+    expect(mondayKey(Date.parse('2026-10-12T00:00:00Z'))).toBe('2026-10-12')
+  })
+
+  it('reads this week against last week from the series', () => {
+    const points = [
+      point('2026-10-05', { distance_m: 9000, sessions: 3 }),
+      point('2026-10-12', { distance_m: 12_400, sessions: 4 }),
+    ]
+    expect(weekSummary(points, NOW)).toEqual({
+      distanceM: 12_400,
+      sessions: 4,
+      priorDistanceM: 9000,
+      deltaM: 3400,
+    })
+  })
+
+  it('has no delta when last week is outside the series, and no summary without this week', () => {
+    expect(weekSummary([point('2026-10-12', { distance_m: 5000 })], NOW)?.deltaM).toBeNull()
+    expect(weekSummary([point('2026-10-05')], NOW)).toBeNull()
+  })
+
+  it('draws Mon–Sun ticks with today outlined and the rest of the week upcoming', () => {
+    const ticks = weekTicks(
+      [point('2026-10-12', { sessions: 1 }), point('2026-10-15', { sessions: 2 })],
+      NOW,
+    )
+    expect(ticks.map((t) => t.state)).toEqual([
+      'walked',
+      'rest',
+      'rest',
+      'walked',
+      'rest',
+      'rest',
+      'upcoming',
+    ])
+    expect(ticks.filter((t) => t.today).map((t) => t.key)).toEqual(['2026-10-17'])
+  })
+
+  it('trims the empty buckets before the first walk', () => {
+    const trimmed = trimLeadingEmpty([point('a'), point('b', { sessions: 1 }), point('c')])
+    expect(trimmed.map((p) => p.date)).toEqual(['b', 'c'])
+    expect(trimLeadingEmpty([point('a')])).toEqual([])
+  })
+
+  it('leaves weeks without a pace out of the sparkline values', () => {
+    const values = paceValues([
+      point('a'),
+      point('b', { sessions: 1, avg_speed_kmh: 4.2 }),
+      point('c', { sessions: 0 }),
+      point('d', { sessions: 1, avg_speed_kmh: 4.8 }),
+    ])
+    expect(values).toEqual([4.2, 4.8])
+  })
+})
+
+describe('window naming', () => {
+  it('names a preset, a custom range and the open window', () => {
+    expect(windowPhrase('30d')).toBe('the last 30 days')
+    expect(windowPhrase('6m')).toBe('the last 6 months')
+    expect(windowPhrase('custom')).toBe('this range')
+    expect(windowPhrase('all')).toBe('any window')
+  })
+
+  it('titles a chart by its window', () => {
+    expect(windowTitle('30d')).toBe('last 30 days')
+    expect(windowTitle('all')).toBe('all time')
+    expect(windowTitle('custom')).toBe('selected range')
+  })
+
+  it('compares against the prior window by length', () => {
+    expect(priorLabel('30d')).toBe('prior 30 d')
+    expect(priorLabel('custom')).toBe('prior window')
+  })
+
+  it('widens to the next preset and stops at all-time', () => {
+    expect(widerPreset('30d')).toBe('90d')
+    expect(widerPreset('1y')).toBe('all')
+    expect(widerPreset('all')).toBeNull()
+    expect(widerPreset('custom')).toBe('90d')
+  })
+
+  it('labels the widen action', () => {
+    expect(widenLabel('90d')).toBe('Show 90 days')
+    expect(widenLabel('1y')).toBe('Show 1 year')
+    expect(widenLabel('all')).toBe('Show all time')
+  })
+
+  it('starts a window at now minus its days, from the range start, or never for all', () => {
+    expect(windowStartMs({ window: '7d' }, NOW)).toBe(NOW - 7 * 86_400_000)
+    expect(windowStartMs({}, NOW)).toBe(NOW - 30 * 86_400_000)
+    expect(windowStartMs({ from: '2026-01-01' }, NOW)).toBe(Date.parse('2026-01-01'))
+    expect(windowStartMs({ window: 'all' }, NOW)).toBeNull()
+  })
+})
+
+describe('distance facts', () => {
+  const row = (started_at: string, distance_m: number): SessionRow => ({
+    uuid: started_at,
+    started_at,
+    ended_at: started_at,
+    duration_s: 600,
+    distance_m,
+    steps: 0,
+    avg_speed_kmh: 4,
+    max_speed_kmh: 5,
+    kcal: 0,
+    pause_count: 0,
+  })
+
+  it('takes the median of an even and an odd count', () => {
+    expect(median([3, 1, 2])).toBe(2)
+    expect(median([4, 1, 3, 2])).toBe(2.5)
+    expect(median([])).toBeNull()
+  })
+
+  it('reads only rows inside the window', () => {
+    const rows = [row('2026-10-16T10:00:00Z', 3000), row('2026-08-01T10:00:00Z', 9000)]
+    const facts = distanceFacts(rows, Date.parse('2026-09-17T00:00:00Z'))
+    expect(facts).toEqual({ medianM: 3000, longestM: 3000, partial: false })
+  })
+
+  it('flags a full page that does not reach the window start as partial', () => {
+    const rows = [row('2026-10-16T10:00:00Z', 3000), row('2026-10-15T10:00:00Z', 5000)]
+    expect(distanceFacts(rows, Date.parse('2026-01-01T00:00:00Z'), 2)?.partial).toBe(true)
+    expect(distanceFacts(rows, Date.parse('2026-10-16T00:00:00Z'), 2)?.partial).toBe(false)
+  })
+
+  it('has no facts for an empty window', () => {
+    expect(distanceFacts([row('2026-01-01T10:00:00Z', 1000)], NOW)).toBeNull()
+  })
+})
+
+describe('local-time hour grid', () => {
+  it('shifts east of UTC forward and wraps across the weekday', () => {
+    // UTC+2 → getTimezoneOffset() = −120. Sunday 23:00 UTC is Monday 01:00 local.
+    const [cell] = shiftCellsToLocal([{ dow: 0, hour: 23, sessions: 1, distance_m: 100 }], -120)
+    expect(cell).toEqual({ dow: 1, hour: 1, sessions: 1, distance_m: 100 })
+  })
+
+  it('shifts west of UTC back and wraps Sunday to Saturday', () => {
+    // UTC−5 → +300. Sunday 02:00 UTC is Saturday 21:00 local.
+    const [cell] = shiftCellsToLocal([{ dow: 0, hour: 2, sessions: 1, distance_m: 0 }], 300)
+    expect(cell?.dow).toBe(6)
+    expect(cell?.hour).toBe(21)
+  })
+
+  it('finds the busiest cell and widens the visible range for early walks', () => {
+    const cells = [
+      { dow: 2, hour: 14, sessions: 3, distance_m: 0 },
+      { dow: 4, hour: 5, sessions: 1, distance_m: 0 },
+      { dow: 1, hour: 9, sessions: 0, distance_m: 0 },
+    ]
+    expect(busiestCell(cells)).toEqual(cells[0])
+    expect(busiestCell([cells[2] as (typeof cells)[number]])).toBeNull()
+    expect(firstVisibleHour(cells)).toBe(5)
+    expect(firstVisibleHour([cells[0] as (typeof cells)[number]])).toBe(6)
+  })
+})
+
+describe('achievements', () => {
+  const a = (id: number, title: string, unlocked_at: string): Achievement => ({
+    id,
+    type: 'streak_3',
+    title,
+    description: `d${id}`,
+    unlocked_at,
+  })
+
+  it('collapses repeats into one row with a count and the newest unlock', () => {
+    const rows = collapseAchievements([
+      a(1, 'Streak', '2026-08-01T10:00:00Z'),
+      a(2, 'Streak', '2026-10-01T10:00:00Z'),
+      a(3, 'First', '2026-09-01T10:00:00Z'),
+    ])
+    expect(rows.map((r) => [r.title, r.count, r.lastAt])).toEqual([
+      ['Streak', 2, '2026-10-01T10:00:00Z'],
+      ['First', 1, '2026-09-01T10:00:00Z'],
+    ])
+    expect(rows[0]?.description).toBe('d2')
+  })
+
+  it('keeps the unlocked total equal to the sum of the counts', () => {
+    const items = [
+      a(1, 'X', '2026-01-01T00:00:00Z'),
+      a(2, 'X', '2026-02-01T00:00:00Z'),
+      a(3, 'Y', '2026-03-01T00:00:00Z'),
+    ]
+    expect(collapseAchievements(items).reduce((s, r) => s + r.count, 0)).toBe(items.length)
+  })
+
+  it('groups newest-first rows under their month', () => {
+    const groups = groupByMonth(
+      collapseAchievements([
+        a(1, 'A', '2026-10-15T12:00:00Z'),
+        a(2, 'B', '2026-10-02T12:00:00Z'),
+        a(3, 'C', '2026-09-20T12:00:00Z'),
+      ]),
+    )
+    expect(groups.map((g) => [g.month, g.rows.length])).toEqual([
+      ['October 2026', 2],
+      ['September 2026', 1],
+    ])
+  })
+})
+
+describe('formats and summary', () => {
+  it('formats durations by magnitude', () => {
+    expect(fmtDuration(30)).toBe('30 s')
+    expect(fmtDuration(45 * 60)).toBe('45 min')
+    expect(fmtDuration(2 * 3600 + 5 * 60)).toBe('2 h 05 min')
+  })
+
+  it('signs deltas with a real minus', () => {
+    expect(fmtSignedKmh(0.3)).toBe('+0.3 km/h')
+    expect(fmtSignedKmh(-0.25)).toBe('−0.3 km/h')
+    expect(fmtSignedKm(-1500)).toBe('−1.5 km')
+  })
+
+  it('repeats exactly the figures the cells show', () => {
+    expect(
+      summarySentence({
+        weekDistanceM: 12_400,
+        weekSessions: 4,
+        streakDays: 3,
+        paceKmh: 4.5,
+        paceDeltaKmh: 0.3,
+        prior: 'prior 30 d',
+      }),
+    ).toBe('12.4 km this week in 4 walks; streak 3 d; pace 4.5 km/h, +0.3 km/h vs the prior 30 d.')
+  })
+
+  it('writes an unknown pace and a single walk plainly', () => {
+    expect(
+      summarySentence({
+        weekDistanceM: 3000,
+        weekSessions: 1,
+        streakDays: 0,
+        paceKmh: null,
+        paceDeltaKmh: null,
+        prior: 'prior 30 d',
+      }),
+    ).toBe('3.0 km this week in 1 walk; streak 0 d; pace —.')
+  })
+})
