@@ -29,7 +29,7 @@ export function SummaryLine() {
         cost30d: data.costUsd30d,
         cost7d: data.costUsd7d,
         tokens30d: data.tokens30d,
-        errorRate30d: data.errorRate30d,
+        errorRate30d: data.calls30d === 0 ? null : data.errorRate30d,
         lastEvent: age(data.maxTs, now),
       })}
     </Text>

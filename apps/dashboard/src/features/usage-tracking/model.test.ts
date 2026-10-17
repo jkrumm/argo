@@ -5,6 +5,10 @@ import {
   deltaPctText,
   deltaPointsText,
   deltaSecondsText,
+  errorRateReading,
+  meanOf,
+  priorErrorLine,
+  priorLine,
   errorDayState,
   fmtPct,
   fmtShare,
@@ -156,5 +160,34 @@ describe('freshness and copy', () => {
     expect(footerLine({ records: 12345, sources: 7, lastEvent: null })).toBe(
       '12,345 records in total · 7 sources active in 30 d · no events recorded',
     )
+  })
+})
+
+describe('prior comparisons', () => {
+  it('separates an absent field from an absent window', () => {
+    expect(priorLine(120, undefined, deltaPctText)).toBe('prior unavailable')
+    expect(priorLine(120, null, deltaPctText)).toBe('no comparable prior 30 d')
+    expect(priorLine(120, 100, deltaPctText)).toBe('+20% vs prior 30 d')
+    expect(priorLine(120, 0, deltaPctText)).toBe('prior 30 d had no base to compare')
+    expect(priorErrorLine(undefined)).toBe('prior unavailable')
+    expect(priorErrorLine(null)).toBe('no comparable prior 30 d')
+    expect(priorErrorLine(0.012)).toBe('vs 1.2% prior 30 d')
+  })
+})
+
+describe('error rate reading', () => {
+  it('is a dash for a window with no calls, never 0.0%', () => {
+    expect(errorRateReading(0, 0)).toBe('—')
+    expect(errorRateReading(0, 12)).toBe('0.0%')
+    expect(errorRateReading(0.005, 200)).toBe('0.5%')
+    expect(errorRateReading(0.005, undefined)).toBe('0.5%')
+    expect(errorRateReading(null, 5)).toBe('—')
+  })
+})
+
+describe('meanOf', () => {
+  it('averages present values and ignores gaps', () => {
+    expect(meanOf([2, null, 4])).toBe(3)
+    expect(meanOf([null])).toBeNull()
   })
 })

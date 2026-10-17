@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeAll, afterEach } from 'bun:test'
+import { describe, it, expect, beforeAll, afterEach, setSystemTime } from 'bun:test'
 import { Elysia } from 'elysia'
 import { usageRoutes } from './usage.js'
 import { db, runMigrations } from '../db/index.js'
 import { usageRecord } from '../db/schema.js'
+import { USAGE_DATA_FLOOR_ISO } from '../lib/usage-query.js'
 
 beforeAll(async () => {
   await runMigrations()
@@ -10,6 +11,7 @@ beforeAll(async () => {
 
 describe('GET /usage/headline', () => {
   afterEach(async () => {
+    setSystemTime()
     await db.delete(usageRecord)
   })
 
@@ -214,5 +216,43 @@ describe('GET /usage/headline', () => {
     expect(body.tokensPrior30d).toBe(400)
     expect(body.errorRatePrior30d).toBeCloseTo(0.5, 5)
     expect(body.p95MsPrior30d).toBe(3000)
+  })
+
+  it('counts the calls behind the error rate and returns null priors before the data floor', async () => {
+    // 40 days after the floor, the 60-day lookback starts before it: the prior window is partial.
+    const now = new Date(Date.parse(USAGE_DATA_FLOOR_ISO) + 40 * 86_400_000)
+    setSystemTime(now)
+    const ts = new Date(now.getTime() - 86_400_000).toISOString()
+    await db.insert(usageRecord).values([
+      { source: 'test', source_id: 'a', grain: 'event', ts, billing: 'max', ingested_at: ts },
+      {
+        source: 'test',
+        source_id: 'b',
+        grain: 'event',
+        ts,
+        billing: 'max',
+        outcome: 'error',
+        ingested_at: ts,
+      },
+    ])
+
+    const app = new Elysia().use(usageRoutes)
+    const res = await app.handle(new Request('http://localhost/usage/headline'))
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as Record<string, number | null>
+    expect(body['calls30d']).toBe(2)
+    expect(body['errorRate30d']).toBeCloseTo(0.5, 5)
+    expect(body['costUsdPrior30d']).toBeNull()
+    expect(body['tokensPrior30d']).toBeNull()
+    expect(body['errorRatePrior30d']).toBeNull()
+    expect(body['p95MsPrior30d']).toBeNull()
+  })
+
+  it('reports zero calls on an empty window', async () => {
+    const app = new Elysia().use(usageRoutes)
+    const res = await app.handle(new Request('http://localhost/usage/headline'))
+    const body = (await res.json()) as { calls30d: number; errorRate30d: number }
+    expect(body.calls30d).toBe(0)
+    expect(body.errorRate30d).toBe(0)
   })
 })

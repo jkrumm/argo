@@ -96,6 +96,47 @@ export function deltaPointsText(current: number | null, prior: number | null): s
   return `${signedText((current - prior) * 100, 1)} pp`
 }
 
+// ── Prior-window comparisons ─────────────────────────────────────────────────────────────────
+
+/** `undefined`: the API did not send the field; `null`: no comparable prior window exists. */
+export type Prior = number | null | undefined
+
+/**
+ * The comparison line for a strip cell. An absent field and an absent window are different facts:
+ * the first says the reading is unavailable, the second that there is nothing to compare against.
+ */
+export function priorLine(
+  current: number | null | undefined,
+  prior: Prior,
+  delta: (current: number | null, prior: number | null) => string | null,
+): string {
+  if (prior === undefined) return 'prior unavailable'
+  if (prior === null) return 'no comparable prior 30 d'
+  const text = delta(current ?? null, prior)
+  return text === null ? 'prior 30 d had no base to compare' : `${text} vs prior 30 d`
+}
+
+/** The error rate comparison, stated as the prior window's own rate. */
+export function priorErrorLine(prior: Prior): string {
+  if (prior === undefined) return 'prior unavailable'
+  if (prior === null) return 'no comparable prior 30 d'
+  return `vs ${fmtPct(prior)} prior 30 d`
+}
+
+/** The 30 d error rate, or `—` when the window had no calls (the API reports 0 there, not a rate). */
+export function errorRateReading(
+  rate: number | null | undefined,
+  calls: number | null | undefined,
+): string {
+  if (calls === 0) return EM_DASH
+  return fmtPct(rate)
+}
+
+export function meanOf(values: readonly (number | null)[]): number | null {
+  const present = values.filter((v): v is number => v !== null && Number.isFinite(v))
+  return present.length === 0 ? null : present.reduce((a, b) => a + b, 0) / present.length
+}
+
 // ── Billing split ────────────────────────────────────────────────────────────────────────────
 
 export type BillingCosts = { max: number; iu: number; openrouter: number; total: number }
