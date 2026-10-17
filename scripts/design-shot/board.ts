@@ -28,6 +28,7 @@ export function renderBoard(label: string, results: RouteResult[]): string {
         ),
       )
       .join('')}</div>
+${r.notes.length ? `<ul class="note">${r.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
 ${r.failures.length ? `<ul class="fail">${r.failures.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
 </section>`
   })
@@ -42,7 +43,7 @@ h2{margin:40px 0 12px;font-family:ui-monospace,monospace}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
 figure{margin:0}figcaption{font:12px ui-monospace,monospace;color:#a1a1aa;margin-bottom:4px}
 img{max-width:100%;display:block;border:1px solid #3f3f46}
-.fail{color:#f87171}
+.fail{color:#f87171}.note{color:#fbbf24}
 </style>
 <h1>design-shot — ${esc(label)}</h1>
 ${sections.join('\n')}

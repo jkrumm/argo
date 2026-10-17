@@ -4,13 +4,14 @@
  * every route × dark/light × desktop/mobile, crops each card/table on desktop, and writes a static
  * board to `.design-shots/<label>/`. The shots show real personal data: the dir is gitignored.
  */
+import { existsSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { chromium } from 'playwright-core'
 import { readToken, serveDist } from '../evidence/server'
 import { renderBoard } from './board'
 import { shootAll } from './shoot'
-import type { RouteResult } from './types'
+import type { RouteResult, Scheme } from './types'
 
 const ROOT = resolve(import.meta.dirname, '../..')
 const DIST = join(ROOT, 'apps/dashboard/dist')
@@ -54,6 +55,9 @@ async function main(): Promise<number> {
   const outDir = join(ROOT, '.design-shots', label)
   await mkdir(join(outDir, 'crops'), { recursive: true })
 
+  if (skipBuild === '1' && !existsSync(join(DIST, 'index.html'))) {
+    throw new Error('SKIP_BUILD=1 but apps/dashboard/dist/index.html is missing — build first')
+  }
   const token = await readToken()
   const server = serveDist(DIST, token)
   let results: RouteResult[] = []
@@ -66,7 +70,7 @@ async function main(): Promise<number> {
         `bearer rejected by production: GET /daily-metrics/sync-status -> ${probe.status}`,
       )
     }
-    if (!skipBuild) await buildDashboard()
+    if (skipBuild !== '1') await buildDashboard()
 
     const browser = await chromium.launch({ channel: 'chrome' })
     try {
@@ -86,8 +90,13 @@ async function main(): Promise<number> {
 
   const failures = results.flatMap((r) => r.failures)
   const full = results.reduce((n, r) => n + Object.keys(r.full).length, 0)
-  const crops = results.map((r) => `${r.route}=${r.crops.length / 2}`).join(' ')
-  console.log(`[design-shot] ${full} full shots, crops/scheme: ${crops}`)
+  const cropCount = (r: RouteResult, scheme: Scheme): number =>
+    r.crops.filter((c) => c.scheme === scheme).length
+  const crops = results
+    .map((r) => `${r.route}=dark ${cropCount(r, 'dark')}/light ${cropCount(r, 'light')}`)
+    .join(' ')
+  console.log(`[design-shot] ${full} full shots, crops: ${crops}`)
+  for (const n of results.flatMap((r) => r.notes)) console.log(`[design-shot] note ${n}`)
   console.log(`[design-shot] ${join(outDir, 'index.html')}`)
   for (const f of failures) console.error(`[design-shot] FAILED ${f}`)
   return failures.length ? 1 : 0
