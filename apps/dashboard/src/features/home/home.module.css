@@ -170,51 +170,6 @@
   color: var(--vx-muted);
 }
 
-/* ── Meetings ─────────────────────────────────────────────────────────────────────────────── */
-
-.meetingRow {
-  display: grid;
-  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
-  align-items: baseline;
-  column-gap: var(--vx-space-stack-md);
-  padding-block: var(--vx-space-stack-xs);
-  border-bottom: 1px solid var(--vx-surface-hairline);
-}
-
-.meetingRow[data-state='past'] {
-  color: var(--vx-muted);
-}
-
-.meetingTime {
-  font-family: var(--basalt-font-mono);
-  font-size: var(--vx-text-sm);
-  color: var(--vx-ink);
-  white-space: nowrap;
-}
-
-.meetingRow[data-state='past'] .meetingTime {
-  color: var(--vx-muted);
-}
-
-.meetingDuration {
-  display: block;
-  font-family: var(--basalt-font-sans);
-  font-size: var(--vx-text-micro);
-  color: var(--vx-muted);
-}
-
-.meetingMeta {
-  font-size: var(--vx-text-sm);
-  color: var(--vx-muted);
-  white-space: nowrap;
-}
-
-.meetingTrail {
-  display: flex;
-  align-items: baseline;
-  gap: var(--vx-space-control-gap);
-}
-
 /* ── Activity feed ────────────────────────────────────────────────────────────────────────── */
 
 .feed {

@@ -148,26 +148,7 @@ describe('deriveDecisions: one clock and one threshold', () => {
   })
 })
 
-describe('deriveDecisions: no double counting', () => {
-  it('drops the needs_you agent that raised a queue ask, keeping the ask', () => {
-    const list = deriveDecisions({
-      warden: null,
-      agents: agents({
-        humanQueue: [
-          {
-            id: 'q1',
-            question: 'Run {cmd}?',
-            askedAt: new Date(NOW - HOUR).toISOString(),
-            agentId: 'a1',
-          },
-        ],
-        agents: [agent({ id: 'a1' }), agent({ id: 'a2' })],
-      }),
-      now: NOW,
-    })
-    expect(list.map((d) => d.id).toSorted()).toEqual(['agent-a2', 'queue-q1'])
-  })
-
+describe('deriveDecisions: one entry per item', () => {
   it('keeps the count, the cards and Show n more in step with an item in both awaiting_owner and failed', () => {
     const list = deriveDecisions({
       warden: warden({

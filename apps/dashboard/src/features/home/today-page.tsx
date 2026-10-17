@@ -6,6 +6,7 @@ import { calendarQueries } from '../../lib/queries/calendar'
 import { recoveryQueries, trainingLoadQueries } from '../../lib/queries/daily-metrics'
 import { wardenQueries } from '../../lib/queries/warden'
 import { deriveDecisions } from '../../lib/decisions'
+import { dayKey } from '../calendar/derive'
 import { useNow } from '../../lib/use-now'
 import { countUnknownAgents, fleetParts, flattenAgents } from '../agents/model'
 import { derivePollers } from '../warden/page-model'
@@ -17,6 +18,7 @@ import {
   calendarEvents,
   staleFeeds,
   narrativeEvents,
+  meetingState,
   nextMeeting,
   recoveryReading,
   summarySentence,
@@ -24,6 +26,7 @@ import {
   todayAgenda,
   wardenEvents,
   type RawCalendarEvent,
+  unanswered,
 } from './model'
 import { NeedsYou } from './needs-you'
 import { acwrCell, agentsCell, budgetCell, meetingCell, recoveryCell } from './strip-cells'
@@ -59,8 +62,10 @@ export function TodayPage() {
   const narrativesQuery = useQuery(agentsQueries.narratives())
   const wardenQuery = useQuery(wardenQueries.snapshot())
 
-  const googleQuery = useQuery(calendarQueries.google(1))
-  const m365Query = useQuery(calendarQueries.m365(1))
+  // From local midnight, so this morning's meetings come back and render as ended.
+  const todayKey = dayKey(new Date(now))
+  const googleQuery = useQuery(calendarQueries.google(1, todayKey))
+  const m365Query = useQuery(calendarQueries.m365(1, todayKey))
   const projectsQuery = useQuery(calendarQueries.ticktickProjects())
   const projects = ((projectsQuery.data as { data?: unknown } | undefined)?.data ?? []) as Array<{
     id: string
@@ -96,11 +101,20 @@ export function TodayPage() {
   const poller = derivePollers(wardenRaw?.metrics, wardenRaw?.health)[0]
 
   // ── Calendar ───────────────────────────────────────────────────────────────────────────────
-  const google = asEvents(googleQuery.data)
-  const m365 = asEvents(m365Query.data)
-  const calendarLoaded = [google, m365].filter((e): e is RawCalendarEvent[] => e !== null)
-  const agenda = calendarLoaded.length === 0 ? null : todayAgenda(calendarLoaded, now)
+  const google = unanswered(googleQuery) ? null : asEvents(googleQuery.data)
+  const m365 = unanswered(m365Query) ? null : asEvents(m365Query.data)
+  const feeds = [
+    ...(google === null ? [] : [{ sourceClass: 'personal' as const, events: google }]),
+    ...(m365 === null ? [] : [{ sourceClass: 'work' as const, events: m365 }]),
+  ]
   const missing = [...(google === null ? ['Google'] : []), ...(m365 === null ? ['M365'] : [])]
+  const known = feeds.length === 0 ? null : todayAgenda(feeds, now)
+  // A calendar that has not answered makes an empty day unknown, never "No meetings today".
+  const agenda =
+    known === null ||
+    (missing.length > 0 && known.meetings.length === 0 && known.allDay.length === 0)
+      ? null
+      : known
   const next = agenda === null ? null : nextMeeting(agenda.meetings, now)
 
   const tasksLoaded =
@@ -147,7 +161,14 @@ export function TodayPage() {
     decisions,
     unavailable,
     fleet: fleet === null ? null : { working: snapshot?.summary?.working ?? 0, total: fleet.total },
-    meetings: agenda === null ? null : { next, total: agenda.meetings.length },
+    meetings:
+      agenda === null
+        ? null
+        : {
+            next,
+            current: agenda.meetings.find((m) => meetingState(m, now) === 'now') ?? null,
+            total: agenda.meetings.length,
+          },
     recovery: recovery?.isToday ? recovery.score : null,
     now,
   })
@@ -187,6 +208,7 @@ export function TodayPage() {
           <Stack gap="md">
             <Meetings
               agenda={agenda}
+              next={next}
               tasks={tasks}
               missing={agenda === null ? [] : missing}
               now={now}

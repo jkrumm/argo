@@ -4,6 +4,9 @@ import { describe, expect, it } from 'bun:test'
 process.env.TZ = 'Europe/Berlin'
 import {
   acwrReading,
+  countdownLabel,
+  meetingState,
+  unanswered,
   activityStream,
   wardenEvents,
   nextMeeting,
@@ -12,7 +15,6 @@ import {
   summarySentence,
   taskCounts,
   todayAgenda,
-  untilLabel,
   type ActivityEvent,
   type RawCalendarEvent,
 } from './model'
@@ -21,6 +23,12 @@ import type { Decision } from '../../lib/decisions'
 const NOW = new Date(2026, 0, 15, 12, 0).getTime()
 const at = (h: number, m = 0) => new Date(2026, 0, 15, h, m).toISOString()
 const MIN = 60_000
+
+const todayAgendaOf = (lists: readonly (readonly RawCalendarEvent[])[], now: number) =>
+  todayAgenda(
+    lists.map((events) => ({ sourceClass: 'work' as const, events })),
+    now,
+  )
 
 const event = (over: Partial<RawCalendarEvent> = {}): RawCalendarEvent => ({
   id: 'e1',
@@ -44,7 +52,7 @@ const decision = (ageMs: number | null): Decision => ({
 
 describe('todayAgenda', () => {
   it('keeps timed events starting today, sorted, with attendee count and duration', () => {
-    const { meetings } = todayAgenda(
+    const { meetings } = todayAgendaOf(
       [
         [
           event({ id: 'b', start: at(16), end: at(16, 30), attendees: [1, 2, 3] }),
@@ -60,7 +68,7 @@ describe('todayAgenda', () => {
   })
 
   it('collects all-day events covering today, including a multi-day one', () => {
-    const { allDay, meetings } = todayAgenda(
+    const { allDay, meetings } = todayAgendaOf(
       [
         [
           event({
@@ -93,7 +101,7 @@ describe('todayAgenda', () => {
   })
 
   it('finds the next meeting strictly after now', () => {
-    const { meetings } = todayAgenda(
+    const { meetings } = todayAgendaOf(
       [[event({ id: 'a', start: at(11), end: at(13) }), event({ id: 'b' })]],
       NOW,
     )
@@ -102,11 +110,11 @@ describe('todayAgenda', () => {
   })
 })
 
-describe('untilLabel', () => {
-  it('always carries a unit', () => {
-    expect(untilLabel(25 * MIN)).toBe('25 min')
-    expect(untilLabel(80 * MIN)).toBe('1 h 20 min')
-    expect(untilLabel(120 * MIN)).toBe('2 h')
+describe('countdownLabel', () => {
+  it("uses the Calendar page's wording, always with a unit", () => {
+    expect(countdownLabel(25 * MIN)).toBe('in 25m')
+    expect(countdownLabel(90 * MIN)).toBe('in 1h 30m')
+    expect(countdownLabel(120 * MIN)).toBe('in 2h')
   })
 })
 
@@ -191,22 +199,24 @@ describe('summarySentence', () => {
   }
 
   it('states count, oldest wait, next meeting and recovery from one list', () => {
-    const next = todayAgenda([[event({ start: at(12, 25) })]], NOW).meetings[0] ?? null
+    const next = todayAgendaOf([[event({ start: at(12, 25) })]], NOW).meetings[0] ?? null
     const text = summarySentence({
       ...base,
       decisions: [decision(2 * 60 * MIN), decision(30 * MIN)],
-      meetings: { next, total: 1 },
+      meetings: { next, current: null, total: 1 },
       recovery: 72.4,
     })
-    expect(text).toBe(
-      '2 items need you, oldest 2h 0m. Next meeting in 25 min, recovery today 72/100.',
-    )
+    expect(text).toBe('2 items need you, oldest 2h 0m. Next meeting in 25m, recovery today 72/100.')
   })
 
   it('reads the fleet when nothing needs the owner', () => {
-    expect(summarySentence({ ...base, decisions: [], meetings: { next: null, total: 0 } })).toBe(
-      'Nothing needs you. 2 of 5 agents working. No meetings today.',
-    )
+    expect(
+      summarySentence({
+        ...base,
+        decisions: [],
+        meetings: { next: null, current: null, total: 0 },
+      }),
+    ).toBe('Nothing needs you. 2 of 5 agents working. No meetings today.')
   })
 
   it('names an unavailable source instead of implying an empty inbox', () => {
@@ -271,7 +281,7 @@ describe('day boundaries on a DST day', () => {
   const dst = new Date(2026, 2, 29, 12, 0).getTime()
 
   it('keeps a meeting just before the next local midnight and drops the one after', () => {
-    const { meetings } = todayAgenda(
+    const { meetings } = todayAgendaOf(
       [
         [
           event({
@@ -345,24 +355,79 @@ describe('staleFeeds and unavailable sources', () => {
   })
 })
 
-describe('wardenEvents burst boundary', () => {
-  const timeline = (gapMin: number) =>
-    ({
-      board: { items: [{ event_id: 1, repo: '{repo}' }] },
-      items: {
-        '1': {
-          transitions: [
-            { from_state: 'new', to_state: 'triaged', at: agoIso(60) },
-            { from_state: 'triaged', to_state: 'working', at: agoIso(60 - gapMin) },
-          ],
-        },
+const timeline = (gapMin: number) =>
+  ({
+    board: { items: [{ event_id: 1, repo: '{repo}' }] },
+    items: {
+      '1': {
+        transitions: [
+          { from_state: 'new', to_state: 'triaged', at: agoIso(60) },
+          { from_state: 'triaged', to_state: 'working', at: agoIso(60 - gapMin) },
+        ],
       },
-    }) as unknown as Parameters<typeof wardenEvents>[0]
+    },
+  }) as unknown as Parameters<typeof wardenEvents>[0]
 
+describe('wardenEvents burst boundary', () => {
   it('joins steps exactly 10 minutes apart and splits at 10 minutes 1 s', () => {
     expect(wardenEvents(timeline(10))).toHaveLength(1)
     const split = timeline(10) as { items: { '1': { transitions: { at: string }[] } } }
     split.items['1'].transitions[1]!.at = new Date(NOW - 60 * MIN + 10 * MIN + 1000).toISOString()
     expect(wardenEvents(split as unknown as Parameters<typeof wardenEvents>[0])).toHaveLength(2)
+  })
+})
+
+describe('ended meetings', () => {
+  const morning = todayAgendaOf(
+    [
+      [
+        event({ id: 'done', start: at(9), end: at(10) }),
+        event({ id: 'live', start: at(11, 30), end: at(12, 30) }),
+        event({ id: 'later', start: at(15), end: at(16) }),
+      ],
+    ],
+    NOW,
+  ).meetings
+
+  it('keeps this morning’s meeting, marks it past, and counts the whole day', () => {
+    expect(morning.map((m) => m.key)).toEqual(['done', 'live', 'later'])
+    expect(morning.map((m) => meetingState(m, NOW))).toEqual(['past', 'now', 'upcoming'])
+    expect(nextMeeting(morning, NOW)?.key).toBe('later')
+  })
+
+  const base = { decisions: [], unavailable: [], fleet: null, recovery: null, now: NOW }
+
+  it('says no more meetings only after the last one ended, and names the one in progress before that', () => {
+    const last = morning[0]!
+    expect(summarySentence({ ...base, meetings: { next: null, current: null, total: 1 } })).toBe(
+      'Nothing needs you. No more meetings today.',
+    )
+    expect(
+      summarySentence({ ...base, meetings: { next: null, current: morning[1]!, total: 3 } }),
+    ).toBe('Nothing needs you. In a meeting until 12:30.')
+    expect(last.endMs).toBeLessThan(NOW)
+  })
+})
+
+const q = (over: Partial<Parameters<typeof unanswered>[0]> = {}) => ({
+  isPending: false,
+  isError: false,
+  isPlaceholderData: false,
+  isFetching: false,
+  data: [] as unknown,
+  ...over,
+})
+
+describe('unanswered', () => {
+  it('reads a pending, placeholder-loading or failed-with-nothing source as unknown', () => {
+    expect(unanswered(q({ isPending: true, data: undefined }))).toBe(true)
+    expect(unanswered(q({ isPlaceholderData: true, isFetching: true }))).toBe(true)
+    expect(unanswered(q({ isError: true, data: undefined }))).toBe(true)
+  })
+
+  it('reads an answered source, even an empty or refetching one, as known', () => {
+    expect(unanswered(q())).toBe(false)
+    expect(unanswered(q({ isFetching: true }))).toBe(false)
+    expect(unanswered(q({ isError: true, data: [] }))).toBe(false)
   })
 })

@@ -13,7 +13,13 @@ import {
   ACWR_OPTIMAL_TO,
 } from '../garmin-health/model'
 import { deriveBudget } from '../warden/page-model'
-import { untilLabel, type AcwrReading, type Meeting, type RecoveryReading } from './model'
+import {
+  countdownLabel,
+  meetingState,
+  type AcwrReading,
+  type Meeting,
+  type RecoveryReading,
+} from './model'
 import type { StripCellModel } from './today-strip'
 
 const EM_DASH = '—'
@@ -109,14 +115,24 @@ export function meetingCell(
     return { id: 'meeting', caption: 'Next meeting', value: EM_DASH, footer: 'No meetings today.' }
   }
   const remaining = agenda.meetings.filter((m) => m.startMs > now).length
+  const current = agenda.meetings.find((m) => meetingState(m, now) === 'now')
   return {
     id: 'meeting',
     caption: next === null ? 'Next meeting' : `Next meeting · ${clock(next.startMs)}`,
-    value: next === null ? EM_DASH : `in ${untilLabel(next.startMs - now)}`,
+    value:
+      next === null
+        ? current === undefined
+          ? EM_DASH
+          : 'now'
+        : countdownLabel(next.startMs - now),
     visual: <DayAxis meetings={agenda.meetings} next={next} now={now} />,
     footer:
       next === null ? (
-        'no more meetings today'
+        current === undefined ? (
+          'no more meetings today'
+        ) : (
+          `in a meeting until ${clock(current.endMs)}`
+        )
       ) : (
         <>
           <Text size="sm" lineClamp={2}>

@@ -3,6 +3,8 @@ import { clockTime, dayLabel, formatWaitDuration, headlineOf } from '../agents/m
 import type { Narrative } from '../../lib/queries/agents'
 import type { WardenRaw } from '../../lib/queries/warden'
 import type { Decision } from '../../lib/decisions'
+import type { SourceClass } from '../../lib/queries/calendar'
+import { untilLabel } from '../calendar/summary'
 
 // Pure derivations for the Today page: meetings, tasks, the Garmin readings, the activity stream
 // and the summary sentence. No React, no queries. A reading that is absent stays `null` (rendered
@@ -41,6 +43,7 @@ export type Meeting = {
   durationMin: number
   attendees: number
   videoLink: string | null
+  sourceClass: SourceClass
 }
 
 export type Agenda = {
@@ -59,16 +62,15 @@ const dateOnlyMs = (s: string) => {
 }
 
 /** One day's agenda from the merged calendar sources. A feed that failed contributes nothing here; the page says so separately. */
-export function todayAgenda(
-  sources: readonly (readonly RawCalendarEvent[])[],
-  now: number,
-): Agenda {
+export type CalendarFeed = { sourceClass: SourceClass; events: readonly RawCalendarEvent[] }
+
+export function todayAgenda(feeds: readonly CalendarFeed[], now: number): Agenda {
   const dayStart = startOfDay(now)
   const dayEnd = nextDayStart(now)
   const meetings: Meeting[] = []
   const allDay: string[] = []
-  for (const list of sources) {
-    for (const e of list) {
+  for (const { sourceClass, events } of feeds) {
+    for (const e of events) {
       if (e.isAllDay || isDateOnly(e.start)) {
         const from = isDateOnly(e.start) ? dateOnlyMs(e.start) : parseMs(e.start)
         const to = isDateOnly(e.end) ? dateOnlyMs(e.end) : parseMs(e.end)
@@ -90,6 +92,7 @@ export function todayAgenda(
         durationMin: Math.round((end - startMs) / MIN_MS),
         attendees: e.attendees?.length ?? 0,
         videoLink: e.videoLink ?? null,
+        sourceClass,
       })
     }
   }
@@ -107,17 +110,9 @@ export type MeetingState = 'past' | 'now' | 'upcoming'
 export const meetingState = (m: Meeting, now: number): MeetingState =>
   m.endMs <= now ? 'past' : m.startMs <= now ? 'now' : 'upcoming'
 
-/** `25 min` / `1 h 20 min` — time until something, always with a unit. */
-export function untilLabel(ms: number): string {
-  const minutes = Math.max(0, Math.round(ms / MIN_MS))
-  if (minutes < 60) return `${minutes} min`
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  return m === 0 ? `${h} h` : `${h} h ${m} min`
-}
-
-export const durationLabel = (min: number): string =>
-  min >= 60 && min % 60 === 0 ? `${min / 60} h` : `${min} min`
+/** `in 25m` / `in 1h 30m`: the Calendar page's wording, so both pages count down the same way. */
+export const countdownLabel = (ms: number): string =>
+  untilLabel(Math.max(0, Math.round(ms / MIN_MS)))
 
 /** The day axis of the next-meeting cell: 08–19 h, widened when a meeting falls outside it. */
 export const DAY_AXIS: { from: number; to: number } = { from: 8, to: 19 }
@@ -395,7 +390,7 @@ export type SummaryInput = {
   /** Sources whose feed is not loaded: the count then covers the rest, and the sentence says so. */
   unavailable: readonly string[]
   fleet: { working: number; total: number } | null
-  meetings: { next: Meeting | null; total: number } | null
+  meetings: { next: Meeting | null; current: Meeting | null; total: number } | null
   recovery: number | null
   now: number
 }
@@ -418,10 +413,28 @@ export function summarySentence(s: SummaryInput): string {
       ? null
       : s.meetings.total === 0
         ? 'No meetings today'
-        : s.meetings.next === null
-          ? 'No more meetings today'
-          : `Next meeting in ${untilLabel(s.meetings.next.startMs - s.now)}`
+        : s.meetings.next !== null
+          ? `Next meeting ${countdownLabel(s.meetings.next.startMs - s.now)}`
+          : s.meetings.current !== null
+            ? `In a meeting until ${clockTime(new Date(s.meetings.current.endMs).toISOString())}`
+            : 'No more meetings today'
   const recovery = s.recovery === null ? null : `recovery today ${Math.round(s.recovery)}/100`
   const tail = [meeting, recovery].filter((p): p is string => p !== null)
   return tail.length === 0 ? head : `${head} ${tail.join(', ')}.`
 }
+
+/**
+ * A calendar source that has not answered: pending, still loading behind placeholder data, or
+ * failed with nothing cached. Its figures are unknown, never zero. Mirrors `unanswered` in
+ * `features/calendar/calendar-page.tsx`, which does not export it.
+ */
+export const unanswered = (query: {
+  isPending: boolean
+  isError: boolean
+  isPlaceholderData: boolean
+  isFetching: boolean
+  data: unknown
+}): boolean =>
+  query.isPending ||
+  (query.isPlaceholderData && query.isFetching) ||
+  (query.isError && (query.data === undefined || query.isPlaceholderData))
