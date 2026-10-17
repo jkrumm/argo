@@ -1,7 +1,6 @@
 import { Box, Group, SimpleGrid, Stack, Text } from '@mantine/core'
-import { Section } from 'basalt-ui'
+import { BarList, Section } from 'basalt-ui'
 import { CONTAINER_KEYS } from 'basalt-ui/tokens'
-import { BarList } from '../../components/upstream'
 import { EntityCard, type EntityCardCell } from './entity-card'
 import { StatusChip, type StatusTone } from './status-chip'
 import { ageAgo, STATE_LABEL, type AgentRow, type AgentState, type ProjectGroup } from './model'
