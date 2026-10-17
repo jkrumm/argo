@@ -1,6 +1,6 @@
 /** One route × scheme × device: full-height shot, plus card/table crops on desktop. */
 import { join } from 'node:path'
-import type { Browser } from 'playwright-core'
+import type { Browser, Page } from 'playwright-core'
 import { findCrops } from './crops'
 import type { Device, RouteResult, Scheme } from './types'
 
@@ -12,6 +12,32 @@ export const SCHEMES: Scheme[] = ['dark', 'light']
 export const DEVICES: Device[] = ['desktop', 'mobile']
 const NAV_TIMEOUT_MS = 30_000
 const MAX_PAGE_HEIGHT = 12_000
+const MAX_GROW_PASSES = 5
+
+/** Page height needed to show the app's whole scroll region; falls back to the tallest scroll container. */
+const measureContent = (page: Page): Promise<number> =>
+  page.evaluate(() => {
+    const port = document.querySelector<HTMLElement>('[data-basalt-scrollport]')
+    if (port) {
+      // Page-space bottom of the content: the port sits below the header, and once the viewport
+      // outgrows it `scrollHeight` collapses to `clientHeight`, so read the children instead.
+      const top = port.getBoundingClientRect().top
+      const kids = Math.max(
+        0,
+        ...Array.from(port.children).map((c) => c.getBoundingClientRect().bottom + port.scrollTop),
+      )
+      const overflow = port.scrollHeight > port.clientHeight ? top + port.scrollHeight : 0
+      return Math.ceil(
+        Math.max(kids + parseFloat(getComputedStyle(port).paddingBottom || '0'), overflow),
+      )
+    }
+    return Math.max(
+      document.documentElement.scrollHeight,
+      ...Array.from(document.querySelectorAll<HTMLElement>('*'))
+        .filter((el) => /(auto|scroll)/.test(getComputedStyle(el).overflowY))
+        .map((el) => el.scrollHeight),
+    )
+  })
 
 /** `/garmin-health` → `garmin-health`; `/` → `root`. */
 export const routeSlug = (route: string): string =>
@@ -55,18 +81,21 @@ export async function shootAll(
           await page.goto(baseUrl + result.route, { waitUntil: 'networkidle' })
           await page.evaluate(() => document.fonts.ready.then(() => undefined))
           await page.setViewportSize({ width: vp.width, height: vp.height })
-          // The app scrolls inside an inner container, so `fullPage` captures one viewport:
-          // grow the viewport to the tallest scroll container instead.
-          const contentHeight = await page.evaluate(() =>
-            Math.max(
-              document.documentElement.scrollHeight,
-              ...Array.from(document.querySelectorAll<HTMLElement>('*'))
-                .filter((el) => /(auto|scroll)/.test(getComputedStyle(el).overflowY))
-                .map((el) => el.scrollHeight),
-            ),
-          )
-          const height = Math.min(Math.max(contentHeight, vp.height), MAX_PAGE_HEIGHT)
-          await page.setViewportSize({ width: vp.width, height })
+          // The app scrolls inside an inner container, so `fullPage` captures one viewport: grow the
+          // viewport to the scroll region. Lower sections mount lazily once the viewport grows, so
+          // re-measure until the height settles.
+          let height: number = vp.height
+          let settled = false
+          for (let pass = 0; pass < MAX_GROW_PASSES && !settled; pass++) {
+            const next = Math.min(Math.max(await measureContent(page), vp.height), MAX_PAGE_HEIGHT)
+            settled = next === height
+            height = next
+            await page.setViewportSize({ width: vp.width, height })
+            await page.waitForTimeout(800)
+          }
+          if ((await measureContent(page)) > MAX_PAGE_HEIGHT) {
+            result.failures.push(`${name}: truncated at ${MAX_PAGE_HEIGHT}px`)
+          }
           await page.waitForTimeout(1500)
           const shot = { animations: 'disabled', caret: 'hide' } as const
           await page.screenshot({ path: join(outDir, `${name}.png`), ...shot })

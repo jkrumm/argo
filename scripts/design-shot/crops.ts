@@ -7,7 +7,7 @@ const MAX_CROPS = 40
 
 export function findCrops(page: Page): Promise<CropBox[]> {
   return page.evaluate((max) => {
-    const SELECTOR = '.mantine-Card-root, .mantine-Paper-root, table'
+    const SELECTOR = '.mantine-Card-root, .mantine-Paper-root, [data-basalt-chart-card], table'
     const MIN_W = 160
     const MIN_H = 80
     const main = document.querySelector('main')
