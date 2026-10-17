@@ -6,7 +6,6 @@ import { alpha, VX } from 'basalt-ui/tokens'
 import { walkingStore } from '../../lib/window-stores'
 import { useNow } from '../../lib/use-now'
 import { FACTS_ROW_LIMIT, distanceFacts, fmtKm, windowStartMs, windowTitle } from './model'
-import { Facts } from './facts'
 
 type Bucket = { bucketStart: number; bucketWidth: number; sessions: number }
 
@@ -54,14 +53,16 @@ export function DistanceChart({ params }: { params: WalkingPadWindowParams }) {
       title={`Session distance, ${windowTitle(preset)}`}
       state={chartStateOf(histogram, undefined)}
       placeholderHeight={HEIGHT}
+      facts={
+        facts === null
+          ? undefined
+          : {
+              value: fmtKm(facts.medianM),
+              unit: 'km',
+              period: `median walk, buckets in km · longest ${fmtKm(facts.longestM)} km${facts.partial ? ' · newest 200 walks' : ''}`,
+            }
+      }
     >
-      {facts !== null && (
-        <Facts
-          value={fmtKm(facts.medianM)}
-          unit="km"
-          context={`median walk, buckets in km · longest ${fmtKm(facts.longestM)} km${facts.partial ? ' · newest 200 walks' : ''}`}
-        />
-      )}
       <Bars
         ariaLabel="Walks per session-distance bucket in kilometres"
         data={buckets}

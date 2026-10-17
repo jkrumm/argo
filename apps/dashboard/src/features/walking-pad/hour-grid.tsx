@@ -13,7 +13,6 @@ import {
   shiftCellsToLocal,
   windowTitle,
 } from './model'
-import { Facts } from './facts'
 
 /** Monday first; the API's `dow` is 0 = Sunday. */
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -38,13 +37,15 @@ export function HourGrid({ params }: { params: WalkingPadWindowParams }) {
       title={`Walks by hour, ${windowTitle(preset)}`}
       state={chartStateOf(query, undefined)}
       placeholderHeight={HEIGHT}
+      facts={
+        peak === null
+          ? undefined
+          : {
+              value: `${dayOf(peak.dow)} ${hourKey(peak.hour)}`,
+              period: `most walks · local time, current ${offsetLabel(offset)} · hours from ${hourKey(first)}`,
+            }
+      }
     >
-      {peak !== null && (
-        <Facts
-          value={`${dayOf(peak.dow)} ${hourKey(peak.hour)}`}
-          context={`most walks · local time, current ${offsetLabel(offset)} · hours from ${hourKey(first)}`}
-        />
-      )}
       <Heatmap
         ariaLabel="Walks by weekday and hour of day in local time (current UTC offset)"
         data={cells}

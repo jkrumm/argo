@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Box, Card, Group, Skeleton, Text } from '@mantine/core'
 import { useDocumentVisibility } from '@mantine/hooks'
-import { durationClock } from 'basalt-ui/format'
-import { relativeTime } from '../../lib/format'
+import { durationClock, relativeTime } from 'basalt-ui/format'
 import { walkingPadQueries } from '../../lib/queries/walking-pad'
 import { fmtDuration, fmtKm, fmtKmh } from './model'
 import classes from './record-header.module.css'
@@ -19,7 +18,7 @@ function Row({
   stats: string
 }) {
   return (
-    <Card py="sm" px="md" data-shot="record-header">
+    <Card data-shot="record-header">
       <Group justify="space-between" gap="sm" wrap="wrap">
         <Group gap="sm" wrap="nowrap">
           <Box className={dot === 'live' ? `${classes.dot} ${classes.live}` : classes.dot} />

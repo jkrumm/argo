@@ -43,7 +43,7 @@ export function AchievementsList() {
   const shown = showAll ? rows : rows.slice(0, limit)
 
   return (
-    <Card py="sm" px="md">
+    <Card>
       <WidgetHeader
         tier="widget"
         title="Achievements"
