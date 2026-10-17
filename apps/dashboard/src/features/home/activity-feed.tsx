@@ -14,6 +14,8 @@ type Props = {
   total: number
   /** Loaded feeds older than 30 min, named; empty means every contributing feed is fresh (`Live`). */
   stale: readonly string[]
+  /** At least one feed loaded; with none there is nothing live to show. */
+  loaded: boolean
   now: number
 }
 
@@ -22,7 +24,7 @@ type Props = {
  * Prototype of `EventList density="feed" live` (docs/design/UPSTREAM.md): the Agents `EventList`
  * has a fixed 10 rem actor column, too wide for a 40 % column.
  */
-export function ActivityFeed({ groups, total, stale, now }: Props) {
+export function ActivityFeed({ groups, total, stale, loaded, now }: Props) {
   const [open, setOpen] = useState(false)
   const narrow = useSizeClass() === 'compact'
   const cap = open ? total : Math.min(narrow ? ROW_LIMIT_NARROW : ROW_LIMIT, total)
@@ -34,9 +36,11 @@ export function ActivityFeed({ groups, total, stale, now }: Props) {
     <Section title="Activity">
       <div className={classes.feed} data-shot="activity">
         <span className={classes.live}>
-          <span className={stale.length === 0 ? classes.pulse : classes.pulseOff} aria-hidden />
-          {stale.length === 0 ? 'Live' : `Stale: ${stale.join(', ')}`} · {total}{' '}
-          {total === 1 ? 'update' : 'updates'} since yesterday
+          {loaded ? (
+            <span className={stale.length === 0 ? classes.pulse : classes.pulseOff} aria-hidden />
+          ) : null}
+          {!loaded ? 'No live feed' : stale.length === 0 ? 'Live' : `Stale: ${stale.join(', ')}`} ·{' '}
+          {total} {total === 1 ? 'update' : 'updates'} since yesterday
         </span>
         <Text size="xs" c="dimmed">
           A burst of steps on one item counts as one update.

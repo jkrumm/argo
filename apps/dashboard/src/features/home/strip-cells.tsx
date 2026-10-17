@@ -16,6 +16,8 @@ import { deriveBudget } from '../warden/page-model'
 import {
   countdownLabel,
   meetingState,
+  noMeetingsLabel,
+  type Agenda,
   type AcwrReading,
   type Meeting,
   type RecoveryReading,
@@ -99,7 +101,7 @@ export function budgetCell(
 // ── Next meeting ─────────────────────────────────────────────────────────────────────────────
 
 export function meetingCell(
-  agenda: { meetings: readonly Meeting[] } | null,
+  agenda: Pick<Agenda, 'meetings' | 'loaded' | 'unavailable'> | null,
   next: Meeting | null,
   now: number,
 ): StripCellModel {
@@ -112,7 +114,12 @@ export function meetingCell(
     }
   }
   if (agenda.meetings.length === 0) {
-    return { id: 'meeting', caption: 'Next meeting', value: EM_DASH, footer: 'No meetings today.' }
+    return {
+      id: 'meeting',
+      caption: 'Next meeting',
+      value: EM_DASH,
+      footer: `${noMeetingsLabel(agenda)}.`,
+    }
   }
   const remaining = agenda.meetings.filter((m) => m.startMs > now).length
   const current = agenda.meetings.find((m) => meetingState(m, now) === 'now')

@@ -2,7 +2,7 @@ import { Box, Button, Group, Stack, Text } from '@mantine/core'
 import { EmptyState, Section, useSizeClass } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { IconCircleCheck } from '@tabler/icons-react'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link } from '@tanstack/react-router'
 import { DecisionCard } from '../../components/upstream/decision-card'
 import type { Decision } from '../../lib/decisions'
 import { NEEDS_YOU_SOURCES } from './model'
@@ -45,7 +45,6 @@ function Kicker({ facts }: { facts: Decision['facts'] }) {
 }
 
 function Card({ decision }: { decision: Decision }) {
-  const navigate = useNavigate()
   const narrow = useSizeClass() === 'compact'
   const evidence = decision.evidence ? (
     <Text size="sm" {...(!narrow && { lineClamp: 3 })}>
@@ -62,10 +61,11 @@ function Card({ decision }: { decision: Decision }) {
       {...(decision.abandoned && { status: <StatusChip tone="bad" label="Abandoned" /> })}
       {...(!narrow && evidence && { evidence })}
       {...(narrow && evidence && { disclosure: { label: 'Details', content: evidence } })}
-      secondary={{
-        label: `Open in ${PAGE_LABEL[decision.href]}`,
-        onClick: () => void navigate({ to: decision.href }),
-      }}
+      meta={
+        <Button component={Link} to={decision.href} variant="default" size="xs">
+          Open in {PAGE_LABEL[decision.href]}
+        </Button>
+      }
     />
   )
 }

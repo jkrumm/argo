@@ -47,10 +47,25 @@ export type Meeting = {
 }
 
 export type Agenda = {
+  /** Source classes whose calendar answered. */
+  loaded: SourceClass[]
+  /** Source classes whose calendar has not: an empty day is then partial, not free. */
+  unavailable: SourceClass[]
   /** Timed meetings starting today, earliest first. */
   meetings: Meeting[]
   /** Titles of all-day events covering today. */
   allDay: string[]
+}
+
+const CLASS_LABEL: Record<SourceClass, string> = { work: 'Work', personal: 'Personal' }
+
+export const classLabels = (classes: readonly SourceClass[]): string =>
+  classes.map((c) => CLASS_LABEL[c]).join(' and ')
+
+/** What an agenda with no timed meeting says: free only when every calendar answered, else which one is missing. */
+export function noMeetingsLabel(a: Pick<Agenda, 'loaded' | 'unavailable'>): string {
+  if (a.unavailable.length === 0) return 'No meetings today'
+  return `No ${a.loaded.map((c) => CLASS_LABEL[c]).join(' or ')} meetings today · ${classLabels(a.unavailable)} unavailable`
 }
 
 const isDateOnly = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s)
@@ -64,7 +79,11 @@ const dateOnlyMs = (s: string) => {
 /** One day's agenda from the merged calendar sources. A feed that failed contributes nothing here; the page says so separately. */
 export type CalendarFeed = { sourceClass: SourceClass; events: readonly RawCalendarEvent[] }
 
-export function todayAgenda(feeds: readonly CalendarFeed[], now: number): Agenda {
+export function todayAgenda(
+  feeds: readonly CalendarFeed[],
+  now: number,
+  unavailable: readonly SourceClass[] = [],
+): Agenda {
   const dayStart = startOfDay(now)
   const dayEnd = nextDayStart(now)
   const meetings: Meeting[] = []
@@ -97,7 +116,12 @@ export function todayAgenda(feeds: readonly CalendarFeed[], now: number): Agenda
     }
   }
   meetings.sort((a, b) => a.startMs - b.startMs)
-  return { meetings, allDay }
+  return {
+    meetings,
+    allDay,
+    loaded: feeds.map((f) => f.sourceClass),
+    unavailable: [...unavailable],
+  }
 }
 
 /** The first meeting that has not started yet. */
@@ -390,7 +414,13 @@ export type SummaryInput = {
   /** Sources whose feed is not loaded: the count then covers the rest, and the sentence says so. */
   unavailable: readonly string[]
   fleet: { working: number; total: number } | null
-  meetings: { next: Meeting | null; current: Meeting | null; total: number } | null
+  meetings: {
+    next: Meeting | null
+    current: Meeting | null
+    total: number
+    /** What an empty day says: `No meetings today`, or which calendar is missing. */
+    emptyLabel: string
+  } | null
   recovery: number | null
   now: number
 }
@@ -412,7 +442,7 @@ export function summarySentence(s: SummaryInput): string {
     s.meetings === null
       ? null
       : s.meetings.total === 0
-        ? 'No meetings today'
+        ? s.meetings.emptyLabel
         : s.meetings.next !== null
           ? `Next meeting ${countdownLabel(s.meetings.next.startMs - s.now)}`
           : s.meetings.current !== null
@@ -422,19 +452,3 @@ export function summarySentence(s: SummaryInput): string {
   const tail = [meeting, recovery].filter((p): p is string => p !== null)
   return tail.length === 0 ? head : `${head} ${tail.join(', ')}.`
 }
-
-/**
- * A calendar source that has not answered: pending, still loading behind placeholder data, or
- * failed with nothing cached. Its figures are unknown, never zero. Mirrors `unanswered` in
- * `features/calendar/calendar-page.tsx`, which does not export it.
- */
-export const unanswered = (query: {
-  isPending: boolean
-  isError: boolean
-  isPlaceholderData: boolean
-  isFetching: boolean
-  data: unknown
-}): boolean =>
-  query.isPending ||
-  (query.isPlaceholderData && query.isFetching) ||
-  (query.isError && (query.data === undefined || query.isPlaceholderData))

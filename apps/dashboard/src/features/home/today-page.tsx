@@ -7,6 +7,7 @@ import { recoveryQueries, trainingLoadQueries } from '../../lib/queries/daily-me
 import { wardenQueries } from '../../lib/queries/warden'
 import { deriveDecisions } from '../../lib/decisions'
 import { dayKey } from '../calendar/derive'
+import { unanswered } from '../calendar/query-state'
 import { useNow } from '../../lib/use-now'
 import { countUnknownAgents, fleetParts, flattenAgents } from '../agents/model'
 import { derivePollers } from '../warden/page-model'
@@ -19,6 +20,7 @@ import {
   staleFeeds,
   narrativeEvents,
   meetingState,
+  noMeetingsLabel,
   nextMeeting,
   recoveryReading,
   summarySentence,
@@ -26,7 +28,6 @@ import {
   todayAgenda,
   wardenEvents,
   type RawCalendarEvent,
-  unanswered,
 } from './model'
 import { NeedsYou } from './needs-you'
 import { acwrCell, agentsCell, budgetCell, meetingCell, recoveryCell } from './strip-cells'
@@ -107,14 +108,12 @@ export function TodayPage() {
     ...(google === null ? [] : [{ sourceClass: 'personal' as const, events: google }]),
     ...(m365 === null ? [] : [{ sourceClass: 'work' as const, events: m365 }]),
   ]
-  const missing = [...(google === null ? ['Google'] : []), ...(m365 === null ? ['M365'] : [])]
-  const known = feeds.length === 0 ? null : todayAgenda(feeds, now)
-  // A calendar that has not answered makes an empty day unknown, never "No meetings today".
-  const agenda =
-    known === null ||
-    (missing.length > 0 && known.meetings.length === 0 && known.allDay.length === 0)
-      ? null
-      : known
+  const missing = [
+    ...(google === null ? ['personal' as const] : []),
+    ...(m365 === null ? ['work' as const] : []),
+  ]
+  // Null only when no calendar answered; one answering with nothing reads as partial, not free.
+  const agenda = feeds.length === 0 ? null : todayAgenda(feeds, now, missing)
   const next = agenda === null ? null : nextMeeting(agenda.meetings, now)
 
   const tasksLoaded =
@@ -168,6 +167,7 @@ export function TodayPage() {
             next,
             current: agenda.meetings.find((m) => meetingState(m, now) === 'now') ?? null,
             total: agenda.meetings.length,
+            emptyLabel: noMeetingsLabel(agenda),
           },
     recovery: recovery?.isToday ? recovery.score : null,
     now,
@@ -206,14 +206,14 @@ export function TodayPage() {
         <div className={classes.columns}>
           <NeedsYou decisions={decisions} unavailable={unavailable} />
           <Stack gap="md">
-            <Meetings
-              agenda={agenda}
-              next={next}
-              tasks={tasks}
-              missing={agenda === null ? [] : missing}
+            <Meetings agenda={agenda} next={next} tasks={tasks} now={now} />
+            <ActivityFeed
+              groups={stream.groups}
+              total={stream.total}
+              stale={stale}
+              loaded={warden !== null || agentsRecord !== null}
               now={now}
             />
-            <ActivityFeed groups={stream.groups} total={stream.total} stale={stale} now={now} />
           </Stack>
         </div>
       </Stack>
