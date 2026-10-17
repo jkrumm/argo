@@ -179,7 +179,7 @@
   gap: var(--vx-space-control-gap);
   padding-top: var(--vx-space-stack-sm);
   font-family: var(--basalt-font-mono);
-  font-size: var(--vx-text-micro);
+  font-size: var(--vx-text-xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--vx-muted);
