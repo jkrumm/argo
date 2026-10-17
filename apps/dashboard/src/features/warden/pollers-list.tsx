@@ -1,5 +1,5 @@
 import { BarList, Section } from 'basalt-ui'
-import { POLLER_SCALE_MIN, formatNumber, type PollerRow } from './page-model'
+import { POLLER_SCALE_MIN, formatNumber, pollerStaleLabel, type PollerRow } from './page-model'
 
 /**
  * `Pollers <n>` — collapsed by default. One bar per poller on a shared 0–30 min scale; the scale's
@@ -17,10 +17,7 @@ export function PollersList({ pollers }: { pollers: readonly PollerRow[] }) {
           key: poller.name,
           label: poller.name,
           value: poller.ageMin,
-          secondary:
-            poller.stale || poller.ageMin >= POLLER_SCALE_MIN
-              ? `stale at ${POLLER_SCALE_MIN} min`
-              : undefined,
+          secondary: pollerStaleLabel(poller) ?? undefined,
         }))}
       />
     </Section>

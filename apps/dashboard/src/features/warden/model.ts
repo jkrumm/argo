@@ -67,9 +67,9 @@ export function isDeferredItem(item: WardenBoardItem): boolean {
 // ── Needs you / Failed ───────────────────────────────────────────────────────
 // `board.awaiting_owner` is warden's own list of everything it cannot finish without the owner:
 // every `needs_decision` item (the decision question is the item note, `reason` here) and every
-// `failed` one. Rendered first on the page (`awaiting-owner-section.tsx`) so nothing here rots
+// `failed` one. Rendered first on the page (`decision-queues.tsx`) so nothing here rots
 // invisibly — `needs_decision` as the one "needs you" list, `failed` as a separate, quieter one,
-// and any entry in a state neither knows as a visible `other` list (mirrors `deriveBoard`'s `unknown`).
+// and any entry in a state neither knows as a visible `other` list (mirrors the board's Other column in `page-model.ts`).
 
 /** An entry reads as stale once it has waited this many days or longer — the point past which
  * "waiting on you" stops being a normal queue depth and starts being neglect. */

@@ -38,10 +38,18 @@ export const Route = createFileRoute('/warden')({
 function WardenPage() {
   const snapshotQuery = useQuery(wardenQueries.snapshot())
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null)
-  // Only a manual refresh dims the page; the 60 s background poll swaps data in place.
-  const [refreshing, setRefreshing] = useState(false)
+  // Only a manual refresh dims the page (while its fetch is in flight); the 60 s background poll
+  // swaps data in place.
+  const [refreshRequested, setRefreshRequested] = useState(false)
 
   const snapshot = snapshotQuery.data ?? null
+  // The request ends when the fetch it started settles — two quick clicks share one settle.
+  const isFetching = snapshotQuery.isFetching
+  const [wasFetching, setWasFetching] = useState(isFetching)
+  if (wasFetching !== isFetching) {
+    setWasFetching(isFetching)
+    if (!isFetching) setRefreshRequested(false)
+  }
   const raw = snapshot?.raw
   const awaitingOwner = deriveAwaitingOwner(raw?.board)
   const needs = needsCards(awaitingOwner)
@@ -59,6 +67,7 @@ function WardenPage() {
     unattendedFixes: strip.unattended.fixes,
     windowDays: strip.unattended.windowDays,
     stalePoller: pollers.find((poller) => poller.stale) ?? null,
+    healthOk: raw?.health?.ok,
   })
 
   return (
@@ -67,14 +76,14 @@ function WardenPage() {
         sync={{
           syncing: snapshotQuery.isFetching,
           onSync: () => {
-            setRefreshing(true)
-            void snapshotQuery.refetch().finally(() => setRefreshing(false))
+            setRefreshRequested(true)
+            void snapshotQuery.refetch()
           },
           label: 'Refresh',
         }}
       />
 
-      <Stack gap="md" opacity={refreshing ? 0.6 : 1}>
+      <Stack gap="md" opacity={refreshRequested && snapshotQuery.isFetching ? 0.6 : 1}>
         <StaleBanner snapshot={snapshot} />
         {snapshot ? (
           <Text

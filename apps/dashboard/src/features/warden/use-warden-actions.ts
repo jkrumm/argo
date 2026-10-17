@@ -16,7 +16,7 @@ const RECONCILE_INTERVAL_MS = 30_000
 
 /**
  * Owns the owner-action mutation and the client-side "queued → applied" pending state for the
- * GitHub-issues section (`issues-section.tsx`) — pulled out of `WardenPage` so page composition
+ * decision cards (`decision-queues.tsx`) — pulled out of `WardenPage` so page composition
  * doesn't carry mutation/reconciliation logic, mirroring `model.ts`'s ownership of the board/issue
  * derivations themselves.
  */
