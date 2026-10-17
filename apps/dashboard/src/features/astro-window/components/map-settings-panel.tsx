@@ -245,14 +245,12 @@ export function MapLayerSections({
                       fullWidth
                     />
                     <Text size="xs" c="dimmed">
-                      Smooth interpolates between the atlas&apos;s 30 arcsecond samples. Sharp shows
-                      their true block size instead — the atlas stops at zoom 9, so anything closer
-                      is genuinely how coarse the data is, not a rendering choice.
+                      Smooth interpolates the atlas&apos;s 30 arcsecond samples; Sharp shows them as
+                      blocks.
                     </Text>
                     <LpRangeSlider range={state.lpRange} onCommit={handleLpRange} />
                     <Text size="xs" c="dimmed">
-                      Narrowing the range spends the whole ramp on that brightness window — how you
-                      tell 21.3 from 21.6.
+                      A narrower range spends the whole ramp on that brightness window.
                     </Text>
                   </>
                 )}
@@ -273,7 +271,7 @@ export function MapLayerSections({
                   checked={state.terrain.hillshade}
                   onChange={(event) => handleTerrain({ hillshade: event.currentTarget.checked })}
                   label="Hillshade"
-                  description="Shades the slopes so the ground reads as ridges and valleys instead of flat colour — which peak stands between a spot and the southern sky, and where the walk in actually climbs. Drawn ON TOP of the pollution ramp, so it survives with the ramp on."
+                  description="Slope shading: which ridge stands between a spot and the southern sky."
                 />
                 {state.terrain.hillshade && (
                   <>
@@ -288,10 +286,8 @@ export function MapLayerSections({
                       fullWidth
                     />
                     <Text size="xs" c="dimmed">
-                      Igor: flat-toned, the default — the only one that keeps the ramp&apos;s colour
-                      readable underneath it. Standard: one low sun, deeper shadows, slightly
-                      flatter over the ramp. Multidirectional: four lights, and over the ramp it
-                      crushes the darker slopes to black.
+                      Igor keeps the ramp&apos;s colour readable; Multidirectional crushes dark
+                      slopes.
                     </Text>
                     <OpacitySlider
                       label="Hillshade"
@@ -307,13 +303,13 @@ export function MapLayerSections({
                   checked={state.terrain.extruded}
                   onChange={(event) => handleTerrain({ extruded: event.currentTarget.checked })}
                   label="3D terrain"
-                  description="Tilts the map into real relief — heavier to render, off by default."
+                  description="Tilts the map into real relief; heavier to render."
                 />
                 <Checkbox
                   checked={state.terrain.contours}
                   onChange={(event) => handleTerrain({ contours: event.currentTarget.checked })}
                   label="Contour lines"
-                  description="Elevation isolines generated on the fly from the shared DEM. OpenTopoMap's own base tiles already carry contours of their own — turning this on with that base picked just doubles them up, harmlessly."
+                  description="Elevation isolines from the shared DEM."
                 />
                 <Checkbox
                   checked={state.terrain.trails !== null}
@@ -338,8 +334,7 @@ export function MapLayerSections({
           <Accordion.Panel>
             <Stack gap="xs">
               <Text size="xs" c="dimmed">
-                Live overlays. Each one is somebody else&apos;s free server — leave on only what you
-                are reading.
+                Live overlays on free third-party servers; leave on only what you read.
               </Text>
               <Stack gap="sm">
                 {OBSERVATION_WEATHER_LAYERS.map((entry) => {
@@ -352,9 +347,7 @@ export function MapLayerSections({
                           handleWeatherToggle(entry.id, event.currentTarget.checked)
                         }
                         label={entry.label}
-                        // One dimmed paragraph, not a separate "Coverage:" line underneath — the
-                        // user's own words were that this panel is already overcomplicated.
-                        description={`${entry.description} Coverage: ${entry.coverage}`}
+                        description={entry.description}
                       />
                       {selection !== undefined && (
                         <OpacitySlider
@@ -376,9 +369,8 @@ export function MapLayerSections({
           <Accordion.Panel>
             <Stack gap="xs">
               <Text size="xs" c="dimmed">
-                Open-Meteo&apos;s own NWP model fields — smooth and forward-looking where the
-                satellite mask above is sharp-edged and &quot;now only&quot;. Pick the domain first;
-                its own box is where all three rows below stop painting.
+                Open-Meteo model fields; the domain&apos;s box is where the rows below stop
+                painting.
               </Text>
               <Radio.Group
                 value={state.omDomain}

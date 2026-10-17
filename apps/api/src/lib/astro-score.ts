@@ -151,22 +151,33 @@ export function peakCoreAltitudeInDarkness(night: AstroNight): number | null {
 }
 
 /**
- * The measured ridge at the core's own azimuth, at the SAME instant
- * {@link peakCoreAltitudeInDarkness} reports — the core's best shot during
- * darkness, and what stood in its way. Null without a profile (`terrainAtCore`
- * is NaN on every sample) or with no dark samples at all.
+ * The dark sample that comes closest to clearing the core gate — the one with the smallest
+ * `floor − altitude`, using the same per-sample floor `resolveNight` builds `coreUp` from (the flat
+ * floor, raised to the ridge at the core's azimuth plus the framing margin when a skyline resolved).
+ * A night passes the core gate exactly when this sample's altitude is strictly above its floor, so
+ * the gate's reason text and the `gateCoreAltitude`/`coreGateDeg` response fields all read this one
+ * sample. Null with no dark sample.
  */
-function terrainAtPeakCoreInDarkness(night: AstroNight): number | null {
-  let peakAltitude = Number.NEGATIVE_INFINITY
-  let ridge: number | null = null
+function closestGateSample(
+  night: AstroNight,
+): { altitude: number; floor: number; ridge: number | null } | null {
+  let best: { altitude: number; floor: number; ridge: number | null } | null = null
   for (const sample of night.samples) {
     if (!sample.astroDark) continue
-    if (sample.coreAltitude > peakAltitude) {
-      peakAltitude = sample.coreAltitude
-      ridge = Number.isNaN(sample.terrainAtCore) ? null : sample.terrainAtCore
+    const ridge = Number.isNaN(sample.terrainAtCore) ? null : sample.terrainAtCore
+    const floor =
+      ridge === null ? MIN_CORE_ALTITUDE : Math.max(MIN_CORE_ALTITUDE, ridge + FRAMING_MARGIN_DEG)
+    if (best === null || floor - sample.coreAltitude < best.floor - best.altitude) {
+      best = { altitude: sample.coreAltitude, floor, ridge }
     }
   }
-  return ridge
+  return best
+}
+
+/** The unrounded altitude and floor of {@link closestGateSample}; null with no dark sample. */
+export function coreGateReading(night: AstroNight): { altitude: number; floor: number } | null {
+  const closest = closestGateSample(night)
+  return closest === null ? null : { altitude: closest.altitude, floor: closest.floor }
 }
 
 /** Highest moon altitude across the evaluation window. */
@@ -208,8 +219,8 @@ export const astroWindowConfig: WindowConfig<AstroScoreInput> = {
         if (night.samples.some((sample) => sample.astroDark && sample.coreUp)) {
           return { passes: true }
         }
-        const peak = peakCoreAltitudeInDarkness(night)
-        if (peak === null) {
+        const closest = closestGateSample(night)
+        if (closest === null) {
           return { passes: false, reason: 'the core never rises while it is dark' }
         }
         /*
@@ -220,7 +231,7 @@ export const astroWindowConfig: WindowConfig<AstroScoreInput> = {
          * −20° and is nowhere near up — would otherwise be reported as "the
          * ridge to the south stands at 0.2°", which is false twice over.
          */
-        const ridge = terrainAtPeakCoreInDarkness(night)
+        const { altitude: peak, ridge } = closest
         const ridgeBinds =
           ridge !== null &&
           ridge + FRAMING_MARGIN_DEG > MIN_CORE_ALTITUDE &&
@@ -228,7 +239,7 @@ export const astroWindowConfig: WindowConfig<AstroScoreInput> = {
         if (ridgeBinds) {
           return {
             passes: false,
-            reason: `the ridge to the south stands at ${round1(ridge)}° — the core peaks at ${round1(peak)}° and never clears it`,
+            reason: `the ridge to the south stands at ${round1(ridge)}° — the core gets no higher than ${round1(peak)}° there and never clears it`,
           }
         }
         return {

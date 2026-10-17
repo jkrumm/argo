@@ -1,75 +1,67 @@
-import { Box, Card, SimpleGrid, Stack, Text, UnstyledButton } from '@mantine/core'
-import { VX, CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
-import { percent } from 'basalt-ui/format'
-import { fmtDayLabel, killerLabel, verdictTone } from '../formulas'
+import type { CSSProperties } from 'react'
+import { Box, Card } from '@mantine/core'
+import { fmtMinutes, fmtShortDay, killerLabel, verdictTone } from '../formulas'
 import type { Night } from '../types'
+import classes from './night-strip.module.css'
 
 /**
- * One cell per night, tight top-to-bottom: weekday/day, a verdict-tone bar (the at-a-glance
- * layer), score, window start, moon %. `out` nights de-emphasise but keep every number visible —
- * the point is to see WHY the week is dead, not to hide it.
+ * One cell per night: date, a verdict band, then ONE fact line — the window length when there is
+ * one, else the first killer's short label, so an all-out week still says why per night. The best
+ * (or, when all are out, closest) night carries a marker. Scrolls with snap below the regular
+ * container class.
  */
 export function NightStrip({
   nights,
   selectedDate,
+  markedDate,
   onSelect,
 }: {
   nights: Night[]
   selectedDate: string
+  /** The night the verdict is about. */
+  markedDate: string | null
   onSelect: (date: string) => void
 }) {
+  const allOut = nights.every((n) => n.verdict === 'out')
   return (
-    <Card py="sm" px="md">
-      <SimpleGrid type="container" cols={{ base: 5, [CQ.regular]: 10 }} spacing={4}>
-        {nights.map((night) => {
-          const selected = night.date === selectedDate
-          const isOut = night.verdict === 'out'
-          const { weekday, day } = fmtDayLabel(night.date)
-
-          return (
-            <UnstyledButton
-              key={night.date}
-              onClick={() => onSelect(night.date)}
-              px={4}
-              py={6}
-              style={{
-                borderRadius: VX.radiusCard,
-                background: selected ? VX.surface.subtle : 'transparent',
-                opacity: isOut ? 0.55 : 1,
-              }}
-            >
-              <Stack gap={2} align="center">
-                <Text
-                  ff="monospace"
-                  size="xs"
-                  fw={selected ? 700 : 500}
-                  {...(selected ? {} : { c: 'dimmed' })}
-                >
-                  {weekday} {day}
-                </Text>
-                <Box h={4} w="100%" bg={verdictTone(night.verdict)} />
-                {/*
-                  Every row keeps ONE meaning down the whole strip: score, window
-                  start, then the moon. A ruled-out night reads `OUT` in the score
-                  slot rather than a reason, because a column that means "score"
-                  for four cells and "why not" for six is unreadable across. The
-                  reason lands in the last row instead, where it displaces the
-                  moon reading it would otherwise have duplicated.
-                */}
-                <Text ff="monospace" size="sm" fw={600}>
-                  {isOut ? 'OUT' : night.score}
-                </Text>
-                <Text ff="monospace" size="xs" c="dimmed">
-                  {night.window?.localStart ?? '—'}
-                </Text>
-                <Text ff="monospace" size="xs" c="dimmed">
-                  {isOut ? killerLabel(night) : percent(night.moon.illumination)}
-                </Text>
-              </Stack>
-            </UnstyledButton>
-          )
-        })}
-      </SimpleGrid>
+    <Card py="sm" px="md" data-shot="night-strip">
+      <Box className={classes.host}>
+        <Box
+          className={classes.scroller}
+          role="group"
+          aria-label="Nights"
+          style={{ '--night-count': nights.length } as CSSProperties}
+        >
+          {nights.map((night) => {
+            const out = night.verdict === 'out'
+            return (
+              <button
+                key={night.date}
+                type="button"
+                className={classes.cell}
+                aria-pressed={night.date === selectedDate}
+                onClick={() => onSelect(night.date)}
+              >
+                <span className={classes.date}>{fmtShortDay(night.date)}</span>
+                <Box
+                  component="span"
+                  className={classes.band}
+                  bg={verdictTone(night.verdict)}
+                  opacity={out ? 0.5 : 1}
+                />
+                <span className={classes.note}>
+                  {!out && night.window !== null
+                    ? fmtMinutes(night.window.minutes)
+                    : killerLabel(night)}
+                </span>
+                <span className={classes.marker}>
+                  {night.date === markedDate ? (allOut ? 'CLOSEST' : 'BEST') : ''}
+                </span>
+              </button>
+            )
+          })}
+        </Box>
+      </Box>
     </Card>
   )
 }

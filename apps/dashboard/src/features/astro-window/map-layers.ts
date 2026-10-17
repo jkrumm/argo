@@ -412,8 +412,7 @@ export const BASE_LAYERS: readonly BaseLayer[] = [
     id: 'ofm-fiord',
     kind: 'style',
     label: 'Fiord',
-    description:
-      'Cool blue-grey vector map with quiet roads and legible Alpine relief. The dark-mode default — it leaves the light-pollution domes as the only loud thing on the map.',
+    description: 'Cool blue-grey vector map; the dark-mode default.',
     styleUrl: 'https://tiles.openfreemap.org/styles/fiord',
     defaultOpacity: 1,
     attribution: null,
@@ -422,8 +421,7 @@ export const BASE_LAYERS: readonly BaseLayer[] = [
     id: 'ofm-positron',
     kind: 'style',
     label: 'Positron',
-    description:
-      'Near-white vector map. The light-mode default, and the one the light-scheme ramp shades were tuned against.',
+    description: 'Near-white vector map; the light-mode default.',
     styleUrl: 'https://tiles.openfreemap.org/styles/positron',
     defaultOpacity: 1,
     attribution: null,
@@ -432,8 +430,7 @@ export const BASE_LAYERS: readonly BaseLayer[] = [
     id: 'ofm-dark',
     kind: 'style',
     label: 'Dark',
-    description:
-      'The darker OpenFreeMap style. Kept as an option, not a default: its road network renders near-black and heavy, so the roads read louder than the data sitting under them.',
+    description: 'Darker OpenFreeMap style; its heavy roads read louder than the data.',
     styleUrl: 'https://tiles.openfreemap.org/styles/dark',
     defaultOpacity: 1,
     attribution: null,
@@ -442,8 +439,7 @@ export const BASE_LAYERS: readonly BaseLayer[] = [
     id: 'versatiles-eclipse',
     kind: 'style',
     label: 'Eclipse',
-    description:
-      'VersaTiles dark style — a second, independent tile host if OpenFreeMap is down. Its orange roads collide with the warm half of the pollution ramp, so it reads best with the ramp off.',
+    description: 'VersaTiles dark style on a second host; orange roads clash with the ramp.',
     styleUrl: 'https://tiles.versatiles.org/assets/styles/eclipse/style.json',
     defaultOpacity: 1,
     attribution: null,
@@ -452,8 +448,7 @@ export const BASE_LAYERS: readonly BaseLayer[] = [
     id: 'eox-s2cloudless',
     kind: 'imagery',
     label: 'Satellite',
-    description:
-      'Cloud-free Sentinel-2 mosaic — what the ground actually looks like: forest, water, the field you would park in.',
+    description: 'Cloud-free Sentinel-2 mosaic: forest, water, the field you would park in.',
     tiles: [
       'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2025_3857/default/GoogleMapsCompatible/{z}/{y}/{x}.jpg',
     ],
@@ -467,8 +462,7 @@ export const BASE_LAYERS: readonly BaseLayer[] = [
     id: 'otm',
     kind: 'raster-style',
     label: 'Topographic',
-    description:
-      'Contour lines, marked hiking paths, hut and peak names — OpenTopoMap\'s own labels baked into the tile. Pick this when the question is "can I walk to this spot in the dark", not "how bright is the sky here".',
+    description: 'Contours, hiking paths, hut and peak names baked into the tile.',
     tiles: [
       'https://a.tile.opentopomap.org/{z}/{x}/{y}.png',
       'https://b.tile.opentopomap.org/{z}/{x}/{y}.png',
@@ -773,12 +767,12 @@ export function formatLpParam(selection: LpSelection): string {
 
 /** One line per vintage, so the drawer's year list explains itself rather than listing numbers. */
 export const LP_YEAR_NOTES: Record<LpYear, string> = {
-  2016: 'The oldest vintage. Ten years of LED conversion ago — useful only as the other end of a trend.',
+  2016: 'Oldest vintage; the far end of the trend.',
   2020: 'Mid-decade reference.',
   2022: 'Mid-decade reference.',
   2023: 'Mid-decade reference.',
-  2024: 'Second-latest — the sanity check on 2025.',
-  2025: 'The latest published atlas. Every measured site figure in this app is read from it.',
+  2024: 'Second-latest; the check on 2025.',
+  2025: 'Latest atlas; every measured site figure comes from it.',
 }
 
 // ── Weather now (multi) ────────────────────────────────────────────────────
@@ -985,24 +979,22 @@ export const OM_DOMAINS: readonly OmDomain[] = [
     id: 'dwd_icon_d2',
     label: 'ICON-D2',
     resolution: '2.2 km',
-    coverage:
-      'The Alps and Central Europe only — 43.18°N to 58.08°N, 3.94°W to 20.34°E. Nothing paints outside that box.',
+    coverage: 'Alps and Central Europe only.',
     horizon: '48 h, hourly steps.',
   },
   {
     id: 'dwd_icon_eu',
     label: 'ICON-EU',
     resolution: '7 km',
-    coverage: 'Europe only — 29.5°N to 70.5°N, 23.5°W to 62.5°E. Nothing paints outside that box.',
+    coverage: 'Europe only.',
     horizon: '~30 h, hourly steps.',
   },
   {
     id: 'ecmwf_ifs025',
     label: 'ECMWF IFS',
     resolution: '25 km',
-    coverage: 'Global — the only one of the three domains with no bbox to run past.',
-    horizon:
-      '15 days — 3-hourly for the first six, 6-hourly after that (measured 2026-08-20: 85 steps, 48 three-hour gaps then 36 six-hour ones). The scrubber steps through them as published, so a step here is not an hour.',
+    coverage: 'Global.',
+    horizon: '15 days; 3-hourly, then 6-hourly steps.',
   },
 ]
 
@@ -1271,8 +1263,7 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
   {
     id: 'radar',
     label: 'Radar (animated, global)',
-    description:
-      "RainViewer's global radar mosaic — 1200+ ground radars across 150+ countries, a new frame every 5 minutes, ~2 h of history looped. Universal Blue colouring for legibility over this app's dark zinc base.",
+    description: 'RainViewer global radar mosaic, a frame every 5 minutes.',
     source: 'rainviewer',
     attribution:
       '<a href="https://www.rainviewer.com/" target="_blank">Weather data by RainViewer</a>',
@@ -1286,8 +1277,7 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
   {
     id: 'lightning',
     label: 'Lightning density',
-    description:
-      'EUMETSAT MTG-I Lightning Imager — accumulated flash area over the whole Meteosat disc, where strikes have actually been detected. Replaced DWD Blitzdichte (Germany only) 2026-08-19: same question, hemispheric reach instead of one country. Legitimately blank on a quiet night; that is data, not a broken layer.',
+    description: 'EUMETSAT MTG-I flash density across the Meteosat disc.',
     source: 'wms',
     host: EUMETSAT_WMS,
     wmsLayer: 'mtg_fd:li_afa',
@@ -1306,8 +1296,7 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
   {
     id: 'cloud',
     label: 'Cloud mask',
-    description:
-      'EUMETSAT MSG cloud mask, decoded from its red channel and repainted in this app\'s own transparent ramp, refreshed every 15 minutes across two discs. Radar only sees rain — this answers "is there cloud at all", the question a clear night turns on.',
+    description: 'EUMETSAT MSG cloud mask, refreshed every 15 minutes.',
     source: 'cloud-mask',
     hosts: [EUMETSAT_WMS, EUMETSAT_WMS],
     wmsLayers: ['msg_fes:clm', 'msg_iodc:clm'],
@@ -1324,7 +1313,7 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
     id: 'cloud-ir',
     label: 'Infrared cloud',
     description:
-      "NASA GIBS GOES-East/West + Himawari infrared (10.8 µm), covering the hemisphere the EUMETSAT mask above cannot reach. Rendered as the provider's own colour-enhanced Clean Infrared product (cold convective tops render red/yellow/green over a grey field) rather than a decoded ramp — see the module docstring for why decoding it was tried and dropped. Complements the cloud mask, does not replace it: infrared reads high cold cloud well but under-reports low cloud — measured here at IR 56.3 over cloudy pixels vs 52.8 over clear land, with fully overlapping ranges. Low cloud is exactly what ends an astro night, so treat a clear read here as a hint, not a verdict.",
+      'NASA GIBS infrared cloud for the Americas and East Asia; under-reports low cloud.',
     source: 'gibs-ir',
     gibsLayers: [
       'GOES-East_ABI_Band13_Clean_Infrared',
@@ -1343,8 +1332,7 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
   {
     id: 'cloud-top',
     label: 'Cloud top height',
-    description:
-      'EUMETSAT MSG cloud-top height, both discs — distinguishes thin high cirrus (which costs contrast but rarely ends a session) from a low deck (which does), the one distinction the binary cloud mask above cannot make. Refreshed every 15 minutes.',
+    description: 'EUMETSAT cloud-top height: thin cirrus versus a low deck.',
     source: 'wms-multi',
     hosts: [EUMETSAT_WMS, EUMETSAT_WMS],
     wmsLayers: ['msg_fes:cth', 'msg_iodc:cth'],
@@ -1365,8 +1353,7 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
   {
     id: 'model-cloud',
     label: 'Cloud cover (forecast)',
-    description:
-      "Open-Meteo's own NWP model total cloud cover, at the selected domain's native resolution — smooth and structured the way Windy's cloud layer is, because it is the same kind of object (a model field, not a satellite mask) rendered the same way (bilinear, not nearest-neighbour on a categorical class). Unlike every row above, this one has a real FORECAST: step through the domain's own valid times with the scrubber, hours or days ahead.",
+    description: 'Open-Meteo model total cloud cover, forecast hours to days ahead.',
     source: 'om-model',
     variable: 'cloud_cover',
     attribution: OPEN_METEO_ATTRIBUTION,
@@ -1381,8 +1368,7 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
   {
     id: 'model-cloud-low',
     label: 'Low cloud cover (forecast)',
-    description:
-      'The same model field, restricted to the low-altitude layer — the one that actually ends a night at the horizon. High cirrus the total-cloud row above would flag stays invisible here on purpose, the model equivalent of the distinction `cloud-top` draws for the satellite mask.',
+    description: 'The same model field, low-altitude layer only.',
     source: 'om-model',
     variable: 'cloud_cover_low',
     attribution: OPEN_METEO_ATTRIBUTION,
@@ -1397,8 +1383,7 @@ export const WEATHER_LAYERS: readonly WeatherLayer[] = [
   {
     id: 'model-precip',
     label: 'Precipitation (forecast)',
-    description:
-      "Model precipitation, hours or days ahead of `radar` above — radar only shows what is already falling; this is the same question with an actual answer for tomorrow night's plan, not just tonight's.",
+    description: 'Model precipitation, hours to days ahead of the radar row.',
     source: 'om-model',
     variable: 'precipitation',
     attribution: OPEN_METEO_ATTRIBUTION,
@@ -1629,8 +1614,7 @@ export const TRAILS_TILES: readonly string[] = [
 export const TRAILS_ATTRIBUTION =
   '<a href="https://waymarkedtrails.org" target="_blank">© waymarkedtrails.org</a>, OpenStreetMap contributors (CC-BY-SA)'
 export const TRAILS_LABEL = 'Hiking trails'
-export const TRAILS_DESCRIPTION =
-  "Waymarked Trails' marked hiking network, laid transparent over whichever base is picked — the paths that answer whether you can actually walk to a dark-sky spot."
+export const TRAILS_DESCRIPTION = 'Marked hiking network over any base: can you walk to the spot.'
 export const TRAILS_DEFAULT_OPACITY = 0.85
 
 export type TerrainSelection = {

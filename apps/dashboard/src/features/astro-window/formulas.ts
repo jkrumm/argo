@@ -1,6 +1,6 @@
 import { VX } from 'basalt-ui/tokens'
 import { percent, weekday } from 'basalt-ui/format'
-import type { Location, Night, Sources, Verdict } from './types'
+import type { Location, Night, Sources, Verdict, WindowResponse } from './types'
 
 /** Verdict → tone. `out` is a hard gate, not a low score, so it reads neutral, never red. */
 export function verdictTone(verdict: Verdict): string {
@@ -143,4 +143,33 @@ export function hourlyTicks(
   const onTheHour = hourly.filter((d) => d.localTime.endsWith(':00'))
   const stride = Math.max(1, Math.ceil(onTheHour.length / max))
   return onTheHour.filter((_, i) => i % stride === 0).map((d) => new Date(d.time))
+}
+
+/** Weekday + day-of-month, `Sat 17` — the one short date label the page uses. */
+export function fmtShortDay(dateString: string): string {
+  const { weekday: wd, day } = fmtDayLabel(dateString)
+  return `${wd} ${day}`
+}
+
+/** Nights that passed every hard gate. The API decides; this only counts. */
+export function usableNightCount(nights: readonly Night[]): number {
+  return nights.filter((n) => n.verdict !== 'out').length
+}
+
+/** The night the top-level `verdict`/`killers` describe, by the API's own `bestDate`. */
+export function bestNightOf(data: WindowResponse): Night | null {
+  return data.nights.find((n) => n.date === data.bestDate) ?? data.nights[0] ?? null
+}
+
+/**
+ * Degrees the core falls short of its gate at the tightest dark sample. With a `core-altitude`
+ * killer the gap is shown even at 0.0° (the API's gate is a strict `>`); null when the core clears
+ * the gate or there is no dark stretch.
+ */
+export function gapToGate(night: Night): number | null {
+  if (night.gateCoreAltitude === null || night.coreGateDeg === null) return null
+  const gap = night.coreGateDeg - night.gateCoreAltitude
+  const failed = night.killers.some((k) => k.id === 'core-altitude')
+  if (!failed) return null
+  return Math.round(Math.max(0, gap) * 10) / 10
 }

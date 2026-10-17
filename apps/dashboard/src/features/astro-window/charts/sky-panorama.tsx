@@ -12,7 +12,7 @@ import { astroQueries } from '../../../lib/queries/astro'
 import { SERIES } from '../../../lib/series'
 import { LP_RAMP } from '../map-layers'
 import { METRIC_TOOLTIPS, PANORAMA_HEIGHT } from '../constants'
-import { fmtDegrees, fmtMinutes } from '../formulas'
+import { fmtDegrees, fmtMinutes, fmtShortDay } from '../formulas'
 import type { HourlyPoint, Site } from '../types'
 import {
   ALT_DOMAIN,
@@ -51,6 +51,13 @@ const ALT_TICKS = 6
  * (`getValue` always null) whose keys gate their marks on the legend toggle.
  */
 const NEVER = () => null
+/**
+ * The skyglow field's own opacity ceiling, applied on top of the twilight fade. The `LP.*` ramp's
+ * alpha ladder is DESIGN.md-recorded and untouched; the panorama just paints the whole field
+ * quieter so the skyline and the gate line lead.
+ */
+const GLOW_ALPHA = 0.12
+
 const PANORAMA_SERIES: ChartSeries<ProfileRow>[] = [
   {
     key: 'skyline',
@@ -220,7 +227,7 @@ export default function SkyPanorama({
   ) {
     return (
       <ChartCard
-        title="Sky Panorama"
+        title={`Skyline, skyglow and tracks · ${fmtShortDay(detailDate)}`}
         info={METRIC_TOOLTIPS.skyPanorama}
         state={chartStateOf(
           {
@@ -237,7 +244,7 @@ export default function SkyPanorama({
 
   return (
     <PanoramaLoaded
-      site={site}
+      detailDate={detailDate}
       samples={hourly}
       moonIllumination={moonIllumination}
       horizon={horizon}
@@ -248,14 +255,14 @@ export default function SkyPanorama({
 }
 
 function PanoramaLoaded({
-  site,
+  detailDate,
   samples,
   moonIllumination,
   horizon,
   skyglow,
   visibility,
 }: {
-  site: Site
+  detailDate: string
   samples: HourlyPoint[]
   /** Moon illuminated fraction for this night, 0..1 — scales the moon marker. */
   moonIllumination: number
@@ -345,7 +352,7 @@ function PanoramaLoaded({
             y1: 'alt0',
             y2: 'alt1',
             fill,
-            fillOpacity: dark,
+            fillOpacity: dark * GLOW_ALPHA,
             inset: 0,
           }),
         )
@@ -475,16 +482,15 @@ function PanoramaLoaded({
 
   return (
     <ChartCard
-      title="Sky Panorama"
-      subtitle={`${site.name} — where the core, moon and sun sit against the measured skyline`}
+      title={`Skyline, skyglow and tracks · ${fmtShortDay(detailDate)}`}
       info={METRIC_TOOLTIPS.skyPanorama}
       actions={
         <Box component="span" style={{ fontSize: VX.text.xs }}>
-          <Box component="span" style={{ fontWeight: 600, fontSize: VX.text.md }}>
-            {fmtMinutes(gateMinutes)}
+          <Box component="span" style={{ fontWeight: 600, fontSize: VX.text.sm }}>
+            {gateMinutes === 0 ? 'No time' : fmtMinutes(gateMinutes)}
           </Box>
           <Box component="span" ml={6} style={{ opacity: 0.6 }}>
-            above the gate tonight
+            above the gate · {fmtShortDay(detailDate)}
           </Box>
         </Box>
       }
@@ -527,7 +533,9 @@ function PanoramaLoaded({
           Clearance {clearance >= 0 ? '+' : ''}
           {clearance.toFixed(1)}°
         </Text>
-        <Text size="sm">Skyglow there {glowBehindCore.toFixed(2)} mpsas</Text>
+        <Text size="sm">
+          Skyglow there {glowBehindCore.toFixed(2)} mag/arcsec² (dark sky ≥ 21.6)
+        </Text>
         <Text size="sm">Sun {fmtDegrees(sample.sunAltitude)}</Text>
         <Text size="sm" style={{ color: moonGood ? VX.goodSolid : VX.badSolid }}>
           Moon {moonState}

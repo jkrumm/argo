@@ -4,7 +4,7 @@ export const METRIC_TOOLTIPS = {
   cloudLayers:
     'Low/mid/high cloud cover (%) across the same night, same time axis as the timeline above. Low cloud ends a night outright; high cloud only costs contrast.',
   skyPanorama:
-    "Azimuth × altitude panorama for tonight: the measured terrain skyline, the artificial skyglow rose behind it, and the tracks the sun, moon and galactic core walk across it. Scrub the slider to see where each one sits at a given time — it opens on the core's highest point while astronomically dark.",
+    "Azimuth × altitude panorama for the selected night: the measured terrain skyline, the artificial skyglow rose behind it, and the tracks the sun, moon and galactic core walk across it. Scrub the slider to see where each one sits at a given time — it opens on the core's highest point while astronomically dark.",
   monthlyBudget:
     'Usable galactic-core hours per calendar month at this site, under three progressively honest gates: the flat atmospheric floor, the same floor plus the measured terrain skyline, and terrain with the moon also counted down when it sits behind that skyline. Weather-free and deterministic — answers whether the SITE is worth the drive, not whether tonight is.',
 } as const
@@ -33,3 +33,11 @@ export const MAP_FULL_BLEED_HEIGHT =
 
 /** Floor for a short viewport (a landscape phone) — below this the map stops being usable. */
 export const MAP_MIN_HEIGHT = 420
+
+/** Upper end of the core-altitude meters; the core never tops ~30° at the site latitudes, so a small gap stays visible. */
+export const CORE_METER_MAX_DEG = 30
+
+/** Sky-brightness meter domain (mag/arcsec²) and the map legend's dark threshold. */
+export const SKY_METER_MIN = 18
+export const SKY_METER_MAX = 22
+export const SKY_DARK_THRESHOLD = 21.6
