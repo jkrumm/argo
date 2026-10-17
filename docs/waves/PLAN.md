@@ -602,7 +602,7 @@ the next wave.
 
 ## Wave 18 — Live-data shot harness and the page concepts <!-- status: active -->
 
-- [ ] `scripts/design-shot.ts`, run as `make design-shot ROUTES="/garmin-health /agents"`. It builds the
+- [x] `scripts/design-shot.ts`, run as `make design-shot ROUTES="/garmin-health /agents"`. It builds the
       dashboard with `VITE_API_URL=https://argo.jkrumm.com/api`, serves `dist` on `http://localhost:7715`
       (the one localhost origin the API's CORS allows) inside the script for the run only, and seeds the
       bearer into localStorage `argo-auth` (`{"state":{"token":…},"version":0}`) from
@@ -611,14 +611,60 @@ the next wave.
       region, so size the viewport to the content), plus one crop per card or table, into
       `.design-shots/<label>/`. Add `.design-shots/` to `.gitignore`. When basalt ships `shot --api/--header/--local-storage`
       (basalt row 167, in flight), switch to it.
-- [ ] Baseline every page: `/`, garmin-health, agents, warden, calendar, strength-tracker, walking-pad,
+- [x] Baseline every page: `/`, garmin-health, agents, warden, calendar, strength-tracker, walking-pad,
       body-composition, reading, usage-tracking, astro-window, hermes-chat and m365-explorer.
-- [ ] One concept doc per page (`docs/design/<page>.md`) as in Method step 1. Rank the pages by how far
+- [x] One concept doc per page (`docs/design/<page>.md`) as in Method step 1. Rank the pages by how far
       they are from the bar. Fill `docs/design/UPSTREAM.md` with the patterns that recur across pages (KPI
       tile micro-visual variants, the inner metric grid, the decision card, the day-grouped timeline, the
       fact strip, the stepper, status-dot lists).
 - [ ] Owner review point: the orchestrator shows the baseline boards and the concepts.
       **Left behind:**
+
+  **Stopped: at the owner review point.** Steps 1–3 are done and merged; step 4 is the orchestrator's.
+  This wave stays `active` until the owner has seen the boards; nothing was spawned.
+
+  - **Boards (gitignored, local to the mini, copy to the MacBook):**
+    - `.design-shots/w18-review/index.html`: the 13 pages ranked by distance, each with the argo
+      baseline beside the matching Keel capture and the concept's question, layout, encodings and pass
+      criteria. It is self-contained: the Keel images are copied into its `img/`. Look-only, never commit them.
+    - `.design-shots/baseline/index.html`: every route (15 incl. the astro tabs) × dark/light ×
+      1440/390, 60 full shots, plus desktop crops.
+  - **Harness:** `make design-shot [ROUTES=…] [LABEL=…] [SKIP_BUILD=1]` (`scripts/design-shot/`, #57).
+    - **Deviation from step 1:** it does not build with `VITE_API_URL` and serve on `:7715`. Instead it
+      reuses `make evidence`'s same-origin `/api` proxy, which is GET-only, so there is no CORS
+      dependency and no write can reach production.
+    - The evidence server now refuses any `Host` other than its own loopback origin, since its HTML
+      carries the bearer. Upstream non-2xx responses are recorded as notes on the board.
+    - basalt-ui 2.17 has no `shot --api/--header/--local-storage` yet (row 167). Switch to it when it
+      ships.
+    - Crop gaps: calendar and hermes-chat produce no crops (their surfaces are not cards), agents only 4
+      and reading hits the 40 cap. Full shots cover them.
+  - **Concepts:** 13 docs in `docs/design/` (`home.md` is the new `/` Today page; `/` still redirects
+    to Garmin Health). The distance ranking is in `docs/design/README.md` (5 = furthest: warden, home,
+    calendar, walking-pad, m365-explorer). The recurring patterns are in `docs/design/UPSTREAM.md`.
+    - Every one of them is still missing from basalt-ui 2.17: `Meter`, the strip, `BarList`,
+      `EventList`, `Board` (SPEC §4 waves 34–38, 34 in flight), plus new ones (chart facts header,
+      entity card, agenda row, compact `EmptyState`, `foldTopN`).
+    - Wave 19 needs `Meter`, the strip, `BarList` and the facts header. It adopts each one that has
+      shipped by then and otherwise prototypes it under `features/garmin-health/` with the UPSTREAM
+      props.
+  - **Review:** every merged diff got two independent rounds, then scope was frozen and the lead read
+    the last fix diff: #57 (harness), #58–#61 (concepts), and README + UPSTREAM. `make check` ran green
+    in the merge train on every merge. The harness deploy was verified live (`/api/health` commit
+    `f0b717f`). The concept merges are docs-only, so no page changed.
+  - **For later waves:**
+    - The EWMA comments in `apps/api/src/lib/garmin-formulas.ts` (~208–210) and
+      `apps/api/src/lib/training-load.ts` (~59) claim 7 d / 28 d half-lives. The constants give
+      ≈2.4 d / ≈9.7 d (λ 0.25, 2/29). The concept states the real values; fix the code comments (or
+      the constants) in Wave 19.
+    - Prerequisites the concepts name:
+      - a walking-pad weekly-target setting (new);
+      - no `lastSyncedAt` on `/reading` (that cell was dropped);
+      - the merged inbox `apps/dashboard/src/lib/decisions.ts` (Waves 20–21);
+      - `features/calendar/derive.ts` (Wave 21).
+    - Privacy: reviewers repeatedly flagged that the concept docs commit real numbers (body weight,
+      spend, lift e1RMs). Part 2's rule allows numbers and was kept; names, titles and message text
+      were kept out. The owner may want to tighten the rule.
 
 ## Wave 19 — Garmin Health <!-- status: pending -->
 
