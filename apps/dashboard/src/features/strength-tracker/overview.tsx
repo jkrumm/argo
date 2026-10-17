@@ -25,6 +25,9 @@ import {
   dayLabel,
   shortDate,
   deloadLine,
+  lastSessionDate,
+  readinessHeader,
+  recentDeload,
   liftDelta,
   lastSession,
   latestE1rm,
@@ -66,7 +69,9 @@ function useOverview({ params, exercises }: Params) {
 
   const now = useNow()
   const readiness = readinessReading(readinessSeries.points)
-  const call = todaysCall(readiness, deload, now)
+  const lastDate = lastSessionDate(series.byExercise)
+  const deloadNow = recentDeload(deload, lastDate, now)
+  const call = todaysCall(readiness, deloadNow, now)
   const { acwr, week: acwrWeek } = acwrReading(load.byExercise, now)
   const leader =
     exercises.find((e) => e === heroes.strengthDirection.leaderExercise) ?? exercises[0] ?? null
@@ -81,7 +86,8 @@ function useOverview({ params, exercises }: Params) {
   })
   return {
     readiness,
-    deload,
+    deload: deloadNow,
+    lastDate,
     series,
     summary,
     call,
@@ -102,7 +108,7 @@ export function SummaryLine(props: Params) {
 }
 
 export function TodaysCall(props: Params) {
-  const { readiness, deload, series, call, acwr, acwrWeek } = useOverview(props)
+  const { readiness, deload, lastDate, series, call, acwr, acwrWeek } = useOverview(props)
   const score = readiness?.score ?? null
   const session = lastSession(series.byExercise)
 
@@ -115,9 +121,9 @@ export function TodaysCall(props: Params) {
         ]),
   ]
   const meta = [
-    deloadLine(deload),
-    call.overridden && readiness !== null && score !== null
-      ? `readiness still reads ${Math.round(score)}/100 · ${readiness.verdict}`
+    deloadLine(deload, lastDate),
+    call.verdict !== call.readinessVerdict && readiness !== null && score !== null
+      ? `readiness alone reads ${readinessHeader(readiness)?.text} · ${readiness.verdict}`
       : null,
   ]
     .filter((v) => v !== null)
@@ -132,7 +138,7 @@ export function TodaysCall(props: Params) {
           <Stack gap="md">
             <Box className={classes.meterBlock}>
               <Text size="sm" fw={600}>
-                Readiness {score === null ? EM_DASH : `${Math.round(score)}/100`}
+                Readiness {readinessHeader(readiness)?.text ?? EM_DASH}
               </Text>
               {score === null ? (
                 <Text size="sm" c="dimmed">

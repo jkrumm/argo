@@ -7,7 +7,12 @@ import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { latestWith } from '../../garmin-health/charts/latest'
 import { localDay } from '../../garmin-health/charts/local-day'
-import { READINESS_PUSH_FROM, READINESS_REST_BELOW } from '../model'
+import {
+  READINESS_PUSH_FROM,
+  READINESS_REST_BELOW,
+  readinessHeader,
+  readinessReading,
+} from '../model'
 import { METRIC_TOOLTIPS } from '../constants'
 
 const HEIGHT = 280
@@ -79,24 +84,34 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
     [query.data],
   )
   const latest = latestWith(points, (p) => p.readiness)
-  const latestZone = latest?.readiness == null ? null : readinessZoneLabel(latest.readiness)
+  // The header is the verdict card's reading, from the same fixed-window query and function: the
+  // server's score depends on the window it is computed over, so the plotted window must not
+  // decide the headline figure.
+  const headerQuery = useQuery(strengthQueries.readiness({ window: '30d' }))
+  const header = readinessHeader(readinessReading(headerQuery.data?.points ?? []))
+  const headerZone =
+    header === null
+      ? null
+      : readinessZoneLabel(readinessReading(headerQuery.data?.points ?? [])?.score ?? 0)
 
   return (
     <ChartCard
       title="Adjusted readiness"
       info={METRIC_TOOLTIPS.readinessStrain}
       actions={
-        latest?.readiness != null && latestZone ? (
+        header !== null && headerZone ? (
           <Group gap={6} align="baseline" wrap="nowrap">
-            <Text span fw={600} size="md" c={latestZone.color}>
-              {Math.round(latest.readiness)}/100
+            <Text span fw={600} size="md" c={headerZone.color}>
+              {header.text}
             </Text>
-            <Text span size="xs" c={latestZone.color}>
-              {latestZone.text}
+            <Text span size="xs" c={headerZone.color}>
+              {headerZone.text}
             </Text>
-            <Text span size="xs" c="dimmed">
-              {latest.day.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-            </Text>
+            {header.date === null ? null : (
+              <Text span size="xs" c="dimmed">
+                {header.date}
+              </Text>
+            )}
           </Group>
         ) : null
       }
