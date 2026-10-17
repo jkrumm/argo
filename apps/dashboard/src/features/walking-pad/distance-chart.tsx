@@ -2,14 +2,15 @@ import { useQuery } from '@tanstack/react-query'
 import { Bars, ChartCard } from 'basalt-ui/charts'
 import { chartStateOf } from '../../lib/chart-state'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../lib/queries/walking-pad'
-import { SERIES } from '../../lib/series'
+import { alpha, VX } from 'basalt-ui/tokens'
 import { walkingStore } from '../../lib/window-stores'
 import { useNow } from '../../lib/use-now'
 import { FACTS_ROW_LIMIT, distanceFacts, fmtKm, windowStartMs, windowTitle } from './model'
+import { Facts } from './facts'
 
 type Bucket = { bucketStart: number; bucketWidth: number; sessions: number }
 
-const HEIGHT = 160
+const HEIGHT = 180
 const km = (m: number): string => String(Number((m / 1000).toFixed(1)))
 const getX = (d: Bucket) => String(d.bucketStart)
 /** Label every 4th bucket and always the overflow bucket, dropping a stepped tick that would touch it. */
@@ -38,24 +39,29 @@ export function DistanceChart({ params }: { params: WalkingPadWindowParams }) {
   const byKey = new Map(buckets.map((b) => [getX(b), b]))
   const formatX = (key: string): string => {
     const b = byKey.get(key)
+    if (b === undefined) return key
+    return b.bucketStart === lastStart ? `${km(b.bucketStart)}+` : km(b.bucketStart)
+  }
+  const formatRange = (key: string): string => {
+    const b = byKey.get(key)
     return b === undefined ? key : label(b)
   }
 
   const facts =
     rows.data === undefined ? null : distanceFacts(rows.data.data, windowStartMs(params, now))
-  const subtitle =
-    facts === null
-      ? undefined
-      : `median ${fmtKm(facts.medianM)} km · longest ${fmtKm(facts.longestM)} km${facts.partial ? ' · newest 200 walks' : ''}`
-
   return (
     <ChartCard
       title={`Session distance, ${windowTitle(preset)}`}
-      {...(subtitle !== undefined && { subtitle })}
-      info="Walks per distance bucket. The last bucket collects every longer walk."
       state={chartStateOf(histogram, undefined)}
       placeholderHeight={HEIGHT}
     >
+      {facts !== null && (
+        <Facts
+          value={fmtKm(facts.medianM)}
+          unit="km"
+          context={`median walk, buckets in km · longest ${fmtKm(facts.longestM)} km${facts.partial ? ' · newest 200 walks' : ''}`}
+        />
+      )}
       <Bars
         ariaLabel="Walks per session-distance bucket in kilometres"
         data={buckets}
@@ -67,13 +73,13 @@ export function DistanceChart({ params }: { params: WalkingPadWindowParams }) {
           {
             key: 'sessions',
             label: 'Walks',
-            color: SERIES.walkingDistance,
+            color: alpha(VX.muted, 0.55),
             getValue: (d) => (d.sessions > 0 ? d.sessions : null),
             formatValue: (v) => `${Math.round(v)} ${Math.round(v) === 1 ? 'walk' : 'walks'}`,
           },
         ]}
         y={{ domain: 'auto', format: (v) => String(Math.round(v)), ticks: 3, autoMaxFloor: 3 }}
-        tooltip={{ formatHeader: (key) => formatX(key) }}
+        tooltip={{ formatHeader: (key) => formatRange(key) }}
         legend={false}
       />
     </ChartCard>

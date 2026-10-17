@@ -1,6 +1,6 @@
 # WalkingPad — concept
 
-Route `/walking-pad` · `apps/dashboard/src/routes/walking-pad.tsx`, `apps/dashboard/src/features/walking-pad/` (`hero-stats.tsx`, `live-card.tsx`, `achievements-gallery.tsx`, `session-history.tsx`, `charts/`).
+Route `/walking-pad` · `apps/dashboard/src/routes/walking-pad.tsx`, `apps/dashboard/src/features/walking-pad/` (`record-header.tsx`, `strip-cells.tsx`, `week-chart.tsx`, `distance-chart.tsx`, `hour-grid.tsx`, `history-table.tsx`, `achievements-list.tsx`, `model.ts`).
 
 ## Baseline verdict
 
@@ -81,3 +81,29 @@ Braces mark placeholders for the format.
 5. Achievements show a count in the heading and collapse repeats; no row repeats the same title more than once.
 6. The history table has units in headers only, relative time with a date tooltip.
 7. No filler-question subtitle remains; no tile subtitle truncates at 1440 or 390.
+
+## Wave 21 rounds
+
+Shots: `apps/dashboard/.design-shots/w21-walking-pad-r{0,1,3,4}` (empty default window) and `…-r{1,3,4}-all` (`?window=all`, the populated state), gitignored. Production's default 30-day window holds no walks, so the populated state is shot with the all-time window.
+
+- **r0** baseline, the old page (nine zero tiles, five empty chart cards).
+- **r1** (reviewer: record header and empty default pass; summary, strip cells, achievements, page fail). Failed: the summary's pace had no period or comparison; the week delta had no direction glyph; the pace sparkline encoded no limit; streak ticks were near-invisible; Totals broke mid-unit at 390 and never named its period; achievements had no heading inside the card and no count; chart x ticks read `dd.mm`; the hour grid labelled three of seven weekdays; the histogram was accent-filled for a single metric; the weekly target read as a fact. The four charts, the table and the empty row had no anchors, so they went unscored.
+- **r2** (own read). Changed: charts, table, empty row and achievements got `data-shot` anchors; weekly x ticks use the app locale; the two lower charts are 180 px so every weekday labels.
+- **r3** (reviewer: summary, record header, strip week/pace/streak, weekly chart, empty row pass; Totals, distance, hours, history, achievements fail). Failed: `ChartCard` folds a long `subtitle` into an info icon at half width, so the median, longest and peak facts were hover-only; the hour grid was accent-filled for a single metric and its tooltip said `Value`; the history "When" cell wrapped to five lines at 390; the achievements heading sat outside the card and `{n}` against "Show all {m}" read as a contradiction; Totals wrapped inside a figure; the Pace cell ({p} km/h) and the Totals cell ({km} over {duration}) disagree because pace is a distance-weighted mean of walk speeds.
+- **r4** changed: facts headers moved into the card body (`facts.tsx`); the hour grid is neutral with `Walks` and `Distance` tooltip rows and names its first visible hour; histogram ticks are bucket starts with the range in the tooltip; history columns carry fold priorities and a pinned first column, so 390 shows When, Distance and Pace with the rest behind a row disclosure; achievements draw their heading inside the card and read `{n}` with "Show all {m} titles"; Totals stacks figure over context; the Pace footer names the weighted mean; default target is labelled `default`.
+
+Against Keel (`root--dark--desktop`, the strip and record-header patterns): same anatomy (summary, record header, four-cell strip with caption and qualifier on one mono line, a target tick on the progress bar, facts headers on charts). Weaker than Keel: the pace sparkline carries no reference line or hover value (basalt `Sparkline`), the deltas render in basalt's mono face, and the streak ticks carry no per-day tooltip.
+
+## Wave 21 friction
+
+| Export | Needed prop | argo case | What argo does instead |
+|-|-|-|-|
+| `Sparkline` | a reference value (mean/target) and a hover readout | Pace cell: the weekly pace against the window average | end dot only; the footer states the measure |
+| `DeltaBadge` | a sans face, or a `font` prop | km and km/h deltas in a strip cell | passes `format` + `polarity`; the mono face stays |
+| `ChartCard` | a `subtitle` that stays visible at half width | median, longest and peak-hour facts | a `Facts` header in the card body (`facts.tsx`) |
+| `BandStrip` | discrete labelled day cells and a `today` outline | Mon–Sun streak ticks | seven ticks hand-rolled in `strip.module.css` |
+| `StatGroup variant="strip"` | caption, qualifier and an `action` slot on the caption line | the four-cell strip with a target popover | local `Strip` / `StripCell` |
+| `EventList` | month grouping and `collapse` of repeats with a count | achievements | a local list over `collapseAchievements` / `groupByMonth` |
+| record header | a `pulse` status | live / idle walk header | local `RecordHeader` with a CSS pulse (`raw-motion-value` waiver) |
+| `EmptyState` | a compact one-row variant with an action | "No walks in {window}" | `tier="section"` with a `Button` action |
+| `Heatmap` | a neutral single-metric ramp default and a tooltip label other than `Value` | walks by hour | passes `VX.muted` and explicit tooltip rows |

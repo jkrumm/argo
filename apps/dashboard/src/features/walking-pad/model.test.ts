@@ -20,6 +20,7 @@ import {
   widerPreset,
   windowPhrase,
   windowTitle,
+  windowQualifier,
   widenLabel,
   windowStartMs,
   type Achievement,
@@ -112,6 +113,12 @@ describe('window naming', () => {
     expect(windowTitle('30d')).toBe('last 30 days')
     expect(windowTitle('all')).toBe('all time')
     expect(windowTitle('custom')).toBe('selected range')
+  })
+
+  it('names the period a caption shows', () => {
+    expect(windowQualifier('30d')).toBe('30 d')
+    expect(windowQualifier('all')).toBe('all time')
+    expect(windowQualifier('custom')).toBe('range')
   })
 
   it('compares against the prior window by length', () => {
@@ -287,5 +294,18 @@ describe('formats and summary', () => {
         prior: 'prior 30 d',
       }),
     ).toBe('3.0 km this week in 1 walk; streak 0 d; pace —.')
+  })
+
+  it('says when pace has no prior window to compare', () => {
+    expect(
+      summarySentence({
+        weekDistanceM: 0,
+        weekSessions: 0,
+        streakDays: 0,
+        paceKmh: 3.4,
+        paceDeltaKmh: null,
+        prior: 'prior window',
+      }),
+    ).toBe('0.0 km this week in 0 walks; streak 0 d; pace 3.4 km/h, no prior window to compare.')
   })
 })

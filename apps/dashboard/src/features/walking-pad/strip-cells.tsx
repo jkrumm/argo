@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Box, Text } from '@mantine/core'
+import { Box } from '@mantine/core'
 import { DeltaBadge, Meter } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
@@ -11,13 +11,13 @@ import {
   fmtDuration,
   fmtKm,
   fmtKmh,
-  fmtSignedKm,
-  fmtSignedKmh,
+  fmtKmAbs,
+  fmtKmhAbs,
   paceValues,
   priorLabel,
   weekSummary,
   weekTicks,
-  windowShort,
+  windowQualifier,
 } from './model'
 import { TargetPopover } from './target-popover'
 import { Strip, StripCell } from './strip'
@@ -34,6 +34,7 @@ function WeekCell() {
   const now = useNow()
   const query = useQuery(THIS_WEEK_SERIES)
   const [targetKm] = walkingLocal.field.weeklyTargetKm.use()
+  const isDefault = walkingLocal.field.weeklyTargetKm.isDefault(targetKm)
   const week = query.data === undefined ? null : weekSummary(query.data.points, now)
   const km = week === null ? null : week.distanceM / 1000
   return (
@@ -49,8 +50,8 @@ function WeekCell() {
         delta: (
           <DeltaBadge
             value={week.deltaM}
-            format={fmtSignedKm}
-            withGlyph={false}
+            format={fmtKmAbs}
+            polarity="up-good"
             period="vs last week"
           />
         ),
@@ -69,7 +70,7 @@ function WeekCell() {
         target={targetKm}
         format={(v) => `${v.toFixed(1)} km`}
         startCaption="0"
-        endCaption={`target ${targetKm} km`}
+        endCaption={`${isDefault ? 'default' : 'target'} ${targetKm} km`}
         color={MUTED_FILL}
         loading={query.isPending}
         emptyText="No data this week"
@@ -84,12 +85,11 @@ function PaceCell({ params }: { params: WalkingPadWindowParams }) {
   const series = useQuery(walkingPadQueries.series({ ...params, bucket: 'week' }))
   const pace = heroes.data?.pace
   const values = series.data === undefined ? [] : paceValues(series.data.points)
-  const short = windowShort(preset)
   return (
     <StripCell
       shot="strip-pace"
       caption="Pace"
-      qualifier={short === null ? 'window avg' : `avg ${short}`}
+      qualifier={`avg ${windowQualifier(preset)}`}
       value={fmtKmh(pace?.currentAvgKmh ?? null)}
       {...(pace?.currentAvgKmh != null && { unit: 'km/h' })}
       loading={heroes.isPending}
@@ -97,16 +97,16 @@ function PaceCell({ params }: { params: WalkingPadWindowParams }) {
         delta: (
           <DeltaBadge
             value={pace.deltaKmh}
-            format={fmtSignedKmh}
-            withGlyph={false}
+            format={fmtKmhAbs}
+            polarity="up-good"
             period={`vs ${priorLabel(preset)}`}
           />
         ),
       })}
       footer={
         values.length < 2
-          ? 'weekly pace needs two walked weeks'
-          : `weekly average, ${values.length} walked weeks`
+          ? 'distance-weighted mean of walk speeds'
+          : `distance-weighted mean of walk speeds · ${values.length} walked weeks`
       }
     >
       {values.length >= 2 && (
@@ -184,7 +184,7 @@ function TotalsCell({ params }: { params: WalkingPadWindowParams }) {
           },
           {
             label: 'Energy',
-            value: `${Math.round(s.kcal)} kcal`,
+            value: `${Math.round(s.kcal).toLocaleString('en-GB')} kcal`,
             context: `${s.steps.toLocaleString('en-GB')} steps`,
           },
         ]
@@ -192,7 +192,7 @@ function TotalsCell({ params }: { params: WalkingPadWindowParams }) {
     <StripCell
       shot="strip-totals"
       caption="Totals"
-      qualifier={windowShort(preset) ?? 'window'}
+      qualifier={windowQualifier(preset)}
       value={s === undefined ? EM_DASH : fmtKm(s.distance_m)}
       unit="km"
       loading={query.isPending}
@@ -201,12 +201,8 @@ function TotalsCell({ params }: { params: WalkingPadWindowParams }) {
         {rows.map((r) => (
           <Box key={r.label} className={classes.row}>
             <span className={classes.rowLabel}>{r.label}</span>
-            <Text span size="sm" className={classes.rowValue}>
-              {r.value}
-              {r.context !== undefined && (
-                <span className={classes.rowContext}> · {r.context}</span>
-              )}
-            </Text>
+            <span className={classes.rowValue}>{r.value}</span>
+            {r.context !== undefined && <span className={classes.rowContext}>{r.context}</span>}
           </Box>
         ))}
       </Box>

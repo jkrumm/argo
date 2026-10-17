@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { Button, Card, Group, Skeleton, Stack, Text } from '@mantine/core'
-import { Section, useSizeClass } from 'basalt-ui'
-import { relativeTime } from '../../lib/format'
+import { WidgetHeader, useSizeClass } from 'basalt-ui'
+import { APP_LOCALE } from '../../lib/format'
 import { walkingPadQueries } from '../../lib/queries/walking-pad'
 import { walkingLocal } from './local-store'
 import { collapseAchievements, groupByMonth, type AchievementRow } from './model'
+
+const dayFormat = new Intl.DateTimeFormat(APP_LOCALE, { day: 'numeric', month: 'short' })
 
 const VISIBLE = 6
 const VISIBLE_COMPACT = 3
@@ -25,7 +27,7 @@ function Row({ row }: { row: AchievementRow }) {
       </Text>
       <Text size="xs" c="dimmed" flex="none">
         {row.count > 1 ? 'last ' : ''}
-        {relativeTime(row.lastAt)}
+        {dayFormat.format(new Date(row.lastAt))}
       </Text>
     </Group>
   )
@@ -41,39 +43,42 @@ export function AchievementsList() {
   const shown = showAll ? rows : rows.slice(0, limit)
 
   return (
-    <Section title="Achievements" {...(query.isSuccess && { count: items.length })}>
-      <Card py="sm" px="md" data-shot="achievements">
-        {query.isPending ? (
-          <Skeleton height={120} />
-        ) : rows.length === 0 ? (
-          <Text size="sm" c="dimmed">
-            None unlocked yet. The first walk unlocks one.
-          </Text>
-        ) : (
-          <Stack gap="sm">
-            {groupByMonth(shown).map((g) => (
-              <Stack key={g.month} gap="xs">
-                <Text size="xs" c="dimmed" ff="monospace" tt="uppercase">
-                  {g.month}
-                </Text>
-                {g.rows.map((r) => (
-                  <Row key={r.title} row={r} />
-                ))}
-              </Stack>
-            ))}
-            {rows.length > limit && (
-              <Button
-                variant="subtle"
-                color="gray"
-                size="compact-sm"
-                onClick={() => setShowAll(!showAll)}
-              >
-                {showAll ? 'Show fewer' : `Show all ${rows.length}`}
-              </Button>
-            )}
-          </Stack>
-        )}
-      </Card>
-    </Section>
+    <Card py="sm" px="md">
+      <WidgetHeader
+        tier="widget"
+        title="Achievements"
+        {...(query.isSuccess && { count: items.length })}
+      />
+      {query.isPending ? (
+        <Skeleton height={120} />
+      ) : rows.length === 0 ? (
+        <Text size="sm" c="dimmed">
+          None unlocked yet. The first walk unlocks one.
+        </Text>
+      ) : (
+        <Stack gap="sm">
+          {groupByMonth(shown).map((g) => (
+            <Stack key={g.month} gap="xs">
+              <Text size="xs" c="dimmed" ff="monospace" tt="uppercase">
+                {g.month}
+              </Text>
+              {g.rows.map((r) => (
+                <Row key={r.title} row={r} />
+              ))}
+            </Stack>
+          ))}
+          {rows.length > limit && (
+            <Button
+              variant="subtle"
+              color="gray"
+              size="compact-sm"
+              onClick={() => setShowAll(!showAll)}
+            >
+              {showAll ? 'Show fewer' : `Show all ${rows.length} titles`}
+            </Button>
+          )}
+        </Stack>
+      )}
+    </Card>
   )
 }
