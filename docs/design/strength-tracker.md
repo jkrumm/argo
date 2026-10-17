@@ -79,3 +79,30 @@ Values are placeholders; the format is the contract.
 6. Composite and alignment are collapsed; nothing below the fold repeats a figure already in the summary sentence without adding a period.
 7. The right tool column is unchanged functionally and `Recent records` is day-grouped.
 8. At 390 no chart is wider than the viewport and the scan table keeps lift, e1RM and status.
+
+## Wave 21 rounds
+
+Shots on live production data (`basalt-ui shot --auto-anchors`), scored each round by a fresh `basalt-design-reviewer`, plus a read against Keel's `crew` capture (headline sentence, joined composite cards, one-line facts). Real values stay in the gitignored `.design-shots/`.
+
+| Round | Change | Reviewer / own read |
+|-|-|-|
+| r0 | Baseline of the shipped page: scan table, four per-lift cards, ten charts under question subtitles | Not scored; the baseline verdict above |
+| r1 | Summary sentence, verdict card (readiness + ACWR Meters), lift strip, `%/mo` scan with status words, Meter ratio rows, day-grouped records, Diagnostics collapsed, subtitles removed | Own read: the strip delta showed `0.0 kg in 28d` for every lift because the last session was older than the window (an unchanged claim the data did not make); the ACWR meter sat in a too-narrow preview column |
+| r2 | Delta is `no session in 28d` when the window holds none; both Meters in one evidence block; section anchors | Own read: `balanced` printed beside `{x} under the band` (the API tolerates 15 % outside the band) |
+| r3 | Balance note names the tolerance; PR value in the lift cell; `Deload signal: {n} active — {signal}` | Reviewer: fail on all components. Argo-side findings fixed in r4: card readiness `{a}` vs readiness chart `{b}` (two series), ACWR `optimal` with no sessions (no date), `balanced` in green beside an off-band marker, deltas and the chart headers without a period. Basalt-side or harness: Meter marker radius, font-size count inside basalt components, sticky header over section crops, blank lower page in the full-page shot |
+| r4 | Card reads the same readiness series as the chart header (`{score}/100`, date); ACWR carries its week; deload signals joined by `;`; `balanced` outside the band muted; chart headers name their period | Reviewer: pass sec-readiness and the page; fail the rest. Fixed in r5: `near band` replaces `balanced` beside an off-band offset, no glyph before `no session in {n}d`, kg on the e1RM axis |
+| r5 | As r4 plus the fixes above | Reviewer: pass strength-balance, sec-readiness, page; fail strength-summary, strength-call, strength-strip, sec-strength, sec-load, sec-balance, sec-diagnostics. Argo-side items fixed in r6: ACWR is `—` once its newest week is older than 28 d (it read `1.00 optimal` beside `no session in 28d`), the e1RM legend lost its direction arrows (they disagreed with the scan), the relative-progression delta has a glyph. Left: lift sparklines carry no target mark, `Balance` and `Diagnostics` are bare titles by the concept, INOL header contrast (orange on the light surface, basalt token), summary restates the card by the concept's design |
+| r6 | The r5 argo-side fixes | Not re-scored by a reviewer; own read of the verdict card and summary only |
+
+Deviations from the concept, recorded: section titles carry the page window (`Strength, {period}`, `all time` by default) instead of a fixed `90 days`, because the charts follow the page filter; the MAV figure is not in the volume header (a function call on the landmarks object trips the React Compiler's manual-memoization check in that file), the MAV line stays in the legend; the readiness Meter and ACWR Meter share one evidence block instead of an evidence/preview split, which wrapped at 2/3 width; ACWR on the page is the mean of the per-lift EWMA 4 wk / 16 wk weekly-tonnage ratios (Home's 7 d / 28 d ratio and Garmin's EWMA are different methods, the caption states which this is).
+
+## Wave 21 friction
+
+| Export | Needed prop | argo case | What argo does instead |
+|-|-|-|-|
+| `Meter` | `tone="muted"`, `size="row"`, multiple `ticks` | Readiness thresholds (40, 70) and ratio bands are zones drawn as fills; the marker is the only value glyph | `zones` with `alpha(VX.muted, .35)` for non-verdict zones |
+| `Meter` | marker radius on the scale | `shot` metrics flag the 1 px marker radius as off-scale | none |
+| `StatGroup variant="strip"` | `cells: { caption, value, unit?, delta?, spark? }[]` | Four-lift e1RM strip with delta and end-dot sparkline | `overview.module.css` joined grid |
+| `EventList` | day groups with a right-pinned value | Recent records | local day-grouped list in `recent-records.tsx` |
+| `ChartCard` | a visible period/basis line in the header | Every chart header states its period in `actions` text | header `actions` text |
+| `shot` harness | anchors for content below the first viewport | The full-page shot is blank below the fold; sections needed wrapper `data-shot` boxes | `Box data-shot` around each `Section` |
