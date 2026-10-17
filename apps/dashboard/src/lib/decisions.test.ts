@@ -60,7 +60,7 @@ describe('deriveDecisions', () => {
       now: NOW,
     })
     expect(w?.facts[0]).toBe('warden · {repo}')
-    expect(w?.facts[1]).toBe('waiting 1.0 d')
+    expect(w?.facts[1]).toBe('waiting 1d 0h')
     const [a] = deriveDecisions({ warden: null, agents: agents({ agents: [agent()] }), now: NOW })
     expect(a?.facts).toEqual(['agent · {project}', 'waiting 2h 0m'])
   })
@@ -131,10 +131,10 @@ const factsAt = (days: number) =>
 describe('deriveDecisions: one clock and one threshold', () => {
   it('warns on an age from Warden’s own stale threshold, inclusive', () => {
     expect(factsAt(AWAITING_OWNER_STALE_DAYS)).toEqual({
-      text: 'waiting 3.0 d · stale',
+      text: 'waiting 3d 0h · stale ≥ 3 d',
       tone: 'warn',
     })
-    expect(factsAt(AWAITING_OWNER_STALE_DAYS - 0.1)).toBe('waiting 2.9 d')
+    expect(factsAt(AWAITING_OWNER_STALE_DAYS - 0.1)).toBe('waiting 2d 21h')
   })
 
   it('adds the time since the push to a Warden age so it sorts on the same clock as the rest', () => {

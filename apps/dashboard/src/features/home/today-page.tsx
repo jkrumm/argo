@@ -21,6 +21,7 @@ import {
   narrativeEvents,
   meetingState,
   noMeetingsLabel,
+  laterMeeting,
   nextMeeting,
   recoveryReading,
   summarySentence,
@@ -39,6 +40,8 @@ const GARMIN_WINDOW = { window: '30d' } as const
 /** ACWR is an EWMA: it needs the longer history to be warm. */
 const LOAD_WINDOW = { window: '90d' } as const
 const RECOVERY_DAYS = 7
+/** Seven days from today's midnight: today's agenda plus the lookup for the next meeting after it. */
+const CALENDAR_DAYS = 7
 const HISTORY_HOURS = 24
 
 const dateFormat = new Intl.DateTimeFormat('en-GB', {
@@ -65,8 +68,8 @@ export function TodayPage() {
 
   // From local midnight, so this morning's meetings come back and render as ended.
   const todayKey = dayKey(new Date(now))
-  const googleQuery = useQuery(calendarQueries.google(1, todayKey))
-  const m365Query = useQuery(calendarQueries.m365(1, todayKey))
+  const googleQuery = useQuery(calendarQueries.google(CALENDAR_DAYS, todayKey))
+  const m365Query = useQuery(calendarQueries.m365(CALENDAR_DAYS, todayKey))
   const projectsQuery = useQuery(calendarQueries.ticktickProjects())
   const projects = ((projectsQuery.data as { data?: unknown } | undefined)?.data ?? []) as Array<{
     id: string
@@ -114,6 +117,7 @@ export function TodayPage() {
   ]
   // Null only when no calendar answered; one answering with nothing reads as partial, not free.
   const agenda = feeds.length === 0 ? null : todayAgenda(feeds, now, missing)
+  const later = agenda === null ? null : laterMeeting(feeds, now)
   const next = agenda === null ? null : nextMeeting(agenda.meetings, now)
 
   const tasksLoaded =
@@ -197,7 +201,7 @@ export function TodayPage() {
           cells={[
             agentsCell(snapshot?.summary, fleet?.total ?? null, historyQuery.data?.data, now),
             budgetCell(wardenRaw?.budget, poller),
-            meetingCell(agenda, next, now),
+            meetingCell(agenda, next, later, now),
             recoveryCell(recovery),
             acwrCell(acwr),
           ]}
@@ -206,7 +210,7 @@ export function TodayPage() {
         <div className={classes.columns}>
           <NeedsYou decisions={decisions} unavailable={unavailable} />
           <Stack gap="md">
-            <Meetings agenda={agenda} next={next} tasks={tasks} now={now} />
+            <Meetings agenda={agenda} next={next} later={later} tasks={tasks} now={now} />
             <ActivityFeed
               groups={stream.groups}
               total={stream.total}

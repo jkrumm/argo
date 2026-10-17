@@ -5,7 +5,9 @@ process.env.TZ = 'Europe/Berlin'
 import {
   acwrReading,
   countdownLabel,
+  laterMeeting,
   meetingState,
+  weekdayTime,
   noMeetingsLabel,
   activityStream,
   wardenEvents,
@@ -440,5 +442,38 @@ describe('a partial agenda', () => {
       NOW,
     )
     expect(noMeetingsLabel(agenda)).toBe('No meetings today')
+  })
+})
+
+describe('laterMeeting', () => {
+  const feeds = [
+    {
+      sourceClass: 'work' as const,
+      events: [
+        event({ id: 'today', start: at(15), end: at(16) }),
+        event({ id: 'all', isAllDay: true, start: '2026-01-16', end: '2026-01-17' }),
+        event({
+          id: 'mon',
+          title: '{later}',
+          start: new Date(2026, 0, 19, 9, 30).toISOString(),
+          end: new Date(2026, 0, 19, 10).toISOString(),
+        }),
+        event({
+          id: 'tue',
+          start: new Date(2026, 0, 20, 8).toISOString(),
+          end: new Date(2026, 0, 20, 9).toISOString(),
+        }),
+      ],
+    },
+  ]
+
+  it('is the first timed meeting after today, ignoring today and all-day events', () => {
+    const later = laterMeeting(feeds, NOW)
+    expect(later?.title).toBe('{later}')
+    expect(weekdayTime(later!.startMs)).toBe('Mon 09:30')
+  })
+
+  it('is null when nothing follows today', () => {
+    expect(laterMeeting([{ sourceClass: 'work', events: [] }], NOW)).toBeNull()
   })
 })

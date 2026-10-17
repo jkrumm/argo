@@ -10,15 +10,15 @@ describe('strip cells with no reading', () => {
       footer: 'no snapshot in 24 h',
     })
     expect(budgetCell(undefined, undefined)).toMatchObject({ value: '—' })
-    expect(meetingCell(null, null, NOW)).toMatchObject({
+    expect(meetingCell(null, null, null, NOW)).toMatchObject({
       value: '—',
       footer: 'calendar unavailable',
     })
     expect(
-      meetingCell({ meetings: [], loaded: ['work', 'personal'], unavailable: [] }, null, NOW),
+      meetingCell({ meetings: [], loaded: ['work', 'personal'], unavailable: [] }, null, null, NOW),
     ).toMatchObject({
       value: '—',
-      footer: 'No meetings today.',
+      footer: 'none in the next 7 days',
     })
     expect(recoveryCell(null)).toMatchObject({ value: '—', footer: 'unavailable' })
     expect(acwrCell(null)).toMatchObject({ value: '—', footer: 'unavailable' })
@@ -40,7 +40,18 @@ describe('strip cells with no reading', () => {
 
   it('says which calendar is missing when the empty day is partial', () => {
     expect(
-      meetingCell({ meetings: [], loaded: ['work'], unavailable: ['personal'] }, null, NOW),
+      meetingCell({ meetings: [], loaded: ['work'], unavailable: ['personal'] }, null, null, NOW),
     ).toMatchObject({ footer: 'No Work meetings today · Personal unavailable.' })
+  })
+
+  it('names the next meeting after today when today is empty', () => {
+    const later = { title: '{meeting}', startMs: new Date(2026, 0, 19, 9, 30).getTime() }
+    const cell = meetingCell(
+      { meetings: [], loaded: ['work', 'personal'], unavailable: [] },
+      null,
+      later,
+      NOW,
+    )
+    expect(cell.value).toBe('Mon 09:30')
   })
 })

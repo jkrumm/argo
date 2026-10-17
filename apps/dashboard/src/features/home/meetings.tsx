@@ -1,4 +1,4 @@
-import { ActionIcon, Badge, Group, Stack, Text } from '@mantine/core'
+import { ActionIcon, Badge, Card, Group, Stack, Text } from '@mantine/core'
 import { Section } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { IconVideo } from '@tabler/icons-react'
@@ -9,7 +9,9 @@ import {
   countdownLabel,
   meetingState,
   noMeetingsLabel,
+  weekdayTime,
   type Agenda,
+  type LaterMeeting,
   type Meeting,
 } from './model'
 
@@ -71,65 +73,70 @@ type Props = {
   /** `null` when a calendar feed has not answered and nothing else is known: the agenda is unknown, not empty. */
   agenda: Agenda | null
   next: Meeting | null
+  later: LaterMeeting | null
   tasks: { overdue: number; dueSoon: number } | null
   now: number
 }
 
 /** Today as an agenda, ended meetings dimmed: only hours that hold a meeting are drawn, then the tasks line. */
-export function Meetings({ agenda, next, tasks, now }: Props) {
+export function Meetings({ agenda, next, later, tasks, now }: Props) {
   return (
-    <Section
-      title="Meetings today"
-      {...(agenda !== null && { count: agenda.meetings.length })}
-      {...(agenda === null && { value: '—' })}
-    >
-      <Stack gap="sm" data-shot="meetings">
-        {agenda === null ? (
-          <Text size="sm" c="dimmed">
-            Unknown: a calendar has not answered, so today's meetings cannot be listed.
-          </Text>
-        ) : (
-          <>
-            {agenda.allDay.length > 0 ? (
-              <Group gap="xs" aria-label="All-day events">
-                {agenda.allDay.map((title, i) => (
-                  <Badge key={`${title}-${i}`} variant="light" color="gray" size="sm" tt="none">
-                    {title}
-                  </Badge>
-                ))}
-              </Group>
-            ) : null}
-            {agenda.meetings.length === 0 ? (
-              <Text size="sm" c="dimmed">
-                {noMeetingsLabel(agenda)}.
-              </Text>
-            ) : (
-              <div role="list">
-                {agenda.meetings.map((m) => (
-                  <MeetingRow key={m.key} meeting={m} isNext={m === next} now={now} />
-                ))}
-              </div>
-            )}
-          </>
-        )}
-        {agenda !== null && agenda.unavailable.length > 0 ? (
-          <Text size="xs" c="dimmed">
-            {classLabels(agenda.unavailable)} calendar unavailable: the agenda is incomplete.
-          </Text>
-        ) : null}
-        <Text size="sm" c="dimmed">
-          {tasks === null ? (
-            'Tasks: unknown'
+    <Card py="sm" px="md">
+      <Section
+        title="Meetings today"
+        {...(agenda !== null && { count: agenda.meetings.length })}
+        {...(agenda === null && { value: '—' })}
+      >
+        <Stack gap="sm" data-shot="meetings">
+          {agenda === null ? (
+            <Text size="sm" c="dimmed">
+              Unknown: a calendar has not answered, so today's meetings cannot be listed.
+            </Text>
           ) : (
             <>
-              <Text component="span" size="sm" {...(tasks.overdue > 0 && { c: VX.status.bad })}>
-                Tasks: {tasks.overdue} overdue
-              </Text>
-              {` · ${tasks.dueSoon} due within 7 d`}
+              {agenda.allDay.length > 0 ? (
+                <Group gap="xs" aria-label="All-day events">
+                  {agenda.allDay.map((title, i) => (
+                    <Badge key={`${title}-${i}`} variant="light" color="gray" size="sm" tt="none">
+                      {title}
+                    </Badge>
+                  ))}
+                </Group>
+              ) : null}
+              {agenda.meetings.length === 0 ? (
+                <Text size="sm" c="dimmed">
+                  {agenda.unavailable.length === 0 && later !== null
+                    ? `None today · next ${weekdayTime(later.startMs)}`
+                    : `${noMeetingsLabel(agenda)}.`}
+                </Text>
+              ) : (
+                <div role="list">
+                  {agenda.meetings.map((m) => (
+                    <MeetingRow key={m.key} meeting={m} isNext={m === next} now={now} />
+                  ))}
+                </div>
+              )}
             </>
           )}
-        </Text>
-      </Stack>
-    </Section>
+          {agenda !== null && agenda.unavailable.length > 0 ? (
+            <Text size="xs" c="dimmed">
+              {classLabels(agenda.unavailable)} calendar unavailable: the agenda is incomplete.
+            </Text>
+          ) : null}
+          <Text size="sm" c="dimmed">
+            {tasks === null ? (
+              'Tasks: unknown'
+            ) : (
+              <>
+                <Text component="span" size="sm" {...(tasks.overdue > 0 && { c: VX.status.bad })}>
+                  Tasks: {tasks.overdue} overdue
+                </Text>
+                {` · ${tasks.dueSoon} due within 7 d`}
+              </>
+            )}
+          </Text>
+        </Stack>
+      </Section>
+    </Card>
   )
 }
