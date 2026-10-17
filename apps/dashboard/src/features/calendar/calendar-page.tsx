@@ -82,12 +82,20 @@ function failureReason(error: unknown, source: string): string {
   return `could not load ${source} events.`
 }
 
+/**
+ * Unknown while a source is pending, failed with nothing of this window cached, or is still
+ * loading this window behind the previous window's placeholder data (`keepPreviousData`).
+ */
 const unanswered = (query: {
   isPending: boolean
   isError: boolean
   isPlaceholderData: boolean
+  isFetching: boolean
   data: unknown
-}) => query.isPending || (query.isError && (query.data === undefined || query.isPlaceholderData))
+}) =>
+  query.isPending ||
+  (query.isPlaceholderData && query.isFetching) ||
+  (query.isError && (query.data === undefined || query.isPlaceholderData))
 
 export function CalendarPage({ view, date }: CalendarPageProps) {
   const navigate = useNavigate({ from: '/calendar' })
