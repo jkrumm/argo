@@ -1,25 +1,27 @@
-import { describe, expect, mock, test } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
+import { APP_LOCALE, pinLocale } from './format'
 
-const calls: unknown[] = []
-mock.module('basalt-ui/format', () => ({
-  relativeTime: (_value: unknown, options: unknown) => {
+function spy() {
+  const calls: unknown[] = []
+  const pinned = pinLocale((_value, options) => {
     calls.push(options)
     return ''
-  },
-}))
+  })
+  return { calls, pinned }
+}
 
-const { APP_LOCALE, relativeTime } = await import('./format')
-
-describe('relativeTime', () => {
+describe('pinLocale', () => {
   test('passes the app locale, which basalt does not take from the provider', () => {
-    relativeTime(0, { now: 1 })
-    expect(calls.at(-1)).toEqual({ now: 1, locale: APP_LOCALE })
+    const { calls, pinned } = spy()
+    pinned(0, { now: 1 })
+    pinned(0)
+    expect(calls).toEqual([{ now: 1, locale: APP_LOCALE }, { locale: APP_LOCALE }])
   })
 
   test('an explicit locale wins, an undefined one does not unpin', () => {
-    relativeTime(0, { locale: 'de' })
-    expect(calls.at(-1)).toEqual({ locale: 'de' })
-    relativeTime(0, { locale: undefined })
-    expect(calls.at(-1)).toEqual({ locale: APP_LOCALE })
+    const { calls, pinned } = spy()
+    pinned(0, { locale: 'de' })
+    pinned(0, { locale: undefined })
+    expect(calls).toEqual([{ locale: 'de' }, { locale: APP_LOCALE }])
   })
 })
