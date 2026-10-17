@@ -1,0 +1,223 @@
+/* Joined stat strip: five cells plus a billing row, divided by 1px hairlines (prototype of the
+   future basalt-ui `StatGroup variant="strip"`). The frame is the elevation; the cells are flat. */
+.strip {
+  container-type: inline-size;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border-radius: var(--vx-radius-card);
+  background: var(--vx-surface-hairline);
+  box-shadow: var(--vx-shadow-card);
+}
+
+/* Five cells in two columns at phone width: the last (cache hit) spans the row. */
+.cell:nth-child(5) {
+  grid-column: 1 / -1;
+}
+
+.billing {
+  grid-column: 1 / -1;
+}
+
+@container (min-width: 800px) {
+  .grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .cell:nth-child(5) {
+    grid-column: auto;
+  }
+}
+
+.cell,
+.billing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vx-space-stack-sm);
+  min-width: 0;
+  padding: var(--vx-space-card-inset-y) var(--vx-space-card-inset-x);
+  background: var(--vx-surface-panel);
+}
+
+.caption {
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vx-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.qualifier {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.reading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--vx-space-control-gap);
+  min-width: 0;
+}
+
+.value {
+  font-family: var(--basalt-font-sans);
+  font-variant-numeric: proportional-nums;
+  font-size: var(--vx-text-xl);
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--vx-ink);
+  white-space: nowrap;
+}
+
+.unit {
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+  white-space: nowrap;
+}
+
+.visual {
+  min-width: 0;
+}
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  margin-top: auto;
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+}
+
+.footerLine {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Ring + its target caption side by side. */
+.ringRow {
+  display: flex;
+  align-items: center;
+  gap: var(--vx-space-stack-md);
+}
+
+.ring {
+  flex: none;
+}
+
+/* Billing row: the segmented bar and its captions. */
+.billingParts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--vx-space-stack-lg);
+  row-gap: var(--vx-space-stack-xs);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+}
+
+.billingPart {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--vx-space-stack-xs);
+  white-space: nowrap;
+}
+
+.billingTotal {
+  margin-inline-start: auto;
+  white-space: nowrap;
+}
+
+.billingBar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vx-space-stack-xs);
+}
+
+/* Chart facts: a series swatch next to a list row's share. */
+.swatch {
+  display: inline-block;
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-inline-end: var(--vx-space-stack-xs);
+  border-radius: 2px;
+}
+
+.share {
+  white-space: nowrap;
+}
+
+/* Health card: p95 and errors side by side, divided by a hairline. */
+.health {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--vx-space-stack-lg);
+}
+
+@container (min-width: 480px) {
+  .health {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .healthRight {
+    padding-inline-start: var(--vx-space-stack-lg);
+    border-inline-start: 1px solid var(--vx-surface-hairline);
+  }
+}
+
+.healthBox {
+  container-type: inline-size;
+}
+
+.healthHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--vx-space-stack-sm);
+  margin-bottom: var(--vx-space-stack-sm);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+}
+
+.healthValue {
+  font-size: var(--vx-text-lg);
+  font-weight: 600;
+  color: var(--vx-ink);
+}
+
+.axisCaptions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--vx-space-stack-xs);
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  color: var(--vx-muted);
+}
+
+.freshness {
+  display: flex;
+  align-items: center;
+  gap: var(--vx-space-stack-sm);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+}
+
+.dot {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--vx-muted);
+}
+
+.dotStale {
+  background: var(--vx-status-bad);
+}

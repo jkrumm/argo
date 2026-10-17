@@ -49,11 +49,11 @@ Stay: the four chart kinds' hues (`USAGE_SOURCE`, `USAGE_BILLING`), the group-by
 
 Format is binding; figures are placeholders. Money is always whole dollars with a thousands separator, never `k`-compacted; sub-dollar totals read `<$1`.
 
-- Summary: `${cost_30d} over 30 days, ${cost_7d} in the last 7 · {tokens}B tokens · {rate}% errors · last event {age} ago`
+- Summary: `${cost_30d} over 30 days, ${cost_7d} in the last 7 days · {tokens}B tokens · {rate}% errors in 30 d · last event {age} ago`
 - Cells: `COST · 30d` / `TOKENS · 30d` / `ERRORS · 30d` / `P95 · 30d` / `CACHE HIT · 30d`; qualifiers `{delta}% vs prior 30d`, `{n} sources`, `{n} bad days`, `{delta} s vs prior`, `target 60%`
 - Charts: `Cost per day · by source · ${cost_30d}` · `Tokens per day · by tool · {tokens}B` · `Errors per day · {n} events` · `p95 latency · per day · {p95} s`
 - Lists: `Spend by source · 30d`, `Top projects · ${cost_30d}`; replaces "Cost / Volume / Health / Top projects" section titles
-- Footer: `{n} records · {n} sources · last event {age} ago`
+- Footer: `{n} records in total · {n} sources active in 30 d · last event {age} ago`
 
 ## Upstream candidates
 
@@ -73,3 +73,40 @@ Format is binding; figures are placeholders. Money is always whole dollars with 
 6. The summary sentence contains the 30d cost and the last-event age.
 7. No filler section titles remain ("Cost", "Volume", "Health" on their own); no coloured left edges.
 8. At 390 px the strip is 2 columns and no horizontal scroll appears.
+
+## Wave 21 build notes
+
+- **API (additive, no schema change):** `GET /usage/headline` gained `costUsdPrior30d`, `tokensPrior30d`, `errorRatePrior30d`, `p95MsPrior30d` (the 30 d before the current window; `null` when that window would reach before the data floor, and `null` for a ratio with no rows). `GET /usage/timeseries` gained `metric=error_rate` (errors ÷ calls per bucket, `null` on a bucket with no calls). Both are needed for the strip's comparisons and the error band; neither existed.
+- **Deviations from the concept:**
+  - The strip is fixed at 30 d (the headline endpoint ignores the page filters); charts and lists follow range, grain, workspace and billing.
+  - The p95 / errors Health card follows the page range. Errors are one bar series in the error colour with the top source named in the header (`{source} {pct}%`), not stacked by source: without a legend three category hues read as status.
+  - Open-ended group-bys (tool, model, project) colour by rank, not by hash, so the six named series are six hues.
+  - Header totals print the strip's figure when the page is unfiltered 30 d, so the page never carries two totals for one quantity (the buckets are cut a few minutes after the headline's rolling window).
+  - The cache ring is a local SVG: `Meter shape="ring"` takes no target, and the ring needs the 60 % tick.
+
+## Wave 21 rounds
+
+Shots against production through `basalt-ui shot --api`; the production API did not yet serve the new fields in any round, so the Errors band and the prior-30 d comparisons were shot in their unavailable state.
+
+| Round | Change | Reviewer verdict |
+|-|-|-|
+| r0 | Baseline: five bare `StatCard`s, donut, two legend-heavy stacked areas, table | not scored (baseline) |
+| r1 | Strip with micro-visuals, billing `Meter`, folded charts + `BarList`s, Health card, footer. Chart cards had no shot anchors | not scored |
+| r2 | Anchors on every card; sans captions with a period qualifier; segmented billing captions; `<1%` share; header totals = strip figure | fail on {n} components: sparkline without reference (basalt), mono list values (basalt), `{n}` contradicting totals, same-hue rows, ring fill unreadable, a `0 bad days` claim over an unavailable series, duplicate date axes, green bars on an error chart |
+| r3 | Rank colours, single-hue error bars with the top source named, ring track softened, bad-days line dropped when unavailable, one date axis | fail on {n} components: all remaining fails basalt-side except period missing from the summary and chart titles, truncated tokens footer, mono freshness line, "30 D" in the billing caption |
+| r4 | Periods added to the summary and chart titles, tokens footer split to three lines, freshness line in sans, billing caption qualifier | pass: strip cost, tokens, p95, cache, billing; page. Fail, argo-side: summary (`7` without a unit), errors cell (no cause on the unavailable state), tokens chart and list (two near-identical blue and two near-identical red hues), health (four font sizes), freshness (records without a period). Fail, basalt-side only: cost chart, cost list, projects (mono values, bars under values, info-icon focus ring, segmented-control radius nesting) |
+| r5 | Rank palette reordered to six separable hues; `last 7 days`; `records in total` | not re-scored: the remaining argo-side fails are the errors-cell empty state (resolves once the API change deploys) and the health card's four font sizes |
+
+## Wave 21 friction
+
+| Export | Needed prop | argo case | What argo does instead |
+|-|-|-|-|
+| `Meter` (ring) | `target` tick | cache hit ring with a tick at the 60 % good threshold | local SVG ring in `usage-strip.tsx` |
+| `Meter` (segments) | per-segment captions, `tone="muted"` | billing split Max / IU / Other with `{$} · {pct}%` under each segment | `startCaption={null}` plus a hand-built caption row; muted fill via `alpha(VX.muted, .35)` |
+| `BarList` | per-row `hue` / `lead` swatch, proportional value face, bar that stops short of the value column | list that keys a stacked chart's series; values and shares in sans | swatch inside `secondary`; mono values and bars under values left as is |
+| `Sparkline` | `reference` (mean / target line) | cost, tokens and p95 trends in the strip | end dot only; the comparison is stated in the footer |
+| `Bars` / `AxisConfig` | hide an axis | axis-less error bars in the Health card | two ticks and a short date format |
+| `ChartCard` | `facts` header (`value`, `unit`, `compare`) | `{what} per day · by {group} · {total} in {period}` as one title string | title string; the heading face slashes zeros in it |
+| `StatGroup variant="strip"` | five cells plus a full-width row | headline strip | local CSS-module strip |
+| series fold | `foldTopN` for stacked data | top 6 + Other for the cost and token charts | `foldTopN` in `features/usage-tracking/model.ts` (tested) |
+| `BandStrip` | threshold-banded preset | daily error-rate days at 1 % / 3 % | `getBand` with `errorDayState` |
