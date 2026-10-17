@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Anchor, Box, Card, Group, ScrollArea, Stack, Text, UnstyledButton } from '@mantine/core'
+import { Anchor, Box, Card, Group, Stack, Text, UnstyledButton } from '@mantine/core'
 import { Section, useSizeClass } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { ViewTabs } from 'basalt-ui/controls'
@@ -133,7 +133,7 @@ function ColumnBody({
 
 /**
  * Board — prototype of the upstream `Board` (docs/design/UPSTREAM.md): `columns` with counts,
- * `onOpen` per card; each column scrolls alone at desktop and one column at a time sits under a
+ * `onOpen` per card; columns grow with the page (no nested scroll) and one column at a time sits under a
  * `SegmentedControl` at 390.
  */
 export function Board({
@@ -177,9 +177,7 @@ export function Board({
               className={column.items.length === 0 ? classes.empty : classes.column}
             >
               <ColumnHeader column={column} />
-              <ScrollArea.Autosize mah="28rem" type="auto" scrollbars="y" offsetScrollbars>
-                <ColumnBody column={column} onOpen={onSelectItem} />
-              </ScrollArea.Autosize>
+              <ColumnBody column={column} onOpen={onSelectItem} />
             </Stack>
           ))}
         </Box>
