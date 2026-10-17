@@ -30,7 +30,11 @@ export function StatStrip({ label, cells }: StatStripProps) {
     <section className={classes.root} aria-label={label}>
       <div className={classes.grid}>
         {cells.map((cell) => (
-          <div key={cell.caption} className={classes.cell}>
+          <div
+            key={cell.caption}
+            className={classes.cell}
+            data-shot={`strip-${cell.caption.split(' · ')[0]?.toLowerCase().replace(/\s+/g, '-')}`}
+          >
             <Text className={classes.caption}>{cell.caption}</Text>
             <div className={classes.reading}>
               <Text

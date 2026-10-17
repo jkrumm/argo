@@ -1,4 +1,4 @@
-import { Code, Stack, Text } from '@mantine/core'
+import { Box, Code, Stack, Text } from '@mantine/core'
 import { useClipboard } from '@mantine/hooks'
 import { Section } from 'basalt-ui'
 import { IconCheck, IconCopy } from '@tabler/icons-react'
@@ -23,7 +23,7 @@ function Inset({ text }: { text: string }) {
   const long = text.split('\n').length > COLLAPSED_LINES || text.length > 240
   return (
     <Stack gap={4}>
-      <Code block className={open || !long ? undefined : classes.clamped}>
+      <Code block className={open || !long ? classes.code : `${classes.code} ${classes.clamped}`}>
         {text}
       </Code>
       {long ? (
@@ -78,8 +78,10 @@ export function NeedsYouSection({ humanQueue, agents }: Props) {
   return (
     <Section title="Needs you" count={cards.length}>
       <Stack gap="sm">
-        {cards.map((card) => (
-          <Card key={card.key} card={card} />
+        {cards.map((card, i) => (
+          <Box key={card.key} data-shot={`decision-card-${i + 1}`}>
+            <Card card={card} />
+          </Box>
         ))}
       </Stack>
     </Section>

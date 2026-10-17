@@ -1,3 +1,8 @@
+.code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .clamped {
   display: -webkit-box;
   overflow: hidden;
