@@ -21,4 +21,4 @@ node_modules
 /docs/waves/evidence/.raw/
 
 # make design-shot: screenshots of real personal data — never commit
-/.design-shots/
+.design-shots/
