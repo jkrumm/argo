@@ -85,13 +85,13 @@ function fixesCell({ fixes }: StripModel): StatStripCell {
         all time · share of fixed + quiet
         <br />
         <Text span size="xs" c={VX.status.good}>
-          fixed {fixes.fixed ?? '—'}
+          fixed&nbsp;{fixes.fixed ?? '—'}
         </Text>
         {' · '}
         <Text span size="xs" c={VX.status.warn}>
-          quiet {fixes.quiet ?? '—'}
+          quiet&nbsp;{fixes.quiet ?? '—'}
         </Text>
-        {' · closed '}
+        {' · closed\u00a0'}
         {fixes.closed ?? '—'}
       </>
     ),
@@ -160,7 +160,7 @@ function unattendedCell({ unattended }: StripModel): StatStripCell {
     info: 'Fixes verified without owner input in the window.',
     value: formatNumber(unattended.fixes),
     unit: unattended.fixes === 1 ? 'fix' : 'fixes',
-    qualifier: `last ${unattended.windowDays} d · Δ — no prior window`,
+    qualifier: `last ${unattended.windowDays} d · no prior-window delta`,
   }
 }
 
