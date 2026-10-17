@@ -6,7 +6,7 @@ import { relativeTime } from '../../lib/format'
 import { BookTitle, Cover } from './book-parts'
 import { formatReadTime } from './format'
 import {
-  hoursLabel,
+  approxHours,
   hoursLeft,
   parseTimestamp,
   progressPercent,
@@ -35,7 +35,7 @@ function facts(book: ShelfItem, pace: number | null, now: number): string[] {
       ? ['no page count, so no time left']
       : left === null || pace === null
         ? []
-        : [`≈ ${hoursLabel(left)} left at ${pace} pages/h`]),
+        : [`${approxHours(left)} left at ${pace} pages/h`]),
     lastRead === null
       ? 'last read —'
       : `last read ${relativeTime(lastRead, { now, numeric: 'always' })}`,

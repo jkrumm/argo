@@ -75,6 +75,10 @@ describe('readingPace', () => {
     expect(readingPace(shelf)).toEqual({ median: 100, paces: [50, 150] })
   })
 
+  test('a median that rounds to 0 is null, not a 0 pages/h pace', () => {
+    expect(readingPace([book({ statusId: 2, stats: stats(1, 10) })]).median).toBeNull()
+  })
+
   test('no qualifying book → null median', () => {
     expect(readingPace([book(), book({ stats: stats(0, 1) })]).median).toBeNull()
   })
