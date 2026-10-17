@@ -84,7 +84,7 @@
 .chip {
   padding-inline: var(--vx-space-stack-xs);
   font-family: var(--basalt-font-mono);
-  font-size: var(--vx-text-micro);
+  font-size: var(--vx-text-sm);
   line-height: 1.5;
   text-transform: uppercase;
   color: var(--vx-muted);

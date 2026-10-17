@@ -133,7 +133,7 @@ export function ThreadList({
             <Button
               variant="subtle"
               color="red"
-              size="compact-xs"
+              size="compact-sm"
               loading={busy}
               onClick={confirmDelete}
             >
