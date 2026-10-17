@@ -10,6 +10,7 @@ import {
   bookedBySourceClass,
   bookedMinOnDay,
   dayLoad,
+  eventsOnDay,
   longestFreeBlock,
   nextEvent,
   tasksDue,
@@ -205,12 +206,24 @@ describe('nextEvent / agendaSummary', () => {
   test('none left is null', () => {
     expect(nextEvent(events, new Date(2026, 9, 14, 17, 0, 0))).toBeNull()
   })
+  test('today counts from now: an event that already ended is not left today', () => {
+    const s = agendaSummary(events, now)
+    expect(s.todayCount).toBe(2)
+    expect(s.todayBookedMin).toBe(40 + 60)
+  })
   test('summary figures come from the same derivation as the strip', () => {
     const s = agendaSummary(events, now)
-    expect(s.todayCount).toBe(3)
-    expect(s.todayBookedMin).toBe(60 + 40 + 60)
-    expect(s.weekBookedMin).toBe(s.todayBookedMin)
-    expect(s.weekBookedMin).toBe(dayLoad(events, s.weekKeys).reduce((a, d) => a + d.bookedMin, 0))
+    expect(s.rangeKeys).toHaveLength(7)
+    expect(s.rangeKeys[0]).toBe(D)
+    expect(s.rangeBookedMin).toBe(s.todayBookedMin)
+    expect(s.rangeBookedMin).toBe(
+      dayLoad(events, s.rangeKeys, now).reduce((a, d) => a + d.bookedMin, 0),
+    )
+  })
+  test('an event already running counts only its remaining time', () => {
+    const running = [ev('r', at(D, '10:30'), at(D, '11:30'))]
+    expect(bookedMinOnDay(running, D, now)).toBe(30)
+    expect(eventsOnDay(running, D, now)).toHaveLength(1)
   })
 })
 

@@ -77,7 +77,7 @@
 /* Wide rows put the duration beside the start on one line. */
 @container (min-width: 480px) {
   .inner {
-    grid-template-columns: 8rem minmax(0, 1fr) auto;
+    grid-template-columns: 6.5rem minmax(0, 1fr) auto;
   }
 
   .time {

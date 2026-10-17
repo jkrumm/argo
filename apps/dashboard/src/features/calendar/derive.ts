@@ -49,6 +49,11 @@ export function dayLabel(key: DayKey): string {
     .replace(',', '')
 }
 
+/** `19 May` — for dates where the weekday alone is ambiguous (overdue). */
+export function shortDate(key: DayKey): string {
+  return keyToDate(key).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
+
 export function keyToDate(key: DayKey): Date {
   return toDate(`${key} 00:00:00`)
 }
@@ -56,6 +61,11 @@ export function keyToDate(key: DayKey): Date {
 export function addDays(key: DayKey, n: number): DayKey {
   const [y = 0, m = 1, d = 1] = key.split('-').map(Number)
   return dayKey(new Date(y, m - 1, d + n))
+}
+
+/** `count` consecutive local days starting at `key`. */
+export function rangeKeys(key: DayKey, count: number): DayKey[] {
+  return Array.from({ length: count }, (_, i) => addDays(key, i))
 }
 
 /** The seven local days of the Monday-start week holding `key`. */
@@ -130,12 +140,31 @@ function totalMin(intervals: readonly Interval[]): number {
 
 export type DayLoad = { key: DayKey; bookedMin: number; count: number }
 
-export function bookedMinOnDay(events: readonly CalendarItem[], key: DayKey): number {
-  return totalMin(busyWithin(timedEvents(events), dayStartMs(key), dayEndMs(key)))
+/**
+ * The day's start, or `notBefore` when that moment falls inside the day. The upstream feeds only
+ * return `[now, …)`, so on today every figure is "from now" — passing `now` here keeps a count, a
+ * booked total and a list on the same footing.
+ */
+function dayFromMs(key: DayKey, notBefore?: Date): number {
+  const start = dayStartMs(key)
+  if (!notBefore) return start
+  return Math.min(Math.max(start, notBefore.getTime()), dayEndMs(key))
 }
 
-export function eventsOnDay(events: readonly CalendarItem[], key: DayKey): CalendarItem[] {
-  const from = dayStartMs(key)
+export function bookedMinOnDay(
+  events: readonly CalendarItem[],
+  key: DayKey,
+  notBefore?: Date,
+): number {
+  return totalMin(busyWithin(timedEvents(events), dayFromMs(key, notBefore), dayEndMs(key)))
+}
+
+export function eventsOnDay(
+  events: readonly CalendarItem[],
+  key: DayKey,
+  notBefore?: Date,
+): CalendarItem[] {
+  const from = dayFromMs(key, notBefore)
   const to = dayEndMs(key)
   return timedEvents(events)
     .filter((e) => {
@@ -146,11 +175,15 @@ export function eventsOnDay(events: readonly CalendarItem[], key: DayKey): Calen
     .toSorted((a, b) => String(a.start).localeCompare(String(b.start)))
 }
 
-export function dayLoad(events: readonly CalendarItem[], keys: readonly DayKey[]): DayLoad[] {
+export function dayLoad(
+  events: readonly CalendarItem[],
+  keys: readonly DayKey[],
+  notBefore?: Date,
+): DayLoad[] {
   return keys.map((key) => ({
     key,
-    bookedMin: bookedMinOnDay(events, key),
-    count: eventsOnDay(events, key).length,
+    bookedMin: bookedMinOnDay(events, key, notBefore),
+    count: eventsOnDay(events, key, notBefore).length,
   }))
 }
 
@@ -160,19 +193,24 @@ export type SourceSplit = Record<SourceClass, number>
 export function bookedBySourceClass(
   events: readonly CalendarItem[],
   keys: readonly DayKey[],
+  notBefore?: Date,
 ): SourceSplit {
   const split: SourceSplit = { work: 0, personal: 0 }
   for (const sourceClass of ['work', 'personal'] as const) {
     const ofClass = timedEvents(events).filter((e) => e.payload?.sourceClass === sourceClass)
     for (const key of keys) {
-      split[sourceClass] += totalMin(busyWithin(ofClass, dayStartMs(key), dayEndMs(key)))
+      split[sourceClass] += totalMin(busyWithin(ofClass, dayFromMs(key, notBefore), dayEndMs(key)))
     }
   }
   return split
 }
 
-export function weekBookedMin(events: readonly CalendarItem[], keys: readonly DayKey[]): number {
-  return dayLoad(events, keys).reduce((sum, d) => sum + d.bookedMin, 0)
+export function weekBookedMin(
+  events: readonly CalendarItem[],
+  keys: readonly DayKey[],
+  notBefore?: Date,
+): number {
+  return dayLoad(events, keys, notBefore).reduce((sum, d) => sum + d.bookedMin, 0)
 }
 
 // ---- free time ------------------------------------------------------------------------------
@@ -253,11 +291,15 @@ export type AgendaDay = {
   bookedMin: number
 }
 
-export function agendaDays(events: readonly CalendarItem[], keys: readonly DayKey[]): AgendaDay[] {
+export function agendaDays(
+  events: readonly CalendarItem[],
+  keys: readonly DayKey[],
+  notBefore?: Date,
+): AgendaDay[] {
   return keys.map((key) => ({
     key,
-    events: eventsOnDay(events, key),
-    bookedMin: bookedMinOnDay(events, key),
+    events: eventsOnDay(events, key, notBefore),
+    bookedMin: bookedMinOnDay(events, key, notBefore),
   }))
 }
 
@@ -288,23 +330,26 @@ export function nextEvent(events: readonly CalendarItem[], now: Date): NextEvent
 
 export type AgendaSummary = {
   todayKey: DayKey
-  weekKeys: DayKey[]
+  /** The 7 local days from today: the strip's rows and the summary's "next 7 days" window. */
+  rangeKeys: DayKey[]
   todayCount: number
   todayBookedMin: number
-  weekBookedMin: number
+  rangeBookedMin: number
   next: NextEvent | null
 }
+
+export const SUMMARY_DAYS = 7
 
 /** The figures of the summary sentence — and of the strip beside it — from one derivation. */
 export function agendaSummary(events: readonly CalendarItem[], now: Date): AgendaSummary {
   const todayKey = dayKey(now)
-  const keys = weekKeys(todayKey)
+  const keys = rangeKeys(todayKey, SUMMARY_DAYS)
   return {
     todayKey,
-    weekKeys: keys,
-    todayCount: eventsOnDay(events, todayKey).length,
-    todayBookedMin: bookedMinOnDay(events, todayKey),
-    weekBookedMin: weekBookedMin(events, keys),
+    rangeKeys: keys,
+    todayCount: eventsOnDay(events, todayKey, now).length,
+    todayBookedMin: bookedMinOnDay(events, todayKey, now),
+    rangeBookedMin: weekBookedMin(events, keys, now),
     next: nextEvent(events, now),
   }
 }

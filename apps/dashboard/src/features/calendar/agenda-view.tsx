@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Anchor, Box, Stack, Text } from '@mantine/core'
+import { Anchor, Box, Card, Stack, Text } from '@mantine/core'
 import { Section } from 'basalt-ui'
 import { format } from 'date-fns'
 import { StatStrip, StripCell } from '../garmin-health/stat-strip'
@@ -15,6 +15,7 @@ import {
   bookedBySourceClass,
   dayLoad,
   eventsOnDay,
+  dayLabel,
   keyToDate,
   longestFreeBlock,
   tasksDue,
@@ -49,11 +50,13 @@ function countdown(summary: AgendaSummary): string | null {
 function summarySentence(summary: AgendaSummary, free: FreeBlock | null): string {
   const today =
     summary.todayCount > 0
-      ? `${summary.todayCount} ${summary.todayCount === 1 ? 'meeting' : 'meetings'} today, ${formatDurationMin(summary.todayBookedMin)} booked`
-      : `No events today${free ? ` · ${formatDurationMin(free.minutes)} free` : ''}`
-  return [today, countdown(summary), `${formatDurationMin(summary.weekBookedMin)} this week`]
-    .filter(Boolean)
-    .join(' · ')
+      ? `${summary.todayCount} ${summary.todayCount === 1 ? 'meeting' : 'meetings'} left today, ${formatDurationMin(summary.todayBookedMin)} booked`
+      : `No more events today${free ? ` · ${formatDurationMin(free.minutes)} free` : ''}`
+  const week =
+    summary.rangeBookedMin === 0
+      ? 'nothing booked in the next 7 days'
+      : `${formatDurationMin(summary.rangeBookedMin)} booked in the next 7 days`
+  return [today, countdown(summary), week].filter(Boolean).join(' · ')
 }
 
 export function AgendaView({
@@ -72,19 +75,19 @@ export function AgendaView({
     const summary = agendaSummary(events, now)
     const { todayKey } = summary
     const nextKeys = Array.from({ length: NEXT_DAYS }, (_, i) => addDays(todayKey, i + 1))
-    const days = agendaDays(events, nextKeys)
+    const days = agendaDays(events, nextKeys, now)
     const allDay: Record<DayKey, CalendarItem[]> = {}
     for (const key of nextKeys) allDay[key] = allDayEvents(events, key)
     return {
       summary,
       free: longestFreeBlock(events, todayKey, now),
-      today: eventsOnDay(events, todayKey),
+      today: eventsOnDay(events, todayKey, now),
       todayAllDay: allDayEvents(events, todayKey),
       days,
       nextCount: days.reduce((sum, d) => sum + d.events.length, 0),
       allDay,
-      load: dayLoad(events, summary.weekKeys),
-      split: bookedBySourceClass(events, summary.weekKeys),
+      load: dayLoad(events, summary.rangeKeys, now),
+      split: bookedBySourceClass(events, summary.rangeKeys, now),
       tasks: tasksDue(events, todayKey),
     }
   }, [events, now])
@@ -115,26 +118,34 @@ export function AgendaView({
         <Box className={classes.page}>
           <Box className={classes.col}>
             <Box className={classes.oToday} data-shot="today">
-              <Section title="Today" count={model.today.length}>
-                {model.today.length === 0 ? (
-                  <Text className={classes.muted}>
-                    No events today{free ? ` · ${formatDurationMin(free.minutes)} free` : ''}
-                  </Text>
-                ) : (
-                  <EventRows events={model.today} now={now} next={summary.next} />
-                )}
-              </Section>
+              <Card py="sm" px="md">
+                <Section title="Today" count={model.today.length}>
+                  {model.today.length === 0 ? (
+                    <Text className={classes.muted}>Nothing left today.</Text>
+                  ) : (
+                    <EventRows events={model.today} now={now} next={summary.next} />
+                  )}
+                </Section>
+              </Card>
             </Box>
             <Box className={classes.oNext} data-shot="next-days">
-              <Section title="Next 7 days" count={model.nextCount}>
-                <DayGroups days={model.days} allDay={model.allDay} now={now} next={summary.next} />
-              </Section>
+              <Card py="sm" px="md">
+                <Section title="Next 7 days" count={model.nextCount}>
+                  <DayGroups
+                    days={model.days}
+                    allDay={model.allDay}
+                    now={now}
+                    next={summary.next}
+                  />
+                </Section>
+              </Card>
             </Box>
           </Box>
           <Box className={classes.col}>
             <Box className={classes.oStrip}>
               <WeekStrip
-                title={`Booked hours, week ${format(keyToDate(summary.todayKey), 'I')}`}
+                title="Booked hours, next 7 days"
+                range={`${dayLabel(summary.rangeKeys[0] ?? summary.todayKey)} – ${dayLabel(summary.rangeKeys[summary.rangeKeys.length - 1] ?? summary.todayKey)}`}
                 load={model.load}
                 split={model.split}
                 todayKey={summary.todayKey}
