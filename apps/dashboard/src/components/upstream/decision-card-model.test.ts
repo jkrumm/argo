@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { factsLine, hasActions } from './decision-card-model'
+import { factsLine, hasActions, isInactive } from './decision-card-model'
 
 const action = { label: 'Go', onClick: () => {} }
 
@@ -23,5 +23,17 @@ describe('hasActions', () => {
     expect(hasActions(action, undefined, undefined)).toBe(true)
     expect(hasActions(undefined, action, undefined)).toBe(true)
     expect(hasActions(undefined, undefined, [action])).toBe(true)
+  })
+})
+
+describe('isInactive', () => {
+  it('is false for a plain action', () => {
+    expect(isInactive(action)).toBe(false)
+  })
+
+  it('is true when disabled or loading', () => {
+    expect(isInactive({ ...action, disabled: true })).toBe(true)
+    expect(isInactive({ ...action, loading: true })).toBe(true)
+    expect(isInactive({ ...action, disabled: false, loading: false })).toBe(false)
   })
 })
