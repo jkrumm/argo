@@ -14,27 +14,32 @@ import {
   badDayCount,
   billingParts,
   CACHE_HIT_TARGET,
-  deltaPctText,
-  deltaSecondsText,
   EM_DASH,
   ERROR_BAD_ABOVE,
   ERROR_WARN_FROM,
   errorRateReading,
   fmtPct,
+  fmtPctBadge,
+  fmtPointsBadge,
+  fmtSecondsBadge,
+  fmtSecondsDay,
   fmtShare,
   fmtTokens,
+  fmtTokensDay,
+  fmtUsdDay,
   fmtUsdWhole,
   meanOf,
   pctDelta,
   pointsDelta,
-  secondsDelta,
   priorErrorLine,
-  priorLine,
+  priorNote,
+  secondsDelta,
   secondsQuantity,
   tokensQuantity,
   type BillingPart,
   type Prior,
 } from './model'
+
 import { CacheRing, ErrorBand, Trend, type Daily } from './usage-visuals'
 
 const useHeadline = () => useQuery(usageQueries.headline())
@@ -57,54 +62,61 @@ function useDaily(metric: 'cost' | 'tokens' | 'latency_p95' | 'error_rate'): Ser
 /** What every cell builder reads: the headline (undefined until it loads) and the loading flag. */
 type Ctx = { h: Headline | undefined; loading: boolean }
 
-/** Footer lines, one per row, as the strip's single footer node. */
-const footerOf = (lines: readonly string[]) => (
+/** Footer lines, one per row, as the strip's single footer node; a `null` line is skipped. */
+const footerOf = (lines: readonly (string | null)[]) => (
   <Stack gap={0}>
-    {lines.map((line, i) => (
-      <span key={i}>{line}</span>
-    ))}
+    {lines.flatMap((line) => (line === null ? [] : [<span key={line}>{line}</span>]))}
   </Stack>
 )
 
 const meanLine = (text: string | null, noun = 'mean') =>
   text === null ? `${noun} —` : `30 d ${noun} ${text}`
 
-const priorOf = (
-  h: Headline | undefined,
-  current: number | null | undefined,
-  prior: Prior,
-  delta: (c: number | null, p: number | null) => string | null,
-) => (h === undefined ? EM_DASH : priorLine(current, prior, delta))
-
-/** The cell's delta slot: a glyph + verdict ink badge, or nothing when there is no base to compare. */
-const badge = (
-  value: number | null,
-  format: (v: number) => string,
-  polarity: 'up-bad' | 'neutral',
-) => (value === null ? undefined : <DeltaBadge value={value} format={format} polarity={polarity} />)
-
-const fmtPctBadge = (v: number) => `${Math.abs(v).toFixed(0)}%`
-const fmtPointsBadge = (v: number) => `${Math.abs(v).toFixed(1)} pp`
-const fmtSecondsBadge = (v: number) => `${Math.abs(v).toFixed(1)} s`
-const fmtUsdDay = (v: number) => `$${v.toFixed(2)}`
-const fmtTokensDay = (v: number) => {
-  const q = tokensQuantity(v)
-  return `${q.value}${q.unit} tokens`
+/**
+ * One comparison against the prior window: the badge carries the delta (glyph, verdict ink, period),
+ * the footer note only the states where there is no badge to read.
+ */
+function compare({
+  h,
+  current,
+  prior,
+  delta,
+  format,
+  polarity,
+}: {
+  h: Headline | undefined
+  current: number | null | undefined
+  prior: Prior
+  delta: (current: number | null, prior: number | null) => number | null
+  format: (v: number) => string
+  polarity: 'up-bad' | 'neutral'
+}) {
+  const value = h === undefined ? null : delta(current ?? null, prior ?? null)
+  return {
+    delta:
+      value === null ? undefined : (
+        <DeltaBadge value={value} format={format} polarity={polarity} period="prior 30 d" />
+      ),
+    note: h === undefined ? EM_DASH : priorNote(current, prior, delta),
+  }
 }
-const fmtSecondsDay = (v: number) => `${secondsQuantity(v).value} s`
 
 function costCell({ h, loading }: Ctx, cost: Series): StatStripCell {
   const mean = meanOf(cost.days.map((d) => d.value))
+  const vs = compare({
+    h,
+    current: h?.costUsd30d,
+    prior: h?.costUsdPrior30d,
+    delta: pctDelta,
+    format: fmtPctBadge,
+    polarity: 'up-bad',
+  })
   return {
     key: 'cost',
     caption: 'Cost',
     qualifier: '30 d',
     value: fmtUsdWhole(h?.costUsd30d),
-    delta: badge(
-      pctDelta(h?.costUsd30d ?? null, h?.costUsdPrior30d ?? null),
-      fmtPctBadge,
-      'up-bad',
-    ),
+    delta: vs.delta,
     loading,
     visual: (
       <Trend
@@ -116,7 +128,7 @@ function costCell({ h, loading }: Ctx, cost: Series): StatStripCell {
     ),
     footer: footerOf([
       meanLine(mean === null ? null : `${fmtUsdWhole(mean)} a day`),
-      priorOf(h, h?.costUsd30d, h?.costUsdPrior30d, deltaPctText),
+      vs.note,
       `${fmtUsdWhole(h?.costUsd7d)} in the last 7 d`,
     ]),
   }
@@ -125,13 +137,21 @@ function costCell({ h, loading }: Ctx, cost: Series): StatStripCell {
 function tokensCell({ h, loading }: Ctx, tokens: Series): StatStripCell {
   const qty = tokensQuantity(h?.tokens30d)
   const mean = meanOf(tokens.days.map((d) => d.value))
+  const vs = compare({
+    h,
+    current: h?.tokens30d,
+    prior: h?.tokensPrior30d,
+    delta: pctDelta,
+    format: fmtPctBadge,
+    polarity: 'neutral',
+  })
   return {
     key: 'tokens',
     caption: 'Tokens',
     qualifier: '30 d',
     value: qty.value,
     ...(qty.unit ? { unit: qty.unit } : {}),
-    delta: badge(pctDelta(h?.tokens30d ?? null, h?.tokensPrior30d ?? null), fmtPctBadge, 'neutral'),
+    delta: vs.delta,
     loading,
     visual: (
       <Trend
@@ -143,7 +163,7 @@ function tokensCell({ h, loading }: Ctx, tokens: Series): StatStripCell {
     ),
     footer: footerOf([
       meanLine(mean === null ? null : `${fmtTokens(mean)} a day`),
-      priorOf(h, h?.tokens30d, h?.tokensPrior30d, deltaPctText),
+      vs.note,
       h ? `${h.sourcesActive} sources` : EM_DASH,
       'cache reads excluded',
     ]),
@@ -152,17 +172,22 @@ function tokensCell({ h, loading }: Ctx, tokens: Series): StatStripCell {
 
 function errorsCell({ h, loading }: Ctx, errors: Series): StatStripCell {
   const priorError = h === undefined ? EM_DASH : priorErrorLine(h.errorRatePrior30d)
+  // No calls: the API reports a rate of 0, not a rate, so there is nothing to compare.
+  const vs = compare({
+    h: h?.calls30d === 0 ? undefined : h,
+    current: h?.errorRate30d,
+    prior: h?.errorRatePrior30d,
+    delta: pointsDelta,
+    format: fmtPointsBadge,
+    polarity: 'up-bad',
+  })
   return {
     key: 'errors',
     caption: 'Errors',
     qualifier: '30 d',
     value: errorRateReading(h?.errorRate30d, h?.calls30d),
     ...(h?.calls30d === 0 ? {} : { unit: 'of calls' }),
-    delta: badge(
-      pointsDelta(h?.errorRate30d ?? null, h?.errorRatePrior30d ?? null),
-      fmtPointsBadge,
-      'up-bad',
-    ),
+    delta: vs.delta,
     loading,
     visual:
       errors.days.length > 0 ? (
@@ -191,17 +216,21 @@ function errorsCell({ h, loading }: Ctx, errors: Series): StatStripCell {
 function p95Cell({ h, loading }: Ctx, p95: Series): StatStripCell {
   const qty = secondsQuantity(h?.p95Ms30d)
   const mean = meanOf(p95.days.map((d) => d.value))
+  const vs = compare({
+    h,
+    current: h?.p95Ms30d,
+    prior: h?.p95MsPrior30d,
+    delta: secondsDelta,
+    format: fmtSecondsBadge,
+    polarity: 'up-bad',
+  })
   return {
     key: 'p95',
     caption: 'p95 latency',
     qualifier: '30 d',
     value: qty.value,
     ...(qty.unit ? { unit: qty.unit } : {}),
-    delta: badge(
-      secondsDelta(h?.p95Ms30d ?? null, h?.p95MsPrior30d ?? null),
-      fmtSecondsBadge,
-      'up-bad',
-    ),
+    delta: vs.delta,
     loading,
     visual: (
       <Trend
@@ -213,7 +242,7 @@ function p95Cell({ h, loading }: Ctx, p95: Series): StatStripCell {
     ),
     footer: footerOf([
       meanLine(mean === null ? null : `${secondsQuantity(mean).value} s`, 'mean daily p95'),
-      priorOf(h, h?.p95Ms30d, h?.p95MsPrior30d, deltaSecondsText),
+      vs.note,
     ]),
   }
 }

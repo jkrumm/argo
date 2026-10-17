@@ -1,7 +1,7 @@
 import { BandStrip, Sparkline } from 'basalt-ui/charts'
 import type { BandSpan } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
-import { CACHE_HIT_TARGET, errorDayState, fmtPct } from './model'
+import { CACHE_HIT_TARGET, errorDayState, fmtPct, shortDay } from './model'
 import classes from './usage.module.css'
 
 /** The ring's progress arc: not a verdict, and `VX.line` is near-white in dark mode. */
@@ -11,8 +11,6 @@ const RING_SIZE = 56
 const RING_STROKE = 6
 
 export type Daily = { date: Date; value: number | null }
-
-const shortDay = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' })
 
 export function Trend({
   label,

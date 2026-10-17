@@ -2,8 +2,8 @@ import { ActionIcon, Box, Group, Menu, Text } from '@mantine/core'
 import { IconArrowLeft, IconDots } from '@tabler/icons-react'
 import { useSizeClass } from 'basalt-ui'
 import { overlays } from 'basalt-ui/commands'
-import { factsLine, type ThreadEntry } from './thread-list-model'
-import { TypeChip } from './thread-list'
+import { factsParts, type ThreadEntry } from './thread-list-model'
+import { JoinedParts, TypeChip } from './thread-list'
 import classes from './thread-record-header.module.css'
 
 /**
@@ -75,7 +75,9 @@ export function ThreadRecordHeader({
           </Menu>
         )}
       </Group>
-      <Text className={classes['facts']}>{factsLine({ entry, now, compact })}</Text>
+      <Text className={classes['facts']}>
+        <JoinedParts parts={factsParts({ entry, now, compact })} />
+      </Text>
       {entry.summary !== null && (
         <Text size="sm" c="dimmed" lineClamp={3}>
           {entry.summary}

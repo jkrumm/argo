@@ -6,13 +6,13 @@ process.env['VITE_API_URL'] = 'http://test.local/api'
 
 const {
   buildView,
-  factsLine,
+  factsParts,
   groupEntries,
   isUntitled,
   listTime,
   startedDate,
   summarize,
-  summaryLine,
+  summaryParts,
   untitledLabel,
 } = await import('./thread-list-model')
 type ThreadEntry = import('./thread-list-model').ThreadEntry
@@ -40,14 +40,14 @@ function entry(over: Partial<ThreadEntry> & { id: string }): ThreadEntry {
 describe('listTime', () => {
   it('prints HH:mm for today and D Mon for older days, in English', () => {
     expect(listTime(new Date(2026, 9, 17, 9, 5).getTime(), NOW)).toBe('09:05')
-    expect(listTime(new Date(2026, 9, 3, 9, 5).getTime(), NOW)).toBe('3\u00a0Oct')
+    expect(listTime(new Date(2026, 9, 3, 9, 5).getTime(), NOW)).toBe('3 Oct')
   })
 })
 
 describe('startedDate', () => {
   it('adds the year once it is not this year', () => {
-    expect(startedDate(new Date(2026, 2, 4).getTime(), NOW)).toBe('4\u00a0Mar')
-    expect(startedDate(new Date(2025, 11, 31).getTime(), NOW)).toBe('31\u00a0Dec\u00a02025')
+    expect(startedDate(new Date(2026, 2, 4).getTime(), NOW)).toBe('4 Mar')
+    expect(startedDate(new Date(2025, 11, 31).getTime(), NOW)).toBe('31 Dec 2025')
   })
 })
 
@@ -187,12 +187,17 @@ describe('summary', () => {
       ],
       NOW,
     )
-    expect(summaryLine(summary)).toBe('2 threads · 1 pinned · 1 active today · last reply 14:05')
+    expect(summaryParts(summary)).toEqual([
+      '2 threads',
+      '1 pinned',
+      '1 active today',
+      'last reply 14:05',
+    ])
   })
 
   it('omits the last reply with no threads and pluralises', () => {
-    expect(summaryLine(summarize([], NOW))).toBe('0 threads · 0 pinned · 0 active today')
-    expect(summaryLine(summarize([entry({ id: 'a' })], NOW)).startsWith('1 thread ·')).toBe(true)
+    expect(summaryParts(summarize([], NOW))).toEqual(['0 threads', '0 pinned', '0 active today'])
+    expect(summaryParts(summarize([entry({ id: 'a' })], NOW))[0]).toBe('1 thread')
   })
 
   it('words the untitled fold', () => {
@@ -201,7 +206,7 @@ describe('summary', () => {
   })
 })
 
-describe('factsLine', () => {
+describe('factsParts', () => {
   it('drops the repeated date when the thread started and last replied on one day', () => {
     const e = entry({
       id: 'f',
@@ -209,9 +214,10 @@ describe('factsLine', () => {
       createdAt: new Date(2026, 9, 3, 8, 0).getTime(),
       updatedAt: new Date(2026, 9, 3, 9, 41).getTime(),
     })
-    expect(factsLine({ entry: e, now: NOW, compact: false })).toBe(
-      'Started 3\u00a0Oct 08:00 · last reply 09:41',
-    )
-    expect(factsLine({ entry: e, now: NOW, compact: true })).toBe('last reply 3\u00a0Oct · Infra')
+    expect(factsParts({ entry: e, now: NOW, compact: false })).toEqual([
+      'Started 3 Oct 08:00',
+      'last reply 09:41',
+    ])
+    expect(factsParts({ entry: e, now: NOW, compact: true })).toEqual(['last reply 3 Oct', 'Infra'])
   })
 })
