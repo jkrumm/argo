@@ -1,6 +1,6 @@
 import { Sparkline } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
-import { Meter } from 'basalt-ui'
+import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import type { HistoryPoint, OverviewSummary } from '../../lib/queries/agents'
 import {
   ABANDONED_AFTER_MS,
@@ -13,7 +13,6 @@ import {
   type FleetState,
   type OldestWait,
 } from './model'
-import { StatStrip, type StatStripCell } from './stat-strip'
 
 /** Neutral ink at stepped strengths for the calm states; a hue only for needs-you and stale. */
 const FLEET_COLOR: Record<FleetState, string> = {
@@ -36,9 +35,9 @@ type Props = {
   now: number
 }
 
-function waitTone(ms: number): string | undefined {
-  if (ms > ABANDONED_AFTER_MS) return VX.status.bad
-  if (ms > OLDEST_WAIT_WARN_MS) return VX.status.warn
+function waitTone(ms: number): 'bad' | 'warn' | undefined {
+  if (ms > ABANDONED_AFTER_MS) return 'bad'
+  if (ms > OLDEST_WAIT_WARN_MS) return 'warn'
   return undefined
 }
 
@@ -82,34 +81,39 @@ export function FleetStrip({ summary, fleet, history, hours, oldest, queued, now
   const oldestTone = oldest === null ? undefined : waitTone(oldest.ms)
 
   return (
-    <StatStrip
+    <StatGroup
+      variant="strip"
       label="Agent fleet"
+      cols={3}
       cells={[
         {
-          id: 'needs-you',
+          key: 'needs-you',
           caption: 'Needs you · now',
-          value: needsYou === undefined ? '—' : String(needsYou),
+          value: needsYou === undefined ? null : String(needsYou),
           ...(needsYou !== undefined && { unit: needsYou === 1 ? 'agent' : 'agents' }),
-          ...(needsYou !== undefined && needsYou > 0 && { tone: VX.status.warn }),
+          ...(needsYou !== undefined && needsYou > 0 && { tone: 'warn' as const }),
           visual: <NeedsYouVisual history={history} hours={hours} />,
           footer: peakFooter(history, hours, now, queued),
         },
         {
-          id: 'oldest-wait',
+          key: 'oldest-wait',
           caption: oldest === null ? 'Oldest wait' : `Oldest wait · ${oldest.project}`,
-          value: oldest === null ? '—' : formatWaitDuration(oldest.ms),
+          value: oldest === null ? null : formatWaitDuration(oldest.ms),
           ...(oldestTone !== undefined && { tone: oldestTone }),
           visual: (
             <Meter
               label="Oldest agent wait against the 24 h and 7 d marks"
               value={oldest?.ms ?? null}
               max={ABANDONED_AFTER_MS}
-              target={OLDEST_WAIT_WARN_MS}
+              ticks={[
+                { at: OLDEST_WAIT_WARN_MS, label: 'warn at 24 h' },
+                { at: ABANDONED_AFTER_MS, label: 'abandoned at 7 d' },
+              ]}
               format={formatWaitDuration}
-              startCaption="warn at 24 h"
-              endCaption="abandoned at 7 d"
+              startCaption={null}
+              endCaption={null}
               emptyText="No agent or ask is waiting"
-              {...(oldestTone !== undefined && { color: oldestTone })}
+              {...(oldestTone !== undefined && { color: VX.status[oldestTone] })}
             />
           ),
         },
@@ -122,9 +126,9 @@ export function FleetStrip({ summary, fleet, history, hours, oldest, queued, now
 function fleetCell(fleet: Props['fleet']): StatStripCell {
   if (fleet === null) {
     return {
-      id: 'fleet',
+      key: 'fleet',
       caption: 'Fleet',
-      value: '—',
+      value: null,
       visual: (
         <Meter label="Agents by state" value={null} emptyText="No fleet data in this snapshot" />
       ),
@@ -132,7 +136,7 @@ function fleetCell(fleet: Props['fleet']): StatStripCell {
   }
   const { parts, total } = fleet
   return {
-    id: 'fleet',
+    key: 'fleet',
     caption: `Fleet · ${total} agents`,
     value: String(parts[0]?.value ?? 0),
     unit: `working of ${total}`,
