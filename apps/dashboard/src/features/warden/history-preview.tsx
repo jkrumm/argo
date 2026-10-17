@@ -9,8 +9,8 @@ export function HistoryPreview({ lines }: { lines: readonly TransitionLine[] }) 
       <Text size="xs" c="dimmed" ff="monospace" tt="uppercase">
         State history
       </Text>
-      {lines.map((line) => (
-        <Stack key={`${line.from}-${line.to}-${line.at ?? ''}`} gap={0}>
+      {lines.map((line, index) => (
+        <Stack key={`${index}-${line.to}`} gap={0}>
           <Text size="xs" ff="monospace">
             {line.from} → {line.to}
           </Text>

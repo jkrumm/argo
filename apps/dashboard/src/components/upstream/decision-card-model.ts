@@ -31,13 +31,6 @@ export function visibleFacts(
     .filter((fact) => fact.text !== '')
 }
 
-/** Joins the non-empty facts with the `·` separator the card's facts line uses. */
-export function factsLine(facts: readonly DecisionCardFact[]): string {
-  return visibleFacts(facts)
-    .map((fact) => fact.text)
-    .join(' · ')
-}
-
 /** True when the card has any action row content (primary, secondary or a non-empty menu). */
 export function hasActions(
   primary: DecisionCardAction | undefined,

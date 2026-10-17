@@ -1,19 +1,25 @@
 import { describe, expect, it } from 'bun:test'
-import { factsLine, hasActions, isInactive, isRenderable } from './decision-card-model'
+import { hasActions, isInactive, isRenderable, visibleFacts } from './decision-card-model'
 
 const action = { label: 'Go', onClick: () => {} }
 
-describe('factsLine', () => {
-  it('joins facts with a middle dot and drops blanks', () => {
-    expect(factsLine(['repo-a', ' ', 'waiting 3 d', ''])).toBe('repo-a · waiting 3 d')
+describe('visibleFacts', () => {
+  it('trims facts and drops blanks', () => {
+    expect(visibleFacts(['repo-a', ' ', 'waiting 3 d', '']).map((f) => f.text)).toEqual([
+      'repo-a',
+      'waiting 3 d',
+    ])
   })
 
-  it('accepts toned facts', () => {
-    expect(factsLine(['a', { text: 'waiting 3 d', tone: 'warn' }])).toBe('a · waiting 3 d')
+  it('carries the tone of a toned fact', () => {
+    expect(visibleFacts(['a', { text: 'waiting 3 d', tone: 'warn' }])).toEqual([
+      { text: 'a', tone: undefined },
+      { text: 'waiting 3 d', tone: 'warn' },
+    ])
   })
 
   it('is empty for no facts', () => {
-    expect(factsLine([])).toBe('')
+    expect(visibleFacts([])).toEqual([])
   })
 })
 

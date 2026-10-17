@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Stack, Text } from '@mantine/core'
 import { PageBar } from 'basalt-ui'
+import { VX } from 'basalt-ui/tokens'
 import { wardenQueries } from '../lib/queries/warden'
 import { deriveAwaitingOwner } from '../features/warden/model'
 import {
@@ -43,12 +44,13 @@ function WardenPage() {
   const snapshot = snapshotQuery.data ?? null
   const raw = snapshot?.raw
   const awaitingOwner = deriveAwaitingOwner(raw?.board)
-  const columns = deriveBoardColumns(raw?.board)
+  const needs = needsCards(awaitingOwner)
+  const claimed = new Set([...needs, ...awaitingOwner.failed].map((row) => row.eventId))
+  const columns = deriveBoardColumns(raw?.board, claimed)
   const pollers = derivePollers(raw?.metrics, raw?.health)
   const strip = deriveStrip(raw?.metrics, raw?.health)
   const { pending, handleAction } = useWardenActions(snapshot?.machine, raw?.board?.items)
 
-  const needs = needsCards(awaitingOwner)
   const summary = deriveSummary({
     needsCount: needs.length,
     oldestAgeDays: oldestAgeDays(needs),
@@ -74,7 +76,18 @@ function WardenPage() {
 
       <Stack gap="md" opacity={refreshing ? 0.6 : 1}>
         <StaleBanner snapshot={snapshot} />
-        {snapshot ? <Text size="sm">{summary}</Text> : null}
+        {snapshot ? (
+          <Text
+            size="sm"
+            {...(summary.status === 'stalled'
+              ? { c: VX.status.bad, fw: 600 }
+              : summary.status === 'degraded'
+                ? { c: VX.status.warn, fw: 600 }
+                : {})}
+          >
+            {summary.text}
+          </Text>
+        ) : null}
         <HealthStrip metrics={raw?.metrics} health={raw?.health} budget={raw?.budget} />
         <DecisionQueues
           view={awaitingOwner}

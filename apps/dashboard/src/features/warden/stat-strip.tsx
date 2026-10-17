@@ -36,7 +36,14 @@ export function StatStrip({
           {cells.map((cell) => (
             <Box key={cell.key} className={classes.cell} data-shot={`strip-${cell.key}`}>
               <Tooltip label={cell.info} disabled={!cell.info} multiline maw={260} withArrow>
-                <Text size="xs" c="dimmed" ff="monospace" tt="uppercase" w="fit-content">
+                <Text
+                  size="xs"
+                  c="dimmed"
+                  ff="monospace"
+                  tt="uppercase"
+                  w="fit-content"
+                  tabIndex={cell.info ? 0 : undefined}
+                >
                   {cell.caption}
                 </Text>
               </Tooltip>

@@ -1,6 +1,7 @@
 import { Button, Group, Modal, Stack, Textarea } from '@mantine/core'
 import { useForm } from '@mantine/form'
-import type { PromptState } from './action-verbs'
+import { useState } from 'react'
+import type { PromptState, PromptVerb } from './action-verbs'
 
 /** One shared modal instance, reused across every item/verb prompt on the page. */
 export function ActionPromptModal({
@@ -13,6 +14,10 @@ export function ActionPromptModal({
   onSubmit: (text: string) => void
 }) {
   const form = useForm({ initialValues: { text: '' } })
+  // The modal fades out after `prompt` goes null; keep the last verb so its copy does not flip mid-fade.
+  const [lastVerb, setLastVerb] = useState<PromptVerb>('dismiss')
+  if (prompt !== null && prompt.verb !== lastVerb) setLastVerb(prompt.verb)
+  const verb = prompt?.verb ?? lastVerb
 
   // Reset on every close path (submit, X, overlay click, ESC) so a closed-without-submitting
   // prompt never leaves stale text pre-filled (and already valid) for the next item's prompt.
@@ -25,7 +30,7 @@ export function ActionPromptModal({
     <Modal
       opened={prompt !== null}
       onClose={handleClose}
-      title={prompt?.verb === 'dismiss' ? 'Dismiss reason' : 'Add a note'}
+      title={verb === 'dismiss' ? 'Dismiss reason' : 'Add a note'}
     >
       <form
         onSubmit={form.onSubmit((values) => {
@@ -37,7 +42,8 @@ export function ActionPromptModal({
           <Textarea
             autosize
             minRows={2}
-            placeholder={prompt?.verb === 'dismiss' ? 'Why dismiss this item?' : 'Note text'}
+            label={verb === 'dismiss' ? 'Reason' : 'Note'}
+            placeholder={verb === 'dismiss' ? 'Why dismiss this item?' : 'Note text'}
             {...form.getInputProps('text')}
           />
           <Group justify="flex-end">
