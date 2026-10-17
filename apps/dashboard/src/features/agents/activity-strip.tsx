@@ -69,10 +69,11 @@ export function ActivityStrip({ history, hours, now }: Props) {
         legend={false}
         height={48}
       />
-      <Text size="xs" c="dimmed" mt="xs">
-        One cell per hour, shaded by the most agents working in it
-        {hasGap ? '; the amber cell is an hour with no snapshot received' : ''}.
-      </Text>
+      {hasGap ? (
+        <Text size="xs" c="dimmed" mt="xs">
+          Amber: an hour with no snapshot received.
+        </Text>
+      ) : null}
     </Section>
   )
 }

@@ -37,3 +37,11 @@
   height: 100%;
   background: var(--vx-line);
 }
+
+.listHead {
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vx-muted);
+}

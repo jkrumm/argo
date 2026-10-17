@@ -21,9 +21,9 @@ import { StatStrip } from './stat-strip'
 const FLEET_COLOR: Record<FleetState, string> = {
   working: VX.line,
   needs_you: VX.status.bad,
-  idle: alpha(VX.line, 0.45),
+  idle: alpha(VX.line, 0.55),
   stale: VX.status.warn,
-  done: alpha(VX.line, 0.2),
+  done: alpha(VX.line, 0.28),
 }
 
 type Props = {
@@ -31,6 +31,8 @@ type Props = {
   history: HistoryPoint[] | undefined
   hours: number
   oldest: OldestWait | null
+  /** Human-queue asks, which the agent count does not include. */
+  queued: number
   now: number
 }
 
@@ -54,18 +56,27 @@ function NeedsYouVisual({ history, hours }: Pick<Props, 'history' | 'hours'>) {
   )
 }
 
-function peakFooter(history: HistoryPoint[] | undefined, hours: number, now: number): string {
+function peakFooter(
+  history: HistoryPoint[] | undefined,
+  hours: number,
+  now: number,
+  queued: number,
+): string {
   const peak = peakNeedsYou(history)
-  if (peak === null) return `no data in ${hours} h`
-  if (peak.value === 0) return `none in ${hours} h`
-  return `peak ${peak.value} · ${ageAgo(now - peak.atMs)}`
+  const trend =
+    peak === null
+      ? `no data in ${hours} h`
+      : peak.value === 0
+        ? `none in ${hours} h`
+        : `peak ${peak.value} · ${ageAgo(now - peak.atMs)}`
+  return queued > 0 ? `${trend} · +${queued} in human queue` : trend
 }
 
 /**
  * The three joined cells under the page summary: needs-you trend, oldest wait against its two
  * thresholds, fleet by state. Replaces the three bare-integer tiles.
  */
-export function FleetStrip({ summary, history, hours, oldest, now }: Props) {
+export function FleetStrip({ summary, history, hours, oldest, queued, now }: Props) {
   const needsYou = summary?.needsYou
   const { parts, total } = fleetParts(summary)
   const working = parts[0]?.value ?? 0
@@ -81,11 +92,12 @@ export function FleetStrip({ summary, history, hours, oldest, now }: Props) {
           ...(needsYou !== undefined && { unit: needsYou === 1 ? 'agent' : 'agents' }),
           ...(needsYou !== undefined && needsYou > 0 && { tone: VX.status.warn }),
           visual: <NeedsYouVisual history={history} hours={hours} />,
-          footer: peakFooter(history, hours, now),
+          footer: peakFooter(history, hours, now, queued),
         },
         {
           caption: oldest === null ? 'Oldest wait' : `Oldest wait · ${oldest.project}`,
-          value: oldest === null ? '—' : formatWaitDuration(oldest.ms),
+          value: oldest === null ? 'None' : formatWaitDuration(oldest.ms),
+          ...(oldest === null && { unit: 'agents waiting' }),
           ...(oldestTone !== undefined && { tone: oldestTone }),
           visual: (
             <Meter
@@ -120,14 +132,16 @@ export function FleetStrip({ summary, history, hours, oldest, now }: Props) {
           ),
           footer: (
             <Flex gap="xs" wrap="wrap">
-              {parts.map((p) => (
-                <Group key={p.key} gap={4} wrap="nowrap">
-                  <Dot color={p.value > 0 ? FLEET_COLOR[p.key] : VX.muted} />
-                  <Text size="xs" ff="monospace" c="dimmed" span>
-                    {p.value} {p.label}
-                  </Text>
-                </Group>
-              ))}
+              {parts
+                .filter((p) => p.value > 0)
+                .map((p) => (
+                  <Group key={p.key} gap={4} wrap="nowrap">
+                    <Dot color={FLEET_COLOR[p.key]} />
+                    <Text size="xs" ff="monospace" c="dimmed" span>
+                      {p.value} {p.label}
+                    </Text>
+                  </Group>
+                ))}
             </Flex>
           ),
         },

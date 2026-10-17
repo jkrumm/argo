@@ -79,9 +79,11 @@ function sourceCell(
   return { value: `${first![0]} ${first![1]}`, small: true, ...(unit && { unit }) }
 }
 
-function gitCell(git: ProjectGroup['git']): Pick<EntityCardCell, 'value' | 'unit'> {
+function gitCell(git: ProjectGroup['git']): Pick<EntityCardCell, 'value' | 'small' | 'unit'> {
   if (!git) return { value: '—' }
-  return { value: `+${git.ahead} / −${git.behind}`, unit: git.dirty ? 'dirty' : 'clean' }
+  const tree = git.dirty ? 'dirty' : 'clean'
+  if (git.ahead === 0 && git.behind === 0) return { value: 'in sync', small: true, unit: tree }
+  return { value: `↑${git.ahead} ↓${git.behind}`, unit: tree }
 }
 
 function ProjectCard({ group, now }: { group: ProjectGroup; now: number }) {
@@ -177,12 +179,15 @@ export function ProjectCards({ active, quiet, now }: Props) {
           </SimpleGrid>
         ) : null}
         {quiet.length > 0 ? (
-          <BarList
-            label="Projects without a running agent"
-            items={quietRows(quiet, now)}
-            max={busiest}
-            format={(n) => plural(n, 'agent', 'agents')}
-          />
+          <Stack gap="xs">
+            <Text className={classes.listHead}>No agent running · {quiet.length} projects</Text>
+            <BarList
+              label="Projects without a running agent"
+              items={quietRows(quiet, now)}
+              max={busiest}
+              format={(n) => plural(n, 'agent', 'agents')}
+            />
+          </Stack>
         ) : null}
       </Stack>
     </Section>

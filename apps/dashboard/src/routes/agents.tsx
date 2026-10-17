@@ -76,6 +76,7 @@ function AgentsPage() {
           history={historyQuery.data?.data}
           hours={HISTORY_HOURS}
           oldest={oldest}
+          queued={humanQueue.length}
           now={now}
         />
         <NeedsYouSection humanQueue={humanQueue} agents={agents} />
