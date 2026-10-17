@@ -7,12 +7,13 @@ Personal dashboard + agent-backbone API for Johannes Krumm, deployed on the VPS 
 stress, daily metrics, recovery score) and **Strength Tracker** (workouts, sets, e1RM, volume,
 ACWR, PR detection, body weight) — a Garmin sync sidecar feeds health data every 6 hours, strength
 data is logged manually. Alongside them: **Hermes Chat** (a Slack-shaped feed over Hermes threads
-+ Slack channels, streamed through a thin idempotent proxy — `docs/HERMES-CHAT-V2.md`), a general
-**AI Gateway** (`/ai/v1/*`, OpenAI-compatible, backs Argo's own thread-titling/classification —
-not Hermes), **Slack** (read + post, split across two app identities — see "Slack" below),
-**Usage Tracking** (Claude Code spend ingest from `usage-tracker`, delta-only), **Reading**
-(Hardcover sync + reading stats), **M365 Explorer** (browse IU Teams chats/channels), **GitLab**
-and **Atlassian** surfaces, **WalkingPad**, and the **Agents** page (below).
+
+- Slack channels, streamed through a thin idempotent proxy — `docs/HERMES-CHAT-V2.md`), a general
+  **AI Gateway** (`/ai/v1/*`, OpenAI-compatible, backs Argo's own thread-titling/classification —
+  not Hermes), **Slack** (read + post, split across two app identities — see "Slack" below),
+  **Usage Tracking** (Claude Code spend ingest from `usage-tracker`, delta-only), **Reading**
+  (Hardcover sync + reading stats), **M365 Explorer** (browse IU Teams chats/channels), **GitLab**
+  and **Atlassian** surfaces, **WalkingPad**, and the **Agents** page (below).
 
 **Astro Window** answers "is tonight (or this week) worth going out for?" for Milky Way nightscapes. It is scored by a deterministic engine (`apps/api/src/lib/window-score.ts` — hard gates that name _why_ a night is out, plus weighted 0–1 factors) instantiated per domain (`astro-score.ts`). **The model never computes a number**: the ephemeris, the thresholds and the score are all deterministic, and `aiComplete()` only writes one sentence about an already-finished verdict — see `docs/ASTRO-WINDOW.md`.
 
@@ -135,6 +136,12 @@ answered 405 and listed under `## blocked writes`, but does not fail the run), i
 printed or written; the run aborts unless it authenticates), then runs the bundle / screens (13 routes × light/dark × desktop/mobile) /
 lighthouse (median of 3) lanes. Output: `docs/waves/evidence/<l>.md`; raw screenshots and Lighthouse
 JSON land in the gitignored `docs/waves/evidence/.raw/<l>/`. Needs `secrets-run` and a locally installed Google Chrome. Code: `scripts/evidence/`.
+
+`make design-shot [ROUTES="/agents /warden"] [LABEL=<l>] [SKIP_BUILD=1]` is the redesign loop's shot harness: same
+GET-only production proxy as `make evidence`, every route (default `scripts/evidence/routes.txt`) × dark/light ×
+desktop 1440 / mobile 390 at DPR 2, plus one crop per desktop card/table, into `.design-shots/<label>/` with an
+`index.html` board and `manifest.json`. The shots show real personal data: `.design-shots/` is gitignored, never commit
+or upload the images. Code: `scripts/design-shot/`.
 
 ## Gotchas
 

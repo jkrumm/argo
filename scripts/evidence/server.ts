@@ -19,6 +19,20 @@ export type DistServer = {
   stop: () => void
 }
 
+/** Bearer from the secrets cache. The value is never printed; failures report the exit code only. */
+export async function readToken(): Promise<string> {
+  const proc = Bun.spawn(['secrets-run', 'read', 'op://common/api/SECRET'], {
+    stdout: 'pipe',
+    stderr: 'ignore',
+    timeout: 30_000,
+  })
+  const token = (await new Response(proc.stdout).text()).trim()
+  const code = await proc.exited
+  if (code !== 0 || !token)
+    throw new Error(`secrets-run failed to read the API secret (exit ${code})`)
+  return token
+}
+
 export function serveDist(distDir: string, token: string): DistServer {
   const root = resolve(distDir)
   const blocked: string[] = []

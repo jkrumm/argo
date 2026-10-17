@@ -3,7 +3,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check deploy verify logs evidence
+.PHONY: help check deploy verify logs evidence design-shot
 
 help: ## List available targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-8s\033[0m %s\n", $$1, $$2}'
@@ -30,3 +30,6 @@ logs: ## Tail the last 200 lines of production API logs, then exit (no follow)
 evidence: ## Real-data baseline (bundle/screens/lighthouse): make evidence LABEL=<label>
 	@test -n "$(LABEL)" || { echo "usage: make evidence LABEL=<label>"; exit 2; }
 	@bun scripts/evidence/index.ts "$(LABEL)"
+
+design-shot: ## Live-data screenshots + crops board: make design-shot [ROUTES="/agents /warden"] [LABEL=<label>] [SKIP_BUILD=1]
+	@bun scripts/design-shot/index.ts "$(LABEL)" "$(ROUTES)" "$(SKIP_BUILD)"
