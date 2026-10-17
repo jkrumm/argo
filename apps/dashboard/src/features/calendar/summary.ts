@@ -29,7 +29,7 @@ export function summarySentence(summary: AgendaSummary, free: FreeBlock | null):
     summary.todayBookedMin === null ||
     summary.weekBookedMin === null
   ) {
-    return '— meetings today · next — · — this week'
+    return '— meetings today · next — · — booked this week'
   }
   const today =
     summary.todayCount > 0
@@ -38,6 +38,10 @@ export function summarySentence(summary: AgendaSummary, free: FreeBlock | null):
   const week =
     summary.weekBookedMin === 0
       ? 'nothing booked this week'
-      : `${formatDurationMin(summary.weekBookedMin)} this week`
-  return [today, countdown(summary), week].filter(Boolean).join(' · ')
+      : `${formatDurationMin(summary.weekBookedMin)} booked this week`
+  // `11h 5m` must not break between its parts at a narrow width.
+  return [today, countdown(summary), week]
+    .filter(Boolean)
+    .join(' · ')
+    .replace(/(\d+h) (\d+m)/g, '$1\u00a0$2')
 }
