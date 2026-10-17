@@ -227,7 +227,7 @@ function BudgetMeterRow({ meter }: { meter: BudgetMeter }) {
     return (
       <Stack gap={4}>
         {caption}
-        <Text fz="xl" fw={600} ff="monospace" lh={1.1}>
+        <Text fz="xl" fw={600} lh={1.1}>
           —
         </Text>
         <Text size="xs" c="dimmed">

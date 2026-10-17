@@ -37,6 +37,8 @@ export const Route = createFileRoute('/warden')({
 function WardenPage() {
   const snapshotQuery = useQuery(wardenQueries.snapshot())
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null)
+  // Only a manual refresh dims the page; the 60 s background poll swaps data in place.
+  const [refreshing, setRefreshing] = useState(false)
 
   const snapshot = snapshotQuery.data ?? null
   const raw = snapshot?.raw
@@ -62,12 +64,15 @@ function WardenPage() {
       <PageBar
         sync={{
           syncing: snapshotQuery.isFetching,
-          onSync: () => void snapshotQuery.refetch(),
+          onSync: () => {
+            setRefreshing(true)
+            void snapshotQuery.refetch().finally(() => setRefreshing(false))
+          },
           label: 'Refresh',
         }}
       />
 
-      <Stack gap="md">
+      <Stack gap="md" opacity={refreshing ? 0.6 : 1}>
         <StaleBanner snapshot={snapshot} />
         {snapshot ? <Text size="sm">{summary}</Text> : null}
         <HealthStrip metrics={raw?.metrics} health={raw?.health} budget={raw?.budget} />
