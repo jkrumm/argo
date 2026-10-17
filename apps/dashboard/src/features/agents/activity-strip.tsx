@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Text } from '@mantine/core'
+import { Box, Text } from '@mantine/core'
 import { Section } from 'basalt-ui'
 import { BandStrip } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
@@ -58,17 +58,19 @@ export function ActivityStrip({ history, hours, now }: Props) {
 
   return (
     <Section title="Last 24 h · agents working per hour" value={String(peak)} unit="agents at peak">
-      <BandStrip
-        ariaLabel={`Agents working per hour over the last ${hours} hours`}
-        data={buckets}
-        x={(d) => d.hourMs}
-        xTicks={ticks}
-        formatX={clock}
-        states={STATES}
-        getBand={getBand}
-        legend={false}
-        height={48}
-      />
+      <Box data-shot="activity-strip">
+        <BandStrip
+          ariaLabel={`Agents working per hour over the last ${hours} hours`}
+          data={buckets}
+          x={(d) => d.hourMs}
+          xTicks={ticks}
+          formatX={clock}
+          states={STATES}
+          getBand={getBand}
+          legend={false}
+          height={48}
+        />
+      </Box>
       {hasGap ? (
         <Text size="xs" c="dimmed" mt="xs">
           Amber: an hour with no snapshot received.

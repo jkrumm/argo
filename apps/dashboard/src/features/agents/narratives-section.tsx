@@ -1,5 +1,5 @@
 import type { UseQueryResult } from '@tanstack/react-query'
-import { Badge } from '@mantine/core'
+import { Badge, Box } from '@mantine/core'
 import { Section } from 'basalt-ui'
 import type { Narrative } from '../../lib/queries/agents'
 import { useNow } from '../../lib/use-now'
@@ -42,7 +42,9 @@ export function NarrativesSection({ query }: Props) {
       query={query}
       empty={{ title: 'No narratives yet', description: 'The narrator has not written any.' }}
     >
-      <EventList label="Project narratives by day" groups={groups} limit={COLLAPSED_ROWS} />
+      <Box data-shot="narratives">
+        <EventList label="Project narratives by day" groups={groups} limit={COLLAPSED_ROWS} />
+      </Box>
     </Section>
   )
 }

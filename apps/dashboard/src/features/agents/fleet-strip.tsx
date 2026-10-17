@@ -68,8 +68,8 @@ function peakFooter(
       ? `no data in ${hours} h`
       : peak.value === 0
         ? `none in ${hours} h`
-        : `peak ${peak.value} · ${ageAgo(now - peak.atMs)}`
-  return queued > 0 ? `${trend} · +${queued} in human queue` : trend
+        : `peak ${peak.value} in ${hours} h · ${ageAgo(now - peak.atMs)}`
+  return queued > 0 ? `+${queued} in human queue · ${trend}` : trend
 }
 
 /**
@@ -137,7 +137,7 @@ export function FleetStrip({ summary, history, hours, oldest, queued, now }: Pro
                 .map((p) => (
                   <Group key={p.key} gap={4} wrap="nowrap">
                     <Dot color={FLEET_COLOR[p.key]} />
-                    <Text size="xs" ff="monospace" c="dimmed" span>
+                    <Text size="sm" ff="monospace" c="dimmed" span>
                       {p.value} {p.label}
                     </Text>
                   </Group>

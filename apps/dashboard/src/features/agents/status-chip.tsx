@@ -28,7 +28,7 @@ export function StatusChip({ tone, label }: StatusChipProps) {
   return (
     <Group gap={6} wrap="nowrap" className={classes.chip}>
       <Dot color={TONE_INK[tone]} />
-      <Text size="xs" c={tone === 'neutral' ? 'dimmed' : TONE_INK[tone]}>
+      <Text size="sm" c={tone === 'neutral' ? 'dimmed' : TONE_INK[tone]}>
         {label}
       </Text>
     </Group>

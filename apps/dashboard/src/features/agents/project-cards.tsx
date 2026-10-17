@@ -96,7 +96,7 @@ function ProjectCard({ group, now }: { group: ProjectGroup; now: number }) {
           <Text size="sm" fw={600} truncate>
             {group.name}
           </Text>
-          <Text size="xs" c="dimmed" truncate>
+          <Text size="sm" c="dimmed" truncate>
             {group.git ? group.git.branch : plural(group.agents.length, 'agent', 'agents')}
           </Text>
         </Stack>
@@ -107,7 +107,7 @@ function ProjectCard({ group, now }: { group: ProjectGroup; now: number }) {
           caption: 'Running',
           value: String(running),
           unit: running === 1 ? 'agent' : 'agents',
-          visual: running > 0 ? <AgeBars agents={group.working} now={now} /> : undefined,
+          visual: running > 1 ? <AgeBars agents={group.working} now={now} /> : undefined,
         },
         {
           caption: 'Last activity',
@@ -142,7 +142,7 @@ function quietRows(groups: ProjectGroup[], now: number) {
     secondary: (
       <Group gap="sm" wrap="nowrap" component="span">
         <StatusChip tone={STATE_TONE[g.worst]} label={STATE_LABEL[g.worst]} />
-        <Text size="xs" ff="monospace" c="dimmed" span>
+        <Text size="sm" ff="monospace" c="dimmed" span>
           {g.lastActivityAt === null ? '—' : ageAgo(now - g.lastActivityAt)}
         </Text>
       </Group>
@@ -180,7 +180,7 @@ export function ProjectCards({ active, quiet, now }: Props) {
           </SimpleGrid>
         ) : null}
         {quiet.length > 0 ? (
-          <Stack gap="xs">
+          <Stack gap="xs" data-shot="quiet-projects">
             <Text className={classes.listHead}>No agent running · {quiet.length} projects</Text>
             <BarList
               label="Projects without a running agent"
