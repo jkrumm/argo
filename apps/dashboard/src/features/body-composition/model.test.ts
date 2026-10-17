@@ -125,7 +125,7 @@ describe('summarySentence', () => {
   })
   test('unknown rate is a dash, never 0', () => {
     expect(summarySentence({ current: 80, kgPerWeek: null, goal: null, ageDays: null })).toBe(
-      '80.0 kg, — kg/wk.',
+      '80.0 kg, — kg/wk over 28 d.',
     )
   })
   test('empty window', () => {
