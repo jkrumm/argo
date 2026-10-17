@@ -10,7 +10,7 @@ its file path in the **Prototype** column (a pattern two or more pages consume g
 the same cycle. argo then switches to the import and deletes the prototype. Status on 2026-10-17: argo is on
 basalt-ui 2.19.0 (2.18.0 shipped the exports below; 2.19.0 refined `Meter` / `BarList`), which ships `StatCard` (`sparkline`, `breakdown`), `StatGroup` (separate cards only),
 `DeltaBadge`, `Sparkline`, `BandStrip`, `EmptyState`, `PageBar`, and since 2.18.0 `Meter` and `BarList`
-(the Wave 19 local prototype of those two is deleted). Nothing else below is shipped yet.
+(the Wave 19 local prototype of those two is deleted). **2026-10-18: argo is on 2.20.0**, which shipped `StatGroup variant="strip"`, `ChartCard facts`, the `Meter` `ticks` / `tone` / `size="row"` props, `BarList` per-row `max`, `Sparkline reference` and the `StatusDot` root export; argo adopted them in Wave 23 (see "Wave 23" under basalt friction). `EventList`, `Board`, the decision card and the record header are still local.
 
 ## Planned basalt exports (SPEC §4) — the extensions argo needs
 
