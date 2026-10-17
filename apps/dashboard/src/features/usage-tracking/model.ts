@@ -96,6 +96,26 @@ export function deltaPointsText(current: number | null, prior: number | null): s
   return `${signedText((current - prior) * 100, 1)} pp`
 }
 
+/** Signed percent change (`12` = +12 %) for a `DeltaBadge`; `null` without a base. */
+export function pctDelta(current: number | null, prior: number | null): number | null {
+  const change = pctChange(current, prior)
+  return change === null ? null : change * 100
+}
+
+/** Signed seconds between two millisecond readings; `null` when either is missing. */
+export function secondsDelta(current: number | null, prior: number | null): number | null {
+  if (current === null || prior === null) return null
+  if (!Number.isFinite(current) || !Number.isFinite(prior)) return null
+  return (current - prior) / 1000
+}
+
+/** Signed percentage points between two 0–1 ratios; `null` when either is missing. */
+export function pointsDelta(current: number | null, prior: number | null): number | null {
+  if (current === null || prior === null) return null
+  if (!Number.isFinite(current) || !Number.isFinite(prior)) return null
+  return (current - prior) * 100
+}
+
 // ── Prior-window comparisons ─────────────────────────────────────────────────────────────────
 
 /** `undefined`: the API did not send the field; `null`: no comparable prior window exists. */

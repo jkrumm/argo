@@ -12,20 +12,28 @@ const RING_STROKE = 6
 
 export type Daily = { date: Date; value: number | null }
 
+const shortDay = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' })
+
 export function Trend({
   label,
   days,
   loading,
+  format,
 }: {
   label: string
   days: readonly Daily[]
   loading: boolean
+  /** The readout's value with its unit (`$12.40`, `3.2M tokens`, `1.8 s`). */
+  format: (value: number) => string
 }) {
-  const data = days.flatMap((d) => (d.value === null ? [] : [d.value]))
+  const present = days.filter((d): d is Daily & { value: number } => d.value !== null)
+  const data = present.map((d) => d.value)
   return (
     <Sparkline
       ariaLabel={label}
       data={data}
+      format={format}
+      labels={present.map((d) => shortDay.format(d.date))}
       height={SPARK_HEIGHT}
       emphasizeLast
       state={loading ? { pending: true } : { empty: data.length < 2 }}
@@ -49,6 +57,7 @@ export function ErrorBand({ days }: { days: readonly Daily[] }) {
       states={BAND_STATES}
       getBand={(d): BandSpan => ({ state: errorDayState(d.value) })}
       legend={false}
+      tooltip={{ formatHeader: (x) => shortDay.format(x) }}
       height={28}
     />
   )

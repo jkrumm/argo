@@ -58,14 +58,17 @@ const FALLBACK_PALETTE = [
   USAGE_SOURCE.opencode,
 ]
 
-/** Rank-assigned hues for the named series of a stacked chart: six that stay apart (sky, gold, forest, red, orange, cerulean). */
+/**
+ * Rank-assigned hues for the named series of a stacked chart: six different hue families (sky, gold,
+ * forest, red, orange, violet). Cerulean is deliberately absent: next to sky it differs only in shade.
+ */
 export const RANK_PALETTE = [
   USAGE_SOURCE.claudeCode,
   USAGE_SOURCE.agentGateway,
   USAGE_SOURCE.audioProxy,
   USAGE_SOURCE.hermesAgent,
   USAGE_SOURCE.opencode,
-  USAGE_SOURCE.litellm,
+  USAGE_SOURCE.researchGateway,
 ]
 
 function hashKey(key: string): number {

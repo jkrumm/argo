@@ -56,15 +56,6 @@
   color: var(--vx-ink);
 }
 
-.axisCaptions {
-  display: flex;
-  justify-content: space-between;
-  margin-top: var(--vx-space-stack-xs);
-  font-family: var(--basalt-font-mono);
-  font-size: var(--vx-text-micro);
-  color: var(--vx-muted);
-}
-
 .freshness {
   display: flex;
   align-items: center;

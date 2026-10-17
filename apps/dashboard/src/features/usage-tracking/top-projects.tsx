@@ -37,6 +37,7 @@ export default function TopProjects({
       <BarList
         label={`Top ${data.rows.length} projects by cost, ${periodNoun(range)}`}
         format={fmtUsdWhole}
+        variant="thin"
         emptyText="No data in this window"
         items={data.rows.map((r) => ({
           key: r.key,
