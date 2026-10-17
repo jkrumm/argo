@@ -22,6 +22,12 @@ const WAIT_TICK_H = 24
 /** The budget track runs this far past the cap so the cap tick sits inside the track. */
 const BUDGET_TRACK_OVERSHOOT = 1.25
 
+type VerdictTone = 'warn' | 'bad' | undefined
+
+/** One tone drives both the cell value ink and the Meter fill, so the two cannot drift. */
+const toneCell = (tone: VerdictTone) => (tone === undefined ? {} : { tone })
+const toneMeter = (tone: VerdictTone) => (tone === undefined ? {} : { color: VX.status[tone] })
+
 const noData = (reason: string) => `no data: ${reason}`
 
 function verdictsCell({ verdicts }: StripModel): StatStripCell {
@@ -71,7 +77,7 @@ function fixesCell({ fixes }: StripModel): StatStripCell {
     { label: 'quiet', value: fixes.quiet, color: VX.status.warn },
   ]
   const present = parts.filter((part) => part.value !== null)
-  const unknown = parts.filter((part) => part.value === null).map((part) => `${part.label} —`)
+  const unknown = parts.filter((part) => part.value === null).map((part) => `${part.label}\u00a0—`)
   const total = present.reduce((sum, part) => sum + (part.value ?? 0), 0)
   return {
     key: 'fixes',
@@ -83,7 +89,7 @@ function fixesCell({ fixes }: StripModel): StatStripCell {
       <>
         all time · share of fixed + quiet
         <br />
-        closed {fixes.closed ?? '—'}
+        {`closed\u00a0${fixes.closed ?? '—'}`}
         {unknown.length > 0 && ` · ${unknown.join(' · ')}`}
       </>
     ),
@@ -111,14 +117,14 @@ function waitCell({ wait }: StripModel): StatStripCell {
       footer: noData(wait.unavailable ?? 'not reported'),
     }
   }
-  const over = wait.hours > WAIT_TICK_H
+  const tone: VerdictTone = wait.hours > WAIT_TICK_H ? 'warn' : undefined
   return {
     key: 'wait',
     caption,
     info: 'Median time from needs-decision to the owner’s decision, over the window.',
     value: formatNumber(wait.hours),
     unit: 'h',
-    ...(over && { tone: 'warn' as const }),
+    ...toneCell(tone),
     footer: `${wait.windowDays} d median${wait.pairs === null ? '' : ` · ${wait.pairs} pairs`}`,
     visual: (
       <Meter
@@ -126,7 +132,7 @@ function waitCell({ wait }: StripModel): StatStripCell {
         value={wait.hours}
         max={WAIT_TICK_H}
         ticks={[{ at: WAIT_TICK_H, label: `${WAIT_TICK_H} h` }]}
-        {...(over ? { color: VX.status.warn } : {})}
+        {...toneMeter(tone)}
         startCaption={null}
         endCaption={null}
       />
@@ -165,13 +171,14 @@ function pollerCell({ poller }: StripModel): StatStripCell {
     }
   }
   const limit = poller.thresholdMin
+  const tone: VerdictTone = poller.stale ? 'bad' : undefined
   return {
     key: 'poller',
     caption,
     info: `Age of the least recently run poller; at ${limit} min it counts as stale.`,
     value: formatNumber(poller.oldestMin),
     unit: 'min',
-    ...(poller.stale && { tone: 'bad' as const }),
+    ...toneCell(tone),
     footer: `stale at ${limit} min`,
     visual: (
       <Meter
@@ -179,7 +186,7 @@ function pollerCell({ poller }: StripModel): StatStripCell {
         value={poller.oldestMin}
         max={limit}
         ticks={[{ at: limit, label: `${limit} min` }]}
-        {...(poller.stale ? { color: VX.status.bad } : {})}
+        {...toneMeter(tone)}
         startCaption={null}
         endCaption={null}
       />
