@@ -56,7 +56,7 @@ export const trainingLoadRoutes = new Elysia({ prefix: '/training-load' }).get(
       tags: ['Garmin Health'],
       summary: 'Training load (ACWR) series with zones and divergence',
       description:
-        'Daily activity score (MET-min) → EWMA acute (λ=0.25, ~7d half-life) + chronic (λ≈0.069, ~28d half-life). ' +
+        'Daily activity score (MET-min) → EWMA acute (λ=0.25 = 2/(7+1), half-life ≈2.4 d) + chronic (λ≈0.069 = 2/(28+1), half-life ≈9.7 d). ' +
         'ACWR = acute / chronic, zones from Gabbett 2016 (BJSM): <0.8 undertrained, 0.8–1.3 optimal, 1.3–1.5 caution, >1.5 danger. ' +
         'Divergence = acute − chronic with pos/neg split for stacked-bar charting. ' +
         'Accept `?window=7d|30d|90d|all` (default 30d) or `?from=YYYY-MM-DD&to=YYYY-MM-DD`.',

@@ -131,8 +131,8 @@ Used: RHR 7d MA, HRV 7d MA, Activity Score 30d MA.
 λ            = 2 / (N + 1)
 ewma_today   = load × λ + ewma_prev × (1 − λ)
 
-acute        λ = 2/(7+1)  = 0.250   (~7-day half-life)
-chronic      λ = 2/(28+1) ≈ 0.069   (~28-day half-life)
+acute        λ = 2/(7+1)  = 0.250   (7-day span, half-life ≈ 2.4 d)
+chronic      λ = 2/(28+1) ≈ 0.069   (28-day span, half-life ≈ 9.7 d)
 
 seed         mean of first min(7, available) days
 ```
