@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import {
+  needsYouCount,
   ABANDONED_AFTER_MS,
   formatWaitDuration,
   isAbandonedWait,
@@ -484,6 +485,19 @@ describe('needsYouCards', () => {
       label: 'Full ask · 31 chars',
       text: 'First. Second sentence follows.',
     })
+  })
+})
+
+describe('needsYouCount', () => {
+  it('counts the asks and the needs_you agents the section renders, not the snapshot summary', () => {
+    const agents = [{ state: 'needs_you' }, { state: 'working' }, { state: 'needs_you' }] as const
+    expect(needsYouCount([{ id: 'a' }], agents)).toBe(3)
+    expect(needsYouCount([], [])).toBe(0)
+  })
+  it('matches needsYouCards length', () => {
+    const queue = [{ id: 'q1', question: 'Ship it?' }]
+    const agents = [agent({ state: 'needs_you' }), agent({ state: 'idle' })]
+    expect(needsYouCount(queue, agents)).toBe(needsYouCards(queue, agents, Date.now()).length)
   })
 })
 

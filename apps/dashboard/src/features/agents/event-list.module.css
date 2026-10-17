@@ -94,13 +94,6 @@
     grid-row: 2;
   }
 
-  .title:not([data-expanded]) {
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   .chip {
     display: none;
   }

@@ -502,6 +502,18 @@ export function needsYouCards(
   return [...asks, ...waiting].toSorted((a, b) => b.waitMs - a.waitMs)
 }
 
+/**
+ * How many items the Needs-you section renders: every human-queue ask plus every `needs_you`
+ * agent, i.e. `needsYouCards(...).length`. The snapshot's own `summary.needsYou` counts agents
+ * only, so it reads 0 while the section lists asks.
+ */
+export function needsYouCount(
+  humanQueue: readonly unknown[],
+  agents: readonly Pick<AgentRow, 'state'>[],
+): number {
+  return humanQueue.length + agents.filter((a) => a.state === 'needs_you').length
+}
+
 /** Age of the oldest human-queue ask that carries a timestamp; `null` when none does. */
 export function oldestAskMs(
   humanQueue: readonly { askedAt?: string | null | undefined }[],
