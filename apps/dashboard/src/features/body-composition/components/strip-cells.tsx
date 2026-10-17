@@ -40,12 +40,14 @@ export function WeightCell({
   stats,
   goal,
   startWeight,
+  startDate,
   latestDate,
 }: {
   summary: WeightSummary
   stats: WeightWindowStats
   goal: number | null
   startWeight: number | null
+  startDate: string | null
   latestDate: string | null
 }) {
   const delta = deltaFromMean(summary.current, stats.mean30)
@@ -86,7 +88,7 @@ export function WeightCell({
           max={progress.span}
           target={progress.span}
           format={(v) => `${v.toFixed(1)} kg`}
-          startCaption={`start ${fixed(startWeight)} kg`}
+          startCaption={`start ${fixed(startWeight)} kg${startDate === null ? '' : ` \u00b7 ${dateLabel(startDate)}`}`}
           endCaption={`${fixed(goal)} kg goal`}
           color={MUTED_FILL}
         />
@@ -122,7 +124,7 @@ export function RateCell({
       }
       footer={
         <span>
-          {signed(stats.change7)} kg in 7 d · {signed(stats.change30)} kg in 30 d
+          {signed(stats.slope7, 2)} kg/wk over 7 d · {signed(stats.slope30, 2)} kg/wk over 30 d
         </span>
       }
     >
