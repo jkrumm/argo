@@ -158,3 +158,31 @@ Each page's full table is in its concept doc under `## Wave 22 friction`. 2.19.0
 | `BarList` | a trailing meta column | astro-window (factor weight) | `secondary` carries the weight |
 | `Section` | a subtitle that never folds at 390 | astro-window | a visible text line in the body |
 | `basalt-ui shot` | focus shots time out on slow upstreams (5–10 s Graph channel lists) even with `--wait` | m365-explorer | re-run; one or two focus anchors still fail per run |
+
+### Wave 23 — basalt-ui 2.20.0 adoption: what still could not be deleted
+
+2.20.0 shipped `StatGroup variant="strip"`, `ChartCard facts`, `Meter` `ticks` / `tone="muted"` / `size="row"` and the
+root types, `BarList` per-row `max`, `Sparkline reference`, the `StatusDot` / `StatusVerdict` root export and the
+`relativeTime` locale fix. Adopted in #81–#84 and `c5670de`: every local strip prototype (garmin, agents, warden, home,
+walking-pad, body-composition, strength, reading, usage, m365, astro Night anatomy), `FactsLine`, the local status dots,
+the `relativeTime` wrapper, the muted fills and caption-null pairs where the export covers them, and every redundant
+card inset. The rows below are what each case needed and the shipped API still lacks.
+
+| Export | Needed prop | argo case | What argo does instead |
+|-|-|-|-|
+| `ChartCard` | `facts` that dim with placeholder data (a `stale` flag, as strip cells have) | every garmin chart: the facts left `RefetchDim` | facts stay full-opacity while the plot dims |
+| `ChartCard` | facts placed mid-body / per plot | garmin ACWR: the divergence fact sat above its own plot | both facts in the header |
+| `ChartFact` | a `tone` (warn ink for a stale figure) and more than one trailing text | body-composition weight chart (`last entry {n} d ago · stale`, `{n} entries`, `7 d mean`) | the stale cue is plain subtitle text; extra texts joined into `period` / `subtitle` |
+| `StatStripRow` | a value-less row (`hideValue`) | garmin VO2max row, whose reading the hero already shows | `value: ''` |
+| `StatStripRow` | a context column after the value | walking-pad totals (`{n} · avg {x} km`) | context folded into `value` |
+| `StatStripCell` | an `action` slot on the caption line | walking-pad weekly-target popover | the popover sits in the cell `footer` |
+| `StatStripCell` | a hero-extra slot for a pill | body-composition rate intensity word | the word leads the `footer` |
+| `StatStripCell` | a `query` / `state` prop (pending, failed, empty) | usage cells, m365 cells | `loading`, `value: null` and a footer note |
+| `StatStripCell` | `tone` driving the visual's colour too | warden wait / poller, agents oldest wait | `toneCell` / `toneMeter` helpers map one tone to both by hand |
+| `StatGroup` strip | custom column weights | warden's wider Fixes cell | equal columns |
+| `StatGroup` strip footer | a per-entry anchor override; a titled full-width row | warden budget meters (`budget-<key>` → `strip-footer-<key>`); usage "Billing split" | accepted the derived anchor; a caption `Text` inside `content` |
+| `Meter` | hide start/end captions but keep zone labels (`size="row"` drops both) | strength ACWR, readiness, rate and ratio meters | `startCaption={null} endCaption={null}` kept |
+| `MeterZone` / `MeterSegment` | `tone="muted"` per zone / segment (a muted ramp) | strength "Normal" / "Under" / "Over" zones, reading shelf, m365 labeled split | `alpha(VX.muted, a)` per zone / segment |
+| `Meter` ring | `target` / `ticks` on `shape="ring"` | usage cache-hit ring (60 % tick) | local SVG `CacheRing` (`features/usage-tracking/usage-visuals.tsx`) |
+| `Meter` | `stops` (a gradient scale with marker and tick) | astro Night anatomy sky cell (`LP.*` scale) | local `SkyScale` |
+| `Sparkline` | `tone="muted"` | home recovery trend | `alpha(VX.muted, .35)` colour |
