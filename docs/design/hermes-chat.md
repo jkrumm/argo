@@ -63,3 +63,34 @@ Stay: composer, message renderer, voice, thread stream behaviour. Change: list r
 5. The summary sentence contains the live thread count and the last reply time.
 6. No trailing chevrons; rows are one or two lines at every width.
 7. At 390 px the composer stays visible and the filter chips scroll instead of wrapping into more than one line.
+
+## Wave 22 rounds
+
+Shot harness: `basalt-ui shot` against live data (dist + `/api` proxy), `/hermes-chat` and `/hermes-chat?thread={id}`, dark/light × 1440/390. The live account held {n} threads with none pinned, none from today and none streaming, so the `Pinned` / `Today` groups, the pulse dot, `Live` and the degraded health copy were never on a shot; they are covered by `thread-list-model.test.ts` only.
+
+- **r1 (self read, no reviewer):** the row's own header still showed (basalt sets `display: block` inline) and the first lines sat under the shell header. Hid the header with `!important`, added top padding, replaced the labelled back button with an icon button at 390.
+- **r2 (reviewer):** list page fail, record header fail. Failed: 9 px chip, off-scale button padding, type shown twice, `All {n}` not matching the visible rows, `Delete all` scope unclear. Changed: untitled count in the summary, `Delete all untitled`, type dropped from the wide facts line, same-day start/reply dedupe.
+- **r3 (reviewer):** record header fail, list page fail. Failed: 9 px chip, date-less facts line at 390, chips not summing to `All`. Changed: `Untitled {n}` chip that filters to the fold, dated facts.
+- **r4 (reviewer):** all four fail. Failed: chip still 9 px (Badge ignored the size var), list body unanchored, mid-word summary cut, 390 facts ambiguous. Changed: plain mono type chip, `data-shot` on list and toolbar, summary shown in full in the record header, `last reply {time}` at 390.
+- **r5 (reviewer):** pages pass, `thread-summary` pass; `thread-toolbar`, `thread-list`, `thread-record-header` fail. Failed: clipped focus rings, four font sizes in the list, mid-word summary cut in rows, mono labels in the facts line. After the round (not re-shot): facts line set in sans, focus ring inset, toolbar padding for the ring.
+- **Not converged:** five rounds used. Open: the row summary is clamped mid-sentence by design (the full text sits in the open thread header); the list uses four font sizes (title 15, summary 13, chip/time 11, group caption 11/12).
+
+## Wave 22 friction
+
+| Export | Needed prop | argo case | What argo does instead |
+|-|-|-|-|
+| `PageBar` | a `meta` slot for a status dot and word | Hermes reachability beside the title | a `kind: 'custom'` action with `primary: true` (the type demands one primary) |
+| `EventList` | day groups with a `Live` heading marker and a right-pinned time (wave 37) | thread list | `thread-list.tsx` (local, below) |
+| Counted filter chips | `{label, count, active}[]` standalone toolbar | type filter plus `Untitled` | `thread-toolbar.tsx` (local, below) |
+| `ThreadFeedRow` | a `hideHeader` / headerless mode | the open thread has its own record header | CSS `display: none !important` on the header slot (basalt sets `display: block` inline) |
+| `createSearchStore` | route search keys optional on links | `?thread=` must not force `search` on the nav link | route `validateSearch` input typed `Partial<…> & SearchSchemaInput` |
+| `StatusDot` | root export | health dot | local 8 px dot (`hermes-health.tsx`); it exists in `theme/` but is not exported |
+
+Local prototypes: `features/hermes-chat/thread-list.tsx` (`ThreadList{groups: {key, label, rows, live}[], untitled, now, busy, foldOpen, onOpen, onDeleteUntitled}`, the `EventList` shape with a fold), `thread-toolbar.tsx` (`ThreadToolbar{total, typeCounts, untitledCount, type, query, onType, onQuery}`), `thread-record-header.tsx` (`ThreadRecordHeader{entry, now, busy, onBack, onPin, onArchive, onDelete}`, the record-page recipe).
+
+## Wave 22 deviations from the concept
+
+- Health sits in the `PageBar` as a custom action, not a meta slot; `New chat` is not offered (the composer starts a chat).
+- Archived threads are hidden from the list; there is no way back yet (no unarchive verb in the UI).
+- An untitled thread that is streaming or not yet persisted stays in the main list under its first line instead of the fold.
+- Opening a thread is a `?thread=` URL param (push), replacing inline expansion.

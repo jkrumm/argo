@@ -19,7 +19,6 @@
 }
 
 .facts {
-  font-family: var(--basalt-font-mono);
-  font-size: var(--vx-text-micro);
+  font-size: var(--vx-text-sm);
   color: var(--vx-muted);
 }
