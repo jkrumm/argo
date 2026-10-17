@@ -2,7 +2,7 @@
 .DS_Store
 .env
 .env.local
-node_modules/
+node_modules
 /apps/api/node_modules/
 
 # Claude Code runtime state
