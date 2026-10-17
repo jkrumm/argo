@@ -124,11 +124,7 @@ export function RateCell({
           </Badge>
         )
       }
-      footer={
-        <span>
-          {signed(stats.slope7, 2)} kg/wk over 7 d · {signed(stats.slope30, 2)} kg/wk over 30 d
-        </span>
-      }
+      footer={<span>{signed(stats.slope7, 2)} kg/wk over 7 d</span>}
     >
       <Meter
         label="Weight change rate against the maintenance band"
