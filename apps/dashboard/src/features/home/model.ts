@@ -68,6 +68,27 @@ export function noMeetingsLabel(a: Pick<Agenda, 'loaded' | 'unavailable'>): stri
   return `No ${a.loaded.map((c) => CLASS_LABEL[c]).join(' or ')} meetings today · ${classLabels(a.unavailable)} unavailable`
 }
 
+export type LaterMeeting = { title: string; startMs: number }
+
+/** The first timed meeting after today in the fetched window (7 days), or `null` when there is none. */
+export function laterMeeting(feeds: readonly CalendarFeed[], now: number): LaterMeeting | null {
+  const from = nextDayStart(now)
+  let best: LaterMeeting | null = null
+  for (const { events } of feeds) {
+    for (const e of events) {
+      if (e.isAllDay || isDateOnly(e.start)) continue
+      const startMs = parseMs(e.start)
+      if (startMs === null || startMs < from) continue
+      if (best === null || startMs < best.startMs) best = { title: e.title, startMs }
+    }
+  }
+  return best
+}
+
+/** `Mon 09:30`: when a meeting outside today starts. */
+export const weekdayTime = (ms: number): string =>
+  `${new Intl.DateTimeFormat('en-GB', { weekday: 'short' }).format(ms)} ${clockTime(new Date(ms).toISOString())}`
+
 const isDateOnly = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s)
 
 /** Local-midnight ms of a `YYYY-MM-DD` string (not UTC: an all-day event is a calendar day). */

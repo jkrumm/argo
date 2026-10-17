@@ -18,6 +18,8 @@ import {
   meetingState,
   noMeetingsLabel,
   type Agenda,
+  type LaterMeeting,
+  weekdayTime,
   type AcwrReading,
   type Meeting,
   type RecoveryReading,
@@ -103,6 +105,7 @@ export function budgetCell(
 export function meetingCell(
   agenda: Pick<Agenda, 'meetings' | 'loaded' | 'unavailable'> | null,
   next: Meeting | null,
+  later: LaterMeeting | null,
   now: number,
 ): StripCellModel {
   if (agenda === null) {
@@ -114,11 +117,28 @@ export function meetingCell(
     }
   }
   if (agenda.meetings.length === 0) {
+    // Nothing today: say when the next one is, from the 7 days Calendar already fetched.
+    if (agenda.unavailable.length === 0 && later !== null) {
+      return {
+        id: 'meeting',
+        caption: 'Next meeting',
+        value: weekdayTime(later.startMs),
+        footer: (
+          <>
+            <Text size="sm" lineClamp={2}>
+              {later.title}
+            </Text>
+            {countdownLabel(later.startMs - now)}
+          </>
+        ),
+      }
+    }
     return {
       id: 'meeting',
       caption: 'Next meeting',
       value: EM_DASH,
-      footer: `${noMeetingsLabel(agenda)}.`,
+      footer:
+        agenda.unavailable.length === 0 ? 'none in the next 7 days' : `${noMeetingsLabel(agenda)}.`,
     }
   }
   const remaining = agenda.meetings.filter((m) => m.startMs > now).length

@@ -1,9 +1,5 @@
 import type { DecisionCardFact } from '../components/upstream/decision-card-model'
-import {
-  AWAITING_OWNER_STALE_DAYS,
-  deriveAwaitingOwner,
-  formatAgeDays,
-} from '../features/warden/model'
+import { AWAITING_OWNER_STALE_DAYS, deriveAwaitingOwner } from '../features/warden/model'
 import {
   recentTransitions,
   retryQuestion,
@@ -93,8 +89,11 @@ function wardenDecisions(
       ageMs === null
         ? ''
         : ageMs >= AWAITING_OWNER_STALE_DAYS * DAY_MS
-          ? { text: `waiting ${formatAgeDays(ageMs / DAY_MS)} · stale`, tone: 'warn' as const }
-          : `waiting ${formatAgeDays(ageMs / DAY_MS)}`
+          ? {
+              text: `waiting ${formatWaitDuration(ageMs)} · stale ≥ ${AWAITING_OWNER_STALE_DAYS} d`,
+              tone: 'warn' as const,
+            }
+          : `waiting ${formatWaitDuration(ageMs)}`
     out.push({
       source: 'warden',
       id: `warden-${eventId}`,
