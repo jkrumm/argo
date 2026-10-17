@@ -70,3 +70,38 @@ Format is binding; figures are placeholders.
 6. Selecting a source shows a record header with a facts line and a message list with mono times.
 7. At 390 px the preview opens as a sheet and the strip fits on one row.
 8. No chat names, member names or message text appear in this document or its commits; only the shot's structure does.
+
+## Wave 22 rounds
+
+Shots on live data via `basalt-ui shot` (r1–r3, 1440 / 390, light / dark) plus a scratch Playwright pass (gitignored) for the states `shot` cannot click: record view, label menu, agent feed, teams tree, mobile sheet. Scored by a fresh `basalt-design-reviewer` each round.
+
+- **r1 (baseline of the rebuild, own read only):** summary, strip, chips, master–detail all present. Failed on my read: card insets broke the full-bleed toolbar and produced stray scrollbars; labeled rows carried free-text notes as meta. Changed: panes became `Card.Section` bodies; meta is the kind only.
+- **r2 reviewer: fail (strip, chips, source list, labeled pane, mobile, page).** Failed: 4 font sizes in strip cells; segmented-meter segments too close to the track; active chip accent; truncated titles; rows not in recency order and weekday-only times; bare values in the 390 strip; summary restating the tabs and cells. Changed: segment alphas stepped, titles wrap to 2 lines, rows sorted newest first with `{weekday} {day}`, summary reduced to the labeled/total/tags sentence plus latest activity, mobile keeps the unit.
+- **r3 reviewer: fail (strip-labeled, strip-chats, source-list, tag-chips, detail-pane, labeled-pane, page); pass: strip-teams.** Fixed and confirmed: recency order, wrapped titles, contrast (no failures). Still failing: active-chip accent (basalt law, see deviations), 4 distinct font sizes in two cells (Meter caption 11 / unit 13 / Meter 15 / value 22, Meter-owned), the Meeting segment still close to the track, remove control visible only on hover/focus, summary still restating the strip. One `source-list` mobile focus shot and one first-load of the light desktop page timed out (harness flake: some Graph channel lists answer in 5–10 s).
+- **r4 (changes only, no reviewer round):** active chip became neutral (ink fill), segment alphas 0.9 / 0.6 / 0.3, labeled cell carries the noun on desktop (hidden below 480 px), paragraph margins removed. Verified by the scratch Playwright pass; not re-scored.
+
+## Wave 22 deviations kept from the concept
+
+- Active tag chip is neutral (ink fill), not accent: the reviewer cited the basalt "selection never takes the accent" rule and `DESIGN.md` carries no delta for it. Pass criterion 3 (accent on the active chip) is therefore deliberately not met.
+- The remove control on a labeled-source row stays hover/focus-only (criterion 5) and is always visible on coarse pointers; the reviewer reads this as hover-only data (craft rule 7).
+- The labeled-source row carries no tag chip: the group heading already names the tag.
+- The summary sentence keeps the labeled count and the total (criterion 2) and drops the chat/team counts the concept listed, since the tabs repeat them.
+- View, tag filter and search live in a `createLocalStore` inside the feature (`store.ts`), not a search store in `lib/window-stores.ts`, which is outside this page's owned files; the view is not URL-addressable.
+- The search filter and the view tabs sit in the `PageBar` slots (the controls law), not inside the list pane's toolbar; the tag chips are local buttons in the pane toolbar.
+- Labelable total counts the 50 most recent chats the page loads, plus every channel.
+
+## Wave 22 friction
+
+| Export | Needed prop | argo case | What argo does instead |
+|-|-|-|-|
+| `StatusDot` | exported dot with a status tone | high-importance message marker | local `.dot` in `m365.module.css` filled `--vx-status-warn` |
+| `Meter` | `tone="muted"` and distinct-by-construction segment steps | Labeled / Chats strip cells | `alpha(VX.muted, a)` per segment; the third step stays close to the track |
+| `Meter` | a neutral, compact caption size | strip cells read four font sizes (11 / 13 / 15 / 22) | accepted; the Meter owns the 15 |
+| `StatGroup` | `variant="strip"` with a compact (3-on-one-row) mode | 3-cell strip at 390 | local `.strip` / `.cell` grid, visual and footer hidden below 480 px |
+| `EventList` | glyph slot, hover-only trailing control, day groups | source list and labeled-by-tag pane | local `SourceRow` (`source-row.tsx`: glyph, name, meta, mono time, star, hover remove) |
+| `ViewTabs` | per-option count slot | `Chats {n} / Teams {n}` | the count is baked into the option label |
+| `FilterSet` / `MultiSelectFilter` | counted neutral chips | tag filter | local `TagChips` (`tag-chips.tsx`) |
+| (none) | master–detail shell with a mobile push sheet | list + record pane, 390 sheet | local grid in `m365.module.css`, `Drawer` in `preview-drawer.tsx` |
+| (none) | `createLocalStore` fields with dynamic values | tag filter | `field.string` for tag and search |
+
+Local prototypes built: `source-row.tsx` (`glyph`, `name`, `meta`, `time`, `selected`, `starLabel`, `expanded`, `child`, `onSelect`, `onRemove`, `removing`), `tag-chips.tsx` (`active`, `total`, `labeled`, `tagCounts`, `onChange`), `strip.tsx` (`ExplorerStrip`), `label-button.tsx` (split button: `existing`, `tags`, `saving`, `onSave`, `onRemove`), `preview-drawer.tsx` (`opened`, `onClose`).
