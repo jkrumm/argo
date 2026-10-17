@@ -38,9 +38,13 @@ export function Finished({
         ]
       : []),
   ]
+  const newest = groups[0]?.label
+  const oldest = groups.at(-1)?.label
+  const scope =
+    newest === undefined ? '' : newest === oldest ? ` · ${newest}` : ` · ${oldest} – ${newest}`
   return (
     <Section
-      title="Finished"
+      title={`Finished${scope}`}
       count={total}
       {...(notes.length > 0 && {
         summary: <Text className={classes.facts}>{notes.join(' · ')}</Text>,
