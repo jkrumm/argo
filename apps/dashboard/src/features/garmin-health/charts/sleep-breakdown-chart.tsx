@@ -4,9 +4,8 @@ import { Bars, ChartCard, type BarsBar } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { SERIES } from '../../../lib/series'
-import { FactsLine } from '../facts-line'
 import { RefetchDim } from '../refetch-dim'
-import { dayLabel, hoursFromSec, mean, sleepFact } from '../model'
+import { dayLabel, hoursFromSec, mean, sleepFact, toChartFact } from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
@@ -90,9 +89,9 @@ export default function SleepBreakdownChart({ params }: { params: SummaryParams 
       title="Sleep"
       state={chartStateOf(query, sleepData.length === 0 ? 'No sleep in this window' : undefined)}
       placeholderHeight={CHART_HEIGHT}
+      facts={toChartFact(fact)}
     >
       <RefetchDim active={query.isPlaceholderData}>
-        <FactsLine fact={fact} />
         <Bars
           cursorResolution="leading"
           ariaLabel="Sleep stages in hours per night"

@@ -5,8 +5,7 @@ import { VX } from 'basalt-ui/tokens'
 import { activitiesWindowQueries } from '../../../lib/queries/activities'
 import { activitiesRange } from '../../../lib/queries/activities-window'
 import { ACTIVITY } from '../../../lib/series'
-import { FactsLine } from '../facts-line'
-import { activitiesFact, fmtMinutes, windowDayCount } from '../model'
+import { activitiesFact, fmtMinutes, toChartFact, windowDayCount } from '../model'
 import { VISIBLE_DATE_MIN } from '../constants'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
@@ -173,10 +172,8 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
       title="Activities"
       state={chartStateOf(query, points.length === 0 ? 'No activities in this window' : undefined)}
       placeholderHeight={CHART_HEIGHT}
+      facts={toChartFact(activitiesFact({ sessions: activities.length, totalMin, dayCount }))}
     >
-      {query.data !== undefined && (
-        <FactsLine fact={activitiesFact({ sessions: activities.length, totalMin, dayCount })} />
-      )}
       <Bars
         cursorResolution="leading"
         ariaLabel="Daily activities stacked by type"

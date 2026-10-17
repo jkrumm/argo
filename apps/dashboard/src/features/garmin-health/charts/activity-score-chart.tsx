@@ -4,9 +4,15 @@ import { Bars, ChartCard, type BarsBar } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
-import { FactsLine } from '../facts-line'
 import { RefetchDim } from '../refetch-dim'
-import { ACTIVITY_TARGET_SCORE, activityScoreFact, dayLabel, fmtNum, mean } from '../model'
+import {
+  ACTIVITY_TARGET_SCORE,
+  activityScoreFact,
+  toChartFact,
+  dayLabel,
+  fmtNum,
+  mean,
+} from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
@@ -67,9 +73,9 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
       info={METRIC_TOOLTIPS.activityScore}
       state={chartStateOf(query, !hasData ? 'No activity in this window' : undefined)}
       placeholderHeight={CHART_HEIGHT}
+      facts={toChartFact(fact)}
     >
       <RefetchDim active={query.isPlaceholderData}>
-        <FactsLine fact={fact} />
         <Bars
           ariaLabel={`Daily activity score in MET-minutes against the ${ACTIVITY_TARGET_SCORE} target`}
           cursorResolution="leading"
