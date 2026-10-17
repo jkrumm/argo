@@ -6,7 +6,7 @@ import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { METRIC_TOOLTIPS } from '../constants'
 import { FactsLine } from '../facts-line'
 import { RefetchDim } from '../refetch-dim'
-import { ACTIVITY_TARGET_SCORE, activityScoreFact, fmtNum, mean } from '../model'
+import { ACTIVITY_TARGET_SCORE, activityScoreFact, dayLabel, fmtNum, mean } from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
@@ -16,6 +16,7 @@ const CHART_HEIGHT = 280
 
 type ActivityPoint = {
   day: Date
+  date: string
   vigorousMin: number | null
   moderateMin: number | null
   steps: number | null
@@ -41,6 +42,7 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
     () =>
       applyVisibilityFilter(query.data?.points ?? [], (p) => p.date).map((p) => ({
         day: localDay(p.date),
+        date: p.date,
         vigorousMin: p.vigorousIntensityMin,
         moderateMin: p.moderateIntensityMin,
         steps: p.steps,
@@ -53,6 +55,7 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
   const measured = chartData.filter((d) => d.score !== null)
   // The final visible row, so a null last day reads "—" instead of borrowing an older day's score.
   const fact = activityScoreFact({
+    when: dayLabel(chartData.at(-1)?.date),
     score: chartData.at(-1)?.score ?? null,
     mean: mean(chartData.map((d) => d.score)),
     dayCount: measured.length,

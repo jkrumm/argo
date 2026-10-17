@@ -74,14 +74,12 @@ export type SignalRowProps = {
   sparkline: ReactNode
   /** Signed delta (a `DeltaBadge`), or `null` when the signal has none. */
   delta: ReactNode
-  /** Dims the row while its data refetches. */
-  stale?: boolean
 }
 
 /** One sparkline row of a strip cell: label · sparkline · value · delta. */
-export function SignalRow({ label, value, sparkline, delta, stale = false }: SignalRowProps) {
+export function SignalRow({ label, value, sparkline, delta }: SignalRowProps) {
   return (
-    <Box className={classes.fitnessRow} opacity={stale ? 0.55 : 1}>
+    <Box className={classes.fitnessRow}>
       <span className={classes.rowLabel}>{label}</span>
       <Box className={classes.rowSpark}>{sparkline}</Box>
       <span className={classes.rowValue}>{value}</span>

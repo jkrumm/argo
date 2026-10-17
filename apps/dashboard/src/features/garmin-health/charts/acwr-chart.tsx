@@ -9,7 +9,15 @@ import { FactsLine } from '../facts-line'
 import { RefetchDim } from '../refetch-dim'
 import { ZONE_FILL } from '../zone-fills'
 import { acwrZoneColor, acwrZoneLabel, type AcwrZone } from '../formulas'
-import { ACWR_CAUTION_TO, ACWR_FLOOR, ACWR_OPTIMAL_TO, acwrFact, divergenceFact } from '../model'
+import {
+  ACWR_CAUTION_TO,
+  ACWR_FLOOR,
+  ACWR_OPTIMAL_TO,
+  acwrFact,
+  dayLabel,
+  divergenceFact,
+  signed,
+} from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
@@ -59,7 +67,7 @@ const DIVERGENCE_BARS: BarsBar<TrainingLoadPoint>[] = [
     label: 'Acute − chronic',
     color: VX.line2,
     getValue: (d) => d.divergence,
-    formatValue: (v) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)} MET-min/day`,
+    formatValue: (v) => `${signed(v, 1)} MET-min/day`,
   },
 ]
 
@@ -89,6 +97,7 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
   const xTicks = points.filter((_, i) => i % 7 === 0).map((p) => p.day)
   const hasAcwr = points.some((p) => p.acwr !== null)
   const latest = latestWith(points, (p) => p.acwr)
+  const latestDivergence = latestWith(points, (p) => p.divergence)
   const measured = points.filter((p) => p.acwr !== null)
   const fact = acwrFact({
     acwr: latest?.acwr ?? null,
@@ -136,7 +145,8 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
         />
         <FactsLine
           fact={divergenceFact({
-            divergence: latestWith(points, (p) => p.divergence)?.divergence ?? null,
+            divergence: latestDivergence?.divergence ?? null,
+            when: dayLabel(latestDivergence?.date),
           })}
         />
         <Bars
