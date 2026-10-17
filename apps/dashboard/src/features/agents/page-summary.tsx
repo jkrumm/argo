@@ -1,8 +1,8 @@
 import { Group, Stack, Text } from '@mantine/core'
+import { StatusDot } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import type { OverviewRecord } from '../../lib/queries/agents'
 import { ageAgo, STALE_AFTER_MS, snapshotAgeMs, summarySentence, type SummaryInput } from './model'
-import { Dot } from './status-chip'
 
 type Props = {
   summary: SummaryInput
@@ -20,7 +20,7 @@ export function PageSummary({ summary, latest, now }: Props) {
       <Text size="md">{summarySentence(summary)}</Text>
       {age === null ? null : (
         <Group gap="xs" wrap="nowrap">
-          <Dot color={live ? VX.line : VX.status.warn} />
+          <StatusDot color={live ? VX.line : VX.status.warn} />
           <Text size="xs" ff="monospace" c="dimmed">
             {live ? 'Live' : 'Stale'} · updated {ageAgo(age)}
           </Text>
