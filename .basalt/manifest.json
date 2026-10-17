@@ -11,7 +11,7 @@
     ".oxlintrc.json": "edb58b25c29f977f712ff892b59d28a74420f424ddf465ba7f29a7c713b388ec",
     ".oxfmtrc.json": "6b56ddca73ac1f170fe161ad32aa830dad40a6dc687964c8a852cb928c395039",
     ".claude/skills/basalt-app/SKILL.md": "5b10f0fcec03be4fa559ad0024b7b6921bf8a370e8a6353cf8aae643dddb8a79",
-    ".claude/skills/basalt-design/SKILL.md": "871e9c88a5804cd0d111a3534649e5f45e2ea26508d1c1097cee2ecf4aec18c4",
+    ".claude/skills/basalt-design/SKILL.md": "c2e21686516aa68ad65f781967d3d4342d21bfc1c369e3e49c3ed4f130927e8b",
     ".claude/skills/basalt-charts/SKILL.md": "f723aa1ecae41bdfcd4179ee82a5d87ad3de302b613a15a5b0854cc6c5dad38c",
     ".claude/rules/basalt-batteries.md": "afc29979842eb0a96c2a4a7a2f1e863e7525268e555925598952943cd9cd6074",
     ".claude/rules/basalt-controls.md": "31dda6d616fb500f84f8db932e3add50e537c5478a5bacaf8dc04a0dd33a19a1",
@@ -21,7 +21,7 @@
     "src/main.tsx": "7fd50babd5d11404b6d778f1df294cba3b85e791ee5fb83b61711eb9e38ba125",
     ".claude/agents/basalt-design-reviewer.md": "8e8c04b952afd31cfa4eb4354f0a867d40cb7c3a4c833c0b824690ff94c9d0bf"
   },
-  "basaltVersion": "2.17.0",
+  "basaltVersion": "2.18.0",
   "spacingScale": {
     "xs": 8,
     "sm": 12,
