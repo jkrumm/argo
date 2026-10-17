@@ -1,4 +1,4 @@
-import { ScrollArea, Skeleton, UnstyledButton } from '@mantine/core'
+import { Skeleton, UnstyledButton } from '@mantine/core'
 import { useState } from 'react'
 import {
   CHAT_TYPE_LABEL,
@@ -41,9 +41,9 @@ export type SourceListProps = {
 
 export function SourceList(props: SourceListProps) {
   return (
-    <ScrollArea className={classes.paneScroll} type="auto">
+    <div className={classes.paneScroll}>
       {props.view === 'chats' ? <ChatGroups {...props} /> : <TeamTree {...props} />}
-    </ScrollArea>
+    </div>
   )
 }
 

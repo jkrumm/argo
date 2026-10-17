@@ -301,7 +301,12 @@ export function M365ExplorerPage(): ReactElement {
         <div className={classes.split}>
           <Card className={classes.pane} data-shot="source-list">
             <Card.Section className={classes.paneBody}>
-              <TagChips active={tag} counts={counts} onChange={setTag} />
+              <TagChips
+                active={tag}
+                counts={counts}
+                scope={view === 'teams' ? 'channels' : view === 'feed' ? 'sources' : 'chats'}
+                onChange={setTag}
+              />
               {view === 'feed' ? (
                 labeledPane
               ) : (

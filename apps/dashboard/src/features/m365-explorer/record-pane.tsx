@@ -1,4 +1,4 @@
-import { ActionIcon, Alert, Badge, ScrollArea } from '@mantine/core'
+import { ActionIcon, Alert, Badge } from '@mantine/core'
 import { IconX } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { m365Queries } from '../../lib/queries/m365'
@@ -92,7 +92,7 @@ export function RecordPane(props: RecordPaneProps) {
           </Alert>
         ) : null}
       </header>
-      <ScrollArea className={classes.paneScroll} type="auto">
+      <div className={classes.paneScroll}>
         {q.error ? (
           <Alert color="red" variant="light" m="sm">
             {q.error instanceof Error ? q.error.message : 'Failed to load messages'}
@@ -109,7 +109,7 @@ export function RecordPane(props: RecordPaneProps) {
         {messages?.map((m) => (
           <MessageRow key={m.id} message={m} channel={selected.kind === 'channel'} />
         ))}
-      </ScrollArea>
+      </div>
     </>
   )
 }
