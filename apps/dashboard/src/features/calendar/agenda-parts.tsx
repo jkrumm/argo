@@ -4,7 +4,7 @@
  */
 import { ActionIcon, Box, Card, Text } from '@mantine/core'
 import { Meter, Section } from 'basalt-ui'
-import { VX, alpha } from 'basalt-ui/tokens'
+import { VX } from 'basalt-ui/tokens'
 import { IconVideo } from '@tabler/icons-react'
 import { ScheduleRow } from '../../components/upstream/schedule-row'
 import { formatDurationMin } from '../../components/upstream/schedule-row-model'
@@ -37,9 +37,6 @@ const MAX_RATIO_ATTENDEES = 12
  */
 const PILL_WITHIN_MIN = 12 * 60
 const SPLIT_LABEL = { work: 'Work', personal: 'Personal' } as const
-
-/** A load is not a verdict: a quiet neutral, not full-opacity ink (near-white in dark). */
-const QUIET_FILL = alpha(VX.muted, 0.35)
 
 const clock = (local: string) => local.slice(11, 16)
 
@@ -193,7 +190,7 @@ export function WeekStrip({
   const total = split.work + split.personal
   const showSplitBar = unknown.size === 0 && split.work > 0 && split.personal > 0
   return (
-    <Card py="sm" px="md" data-shot="week-strip">
+    <Card data-shot="week-strip">
       <Section title={title}>
         <Box className={`${classes.stripRow} ${classes.stripHead}`} aria-hidden>
           <span />
@@ -215,9 +212,9 @@ export function WeekStrip({
                   value={hours}
                   max={DAY_TARGET_H}
                   target={DAY_TARGET_H}
-                  color={hours !== null && hours > DAY_TARGET_H ? VX.status.warn : QUIET_FILL}
-                  startCaption={null}
-                  endCaption={null}
+                  tone="muted"
+                  {...(hours !== null && hours > DAY_TARGET_H && { color: VX.status.warn })}
+                  size="row"
                 />
                 <span className={classes.stripBooked}>
                   {day.bookedMin === null ? '—' : formatDurationMin(day.bookedMin)}
@@ -256,7 +253,7 @@ const TONE_COLOR = { bad: VX.status.bad, warn: VX.status.warn, neutral: VX.neutr
 
 export function TaskList({ tasks, todayKey }: { tasks: readonly TaskDue[]; todayKey: DayKey }) {
   return (
-    <Card py="sm" px="md" data-shot="tasks-due">
+    <Card data-shot="tasks-due">
       <Section title="Tasks due" count={tasks.length}>
         <Text className={classes.muted}>Overdue or due within 7 days</Text>
         {tasks.length === 0 ? (
