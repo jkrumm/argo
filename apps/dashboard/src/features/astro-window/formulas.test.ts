@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { hourlyTicks, hourlyTimeLabel } from './formulas'
+import { hourlyTicks, hourlyTimeLabel, nightNote } from './formulas'
+import type { Night } from './types'
 
 // Europe/Berlin fall-back night 2026-10-25: 02:00 and 02:30 local occur twice (CEST, then CET).
 const FALL_BACK = [
@@ -46,5 +47,35 @@ describe('hourlyTicks', () => {
 
   test('no samples, no ticks', () => {
     expect(hourlyTicks([])).toEqual([])
+  })
+})
+
+describe('nightNote', () => {
+  const base = {
+    verdict: 'out',
+    window: null,
+    killers: [{ id: 'core-altitude', label: 'Core altitude', reason: 'r' }],
+    gateCoreAltitude: 4.2,
+    coreGateDeg: 8,
+    moon: { illumination: 0.5, phase: 90, rise: null, set: null },
+  } as unknown as Night
+
+  test('a night out on the core gate states how far it fell short', () => {
+    expect(nightNote(base)).toBe('3.8° short')
+  })
+
+  test('a night out on another gate names its killer', () => {
+    const night = { ...base, killers: [{ id: 'darkness', label: 'Darkness', reason: 'r' }] }
+    expect(nightNote(night)).toBe('no dark')
+  })
+
+  test('a usable night shows its window length', () => {
+    const night = {
+      ...base,
+      verdict: 'good',
+      killers: [],
+      window: { minutes: 150 },
+    } as unknown as Night
+    expect(nightNote(night)).toBe('2h 30m')
   })
 })

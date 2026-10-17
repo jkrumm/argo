@@ -100,6 +100,14 @@ export function limitingFactor(night: Night): { label: string; pct: number } | n
   return lowest !== null && lowest.pct < 80 ? lowest : null
 }
 
+/** The one fact line of a strip cell. A night out on the core gate states how far it fell short, so
+ * an all-out week still ranks; any other out night names its first killer; a usable night its window. */
+export function nightNote(night: Night): string {
+  if (night.verdict !== 'out' && night.window !== null) return fmtMinutes(night.window.minutes)
+  const gap = gapToGate(night)
+  return gap !== null ? `${gap.toFixed(1)}° short` : killerLabel(night)
+}
+
 /** Compact reason label for a ruled-out night's strip cell — the operator's actual question on a
  * dead night is "why", not just "not tonight". Derived from the first killer only; a night can
  * carry more than one, but stacking them doesn't fit a single small cell. */

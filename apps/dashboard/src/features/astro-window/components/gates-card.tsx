@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Card, Group, Stack, Text } from '@mantine/core'
 import { Meter, StatusDot } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
-import { fmtDegrees, fmtShortDay } from '../formulas'
+import { fmtShortDay } from '../formulas'
 import type { Night } from '../types'
 
 function GateRow({
@@ -54,14 +54,15 @@ export function GatesCard({ night, moonLimit }: { night: Night; moonLimit: numbe
       : night.moon.illumination < moonLimit
         ? `${pct} % lit · under the limit`
         : `${pct} % lit · down in the window`)
-  const coreDetail =
-    reasonOf('core-altitude') ??
-    (reading === null || night.coreGateDeg === null
+  // The reading itself is stated once, on the verdict card; the gate row only rules.
+  const coreDetail = failedIds.has('core-altitude')
+    ? 'below the gate at its closest'
+    : reading === null || night.coreGateDeg === null
       ? 'no astronomical night'
-      : `closest to the gate: ${fmtDegrees(reading)} against ${fmtDegrees(night.coreGateDeg)}`)
+      : 'clears the gate'
 
   return (
-    <Card data-shot="gates-card">
+    <Card data-shot="gates-card" h="100%">
       <Stack gap="md">
         <Group justify="space-between" align="baseline" wrap="nowrap">
           <Text fw={600} size="sm">

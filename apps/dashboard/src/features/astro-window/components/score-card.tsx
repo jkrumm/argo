@@ -14,7 +14,7 @@ export function ScoreCard({ night }: { night: Night }) {
   const totalWeight = night.factors.reduce((sum, f) => sum + f.weight, 0)
 
   return (
-    <Card data-shot="score-card" h="100%">
+    <Card data-shot="score-card">
       <Stack gap="sm">
         <Group justify="space-between" align="baseline" wrap="nowrap">
           <Text fw={600} size="md">
