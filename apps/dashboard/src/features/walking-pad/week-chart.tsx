@@ -7,7 +7,6 @@ import { walkingPadQueries, type WalkingPadWindowParams } from '../../lib/querie
 import { SERIES } from '../../lib/series'
 import { walkingStore } from '../../lib/window-stores'
 import { useNow } from '../../lib/use-now'
-import { Facts } from './facts'
 import { walkingLocal } from './local-store'
 import {
   DAY_VIEW_MAX,
@@ -64,17 +63,14 @@ export function WeekChart({ params }: { params: WalkingPadWindowParams }) {
   const facts =
     view === 'days'
       ? dayMeanKm === null
-        ? null
-        : { value: dayMeanKm.toFixed(1), unit: 'km/day', context: `mean over ${days.length} days` }
+        ? undefined
+        : { value: dayMeanKm.toFixed(1), unit: 'km/day', period: `mean over ${days.length} days` }
       : view === 'pace'
         ? paceAvg === null
-          ? null
-          : { value: fmtKmh(paceAvg), unit: 'km/h', context: 'window average, weekly points' }
-        : {
-            value: String(targetKm),
-            unit: 'km',
-            context: `${isDefault ? 'default weekly target' : 'weekly target'}, bars are km per week`,
-          }
+          ? undefined
+          : { value: fmtKmh(paceAvg), unit: 'km/h', period: 'window average, weekly points' }
+        : undefined
+  const targetLabel = `${isDefault ? 'default weekly target' : 'weekly target'} ${targetKm} km`
 
   return (
     <ChartCard
@@ -82,8 +78,8 @@ export function WeekChart({ params }: { params: WalkingPadWindowParams }) {
       actions={<ViewTabs field={walkingLocal.field.view} label="Chart view" />}
       state={chartStateOf(query, undefined)}
       placeholderHeight={240}
+      facts={facts}
     >
-      {facts !== null && <Facts {...facts} />}
       {view === 'weeks' && (
         <Bars
           ariaLabel="Weekly distance in kilometres against the weekly target"
@@ -109,7 +105,7 @@ export function WeekChart({ params }: { params: WalkingPadWindowParams }) {
             },
           ]}
           y={{ domain: 'auto', autoMaxFloor: targetKm * 1.2, format: kmAxis, ticks: 4, nice: true }}
-          refLines={[{ value: targetKm, color: VX.muted, dashed: true }]}
+          refLines={[{ value: targetKm, color: VX.muted, dashed: true, label: targetLabel }]}
           legend={false}
           tooltip={{
             formatHeader: (_x, d) =>
@@ -135,7 +131,7 @@ export function WeekChart({ params }: { params: WalkingPadWindowParams }) {
           ]}
           y={{ domain: 'auto', autoMaxFloor: 2, format: kmAxis, ticks: 4, nice: true }}
           {...(dayMeanKm !== null && {
-            refLines: [{ value: dayMeanKm, color: VX.muted, dashed: true }],
+            refLines: [{ value: dayMeanKm, color: VX.muted, dashed: true, label: 'mean' }],
           })}
           legend={false}
           tooltip={{
@@ -168,7 +164,14 @@ export function WeekChart({ params }: { params: WalkingPadWindowParams }) {
             format: (v) => `${v} km/h`,
           }}
           {...(heroes.data?.pace.currentAvgKmh != null && {
-            refLines: [{ value: heroes.data.pace.currentAvgKmh, color: VX.muted, dashed: true }],
+            refLines: [
+              {
+                value: heroes.data.pace.currentAvgKmh,
+                color: VX.muted,
+                dashed: true,
+                label: 'avg',
+              },
+            ],
           })}
           legend={false}
         />
