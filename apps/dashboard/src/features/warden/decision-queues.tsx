@@ -17,12 +17,10 @@ import {
 } from './model'
 import {
   cardFacts,
-  failureChip,
   needsCards,
   planActions,
   retryQuestion,
   recentTransitions,
-  tagChip,
   type TransitionLine,
   splitReason,
   type QueueKind,
@@ -109,15 +107,11 @@ function QueueCard({
     kind === 'failed'
       ? { question: retryQuestion(title), rest: row.reason }
       : splitReason(row.reason, title)
-  const chip =
-    kind === 'failed'
-      ? failureChip(row.failureClass)
-      : 'tag' in split && split.tag !== null
-        ? tagChip(split.tag)
-        : null
+  const category =
+    kind === 'failed' ? row.failureClass : 'tag' in split && split.tag !== null ? split.tag : null
   const status =
-    chip !== null ? (
-      <StatusChip label={chip.label} />
+    category !== null && category !== '' ? (
+      <StatusChip label={category} />
     ) : row.state !== 'needs_decision' && row.state !== 'failed' && row.state !== null ? (
       <StatusChip label={row.state} />
     ) : undefined

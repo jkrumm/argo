@@ -9,7 +9,6 @@ import {
   derivePollers,
   deriveStrip,
   deriveSummary,
-  failureChip,
   formatNumber,
   formatSpan,
   oldestAgeDays,
@@ -21,7 +20,7 @@ import {
   pollerStaleLabel,
   deferralOf,
   splitReason,
-  tagChip,
+  sentenceCase,
   deriveBudgetFooter,
   recentTransitions,
 } from './page-model'
@@ -387,22 +386,6 @@ describe('oldestAgeDays', () => {
   })
 })
 
-describe('failureChip', () => {
-  it('gives the three known classes a fixed tone', () => {
-    expect(failureChip('work')).toEqual({ tone: 'work', label: 'work' })
-    expect(failureChip('infra')).toEqual({ tone: 'infra', label: 'infra' })
-    expect(failureChip('policy')).toEqual({ tone: 'policy', label: 'policy' })
-  })
-
-  it('renders an unknown class neutral with its raw label', () => {
-    expect(failureChip('quota')).toEqual({ tone: 'neutral', label: 'quota' })
-  })
-
-  it('renders nothing for null', () => {
-    expect(failureChip(null)).toBeNull()
-  })
-})
-
 describe('deriveBoardColumns', () => {
   const none: ReadonlySet<number> = new Set()
   const columnOf = (columns: ReturnType<typeof deriveBoardColumns>, key: string) =>
@@ -522,9 +505,7 @@ describe('leading tag', () => {
 })
 
 describe('prototype-key safety', () => {
-  it('treats Object.prototype names as unknown tags and origins', () => {
-    expect(tagChip('constructor').tone).toBe('neutral')
-    expect(tagChip('__proto__').tone).toBe('neutral')
+  it('treats Object.prototype names as unknown origins', () => {
     expect(originKind('constructor')).toBeNull()
     expect(originKind('toString')).toBeNull()
     expect(originKind('github_issue')).toBe('github_issue')
@@ -533,15 +514,6 @@ describe('prototype-key safety', () => {
 
   it('does not take Object.prototype names as action verbs', () => {
     expect(planActions(['constructor', 'implement'], 'decision').primary).toBe('implement')
-  })
-})
-
-describe('tagChip', () => {
-  it('tones the known tags and renders any other neutral with its raw label', () => {
-    expect(tagChip('blocker')).toEqual({ tone: 'bad', label: 'blocker' })
-    expect(tagChip('data_loss').tone).toBe('bad')
-    expect(tagChip('security').tone).toBe('warn')
-    expect(tagChip('no category')).toEqual({ tone: 'neutral', label: 'no category' })
   })
 })
 
@@ -667,5 +639,13 @@ describe('deriveSummary health and window', () => {
       verified_unattended_fixes_per_week: { value: 2 },
     }
     expect(deriveStrip(global, undefined).unattended.windowDays).toBe(7)
+  })
+})
+
+describe('sentenceCase', () => {
+  it('turns enum casing into a sentence', () => {
+    expect(sentenceCase('BLOCKER')).toBe('Blocker')
+    expect(sentenceCase('data_loss')).toBe('Data loss')
+    expect(sentenceCase(' needs_decision ')).toBe('Needs decision')
   })
 })
