@@ -15,6 +15,7 @@ import {
   DAY_TARGET_H,
   durationMin,
   dayLabel,
+  shortDate,
   toDate,
   type AgendaDay,
   type CalendarItem,
@@ -27,6 +28,8 @@ import {
 
 /** Work and Personal are the one categorical split on the page, so they alone earn hues. */
 const SPLIT_COLOR = { work: SERIES.sleepDuration, personal: SERIES.vo2max } as const
+/** The `in {n}m` pill only reads as a countdown when the next item is close. */
+const PILL_WITHIN_MIN = 12 * 60
 const SPLIT_LABEL = { work: 'Work', personal: 'Personal' } as const
 
 const clock = (local: string) => local.slice(11, 16)
@@ -81,7 +84,7 @@ export function EventRows({
             title={event.title}
             past={toDate(String(event.end)).getTime() <= now.getTime()}
             {...(meta ? { meta } : {})}
-            {...(next?.event.id === event.id
+            {...(next?.event.id === event.id && next.inMin < PILL_WITHIN_MIN
               ? { pill: `in ${formatDurationMin(next.inMin)}` }
               : {})}
             {...(videoLink && isHttpUrl(videoLink)
@@ -141,7 +144,7 @@ export function DayGroups({
               <span className={classes.muted}>
                 {day.events.length === 0
                   ? 'no meetings'
-                  : `${day.events.length} · ${formatDurationMin(day.bookedMin)}`}
+                  : `${day.events.length} ${day.events.length === 1 ? 'event' : 'events'} · ${formatDurationMin(day.bookedMin)}`}
               </span>
             </Box>
             {chips.length > 0 && (
@@ -159,12 +162,15 @@ export function DayGroups({
 
 export function WeekStrip({
   title,
+  range,
   load,
   split,
   todayKey,
   unknown,
 }: {
   title: string
+  /** The window the rows cover, stated beside the figures (`Sat 17 – Fri 23`). */
+  range: string
   load: readonly DayLoad[]
   split: SourceSplit
   todayKey: DayKey
@@ -175,6 +181,9 @@ export function WeekStrip({
   return (
     <Card py="sm" px="md" data-shot="week-strip">
       <Section title={title}>
+        <Text className={classes.muted}>
+          {range} · tick at {DAY_TARGET_H} h · number = events · today counts from now
+        </Text>
         <div>
           {load.map((day) => {
             const hours = day.bookedMin / 60
@@ -199,17 +208,19 @@ export function WeekStrip({
             )
           })}
         </div>
-        <Meter
-          label="Booked hours by source"
-          max={Math.max(total, 1)}
-          segments={(['work', 'personal'] as const).map((key) => ({
-            value: split[key],
-            label: SPLIT_LABEL[key],
-            color: SPLIT_COLOR[key],
-          }))}
-          startCaption={null}
-          endCaption={null}
-        />
+        {split.work > 0 && split.personal > 0 && (
+          <Meter
+            label="Booked hours by source"
+            max={Math.max(total, 1)}
+            segments={(['work', 'personal'] as const).map((key) => ({
+              value: split[key],
+              label: SPLIT_LABEL[key],
+              color: SPLIT_COLOR[key],
+            }))}
+            startCaption={null}
+            endCaption={null}
+          />
+        )}
         <Box className={classes.split}>
           {(['work', 'personal'] as const).map((key) => (
             <span key={key}>
@@ -229,6 +240,7 @@ export function TaskList({ tasks, todayKey }: { tasks: readonly TaskDue[]; today
   return (
     <Card py="sm" px="md" data-shot="tasks-due">
       <Section title="Tasks due" count={tasks.length}>
+        <Text className={classes.muted}>Overdue or due within 7 days</Text>
         {tasks.length === 0 ? (
           <Text className={classes.muted}>Nothing due in the next 7 days.</Text>
         ) : (
@@ -248,7 +260,7 @@ export function TaskList({ tasks, todayKey }: { tasks: readonly TaskDue[]; today
                   {task.dueKey === todayKey
                     ? 'today'
                     : task.overdue
-                      ? `overdue · ${dayLabel(task.dueKey)}`
+                      ? `overdue · ${shortDate(task.dueKey)}`
                       : dayLabel(task.dueKey)}
                 </span>
               </div>
