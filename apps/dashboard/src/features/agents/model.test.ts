@@ -12,6 +12,7 @@ import {
   countUnknownAgents,
   groupProjects,
   headlineOf,
+  longestRunMs,
   summarySentence,
   dayLabel,
   ageAgo,
@@ -286,10 +287,18 @@ describe('headlineOf', () => {
     expect(headlineOf('Run the thing now. Then reply with the numbers.')).toBe('Run the thing now.')
   })
 
-  it('caps long sentences at 90 characters with an ellipsis', () => {
+  it('ends a long sentence at its last clause boundary, without an ellipsis', () => {
+    const ask =
+      'Wave 56 needs a free Marine account to download satellite wave heights (the licence allows any use with attribution, no cost). Steps follow.'
+    expect(headlineOf(ask)).toBe(
+      'Wave 56 needs a free Marine account to download satellite wave heights',
+    )
+  })
+
+  it('ellipsizes at a word boundary only when no clause boundary fits', () => {
     const out = headlineOf('word '.repeat(60))
     expect(out.length).toBeLessThanOrEqual(90)
-    expect(out.endsWith('…')).toBe(true)
+    expect(out.endsWith('word…')).toBe(true)
   })
 
   it('collapses newlines', () => {
@@ -482,5 +491,17 @@ describe('oldestAskMs', () => {
     const asks = [{ askedAt: '2026-01-10T11:00:00Z' }, { askedAt: '2026-01-10T09:00:00Z' }, {}]
     expect(oldestAskMs(asks, now)).toBe(3 * 3_600_000)
     expect(oldestAskMs([{}], now)).toBeNull()
+  })
+})
+
+describe('longestRunMs', () => {
+  it('takes the longest age from startedAt, falling back to last activity', () => {
+    const rows = [
+      agent({ id: 'a', startedAt: 1_000 }),
+      agent({ id: 'b', lastActivityAt: 4_000 }),
+      agent({ id: 'c' }),
+    ]
+    expect(longestRunMs(rows, 5_000)).toBe(4_000)
+    expect(longestRunMs([agent({ id: 'c' })], 5_000)).toBeNull()
   })
 })

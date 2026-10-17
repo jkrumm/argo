@@ -65,7 +65,7 @@ export function ActivityStrip({ history, hours, now }: Props) {
       value={peakHour === null ? '—' : String(peak)}
       {...(peakHour !== null && { unit: 'agents at peak' })}
     >
-      <Box data-shot="activity-strip">
+      <Box data-shot="activity-strip" pt="lg">
         <BandStrip
           ariaLabel={`Agents working per hour over the last ${hours} hours`}
           data={buckets}

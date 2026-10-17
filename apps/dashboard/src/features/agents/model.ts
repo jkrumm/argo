@@ -288,19 +288,42 @@ export function groupProjects(
   return { active: sorted.filter((g) => g.active), quiet: sorted.filter((g) => !g.active) }
 }
 
+/** How long the longest-running working agent has been up (`startedAt`, else its last activity); `null` without a clock. */
+export function longestRunMs(agents: readonly AgentRow[], now: number): number | null {
+  const ages = agents.flatMap((a) => {
+    const since = a.startedAt ?? a.lastActivityAt
+    return since == null ? [] : [Math.max(0, now - since)]
+  })
+  return ages.length === 0 ? null : Math.max(...ages)
+}
+
 // ── Needs-you cards ──────────────────────────────────────────────────────────────────────────
 
 const HEADLINE_MAX = 90
 
-/** First sentence of an ask, hard-capped at `max` characters with an ellipsis. */
+/** Where a long sentence may end without cutting a thought: before a parenthesis, colon, dash, semicolon or comma. */
+const CLAUSE_END = /\s\(|: | — |; |, /g
+
+/**
+ * The headline of an ask: its first sentence. A sentence over `max` ends at the last clause
+ * boundary that fits (no ellipsis, the full ask is behind the disclosure); only with none does it
+ * ellipsize, and then at a word boundary.
+ */
 export function headlineOf(text: string, max = HEADLINE_MAX): string {
   const flat = text.replace(/\s+/g, ' ').trim()
   const stop = flat.search(/[.!?](\s|$)/)
   const sentence = stop === -1 ? flat : flat.slice(0, stop + 1)
   if (sentence.length <= max) return sentence
+  const floor = Math.floor(max * 0.3)
+  let clauseEnd = -1
+  for (const match of sentence.matchAll(CLAUSE_END)) {
+    if (match.index > max) break
+    if (match.index >= floor) clauseEnd = match.index
+  }
+  if (clauseEnd !== -1) return sentence.slice(0, clauseEnd).replace(/[\s,;:—-]+$/, '')
   const cut = sentence.slice(0, max - 1)
   const space = cut.lastIndexOf(' ')
-  return `${(space > max * 0.6 ? cut.slice(0, space) : cut).trimEnd()}…`
+  return `${(space > 0 ? cut.slice(0, space) : cut).trimEnd()}…`
 }
 
 // ── Page summary ─────────────────────────────────────────────────────────────────────────────

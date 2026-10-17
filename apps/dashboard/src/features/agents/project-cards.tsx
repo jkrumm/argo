@@ -3,7 +3,15 @@ import { Section } from 'basalt-ui'
 import { CONTAINER_KEYS } from 'basalt-ui/tokens'
 import { EntityCard, type EntityCardCell } from './entity-card'
 import { StatusChip, type StatusTone } from './status-chip'
-import { ageAgo, STATE_LABEL, type AgentRow, type AgentState, type ProjectGroup } from './model'
+import {
+  ageAgo,
+  formatWaitDuration,
+  longestRunMs,
+  STATE_LABEL,
+  type AgentRow,
+  type AgentState,
+  type ProjectGroup,
+} from './model'
 import classes from './project-cards.module.css'
 
 const DAY_MS = 86_400_000
@@ -87,6 +95,7 @@ function gitCell(git: ProjectGroup['git']): Pick<EntityCardCell, 'value' | 'smal
 
 function ProjectCard({ group, now }: { group: ProjectGroup; now: number }) {
   const running = group.working.length
+  const longest = longestRunMs(group.working, now)
   const waiting = group.counts.needs_you
   const state: AgentState = waiting > 0 ? 'needs_you' : 'working'
   return (
@@ -106,7 +115,7 @@ function ProjectCard({ group, now }: { group: ProjectGroup; now: number }) {
         {
           caption: 'Running',
           value: String(running),
-          unit: running === 1 ? 'agent' : 'agents',
+          unit: `${running === 1 ? 'agent' : 'agents'}${longest === null ? '' : ` · longest ${formatWaitDuration(longest)}`}`,
           visual: running > 1 ? <AgeBars agents={group.working} now={now} /> : undefined,
         },
         {
@@ -114,7 +123,7 @@ function ProjectCard({ group, now }: { group: ProjectGroup; now: number }) {
           value: group.lastActivityAt === null ? '—' : ageAgo(now - group.lastActivityAt),
         },
         {
-          caption: 'Source',
+          caption: `Source · ${plural(group.agents.length, 'agent', 'agents')}`,
           ...sourceCell(group.sources),
           visual: <SourceBar sources={group.sources} />,
         },
