@@ -81,7 +81,7 @@
   column-gap: var(--vx-space-stack-md);
 }
 
-.chip {
+.chip.chip {
   --badge-fz: var(--vx-text-micro);
   grid-area: chip;
   justify-self: start;

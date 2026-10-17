@@ -4,7 +4,7 @@ import type { HermesThreadType } from '../../lib/queries/hermes'
 import { THREAD_TYPES, TYPE_LABEL } from './thread-list-model'
 import classes from './thread-toolbar.module.css'
 
-export type TypeFilter = HermesThreadType | 'all'
+export type TypeFilter = HermesThreadType | 'all' | 'untitled'
 
 /**
  * Counted filter chips (`All {n}`, `Infra {n}`, …; the active one filled) plus a search field.
@@ -14,6 +14,7 @@ export type TypeFilter = HermesThreadType | 'all'
 export function ThreadToolbar({
   total,
   typeCounts,
+  untitledCount,
   type,
   query,
   onType,
@@ -21,6 +22,7 @@ export function ThreadToolbar({
 }: {
   total: number
   typeCounts: Record<HermesThreadType, number>
+  untitledCount: number
   type: TypeFilter
   query: string
   onType: (next: TypeFilter) => void
@@ -33,6 +35,9 @@ export function ThreadToolbar({
       label: TYPE_LABEL[t],
       count: typeCounts[t],
     })),
+    ...(untitledCount > 0 || type === 'untitled'
+      ? [{ key: 'untitled' as const, label: 'Untitled', count: untitledCount }]
+      : []),
   ]
 
   return (

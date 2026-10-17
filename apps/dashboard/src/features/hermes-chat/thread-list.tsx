@@ -65,6 +65,7 @@ export function ThreadList({
   untitled,
   now,
   busy,
+  foldOpen,
   onOpen,
   onDeleteUntitled,
 }: {
@@ -72,6 +73,8 @@ export function ThreadList({
   untitled: readonly ThreadEntry[]
   now: number
   busy: boolean
+  /** Keep the fold expanded (the `Untitled` filter is on). */
+  foldOpen: boolean
   onOpen: (id: string) => void
   onDeleteUntitled: (ids: string[]) => void
 }) {
@@ -122,7 +125,7 @@ export function ThreadList({
           <Box className={classes['fold']}>
             <UnstyledButton
               className={classes['foldToggle']}
-              aria-expanded={open}
+              aria-expanded={open || foldOpen}
               onClick={() => setOpen((v) => !v)}
             >
               {untitledLabel(untitled.length, relativeTime(oldestUpdatedAt(untitled)))}
@@ -137,7 +140,7 @@ export function ThreadList({
               Delete all untitled
             </Button>
           </Box>
-          {open &&
+          {(open || foldOpen) &&
             untitled.map((entry) => (
               <Box key={entry.id} className={classes['untitledRow']}>
                 <UnstyledButton className={classes['row']} onClick={() => onOpen(entry.id)}>

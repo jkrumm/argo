@@ -106,6 +106,13 @@ describe('buildView', () => {
     expect(view.groups.flatMap((g) => g.rows.map((r) => r.id))).toEqual(['todo'])
   })
 
+  it('shows only the fold under the Untitled filter and counts it for the chip', () => {
+    const view = buildView(entries, { type: 'untitled', query: '' }, NOW)
+    expect(view.groups).toEqual([])
+    expect(view.untitled.map((e) => e.id)).toEqual(['u1', 'u2'])
+    expect(view.untitledCount).toBe(2)
+  })
+
   it('searches title and summary, case-insensitively', () => {
     const view = buildView(entries, { type: 'all', query: 'EGGS' }, NOW)
     expect(view.groups.flatMap((g) => g.rows.map((r) => r.id))).toEqual(['todo'])
@@ -146,6 +153,6 @@ describe('factsLine', () => {
     expect(factsLine({ entry: e, now: NOW, compact: false })).toBe(
       'Started 3 Oct · last reply 09:41',
     )
-    expect(factsLine({ entry: e, now: NOW, compact: true })).toBe('09:41 · Infra')
+    expect(factsLine({ entry: e, now: NOW, compact: true })).toBe('3 Oct · Infra')
   })
 })

@@ -9,7 +9,7 @@ export const hermesChatStore = createSearchStore({
   key: 'hermes-chat:view',
   fields: {
     thread: field.string({}, { persist: false, history: 'push' }),
-    type: field.enum(['all', ...THREAD_TYPES], 'all', { persist: false }),
+    type: field.enum(['all', ...THREAD_TYPES, 'untitled'], 'all', { persist: false }),
     q: field.string({}, { persist: false }),
   },
 })
