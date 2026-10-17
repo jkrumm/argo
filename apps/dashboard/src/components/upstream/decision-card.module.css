@@ -10,7 +10,8 @@
 .preview {
   flex: 0 1 11rem;
   min-width: 0;
-  padding: var(--vx-space-stack-md, 0.75rem);
+  max-width: 11rem;
+  padding: var(--vx-space-stack-sm, 0.5rem);
   border-radius: var(--vx-radius-fine);
   background: color-mix(in srgb, var(--vx-line) 10%, transparent);
 }
