@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  approxHours,
   backlog,
+  currentYear,
+  progressPercent,
+  shelfCounts,
+  totalReadSeconds,
   daysToFinish,
   finishedGroups,
   finishedInYear,
@@ -15,7 +20,6 @@ import {
   summarySentence,
   timeRead,
   type ShelfItem,
-  type Summary,
 } from './model'
 
 let nextId = 1
@@ -188,34 +192,153 @@ describe('ratingShape', () => {
   })
 })
 
-const summary: Summary = {
-  total: 36,
-  wantToRead: 28,
-  currentlyReading: 4,
-  read: 4,
-  paused: 0,
-  dnf: 0,
-  ratedCount: 4,
-  avgRating: 3.1,
-}
-
 describe('shelfParts', () => {
   test('paused and dnf only when non-zero', () => {
-    expect(shelfParts(summary).map((p) => p.label)).toEqual(['Read', 'Reading', 'Backlog'])
-    expect(shelfParts({ ...summary, paused: 1 }).map((p) => p.label)).toContain('Paused')
+    const base = [book({ statusId: 1 }), book({ statusId: 2 }), book({ statusId: 3 })]
+    expect(shelfParts(shelfCounts(base)).map((p) => p.label)).toEqual([
+      'Read',
+      'Reading',
+      'Backlog',
+    ])
+    const more = [...base, book({ statusId: 4 })]
+    expect(shelfParts(shelfCounts(more)).map((p) => p.label)).toContain('Paused')
+  })
+
+  test('the total is the sum of the parts; an ignored book is not on the page', () => {
+    const counts = shelfCounts([
+      book({ statusId: 1 }),
+      book({ statusId: 3 }),
+      book({ statusId: 6 }),
+    ])
+    expect(counts.total).toBe(2)
   })
 })
 
 describe('summarySentence', () => {
   test('quotes the same pace and hours figures the cells show', () => {
-    expect(
-      summarySentence({ summary, pace: 90, finished: 3, year: 2026, backlogHours: 56.4 }),
-    ).toBe('4 books in progress, median 90 pages/h · 3 finished in 2026 · backlog 28 books ≈ 56 h')
+    const counts = shelfCounts([
+      ...Array.from({ length: 4 }, () => book({ statusId: 2 })),
+      ...Array.from({ length: 28 }, () => book({ statusId: 1 })),
+    ])
+    expect(summarySentence({ counts, pace: 90, finished: 3, year: 2026, backlogHours: 56.4 })).toBe(
+      '4 books in progress, median 90 pages/h · 3 finished in 2026 · backlog 28 books ≈ 56 h',
+    )
   })
 
   test('drops pace and hours rather than printing 0', () => {
+    const counts = shelfCounts([book({ statusId: 2 }), book({ statusId: 1 })])
     expect(
-      summarySentence({ summary, pace: null, finished: 0, year: 2026, backlogHours: null }),
-    ).toBe('4 books in progress · 0 finished in 2026 · backlog 28 books')
+      summarySentence({ counts, pace: null, finished: 0, year: 2026, backlogHours: null }),
+    ).toBe('1 book in progress · 0 finished in 2026 · backlog 1 book')
+  })
+
+  test('under an hour reads < 1 h without a ≈', () => {
+    const counts = shelfCounts([book({ statusId: 1 })])
+    expect(
+      summarySentence({ counts, pace: 90, finished: 0, year: 2026, backlogHours: 0.4 }),
+    ).toContain('backlog 1 book < 1 h')
+    expect(approxHours(0.4)).toBe('< 1 h')
+    expect(approxHours(7.2)).toBe('≈ 7 h')
+  })
+})
+
+describe('one source for every repeated figure', () => {
+  const shelf = [
+    book({ statusId: 2, pages: 400, stats: stats(100, 2, 25) }),
+    book({ statusId: 2 }),
+    book({ statusId: 3, readDate: '2026-03-01', startedDate: '2026-02-01', stats: stats(300, 3) }),
+    book({ statusId: 3, readDate: '2025-12-31' }),
+    book({ statusId: 3, readDate: null }),
+    book({ statusId: 1, pages: 300 }),
+    book({ statusId: 1, pages: 100 }),
+    book({ statusId: 5 }),
+    book({ statusId: 6 }),
+  ]
+
+  test('sentence, strip parts and list sections agree', () => {
+    const counts = shelfCounts(shelf)
+    const pace = readingPace(shelf)
+    const bl = backlog(shelf, pace.median)
+    const parts = Object.fromEntries(shelfParts(counts).map((p) => [p.label, p.value]))
+    const sentence = summarySentence({
+      counts,
+      pace: pace.median,
+      finished: finishedInYear(shelf, 2026),
+      year: currentYear(Date.UTC(2026, 5, 1)),
+      backlogHours: bl.hours,
+    })
+
+    // Strip cell, sentence and Backlog / Currently reading sections.
+    expect(parts['Backlog']).toBe(bl.count)
+    expect(parts['Reading']).toBe(shelf.filter((b) => b.statusId === 2).length)
+    expect(sentence).toContain(`backlog ${bl.count} books`)
+    expect(sentence).toContain(`${parts['Reading']} books in progress`)
+    // Finished list rows are the dated read books; the rest are named, not hidden.
+    const listed = finishedGroups(shelf).reduce((n, g) => n + g.rows.length, 0)
+    expect(listed).toBe(counts.readDated)
+    expect(counts.read - counts.readDated).toBe(1)
+    expect(sentence).toContain(`${finishedInYear(shelf, 2026)} finished in 2026`)
+    // Pace and hours: the figure in the sentence is the figure the cells use.
+    expect(sentence).toContain(`median ${pace.median} pages/h`)
+    expect(sentence).toContain(approxHours(bl.hours as number))
+    expect(counts.total).toBe(8)
+  })
+
+  test('time read has one definition across the pace cohort and the BarList', () => {
+    const withBacklogTime = [...shelf, book({ statusId: 1, stats: stats(50, 9) })]
+    expect(totalReadSeconds(withBacklogTime)).toBe(totalReadSeconds(shelf))
+    expect(totalReadSeconds(shelf)).toBe((2 + 3) * 3600)
+    expect(readingPace(withBacklogTime).paces).toEqual(readingPace(shelf).paces)
+  })
+})
+
+describe('edge cases', () => {
+  test('backlog with no page counts has unknown hours, not 0', () => {
+    expect(backlog([book({ pages: null }), book({ pages: null })], 100)).toMatchObject({
+      pages: 0,
+      withoutPages: 2,
+      hours: null,
+    })
+    expect(backlog([], 100).hours).toBeNull()
+  })
+
+  test('progressPercent: no device report is unknown', () => {
+    const none = { ...stats(0, 0, 0), sessions: 0 }
+    expect(progressPercent(book({ statusId: 2, stats: none }))).toBeNull()
+    expect(progressPercent(book({ statusId: 2 }))).toBeNull()
+    expect(progressPercent(book({ statusId: 2, stats: stats(10, 1, 12) }))).toBe(12)
+    expect(progressPercent(book({ statusId: 2, stats: { ...none, sessions: 2 } }))).toBe(0)
+  })
+
+  test('currentYear reads the UTC year', () => {
+    expect(currentYear(Date.UTC(2026, 11, 31, 23, 59))).toBe(2026)
+    expect(currentYear(Date.UTC(2027, 0, 1, 0, 0))).toBe(2027)
+  })
+
+  test('parseTimestamp edges', () => {
+    expect(parseTimestamp('')).toBeNull()
+    expect(parseTimestamp('2026-09-11 02:37:03+05')).toBe(Date.UTC(2026, 8, 10, 21, 37, 3))
+    expect(parseTimestamp('2026-09-11 02:37:03-03')).toBe(Date.UTC(2026, 8, 11, 5, 37, 3))
+    expect(parseTimestamp('2026-09-11')).toBe(Date.UTC(2026, 8, 11))
+  })
+
+  test('genreCounts: empty input, top cap and tie order', () => {
+    expect(genreCounts([], 5)).toEqual([])
+    const books = [book({ genres: ['B'] }), book({ genres: ['A'] }), book({ genres: ['C', 'A'] })]
+    expect(genreCounts(books, 2)).toEqual([
+      { label: 'A', value: 2 },
+      { label: 'B', value: 1 },
+    ])
+  })
+
+  test('finishedInYear counts dated read books of that year only', () => {
+    const shelf = [
+      book({ statusId: 3, readDate: '2026-01-01' }),
+      book({ statusId: 3, readDate: '2025-12-31' }),
+      book({ statusId: 3, readDate: null }),
+      book({ statusId: 2, readDate: '2026-02-02' }),
+    ]
+    expect(finishedInYear(shelf, 2026)).toBe(1)
+    expect(finishedInYear(shelf, 2024)).toBe(0)
   })
 })

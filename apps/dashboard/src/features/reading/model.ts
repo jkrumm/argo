@@ -27,18 +27,7 @@ export type ShelfItem = {
   } | null
 }
 
-export type Summary = {
-  total: number
-  wantToRead: number
-  currentlyReading: number
-  read: number
-  paused: number
-  dnf: number
-  ratedCount: number
-  avgRating: number | null
-}
-
-export const STATUS = { backlog: 1, reading: 2, read: 3 } as const
+export const STATUS = { backlog: 1, reading: 2, read: 3, paused: 4, dnf: 5 } as const
 
 /** Why a pace-derived figure is `—`. One string, so every cell that needs it says the same thing. */
 export const NO_PACE_REASON = 'no book has reading time yet'
@@ -63,10 +52,12 @@ export type Pace = {
   paces: number[]
 }
 
+/** Cohort: in-progress and finished books, the same rows `timeRead` counts. */
 export function readingPace(shelf: readonly ShelfItem[]): Pace {
   const paces: number[] = []
   for (const book of shelf) {
     const stats = book.stats
+    if (book.statusId !== STATUS.reading && book.statusId !== STATUS.read) continue
     if (stats === null || stats.pagesRead <= 0 || stats.totalReadSeconds <= 0) continue
     paces.push(stats.pagesRead / (stats.totalReadSeconds / 3600))
   }
@@ -77,9 +68,14 @@ export function readingPace(shelf: readonly ShelfItem[]): Pace {
   }
 }
 
-/** `≈ 7 h` / `< 1 h`: the single hour format the sentence, the ETA and the backlog header share. */
+/** `7 h` / `< 1 h`: the single hour format the sentence, the ETA and the backlog header share. */
 export function hoursLabel(hours: number): string {
   return hours < 1 ? '< 1 h' : `${Math.round(hours)} h`
+}
+
+/** `≈ 7 h`, or `< 1 h` with no `≈` (an upper bound is not an approximation). */
+export function approxHours(hours: number): string {
+  return hours < 1 ? hoursLabel(hours) : `≈ ${hoursLabel(hours)}`
 }
 
 /** Hours to finish an in-progress book at the shelf pace; `null` while any input is unknown. */
@@ -94,7 +90,8 @@ export function hoursLeft(book: ShelfItem, pace: number | null): number | null {
 /** `2026-09-11 02:37:03+00` (Postgres) or ISO → epoch ms; `null` when absent or unparseable. */
 export function parseTimestamp(value: string | null): number | null {
   if (value === null) return null
-  const iso = value.replace(' ', 'T').replace(/([+-]\d{2})$/, '$1:00')
+  // A bare `+00` offset needs `:00`; only after a time, never on the day of a date-only value.
+  const iso = value.replace(' ', 'T').replace(/(T[\d:.]+)([+-]\d{2})$/, '$1$2:00')
   const ms = Date.parse(iso)
   return Number.isFinite(ms) ? ms : null
 }
@@ -174,7 +171,8 @@ export function backlog(shelf: readonly ShelfItem[], pace: number | null): Backl
     count: books.length,
     pages,
     withoutPages: books.filter((b) => b.pages === null).length,
-    hours: pace === null || pace <= 0 ? null : pages / pace,
+    // No page counts is unknown, not 0 h.
+    hours: pace === null || pace <= 0 || pages === 0 ? null : pages / pace,
   }
 }
 
@@ -210,6 +208,18 @@ export function timeRead(shelf: readonly ShelfItem[]): TimeRow[] {
       seconds: b.stats?.totalReadSeconds ?? 0,
     }))
     .toSorted((a, b) => b.seconds - a.seconds)
+}
+
+/** Total device reading time over the rows `timeRead` lists: the one definition of "time read". */
+export function totalReadSeconds(shelf: readonly ShelfItem[]): number {
+  return timeRead(shelf).reduce((sum, r) => sum + r.seconds, 0)
+}
+
+/** `null` while the device has reported nothing (0 % with 0 sessions is unknown, not a 0 % meter). */
+export function progressPercent(book: ShelfItem): number | null {
+  const stats = book.stats
+  if (stats === null) return null
+  return stats.currentPercent <= 0 && stats.sessions <= 0 ? null : stats.currentPercent
 }
 
 // ── Ratings ──────────────────────────────────────────────────────────────────────────────────
@@ -250,34 +260,67 @@ export function ratingShape(shelf: readonly ShelfItem[]): RatingShape {
   }
 }
 
-// ── Shelf split ──────────────────────────────────────────────────────────────────────────────
+// ── Shelf counts: the one source of every repeated figure ───────────────────────────────────
 
-export function shelfParts(summary: Summary): CountRow[] {
+export type ShelfCounts = {
+  read: number
+  /** Read books that carry a read date: the rows the Finished list shows. */
+  readDated: number
+  reading: number
+  backlog: number
+  paused: number
+  dnf: number
+  /** The parts shown in the split (status 6, Ignored, is not on the page). */
+  total: number
+}
+
+export function shelfCounts(shelf: readonly ShelfItem[]): ShelfCounts {
+  const n = (status: number) => shelf.filter((b) => b.statusId === status).length
+  const read = n(STATUS.read)
+  const reading = n(STATUS.reading)
+  const backlog = n(STATUS.backlog)
+  const paused = n(STATUS.paused)
+  const dnf = n(STATUS.dnf)
+  return {
+    read,
+    readDated: shelf.filter((b) => b.statusId === STATUS.read && b.readDate !== null).length,
+    reading,
+    backlog,
+    paused,
+    dnf,
+    total: read + reading + backlog + paused + dnf,
+  }
+}
+
+export function shelfParts(counts: ShelfCounts): CountRow[] {
   return [
-    { label: 'Read', value: summary.read },
-    { label: 'Reading', value: summary.currentlyReading },
-    { label: 'Backlog', value: summary.wantToRead },
-    ...(summary.paused > 0 ? [{ label: 'Paused', value: summary.paused }] : []),
-    ...(summary.dnf > 0 ? [{ label: 'Did not finish', value: summary.dnf }] : []),
+    { label: 'Read', value: counts.read },
+    { label: 'Reading', value: counts.reading },
+    { label: 'Backlog', value: counts.backlog },
+    ...(counts.paused > 0 ? [{ label: 'Paused', value: counts.paused }] : []),
+    ...(counts.dnf > 0 ? [{ label: 'Did not finish', value: counts.dnf }] : []),
   ]
 }
+
+/** Read dates are UTC calendar dates (`YYYY-MM-DD`), so the current year is read in UTC too. */
+export const currentYear = (now: number): number => new Date(now).getUTCFullYear()
 
 // ── Sentence ─────────────────────────────────────────────────────────────────────────────────
 
 export function summarySentence(input: {
-  summary: Summary
+  counts: ShelfCounts
   pace: number | null
   finished: number
   year: number
   backlogHours: number | null
 }): string {
-  const { summary, pace, finished, year, backlogHours } = input
-  const reading = `${summary.currentlyReading} ${summary.currentlyReading === 1 ? 'book' : 'books'} in progress`
+  const { counts, pace, finished, year, backlogHours } = input
+  const reading = `${counts.reading} ${counts.reading === 1 ? 'book' : 'books'} in progress`
   return [
     pace === null ? reading : `${reading}, median ${pace} pages/h`,
     `${finished} finished in ${year}`,
-    `backlog ${summary.wantToRead} ${summary.wantToRead === 1 ? 'book' : 'books'}${
-      backlogHours === null ? '' : ` ≈ ${hoursLabel(backlogHours)}`
+    `backlog ${counts.backlog} ${counts.backlog === 1 ? 'book' : 'books'}${
+      backlogHours === null ? '' : ` ${approxHours(backlogHours)}`
     }`,
   ].join(' · ')
 }

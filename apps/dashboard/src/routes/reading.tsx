@@ -11,9 +11,11 @@ import { Finished, TimeRead } from '../features/reading/finished'
 import { InProgress } from '../features/reading/in-progress'
 import {
   backlog as deriveBacklog,
+  currentYear,
   finishedGroups,
   finishedInYear,
   readingPace,
+  shelfCounts,
   summarySentence,
 } from '../features/reading/model'
 import classes from '../features/reading/reading.module.css'
@@ -72,7 +74,8 @@ function ReadingPage() {
   const shelf = data?.shelf ?? []
   const pace = readingPace(shelf)
   const backlog = deriveBacklog(shelf, pace.median)
-  const year = new Date(now).getFullYear()
+  const counts = shelfCounts(shelf)
+  const year = currentYear(now)
 
   return (
     <>
@@ -99,19 +102,19 @@ function ReadingPage() {
           <Stack gap="md">
             <Title order={3} fw={500} data-shot="summary">
               {summarySentence({
-                summary: data.summary,
+                counts,
                 pace: pace.median,
                 finished: finishedInYear(shelf, year),
                 year,
                 backlogHours: backlog.hours,
               })}
             </Title>
-            <ReadingStrip summary={data.summary} shelf={shelf} pace={pace} />
+            <ReadingStrip counts={counts} shelf={shelf} pace={pace} />
             <UnmatchedSection />
             <InProgress shelf={shelf} pace={pace.median} now={now} />
             <div className={classes.pair}>
               <div data-shot="finished">
-                <Finished groups={finishedGroups(shelf)} />
+                <Finished groups={finishedGroups(shelf)} undated={counts.read - counts.readDated} />
               </div>
               <div data-shot="time-read">
                 <TimeRead shelf={shelf} />
