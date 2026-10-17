@@ -172,8 +172,10 @@ export function ProjectCards({ active, quiet, now }: Props) {
             type="container"
             cols={{ base: 1, [CONTAINER_KEYS.regular]: 2, [CONTAINER_KEYS.wide]: 3 }}
           >
-            {active.map((g) => (
-              <ProjectCard key={g.name} group={g} now={now} />
+            {active.map((g, i) => (
+              <Box key={g.name} data-shot={`project-card-${i + 1}`}>
+                <ProjectCard group={g} now={now} />
+              </Box>
             ))}
           </SimpleGrid>
         ) : null}
