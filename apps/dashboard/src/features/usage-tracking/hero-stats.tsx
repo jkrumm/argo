@@ -7,11 +7,11 @@ import { fmtCount, fmtMs, fmtPct, fmtUsd, relativeTime } from './constants'
 
 function HeroCardSkeleton({ label }: { label: string }) {
   return (
-    <Card py="xs" px="sm" h="100%">
+    <Card py="sm" px="md" h="100%">
       <Text size="xs" c="dimmed" mb={6}>
         {label}
       </Text>
-      <Skeleton height={28} width={140} radius="sm" mb={8} />
+      <Skeleton height={28} width={140} radius="sm" mb="xs" />
       <Skeleton height={12} width={180} radius="sm" />
     </Card>
   )

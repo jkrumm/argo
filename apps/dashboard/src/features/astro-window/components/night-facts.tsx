@@ -80,7 +80,7 @@ export function NightFacts({
     // fell below a scroll fold where neither the operator nor a critic ever saw
     // it. The panel sizes to its content and the map matches it; the ScrollArea
     // stays as the narrow-viewport backstop, where it can still overflow.
-    <Card py="xs" px="sm" mih={SIDE_PANEL_HEIGHT}>
+    <Card py="sm" px="md" mih={SIDE_PANEL_HEIGHT}>
       <ScrollArea h="100%" type="hover" scrollbars="y" scrollbarSize={9}>
         <Stack gap="md" pr="xs">
           <FactGroup title="Darkness">

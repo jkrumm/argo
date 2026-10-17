@@ -2,8 +2,7 @@
 source: basalt-ui
 description: Where state lives — search stores over typed fields, nav links by reference, defineNav, persisted state.
 paths:
-  - 'src/**'
-  - 'apps/**/src/**'
+  - 'apps/dashboard/src/**'
 ---
 
 <!-- basalt:coverage -->

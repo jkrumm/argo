@@ -19,7 +19,7 @@ export function NightStrip({
   onSelect: (date: string) => void
 }) {
   return (
-    <Card py="xs" px="sm">
+    <Card py="sm" px="md">
       <SimpleGrid type="container" cols={{ base: 5, [CQ.regular]: 10 }} spacing={4}>
         {nights.map((night) => {
           const selected = night.date === selectedDate

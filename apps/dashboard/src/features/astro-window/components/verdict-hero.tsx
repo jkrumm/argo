@@ -26,7 +26,7 @@ export function VerdictHero({ data }: { data: WindowResponse }) {
   const healthLine = dataHealthLine(sources, location.darknessSource)
 
   return (
-    <Card py="xs" px="sm">
+    <Card py="sm" px="md">
       <Group justify="space-between" align="flex-start" wrap="nowrap" gap="xl">
         <Group gap="xl" wrap="nowrap" align="flex-start">
           <Stack gap={0} miw={110}>

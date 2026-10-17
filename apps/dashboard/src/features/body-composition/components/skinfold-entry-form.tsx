@@ -58,7 +58,7 @@ export function SkinfoldEntryForm() {
   }
 
   return (
-    <Paper py="xs" px="sm">
+    <Paper py="sm" px="md">
       <form onSubmit={handleSubmit}>
         <Stack gap="sm">
           <Text fw={600} size="sm">

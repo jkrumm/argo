@@ -1,6 +1,6 @@
 ---
 name: basalt-design
-description: Build or restyle dashboards and metric UIs in a basalt-ui app — read the law, decide, build, tune in the theme lab, verify.
+description: Build or restyle dashboards and metric UIs in a basalt-ui app — scenario, encoding, build, then rounds of screenshots scored by a reviewer subagent.
 when_to_use: User is building or restyling dashboards, charts or metric UIs; tuning a palette; or says a UI looks inconsistent, over-colored or "AI default". Entry point for "make this look professional".
 ---
 
@@ -9,10 +9,28 @@ Method only; the law is `.claude/rules/basalt-*.md` and `./DESIGN.md`.
 ## Steps
 
 1. Read `./DESIGN.md` and the rules `basalt-tokens.md`, `basalt-mantine.md`, `basalt-controls.md`, `basalt-charts.md`. No `DESIGN.md`: run `/basalt-app` first.
-2. Decide before coding: which metrics earn a hue (trend, status, separation; the rest neutral), the one primary action per view, each control's home (a `SettingsRow` preference: `const [unit, setUnit] = prefs.field.unit.use()` from `createLocalStore`, then `control={<Select value={unit} onChange={(v) => v && setUnit(v)} />}`, never `useState`).
-3. Check the shipped composites first: `StatCard`, `ChartCard`, `Section`, `WidgetHeader`, `BasaltDataTable`, `EmptyState`. A gap is reported, not routed around.
-4. Build with Mantine primitives and the composites; take every color from `VX.*` or a series token.
-5. Tune by eye in the running app: open the theme lab with the `dev.theme` Spotlight command (dev only) and adjust in both color schemes.
-6. Bake the values back: identity changes go into the `derive` knobs of `createBasaltTheme`, series colors into `src/lib/series.ts` as `{ light, dark }` pairs. Clear the lab overrides and confirm the baked result matches.
-7. Run the repo's own gate (e.g. `make check`), which runs lint, the theme guard and typecheck; fix every finding at its source.
-8. Check both schemes, and below and above the `sm` breakpoint.
+2. **Scenario first.** Write down realistic fixture data, the user's question, and the decision the view supports. Decide which metrics earn a hue (trend, status, separation; the rest neutral), the one primary action per view, each control's home (a `SettingsRow` preference via `createLocalStore`, never `useState`).
+3. **Pick each encoding from the data's shape**, then the shipped composite (`StatCard`, `ChartCard`, `Section`, `WidgetHeader`, `BasaltDataTable`, `EmptyState`; a gap is reported, not routed around). Chart kinds and `ChartCard` import from `basalt-ui/charts`, `BasaltDataTable` from `basalt-ui/table`, the rest from `basalt-ui`:
+
+   | Data shape                    | Encoding                                                                                                | Component                                   |
+   | ----------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+   | Single value with a trend     | figure, text delta, `qualifier`, axis-less sparkline (end dot) along the card's bottom                  | `StatCard` + `sparkline` slot (`Sparkline`) |
+   | Value over time               | line or stacked area                                                                                    | `Lines` / `StackedArea` in a `ChartCard`    |
+   | Compare categories            | bars                                                                                                    | `Bars layout="grouped"`                     |
+   | Part of a whole, 2–6 parts    | one segmented (stacked) bar, parts in order — not a donut plus a total card, not a row of N `StatCard`s | `Bars` (stacked, the default)               |
+   | Distribution                  | small axis-less histogram                                                                               | `Bars` in a `ChartCard`                     |
+   | Status over time              | band strip; a heat grid for daily data                                                                  | `BandStrip` / `Heatmap`                     |
+   | Many rows, several attributes | table, right-aligned mono figures                                                                       | `BasaltDataTable`                           |
+   | Nothing yet / failed          | why + what to do                                                                                        | `EmptyState` / the component's own state    |
+
+   No row fits the data → say so; never default to a number in a box.
+
+4. Build with Mantine primitives and the composites; every color from `VX.*` or a series token. Tune by eye in the theme lab (`dev.theme` Spotlight command, dev only) in both schemes, then bake values into the `derive` knobs of `createBasaltTheme` and series colors into `src/lib/series.ts`.
+5. **Mark up for the board.** Tag each scored component `data-shot="<name>"`; hover and tooltip targets inside it get `data-shot-hover` / `data-shot-tooltip`; when the target's centre paints no readout (a donut's hole), add `data-shot-at="x,y"` (fractions of its box, e.g. `0.25,0.2`) and the shot hovers there. Declare supported states with `data-shot-states="empty loading error"` and render them when the `shot-state` URL param asks.
+6. **Rounds, at least three.** Playwright is the app's dev dependency: `bun add -d playwright && bunx playwright install chromium`. Then:
+   - `basalt-ui shot <routes> --dist <built app>` (or `--base <url>` for a running server);
+   - hand the out dir (`.basalt/shots`) to the `basalt-design-reviewer` subagent by name; it reads each component's contact sheet (`png/*__sheet.png`) and every page shot;
+   - revise every failing item at its source, rebuild, and shoot again.
+     Boards stay local (gitignored); the scored verdict and notes are worth committing.
+7. **Done** only when the reviewer passes every component, and never before round three: a pass earlier does not end the loop. After five failed rounds stop and show the owner the boards and the failing items.
+8. Run the repo's own gate (e.g. `make check`); fix every finding at its source. `shot` captures desktop (1440) and mobile (390) in both schemes; check both.

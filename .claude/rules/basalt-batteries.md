@@ -2,8 +2,7 @@
 source: basalt-ui
 description: The adapter batteries — query, forms, table, content, agent. Use the shipped seam.
 paths:
-  - 'src/**'
-  - 'apps/**/src/**'
+  - 'apps/dashboard/src/**'
 ---
 
 <!-- basalt:coverage -->

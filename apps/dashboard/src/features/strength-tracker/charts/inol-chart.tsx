@@ -125,7 +125,7 @@ export default function InolChart({ params }: { params: StrengthQueryParams }) {
       subtitle="Intensity × Number of Lifts"
       info={METRIC_TOOLTIPS.inol}
       actions={
-        <Group gap={8} wrap="nowrap">
+        <Group gap="xs" wrap="nowrap">
           {latest?.inol != null && (
             <Group gap={6} align="baseline" wrap="nowrap">
               <Text span fw={600} size="md" c={inolDotColor(latest.inol)}>

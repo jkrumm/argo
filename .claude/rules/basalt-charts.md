@@ -2,7 +2,7 @@
 source: basalt-ui
 description: Charts on TanStack Charts — compose CartesianChart or a shipped kind, never the engine host.
 paths:
-  - '**/charts/**'
+  - 'apps/dashboard/src/**'
 ---
 
 <!-- basalt:coverage -->

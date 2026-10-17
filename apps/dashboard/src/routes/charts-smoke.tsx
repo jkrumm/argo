@@ -51,7 +51,7 @@ function ChartsSmokeRoute() {
   if (!import.meta.env.DEV) return null
 
   return (
-    <Box p={24} maw={800}>
+    <Box p="xl" maw={800}>
       <PageBar title="basalt-ui/charts smoke test" />
 
       <Stack gap="xl">
