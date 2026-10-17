@@ -35,7 +35,7 @@ type Props = {
 }
 
 /** Past this many characters the evidence is worth a clamp + expand; shorter text never needs one. */
-const CLAMP_MIN_CHARS = 220
+const CLAMP_MIN_CHARS = 120
 
 function ClampedText({ text }: { text: string }) {
   const [expanded, { toggle }] = useDisclosure(false)
