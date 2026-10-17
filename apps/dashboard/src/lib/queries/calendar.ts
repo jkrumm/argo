@@ -63,7 +63,7 @@ function localMidnightISO(dayKey: string): string {
   return new Date(`${dayKey}T00:00:00`).toISOString()
 }
 
-/** Days each calendar query covers from its `from`; the Google/M365 caps are 60 on the M365 side. */
+/** Days each calendar query covers from its `from`; 60 is the M365 route's cap. */
 export const CALENDAR_DAYS_RANGE = 60
 
 export const calendarQueries = {
