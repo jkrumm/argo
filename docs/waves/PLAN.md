@@ -589,8 +589,11 @@ assets. **Never commit a Keel image here.**
    deployed page, and record the before/after in the wave's Left behind.
 
 **Privacy (binding):** argo is a public repo, and its screenshots show the owner's real health, calendar
-and agent data. Boards, shots and crops live only in the gitignored `.design-shots/`. Commit concept docs,
-verdict text and numbers, never images.
+and agent data. Boards, shots and crops live only in the gitignored `.design-shots/`. Committed docs
+(concepts, verdicts, Left behind) carry no real personal values: no body weight, health readings, spend,
+lift numbers, counts from live snapshots, names, titles or message text, only `{placeholders}`. Real
+values live only in the gitignored `.design-shots/`. Commit concept docs and verdict text with
+placeholders, never images or real values.
 
 **Gate (every wave):** `make check` green; every merged diff independently reviewed (two rounds, then scope
 frozen and the lead reads the last fix diff); the rounds' verdicts in `docs/design/<page>.md`; the page
@@ -662,9 +665,9 @@ the next wave.
       - no `lastSyncedAt` on `/reading` (that cell was dropped);
       - the merged inbox `apps/dashboard/src/lib/decisions.ts` (Waves 20–21);
       - `features/calendar/derive.ts` (Wave 21).
-    - Privacy: reviewers repeatedly flagged that the concept docs commit real numbers (body weight,
-      spend, lift e1RMs). Part 2's rule allows numbers and was kept; names, titles and message text
-      were kept out. The owner may want to tighten the rule.
+    - Privacy: reviewers repeatedly flagged that the concept docs committed real values (body weight,
+      spend, lift e1RMs). Part 2's rule is now tightened: committed docs carry `{placeholders}` only, and
+      the concept docs were scrubbed to match.
 
 ## Wave 19 — Garmin Health, Agents and Warden, in parallel <!-- status: active -->
 
