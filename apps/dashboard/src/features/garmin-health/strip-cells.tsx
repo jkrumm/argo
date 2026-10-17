@@ -18,6 +18,7 @@ import {
   RECOVERY_PUSH_FROM,
   RECOVERY_REST_BELOW,
   contributorItems,
+  firstToLast,
   fmtNum,
   mean,
   signed,
@@ -27,6 +28,8 @@ import type { SummaryParams } from './types'
 import { applyVisibilityFilter } from './visibility'
 
 const FITNESS_DAYS = 14
+/** Sparkline length for VO2max: the last N readings of the full history. */
+const VO2_SPAN_POINTS = 90
 
 /** Thin one-per-row meters: the label and its points sit under the track, the number leads. */
 function ContributorRows({
@@ -170,7 +173,7 @@ function LoadCell({ params }: { params: SummaryParams }) {
           { from: ACWR_OPTIMAL_TO, to: ACWR_CAUTION_TO, label: 'Caution', color: VX.warn },
           { from: ACWR_CAUTION_TO, to: ACWR_METER_MAX, label: 'Danger', color: VX.bad },
         ]}
-        startCaption={`optimal ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO}`}
+        startCaption={`under < ${ACWR_FLOOR} · optimal ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO} · caution > ${ACWR_OPTIMAL_TO}`}
         endCaption={ACWR_METER_MAX.toFixed(1)}
         loading={data === undefined}
         emptyText="No training load"
@@ -189,6 +192,10 @@ type SignalSpec = {
   /** Which way is good: RHR falling is good, HRV and VO2max rising are. */
   polarity: 'up-good' | 'up-bad'
   values: readonly (number | null)[]
+  /** The span the sparkline and delta cover, e.g. "14 d". */
+  period: string
+  /** The hero already shows the reading, so the value column names the span instead. */
+  hideValue?: boolean
   /** The API's 14 d delta when it has one, else last minus first of the same window. */
   delta: number | null
 }
@@ -199,15 +206,21 @@ function SignalLine({ spec }: { spec: SignalSpec }) {
   return (
     <SignalRow
       label={spec.label}
-      value={current === null ? '—' : `${current.toFixed(spec.digits)} ${spec.unit}`}
+      value={
+        spec.hideValue === true
+          ? spec.period
+          : current === null
+            ? '—'
+            : `${current.toFixed(spec.digits)} ${spec.unit}`
+      }
       sparkline={
         present.length > 1 && new Set(present).size > 1 ? (
           <Sparkline
             data={present}
-            height={36}
+            height={28}
             color={VX.line}
             emphasizeLast
-            ariaLabel={`${spec.label} over the last ${FITNESS_DAYS} days`}
+            ariaLabel={`${spec.label} over ${spec.period}, now ${current === null ? 'unknown' : current.toFixed(spec.digits)} ${spec.unit}`}
           />
         ) : (
           <Text size="xs" c="dimmed">
@@ -236,6 +249,16 @@ function SignalLine({ spec }: { spec: SignalSpec }) {
 function FitnessCell({ params }: { params: SummaryParams }) {
   const direction = useQuery(fitnessDirectionQueries.summary(params))
   const series = useQuery(dailyMetricsQueries.series(params))
+  // VO2max moves over months, so its trace comes from the full history, not the page window.
+  const history = useQuery(dailyMetricsQueries.series({ window: 'all' }))
+  const vo2 = useMemo(
+    () =>
+      applyVisibilityFilter(history.data?.points ?? [], (p) => p.date, { hideToday: false })
+        .map((p) => p.vo2Max)
+        .filter((v): v is number => v !== null)
+        .slice(-VO2_SPAN_POINTS),
+    [history.data],
+  )
 
   const rows = useMemo(() => {
     // Sleep-derived readings lock in overnight, so today is kept (as the regression's window does).
@@ -265,6 +288,7 @@ function FitnessCell({ params }: { params: SummaryParams }) {
           deltaUnit: 'bpm',
           digits: 0,
           polarity: 'up-bad',
+          period: `${FITNESS_DAYS} d`,
           values: rows.rhr,
           delta: d?.rhrDelta ?? null,
         }}
@@ -276,8 +300,22 @@ function FitnessCell({ params }: { params: SummaryParams }) {
           deltaUnit: 'ms',
           digits: 0,
           polarity: 'up-good',
+          period: `${FITNESS_DAYS} d`,
           values: rows.hrv,
           delta: d?.hrvDelta ?? null,
+        }}
+      />
+      <SignalLine
+        spec={{
+          label: 'VO2max',
+          unit: 'ml/kg/min',
+          deltaUnit: '',
+          digits: 1,
+          polarity: 'up-good',
+          period: `${vo2.length} readings`,
+          hideValue: true,
+          values: vo2,
+          delta: firstToLast(vo2),
         }}
       />
     </StripCell>
