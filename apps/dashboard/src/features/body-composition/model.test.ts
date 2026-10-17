@@ -115,12 +115,12 @@ test('deltaFromMean', () => {
 describe('summarySentence', () => {
   test('full sentence repeats the cell figures', () => {
     expect(summarySentence({ current: 80, kgPerWeek: -0.5, goal: 75, ageDays: 3 })).toBe(
-      '80.0 kg, −0.50 kg/wk, 5.0 kg to the 75.0 kg goal; last weigh-in 3 days ago.',
+      '80.0 kg, −0.50 kg/wk over 28 d, 5.0 kg to the 75.0 kg goal; last weigh-in 3 days ago.',
     )
   })
   test('no goal drops the distance clause', () => {
     expect(summarySentence({ current: 80, kgPerWeek: 0.5, goal: null, ageDays: 0 })).toBe(
-      '80.0 kg, +0.50 kg/wk; last weigh-in today.',
+      '80.0 kg, +0.50 kg/wk over 28 d; last weigh-in today.',
     )
   })
   test('unknown rate is a dash, never 0', () => {

@@ -143,7 +143,7 @@ export function RateCell({
           },
           { from: RATE_NEUTRAL_KG_WK, to: RATE_SCALE_KG_WK, label: 'Bulk' },
         ]}
-        startCaption={rate === null ? null : `${summary.intensity} \u00b7 ${signed(rate, 2)} kg/wk`}
+        startCaption={null}
         endCaption={band === null ? null : `tier ${band}`}
         emptyText="No rate yet"
       />
