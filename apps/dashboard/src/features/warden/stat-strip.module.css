@@ -1,0 +1,43 @@
+/* StatStrip — one joined card of cells split by hairlines, with an optional footer row. The grid
+ * wraps by track width (no viewport queries): six across at desktop, one column at 390. */
+
+.strip {
+  container-type: inline-size;
+}
+
+/* One column when the strip itself is narrow (390), regardless of the viewport. */
+@container (max-width: 479.9px) {
+  .cells {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cells {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11.5rem), 1fr));
+  gap: 1px;
+  background: var(--vx-surface-hairline);
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vx-space-stack-xs, 0.25rem);
+  min-width: 0;
+  padding: var(--vx-space-stack-md, 0.75rem);
+  background: var(--vx-surface-panel);
+}
+
+.footer {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: 1px;
+  border-top: 1px solid var(--vx-surface-hairline);
+  background: var(--vx-surface-hairline);
+}
+
+.footerCell {
+  min-width: 0;
+  padding: var(--vx-space-stack-md, 0.75rem);
+  background: var(--vx-surface-panel);
+}

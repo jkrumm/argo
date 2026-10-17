@@ -1,0 +1,21 @@
+/* Board — columns share the row; an empty column shrinks to its header so the loaded ones get the width. */
+
+.columns {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--vx-space-stack-sm, 0.5rem);
+}
+
+.column {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.empty {
+  flex: 0 0 9rem;
+}
+
+.text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

@@ -1,15 +1,23 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Stack } from '@mantine/core'
+import { Stack, Text } from '@mantine/core'
 import { PageBar } from 'basalt-ui'
 import { wardenQueries } from '../lib/queries/warden'
-import { deriveAwaitingOwner, deriveWardenPage } from '../features/warden/model'
+import { deriveAwaitingOwner } from '../features/warden/model'
+import {
+  deriveBoardColumns,
+  derivePollers,
+  deriveStrip,
+  deriveSummary,
+  needsCards,
+  oldestAgeDays,
+} from '../features/warden/page-model'
 import { StaleBanner } from '../features/warden/stale-banner'
-import { FunnelStats } from '../features/warden/funnel-stats'
-import { AwaitingOwnerSection } from '../features/warden/awaiting-owner-section'
-import { BoardSections } from '../features/warden/board-section'
-import { GithubIssuesSection } from '../features/warden/issues-section'
+import { HealthStrip } from '../features/warden/health-strip'
+import { DecisionQueues } from '../features/warden/decision-queues'
+import { Board } from '../features/warden/board'
+import { PollersList } from '../features/warden/pollers-list'
 import { useWardenActions } from '../features/warden/use-warden-actions'
 import { ItemTimeline } from '../features/warden/item-timeline'
 
@@ -19,11 +27,12 @@ export const Route = createFileRoute('/warden')({
 })
 
 /**
- * The Warden control-plane board: the mini's deterministic loop over its own SQLite ledger, as
- * pushed to Argo after every tick. Argo renders what warden pushed — the states, the funnel
- * metrics, the budget and the timelines are all warden's; the page derives only its own feed age
- * (`StaleBanner`) and how to bucket/format that payload (`features/warden/model.ts`). The owner
- * action queue (mutation + pending-state reconciliation) lives in `use-warden-actions.ts`.
+ * The Warden control-plane page: the mini's deterministic loop over its own SQLite ledger, as
+ * pushed to Argo after every tick. Argo renders what warden pushed — states, metrics, budget and
+ * timelines are all warden's; the page only words and groups them (`features/warden/page-model.ts`).
+ * Top to bottom: the summary sentence, the health strip with the budget meters, the decision cards
+ * (needs you, failed), the board of everything still open, the pollers. The owner action queue
+ * (mutation + pending-state reconciliation) lives in `use-warden-actions.ts`.
  */
 function WardenPage() {
   const snapshotQuery = useQuery(wardenQueries.snapshot())
@@ -31,9 +40,22 @@ function WardenPage() {
 
   const snapshot = snapshotQuery.data ?? null
   const raw = snapshot?.raw
-  const { buckets, issueGroups, boardItems } = deriveWardenPage(raw)
   const awaitingOwner = deriveAwaitingOwner(raw?.board)
-  const { pending, handleAction } = useWardenActions(snapshot?.machine, boardItems)
+  const columns = deriveBoardColumns(raw?.board)
+  const pollers = derivePollers(raw?.metrics, raw?.health)
+  const strip = deriveStrip(raw?.metrics, raw?.health)
+  const { pending, handleAction } = useWardenActions(snapshot?.machine, raw?.board?.items)
+
+  const needs = needsCards(awaitingOwner)
+  const summary = deriveSummary({
+    needsCount: needs.length,
+    oldestAgeDays: oldestAgeDays(needs),
+    receivedAt: snapshot?.receivedAt ?? null,
+    oldestPollerMin: strip.poller.oldestMin,
+    unattendedFixes: strip.unattended.fixes,
+    windowDays: strip.unattended.windowDays,
+    stalePoller: pollers.find((poller) => poller.stale) ?? null,
+  })
 
   return (
     <>
@@ -46,21 +68,17 @@ function WardenPage() {
       />
 
       <Stack gap="md">
-        <AwaitingOwnerSection
+        <StaleBanner snapshot={snapshot} />
+        {snapshot ? <Text size="sm">{summary}</Text> : null}
+        <HealthStrip metrics={raw?.metrics} health={raw?.health} budget={raw?.budget} />
+        <DecisionQueues
           view={awaitingOwner}
           pending={pending}
           onSelectItem={setSelectedEventId}
           onAction={handleAction}
         />
-        <StaleBanner snapshot={snapshot} />
-        <FunnelStats metrics={raw?.metrics} budget={raw?.budget} />
-        <GithubIssuesSection
-          groups={issueGroups}
-          pending={pending}
-          onSelectItem={setSelectedEventId}
-          onAction={handleAction}
-        />
-        <BoardSections buckets={buckets} onSelectItem={setSelectedEventId} />
+        <Board columns={columns} onSelectItem={setSelectedEventId} />
+        <PollersList pollers={pollers} />
       </Stack>
 
       <ItemTimeline
