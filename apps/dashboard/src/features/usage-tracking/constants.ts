@@ -104,15 +104,6 @@ export function fmtMs(n: number | null | undefined): string {
   return `${n.toFixed(0)}ms`
 }
 
-export function relativeTime(iso: string | null | undefined): string {
-  if (iso === null || iso === undefined) return '—'
-  const ms = Date.now() - new Date(iso).getTime()
-  if (ms < 60_000) return 'just now'
-  if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m ago`
-  if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h ago`
-  return `${Math.floor(ms / 86_400_000)}d ago`
-}
-
 // Day buckets arrive as `YYYY-MM-DD` text; a bare date parses as UTC midnight, which labels the
 // bucket a day early west of UTC. Parse as local midnight, once per bucket.
 export function dayToDate(day: string): Date {

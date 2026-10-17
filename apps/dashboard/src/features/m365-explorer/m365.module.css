@@ -296,7 +296,6 @@
   gap: var(--vx-space-stack-sm);
 }
 
-/* High importance: a status dot, never a label. */
 .chipStatic {
   flex: none;
   padding: 0 var(--vx-space-stack-sm);

@@ -1,4 +1,4 @@
-import { Meter, StatGroup } from 'basalt-ui'
+import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { Skeleton, UnstyledButton } from '@mantine/core'
 import type { Coverage } from './model'
@@ -9,11 +9,85 @@ const FILL_STRONG = alpha(VX.muted, 0.95)
 const FILL_MID = alpha(VX.muted, 0.65)
 const FILL_FAINT = alpha(VX.muted, 0.4)
 
+type Chats = { total: number; oneOnOne: number; group: number; meeting: number }
+
+function labeledCell(coverage: Coverage, basis: string, onRetry: () => void): StatStripCell {
+  const { labeled, total, loading, failed, outside } = coverage
+  const pending = loading > 0
+  const atLeast = failed > 0 ? '≥' : ''
+  return {
+    key: 'labeled',
+    caption: 'Labeled',
+    value: pending ? null : String(labeled),
+    unit: pending ? 'of …' : `of ${atLeast}${total} sources`,
+    visual: pending ? (
+      <Skeleton h={22} />
+    ) : (
+      <Meter
+        label="Labeled sources of all chats and channels"
+        max={Math.max(total, 1)}
+        size="row"
+        segments={[
+          { label: 'Labeled', value: Math.min(labeled, total), color: FILL_STRONG },
+          { label: 'Unlabeled', value: Math.max(total - labeled, 0), color: FILL_FAINT },
+        ]}
+      />
+    ),
+    footer: (
+      <>
+        {basis}
+        {outside > 0 ? ` · ${outside} outside this set` : ''}
+        {failed > 0 ? (
+          <>
+            {' · '}
+            {failed === 1 ? '1 team failed' : `${failed} teams failed`}{' '}
+            <UnstyledButton className={classes.retry} onClick={onRetry}>
+              Retry
+            </UnstyledButton>
+          </>
+        ) : null}
+      </>
+    ),
+  }
+}
+
+function chatsCell(chats: Chats): StatStripCell {
+  return {
+    key: 'chats',
+    caption: 'Chats',
+    value: String(chats.total),
+    unit: chats.total === 1 ? 'chat' : 'chats',
+    visual:
+      chats.total === 0 ? undefined : (
+        <Meter
+          label="Chats by kind"
+          max={chats.total}
+          size="row"
+          segments={[
+            { label: '1:1', value: chats.oneOnOne, color: FILL_STRONG },
+            { label: 'Group', value: chats.group, color: FILL_MID },
+            { label: 'Meeting', value: chats.meeting, color: FILL_FAINT },
+          ]}
+        />
+      ),
+  }
+}
+
+function teamsCell(teams: number, channels: number | null): StatStripCell {
+  return {
+    key: 'teams',
+    caption: 'Teams',
+    value: String(teams),
+    unit: teams === 1 ? 'team' : 'teams',
+    footer: channels === null ? '—' : `${channels} ${channels === 1 ? 'channel' : 'channels'}`,
+  }
+}
+
 export type StripProps = {
   coverage: Coverage
   /** The chat list is the newest-N window of a longer list. */
   chatsCapped: boolean
-  chats: { total: number; oneOnOne: number; group: number; meeting: number }
+  chats: Chats
   teams: number
   /** Channels across the teams that loaded; null while any team is not loaded. */
   channels: number | null
@@ -28,78 +102,13 @@ export function ExplorerStrip({
   channels,
   onRetry,
 }: StripProps) {
-  const { labeled, total, loading, failed, outside } = coverage
-  const pending = loading > 0
-  const atLeast = failed > 0 ? '≥' : ''
   const basis = chatsCapped ? `newest ${chats.total} chats + channels` : 'chats + channels'
   return (
     <StatGroup
       variant="strip"
       label="Coverage summary"
       cols={3}
-      cells={[
-        {
-          key: 'labeled',
-          caption: 'Labeled',
-          value: pending ? null : String(labeled),
-          unit: pending ? 'of …' : `of ${atLeast}${total} sources`,
-          visual: pending ? (
-            <Skeleton h={22} />
-          ) : (
-            <Meter
-              label="Labeled sources of all chats and channels"
-              max={Math.max(total, 1)}
-              size="row"
-              segments={[
-                { label: 'Labeled', value: Math.min(labeled, total), color: FILL_STRONG },
-                { label: 'Unlabeled', value: Math.max(total - labeled, 0), color: FILL_FAINT },
-              ]}
-            />
-          ),
-          footer: (
-            <>
-              {basis}
-              {outside > 0 ? ` · ${outside} outside this set` : ''}
-              {failed > 0 ? (
-                <>
-                  {' · '}
-                  {failed === 1 ? '1 team failed' : `${failed} teams failed`}{' '}
-                  <UnstyledButton className={classes.retry} onClick={onRetry}>
-                    Retry
-                  </UnstyledButton>
-                </>
-              ) : null}
-            </>
-          ),
-        },
-        {
-          key: 'chats',
-          caption: 'Chats',
-          value: String(chats.total),
-          unit: chats.total === 1 ? 'chat' : 'chats',
-          visual:
-            chats.total === 0 ? undefined : (
-              <Meter
-                label="Chats by kind"
-                max={chats.total}
-                size="row"
-                segments={[
-                  { label: '1:1', value: chats.oneOnOne, color: FILL_STRONG },
-                  { label: 'Group', value: chats.group, color: FILL_MID },
-                  { label: 'Meeting', value: chats.meeting, color: FILL_FAINT },
-                ]}
-              />
-            ),
-        },
-        {
-          key: 'teams',
-          caption: 'Teams',
-          value: String(teams),
-          unit: teams === 1 ? 'team' : 'teams',
-          footer:
-            channels === null ? '—' : `${channels} ${channels === 1 ? 'channel' : 'channels'}`,
-        },
-      ]}
+      cells={[labeledCell(coverage, basis, onRetry), chatsCell(chats), teamsCell(teams, channels)]}
     />
   )
 }

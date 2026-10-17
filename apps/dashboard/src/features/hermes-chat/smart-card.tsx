@@ -3,15 +3,7 @@ import { Badge, Card, Checkbox, Group, Stack, Text, ThemeIcon } from '@mantine/c
 import { IconAlertTriangle, IconCircleCheck, IconCircleX, IconNote } from '@tabler/icons-react'
 import { settledOnly, type FenceRenderer } from 'basalt-ui/content'
 import { AudioPlayerCard } from './voice/audio-player-card'
-import {
-  AudioCard,
-  InfraCard,
-  NoteCard,
-  TodoCard,
-  parseCard,
-  type AudioCardData,
-  type SmartCardData,
-} from './smart-card-schema'
+import { InfraCard, NoteCard, TodoCard, parseCard, type SmartCardData } from './smart-card-schema'
 
 // Fenced ` ```card ` blocks. The agent emits JSON; this renders it as a Mantine
 // component themed to DESIGN.md. Parsing is total: any malformed / unknown shape
@@ -19,9 +11,6 @@ import {
 // and only ever runs once the fence has fully settled — see `cardFenceRenderer`).
 // Card catalog v1: infra / todo / note / audio.
 // See docs/HERMES-CHAT-V2.md → Rendering, "Cards live in markdown".
-
-export type { AudioCardData, SmartCardData }
-export { AudioCard, parseCard }
 
 const STATUS_META = {
   ok: { color: 'green', Icon: IconCircleCheck, label: 'OK' },
