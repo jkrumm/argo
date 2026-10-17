@@ -218,15 +218,18 @@ const dayYearFormat = new Intl.DateTimeFormat(APP_LOCALE, {
   year: 'numeric',
 })
 
+/** A date never wraps mid-value at 390: its spaces become no-break spaces. */
+const unbreakable = (text: string) => text.replaceAll(' ', '\u00a0')
+
 /** `HH:mm` for today, `D Mon` for anything older. */
 export function listTime(ms: number, now: number): string {
-  return ms >= startOfDay(now) ? timeFormat.format(ms) : dayFormat.format(ms)
+  return ms >= startOfDay(now) ? timeFormat.format(ms) : unbreakable(dayFormat.format(ms))
 }
 
 /** A start date: `D Mon`, with the year once it is not this year. */
 export function startedDate(ms: number, now: number): string {
   const sameYear = new Date(ms).getFullYear() === new Date(now).getFullYear()
-  return (sameYear ? dayFormat : dayYearFormat).format(ms)
+  return unbreakable((sameYear ? dayFormat : dayYearFormat).format(ms))
 }
 
 /** Wide: `Started {date} · last reply {time}` (the type is the chip beside the title). Compact, no chip: `last reply {time} · {type}`. */
