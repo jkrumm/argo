@@ -21,17 +21,36 @@ import {
   ShortcutsHelp,
   toggleSidebar,
 } from 'basalt-ui/commands'
-import { SkinfoldLogForm } from '../features/body-composition/components/skinfold-log-modal'
-import { WeightLogForm } from '../features/body-composition/components/weight-log-modal'
+import { lazy, Suspense } from 'react'
+
+// Lazy: the log forms pull the query layer (and `window`) in, which this eagerly-imported registry must not.
+const WeightLogForm = lazy(() =>
+  import('../features/body-composition/components/weight-log-modal').then((m) => ({
+    default: m.WeightLogForm,
+  })),
+)
+const SkinfoldLogForm = lazy(() =>
+  import('../features/body-composition/components/skinfold-log-modal').then((m) => ({
+    default: m.SkinfoldLogForm,
+  })),
+)
 
 export const OVERLAYS = defineOverlays({
   'body-comp:log-weight': {
     title: 'Log weight',
-    render: (p: { lastWeight: number | null }) => <WeightLogForm lastWeight={p.lastWeight} />,
+    render: (p: { lastWeight: number | null }) => (
+      <Suspense fallback={null}>
+        <WeightLogForm lastWeight={p.lastWeight} />
+      </Suspense>
+    ),
   },
   'body-comp:log-skinfold': {
     title: 'Log skinfold',
-    render: (_p: Record<string, never>) => <SkinfoldLogForm />,
+    render: (_p: Record<string, never>) => (
+      <Suspense fallback={null}>
+        <SkinfoldLogForm />
+      </Suspense>
+    ),
   },
   'help:shortcuts': {
     title: 'Keyboard shortcuts',
