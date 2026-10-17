@@ -1,8 +1,8 @@
-import { Box, Code, Stack, Text } from '@mantine/core'
+import { Box, Stack, Text, UnstyledButton } from '@mantine/core'
 import { useClipboard } from '@mantine/hooks'
 import { Section } from 'basalt-ui'
 import { IconCheck, IconCopy } from '@tabler/icons-react'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { DecisionCard } from '../../components/upstream/decision-card'
 import type { HumanQueueItem } from '../../lib/queries/agents'
 import { useNow } from '../../lib/use-now'
@@ -20,23 +20,29 @@ type Props = {
 /** Mono inset: the command or blocker, clamped to three lines with a toggle past that. */
 function Inset({ text }: { text: string }) {
   const [open, setOpen] = useState(false)
+  const bodyId = useId()
   const long = text.split('\n').length > COLLAPSED_LINES || text.length > 240
   return (
     <Stack gap={4}>
-      <Code block className={open || !long ? classes.code : `${classes.code} ${classes.clamped}`}>
+      <Text
+        id={bodyId}
+        ff="monospace"
+        size="sm"
+        className={open || !long ? classes.code : `${classes.code} ${classes.clamped}`}
+      >
         {text}
-      </Code>
+      </Text>
       {long ? (
-        <Text
-          component="button"
-          type="button"
-          size="xs"
-          c="dimmed"
+        <UnstyledButton
           className={classes.toggle}
           onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-controls={bodyId}
         >
-          {open ? 'Show less' : 'Show all'}
-        </Text>
+          <Text size="xs" c="dimmed" span>
+            {open ? 'Show less' : 'Show all'}
+          </Text>
+        </UnstyledButton>
       ) : null}
     </Stack>
   )
@@ -52,7 +58,7 @@ function Card({ card }: { card: NeedsYouCard }) {
       {...(card.inset !== null && { evidence: <Inset text={card.inset} /> })}
       {...(card.copy !== null && {
         primary: {
-          label: clipboard.copied ? 'Copied' : card.copy.label,
+          label: clipboard.error ? 'Copy failed' : clipboard.copied ? 'Copied' : card.copy.label,
           icon: clipboard.copied ? <IconCheck size={14} /> : <IconCopy size={14} />,
           onClick: () => clipboard.copy(card.copy?.value ?? ''),
         },
