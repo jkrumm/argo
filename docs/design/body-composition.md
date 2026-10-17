@@ -75,3 +75,34 @@ Braces mark placeholders for the format.
 5. Weight and skinfold entry are modals; no form card sits above a chart.
 6. A weigh-in older than 14 days is visibly stale in the header qualifier.
 7. At 390 nothing truncates and the strip cells stack.
+
+## Wave 21 rounds
+
+Shots of the live page (GET-only production proxy) plus a local overlay that injects a goal and four caliper sessions, because production has neither (the goal meter, skinfold cell, skinfold chart and history table are otherwise unrendered). Dirs are gitignored: `.design-shots/w21-body-composition-r{N}` and `-r{N}-mock`. Every round scored by a fresh `basalt-design-reviewer`.
+
+| Round | Change | Reviewer verdict |
+|-|-|-|
+| r0 | Baseline, unchanged page | not scored (baseline above) |
+| r1 | Summary sentence, 3-cell strip (weight + meter, rate band meter, skinfold rows), 280 px chart with goal line, log forms moved to `PageBar` modals, empty row | page pass; strip-weight, strip-rate, empty-row, weight chart fail |
+| r2 | Entry-count stats replaced by day-based stats from one shared derivation; intensity pill neutral; mono → sans for footers/chart facts; x axis drawn to today when stale; empty row on the card surface; y unit; anchors for charts and history | page pass; strips and charts fail on basalt-side items and missing anchors |
+| r3 | Goal meter ends at the goal tick; start caption names itself; deltas name the prior session date; goal line solid; rate qualifier states the last entry date; all components anchored | see the last verdict below |
+
+Decisions that deviate from the concept:
+
+- **Entries vs days.** The summary endpoint's `ma7`, `ma30`, `weeklyDelta`, `monthlyDelta` are over the last 7/30 entries, not days; with a sparse log they contradicted each other and the entry count. The page derives 7 d / 30 d means and changes from `/weight-log/series` (`model.ts`: `meanOverDays`, `changeOverDays`) and states a period only when the window covers it (`—` otherwise). `current` and `kgPerWeek` still come from the summary.
+- **Intensity pill is neutral gray**, not `weightPhaseColor`: with a goal set the gold "bulk" tone contradicted a red delta moving away from it. The tier's kg/wk range sits in the meter's end caption instead.
+- **"Set a goal"** is a one-field popover (`goal-popover.tsx`) rather than a third overlay, because the owned `OVERLAYS` entries are the two log modals.
+- **Skinfold chart** needs ≥2 sessions; with 0 or 1 a single empty row carries the Log action.
+
+## Wave 21 friction
+
+| Export | Needed prop | argo case | What argo does instead |
+|-|-|-|-|
+| `StatGroup` | `variant="strip"` with multi-row cells | three joined cells, one with sparkline rows | local `body-strip.tsx` + CSS module |
+| `Meter` | `start`/`goal` span with the goal tick at the track end and a `neutral` zone caption | progress from the window's first weight to the goal; signed rate band | fill = kg moved, `max` = span, `target` = span; zone label carries the neutral width |
+| `Meter` | proportional-sans captions, marker on the radius scale | numbers in captions render mono; marker radius is off-scale | none (basalt-side) |
+| `Sparkline` | `refLines` / mean tick | per-site sparkline should encode a target or mean | plain sparkline with an end dot |
+| `DeltaBadge` | proportional-sans value | deltas read mono beside sans hero | none (basalt-side) |
+| `EmptyState` | `compact` row variant with inline action | skinfold empty state is one line plus a button | local `EmptyRow` inside a `Paper` |
+| `RefLine` | `label` rendered on the line | goal line wants an in-chart "goal {kg}" label | `legend.label` only |
+| `Lines` | day-granular x tick format | x ticks show month names only on a 90 d window | default |

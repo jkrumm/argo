@@ -21,8 +21,18 @@ import {
   ShortcutsHelp,
   toggleSidebar,
 } from 'basalt-ui/commands'
+import { SkinfoldLogForm } from '../features/body-composition/components/skinfold-log-modal'
+import { WeightLogForm } from '../features/body-composition/components/weight-log-modal'
 
 export const OVERLAYS = defineOverlays({
+  'body-comp:log-weight': {
+    title: 'Log weight',
+    render: (p: { lastWeight: number | null }) => <WeightLogForm lastWeight={p.lastWeight} />,
+  },
+  'body-comp:log-skinfold': {
+    title: 'Log skinfold',
+    render: (_p: Record<string, never>) => <SkinfoldLogForm />,
+  },
   'help:shortcuts': {
     title: 'Keyboard shortcuts',
     render: () => <ShortcutsHelp title="Keyboard shortcuts" />,

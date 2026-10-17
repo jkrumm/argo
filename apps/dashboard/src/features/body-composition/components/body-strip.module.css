@@ -1,0 +1,167 @@
+/*
+ * Strip — one joined surface of cells divided by 1px hairlines (local prototype of basalt-ui's
+ * `StatGroup variant="strip"`, docs/design/UPSTREAM.md). The frame is the elevation; cells are flat
+ * panels so the seam is the gap showing the divider colour. Any cell count lays out in one row.
+ */
+
+.frame {
+  container-type: inline-size;
+}
+
+.strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  overflow: hidden;
+  border-radius: var(--vx-radius-card);
+  background: var(--vx-divider);
+  box-shadow: var(--vx-shadow-card);
+}
+
+@container (min-width: 800px) {
+  .strip {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-template-columns: none;
+  }
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vx-space-stack-sm);
+  min-width: 0;
+  padding: var(--vx-space-stack-md) var(--vx-space-stack-lg);
+  font-size: var(--vx-text-sm);
+  background: var(--vx-surface-panel);
+}
+
+.caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--vx-space-stack-sm);
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vx-muted);
+}
+
+.qualifier {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--vx-space-stack-sm);
+  min-width: 0;
+}
+
+.value {
+  /* Hero figures are proportional; tabular numerals stay in columns and axes. */
+  font-family: var(--basalt-font-sans);
+  font-variant-numeric: proportional-nums;
+  font-size: var(--vx-text-kpi);
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--vx-ink);
+}
+
+.unit {
+  font-family: var(--basalt-font-sans);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--vx-space-stack-md);
+  row-gap: var(--vx-space-stack-sm);
+  margin-top: auto;
+  padding-top: var(--vx-space-stack-xs);
+  font-family: var(--basalt-font-sans);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+}
+
+/* One caliper site: label | sparkline | value | delta. */
+.siteRow {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(1.5rem, 1fr) auto auto;
+  align-items: center;
+  column-gap: var(--vx-space-stack-md);
+  min-width: 0;
+  min-height: 2.5rem;
+}
+
+.rowLabel {
+  color: var(--vx-muted);
+}
+
+.rowSpark {
+  min-width: 0;
+}
+
+.rowValue {
+  font-variant-numeric: proportional-nums;
+  font-weight: 600;
+  color: var(--vx-ink);
+  white-space: nowrap;
+  text-align: end;
+}
+
+.rowDelta {
+  white-space: nowrap;
+  text-align: end;
+}
+
+/* The one-line empty row that replaces an empty chart or cell. */
+.emptyRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vx-space-stack-md);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+}
+
+/* Chart facts: the headline figure, its unit, then comparison, mean and freshness on one wrapping line. */
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-start;
+  column-gap: var(--vx-space-stack-md);
+  font-family: var(--basalt-font-sans);
+  font-size: var(--vx-text-sm);
+}
+
+.factValue {
+  font-family: var(--basalt-font-sans);
+  font-size: var(--vx-text-lg);
+  font-weight: 600;
+  color: var(--vx-ink);
+}
+
+.factContext {
+  color: var(--vx-muted);
+  white-space: nowrap;
+}
+
+.stale {
+  color: var(--vx-status-warn);
+  white-space: nowrap;
+}
+
+.summary {
+  margin: 0;
+  font-size: var(--vx-text-md);
+  color: var(--vx-ink);
+}

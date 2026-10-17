@@ -1,14 +1,18 @@
 import { useMemo } from 'react'
-import { Text } from '@mantine/core'
+import { Box } from '@mantine/core'
+import { DeltaBadge } from 'basalt-ui'
+import { format } from 'date-fns'
 import { useQuery } from '@tanstack/react-query'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { SERIES } from '../../../lib/series'
 import { skinfoldLogQueries, type SkinfoldWindowParams } from '../../../lib/queries/skinfold-log'
+import stripClasses from '../components/body-strip.module.css'
+import { windowLabel } from '../model'
 import { METRIC_TOOLTIPS, SKINFOLD_SITES } from '../constants'
 import { markerRadiusFor, toSkinfoldChartPoints, type SkinfoldChartPoint } from './series-data'
 
-const CHART_HEIGHT = 260
+const CHART_HEIGHT = 220
 
 const SITE_COLORS = {
   abdominal: SERIES.skinfoldAbdominal,
@@ -36,6 +40,8 @@ export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams
   const apiPoints = query.data?.points
   const chartData = useMemo(() => toSkinfoldChartPoints(apiPoints ?? []), [apiPoints])
   const latest = chartData[chartData.length - 1] ?? null
+  const prior = chartData[chartData.length - 2] ?? null
+  const priorDelta = latest !== null && prior !== null ? latest.average - prior.average : null
   const dotR = markerRadiusFor(chartData.length)
 
   const series: ChartSeries<SkinfoldChartPoint>[] = [
@@ -43,11 +49,10 @@ export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams
       key: 'average',
       label: 'Average',
       color: VX.line,
-      strokeWidth: 3,
-      area: true,
+      strokeWidth: 1.5,
+      dash: 'dashed',
       getValue: (d) => d.average,
       formatValue: fmtMm,
-      getMarker: () => ({ color: VX.line, r: dotR }),
     },
     ...SKINFOLD_SITES.map((site): ChartSeries<SkinfoldChartPoint> => ({
       key: site.key,
@@ -61,39 +66,41 @@ export default function SkinfoldChart({ params }: { params: SkinfoldWindowParams
     })),
   ]
 
-  const empty =
-    chartData.length === 0
-      ? 'No readings yet — log your first caliper session to start the trend.'
-      : undefined
-
   return (
-    <ChartCard
-      title="Skinfold / Belly Fat"
-      subtitle="Am I trending leaner?"
-      info={METRIC_TOOLTIPS.skinfoldChart}
-      actions={
-        latest ? (
-          <Text span size="xs">
-            <Text span size="md" fw={600}>
-              {latest.average.toFixed(1)} mm
-            </Text>
-            <Text span ml={4} opacity={0.5}>
-              avg
-            </Text>
-          </Text>
-        ) : null
-      }
-      state={{ pending: query.isPending, error: query.isError ? query.error : undefined, empty }}
-      placeholderHeight={CHART_HEIGHT}
-    >
-      <Lines
-        ariaLabel="Skinfold caliper readings per site and their average, over time"
-        data={chartData}
-        height={CHART_HEIGHT}
-        x={(d) => d.date}
-        series={series}
-        y={{ domain: skinfoldDomain, ticks: 5, nice: true }}
-      />
-    </ChartCard>
+    <Box data-shot="skinfold-chart">
+      <ChartCard
+        title={`Skinfold, ${windowLabel(params)}`}
+        info={METRIC_TOOLTIPS.skinfoldChart}
+        actions={
+          latest ? (
+            <Box className={stripClasses.facts}>
+              <span className={stripClasses.factValue}>{latest.average.toFixed(1)} mm</span>
+              <span className={stripClasses.factContext}>session average</span>
+              <span className={stripClasses.factContext}>{chartData.length} sessions</span>
+              {priorDelta !== null && prior !== null && (
+                <DeltaBadge
+                  value={priorDelta}
+                  polarity="up-bad"
+                  format={(v) => `${Math.abs(v).toFixed(1)} mm`}
+                  period={`vs ${format(prior.date, 'd MMM')}`}
+                />
+              )}
+            </Box>
+          ) : null
+        }
+        state={{ pending: query.isPending, error: query.isError ? query.error : undefined }}
+        placeholderHeight={CHART_HEIGHT}
+      >
+        <Lines
+          ariaLabel="Skinfold caliper readings per site and their average, over time"
+          data={chartData}
+          height={CHART_HEIGHT}
+          x={(d) => d.date}
+          tooltip={{ formatHeader: (x) => format(x, 'EEE d MMM yyyy') }}
+          series={series}
+          y={{ domain: skinfoldDomain, ticks: 5, nice: true, format: (v) => `${v} mm` }}
+        />
+      </ChartCard>
+    </Box>
   )
 }

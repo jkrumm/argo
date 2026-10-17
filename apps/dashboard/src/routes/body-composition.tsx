@@ -1,13 +1,16 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Suspense } from 'react'
-import { Stack } from '@mantine/core'
-import { PageBar, Section } from 'basalt-ui'
+import { useQuery } from '@tanstack/react-query'
+import { IconPlus } from '@tabler/icons-react'
+import { PageBar } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
+import { overlays } from 'basalt-ui/commands'
 import { FilterSet, RangeFilter } from 'basalt-ui/controls'
 import { DateRangePicker } from 'basalt-ui/controls-dates'
 import { bodyCompStore, toApiWindow } from '../lib/window-stores'
-import { SkinfoldPanel, WeightPanel } from '../features/body-composition'
+import { BodyCompositionPage as BodyComposition } from '../features/body-composition'
 import { skinfoldLogQueries } from '../lib/queries/skinfold-log'
+import { userProfileQueries } from '../lib/queries/user-profile'
 import { weightLogQueries } from '../lib/queries/weight-log'
 
 // ── Route definition ───────────────────────────────────────────────────────
@@ -28,14 +31,15 @@ export const Route = createFileRoute('/body-composition')({
       context.queryClient.ensureQueryData(weightLogQueries.series(params)),
       context.queryClient.ensureQueryData(skinfoldLogQueries.summary(params)),
       context.queryClient.ensureQueryData(skinfoldLogQueries.series(params)),
+      context.queryClient.ensureQueryData(userProfileQueries.detail()),
     ])
   },
-  component: BodyCompositionPage,
+  component: BodyCompositionRoute,
 })
 
 // ── Page component ─────────────────────────────────────────────────────────
 
-function BodyCompositionPage() {
+function BodyCompositionRoute() {
   const search = bodyCompStore.useValues()
   const params = toApiWindow(
     bodyCompStore.field.window.toWindow({
@@ -46,9 +50,26 @@ function BodyCompositionPage() {
     '90d',
   )
 
+  const { data: summary } = useQuery(weightLogQueries.summary(params))
+  const lastWeight = summary?.current ?? null
+
   return (
     <>
       <PageBar
+        actions={[
+          {
+            key: 'log-weight',
+            label: 'Log weight',
+            icon: <IconPlus size={14} />,
+            primary: true,
+            onClick: () => overlays.open('body-comp:log-weight', { lastWeight }),
+          },
+          {
+            key: 'log-skinfold',
+            label: 'Log skinfold',
+            onClick: () => overlays.open('body-comp:log-skinfold', {}),
+          },
+        ]}
         filters={
           <FilterSet>
             <RangeFilter field={bodyCompStore.field.window} customPicker={DateRangePicker} />
@@ -56,19 +77,9 @@ function BodyCompositionPage() {
         }
       />
 
-      <Stack gap="md">
-        <Section title="Body Weight" subtitle="Am I trending toward my goal?">
-          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={420} />}>
-            <WeightPanel params={params} />
-          </Suspense>
-        </Section>
-
-        <Section title="Skinfold / Belly Fat" subtitle="Am I trending leaner?">
-          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={420} />}>
-            <SkinfoldPanel params={params} />
-          </Suspense>
-        </Section>
-      </Stack>
+      <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
+        <BodyComposition params={params} />
+      </Suspense>
     </>
   )
 }
