@@ -5,20 +5,30 @@ export type RelPoint = {
   pct: Record<string, number | null>
 }
 
-/** Symmetric ± domain, floored at ±10% so a flat window doesn't amplify to a razor-thin band —
- * `nice: true` on the axis rounds the resulting bound. */
+const PAD = 1.15
+const MIN_SPAN = 10
+
+/** Fits the visible data, 0 always inside, padded 15% — symmetric only when the data is. A span
+ * under 10 points widens upward so a flat window doesn't amplify to a razor-thin band; `nice: true`
+ * on the axis rounds the resulting bounds. */
 export function pctDomain(
   data: readonly RelPoint[],
   visible: readonly ChartSeries<RelPoint>[],
 ): [number, number] {
-  const vals: number[] = []
+  let min = 0
+  let max = 0
+  let seen = false
   for (const d of data) {
     for (const s of visible) {
       const v = s.getValue(d)
-      if (v !== null) vals.push(Math.abs(v))
+      if (v === null) continue
+      seen = true
+      min = Math.min(min, v)
+      max = Math.max(max, v)
     }
   }
-  if (!vals.length) return [-20, 20]
-  const maxAbs = Math.max(10, Math.max(...vals) * 1.15)
-  return [-maxAbs, maxAbs]
+  if (!seen) return [-20, 20]
+  const lo = min * PAD
+  const hi = Math.max(max * PAD, lo + MIN_SPAN)
+  return [lo, hi]
 }

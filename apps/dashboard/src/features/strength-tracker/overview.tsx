@@ -11,7 +11,6 @@ import { useNow } from '../../lib/use-now'
 import { DecisionCard } from '../../components/upstream/decision-card'
 import { strengthQueries, type StrengthQueryParams } from '../../lib/queries/strength'
 import { workoutsQueries } from '../../lib/queries/workouts'
-import { EXERCISE_COLORS, type ExerciseKey } from './constants'
 import { exerciseLabel } from './formulas'
 import {
   ACWR_CAUTION_TO,
@@ -233,7 +232,6 @@ function liftCell({
   const sparkFrom = plotted[0]?.date ?? ''
   const sparkTo = plotted.at(-1)?.date ?? ''
   const sessions = pr?.sessionCountWindow ?? sessionCount(points)
-  const color = EXERCISE_COLORS[id as ExerciseKey]
   return {
     key: id,
     caption: exerciseLabel(id),
@@ -256,7 +254,9 @@ function liftCell({
           ariaLabel={`${exerciseLabel(id)} e1RM, last ${spark.length} sessions`}
           data={spark}
           height={28}
-          color={color ?? MUTED_FILL}
+          color={VX.line}
+          format={(v) => `${v.toFixed(1)} kg`}
+          labels={plotted.map((p) => shortDate(p.date))}
           {...(pr?.bestE1RM != null && { reference: pr.bestE1RM })}
           emphasizeLast
         />
