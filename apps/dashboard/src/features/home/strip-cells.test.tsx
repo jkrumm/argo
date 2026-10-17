@@ -14,7 +14,9 @@ describe('strip cells with no reading', () => {
       value: '—',
       footer: 'calendar unavailable',
     })
-    expect(meetingCell({ meetings: [] }, null, NOW)).toMatchObject({
+    expect(
+      meetingCell({ meetings: [], loaded: ['work', 'personal'], unavailable: [] }, null, NOW),
+    ).toMatchObject({
       value: '—',
       footer: 'No meetings today.',
     })
@@ -34,5 +36,11 @@ describe('strip cells with no reading', () => {
     })
     expect(cell.caption).toBe('Recovery · Wed 14 Jan')
     expect(cell.footer).toBe('not scored yet today')
+  })
+
+  it('says which calendar is missing when the empty day is partial', () => {
+    expect(
+      meetingCell({ meetings: [], loaded: ['work'], unavailable: ['personal'] }, null, NOW),
+    ).toMatchObject({ footer: 'No Work meetings today · Personal unavailable.' })
   })
 })

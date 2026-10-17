@@ -6,7 +6,7 @@ import {
   acwrReading,
   countdownLabel,
   meetingState,
-  unanswered,
+  noMeetingsLabel,
   activityStream,
   wardenEvents,
   nextMeeting,
@@ -203,7 +203,7 @@ describe('summarySentence', () => {
     const text = summarySentence({
       ...base,
       decisions: [decision(2 * 60 * MIN), decision(30 * MIN)],
-      meetings: { next, current: null, total: 1 },
+      meetings: { next, current: null, total: 1, emptyLabel: 'No meetings today' },
       recovery: 72.4,
     })
     expect(text).toBe('2 items need you, oldest 2h 0m. Next meeting in 25m, recovery today 72/100.')
@@ -214,7 +214,7 @@ describe('summarySentence', () => {
       summarySentence({
         ...base,
         decisions: [],
-        meetings: { next: null, current: null, total: 0 },
+        meetings: { next: null, current: null, total: 0, emptyLabel: 'No meetings today' },
       }),
     ).toBe('Nothing needs you. 2 of 5 agents working. No meetings today.')
   })
@@ -399,35 +399,46 @@ describe('ended meetings', () => {
 
   it('says no more meetings only after the last one ended, and names the one in progress before that', () => {
     const last = morning[0]!
-    expect(summarySentence({ ...base, meetings: { next: null, current: null, total: 1 } })).toBe(
-      'Nothing needs you. No more meetings today.',
-    )
     expect(
-      summarySentence({ ...base, meetings: { next: null, current: morning[1]!, total: 3 } }),
+      summarySentence({
+        ...base,
+        meetings: { next: null, current: null, total: 1, emptyLabel: 'No meetings today' },
+      }),
+    ).toBe('Nothing needs you. No more meetings today.')
+    expect(
+      summarySentence({
+        ...base,
+        meetings: { next: null, current: morning[1]!, total: 3, emptyLabel: 'No meetings today' },
+      }),
     ).toBe('Nothing needs you. In a meeting until 12:30.')
     expect(last.endMs).toBeLessThan(NOW)
   })
 })
 
-const q = (over: Partial<Parameters<typeof unanswered>[0]> = {}) => ({
-  isPending: false,
-  isError: false,
-  isPlaceholderData: false,
-  isFetching: false,
-  data: [] as unknown,
-  ...over,
-})
-
-describe('unanswered', () => {
-  it('reads a pending, placeholder-loading or failed-with-nothing source as unknown', () => {
-    expect(unanswered(q({ isPending: true, data: undefined }))).toBe(true)
-    expect(unanswered(q({ isPlaceholderData: true, isFetching: true }))).toBe(true)
-    expect(unanswered(q({ isError: true, data: undefined }))).toBe(true)
+describe('a partial agenda', () => {
+  it('names the calendar that answered and the one that did not instead of saying free', () => {
+    const agenda = todayAgenda([{ sourceClass: 'work', events: [] }], NOW, ['personal'])
+    expect(noMeetingsLabel(agenda)).toBe('No Work meetings today · Personal unavailable')
+    expect(
+      summarySentence({
+        decisions: [],
+        unavailable: [],
+        fleet: null,
+        recovery: null,
+        now: NOW,
+        meetings: { next: null, current: null, total: 0, emptyLabel: noMeetingsLabel(agenda) },
+      }),
+    ).toBe('Nothing needs you. No Work meetings today · Personal unavailable.')
   })
 
-  it('reads an answered source, even an empty or refetching one, as known', () => {
-    expect(unanswered(q())).toBe(false)
-    expect(unanswered(q({ isFetching: true }))).toBe(false)
-    expect(unanswered(q({ isError: true, data: [] }))).toBe(false)
+  it('is plainly free only when every calendar answered', () => {
+    const agenda = todayAgenda(
+      [
+        { sourceClass: 'work', events: [] },
+        { sourceClass: 'personal', events: [] },
+      ],
+      NOW,
+    )
+    expect(noMeetingsLabel(agenda)).toBe('No meetings today')
   })
 })

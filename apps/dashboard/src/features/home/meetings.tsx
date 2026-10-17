@@ -4,7 +4,14 @@ import { VX } from 'basalt-ui/tokens'
 import { IconVideo } from '@tabler/icons-react'
 import { ScheduleRow } from '../../components/upstream/schedule-row'
 import { isSafeHttpUrl } from '../warden/model'
-import { countdownLabel, meetingState, type Agenda, type Meeting } from './model'
+import {
+  classLabels,
+  countdownLabel,
+  meetingState,
+  noMeetingsLabel,
+  type Agenda,
+  type Meeting,
+} from './model'
 
 /** The next meeting carries its countdown pill only while it is under 12 h away. */
 const PILL_WITHIN_MS = 12 * 60 * 60_000
@@ -65,13 +72,11 @@ type Props = {
   agenda: Agenda | null
   next: Meeting | null
   tasks: { overdue: number; dueSoon: number } | null
-  /** Calendar feeds that have not answered while another did: the agenda is partial. */
-  missing: readonly string[]
   now: number
 }
 
 /** Today as an agenda, ended meetings dimmed: only hours that hold a meeting are drawn, then the tasks line. */
-export function Meetings({ agenda, next, tasks, missing, now }: Props) {
+export function Meetings({ agenda, next, tasks, now }: Props) {
   return (
     <Section
       title="Meetings today"
@@ -96,7 +101,7 @@ export function Meetings({ agenda, next, tasks, missing, now }: Props) {
             ) : null}
             {agenda.meetings.length === 0 ? (
               <Text size="sm" c="dimmed">
-                No meetings today.
+                {noMeetingsLabel(agenda)}.
               </Text>
             ) : (
               <div role="list">
@@ -107,9 +112,9 @@ export function Meetings({ agenda, next, tasks, missing, now }: Props) {
             )}
           </>
         )}
-        {agenda !== null && missing.length > 0 ? (
+        {agenda !== null && agenda.unavailable.length > 0 ? (
           <Text size="xs" c="dimmed">
-            {missing.join(' and ')} calendar unavailable: the agenda is incomplete.
+            {classLabels(agenda.unavailable)} calendar unavailable: the agenda is incomplete.
           </Text>
         ) : null}
         <Text size="sm" c="dimmed">
