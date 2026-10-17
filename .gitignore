@@ -19,3 +19,6 @@ node_modules/
 
 # make evidence: raw screenshots + lighthouse JSON
 /docs/waves/evidence/.raw/
+
+# make design-shot: screenshots of real personal data — never commit
+/.design-shots/
