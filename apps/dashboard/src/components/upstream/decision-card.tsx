@@ -12,7 +12,13 @@ import { useDisclosure } from '@mantine/hooks'
 import { IconChevronDown, IconDots } from '@tabler/icons-react'
 import { useId, type ReactNode } from 'react'
 import classes from './decision-card.module.css'
-import { factsLine, hasActions, isInactive, type DecisionCardAction } from './decision-card-model'
+import {
+  factsLine,
+  hasActions,
+  isRenderable,
+  isInactive,
+  type DecisionCardAction,
+} from './decision-card-model'
 
 export type { DecisionCardAction } from './decision-card-model'
 
@@ -143,7 +149,7 @@ export function DecisionCard({
     <Card>
       <Group align="stretch" gap="md" wrap="wrap">
         <Stack gap="sm" flex="1 1 18rem" miw={0}>
-          {actor !== undefined && (
+          {isRenderable(actor) && (
             <Text size="xs" c="dimmed">
               {actor}
             </Text>
@@ -151,7 +157,7 @@ export function DecisionCard({
           <Text component="h3" m={0} fw={600} size="md" lh={1.35} className={classes.question}>
             {question}
           </Text>
-          {(status !== undefined || line !== '') && (
+          {(isRenderable(status) || line !== '') && (
             <Group gap="xs" wrap="wrap">
               {status}
               {line !== '' && (
@@ -161,16 +167,16 @@ export function DecisionCard({
               )}
             </Group>
           )}
-          {evidence !== undefined && <Box className={classes.inset}>{evidence}</Box>}
+          {isRenderable(evidence) && <Box className={classes.inset}>{evidence}</Box>}
           {disclosure !== undefined && <Disclosure {...disclosure} />}
           <ActionRow question={question} primary={primary} secondary={secondary} menu={menu} />
-          {meta !== undefined && (
+          {isRenderable(meta) && (
             <Text size="xs" c="dimmed">
               {meta}
             </Text>
           )}
         </Stack>
-        {preview !== undefined && <Box className={classes.preview}>{preview}</Box>}
+        {isRenderable(preview) && <Box className={classes.preview}>{preview}</Box>}
       </Group>
     </Card>
   )

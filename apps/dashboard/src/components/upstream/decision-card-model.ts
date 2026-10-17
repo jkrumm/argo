@@ -1,5 +1,10 @@
 import type { ReactNode } from 'react'
 
+/** True when a slot node would render something: not undefined, null, a boolean or an empty string. */
+export function isRenderable(node: ReactNode): boolean {
+  return node !== undefined && node !== null && typeof node !== 'boolean' && node !== ''
+}
+
 export type DecisionCardAction = {
   label: string
   /** Stable React key for menu items; defaults to `label`. */
