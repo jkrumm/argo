@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { Anchor, Button, SimpleGrid, Stack, Text } from '@mantine/core'
+import { Anchor, Box, Button, SimpleGrid, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { EmptyState, Section, useSizeClass } from 'basalt-ui'
 import { CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
@@ -103,28 +103,30 @@ function QueueCard({
   const evidence = split.rest !== null ? <ClampedText text={split.rest} /> : undefined
 
   return (
-    <DecisionCard
-      question={split.question}
-      facts={cardFacts(row)}
-      status={status}
-      actor={kind === 'decision' && split.question !== title ? title : undefined}
-      {...(!narrow && evidence ? { evidence } : {})}
-      {...(narrow && evidence ? { disclosure: { label: 'Full reason', content: evidence } } : {})}
-      primary={plan.primary ? toAction(plan.primary) : undefined}
-      secondary={plan.secondary ? toAction(plan.secondary) : undefined}
-      menu={menu}
-      meta={
-        pending !== undefined || row.prUrl !== null ? (
-          <>
-            {row.prUrl !== null ? <PrLink prUrl={row.prUrl} /> : null}
-            {row.prUrl !== null && pending !== undefined ? ' · ' : null}
-            {pending !== undefined
-              ? `Queued: ${VERB_LABEL[pending.verb]} — warden applies it on its next poll`
-              : null}
-          </>
-        ) : undefined
-      }
-    />
+    <Box data-shot={`${kind}-${row.eventId}`}>
+      <DecisionCard
+        question={split.question}
+        facts={cardFacts(row)}
+        status={status}
+        actor={kind === 'decision' && split.question !== title ? title : undefined}
+        {...(!narrow && evidence ? { evidence } : {})}
+        {...(narrow && evidence ? { disclosure: { label: 'Full reason', content: evidence } } : {})}
+        primary={plan.primary ? toAction(plan.primary) : undefined}
+        secondary={plan.secondary ? toAction(plan.secondary) : undefined}
+        menu={menu}
+        meta={
+          pending !== undefined || row.prUrl !== null ? (
+            <>
+              {row.prUrl !== null ? <PrLink prUrl={row.prUrl} /> : null}
+              {row.prUrl !== null && pending !== undefined ? ' · ' : null}
+              {pending !== undefined
+                ? `Queued: ${VERB_LABEL[pending.verb]} — warden applies it on its next poll`
+                : null}
+            </>
+          ) : undefined
+        }
+      />
+    </Box>
   )
 }
 
