@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 import {
   acwrReading,
+  deloadLine,
+  lastSessionDate,
+  readinessHeader,
+  recentDeload,
   bandOffset,
   dayLabel,
   groupByDay,
@@ -40,9 +44,21 @@ describe('todaysCall', () => {
     const c = todaysCall(push, { verdict: 'deload', activeSignals: ['stall', 'fatigue'] }, NOW)
     expect(c).toMatchObject({ title: 'Today: Deload', overridden: true })
   })
-  test('monitor keeps the verdict and names the signal', () => {
+  test('an active monitor signal caps Push at Normal and names the signal', () => {
     const c = todaysCall(push, { verdict: 'monitor', activeSignals: ['stall'] }, NOW)
-    expect(c).toMatchObject({ verdict: 'Push', monitor: 'stall', overridden: false })
+    expect(c).toMatchObject({
+      verdict: 'Normal',
+      readinessVerdict: 'Push',
+      monitor: 'stall',
+      overridden: false,
+    })
+    const high = { ...push, score: 80, verdict: 'Push' as const }
+    const capped = todaysCall(high, { verdict: 'monitor', activeSignals: ['stall'] }, NOW)
+    expect(capped).toMatchObject({ verdict: 'Normal', readinessVerdict: 'Push' })
+  })
+  test('a stale signal changes nothing', () => {
+    const high = { ...push, score: 80, verdict: 'Push' as const }
+    expect(todaysCall(high, { verdict: 'stale', activeSignals: [] }, NOW).verdict).toBe('Push')
   })
   test('a reading from another day is dated, not called today', () => {
     const old = { ...push, date: '2026-10-10' }
@@ -53,6 +69,68 @@ describe('todaysCall', () => {
     expect(todaysCall(null, undefined, NOW).title).toBe('Today: —')
     const empty = { score: null, verdict: 'Normal' as const, driver: null, date: null }
     expect(todaysCall(empty, undefined, NOW).verdict).toBe('—')
+  })
+})
+
+describe('deload recency', () => {
+  const active = { verdict: 'monitor' as const, activeSignals: ['fatigue'] }
+  test('signals are stale when no session is inside the window', () => {
+    expect(recentDeload(active, '2026-09-02', NOW)).toEqual({ verdict: 'stale', activeSignals: [] })
+    expect(recentDeload(active, '2026-10-10', NOW)).toBe(active)
+    expect(recentDeload(active, null, NOW)?.verdict).toBe('stale')
+    expect(recentDeload(undefined, '2026-10-10', NOW)).toBeUndefined()
+  })
+  test('the line says what the signal is, never "active" for a stale one', () => {
+    expect(deloadLine({ verdict: 'stale', activeSignals: [] }, '2026-09-02')).toBe(
+      `Deload signal: no recent sessions, last was ${shortDate('2026-09-02')}`,
+    )
+    expect(deloadLine(active, '2026-10-10')).toBe('Deload signal: monitor — fatigue')
+    expect(deloadLine({ verdict: 'progress', activeSignals: [] }, null)).toBe(
+      'Deload signal: none active',
+    )
+  })
+  test('last session date is the newest across lifts', () => {
+    expect(
+      lastSessionDate([
+        { exercise_id: 'a', points: [pt('2026-10-01', 100)] },
+        { exercise_id: 'b', points: [pt('2026-10-12', 90), pt('2026-10-14', null)] },
+      ]),
+    ).toBe('2026-10-12')
+  })
+})
+
+describe('readiness reads one value everywhere', () => {
+  // One fixture: the card heading, the summary sentence and the section header all read it.
+  const reading = readinessReading([{ date: '2026-10-17', readiness: 87.6, driver: 'HRV' }])
+  test('the same figure, verdict and date in all three', () => {
+    const header = readinessHeader(reading)
+    const call = todaysCall(reading, undefined, NOW)
+    const sentence = summarySentence({
+      leader: null,
+      e1rm: null,
+      delta: liftDelta([], NOW),
+      acwr: null,
+      call,
+      score: reading?.score ?? null,
+    })
+    expect(header).toEqual({ text: '88/100', verdict: 'Push', date: '17 Oct' })
+    expect(sentence).toContain(`readiness ${header?.text} ${header?.verdict}`)
+    expect(call.title).toBe(`Today: ${header?.verdict}`)
+  })
+  test('a capped call names both the reading and the call', () => {
+    const call = todaysCall(reading, { verdict: 'monitor', activeSignals: ['x'] }, NOW)
+    const sentence = summarySentence({
+      leader: null,
+      e1rm: null,
+      delta: liftDelta([], NOW),
+      acwr: null,
+      call,
+      score: reading?.score ?? null,
+    })
+    expect(sentence).toContain('readiness 88/100 Push · call Normal')
+  })
+  test('no reading is null', () => {
+    expect(readinessHeader(null)).toBeNull()
   })
 })
 

@@ -34,7 +34,8 @@ export type ReadinessReading = {
   date: string | null
 }
 export type DeloadReading = {
-  verdict: 'deload' | 'monitor' | 'progress'
+  /** `stale`: no session inside the delta window, so the signals describe a past state. */
+  verdict: 'deload' | 'monitor' | 'progress' | 'stale'
   activeSignals: readonly string[]
 }
 export type TodaysCall = {
@@ -43,8 +44,10 @@ export type TodaysCall = {
   title: string
   /** The deload signal overrode the readiness verdict (conservative wins). */
   overridden: boolean
-  /** `monitor` keeps the readiness verdict and names the signal. */
+  /** An active `monitor` signal caps `Push` at `Normal`; it names the signal. */
   monitor: string | null
+  /** The verdict readiness alone gave, before any deload cap or override. */
+  readinessVerdict: string
   /** `16 Oct` when the reading is not from today; null when it is. */
   asOf: string | null
 }
@@ -56,7 +59,11 @@ export function localIso(ms: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
-/** The conservative verdict wins: `deload` overrides readiness, `monitor` only annotates. */
+/**
+ * The conservative verdict wins: `deload` overrides readiness, an active `monitor` signal caps
+ * `Push` at `Normal`, and a stale signal changes nothing. The call is never `Push` beside an
+ * active signal.
+ */
 export function todaysCall(
   readiness: ReadinessReading | null,
   deload: DeloadReading | undefined,
@@ -64,17 +71,46 @@ export function todaysCall(
 ): TodaysCall {
   const stale = readiness?.date != null && readiness.date !== localIso(now)
   const asOf = stale && readiness?.date != null ? shortDate(readiness.date) : null
+  const readinessVerdict =
+    readiness === null || readiness.score === null ? EM_DASH : readiness.verdict
   if (deload?.verdict === 'deload') {
-    return { verdict: 'Deload', title: 'Today: Deload', overridden: true, monitor: null, asOf }
+    return {
+      verdict: 'Deload',
+      title: 'Today: Deload',
+      overridden: true,
+      monitor: null,
+      readinessVerdict,
+      asOf,
+    }
   }
-  const verdict = readiness === null || readiness.score === null ? EM_DASH : readiness.verdict
+  const monitor = deload?.verdict === 'monitor' ? (deload.activeSignals[0] ?? null) : null
+  const verdict = monitor !== null && readinessVerdict === 'Push' ? 'Normal' : readinessVerdict
   return {
     verdict,
     title: asOf === null ? `Today: ${verdict}` : `Latest: ${verdict} · ${asOf}`,
     overridden: false,
-    monitor: deload?.verdict === 'monitor' ? (deload.activeSignals[0] ?? null) : null,
+    monitor,
+    readinessVerdict,
     asOf,
   }
+}
+
+/** The newest session date over all lifts. */
+export function lastSessionDate(lifts: readonly LiftSeries[]): string | null {
+  return lifts
+    .flatMap((l) => l.points.filter((p) => isNum(p.e1rm)).map((p) => p.date))
+    .reduce<string | null>((a, b) => (a === null || b > a ? b : a), null)
+}
+
+/** Deload signals describe the trailing 90 d; with no session in the delta window they are stale. */
+export function recentDeload(
+  deload: DeloadReading | undefined,
+  lastDate: string | null,
+  now: number,
+): DeloadReading | undefined {
+  if (deload === undefined) return undefined
+  const recent = lastDate !== null && Date.parse(lastDate) > now - DELTA_DAYS * DAY_MS
+  return recent ? deload : { verdict: 'stale', activeSignals: [] }
 }
 
 /** The last non-null point of the readiness series, as the verdict card reads it. */
@@ -92,12 +128,31 @@ export function readinessReading(
   return { score: last.readiness, verdict, driver: last.driver, date: last.date ?? null }
 }
 
-export function deloadLine(deload: DeloadReading | undefined): string {
+export function deloadLine(deload: DeloadReading | undefined, lastDate: string | null): string {
   if (deload === undefined) return `Deload signal: ${EM_DASH}`
-  const n = deload.activeSignals.length
-  return n === 0
-    ? 'Deload signal: 0 active'
-    : `Deload signal: ${n} active — ${deload.activeSignals.join('; ')}`
+  const signals = deload.activeSignals.join('; ')
+  switch (deload.verdict) {
+    case 'stale':
+      return `Deload signal: no recent sessions${lastDate === null ? '' : `, last was ${shortDate(lastDate)}`}`
+    case 'deload':
+      return `Deload signal: deload — ${signals}`
+    case 'monitor':
+      return `Deload signal: monitor — ${signals}`
+    default:
+      return 'Deload signal: none active'
+  }
+}
+
+/** `88/100`, its zone and its date, read by the call card, the summary and the readiness header. */
+export function readinessHeader(
+  reading: ReadinessReading | null,
+): { text: string; verdict: string; date: string | null } | null {
+  if (reading === null || reading.score === null) return null
+  return {
+    text: `${Math.round(reading.score)}/100`,
+    verdict: reading.verdict,
+    date: reading.date === null ? null : shortDate(reading.date),
+  }
 }
 
 // ── ACWR ─────────────────────────────────────────────────────────────────────────────────────
@@ -224,7 +279,8 @@ export function summarySentence(input: {
       : `${exerciseLabel(leader)} e1RM ${e1rm === null ? EM_DASH : `${e1rm.toFixed(1)} kg`}`
   const move = leader === null || e1rm === null ? '' : `, ${delta.phrase}`
   const load = acwr === null ? 'ACWR —' : `ACWR ${acwr.toFixed(2)} ${acwrZoneWord(acwr)}`
-  const ready = `readiness ${score === null ? EM_DASH : `${Math.round(score)}/100`} ${call.verdict}${call.asOf === null ? '' : `, ${call.asOf}`}`
+  const own = `readiness ${score === null ? EM_DASH : `${Math.round(score)}/100`} ${call.readinessVerdict}${call.asOf === null ? '' : `, ${call.asOf}`}`
+  const ready = call.verdict === call.readinessVerdict ? own : `${own} · call ${call.verdict}`
   return `${lift}${move} · ${load} · ${ready}`
 }
 

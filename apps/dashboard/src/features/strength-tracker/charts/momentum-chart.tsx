@@ -110,7 +110,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
                 {signed(monthly)}
               </Text>
               <Text span size="xs" c="dimmed">
-                %/mo
+                %/mo, 28 d velocity
               </Text>
               <Text span fw={600} size="xs" c={directionColor(dir)}>
                 {directionArrow(dir)}
