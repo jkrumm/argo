@@ -42,7 +42,7 @@ function StatusIcon({ status }: { status: StatusKind }) {
 
 function InfraView({ card }: { card: z.infer<typeof InfraCard> }) {
   return (
-    <Card py="sm" px="md">
+    <Card>
       <Group justify="space-between" wrap="nowrap" mb={card.items?.length ? 'xs' : 0}>
         <Group gap="xs" wrap="nowrap">
           {card.status && <StatusIcon status={card.status} />}
@@ -84,7 +84,7 @@ function InfraView({ card }: { card: z.infer<typeof InfraCard> }) {
 
 function TodoView({ card }: { card: z.infer<typeof TodoCard> }) {
   return (
-    <Card py="sm" px="md">
+    <Card>
       {card.title && (
         <Text fw="semibold" size="sm" mb="xs">
           {card.title}
@@ -113,7 +113,7 @@ function TodoView({ card }: { card: z.infer<typeof TodoCard> }) {
 
 function NoteView({ card }: { card: z.infer<typeof NoteCard> }) {
   return (
-    <Card py="sm" px="md">
+    <Card>
       <Group gap="xs" wrap="nowrap" mb={6}>
         <ThemeIcon size="sm" radius="sm" variant="light" color="gray">
           <IconNote size={14} />

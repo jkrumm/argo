@@ -1,6 +1,6 @@
 import { Box, Button, Text, UnstyledButton } from '@mantine/core'
 import { overlays } from 'basalt-ui/commands'
-import { relativeTime } from '../../lib/format'
+import { relativeTime } from 'basalt-ui/format'
 import {
   TYPE_LABEL,
   listTime,
