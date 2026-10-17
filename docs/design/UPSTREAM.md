@@ -186,3 +186,23 @@ card inset. The rows below are what each case needed and the shipped API still l
 | `Meter` ring | `target` / `ticks` on `shape="ring"` | usage cache-hit ring (60 % tick) | local SVG `CacheRing` (`features/usage-tracking/usage-visuals.tsx`) |
 | `Meter` | `stops` (a gradient scale with marker and tick) | astro Night anatomy sky cell (`LP.*` scale) | local `SkyScale` |
 | `Sparkline` | `tone="muted"` | home recovery trend | `alpha(VX.muted, .35)` colour |
+
+### Wave 23 — live re-score round 1 (`w23-r1`): defects the reviewer attributed to basalt
+
+Scored by a fresh `basalt-design-reviewer` on live production shots after the 2.20 adoption. argo-side defects went to
+fix workers; these need a basalt prop or default.
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| `Meter` zones | zone labels centred under their zone (today they bunch at the start of the track) | home ACWR tile, garmin load / recovery cells | as rendered |
+| `Meter` `ticks` | no detached end-value label (`{max}` on its own row) in a compact cell; a `0` tick must not collide with a zone label | garmin recovery and load cells | as rendered |
+| `Meter size="row"` | keep categorical part captions (or a `legend` slot) when the row drops caption rows | m365 chats split | parts named in the cell `footer` |
+| `Button` with `rightSection` | an on-scale inline-end padding (today `calc(padding-x / 1.5)` = 5.33 px, off the spacing scale) | decision cards on agents, warden, home | as rendered |
+| `PageBar` sticky | section `scroll-margin-top` / sticky clearance equal to the page-bar height (`--vx-space-sticky-header-clearance` 12 px vs a 36 px bar) | strength sections at 390 and 1440 | as rendered |
+| `StatGroup variant="strip"` | a per-cell no-stretch / `align="start"` so a short cell is not stretched to the tallest sibling (`emptyRatio` ≥ 0.4) | reading shelf cell | as rendered |
+| agenda / `Section` defaults | the group head (11 mono) + row title and meta (13/12) + section title (15) already make four sizes in one component | calendar next-days | as rendered |
+| `BandStrip` tooltip | placement that never covers the cell's hero value or spills over the next cell at 390 | usage errors cell | as rendered |
+| phone `Select` (ChartCard actions at 390) | an on-scale left inset (today 10.67 px) | usage cost and tokens charts | as rendered |
+| `StackedArea` | a band fill opacity prop (full-opacity bands read saturated) | usage tokens / cost | as rendered |
+| heading numerals | the slashed zero still renders on section titles that are not `h1`–`h6` / `.mantine-Title-root` (2.20 only resets those) | astro headline, usage / reading / walking-pad / body-composition section titles | none |
+| `basalt-ui shot` | focus/hover anchors time out (`boundingBox` / `scrollIntoViewIfNeeded` 30 s) on the Sparkline focus target and on hidden mobile panes; a 390 board is "not captured" | garmin strip-fitness, m365 detail/labeled panes, warden board | re-run |
