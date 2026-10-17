@@ -6,6 +6,12 @@ import { walkingPadQueries } from '../../lib/queries/walking-pad'
 import { fmtDuration, fmtKm, fmtKmh } from './model'
 import classes from './record-header.module.css'
 
+/** A value never parts from its unit (`2.4 km/h`) or its hours from its minutes (`1h 5m`). */
+const unbreakable = (text: string): string =>
+  text
+    .replace(/(\d) (km\/h|km|steps?|kcal|pauses?)\b/g, '$1\u00a0$2')
+    .replace(/(\d+h) (\d+m)/g, '$1\u00a0$2')
+
 function Row({
   dot,
   status,
@@ -24,11 +30,11 @@ function Row({
           <Box className={dot === 'live' ? `${classes.dot} ${classes.live}` : classes.dot} />
           <Text fw={600}>{status}</Text>
           <Text size="sm" c="dimmed" className={classes.facts}>
-            {facts}
+            {unbreakable(facts)}
           </Text>
         </Group>
         <Text size="sm" c="dimmed">
-          {stats}
+          {unbreakable(stats)}
         </Text>
       </Group>
     </Card>
@@ -57,7 +63,7 @@ export function RecordHeader() {
         dot={paused ? 'idle' : 'live'}
         status={paused ? 'Paused' : 'Walking now'}
         facts={`${durationClock(s.duration_s)} · ${fmtKm(s.distance_m)} km · ${fmtKmh(paused ? 0 : s.current_speed_kmh)} km/h now · avg ${fmtKmh(s.avg_speed_kmh)} km/h`}
-        stats={`${s.steps.toLocaleString('en-GB')} steps · ${Math.round(s.kcal)} kcal${s.pause_count > 0 ? ` · ${s.pause_count} ${s.pause_count === 1 ? 'pause' : 'pauses'}` : ''}`}
+        stats={`${s.steps.toLocaleString('en-GB')} steps · ${Math.round(s.kcal)} kcal, this walk${s.pause_count > 0 ? ` · ${s.pause_count} ${s.pause_count === 1 ? 'pause' : 'pauses'}` : ''}`}
       />
     )
   }
@@ -71,7 +77,7 @@ export function RecordHeader() {
       dot="idle"
       status="Idle"
       facts={`last walk ${relativeTime(walk.ended_at)} · ${fmtKm(walk.distance_m)} km · ${fmtDuration(walk.duration_s)} · ${fmtKmh(walk.avg_speed_kmh)} km/h`}
-      stats={`${walk.steps.toLocaleString('en-GB')} steps · ${Math.round(walk.kcal)} kcal`}
+      stats={`${walk.steps.toLocaleString('en-GB')} steps · ${Math.round(walk.kcal)} kcal, last walk`}
     />
   )
 }
