@@ -1,4 +1,6 @@
 import { Skeleton } from '@mantine/core'
+import { StatusDot } from 'basalt-ui'
+import { VX } from 'basalt-ui/tokens'
 import { formatStamp, plural } from './model'
 import classes from './m365.module.css'
 
@@ -21,7 +23,9 @@ export function MessageRow(props: { message: MessageLite; meta?: string; channel
     <article className={classes.message} data-shot="message-row">
       <div className={classes.messageHead}>
         {high ? (
-          <span className={classes.dot} role="img" aria-label={`${m.importance} importance`} />
+          <span role="img" aria-label={`${m.importance} importance`}>
+            <StatusDot color={VX.status.warn} />
+          </span>
         ) : null}
         <span className={classes.sender}>{m.from?.name ?? 'system'}</span>
         {props.channel && m.replyCount > 0 ? (
