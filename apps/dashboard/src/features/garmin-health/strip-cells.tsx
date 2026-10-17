@@ -162,6 +162,7 @@ function LoadCell({ params }: { params: SummaryParams }) {
       unit="ACWR"
       loading={data === undefined}
       stale={isPlaceholderData}
+      footer={`under < ${ACWR_FLOOR} · optimal ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO} · caution ${ACWR_OPTIMAL_TO}–${ACWR_CAUTION_TO} · danger > ${ACWR_CAUTION_TO}`}
     >
       <Meter
         label="Acute to chronic workload ratio"
@@ -175,7 +176,7 @@ function LoadCell({ params }: { params: SummaryParams }) {
           { from: ACWR_OPTIMAL_TO, to: ACWR_CAUTION_TO, label: 'Caution', color: VX.warn },
           { from: ACWR_CAUTION_TO, to: ACWR_METER_MAX, label: 'Danger', color: VX.bad },
         ]}
-        startCaption={`under < ${ACWR_FLOOR} · optimal ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO} · caution ${ACWR_OPTIMAL_TO}–${ACWR_CAUTION_TO} · danger > ${ACWR_CAUTION_TO}`}
+        startCaption="0"
         endCaption={ACWR_METER_MAX.toFixed(1)}
         loading={data === undefined}
         emptyText="No training load"
