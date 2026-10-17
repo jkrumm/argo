@@ -3,6 +3,7 @@ import {
   chatKindCounts,
   groupByRecency,
   chipCounts,
+  visibleChipCounts,
   coverageOf,
   formatTime,
   validTag,
@@ -140,14 +141,25 @@ describe('chipCounts / validTag', () => {
     expect(c).toEqual({
       all: 3,
       labeled: 2,
-      tags: [['a', 2]],
+      tags: [
+        ['a', 2],
+        ['b', 0],
+      ],
     })
   })
-  test('keeps a zero-count tag only while it is the active filter', () => {
-    const rows = [{ label: 'a' }]
-    expect(chipCounts(['a', 'b'], rows, 1, 'b').tags).toEqual([
+  test('keeps an unloaded-team tag while the row set is incomplete', () => {
+    const c = chipCounts(['a', 'b'], [{ label: 'a' }], null)
+    expect(visibleChipCounts(c, '').tags).toEqual([
       ['a', 1],
       ['b', 0],
+    ])
+  })
+  test('drops a zero non-active tag once settled, keeps a zero active one', () => {
+    const c = chipCounts(['a', 'b', 'c'], [{ label: 'a' }], 1)
+    expect(visibleChipCounts(c, '').tags).toEqual([['a', 1]])
+    expect(visibleChipCounts(c, 'c').tags).toEqual([
+      ['a', 1],
+      ['c', 0],
     ])
   })
   test('validTag drops a tag that no longer exists', () => {

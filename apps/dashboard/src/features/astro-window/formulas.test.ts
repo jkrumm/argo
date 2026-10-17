@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  coreGateDetail,
   coreGateFailure,
   coreMeterReading,
   hourlyTicks,
@@ -103,5 +104,23 @@ describe('coreMeterReading', () => {
   test('no dark stretch, no reading', () => {
     const night = { killers: [], gateCoreAltitude: null, coreGateDeg: null } as unknown as Night
     expect(coreMeterReading(night)).toBeNull()
+  })
+})
+
+describe('coreGateDetail', () => {
+  const failed = (reason: string) =>
+    ({
+      killers: [{ id: 'core-altitude', label: 'Core altitude', reason }],
+      gateCoreAltitude: 5,
+      coreGateDeg: 12,
+    }) as unknown as Night
+  test('a ridge-blocked night keeps the API reason that names the ridge', () => {
+    expect(coreGateDetail(failed('core below the 12° ridge gate'))).toBe(
+      'core below the 12° ridge gate',
+    )
+  })
+  test('a clearing night says so', () => {
+    const night = { killers: [], gateCoreAltitude: 12, coreGateDeg: 8 } as unknown as Night
+    expect(coreGateDetail(night)).toBe('clears the gate')
   })
 })

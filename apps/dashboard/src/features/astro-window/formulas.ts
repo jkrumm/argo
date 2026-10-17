@@ -156,6 +156,18 @@ export function coreGateFailure(night: Night): boolean {
   return night.killers.some((k) => k.id === 'core-altitude')
 }
 
+/** The Core gate row's one line. A failed gate keeps the API's own reason (it names the terrain
+ * ridge when the skyline raised the gate); the generic text is only the fallback. */
+export function coreGateDetail(night: Night): string {
+  if (coreGateFailure(night)) {
+    const reason = night.killers.find((k) => k.id === 'core-altitude')?.reason
+    return reason ?? 'below the gate at its closest'
+  }
+  return night.gateCoreAltitude === null || night.coreGateDeg === null
+    ? 'no astronomical night'
+    : 'clears the gate'
+}
+
 /** The core reading and its gate, for the verdict meter — present on every night with a dark
  * stretch, whether or not the gate failed, so a clearing night still shows how far it cleared. */
 export function coreMeterReading(night: Night): { reading: number; gate: number } | null {

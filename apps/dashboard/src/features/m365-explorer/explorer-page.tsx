@@ -21,6 +21,7 @@ import {
   chatSourceId,
   chatTitle,
   chipCounts,
+  visibleChipCounts,
   coverageOf,
   formatStamp,
   parseChannelId,
@@ -119,22 +120,22 @@ export function M365ExplorerPage(): ReactElement {
       label: labelMap.get(channelSourceId(t.id, c.id))?.label,
     })),
   )
-  const counts =
+  const counts = visibleChipCounts(
     view === 'teams'
-      ? chipCounts(tagNames, channelRows, channelsTotal, tag)
+      ? chipCounts(tagNames, channelRows, channelsTotal)
       : view === 'feed'
         ? chipCounts(
             tagNames,
             labels.map((l) => ({ label: l.label })),
             labels.length,
-            tag,
           )
         : chipCounts(
             tagNames,
             chatRows.map((r) => ({ label: labelMap.get(chatSourceId(r.ref.chatId))?.label })),
             chatRows.length,
-            tag,
-          )
+          ),
+    tag,
+  )
 
   const latest = chatRows.reduce<string | null>(
     (best, r) => (r.lastUpdatedAt && (!best || r.lastUpdatedAt > best) ? r.lastUpdatedAt : best),
