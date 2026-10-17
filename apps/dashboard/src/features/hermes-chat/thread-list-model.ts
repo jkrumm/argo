@@ -140,6 +140,8 @@ export function groupEntries(entries: readonly ThreadEntry[], now: number): Thre
 export type ThreadView = {
   /** Every non-archived thread: the figure the summary and the `All` chip share. */
   total: number
+  /** The `All` chip: every non-archived thread matching the search query. */
+  allCount: number
   /** Titled rows after the type and search filters (the archived ones under that filter). */
   groups: ThreadGroup[]
   /** The fold: untitled threads, shown only when no filter narrows the list. */
@@ -163,7 +165,10 @@ function matchesQuery(entry: ThreadEntry, query: string): boolean {
   return `${entry.title ?? ''} ${entry.summary ?? ''}`.toLowerCase().includes(needle)
 }
 
-/** `entries` are the non-archived threads, `archived` the archived ones. */
+/**
+ * `entries` are the non-archived threads, `archived` the archived ones. Every count here is over
+ * the rows the chip reveals AFTER the search query, so a chip never promises more than it shows.
+ */
 export function buildView({
   entries,
   archived,
@@ -175,34 +180,29 @@ export function buildView({
   filter: ThreadFilter
   now: number
 }): ThreadView {
-  const untitled = entries.filter((entry) => isUntitled(entry, now))
-  const titledAll = entries.filter((entry) => !isUntitled(entry, now))
+  const hit = (entry: ThreadEntry) => matchesQuery(entry, filter.query)
+  const untitled = entries.filter((entry) => isUntitled(entry, now) && hit(entry))
+  const titled = entries.filter((entry) => !isUntitled(entry, now) && hit(entry))
+  const archivedHits = archived.filter(hit)
   const typeCounts = Object.fromEntries(THREAD_TYPES.map((type) => [type, 0])) as Record<
     HermesThreadType,
     number
   >
-  for (const entry of titledAll) if (entry.type !== null) typeCounts[entry.type] += 1
+  for (const entry of titled) if (entry.type !== null) typeCounts[entry.type] += 1
 
-  const narrowed = filter.type !== 'all' || filter.query.trim() !== ''
-  let titled: readonly ThreadEntry[]
-  if (filter.type === 'untitled') titled = []
-  else if (filter.type === 'archived')
-    titled = archived
-      .filter((e) => matchesQuery(e, filter.query))
-      .map((e) => ({ ...e, pinned: false }))
-  else {
-    titled = titledAll
-      .filter((entry) => filter.type === 'all' || entry.type === filter.type)
-      .filter((entry) => matchesQuery(entry, filter.query))
-  }
+  let rows: readonly ThreadEntry[]
+  if (filter.type === 'untitled') rows = []
+  else if (filter.type === 'archived') rows = archivedHits.map((e) => ({ ...e, pinned: false }))
+  else rows = titled.filter((entry) => filter.type === 'all' || entry.type === filter.type)
 
   return {
     total: entries.length,
-    groups: groupEntries(titled, now),
-    untitled: !narrowed || filter.type === 'untitled' ? untitled : [],
+    allCount: titled.length + untitled.length,
+    groups: groupEntries(rows, now),
+    untitled: filter.type === 'all' || filter.type === 'untitled' ? untitled : [],
     typeCounts,
     untitledCount: untitled.length,
-    archivedCount: archived.length,
+    archivedCount: archivedHits.length,
   }
 }
 
@@ -283,7 +283,7 @@ export function summaryLine(summary: ThreadSummary): string {
     `${summary.threads} ${summary.threads === 1 ? 'thread' : 'threads'}`,
     ...(summary.untitled > 0 ? [`${summary.untitled} untitled`] : []),
     `${summary.pinned} pinned`,
-    `${summary.today} today`,
+    `${summary.today} active today`,
   ]
   if (summary.lastReply !== null) parts.push(`last reply ${summary.lastReply}`)
   return parts.join(' · ')

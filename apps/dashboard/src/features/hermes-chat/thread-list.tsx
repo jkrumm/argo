@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Box, Button, Text, UnstyledButton } from '@mantine/core'
 import { overlays } from 'basalt-ui/commands'
 import { relativeTime } from '../../lib/format'
@@ -66,6 +65,8 @@ export function ThreadList({
   now,
   busy,
   foldOpen,
+  open,
+  onToggleOpen,
   onOpen,
   onDeleteUntitled,
 }: {
@@ -75,11 +76,12 @@ export function ThreadList({
   busy: boolean
   /** Keep the fold expanded (the `Untitled` filter is on). */
   foldOpen: boolean
+  /** The fold's own expansion; lifted so an empty search result does not collapse it. */
+  open: boolean
+  onToggleOpen: () => void
   onOpen: (id: string) => void
   onDeleteUntitled: (ids: string[]) => void
 }) {
-  const [open, setOpen] = useState(false)
-
   function confirmDelete() {
     void overlays.confirm({
       title: 'Delete untitled chats',
@@ -127,7 +129,7 @@ export function ThreadList({
               className={classes['foldToggle']}
               aria-expanded={open || foldOpen}
               aria-disabled={foldOpen || undefined}
-              onClick={() => !foldOpen && setOpen((v) => !v)}
+              onClick={() => !foldOpen && onToggleOpen()}
             >
               {untitledLabel(untitled.length, relativeTime(oldestUpdatedAt(untitled)))}
             </UnstyledButton>

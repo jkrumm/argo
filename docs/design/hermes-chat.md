@@ -41,7 +41,7 @@ Stay: composer, message renderer, voice, thread stream behaviour. Change: list r
 
 ## Copy
 
-- Summary: `{n} threads · {n} pinned · {n} today · last reply {time}` (counts are derived client-side from the loaded list)
+- Summary: `{n} threads · {n} pinned · {n} active today · last reply {time}` (plus `{n} untitled` when the fold is non-empty) (counts are derived client-side from the loaded list)
 - Groups: `Pinned · {n}`, `Today · {n}`, `This week · {n}`, `Earlier · {n}`
 - Disclosure: `{n} untitled chats · oldest {age}`
 - Header facts: `Started {date} · last reply {time} · {type}`

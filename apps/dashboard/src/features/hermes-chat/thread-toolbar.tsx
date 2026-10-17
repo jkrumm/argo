@@ -12,7 +12,7 @@ export type TypeFilter = HermesThreadType | 'all' | 'untitled' | 'archived'
  * not offered, unless one is the active filter.
  */
 export function ThreadToolbar({
-  total,
+  allCount,
   typeCounts,
   untitledCount,
   archivedCount,
@@ -21,7 +21,7 @@ export function ThreadToolbar({
   onType,
   onQuery,
 }: {
-  total: number
+  allCount: number
   typeCounts: Record<HermesThreadType, number>
   untitledCount: number
   archivedCount: number
@@ -31,7 +31,7 @@ export function ThreadToolbar({
   onQuery: (next: string) => void
 }) {
   const chips: { key: TypeFilter; label: string; count: number }[] = [
-    { key: 'all', label: 'All', count: total },
+    { key: 'all', label: 'All', count: allCount },
     ...THREAD_TYPES.filter((t) => typeCounts[t] > 0 || t === type).map((t) => ({
       key: t,
       label: TYPE_LABEL[t],

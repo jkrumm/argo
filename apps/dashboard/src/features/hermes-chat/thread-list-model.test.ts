@@ -150,8 +150,31 @@ describe('buildView', () => {
     expect(v.untitled).toEqual([])
   })
 
-  it('searches title and summary, case-insensitively', () => {
-    expect(ids(view('all', 'EGGS'))).toEqual(['todo'])
+  it('searches title and summary, case-insensitively, and chips follow the query', () => {
+    const v = view('all', 'EGGS')
+    expect(ids(v)).toEqual(['todo'])
+    expect(v.allCount).toBe(1)
+    expect(v.untitledCount).toBe(0)
+    expect(v.typeCounts.infra).toBe(0)
+    expect(v.archivedCount).toBe(0)
+  })
+
+  it('searches the fold and the archive too', () => {
+    const withSummary = [
+      ...entries,
+      entry({ id: 'us', title: null, summary: 'tax return', updatedAt: NOW - 3 * DAY }),
+    ]
+    const v = buildView({
+      entries: withSummary,
+      archived,
+      filter: { type: 'all', query: 'tax' },
+      now: NOW,
+    })
+    expect(v.untitled.map((e) => e.id)).toEqual(['us'])
+    expect(v.untitledCount).toBe(1)
+    expect(v.allCount).toBe(1)
+    const a = buildView({ entries, archived, filter: { type: 'archived', query: 'old' }, now: NOW })
+    expect(a.archivedCount).toBe(1)
   })
 })
 
@@ -164,11 +187,11 @@ describe('summary', () => {
       ],
       NOW,
     )
-    expect(summaryLine(summary)).toBe('2 threads · 1 pinned · 1 today · last reply 14:05')
+    expect(summaryLine(summary)).toBe('2 threads · 1 pinned · 1 active today · last reply 14:05')
   })
 
   it('omits the last reply with no threads and pluralises', () => {
-    expect(summaryLine(summarize([], NOW))).toBe('0 threads · 0 pinned · 0 today')
+    expect(summaryLine(summarize([], NOW))).toBe('0 threads · 0 pinned · 0 active today')
     expect(summaryLine(summarize([entry({ id: 'a' })], NOW)).startsWith('1 thread ·')).toBe(true)
   })
 

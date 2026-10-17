@@ -57,46 +57,14 @@ export function useHermesThreadVoice({
   // ── Voice: mode toggle + shared TTS playback ─────────────────────────────────
   const voiceMode = useUiStore((s) => s.voiceMode)
   const toggleVoiceMode = useUiStore((s) => s.toggleVoiceMode)
-  const { audioAvailable, setAudioAvailable, primePlayback, readAloud } = useVoicePlayback()
+  const { audioAvailable, setAudioAvailable, primePlayback } = useVoicePlayback()
   const voiceModeRef = useRef(voiceMode)
   useEffect(() => {
     voiceModeRef.current = voiceMode
   }, [voiceMode])
 
-  // ── Voice: auto-speak a finished reply, deferred while backgrounded ──────────
-  const lastLiveTextRef = useRef('')
-  useEffect(() => {
-    if (run) lastLiveTextRef.current = joinTextParts(run.parts)
-  }, [run])
-
-  const pendingSpeakRef = useRef<string | null>(null)
-  const wasStreamingRef = useRef(false)
-  useEffect(() => {
-    const justFinished = wasStreamingRef.current && !isStreaming
-    wasStreamingRef.current = isStreaming
-    if (!justFinished || !voiceModeRef.current) return
-    const text = lastLiveTextRef.current.trim()
-    if (!text) return
-    // Auto-pause: while Argo is backgrounded, defer instead of speaking — the visibilitychange
-    // effect below replays it on return.
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-      pendingSpeakRef.current = text
-      return
-    }
-    void readAloud(`${thread.id}:live`, text, { summarize: true, threadId: thread.id })
-  }, [isStreaming, readAloud, thread.id])
-
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState !== 'visible') return
-      const pending = pendingSpeakRef.current
-      pendingSpeakRef.current = null
-      if (!pending || !voiceModeRef.current) return
-      void readAloud(`${thread.id}:live`, pending, { summarize: true, threadId: thread.id })
-    }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [readAloud, thread.id])
+  // Auto-speak of a finished reply lives in `ThreadSpeaker` (use-auto-speak.ts): it must run for
+  // every thread, not only the one whose view is open.
 
   // ── Read-aloud (per message) ──────────────────────────────────────────────────
   const canReadAloud = audioAvailable !== false && !isStreaming

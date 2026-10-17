@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { EdenFetchError } from '@elysiajs/eden'
 import { unwrap } from 'basalt-ui'
 import { emit } from 'basalt-ui/commands'
 import { api } from '../../lib/eden'
-import { hermesMutations, hermesQueries } from '../../lib/queries/hermes'
+import { hermesQueries } from '../../lib/queries/hermes'
 import { notifyHermesChatError } from './hermes-transport'
 
 // The verbs the API supports on a thread: pin (PATCH pinned), archive/unarchive (PATCH archived)
@@ -40,8 +41,13 @@ export function useThreadActions({ onRemoved }: { onRemoved: (id: string) => voi
       unwrap(await api.hermes.threads({ id }).patch(body))
     })
 
+  // A 404 means the server no longer has the thread: it is gone either way, so drop it locally
+  // (otherwise a server-gone thread would fail "Delete all" for good).
   const remove = async (id: string) => {
-    await hermesMutations.deleteThread().mutationFn(id)
+    const result = await api.hermes.threads({ id }).delete()
+    if (result.error && !(result.error instanceof EdenFetchError && result.error.status === 404)) {
+      throw result.error
+    }
     onRemoved(id)
   }
 
