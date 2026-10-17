@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query'
+import { keepPreviousData, queryOptions } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import type { ScheduleEventData } from '@mantine/schedule'
 import { api } from '../eden'
@@ -8,8 +8,15 @@ import { SERIES } from '../series'
 
 export type CalendarSource = 'google' | 'm365' | 'ticktick'
 
+/** Work (M365) vs Personal (Google); TickTick tasks have none. Stamped once, in `mapCalendarEvent`. */
+export type SourceClass = 'work' | 'personal'
+
 export type CalendarEventPayload = {
   source: CalendarSource
+  sourceClass?: SourceClass | undefined
+  /** Invitees `attendeeTotal` counts them all, `attendeeAccepted` the accepted. */
+  attendeeTotal?: number | undefined
+  attendeeAccepted?: number | undefined
   isAllDay?: boolean | undefined
   location?: string | null
   organizer?: string | null
@@ -60,6 +67,7 @@ export const calendarQueries = {
       queryFn: async () => unwrap(await api.calendar.get({ query: { days: String(days) } })),
       staleTime: 60_000,
       retry: false,
+      placeholderData: keepPreviousData,
     }),
 
   m365: (days: number) =>
@@ -68,6 +76,7 @@ export const calendarQueries = {
       queryFn: async () => unwrap(await api.m365.calendar.upcoming.get({ query: { days } })),
       staleTime: 60_000,
       retry: false,
+      placeholderData: keepPreviousData,
     }),
 
   ticktickProjects: () =>
@@ -75,6 +84,7 @@ export const calendarQueries = {
       queryKey: [...calendarQueries.all(), 'ticktick', 'projects'] as const,
       queryFn: async () => unwrap(await api.ticktick.projects.get()),
       staleTime: 5 * 60_000,
+      placeholderData: keepPreviousData,
     }),
 
   ticktickProjectTasks: (projectId: string) =>
@@ -82,6 +92,7 @@ export const calendarQueries = {
       queryKey: [...calendarQueries.all(), 'ticktick', 'projects', projectId, 'tasks'] as const,
       queryFn: async () => unwrap(await api.ticktick.projects({ projectId }).data.get()),
       staleTime: 60_000,
+      placeholderData: keepPreviousData,
       enabled: projectId.length > 0,
     }),
 }
@@ -94,7 +105,7 @@ type RawCalendarEvent = {
   isAllDay?: boolean
   location?: string | null
   organizer?: { name?: string | null; email?: string | null } | string | null
-  attendees?: unknown
+  attendees?: Array<{ status?: string | null }> | null
   calendarName?: string | null
   videoLink?: string | null
   webLink?: string | null
@@ -136,6 +147,11 @@ function organizerName(organizer: RawCalendarEvent['organizer']): string | null 
   return organizer.name ?? organizer.email ?? null
 }
 
+const SOURCE_CLASS: Record<'google' | 'm365', SourceClass> = {
+  google: 'personal',
+  m365: 'work',
+}
+
 function mapCalendarEvent(
   source: 'google' | 'm365',
   event: RawCalendarEvent,
@@ -154,6 +170,9 @@ function mapCalendarEvent(
     color,
     payload: {
       source,
+      sourceClass: SOURCE_CLASS[source],
+      attendeeTotal: event.attendees?.length ?? 0,
+      attendeeAccepted: event.attendees?.filter((a) => a.status === 'accepted').length ?? 0,
       isAllDay: event.isAllDay,
       location: event.location ?? null,
       organizer: organizerName(event.organizer),

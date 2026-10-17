@@ -1,0 +1,206 @@
+/* Agenda tab layout — the two columns, the day groups, the chips and the strip rows. */
+
+.frame {
+  container-type: inline-size;
+}
+
+/* Narrow: one column in reading order (`order` on the children; the column wrappers vanish). */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vx-space-stack-lg);
+}
+
+.col {
+  display: contents;
+}
+
+.oToday {
+  order: 1;
+}
+
+.oFree {
+  order: 2;
+}
+
+.oStrip {
+  order: 3;
+}
+
+.oNext {
+  order: 4;
+}
+
+.oTasks {
+  order: 5;
+}
+
+@container (min-width: 800px) {
+  .oToday,
+  .oFree,
+  .oStrip,
+  .oNext,
+  .oTasks {
+    order: 0;
+  }
+
+  .page {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    align-items: start;
+    gap: var(--vx-space-stack-lg);
+  }
+
+  .col {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vx-space-stack-lg);
+    min-width: 0;
+  }
+}
+
+.summary {
+  font-size: var(--vx-text-md);
+  line-height: 1.4;
+  color: var(--vx-ink);
+}
+
+.muted {
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--vx-space-stack-xs) var(--vx-space-stack-sm);
+}
+
+.caption {
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vx-muted);
+}
+
+.chip {
+  max-width: 100%;
+  padding: 0 var(--vx-space-stack-sm);
+  border-radius: var(--vx-radius-fine);
+  background: color-mix(in srgb, var(--vx-line) 14%, transparent);
+  font-size: var(--vx-text-sm);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  color: var(--vx-ink);
+}
+
+.group {
+  padding-block: var(--vx-space-stack-xs);
+}
+
+.groupHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--vx-space-stack-sm);
+  padding-bottom: var(--vx-space-stack-xs);
+  border-bottom: 1px solid var(--vx-surface-hairline);
+}
+
+.freeDay {
+  display: flex;
+  align-items: baseline;
+  gap: var(--vx-space-stack-sm);
+  padding-block: var(--vx-space-stack-xs);
+  border-bottom: 1px solid var(--vx-surface-hairline);
+}
+
+/* Day-load strip: weekday · bar · booked · count. Today wears a ring, never a fill. */
+.stripRow {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr) 4.5rem 2rem;
+  align-items: center;
+  column-gap: var(--vx-space-stack-sm);
+  padding: var(--vx-space-stack-xs) var(--vx-space-stack-sm);
+  border-radius: var(--vx-radius-fine);
+  font-size: var(--vx-text-sm);
+}
+
+.today {
+  box-shadow: 0 0 0 1px var(--vx-line);
+}
+
+.stripDay {
+  color: var(--vx-ink);
+}
+
+.stripBooked {
+  font-family: var(--basalt-font-mono);
+  text-align: right;
+  color: var(--vx-ink);
+}
+
+.stripCount {
+  text-align: right;
+  color: var(--vx-muted);
+}
+
+.split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--vx-space-stack-xs) var(--vx-space-stack-md);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-ink);
+}
+
+.swatch {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-right: var(--vx-space-stack-xs);
+  border-radius: 50%;
+}
+
+.task {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: var(--vx-space-stack-sm);
+  padding-block: var(--vx-space-stack-sm);
+  border-bottom: 1px solid var(--vx-surface-hairline);
+  font-size: var(--vx-text-sm);
+}
+
+.task:last-child {
+  border-bottom: 0;
+}
+
+.dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-top: 0.4rem;
+  border-radius: 50%;
+}
+
+.taskTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--vx-ink);
+}
+
+.taskMeta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--vx-text-xs);
+  color: var(--vx-muted);
+}
+
+.due {
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-xs);
+  white-space: nowrap;
+  color: var(--vx-muted);
+}
