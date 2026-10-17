@@ -6,9 +6,9 @@ import classes from './m365.module.css'
 
 const EM_DASH = '—'
 /** A split is not a verdict: stepped neutral fills, never a status colour. */
-const FILL_STRONG = alpha(VX.muted, 0.6)
-const FILL_MID = alpha(VX.muted, 0.35)
-const FILL_FAINT = alpha(VX.muted, 0.15)
+const FILL_STRONG = alpha(VX.muted, 0.75)
+const FILL_MID = alpha(VX.muted, 0.5)
+const FILL_FAINT = alpha(VX.muted, 0.28)
 
 type CellProps = {
   caption: string
@@ -52,7 +52,8 @@ export function ExplorerStrip({ labeled, total, chats, teams, channels }: StripP
         shot="labeled"
         caption="Labeled"
         value={String(labeled)}
-        unit={total === null ? 'of …' : `of ${total} chats + channels`}
+        unit={total === null ? 'of …' : `of ${total}`}
+        footer="chats + channels"
         visual={
           total === null ? (
             <Skeleton h={22} />

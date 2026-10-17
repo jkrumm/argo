@@ -41,6 +41,16 @@ describe('groupByRecency', () => {
   })
 })
 
+describe('groupByRecency order', () => {
+  test('sorts each group newest first whatever the input order', () => {
+    const [g] = groupByRecency(
+      [row('old', '2026-10-13T08:00:00'), row('new', '2026-10-16T08:00:00')],
+      NOW,
+    )
+    expect(g?.rows.map((r) => r.ref.chatId)).toEqual(['new', 'old'])
+  })
+})
+
 describe('chatKindCounts', () => {
   test('counts the three kinds and ignores unknown values', () => {
     expect(

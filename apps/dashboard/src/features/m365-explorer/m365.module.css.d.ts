@@ -16,6 +16,7 @@ declare const classes: {
   readonly split: string
   readonly pane: string
   readonly detailPane: string
+  readonly paneBody: string
   readonly paneScroll: string
   readonly toolbar: string
   readonly chip: string
