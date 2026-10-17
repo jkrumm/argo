@@ -7,7 +7,7 @@ import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, RangeFilter } from 'basalt-ui/controls'
 import { DateRangePicker } from 'basalt-ui/controls-dates'
 import { garminStore, toApiWindow } from '../lib/window-stores'
-import { SummaryLine, StatStripRow, useGarminSync } from '../features/garmin-health'
+import { SummaryLine, GarminStrip, useGarminSync } from '../features/garmin-health'
 import { fitnessRange } from '../features/garmin-health/model'
 import ActivitiesChart from '../features/garmin-health/charts/activities-chart'
 import ActivityScoreChart from '../features/garmin-health/charts/activity-score-chart'
@@ -71,7 +71,7 @@ function GarminHealthPage() {
 
       <Stack gap="md">
         <SummaryLine params={params} />
-        <StatStripRow params={params} />
+        <GarminStrip params={params} />
 
         <Section title="Training load">
           <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
