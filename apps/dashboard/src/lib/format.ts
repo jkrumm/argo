@@ -13,5 +13,5 @@ export function relativeTime(
   value: RelativeTimeArgs[0],
   options: RelativeTimeArgs[1] = {},
 ): string {
-  return basaltRelativeTime(value, { locale: APP_LOCALE, ...options })
+  return basaltRelativeTime(value, { ...options, locale: options.locale ?? APP_LOCALE })
 }
