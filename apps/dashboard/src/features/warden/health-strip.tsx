@@ -1,11 +1,11 @@
-import { Group, Stack, Text } from '@mantine/core'
+import { Box, Stack, Text } from '@mantine/core'
 import { VX } from 'basalt-ui/tokens'
 import type { ReactNode } from 'react'
 import type { WardenBudget, WardenHealth, WardenMetrics } from '../../lib/queries/warden'
 import { Meter } from 'basalt-ui'
+import classes from './stat-strip.module.css'
 import { StatStrip, type StatStripCell } from './stat-strip'
 import {
-  POLLER_SCALE_MIN,
   deriveBudgetFooter,
   deriveStrip,
   formatNumber,
@@ -82,17 +82,18 @@ function fixesCell({ fixes }: StripModel): StatStripCell {
     qualifier: (
       <>
         all time · share of fixed + quiet
-        <Group gap={8} wrap="nowrap">
+        <br />
+        <Box component="span" className={classes.nowrap}>
           <Text span size="xs" c={VX.status.good}>
             fixed {fixes.fixed ?? '—'}
-          </Text>
+          </Text>{' '}
           <Text span size="xs" c={VX.status.warn}>
             quiet {fixes.quiet ?? '—'}
-          </Text>
+          </Text>{' '}
           <Text span size="xs">
             closed {fixes.closed ?? '—'}
           </Text>
-        </Group>
+        </Box>
       </>
     ),
     visual: (
@@ -174,23 +175,24 @@ function pollerCell({ poller }: StripModel): StatStripCell {
       qualifier: noData(poller.unavailable ?? 'not reported'),
     }
   }
+  const limit = poller.thresholdMin
   return {
     key: 'poller',
     caption,
-    info: 'Age of the least recently run poller; at 30 min it counts as stale.',
+    info: `Age of the least recently run poller; at ${limit} min it counts as stale.`,
     value: formatNumber(poller.oldestMin),
     unit: 'min',
-    valueColor: poller.oldestMin >= POLLER_SCALE_MIN ? VX.status.bad : undefined,
-    qualifier: `stale at ${POLLER_SCALE_MIN} min`,
+    valueColor: poller.stale ? VX.status.bad : undefined,
+    qualifier: `stale at ${limit} min`,
     visual: (
       <Meter
-        label={`Oldest poller age against ${POLLER_SCALE_MIN} minutes`}
+        label={`Oldest poller age against ${limit} minutes`}
         value={poller.oldestMin}
-        max={POLLER_SCALE_MIN}
-        target={POLLER_SCALE_MIN}
-        {...(poller.oldestMin >= POLLER_SCALE_MIN ? { color: VX.status.bad } : {})}
+        max={limit}
+        target={limit}
+        {...(poller.stale ? { color: VX.status.bad } : {})}
         startCaption={null}
-        endCaption={`${POLLER_SCALE_MIN} min`}
+        endCaption={`${limit} min`}
       />
     ),
   }
@@ -198,22 +200,21 @@ function pollerCell({ poller }: StripModel): StatStripCell {
 
 function revertsCell({ reverts }: StripModel): StatStripCell {
   const caption = 'Reverts · reopens'
-  if (reverts.reverts === null && reverts.reopens === null) {
-    return {
-      key: 'reverts',
-      caption,
-      value: '—',
-      qualifier: noData(reverts.unavailable ?? 'not reported'),
-    }
-  }
-  const bad = (reverts.reverts ?? 0) > 0
+  const parts = [
+    reverts.reverts === null
+      ? `reverts ${noData(reverts.revertsUnavailable ?? 'not reported')}`
+      : null,
+    reverts.reopens === null
+      ? `reopens ${noData(reverts.reopensUnavailable ?? 'not reported')}`
+      : `${reverts.reopens} reopen after fixed · last ${reverts.windowDays} d`,
+  ].filter((part): part is string => part !== null)
   return {
     key: 'reverts',
     caption,
     value: reverts.reverts === null ? '—' : String(reverts.reverts),
     unit: reverts.reverts === 1 ? 'revert' : 'reverts',
-    valueColor: bad ? VX.status.bad : undefined,
-    qualifier: `${reverts.reopens === null ? '—' : reverts.reopens} reopen after fixed · last ${reverts.windowDays} d`,
+    valueColor: reverts.reverts !== null && reverts.reverts > 0 ? VX.status.bad : undefined,
+    qualifier: parts.join(' · '),
   }
 }
 
@@ -231,7 +232,7 @@ function BudgetMeterRow({ meter }: { meter: BudgetMeter }) {
           —
         </Text>
         <Text size="xs" c="dimmed">
-          {noData('budget not reported')}
+          {meter.name} budget — not reported by Warden
         </Text>
       </Stack>
     )
@@ -272,7 +273,7 @@ export function HealthStrip({ metrics, health, budget }: Props) {
             key: 'budget',
             content: (
               <Text size="xs" c="dimmed">
-                Dispatch budget — not reported by Warden
+                Dispatch and implement budget — not reported by Warden
               </Text>
             ),
           },

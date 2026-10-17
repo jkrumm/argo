@@ -5,6 +5,7 @@
 declare const classes: {
   readonly strip: string
   readonly cells: string
+  readonly nowrap: string
   readonly cell: string
   readonly footer: string
   readonly footerCell: string

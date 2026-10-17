@@ -14,7 +14,7 @@ export type { WardenActionVerb, WardenIssueInfo }
 
 /** A snapshot older than this is a stopped loop, not a quiet control plane (`docs/api.md`'s 10-minute
  * push cadence gives a wide margin before this reads as suspicious). */
-export const STALE_AFTER_MS = 30 * 60 * 1000
+const STALE_AFTER_MS = 30 * 60 * 1000
 
 export function isStale(receivedAt: string | null | undefined, now = Date.now()): boolean {
   if (!receivedAt) return true
@@ -22,6 +22,9 @@ export function isStale(receivedAt: string | null | undefined, now = Date.now())
   if (!Number.isFinite(receivedMs)) return true
   return now - receivedMs > STALE_AFTER_MS
 }
+
+/** Warden's terminal states — an item here is finished and never belongs on the open board. */
+export const TERMINAL_STATES: ReadonlySet<string> = new Set(['fixed', 'quiet', 'closed'])
 
 // ── State presentation ───────────────────────────────────────────────────────
 // Warden's state vocabulary: non-terminal `new, triaged, working, merging, verifying,
@@ -235,7 +238,7 @@ export function str(value: unknown): string | null {
 /** Counts and totals arrive as real numbers when warden computes them; an absent field — several
  * (the reminder counts, the `*_total` caps) are only now being added warden-side — reads as null
  * rather than 0, so a reminder line never renders for a count that was never reported. */
-export function num(value: unknown): number | null {
+function num(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
@@ -246,7 +249,7 @@ const SENSITIVE_KEY_PATTERN = /secret|token|password|nonce|signature|key$/i
 /** A compact `"key: value"` line over every field but the ones already rendered explicitly and
  * any field whose name looks sensitive — defensive against field names varying slightly between
  * warden's producers. */
-export function summarizeRow(row: Row, skip: string[]): string {
+function summarizeRow(row: Row, skip: string[]): string {
   const skipSet = new Set(skip)
   return Object.entries(row)
     .filter(

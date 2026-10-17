@@ -11,6 +11,7 @@ import {
   formatAgeDays,
   isDeferredItem,
   isStale,
+  TERMINAL_STATES,
   pluralize,
   type AwaitingOwnerRow,
   type AwaitingOwnerView,
@@ -78,12 +79,18 @@ export type StripModel = {
     unavailable: string | null
   }
   unattended: { fixes: number | null; windowDays: number; unavailable: string | null }
-  poller: { oldestMin: number | null; unavailable: string | null }
+  poller: {
+    oldestMin: number | null
+    thresholdMin: number
+    stale: boolean
+    unavailable: string | null
+  }
   reverts: {
     reverts: number | null
+    revertsUnavailable: string | null
     reopens: number | null
+    reopensUnavailable: string | null
     windowDays: number
-    unavailable: string | null
   }
 }
 
@@ -108,7 +115,8 @@ export function derivePollers(
     const ageMin = numberOf(e?.['age_minutes'])
     if (ageMin === null) continue
     const thresholdMin = numberOf(e?.['threshold_minutes'])
-    const stale = e?.['stale'] === true || e?.['ok'] === false
+    const stale =
+      e?.['stale'] === true || e?.['ok'] === false || ageMin >= (thresholdMin ?? POLLER_SCALE_MIN)
     rows.push({ name, ageMin, thresholdMin, stale })
   }
   return rows.toSorted((a, b) => b.ageMin - a.ageMin)
@@ -133,9 +141,12 @@ export function deriveStrip(
   const revertsMetric = bag(metrics?.reverts_and_reopens)
   const revertsReading = readLeaf(revertsMetric?.['reverts'])
   const reopensReading = readLeaf(revertsMetric?.['reopen_after_fixed'])
-  const fixedShare =
-    fixesReading.value ??
-    (fixed !== null && quiet !== null && fixed + quiet > 0 ? fixed / (fixed + quiet) : null)
+  // No headline share without the counts it is the share of.
+  const countsReported = fixed !== null || quiet !== null
+  const fixedShare = !countsReported
+    ? null
+    : (fixesReading.value ??
+      (fixed !== null && quiet !== null && fixed + quiet > 0 ? fixed / (fixed + quiet) : null))
 
   return {
     verdicts: {
@@ -149,7 +160,12 @@ export function deriveStrip(
       fixed,
       quiet,
       closed: numberOf(fixes?.['closed']),
-      unavailable: fixedShare === null ? (fixesReading.unavailable ?? 'not reported') : null,
+      unavailable:
+        fixedShare === null
+          ? countsReported
+            ? (fixesReading.unavailable ?? 'not reported')
+            : 'counts not reported'
+          : null,
     },
     wait: {
       hours: waitReading.value,
@@ -168,19 +184,19 @@ export function deriveStrip(
     },
     poller: {
       oldestMin: pollers[0]?.ageMin ?? pollerReading.value,
+      thresholdMin: pollers[0]?.thresholdMin ?? POLLER_SCALE_MIN,
+      stale: pollers[0]?.stale ?? (pollerReading.value ?? 0) >= POLLER_SCALE_MIN,
       unavailable: pollers[0] || pollerReading.value !== null ? null : pollerReading.unavailable,
     },
     reverts: {
       reverts: revertsReading.value,
+      revertsUnavailable: revertsReading.unavailable,
       reopens: reopensReading.value,
+      reopensUnavailable: reopensReading.unavailable,
       windowDays:
         numberOf(bag(revertsMetric?.['reverts'])?.['window_days']) ??
         numberOf(metrics?.window_days) ??
         DEFAULT_WINDOW_DAYS,
-      unavailable:
-        revertsReading.value === null && reopensReading.value === null
-          ? (revertsReading.unavailable ?? 'not reported')
-          : null,
     },
   }
 }
@@ -194,10 +210,12 @@ export function formatNumber(value: number): string {
 // ── Budget ──────────────────────────────────────────────────────────────────
 
 /** Past this share of the daily cap the meter reads as a warning. */
-export const BUDGET_WARN_SHARE = 0.9
+const BUDGET_WARN_SHARE = 0.9
 
 export type BudgetMeter = {
   key: 'dispatch' | 'implement'
+  /** The meter's own name for per-meter wording (`Dispatch`, `Implement`). */
+  name: string
   caption: string
   used: number | null
   max: number | null
@@ -207,6 +225,7 @@ export type BudgetMeter = {
 export function deriveBudget(budget: WardenBudget | undefined): BudgetMeter[] {
   const build = (
     key: BudgetMeter['key'],
+    name: string,
     caption: string,
     used: number | undefined,
     max: number | undefined,
@@ -215,6 +234,7 @@ export function deriveBudget(budget: WardenBudget | undefined): BudgetMeter[] {
     const m = numberOf(max)
     return {
       key,
+      name,
       caption,
       used: u,
       max: m,
@@ -222,8 +242,14 @@ export function deriveBudget(budget: WardenBudget | undefined): BudgetMeter[] {
     }
   }
   return [
-    build('dispatch', 'DISPATCH · today', budget?.usedToday, budget?.max),
-    build('implement', 'IMPLEMENT · today', budget?.implementToday, budget?.implementMax),
+    build('dispatch', 'Dispatch', 'DISPATCH · today', budget?.usedToday, budget?.max),
+    build(
+      'implement',
+      'Implement',
+      'IMPLEMENT · today',
+      budget?.implementToday,
+      budget?.implementMax,
+    ),
   ]
 }
 
@@ -258,7 +284,10 @@ export type SummaryInput = {
   now?: number
 }
 
-export function deriveSummary(input: SummaryInput): string {
+/** `stalled` (no fresh snapshot) and `degraded` (a stale poller) are loud; `ok` is plain text. */
+export type SummaryStatus = 'ok' | 'degraded' | 'stalled'
+
+export function deriveSummary(input: SummaryInput): { text: string; status: SummaryStatus } {
   const { needsCount, oldestAgeDays, receivedAt, now = Date.now() } = input
   const needs =
     needsCount === 0
@@ -271,10 +300,13 @@ export function deriveSummary(input: SummaryInput): string {
     const age = Number.isFinite(parsed)
       ? ` — snapshot ${formatSpan(now - parsed)} old`
       : ' — no snapshot yet'
-    return `${needs}. Loop stalled${age}.`
+    return { text: `${needs}. Loop stalled${age}.`, status: 'stalled' }
   }
   if (input.stalePoller !== null) {
-    return `${needs}. Loop degraded: ${input.stalePoller.name} is ${formatNumber(input.stalePoller.ageMin)} min old.`
+    return {
+      text: `${needs}. Loop degraded: ${input.stalePoller.name} is ${formatNumber(input.stalePoller.ageMin)} min old.`,
+      status: 'degraded',
+    }
   }
   const parts = [
     input.oldestPollerMin === null ? null : `poller ${formatNumber(input.oldestPollerMin)} min old`,
@@ -282,9 +314,13 @@ export function deriveSummary(input: SummaryInput): string {
       ? null
       : `${input.unattendedFixes === 1 ? '1 fix' : `${formatNumber(input.unattendedFixes)} fixes`} in ${input.windowDays} d`,
   ].filter((part): part is string => part !== null)
-  return parts.length === 0
-    ? `${needs}. Loop healthy.`
-    : `${needs}. Loop healthy: ${parts.join(', ')}.`
+  return {
+    text:
+      parts.length === 0
+        ? `${needs}. Loop healthy.`
+        : `${needs}. Loop healthy: ${parts.join(', ')}.`,
+    status: 'ok',
+  }
 }
 
 // ── Decision cards ──────────────────────────────────────────────────────────
@@ -343,7 +379,7 @@ const TAG_TONE: Record<string, ChipTone> = { blocker: 'bad', data_loss: 'bad', s
 /** A leading `[tag]` as a chip: known tags take a tone, any other renders neutral with its raw label. */
 export function tagChip(tag: string): { tone: ChipTone; label: string } {
   const key = tag.trim().toLowerCase().replaceAll(' ', '_')
-  return { tone: TAG_TONE[key] ?? 'neutral', label: tag.trim() }
+  return { tone: Object.hasOwn(TAG_TONE, key) ? TAG_TONE[key]! : 'neutral', label: tag.trim() }
 }
 
 /** The first complete sentence of warden's decision text is the question; whatever follows is the
@@ -372,7 +408,7 @@ export function retryQuestion(title: string): string {
 
 /** `<repo> · waiting <n> d · revision <n> · <n> redrives` — only the parts warden reported. */
 /** A decision waiting longer than this many days gets a warning tone on its age. */
-export const WAIT_WARN_DAYS = 2
+const WAIT_WARN_DAYS = 2
 
 export function cardFacts(row: AwaitingOwnerRow): DecisionCardFact[] {
   const waiting =
@@ -414,6 +450,16 @@ export function failureChip(failureClass: string | null): { tone: ChipTone; labe
   return { tone: 'neutral', label: failureClass }
 }
 
+const ORIGIN_KINDS = { alert: true, github_issue: true, human: true, job: true } as const
+export type OriginKind = keyof typeof ORIGIN_KINDS
+
+/** A wire `origin` narrowed to the kinds the board has a glyph for; anything else is `null`. */
+export function originKind(origin: string | null | undefined): OriginKind | null {
+  return typeof origin === 'string' && Object.hasOwn(ORIGIN_KINDS, origin)
+    ? (origin as OriginKind)
+    : null
+}
+
 // ── Board ───────────────────────────────────────────────────────────────────
 
 export const BOARD_COLUMN_KEYS = [
@@ -426,7 +472,7 @@ export const BOARD_COLUMN_KEYS = [
 ] as const
 export type BoardColumnKey = (typeof BOARD_COLUMN_KEYS)[number]
 
-export const BOARD_COLUMN_LABEL: Record<BoardColumnKey, string> = {
+const BOARD_COLUMN_LABEL: Record<BoardColumnKey, string> = {
   new: 'New',
   triaged: 'Triaged',
   working: 'Working',
@@ -437,29 +483,30 @@ export const BOARD_COLUMN_LABEL: Record<BoardColumnKey, string> = {
 
 export type BoardColumn = { key: BoardColumnKey; label: string; items: WardenBoardItem[] }
 
-/** `needs_decision` and `failed` live in the decision cards, never as board columns. */
+/** `needs_decision` and `failed` are decision-card states: an item in one of them leaves the board
+ * only when a card actually claimed it, otherwise it lands in Other with its raw state. */
 const QUEUE_STATES = new Set(['needs_decision', 'failed'])
 
 /**
- * Each open item exactly once. Items already on a decision card (by state, or by an
- * `awaiting_owner` entry) are left out; a state outside the known columns lands in `other`;
- * `other` is dropped entirely when empty. Deferred items stay in Working (flagged by the card).
+ * Each open item exactly once. An item claimed by a decision card (`claimed` event ids) or in a
+ * terminal state is left out; an unclaimed queue-state item and any state outside the known columns
+ * land in `other` with their raw state; `other` is dropped entirely when empty. Deferred items stay
+ * in Working (flagged by the card).
  */
-export function deriveBoardColumns(board: WardenBoard | undefined): BoardColumn[] {
-  const claimed = new Set(
-    (board?.awaiting_owner ?? [])
-      .map((entry) => entry.event_id)
-      .filter((id): id is number => id !== null),
-  )
-  const known = new Set<string>(BOARD_COLUMN_KEYS)
+export function deriveBoardColumns(
+  board: WardenBoard | undefined,
+  claimed: ReadonlySet<number>,
+): BoardColumn[] {
   const columns = new Map<BoardColumnKey, WardenBoardItem[]>(
     BOARD_COLUMN_KEYS.map((key) => [key, []]),
   )
   for (const item of board?.items ?? []) {
-    if (QUEUE_STATES.has(item.state) || claimed.has(item.event_id)) continue
-    const key =
-      known.has(item.state) && item.state !== 'other' ? (item.state as BoardColumnKey) : 'other'
-    columns.get(key)?.push(item)
+    if (claimed.has(item.event_id) || TERMINAL_STATES.has(item.state)) continue
+    const known =
+      !QUEUE_STATES.has(item.state) &&
+      item.state !== 'other' &&
+      (BOARD_COLUMN_KEYS as readonly string[]).includes(item.state)
+    columns.get(known ? (item.state as BoardColumnKey) : 'other')?.push(item)
   }
   return BOARD_COLUMN_KEYS.filter(
     (key) => key !== 'other' || (columns.get(key)?.length ?? 0) > 0,

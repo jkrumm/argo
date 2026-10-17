@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useId, useState } from 'react'
 import { Anchor, Box, Button, SimpleGrid, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { EmptyState, Section, useSizeClass } from 'basalt-ui'
@@ -44,14 +44,22 @@ const CLAMP_MIN_CHARS = 120
 
 function ClampedText({ text }: { text: string }) {
   const [expanded, { toggle }] = useDisclosure(false)
+  const textId = useId()
   const clampable = text.length > CLAMP_MIN_CHARS
   return (
     <Stack gap={4} align="flex-start">
-      <Text size="sm" {...(clampable && !expanded ? { lineClamp: 3 } : {})}>
+      <Text id={textId} size="sm" {...(clampable && !expanded ? { lineClamp: 3 } : {})}>
         {text}
       </Text>
       {clampable ? (
-        <Button variant="subtle" color="gray" size="compact-xs" onClick={toggle}>
+        <Button
+          variant="subtle"
+          color="gray"
+          size="compact-xs"
+          onClick={toggle}
+          aria-expanded={expanded}
+          aria-controls={textId}
+        >
           {expanded ? 'Show less' : 'Show more'}
         </Button>
       ) : null}

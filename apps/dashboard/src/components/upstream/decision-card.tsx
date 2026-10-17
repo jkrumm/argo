@@ -165,7 +165,7 @@ export function DecisionCard({
               {shown.length > 0 && (
                 <Text size="xs" c="dimmed">
                   {shown.map((fact, index) => (
-                    <Fragment key={fact.text}>
+                    <Fragment key={`${index}-${fact.text}`}>
                       {index > 0 ? ' · ' : null}
                       {fact.tone === undefined ? (
                         fact.text

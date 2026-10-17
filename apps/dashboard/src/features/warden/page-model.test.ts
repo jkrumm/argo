@@ -13,6 +13,8 @@ import {
   formatNumber,
   formatSpan,
   oldestAgeDays,
+  openCount,
+  originKind,
   planActions,
   readLeaf,
   retryQuestion,
@@ -67,7 +69,7 @@ describe('readLeaf', () => {
 })
 
 describe('deriveStrip', () => {
-  const metrics = {
+  const metrics: WardenMetrics = {
     window_days: 7,
     verdicts_recorded_disposition: { value: 0.5, numerator: 4, denominator: 8, unavailable: null },
     verified_fixes_vs_silence: { value: 0.75, fixed: 3, quiet: 1, closed: 2, unavailable: null },
@@ -82,7 +84,7 @@ describe('deriveStrip', () => {
       reverts: { value: 0, unavailable: null },
       reopen_after_fixed: { value: 1, unavailable: null },
     },
-  } as unknown as WardenMetrics
+  }
 
   it('derives every cell with its counts', () => {
     const strip = deriveStrip(metrics, undefined)
@@ -106,24 +108,69 @@ describe('deriveStrip', () => {
     expect(strip.unattended.fixes).toBeNull()
     expect(strip.poller.oldestMin).toBeNull()
     expect(strip.reverts.reverts).toBeNull()
-    expect(strip.reverts.unavailable).toBe('not reported')
+    expect(strip.reverts.revertsUnavailable).toBe('not reported')
+    expect(strip.reverts.reopensUnavailable).toBe('not reported')
   })
 
   it('keeps a zero-revert reading distinct from no data', () => {
-    expect(deriveStrip(metrics, undefined).reverts.unavailable).toBeNull()
+    const { reverts } = deriveStrip(metrics, undefined)
+    expect(reverts.revertsUnavailable).toBeNull()
+    expect(reverts.reverts).toBe(0)
+  })
+})
+
+describe('deriveStrip edge cases', () => {
+  it('carries reverts and reopens reasons independently', () => {
+    const metrics: WardenMetrics = {
+      reverts_and_reopens: {
+        reverts: { value: null, unavailable: 'no git history' },
+        reopen_after_fixed: { value: 2, unavailable: null },
+      },
+    }
+    const { reverts } = deriveStrip(metrics, undefined)
+    expect(reverts).toMatchObject({
+      reverts: null,
+      revertsUnavailable: 'no git history',
+      reopens: 2,
+      reopensUnavailable: null,
+    })
+  })
+
+  it('shows no headline share when neither fixed nor quiet is reported', () => {
+    const metrics: WardenMetrics = {
+      verified_fixes_vs_silence: { value: 0.6, closed: 4, unavailable: null },
+    }
+    const { fixes } = deriveStrip(metrics, undefined)
+    expect(fixes.pct).toBeNull()
+    expect(fixes.unavailable).toBe('counts not reported')
+  })
+
+  it('marks the oldest poller stale against its own threshold', () => {
+    const metrics: WardenMetrics = {
+      poller_ages: { pollers: { slow: { age_minutes: 12, threshold_minutes: 10 } } },
+    }
+    expect(deriveStrip(metrics, undefined).poller).toMatchObject({ stale: true, thresholdMin: 10 })
+  })
+
+  it('falls back to the 30 minute scale when a poller reports no threshold', () => {
+    const metrics: WardenMetrics = {
+      poller_ages: { pollers: { loop: { age_minutes: 31 }, fine: { age_minutes: 5 } } },
+    }
+    const pollers = derivePollers(metrics, undefined)
+    expect(pollers.map((p) => p.stale)).toEqual([true, false])
   })
 })
 
 describe('derivePollers', () => {
   it('sorts oldest first and flags stale ones', () => {
-    const metrics = {
+    const metrics: WardenMetrics = {
       poller_ages: {
         pollers: {
           a: { age_minutes: 2, stale: false },
           b: { age_minutes: 40, stale: true, threshold_minutes: 30 },
         },
       },
-    } as unknown as WardenMetrics
+    }
     const rows = derivePollers(metrics, undefined)
     expect(rows.map((r) => r.name)).toEqual(['b', 'a'])
     expect(rows[0]).toMatchObject({ stale: true, thresholdMin: 30 })
@@ -181,43 +228,53 @@ describe('deriveSummary', () => {
   }
 
   it('states the queue and a healthy loop', () => {
-    expect(deriveSummary(base)).toBe(
-      '3 items need you, oldest 5.1 d. Loop healthy: poller 4.5 min old, 2 fixes in 7 d.',
-    )
+    expect(deriveSummary(base)).toEqual({
+      text: '3 items need you, oldest 5.1 d. Loop healthy: poller 4.5 min old, 2 fixes in 7 d.',
+      status: 'ok',
+    })
   })
 
   it('uses the singular for one item and one fix', () => {
-    expect(deriveSummary({ ...base, needsCount: 1, unattendedFixes: 1 })).toBe(
+    expect(deriveSummary({ ...base, needsCount: 1, unattendedFixes: 1 }).text).toBe(
       '1 item needs you, oldest 5.1 d. Loop healthy: poller 4.5 min old, 1 fix in 7 d.',
     )
   })
 
   it('says nothing needs you at zero', () => {
-    expect(deriveSummary({ ...base, needsCount: 0, oldestAgeDays: null })).toStartWith(
-      'Nothing needs you. Loop healthy',
-    )
+    expect(
+      deriveSummary({ ...base, needsCount: 0, oldestAgeDays: null }).text.startsWith(
+        'Nothing needs you. Loop healthy',
+      ),
+    ).toBe(true)
   })
 
   it('omits loop facts that are not reported', () => {
-    expect(deriveSummary({ ...base, oldestPollerMin: null, unattendedFixes: null })).toEndWith(
-      'Loop healthy.',
-    )
+    const summary = deriveSummary({ ...base, oldestPollerMin: null, unattendedFixes: null })
+    expect(summary.text.endsWith('Loop healthy.')).toBe(true)
   })
 
-  it('switches to the stalled variant past 30 minutes', () => {
+  it('switches to the loud stalled variant past 30 minutes', () => {
     const stalled = deriveSummary({
       ...base,
       receivedAt: new Date(NOW - 2 * 3_600_000).toISOString(),
     })
-    expect(stalled).toBe('3 items need you, oldest 5.1 d. Loop stalled — snapshot 2 h old.')
+    expect(stalled).toEqual({
+      text: '3 items need you, oldest 5.1 d. Loop stalled — snapshot 2 h old.',
+      status: 'stalled',
+    })
+  })
+
+  it('reads a missing snapshot as stalled', () => {
+    expect(deriveSummary({ ...base, receivedAt: null })).toMatchObject({ status: 'stalled' })
   })
 
   it('names a stale poller as degraded', () => {
-    const text = deriveSummary({
+    const summary = deriveSummary({
       ...base,
       stalePoller: { name: 'loop', ageMin: 41, thresholdMin: 30, stale: true },
     })
-    expect(text).toContain('Loop degraded: loop is 41 min old.')
+    expect(summary.status).toBe('degraded')
+    expect(summary.text).toContain('Loop degraded: loop is 41 min old.')
   })
 })
 
@@ -345,10 +402,11 @@ describe('failureChip', () => {
 })
 
 describe('deriveBoardColumns', () => {
+  const none: ReadonlySet<number> = new Set()
   const columnOf = (columns: ReturnType<typeof deriveBoardColumns>, key: string) =>
     columns.find((c) => c.key === key)?.items.map((i) => i.event_id)
 
-  it('places each open item exactly once and keeps needs-decision and failed out', () => {
+  it('places each open item exactly once and leaves claimed queue items to their cards', () => {
     const items = [
       item({ event_id: 1, state: 'new' }),
       item({ event_id: 2, state: 'working' }),
@@ -356,35 +414,63 @@ describe('deriveBoardColumns', () => {
       item({ event_id: 4, state: 'failed' }),
       item({ event_id: 5, state: 'verifying' }),
     ]
-    const columns = deriveBoardColumns({ items })
+    const columns = deriveBoardColumns({ items }, new Set([3, 4]))
     const ids = columns.flatMap((c) => c.items.map((i) => i.event_id))
     expect(ids.toSorted()).toEqual([1, 2, 5])
     expect(columns.map((c) => c.key)).toEqual(['new', 'triaged', 'working', 'merging', 'verifying'])
   })
 
+  it('routes an unclaimed needs_decision or failed item to Other with its raw state', () => {
+    const items = [
+      item({ event_id: 3, state: 'needs_decision' }),
+      item({ event_id: 4, state: 'failed' }),
+    ]
+    const columns = deriveBoardColumns({ items }, none)
+    expect(columnOf(columns, 'other')).toEqual([3, 4])
+    expect(columns.find((c) => c.key === 'other')?.items.map((i) => i.state)).toEqual([
+      'needs_decision',
+      'failed',
+    ])
+  })
+
+  it('keeps terminal states off the board and out of the open count', () => {
+    const items = [
+      item({ event_id: 1, state: 'fixed' }),
+      item({ event_id: 2, state: 'quiet' }),
+      item({ event_id: 3, state: 'closed' }),
+      item({ event_id: 4, state: 'working' }),
+    ]
+    const columns = deriveBoardColumns({ items }, none)
+    expect(openCount(columns)).toBe(1)
+    expect(columns.some((c) => c.key === 'other')).toBe(false)
+  })
+
   it('lands an unknown state in Other and hides Other when empty', () => {
-    const columns = deriveBoardColumns({ items: [item({ event_id: 9, state: 'parked' })] })
+    const columns = deriveBoardColumns({ items: [item({ event_id: 9, state: 'parked' })] }, none)
     expect(columnOf(columns, 'other')).toEqual([9])
-    expect(deriveBoardColumns({ items: [] }).some((c) => c.key === 'other')).toBe(false)
+    expect(deriveBoardColumns({ items: [] }, none).some((c) => c.key === 'other')).toBe(false)
+  })
+
+  it('treats the literal state "other" as unknown, never as a column of its own', () => {
+    const columns = deriveBoardColumns({ items: [item({ event_id: 1, state: 'other' })] }, none)
+    expect(columnOf(columns, 'other')).toEqual([1])
   })
 
   it('keeps a deferred item in Working', () => {
-    const columns = deriveBoardColumns({
-      items: [item({ event_id: 7, state: 'working', note: 'deferred: implement budget 5/5' })],
-    })
+    const columns = deriveBoardColumns(
+      { items: [item({ event_id: 7, state: 'working', note: 'deferred: implement budget 5/5' })] },
+      none,
+    )
     expect(columnOf(columns, 'working')).toEqual([7])
   })
 
-  it('leaves out an item already on a decision card by awaiting_owner id', () => {
-    const columns = deriveBoardColumns({
-      items: [item({ event_id: 1, state: 'working' }), item({ event_id: 2, state: 'working' })],
-      awaiting_owner: [{ event_id: 2, state: 'working' }],
-    } as never)
-    expect(columnOf(columns, 'working')).toEqual([1])
+  it('leaves out only the ids a card claimed', () => {
+    const items = [item({ event_id: 1, state: 'working' }), item({ event_id: 2, state: 'working' })]
+    expect(columnOf(deriveBoardColumns({ items }, new Set([2])), 'working')).toEqual([1])
   })
 
   it('is empty-safe', () => {
-    expect(deriveBoardColumns(undefined).every((c) => c.items.length === 0)).toBe(true)
+    expect(deriveBoardColumns(undefined, none).every((c) => c.items.length === 0)).toBe(true)
   })
 })
 
@@ -433,6 +519,21 @@ describe('leading tag', () => {
   })
 })
 
+describe('prototype-key safety', () => {
+  it('treats Object.prototype names as unknown tags and origins', () => {
+    expect(tagChip('constructor').tone).toBe('neutral')
+    expect(tagChip('__proto__').tone).toBe('neutral')
+    expect(originKind('constructor')).toBeNull()
+    expect(originKind('toString')).toBeNull()
+    expect(originKind('github_issue')).toBe('github_issue')
+    expect(originKind(null)).toBeNull()
+  })
+
+  it('does not take Object.prototype names as action verbs', () => {
+    expect(planActions(['constructor', 'implement'], 'decision').primary).toBe('implement')
+  })
+})
+
 describe('tagChip', () => {
   it('tones the known tags and renders any other neutral with its raw label', () => {
     expect(tagChip('blocker')).toEqual({ tone: 'bad', label: 'blocker' })
@@ -445,7 +546,7 @@ describe('tagChip', () => {
 describe('deriveBudgetFooter', () => {
   it('collapses to one line when warden reports no budget', () => {
     expect(deriveBudgetFooter(undefined)).toEqual({ kind: 'not-reported' })
-    expect(deriveBudgetFooter({} as never)).toEqual({ kind: 'not-reported' })
+    expect(deriveBudgetFooter({})).toEqual({ kind: 'not-reported' })
   })
 
   it('keeps both meters when a budget is present', () => {
