@@ -251,14 +251,18 @@ function FitnessCell({ params }: { params: SummaryParams }) {
   const series = useQuery(dailyMetricsQueries.series(params))
   // VO2max moves over months, so its trace comes from the full history, not the page window.
   const history = useQuery(dailyMetricsQueries.series({ window: 'all' }))
-  const vo2 = useMemo(
-    () =>
-      applyVisibilityFilter(history.data?.points ?? [], (p) => p.date, { hideToday: false })
-        .map((p) => p.vo2Max)
-        .filter((v): v is number => v !== null)
-        .slice(-VO2_SPAN_POINTS),
-    [history.data],
-  )
+  const vo2 = useMemo(() => {
+    const read = applyVisibilityFilter(history.data?.points ?? [], (p) => p.date, {
+      hideToday: false,
+    })
+      .filter((p): p is typeof p & { vo2Max: number } => p.vo2Max !== null)
+      .slice(-VO2_SPAN_POINTS)
+    const first = read.at(0)
+    const last = read.at(-1)
+    const spanDays =
+      first && last ? Math.round((Date.parse(last.date) - Date.parse(first.date)) / 86_400_000) : 0
+    return { values: read.map((p) => p.vo2Max), spanDays }
+  }, [history.data])
 
   const rows = useMemo(() => {
     // Sleep-derived readings lock in overnight, so today is kept (as the regression's window does).
@@ -309,13 +313,13 @@ function FitnessCell({ params }: { params: SummaryParams }) {
         spec={{
           label: 'VO2max',
           unit: 'ml/kg/min',
-          deltaUnit: '',
+          deltaUnit: 'ml/kg/min',
           digits: 1,
           polarity: 'up-good',
-          period: `${vo2.length} readings`,
+          period: `${vo2.spanDays} d`,
           hideValue: true,
-          values: vo2,
-          delta: firstToLast(vo2),
+          values: vo2.values,
+          delta: firstToLast(vo2.values),
         }}
       />
     </StripCell>

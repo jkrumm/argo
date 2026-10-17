@@ -71,13 +71,13 @@ function GarminHealthPage() {
         <SummaryLine params={params} />
         <StatStripRow params={params} />
 
-        <Section title="Load">
+        <Section title="Training load">
           <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
             <AcwrChart params={params} />
           </Suspense>
         </Section>
 
-        <Section title="Recovery and sleep">
+        <Section title="Recovery, sleep and stress">
           <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
             <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
               <RecoveryTrendChart params={params} />
@@ -94,7 +94,7 @@ function GarminHealthPage() {
           </SimpleGrid>
         </Section>
 
-        <Section title="Training">
+        <Section title="Training volume">
           <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
             <ActivitiesChart params={params} />
           </Suspense>
