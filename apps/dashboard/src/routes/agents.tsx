@@ -9,6 +9,7 @@ import {
   oldestAskMs,
   flattenAgents,
   groupProjects,
+  needsYouCount,
   oldestNeedsYouWait,
   countUnknownAgents,
   feedState,
@@ -97,12 +98,11 @@ function AgentsPage() {
             )}
             {feed === 'failed' ? null : (
               <FleetStrip
-                summary={snapshot?.summary}
+                needsYou={latest === null ? null : needsYouCount(humanQueue, agents)}
                 fleet={fleet}
                 history={historyQuery.data?.data}
                 hours={HISTORY_HOURS}
                 oldest={oldest}
-                queued={humanQueue.length}
                 now={now}
               />
             )}
