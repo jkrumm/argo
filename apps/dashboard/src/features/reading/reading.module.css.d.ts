@@ -5,13 +5,6 @@
 declare const classes: {
   readonly root: string
   readonly pair: string
-  readonly strip: string
-  readonly cell: string
-  readonly caption: string
-  readonly reading: string
-  readonly value: string
-  readonly unit: string
-  readonly footer: string
   readonly paceAxis: string
   readonly histogram: string
   readonly bucket: string

@@ -16,67 +16,6 @@
   }
 }
 
-/* ── Strip: joined cells ──────────────────────────────────────────────────────────────────── */
-
-.strip {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 1px;
-  overflow: hidden;
-  border-radius: var(--vx-radius-card);
-  background: var(--vx-surface-hairline);
-  box-shadow: var(--vx-shadow-card);
-}
-
-@container (min-width: 800px) {
-  .strip {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-.cell {
-  display: flex;
-  flex-direction: column;
-  gap: var(--vx-space-stack-sm);
-  min-width: 0;
-  padding: var(--vx-space-card-inset-y) var(--vx-space-card-inset-x);
-  background: var(--vx-surface-panel);
-}
-
-.caption {
-  font-family: var(--basalt-font-mono);
-  font-size: var(--vx-text-micro);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--vx-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.reading {
-  display: flex;
-  align-items: baseline;
-  gap: var(--vx-space-control-gap);
-}
-
-.value {
-  font-size: var(--vx-text-kpi);
-  line-height: 1.1;
-  color: var(--vx-ink);
-  white-space: nowrap;
-}
-
-.unit {
-  font-size: var(--vx-text-sm);
-  color: var(--vx-muted);
-}
-
-.footer {
-  font-size: var(--vx-text-sm);
-  color: var(--vx-muted);
-}
-
 .paceAxis {
   display: flex;
   justify-content: space-between;
