@@ -69,6 +69,10 @@ export function serveDist(distDir: string, token: string): DistServer {
     port: 0,
     hostname: '127.0.0.1',
     async fetch(req) {
+      // The HTML carries the bearer: refuse any Host but our own loopback origin (DNS rebinding).
+      if (req.headers.get('host') !== `127.0.0.1:${server.port}`) {
+        return new Response('forbidden host', { status: 403 })
+      }
       const url = new URL(req.url)
       // Nothing that is not a read is accepted anywhere, API or static.
       if (req.method !== 'GET' && req.method !== 'HEAD') {

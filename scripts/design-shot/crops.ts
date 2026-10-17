@@ -5,7 +5,7 @@ export type CropBox = { x: number; y: number; width: number; height: number; tit
 
 const MAX_CROPS = 40
 
-export function findCrops(page: Page): Promise<CropBox[]> {
+export function findCrops(page: Page): Promise<{ boxes: CropBox[]; total: number }> {
   return page.evaluate((max) => {
     const SELECTOR = '.mantine-Card-root, .mantine-Paper-root, [data-basalt-chart-card], table'
     const MIN_W = 160
@@ -37,18 +37,18 @@ export function findCrops(page: Page): Promise<CropBox[]> {
         .slice(0, 40)
         .replace(/-+$/g, '')
 
-    return pick(document)
-      .slice(0, max)
-      .map((el) => {
-        const r = el.getBoundingClientRect()
-        const heading = el.querySelector('h1, h2, h3, h4, h5, h6, caption, [class*="Title"]')
-        return {
-          x: r.x,
-          y: r.y,
-          width: r.width,
-          height: r.height,
-          title: kebab(heading?.textContent ?? '') || 'card',
-        }
-      })
+    const all = pick(document)
+    const boxes = all.slice(0, max).map((el) => {
+      const r = el.getBoundingClientRect()
+      const heading = el.querySelector('h1, h2, h3, h4, h5, h6, caption, [class*="Title"]')
+      return {
+        x: r.x,
+        y: r.y,
+        width: r.width,
+        height: r.height,
+        title: kebab(heading?.textContent ?? '') || 'card',
+      }
+    })
+    return { boxes, total: all.length }
   }, MAX_CROPS)
 }

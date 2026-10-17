@@ -6,7 +6,7 @@
 .PHONY: help check deploy verify logs evidence design-shot
 
 help: ## List available targets
-	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-8s\033[0m %s\n", $$1, $$2}'
+	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 
 check: ## Run exactly the local validation CI runs (drift, lint, format, typecheck incl. scripts/, unit tests incl. dashboard)
 	./node_modules/.bin/basalt-ui sync --check

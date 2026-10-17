@@ -5,8 +5,9 @@ export type Device = 'desktop' | 'mobile'
 export type RouteResult = {
   route: string
   slug: string
-  /** `<scheme>--<device>` → file */
-  full: Record<string, string>
+  full: Partial<Record<`${Scheme}--${Device}`, string>>
   crops: Array<{ scheme: Scheme; file: string }>
   failures: string[]
+  /** Degraded but usable output (cropped away, never settled); shown on the board, does not fail the run. */
+  notes: string[]
 }
