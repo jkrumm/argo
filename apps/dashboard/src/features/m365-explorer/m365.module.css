@@ -59,6 +59,11 @@
   white-space: nowrap;
 }
 
+.visual {
+  /* The Meter's visually-hidden reading inherits this: keep it on the cell's own scale. */
+  font-size: var(--vx-text-sm);
+}
+
 .footer {
   font-size: var(--vx-text-sm);
   color: var(--vx-muted);
