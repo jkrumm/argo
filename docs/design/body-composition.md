@@ -89,7 +89,7 @@ Shots of the live page (GET-only production proxy) plus a local overlay that inj
 
 Decisions that deviate from the concept:
 
-- **Entries vs days.** The summary endpoint's `ma7`, `ma30`, `weeklyDelta`, `monthlyDelta` are over the last 7/30 entries, not days; with a sparse log they contradicted each other and the entry count. The page derives 7 d / 30 d means and changes from `/weight-log/series` (`model.ts`: `meanOverDays`, `changeOverDays`) and states a period only when the window covers it (`—` otherwise). `current` and `kgPerWeek` still come from the summary.
+- **Entries vs days.** The summary endpoint's `ma7`, `ma30`, `weeklyDelta`, `monthlyDelta` are over the last 7/30 entries, not days; with a sparse log they contradicted each other and the entry count. The page derives 7 d / 30 d means and least-squares slopes (kg/wk, the API's method, so the rate cell uses one method throughout) from `/weight-log/series` (`model.ts`: `meanOverDays`, `slopeOverDays`) and states a period only when the window covers it and the entries span at least 70 % of it (`—` otherwise). The meter's start caption names the window's first entry and its date. `current` and `kgPerWeek` still come from the summary.
 - **Intensity pill is neutral gray**, not `weightPhaseColor`: with a goal set the gold "bulk" tone contradicted a red delta moving away from it. The tier's kg/wk range sits in the meter's end caption instead.
 - **"Set a goal"** is a one-field popover (`goal-popover.tsx`) rather than a third overlay, because the owned `OVERLAYS` entries are the two log modals.
 - **Skinfold chart** needs ≥2 sessions; with 0 or 1 a single empty row carries the Log action.

@@ -1,3 +1,4 @@
+// Every fixture is synthetic (round numbers, fixed dates); none is a real reading.
 import { describe, expect, test } from 'bun:test'
 import {
   ageLabel,
@@ -6,30 +7,45 @@ import {
   deltaFromMean,
   entryAgeDays,
   goalProgress,
-  isStale,
-  changeOverDays,
   intensityBand,
+  isStale,
   meanOverDays,
-  windowDays,
-  siteRows,
   signed,
+  siteRows,
+  slopeOverDays,
   summarySentence,
   weightDeltaPolarity,
+  weightWindowStats,
+  windowDays,
   windowLabel,
 } from './model'
 
+/** `count` daily entries ending 2026-06-30, weight moving `perDay` kg a day from `start`. */
+function daily(count: number, start: number, perDay: number) {
+  return Array.from({ length: count }, (_, i) => ({
+    date: dayKey(new Date(2026, 5, 30 - (count - 1 - i)).getTime()),
+    weightKg: start + perDay * i,
+  }))
+}
+
 describe('dates', () => {
   test('dayKey is the local calendar day', () => {
-    expect(dayKey(new Date(2026, 9, 17, 23, 59).getTime())).toBe('2026-10-17')
+    expect(dayKey(new Date(2026, 5, 17, 23, 59).getTime())).toBe('2026-06-17')
+  })
+  test('dayKey and daysBetween hold across both DST changes', () => {
+    expect(dayKey(new Date(2026, 2, 29, 0, 30).getTime())).toBe('2026-03-29')
+    expect(dayKey(new Date(2026, 9, 25, 23, 30).getTime())).toBe('2026-10-25')
+    expect(daysBetween('2026-03-28', '2026-03-30')).toBe(2)
+    expect(daysBetween('2026-10-24', '2026-10-26')).toBe(2)
   })
   test('daysBetween counts calendar days across a month end', () => {
-    expect(daysBetween('2026-09-28', '2026-10-17')).toBe(19)
+    expect(daysBetween('2026-05-28', '2026-06-17')).toBe(20)
   })
   test('entryAgeDays uses the newest entry and is never negative', () => {
-    const pts = [{ date: '2026-10-01' }, { date: '2026-10-10' }]
-    expect(entryAgeDays(pts, '2026-10-17')).toBe(7)
-    expect(entryAgeDays(pts, '2026-10-05')).toBe(0)
-    expect(entryAgeDays([], '2026-10-17')).toBeNull()
+    const pts = [{ date: '2026-06-01' }, { date: '2026-06-10' }]
+    expect(entryAgeDays(pts, '2026-06-17')).toBe(7)
+    expect(entryAgeDays(pts, '2026-06-05')).toBe(0)
+    expect(entryAgeDays([], '2026-06-17')).toBeNull()
   })
   test('stale from exactly 14 days', () => {
     expect(isStale(13)).toBe(false)
@@ -45,8 +61,8 @@ describe('dates', () => {
 
 describe('signed', () => {
   test('uses a real minus and a plus', () => {
-    expect(signed(-0.34, 2)).toBe('−0.34')
-    expect(signed(0.4, 1)).toBe('+0.4')
+    expect(signed(-0.5, 2)).toBe('−0.50')
+    expect(signed(0.5, 1)).toBe('+0.5')
   })
   test('a value that rounds to zero carries no sign; null is a dash', () => {
     expect(signed(-0.004, 2)).toBe('0.00')
@@ -57,12 +73,17 @@ describe('signed', () => {
 describe('goalProgress', () => {
   test('losing toward a lower goal', () => {
     const p = goalProgress({ start: 90, current: 85, goal: 80 })
-    expect(p?.toGo).toBe(5)
-    expect(p?.span).toBe(10)
-    expect(p?.moved).toBe(5)
+    expect(p).toEqual({ toGo: 5, span: 10, moved: 5 })
   })
-  test('gaining toward a higher goal', () => {
-    expect(goalProgress({ start: 70, current: 72, goal: 75 })?.moved).toBe(2)
+  test('goal above the start: gaining is progress', () => {
+    expect(goalProgress({ start: 70, current: 72, goal: 80 })).toEqual({
+      toGo: 8,
+      span: 10,
+      moved: 2,
+    })
+  })
+  test('goal above the start: losing weight clamps at zero progress', () => {
+    expect(goalProgress({ start: 70, current: 68, goal: 80 })?.moved).toBe(0)
   })
   test('moving away clamps at zero; overshoot clamps at the goal', () => {
     expect(goalProgress({ start: 90, current: 92, goal: 80 })?.moved).toBe(0)
@@ -93,22 +114,22 @@ test('deltaFromMean', () => {
 
 describe('summarySentence', () => {
   test('full sentence repeats the cell figures', () => {
-    expect(summarySentence({ current: 84.26, kgPerWeek: -0.34, goal: 80, ageDays: 3 })).toBe(
-      '84.3 kg, −0.34 kg/wk, 4.3 kg to the 80.0 kg goal; last weigh-in 3 days ago.',
+    expect(summarySentence({ current: 80, kgPerWeek: -0.5, goal: 75, ageDays: 3 })).toBe(
+      '80.0 kg, −0.50 kg/wk, 5.0 kg to the 75.0 kg goal; last weigh-in 3 days ago.',
     )
   })
   test('no goal drops the distance clause', () => {
-    expect(summarySentence({ current: 84, kgPerWeek: 0.2, goal: null, ageDays: 0 })).toBe(
-      '84.0 kg, +0.20 kg/wk; last weigh-in today.',
+    expect(summarySentence({ current: 80, kgPerWeek: 0.5, goal: null, ageDays: 0 })).toBe(
+      '80.0 kg, +0.50 kg/wk; last weigh-in today.',
     )
   })
   test('unknown rate is a dash, never 0', () => {
-    expect(summarySentence({ current: 84, kgPerWeek: null, goal: null, ageDays: null })).toBe(
-      '84.0 kg, — kg/wk.',
+    expect(summarySentence({ current: 80, kgPerWeek: null, goal: null, ageDays: null })).toBe(
+      '80.0 kg, — kg/wk.',
     )
   })
   test('empty window', () => {
-    expect(summarySentence({ current: null, kgPerWeek: null, goal: 80, ageDays: null })).toBe(
+    expect(summarySentence({ current: null, kgPerWeek: null, goal: 75, ageDays: null })).toBe(
       'No weigh-ins in this window.',
     )
   })
@@ -120,12 +141,79 @@ describe('windowLabel', () => {
     expect(windowLabel({ window: 'all' })).toBe('all time')
     expect(windowLabel({ from: '2026-01-01', to: '2026-02-01' })).toBe('2026-01-01 to 2026-02-01')
   })
+  test('windowDays', () => {
+    expect(windowDays({ window: '90d' })).toBe(90)
+    expect(windowDays({ window: 'all' })).toBeNull()
+    expect(windowDays({ from: '2026-06-01', to: '2026-06-10' })).toBe(10)
+  })
+})
+
+describe('day-based window stats', () => {
+  test('a falling daily log: mean and slope are anchored on the newest entry', () => {
+    const pts = daily(40, 100, -0.5)
+    // Last 7 days: 100 - 0.5 * (33..39).
+    expect(meanOverDays(pts, 7, null)).toBeCloseTo(100 - 0.5 * 36)
+    expect(slopeOverDays(pts, 7, null)).toBeCloseTo(-3.5)
+    expect(slopeOverDays(pts, 30, null)).toBeCloseTo(-3.5)
+  })
+  test('sparse log: two entries one day apart state no period', () => {
+    const pts = [
+      { date: '2026-06-29', weightKg: 80 },
+      { date: '2026-06-30', weightKg: 79 },
+    ]
+    expect(meanOverDays(pts, 7, null)).toBeNull()
+    expect(meanOverDays(pts, 30, null)).toBeNull()
+    expect(slopeOverDays(pts, 7, null)).toBeNull()
+    expect(slopeOverDays(pts, 30, null)).toBeNull()
+  })
+  test('one entry states no period', () => {
+    expect(meanOverDays([{ date: '2026-06-30', weightKg: 80 }], 7, null)).toBeNull()
+    expect(meanOverDays([], 7, null)).toBeNull()
+  })
+  test('coverage: 70 % of the period is the floor', () => {
+    // 30 d needs entries spanning >= 21 days.
+    expect(meanOverDays(daily(21, 80, 0), 30, null)).toBeNull()
+    expect(meanOverDays(daily(22, 80, 0), 30, null)).toBe(80)
+  })
+  test('a window shorter than the period cannot state it', () => {
+    const pts = daily(40, 80, 0)
+    expect(meanOverDays(pts, 30, 7)).toBeNull()
+    expect(slopeOverDays(pts, 30, 7)).toBeNull()
+    expect(weightWindowStats(pts, 7).mean30).toBeNull()
+    expect(weightWindowStats(pts, 7).mean7).toBe(80)
+  })
+  test('the footer slopes and the weights they come from agree in sign', () => {
+    for (const perDay of [-0.5, 0.5]) {
+      const pts = daily(40, 100, perDay)
+      const stats = weightWindowStats(pts, null)
+      const first = pts.at(0)!.weightKg
+      const last = pts.at(-1)!.weightKg
+      expect(Math.sign(stats.slope7!)).toBe(Math.sign(last - first))
+      expect(Math.sign(stats.slope30!)).toBe(Math.sign(last - first))
+    }
+  })
+  test('slope matches the exact line through synthetic points', () => {
+    expect(slopeOverDays(daily(10, 80, 1), 10, null)).toBeCloseTo(7)
+    expect(slopeOverDays(daily(10, 80, 0), 10, null)).toBe(0)
+  })
+})
+
+describe('intensityBand', () => {
+  test('cut and bulk tiers follow the API thresholds', () => {
+    expect(intensityBand(0.05)).toBe('< 0.1 kg/wk')
+    expect(intensityBand(0.2)).toBe('0.1–0.3 kg/wk')
+    expect(intensityBand(0.5)).toBe('0.3–0.6 kg/wk')
+    expect(intensityBand(0.7)).toBe('≥ 0.6 kg/wk')
+    expect(intensityBand(-0.3)).toBe('0.1–0.4 kg/wk')
+    expect(intensityBand(-0.9)).toBe('≥ 0.8 kg/wk')
+    expect(intensityBand(null)).toBeNull()
+  })
 })
 
 describe('siteRows', () => {
   const points = [
     {
-      date: '2026-10-10',
+      date: '2026-06-10',
       average: 15,
       readings: [
         { site: 'abdominal' as const, valueMm: 20 },
@@ -133,7 +221,7 @@ describe('siteRows', () => {
       ],
     },
     {
-      date: '2026-09-10',
+      date: '2026-05-10',
       average: 17,
       readings: [{ site: 'abdominal' as const, valueMm: 24 }],
     },
@@ -148,52 +236,12 @@ describe('siteRows', () => {
       values: [24, 20],
       delta: -4,
       current: 20,
-      priorDate: '2026-09-10',
+      priorDate: '2026-05-10',
     })
     expect(rows[1]).toMatchObject({ site: 'suprailiac', values: [10], delta: null, current: 10 })
   })
   test('a site with no reading is unknown', () => {
     const rows = siteRows([], [])
     expect(rows.every((r) => r.current === null && r.delta === null)).toBe(true)
-  })
-})
-
-describe('day-based window stats', () => {
-  const pts = [
-    { date: '2026-09-02', weightKg: 80 },
-    { date: '2026-09-20', weightKg: 79 },
-    { date: '2026-09-28', weightKg: 78 },
-    { date: '2026-10-01', weightKg: 77 },
-  ]
-  test('mean and change are anchored on the newest entry', () => {
-    expect(meanOverDays(pts, 7, null)).toBeCloseTo(77.5)
-    expect(changeOverDays(pts, 7, null)).toBe(-1)
-    expect(meanOverDays(pts, 30, null)).toBeCloseTo(78.5)
-    expect(changeOverDays(pts, 30, null)).toBe(-3)
-  })
-  test('a window shorter than the period cannot state it', () => {
-    expect(meanOverDays(pts, 30, 7)).toBeNull()
-    expect(changeOverDays(pts, 30, 7)).toBeNull()
-  })
-  test('one entry has no change', () => {
-    expect(changeOverDays([pts[0]!], 7, null)).toBeNull()
-    expect(meanOverDays([], 7, null)).toBeNull()
-  })
-  test('windowDays', () => {
-    expect(windowDays({ window: '90d' })).toBe(90)
-    expect(windowDays({ window: 'all' })).toBeNull()
-    expect(windowDays({ from: '2026-10-01', to: '2026-10-10' })).toBe(10)
-  })
-})
-
-describe('intensityBand', () => {
-  test('cut and bulk tiers follow the API thresholds', () => {
-    expect(intensityBand(0.05)).toBe('< 0.1 kg/wk')
-    expect(intensityBand(0.16)).toBe('0.1\u20130.3 kg/wk')
-    expect(intensityBand(0.45)).toBe('0.3\u20130.6 kg/wk')
-    expect(intensityBand(0.7)).toBe('\u2265 0.6 kg/wk')
-    expect(intensityBand(-0.3)).toBe('0.1\u20130.4 kg/wk')
-    expect(intensityBand(-0.9)).toBe('\u2265 0.8 kg/wk')
-    expect(intensityBand(null)).toBeNull()
   })
 })

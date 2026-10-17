@@ -42,7 +42,7 @@ export function BodyCompositionPage({ params }: { params: Params }) {
   const todayKey = dayKey(now)
   const ageDays = entryAgeDays(weightPoints, todayKey)
   const stats = weightWindowStats(weightPoints, windowDays(params))
-  const startWeight = weightPoints.toSorted(compareByDate)[0]?.weightKg ?? null
+  const startPoint = weightPoints.toSorted(compareByDate)[0] ?? null
   const rows = siteRows(sessions, skinfoldSummary.perSite)
   const hasSkinfold = sessions.length > 0
 
@@ -57,7 +57,8 @@ export function BodyCompositionPage({ params }: { params: Params }) {
           summary={summary}
           stats={stats}
           goal={goal}
-          startWeight={startWeight}
+          startWeight={startPoint?.weightKg ?? null}
+          startDate={startPoint?.date ?? null}
           latestDate={latestDate(weightPoints)}
         />
         <RateCell summary={summary} stats={stats} latestDate={latestDate(weightPoints)} />

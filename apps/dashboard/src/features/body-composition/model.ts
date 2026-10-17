@@ -185,37 +185,65 @@ export function windowDays(params: WindowParams): number | null {
   return null
 }
 
-/** Entries dated within `days` days up to and including the newest one (a `days`-day span). */
-function withinDays(points: readonly DatedWeight[], days: number): DatedWeight[] {
+/** A period's figure needs entries spanning at least this share of it; one entry is not a "30 d mean". */
+export const COVERAGE_SHARE = 0.7
+
+/**
+ * Entries dated within `days` days up to and including the newest one, or `[]` when the window is
+ * shorter than the period or the entries do not span {@link COVERAGE_SHARE} of it.
+ */
+function coveredSlice(
+  points: readonly DatedWeight[],
+  days: number,
+  span: number | null,
+): DatedWeight[] {
+  if (span !== null && span < days) return []
   const last = latestDate(points)
   if (last === null) return []
-  return points.filter((p) => daysBetween(p.date, last) < days)
+  const slice = points.filter((p) => daysBetween(p.date, last) < days).toSorted(compareByDate)
+  const first = slice.at(0)
+  if (first === undefined || daysBetween(first.date, last) < days * COVERAGE_SHARE) return []
+  return slice
 }
 
-/** Mean weight of the last `days` days up to the newest entry; `null` when the window is shorter. */
+/** Mean weight of the last `days` days up to the newest entry; `null` when not covered. */
 export function meanOverDays(
   points: readonly DatedWeight[],
   days: number,
   span: number | null,
 ): number | null {
-  if (span !== null && span < days) return null
-  const slice = withinDays(points, days)
+  const slice = coveredSlice(points, days, span)
   return slice.length === 0 ? null : slice.reduce((a, p) => a + p.weightKg, 0) / slice.length
 }
 
-/** Newest weight minus the oldest within the last `days` days; `null` with fewer than two entries. */
-export function changeOverDays(
+/**
+ * Least-squares slope in kg/week over the last `days` days, the same method as the API's 28 d rate
+ * (so the hero rate and these footer rates can never be two different methods). `null` when not
+ * covered or when the entries span under 3 days, as the API's.
+ */
+export function slopeOverDays(
   points: readonly DatedWeight[],
   days: number,
   span: number | null,
 ): number | null {
-  if (span !== null && span < days) return null
-  const slice = withinDays(points, days).toSorted(compareByDate)
+  const slice = coveredSlice(points, days, span)
   const first = slice.at(0)
   const last = slice.at(-1)
-  return slice.length < 2 || first === undefined || last === undefined
-    ? null
-    : last.weightKg - first.weightKg
+  if (first === undefined || last === undefined || daysBetween(first.date, last.date) < 3) {
+    return null
+  }
+  const xs = slice.map((p) => daysBetween(first.date, p.date))
+  const n = slice.length
+  const meanX = xs.reduce((a, x) => a + x, 0) / n
+  const meanY = slice.reduce((a, p) => a + p.weightKg, 0) / n
+  let num = 0
+  let den = 0
+  slice.forEach((p, i) => {
+    const dx = xs[i]! - meanX
+    num += dx * (p.weightKg - meanY)
+    den += dx * dx
+  })
+  return den === 0 ? null : (num / den) * 7
 }
 
 /** The kg/week range of the API's intensity tier for a rate ("0.1\u20130.3 kg/wk", "\u2265 0.6 kg/wk"). */
@@ -230,7 +258,7 @@ export function intensityBand(rate: number | null): string | null {
   return `\u2265 ${standard} kg/wk`
 }
 
-/** The day-based means and changes the strip and the chart header both state. */
+/** The day-based means and slopes the strip and the chart header both state. */
 export function weightWindowStats(
   points: readonly DatedWeight[],
   span: number | null,
@@ -238,7 +266,7 @@ export function weightWindowStats(
   return {
     mean7: meanOverDays(points, 7, span),
     mean30: meanOverDays(points, 30, span),
-    change7: changeOverDays(points, 7, span),
-    change30: changeOverDays(points, 30, span),
+    slope7: slopeOverDays(points, 7, span),
+    slope30: slopeOverDays(points, 30, span),
   }
 }
