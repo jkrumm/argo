@@ -4,7 +4,6 @@ import { Bars, ChartCard, type BarsBar } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { SERIES } from '../../../lib/series'
-import { METRIC_TOOLTIPS } from '../constants'
 import { FactsLine } from '../facts-line'
 import { hoursFromSec, mean, sleepFact } from '../model'
 import type { SummaryParams } from '../types'
@@ -85,7 +84,6 @@ export default function SleepBreakdownChart({ params }: { params: SummaryParams 
   return (
     <ChartCard
       title="Sleep"
-      info={METRIC_TOOLTIPS.sleepStages}
       state={chartStateOf(query, sleepData.length === 0 ? 'No sleep in this window' : undefined)}
       placeholderHeight={CHART_HEIGHT}
     >

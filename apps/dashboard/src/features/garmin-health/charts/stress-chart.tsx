@@ -1,10 +1,11 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useSizeClass } from 'basalt-ui'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
-import { METRIC_TOOLTIPS } from '../constants'
 import { FactsLine } from '../facts-line'
+import { ZONE_FILL } from '../zone-fills'
 import { STRESS_REST_BELOW, countWhere, stressFact } from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
@@ -58,9 +59,9 @@ const ZONE_LINES = [
 
 /** Rest and low share the good hue; the area gradient hard-stops at each boundary. */
 const STRESS_ZONES = [
-  { from: 0, to: 50, fill: VX.good },
-  { from: 50, to: 75, fill: VX.warn },
-  { from: 75, to: 100, fill: VX.bad },
+  { from: 0, to: 50, fill: ZONE_FILL.good },
+  { from: 50, to: 75, fill: ZONE_FILL.warn },
+  { from: 75, to: 100, fill: ZONE_FILL.bad },
 ]
 
 export default function StressChart({ params }: { params: SummaryParams }) {
@@ -79,6 +80,7 @@ export default function StressChart({ params }: { params: SummaryParams }) {
     [query.data],
   )
 
+  const compact = useSizeClass() === 'compact'
   const rest = countWhere(
     chartData.map((d) => d.avgStress),
     (v) => v < STRESS_REST_BELOW,
@@ -92,7 +94,6 @@ export default function StressChart({ params }: { params: SummaryParams }) {
   return (
     <ChartCard
       title="Stress"
-      info={METRIC_TOOLTIPS.stress}
       state={chartStateOf(
         query,
         chartData.length === 0 ? 'No stress readings in this window' : undefined,
@@ -107,6 +108,7 @@ export default function StressChart({ params }: { params: SummaryParams }) {
         height={CHART_HEIGHT}
         x={(d) => d.day}
         series={STRESS_SERIES}
+        {...(compact && { legend: false as const })}
         y={{ domain: [0, 100], ticks: 5 }}
         refLines={ZONE_LINES}
         zones={STRESS_ZONES}

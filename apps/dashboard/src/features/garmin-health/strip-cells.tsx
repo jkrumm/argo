@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Text } from '@mantine/core'
-import { BarList, DeltaBadge, Meter } from 'basalt-ui'
+import { Stack, Text } from '@mantine/core'
+import { DeltaBadge, Meter } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import {
@@ -18,7 +18,6 @@ import {
   RECOVERY_PUSH_FROM,
   RECOVERY_REST_BELOW,
   contributorItems,
-  firstToLast,
   fmtNum,
   mean,
   signed,
@@ -28,6 +27,64 @@ import type { SummaryParams } from './types'
 import { applyVisibilityFilter } from './visibility'
 
 const FITNESS_DAYS = 14
+
+/** Thin one-per-row meters: the label and its points sit under the track, the number leads. */
+function ContributorRows({
+  label,
+  rows,
+  loading,
+}: {
+  label: string
+  rows: ReturnType<typeof contributorItems>
+  loading: boolean
+}) {
+  if (loading) return <Meter label={label} loading />
+  if (rows.length === 0) return <Meter label={label} emptyText="No contributors measured" />
+  return (
+    <Stack gap="xs" role="group" aria-label={label}>
+      {rows.map((r) => (
+        <Meter
+          key={r.key}
+          label={`${r.label} points`}
+          value={r.value}
+          min={0}
+          max={r.weight}
+          startCaption={r.label}
+          endCaption={`${r.value.toFixed(1)} ${r.secondary}`}
+        />
+      ))}
+    </Stack>
+  )
+}
+
+function LoadRows({
+  load,
+  loading,
+}: {
+  load: { label: string; value: number }[]
+  loading: boolean
+}) {
+  if (loading) return <Meter label="Acute and chronic load" loading />
+  if (load.length === 0)
+    return <Meter label="Acute and chronic load" emptyText="No load measured" />
+  // One shared scale with headroom, so the two bars compare and neither fills its track.
+  const max = Math.max(...load.map((l) => l.value), 1) * 1.15
+  return (
+    <Stack gap="xs" role="group" aria-label="Acute and chronic load in MET-min per day">
+      {load.map((l) => (
+        <Meter
+          key={l.label}
+          label={`${l.label} load`}
+          value={l.value}
+          min={0}
+          max={max}
+          startCaption={l.label}
+          endCaption={`${l.value.toFixed(0)} MET-min/day`}
+        />
+      ))}
+    </Stack>
+  )
+}
 
 function RecoveryCell({ params }: { params: SummaryParams }) {
   const summary = useQuery(recoveryQueries.summary(params))
@@ -44,6 +101,7 @@ function RecoveryCell({ params }: { params: SummaryParams }) {
   const score = data?.recovery ?? null
   return (
     <StripCell
+      shot="strip-recovery"
       caption="Recovery"
       qualifier={
         window.mean === null ? 'today' : `today · ${window.days} d mean ${fmtNum(window.mean)}`
@@ -67,14 +125,10 @@ function RecoveryCell({ params }: { params: SummaryParams }) {
         loading={data === undefined}
         emptyText="No recovery score"
       />
-      <BarList
+      <ContributorRows
         label="Recovery contributors, points of their weight"
-        items={contributorItems(data?.components ?? { hrv: null, sleep: null, rhr: null })}
-        format={(v) => v.toFixed(1)}
-        max={40}
+        rows={contributorItems(data?.components ?? { hrv: null, sleep: null, rhr: null })}
         loading={data === undefined}
-        loadingRows={3}
-        emptyText="No contributors measured"
       />
     </StripCell>
   )
@@ -90,13 +144,14 @@ function LoadCell({ params }: { params: SummaryParams }) {
   const load =
     latest?.acute != null && latest.chronic != null
       ? [
-          { label: 'Acute', value: latest.acute, secondary: 'MET-min/day', key: 'acute' },
-          { label: 'Chronic', value: latest.chronic, secondary: 'MET-min/day', key: 'chronic' },
+          { label: 'Acute', value: latest.acute },
+          { label: 'Chronic', value: latest.chronic },
         ]
       : []
 
   return (
     <StripCell
+      shot="strip-load"
       caption="Training load"
       qualifier="acute ÷ chronic EWMA"
       value={fmtNum(acwr, 2)}
@@ -120,16 +175,7 @@ function LoadCell({ params }: { params: SummaryParams }) {
         loading={data === undefined}
         emptyText="No training load"
       />
-      <BarList
-        label="Acute and chronic load in MET-min per day"
-        items={load}
-        // Headroom past the larger bar keeps the value text off the fill's edge.
-        max={Math.max(...load.map((l) => l.value), 1) * 1.6}
-        format={(v) => v.toFixed(0)}
-        loading={data === undefined}
-        loadingRows={2}
-        emptyText="No load measured"
-      />
+      <LoadRows load={load} loading={data === undefined} />
     </StripCell>
   )
 }
@@ -199,19 +245,17 @@ function FitnessCell({ params }: { params: SummaryParams }) {
     return {
       rhr: last.map((p) => p.restingHr),
       hrv: last.map((p) => p.hrv),
-      // VO2max moves slowly, so its sparkline spans the whole window rather than the last 14 d.
-      vo2: applyVisibilityFilter(series.data?.points ?? [], (p) => p.date, {
-        hideToday: false,
-      }).map((p) => p.vo2Max),
     }
   }, [series.data])
 
   const d = direction.data
   return (
     <StripCell
+      shot="strip-fitness"
       caption="Fitness"
-      qualifier={`${FITNESS_DAYS} d regression`}
-      value={d === undefined ? '—' : d.label || '—'}
+      qualifier={`${d?.label || '—'} · ${FITNESS_DAYS} d regression`}
+      value={fmtNum(d?.vo2max, 1)}
+      unit="VO2max ml/kg/min"
       loading={d === undefined}
     >
       <SignalLine
@@ -234,17 +278,6 @@ function FitnessCell({ params }: { params: SummaryParams }) {
           polarity: 'up-good',
           values: rows.hrv,
           delta: d?.hrvDelta ?? null,
-        }}
-      />
-      <SignalLine
-        spec={{
-          label: 'VO2max',
-          unit: 'ml/kg/min',
-          deltaUnit: '',
-          digits: 1,
-          polarity: 'up-good',
-          values: rows.vo2,
-          delta: firstToLast(rows.vo2.slice(-FITNESS_DAYS)),
         }}
       />
     </StripCell>

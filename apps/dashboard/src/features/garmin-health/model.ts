@@ -122,7 +122,15 @@ export function contributorItems(components: Components) {
   return rows.flatMap((r) =>
     r.value === null
       ? []
-      : [{ label: r.label, value: r.value, secondary: `/ ${r.weight} pts`, key: r.label }],
+      : [
+          {
+            label: r.label,
+            value: r.value,
+            weight: r.weight,
+            secondary: `/ ${r.weight} pts`,
+            key: r.label,
+          },
+        ],
   )
 }
 

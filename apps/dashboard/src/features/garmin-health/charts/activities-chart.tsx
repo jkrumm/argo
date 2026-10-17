@@ -5,7 +5,6 @@ import { VX } from 'basalt-ui/tokens'
 import { activitiesWindowQueries } from '../../../lib/queries/activities'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
 import { ACTIVITY } from '../../../lib/series'
-import { METRIC_TOOLTIPS } from '../constants'
 import { FactsLine } from '../facts-line'
 import { activitiesFact } from '../model'
 import type { SummaryParams } from '../types'
@@ -182,7 +181,6 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
   return (
     <ChartCard
       title="Activities"
-      info={METRIC_TOOLTIPS.activities}
       state={chartStateOf(query, points.length === 0 ? 'No activities in this window' : undefined)}
       placeholderHeight={CHART_HEIGHT}
     >

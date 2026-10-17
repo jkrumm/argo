@@ -28,6 +28,8 @@ export type StripCellProps = {
   children?: ReactNode
   /** Mono footer pinned to the cell's foot. */
   footer?: string
+  /** Names the cell for `basalt-ui shot` (`data-shot`). */
+  shot?: string
   /** Swaps the hero for a skeleton while the cell's data is in flight. */
   loading?: boolean
 }
@@ -40,9 +42,10 @@ export function StripCell({
   children,
   footer,
   loading = false,
+  shot,
 }: StripCellProps) {
   return (
-    <Box className={classes.cell}>
+    <Box className={classes.cell} data-shot={shot}>
       <Box className={classes.caption}>
         <span>{caption}</span>
         {qualifier !== undefined && <span className={classes.qualifier}>· {qualifier}</span>}

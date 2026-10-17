@@ -27,7 +27,7 @@ const BARS: BarsBar<ActivityPoint>[] = [
   {
     key: 'score',
     label: 'Activity score',
-    color: VX.line,
+    color: VX.line2,
     getValue: (d) => d.score,
     formatValue: (v) => `${Math.round(v)} MET-min`,
   },
