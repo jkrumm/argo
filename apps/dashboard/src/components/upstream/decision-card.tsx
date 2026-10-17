@@ -10,23 +10,25 @@
 import { ActionIcon, Box, Button, Card, Collapse, Group, Menu, Stack, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { IconChevronDown, IconDots } from '@tabler/icons-react'
-import { useId, type ReactNode } from 'react'
+import { Fragment, useId, type ReactNode } from 'react'
 import classes from './decision-card.module.css'
+import { VX } from 'basalt-ui/tokens'
 import {
-  factsLine,
   hasActions,
   isRenderable,
   isInactive,
+  visibleFacts,
   type DecisionCardAction,
+  type DecisionCardFact,
 } from './decision-card-model'
 
-export type { DecisionCardAction } from './decision-card-model'
+export type { DecisionCardAction, DecisionCardFact } from './decision-card-model'
 
 export type DecisionCardProps = {
   /** The headline, written as the question the owner answers. Wraps; never truncated. */
   question: string
   /** Rendered as one `·`-separated line under the question. */
-  facts: readonly string[]
+  facts: readonly DecisionCardFact[]
   /** Leading chip or label before the facts (status, source). */
   status?: ReactNode
   /** Actor / timing line above the question (who flagged it, when). */
@@ -144,7 +146,7 @@ export function DecisionCard({
   disclosure,
   meta,
 }: DecisionCardProps) {
-  const line = factsLine(facts)
+  const shown = visibleFacts(facts)
   return (
     <Card>
       <Group align="stretch" gap="md" wrap="wrap">
@@ -157,12 +159,23 @@ export function DecisionCard({
           <Text component="h3" m={0} fw={600} size="md" lh={1.35} className={classes.question}>
             {question}
           </Text>
-          {(isRenderable(status) || line !== '') && (
+          {(isRenderable(status) || shown.length > 0) && (
             <Group gap="xs" wrap="wrap">
               {status}
-              {line !== '' && (
+              {shown.length > 0 && (
                 <Text size="xs" c="dimmed">
-                  {line}
+                  {shown.map((fact, index) => (
+                    <Fragment key={fact.text}>
+                      {index > 0 ? ' · ' : null}
+                      {fact.tone === undefined ? (
+                        fact.text
+                      ) : (
+                        <Text span size="xs" c={VX.status[fact.tone]}>
+                          {fact.text}
+                        </Text>
+                      )}
+                    </Fragment>
+                  ))}
                 </Text>
               )}
             </Group>
