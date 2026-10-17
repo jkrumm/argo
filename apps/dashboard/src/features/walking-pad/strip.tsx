@@ -72,9 +72,11 @@ function useWeekCell(): StatStripCell {
     // `StatStripCell` has no caption-line action slot, so the target control rides the footer.
     footer: (
       <>
-        {week === null
-          ? 'this week not reported'
-          : `${week.sessions} ${week.sessions === 1 ? 'walk' : 'walks'} · ${Math.round(((km ?? 0) / targetKm) * 100)} % of target`}
+        {query.isPending
+          ? null
+          : week === null
+            ? 'this week not reported'
+            : `${week.sessions} ${week.sessions === 1 ? 'walk' : 'walks'} · ${Math.round(((km ?? 0) / targetKm) * 100)} % of target`}
         <TargetPopover />
       </>
     ),
@@ -93,7 +95,7 @@ function usePaceCell(params: WalkingPadWindowParams): StatStripCell {
     qualifier: `avg ${windowQualifier(preset)}`,
     value: pace?.currentAvgKmh == null ? null : fmtKmh(pace.currentAvgKmh),
     ...(pace?.currentAvgKmh != null && { unit: 'km/h' }),
-    loading: heroes.isPending,
+    loading: heroes.isPending || series.isPending,
     ...(pace?.deltaKmh != null && {
       delta: (
         <DeltaBadge
@@ -114,8 +116,9 @@ function usePaceCell(params: WalkingPadWindowParams): StatStripCell {
         />
       ),
     }),
-    footer:
-      values.length < 2
+    footer: heroes.isPending
+      ? null
+      : values.length < 2
         ? 'distance-weighted mean of walk speeds'
         : `distance-weighted mean of walk speeds · ${values.length} walked weeks`,
   }
@@ -133,7 +136,7 @@ function useStreakCell(params: WalkingPadWindowParams): StatStripCell {
     ...(streak !== undefined && { qualifier: `best ${streak.bestDays} d` }),
     value: streak === undefined ? null : String(streak.currentDays),
     unit: streak?.currentDays === 1 ? 'day' : 'days',
-    loading: heroes.isPending,
+    loading: heroes.isPending || days.isPending,
     visual: (
       <Box
         className={classes.days}
@@ -156,7 +159,10 @@ function useStreakCell(params: WalkingPadWindowParams): StatStripCell {
         ))}
       </Box>
     ),
-    footer: `${ticks.filter((t) => t.state === 'walked').length} walked this week · UTC days`,
+    footer:
+      heroes.isPending || days.isPending
+        ? null
+        : `${ticks.filter((t) => t.state === 'walked').length} walked this week · UTC days`,
   }
 }
 

@@ -69,7 +69,11 @@ export function WeekChart({ params }: { params: WalkingPadWindowParams }) {
         ? paceAvg === null
           ? undefined
           : { value: fmtKmh(paceAvg), unit: 'km/h', period: 'window average, weekly points' }
-        : undefined
+        : {
+            value: String(targetKm),
+            unit: 'km',
+            period: `${isDefault ? 'default weekly target' : 'weekly target'}, bars are km per week`,
+          }
   const targetLabel = `${isDefault ? 'default weekly target' : 'weekly target'} ${targetKm} km`
 
   return (

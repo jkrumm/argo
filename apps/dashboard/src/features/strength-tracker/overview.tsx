@@ -4,9 +4,9 @@
  */
 import { Box, Stack, Text } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { DeltaBadge, Meter, StatGroup } from 'basalt-ui'
+import { DeltaBadge, Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
-import { VX } from 'basalt-ui/tokens'
+import { alpha, VX } from 'basalt-ui/tokens'
 import { useNow } from '../../lib/use-now'
 import { DecisionCard } from '../../components/upstream/decision-card'
 import { strengthQueries, type StrengthQueryParams } from '../../lib/queries/strength'
@@ -37,9 +37,12 @@ import {
   sessionCount,
   summarySentence,
   todaysCall,
+  type Point,
 } from './model'
 import classes from './overview.module.css'
 
+/** `MeterZone` has no tone, and `Meter`'s default zone fill is near-white in dark mode. */
+const MUTED_FILL = alpha(VX.muted, 0.35)
 const SPARK_POINTS = 20
 const VERDICT_WINDOW = '30d'
 
@@ -152,7 +155,12 @@ export function TodaysCall(props: Params) {
                   format={(v) => String(Math.round(v))}
                   zones={[
                     { from: 0, to: READINESS_REST_BELOW, label: 'Rest', color: VX.warn },
-                    { from: READINESS_REST_BELOW, to: READINESS_PUSH_FROM, label: 'Normal' },
+                    {
+                      from: READINESS_REST_BELOW,
+                      to: READINESS_PUSH_FROM,
+                      label: 'Normal',
+                      color: MUTED_FILL,
+                    },
                     { from: READINESS_PUSH_FROM, to: 100, label: 'Push', color: VX.good },
                   ]}
                   startCaption={null}
@@ -204,75 +212,97 @@ export function TodaysCall(props: Params) {
   )
 }
 
+type LiftPr = ReturnType<typeof useOverview>['summary']['byExercise'][number]
+
+/** One lift's strip cell: latest e1RM, its 28 d delta, the recent line against the PR. */
+function liftCell({
+  id,
+  points,
+  pr,
+  now,
+}: {
+  id: string
+  points: readonly Point[]
+  pr: LiftPr | undefined
+  now: number
+}): StatStripCell {
+  const e1rm = latestE1rm(points)
+  const { delta, phrase } = liftDelta(points, now)
+  const plotted = points.filter((p) => p.e1rm !== null).slice(-SPARK_POINTS)
+  const spark = plotted.map((p) => p.e1rm as number)
+  const sparkFrom = plotted[0]?.date ?? ''
+  const sparkTo = plotted.at(-1)?.date ?? ''
+  const sessions = pr?.sessionCountWindow ?? sessionCount(points)
+  const color = EXERCISE_COLORS[id as ExerciseKey]
+  return {
+    key: id,
+    caption: exerciseLabel(id),
+    value: e1rm === null ? null : e1rm.toFixed(1),
+    unit: 'kg e1RM',
+    ...(delta !== null && {
+      delta: (
+        <DeltaBadge
+          value={delta}
+          polarity="up-good"
+          format={(v) => `${Math.abs(v).toFixed(1)} kg`}
+          period={`in ${DELTA_DAYS} d`}
+          periodPrefix=""
+        />
+      ),
+    }),
+    ...(spark.length > 1 && {
+      visual: (
+        <Sparkline
+          ariaLabel={`${exerciseLabel(id)} e1RM, last ${spark.length} sessions`}
+          data={spark}
+          height={28}
+          {...(color !== undefined && { color })}
+          {...(pr?.bestE1RM != null && { reference: pr.bestE1RM })}
+          emphasizeLast
+        />
+      ),
+    }),
+    footer: (
+      <>
+        {delta === null ? (
+          <>
+            {phrase}
+            <br />
+          </>
+        ) : null}
+        {spark.length > 1
+          ? `line: last ${spark.length} sessions, ${shortDate(sparkFrom)}–${shortDate(sparkTo)}, dashed: PR`
+          : null}
+        {spark.length > 1 ? <br /> : null}
+        PR {pr?.bestE1RM == null ? '' : `${pr.bestE1RM.toFixed(1)} kg · `}
+        {pr?.prDate ? shortDate(pr.prDate) : EM_DASH} · {sessions}{' '}
+        {sessions === 1 ? 'session' : 'sessions'}, all time
+      </>
+    ),
+  }
+}
+
+/** Strip columns by lift count: at least two, at most six. */
+const LIFT_COLS = [2, 2, 2, 3, 4, 5, 6] as const
+
 export function LiftStrip(props: Params) {
   const { series, summary, now } = useOverview(props)
   const prs = new Map(summary.byExercise.map((s) => [s.exercise_id, s]))
-  const cells = props.exercises.map((id) => {
-    const points = series.byExercise.find((l) => l.exercise_id === id)?.points ?? []
-    return { id, points, pr: prs.get(id) }
-  })
+  const cells = props.exercises.map((id) =>
+    liftCell({
+      id,
+      points: series.byExercise.find((l) => l.exercise_id === id)?.points ?? [],
+      pr: prs.get(id),
+      now,
+    }),
+  )
 
   return (
     <StatGroup
       variant="strip"
       label="Estimated 1RM per lift"
-      cols={cells.length as 2 | 3 | 4 | 5 | 6}
-      cells={cells.map(({ id, points, pr }) => {
-        const e1rm = latestE1rm(points)
-        const { delta, phrase } = liftDelta(points, now)
-        const plotted = points.filter((p) => p.e1rm !== null).slice(-SPARK_POINTS)
-        const spark = plotted.map((p) => p.e1rm as number)
-        const sparkFrom = plotted[0]?.date ?? ''
-        const sparkTo = plotted.at(-1)?.date ?? ''
-        const sessions = pr?.sessionCountWindow ?? sessionCount(points)
-        const color = EXERCISE_COLORS[id as ExerciseKey]
-        return {
-          key: id,
-          caption: exerciseLabel(id),
-          value: e1rm === null ? null : e1rm.toFixed(1),
-          unit: 'kg e1RM',
-          ...(delta !== null && {
-            delta: (
-              <DeltaBadge
-                value={delta}
-                polarity="up-good"
-                format={(v) => `${Math.abs(v).toFixed(1)} kg`}
-                period={`in ${DELTA_DAYS} d`}
-                periodPrefix=""
-              />
-            ),
-          }),
-          ...(spark.length > 1 && {
-            visual: (
-              <Sparkline
-                ariaLabel={`${exerciseLabel(id)} e1RM, last ${spark.length} sessions`}
-                data={spark}
-                height={28}
-                {...(color !== undefined && { color })}
-                {...(pr?.bestE1RM != null && { reference: pr.bestE1RM })}
-                emphasizeLast
-              />
-            ),
-          }),
-          footer: (
-            <>
-              {delta === null ? (
-                <>
-                  {phrase}
-                  <br />
-                </>
-              ) : null}
-              {spark.length > 1
-                ? `line: last ${spark.length} sessions, ${shortDate(sparkFrom)}–${shortDate(sparkTo)}, dashed: PR`
-                : null}
-              {spark.length > 1 ? <br /> : null}
-              PR {pr?.bestE1RM == null ? '' : `${pr.bestE1RM.toFixed(1)} kg · `}
-              {pr?.prDate ? shortDate(pr.prDate) : EM_DASH} · {sessions}{' '}
-              {sessions === 1 ? 'session' : 'sessions'}, all time
-            </>
-          ),
-        }
-      })}
+      cols={LIFT_COLS[Math.min(cells.length, LIFT_COLS.length - 1)] ?? 4}
+      cells={cells}
     />
   )
 }

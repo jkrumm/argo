@@ -106,6 +106,7 @@ export default function WeightChart({
           facts: {
             value: fixed(summary.current),
             unit: 'kg',
+            period: `7 d mean ${fixed(stats.mean7)} kg · ${chartData.length} entries`,
             ...(delta !== null && {
               comparison: (
                 <DeltaBadge
@@ -117,11 +118,10 @@ export default function WeightChart({
               ),
             }),
           },
-          subtitle: [
-            `7 d mean ${fixed(stats.mean7)} kg`,
-            `${chartData.length} entries`,
-            ...(ageDays === null ? [] : [`last entry ${ageLabel(ageDays)}`]),
-          ].join(' · '),
+          // `ChartCard facts` has no warn tone, so staleness is spelled out as a word.
+          ...(ageDays !== null && {
+            subtitle: `last entry ${ageLabel(ageDays)}${isStale(ageDays) ? ' · stale' : ''}`,
+          }),
         })}
         state={{ pending: query.isPending, error: query.isError ? query.error : undefined, empty }}
         placeholderHeight={PLACEHOLDER_HEIGHT}
