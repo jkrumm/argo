@@ -151,7 +151,7 @@ describe('factsLine', () => {
       updatedAt: new Date(2026, 9, 3, 9, 41).getTime(),
     })
     expect(factsLine({ entry: e, now: NOW, compact: false })).toBe(
-      'Started 3 Oct · last reply 09:41',
+      'Started 3 Oct 08:00 · last reply 09:41',
     )
     expect(factsLine({ entry: e, now: NOW, compact: true })).toBe('3 Oct · Infra')
   })
