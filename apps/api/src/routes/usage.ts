@@ -288,6 +288,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
           COUNT(DISTINCT source) FILTER (WHERE ts >= ${f30})::int AS sources_active,
           MAX(ts) FILTER (WHERE ts >= ${floor}) AS max_ts,
           COUNT(*) FILTER (WHERE ts >= ${floor})::bigint AS records_total,
+          COUNT(*) FILTER (WHERE ts >= ${f30})::bigint AS calls_30d,
           COALESCE(SUM(cost_usd) FILTER (WHERE ts >= ${d60} AND ts < ${f30}), 0)::float AS cost_usd_prior_30d,
           COALESCE(SUM(input_tokens::bigint + output_tokens::bigint + cache_write_tokens::bigint + reasoning_tokens::bigint) FILTER (WHERE ts >= ${d60} AND ts < ${f30}), 0)::bigint AS tokens_prior_30d,
           COUNT(*) FILTER (WHERE outcome = 'error' AND ts >= ${d60} AND ts < ${f30})::float
@@ -318,6 +319,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         sourcesActive: Number(r['sources_active'] ?? 0),
         maxTs: r['max_ts'] !== null && r['max_ts'] !== undefined ? String(r['max_ts']) : null,
         recordsTotal: Number(r['records_total'] ?? 0),
+        calls30d: Number(r['calls_30d'] ?? 0),
         costUsdPrior30d: priorComparable ? Number(r['cost_usd_prior_30d'] ?? 0) : null,
         tokensPrior30d: priorComparable ? Number(r['tokens_prior_30d'] ?? 0) : null,
         errorRatePrior30d: priorComparable ? nullableNumber(r['error_rate_prior_30d']) : null,
@@ -339,6 +341,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
           sourcesActive: z.number().int(),
           maxTs: z.string().nullable(),
           recordsTotal: z.number().int(),
+          calls30d: z.number().int(),
           costUsdPrior30d: z.number().nullable(),
           tokensPrior30d: z.number().int().nullable(),
           errorRatePrior30d: z.number().nullable(),
@@ -349,7 +352,7 @@ export const usageRoutes = new Elysia({ prefix: '/usage' })
         tags: ['Usage Tracking'],
         summary: 'Usage headline KPIs',
         description:
-          'One-shot KPI bundle for the Usage Tracking dashboard. All windowed fields use a 30-day lookback unless suffixed (e.g. costUsd7d). The *Prior30d fields cover the 30 days before that window (null when it would reach before the data floor, or has no rows for a ratio). p95Ms uses percentile_cont; cacheHitRatio is the weighted ratio sum(cache_read) / sum(cache_read + input).',
+          'One-shot KPI bundle for the Usage Tracking dashboard. All windowed fields use a 30-day lookback unless suffixed (e.g. costUsd7d). calls30d is the record count behind errorRate30d (0 means the rate is not a measurement). The *Prior30d fields cover the 30 days before that window (null when it would reach before the data floor, or has no rows for a ratio). p95Ms uses percentile_cont; cacheHitRatio is the weighted ratio sum(cache_read) / sum(cache_read + input).',
         security: [{ BearerAuth: [] }],
       },
     },

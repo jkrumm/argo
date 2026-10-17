@@ -26,6 +26,12 @@ import {
   errorDayState,
   fmtPct,
   fmtShare,
+  fmtTokens,
+  errorRateReading,
+  meanOf,
+  priorErrorLine,
+  priorLine,
+  type Prior,
   fmtUsdWhole,
   secondsQuantity,
   tokensQuantity,
@@ -122,9 +128,6 @@ function Trend({
   )
 }
 
-const vsPrior = (delta: string | null) =>
-  delta === null ? 'no prior 30 d to compare' : `${delta} vs prior 30 d`
-
 const BAND_STATES = [
   { key: 'ok', label: 'ok', color: alpha(VX.muted, 0.2) },
   { key: 'warn', label: 'warn', color: VX.warn },
@@ -217,7 +220,16 @@ export function UsageStrip() {
         total: h.costUsd30d,
       })
     : []
-  const priorErrors = h?.errorRatePrior30d ?? null
+  const priorOf = (
+    current: number | null | undefined,
+    prior: Prior,
+    delta: (c: number | null, p: number | null) => string | null,
+  ) => (h === undefined ? EM_DASH : priorLine(current, prior, delta))
+  const costMean = meanOf(cost.days.map((d) => d.value))
+  const tokensMean = meanOf(tokens.days.map((d) => d.value))
+  const p95Mean = meanOf(p95.days.map((d) => d.value))
+  const priorError = h === undefined ? EM_DASH : priorErrorLine(h.errorRatePrior30d)
+  const meanLine = (text: string | null) => (text === null ? 'mean —' : `30 d mean ${text}`)
   const ratio = h?.cacheHitRatio30d ?? null
 
   return (
@@ -237,7 +249,8 @@ export function UsageStrip() {
             />
           }
           footer={[
-            vsPrior(deltaPctText(h?.costUsd30d ?? null, h?.costUsdPrior30d ?? null)),
+            meanLine(costMean === null ? null : `${fmtUsdWhole(costMean)} a day`),
+            priorOf(h?.costUsd30d, h?.costUsdPrior30d, deltaPctText),
             `${fmtUsdWhole(h?.costUsd7d)} in the last 7 d`,
           ]}
         />
@@ -256,7 +269,8 @@ export function UsageStrip() {
             />
           }
           footer={[
-            vsPrior(deltaPctText(h?.tokens30d ?? null, h?.tokensPrior30d ?? null)),
+            meanLine(tokensMean === null ? null : `${fmtTokens(tokensMean)} a day`),
+            priorOf(h?.tokens30d, h?.tokensPrior30d, deltaPctText),
             h ? `${h.sourcesActive} sources` : EM_DASH,
             'cache reads excluded',
           ]}
@@ -265,8 +279,8 @@ export function UsageStrip() {
           id="errors"
           caption="Errors"
           qualifier="30 d"
-          value={fmtPct(h?.errorRate30d)}
-          unit="of calls"
+          value={errorRateReading(h?.errorRate30d, h?.calls30d)}
+          unit={h?.calls30d === 0 ? undefined : 'of calls'}
           loading={loading}
           visual={
             errors.days.length > 0 ? (
@@ -283,16 +297,10 @@ export function UsageStrip() {
           }
           footer={
             errors.days.length === 0
-              ? [
-                  priorErrors === null
-                    ? 'no prior 30 d to compare'
-                    : `vs ${fmtPct(priorErrors)} prior 30 d`,
-                ]
+              ? [priorError]
               : [
                   `${badDayCount(errors.days.map((d) => d.value))} bad days · > ${fmtPct(ERROR_BAD_ABOVE, 0)}`,
-                  priorErrors === null
-                    ? 'no prior 30 d to compare'
-                    : `vs ${fmtPct(priorErrors)} prior 30 d`,
+                  priorError,
                   `warn from ${fmtPct(ERROR_WARN_FROM, 0)} a day`,
                 ]
           }
@@ -311,7 +319,10 @@ export function UsageStrip() {
               loading={p95.loading}
             />
           }
-          footer={[vsPrior(deltaSecondsText(h?.p95Ms30d ?? null, h?.p95MsPrior30d ?? null))]}
+          footer={[
+            meanLine(p95Mean === null ? null : `${secondsQuantity(p95Mean).value} s`),
+            priorOf(h?.p95Ms30d, h?.p95MsPrior30d, deltaSecondsText),
+          ]}
         />
         <Cell
           id="cache"
