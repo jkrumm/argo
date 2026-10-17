@@ -35,7 +35,7 @@ Score per component, then add one line per page for the page items (Communicatio
 1. **[measured]** Every inset, gap and radius is a step in `metrics.json` `scale`; nested surfaces step by at least 3 px of radius. No `scale` → `unverified`. Never invent steps.
 2. **[measured]** No more than three font sizes inside one component: `fontSizes` with more than 3 distinct values fails.
 3. No empty region of 40 % or more of the component's height — **[measured]**: `emptyRatio` ≥ 0.4 fails; no dense-list row wraps at 390 — judged from the 390 crop.
-4. One ring per surface, no bare hairline borders on cards, no accent on chrome: look at every crop for an accent hue on a tab underline, a selected row, a secondary button, a card ring or a solid-filled badge. The accent sites are the primary data series, active-nav icons and active child labels, links, primary buttons, focus rings and the leader bar in meters; chrome (borders, inactive states, backgrounds, general icons) stays neutral, and selection state (active nav row, selected tab) never takes the accent. A card's `tone` verdict rail is a status, not chrome.
+4. One ring per surface, no bare hairline borders on cards, no accent on chrome: look at every crop for an accent hue on a tab underline, a selected row, a secondary button, a card ring or a solid-filled badge. The accent sites are the primary data series, active-nav icons and active child labels, links, primary buttons, focus rings and the leader bar in meters; chrome (borders, inactive states, backgrounds, general icons) stays neutral, and selection state (active nav row, selected tab) never takes the accent. A status is a dot plus a word, or the value's own ink; a coloured edge stripe or rail down a card, row or callout for status fails here (Craft 4), and a card's `tone` dot-and-word verdict passes.
 5. **[measured]** Text and meaningful marks meet contrast in both schemes (a non-empty `contrast.failures` fails); nothing is told apart only by colour.
 6. Nothing overflows, clips or truncates a value at 1440 or 390.
 7. Hover, focus and tooltip states are present in the shots; focus is the 2 px outline.
@@ -44,7 +44,7 @@ Score per component, then add one line per page for the page items (Communicatio
 
 1. Name the data's shape and the encoding used; both must match a row of the encoding table (the catalogue) in the `/basalt-design` skill.
 2. Every visual answers the question its caption names; a decorative visual fails.
-3. A hue appears only for a trend, a status or a category; a single metric is neutral. A delta is text in its trend colour with a direction glyph and no fill: a fill or a badge on a delta fails here and Craft 4.
+3. A hue appears only for a trend, a status or a category; a single metric is neutral. A delta is text in its trend colour with a direction glyph and no fill: a fill or a badge on a delta fails here and Craft 4. A status drawn as a coloured leading-edge stripe fails here too: it is decoration, where the dot and the word carry the verdict in shape and text.
 4. A number with a target shows the target; a number with a history shows it; a whole with parts shows the parts.
 5. No axis repeats a label; ticks fit the span.
 
