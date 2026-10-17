@@ -861,6 +861,11 @@ merges.
       value, recency-gated deload signal, a call that never says Push beside an active signal, the momentum window visible),
       #75 Body composition (one coverage-guarded 7 d mean for the header, strip and chart line; the 30 d slope that restated the
       28 d hero is gone), #76 Reading (ratings binned by whole star rounded down, stated).
+  - **basalt-ui 2.19.0** (`691576d`, after close-out): bumped and `sync`ed in its own commit; `make check` and the build are green, and the
+    deploy is verified. Not adopted yet: 2.19's Meter zone names and captions, the BarList label column, the status dot, ink light/outline
+    buttons and the info focus ring. The page prototypes still hand-roll those, so adopting them is Wave 22's first step. The friction
+    rows (multi `ticks`, `tone="muted"`, `size="row"`, per-row `max`, `Sparkline reference`, `ChartCard facts`, the `relativeTime` locale,
+    `StatStrip`) are basalt Wave 35, in flight; switch to each one, and drop `lib/format.ts`, once it ships.
   - **Before/after:** before = `w21-<page>-r0`; after = the live shots `w21-live` (all five pages plus `/` and `/warden`) and
     `w21-live-final` (the three post-live fixes). Round boards `w21-<page>-r1…r7` (+ `-mock` / `-all` injected-data variants for the
     empty production windows). All under `apps/dashboard/.design-shots/` (gitignored), copied to the MacBook,
