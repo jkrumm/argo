@@ -1,11 +1,15 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
-import { navTarget } from 'basalt-ui'
-import { NAV } from '../lib/nav'
+import { createFileRoute } from '@tanstack/react-router'
+import { agentsQueries } from '../lib/queries/agents'
+import { wardenQueries } from '../lib/queries/warden'
+import { TodayPage } from '../features/home/today-page'
 
 export const Route = createFileRoute('/')({
-  beforeLoad: () => {
-    // The landing destination and its default search come from the one nav definition — no cast,
-    // no restated `window: '30d'`.
-    throw redirect(navTarget(NAV, 'garmin'))
-  },
+  // The two sources behind the summary sentence load before paint; a failed one must not block the
+  // page, which then says it is unavailable rather than empty.
+  loader: ({ context }) =>
+    Promise.allSettled([
+      context.queryClient.ensureQueryData(agentsQueries.latest()),
+      context.queryClient.ensureQueryData(wardenQueries.snapshot()),
+    ]),
+  component: TodayPage,
 })

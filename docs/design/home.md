@@ -1,6 +1,6 @@
 # Home (Today) — concept
 
-Route `/` (new, Wave 21; replaces the redirect in `apps/dashboard/src/routes/index.tsx`), source files to create: `apps/dashboard/src/routes/index.tsx`, `apps/dashboard/src/features/home/`. Reads existing endpoints only: Warden snapshot, Agents overview + history + narratives, Calendar (Google, M365, TickTick), Garmin recovery / training load, Warden item timelines.
+Route `/` (shipped Wave 20; replaced the redirect in `apps/dashboard/src/routes/index.tsx`), source files to create: `apps/dashboard/src/routes/index.tsx`, `apps/dashboard/src/features/home/`. Reads existing endpoints only: Warden snapshot, Agents overview + history + narratives, Calendar (Google, M365, TickTick), Garmin recovery / training load, Warden item timelines.
 
 ## Baseline verdict
 
@@ -68,3 +68,29 @@ All new; no current chart is reused. The Calendar page keeps its week/month grid
 6. The activity stream is day-grouped with mono times and a `Live` indicator while the feed is fresh; it shows all available rows up to 12, and an empty state (`No events since <time>.`) when there are none; every row traces to a transition, dispatch, narrative or calendar field.
 7. No meeting title, message text or repo task text appears in docs or committed fixtures.
 8. At 390 the order is Needs you → Meetings → Activity with no horizontal scroll.
+
+## Wave 20 build notes
+
+What shipped differs from the table above in these places, each on purpose:
+
+- **Merged inbox.** `lib/decisions.ts` lists Warden `awaiting_owner` (already `needs_decision` + `failed`) plus any `failed` board item it missed, the Agents `humanQueue` and `needs_you` agents. The facts line reads `warden · {repo}`, `queue · {host}` or `agent · {project}`, then the age. The Agents and Warden pages still keep their own lists; they do not consume it yet.
+- **Unavailable is not empty.** A source whose feed did not load is named in the sentence (`Nothing needs you (Warden unavailable).`), under the cards and in the empty state. A calendar feed that failed is named under the agenda.
+- **Recovery cell.** The mean tick is the mean of the measured days in the last 7 of a 30 d window (the Garmin page's default, because recovery baselines are window-wide). The day's `ceiling` is not drawn: it is an activity score in MET-min, not a point on the 0–100 scale. Filed as a `Meter ticks` friction row.
+- **ACWR cell.** Zones and cut-offs import from `features/garmin-health/model.ts`; the series is read over 90 d so the EWMA is warm.
+- **Dispatch cell.** The budget Meter runs to 125 % of the cap with a tick at the cap; the poller age comes from `derivePollers`. A snapshot with no budget reads `Warden reports no budget`.
+- **Meetings and tasks.** Google and M365 share the sidebar badge's `days=1` cache key. Tasks are TickTick `status = 0` with a due date before today (overdue) or within 7 days (due soon), read per project like the Calendar page.
+- **Activity.** Warden transitions and dispatches, narrative `revisedAt` and today's started meetings, from the start of yesterday, newest first, 12 rows (6 at 390), `Live` while the newest push is under 30 min old.
+- **Nav.** `Today` sits in a one-item `Overview` group at the top; it is not a mobile tab (the four tabs stay as they were), so on a phone it lives under More. Promote it to a tab if Today should be the phone landing page.
+
+## Wave 20 rounds
+
+Shots: `apps/dashboard/.design-shots/w20-home-r{1..6}` (gitignored). The weekend/empty live day has no meetings, so rounds 2–6 inject three synthetic placeholder meetings for the shot only (never committed).
+
+- **r1** (own read vs Keel `root--dark--desktop`). Failed: breadcrumb and sidebar group both read `Today`; the activity rows split into three lines at 450 px (the container query fell to the narrow layout); three filled `Open in …` buttons spent the accent; ACWR footer repeated the zone; the recovery fill was near-white. Changed: group renamed `Overview`; one flowing sentence per feed row with an inline chip; the card action is the subtle secondary; footer names the optimal band; fill is `alpha(VX.muted, .5)`.
+- **r2** (reviewer: summary, cards, show-more pass; strips, meetings, activity fail). Failed: `Activity` count (72) contradicted the 135-row list; axis labels collided at 390; heat strip showed no limit; `of 32` had no noun; overdue red below 4.5:1; durations in mono; sections without a period; meeting title truncated in its cell. Changed: header counts the whole window and group counts sum to it; 12 h ticks; intensity is share of the fleet (footer says so); `of 32 agents`; `VX.status.bad` for overdue; sans durations; `Meetings today`, `… events since yesterday`; title moved to the footer.
+- **r3** (reviewer: strips partly pass). Failed: poller wording, `Section subtitle` renders as a hover-only icon (tooltips never gate data), durations still mono (they inherited it). Changed: the poller is named, the period moved into the visible title/header, `--basalt-font-sans` set on the duration.
+- **r4–r5** (reviewer: meetings, meeting strip, cards, show-more pass). Remaining fails: `fontSizes` count in the agents/recovery/ACWR cells and the strip tooltip overflowing its cell at 390 are basalt-side (Meter's three caption sizes, chart chrome; filed in UPSTREAM); the sparkline has no hover value (basalt `Sparkline`); `recovery 88/100` had no period, the group header was a bare count, the empty budget drew a decorative track. Changed: `recovery today 88/100`, `Today · 72 events`, the empty budget is one muted line, no track.
+- **r6** final shot of that state; no reviewer pass after the last three copy changes (they are the reviewer's own findings, applied verbatim).
+
+Against Keel: same anatomy (summary, five-cell strip, decision cards left, agenda and feed right). Weaker than Keel: no greeting-scale heading (the shell breadcrumb names the page and basalt forbids an in-body title), the cards carry no source glyph or preview column, and feed rows are text only. All three are basalt-side or need data the endpoints do not carry.
+- **r7** (lead feedback, then reviewer). Changed: a burst of steps on one Warden item (gap ≤ 10 min) is one feed row with its `from → to` path, dispatch result and a muted item-title line; the captions count updates and say a burst is one; the summary is an `h3`; decision cards carry the kicker above the question and the Warden state-history preview on the right (desktop); the heat strip is quieter and 28 px high; the recovery fill is quieter; the budget wording matches the Warden page, which reads the same `budget` field and is also unreported in the live snapshot. Reviewer, still failing: font-size counts and a 1 px `BandStrip` marker radius (basalt-side); the heading face draws a slashed zero in the summary (basalt heading font); rows wrap to two lines in a 40 % column; item titles are cut at one line by design; no hover affordance on the subtle card action. Added after the pass: a key on the next-meeting axis (`dot now · bars starts`).

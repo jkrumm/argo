@@ -1,8 +1,7 @@
 /**
  * nav.tsx — Argo's single navigation definition. Every surface that needs to reach a page reads
  * THIS: the sidebar and the mobile bar (`BasaltShell nav={NAV}` in `routes/__root.tsx`), the Spotlight
- * "Go to …" commands (`flattenNav(NAV)` in `lib/commands.tsx`), and the `/` redirect
- * (`navTarget(NAV, 'garmin')` in `routes/index.tsx`). A destination and its default search params
+ * "Go to …" commands (`flattenNav(NAV)` in `lib/commands.tsx`). A destination and its default search params
  * are stated once, here, and nowhere else.
  *
  * LEAF MODULE BY CONTRACT: it imports `@tanstack/react-router`, `basalt-ui`,
@@ -55,6 +54,7 @@ import {
   IconServer,
   IconShieldCheck,
   IconShoe,
+  IconSunHigh,
 } from '@tabler/icons-react'
 
 const ICON = 18
@@ -62,13 +62,22 @@ const ICON = 18
 /**
  * The four `mobile: 'tab'` destinations are the phone-first ones: Hermes Chat (the assistant, used
  * from the phone by voice), Calendar (a daily glance, and one of the two badge-carrying rows),
- * Garmin Health (the app's landing route — `/` redirects here) and Strength Tracker (logged at the
+ * Garmin Health and Strength Tracker (logged at the
  * gym, on the phone). Everything else is either episodic (Astro Window, Reading) or a
  * desk-and-a-big-screen surface (Usage Tracking, M365 Explorer, Body Composition, WalkingPad) and
  * lives one tap deeper under More — the same two taps they cost before this migration.
  */
 export const NAV = defineNav({
   groups: [
+    navGroup({ id: 'overview', label: 'Overview', icon: <IconSunHigh size={ICON} /> }, [
+      {
+        id: 'today',
+        label: 'Today',
+        short: 'Today',
+        icon: <IconSunHigh size={ICON} />,
+        link: linkOptions({ to: '/' }),
+      },
+    ]),
     navGroup({ id: 'assistant', label: 'Assistant', icon: <IconMessageChatbot size={ICON} /> }, [
       {
         id: 'hermes-chat',

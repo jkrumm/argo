@@ -1,0 +1,321 @@
+/* A container, so the columns stack on the width the page is given, not the viewport's. */
+.root {
+  container-type: inline-size;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--vx-space-stack-lg);
+  align-items: start;
+}
+
+@container (min-width: 800px) {
+  .columns {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+
+.headline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--vx-space-stack-md);
+}
+
+.date {
+  flex: none;
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+  white-space: nowrap;
+}
+
+/* ── Strip: five joined cells ─────────────────────────────────────────────────────────────── */
+
+.strip {
+  container-type: inline-size;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border-radius: var(--vx-radius-card);
+  background: var(--vx-surface-hairline);
+  box-shadow: var(--vx-shadow-card);
+}
+
+/* Five cells in two columns: the odd one spans the row. */
+.cell:last-child {
+  grid-column: 1 / -1;
+}
+
+@container (min-width: 800px) {
+  .grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .cell:last-child {
+    grid-column: auto;
+  }
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vx-space-stack-sm);
+  min-width: 0;
+  padding: var(--vx-space-card-inset-y) var(--vx-space-card-inset-x);
+  background: var(--vx-surface-panel);
+}
+
+.caption {
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vx-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--vx-space-control-gap);
+  min-width: 0;
+}
+
+.value {
+  font-size: var(--vx-text-xl);
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--vx-ink);
+  white-space: nowrap;
+}
+
+.unit {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+}
+
+.visual {
+  min-width: 0;
+}
+
+.footer {
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+}
+
+/* ── Next-meeting day axis ────────────────────────────────────────────────────────────────── */
+
+.axis {
+  position: relative;
+  height: 1.25rem;
+  margin-top: var(--vx-space-stack-xs);
+}
+
+.axisTrack {
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  border-radius: 1px;
+  background: var(--vx-surface-hairline);
+}
+
+.tick {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 0.875rem;
+  transform: translate(-50%, -50%);
+  border-radius: 1px;
+  background: var(--vx-muted);
+}
+
+.tickNext {
+  background: var(--vx-ink);
+  height: 1.125rem;
+}
+
+.tickPast {
+  opacity: 0.35;
+}
+
+.nowMark {
+  position: absolute;
+  top: 50%;
+  width: 0.5rem;
+  height: 0.5rem;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--vx-ink);
+}
+
+.axisLabels {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  color: var(--vx-muted);
+}
+
+/* ── Meetings ─────────────────────────────────────────────────────────────────────────────── */
+
+.meetingRow {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: var(--vx-space-stack-md);
+  padding-block: var(--vx-space-stack-xs);
+  border-bottom: 1px solid var(--vx-surface-hairline);
+}
+
+.meetingRow[data-state='past'] {
+  color: var(--vx-muted);
+}
+
+.meetingTime {
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-ink);
+  white-space: nowrap;
+}
+
+.meetingRow[data-state='past'] .meetingTime {
+  color: var(--vx-muted);
+}
+
+.meetingDuration {
+  display: block;
+  font-family: var(--basalt-font-sans);
+  font-size: var(--vx-text-micro);
+  color: var(--vx-muted);
+}
+
+.meetingMeta {
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+  white-space: nowrap;
+}
+
+.meetingTrail {
+  display: flex;
+  align-items: baseline;
+  gap: var(--vx-space-control-gap);
+}
+
+/* ── Activity feed ────────────────────────────────────────────────────────────────────────── */
+
+.feed {
+  min-width: 0;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--vx-space-stack-md);
+  align-items: flex-start;
+}
+
+.feedGroup {
+  align-self: stretch;
+}
+
+.feedHeading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--vx-space-control-gap);
+  padding-bottom: var(--vx-space-stack-xs);
+  border-bottom: 1px solid var(--vx-surface-hairline);
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vx-muted);
+}
+
+.feedRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--vx-space-stack-xs) var(--vx-space-stack-md);
+  padding-block: var(--vx-space-stack-xs);
+  border-bottom: 1px solid var(--vx-surface-hairline);
+}
+
+.feedSentence {
+  min-width: 0;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.feedDetail {
+  grid-column: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+}
+
+.feedActor {
+  font-weight: 600;
+}
+
+.feedTime {
+  text-align: end;
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-sm);
+  color: var(--vx-muted);
+  white-space: nowrap;
+}
+
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vx-space-control-gap);
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vx-muted);
+}
+
+.pulse {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--vx-status-good, var(--vx-ink));
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.pulseOff {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--vx-status-warn, var(--vx-muted));
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    animation: none;
+  }
+}
