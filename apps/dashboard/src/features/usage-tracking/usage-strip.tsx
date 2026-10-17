@@ -6,7 +6,7 @@
  */
 import { useQuery } from '@tanstack/react-query'
 import { Skeleton, Stack, Text } from '@mantine/core'
-import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
+import { DeltaBadge, Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { usageQueries } from '../../lib/queries/usage'
 import { USAGE_BILLING } from '../../lib/series'
 import { dayToDate } from './constants'
@@ -25,6 +25,9 @@ import {
   fmtTokens,
   fmtUsdWhole,
   meanOf,
+  pctDelta,
+  pointsDelta,
+  secondsDelta,
   priorErrorLine,
   priorLine,
   secondsQuantity,
@@ -73,6 +76,23 @@ const priorOf = (
   delta: (c: number | null, p: number | null) => string | null,
 ) => (h === undefined ? EM_DASH : priorLine(current, prior, delta))
 
+/** The cell's delta slot: a glyph + verdict ink badge, or nothing when there is no base to compare. */
+const badge = (
+  value: number | null,
+  format: (v: number) => string,
+  polarity: 'up-bad' | 'neutral',
+) => (value === null ? undefined : <DeltaBadge value={value} format={format} polarity={polarity} />)
+
+const fmtPctBadge = (v: number) => `${Math.abs(v).toFixed(0)}%`
+const fmtPointsBadge = (v: number) => `${Math.abs(v).toFixed(1)} pp`
+const fmtSecondsBadge = (v: number) => `${Math.abs(v).toFixed(1)} s`
+const fmtUsdDay = (v: number) => `$${v.toFixed(2)}`
+const fmtTokensDay = (v: number) => {
+  const q = tokensQuantity(v)
+  return `${q.value}${q.unit} tokens`
+}
+const fmtSecondsDay = (v: number) => `${secondsQuantity(v).value} s`
+
 function costCell({ h, loading }: Ctx, cost: Series): StatStripCell {
   const mean = meanOf(cost.days.map((d) => d.value))
   return {
@@ -80,9 +100,19 @@ function costCell({ h, loading }: Ctx, cost: Series): StatStripCell {
     caption: 'Cost',
     qualifier: '30 d',
     value: fmtUsdWhole(h?.costUsd30d),
+    delta: badge(
+      pctDelta(h?.costUsd30d ?? null, h?.costUsdPrior30d ?? null),
+      fmtPctBadge,
+      'up-bad',
+    ),
     loading,
     visual: (
-      <Trend label="Cost per day over the last 30 days" days={cost.days} loading={cost.loading} />
+      <Trend
+        label="Cost per day over the last 30 days"
+        days={cost.days}
+        loading={cost.loading}
+        format={fmtUsdDay}
+      />
     ),
     footer: footerOf([
       meanLine(mean === null ? null : `${fmtUsdWhole(mean)} a day`),
@@ -101,12 +131,14 @@ function tokensCell({ h, loading }: Ctx, tokens: Series): StatStripCell {
     qualifier: '30 d',
     value: qty.value,
     ...(qty.unit ? { unit: qty.unit } : {}),
+    delta: badge(pctDelta(h?.tokens30d ?? null, h?.tokensPrior30d ?? null), fmtPctBadge, 'neutral'),
     loading,
     visual: (
       <Trend
         label="Tokens per day over the last 30 days"
         days={tokens.days}
         loading={tokens.loading}
+        format={fmtTokensDay}
       />
     ),
     footer: footerOf([
@@ -126,6 +158,11 @@ function errorsCell({ h, loading }: Ctx, errors: Series): StatStripCell {
     qualifier: '30 d',
     value: errorRateReading(h?.errorRate30d, h?.calls30d),
     ...(h?.calls30d === 0 ? {} : { unit: 'of calls' }),
+    delta: badge(
+      pointsDelta(h?.errorRate30d ?? null, h?.errorRatePrior30d ?? null),
+      fmtPointsBadge,
+      'up-bad',
+    ),
     loading,
     visual:
       errors.days.length > 0 ? (
@@ -160,12 +197,18 @@ function p95Cell({ h, loading }: Ctx, p95: Series): StatStripCell {
     qualifier: '30 d',
     value: qty.value,
     ...(qty.unit ? { unit: qty.unit } : {}),
+    delta: badge(
+      secondsDelta(h?.p95Ms30d ?? null, h?.p95MsPrior30d ?? null),
+      fmtSecondsBadge,
+      'up-bad',
+    ),
     loading,
     visual: (
       <Trend
         label="p95 latency per day over the last 30 days"
         days={p95.days}
         loading={p95.loading}
+        format={fmtSecondsDay}
       />
     ),
     footer: footerOf([

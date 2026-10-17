@@ -19,6 +19,9 @@ import {
   isStale,
   OTHER_KEY,
   pctChange,
+  pctDelta,
+  pointsDelta,
+  secondsDelta,
   secondsQuantity,
   summarySentence,
   tokensQuantity,
@@ -189,5 +192,24 @@ describe('meanOf', () => {
   it('averages present values and ignores gaps', () => {
     expect(meanOf([2, null, 4])).toBe(3)
     expect(meanOf([null])).toBeNull()
+  })
+})
+
+describe('badge deltas', () => {
+  it('pctDelta is the signed percent change, null without a base', () => {
+    expect(pctDelta(150, 100)).toBe(50)
+    expect(pctDelta(50, 100)).toBe(-50)
+    expect(pctDelta(5, 0)).toBeNull()
+    expect(pctDelta(null, 10)).toBeNull()
+  })
+
+  it('secondsDelta converts a millisecond difference to seconds', () => {
+    expect(secondsDelta(1500, 1000)).toBe(0.5)
+    expect(secondsDelta(1000, null)).toBeNull()
+  })
+
+  it('pointsDelta is the ratio difference in percentage points', () => {
+    expect(pointsDelta(0.03, 0.01)).toBeCloseTo(2)
+    expect(pointsDelta(null, 0.01)).toBeNull()
   })
 })
