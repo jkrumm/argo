@@ -41,7 +41,7 @@ export function ThreadToolbar({
   ]
 
   return (
-    <Box className={classes['root']}>
+    <Box className={classes['root']} data-shot="thread-toolbar">
       <ScrollArea className={classes['chips']} type="never" scrollbars="x">
         <Group gap="xs" wrap="nowrap">
           {chips.map((chip) => (

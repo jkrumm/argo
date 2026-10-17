@@ -72,6 +72,11 @@ export function ThreadRecordHeader({
         )}
       </Group>
       <Text className={classes['facts']}>{factsLine({ entry, now, compact })}</Text>
+      {entry.summary !== null && (
+        <Text size="sm" c="dimmed" lineClamp={3}>
+          {entry.summary}
+        </Text>
+      )}
     </Box>
   )
 }

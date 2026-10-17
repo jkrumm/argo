@@ -199,7 +199,7 @@ export function startedDate(ms: number, now: number): string {
   return (sameYear ? dayFormat : dayYearFormat).format(ms)
 }
 
-/** Wide: `Started {date} · last reply {time}` (the type is the chip beside the title). Compact, no chip: `{time} · {type}`. */
+/** Wide: `Started {date} · last reply {time}` (the type is the chip beside the title). Compact, no chip: `last reply {time} · {type}`. */
 export function factsLine({
   entry,
   now,
@@ -213,7 +213,7 @@ export function factsLine({
   const reply = listTime(entry.updatedAt, now)
   const type = entry.type === null ? null : TYPE_LABEL[entry.type]
   const parts = compact
-    ? [reply, type]
+    ? [`last reply ${reply}`, type]
     : sameDay
       ? [
           `Started ${startedDate(entry.createdAt, now)} ${timeFormat.format(entry.createdAt)}`,

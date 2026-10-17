@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Badge, Box, Button, Text, UnstyledButton } from '@mantine/core'
+import { Box, Button, Text, UnstyledButton } from '@mantine/core'
 import { overlays } from 'basalt-ui/commands'
 import { relativeTime } from '../../lib/format'
 import {
@@ -15,9 +15,9 @@ import classes from './thread-list.module.css'
 export function TypeChip({ type }: { type: ThreadEntry['type'] }) {
   if (type === null) return null
   return (
-    <Badge size="xs" variant="outline" color="gray" radius="sm" className={classes['chip']}>
+    <Text component="span" className={classes['chip']}>
       {TYPE_LABEL[type]}
-    </Badge>
+    </Text>
   )
 }
 
@@ -97,7 +97,7 @@ export function ThreadList({
   }
 
   return (
-    <Box className={classes['root']}>
+    <Box className={classes['root']} data-shot="thread-list">
       {groups.map((group) => (
         <Box
           key={group.key}

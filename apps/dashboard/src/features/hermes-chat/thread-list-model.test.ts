@@ -153,6 +153,6 @@ describe('factsLine', () => {
     expect(factsLine({ entry: e, now: NOW, compact: false })).toBe(
       'Started 3 Oct 08:00 · last reply 09:41',
     )
-    expect(factsLine({ entry: e, now: NOW, compact: true })).toBe('3 Oct · Infra')
+    expect(factsLine({ entry: e, now: NOW, compact: true })).toBe('last reply 3 Oct · Infra')
   })
 })
