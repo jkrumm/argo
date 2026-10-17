@@ -72,6 +72,16 @@ export const Route = createFileRoute('/strength-tracker')({
       base.push(context.queryClient.ensureQueryData(workoutsQueries.summaryStrength(windowParams)))
       base.push(context.queryClient.ensureQueryData(strengthQueries.sparklines(params)))
       base.push(context.queryClient.ensureQueryData(strengthQueries.trainingLoad(params)))
+      // The verdict card's fixed-window inputs (independent of the page window).
+      base.push(
+        context.queryClient.ensureQueryData(
+          strengthQueries.trainingLoad({ window: 'all', exercises: params.exercises }),
+        ),
+        context.queryClient.ensureQueryData(
+          strengthQueries.heroes({ window: '90d', exercises: params.exercises }),
+        ),
+        context.queryClient.ensureQueryData(strengthQueries.readiness({ window: '30d' })),
+      )
       base.push(
         context.queryClient.ensureQueryData(
           strengthQueries.deloadSignal({ exercises: params.exercises }),

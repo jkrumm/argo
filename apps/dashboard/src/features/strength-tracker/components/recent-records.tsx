@@ -79,8 +79,8 @@ export function RecentRecords({
                 <Text size="xs" c="dimmed">
                   {dayLabel(day.date)}
                 </Text>
-                {day.rows.map((r) => (
-                  <Group key={`${r.exercise_id}-${r.metric}-${r.value}`} gap="xs" wrap="nowrap">
+                {day.rows.map((r, i) => (
+                  <Group key={`${r.exercise_id}-${r.metric}-${i}`} gap="xs" wrap="nowrap">
                     {multiExercise && (
                       <Box
                         component="span"

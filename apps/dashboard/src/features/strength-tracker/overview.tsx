@@ -23,14 +23,12 @@ import {
   READINESS_PUSH_FROM,
   READINESS_REST_BELOW,
   dayLabel,
-  deltaPhrase,
   shortDate,
   deloadLine,
-  e1rmDelta,
+  liftDelta,
   lastSession,
   latestE1rm,
-  currentAcwr,
-  acwrAsOf,
+  acwrReading,
   readinessReading,
   sessionCount,
   summarySentence,
@@ -41,20 +39,26 @@ import classes from './overview.module.css'
 /** A reading that is not a verdict: `Meter`'s neutral fill is near-white in dark mode. */
 const MUTED_FILL = alpha(VX.muted, 0.35)
 const SPARK_POINTS = 20
+const VERDICT_WINDOW = '30d'
 
 type Params = { params: StrengthQueryParams; exercises: readonly string[] }
 
 /** Everything the three blocks share, derived once per render from cached queries. */
 function useOverview({ params, exercises }: Params) {
-  const { data: heroes } = useSuspenseQuery(strengthQueries.heroes(params))
-  // The same series the readiness chart plots, so the card and the chart's header cannot differ.
+  // The verdict inputs read fixed recent windows, never the page's: a past or custom range filters
+  // the charts below, not "today". The history behind ACWR's EWMAs is the full record.
+  const { data: heroes } = useSuspenseQuery(
+    strengthQueries.heroes({ window: '90d', exercises: params.exercises }),
+  )
   const { data: readinessSeries } = useSuspenseQuery(
-    strengthQueries.readiness({ window: params.window, from: params.from, to: params.to }),
+    strengthQueries.readiness({ window: VERDICT_WINDOW }),
   )
   const { data: deload } = useSuspenseQuery(
     strengthQueries.deloadSignal({ exercises: exercises.join(',') }),
   )
-  const { data: load } = useSuspenseQuery(strengthQueries.trainingLoad(params))
+  const { data: load } = useSuspenseQuery(
+    strengthQueries.trainingLoad({ window: 'all', exercises: params.exercises }),
+  )
   const { data: series } = useSuspenseQuery(
     strengthQueries.seriesDetailed({ window: 'all', exercises: exercises.join(',') }),
   )
@@ -62,15 +66,15 @@ function useOverview({ params, exercises }: Params) {
 
   const now = useNow()
   const readiness = readinessReading(readinessSeries.points)
-  const call = todaysCall(readiness, deload)
-  const acwr = currentAcwr(load.byExercise, now)
+  const call = todaysCall(readiness, deload, now)
+  const { acwr, week: acwrWeek } = acwrReading(load.byExercise, now)
   const leader =
     exercises.find((e) => e === heroes.strengthDirection.leaderExercise) ?? exercises[0] ?? null
   const leaderPoints = series.byExercise.find((l) => l.exercise_id === leader)?.points ?? []
   const sentence = summarySentence({
     leader,
     e1rm: latestE1rm(leaderPoints),
-    delta: e1rmDelta(leaderPoints, now),
+    delta: liftDelta(leaderPoints, now),
     acwr,
     call,
     score: readiness?.score ?? null,
@@ -82,7 +86,7 @@ function useOverview({ params, exercises }: Params) {
     summary,
     call,
     acwr,
-    asOf: acwrAsOf(load.byExercise),
+    acwrWeek,
     sentence,
     now,
   }
@@ -98,7 +102,7 @@ export function SummaryLine(props: Params) {
 }
 
 export function TodaysCall(props: Params) {
-  const { readiness, deload, series, call, acwr, asOf } = useOverview(props)
+  const { readiness, deload, series, call, acwr, acwrWeek } = useOverview(props)
   const score = readiness?.score ?? null
   const session = lastSession(series.byExercise)
 
@@ -187,8 +191,8 @@ export function TodaysCall(props: Params) {
               )}
               <Text className={classes.method}>
                 optimal {ACWR_FLOOR}–{ACWR_OPTIMAL_TO} ·{' '}
-                {acwr === null && asOf !== null
-                  ? `no training week in the last 28 d, last was the week of ${shortDate(asOf)}`
+                {acwr === null && acwrWeek !== null
+                  ? `no training week in the last 28 d, last was the week of ${shortDate(acwrWeek)}`
                   : ACWR_METHOD}
               </Text>
             </Box>
@@ -213,11 +217,11 @@ export function LiftStrip(props: Params) {
       <section className={classes.strip} aria-label="Estimated 1RM per lift">
         {cells.map(({ id, points, pr }) => {
           const e1rm = latestE1rm(points)
-          const delta = e1rmDelta(points, now)
-          const spark = points
-            .map((p) => p.e1rm)
-            .filter((v): v is number => v !== null)
-            .slice(-SPARK_POINTS)
+          const { delta, phrase } = liftDelta(points, now)
+          const plotted = points.filter((p) => p.e1rm !== null).slice(-SPARK_POINTS)
+          const spark = plotted.map((p) => p.e1rm as number)
+          const sparkFrom = plotted[0]?.date ?? ''
+          const sparkTo = plotted.at(-1)?.date ?? ''
           const sessions = pr?.sessionCountWindow ?? sessionCount(points)
           return (
             <div className={classes.cell} key={id}>
@@ -228,23 +232,31 @@ export function LiftStrip(props: Params) {
               </div>
               <div className={classes.delta}>
                 {delta === null || delta === 0 ? '' : delta > 0 ? '▲ ' : '▼ '}
-                {deltaPhrase(delta, e1rm)}
+                {phrase}
               </div>
               {spark.length > 1 ? (
-                <Sparkline
-                  ariaLabel={`${exerciseLabel(id)} e1RM, last ${spark.length} sessions`}
-                  data={spark}
-                  height={28}
-                  color={EXERCISE_COLORS[id as ExerciseKey] ?? MUTED_FILL}
-                  emphasizeLast
-                />
+                <div className={classes.sparkRow}>
+                  <div className={classes.spark}>
+                    <Sparkline
+                      ariaLabel={`${exerciseLabel(id)} e1RM, last ${spark.length} sessions`}
+                      data={spark}
+                      height={28}
+                      color={EXERCISE_COLORS[id as ExerciseKey] ?? MUTED_FILL}
+                      emphasizeLast
+                    />
+                  </div>
+                  {pr?.bestE1RM == null ? null : (
+                    <span className={classes.limit}>PR {pr.bestE1RM.toFixed(1)} kg</span>
+                  )}
+                </div>
               ) : null}
               <div className={classes.footer}>
-                PR {pr?.bestE1RM == null ? EM_DASH : `${pr.bestE1RM.toFixed(1)} kg`},{' '}
-                {pr?.prDate ? shortDate(pr.prDate) : EM_DASH}
+                {spark.length > 1
+                  ? `line: last ${spark.length} sessions, ${shortDate(sparkFrom)}–${shortDate(sparkTo)}`
+                  : null}
                 <br />
-                {sessions} {sessions === 1 ? 'session' : 'sessions'} · line shows last{' '}
-                {spark.length}
+                PR {pr?.prDate ? shortDate(pr.prDate) : EM_DASH} · {sessions}{' '}
+                {sessions === 1 ? 'session' : 'sessions'}, all time
               </div>
             </div>
           )

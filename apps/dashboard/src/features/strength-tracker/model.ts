@@ -30,6 +30,8 @@ export type ReadinessReading = {
   score: number | null
   verdict: 'Push' | 'Normal' | 'Rest'
   driver: string | null
+  /** `YYYY-MM-DD` of the reading, null when the series names none. */
+  date: string | null
 }
 export type DeloadReading = {
   verdict: 'deload' | 'monitor' | 'progress'
@@ -43,28 +45,41 @@ export type TodaysCall = {
   overridden: boolean
   /** `monitor` keeps the readiness verdict and names the signal. */
   monitor: string | null
+  /** `16 Oct` when the reading is not from today; null when it is. */
+  asOf: string | null
+}
+
+/** The viewer's local `YYYY-MM-DD` for a timestamp. */
+export function localIso(ms: number): string {
+  const d = new Date(ms)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 /** The conservative verdict wins: `deload` overrides readiness, `monitor` only annotates. */
 export function todaysCall(
   readiness: ReadinessReading | null,
   deload: DeloadReading | undefined,
+  now: number,
 ): TodaysCall {
+  const stale = readiness?.date != null && readiness.date !== localIso(now)
+  const asOf = stale && readiness?.date != null ? shortDate(readiness.date) : null
   if (deload?.verdict === 'deload') {
-    return { verdict: 'Deload', title: 'Today: Deload', overridden: true, monitor: null }
+    return { verdict: 'Deload', title: 'Today: Deload', overridden: true, monitor: null, asOf }
   }
   const verdict = readiness === null || readiness.score === null ? EM_DASH : readiness.verdict
   return {
     verdict,
-    title: `Today: ${verdict}`,
+    title: asOf === null ? `Today: ${verdict}` : `Latest: ${verdict} · ${asOf}`,
     overridden: false,
     monitor: deload?.verdict === 'monitor' ? (deload.activeSignals[0] ?? null) : null,
+    asOf,
   }
 }
 
 /** The last non-null point of the readiness series, as the verdict card reads it. */
 export function readinessReading(
-  points: readonly { readiness: number | null; driver: string | null }[],
+  points: readonly { date?: string; readiness: number | null; driver: string | null }[],
 ): ReadinessReading | null {
   const last = points.findLast((p) => isNum(p.readiness))
   if (last === undefined || !isNum(last.readiness)) return null
@@ -74,7 +89,7 @@ export function readinessReading(
       : last.readiness >= READINESS_REST_BELOW
         ? 'Normal'
         : 'Rest'
-  return { score: last.readiness, verdict, driver: last.driver }
+  return { score: last.readiness, verdict, driver: last.driver, date: last.date ?? null }
 }
 
 export function deloadLine(deload: DeloadReading | undefined): string {
@@ -87,35 +102,37 @@ export function deloadLine(deload: DeloadReading | undefined): string {
 
 // ── ACWR ─────────────────────────────────────────────────────────────────────────────────────
 
-/** Mean of each lift's latest non-null ACWR — the same reduction the alignment matrix uses. */
-export function meanAcwr(
-  lifts: readonly { points: readonly { acwr: number | null }[] }[],
-): number | null {
-  const latest = lifts
-    .map((l) => l.points.findLast((p) => isNum(p.acwr))?.acwr ?? null)
-    .filter(isNum)
-  if (latest.length === 0) return null
-  return Math.round((latest.reduce((a, b) => a + b, 0) / latest.length) * 100) / 100
+export type AcwrLift = {
+  points: readonly { date: string; acute: number; chronic: number; acwr: number | null }[]
+}
+export type AcwrReading = {
+  /** Total-tonnage ACWR; null when no week is measured or the newest one is older than the window. */
+  acwr: number | null
+  /** The newest measured week (`YYYY-MM-DD`), kept even when stale so the copy can name it. */
+  week: string | null
 }
 
-/** The newest week any lift's ACWR was measured: the figure is that old, not today's. */
-export function acwrAsOf(
-  lifts: readonly { points: readonly { date: string; acwr: number | null }[] }[],
-): string | null {
-  const dates = lifts
-    .map((l) => l.points.findLast((p) => isNum(p.acwr))?.date ?? null)
-    .filter((d): d is string => d !== null)
-  return dates.length === 0 ? null : dates.reduce((a, b) => (a > b ? a : b))
-}
-
-/** The mean ACWR only while its newest week is inside the delta window; older is unknown, not current. */
-export function currentAcwr(
-  lifts: Parameters<typeof meanAcwr>[0] & Parameters<typeof acwrAsOf>[0],
-  now: number,
-): number | null {
-  const asOf = acwrAsOf(lifts)
-  if (asOf === null || Date.parse(asOf) + 7 * DAY_MS <= now - DELTA_DAYS * DAY_MS) return null
-  return meanAcwr(lifts)
+/**
+ * Total-tonnage ACWR: summed acute EWMA over summed chronic EWMA for ONE week (the newest any lift
+ * was measured), so a heavy lift weighs more than a light one. A lift with no point that week adds
+ * nothing. Older than the delta window it is unknown, not current. The card, the summary sentence
+ * and the chart header all read this one function.
+ */
+export function acwrReading(lifts: readonly AcwrLift[], now: number): AcwrReading {
+  const week = lifts
+    .flatMap((l) => l.points.filter((p) => isNum(p.acwr)).map((p) => p.date))
+    .reduce<string | null>((a, b) => (a === null || b > a ? b : a), null)
+  if (week === null) return { acwr: null, week: null }
+  if (Date.parse(week) + 7 * DAY_MS <= now - DELTA_DAYS * DAY_MS) return { acwr: null, week }
+  let acute = 0
+  let chronic = 0
+  for (const l of lifts) {
+    const p = l.points.find((q) => q.date === week && isNum(q.acwr))
+    if (p === undefined) continue
+    acute += p.acute
+    chronic += p.chronic
+  }
+  return { acwr: chronic > 0 ? Math.round((acute / chronic) * 100) / 100 : null, week }
 }
 
 export function acwrZoneWord(acwr: number | null): string {
@@ -126,7 +143,7 @@ export function acwrZoneWord(acwr: number | null): string {
   return 'danger'
 }
 
-export const ACWR_METHOD = 'EWMA 4 wk / 16 wk of weekly tonnage, mean of the lifts'
+export const ACWR_METHOD = 'EWMA 4 wk / 16 wk of weekly tonnage, all lifts summed'
 
 // ── Lifts ────────────────────────────────────────────────────────────────────────────────────
 
@@ -134,22 +151,25 @@ export function latestE1rm(points: readonly Point[]): number | null {
   return points.findLast((p) => isNum(p.e1rm))?.e1rm ?? null
 }
 
-/** e1RM now minus e1RM as of `days` before `now`; null without a session inside the window or one before its start. */
-export function e1rmDelta(points: readonly Point[], now: number, days = DELTA_DAYS): number | null {
-  const current = latestE1rm(points)
-  if (current === null) return null
+export type LiftDelta = { delta: number | null; phrase: string }
+
+/** e1RM now minus e1RM as of 28d ago, or the reason there is no figure. */
+export function liftDelta(points: readonly Point[], now: number, days = DELTA_DAYS): LiftDelta {
+  const sessions = points.filter((p) => isNum(p.e1rm))
+  const last = sessions.at(-1)
+  if (last === undefined || !isNum(last.e1rm)) {
+    return { delta: null, phrase: `${EM_DASH} kg in ${days}d` }
+  }
   const cutoff = now - days * DAY_MS
   // No session inside the window: "unchanged" would be a claim the data does not make.
-  const lastDate = points.findLast((p) => isNum(p.e1rm))?.date
-  if (lastDate === undefined || Date.parse(lastDate) <= cutoff) return null
-  const base = points.findLast((p) => isNum(p.e1rm) && Date.parse(p.date) <= cutoff)?.e1rm
-  return isNum(base) ? Math.round((current - base) * 10) / 10 : null
-}
-
-/** `+4.2 kg in 28d`, or the reason there is no figure. */
-export function deltaPhrase(delta: number | null, e1rm: number | null): string {
-  if (e1rm === null) return `${EM_DASH} kg in ${DELTA_DAYS}d`
-  return delta === null ? `no session in ${DELTA_DAYS}d` : `${signed(delta)} kg in ${DELTA_DAYS}d`
+  if (Date.parse(last.date) <= cutoff) return { delta: null, phrase: `no session in ${days}d` }
+  const base = sessions.findLast((p) => Date.parse(p.date) <= cutoff)
+  if (base === undefined || !isNum(base.e1rm)) {
+    const first = sessions[0]
+    return { delta: null, phrase: `first session ${shortDate(first?.date ?? last.date)}` }
+  }
+  const delta = Math.round((last.e1rm - base.e1rm) * 10) / 10
+  return { delta, phrase: `${signed(delta)} kg in ${days}d` }
 }
 
 export function sessionCount(points: readonly Point[]): number {
@@ -185,7 +205,7 @@ export function lastSession(
 export function summarySentence(input: {
   leader: string | null
   e1rm: number | null
-  delta: number | null
+  delta: LiftDelta
   acwr: number | null
   call: TodaysCall
   score: number | null
@@ -195,9 +215,9 @@ export function summarySentence(input: {
     leader === null
       ? 'e1RM'
       : `${exerciseLabel(leader)} e1RM ${e1rm === null ? EM_DASH : `${e1rm.toFixed(1)} kg`}`
-  const move = leader === null || e1rm === null ? '' : `, ${deltaPhrase(delta, e1rm)}`
+  const move = leader === null || e1rm === null ? '' : `, ${delta.phrase}`
   const load = acwr === null ? 'ACWR —' : `ACWR ${acwr.toFixed(2)} ${acwrZoneWord(acwr)}`
-  const ready = `readiness ${score === null ? EM_DASH : `${Math.round(score)}/100`} ${call.verdict}`
+  const ready = `readiness ${score === null ? EM_DASH : `${Math.round(score)}/100`} ${call.verdict}${call.asOf === null ? '' : `, ${call.asOf}`}`
   return `${lift}${move} · ${load} · ${ready}`
 }
 
@@ -219,25 +239,37 @@ export function ratioName(label: string): string {
     .join(' / ')
 }
 
-/** The API calls a ratio `balanced` up to 15% outside its band; say so instead of contradicting the offset. */
+/**
+ * The API calls a ratio `balanced` up to this fraction outside its band (`computeRatioStatus` in
+ * apps/api/src/lib/strength-formulas.ts); mirrored here, the one place in the dashboard, like the
+ * 40 / 70 readiness thresholds above.
+ */
+export const RATIO_TOLERANCE = 0.15
+
+/** Inside the band is `balanced` whatever the API says; outside, `balanced` is only the tolerance. */
 export function statusWord(status: string | null, offset: number | null): string {
-  if (status === null) return EM_DASH
-  return status === 'balanced' && offset !== 0 ? 'near band' : status
+  if (status === null || offset === null) return EM_DASH
+  if (offset === 0) return 'balanced'
+  return status === 'balanced' ? 'near band' : status
 }
 
 export function ratioNote(status: string | null, offset: number | null): string {
   if (status === null || offset === null) return EM_DASH
-  const tolerance = status === 'balanced' && offset !== 0 ? ', within the 15% tolerance' : ''
+  const tolerance =
+    status === 'balanced' && offset !== 0
+      ? `, within the ${Math.round(RATIO_TOLERANCE * 100)}% tolerance`
+      : ''
   return `${statusWord(status, offset)} · ${offText(offset)}${tolerance}`
 }
 
+/** Unrounded: a ratio a hair outside the band is outside it. */
 export function bandOffset(
   ratio: number | null,
   [lo, hi]: readonly [number, number],
 ): number | null {
   if (ratio === null) return null
-  if (ratio < lo) return Math.round((ratio - lo) * 100) / 100
-  if (ratio > hi) return Math.round((ratio - hi) * 100) / 100
+  if (ratio < lo) return ratio - lo
+  if (ratio > hi) return ratio - hi
   return 0
 }
 
@@ -245,7 +277,8 @@ export function bandOffset(
 export function offText(offset: number | null): string {
   if (offset === null) return EM_DASH
   if (offset === 0) return 'inside the band'
-  return `${Math.abs(offset).toFixed(2)} ${offset < 0 ? 'under' : 'over'} the band`
+  const size = Math.abs(offset) < 0.005 ? '<0.01' : Math.abs(offset).toFixed(2)
+  return `${size} ${offset < 0 ? 'under' : 'over'} the band`
 }
 
 // ── Records ──────────────────────────────────────────────────────────────────────────────────

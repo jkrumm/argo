@@ -9,6 +9,9 @@ declare const classes: {
   readonly unit: string
   readonly delta: string
   readonly footer: string
+  readonly sparkRow: string
+  readonly spark: string
+  readonly limit: string
   readonly meterBlock: string
   readonly method: string
 }
