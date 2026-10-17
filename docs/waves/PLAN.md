@@ -919,13 +919,123 @@ merges.
     one shared ACWR (or each page naming its method) belongs in the convergence pass. A worker ran `git switch` in the main checkout once
     (reverted, nothing lost): briefs should state that every git command runs inside the worktree.
 
-## Wave 22 — Astro window, Hermes chat, M365 explorer; the convergence pass <!-- status: active -->
+## Wave 22 — Astro window, Hermes chat, M365 explorer <!-- status: done -->
 
-- [ ] Redesign the remaining pages.
-- [ ] Re-score every page with a fresh reviewer and against Keel. Every page still below the bar gets a Wave
-      24+ in this shape. The loop ends only when a fresh scorer and the owner find nothing worth
-      improving.
+- [x] Adopt basalt-ui 2.19.0's pieces where the page prototypes still hand-rolled them, as its own commit.
+- [x] Redesign the remaining pages: Astro window, Hermes chat, M365 explorer, fanned out on disjoint files.
+- [ ] ~~Re-score every page with a fresh reviewer and against Keel.~~ Moved to Wave 23 (owner, 2026-10-17): the
+      convergence re-score waits for basalt Wave 35's props.
       **Left behind:**
+
+  **Closed out (orchestrated): Wave 23 is added as `planned`, not spawned; the orchestrator spawns it once basalt Wave 35 ships.**
+
+  - **Landed (master, deployed, `/api/health` verified after each merge, last `356f6cc`):**
+    - `2c17048` the 2.19.0 adoption: `Meter` now captions categorical `segments` itself, so the hand-rolled legend rows under the
+      segmented meters on Agents (fleet), Calendar (Work/Personal), Reading (shelf), Usage (billing lanes, share kept in `format`) and
+      Warden (fixes, an unknown part reads `—`) are gone; the strength timer drops its `color` override (2.19 light/outline buttons are
+      ink). Not adoptable: `StatusDot`/`StatusVerdict` ship under `dist/theme/` but are not in the package `exports` (filed); the BarList
+      label column needed no code change; argo had no info focus-ring workaround to delete. Two independent review rounds (fixes: lanes
+      under $0.50 dropped from the bar so it no longer summed to the total, the lost share, a fixed/quiet `null` that vanished).
+    - `c5af76f` `.design-shots/` is ignored at any depth (a fan-out worktree showed `apps/dashboard/.design-shots/` untracked).
+    - #78 Hermes chat: summary sentence, counted type chips (plus `Untitled` and `Archived`), search, day groups `Pinned` / `Today` /
+      `This week` / `Earlier` with counts and a `Live` marker, untitled threads folded into one row with a confirmed `Delete all untitled`
+      (pinned and under-a-minute threads excluded), the Hermes health dot in the `PageBar`, a record header with pin / archive / unarchive /
+      delete, `?thread=` addressing. The message renderer, stream and voice paths are unchanged; auto-speak moved to a per-thread
+      `ThreadSpeaker` so a reply that finishes while the list is open is still spoken.
+    - #79 M365 explorer: the 824-line page split into per-concern files; summary, a 3-cell strip (labeled as the intersection with the
+      loaded chats + channels, the 50-chat basis stated, a failed team stated as `≥{n}` with Retry), `Chats | Teams | Agent feed` tabs,
+      view-scoped neutral tag chips, a master–detail with the labelled sources by tag as the resting right pane, a record header with a
+      `Label as…` popover (Copy source id kept), a message list, the Agent feed over `GET /m365/important`, a push sheet at 390, staggered
+      per-team channel fetches.
+    - #80 Astro window (squashed on merge: an intermediate formatter run had rewritten 45 unrelated docs; reverted before the squash):
+      Tonight is a summary, a verdict card that draws the gap to the core gate as a length, a gates card, a 10-night strip whose cells
+      name the first killer or the window, a five-cell Night anatomy card (Sky on a scaled `LP.*` track) and the score list; the 20-row
+      facts table, the empty `SCORE` block and the filler subtitle are gone. Forecast titles carry facts; the panorama glow is quieter
+      (its own fill opacity; the `LP.*` table in DESIGN.md is unchanged); the map drawer copy is one line per option. **API (additive):**
+      per night `gateCoreAltitude` + `coreGateDeg` (the dark sample closest to clearing the per-sample gate, the same sample the core
+      killer now names), top-level `bestDate` and `moonMaxIllumination`, so the dashboard mirrors no threshold; documented in
+      `docs/ASTRO-WINDOW.md`.
+  - **Before/after:** before = each page's `w22-<page>-r0` (Hermes: `w22-hermes-r1`). After = the live shots `w22-live-astro`,
+    `w22-live-hermes-m365` and `w22-live-step1` (the five pages the 2.19 adoption touched). Round boards `w22-astro-window-r1…r7`
+    (+ a pinned-clock fixture variant for the GO states, never committed), `w22-hermes-r1…r7`, `w22-m365-r1…r5`. All under
+    `apps/dashboard/.design-shots/` (gitignored), copied to the MacBook, `~/Downloads/argo-design-review/w22/`.
+  - **Rounds:** Astro 7 (r0–r7, r6 and r7 scored live and on the fixture), Hermes 7, M365 5. Each scored by a fresh
+    `basalt-design-reviewer` on `basalt-ui shot`, recorded in `docs/design/<page>.md` under "Wave 22 rounds".
+  - **Reviewer verdict, stated plainly:**
+    - Hermes: every component and both pages pass (r7).
+    - M365: every component passes except `source-list` (titles wrap to two lines at 390 — kept, the ellipsis was the r2 fail — and one
+      or two focus shots time out on the slow Graph upstream). The dark-desktop page timed out in r5 and was last scored in r4.
+    - Astro: verdict card, strip, score card, cloud layers and both pages pass; still failing: the gates card's font-size count, chart hover
+      tooltips spilling over the next card, sticky bars clipping crops at 390, the GO window stated three times (summary, headline, timeline
+      title) and the panorama's "above the gate" minutes differing from the window length by a few minutes (sampling grid vs the engine's
+      window; a self-contradiction to fix first in Wave 23). A terrain-gated night was never on a shot.
+  - **Against Keel** (the workers' side-by-side reads, plus the orchestrator's read of the live dark-desktop shots against Keel's `crew`
+    capture): the anatomy holds on all three (a fact sentence, a joined strip, counted day-grouped lists, neutral meters), but none
+    reaches Keel's density or polish yet. The orchestrator's live read found these, all argo-side and open:
+    - Astro: the headline `{n} of 10 nights usable` is small beside Keel's hero sentence and still renders the heading face's slashed
+      zero; with every night out the strip is ten identical `core low` cells (criterion 3 holds, but a per-night gap bar would carry
+      information); the gates card leaves a tall empty column beside the timeline; the site select clips its label; the anatomy's sky
+      qualifier wraps and clips at 1440.
+    - Hermes: the summary line sits flush under the shell header with no top inset; the type chips are mono uppercase.
+    - M365: the Chats-view `Labeled {n}` chip (chats only) beside the strip's `{n} of {total} sources` (chats + channels) reads as two
+      different counts for one thing; zero-count tag chips are noise in a view; the right pane shows stacked, gapped scrollbar thumbs; the
+      header refresh is still a labelled button, not the concept's icon + `synced {age}`.
+  - **Code review:** every diff got two independent rounds from fresh subagents with no shared context (agent-gateway was down), then scope
+    froze and the orchestrator read the last fix diff. Fixes included: a pinned untitled thread deleted by `Delete all`, a one-way archive,
+    navigation after a failed delete, chip counts that did not equal their rows, a DELETE 404 that blocked the fold forever, auto-speak lost
+    for threads not open (Hermes); a labeled count larger than its total, a failed team query read as loading forever, a stale persisted tag,
+    silent write failures, a test that passed only on 2026-10-17 because one path read the system clock (M365); a reversed transparency scale,
+    a gate figure from a different sample than the gate's own predicate, gate and gap rounded differently, a best night guessed from reason
+    text, mirrored moon and core thresholds, a site switch pairing the old night with the new site (Astro). `make check` ran green in the
+    merge train on every merge.
+  - **basalt friction:** `docs/design/UPSTREAM.md` § "Wave 22 … (consolidated)". Top asks: the `StatusDot` root export (every page now
+    carries a local dot), `StatGroup variant="strip"` (eleven local strips), `EventList` with day groups / live marker / glyph / hover
+    control / fold, counted filter chips, a master–detail shell, and `Meter` `stops` + `ticks` + `tone="muted"`.
+  - **Deviations kept, the owner may revert:**
+    - M365: the active tag chip is neutral, not accent (basalt's "selection never takes the accent" wins over the concept's criterion 3);
+      the remove control shows on hover/focus (always on coarse pointers); write failures show inline, not as toasts (a toast kind lives in
+      `lib/notifications.ts`); view, tag and search live in a local store, so the view is not URL-addressable.
+    - Hermes: the health dot is a `PageBar` custom action (no meta slot); no `New chat` button (the composer starts one); a thread opens via
+      `?thread=`, not inline; archived threads hide behind an `Archived {n}` chip.
+    - Astro: the "Why not" column became a gates card listing all three hard gates; the cloud bars are muted, not the severity ramp; the
+      verdict, gates, timeline, anatomy and score all follow the selected night, while the strip marker and summary name the API's best night.
+  - **For later waves:** the open items above; `apps/dashboard/src/lib/notifications.ts` needs an `m365:error` kind before M365 write
+    failures can toast; the shot harness's focus anchors time out on slow upstreams and hidden mobile panes (each costs 30 s).
+
+## Wave 23 — The convergence re-score <!-- status: planned -->
+
+Spawn only after basalt Wave 35 ships its props (`StatGroup variant="strip"`, `Meter` `ticks` / `tone="muted"` / `size="row"` /
+`stops`, per-row `BarList` `max`, `Sparkline reference`, `ChartCard facts`, the `relativeTime` locale fix, the `StatusDot` root export,
+`EventList`). First adopt each shipped prop and delete the matching local prototype (one commit per export; drop `lib/format.ts`'s
+`relativeTime` wrapper once basalt honours the provider locale), then re-score.
+
+- [ ] Adopt basalt Wave 35's exports across every page; delete the prototypes listed in `UPSTREAM.md`.
+- [ ] Re-score every page with a fresh reviewer and against Keel. Every page still below the bar gets a Wave 24+ in this shape. The
+      loop ends only when a fresh scorer and the owner find nothing worth improving.
+
+What to re-score, page by page (the open items each re-score must check first):
+
+- `/` Today: the activity rows' wrap and repeated actor/verb (Keel: one line per event with a glyph); no in-place primary verb on the
+  decision cards; the ACWR method differing from Strength's and Garmin's.
+- Garmin Health, Strength, Home: one shared ACWR, or each page naming its method (Home showed a value where Strength showed `—`).
+- Agents: the fleet band as a grey block; 390 truncation; the 2.19 segment captions under the fleet meter.
+- Warden: the mono `HistoryPreview`; clipped one-line kickers; per-column board scroll; the fixes meter's new captions.
+- Calendar: the Work/Personal meter's 2.19 captions; cancelled M365 meetings (needs `isCancelled` from the API); no next meeting named
+  once today's have ended.
+- Strength: the sticky page bar over section titles at 390; hued strip sparklines vs the neutral scan table; the Balance chart's y-axis.
+- WalkingPad, Body composition: compact empty states; the record header's steps/kcal period.
+- Reading: the shelf meter's 2.19 captions; bare section titles (`Finished`).
+- Usage: delta direction glyphs; the cost-by-source fold to top N; two near-identical token blues; saturated non-verdict fills; raw
+  `Sun Jun 21 2026 22:00` tooltips on daily buckets; the billing meter's 2.19 captions with the share in `format`.
+- Astro window: the panorama minutes vs the window length; the GO window stated three times; the gates card's font sizes; tooltip spill; a
+  terrain-gated night on a shot.
+- Hermes chat: the Pinned / Today / streaming states on real data (the live account had none).
+- M365 explorer: `source-list` at 390; the dark-desktop page and focus anchors on the slow upstream; the view-scoped `Labeled` chip vs
+  the strip's all-sources count; zero-count chips; the right pane's scrollbar; the refresh control.
+- Hermes chat (craft): the summary line's top inset; mono uppercase type chips.
+- Astro window (craft): the slashed-zero headline; per-night information in an all-out strip; the empty column beside the timeline; the
+  clipped site select.
+
 
 # Part 1, continued
 

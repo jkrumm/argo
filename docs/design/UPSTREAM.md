@@ -138,3 +138,23 @@ Each page's full table is in its concept doc under `## Wave 21 friction`. Merged
 | heading face | numerals without the slashed zero (filed in Wave 20 too) | walking-pad, reading | none |
 | `basalt-ui shot` | the full-page shot renders blank below the first viewport on long pages; sticky headers cover section crops | strength | crops cover the content |
 | series fold | `foldTopN` for stacked data | usage | local fold |
+
+### Wave 22 — Astro window, Hermes chat, M365 explorer (consolidated)
+
+Each page's full table is in its concept doc under `## Wave 22 friction`. 2.19.0 resolved the segment captions (adopted in `2c17048` on Agents, Calendar, Reading, Usage, Warden) and the BarList label column; the rows below are what is still missing.
+
+| Export | Needed prop | Pages | What argo does instead |
+|-|-|-|-|
+| `StatusDot` / `StatusVerdict` | a root export (2.19 ships both under `dist/theme/`, not in the package `exports`) | astro-window, hermes-chat, m365-explorer (and agents, warden, home before) | a local dot per page: `features/astro-window/components/status-dot.tsx`, `hermes-health.tsx`, the `.dot` class in `m365.module.css` |
+| `StatGroup variant="strip"` | a compact three-on-one-row mode at 390; a five-cell composite card | astro-window (Night anatomy), m365-explorer | local grids (now eleven strip prototypes across argo) |
+| `EventList` | day groups with a count and a `live` heading marker, a glyph slot, a right-pinned mono time, a hover/focus-only trailing control, a fold row | hermes-chat, m365-explorer | `features/hermes-chat/thread-list.tsx`, `features/m365-explorer/source-row.tsx` |
+| Counted filter chips | `{label, count, active}[]` as a standalone toolbar, neutral active chip | hermes-chat, m365-explorer | `features/hermes-chat/thread-toolbar.tsx`, `features/m365-explorer/tag-chips.tsx` |
+| Master–detail shell | list pane + record pane, a push sheet at 390 | m365-explorer (hermes uses a `?thread=` swap instead) | local grid + `Drawer` in `features/m365-explorer/preview-drawer.tsx` |
+| `Meter` | `stops` (a custom ramp such as `LP.*`), multiple `ticks`, `tone="muted"`, a visually hidden reading that does not add a font size | astro-window, m365-explorer | `SkyScale` / `Gauge` in `features/astro-window/components/night-anatomy.tsx`; `alpha(VX.muted, a)` fills; a 13 px container font |
+| `PageBar` | a `meta` slot for a status dot and word | hermes-chat | a `kind: 'custom'` action marked `primary` |
+| `ThreadFeedRow` | a headerless mode | hermes-chat | CSS hides the header slot |
+| `ViewTabs` | a per-option count slot | m365-explorer | the count is part of the option label |
+| `BandStrip` | a text slot under each cell | astro-window | local button cells in `features/astro-window/components/night-strip.tsx` |
+| `BarList` | a trailing meta column | astro-window (factor weight) | `secondary` carries the weight |
+| `Section` | a subtitle that never folds at 390 | astro-window | a visible text line in the body |
+| `basalt-ui shot` | focus shots time out on slow upstreams (5–10 s Graph channel lists) even with `--wait` | m365-explorer | re-run; one or two focus anchors still fail per run |
