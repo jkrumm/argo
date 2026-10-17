@@ -4,7 +4,8 @@ import { alpha, VX } from 'basalt-ui/tokens'
 import { Text } from '@mantine/core'
 import type { HistoryPoint } from '../../lib/queries/agents'
 import { hourlyWorking, peakWorking, type HourBucket } from '../agents/model'
-import { axisPosition, dayAxis, durationLabel, meetingState, type Meeting } from './model'
+import { formatDurationMin } from '../../components/upstream/schedule-row-model'
+import { axisPosition, dayAxis, meetingState, type Meeting } from './model'
 import classes from './home.module.css'
 
 const HISTORY_HOURS = 24
@@ -87,7 +88,7 @@ export function DayAxis({
 }) {
   const axis = dayAxis(meetings)
   const label = meetings
-    .map((m) => `${clock(m.startMs)}, ${durationLabel(m.durationMin)}`)
+    .map((m) => `${clock(m.startMs)}, ${formatDurationMin(m.durationMin)}`)
     .join('; ')
   return (
     <div>

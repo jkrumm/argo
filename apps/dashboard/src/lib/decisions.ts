@@ -156,19 +156,8 @@ function agentDecisions(snapshot: OverviewSnapshot | null | undefined, now: numb
       abandoned: false,
     }
   })
-  // A queue ask raised by an agent that is itself `needs_you` is one decision, not two: the ask
-  // (it carries the question) wins and the agent row is dropped.
-  const askedBy = new Set(
-    (snapshot.humanQueue ?? []).flatMap((item) =>
-      ['agentId', 'agent_id', 'paneId', 'pane_id'].flatMap((key) => {
-        const v = item[key]
-        return typeof v === 'string' && v !== '' ? [v] : []
-      }),
-    ),
-  )
   const waiting = flattenAgents(snapshot)
     .filter((a) => a.state === 'needs_you')
-    .filter((a) => !askedBy.has(a.id) && !(a.paneId && askedBy.has(a.paneId)))
     .map((a): Decision => {
       const ageMs = a.lastActivityAt == null ? null : Math.max(0, now - a.lastActivityAt)
       return {

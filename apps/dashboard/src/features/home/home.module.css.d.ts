@@ -23,11 +23,6 @@ declare const classes: {
   readonly tickPast: string
   readonly nowMark: string
   readonly axisLabels: string
-  readonly meetingRow: string
-  readonly meetingTime: string
-  readonly meetingDuration: string
-  readonly meetingMeta: string
-  readonly meetingTrail: string
   readonly feed: string
   readonly feedGroup: string
   readonly feedHeading: string
