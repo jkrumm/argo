@@ -1,0 +1,25 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vx-space-stack-xs);
+  padding-block: var(--vx-space-stack-sm);
+  border-bottom: 1px solid var(--vx-surface-hairline);
+}
+
+.title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--basalt-font-head);
+  font-stretch: 88%;
+  font-size: var(--vx-text-lg);
+  font-weight: 550;
+  color: var(--vx-ink);
+}
+
+.facts {
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  color: var(--vx-muted);
+}

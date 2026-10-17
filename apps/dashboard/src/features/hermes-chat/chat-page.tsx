@@ -1,18 +1,24 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Alert, Box, Center, Loader, Stack, Text } from '@mantine/core'
+import { Alert, Box, Center, Loader, ScrollArea, Stack, Text } from '@mantine/core'
 import { IconAlertTriangle } from '@tabler/icons-react'
+import { PageBar } from 'basalt-ui'
 import {
   Composer,
-  ThreadFeed,
   useAgentThreadRuns,
-  type AgentThread,
   type ComposerHandle,
   type ComposerSubmit,
 } from 'basalt-ui/agent'
 import { hermesQueries } from '../../lib/queries/hermes'
 import { useUiStore } from '../../lib/store'
+import { hermesChatStore } from './chat-store'
+import { HermesHealth } from './hermes-health'
 import { HermesRow } from './hermes-row'
+import { ThreadList } from './thread-list'
+import { buildView, summarize, summaryLine, toEntries } from './thread-list-model'
+import { ThreadRecordHeader } from './thread-record-header'
+import { ThreadToolbar } from './thread-toolbar'
+import { useThreadActions } from './use-thread-actions'
 import { HERMES_CHAT_FEATURES } from './features'
 import { isLiveRun, settledRunIds } from './run-liveness'
 import { useVoicePlayback } from './voice/voice-playback'
@@ -37,40 +43,26 @@ const TITLE_POLL_ATTEMPTS = 6
 // Upper bound while a settled thread still has no server row (e.g. a failed first turn).
 const PERSIST_POLL_MAX_ATTEMPTS = 20
 
-// Single-column Slack-style thread feed, chat-anchored: the feed scrolls with the
-// newest thread at the BOTTOM (older scroll up), and a single composer is pinned to
-// the bottom of the viewport. Typing there STARTS a new chat — `store.create()` mints
-// a client id synchronously and `runs.start()` sends immediately: no async
-// create-then-effect chain to race (see docs/HERMES-CHAT-V2.md, D-E). Continuing an
-// existing thread uses that thread's own inline composer once expanded.
+// The page is two views over one URL param (`?thread=`): the day-grouped thread list, or one open
+// thread (record header, transcript, its own composer). A single composer is pinned to the bottom
+// of the list view; typing there STARTS a new chat — `store.create()` mints a client id
+// synchronously and `runs.start()` sends immediately: no async create-then-effect chain to race
+// (see docs/HERMES-CHAT-V2.md, D-E). Design record: docs/design/hermes-chat.md.
 
 // Full-bleed chat surface: fill the whole main area and cancel AppShell.Main's `padding="md"`
 // with a negative margin so the feed and composer sit flush to the edges (no inset frame).
 const FILL_HEIGHT =
   'calc(100dvh - var(--app-shell-header-offset, 0rem) - var(--app-shell-footer-offset, 0rem))'
 const BLEED_MARGIN = 'calc(var(--app-shell-padding) * -1)'
+// The open thread's transcript: the fill height less the page bar, the record header and the
+// thread's own composer, so the composer stays on screen.
+const THREAD_BODY_HEIGHT = `calc(${FILL_HEIGHT} - 17rem)`
 
 // The playback provider is lifted to the app root so the header widget and every thread
 // share ONE <audio> element — the key to iOS autoplay surviving navigation. The page is
 // just the feed now.
 export function HermesChatPage() {
   return <HermesChatFeed />
-}
-
-function isPinned(thread: AgentThread): boolean {
-  return thread.meta?.['pinned'] === true
-}
-
-// `store.threads` is newest-first (the store's own contract). Argo renders bottom-anchored,
-// chat-style (oldest at top, newest at the bottom, nearest the composer) — so the base order is
-// reversed. Pinned threads are the app's own "prioritize this" affordance (PATCH .../pinned,
-// driven out-of-band from the store per the brief), and get the position closest to the composer:
-// the pinned cluster renders LAST (bottom), each cluster internally oldest→newest.
-function orderedFeed(threads: readonly AgentThread[]): AgentThread[] {
-  const pinned: AgentThread[] = []
-  const rest: AgentThread[] = []
-  for (const thread of threads) (isPinned(thread) ? pinned : rest).push(thread)
-  return [...rest.toReversed(), ...pinned.toReversed()]
 }
 
 // `useAgentThreadRuns`'s mount-time reconcile effect (the resume-after-reload path) now
@@ -150,7 +142,12 @@ function HermesChatFeed() {
     }
   }, [])
 
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const actions = useThreadActions({ onRemoved: store.remove })
+  const [openParam, setOpenParam] = hermesChatStore.field.thread.use()
+  const [typeFilter, setTypeFilter] = hermesChatStore.field.type.use()
+  const [query, setQuery] = hermesChatStore.field.q.use()
+  const expandedId = openParam === '' ? null : openParam
+  const setExpandedId = (id: string | null) => setOpenParam(id ?? '')
   const composerRef = useRef<ComposerHandle>(null)
 
   // After an F5 mid-turn, `useAgentThreadRuns`'s mount-time reconcile resumes the live stream
@@ -223,10 +220,6 @@ function HermesChatFeed() {
     },
   })
 
-  function toggleThread(id: string) {
-    setExpandedId((prev) => (prev === id ? null : id))
-  }
-
   if (!store.hydrated) {
     if (store.error !== undefined) {
       return (
@@ -249,63 +242,112 @@ function HermesChatFeed() {
     )
   }
 
-  const ordered = orderedFeed(store.threads)
+  const now = Date.now()
+  const entries = toEntries(store.threads)
+  const view = buildView(entries, { type: typeFilter, query }, now)
+  const summary = summarize(entries, now)
+  const openEntry = entries.find((entry) => entry.id === expandedId)
+  const openThread = store.threads.find((thread) => thread.id === expandedId)
 
   return (
     <Stack h={FILL_HEIGHT} gap={0} style={{ margin: BLEED_MARGIN }}>
-      <Box style={{ flex: 1, minHeight: 0 }}>
-        {ordered.length === 0 ? (
-          <Center h="100%">
-            <Text c="dimmed" size="sm" ta="center" py="xl">
-              No threads yet. Type below to start.
+      <PageBar
+        actions={[
+          { key: 'health', kind: 'custom', node: <HermesHealth />, primary: true, mobile: 'bar' },
+        ]}
+      />
+
+      {openEntry && openThread ? (
+        <Stack gap={0} px="md" pt="sm" style={{ flex: 1, minHeight: 0 }}>
+          <ThreadRecordHeader
+            entry={openEntry}
+            now={now}
+            busy={actions.busy}
+            onBack={() => setExpandedId(null)}
+            onPin={(pinned) => void actions.pin(openEntry.id, pinned)}
+            onArchive={() => void actions.archive(openEntry.id).then(() => setExpandedId(null))}
+            onDelete={() => void actions.remove(openEntry.id).then(() => setExpandedId(null))}
+          />
+          <Box pt="sm" style={{ flex: 1, minHeight: 0 }}>
+            <HermesRow
+              thread={openThread}
+              height={THREAD_BODY_HEIGHT}
+              run={runs.get(openThread.id)}
+              onSend={(text) => start(openThread.id, text)}
+              onStop={() => void handleStop(openThread.id)}
+            />
+          </Box>
+        </Stack>
+      ) : (
+        <>
+          <Stack gap="sm" px="md" pt="md">
+            <Text size="sm" c="dimmed" data-shot="thread-summary">
+              {summaryLine(summary)}
             </Text>
-          </Center>
-        ) : (
-          <ThreadFeed
-            threads={ordered}
-            activeId={null}
-            onSelect={() => {}}
-            anchor="end"
-            renderRow={(thread) => (
-              <HermesRow
-                thread={thread}
-                expanded={thread.id === expandedId}
-                onToggle={() => toggleThread(thread.id)}
-                run={runs.get(thread.id)}
-                onSend={(text) => start(thread.id, text)}
-                onStop={() => void handleStop(thread.id)}
+            <ThreadToolbar
+              total={view.total}
+              typeCounts={view.typeCounts}
+              type={typeFilter}
+              query={query}
+              onType={setTypeFilter}
+              onQuery={setQuery}
+            />
+          </Stack>
+          <ScrollArea style={{ flex: 1, minHeight: 0 }} px="md" pt="xs">
+            {view.groups.length === 0 && view.untitled.length === 0 ? (
+              <Center py="xl">
+                <Text c="dimmed" size="sm" ta="center">
+                  {entries.length === 0
+                    ? 'No threads yet. Type below to start.'
+                    : 'No thread matches this filter.'}
+                </Text>
+              </Center>
+            ) : (
+              <ThreadList
+                groups={view.groups}
+                untitled={view.untitled}
+                now={now}
+                busy={actions.busy}
+                onOpen={setExpandedId}
+                onDeleteUntitled={(ids) => void actions.removeAll(ids)}
               />
             )}
-          />
-        )}
-      </Box>
+          </ScrollArea>
 
-      <Box
-        p="sm"
-        style={{ borderTop: '1px solid var(--mantine-color-default-border)', flexShrink: 0 }}
-      >
-        {isRecording && <RecordingIndicator recordingMs={recordingMs} />}
-        <Composer
-          ref={composerRef}
-          onSubmit={handleComposerSubmit}
-          draftKey="hermes-new-chat"
-          placeholder={
-            voiceMode ? 'Talk or type — starts a new chat…' : 'Message Hermes — starts a new chat…'
-          }
-          rightSection={
-            HERMES_CHAT_FEATURES.audioTranscription ? (
-              <VoiceControls
-                voiceMode={voiceMode}
-                onToggleVoiceMode={toggleVoiceMode}
-                isRecording={isRecording}
-                isTranscribing={isTranscribing}
-                audioAvailable={audioAvailable}
-                onMicClick={toggleRecording}
-              />
-            ) : undefined
-          }
-        />
-      </Box>
+          <Box
+            p="sm"
+            style={{
+              borderTop: '1px solid var(--mantine-color-default-border)',
+              flexShrink: 0,
+              paddingBottom: 'max(var(--mantine-spacing-sm), env(safe-area-inset-bottom))',
+            }}
+          >
+            {isRecording && <RecordingIndicator recordingMs={recordingMs} />}
+            <Composer
+              ref={composerRef}
+              onSubmit={handleComposerSubmit}
+              draftKey="hermes-new-chat"
+              placeholder={
+                voiceMode
+                  ? 'Talk or type — starts a new chat…'
+                  : 'Message Hermes — starts a new chat…'
+              }
+              rightSection={
+                HERMES_CHAT_FEATURES.audioTranscription ? (
+                  <VoiceControls
+                    voiceMode={voiceMode}
+                    onToggleVoiceMode={toggleVoiceMode}
+                    isRecording={isRecording}
+                    isTranscribing={isTranscribing}
+                    audioAvailable={audioAvailable}
+                    onMicClick={toggleRecording}
+                  />
+                ) : undefined
+              }
+            />
+          </Box>
+        </>
+      )}
     </Stack>
   )
 }
