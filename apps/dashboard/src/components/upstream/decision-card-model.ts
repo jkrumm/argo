@@ -15,11 +15,26 @@ export type DecisionCardAction = {
   icon?: ReactNode
 }
 
-/** Joins the non-empty facts with the `·` separator the card's facts line uses. */
-export function factsLine(facts: readonly string[]): string {
+/** A fact is plain text, or text with a status tone (an age past its limit, say). */
+export type DecisionCardFact = string | { text: string; tone: 'warn' | 'bad' }
+
+/** Normalises a fact to its trimmed text and tone; blank facts are dropped. */
+export function visibleFacts(
+  facts: readonly DecisionCardFact[],
+): { text: string; tone: 'warn' | 'bad' | undefined }[] {
   return facts
-    .map((fact) => fact.trim())
-    .filter((fact) => fact !== '')
+    .map((fact) =>
+      typeof fact === 'string'
+        ? { text: fact.trim(), tone: undefined }
+        : { text: fact.text.trim(), tone: fact.tone },
+    )
+    .filter((fact) => fact.text !== '')
+}
+
+/** Joins the non-empty facts with the `·` separator the card's facts line uses. */
+export function factsLine(facts: readonly DecisionCardFact[]): string {
+  return visibleFacts(facts)
+    .map((fact) => fact.text)
     .join(' · ')
 }
 

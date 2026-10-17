@@ -8,6 +8,10 @@ describe('factsLine', () => {
     expect(factsLine(['repo-a', ' ', 'waiting 3 d', ''])).toBe('repo-a · waiting 3 d')
   })
 
+  it('accepts toned facts', () => {
+    expect(factsLine(['a', { text: 'waiting 3 d', tone: 'warn' }])).toBe('a · waiting 3 d')
+  })
+
   it('is empty for no facts', () => {
     expect(factsLine([])).toBe('')
   })
