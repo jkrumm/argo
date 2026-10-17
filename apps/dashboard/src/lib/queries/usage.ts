@@ -4,7 +4,7 @@ import { unwrap } from 'basalt-ui'
 
 export type Range = '7d' | '30d' | '90d' | 'all'
 export type Grain = 'day' | 'week'
-export type Metric = 'cost' | 'tokens' | 'errors' | 'latency_p95' | 'cache_ratio'
+export type Metric = 'cost' | 'tokens' | 'errors' | 'error_rate' | 'latency_p95' | 'cache_ratio'
 export type TimeseriesGroupBy =
   | 'source'
   | 'machine'

@@ -1,20 +1,19 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Suspense } from 'react'
-import { Grid, Stack } from '@mantine/core'
-import { PageBar, Section } from 'basalt-ui'
+import { useSuspenseQuery } from '@tanstack/react-query'
+import { Box, Grid, Stack } from '@mantine/core'
+import { PageBar } from 'basalt-ui'
 import { CONTAINER_GRID_BREAKPOINTS } from 'basalt-ui/tokens'
 import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, MultiSelectFilter, SelectFilter } from 'basalt-ui/controls'
 import { usageQueries } from '../lib/queries/usage'
 import { usageStore } from '../lib/window-stores'
-import { HeroStats } from '../features/usage-tracking/hero-stats'
-import CostOverTime from '../features/usage-tracking/charts/cost-over-time'
-import TokensOverTime from '../features/usage-tracking/charts/tokens-over-time'
-import CacheHitRatio from '../features/usage-tracking/charts/cache-hit-ratio'
-import ErrorRate from '../features/usage-tracking/charts/error-rate'
-import LatencyP95 from '../features/usage-tracking/charts/latency-p95'
-import BillingSplit from '../features/usage-tracking/charts/billing-split'
-import TopProjects from '../features/usage-tracking/charts/top-projects'
+import { UsageStrip } from '../features/usage-tracking/usage-strip'
+import { FreshnessFooter, SummaryLine } from '../features/usage-tracking/summary-line'
+import CostChart from '../features/usage-tracking/cost-chart'
+import TokensChart from '../features/usage-tracking/tokens-chart'
+import HealthCard from '../features/usage-tracking/health-card'
+import TopProjects from '../features/usage-tracking/top-projects'
 
 export const Route = createFileRoute('/usage-tracking')({
   validateSearch: usageStore.validateSearch,
@@ -25,6 +24,7 @@ export const Route = createFileRoute('/usage-tracking')({
 
 function UsageTrackingPage() {
   const search = usageStore.useValues()
+  const headline = useSuspenseQuery(usageQueries.headline()).data
 
   // An EMPTY multi selection means "no constraint" on the URL, and the API wants the key absent
   // rather than an empty array — the one translation the store deliberately does not make, because
@@ -55,58 +55,48 @@ function UsageTrackingPage() {
       />
 
       <Stack gap="md">
-        <HeroStats />
+        <Box data-shot="summary">
+          <SummaryLine />
+        </Box>
+        <UsageStrip />
 
-        <Section title="Cost">
-          <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
-            <Grid.Col span={{ base: 12, lg: 8 }}>
-              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
-                <CostOverTime {...tsBase} groupBy={search.costGroupBy} />
-              </Suspense>
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, lg: 4 }}>
-              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
-                <BillingSplit range={search.range} workspace={workspace} />
-              </Suspense>
-            </Grid.Col>
-          </Grid>
-        </Section>
+        <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
+          <CostChart {...tsBase} groupBy={search.costGroupBy} headlineTotal={headline.costUsd30d} />
+        </Suspense>
 
-        <Section title="Volume">
-          <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
-            <Grid.Col span={{ base: 12, lg: 8 }}>
-              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
-                <TokensOverTime {...tsBase} groupBy={search.tokensGroupBy} />
-              </Suspense>
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, lg: 4 }}>
-              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
-                <CacheHitRatio {...tsBase} />
-              </Suspense>
-            </Grid.Col>
-          </Grid>
-        </Section>
+        <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
+          <TokensChart
+            {...tsBase}
+            groupBy={search.tokensGroupBy}
+            headlineTotal={headline.tokens30d}
+          />
+        </Suspense>
 
-        <Section title="Health">
-          <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
-            <Grid.Col span={{ base: 12, lg: 6 }}>
-              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
-                <ErrorRate {...tsBase} />
-              </Suspense>
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, lg: 6 }}>
-              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
-                <LatencyP95 {...tsBase} />
-              </Suspense>
-            </Grid.Col>
-          </Grid>
-        </Section>
+        <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
+          <Grid.Col span={{ base: 12, lg: 8 }}>
+            <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
+              <Box data-shot="health">
+                <HealthCard {...tsBase} />
+              </Box>
+            </Suspense>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, lg: 4 }}>
+            <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
+              <Box data-shot="projects">
+                <TopProjects
+                  range={search.range}
+                  billing={billing}
+                  workspace={workspace}
+                  headlineTotal={headline.costUsd30d}
+                />
+              </Box>
+            </Suspense>
+          </Grid.Col>
+        </Grid>
 
-        <Section title="Top projects">
-          <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
-            <TopProjects range={search.range} billing={billing} workspace={workspace} />
-          </Suspense>
-        </Section>
+        <Box data-shot="freshness">
+          <FreshnessFooter />
+        </Box>
       </Stack>
     </>
   )
