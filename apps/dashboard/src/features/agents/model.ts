@@ -513,3 +513,22 @@ export function oldestAskMs(
   })
   return ages.length === 0 ? null : Math.max(...ages)
 }
+
+// ── Feed state ───────────────────────────────────────────────────────────────────────────────
+
+export type FeedState = 'pending' | 'failed' | 'stale' | 'ok'
+
+/**
+ * What the snapshot query says about the page: still loading with nothing to show, failed with
+ * nothing to show, failed but with a previous snapshot on screen (`stale`), or fine. A fetch error
+ * is Argo's, not the producer's, so it never reads as "the producer stopped pushing".
+ */
+export function feedState(q: {
+  hasData: boolean
+  isPending: boolean
+  isError: boolean
+}): FeedState {
+  if (q.hasData) return q.isError ? 'stale' : 'ok'
+  if (q.isError) return 'failed'
+  return q.isPending ? 'pending' : 'ok'
+}

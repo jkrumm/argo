@@ -6,6 +6,8 @@ import { STALE_AFTER_MS, snapshotAgeMs } from './model'
 
 type Props = {
   latest: OverviewRecord | null
+  /** The fetch from Argo failed: that is not the producer's silence, so say nothing about it. */
+  fetchFailed?: boolean
 }
 
 /**
@@ -13,7 +15,8 @@ type Props = {
  * 30 minutes. A quiet machine still pushes on schedule, so age is a statement about the producer
  * (agent-gateway on the dev host), not about the agents.
  */
-export function StaleBanner({ latest }: Props) {
+export function StaleBanner({ latest, fetchFailed = false }: Props) {
+  if (fetchFailed) return null
   const age = snapshotAgeMs(latest)
   if (age === null) {
     return (

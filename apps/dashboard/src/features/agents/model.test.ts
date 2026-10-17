@@ -14,6 +14,7 @@ import {
   headlineOf,
   longestRunMs,
   clockTime,
+  feedState,
   summarySentence,
   dayLabel,
   ageAgo,
@@ -548,5 +549,15 @@ describe('unreadable data never throws or becomes zero', () => {
       agent({ id: 'p', project: 'solo', state: 'toString' as AgentRow['state'] }),
     ])
     expect(quiet[0]?.counts.unknown).toBe(1)
+  })
+})
+
+describe('feedState', () => {
+  it('separates pending, failed, stale-after-error and ok', () => {
+    expect(feedState({ hasData: false, isPending: true, isError: false })).toBe('pending')
+    expect(feedState({ hasData: false, isPending: false, isError: true })).toBe('failed')
+    expect(feedState({ hasData: true, isPending: false, isError: true })).toBe('stale')
+    expect(feedState({ hasData: true, isPending: false, isError: false })).toBe('ok')
+    expect(feedState({ hasData: false, isPending: false, isError: false })).toBe('ok')
   })
 })
