@@ -68,8 +68,9 @@ function peakFooter(
       ? `no data in ${hours} h`
       : peak.value === 0
         ? `none in ${hours} h`
-        : `peak ${peak.value} in ${hours} h · ${ageAgo(now - peak.atMs)}`
-  return queued > 0 ? `+${queued} in human queue · ${trend}` : trend
+        : `peak ${peak.value} in ${hours} h`
+  if (queued > 0) return `+${queued} queued · ${trend}`
+  return peak !== null && peak.value > 0 ? `${trend} · ${ageAgo(now - peak.atMs)}` : trend
 }
 
 /**

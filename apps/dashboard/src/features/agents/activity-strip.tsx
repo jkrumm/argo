@@ -21,15 +21,15 @@ const clock = (ms: number) =>
 const STATES = [
   {
     key: 'working',
-    label: 'Agents working',
+    label: 'Working (hourly peak)',
     color: VX.line,
-    formatValue: (d: HourBucket) => `${d.working ?? 0} working (peak in the hour)`,
+    formatValue: (d: HourBucket) => `${d.working ?? 0} agents`,
   },
   {
     key: 'quiet',
     label: 'None working',
     color: alpha(VX.line, 0.1),
-    formatValue: () => '0 working',
+    formatValue: () => '0 agents',
   },
   { key: 'gap', label: 'No snapshot', color: alpha(VX.status.warn, 0.35) },
 ] as const
