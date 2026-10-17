@@ -1,0 +1,21 @@
+/* DecisionCard — prototype of the shared decision-card recipe (docs/design/UPSTREAM.md). */
+
+.inset {
+  min-width: 0;
+  padding: var(--vx-space-stack-sm, 0.5rem) var(--vx-space-stack-md, 0.75rem);
+  border-radius: var(--vx-radius-fine);
+  background: color-mix(in srgb, var(--vx-line) 14%, transparent);
+}
+
+.preview {
+  flex: 0 1 16rem;
+  min-width: 0;
+  padding: var(--vx-space-stack-md, 0.75rem);
+  border-radius: var(--vx-radius-fine);
+  background: color-mix(in srgb, var(--vx-line) 10%, transparent);
+}
+
+.question {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
