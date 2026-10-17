@@ -254,6 +254,6 @@ export function acwrCell(reading: AcwrReading | null): StatStripCell {
         endCaption={null}
       />
     ),
-    footer: `acute ÷ chronic load · optimal ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO}`,
+    footer: `optimal ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO}`,
   }
 }

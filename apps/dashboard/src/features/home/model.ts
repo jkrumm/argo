@@ -271,6 +271,18 @@ export type ActivityEvent = {
   detail?: string
 }
 
+/**
+ * Slack-style emoji shortcodes are noise in a one-line feed row: `[red_circle: text]` keeps its
+ * `text`, a bare `:name:` is dropped, and the whitespace left behind is collapsed.
+ */
+export function stripShortcodes(text: string): string {
+  return text
+    .replace(/\[:?[a-z][a-z0-9_+-]*:?\s*:\s*([^\]]*)\]/gi, '$1')
+    .replace(/:[a-z][a-z0-9_+-]*:/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 /** Rows older than the start of yesterday are history, not "today's stream". */
 export const activityHorizon = (now: number) => addDays(startOfDayDate(now), -1).getTime()
 
@@ -394,7 +406,14 @@ export function activityStream(
   now: number,
 ): { groups: ActivityGroup[]; total: number } {
   const horizon = activityHorizon(now)
-  const live = events.filter((e) => e.ms >= horizon && e.ms <= now).toSorted((a, b) => b.ms - a.ms)
+  const live = events
+    .filter((e) => e.ms >= horizon && e.ms <= now)
+    .map((e) => ({
+      ...e,
+      title: stripShortcodes(e.title),
+      ...(e.detail !== undefined && { detail: stripShortcodes(e.detail) }),
+    }))
+    .toSorted((a, b) => b.ms - a.ms)
   const groups: ActivityGroup[] = []
   for (const e of live) {
     const label = dayLabel(e.ms, now)
