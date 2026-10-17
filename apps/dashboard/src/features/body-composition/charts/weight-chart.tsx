@@ -106,7 +106,7 @@ export default function WeightChart({ params }: { params: WeightLogWindowParams 
               <>
                 <Text
                   span
-                  ml={8}
+                  ml="xs"
                   fw={600}
                   c={deltaColor(delta)}
                   opacity={Math.abs(delta) < FLAT_DELTA_KG ? 0.6 : 1}

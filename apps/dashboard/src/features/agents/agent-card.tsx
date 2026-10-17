@@ -18,7 +18,7 @@ export function AgentCard({ agent }: Props) {
   const rec = agent.recommendation
 
   return (
-    <Card padding="sm">
+    <Card py="sm" px="md">
       <Stack gap={4}>
         <Group justify="space-between" wrap="nowrap" gap="xs">
           <Group gap="xs" wrap="nowrap" miw={0}>

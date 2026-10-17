@@ -115,7 +115,7 @@ export function SessionHistoryTable() {
 
   if (data.total === 0) {
     return (
-      <Card py="xs" px="sm">
+      <Card py="sm" px="md">
         <Text size="sm" c="dimmed">
           No sessions yet — the daemon will surface them here as they're synced.
         </Text>

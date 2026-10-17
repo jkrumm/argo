@@ -13,7 +13,7 @@ export function UnmatchedSection() {
   if (unmatched.length === 0) return null
 
   return (
-    <Card padding="sm">
+    <Card py="sm" px="md">
       <Stack gap="sm">
         <Stack gap={2}>
           <Text fw={600} size="sm">

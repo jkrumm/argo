@@ -870,7 +870,7 @@ function TimeScrubber({
     radarActive && radarNewestTime !== null && at.getTime() > radarNewestTime.getTime()
 
   return (
-    <Paper py="xs" px="sm">
+    <Paper py="sm" px="md">
       <Stack gap={4} w={SCRUBBER_WIDTH}>
         <Group gap="xs" wrap="nowrap">
           <ActionIcon
@@ -955,7 +955,7 @@ function LpLegend({ year, range }: { year: number; range: readonly [number, numb
   const remappedSiteBand = remapLpRampStops(range)[LP_SITE_BAND_INDEX] ?? LP_SITE_BAND
   return (
     <Box pos="absolute" bottom={8} left={8}>
-      <Paper py="xs" px="sm">
+      <Paper py="sm" px="md">
         <Stack gap={4} w={148}>
           <Box
             h={6}
@@ -1053,7 +1053,7 @@ function WeatherLegendCard({
     setImageFailed(false)
   }
   return (
-    <Paper py="xs" px="sm">
+    <Paper py="sm" px="md">
       <Stack gap={4} w={168}>
         <Text size="xs" fw={600}>
           {entry.label}

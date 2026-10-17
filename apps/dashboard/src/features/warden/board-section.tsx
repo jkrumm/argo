@@ -96,7 +96,7 @@ function columnsFor(bucketKey: string) {
 function ItemCard({ item, bucketKey }: { item: WardenBoardItem; bucketKey: string }) {
   const color = noteColor(bucketKey)
   return (
-    <Card padding="sm">
+    <Card py="sm" px="md">
       <Stack gap={4}>
         <Group justify="space-between" wrap="nowrap" gap="xs">
           <Group gap="xs" wrap="nowrap" miw={0}>

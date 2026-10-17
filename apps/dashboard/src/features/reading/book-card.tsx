@@ -64,7 +64,7 @@ export function BookCard({ book }: { book: ShelfItem }) {
   const displayGenres = book.genres.slice(0, 3)
 
   return (
-    <Card padding="sm">
+    <Card py="sm" px="md">
       <Group gap="sm" align="flex-start" wrap="nowrap">
         {book.coverUrl !== null ? (
           <AspectRatio ratio={2 / 3} w={72} style={{ flexShrink: 0 }}>

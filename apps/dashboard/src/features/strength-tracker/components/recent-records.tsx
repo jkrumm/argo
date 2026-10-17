@@ -51,7 +51,7 @@ export function RecentRecords({
   const records = (data?.records ?? []).slice(0, 30)
 
   return (
-    <Card py="xs" px="sm">
+    <Card py="sm" px="md">
       {/* A real home (law C1/C8): the title row is a `WidgetHeader`, so its `actions` slot sizes
           the filter and no hand-rolled `Group` decides the heading's weight. */}
       <WidgetHeader
@@ -73,7 +73,7 @@ export function RecentRecords({
         <ScrollArea h={320} type="hover">
           <Stack gap={4}>
             {records.map((r, i) => (
-              <Group key={`${r.date}-${r.exercise_id}-${r.metric}-${i}`} gap={8} wrap="nowrap">
+              <Group key={`${r.date}-${r.exercise_id}-${r.metric}-${i}`} gap="xs" wrap="nowrap">
                 {multiExercise && (
                   <Box
                     component="span"

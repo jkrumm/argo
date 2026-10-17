@@ -2,8 +2,7 @@
 source: basalt-ui
 description: Mantine v9 in a basalt-ui app — provider, shell, surfaces, scroll, breakpoints, motion.
 paths:
-  - 'src/**'
-  - 'apps/**/src/**'
+  - 'apps/dashboard/src/**'
 ---
 
 <!-- basalt:coverage -->
@@ -33,7 +32,7 @@ paths:
 ## Surfaces
 
 - Never pass `withBorder` to `Card` or `Paper`; the theme draws the ring (`<Card.Section withBorder>` is fine). [check-theme card-with-border]
-- Card/Paper insets are `py="xs" px="sm"` with the theme radius; no explicit `p`, `padding` or `radius`. [basalt/card-inset]
+- Card/Paper insets are `py="sm" px="md"` with the theme radius; no explicit `p`, `padding` or `radius`. [basalt/card-inset]
 - Lay out with `Box`/`Flex`/`Grid`/`Stack`/`Group`, not a `<div>` with `style`. [check-theme raw-html-layout] [check-theme hidden-inline-style]
 - No inline `display: flex|grid`; no inline spacing; spacing props take `xs..xl`. [check-theme inline-display] [check-theme inline-spacing] [check-theme raw-spacing]
 - Inputs come from `@mantine/core`, never `<input>`, `<select>` or `<textarea>`. [check-theme raw-form-control]

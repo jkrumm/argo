@@ -126,9 +126,9 @@ export function HeroStatsSkeleton() {
   return (
     <SimpleGrid type="container" cols={{ base: 1, [CQ.regular]: 3 }} spacing="sm">
       {Array.from({ length: 3 }).map((_, i) => (
-        <Card key={i} py="xs" px="sm" h="100%">
-          <Skeleton height={12} width={100} mb={8} />
-          <Skeleton height={32} width={140} mb={8} />
+        <Card key={i} py="sm" px="md" h="100%">
+          <Skeleton height={12} width={100} mb="xs" />
+          <Skeleton height={32} width={140} mb="xs" />
           <Skeleton height={10} width={180} />
         </Card>
       ))}

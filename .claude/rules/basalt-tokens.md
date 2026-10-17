@@ -2,9 +2,7 @@
 source: basalt-ui
 description: Color, spacing, radius and type — route every value through the --vx-* token system.
 paths:
-  - 'src/**'
-  - 'apps/**/src/**'
-  - 'packages/**/src/**'
+  - 'apps/dashboard/src/**'
 ---
 
 <!-- basalt:coverage -->

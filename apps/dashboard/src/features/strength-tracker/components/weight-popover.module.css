@@ -160,7 +160,7 @@
 
 /* Bar loaded with nothing yet — say so rather than showing a bare shaft. */
 .emptyBar {
-  padding-left: 8px;
+  padding-left: var(--mantine-spacing-xs);
   white-space: nowrap;
   font-size: var(--vx-text-micro);
   color: color-mix(in srgb, var(--vx-neutral) 45%, transparent);
@@ -197,6 +197,6 @@
   }
 
   .denomChip {
-    padding: 8px var(--mantine-spacing-sm);
+    padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
   }
 }
