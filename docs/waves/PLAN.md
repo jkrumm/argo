@@ -600,7 +600,7 @@ live-verified after deploy. The orchestrator copies the boards to the owner's Ma
 in parallel as `rd fan` worktrees (disjoint `features/<page>/` and `routes/<page>.tsx`). A lead does NOT spawn
 the next wave.
 
-## Wave 18 — Live-data shot harness and the page concepts <!-- status: active -->
+## Wave 18 — Live-data shot harness and the page concepts <!-- status: done -->
 
 - [x] `scripts/design-shot.ts`, run as `make design-shot ROUTES="/garmin-health /agents"`. It builds the
       dashboard with `VITE_API_URL=https://argo.jkrumm.com/api`, serves `dist` on `http://localhost:7715`
@@ -617,7 +617,7 @@ the next wave.
       they are from the bar. Fill `docs/design/UPSTREAM.md` with the patterns that recur across pages (KPI
       tile micro-visual variants, the inner metric grid, the decision card, the day-grouped timeline, the
       fact strip, the stepper, status-dot lists).
-- [ ] Owner review point: the orchestrator shows the baseline boards and the concepts.
+- [x] Owner review point: the orchestrator shows the baseline boards and the concepts. (Boards copied to the owner's MacBook, `~/Downloads/argo-design-review/`, 2026-10-17. The owner's standing directive is an endless loop, so the redesign proceeds; owner feedback is steered in mid-wave.)
       **Left behind:**
 
   **Stopped: at the owner review point.** Steps 1–3 are done and merged; step 4 is the orchestrator's.
@@ -666,25 +666,28 @@ the next wave.
       spend, lift e1RMs). Part 2's rule allows numbers and was kept; names, titles and message text
       were kept out. The owner may want to tighten the rule.
 
-## Wave 19 — Garmin Health <!-- status: pending -->
+## Wave 19 — Garmin Health, Agents and Warden, in parallel <!-- status: active -->
 
-- [ ] The KPI strip: recovery against its scale (a gauge or meter) with the contributors as bars; training
-      load as a zone band (under / optimal / over) with a marker, not "0.69"; the fitness trend as small
-      multiples with from → to deltas. No coloured edges, and no list of bare numbers.
-- [ ] Charts with facts, not filler questions: units, period and comparison in the header.
-- [ ] At least three rounds; deploy; live-verify.
+Three page workers fan out at once on disjoint files (`features/garmin-health/` + `routes/garmin-health.tsx`;
+`features/agents/` + `routes/agents.tsx`; `features/warden/` + `routes/warden.tsx`). A pattern two pages share
+(the decision card for Agents and Warden) is built once by one worker. The other worker adopts it after it
+merges.
+
+- [ ] **Privacy tightening (orchestrator, 2026-10-17):** committed docs carry no real personal values (body
+      weight, health readings, spend, lift numbers, names, titles). Use `{placeholders}`; real values live only in
+      `.design-shots/`. Scrub the 13 concept docs in one commit first (history stays, by owner choice on the
+      basalt side).
+- [ ] Garmin Health per `docs/design/garmin-health.md`. Use `Meter`, `BarList` and the strip from basalt the
+      moment they ship (basalt Wave 34 is landing them now); until then, prototype them under the feature with
+      the UPSTREAM props. Fix the EWMA half-life comments.
+- [ ] Agents per `docs/design/agents.md`: agent cards on the crew anatomy, and the human queue as decision
+      cards.
+- [ ] Warden per `docs/design/warden.md`: decision cards replace the four-button table.
+- [ ] At least three live-shot rounds per page, scored by the reviewer and against Keel. Deploy, verify
+      `/api/health`, live-shot. Update `UPSTREAM.md` with what was proven (props as actually built).
       **Left behind:**
 
-## Wave 20 — Agents and Warden <!-- status: pending -->
-
-- [ ] Agent cards on Keel's crew anatomy: identity and status, an inner 2×2 micro-visual panel, the "Now"
-      line. The human queue becomes decision cards (question, entity facts, evidence, one primary action,
-      steps collapsed behind one disclosure).
-- [ ] Warden: decision cards instead of the four-button table; facts and confidence; one primary action.
-- [ ] At least three rounds per page; deploy; live-verify.
-      **Left behind:**
-
-## Wave 21 — Calendar and the home page <!-- status: pending -->
+## Wave 20 — Calendar and the home page <!-- status: pending -->
 
 - [ ] Calendar: agenda-first density (empty hours collapse, today's meetings with prep state, the week as
       a compact strip).
@@ -693,13 +696,13 @@ the next wave.
 - [ ] At least three rounds; deploy; live-verify.
       **Left behind:**
 
-## Wave 22 — Strength, WalkingPad, Body composition, Reading, Usage <!-- status: pending -->
+## Wave 21 — Strength, WalkingPad, Body composition, Reading, Usage <!-- status: pending -->
 
 - [ ] One concept-driven redesign per page, fanned out in parallel. At least three rounds each. Deploy and
       live-verify.
       **Left behind:**
 
-## Wave 23 — Astro window, Hermes chat, M365 explorer; the convergence pass <!-- status: pending -->
+## Wave 22 — Astro window, Hermes chat, M365 explorer; the convergence pass <!-- status: pending -->
 
 - [ ] Redesign the remaining pages.
 - [ ] Re-score every page with a fresh reviewer and against Keel. Every page still below the bar gets a Wave
