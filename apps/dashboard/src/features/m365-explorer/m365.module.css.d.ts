@@ -12,6 +12,7 @@ declare const classes: {
   readonly value: string
   readonly unit: string
   readonly footer: string
+  readonly unitLong: string
   readonly visual: string
   readonly split: string
   readonly pane: string

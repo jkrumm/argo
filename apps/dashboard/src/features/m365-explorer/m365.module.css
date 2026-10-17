@@ -69,6 +69,7 @@
     padding-inline: var(--vx-space-stack-md);
   }
 
+  .unitLong,
   .visual,
   .footer {
     display: none;
@@ -149,8 +150,8 @@
 
 .chipActive,
 .chipActive:hover {
-  background: var(--vx-accent-fill);
-  color: var(--vx-on-accent);
+  background: var(--vx-ink);
+  color: var(--vx-surface-panel);
 }
 
 .chipCount {
@@ -330,6 +331,7 @@
 }
 
 .body {
+  margin: 0;
   font-size: var(--vx-text-sm);
   color: var(--vx-ink);
   white-space: pre-wrap;
@@ -342,11 +344,15 @@
 }
 
 .meta {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-size: var(--vx-text-xs);
   color: var(--vx-muted);
 }
 
 .empty {
+  margin: 0;
   padding: var(--vx-space-card-inset-y) var(--vx-space-card-inset-x);
   font-size: var(--vx-text-sm);
   color: var(--vx-muted);
