@@ -1,0 +1,88 @@
+/* ScheduleRow — prototype of Keel's `schedule-item` (docs/design/UPSTREAM.md). */
+
+.row {
+  container-type: inline-size;
+  border-bottom: 1px solid var(--vx-surface-hairline);
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.inner {
+  display: grid;
+  grid-template-columns: 4.25rem minmax(0, 1fr) auto;
+  column-gap: var(--vx-space-stack-md);
+  align-items: start;
+  padding-block: var(--vx-space-stack-sm);
+}
+
+.past {
+  opacity: 0.55;
+}
+
+/* Clock time and duration are the row's only mono: the start, then the length under it. */
+.time {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-sm);
+  line-height: 1.3;
+  color: var(--vx-ink);
+}
+
+.duration {
+  font-size: var(--vx-text-micro);
+  color: var(--vx-muted);
+}
+
+.body {
+  min-width: 0;
+}
+
+.title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--vx-text-sm);
+  line-height: 1.3;
+  color: var(--vx-ink);
+}
+
+.meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--vx-text-xs, 0.75rem);
+  line-height: 1.3;
+  color: var(--vx-muted);
+}
+
+.trailing {
+  display: flex;
+  align-items: center;
+  gap: var(--vx-space-stack-sm);
+}
+
+.pill {
+  padding: 0 var(--vx-space-stack-sm);
+  border-radius: var(--vx-radius-fine);
+  background: color-mix(in srgb, var(--vx-line) 14%, transparent);
+  font-size: var(--vx-text-micro);
+  line-height: 1.6;
+  white-space: nowrap;
+  color: var(--vx-ink);
+}
+
+/* Wide rows put the duration beside the start on one line. */
+@container (min-width: 480px) {
+  .inner {
+    grid-template-columns: 8rem minmax(0, 1fr) auto;
+  }
+
+  .time {
+    flex-direction: row;
+    align-items: baseline;
+    gap: var(--vx-space-stack-sm);
+  }
+}
