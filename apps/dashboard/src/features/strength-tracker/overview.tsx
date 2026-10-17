@@ -254,7 +254,7 @@ export function LiftStrip(props: Params) {
                 {spark.length > 1
                   ? `line: last ${spark.length} sessions, ${shortDate(sparkFrom)}–${shortDate(sparkTo)}`
                   : null}
-                <br />
+                {spark.length > 1 ? <br /> : null}
                 PR {pr?.prDate ? shortDate(pr.prDate) : EM_DASH} · {sessions}{' '}
                 {sessions === 1 ? 'session' : 'sessions'}, all time
               </div>

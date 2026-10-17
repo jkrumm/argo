@@ -80,9 +80,14 @@ describe('acwrReading', () => {
   test('sums acute over summed chronic for the newest week', () => {
     expect(acwrReading([heavy, light], NOW)).toEqual({ acwr: 1.17, week: '2026-10-12' })
   })
-  test('a lift without that week adds nothing', () => {
-    const stale = { points: [week('2026-10-05', 999, 1)] }
-    expect(acwrReading([heavy, stale], NOW).acwr).toBe(1.5)
+  test('a lift not trained in the newest week decays toward the common week instead of dropping out', () => {
+    // One missed week: acute x0.6, chronic x(15/17).
+    const rested = { points: [week('2026-10-05', 100, 100)] }
+    const r = acwrReading([heavy, rested], NOW)
+    const acute = 300 + 100 * 0.6
+    const chronic = 200 + 100 * (15 / 17)
+    expect(r.acwr).toBe(Math.round((acute / chronic) * 100) / 100)
+    expect(r.acwr).toBeLessThan(1.5) // dropping it out would read 1.5
   })
   test('unknown, with its week, once the newest week is older than the window', () => {
     const old = { points: [week('2026-08-31', 100, 100)] }

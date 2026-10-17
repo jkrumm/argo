@@ -102,6 +102,10 @@ export function deloadLine(deload: DeloadReading | undefined): string {
 
 // ── ACWR ─────────────────────────────────────────────────────────────────────────────────────
 
+/** EWMA smoothing for the 4 wk and 16 wk spans (`2 / (span + 1)`). */
+const ACUTE_ALPHA = 2 / 5
+const CHRONIC_ALPHA = 2 / 17
+
 export type AcwrLift = {
   points: readonly { date: string; acute: number; chronic: number; acwr: number | null }[]
 }
@@ -114,8 +118,8 @@ export type AcwrReading = {
 
 /**
  * Total-tonnage ACWR: summed acute EWMA over summed chronic EWMA for ONE week (the newest any lift
- * was measured), so a heavy lift weighs more than a light one. A lift with no point that week adds
- * nothing. Older than the delta window it is unknown, not current. The card, the summary sentence
+ * was measured), so a heavy lift weighs more than a light one. A lift not trained that week is
+ * carried forward with zero tonnage. Older than the delta window it is unknown, not current. The card, the summary sentence
  * and the chart header all read this one function.
  */
 export function acwrReading(lifts: readonly AcwrLift[], now: number): AcwrReading {
@@ -127,10 +131,13 @@ export function acwrReading(lifts: readonly AcwrLift[], now: number): AcwrReadin
   let acute = 0
   let chronic = 0
   for (const l of lifts) {
-    const p = l.points.find((q) => q.date === week && isNum(q.acwr))
+    const p = l.points.findLast((q) => isNum(q.acwr) && q.date <= week)
     if (p === undefined) continue
-    acute += p.acute
-    chronic += p.chronic
+    // A lift not trained since `p.date` has had zero-tonnage weeks: its EWMAs decay by (1 - alpha)
+    // each, alpha = 2 / (span + 1), mirroring `ewmaSeries` in strength-formulas.ts.
+    const missed = Math.round((Date.parse(week) - Date.parse(p.date)) / (7 * DAY_MS))
+    acute += p.acute * (1 - ACUTE_ALPHA) ** missed
+    chronic += p.chronic * (1 - CHRONIC_ALPHA) ** missed
   }
   return { acwr: chronic > 0 ? Math.round((acute / chronic) * 100) / 100 : null, week }
 }
@@ -143,7 +150,7 @@ export function acwrZoneWord(acwr: number | null): string {
   return 'danger'
 }
 
-export const ACWR_METHOD = 'EWMA 4 wk / 16 wk of weekly tonnage, all lifts summed'
+export const ACWR_METHOD = 'EWMA spans 4 wk / 16 wk of weekly tonnage, all lifts summed'
 
 // ── Lifts ────────────────────────────────────────────────────────────────────────────────────
 
