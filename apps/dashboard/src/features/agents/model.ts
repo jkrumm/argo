@@ -358,8 +358,8 @@ export type NeedsYouCard = {
   key: string
   kind: 'human-queue' | 'agent'
   headline: string
-  /** `<host> · asked 6m ago` / `<project> · waiting 6m`, parts already joined. */
-  facts: string
+  /** `[host, 'asked 6m ago']` / `[project, 'waiting 6m']`; a missing clock or host is left out. */
+  facts: string[]
   /** Mono inset body: the command, or the blocker. */
   inset: string | null
   /** The one copy action, backed by a payload field. */
@@ -370,6 +370,8 @@ export type NeedsYouCard = {
   /** Sort key, oldest wait first. */
   waitMs: number
 }
+
+const isText = (v: string | null): v is string => v !== null && v !== ''
 
 type QueueItem = {
   id: string
@@ -388,7 +390,7 @@ export function needsYouCards(
   const asks: NeedsYouCard[] = humanQueue.map((item) => {
     const waitMs = item.askedAt ? Math.max(0, now - Date.parse(item.askedAt)) : -1
     const host = typeof item['host'] === 'string' ? item['host'] : null
-    const facts = [host, waitMs >= 0 ? `asked ${ageAgo(waitMs)}` : null].filter(Boolean).join(' · ')
+    const facts = [host, waitMs >= 0 ? `asked ${ageAgo(waitMs)}` : null].filter(isText)
     const headline = headlineOf(item.question)
     const long = headline !== item.question.replace(/\s+/g, ' ').trim()
     return {
@@ -409,9 +411,10 @@ export function needsYouCards(
     .filter((a) => a.state === 'needs_you')
     .map((a) => {
       const waitMs = a.lastActivityAt == null ? -1 : Math.max(0, now - a.lastActivityAt)
-      const facts = [a.project, waitMs >= 0 ? `waiting ${formatWaitDuration(waitMs)}` : null]
-        .filter(Boolean)
-        .join(' · ')
+      const facts = [
+        a.project,
+        waitMs >= 0 ? `waiting ${formatWaitDuration(waitMs)}` : null,
+      ].filter(isText)
       return {
         key: `agent-${a.id}`,
         kind: 'agent',
