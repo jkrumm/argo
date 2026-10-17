@@ -37,7 +37,7 @@ export function LabeledPane(props: LabeledPaneProps) {
               key={l.sourceId}
               glyph={l.kind === 'chat' ? 'group' : 'channel'}
               name={l.displayName ?? l.sourceId}
-              meta={l.notes ?? l.kind}
+              meta={l.kind === 'chat' ? 'chat' : 'team channel'}
               selected={props.selectedId === l.sourceId}
               onSelect={() => props.onOpen(l)}
               onRemove={() => props.onRemove(l.sourceId)}

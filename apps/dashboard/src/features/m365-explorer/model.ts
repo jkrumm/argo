@@ -71,7 +71,10 @@ export function groupByRecency(
   now: Date,
 ): Array<{ group: RecencyGroup; rows: ChatRow[] }> {
   const buckets = new Map<RecencyGroup, ChatRow[]>()
-  for (const row of rows) {
+  const newestFirst = rows.toSorted((a, b) =>
+    (b.lastUpdatedAt ?? '').localeCompare(a.lastUpdatedAt ?? ''),
+  )
+  for (const row of newestFirst) {
     const g = recencyOf(row.lastUpdatedAt, now)
     buckets.set(g, [...(buckets.get(g) ?? []), row])
   }
@@ -145,7 +148,7 @@ export function formatTime(iso: string | null | undefined, now: Date = new Date(
   if (Number.isNaN(d.getTime())) return FALLBACK_TIME
   if (isToday(d)) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   if (differenceInCalendarDays(now, d) < 7) {
-    return d.toLocaleDateString([], { weekday: 'short' })
+    return d.toLocaleDateString([], { weekday: 'short', day: '2-digit' })
   }
   return d.toLocaleDateString([], { month: 'short', day: '2-digit' })
 }

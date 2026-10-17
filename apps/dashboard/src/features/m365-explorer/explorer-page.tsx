@@ -199,8 +199,7 @@ export function M365ExplorerPage(): ReactElement {
       <div className={classes.stack}>
         <Text className={classes.summary}>
           {labels.length} of {total ?? '—'} chats and channels labeled across{' '}
-          {plural(tagCounts.length, 'tag')} · {plural(chatRows.length, 'chat')},{' '}
-          {plural(teams.length, 'team')}
+          {plural(tagCounts.length, 'tag')}
           {latest ? ` · latest activity ${formatStamp(latest)}` : ''}
         </Text>
 
@@ -214,33 +213,37 @@ export function M365ExplorerPage(): ReactElement {
 
         <div className={classes.split}>
           <Card className={classes.pane} data-shot="source-list">
-            <TagChips
-              active={tag}
-              total={view === 'teams' ? (channelsTotal ?? 0) : chatRows.length}
-              labeled={labels.length}
-              tagCounts={tagCounts}
-              onChange={setTag}
-            />
-            {view === 'feed' ? (
-              labeledPane
-            ) : (
-              <SourceList
-                view={view}
-                chats={chatRows}
-                teams={teams}
-                channelsByTeam={channelsByTeam}
-                labelOf={(id) => labelMap.get(id)}
-                tag={tag}
-                query={query}
-                now={new Date(chatsQ.dataUpdatedAt)}
-                selected={selected}
-                onSelect={setSelected}
+            <Card.Section className={classes.paneBody}>
+              <TagChips
+                active={tag}
+                total={view === 'teams' ? (channelsTotal ?? 0) : chatRows.length}
+                labeled={labels.length}
+                tagCounts={tagCounts}
+                onChange={setTag}
               />
-            )}
+              {view === 'feed' ? (
+                labeledPane
+              ) : (
+                <SourceList
+                  view={view}
+                  chats={chatRows}
+                  teams={teams}
+                  channelsByTeam={channelsByTeam}
+                  labelOf={(id) => labelMap.get(id)}
+                  tag={tag}
+                  query={query}
+                  now={new Date(chatsQ.dataUpdatedAt)}
+                  selected={selected}
+                  onSelect={setSelected}
+                />
+              )}
+            </Card.Section>
           </Card>
 
           <Card className={`${classes.pane} ${classes.detailPane}`} data-shot="detail-pane">
-            {view === 'feed' ? <FeedPane tag={tag} /> : (record ?? labeledPane)}
+            <Card.Section className={classes.paneBody}>
+              {view === 'feed' ? <FeedPane tag={tag} /> : (record ?? labeledPane)}
+            </Card.Section>
           </Card>
         </div>
       </div>
