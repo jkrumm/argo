@@ -21,16 +21,29 @@ const CalendarEventSchema = z.object({
   videoLink: z.string().describe('Google Meet or conference link').optional(),
 })
 
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/
+const ISO_DATETIME = /^(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/
+
+/** `2026-02-31` parses (to Mar 3) in `Date`; a real calendar date survives the round trip. */
+function isRealDate(day: string): boolean {
+  const parsed = new Date(`${day}T00:00:00Z`)
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === day
+}
+
 /**
- * `from` for the calendar routes: an ISO date (`YYYY-MM-DD`, read as UTC midnight) or an ISO
- * datetime. Absent means "now", the original behaviour.
+ * `from` for the calendar routes: a real calendar date (`YYYY-MM-DD`, read as UTC midnight) or an
+ * ISO datetime with an explicit `Z` / `±hh:mm` offset (an offset-less one would be read in the
+ * server's zone). Absent means "now", the original behaviour.
  */
 export const CalendarFromSchema = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}(T.+)?$/, 'from must be an ISO date or datetime')
-  .refine((value) => !Number.isNaN(Date.parse(value)), 'from is not a valid date')
+  .refine((value) => {
+    if (ISO_DATE.test(value)) return isRealDate(value)
+    const match = ISO_DATETIME.exec(value)
+    return match !== null && isRealDate(match[1] ?? '') && !Number.isNaN(Date.parse(value))
+  }, 'from must be a real ISO date (YYYY-MM-DD) or an ISO datetime with a Z or ±hh:mm offset')
   .describe(
-    'Window start, ISO date (YYYY-MM-DD, UTC midnight) or ISO datetime. Default: now. `days` counts from here, so past events are reachable.',
+    'Window start: ISO date (YYYY-MM-DD, UTC midnight) or ISO datetime with an explicit Z or ±hh:mm offset. Default: now. `days` counts from here, so past events are reachable.',
   )
 
 export const calendarRoutes = new Elysia({ prefix: '/calendar' }).get(

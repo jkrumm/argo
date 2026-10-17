@@ -33,6 +33,15 @@ describe('GET /m365/calendar/upcoming — from', () => {
     expect((await get('?from=2026-10-12Tnope')).status).toBe(422)
   })
 
+  it('rejects a date that rolls over and a datetime without an offset', async () => {
+    expect((await get('?from=2026-02-31')).status).toBe(422)
+    expect((await get('?from=2026-10-12T00:00:00')).status).toBe(422)
+  })
+
+  it('accepts an explicit offset', async () => {
+    expect((await get('?from=2026-10-12T00:00:00%2B02:00')).status).not.toBe(422)
+  })
+
   it('accepts an ISO date and an ISO datetime (validation passes; upstream decides the rest)', async () => {
     expect((await get('?from=2026-10-12')).status).not.toBe(422)
     expect((await get('?from=2026-10-12T00:00:00.000Z&days=7')).status).not.toBe(422)
