@@ -7,6 +7,9 @@ import { compareByDate, type SkinfoldPoint } from './charts/series-data'
 import { SKINFOLD_SITES } from './constants'
 import type { WeightWindowStats } from './types'
 
+/** The API's trailing-rate lookback. */
+const RATE_LOOKBACK_DAYS = 28
+
 /** A last weigh-in this many days old (or older) reads as stale. */
 export const STALE_DAYS = 14
 
@@ -108,20 +111,28 @@ export function deltaFromMean(current: number | null, mean: number | null): numb
 export function summarySentence({
   current,
   kgPerWeek,
+  rateDays,
   goal,
   ageDays,
 }: {
   current: number | null
   kgPerWeek: number | null
+  /** Days the rate covers, see {@link rateDays}. */
+  rateDays: number
   goal: number | null
   ageDays: number | null
 }): string {
   if (current === null) return 'No weigh-ins in this window.'
-  const parts = [`${fixed(current)} kg`, `${signed(kgPerWeek, 2)} kg/wk over 28 d`]
+  const parts = [`${fixed(current)} kg`, `${signed(kgPerWeek, 2)} kg/wk over ${rateDays} d`]
   if (goal !== null)
     parts.push(`${fixed(Math.abs(current - goal))} kg to the ${fixed(goal)} kg goal`)
   const head = parts.join(', ')
   return ageDays === null ? `${head}.` : `${head}; last weigh-in ${ageLabel(ageDays)}.`
+}
+
+/** The API's trailing rate looks back 28 d but only sees rows in the selected window. */
+export function rateDays(span: number | null): number {
+  return span === null ? RATE_LOOKBACK_DAYS : Math.min(RATE_LOOKBACK_DAYS, span)
 }
 
 export type WindowParams = { window?: string; from?: string; to?: string }
@@ -189,7 +200,7 @@ export function windowDays(params: WindowParams): number | null {
 export const COVERAGE_SHARE = 0.7
 
 /**
- * Entries dated within `days` days up to and including the newest one, or `[]` when the window is
+ * Entries dated within `days` days of the newest one (inclusive, the API's `date >= last - days`), or `[]` when the window is
  * shorter than the period or the entries do not span {@link COVERAGE_SHARE} of it.
  */
 function coveredSlice(
@@ -200,7 +211,7 @@ function coveredSlice(
   if (span !== null && span < days) return []
   const last = latestDate(points)
   if (last === null) return []
-  const slice = points.filter((p) => daysBetween(p.date, last) < days).toSorted(compareByDate)
+  const slice = points.filter((p) => daysBetween(p.date, last) <= days).toSorted(compareByDate)
   const first = slice.at(0)
   if (first === undefined || daysBetween(first.date, last) < days * COVERAGE_SHARE) return []
   return slice

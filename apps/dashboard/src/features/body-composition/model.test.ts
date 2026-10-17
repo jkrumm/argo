@@ -2,6 +2,7 @@
 import { describe, expect, test } from 'bun:test'
 import {
   ageLabel,
+  rateDays,
   dayKey,
   daysBetween,
   deltaFromMean,
@@ -114,24 +115,37 @@ test('deltaFromMean', () => {
 
 describe('summarySentence', () => {
   test('full sentence repeats the cell figures', () => {
-    expect(summarySentence({ current: 80, kgPerWeek: -0.5, goal: 75, ageDays: 3 })).toBe(
-      '80.0 kg, −0.50 kg/wk over 28 d, 5.0 kg to the 75.0 kg goal; last weigh-in 3 days ago.',
-    )
+    expect(
+      summarySentence({ current: 80, kgPerWeek: -0.5, rateDays: 28, goal: 75, ageDays: 3 }),
+    ).toBe('80.0 kg, −0.50 kg/wk over 28 d, 5.0 kg to the 75.0 kg goal; last weigh-in 3 days ago.')
   })
   test('no goal drops the distance clause', () => {
-    expect(summarySentence({ current: 80, kgPerWeek: 0.5, goal: null, ageDays: 0 })).toBe(
-      '80.0 kg, +0.50 kg/wk over 28 d; last weigh-in today.',
-    )
+    expect(
+      summarySentence({ current: 80, kgPerWeek: 0.5, rateDays: 28, goal: null, ageDays: 0 }),
+    ).toBe('80.0 kg, +0.50 kg/wk over 28 d; last weigh-in today.')
   })
   test('unknown rate is a dash, never 0', () => {
-    expect(summarySentence({ current: 80, kgPerWeek: null, goal: null, ageDays: null })).toBe(
-      '80.0 kg, — kg/wk over 28 d.',
-    )
+    expect(
+      summarySentence({ current: 80, kgPerWeek: null, rateDays: 28, goal: null, ageDays: null }),
+    ).toBe('80.0 kg, — kg/wk over 28 d.')
   })
   test('empty window', () => {
-    expect(summarySentence({ current: null, kgPerWeek: null, goal: 75, ageDays: null })).toBe(
-      'No weigh-ins in this window.',
-    )
+    expect(
+      summarySentence({ current: null, kgPerWeek: null, rateDays: 28, goal: 75, ageDays: null }),
+    ).toBe('No weigh-ins in this window.')
+  })
+})
+
+describe('rateDays', () => {
+  test('the API only sees the window: min(28, window)', () => {
+    expect(rateDays(7)).toBe(7)
+    expect(rateDays(90)).toBe(28)
+    expect(rateDays(null)).toBe(28)
+  })
+  test('summary names that span', () => {
+    expect(
+      summarySentence({ current: 80, kgPerWeek: 0.5, rateDays: 7, goal: null, ageDays: 1 }),
+    ).toBe('80.0 kg, +0.50 kg/wk over 7 d; last weigh-in 1 day ago.')
   })
 })
 
@@ -151,8 +165,8 @@ describe('windowLabel', () => {
 describe('day-based window stats', () => {
   test('a falling daily log: mean and slope are anchored on the newest entry', () => {
     const pts = daily(40, 100, -0.5)
-    // Last 7 days: 100 - 0.5 * (33..39).
-    expect(meanOverDays(pts, 7, null)).toBeCloseTo(100 - 0.5 * 36)
+    // Inclusive bound (date >= last - 7): entries 32..39.
+    expect(meanOverDays(pts, 7, null)).toBeCloseTo(100 - 0.5 * 35.5)
     expect(slopeOverDays(pts, 7, null)).toBeCloseTo(-3.5)
     expect(slopeOverDays(pts, 30, null)).toBeCloseTo(-3.5)
   })

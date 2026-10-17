@@ -11,6 +11,7 @@ import {
   dayKey,
   entryAgeDays,
   latestDate,
+  rateDays,
   siteRows,
   summarySentence,
   weightWindowStats,
@@ -49,7 +50,13 @@ export function BodyCompositionPage({ params }: { params: Params }) {
   return (
     <Stack gap="md">
       <Box component="p" className={stripClasses.summary}>
-        {summarySentence({ current: summary.current, kgPerWeek: summary.kgPerWeek, goal, ageDays })}
+        {summarySentence({
+          current: summary.current,
+          kgPerWeek: summary.kgPerWeek,
+          rateDays: rateDays(windowDays(params)),
+          goal,
+          ageDays,
+        })}
       </Box>
 
       <Strip>
@@ -61,7 +68,12 @@ export function BodyCompositionPage({ params }: { params: Params }) {
           startDate={startPoint?.date ?? null}
           latestDate={latestDate(weightPoints)}
         />
-        <RateCell summary={summary} stats={stats} latestDate={latestDate(weightPoints)} />
+        <RateCell
+          summary={summary}
+          stats={stats}
+          rateDays={rateDays(windowDays(params))}
+          latestDate={latestDate(weightPoints)}
+        />
         {hasSkinfold && (
           <SkinfoldCell summary={skinfoldSummary} rows={rows} latestDate={latestDate(sessions)} />
         )}
