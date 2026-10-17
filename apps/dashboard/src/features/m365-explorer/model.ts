@@ -1,4 +1,4 @@
-import { differenceInCalendarDays, isToday } from 'date-fns'
+import { differenceInCalendarDays, isSameDay } from 'date-fns'
 import { APP_LOCALE } from '../../lib/format'
 
 export type LabelKind = 'chat' | 'channel'
@@ -70,7 +70,7 @@ export function recencyOf(iso: string | null, now: Date): RecencyGroup {
   if (!iso) return 'Earlier'
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return 'Earlier'
-  if (isToday(d)) return 'Today'
+  if (isSameDay(d, now)) return 'Today'
   return differenceInCalendarDays(now, d) < 7 ? 'Last 7 days' : 'Earlier'
 }
 
@@ -174,11 +174,12 @@ export function coverageOf(input: {
 
 const FALLBACK_TIME = ''
 
-export function formatTime(iso: string | null | undefined, now: Date = new Date()): string {
+export function formatTime(iso: string | null | undefined, now: Date): string {
   if (!iso) return FALLBACK_TIME
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return FALLBACK_TIME
-  if (isToday(d)) return d.toLocaleTimeString(APP_LOCALE, { hour: '2-digit', minute: '2-digit' })
+  if (isSameDay(d, now))
+    return d.toLocaleTimeString(APP_LOCALE, { hour: '2-digit', minute: '2-digit' })
   if (differenceInCalendarDays(now, d) < 7) {
     return d.toLocaleDateString(APP_LOCALE, { weekday: 'short', day: '2-digit' })
   }

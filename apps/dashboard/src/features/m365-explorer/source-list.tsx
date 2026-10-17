@@ -115,9 +115,13 @@ function TeamTree(props: SourceListProps) {
       {visible.map(({ team, entry, channels, autoOpen }) => {
         const isOpen = autoOpen || openId === team.id
         const state = entry?.state ?? 'loading'
+        const all = entry?.channels.length ?? 0
+        const filtered = props.tag !== '' || term !== ''
         const meta =
           state === 'loaded'
-            ? plural(entry?.channels.length ?? 0, 'channel')
+            ? filtered && channels.length !== all
+              ? `${channels.length} of ${plural(all, 'channel')}`
+              : plural(all, 'channel')
             : state === 'failed'
               ? 'channels failed to load'
               : '— channels'

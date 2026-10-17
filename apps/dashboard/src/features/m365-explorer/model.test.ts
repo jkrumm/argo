@@ -4,6 +4,7 @@ import {
   groupByRecency,
   chipCounts,
   coverageOf,
+  formatTime,
   validTag,
   matchesTag,
   parseChannelId,
@@ -149,5 +150,13 @@ describe('chipCounts / validTag', () => {
     expect(validTag('gone', ['a'])).toBe('')
     expect(validTag('a', ['a'])).toBe('a')
     expect(validTag(LABELED_FILTER, [])).toBe(LABELED_FILTER)
+  })
+})
+
+describe('formatTime', () => {
+  test('uses the passed reference day, not the system clock', () => {
+    expect(formatTime('2026-10-17T08:05:00', NOW)).toMatch(/08:05/)
+    expect(formatTime('2026-10-14T08:05:00', NOW)).not.toMatch(/08:05/)
+    expect(formatTime(null, NOW)).toBe('')
   })
 })
