@@ -32,6 +32,7 @@ createRoot(rootEl).render(
       fallback={(error) => <CrashFallback error={error} />}
       paletteOptions={{ groups: argoPaletteGroups, derived: ARGO_DERIVED }}
       defaultColorScheme="dark"
+      locale="en-GB"
     />
   </StrictMode>,
 )
