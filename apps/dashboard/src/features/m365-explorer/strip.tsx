@@ -7,6 +7,7 @@ import {
   chatsStat,
   labeledBasis,
   labeledSegmentCaption,
+  NO_TEAMS,
   NOTHING_TO_LABEL,
   type Coverage,
 } from './model'
@@ -88,6 +89,9 @@ function chatsCell(chats: Chats): StatStripCell {
   // segments, so the lead is matched by its (unique) value.
   const [lead, runnerUp] = parts
   const uniqueLead = lead !== undefined && lead.value !== runnerUp?.value
+  if (stat.empty !== null) {
+    return { key: 'chats', caption: 'Chats by kind', state: { kind: 'empty', reason: stat.empty } }
+  }
   return {
     key: 'chats',
     caption: 'Chats by kind',
@@ -109,7 +113,6 @@ function chatsCell(chats: Chats): StatStripCell {
           }))}
         />
       ),
-    ...(stat.empty === null ? {} : { footer: stat.empty }),
   }
 }
 
@@ -120,7 +123,12 @@ function channelsCell(
   channels: number | null,
   largest: { name: string; channels: number } | null,
   failed: number,
+  teams: number,
 ): StatStripCell {
+  // No teams came back: the channel count is unknown, not zero.
+  if (teams === 0 && failed === 0) {
+    return { key: 'channels', caption: 'Team channels', state: { kind: 'empty', reason: NO_TEAMS } }
+  }
   return {
     key: 'channels',
     caption: 'Team channels',
@@ -138,6 +146,8 @@ export type StripProps = {
   /** Channels across the teams that loaded; null while any team is not loaded. */
   channels: number | null
   largestTeam: { name: string; channels: number } | null
+  /** Teams the API returned; none means the channel count has nothing to range over. */
+  teams: number
   onRetry: () => void
 }
 
@@ -147,6 +157,7 @@ export function ExplorerStrip({
   chats,
   channels,
   largestTeam,
+  teams,
   onRetry,
 }: StripProps) {
   return (
@@ -157,7 +168,7 @@ export function ExplorerStrip({
       cells={[
         labeledCell(coverage, list, onRetry),
         chatsCell(chats),
-        channelsCell(channels, largestTeam, coverage.failed),
+        channelsCell(channels, largestTeam, coverage.failed, teams),
       ]}
     />
   )

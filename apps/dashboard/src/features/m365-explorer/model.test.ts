@@ -4,6 +4,7 @@ import {
   chatKindCounts,
   chatKindParts,
   chatsStat,
+  NO_CHATS,
   chatsCapped,
   CHATS_TOP,
   sectionTitleFor,
@@ -281,7 +282,7 @@ describe('chatsStat', () => {
     })
     expect(chatsStat({ oneOnOne: 0, group: 0, meeting: 0, other: 0 })).toEqual({
       hero: null,
-      empty: 'no chats',
+      empty: NO_CHATS,
     })
   })
 })

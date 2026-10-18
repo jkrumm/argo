@@ -286,7 +286,9 @@ export function M365ExplorerPage(): ReactElement {
 
   const sourcesPane = (
     <>
-      <TagChips active={tag} counts={counts} scope={SCOPE_BY_VIEW[view]} onChange={setTag} />
+      {counts.all === 0 ? null : (
+        <TagChips active={tag} counts={counts} scope={SCOPE_BY_VIEW[view]} onChange={setTag} />
+      )}
       {view === 'feed' ? (
         labeledPane
       ) : (
@@ -306,7 +308,10 @@ export function M365ExplorerPage(): ReactElement {
   )
   // The detail side: the feed in the feed view, the open record, else the labeled sources on a wide
   // screen (a phone has its own Labeled pane) or a hint on a phone.
-  const emptyDetail = <p className={classes.empty}>Pick a chat or channel in Sources to open it</p>
+  const noSources = view === 'chats' ? chatRows.length === 0 : teamRows.length === 0
+  const emptyDetail = noSources ? null : (
+    <p className={classes.empty}>Pick a chat or channel in Sources to open it</p>
+  )
   const detailPane =
     view === 'feed' ? <FeedPane tag={tag} /> : (record ?? (compact ? emptyDetail : labeledPane))
 
@@ -382,6 +387,7 @@ export function M365ExplorerPage(): ReactElement {
           chats={kindCounts}
           channels={channelsTotal}
           largestTeam={largestTeam(teamSizes)}
+          teams={teams.length}
           onRetry={retryFailed}
         />
 
@@ -411,10 +417,10 @@ export function M365ExplorerPage(): ReactElement {
           </Section>
         ) : (
           <div className={classes.split}>
-            <Card className={classes.pane} data-shot="source-list">
+            <Card className={classes.pane} data-shot="source-list" data-shot-states="empty">
               <Card.Section className={classes.paneBody}>{sourcesPane}</Card.Section>
             </Card>
-            <Card className={classes.pane} data-shot="detail-pane">
+            <Card className={classes.pane} data-shot="detail-pane" data-shot-states="empty">
               <Card.Section className={classes.paneBody}>{detailPane}</Card.Section>
             </Card>
           </div>

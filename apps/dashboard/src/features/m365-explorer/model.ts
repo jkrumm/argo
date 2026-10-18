@@ -131,7 +131,7 @@ export function chatsStat(counts: ReturnType<typeof chatKindCounts>): {
   empty: string | null
 } {
   const [lead] = chatKindParts(counts)
-  if (lead === undefined) return { hero: null, empty: 'no chats' }
+  if (lead === undefined) return { hero: null, empty: NO_CHATS }
   return { hero: { value: String(lead.value), unit: lead.noun }, empty: null }
 }
 
@@ -256,6 +256,10 @@ export function labeledSegmentCaption(value: number, labeled: number, unlabeled:
 }
 
 /** The labeled cell when there is nothing to label: said once, with the cause. */
+/** The strip's chats and channels cells: what is missing and the next step, in the labeled cell's wording. */
+export const NO_CHATS = 'No chats came back — refresh to retry'
+export const NO_TEAMS = 'No teams came back — refresh to retry'
+
 export const NOTHING_TO_LABEL =
   'Nothing to label — no chats or channels came back; refresh to retry'
 
