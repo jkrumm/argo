@@ -2,6 +2,7 @@ import { capFacts, type DecisionCardFact } from '../components/upstream/decision
 import {
   AWAITING_OWNER_STALE_DAYS,
   deriveAwaitingOwner,
+  isSafeHttpUrl,
   waitingOnOwner,
 } from '../features/warden/model'
 import {
@@ -13,6 +14,7 @@ import {
 } from '../features/warden/page-model'
 import {
   agentCopy,
+  evidenceSource,
   flattenAgents,
   formatWaitDuration,
   humanQueueCopy,
@@ -28,6 +30,9 @@ import type { WardenRaw } from './queries/warden'
 // yet (they keep their own lists and filter by `source` once they migrate).
 
 const DAY_MS = 86_400_000
+
+/** An agent that reports nothing still gets a line: the absence is the fact. */
+const NO_BLOCKER = 'No blocker reported.'
 
 export type DecisionSource = 'warden' | 'queue' | 'agent'
 
@@ -51,7 +56,7 @@ export type Decision = {
   ageMs: number | null
   /** The page that owns the full item. */
   href: '/warden' | '/agents'
-  /** The command or blocker behind the question, when the source carries one. */
+  /** The command, blocker or PR link behind the question, when the source carries one. */
   evidence: string | null
   /** Where a Warden item has been, newest last; empty for every other source. */
   history: TransitionHistory
@@ -111,7 +116,7 @@ function wardenDecisions(
       detail: copy.detail,
       ageMs,
       href: '/warden',
-      evidence: null,
+      evidence: row.prUrl !== null && isSafeHttpUrl(row.prUrl) ? row.prUrl : null,
       history: recentTransitions(raw?.items?.[String(row.eventId)]),
       abandoned: false,
     }
@@ -153,8 +158,9 @@ function agentDecisions(
     .filter((a) => a.state === 'needs_you')
     .map((a): Decision => {
       const ageMs = a.lastActivityAt == null ? null : Math.max(0, now - a.lastActivityAt)
-      const evidence = a.blocker ?? a.waitingFor ?? a.standing ?? null
-      const copy = agentCopy(a, evidence, handled.has(`agent-${a.id}`))
+      // The page's own rule: the first of blocker, waiting-for and standing with content in it.
+      const evidence = evidenceSource(a)
+      const copy = agentCopy(a, evidence ?? NO_BLOCKER, handled.has(`agent-${a.id}`))
       return {
         source: 'agent',
         id: `agent-${a.id}`,

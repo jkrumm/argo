@@ -522,7 +522,7 @@ const nonEmptyLines = (text: string): string[] =>
     .filter(Boolean)
 
 /** The blocker text the agent reports, as sent: the first of blocker, waiting-for and standing that has content. */
-const evidenceSource = (a: AgentRow): string | null =>
+export const evidenceSource = (a: AgentRow): string | null =>
   [a.blocker, a.waitingFor, a.standing].find((t) => t && nonEmptyLines(t).length > 0) ?? null
 
 /** The agent's last reply as context: its final paragraph, kept only when it adds to the evidence line. */

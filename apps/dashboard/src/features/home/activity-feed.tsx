@@ -56,24 +56,11 @@ export function ActivityFeed({ groups, total, stale, loaded, now }: Props) {
             if (events.length === 0) return null
             return (
               <section key={group.label} aria-label={group.label} className={classes.feedGroup}>
-                <Text className={classes.feedHeading}>
-                  {group.label}
-                  <span>
-                    {group.events.length} {group.events.length === 1 ? 'update' : 'updates'}
-                  </span>
-                </Text>
+                <Text className={classes.feedHeading}>{group.label}</Text>
                 <div role="list">
                   {events.map((e) => (
                     <div key={e.key} role="listitem" className={classes.feedRow}>
-                      <Text
-                        component="span"
-                        size="sm"
-                        className={classes.feedSentence}
-                        title={
-                          e.full ??
-                          `${e.actor} ${e.title}${e.outcome ? ` ${e.outcome}` : ''}${e.chip ? ` ${e.chip}` : ''}`
-                        }
-                      >
+                      <Text component="span" size="sm" className={classes.feedSentence}>
                         <span className={classes.feedHead}>
                           <span className={classes.feedActor}>{e.actor}</span> {e.title}
                         </span>
@@ -92,11 +79,7 @@ export function ActivityFeed({ groups, total, stale, loaded, now }: Props) {
                       <span className={classes.feedTime}>
                         {clockTime(new Date(e.ms).toISOString())}
                       </span>
-                      {e.detail ? (
-                        <span className={classes.feedDetail} title={e.detail}>
-                          {e.detail}
-                        </span>
-                      ) : null}
+                      {e.detail ? <span className={classes.feedDetail}>{e.detail}</span> : null}
                     </div>
                   ))}
                 </div>
@@ -104,7 +87,7 @@ export function ActivityFeed({ groups, total, stale, loaded, now }: Props) {
             )
           })}
           {total > shown ? (
-            <Button variant="subtle" color="gray" size="compact-sm" onClick={() => setOpen(true)}>
+            <Button variant="light" color="gray" size="compact-sm" onClick={() => setOpen(true)}>
               Show {total - shown} more
             </Button>
           ) : null}

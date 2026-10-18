@@ -5,7 +5,8 @@ import { Sparkline } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import type { HistoryPoint, OverviewSummary } from '../../lib/queries/agents'
 import type { WardenBudget } from '../../lib/queries/warden'
-import { clockOf, hourlyWorking } from '../agents/model'
+import { clockOf, hourlyWorking, type FleetPart } from '../agents/model'
+import { FLEET_COLOR } from '../agents/fleet-strip'
 import {
   ACWR_CAUTION_TO,
   ACWR_FLOOR,
@@ -38,16 +39,29 @@ const MUTED_FILL = alpha(VX.muted, 0.35)
 
 export function agentsCell(
   summary: OverviewSummary | undefined,
-  total: number | null,
+  fleet: { parts: FleetPart[]; total: number } | null,
   history: HistoryPoint[] | undefined,
   now: number,
 ): StatStripCell {
   const working = summary?.working
+  const total = fleet?.total ?? null
   return {
     key: 'agents',
-    caption: 'Agents working · 24\u00a0h',
+    caption: 'Agents working · now',
     value: typeof working === 'number' ? String(working) : null,
     ...(typeof working === 'number' && total !== null && { unit: `of ${total} agents` }),
+    ...(fleet !== null && {
+      visual: (
+        <Meter
+          label="Agents by state"
+          max={fleet.total || 1}
+          segments={fleet.parts
+            .filter((p) => p.value > 0)
+            .map((p) => ({ value: p.value, label: p.label, color: FLEET_COLOR[p.key] }))}
+          startCaption={null}
+        />
+      ),
+    }),
     footer:
       fleetPulse(hourlyWorking(history, HISTORY_HOURS, now), total) ?? 'no snapshot in 24\u00a0h',
   }
@@ -115,14 +129,7 @@ export function meetingCell(
         key: 'meeting',
         caption: 'Next meeting',
         value: weekdayTime(later.startMs),
-        footer: (
-          <>
-            <Text size="sm" lineClamp={2}>
-              {later.title}
-            </Text>
-            {countdownLabel(later.startMs - now)}
-          </>
-        ),
+        footer: countdownLabel(later.startMs - now),
       }
     }
     return {
@@ -144,20 +151,11 @@ export function meetingCell(
       next === null ? (current === undefined ? null : 'now') : countdownLabel(next.startMs - now),
     visual: <DayAxis meetings={agenda.meetings} next={next} now={now} />,
     footer:
-      next === null ? (
-        current === undefined ? (
-          'no more meetings today'
-        ) : (
-          `in a meeting until ${clockOf(current.endMs)}`
-        )
-      ) : (
-        <>
-          <Text size="sm" lineClamp={2}>
-            {next.title}
-          </Text>
-          {remaining} remaining today
-        </>
-      ),
+      next === null
+        ? current === undefined
+          ? 'no more meetings today'
+          : `in a meeting until ${clockOf(current.endMs)}`
+        : `${remaining} remaining today`,
   }
 }
 
@@ -231,14 +229,14 @@ export function acwrCell(reading: AcwrReading | null, now: number): StatStripCel
   if (reading === null || reading.acwr === null) {
     return {
       key: 'acwr',
-      caption: 'ACWR · 7\u00a0d / 28\u00a0d',
+      caption: 'Training load · 7\u00a0d / 28\u00a0d',
       value: null,
       footer: reading === null ? 'unavailable' : 'no training load observed',
     }
   }
   return {
     key: 'acwr',
-    caption: 'ACWR · 7\u00a0d / 28\u00a0d',
+    caption: 'Training load · 7\u00a0d / 28\u00a0d',
     value: reading.acwr.toFixed(2),
     ...(reading.zone !== null && { unit: reading.zone }),
     visual: (
