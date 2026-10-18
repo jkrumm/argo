@@ -53,7 +53,7 @@ function ProgressCard({ book, pace, now }: { book: ShelfItem; pace: number | nul
           </div>
           {percent === null ? (
             <Text size="sm" c="dimmed">
-              — % · no device progress yet
+              no device progress yet
             </Text>
           ) : (
             <Meter

@@ -1,17 +1,15 @@
 import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
 import {
+  booksPerMonth,
   NO_PACE_REASON,
   ratingShape,
   ratingsFooter,
   shelfParts,
-  shelfShares,
-  totalReadSeconds,
   type Pace,
   type ShelfItem,
   type ShelfCounts,
 } from './model'
-import { formatReadTime } from './format'
 import classes from './reading.module.css'
 
 /** A split is not a verdict: the stepped neutral ramp, never a status colour. */
@@ -19,9 +17,14 @@ const SEGMENT_FILLS = [0.75, 0.5, 0.25, 0.15, 0.1].map((a) => alpha(VX.muted, a)
 
 const fillAt = (i: number): string => SEGMENT_FILLS[Math.min(i, SEGMENT_FILLS.length - 1)] as string
 
-function shelfCell(counts: ShelfCounts): StatStripCell {
+function shelfCell(
+  counts: ShelfCounts,
+  finished: number,
+  year: number,
+  now: number,
+): StatStripCell {
   const parts = shelfParts(counts)
-  const shares = shelfShares(counts)
+  const rate = booksPerMonth(finished, now)
   return {
     key: 'shelf',
     caption: 'Shelf · by status',
@@ -35,9 +38,7 @@ function shelfCell(counts: ShelfCounts): StatStripCell {
         segments={parts.map((p, i) => ({ label: p.label, value: p.value, color: fillAt(i) }))}
       />
     ),
-    ...(shares === null
-      ? {}
-      : { footer: `${shares.read}% of the shelf is read · ${shares.backlog}% is backlog` }),
+    ...(rate === null ? {} : { footer: `${rate} books a month in ${year}` }),
   }
 }
 
@@ -57,7 +58,6 @@ function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
     unit: '★ mean',
     visual: (
       <div
-        className={classes.ratingsCell}
         role="img"
         aria-label={`Rated books per star: ${shape.buckets.map((c, i) => `${i + 1} ★ ${c}`).join(', ')}; mean ${shape.mean.toFixed(1)} ★`}
       >
@@ -74,8 +74,9 @@ function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
         </div>
         <div className={classes.axis}>
           {shape.buckets.map((count, i) => (
-            <span key={i} className={i % 2 === 1 ? classes.axisMinor : undefined}>
-              {i + 1}★ {count}
+            <span key={i} className={classes.axisLabel}>
+              <span>{i + 1}★</span>
+              <span>{count}</span>
             </span>
           ))}
         </div>
@@ -85,37 +86,21 @@ function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
   }
 }
 
-function paceCell(pace: Pace, shelf: readonly ShelfItem[]): StatStripCell {
+function paceCell(pace: Pace): StatStripCell {
   if (pace.median === null || pace.median <= 0) {
     return { key: 'pace', caption: 'Reading pace', value: null, footer: NO_PACE_REASON }
   }
-  const top = Math.max(...pace.paces) * 1.15
-  const at = (v: number) => `${(v / top) * 100}%`
-  const seconds = totalReadSeconds(shelf)
+  const slowest = pace.paces[0] as number
+  const fastest = pace.paces[pace.paces.length - 1] as number
   return {
     key: 'pace',
     caption: `Reading pace · median of ${pace.paces.length} ${pace.paces.length === 1 ? 'book' : 'books'}`,
     value: String(pace.median),
     unit: 'pages/h',
-    visual: (
-      <div
-        role="img"
-        aria-label={`Pace per book in pages per hour: ${pace.paces.join(', ')}; median ${pace.median}`}
-      >
-        <div className={classes.paceTrack}>
-          <div className={classes.paceRail} />
-          {pace.paces.map((p, i) => (
-            <span key={i} className={classes.paceDot} style={{ left: at(p) }} />
-          ))}
-          <span className={classes.paceMedian} style={{ left: at(pace.median) }} />
-        </div>
-        <div className={classes.paceAxis}>
-          <span>0</span>
-          <span>{Math.round(top)} pages/h</span>
-        </div>
-      </div>
-    ),
-    footer: `${formatReadTime(seconds)} read across in-progress and finished books`,
+    footer:
+      pace.paces.length === 1
+        ? 'one book has reading time so far'
+        : `slowest ${slowest}, fastest ${fastest} pages/h`,
   }
 }
 
@@ -123,17 +108,23 @@ export function ReadingStrip({
   counts,
   shelf,
   pace,
+  finished,
+  year,
+  now,
 }: {
   counts: ShelfCounts
   shelf: readonly ShelfItem[]
   pace: Pace
+  finished: number
+  year: number
+  now: number
 }) {
   return (
     <StatGroup
       variant="strip"
       label="Reading summary"
       cols={3}
-      cells={[shelfCell(counts), ratingsCell(shelf), paceCell(pace, shelf)]}
+      cells={[shelfCell(counts, finished, year, now), ratingsCell(shelf), paceCell(pace)]}
     />
   )
 }

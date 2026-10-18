@@ -5,19 +5,13 @@
 declare const classes: {
   readonly root: string
   readonly pair: string
-  readonly paceAxis: string
   readonly histogram: string
   readonly bucket: string
   readonly bar: string
   readonly barFilled: string
   readonly meanTick: string
   readonly axis: string
-  readonly axisMinor: string
-  readonly ratingsCell: string
-  readonly paceTrack: string
-  readonly paceRail: string
-  readonly paceDot: string
-  readonly paceMedian: string
+  readonly axisLabel: string
   readonly titleClamp: string
   readonly titleLink: string
   readonly cover: string

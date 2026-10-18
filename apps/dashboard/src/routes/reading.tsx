@@ -14,6 +14,7 @@ import {
   currentYear,
   finishedGroups,
   finishedInYear,
+  medianDaysToFinish,
   readingPace,
   shelfCounts,
   summaryParts,
@@ -77,6 +78,7 @@ function ReadingPage() {
   const backlog = deriveBacklog(shelf, pace.median)
   const counts = shelfCounts(shelf)
   const year = currentYear(now)
+  const finished = finishedInYear(shelf, year)
 
   return (
     <>
@@ -102,15 +104,16 @@ function ReadingPage() {
         <div className={classes.root}>
           <Stack gap="md">
             <PageSummary
-              {...summaryParts({
-                counts,
-                pace: pace.median,
-                finished: finishedInYear(shelf, year),
-                year,
-                backlogHours: backlog.hours,
-              })}
+              {...summaryParts({ finished, year, medianDays: medianDaysToFinish(shelf) })}
             />
-            <ReadingStrip counts={counts} shelf={shelf} pace={pace} />
+            <ReadingStrip
+              counts={counts}
+              shelf={shelf}
+              pace={pace}
+              finished={finished}
+              year={year}
+              now={now}
+            />
             <UnmatchedSection />
             <InProgress shelf={shelf} pace={pace.median} now={now} />
             <div className={classes.pair}>

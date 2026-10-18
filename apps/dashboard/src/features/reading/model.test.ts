@@ -1,11 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 import {
   approxHours,
+  booksPerMonth,
+  medianDaysToFinish,
   backlog,
   currentYear,
   progressPercent,
   shelfCounts,
-  totalReadSeconds,
   daysToFinish,
   finishedGroups,
   finishedInYear,
@@ -169,14 +170,15 @@ describe('backlog', () => {
 })
 
 describe('timeRead', () => {
-  test('in-progress and finished books with time, longest first', () => {
+  test('finished books with time, longest first; in-progress time is on its card', () => {
     const shelf = [
       book({ statusId: 2, stats: stats(1, 1) }),
       book({ statusId: 3, stats: stats(1, 3) }),
+      book({ statusId: 3, stats: stats(1, 5) }),
       book({ statusId: 1, stats: stats(1, 9) }),
-      book({ statusId: 2, stats: stats(1, 0) }),
+      book({ statusId: 3, stats: stats(1, 0) }),
     ]
-    expect(timeRead(shelf).map((r) => r.seconds / 3600)).toEqual([3, 1])
+    expect(timeRead(shelf).map((r) => r.seconds / 3600)).toEqual([5, 3])
   })
 })
 
@@ -237,12 +239,6 @@ describe('shelfParts', () => {
   })
 })
 
-/** The headline and its facts as the one line they replace. */
-const summarySentence = (input: Parameters<typeof summaryParts>[0]) => {
-  const { sentence, facts } = summaryParts(input)
-  return [sentence, ...facts].join(' · ')
-}
-
 describe('shelfShares', () => {
   test('whole percent of the shelf, null when empty', () => {
     const counts = shelfCounts([
@@ -269,40 +265,56 @@ describe('shelfShares', () => {
 })
 
 describe('summaryParts', () => {
-  test('the headline carries the in-progress count, the facts the year and the backlog', () => {
-    const counts = shelfCounts([book({ statusId: 2 }), book({ statusId: 1 })])
-    expect(summaryParts({ counts, pace: 90, finished: 3, year: 2026, backlogHours: 7.2 })).toEqual({
-      sentence: '1 book in progress, median 90 pages/h',
-      facts: ['3 finished in 2026', 'backlog 1 book ≈ 7 h'],
+  test('the headline is the year, the fact the typical time to finish', () => {
+    expect(summaryParts({ finished: 3, year: 2026, medianDays: 12 })).toEqual({
+      sentence: '3 books finished in 2026',
+      facts: ['median 12 d from start to finish'],
     })
+  })
+  test('one book is singular; nothing finished says so; unknown days are dropped, not 0', () => {
+    expect(summaryParts({ finished: 1, year: 2026, medianDays: null })).toEqual({
+      sentence: '1 book finished in 2026',
+      facts: [],
+    })
+    expect(summaryParts({ finished: 0, year: 2026, medianDays: null }).sentence).toBe(
+      'Nothing finished in 2026 yet',
+    )
+  })
+  test('the headline repeats neither the pace nor the shelf split', () => {
+    const { sentence, facts } = summaryParts({ finished: 3, year: 2026, medianDays: 12 })
+    expect([sentence, ...facts].join(' ')).not.toMatch(/pages\/h|backlog|in progress/)
   })
 })
 
-describe('summarySentence (joined)', () => {
-  test('quotes the same pace and hours figures the cells show', () => {
-    const counts = shelfCounts([
-      ...Array.from({ length: 4 }, () => book({ statusId: 2 })),
-      ...Array.from({ length: 28 }, () => book({ statusId: 1 })),
-    ])
-    expect(summarySentence({ counts, pace: 90, finished: 3, year: 2026, backlogHours: 56.4 })).toBe(
-      '4 books in progress, median 90 pages/h · 3 finished in 2026 · backlog 28 books ≈ 56 h',
-    )
-  })
-
-  test('drops pace and hours rather than printing 0', () => {
-    const counts = shelfCounts([book({ statusId: 2 }), book({ statusId: 1 })])
+describe('medianDaysToFinish', () => {
+  test('median over read books with both dates', () => {
+    const read = (started: string | null, readDate: string | null) =>
+      book({ statusId: 3, startedDate: started, readDate })
     expect(
-      summarySentence({ counts, pace: null, finished: 0, year: 2026, backlogHours: null }),
-    ).toBe('1 book in progress · 0 finished in 2026 · backlog 1 book')
+      medianDaysToFinish([
+        read('2026-01-01', '2026-01-11'),
+        read('2026-02-01', '2026-02-05'),
+        read('2026-03-01', '2026-03-31'),
+        read(null, '2026-04-01'),
+        book({ statusId: 2, startedDate: '2026-01-01', readDate: null }),
+      ]),
+    ).toBe(10)
+    expect(medianDaysToFinish([])).toBeNull()
   })
+})
 
+describe('hours labels', () => {
   test('under an hour reads < 1 h without a ≈', () => {
-    const counts = shelfCounts([book({ statusId: 1 })])
-    expect(
-      summarySentence({ counts, pace: 90, finished: 0, year: 2026, backlogHours: 0.4 }),
-    ).toContain('backlog 1 book < 1 h')
     expect(approxHours(0.4)).toBe('< 1 h')
     expect(approxHours(7.2)).toBe('≈ 7 h')
+  })
+})
+
+describe('booksPerMonth', () => {
+  test('finished over the months elapsed, never over less than one', () => {
+    expect(booksPerMonth(6, Date.UTC(2026, 5, 16))).toBe('1.1') // 5.5 months → 1.09
+    expect(booksPerMonth(3, Date.UTC(2026, 0, 5))).toBe('3.0')
+    expect(booksPerMonth(0, Date.UTC(2026, 5, 16))).toBeNull()
   })
 })
 
@@ -319,39 +331,23 @@ describe('one source for every repeated figure', () => {
     book({ statusId: 6 }),
   ]
 
-  test('sentence, strip parts and list sections agree', () => {
+  test('strip parts and list sections agree', () => {
     const counts = shelfCounts(shelf)
     const pace = readingPace(shelf)
     const bl = backlog(shelf, pace.median)
     const parts = Object.fromEntries(shelfParts(counts).map((p) => [p.label, p.value]))
-    const sentence = summarySentence({
-      counts,
-      pace: pace.median,
-      finished: finishedInYear(shelf, 2026),
-      year: currentYear(Date.UTC(2026, 5, 1)),
-      backlogHours: bl.hours,
-    })
-
-    // Strip cell, sentence and Backlog / Currently reading sections.
     expect(parts['Backlog']).toBe(bl.count)
     expect(parts['Reading']).toBe(shelf.filter((b) => b.statusId === 2).length)
-    expect(sentence).toContain(`backlog ${bl.count} books`)
-    expect(sentence).toContain(`${parts['Reading']} books in progress`)
     // Finished list rows are the dated read books; the rest are named, not hidden.
     const listed = finishedGroups(shelf).reduce((n, g) => n + g.rows.length, 0)
     expect(listed).toBe(counts.readDated)
     expect(counts.read - counts.readDated).toBe(1)
-    expect(sentence).toContain(`${finishedInYear(shelf, 2026)} finished in 2026`)
-    // Pace and hours: the figure in the sentence is the figure the cells use.
-    expect(sentence).toContain(`median ${pace.median} pages/h`)
-    expect(sentence).toContain(approxHours(bl.hours as number))
+    expect(finishedInYear(shelf, currentYear(Date.UTC(2026, 5, 1)))).toBe(1)
     expect(counts.total).toBe(8)
   })
 
-  test('time read has one definition across the pace cohort and the BarList', () => {
+  test('the pace cohort ignores backlog time', () => {
     const withBacklogTime = [...shelf, book({ statusId: 1, stats: stats(50, 9) })]
-    expect(totalReadSeconds(withBacklogTime)).toBe(totalReadSeconds(shelf))
-    expect(totalReadSeconds(shelf)).toBe((2 + 3) * 3600)
     expect(readingPace(withBacklogTime).paces).toEqual(readingPace(shelf).paces)
   })
 })
@@ -425,16 +421,8 @@ describe('ratingsFooter', () => {
     ]
     expect(ratingsFooter(ratingShape(shelf))).toBe('community mean 3.8 ★ on 2 of the same books')
   })
-  test('names the half-star rounding only when a half star is rated', () => {
-    expect(ratingsFooter(ratingShape([book({ rating: 3.5 })]))).toBe(
-      'half stars count in the star below',
-    )
+  test('says nothing about binning, and nothing without a community rating', () => {
+    expect(ratingsFooter(ratingShape([book({ rating: 3.5 })]))).toBeUndefined()
     expect(ratingsFooter(ratingShape([book({ rating: 4 })]))).toBeUndefined()
-  })
-  test('joins both facts', () => {
-    const shelf = [book({ rating: 2.5, communityRating: 3 })]
-    expect(ratingsFooter(ratingShape(shelf))).toBe(
-      'half stars count in the star below · community mean 3.0 ★ on 1 of the same books',
-    )
   })
 })
