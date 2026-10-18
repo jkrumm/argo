@@ -489,6 +489,13 @@ describe('tokensFormatterFor', () => {
     expect(tokensFormatterFor(2_340_000_000)(120_000_000)).toBe(`0.12${NB}B`)
     expect(tokensFormatterFor(900)(12)).toBe('12')
   })
+  it('prints every sub-unit value with two decimals, however the digits fall', () => {
+    const f = tokensFormatterFor(2_340_000_000)
+    expect(f(52_000_000)).toBe(`0.05${NB}B`)
+    expect(f(500_000_000)).toBe(`0.50${NB}B`)
+    expect(f(123_000_000)).toBe(`0.12${NB}B`)
+    expect(f(1_800_000_000)).toBe(`1.8${NB}B`)
+  })
   it('never prints a non-zero value as zero, and keeps the sign', () => {
     const f = tokensFormatterFor(5_600_000)
     expect(f(1_000)).toBe(`<0.01${NB}M`)

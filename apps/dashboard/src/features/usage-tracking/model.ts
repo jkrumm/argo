@@ -90,13 +90,12 @@ function wholeText(n: number): string {
   return n > 0 ? '<1' : '>-1'
 }
 
-/** A figure in a fixed unit: one decimal from 1 up, two significant digits below, never a false zero. */
+/** A figure in a fixed unit: one decimal from 1 up, two decimals below (one rule per column), never a false zero. */
 function scaledText(v: number): string {
   if (v === 0) return '0'
   const abs = Math.abs(v)
   if (abs < 0.01) return v > 0 ? '<0.01' : '>-0.01'
-  const significant = Number(v.toPrecision(2))
-  return Math.abs(significant) >= 1 || abs >= 1 ? v.toFixed(1) : String(significant)
+  return Math.abs(Number(v.toFixed(1))) >= 1 ? v.toFixed(1) : v.toFixed(2)
 }
 
 /**
