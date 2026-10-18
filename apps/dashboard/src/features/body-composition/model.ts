@@ -140,6 +140,9 @@ function trend(kgPerWeek: number): string {
 /** The one wording for a window with no weigh-ins: what is missing and the next step. */
 export const NO_WEIGHT_ENTRIES = 'No entries in this window — log a weight to start the trend.'
 
+/** The cause alone, for strip cells that sit under a headline already carrying the next step. */
+export const NO_WEIGHT_ENTRIES_SHORT = 'No entries in this window'
+
 export function summaryParts({
   current,
   kgPerWeek,
@@ -306,7 +309,7 @@ export function rateFooter(input: {
   if (status === 'error') return 'The rate failed to load'
   if (rate !== null) return paceFooter(rate)
   return entries === 0
-    ? NO_WEIGHT_ENTRIES
+    ? NO_WEIGHT_ENTRIES_SHORT
     : `A rate needs two weigh-ins at least ${withUnit(3, 'd')} apart`
 }
 

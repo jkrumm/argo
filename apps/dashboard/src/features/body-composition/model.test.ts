@@ -4,6 +4,7 @@ import { toWeightChartPoints } from './charts/series-data'
 import {
   ageLabel,
   NO_WEIGHT_ENTRIES,
+  NO_WEIGHT_ENTRIES_SHORT,
   rateDays,
   dayKey,
   daysBetween,
@@ -405,7 +406,7 @@ describe('one fixture, two live-review items', () => {
     expect(rateFooter({ rate: null, entries: 1 })).toBe(
       'A rate needs two weigh-ins at least 3\u00a0d apart',
     )
-    expect(rateFooter({ rate: null, entries: 0 })).toBe(NO_WEIGHT_ENTRIES)
+    expect(rateFooter({ rate: null, entries: 0 })).toBe(NO_WEIGHT_ENTRIES_SHORT)
     expect(rateFooter({ rate: null, entries: 0, status: 'pending' })).toBe('Loading the rate')
     expect(rateFooter({ rate: null, entries: 0, status: 'error' })).toBe('The rate failed to load')
   })
