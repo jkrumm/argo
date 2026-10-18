@@ -35,7 +35,7 @@ import {
   lastScored,
   missingInputs,
   recoveryGap,
-  loadFooter,
+  loadGap,
   windowDayCount,
   fmtNum,
   shortDate,
@@ -169,6 +169,13 @@ function useLoadCell(params: SummaryParams): StatStripCell {
         ]
       : []
 
+  const gap = loadGap({
+    acwr,
+    status: query.status,
+    placeholder: isPlaceholderData,
+    windowDays: windowDayCount(activitiesRange(params), VISIBLE_DATE_MIN),
+  })
+
   return {
     key: 'load',
     caption: 'Training load',
@@ -177,7 +184,6 @@ function useLoadCell(params: SummaryParams): StatStripCell {
     unit: 'ACWR',
     loading: query.isPending,
     stale: isPlaceholderData,
-    footer: loadFooter({ acwr, status: query.status, placeholder: isPlaceholderData }),
     visual: (
       <>
         <Meter
@@ -195,9 +201,11 @@ function useLoadCell(params: SummaryParams): StatStripCell {
           startCaption="0"
           endCaption={ACWR_METER_MAX.toFixed(1)}
           loading={query.isPending}
-          emptyText="No training load"
+          {...(gap !== undefined && { emptyText: gap })}
         />
-        <LoadRows load={load} loading={query.isPending} />
+        {load.length > 0 || query.isPending ? (
+          <LoadRows load={load} loading={query.isPending} />
+        ) : null}
       </>
     ),
   }

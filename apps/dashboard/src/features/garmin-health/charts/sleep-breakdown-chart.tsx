@@ -11,6 +11,7 @@ import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
 import { shotState } from '../../../lib/shot-state'
+import { emptyIn } from './empty'
 import { localDay } from './local-day'
 
 const CHART_HEIGHT = 280
@@ -91,7 +92,7 @@ export default function SleepBreakdownChart({ params }: { params: SummaryParams 
   return (
     <ChartCard
       title="Sleep"
-      state={chartStateOf(query, sleepData.length === 0 ? 'No sleep in this window' : undefined)}
+      state={chartStateOf(query, sleepData.length === 0 ? emptyIn('sleep', params) : undefined)}
       placeholderHeight={CHART_HEIGHT}
       facts={toChartFact(fact)}
     >

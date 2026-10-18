@@ -266,20 +266,38 @@ export function lastScored(
 }
 
 /**
- * The load cell's footer. A loading, failed or placeholder read is never a data gap: pending and
- * placeholder have no footer, a present ratio needs none (the meter's zones name the bands), a
+ * What the load cell says when it has no ratio, once (the meter's empty line; the cell has no
+ * footer or bar list for it). A loading or placeholder read is never a data gap: it has no copy, a
  * failure says so, and only a settled read without a ratio states the gap.
  */
-export function loadFooter(input: {
+export function loadGap(input: {
   acwr: number | null
   status: QueryStatus
   placeholder: boolean
-}): string | null {
-  const { acwr, status, placeholder } = input
+  windowDays: number
+}): string | undefined {
+  const { acwr, status, placeholder, windowDays } = input
   if (status === 'error') return 'The load ratio failed to load'
-  if (status === 'pending' || acwr !== null || placeholder) return null
-  return 'No day in this window has a load ratio yet'
+  if (status === 'pending' || acwr !== null || placeholder) return undefined
+  return chartEmpty('load ratio', windowDays)
 }
+
+/** The Garmin sync sidecar's cadence, hours: every "fills after the next sync" claim reads this. */
+export const GARMIN_SYNC_HOURS = 6
+
+/** `this 30 d window`; `this window` when the length is unknown. */
+const thisWindow = (windowDays: number): string =>
+  windowDays > 0 ? `this ${withUnit(windowDays, 'd')} window` : 'this window'
+
+/** The next step for any gap in Garmin data: a sync is the only thing that fills it. */
+const SYNC_NEXT_STEP = ` — Garmin syncs every ${withUnit(GARMIN_SYNC_HOURS, 'h')}`
+
+/**
+ * An empty chart card's one wording: what is missing, the window it is missing from, and the next
+ * step. The cause is always the same: no synced day in the window.
+ */
+export const chartEmpty = (metric: string, windowDays: number): string =>
+  `No ${metric} in ${thisWindow(windowDays)}${SYNC_NEXT_STEP}`
 
 /**
  * Why there is no recovery score, worded once for both places that say so: the headline clause and
@@ -320,12 +338,15 @@ export function recoveryGap(input: {
     date != null && missing.length > 0
       ? `${NBSP}· ${dayLabel(date, 'day', today).replaceAll(' ', NBSP)}: ${missing.join(', ')} not scored`
       : ''
+  const cadence = SYNC_NEXT_STEP
   if (last !== null) {
     const lastDay = dayLabel(last.date).replaceAll(' ', NBSP)
-    return { headline, line: `Last scored ${fmtNum(last.value)}/100 on ${lastDay}${why}` }
+    return {
+      headline,
+      line: `Last scored ${fmtNum(last.value)}/100 on ${lastDay}${why}${cadence}`,
+    }
   }
-  const window = windowDays > 0 ? `this ${withUnit(windowDays, 'd')} window` : 'this window'
-  return { headline, line: `No score in ${window}${why}` }
+  return { headline, line: `No score in ${thisWindow(windowDays)}${why}${cadence}` }
 }
 
 // ── Strip ──────────────────────────────────────────────────────────────────

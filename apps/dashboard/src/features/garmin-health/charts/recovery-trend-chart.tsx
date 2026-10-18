@@ -22,6 +22,7 @@ import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
 import { shotState } from '../../../lib/shot-state'
+import { emptyIn } from './empty'
 import { localDay } from './local-day'
 
 type RecoveryPoint = {
@@ -93,7 +94,7 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
     <ChartCard
       title="Recovery"
       info={METRIC_TOOLTIPS.recoveryScore}
-      state={chartStateOf(query, !hasRecovery ? 'No recovery scores in this window' : undefined)}
+      state={chartStateOf(query, !hasRecovery ? emptyIn('recovery score', params) : undefined)}
       placeholderHeight={280}
       facts={toChartFact(fact)}
     >
