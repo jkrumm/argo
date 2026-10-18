@@ -165,7 +165,7 @@ export function Board({
   useEffect(() => {
     if (active !== undefined && active.key !== picked) setPicked(active.key)
   }, [active, picked, setPicked])
-  const title = `Board · ${openCount(columns)} open`
+  const open = openCount(columns)
   const tabs = narrow ? (
     <ViewTabs
       label="Board column"
@@ -179,9 +179,13 @@ export function Board({
   const { populated, emptyLabels } = splitBoardColumns(columns)
 
   return (
-    <Section title={title} {...(tabs ? { tabs } : {})}>
+    <Section title="Board" count={open} {...(tabs && open > 0 ? { tabs } : {})}>
       <Box data-shot="board">
-        {narrow ? (
+        {open === 0 ? (
+          <Text size="xs" c="dimmed">
+            {emptyText}
+          </Text>
+        ) : narrow ? (
           active ? (
             <ColumnBody column={active} onOpen={onSelectItem} />
           ) : null
@@ -198,9 +202,7 @@ export function Board({
               </Box>
             ) : null}
             {emptyLabels.length > 0 ? (
-              <Text size="xs" c="dimmed">
-                {populated.length === 0 ? emptyText : `Empty: ${emptyLabels.join(', ')}`}
-              </Text>
+              <Text size="xs" c="dimmed">{`Empty: ${emptyLabels.join(', ')}`}</Text>
             ) : null}
           </Stack>
         )}
