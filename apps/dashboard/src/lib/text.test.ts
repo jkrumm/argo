@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { stripShortcodes } from './text'
+import { softBreaks, stripShortcodes } from './text'
 
 describe('stripShortcodes', () => {
   it('keeps the text of a bracketed shortcode and drops bare ones', () => {
@@ -27,5 +27,21 @@ describe('stripShortcodes in feed rows', () => {
     expect(stripShortcodes('agent:main:slack:group:X')).toBe('agent:main:slack:group:X')
     expect(stripShortcodes('see http://x:y')).toBe('see http://x:y')
     expect(stripShortcodes('shipped :rocket: today')).toBe('shipped today')
+  })
+})
+
+describe('softBreaks', () => {
+  it('breaks a long identifier after its separators, never inside a word', () => {
+    const id = 'tests_integration_workouts_summary_test'
+    const broken = softBreaks(id)
+    expect(broken.replaceAll('​', '')).toBe(id)
+    expect(broken).toContain('tests_​integration_​')
+  })
+
+  it('leaves ordinary prose and short tokens alone', () => {
+    expect(softBreaks('Run the checks again, then merge.')).toBe(
+      'Run the checks again, then merge.',
+    )
+    expect(softBreaks('a_b')).toBe('a_b')
   })
 })

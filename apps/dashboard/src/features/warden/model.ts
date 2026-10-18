@@ -94,6 +94,8 @@ export type AwaitingOwnerRow = {
   /** Automatic re-drives warden has done; 0 when unreported. */
   redrives: number
   availableActions: string[]
+  /** The question warden authored for this item; `null` until the producer sends one. */
+  question: string | null
 }
 
 export type AwaitingOwnerView = {
@@ -101,6 +103,12 @@ export type AwaitingOwnerView = {
   failed: AwaitingOwnerRow[]
   /** Entries in neither `needs_decision` nor `failed` — never dropped silently. */
   other: AwaitingOwnerRow[]
+}
+
+/** A producer-authored `question` on a loose wire object; blank or absent reads as `null`. */
+function authoredQuestion(source: Record<string, unknown> | undefined): string | null {
+  const value = source?.['question']
+  return typeof value === 'string' && value.trim() !== '' ? value : null
 }
 
 /** `"5.1 d"` / `"< 1 d"` / `"—"` for an unreported age — never a bare number with no unit. */
@@ -146,6 +154,7 @@ export function deriveAwaitingOwner(board: WardenRaw['board'] | undefined): Awai
       failureClass: entry.failure_class ?? boardItem?.failure_class ?? null,
       redrives: entry.redrives ?? boardItem?.redrives ?? 0,
       availableActions: entry.availableActions ?? [],
+      question: authoredQuestion(entry) ?? authoredQuestion(boardItem),
     }
     if (entry.state === 'needs_decision') view.needsDecision.push(row)
     else if (entry.state === 'failed') view.failed.push(row)

@@ -27,13 +27,18 @@ export type WardenHealth = NonNullable<WardenRaw['health']>
 export type WardenMetrics = NonNullable<WardenRaw['metrics']>
 export type WardenFunnelMetric = NonNullable<WardenMetrics['verdicts_recorded_disposition']>
 export type WardenBoard = NonNullable<WardenRaw['board']>
-export type WardenBoardItem = NonNullable<WardenBoard['items']>[number]
+/** `question` is the owner-facing question the producer may author; absent until warden sends it. */
+export type WardenBoardItem = NonNullable<WardenBoard['items']>[number] & {
+  question?: string | null
+}
 export type WardenBudget = NonNullable<WardenRaw['budget']>
 export type WardenItems = NonNullable<WardenRaw['items']>
 export type WardenItemTimeline = WardenItems[string]
 /** One "cannot finish without a human" row — a `needs_decision` or `failed` board item. Oldest
  * first (see `deriveAwaitingOwner` in `features/warden/model.ts`). */
-export type WardenAwaitingOwnerEntry = NonNullable<WardenBoard['awaiting_owner']>[number]
+export type WardenAwaitingOwnerEntry = NonNullable<WardenBoard['awaiting_owner']>[number] & {
+  question?: string | null
+}
 /**
  * What the owner can click for a board item — mirrors warden's own closed verb allowlist
  * (`apply_argo_actions()`) and the API's `WARDEN_ACTION_VERBS`. Hand-declared, NOT derived from

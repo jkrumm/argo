@@ -9,7 +9,7 @@ import type {
 import { stripShortcodes } from '../../lib/text'
 import {
   cardCopy,
-  titleQuestion,
+  plainQuestion,
   type CardCopy,
   type DecisionCardFact,
 } from '../../components/upstream/decision-card-model'
@@ -437,8 +437,11 @@ export function sentenceCase(raw: string): string | null {
   return /[A-Z]/.test(first) && !upperEnum ? text : text.charAt(0).toUpperCase() + text.slice(1)
 }
 
+/** A tag that only says there is no category (`[no category]`, `[none]`) is no category at all. */
+const PLACEHOLDER_CATEGORY = /^(?:no|none|n\/a|unknown|uncategori[sz]ed)(?:\s+category)?$/i
+
 /** The word a decision/failed card shows before its facts: the failure class, or the lifted `[tag]`.
- * Blank or whitespace-only text is `null`, so the caller falls back instead of rendering a bare dot. */
+ * Blank, whitespace-only or placeholder text is `null`, so the caller falls back instead of rendering a bare dot. */
 export function cardCategory(
   kind: QueueKind,
   tag: string | null,
@@ -446,7 +449,7 @@ export function cardCategory(
 ): string | null {
   const raw = kind === 'failed' ? failureClass : tag
   const trimmed = raw?.trim() ?? ''
-  return trimmed === '' ? null : trimmed
+  return trimmed === '' || PLACEHOLDER_CATEGORY.test(trimmed) ? null : trimmed
 }
 
 /** The first complete sentence of warden's decision text is the question; whatever follows is the
@@ -468,51 +471,75 @@ export function splitReason(
   return { tag, question: first, rest: rest === '' ? null : rest }
 }
 
+/** The plain question of a Warden item from its kind and state: `Merge {repo} PR?`, `Retry failed run?`. */
+export function wardenPlainQuestion({
+  failed,
+  repo,
+  primary,
+}: {
+  failed: boolean
+  repo: string | null
+  primary: WardenActionVerb | null
+}): string {
+  const where = stripShortcodes(repo ?? '')
+  if (failed) return plainQuestion('Retry', where === '' ? 'failed run' : `failed ${where} run`)
+  if (primary === 'merge') return plainQuestion('Merge', where === '' ? 'this PR' : `${where} PR`)
+  if (primary === 'implement')
+    return plainQuestion('Implement', where === '' ? 'this change' : `${where} change`)
+  if (primary === 'reinvestigate')
+    return plainQuestion('Reinvestigate', where === '' ? 'this item' : `${where} item`)
+  return plainQuestion('Decide on', where === '' ? 'this item' : `${where} item`)
+}
+
 /**
- * The question, evidence line and disclosure text of one Warden ask: emoji shortcodes stripped
- * (a title that is nothing else falls back to `Item #<id>`), a failed item as `Retry <title>?`
- * with its reason as the body, a decision as the reason's first sentence (or `Approve <title>?`
- * when that sentence is prose). `tag` is the lifted `[tag]`; `entity` is the title to show above
- * the question, `null` when the question already names it.
+ * The question, entity, evidence line and disclosure text of one Warden ask, all through the one
+ * `cardCopy` rule: the producer's authored `question` first, else the reason's first sentence when
+ * it is a question, else a plain question from the item's kind and state (`plain`), with the raw
+ * title — emoji shortcodes stripped; a title that is nothing else is `Item #<id>` — as the entity,
+ * whole. A failed item's reason is all evidence. `tag` is the lifted `[tag]`.
  */
 export function askCopy({
   eventId,
   title,
   reason,
   failed,
+  question = null,
+  repo = null,
+  primary = null,
 }: {
   eventId: number
   title: string | null
   reason: string | null
   failed: boolean
+  /** The question the producer authored, when it sends one. */
+  question?: string | null
+  repo?: string | null
+  /** The primary verb the card offers, which names the plain question. */
+  primary?: WardenActionVerb | null
 }): { tag: string | null; entity: string | null; copy: CardCopy } {
   const cleanTitle = stripShortcodes(title ?? '') || `Item #${eventId}`
   const cleanReason = reason === null ? null : stripShortcodes(reason)
+  const plain = wardenPlainQuestion({ failed, repo, primary })
+  const authored = question === null ? null : stripShortcodes(question)
   if (failed) {
-    const question = retryQuestion(cleanTitle)
-    // Only a title the question had to ellipsize still needs to be shown whole above it.
-    const copy = cardCopy({
-      question,
-      body: cleanReason === '' ? null : cleanReason,
-      title: cleanTitle,
-      named: !question.includes('…'),
-    })
+    const copy = cardCopy({ authored, body: cleanReason, title: cleanTitle, plain })
     return { tag: null, entity: copy.entity, copy }
   }
-  const split = splitReason(cleanReason, cleanTitle)
-  const copy = cardCopy({ question: split.question, body: split.rest, title: cleanTitle })
+  const split = splitReason(cleanReason, '')
+  const copy = cardCopy({
+    authored,
+    ask: split.question,
+    body: split.rest,
+    title: cleanTitle,
+    plain,
+  })
   return { tag: split.tag, entity: copy.entity, copy }
-}
-
-/** `Retry <title>?` — a title that already ends in punctuation does not get a second mark. */
-export function retryQuestion(title: string): string {
-  return titleQuestion('Retry', title)
 }
 
 /** A decision waiting longer than this many days gets a warning tone on its age. */
 const WAIT_WARN_DAYS = 2
 
-/** The entity (`<repo>`) plus two facts: `waiting <n> d` and `revision <n>[, <n> redrives]`. */
+/** The repo plus two facts: `waiting <n> d` and, when there is a history worth a word, how often the item was retried or revised. */
 export function cardFacts(row: AwaitingOwnerRow): DecisionCardFact[] {
   const waiting =
     row.ageDays === null
@@ -520,11 +547,13 @@ export function cardFacts(row: AwaitingOwnerRow): DecisionCardFact[] {
       : row.ageDays > WAIT_WARN_DAYS
         ? { text: `waiting ${formatAgeDays(row.ageDays)}`, tone: 'warn' as const }
         : `waiting ${formatAgeDays(row.ageDays)}`
-  return [
-    stripShortcodes(row.repo ?? ''),
-    waiting,
-    `revision ${row.revisionCount}${row.redrives > 0 ? `, ${pluralize(row.redrives, 'redrive')}` : ''}`,
-  ].filter((part) => part !== '')
+  const history =
+    row.redrives > 0
+      ? `retried ${pluralize(row.redrives, 'time')}`
+      : row.revisionCount > 0
+        ? `revised ${pluralize(row.revisionCount, 'time')}`
+        : ''
+  return [stripShortcodes(row.repo ?? ''), waiting, history].filter((part) => part !== '')
 }
 
 /** Cards in one list: needs-decision first, then any awaiting entry in a state this page does not

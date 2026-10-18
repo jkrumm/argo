@@ -9,6 +9,7 @@
 
 .preview {
   flex: 0 1 14rem;
+  align-self: flex-start;
   min-width: 0;
   padding: var(--vx-space-stack-sm, 0.5rem);
   border-radius: var(--vx-radius-fine);
@@ -17,10 +18,14 @@
 
 .question {
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .wrap {
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+}
+
+.status {
+  flex: none;
 }

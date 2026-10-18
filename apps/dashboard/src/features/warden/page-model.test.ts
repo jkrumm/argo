@@ -17,7 +17,6 @@ import {
   originKind,
   planActions,
   readLeaf,
-  retryQuestion,
   pollerStaleLabel,
   deferralOf,
   splitReason,
@@ -31,6 +30,7 @@ import {
   revertsFooter,
   REVERTS_INFO,
   askCopy,
+  wardenPlainQuestion,
   pollerAgeText,
   BUDGET_MISSING,
   emptyBoardText,
@@ -459,11 +459,21 @@ describe('splitReason', () => {
 })
 
 describe('cardFacts', () => {
-  it('leads with repo, then age, revision and re-drives when present', () => {
+  it('leads with repo, then age, then how often the item was retried', () => {
     expect(cardFacts(row({ redrives: 2, ageDays: 1.2 }))).toEqual([
       'repo-a',
       'waiting 1.2 d',
-      'revision 1, 2 redrives',
+      'retried 2 times',
+    ])
+  })
+
+  it('says revised only when nothing was retried, and never `revision 0`', () => {
+    expect(cardFacts(row({ redrives: 0, revisionCount: 1, ageDays: 1.2 }))[2]).toBe(
+      'revised 1 time',
+    )
+    expect(cardFacts(row({ redrives: 0, revisionCount: 0, ageDays: 1.2 }))).toEqual([
+      'repo-a',
+      'waiting 1.2 d',
     ])
   })
 
@@ -473,7 +483,7 @@ describe('cardFacts', () => {
   })
 
   it('omits what warden did not report', () => {
-    expect(cardFacts(row({ repo: null, ageDays: null, redrives: 0 }))).toEqual(['revision 1'])
+    expect(cardFacts(row({ repo: null, ageDays: null, redrives: 0, revisionCount: 0 }))).toEqual([])
   })
 })
 
@@ -569,17 +579,6 @@ describe('deferredNote', () => {
   })
 })
 
-describe('retryQuestion', () => {
-  it('asks to retry the title', () => {
-    expect(retryQuestion('Push to the mini')).toBe('Retry Push to the mini?')
-  })
-
-  it('does not stack punctuation', () => {
-    expect(retryQuestion('fails mid-read.')).toBe('Retry fails mid-read?')
-    expect(retryQuestion('is it flaky?')).toBe('Retry is it flaky?')
-  })
-})
-
 describe('leading tag', () => {
   it('lifts a leading [tag] out of the question', () => {
     expect(splitReason('[blocker] Deploy now? It touches CI.', 'x')).toEqual({
@@ -602,6 +601,12 @@ describe('leading tag', () => {
       question: 'Title',
       rest: null,
     })
+  })
+
+  it('shows no category chip for a placeholder tag', () => {
+    expect(cardCategory('decision', 'no category', null)).toBeNull()
+    expect(cardCategory('decision', 'None', null)).toBeNull()
+    expect(cardCategory('decision', 'blocker', null)).toBe('blocker')
   })
 })
 
@@ -786,7 +791,7 @@ describe('cardCategory', () => {
 })
 
 describe('askCopy', () => {
-  it('strips shortcodes before splitting and keeps a short question', () => {
+  it('strips shortcodes before splitting and keeps a short question the reason asks', () => {
     const ask = askCopy({
       eventId: 1,
       title: ':rotating_light: {title}',
@@ -798,38 +803,70 @@ describe('askCopy', () => {
     expect(ask.copy).toMatchObject({
       question: 'Ship {thing}?',
       evidenceLine: 'It touches the loop.',
-      fromTitle: false,
+      source: 'ask',
     })
   })
 
-  it('asks to approve the title when the first sentence is prose, keeping the whole ask', () => {
-    const sentence = `Should warden ${'merge the change and then redeploy the loop '.repeat(3)}now?`
+  it('prefers the producer-authored question over the reason', () => {
     const ask = askCopy({
       eventId: 1,
-      title: '{title}',
+      title: 'fix(loop): raw subject',
+      reason: 'Ship {thing}? It touches the loop.',
+      failed: false,
+      question: 'Merge the loop fix?',
+    })
+    expect(ask.copy.question).toBe('Merge the loop fix?')
+    expect(ask.copy.source).toBe('authored')
+    expect(ask.entity).toBe('fix(loop): raw subject')
+  })
+
+  it('asks a plain question from the primary verb when the reason is prose', () => {
+    const sentence = `Warden ${'merged the change and then redeployed the loop '.repeat(3)}now.`
+    const ask = askCopy({
+      eventId: 1,
+      title: 'fix(loop): raw subject',
       reason: `${sentence} Tests pass.`,
       failed: false,
+      repo: '{repo}',
+      primary: 'merge',
     })
-    expect(ask.copy.question).toBe('Approve {title}?')
-    expect(ask.entity).toBeNull()
+    expect(ask.copy.question).toBe('Merge {repo} PR?')
+    expect(ask.entity).toBe('fix(loop): raw subject')
     expect(ask.copy.detail).toBe(`${sentence} Tests pass.`)
   })
 
-  it('keeps Retry for a failed item, bounded, and does not repeat the title above it', () => {
-    const ask = askCopy({ eventId: 1, title: '{title}', reason: 'Exit code 1.', failed: true })
-    expect(ask.copy.question).toBe('Retry {title}?')
-    expect(ask.entity).toBeNull()
+  it('names the plain question after the verb the card offers', () => {
+    const plain = (primary: Parameters<typeof wardenPlainQuestion>[0]['primary'], repo = '{r}') =>
+      wardenPlainQuestion({ failed: false, repo, primary })
+    expect(plain('merge')).toBe('Merge {r} PR?')
+    expect(plain('implement')).toBe('Implement {r} change?')
+    expect(plain('reinvestigate')).toBe('Reinvestigate {r} item?')
+    expect(plain('dismiss')).toBe('Decide on {r} item?')
+    expect(plain('merge', '')).toBe('Merge this PR?')
+    expect(plain(null, '')).toBe('Decide on this item?')
+  })
+
+  it('asks to retry a failed run, with the raw title as the entity, whole', () => {
+    const ask = askCopy({
+      eventId: 1,
+      title: 'fix(loop): raw subject',
+      reason: 'Exit code 1.',
+      failed: true,
+      repo: '{repo}',
+    })
+    expect(ask.copy.question).toBe('Retry failed {repo} run?')
+    expect(ask.entity).toBe('fix(loop): raw subject')
     expect(ask.copy.evidenceLine).toBe('Exit code 1.')
-    const long = askCopy({ eventId: 1, title: 'x'.repeat(120), reason: null, failed: true })
-    expect(long.copy.question.length).toBeLessThanOrEqual(80)
-    expect(long.entity).toBe('x'.repeat(120))
+    expect(askCopy({ eventId: 1, title: 'x', reason: null, failed: true }).copy.question).toBe(
+      'Retry failed run?',
+    )
   })
 
   it('falls back to the item number when the title is only a shortcode', () => {
     const ask = askCopy({ eventId: 42, title: ':warning:', reason: null, failed: true })
-    expect(ask.copy.question).toBe('Retry Item #42?')
+    expect(ask.entity).toBe('Item #42')
     const none = askCopy({ eventId: 7, title: null, reason: null, failed: true })
-    expect(none.copy.question).toBe('Retry Item #7?')
+    expect(none.entity).toBe('Item #7')
   })
 })
 

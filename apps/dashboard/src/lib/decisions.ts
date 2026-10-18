@@ -2,18 +2,25 @@ import { stripShortcodes } from './text'
 import {
   capFacts,
   cardCopy,
+  plainQuestion,
   type DecisionCardFact,
 } from '../components/upstream/decision-card-model'
 import { AWAITING_OWNER_STALE_DAYS, deriveAwaitingOwner } from '../features/warden/model'
-import { askCopy, recentTransitions, type TransitionHistory } from '../features/warden/page-model'
 import {
+  askCopy,
+  planActions,
+  recentTransitions,
+  type TransitionHistory,
+} from '../features/warden/page-model'
+import {
+  firstSentence,
   flattenAgents,
   formatWaitDuration,
-  headlineOf,
+  restAfterFirstSentence,
   isAbandonedWait,
 } from '../features/agents/model'
 import type { OverviewSnapshot } from './queries/agents'
-import type { WardenRaw } from './queries/warden'
+import type { WardenActionVerb, WardenBoardItem, WardenRaw } from './queries/warden'
 
 // The ONE merged inbox: everything that waits on the owner, from Warden and from the agent fleet.
 // The Home heading count, the summary sentence and the cards all read `decisions.length` of one
@@ -58,6 +65,10 @@ export type DecisionInput = {
   now: number
 }
 
+/** The question a Warden item carries when the producer authored one; blank reads as none. */
+const authoredOf = (item: WardenBoardItem): string | null =>
+  typeof item.question === 'string' && item.question.trim() !== '' ? item.question : null
+
 const parseMs = (iso: string | null | undefined): number | null => {
   if (!iso) return null
   const ms = Date.parse(iso)
@@ -84,9 +95,11 @@ function wardenDecisions(
     reason: string | null,
     failed: boolean,
     ageMs: number | null,
+    question: string | null,
+    primary: WardenActionVerb | null,
   ) => {
     seen.add(eventId)
-    const { copy, entity } = askCopy({ eventId, title, reason, failed })
+    const { copy, entity } = askCopy({ eventId, title, reason, failed, question, repo, primary })
     // Cleaned here, where the item is read, so no view renders a `:name:` shortcode.
     const cleanRepo = stripShortcodes(repo ?? '')
     const waiting =
@@ -122,6 +135,8 @@ function wardenDecisions(
       row.reason,
       row.state === 'failed',
       row.ageDays === null ? null : row.ageDays * DAY_MS + sincePush,
+      row.question,
+      planActions(row.availableActions, row.state === 'failed' ? 'failed' : 'decision').primary,
     )
   }
   // `awaiting_owner` already lists failed items; a failed board item it missed still waits on the
@@ -136,6 +151,8 @@ function wardenDecisions(
       item.note ?? null,
       true,
       since === null ? null : Math.max(0, now - since),
+      authoredOf(item),
+      planActions(item.availableActions ?? [], 'failed').primary,
     )
   }
   return out
@@ -150,10 +167,10 @@ function agentDecisions(snapshot: OverviewSnapshot | null | undefined, now: numb
     const evidence = item.cmd?.trim() || null
     const title = typeof item['title'] === 'string' ? item['title'] : null
     const copy = cardCopy({
-      question: headlineOf(item.question),
-      body: evidence,
+      ask: firstSentence(item.question),
+      body: restAfterFirstSentence(item.question),
       title,
-      verb: 'Answer',
+      plain: plainQuestion('Answer', host ? `${host} request` : 'this request'),
     })
     return {
       source: 'queue',
@@ -179,10 +196,10 @@ function agentDecisions(snapshot: OverviewSnapshot | null | undefined, now: numb
       const ageMs = a.lastActivityAt == null ? null : Math.max(0, now - a.lastActivityAt)
       const evidence = a.blocker ?? a.waitingFor ?? a.standing ?? null
       const copy = cardCopy({
-        question: headlineOf(a.title ?? a.lastPrompt ?? a.id),
+        authored: a.question ?? null,
         body: evidence,
-        title: a.title,
-        verb: 'Unblock',
+        title: a.title ?? a.lastPrompt ?? a.id,
+        plain: plainQuestion('Unblock', `${a.project} agent`),
       })
       return {
         source: 'agent',

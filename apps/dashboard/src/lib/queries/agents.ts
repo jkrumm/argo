@@ -24,7 +24,8 @@ export type OverviewRecord = NonNullable<Awaited<ReturnType<typeof fetchLatest>>
 export type OverviewSnapshot = OverviewRecord['snapshot']
 export type OverviewSummary = NonNullable<OverviewSnapshot['summary']>
 export type OverviewProject = NonNullable<OverviewSnapshot['projects']>[number]
-export type OverviewAgent = OverviewProject['agents'][number]
+/** `question` on an agent is the question the producer may author for its `needs_you` state. */
+export type OverviewAgent = OverviewProject['agents'][number] & { question?: string | null }
 export type HumanQueueItem = NonNullable<OverviewSnapshot['humanQueue']>[number]
 export type HistoryPoint = Awaited<ReturnType<typeof fetchHistory>>['data'][number]
 export type Narrative = Awaited<ReturnType<typeof fetchNarratives>>['data'][number]

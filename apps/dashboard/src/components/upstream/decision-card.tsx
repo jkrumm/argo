@@ -27,6 +27,7 @@ import { Link } from '@tanstack/react-router'
 import { Fragment, useId, type ReactNode } from 'react'
 import classes from './decision-card.module.css'
 import { VX } from 'basalt-ui/tokens'
+import { softBreaks } from '../../lib/text'
 import {
   hasActions,
   isRenderable,
@@ -184,10 +185,10 @@ export function DecisionCard({
             {question}
           </Text>
           {(isRenderable(status) || shown.length > 0) && (
-            <Group gap="xs" wrap="wrap">
-              {status}
+            <Group gap="xs" wrap="nowrap" align="baseline">
+              {isRenderable(status) && <Box className={classes.status}>{status}</Box>}
               {shown.length > 0 && (
-                <Text size="xs" c="dimmed">
+                <Text size="xs" c="dimmed" miw={0} className={classes.wrap}>
                   {shown.map((fact, index) => (
                     <Fragment key={`${index}-${fact.text}`}>
                       {index > 0 ? ' · ' : null}
@@ -206,7 +207,7 @@ export function DecisionCard({
           )}
           {isRenderable(evidenceLine) && (
             <Text size="sm" className={classes.wrap}>
-              {evidenceLine}
+              {softBreaks(evidenceLine ?? '')}
             </Text>
           )}
           {previewPlacement === 'inline' && isRenderable(preview) && (
