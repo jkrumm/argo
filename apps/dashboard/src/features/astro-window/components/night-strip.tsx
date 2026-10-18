@@ -99,7 +99,7 @@ export function NightStrip({
   }, [measure, measureNow, nights])
   const offscreenText = offscreenNightsText(offscreenCount)
   return (
-    <Card data-shot="night-strip">
+    <Card data-shot="night-strip" data-shot-states="loading error">
       <Box className={classes.host} data-more={offscreenCount > 0}>
         <Box
           ref={scroller}

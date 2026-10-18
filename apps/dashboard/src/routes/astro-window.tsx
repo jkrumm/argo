@@ -39,6 +39,7 @@ import {
   type MapLayerState,
 } from '../features/astro-window'
 import { astroQueries, type AstroWindowParams } from '../lib/queries/astro'
+import { shotState } from '../lib/shot-state'
 
 // ── Search params ──────────────────────────────────────────────────────────
 
@@ -176,7 +177,9 @@ function AstroWindowPage() {
   // the whole page for the route fallback. A deferred value keeps the previous frame until it lands.
   const deferredParams = useDeferredValue(params)
   const { data } = useSuspenseQuery(astroQueries.window(deferredParams))
-  const { data: sites } = useSuspenseQuery(astroQueries.sites())
+  const { data: sitesResponse } = useSuspenseQuery(astroQueries.sites())
+  // `?shot-state=empty`: the real empty branch is an empty site list (the Forecast tab's "Unknown site" card).
+  const sites = shotState() === 'empty' ? { data: [] } : sitesResponse
   // Resolved from the deferred params so a site switch never pairs the old night with the new site.
   const selectedSite = sites.data.find((s) => s.id === deferredParams.site)
 
@@ -326,13 +329,15 @@ function AstroWindowPage() {
             </Center>
           }
         >
-          <SiteMap
-            siteId={search.site}
-            onSelectSite={handleSiteChange}
-            height={MAP_FULL_BLEED_HEIGHT}
-            layers={layers}
-            onLayersChange={handleLayersChange}
-          />
+          <Box data-shot="site-map" data-shot-states="loading error">
+            <SiteMap
+              siteId={search.site}
+              onSelectSite={handleSiteChange}
+              height={MAP_FULL_BLEED_HEIGHT}
+              layers={layers}
+              onLayersChange={handleLayersChange}
+            />
+          </Box>
         </Suspense>
       ) : (
         <Stack gap="sm">
@@ -401,14 +406,14 @@ function AstroWindowPage() {
 
           {search.tab === 'forecast' && selectedNight && (
             <>
-              <Box data-shot="night-timeline">
+              <Box data-shot="night-timeline" data-shot-states="loading error">
                 <NightTimelineChart
                   hourly={data.detail.hourly}
                   night={selectedNight}
                   withMiss={timelineNamesMiss}
                 />
               </Box>
-              <Box data-shot="cloud-layers">
+              <Box data-shot="cloud-layers" data-shot-states="loading error">
                 <CloudLayersChart hourly={data.detail.hourly} night={selectedNight} />
               </Box>
               {selectedSite ? (
@@ -426,7 +431,11 @@ function AstroWindowPage() {
                       <ChartCard state={{ pending: true }} placeholderHeight={PANORAMA_HEIGHT} />
                     }
                   >
-                    <Box data-shot="sky-panorama">
+                    <Box
+                      data-shot="sky-panorama"
+                      data-shot-states="loading error"
+                      data-shot-absent="empty"
+                    >
                       <SkyPanorama
                         key={`${selectedSite.id}-${selectedDate}`}
                         site={selectedSite}
@@ -442,13 +451,22 @@ function AstroWindowPage() {
                       <ChartCard state={{ pending: true }} placeholderHeight={CHART_HEIGHT} />
                     }
                   >
-                    <Box data-shot="annual-budget">
+                    <Box
+                      data-shot="annual-budget"
+                      data-shot-states="loading error"
+                      data-shot-absent="empty"
+                    >
                       <MonthlyBudgetChart site={selectedSite} />
                     </Box>
                   </Suspense>
                 </>
               ) : (
-                <ChartCard state={{ empty: 'Unknown site' }} placeholderHeight={PANORAMA_HEIGHT} />
+                <Box data-shot="unknown-site" data-shot-states="empty">
+                  <ChartCard
+                    state={{ empty: 'Unknown site' }}
+                    placeholderHeight={PANORAMA_HEIGHT}
+                  />
+                </Box>
               )}
             </>
           )}

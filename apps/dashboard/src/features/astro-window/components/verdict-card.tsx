@@ -59,7 +59,7 @@ export function VerdictCard({
   const facts = verdictFacts(night, nights)
 
   return (
-    <Box data-shot="verdict-card">
+    <Box data-shot="verdict-card" data-shot-states="loading error">
       <DecisionCard
         question={verdictHeadline(night)}
         status={
