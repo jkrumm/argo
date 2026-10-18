@@ -13,7 +13,6 @@ const {
   listTime,
   startedDate,
   summaryExcerpt,
-  SUMMARY_MAX_CHARS_COMPACT,
   titleExcerpt,
   listEndNote,
   clampAtWord,
@@ -202,8 +201,9 @@ describe('summaryExcerpt', () => {
   const long =
     'alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho'
   it('cuts the phone shorter than the desktop, always at a word', () => {
-    expect(summaryExcerpt(long, true).length).toBeLessThanOrEqual(SUMMARY_MAX_CHARS_COMPACT + 1)
-    expect(summaryExcerpt(long, true).endsWith('…')).toBe(true)
+    expect(summaryExcerpt(long, true)).toBe(
+      'alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron…',
+    )
     expect(summaryExcerpt(long, false)).toBe(long)
   })
 })
@@ -212,10 +212,9 @@ describe('titleExcerpt', () => {
   it('cuts a phone title at a word, leaves a wide one whole', () => {
     const title =
       'Quarterly planning notes for the platform migration and the rollout schedule for every regional team'
-    const cut = titleExcerpt(title, true)
-    expect(cut.length).toBeLessThanOrEqual(71)
-    expect(cut.endsWith('…')).toBe(true)
-    expect(title.startsWith(cut.slice(0, -1))).toBe(true)
+    expect(titleExcerpt(title, true)).toBe(
+      'Quarterly planning notes for the platform migration and the rollout…',
+    )
     expect(titleExcerpt(title, false)).toBe(title)
   })
 })

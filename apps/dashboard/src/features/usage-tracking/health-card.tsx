@@ -21,6 +21,7 @@ import {
   healthInfo,
   fmtTokens,
   foldTopN,
+  noHealthReading,
   noUsageWindow,
   OTHER_KEY,
   periodNoun,
@@ -113,7 +114,7 @@ export default function HealthCard({
     <ChartCard
       title={`Latency and errors · per ${unit} · ${periodNoun(range)}`}
       info={healthInfo(unit)}
-      state={{ empty: !hasCalls && emptyWindow }}
+      state={{ empty: noHealthReading(hasCalls, p95.length) && emptyWindow }}
     >
       <Box className={classes.healthBox}>
         <Box className={classes.health}>

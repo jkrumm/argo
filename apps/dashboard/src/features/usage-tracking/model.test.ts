@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'bun:test'
 import { NBSP } from '../../lib/format'
 import {
+  noHealthReading,
   shortDay,
   badDayCount,
   errorDaysLine,
@@ -536,5 +537,13 @@ describe('peakBucketTotal', () => {
       ]),
     ).toBe(7)
     expect(peakBucketTotal([])).toBe(0)
+  })
+})
+
+describe('noHealthReading', () => {
+  it('a latency line keeps the card even when no call carries an error rate', () => {
+    expect(noHealthReading(false, 0)).toBe(true)
+    expect(noHealthReading(false, 3)).toBe(false)
+    expect(noHealthReading(true, 0)).toBe(false)
   })
 })
