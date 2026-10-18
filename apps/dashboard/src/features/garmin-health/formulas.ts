@@ -9,9 +9,9 @@ import { ZONE_COLORS } from './constants'
 
 export type AcwrZone = 'undertrained' | 'optimal' | 'caution' | 'danger'
 
-/** The one name per ACWR zone, shared by the load meters and the chart legend. */
+/** The one full name per ACWR zone, used in every text surface; a meter segment passes `short` for its narrow fallback. */
 export const ACWR_ZONE_NAME = {
-  undertrained: 'Under',
+  undertrained: 'Undertrained',
   optimal: 'Optimal',
   caution: 'Caution',
   danger: 'Danger',

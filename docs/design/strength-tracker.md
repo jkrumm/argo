@@ -176,3 +176,4 @@ No new basalt rows.
 - Mixed date ticks: not fixed — basalt row. `formatX` on the ACWR chart drives both its ticks and the tooltip title (the default prints `DD.MM` ticks and, per the Wave 28 row, a clock time and US date order in the tooltip for a daily value); dropping it trades the mixed ticks for a worse tooltip, so it stays and the mixed ticks are basalt-owned.
 - Balance rows: fixed — the range is said once, as the meter's band label (`{lo}–{hi}`); the caption's distance tail comes from `distanceTail` (`· {n} under|over the band`, empty inside the band). Rows without a meter keep `{lo}–{hi} band · need both lifts`.
 - Not fixed (basalt / not argo's): Meter detached ticks, Sparkline reference label, four type sizes in shells.
+- ACWR zone names: fixed — Strength reads the one `ACWR_ZONE_NAME` (full names in text, legend and tooltip); its meter passes `short` (`Under`, `Caut.`) as the narrow fallback only.

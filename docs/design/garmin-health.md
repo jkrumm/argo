@@ -182,5 +182,5 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 ### Wave 30 fixes
 
-- ACWR chart legend: fixed — names `Under`, `Optimal`, `Caution ({lo}–{hi})` and `Danger` (`ACWR_LEGEND` in `model.ts`, built from the shared `ACWR_ZONE_NAME` the load meters on the Garmin and Strength pages also read; Home's strip cell is another page's file and still spells its own names). Fills agree: amber below the floor and over the optimal ceiling up to the danger line, red above it; every swatch has a fill and every fill a name (desktop; the legend is off at 390).
+- ACWR chart legend: fixed — names `Undertrained`, `Optimal`, `Caution ({lo}–{hi})` and `Danger` (`ACWR_LEGEND` in `model.ts`, built from the shared `ACWR_ZONE_NAME` the load meters on the Garmin and Strength pages also read; Home's strip cell is another page's file and still spells its own names). Fills agree: amber below the floor and over the optimal ceiling up to the danger line, red above it; every swatch has a fill and every fill a name (desktop; the legend is off at 390).
 - Not fixed (basalt / not argo's): recovery cell part-empty, Meter detached ticks and unnamed caution at 390, ACWR tooltip name wrapping, Sparkline reference label, four type sizes in shells.

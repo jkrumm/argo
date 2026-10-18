@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { ACWR_ZONE_NAME, acwrZoneLabel } from './formulas'
 import {
   acwrFact,
   acwrRelation,
@@ -430,12 +431,24 @@ describe('loadFooter', () => {
 })
 
 describe('ACWR_LEGEND', () => {
-  test('names all three zones with the meter vocabulary and their bounds', () => {
+  test('names all four zones with the meter vocabulary and their bounds', () => {
     expect(ACWR_LEGEND).toEqual({
-      undertrained: 'Under (< 0.8)',
+      undertrained: 'Undertrained (< 0.8)',
       optimal: 'Optimal (0.8–1.3)',
       caution: 'Caution (1.3–1.5)',
       danger: 'Danger (> 1.5)',
     })
+  })
+})
+
+describe('ACWR_ZONE_NAME', () => {
+  test('every surface label derives from the one vocabulary', () => {
+    const zones = ['undertrained', 'optimal', 'caution', 'danger'] as const
+    for (const zone of zones) {
+      expect(acwrZoneLabel(zone)).toBe(ACWR_ZONE_NAME[zone])
+      expect(ACWR_LEGEND[zone].startsWith(ACWR_ZONE_NAME[zone])).toBe(true)
+    }
+    expect(ACWR_ZONE_NAME.undertrained).toBe('Undertrained')
+    expect(acwrZoneLabel(null)).toBe('')
   })
 })

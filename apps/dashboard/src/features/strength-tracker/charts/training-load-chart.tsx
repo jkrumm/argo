@@ -9,7 +9,7 @@ import { SERIES } from '../../../lib/series'
 import { EXERCISE_COLORS, METRIC_TOOLTIPS, ZONE_COLORS, type ExerciseKey } from '../constants'
 import { fmtLoadPair } from '../model'
 import { acwrZoneLabel, exerciseLabel, type AcwrZone } from '../formulas'
-import { ACWR_PARITY } from '../bands'
+import { ACWR_PARITY, ACWR_ZONE_NAME } from '../bands'
 import { mergePoints, type ExerciseSeries, type MergedPoint } from './merge-acwr'
 
 const HEIGHT = 280
@@ -21,10 +21,10 @@ const exerciseColor = (ex: string): string =>
 // One source for the zone bands, the legend swatches and the header badge. Undertrained is
 // neutral, not an exercise hue and not amber: it is "under-loaded", not a warning.
 const ZONES: { key: AcwrZone; label: string; color: string }[] = [
-  { key: 'undertrained', label: 'Undertrained', color: ZONE_COLORS.neutral },
-  { key: 'optimal', label: 'Optimal', color: VX.goodSolid },
-  { key: 'caution', label: 'Caution', color: VX.warnSolid },
-  { key: 'danger', label: 'Danger', color: VX.badSolid },
+  { key: 'undertrained', label: ACWR_ZONE_NAME.undertrained, color: ZONE_COLORS.neutral },
+  { key: 'optimal', label: ACWR_ZONE_NAME.optimal, color: VX.goodSolid },
+  { key: 'caution', label: ACWR_ZONE_NAME.caution, color: VX.warnSolid },
+  { key: 'danger', label: ACWR_ZONE_NAME.danger, color: VX.badSolid },
 ]
 
 // The zone keys ride the legend as swatches only — `getValue` is null everywhere, so they draw

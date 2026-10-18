@@ -193,20 +193,7 @@ export function acwrZoneColor(zone: AcwrZone | null): string {
   }
 }
 
-export function acwrZoneLabel(zone: AcwrZone | null): string {
-  switch (zone) {
-    case 'undertrained':
-      return 'Undertrained'
-    case 'optimal':
-      return 'Optimal'
-    case 'caution':
-      return 'Caution'
-    case 'danger':
-      return 'Danger'
-    default:
-      return ''
-  }
-}
+export { acwrZoneLabel } from '../garmin-health/formulas'
 
 // ── Misc lookups ────────────────────────────────────────────────────────────
 
