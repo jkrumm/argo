@@ -20,8 +20,10 @@ import {
   type PendingActions,
   type Row,
 } from './model'
+import { planActions } from './page-model'
 import type {
   WardenAwaitingOwnerEntry,
+  WardenBoard,
   WardenBoardItem,
   WardenItems,
 } from '../../lib/queries/warden'
@@ -169,6 +171,32 @@ describe('deriveAwaitingOwner', () => {
     )
     expect(view.failed.map((r) => r.failedFrom)).toEqual(['verifying', null])
     expect(view.needsDecision[0]?.failedFrom).toBeNull()
+  })
+
+  it('reads a failed verification off the reason when the timeline does not cover the item', () => {
+    const board: WardenBoard = {
+      awaiting_owner: [
+        entry({ event_id: 1, state: 'failed', reason: 'verification failed: {why}' }),
+        entry({ event_id: 2, state: 'failed', reason: '[tag] Verification failed: {why}' }),
+        entry({ event_id: 3, state: 'failed', reason: '[:warning: verification failed: {why}]' }),
+        entry({ event_id: 4, state: 'failed', reason: 'CI failed on {sha}: PR left open' }),
+      ],
+    }
+    // Item 2's timeline holds no move into `failed` (a truncated history).
+    const items: WardenItems = {
+      '2': { transitions: [{ from_state: 'working', to_state: 'verifying' }] },
+    }
+    const view = deriveAwaitingOwner(board, items)
+    expect(view.failed.map((r) => r.failedFrom)).toEqual([
+      'verifying',
+      'verifying',
+      'verifying',
+      null,
+    ])
+    // A failed verification never offers Merge: the PR is already merged.
+    const shortcoded = view.failed[2]!
+    const plan = planActions(['retry', 'merge', 'dismiss'], 'failed', shortcoded.failedFrom)
+    expect([plan.primary, plan.secondary, ...plan.menu]).not.toContain('merge')
   })
 
   it('reads failure_class/redrives off the entry, else the board item, else null/0', () => {

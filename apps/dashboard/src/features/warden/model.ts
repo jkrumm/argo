@@ -1,4 +1,4 @@
-import { authoredQuestion } from '../../lib/text'
+import { asText, authoredQuestion, stripShortcodes } from '../../lib/text'
 import { NBSP, formatRelative, withUnit } from '../../lib/format'
 import type {
   WardenActionVerb,
@@ -142,6 +142,19 @@ function failedFromOf(timeline: unknown): string | null {
   return null
 }
 
+/** Warden's own wording for a failure in the verifying state: `verification failed: …`. */
+const VERIFICATION_FAILED = /^\s*(?:\[[^\]]*\]\s*)*verification failed\b/i
+
+/**
+ * The state a failed row failed out of: its timeline's last move into `failed`, else — when the
+ * timeline is missing, truncated or holds no such move — `verifying` for a reason that says the
+ * verification failed. `null` when neither tells.
+ */
+function failedFromRow(timeline: unknown, reason: unknown): string | null {
+  const said = stripShortcodes(asText(reason))
+  return failedFromOf(timeline) ?? (VERIFICATION_FAILED.test(said) ? 'verifying' : null)
+}
+
 /**
  * Splits `board.awaiting_owner` into the `needs_decision`, `failed` and `other` lists, preserving
  * warden's own oldest-first order — this never re-sorts. Missing on an older snapshot reads as
@@ -179,7 +192,10 @@ export function deriveAwaitingOwner(
       revisionCount: entry.revision_count,
       failureClass: entry.failure_class ?? boardItem?.failure_class ?? null,
       redrives: entry.redrives ?? boardItem?.redrives ?? 0,
-      failedFrom: entry.state === 'failed' ? failedFromOf(items?.[String(entry.event_id)]) : null,
+      failedFrom:
+        entry.state === 'failed'
+          ? failedFromRow(items?.[String(entry.event_id)], entry.reason)
+          : null,
       availableActions: entry.availableActions ?? [],
       question: authoredQuestion(entry['question']) ?? authoredQuestion(boardItem?.['question']),
     }
