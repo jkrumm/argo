@@ -405,11 +405,15 @@ async function fetchThreadMessages(
 
 // ── useHermesThreads ─────────────────────────────────────────────────────────
 
-const THREADS_LIST_OPTS = { limit: 200 } as const
+/** The list request's page size: a list at this length may be cut off. */
+export const THREADS_LIST_LIMIT = 200
+const THREADS_LIST_OPTS = { limit: THREADS_LIST_LIMIT } as const
 
 export type HermesThreadsStore = ThreadsStore<AgentPart> & {
   /** Rollback for a server-rejected turn — see `removeLastUserMessageFromMap`. */
   removeLastUserMessage: (id: string) => void
+  /** The server's count of all threads (archived included); `null` until the list has loaded. */
+  total: number | null
 }
 
 export function useHermesThreads(): HermesThreadsStore {
@@ -513,6 +517,7 @@ export function useHermesThreads(): HermesThreadsStore {
     create,
     appendMessage,
     removeLastUserMessage,
+    total: listQuery.data?.total ?? null,
     setOutcome,
     setStatus,
     setResumeToken,

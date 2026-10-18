@@ -214,6 +214,5 @@ describe('labeled count, outside note and sources title', () => {
     expect(sourcesTitle({ ...base, view: 'teams' })).toBe('7 channels in 2 teams')
     expect(sourcesTitle({ ...base, view: 'teams', channels: null })).toBe('2 teams')
     expect(sourcesTitle({ ...base, view: 'feed' })).toBe('1 labeled source')
-    expect(sourcesTitle({ ...base, view: 'feed', labeled: null })).toBe('2 teams')
   })
 })

@@ -238,11 +238,20 @@ describe('listEndNote', () => {
     updatedAt: createdAt,
   })
   it('is null without threads', () => {
-    expect(listEndNote([], 0, NOW)).toBeNull()
+    expect(listEndNote([], 0, NOW, 0)).toBeNull()
   })
-  it('names the count, the oldest start and the archive', () => {
-    const note = listEndNote([entry(NOW), entry(NOW - 1000)], 2, NOW)
-    expect(note).toMatch(/^That is every thread: 2 threads since .+, plus 2 archived\./)
-    expect(listEndNote([entry(NOW)], 0, NOW)).toMatch(/1 thread since [^,]+\. Type below/)
+  it('claims completeness only when the server total is covered', () => {
+    const note = listEndNote([entry(NOW), entry(NOW - 1000)], 2, NOW, 4)
+    expect(note).toMatch(/^That is every thread: 2 threads since .+, plus 2 archived$/)
+    expect(listEndNote([entry(NOW)], 0, NOW, 1)).toMatch(/1 thread since [^,]+$/)
+  })
+  it('says how far back a capped list reaches', () => {
+    expect(listEndNote([entry(NOW), entry(NOW - 1000)], 0, NOW, 9)).toMatch(
+      /^2 of 9 threads, back to /,
+    )
+    expect(listEndNote([entry(NOW), entry(NOW - 1000)], 0, NOW, null, 2)).toMatch(
+      /^The newest 2 threads, back to /,
+    )
+    expect(listEndNote([entry(NOW)], 0, NOW, null, 5)).toMatch(/^That is every thread/)
   })
 })

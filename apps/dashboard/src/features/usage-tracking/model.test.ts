@@ -2,6 +2,8 @@ import { describe, expect, it } from 'bun:test'
 import {
   badDayCount,
   errorDaysLine,
+  foldInfo,
+  healthInfo,
   peakOf,
   topSourceNote,
   billingParts,
@@ -286,7 +288,8 @@ describe('error days, peak and source note', () => {
       '2 warn days (1%–3%), 1 bad day (> 3%)',
     )
     expect(errorDaysLine([0.02, null])).toBe('1 warn day (1%–3%)')
-    expect(errorDaysLine([0, null])).toBe('no day above 1%')
+    expect(errorDaysLine([0, 0.001])).toBe('no day above 1%')
+    expect(errorDaysLine([null, null])).toBe('no daily reading yet')
   })
   it('finds the peak day', () => {
     const days = [
@@ -297,7 +300,14 @@ describe('error days, peak and source note', () => {
     expect(peakOf(days)?.date).toBe('b')
     expect(peakOf([{ date: 'x', value: null }])).toBeNull()
   })
+  it('words the health and fold info from the constants', () => {
+    expect(healthInfo('week')).toContain('a week under 1%')
+    expect(foldInfo('billing lane')).toBe(
+      'The six largest billing lanes in the window are named, the rest are grouped as Other.',
+    )
+  })
   it('states what the source percentage is of', () => {
     expect(topSourceNote('api', 30, 100)).toBe('30% from api')
+    expect(topSourceNote('api', 0, 0)).toBe('api')
   })
 })

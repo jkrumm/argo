@@ -1,7 +1,7 @@
 import type { Grain, Range } from '../../lib/queries/usage'
 import { colorForGroup } from './constants'
 import { FoldedChart } from './folded-chart'
-import { fmtTokens } from './model'
+import { foldInfo, fmtTokens } from './model'
 import type { BillingValue, TokensGroupBy, WorkspaceValue } from './types'
 
 const GROUP_NOUN: Record<TokensGroupBy, string> = {
@@ -34,7 +34,7 @@ export default function TokensChart({
       color={colorForGroup(groupBy)}
       format={fmtTokens}
       listTitle={`Tokens by ${GROUP_NOUN[groupBy]}`}
-      info="Tokens the models read and wrote: prompt, response, reasoning and text saved to the cache. Tokens re-read from the cache are not counted, because every turn re-reads the whole conversation and would inflate the total. The six biggest users are named, the rest are grouped as Other."
+      info={`Tokens the models read and wrote: prompt, response, reasoning and text saved to the cache. Tokens re-read from the cache are not counted, because every turn re-reads the whole conversation and would inflate the total. ${foldInfo(GROUP_NOUN[groupBy])}`}
     />
   )
 }

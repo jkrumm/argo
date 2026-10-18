@@ -13,7 +13,7 @@ type Chats = { total: number; oneOnOne: number; group: number; meeting: number }
 
 function labeledCell(coverage: Coverage, basis: string, onRetry: () => void): StatStripCell {
   const { labeled, total, loading, failed } = coverage
-  const outside = outsideNote(coverage)
+  const outsideText = outsideNote(coverage)
   const pending = loading > 0
   const atLeast = failed > 0 ? '≥' : ''
   return {
@@ -37,7 +37,7 @@ function labeledCell(coverage: Coverage, basis: string, onRetry: () => void): St
     footer: (
       <>
         {basis}
-        {outside === null ? '' : ` · ${outside}`}
+        {outsideText === null ? '' : ` · ${outsideText}`}
         {failed > 0 ? (
           <>
             {' · '}

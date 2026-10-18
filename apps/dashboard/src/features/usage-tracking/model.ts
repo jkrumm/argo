@@ -266,10 +266,6 @@ export function badDayCount(rates: readonly (number | null)[]): number {
   return rates.filter((r) => errorDayState(r) === 'bad').length
 }
 
-export function warnDayCount(rates: readonly (number | null)[]): number {
-  return rates.filter((r) => errorDayState(r) === 'warn').length
-}
-
 const days = (n: number) => (n === 1 ? 'day' : 'days')
 
 /**
@@ -277,8 +273,9 @@ const days = (n: number) => (n === 1 ? 'day' : 'days')
  * hue alone. Only the kinds that occurred are named; with neither, a plain fact.
  */
 export function errorDaysLine(rates: readonly (number | null)[]): string {
+  if (rates.every((r) => errorDayState(r) === 'none')) return 'no daily reading yet'
   const bad = badDayCount(rates)
-  const warn = warnDayCount(rates)
+  const warn = rates.filter((r) => errorDayState(r) === 'warn').length
   const parts = [
     warn > 0
       ? `${warn} warn ${days(warn)} (${fmtPct(ERROR_WARN_FROM, 0)}–${fmtPct(ERROR_BAD_ABOVE, 0)})`
@@ -302,7 +299,19 @@ export function peakOf<T extends { value: number | null }>(series: readonly T[])
 
 /** What the error-events label's percentage is of: `{pct} from {source}` (events, not calls). */
 export function topSourceNote(source: string, value: number, total: number): string {
-  return `${fmtShare(total > 0 ? value / total : null)} from ${source}`
+  return total > 0 ? `${fmtShare(value / total)} from ${source}` : source
+}
+
+/** The health card's info text: definitions, with thresholds from the same constants the bars use. */
+export function healthInfo(unit: 'day' | 'week'): string {
+  const warn = fmtPct(ERROR_WARN_FROM, 0)
+  const bad = fmtPct(ERROR_BAD_ABOVE, 0)
+  return `p95 latency: 95 % of calls finish faster than this; only calls that report a duration count. Error events: calls that ended in an error. A ${unit}'s error rate is its error events divided by its calls; a ${unit} under ${warn} is fine, ${warn}–${bad} is warn, over ${bad} is bad. The ${ERROR_FOLD_TOP_N === 3 ? 'three' : ERROR_FOLD_TOP_N} sources with the most error events are named, the rest are grouped as Other.`
+}
+
+/** The cost and tokens info tail: how many series are named and what they are called. */
+export function foldInfo(noun: string): string {
+  return `The ${FOLD_TOP_N === 6 ? 'six' : FOLD_TOP_N} largest ${noun}s in the window are named, the rest are grouped as Other.`
 }
 
 // ── Freshness ────────────────────────────────────────────────────────────────────────────────

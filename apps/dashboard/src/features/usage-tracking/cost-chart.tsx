@@ -1,7 +1,7 @@
 import type { Grain, Range } from '../../lib/queries/usage'
 import { colorForGroup } from './constants'
 import { FoldedChart } from './folded-chart'
-import { fmtUsdWhole } from './model'
+import { foldInfo, fmtUsdWhole } from './model'
 import type { BillingValue, CostGroupBy, WorkspaceValue } from './types'
 
 const GROUP_NOUN: Record<CostGroupBy, string> = {
@@ -33,7 +33,7 @@ export default function CostChart({
       color={colorForGroup(groupBy)}
       format={fmtUsdWhole}
       listTitle={`Spend by ${GROUP_NOUN[groupBy]}`}
-      info="Spend in US dollars, added up per day or week. The six biggest spenders in the window are named, the rest are grouped as Other."
+      info={`Spend in US dollars, added up per day or week. ${foldInfo(GROUP_NOUN[groupBy])}`}
     />
   )
 }
