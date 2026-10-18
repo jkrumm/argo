@@ -1,4 +1,4 @@
-import { formatDurationMin } from '../../components/upstream/schedule-row-model'
+import { formatDuration } from '../../lib/format'
 import { clockOf } from '../agents/model'
 import { axisPosition, dayAxis, meetingState, type Meeting } from './model'
 import classes from './home.module.css'
@@ -14,7 +14,7 @@ export function DayAxis({
 }) {
   const axis = dayAxis(meetings)
   const label = meetings
-    .map((m) => `${clockOf(m.startMs)}, ${formatDurationMin(m.durationMin)}`)
+    .map((m) => `${clockOf(m.startMs)}, ${formatDuration(m.durationMin * 60_000)}`)
     .join('; ')
   return (
     <div>

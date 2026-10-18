@@ -64,7 +64,7 @@ type Props = {
 export function Meetings({ agenda, tasks, now }: Props) {
   return (
     <Card>
-      <Section title="Today" {...(agenda === null && { value: '—' })}>
+      <Section title="Agenda" {...(agenda === null && { value: '—' })}>
         <Stack gap="sm" data-shot="meetings">
           {agenda === null ? (
             <Text size="sm" c="dimmed">

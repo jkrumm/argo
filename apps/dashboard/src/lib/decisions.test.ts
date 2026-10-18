@@ -60,9 +60,9 @@ describe('deriveDecisions', () => {
       now: NOW,
     })
     expect(w?.facts[0]).toBe('warden · {repo}')
-    expect(w?.facts[1]).toBe('waiting 1\u00a0d 0\u00a0h')
+    expect(w?.facts[1]).toBe('waiting 1\u00a0d')
     const [a] = deriveDecisions({ warden: null, agents: agents({ agents: [agent()] }), now: NOW })
-    expect(a?.facts).toEqual(['agent · {project}', 'waiting 2\u00a0h 0\u00a0m'])
+    expect(a?.facts).toEqual(['agent · {project}', 'waiting 2\u00a0h'])
   })
 
   it('lists a failed item once, from awaiting_owner only', () => {
@@ -279,7 +279,7 @@ const factsAt = (days: number) =>
 describe('deriveDecisions: one clock and one threshold', () => {
   it('warns on an age from Warden’s own stale threshold, inclusive', () => {
     expect(factsAt(AWAITING_OWNER_STALE_DAYS)).toEqual({
-      text: 'waiting 3\u00a0d 0\u00a0h · stale at 3\u00a0d',
+      text: 'waiting 3\u00a0d · stale at 3\u00a0d',
       tone: 'warn',
     })
     expect(factsAt(AWAITING_OWNER_STALE_DAYS - 0.1)).toBe('waiting 2\u00a0d 21\u00a0h')
@@ -381,7 +381,7 @@ describe('deriveDecisions: questions that tell items apart', () => {
       agents: null,
       now: NOW,
     })
-    expect(alert?.headline).toBe('Handle {repo} alert?')
+    expect(alert?.headline).toBe('Implement fix for {repo} alert?')
     const [byOrigin] = deriveDecisions({
       warden: warden({
         awaiting_owner: [
@@ -397,7 +397,7 @@ describe('deriveDecisions: questions that tell items apart', () => {
       agents: null,
       now: NOW,
     })
-    expect(byOrigin?.headline).toBe('Handle {repo} alert?')
+    expect(byOrigin?.headline).toBe('Implement fix for {repo} alert?')
   })
 })
 

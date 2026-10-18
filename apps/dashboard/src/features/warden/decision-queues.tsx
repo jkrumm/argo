@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { Anchor, Box, SimpleGrid, Text } from '@mantine/core'
+import { Anchor, Box, SimpleGrid, Stack, Text } from '@mantine/core'
 import { EmptyState, Section } from 'basalt-ui'
 import { CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
 import { IconCircleCheck, IconListDetails } from '@tabler/icons-react'
@@ -23,6 +23,7 @@ import {
   cardFacts,
   historyView,
   needsCards,
+  sharedEvidenceLines,
   recentTransitions,
   type TransitionHistory,
   type ActionPlan,
@@ -158,10 +159,18 @@ function QueueCard({
   )
 }
 
+/** The ask with an evidence line the list prints once left out of it. */
+function withoutShared(ask: WardenAsk, shared: readonly string[]): WardenAsk {
+  const line = ask.copy.evidenceLine
+  if (line === null || !shared.some((s) => s.toLowerCase() === line.toLowerCase())) return ask
+  return { ...ask, copy: { ...ask.copy, evidenceLine: null } }
+}
+
 function CardGrid({
   rows,
   kind,
   asks,
+  shared,
   pending,
   items,
   onFire,
@@ -170,26 +179,35 @@ function CardGrid({
   rows: readonly AwaitingOwnerRow[]
   kind: QueueKind
   asks: ReadonlyMap<string, WardenAsk | undefined>
+  /** Evidence lines this list prints once above the cards; its cards do not repeat them. */
+  shared: readonly string[]
   items: WardenItems | undefined
   pending: PendingActions
   onFire: (eventId: number, verb: WardenActionVerb) => void
   onSelectItem: (eventId: number) => void
 }) {
   return (
-    <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="sm">
-      {rows.map((row) => (
-        <QueueCard
-          key={row.eventId}
-          row={row}
-          kind={kind}
-          ask={asks.get(askKey({ row, kind })) ?? wardenAsk(row, kind)}
-          pending={pending[row.eventId]}
-          history={recentTransitions(items?.[String(row.eventId)])}
-          onFire={(verb) => onFire(row.eventId, verb)}
-          onSelectItem={() => onSelectItem(row.eventId)}
-        />
+    <Stack gap="sm">
+      {shared.map((line) => (
+        <Text key={line} size="sm" c="dimmed">
+          {line}
+        </Text>
       ))}
-    </SimpleGrid>
+      <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="sm">
+        {rows.map((row) => (
+          <QueueCard
+            key={row.eventId}
+            row={row}
+            kind={kind}
+            ask={withoutShared(asks.get(askKey({ row, kind })) ?? wardenAsk(row, kind), shared)}
+            pending={pending[row.eventId]}
+            history={recentTransitions(items?.[String(row.eventId)])}
+            onFire={(verb) => onFire(row.eventId, verb)}
+            onSelectItem={() => onSelectItem(row.eventId)}
+          />
+        ))}
+      </SimpleGrid>
+    </Stack>
   )
 }
 
@@ -214,6 +232,15 @@ export function DecisionQueues({ view, items, pending, onSelectItem, onAction }:
     })
     return new Map(entries.map((entry, i) => [askKey(entry), resolved[i]] as const))
   }, [needs, view.failed])
+
+  const sharedNeeds = useMemo(
+    () => sharedEvidenceLines(needs.map((row) => asks.get(askKey({ row, kind: 'decision' }))!)),
+    [needs, asks],
+  )
+  const sharedFailed = useMemo(
+    () => sharedEvidenceLines(view.failed.map((row) => asks.get(askKey({ row, kind: 'failed' }))!)),
+    [view.failed, asks],
+  )
 
   const fire = useCallback(
     (eventId: number, verb: WardenActionVerb) => {
@@ -249,6 +276,7 @@ export function DecisionQueues({ view, items, pending, onSelectItem, onAction }:
             rows={needs}
             kind="decision"
             asks={asks}
+            shared={sharedNeeds}
             items={items}
             pending={pending}
             onFire={fire}
@@ -262,6 +290,7 @@ export function DecisionQueues({ view, items, pending, onSelectItem, onAction }:
             rows={view.failed}
             kind="failed"
             asks={asks}
+            shared={sharedFailed}
             items={items}
             pending={pending}
             onFire={fire}

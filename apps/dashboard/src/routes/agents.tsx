@@ -68,7 +68,17 @@ function AgentsPage() {
 
   const agentWaits = cards.filter((card) => card.kind === 'agent').length
   const asks = cards.filter((card) => card.kind === 'human-queue').length
-  const summary = agentsSummaryParts({ agentWaits, asks, projects: waitingProjects(agents) })
+  const summary = agentsSummaryParts({
+    agentWaits,
+    asks,
+    projects: waitingProjects(agents),
+    abandoned: cards.filter((card) => card.abandoned).length,
+    hosts: new Set(
+      humanQueue.flatMap((item) =>
+        typeof item['host'] === 'string' && item['host'] !== '' ? [item['host']] : [],
+      ),
+    ).size,
+  })
 
   const feed = feedState({
     hasData: latest !== null,

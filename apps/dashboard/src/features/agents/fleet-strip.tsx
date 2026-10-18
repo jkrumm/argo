@@ -112,9 +112,9 @@ function fleetCell(fleet: Props['fleet'], longestRunMs: number | null): StatStri
   const { parts, total } = fleet
   return {
     key: 'fleet',
-    caption: `Fleet · ${total} agents`,
+    caption: 'Fleet',
     value: String(parts[0]?.value ?? 0),
-    unit: `working of ${total}`,
+    unit: `working of ${total} agents`,
     footer: fleetFact(longestRunMs, parts[0]?.value ?? 0),
     visual: (
       <Meter

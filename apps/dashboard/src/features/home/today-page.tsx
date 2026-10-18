@@ -31,14 +31,13 @@ import {
   type RawCalendarEvent,
 } from './model'
 import { NeedsYou } from './needs-you'
+import { garminStore, toApiWindow } from '../../lib/window-stores'
 import { applyVisibilityFilter } from '../garmin-health/visibility'
 import { acwrCell, agentsCell, budgetCell, meetingCell, recoveryCell } from './strip-cells'
 import classes from './home.module.css'
 
 /** Recovery and its baselines are window-wide, so Today reads the Garmin page's default window. */
 const GARMIN_WINDOW = { window: '30d' } as const
-/** ACWR is an EWMA: it needs the longer history to be warm. */
-const LOAD_WINDOW = { window: '90d' } as const
 const RECOVERY_DAYS = 7
 /** Seven days from today's midnight: today's agenda plus the lookup for the next meeting after it. */
 const CALENDAR_DAYS = 7
@@ -78,7 +77,14 @@ export function TodayPage() {
 
   const recoveryNow = useQuery(recoveryQueries.summary(GARMIN_WINDOW))
   const recoverySeries = useQuery(recoveryQueries.series(GARMIN_WINDOW))
-  const loadQuery = useQuery(trainingLoadQueries.summary(LOAD_WINDOW))
+  // ACWR is an EWMA seeded at the window's first day, so its value depends on the window: Today
+  // reads the Garmin page's own window (its URL ⊳ stored ⊳ 30 d), or the two pages print different figures.
+  const garmin = garminStore.useValues()
+  const loadParams = toApiWindow(
+    garminStore.field.window.toWindow({ preset: garmin.window, from: garmin.from, to: garmin.to }),
+    '30d',
+  )
+  const loadQuery = useQuery(trainingLoadQueries.summary(loadParams))
 
   // ── Sources ────────────────────────────────────────────────────────────────────────────────
   const agentsRecord = agentsQuery.data?.latest ?? null

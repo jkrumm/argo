@@ -118,10 +118,10 @@ describe('todayAgenda', () => {
 })
 
 describe('countdownLabel', () => {
-  it("uses the Calendar page's wording, always with a unit", () => {
-    expect(countdownLabel(25 * MIN)).toBe('in 25m')
-    expect(countdownLabel(90 * MIN)).toBe('in 1h 30m')
-    expect(countdownLabel(120 * MIN)).toBe('in 2h')
+  it('uses the app duration spelling, always with a unit', () => {
+    expect(countdownLabel(25 * MIN)).toBe('in 25\u00a0min')
+    expect(countdownLabel(90 * MIN)).toBe('in 1\u00a0h 30\u00a0min')
+    expect(countdownLabel(120 * MIN)).toBe('in 2\u00a0h')
   })
 })
 
@@ -216,7 +216,7 @@ describe('homeSummaryParts', () => {
         ],
       }),
     ).toEqual({
-      sentence: 'Oldest wait on you 2\u00a0h 0\u00a0m.',
+      sentence: 'Oldest wait on you 2\u00a0h.',
       facts: ['2 in Warden', '1 with agents', '1 in the human queue'],
     })
   })
@@ -282,14 +282,14 @@ describe('wardenEvents', () => {
     expect(rows).toHaveLength(2)
     const burst = rows.find((r) => r.ms === NOW - 57 * MIN)
     expect(burst?.title).toBe('moved {repo} item')
-    expect(burst?.outcome).toBe('new → triaged → working · investigate done')
+    expect(burst?.outcome).toBe('new\u00a0→\u00a0working\u00a0· investigate\u00a0done')
     expect(burst?.detail).toBe('{item title}')
   })
 
   it('starts a new row after a gap and times each row at its last step', () => {
     const later = wardenEvents(raw).find((r) => r.ms === NOW - 5 * MIN)
     expect(later?.title).toBe('moved {repo} item')
-    expect(later?.outcome).toBe('working → needs decision')
+    expect(later?.outcome).toBe('working\u00a0→\u00a0needs\u00a0decision')
   })
 })
 
@@ -401,7 +401,7 @@ describe('staleFeeds and unavailable sources', () => {
         ],
         NOW,
       ),
-    ).toEqual(['Agents 45\u00a0m old'])
+    ).toEqual(['Agents 45\u00a0min old'])
     expect(staleFeeds([{ name: 'Warden', receivedAt: agoIso(29) }], NOW)).toEqual([])
   })
 

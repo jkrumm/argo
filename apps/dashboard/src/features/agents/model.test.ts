@@ -44,16 +44,16 @@ const agent = (overrides: Partial<AgentRow> = {}): AgentRow => ({
 describe('formatWaitDuration', () => {
   it('formats a multi-day wait as days + hours', () => {
     const ms = 21 * 24 * 60 * 60 * 1000
-    expect(formatWaitDuration(ms)).toBe('21\u00a0d 0\u00a0h')
+    expect(formatWaitDuration(ms)).toBe('21\u00a0d')
   })
 
   it('formats an hours+minutes wait once past an hour', () => {
     const ms = 5 * 3_600_000 + 12 * 60_000
-    expect(formatWaitDuration(ms)).toBe('5\u00a0h 12\u00a0m')
+    expect(formatWaitDuration(ms)).toBe('5\u00a0h 12\u00a0min')
   })
 
   it('formats a sub-hour wait as minutes only', () => {
-    expect(formatWaitDuration(42 * 60_000)).toBe('42\u00a0m')
+    expect(formatWaitDuration(42 * 60_000)).toBe('42\u00a0min')
   })
 
   it('prints "—" for a negative or non-finite value', () => {
@@ -148,7 +148,7 @@ describe('fleetParts', () => {
   it('adds unknown-state agents as a sixth part so the total matches the roster', () => {
     const summary = { needsYou: 0, working: 1, idle: 0, stale: 0, done: 0, dispatch: 0 }
     const fleet = fleetParts(summary, 2)
-    expect(fleet?.parts.at(-1)).toEqual({ key: 'unknown', label: 'state not reported', value: 2 })
+    expect(fleet?.parts.at(-1)).toEqual({ key: 'unknown', label: 'unknown', value: 2 })
     expect(fleet?.total).toBe(3)
   })
 
@@ -292,6 +292,15 @@ describe('agentsSummaryParts', () => {
     )
   })
 
+  it('adds the abandoned count and the ask hosts, figures no other part of the page prints', () => {
+    expect(agentsSummaryParts({ agentWaits: 3, asks: 0, projects: 2, abandoned: 1 }).sentence).toBe(
+      'Agents in 2 projects are waiting on you, 1 abandoned.',
+    )
+    expect(agentsSummaryParts({ agentWaits: 0, asks: 3, projects: 0, hosts: 2 }).sentence).toBe(
+      'Requests from 2 hosts are waiting for your answer.',
+    )
+  })
+
   it('reads asks alone without a figure, and says nothing waits', () => {
     expect(agentsSummaryParts({ agentWaits: 0, asks: 1, projects: 0 }).sentence).toBe(
       'A request is waiting for your answer.',
@@ -332,7 +341,7 @@ describe('waitingProjects', () => {
 
 describe('fleetFact', () => {
   it('names the longest run, or that nothing works', () => {
-    expect(fleetFact(3 * 3_600_000 + 5 * 60_000, 2)).toBe('longest run 3\u00a0h 5\u00a0m')
+    expect(fleetFact(3 * 3_600_000 + 5 * 60_000, 2)).toBe('longest run 3\u00a0h 5\u00a0min')
     expect(fleetFact(null, 0)).toBe('no agent working')
     expect(fleetFact(null, 3)).toBe('longest run not reported')
   })
@@ -444,7 +453,7 @@ describe('countUnknownAgents', () => {
 describe('ageAgo', () => {
   it('reads just now under a minute, else the wait format', () => {
     expect(ageAgo(30_000)).toBe('just now')
-    expect(ageAgo(5 * 60_000)).toBe('5\u00a0m ago')
+    expect(ageAgo(5 * 60_000)).toBe('5\u00a0min ago')
     expect(ageAgo(-1)).toBe('—')
   })
 })
@@ -489,7 +498,7 @@ describe('needsYouCards', () => {
       ],
     })
     expect(cards[1]).toMatchObject({
-      facts: ['human queue', 'mini', 'asked 1\u00a0h 0\u00a0m ago'],
+      facts: ['human queue', 'mini', 'asked 1\u00a0h ago'],
       question: 'Run the thing now?',
       evidenceLine: 'Then reply.',
       actions: [
@@ -499,6 +508,20 @@ describe('needsYouCards', () => {
       disclosure: { label: 'Command', text: null, command: 'make go' },
     })
     expect(cards[2]?.facts).toEqual(['human queue'])
+  })
+
+  it('never restates its evidence in the title, and drops a stem every card repeats', () => {
+    const asks = [
+      { id: 'a', question: 'Deploy is blocked on the {service} migration. Check the logs.' },
+      { id: 'b', question: 'Disk is full on {host}. Free some space.' },
+    ]
+    const cards = needsYouCards(asks, [], now)
+    expect(cards.map((c) => c.question)).toEqual([
+      'Answer: Deploy is blocked on the {service} migration?',
+      'Answer: Disk is full on {host}?',
+    ])
+    // The sentence the title carries is not printed again as evidence.
+    expect(cards.map((c) => c.evidenceLine)).toEqual(['Check the logs.', 'Free some space.'])
   })
 
   it('strips shortcodes from a queue ask and reads blank or non-string asks as absent', () => {
@@ -513,8 +536,8 @@ describe('needsYouCards', () => {
     )
     expect(cards.map((c) => c.question)).toEqual([
       'Deploy now?',
-      'Answer this request: Item #b?',
-      'Answer this request: Item #c?',
+      'Answer: Item #b?',
+      'Answer: Item #c?',
     ])
     for (const card of cards) expect(card.actions.length).toBeGreaterThanOrEqual(1)
   })
@@ -567,7 +590,7 @@ describe('needsYouCards', () => {
     })
     const [card] = needsYouCards([], [waiting], now, { machine: 'mini' })
     expect(card).toMatchObject({
-      facts: ['project-a', 'waiting 1\u00a0h 30\u00a0m', 'mini'],
+      facts: ['project-a', 'waiting 1\u00a0h 30\u00a0min', 'mini'],
       evidenceLine: 'No blocker reported.',
       preview: null,
     })
@@ -583,8 +606,8 @@ describe('needsYouCards', () => {
       now,
       { machine: 'mini' },
     )
-    expect(bare?.facts).toEqual(['human queue', 'asked 1\u00a0h 0\u00a0m ago'])
-    expect(hosted?.facts).toEqual(['human queue', 'laptop', 'asked 30\u00a0m ago'])
+    expect(bare?.facts).toEqual(['human queue', 'asked 1\u00a0h ago'])
+    expect(hosted?.facts).toEqual(['human queue', 'laptop', 'asked 30\u00a0min ago'])
   })
 
   it('turns a statement ask into a plain question, the statement as evidence, no character count', () => {
@@ -725,8 +748,8 @@ describe('needsYouCards: questions that tell items apart', () => {
       now,
     )
     expect(pair.map((c) => c.question).toSorted()).toEqual([
-      'Unblock project-a agent: Choose a host?',
-      'Unblock project-a agent: Pick a branch?',
+      'Unblock: Choose a host?',
+      'Unblock: Pick a branch?',
     ])
     expect(pair.map((c) => c.entity)).toEqual([null, null])
   })
@@ -784,9 +807,9 @@ describe('needsYouCards: loose wire values', () => {
     )
     expect(cards.map((c) => c.question).toSorted()).toEqual(
       [
-        'Unblock project-a agent: Pick a branch — host a?',
-        'Unblock project-a agent: Pick a branch — host b?',
-        'Unblock project-a agent: Same?',
+        'Unblock: Pick a branch — host a?',
+        'Unblock: Pick a branch — host b?',
+        'Unblock: Same?',
       ].toSorted(),
     )
   })

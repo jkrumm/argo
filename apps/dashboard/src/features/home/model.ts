@@ -4,8 +4,9 @@ import type { Narrative } from '../../lib/queries/agents'
 import type { WardenRaw } from '../../lib/queries/warden'
 import type { Decision } from '../../lib/decisions'
 import type { SourceClass } from '../../lib/queries/calendar'
-import { untilLabel } from '../calendar/summary'
-import { oldestWaitSentence, stripShortcodes } from '../../lib/text'
+import { NBSP, formatDuration } from '../../lib/format'
+import { leadOf } from '../../lib/question-copy'
+import { firstClause, oldestWaitSentence, stripShortcodes } from '../../lib/text'
 
 // Pure derivations for the Today page: meetings, tasks, the Garmin readings, the activity stream
 // and the summary sentence. No React, no queries. A reading that is absent stays `null` (rendered
@@ -161,9 +162,17 @@ export type MeetingState = 'past' | 'now' | 'upcoming'
 export const meetingState = (m: Meeting, now: number): MeetingState =>
   m.endMs <= now ? 'past' : m.startMs <= now ? 'now' : 'upcoming'
 
-/** `in 25m` / `in 1h 30m`: the Calendar page's wording, so both pages count down the same way. */
-export const countdownLabel = (ms: number): string =>
-  untilLabel(Math.max(0, Math.round(ms / MIN_MS)))
+/** `in 25 min` / `in 1 h 30 min`: the app's one duration spelling. */
+export const countdownLabel = (ms: number): string => `in ${formatDuration(Math.max(0, ms))}`
+
+/** The longest a meeting name runs in a strip cell footer. */
+const MEETING_NAME_MAX = 24
+
+/** A meeting's name in its shortest form: the first clause, cut at a word when still long; `null` with no name. */
+export function shortMeetingName(title: string): string | null {
+  const name = firstClause(stripShortcodes(title))
+  return name === '' ? null : leadOf(name, MEETING_NAME_MAX)
+}
 
 /** The day axis of the next-meeting cell: 08–19 h, widened when a meeting falls outside it. */
 const DAY_AXIS: { from: number; to: number } = { from: 8, to: 19 }
@@ -293,9 +302,13 @@ const BURST_GAP_MS = 10 * MIN_MS
 
 type Step = { ms: number; from: string | null; to: string | null; dispatch: string | null }
 
-const stateLabel = (s: string) => s.replaceAll('_', ' ')
+/** A state as one unbreakable phrase: `needs decision` never splits across lines. */
+const stateLabel = (s: string) => s.replaceAll('_', NBSP)
 
-/** `new → triaged → working`: the path a burst took, repeated states collapsed. */
+/** Words of one phrase joined by no-break spaces, so a narrow row wraps between phrases, never inside one. */
+const gluePhrase = (text: string): string => text.replace(/ +/g, NBSP)
+
+/** `new → working`: where a burst started and where it ended; the steps between sit in the item's timeline. */
 function pathOf(steps: readonly Step[]): string {
   const states: string[] = []
   const push = (s: string | null) => {
@@ -304,7 +317,8 @@ function pathOf(steps: readonly Step[]): string {
   const first = steps.find((s) => s.to !== null)
   push(first?.from ?? null)
   for (const step of steps) push(step.to)
-  return states.join(' → ')
+  const ends = states.length > 2 ? [states[0]!, states.at(-1)!] : states
+  return ends.join(`${NBSP}→${NBSP}`)
 }
 
 /**
@@ -351,9 +365,9 @@ export function wardenEvents(raw: WardenRaw | null | undefined): ActivityEvent[]
       const dispatches = burst.flatMap((s) => (s.dispatch ? [s.dispatch] : []))
       const verb = path ? 'moved' : 'dispatched'
       const title = `${verb}${repo ? ` ${repo}` : ''} item`
-      const outcome = [path, dispatches.length > 0 ? dispatches.join(', ') : '']
+      const outcome = [path, dispatches.map(gluePhrase).join(', ')]
         .filter(Boolean)
-        .join(' · ')
+        .join(`${NBSP}· `)
       out.push({
         key: `w-${eventId}-b${i}`,
         ms: burst.at(-1)?.ms ?? 0,

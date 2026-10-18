@@ -36,16 +36,13 @@ export function ActivityFeed({ groups, total, stale, loaded, now }: Props) {
     <Card>
       <Section title="Activity">
         <div className={classes.feed} data-shot="activity">
-          <span className={classes.live}>
+          <span className={classes.live} title="A burst of steps on one item counts as one update.">
             {loaded ? (
               <span className={stale.length === 0 ? classes.pulse : classes.pulseOff} aria-hidden />
             ) : null}
             {!loaded ? 'No live feed' : stale.length === 0 ? 'Live' : `Stale: ${stale.join(', ')}`}{' '}
             · {total} {total === 1 ? 'update' : 'updates'} since yesterday
           </span>
-          <Text size="xs" c="dimmed">
-            A burst of steps on one item counts as one update.
-          </Text>
           {total === 0 ? (
             <Text size="sm" c="dimmed">
               {emptyStreamLabel(now)}
@@ -93,7 +90,13 @@ export function ActivityFeed({ groups, total, stale, loaded, now }: Props) {
             )
           })}
           {total > shown ? (
-            <Button variant="light" color="gray" size="compact-sm" onClick={() => setOpen(true)}>
+            <Button
+              variant="light"
+              color="gray"
+              size="compact-sm"
+              fz="sm"
+              onClick={() => setOpen(true)}
+            >
               Show {total - shown} more
             </Button>
           ) : null}

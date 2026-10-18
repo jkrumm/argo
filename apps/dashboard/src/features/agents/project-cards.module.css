@@ -9,7 +9,8 @@
 /* One grid for the whole list, each row a subgrid of it: the columns size to their widest cell, so an age never clips and the rows still align. */
 .quiet {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content max-content;
+  grid-template-columns: minmax(0, 20rem) max-content max-content;
+  justify-content: start;
   column-gap: var(--vx-space-stack-md);
   margin: 0;
   padding: 0;
@@ -19,7 +20,7 @@
 .quietRow {
   display: grid;
   /* Explicit tracks first: a browser without subgrid keeps its own columns. */
-  grid-template-columns: minmax(0, 1fr) max-content max-content;
+  grid-template-columns: minmax(0, 20rem) max-content max-content;
   grid-template-columns: subgrid;
   grid-column: 1 / -1;
   align-items: center;
@@ -28,7 +29,8 @@
 }
 
 .quietAge {
-  text-align: end;
+  /* Sits beside its state, not at the far edge of a wide row; whole, never clipped. */
+  overflow: visible;
   white-space: nowrap;
 }
 

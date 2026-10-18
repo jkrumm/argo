@@ -1,16 +1,17 @@
 import { Stack, Text } from '@mantine/core'
 import { VX } from 'basalt-ui/tokens'
-import { relativeTime } from 'basalt-ui/format'
 import classes from '../../components/upstream/decision-card.module.css'
-import { NBSP } from '../../lib/format'
+import { NBSP, formatAgo } from '../../lib/format'
+import { useNow } from '../../lib/use-now'
 import type { HistoryView } from './page-model'
 
-const when = (at: string) => relativeTime(at).replaceAll(' ', NBSP)
+/** `3 min ago` in the app's one duration spelling; `—` for an unreadable time. */
+const when = (at: string, now: number) => formatAgo(now - Date.parse(at)).replaceAll(' ', NBSP)
 
 /** The age glued to the last word of the line it follows, so it never wraps onto a line alone. */
-function withAge(text: string, at: string | null | undefined): string {
+function withAge(text: string, at: string | null | undefined, now: number): string {
   if (!at) return text
-  return `${text.replace(/ (\S*)$/, `${NBSP}$1`)}${NBSP}·${NBSP}${when(at)}`
+  return `${text.replace(/ (\S*)$/, `${NBSP}$1`)}${NBSP}·${NBSP}${when(at, now)}`
 }
 
 /**
@@ -19,6 +20,7 @@ function withAge(text: string, at: string | null | undefined): string {
  * card's right-hand well. State names are never truncated: a line wraps at its spaces instead.
  */
 export function HistoryPreview({ view }: { view: HistoryView }) {
+  const now = useNow()
   if (view.layout === 'inline') {
     const [only] = view.lines
     return (
@@ -27,7 +29,7 @@ export function HistoryPreview({ view }: { view: HistoryView }) {
         <Text span inherit c={VX.ink}>
           {only?.text}
         </Text>
-        {only?.at ? `${NBSP}·${NBSP}${when(only.at)}` : null}
+        {only?.at ? `${NBSP}·${NBSP}${when(only.at, now)}` : null}
       </Text>
     )
   }
@@ -38,7 +40,7 @@ export function HistoryPreview({ view }: { view: HistoryView }) {
       </Text>
       {view.lines.map((line, i) => (
         <Text key={`${i}-${line.text}`} size="xs" miw={0} className={classes.wrap}>
-          {line.at ? withAge(line.text, line.at) : line.text}
+          {line.at ? withAge(line.text, line.at, now) : line.text}
         </Text>
       ))}
       {view.earlier > 0 ? (

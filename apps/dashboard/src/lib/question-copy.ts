@@ -83,39 +83,62 @@ function boundedQuestion(question: string): string {
 const HANDLE_MIN = 10
 
 /** How much of an item tells it apart: its first `clauses` clauses, then an ordinal among the still-identical. */
-export type Disambiguation = { clauses: number; ordinal: number | null }
+export type Disambiguation = {
+  clauses: number
+  ordinal: number | null
+  /** The stem shrinks to its verb (`Answer: {handle}?`): set when the shared stem repeats on every card. */
+  terse?: boolean
+}
 
-/** `text` cut at a word boundary within `max` characters, ellipsis added; `null` when no whole word fits. */
-function wordLead(text: string, max: number): string | null {
-  if (text.length <= max) return text
-  const cut = text.slice(0, max - 1)
-  const space = lastWhitespace(cut)
-  const head = (space === -1 ? '' : cut.slice(0, space)).replace(/[\s,;:.\-–—]+$/, '')
-  return head === '' ? null : `${head}…`
+/** Bracket tags a producer prefixes a title with (`[alert] `, `[blocker] `): the frame already says them. */
+const LEADING_TAGS = /^(?:\[[^\]]{1,40}\]\s*)+/
+
+const balanced = (text: string): boolean =>
+  (text.match(/\(/g) ?? []).length === (text.match(/\)/g) ?? []).length &&
+  (text.match(/\[/g) ?? []).length === (text.match(/\]/g) ?? []).length
+
+/**
+ * The longest whole-clause lead of `source` (at most `clauses` clauses) that fits `room`: never cut
+ * inside a bracket or a word, no ellipsis. `null` when no whole clause fits or none names anything.
+ */
+function fittingLead(source: string, clauses: number, room: number): string | null {
+  const rungs = [...new Set([clauses, 2, 1].filter((n) => n <= clauses))]
+  for (const n of rungs) {
+    const lead = leadClauses(source, n)
+    // A handle with no letter or digit in it names nothing.
+    if (lead.length <= room && /[\p{L}\p{N}]/u.test(lead) && balanced(lead)) return lead
+  }
+  return null
 }
 
 /**
  * `<stem>: <handle> (<n>)?` — the plain question with the item's own handle: the first
- * `disambiguation.clauses` clauses of `source`, cut at a word, then ` (n)` when clauses alone left two
- * items identical. Bounded to {@link QUESTION_MAX} with the `?` kept; the plain question unchanged
- * when nothing fits (no whole word, no room). `handled` says whether the question changed.
+ * `disambiguation.clauses` clauses of `source` (a leading `[tag]` removed), whole, then ` (n)` when
+ * clauses alone left two items identical. Bounded to {@link QUESTION_MAX} with the `?` kept; a handle
+ * that does not fit whole is dropped (the ordinal rung takes over), never cut. The plain question
+ * unchanged when nothing fits. `handled` says whether the question changed; `lead` is the handle.
  */
 function withHandle(
   plain: string,
   source: string,
-  { clauses, ordinal }: Disambiguation,
-): { question: string; handled: boolean } {
+  { clauses, ordinal, terse = false }: Disambiguation,
+): { question: string; handled: boolean; lead: string | null } {
   const tail = ordinal === null ? '' : ` (${ordinal})`
   // The tail's room is reserved before anything is cut, so an ordinal is never the part that goes.
   const stemMax = QUESTION_MAX - 1 - tail.length
   const whole = flatten(plain).replace(/[?\s]+$/, '')
-  const stem = whole.length > stemMax ? leadOf(whole, stemMax) : whole
+  const full = whole.length > stemMax ? leadOf(whole, stemMax) : whole
+  const stem = terse ? (full.split(' ')[0] ?? full) : full
   const room = stemMax - stem.length - 2
-  const cut = room < HANDLE_MIN ? null : wordLead(leadClauses(source, clauses), room)
-  // A handle with no letter or digit in it names nothing.
-  const lead = cut !== null && /[\p{L}\p{N}]/u.test(cut) ? cut : null
-  if (lead === null && ordinal === null) return { question: boundedQuestion(plain), handled: false }
-  return { question: `${lead === null ? stem : `${stem}: ${lead}`}${tail}?`, handled: true }
+  const lead =
+    room < HANDLE_MIN ? null : fittingLead(source.replace(LEADING_TAGS, ''), clauses, room)
+  if (lead === null && ordinal === null)
+    return { question: boundedQuestion(plain), handled: false, lead: null }
+  return {
+    question: `${lead === null ? stem : `${stem}: ${lead}`}${tail}?`,
+    handled: true,
+    lead,
+  }
 }
 
 export type CardCopySource = 'authored' | 'ask' | 'title' | 'plain'
@@ -176,6 +199,7 @@ export function cardCopy({
   let source: CardCopySource
   let question: string
   let carriesHandle = false
+  let handleLead: string | null = null
   if (written !== '' && written.length <= QUESTION_MAX) {
     source = 'authored'
     question = written
@@ -190,14 +214,17 @@ export function cardCopy({
     const handled = handle === null ? null : withHandle(plain, handle.source, handle)
     question = handled?.handled ? handled.question : boundedQuestion(plain)
     carriesHandle = handled?.handled === true
+    handleLead = carriesHandle ? (handled?.lead ?? null) : null
   }
 
   const spill = written.length > QUESTION_MAX ? written : ''
   const used = source === 'ask' ? '' : sentence
-  const text = [spill, used, body ?? '']
+  const joined = [spill, used, body ?? '']
     .map(flatten)
     .filter((part) => part !== '')
     .join(' ')
+  // The handle is the opening words of the text: the question says them, the evidence does not repeat them.
+  const text = handleLead === null ? joined : withoutLead(joined, handleLead)
   const saidTitle = bareTitle(item).toLowerCase()
   const showsTitle =
     source === 'title' ||
@@ -235,6 +262,17 @@ export function collidingCopies(
   )
 }
 
+/** `text` without `lead` and the punctuation after it, when it opens with it (a leading `[tag]` aside). */
+function withoutLead(text: string, lead: string): string {
+  for (const candidate of [text, text.replace(LEADING_TAGS, '')]) {
+    const rest = candidate.slice(lead.length)
+    // Whole words only: `Disk` never trims `Disks full`.
+    if (candidate.toLowerCase().startsWith(lead.toLowerCase()) && !/^[\p{L}\p{N}]/u.test(rest))
+      return rest.replace(/^[\s,;:.\-–—]+/, '')
+  }
+  return text
+}
+
 /** Each step takes more of the title; the last takes all of it. */
 const LADDER: readonly number[] = [1, 2, Infinity]
 
@@ -251,20 +289,27 @@ export function resolveCopies<T, R extends { copy: CardCopy }>(
   {
     derive,
     key,
+    terseStem = false,
   }: {
     derive: (item: T, options: { handle: Disambiguation | null }) => R
     key: (item: T) => string
+    /** Where a shared stem would head every card (`Answer this request: …`), keep only its verb. */
+    terseStem?: boolean
   },
 ): R[] {
   const results = items.map((item) => derive(item, { handle: null }))
+  const used: (Disambiguation | null)[] = items.map(() => null)
   const clashes = () => collidingCopies(results.map((r) => r.copy))
+  const finish = (): R[] => (terseStem ? withTerseStems(items, results, used, derive) : results)
   let last: Disambiguation = { clauses: 1, ordinal: null }
   for (const clauses of LADDER) {
     const flags = clashes()
-    if (!flags.some(Boolean)) return results
+    if (!flags.some(Boolean)) return finish()
     last = { clauses, ordinal: null }
     flags.forEach((flag, i) => {
-      if (flag) results[i] = derive(items[i]!, { handle: last })
+      if (!flag) return
+      used[i] = last
+      results[i] = derive(items[i]!, { handle: last })
     })
   }
   // Still identical: number them in key order. Each takes the lowest ordinal whose question no other
@@ -285,9 +330,40 @@ export function resolveCopies<T, R extends { copy: CardCopy }>(
       next = derive(item, { handle: { ...last, ordinal } })
     }
     taken.add(next.copy.question.toLowerCase())
+    used[index] = { ...last, ordinal }
     results[index] = next
   }
-  return results
+  return finish()
+}
+
+/** The stem of a handled question: everything before the first `: `. */
+const stemOf = (question: string): string | null => {
+  const at = question.indexOf(': ')
+  return at === -1 ? null : question.slice(0, at).toLowerCase()
+}
+
+/**
+ * Cards that all open with the same stem before their handle (`Answer this request: …`) say it
+ * once too often: those cards keep the verb alone. Handles differ, so the questions stay distinct.
+ */
+function withTerseStems<T, R extends { copy: CardCopy }>(
+  items: readonly T[],
+  results: R[],
+  used: readonly (Disambiguation | null)[],
+  derive: (item: T, options: { handle: Disambiguation | null }) => R,
+): R[] {
+  const counts = new Map<string, number>()
+  for (const { copy } of results) {
+    const stem = copy.source === 'plain' ? stemOf(copy.question) : null
+    if (stem !== null) counts.set(stem, (counts.get(stem) ?? 0) + 1)
+  }
+  return results.map((result, i) => {
+    const handle = used[i]
+    const stem = result.copy.source === 'plain' ? stemOf(result.copy.question) : null
+    if (handle === null || handle === undefined || stem === null || (counts.get(stem) ?? 0) < 2)
+      return result
+    return derive(items[i]!, { handle: { ...handle, terse: true } })
+  })
 }
 
 // ── Warden ───────────────────────────────────────────────────────────────────────────────────
@@ -296,28 +372,30 @@ export function resolveCopies<T, R extends { copy: CardCopy }>(
 const WARDEN_PLAIN: Partial<Record<WardenActionVerb, readonly [verb: string, noun: string]>> = {
   merge: ['Merge', 'PR'],
   implement: ['Implement', 'change'],
-  reinvestigate: ['Reinvestigate', 'item'],
+  reinvestigate: ['Re-investigate', 'item'],
   retry: ['Retry', 'item'],
 }
 
-/** What an alert asks for per primary verb: the verb the card's button carries, the noun is the alert. */
-const ALERT_PLAIN: Record<WardenActionVerb, string> = {
-  implement: 'Handle',
-  merge: 'Merge',
-  reinvestigate: 'Reinvestigate',
-  retry: 'Retry',
-  dismiss: 'Dismiss',
-  note: 'Add a note to',
+/** What an alert asks for per primary verb: the verb the card's button carries, then what it acts on. */
+const ALERT_PLAIN: Record<WardenActionVerb, readonly [verb: string, object: string]> = {
+  implement: ['Implement', 'fix for'],
+  merge: ['Merge', 'fix for'],
+  reinvestigate: ['Re-investigate', ''],
+  retry: ['Retry', ''],
+  dismiss: ['Dismiss', ''],
+  note: ['Add a note to', ''],
 }
 
 const ALERT_WORD = /^(?:alert|incident|outage)s?$/i
 /** A title that leads with the kind and a colon or a spaced dash (`Alert: …`, `Outage — …`; a hyphen inside a word is not one): the fallback when no field names it. */
 const ALERT_TITLE_PREFIX = /^\W*(?:alert|incident|outage)s?(?:\s*:|\s+[—–-]\s)/i
+/** The producer's own marker: a leading bracket tag, any case (`[alert] {key} …`). */
+const ALERT_TITLE_TAG = /^\s*\[\s*(?:alert|incident|outage)s?\s*\]/i
 
 /**
- * Whether an item is an alert, incident or outage. The first explicit kind field (`origin`, `kind`,
- * `type`) decides — a `github_issue` titled `Alert: …` is an issue; only with no field at all does a
- * title that leads with the kind count. Callers pass the item's raw `kinds` (a missing or blank one
+ * Whether an item is an alert, incident or outage. A title the producer tagged `[alert]` is one; else
+ * the first explicit kind field (`origin`, `kind`, `type`) decides — a `github_issue` titled
+ * `Alert: …` is an issue; only with no field at all does a title that leads with the kind count. Callers pass the item's raw `kinds` (a missing or blank one
  * reads as none) and its title; shortcodes are stripped here.
  */
 export function isAlert({
@@ -327,17 +405,19 @@ export function isAlert({
   kinds?: readonly unknown[]
   title?: unknown
 }): boolean {
+  const text = stripShortcodes(asText(title))
+  if (ALERT_TITLE_TAG.test(text)) return true
   const explicit = kinds.map((k) => asText(k).trim()).find((k) => k !== '')
   if (explicit !== undefined) return ALERT_WORD.test(explicit)
-  return ALERT_TITLE_PREFIX.test(stripShortcodes(asText(title)))
+  return ALERT_TITLE_PREFIX.test(text)
 }
 
 /**
  * The plain question of a Warden item from the verb its card offers first: `Merge {repo} PR?`.
  * `Retry failed {repo} run?` only for a failed item whose primary is retry; any other verb (or none)
  * is neutral, so a question never promises an action the card does not carry. An `alert` is asked
- * about as an alert in the verb its button carries (`Handle {repo} alert?`, `Dismiss …`), never as a
- * change; with no verb it is neutral (`Decide on {repo} alert?`).
+ * about as an alert in the verb its button carries (`Implement fix for {repo} alert?`, `Dismiss …`),
+ * never as a change; with no verb it is neutral (`Decide on {repo} alert?`).
  */
 export function wardenPlainQuestion({
   failed,
@@ -352,8 +432,9 @@ export function wardenPlainQuestion({
 }): string {
   const where = stripShortcodes(asText(repo))
   if (alert) {
-    const verb = primary === null ? 'Decide on' : ALERT_PLAIN[primary]
-    return plainQuestion(verb, where === '' ? 'this alert' : `${where} alert`)
+    const [verb, object] = primary === null ? (['Decide on', ''] as const) : ALERT_PLAIN[primary]
+    const alertName = where === '' ? 'this alert' : `${where} alert`
+    return plainQuestion(verb, object === '' ? alertName : `${object} ${alertName}`)
   }
   const entry = primary === null ? undefined : WARDEN_PLAIN[primary]
   if (entry === undefined)

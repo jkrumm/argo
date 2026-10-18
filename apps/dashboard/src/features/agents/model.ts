@@ -22,7 +22,7 @@ import {
   flatten,
   restAfterFirstSentence,
 } from '../../lib/text'
-import { withUnit } from '../../lib/format'
+import { formatAgo, formatDuration, withUnit } from '../../lib/format'
 
 // Presentation vocabulary for the agents page. The STATE and RECOMMENDATION
 // enums are agent-gateway's (server/lib/agents.ts); Argo only maps them to a label,
@@ -77,22 +77,8 @@ export const OLDEST_WAIT_WARN_MS = 24 * 60 * 60 * 1000
  * blocked on a dialog for 21 days, re-announced to Slack ~35 times). */
 export const ABANDONED_AFTER_MS = 7 * 24 * 60 * 60 * 1000
 
-/**
- * Human wait duration — `"21d 4h"`, `"5h 12m"`, `"42m"`. basalt's own `duration()` format
- * (`basalt-ui/format`) only carries hours/minutes, so the concrete case that motivated this tile —
- * an agent blocked 21 days — would read as `"504h 00m"`, not a duration anyone reads at a glance.
- * A non-finite or negative value prints `"—"`.
- */
-export function formatWaitDuration(ms: number): string {
-  if (!Number.isFinite(ms) || ms < 0) return '—'
-  const totalMinutes = Math.round(ms / 60_000)
-  const days = Math.floor(totalMinutes / 1440)
-  const hours = Math.floor((totalMinutes % 1440) / 60)
-  const minutes = totalMinutes % 60
-  if (days > 0) return `${withUnit(days, 'd')} ${withUnit(hours, 'h')}`
-  if (hours > 0) return `${withUnit(hours, 'h')} ${withUnit(minutes, 'm')}`
-  return withUnit(minutes, 'm')
-}
+/** Human wait duration: the app's one spelling (`formatDuration`), `—` for a bad value. */
+export const formatWaitDuration = formatDuration
 
 export type OldestWait = { ms: number; project: string }
 
@@ -153,15 +139,10 @@ export type FleetPart = { key: FleetState; label: string; value: number }
 export const countUnknownAgents = (agents: readonly AgentRow[]): number =>
   agents.filter((a) => !(FLEET_STATES as readonly string[]).includes(a.state)).length
 
-/** The meter legend's words: `idle` and `unknown` are named for what they say about the agent. */
-const FLEET_LABEL: Record<FleetState, string> = {
-  working: 'working',
-  needs_you: 'needs you',
-  idle: 'open, not working',
-  stale: 'stale',
-  done: 'done',
-  unknown: 'state not reported',
-}
+/** The meter legend's words: one name per state, the same one the project chips print. */
+const FLEET_LABEL = Object.fromEntries(
+  Object.entries(STATE_LABEL).map(([key, label]) => [key, label.toLowerCase()]),
+) as Record<FleetState, string>
 
 const summaryKey = (key: SummaryState) => (key === 'needs_you' ? 'needsYou' : key)
 
@@ -394,6 +375,10 @@ export function headlineOf(text: string): string {
 // ── Page summary ─────────────────────────────────────────────────────────────────────────────
 
 export type AgentsSummaryInput = {
+  /** Of the waiting agents, how many are past the abandoned mark: a figure the strip does not print. */
+  abandoned?: number
+  /** Distinct hosts the human-queue asks came from. */
+  hosts?: number
   /** Agents in `needs_you`, counted from the cards the section lists. */
   agentWaits: number
   /** Asks in the human queue, counted from the same cards. */
@@ -414,19 +399,25 @@ export const waitingProjects = (agents: readonly AgentRow[]): number =>
   ).size
 
 /**
- * The page's verdict. Its one figure is the one nothing else on the page prints: how many projects
- * the blocked agents sit in (the strip has the count, the oldest wait and the fleet).
+ * The page's verdict. Its figures are the ones nothing else on the page prints: how many projects
+ * the blocked agents sit in, how many of them are abandoned, how many hosts the asks came from
+ * (the strip has the count, the oldest wait and the fleet).
  */
 export function agentsSummaryParts(s: AgentsSummaryInput): { sentence: string } {
-  const { agentWaits, asks, projects } = s
+  const { agentWaits, asks, projects, abandoned = 0, hosts = 0 } = s
   if (agentWaits === 0 && asks === 0) return { sentence: 'Nothing needs you.' }
-  if (agentWaits === 0)
-    return { sentence: `${nounFor(asks, 'A request is', 'Requests are')} waiting for your answer.` }
+  if (agentWaits === 0) {
+    const from = hosts === 0 ? '' : ` from ${hosts} ${nounFor(hosts, 'host', 'hosts')}`
+    return {
+      sentence: `${nounFor(asks, 'A request', 'Requests')}${from} ${nounFor(asks, 'is', 'are')} waiting for your answer.`,
+    }
+  }
   // With no named project there is no figure to give: the sentence says only who waits.
   const where = projects === 0 ? '' : ` in ${projects} ${nounFor(projects, 'project', 'projects')}`
-  if (asks > 0) return { sentence: `Agents${where} and the human queue are waiting on you.` }
+  const gone = abandoned === 0 ? '' : `, ${abandoned} abandoned`
+  if (asks > 0) return { sentence: `Agents${where} and the human queue are waiting on you${gone}.` }
   return {
-    sentence: `${nounFor(agentWaits, 'An agent', 'Agents')}${where} ${nounFor(agentWaits, 'is', 'are')} waiting on you.`,
+    sentence: `${nounFor(agentWaits, 'An agent', 'Agents')}${where} ${nounFor(agentWaits, 'is', 'are')} waiting on you${gone}.`,
   }
 }
 
@@ -493,11 +484,8 @@ export function clockTime(iso: string): string {
   return ms === null ? '—' : clockOf(ms)
 }
 
-/** `"6m ago"`, or `"just now"` under a minute; `"—"` for a bad duration. */
-export function ageAgo(ms: number): string {
-  if (!Number.isFinite(ms) || ms < 0) return '—'
-  return ms < 60_000 ? 'just now' : `${formatWaitDuration(ms)} ago`
-}
+/** `"6 min ago"`, or `"just now"` under a minute; `"—"` for a bad duration. */
+export const ageAgo = formatAgo
 
 // ── Needs-you cards (view models) ────────────────────────────────────────────────────────────
 
@@ -658,6 +646,7 @@ export function needsYouCards(
     ],
     {
       key: (entry) => entry.key,
+      terseStem: true,
       derive: (entry, options) => ({
         copy:
           'agent' in entry
