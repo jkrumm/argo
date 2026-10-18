@@ -44,39 +44,41 @@ export function LabeledPane(props: LabeledPaneProps) {
     )
   }
   return (
-    <ScrollArea
-      className={classes.paneScroll}
-      classNames={{ scrollbar: classes.scrollbar }}
-      type="auto"
-      scrollbars="y"
-      data-shot="labeled-pane"
-      data-shot-absent="loading"
-    >
+    <>
       {header}
-      {props.error ? (
-        <Alert color="red" variant="light" m="sm">
-          {props.error}
-        </Alert>
-      ) : null}
-      {groups.map((g) => (
-        <section key={g.tag} aria-label={g.tag}>
-          <h3 className={classes.groupHeading}>
-            {g.tag} · {g.rows.length}
-          </h3>
-          {g.rows.map((l) => (
-            <SourceRow
-              key={l.sourceId}
-              glyph={l.kind === 'chat' ? 'group' : 'channel'}
-              name={l.displayName ?? l.sourceId}
-              meta={l.kind === 'channel' ? 'team channel' : undefined}
-              selected={props.selectedId === l.sourceId}
-              onSelect={() => props.onOpen(l)}
-              onRemove={() => props.onRemove(l.sourceId)}
-              removing={props.removingId === l.sourceId}
-            />
-          ))}
-        </section>
-      ))}
-    </ScrollArea>
+      <ScrollArea
+        className={classes.paneScroll}
+        classNames={{ scrollbar: classes.scrollbar }}
+        type="auto"
+        scrollbars="y"
+        data-shot="labeled-pane"
+        data-shot-absent="loading"
+      >
+        {props.error ? (
+          <Alert color="red" variant="light" m="sm">
+            {props.error}
+          </Alert>
+        ) : null}
+        {groups.map((g) => (
+          <section key={g.tag} aria-label={g.tag}>
+            <h3 className={classes.groupHeading}>
+              {g.tag} · {g.rows.length}
+            </h3>
+            {g.rows.map((l) => (
+              <SourceRow
+                key={l.sourceId}
+                glyph={l.kind === 'chat' ? 'group' : 'channel'}
+                name={l.displayName ?? l.sourceId}
+                meta={l.kind === 'channel' ? 'team channel' : undefined}
+                selected={props.selectedId === l.sourceId}
+                onSelect={() => props.onOpen(l)}
+                onRemove={() => props.onRemove(l.sourceId)}
+                removing={props.removingId === l.sourceId}
+              />
+            ))}
+          </section>
+        ))}
+      </ScrollArea>
+    </>
   )
 }
