@@ -19,6 +19,7 @@ import {
   CHAT_TYPE_LABEL,
   channelSourceId,
   chatKindCounts,
+  detailSectionTitle,
   chatSourceId,
   chatTitle,
   chipCounts,
@@ -26,11 +27,10 @@ import {
   coverageOf,
   formatStamp,
   headlineOf,
-  labeledCount,
   labeledPaneTitle,
+  labeledSectionTitle,
   sourcesTitle,
   parseChannelId,
-  recencyOf,
   largestTeam,
   sourceListName,
   sourceIdFor,
@@ -41,7 +41,7 @@ import {
   type LabelLite,
   type SourceRef,
 } from './model'
-import { RecordPane } from './record-pane'
+import { MESSAGE_TOP, RecordPane } from './record-pane'
 import { SourceList, type TeamRow } from './source-list'
 import { ExplorerStrip } from './strip'
 import { explorerStore, type PaneKey, type ViewKey } from './store'
@@ -54,11 +54,11 @@ const SCOPE_BY_VIEW: Record<ViewKey, ChipScope> = {
   teams: 'channels',
   feed: 'sources',
 }
-/** Per phone pane: the Section title (Sources swaps in `sourcesTitle`), the tab label and the shot anchor (the phone wrapper's, so the pane is measured at 390 even when empty). */
-const PANE_META: Record<PaneKey, { title: string; tab: string; shot?: string }> = {
-  sources: { title: 'Sources', tab: 'Sources', shot: 'source-list' },
-  labeled: { title: 'Labeled sources', tab: 'Labeled', shot: 'labeled-pane-phone' },
-  detail: { title: 'Detail', tab: 'Detail', shot: 'detail-pane' },
+/** Per phone pane: the tab label and the shot anchor (the phone wrapper's, so the pane is measured at 390 even when empty). */
+const PANE_META: Record<PaneKey, { tab: string; shot?: string }> = {
+  sources: { tab: 'Sources', shot: 'source-list' },
+  labeled: { tab: 'Labeled', shot: 'labeled-pane-phone' },
+  detail: { tab: 'Detail', shot: 'detail-pane' },
 }
 const CHATS_TOP = 50
 /** Channel lists load this many teams ahead of the ones already settled: a slow Graph call never fans out all at once. */
@@ -172,9 +172,8 @@ export function M365ExplorerPage(): ReactElement {
     (best, r) => (r.lastUpdatedAt && (!best || r.lastUpdatedAt > best) ? r.lastUpdatedAt : best),
     null,
   )
-  const activeWeek = chatRows.filter((r) => recencyOf(r.lastUpdatedAt, now) !== 'Earlier').length
 
-  const headline = headlineOf({ activeWeek, latest: latest ? formatStamp(latest) : null })
+  const headline = headlineOf({ latest: latest ? formatStamp(latest) : null })
 
   const invalidateLabels = (): void => {
     void qc.invalidateQueries({ queryKey: [...m365Queries.all(), 'labels'] })
@@ -318,13 +317,19 @@ export function M365ExplorerPage(): ReactElement {
     detail: detailPane,
   }
   const shown = PANE_META[shownPane]
-  const sourcesHeading = sourcesTitle({
-    view,
-    chats: chatRows.length,
-    channels: channelsTotal,
-    teams: teams.length,
-    labeled: labels.length,
-  })
+  // The phone Section title is a fact about the pane in view, never the tab's own name.
+  const sectionTitle =
+    shownPane === 'sources'
+      ? sourcesTitle({
+          view,
+          chats: chatRows.length,
+          channels: channelsTotal,
+          teams: teams.length,
+          labeled: labels.length,
+        })
+      : shownPane === 'labeled'
+        ? labeledSectionTitle(tag)
+        : detailSectionTitle(selected !== null, MESSAGE_TOP)
 
   const retryFailed = (): void => {
     for (const { channels } of teamRows) {
@@ -382,7 +387,7 @@ export function M365ExplorerPage(): ReactElement {
       />
 
       <div className={classes.stack}>
-        <PageSummary sentence={headline.sentence} facts={headline.facts} />
+        <PageSummary sentence={headline.sentence} />
 
         <ExplorerStrip
           coverage={coverage}
@@ -395,20 +400,14 @@ export function M365ExplorerPage(): ReactElement {
 
         {compact ? (
           <Section
-            title={shownPane === 'sources' ? sourcesHeading : shown.title}
+            title={sectionTitle}
             tabs={
               <ViewTabs
                 field={explorerStore.field.pane}
                 label="Pane"
                 options={(['sources', 'labeled', 'detail'] as const)
                   .filter((value) => view !== 'feed' || value !== 'labeled')
-                  .map((value) => ({
-                    value,
-                    label:
-                      value === 'labeled'
-                        ? `${PANE_META[value].tab} ${labeledCount(coverage) ?? '…'}`
-                        : PANE_META[value].tab,
-                  }))}
+                  .map((value) => ({ value, label: PANE_META[value].tab }))}
               />
             }
           >

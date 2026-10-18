@@ -1,5 +1,4 @@
-import { differenceInCalendarDays, isSameDay } from 'date-fns'
-import { APP_LOCALE } from '../../lib/format'
+import { differenceInCalendarDays, format, isSameDay } from 'date-fns'
 
 export type LabelKind = 'chat' | 'channel'
 export type ChatType = 'oneOnOne' | 'group' | 'meeting' | 'unknownFutureValue'
@@ -91,6 +90,23 @@ export function groupByRecency(
   })
 }
 
+/** The kinds that have chats, in reading order, for the Chats cell: a zero kind is not a fact. */
+export function chatKindParts(counts: ReturnType<typeof chatKindCounts>): Array<{
+  key: keyof ReturnType<typeof chatKindCounts>
+  label: string
+  value: number
+}> {
+  const kinds = [
+    { key: 'oneOnOne', label: '1:1' },
+    { key: 'group', label: 'group' },
+    { key: 'meeting', label: 'meeting' },
+    { key: 'other', label: 'other' },
+  ] as const
+  return kinds.flatMap(({ key, label }) =>
+    counts[key] > 0 ? [{ key, label, value: counts[key] }] : [],
+  )
+}
+
 export function chatKindCounts(rows: ReadonlyArray<{ chatType: ChatType }>): {
   oneOnOne: number
   group: number
@@ -179,24 +195,15 @@ export function formatTime(iso: string | null | undefined, now: Date): string {
   if (!iso) return FALLBACK_TIME
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return FALLBACK_TIME
-  if (isSameDay(d, now))
-    return d.toLocaleTimeString(APP_LOCALE, { hour: '2-digit', minute: '2-digit' })
-  if (differenceInCalendarDays(now, d) < 7) {
-    return d.toLocaleDateString(APP_LOCALE, { weekday: 'short', day: '2-digit' })
-  }
-  return d.toLocaleDateString(APP_LOCALE, { month: 'short', day: '2-digit' })
+  if (isSameDay(d, now)) return format(d, 'HH:mm')
+  return format(d, differenceInCalendarDays(now, d) < 7 ? 'EEE dd' : 'dd MMM')
 }
 
 export function formatStamp(iso: string | null | undefined): string {
   if (!iso) return FALLBACK_TIME
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return FALLBACK_TIME
-  return d.toLocaleString(APP_LOCALE, {
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return format(d, 'dd MMM, HH:mm')
 }
 
 export function plural(n: number, one: string, many = `${one}s`): string {
@@ -220,11 +227,11 @@ export function sourceListName(chats: number, capped: boolean): string {
 
 /**
  * The labeled cell's footer: the list the count ranges over, and, when labels sit on sources the
- * list cannot place, how many — naming the same list.
+ * list cannot place, how many, naming the same list and why they are missing from it.
  */
 export function labeledBasis(c: Coverage, list: string): string {
   if (c.outside === 0) return `across the ${list}`
-  return `${plural(c.outside, 'more label')} on sources outside the ${list}`
+  return `${plural(c.outside, 'more label')} on sources not in the ${list}: older or removed`
 }
 
 /** The phone Sources pane's heading: what the pane lists now, as a fact rather than the tab's name. */
@@ -244,19 +251,24 @@ export function sourcesTitle(input: {
 }
 
 /**
- * The page's opening: how many chats moved this week, then the newest stamp. The labeled count, the
- * chat and team totals and the tag count are printed once each — in the strip, the tabs and the tags
- * button — so none repeats here.
+ * The page's opening: the newest chat stamp. Every count (the recency groups, the labeled count, the
+ * chat and team totals, the tag count) is printed once each elsewhere, so none repeats here.
  */
 export function headlineOf(h: {
-  activeWeek: number
   /** Pre-formatted stamp of the newest chat, or null when there is none. */
   latest: string | null
-}): { sentence: string; facts: string[] } {
-  return {
-    sentence: `${plural(h.activeWeek, 'chat')} active in the last 7 days`,
-    facts: h.latest === null ? [] : [`latest activity ${h.latest}`],
-  }
+}): { sentence: string } {
+  return { sentence: h.latest === null ? 'No chat activity yet' : `Latest activity ${h.latest}` }
+}
+
+/** The phone Labeled pane's heading: the tag in view, else what the pane does with the labels. */
+export function labeledSectionTitle(tag: string): string {
+  return tag === '' || tag === LABELED_FILTER ? 'Grouped by tag' : tag
+}
+
+/** The phone Detail pane's heading: what the open record lists, or that nothing is open. */
+export function detailSectionTitle(open: boolean, messages: number): string {
+  return open ? `Latest ${messages} messages` : 'Nothing open'
 }
 
 /**
