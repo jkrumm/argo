@@ -1,12 +1,10 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Group, Text } from '@mantine/core'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { localDay } from '../../garmin-health/charts/local-day'
-import { readinessHeader, readinessReading } from '../model'
 import { READINESS_PUSH_FROM, READINESS_REST_BELOW } from '../bands'
 import { METRIC_TOOLTIPS } from '../constants'
 import { trailingMA } from './trailing-ma'
@@ -97,33 +95,10 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
     }))
   }, [query.data])
   const hasData = points.some((p) => p.readiness !== null)
-  // The header is the verdict card's reading, from the same fixed-window query and function: the
-  // server's score depends on the window it is computed over, so the plotted window must not
-  // decide the headline figure.
-  const headerQuery = useQuery(strengthQueries.readiness({ window: '30d' }))
-  const reading = readinessReading(headerQuery.data?.points ?? [])
-  const header = readinessHeader(reading)
-  const headerZone = reading?.score == null ? null : readinessZoneLabel(reading.score)
-
   return (
     <ChartCard
       title="Adjusted readiness"
       info={METRIC_TOOLTIPS.readinessStrain}
-      actions={
-        header !== null && headerZone ? (
-          <Group gap={6} align="baseline" wrap="nowrap">
-            <Text span fw={600} size="md" c={headerZone.color}>
-              {header.text}
-            </Text>
-            <Text span size="xs" c={headerZone.color}>
-              {headerZone.text}
-            </Text>
-            <Text span size="xs" c="dimmed">
-              latest{header.date === null ? '' : ` · ${header.date}`}
-            </Text>
-          </Group>
-        ) : null
-      }
       state={chartStateOf(query, !hasData ? 'Need ≥ 7 days of Garmin daily metrics' : undefined)}
       placeholderHeight={HEIGHT}
     >

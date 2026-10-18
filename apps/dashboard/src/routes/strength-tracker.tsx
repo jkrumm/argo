@@ -77,9 +77,6 @@ export const Route = createFileRoute('/strength-tracker')({
         context.queryClient.ensureQueryData(
           strengthQueries.trainingLoad({ window: 'all', exercises: params.exercises }),
         ),
-        context.queryClient.ensureQueryData(
-          strengthQueries.heroes({ window: '90d', exercises: params.exercises }),
-        ),
         context.queryClient.ensureQueryData(strengthQueries.readiness({ window: '30d' })),
       )
       base.push(
@@ -280,7 +277,7 @@ function ChartsPanel({
       </Box>
 
       <Box data-shot="sec-diagnostics">
-        <Section title={`Against your 90-day norm, ${period}`} collapsible defaultOpen={false}>
+        <Section title="Against your 90-day norm" collapsible defaultOpen={false}>
           <Suspense fallback={pending}>
             <CompositeChartSlot params={params} activeExercises={activeExercises} />
           </Suspense>

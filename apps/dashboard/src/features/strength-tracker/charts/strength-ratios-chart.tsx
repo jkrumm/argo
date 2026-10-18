@@ -11,8 +11,9 @@ import {
   EM_DASH,
   fmtBound,
   isBorderline,
-  ratioDetail,
+  offText,
   ratioName,
+  RATIO_TOLERANCE,
   statusWord,
 } from '../model'
 
@@ -51,6 +52,7 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
     <ChartCard
       title="Strength balance"
       info={METRIC_TOOLTIPS.strengthRatios}
+      subtitle={`Borderline: balanced only through the ${Math.round(RATIO_TOLERANCE * 100)} % tolerance`}
       state={{ empty: !hasData && 'Need data for multiple lifts' }}
       placeholderHeight={180}
     >
@@ -97,7 +99,7 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
                   >
                     {statusWord(pair.status, offset)}
                   </Text>
-                  {` · ${ratioDetail(pair.status, offset, pair.range)}`}
+                  {` · ${offText(offset, pair.range)}`}
                 </Text>
               )}
             </Stack>

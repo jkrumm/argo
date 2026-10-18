@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Group, Text } from '@mantine/core'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
@@ -75,36 +74,10 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
 
   const hasAnyPoint = merged.some((p) => activeExercises.some((ex) => p.e1rm[ex] != null))
 
-  // Leader = active exercise with the highest most-recent e1RM.
-  const leader = useMemo(() => {
-    let best: { ex: string; latest: number } | null = null
-    for (const ex of activeExercises) {
-      for (let i = merged.length - 1; i >= 0; i--) {
-        const v = merged[i]?.e1rm[ex]
-        if (v === null || v === undefined) continue
-        if (best === null || v > best.latest) best = { ex, latest: v }
-        break
-      }
-    }
-    return best
-  }, [merged, activeExercises])
-
   return (
     <ChartCard
       title="Estimated 1RM"
       info={METRIC_TOOLTIPS.oneRmTrend}
-      actions={
-        leader ? (
-          <Group gap={6} align="baseline" wrap="nowrap">
-            <Text span fw={600} size="md">
-              {leader.latest.toFixed(1)} kg
-            </Text>
-            <Text span size="xs" c="dimmed">
-              {exerciseLabel(leader.ex)}, latest session
-            </Text>
-          </Group>
-        ) : null
-      }
       state={chartStateOf(query, !hasAnyPoint ? 'No estimated 1RM in this window' : undefined)}
       placeholderHeight={HEIGHT}
     >

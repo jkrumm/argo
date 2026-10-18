@@ -1,17 +1,14 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Group, Text } from '@mantine/core'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { date } from 'basalt-ui/format'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { chartStateOf } from '../../../lib/chart-state'
-import { useNow } from '../../../lib/use-now'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { SERIES } from '../../../lib/series'
 import { EXERCISE_COLORS, METRIC_TOOLTIPS, ZONE_COLORS, type ExerciseKey } from '../constants'
 import { acwrZoneLabel, exerciseLabel, type AcwrZone } from '../formulas'
-import { ACWR_METHOD, acwrZoneWord, acwrReading, shortDate } from '../model'
-import { ACWR_FLOOR, ACWR_OPTIMAL_TO, ACWR_PARITY } from '../bands'
+import { ACWR_PARITY } from '../bands'
 import { mergePoints, type ExerciseSeries, type MergedPoint } from './merge-acwr'
 
 const HEIGHT = 280
@@ -56,14 +53,6 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
   )
   const enoughData = totalAcwrPoints >= 2 && merged.length >= 2
 
-  // The header reads the same full-history query and function as the verdict card, whatever window
-  // the chart itself is drawn over.
-  const headerQuery = useQuery(
-    strengthQueries.trainingLoad({ window: 'all', exercises: params.exercises }),
-  )
-  const now = useNow()
-  const { acwr, week: asOf } = acwrReading(headerQuery.data?.byExercise ?? [], now)
-
   const series = useMemo<ChartSeries<MergedPoint>[]>(
     () => [
       ...exerciseSeries.map(({ exercise_id: ex }): ChartSeries<MergedPoint> => ({
@@ -87,20 +76,6 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
     <ChartCard
       title="ACWR"
       info={METRIC_TOOLTIPS.trainingLoad}
-      actions={
-        asOf !== null ? (
-          <Group gap={6} align="baseline" wrap="nowrap">
-            <Text span fw={600} size="md">
-              {acwr === null ? '—' : acwr.toFixed(2)}
-            </Text>
-            <Text span size="xs" c="dimmed">
-              {acwr === null
-                ? `no training week in the last 28 d, last was the week of ${shortDate(asOf)}`
-                : `${acwrZoneWord(acwr)} · band ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO} · ${ACWR_METHOD}, week of ${shortDate(asOf)}`}
-            </Text>
-          </Group>
-        ) : null
-      }
       state={chartStateOf(
         query,
         !enoughData ? 'Not enough data — need at least 2 weeks of sessions' : undefined,
