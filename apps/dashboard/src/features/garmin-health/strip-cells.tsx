@@ -19,6 +19,7 @@ import {
 } from '../../lib/queries/daily-metrics'
 import {
   ACWR_CAUTION_TO,
+  ACWR_UNDER_LABEL,
   ACWR_FLOOR,
   ACWR_METER_MAX,
   ACWR_OPTIMAL_TO,
@@ -196,7 +197,7 @@ function useLoadCell(params: SummaryParams): StatStripCell {
           max={ACWR_METER_MAX}
           format={(v) => v.toFixed(2)}
           zones={[
-            { from: 0, to: ACWR_FLOOR, label: 'Under', color: VX.warn },
+            { from: 0, to: ACWR_FLOOR, label: ACWR_UNDER_LABEL, color: VX.warn },
             {
               from: ACWR_FLOOR,
               to: ACWR_OPTIMAL_TO,
