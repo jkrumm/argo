@@ -132,26 +132,24 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
     ...(score !== null && { unit: '/100' }),
     loading: summary.isPending,
     stale: summary.isPlaceholderData,
-    visual: showsGap ? (
-      gap !== null && (
-        <Text size="xs" c="dimmed">
-          {gapLine(gap, form)}
-        </Text>
-      )
-    ) : (
-      <>
-        <Meter
-          {...recoveryMeterProps(score)}
-          value={score === null ? null : Math.round(score)}
-          loading={summary.isPending}
-        />
-        <ContributorRows
-          label="Recovery contributors, points of their weight"
-          rows={contributorItems(data?.components ?? { hrv: null, sleep: null, rhr: null })}
-          loading={summary.isPending}
-        />
-      </>
-    ),
+    ...(showsGap
+      ? gap !== null && { state: { kind: 'empty', reason: gapLine(gap, form) } as const }
+      : {
+          visual: (
+            <>
+              <Meter
+                {...recoveryMeterProps(score)}
+                value={score === null ? null : Math.round(score)}
+                loading={summary.isPending}
+              />
+              <ContributorRows
+                label="Recovery contributors, points of their weight"
+                rows={contributorItems(data?.components ?? { hrv: null, sleep: null, rhr: null })}
+                loading={summary.isPending}
+              />
+            </>
+          ),
+        }),
   }
 }
 
@@ -188,30 +186,33 @@ function useLoadCell(params: SummaryParams): StatStripCell {
     unit: 'ACWR',
     loading: query.isPending,
     stale: isPlaceholderData,
-    visual: (
-      <>
-        <Meter
-          label="Acute to chronic workload ratio"
-          value={acwr}
-          min={0}
-          max={ACWR_METER_MAX}
-          format={(v) => v.toFixed(2)}
-          zones={acwrMeterZones({
-            floor: ACWR_FLOOR,
-            optimalTo: ACWR_OPTIMAL_TO,
-            cautionTo: ACWR_CAUTION_TO,
-            max: ACWR_METER_MAX,
-          })}
-          startCaption="0"
-          endCaption={ACWR_METER_MAX.toFixed(1)}
-          loading={query.isPending}
-          emptyText={gap === undefined ? 'Loading training load' : gapLine(gap, form)}
-        />
-        {load.length > 0 || query.isPending ? (
-          <LoadRows load={load} loading={query.isPending} />
-        ) : null}
-      </>
-    ),
+    ...(gap !== undefined
+      ? { state: { kind: 'empty', reason: gapLine(gap, form) } as const }
+      : {
+          visual: (
+            <>
+              <Meter
+                label="Acute to chronic workload ratio"
+                value={acwr}
+                min={0}
+                max={ACWR_METER_MAX}
+                format={(v) => v.toFixed(2)}
+                zones={acwrMeterZones({
+                  floor: ACWR_FLOOR,
+                  optimalTo: ACWR_OPTIMAL_TO,
+                  cautionTo: ACWR_CAUTION_TO,
+                  max: ACWR_METER_MAX,
+                })}
+                startCaption="0"
+                endCaption={ACWR_METER_MAX.toFixed(1)}
+                loading={query.isPending}
+              />
+              {load.length > 0 || query.isPending ? (
+                <LoadRows load={load} loading={query.isPending} />
+              ) : null}
+            </>
+          ),
+        }),
   }
 }
 
@@ -341,7 +342,7 @@ function useFitnessCell(): StatStripCell {
     return {
       key: 'fitness',
       caption: 'Fitness',
-      visual: <Meter label="Fitness signals" value={null} emptyText={gapLine(gap, form)} />,
+      state: { kind: 'empty', reason: gapLine(gap, form) },
     }
   }
   return {
