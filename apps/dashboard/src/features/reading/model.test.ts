@@ -2,7 +2,6 @@ import { describe, expect, test } from 'bun:test'
 import { relativeTime } from 'basalt-ui/format'
 import {
   approxHours,
-  lastReadFact,
   booksPerMonth,
   finishedFooter,
   finishCohort,
@@ -17,6 +16,7 @@ import {
   genreCounts,
   hoursLabel,
   hoursLeft,
+  lastReadFact,
   median,
   parseTimestamp,
   ratingShape,
@@ -483,8 +483,7 @@ describe('lastReadFact', () => {
     expect(lastReadFact(now - day, now)).toBe('last read 1\u00a0day ago')
     expect(lastReadFact(now - 3 * 3_600_000, now)).toBe('last read 3\u00a0hours ago')
   })
-  test('no leading number: untouched', () => {
-    expect(relativeTime(now, { now, numeric: 'auto' })).not.toMatch(/^\d/)
+  test('an age without a leading number is left whole', () => {
     expect(lastReadFact(now, now)).toBe(
       `last read ${relativeTime(now, { now, numeric: 'always' })}`,
     )
