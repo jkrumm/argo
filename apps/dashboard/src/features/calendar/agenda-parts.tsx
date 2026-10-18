@@ -10,7 +10,7 @@ import { IconVideo } from '@tabler/icons-react'
 import { ScheduleRow } from '../../components/upstream/schedule-row'
 import { SERIES } from '../../lib/series'
 import classes from './agenda.module.css'
-import { untilLabel } from './summary'
+import { EMPTY_WINDOW_SHORT, untilLabel } from './summary'
 import { SOURCES_LABEL, type FeedGap } from './query-state'
 import {
   DAY_TARGET_H,
@@ -111,6 +111,7 @@ export function DayGroups({
   now,
   next,
   gap = null,
+  emptyWindow = false,
 }: {
   days: readonly AgendaDay[]
   /** All-day items per day key. */
@@ -122,6 +123,8 @@ export function DayGroups({
    * listed as `no events`. Days that do hold items still show them.
    */
   gap?: FeedGap | null
+  /** Nothing in the whole window: each empty day carries the headline's short form. */
+  emptyWindow?: boolean
 }) {
   // An unanswered calendar cannot say a day is empty, so those days are not listed.
   const visible = gap
@@ -141,7 +144,9 @@ export function DayGroups({
           return (
             <Box key={day.key} className={classes.freeDay}>
               <span className={classes.caption}>{dayLabel(day.key)}</span>
-              <span className={classes.muted}>no events</span>
+              <span className={classes.muted}>
+                {emptyWindow ? EMPTY_WINDOW_SHORT : 'no events'}
+              </span>
             </Box>
           )
         }
@@ -171,6 +176,7 @@ export function WeekStrip({
   todayKey,
   unknown,
   gap,
+  emptyWindow = false,
 }: {
   title: string
   load: readonly DayLoad[]
@@ -180,6 +186,8 @@ export function WeekStrip({
   unknown: ReadonlySet<keyof SourceSplit>
   /** Why those sources are unknown: the one shared wording. */
   gap: FeedGap | null
+  /** The whole window is empty: the headline has the sentence, this is its short form. */
+  emptyWindow?: boolean
 }) {
   const total = split.work + split.personal
   const emptyWeek = nothingBooked(load)
@@ -250,7 +258,9 @@ export function WeekStrip({
             {gap && <span className={classes.muted}>{gap.card}</span>}
           </Box>
         ) : emptyWeek ? (
-          <Text className={classes.muted}>Nothing booked this week in {SOURCES_LABEL}</Text>
+          <Text className={classes.muted}>
+            {emptyWindow ? EMPTY_WINDOW_SHORT : `Nothing booked this week in ${SOURCES_LABEL}`}
+          </Text>
         ) : null}
       </Section>
     </Card>

@@ -1,6 +1,6 @@
 import { formatMinutes } from '../../lib/format'
 /** The Agenda's summary sentence — pure, so its wording is tested on synthetic events. */
-import type { FeedGap } from './query-state'
+import { SOURCES_LABEL, type FeedGap } from './query-state'
 import { addDays, displayTitle, keyToDate, type AgendaSummary } from './derive'
 
 const weekdayShort = (key: string) =>
@@ -23,6 +23,11 @@ export function countdown(summary: AgendaSummary): string | null {
   return `next ${weekdayShort(startKey)} ${time} — ${title}`
 }
 
+/** The short form of the empty-window gap: the full sentence's leading clause, verbatim. */
+export const EMPTY_WINDOW_SHORT = 'No events'
+/** The full sentence, on the leading surface only: what is missing, and why. */
+export const EMPTY_WINDOW_SENTENCE = `${EMPTY_WINDOW_SHORT} — nothing is booked in ${SOURCES_LABEL} this week or the next 7 days`
+
 /**
  * The page opening, built from the same derivation as the lists and the strip beside it: the
  * headline answers "what is today", the facts carry the countdown and the week. The free time
@@ -31,6 +36,7 @@ export function countdown(summary: AgendaSummary): string | null {
 export function summaryParts(
   summary: AgendaSummary,
   gap: FeedGap | null = null,
+  emptyWindow = false,
 ): { sentence: string; facts: string[] } {
   // A calendar that has not answered makes every figure unknown: it says why, never "No events".
   if (
@@ -40,6 +46,9 @@ export function summaryParts(
   ) {
     return { sentence: gap?.text ?? 'Loading calendar', facts: [] }
   }
+  // Nothing in the past week or the next 7 days is one gap: the headline carries its full sentence
+  // (what is missing, why), every other surface the short form `No events` (`EMPTY_WINDOW_SHORT`).
+  if (emptyWindow) return { sentence: EMPTY_WINDOW_SENTENCE, facts: [] }
   const sentence =
     summary.todayCount > 0
       ? `${summary.todayCount} ${summary.todayCount === 1 ? 'meeting' : 'meetings'} today, ${formatMinutes(summary.todayBookedMin)} booked`
