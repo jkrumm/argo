@@ -1,7 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Skeleton, Stack, Text } from '@mantine/core'
-import { VX } from 'basalt-ui/tokens'
+import { Skeleton, Stack } from '@mantine/core'
 import { PageBar } from 'basalt-ui'
 import { agentsQueries } from '../lib/queries/agents'
 import { useNow } from '../lib/use-now'
@@ -21,6 +20,7 @@ import {
 import { FeedNotice } from '../features/agents/feed-notice'
 import { StaleBanner } from '../features/agents/stale-banner'
 import { PageSummary } from '../components/upstream/page-summary'
+import { FeedAside } from '../features/agents/feed-aside'
 import { FleetStrip } from '../features/agents/fleet-strip'
 import { NeedsYouSection } from '../features/agents/needs-you-section'
 import { ProjectCards } from '../features/agents/project-cards'
@@ -72,6 +72,7 @@ function AgentsPage() {
     isError: latestQuery.isError,
   })
   const aside = feedAside(feed, latest === null ? null : snapshotAgeMs(latest, now))
+  const asideNode = aside === null ? undefined : <FeedAside aside={aside} />
 
   return (
     <>
@@ -97,19 +98,7 @@ function AgentsPage() {
         ) : (
           <Stack gap="md" opacity={feed === 'stale' ? 0.6 : 1}>
             {feed === 'failed' || latest === null ? null : (
-              <PageSummary
-                sentence={summary.sentence}
-                facts={summary.facts}
-                aside={
-                  aside === null ? undefined : aside.tone === 'warn' ? (
-                    <Text span inherit c={VX.status.warn}>
-                      {aside.text}
-                    </Text>
-                  ) : (
-                    aside.text
-                  )
-                }
-              />
+              <PageSummary sentence={summary.sentence} facts={summary.facts} aside={asideNode} />
             )}
             {feed === 'failed' ? null : (
               <FleetStrip

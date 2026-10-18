@@ -6,6 +6,8 @@ import {
   ABANDONED_AFTER_MS,
   ageAgo,
   fleetFooter,
+  itemNoun,
+  items,
   formatWaitDuration,
   OLDEST_WAIT_WARN_MS,
   peakNeedsYou,
@@ -48,7 +50,7 @@ function NeedsYouVisual({ history, hours }: Pick<Props, 'history' | 'hours'>) {
     <Sparkline
       ariaLabel={`Agents needing you over the last ${hours} hours`}
       data={trend}
-      format={(n) => `${n} ${n === 1 ? 'item' : 'items'}`}
+      format={items}
       height={32}
       color={VX.line}
       emphasizeLast
@@ -63,7 +65,7 @@ function peakFooter(history: HistoryPoint[] | undefined, hours: number, now: num
       ? `no data in ${hours} h`
       : peak.value === 0
         ? `none in ${hours} h`
-        : `peak ${peak.value} ${peak.value === 1 ? 'item' : 'items'} in ${hours} h`
+        : `peak ${items(peak.value)} in ${hours} h`
   return peak !== null && peak.value > 0 ? `${trend} · ${ageAgo(now - peak.atMs)}` : trend
 }
 
@@ -84,7 +86,7 @@ export function FleetStrip({ needsYou, fleet, history, hours, oldest, now }: Pro
           key: 'needs-you',
           caption: 'Needs you · now',
           value: needsYou === null ? null : String(needsYou),
-          ...(needsYou !== null && { unit: needsYou === 1 ? 'item' : 'items' }),
+          ...(needsYou !== null && { unit: itemNoun(needsYou) }),
           ...(needsYou !== null && needsYou > 0 && { tone: 'warn' as const }),
           visual: <NeedsYouVisual history={history} hours={hours} />,
           footer: peakFooter(history, hours, now),

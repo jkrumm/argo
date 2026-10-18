@@ -159,7 +159,10 @@ export function fleetParts(
   return { parts, total: parts.reduce((sum, p) => sum + p.value, 0) }
 }
 
-/** The fleet's non-working states with counts, `2 idle · 1 stale`; empty when every agent is working. */
+/**
+ * The fleet's non-working states with counts, `2 idle · 1 stale`. Two fallbacks: `every agent
+ * working` when only working agents exist, `no agents in this snapshot` when every count is 0.
+ */
 export const fleetFooter = (parts: readonly FleetPart[]): string => {
   if (parts.every((p) => p.value === 0)) return 'no agents in this snapshot'
   return (
@@ -332,25 +335,28 @@ const HEADLINE_MAX = 90
 /** A sentence with no clause boundary stays whole up to this (the card title wraps); past it, ellipsis. */
 const HEADLINE_WRAP_MAX = 2 * HEADLINE_MAX
 
+/** `item` / `items`, and with the count: `1 item` / `3 items`. */
+export const itemNoun = (n: number): string => (n === 1 ? 'item' : 'items')
+export const items = (n: number): string => `${n} ${itemNoun(n)}`
+
 /** Where a long sentence may end without cutting a thought: before a parenthesis, colon, dash, semicolon or comma. */
 const CLAUSE_END = /\s\(|: | — |; |, /g
 
 /**
- * The headline of an ask: its first sentence. A sentence over `max` ends at the last clause
+ * The headline of an ask: its first sentence. A sentence over {@link HEADLINE_MAX} ends at the last clause
  * boundary that fits (no ellipsis, the full ask is behind the disclosure); with none it stays whole
  * up to {@link HEADLINE_WRAP_MAX} (the title wraps, the question reads whole) and only then
  * ellipsizes, at a word boundary.
  */
 export function headlineOf(text: string): string {
-  const max = HEADLINE_MAX
   const flat = text.replace(/\s+/g, ' ').trim()
   const stop = flat.search(/[.!?](\s|$)/)
   const sentence = stop === -1 ? flat : flat.slice(0, stop + 1)
-  if (sentence.length <= max) return sentence
-  const floor = Math.floor(max * 0.3)
+  if (sentence.length <= HEADLINE_MAX) return sentence
+  const floor = Math.floor(HEADLINE_MAX * 0.3)
   let clauseEnd = -1
   for (const match of sentence.matchAll(CLAUSE_END)) {
-    if (match.index > max) break
+    if (match.index > HEADLINE_MAX) break
     if (match.index >= floor) clauseEnd = match.index
   }
   if (clauseEnd !== -1) return sentence.slice(0, clauseEnd).replace(/[\s,;:—-]+$/, '')
