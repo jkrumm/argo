@@ -330,7 +330,9 @@ function headlineKiller(night: Night): Killer | undefined {
 function coreGateMissClause(night: Night): string | null {
   const raw = rawGapToGate(night)
   const gap = gapToGate(night)
-  return raw !== null && raw > 0 && gap !== null ? `core ${fmtDegrees(gap)} under its gate` : null
+  return raw !== null && raw > 0 && gap !== null
+    ? `core ${fmtDegrees(gap)} under ${glue('its gate')}`
+    : null
 }
 
 /** Which gate a ruled-out night misses and by how much: `core 3.9° under its gate`, else the API's first killer. */
@@ -658,7 +660,7 @@ export function skyCellFooter({
 /** The Forecast tab's unknown-site card: the title is the short form of the gap (the site id is not in the fetched list, an empty list included), the hint the one next step; together they read as one sentence. */
 export function unknownSiteCopy(siteId: string): { title: string; hint: string } {
   return {
-    title: `No site "${siteId}" in the list`,
+    title: `No site \u201c${siteId}\u201d in the list`,
     hint: 'Choose another site, or reload if the list is empty',
   }
 }

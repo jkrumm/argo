@@ -115,7 +115,7 @@ describe('nightNote', () => {
   } as unknown as Night
 
   test('a night out on the core gate states how far it fell short', () => {
-    expect(nightNote(base)).toBe('core 3.8° under its gate')
+    expect(nightNote(base)).toBe('core 3.8° under its gate')
     expect(nightNote(base)).toBe(gateMissText(base))
   })
 
@@ -215,7 +215,7 @@ describe('verdictHeadline', () => {
   })
 
   test('an OUT night on the core gate states the gap', () => {
-    expect(verdictHeadline(outNight('2026-06-13', 8, 4.1))).toBe('core 3.9° under its gate')
+    expect(verdictHeadline(outNight('2026-06-13', 8, 4.1))).toBe('core 3.9° under its gate')
   })
 })
 
@@ -282,7 +282,7 @@ describe('pageSummary', () => {
       selectedDate: '2026-06-13',
     })
     expect(summary.sentence).toBe('No usable night in the next 2 nights')
-    expect(summary.facts).toEqual(['closest Sun 14, core 2.0° under its gate'])
+    expect(summary.facts).toEqual(['closest Sun 14, core 2.0° under its gate'])
   })
 
   test('a selected closest night is not restated on either tab', () => {
@@ -439,7 +439,7 @@ describe('verdictStatus', () => {
 
 describe('gateMissText', () => {
   test('names the core shortfall, else the first killer', () => {
-    expect(gateMissText(outNight('2026-06-13', 8, 4.1))).toBe('core 3.9° under its gate')
+    expect(gateMissText(outNight('2026-06-13', 8, 4.1))).toBe('core 3.9° under its gate')
     expect(gateMissText(outNight('2026-06-13', 8, 8))).toBe('core altitude')
   })
 })
@@ -448,8 +448,8 @@ describe('the core gate miss clause at its boundaries', () => {
   test('a raw gap of 0.01–0.04° reads 0.0° (still a miss)', () => {
     for (const reading of [7.99, 7.96]) {
       const night = outNight('2026-06-13', 8, reading)
-      expect(gateMissText(night)).toBe('core 0.0° under its gate')
-      expect(nightNote(night)).toBe('core 0.0° under its gate')
+      expect(gateMissText(night)).toBe('core 0.0° under its gate')
+      expect(nightNote(night)).toBe('core 0.0° under its gate')
     }
   })
 
@@ -461,14 +461,14 @@ describe('the core gate miss clause at its boundaries', () => {
 
   test('gate 8 / peak 7.95 reads 0.1° despite float noise', () => {
     const night = outNight('2026-06-13', 8, 7.95)
-    expect(gateMissText(night)).toBe('core 0.1° under its gate')
-    expect(nightNote(night)).toBe('core 0.1° under its gate')
+    expect(gateMissText(night)).toBe('core 0.1° under its gate')
+    expect(nightNote(night)).toBe('core 0.1° under its gate')
   })
 
   test('a raw gap of 0.05° reads 0.1°', () => {
     const night = outNight('2026-06-13', 10, 9.95)
-    expect(gateMissText(night)).toBe('core 0.1° under its gate')
-    expect(nightNote(night)).toBe('core 0.1° under its gate')
+    expect(gateMissText(night)).toBe('core 0.1° under its gate')
+    expect(nightNote(night)).toBe('core 0.1° under its gate')
   })
 
   test('a core miss listed after the moon killer still shows in the strip cell note', () => {
@@ -480,7 +480,7 @@ describe('the core gate miss clause at its boundaries', () => {
       ],
     } as unknown as Night
     expect(coreGateFailure(night)).toBe(true)
-    expect(nightNote(night)).toBe('core 3.9° under its gate')
+    expect(nightNote(night)).toBe('core 3.9° under its gate')
   })
 })
 
@@ -524,7 +524,7 @@ describe('windowFact', () => {
     })
     expect(windowFact(outNight('2026-06-13', 8, 4.1), { withMiss: true })).toEqual({
       value: 'No window',
-      period: 'core 3.9° under its gate',
+      period: 'core 3.9° under its gate',
     })
   })
 
@@ -650,7 +650,7 @@ describe('one headline gate', () => {
       ['moon', 'core-altitude'],
       ['core-altitude', 'moon'],
     ]) {
-      expect(gateMissText(both(order))).toBe('core 3.9° under its gate')
+      expect(gateMissText(both(order))).toBe('core 3.9° under its gate')
     }
   })
 
@@ -660,7 +660,7 @@ describe('one headline gate', () => {
       gateCoreAltitude: 7.98,
       coreGateDeg: 8,
     } as Night
-    expect(gateMissText(night)).toBe('core 0.0° under its gate')
+    expect(gateMissText(night)).toBe('core 0.0° under its gate')
   })
 
   test('with no core gap the first killer headlines', () => {
@@ -1137,7 +1137,7 @@ describe('darkSkyTickText and moonInterferes', () => {
 describe('unknownSiteCopy', () => {
   test('names the site and the next step', () => {
     expect(unknownSiteCopy('example-site')).toEqual({
-      title: 'No site "example-site" in the list',
+      title: 'No site “example-site” in the list',
       hint: 'Choose another site, or reload if the list is empty',
     })
   })
