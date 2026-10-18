@@ -55,7 +55,7 @@ function AgentsPage() {
   const emptyShot = shotState() === 'empty'
   const pushedLatest = latestQuery.data?.latest ?? null
   const latest = emptyShot ? null : pushedLatest
-  const history = emptyShot ? undefined : historyQuery.data?.data
+  const history = emptyShot ? [] : historyQuery.data?.data
   const snapshot = latest?.snapshot
   const agents = flattenAgents(snapshot)
   const now = useNow()
