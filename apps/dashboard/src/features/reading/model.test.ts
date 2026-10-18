@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test'
+import { relativeTime } from 'basalt-ui/format'
 import {
   approxHours,
-  gluedRelative,
+  lastReadFact,
   booksPerMonth,
   finishedFooter,
   finishCohort,
@@ -474,13 +475,21 @@ describe('ratingsFooter', () => {
   })
 })
 
-describe('gluedRelative', () => {
-  test('glues the number to its unit, `ago` stays breakable', () => {
-    expect(gluedRelative('3 months ago')).toBe('3\u00a0months ago')
-    expect(gluedRelative('1 day ago')).toBe('1\u00a0day ago')
+describe('lastReadFact', () => {
+  const now = Date.UTC(2026, 9, 18)
+  const day = 86_400_000
+  test('glues the number to its unit in basalt relativeTime output, `ago` stays breakable', () => {
+    expect(lastReadFact(now - 95 * day, now)).toBe('last read 3\u00a0months ago')
+    expect(lastReadFact(now - day, now)).toBe('last read 1\u00a0day ago')
+    expect(lastReadFact(now - 3 * 3_600_000, now)).toBe('last read 3\u00a0hours ago')
   })
-  test('text without a leading number is untouched', () => {
-    expect(gluedRelative('yesterday')).toBe('yesterday')
-    expect(gluedRelative('last week')).toBe('last week')
+  test('no leading number: untouched', () => {
+    expect(relativeTime(now, { now, numeric: 'auto' })).not.toMatch(/^\d/)
+    expect(lastReadFact(now, now)).toBe(
+      `last read ${relativeTime(now, { now, numeric: 'always' })}`,
+    )
+  })
+  test('no timestamp', () => {
+    expect(lastReadFact(null, now)).toBe('last read —')
   })
 })

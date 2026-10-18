@@ -643,17 +643,16 @@ describe('nextUsableText looks only at later nights', () => {
 describe('sky cell footer', () => {
   test('sky: the threshold, dome and transparency', () => {
     expect(skyCellFooter({ domePenaltyMag: 1.04, transparency: 3 })).toBe(
-      'dark\u00a0≥\u00a021.6\u00a0mag/arcsec²\u00a0· town\u00a0glow\u00a0+1.04\u00a0mag\u00a0· transparency\u00a03/8 (lower\u00a0=\u00a0clearer)',
+      'dark ≥\u00a021.6\u00a0mag/arcsec²\u00a0· town\u00a0glow\u00a0+1.04\u00a0mag\u00a0· transparency\u00a03/8 (lower\u00a0=\u00a0clearer)',
     )
     expect(skyCellFooter({ domePenaltyMag: null, transparency: null })).toBe(
-      'dark\u00a0≥\u00a021.6\u00a0mag/arcsec²\u00a0· town\u00a0glow\u00a0—\u00a0· transparency\u00a0— (lower\u00a0=\u00a0clearer)',
+      'dark ≥\u00a021.6\u00a0mag/arcsec²\u00a0· town\u00a0glow\u00a0—\u00a0· transparency\u00a0— (lower\u00a0=\u00a0clearer)',
     )
   })
 
   test('no glued run exceeds 24 characters and no line can open on a dot', () => {
     const footer = skyCellFooter({ domePenaltyMag: 1.04, transparency: 3 })
-    for (const run of footer.split(' '))
-      expect(run.replace(/\u00a0·$/, '').length).toBeLessThanOrEqual(24)
+    for (const run of footer.split(' ')) expect(run.length).toBeLessThanOrEqual(24)
     expect(footer).not.toContain(' ·')
   })
 })

@@ -210,6 +210,6 @@ No basalt gaps.
 
 Follow-up (w30-r1):
 
-- **Sky footer clipped at 1440** — fixed: the transparency phrase splits into `transparency {n}/8` (glued) + a breakable space + `(lower = clearer)` (glued); `dark ≥ {t} mag/arcsec²` and `town glow +{d} mag` stay one glued run each; every glued run ≤ 24 characters. Every fact kept (`skyCellFooter`).
+- **Sky footer clipped at 1440** — fixed: the transparency phrase splits into `transparency {n}/8` (glued) + a breakable space + `(lower = clearer)` (glued); `dark` breaks from a glued `≥ {t} mag/arcsec²`, `town glow +{d} mag` stays one glued run; every unbreakable run, bound `·` included, is ≤ 24 characters (tested). Every fact kept (`skyCellFooter`).
 - **Moon footer opened a line with `· sets`** — fixed: each `·` is bound to the text before it (`moonFooter`).
 - **Core footer split `at transit`** — fixed: `at transit` is glued (`coreTransitFooter`).
