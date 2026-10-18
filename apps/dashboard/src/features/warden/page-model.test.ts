@@ -978,11 +978,13 @@ describe('strip footers', () => {
 
   it('writes the fixes legend as a sum', () => {
     expect(fixesLegend(fixes(3, 2, 1))).toBe(
-      '3\u00a0fixed + 2\u00a0quiet + 1\u00a0closed = 6\u00a0items',
+      '3\u00a0fixed +\u00a02\u00a0quiet +\u00a01\u00a0closed =\u00a06\u00a0items',
     )
   })
   it('shows a dash and no total for an unreported count', () => {
-    expect(fixesLegend(fixes(3, null, 1))).toBe('3\u00a0fixed + —\u00a0quiet + 1\u00a0closed')
+    expect(fixesLegend(fixes(3, null, 1))).toBe(
+      '3\u00a0fixed +\u00a0—\u00a0quiet +\u00a01\u00a0closed',
+    )
   })
 
   it('gives the verdicts cell a fact instead of a bare share', () => {

@@ -810,10 +810,13 @@ export function fixesLegend(fixes: StripModel['fixes']): string {
     { n: fixes.quiet, label: 'quiet' },
     { n: fixes.closed, label: 'closed' },
   ]
-  const text = parts.map((part) => `${part.n ?? '—'}${NBSP}${part.label}`).join(' + ')
+  // Each operator is glued to the term after it, so a wrap lands before `+` / `=`, never after.
+  const text = parts
+    .map((part, i) => `${i === 0 ? '' : `+${NBSP}`}${part.n ?? '—'}${NBSP}${part.label}`)
+    .join(' ')
   return parts.some((part) => part.n === null)
     ? text
-    : `${text} = ${parts.reduce((sum, part) => sum + (part.n ?? 0), 0)}${NBSP}items`
+    : `${text} =${NBSP}${parts.reduce((sum, part) => sum + (part.n ?? 0), 0)}${NBSP}items`
 }
 
 /** The verdicts cell's fact line (the cell has nothing to compare the share against). */

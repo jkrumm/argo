@@ -242,3 +242,7 @@ No basalt gaps this round.
 
 - **Reviewer:** fail — every rest component passes; the new failures are the first-ever `empty` renders. Fixed: `craft-7/no-declared-states` (`empty` declared on `fleet-strip`, the real 404 → `latest: null` branch; history emptied with it, narratives stay live — another producer). **New (argo):** the empty activity strip says `No snapshot in the last 24 h` above `{n} hours without a snapshot` (two lines, one fact, read as a contradiction); the `No snapshot yet` alert names what has not arrived but no next step; the needs-you cell is a bare `—` with no reason line under `empty`. **New (basalt):** the alert's inline `Code` radius sits within 3 px of the Alert's (`craft-1/nested-radius-step`). Carried: card 3 offers one action; frozen titles; `{d} d {h} h` alone under `agents · longest` (polish). No lost fact.
 - **Against Keel:** close — Keel's cells each carry a micro-visual, ours are text readings.
+
+### Wave 33 fixes (round 12)
+
+- **Empty state:** the `No snapshot yet` alert uses the shape shared with Warden — `agent-gateway pushes to {route} every 10 min from each dev host. If this stays empty, check that agent-gateway is running on a dev host.` The empty activity strip states the absence once (`No snapshot in the last {n} h`); the `{n} hours without a snapshot` line shows only beside a real fact. The needs-you cell reads `Waiting for the first snapshot` instead of a bare `—`.

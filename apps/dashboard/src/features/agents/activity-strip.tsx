@@ -97,7 +97,7 @@ export function ActivityStrip({ history, hours, now }: Props) {
         <Text size="sm" ff="monospace" c="dimmed" mt="xs">
           {fact ?? `No snapshot in the last ${withUnit(hours, 'h')}`}
         </Text>
-        {gaps > 0 ? (
+        {fact !== null && gaps > 0 ? (
           <Text size="xs" c="dimmed" mt="xs">
             {gaps} {gaps === 1 ? 'hour' : 'hours'} without a snapshot
           </Text>

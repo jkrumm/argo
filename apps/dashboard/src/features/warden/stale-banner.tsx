@@ -20,8 +20,8 @@ export function StaleBanner({ snapshot }: Props) {
         icon={<IconInfoCircle size={16} />}
         title="No snapshot yet"
       >
-        Nothing has been pushed to <Code>POST /warden/snapshot</Code> — the mini's loop has not
-        reported.
+        Warden pushes to <Code>POST /warden/snapshot</Code> after every loop tick, about every
+        10&nbsp;min. If this stays empty, check that the Warden loop is running on the mini.
       </Alert>
     )
   }
