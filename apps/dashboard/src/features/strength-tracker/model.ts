@@ -432,14 +432,14 @@ export function bandOffset(
 /** A band bound with at least one decimal: `1.0`, `1.25`. */
 export const fmtBound = (v: number): string => (Number.isInteger(v) ? v.toFixed(1) : String(v))
 
-/** `0.12 under`, `<0.01 over`; `null` inside the band, where the verdict word says it all. */
-export function distanceText(offset: number | null): string | null {
-  if (offset === null || offset === 0) return null
+/** ` · 0.12 under the band`, ` · <0.01 over the band`; empty inside the band or with no ratio, where the verdict word says it all. */
+export function distanceTail(offset: number | null): string {
+  if (offset === null || offset === 0) return ''
   const size = Math.abs(offset) < 0.005 ? '<0.01' : Math.abs(offset).toFixed(2)
-  return `${size} ${offset < 0 ? 'under' : 'over'}`
+  return ` · ${size} ${offset < 0 ? 'under' : 'over'} the band`
 }
 
-/** The band's range, said once: under its meter (`1.0–2.0`) or, with no meter, beside the missing-lift note. */
+/** A band's range with one decimal at least, `1.0–2.0`. */
 export function bandRange([lo, hi]: readonly [number, number]): string {
   return `${fmtBound(lo)}–${fmtBound(hi)}`
 }
@@ -474,10 +474,13 @@ export function shortDate(date: string): string {
   return dayLabel(date).split(' ').slice(1).join(' ')
 }
 
-/** `acute 4.2 t / chronic 3.9 t`, the ACWR tooltip's load pair in the volume chart's unit; `—` for a lift with no point. */
-export function fmtLoadPair(acute: number | undefined, chronic: number | undefined): string {
-  const t = (kg: number | undefined) => (kg === undefined ? EM_DASH : fmtTonnes(kg))
-  return `acute ${t(acute)} / chronic ${t(chronic)}`
+/** `acute 4.2 t / chronic 3.9 t` (the volume chart's unit); `—` for a side with no value. */
+export function fmtLoadPair(
+  acute: number | null | undefined,
+  chronic: number | null | undefined,
+): string {
+  const tonnes = (kg: number | null | undefined) => (kg == null ? EM_DASH : fmtTonnes(kg))
+  return `acute ${tonnes(acute)} / chronic ${tonnes(chronic)}`
 }
 
 /** Tonnes throughout the volume chart, one decimal; a positive week that rounds to 0.0 reads `< 0.1 t`. */

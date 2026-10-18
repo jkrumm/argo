@@ -15,7 +15,7 @@ import {
   liftDelta,
   localIso,
   bandRange,
-  distanceText,
+  distanceTail,
   fmtLoadPair,
   periodLabel,
   perMonth,
@@ -330,14 +330,14 @@ describe('balance', () => {
     expect(bandOffset(null, [1, 2])).toBeNull()
   })
   test('a hair outside the band never prints inside it', () => {
-    expect(distanceText(bandOffset(2.004, [1, 2]))).toBe('<0.01 over')
-    expect(distanceText(-0.1)).toBe('0.10 under')
-    expect(distanceText(0)).toBeNull()
-    expect(distanceText(null)).toBeNull()
+    expect(distanceTail(bandOffset(2.004, [1, 2]))).toBe(' · <0.01 over the band')
+    expect(distanceTail(-0.1)).toBe(' · 0.10 under the band')
+    expect(distanceTail(0)).toBe('')
+    expect(distanceTail(null)).toBe('')
   })
   test('outside the band the distance text carries the direction, the verdict word the severity', () => {
-    expect(distanceText(-0.2)).toContain('under')
-    expect(distanceText(0.4)).toContain('over')
+    expect(distanceTail(-0.2)).toContain('under')
+    expect(distanceTail(0.4)).toContain('over')
     expect(statusWord('imbalanced', -0.2)).toBe('imbalanced')
   })
   test('status words', () => {
@@ -363,7 +363,9 @@ describe('balance', () => {
   test('the ACWR load pair is in tonnes, like the weekly volume axis', () => {
     expect(fmtLoadPair(4200, 3900)).toBe(`acute ${fmtTonnes(4200)} / chronic ${fmtTonnes(3900)}`)
     expect(fmtLoadPair(4200, 3900)).toBe('acute 4.2\u00a0t / chronic 3.9\u00a0t')
-    expect(fmtLoadPair(undefined, undefined)).toBe('acute — / chronic —')
+    expect(fmtLoadPair(null, undefined)).toBe('acute — / chronic —')
+    expect(fmtLoadPair(4200, null)).toBe('acute 4.2\u00a0t / chronic —')
+    expect(fmtLoadPair(undefined, 3900)).toBe('acute — / chronic 3.9\u00a0t')
   })
 })
 
