@@ -131,9 +131,9 @@ describe('booked hours', () => {
   test('no heading figure for a day holding only live all-day items; empty days say No events', () => {
     const fmt = (m: number) => `${m}m`
     const only = agendaDay([], D)
-    expect(dayHeadLabel(only, fmt, 2)).toBe('')
+    expect(dayHeadLabel(only, fmt, 2)).toBe('2 events · all day')
     const cancelledRow = agendaDay([cancelled('x', 'Canceled:', at(D, '09:00'), at(D, '10:00'))], D)
-    expect(dayHeadLabel(cancelledRow, fmt, 1)).toBe('')
+    expect(dayHeadLabel(cancelledRow, fmt, 1)).toBe('1 event · all day')
     expect(dayHeadLabel(only, fmt, 0)).toBe('No events')
     expect(dayHeadLabel(cancelledRow, fmt, 0)).toBe('all cancelled')
   })
@@ -428,7 +428,7 @@ describe('cancelled meetings', () => {
     const fmt = (m: number) => `${m}m`
     const only = agendaDay([cancelled('b', 'Abgesagt:', `${D} 13:00:00`, `${D} 14:00:00`)], D)
     expect(dayHeadLabel(only, fmt)).toBe('all cancelled')
-    expect(dayHeadLabel(only, fmt, 1)).toBe('')
+    expect(dayHeadLabel(only, fmt, 1)).toBe('1 event · all day')
     expect(dayHeadLabel(agendaDay([], D), fmt)).toBe('No events')
     expect(dayHeadLabel(agendaDay([ev('a', `${D} 09:00:00`, `${D} 10:00:00`)], D), fmt)).toBe(
       '1 event · 60m',
