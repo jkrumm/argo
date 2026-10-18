@@ -9,7 +9,7 @@ import type { ReactNode } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { DeltaBadge, Meter, StatGroup, type StatStripCell, PageSummary } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
-import { alpha, CONTAINER_KEYS as CQ, VX } from 'basalt-ui/tokens'
+import { CONTAINER_KEYS as CQ, VX } from 'basalt-ui/tokens'
 import { useNow } from '../../lib/use-now'
 import { strengthQueries, type StrengthQueryParams } from '../../lib/queries/strength'
 import { workoutsQueries } from '../../lib/queries/workouts'
@@ -48,8 +48,6 @@ import {
 } from './bands'
 import classes from './overview.module.css'
 
-/** `MeterZone` has no tone, and `Meter`'s default zone fill is near-white in dark mode. */
-const MUTED_FILL = alpha(VX.muted, 0.35)
 const SPARK_POINTS = 20
 const VERDICT_WINDOW = '30d'
 
@@ -192,7 +190,7 @@ function TodaysCall(props: Params) {
                     from: READINESS_REST_BELOW,
                     to: READINESS_PUSH_FROM,
                     label: 'Normal',
-                    color: MUTED_FILL,
+                    tone: 'muted',
                   },
                   { from: READINESS_PUSH_FROM, to: 100, label: 'Push', color: VX.good },
                 ]}
@@ -293,7 +291,7 @@ function liftCell({
           color={VX.line}
           format={(v) => `${v.toFixed(1)} kg`}
           labels={plotted.map((p) => shortDate(p.date))}
-          {...(pr?.bestE1RM != null && { reference: pr.bestE1RM })}
+          {...(pr?.bestE1RM != null && { reference: pr.bestE1RM, referenceLabel: 'PR' })}
           emphasizeLast
         />
       ),
