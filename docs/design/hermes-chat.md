@@ -133,3 +133,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: summaries end at a word at 1440; the thread total printed once. Carried: no chip hover. **New:** the headline's `in the last 7 days` restates the `This week` group count under another window name; the headline opens on a zero. Unscored: the untitled count printed three times; a `0 pinned` fact; row times touch the right edge (dark desktop); summaries cut mid-word at 390.
 - **Against Keel:** does not yet — three rows, then a void above the composer.
+
+### Wave 27 round (`w27-r1`, live after #107–#111)
+
+- **Reviewer:** fail. Fixed: no restated `This week` count, no opening zero, no `0 pinned`; the untitled count printed once; row times inside the edge; summaries end at a word at 390. Carried: no chip hover. **New:** a row title cut mid-word at 390 (whole in w26); the fold row `{n} untitled chats · oldest {age} ago` orphans `ago` at 390; the `Untitled` chip lost its count while every sibling keeps one, so the chips no longer add up to `All {n}`. Unscored: the footer's `Oldest thread started {date}` repeats the last row's date beside a second "oldest" in the fold.
+- **Against Keel:** does not yet — three rows and a fold, then a void above the composer.

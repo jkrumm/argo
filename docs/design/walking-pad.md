@@ -152,3 +152,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: one granularity for the last walk; `Not walking`; a data fact instead of the strip note; the streak carries its unit. Carried: the last walk's age in the headline and the record header. **New:** the streak footer describes loading, not data; that footer sets the row height and leaves the other three cells half blank; `Not walking` and the duration wrap at 390.
 - **Against Keel:** close.
+
+### Wave 27 round (`w27-r1`, live after #107–#111)
+
+- **Reviewer:** **pass** — the first page to pass the bar. Fixed: the last walk's age once; no loading footer, no half-blank strip; `Not walking` and the duration whole at 390. Unscored (to polish, not blocking): the record header says `last walk` twice; the last walk's date appears nowhere, only its age.
+- **Against Keel:** close — honest about the empty window, but the page is ~60 % blank below it.

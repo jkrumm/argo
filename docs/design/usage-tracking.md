@@ -162,3 +162,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: the p95 cell draws a trend against a dashed reference (no longer blank); one p95 reading with a labelled reference; no `last 7 d mean` restatement; the cache rate encoded once; `Other` no longer the largest bucket; the page on one full-days basis (UTC days). Carried: warn/bad days hue-only inside the strip (basalt `BandStrip`); the cost chart still drops for the partial current day; tool labels keep a raw separator. **New:** the p95 and cache info tooltips narrate the drawing (`the dashed line…`); the p95 footer splits `30 d` at 1440. Unscored: the 30-day spend printed five times and the token total four times; two greys in the health card told apart by tone alone.
 - **Against Keel:** close.
+
+### Wave 27 round (`w27-r1`, live after #107–#111)
+
+- **Reviewer:** fail (no new defect). Fixed: p95 and cache tooltips are definitions; `30 d` kept whole; the cost chart keeps the partial day consistently; no raw tool separator; the 30-day spend and token totals printed once; one neutral grey in the health card. Carried: warn/bad days hue-only in the errors strip (basalt `BandStrip`). Unscored: the errors footer orphans `(> 3%)` at 1440; the p95 `slowest day` splits its date at 390; the errors band ticks `DD.MM` vs `{day} {Mon}`.
+- **Against Keel:** close — the best KPI band of the set.

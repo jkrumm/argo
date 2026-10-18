@@ -1302,7 +1302,7 @@ Each page's detail is in `docs/design/<page>.md` § "Wave 25 round".
   over value at 390, sparkline focus start, heading slashed zero, `BandStrip`/`BarList`, two harness asks).
 - **Cleanup:** worktrees removed with `rd fan --clean`; no background task left running.
 
-## Wave 27 — Re-score round 6: distinguishing questions, cells that answer <!-- status: active -->
+## Wave 27 — Re-score round 6: distinguishing questions, cells that answer <!-- status: done -->
 
 Same shape as Wave 26 (fan-out on disjoint page files, two independent reviews per PR, `rd merge`, live re-shoot — including the
 m365 pane presets — fresh `basalt-design-reviewer`s with the previous round's shots for new/carried/unscored, + a Keel side-by-side).
@@ -1310,21 +1310,81 @@ Basalt-owned items wait for basalt (`UPSTREAM.md` § "Wave 23"–"Wave 26"). Eac
 § "Wave 26 round". Gate addition: every PR's CI `check` run must be green before `rd merge` (Wave 26 merged a test that passed only
 on the mini's ICU).
 
-- [ ] Questions that tell items apart: until the producers send `question`, the plain rung carries the item's own short handle
+- [x] Questions that tell items apart: until the producers send `question`, the plain rung carries the item's own short handle
       (title lead, alert key) whenever two cards on one surface would read the same, and never frames an alert as a change; Home,
       Warden and Agents. The producer change stays queued for the owner.
-- [ ] Fix the argo items per page, fanned out:
+- [x] Fix the argo items per page, fanned out:
   - New defects first (see each page's "New:"), then carried, then unscored.
   - Cells that went blank when a visual was dropped get a fact or a visual that answers them (reading pace, astro cloud with its
     statistic and window agreeing with Forecast, walking pad strip, reading time-read).
   - Copy that narrates or restates: usage tooltips, hermes window names, astro `gate gate`, strength diagnostics title and the two
     last-session dates, every total printed more than once (usage spend ×5, strength readiness ×3, m365 counts).
   - 390 wraps of units and status words: keep a value with its unit (non-breaking space) everywhere a unit follows a number.
-- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 28 in this shape. The loop ends only when a
+- [x] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 28 in this shape. The loop ends only when a
       fresh scorer and the owner find nothing worth improving.
 
 **Left behind:**
 
+**Closed out (orchestrated): Wave 28 is added as `active`, not spawned; the orchestrator spawns it.**
+
+- **Wave rule: subtract before you add.** Every brief carried it; every PR body lists `## Added copy` with the fact each line gives
+  and `## Removed copy`; each review was told to reject added copy that narrates, restates, renames a window or describes loading.
+  Shared helper landed first on master (`e655304`): `withUnit` / `NBSP` in `lib/format.ts`.
+- **Landed (master, deployed, `/api/health` = `8da6d87`, check + deploy workflows green):** five fan-out PRs, each with two
+  independent agent-gateway review rounds, scope frozen after round 2, the last fix diff read by the lead, CI `check` green on the PR
+  head before `rd merge` (the W26 gate addition), `make check` green after every rebase: #107 garmin + walking pad + body composition,
+  #108 astro (API: additive `cloudRuinsAt`; Tonight, Forecast and the verdict card read one `lowCloudStat` — the engine's scored mean,
+  floored, tick only with a shooting window; `docs/ASTRO-WINDOW.md` updated), #109 strength + reading + calendar, #110 usage + m365 +
+  hermes, #111 the distinguishing question rung (`resolveCopies` in `lib/question-copy.ts`: per-surface collision check → the item's
+  handle → next clause → an ordinal; one `isAlert`) + agents + warden + home.
+- **Code review caught:** a Cloud tick drawn against the engine's limit on a different statistic (peak vs scored mean) — the W26 bug
+  class again; a recovery cell blank on a failed read; a basalt `ScheduleRow` internals override (reverted, now an UPSTREAM row); a
+  zero-move `0 of {n} lifts up` headline; `dropPartialBucket` mixing local getters with UTC; `Latest {n} messages` asserting the fetch
+  cap; `No threads yet` beside an archived list; ordinals that still collided and handles cut mid-word; non-string producer fields
+  that threw; `in 0 projects`. Rejected (subtraction kept): restoring the load thresholds footer, the walking pad UTC footer, the
+  recovery sparkline, the gate's dash, an `includes today` tooltip clause.
+- **Round `w27-r1`** (live, `basalt-ui shot --base https://argo.jkrumm.com`, `argo-auth` seeded from `secrets-run read
+  op://common/api/SECRET` via env, 1440 + 390, both schemes, plus the two m365 pane presets; 1405 shots, 7 focus timeouts). Boards:
+  `.design-shots/w27-r1-{a,b,c,m365-labeled,m365-detail}` (gitignored), copied to the MacBook, `~/Downloads/argo-design-review/w27/`.
+  Three fresh `basalt-design-reviewer`s, each given the w26 shots to classify every defect, plus a Keel side-by-side; per-page
+  verdicts in `docs/design/<page>.md` § "Wave 27 round".
+- **Reviewer verdict, stated plainly:** **walking pad passes — the first page to pass the bar. Twelve fail.** Counted from the
+  reviewers' lists: **53 fixed**, **32 carried**, **32 new**, **27 unscored**. Calendar and usage have no new defect. New defects
+  are no longer mostly added copy — the subtraction rule held. They cluster in three places: (1) **lost facts** — copy removed where a
+  reader needed it (garmin recovery reason, home next-meeting name, astro mid/high cloud, body-comp window, reading `★`, strength
+  headline when nothing moved, agents needs-you footer); (2) **cells that stretch again** once a footer went (home meeting, agents
+  needs-you, garmin recovery, warden unattended) — removing a line from one cell re-exposes `StatGroup`'s row stretch; (3) **the
+  question rung** — `[alert]`-prefixed Warden titles are still framed as changes (the alert check reads a `Alert:` prefix, the
+  producer writes `[alert] …`), handles cut at an open bracket, a `Handle … alert?` question over an `Implement` button, agents
+  titles that restate their evidence line.
+- **Against Keel:** close — Home, Garmin, Body composition, Calendar, Strength, WalkingPad, Astro, M365, Usage; does not yet —
+  Agents, Warden, Reading, Hermes.
+- **Not verified:** focus on garmin fitness, strength bench press and two m365 anchors (timeouts); astro night-strip hover; the m365
+  390 detail pane with a source open.
+- **Basalt-owned rows:** `UPSTREAM.md` § "Wave 27" (`SelectFilter` option slot, `ScheduleRow` wrap, `Sparkline` reference label,
+  `DualPanel` ticks, mono ligatures, sticky bars over crops). basalt-ui 2.21.0 had not shipped; argo stays on 2.20.0.
+- **Producer change still queued for the owner:** an authored `question` from warden and agent-gateway; argo reads it on every
+  surface already.
+- **Cleanup:** worktrees removed with `rd fan --clean`; no background task left running.
+
+
+## Wave 28 — Re-score round 7: lost facts, alert titles, one stretch rule <!-- status: active -->
+
+Same shape as Wave 27 (fan-out on disjoint page files, two independent reviews per PR, CI `check` green on the PR head before
+`rd merge`, live re-shoot incl. the m365 pane presets, fresh `basalt-design-reviewer`s with the w27 shots + a Keel side-by-side). The
+rule stays **subtract before you add**, with its counterpart made explicit: a removal that leaves a reader without a fact is a defect
+(every `## Removed copy` line names where that fact still lives, or why no reader needs it). Each page's detail is in
+`docs/design/<page>.md` § "Wave 27 round". WalkingPad passed: only its two unscored polish items, no redesign.
+
+- [ ] Alert titles and handles: recognise the producer's `[alert]` prefix (and the board item's own origin/kind), never cut a
+      handle inside a bracket or mid-token, the question's verb matches the primary button, agents titles never restate their evidence
+      line. Home, Warden and Agents. The producer change stays queued for the owner.
+- [ ] Fix the argo items per page, fanned out: new first ("lost facts" restored in the shortest form that carries them, the
+      re-stretched cells fixed by shortening the tallest neighbour rather than re-adding a footer), then carried, then unscored.
+- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 29 in this shape. The loop ends only when a
+      fresh scorer and the owner find nothing worth improving.
+
+**Left behind:**
 
 # Part 1, continued
 

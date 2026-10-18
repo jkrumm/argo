@@ -148,3 +148,8 @@ No new basalt rows.
 
 - **Reviewer:** fail. Fixed: no binning note (the bucket label states its range); no note about what is not drawn; no headline/pace/legend/backlog restatement; no shelf percentages; time-read no longer repeats hours; no dash paired with a unit. **New:** the pace cell lost its visual and is half blank (`emptyRatio` ≈ 0.48); the range bucket label wraps onto three lines at 390; time-read is now a permanent empty card that does not say what fills it; finished rows show no days-to-finish and no reason. Unscored: the shelf legend and the `Currently reading` heading print one count; the shelf cell stretches at 390.
 - **Against Keel:** does not yet — two empty surfaces.
+
+### Wave 27 round (`w27-r1`, live after #107–#111)
+
+- **Reviewer:** fail. Fixed: the `Currently reading` heading no longer repeats the legend count; no permanent empty time-read card. Carried: the pace cell half blank (`emptyRatio` 0.48); the range bucket label wraps at 390; finished rows show no days-to-finish (shown only when the API sends a start date); the shelf cell stretches at 390. **New:** with time-read gone the Finished list takes the left half of its row and leaves the right half empty at 1440; lost fact — the histogram bucket labels dropped `★`, so two rows of bare numbers sit under the bars. Unscored: month group heads print a bare count with no noun.
+- **Against Keel:** does not yet — two half-empty regions.

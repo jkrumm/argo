@@ -167,3 +167,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: no restated rate or weight in the headline; one plain pace footer; the chart's net change carries its dates; the x-axis ends at the last weigh-in. Carried: end labels and the legend name the same two series on wide (basalt `Lines` has no naming switch — UPSTREAM). **New:** `{n} weigh-ins in {d} d` names a span matching neither the window nor the rate; the weight line runs through the `7 d mean` end label now that the plot ends at the last point; the rate footer splits its unit at 390. Unscored: `30 d mean` breaks at 390; `Maintenance ±0.1` without a unit; the weight cell prints the 30 d mean twice.
 - **Against Keel:** close — the chart header and strip still overlap.
+
+### Wave 27 round (`w27-r1`, live after #107–#111)
+
+- **Reviewer:** fail. Fixed: no `{n} weigh-ins in {d} d` span; the 30 d mean printed once; the maintenance band carries its unit. Carried: the weight line through the `7 d mean` end label; end labels and legend name the same series (basalt `Lines`); the rate footer range splits `{a}–` / `{b} kg/wk` at 390. **New:** the rate meter's zone captions bunch left instead of under their zones (the longer `Maintenance ±{x} kg/wk` label); `Bulk` wraps alone at 390; lost fact — `{n} weigh-ins` names no window. Unscored: the tooltip weight at two decimals vs one elsewhere; x-axis ticks `dd.mm` vs `{d} {Mon}`; the `·`-led wrap (basalt).
+- **Against Keel:** close — the rate meter's labels no longer caption their segments.

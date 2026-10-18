@@ -292,3 +292,18 @@ Rows the Wave 26 workers and the `w26-r1` reviewers filed:
 | `basalt-ui shot` | a phone pane held in a local store needs `--local-storage basalt:<key>=…` per pane; a first-class "state preset" per anchor would make the 390 panes part of the default run | m365 labeled and detail panes (captured for the first time in `w26-r1` with a per-pane seed) | two extra shot runs |
 
 `w26-r1` re-confirmed open rows from Waves 23–25: `Meter` zone captions bunching and `Danger` wrapping at 390, the floating `0`/`2.0` meter ticks, the ACWR chart tooltip wrapping names one character per line, a daily tooltip showing a clock time, chart cards at four type sizes, the `next-days` crop rendering only its top part, tall-anchor focus timeouts.
+
+### Wave 27 — round 6 fixes (#107–#111) and the `w27-r1` live re-score
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| `SelectFilter` | a per-option render slot (`FilterOption` is `{value, label, disabled}`), so the dropdown can carry a figure the selected value does not | astro site select: each site's sky brightness, to compare sites before choosing | names only |
+| `ScheduleRow` | a title wrap option (today it ellipsizes) | calendar next-days at 390, long meeting titles | ellipsis (a local CSS override of the row's internals was rejected in review) |
+| `Sparkline` | a label for its `reference` line | strength lift strips (the dashed PR line) | the cell footer names the PR |
+| `DualPanel` | a tick-count control for the lower pane | strength momentum chart (crowded ticks) | a taller lower pane |
+| mono font | ligatures off in data text (`<>` renders as a diamond) | calendar facts line | as rendered |
+| shell sticky bars | crops and focus states not covered by the sticky page bar / mobile bottom nav | strength sec-load, warden 390 focus, calendar next-days | as rendered |
+
+`w27-r1` re-confirmed open rows: the `DecisionCard` disclosure inset (5.33 px), `Meter` zero/max ticks and `Danger` wrap at 390,
+`Lines` end labels vs legend, the `·`-led `PageSummary` wrap, `BandStrip` hue-only states and tooltips over the hero value, four type
+sizes in chart/list cards, the heading face's slashed zero, the `next-days` crop, tall-anchor focus timeouts, astro night-strip hover.

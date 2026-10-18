@@ -149,3 +149,8 @@ No new basalt rows.
 
 - **Reviewer:** fail (no new defect). Fixed: no repeated free or booked hours; `target 8 h` names the tick; task titles wrap whole; every task row names its priority. Carried: next-days at four sizes and its crop cut (basalt / harness). Unscored: the facts line opens a wrapped line with `·` at 390 (basalt); long meeting titles ellipsize in next-days at 390.
 - **Against Keel:** close — the headline has no figure in its sentence.
+
+### Wave 27 round (`w27-r1`, live after #107–#111)
+
+- **Reviewer:** fail (no new defect; the page renders as in w26). Carried: next-days at four sizes and its half-blank crop (basalt / harness); the `·`-led wrap at 390 (basalt); long meeting titles ellipsize in next-days at 390 (basalt `ScheduleRow` has no wrap option — the local CSS override was rejected in review). Unscored: a mono ligature turns `<>` in a title into a diamond (basalt); mobile next-days crops include the bottom nav (harness).
+- **Against Keel:** close — the headline sentence carries no figure.
