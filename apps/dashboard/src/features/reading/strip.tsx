@@ -5,7 +5,6 @@ import {
   paceRange,
   gapsBefore,
   RATING_MAX,
-  RATING_TICKS,
   ratingShape,
   ratingsFooter,
   shelfParts,
@@ -59,30 +58,30 @@ function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
     visual: (
       <div
         role="img"
-        aria-label={`Rated books per star: ${shape.spans.map((span, i) => `${span}: ${shape.buckets[i]}`).join(', ')}; mean ${shape.mean.toFixed(1)} ★`}
+        aria-label={`Rated books per star column: ${shape.spans.map((span, i) => `${shape.labels[i]} ★ (${span}): ${shape.buckets[i]}`).join(', ')}; mean ${shape.mean.toFixed(1)} ★`}
       >
         <div className={classes.histogram}>
           {shape.buckets.map((count, i) => (
-            <div key={i} className={classes.bucket}>
+            <div
+              key={i}
+              className={classes.bucket}
+              title={`${shape.labels[i]} ★: ${shape.spans[i]}`}
+            >
+              {count > 0 && <span className={classes.count}>{count}</span>}
               <div
                 className={count > 0 ? `${classes.bar} ${classes.barFilled}` : classes.bar}
-                style={{ height: `${peak === 0 ? 0 : (count / peak) * 100}%` }}
+                style={{
+                  height: `calc((100% - var(--reading-count-h)) * ${peak === 0 ? 0 : count / peak})`,
+                }}
               />
             </div>
           ))}
           <div className={classes.meanTick} style={{ left: trackLeft(shape.meanAt) }} />
         </div>
-        <div className={classes.axisTicks} aria-hidden>
-          {RATING_TICKS.map(({ value, at }) => (
-            <span key={value} className={classes.axisTick} style={{ left: trackLeft(at) }}>
-              {value}
-            </span>
-          ))}
-        </div>
-        <div className={classes.axis}>
-          {shape.buckets.map((count, i) => (
-            <span key={i} title={shape.spans[i]}>
-              {count}
+        <div className={classes.axis} aria-hidden>
+          {shape.labels.map((label, i) => (
+            <span key={label} title={shape.spans[i]}>
+              {label}
             </span>
           ))}
         </div>

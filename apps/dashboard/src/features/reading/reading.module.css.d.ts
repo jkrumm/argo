@@ -7,13 +7,12 @@ declare const classes: {
   readonly pair: string
   readonly histogram: string
   readonly bucket: string
+  readonly count: string
   readonly bar: string
   readonly barFilled: string
   readonly meanTick: string
   readonly axis: string
   readonly list: string
-  readonly axisTicks: string
-  readonly axisTick: string
   readonly titleClamp: string
   readonly titleLink: string
   readonly cover: string
