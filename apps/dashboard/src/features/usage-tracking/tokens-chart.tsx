@@ -27,6 +27,7 @@ export default function TokensChart({
     <FoldedChart
       {...filters}
       printTotal={printTotal}
+      leading={false}
       metric="tokens"
       groupBy={groupBy}
       groupNoun={GROUP_NOUN[groupBy]}

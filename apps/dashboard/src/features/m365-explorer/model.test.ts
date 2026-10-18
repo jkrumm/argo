@@ -4,6 +4,9 @@ import {
   chatKindCounts,
   nothingToOpen,
   withStep,
+  nothingToLabel,
+  teamsGap,
+  gapLeader,
   NO_SOURCES,
   NO_CHANNELS,
   NO_CHATS,
@@ -421,10 +424,37 @@ describe('nothingToOpen', () => {
 })
 
 describe('withStep', () => {
-  test('opens with the short form verbatim, then the cause and the step', () => {
-    for (const short of [NO_CHATS, NO_TEAMS, NO_SOURCES]) {
-      expect(withStep(short).startsWith(`${short} — `)).toBe(true)
-      expect(withStep(short)).toContain('refresh to retry')
-    }
+  test('the full sentence is the short form, then the cause and the step', () => {
+    expect(withStep(NO_CHATS)).toBe(
+      'No chats came back — Microsoft 365 returned none; refresh to retry',
+    )
+    expect(withStep(NO_TEAMS)).toBe(
+      'No teams came back — Microsoft 365 returned none; refresh to retry',
+    )
+    expect(withStep(NO_SOURCES)).toBe(
+      'No chats or channels came back — Microsoft 365 returned none; refresh to retry',
+    )
+  })
+})
+
+describe('gap predicates', () => {
+  const settled = { total: 0, labeled: 0, outside: 0, loading: 0, failed: 0 }
+  test('nothingToLabel needs a settled, empty universe', () => {
+    expect(nothingToLabel(settled)).toBe(true)
+    expect(nothingToLabel({ ...settled, loading: 1 })).toBe(false)
+    expect(nothingToLabel({ ...settled, failed: 1 })).toBe(false)
+    expect(nothingToLabel({ ...settled, outside: 1 })).toBe(false)
+    expect(nothingToLabel({ ...settled, total: 1 })).toBe(false)
+  })
+  test('teamsGap names teams only when none came back', () => {
+    expect(teamsGap(0)).toBe(NO_TEAMS)
+    expect(teamsGap(2)).toBe(NO_CHANNELS)
+  })
+  test('the leader is the first empty cell in reading order, or none', () => {
+    const none = { nothingToLabel: false, noChats: false, noTeams: false }
+    expect(gapLeader({ nothingToLabel: true, noChats: true, noTeams: true })).toBe('labeled')
+    expect(gapLeader({ ...none, noChats: true, noTeams: true })).toBe('chats')
+    expect(gapLeader({ ...none, noTeams: true })).toBe('channels')
+    expect(gapLeader(none)).toBeNull()
   })
 })

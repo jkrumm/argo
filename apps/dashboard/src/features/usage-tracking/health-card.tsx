@@ -10,6 +10,7 @@ import { shotState } from '../../lib/shot-state'
 import { usageQueries, type Grain, type Range } from '../../lib/queries/usage'
 import { dayToDate } from './constants'
 import {
+  isFiltered,
   ERROR_FOLD_TOP_N,
   fmtPct,
   ERROR_BAD_ABOVE,
@@ -93,7 +94,10 @@ export default function HealthCard({
   const hasCalls = rates.buckets.some((b) => b.groups['value'] != null)
   // No calls in the window: neither half has a reading, so the card says so once instead of
   // printing a zero count beside a dash.
-  const emptyWindow = useNoUsageWindow(billing !== undefined || workspace !== undefined, false)
+  const emptyWindow = useNoUsageWindow({
+    filtered: isFiltered(billing, workspace),
+    leading: false,
+  })
   const unit = grain === 'day' ? 'day' : 'week'
   const last = p95.at(-1)
   const lastQty = secondsQuantity(last?.v)

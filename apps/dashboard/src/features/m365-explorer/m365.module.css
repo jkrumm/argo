@@ -231,6 +231,7 @@
 
 .rowShell {
   display: flex;
+  border-radius: var(--vx-radius-fine);
   align-items: center;
   min-width: 0;
 }

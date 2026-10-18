@@ -1,5 +1,5 @@
 import { ScrollArea, Skeleton, UnstyledButton } from '@mantine/core'
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import {
   CHAT_TYPE_LABEL,
   channelSourceId,
@@ -7,7 +7,6 @@ import {
   formatTime,
   groupByRecency,
   matchesTag,
-  NO_CHANNELS,
   NO_CHATS,
   NO_TEAMS,
   plural,
@@ -44,12 +43,52 @@ export type SourceListProps = {
   onSelect: (ref: SourceRef) => void
 }
 
-export function SourceList(props: SourceListProps) {
-  return props.view === 'chats' ? <ChatGroups {...props} /> : <TeamTree {...props} />
+type Filters = Pick<SourceListProps, 'tag' | 'query' | 'labelOf'>
+
+const termOf = (query: string): string => query.trim().toLowerCase()
+
+function matchingChats(props: SourceListProps): ChatRow[] {
+  const term = termOf(props.query)
+  return props.chats.filter(
+    (c) =>
+      matchesTag(props.tag, props.labelOf(chatSourceId(c.ref.chatId))) &&
+      (term === '' || c.searchText.includes(term)),
+  )
 }
 
-/** The pane's scroller. An empty list renders outside it, so its message can centre in the pane. */
-function Scroller({ children }: { children: ReactNode }) {
+function visibleTeams(props: SourceListProps) {
+  const term = termOf(props.query)
+  return props.teamRows.flatMap(({ team, channels: entry }) => {
+    const teamMatches = term === '' || team.displayName.toLowerCase().includes(term)
+    const channels = entry.channels.filter(
+      (ch) =>
+        (teamMatches || ch.displayName.toLowerCase().includes(term)) &&
+        matchesTag(props.tag, props.labelOf(channelSourceId(team.id, ch.id))),
+    )
+    const keep = props.tag === '' ? teamMatches || channels.length > 0 : channels.length > 0
+    if (!keep) return []
+    return [{ team, entry, channels, autoOpen: term !== '' && !teamMatches && channels.length > 0 }]
+  })
+}
+
+/** The message for a list nothing of which is shown: a search, a label, or (no filter) nothing came back. */
+function emptyMessage(f: Filters, noun: 'chats' | 'teams'): string {
+  const term = f.query.trim()
+  if (term)
+    return noun === 'chats' ? `No chats match "${term}"` : `No teams or channels match "${term}"`
+  if (f.tag !== '') return `No ${noun} with this label`
+  // Unfiltered and empty: a team with no channel still lists, so an empty teams list is no teams.
+  return noun === 'chats' ? NO_CHATS : NO_TEAMS
+}
+
+export function SourceList(props: SourceListProps) {
+  const [openId, setOpenId] = useState<string | null>(null)
+  const chats = props.view === 'chats' ? matchingChats(props) : []
+  const teams = props.view === 'teams' ? visibleTeams(props) : []
+  if (props.view === 'chats' ? chats.length === 0 : teams.length === 0) {
+    // Outside the scroller, so the message centres in the pane.
+    return <p className={classes.emptyCenter}>{emptyMessage(props, props.view)}</p>
+  }
   return (
     <ScrollArea
       className={classes.paneScroll}
@@ -57,33 +96,24 @@ function Scroller({ children }: { children: ReactNode }) {
       type="auto"
       scrollbars="y"
     >
-      {children}
+      {props.view === 'chats' ? (
+        <ChatGroups rows={chats} {...props} />
+      ) : (
+        <TeamTree rows={teams} openId={openId} onToggle={setOpenId} {...props} />
+      )}
     </ScrollArea>
   )
 }
 
-function ChatGroups(props: SourceListProps) {
-  const term = props.query.trim().toLowerCase()
-  const rows = props.chats.filter(
-    (c) =>
-      matchesTag(props.tag, props.labelOf(chatSourceId(c.ref.chatId))) &&
-      (term === '' || c.searchText.includes(term)),
-  )
-  if (rows.length === 0) {
-    return (
-      <p className={classes.emptyCenter}>
-        {term
-          ? `No chats match "${props.query.trim()}"`
-          : props.tag === ''
-            ? NO_CHATS
-            : 'No chats with this label'}
-      </p>
-    )
-  }
+type ChatGroupsProps = Pick<SourceListProps, 'labelOf' | 'now' | 'selected' | 'onSelect'> & {
+  rows: readonly ChatRow[]
+}
+
+function ChatGroups(props: ChatGroupsProps) {
   const selectedId = props.selected?.kind === 'chat' ? props.selected.chatId : null
   return (
-    <Scroller>
-      {groupByRecency(rows, props.now).map((g) => (
+    <>
+      {groupByRecency(props.rows, props.now).map((g) => (
         <section key={g.group} aria-label={g.group}>
           <h3 className={classes.groupHeading}>
             {g.group} · {g.rows.length}
@@ -102,82 +132,63 @@ function ChatGroups(props: SourceListProps) {
           ))}
         </section>
       ))}
-    </Scroller>
+    </>
   )
 }
 
-function TeamTree(props: SourceListProps) {
-  const [openId, setOpenId] = useState<string | null>(null)
-  const term = props.query.trim().toLowerCase()
-  const visible = props.teamRows.flatMap(({ team, channels: entry }) => {
-    const teamMatches = term === '' || team.displayName.toLowerCase().includes(term)
-    const channels = entry.channels.filter(
-      (ch) =>
-        (teamMatches || ch.displayName.toLowerCase().includes(term)) &&
-        matchesTag(props.tag, props.labelOf(channelSourceId(team.id, ch.id))),
-    )
-    const keep = props.tag === '' ? teamMatches || channels.length > 0 : channels.length > 0
-    if (!keep) return []
-    return [{ team, entry, channels, autoOpen: term !== '' && !teamMatches && channels.length > 0 }]
-  })
-  if (visible.length === 0) {
-    return (
-      <p className={classes.emptyCenter}>
-        {term
-          ? `No teams or channels match "${props.query.trim()}"`
-          : props.tag === ''
-            ? props.teamRows.length === 0
-              ? NO_TEAMS
-              : NO_CHANNELS
-            : 'No teams with this label'}
-      </p>
-    )
-  }
+type TeamTreeProps = Pick<
+  SourceListProps,
+  'labelOf' | 'selected' | 'onSelect' | 'tag' | 'query'
+> & {
+  rows: ReturnType<typeof visibleTeams>
+  openId: string | null
+  onToggle: (id: string | null) => void
+}
+
+function TeamTree(props: TeamTreeProps) {
+  const filtered = props.tag !== '' || termOf(props.query) !== ''
   return (
-    <Scroller>
-      <section aria-label="Teams">
-        <h3 className={classes.groupHeading}>Teams · {visible.length}</h3>
-        {visible.map(({ team, entry, channels, autoOpen }) => {
-          const isOpen = autoOpen || openId === team.id
-          const state = entry.state
-          const all = entry.channels.length
-          const filtered = props.tag !== '' || term !== ''
-          const meta =
-            state === 'loaded'
-              ? filtered && channels.length !== all
-                ? `${channels.length} of ${plural(all, 'channel')}`
-                : plural(all, 'channel')
-              : state === 'failed'
-                ? 'channels failed to load'
-                : '— channels'
-          return (
-            <div key={team.id}>
-              <SourceRow
-                glyph="team"
-                name={team.displayName}
-                meta={meta}
-                expanded={isOpen}
-                onSelect={() => setOpenId(openId === team.id ? null : team.id)}
+    <section aria-label="Teams">
+      <h3 className={classes.groupHeading}>Teams · {props.rows.length}</h3>
+      {props.rows.map(({ team, entry, channels, autoOpen }) => {
+        const isOpen = autoOpen || props.openId === team.id
+        const state = entry.state
+        const all = entry.channels.length
+        const meta =
+          state === 'loaded'
+            ? filtered && channels.length !== all
+              ? `${channels.length} of ${plural(all, 'channel')}`
+              : plural(all, 'channel')
+            : state === 'failed'
+              ? 'channels failed to load'
+              : '— channels'
+        return (
+          <div key={team.id}>
+            <SourceRow
+              glyph="team"
+              name={team.displayName}
+              meta={meta}
+              expanded={isOpen}
+              onSelect={() => props.onToggle(props.openId === team.id ? null : team.id)}
+            />
+            {isOpen ? (
+              <ChannelRows
+                {...props}
+                team={team}
+                state={state}
+                channels={channels}
+                retry={entry.retry}
               />
-              {isOpen ? (
-                <ChannelRows
-                  {...props}
-                  team={team}
-                  state={state}
-                  channels={channels}
-                  retry={entry.retry}
-                />
-              ) : null}
-            </div>
-          )
-        })}
-      </section>
-    </Scroller>
+            ) : null}
+          </div>
+        )
+      })}
+    </section>
   )
 }
 
 function ChannelRows(
-  props: SourceListProps & {
+  props: Pick<SourceListProps, 'labelOf' | 'selected' | 'onSelect'> & {
     team: Team
     state: ChannelState
     channels: readonly Channel[]

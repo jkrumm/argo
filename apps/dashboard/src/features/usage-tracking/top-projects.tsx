@@ -7,7 +7,7 @@ import { usageQueries, type Range } from '../../lib/queries/usage'
 import { useNoUsageWindow } from './use-headline'
 import classes from './usage.module.css'
 import type { BillingValue, WorkspaceValue } from './types'
-import { EM_DASH, fmtShare, fmtUsdWhole, periodNoun } from './model'
+import { EM_DASH, isFiltered, fmtShare, fmtUsdWhole, periodNoun } from './model'
 
 export default function TopProjects({
   range,
@@ -32,7 +32,10 @@ export default function TopProjects({
     }),
   )
   const data = shotState() === 'empty' ? { ...query.data, rows: [], total: 0 } : query.data
-  const emptyText = useNoUsageWindow(billing !== undefined || workspace !== undefined, false)
+  const emptyText = useNoUsageWindow({
+    filtered: isFiltered(billing, workspace),
+    leading: false,
+  })
   const shown = data.rows.reduce((acc, r) => acc + r.value, 0)
   const rest = Math.max(0, data.total - shown)
 

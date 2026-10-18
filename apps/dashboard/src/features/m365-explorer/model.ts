@@ -264,6 +264,22 @@ export const NO_SOURCES = 'No chats or channels came back'
 /** The channels view's gap when teams loaded but none holds a channel: a different gap, the fact only. */
 export const NO_CHANNELS = 'No channels came back'
 
+/** Nothing at all to label: the lists settled (no team still loading or failed) and hold no chat, channel or stray label. */
+export const nothingToLabel = (c: Coverage): boolean =>
+  c.loading === 0 && c.total === 0 && c.failed === 0 && c.outside === 0
+
+/** The teams view's gap: no team came back, or teams came back holding no channel. */
+export const teamsGap = (teams: number): string => (teams === 0 ? NO_TEAMS : NO_CHANNELS)
+
+/** The first empty strip cell in reading order carries the full sentence; the rest the short form. */
+export type GapLeader = 'labeled' | 'chats' | 'channels' | null
+export const gapLeader = (g: {
+  nothingToLabel: boolean
+  noChats: boolean
+  noTeams: boolean
+}): GapLeader =>
+  g.nothingToLabel ? 'labeled' : g.noChats ? 'chats' : g.noTeams ? 'channels' : null
+
 /** A short form's full sentence: its leading clause, verbatim, then the cause and the step. */
 export const withStep = (short: string): string =>
   `${short} — Microsoft 365 returned none; refresh to retry`
