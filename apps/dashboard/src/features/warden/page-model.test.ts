@@ -462,10 +462,10 @@ describe('splitReason', () => {
 describe('cardFacts glue', () => {
   it('the count never leaves its word in the history fact', () => {
     expect(cardFacts(row({ redrives: 2, revisionCount: 3, ageDays: 1.2 }))[2]).toBe(
-      'retried 2\u00a0times, revised 3\u00a0times',
+      'retried\u00a02\u00a0times, revised\u00a03\u00a0times',
     )
     expect(cardFacts(row({ redrives: 0, revisionCount: 1, ageDays: 1.2 }))[2]).toBe(
-      'revised 1\u00a0time',
+      'revised\u00a01\u00a0time',
     )
   })
   it('the waiting fact and the history age share one duration spelling', () => {
@@ -482,13 +482,13 @@ describe('cardFacts', () => {
     expect(cardFacts(row({ redrives: 2, ageDays: 1.2 }))).toEqual([
       'repo-a',
       'waiting 1\u00a0d\u00a04\u00a0h',
-      'retried 2\u00a0times, revised 1\u00a0time',
+      'retried\u00a02\u00a0times, revised\u00a01\u00a0time',
     ])
   })
 
   it('says revised alone when nothing was retried, and never `revision 0`', () => {
     expect(cardFacts(row({ redrives: 0, revisionCount: 1, ageDays: 1.2 }))[2]).toBe(
-      'revised 1\u00a0time',
+      'revised\u00a01\u00a0time',
     )
     expect(cardFacts(row({ redrives: 0, revisionCount: 0, ageDays: 1.2 }))).toEqual([
       'repo-a',
