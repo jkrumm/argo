@@ -16,7 +16,7 @@ import {
   fmtPctBadge,
   fmtUsdDay,
   fmtTokensDay,
-  fmtSecondsDay,
+  fmtSeconds,
   errorDayState,
   fmtPct,
   fmtShare,
@@ -156,7 +156,7 @@ describe('error days', () => {
 describe('freshness and copy', () => {
   const now = Date.parse('2026-10-17T12:00:00Z')
   it('the headline sentence carries the spend, the facts carry the rest', () => {
-    expect(summarySentence({ cost30d: 300 })).toBe('$300 spent in the last 30\u00a0d')
+    expect(summarySentence({ calls30d: 12345 })).toBe('12,345 calls in the last 30\u00a0d')
     expect(summaryFacts({ sources: 7, lastEvent: '3 minutes ago' })).toEqual([
       '7 sources active',
       'last event 3 minutes ago',
@@ -277,8 +277,8 @@ describe('readout formatters', () => {
     expect(fmtUsdDay(12.4)).toBe('$12.40')
     expect(fmtTokensDay(3_200_000)).toBe('3.2\u00a0M tokens')
     expect(fmtTokensDay(950)).toBe('950 tokens')
-    expect(fmtSecondsDay(1800)).toBe('1.8 s')
-    expect(fmtSecondsDay(Number.NaN)).toBe('—')
+    expect(fmtSeconds(1800)).toBe('1.8\u00a0s')
+    expect(fmtSeconds(Number.NaN)).toBe('—')
   })
 
   it('badge magnitudes keep one decimal so a small change is not a red 0%', () => {
@@ -396,11 +396,11 @@ describe('dropPartialBucket', () => {
 
 describe('printTotal', () => {
   it('prints a total only where the strip does not', () => {
-    const base = { filtered: false, metric: 'cost' } as const
+    const base = { filtered: false } as const
     expect(printTotal({ ...base, range: '30d' })).toBe(false)
-    expect(printTotal({ ...base, range: '30d', metric: 'tokens' })).toBe(false)
+    expect(printTotal({ ...base, range: '30d' })).toBe(false)
     expect(printTotal({ ...base, range: '7d' })).toBe(true)
-    expect(printTotal({ ...base, range: '7d', metric: 'tokens' })).toBe(true)
+    expect(printTotal({ ...base, range: '7d' })).toBe(true)
     expect(printTotal({ ...base, range: '90d' })).toBe(true)
     expect(printTotal({ ...base, range: 'all' })).toBe(true)
     expect(printTotal({ ...base, range: '30d', filtered: true })).toBe(true)

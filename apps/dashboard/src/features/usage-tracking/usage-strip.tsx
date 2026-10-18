@@ -22,7 +22,7 @@ import {
   fmtPctBadge,
   fmtPointsBadge,
   fmtSecondsBadge,
-  fmtSecondsDay,
+  fmtSeconds,
   shortDay,
   fmtShare,
   fmtTokens,
@@ -47,7 +47,6 @@ import {
   type BillingPart,
   type Prior,
 } from './model'
-import { NBSP } from '../../lib/format'
 
 import { ErrorBand, Trend, type Daily } from './usage-visuals'
 
@@ -264,7 +263,7 @@ function p95Cell({ h, loading }: Ctx, p95: Series): StatStripCell {
         label="p95 latency per day over the last 30 days"
         days={p95.days}
         loading={p95.loading}
-        format={fmtSecondsDay}
+        format={fmtSeconds}
         reference={p95Window ?? undefined}
       />
     ),
@@ -275,7 +274,7 @@ function p95Cell({ h, loading }: Ctx, p95: Series): StatStripCell {
       ),
       worst === null || worst.value === null
         ? null
-        : `slowest day ${secondsQuantity(worst.value).value}${NBSP}s, ${shortDay(worst.date)}`,
+        : `slowest day ${fmtSeconds(worst.value)}, ${shortDay(worst.date)}`,
       vs.note,
     ]),
   }
