@@ -34,6 +34,7 @@ export function ScheduleRow({
   action,
   past = false,
 }: ScheduleRowProps) {
+  const metaTitle = typeof meta === 'string' ? meta : undefined
   return (
     <div role="listitem" className={`${classes.row}${past ? ` ${classes.past}` : ''}`}>
       <div className={classes.inner}>
@@ -46,7 +47,7 @@ export function ScheduleRow({
             {title}
           </div>
           {meta !== undefined && meta !== null && (
-            <div className={classes.meta} {...(typeof meta === 'string' ? { title: meta } : {})}>
+            <div className={classes.meta} title={metaTitle}>
               {meta}
             </div>
           )}

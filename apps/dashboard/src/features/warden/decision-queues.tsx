@@ -19,6 +19,7 @@ import {
 } from './model'
 import {
   cardCategory,
+  latestHistoryAgeMs,
   sinceSnapshotMs,
   cardFacts,
   historyView,
@@ -93,7 +94,8 @@ function QueueCard({
   ask,
   pending,
   history,
-  receivedAt,
+  now,
+  elapsedMs,
   onFire,
   onSelectItem,
 }: {
@@ -102,12 +104,13 @@ function QueueCard({
   ask: WardenAsk
   pending: PendingActions[number] | undefined
   history: TransitionHistory
-  receivedAt: string | null
+  /** The page clock and the time since the snapshot arrived, read once by `DecisionQueues`. */
+  now: number
+  elapsedMs: number
   onFire: (verb: WardenActionVerb) => void
   onSelectItem: () => void
 }) {
   const { plan, repo, tag, copy } = ask
-  const now = useNow()
   const toAction = (verb: WardenActionVerb): DecisionCardAction => ({
     label: VERB_LABEL[verb],
     onClick: () => onFire(verb),
@@ -132,7 +135,9 @@ function QueueCard({
     <Box data-shot={`${kind}-${row.eventId}`} data-shot-absent="empty">
       <DecisionCard
         question={copy.question}
-        facts={capFacts(cardFacts(row, repo, sinceSnapshotMs(receivedAt, now)))}
+        facts={capFacts(
+          cardFacts(row, repo, { elapsedMs, historyAgeMs: latestHistoryAgeMs(history, now) }),
+        )}
         status={status}
         subject={copy.entity}
         evidenceLine={copy.evidenceLine}
@@ -166,7 +171,8 @@ function CardGrid({
   asks,
   pending,
   items,
-  receivedAt,
+  now,
+  elapsedMs,
   onFire,
   onSelectItem,
 }: {
@@ -175,7 +181,8 @@ function CardGrid({
   /** One ask per row, in order. */
   asks: readonly WardenAsk[]
   items: WardenItems | undefined
-  receivedAt: string | null
+  now: number
+  elapsedMs: number
   pending: PendingActions
   onFire: (eventId: number, verb: WardenActionVerb) => void
   onSelectItem: (eventId: number) => void
@@ -190,7 +197,8 @@ function CardGrid({
           ask={asks[i]!}
           pending={pending[row.eventId]}
           history={recentTransitions(items?.[String(row.eventId)])}
-          receivedAt={receivedAt}
+          now={now}
+          elapsedMs={elapsedMs}
           onFire={(verb) => onFire(row.eventId, verb)}
           onSelectItem={() => onSelectItem(row.eventId)}
         />
@@ -214,6 +222,8 @@ export function DecisionQueues({
   onAction,
 }: Props) {
   const [prompt, setPrompt] = useState<PromptState>(null)
+  const now = useNow()
+  const elapsedMs = sinceSnapshotMs(receivedAt, now)
   const needs = useMemo(() => needsCards(view), [view])
   // One surface: a needs-you and a failed card that would read the same are told apart together.
   const asks = useMemo(
@@ -262,7 +272,8 @@ export function DecisionQueues({
             kind="decision"
             asks={needsAsks}
             items={items}
-            receivedAt={receivedAt}
+            now={now}
+            elapsedMs={elapsedMs}
             pending={pending}
             onFire={fire}
             onSelectItem={onSelectItem}
@@ -276,7 +287,8 @@ export function DecisionQueues({
             kind="failed"
             asks={failedAsks}
             items={items}
-            receivedAt={receivedAt}
+            now={now}
+            elapsedMs={elapsedMs}
             pending={pending}
             onFire={fire}
             onSelectItem={onSelectItem}

@@ -23,10 +23,14 @@ export function countdown(summary: AgendaSummary): string | null {
   return `next ${weekdayShort(startKey)} ${time} — ${title}`
 }
 
-/** The short form of the empty-window gap: the full sentence's leading clause, verbatim. */
-export const EMPTY_WINDOW_SHORT = 'No events'
-/** The full sentence, on the leading surface only: what is missing, and why. */
-export const EMPTY_WINDOW_SENTENCE = `${EMPTY_WINDOW_SHORT} — nothing is booked in ${SOURCES_LABEL} this week or the next 7 days`
+/** One gap, two wordings: the headline carries `sentence`, every other surface `short`, its leading clause verbatim. */
+export type EmptyWindow = { short: string; sentence: string }
+
+const EMPTY_WINDOW_SHORT = 'No events'
+export const EMPTY_WINDOW: EmptyWindow = {
+  short: EMPTY_WINDOW_SHORT,
+  sentence: `${EMPTY_WINDOW_SHORT} — nothing is booked in ${SOURCES_LABEL} this week or the next 7 days`,
+}
 
 /**
  * The page opening, built from the same derivation as the lists and the strip beside it: the
@@ -36,7 +40,7 @@ export const EMPTY_WINDOW_SENTENCE = `${EMPTY_WINDOW_SHORT} — nothing is booke
 export function summaryParts(
   summary: AgendaSummary,
   gap: FeedGap | null = null,
-  emptyWindow = false,
+  emptyWindow: EmptyWindow | null = null,
 ): { sentence: string; facts: string[] } {
   // A calendar that has not answered makes every figure unknown: it says why, never "No events".
   if (
@@ -48,7 +52,9 @@ export function summaryParts(
   }
   // Nothing in the past week or the next 7 days is one gap: the headline carries its full sentence
   // (what is missing, why), every other surface the short form `No events` (`EMPTY_WINDOW_SHORT`).
-  if (emptyWindow) return { sentence: EMPTY_WINDOW_SENTENCE, facts: [] }
+  if (emptyWindow) {
+    return { sentence: emptyWindow.sentence, facts: [countdown(summary)].filter((f) => f !== null) }
+  }
   const sentence =
     summary.todayCount > 0
       ? `${summary.todayCount} ${summary.todayCount === 1 ? 'meeting' : 'meetings'} today, ${formatMinutes(summary.todayBookedMin)} booked`
