@@ -25,7 +25,7 @@ import {
   SourcesFooter,
   TonightTop,
   VerdictCard,
-  bestNightOf,
+  markedNightOf,
   pageSummary,
   BASE_LAYER_IDS,
   DEFAULT_LP_YEAR,
@@ -264,8 +264,8 @@ function AstroWindowPage() {
 
   const selectedDate = data.detail.date
   const selectedNight = data.nights.find((n) => n.date === selectedDate) ?? data.nights[0] ?? null
-  const bestNight = bestNightOf(data)
-  const summary = pageSummary(data)
+  const markedNight = markedNightOf(data)
+  const summary = pageSummary(data, { withWindow: search.tab === 'forecast' })
 
   return (
     <>
@@ -341,7 +341,7 @@ function AstroWindowPage() {
           <NightStrip
             nights={data.nights}
             selectedDate={selectedDate}
-            markedDate={bestNight?.date ?? null}
+            markedDate={markedNight?.date ?? null}
             onSelect={handleSelectDate}
           />
 

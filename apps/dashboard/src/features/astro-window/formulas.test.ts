@@ -6,11 +6,17 @@ import {
   hourlyTicks,
   hourlyTimeLabel,
   nightNote,
+  closestNight,
+  coreTransitFooter,
+  countOffscreen,
+  longestWindow,
+  moreNightsLabel,
   nightShortfall,
   pageSummary,
   shortfallScale,
   shortfallShare,
   verdictHeadline,
+  windowShare,
 } from './formulas'
 import type { Night, WindowResponse } from './types'
 
@@ -165,21 +171,82 @@ describe('verdictHeadline', () => {
 
 describe('pageSummary', () => {
   const response = (nights: Night[], bestDate: string | null): WindowResponse =>
-    ({ nights, bestDate, location: { name: 'Site' } }) as unknown as WindowResponse
+    ({
+      nights,
+      bestDate,
+      bestWindow: nights.find((n) => n.window !== null)?.window ?? null,
+      location: { name: 'Site' },
+    }) as unknown as WindowResponse
 
-  test('a GO week counts usable nights and leaves the window to the verdict card', () => {
+  test('Tonight leaves the window to the verdict card', () => {
     const out = outNight('2026-06-14', 8, 4)
-    const summary = pageSummary(response([goNight, out], '2026-06-13'))
+    const summary = pageSummary(response([goNight, out], '2026-06-13'), { withWindow: false })
     expect(summary.sentence).toBe('1 of 2 nights usable')
     expect(summary.facts).toEqual(['best Sat 13', '1 ruled out'])
-    expect(summary.facts.join(' ')).not.toContain('23:10')
   })
 
-  test('an all-out week names the closest night', () => {
+  test('Forecast states the GO window range, once', () => {
+    const out = outNight('2026-06-14', 8, 4)
+    const summary = pageSummary(response([goNight, out], '2026-06-13'), { withWindow: true })
+    expect(summary.facts).toEqual(['best Sat 13, 23:10–01:40', '1 ruled out'])
+    expect(summary.facts.join(' ').match(/23:10/g)).toHaveLength(1)
+  })
+
+  test('an all-out week names the night with the smallest gap, not the first', () => {
     const nights = [outNight('2026-06-13', 8, 4), outNight('2026-06-14', 8, 6)]
-    const summary = pageSummary(response(nights, '2026-06-14'))
+    const summary = pageSummary(response(nights, '2026-06-13'), { withWindow: false })
     expect(summary.sentence).toBe('No usable night in the next 2')
     expect(summary.facts).toEqual(['closest Sun 14'])
+  })
+
+  test('an all-out week with no degree gap says "first", as the API only gives the first night', () => {
+    const dark = {
+      ...outNight('2026-06-13', 8, 4),
+      killers: [{ id: 'moon', label: 'Moon', reason: 'r' }],
+    }
+    const summary = pageSummary(response([dark], '2026-06-13'), { withWindow: false })
+    expect(summary.facts).toEqual(['first Sat 13'])
+  })
+})
+
+describe('closestNight', () => {
+  test('picks the smallest shortfall and ignores usable nights', () => {
+    const nights = [outNight('2026-06-13', 8, 4), outNight('2026-06-14', 8, 6), goNight]
+    expect(closestNight(nights)?.date).toBe('2026-06-14')
+  })
+
+  test('null when no night has a degree gap', () => {
+    expect(closestNight([goNight])).toBeNull()
+  })
+})
+
+describe('countOffscreen', () => {
+  test('counts cells ending past the scroller edge, in one coordinate space', () => {
+    expect(countOffscreen([80, 170, 260, 350], 300, 1)).toBe(1)
+  })
+
+  test('a cell within the tolerance of the edge counts as visible', () => {
+    expect(countOffscreen([300.5], 300, 1)).toBe(0)
+  })
+})
+
+describe('moreNightsLabel', () => {
+  test('pluralises and is empty at zero', () => {
+    expect(moreNightsLabel(0)).toBe('')
+    expect(moreNightsLabel(1)).toBe('1 more night →')
+    expect(moreNightsLabel(6)).toBe('6 more nights →')
+  })
+})
+
+describe('coreTransitFooter', () => {
+  const night = { maxCoreAltitude: 24.1, darkMinutes: 300 } as unknown as Night
+
+  test('with a dark stretch it is the highest of the night, at transit', () => {
+    expect(coreTransitFooter(night)).toBe('highest of the night, 24.1° at transit')
+  })
+
+  test('without one it is only the transit altitude', () => {
+    expect(coreTransitFooter({ ...night, darkMinutes: 0 })).toBe('24.1° at transit')
   })
 })
 
@@ -198,7 +265,29 @@ describe('night shortfall', () => {
     expect(shortfallShare(goNight, 4)).toBeNull()
   })
 
+  test('a tiny shortfall keeps a visible floor and a bad scale draws nothing', () => {
+    const tiny = outNight('2026-06-13', 8, 7.96)
+    expect(shortfallShare(tiny, 4)).toBeGreaterThan(0)
+    expect(shortfallShare(nights[0]!, 0)).toBeNull()
+  })
+
   test('the scale never drops under 1°', () => {
     expect(shortfallScale([goNight])).toBe(1)
+  })
+})
+
+describe('window share', () => {
+  const longNight = { ...goNight, window: { ...goNight.window!, minutes: 300 } } as Night
+
+  test('usable nights differ on one shared scale, the longest window filling it', () => {
+    const longest = longestWindow([goNight, longNight])
+    expect(longest).toBe(300)
+    expect(windowShare(longNight, longest)).toBe(1)
+    expect(windowShare(goNight, longest)).toBe(0.5)
+  })
+
+  test('an out night or a night without a window has no share', () => {
+    expect(windowShare(outNight('2026-06-13', 8, 4), 300)).toBeNull()
+    expect(windowShare({ ...goNight, window: null }, 300)).toBeNull()
   })
 })

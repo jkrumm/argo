@@ -1,14 +1,57 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Box, Card } from '@mantine/core'
-import { fmtShortDay, nightNote, shortfallScale, shortfallShare, verdictTone } from '../formulas'
+import { OFFSCREEN_TOLERANCE_PX } from '../constants'
+import {
+  countOffscreen,
+  fmtShortDay,
+  longestWindow,
+  moreNightsLabel,
+  nightNote,
+  shortfallScale,
+  shortfallShare,
+  verdictTone,
+  windowShare,
+} from '../formulas'
 import type { Night } from '../types'
 import classes from './night-strip.module.css'
+
+/** A night's bar: the window length on a usable night, the core-gate shortfall on a night out on it,
+ * both on one scale shared by the strip. A night with nothing to rank keeps the bar's height empty. */
+function NightBar({ night, scale, longest }: { night: Night; scale: number; longest: number }) {
+  if (night.verdict !== 'out') {
+    const share = windowShare(night, longest)
+    if (share === null) return <span className={classes.band} />
+    return (
+      <span className={classes.track}>
+        <Box
+          component="span"
+          className={classes.fill}
+          bg={verdictTone(night.verdict)}
+          w={`${share * 100}%`}
+        />
+      </span>
+    )
+  }
+  const share = shortfallShare(night, scale)
+  if (share === null) return <span className={classes.band} />
+  return (
+    <span className={classes.track}>
+      <Box
+        component="span"
+        className={classes.fill}
+        bg={verdictTone('out')}
+        w={`${share * 100}%`}
+      />
+    </span>
+  )
+}
 
 /**
  * One cell per night: date, a bar, then ONE fact line — the window length when there is
  * one, else the first killer's short label, so an all-out week still says why per night. The bar is
- * the verdict colour on a usable night and, on a night out on the core gate, its shortfall on a scale
- * shared by every cell (longer = further from passing); other ruled-out nights draw none. The best (or,
+ * the window length on a usable night (verdict hue) and, on a night out on the core gate, its shortfall;
+ * each on a scale shared by every cell (longer = more window / further from passing); other ruled-out
+ * nights draw none. The best (or,
  * when all are out, closest) night carries a marker. Below the regular container class the strip
  * scrolls with snap and counts the nights still off-screen.
  */
@@ -26,14 +69,18 @@ export function NightStrip({
 }) {
   const allOut = nights.every((n) => n.verdict === 'out')
   const scale = shortfallScale(nights)
+  const longest = longestWindow(nights)
   const scroller = useRef<HTMLDivElement>(null)
-  const [hidden, setHidden] = useState(0)
+  const [offscreenCount, setOffscreenCount] = useState(0)
   const measure = useCallback(() => {
     const el = scroller.current
     if (el === null) return
-    const edge = el.scrollLeft + el.clientWidth
-    const cells = Array.from(el.children) as HTMLElement[]
-    setHidden(cells.filter((c) => c.offsetLeft + c.offsetWidth > edge + 1).length)
+    const rights = Array.from(el.children)
+      .filter((c): c is HTMLElement => c instanceof HTMLElement)
+      .map((c) => c.getBoundingClientRect().right)
+    setOffscreenCount(
+      countOffscreen(rights, el.getBoundingClientRect().right, OFFSCREEN_TOLERANCE_PX),
+    )
   }, [])
   useEffect(() => {
     const el = scroller.current
@@ -45,17 +92,20 @@ export function NightStrip({
   }, [measure, nights.length])
   return (
     <Card data-shot="night-strip">
-      <Box className={classes.host} data-more={hidden > 0}>
+      <Box className={classes.host} data-more={offscreenCount > 0}>
         <Box
           ref={scroller}
           onScroll={measure}
           className={classes.scroller}
           role="group"
-          aria-label="Nights"
+          aria-label={
+            offscreenCount > 0
+              ? `Nights, ${moreNightsLabel(offscreenCount).replace(' →', '')} off-screen`
+              : 'Nights'
+          }
           style={{ '--night-count': nights.length } as CSSProperties}
         >
           {nights.map((night) => {
-            const share = shortfallShare(night, scale)
             return (
               <button
                 key={night.date}
@@ -65,15 +115,7 @@ export function NightStrip({
                 onClick={() => onSelect(night.date)}
               >
                 <span className={classes.date}>{fmtShortDay(night.date)}</span>
-                {night.verdict !== 'out' ? (
-                  <Box component="span" className={classes.band} bg={verdictTone(night.verdict)} />
-                ) : share !== null ? (
-                  <span className={classes.track}>
-                    <Box component="span" className={classes.fill} w={`${share * 100}%`} />
-                  </span>
-                ) : (
-                  <span className={classes.band} />
-                )}
+                <NightBar night={night} scale={scale} longest={longest} />
                 <span className={classes.note}>{nightNote(night)}</span>
                 <span className={classes.marker}>
                   {night.date === markedDate ? (allOut ? 'CLOSEST' : 'BEST') : ''}
@@ -82,7 +124,7 @@ export function NightStrip({
             )
           })}
         </Box>
-        <span className={classes.more}>{hidden > 0 ? `${hidden} more nights →` : ''}</span>
+        <span className={classes.more}>{moreNightsLabel(offscreenCount)}</span>
       </Box>
     </Card>
   )
