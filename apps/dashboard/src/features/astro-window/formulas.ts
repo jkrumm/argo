@@ -229,6 +229,37 @@ export function moonGateDetail(
   return behind ? 'over limit, behind skyline' : 'over limit'
 }
 
+/** `dark sky ≥ {t} mag/arcsec²`, one glued run: the threshold's one spelling (tick's accessible text, panorama readout). */
+export function darkSkyThresholdText(threshold: number): string {
+  return glue(`dark sky ≥ ${threshold} mag/arcsec²`)
+}
+
+/**
+ * The panorama readout's Moon clause: where the moon is and whether it matters. Interference is the
+ * Moon gate's own rule (`moonGateDetail`): the moon is above the skyline AND lit at or over the
+ * limit; a thin crescent that is up but under the limit is `up`, not interference.
+ */
+export function moonReadout({
+  altitude,
+  behindTerrain,
+  illumination,
+  limit,
+}: {
+  altitude: number
+  behindTerrain: boolean
+  illumination: number
+  limit: number
+}): { state: 'down' | 'behind terrain' | 'up'; interferes: boolean; text: string } {
+  const state = altitude < 0 ? 'down' : behindTerrain ? 'behind terrain' : 'up'
+  const interferes = state === 'up' && illumination >= limit
+  const verdict = interferes
+    ? 'over the limit'
+    : state === 'up'
+      ? 'under the limit'
+      : 'no interference'
+  return { state, interferes, text: `Moon ${state} · ${verdict}` }
+}
+
 /** The Darkness gate row's one line. */
 export function darknessDetail(night: Night): string {
   if (night.darkMinutes > 0) return 'astronomical night present'
@@ -605,7 +636,7 @@ export function skyCellFooter({
   const clarity = transparency === null ? '—' : `${transparency}/8`
   return joinPhrases([
     glue(`town glow ${dome}`),
-    `${glue(`transparency ${clarity}`)} ${glue('(low = clear)')}`,
+    `${glue(`transparency ${clarity}`)} ${glue('(lower = clearer)')}`,
   ])
 }
 
@@ -627,11 +658,12 @@ export function moonFooter({
 }
 
 /**
- * The cloud-layers headline as a `ChartFact`: `{v} % low cloud · dark-hours mean`. `period` is a list
- * ChartCard joins by `·`; both phrases are glued.
+ * The cloud-layers headline as a `ChartFact`: `{v} % low cloud · dark-hours mean`. basalt-ui 2.22's
+ * `period` list joins its items by `·` but puts no separator between unit and period, so the
+ * period carries its own `· `; both phrases are glued.
  */
 export function cloudHeadline({ value, unit, basis }: LowCloudStat): ChartFact {
-  return { value, unit: glue(unit), period: [glue(basis)] }
+  return { value, unit: glue(unit), period: `· ${glue(basis)}` }
 }
 
 /**

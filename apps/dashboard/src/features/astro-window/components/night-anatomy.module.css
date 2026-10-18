@@ -30,7 +30,10 @@
 .tickLabel {
   position: absolute;
   inset-block-end: 0;
-  transform: translateX(-50%);
+  /* Ends under the tick, so it never overruns the track's right end (the tick sits near it). */
+  transform: translateX(-100%);
+  white-space: nowrap;
+  text-align: end;
   font-family: var(--basalt-font-mono);
   font-size: var(--vx-text-xs);
   line-height: 1;

@@ -17,7 +17,9 @@ import {
   coreGateFailure,
   fmtAzimuth,
   fmtDegrees,
+  darkSkyThresholdText,
   fmtShortDay,
+  moonReadout,
   withFacts,
 } from '../formulas'
 import type { HourlyPoint, Night, Site } from '../types'
@@ -187,12 +189,15 @@ export default function SkyPanorama({
   detailDate,
   hourly,
   night,
+  moonLimit,
 }: {
   site: Site
   detailDate: string
   hourly: HourlyPoint[]
   /** The night the panorama draws: its API core reading is the header figure. */
   night: Night
+  /** Illumination (0–1) at which the engine counts the moon as interfering. */
+  moonLimit: number
 }) {
   const horizonQuery = useQuery(astroQueries.horizon({ lat: site.lat, lon: site.lon }))
   const skyglowQuery = useQuery(
@@ -236,6 +241,7 @@ export default function SkyPanorama({
       detailDate={detailDate}
       samples={hourly}
       night={night}
+      moonLimit={moonLimit}
       horizon={horizon}
       skyglow={skyglow}
       visibility={visibility}
@@ -247,6 +253,7 @@ function PanoramaLoaded({
   detailDate,
   samples,
   night,
+  moonLimit,
   horizon,
   skyglow,
   visibility,
@@ -254,6 +261,7 @@ function PanoramaLoaded({
   detailDate: string
   samples: HourlyPoint[]
   night: Night
+  moonLimit: number
   horizon: { profile: HorizonProfilePoint[] }
   skyglow: { profile: SkyglowRose }
   visibility: { atmosphericFloorDeg: number; framingMarginDeg: number }
@@ -293,9 +301,12 @@ function PanoramaLoaded({
     coreAltitude,
   )
   const glowBehindCore = glowAt(rose, sample.coreAzimuth, Math.max(5, coreAltitude))
-  const moonState: 'down' | 'behind terrain' | 'up' =
-    sample.moonAltitude < 0 ? 'down' : sample.moonBehindTerrain ? 'behind terrain' : 'up'
-  const moonGood = moonState !== 'up'
+  const moon = moonReadout({
+    altitude: sample.moonAltitude,
+    behindTerrain: sample.moonBehindTerrain,
+    illumination: night.moon.illumination,
+    limit: moonLimit,
+  })
   const coreClearsNow = atGate ? !coreGateFailure(night) : sample.astroDark && clearanceGood
 
   // Static geometry — depends on the site and night, never on the scrub index, so dragging the
@@ -549,12 +560,12 @@ function PanoramaLoaded({
           {clearance.toFixed(1)}°
         </Text>
         <Text size="sm">
-          Skyglow there {glowBehindCore.toFixed(2)} mag/arcsec² (dark sky ≥ {SKY_DARK_THRESHOLD}{' '}
-          mag/arcsec²)
+          Skyglow there {glowBehindCore.toFixed(2)} mag/arcsec² (
+          {darkSkyThresholdText(SKY_DARK_THRESHOLD)})
         </Text>
         <Text size="sm">Sun {fmtDegrees(sample.sunAltitude)}</Text>
-        <Text size="sm" style={{ color: moonGood ? VX.goodSolid : VX.badSolid }}>
-          Moon {moonState} · {moonGood ? 'no interference' : 'interferes'}
+        <Text size="sm" style={{ color: moon.interferes ? VX.badSolid : VX.goodSolid }}>
+          {moon.text}
         </Text>
         <Text size="sm" c={coreClearsNow ? VX.goodSolid : VX.muted}>
           {coreClearsNow ? 'Core clears the gate now' : 'Core does not clear the gate now'}
