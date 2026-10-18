@@ -1,12 +1,9 @@
-import { Box } from '@mantine/core'
 import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
 import {
   NO_PACE_REASON,
   paceRange,
-  paceTicks,
   RATING_TICKS,
-  type PaceTicks,
   ratingShape,
   ratingsFooter,
   shelfParts,
@@ -91,52 +88,17 @@ function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
   }
 }
 
-/** A tick's height scales against the peak group, from a floor up to a cap under the median line's full height. */
-const tickHeight = (count: number, peak: number): string =>
-  `${peak <= 1 ? 35 : 35 + (45 * (count - 1)) / (peak - 1)}%`
-
-function PaceTrack({ ticks, median, label }: { ticks: PaceTicks; median: number; label: string }) {
-  const peak = Math.max(...ticks.ticks.map((t) => t.count))
-  const listed = ticks.ticks.map((t) => `${t.pace} pages/h × ${t.count}`).join(', ')
-  return (
-    <div role="img" aria-label={`${label}: ${listed}; median ${median} pages/h`}>
-      <div className={classes.paceTrack}>
-        {ticks.ticks.map((tick) => (
-          <Box
-            key={tick.at}
-            className={classes.paceTick}
-            style={{ left: `${tick.at}%`, height: tickHeight(tick.count, peak) }}
-          />
-        ))}
-        <div className={classes.paceMedian} style={{ left: `${ticks.medianAt}%` }} />
-      </div>
-      <div className={classes.paceAxis}>
-        <span>{ticks.slowest}</span>
-        <span>{ticks.fastest}</span>
-      </div>
-    </div>
-  )
-}
-
 function paceCell(pace: Pace): StatStripCell {
   if (pace.median === null || pace.median <= 0) {
     return { key: 'pace', caption: 'Reading pace', value: null, footer: NO_PACE_REASON }
   }
-  const ticks = paceTicks(pace.paces, pace.median)
   const books = `${pace.paces.length} ${pace.paces.length === 1 ? 'book' : 'books'}`
-  const cell = {
+  return {
     key: 'pace',
     caption: `Pace · median of ${books}`,
     value: String(pace.median),
     unit: 'pages/h',
-  }
-  // No span (one book, or one pace) draws no axis, so the footer states what the visual cannot.
-  if (ticks === null) {
-    return { ...cell, footer: paceRange(pace.paces) ?? 'one book has reading time so far' }
-  }
-  return {
-    ...cell,
-    visual: <PaceTrack ticks={ticks} median={pace.median} label={`Pages per hour for ${books}`} />,
+    footer: paceRange(pace.paces) ?? 'one book has reading time so far',
   }
 }
 

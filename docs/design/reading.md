@@ -225,4 +225,4 @@ Follow-up (w30-r2):
 ### Wave 37 round 16 fixes (`w37-r2`)
 
 - **Rating axis:** labelled with star ticks `0`–`5` at the column edges instead of five range strings, so the mean marker reads against the scale the columns sit on; the per-bin spans (`{lo} to {hi} stars`) stay in the aria-label and the count stays under each column. No lost fact.
-- **Pace visual, not rebuilt:** the catalogue row "Distribution as a slot micro-visual" prescribes `Bars` with no axes, but `Bars` has no prop to drop its axes (UPSTREAM: `Bars`/`CartesianChart` need an axis-less mode for slot use). The tick strip stays until basalt ships it; no local workaround.
+- **Pace tile back to its w36 form:** no visual, footer `slowest {x}, fastest {y} pages/h` (one book: `one book has reading time so far`). The hand-rolled tick strip is deleted, as the catalogue bans it. The slot distribution waits on basalt: UPSTREAM, `Bars` needs an axis-less slot mode (`Bars` has no prop to drop its axes); once it ships, the pace histogram returns as `Bars` in the slot.

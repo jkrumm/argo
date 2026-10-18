@@ -85,42 +85,6 @@
   text-align: center;
 }
 
-/* ── Pace distribution: one tick per book on a slowest-to-fastest axis, the median full height ── */
-
-.paceTrack {
-  position: relative;
-  height: 40px;
-  border-bottom: 1px solid var(--vx-surface-hairline);
-}
-
-.paceTick,
-.paceMedian {
-  position: absolute;
-  bottom: 0;
-}
-
-/* Wider and muted, so a tick on the median shows as a base around the 1px ink line. */
-.paceTick {
-  width: 3px;
-  transform: translateX(-1.5px);
-  background: color-mix(in srgb, var(--vx-muted) 55%, transparent);
-}
-
-.paceMedian {
-  top: 0;
-  width: 1px;
-  transform: translateX(-0.5px);
-  background: var(--vx-ink);
-}
-
-.paceAxis {
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--basalt-font-mono);
-  font-size: var(--vx-text-micro);
-  color: var(--vx-muted);
-}
-
 /* ── Title link: an outline ring around the link text, inside the clamp's clipping box ──── */
 
 .titleClamp {
