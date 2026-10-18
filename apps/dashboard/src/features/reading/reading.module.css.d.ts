@@ -11,6 +11,7 @@ declare const classes: {
   readonly barFilled: string
   readonly meanTick: string
   readonly axis: string
+  readonly list: string
   readonly axisLabel: string
   readonly titleClamp: string
   readonly titleLink: string

@@ -2,7 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import {
   approxHours,
   booksPerMonth,
-  medianDaysToFinish,
+  finishCohort,
+  paceRange,
   backlog,
   currentYear,
   progressPercent,
@@ -20,7 +21,6 @@ import {
   readingPace,
   scopeLabel,
   shelfParts,
-  shelfShares,
   summaryParts,
   timeRead,
   type ShelfItem,
@@ -239,67 +239,57 @@ describe('shelfParts', () => {
   })
 })
 
-describe('shelfShares', () => {
-  test('whole percent of the shelf, null when empty', () => {
-    const counts = shelfCounts([
-      book({ statusId: 3 }),
-      book({ statusId: 1 }),
-      book({ statusId: 1 }),
-      book({ statusId: 1 }),
-    ])
-    expect(shelfShares(counts)).toEqual({ read: 25, backlog: 75 })
-    expect(shelfShares(shelfCounts([]))).toBeNull()
-    // A non-zero part never rounds to 0 % or 100 %.
-    const lopsided = shelfCounts([
-      book({ statusId: 3 }),
-      ...Array.from({ length: 300 }, () => book({ statusId: 1 })),
-    ])
-    expect(shelfShares(lopsided)).toEqual({ read: 1, backlog: 99 })
-    // 1 of 8 and 7 of 8 both round up (13 + 88): the pair still stays within 100 %.
-    const eight = shelfCounts([
-      book({ statusId: 3 }),
-      ...Array.from({ length: 7 }, () => book({ statusId: 1 })),
-    ])
-    expect(shelfShares(eight)).toEqual({ read: 13, backlog: 87 })
-  })
-})
-
 describe('summaryParts', () => {
-  test('the headline is the year, the fact the typical time to finish', () => {
-    expect(summaryParts({ finished: 3, year: 2026, medianDays: 12 })).toEqual({
+  test('the headline is the year, the fact the typical time and its cohort', () => {
+    expect(
+      summaryParts({ finished: 3, year: 2026, cohort: { days: 12, measured: 2, finished: 3 } }),
+    ).toEqual({
       sentence: '3 books finished in 2026',
-      facts: ['median 12 d from start to finish'],
+      facts: ['median 12 d from start to finish, over 2 of 3 with a start date'],
     })
   })
-  test('one book is singular; nothing finished says so; unknown days are dropped, not 0', () => {
-    expect(summaryParts({ finished: 1, year: 2026, medianDays: null })).toEqual({
+  test('one book is singular; nothing finished says so; no cohort drops the fact, not 0', () => {
+    expect(summaryParts({ finished: 1, year: 2026, cohort: null })).toEqual({
       sentence: '1 book finished in 2026',
       facts: [],
     })
-    expect(summaryParts({ finished: 0, year: 2026, medianDays: null }).sentence).toBe(
+    expect(summaryParts({ finished: 0, year: 2026, cohort: null }).sentence).toBe(
       'Nothing finished in 2026 yet',
     )
   })
   test('the headline repeats neither the pace nor the shelf split', () => {
-    const { sentence, facts } = summaryParts({ finished: 3, year: 2026, medianDays: 12 })
+    const { sentence, facts } = summaryParts({
+      finished: 3,
+      year: 2026,
+      cohort: { days: 12, measured: 3, finished: 3 },
+    })
     expect([sentence, ...facts].join(' ')).not.toMatch(/pages\/h|backlog|in progress/)
   })
 })
 
-describe('medianDaysToFinish', () => {
-  test('median over read books with both dates', () => {
-    const read = (started: string | null, readDate: string | null) =>
-      book({ statusId: 3, startedDate: started, readDate })
+describe('finishCohort', () => {
+  const read = (started: string | null, readDate: string | null) =>
+    book({ statusId: 3, startedDate: started, readDate })
+  test("median over the year's read books with both dates, and how many that is", () => {
     expect(
-      medianDaysToFinish([
-        read('2026-01-01', '2026-01-11'),
-        read('2026-02-01', '2026-02-05'),
-        read('2026-03-01', '2026-03-31'),
-        read(null, '2026-04-01'),
-        book({ statusId: 2, startedDate: '2026-01-01', readDate: null }),
-      ]),
-    ).toBe(10)
-    expect(medianDaysToFinish([])).toBeNull()
+      finishCohort(
+        [
+          read('2026-01-01', '2026-01-11'),
+          read('2026-02-01', '2026-02-05'),
+          read('2026-03-01', '2026-03-31'),
+          read(null, '2026-04-01'),
+          book({ statusId: 2, startedDate: '2026-01-01', readDate: null }),
+        ],
+        2026,
+      ),
+    ).toEqual({ days: 10, measured: 3, finished: 4 })
+    expect(finishCohort([], 2026)).toBeNull()
+  })
+  test("an older book never shifts this year's median", () => {
+    const thisYear = [read('2026-01-01', '2026-01-11'), read('2026-02-01', '2026-02-05')]
+    const old = read('2024-01-01', '2024-12-31')
+    expect(finishCohort([...thisYear, old], 2026)).toEqual(finishCohort(thisYear, 2026))
+    expect(finishCohort([...thisYear, old], 2026)?.days).toBe(7)
   })
 })
 
@@ -311,10 +301,19 @@ describe('hours labels', () => {
 })
 
 describe('booksPerMonth', () => {
-  test('finished over the months elapsed, never over less than one', () => {
-    expect(booksPerMonth(6, Date.UTC(2026, 5, 16))).toBe('1.1') // 5.5 months → 1.09
-    expect(booksPerMonth(3, Date.UTC(2026, 0, 5))).toBe('3.0')
+  test('finished over the months elapsed; none before a full month, none with nothing finished', () => {
+    expect(booksPerMonth(6, Date.UTC(2026, 5, 16))).toBeCloseTo(1.08, 2) // 5.53 months
+    expect(booksPerMonth(3, Date.UTC(2026, 0, 5))).toBeNull()
     expect(booksPerMonth(0, Date.UTC(2026, 5, 16))).toBeNull()
+  })
+})
+
+describe('paceRange', () => {
+  test('min and max whatever the order; an endpoint that rounds to 0 reads < 1', () => {
+    expect(paceRange([40, 20, 30])).toBe('slowest 20, fastest 40 pages/h')
+    expect(paceRange([0, 30])).toBe('slowest < 1, fastest 30 pages/h')
+    expect(paceRange([30])).toBeNull()
+    expect(paceRange([])).toBeNull()
   })
 })
 
@@ -420,6 +419,14 @@ describe('ratingsFooter', () => {
       book({ rating: 5 }),
     ]
     expect(ratingsFooter(ratingShape(shelf))).toBe('community mean 3.8 ★ on 2 of the same books')
+  })
+  test('a bin that holds a half star says so in its label', () => {
+    const { labels } = ratingShape([
+      book({ rating: 3 }),
+      book({ rating: 3.5 }),
+      book({ rating: 4 }),
+    ])
+    expect(labels).toEqual(['1★', '2★', '3–3.5★', '4★', '5★'])
   })
   test('says nothing about binning, and nothing without a community rating', () => {
     expect(ratingsFooter(ratingShape([book({ rating: 3.5 })]))).toBeUndefined()

@@ -14,7 +14,7 @@ import {
   currentYear,
   finishedGroups,
   finishedInYear,
-  medianDaysToFinish,
+  finishCohort,
   readingPace,
   shelfCounts,
   summaryParts,
@@ -103,9 +103,7 @@ function ReadingPage() {
       ) : (
         <div className={classes.root}>
           <Stack gap="md">
-            <PageSummary
-              {...summaryParts({ finished, year, medianDays: medianDaysToFinish(shelf) })}
-            />
+            <PageSummary {...summaryParts({ finished, year, cohort: finishCohort(shelf, year) })} />
             <ReadingStrip
               counts={counts}
               shelf={shelf}

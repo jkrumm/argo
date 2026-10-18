@@ -232,20 +232,32 @@ export type RatingShape = {
   buckets: [number, number, number, number, number]
   n: number
   mean: number | null
+  /** The axis label per bucket: `3★`, or the real span (`3–3.5★`) when a half star landed in it. */
+  labels: [string, string, string, string, string]
   /** Mean community rating over the same rated books that have one, with how many that is. */
   community: { mean: number; n: number } | null
 }
 
 export function ratingShape(shelf: readonly ShelfItem[]): RatingShape {
   const buckets: RatingShape['buckets'] = [0, 0, 0, 0, 0]
+  const spans: { lo: number; hi: number }[] = Array.from({ length: 5 }, (_, i) => ({
+    lo: i + 1,
+    hi: i + 1,
+  }))
   const rated = shelf.filter((b) => b.rating !== null)
   for (const book of rated) {
-    const bucket = Math.min(5, Math.max(1, Math.floor(book.rating as number)))
+    const rating = book.rating as number
+    const bucket = Math.min(5, Math.max(1, Math.floor(rating)))
     buckets[bucket - 1] = (buckets[bucket - 1] as number) + 1
+    const span = spans[bucket - 1] as { lo: number; hi: number }
+    span.lo = Math.min(span.lo, rating)
+    span.hi = Math.max(span.hi, rating)
   }
   const community = rated.filter((b) => b.communityRating !== null)
+  const labels = spans.map(({ lo, hi }) => (lo === hi ? `${lo}★` : `${lo}–${hi}★`))
   return {
     buckets,
+    labels: labels as RatingShape['labels'],
     n: rated.length,
     mean:
       rated.length === 0
@@ -317,6 +329,9 @@ export const currentYear = (now: number): number => new Date(now).getUTCFullYear
 
 // ── Sentence ─────────────────────────────────────────────────────────────────────────────────
 
+/** The median time to finish a year's books, and the cohort it is taken over. */
+export type FinishCohort = { days: number; measured: number; finished: number }
+
 /**
  * The headline leads with the year's finished count and the typical time to finish: neither is on
  * the cells below. Pace, the shelf split and the backlog hours each live where they answer a question.
@@ -324,50 +339,57 @@ export const currentYear = (now: number): number => new Date(now).getUTCFullYear
 export function summaryParts(input: {
   finished: number
   year: number
-  medianDays: number | null
-}): {
-  sentence: string
-  facts: string[]
-} {
-  const { finished, year, medianDays } = input
+  cohort: FinishCohort | null
+}): { sentence: string; facts: string[] } {
+  const { finished, year, cohort } = input
   return {
     sentence:
       finished === 0
         ? `Nothing finished in ${year} yet`
         : `${finished} ${finished === 1 ? 'book' : 'books'} finished in ${year}`,
-    facts: medianDays === null ? [] : [`median ${medianDays} d from start to finish`],
+    facts:
+      cohort === null
+        ? []
+        : [
+            `median ${cohort.days} d from start to finish, over ${cohort.measured} of ${cohort.finished} with a start date`,
+          ],
   }
 }
 
-/** Median days from start to finish over read books that have both dates; null with none. */
-export function medianDaysToFinish(shelf: readonly ShelfItem[]): number | null {
-  const days = shelf
-    .filter((b) => b.statusId === STATUS.read)
+/**
+ * Median days from start to finish over the books finished in `year` that have both dates, with
+ * how many of that year's books that is; null while none has both.
+ */
+export function finishCohort(shelf: readonly ShelfItem[], year: number): FinishCohort | null {
+  const finishedBooks = shelf.filter(
+    (b) => b.statusId === STATUS.read && b.readDate !== null && b.readDate.startsWith(`${year}-`),
+  )
+  const days = finishedBooks
     .map((b) => daysToFinish(b.startedDate, b.readDate))
     .filter((d): d is number => d !== null)
   const mid = median(days)
-  return mid === null ? null : Math.round(mid)
-}
-
-/** Books finished per month so far this year, one decimal; null with none (a rate of 0 says nothing). */
-export function booksPerMonth(finished: number, now: number): string | null {
-  if (finished === 0) return null
-  const d = new Date(now)
-  const daysInMonth = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate()
-  // A year that is days old would otherwise read as a huge rate: never fewer than one month.
-  const months = Math.max(1, d.getUTCMonth() + d.getUTCDate() / daysInMonth)
-  return (finished / months).toFixed(1)
+  return mid === null
+    ? null
+    : { days: Math.round(mid), measured: days.length, finished: finishedBooks.length }
 }
 
 /**
- * Share of the shelf that is read, and that is still backlog: whole percent of `counts.total`,
- * kept inside 1–99 while the part exists, so `0%` and `100%` never claim an empty or full shelf.
+ * Books finished per month so far this year; null before a full month has elapsed (a rate over
+ * days would swing wildly) and with none finished.
  */
-export function shelfShares(counts: ShelfCounts): { read: number; backlog: number } | null {
-  if (counts.total === 0) return null
-  const pct = (n: number) =>
-    n === 0 ? 0 : Math.min(99, Math.max(1, Math.round((n / counts.total) * 100)))
-  // Backlog is capped by the complement, so the pair never sums above 100 % after rounding.
-  const read = pct(counts.read)
-  return { read, backlog: Math.min(pct(counts.backlog), 100 - read) }
+export function booksPerMonth(finished: number, now: number): number | null {
+  if (finished === 0) return null
+  const d = new Date(now)
+  const daysInMonth = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate()
+  const months = d.getUTCMonth() + d.getUTCDate() / daysInMonth
+  return months < 1 ? null : finished / months
 }
+
+/** `slowest 20, fastest 40 pages/h`; an endpoint that rounds to 0 reads `< 1`. Null with no paces. */
+export function paceRange(paces: readonly number[]): string | null {
+  if (paces.length < 2) return null
+  const at = (v: number) => (v < 1 ? '< 1' : String(v))
+  return `slowest ${at(Math.min(...paces))}, fastest ${at(Math.max(...paces))} pages/h`
+}
+
+// ── Ratings: bin labels ──────────────────────────────────────────────────────────────────────
