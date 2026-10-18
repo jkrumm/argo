@@ -182,13 +182,12 @@ export function glowBuckets(cells: readonly GlowCell[]): { mpsas: number; cells:
   return [...buckets].map(([key, group]) => ({ mpsas: key * GLOW_BUCKET_MPSAS, cells: group }))
 }
 
-/** The index of the tightest sample: the smallest margin over the gate. A `null` margin (not dark) never counts; null when no sample has one. */
-export function tightestIndex(margins: readonly (number | null)[]): number | null {
+/** The index of the instant closest to `target` (epoch ms); null for no instants. A tie keeps the earlier one. */
+export function nearestInstantIndex(instants: readonly number[], target: number): number | null {
   let best: number | null = null
-  for (const [i, margin] of margins.entries()) {
-    if (margin === null) continue
-    const current = best === null ? null : margins[best]
-    if (current === null || current === undefined || margin < current) best = i
+  for (const [i, t] of instants.entries()) {
+    const current = best === null ? undefined : instants[best]
+    if (current === undefined || Math.abs(t - target) < Math.abs(current - target)) best = i
   }
   return best
 }

@@ -25,8 +25,8 @@ import {
   glowBuckets,
   glowCells,
   medianMpsas,
+  nearestInstantIndex,
   profileRows,
-  tightestIndex,
   type HorizonProfilePoint,
   type ProfileRow,
   type SkyglowRose,
@@ -140,13 +140,16 @@ function rampFill(mpsasValue: number): string {
   return alpha(mixed, opacity)
 }
 
-/** The sample the scrubber opens on: the dark sample closest to the core gate, the instant the Tonight Core cell reports. Falls back to ~45% through the night when nothing is dark. */
-function initialScrubIndex(
-  samples: readonly HourlyPoint[],
-  marginOf: (s: HourlyPoint) => number,
-): number {
-  const tightest = tightestIndex(samples.map((s) => (s.astroDark ? marginOf(s) : null)))
-  return tightest ?? Math.floor(samples.length * 0.45)
+/** The sample the scrubber opens on: the one nearest the instant the API read `gateCoreAltitude` at, so the header and the readout describe the same moment. Falls back to ~45% through the night without one. */
+function initialScrubIndex(samples: readonly HourlyPoint[], gateSampleTime: string | null): number {
+  const nearest =
+    gateSampleTime === null
+      ? null
+      : nearestInstantIndex(
+          samples.map((s) => new Date(s.time).getTime()),
+          new Date(gateSampleTime).getTime(),
+        )
+  return nearest ?? Math.floor(samples.length * 0.45)
 }
 
 type Track = { i: number; az: number; alt: number | null }
@@ -189,7 +192,6 @@ export default function SkyPanorama({
   site,
   detailDate,
   hourly,
-  moonIllumination,
   night,
 }: {
   site: Site
@@ -197,8 +199,6 @@ export default function SkyPanorama({
   hourly: HourlyPoint[]
   /** The night the panorama draws: its API core reading is the header figure. */
   night: Night
-  /** Moon illuminated fraction for this night, 0..1 — scales the moon marker. */
-  moonIllumination: number
 }) {
   const horizonQuery = useQuery(astroQueries.horizon({ lat: site.lat, lon: site.lon }))
   const skyglowQuery = useQuery(
@@ -240,7 +240,6 @@ export default function SkyPanorama({
     <PanoramaLoaded
       detailDate={detailDate}
       samples={hourly}
-      moonIllumination={moonIllumination}
       night={night}
       horizon={horizon}
       skyglow={skyglow}
@@ -252,7 +251,6 @@ export default function SkyPanorama({
 function PanoramaLoaded({
   detailDate,
   samples,
-  moonIllumination,
   night,
   horizon,
   skyglow,
@@ -260,8 +258,6 @@ function PanoramaLoaded({
 }: {
   detailDate: string
   samples: HourlyPoint[]
-  /** Moon illuminated fraction for this night, 0..1 — scales the moon marker. */
-  moonIllumination: number
   night: Night
   horizon: { profile: HorizonProfilePoint[] }
   skyglow: { profile: SkyglowRose }
@@ -271,16 +267,11 @@ function PanoramaLoaded({
   const rose = skyglow.profile
   const { atmosphericFloorDeg, framingMarginDeg } = visibility
 
-  const [scrub, setScrub] = useState(() =>
-    initialScrubIndex(
-      samples,
-      (s) => s.coreAltitude - gateAt(profile, atmosphericFloorDeg, framingMarginDeg, s.coreAzimuth),
-    ),
-  )
+  const [scrub, setScrub] = useState(() => initialScrubIndex(samples, night.gateSampleTime))
   const idx = Math.min(scrub, Math.max(0, samples.length - 1))
 
   const sample = samples[idx] ?? samples[0]!
-  const glowMedian = medianMpsas(rose)
+  const glowMedian = useMemo(() => medianMpsas(rose), [rose])
   const series = useMemo(
     () => panoramaSeries(glowMedian === null ? LP_RAMP[2]!.token : rampFill(glowMedian)),
     [glowMedian],
@@ -484,7 +475,7 @@ function PanoramaLoaded({
           'moon-now',
           sample.moonAzimuth,
           sample.moonAltitude,
-          5 + 5 * moonIllumination,
+          5 + 5 * night.moon.illumination,
           SERIES.moonAltitude,
         ),
       )

@@ -12,7 +12,7 @@ import {
   glowCells,
   medianMpsas,
   profileRows,
-  tightestIndex,
+  nearestInstantIndex,
   type HorizonProfilePoint,
   type SkyglowRose,
 } from './sky-panorama-geometry'
@@ -184,14 +184,14 @@ describe('coreVsGate', () => {
   })
 })
 
-describe('tightestIndex', () => {
-  test('picks the smallest margin over the gate, skipping samples that are not dark', () => {
-    expect(tightestIndex([null, 6, 2.5, 9, null])).toBe(2)
-    expect(tightestIndex([-3, null, 1])).toBe(0)
+describe('nearestInstantIndex', () => {
+  test('picks the sample closest to the instant, the earlier one on a tie', () => {
+    expect(nearestInstantIndex([0, 30, 60, 90], 40)).toBe(1)
+    expect(nearestInstantIndex([0, 30, 60, 90], 45)).toBe(1)
+    expect(nearestInstantIndex([0, 30, 60], 500)).toBe(2)
   })
-  test('null when no sample is dark', () => {
-    expect(tightestIndex([null, null])).toBeNull()
-    expect(tightestIndex([])).toBeNull()
+  test('null without samples', () => {
+    expect(nearestInstantIndex([], 10)).toBeNull()
   })
 })
 

@@ -7,36 +7,27 @@ import {
   longestWindow,
   offscreenNightsText,
   nightNote,
-  gateBar,
   gateBarScale,
+  nightBar,
   verdictTone,
-  windowShare,
 } from '../formulas'
 import type { Night } from '../types'
 import classes from './night-strip.module.css'
 
 /**
- * A night's bar. TWO scales share the track: a usable night draws its window length against the
- * longest window on screen (minutes); a night out on the core gate draws its core reading against
- * a tick at the gate (degrees), so the gap between fill and tick is the miss. A night with nothing
- * to rank keeps the bar's height empty.
+ * A night's bar, from `nightBar`: a usable night's window length, or a night out on the core gate's
+ * altitude with a tick at its gate. A night with nothing to rank keeps the bar's height empty.
  */
-function NightBar({ night, scale, longest }: { night: Night; scale: number; longest: number }) {
-  if (night.verdict !== 'out') {
-    const share = windowShare(night, longest)
-    if (share === null) return <span className={classes.band} />
-    return (
-      <span className={classes.track}>
-        <Box
-          component="span"
-          className={classes.fill}
-          bg={verdictTone(night.verdict)}
-          w={`${share * 100}%`}
-        />
-      </span>
-    )
-  }
-  const bar = gateBar(night, scale)
+function NightBar({
+  night,
+  gateScale,
+  longest,
+}: {
+  night: Night
+  gateScale: number
+  longest: number
+}) {
+  const bar = nightBar(night, { gateScale, longest })
   if (bar === null) return <span className={classes.band} />
   return (
     <span className={classes.track}>
@@ -46,19 +37,21 @@ function NightBar({ night, scale, longest }: { night: Night; scale: number; long
         bg={verdictTone(night.verdict)}
         w={`${bar.fill * 100}%`}
       />
-      <span className={classes.gateTick} style={{ insetInlineStart: `${bar.gate * 100}%` }} />
+      {bar.gate !== null && (
+        <span className={classes.gateTick} style={{ insetInlineStart: `${bar.gate * 100}%` }} />
+      )}
     </span>
   )
 }
 
 /**
- * One cell per night: date, a bar, then ONE fact line — the window length when there is
- * one, else the first killer's short label, so an all-out week still says why per night. The bar is
- * the window length on a usable night (verdict hue) and, on a night out on the core gate, its shortfall;
- * each on a scale shared by every cell (longer = more window / further from passing); other ruled-out
- * nights draw none. The best (or,
- * when all are out, closest) night carries a marker. Below the regular container class the strip
- * scrolls with snap and counts the nights still off-screen.
+ * One cell per night: date, a bar, then ONE fact line — the window length when there is one, else
+ * the first killer's short label, so an all-out week still says why per night. The bar is the window
+ * length on a usable night (verdict hue); on a night out on the core gate it is the core's altitude
+ * against a tick at the gate, so the gap between fill and tick is the miss. Each uses a scale shared
+ * by every cell; other ruled-out nights draw none. The best (or, when all are out, closest) night
+ * carries a marker. Below the regular container class the strip scrolls with snap and counts the
+ * nights still off-screen.
  */
 export function NightStrip({
   nights,
@@ -73,7 +66,7 @@ export function NightStrip({
   onSelect: (date: string) => void
 }) {
   const allOut = nights.every((n) => n.verdict === 'out')
-  const scale = gateBarScale(nights)
+  const gateScale = gateBarScale(nights)
   const longest = longestWindow(nights)
   const scroller = useRef<HTMLDivElement>(null)
   const [offscreenCount, setOffscreenCount] = useState(0)
@@ -126,7 +119,7 @@ export function NightStrip({
                 onClick={() => onSelect(night.date)}
               >
                 <span className={classes.date}>{fmtShortDay(night.date)}</span>
-                <NightBar night={night} scale={scale} longest={longest} />
+                <NightBar night={night} gateScale={gateScale} longest={longest} />
                 <span className={classes.note}>{nightNote(night)}</span>
                 <span className={classes.marker}>
                   {night.date === markedDate ? (allOut ? 'CLOSEST' : 'BEST') : ''}

@@ -29,9 +29,10 @@ export type Gate<TInput> = {
   label: string
   /**
    * Evaluate the gate. `reason` is required when `passes` is false and is what
-   * the user actually reads ("core peaks at 6.2°, below the 8° floor").
+   * the user actually reads ("core peaks at 6.2°, below the 8° floor"). `cause` is an optional
+   * stable machine tag for WHY the gate failed, so a client never parses `reason`.
    */
-  evaluate: (input: TInput) => { passes: boolean; reason?: string }
+  evaluate: (input: TInput) => { passes: boolean; reason?: string; cause?: string }
 }
 
 /** A continuous 0..1 quality. Higher is always better. */
@@ -49,6 +50,8 @@ export type Factor<TInput> = {
   value: (input: TInput) => number | null
   /** Optional one-line explanation of the current value, for the UI. */
   detail?: (input: TInput) => string | undefined
+  /** True when the current input has taken the night by this factor alone. Omit for a factor with no such point. */
+  ruinous?: (input: TInput) => boolean
 }
 
 /** Score bands, evaluated top-down; the first whose `min` is met wins. */
@@ -74,12 +77,16 @@ export type FactorContribution = {
   /** `weight * value`, or null when the factor had no data. */
   weighted: number | null
   detail?: string
+  /** Present only for a factor that defines a ruin point and had data: true when the input is at or past it. */
+  ruinous?: boolean
 }
 
 export type Killer = {
   id: string
   label: string
   reason: string
+  /** Stable machine tag for why the gate failed, when the gate defines one. */
+  cause?: string
 }
 
 export type ScoredWindow = {
@@ -138,6 +145,7 @@ export function scoreWindow<TInput>(config: WindowConfig<TInput>, input: TInput)
       id: gate.id,
       label: gate.label,
       reason: result.reason ?? `${gate.label} failed`,
+      ...(result.cause === undefined ? {} : { cause: result.cause }),
     })
   }
 
@@ -160,6 +168,7 @@ export function scoreWindow<TInput>(config: WindowConfig<TInput>, input: TInput)
       presentWeight += factor.weight
     }
     const detail = factor.detail?.(input)
+    const ruinous = value === null ? undefined : factor.ruinous?.(input)
     factors.push({
       id: factor.id,
       label: factor.label,
@@ -169,6 +178,7 @@ export function scoreWindow<TInput>(config: WindowConfig<TInput>, input: TInput)
       // Spread rather than assign: `exactOptionalPropertyTypes` rejects an
       // explicit `undefined` for an optional property.
       ...(detail === undefined ? {} : { detail }),
+      ...(ruinous === undefined ? {} : { ruinous }),
     })
   }
 

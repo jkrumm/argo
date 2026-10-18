@@ -74,12 +74,12 @@ export function moonPhaseLabel(phase: number): string {
  * limiting (< 80%). Null when every scored factor is ≥ 80%, i.e. nothing is meaningfully holding
  * the night back. Feeds the hero's second row, which must never restate a fact the facts panel
  * already owns (score, moon %, core altitude). */
-export function limitingFactor(night: Night): { label: string; pct: number } | null {
-  let lowest: { label: string; pct: number } | null = null
+export function limitingFactor(night: Night): { id: string; label: string; pct: number } | null {
+  let lowest: { id: string; label: string; pct: number } | null = null
   for (const factor of night.factors) {
     if (factor.value === null) continue
     const pct = Math.round(factor.value * 100)
-    if (lowest === null || pct < lowest.pct) lowest = { label: factor.label, pct }
+    if (lowest === null || pct < lowest.pct) lowest = { id: factor.id, label: factor.label, pct }
   }
   return lowest !== null && lowest.pct < 80 ? lowest : null
 }
@@ -158,17 +158,33 @@ export function coreGateFailure(night: Night): boolean {
   return night.killers.some((k) => k.id === 'core-altitude')
 }
 
-/** The Core gate row's one line, in words only: the reading and the gate are drawn in the Core cell and the miss is the verdict's headline, so no figure is repeated here. A failed gate says what set the gate. */
+/** The Core gate row's one line, in words only: the reading and the gate are drawn in the Core cell and the miss is the verdict's headline, so no figure is repeated here. A failed gate branches on the API's `cause` tag, never on its prose; a cause this client does not know (or none) shows the API's reason verbatim. */
 export function coreGateDetail(night: Night): string {
-  if (coreGateFailure(night)) {
-    const reason = night.killers.find((k) => k.id === 'core-altitude')?.reason ?? ''
-    return /ridge|skyline/i.test(reason)
-      ? 'the skyline raised the gate'
-      : 'below the atmospheric floor'
+  const killer = night.killers.find((k) => k.id === 'core-altitude')
+  if (killer !== undefined) {
+    switch (killer.cause) {
+      case 'ridge':
+        return 'the skyline raised the gate'
+      case 'floor':
+        return 'below the atmospheric floor'
+      case 'never-rises':
+        return 'never rises while it is dark'
+      default:
+        return killer.reason
+    }
   }
   return night.gateCoreAltitude === null || night.coreGateDeg === null
     ? 'no astronomical night'
     : 'clears the gate'
+}
+
+/** The Moon gate row's one line: the API's reason when it failed, else the illumination against the limit the response carries. */
+export function moonGateDetail(night: Night, moonLimit: number): string {
+  const killer = night.killers.find((k) => k.id === 'moon')
+  if (killer !== undefined) return killer.reason
+  if (night.darkMinutes === 0) return 'no astronomical night'
+  const lit = Math.round(night.moon.illumination * 100)
+  return `${lit} % lit · limit ${Math.round(moonLimit * 100)} %`
 }
 
 /** The core reading and its gate, for the Core cell's gauge — present on every night with a dark
@@ -269,16 +285,19 @@ function barShare(value: number | null, scale: number): number | null {
   return Math.min(1, Math.max(MIN_BAR_SHARE, value / scale))
 }
 
-/** A night out on the core gate, drawn against its gate: the reading's share of the strip's scale and the gate's tick position. */
-export type GateBar = { fill: number; gate: number }
+/** A strip bar: the fill's share of its track, and the gate tick's position when the night has a gate to draw. */
+export type GateBar = { fill: number; gate: number | null }
 
 /** The shared scale of the strip's gate bars: the highest gate among the nights that draw one, so the track always reaches the tallest gate. Never under 1°. */
 export function gateBarScale(nights: readonly Night[]): number {
-  return Math.max(1, ...nights.map((n) => (nightShortfall(n) === null ? 0 : (n.coreGateDeg ?? 0))))
+  const gates = nights.flatMap((n) =>
+    nightShortfall(n) !== null && n.coreGateDeg !== null ? [n.coreGateDeg] : [],
+  )
+  return Math.max(1, ...gates)
 }
 
 /** A night out on the core gate: fill = the core reading, tick = the gate, both on the shared scale; the distance between them is the miss. Null for any other night. A reading under 0° keeps a hairline. */
-export function gateBar(night: Night, scale: number): GateBar | null {
+export function gateBar(night: Night, scale: number): (GateBar & { gate: number }) | null {
   if (nightShortfall(night) === null || night.gateCoreAltitude === null) return null
   if (night.coreGateDeg === null || !(scale > 0)) return null
   const fill = barShare(night.gateCoreAltitude, scale)
@@ -347,7 +366,7 @@ export function coreTransitFooter(night: Night): string {
  */
 export function pageSummary(
   data: WindowResponse,
-  { withWindow, selectedDate }: { withWindow: boolean; selectedDate: string },
+  { withWindow, withMiss }: { withWindow: boolean; withMiss: boolean },
 ): { sentence: string; facts: string[]; aside: string } {
   const total = data.nights.length
   const usable = usableNightCount(data.nights)
@@ -364,9 +383,9 @@ export function pageSummary(
     facts.push(`best ${fmtShortDay(marked.date)}${range}`)
   } else if (usable === 0 && marked !== null) {
     facts.push(
-      marked.date === selectedDate
-        ? `closest ${fmtShortDay(marked.date)}`
-        : `closest ${fmtShortDay(marked.date)}, ${gateMissText(marked)}`,
+      withMiss
+        ? `closest ${fmtShortDay(marked.date)}, ${gateMissText(marked)}`
+        : `closest ${fmtShortDay(marked.date)}`,
     )
   } else if (usable === 0 && data.bestDate !== null) {
     facts.push(`first ${fmtShortDay(data.bestDate)}`)
@@ -446,41 +465,19 @@ export function skyCellFooter({
   return `dark sky from ${SKY_DARK_THRESHOLD} · ${dome} · transparency ${clarity}`
 }
 
-/** Where the score's low-cloud factor is at or under this, low cloud has effectively taken the night. */
-export const LOW_CLOUD_ENDS_BELOW = 0.2
-
 /**
- * Low cloud as a factor row, present only when it ends the night: the API scores cloud (it never
- * gates), so the row states the peak and where it falls, not a pass or a fail. The span is the
- * shooting window when there is one, else the stretch of astronomical dark.
+ * Low cloud as a factor row, present only when the API marks the factor `ruinous` (its own ruin
+ * level for the layer). It quotes the scored value, the window mean the score used. Cloud is scored,
+ * never gated, so the row never reads as a failed gate. Gated nights carry no factors, so none here.
  */
-export function lowCloudHarm(night: Night, hourly: readonly HourlyPoint[]): string | null {
+export function lowCloudRow(night: Night): string | null {
   const factor = night.factors.find((f) => f.id === 'cloud-low')
-  if (factor === undefined || factor.value === null || factor.value > LOW_CLOUD_ENDS_BELOW) {
-    return null
-  }
-  const dark = hourly.filter((d) => d.astroDark)
-  const pool = dark.length > 0 ? dark : hourly
-  let peak: HourlyPoint | null = null
-  for (const point of pool) {
-    if (point.cloudLow !== null && (peak === null || point.cloudLow > (peak.cloudLow ?? -1))) {
-      peak = point
-    }
-  }
-  if (peak === null || peak.cloudLow === null) return null
-  const shoot = night.window
-  const first = pool[0]
-  const last = pool.at(-1)
-  const span =
-    shoot !== null
-      ? `shooting window ${shoot.localStart}–${shoot.localEnd}`
-      : first === undefined || last === undefined
-        ? null
-        : `dark ${first.localTime}–${last.localTime}`
-  return `up to ${Math.round(peak.cloudLow)} % around ${peak.localTime}${span === null ? '' : `, ${span}`}`
+  const mean = night.weather.cloudLow
+  if (factor?.ruinous !== true || mean === null) return null
+  return `${Math.round(mean)} % mean over the shooting window`
 }
 
-/** The verdict card's facts line. A usable night names its score and the factor holding it back, unless the low-cloud row already says so. */
+/** The verdict card's facts line. A usable night names its score and the factor holding it back, unless the low-cloud row already says it. */
 export function verdictFacts(
   night: Night,
   nights: readonly Night[],
@@ -489,10 +486,52 @@ export function verdictFacts(
   if (night.verdict === 'out') return [fmtShortDay(night.date), nextUsableText(nights, night.date)]
   const limiting = limitingFactor(night)
   const named =
-    limiting === null || (lowCloudShown && limiting.label === 'Low cloud')
+    limiting === null || (lowCloudShown && limiting.id === 'cloud-low')
       ? null
       : `limited by ${limiting.label.toLowerCase()} ${limiting.pct} %`
   return [`score ${night.score}/100`, ...(named === null ? [] : [named])]
+}
+
+export type GateRowModel = {
+  key: string
+  label: string
+  state: string
+  /** `good` and `warn` are gate verdicts; `neutral` is a fact that is neither. */
+  tone: 'good' | 'warn' | 'neutral'
+  detail: string
+}
+
+/** The verdict card's rows: the three gates in the API's order, pass or fail by its `killers` only, then low cloud when the API calls it ruinous. */
+export function gateRows(night: Night, moonLimit: number): GateRowModel[] {
+  const failed = new Set(night.killers.map((k) => k.id))
+  const gate = (id: string, label: string, detail: string): GateRowModel => ({
+    key: id,
+    label,
+    state: failed.has(id) ? 'failed' : 'passed',
+    tone: failed.has(id) ? 'warn' : 'good',
+    detail,
+  })
+  const darkness = night.killers.find((k) => k.id === 'darkness')?.reason
+  const rows = [
+    gate(
+      'darkness',
+      'Darkness',
+      night.darkMinutes > 0 ? 'astronomical night present' : (darkness ?? 'none'),
+    ),
+    gate('core-altitude', 'Core', coreGateDetail(night)),
+    gate('moon', 'Moon', moonGateDetail(night, moonLimit)),
+  ]
+  const cloud = lowCloudRow(night)
+  if (cloud !== null) {
+    rows.push({
+      key: 'cloud-low',
+      label: 'Low cloud',
+      state: 'ruinous · scored, not a gate',
+      tone: 'warn',
+      detail: cloud,
+    })
+  }
+  return rows
 }
 
 /**
@@ -510,4 +549,20 @@ export function coreGateFact(night: Night): ChartFact | null {
         unit: 'core at its closest to the gate',
         period: `gate ${fmtDegrees(core.gate)}`,
       }
+}
+
+/**
+ * The one bar a strip cell draws. A usable night: its window length against the longest on screen,
+ * no gate. A night out on the core gate: its core altitude against a tick at the gate, on the shared
+ * degree scale. Any other night: nothing to rank, so no bar.
+ */
+export function nightBar(
+  night: Night,
+  { gateScale, longest }: { gateScale: number; longest: number },
+): GateBar | null {
+  if (night.verdict !== 'out') {
+    const fill = windowShare(night, longest)
+    return fill === null ? null : { fill, gate: null }
+  }
+  return gateBar(night, gateScale)
 }

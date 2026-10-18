@@ -429,6 +429,12 @@ describe('GET /astro/window — the verdict', () => {
           const coreKiller = night.killers.some((k: { id: string }) => k.id === 'core-altitude')
           expect(night.gateCoreAltitude).not.toBeNull()
           expect(night.coreGateDeg).toBeGreaterThanOrEqual(8)
+          expect(Number.isNaN(Date.parse(night.gateSampleTime))).toBe(false)
+          if (coreKiller) {
+            expect(['ridge', 'floor']).toContain(
+              night.killers.find((k: { id: string }) => k.id === 'core-altitude').cause,
+            )
+          }
           if (coreKiller) {
             expect(night.gateCoreAltitude).toBeLessThanOrEqual(night.coreGateDeg)
           } else if (night.darkMinutes > 0) {
@@ -446,6 +452,7 @@ describe('GET /astro/window — the verdict', () => {
       expect(night.darkMinutes).toBe(0)
       expect(night.gateCoreAltitude).toBeNull()
       expect(night.coreGateDeg).toBeNull()
+      expect(night.gateSampleTime).toBeNull()
     }
     expect(body.bestDate).toBe(body.nights[0].date)
     expect(body.moonMaxIllumination).toBe(0.25)

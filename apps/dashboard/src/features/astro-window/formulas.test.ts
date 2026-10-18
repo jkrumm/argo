@@ -17,7 +17,11 @@ import {
   pageSummary,
   gateBar,
   gateBarScale,
-  lowCloudHarm,
+  lowCloudRow,
+  gateRows,
+  moonGateDetail,
+  nightBar,
+  limitingFactor,
   verdictFacts,
   verdictHeadline,
   verdictStatus,
@@ -135,25 +139,28 @@ describe('coreMeterReading', () => {
 })
 
 describe('coreGateDetail', () => {
-  const failed = (reason: string) =>
+  const failed = (cause: string | undefined, reason = 'api prose') =>
     ({
-      killers: [{ id: 'core-altitude', label: 'Core altitude', reason }],
+      killers: [{ id: 'core-altitude', label: 'Core altitude', reason, cause }],
       gateCoreAltitude: 5,
       coreGateDeg: 12,
     }) as unknown as Night
-  test('a ridge-blocked night says the skyline raised the gate, with no figure', () => {
-    expect(coreGateDetail(failed('the ridge to the south stands at 5.0° — never clears it'))).toBe(
-      'the skyline raised the gate',
-    )
+  test('branches on the API cause tag, with no figure', () => {
+    expect(coreGateDetail(failed('ridge'))).toBe('the skyline raised the gate')
+    expect(coreGateDetail(failed('floor'))).toBe('below the atmospheric floor')
+    expect(coreGateDetail(failed('never-rises'))).toBe('never rises while it is dark')
   })
-  test('a night under the flat floor says so', () => {
-    expect(coreGateDetail(failed('core peaks at 3.0° during darkness'))).toBe(
-      'below the atmospheric floor',
-    )
+  test('an unknown or missing cause shows the API reason verbatim', () => {
+    expect(coreGateDetail(failed('something-new', 'core is sad'))).toBe('core is sad')
+    expect(coreGateDetail(failed(undefined, 'core is sad'))).toBe('core is sad')
   })
   test('a clearing night says so', () => {
     const night = { killers: [], gateCoreAltitude: 12, coreGateDeg: 8 } as unknown as Night
     expect(coreGateDetail(night)).toBe('clears the gate')
+  })
+  test('no dark stretch', () => {
+    const night = { killers: [], gateCoreAltitude: null, coreGateDeg: null } as unknown as Night
+    expect(coreGateDetail(night)).toBe('no astronomical night')
   })
 })
 
@@ -208,7 +215,7 @@ describe('pageSummary', () => {
     const out = outNight('2026-06-14', 8, 4)
     const summary = pageSummary(response([goNight, out], '2026-06-13'), {
       withWindow: false,
-      selectedDate: '2026-06-13',
+      withMiss: false,
     })
     expect(summary.sentence).toBe('1 of 2 nights usable')
     expect(summary.facts).toEqual(['best Sat 13', '1 ruled out'])
@@ -218,7 +225,7 @@ describe('pageSummary', () => {
     const out = outNight('2026-06-14', 8, 4)
     const summary = pageSummary(response([goNight, out], '2026-06-13'), {
       withWindow: true,
-      selectedDate: '2026-06-13',
+      withMiss: false,
     })
     expect(summary.facts).toEqual(['best Sat 13, 23:10–01:40', '1 ruled out'])
     expect(summary.facts.join(' ').match(/23:10/g)).toHaveLength(1)
@@ -228,7 +235,7 @@ describe('pageSummary', () => {
     const nights = [outNight('2026-06-13', 8, 4), outNight('2026-06-14', 8, 6)]
     const summary = pageSummary(response(nights, '2026-06-13'), {
       withWindow: false,
-      selectedDate: '2026-06-13',
+      withMiss: true,
     })
     expect(summary.sentence).toBe('No usable night in the next 2 nights')
     expect(summary.facts).toEqual(['closest Sun 14, core 2.0° under its gate'])
@@ -238,7 +245,7 @@ describe('pageSummary', () => {
     const nights = [outNight('2026-06-13', 8, 4), outNight('2026-06-14', 8, 6)]
     const summary = pageSummary(response(nights, '2026-06-13'), {
       withWindow: false,
-      selectedDate: '2026-06-14',
+      withMiss: false,
     })
     expect(summary.facts).toEqual(['closest Sun 14'])
   })
@@ -246,7 +253,7 @@ describe('pageSummary', () => {
   test('one night reads in the singular and takes the range from the marked night', () => {
     const summary = pageSummary(response([goNight], '2026-06-13'), {
       withWindow: true,
-      selectedDate: '2026-06-13',
+      withMiss: false,
     })
     expect(summary.sentence).toBe('1 of 1 night usable')
     expect(summary.facts).toEqual(['best Sat 13, 23:10–01:40'])
@@ -259,7 +266,7 @@ describe('pageSummary', () => {
     }
     const summary = pageSummary(response([dark], '2026-06-13'), {
       withWindow: false,
-      selectedDate: '2026-06-13',
+      withMiss: false,
     })
     expect(summary.facts).toEqual(['first Sat 13'])
   })
@@ -325,9 +332,10 @@ describe('night shortfall and gate bar', () => {
 
   test('the bar draws the reading against the gate tick on one shared scale', () => {
     expect(gateBarScale(nights)).toBe(8)
-    expect(gateBar(nights[0]!, 8)).toEqual({ fill: 0.5, gate: 1 })
-    expect(gateBar(nights[1]!, 8)).toEqual({ fill: 0.75, gate: 1 })
+    expect(nightBar(nights[0]!, { gateScale: 8, longest: 0 })).toEqual({ fill: 0.5, gate: 1 })
+    expect(nightBar(nights[1]!, { gateScale: 8, longest: 0 })).toEqual({ fill: 0.75, gate: 1 })
     expect(gateBar(goNight, 8)).toBeNull()
+    expect(nightBar(goNight, { gateScale: 8, longest: 300 })).toEqual({ fill: 0.5, gate: null })
   })
 
   test('a reading under 0° keeps a hairline and a bad scale draws nothing', () => {
@@ -548,29 +556,82 @@ describe('minutesToHours and withFacts', () => {
   })
 })
 
-describe('lowCloudHarm', () => {
-  const hour = (localTime: string, astroDark: boolean, cloudLow: number | null) =>
-    ({ localTime, astroDark, cloudLow }) as unknown as HourlyPoint
-  const hours = [hour('22:00', false, 90), hour('23:00', true, 40), hour('00:00', true, 71.4)]
-  const withFactor = (value: number | null, window = goNight.window) =>
-    ({ ...goNight, window, factors: [{ id: 'cloud-low', value }] }) as unknown as Night
+describe('lowCloudRow', () => {
+  const night = (ruinous: boolean | undefined, cloudLow: number | null = 62.4) =>
+    ({
+      ...goNight,
+      weather: { cloudLow },
+      factors: [{ id: 'cloud-low', label: 'Low cloud', value: 0.1, ruinous }],
+    }) as unknown as Night
 
-  test('states the peak, where it falls and the span, when low cloud ends the night', () => {
-    expect(lowCloudHarm(withFactor(0), hours)).toBe(
-      'up to 71 % around 00:00, shooting window 23:10–01:40',
-    )
+  test('quotes the scored window mean when the API calls the factor ruinous', () => {
+    expect(lowCloudRow(night(true))).toBe('62 % mean over the shooting window')
   })
 
-  test('without a shooting window the span is the stretch of dark', () => {
-    expect(lowCloudHarm(withFactor(0.1, null), hours)).toBe(
-      'up to 71 % around 00:00, dark 23:00–00:00',
-    )
+  test('no row unless the API says ruinous, nor without a scored value', () => {
+    expect(lowCloudRow(night(false))).toBeNull()
+    expect(lowCloudRow(night(undefined))).toBeNull()
+    expect(lowCloudRow(night(true, null))).toBeNull()
+    expect(
+      lowCloudRow({ ...goNight, factors: [], weather: { cloudLow: 62 } } as unknown as Night),
+    ).toBeNull()
+  })
+})
+
+describe('moonGateDetail', () => {
+  const night = (killers: Night['killers'], darkMinutes = 300) =>
+    ({ killers, darkMinutes, moon: { illumination: 0.456 } }) as unknown as Night
+
+  test('a failed gate shows the API reason verbatim', () => {
+    expect(
+      moonGateDetail(night([{ id: 'moon', label: 'Moon', reason: 'moon 46% up' }]), 0.25),
+    ).toBe('moon 46% up')
+  })
+  test('a pass states the illumination against the response limit', () => {
+    expect(moonGateDetail(night([]), 0.5)).toBe('46 % lit · limit 50 %')
+    expect(moonGateDetail(night([], 0), 0.5)).toBe('no astronomical night')
+  })
+})
+
+describe('gateRows', () => {
+  const night = {
+    ...goNight,
+    darkMinutes: 300,
+    moon: { illumination: 0.1 },
+    weather: { cloudLow: 70 },
+    killers: [],
+    factors: [{ id: 'cloud-low', label: 'Low cloud', value: 0, ruinous: true }],
+  } as unknown as Night
+
+  test('pass or fail comes from the killers only; low cloud is a factor row, not a gate', () => {
+    const rows = gateRows(night, 0.25)
+    expect(rows.map((r) => [r.key, r.state, r.tone])).toEqual([
+      ['darkness', 'passed', 'good'],
+      ['core-altitude', 'passed', 'good'],
+      ['moon', 'passed', 'good'],
+      ['cloud-low', 'ruinous · scored, not a gate', 'warn'],
+    ])
   })
 
-  test('low cloud that does not end the night has no row, nor does a missing reading', () => {
-    expect(lowCloudHarm(withFactor(0.6), hours)).toBeNull()
-    expect(lowCloudHarm(withFactor(null), hours)).toBeNull()
-    expect(lowCloudHarm(withFactor(0), [hour('00:00', true, null)])).toBeNull()
+  test('a failed gate flips its row alone', () => {
+    const out = {
+      ...night,
+      killers: [{ id: 'moon', label: 'Moon', reason: 'r' }],
+      factors: [],
+    } as unknown as Night
+    expect(gateRows(out, 0.25).map((r) => r.state)).toEqual(['passed', 'passed', 'failed'])
+  })
+})
+
+describe('limitingFactor', () => {
+  test('returns the factor id with its label and percent', () => {
+    const night = {
+      factors: [
+        { id: 'transparency', label: 'Transparency', value: 0.9 },
+        { id: 'cloud-low', label: 'Low cloud', value: 0.1 },
+      ],
+    } as unknown as Night
+    expect(limitingFactor(night)).toEqual({ id: 'cloud-low', label: 'Low cloud', pct: 10 })
   })
 })
 

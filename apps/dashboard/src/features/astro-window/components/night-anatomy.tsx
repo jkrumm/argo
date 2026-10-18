@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { Box } from '@mantine/core'
-import { Meter, StatGroup } from 'basalt-ui'
+import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { CORE_METER_MAX_DEG, SKY_DARK_THRESHOLD, SKY_METER_MAX, SKY_METER_MIN } from '../constants'
 import {
   coreMeterReading,
@@ -63,6 +63,33 @@ function gauge(label: string, value: number | null, max: number, target: number 
   )
 }
 
+/** The Core cell: the altitude at the sample closest to the gate against a gate tick; the transit time alone when there is no dark stretch. */
+function coreCell(night: Night): StatStripCell {
+  const core = coreMeterReading(night)
+  if (core === null) {
+    return {
+      key: 'core',
+      caption: 'Core',
+      value: night.localTransit,
+      unit: 'transit',
+      footer: coreTransitFooter(night),
+    }
+  }
+  return {
+    key: 'core',
+    caption: 'Core',
+    value: fmtDegrees(core.reading),
+    unit: 'closest to gate',
+    visual: gauge(
+      `Core ${fmtDegrees(core.reading)} against a gate of ${fmtDegrees(core.gate)}`,
+      core.reading,
+      CORE_METER_MAX_DEG,
+      core.gate,
+    ),
+    footer: `gate ${fmtDegrees(core.gate)} · ${coreTransitFooter(night)}`,
+  }
+}
+
 /**
  * The selected night in five readings — Dark, Core, Moon, Cloud, Sky — as a `StatGroup` strip. Every micro-visual is a reading against a target: the core and the moon against their gates, the sky against the dark threshold. Cloud has no limit the API sends, so it states values and draws nothing.
  */
@@ -81,7 +108,6 @@ export function NightAnatomy({
   const sky = location.darknessSource === 'unknown' ? null : location.coreDirectionMpsas
   const moonSet = night.moon.set === null ? null : fmtLocalClock(night.moon.set, timeZone)
   const { weather } = night
-  const core = coreMeterReading(night)
 
   return (
     <Box data-shot="night-anatomy">
@@ -102,27 +128,7 @@ export function NightAnatomy({
                 ? `${fmtMinutes(night.darkMinutes)} astronomical night`
                 : 'no astronomical night',
           },
-          {
-            key: 'core',
-            caption: 'Core',
-            ...(core === null
-              ? {
-                  value: night.localTransit,
-                  unit: 'transit',
-                  footer: coreTransitFooter(night),
-                }
-              : {
-                  value: fmtDegrees(core.reading),
-                  unit: 'closest to gate',
-                  visual: gauge(
-                    `Core ${fmtDegrees(core.reading)} against a gate of ${fmtDegrees(core.gate)}`,
-                    core.reading,
-                    CORE_METER_MAX_DEG,
-                    core.gate,
-                  ),
-                  footer: `gate ${fmtDegrees(core.gate)} · ${coreTransitFooter(night)}`,
-                }),
-          },
+          coreCell(night),
           {
             key: 'moon',
             caption: 'Moon',
