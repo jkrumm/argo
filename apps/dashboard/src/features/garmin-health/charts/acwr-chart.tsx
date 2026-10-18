@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useSizeClass } from 'basalt-ui'
 import { Bars, ChartCard, Lines, type BarsBar, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { trainingLoadQueries } from '../../../lib/queries/daily-metrics'
@@ -108,8 +107,6 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
       })),
     [data],
   )
-  // At 390 the zone keys in the legend are noise; the card's header and the bands carry them.
-  const compact = useSizeClass() === 'compact'
   const first = points.at(0)
   const last = points.at(-1)
   // One shared x extent so the divergence strip's days line up under the ratio line's.
@@ -152,7 +149,6 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
           height={220}
           x={(d) => d.day}
           series={ACWR_SERIES}
-          {...(compact && { legend: false as const })}
           {...(xDomain && { xDomain })}
           xTicks={xTicks}
           y={{ domain: 'auto', autoMaxFloor: 1.6, autoMinCeil: 0.6, format: (v) => v.toFixed(1) }}

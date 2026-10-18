@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useSizeClass } from 'basalt-ui'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { dailyMetricsQueries } from '../../../lib/queries/daily-metrics'
@@ -91,7 +90,6 @@ export default function StressChart({ params }: { params: SummaryParams }) {
     [data],
   )
 
-  const compact = useSizeClass() === 'compact'
   const rest = countWhere(
     chartData.map((d) => d.avgStress),
     (v) => v < STRESS_REST_BELOW,
@@ -122,7 +120,6 @@ export default function StressChart({ params }: { params: SummaryParams }) {
           height={CHART_HEIGHT}
           x={(d) => d.day}
           series={STRESS_SERIES}
-          {...(compact && { legend: false as const })}
           y={{ domain: [0, 100], ticks: 5 }}
           refLines={ZONE_LINES}
           zones={STRESS_ZONES}
