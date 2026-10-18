@@ -4,7 +4,7 @@
  * so the copy is testable and a null reading is handled once (always `—`, never `0`).
  */
 
-import { SYNC_CADENCE_HOURS } from './constants'
+import { NBSP, withUnit } from '../../lib/format'
 
 const EM_DASH = '—'
 
@@ -214,7 +214,7 @@ export function recoverySentence(input: {
     return [`Recovery ${fmtNum(input.recovery)}/100`, input.load].filter(Boolean).join(', ')
   }
   const gap = recoveryGap(input.recoveryDate, input.recoveryStatus)
-  return capitalize([input.load, gap.headline].filter(Boolean).join('; '))
+  return capitalize([input.load, gap].filter(Boolean).join('; '))
 }
 
 /** The newest finite recovery score in a window (points ascending by date) and the date it was scored on. */
@@ -232,7 +232,8 @@ export function lastScored(
 
 /**
  * The load cell's footer. A loading, failed or placeholder read is never a data gap: pending and
- * placeholder have no footer, a present ratio needs none (the meter's zones name the bands), a failure says so, and only a settled read without a ratio states the gap.
+ * placeholder have no footer, a present ratio needs none (the meter's zones name the bands), a
+ * failure says so, and only a settled read without a ratio states the gap.
  */
 export function loadFooter(input: {
   acwr: number | null
@@ -246,52 +247,35 @@ export function loadFooter(input: {
   return placeholder ? null : 'No day in this window has a load ratio yet'
 }
 
-/** Whole calendar days from a `YYYY-MM-DD` key to `today`. */
-function daysOld(date: string, today: Date): number {
-  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
-  return Math.round((todayUtc - Date.parse(`${date}T00:00:00Z`)) / 86_400_000)
-}
-
 /**
- * Why there is no recovery score and when it fills. A failed query is its own wording, never the data
- * gap. The score needs a usable HRV, sleep score or resting HR on the snapshot's day (resting HR needs
- * more than one distinct value in the window). Those lock in overnight and arrive with the next sync,
- * so only a gap on today (the night's data) or yesterday (today's row) promises a fill; an older latest
- * day says how old it is instead.
+ * The headline's reason for a missing recovery score. A failed query is its own wording, never the
+ * data gap.
  */
 export function recoveryGap(
   date: string | null | undefined,
   status: QueryStatus = 'success',
   today: Date = new Date(),
-): {
-  headline: string
-  reason: string
-  fills: string
-} {
-  if (status === 'pending') return { headline: 'recovery loading', reason: '', fills: '' }
-  if (status === 'error') {
-    return {
-      headline: 'the recovery score failed to load',
-      reason: 'The recovery score failed to load.',
-      fills: 'Reload the page to retry.',
-    }
-  }
-  const when = date === null || date === undefined ? 'the latest day' : dayLabel(date, 'day', today)
-  const age = date === null || date === undefined ? null : daysOld(date, today)
-  const cadence = `every ${SYNC_CADENCE_HOURS} h`
-  const fills =
-    age === null || age < 0
-      ? `Garmin syncs ${cadence}.`
-      : age === 0
-        ? `It fills once Garmin syncs last night’s sleep (${cadence}).`
-        : age === 1
-          ? `Today’s score appears once today’s readings sync (${cadence}).`
-          : `The latest synced day is ${age} d old; Garmin syncs ${cadence}.`
-  return {
-    headline: `no recovery score for ${when}`,
-    reason: `Not enough HRV, sleep or resting HR data for ${when}.`,
-    fills,
-  }
+): string {
+  if (status === 'pending') return 'recovery loading'
+  if (status === 'error') return 'the recovery score failed to load'
+  return `no recovery score for ${date === null || date === undefined ? 'the latest day' : dayLabel(date, 'day', today)}`
+}
+
+/**
+ * The recovery cell's one line when there is no score today: nothing until the reads settle, a
+ * failure says so, otherwise the newest score and its day (or that the window holds none).
+ */
+export function recoveryGapLine(input: {
+  settled: boolean
+  failed: boolean
+  last: { value: number; date: string } | null
+  windowDays: number
+}): string | null {
+  if (input.failed) return 'Recovery score failed to load'
+  if (!input.settled) return null
+  if (input.last === null) return `No score in this ${withUnit(input.windowDays, 'd')} window`
+  const day = dayLabel(input.last.date).replaceAll(' ', NBSP)
+  return `Last scored ${fmtNum(input.last.value)}/100 on ${day}`
 }
 
 // ── Strip ──────────────────────────────────────────────────────────────────

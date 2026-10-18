@@ -25,6 +25,7 @@ import {
   sleepFact,
   stressFact,
   recoveryGap,
+  recoveryGapLine,
   lastScored,
   loadFooter,
   recoverySentence,
@@ -106,38 +107,44 @@ describe('summaryParts', () => {
 describe('recoveryGap', () => {
   const today = new Date(2026, 0, 6)
 
-  test('a gap on today promises the night’s data with the cadence', () => {
-    const gap = recoveryGap('2026-01-06', 'success', today)
-    expect(gap.reason).toBe('Not enough HRV, sleep or resting HR data for today.')
-    expect(gap.fills).toBe('It fills once Garmin syncs last night’s sleep (every 6 h).')
+  test('names the day a missing score is missing for', () => {
+    expect(recoveryGap('2026-01-06', 'success', today)).toBe('no recovery score for today')
+    expect(recoveryGap('2026-01-01', 'success', today)).toBe('no recovery score for Jan 1')
+    expect(recoveryGap(null, 'success', today)).toBe('no recovery score for the latest day')
   })
 
-  test('a gap on yesterday waits for today’s readings', () => {
-    expect(recoveryGap('2026-01-05', 'success', today).fills).toBe(
-      'Today’s score appears once today’s readings sync (every 6 h).',
+  test('pending has no copy, error never claims a data gap', () => {
+    expect(recoveryGap('2026-01-05', 'pending')).toBe('recovery loading')
+    expect(recoveryGap('2026-01-05', 'error')).toBe('the recovery score failed to load')
+  })
+})
+
+describe('recoveryGapLine', () => {
+  const last = { value: 61.6, date: '2026-01-01' }
+  const base = { settled: true, failed: false, last, windowDays: 30 }
+
+  test('not settled has no line', () => {
+    expect(recoveryGapLine({ ...base, settled: false })).toBeNull()
+  })
+  test('a failed read says so, even before it settles', () => {
+    expect(recoveryGapLine({ ...base, settled: false, failed: true })).toBe(
+      'Recovery score failed to load',
     )
   })
-
-  test('an older latest day says how old it is and promises nothing', () => {
-    const gap = recoveryGap('2026-01-01', 'success', today)
-    expect(gap.reason).toBe('Not enough HRV, sleep or resting HR data for Jan 1.')
-    expect(gap.fills).toBe('The latest synced day is 5 d old; Garmin syncs every 6 h.')
+  test('the last scored day carries its value and day, unit unspaced', () => {
+    expect(recoveryGapLine(base)).toBe('Last scored 62/100 on Jan\u00a01')
+  })
+  test('no scored day states the window', () => {
+    expect(recoveryGapLine({ ...base, last: null })).toBe('No score in this 30\u00a0d window')
   })
 })
 
 describe('recovery load states', () => {
-  test('pending has no copy, error never claims a data gap, success-null does', () => {
-    expect(recoveryGap('2026-01-05', 'pending').headline).toBe('recovery loading')
-    expect(recoveryGap('2026-01-05', 'error').reason).toBe('The recovery score failed to load.')
-    expect(recoveryGap('2026-01-05', 'success').reason).toContain('Not enough')
-  })
   test('a failed recovery query keeps the load and says so in the headline', () => {
     const { sentence } = summaryParts({
       recovery: null,
       recoveryStatus: 'error',
       acwr: 1,
-      rhrDelta: 0,
-      hrvDelta: 0,
     })
     expect(sentence).toBe('Load inside the 0.8–1.3 optimal band; the recovery score failed to load')
     expect(sentence).not.toContain('HRV, sleep')

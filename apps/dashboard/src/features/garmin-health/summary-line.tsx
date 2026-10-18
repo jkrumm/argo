@@ -7,8 +7,8 @@ import type { SummaryParams } from './types'
 import { applyVisibilityFilter } from './visibility'
 
 /**
- * The page's opening headline: recovery and the load verdict. A failed query leaves its figure as `—` rather than holding the skeleton; a refetch dims
- * the previous line.
+ * The page's opening headline: recovery and the load verdict. A failed query leaves its figure as
+ * `—` rather than holding the skeleton; a refetch dims the previous line.
  */
 export function SummaryLine({ params }: { params: SummaryParams }) {
   const recovery = useQuery(recoveryQueries.summary(params))
