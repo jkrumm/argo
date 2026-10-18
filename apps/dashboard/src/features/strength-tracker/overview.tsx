@@ -251,6 +251,15 @@ function readinessTitle(call: ReturnType<typeof useOverview>['call']): string {
 
 type LiftPr = ReturnType<typeof useOverview>['summary']['byExercise'][number]
 
+const PR_LABEL = 'PR'
+
+/** The dashed PR line and its caption, or nothing for a lift without a record. */
+function prReference(
+  pr: LiftPr | undefined,
+): { reference: number; referenceLabel: string } | Record<never, never> {
+  return pr?.bestE1RM == null ? {} : { reference: pr.bestE1RM, referenceLabel: PR_LABEL }
+}
+
 /** One lift's strip cell: latest e1RM, its 28 d delta, the recent line against the PR. */
 function liftCell({
   id,
@@ -291,7 +300,7 @@ function liftCell({
           color={VX.line}
           format={(v) => `${v.toFixed(1)} kg`}
           labels={plotted.map((p) => shortDate(p.date))}
-          {...(pr?.bestE1RM != null && { reference: pr.bestE1RM, referenceLabel: 'PR' })}
+          {...prReference(pr)}
           emphasizeLast
         />
       ),
