@@ -1,16 +1,15 @@
-import { Box, Stack, Text, UnstyledButton } from '@mantine/core'
+import { Box, Stack, Text } from '@mantine/core'
 import { useClipboard } from '@mantine/hooks'
 import { Section } from 'basalt-ui'
 import { IconCheck, IconCopy } from '@tabler/icons-react'
-import { useId, useState } from 'react'
-import { DecisionCard } from '../../components/upstream/decision-card'
+import { DecisionCard, type DecisionCardAction } from '../../components/upstream/decision-card'
+import decisionClasses from '../../components/upstream/decision-card.module.css'
+import { softBreaks } from '../../lib/text'
 import type { HumanQueueItem } from '../../lib/queries/agents'
 import { useNow } from '../../lib/use-now'
 import { needsYouCards, type AgentRow, type NeedsYouCard } from './model'
 import { StatusChip } from './status-chip'
 import classes from './needs-you-section.module.css'
-
-const COLLAPSED_LINES = 3
 
 type Props = {
   humanQueue: HumanQueueItem[]
@@ -22,59 +21,54 @@ type Props = {
   snapshotAgeMs?: number | null
 }
 
-/** Mono inset: the command or blocker, clamped to three lines with a toggle past that. */
-function Inset({ text }: { text: string }) {
-  const [open, setOpen] = useState(false)
-  const bodyId = useId()
-  const long = text.split('\n').length > COLLAPSED_LINES || text.length > 240
-  return (
-    <Stack gap={4}>
-      <Text
-        id={bodyId}
-        ff="monospace"
-        size="sm"
-        className={open || !long ? classes.code : `${classes.code} ${classes.clamped}`}
-      >
-        {text}
-      </Text>
-      {long ? (
-        <UnstyledButton
-          className={classes.toggle}
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          aria-controls={bodyId}
-        >
-          <Text size="xs" c="dimmed" span>
-            {open ? 'Show less' : 'Show all'}
-          </Text>
-        </UnstyledButton>
-      ) : null}
-    </Stack>
-  )
+/** Copies a payload field; the label reads `Copied` (or `Copy failed`) for a moment afterwards. */
+function copyAction(
+  clipboard: ReturnType<typeof useClipboard>,
+  action: NeedsYouCard['actions'][number],
+): DecisionCardAction {
+  return {
+    label: clipboard.error ? 'Copy failed' : clipboard.copied ? 'Copied' : action.label,
+    icon: clipboard.copied ? <IconCheck size={14} /> : <IconCopy size={14} />,
+    onClick: () => clipboard.copy(action.value),
+  }
 }
 
 function Card({ card }: { card: NeedsYouCard }) {
-  const clipboard = useClipboard({ timeout: 1500 })
+  const primaryClip = useClipboard({ timeout: 1500 })
+  const secondaryClip = useClipboard({ timeout: 1500 })
+  const [primary, secondary] = card.actions
+  const { disclosure } = card
   return (
     <DecisionCard
-      question={card.headline}
+      question={card.question}
       facts={card.facts}
+      {...(card.entity !== null && {
+        actor: (
+          <Text component="span" fz="xs" className={decisionClasses.wrap}>
+            {softBreaks(card.entity)}
+          </Text>
+        ),
+      })}
       {...(card.abandoned && { status: <StatusChip tone="bad" label="Abandoned" /> })}
-      {...(card.inset !== null && { evidence: <Inset text={card.inset} /> })}
+      evidenceLine={card.evidenceLine}
       {...(card.preview !== null && {
         preview: <Text className={classes.preview}>{card.preview}</Text>,
       })}
-      {...(card.copy !== null && {
-        primary: {
-          label: clipboard.error ? 'Copy failed' : clipboard.copied ? 'Copied' : card.copy.label,
-          icon: clipboard.copied ? <IconCheck size={14} /> : <IconCopy size={14} />,
-          onClick: () => clipboard.copy(card.copy?.value ?? ''),
-        },
-      })}
-      {...(card.fullAsk !== null && {
+      {...(primary !== undefined && { primary: copyAction(primaryClip, primary) })}
+      {...(secondary !== undefined && { secondary: copyAction(secondaryClip, secondary) })}
+      {...(disclosure !== null && {
         disclosure: {
-          label: card.fullAsk.label,
-          content: <Text className={classes.ask}>{card.fullAsk.text}</Text>,
+          label: disclosure.label,
+          content: (
+            <Stack gap="xs">
+              {disclosure.text !== null && <Text className={classes.ask}>{disclosure.text}</Text>}
+              {disclosure.command !== null && (
+                <Text ff="monospace" size="sm" className={classes.code}>
+                  {disclosure.command}
+                </Text>
+              )}
+            </Stack>
+          ),
         },
       })}
     />

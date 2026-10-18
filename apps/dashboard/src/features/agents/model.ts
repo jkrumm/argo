@@ -6,6 +6,7 @@ import type {
   OverviewSummary,
   HistoryPoint,
 } from '../../lib/queries/agents'
+import { cardCopy, plainQuestion } from '../../components/upstream/decision-card-model'
 
 // Presentation vocabulary for the agents page. The STATE and RECOMMENDATION
 // enums are agent-gateway's (server/lib/agents.ts); Argo only maps them to a label,
@@ -490,18 +491,20 @@ export function ageAgo(ms: number): string {
 export type NeedsYouCard = {
   key: string
   kind: 'human-queue' | 'agent'
-  /** A short question; the full ask sits behind {@link NeedsYouCard.fullAsk}. */
-  headline: string
-  /** `[project, 'waiting 6m', machine]`; a missing clock or host is left out. */
+  /** The card title: a question, derived by the one `cardCopy` rule. */
+  question: string
+  /** The raw title the question does not already say; whole. */
+  entity: string | null
+  /** `[project, 'waiting 6 m', machine]`; a missing clock or host is left out. */
   facts: string[]
-  /** The one evidence line: the command, or the latest blocker. */
-  inset: string | null
+  /** One line of evidence: the latest blocker, or why there is none. */
+  evidenceLine: string | null
   /** Context excerpt for the right column; `null` unless the payload carries a real one. */
   preview: string | null
-  /** The one copy action, backed by a payload field. */
-  copy: { label: string; value: string } | null
-  /** The full ask, behind a disclosure. */
-  fullAsk: { label: string; text: string } | null
+  /** Up to two copy actions, backed by payload fields: the first is the primary. Never empty. */
+  actions: { label: string; value: string }[]
+  /** Behind the disclosure: the whole ask or reason, and the command a human-queue ask carries. */
+  disclosure: { label: string; text: string | null; command: string | null } | null
   abandoned: boolean
   /** Sort key, oldest wait first. */
   waitMs: number
@@ -509,19 +512,11 @@ export type NeedsYouCard = {
 
 const isText = (v: string | null): v is string => v !== null && v !== ''
 
-const QUESTION_MAX = 80
-const EVIDENCE_MAX = 160
 const PREVIEW_MAX = 220
 /** An ellipsis cut falls back to a hard cut unless a word boundary sits past this share of the limit. */
 const WORD_CUT_FLOOR = 0.5
-/** A clause boundary earlier than this share of the limit would leave too little of the question. */
-const CLAUSE_FLOOR = 0.4
 
 const flatten = (text: string): string => text.replace(/\s+/g, ' ').trim()
-
-/** An ask as read: structural markdown (heading and quote marks, bold, code ticks) removed, whitespace flattened. */
-const normalizeAsk = (text: string): string =>
-  flatten(text.replace(/^\s*[#>]+\s+/gm, '').replace(/\*\*|`/g, ''))
 
 /** Cuts at the last word boundary that fits, with an ellipsis. */
 function ellipsize(text: string, max: number): string {
@@ -529,25 +524,6 @@ function ellipsize(text: string, max: number): string {
   const cut = text.slice(0, max - 1)
   const space = cut.lastIndexOf(' ')
   return `${(space > max * WORD_CUT_FLOOR ? cut.slice(0, space) : cut).trimEnd()}…`
-}
-
-/**
- * A short question for a card title: the ask's first sentence, markdown marks removed, ended at the
- * last clause boundary that fits {@link QUESTION_MAX}, else at a word with an ellipsis. The full
- * text stays behind the card's disclosure.
- */
-export function questionOf(text: string): string {
-  const flat = normalizeAsk(text)
-  const stop = flat.search(/[.!?](\s|$)/)
-  const sentence = stop === -1 ? flat : flat.slice(0, stop + 1)
-  if (sentence.length <= QUESTION_MAX) return sentence
-  let clauseEnd = -1
-  for (const match of sentence.matchAll(CLAUSE_END)) {
-    if (match.index > QUESTION_MAX) break
-    if (match.index >= QUESTION_MAX * CLAUSE_FLOOR) clauseEnd = match.index
-  }
-  if (clauseEnd !== -1) return sentence.slice(0, clauseEnd).replace(/[\s,;:—-]+$/, '')
-  return ellipsize(sentence, QUESTION_MAX)
 }
 
 const nonEmptyLines = (text: string): string[] =>
@@ -559,13 +535,6 @@ const nonEmptyLines = (text: string): string[] =>
 /** The blocker text the agent reports, as sent: the first of blocker, waiting-for and standing that has content. */
 const evidenceSource = (a: AgentRow): string | null =>
   [a.blocker, a.waitingFor, a.standing].find((t) => t && nonEmptyLines(t).length > 0) ?? null
-
-/** The blocker the agent reports, one line; `null` when it reports none. */
-export function evidenceLine(a: AgentRow): string | null {
-  const source = evidenceSource(a)
-  const line = source ? nonEmptyLines(source)[0] : undefined
-  return line ? ellipsize(line, EVIDENCE_MAX) : null
-}
 
 /** The agent's last reply as context: its final paragraph, kept only when it adds to the evidence line. */
 export function previewOf(a: AgentRow): string | null {
@@ -607,22 +576,30 @@ export function needsYouCards(
     const askedMs = parseMs(item.askedAt)
     const waitMs = askedMs === null ? -1 : Math.max(0, now - askedMs)
     const host = typeof item['host'] === 'string' ? item['host'] : null
+    const title = typeof item['title'] === 'string' ? item['title'] : null
     const facts = ['human queue', host, waitMs >= 0 ? `asked ${ageAgo(waitMs)}` : null].filter(
       isText,
     )
-    const headline = questionOf(item.question)
+    const command = item.cmd?.trim() || null
+    const copy = cardCopy({
+      ask: firstSentence(item.question),
+      body: restAfterFirstSentence(item.question),
+      title,
+      plain: plainQuestion('Answer', host ? `${host} request` : 'this request'),
+    })
     return {
       key: `hq-${item.id}`,
       kind: 'human-queue',
-      headline,
+      question: copy.question,
+      entity: copy.entity,
       facts,
-      inset: item.cmd?.trim() || null,
+      evidenceLine: copy.evidenceLine,
       preview: null,
-      copy: item.cmd?.trim() ? { label: 'Copy command', value: item.cmd.trim() } : null,
-      fullAsk:
-        headline === normalizeAsk(item.question)
-          ? null
-          : { label: `Full ask · ${item.question.length} chars`, text: item.question },
+      actions: copyActions([
+        command ? { label: 'Copy command', value: command } : null,
+        { label: 'Copy ask', value: flatten(item.question) },
+      ]),
+      disclosure: disclosureOf('ask', copy.detail, command),
       abandoned: false,
       waitMs,
     }
@@ -637,29 +614,70 @@ export function needsYouCards(
         machine,
       ].filter(isText)
       const title = a.title ?? a.lastPrompt ?? a.id
-      const headline = questionOf(title)
-      const blocker = evidenceLine(a)
+      const source = evidenceSource(a)
       const fallback =
         ctx.snapshotAgeMs == null
           ? null
-          : `no blocker reported · snapshot ${ageAgo(ctx.snapshotAgeMs)}`
+          : `No blocker reported; the snapshot is ${ageAgo(ctx.snapshotAgeMs)}.`
+      const copy = cardCopy({
+        authored: a.question ?? null,
+        body: source ?? fallback,
+        title,
+        plain: plainQuestion('Unblock', `${a.project} agent`),
+      })
       return {
         key: `agent-${a.id}`,
         kind: 'agent',
-        headline,
+        question: copy.question,
+        entity: copy.entity,
         facts,
-        inset: blocker ?? fallback,
+        evidenceLine: copy.evidenceLine,
         preview: previewOf(a),
-        copy: a.paneId ? { label: 'Copy pane id', value: a.paneId } : null,
-        fullAsk:
-          headline === normalizeAsk(title)
-            ? null
-            : { label: `Full ask · ${title.length} chars`, text: title },
+        actions: copyActions([
+          a.paneId ? { label: 'Copy pane id', value: a.paneId } : null,
+          source ? { label: 'Copy blocker', value: flatten(source) } : null,
+          { label: 'Copy task', value: flatten(title) },
+        ]),
+        disclosure: disclosureOf('reason', copy.detail, null),
         abandoned: isAbandonedWait(a, now),
         waitMs,
       }
     })
   return [...asks, ...waiting].toSorted((a, b) => b.waitMs - a.waitMs)
+}
+
+type CopyAction = { label: string; value: string }
+
+/** The first two copy actions that exist: a primary and, where a second exists, a secondary. */
+const copyActions = (candidates: readonly (CopyAction | null)[]): CopyAction[] =>
+  candidates.filter((c): c is CopyAction => c !== null && c.value !== '').slice(0, 2)
+
+/** The disclosure of a card: the whole text when the line shortened it, and the command the ask carries. */
+function disclosureOf(
+  noun: 'ask' | 'reason',
+  text: string | null,
+  command: string | null,
+): NeedsYouCard['disclosure'] {
+  if (text === null && command === null) return null
+  const label =
+    command !== null && text !== null
+      ? `Command and full ${noun}`
+      : command !== null
+        ? 'Command'
+        : `Full ${noun}`
+  return { label, text, command }
+}
+
+export const firstSentence = (text: string): string => {
+  const flat = flatten(text)
+  const stop = flat.search(/[.!?](\s|$)/)
+  return stop === -1 ? flat : flat.slice(0, stop + 1)
+}
+
+export const restAfterFirstSentence = (text: string): string | null => {
+  const flat = flatten(text)
+  const rest = flat.slice(firstSentence(flat).length).trim()
+  return rest === '' ? null : rest
 }
 
 /**

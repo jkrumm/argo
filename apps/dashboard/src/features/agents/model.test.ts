@@ -19,8 +19,6 @@ import {
   hoursWithNeedsYou,
   needsYouWindowFact,
   activityFact,
-  questionOf,
-  evidenceLine,
   previewOf,
   gapHours,
   feedAside,
@@ -401,40 +399,7 @@ describe('activityFact', () => {
   })
 })
 
-describe('questionOf', () => {
-  it('keeps a short sentence and strips markdown marks', () => {
-    expect(questionOf('Which `branch` do we ship? More detail follows.')).toBe(
-      'Which branch do we ship?',
-    )
-  })
-
-  it('keeps snake_case and issue numbers, strips only structural markdown', () => {
-    expect(questionOf('Merge #1234 into main_branch? Now.')).toBe('Merge #1234 into main_branch?')
-    expect(questionOf('## **Ship** `C#` build?')).toBe('Ship C# build?')
-  })
-
-  it('ends a long sentence at a clause, else at a word with an ellipsis', () => {
-    const long =
-      'Approve the migration of the nightly export job to the new queue, which also changes retries and alerting'
-    expect(questionOf(long)).toBe(
-      'Approve the migration of the nightly export job to the new queue',
-    )
-    const out = questionOf('word '.repeat(60))
-    expect(out.length).toBeLessThanOrEqual(80)
-    expect(out.endsWith('…')).toBe(true)
-  })
-})
-
 describe('evidence and preview', () => {
-  it('takes the first blocker line, falling back through waitingFor and standing', () => {
-    expect(evidenceLine(agent({ blocker: '\n  dialog open\nmore' }))).toBe('dialog open')
-    expect(evidenceLine(agent({ waitingFor: 'a permission prompt' }))).toBe('a permission prompt')
-    expect(evidenceLine(agent())).toBeNull()
-    expect(evidenceLine(agent({ blocker: '  \n ', waitingFor: 'a permission prompt' }))).toBe(
-      'a permission prompt',
-    )
-  })
-
   it('previews the last reply paragraph only when it adds something', () => {
     const a = agent({ lastReply: 'First part.\n\nSecond   part\nwraps.' })
     expect(previewOf(a)).toBe('Second part wraps.')
@@ -444,7 +409,6 @@ describe('evidence and preview', () => {
 
   it('does not repeat an ellipsized or multi-line blocker as the preview', () => {
     const long = `${'word '.repeat(60)}end`
-    expect(evidenceLine(agent({ blocker: long }))?.endsWith('…')).toBe(true)
     expect(previewOf(agent({ blocker: long, lastReply: long }))).toBeNull()
     const multi = agent({ blocker: 'Pick one.\nDetails follow.', lastReply: 'Pick one.' })
     expect(previewOf(multi)).toBeNull()
@@ -534,13 +498,13 @@ describe('ageAgo', () => {
 describe('needsYouCards', () => {
   const now = Date.parse('2026-01-10T12:00:00Z')
 
-  it('merges both queues, longest wait first, with one copy action each from payload fields', () => {
+  it('merges both queues, longest wait first, with up to two copy actions from payload fields', () => {
     const cards = needsYouCards(
       [
         {
           id: 'a',
           askedAt: '2026-01-10T11:00:00Z',
-          question: 'Run the thing. Then reply.',
+          question: 'Run the thing now? Then reply.',
           cmd: ' make go ',
           host: 'mini',
         },
@@ -562,17 +526,46 @@ describe('needsYouCards', () => {
     expect(cards.map((c) => c.key)).toEqual(['agent-x', 'hq-a', 'hq-b'])
     expect(cards[0]).toMatchObject({
       abandoned: true,
-      copy: { label: 'Copy pane id', value: 'p1' },
-      inset: 'dialog open',
+      question: 'Unblock argo agent?',
+      entity: 'Pick a branch',
+      evidenceLine: 'dialog open',
+      actions: [
+        { label: 'Copy pane id', value: 'p1' },
+        { label: 'Copy blocker', value: 'dialog open' },
+      ],
     })
     expect(cards[1]).toMatchObject({
       facts: ['human queue', 'mini', 'asked 1h 0m ago'],
-      headline: 'Run the thing.',
-      inset: 'make go',
-      copy: { label: 'Copy command', value: 'make go' },
+      question: 'Run the thing now?',
+      evidenceLine: 'Then reply.',
+      actions: [
+        { label: 'Copy command', value: 'make go' },
+        { label: 'Copy ask', value: 'Run the thing now? Then reply.' },
+      ],
+      disclosure: { label: 'Command', text: null, command: 'make go' },
     })
-    expect(cards[2]?.copy).toBeNull()
     expect(cards[2]?.facts).toEqual(['human queue'])
+  })
+
+  it('never has a card without an action', () => {
+    const cards = needsYouCards(
+      [{ id: 'q', question: 'Plain ask.' }],
+      [agent({ id: 'z', state: 'needs_you', title: 'Pick a branch' })],
+      now,
+    )
+    for (const card of cards) expect(card.actions.length).toBeGreaterThanOrEqual(1)
+    expect(cards.find((c) => c.key === 'hq-q')?.actions).toEqual([
+      { label: 'Copy ask', value: 'Plain ask.' },
+    ])
+  })
+
+  it('uses an authored agent question verbatim', () => {
+    const [card] = needsYouCards(
+      [],
+      [agent({ id: 'z', state: 'needs_you', title: 'raw_title_key', question: 'Pick a branch?' })],
+      now,
+    )
+    expect(card).toMatchObject({ question: 'Pick a branch?', entity: 'raw_title_key' })
   })
 
   it('derives facts, evidence and a snapshot-age fallback for agents', () => {
@@ -585,7 +578,7 @@ describe('needsYouCards', () => {
     const [card] = needsYouCards([], [waiting], now, { machine: 'mini', snapshotAgeMs: 120_000 })
     expect(card).toMatchObject({
       facts: ['argo', 'waiting 1h 30m', 'mini'],
-      inset: 'no blocker reported · snapshot 2m ago',
+      evidenceLine: 'No blocker reported; the snapshot is 2m ago.',
       preview: null,
     })
   })
@@ -604,24 +597,35 @@ describe('needsYouCards', () => {
     expect(hosted?.facts).toEqual(['human queue', 'laptop', 'asked 30m ago'])
   })
 
-  it('offers no full ask for a short ask whose only difference is inline code', () => {
-    const [card] = needsYouCards([{ id: 'c', question: 'Run `make go` now?' }], [], now)
-    expect(card?.headline).toBe('Run make go now?')
-    expect(card?.fullAsk).toBeNull()
-  })
-
-  it('offers the full ask only when the headline cut something', () => {
-    const [short] = needsYouCards([{ id: 's', question: 'Short ask.' }], [], now)
-    expect(short?.fullAsk).toBeNull()
-    const [long] = needsYouCards(
-      [{ id: 'l', question: 'First. Second sentence follows.' }],
+  it('turns a statement ask into a plain question, the statement as evidence, no character count', () => {
+    const [card] = needsYouCards(
+      [{ id: 's', question: 'Short ask. Second sentence follows.', host: 'mini' }],
       [],
       now,
     )
-    expect(long?.fullAsk).toEqual({
-      label: 'Full ask · 31 chars',
-      text: 'First. Second sentence follows.',
+    expect(card).toMatchObject({
+      question: 'Answer mini request?',
+      evidenceLine: 'Short ask. Second sentence follows.',
+      disclosure: null,
     })
+  })
+
+  it('offers the whole ask behind a disclosure only when the line shortened it', () => {
+    const long = `Is this fine? ${'More detail follows here. '.repeat(10)}`
+    const [card] = needsYouCards([{ id: 'l', question: long }], [], now)
+    expect(card?.disclosure).toEqual({
+      label: 'Full ask',
+      text: 'More detail follows here. '.repeat(10).trim(),
+      command: null,
+    })
+    expect(card?.disclosure?.label).not.toMatch(/\d/)
+  })
+
+  it('puts a command and the whole ask behind one disclosure', () => {
+    const long = `Is this fine? ${'More detail follows here. '.repeat(10)}`
+    const [card] = needsYouCards([{ id: 'l', question: long, cmd: 'make go' }], [], now)
+    expect(card?.disclosure?.label).toBe('Command and full ask')
+    expect(card?.disclosure?.command).toBe('make go')
   })
 })
 

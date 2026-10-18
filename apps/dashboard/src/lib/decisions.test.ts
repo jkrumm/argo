@@ -85,7 +85,7 @@ describe('deriveDecisions', () => {
       now: NOW,
     })
     expect(list.map((d) => d.id).toSorted()).toEqual(['warden-3', 'warden-4'])
-    expect(list.find((d) => d.id === 'warden-3')?.headline).toBe('Retry {title}?')
+    expect(list.find((d) => d.id === 'warden-3')?.headline).toBe('Retry failed {repo} run?')
     expect(list.find((d) => d.id === 'warden-4')?.ageMs).toBe(DAY)
   })
 
@@ -105,10 +105,10 @@ describe('deriveDecisions', () => {
       agents: null,
       now: NOW,
     })
-    expect(d?.headline).toBe('Approve {title}?')
-    expect(d?.entity).toBeNull()
+    expect(d?.headline).toBe('Decide on {repo} item?')
+    expect(d?.entity).toBe('{title}')
     expect(d?.facts.length).toBeLessThanOrEqual(3)
-    expect(d?.evidenceLine?.endsWith('…')).toBe(true)
+    expect(d?.evidenceLine).toBe('Tests pass.')
     expect(d?.detail).toBe(`${prose} Tests pass.`)
   })
 
@@ -136,25 +136,43 @@ describe('deriveDecisions', () => {
     expect(d?.facts[0]).toBe('warden · service')
   })
 
-  it('does not repeat the title above a failed item whose question names it', () => {
+  it('asks a plain question for a failed item and keeps its raw title as the entity', () => {
     const [d] = deriveDecisions({
       warden: warden({ awaiting_owner: [awaiting({ state: 'failed' })] }),
       agents: null,
       now: NOW,
     })
-    expect(d?.headline).toBe('Retry {title}?')
-    expect(d?.entity).toBeNull()
+    expect(d?.headline).toBe('Retry failed {repo} run?')
+    expect(d?.entity).toBe('{title}')
   })
 
-  it('bounds an agent question by its title', () => {
+  it('uses the question warden authored, verbatim', () => {
+    const [d] = deriveDecisions({
+      warden: warden({ awaiting_owner: [awaiting({ question: 'Merge the {repo} fix?' })] }),
+      agents: null,
+      now: NOW,
+    })
+    expect(d?.headline).toBe('Merge the {repo} fix?')
+  })
+
+  it('never glues a verb onto an agent title', () => {
     const title = 'word '.repeat(60)
     const [d] = deriveDecisions({
       warden: null,
       agents: agents({ agents: [agent({ title })] }),
       now: NOW,
     })
-    expect(d?.headline.length).toBeLessThanOrEqual(80)
-    expect(d?.headline.startsWith('Unblock word')).toBe(true)
+    expect(d?.headline).toBe('Unblock {project} agent?')
+    expect(d?.detail).toContain(title.trim())
+  })
+
+  it('uses the question an agent authored, verbatim', () => {
+    const [d] = deriveDecisions({
+      warden: null,
+      agents: agents({ agents: [agent({ question: 'Pick a branch?' })] }),
+      now: NOW,
+    })
+    expect(d?.headline).toBe('Pick a branch?')
   })
 
   it('keeps the item identity on a queue ask with a short question', () => {

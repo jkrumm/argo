@@ -16,3 +16,14 @@ export function stripShortcodes(text: string): string {
     .replace(/\s+/g, ' ')
     .trim()
 }
+
+/**
+ * A zero-width space after each separator inside a long identifier (`snake_case`, `a/b`, `a.b`,
+ * `a-b`, `a:b`), so a test id or path wraps at a separator instead of mid-word. Display only: the
+ * text a reader copies should come from the unbroken source.
+ */
+export function softBreaks(text: string): string {
+  return text.replace(/(\S{24,})/g, (token) =>
+    token.replace(/([_/.:-])(?=[^\s_/.:-])/g, '$1\u200b'),
+  )
+}

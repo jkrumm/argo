@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { Anchor, Box, SimpleGrid, Text } from '@mantine/core'
-import { EmptyState, Section, useSizeClass } from 'basalt-ui'
+import { EmptyState, Section } from 'basalt-ui'
 import { CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
 import { IconCircleCheck, IconListDetails } from '@tabler/icons-react'
 import type { WardenActionVerb, WardenItems } from '../../lib/queries/warden'
@@ -8,6 +8,7 @@ import classes from '../../components/upstream/decision-card.module.css'
 import { HistoryPreview } from './history-preview'
 import { DecisionCard, type DecisionCardAction } from '../../components/upstream/decision-card'
 import { capFacts } from '../../components/upstream/decision-card-model'
+import { softBreaks } from '../../lib/text'
 import { ActionPromptModal } from './action-prompt'
 import { VERB_LABEL, needsPrompt, type PromptState, type PromptVerb } from './action-verbs'
 import {
@@ -43,7 +44,7 @@ type Props = {
 function FullAsk({ text }: { text: string }) {
   return (
     <Text size="sm" className={classes.wrap}>
-      {text}
+      {softBreaks(text)}
     </Text>
   )
 }
@@ -61,7 +62,6 @@ function QueueCard({
   row,
   kind,
   pending,
-  narrow,
   history,
   onFire,
   onSelectItem,
@@ -69,7 +69,6 @@ function QueueCard({
   row: AwaitingOwnerRow
   kind: QueueKind
   pending: PendingActions[number] | undefined
-  narrow: boolean
   history: TransitionHistory
   onFire: (verb: WardenActionVerb) => void
   onSelectItem: () => void
@@ -90,6 +89,9 @@ function QueueCard({
     title: row.title,
     reason: row.reason,
     failed: kind === 'failed',
+    question: row.question,
+    repo: row.repo,
+    primary: plan.primary,
   })
   const { copy } = ask
   const category = cardCategory(kind, ask.tag, row.failureClass)
@@ -109,8 +111,8 @@ function QueueCard({
         status={status}
         actor={
           ask.entity !== null ? (
-            <Text component="span" fz="xs" title={ask.entity} className={classes.wrap}>
-              {ask.entity}
+            <Text component="span" fz="xs" className={classes.wrap}>
+              {softBreaks(ask.entity)}
             </Text>
           ) : undefined
         }
@@ -118,9 +120,7 @@ function QueueCard({
         {...(copy.detail !== null
           ? { disclosure: { label: 'Full reason', content: <FullAsk text={copy.detail} /> } }
           : {})}
-        {...(view !== null && (!narrow || view.layout === 'inline')
-          ? { preview: <HistoryPreview view={view} /> }
-          : {})}
+        {...(view !== null ? { preview: <HistoryPreview view={view} /> } : {})}
         {...(view?.layout === 'inline' ? { previewPlacement: 'inline' as const } : {})}
         primary={plan.primary ? toAction(plan.primary) : undefined}
         secondary={plan.secondary ? toAction(plan.secondary) : undefined}
@@ -156,7 +156,6 @@ function CardGrid({
   onFire: (eventId: number, verb: WardenActionVerb) => void
   onSelectItem: (eventId: number) => void
 }) {
-  const narrow = useSizeClass() === 'compact'
   return (
     <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="sm">
       {rows.map((row) => (
@@ -165,7 +164,6 @@ function CardGrid({
           row={row}
           kind={kind}
           pending={pending[row.eventId]}
-          narrow={narrow}
           history={recentTransitions(items?.[String(row.eventId)])}
           onFire={(verb) => onFire(row.eventId, verb)}
           onSelectItem={() => onSelectItem(row.eventId)}
