@@ -23,6 +23,7 @@ import {
   dropPartialBucket,
   EM_DASH,
   fmtShare,
+  NO_USAGE_WINDOW,
   OTHER_KEY,
   periodNoun,
   prepareFolded,
@@ -114,7 +115,7 @@ export function FoldedChart({
               <ViewTabs field={usageStore.field.tokensGroupBy} label="Group by" />
             )
           }
-          state={{ empty: series.length === 0 || drawn.length === 0 }}
+          state={{ empty: (series.length === 0 || drawn.length === 0) && NO_USAGE_WINDOW }}
         >
           <StackedArea
             ariaLabel={`${unitNoun} per ${perBucket}, stacked by ${groupNoun}`}
@@ -130,11 +131,14 @@ export function FoldedChart({
         </ChartCard>
       </Grid.Col>
       <Grid.Col span={{ base: 12, lg: 4 }} data-shot={`${metric}-list`}>
-        <ChartCard title={`${listTitle} · ${periodNoun(range)}${totalNote}`}>
+        <ChartCard
+          className={classes.fill}
+          title={`${listTitle} · ${periodNoun(range)}${totalNote}`}
+        >
           <BarList
             label={`${unitNoun} by ${groupNoun}, ${periodNoun(range)}`}
             format={listFormat}
-            emptyText="No data in this window"
+            emptyText={NO_USAGE_WINDOW}
             items={rows.map((t) => ({
               key: t.key,
               label: labelOf(t.key),

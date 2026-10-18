@@ -12,6 +12,11 @@
   white-space: nowrap;
 }
 
+/* A card beside a taller grid partner fills its cell instead of leaving the cell grey below it. */
+.fill {
+  height: 100%;
+}
+
 /* Health card: p95 and errors side by side, divided by a hairline. */
 .health {
   display: grid;

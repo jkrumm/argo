@@ -21,6 +21,7 @@ import {
   healthInfo,
   fmtTokens,
   foldTopN,
+  NO_USAGE_WINDOW,
   OTHER_KEY,
   periodNoun,
   fmtSeconds,
@@ -137,7 +138,7 @@ export default function HealthCard({
                 },
               ]}
               tooltip={{ formatHeader: (x) => shortDay(x) }}
-              state={{ empty: p95.length < 2 }}
+              state={{ empty: p95.length < 2 && NO_USAGE_WINDOW }}
             />
           </div>
           <div className={classes.healthRight}>
@@ -162,7 +163,11 @@ export default function HealthCard({
               y={{ format: fmtTokens, ticks: 2 }}
               bars={VERDICT_BARS}
               tooltip={{ formatHeader: (x) => shortDay(x) }}
-              state={{ empty: folded.total === 0 && 'No errors in this window' }}
+              state={{
+                empty:
+                  folded.total === 0 &&
+                  (latency.buckets.length === 0 ? NO_USAGE_WINDOW : 'No errors in this window'),
+              }}
             />
           </div>
         </Box>

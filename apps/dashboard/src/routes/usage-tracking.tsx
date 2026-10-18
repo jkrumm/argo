@@ -13,6 +13,7 @@ import { UsageHeadline } from '../features/usage-tracking/page-headline'
 import CostChart from '../features/usage-tracking/cost-chart'
 import TokensChart from '../features/usage-tracking/tokens-chart'
 import HealthCard from '../features/usage-tracking/health-card'
+import classes from '../features/usage-tracking/usage.module.css'
 import TopProjects from '../features/usage-tracking/top-projects'
 
 export const Route = createFileRoute('/usage-tracking')({
@@ -77,7 +78,7 @@ function UsageTrackingPage() {
           </Grid.Col>
           <Grid.Col span={{ base: 12, lg: 4 }}>
             <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
-              <Box data-shot="projects">
+              <Box data-shot="projects" className={classes.fill}>
                 <TopProjects
                   range={search.range}
                   billing={billing}

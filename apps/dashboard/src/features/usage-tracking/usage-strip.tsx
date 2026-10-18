@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Skeleton, Stack, Text } from '@mantine/core'
 import { DeltaBadge, Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { NBSP } from '../../lib/format'
+import { shotState } from '../../lib/shot-state'
 import { usageQueries, type Metric } from '../../lib/queries/usage'
 import { USAGE_BILLING } from '../../lib/series'
 import { useNow } from '../../lib/use-now'
@@ -30,6 +31,8 @@ import {
   fmtTokensDay,
   fmtUsdWhole,
   meanOf,
+  NO_USAGE_CELL,
+  NO_USAGE_STRIP,
   pctDelta,
   errorComparison,
   pointsDelta,
@@ -48,10 +51,10 @@ import {
   type Prior,
 } from './model'
 
+import { useUsageHeadline } from './use-headline'
 import { ErrorBand, Trend, type Daily } from './usage-visuals'
 
-const useHeadline = () => useQuery(usageQueries.headline())
-type Headline = NonNullable<ReturnType<typeof useHeadline>['data']>
+type Headline = NonNullable<ReturnType<typeof useUsageHeadline>['data']>
 
 type Series = { days: Daily[]; loading: boolean; failed: boolean }
 
@@ -65,13 +68,22 @@ function useDaily(metric: Metric, now: number): Series {
     usageQueries.timeseries({ range: '30d', grain: 'day', metric, groupBy: 'none' }),
   )
   const all: Daily[] =
-    query.data?.buckets.map((b) => ({
+    (shotState() === 'empty' ? undefined : query.data)?.buckets.map((b) => ({
       date: dayToDate(b.bucket),
       value: b.groups['value'] ?? null,
     })) ?? []
   const days = dropPartialBucket(all, now, 'day')
   return { days, loading: query.isPending, failed: query.isError }
 }
+
+/** The cell with its readings replaced by the one empty reason. */
+const emptied = ({ key, caption, qualifier, info }: StatStripCell): StatStripCell => ({
+  key,
+  caption,
+  ...(qualifier === undefined ? {} : { qualifier }),
+  ...(info === undefined ? {} : { info }),
+  state: { kind: 'empty', reason: NO_USAGE_CELL },
+})
 
 /** What every cell builder reads: the headline (undefined until it loads) and the loading flag. */
 type Ctx = { h: Headline | undefined; loading: boolean }
@@ -321,6 +333,9 @@ function cacheCell({ h, loading }: Ctx, cache: Series): StatStripCell {
   }
 }
 
+/** A 30 d window without a single call: every cell empties, as the charts do. */
+const noUsage = (h: Headline | undefined) => h?.calls30d === 0
+
 const BILLING_COLOR: Record<BillingPart['key'], string> = {
   max: USAGE_BILLING.max,
   iu: USAGE_BILLING.iu,
@@ -347,7 +362,7 @@ function billingFooter({ h, loading }: Ctx) {
           <Skeleton height={28} radius="sm" />
         ) : h === undefined || parts.every((p) => p.value <= 0) ? (
           <Text size="sm" c="dimmed">
-            No cost recorded in the last {D30}
+            {noUsage(h) ? NO_USAGE_STRIP : `No cost recorded in the last ${D30}`}
           </Text>
         ) : (
           <Meter
@@ -365,7 +380,7 @@ function billingFooter({ h, loading }: Ctx) {
 }
 
 export function UsageStrip() {
-  const headline = useHeadline()
+  const headline = useUsageHeadline()
   const now = useNow()
   const cost = useDaily('cost', now)
   const tokens = useDaily('tokens', now)
@@ -373,19 +388,20 @@ export function UsageStrip() {
   const errors = useDaily('error_rate', now)
   const cache = useDaily('cache_ratio', now)
   const ctx: Ctx = { h: headline.data, loading: headline.isPending }
+  const cells = [
+    costCell(ctx, cost),
+    tokensCell(ctx, tokens),
+    errorsCell(ctx, errors),
+    p95Cell(ctx, p95),
+    cacheCell(ctx, cache),
+  ]
 
   return (
     <StatGroup
       variant="strip"
       label="Usage over the last 30 days"
       cols={5}
-      cells={[
-        costCell(ctx, cost),
-        tokensCell(ctx, tokens),
-        errorsCell(ctx, errors),
-        p95Cell(ctx, p95),
-        cacheCell(ctx, cache),
-      ]}
+      cells={noUsage(ctx.h) ? cells.map(emptied) : cells}
       footer={[billingFooter(ctx)]}
     />
   )

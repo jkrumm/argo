@@ -13,6 +13,14 @@ export const D30 = withUnit(30, 'd')
 export const D7 = withUnit(7, 'd')
 export const PRIOR_30D = `prior ${D30}`
 
+/** The usage-tracker LaunchAgent's push cadence (the API route's description names it). */
+const TRACKER_PUSH_EVERY = withUnit(15, 'min')
+/** The one wording for a window with no ingested usage: what is missing, why, what to do. */
+export const NO_USAGE_WINDOW = `No usage ingested in this window — the usage-tracker pushes every ${TRACKER_PUSH_EVERY}, or widen the range`
+/** The strip's cells name the fact; the billing footer beneath them carries the cause and the next step. */
+export const NO_USAGE_CELL = 'No usage ingested'
+export const NO_USAGE_STRIP = `No usage ingested in the last ${D30} — the usage-tracker pushes every ${TRACKER_PUSH_EVERY}`
+
 /** Cache hit ratio the page calls good — the tick on the ring (`>60%` in the old zone chart). */
 export const CACHE_HIT_TARGET = 0.6
 /** Daily error-rate bands: below 1 % ok, 1–3 % warn, above 3 % bad. Proposed, not an SLO. */

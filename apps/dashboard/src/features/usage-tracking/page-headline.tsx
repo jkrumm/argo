@@ -1,11 +1,10 @@
-import { useQuery } from '@tanstack/react-query'
 import { relativeTime } from 'basalt-ui/format'
 import { Text } from '@mantine/core'
 import { VX } from 'basalt-ui/tokens'
 import { PageSummary } from 'basalt-ui'
-import { usageQueries } from '../../lib/queries/usage'
 import { useNow } from '../../lib/use-now'
 import { freshness, summaryFacts, summarySentence } from './model'
+import { useUsageHeadline } from './use-headline'
 
 /** `relativeTime` against the shared clock, or null when the feed has no record. */
 function age(iso: string | null | undefined, now: number): string | null {
@@ -17,7 +16,7 @@ const STALE_INK = { warn: VX.status.warn, bad: VX.status.bad } as const
 
 /** The page's opening: 30 d call count as the sentence, sources and last event as facts, freshness as a word. */
 export function UsageHeadline() {
-  const { data, isPending } = useQuery(usageQueries.headline())
+  const { data, isPending } = useUsageHeadline()
   const now = useNow()
   if (isPending) return <PageSummary sentence="" loading />
   if (data === undefined) return <PageSummary sentence="Usage headline unavailable" />
