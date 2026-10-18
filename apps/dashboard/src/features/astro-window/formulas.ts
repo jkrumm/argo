@@ -186,3 +186,54 @@ export function gapToGate(night: Night): number | null {
   if (!coreGateFailure(night)) return null
   return Math.round(Math.max(0, gap) * 10) / 10
 }
+
+/** `OUT · core 3.9° under the gate` / `GO · Sat 17, 23:10–01:40 · 2h 30m`. The API rules; this phrases. */
+export function verdictHeadline(night: Night): string {
+  if (night.verdict !== 'out') {
+    const { window } = night
+    return window === null
+      ? `GO · ${fmtShortDay(night.date)}`
+      : `GO · ${fmtShortDay(night.date)}, ${window.localStart}–${window.localEnd} · ${fmtMinutes(window.minutes)}`
+  }
+  const gap = gapToGate(night)
+  if (gap !== null) return `OUT · core ${fmtDegrees(gap)} under the gate`
+  const first = night.killers[0]
+  return first === undefined ? 'OUT' : `OUT · ${first.label.toLowerCase()}`
+}
+
+/**
+ * The page's opening: the live usable count, then which night to look at and how many are ruled
+ * out. The shooting window is NOT stated here — the verdict card owns it, so it is said once.
+ */
+export function pageSummary(data: WindowResponse): {
+  sentence: string
+  facts: string[]
+  aside: string
+} {
+  const total = data.nights.length
+  const usable = usableNightCount(data.nights)
+  const best = bestNightOf(data)
+  const sentence =
+    usable === 0 ? `No usable night in the next ${total}` : `${usable} of ${total} nights usable`
+  const facts: string[] = []
+  if (best !== null) facts.push(`${usable === 0 ? 'closest' : 'best'} ${fmtShortDay(best.date)}`)
+  if (usable > 0 && usable < total) facts.push(`${total - usable} ruled out`)
+  return { sentence, facts, aside: data.location.name }
+}
+
+/** Degrees short of the core gate, the one gap the strip can draw. Null for any other kind of night. */
+export function nightShortfall(night: Night): number | null {
+  return night.verdict === 'out' ? gapToGate(night) : null
+}
+
+/** The shared scale of the strip's shortfall bars: the largest gap on screen, so the worst night fills
+ * its track and every other night is a visible fraction of it. Never under 1°. */
+export function shortfallScale(nights: readonly Night[]): number {
+  return Math.max(1, ...nights.map((n) => nightShortfall(n) ?? 0))
+}
+
+/** A night's shortfall as a 0–1 share of the strip's scale; null when it has no degree gap to draw. */
+export function shortfallShare(night: Night, scale: number): number | null {
+  const gap = nightShortfall(night)
+  return gap === null ? null : Math.min(1, gap / scale)
+}

@@ -6,8 +6,13 @@ import {
   hourlyTicks,
   hourlyTimeLabel,
   nightNote,
+  nightShortfall,
+  pageSummary,
+  shortfallScale,
+  shortfallShare,
+  verdictHeadline,
 } from './formulas'
-import type { Night } from './types'
+import type { Night, WindowResponse } from './types'
 
 // Europe/Berlin fall-back night 2026-10-25: 02:00 and 02:30 local occur twice (CEST, then CET).
 const FALL_BACK = [
@@ -122,5 +127,78 @@ describe('coreGateDetail', () => {
   test('a clearing night says so', () => {
     const night = { killers: [], gateCoreAltitude: 12, coreGateDeg: 8 } as unknown as Night
     expect(coreGateDetail(night)).toBe('clears the gate')
+  })
+})
+
+const outNight = (date: string, gate: number, reading: number): Night =>
+  ({
+    date,
+    verdict: 'out',
+    window: null,
+    killers: [{ id: 'core-altitude', label: 'Core altitude', reason: 'r' }],
+    gateCoreAltitude: reading,
+    coreGateDeg: gate,
+  }) as unknown as Night
+
+const goNight = {
+  date: '2026-06-13',
+  verdict: 'good',
+  window: { localStart: '23:10', localEnd: '01:40', minutes: 150 },
+  killers: [],
+  gateCoreAltitude: 20,
+  coreGateDeg: 8,
+} as unknown as Night
+
+describe('verdictHeadline', () => {
+  test('a GO night states its window once: day, clock range, length', () => {
+    expect(verdictHeadline(goNight)).toBe('GO · Sat 13, 23:10–01:40 · 2h 30m')
+  })
+
+  test('a GO night without a window names the day only', () => {
+    expect(verdictHeadline({ ...goNight, window: null })).toBe('GO · Sat 13')
+  })
+
+  test('an OUT night on the core gate states the gap', () => {
+    expect(verdictHeadline(outNight('2026-06-13', 8, 4.1))).toBe('OUT · core 3.9° under the gate')
+  })
+})
+
+describe('pageSummary', () => {
+  const response = (nights: Night[], bestDate: string | null): WindowResponse =>
+    ({ nights, bestDate, location: { name: 'Site' } }) as unknown as WindowResponse
+
+  test('a GO week counts usable nights and leaves the window to the verdict card', () => {
+    const out = outNight('2026-06-14', 8, 4)
+    const summary = pageSummary(response([goNight, out], '2026-06-13'))
+    expect(summary.sentence).toBe('1 of 2 nights usable')
+    expect(summary.facts).toEqual(['best Sat 13', '1 ruled out'])
+    expect(summary.facts.join(' ')).not.toContain('23:10')
+  })
+
+  test('an all-out week names the closest night', () => {
+    const nights = [outNight('2026-06-13', 8, 4), outNight('2026-06-14', 8, 6)]
+    const summary = pageSummary(response(nights, '2026-06-14'))
+    expect(summary.sentence).toBe('No usable night in the next 2')
+    expect(summary.facts).toEqual(['closest Sun 14'])
+  })
+})
+
+describe('night shortfall', () => {
+  const nights = [outNight('2026-06-13', 8, 4), outNight('2026-06-14', 8, 6), goNight]
+
+  test('only a night out on the core gate has a degree gap', () => {
+    expect(nightShortfall(nights[0]!)).toBe(4)
+    expect(nightShortfall(goNight)).toBeNull()
+  })
+
+  test('the scale is the largest gap, so nights differ visibly', () => {
+    expect(shortfallScale(nights)).toBe(4)
+    expect(shortfallShare(nights[0]!, 4)).toBe(1)
+    expect(shortfallShare(nights[1]!, 4)).toBe(0.5)
+    expect(shortfallShare(goNight, 4)).toBeNull()
+  })
+
+  test('the scale never drops under 1°', () => {
+    expect(shortfallScale([goNight])).toBe(1)
   })
 })
