@@ -43,7 +43,7 @@ export type SourceListProps = {
   onSelect: (ref: SourceRef) => void
 }
 
-type Filters = Pick<SourceListProps, 'tag' | 'query' | 'labelOf'>
+type Filters = Pick<SourceListProps, 'tag' | 'query'>
 
 const termOf = (query: string): string => query.trim().toLowerCase()
 
@@ -82,7 +82,6 @@ function emptyMessage(f: Filters, noun: 'chats' | 'teams'): string {
 }
 
 export function SourceList(props: SourceListProps) {
-  const [openId, setOpenId] = useState<string | null>(null)
   const chats = props.view === 'chats' ? matchingChats(props) : []
   const teams = props.view === 'teams' ? visibleTeams(props) : []
   if (props.view === 'chats' ? chats.length === 0 : teams.length === 0) {
@@ -97,9 +96,22 @@ export function SourceList(props: SourceListProps) {
       scrollbars="y"
     >
       {props.view === 'chats' ? (
-        <ChatGroups rows={chats} {...props} />
+        <ChatGroups
+          rows={chats}
+          labelOf={props.labelOf}
+          now={props.now}
+          selected={props.selected}
+          onSelect={props.onSelect}
+        />
       ) : (
-        <TeamTree rows={teams} openId={openId} onToggle={setOpenId} {...props} />
+        <TeamTree
+          rows={teams}
+          labelOf={props.labelOf}
+          selected={props.selected}
+          onSelect={props.onSelect}
+          tag={props.tag}
+          query={props.query}
+        />
       )}
     </ScrollArea>
   )
@@ -141,17 +153,16 @@ type TeamTreeProps = Pick<
   'labelOf' | 'selected' | 'onSelect' | 'tag' | 'query'
 > & {
   rows: ReturnType<typeof visibleTeams>
-  openId: string | null
-  onToggle: (id: string | null) => void
 }
 
 function TeamTree(props: TeamTreeProps) {
+  const [openId, setOpenId] = useState<string | null>(null)
   const filtered = props.tag !== '' || termOf(props.query) !== ''
   return (
     <section aria-label="Teams">
       <h3 className={classes.groupHeading}>Teams · {props.rows.length}</h3>
       {props.rows.map(({ team, entry, channels, autoOpen }) => {
-        const isOpen = autoOpen || props.openId === team.id
+        const isOpen = autoOpen || openId === team.id
         const state = entry.state
         const all = entry.channels.length
         const meta =
@@ -169,11 +180,13 @@ function TeamTree(props: TeamTreeProps) {
               name={team.displayName}
               meta={meta}
               expanded={isOpen}
-              onSelect={() => props.onToggle(props.openId === team.id ? null : team.id)}
+              onSelect={() => setOpenId(openId === team.id ? null : team.id)}
             />
             {isOpen ? (
               <ChannelRows
-                {...props}
+                labelOf={props.labelOf}
+                selected={props.selected}
+                onSelect={props.onSelect}
                 team={team}
                 state={state}
                 channels={channels}

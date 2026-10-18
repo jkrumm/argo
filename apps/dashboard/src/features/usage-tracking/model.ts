@@ -21,29 +21,39 @@ const TRACKER_PUSH_EVERY = withUnit(15, 'min')
  * different gap from "nothing ingested", so it keeps its own pair.
  */
 const NO_USAGE_SHORT = 'No usage ingested'
-const NO_USAGE_FULL = `${NO_USAGE_SHORT} in this window — the usage-tracker pushes every ${TRACKER_PUSH_EVERY}, or widen the range`
+const noUsageFull = (widen: boolean) =>
+  `${NO_USAGE_SHORT} in this window — the usage-tracker pushes every ${TRACKER_PUSH_EVERY}${widen ? ', or widen the range' : ''}`
 const NO_MATCH_SHORT = 'No usage matches these filters'
-const NO_MATCH_FULL = `${NO_MATCH_SHORT} in this window — clear a filter or widen the range`
+const noMatchFull = (widen: boolean) =>
+  `${NO_MATCH_SHORT} in this window — clear a filter${widen ? ' or widen the range' : ''}`
 
-/** Whether a billing or workspace filter is active. */
+/** Whether a billing or workspace filter is active; an empty selection is no constraint. */
 export const isFiltered = (
   billing: readonly unknown[] | undefined,
   workspace: readonly unknown[] | undefined,
-): boolean => billing !== undefined || workspace !== undefined
+): boolean => (billing?.length ?? 0) > 0 || (workspace?.length ?? 0) > 0
+
+/** The 30 d strip speaks for a chart only when the chart's range lies inside it. */
+export const stripCoversRange = (range: '7d' | '30d' | '90d' | 'all'): boolean =>
+  range === '7d' || range === '30d'
 
 /**
  * The wording for a surface whose window holds no usage. A filtered window always keeps the match
- * pair: the filter may be the cause (the strip ignores filters). `stripEmpty` (the 30 d strip already
- * says nothing was ingested, with the step) collapses only the unfiltered pair to the short form. Otherwise the leading chart carries the full sentence, the rest the short form.
+ * pair: the filter may be the cause (the strip ignores filters). `stripEmpty` (the 30 d strip is
+ * empty AND covers this range, see `stripCoversRange`) collapses only the unfiltered pair to the
+ * short form. Otherwise the leading chart carries the full sentence, the rest the short form; a
+ * range of `all` has nothing wider, so its sentence carries no "widen the range".
  */
 export function noUsageWindow(o: {
   filtered: boolean
   stripEmpty: boolean
   leading: boolean
+  range: '7d' | '30d' | '90d' | 'all'
 }): string {
-  if (o.filtered) return o.leading ? NO_MATCH_FULL : NO_MATCH_SHORT
+  const widen = o.range !== 'all'
+  if (o.filtered) return o.leading ? noMatchFull(widen) : NO_MATCH_SHORT
   if (o.stripEmpty) return NO_USAGE_SHORT
-  return o.leading ? NO_USAGE_FULL : NO_USAGE_SHORT
+  return o.leading ? noUsageFull(widen) : NO_USAGE_SHORT
 }
 /** The health card is one empty state only when the window has no calls and no latency line to show: a real line is never hidden. */
 export const noHealthReading = (hasCalls: boolean, p95Points: number): boolean =>

@@ -6,8 +6,9 @@ import { CONTAINER_GRID_BREAKPOINTS } from 'basalt-ui/tokens'
 import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, MultiSelectFilter, SelectFilter } from 'basalt-ui/controls'
 import { usageQueries } from '../lib/queries/usage'
-import { isFiltered, printTotal } from '../features/usage-tracking/model'
+import { isFiltered, printTotal, stripCoversRange } from '../features/usage-tracking/model'
 import { usageStore } from '../lib/window-stores'
+import { useUsageHeadline } from '../features/usage-tracking/use-headline'
 import { UsageStrip } from '../features/usage-tracking/usage-strip'
 import { UsageHeadline } from '../features/usage-tracking/page-headline'
 import CostChart from '../features/usage-tracking/cost-chart'
@@ -32,6 +33,8 @@ function UsageTrackingPage() {
   const billing = search.billing.length > 0 ? [...search.billing] : undefined
   const workspace = search.workspace.length > 0 ? [...search.workspace] : undefined
   const filtered = isFiltered(billing, workspace)
+  // The same (shot-substituted) headline the strip reads; it speaks for the charts only inside its 30 d.
+  const stripEmpty = useUsageHeadline().data?.calls30d === 0 && stripCoversRange(search.range)
   const showTotal = printTotal({ range: search.range, filtered })
   const tsBase = { range: search.range, grain: search.grain, billing, workspace }
 
@@ -61,18 +64,29 @@ function UsageTrackingPage() {
         <UsageStrip />
 
         <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
-          <CostChart {...tsBase} leading groupBy={search.costGroupBy} printTotal={showTotal} />
+          <CostChart
+            {...tsBase}
+            leading
+            stripEmpty={stripEmpty}
+            groupBy={search.costGroupBy}
+            printTotal={showTotal}
+          />
         </Suspense>
 
         <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
-          <TokensChart {...tsBase} groupBy={search.tokensGroupBy} printTotal={showTotal} />
+          <TokensChart
+            {...tsBase}
+            stripEmpty={stripEmpty}
+            groupBy={search.tokensGroupBy}
+            printTotal={showTotal}
+          />
         </Suspense>
 
         <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
           <Grid.Col span={{ base: 12, lg: 8 }}>
             <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
               <Box data-shot="health" data-shot-states="empty">
-                <HealthCard {...tsBase} />
+                <HealthCard {...tsBase} stripEmpty={stripEmpty} />
               </Box>
             </Suspense>
           </Grid.Col>
@@ -84,6 +98,7 @@ function UsageTrackingPage() {
                   billing={billing}
                   workspace={workspace}
                   printTotal={showTotal}
+                  stripEmpty={stripEmpty}
                 />
               </Box>
             </Suspense>

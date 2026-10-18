@@ -14,6 +14,7 @@ const GROUP_NOUN: Record<TokensGroupBy, string> = {
 export default function TokensChart({
   groupBy,
   printTotal,
+  stripEmpty,
   ...filters
 }: {
   range: Range
@@ -21,12 +22,14 @@ export default function TokensChart({
   billing?: BillingValue[] | undefined
   workspace?: WorkspaceValue[] | undefined
   printTotal: boolean
+  stripEmpty: boolean
   groupBy: TokensGroupBy
 }) {
   return (
     <FoldedChart
       {...filters}
       printTotal={printTotal}
+      stripEmpty={stripEmpty}
       leading={false}
       metric="tokens"
       groupBy={groupBy}
