@@ -13,6 +13,7 @@ import {
   clockTime,
   feedState,
   agentsSummaryParts,
+  oldestWait,
   fleetFact,
   needsYouSplit,
   waitingProjects,
@@ -252,6 +253,32 @@ describe('headlineOf', () => {
 })
 
 // ── summaryParts ────────────────────────────────────────────────────────────
+
+describe('oldestWait', () => {
+  const now = Date.parse('2026-01-10T12:00:00Z')
+  const hoursAgo = (h: number) => new Date(now - h * 3_600_000).toISOString()
+  const waiting = (id: string, project: string, h: number) =>
+    agent({ id, state: 'needs_you', project, lastActivityAt: now - h * 3_600_000 })
+
+  it('is the oldest waiting agent, named by its project', () => {
+    const rows = [waiting('a', 'project-a', 2), waiting('b', 'project-b', 5)]
+    expect(oldestWait([], rows, now)).toEqual({ ms: 5 * 3_600_000, project: 'project-b' })
+  })
+  it('falls back to the oldest ask when no agent waits, and is none for an empty queue', () => {
+    const asks = [
+      { id: 'q1', askedAt: hoursAgo(1) },
+      { id: 'q2', askedAt: hoursAgo(3) },
+    ]
+    expect(oldestWait(asks, [], now)).toEqual({ ms: 3 * 3_600_000, project: 'the human queue' })
+    expect(oldestWait([], [], now)).toBeNull()
+    expect(oldestWait([{ id: 'q3' }], [], now)).toBeNull()
+  })
+  it('keeps the strip’s rule: an agent wait wins even when an ask is older', () => {
+    const rows = [waiting('a', 'project-a', 2)]
+    const asks = [{ id: 'q1', askedAt: hoursAgo(9) }]
+    expect(oldestWait(asks, rows, now)?.project).toBe('project-a')
+  })
+})
 
 describe('agentsSummaryParts', () => {
   it('carries the one figure the strip lacks: the projects the blocked agents sit in', () => {
@@ -539,7 +566,7 @@ describe('needsYouCards', () => {
     expect(cards.map((c) => [c.actions[0]?.label, c.question])).toEqual([
       ['Copy command', 'Copy command: Deploy is blocked on the {service} migration?'],
       ['Copy ask', 'Copy ask: Disk is full on {host}?'],
-      ['Copy ask', 'Copy ask: Alert {name} is down?'],
+      ['Copy ask', 'Copy ask on alert: Alert {name} is down?'],
     ])
     expect(cards.map((c) => c.question).join(' ')).not.toMatch(/Answer|Handle/)
   })

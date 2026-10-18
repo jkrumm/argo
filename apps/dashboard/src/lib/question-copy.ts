@@ -84,7 +84,8 @@ function joinDashClauses(sentences: readonly string[]): string[] {
     const clause = /^[—–]\s*(.+)$/.exec(sentence)?.[1]
     const last = joined.at(-1)
     if (clause === undefined) joined.push(sentence)
-    else if (last === undefined || last.endsWith('?')) joined.push(clause)
+    // A question is never folded into a statement: it stays a clause of its own.
+    else if (last === undefined || last.endsWith('?') || clause.endsWith('?')) joined.push(clause)
     else joined[joined.length - 1] = `${last.replace(/[.!]$/, '')}; ${clause}`
   }
   return joined
@@ -197,6 +198,8 @@ export type QuestionForms = {
   stem: string
   /** The shortest honest head, for siblings that need the room: `Implement`. */
   terse: string
+  /** The stem already says `failed` (`Retry failed run`): a subject that opens with `fail…` takes the terse head. */
+  stemSaysFailed?: boolean
 }
 
 export type QuestionInput = QuestionForms & {
@@ -225,8 +228,7 @@ function compose(
 ): QuestionTitle {
   const tail = ordinal === null ? '' : ` (${ordinal})`
   // `Retry failed run: failed to build …` says the word twice: the terse head carries the verb alone.
-  const doubled =
-    input.subject !== null && /\bfailed\s\S+$/.test(input.stem) && /^fail/i.test(input.subject)
+  const doubled = input.stemSaysFailed === true && /^fail/i.test(input.subject ?? '')
   const stem = flatten(head === 'stem' && !doubled ? input.stem : input.terse)
   // The tail's room is reserved first, so an ordinal is never the part that goes.
   const room = QUESTION_MAX - 1 - tail.length - stem.length - 2
@@ -417,9 +419,12 @@ export function subjectOf(title: unknown): string | null {
     tag !== null && ALERT_WORD.test(tag) ? text.replace(/^\s*\[[^\]]*\]\s*/, '') : text
   // The stem already says `alert`: a title that leads with the kind (`Alert: …`) does not say it
   // twice; a commit-style `type(scope): ` is a label, not the subject (the whole title stays in the detail).
+  // Each strip leaves a space behind: trim between steps, so the next anchored prefix still matches.
   const subject = untagged
     .replace(ALERT_TITLE_PREFIX, '')
+    .trim()
     .replace(COMMIT_PREFIX, '')
+    .trim()
     .replace(MONITOR_PREFIX, '$1 ')
     .replace(/`([^`]*)`/g, '$1')
     .replace(/`/g, '')
@@ -647,6 +652,20 @@ export function isAlert({
   return ALERT_TITLE_PREFIX.test(text)
 }
 
+/** What a Warden question is about: one shape for a retry (`failed run` / `failed alert`), else the alert, else the verb's noun. */
+function askedNoun({
+  alert,
+  failedRun,
+  fallback,
+}: {
+  alert: boolean
+  failedRun: boolean
+  fallback: string
+}): string {
+  if (failedRun) return alert ? 'failed alert' : 'failed run'
+  return alert ? 'alert' : fallback
+}
+
 /**
  * The question forms of a Warden item from the verb its card offers first (`Merge PR: {subject}?`,
  * `Merge {repo} PR?` with no subject). `Retry failed run` only for a failed item whose primary is
@@ -672,14 +691,7 @@ export function wardenQuestionForms({
   const where = stripShortcodes(asText(repo))
   const entry = primary === null ? undefined : WARDEN_ASK[primary]
   const failedRun = failed && primary === 'retry'
-  // One shape for a retry: `Retry failed run: …` / `Retry failed alert: …`.
-  const noun = failedRun
-    ? alert
-      ? 'failed alert'
-      : 'failed run'
-    : alert
-      ? 'alert'
-      : (entry?.[1] ?? 'item')
+  const noun = askedNoun({ alert, failedRun, fallback: entry?.[1] ?? 'item' })
   const verb =
     surface === 'home' || primary === null
       ? 'Decide on'
@@ -691,6 +703,7 @@ export function wardenQuestionForms({
     ? {
         ...forms,
         plain: `${verb} failed ${where === '' ? '' : `${where} `}${alert ? 'alert' : 'run'}`,
+        stemSaysFailed: true,
       }
     : forms
 }

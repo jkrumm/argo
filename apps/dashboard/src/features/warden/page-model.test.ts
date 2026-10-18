@@ -39,6 +39,7 @@ import {
   fixesLegend,
   historyView,
   historyLineWithAge,
+  wardenAskInput,
   pollerFooter,
   transitionText,
   verdictsFooter,
@@ -384,9 +385,14 @@ describe('planActions', () => {
     expect(planActions(['merge', 'retry'], 'decision', 'verifying').primary).toBe('merge')
   })
 
-  it('never offers Merge on a failed CI, shortcode-wrapped or not', () => {
+  it('never offers Merge on a failed CI, wherever the reason says so', () => {
     const offered = ['dismiss', 'merge', 'retry', 'note']
-    for (const reason of ['CI failed on {sha}: {why}', '[:warning: CI failed on {sha}]']) {
+    for (const reason of [
+      'CI failed on {sha}: {why}',
+      '[:warning: CI failed on {sha}]',
+      'GitHub Actions: CI failed on {sha}',
+      'Verification failed — CI failed on {sha}',
+    ]) {
       const plan = planActions(offered, 'failed', 'merging', reason)
       expect(plan).toEqual({ primary: 'retry', secondary: 'dismiss', menu: ['note'] })
     }
@@ -868,6 +874,29 @@ describe('wardenAsk', () => {
     expect(wardenAsk(source({ title: null, eventId: 7 }), 'failed').copy.question).toBe(
       'Decide on item: Item #7?',
     )
+  })
+})
+
+describe('wardenAskInput: a loose reason', () => {
+  const source = (reason: unknown) =>
+    ({
+      eventId: 9,
+      repo: '{r}',
+      title: '{title}',
+      reason,
+      question: null,
+      availableActions: ['merge', 'retry', 'dismiss'],
+    }) as unknown as Parameters<typeof wardenAskInput>[0]
+
+  it('reads a number, object or array reason as none, without throwing', () => {
+    for (const reason of [7, { a: 1 }, ['CI failed'], null, undefined]) {
+      const ask = wardenAskInput(source(reason), 'failed')
+      expect(ask.plan.secondary).toBe('merge')
+    }
+  })
+  it('plans from the normalised reason: a shortcode-wrapped CI failure never offers Merge', () => {
+    const ask = wardenAskInput(source('[:warning: CI failed on {sha}]'), 'failed')
+    expect(ask.plan).toMatchObject({ primary: 'retry', secondary: 'dismiss' })
   })
 })
 

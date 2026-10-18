@@ -188,6 +188,12 @@ describe('evidence line', () => {
       body: 'CI has not run on the head commit. — PR left open: https://example.com/pr/3',
     })
     expect(folded.evidenceLine).toBe('CI has not run on the head commit; PR left open')
+    // A dash clause that is itself a question is not folded into the statement before it.
+    const asked = cardCopy({
+      authored: 'Merge?',
+      body: 'CI has not run on the head commit. — Re-run it? https://example.com/pr/4',
+    })
+    expect(asked.evidenceLine).toBe('CI has not run on the head commit.')
     const bare = cardCopy({
       authored: 'Merge?',
       body: 'Already fixed on master; nothing to change. — PR: https://example.com/pr/2',
@@ -510,6 +516,14 @@ describe('subjectOf: title noise', () => {
     // A tag that is not a monitor's status line is a fact the title keeps.
     expect(subjectOf('[security] Disk full')).toBe('[security] Disk full')
     expect(subjectOf('[Svc] timed out')).toBe('[Svc] timed out')
+    // The kind in front leaves a space behind: the monitor prefix still goes.
+    expect(subjectOf('Alert: [Svc - HTTP] [:red_circle: Down] timeout')).toBe(
+      'Svc - HTTP Down timeout',
+    )
+    expect(subjectOf('[alert] [Svc - HTTP] [:red_circle: Down] timeout')).toBe(
+      'Svc - HTTP Down timeout',
+    )
+    expect(subjectOf('fix(x): [Svc - HTTP] Down timeout')).toBe('Svc - HTTP Down timeout')
   })
 })
 

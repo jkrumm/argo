@@ -143,7 +143,7 @@ function failedFromOf(timeline: unknown): string | null {
 }
 
 /** Warden's own wording for a failure in the verifying state: `verification failed: …`. */
-const VERIFICATION_FAILED = /^\s*(?:\[[^\]]*\]\s*)*verification failed\b/i
+export const VERIFICATION_FAILED = /^\s*(?:\[[^\]]*\]\s*)*verification failed\b/i
 
 /**
  * The state a failed row failed out of: its timeline's last move into `failed`, else — when the
