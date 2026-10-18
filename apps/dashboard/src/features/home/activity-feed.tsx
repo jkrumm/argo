@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Badge, Button, Card, Text } from '@mantine/core'
 import { Section, useSizeClass } from 'basalt-ui'
-import { NBSP } from '../../lib/format'
 import { clockTime } from '../agents/model'
 import { feedEmptyLine, type ActivityEvent, type ActivityGroup } from './model'
 import classes from './home.module.css'
@@ -120,8 +119,8 @@ function FeedRow({ event: e }: { event: ActivityEvent }) {
         </Text>
         {meta.length > 0 ? (
           <span className={classes.feedMeta}>
-            {meta.map((p, i) => (
-              <MetaPart key={p.kind} part={p} lead={i > 0} />
+            {meta.map((p) => (
+              <MetaPart key={p.kind} part={p} />
             ))}
           </span>
         ) : null}
@@ -132,8 +131,8 @@ function FeedRow({ event: e }: { event: ActivityEvent }) {
 }
 
 /** One part of line 2: the outcome wraps whole, only the chip clips inside itself. */
-function MetaPart({ part, lead }: { part: RowPart; lead: boolean }) {
-  // The pill separates itself: no `·` before the chip, so a wrap never opens a line with one.
+function MetaPart({ part }: { part: RowPart }) {
+  // The pill separates itself (`.feedMeta`'s column gap): no `·` before the chip, so a wrap never opens a line with one.
   if (part.kind === 'chip')
     return (
       <span className={classes.feedPart}>
@@ -150,12 +149,5 @@ function MetaPart({ part, lead }: { part: RowPart; lead: boolean }) {
       </span>
     )
   if (part.kind !== 'outcome') return null
-  // The `·` before an outcome sits inside its wrapper, so a wrap never leaves it dangling at a line end.
-  const dot = lead ? <span aria-hidden>{`·${NBSP}`}</span> : null
-  return (
-    <span className={classes.feedOutcome}>
-      {dot}
-      {part.text}
-    </span>
-  )
+  return <span className={classes.feedOutcome}>{part.text}</span>
 }

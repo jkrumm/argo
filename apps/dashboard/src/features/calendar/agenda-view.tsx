@@ -53,6 +53,7 @@ export function AgendaView({
   unknown,
   failed,
   tasksState,
+  canRetryCalendar,
   onRetryCalendar,
   retryingCalendar,
   onRetryTasks,
@@ -65,7 +66,9 @@ export function AgendaView({
   /** Unknown sources that stopped trying (failed), as against still loading. */
   failed: ReadonlySet<SourceClass>
   tasksState: 'loading' | 'error' | 'ready'
-  /** Refetches every failed calendar source: the one step for the headline and the error lines. */
+  /** A failed source a refetch can fix exists (a sign-in failure is Re-authorize's, not Retry's). */
+  canRetryCalendar: boolean
+  /** Refetches every such source: the one step for the headline and the error lines. */
   onRetryCalendar: () => void
   retryingCalendar: boolean
   /** Refetches the failed task reads. */
@@ -119,7 +122,7 @@ export function AgendaView({
             )}
           </Text>
         ))}
-        {(gap?.state === 'error' || errors.length > 0) && (
+        {canRetryCalendar && (
           <RetryButton
             onClick={onRetryCalendar}
             loading={retryingCalendar}

@@ -164,12 +164,15 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
     return { gap: feedGap(unknown, failedSources), failedSources }
   }, [unknown, personalFailed, workFailed])
   // Tasks are their own read: a pending or failed one is not an empty list.
-  const tasksState = taskFeedState([projectsQuery, ...projectQueries])
+  const taskQueries = [projectsQuery, ...projectQueries]
+  const tasksState = taskFeedState(taskQueries)
 
-  // Retry refetches exactly what a failure surface shows: the `errors` lines (any errored source,
-  // cached data or not) and the headline gap are both fed by `isError`; tasks by `taskReadFailed`.
-  const failedCalendar = shotEmpty ? [] : [googleQuery, m365Query].filter((query) => query.isError)
-  const failedTasks = [projectsQuery, ...projectQueries].filter(taskReadFailed)
+  // Retry refetches what a failure surface shows, minus a sign-in failure: that one's step is
+  // Re-authorize, and a refetch cannot fix it. Tasks: exactly the reads `taskFeedState` counts as failed.
+  const failedCalendar = shotEmpty
+    ? []
+    : [googleQuery, m365Query].filter((query) => query.isError && !isAuthError(query.error))
+  const failedTasks = taskQueries.filter(taskReadFailed)
   function retryFailedCalendar() {
     for (const query of failedCalendar) void query.refetch()
   }
@@ -260,6 +263,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
           unknown={unknown}
           failed={gap.failedSources}
           tasksState={tasksState}
+          canRetryCalendar={failedCalendar.length > 0}
           onRetryCalendar={retryFailedCalendar}
           retryingCalendar={failedCalendar.some((query) => query.isFetching)}
           onRetryTasks={retryFailedTasks}
