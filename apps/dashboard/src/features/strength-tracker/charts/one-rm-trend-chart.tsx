@@ -58,7 +58,7 @@ export default function OneRmTrendChart({ params }: { params: StrengthQueryParam
         },
         {
           key: `ma-${ex}`,
-          label: '30d MA',
+          label: '30 d average',
           color: exerciseColor(ex),
           strokeOpacity: 0.5,
           dash: 'dashed' as const,

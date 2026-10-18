@@ -87,7 +87,14 @@ export default function RelativeProgressionChart({ params }: { params: StrengthQ
         x={(d) => d.day}
         series={series}
         y={{ domain: pctDomain, ticks: 5, format: (v) => `${v.toFixed(0)}%`, nice: true }}
-        refLines={[{ value: 0, color: alpha(VX.axis, 0.6), dashed: true }]}
+        refLines={[
+          {
+            value: 0,
+            color: alpha(VX.axis, 0.6),
+            dashed: true,
+            legend: { label: 'First session in range' },
+          },
+        ]}
       />
     </ChartCard>
   )

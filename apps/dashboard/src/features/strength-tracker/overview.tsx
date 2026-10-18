@@ -21,6 +21,8 @@ import {
   shortDate,
   deloadLine,
   lastSessionDate,
+  staleNote,
+  ACWR_LABEL,
   readinessHeader,
   recentDeload,
   liftDelta,
@@ -105,7 +107,15 @@ function useOverview({ params, exercises }: Params) {
 
 export function SummaryLine(props: Params) {
   const { summaryLine } = useOverview(props)
-  return <PageSummary {...summaryLine} />
+  // The headline's ACWR carries its definition; the other facts are plain words.
+  const facts = summaryLine.facts.map((fact) =>
+    fact.startsWith(ACWR_LABEL) ? (
+      <Term key={fact} name="ACWR" label={fact} definition={TERM_DEFINITIONS.acwr} />
+    ) : (
+      fact
+    ),
+  )
+  return <PageSummary sentence={summaryLine.sentence} facts={facts} />
 }
 
 /** A term of art with its plain-word definition behind an info icon. */
@@ -129,18 +139,19 @@ function Term({ name, label, definition }: { name: string; label: ReactNode; def
 }
 
 export function TodaysCall(props: Params) {
-  const { readiness, deload, lastDate, series, call, acwr, acwrWeek } = useOverview(props)
+  const { readiness, deload, series, call, acwr, acwrWeek } = useOverview(props)
   const score = readiness?.score ?? null
   const session = lastSession(series.byExercise)
 
   const facts = callFacts({ asOf: call.asOf, driver: readiness?.driver ?? null, session })
   const meta = [
-    deloadLine(deload, lastDate),
-    call.verdict !== call.readinessVerdict && readiness !== null && score !== null
-      ? `readiness alone reads ${readinessHeader(readiness)?.text} · ${readiness.verdict}`
+    deloadLine(deload),
+    // An override already shows as the title; only a cap needs the meter's own verdict named.
+    call.monitor !== null && call.verdict !== call.readinessVerdict
+      ? `score alone reads ${call.readinessVerdict}`
       : null,
   ]
-    .filter((v) => v !== null)
+    .filter((v) => v !== null && v !== '')
     .join(' · ')
 
   return (
@@ -203,16 +214,13 @@ export function TodaysCall(props: Params) {
                 endCaption={null}
               />
             )}
-            <Text className={classes.method}>
-              Rest below {READINESS_REST_BELOW} · Push from {READINESS_PUSH_FROM}
-            </Text>
           </Stack>
           <Stack gap="xs" miw={0}>
             <Term
               name="ACWR"
               label={
                 <Text size="xs" fw={600}>
-                  ACWR {acwr === null ? EM_DASH : acwr.toFixed(2)}
+                  Recent vs usual load, ACWR {acwr === null ? EM_DASH : acwr.toFixed(2)}
                 </Text>
               }
               definition={TERM_DEFINITIONS.acwr}
@@ -234,12 +242,11 @@ export function TodaysCall(props: Params) {
                 endCaption={null}
               />
             )}
-            <Text className={classes.method}>
-              optimal {ACWR_FLOOR}–{ACWR_OPTIMAL_TO}
-              {acwr === null && acwrWeek !== null
-                ? ` · no training week in the last 28 d, last was the week of ${shortDate(acwrWeek)}`
-                : ''}
-            </Text>
+            {acwr === null && acwrWeek !== null ? (
+              <Text className={classes.method}>
+                no training week in the last 28 d, last was the week of {shortDate(acwrWeek)}
+              </Text>
+            ) : null}
           </Stack>
         </SimpleGrid>
         {meta === '' ? null : (
@@ -329,13 +336,27 @@ export function LiftStrip(props: Params) {
     }),
   )
 
+  const note = staleNote(
+    props.exercises.map((id) => ({
+      id,
+      delta: liftDelta(series.byExercise.find((l) => l.exercise_id === id)?.points ?? [], now),
+    })),
+  )
+
   return (
-    <StatGroup
-      variant="strip"
-      label="Estimated 1RM per lift"
-      cols={liftCols(cells.length)}
-      cells={cells}
-    />
+    <Stack gap="xs">
+      <StatGroup
+        variant="strip"
+        label="Estimated 1RM per lift"
+        cols={liftCols(cells.length)}
+        cells={cells}
+      />
+      {note === null ? null : (
+        <Text size="xs" c="dimmed">
+          {note}
+        </Text>
+      )}
+    </Stack>
   )
 }
 

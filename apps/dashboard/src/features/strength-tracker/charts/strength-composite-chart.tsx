@@ -208,7 +208,14 @@ export default function StrengthCompositeChart({
         series={COMPOSITE_SERIES}
         y={{ domain: Y_DOMAIN, ticks: 7, format: fmtSigma }}
         zones={[{ from: -1, to: 1, fill: alpha(VX.grid, 0.5) }]}
-        refLines={[{ value: 0, color: alpha(VX.axis, 0.6), dashed: true }]}
+        refLines={[
+          {
+            value: 0,
+            color: alpha(VX.axis, 0.6),
+            dashed: true,
+            legend: { label: 'Your 90-day average' },
+          },
+        ]}
         tooltip={{ rows: tooltipRows }}
       />
     </ChartCard>

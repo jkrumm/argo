@@ -89,7 +89,7 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
   const lines: BarsLine<WeeklyVolumePoint>[] = [
     {
       key: 'ma',
-      label: '4w MA',
+      label: '4 wk average',
       color: VX.line2,
       dash: 'dashed',
       strokeWidth: 1.5,

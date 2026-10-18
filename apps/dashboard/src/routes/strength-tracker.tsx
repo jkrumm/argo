@@ -281,7 +281,7 @@ function ChartsPanel({
 
       <Box data-shot="sec-diagnostics">
         <Section
-          title={`Signals and recovery alignment, ${period}`}
+          title={`Where training and recovery disagree, ${period}`}
           collapsible
           defaultOpen={false}
         >

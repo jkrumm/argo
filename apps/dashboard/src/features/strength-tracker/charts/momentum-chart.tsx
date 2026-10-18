@@ -80,7 +80,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
     },
     {
       key: 'ma30',
-      label: '30d MA',
+      label: '30 d average',
       color: lineColor,
       strokeWidth: 2.25,
       dash: 'dashed',

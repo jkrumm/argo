@@ -125,7 +125,7 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
           { from: 1.5, to: Infinity, fill: VX.bad },
         ]}
         refLines={[
-          { value: 1.0, color: VX.grid, dashed: true },
+          { value: 1.0, color: VX.grid, dashed: true, legend: { label: 'Acute = chronic (1.0)' } },
           { value: 0.8, color: VX.goodRef, dashed: true },
           { value: 1.3, color: VX.warnRef, dashed: true },
           { value: 1.5, color: VX.badRef, dashed: true },

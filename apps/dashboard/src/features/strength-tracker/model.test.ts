@@ -22,6 +22,7 @@ import {
   readinessReading,
   shortDate,
   signed,
+  staleNote,
   statusWord,
   summaryParts,
   todaysCall,
@@ -89,11 +90,10 @@ describe('deload recency', () => {
     expect(recentDeload(active, '2026-09-20', midnight)?.verdict).toBe('monitor')
   })
   test('the line says what the signal is, never "active" for a stale one', () => {
-    expect(deloadLine({ verdict: 'stale', activeSignals: [] }, '2026-09-02')).toBe(
-      `Deload signal: no recent sessions, last was ${shortDate('2026-09-02')}`,
-    )
-    expect(deloadLine(active, '2026-10-10')).toBe('Deload signal: monitor — fatigue')
-    expect(deloadLine({ verdict: 'progress', activeSignals: [] }, null)).toBe(
+    // A stale signal is told once, by the facts line's last session, not by a second deload line.
+    expect(deloadLine({ verdict: 'stale', activeSignals: [] })).toBe('')
+    expect(deloadLine(active)).toBe('Deload signal: monitor — fatigue')
+    expect(deloadLine({ verdict: 'progress', activeSignals: [] })).toBe(
       'Deload signal: none active',
     )
   })
@@ -125,13 +125,13 @@ describe('summaryParts', () => {
       summaryParts({
         leader: 'deadlift',
         e1rm: 110,
-        delta: { delta: 10, phrase: '+10.0 kg in 28d' },
+        delta: { delta: 10, phrase: '+10.0 kg in 28 d', stale: false },
         acwr: 1.2,
         call,
         score: 50,
       }),
     ).toEqual({
-      sentence: 'Deadlift e1RM 110.0 kg, +10.0 kg in 28d',
+      sentence: 'Deadlift e1RM 110.0 kg, +10.0 kg in 28 d',
       facts: ['ACWR 1.20 optimal', 'readiness 50/100 Normal'],
     })
   })
@@ -184,18 +184,18 @@ describe('fmtMonthly', () => {
 describe('liftDelta', () => {
   const pts = [pt('2026-09-01', 100), pt('2026-09-15', 104), pt('2026-10-10', 110)]
   test('compares to the last session at or before the cutoff', () => {
-    expect(liftDelta(pts, NOW)).toEqual({ delta: 6, phrase: '+6.0 kg in 28d' })
+    expect(liftDelta(pts, NOW)).toEqual({ delta: 6, phrase: '+6.0 kg in 28 d', stale: false })
   })
   test('says so when the last session is older than the window', () => {
     const r = liftDelta([pt('2026-08-01', 100), pt('2026-09-02', 110)], NOW)
-    expect(r).toEqual({ delta: null, phrase: 'no session in 28d' })
+    expect(r).toEqual({ delta: null, phrase: 'no session in 28 d', stale: true })
   })
   test('a first session inside the window is not "no session"', () => {
     const r = liftDelta([pt('2026-10-10', 100), pt('2026-10-14', 110)], NOW)
-    expect(r).toEqual({ delta: null, phrase: 'first session 10 Oct' })
+    expect(r).toEqual({ delta: null, phrase: 'first session 10 Oct', stale: false })
   })
   test('empty is a dash', () => {
-    expect(liftDelta([], NOW).phrase).toBe('— kg in 28d')
+    expect(liftDelta([], NOW).phrase).toBe('— kg in 28 d')
   })
 })
 
@@ -242,7 +242,7 @@ describe('card, summary sentence and chart header agree', () => {
     })
     expect(acwr).toBe(1.2)
     expect(sentence).toBe(
-      'Deadlift e1RM 110.0 kg, +10.0 kg in 28d · ACWR 1.20 optimal · readiness 50/100 Normal',
+      'Deadlift e1RM 110.0 kg, +10.0 kg in 28 d · ACWR 1.20 optimal · readiness 50/100 Normal',
     )
   })
   test('unknowns are dashes', () => {
@@ -307,23 +307,22 @@ describe('balance', () => {
     expect(bandOffset(null, [1, 2])).toBeNull()
   })
   test('a hair outside the band never prints inside it', () => {
-    expect(offText(bandOffset(2.004, [1, 2]))).toBe('<0.01 over the band')
-    expect(offText(0)).toBe('inside the band')
-    expect(offText(-0.1)).toBe('0.10 under the band')
-    expect(offText(null)).toBe('—')
+    expect(offText(bandOffset(2.004, [1, 2]), [1, 2])).toBe('<0.01 over the 1–2 band')
+    expect(offText(0, [1, 2])).toBe('inside the 1–2 band')
+    expect(offText(-0.1, [1, 2])).toBe('0.10 under the 1–2 band')
+    expect(offText(null, [1, 2])).toBe('—')
   })
   test('status words', () => {
-    expect(statusWord('balanced', -0.2)).toBe('near band')
+    expect(statusWord('balanced', -0.2)).toBe('borderline')
     expect(statusWord('imbalanced', 0)).toBe('balanced')
     expect(statusWord('critical', 0.5)).toBe('critical')
     expect(statusWord(null, 0)).toBe('—')
   })
-  test('the tolerance is named from its one constant', () => {
-    expect(ratioNote('balanced', -0.2)).toBe(
-      'near band · 0.20 under the band, within the 15% tolerance',
-    )
-    expect(ratioNote('balanced', 0)).toBe('balanced · inside the band')
-    expect(ratioNote('critical', 0.4)).toBe('critical · 0.40 over the band')
+  test('one verdict and the band named once', () => {
+    expect(ratioNote('balanced', -0.2, [1, 2])).toBe('borderline · 0.20 under the 1–2 band')
+    expect(ratioNote('balanced', 0, [1, 2])).toBe('balanced · inside the 1–2 band')
+    expect(ratioNote('critical', 0.4, [1, 2])).toBe('critical · 0.40 over the 1–2 band')
+    expect(ratioNote(null, null, [1, 2])).toBe('—')
   })
 })
 
@@ -349,18 +348,28 @@ describe('records and periods', () => {
 
 describe('liftFooter', () => {
   test('a lift with a 28 d move shows only its PR', () => {
-    const delta = { delta: 2.5, phrase: '+2.5 kg in 28d' }
+    const delta = { delta: 2.5, phrase: '+2.5 kg in 28 d', stale: false }
     expect(liftFooter({ delta, prKg: 100, prDate: '2026-08-13' })).toBe('PR 100.0 kg · 13 Aug')
   })
   test('without a move the reason leads, then the PR', () => {
-    const delta = { delta: null, phrase: 'no session in 28d' }
-    expect(liftFooter({ delta, prKg: 100, prDate: null })).toBe('no session in 28d · PR 100.0 kg')
+    const delta = { delta: null, phrase: 'first session 13 Aug', stale: false }
+    expect(liftFooter({ delta, prKg: 100, prDate: null })).toBe(
+      'first session 13 Aug · PR 100.0 kg',
+    )
+  })
+  test('a stale lift carries its record alone; the strip says why once', () => {
+    const delta = { delta: null, phrase: 'no session in 28 d', stale: true }
+    expect(liftFooter({ delta, prKg: 100, prDate: null })).toBe('PR 100.0 kg')
   })
   test('an empty phrase and no PR is a dash, not an empty string', () => {
-    expect(liftFooter({ delta: { delta: null, phrase: '' }, prKg: null, prDate: null })).toBe('—')
+    expect(
+      liftFooter({ delta: { delta: null, phrase: '', stale: false }, prKg: null, prDate: null }),
+    ).toBe('—')
   })
   test('nothing known is a dash, never a zero', () => {
-    expect(liftFooter({ delta: { delta: 1, phrase: '' }, prKg: null, prDate: null })).toBe('—')
+    expect(
+      liftFooter({ delta: { delta: 1, phrase: '', stale: false }, prKg: null, prDate: null }),
+    ).toBe('—')
   })
 })
 
@@ -374,5 +383,36 @@ describe('callFacts', () => {
   })
   test('nothing known is an empty line and no INOL', () => {
     expect(callFacts({ asOf: null, driver: null, session: null })).toEqual({ text: '', inol: null })
+  })
+})
+
+describe('staleNote', () => {
+  const fresh = { delta: 1, phrase: '', stale: false }
+  const stale = { delta: null, phrase: '', stale: true }
+  test('none stale is no note', () => {
+    expect(staleNote([{ id: 'squat', delta: fresh }])).toBeNull()
+  })
+  test('names the stale lifts once', () => {
+    expect(
+      staleNote([
+        { id: 'squat', delta: stale },
+        { id: 'deadlift', delta: fresh },
+        { id: 'bench_press', delta: stale },
+      ]),
+    ).toBe('No session in 28 d: Squat, Bench Press')
+  })
+  test('every lift stale is one sentence', () => {
+    expect(staleNote([{ id: 'squat', delta: stale }])).toBe('No lift trained in the last 28 d')
+  })
+})
+
+describe('summaryParts with a stale leader', () => {
+  test('the headline drops the move the strip note already states', () => {
+    const call = todaysCall(null, undefined, NOW)
+    const delta = liftDelta([pt('2026-08-01', 100)], NOW)
+    expect(
+      summaryParts({ leader: 'deadlift', e1rm: 100, delta, acwr: null, call, score: null })
+        .sentence,
+    ).toBe('Deadlift e1RM 100.0 kg')
   })
 })
