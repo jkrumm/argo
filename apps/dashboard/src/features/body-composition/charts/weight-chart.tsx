@@ -31,12 +31,16 @@ export default function WeightChart({
   const headerFact = useMemo(() => weightHeaderFact(apiPoints ?? []), [apiPoints])
   const dotR = markerRadiusFor(chartData.length)
 
+  // Lines exposes no width hook and draws end labels on the wide class only, so the legend is the one
+  // naming mechanism at every width. `role: 'reference'` is the only switch that keeps a line out of
+  // the end labels; it changes nothing else on a line.
   const series: ChartSeries<WeightChartPoint>[] = [
     {
       key: 'weight',
       label: 'Weight',
       color: VX.line,
       strokeWidth: 2.25,
+      role: 'reference',
       getValue: (d) => d.weightKg,
       formatValue: fmtKg,
       getMarker: () => ({ color: VX.line, r: dotR }),
@@ -47,7 +51,7 @@ export default function WeightChart({
       color: VX.line,
       dash: 'dashed',
       strokeWidth: 1.5,
-      role: 'overlay',
+      role: 'reference',
       parent: 'weight',
       getValue: (d) => d.ma,
       formatValue: fmtKg,
@@ -89,14 +93,13 @@ export default function WeightChart({
           x={(d) => d.date}
           series={series}
           tooltip={{ formatHeader: (x) => format(x, 'EEE d MMM yyyy') }}
-          legend={false}
           {...(goal !== null && {
             refLines: [
               {
                 value: goal,
                 color: VX.muted,
                 dashed: false,
-                label: `goal ${goal.toFixed(1)}`,
+                legend: { label: `goal ${goal.toFixed(1)}` },
               },
             ],
           })}
