@@ -154,3 +154,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - Recovery cell without a score: no meter, no contributor bars, value `—` with the reason and when it fills ("fills once Garmin syncs last night's sleep, every 6 h") in place of the visual, so the cell no longer stretches around an empty drawing.
 - Basalt rows: none.
 - Round 2: the "when it fills" copy depends on the gap day (today: next sync; yesterday: today's readings; older: how many days old the latest synced day is, no promise). Sync cadence is `SYNC_CADENCE_HOURS` in `constants.ts`. `recoverySentence` has two branches and is never empty while recovery loads.
+
+### Wave 25 round (`w25-r1`, live after #96–#101)
+
+- **Reviewer:** fail. Fixed: the headline opens on load and states why recovery is missing. Open: the recovery cell is still stretched (`emptyRatio` ≈ 0.55–0.59 — the row height comes from `StatGroup`); the headline repeats the recovery cell's sentence; the load footer restates the band captions and `acute ÷ chronic EWMA` is jargon. Harness: the fitness focus shot timed out. Basalt: `Danger` wraps and stray `0`/`2.0` ticks float under the meter.
+- **Against Keel:** close.

@@ -169,3 +169,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 |-|-|-|-|
 | `VX.surface.rowHover` / `rowSelected` | a hover and a selected surface that reads in both schemes | list rows in light mode: `panelHover` is lighter than `panel` | a `color-mix` ink wash in the module CSS |
 | `Section` | untitled variant (repeat) | the phone pane title restates the tab | a fact as the title |
+
+### Wave 25 round (`w25-r1`, live after #96–#101)
+
+- **Reviewer:** fail. Fixed: light row hover; the phone Sources heading. Open: `1 label on chats or channels not in this list` still names no list; `{n} labeled` vs the chip `Labeled chats {m}`; chats/teams cells restate the tab counts; detail and labeled panes still not captured at 390 (the anchor did not register); the labeled pane has no title; no hover on labeled rows or tag chips. Harness: a source-list focus crop timed out.
+- **Against Keel:** close — Keel's rows carry real columns; every count here is printed three or four times.

@@ -132,3 +132,8 @@ No basalt gaps this round.
 | Export | Needed prop / default | argo case | What argo does instead |
 |-|-|-|-|
 | `StatGroup` strip | per-cell `align="start"` (a cell keeps its content height instead of filling the row) | the recovery cell is stretched by a taller neighbour and shows ≥40 % empty | argo leaves the stretch and keeps every state's footer a short fact |
+
+### Wave 25 round (`w25-r1`, live after #96–#101)
+
+- **Reviewer:** fail. Fixed since w24-r1: budget and recovery empty states say why and when they fill; actor names no longer clip. Open: decision titles are `Approve`/`Retry` glued to a raw commit subject or alert id, cut before the `?` (not a plain-words question); a multi-transition `Latest changes` well stretches to the card height for 3 lines, and the context preview is dropped at 390; one action, no secondary; activity item names still cut mid-token at 1440 with a dangling `·`; `optimal` three times in the ACWR cell; the summary and meetings card repeat neighbouring strips. Basalt: ACWR band captions bunch left at 390.
+- **Against Keel:** close — Keel's titles are verb + object questions with an actor line and a one-line evidence row with confidence; its preview holds one artefact (a draft, a trend, a stage), not a transition list.

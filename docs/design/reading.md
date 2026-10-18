@@ -138,3 +138,8 @@ No new basalt rows.
 - Title link: `:focus-visible` is a 2 px accent outline with offset around the link text. The clamp clips overflow, so its wrapper carries 3 px padding with a matching negative margin to leave room for the ring (it was clipped to a bar before).
 
 No new basalt rows.
+
+### Wave 25 round (`w25-r1`, live after #96–#101)
+
+- **Reviewer:** fail. Fixed: link focus is an outline ring. Open: `half stars count in the star below` still explains the binning; at 390 two ratings bars lose their labels; the pace visual (two unnamed dots + a tick) does not answer "what is my pace"; `days to finish need a start date; {n} of {n} have none` still describes what is not drawn; the headline repeats the pace cell and the shelf legend; backlog caption repeats the headline; shelf footer percentages restate the bar; time-read repeats the progress cards' hours in a second format, drawn as tracks that read as percent; `— % · no device progress yet` pairs a dash with a unit.
+- **Against Keel:** does not yet (was holds up) — the stricter copy bar; Keel's micro-visuals carry their own scale and target.

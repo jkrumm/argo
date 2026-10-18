@@ -193,3 +193,8 @@ No basalt gaps this round.
 - Project tiles: tighter cell padding; a project without git data keeps its Git cell as `—` (unknown, not zero); an odd trailing cell spans both columns.
 
 No basalt gaps this round.
+
+### Wave 25 round (`w25-r1`, live after #96–#101)
+
+- **Reviewer:** fail. Fixed: the flat needs-you sparkline is gone; the fleet footer no longer repeats the meter captions. Open: decision titles are still raw ask prose, one cut at an open bracket, none a question; one card has no action, two only `Copy command`; `Full ask · {n} chars` (a character count means nothing); quiet-project ages still clip at the right edge at 1440 and every row reads `1 agent` under a header saying none run; the activity heatmap has no legend and an unexplained empty last cell; `measured` vs `observed` across strips; the needs-you count has no status word and repeats the headline; project cards show a raw tool name.
+- **Against Keel:** does not yet — Keel never shows a command block or a character count as decision content, and every card has a primary plus secondaries.

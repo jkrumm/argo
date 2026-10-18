@@ -144,3 +144,8 @@ No new basalt rows.
 - `Diagnostics · {period}` is now `Signals and recovery alignment, {period}`.
 
 No new basalt rows.
+
+### Wave 25 round (`w25-r1`, live after #96–#101)
+
+- **Reviewer:** fail. Fixed: INOL is defined. Open: `ACWR —` undefined in the headline and on the call card (no ACWR tooltip shot), the INOL tooltip introduces `AMRAP` undefined; `DOTS-adjusted` and `30d MA` undefined; `no session in 28d` in all four lift cells and the headline (`28d` vs `28 d`); the call card restates the meter's zone labels and repeats its deload line; `band` three times with two verdicts in the balance cell; the dashed reference line unlabelled; `Normal` legend swatch gold on a neutral band; `Signals and recovery alignment` still a category; `Sept` vs `Sep`; four sections at 4 sizes. Basalt: the ACWR tooltip wraps series names one character per line; a daily value's tooltip shows a clock time. Harness: the bench-press focus shot timed out.
+- **Against Keel:** does not yet — jargon density; Keel's stat cells are one number plus one qualifier.

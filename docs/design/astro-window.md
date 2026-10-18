@@ -157,3 +157,8 @@ No basalt gaps.
 - Forecast: tooltips are definitions, not drawing narration; azimuths read `az {deg}° {compass}` (`fmtAzimuth()`); the panorama's altitude axis is fitted to skyline, gate and tracks (`fitAltDomain()`, height 420 → 320); cloud legend entries are `Low`/`Mid`/`High` (the title already says cloud); each chart has a facts line (`windowFact()`, `peakLowCloud()`, core-at-its-highest, `peakMonth()`, all through `withFacts()`).
 
 No basalt gaps.
+
+### Wave 25 round (`w25-r1`, live after #96–#101)
+
+- **Reviewer:** fail. Fixed: the headline noun and the shortfall, OUT and sources with dot + word, labelled azimuths, a fitted panorama domain, cloud layers labelled once. Open: the Forecast panorama's core altitude disagrees with Tonight's for the same night; low cloud has no statistic/window on Tonight and is missing from the gates card although it ruins the night; core and cloud cells still draw no gate or harm line (core cell `emptyRatio` ≈ 0.46); the verdict card at 4 sizes and `next {n−1} nights` vs the headline's `{n}`; the core miss stated three times; night-strip hover identical to rest and bars without a gate tick; timeline tracks run below the floor with a tooltip on an undrawn point; `Clearance +{c}°` red beside `does not clear`; the skyglow legend swatch mismatched; `dome +{d} mag brighter` jargon; source dots without run time; the site select cuts its value at 1440.
+- **Against Keel:** does not yet (was close) — one verdict split across three cards that restate and still disagree.

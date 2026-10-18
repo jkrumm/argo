@@ -142,3 +142,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - The empty state says why and what fills it ("the strip fills once a walk is recorded in this window; widen it to reach the last one", the widen clause only when a wider window exists); the title keeps the window name; the last-walk date moved to the headline, not repeated.
 - Basalt rows: none.
 - Round 2: one `useLastWalk()` state (`loading | failed | never | last`) feeds the headline and the empty state; the window name appears once, in the empty state's title. The widen clause is only claimed when the wider window contains the last walk. Week and heroes reads are disabled while the window is empty; a future-dated walk reads as today; the dimmed strip uses empty values, not `stale`.
+
+### Wave 25 round (`w25-r1`, live after #96–#101)
+
+- **Reviewer:** fail. Fixed: an empty window keeps the headline, the dimmed KPI row and an empty state. Open: `{n} d ago, on {date}` beside `{n} months ago` (one fact, two granularities, a date order unlike the rest of the app); `Idle` undefined; `The strip fills once…` describes the UI, not the data; `Streak —` without unit or window.
+- **Against Keel:** close (was does not yet) — Keel's empty state is a contained card with concrete facts.

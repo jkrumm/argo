@@ -139,3 +139,8 @@ No new basalt rows.
 - The Today card renders only when there are events today. With none, the headline already says so and names the next event, so the card (a full-width block holding that sentence again) is gone and the column starts at Next 7 days. An unanswered calendar keeps the card as `—` (`todayCardState`, tested): no rows then is not no events.
 
 No new basalt rows.
+
+### Wave 25 round (`w25-r1`, live after #96–#101)
+
+- **Reviewer:** fail. Fixed: no Today card repeating the headline. Open: the same defect moved — `Longest free block {h}` repeats the headline's free hours, the week strip's `Work {h}` repeats its booked hours, and the `8 h` column is an unexplained target; a task title cut mid-word at 1440; one task row has a coloured dot + priority word, the others grey dots with none. Basalt: next-days at 4 sizes; the next-days crop renders only its top half (harness).
+- **Against Keel:** close.

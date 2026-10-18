@@ -157,3 +157,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - Weight chart header states the net change across the window's entries and its start date (`windowChange`, unit-tested) instead of repeating the current weight, 7 d mean, 30 d delta and last-entry age that the strip and headline already show.
 - Basalt rows: none.
 - Round 2: the rate footer distinguishes loading, failure, zero weigh-ins and too-close weigh-ins. Weight appears once in the headline block; `shortDay` appends the year when it is not the current one; a one-entry window header shows that weight and its day. Unused `SummaryParams` removed.
+
+### Wave 25 round (`w25-r1`, live after #96–#101)
+
+- **Reviewer:** fail. Fixed: the windows are anchored. Open: the headline restates the rate cell and the facts line the weight cell; `tier {range} kg/wk` undefined and `Lean bulk` repeats the zone label; the chart's net change since `{date}` reads against a headline in the other direction with no window note; the x-axis runs ~40 % past the last weigh-in; direct labels and legend name the same two series.
+- **Against Keel:** close (was holds up under the softer bar).

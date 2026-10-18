@@ -185,5 +185,10 @@ Basalt rows for `UPSTREAM.md`:
 
 | Export | Needed prop / default | argo case | What argo does instead |
 |-|-|-|-|
-| `DecisionCard` | `question` (short title), `facts` (entity + ≤3), `evidenceLine` (one line), `disclosure` (full ask), `previewPlacement: 'well' | 'inline'` (one-line history without a well) | Keel's card anatomy; a Warden ask is long prose and its history is often a single transition | `components/upstream/decision-card.tsx` takes `evidenceLine` and `previewPlacement` additively; `cardCopy` / `capFacts` in `decision-card-model.ts` derive the copy |
+| `DecisionCard` | `question` (short title), `facts` (entity + ≤3), `evidenceLine` (one line), `disclosure` (full ask), `previewPlacement: 'well' \| 'inline'` (one-line history without a well) | Keel's card anatomy; a Warden ask is long prose and its history is often a single transition | `components/upstream/decision-card.tsx` takes `evidenceLine` and `previewPlacement` additively; `cardCopy` / `capFacts` in `decision-card-model.ts` derive the copy |
 | `Meter` | optional hide of the track with no `target`/`ticks` | verdicts share has nothing to compare against | argo drops the visual and states the counts in the footer |
+
+### Wave 25 round (`w25-r1`, live after #96–#101)
+
+- **Reviewer:** fail. Fixed: no emoji shortcodes; the fixes legend sums; the poller caption no longer repeats the tick label. Open: titles are `Approve` + a raw alert key or commit subject, cut mid-phrase; evidence lines are often a second question or end in a raw URL; a test identifier breaks mid-token; `Blocker` wraps onto its own line; multi-transition wells ~190 px for 3 lines, preview missing at 390; failed cards repeat the commit subject above the title; `No category` tag and `revision 0` jargon; the board's `No open items` contradicts the needs-you count, desktop and mobile copy differ, and its closed total disagrees with the fixes strip; the unattended cell is stretched (`emptyRatio` ≈ 0.46); the summary repeats the strips.
+- **Against Keel:** does not yet (was close) — the stricter question bar exposes the titles; Keel keeps the entity row on one line and the preview at every width.

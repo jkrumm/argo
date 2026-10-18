@@ -152,3 +152,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 | Export | Needed prop / default | argo case | What argo does instead |
 |-|-|-|-|
 | `BandStrip` | per-state glyph or text channel inside a cell | warn and bad days differ by hue alone in the strip cells | a worded count line in the cell footer |
+
+### Wave 25 round (`w25-r1`, live after #96–#101)
+
+- **Reviewer:** fail (page passes). Fixed: no `fresh` aside, no one-spike sparkline, tooltips in plain words with no raw field names. Open: the p95 cell is now blank (`emptyRatio` ≈ 0.45) with no history, and `p95 {a} s` beside `30 d mean daily p95 {b} s` is undefined; warn and bad days still hue-only in the strip itself (the footer words them); the partial current day drawn as a drop; `last 7 d mean` restates the delta; donut + scale-less sparkline encode the cache rate twice; `Other` is the largest tokens bucket; raw tool identifiers in the tokens list. Basalt: `100.0 s` axis label over the line; `phoneSelect` padding 10.67.
+- **Against Keel:** close (was holds up) — Keel's cells carry their scale or target top-right.

@@ -123,3 +123,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - Thread-list row hover: a 6 % `--vx-ink` wash replaces `--vx-surface-panel-hover` (lighter than the panel in light mode, so invisible).
 - Row layout: title on its own line, muted summary on the line beneath; the narrow container-query layout is gone because one stacked layout fits both widths.
 - List end note: under an unfiltered list, `That is every thread: {n} threads since {date}, plus {m} archived` when the server's `total` is covered, else `{loaded} of {total} threads, back to {date}` (the list request is capped; `total` is threaded through `useHermesThreads`; `listEndNote`, tested at the cap). A short list reads as complete rather than empty.
+
+### Wave 25 round (`w25-r1`, live after #96–#101)
+
+- **Reviewer:** fail (was pass). Fixed: light row hover. Open: a summary cut mid-word at 1440; no chip hover; the thread count three times (subtitle, chip, footer) and the list-end note restates the headline.
+- **Against Keel:** does not yet — three rows, then an empty page.
