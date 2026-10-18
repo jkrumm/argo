@@ -10,6 +10,7 @@ declare const classes: {
   readonly band: string
   readonly track: string
   readonly fill: string
+  readonly gateTick: string
   readonly more: string
   readonly note: string
   readonly marker: string

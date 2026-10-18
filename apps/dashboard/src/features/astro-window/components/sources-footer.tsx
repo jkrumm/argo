@@ -1,6 +1,7 @@
 import { Group, Text } from '@mantine/core'
 import { StatusDot } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
+import { fmtLocalClock } from '../formulas'
 import type { Location, Sources } from '../types'
 
 const SOURCES: ReadonlyArray<{ key: keyof Sources; name: string }> = [
@@ -9,18 +10,23 @@ const SOURCES: ReadonlyArray<{ key: keyof Sources; name: string }> = [
   { key: 'sevenTimer', name: '7Timer' },
 ]
 
-/** Forecast inputs as status dots: a degraded upstream is a fact about the verdict's trust, red only when down. */
+/** Forecast inputs as status dots with the run time: a degraded upstream is a fact about the verdict's trust, red only when down. */
 export function SourcesFooter({
   sources,
   darknessSource,
+  generatedAt,
+  timeZone,
 }: {
   sources: Sources
   darknessSource: Location['darknessSource']
+  /** When the API computed this response; the sources are read within that run. */
+  generatedAt: string
+  timeZone: string
 }) {
   return (
     <Group gap="sm" wrap="nowrap" data-shot="sources-footer">
       <Text size="xs" c="dimmed">
-        Forecast sources
+        Forecast sources · run {fmtLocalClock(generatedAt, timeZone)}
       </Text>
       {SOURCES.map(({ key, name }) => (
         <Group key={key} gap={6} wrap="nowrap">

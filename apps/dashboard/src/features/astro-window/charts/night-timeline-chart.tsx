@@ -17,13 +17,16 @@ import type { HourlyPoint, Night } from '../types'
 const Y_DOMAIN: [number, number] = [-20, 20]
 const Y_TICKS = 5
 
+/** A track outside the plot's altitude domain is a gap: it is not drawn, so it has no hover row either. */
+const inPlot = (v: number): number | null => (v < Y_DOMAIN[0] || v > Y_DOMAIN[1] ? null : v)
+
 const PLOT_SERIES: ChartSeries<HourlyPoint>[] = [
   {
     key: 'core',
     label: 'Galactic core',
     color: SERIES.coreAltitude,
     strokeWidth: 2,
-    getValue: (d) => d.coreAltitude,
+    getValue: (d) => inPlot(d.coreAltitude),
     // The row pairs the plotted altitude with its bearing, read straight off the hovered datum.
     formatValue: (v, d) => `${fmtDegrees(v)} · ${fmtAzimuth(d.coreAzimuth)}`,
   },
@@ -33,7 +36,7 @@ const PLOT_SERIES: ChartSeries<HourlyPoint>[] = [
     color: SERIES.moonAltitude,
     dash: 'dashed',
     strokeWidth: 1.5,
-    getValue: (d) => d.moonAltitude,
+    getValue: (d) => inPlot(d.moonAltitude),
     formatValue: fmtDegrees,
   },
   {
@@ -43,7 +46,7 @@ const PLOT_SERIES: ChartSeries<HourlyPoint>[] = [
     dash: 'dashed',
     strokeWidth: 1,
     role: 'reference',
-    getValue: (d) => d.sunAltitude,
+    getValue: (d) => inPlot(d.sunAltitude),
     formatValue: fmtDegrees,
   },
 ]
@@ -85,12 +88,15 @@ function clampToNight(iso: string, first: Date, last: Date): Date {
 export default function NightTimelineChart({
   hourly,
   night,
+  withMiss,
 }: {
   hourly: HourlyPoint[]
   night: Night
+  /** Name the missed gate in the fact line; off where a verdict card already states it. */
+  withMiss: boolean
 }) {
   const win = night.window
-  const fact = windowFact(night)
+  const fact = windowFact(night, { withMiss })
   const refLines =
     night.coreGateDeg === null
       ? HORIZON

@@ -6,7 +6,6 @@ declare const classes: {
   readonly host: string
   readonly grid: string
   readonly verdict: string
-  readonly gates: string
   readonly timeline: string
 }
 export default classes

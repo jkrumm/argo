@@ -10,7 +10,9 @@ import {
   gateAt,
   glowBuckets,
   glowCells,
+  medianMpsas,
   profileRows,
+  tightestIndex,
   type HorizonProfilePoint,
   type SkyglowRose,
 } from './sky-panorama-geometry'
@@ -179,5 +181,34 @@ describe('coreVsGate', () => {
     const high = [{ azimuthDeg: 0, altitudeDeg: 12, nearAltitudeDeg: 12 }]
     expect(coreVsGate(high, 8, 2, 0, 13).clears).toBe(false)
     expect(coreVsGate(high, 8, 2, 0, 15).clears).toBe(true)
+  })
+})
+
+describe('tightestIndex', () => {
+  test('picks the smallest margin over the gate, skipping samples that are not dark', () => {
+    expect(tightestIndex([null, 6, 2.5, 9, null])).toBe(2)
+    expect(tightestIndex([-3, null, 1])).toBe(0)
+  })
+  test('null when no sample is dark', () => {
+    expect(tightestIndex([null, null])).toBeNull()
+    expect(tightestIndex([])).toBeNull()
+  })
+})
+
+describe('medianMpsas', () => {
+  test('the middle value of the whole rose', () => {
+    expect(
+      medianMpsas({
+        azimuths: [0, 90],
+        altitudes: [0, 30],
+        mpsas: [
+          [20, 22],
+          [21, 19],
+        ],
+      }),
+    ).toBe(21)
+  })
+  test('null for an empty rose', () => {
+    expect(medianMpsas({ azimuths: [], altitudes: [], mpsas: [] })).toBeNull()
   })
 })
