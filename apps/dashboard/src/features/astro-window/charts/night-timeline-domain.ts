@@ -12,7 +12,7 @@ const STEP_DEG = 10
 export function timelineDomain(hourly: readonly HourlyPoint[]): [number, number] {
   let peak = MIN_TOP_DEG
   for (const p of hourly) {
-    for (const v of [p.coreAltitude, p.moonAltitude, p.sunAltitude]) {
+    for (const v of [p.coreAltitude, p.moonAltitude]) {
       if (typeof v === 'number' && Number.isFinite(v) && v > peak) peak = v
     }
   }
