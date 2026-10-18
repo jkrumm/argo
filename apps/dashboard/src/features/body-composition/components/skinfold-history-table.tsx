@@ -61,7 +61,7 @@ export function SkinfoldHistoryTable() {
   ]
 
   return (
-    <Stack gap="xs" data-shot="skinfold-history">
+    <Stack gap="xs" data-shot="skinfold-history" data-shot-absent="empty">
       <BasaltDataTable
         data={readings}
         columns={columns}

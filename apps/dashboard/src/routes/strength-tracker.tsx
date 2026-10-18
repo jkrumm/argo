@@ -168,7 +168,7 @@ function StrengthTrackerPage() {
                 multiExercise={exercises.length > 1}
               />
             ) : !hasWorkouts ? (
-              <Card data-shot="empty-workouts" data-shot-states="empty">
+              <Card data-shot="empty-workouts">
                 <EmptyState
                   icon={<IconBarbell size={28} stroke={1.5} />}
                   title="No workouts logged"
@@ -227,7 +227,7 @@ function ChartsPanel({
         <SparklineGridChart params={params} />
       </Suspense>
 
-      <Box data-shot="sec-strength">
+      <Box data-shot="sec-strength" data-shot-states="empty" data-shot-absent="empty">
         <Section title={`Strength, ${period}`}>
           <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
             <Suspense fallback={pending}>
@@ -240,7 +240,7 @@ function ChartsPanel({
         </Section>
       </Box>
 
-      <Box data-shot="sec-load">
+      <Box data-shot="sec-load" data-shot-absent="empty">
         <Section title={`Load, ${period}`}>
           <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
             <Suspense fallback={pending}>
@@ -256,7 +256,7 @@ function ChartsPanel({
         </Section>
       </Box>
 
-      <Box data-shot="sec-balance">
+      <Box data-shot="sec-balance" data-shot-absent="empty">
         <Section title="Balance">
           <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
             <Suspense fallback={pending}>
@@ -269,7 +269,7 @@ function ChartsPanel({
         </Section>
       </Box>
 
-      <Box data-shot="sec-readiness">
+      <Box data-shot="sec-readiness" data-shot-absent="empty">
         <Section title={`Readiness, ${period}`}>
           <Suspense fallback={pending}>
             <ReadinessStrainChart params={params} />
@@ -277,7 +277,7 @@ function ChartsPanel({
         </Section>
       </Box>
 
-      <Box data-shot="sec-diagnostics">
+      <Box data-shot="sec-diagnostics" data-shot-absent="empty">
         <Section
           title={DIAGNOSTICS_TITLE}
           summary={
@@ -294,7 +294,7 @@ function ChartsPanel({
         </Section>
       </Box>
 
-      <Box data-shot="sec-alignment">
+      <Box data-shot="sec-alignment" data-shot-absent="empty">
         <Section
           title="Where training and recovery disagree, last 90 days"
           collapsible

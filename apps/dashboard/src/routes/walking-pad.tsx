@@ -76,21 +76,21 @@ function WalkingPadPage() {
         ) : empty ? (
           <>
             <WalkingStrip params={params} empty />
-            <Box data-shot="empty-window" data-shot-states="empty">
+            <Box data-shot="empty-window">
               <EmptyWindow />
             </Box>
           </>
         ) : (
           <>
             <WalkingStrip params={params} />
-            <Box data-shot="chart-weeks">
+            <Box data-shot="chart-weeks" data-shot-absent="empty">
               <WeekChart params={params} />
             </Box>
             <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
-              <Box data-shot="chart-distance">
+              <Box data-shot="chart-distance" data-shot-absent="empty">
                 <DistanceChart params={params} />
               </Box>
-              <Box data-shot="chart-hours">
+              <Box data-shot="chart-hours" data-shot-absent="empty">
                 <HourGrid params={params} />
               </Box>
             </SimpleGrid>
@@ -99,13 +99,13 @@ function WalkingPadPage() {
                 <Suspense
                   fallback={<ChartCard state={{ pending: true }} placeholderHeight={420} />}
                 >
-                  <Box data-shot="history">
+                  <Box data-shot="history" data-shot-absent="empty">
                     <HistoryTable />
                   </Box>
                 </Suspense>
               </Grid.Col>
               <Grid.Col span={{ base: 12, lg: 4 }}>
-                <Box data-shot="achievements">
+                <Box data-shot="achievements" data-shot-absent="empty">
                   <AchievementsList />
                 </Box>
               </Grid.Col>

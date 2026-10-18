@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Stack } from '@mantine/core'
+import { Box, Stack } from '@mantine/core'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { EmptyState, PageBar, unwrap, PageSummary } from 'basalt-ui'
 import { emit } from 'basalt-ui/commands'
@@ -98,13 +98,13 @@ function ReadingPage() {
       {data === undefined || shelf.length === 0 ? (
         <>
           <UnmatchedSection />
-          <div data-shot="empty-shelf" data-shot-states="empty">
+          <Box data-shot="empty-shelf">
             <EmptyState
               icon={<IconBooks size={28} />}
               title="Your shelf is empty"
               description="Books appear here once you add them to your shelf on Hardcover. Sync runs daily."
             />
-          </div>
+          </Box>
         </>
       ) : (
         <div className={classes.root}>
@@ -119,11 +119,11 @@ function ReadingPage() {
             <UnmatchedSection />
             <InProgress shelf={shelf} pace={pace.median} now={now} />
             <div className={hasTime ? classes.pair : undefined}>
-              <div data-shot="finished">
+              <div data-shot="finished" data-shot-states="empty" data-shot-absent="empty">
                 <Finished groups={finishedGroups(shelf)} undated={counts.read - counts.readDated} />
               </div>
               {hasTime && (
-                <div data-shot="time-read">
+                <div data-shot="time-read" data-shot-absent="empty">
                   <TimeRead rows={timeRows} />
                 </div>
               )}
