@@ -19,6 +19,7 @@ import {
   summaryParts,
   weightDeltaPolarity,
   weightWindowStats,
+  windowChange,
   windowDays,
   windowLabel,
 } from './model'
@@ -116,28 +117,57 @@ test('deltaFromMean', () => {
 })
 
 describe('summaryParts', () => {
-  test('the headline carries weight and distance to goal, the facts rate and entry age', () => {
+  test('the headline is direction and rate over a window, then the goal; facts weight and age', () => {
     expect(
-      summaryParts({ current: 80, kgPerWeek: -0.5, rateDays: 28, goal: 75, ageDays: 3 }),
+      summaryParts({ current: 80, kgPerWeek: -0.5, rateDays: 28, goal: 75, ageDays: 1 }),
     ).toEqual({
-      sentence: '80.0 kg, 5.0 kg to the 75.0 kg goal',
-      facts: ['−0.50 kg/wk over 28 d', 'last weigh-in 3 days ago'],
+      sentence: 'Weight falling 0.50 kg/wk over 28 d, 5.0 kg from the 75.0 kg goal',
+      facts: ['80.0 kg', 'last weigh-in 1 day ago'],
     })
   })
-  test('no goal drops the distance clause', () => {
+  test('an old last weigh-in dates the rate window', () => {
     expect(
-      summaryParts({ current: 80, kgPerWeek: 0.5, rateDays: 28, goal: null, ageDays: 0 }),
-    ).toEqual({ sentence: '80.0 kg', facts: ['+0.50 kg/wk over 28 d', 'last weigh-in today'] })
+      summaryParts({
+        current: 80,
+        kgPerWeek: 0.4,
+        rateDays: 28,
+        goal: null,
+        ageDays: 20,
+        latestKey: '2026-06-03',
+      }),
+    ).toEqual({
+      sentence: 'Weight rising 0.40 kg/wk over the 28 d to 3 Jun',
+      facts: ['80.0 kg', 'last weigh-in 20 days ago · stale'],
+    })
   })
-  test('unknown rate is a dash, never 0', () => {
+  test('inside the maintenance band the weight is holding steady', () => {
     expect(
-      summaryParts({ current: 80, kgPerWeek: null, rateDays: 28, goal: null, ageDays: null }).facts,
-    ).toEqual(['— kg/wk over 28 d'])
+      summaryParts({ current: 80, kgPerWeek: 0.05, rateDays: 7, goal: null, ageDays: 0 }).sentence,
+    ).toBe('Weight holding steady over 7 d')
+  })
+  test('unknown rate states the weight, never 0', () => {
+    expect(
+      summaryParts({ current: 80, kgPerWeek: null, rateDays: 28, goal: null, ageDays: null }),
+    ).toEqual({ sentence: 'Weight at 80.0 kg', facts: ['80.0 kg'] })
   })
   test('empty window', () => {
     expect(
       summaryParts({ current: null, kgPerWeek: null, rateDays: 28, goal: 75, ageDays: null }),
-    ).toEqual({ sentence: 'No weigh-ins in this window.', facts: [] })
+    ).toEqual({ sentence: 'No weigh-ins in this window', facts: [] })
+  })
+})
+
+describe('windowChange', () => {
+  test('net change from the first to the last entry, dated', () => {
+    expect(
+      windowChange([
+        { date: '2026-06-10', weightKg: 79 },
+        { date: '2026-06-01', weightKg: 81 },
+      ]),
+    ).toEqual({ changeKg: -2, fromKey: '2026-06-01', entries: 2 })
+  })
+  test('fewer than two entries has no change', () => {
+    expect(windowChange([{ date: '2026-06-01', weightKg: 81 }])).toBeNull()
   })
 })
 
@@ -146,11 +176,6 @@ describe('rateDays', () => {
     expect(rateDays(7)).toBe(7)
     expect(rateDays(90)).toBe(28)
     expect(rateDays(null)).toBe(28)
-  })
-  test('summary names that span', () => {
-    expect(
-      summaryParts({ current: 80, kgPerWeek: 0.5, rateDays: 7, goal: null, ageDays: 1 }).facts,
-    ).toEqual(['+0.50 kg/wk over 7 d', 'last weigh-in 1 day ago'])
   })
 })
 
@@ -274,11 +299,9 @@ describe('one fixture, two live-review items', () => {
     ])
   })
 
-  test('the rendered RATE footer names 7 d only, no 30 d slope', () => {
-    const text = rateFooter(weightWindowStats(pts, null).slope7)
-    expect(text).toBe('\u22123.50 kg/wk over 7 d')
-    expect(text).not.toMatch(/30/)
-    expect(rateFooter(null)).toBe('\u2014 kg/wk over 7 d')
+  test('the RATE footer is the intensity tier, or why there is no rate; no second window', () => {
+    expect(rateFooter(-0.3, 'Standard cut')).toBe('Standard cut')
+    expect(rateFooter(null, 'x')).toBe('A rate needs two weigh-ins in the window')
   })
 
   test('where the header says a dash, the chart line has a gap', () => {

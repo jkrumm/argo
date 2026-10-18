@@ -1,23 +1,12 @@
 import { useMemo } from 'react'
 import { Box } from '@mantine/core'
-import { DeltaBadge } from 'basalt-ui'
 import { format } from 'date-fns'
 import { useQuery } from '@tanstack/react-query'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { weightLogQueries, type WeightLogWindowParams } from '../../../lib/queries/weight-log'
 import { METRIC_TOOLTIPS } from '../constants'
-import {
-  ageLabel,
-  deltaFromMean,
-  fixed,
-  isStale,
-  weightDeltaPolarity,
-  windowLabel,
-  windowDays,
-  withKg,
-} from '../model'
-import type { WeightSummary, WeightWindowStats } from '../types'
+import { isStale, shortDay, signed, windowChange, windowLabel, windowDays, withKg } from '../model'
 import {
   localDay,
   markerRadiusFor,
@@ -33,15 +22,11 @@ const fmtKg = (v: number): string => withKg(v, 2)
 
 export default function WeightChart({
   params,
-  summary,
-  stats,
   goal,
   ageDays,
   todayKey,
 }: {
   params: WeightLogWindowParams
-  summary: WeightSummary
-  stats: WeightWindowStats
   goal: number | null
   ageDays: number | null
   todayKey: string
@@ -51,7 +36,8 @@ export default function WeightChart({
 
   const span = windowDays(params)
   const chartData = useMemo(() => toWeightChartPoints(apiPoints ?? [], span), [apiPoints, span])
-  const delta = deltaFromMean(summary.current, stats.mean30)
+  // The strip and headline carry the current weight and its age; the header adds what they do not.
+  const change = useMemo(() => windowChange(apiPoints ?? []), [apiPoints])
   // Drawn to today, so a stale last entry shows as empty plot rather than a line that just stops.
   const first = chartData[0]
   const xDomain: [Date, Date] | null =
@@ -103,26 +89,12 @@ export default function WeightChart({
       <ChartCard
         title={`Body weight, ${windowLabel(params)}`}
         info={goal === null ? METRIC_TOOLTIPS.bodyWeight : METRIC_TOOLTIPS.bodyWeightGoal}
-        {...(summary.current !== null && {
+        {...(change !== null && {
           facts: {
-            value: fixed(summary.current),
+            value: signed(change.changeKg, 1),
             unit: 'kg',
-            period: `7 d mean ${fixed(stats.mean7)}\u00a0kg · ${chartData.length} entries`,
-            ...(delta !== null && {
-              comparison: (
-                <DeltaBadge
-                  value={delta}
-                  polarity={weightDeltaPolarity(summary.current, goal)}
-                  format={(v) => withKg(Math.abs(v))}
-                  period="30 d mean"
-                />
-              ),
-            }),
+            period: `net change since ${shortDay(change.fromKey)} · ${change.entries} entries`,
           },
-          // `ChartCard facts` has no warn tone, so staleness is spelled out as a word.
-          ...(ageDays !== null && {
-            subtitle: `last entry ${ageLabel(ageDays)}${isStale(ageDays) ? ' · stale' : ''}`,
-          }),
         })}
         state={{ pending: query.isPending, error: query.isError ? query.error : undefined, empty }}
         placeholderHeight={PLACEHOLDER_HEIGHT}

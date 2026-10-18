@@ -148,3 +148,10 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail: the headline is a bare `{value} kg`, not a sentence; the 28 d rate sits beside a last weigh-in older than its window with no anchor; the rate cell's 7 d verdict disagrees with the 28 d meter it sits under; the weight chart header repeats the strip's figures.
 - **Against Keel:** holds up.
+
+### Wave 25 fixes
+
+- Headline is a sentence: `Weight {falling|rising} {r} kg/wk over {n} d, {x} kg from the {goal} kg goal` (`holding steady` inside the maintenance band); the current weight moved to the facts line. When the last weigh-in is more than a day old the rate window is dated (`over the {n} d to {d MMM}`), and a weigh-in 14 d or older reads `· stale`.
+- Rate cell carries one window: the 28 d (or shorter) slope. The 7 d slope is gone from the footer; the footer is the intensity tier, or why there is no rate ("a rate needs two weigh-ins in the window").
+- Weight chart header states the net change across the window's entries and its start date (`windowChange`, unit-tested) instead of repeating the current weight, 7 d mean, 30 d delta and last-entry age that the strip and headline already show.
+- Basalt rows: none.
