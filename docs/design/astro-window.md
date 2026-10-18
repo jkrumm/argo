@@ -213,3 +213,7 @@ Follow-up (w30-r1):
 - **Sky footer clipped at 1440** — fixed: the transparency phrase splits into `transparency {n}/8` (glued) + a breakable space + `(lower = clearer)` (glued); `dark` breaks from a glued `≥ {t} mag/arcsec²`, `town glow +{d} mag` stays one glued run; every unbreakable run, bound `·` included, is ≤ 24 characters (tested). Every fact kept (`skyCellFooter`).
 - **Moon footer opened a line with `· sets`** — fixed: each `·` is bound to the text before it (`moonFooter`).
 - **Core footer split `at transit`** — fixed: `at transit` is glued (`coreTransitFooter`).
+
+Follow-up (w30-r2):
+
+- **Sky footer still five lines at 1440** — fixed: the dark-sky threshold `{t}` is labelled under the tick on the local `SkyScale` (mono xs muted; the unit is the cell's), and the aria-label names it. `skyCellFooter` drops `dark ≥ {t} mag/arcsec²`, so the footer is `town glow +{d} mag · transparency {n}/8 (lower = clearer)`; no fact lost. Footer height at 1440 not measured here (no dev server); the round's shot decides.

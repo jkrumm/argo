@@ -6,6 +6,7 @@ declare const classes: {
   readonly track: string
   readonly ramp: string
   readonly tick: string
+  readonly tickLabel: string
   readonly marker: string
 }
 export default classes
