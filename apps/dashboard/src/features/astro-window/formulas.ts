@@ -604,7 +604,7 @@ export function skyCellFooter({
   const dome = domePenaltyMag === null ? '—' : `+${withUnit(domePenaltyMag.toFixed(2), 'mag')}`
   const clarity = transparency === null ? '—' : `${transparency}/8`
   return [
-    `dark ≥ ${withUnit(SKY_DARK_THRESHOLD, 'mag/arcsec²')}`,
+    glue(`dark ≥ ${withUnit(SKY_DARK_THRESHOLD, 'mag/arcsec²')}`),
     glue(`town glow ${dome}`),
     glue(`transparency ${clarity}, lower clearer`),
   ].join(' · ')
@@ -647,15 +647,14 @@ function hasLowCloudFact(night: Night): boolean {
 /**
  * The state word of the verdict card's low-cloud row, or null when it has no row. Early returns,
  * in order: the API calls the layer ruinous or it holds the score back (`lowCloudState`); a scored
- * cloud factor that limits nothing (`not limiting`); a ruled-out night, which carries no factors
+ * cloud factor that limits nothing (`not limiting`); a ruled-out night whose cloud factor is missing,
  * though the API still sends its cloud figure (`not scored`).
  */
 function cloudRowState(night: Night): string | null {
   const flagged = lowCloudState(night)
   if (flagged !== null) return flagged
   if (hasLowCloudFact(night)) return 'not limiting'
-  const ruledOut = night.verdict === 'out' && night.factors.length === 0
-  return ruledOut && night.weather.cloudLow !== null ? 'not scored' : null
+  return night.verdict === 'out' && night.weather.cloudLow !== null ? 'not scored' : null
 }
 
 /** The verdict card's facts line. A usable night names its score and the factor holding it back, unless the low-cloud row already says it. */
