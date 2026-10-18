@@ -113,7 +113,7 @@ describe('strip cells with no reading', () => {
     )
     expect(recoveryCell(null, true)).toMatchObject({ footer: 'loading Garmin data' })
     expect(acwrCell(null, NOW, 'loading')).toMatchObject({ footer: 'loading training load' })
-    expect(acwrCell(null, NOW)).toMatchObject({
+    expect(acwrCell(null, NOW, 'error')).toMatchObject({
       value: null,
       footer: 'training load failed to load; reload to retry',
     })
@@ -139,10 +139,10 @@ describe('strip cells with no reading', () => {
   it('names the reading day in the ACWR footer only when it is not today', () => {
     const reading = { acwr: 1.1, zone: 'optimal' as const }
     expect(
-      acwrCell({ acwr: 0.5, zone: 'undertrained' as const, date: '2026-01-15' }, NOW).unit,
+      acwrCell({ acwr: 0.5, zone: 'undertrained' as const, date: '2026-01-15' }, NOW, 'error').unit,
     ).toBe('Low')
-    expect(acwrCell({ ...reading, date: '2026-01-15' }, NOW).footer).toBe('range 0.8–1.3')
-    expect(acwrCell({ ...reading, date: '2026-01-14' }, NOW).footer).toBe(
+    expect(acwrCell({ ...reading, date: '2026-01-15' }, NOW, 'error').footer).toBe('range 0.8–1.3')
+    expect(acwrCell({ ...reading, date: '2026-01-14' }, NOW, 'error').footer).toBe(
       'range 0.8–1.3 · Wed 14 Jan',
     )
   })

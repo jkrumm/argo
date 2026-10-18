@@ -36,13 +36,12 @@ import {
   missingInputs,
   recoveryGap,
   loadGap,
-  windowDayCount,
+  windowCopyDays,
   fmtNum,
   shortDate,
   signed,
 } from './model'
 import { withUnit } from '../../lib/format'
-import { activitiesRange } from '../../lib/queries/activities-window'
 import { shotState } from '../../lib/shot-state'
 import { VISIBLE_DATE_MIN } from './constants'
 import type { SummaryParams } from './types'
@@ -115,7 +114,7 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
     status: summary.isError || series.isError ? 'error' : 'success',
     settled,
     last,
-    windowDays: windowDayCount(activitiesRange(params), VISIBLE_DATE_MIN),
+    windowDays: windowCopyDays(params, VISIBLE_DATE_MIN),
     // No payload or no date is a sentinel, not a day that failed to score: it names nothing.
     missing: data?.date ? missingInputs(data.components) : [],
   }).line
@@ -172,7 +171,7 @@ function useLoadCell(params: SummaryParams): StatStripCell {
     acwr,
     status: query.status,
     placeholder: isPlaceholderData,
-    windowDays: windowDayCount(activitiesRange(params), VISIBLE_DATE_MIN),
+    windowDays: windowCopyDays(params, VISIBLE_DATE_MIN),
   })
 
   return {
@@ -200,7 +199,7 @@ function useLoadCell(params: SummaryParams): StatStripCell {
           startCaption="0"
           endCaption={ACWR_METER_MAX.toFixed(1)}
           loading={query.isPending}
-          {...(gap !== undefined && { emptyText: gap })}
+          emptyText={gap ?? 'Loading training load'}
         />
         {load.length > 0 || query.isPending ? (
           <LoadRows load={load} loading={query.isPending} />

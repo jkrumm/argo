@@ -59,6 +59,8 @@ describe('taskFeedState', () => {
   const read = (over: Partial<Parameters<typeof taskFeedState>[0][number]> = {}) => ({
     isPending: false,
     isError: false,
+    isPlaceholderData: false,
+    isFetching: false,
     data: {} as unknown,
     ...over,
   })
@@ -70,6 +72,10 @@ describe('taskFeedState', () => {
         read({ isError: true, data: undefined }),
       ]),
     ).toBe('loading')
+  })
+  it('is loading while a read is still fetching behind placeholder data', () => {
+    expect(taskFeedState([read({ isPlaceholderData: true, isFetching: true })])).toBe('loading')
+    expect(taskFeedState([read({ isPlaceholderData: true })])).toBe('ready')
   })
   it('is error only once every read has settled and one has nothing to show', () => {
     expect(taskFeedState([read(), read({ isError: true, data: undefined })])).toBe('error')

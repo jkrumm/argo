@@ -4,9 +4,8 @@ import { Stack } from '@mantine/core'
 import { PageBar, StatGroup, PageSummary } from 'basalt-ui'
 import { agentsQueries } from '../../lib/queries/agents'
 import { calendarQueries } from '../../lib/queries/calendar'
-import { RECOVERY_DAYS, lastScored, windowDayCount } from '../garmin-health/model'
+import { RECOVERY_DAYS, lastScored, windowCopyDays } from '../garmin-health/model'
 import { VISIBLE_DATE_MIN } from '../garmin-health/constants'
-import { activitiesRange } from '../../lib/queries/activities-window'
 import { recoveryQueries, trainingLoadQueries } from '../../lib/queries/daily-metrics'
 import { wardenQueries } from '../../lib/queries/warden'
 import { deriveDecisions } from '../../lib/decisions'
@@ -240,7 +239,7 @@ export function TodayPage() {
             recoveryCell(recovery, recoveryNow.isPending, {
               settled: seriesSettled,
               failed: recoverySeries.isError,
-              windowDays: windowDayCount(activitiesRange(garminParams), VISIBLE_DATE_MIN),
+              windowDays: windowCopyDays(garminParams, VISIBLE_DATE_MIN),
             }),
             acwrCell(acwr, now, loadQuery.isPending ? 'loading' : 'error'),
           ]}
