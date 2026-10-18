@@ -28,7 +28,6 @@ import {
   headlineOf,
   labeledPaneTitle,
   sectionTitleFor,
-  sourcesTitle,
   parseChannelId,
   largestTeam,
   sourceListName,
@@ -316,18 +315,7 @@ export function M365ExplorerPage(): ReactElement {
     detail: detailPane,
   }
   const shown = PANE_META[shownPane]
-  const sectionTitle = sectionTitleFor({
-    pane: shownPane,
-    tag,
-    open: selected !== null,
-    sources: sourcesTitle({
-      view,
-      chats: chatRows.length,
-      channels: channelsTotal,
-      teams: teams.length,
-      labeled: labels.length,
-    }),
-  })
+  const sectionTitle = sectionTitleFor({ pane: shownPane, view, tag, open: selected !== null })
 
   const retryFailed = (): void => {
     for (const { channels } of teamRows) {
