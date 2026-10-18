@@ -42,19 +42,20 @@ export function BodyCompositionPage({ params }: { params: Params }) {
 
   const goal = profile.goal_weight_kg
   const todayKey = dayKey(now)
+  const days = windowDays(params)
   const ageDays = entryAgeDays(weightPoints, todayKey)
-  const stats = weightWindowStats(weightPoints, windowDays(params))
+  const stats = weightWindowStats(weightPoints, days)
   const startPoint = weightPoints.toSorted(compareByDate)[0] ?? null
   const rows = siteRows(sessions, skinfoldSummary.perSite)
   const headline = summaryParts({
     current: summary.current,
     kgPerWeek: summary.kgPerWeek,
-    rateDays: rateDays(windowDays(params)),
+    rateDays: rateDays(days),
     goal,
     ageDays,
     latestKey: latestDate(weightPoints),
     entries: weightPoints.length,
-    windowDays: windowDays(params),
+    windowDays: days,
   })
   const cells: StatStripCell[] = [
     weightCell({
@@ -67,7 +68,7 @@ export function BodyCompositionPage({ params }: { params: Params }) {
     }),
     rateCell({
       summary,
-      rateDays: rateDays(windowDays(params)),
+      rateDays: rateDays(days),
       latestDate: latestDate(weightPoints),
       entries: weightPoints.length,
       status: weightStatus,

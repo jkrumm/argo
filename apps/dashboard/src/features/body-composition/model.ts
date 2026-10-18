@@ -309,7 +309,9 @@ export function rateFooter(input: {
 
 export type IntensityTier = {
   tier: 'maintenance' | 'lean' | 'standard' | 'aggressive'
-  band: string
+  /** The kg/week range the tier covers, absolute; an open end is `null`. */
+  lo: number | null
+  hi: number | null
 }
 
 const TIER_NAME: Record<IntensityTier['tier'], string> = {
@@ -325,12 +327,21 @@ const TIER_NAME: Record<IntensityTier['tier'], string> = {
  */
 export function intensityTier(rate: number): IntensityTier {
   const abs = Math.abs(rate)
-  if (abs < RATE_NEUTRAL_KG_WK)
-    return { tier: 'maintenance', band: `< ${RATE_NEUTRAL_KG_WK} kg/wk` }
+  if (abs < RATE_NEUTRAL_KG_WK) return { tier: 'maintenance', lo: null, hi: RATE_NEUTRAL_KG_WK }
   const [lean, standard]: readonly [number, number] = rate < 0 ? [0.4, 0.8] : [0.3, 0.6]
-  if (abs < lean) return { tier: 'lean', band: `${RATE_NEUTRAL_KG_WK}\u2013${lean} kg/wk` }
-  if (abs < standard) return { tier: 'standard', band: `${lean}\u2013${standard} kg/wk` }
-  return { tier: 'aggressive', band: `\u2265 ${standard} kg/wk` }
+  if (abs < lean) return { tier: 'lean', lo: RATE_NEUTRAL_KG_WK, hi: lean }
+  if (abs < standard) return { tier: 'standard', lo: lean, hi: standard }
+  return { tier: 'aggressive', lo: standard, hi: null }
+}
+
+/**
+ * `0.1–0.3 kg/wk` / `≥ 0.6 kg/wk`, built from its bounds. The unit stays on its value (NBSP) and a
+ * word joiner after the dash keeps the range in one piece when it wraps.
+ */
+export function formatRange(lo: number | null, hi: number | null, unit: string): string {
+  if (lo === null) return `< ${hi}${NBSP}${unit}`
+  if (hi === null) return `\u2265${NBSP}${lo}${NBSP}${unit}`
+  return `${lo}\u2013\u2060${hi}${NBSP}${unit}`
 }
 
 /**
@@ -338,11 +349,9 @@ export function intensityTier(rate: number): IntensityTier {
  * cut/bulk/maintenance, so the footer carries the class and the range it covers instead.
  */
 function paceFooter(rate: number): string {
-  const { tier, band } = intensityTier(rate)
+  const { tier, lo, hi } = intensityTier(rate)
   if (tier === 'maintenance') return `Under ${RATE_NEUTRAL_KG_WK}${NBSP}kg/wk either way`
-  // Glued both ways: NBSP keeps the unit, a word joiner after the dash keeps the range in one piece.
-  const glued = band.replaceAll(' ', NBSP).replace('\u2013', '\u2013\u2060')
-  return `${TIER_NAME[tier]} pace, ${rate < 0 ? 'losing' : 'gaining'} ${glued}`
+  return `${TIER_NAME[tier]} pace, ${rate < 0 ? 'losing' : 'gaining'} ${formatRange(lo, hi, 'kg/wk')}`
 }
 
 /** The day-based means and slopes the strip and the chart header both state. */

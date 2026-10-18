@@ -501,3 +501,16 @@ export function emptyWindowHint(input: {
     ? `The last walk falls inside ${span}.`
     : `The last walk is outside ${span}.`
 }
+
+const DAY_MONTH = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' })
+
+/**
+ * The record header's last-walk label: `last walk 2 days ago, 12 Oct`, or just the date when the
+ * headline already gives the age. An unparseable `endedAt` drops the date instead of throwing.
+ */
+export function lastWalkLabel(input: { endedAt: string; age: string | null }): string {
+  const ms = Date.parse(input.endedAt)
+  const day = Number.isFinite(ms) ? DAY_MONTH.format(ms) : null
+  const parts = [input.age, day].filter((p): p is string => p !== null)
+  return ['last walk', parts.join(', ')].filter(Boolean).join(' ')
+}

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  axisDateFormat,
   compareByDate,
   localDay,
   markerRadiusFor,
@@ -85,5 +86,18 @@ describe('toSkinfoldChartPoints', () => {
     ])
     expect(p!.bySite).toEqual({ abdominal: 20 })
     expect(p!.bySite.suprailiac).toBeUndefined()
+  })
+})
+
+describe('axisDateFormat', () => {
+  const at = (key: string) => localDay(key)
+  test('a plotted range inside a year reads day and month', () => {
+    expect(axisDateFormat([at('2026-01-05'), at('2026-10-07')])(at('2026-10-07'))).toBe('7 Oct')
+  })
+  test('a range over a year names the year', () => {
+    expect(axisDateFormat([at('2025-01-05'), at('2026-10-07')])(at('2026-10-07'))).toBe('Oct 2026')
+  })
+  test('no points fall back to day and month', () => {
+    expect(axisDateFormat([])(at('2026-10-07'))).toBe('7 Oct')
   })
 })

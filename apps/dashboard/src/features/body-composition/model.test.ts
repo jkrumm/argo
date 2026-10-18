@@ -9,6 +9,7 @@ import {
   deltaFromMean,
   entryAgeDays,
   goalProgress,
+  formatRange,
   intensityTier,
   rateFooter,
   isStale,
@@ -289,12 +290,17 @@ describe('day-based window stats', () => {
 
 describe('intensityTier', () => {
   test('the tier and its range follow the API thresholds', () => {
-    expect(intensityTier(0.05)).toEqual({ tier: 'maintenance', band: '< 0.1 kg/wk' })
-    expect(intensityTier(0.2)).toEqual({ tier: 'lean', band: '0.1–0.3 kg/wk' })
-    expect(intensityTier(0.5)).toEqual({ tier: 'standard', band: '0.3–0.6 kg/wk' })
-    expect(intensityTier(0.7)).toEqual({ tier: 'aggressive', band: '≥ 0.6 kg/wk' })
-    expect(intensityTier(-0.3)).toEqual({ tier: 'lean', band: '0.1–0.4 kg/wk' })
-    expect(intensityTier(-0.9)).toEqual({ tier: 'aggressive', band: '≥ 0.8 kg/wk' })
+    expect(intensityTier(0.05)).toEqual({ tier: 'maintenance', lo: null, hi: 0.1 })
+    expect(intensityTier(0.2)).toEqual({ tier: 'lean', lo: 0.1, hi: 0.3 })
+    expect(intensityTier(0.5)).toEqual({ tier: 'standard', lo: 0.3, hi: 0.6 })
+    expect(intensityTier(0.7)).toEqual({ tier: 'aggressive', lo: 0.6, hi: null })
+    expect(intensityTier(-0.3)).toEqual({ tier: 'lean', lo: 0.1, hi: 0.4 })
+    expect(intensityTier(-0.9)).toEqual({ tier: 'aggressive', lo: 0.8, hi: null })
+  })
+  test('formatRange glues the unit and the range', () => {
+    expect(formatRange(0.1, 0.3, 'kg/wk')).toBe('0.1\u2013\u20600.3\u00a0kg/wk')
+    expect(formatRange(0.6, null, 'kg/wk')).toBe('\u2265\u00a00.6\u00a0kg/wk')
+    expect(formatRange(null, 0.1, 'kg/wk')).toBe('< 0.1\u00a0kg/wk')
   })
   test('boundaries belong to the next tier up', () => {
     expect(intensityTier(0.0999)?.tier).toBe('maintenance')
