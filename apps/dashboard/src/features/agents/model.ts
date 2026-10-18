@@ -76,6 +76,8 @@ export const OLDEST_WAIT_WARN_MS = 24 * 60 * 60 * 1000
  * blocked on a dialog for 21 days, re-announced to Slack ~35 times). */
 export const ABANDONED_AFTER_MS = 7 * 24 * 60 * 60 * 1000
 
+export const WAITING_FOR_SNAPSHOT = 'Waiting for the first snapshot'
+
 export type OldestWait = { ms: number; project: string }
 
 /**
@@ -600,6 +602,12 @@ export function oldestWait(
   if (ask !== null && (agent === null || ask > agent.ms))
     return { ms: ask, project: 'the human queue' }
   return agent
+}
+
+/** What the oldest-wait meter says when it has no wait to plot: unknown, none, or waiting without a clock. */
+export function oldestWaitEmptyText(needsYou: number | null): string {
+  if (needsYou === null) return WAITING_FOR_SNAPSHOT
+  return needsYou === 0 ? 'No agent or ask is waiting' : 'Waiting, but no wait time reported'
 }
 
 /** Agent waits past the abandoned mark, counted from the cards the section lists. */

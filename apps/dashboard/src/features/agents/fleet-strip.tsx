@@ -6,6 +6,8 @@ import {
   fleetFact,
   itemNoun,
   OLDEST_WAIT_WARN_MS,
+  oldestWaitEmptyText,
+  WAITING_FOR_SNAPSHOT,
   type FleetPart,
   type FleetState,
   type OldestWait,
@@ -20,8 +22,6 @@ export const FLEET_COLOR: Record<FleetState, string> = {
   done: alpha(VX.line, 0.28),
   unknown: alpha(VX.line, 0.18),
 }
-
-const WAITING_FOR_SNAPSHOT = 'Waiting for the first snapshot'
 
 const HOUR_MS = 3_600_000
 const DAY_MS = 24 * HOUR_MS
@@ -62,8 +62,7 @@ export function FleetStrip({ needsYou, fleet, split, oldest, longestRunMs }: Pro
           value: needsYou === null ? null : String(needsYou),
           ...(needsYou !== null && { unit: `${itemNoun(needsYou)} waiting` }),
           ...(needsYou !== null && needsYou > 0 && { tone: 'warn' as const }),
-          ...(needsYou === null && { footer: WAITING_FOR_SNAPSHOT }),
-          ...(split !== '' && { footer: split }),
+          footer: needsYou === null ? WAITING_FOR_SNAPSHOT : split || undefined,
         },
         {
           key: 'oldest-wait',
@@ -89,7 +88,7 @@ export function FleetStrip({ needsYou, fleet, split, oldest, longestRunMs }: Pro
               format={formatDuration}
               startCaption={null}
               endCaption={null}
-              emptyText={needsYou === null ? WAITING_FOR_SNAPSHOT : 'No agent or ask is waiting'}
+              emptyText={oldestWaitEmptyText(needsYou)}
               {...(oldestTone !== undefined && { color: VX.status[oldestTone] })}
             />
           ),

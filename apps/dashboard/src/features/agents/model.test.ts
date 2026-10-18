@@ -3,6 +3,8 @@ import {
   ABANDONED_AFTER_MS,
   isAbandonedWait,
   oldestNeedsYouWait,
+  oldestWaitEmptyText,
+  WAITING_FOR_SNAPSHOT,
   fleetParts,
   hourlyWorking,
   peakWorking,
@@ -915,5 +917,13 @@ describe('round 2 guards', () => {
       now,
     )
     expect(new Set(cards.map((c) => c.question)).size).toBe(2)
+  })
+})
+
+describe('oldestWaitEmptyText', () => {
+  it('says unknown, none, or waiting without a clock — never a false none', () => {
+    expect(oldestWaitEmptyText(null)).toBe(WAITING_FOR_SNAPSHOT)
+    expect(oldestWaitEmptyText(0)).toBe('No agent or ask is waiting')
+    expect(oldestWaitEmptyText(2)).toBe('Waiting, but no wait time reported')
   })
 })

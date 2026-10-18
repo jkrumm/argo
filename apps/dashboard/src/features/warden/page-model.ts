@@ -800,6 +800,9 @@ export function revertsFooter(
 export const REVERTS_INFO =
   'A revert is a merged fix that was undone. A reopen is an item that came back after it was marked fixed.'
 
+/** Each operator is glued to the term after it, so a wrap lands before `+` / `=`, never after. */
+const PLUS_GLUED = `+${NBSP}`
+
 /**
  * The fixes legend as a sum: `a fixed + b quiet + c closed = n items`. A count warden did not
  * report is `—` and the total is left off, so the line never claims a sum it cannot show.
@@ -810,13 +813,13 @@ export function fixesLegend(fixes: StripModel['fixes']): string {
     { n: fixes.quiet, label: 'quiet' },
     { n: fixes.closed, label: 'closed' },
   ]
-  // Each operator is glued to the term after it, so a wrap lands before `+` / `=`, never after.
   const text = parts
-    .map((part, i) => `${i === 0 ? '' : `+${NBSP}`}${part.n ?? '—'}${NBSP}${part.label}`)
+    .map((part, i) => `${i === 0 ? '' : PLUS_GLUED}${part.n ?? '—'}${NBSP}${part.label}`)
     .join(' ')
-  return parts.some((part) => part.n === null)
-    ? text
-    : `${text} =${NBSP}${parts.reduce((sum, part) => sum + (part.n ?? 0), 0)}${NBSP}items`
+  const counts = parts.flatMap((part) => (part.n === null ? [] : [part.n]))
+  if (counts.length < parts.length) return text
+  const total = counts.reduce((sum, n) => sum + n, 0)
+  return `${text} =${NBSP}${total}${NBSP}items`
 }
 
 /** The verdicts cell's fact line (the cell has nothing to compare the share against). */
