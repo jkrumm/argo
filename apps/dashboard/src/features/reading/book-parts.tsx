@@ -39,18 +39,20 @@ export function BookTitle({ book }: { book: Pick<ShelfItem, 'slug' | 'title'> })
     )
   }
   return (
-    <Anchor
-      href={`https://hardcover.app/books/${book.slug}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      underline="hover"
-      c="inherit"
-      size="sm"
-      fw={600}
-      lineClamp={2}
-    >
-      {book.title}
-    </Anchor>
+    // The clamp sits on a wrapper: on the link itself it turns the anchor into a full-width box,
+    // and its focus ring would cover the author line too.
+    <Text component="div" size="sm" fw={600} lineClamp={2}>
+      <Anchor
+        href={`https://hardcover.app/books/${book.slug}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        underline="hover"
+        c="inherit"
+        inherit
+      >
+        {book.title}
+      </Anchor>
+    </Text>
   )
 }
 

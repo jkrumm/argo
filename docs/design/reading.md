@@ -115,3 +115,12 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - **r2:** fail: the shelf cell is still stretched half-empty; title links draw a square full-width focus box over the author line; the time-read label crosses its bar end.
 - **Against Keel:** closest to Keel (headline sentence, strip with inline charts).
 - **Open for Wave 24:** a footer fact on the shelf cell (or no stretch), the title-link focus ring, outside labels on time-read.
+
+### Wave 24 fixes
+
+- Headline: the `Title` sentence is now `PageSummary` — sentence `{n} books in progress, median {pace} pages/h`, facts `{n} finished in {year}` and `backlog {n} books ≈ {h} h` (`summaryParts`, tested).
+- Shelf cell: a footer fact, `{n}% of the shelf is read · {n}% is backlog` (`shelfShares`, tested), so the stretched cell is no longer half empty.
+- Title links: the two-line clamp sits on a wrapper `Text`; the inline `Anchor` inside draws a focus ring that hugs the title text and leaves the author line alone.
+- Time read: `BarList variant="thin"` puts each title on its own line above a thin bar, with the value on that line, so no label crosses a bar end.
+
+No new basalt rows.

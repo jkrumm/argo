@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Stack, Title } from '@mantine/core'
+import { Stack } from '@mantine/core'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { EmptyState, PageBar, unwrap } from 'basalt-ui'
 import { emit } from 'basalt-ui/commands'
@@ -16,10 +16,11 @@ import {
   finishedInYear,
   readingPace,
   shelfCounts,
-  summarySentence,
+  summaryParts,
 } from '../features/reading/model'
 import classes from '../features/reading/reading.module.css'
 import { ReadingStrip } from '../features/reading/strip'
+import { PageSummary } from '../components/upstream/page-summary'
 import { useNow } from '../lib/use-now'
 import { UnmatchedSection } from '../features/reading/unmatched-section'
 
@@ -100,15 +101,15 @@ function ReadingPage() {
       ) : (
         <div className={classes.root}>
           <Stack gap="md">
-            <Title order={3} fw={500} data-shot="summary">
-              {summarySentence({
+            <PageSummary
+              {...summaryParts({
                 counts,
                 pace: pace.median,
                 finished: finishedInYear(shelf, year),
                 year,
                 backlogHours: backlog.hours,
               })}
-            </Title>
+            />
             <ReadingStrip counts={counts} shelf={shelf} pace={pace} />
             <UnmatchedSection />
             <InProgress shelf={shelf} pace={pace.median} now={now} />

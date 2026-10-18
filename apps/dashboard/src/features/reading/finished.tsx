@@ -83,6 +83,7 @@ export function TimeRead({ shelf }: { shelf: readonly ShelfItem[] }) {
     <Section title="Time read, per book · hours" count={rows.length}>
       <BarList
         label="Time read per book, hours"
+        variant="thin"
         items={rows.map((r) => ({
           key: r.key,
           label: r.label,
