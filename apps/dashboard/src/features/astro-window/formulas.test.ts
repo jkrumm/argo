@@ -37,7 +37,9 @@ import {
   cloudFooter,
   flatLayersNote,
   fmtPercent,
+  headlineFirstDate,
   headlineNight,
+  withheldLines,
   peakMonth,
   nextUsableText,
   gateMissText,
@@ -223,8 +225,8 @@ describe('pageSummary', () => {
   ) =>
     pageSummary(data, {
       withWindow: forecast,
-      selectedDate,
       marked: headlineNight(data, { forecast, selectedDate }),
+      firstDate: headlineFirstDate(data, { selectedDate }),
     })
 
   test('Tonight leaves the window to the verdict card', () => {
@@ -706,6 +708,11 @@ describe('moonGateDetail', () => {
     const day = [{ astroDark: false, moonAltitude: 30 }] as unknown as HourlyPoint[]
     expect(moonGateDetail(killer, 0.25, day)).toBe('no dark sample')
   })
+  test('a moon exactly on the horizon is not "below" it', () => {
+    const edge = [{ astroDark: true, moonAltitude: 0 }] as unknown as HourlyPoint[]
+    const killer = night([{ id: 'moon', label: 'Moon', reason: 'moon 46% illuminated' }])
+    expect(moonGateDetail(killer, 0.25, edge)).toBe('on the horizon while it is dark')
+  })
   test('a failed gate whose dark samples all have the moon down says so', () => {
     const below = [{ astroDark: true, moonAltitude: -5 }] as unknown as HourlyPoint[]
     const killer = night([{ id: 'moon', label: 'Moon', reason: 'moon 46% illuminated' }])
@@ -922,5 +929,29 @@ describe('cloud percent and flat layers', () => {
     expect(flatLayersNote(hourly([1, 2], [3, 4]))).toBeNull()
     expect(flatLayersNote(hourly([null, null], [5, null]))).toBeNull()
     expect(flatLayersNote([])).toBeNull()
+  })
+})
+
+describe('withheldLines', () => {
+  const gated = (killers: Night['killers']) => ({ killers }) as unknown as Night
+
+  test('killers that all have a gate row get the one generic line', () => {
+    const night = gated([
+      { id: 'core-altitude', label: 'Core altitude', reason: 'r' },
+      { id: 'moon', label: 'Moon', reason: 'r' },
+    ])
+    expect(withheldLines(night)).toEqual(['Score withheld on a ruled-out night'])
+  })
+
+  test('an unknown killer keeps its own label and reason visible', () => {
+    const night = gated([
+      { id: 'moon', label: 'Moon', reason: 'moon is up' },
+      { id: 'smoke', label: 'Smoke', reason: 'plume overhead' },
+    ])
+    expect(withheldLines(night)).toEqual([
+      'Score withheld',
+      'Moon: moon is up',
+      'Smoke: plume overhead',
+    ])
   })
 })

@@ -25,6 +25,7 @@ import {
   TonightTop,
   VerdictCard,
   markedNightOf,
+  headlineFirstDate,
   headlineNight,
   pageSummary,
   BASE_LAYER_IDS,
@@ -270,7 +271,7 @@ function AstroWindowPage() {
   const timelineNamesMiss = search.tab === 'forecast'
   const summary = pageSummary(data, {
     withWindow: search.tab === 'forecast',
-    selectedDate,
+    firstDate: headlineFirstDate(data, { selectedDate }),
     marked: headlineNight(data, { forecast: search.tab === 'forecast', selectedDate }),
   })
 
