@@ -76,6 +76,9 @@ export const OLDEST_WAIT_WARN_MS = 24 * 60 * 60 * 1000
  * blocked on a dialog for 21 days, re-announced to Slack ~35 times). */
 export const ABANDONED_AFTER_MS = 7 * 24 * 60 * 60 * 1000
 
+/** The short form of the page alert's `No snapshot yet` (the alert carries the cause and the step). */
+export const NO_SNAPSHOT_SHORT = 'No snapshot yet'
+
 export const WAITING_FOR_SNAPSHOT = 'Waiting for the first snapshot'
 
 /** agent-gateway's push cadence, minutes: every "nothing pushed yet" line names it. */

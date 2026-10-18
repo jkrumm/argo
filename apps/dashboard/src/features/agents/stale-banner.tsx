@@ -2,7 +2,7 @@ import { Alert, Code, Text } from '@mantine/core'
 import { formatAgo } from '../../lib/format'
 import { IconAlertTriangle, IconInfoCircle } from '@tabler/icons-react'
 import type { OverviewRecord } from '../../lib/queries/agents'
-import { STALE_AFTER_MS, snapshotAgeMs } from './model'
+import { NO_SNAPSHOT_SHORT, STALE_AFTER_MS, snapshotAgeMs } from './model'
 
 type Props = {
   latest: OverviewRecord | null
@@ -25,7 +25,7 @@ export function StaleBanner({ latest, fetchFailed = false }: Props) {
         color="gray"
         variant="light"
         icon={<IconInfoCircle size={16} />}
-        title="No snapshot yet"
+        title={NO_SNAPSHOT_SHORT}
       >
         agent-gateway pushes to <Code>POST /agents/overview</Code> every 10&nbsp;min from each dev
         host. If this stays empty, check that agent-gateway is running on a dev host.
