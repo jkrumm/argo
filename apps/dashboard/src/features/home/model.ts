@@ -473,12 +473,6 @@ const NEEDS_YOU_SOURCE_NAMES = ['Warden', 'Agents'] as const
 type SourceName = (typeof NEEDS_YOU_SOURCE_NAMES)[number]
 
 /**
- * The activity card's feed gap: the cells' no-snapshot sentence in its short form (leading clause,
- * verbatim, derived from the same producer list) as the needs-you sentence; each cadence is stated once on the cells.
- */
-const noFeedYet = unknownSentence(unknownPhrase([], [], NEEDS_YOU_SOURCE_NAMES))
-
-/**
  * The activity card's line with nothing to count: the empty window when a feed loaded, then every
  * source that is unknown (`— reload to retry` only when one failed); with no feed and no cause
  * known, the feed's own gap in its short form.
@@ -609,6 +603,12 @@ const UNKNOWN_TITLE: Record<UnknownKind, string> = {
 export function unknownSentence(phrase: string): string {
   return `${phrase.charAt(0).toUpperCase()}${phrase.slice(1)}`
 }
+
+/**
+ * The activity card's feed gap: the needs-you sentence's leading clause, verbatim. The source names
+ * are fixed, so it is derived from that same list; each cadence is stated once on the cells.
+ */
+const noFeedYet = unknownSentence(unknownPhrase([], [], NEEDS_YOU_SOURCE_NAMES))
 
 export type HomeSummaryParts = { sentence: string; facts: string[] }
 

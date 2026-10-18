@@ -134,7 +134,12 @@ function FeedRow({ event: e }: { event: ActivityEvent }) {
   )
 }
 
-/** One part of line 2: detail may ellipsize, the outcome stays whole, the chip clips inside itself. */
+const META_CLASS: Record<Exclude<RowPart['kind'], 'chip' | 'lead'>, string> = {
+  detail: classes.feedDetail,
+  outcome: classes.feedOutcome,
+}
+
+/** One part of line 2: detail and outcome ellipsize, the chip clips inside itself. */
 function MetaPart({ part }: { part: RowPart }) {
   if (part.kind === 'chip')
     return (
@@ -149,9 +154,6 @@ function MetaPart({ part }: { part: RowPart }) {
         {part.text}
       </Badge>
     )
-  return (
-    <span className={part.kind === 'detail' ? classes.feedDetail : classes.feedOutcome}>
-      {part.text}
-    </span>
-  )
+  if (part.kind === 'lead') return null
+  return <span className={META_CLASS[part.kind]}>{part.text}</span>
 }

@@ -81,10 +81,10 @@ describe('recovery cell forms', () => {
   const series = { settled: true, failed: false, windowDays: 30 }
   it('prints the full sentence when it leads and its leading clause when it does not', () => {
     expect(recoveryCell(unscored, false, series, 'full').footer).toBe(
-      'No score in this 30\u00a0d window — Garmin syncs every 6\u00a0h',
+      'No recovery score in this 30\u00a0d window — Garmin syncs every 6\u00a0h',
     )
     expect(recoveryCell(unscored, false, series, 'short').footer).toBe(
-      'No score in this 30\u00a0d window',
+      'No recovery score in this 30\u00a0d window',
     )
   })
   it('ACWR leads with the full sentence and trails with the short form', () => {
@@ -104,7 +104,7 @@ describe('recovery cell window wording', () => {
     expect(
       recoveryCell(unscored, false, { settled: true, failed: false, windowDays: 30 }, 'full')
         .footer,
-    ).toBe('No score in this 30\u00a0d window — Garmin syncs every 6\u00a0h')
+    ).toBe('No recovery score in this 30\u00a0d window — Garmin syncs every 6\u00a0h')
   })
 })
 
@@ -143,7 +143,7 @@ describe('strip cells with no reading', () => {
       ),
     ).toMatchObject({
       value: null,
-      footer: 'No score in this window — Garmin syncs every 6\u00a0h',
+      footer: 'No recovery score in this window — Garmin syncs every 6\u00a0h',
     })
     // The pre-sync gap names the last score and its day, in Garmin Health's wording.
     expect(

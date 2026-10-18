@@ -139,7 +139,10 @@
 }
 
 .feedOutcome {
-  flex: none;
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chip {
