@@ -190,8 +190,8 @@
   color: var(--vx-ink);
 }
 
-/* The one control on a labeled-source row (Wave 22 ruling): hidden at rest, revealed in muted ink on
-   row hover or keyboard focus. Opacity, not display, so it stays in the tab order. */
+/* The one control on a labeled-source row: hidden at rest, revealed in muted ink on row hover or
+   keyboard focus. Opacity, not display, so it stays in the tab order. */
 .removeWrap {
   flex: none;
   color: var(--vx-muted);
@@ -204,8 +204,9 @@
   opacity: 1;
 }
 
-/* Coarse pointers have no hover: always visible there (Wave 22 ruling), still muted. */
-@media (hover: none), (pointer: coarse) {
+/* A coarse pointer may be available alongside a primary fine one (hybrid laptops), and has no hover:
+   always visible there, still muted. */
+@media (any-pointer: coarse) {
   .removeWrap {
     opacity: 1;
   }

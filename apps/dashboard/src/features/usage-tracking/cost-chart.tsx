@@ -31,7 +31,7 @@ export default function CostChart({
       groupNoun={GROUP_NOUN[groupBy]}
       unitNoun="Cost"
       color={colorForGroup(groupBy)}
-      format={fmtUsdWhole}
+      formatFor={() => fmtUsdWhole}
       listTitle={`Spend by ${GROUP_NOUN[groupBy]}`}
       info={`Spend in US dollars, added up per day or week. ${foldInfo(GROUP_NOUN[groupBy])}`}
     />
