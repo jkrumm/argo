@@ -103,6 +103,14 @@ export function windowPhrase(preset: string | undefined): string {
   return long === undefined ? 'this range' : `the last ${long}`
 }
 
+/**
+ * `No walks in the last 30 days`: the empty window's short form. It is the leading clause of the
+ * empty-window card's full sentence (the card title) and the reason in every strip cell that is
+ * bound to the window, word for word.
+ */
+export const emptyWindowShort = (preset: string | undefined): string =>
+  `No walks in ${windowPhrase(preset)}`
+
 /** "last 30 days" for a chart title; "all time" and "selected range" for the open and custom windows. */
 export function windowTitle(preset: string | undefined): string {
   if (preset === 'all') return 'all time'

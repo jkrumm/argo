@@ -8,6 +8,7 @@ import { walkingPadQueries, type WalkingPadWindowParams } from '../../lib/querie
 import { walkingStore } from '../../lib/window-stores'
 import { walkingLocal } from './local-store'
 import {
+  emptyWindowShort,
   fmtDuration,
   fmtKm,
   fmtKmh,
@@ -217,27 +218,21 @@ function useTotalsCell(params: WalkingPadWindowParams): StatStripCell {
   }
 }
 
-/** The strip of a window with no walks: the same four cells, every value `—`. */
-function EmptyStrip() {
+/**
+ * The strip of a window with no walks. Pace and Totals are bound to the window, so each says so in
+ * the card's short form; This week (Mon–Sun) and Streak are not, so they keep their real readings
+ * rather than a false zero or a dash.
+ */
+function EmptyStrip({ params }: { params: WalkingPadWindowParams }) {
   const { window: preset } = walkingStore.useValues()
-  // Empty values only: `stale` means cached data, which these are not.
+  const week = useWeekCell()
+  const streak = useStreakCell(params)
+  const state = { kind: 'empty', reason: emptyWindowShort(preset) } as const
   const cells: StatStripCell[] = [
-    { key: 'week', caption: 'This week', qualifier: 'Mon–Sun, UTC', value: null, unit: 'km' },
-    { key: 'pace', caption: 'Pace', qualifier: `avg ${windowQualifier(preset)}`, value: null },
-    {
-      key: 'streak',
-      caption: 'Streak',
-      qualifier: 'consecutive days',
-      value: null,
-      unit: 'days',
-    },
-    {
-      key: 'totals',
-      caption: 'Totals',
-      qualifier: windowQualifier(preset),
-      value: null,
-      unit: 'km',
-    },
+    week,
+    { key: 'pace', caption: 'Pace', qualifier: `avg ${windowQualifier(preset)}`, state },
+    streak,
+    { key: 'totals', caption: 'Totals', qualifier: windowQualifier(preset), state },
   ]
   return <StatGroup variant="strip" label="Walking at a glance, no walks" cols={4} cells={cells} />
 }
@@ -249,7 +244,7 @@ export function WalkingStrip({
   params: WalkingPadWindowParams
   empty?: boolean
 }) {
-  return empty ? <EmptyStrip /> : <LiveStrip params={params} />
+  return empty ? <EmptyStrip params={params} /> : <LiveStrip params={params} />
 }
 
 function LiveStrip({ params }: { params: WalkingPadWindowParams }) {
