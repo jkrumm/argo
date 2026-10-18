@@ -10,6 +10,7 @@ import {
   type ShelfItem,
   type ShelfCounts,
 } from './model'
+import { NBSP } from '../../lib/format'
 import classes from './reading.module.css'
 
 /** A split is not a verdict: the stepped neutral ramp, never a status colour. */
@@ -49,11 +50,11 @@ function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
     key: 'ratings',
     caption: `Ratings · ${shape.n} rated`,
     value: shape.mean.toFixed(1),
-    unit: '★ mean',
+    unit: `★${NBSP}mean`,
     visual: (
       <div
         role="img"
-        aria-label={`Rated books per star: ${shape.buckets.map((c, i) => `${shape.labels[i]} ${c}`).join(', ')}; mean ${shape.mean.toFixed(1)} ★`}
+        aria-label={`Rated books per star: ${shape.buckets.map((c, i) => `${shape.labels[i]} ★ ${c}`).join(', ')}; mean ${shape.mean.toFixed(1)} ★`}
       >
         <div className={classes.histogram}>
           {shape.buckets.map((count, i) => (
@@ -86,7 +87,7 @@ function paceCell(pace: Pace): StatStripCell {
   }
   return {
     key: 'pace',
-    caption: `Reading pace · median of ${pace.paces.length} ${pace.paces.length === 1 ? 'book' : 'books'}`,
+    caption: `Pace · median of ${pace.paces.length} ${pace.paces.length === 1 ? 'book' : 'books'}`,
     value: String(pace.median),
     unit: 'pages/h',
     footer: paceRange(pace.paces) ?? 'one book has reading time so far',

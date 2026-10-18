@@ -104,8 +104,8 @@ describe('hoursLeft', () => {
 
 describe('hoursLabel', () => {
   test('rounds and floors at < 1 h', () => {
-    expect(hoursLabel(0.4)).toBe('< 1 h')
-    expect(hoursLabel(2.6)).toBe('3 h')
+    expect(hoursLabel(0.4)).toBe('< 1\u00a0h')
+    expect(hoursLabel(2.6)).toBe('3\u00a0h')
   })
 })
 
@@ -246,7 +246,9 @@ describe('summaryParts', () => {
       summaryParts({ finished: 3, year: 2026, cohort: { days: 12, measured: 2, finished: 3 } }),
     ).toEqual({
       sentence: '3 books finished in 2026',
-      facts: ['median 12 d from start to finish, over 2 of 3 with a valid start and finish date'],
+      facts: [
+        'median 12\u00a0d from start to finish, over 2 of 3 with a valid start and finish date',
+      ],
     })
   })
   test('one book is singular; nothing finished says so; no cohort drops the fact, not 0', () => {
@@ -296,8 +298,8 @@ describe('finishCohort', () => {
 
 describe('hours labels', () => {
   test('under an hour reads < 1 h without a ≈', () => {
-    expect(approxHours(0.4)).toBe('< 1 h')
-    expect(approxHours(7.2)).toBe('≈ 7 h')
+    expect(approxHours(0.4)).toBe('< 1\u00a0h')
+    expect(approxHours(7.2)).toBe('≈ 7\u00a0h')
   })
 })
 
@@ -319,8 +321,8 @@ describe('finishedFooter', () => {
 
 describe('paceRange', () => {
   test('min and max whatever the order; an endpoint that rounds to 0 reads < 1', () => {
-    expect(paceRange([40, 20, 30])).toBe('slowest 20, fastest 40 pages/h')
-    expect(paceRange([0, 30])).toBe('slowest < 1, fastest 30 pages/h')
+    expect(paceRange([40, 20, 30])).toBe('slowest 20, fastest 40\u00a0pages/h')
+    expect(paceRange([0, 30])).toBe('slowest < 1, fastest 30\u00a0pages/h')
     expect(paceRange([30])).toBeNull()
     expect(paceRange([])).toBeNull()
   })
@@ -427,7 +429,7 @@ describe('ratingsFooter', () => {
       book({ rating: 3, communityRating: 4 }),
       book({ rating: 5 }),
     ]
-    expect(ratingsFooter(ratingShape(shelf))).toBe('community mean 3.8 ★ on 2 of the same books')
+    expect(ratingsFooter(ratingShape(shelf))).toBe('community mean 3.8\u00a0★, same 2 books')
   })
   test('a bin that holds a half star says so in its label', () => {
     const { labels } = ratingShape([
@@ -435,7 +437,7 @@ describe('ratingsFooter', () => {
       book({ rating: 3.5 }),
       book({ rating: 4 }),
     ])
-    expect(labels).toEqual(['1★', '2★', '3–3.5★', '4★', '5★'])
+    expect(labels).toEqual(['1', '2', '3–3.5', '4', '5'])
   })
   test('says nothing about binning, and nothing without a community rating', () => {
     expect(ratingsFooter(ratingShape([book({ rating: 3.5 })]))).toBeUndefined()

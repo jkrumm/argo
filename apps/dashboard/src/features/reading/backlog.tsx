@@ -3,6 +3,7 @@ import { BarList, Section, useSizeClass } from 'basalt-ui'
 import { useState } from 'react'
 import { BookRow } from './book-parts'
 import { NO_PACE_REASON, approxHours, genreCounts, type BacklogTotals } from './model'
+import { withUnit } from '../../lib/format'
 import classes from './reading.module.css'
 
 const ROWS_WIDE = 8
@@ -11,7 +12,7 @@ const ROWS_NARROW = 5
 function headerFacts(b: BacklogTotals, pace: number | null): string {
   return [
     'ranked by community rating',
-    ...(b.pages > 0 ? [`${b.pages.toLocaleString('en-GB')} p`] : []),
+    ...(b.pages > 0 ? [withUnit(b.pages.toLocaleString('en-GB'), 'p')] : []),
     b.hours !== null
       ? `${approxHours(b.hours)} to read`
       : `no hours estimate: ${pace === null ? NO_PACE_REASON : 'no page counts'}`,
@@ -30,7 +31,6 @@ export function Backlog({ backlog, pace }: { backlog: BacklogTotals; pace: numbe
     <div className={classes.pair} data-shot="backlog">
       <Section
         title="Backlog"
-        count={backlog.count}
         {...(backlog.count > 0 && {
           summary: <Text className={classes.facts}>{headerFacts(backlog, pace)}</Text>,
         })}
@@ -53,7 +53,7 @@ export function Backlog({ backlog, pace }: { backlog: BacklogTotals; pace: numbe
                           book.ratingsCount === null ? '' : ` · ${book.ratingsCount} ratings`
                         }`
                   }
-                  trail={book.pages === null ? '—' : `${book.pages} p`}
+                  trail={book.pages === null ? '—' : withUnit(book.pages, 'p')}
                 />
               ))}
             </ul>
