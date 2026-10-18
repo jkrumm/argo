@@ -27,7 +27,7 @@ import { useDisclosure } from '@mantine/hooks'
 import { IconChevronDown, IconDots } from '@tabler/icons-react'
 import { Link } from '@tanstack/react-router'
 import { Fragment, useId, type ReactNode } from 'react'
-import { glueIdentifiers } from '../../lib/format'
+import { identifierRuns } from './identifier-runs'
 import classes from './decision-card.module.css'
 import { VX } from 'basalt-ui/tokens'
 import {
@@ -179,8 +179,16 @@ export function DecisionCard({
       <Group align="stretch" gap="md" wrap="wrap">
         <Stack gap="sm" flex="1 1 14rem" miw={0}>
           <Text component="h3" m={0} fw={600} size="md" lh={1.35} className={classes.question}>
-            {/* Render-only: the copy model and the question rung stay raw. */}
-            {glueIdentifiers(question)}
+            {/* Render-only: identifiers stay on one line; the copy model, rung and aria-label stay raw. */}
+            {identifierRuns(question).map((run, index) =>
+              run.identifier ? (
+                <Box key={index} component="span" className={classes.identifier}>
+                  {run.text}
+                </Box>
+              ) : (
+                <Fragment key={index}>{run.text}</Fragment>
+              ),
+            )}
           </Text>
           {isRenderable(subject) && (
             <Text size="xs" c="dimmed" className={classes.wrap}>
