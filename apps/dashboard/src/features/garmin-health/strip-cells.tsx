@@ -122,7 +122,7 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
   return {
     key: 'recovery',
     caption: 'Recovery',
-    qualifier: when,
+    ...(data?.date && { qualifier: when }),
     value: score === null ? null : fmtNum(score),
     ...(score !== null && { unit: '/100' }),
     loading: summary.isPending,

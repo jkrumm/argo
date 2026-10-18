@@ -202,7 +202,7 @@ function recoveryDay(date: string | null): string {
     .replace(',', '')
 }
 
-/** The pre-sync gap in Garmin Health's wording, from its one function (`recoveryGap`), lower-cased for a footer. */
+/** The pre-sync gap in Garmin Health's wording, from its one function (`recoveryGap`), verbatim. */
 function noScoreLine(
   { date, last }: RecoveryReading,
   { settled, failed, windowDays }: SeriesState,
@@ -214,7 +214,7 @@ function noScoreLine(
     last,
     ...(windowDays !== undefined && { windowDays }),
   })
-  return line === null ? null : line.charAt(0).toLowerCase() + line.slice(1)
+  return line
 }
 
 /** The recovery series (source of the last scored day): settled on the window, or failed. */
@@ -234,7 +234,7 @@ export function recoveryCell(
       footer:
         reading === null
           ? loading
-            ? 'loading Garmin data'
+            ? 'Loading Garmin data'
             : 'Garmin data not loaded; reload to retry'
           : // Unsettled: no gap to state yet, only when a score can arrive.
             (noScoreLine(reading, series) ??
