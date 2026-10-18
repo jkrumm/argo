@@ -386,6 +386,8 @@ export function agendaDays(events: readonly CalendarItem[], keys: readonly DayKe
 /** The one wording of an empty day / window; the headline's sentence leads with it too. */
 export const NO_EVENTS = 'No events'
 
+const noun = (n: number) => `${n} ${n === 1 ? 'event' : 'events'}`
+
 /**
  * `2 events · 3h` / `No events` / `1 event · all day` (live all-day items only) / `all cancelled` —
  * the day heading's right-hand side. A day with timed events counts those alone: its all-day items
@@ -396,7 +398,6 @@ export function dayHeadLabel(
   format: (min: number) => string,
   liveAllDay = 0,
 ): string {
-  const noun = (n: number) => `${n} ${n === 1 ? 'event' : 'events'}`
   if (day.count > 0) return `${noun(day.count)} · ${format(day.bookedMin)}`
   // A live all-day item means the day is neither empty nor wholly cancelled: it has no booked
   // figure to state, so the count stands with `all day` where the duration would be.
