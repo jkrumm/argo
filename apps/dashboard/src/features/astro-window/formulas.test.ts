@@ -1096,8 +1096,10 @@ describe('darkSkyTickText and moonInterferes', () => {
 
 describe('unknownSiteCopy', () => {
   test('names the site and the next step', () => {
-    expect(unknownSiteCopy('example-site')).toBe(
-      'No site "example-site" in the list — pick another from Site, or reload if the list is empty',
+    const { title, hint } = unknownSiteCopy('example-site')
+    expect(title).toBe('No site "example-site" in the list')
+    expect(`${title} — ${hint.toLowerCase()}`).toBe(
+      'No site "example-site" in the list — choose another site, or reload if the list is empty',
     )
   })
 })

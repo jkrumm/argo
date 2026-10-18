@@ -654,12 +654,12 @@ export function skyCellFooter({
   return joinPhrases([`town glow ${dome}`, `transparency ${index} ${glue('(1 = best)')}`])
 }
 
-/**
- * The Forecast tab's card when the selected site id is not in the fetched site list (an empty list
- * included): the cause, then the one next step the page offers.
- */
-export function unknownSiteCopy(siteId: string): string {
-  return `No site "${siteId}" in the list — pick another from Site, or reload if the list is empty`
+/** The Forecast tab's unknown-site card: the title is the short form of the gap (the site id is not in the fetched list, an empty list included), the hint the one next step; together they read as one sentence. */
+export function unknownSiteCopy(siteId: string): { title: string; hint: string } {
+  return {
+    title: `No site "${siteId}" in the list`,
+    hint: 'Choose another site, or reload if the list is empty',
+  }
 }
 
 /** The Moon cell's footer: the limit, the phase and (when the moon sets) the set time; no line opens on a `·`. */
