@@ -12,6 +12,8 @@ export type LabeledPaneProps = {
   removingId: string | null
   /** The last failed remove, shown above the groups. */
   error: string | null
+  /** The pane's own title; omitted where a Section title above already names it. */
+  title?: string
   onOpen: (label: LabelLite) => void
   onRemove: (sourceId: string) => void
 }
@@ -21,11 +23,20 @@ export function LabeledPane(props: LabeledPaneProps) {
   const groups = labelsByTag(props.labels).filter(
     (g) => props.tag === '' || props.tag === LABELED_FILTER || g.tag === props.tag,
   )
+  const header =
+    props.title === undefined ? null : (
+      <header className={classes.recordHeader} data-shot="labeled-header">
+        <h2 className={classes.recordName}>{props.title}</h2>
+      </header>
+    )
   if (groups.length === 0) {
     return (
-      <p className={classes.empty} data-shot="labeled-pane">
-        No labeled sources — label a chat to include it in /m365/important
-      </p>
+      <div data-shot="labeled-pane">
+        {header}
+        <p className={classes.empty}>
+          No labeled sources — label a chat to include it in /m365/important
+        </p>
+      </div>
     )
   }
   return (
@@ -36,6 +47,7 @@ export function LabeledPane(props: LabeledPaneProps) {
       scrollbars="y"
       data-shot="labeled-pane"
     >
+      {header}
       {props.error ? (
         <Alert color="red" variant="light" m="sm">
           {props.error}
