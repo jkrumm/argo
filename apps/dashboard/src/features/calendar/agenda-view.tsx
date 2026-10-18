@@ -149,9 +149,7 @@ export function AgendaView({
                       )
                     ) : (
                       <>
-                        <Box pb="xs">
-                          <AllDayChips items={model.today.allDay} />
-                        </Box>
+                        <AllDayChips items={model.today.allDay} />
                         <EventRows rows={model.today.rows} now={now} next={summary.next} />
                       </>
                     )}

@@ -116,7 +116,7 @@ export function GapLine({
 export function AllDayChips({ items }: { items: readonly CalendarItem[] }) {
   if (items.length === 0) return null
   return (
-    <Box className={classes.chips}>
+    <Box className={classes.chips} pt="xs">
       <span className={classes.caption}>All day</span>
       {items.map((item) => (
         <span key={String(item.id)} className={classes.chip}>
@@ -216,11 +216,7 @@ export function DayGroups({
               <span className={classes.caption}>{dayLabel(day.key)}</span>
               {!gap && headLabel && <span className={classes.muted}>{headLabel}</span>}
             </Box>
-            {day.allDay.length > 0 && (
-              <Box pt="xs">
-                <AllDayChips items={day.allDay} />
-              </Box>
-            )}
+            <AllDayChips items={day.allDay} />
             <EventRows rows={day.rows} now={now} next={next} />
           </Box>
         )

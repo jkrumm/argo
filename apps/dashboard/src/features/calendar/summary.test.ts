@@ -56,7 +56,7 @@ describe('summaryParts', () => {
     })
   })
   test('an all-day-only today states its count and no booked time', () => {
-    const allDay = { ...ev('d', D, D), payload: { source: 'm365', isAllDay: true } } as CalendarItem
+    const allDay: CalendarItem = { ...ev('d', D, D), payload: { source: 'm365', isAllDay: true } }
     expect(summaryParts(agendaSummary([allDay], now)).sentence).toBe('1 event today')
   })
   test('a lone meeting reads singular', () => {
