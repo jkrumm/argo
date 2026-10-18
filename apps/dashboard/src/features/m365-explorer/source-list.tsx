@@ -7,6 +7,7 @@ import {
   formatTime,
   groupByRecency,
   matchesTag,
+  noSourcesYet,
   plural,
   sourceIdFor,
   type ChannelState,
@@ -67,7 +68,7 @@ function ChatGroups(props: SourceListProps) {
         {term
           ? `No chats match "${props.query.trim()}"`
           : props.tag === ''
-            ? 'No chats yet'
+            ? noSourcesYet('chats')
             : 'No chats with this label'}
       </p>
     )
@@ -118,7 +119,7 @@ function TeamTree(props: SourceListProps) {
         {term
           ? `No teams or channels match "${props.query.trim()}"`
           : props.tag === ''
-            ? 'No teams yet'
+            ? noSourcesYet('teams')
             : 'No teams with this label'}
       </p>
     )
