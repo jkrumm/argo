@@ -4,6 +4,9 @@ export const APP_LOCALE = 'en-GB'
 /** No-break space: keeps a value on the same line as its unit at narrow widths. */
 export const NBSP = ' '
 
+/** Every plain space becomes a no-break space: the phrase wraps as one run. */
+export const glue = (text: string): string => text.replaceAll(' ', NBSP)
+
 /** An arrow with a no-break space each side, so a line never wraps right before or after it. */
 export const ARROW = `${NBSP}→${NBSP}`
 

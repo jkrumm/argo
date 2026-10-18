@@ -3,6 +3,7 @@
  * signature — so dot access stays verbatim under the package's strict flags.
  */
 declare const classes: {
+  readonly scale: string
   readonly track: string
   readonly ramp: string
   readonly tick: string

@@ -7,6 +7,7 @@ import {
   formatDuration,
   formatMinutes,
   formatRelative,
+  glue,
   withUnit,
 } from './format'
 
@@ -76,5 +77,12 @@ describe('formatRelative', () => {
     expect(formatRelative('2026-01-01T11:00:00Z', now)).toBe('1\u00a0h ago')
     expect(formatRelative('2026-01-01T14:00:00Z', now)).toBe('in 2\u00a0h')
     expect(formatRelative('nope', now)).toBe('—')
+  })
+})
+
+describe('glue', () => {
+  test('binds every space in the phrase', () => {
+    expect(glue('town glow +1 mag')).toBe('town\u00a0glow\u00a0+1\u00a0mag')
+    expect(glue('one')).toBe('one')
   })
 })

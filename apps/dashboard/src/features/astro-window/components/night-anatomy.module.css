@@ -21,13 +21,18 @@
   background: var(--vx-ink);
 }
 
+/* Reserves the tick label's line in flow, so the footer below never overlaps it. */
+.scale {
+  position: relative;
+  padding-block-end: calc(var(--vx-text-xs) + var(--mantine-spacing-xs));
+}
+
 .tickLabel {
   position: absolute;
-  inset-block-start: 100%;
+  inset-block-end: 0;
   transform: translateX(-50%);
-  margin-block-start: 3px;
   font-family: var(--basalt-font-mono);
-  font-size: var(--mantine-font-size-xs);
+  font-size: var(--vx-text-xs);
   line-height: 1;
   color: var(--vx-muted);
   pointer-events: none;

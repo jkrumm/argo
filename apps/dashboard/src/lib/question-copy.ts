@@ -6,7 +6,7 @@ import {
   lastWhitespace,
   stripShortcodes,
 } from './text'
-import { NBSP } from './format'
+import { glue } from './format'
 import type { WardenActionVerb } from './queries/warden'
 
 // THE question rule for every decision surface (Agents, Warden, Home): one ladder, one place.
@@ -108,7 +108,7 @@ function withoutEchoTail(sentence: string): string {
 }
 
 /** The one short phrase Warden appends to a failure; glued so a wrap never strands `open`. */
-const PR_LEFT_OPEN = /PR left open/g
+const PR_LEFT_OPEN = 'PR left open'
 
 /**
  * One line of evidence from a reason: statements only (a second question never repeats the title's),
@@ -125,10 +125,7 @@ function evidenceLeadOf(text: string, keepQuestions: boolean): string | null {
   // Evidence that is itself a question (an agent's blocker) is still the evidence when it is all there is.
   const lines = statements.length > 0 || !keepQuestions ? statements : cleaned
   if (lines.length === 0) return null
-  const lead = leadOf(lines.join(' '), EVIDENCE_LINE_MAX)
-  return lead === null
-    ? null
-    : lead.replaceAll(PR_LEFT_OPEN, PR_LEFT_OPEN.source.replaceAll(' ', NBSP))
+  return leadOf(lines.join(' '), EVIDENCE_LINE_MAX)
 }
 
 /** A caller-built plain question: bounded at a word, never inside a bracket (no ellipsis before the `?`), never empty. */
@@ -570,10 +567,12 @@ function finishCopy(input: CardInput, source: CardCopySource, title: QuestionTit
     (unsaidTitle === '' &&
       saidWhole &&
       (text === '' ? evidenceLine === null : text === evidenceLine))
+  // Glued last: every comparison above runs on plain spaces.
   return {
     question,
     entity: entityFits ? item : null,
-    evidenceLine,
+    evidenceLine:
+      evidenceLine === null ? null : evidenceLine.replaceAll(PR_LEFT_OPEN, glue(PR_LEFT_OPEN)),
     detail: whole !== '' && !shownAll ? whole : null,
     source,
     subject,

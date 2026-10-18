@@ -1,4 +1,4 @@
-import { ARROW, NBSP, formatAgoWhole, formatDuration, withUnit } from '../../lib/format'
+import { ARROW, NBSP, formatAgoWhole, formatDuration, glue, withUnit } from '../../lib/format'
 import type {
   WardenActionVerb,
   WardenBoard,
@@ -559,8 +559,6 @@ export function resolveQueueAsks(entries: readonly QueueEntry[]): WardenAsk[] {
 /** A decision waiting longer than this many days gets a warning tone on its age. */
 const WAIT_WARN_DAYS = 2
 const DAY_MS = 86_400_000
-
-const glue = (text: string): string => text.replaceAll(' ', NBSP)
 
 /** How often the item was retried and revised, as one fact; `''` when neither happened. */
 function historyFact(row: AwaitingOwnerRow): string {

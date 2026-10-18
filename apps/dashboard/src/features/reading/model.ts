@@ -1,5 +1,5 @@
 import { relativeTime } from 'basalt-ui/format'
-import { NBSP, withUnit } from '../../lib/format'
+import { glue, withUnit } from '../../lib/format'
 
 export type ShelfItem = {
   hardcoverBookId: number
@@ -237,12 +237,11 @@ export function progressPercent(book: ShelfItem): number | null {
 /** `last read 3 months ago` (number glued to its unit, `ago` breakable) or `last read —` with no timestamp. */
 export function lastReadFact(lastRead: number | null, now: number): string {
   if (lastRead === null) return 'last read —'
-  const age = relativeTime(lastRead, { now, numeric: 'always' }).replace(
-    /^(\d+(?:[.,]\d+)?) /,
-    `$1${NBSP}`,
+  // The number, its unit and `last read` are one run; `ago` stays breakable.
+  return `last read ${relativeTime(lastRead, { now, numeric: 'always' })}`.replace(
+    /^last read (?:\d+(?:[.,]\d+)? )?\S+/,
+    glue,
   )
-  const [value = '', ...rest] = age.split(' ')
-  return `last${NBSP}read${NBSP}${value}${rest.length > 0 ? ` ${rest.join(' ')}` : ''}`
 }
 
 // ── Ratings ──────────────────────────────────────────────────────────────────────────────────

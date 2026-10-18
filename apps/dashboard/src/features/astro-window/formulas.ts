@@ -1,7 +1,7 @@
 import { VX } from 'basalt-ui/tokens'
 import { weekday } from 'basalt-ui/format'
 import type { ChartFact } from 'basalt-ui/charts'
-import { NBSP, formatMinutes, withUnit } from '../../lib/format'
+import { NBSP, formatMinutes, glue, withUnit } from '../../lib/format'
 import { CORE_METER_MAX_DEG, CORE_UNIT, MIN_BAR_SHARE } from './constants'
 import type { HourlyPoint, Killer, Night, Verdict, WindowResponse } from './types'
 
@@ -415,8 +415,6 @@ export function offscreenNightsText(count: number): { visible: string; spoken: s
 }
 
 /** Every plain space → no-break space: one phrase that never wraps inside itself. */
-const glue = (text: string): string => text.replaceAll(' ', NBSP)
-
 /** Footer phrases joined by `·`, each dot bound to the phrase before it so a wrapped line never opens on one. */
 const joinPhrases = (phrases: readonly string[]): string => phrases.join(`${NBSP}· `)
 
