@@ -326,6 +326,7 @@ function LiftStrip(props: Params) {
       <StatGroup
         variant="strip"
         label="Estimated 1RM per lift"
+        shotAbsent={['empty']}
         cols={liftCols(cells.length)}
         cells={cells}
       />

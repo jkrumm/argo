@@ -265,5 +265,14 @@ export function HealthStrip({ metrics, health, budget }: Props) {
           key: meter.key,
           content: <BudgetMeterRow meter={meter} />,
         }))
-  return <StatGroup variant="strip" label="Warden health" cols={6} cells={cells} footer={footer} />
+  return (
+    <StatGroup
+      variant="strip"
+      label="Warden health"
+      cols={6}
+      cells={cells}
+      footer={footer}
+      shotAbsent={['empty']}
+    />
+  )
 }

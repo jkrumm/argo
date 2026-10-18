@@ -747,7 +747,7 @@ describe('cloudHeadline', () => {
     expect(cloudHeadline(stat)).toEqual({
       value: '40\u00a0%',
       unit: 'low\u00a0cloud',
-      period: '· dark-hours\u00a0mean',
+      period: ['dark-hours\u00a0mean'],
     })
   })
 })
