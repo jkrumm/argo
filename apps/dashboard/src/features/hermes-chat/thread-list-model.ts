@@ -298,3 +298,22 @@ export function untitledLabel(count: number, oldestAge: string): string {
 export function oldestUpdatedAt(entries: readonly ThreadEntry[]): number {
   return entries.reduce((min, entry) => Math.min(min, entry.updatedAt), Number.POSITIVE_INFINITY)
 }
+
+/**
+ * The line under the last row of an unfiltered list: that the list is complete, since when, and what
+ * is hidden in the archive, so a short list reads as "all of it" rather than a half-loaded page.
+ */
+export function listEndNote(
+  entries: readonly ThreadEntry[],
+  archivedCount: number,
+  now: number,
+): string | null {
+  if (entries.length === 0) return null
+  const oldest = entries.reduce(
+    (min, entry) => Math.min(min, entry.createdAt),
+    Number.POSITIVE_INFINITY,
+  )
+  const noun = entries.length === 1 ? 'thread' : 'threads'
+  const archive = archivedCount > 0 ? `, plus ${archivedCount} archived` : ''
+  return `That is every thread: ${entries.length} ${noun} since ${startedDate(oldest, now)}${archive}. Type below to start another.`
+}

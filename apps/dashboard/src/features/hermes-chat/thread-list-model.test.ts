@@ -12,6 +12,7 @@ const {
   listTime,
   startedDate,
   summarize,
+  listEndNote,
   summaryHeadline,
   untitledLabel,
 } = await import('./thread-list-model')
@@ -220,5 +221,28 @@ describe('factsParts', () => {
       'last reply 09:41',
     ])
     expect(factsParts({ entry: e, now: NOW, compact: true })).toEqual(['last reply 3 Oct', 'Infra'])
+  })
+})
+
+describe('listEndNote', () => {
+  const entry = (createdAt: number): ThreadEntry => ({
+    id: String(createdAt),
+    title: 't',
+    summary: null,
+    type: null,
+    pinned: false,
+    archived: false,
+    streaming: false,
+    persisted: true,
+    createdAt,
+    updatedAt: createdAt,
+  })
+  it('is null without threads', () => {
+    expect(listEndNote([], 0, NOW)).toBeNull()
+  })
+  it('names the count, the oldest start and the archive', () => {
+    const note = listEndNote([entry(NOW), entry(NOW - 1000)], 2, NOW)
+    expect(note).toMatch(/^That is every thread: 2 threads since .+, plus 2 archived\./)
+    expect(listEndNote([entry(NOW)], 0, NOW)).toMatch(/1 thread since [^,]+\. Type below/)
   })
 })

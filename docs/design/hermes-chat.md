@@ -117,3 +117,9 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** pass: every component except the thread-list hover, which is invisible in light (dark tints the row).
 - **Against Keel:** does not yet — three rows then an empty page above the composer; title and summary run together on one line.
+
+### Wave 25 fixes
+
+- Thread-list row hover: a 6 % `--vx-ink` wash replaces `--vx-surface-panel-hover` (lighter than the panel in light mode, so invisible).
+- Row layout: title on its own line, muted summary on the line beneath; the narrow container-query layout is gone because one stacked layout fits both widths.
+- List end note: under an unfiltered list, `That is every thread: {n} threads since {date}, plus {m} archived. Type below to start another.` (`listEndNote`, tested), so a short list reads as complete rather than empty.
