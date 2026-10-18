@@ -299,7 +299,7 @@ export function listEndNote(
 
 const SUMMARY_MAX_CHARS = 110
 /** Two lines of the phone's full-width body, cut at a word so the line clamp never has to clip mid-word. */
-const SUMMARY_MAX_CHARS_COMPACT = 80
+export const SUMMARY_MAX_CHARS_COMPACT = 80
 
 /**
  * A summary cut at a word boundary with an ellipsis; short text passes through with whitespace
@@ -315,7 +315,7 @@ export function clampAtWord(text: string, max: number = SUMMARY_MAX_CHARS): stri
 }
 
 /** A row title on the phone wraps to two lines, so it is cut at a word past two lines' worth; the CSS clamp stays as the backstop. */
-const TITLE_MAX_CHARS_COMPACT = 52
+const TITLE_MAX_CHARS_COMPACT = 70
 
 export function titleExcerpt(title: string, compact: boolean): string {
   return compact ? clampAtWord(title, TITLE_MAX_CHARS_COMPACT) : title

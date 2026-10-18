@@ -25,6 +25,7 @@ import {
   chatTitle,
   chipCounts,
   visibleChipCounts,
+  showTagChips,
   coverageOf,
   headlineOf,
   labeledPaneTitle,
@@ -135,6 +136,8 @@ export function M365ExplorerPage(): ReactElement {
   const tag = validTag(storedTag, tagNames)
   const kindCounts = chatKindCounts(chatRows)
   const chatsCapped = isCapped(chatRows.length)
+  const noChats = chatRows.length === 0
+  const noTeams = teams.length === 0
 
   const coverage = coverageOf({
     chatIds: chatRows.map((r) => r.ref.chatId),
@@ -286,9 +289,9 @@ export function M365ExplorerPage(): ReactElement {
 
   const sourcesPane = (
     <>
-      {counts.all === 0 ? null : (
+      {showTagChips(counts.all, tag) ? (
         <TagChips active={tag} counts={counts} scope={SCOPE_BY_VIEW[view]} onChange={setTag} />
-      )}
+      ) : null}
       {view === 'feed' ? (
         labeledPane
       ) : (
@@ -308,8 +311,7 @@ export function M365ExplorerPage(): ReactElement {
   )
   // The detail side: the feed in the feed view, the open record, else the labeled sources on a wide
   // screen (a phone has its own Labeled pane) or a hint on a phone.
-  const noSources = view === 'chats' ? chatRows.length === 0 : teamRows.length === 0
-  const emptyDetail = noSources ? null : (
+  const emptyDetail = (view === 'chats' ? noChats : noTeams) ? null : (
     <p className={classes.empty}>Pick a chat or channel in Sources to open it</p>
   )
   const detailPane =
@@ -387,7 +389,8 @@ export function M365ExplorerPage(): ReactElement {
           chats={kindCounts}
           channels={channelsTotal}
           largestTeam={largestTeam(teamSizes)}
-          teams={teamsQ.isSuccess ? teams.length : null}
+          noChats={noChats}
+          noTeams={noTeams}
           onRetry={retryFailed}
         />
 

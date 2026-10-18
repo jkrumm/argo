@@ -90,6 +90,8 @@ export default function HealthCard({
   // The timeseries emits a null bucket for every empty day, so rows are judged by their value: a
   // window has calls when any bucket carries an error rate.
   const hasCalls = rates.buckets.some((b) => b.groups['value'] != null)
+  // No calls in the window: neither half has a reading, so the card says so once instead of
+  // printing a zero count beside a dash.
   const emptyWindow = noUsageWindow(billing !== undefined || workspace !== undefined)
   const unit = grain === 'day' ? 'day' : 'week'
   const last = p95.at(-1)
@@ -111,8 +113,6 @@ export default function HealthCard({
     <ChartCard
       title={`Latency and errors · per ${unit} · ${periodNoun(range)}`}
       info={healthInfo(unit)}
-      // No calls in the window: neither half has a reading, so the card says so once instead of
-      // printing a zero count beside a dash.
       state={{ empty: !hasCalls && emptyWindow }}
     >
       <Box className={classes.healthBox}>
