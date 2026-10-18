@@ -14,10 +14,19 @@ export function parseShotState(search: string): ShotState | null {
 }
 
 // Read once at load: a router that later rewrites the search must not drop the state mid-capture.
-const LOADED_WITH = typeof window === 'undefined' ? null : parseShotState(window.location.search)
+const LOADED_WITH = parseShotState(globalThis.location?.search ?? '')
 
 export function shotState(): ShotState | null {
   return LOADED_WITH
+}
+
+/**
+ * Wraps a route loader so it does not run under `loading` / `error`: an awaited loader would hold the
+ * whole route on its pending screen or replace it with the error screen, so no card's own pending /
+ * error branch would ever render. Under `empty` and in production the loader runs unchanged.
+ */
+export function shotLoader<A, R>(loader: (args: A) => R): (args: A) => R | undefined {
+  return (args) => (LOADED_WITH === 'loading' || LOADED_WITH === 'error' ? undefined : loader(args))
 }
 
 /** `fetch` for the API client: never settles under `loading`, answers 503 under `error`. */
