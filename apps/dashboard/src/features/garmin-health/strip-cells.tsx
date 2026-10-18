@@ -36,6 +36,7 @@ import {
   missingInputs,
   recoveryGap,
   loadGap,
+  chartEmpty,
   windowCopyDays,
   fmtNum,
   shortDate,
@@ -315,6 +316,31 @@ function useFitnessCell(): StatStripCell {
   }, [seriesData])
 
   const d = empty ? undefined : direction.data
+  // Settled with no reading at all: one line with cause and next step (the neighbours' wording),
+  // not a hero, a qualifier and three rows of dashes. A pending or placeholder read is not a gap.
+  const settled =
+    empty ||
+    ([direction, series, history].every((q) => q.isSuccess) &&
+      ![direction, series, history].some((q) => q.isPlaceholderData))
+  const noReading =
+    settled &&
+    vo2.values.length === 0 &&
+    d?.label === undefined &&
+    rows.rhr.every((v) => v === null) &&
+    rows.hrv.every((v) => v === null)
+  if (noReading) {
+    return {
+      key: 'fitness',
+      caption: 'Fitness',
+      visual: (
+        <Meter
+          label="Fitness signals"
+          value={null}
+          emptyText={chartEmpty('RHR, HRV or VO2max', FITNESS_DAYS)}
+        />
+      ),
+    }
+  }
   return {
     key: 'fitness',
     caption: 'Fitness',
