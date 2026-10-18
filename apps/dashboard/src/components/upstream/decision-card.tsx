@@ -179,6 +179,7 @@ export function DecisionCard({
       <Group align="stretch" gap="md" wrap="wrap">
         <Stack gap="sm" flex="1 1 14rem" miw={0}>
           <Text component="h3" m={0} fw={600} size="md" lh={1.35} className={classes.question}>
+            {/* Render-only: the copy model and the question rung stay raw. */}
             {glueIdentifiers(question)}
           </Text>
           {isRenderable(subject) && (

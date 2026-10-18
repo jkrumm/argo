@@ -7,17 +7,22 @@ export const NBSP = ' '
 /** Every plain space becomes a no-break space: the phrase wraps as one run. */
 export const glue = (text: string): string => text.replaceAll(' ', NBSP)
 
-/** Word joiner: zero-width, forbids a line break on either side of it. */
-export const WJ = '\u2060'
+/** Every no-break space becomes a plain space: the inverse of {@link glue}, for comparing text. */
+export const unglue = (text: string): string => text.replaceAll(NBSP, ' ')
+
+const WJ = '\u2060'
+
+/** A `-` or `/` with a non-space char on both sides in its token, not already followed by a joiner. */
+const IDENTIFIER_JOINT = /(?<=\S)[-/](?=\S)(?!\u2060)/g
 
 /**
- * Keeps each identifier (`repo/branch`, `a-b_c` ids, paths) whole on one line: a joiner after every
- * inner `-` or `/` removes the break opportunity browsers give there. Spaces stay breakable, so a
- * title still wraps between words; an identifier wider than its box still breaks as a last resort
- * (`overflow-wrap: anywhere`).
+ * Keeps each identifier (`repo/branch`, `a-b_c` ids, paths) whole on one line: a word joiner after
+ * every inner `-` or `/` removes the break opportunity browsers give there. Spaces stay breakable, so
+ * a title still wraps between words; an identifier wider than its box still breaks as a last resort
+ * (`overflow-wrap: anywhere`). Idempotent. Render-only: strip `\u2060` to get the raw text back.
  */
 export const glueIdentifiers = (text: string): string =>
-  text.replace(/(?<=[^\s\u2060\-/])([-/])(?=[^\s\-/])/g, `$1${WJ}`)
+  text.replace(IDENTIFIER_JOINT, (joint) => `${joint}${WJ}`)
 
 /** An arrow with a no-break space each side, so a line never wraps right before or after it. */
 export const ARROW = `${NBSP}→${NBSP}`
