@@ -13,20 +13,21 @@ import {
   withFacts,
 } from '../formulas'
 import type { HourlyPoint, Night } from '../types'
+import { timelineDomain } from './night-timeline-domain'
 
-const Y_DOMAIN: [number, number] = [-20, 20]
 const Y_TICKS = 5
 
 /** A track outside the plot's altitude domain is a gap: it is not drawn, so it has no hover row either. */
-const inPlot = (v: number): number | null => (v < Y_DOMAIN[0] || v > Y_DOMAIN[1] ? null : v)
+const inPlot = (v: number, domain: readonly [number, number]): number | null =>
+  v < domain[0] || v > domain[1] ? null : v
 
-const PLOT_SERIES: ChartSeries<HourlyPoint>[] = [
+const plotSeries = (domain: readonly [number, number]): ChartSeries<HourlyPoint>[] => [
   {
     key: 'core',
     label: 'Galactic core',
     color: SERIES.coreAltitude,
     strokeWidth: 2,
-    getValue: (d) => inPlot(d.coreAltitude),
+    getValue: (d) => inPlot(d.coreAltitude, domain),
     // The row pairs the plotted altitude with its bearing, read straight off the hovered datum.
     formatValue: (v, d) => `${fmtDegrees(v)} · ${fmtAzimuth(d.coreAzimuth)}`,
   },
@@ -36,7 +37,7 @@ const PLOT_SERIES: ChartSeries<HourlyPoint>[] = [
     color: SERIES.moonAltitude,
     dash: 'dashed',
     strokeWidth: 1.5,
-    getValue: (d) => inPlot(d.moonAltitude),
+    getValue: (d) => inPlot(d.moonAltitude, domain),
     formatValue: fmtDegrees,
   },
   {
@@ -46,7 +47,7 @@ const PLOT_SERIES: ChartSeries<HourlyPoint>[] = [
     dash: 'dashed',
     strokeWidth: 1,
     role: 'reference',
-    getValue: (d) => inPlot(d.sunAltitude),
+    getValue: (d) => inPlot(d.sunAltitude, domain),
     formatValue: fmtDegrees,
   },
 ]
@@ -96,6 +97,8 @@ export default function NightTimelineChart({
   withMiss: boolean
 }) {
   const win = night.window
+  const domain = useMemo(() => timelineDomain(hourly), [hourly])
+  const series = useMemo(() => plotSeries(domain), [domain])
   const fact = windowFact(night, { withMiss })
   const refLines =
     night.coreGateDeg === null
@@ -154,8 +157,8 @@ export default function NightTimelineChart({
         x={(d) => new Date(d.time)}
         xTicks={hourlyTicks(hourly)}
         formatX={hourlyTimeLabel(hourly)}
-        series={PLOT_SERIES}
-        y={{ domain: Y_DOMAIN, ticks: Y_TICKS, format: (v) => `${v}°`, grid: false }}
+        series={series}
+        y={{ domain, ticks: Y_TICKS, format: (v) => `${v}°`, grid: false }}
         xZones={zones}
         legend={{ placement: 'header' }}
         refLines={refLines}
