@@ -51,9 +51,20 @@ describe('feedGap', () => {
       text: 'Google and Microsoft 365 failed to load — reload to retry',
       card: 'Google and Microsoft 365 failed to load',
     })
-    expect(feedGap(new Set(['personal', 'work']), new Set(['work']))?.text).toBe(
+    expect(feedGap(new Set(['work']), new Set(['work']))?.text).toBe(
       'Microsoft 365 failed to load — reload to retry',
     )
+  })
+})
+
+describe('feedGap mixed state', () => {
+  it('names a failed and a loading source together', () => {
+    const gap = feedGap(new Set(['personal', 'work']), new Set(['work']))
+    expect(gap).toMatchObject({
+      state: 'error',
+      card: 'Microsoft 365 failed to load · Google loading',
+      text: 'Microsoft 365 failed to load · Google loading — reload to retry',
+    })
   })
 })
 

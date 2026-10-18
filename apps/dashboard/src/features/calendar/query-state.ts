@@ -32,25 +32,32 @@ export type FeedGap = {
   card: string
 }
 
+/** Both calendars, as a reason line names them: `Google or Microsoft 365`. */
+export const SOURCES_LABEL = `${SOURCE_LABEL.personal} or ${SOURCE_LABEL.work}`
+
 /**
  * Why calendar figures are unknown, worded once for every place that says so. `null` when every
- * source has answered. A failed source wins over a loading one: it is the one the owner can act on.
+ * source has answered. A failure carries the next step in the headline only; a card states the
+ * same gap without it, and names a source that is still loading beside one that failed.
  */
 export function feedGap(
   unknown: ReadonlySet<keyof typeof SOURCE_LABEL>,
   failedSources: ReadonlySet<keyof typeof SOURCE_LABEL>,
 ): FeedGap | null {
   if (unknown.size === 0) return null
-  const names = (['personal', 'work'] as const)
-    .filter((key) => failedSources.has(key))
-    .map((key) => SOURCE_LABEL[key])
-  if (names.length === 0) return { state: 'loading', text: 'Loading calendar', card: 'Loading' }
-  const card = `${names.join(' and ')} failed to load`
-  return {
-    state: 'error',
-    text: `${card} — reload to retry`,
-    card,
-  }
+  const named = (pick: (key: keyof typeof SOURCE_LABEL) => boolean) =>
+    (['personal', 'work'] as const)
+      .filter((key) => unknown.has(key) && pick(key))
+      .map((key) => SOURCE_LABEL[key])
+      .join(' and ')
+  const failedNames = named((key) => failedSources.has(key))
+  if (failedNames === '') return { state: 'loading', text: 'Loading calendar', card: 'Loading' }
+  const loadingNames = named((key) => !failedSources.has(key))
+  const card = [
+    `${failedNames} failed to load`,
+    ...(loadingNames ? [`${loadingNames} loading`] : []),
+  ].join(' · ')
+  return { state: 'error', text: `${card} — reload to retry`, card }
 }
 
 /**
