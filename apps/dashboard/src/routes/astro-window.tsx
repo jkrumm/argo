@@ -26,6 +26,7 @@ import {
   VerdictCard,
   markedNightOf,
   headlineFirstDate,
+  forecastView,
   headlineNight,
   pageSummary,
   BASE_LAYER_IDS,
@@ -273,9 +274,10 @@ function AstroWindowPage() {
   // Where the selected night's miss is stated, once: Tonight's verdict card, or the Forecast timeline
   // (which has no card). The headline names the marked night per `headlineNight`.
   const timelineNamesMiss = search.tab === 'forecast'
-  // A site id the list does not hold has no night to present: the Forecast tab states that gap once
-  // (UnknownSiteCard) instead of a full night beside it. Production and the `empty` shot take this same branch.
-  const unknownSite = search.tab === 'forecast' && !selectedSite
+  // GET /astro/window 404s an id missing from the committed list, so this is reached only when the
+  // fetched site list lacks a site the window still resolves (an empty or failed list included, which
+  // is what the `empty` shot substitutes). The gap is then stated once, by the unknown-site card.
+  const forecast = forecastView(search.tab, selectedSite, selectedNight)
   const summary = pageSummary(data, {
     withWindow: search.tab === 'forecast',
     firstDate: headlineFirstDate(data, { selectedDate }),
@@ -346,7 +348,9 @@ function AstroWindowPage() {
         </Suspense>
       ) : (
         <Stack gap="sm">
-          {!unknownSite && <PageSummary sentence={summary.sentence} facts={summary.facts} />}
+          {forecast !== 'unknown-site' && (
+            <PageSummary sentence={summary.sentence} facts={summary.facts} />
+          )}
           {search.tab === 'tonight' && selectedNight && (
             <TonightTop
               verdict={
@@ -369,7 +373,7 @@ function AstroWindowPage() {
             />
           )}
 
-          {!unknownSite && (
+          {forecast !== 'unknown-site' && (
             <NightStrip
               nights={data.nights}
               selectedDate={selectedDate}
@@ -378,7 +382,7 @@ function AstroWindowPage() {
             />
           )}
 
-          {!unknownSite && selectedNight === null && (
+          {forecast !== 'unknown-site' && selectedNight === null && (
             <Text size="sm" c="dimmed">
               No forecast for {selectedDate}
             </Text>
@@ -413,13 +417,13 @@ function AstroWindowPage() {
             </>
           )}
 
-          {unknownSite && (
+          {forecast === 'unknown-site' && (
             <Box data-shot="unknown-site">
               <UnknownSiteCard siteId={deferredParams.site} />
             </Box>
           )}
 
-          {search.tab === 'forecast' && selectedSite && selectedNight && (
+          {forecast === 'night' && selectedSite && selectedNight && (
             <>
               <Box data-shot="night-timeline">
                 <NightTimelineChart

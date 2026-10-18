@@ -39,6 +39,7 @@ export {
   headlineNight,
   markedNightOf,
   pageSummary,
+  forecastView,
 } from './formulas'
 
 export {
