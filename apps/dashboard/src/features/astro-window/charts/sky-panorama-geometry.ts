@@ -12,9 +12,20 @@ export type HorizonProfilePoint = {
   nearAltitudeDeg: number
 }
 
-/** Fixed domain per the research POC — the core never passes ~13.5° at 48°N, but a walled-in
- * site's northern skyline can reach 34°, so the plot has to hold terrain as well as sky. */
+/** The widest the altitude axis ever gets (a walled-in site's northern skyline can reach 34°); the
+ * floor is fixed at −4°, the top is fitted to the data by `fitAltDomain`. */
 export const ALT_DOMAIN: readonly [number, number] = [-4, 52]
+
+/** Never fitted tighter than this, so the 8° atmospheric floor and the gate line always sit inside the plot. */
+const MIN_ALT_TOP = 16
+
+/** The altitude axis fitted to what is drawn: the highest of the given altitudes (skyline, gate,
+ * tracks) plus a little headroom, rounded up to a 4° step, inside `ALT_DOMAIN` and never under `MIN_ALT_TOP`. */
+export function fitAltDomain(altitudes: readonly number[]): [number, number] {
+  const peak = Math.max(0, ...altitudes)
+  const top = Math.ceil((peak + 2) / 4) * 4
+  return [ALT_DOMAIN[0], Math.min(ALT_DOMAIN[1], Math.max(MIN_ALT_TOP, top))]
+}
 
 /** Coarse skyglow-field cell size, degrees — "a coarse interpolated grid", not a pixel-accurate
  * raster. */
@@ -113,8 +124,7 @@ export function profileRows(
 export type GlowCell = { az0: number; az1: number; alt0: number; alt1: number; mpsas: number }
 
 /** The skyglow rose resampled onto a coarse azimuth × altitude cell grid covering the plot. */
-export function glowCells(rose: SkyglowRose): GlowCell[] {
-  const top = ALT_DOMAIN[1]
+export function glowCells(rose: SkyglowRose, top: number = ALT_DOMAIN[1]): GlowCell[] {
   const cells: GlowCell[] = []
   for (let az = 0; az < 360; az += GLOW_AZ_STEP) {
     for (let alt = 0; alt < top; alt += GLOW_ALT_STEP) {

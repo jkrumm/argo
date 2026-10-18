@@ -1,7 +1,7 @@
 import { VX } from 'basalt-ui/tokens'
 import { percent, weekday } from 'basalt-ui/format'
 import { MIN_BAR_SHARE } from './constants'
-import type { Night, Verdict, WindowResponse } from './types'
+import type { HourlyPoint, Night, Verdict, WindowResponse } from './types'
 
 /** Verdict → tone. `out` is a hard gate, not a low score, so it reads neutral, never red. */
 export function verdictTone(verdict: Verdict): string {
@@ -193,18 +193,55 @@ function rawGapToGate(night: Night): number | null {
   return Math.max(0, night.coreGateDeg - night.gateCoreAltitude)
 }
 
-/** `OUT · core 3.9° under the gate` / `GO · Sat 17, 23:10–01:40 · 2h 30m`. The API rules; this phrases. */
+/** The verdict as a word and a tone: drawn as a status dot + word, never a bare word. `out` is a gate ruling, so it reads neutral. */
+export function verdictStatus(night: Night): { word: 'GO' | 'OUT'; tone: 'good' | 'muted' } {
+  return night.verdict === 'out' ? { word: 'OUT', tone: 'muted' } : { word: 'GO', tone: 'good' }
+}
+
+/** Which gate a ruled-out night misses and by how much: `core 3.9° under its gate`, else the API's first killer. */
+export function gateMissText(night: Night): string {
+  const gap = gapToGate(night)
+  if (gap !== null && gap > 0) return `core ${fmtDegrees(gap)} under its gate`
+  const first = night.killers[0]
+  return first === undefined ? 'ruled out' : first.label.toLowerCase()
+}
+
+/** `Sat 17, 23:10–01:40 · 2h 30m` for a GO night, `core 3.9° under its gate` for an OUT one (the status dot carries GO/OUT). */
 export function verdictHeadline(night: Night): string {
   if (night.verdict !== 'out') {
     const shoot = night.window
     return shoot === null
-      ? `GO · ${fmtShortDay(night.date)}`
-      : `GO · ${fmtShortDay(night.date)}, ${shoot.localStart}–${shoot.localEnd} · ${fmtMinutes(shoot.minutes)}`
+      ? fmtShortDay(night.date)
+      : `${fmtShortDay(night.date)}, ${shoot.localStart}–${shoot.localEnd} · ${fmtMinutes(shoot.minutes)}`
   }
-  const gap = gapToGate(night)
-  if (gap !== null && gap > 0) return `OUT · core ${fmtDegrees(gap)} under the gate`
-  const first = night.killers[0]
-  return first === undefined ? 'OUT' : `OUT · ${first.label.toLowerCase()}`
+  return gateMissText(night)
+}
+
+/** The next usable night after `date`, with its shooting window; or that none of the nights shown is usable. */
+export function nextUsableText(nights: readonly Night[], date: string): string {
+  const next = nights.find((n) => n.date > date && n.verdict !== 'out')
+  if (next === undefined) return `no usable night in the next ${nights.length} nights`
+  const minutes = next.window === null ? '' : `, ${fmtMinutes(next.window.minutes)}`
+  return `next usable ${fmtShortDay(next.date)}${minutes}`
+}
+
+/** Failed gates after the first, `also moon 92 %`-style: the API's own killer labels. */
+export function alsoFailed(night: Night): string | null {
+  const rest = night.killers.slice(1).map((k) => k.label.toLowerCase())
+  return rest.length === 0 ? null : `also failed: ${rest.join(', ')}`
+}
+
+const COMPASS_WORDS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'] as const
+
+/** The 8-point compass word an azimuth (degrees from north through east) falls in. */
+export function compassWord(azimuthDeg: number): string {
+  const index = Math.round((((azimuthDeg % 360) + 360) % 360) / 45) % 8
+  return COMPASS_WORDS[index] ?? 'N'
+}
+
+/** `az 180° S` — an azimuth with its unit and compass word. */
+export function fmtAzimuth(azimuthDeg: number): string {
+  return `az ${Math.round(azimuthDeg)}° ${compassWord(azimuthDeg)}`
 }
 
 /** Degrees short of the core gate, UNROUNDED, the one gap the strip can draw. Null for any other kind of night. */
@@ -300,7 +337,7 @@ export function pageSummary(
   const nightWord = total === 1 ? 'night' : 'nights'
   const sentence =
     usable === 0
-      ? `No usable night${total === 1 ? '' : ` in the next ${total}`}`
+      ? `No usable night${total === 1 ? '' : ` in the next ${total} nights`}`
       : `${usable} of ${total} ${nightWord} usable`
   const facts: string[] = []
   if (usable > 0 && marked !== null) {
@@ -308,10 +345,47 @@ export function pageSummary(
     const range = withWindow && shoot !== null ? `, ${shoot.localStart}–${shoot.localEnd}` : ''
     facts.push(`best ${fmtShortDay(marked.date)}${range}`)
   } else if (usable === 0 && marked !== null) {
-    facts.push(`closest ${fmtShortDay(marked.date)}`)
+    facts.push(`closest ${fmtShortDay(marked.date)}, ${gateMissText(marked)}`)
   } else if (usable === 0 && data.bestDate !== null) {
     facts.push(`first ${fmtShortDay(data.bestDate)}`)
   }
   if (usable > 0 && usable < total) facts.push(`${total - usable} ruled out`)
   return { sentence, facts, aside: data.location.name }
+}
+
+/** The timeline's one fact: the shooting window's length and clock range, or why there is none. */
+export function windowFact(night: Night): { value: string; period: string } {
+  const shoot = night.window
+  if (shoot !== null) {
+    return {
+      value: fmtMinutes(shoot.minutes),
+      period: `shooting window ${shoot.localStart}–${shoot.localEnd}`,
+    }
+  }
+  return { value: 'No window', period: gateMissText(night) }
+}
+
+/** The thickest low cloud inside astronomical dark (all samples when none is dark): the layer that ends a night. Null without data. */
+export function peakLowCloud(
+  hourly: readonly HourlyPoint[],
+): { pct: number; dark: boolean } | null {
+  const dark = hourly.filter((d) => d.astroDark)
+  const pool = dark.length > 0 ? dark : hourly
+  const values = pool.flatMap((d) => (d.cloudLow === null ? [] : [d.cloudLow]))
+  return values.length === 0
+    ? null
+    : { pct: Math.round(Math.max(...values)), dark: dark.length > 0 }
+}
+
+/** The month with the most usable core hours, from the per-month minutes the API sends (index 0 = January). */
+export function peakMonth(
+  minutesByMonth: readonly (number | undefined)[],
+): { monthIndex: number; hours: number } | null {
+  let best: { monthIndex: number; hours: number } | null = null
+  minutesByMonth.forEach((minutes, monthIndex) => {
+    if (minutes === undefined) return
+    const hours = Math.round((minutes / 60) * 10) / 10
+    if (best === null || hours > best.hours) best = { monthIndex, hours }
+  })
+  return best
 }

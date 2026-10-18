@@ -1,19 +1,18 @@
 export const METRIC_TOOLTIPS = {
   nightTimeline:
-    'Galactic core, moon and sun altitude across the night. Shaded bands mark astronomical dark (faint) and the recommended shooting window (stronger, with a top rule). The sun line explains where the dark bands come from.',
+    'Altitude is degrees above the horizon. Astronomical dark is when the sun is more than 18° below it. The shooting window is the stretch of dark when the core clears its gate and the moon is down or under the limit.',
   cloudLayers:
-    'Low/mid/high cloud cover (%) across the same night, same time axis as the timeline above. Low cloud ends a night outright; high cloud only costs contrast.',
+    'Cloud cover is the share of sky covered, per layer. Low cloud (under about 2 km) ends a night outright; high cloud (cirrus) only costs contrast.',
   skyPanorama:
-    "Azimuth × altitude panorama for the selected night: the measured terrain skyline, the artificial skyglow rose behind it, and the tracks the sun, moon and galactic core walk across it. Scrub the slider to see where each one sits at a given time — it opens on the core's highest point while astronomically dark.",
+    'Azimuth is the compass bearing, degrees clockwise from north. The skyline is the measured terrain; the gate is the higher of the 8° atmospheric floor and the skyline plus the framing margin. Skyglow is artificial sky brightness in mag/arcsec²; dark sky is 21.6 or higher.',
   monthlyBudget:
-    'Usable galactic-core hours per calendar month at this site, under three progressively honest gates: the flat atmospheric floor, the same floor plus the measured terrain skyline, and terrain with the moon also counted down when it sits behind that skyline. Weather-free and deterministic — answers whether the SITE is worth the drive, not whether tonight is.',
+    'Hours per calendar month in which the core is above the gate, at this site, counted three ways: above the flat 8° floor, above the floor and the measured skyline, and with the moon also counted down when it sits behind that skyline. Weather is not included.',
 } as const
 
 export const CHART_HEIGHT = 260
 
-/** Taller than CHART_HEIGHT — the panorama's altitude domain (−4° to 52°) needs the extra room a
- * single night's timeline doesn't. */
-export const PANORAMA_HEIGHT = 420
+/** Slightly taller than CHART_HEIGHT: the panorama carries the skyline, the gate and three tracks on one pair of axes. */
+export const PANORAMA_HEIGHT = 320
 
 /** Fixed height so the map and the night-facts panel line up exactly. */
 export const SIDE_PANEL_HEIGHT = 620

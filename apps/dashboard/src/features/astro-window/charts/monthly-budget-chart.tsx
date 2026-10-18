@@ -6,6 +6,7 @@ import { chartStateOf } from '../../../lib/chart-state'
 import { astroQueries } from '../../../lib/queries/astro'
 import { SERIES } from '../../../lib/series'
 import { CHART_HEIGHT, METRIC_TOOLTIPS } from '../constants'
+import { peakMonth } from '../formulas'
 import type { Site } from '../types'
 
 const MONTH_LABELS = [
@@ -86,17 +87,19 @@ export default function MonthlyBudgetChart({ site }: { site: Site }) {
     [data],
   )
 
-  const peakRow = rows.reduce<MonthRow | null>(
-    (best, row) => ((row.terrainMoon ?? -1) > (best?.terrainMoon ?? -1) ? row : best),
-    null,
-  )
-  const peakTitle =
-    peakRow?.terrainMoon != null ? ` · peak ${peakRow.month} ${peakRow.terrainMoon} h` : ''
+  const peak = data === undefined ? null : peakMonth(data.terrainMoon.byMonth)
 
   return (
     <ChartCard
-      title={`Usable core hours per month${peakTitle}`}
+      title="Usable core hours per month"
       info={METRIC_TOOLTIPS.monthlyBudget}
+      {...(peak !== null && {
+        facts: {
+          value: `${peak.hours} h`,
+          unit: `in ${MONTH_LABELS[peak.monthIndex]}`,
+          period: 'best month, skyline and moon counted',
+        },
+      })}
       state={chartStateOf(
         query,
         rows.length === 0 ? 'No visibility budget for this site' : undefined,

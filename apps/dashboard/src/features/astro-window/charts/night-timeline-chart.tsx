@@ -3,7 +3,14 @@ import { ChartCard, Lines, type ChartSeries, type XZoneSpec } from 'basalt-ui/ch
 import { alpha, VX } from 'basalt-ui/tokens'
 import { SERIES } from '../../../lib/series'
 import { CHART_HEIGHT, METRIC_TOOLTIPS } from '../constants'
-import { fmtDegrees, fmtShortDay, hourlyTicks, hourlyTimeLabel } from '../formulas'
+import {
+  fmtAzimuth,
+  fmtDegrees,
+  fmtShortDay,
+  hourlyTicks,
+  hourlyTimeLabel,
+  windowFact,
+} from '../formulas'
 import type { HourlyPoint, Night } from '../types'
 
 const Y_DOMAIN: [number, number] = [-20, 20]
@@ -16,8 +23,8 @@ const PLOT_SERIES: ChartSeries<HourlyPoint>[] = [
     color: SERIES.coreAltitude,
     strokeWidth: 2,
     getValue: (d) => d.coreAltitude,
-    // The row pairs the plotted altitude with azimuth, read straight off the hovered datum.
-    formatValue: (v, d) => `${fmtDegrees(v)} / ${fmtDegrees(d.coreAzimuth)}`,
+    // The row pairs the plotted altitude with its bearing, read straight off the hovered datum.
+    formatValue: (v, d) => `${fmtDegrees(v)} · ${fmtAzimuth(d.coreAzimuth)}`,
   },
   {
     key: 'moon',
@@ -82,6 +89,7 @@ export default function NightTimelineChart({
   night: Night
 }) {
   const win = night.window
+  const fact = windowFact(night)
   const refLines =
     night.coreGateDeg === null
       ? HORIZON
@@ -126,8 +134,9 @@ export default function NightTimelineChart({
 
   return (
     <ChartCard
-      title={`Core, moon and sun altitude · ${fmtShortDay(night.date)}${win === null ? '' : ` · ${win.localStart}–${win.localEnd}`}`}
+      title={`Core, moon and sun altitude · ${fmtShortDay(night.date)}`}
       info={METRIC_TOOLTIPS.nightTimeline}
+      facts={fact}
       state={{ empty: hourly.length === 0 && 'No hourly data for this night' }}
       placeholderHeight={CHART_HEIGHT}
     >

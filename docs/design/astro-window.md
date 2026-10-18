@@ -146,3 +146,14 @@ No basalt gaps.
 
 - **Reviewer:** fail: the headline lost its noun (`No usable night in the next {n}`) and `closest {day}` carries no shortfall; `OUT` is a bare word with no dot; the core and cloud cells show no gate or limit to compare against; the sky ramp has an unlabelled second marker; the source dots carry no word; the Forecast tooltips narrate the charts; azimuth readouts have no label; the panorama's 0–50° domain leaves most of the plot blank; cloud layers are labelled twice. The strip now passes: every night's bar differs and the 390 `{n} more nights` cue shows. Basalt: the site select still clips, the meter caption `scale 0–30°`, cloud direct labels colliding with lines.
 - **Against Keel:** close — the headline works and the strip now reads per night; the OUT verdict card is still half empty beside the tall gates card, and the Forecast charts carry no per-chart verdict line.
+
+### Wave 25 fixes
+
+- Headline: `No usable night in the next {n} nights`; the closest night now states its miss (`closest {day}, core {x}° under its gate`, else the API's first killer) via `gateMissText()`.
+- Verdict: `OUT`/`GO` is a status dot + word (`verdictStatus()`), the question line carries only the reason or window. An OUT card also lists further failed gates (`alsoFailed()`) and the next usable night (`nextUsableText()`), which fills the space beside the gates card.
+- Sources: every dot carries a word (`{name} up` / `{name} down`).
+- Core cell: transit altitude drawn against the core gate (meter tick + `gate {x}°` in the footer). Cloud cell: the meters are gone (the API exposes no cloud limit to compare against); the three layer values stand alone under `Cloud cover`.
+- Sky ramp: the unlabeled tick is named in the footer (`dark sky from 21.6`).
+- Forecast: tooltips are definitions, not drawing narration; azimuths read `az {deg}° {compass}` (`fmtAzimuth()`); the panorama's altitude axis is fitted to skyline, gate and tracks (`fitAltDomain()`, height 420 → 320); cloud legend entries are `Low`/`Mid`/`High` (the title already says cloud); each chart has a facts line (`windowFact()`, `peakLowCloud()`, core-at-its-highest, `peakMonth()`).
+
+No basalt gaps.
