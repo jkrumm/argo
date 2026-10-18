@@ -257,10 +257,17 @@ export function acwrCell(reading: AcwrReading | null, now: number): StatStripCel
         min={0}
         max={ACWR_METER_MAX}
         format={(v) => v.toFixed(2)}
+        // Garmin's zone vocabulary: only the narrow caution band needs a short name.
         zones={[
           { from: 0, to: ACWR_FLOOR, label: 'Under', color: VX.warn },
           { from: ACWR_FLOOR, to: ACWR_OPTIMAL_TO, label: 'Optimal', color: VX.good },
-          { from: ACWR_OPTIMAL_TO, to: ACWR_CAUTION_TO, label: 'Caution', color: VX.warn },
+          {
+            from: ACWR_OPTIMAL_TO,
+            to: ACWR_CAUTION_TO,
+            label: 'Caution',
+            short: 'Caut.',
+            color: VX.warn,
+          },
           { from: ACWR_CAUTION_TO, to: ACWR_METER_MAX, label: 'Danger', color: VX.bad },
         ]}
         startCaption={null}
