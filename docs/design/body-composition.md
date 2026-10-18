@@ -197,3 +197,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: `craft-7/no-declared-states` (`empty` declared on `weight-chart`; the weight and skinfold series empty to their own branches). **New (argo, empty state):** the weight and rate strip cells keep their latest value, 7 d mean, 30 d delta and 28 d slope while the chart below says the window has no entries — the strip must empty with the series. Carried (basalt): the maintain zone unnamed at 390; the rate meter floating under its hero; the weight line through the `7 d mean` end label; the info tooltip over the net change; the slashed zero in titles. The w31 r2 tooltip date (`EEE d MMM yyyy`) holds. No lost fact.
 - **Against Keel:** close — shared-component overlaps remain.
+
+### Wave 33 round (`w33-r1`)
+
+- **Empty state:** the page substitutes the empty weight summary and series at the read under `?shot-state=empty`, so the strip (latest value, `7 d mean`, 30 d delta, 28 d slope, rate) empties with the chart — production with no entries renders the same. One wording per gap (`NO_WEIGHT_ENTRIES`): the headline, the weight cell footer, the rate cell footer and the chart's empty all say `No entries in this window — log a weight to start the trend.`

@@ -21,6 +21,18 @@ import {
 } from '../model'
 import { compareByDate, type SkinfoldPoint } from '../charts/series-data'
 import type { SkinfoldSummary, WeightSummary } from '../types'
+
+const NO_WEIGHT_SUMMARY: WeightSummary = {
+  current: null,
+  ma7: null,
+  ma30: null,
+  trend: 'flat',
+  weeklyDelta: null,
+  monthlyDelta: null,
+  kgPerWeek: null,
+  phase: 'maintaining',
+  intensity: '',
+}
 import classes from './body-composition.module.css'
 import { SkinfoldHistoryTable } from './skinfold-history-table'
 import { rateCell, skinfoldCell, weightCell } from './strip-cells'
@@ -35,11 +47,12 @@ export function BodyCompositionPage({ params }: { params: Params }) {
   const { data: skinfoldSeries } = useSuspenseQuery(skinfoldLogQueries.series(params))
   const { data: profile } = useSuspenseQuery(userProfileQueries.detail())
 
-  const summary = weight as WeightSummary
+  const isEmpty = shotState() === 'empty'
+  const summary = isEmpty ? NO_WEIGHT_SUMMARY : (weight as WeightSummary)
   const skinfoldSummary = skinfold as SkinfoldSummary
-  const weightPoints = weightSeries.points
+  const weightPoints = isEmpty ? [] : weightSeries.points
   const loggedSessions: SkinfoldPoint[] = skinfoldSeries.points
-  const sessions: SkinfoldPoint[] = shotState() === 'empty' ? [] : loggedSessions
+  const sessions: SkinfoldPoint[] = isEmpty ? [] : loggedSessions
 
   const goal = profile.goal_weight_kg
   const todayKey = dayKey(now)
