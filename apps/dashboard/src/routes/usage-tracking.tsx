@@ -78,7 +78,7 @@ function UsageTrackingPage() {
           </Grid.Col>
           <Grid.Col span={{ base: 12, lg: 4 }}>
             <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
-              <Box data-shot="projects" className={classes.fill}>
+              <Box data-shot="projects" data-shot-states="empty" className={classes.fill}>
                 <TopProjects
                   range={search.range}
                   billing={billing}

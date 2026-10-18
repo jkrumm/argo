@@ -39,12 +39,12 @@ export default function TopProjects({
     <ChartCard
       className={classes.fill}
       title={`Top projects · ${periodNoun(range)}${printTotal ? ` · ${fmtUsdWhole(data.total)}` : ''}`}
+      state={{ empty: data.rows.length === 0 && emptyText }}
     >
       <BarList
         label={`Top ${data.rows.length} projects by cost, ${periodNoun(range)}`}
         format={fmtUsdWhole}
         variant="thin"
-        emptyText={emptyText}
         items={data.rows.map((r) => ({
           key: r.key,
           label: r.key,
