@@ -15,7 +15,7 @@ import {
   liftDelta,
   localIso,
   bandRange,
-  distanceTail,
+  bandTail,
   fmtLoadPair,
   periodLabel,
   perMonth,
@@ -330,15 +330,17 @@ describe('balance', () => {
     expect(bandOffset(null, [1, 2])).toBeNull()
   })
   test('a hair outside the band never prints inside it', () => {
-    expect(distanceTail(bandOffset(2.004, [1, 2]))).toBe(' · <0.01 over the band')
-    expect(distanceTail(-0.1)).toBe(' · 0.10 under the band')
-    expect(distanceTail(0)).toBe('')
-    expect(distanceTail(null)).toBe('')
+    expect(bandTail(bandOffset(2.004, [1, 2]), [1, 2])).toBe(' · <0.01 over the 1.0–2.0 band')
+    expect(bandTail(-0.1, [1, 2])).toBe(' · 0.10 under the 1.0–2.0 band')
+    expect(bandTail(null, [1, 2])).toBe('')
   })
   test('outside the band the distance text carries the direction, the verdict word the severity', () => {
-    expect(distanceTail(-0.2)).toContain('under')
-    expect(distanceTail(0.4)).toContain('over')
+    expect(bandTail(-0.2, [1, 2])).toContain('under')
+    expect(bandTail(0.4, [1, 2])).toContain('over')
     expect(statusWord('imbalanced', -0.2)).toBe('imbalanced')
+  })
+  test('inside the band the caption still carries the range, once', () => {
+    expect(bandTail(0, [1, 1.25])).toBe(' · in the 1.0–1.25 band')
   })
   test('status words', () => {
     expect(statusWord('balanced', -0.2)).toBe('borderline')

@@ -432,16 +432,17 @@ export function bandOffset(
 /** A band bound with at least one decimal: `1.0`, `1.25`. */
 export const fmtBound = (v: number): string => (Number.isInteger(v) ? v.toFixed(1) : String(v))
 
-/** ` · 0.12 under the band`, ` · <0.01 over the band`; empty inside the band or with no ratio, where the verdict word says it all. */
-export function distanceTail(offset: number | null): string {
-  if (offset === null || offset === 0) return ''
-  const size = Math.abs(offset) < 0.005 ? '<0.01' : Math.abs(offset).toFixed(2)
-  return ` · ${size} ${offset < 0 ? 'under' : 'over'} the band`
-}
-
 /** A band's range with one decimal at least, `1.0–2.0`. */
 export function bandRange([lo, hi]: readonly [number, number]): string {
   return `${fmtBound(lo)}–${fmtBound(hi)}`
+}
+
+/** ` · in the 1.0–2.0 band`, ` · 0.12 under the 1.0–2.0 band`: the range is said here, once, since a narrow band's meter label is hidden. Empty with no ratio. */
+export function bandTail(offset: number | null, range: readonly [number, number]): string {
+  if (offset === null) return ''
+  if (offset === 0) return ` · in the ${bandRange(range)} band`
+  const size = Math.abs(offset) < 0.005 ? '<0.01' : Math.abs(offset).toFixed(2)
+  return ` · ${size} ${offset < 0 ? 'under' : 'over'} the ${bandRange(range)} band`
 }
 
 // ── Records ──────────────────────────────────────────────────────────────────────────────────

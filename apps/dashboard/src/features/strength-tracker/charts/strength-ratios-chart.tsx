@@ -10,7 +10,7 @@ import {
   bandOffset,
   bandRange,
   borderlineNote,
-  distanceTail,
+  bandTail,
   EM_DASH,
   isBorderline,
   ratioName,
@@ -79,7 +79,7 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
                   format={(v) => v.toFixed(2)}
                   zones={[
                     { from: 0, to: lo, label: '', color: MUTED_FILL },
-                    { from: lo, to: hi, label: bandRange(pair.range), color: VX.good },
+                    { from: lo, to: hi, label: '', color: VX.good },
                     { from: hi, to: pair.scaleMax, label: '', color: MUTED_FILL },
                   ]}
                   startCaption={null}
@@ -99,7 +99,7 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
                   >
                     {statusWord(pair.status, offset)}
                   </Text>
-                  {distanceTail(offset)}
+                  {bandTail(offset, pair.range)}
                 </Text>
               )}
             </Stack>
