@@ -40,9 +40,7 @@ describe('agents cell without a fleet', () => {
       .emptyText
 
   it('names the cause and the next step, one wording per feed state', () => {
-    expect(emptyText('none')).toBe(
-      'Waiting for the first snapshot — agent-gateway pushes every 10\u00a0min',
-    )
+    expect(emptyText('none')).toBe('No snapshot yet — agent-gateway pushes every 10\u00a0min')
     expect(emptyText('failed')).toBe('Agents failed to load — reload to retry')
     expect(emptyText(null)).toBe('No fleet counts in this snapshot')
   })
@@ -104,7 +102,7 @@ describe('strip cells with no reading', () => {
           last: { value: 62, date: '2026-01-13' },
         }),
       ).footer,
-    ).toBe('Last scored 62/100 on Jan\u00a013 — Garmin syncs every 6\u00a0h')
+    ).toBe('Last scored 62/100 on 13\u00a0Jan — Garmin syncs every 6\u00a0h')
     // The gap waits for the series: unsettled names only the cadence, a failed read says so.
     const unscored = reading({ score: null, mean: null, days: 0, trend: [], isToday: false })
     expect(recoveryCell(unscored, false, { settled: false, failed: false }).footer).toBe(
@@ -139,9 +137,14 @@ describe('strip cells with no reading', () => {
   })
 
   it('words a settled, empty training load in Garmin’s wording', () => {
+    // The recovery cell leads with the cadence sentence; this cell takes its leading clause.
     expect(acwrCell({ acwr: null, zone: null, date: null }, NOW, 'error', 30).footer).toBe(
-      'No training load in this 30\u00a0d window — Garmin syncs every 6\u00a0h',
+      'No training load in this 30\u00a0d window',
     )
+    // Only when no earlier cell carries the cadence does this one print it.
+    expect(
+      acwrCell({ acwr: null, zone: null, date: null }, NOW, 'error', 30, false, 'full').footer,
+    ).toBe('No training load in this 30\u00a0d window — Garmin syncs every 6\u00a0h')
     // The previous window's rows while this one loads: no gap to state yet.
     expect(acwrCell({ acwr: null, zone: null, date: null }, NOW, 'error', 30, true).footer).toBe(
       'loading training load',

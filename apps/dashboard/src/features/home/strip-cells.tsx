@@ -14,7 +14,9 @@ import {
   ACWR_METER_MAX,
   ACWR_OPTIMAL_TO,
   chartEmpty,
+  SYNC_CADENCE,
   recoveryGap,
+  type GapForm,
 } from '../garmin-health/model'
 import { recoveryMeterProps } from '../garmin-health/recovery-meter'
 import { acwrMeterZones, acwrZoneLabel } from '../garmin-health/formulas'
@@ -25,7 +27,6 @@ import {
   meetingState,
   classLabels,
   shortMeetingName,
-  GARMIN_SYNC_HOURS,
   type Agenda,
   type LaterMeeting,
   weekdayTime,
@@ -237,8 +238,7 @@ export function recoveryCell(
             ? 'Loading Garmin data'
             : 'Garmin data not loaded; reload to retry'
           : // Unsettled: no gap to state yet, only when a score can arrive.
-            (noScoreLine(reading, series) ??
-            `Garmin syncs every ${withUnit(GARMIN_SYNC_HOURS, 'h')}`),
+            (noScoreLine(reading, series) ?? SYNC_CADENCE),
     }
   }
   const { score, trend, date, isToday } = reading
@@ -281,6 +281,8 @@ export function acwrCell(
   windowDays: number,
   /** The reading is the previous window's while this one loads: no gap to state yet. */
   placeholder = false,
+  /** `full` only when no earlier cell on the screen already carries the cadence sentence. */
+  form: GapForm = 'short',
 ): StatStripCell {
   if (reading === null || reading.acwr === null) {
     return {
@@ -294,7 +296,7 @@ export function acwrCell(
             : 'training load failed to load; reload to retry'
           : placeholder
             ? 'loading training load'
-            : chartEmpty('training load', windowDays),
+            : chartEmpty('training load', windowDays, form),
     }
   }
   return {

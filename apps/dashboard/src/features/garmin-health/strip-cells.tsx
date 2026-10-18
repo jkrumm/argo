@@ -37,6 +37,8 @@ import {
   recoveryQualifier,
   loadGap,
   fitnessGap,
+  carriesCadence,
+  type GapForm,
   windowCopyDays,
   fmtNum,
   shortDate,
@@ -91,7 +93,7 @@ function LoadRows({
   )
 }
 
-function useRecoveryCell(params: SummaryParams): StatStripCell {
+function useRecoveryCell(params: SummaryParams): { cell: StatStripCell; gapShown: boolean } {
   const summary = useQuery(recoveryQueries.summary(params))
   const series = useQuery(recoveryQueries.series(params))
   // `basalt-ui shot`'s `empty` state renders the cell's own no-score branch.
@@ -119,7 +121,8 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
     // No payload or no date is a sentinel, not a day that failed to score: it names nothing.
     missing: data?.date ? missingInputs(data.components) : [],
   }).line
-  return {
+  const gapShown = score === null && !summary.isPending && gapLine !== null
+  const cell: StatStripCell = {
     key: 'recovery',
     caption: 'Recovery',
     ...(when !== undefined && { qualifier: when }),
@@ -127,31 +130,35 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
     ...(score !== null && { unit: '/100' }),
     loading: summary.isPending,
     stale: summary.isPlaceholderData,
-    visual:
-      score === null && !summary.isPending ? (
-        gapLine !== null && (
-          <Text size="xs" c="dimmed">
-            {gapLine}
-          </Text>
-        )
-      ) : (
-        <>
-          <Meter
-            {...recoveryMeterProps(score)}
-            value={score === null ? null : Math.round(score)}
-            loading={summary.isPending}
-          />
-          <ContributorRows
-            label="Recovery contributors, points of their weight"
-            rows={contributorItems(data?.components ?? { hrv: null, sleep: null, rhr: null })}
-            loading={summary.isPending}
-          />
-        </>
-      ),
+    visual: gapShown ? (
+      gapLine !== null && (
+        <Text size="xs" c="dimmed">
+          {gapLine}
+        </Text>
+      )
+    ) : (
+      <>
+        <Meter
+          {...recoveryMeterProps(score)}
+          value={score === null ? null : Math.round(score)}
+          loading={summary.isPending}
+        />
+        <ContributorRows
+          label="Recovery contributors, points of their weight"
+          rows={contributorItems(data?.components ?? { hrv: null, sleep: null, rhr: null })}
+          loading={summary.isPending}
+        />
+      </>
+    ),
   }
+  return { cell, gapShown }
 }
 
-function useLoadCell(params: SummaryParams): StatStripCell {
+/** `form`: the cadence sentence is printed once per screen, by the first gapped cell. */
+function useLoadCell(
+  params: SummaryParams,
+  form: GapForm,
+): { cell: StatStripCell; gapShown: boolean } {
   const query = useQuery(trainingLoadQueries.summary(params))
   const { isPlaceholderData } = query
   const data = shotState() === 'empty' ? undefined : query.data
@@ -173,9 +180,10 @@ function useLoadCell(params: SummaryParams): StatStripCell {
     status: query.status,
     placeholder: isPlaceholderData,
     windowDays: windowCopyDays(params, VISIBLE_DATE_MIN),
+    form,
   })
 
-  return {
+  const cell: StatStripCell = {
     key: 'load',
     caption: 'Training load',
     qualifier: 'recent ÷ long-run load',
@@ -208,6 +216,7 @@ function useLoadCell(params: SummaryParams): StatStripCell {
       </>
     ),
   }
+  return { cell, gapShown: carriesCadence(gap) }
 }
 
 type SignalSpec = {
@@ -281,7 +290,7 @@ function signalRow(spec: SignalSpec): StatStripRow {
 /** The one wording for the fitness windows: the method and the span it covers. */
 const slope = (days: number): string => `slope · ${withUnit(days, 'd')}`
 
-function useFitnessCell(): StatStripCell {
+function useFitnessCell(form: GapForm): StatStripCell {
   // Fixed windows keep the copy true ("slope · 14 d") whatever the page's selector says.
   const range = fitnessRange()
   const direction = useQuery(fitnessDirectionQueries.summary(range))
@@ -320,6 +329,7 @@ function useFitnessCell(): StatStripCell {
   // a qualifier and three rows of dashes. A pending or placeholder read is not a gap.
   const reads = [direction, series, history]
   const gap = fitnessGap({
+    form,
     status: reads.some((q) => q.isError)
       ? 'error'
       : reads.some((q) => q.isPending)
@@ -386,6 +396,13 @@ function useFitnessCell(): StatStripCell {
 }
 
 export function GarminStrip({ params }: { params: SummaryParams }) {
-  const cells = [useRecoveryCell(params), useLoadCell(params), useFitnessCell()]
+  // Hooks run unconditionally; the cadence sentence goes to the first cell that shows a gap.
+  const recovery = useRecoveryCell(params)
+  const load = useLoadCell(params, recovery.gapShown ? 'short' : 'full')
+  const cells = [
+    recovery.cell,
+    load.cell,
+    useFitnessCell(recovery.gapShown || load.gapShown ? 'short' : 'full'),
+  ]
   return <StatGroup variant="strip" label="Recovery, training load and fitness" cells={cells} />
 }
