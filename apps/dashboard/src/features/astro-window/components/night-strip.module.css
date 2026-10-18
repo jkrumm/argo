@@ -2,6 +2,8 @@
    container class up. */
 
 .host {
+  --gap: 4px;
+  --fade: var(--mantine-spacing-md);
   container-type: inline-size;
 }
 
@@ -9,7 +11,7 @@
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 5.25rem;
-  gap: 4px;
+  gap: var(--gap);
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
@@ -19,13 +21,11 @@
   display: none;
 }
 
-/* Phone: exactly four nights fit, ending one fade-width before the edge. The fade then dims the
-   empty gutter, never a night's fact line (a fixed width left the fourth cell half under it, and
-   `under its gate` with it). */
+/* Phone: four nights fit, ending one fade-width short of the edge, so the fade never covers a fact line. */
 @container (max-width: 479.9px) {
   .scroller {
-    grid-auto-columns: calc((100cqw - var(--mantine-spacing-md) - 3 * 4px) / 4);
-    padding-inline-end: var(--mantine-spacing-md);
+    grid-auto-columns: calc((100cqw - var(--fade) - 3 * var(--gap)) / 4);
+    padding-inline-end: var(--fade);
   }
 }
 
@@ -126,7 +126,7 @@
   }
 
   .host[data-more='true'] .scroller {
-    mask-image: linear-gradient(to right, black calc(100% - 1rem), transparent);
+    mask-image: linear-gradient(to right, black calc(100% - var(--fade)), transparent);
   }
 }
 
@@ -136,7 +136,7 @@
   text-align: center;
   line-height: 1.25;
   max-width: 100%;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .marker {
