@@ -201,3 +201,8 @@ Follow-up (w30-r2):
 
 - **Reviewer:** fail (basalt only); untouched this round. Carried (basalt): the strip-cell anchors error under `empty` (12 shots); the pace column a blank half beside the histogram; the mono `★`; slashed zeros. `empty-shelf` passes. No lost fact.
 - **Against Keel:** does not yet — the pace column is still a blank half at 1440.
+
+### Wave 35 round (`w35-r1`, live after #149–#151 on basalt-ui 2.22.0)
+
+- **Reviewer:** fail (basalt only). The 12 error shots are the strip-cell `data-shot-absent` row only (three strip cells × `empty` × four variants). Carried (basalt): at 1440 the pace column is a blank half beside the histogram; the mono `★` and slashed zeros. Unscored (argo, P3): the rating bins `1 / 2–2.5 / 3 / 4 / 5 ★` cover the half steps unevenly. No lost fact.
+- **Against Keel:** does not yet — the pace cell is a bare figure over a blank half; every Keel tile carries a visual.

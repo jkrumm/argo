@@ -264,3 +264,8 @@ Follow-up (w30-r2):
 
 - **Reviewer:** fail (basalt only); untouched this round. Carried (basalt): the strip-cell `data-shot-absent` row (28 error shots), the Alert × `Code` nested radius, info tooltips over the next cell's hero. Carried (argo): raw alert keys (frozen rung). Unscored: the wrapped `Latest changes` row (board crop not re-checked). No lost fact.
 - **Against Keel:** close — cards distinct and sized right; raw alert keys stand in for authored questions.
+
+### Wave 35 round (`w35-r1`, live after #149–#151 on basalt-ui 2.22.0)
+
+- **Reviewer:** fail (basalt only). The 28 error shots are exactly the strip-cell `data-shot-absent` row (seven strip cells × `empty` × both schemes × both widths) and nothing else. Carried (basalt): the Alert × `Code` nested radius; the info tooltip on verdicts / fixes over the next cell's hero. Unscored: raw alert keys in titles (frozen rung). Nothing targeted this round; no regression. No lost fact.
+- **Against Keel:** close — decision cards distinct and sized right; raw alert keys stand in for authored questions.

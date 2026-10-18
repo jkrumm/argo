@@ -211,3 +211,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail (basalt only). Fixed: the rate cell under `empty` says its gap once (the meter's `No rate yet` is gone; the footer reads `No entries in this window`); the qualifier makes no slope claim. Carried (argo): the empty headline that holds the next step has no shot of its own (unverifiable). Carried (basalt): the maintain zone unnamed at 390, the weight line through its `7 d mean` end label, the info tooltip over the net change, the slashed zero. Unscored: the cause clause `No entries in this window` appears in three places on the empty screen (weight cell, rate cell, chart) — the W33 design. No lost fact.
 - **Against Keel:** close — the remaining overlaps are shared basalt components.
+
+### Wave 35 round (`w35-r1`, live after #149–#151 on basalt-ui 2.22.0)
+
+- **Reviewer:** fail (basalt only). Untouched this wave; pixel-identical to w34. Carried (basalt): the rate meter's unnamed middle zone at 390; the weight line through its own end labels; the info tooltip over the net change; the floating meter in a tall cell; the slashed zero. Unscored (argo): under `empty` the weight cell, the rate cell and the chart all read `No entries in this window` — the short form is right only if the headline carries the full sentence, and there is still no page-level empty shot to check it. No lost fact.
+- **Against Keel:** close — what remains is basalt's.

@@ -187,3 +187,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail (basalt only). Fixed: at 390 the tag and time share a line above the body, so title and summary take the full row width and the summary shows two lines (w33's lost fact restored). **Not fixed (argo, P3):** the shortened composer placeholder still wraps at 390. Carried (basalt): filter chips without hover. No lost fact.
 - **Against Keel:** does not yet — three rows and a fold over a void above the composer.
+
+### Wave 35 round (`w35-r1`, live after #149–#151 on basalt-ui 2.22.0)
+
+- **Reviewer:** pass (basalt P3 only). Fixed (confirmed): the 390 composer placeholder `New chat with Hermes…` fits on one line in both schemes. Carried (basalt): filter chips without hover. No lost fact.
+- **Against Keel:** does not yet — three rows and a fold over a void above the composer.

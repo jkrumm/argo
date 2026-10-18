@@ -207,3 +207,8 @@ Follow-up (w30-r1):
 
 - **Reviewer:** fail (basalt only); untouched this round. Carried (basalt): the strip-cell anchors error under `empty` (16 shots); the `PR` reference label struck through and under the focus outline; the INOL tooltip over the headline; four type sizes in three `Section` shells; mixed ACWR date ticks; the sticky bar over section crops. Carried (argo, no anchor): at 390 the scan's lift names wrap and status is a dot only. No lost fact.
 - **Against Keel:** close — every figure once; jargon density and the four-size shells remain.
+
+### Wave 35 round (`w35-r1`, live after #149–#151 on basalt-ui 2.22.0)
+
+- **Reviewer:** fail (basalt, plus one carried argo row). The 16 error shots are the strip-cell `data-shot-absent` row only. Carried (argo, P1): at 390 the scan's lift names wrap and its status column shows a dot with no word (no anchor of its own). Carried (basalt): four type sizes in the `Section` shells; mixed date ticks; the INOL tooltip over the headline; the `PR` reference label under its own line; the sticky bar in section crops. No lost fact.
+- **Against Keel:** close — every figure once; the jargon density and the four-size shells remain.
