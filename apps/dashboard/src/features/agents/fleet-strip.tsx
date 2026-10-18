@@ -6,10 +6,8 @@ import {
   itemNoun,
   formatWaitDuration,
   OLDEST_WAIT_WARN_MS,
-  needsYouWindowFact,
   type FleetPart,
   type FleetState,
-  type NeedsYouCoverage,
   type OldestWait,
 } from './model'
 
@@ -27,9 +25,8 @@ type Props = {
   /** Items the Needs-you section renders: agents plus human-queue asks. `null` when unknown. */
   needsYou: number | null
   fleet: { parts: FleetPart[]; total: number } | null
-  /** Hours of the window with a snapshot, and how many showed an agent waiting; `null` without data. */
-  coverage: NeedsYouCoverage | null
-  hours: number
+  /** The count split by kind (`2 agents · 1 ask`); `''` when nothing waits. */
+  split: string
   oldest: OldestWait | null
   /** Longest-running working agent; `null` when none is working. */
   longestRunMs: number | null
@@ -45,7 +42,7 @@ function waitTone(ms: number): 'bad' | 'warn' | undefined {
  * The three joined cells under the page summary: needs-you count, oldest wait against its two
  * thresholds, fleet by state. Replaces the three bare-integer tiles.
  */
-export function FleetStrip({ needsYou, fleet, coverage, hours, oldest, longestRunMs }: Props) {
+export function FleetStrip({ needsYou, fleet, split, oldest, longestRunMs }: Props) {
   const oldestTone = oldest === null ? undefined : waitTone(oldest.ms)
 
   return (
@@ -60,7 +57,7 @@ export function FleetStrip({ needsYou, fleet, coverage, hours, oldest, longestRu
           value: needsYou === null ? null : String(needsYou),
           ...(needsYou !== null && { unit: `${itemNoun(needsYou)} waiting` }),
           ...(needsYou !== null && needsYou > 0 && { tone: 'warn' as const }),
-          footer: needsYouWindowFact(coverage, hours),
+          ...(split !== '' && { footer: split }),
         },
         {
           key: 'oldest-wait',

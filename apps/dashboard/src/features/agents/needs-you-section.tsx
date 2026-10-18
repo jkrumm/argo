@@ -72,7 +72,7 @@ export function NeedsYouSection({ cards, unknown = false }: Props) {
   }
   if (cards.length === 0) return null
   return (
-    <Section title="Needs you" count={cards.length}>
+    <Section title="Needs you">
       <Stack gap="sm">
         {cards.map((card, i) => (
           <Box key={card.key} data-shot={`decision-card-${i + 1}`}>

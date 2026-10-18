@@ -22,21 +22,23 @@ type Props = {
 
 const SIX_HOURS = 6
 
-const STATES = [
-  {
-    key: 'working',
-    label: 'Agents working (hourly peak, darker = more)',
-    color: VX.line,
-    formatValue: (d: HourBucket) => `${d.working ?? 0} ${d.working === 1 ? 'agent' : 'agents'}`,
-  },
-  {
-    key: 'quiet',
-    label: 'None working',
-    color: alpha(VX.line, 0.1),
-    formatValue: () => '0 agents',
-  },
-  { key: 'gap', label: 'No snapshot', color: alpha(VX.status.warn, 0.35) },
-] as const
+/** The legend names the scale in data terms: the lightest and the strongest cell, by agents working. */
+const statesFor = (peak: number) =>
+  [
+    {
+      key: 'working',
+      label: peak <= 1 ? '1 agent working' : `1 to ${peak} agents working`,
+      color: VX.line,
+      formatValue: (d: HourBucket) => `${d.working ?? 0} ${d.working === 1 ? 'agent' : 'agents'}`,
+    },
+    {
+      key: 'quiet',
+      label: 'None working',
+      color: alpha(VX.line, 0.1),
+      formatValue: () => '0 agents',
+    },
+    { key: 'gap', label: 'No snapshot', color: alpha(VX.status.warn, 0.35) },
+  ] as const
 
 /**
  * Agents working per hour over the window: one cell per hour, intensity = the hour's peak working
@@ -81,7 +83,7 @@ export function ActivityStrip({ history, hours, now }: Props) {
           x={(d) => d.hourMs}
           xTicks={ticks}
           formatX={clockOf}
-          states={STATES}
+          states={statesFor(peak)}
           getBand={getBand}
           height={48}
         />
