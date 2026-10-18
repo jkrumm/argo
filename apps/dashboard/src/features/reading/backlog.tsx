@@ -11,10 +11,10 @@ const ROWS_NARROW = 5
 function headerFacts(b: BacklogTotals, pace: number | null): string {
   return [
     'ranked by community rating',
-    b.pages === 0 && b.withoutPages > 0 ? '— p' : `${b.pages.toLocaleString('en-GB')} p`,
-    b.hours !== null && pace !== null
-      ? `${approxHours(b.hours)} at ${pace} pages/h (median)`
-      : `— h (${pace === null ? NO_PACE_REASON : 'no page counts'})`,
+    ...(b.pages > 0 ? [`${b.pages.toLocaleString('en-GB')} p`] : []),
+    b.hours !== null
+      ? `${approxHours(b.hours)} to read`
+      : `no hours estimate: ${pace === null ? NO_PACE_REASON : 'no page counts'}`,
     ...(b.withoutPages > 0 ? [`${b.withoutPages} without a page count`] : []),
   ].join(' · ')
 }

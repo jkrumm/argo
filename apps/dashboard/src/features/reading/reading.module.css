@@ -16,14 +16,6 @@
   }
 }
 
-.paceAxis {
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--basalt-font-mono);
-  font-size: var(--vx-text-micro);
-  color: var(--vx-muted);
-}
-
 /* ── Rating histogram: five columns on one track, a tick at the mean ──────────────────────── */
 
 .histogram {
@@ -70,53 +62,11 @@
   text-align: center;
 }
 
-/* The ratings cell is its own container, so the query below measures the cell, not the page.
-   Five labelled ticks crowd a cell under 240px: keep the odd stars (1, 3, 5). 239.9px is the
-   guard's boundary under basalt's 240 container class; CSS cannot read the JS token. */
-.ratingsCell {
-  container-type: inline-size;
-}
-
-@container (max-width: 239.9px) {
-  .axisMinor {
-    visibility: hidden;
-  }
-}
-
-/* ── Pace dots: one dot per book on a pages/h track, a tick at the median ─────────────────── */
-
-.paceTrack {
-  position: relative;
-  height: 20px;
-}
-
-.paceRail {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 2px;
-  transform: translateY(-50%);
-  border-radius: 1px;
-  background: var(--vx-surface-hairline);
-}
-
-.paceDot {
-  position: absolute;
-  top: 50%;
-  width: 8px;
-  height: 8px;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--vx-muted) 60%, transparent);
-}
-
-.paceMedian {
-  position: absolute;
-  top: 2px;
-  bottom: 2px;
-  width: 1px;
-  background: var(--vx-ink);
+/* One label per bar, the star over its count, so five of them fit however narrow the cell is. */
+.axisLabel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 /* ── Title link: an outline ring around the link text, inside the clamp's clipping box ──── */

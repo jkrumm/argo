@@ -1,7 +1,8 @@
 import { Text } from '@mantine/core'
-import { BarList, Section } from 'basalt-ui'
+import { Section } from 'basalt-ui'
 import { BookRow } from './book-parts'
 import { scopeLabel, shortDate, timeRead, type FinishedGroup, type ShelfItem } from './model'
+import { formatReadTime } from './format'
 import classes from './reading.module.css'
 
 function trail(date: string, pages: number | null): string {
@@ -26,16 +27,7 @@ export function Finished({
   undated: number
 }) {
   const total = groups.reduce((sum, g) => sum + g.rows.length, 0)
-  const unknownDays = groups.reduce(
-    (sum, g) => sum + g.rows.filter((r) => r.days === null).length,
-    0,
-  )
-  const note = [
-    ...(undated > 0 ? [`${undated} finished without a read date, not listed`] : []),
-    ...(unknownDays > 0
-      ? [`days to finish need a start date; ${unknownDays} of ${total} have none`]
-      : []),
-  ].join(' · ')
+  const note = undated > 0 ? `${undated} finished without a read date, not listed` : ''
   const scope = scopeLabel(groups)
   return (
     <Section
@@ -71,23 +63,34 @@ export function Finished({
   )
 }
 
-const hours = (seconds: number) => seconds / 3600
-
+/** Finished books by device reading time. In-progress books are on their cards, once. */
 export function TimeRead({ shelf }: { shelf: readonly ShelfItem[] }) {
   const rows = timeRead(shelf)
+  const total = rows.reduce((sum, r) => sum + r.seconds, 0)
   return (
-    <Section title="Time read, per book · hours" count={rows.length}>
-      <BarList
-        label="Time read per book, hours"
-        variant="thin"
-        items={rows.map((r) => ({
-          key: r.key,
-          label: r.label,
-          value: hours(r.seconds),
-        }))}
-        format={(v) => (v < 0.05 ? '< 0.1 h' : `${v.toFixed(1)} h`)}
-        emptyText="No device reading time recorded yet."
-      />
+    <Section
+      title="Time read, finished books"
+      count={rows.length}
+      {...(rows.length > 0 && {
+        summary: <Text className={classes.facts}>{formatReadTime(total)} in total</Text>,
+      })}
+    >
+      {rows.length === 0 ? (
+        <Text size="sm" c="dimmed">
+          No device reading time recorded for a finished book yet.
+        </Text>
+      ) : (
+        <div role="list">
+          {rows.map((r) => (
+            <div key={r.key} role="listitem" className={classes.row}>
+              <Text size="sm" className={classes.rowBody} lineClamp={2}>
+                {r.label}
+              </Text>
+              <div className={classes.rowTrail}>{formatReadTime(r.seconds)}</div>
+            </div>
+          ))}
+        </div>
+      )}
     </Section>
   )
 }

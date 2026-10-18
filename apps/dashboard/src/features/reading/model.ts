@@ -52,7 +52,7 @@ export type Pace = {
   paces: number[]
 }
 
-/** Cohort: in-progress and finished books, the same rows `timeRead` counts. */
+/** Cohort: in-progress and finished books that report device reading time. */
 export function readingPace(shelf: readonly ShelfItem[]): Pace {
   const paces: number[] = []
   for (const book of shelf) {
@@ -203,25 +203,19 @@ export function genreCounts(books: readonly ShelfItem[], top: number): CountRow[
 
 export type TimeRow = { key: string; label: string; seconds: number }
 
-/** In-progress and finished books with device reading time, longest first. */
+/**
+ * Finished books with device reading time, longest first. In-progress books are left out: their
+ * time is already on their progress cards.
+ */
 export function timeRead(shelf: readonly ShelfItem[]): TimeRow[] {
   return shelf
-    .filter(
-      (b) =>
-        (b.statusId === STATUS.reading || b.statusId === STATUS.read) &&
-        (b.stats?.totalReadSeconds ?? 0) > 0,
-    )
+    .filter((b) => b.statusId === STATUS.read && (b.stats?.totalReadSeconds ?? 0) > 0)
     .map((b) => ({
       key: String(b.hardcoverBookId),
       label: b.title,
       seconds: b.stats?.totalReadSeconds ?? 0,
     }))
     .toSorted((a, b) => b.seconds - a.seconds)
-}
-
-/** Total device reading time over the rows `timeRead` lists: the one definition of "time read". */
-export function totalReadSeconds(shelf: readonly ShelfItem[]): number {
-  return timeRead(shelf).reduce((sum, r) => sum + r.seconds, 0)
 }
 
 /** `null` while the device has reported nothing (0 % with 0 sessions is unknown, not a 0 % meter). */
@@ -240,8 +234,6 @@ export type RatingShape = {
   mean: number | null
   /** Mean community rating over the same rated books that have one, with how many that is. */
   community: { mean: number; n: number } | null
-  /** Some rating is a half star, which the whole-star buckets round down. */
-  hasHalfStars: boolean
 }
 
 export function ratingShape(shelf: readonly ShelfItem[]): RatingShape {
@@ -255,7 +247,6 @@ export function ratingShape(shelf: readonly ShelfItem[]): RatingShape {
   return {
     buckets,
     n: rated.length,
-    hasHalfStars: rated.some((b) => (b.rating as number) % 1 !== 0),
     mean:
       rated.length === 0
         ? null
@@ -272,17 +263,11 @@ export function ratingShape(shelf: readonly ShelfItem[]): RatingShape {
   }
 }
 
-/** The ratings cell's footer facts: the half-star rounding when it applies, the community mean. */
+/** The ratings cell's footer fact: the community mean over the same books, when any has one. */
 export function ratingsFooter(shape: RatingShape): string | undefined {
-  const parts = [
-    ...(shape.hasHalfStars ? ['half stars count in the star below'] : []),
-    ...(shape.community === null
-      ? []
-      : [
-          `community mean ${shape.community.mean.toFixed(1)} ★ on ${shape.community.n} of the same books`,
-        ]),
-  ]
-  return parts.length === 0 ? undefined : parts.join(' · ')
+  return shape.community === null
+    ? undefined
+    : `community mean ${shape.community.mean.toFixed(1)} ★ on ${shape.community.n} of the same books`
 }
 
 // ── Shelf counts: the one source of every repeated figure ───────────────────────────────────
@@ -332,24 +317,46 @@ export const currentYear = (now: number): number => new Date(now).getUTCFullYear
 
 // ── Sentence ─────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * The headline leads with the year's finished count and the typical time to finish: neither is on
+ * the cells below. Pace, the shelf split and the backlog hours each live where they answer a question.
+ */
 export function summaryParts(input: {
-  counts: ShelfCounts
-  pace: number | null
   finished: number
   year: number
-  backlogHours: number | null
-}): { sentence: string; facts: string[] } {
-  const { counts, pace, finished, year, backlogHours } = input
-  const reading = `${counts.reading} ${counts.reading === 1 ? 'book' : 'books'} in progress`
+  medianDays: number | null
+}): {
+  sentence: string
+  facts: string[]
+} {
+  const { finished, year, medianDays } = input
   return {
-    sentence: pace === null ? reading : `${reading}, median ${pace} pages/h`,
-    facts: [
-      `${finished} finished in ${year}`,
-      `backlog ${counts.backlog} ${counts.backlog === 1 ? 'book' : 'books'}${
-        backlogHours === null ? '' : ` ${approxHours(backlogHours)}`
-      }`,
-    ],
+    sentence:
+      finished === 0
+        ? `Nothing finished in ${year} yet`
+        : `${finished} ${finished === 1 ? 'book' : 'books'} finished in ${year}`,
+    facts: medianDays === null ? [] : [`median ${medianDays} d from start to finish`],
   }
+}
+
+/** Median days from start to finish over read books that have both dates; null with none. */
+export function medianDaysToFinish(shelf: readonly ShelfItem[]): number | null {
+  const days = shelf
+    .filter((b) => b.statusId === STATUS.read)
+    .map((b) => daysToFinish(b.startedDate, b.readDate))
+    .filter((d): d is number => d !== null)
+  const mid = median(days)
+  return mid === null ? null : Math.round(mid)
+}
+
+/** Books finished per month so far this year, one decimal; null with none (a rate of 0 says nothing). */
+export function booksPerMonth(finished: number, now: number): string | null {
+  if (finished === 0) return null
+  const d = new Date(now)
+  const daysInMonth = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate()
+  // A year that is days old would otherwise read as a huge rate: never fewer than one month.
+  const months = Math.max(1, d.getUTCMonth() + d.getUTCDate() / daysInMonth)
+  return (finished / months).toFixed(1)
 }
 
 /**
