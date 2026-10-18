@@ -1,5 +1,5 @@
 import { addDays, startOfDay as startOfDayDate } from 'date-fns'
-import { clockTime, dayLabel, headlineOf, noSnapshotText } from '../agents/model'
+import { clockTime, dayLabel, headlineOf, AGENT_GATEWAY_PUSH_MIN } from '../agents/model'
 import type { Narrative } from '../../lib/queries/agents'
 import type { WardenRaw } from '../../lib/queries/warden'
 import type { Decision } from '../../lib/decisions'
@@ -480,7 +480,9 @@ export function feedEmptyLine(input: {
 }): string {
   const { loaded, failed, pending, now } = input
   const unknown = unknownPhrase(failed, pending)
-  if (!loaded && unknown === '') return `${noSnapshotText()}.`
+  if (!loaded && unknown === '') {
+    return `No feed yet — Warden and agent-gateway push every ${withUnit(AGENT_GATEWAY_PUSH_MIN, 'min')}.`
+  }
   const retry = failed.length > 0 ? ' — reload to retry' : ''
   return [loaded ? emptyStreamLabel(now) : null, unknown === '' ? null : `${unknown}${retry}.`]
     .filter(Boolean)
