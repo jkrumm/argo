@@ -13,6 +13,7 @@ import {
   STATUS,
   type ShelfItem,
 } from './model'
+import { withUnit } from '../../lib/format'
 import classes from './reading.module.css'
 
 function facts(book: ShelfItem, pace: number | null, now: number): string[] {
@@ -31,7 +32,7 @@ function facts(book: ShelfItem, pace: number | null, now: number): string[] {
       ? ['no page count, so no time left']
       : left === null || pace === null
         ? []
-        : [`${approxHours(left)} left at ${pace} pages/h`]),
+        : [`${approxHours(left)} left at ${withUnit(pace, 'pages/h')}`]),
     lastRead === null
       ? 'last read —'
       : `last read ${relativeTime(lastRead, { now, numeric: 'always' })}`,
@@ -61,7 +62,7 @@ function ProgressCard({ book, pace, now }: { book: ShelfItem; pace: number | nul
               value={percent}
               max={100}
               format={(v) => `${Math.round(v)}%`}
-              endCaption={book.pages === null ? null : `${book.pages} p`}
+              endCaption={book.pages === null ? null : withUnit(book.pages, 'p')}
               tone="muted"
             />
           )}
@@ -90,7 +91,7 @@ export function InProgress({
         (parseTimestamp(b.stats?.lastReadAt ?? null) ?? Number.NEGATIVE_INFINITY),
     )
   return (
-    <Section title="Currently reading" count={books.length}>
+    <Section title="Currently reading">
       {books.length === 0 ? (
         <EmptyState
           icon={<IconBooks size={28} />}

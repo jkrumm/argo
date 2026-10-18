@@ -1,19 +1,22 @@
 import { Text } from '@mantine/core'
 import { Section } from 'basalt-ui'
 import { BookRow } from './book-parts'
-import { scopeLabel, shortDate, timeRead, type FinishedGroup, type ShelfItem } from './model'
+import { scopeLabel, shortDate, type FinishedGroup, type TimeRow } from './model'
 import { formatReadTime } from './format'
+import { withUnit } from '../../lib/format'
 import classes from './reading.module.css'
 
 function trail(date: string, pages: number | null): string {
-  return `${shortDate(date)}${pages === null ? '' : ` · ${pages} p`}`
+  return `${shortDate(date)}${pages === null ? '' : ` · ${withUnit(pages, 'p')}`}`
 }
 
 /** `★ 4 · 12 days`; the days are left out (not zeroed) when the book has no start date. */
 function finishedMeta(rating: number | null, days: number | null): string | undefined {
   const parts = [
     ...(rating === null ? [] : [`★ ${rating}`]),
-    ...(days === null ? [] : [days === 0 ? 'same day' : `${days} ${days === 1 ? 'day' : 'days'}`]),
+    ...(days === null
+      ? []
+      : [days === 0 ? 'same day' : withUnit(days, days === 1 ? 'day' : 'days')]),
   ]
   return parts.length === 0 ? undefined : parts.join(' · ')
 }
@@ -32,7 +35,7 @@ export function Finished({
   return (
     <Section
       title={scope === '' ? 'Finished' : `Finished · ${scope}`}
-      count={total}
+      {...(undated > 0 && { count: total })}
       {...(note !== null && { summary: <Text className={classes.facts}>{note}</Text> })}
     >
       {total === 0 ? (
@@ -66,33 +69,24 @@ export function Finished({
 }
 
 /** Finished books by device reading time. In-progress books are on their cards, once. */
-export function TimeRead({ shelf }: { shelf: readonly ShelfItem[] }) {
-  const rows = timeRead(shelf)
+export function TimeRead({ rows }: { rows: readonly TimeRow[] }) {
   const total = rows.reduce((sum, r) => sum + r.seconds, 0)
   return (
     <Section
       title="Time read, finished books"
       count={rows.length}
-      {...(rows.length > 0 && {
-        summary: <Text className={classes.facts}>{formatReadTime(total)} in total</Text>,
-      })}
+      summary={<Text className={classes.facts}>{formatReadTime(total)} in total</Text>}
     >
-      {rows.length === 0 ? (
-        <Text size="sm" c="dimmed">
-          No device reading time recorded for a finished book yet.
-        </Text>
-      ) : (
-        <ul className={classes.list}>
-          {rows.map((r) => (
-            <li key={r.key} className={classes.row}>
-              <Text size="sm" className={classes.rowBody} lineClamp={2}>
-                {r.label}
-              </Text>
-              <div className={classes.rowTrail}>{formatReadTime(r.seconds)}</div>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul className={classes.list}>
+        {rows.map((r) => (
+          <li key={r.key} className={classes.row}>
+            <Text size="sm" className={classes.rowBody} lineClamp={2}>
+              {r.label}
+            </Text>
+            <div className={classes.rowTrail}>{formatReadTime(r.seconds)}</div>
+          </li>
+        ))}
+      </ul>
     </Section>
   )
 }

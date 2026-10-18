@@ -18,6 +18,7 @@ import {
   finishedFooter,
   readingPace,
   shelfCounts,
+  timeRead,
   summaryParts,
 } from '../features/reading/model'
 import classes from '../features/reading/reading.module.css'
@@ -80,6 +81,7 @@ function ReadingPage() {
   const counts = shelfCounts(shelf)
   const year = currentYear(now)
   const finished = finishedInYear(shelf, year)
+  const timeRows = timeRead(shelf)
 
   return (
     <>
@@ -117,9 +119,11 @@ function ReadingPage() {
               <div data-shot="finished">
                 <Finished groups={finishedGroups(shelf)} undated={counts.read - counts.readDated} />
               </div>
-              <div data-shot="time-read">
-                <TimeRead shelf={shelf} />
-              </div>
+              {timeRows.length > 0 && (
+                <div data-shot="time-read">
+                  <TimeRead rows={timeRows} />
+                </div>
+              )}
             </div>
             <Backlog backlog={backlog} pace={pace.median} />
           </Stack>

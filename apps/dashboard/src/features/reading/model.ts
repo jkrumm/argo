@@ -1,3 +1,5 @@
+import { withUnit } from '../../lib/format'
+
 export type ShelfItem = {
   hardcoverBookId: number
   title: string
@@ -71,7 +73,7 @@ export function readingPace(shelf: readonly ShelfItem[]): Pace {
 
 /** `7 h` / `< 1 h`: the single hour format the sentence, the ETA and the backlog header share. */
 export function hoursLabel(hours: number): string {
-  return hours < 1 ? '< 1 h' : `${Math.round(hours)} h`
+  return hours < 1 ? withUnit('< 1', 'h') : withUnit(Math.round(hours), 'h')
 }
 
 /** `≈ 7 h`, or `< 1 h` with no `≈` (an upper bound is not an approximation). */
@@ -236,7 +238,7 @@ export type RatingShape = {
   buckets: [number, number, number, number, number]
   n: number
   mean: number | null
-  /** The axis label per bucket: `3★`, or the real span (`3–3.5★`) when a half star landed in it. */
+  /** The axis label per bucket: `3`, or the real span (`3–3.5`) when a half star landed in it. */
   labels: [string, string, string, string, string]
   /** Mean community rating over the same rated books that have one, with how many that is. */
   community: { mean: number; n: number } | null
@@ -257,7 +259,7 @@ export function ratingShape(shelf: readonly ShelfItem[]): RatingShape {
     labels: tuple5((i) => {
       const lo = Math.min(i + 1, ...(bins[i] ?? []))
       const hi = Math.max(i + 1, ...(bins[i] ?? []))
-      return lo === hi ? `${lo}★` : `${lo}–${hi}★`
+      return lo === hi ? `${lo}` : `${lo}–${hi}`
     }),
     n: rated.length,
     mean: rated.length === 0 ? null : rated.reduce((sum, r) => sum + r.rating, 0) / rated.length,
@@ -275,7 +277,7 @@ export function ratingShape(shelf: readonly ShelfItem[]): RatingShape {
 export function ratingsFooter(shape: RatingShape): string | undefined {
   return shape.community === null
     ? undefined
-    : `community mean ${shape.community.mean.toFixed(1)} ★ on ${shape.community.n} of the same books`
+    : `community mean ${withUnit(shape.community.mean.toFixed(1), '★')}, same ${shape.community.n} books`
 }
 
 // ── Shelf counts: the one source of every repeated figure ───────────────────────────────────
@@ -347,7 +349,7 @@ export function summaryParts(input: {
       cohort === null
         ? []
         : [
-            `median ${cohort.days} d from start to finish, over ${cohort.measured} of ${cohort.finished} with a valid start and finish date`,
+            `median ${withUnit(cohort.days, 'd')} from start to finish, over ${cohort.measured} of ${cohort.finished} with a valid start and finish date`,
           ],
   }
 }
@@ -392,7 +394,7 @@ export function booksPerMonth(finished: number, now: number): number | null {
 export function paceRange(paces: readonly number[]): string | null {
   if (paces.length < 2) return null
   const at = (v: number) => (v < 1 ? '< 1' : String(v))
-  return `slowest ${at(Math.min(...paces))}, fastest ${at(Math.max(...paces))} pages/h`
+  return `slowest ${at(Math.min(...paces))}, fastest ${withUnit(at(Math.max(...paces)), 'pages/h')}`
 }
 
 // ── Ratings: bin labels ──────────────────────────────────────────────────────────────────────
