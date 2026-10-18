@@ -177,14 +177,15 @@ export function meanOf(values: readonly (number | null)[]): number | null {
 
 const DAY_MS = 86_400_000
 
-/** Epoch ms of the UTC midnight a bucket date names (`dayToDate` keeps the bucket's year-month-day as local midnight). */
-const bucketStartMs = (d: Date): number => d.getTime() - d.getTimezoneOffset() * 60_000
+/** Epoch ms of the UTC midnight a bucket date names (`dayToDate` keeps the bucket's year-month-day as local fields). */
+const bucketStartMs = (d: Date): number => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
 
 /**
  * A chart's complete buckets: a day or week bucket still running at `now` would draw as a drop
  * against full ones. Buckets are UTC calendar days (a week bucket starts on its date), so they are
- * measured against the UTC clock, whatever the browser's offset. Whether a figure includes the
- * running bucket is the call site's choice.
+ * measured against the UTC clock, whatever the browser's offset. With fewer than two complete
+ * buckets (a 7 d window at week grain) dropping the running one would leave nothing to draw, so
+ * all of them stay. Whether a figure includes the running bucket is the call site's choice.
  */
 export function dropPartialBucket<T extends { date: Date }>(
   points: readonly T[],
@@ -192,7 +193,8 @@ export function dropPartialBucket<T extends { date: Date }>(
   grain: 'day' | 'week',
 ): T[] {
   const span = (grain === 'day' ? 1 : 7) * DAY_MS
-  return points.filter((p) => bucketStartMs(p.date) + span <= now)
+  const complete = points.filter((p) => bucketStartMs(p.date) + span <= now)
+  return complete.length < 2 ? [...points] : complete
 }
 
 /** How many of the readings are strictly above (`above`) or strictly below (`below`) a line; gaps do not count. */
@@ -517,4 +519,19 @@ export function slowerDaysLine(
 export function cacheUnderLine(days: readonly (number | null)[]): string | null {
   const under = countAgainst(days, CACHE_HIT_TARGET, 'below')
   return under.of === 0 ? null : `${under.count} of ${under.of} days under it`
+}
+
+/**
+ * Whether a card prints its window's total. The strip owns the unfiltered 30 d figures and the
+ * headline the unfiltered 7 d spend, so those are not repeated; any filter, a 7 d token total, and
+ * 90 d / all-time windows have no other home and print it.
+ */
+export function printTotal(input: {
+  range: '7d' | '30d' | '90d' | 'all'
+  filtered: boolean
+  metric: 'cost' | 'tokens'
+}): boolean {
+  if (input.filtered) return true
+  if (input.range === '30d') return false
+  return !(input.range === '7d' && input.metric === 'cost')
 }

@@ -13,17 +13,20 @@ const GROUP_NOUN: Record<TokensGroupBy, string> = {
 
 export default function TokensChart({
   groupBy,
+  printTotal,
   ...filters
 }: {
   range: Range
   grain: Grain
   billing?: BillingValue[] | undefined
   workspace?: WorkspaceValue[] | undefined
+  printTotal: boolean
   groupBy: TokensGroupBy
 }) {
   return (
     <FoldedChart
       {...filters}
+      printTotal={printTotal}
       metric="tokens"
       groupBy={groupBy}
       groupNoun={GROUP_NOUN[groupBy]}
