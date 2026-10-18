@@ -253,4 +253,4 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 ### Wave 37 round
 
-- **Decision:** a both-empty screen is ONE gap, so every surface (Labeled cell, chats cell, channels cell, source list in either view, phone Detail line) takes the leading clause verbatim: `No chats or channels came back`. `No chats came back` stays only for the narrower chats-only gap (channels present), where the chats cell leads with its own full sentence. Selection lives in `chatsCellGap` / `sourceListGap` / `detailGap` (`model.ts`).
+- **Decision:** a both-empty screen is ONE gap, so every surface (Labeled cell, chats cell, channels cell, source list in either view, phone Detail line) takes the leading clause verbatim: `No chats or channels came back`. `No chats came back` stays only for the narrower chats-only gap (channels present), where the chats cell leads with its own full sentence. Selection lives in `emptyGap(leader, kind)` and `detailGap` (`model.ts`).

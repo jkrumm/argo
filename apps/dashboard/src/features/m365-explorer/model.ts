@@ -290,7 +290,7 @@ export function emptyGap(leader: GapLeader, kind: SourceKind): string {
 
 /** The phone Detail pane's empty line: the screen's one spelling when both lists are empty, else the open view's own gap. */
 export function detailGap(o: { leader: GapLeader; chatsView: boolean; teams: number }): string {
-  if (o.leader === 'labeled') return emptyGap(o.leader, 'chats')
+  if (o.leader === 'labeled') return NO_SOURCES
   if (o.chatsView) return NO_CHATS
   return teamsGap(o.teams)
 }
