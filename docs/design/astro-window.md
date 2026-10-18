@@ -265,4 +265,4 @@ Follow-up (w30-r2):
 
 ### Wave 38 round (`w38-r1`)
 
-- **Night timeline y domain (argo, P1):** the altitude chart's fixed `[-20, 20]` domain cut the moon's line when it climbed above 20° (live, about 18:30–21:00), so the peak the verdict card states was missing from the chart that should prove it. The top is now `max(20, highest plotted altitude)` rounded up to the next 10° (`charts/night-timeline-domain.ts`, unit-tested); the bottom stays −20 and a low night draws exactly as before. Colours, legend, gate logic and copy are unchanged.
+- **Night timeline y domain (argo, P1):** the altitude chart's fixed `[-20, 20]` domain cut the moon's line when it climbed above 20° (live, about 18:30–21:00), so the peak the verdict card states was missing from the chart that should prove it. The top is now `max(20, higher of the core and moon peaks)` rounded up to the next 10°, the sun staying clipped by `inPlot` (`charts/night-timeline-domain.ts`, unit-tested); the bottom stays −20 and a low night draws exactly as before. Colours, legend, gate logic and copy are unchanged.
