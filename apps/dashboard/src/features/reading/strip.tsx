@@ -80,10 +80,8 @@ function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
           <div className={classes.meanTick} style={{ left: trackLeft(shape.meanAt) }} />
         </div>
         <div className={classes.axis} aria-hidden>
-          {shape.labels.map((label, i) => (
-            <span key={label} title={shape.spans[i]}>
-              {label}
-            </span>
+          {shape.labels.map((label) => (
+            <span key={label}>{label}</span>
           ))}
         </div>
       </div>

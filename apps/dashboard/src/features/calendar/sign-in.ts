@@ -7,12 +7,7 @@ export type SignInStep =
 
 /** A sign-in failure is the API's 503 "not authenticated" answer: a refetch cannot fix it. */
 export function isAuthError(error: unknown): boolean {
-  return (
-    error !== null &&
-    typeof error === 'object' &&
-    'status' in error &&
-    (error as { status?: number }).status === 503
-  )
+  return error !== null && typeof error === 'object' && 'status' in error && error.status === 503
 }
 
 export function failureReason(error: unknown, source: string): string {

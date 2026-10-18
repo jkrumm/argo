@@ -33,7 +33,7 @@ function CommandStep({ hint, command }: { hint: string; command: string }) {
 export function SourceErrorLine({ error }: { error: SourceError }) {
   const { step } = error
   return (
-    <Text className={classes.muted}>
+    <Text component="div" className={classes.muted}>
       {error.label} unavailable — {error.reason}
       {step?.kind === 'command' && <CommandStep hint={step.hint} command={step.command} />}
       {step?.kind === 'link' && (
