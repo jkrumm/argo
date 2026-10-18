@@ -179,10 +179,10 @@ describe('weeks', () => {
 
 describe('window naming', () => {
   it('names a preset, a custom range and the open window', () => {
-    expect(emptyWindowShort('30d')).toBe('No walks in the last 30 days')
+    expect(emptyWindowShort('30d')).toBe('No walks in the last 30 days')
     expect(emptyWindowShort('all')).toBe('No walks in any window')
-    expect(windowPhrase('30d')).toBe('the last 30 days')
-    expect(windowPhrase('6m')).toBe('the last 6 months')
+    expect(windowPhrase('30d')).toBe('the last 30 days')
+    expect(windowPhrase('6m')).toBe('the last 6 months')
     expect(windowPhrase('custom')).toBe('this range')
     expect(windowPhrase('all')).toBe('any window')
   })
@@ -495,10 +495,10 @@ describe('emptyWindowHint', () => {
     const near = { state: 'last', endedAt: '2026-01-05T08:00:00Z' } as const
     const far = { state: 'last', endedAt: '2025-06-01T08:00:00Z' } as const
     expect(emptyWindowHint({ last: near, wider: '30d', nowMs: now })).toBe(
-      'The last walk falls inside the last 30 days.',
+      'The last walk falls inside the last 30 days.',
     )
     expect(emptyWindowHint({ last: far, wider: '30d', nowMs: now })).toBe(
-      'The last walk is outside the last 30 days.',
+      'The last walk is outside the last 30 days.',
     )
   })
 
@@ -508,10 +508,10 @@ describe('emptyWindowHint', () => {
     const inside = { state: 'last', endedAt: '2026-01-20T08:00:00' } as const
     const outside = { state: 'last', endedAt: '2026-01-19T08:00:00' } as const
     expect(emptyWindowHint({ last: inside, wider: '6m', nowMs: noon })).toBe(
-      'The last walk falls inside the last 6 months.',
+      'The last walk falls inside the last 6 months.',
     )
     expect(emptyWindowHint({ last: outside, wider: '6m', nowMs: noon })).toBe(
-      'The last walk is outside the last 6 months.',
+      'The last walk is outside the last 6 months.',
     )
   })
 
