@@ -414,6 +414,12 @@ export function offscreenNightsText(count: number): { visible: string; spoken: s
   return { visible: `${phrase} →`, spoken: `${phrase} off-screen` }
 }
 
+/** Every plain space → no-break space: one phrase that never wraps inside itself. */
+const glue = (text: string): string => text.replaceAll(' ', NBSP)
+
+/** Footer phrases joined by `·`, each dot bound to the phrase before it so a wrapped line never opens on one. */
+const joinPhrases = (phrases: readonly string[]): string => phrases.join(`${NBSP}· `)
+
 /** The Core cell's footer: the transit altitude. Transit can fall in daylight, so it is never "the night's" best. */
 export function coreTransitFooter(night: Night): string {
   return `${fmtDegrees(night.maxCoreAltitude)} ${glue('at transit')}`
@@ -585,12 +591,6 @@ export function peakMonth(
 export function withFacts(fact: ChartFact | null): { facts?: ChartFact } {
   return fact === null ? {} : { facts: fact }
 }
-
-/** Every plain space → no-break space: one phrase that never wraps inside itself. */
-const glue = (text: string): string => text.replaceAll(' ', NBSP)
-
-/** Footer phrases joined by `·`, each dot bound to the phrase before it so a wrapped line never opens on one. */
-const joinPhrases = (phrases: readonly string[]): string => phrases.join(`${NBSP}· `)
 
 /**
  * The Sky cell's footer: the dark-sky threshold (the scale's tick is unlabelled), the town glow
