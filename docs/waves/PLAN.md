@@ -1086,13 +1086,13 @@ What to re-score, page by page (the open items each re-score must check first):
   lift sparklines are neutral (one metric per cell, hue not earned); Home ACWR applies Garmin's visibility rule, so before 22:00 it
   may show yesterday's reading and says so.
 
-## Wave 24 — Re-score round 3: the argo items r2 left <!-- status: active -->
+## Wave 24 — Re-score round 3: the argo items r2 left <!-- status: done -->
 
 Same shape as Wave 23 step 2 (fan-out on disjoint page files, two independent reviews per PR, `rd merge`, live re-shoot, a
 fresh `basalt-design-reviewer` + Keel side-by-side per round). Basalt-owned items wait for basalt (UPSTREAM.md § "Wave 23").
 The list below is r2's argo-owned residue; each page's detail is in `docs/design/<page>.md` § "Wave 23 rounds".
 
-- [ ] Fix the argo items per page, fanned out:
+- [x] Fix the argo items per page, fanned out:
   - Home: activity headlines ellipsize mid-transition; the decision-card history log wraps at 1440 (one-line latest
     transition or an evidence preview).
   - Agents: needs-you readout unit; the stretched half-empty fleet cell; a decision-card title ellipsis; the project-card mini
@@ -1108,8 +1108,76 @@ The list below is r2's argo-owned residue; each page's detail is in `docs/design
     the panorama minutes vs the window and the GO window stated three times (shoot the Forecast tab and a GO fixture).
   - M365: the labeled pane's fragmented thumb; a noun for the labeled cell; detail and labeled panes reachable at 390.
   - Calendar: the API `isCancelled` field (replace the title-prefix stopgap). Hermes: pills visible in light.
-- [ ] Every page opens with a headline sentence + fact line (Keel's shared gap): one shared pattern, not thirteen.
-- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 25 in this shape. The loop ends only when a
+- [x] Every page opens with a headline sentence + fact line (Keel's shared gap): one shared pattern, not thirteen.
+- [x] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 25 in this shape. The loop ends only when a
+      fresh scorer and the owner find nothing worth improving.
+
+**Left behind:**
+
+**Closed out (orchestrated): Wave 25 is added as `active`, not spawned; the orchestrator spawns it.**
+
+- **Landed (master, deployed, `/api/health` = `1e93733`, deploy workflow green):** `bfca9a4` + `03278a4` the shared
+  `components/upstream/page-summary.tsx` (`PageSummary{sentence, facts?, aside?, loading?}`, Keel's headline + mono fact line,
+  an `UPSTREAM.md` row), then six fan-out PRs, each with two independent agent-gateway review rounds, scope frozen after round 2
+  and the last fix diff read by the lead: #91 warden (≤3 type steps via `StatusDot` + word, a measured reason expander, the
+  `reverts` definition, a board that folds empty columns into one line, a one-line history preview with the true earlier count —
+  Home gets it too), #93 home + agents (subject/outcome activity rows, units on every readout, fleet footer, whole decision
+  titles with a `Full ask` disclosure, a feed-aware aside), #90 garmin + walking pad + body composition (headlines, encoding
+  prose removed from tooltips), #92 astro (window stated once, per-night bars — window length for usable nights, shortfall on
+  the core gate — a 390 scroll cue, closest night from the unrounded gap), #94 strength + reading + calendar (**`isCancelled` on
+  the API's calendar events** — Graph `$select`, Google `status` — with a title-prefix fallback for a dashboard ahead of the API;
+  readiness card, momentum in %/mo, shelf footer, thin time-read bars), #95 usage + m365 + hermes (cache trend + delta, billing
+  noun, health ink order and ticks, a freshness word with tone, m365 phone panes via a `pane` store field, hermes pill
+  contrast). **Line delta: `apps/` +2309 / −1075.** Every page opens with `PageSummary` except WalkingPad's empty window.
+- **Code review:** real bugs caught: `+n earlier` counted the 3-item slice; a stale-snapshot headline beside live-looking facts;
+  a forever-skeleton when no snapshot exists (warden); an empty fleet read "every agent working"; the outcome flex factor
+  inverted, clipping the transition it was meant to protect (home/agents); off-screen count in mixed coordinate spaces; the API's
+  `bestDate` (first night when all are out) labelled "closest"; "highest of the night" on a daylight transit (astro); live
+  meetings stripped of a `Canceled:` title and blank titles (calendar); a streak of 0 on a failed query (walking pad); a selected
+  record hiding the agent feed (m365). Rejected: `--vx-ink2` "not a token" (it is), `recentMean` over the last 7 readings (a
+  calendar window is the intent). `make check` green in the merge train on every merge.
+- **Round `w24-r1`** (live production, `basalt-ui shot --base https://argo.jkrumm.com`, `argo-auth` seeded from
+  `secrets-run read op://common/api/SECRET` via env, 1440 + 390, both schemes; 1292 shots, one harness focus timeout). Boards:
+  `.design-shots/w24-r1-{a,b,c}` (gitignored), copied to the MacBook, `~/Downloads/argo-design-review/w24/`. Scored by three
+  fresh `basalt-design-reviewer`s plus a Keel side-by-side; per-page verdicts in `docs/design/<page>.md` § "Wave 24 round".
+- **Reviewer verdict, stated plainly:** **pass** — Hermes chat (all but an invisible light row hover). **Fail** — the other
+  twelve. The failures moved: the r2 items are fixed, and what is left is mostly **copy** (captions and info tooltips that narrate
+  the drawing, undefined terms, missing nouns and units), **empty and missing states** with no reason or next step, a few
+  **micro-visuals that answer nothing** (needs-you and p95 sparklines, meters with no gate), and **truncation** (warden/home
+  `Latest change`, long identifiers in reasons). Basalt-owned rows: `UPSTREAM.md` § "Wave 24".
+- **Against Keel:** holds up — Garmin, Calendar, Body composition, Reading, Usage; close — Home, Warden (the biggest move),
+  Strength, Astro, M365; does not yet — Agents, WalkingPad, Hermes. The shared headline closed the shared gap on 12 of 13 pages.
+  The next shared gap is the **card interior**: decision cards with prose titles and mostly empty `Latest change` wells instead of a
+  question + 2–3 facts + evidence; dash tiles with sentence captions where Keel dims a tile; empty pages (WalkingPad, Hermes).
+- **Not verified:** the Hermes Pinned / Today / streaming states (still none on the live account); a GO night on a shot (none in
+  the window); the m365 detail and labeled panes at 390 (no anchor there).
+- **Deviation kept, the owner may revert:** Warden's `total` rides as a property on the transition array (changing
+  `Decision.history`'s shape would have crossed into Home's files mid-wave).
+
+## Wave 25 — Re-score round 4: copy, empty states, card interiors <!-- status: active -->
+
+Same shape as Wave 24 (fan-out on disjoint page files, two independent reviews per PR, `rd merge`, live re-shoot, fresh
+`basalt-design-reviewer`s + a Keel side-by-side). Basalt-owned items wait for basalt (`UPSTREAM.md` § "Wave 23" and § "Wave 24").
+Each page's detail is in `docs/design/<page>.md` § "Wave 24 round".
+
+- [ ] Fix the argo items per page, fanned out:
+  - Copy sweep, every page: no caption, footer or info tooltip that narrates the drawing (strength lift strips and four section
+    tooltips, reading ratings/pace/finished notes, usage cost/tokens/health tooltips and raw field names, astro Forecast tooltips,
+    the agents strip "shade is share" caption); define ACWR, INOL, the readiness score where they first appear; label azimuths;
+    no restated legends or headers (agents fleet + activity strip, calendar Today card, body-composition chart header, usage `fresh`).
+  - Empty and missing states state why and when it fills (home/garmin recovery, budget, warden board); WalkingPad's empty window
+    keeps its headline and a dimmed KPI row instead of an 80 % blank page.
+  - Micro-visuals that answer nothing: the needs-you and p95 sparklines, the warden verdicts meter, astro core/cloud cells without
+    a gate, the unlabelled second sky-ramp marker, the panorama's 0–50° domain.
+  - Truncation and overflow: warden/home `Latest change` (state names whole), long identifiers and URLs in reasons, raw emoji
+    shortcodes in warden source lines, quiet-project ages, home actor names.
+  - Astro headline noun (`in the next {n} nights`) and the closest night's shortfall; `OUT` with a dot; source dots with a word.
+  - M365: one labeled count across headline and strip; detail/labeled panes anchored at 390; the restated `Sources` heading.
+  - Body composition: a sentence headline; anchor the 28 d rate and the 7 d verdict to their windows.
+  - Reading: an outline focus ring on title links (not the 2 px bar). Hermes and m365: a visible light-scheme row hover.
+- [ ] Card interiors (the Keel gap): decision cards on Agents, Warden and Home open with a question, 2–3 facts and an evidence
+      line, and the `Latest change` well collapses when it has one line; one shared change in `components/upstream/decision-card`.
+- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 26 in this shape. The loop ends only when a
       fresh scorer and the owner find nothing worth improving.
 
 **Left behind:**

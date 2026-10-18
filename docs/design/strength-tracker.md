@@ -128,3 +128,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - The diagnostics section is `Diagnostics · {period}`; the composite chart names its signals and the alignment chart carries `last 90 d` (it is fixed to that window).
 
 No new basalt rows.
+
+### Wave 24 round (`w24-r1`, live after #90–#95)
+
+- **Reviewer:** fail: every lift strip caption explains the sparkline (`line: … dashed: PR`); the info tooltips in four sections narrate the drawing; ACWR, INOL and the readiness score are undefined on the headline and the call card; `Diagnostics · {period}` is still a category. Basalt: chart cards at four sizes, the ACWR tooltip name column, a daily point's tooltip header with a clock time.
+- **Against Keel:** close — the stacked charts are gone and the e1RM grid resembles Keel's composite card; the strip captions run three mono lines and the readiness well is a filled grey block.

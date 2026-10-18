@@ -128,3 +128,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - Headline: the summary in `agenda-view.tsx` is `PageSummary` — sentence `{n} meetings today, {booked} booked`, facts `next in {m}` and `{booked} booked this week` (`summaryParts`, tested); unknown sources read `— meetings today` with dashed facts.
 
 No new basalt rows.
+
+### Wave 24 round (`w24-r1`, live after #90–#95)
+
+- **Reviewer:** fail: the Today card repeats the headline's facts verbatim. Basalt: next-days still four sizes and ellipsized titles (list defaults); JetBrains Mono ligatures turn `<>` in a title into a diamond in the facts line.
+- **Against Keel:** holds up — the week table and day-grouped agenda read as Keel; the Today card is a full-width block holding one repeated sentence.

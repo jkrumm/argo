@@ -150,7 +150,7 @@ Each page's full table is in its concept doc under `## Wave 22 friction`. 2.19.0
 | `StatGroup variant="strip"` | a compact three-on-one-row mode at 390; a five-cell composite card | astro-window (Night anatomy), m365-explorer | local grids (now eleven strip prototypes across argo) |
 | `EventList` | day groups with a count and a `live` heading marker, a glyph slot, a right-pinned mono time, a hover/focus-only trailing control, a fold row | hermes-chat, m365-explorer | `features/hermes-chat/thread-list.tsx`, `features/m365-explorer/source-row.tsx` |
 | Counted filter chips | `{label, count, active}[]` as a standalone toolbar, neutral active chip | hermes-chat, m365-explorer | `features/hermes-chat/thread-toolbar.tsx`, `features/m365-explorer/tag-chips.tsx` |
-| Master–detail shell | list pane + record pane, a push sheet at 390 | m365-explorer (hermes uses a `?thread=` swap instead) | local grid + `Drawer` in `features/m365-explorer/preview-drawer.tsx` |
+| Master–detail shell | list pane + record pane, a push sheet at 390 | m365-explorer (hermes uses a `?thread=` swap instead) | local grid; at 390 a `Section` tabs switch (Sources / Labeled / Detail) bound to a `createLocalStore` `pane` field (Wave 24; the `Drawer` is deleted) |
 | `Meter` | `stops` (a custom ramp such as `LP.*`), multiple `ticks`, `tone="muted"`, a visually hidden reading that does not add a font size | astro-window, m365-explorer | `SkyScale` / `Gauge` in `features/astro-window/components/night-anatomy.tsx`; `alpha(VX.muted, a)` fills; a 13 px container font |
 | `PageBar` | a `meta` slot for a status dot and word | hermes-chat | a `kind: 'custom'` action marked `primary` |
 | `ThreadFeedRow` | a headerless mode | hermes-chat | CSS hides the header slot |
@@ -224,3 +224,30 @@ inset, the heading slashed zero). New:
 | `Sparkline` focus | keyboard focus starts on the last point (the readout already shows it) and the plot insets so the marker clears the focus outline | strength lift strip | as rendered |
 | focus ring | the sky focus ring in dark at mobile width (today a white ring there) | strength strip and diagnostics at dark 390 | as rendered |
 | `basalt-ui shot` | anchors taller than the viewport paint blank below the first screen; fixed chrome (page bar, bottom nav) is drawn over crops | calendar next-days, strength sections | items marked unverified |
+
+### Wave 24 — round 3 fixes and the `w24-r1` live re-score
+
+Rows the Wave 24 workers filed (#90–#95):
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| `StatusVerdict` | a `size` (its word is the micro step, a fourth size inside a ≤3-size card) | warden decision/failed cards | `StatusDot` + an `xs` word |
+| `createSearchStore` | optional-search route typing (a URL field on a route whose nav link carries no search) | m365 phone `pane` | a `createLocalStore` field |
+| `Section` | an untitled variant (only the `tabs` slot) | m365 phone pane switch | titled with the open pane's name |
+| `VX.status.*` | a documented fill role (the status inks read as the palest marks when used as bar fills) | usage health bars, error band | `VX.warnSolid` / `VX.badSolid` per mark |
+| `Meter` (ring) | a `target` tick | usage cache-hit ring | the local `CacheRing`, now beside a trend |
+| page summary | the recipe as an export (see "New — not in SPEC §4") | all 13 pages | `components/upstream/page-summary.tsx` |
+
+`w24-r1` re-confirmed the Wave 23 rows (Meter zone-label and end-tick placement, the `Button` `rightSection` inset, chart
+cards at four sizes, the chart tooltip name column, list defaults at four sizes, the shot harness on tall anchors). New:
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| mono font | ligatures off for data text (`font-variant-ligatures: none` on the mono stack); JetBrains Mono turns `<>` in a title into a diamond | calendar headline facts line | as rendered |
+| chart tooltip header | a date-only header for a daily bucket (today `{date} 22:00`) | strength readiness | as rendered |
+| chart / strip tooltip | placement that never covers the strip cell's own value or title (focus and hover, 390) | home agents strip, agents activity strip | as rendered |
+| list rows | wrap a title to two lines instead of ellipsizing in a dense agenda/task row | calendar next-days and tasks at 390 | as rendered |
+| `basalt-ui shot` | info-icon tooltips as a declared state; metrics for every crop it saves (`project-card-6` dark/390 had none) | warden strip, agents project cards | items marked unverified || `SegmentedControl` (chart-card actions) | a nested indicator radius at least 3 px below its track (today 4 inside 6) | usage cost and tokens charts | as rendered |
+| `StatGroup` strip day cells (`BandStrip`) | a second channel for warn vs bad (pattern or glyph), not hue alone | usage errors cell | as rendered |
+| chart direct labels | collision avoidance with the series lines and with each other | astro cloud layers | as rendered |
+| row hover | a hover surface visible in light (today only dark tints the row) | hermes thread list, m365 source list | as rendered (ownership open: argo's rows may not use the shared token) |

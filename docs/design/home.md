@@ -113,3 +113,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - Headline moved onto the shared `PageSummary`: the sentence keeps the count and oldest wait (fleet when nothing waits), the facts line carries fleet, next meeting and recovery, the date is the `aside`. `summarySentence` became `summaryParts` (pure + tests); the local headline/date CSS is gone.
 
 No basalt gaps this round.
+
+### Wave 24 round (`w24-r1`, live after #90–#95)
+
+- **Reviewer:** fail: the agents strip's 24 h shade band is near-uniform and its caption explains the encoding; the budget and recovery empty states say why but not what next; the recovery cell is stretched (`emptyRatio` ≥ 0.4); the decision cards' `Latest change` line truncates mid-state at 1440; activity actor names clip. Basalt: ACWR zone labels bunch at the track start; chart tooltips cover the cell's value at 390.
+- **Against Keel:** close — the headline and fact line work; dash tiles with sentence captions and a mostly empty `Latest change` well are what still separate it.

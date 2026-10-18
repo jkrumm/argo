@@ -161,3 +161,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - History preview is one non-wrapping line (latest change, truncating, full text in `title`) plus `+{n} earlier`; the shared preview column grows from 11 rem to 14 rem, which also applies to Home and Agents cards (`components/upstream/decision-card.module.css`).
 - The page opens with `PageSummary`: sentence `{n} items need you, oldest {age}. Loop healthy.`, facts `poller {n} min old · {n} fixes in 7 d · budget {used} of {max}`; the loop-stalled/degraded sentence keeps its status tone. `deriveSummary` now returns `facts`.
 - basalt gap: none new; `StatusVerdict` has no size prop (`| StatusVerdict | size / fontSize | argo decision cards hold ≤3 type steps and its word is the micro step | argo renders StatusDot + xs Text |`).
+
+### Wave 24 round (`w24-r1`, live after #90–#95)
+
+- **Reviewer:** fail: the `Latest change` line truncates mid-state at 1440; long identifiers and URLs overflow or break mid-token in reasons; raw emoji shortcodes in alert source lines; the fixes-vs-silence caption wraps into a fragment and its legend does not sum to the closed total; `no prior-window delta` is jargon; the poller caption repeats the tick label; the verdicts meter has nothing to compare against; the budget's missing state gives no next step; the board's empty copy is filler. Harness: info-icon tooltips are not declared as shot states. Basalt: the `Full reason` button inset.
+- **Against Keel:** close, the biggest move of the round — the headline and six-tile strip match Keel's rhythm; the `Latest change` well is mostly empty, titles are long prose, and the revert definition belongs in the tooltip rather than the footer.

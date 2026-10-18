@@ -143,3 +143,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - The page opens with `PageSummary` (replacing the bespoke `.summary` paragraph and its CSS): sentence `{weight} kg, {n} kg to the {goal} kg goal` (no goal: weight only), facts `{±r} kg/wk over {n} d` · `last weigh-in {age}`. `summaryParts` (pure, unit-tested) replaces `summarySentence`.
 - Chart info tooltips lose all encoding prose (including the dashed-line notes) and state unit and meaning only.
 - Basalt rows: none.
+
+### Wave 24 round (`w24-r1`, live after #90–#95)
+
+- **Reviewer:** fail: the headline is a bare `{value} kg`, not a sentence; the 28 d rate sits beside a last weigh-in older than its window with no anchor; the rate cell's 7 d verdict disagrees with the 28 d meter it sits under; the weight chart header repeats the strip's figures.
+- **Against Keel:** holds up.

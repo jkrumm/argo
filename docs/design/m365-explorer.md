@@ -151,3 +151,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 |-|-|-|-|
 | `createSearchStore` | optional-search route typing | a `pane` URL param on a route whose nav link carries no search | `createLocalStore` field |
 | `Section` | untitled variant (no `title`) | a phone pane switch needs only the `tabs` slot | `Section` titled with the open pane's name |
+
+### Wave 24 round (`w24-r1`, live after #90–#95)
+
+- **Reviewer:** fail: the headline's `{n} labeled` disagrees with the strip's `{n−1} of {total}` and the caption `1 outside this set` does not say which set; the phone `Sources` heading restates the select beside it; row hover is invisible in light; the detail and labeled panes still declare no 390 anchors, so they are unmeasured there. Harness: one source-list focus crop timed out (light 390, a tall anchor).
+- **Against Keel:** close — calm strip and headline; the Teams cell has no visual, the right pane groups by tag with no facts, rows all one weight.

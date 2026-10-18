@@ -112,3 +112,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - Headline: the dimmed summary line replaced by `PageSummary`; `summaryHeadline` (tested): `{n} threads, {m} today`, facts `{n} untitled · {n} pinned · last reply {time}`. `summaryParts` deleted.
 - Type pills: text `--vx-ink2` on a 9 % `--vx-ink` wash (tokens only), replacing muted on `--vx-surface-subtle`, which vanished against the light card.
+
+### Wave 24 round (`w24-r1`, live after #90–#95)
+
+- **Reviewer:** pass: every component except the thread-list hover, which is invisible in light (dark tints the row).
+- **Against Keel:** does not yet — three rows then an empty page above the composer; title and summary run together on one line.

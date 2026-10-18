@@ -174,3 +174,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - Headline: the local `page-summary.tsx` is deleted; the page uses the shared `PageSummary` (`summaryParts`: sentence = count + oldest wait, facts = fleet + idle projects, aside = `Live · updated {age}`).
 
 No basalt gaps this round.
+
+### Wave 24 round (`w24-r1`, live after #90–#95)
+
+- **Reviewer:** fail: the needs-you sparkline is a flat line with one spike (answers nothing); the fleet footer repeats the meter's own captions; the activity-strip footer restates its header; quiet-project ages clip at the right edge. Basalt: the `Full ask` button inset; `project-card-6` has no dark/390 metrics (harness).
+- **Against Keel:** does not yet — decision titles are raw ask prose over a code block, with no facts or evidence panel; tiles are tall with dead space.

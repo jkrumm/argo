@@ -124,3 +124,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - Time read: `BarList variant="thin"` puts each title on its own line above a thin bar, with the value on that line, so no label crosses a bar end.
 
 No new basalt rows.
+
+### Wave 24 round (`w24-r1`, live after #90–#95)
+
+- **Reviewer:** fail: the ratings caption explains the binning, the pace caption explains the dots, the finished list carries a note about what it does not draw; the ratings ticks crowd at 390; link focus is now a 2 px bar after the title instead of an outline (the r2 focus-box fix overcorrected).
+- **Against Keel:** holds up — still the closest to Keel.

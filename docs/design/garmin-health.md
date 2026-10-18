@@ -142,3 +142,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - The page opens with `PageSummary`: sentence `Recovery {n}/100, load {relation to the ACWR band}`, facts `ACWR {x or —}` · `RHR {±n} bpm over 14 d` · `HRV {±n} ms over 14 d`. `summaryParts` (pure, unit-tested) replaces `summarySentence`; the skeleton rides `loading`, `RefetchDim` still wraps it.
 - Caption sweep (rules 2/3): strip captions/footers and `METRIC_TOOLTIPS` already state thresholds and units, none explains an encoding; nothing changed.
 - Basalt rows: none.
+
+### Wave 24 round (`w24-r1`, live after #90–#95)
+
+- **Reviewer:** fail: the headline opens on a missing recovery value with no reason; the recovery cell draws an empty meter, is stretched (`emptyRatio` ≥ 0.4) and says neither why nor when it fills. Basalt: training-load meter ticks (`0` under the marker, the max on its own row), zone labels bunched at the start, `Danger` wrapping at 390.
+- **Against Keel:** holds up.

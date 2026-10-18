@@ -141,3 +141,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - `data-shot="sky-panorama"` already wraps the Forecast panorama and `/astro-window?tab=forecast` is in `scripts/evidence/routes.txt`; no change needed.
 
 No basalt gaps.
+
+### Wave 24 round (`w24-r1`, live after #90–#95)
+
+- **Reviewer:** fail: the headline lost its noun (`No usable night in the next {n}`) and `closest {day}` carries no shortfall; `OUT` is a bare word with no dot; the core and cloud cells show no gate or limit to compare against; the sky ramp has an unlabelled second marker; the source dots carry no word; the Forecast tooltips narrate the charts; azimuth readouts have no label; the panorama's 0–50° domain leaves most of the plot blank; cloud layers are labelled twice. The strip now passes: every night's bar differs and the 390 `{n} more nights` cue shows. Basalt: the site select still clips, the meter caption `scale 0–30°`, cloud direct labels colliding with lines.
+- **Against Keel:** close — the headline works and the strip now reads per night; the OUT verdict card is still half empty beside the tall gates card, and the Forecast charts carry no per-chart verdict line.

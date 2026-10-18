@@ -134,3 +134,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 |-|-|-|-|
 | `VX.warn` / `VX.bad` | a solid-ink alias for series fills | bar and band fills read as the palest marks | `VX.warnSolid` / `VX.badSolid` per mark |
 | `Meter` (ring) | `target` tick | cache hit ring | still the local `CacheRing`, now beside the trend |
+
+### Wave 24 round (`w24-r1`, live after #90–#95)
+
+- **Reviewer:** fail: the `fresh` aside restates the facts line; the p95 sparkline is one spike then flat; the cache delta's `vs 30 d ratio` baseline is unclear beside a 30 d headline; the cost, tokens and health info tooltips narrate the drawing and show raw field names (`cost_usd`, `cache_read`); `{source} {pct}%` next to the error count has no stated meaning; warn and bad days differ by hue alone. Basalt: the latency axis has two ticks with the line through `100.0 s`; the errors tooltip covers the value; SegmentedControl indicator radius and the phone select inset.
+- **Against Keel:** holds up — the best KPI band of the set; the stacked-area chart and the filter row dominate the fold.

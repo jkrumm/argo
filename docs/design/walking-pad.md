@@ -129,3 +129,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - The page opens with `PageSummary`: sentence `{km} km this week in {n} walks`, facts `streak {d} d` · `pace {p} km/h, {±d} km/h vs the {prior window}`. `summaryParts` (pure, unit-tested) replaces `summarySentence`; the skeleton rides `loading`. The "no prior window to compare" clause is gone: a pace without a delta says only its period.
 - Streak is `null` (shown as `streak —`) when the heroes query has no data, never 0; an unreported week reads "No walks reported this week". The history subtitle keeps "newest first": the list is requested `order: desc` and the table cannot re-sort.
 - Basalt rows: none.
+
+### Wave 24 round (`w24-r1`, live after #90–#95)
+
+- **Reviewer:** fail: an empty window renders no headline at all (the summary is gated on data), so the page is a one-line strip over an empty state, about 80 % blank.
+- **Against Keel:** does not yet — Keel keeps the KPI row (dimmed) above an empty chart instead of dropping structure.
