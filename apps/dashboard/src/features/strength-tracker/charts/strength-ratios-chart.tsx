@@ -6,7 +6,15 @@ import { alpha, VX } from 'basalt-ui/tokens'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from '../constants'
 import { type RatioStatus } from '../formulas'
-import { bandOffset, EM_DASH, offText, ratioName, statusWord } from '../model'
+import {
+  bandOffset,
+  EM_DASH,
+  fmtBound,
+  isBorderline,
+  ratioDetail,
+  ratioName,
+  statusWord,
+} from '../model'
 
 /** `MeterZone` has no tone, and `Meter`'s default zone fill is near-white in dark mode. */
 const MUTED_FILL = alpha(VX.muted, 0.35)
@@ -62,7 +70,7 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
               </Group>
               {pair.ratio === null ? null : (
                 <Meter
-                  label={`${ratioName(pair.label)} ratio against its band`}
+                  label={`${ratioName(pair.label)} ratio against its ${fmtBound(lo)}–${fmtBound(hi)} band`}
                   value={pair.ratio}
                   min={0}
                   max={pair.scaleMax}
@@ -76,20 +84,18 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
                   endCaption={null}
                 />
               )}
-              <Text size="xs" c="dimmed">
-                <Text
-                  span
-                  size="xs"
-                  c={
-                    statusWord(pair.status, offset) === 'borderline'
-                      ? 'dimmed'
-                      : statusInk(pair.status)
-                  }
-                >
-                  {statusWord(pair.status, offset)}
+              {pair.ratio === null ? null : (
+                <Text size="xs" c="dimmed">
+                  <Text
+                    span
+                    size="xs"
+                    c={isBorderline(pair.status, offset) ? 'dimmed' : statusInk(pair.status)}
+                  >
+                    {statusWord(pair.status, offset)}
+                  </Text>
+                  {` · ${ratioDetail(pair.status, offset, pair.range)}`}
                 </Text>
-                {` · ${offText(offset, pair.range)}`}
-              </Text>
+              )}
             </Stack>
           )
         })}

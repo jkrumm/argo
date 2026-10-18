@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Group, Text } from '@mantine/core'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
-import { VX } from 'basalt-ui/tokens'
+import { alpha, VX } from 'basalt-ui/tokens'
 import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { localDay } from '../../garmin-health/charts/local-day'
@@ -137,7 +137,7 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
         y={{ domain: [0, 100], format: (v) => String(Math.round(v)) }}
         zones={[
           { from: READINESS_PUSH_FROM, to: 100, fill: VX.good },
-          { from: READINESS_REST_BELOW, to: READINESS_PUSH_FROM, fill: VX.muted },
+          { from: READINESS_REST_BELOW, to: READINESS_PUSH_FROM, fill: alpha(VX.muted, 0.08) },
           { from: 0, to: READINESS_REST_BELOW, fill: VX.bad },
         ]}
         refLines={[

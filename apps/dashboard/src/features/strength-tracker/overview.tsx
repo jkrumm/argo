@@ -22,7 +22,6 @@ import {
   deloadLine,
   lastSessionDate,
   staleNote,
-  ACWR_LABEL,
   readinessHeader,
   recentDeload,
   liftDelta,
@@ -34,6 +33,7 @@ import {
   readinessReading,
   summaryParts,
   todaysCall,
+  type LiftDelta,
   type Point,
 } from './model'
 import {
@@ -109,10 +109,10 @@ export function SummaryLine(props: Params) {
   const { summaryLine } = useOverview(props)
   // The headline's ACWR carries its definition; the other facts are plain words.
   const facts = summaryLine.facts.map((fact) =>
-    fact.startsWith(ACWR_LABEL) ? (
-      <Term key={fact} name="ACWR" label={fact} definition={TERM_DEFINITIONS.acwr} />
+    fact.kind === 'acwr' ? (
+      <Term key={fact.text} name="ACWR" label={fact.text} definition={TERM_DEFINITIONS.acwr} />
     ) : (
-      fact
+      fact.text
     ),
   )
   return <PageSummary sentence={summaryLine.sentence} facts={facts} />
@@ -121,7 +121,7 @@ export function SummaryLine(props: Params) {
 /** A term of art with its plain-word definition behind an info icon. */
 function Term({ name, label, definition }: { name: string; label: ReactNode; definition: string }) {
   return (
-    <Group gap={4} wrap="nowrap" align="center">
+    <Group component="span" gap={4} wrap="nowrap" align="center">
       {label}
       <Tooltip
         label={definition}
@@ -151,7 +151,7 @@ export function TodaysCall(props: Params) {
       ? `score alone reads ${call.readinessVerdict}`
       : null,
   ]
-    .filter((v) => v !== null && v !== '')
+    .filter((v) => v !== null)
     .join(' · ')
 
   return (
@@ -271,16 +271,15 @@ type LiftPr = ReturnType<typeof useOverview>['summary']['byExercise'][number]
 function liftCell({
   id,
   points,
+  move,
   pr,
-  now,
 }: {
   id: string
   points: readonly Point[]
+  move: LiftDelta
   pr: LiftPr | undefined
-  now: number
 }): StatStripCell {
   const e1rm = latestE1rm(points)
-  const move = liftDelta(points, now)
   const plotted = points.filter((p) => p.e1rm !== null).slice(-SPARK_POINTS)
   const spark = plotted.map((p) => p.e1rm as number)
   return {
@@ -327,21 +326,15 @@ const liftCols = (n: number) => Math.min(Math.max(n, 2), 6) as 2 | 3 | 4 | 5 | 6
 export function LiftStrip(props: Params) {
   const { series, summary, now } = useOverview(props)
   const prs = new Map(summary.byExercise.map((s) => [s.exercise_id, s]))
-  const cells = props.exercises.map((id) =>
-    liftCell({
-      id,
-      points: series.byExercise.find((l) => l.exercise_id === id)?.points ?? [],
-      pr: prs.get(id),
-      now,
-    }),
+  // Each lift's move is derived once; the cells and the stale note both read it.
+  const lifts = props.exercises.map((id) => {
+    const points = series.byExercise.find((l) => l.exercise_id === id)?.points ?? []
+    return { id, points, delta: liftDelta(points, now) }
+  })
+  const cells = lifts.map(({ id, points, delta }) =>
+    liftCell({ id, points, move: delta, pr: prs.get(id) }),
   )
-
-  const note = staleNote(
-    props.exercises.map((id) => ({
-      id,
-      delta: liftDelta(series.byExercise.find((l) => l.exercise_id === id)?.points ?? [], now),
-    })),
-  )
+  const note = staleNote(lifts)
 
   return (
     <Stack gap="xs">

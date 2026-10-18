@@ -280,19 +280,22 @@ function ChartsPanel({
       </Box>
 
       <Box data-shot="sec-diagnostics">
+        <Section title={`Against your 90-day norm, ${period}`} collapsible defaultOpen={false}>
+          <Suspense fallback={pending}>
+            <CompositeChartSlot params={params} activeExercises={activeExercises} />
+          </Suspense>
+        </Section>
+      </Box>
+
+      <Box data-shot="sec-alignment">
         <Section
           title={`Where training and recovery disagree, ${period}`}
           collapsible
           defaultOpen={false}
         >
-          <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
-            <Suspense fallback={pending}>
-              <CompositeChartSlot params={params} activeExercises={activeExercises} />
-            </Suspense>
-            <Suspense fallback={pending}>
-              <AlignmentMatrixChart params={params} />
-            </Suspense>
-          </SimpleGrid>
+          <Suspense fallback={pending}>
+            <AlignmentMatrixChart params={params} />
+          </Suspense>
         </Section>
       </Box>
     </Stack>

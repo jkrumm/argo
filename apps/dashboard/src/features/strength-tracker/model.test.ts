@@ -18,7 +18,9 @@ import {
   periodLabel,
   perMonth,
   ratioName,
-  ratioNote,
+  ratioDetail,
+  isBorderline,
+  fmtBound,
   readinessReading,
   shortDate,
   signed,
@@ -91,7 +93,7 @@ describe('deload recency', () => {
   })
   test('the line says what the signal is, never "active" for a stale one', () => {
     // A stale signal is told once, by the facts line's last session, not by a second deload line.
-    expect(deloadLine({ verdict: 'stale', activeSignals: [] })).toBe('')
+    expect(deloadLine({ verdict: 'stale', activeSignals: [] })).toBeNull()
     expect(deloadLine(active)).toBe('Deload signal: monitor — fatigue')
     expect(deloadLine({ verdict: 'progress', activeSignals: [] })).toBe(
       'Deload signal: none active',
@@ -111,7 +113,7 @@ type PartsInput = Parameters<typeof summaryParts>[0]
 /** The headline and its facts, as the one line they used to be. */
 const summaryText = (input: PartsInput) => {
   const { sentence, facts } = summaryParts(input)
-  return [sentence, ...facts].join(' · ')
+  return [sentence, ...facts.map((f) => f.text)].join(' · ')
 }
 
 describe('summaryParts', () => {
@@ -132,7 +134,10 @@ describe('summaryParts', () => {
       }),
     ).toEqual({
       sentence: 'Deadlift e1RM 110.0 kg, +10.0 kg in 28 d',
-      facts: ['ACWR 1.20 optimal', 'readiness 50/100 Normal'],
+      facts: [
+        { kind: 'acwr', text: 'ACWR 1.20 optimal' },
+        { kind: 'plain', text: 'readiness 50/100 Normal' },
+      ],
     })
   })
 })
@@ -188,7 +193,7 @@ describe('liftDelta', () => {
   })
   test('says so when the last session is older than the window', () => {
     const r = liftDelta([pt('2026-08-01', 100), pt('2026-09-02', 110)], NOW)
-    expect(r).toEqual({ delta: null, phrase: 'no session in 28 d', stale: true })
+    expect(r).toEqual({ delta: null, phrase: 'last session 2 Sep', stale: true })
   })
   test('a first session inside the window is not "no session"', () => {
     const r = liftDelta([pt('2026-10-10', 100), pt('2026-10-14', 110)], NOW)
@@ -307,9 +312,9 @@ describe('balance', () => {
     expect(bandOffset(null, [1, 2])).toBeNull()
   })
   test('a hair outside the band never prints inside it', () => {
-    expect(offText(bandOffset(2.004, [1, 2]), [1, 2])).toBe('<0.01 over the 1–2 band')
-    expect(offText(0, [1, 2])).toBe('inside the 1–2 band')
-    expect(offText(-0.1, [1, 2])).toBe('0.10 under the 1–2 band')
+    expect(offText(bandOffset(2.004, [1, 2]), [1, 2])).toBe('<0.01 over the 1.0–2.0 band')
+    expect(offText(0, [1, 2])).toBe('inside the 1.0–2.0 band')
+    expect(offText(-0.1, [1, 2])).toBe('0.10 under the 1.0–2.0 band')
     expect(offText(null, [1, 2])).toBe('—')
   })
   test('status words', () => {
@@ -318,11 +323,24 @@ describe('balance', () => {
     expect(statusWord('critical', 0.5)).toBe('critical')
     expect(statusWord(null, 0)).toBe('—')
   })
-  test('one verdict and the band named once', () => {
-    expect(ratioNote('balanced', -0.2, [1, 2])).toBe('borderline · 0.20 under the 1–2 band')
-    expect(ratioNote('balanced', 0, [1, 2])).toBe('balanced · inside the 1–2 band')
-    expect(ratioNote('critical', 0.4, [1, 2])).toBe('critical · 0.40 over the 1–2 band')
-    expect(ratioNote(null, null, [1, 2])).toBe('—')
+  test('bounds keep one decimal at least, and more when they have more', () => {
+    expect(fmtBound(1)).toBe('1.0')
+    expect(fmtBound(1.25)).toBe('1.25')
+    expect(offText(0, [1, 1.25])).toBe('inside the 1.0–1.25 band')
+  })
+  test('borderline is a status of the API against the band, not a display word', () => {
+    expect(isBorderline('balanced', -0.2)).toBe(true)
+    expect(isBorderline('balanced', 0)).toBe(false)
+    expect(isBorderline('imbalanced', -0.2)).toBe(false)
+    expect(isBorderline('balanced', null)).toBe(false)
+  })
+  test('one verdict, the band named once, the tolerance only where it applies', () => {
+    expect(ratioDetail('balanced', -0.2, [1, 2])).toBe(
+      '0.20 under the 1.0–2.0 band, within the 15 % tolerance',
+    )
+    expect(ratioDetail('balanced', 0, [1, 2])).toBe('inside the 1.0–2.0 band')
+    expect(ratioDetail('critical', 0.4, [1, 2])).toBe('0.40 over the 1.0–2.0 band')
+    expect(ratioDetail(null, null, [1, 2])).toBe('—')
   })
 })
 
@@ -358,7 +376,7 @@ describe('liftFooter', () => {
     )
   })
   test('a stale lift carries its record alone; the strip says why once', () => {
-    const delta = { delta: null, phrase: 'no session in 28 d', stale: true }
+    const delta = { delta: null, phrase: 'last session 2 Sep', stale: true }
     expect(liftFooter({ delta, prKg: 100, prDate: null })).toBe('PR 100.0 kg')
   })
   test('an empty phrase and no PR is a dash, not an empty string', () => {
@@ -402,17 +420,17 @@ describe('staleNote', () => {
     ).toBe('No session in 28 d: Squat, Bench Press')
   })
   test('every lift stale is one sentence', () => {
-    expect(staleNote([{ id: 'squat', delta: stale }])).toBe('No lift trained in the last 28 d')
+    expect(staleNote([{ id: 'squat', delta: stale }])).toBe('Every lift: no session in 28 d')
   })
 })
 
 describe('summaryParts with a stale leader', () => {
-  test('the headline drops the move the strip note already states', () => {
+  test('the headline keeps the staleness as the last session, the strip note gives the reason', () => {
     const call = todaysCall(null, undefined, NOW)
     const delta = liftDelta([pt('2026-08-01', 100)], NOW)
     expect(
       summaryParts({ leader: 'deadlift', e1rm: 100, delta, acwr: null, call, score: null })
         .sentence,
-    ).toBe('Deadlift e1RM 100.0 kg')
+    ).toBe('Deadlift e1RM 100.0 kg, last session 1 Aug')
   })
 })

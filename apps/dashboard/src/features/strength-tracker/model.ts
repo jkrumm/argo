@@ -125,13 +125,13 @@ export function readinessReading(
   return { score: last.readiness, verdict, driver: last.driver, date: last.date ?? null }
 }
 
-/** The deload signal as a card line; `''` when stale, as the facts line already names the last session. */
-export function deloadLine(deload: DeloadReading | undefined): string {
+/** The deload signal as a card line; null when stale, as the facts line already names the last session. */
+export function deloadLine(deload: DeloadReading | undefined): string | null {
   if (deload === undefined) return `Deload signal: ${EM_DASH}`
   const signals = deload.activeSignals.join('; ')
   switch (deload.verdict) {
     case 'stale':
-      return ''
+      return null
     case 'deload':
       return `Deload signal: deload — ${signals}`
     case 'monitor':
@@ -203,7 +203,7 @@ export function acwrZoneWord(acwr: number | null): string {
   return 'danger'
 }
 
-/** The headline fact's prefix; the page wraps it in the ACWR definition. */
+/** The headline fact's prefix. */
 export const ACWR_LABEL = 'ACWR'
 
 export const ACWR_METHOD = '4 wk / 16 wk EWMA of weekly tonnage, all lifts summed'
@@ -214,7 +214,10 @@ export function latestE1rm(points: readonly Point[]): number | null {
   return points.findLast((p) => isNum(p.e1rm))?.e1rm ?? null
 }
 
-/** `stale`: no session inside the window; the page says so once (`staleNote`), not per lift. */
+/**
+ * `stale`: no session inside the window. The reason is the strip's one note (`staleNote`); the
+ * phrase then carries the date of the last session, which the headline keeps as its qualifier.
+ */
 export type LiftDelta = { delta: number | null; phrase: string; stale: boolean }
 
 /** e1RM now minus e1RM as of 28 d ago, or the reason there is no figure. */
@@ -227,7 +230,7 @@ export function liftDelta(points: readonly Point[], now: number, days = DELTA_DA
   const cutoff = now - days * DAY_MS
   // No session inside the window: "unchanged" would be a claim the data does not make.
   if (Date.parse(last.date) <= cutoff) {
-    return { delta: null, phrase: `no session in ${days} d`, stale: true }
+    return { delta: null, phrase: `last session ${shortDate(last.date)}`, stale: true }
   }
   const base = sessions.findLast((p) => Date.parse(p.date) <= cutoff)
   if (base === undefined || !isNum(base.e1rm)) {
@@ -273,8 +276,9 @@ export type CallFactsInput = {
 export function staleNote(lifts: readonly { id: string; delta: LiftDelta }[]): string | null {
   const stale = lifts.filter((l) => l.delta.stale)
   if (stale.length === 0) return null
-  if (stale.length === lifts.length) return `No lift trained in the last ${DELTA_DAYS} d`
-  return `No session in ${DELTA_DAYS} d: ${stale.map((l) => exerciseLabel(l.id)).join(', ')}`
+  const reason = `no session in ${DELTA_DAYS} d`
+  if (stale.length === lifts.length) return `Every lift: ${reason}`
+  return `${reason.charAt(0).toUpperCase()}${reason.slice(1)}: ${stale.map((l) => exerciseLabel(l.id)).join(', ')}`
 }
 
 /** The call card's facts line, split around the INOL figure (which carries its own definition). */
@@ -330,6 +334,8 @@ export function lastSession(
 
 // ── Summary sentence ─────────────────────────────────────────────────────────────────────────
 
+export type SummaryFact = { kind: 'acwr' | 'plain'; text: string }
+
 export function summaryParts(input: {
   leader: string | null
   e1rm: number | null
@@ -337,10 +343,13 @@ export function summaryParts(input: {
   acwr: number | null
   call: TodaysCall
   score: number | null
-}): { sentence: string; facts: string[] } {
+}): { sentence: string; facts: SummaryFact[] } {
   const { leader, e1rm, delta, acwr, call, score } = input
-  const load =
-    acwr === null ? `${ACWR_LABEL} —` : `${ACWR_LABEL} ${acwr.toFixed(2)} ${acwrZoneWord(acwr)}`
+  const load: SummaryFact = {
+    kind: 'acwr',
+    text:
+      acwr === null ? `${ACWR_LABEL} —` : `${ACWR_LABEL} ${acwr.toFixed(2)} ${acwrZoneWord(acwr)}`,
+  }
   const figure = `readiness ${score === null ? EM_DASH : `${Math.round(score)}/100`}`
   const when = call.asOf === null ? '' : `, ${call.asOf}`
   const ready =
@@ -356,8 +365,8 @@ export function summaryParts(input: {
     return { sentence: ready.charAt(0).toUpperCase() + ready.slice(1), facts: [load] }
   }
   return {
-    sentence: `${exerciseLabel(leader)} e1RM ${e1rm.toFixed(1)} kg${delta.stale ? '' : `, ${delta.phrase}`}`,
-    facts: [load, ready],
+    sentence: `${exerciseLabel(leader)} e1RM ${e1rm.toFixed(1)} kg, ${delta.phrase}`,
+    facts: [load, { kind: 'plain', text: ready }],
   }
 }
 
@@ -379,21 +388,38 @@ export function ratioName(label: string): string {
     .join(' / ')
 }
 
-/** Inside the band is `balanced` whatever the API says; outside, `balanced` is only the tolerance. */
-export function statusWord(status: string | null, offset: number | null): string {
-  if (status === null || offset === null) return EM_DASH
-  if (offset === 0) return 'balanced'
-  return status === 'balanced' ? 'borderline' : status
+/**
+ * The API calls a ratio `balanced` up to this fraction outside its band (`computeRatioStatus` in
+ * apps/api/src/lib/strength-formulas.ts); mirrored here, the one place in the dashboard, like the
+ * 40 / 70 readiness thresholds above.
+ */
+export const RATIO_TOLERANCE = 0.15
+
+export type StatusWord = 'balanced' | 'borderline' | 'imbalanced' | 'critical' | typeof EM_DASH
+
+/** The API says `balanced` within the tolerance; outside the band itself that is only borderline. */
+export function isBorderline(status: string | null, offset: number | null): boolean {
+  return status === 'balanced' && offset !== null && offset !== 0
 }
 
-/** One verdict and the distance to the band, which it names once: `imbalanced · 0.12 under the 0.8–1.0 band`. */
-export function ratioNote(
+/** Inside the band is `balanced` whatever the API says; a tolerance-only `balanced` is borderline. */
+export function statusWord(status: string | null, offset: number | null): StatusWord {
+  if (status === null || offset === null) return EM_DASH
+  if (offset === 0) return 'balanced'
+  if (isBorderline(status, offset)) return 'borderline'
+  return status === 'imbalanced' || status === 'critical' ? status : EM_DASH
+}
+
+/** The words after the verdict: how far from the band, and for a borderline ratio the tolerance. */
+export function ratioDetail(
   status: string | null,
   offset: number | null,
   range: readonly [number, number],
 ): string {
-  if (status === null || offset === null) return EM_DASH
-  return `${statusWord(status, offset)} · ${offText(offset, range)}`
+  const detail = offText(offset, range)
+  return isBorderline(status, offset)
+    ? `${detail}, within the ${Math.round(RATIO_TOLERANCE * 100)} % tolerance`
+    : detail
 }
 
 /** Unrounded: a ratio a hair outside the band is outside it. */
@@ -407,12 +433,16 @@ export function bandOffset(
   return 0
 }
 
+/** A band bound with at least one decimal: `1.0`, `1.25`. */
+export const fmtBound = (v: number): string => (Number.isInteger(v) ? v.toFixed(1) : String(v))
+
 /** `0.12 under the 0.8–1.0 band`, `inside the 0.8–1.0 band`, `—`. */
 export function offText(offset: number | null, [lo, hi]: readonly [number, number]): string {
   if (offset === null) return EM_DASH
-  if (offset === 0) return `inside the ${lo}–${hi} band`
+  const band = `${fmtBound(lo)}–${fmtBound(hi)} band`
+  if (offset === 0) return `inside the ${band}`
   const size = Math.abs(offset) < 0.005 ? '<0.01' : Math.abs(offset).toFixed(2)
-  return `${size} ${offset < 0 ? 'under' : 'over'} the ${lo}–${hi} band`
+  return `${size} ${offset < 0 ? 'under' : 'over'} the ${band}`
 }
 
 // ── Records ──────────────────────────────────────────────────────────────────────────────────
