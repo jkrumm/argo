@@ -14,6 +14,7 @@ import {
   formatTime,
   headlineOf,
   labeledBasis,
+  labeledSegmentCaption,
   largestTeam,
   labeledPaneTitle,
   channelsFooter,
@@ -383,5 +384,18 @@ describe('channelsFooter', () => {
     expect(channelsFooter({ channels: 1, largest: { name: 'T', channels: 1 }, failed: 0 })).toBe(
       'most in T, 1 channel',
     )
+  })
+})
+
+describe('labeledSegmentCaption', () => {
+  test('the labeled segment drops the count the hero prints', () => {
+    expect(labeledSegmentCaption(2, 2, 7)).toBe('')
+    expect(labeledSegmentCaption(7, 2, 7)).toBe('7')
+  })
+  test('a tie keeps both counts', () => {
+    expect(labeledSegmentCaption(3, 3, 3)).toBe('3')
+  })
+  test('all labeled: the zero unlabeled segment keeps its count', () => {
+    expect(labeledSegmentCaption(0, 5, 0)).toBe('0')
   })
 })

@@ -1,14 +1,17 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, type UseQueryResult } from '@tanstack/react-query'
 import { shotState } from '../../lib/shot-state'
 import { usageQueries } from '../../lib/queries/usage'
+
+const useHeadlineQuery = () => useQuery(usageQueries.headline())
+type Headline = NonNullable<ReturnType<typeof useHeadlineQuery>['data']>
 
 /**
  * The 30 d headline the summary and the strip both read. `basalt-ui shot`'s `empty` state
  * substitutes a window with no ingested usage, so both empty with the charts, as production does
  * when nothing was pushed.
  */
-export function useUsageHeadline() {
-  const query = useQuery(usageQueries.headline())
+export function useUsageHeadline(): UseQueryResult<Headline> {
+  const query = useHeadlineQuery()
   if (shotState() !== 'empty' || query.data === undefined) return query
   return {
     ...query,
@@ -26,6 +29,11 @@ export function useUsageHeadline() {
       sourcesActive: 0,
       maxTs: null,
       calls30d: 0,
+      recordsTotal: 0,
+      costUsdPrior30d: 0,
+      tokensPrior30d: 0,
+      errorRatePrior30d: null,
+      p95MsPrior30d: null,
     },
   }
 }

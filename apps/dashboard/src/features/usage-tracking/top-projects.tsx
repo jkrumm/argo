@@ -6,7 +6,7 @@ import { shotState } from '../../lib/shot-state'
 import { usageQueries, type Range } from '../../lib/queries/usage'
 import classes from './usage.module.css'
 import type { BillingValue, WorkspaceValue } from './types'
-import { EM_DASH, fmtShare, fmtUsdWhole, NO_USAGE_WINDOW, periodNoun } from './model'
+import { EM_DASH, fmtShare, fmtUsdWhole, noUsageWindow, periodNoun } from './model'
 
 export default function TopProjects({
   range,
@@ -31,6 +31,7 @@ export default function TopProjects({
     }),
   )
   const data = shotState() === 'empty' ? { ...query.data, rows: [], total: 0 } : query.data
+  const emptyText = noUsageWindow(billing !== undefined || workspace !== undefined)
   const shown = data.rows.reduce((acc, r) => acc + r.value, 0)
   const rest = Math.max(0, data.total - shown)
 
@@ -43,7 +44,7 @@ export default function TopProjects({
         label={`Top ${data.rows.length} projects by cost, ${periodNoun(range)}`}
         format={fmtUsdWhole}
         variant="thin"
-        emptyText={NO_USAGE_WINDOW}
+        emptyText={emptyText}
         items={data.rows.map((r) => ({
           key: r.key,
           label: r.key,

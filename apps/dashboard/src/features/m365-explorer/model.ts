@@ -246,6 +246,15 @@ export function plural(n: number, one: string, many = `${one}s`): string {
 export const noSourcesYet = (noun: 'chats' | 'teams'): string =>
   `No ${noun} yet — Microsoft 365 returned none; refresh to retry`
 
+/**
+ * A labeled-meter segment's caption value. The hero already prints the labeled count, so that
+ * segment's caption is the name alone (`''`); on a tie neither segment is the hero's twin and both
+ * keep their count.
+ */
+export function labeledSegmentCaption(value: number, labeled: number, unlabeled: number): string {
+  return labeled !== unlabeled && value === labeled ? '' : String(value)
+}
+
 /** The labeled cell when there is nothing to label: said once, with the cause. */
 export const NOTHING_TO_LABEL =
   'Nothing to label — no chats or channels came back; refresh to retry'
