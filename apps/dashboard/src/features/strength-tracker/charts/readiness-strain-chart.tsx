@@ -25,7 +25,7 @@ type ReadinessPoint = {
 
 function readinessZoneLabel(v: number): { text: string; color: string } {
   if (v >= READINESS_PUSH_FROM) return { text: 'Push', color: VX.goodSolid }
-  if (v >= READINESS_REST_BELOW) return { text: 'Normal', color: VX.warnSolid }
+  if (v >= READINESS_REST_BELOW) return { text: 'Normal', color: VX.muted }
   return { text: 'Rest', color: VX.badSolid }
 }
 
@@ -59,7 +59,7 @@ const READINESS_SERIES: ChartSeries<ReadinessPoint>[] = [
   {
     key: 'normal',
     label: 'Normal (40–69)',
-    color: VX.warnSolid,
+    color: VX.muted,
     mark: 'bar',
     role: 'reference',
     getValue: () => null,
@@ -137,7 +137,7 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
         y={{ domain: [0, 100], format: (v) => String(Math.round(v)) }}
         zones={[
           { from: READINESS_PUSH_FROM, to: 100, fill: VX.good },
-          { from: READINESS_REST_BELOW, to: READINESS_PUSH_FROM, fill: VX.warn },
+          { from: READINESS_REST_BELOW, to: READINESS_PUSH_FROM, fill: VX.muted },
           { from: 0, to: READINESS_REST_BELOW, fill: VX.bad },
         ]}
         refLines={[

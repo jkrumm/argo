@@ -125,12 +125,13 @@ export function readinessReading(
   return { score: last.readiness, verdict, driver: last.driver, date: last.date ?? null }
 }
 
-export function deloadLine(deload: DeloadReading | undefined, lastDate: string | null): string {
+/** The deload signal as a card line; `''` when stale, as the facts line already names the last session. */
+export function deloadLine(deload: DeloadReading | undefined): string {
   if (deload === undefined) return `Deload signal: ${EM_DASH}`
   const signals = deload.activeSignals.join('; ')
   switch (deload.verdict) {
     case 'stale':
-      return `Deload signal: no recent sessions${lastDate === null ? '' : `, last was ${shortDate(lastDate)}`}`
+      return ''
     case 'deload':
       return `Deload signal: deload — ${signals}`
     case 'monitor':
@@ -202,6 +203,9 @@ export function acwrZoneWord(acwr: number | null): string {
   return 'danger'
 }
 
+/** The headline fact's prefix; the page wraps it in the ACWR definition. */
+export const ACWR_LABEL = 'ACWR'
+
 export const ACWR_METHOD = '4 wk / 16 wk EWMA of weekly tonnage, all lifts summed'
 
 // ── Lifts ────────────────────────────────────────────────────────────────────────────────────
@@ -210,30 +214,38 @@ export function latestE1rm(points: readonly Point[]): number | null {
   return points.findLast((p) => isNum(p.e1rm))?.e1rm ?? null
 }
 
-export type LiftDelta = { delta: number | null; phrase: string }
+/** `stale`: no session inside the window; the page says so once (`staleNote`), not per lift. */
+export type LiftDelta = { delta: number | null; phrase: string; stale: boolean }
 
-/** e1RM now minus e1RM as of 28d ago, or the reason there is no figure. */
+/** e1RM now minus e1RM as of 28 d ago, or the reason there is no figure. */
 export function liftDelta(points: readonly Point[], now: number, days = DELTA_DAYS): LiftDelta {
   const sessions = points.filter((p) => isNum(p.e1rm))
   const last = sessions.at(-1)
   if (last === undefined || !isNum(last.e1rm)) {
-    return { delta: null, phrase: `${EM_DASH} kg in ${days}d` }
+    return { delta: null, phrase: `${EM_DASH} kg in ${days} d`, stale: false }
   }
   const cutoff = now - days * DAY_MS
   // No session inside the window: "unchanged" would be a claim the data does not make.
-  if (Date.parse(last.date) <= cutoff) return { delta: null, phrase: `no session in ${days}d` }
+  if (Date.parse(last.date) <= cutoff) {
+    return { delta: null, phrase: `no session in ${days} d`, stale: true }
+  }
   const base = sessions.findLast((p) => Date.parse(p.date) <= cutoff)
   if (base === undefined || !isNum(base.e1rm)) {
     const first = sessions[0]
-    return { delta: null, phrase: `first session ${shortDate(first?.date ?? last.date)}` }
+    return {
+      delta: null,
+      phrase: `first session ${shortDate(first?.date ?? last.date)}`,
+      stale: false,
+    }
   }
   const delta = Math.round((last.e1rm - base.e1rm) * 10) / 10
-  return { delta, phrase: `${signed(delta)} kg in ${days}d` }
+  return { delta, phrase: `${signed(delta)} kg in ${days} d`, stale: false }
 }
 
 /**
  * The strip cell's one footer line: the personal record (kg and day), led by the reason there is
- * no 28 d move when the badge is absent. Never explains the sparkline.
+ * no 28 d move when the badge is absent. A stale lift's reason is the strip's shared note, so its
+ * cell carries the record alone. Never explains the sparkline.
  */
 export function liftFooter(input: {
   delta: LiftDelta
@@ -245,7 +257,7 @@ export function liftFooter(input: {
     prKg === null
       ? null
       : `PR ${prKg.toFixed(1)} kg${prDate === null ? '' : ` · ${shortDate(prDate)}`}`
-  const parts = (delta.delta === null ? [delta.phrase, record] : [record]).filter(
+  const parts = (delta.delta === null && !delta.stale ? [delta.phrase, record] : [record]).filter(
     (v): v is string => v !== null && v !== '',
   )
   return parts.length === 0 ? EM_DASH : parts.join(' · ')
@@ -255,6 +267,14 @@ export type CallFactsInput = {
   asOf: string | null
   driver: string | null
   session: { exercise_id: string; date: string; inol: number } | null
+}
+
+/** The one note for lifts with no session in the delta window; null when every lift has one. */
+export function staleNote(lifts: readonly { id: string; delta: LiftDelta }[]): string | null {
+  const stale = lifts.filter((l) => l.delta.stale)
+  if (stale.length === 0) return null
+  if (stale.length === lifts.length) return `No lift trained in the last ${DELTA_DAYS} d`
+  return `No session in ${DELTA_DAYS} d: ${stale.map((l) => exerciseLabel(l.id)).join(', ')}`
 }
 
 /** The call card's facts line, split around the INOL figure (which carries its own definition). */
@@ -319,7 +339,8 @@ export function summaryParts(input: {
   score: number | null
 }): { sentence: string; facts: string[] } {
   const { leader, e1rm, delta, acwr, call, score } = input
-  const load = acwr === null ? 'ACWR —' : `ACWR ${acwr.toFixed(2)} ${acwrZoneWord(acwr)}`
+  const load =
+    acwr === null ? `${ACWR_LABEL} —` : `${ACWR_LABEL} ${acwr.toFixed(2)} ${acwrZoneWord(acwr)}`
   const figure = `readiness ${score === null ? EM_DASH : `${Math.round(score)}/100`}`
   const when = call.asOf === null ? '' : `, ${call.asOf}`
   const ready =
@@ -335,7 +356,7 @@ export function summaryParts(input: {
     return { sentence: ready.charAt(0).toUpperCase() + ready.slice(1), facts: [load] }
   }
   return {
-    sentence: `${exerciseLabel(leader)} e1RM ${e1rm.toFixed(1)} kg, ${delta.phrase}`,
+    sentence: `${exerciseLabel(leader)} e1RM ${e1rm.toFixed(1)} kg${delta.stale ? '' : `, ${delta.phrase}`}`,
     facts: [load, ready],
   }
 }
@@ -358,27 +379,21 @@ export function ratioName(label: string): string {
     .join(' / ')
 }
 
-/**
- * The API calls a ratio `balanced` up to this fraction outside its band (`computeRatioStatus` in
- * apps/api/src/lib/strength-formulas.ts); mirrored here, the one place in the dashboard, like the
- * 40 / 70 readiness thresholds above.
- */
-export const RATIO_TOLERANCE = 0.15
-
 /** Inside the band is `balanced` whatever the API says; outside, `balanced` is only the tolerance. */
 export function statusWord(status: string | null, offset: number | null): string {
   if (status === null || offset === null) return EM_DASH
   if (offset === 0) return 'balanced'
-  return status === 'balanced' ? 'near band' : status
+  return status === 'balanced' ? 'borderline' : status
 }
 
-export function ratioNote(status: string | null, offset: number | null): string {
+/** One verdict and the distance to the band, which it names once: `imbalanced · 0.12 under the 0.8–1.0 band`. */
+export function ratioNote(
+  status: string | null,
+  offset: number | null,
+  range: readonly [number, number],
+): string {
   if (status === null || offset === null) return EM_DASH
-  const tolerance =
-    status === 'balanced' && offset !== 0
-      ? `, within the ${Math.round(RATIO_TOLERANCE * 100)}% tolerance`
-      : ''
-  return `${statusWord(status, offset)} · ${offText(offset)}${tolerance}`
+  return `${statusWord(status, offset)} · ${offText(offset, range)}`
 }
 
 /** Unrounded: a ratio a hair outside the band is outside it. */
@@ -392,12 +407,12 @@ export function bandOffset(
   return 0
 }
 
-/** `0.12 under the band`, `inside the band`, `—`. */
-export function offText(offset: number | null): string {
+/** `0.12 under the 0.8–1.0 band`, `inside the 0.8–1.0 band`, `—`. */
+export function offText(offset: number | null, [lo, hi]: readonly [number, number]): string {
   if (offset === null) return EM_DASH
-  if (offset === 0) return 'inside the band'
+  if (offset === 0) return `inside the ${lo}–${hi} band`
   const size = Math.abs(offset) < 0.005 ? '<0.01' : Math.abs(offset).toFixed(2)
-  return `${size} ${offset < 0 ? 'under' : 'over'} the band`
+  return `${size} ${offset < 0 ? 'under' : 'over'} the ${lo}–${hi} band`
 }
 
 // ── Records ──────────────────────────────────────────────────────────────────────────────────

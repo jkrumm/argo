@@ -79,8 +79,8 @@ export const METRICS: { value: MetricKey; label: string; unit: string }[] = [
  */
 export const TERM_DEFINITIONS = {
   readiness: `Readiness score, 0–100: the Garmin recovery score (HRV, sleep, resting heart rate) reduced by the fatigue of your last session. Push from ${READINESS_PUSH_FROM}, Rest below ${READINESS_REST_BELOW}.`,
-  acwr: `Acute:chronic workload ratio: the 4-week EWMA of weekly tonnage divided by its 16-week EWMA. ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO} is the healthy range; above ${ACWR_CAUTION_TO} raises injury risk. The headline figure sums all lifts.`,
-  inol: `INOL, the load of one session on one lift: reps ÷ (100 − %1RM), summed over its work and AMRAP sets of 1–${INOL_MAX_REPS} reps. ${INOL_OPTIMAL_FROM}–${INOL_OPTIMAL_TO} is productive; above ${INOL_OPTIMAL_TO} is heavy.`,
+  acwr: `ACWR, the acute:chronic workload ratio: how heavy your recent training is against what you are used to. It divides the 4-week smoothed average of weekly tonnage (weight × reps) by its 16-week one. ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO} is the healthy range; above ${ACWR_CAUTION_TO} raises injury risk. The headline figure sums all lifts.`,
+  inol: `INOL, the load of one session on one lift: reps ÷ (100 − %1RM), summed over its work and AMRAP (as many reps as possible) sets of 1–${INOL_MAX_REPS} reps. ${INOL_OPTIMAL_FROM}–${INOL_OPTIMAL_TO} is productive; above ${INOL_OPTIMAL_TO} is heavy.`,
 } as const
 
 export const METRIC_TOOLTIPS = {
@@ -94,12 +94,12 @@ export const METRIC_TOOLTIPS = {
   relativeProgression:
     'Each lift as the percentage change of its e1RM from its first session in the selected range, so lifts of different absolute strength compare directly.',
   strengthRatios:
-    'DOTS-adjusted lift ratios against IPF normative ranges (809,986 entries). Balanced is within 15 % of the range, critical more than 30 % off. The pull-up ratio is added weight over bodyweight.',
+    'Lift-to-lift ratios, with lifts scaled by DOTS (a bodyweight-adjusted strength score), against IPF normative ranges (809,986 entries). Balanced is within 15 % of the range, critical more than 30 % off. The pull-up ratio is added weight over bodyweight.',
   heroStrength:
     "Strength Direction: 3-level verdict (Improving/Stable/Declining) from 28-day e1RM velocity (f') for the leader lift. Sub-text shows f'' sign — accelerating means the trend is steepening, decelerating means it's tapering.",
   heroLoadQuality: `Load Quality: 0–100 composite. ${LOAD_QUALITY_WEIGHTS.inol}% INOL zone score (optimal: ${INOL_OPTIMAL_FROM}–${INOL_OPTIMAL_TO}) + ${LOAD_QUALITY_WEIGHTS.acwr}% ACWR zone score (optimal: ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO}) + ${LOAD_QUALITY_WEIGHTS.volume}% weekly volume vs personal MEV/MAV landmarks. ≥${LOAD_QUALITY_QUALITY_FROM} = Quality · ${LOAD_QUALITY_ADEQUATE_FROM}–${LOAD_QUALITY_QUALITY_FROM - 1} = Adequate · <${LOAD_QUALITY_ADEQUATE_FROM} = Poor.`,
   heroBalance:
-    'Balance: DOTS-adjusted ratio status across DL/Squat, Squat/Bench, DL/Bench, and Pull-up/BW. Shows the worst-offender pair. Balanced = all ratios within normative range. Imbalanced = >15% off. Critical = >30% off.',
+    'Balance: lift-ratio status (lifts scaled by DOTS, a bodyweight-adjusted strength score) across DL/Squat, Squat/Bench, DL/Bench, and Pull-up/BW. Shows the worst-offender pair. Balanced = all ratios within normative range. Imbalanced = >15% off. Critical = >30% off.',
   heroReadiness: `Readiness: Garmin recovery score adjusted for strength fatigue. Penalty = INOL of last session / personal p90 ceiling × ${FATIGUE_MAX_SHAVE_PCT}% max shave. An additional ${HEAVY_SESSION_DAMPEN_PCT}% dampening applies if the last session had INOL > ${HEAVY_SESSION_INOL} within ${HEAVY_SESSION_HOURS}h. Push ≥ ${READINESS_PUSH_FROM} · Normal ${READINESS_REST_BELOW}–${READINESS_PUSH_FROM - 1} · Rest < ${READINESS_REST_BELOW}.`,
   readinessStrain: `${TERM_DEFINITIONS.readiness} Recovery is HRV ${RECOVERY_WEIGHTS.hrv} %, sleep ${RECOVERY_WEIGHTS.sleep} %, resting HR ${RECOVERY_WEIGHTS.restingHr} %; fatigue takes up to ${FATIGUE_MAX_SHAVE_PCT} %: the last session's INOL over your 90th-percentile INOL, and a session above INOL ${HEAVY_SESSION_INOL} within ${HEAVY_SESSION_HOURS} h takes a further ${HEAVY_SESSION_DAMPEN_PCT} %.`,
   trainingRecoveryAlignment:

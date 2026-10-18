@@ -6,7 +6,7 @@ import { alpha, VX } from 'basalt-ui/tokens'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from '../constants'
 import { type RatioStatus } from '../formulas'
-import { bandOffset, EM_DASH, ratioName, ratioNote, statusWord } from '../model'
+import { bandOffset, EM_DASH, offText, ratioName, statusWord } from '../model'
 
 /** `MeterZone` has no tone, and `Meter`'s default zone fill is near-white in dark mode. */
 const MUTED_FILL = alpha(VX.muted, 0.35)
@@ -41,7 +41,7 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
 
   return (
     <ChartCard
-      title="Strength balance, DOTS-adjusted"
+      title="Strength balance"
       info={METRIC_TOOLTIPS.strengthRatios}
       state={{ empty: !hasData && 'Need data for multiple lifts' }}
       placeholderHeight={180}
@@ -62,7 +62,7 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
               </Group>
               {pair.ratio === null ? null : (
                 <Meter
-                  label={`${ratioName(pair.label)} ratio against its ${lo}–${hi} band`}
+                  label={`${ratioName(pair.label)} ratio against its band`}
                   value={pair.ratio}
                   min={0}
                   max={pair.scaleMax}
@@ -81,14 +81,14 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
                   span
                   size="xs"
                   c={
-                    statusWord(pair.status, offset) === 'near band'
+                    statusWord(pair.status, offset) === 'borderline'
                       ? 'dimmed'
                       : statusInk(pair.status)
                   }
                 >
                   {statusWord(pair.status, offset)}
                 </Text>
-                {` · band ${lo}–${hi} · ${ratioNote(pair.status, offset).split(' · ').slice(1).join(' · ')}`}
+                {` · ${offText(offset, pair.range)}`}
               </Text>
             </Stack>
           )
