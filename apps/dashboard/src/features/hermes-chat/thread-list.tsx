@@ -4,6 +4,7 @@ import { overlays } from 'basalt-ui/commands'
 import { relativeTime } from 'basalt-ui/format'
 import {
   TYPE_LABEL,
+  clampAtWord,
   listTime,
   oldestUpdatedAt,
   untitledLabel,
@@ -56,7 +57,9 @@ function Row({
         <TypeChip type={entry.type} />
         <Box className={classes['body']}>
           <Text className={classes['title']}>{label}</Text>
-          {entry.summary !== null && <Text className={classes['summary']}>{entry.summary}</Text>}
+          {entry.summary !== null && (
+            <Text className={classes['summary']}>{clampAtWord(entry.summary)}</Text>
+          )}
         </Box>
         <Text component="span" className={classes['time']}>
           {entry.streaming && <LiveDot />}

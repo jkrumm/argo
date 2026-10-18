@@ -57,6 +57,7 @@ export function ThreadToolbar({
               variant={chip.key === type ? 'filled' : 'outline'}
               aria-pressed={chip.key === type}
               onClick={() => onType(chip.key)}
+              className={classes['chip']}
               style={{ flexShrink: 0 }}
             >
               {chip.label} {chip.count}

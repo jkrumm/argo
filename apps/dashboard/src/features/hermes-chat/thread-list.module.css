@@ -118,9 +118,7 @@
 
 .summary {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: break-word; /* the text is already cut at a word in `clampAtWord`; this only guards one long token */
   font-size: var(--vx-text-sm);
   color: var(--vx-muted);
 }
