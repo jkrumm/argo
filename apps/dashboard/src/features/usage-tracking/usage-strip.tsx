@@ -28,7 +28,6 @@ import {
   fmtShare,
   tokensFormatterFor,
   fmtTokensDay,
-  fmtUsdDay,
   fmtUsdWhole,
   meanOf,
   pctDelta,
@@ -152,7 +151,7 @@ function costCell({ h, loading }: Ctx, cost: Series): StatStripCell {
         label="Cost per day over the last 30 days"
         days={cost.days}
         loading={cost.loading}
-        format={fmtUsdDay}
+        format={fmtUsdWhole}
       />
     ),
     footer: footerOf([
