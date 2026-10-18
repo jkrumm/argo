@@ -165,10 +165,10 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - 390 anchors: the labeled pane's phone wrapper declares `data-shot="labeled-pane-phone"` (the detail wrapper already declares `detail-pane`).
 - Row hover: `--vx-surface-panel-hover` is lighter than the panel in light mode (basalt itself notes the step is imperceptible), so rows use a 6 % `--vx-ink` wash, 9 % when selected.
 
-| Export | Needed prop / default | argo case | What argo does instead |
-|-|-|-|-|
+| Export                                | Needed prop / default                                     | argo case                                                     | What argo does instead                   |
+| ------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------- | ---------------------------------------- |
 | `VX.surface.rowHover` / `rowSelected` | a hover and a selected surface that reads in both schemes | list rows in light mode: `panelHover` is lighter than `panel` | a `color-mix` ink wash in the module CSS |
-| `Section` | untitled variant (repeat) | the phone pane title restates the tab | a fact as the title |
+| `Section`                             | untitled variant (repeat)                                 | the phone pane title restates the tab                         | a fact as the title                      |
 
 ### Wave 25 round (`w25-r1`, live after #96–#101)
 
@@ -194,3 +194,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: the headline names the span with both end dates; the kind bar's hero first, the footer lists the other parts in segment order; the 390 title no longer restates its select; the out-of-list note names list and reason; the remove control visible at full opacity. Carried: kind-bar segments shade-only (the footer still acts as its legend); tag-chip hover and the 390 2 + 1 strip (basalt); three focus timeouts (harness). **New:** the remove control now shows at rest on every labeled row — against pass criterion 5 and the Wave 22 owner ruling (hover/focus only; the fix should have been a muted token on hover/focus, not at rest); the 390 headline breaks the start date from its year. Not verified: the 390 detail pane with a source open; the labeled header.
 - **Against Keel:** close (was does not yet) — the span has its dates; the kind bar still needs its footer as a legend.
+
+### Wave 30 fixes
+
+- **Remove control at rest:** fixed — hidden at rest (`opacity: 0`, still in the tab order and labelled), revealed in the muted token on row hover, `:focus-within` and keyboard focus. Touch has no hover, so on a phone the control is reachable only by tapping its (invisible) slot or by keyboard; kept to the Wave 22 ruling.
+- **390 headline date split:** fixed — every space inside a date is `NBSP` (day, month and year); only the spaces around the range dash can break. `spanDates` in `model.ts`, tested.
