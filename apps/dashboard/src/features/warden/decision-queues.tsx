@@ -5,7 +5,7 @@ import { CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
 import { IconCircleCheck, IconListDetails } from '@tabler/icons-react'
 import type { WardenActionVerb, WardenItems } from '../../lib/queries/warden'
 import classes from '../../components/upstream/decision-card.module.css'
-import boardClasses from './board.module.css'
+import queueClasses from './decision-queues.module.css'
 import { useNow } from '../../lib/use-now'
 import { HistoryPreview } from './history-preview'
 import { DecisionCard, type DecisionCardAction } from '../../components/upstream/decision-card'
@@ -193,7 +193,7 @@ function CardGrid({
       type="container"
       cols={{ base: 1, [CQ.wide]: 2 }}
       spacing="sm"
-      className={boardClasses.queueGrid}
+      className={queueClasses.queueGrid}
     >
       {rows.map((row, i) => (
         <QueueCard

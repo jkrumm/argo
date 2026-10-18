@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Badge, Button, Card, Text } from '@mantine/core'
 import { Section, useSizeClass } from 'basalt-ui'
 import { clockTime } from '../agents/model'
@@ -111,37 +111,47 @@ function FeedRow({ event: e }: { event: ActivityEvent }) {
   const parts = rowParts(e)
   const time = clockTime(new Date(e.ms).toISOString())
   const text = parts.map((p) => p.text).join(' · ')
-  const part = (kind: RowPart['kind']) => parts.find((p) => p.kind === kind)
-  const detail = part('detail')
-  const outcome = part('outcome')
-  const chip = part('chip')
-  const secondary = detail !== undefined || outcome !== undefined || chip !== undefined
+  const meta = parts.filter((p) => p.kind !== 'lead')
   return (
     <div role="listitem" className={classes.feedRow} title={text} aria-label={`${text} · ${time}`}>
       <div className={classes.feedBody}>
         <Text component="span" size="sm" className={classes.feedLead}>
           <span className={classes.feedActor}>{e.actor}</span> {e.title}
         </Text>
-        {secondary ? (
+        {meta.length > 0 ? (
           <span className={classes.feedMeta}>
-            {detail ? <span className={classes.feedDetail}>{detail.text}</span> : null}
-            {outcome ? <span className={classes.feedOutcome}>{outcome.text}</span> : null}
-            {chip ? (
-              <Badge
-                variant="light"
-                color="gray"
-                size="sm"
-                fz="sm"
-                tt="none"
-                classNames={{ root: classes.chip, label: classes.chipLabel }}
-              >
-                {chip.text}
-              </Badge>
-            ) : null}
+            {meta.map((p, i) => (
+              <Fragment key={p.kind}>
+                {i > 0 ? <span aria-hidden>·</span> : null}
+                <MetaPart part={p} />
+              </Fragment>
+            ))}
           </span>
         ) : null}
       </div>
       <span className={classes.feedTime}>{time}</span>
     </div>
+  )
+}
+
+/** One part of line 2: detail may ellipsize, the outcome stays whole, the chip clips inside itself. */
+function MetaPart({ part }: { part: RowPart }) {
+  if (part.kind === 'chip')
+    return (
+      <Badge
+        variant="light"
+        color="gray"
+        size="sm"
+        fz="sm"
+        tt="none"
+        classNames={{ root: classes.chip, label: classes.chipLabel }}
+      >
+        {part.text}
+      </Badge>
+    )
+  return (
+    <span className={part.kind === 'detail' ? classes.feedDetail : classes.feedOutcome}>
+      {part.text}
+    </span>
   )
 }

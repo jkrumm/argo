@@ -235,7 +235,9 @@ describe('feedEmptyLine', () => {
       loading: [],
       noSnapshot: ['Warden', 'Agents'],
     }).sentence
-    expect(feedEmptyLine({ loaded: false, ...none })).toBe(needsYou)
+    const line = feedEmptyLine({ loaded: false, ...none })
+    expect(line).toBe('No snapshot yet from Warden and Agents.')
+    expect(line).toBe(needsYou)
     expect(feedEmptyLine({ loaded: false, ...none, pending: ['Warden', 'Agents'] })).toBe(
       'Warden and Agents loading.',
     )

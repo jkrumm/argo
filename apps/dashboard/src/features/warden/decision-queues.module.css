@@ -1,0 +1,4 @@
+/* Decision-card grid: cards keep their own height (rows align to start) so no empty band shows under a short card. */
+.queueGrid {
+  align-items: start;
+}

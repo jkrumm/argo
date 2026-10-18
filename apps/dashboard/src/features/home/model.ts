@@ -466,10 +466,17 @@ export function activityStream(
 }
 
 /**
+ * The sources behind the needs-you list, by the names every gap wording uses: the needs-you sentence,
+ * the cells and the activity card's no-feed line all name these producers.
+ */
+const NEEDS_YOU_SOURCE_NAMES = ['Warden', 'Agents'] as const
+type SourceName = (typeof NEEDS_YOU_SOURCE_NAMES)[number]
+
+/**
  * The activity card's feed gap: the cells' no-snapshot sentence in its short form (leading clause,
  * verbatim, derived from the same producer list) as the needs-you sentence; each cadence is stated once on the cells.
  */
-const noFeedYet = (): string => unknownSentence(unknownPhrase([], [], NEEDS_YOU_SOURCE_NAMES))
+const noFeedYet = unknownSentence(unknownPhrase([], [], NEEDS_YOU_SOURCE_NAMES))
 
 /**
  * The activity card's line with nothing to count: the empty window when a feed loaded, then every
@@ -485,7 +492,7 @@ export function feedEmptyLine(input: {
   const { loaded, failed, pending, now } = input
   const unknown = unknownPhrase(failed, pending)
   if (!loaded && unknown === '') {
-    return `${noFeedYet()}.`
+    return `${noFeedYet}.`
   }
   const retry = failed.length > 0 ? ' — reload to retry' : ''
   return [loaded ? emptyStreamLabel(now) : null, unknown === '' ? null : `${unknown}${retry}.`]
@@ -518,10 +525,6 @@ export function staleFeeds(
 
 /** Sources behind the needs-you list: Warden and the agent snapshot. With none of them loaded the list is unknown, not empty. */
 const NEEDS_YOU_SOURCES = 2
-
-/** The sources behind the needs-you list, by the names the gap wording uses. */
-const NEEDS_YOU_SOURCE_NAMES = ['Warden', 'Agents'] as const
-type SourceName = (typeof NEEDS_YOU_SOURCE_NAMES)[number]
 
 /** One state per source, disjoint by construction: a source is exactly one of these. */
 type SourceStatus = 'ready' | 'loading' | 'failed' | 'no-snapshot'
@@ -603,8 +606,9 @@ const UNKNOWN_TITLE: Record<UnknownKind, string> = {
 }
 
 /** `unknownPhrase` opens a sentence: the one place its casing is decided. */
-export const unknownSentence = (phrase: string): string =>
-  `${phrase.charAt(0).toUpperCase()}${phrase.slice(1)}`
+export function unknownSentence(phrase: string): string {
+  return `${phrase.charAt(0).toUpperCase()}${phrase.slice(1)}`
+}
 
 export type HomeSummaryParts = { sentence: string; facts: string[] }
 
@@ -636,7 +640,7 @@ export function homeSummaryParts(s: HomeSummaryInput): HomeSummaryParts {
   if (allUnknown(s)) {
     const sentence: Record<UnknownKind, string> = {
       loading: `Loading ${s.loading.join(' and ')}.`,
-      'no-snapshot': `${NO_SNAPSHOT_SHORT} from ${(s.noSnapshot ?? []).join(' and ')}.`,
+      'no-snapshot': `${unknownSentence(phrase)}.`,
       'cant-tell': `Can't tell — ${phrase}.`,
     }
     return { sentence: sentence[unknownKind(s)], facts: [] }
