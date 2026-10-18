@@ -277,25 +277,25 @@ export const gapLeader = (g: {
   nothingToLabel: boolean
   noChats: boolean
   noTeams: boolean
-}): GapLeader =>
-  g.nothingToLabel ? 'labeled' : g.noChats ? 'chats' : g.noTeams ? 'channels' : null
+}): GapLeader => {
+  // `labeled` claims both lists are empty, so it needs the raw lists empty too: a team that came back with no channel leaves nothing to label but is not "no channels came back" for the chats pane.
+  if (g.nothingToLabel && g.noChats && g.noTeams) return 'labeled'
+  if (g.noChats) return 'chats'
+  return g.noTeams ? 'channels' : null
+}
 
-/** The channels cell's short form: the leading clause of the screen's one sentence (`No chats or channels came back` when the Labeled cell leads). */
-export const channelsCellGap = (leader: GapLeader): string =>
-  leader === 'labeled' ? NO_SOURCES : NO_TEAMS
+export type SourceKind = 'chats' | 'teams'
 
-/** The chats cell's short form: `No chats or channels came back` when both lists are empty (one gap), else the narrower chats-only gap. */
-export const chatsCellGap = (leader: GapLeader): string =>
-  leader === 'labeled' ? NO_SOURCES : NO_CHATS
-
-/** The unfiltered empty message of a source list: the screen's one clause when both lists are empty, else the open list's own gap. */
-export const sourceListGap = (bothEmpty: boolean, noun: 'chats' | 'teams'): string =>
-  bothEmpty ? NO_SOURCES : noun === 'chats' ? NO_CHATS : NO_TEAMS
+/** The one owner of the gap's short form: the screen's leading clause when both lists are empty (one gap), else the list's own. */
+export function emptyGap(leader: GapLeader, kind: SourceKind): string {
+  if (leader === 'labeled') return NO_SOURCES
+  return kind === 'chats' ? NO_CHATS : NO_TEAMS
+}
 
 /** The phone Detail pane's empty line: the screen's one spelling when both lists are empty, else the open view's own gap. */
 export function detailGap(o: { leader: GapLeader; chatsView: boolean; teams: number }): string {
-  if (o.leader === 'labeled') return channelsCellGap(o.leader)
-  if (o.chatsView) return chatsCellGap(o.leader)
+  if (o.leader === 'labeled') return emptyGap(o.leader, 'chats')
+  if (o.chatsView) return NO_CHATS
   return teamsGap(o.teams)
 }
 

@@ -151,6 +151,7 @@ export function M365ExplorerPage(): ReactElement {
     })),
     labels,
   })
+  const leader = gapLeader({ nothingToLabel: nothingToLabel(coverage), noChats, noTeams })
   const allChannelsLoaded = coverage.loading === 0 && coverage.failed === 0
   const channelsTotal = allChannelsLoaded ? coverage.total - chatRows.length : null
   const channelRows = teamRows.flatMap(({ team, channels }) =>
@@ -309,7 +310,7 @@ export function M365ExplorerPage(): ReactElement {
           now={now}
           selected={selected}
           onSelect={select}
-          bothEmpty={nothingToLabel(coverage)}
+          leader={leader}
         />
       )}
     </>
@@ -321,7 +322,7 @@ export function M365ExplorerPage(): ReactElement {
   // every channel loaded, so an empty list here is a real gap, not a load in flight.
   const sourcesEmpty = view === 'chats' ? noChats : noTeams || channelsTotal === 0
   const emptyCause = detailGap({
-    leader: gapLeader({ nothingToLabel: nothingToLabel(coverage), noChats, noTeams }),
+    leader,
     chatsView: view === 'chats',
     teams: teams.length,
   })
