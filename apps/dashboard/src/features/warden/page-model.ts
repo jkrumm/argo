@@ -1,4 +1,4 @@
-import { ARROW, NBSP, formatDuration, withUnit } from '../../lib/format'
+import { ARROW, NBSP, formatAgo, formatDuration, withUnit } from '../../lib/format'
 import type {
   WardenActionVerb,
   WardenBoard,
@@ -19,7 +19,6 @@ import {
 } from '../../lib/question-copy'
 import type { DecisionCardFact } from '../../components/upstream/decision-card-model'
 import {
-  formatAgeDays,
   isDeferredItem,
   isStale,
   TERMINAL_STATES,
@@ -324,7 +323,7 @@ export function deriveSummary(input: WardenSummaryInput): {
   // The sections under it print the counts; the headline names the one figure they do not.
   const needs = oldestWaitSentence(
     needsCount,
-    oldestAgeDays === null ? null : formatAgeDays(oldestAgeDays),
+    oldestAgeDays === null ? null : formatDuration(oldestAgeDays * DAY_MS),
   )
   if (isStale(receivedAt, now)) {
     const parsed = receivedAt === null ? Number.NaN : Date.parse(receivedAt)
@@ -384,16 +383,25 @@ export type ActionPlan = {
   menu: WardenActionVerb[]
 }
 
+/** Warden's own wording for a PR whose CI failed: `CI failed on {sha}: …`. */
+const CI_FAILED = /^\s*(?:\[[^\]]*\]\s*)*CI failed\b/i
+
 /** One primary, at most one secondary, everything else in the menu — by fixed priority, over the
  * verbs warden offers and this dashboard knows (`isKnownActionVerb`). */
 export function planActions(
   available: readonly string[],
   kind: QueueKind,
   failedFrom: string | null = null,
+  reason: string | null = null,
 ): ActionPlan {
   const offered = new Set(available.filter(isKnownVerb))
-  // A verification that failed ran after the merge: there is no PR left to merge.
-  if (kind === 'failed' && failedFrom === 'verifying') offered.delete('merge')
+  // A verification that failed ran after the merge: there is no PR left to merge. A PR whose CI
+  // failed is not one to merge either — the failure is the fact the card is about.
+  if (
+    kind === 'failed' &&
+    (failedFrom === 'verifying' || CI_FAILED.test(stripShortcodes(reason ?? '')))
+  )
+    offered.delete('merge')
   const order = PRIMARY_ORDER[kind]
   const primary = order.find((verb) => offered.has(verb)) ?? null
   const secondary =
@@ -498,7 +506,7 @@ export function wardenAskInput(
   surface: 'warden' | 'home' = 'warden',
 ): WardenAskInput {
   const failed = kind === 'failed'
-  const plan = planActions(source.availableActions, kind, source.failedFrom ?? null)
+  const plan = planActions(source.availableActions, kind, source.failedFrom ?? null, source.reason)
   // The wire is loose: only a string is a title, reason or repo.
   const named = stripShortcodes(asText(source.title))
   const rawReason = asText(source.reason)
@@ -514,6 +522,9 @@ export function wardenAskInput(
     title: named || `Item #${source.eventId}`,
     subject: subjectOf(named) ?? `Item #${source.eventId}`,
     forms: wardenQuestionForms({ failed, repo, primary: plan.primary, alert, surface }),
+    // Home has no `Full reason` beside the card's own buttons: a reason that is only a question
+    // (an over-long ask, so not the title) is still the card's one line of evidence there.
+    ...(surface === 'home' && { keepQuestionEvidence: true }),
   }
   return { plan, repo, tag: split?.tag ?? null, input }
 }
@@ -699,6 +710,21 @@ export function transitionText({ from, to }: TransitionLine): string {
   const target = sentenceCase(to) ?? to
   if (from === null) return to === 'new' ? 'Created' : `Created${ARROW}${target}`
   return `${sentenceCase(from) ?? from}${ARROW}${target}`
+}
+
+/**
+ * A history row with its age: `{line} · {age} ago`. The dot is glued to the word before it so it
+ * never opens a line, and the whole age (`ago` included) is one unit, so a list row never leaves
+ * `ago` alone on a line. `—` / `just now` ages read as they are; no time at all is the line.
+ */
+export function historyLineWithAge(
+  text: string,
+  at: string | null | undefined,
+  now: number,
+): string {
+  if (!at) return text
+  const ago = formatAgo(Math.max(0, now - Date.parse(at))).replace(/ ago$/, `${NBSP}ago`)
+  return `${text}${NBSP}· ${ago}`
 }
 
 export type HistoryView = {

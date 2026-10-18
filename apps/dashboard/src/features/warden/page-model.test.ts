@@ -38,6 +38,7 @@ import {
   resolveQueueAsks,
   fixesLegend,
   historyView,
+  historyLineWithAge,
   pollerFooter,
   transitionText,
   verdictsFooter,
@@ -247,7 +248,7 @@ describe('deriveSummary', () => {
 
   it('states the queue and the loop verdict, with no fact line repeating the strip', () => {
     expect(deriveSummary(base)).toEqual({
-      text: 'Oldest wait on you 5.1\u00a0d. Loop healthy.',
+      text: 'Oldest wait on you 5\u00a0d\u00a02\u00a0h. Loop healthy.',
       status: 'ok',
     })
   })
@@ -272,7 +273,7 @@ describe('deriveSummary', () => {
       receivedAt: new Date(NOW - 2 * 3_600_000).toISOString(),
     })
     expect(stalled.text).toBe(
-      'Oldest wait on you 5.1\u00a0d. Loop stalled — snapshot 2\u00a0h old.',
+      'Oldest wait on you 5\u00a0d\u00a02\u00a0h. Loop stalled — snapshot 2\u00a0h old.',
     )
     expect(stalled.status).toBe('stalled')
   })
@@ -383,6 +384,18 @@ describe('planActions', () => {
     expect(planActions(['merge', 'retry'], 'decision', 'verifying').primary).toBe('merge')
   })
 
+  it('never offers Merge on a failed CI, shortcode-wrapped or not', () => {
+    const offered = ['dismiss', 'merge', 'retry', 'note']
+    for (const reason of ['CI failed on {sha}: {why}', '[:warning: CI failed on {sha}]']) {
+      const plan = planActions(offered, 'failed', 'merging', reason)
+      expect(plan).toEqual({ primary: 'retry', secondary: 'dismiss', menu: ['note'] })
+    }
+    expect(planActions(offered, 'failed', 'merging', 'Merge conflict').secondary).toBe('merge')
+    expect(planActions(['merge', 'retry'], 'decision', null, 'CI failed on {sha}').primary).toBe(
+      'merge',
+    )
+  })
+
   it('promotes the only offered verb to primary', () => {
     expect(planActions(['dismiss'], 'decision')).toEqual({
       primary: 'dismiss',
@@ -443,7 +456,7 @@ describe('cardFacts', () => {
   it('leads with repo, then age, then how often the item was retried and revised', () => {
     expect(cardFacts(row({ redrives: 2, ageDays: 1.2 }))).toEqual([
       'repo-a',
-      'waiting 1\u00a0d 4\u00a0h',
+      'waiting 1\u00a0d\u00a04\u00a0h',
       'retried 2 times, revised 1 time',
     ])
   })
@@ -454,16 +467,16 @@ describe('cardFacts', () => {
     )
     expect(cardFacts(row({ redrives: 0, revisionCount: 0, ageDays: 1.2 }))).toEqual([
       'repo-a',
-      'waiting 1\u00a0d 4\u00a0h',
+      'waiting 1\u00a0d\u00a04\u00a0h',
     ])
   })
 
   it('tones a wait past two days as a warning', () => {
     expect(cardFacts(row({ ageDays: 2.4 }))[1]).toEqual({
-      text: 'waiting 2\u00a0d 9\u00a0h',
+      text: 'waiting 2\u00a0d\u00a09\u00a0h',
       tone: 'warn',
     })
-    expect(cardFacts(row({ ageDays: 1.5 }))[1]).toBe('waiting 1\u00a0d 12\u00a0h')
+    expect(cardFacts(row({ ageDays: 1.5 }))[1]).toBe('waiting 1\u00a0d\u00a012\u00a0h')
   })
 
   it('omits what warden did not report', () => {
@@ -855,6 +868,23 @@ describe('wardenAsk', () => {
     expect(wardenAsk(source({ title: null, eventId: 7 }), 'failed').copy.question).toBe(
       'Decide on item: Item #7?',
     )
+  })
+})
+
+describe('historyLineWithAge', () => {
+  const NOW = Date.parse('2026-01-10T12:00:00Z')
+  const ago = (ms: number) => new Date(NOW - ms).toISOString()
+
+  it('keeps the whole age, ago included, in one unbreakable unit after a glued dot', () => {
+    const line = historyLineWithAge('{a} → {b}', ago((5 * 60 + 12) * 60_000), NOW)
+    expect(line).toBe('{a} → {b}\u00a0· 5\u00a0h\u00a012\u00a0min\u00a0ago')
+    // Nothing after the dot can break: not between the parts, and not before `ago`.
+    expect(line.slice(line.indexOf('·') + 2)).not.toContain(' ')
+  })
+  it('leaves a recent or missing time as it is', () => {
+    expect(historyLineWithAge('{a} → {b}', ago(10_000), NOW)).toBe('{a} → {b}\u00a0· just now')
+    expect(historyLineWithAge('{a} → {b}', null, NOW)).toBe('{a} → {b}')
+    expect(historyLineWithAge('{a} → {b}', 'nope', NOW)).toBe('{a} → {b}\u00a0· —')
   })
 })
 

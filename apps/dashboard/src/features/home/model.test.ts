@@ -120,7 +120,7 @@ describe('todayAgenda', () => {
 describe('countdownLabel', () => {
   it('uses the app duration spelling, always with a unit', () => {
     expect(countdownLabel(25 * MIN)).toBe('in 25\u00a0min')
-    expect(countdownLabel(90 * MIN)).toBe('in 1\u00a0h 30\u00a0min')
+    expect(countdownLabel(90 * MIN)).toBe('in 1\u00a0h\u00a030\u00a0min')
     expect(countdownLabel(120 * MIN)).toBe('in 2\u00a0h')
   })
 })

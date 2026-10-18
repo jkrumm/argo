@@ -12,7 +12,7 @@ export const withUnit = (value: string | number, unit: string): string => `${val
 
 /**
  * The one duration spelling: `21 d 4 h`, `5 h 12 min`, `42 min`, `< 1 min`. A whole larger unit
- * drops its zero tail (`21 d`, `5 h`), minutes are `min`, and a value and its unit never split. A
+ * drops its zero tail (`21 d`, `5 h`), minutes are `min`, and a value, its unit and a compound's two parts never split (`ago` / `in` stay breakable). A
  * non-finite or negative value is `—`. Warden's day-fraction ages (`formatAgeDays`, `formatSpan`)
  * keep their own decimal spelling.
  */
@@ -24,7 +24,7 @@ export function formatDuration(ms: number): string {
   const hours = Math.floor((totalMinutes % 1440) / 60)
   const minutes = totalMinutes % 60
   const parts = (big: [number, string], small: [number, string]) =>
-    small[0] === 0 ? withUnit(...big) : `${withUnit(...big)} ${withUnit(...small)}`
+    small[0] === 0 ? withUnit(...big) : `${withUnit(...big)}${NBSP}${withUnit(...small)}`
   if (days > 0) return parts([days, 'd'], [hours, 'h'])
   if (hours > 0) return parts([hours, 'h'], [minutes, 'min'])
   return withUnit(minutes, 'min')

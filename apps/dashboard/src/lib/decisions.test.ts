@@ -283,7 +283,7 @@ describe('deriveDecisions: one clock and one threshold', () => {
       text: 'waiting 3\u00a0d · stale at 3\u00a0d',
       tone: 'warn',
     })
-    expect(factsAt(AWAITING_OWNER_STALE_DAYS - 0.1)).toBe('waiting 2\u00a0d 21\u00a0h')
+    expect(factsAt(AWAITING_OWNER_STALE_DAYS - 0.1)).toBe('waiting 2\u00a0d\u00a021\u00a0h')
   })
 
   it('adds the time since the push to a Warden age so it sorts on the same clock as the rest', () => {

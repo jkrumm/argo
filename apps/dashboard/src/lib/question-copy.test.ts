@@ -181,7 +181,13 @@ describe('evidence line', () => {
       authored: 'Merge?',
       body: 'CI failed on {sha}: the head commit is red. — PR left open: https://example.com/pr/1',
     })
-    expect(left.evidenceLine).toBe('CI failed on {sha}: the head commit is red. — PR left open')
+    expect(left.evidenceLine).toBe('CI failed on {sha}: the head commit is red; PR left open')
+    // The dash continues the sentence before it: clauses, never a fragment.
+    const folded = cardCopy({
+      authored: 'Merge?',
+      body: 'CI has not run on the head commit. — PR left open: https://example.com/pr/3',
+    })
+    expect(folded.evidenceLine).toBe('CI has not run on the head commit; PR left open')
     const bare = cardCopy({
       authored: 'Merge?',
       body: 'Already fixed on master; nothing to change. — PR: https://example.com/pr/2',
@@ -485,9 +491,58 @@ describe('subjectOf', () => {
   it('drops the producer kind the stem already says, nothing else', () => {
     expect(subjectOf('[alert] {key}:disk_free')).toBe('{key}:disk_free')
     expect(subjectOf('Alert: service {name} down')).toBe('service {name} down')
-    expect(subjectOf('[Svc - HTTP] [:red_circle: Down] timeout')).toBe('[Svc - HTTP] Down timeout')
+    expect(subjectOf('[Svc - HTTP] [:red_circle: Down] timeout')).toBe('Svc - HTTP Down timeout')
     expect(subjectOf(':fire:')).toBeNull()
     expect(subjectOf(42)).toBeNull()
+  })
+})
+
+describe('subjectOf: title noise', () => {
+  it('unwraps code backticks and drops a stray one', () => {
+    expect(subjectOf('Allow `make logs` and `make verify` on {host}')).toBe(
+      'Allow make logs and make verify on {host}',
+    )
+    expect(subjectOf('Broken ` tick')).toBe('Broken  tick')
+  })
+  it("drops a monitor's [prefix] only on its status line, keeping the monitor readable once", () => {
+    expect(subjectOf('[Svc - HTTP] [:red_circle: Down] timeout')).toBe('Svc - HTTP Down timeout')
+    expect(subjectOf('[Svc - HTTP] Up')).toBe('Svc - HTTP Up')
+    // A tag that is not a monitor's status line is a fact the title keeps.
+    expect(subjectOf('[security] Disk full')).toBe('[security] Disk full')
+    expect(subjectOf('[Svc] timed out')).toBe('[Svc] timed out')
+  })
+})
+
+describe('one retry shape', () => {
+  const retry = (alert: boolean, surface: 'warden' | 'home' = 'warden') =>
+    wardenQuestionForms({ failed: true, repo: '{r}', primary: 'retry', alert, surface })
+  it('asks `Retry failed run: …` and `Retry failed alert: …` alike', () => {
+    expect(questionTitle(input('{subject} here', retry(false)))).toBe(
+      'Retry failed run: {subject} here?',
+    )
+    expect(questionTitle(input('{monitor} Down timeout', retry(true)))).toBe(
+      'Retry failed alert: {monitor} Down timeout?',
+    )
+    expect(questionTitle(input(null, retry(true)))).toBe('Retry failed {r} alert?')
+    expect(questionTitle(input(null, retry(false)))).toBe('Retry failed {r} run?')
+    expect(questionTitle(input('{monitor} Down', retry(true, 'home')))).toBe(
+      'Decide on failed alert: {monitor} Down?',
+    )
+  })
+  it('never says `failed` twice when the subject opens with it', () => {
+    expect(questionTitle(input('failed to build the {x} image', retry(false)))).toBe(
+      'Retry: failed to build the {x} image?',
+    )
+    expect(questionTitle(input('Failing probe on {host}', retry(true)))).toBe(
+      'Retry: Failing probe on {host}?',
+    )
+    expect(questionTitle(input('failed to build the {x} image', retry(false, 'home')))).toBe(
+      'Decide: failed to build the {x} image?',
+    )
+    // A subject that does not open with it keeps the whole stem.
+    expect(questionTitle(input('rebuild {x} after failure', retry(false)))).toBe(
+      'Retry failed run: rebuild {x} after failure?',
+    )
   })
 })
 
@@ -715,6 +770,26 @@ describe('the question table (live snapshot, anonymised)', () => {
     for (const d of homeCards) expect(d.headline).not.toMatch(/^(?:Implement|Retry|Merge|Answer)\b/)
   })
 
+  it('home: a reason that is one long question is the card’s evidence line; a repeat of it is printed once', () => {
+    const lineOf = (id: number) => homeCards.find((d) => d.id === `warden-${id}`)?.evidenceLine
+    // #2's whole reason is one over-long question: it is the evidence, not only the disclosure.
+    expect(lineOf(2)).toStartWith('Reclaim space by pruning')
+    expect(lineOf(3)).toStartWith('Kezub lezub make logs/verify')
+    // Alerts that share one reason word for word: only the first in display order keeps the line.
+    const reason = WARDEN_ROWS.find((r) => r.id === 21)!.reason
+    const shared = WARDEN_ROWS.filter((r) => r.reason === reason)
+    expect(shared.length).toBeGreaterThan(1)
+    expect(shared.map((r) => lineOf(r.id)).filter((line) => line !== null)).toHaveLength(1)
+  })
+
+  it('warden: a CI-failed card never offers Merge, and its evidence reads as clauses', () => {
+    const ci = resolveQueueAsks(entries).find((_, i) => entries[i]!.row.eventId === 32)!
+    expect(ci.plan).toMatchObject({ primary: 'retry', secondary: 'dismiss' })
+    expect(ci.plan.menu).not.toContain('merge')
+    expect(ci.copy.evidenceLine).toEndWith('; PR left open')
+    expect(ci.copy.evidenceLine).not.toContain('— ')
+  })
+
   it('warden: shared evidence lines are printed once', () => {
     const lines = surfaces.warden.flatMap((c) => (c.evidence === null ? [] : [c.evidence]))
     expect(new Set(lines).size).toBe(lines.length)
@@ -796,7 +871,7 @@ describe('named regressions', () => {
       NOW,
     )
     expect(card!.question).toBe(
-      'Answer: A backup job needs a free storage account to upload weekly snapshots?',
+      'Copy ask: A backup job needs a free storage account to upload weekly snapshots?',
     )
   })
 

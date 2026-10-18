@@ -255,46 +255,66 @@ describe('headlineOf', () => {
 
 describe('agentsSummaryParts', () => {
   it('carries the one figure the strip lacks: the projects the blocked agents sit in', () => {
-    expect(agentsSummaryParts({ agentWaits: 2, asks: 1, projects: 2, commands: 0 }).sentence).toBe(
+    expect(agentsSummaryParts({ agentWaits: 2, asks: 1, projects: 2 }).sentence).toBe(
       'Agents in 2 projects and the human queue are waiting on you.',
     )
-    expect(agentsSummaryParts({ agentWaits: 3, asks: 0, projects: 2, commands: 0 }).sentence).toBe(
+    expect(agentsSummaryParts({ agentWaits: 3, asks: 0, projects: 2 }).sentence).toBe(
       'Agents in 2 projects are waiting on you.',
     )
-    expect(agentsSummaryParts({ agentWaits: 1, asks: 0, projects: 1, commands: 0 }).sentence).toBe(
+    expect(agentsSummaryParts({ agentWaits: 1, asks: 0, projects: 1 }).sentence).toBe(
       'An agent in 1 project is waiting on you.',
     )
   })
 
   it('adds the abandoned count and the ask hosts, figures no other part of the page prints', () => {
-    expect(
-      agentsSummaryParts({ agentWaits: 3, asks: 0, projects: 2, abandoned: 1, commands: 0 })
-        .sentence,
-    ).toBe('Agents in 2 projects are waiting on you, 1 of them abandoned.')
+    expect(agentsSummaryParts({ agentWaits: 3, asks: 0, projects: 2, abandoned: 1 }).sentence).toBe(
+      'Agents in 2 projects are waiting on you, 1 of them abandoned.',
+    )
     // All abandoned is the most urgent case: it is said.
-    expect(
-      agentsSummaryParts({ agentWaits: 3, asks: 0, projects: 2, abandoned: 3, commands: 0 })
-        .sentence,
-    ).toBe('Agents in 2 projects are waiting on you, all abandoned.')
-    expect(
-      agentsSummaryParts({ agentWaits: 0, asks: 3, projects: 0, hosts: 2, commands: 0 }).sentence,
-    ).toBe('Requests from 2 hosts are waiting for your answer, none with a command to run.')
+    expect(agentsSummaryParts({ agentWaits: 3, asks: 0, projects: 2, abandoned: 3 }).sentence).toBe(
+      'Agents in 2 projects are waiting on you, all abandoned.',
+    )
+    expect(agentsSummaryParts({ agentWaits: 0, asks: 3, projects: 0, hosts: 2 }).sentence).toBe(
+      'Requests from 2 hosts are waiting for your answer.',
+    )
   })
 
-  it('gives asks alone the figure the tile does not print: how many come with a command', () => {
-    expect(agentsSummaryParts({ agentWaits: 0, asks: 1, projects: 0, commands: 0 }).sentence).toBe(
+  it('carries the oldest wait in the cards’ duration spelling, on every kind of wait', () => {
+    const oldest = (3 * 60 + 5) * 60_000
+    const tail = 'Oldest wait 3\u00a0h\u00a05\u00a0min.'
+    expect(
+      agentsSummaryParts({ agentWaits: 0, asks: 2, projects: 0, hosts: 1, oldestWaitMs: oldest })
+        .sentence,
+    ).toBe(`Requests from 1 host are waiting for your answer. ${tail}`)
+    expect(
+      agentsSummaryParts({
+        agentWaits: 2,
+        asks: 0,
+        projects: 1,
+        abandoned: 1,
+        oldestWaitMs: oldest,
+      }).sentence,
+    ).toBe(`Agents in 1 project are waiting on you, 1 of them abandoned. ${tail}`)
+    expect(
+      agentsSummaryParts({ agentWaits: 1, asks: 1, projects: 1, oldestWaitMs: oldest }).sentence,
+    ).toBe(`Agents in 1 project and the human queue are waiting on you. ${tail}`)
+    // No clock, nothing waiting: no wait is invented.
+    expect(
+      agentsSummaryParts({ agentWaits: 1, asks: 0, projects: 0, oldestWaitMs: null }).sentence,
+    ).toBe('An agent is waiting on you.')
+    expect(
+      agentsSummaryParts({ agentWaits: 0, asks: 0, projects: 0, oldestWaitMs: oldest }).sentence,
+    ).toBe('Nothing needs you.')
+  })
+
+  it('says an ask alone waits, without a with-a-command sub-count', () => {
+    expect(agentsSummaryParts({ agentWaits: 0, asks: 1, projects: 0 }).sentence).toBe(
       'A request is waiting for your answer.',
     )
-    expect(agentsSummaryParts({ agentWaits: 0, asks: 1, projects: 0, commands: 1 }).sentence).toBe(
-      'A request is waiting for your answer, with a command to run.',
+    expect(agentsSummaryParts({ agentWaits: 0, asks: 3, projects: 0 }).sentence).toBe(
+      'Requests are waiting for your answer.',
     )
-    expect(agentsSummaryParts({ agentWaits: 0, asks: 3, projects: 0, commands: 2 }).sentence).toBe(
-      'Requests are waiting for your answer, 2 with a command to run.',
-    )
-    expect(agentsSummaryParts({ agentWaits: 0, asks: 2, projects: 0, commands: 2 }).sentence).toBe(
-      'Requests are waiting for your answer, all with a command to run.',
-    )
-    expect(agentsSummaryParts({ agentWaits: 0, asks: 0, projects: 0, commands: 0 })).toEqual({
+    expect(agentsSummaryParts({ agentWaits: 0, asks: 0, projects: 0 })).toEqual({
       sentence: 'Nothing needs you.',
     })
   })
@@ -327,7 +347,7 @@ describe('waitingProjects', () => {
 
 describe('fleetFact', () => {
   it('names the longest run, or that nothing works', () => {
-    expect(fleetFact(3 * 3_600_000 + 5 * 60_000, 2)).toBe('longest run 3\u00a0h 5\u00a0min')
+    expect(fleetFact(3 * 3_600_000 + 5 * 60_000, 2)).toBe('longest run 3\u00a0h\u00a05\u00a0min')
     expect(fleetFact(null, 0)).toBe('no agent working')
     expect(fleetFact(null, 3)).toBe('longest run not reported')
   })
@@ -495,11 +515,33 @@ describe('needsYouCards', () => {
     ]
     const cards = needsYouCards(asks, [], now)
     expect(cards.map((c) => c.question)).toEqual([
-      'Answer: Deploy is blocked on the {service} migration?',
-      'Answer: Disk is full on {host}?',
+      'Copy ask: Deploy is blocked on the {service} migration?',
+      'Copy ask: Disk is full on {host}?',
     ])
     // The sentence the title carries is not printed again as evidence.
     expect(cards.map((c) => c.evidenceLine)).toEqual(['Check the logs.', 'Free some space.'])
+  })
+
+  it('asks in the verb of its primary button: Copy command with a command, else Copy ask', () => {
+    const cards = needsYouCards(
+      [
+        {
+          id: 'a',
+          question: 'Deploy is blocked on the {service} migration. Check.',
+          cmd: 'make go',
+        },
+        { id: 'b', question: 'Disk is full on {host}. Free some space.' },
+        { id: 'c', question: 'Alert {name} is down. Look.', kind: 'alert', cmd: ' ' },
+      ],
+      [],
+      now,
+    )
+    expect(cards.map((c) => [c.actions[0]?.label, c.question])).toEqual([
+      ['Copy command', 'Copy command: Deploy is blocked on the {service} migration?'],
+      ['Copy ask', 'Copy ask: Disk is full on {host}?'],
+      ['Copy ask', 'Copy ask: Alert {name} is down?'],
+    ])
+    expect(cards.map((c) => c.question).join(' ')).not.toMatch(/Answer|Handle/)
   })
 
   it('strips shortcodes from a queue ask and reads blank or non-string asks as absent', () => {
@@ -515,8 +557,8 @@ describe('needsYouCards', () => {
     expect(cards.map((c) => c.question)).toEqual([
       'Deploy now?',
       // No ask text, no subject: identical cards, so the ordinal is the honest last tie-break.
-      'Answer this request (1)?',
-      'Answer this request (2)?',
+      'Copy ask for this request (1)?',
+      'Copy ask for this request (2)?',
     ])
     for (const card of cards) expect(card.actions.length).toBeGreaterThanOrEqual(1)
   })
@@ -570,7 +612,7 @@ describe('needsYouCards', () => {
     })
     const [card] = needsYouCards([], [waiting], now, { machine: 'mini' })
     expect(card).toMatchObject({
-      facts: ['project-a', 'waiting 1\u00a0h 30\u00a0min', 'mini'],
+      facts: ['project-a', 'waiting 1\u00a0h\u00a030\u00a0min', 'mini'],
       evidenceLine: 'No blocker reported.',
       preview: null,
     })
@@ -597,7 +639,7 @@ describe('needsYouCards', () => {
       now,
     )
     expect(card).toMatchObject({
-      question: 'Answer: Short ask?',
+      question: 'Copy ask: Short ask?',
       evidenceLine: 'Second sentence follows.',
       disclosure: null,
     })
@@ -804,10 +846,10 @@ describe('round 2 guards', () => {
       agent({ id: 'b', state: 'needs_you', project: '  ' }),
     ]
     expect(waitingProjects(rows)).toBe(0)
-    expect(agentsSummaryParts({ agentWaits: 2, asks: 0, projects: 0, commands: 0 }).sentence).toBe(
+    expect(agentsSummaryParts({ agentWaits: 2, asks: 0, projects: 0 }).sentence).toBe(
       'Agents are waiting on you.',
     )
-    expect(agentsSummaryParts({ agentWaits: 1, asks: 1, projects: 0, commands: 0 }).sentence).toBe(
+    expect(agentsSummaryParts({ agentWaits: 1, asks: 1, projects: 0 }).sentence).toBe(
       'Agents and the human queue are waiting on you.',
     )
   })
