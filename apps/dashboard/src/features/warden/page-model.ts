@@ -583,8 +583,8 @@ export function sinceSnapshotMs(receivedAt: string | null, now: number): number 
 }
 
 /** A wait shorter than this reads `<1 min`, never `0 min`. */
-const MINUTE_MS = 60_000
-const WAITING_UNDER_A_MINUTE = `waiting <${NBSP}1${NBSP}min`
+export const MINUTE_MS = 60_000
+export const WAITING_UNDER_A_MINUTE = `waiting <${NBSP}1${NBSP}min`
 
 /** Milliseconds since the latest history line; 0 when the item has none or its time is unreadable. */
 export function latestHistoryAgeMs(history: readonly TransitionLine[], now: number): number {

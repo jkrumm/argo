@@ -7,7 +7,11 @@ import {
   type AwaitingOwnerRow,
 } from '../features/warden/model'
 import {
+  latestHistoryAgeMs,
+  MINUTE_MS,
   recentTransitions,
+  resolveWaitMs,
+  WAITING_UNDER_A_MINUTE,
   wardenAskInput,
   type AskSource,
   type QueueKind,
@@ -148,16 +152,25 @@ function toDecision(
   }
   if (entry.source === 'warden') {
     const { row } = entry
-    const ageMs = row.ageDays === null ? null : row.ageDays * DAY_MS + sincePush
-    const waiting =
+    const history = recentTransitions(raw?.items?.[String(row.eventId)])
+    // Warden's one wait clock: the same `resolveWaitMs` over the same history age its cards use.
+    const ageMs =
+      row.ageDays === null
+        ? null
+        : resolveWaitMs(row.ageDays, sincePush, latestHistoryAgeMs(history, now))
+    const text =
       ageMs === null
         ? ''
-        : ageMs >= AWAITING_OWNER_STALE_DAYS * DAY_MS
-          ? {
-              text: `waiting ${formatDuration(ageMs)} · stale at ${withUnit(AWAITING_OWNER_STALE_DAYS, 'd')}`,
-              tone: 'warn' as const,
-            }
+        : ageMs < MINUTE_MS
+          ? WAITING_UNDER_A_MINUTE
           : `waiting ${formatDuration(ageMs)}`
+    const waiting =
+      ageMs !== null && ageMs >= AWAITING_OWNER_STALE_DAYS * DAY_MS
+        ? {
+            text: `${text} · stale at ${withUnit(AWAITING_OWNER_STALE_DAYS, 'd')}`,
+            tone: 'warn' as const,
+          }
+        : text
     const pr = asText(row.prUrl)
     return {
       ...base,
@@ -166,7 +179,7 @@ function toDecision(
       ageMs,
       href: '/warden',
       evidence: pr !== '' && isSafeHttpUrl(pr) ? pr : null,
-      history: recentTransitions(raw?.items?.[String(row.eventId)]),
+      history,
       abandoned: false,
     }
   }
