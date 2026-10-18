@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { WardenBoardItem, WardenMetrics } from '../../lib/queries/warden'
+import { resolveCopies } from '../../lib/question-copy'
 import { waitingOnOwner, type AwaitingOwnerRow } from './model'
 import {
   cardFacts,
@@ -29,7 +30,6 @@ import {
   revertsFooter,
   REVERTS_INFO,
   wardenAsk,
-  wardenAsks,
   deriveBoard,
   pollerAgeText,
   BUDGET_MISSING,
@@ -51,10 +51,11 @@ const row = (overrides: Partial<AwaitingOwnerRow>): AwaitingOwnerRow => ({
   eventId: 1,
   repo: 'repo-a',
   title: 'Title',
+  origin: null,
   state: 'needs_decision',
   prUrl: null,
   ageDays: 2.4,
-  ageLabel: '2.4 d',
+  ageLabel: '2.4\u00a0d',
   stale: false,
   reason: null,
   strikes: 0,
@@ -222,9 +223,9 @@ describe('deriveBudget', () => {
 
 describe('formatSpan / formatNumber', () => {
   it('picks the unit by size', () => {
-    expect(formatSpan(5 * 60_000)).toBe('5 min')
-    expect(formatSpan(3.2 * 3_600_000)).toBe('3.2 h')
-    expect(formatSpan(72 * 3_600_000)).toBe('3 d')
+    expect(formatSpan(5 * 60_000)).toBe('5\u00a0min')
+    expect(formatSpan(3.2 * 3_600_000)).toBe('3.2\u00a0h')
+    expect(formatSpan(72 * 3_600_000)).toBe('3\u00a0d')
   })
 
   it('drops a trailing .0', () => {
@@ -244,7 +245,7 @@ describe('deriveSummary', () => {
 
   it('states the queue and the loop verdict, with no fact line repeating the strip', () => {
     expect(deriveSummary(base)).toEqual({
-      text: 'Oldest wait on you 5.1 d. Loop healthy.',
+      text: 'Oldest wait on you 5.1\u00a0d. Loop healthy.',
       status: 'ok',
     })
   })
@@ -268,7 +269,9 @@ describe('deriveSummary', () => {
       ...base,
       receivedAt: new Date(NOW - 2 * 3_600_000).toISOString(),
     })
-    expect(stalled.text).toBe('Oldest wait on you 5.1 d. Loop stalled — snapshot 2 h old.')
+    expect(stalled.text).toBe(
+      'Oldest wait on you 5.1\u00a0d. Loop stalled — snapshot 2\u00a0h old.',
+    )
     expect(stalled.status).toBe('stalled')
   })
 
@@ -282,7 +285,7 @@ describe('deriveSummary', () => {
       stalePoller: { name: 'loop', ageMin: 41, thresholdMin: 30, stale: true },
     })
     expect(summary.status).toBe('degraded')
-    expect(summary.text).toContain('Loop degraded: loop is 41 min old.')
+    expect(summary.text).toContain('Loop degraded: loop is 41\u00a0min old.')
   })
 })
 
@@ -431,7 +434,7 @@ describe('cardFacts', () => {
   it('leads with repo, then age, then how often the item was retried and revised', () => {
     expect(cardFacts(row({ redrives: 2, ageDays: 1.2 }))).toEqual([
       'repo-a',
-      'waiting 1.2 d',
+      'waiting 1.2\u00a0d',
       'retried 2 times, revised 1 time',
     ])
   })
@@ -442,13 +445,16 @@ describe('cardFacts', () => {
     )
     expect(cardFacts(row({ redrives: 0, revisionCount: 0, ageDays: 1.2 }))).toEqual([
       'repo-a',
-      'waiting 1.2 d',
+      'waiting 1.2\u00a0d',
     ])
   })
 
   it('tones a wait past two days as a warning', () => {
-    expect(cardFacts(row({ ageDays: 2.4 }))[1]).toEqual({ text: 'waiting 2.4 d', tone: 'warn' })
-    expect(cardFacts(row({ ageDays: 1.5 }))[1]).toBe('waiting 1.5 d')
+    expect(cardFacts(row({ ageDays: 2.4 }))[1]).toEqual({
+      text: 'waiting 2.4\u00a0d',
+      tone: 'warn',
+    })
+    expect(cardFacts(row({ ageDays: 1.5 }))[1]).toBe('waiting 1.5\u00a0d')
   })
 
   it('omits what warden did not report', () => {
@@ -638,13 +644,13 @@ describe('recentTransitions', () => {
 describe('pollerStaleLabel', () => {
   it('names the poller’s own threshold', () => {
     expect(pollerStaleLabel({ name: 'a', ageMin: 12, thresholdMin: 10, stale: true })).toBe(
-      'stale at 10 min',
+      'stale at 10\u00a0min',
     )
   })
 
   it('falls back to the 30 minute scale without a threshold', () => {
     expect(pollerStaleLabel({ name: 'a', ageMin: 40, thresholdMin: null, stale: true })).toBe(
-      'stale at 30 min',
+      'stale at 30\u00a0min',
     )
   })
 
@@ -894,7 +900,7 @@ describe('strip footers', () => {
       'merge poller · oldest of 3',
     )
     expect(pollerFooter({ ...poller, name: 'merge_poller', count: 1 })).toBe('merge poller')
-    expect(pollerFooter({ ...poller, name: null, count: 0 })).toBe('stale at 30 min')
+    expect(pollerFooter({ ...poller, name: null, count: 0 })).toBe('stale at 30\u00a0min')
   })
 
   it('carries the oldest poller name through the strip', () => {
@@ -905,7 +911,7 @@ describe('strip footers', () => {
   })
 
   it('tells a missing budget when it arrives', () => {
-    expect(BUDGET_MISSING.both).toContain('about every 10 min')
+    expect(BUDGET_MISSING.both).toContain('about every 10\u00a0min')
     expect(BUDGET_MISSING.one('Dispatch')).toContain('Dispatch budget')
     expect(REVERTS_INFO).toContain('reopen')
   })
@@ -913,7 +919,9 @@ describe('strip footers', () => {
 
 describe('pollerAgeText', () => {
   it('names the poller once, without a second `poller`', () => {
-    expect(pollerAgeText({ name: 'merge_poller', ageMin: 3.6 })).toBe('merge poller · 4 min old')
+    expect(pollerAgeText({ name: 'merge_poller', ageMin: 3.6 })).toBe(
+      'merge poller · 4\u00a0min old',
+    )
   })
 })
 
@@ -984,25 +992,29 @@ describe('deriveBoard', () => {
   })
 })
 
-describe('wardenAsks', () => {
-  const entry = (eventId: number, title: string, over: Record<string, unknown> = {}) => ({
-    kind: 'decision' as const,
-    source: {
+describe('wardenAsk across one surface', () => {
+  type Entry = { kind: 'decision' | 'failed'; row: AwaitingOwnerRow }
+  const entry = (eventId: number, title: unknown, over: Partial<AwaitingOwnerRow> = {}): Entry => ({
+    kind: 'decision',
+    row: row({
       eventId,
       repo: '{repo}',
-      title,
-      origin: null,
+      title: title as string,
       reason: 'Evidence only.',
-      question: null,
       availableActions: ['implement'],
       ...over,
-    },
+    }),
   })
+  const resolve = (entries: Entry[]) =>
+    resolveCopies(entries, {
+      key: ({ kind, row: r }) => `${kind}-${r.eventId}`,
+      derive: ({ kind, row: r }, options) => wardenAsk(r, kind, options),
+    })
 
   it('tells same-repo items apart across needs-you and failed, and spares a lone one', () => {
-    const asks = wardenAsks([
+    const asks = resolve([
       entry(1, 'Disk filling up'),
-      { ...entry(2, 'Cache cold'), kind: 'failed' as const },
+      { ...entry(2, 'Cache cold'), kind: 'failed' },
       entry(3, 'Latency high', { availableActions: ['reinvestigate'] }),
     ])
     expect(asks.map((a) => a.copy.question)).toEqual([
@@ -1013,8 +1025,38 @@ describe('wardenAsks', () => {
     expect(asks.map((a) => a.copy.entity)).toEqual([null, null, 'Latency high'])
   })
 
-  it('frames an alert origin as an alert, never as a change', () => {
-    const [ask] = wardenAsks([entry(1, 'Latency high', { origin: 'alert' })])
-    expect(ask!.copy.question).toBe('Handle {repo} alert?')
+  it('keeps an id that sits in both lists apart by kind', () => {
+    const asks = resolve([
+      entry(1, 'Disk filling up'),
+      { ...entry(1, 'Disk filling up'), kind: 'failed' },
+    ])
+    expect(asks.map((a) => a.copy.question)).toEqual([
+      'Implement {repo} change: Disk filling up (1)?',
+      'Implement {repo} change: Disk filling up (2)?',
+    ])
+  })
+
+  it('frames an alert origin as an alert in the verb its button carries', () => {
+    const [handle, dismiss, none] = resolve([
+      entry(1, 'Latency high', { origin: 'alert' }),
+      entry(2, 'Queue deep', { origin: 'alert', availableActions: ['dismiss'] }),
+      entry(3, 'Disk full', { origin: 'alert', availableActions: [] }),
+    ])
+    expect(handle!.copy.question).toBe('Handle {repo} alert?')
+    expect(dismiss!.copy.question).toBe('Dismiss {repo} alert?')
+    expect(none!.copy.question).toBe('Decide on {repo} alert?')
+  })
+
+  it('does not take an issue about alerts for an alert', () => {
+    const [ask] = resolve([entry(1, 'Add incident-response runbook')])
+    expect(ask!.copy.question).toBe('Implement {repo} change?')
+  })
+
+  it('reads non-string wire values as absent, never throwing', () => {
+    for (const junk of [42, {}, ['x'], true]) {
+      const [ask] = resolve([entry(1, junk, { repo: junk as never, reason: junk as never })])
+      expect(ask!.copy.question).toBe('Implement this change?')
+      expect(ask!.copy.entity).toBe('Item #1')
+    }
   })
 })

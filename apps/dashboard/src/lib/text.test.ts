@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'bun:test'
 import {
   authoredQuestion,
+  asText,
   firstClause,
+  leadClauses,
+  oldestWaitSentence,
   firstSentence,
   flatten,
   restAfterFirstSentence,
@@ -81,5 +84,34 @@ describe('flatten', () => {
   it('collapses whitespace but keeps a no-break space between a number and its unit', () => {
     expect(flatten('  waiting \n 5\u00a0m   ago ')).toBe('waiting 5\u00a0m ago')
     expect(stripShortcodes(':x: 5\u00a0m  ago')).toBe('5\u00a0m ago')
+  })
+})
+
+describe('leadClauses', () => {
+  it('takes the first n clauses, and the whole text past the last stop', () => {
+    expect(leadClauses('Disk full — host a — retry', 2)).toBe('Disk full — host a')
+    expect(leadClauses('Disk full — host a', Infinity)).toBe('Disk full — host a')
+    expect(leadClauses('Disk full', 2)).toBe('Disk full')
+  })
+  it('ignores a stop with nothing before it', () => {
+    expect(leadClauses('. Disk full — host a', 1)).toBe('Disk full')
+    expect(firstClause('— — —')).toBe('')
+    expect(firstClause('')).toBe('')
+  })
+})
+
+describe('asText', () => {
+  it('keeps a string and reads anything else as none', () => {
+    expect(asText('x')).toBe('x')
+    for (const junk of [1, {}, [], null, undefined, true]) expect(asText(junk)).toBe('')
+  })
+})
+
+describe('oldestWaitSentence', () => {
+  it('states nothing waiting, the oldest wait, or that items wait when no age is reported', () => {
+    expect(oldestWaitSentence(0, null)).toBe('Nothing needs you')
+    expect(oldestWaitSentence(3, '5.1\u00a0d')).toBe('Oldest wait on you 5.1\u00a0d')
+    expect(oldestWaitSentence(1, null)).toBe('An item is waiting on you')
+    expect(oldestWaitSentence(2, null)).toBe('Items are waiting on you')
   })
 })

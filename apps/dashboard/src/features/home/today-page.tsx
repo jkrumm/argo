@@ -42,7 +42,6 @@ const LOAD_WINDOW = { window: '90d' } as const
 const RECOVERY_DAYS = 7
 /** Seven days from today's midnight: today's agenda plus the lookup for the next meeting after it. */
 const CALENDAR_DAYS = 7
-const HISTORY_HOURS = 24
 
 const dateFormat = new Intl.DateTimeFormat('en-GB', {
   weekday: 'short',
@@ -62,7 +61,6 @@ export function TodayPage() {
   const now = useNow()
 
   const agentsQuery = useQuery(agentsQueries.latest())
-  const historyQuery = useQuery(agentsQueries.history(HISTORY_HOURS))
   const narrativesQuery = useQuery(agentsQueries.narratives())
   const wardenQuery = useQuery(wardenQueries.snapshot())
 
@@ -196,7 +194,7 @@ export function TodayPage() {
           label="Today at a glance"
           cols={5}
           cells={[
-            agentsCell(snapshot?.summary, fleet, historyQuery.data?.data, now),
+            agentsCell(snapshot?.summary, fleet),
             budgetCell(wardenRaw?.budget, poller),
             meetingCell(agenda, next, later, now),
             recoveryCell(recovery, recoveryNow.isPending),

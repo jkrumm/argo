@@ -1,3 +1,4 @@
+import { withUnit } from '../../lib/format'
 import type {
   WardenActionVerb,
   WardenBoard,
@@ -6,13 +7,13 @@ import type {
   WardenHealth,
   WardenMetrics,
 } from '../../lib/queries/warden'
-import { authoredQuestion, stripShortcodes } from '../../lib/text'
+import { asText, authoredQuestion, oldestWaitSentence, stripShortcodes } from '../../lib/text'
 import {
-  ALERT_KIND,
   cardCopy,
-  collidingCopies,
+  isAlert,
   wardenPlainQuestion,
   type CardCopy,
+  type Disambiguation,
 } from '../../lib/question-copy'
 import type { DecisionCardFact } from '../../components/upstream/decision-card-model'
 import {
@@ -277,10 +278,10 @@ const WARDEN_PUSH_MIN = 10
 
 /** What a missing budget says: the cause is on warden's side, the fix is its next push. */
 export const BUDGET_MISSING = {
-  both: `Dispatch and implement budget not reported yet. Warden sends it with each push (about every ${WARDEN_PUSH_MIN}\u00a0min).`,
+  both: `Dispatch and implement budget not reported yet. Warden sends it with each push (about every ${withUnit(WARDEN_PUSH_MIN, 'min')}).`,
   one: (name: string) =>
-    `${name} budget not reported yet. Warden sends it with each push (about every ${WARDEN_PUSH_MIN}\u00a0min).`,
-  short: `Not reported yet; Warden sends it with each push, about every ${WARDEN_PUSH_MIN}\u00a0min.`,
+    `${name} budget not reported yet. Warden sends it with each push (about every ${withUnit(WARDEN_PUSH_MIN, 'min')}).`,
+  short: `Not reported yet; Warden sends it with each push, about every ${withUnit(WARDEN_PUSH_MIN, 'min')}.`,
 } as const
 
 // ── Summary sentence ────────────────────────────────────────────────────────
@@ -288,10 +289,10 @@ export const BUDGET_MISSING = {
 /** `"42 min"` / `"3.2 h"` / `"2.1 d"` — a span with a unit, never a bare number. */
 export function formatSpan(ms: number): string {
   const minutes = ms / 60_000
-  if (minutes < 60) return `${Math.max(1, Math.round(minutes))}\u00a0min`
+  if (minutes < 60) return withUnit(Math.max(1, Math.round(minutes)), 'min')
   const hours = minutes / 60
-  if (hours < 48) return `${formatNumber(hours)}\u00a0h`
-  return `${formatNumber(hours / 24)}\u00a0d`
+  if (hours < 48) return withUnit(formatNumber(hours), 'h')
+  return withUnit(formatNumber(hours / 24), 'd')
 }
 
 export type WardenSummaryInput = {
@@ -318,12 +319,10 @@ export function deriveSummary(input: WardenSummaryInput): {
 } {
   const { needsCount, oldestAgeDays, receivedAt, now = Date.now() } = input
   // The sections under it print the counts; the headline names the one figure they do not.
-  const needs =
-    needsCount === 0
-      ? 'Nothing needs you'
-      : oldestAgeDays === null
-        ? 'Items are waiting on you'
-        : `Oldest wait on you ${formatAgeDays(oldestAgeDays)}`
+  const needs = oldestWaitSentence(
+    needsCount,
+    oldestAgeDays === null ? null : formatAgeDays(oldestAgeDays),
+  )
   if (isStale(receivedAt, now)) {
     const parsed = receivedAt === null ? Number.NaN : Date.parse(receivedAt)
     const age = Number.isFinite(parsed)
@@ -333,7 +332,7 @@ export function deriveSummary(input: WardenSummaryInput): {
   }
   if (input.stalePoller !== null) {
     return {
-      text: `${needs}. Loop degraded: ${input.stalePoller.name} is ${formatNumber(input.stalePoller.ageMin)}\u00a0min old.`,
+      text: `${needs}. Loop degraded: ${input.stalePoller.name} is ${withUnit(formatNumber(input.stalePoller.ageMin), 'min')} old.`,
       status: 'degraded',
     }
   }
@@ -487,14 +486,21 @@ function namesRepo(question: string, repo: string): boolean {
  * with the shortcode-stripped title (`Item #<id>` when nothing is left) as the entity, whole.
  * A failed item's reason is all evidence.
  */
-export function wardenAsk(source: AskSource, kind: QueueKind, withHandle = false): WardenAsk {
+export function wardenAsk(
+  source: AskSource,
+  kind: QueueKind,
+  { handle = null }: { handle?: Disambiguation | null } = {},
+): WardenAsk {
   const failed = kind === 'failed'
   const plan = planActions(source.availableActions, kind)
-  const named = stripShortcodes(source.title ?? '')
+  // The wire is loose: only a string is a title, reason or repo.
+  const named = stripShortcodes(asText(source.title))
   const title = named || `Item #${source.eventId}`
-  const alert = source.origin === 'alert' || ALERT_KIND.test(named)
-  const reason = source.reason === null ? null : stripShortcodes(source.reason)
-  const plain = wardenPlainQuestion({ failed, repo: source.repo, primary: plan.primary, alert })
+  const rawReason = asText(source.reason)
+  const reason = rawReason === '' ? null : stripShortcodes(rawReason)
+  const repo = stripShortcodes(asText(source.repo))
+  const alert = isAlert({ kinds: [source.origin], title: named })
+  const plain = wardenPlainQuestion({ failed, repo, primary: plan.primary, alert })
   const authored = authoredQuestion(source.question)
   const split = failed ? null : splitReason(reason)
   const copy = cardCopy({
@@ -503,24 +509,9 @@ export function wardenAsk(source: AskSource, kind: QueueKind, withHandle = false
     body: split === null ? reason : split.rest,
     title,
     plain,
-    handle: withHandle && named !== '' ? named : null,
+    handle: handle !== null && named !== '' ? { source: named, ...handle } : null,
   })
-  const repo = stripShortcodes(source.repo ?? '')
   return { plan, repo, tag: split?.tag ?? null, copy, repoNamed: namesRepo(copy.question, repo) }
-}
-
-/**
- * The asks of every card on ONE surface, in input order: the short plain question, unless another
- * card of the surface would read the same — that card then carries its own handle.
- */
-export function wardenAsks(
-  entries: readonly { source: AskSource; kind: QueueKind }[],
-): WardenAsk[] {
-  const short = entries.map(({ source, kind }) => wardenAsk(source, kind))
-  const clash = collidingCopies(short.map((ask) => ask.copy))
-  return entries.map(({ source, kind }, i) =>
-    clash[i] ? wardenAsk(source, kind, true) : short[i]!,
-  )
 }
 
 /** A decision waiting longer than this many days gets a warning tone on its age. */
@@ -539,7 +530,7 @@ function historyFact(row: AwaitingOwnerRow): string {
 /** The repo (`''` when the question already names it) plus `waiting <n> d` and the item's history. */
 export function cardFacts(
   row: AwaitingOwnerRow,
-  repo = stripShortcodes(row.repo ?? ''),
+  repo = stripShortcodes(asText(row.repo)),
 ): DecisionCardFact[] {
   const waiting =
     row.ageDays === null
@@ -630,7 +621,9 @@ export function openCount(columns: readonly BoardColumn[]): number {
 
 /** The label a stale poller carries: its own threshold, else the 30 minute scale. `null` when fresh. */
 export function pollerStaleLabel(poller: PollerRow): string | null {
-  return poller.stale ? `stale at ${poller.thresholdMin ?? POLLER_SCALE_MIN}\u00a0min` : null
+  return poller.stale
+    ? `stale at ${withUnit(poller.thresholdMin ?? POLLER_SCALE_MIN, 'min')}`
+    : null
 }
 
 /** Deferral on the board: the marker follows `isDeferredItem`; the note only supplies the detail. */
@@ -771,7 +764,7 @@ export function verdictsFooter(verdicts: StripModel['verdicts']): string {
 
 /** The oldest poller's name and rank (`merge poller · oldest of 3`); an unnamed one states its stale mark. */
 export function pollerFooter(poller: StripModel['poller']): string {
-  if (poller.name === null) return `stale at ${poller.thresholdMin}\u00a0min`
+  if (poller.name === null) return `stale at ${withUnit(poller.thresholdMin, 'min')}`
   const name = poller.name.replaceAll('_', ' ')
   return poller.count > 1 ? `${name} · oldest of ${poller.count}` : name
 }
@@ -805,7 +798,7 @@ export function emptyBoardText(waitingOnOwner: number): string {
 
 /** A poller as the Today page names it: `watchdog poll · 4 min old`. */
 export function pollerAgeText(poller: { name: string; ageMin: number }): string {
-  return `${poller.name.replaceAll('_', ' ')} · ${Math.round(poller.ageMin)}\u00a0min old`
+  return `${poller.name.replaceAll('_', ' ')} · ${withUnit(Math.round(poller.ageMin), 'min')} old`
 }
 
 export type BoardView = {

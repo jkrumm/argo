@@ -1,3 +1,4 @@
+import { withUnit } from '../../lib/format'
 import { Stack, Text } from '@mantine/core'
 import { VX } from 'basalt-ui/tokens'
 import type { ReactNode } from 'react'
@@ -118,13 +119,13 @@ function waitCell({ wait }: StripModel): StatStripCell {
     value: formatNumber(wait.hours),
     unit: 'h',
     ...toneCell(tone),
-    footer: `${wait.windowDays}\u00a0d median${wait.pairs === null ? '' : ` · ${wait.pairs} pairs`}`,
+    footer: `${withUnit(wait.windowDays, 'd')} median${wait.pairs === null ? '' : ` · ${wait.pairs} pairs`}`,
     visual: (
       <Meter
         label="Median decision wait against 24 hours"
         value={wait.hours}
         max={WAIT_TICK_H}
-        ticks={[{ at: WAIT_TICK_H, label: `${WAIT_TICK_H}\u00a0h` }]}
+        ticks={[{ at: WAIT_TICK_H, label: `${withUnit(WAIT_TICK_H, 'h')}` }]}
         {...toneMeter(tone)}
         startCaption={null}
         endCaption={null}
@@ -149,7 +150,7 @@ function unattendedCell({ unattended }: StripModel): StatStripCell {
     info: 'Fixes verified without owner input in the window.',
     value: formatNumber(unattended.fixes),
     unit: unattended.fixes === 1 ? 'fix' : 'fixes',
-    footer: `last ${unattended.windowDays}\u00a0d`,
+    footer: `last ${withUnit(unattended.windowDays, 'd')}`,
   }
 }
 
@@ -168,7 +169,7 @@ function pollerCell({ poller }: StripModel): StatStripCell {
   return {
     key: 'poller',
     caption,
-    info: `Age of the least recently run poller; at ${limit}\u00a0min it counts as stale.`,
+    info: `Age of the least recently run poller; at ${withUnit(limit, 'min')} it counts as stale.`,
     value: formatNumber(poller.oldestMin),
     unit: 'min',
     ...toneCell(tone),
@@ -178,7 +179,7 @@ function pollerCell({ poller }: StripModel): StatStripCell {
         label={`Oldest poller age against ${limit} minutes`}
         value={poller.oldestMin}
         max={limit}
-        ticks={[{ at: limit, label: `${limit}\u00a0min` }]}
+        ticks={[{ at: limit, label: `${withUnit(limit, 'min')}` }]}
         {...toneMeter(tone)}
         startCaption={null}
         endCaption={null}

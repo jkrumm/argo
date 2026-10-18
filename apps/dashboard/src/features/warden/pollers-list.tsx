@@ -1,3 +1,4 @@
+import { withUnit } from '../../lib/format'
 import { BarList, Section } from 'basalt-ui'
 import { POLLER_SCALE_MIN, formatNumber, pollerStaleLabel, type PollerRow } from './page-model'
 
@@ -12,7 +13,7 @@ export function PollersList({ pollers }: { pollers: readonly PollerRow[] }) {
       <BarList
         label={`Poller age in minutes, scale 0 to ${POLLER_SCALE_MIN}`}
         max={POLLER_SCALE_MIN}
-        format={(value) => `${formatNumber(value)}\u00a0min`}
+        format={(value) => withUnit(formatNumber(value), 'min')}
         items={pollers.map((poller) => ({
           key: poller.name,
           label: poller.name,

@@ -4,6 +4,7 @@ import {
   deriveAwaitingOwner,
   isSafeHttpUrl,
   waitingOnOwner,
+  type AwaitingOwnerRow,
 } from '../features/warden/model'
 import {
   recentTransitions,
@@ -14,14 +15,23 @@ import {
 } from '../features/warden/page-model'
 import {
   agentCopy,
+  blockerEvidence,
   evidenceSource,
   flattenAgents,
   formatWaitDuration,
   humanQueueCopy,
   isAbandonedWait,
+  type AgentRow,
 } from '../features/agents/model'
-import { collidingCopies, type CardCopySource } from './question-copy'
-import type { OverviewSnapshot } from './queries/agents'
+import {
+  resolveCopies,
+  type CardCopy,
+  type CardCopySource,
+  type Disambiguation,
+} from './question-copy'
+import { withUnit } from './format'
+import { asText } from './text'
+import type { HumanQueueItem, OverviewSnapshot } from './queries/agents'
 import type { WardenRaw } from './queries/warden'
 
 // The ONE merged inbox: everything that waits on the owner, from Warden and from the agent fleet.
@@ -30,9 +40,6 @@ import type { WardenRaw } from './queries/warden'
 // yet (they keep their own lists and filter by `source` once they migrate).
 
 const DAY_MS = 86_400_000
-
-/** An agent that reports nothing still gets a line: the absence is the fact. */
-const NO_BLOCKER = 'No blocker reported.'
 
 export type DecisionSource = 'warden' | 'queue' | 'agent'
 
@@ -78,115 +85,130 @@ const parseMs = (iso: string | null | undefined): number | null => {
   return Number.isFinite(ms) ? ms : null
 }
 
-function wardenDecisions(
-  raw: WardenRaw | null | undefined,
-  receivedAt: string | null | undefined,
-  now: number,
-  handled: ReadonlySet<string>,
-): Decision[] {
-  const board = raw?.board
-  if (!board) return []
-  const view = deriveAwaitingOwner(board)
-  const receivedMs = parseMs(receivedAt)
-  const sincePush = receivedMs === null ? 0 : Math.max(0, now - receivedMs)
+type Entry =
+  | { source: 'warden'; row: AwaitingOwnerRow; kind: QueueKind }
+  | { source: 'queue'; item: HumanQueueItem }
+  | { source: 'agent'; agent: AgentRow }
 
+type Derived = {
+  copy: CardCopy
+  repo?: string
+  repoNamed?: boolean
+}
+
+const idOf = (entry: Entry): string =>
+  entry.source === 'warden'
+    ? `warden-${entry.row.eventId}`
+    : entry.source === 'queue'
+      ? `queue-${asText(entry.item.id)}`
+      : `agent-${asText(entry.agent.id)}`
+
+function entriesOf(
+  raw: WardenRaw | null | undefined,
+  snapshot: OverviewSnapshot | null | undefined,
+): Entry[] {
   // One list, the one the Warden page counts from: decisions, unknown states, then failed items.
-  return waitingOnOwner(view).map((row): Decision => {
-    const kind: QueueKind = row.state === 'failed' ? 'failed' : 'decision'
-    const source: AskSource = row
-    const { copy, repo, repoNamed } = wardenAsk(source, kind, handled.has(`warden-${row.eventId}`))
+  const warden = raw?.board
+    ? waitingOnOwner(deriveAwaitingOwner(raw.board)).map((row): Entry => ({
+        source: 'warden',
+        row,
+        kind: row.state === 'failed' ? 'failed' : 'decision',
+      }))
+    : []
+  if (!snapshot) return warden
+  const asks = (snapshot.humanQueue ?? []).map((item): Entry => ({ source: 'queue', item }))
+  const agents = flattenAgents(snapshot)
+    .filter((a) => a.state === 'needs_you')
+    .map((agent): Entry => ({ source: 'agent', agent }))
+  return [...warden, ...asks, ...agents]
+}
+
+function derive(entry: Entry, options: { handle: Disambiguation | null }): Derived {
+  if (entry.source === 'warden') {
+    const { row, kind } = entry
+    const { copy, repo, repoNamed } = wardenAsk(row as AskSource, kind, options)
+    return { copy, repo, repoNamed }
+  }
+  if (entry.source === 'queue') return { copy: humanQueueCopy(entry.item, options).copy }
+  return { copy: agentCopy(entry.agent, blockerEvidence(entry.agent), options) }
+}
+
+function toDecision(
+  entry: Entry,
+  { copy, repo = '', repoNamed = false }: Derived,
+  { raw, now, sincePush }: { raw: WardenRaw | null | undefined; now: number; sincePush: number },
+): Decision {
+  const base = {
+    id: idOf(entry),
+    headline: copy.question,
+    copySource: copy.source,
+    entity: copy.entity,
+    evidenceLine: copy.evidenceLine,
+    detail: copy.detail,
+  }
+  if (entry.source === 'warden') {
+    const { row } = entry
     const ageMs = row.ageDays === null ? null : row.ageDays * DAY_MS + sincePush
     const waiting =
       ageMs === null
         ? ''
         : ageMs >= AWAITING_OWNER_STALE_DAYS * DAY_MS
           ? {
-              text: `waiting ${formatWaitDuration(ageMs)} · stale at ${AWAITING_OWNER_STALE_DAYS}\u00a0d`,
+              text: `waiting ${formatWaitDuration(ageMs)} · stale at ${withUnit(AWAITING_OWNER_STALE_DAYS, 'd')}`,
               tone: 'warn' as const,
             }
           : `waiting ${formatWaitDuration(ageMs)}`
+    const pr = asText(row.prUrl)
     return {
+      ...base,
       source: 'warden',
-      id: `warden-${row.eventId}`,
-      headline: copy.question,
-      copySource: copy.source,
-      entity: copy.entity,
       facts: capFacts([`warden${repo && !repoNamed ? ` · ${repo}` : ''}`, waiting]),
-      evidenceLine: copy.evidenceLine,
-      detail: copy.detail,
       ageMs,
       href: '/warden',
-      evidence: row.prUrl !== null && isSafeHttpUrl(row.prUrl) ? row.prUrl : null,
+      evidence: pr !== '' && isSafeHttpUrl(pr) ? pr : null,
       history: recentTransitions(raw?.items?.[String(row.eventId)]),
       abandoned: false,
     }
-  })
-}
-
-function agentDecisions(
-  snapshot: OverviewSnapshot | null | undefined,
-  now: number,
-  handled: ReadonlySet<string>,
-): Decision[] {
-  if (!snapshot) return []
-  const asks = (snapshot.humanQueue ?? []).map((item): Decision => {
+  }
+  if (entry.source === 'queue') {
+    const { item } = entry
     const askedMs = parseMs(item.askedAt)
     const ageMs = askedMs === null ? null : Math.max(0, now - askedMs)
-    const host = typeof item['host'] === 'string' ? item['host'] : null
-    const evidence = item.cmd?.trim() || null
-    const { copy } = humanQueueCopy(item, handled.has(`queue-${item.id}`))
+    const host = asText(item['host'])
     return {
+      ...base,
       source: 'queue',
-      id: `queue-${item.id}`,
-      headline: copy.question,
-      copySource: copy.source,
-      entity: copy.entity,
       facts: capFacts([
         `queue${host ? ` · ${host}` : ''}`,
         ageMs === null ? '' : `asked ${formatWaitDuration(ageMs)} ago`,
       ]),
-      evidenceLine: copy.evidenceLine,
-      detail: copy.detail,
       ageMs,
       href: '/agents',
-      evidence,
+      evidence: asText(item.cmd).trim() || null,
       history: [],
       abandoned: false,
     }
-  })
-  const waiting = flattenAgents(snapshot)
-    .filter((a) => a.state === 'needs_you')
-    .map((a): Decision => {
-      const ageMs = a.lastActivityAt == null ? null : Math.max(0, now - a.lastActivityAt)
-      // The page's own rule: the first of blocker, waiting-for and standing with content in it.
-      const evidence = evidenceSource(a)
-      const copy = agentCopy(a, evidence ?? NO_BLOCKER, handled.has(`agent-${a.id}`))
-      return {
-        source: 'agent',
-        id: `agent-${a.id}`,
-        headline: copy.question,
-        copySource: copy.source,
-        entity: copy.entity,
-        facts: capFacts([
-          `agent · ${a.project}`,
-          ageMs === null ? '' : `waiting ${formatWaitDuration(ageMs)}`,
-        ]),
-        evidenceLine: copy.evidenceLine,
-        detail: copy.detail,
-        ageMs,
-        href: '/agents',
-        evidence,
-        history: [],
-        abandoned: isAbandonedWait(a, now),
-      }
-    })
-  return [...asks, ...waiting]
+  }
+  const { agent: a } = entry
+  const ageMs = a.lastActivityAt == null ? null : Math.max(0, now - a.lastActivityAt)
+  return {
+    ...base,
+    source: 'agent',
+    facts: capFacts([
+      `agent · ${asText(a.project)}`,
+      ageMs === null ? '' : `waiting ${formatWaitDuration(ageMs)}`,
+    ]),
+    ageMs,
+    href: '/agents',
+    evidence: evidenceSource(a),
+    history: [],
+    abandoned: isAbandonedWait(a, now),
+  }
 }
 
 /**
- * Everything waiting on the owner, longest wait first; an item with no clock sorts last. One
- * surface: two items whose plain question would read the same are derived again with their handle,
- * a lone item keeps the short form.
+ * Everything waiting on the owner, longest wait first; an item with no clock sorts last. The inbox
+ * is one surface: its plain questions are told apart together (`resolveCopies`), across sources.
  */
 export function deriveDecisions({
   warden,
@@ -194,15 +216,11 @@ export function deriveDecisions({
   wardenReceivedAt,
   now,
 }: DecisionInput): Decision[] {
-  const build = (handled: ReadonlySet<string>) => [
-    ...wardenDecisions(warden, wardenReceivedAt, now, handled),
-    ...agentDecisions(agents, now, handled),
-  ]
-  const short = build(new Set())
-  const clash = collidingCopies(
-    short.map(({ headline, copySource }) => ({ question: headline, source: copySource })),
-  )
-  const handled = new Set(short.filter((_, i) => clash[i]).map(({ id }) => id))
-  const all = handled.size === 0 ? short : build(handled)
-  return all.toSorted((a, b) => (b.ageMs ?? -1) - (a.ageMs ?? -1))
+  const receivedMs = parseMs(wardenReceivedAt)
+  const sincePush = receivedMs === null ? 0 : Math.max(0, now - receivedMs)
+  const entries = entriesOf(warden, agents)
+  const derived = resolveCopies(entries, { derive, key: idOf })
+  return entries
+    .map((entry, i) => toDecision(entry, derived[i]!, { raw: warden, now, sincePush }))
+    .toSorted((a, b) => (b.ageMs ?? -1) - (a.ageMs ?? -1))
 }

@@ -1,19 +1,11 @@
 import { addDays, startOfDay as startOfDayDate } from 'date-fns'
-import {
-  clockOf,
-  clockTime,
-  dayLabel,
-  formatWaitDuration,
-  headlineOf,
-  peakWorking,
-  type HourBucket,
-} from '../agents/model'
+import { clockTime, dayLabel, formatWaitDuration, headlineOf } from '../agents/model'
 import type { Narrative } from '../../lib/queries/agents'
 import type { WardenRaw } from '../../lib/queries/warden'
 import type { Decision } from '../../lib/decisions'
 import type { SourceClass } from '../../lib/queries/calendar'
 import { untilLabel } from '../calendar/summary'
-import { stripShortcodes } from '../../lib/text'
+import { oldestWaitSentence, stripShortcodes } from '../../lib/text'
 
 // Pure derivations for the Today page: meetings, tasks, the Garmin readings, the activity stream
 // and the summary sentence. No React, no queries. A reading that is absent stays `null` (rendered
@@ -469,20 +461,12 @@ export type HomeSummaryParts = { sentence: string; facts: string[] }
  * so the summary does not print them a second time.
  */
 export function homeSummaryParts(s: HomeSummaryInput): HomeSummaryParts {
-  const n = s.decisions.length
-  const oldest = s.decisions.reduce<number | null>(
-    (max, d) => (d.ageMs !== null && (max === null || d.ageMs > max) ? d.ageMs : max),
-    null,
-  )
+  if (s.unavailable.length >= NEEDS_YOU_SOURCES)
+    return { sentence: `Can't tell — ${s.unavailable.join(' and ')} unavailable.`, facts: [] }
   const gap = s.unavailable.length > 0 ? ` (${s.unavailable.join(' and ')} unavailable)` : ''
-  const cantTell = s.unavailable.length >= NEEDS_YOU_SOURCES
-  const sentence = cantTell
-    ? `Can't tell — ${s.unavailable.join(' and ')} unavailable.`
-    : n === 0
-      ? `Nothing needs you${gap}.`
-      : oldest === null
-        ? `Items are waiting on you${gap}.`
-        : `Oldest wait on you ${formatWaitDuration(oldest)}${gap}.`
+  const ages = s.decisions.flatMap((d) => (d.ageMs === null ? [] : [d.ageMs]))
+  const oldest = ages.length === 0 ? null : formatWaitDuration(Math.max(...ages))
+  const sentence = `${oldestWaitSentence(s.decisions.length, oldest)}${gap}.`
   const count = (source: Decision['source']) =>
     s.decisions.filter((d) => d.source === source).length
   const where = [
@@ -491,25 +475,5 @@ export function homeSummaryParts(s: HomeSummaryInput): HomeSummaryParts {
     [count('queue'), 'in the human queue'],
   ].flatMap(([n, label]) => (n === 0 ? [] : [`${n} ${label}`]))
   // One source alone is the heading count already; the split only says something across two.
-  return { sentence, facts: cantTell || where.length < 2 ? [] : where }
-}
-
-// ── Agents strip ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * The agents cell's fact line: the busiest hour and how many of the hours that have a snapshot
- * had an agent working; hours with no snapshot are named, not counted as idle. `null` when no hour
- * has a snapshot. (A shade band of hourly counts answered neither.)
- */
-export function fleetPulse(buckets: readonly HourBucket[], total: number | null): string | null {
-  const peak = peakWorking(buckets)
-  if (peak === null) return null
-  const measured = buckets.filter((b) => b.working !== null).length
-  const busy = buckets.filter((b) => (b.working ?? 0) > 0).length
-  const gap = buckets.length - measured
-  const unobserved = gap > 0 ? ` · ${gap}\u00a0h no data` : ''
-  const of = total === null ? '' : ` of ${total}`
-  return peak.value === 0
-    ? `none working in ${measured}\u00a0h observed${unobserved}`
-    : `peak ${peak.value}${of} at ${clockOf(peak.hourMs)} · working in ${busy} of ${measured}\u00a0h${unobserved}`
+  return { sentence, facts: where.length < 2 ? [] : where }
 }

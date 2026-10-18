@@ -1,3 +1,4 @@
+import { withUnit } from '../../lib/format'
 import { useMemo } from 'react'
 import { Box, Text } from '@mantine/core'
 import { Section } from 'basalt-ui'
@@ -25,12 +26,18 @@ const SIX_HOURS = 6
 /** The legend names the scale in data terms: the lightest and the strongest cell, by agents working. */
 const statesFor = (peak: number) =>
   [
-    {
-      key: 'working',
-      label: peak <= 1 ? '1 agent working' : `1 to ${peak} agents working`,
-      color: VX.line,
-      formatValue: (d: HourBucket) => `${d.working ?? 0} ${d.working === 1 ? 'agent' : 'agents'}`,
-    },
+    // At a peak of zero nothing was ever working: no cell carries that colour, so no entry names it.
+    ...(peak > 0
+      ? [
+          {
+            key: 'working',
+            label: peak === 1 ? '1 agent working' : `1 to ${peak} agents working`,
+            color: VX.line,
+            formatValue: (d: HourBucket) =>
+              `${d.working ?? 0} ${d.working === 1 ? 'agent' : 'agents'}`,
+          },
+        ]
+      : []),
     {
       key: 'quiet',
       label: 'None working',
@@ -72,7 +79,7 @@ export function ActivityStrip({ history, hours, now }: Props) {
 
   return (
     <Section
-      title={`Last ${hours}\u00a0h · agents working per hour`}
+      title={`Last ${withUnit(hours, 'h')} · agents working per hour`}
       value={peakHour === null ? '—' : String(peak)}
       {...(peakHour !== null && { unit: 'agents at peak' })}
     >
@@ -88,7 +95,7 @@ export function ActivityStrip({ history, hours, now }: Props) {
           height={48}
         />
         <Text size="sm" ff="monospace" c="dimmed" mt="xs">
-          {fact ?? `No snapshot in the last ${hours}\u00a0h`}
+          {fact ?? `No snapshot in the last ${withUnit(hours, 'h')}`}
         </Text>
         {gaps > 0 ? (
           <Text size="xs" c="dimmed" mt="xs">
