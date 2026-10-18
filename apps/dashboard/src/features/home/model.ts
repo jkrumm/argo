@@ -467,9 +467,9 @@ export function activityStream(
 
 /**
  * The activity card's feed gap: the cells' no-snapshot sentence in its short form (leading clause,
- * verbatim) with both producers named; each cadence is stated once on the cells.
+ * verbatim, derived from the same producer list) as the needs-you sentence; each cadence is stated once on the cells.
  */
-const noFeedYet = `${NO_SNAPSHOT_SHORT} from Warden or agent-gateway`
+const noFeedYet = (): string => unknownSentence(unknownPhrase([], [], NEEDS_YOU_SOURCE_NAMES))
 
 /**
  * The activity card's line with nothing to count: the empty window when a feed loaded, then every
@@ -485,7 +485,7 @@ export function feedEmptyLine(input: {
   const { loaded, failed, pending, now } = input
   const unknown = unknownPhrase(failed, pending)
   if (!loaded && unknown === '') {
-    return `${noFeedYet}.`
+    return `${noFeedYet()}.`
   }
   const retry = failed.length > 0 ? ' — reload to retry' : ''
   return [loaded ? emptyStreamLabel(now) : null, unknown === '' ? null : `${unknown}${retry}.`]

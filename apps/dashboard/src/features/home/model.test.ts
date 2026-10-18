@@ -229,9 +229,13 @@ describe('feedEmptyLine', () => {
     )
   })
   it("with no feed and no cause known, says the feed's own gap", () => {
-    expect(feedEmptyLine({ loaded: false, ...none })).toBe(
-      'No snapshot yet from Warden or agent-gateway.',
-    )
+    const needsYou = homeSummaryParts({
+      decisions: [],
+      unavailable: [],
+      loading: [],
+      noSnapshot: ['Warden', 'Agents'],
+    }).sentence
+    expect(feedEmptyLine({ loaded: false, ...none })).toBe(needsYou)
     expect(feedEmptyLine({ loaded: false, ...none, pending: ['Warden', 'Agents'] })).toBe(
       'Warden and Agents loading.',
     )
