@@ -1367,6 +1367,7 @@ on the mini's ICU).
   surface already.
 - **Cleanup:** worktrees removed with `rd fan --clean`; no background task left running.
 
+
 ## Wave 28 — Re-score round 7: lost facts, alert titles, one stretch rule <!-- status: done -->
 
 Same shape as Wave 27 (fan-out on disjoint page files, two independent reviews per PR, CI `check` green on the PR head before
@@ -1671,7 +1672,7 @@ warden and agent-gateway, not built — add nothing for it.
   empty-only elements (invisible at rest, so craft-7 stayed); `loading` / `error` declared on loader-gated pages; whole-page wrapper
   anchors; a shot-only page-level astro card.
 - **Code review caught:** the Garmin load + fitness cells unemptied under `empty`; calendar / Home sources still `unknown` under `empty`;
-  a `?? ''` footer opening on `·`; `restBy('/agents')` counting human-queue items; the m365 `LabeledPane` fragment root; the m365
+  a `?? ''` footer opening on ` · `; `restBy('/agents')` counting human-queue items; the m365 `LabeledPane` fragment root; the m365
   source list's false `with this label` under `empty`; the Sky footer able to open a line on `·`; a `0.95` → `0.9` float tie; absent marks
   that did not match what unmounts.
 - **Rounds:** `w32-r1` (all pages live, 1440 + 390, both schemes, plus the two m365 pane presets; shot after the served bundle carried the

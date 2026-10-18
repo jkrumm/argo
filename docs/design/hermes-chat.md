@@ -206,3 +206,4 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - **Choice:** with few rows the list no longer stretches to fill the page, so no blank band sits between the last row and the composer. The composer follows the content and the list scrolls only when it outgrows the page. Nothing is added to the space; the unused area falls below the composer, where a page's end is expected.
 - **Why:** pinning the composer to the bottom is a chat convention for a transcript, which grows toward the composer. The thread list is a record list whose rows start at the top, so it is the composer that attaches to the content.
 - **Keel pattern:** a day-grouped list (`timeline-event`) ending in its entry form, with no filler between them.
+

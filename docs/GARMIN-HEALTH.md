@@ -145,12 +145,12 @@ The `load` input here is the **Daily Activity Score** (MET-min) — same metric 
 ACWR = ewma_acute / ewma_chronic
 ```
 
-| Range   | Zone                          | Interpretation                         |
-| ------- | ----------------------------- | -------------------------------------- |
+| Range   | Zone         | Interpretation                         |
+| ------- | ------------ | -------------------------------------- |
 | < 0.8   | Undertrained (shown as `Low`) | insufficient stimulus, detraining risk |
-| 0.8–1.3 | Optimal                       | adaptation sweet spot                  |
-| 1.3–1.5 | Caution                       | elevated injury risk                   |
-| > 1.5   | Danger                        | high injury probability                |
+| 0.8–1.3 | Optimal      | adaptation sweet spot                  |
+| 1.3–1.5 | Caution      | elevated injury risk                   |
+| > 1.5   | Danger       | high injury probability                |
 
 Thresholds from Gabbett (2016, BJSM). Strong empirical support for the >1.5 upper bound; the 0.8 lower bound is practitioner convention. Ratio is scale-invariant — switching the underlying load definition (TRIMP → MET-min) preserves zone meaning.
 
