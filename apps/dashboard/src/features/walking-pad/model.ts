@@ -3,6 +3,7 @@
 
 import { relativeTime } from 'basalt-ui/format'
 import { format, subMonths, subYears } from 'date-fns'
+import { NBSP } from '../../lib/format'
 import { WALKING_WINDOW_VALUES } from '../../lib/window-stores'
 
 export const DEFAULT_WEEKLY_TARGET_KM = 15
@@ -37,9 +38,6 @@ export type SessionRow = {
 }
 
 // ── Formats ──────────────────────────────────────────────────────────────────
-
-/** No-break space: a value never parts from its unit. */
-export const NBSP = '\u00a0'
 
 /** `2.4 km/h` with a no-break space, or `—` for a missing speed. */
 export const withKmh = (kmh: number | null): string =>

@@ -10,7 +10,6 @@ import {
   type StatStripRow,
 } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
-import { NBSP, withUnit } from '../../lib/format'
 import { VX } from 'basalt-ui/tokens'
 import {
   dailyMetricsQueries,
@@ -34,6 +33,7 @@ import {
   contributorItems,
   firstToLast,
   lastScored,
+  recoveryGapLine,
   loadFooter,
   windowDayCount,
   fmtNum,
@@ -104,13 +104,12 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
   // A fact about the window, so it waits for both reads to settle on the window itself.
   const settled =
     summary.isSuccess && !summary.isPlaceholderData && series.isSuccess && !series.isPlaceholderData
-  const windowDays = windowDayCount(activitiesRange(params), VISIBLE_DATE_MIN)
-  // The gap's one line: the headline already says no score for the day, this names the last one.
-  const gapLine = !settled
-    ? null
-    : last
-      ? `Last scored ${fmtNum(last.value)}${NBSP}/100 on ${dayLabel(last.date).replaceAll(' ', NBSP)}`
-      : `No score in this ${withUnit(windowDays, 'd')} window`
+  const gapLine = recoveryGapLine({
+    settled,
+    failed: summary.isError,
+    last,
+    windowDays: windowDayCount(activitiesRange(params), VISIBLE_DATE_MIN),
+  })
   return {
     key: 'recovery',
     caption: 'Recovery',

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Box } from '@mantine/core'
 import { DeltaBadge, Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
-import { withUnit } from '../../lib/format'
+import { NBSP, withUnit } from '../../lib/format'
 import { useNow } from '../../lib/use-now'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../lib/queries/walking-pad'
 import { walkingStore } from '../../lib/window-stores'
@@ -18,7 +18,6 @@ import {
   priorLabel,
   weekSummary,
   weekTicks,
-  NBSP,
   withKm,
   withKmh,
   withSteps,

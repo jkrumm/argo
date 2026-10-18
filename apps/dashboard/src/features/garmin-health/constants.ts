@@ -25,12 +25,6 @@ export const SYNC_POLL_INTERVAL_MS = 5_000
  */
 export const SYNC_STALE_THRESHOLD_MS = 60 * 60 * 1000 // 1 hour
 
-/**
- * How often the Garmin sync sidecar pulls (hours): the six-hourly cron in the API's
- * cron/garmin-sync.ts. Copy about when a reading arrives reads it from here.
- */
-export const SYNC_CADENCE_HOURS = 6
-
 export const METRIC_TOOLTIPS = {
   activityScore:
     'Daily effort in MET-minutes. Walking (baseline steps ×1), Moderate (×1), Vigorous (×1.8). Weekly target 600 MET-min (≈86/day) covers the WHO floor. Sustained days above target = durable cardiorespiratory benefit; consistently below = detraining risk.',

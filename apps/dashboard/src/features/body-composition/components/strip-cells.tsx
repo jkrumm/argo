@@ -88,7 +88,8 @@ export function weightCell({
     footer: (
       <>
         <span>
-          7{NBSP}d{NBSP}mean {fixed(stats.mean7)}&nbsp;kg
+          7{NBSP}d{NBSP}mean {fixed(stats.mean7)}
+          {NBSP}kg
         </span>
         {goal === null && (
           <Box pt="xs">
