@@ -1,9 +1,11 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { Box } from '@mantine/core'
-import { Meter, StatGroup, type StatStripRow } from 'basalt-ui'
-import { SKY_DARK_THRESHOLD, SKY_METER_MAX, SKY_METER_MIN } from '../constants'
+import { Meter, StatGroup } from 'basalt-ui'
+import { CORE_METER_MAX_DEG, SKY_DARK_THRESHOLD, SKY_METER_MAX, SKY_METER_MIN } from '../constants'
 import {
+  coreMeterReading,
   coreTransitFooter,
+  fmtDegrees,
   fmtLocalClock,
   fmtMinutes,
   moonPhaseLabel,
@@ -45,9 +47,7 @@ function SkyScale({ mpsas }: { mpsas: number | null }) {
   )
 }
 
-function cloudRow(label: string, value: number | null): StatStripRow {
-  return { key: label, label, value: value === null ? null : `${Math.round(value)} %` }
-}
+const cloudPct = (value: number | null) => (value === null ? '—' : `${Math.round(value)} %`)
 
 /** A reading against a limit: a muted fill with a tick at `target`. A missing reading keeps the track and tick. */
 function gauge(label: string, value: number | null, max: number, target: number | null): ReactNode {
@@ -64,7 +64,7 @@ function gauge(label: string, value: number | null, max: number, target: number 
 }
 
 /**
- * The selected night in five readings — Dark, Core transit, Moon, Cloud, Sky — as a `StatGroup` strip. The verdict card owns the core-against-gate reading; the Core cell states the transit altitude. Every micro-visual is a reading against a target: the moon against its limit, the sky against the dark threshold.
+ * The selected night in five readings — Dark, Core, Moon, Cloud, Sky — as a `StatGroup` strip. Every micro-visual is a reading against a target: the core and the moon against their gates, the sky against the dark threshold. Cloud has no limit the API sends, so it states values and draws nothing.
  */
 export function NightAnatomy({
   night,
@@ -81,6 +81,7 @@ export function NightAnatomy({
   const sky = location.darknessSource === 'unknown' ? null : location.coreDirectionMpsas
   const moonSet = night.moon.set === null ? null : fmtLocalClock(night.moon.set, timeZone)
   const { weather } = night
+  const core = coreMeterReading(night)
 
   return (
     <Box data-shot="night-anatomy">
@@ -104,9 +105,23 @@ export function NightAnatomy({
           {
             key: 'core',
             caption: 'Core',
-            value: night.localTransit,
-            unit: 'transit',
-            footer: coreTransitFooter(night),
+            ...(core === null
+              ? {
+                  value: night.localTransit,
+                  unit: 'transit',
+                  footer: coreTransitFooter(night),
+                }
+              : {
+                  value: fmtDegrees(core.reading),
+                  unit: 'closest to gate',
+                  visual: gauge(
+                    `Core ${fmtDegrees(core.reading)} against a gate of ${fmtDegrees(core.gate)}`,
+                    core.reading,
+                    CORE_METER_MAX_DEG,
+                    core.gate,
+                  ),
+                  footer: `gate ${fmtDegrees(core.gate)} · ${coreTransitFooter(night)}`,
+                }),
           },
           {
             key: 'moon',
@@ -124,11 +139,9 @@ export function NightAnatomy({
           {
             key: 'cloud',
             caption: 'Cloud cover',
-            rows: [
-              cloudRow('low', weather.cloudLow),
-              cloudRow('mid', weather.cloudMid),
-              cloudRow('high', weather.cloudHigh),
-            ],
+            value: cloudPct(weather.cloudLow),
+            unit: 'low',
+            footer: `mid ${cloudPct(weather.cloudMid)} · high ${cloudPct(weather.cloudHigh)}`,
           },
           {
             key: 'sky',

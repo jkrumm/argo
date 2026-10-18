@@ -12,8 +12,8 @@ import { astroQueries } from '../../../lib/queries/astro'
 import { SERIES } from '../../../lib/series'
 import { LP_RAMP } from '../map-layers'
 import { METRIC_TOOLTIPS, PANORAMA_HEIGHT, SKY_DARK_THRESHOLD } from '../constants'
-import { fmtAzimuth, fmtDegrees, fmtShortDay, withFacts } from '../formulas'
-import type { HourlyPoint, Site } from '../types'
+import { coreGateFact, fmtAzimuth, fmtDegrees, fmtShortDay, withFacts } from '../formulas'
+import type { HourlyPoint, Night, Site } from '../types'
 import {
   bandValue,
   coreVsGate,
@@ -24,7 +24,9 @@ import {
   glowAt,
   glowBuckets,
   glowCells,
+  medianMpsas,
   profileRows,
+  tightestIndex,
   type HorizonProfilePoint,
   type ProfileRow,
   type SkyglowRose,
@@ -60,7 +62,8 @@ const NEVER = () => null
  */
 const GLOW_ALPHA = 0.12
 
-const PANORAMA_SERIES: ChartSeries<ProfileRow>[] = [
+/** `glowColor` is the skyglow legend swatch: the ramp's own colour at the rose's median brightness, so the swatch is a colour the field actually shows. */
+const panoramaSeries = (glowColor: string): ChartSeries<ProfileRow>[] => [
   {
     key: 'skyline',
     label: 'Skyline (measured terrain)',
@@ -87,7 +90,7 @@ const PANORAMA_SERIES: ChartSeries<ProfileRow>[] = [
   {
     key: 'glow',
     label: 'Artificial skyglow',
-    color: LP_RAMP[2]!.token,
+    color: glowColor,
     mark: 'area',
     getValue: NEVER,
   },
@@ -137,18 +140,13 @@ function rampFill(mpsasValue: number): string {
   return alpha(mixed, opacity)
 }
 
-/** The moment the core is highest while astronomically dark — the shot, and what a reader wants
- * to see first, not midnight. Falls back to ~45% through the night when the core is never dark. */
-function initialScrubIndex(samples: readonly HourlyPoint[]): number {
-  let best = 0
-  let bestAlt = -90
-  samples.forEach((s, i) => {
-    if (s.astroDark && s.coreAltitude > bestAlt) {
-      bestAlt = s.coreAltitude
-      best = i
-    }
-  })
-  return bestAlt > -90 ? best : Math.floor(samples.length * 0.45)
+/** The sample the scrubber opens on: the dark sample closest to the core gate, the instant the Tonight Core cell reports. Falls back to ~45% through the night when nothing is dark. */
+function initialScrubIndex(
+  samples: readonly HourlyPoint[],
+  marginOf: (s: HourlyPoint) => number,
+): number {
+  const tightest = tightestIndex(samples.map((s) => (s.astroDark ? marginOf(s) : null)))
+  return tightest ?? Math.floor(samples.length * 0.45)
 }
 
 type Track = { i: number; az: number; alt: number | null }
@@ -192,10 +190,13 @@ export default function SkyPanorama({
   detailDate,
   hourly,
   moonIllumination,
+  night,
 }: {
   site: Site
   detailDate: string
   hourly: HourlyPoint[]
+  /** The night the panorama draws: its API core reading is the header figure. */
+  night: Night
   /** Moon illuminated fraction for this night, 0..1 — scales the moon marker. */
   moonIllumination: number
 }) {
@@ -240,6 +241,7 @@ export default function SkyPanorama({
       detailDate={detailDate}
       samples={hourly}
       moonIllumination={moonIllumination}
+      night={night}
       horizon={horizon}
       skyglow={skyglow}
       visibility={visibility}
@@ -251,6 +253,7 @@ function PanoramaLoaded({
   detailDate,
   samples,
   moonIllumination,
+  night,
   horizon,
   skyglow,
   visibility,
@@ -259,20 +262,29 @@ function PanoramaLoaded({
   samples: HourlyPoint[]
   /** Moon illuminated fraction for this night, 0..1 — scales the moon marker. */
   moonIllumination: number
+  night: Night
   horizon: { profile: HorizonProfilePoint[] }
   skyglow: { profile: SkyglowRose }
   visibility: { atmosphericFloorDeg: number; framingMarginDeg: number }
 }) {
-  const [scrub, setScrub] = useState(() => initialScrubIndex(samples))
-  const idx = Math.min(scrub, Math.max(0, samples.length - 1))
-
   const profile = horizon.profile
   const rose = skyglow.profile
   const { atmosphericFloorDeg, framingMarginDeg } = visibility
 
+  const [scrub, setScrub] = useState(() =>
+    initialScrubIndex(
+      samples,
+      (s) => s.coreAltitude - gateAt(profile, atmosphericFloorDeg, framingMarginDeg, s.coreAzimuth),
+    ),
+  )
+  const idx = Math.min(scrub, Math.max(0, samples.length - 1))
+
   const sample = samples[idx] ?? samples[0]!
-  const highest = samples[initialScrubIndex(samples)]
-  const peak = highest?.astroDark === true ? highest : null
+  const glowMedian = medianMpsas(rose)
+  const series = useMemo(
+    () => panoramaSeries(glowMedian === null ? LP_RAMP[2]!.token : rampFill(glowMedian)),
+    [glowMedian],
+  )
   const dark = darkness(sample.sunAltitude)
   const ridge = bandValue(profile, 'altitudeDeg', sample.coreAzimuth)
   const { clearance, clears: clearanceGood } = coreVsGate(
@@ -496,15 +508,7 @@ function PanoramaLoaded({
     <ChartCard
       title={`Skyline, skyglow and tracks · ${fmtShortDay(detailDate)}`}
       info={METRIC_TOOLTIPS.skyPanorama}
-      {...withFacts(
-        peak === null
-          ? null
-          : {
-              value: fmtDegrees(peak.coreAltitude),
-              unit: 'core at its highest in the dark',
-              period: `${peak.localTime} · ${fmtAzimuth(peak.coreAzimuth)}`,
-            },
-      )}
+      {...withFacts(coreGateFact(night))}
     >
       <CartesianChart
         ariaLabel="Azimuth by altitude panorama of the terrain skyline, artificial skyglow, and the sun, moon and galactic-core tracks across the night"
@@ -513,7 +517,7 @@ function PanoramaLoaded({
         x={(d) => d.az}
         xTicks={COMPASS_TICKS}
         formatX={compassLabel}
-        series={PANORAMA_SERIES}
+        series={series}
         y={{ domain: altDomain, ticks: ALT_TICKS, format: (v) => `${v}°` }}
         tooltip={false}
         marks={marks}
@@ -540,7 +544,7 @@ function PanoramaLoaded({
         <Text size="sm">
           Skyline there <b>{fmtDegrees(ridge)}</b>
         </Text>
-        <Text size="sm" style={{ color: clearanceGood ? VX.goodSolid : VX.badSolid }}>
+        <Text size="sm" style={{ color: coreClearsNow ? VX.goodSolid : VX.muted }}>
           Clearance {clearance >= 0 ? '+' : ''}
           {clearance.toFixed(1)}°
         </Text>

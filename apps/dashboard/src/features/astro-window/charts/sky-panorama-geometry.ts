@@ -181,3 +181,20 @@ export function glowBuckets(cells: readonly GlowCell[]): { mpsas: number; cells:
   }
   return [...buckets].map(([key, group]) => ({ mpsas: key * GLOW_BUCKET_MPSAS, cells: group }))
 }
+
+/** The index of the tightest sample: the smallest margin over the gate. A `null` margin (not dark) never counts; null when no sample has one. */
+export function tightestIndex(margins: readonly (number | null)[]): number | null {
+  let best: number | null = null
+  for (const [i, margin] of margins.entries()) {
+    if (margin === null) continue
+    const current = best === null ? null : margins[best]
+    if (current === null || current === undefined || margin < current) best = i
+  }
+  return best
+}
+
+/** The middle brightness of the rose, mag/arcsec²: the one value its legend swatch is drawn at. Null for an empty rose. */
+export function medianMpsas(rose: SkyglowRose): number | null {
+  const values = rose.mpsas.flat().toSorted((a, b) => a - b)
+  return values.length === 0 ? null : values[Math.floor(values.length / 2)]!
+}

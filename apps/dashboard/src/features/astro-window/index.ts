@@ -68,7 +68,6 @@ export {
 
 export { VerdictCard } from './components/verdict-card'
 export { TonightTop } from './components/tonight-top'
-export { GatesCard } from './components/gates-card'
 export { NightStrip } from './components/night-strip'
 export { NightAnatomy } from './components/night-anatomy'
 export { ScoreCard } from './components/score-card'

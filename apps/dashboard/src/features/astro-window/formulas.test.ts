@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import {
   coreGateDetail,
+  coreGateFact,
   coreGateFailure,
   coreMeterReading,
   hourlyTicks,
@@ -8,13 +9,16 @@ import {
   nightNote,
   closestNight,
   coreTransitFooter,
+  fmtDegrees,
   countOffscreen,
   longestWindow,
   offscreenNightsText,
   nightShortfall,
   pageSummary,
-  shortfallScale,
-  shortfallShare,
+  gateBar,
+  gateBarScale,
+  lowCloudHarm,
+  verdictFacts,
   verdictHeadline,
   verdictStatus,
   verdictTone,
@@ -26,7 +30,6 @@ import {
   peakMonth,
   nextUsableText,
   gateMissText,
-  alsoFailed,
   compassWord,
   fmtAzimuth,
   windowShare,
@@ -138,9 +141,14 @@ describe('coreGateDetail', () => {
       gateCoreAltitude: 5,
       coreGateDeg: 12,
     }) as unknown as Night
-  test('a ridge-blocked night keeps the API reason that names the ridge', () => {
-    expect(coreGateDetail(failed('core below the 12° ridge gate'))).toBe(
-      'core below the 12° ridge gate',
+  test('a ridge-blocked night says the skyline raised the gate, with no figure', () => {
+    expect(coreGateDetail(failed('the ridge to the south stands at 5.0° — never clears it'))).toBe(
+      'the skyline raised the gate',
+    )
+  })
+  test('a night under the flat floor says so', () => {
+    expect(coreGateDetail(failed('core peaks at 3.0° during darkness'))).toBe(
+      'below the atmospheric floor',
     )
   })
   test('a clearing night says so', () => {
@@ -198,27 +206,48 @@ describe('pageSummary', () => {
 
   test('Tonight leaves the window to the verdict card', () => {
     const out = outNight('2026-06-14', 8, 4)
-    const summary = pageSummary(response([goNight, out], '2026-06-13'), { withWindow: false })
+    const summary = pageSummary(response([goNight, out], '2026-06-13'), {
+      withWindow: false,
+      selectedDate: '2026-06-13',
+    })
     expect(summary.sentence).toBe('1 of 2 nights usable')
     expect(summary.facts).toEqual(['best Sat 13', '1 ruled out'])
   })
 
   test('Forecast states the GO window range, once', () => {
     const out = outNight('2026-06-14', 8, 4)
-    const summary = pageSummary(response([goNight, out], '2026-06-13'), { withWindow: true })
+    const summary = pageSummary(response([goNight, out], '2026-06-13'), {
+      withWindow: true,
+      selectedDate: '2026-06-13',
+    })
     expect(summary.facts).toEqual(['best Sat 13, 23:10–01:40', '1 ruled out'])
     expect(summary.facts.join(' ').match(/23:10/g)).toHaveLength(1)
   })
 
   test('an all-out week names the night with the smallest gap, not the first', () => {
     const nights = [outNight('2026-06-13', 8, 4), outNight('2026-06-14', 8, 6)]
-    const summary = pageSummary(response(nights, '2026-06-13'), { withWindow: false })
+    const summary = pageSummary(response(nights, '2026-06-13'), {
+      withWindow: false,
+      selectedDate: '2026-06-13',
+    })
     expect(summary.sentence).toBe('No usable night in the next 2 nights')
     expect(summary.facts).toEqual(['closest Sun 14, core 2.0° under its gate'])
   })
 
+  test("the closest night is not told twice: the selected night's card states the miss", () => {
+    const nights = [outNight('2026-06-13', 8, 4), outNight('2026-06-14', 8, 6)]
+    const summary = pageSummary(response(nights, '2026-06-13'), {
+      withWindow: false,
+      selectedDate: '2026-06-14',
+    })
+    expect(summary.facts).toEqual(['closest Sun 14'])
+  })
+
   test('one night reads in the singular and takes the range from the marked night', () => {
-    const summary = pageSummary(response([goNight], '2026-06-13'), { withWindow: true })
+    const summary = pageSummary(response([goNight], '2026-06-13'), {
+      withWindow: true,
+      selectedDate: '2026-06-13',
+    })
     expect(summary.sentence).toBe('1 of 1 night usable')
     expect(summary.facts).toEqual(['best Sat 13, 23:10–01:40'])
   })
@@ -228,7 +257,10 @@ describe('pageSummary', () => {
       ...outNight('2026-06-13', 8, 4),
       killers: [{ id: 'moon', label: 'Moon', reason: 'r' }],
     }
-    const summary = pageSummary(response([dark], '2026-06-13'), { withWindow: false })
+    const summary = pageSummary(response([dark], '2026-06-13'), {
+      withWindow: false,
+      selectedDate: '2026-06-13',
+    })
     expect(summary.facts).toEqual(['first Sat 13'])
   })
 })
@@ -283,7 +315,7 @@ describe('coreTransitFooter', () => {
   })
 })
 
-describe('night shortfall', () => {
+describe('night shortfall and gate bar', () => {
   const nights = [outNight('2026-06-13', 8, 4), outNight('2026-06-14', 8, 6), goNight]
 
   test('only a night out on the core gate has a degree gap', () => {
@@ -291,21 +323,21 @@ describe('night shortfall', () => {
     expect(nightShortfall(goNight)).toBeNull()
   })
 
-  test('the scale is the largest gap, so nights differ visibly', () => {
-    expect(shortfallScale(nights)).toBe(4)
-    expect(shortfallShare(nights[0]!, 4)).toBe(1)
-    expect(shortfallShare(nights[1]!, 4)).toBe(0.5)
-    expect(shortfallShare(goNight, 4)).toBeNull()
+  test('the bar draws the reading against the gate tick on one shared scale', () => {
+    expect(gateBarScale(nights)).toBe(8)
+    expect(gateBar(nights[0]!, 8)).toEqual({ fill: 0.5, gate: 1 })
+    expect(gateBar(nights[1]!, 8)).toEqual({ fill: 0.75, gate: 1 })
+    expect(gateBar(goNight, 8)).toBeNull()
   })
 
-  test('a tiny shortfall keeps a visible floor and a bad scale draws nothing', () => {
-    const tiny = outNight('2026-06-13', 8, 7.96)
-    expect(shortfallShare(tiny, 4)).toBeGreaterThan(0)
-    expect(shortfallShare(nights[0]!, 0)).toBeNull()
+  test('a reading under 0° keeps a hairline and a bad scale draws nothing', () => {
+    const deep = outNight('2026-12-13', 8, -20)
+    expect(gateBar(deep, 8)?.fill).toBeGreaterThan(0)
+    expect(gateBar(nights[0]!, 0)).toBeNull()
   })
 
   test('the scale never drops under 1°', () => {
-    expect(shortfallScale([goNight])).toBe(1)
+    expect(gateBarScale([goNight])).toBe(1)
   })
 })
 
@@ -375,7 +407,7 @@ describe('nextUsableText', () => {
   test('says so when none of the nights ahead is usable', () => {
     const out = outNight('2026-06-13', 8, 4)
     expect(nextUsableText([out, outNight('2026-06-14', 8, 5)], out.date)).toBe(
-      'no usable night in the next 1 night',
+      'no later night is usable',
     )
   })
 })
@@ -386,6 +418,13 @@ describe('windowFact', () => {
     expect(windowFact(outNight('2026-06-13', 8, 4.1))).toEqual({
       value: 'No window',
       period: 'core 3.9° under its gate',
+    })
+  })
+
+  test('on Tonight the verdict card owns the miss, so the timeline does not repeat it', () => {
+    expect(windowFact(outNight('2026-06-13', 8, 4.1), { withMiss: false })).toEqual({
+      value: 'No window',
+      period: 'no stretch passes every gate',
     })
   })
 
@@ -432,6 +471,7 @@ describe('windowFact on a moon-gated night', () => {
       killers: [{ id: 'moon', label: 'Moon', reason: 'r' }],
     } as unknown as Night
     expect(windowFact(moonOut)).toEqual({ value: '2h 30m', period: '23:10–01:40 · moon' })
+    expect(windowFact(moonOut, { withMiss: false }).period).toBe('shooting window 23:10–01:40')
   })
 })
 
@@ -451,7 +491,6 @@ describe('one headline gate', () => {
       ['core-altitude', 'moon'],
     ]) {
       expect(gateMissText(both(order))).toBe('core 3.9° under its gate')
-      expect(alsoFailed(both(order))).toBe('also failed: moon')
     }
   })
 
@@ -462,28 +501,26 @@ describe('one headline gate', () => {
       coreGateDeg: 8,
     } as Night
     expect(gateMissText(night)).toBe('core 0.0° under its gate')
-    expect(alsoFailed(night)).toBe('also failed: moon')
   })
 
-  test('with no core gap the first killer headlines and the rest are "also"', () => {
+  test('with no core gap the first killer headlines', () => {
     const night = {
       ...goNight,
       verdict: 'out',
       killers: [killer('moon', 'Moon'), killer('darkness', 'Darkness')],
     } as unknown as Night
     expect(gateMissText(night)).toBe('moon')
-    expect(alsoFailed(night)).toBe('also failed: darkness')
   })
 })
 
-describe('nextUsableText counts only later nights', () => {
+describe('nextUsableText looks only at later nights', () => {
   test('earlier nights are not "the next"', () => {
     const nights = [
       outNight('2026-06-12', 8, 4),
       outNight('2026-06-13', 8, 4),
       outNight('2026-06-14', 8, 4),
     ]
-    expect(nextUsableText(nights, '2026-06-13')).toBe('no usable night in the next 1 night')
+    expect(nextUsableText(nights, '2026-06-13')).toBe('no later night is usable')
     expect(nextUsableText(nights, '2026-06-14')).toBe('no later night in this range')
   })
 })
@@ -491,10 +528,10 @@ describe('nextUsableText counts only later nights', () => {
 describe('sky cell footer', () => {
   test('sky: threshold, dome and transparency with units', () => {
     expect(skyCellFooter({ domePenaltyMag: 1.04, transparency: 3 })).toBe(
-      'dark sky from 21.6 · dome +1.04 mag brighter · transparency 3/8, 1 = clearest',
+      'dark sky from 21.6 · town glow adds 1.04 mag · transparency 3/8, 1 = clearest',
     )
     expect(skyCellFooter({ domePenaltyMag: null, transparency: null })).toBe(
-      'dark sky from 21.6 · dome — · transparency —',
+      'dark sky from 21.6 · town glow — · transparency —',
     )
   })
 })
@@ -508,5 +545,72 @@ describe('minutesToHours and withFacts', () => {
   test('withFacts spreads nothing for a missing fact', () => {
     expect(withFacts(null)).toEqual({})
     expect(withFacts({ value: '1' })).toEqual({ facts: { value: '1' } })
+  })
+})
+
+describe('lowCloudHarm', () => {
+  const hour = (localTime: string, astroDark: boolean, cloudLow: number | null) =>
+    ({ localTime, astroDark, cloudLow }) as unknown as HourlyPoint
+  const hours = [hour('22:00', false, 90), hour('23:00', true, 40), hour('00:00', true, 71.4)]
+  const withFactor = (value: number | null, window = goNight.window) =>
+    ({ ...goNight, window, factors: [{ id: 'cloud-low', value }] }) as unknown as Night
+
+  test('states the peak, where it falls and the span, when low cloud ends the night', () => {
+    expect(lowCloudHarm(withFactor(0), hours)).toBe(
+      'up to 71 % around 00:00, shooting window 23:10–01:40',
+    )
+  })
+
+  test('without a shooting window the span is the stretch of dark', () => {
+    expect(lowCloudHarm(withFactor(0.1, null), hours)).toBe(
+      'up to 71 % around 00:00, dark 23:00–00:00',
+    )
+  })
+
+  test('low cloud that does not end the night has no row, nor does a missing reading', () => {
+    expect(lowCloudHarm(withFactor(0.6), hours)).toBeNull()
+    expect(lowCloudHarm(withFactor(null), hours)).toBeNull()
+    expect(lowCloudHarm(withFactor(0), [hour('00:00', true, null)])).toBeNull()
+  })
+})
+
+describe('verdictFacts', () => {
+  test('an OUT night names its day and the next usable night, no gate list', () => {
+    const out = outNight('2026-06-13', 8, 4)
+    expect(verdictFacts(out, [out], { lowCloudShown: false })).toEqual([
+      'Sat 13',
+      'no later night in this range',
+    ])
+  })
+
+  test('a usable night names its limiting factor unless the low-cloud row already does', () => {
+    const night = {
+      ...goNight,
+      score: 61,
+      factors: [{ id: 'cloud-low', label: 'Low cloud', weight: 5, value: 0.1 }],
+    } as unknown as Night
+    expect(verdictFacts(night, [night], { lowCloudShown: false })).toEqual([
+      'score 61/100',
+      'limited by low cloud 10 %',
+    ])
+    expect(verdictFacts(night, [night], { lowCloudShown: true })).toEqual(['score 61/100'])
+  })
+})
+
+describe('coreGateFact', () => {
+  test('the panorama states the same degrees as the Core cell for the same night', () => {
+    const night = { ...goNight, gateCoreAltitude: 12.34, coreGateDeg: 9.8 } as Night
+    const cell = coreMeterReading(night)!
+    expect(coreGateFact(night)?.value).toBe(fmtDegrees(cell.reading))
+    expect(coreGateFact(night)).toEqual({
+      value: '12.3°',
+      unit: 'core at its closest to the gate',
+      period: 'gate 9.8°',
+    })
+  })
+  test('no dark stretch, no fact', () => {
+    expect(
+      coreGateFact({ ...goNight, gateCoreAltitude: null, coreGateDeg: null } as Night),
+    ).toBeNull()
   })
 })

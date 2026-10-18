@@ -158,19 +158,20 @@ export function coreGateFailure(night: Night): boolean {
   return night.killers.some((k) => k.id === 'core-altitude')
 }
 
-/** The Core gate row's one line. A failed gate keeps the API's own reason (it names the terrain
- * ridge when the skyline raised the gate); the generic text is only the fallback. */
+/** The Core gate row's one line, in words only: the reading and the gate are drawn in the Core cell and the miss is the verdict's headline, so no figure is repeated here. A failed gate says what set the gate. */
 export function coreGateDetail(night: Night): string {
   if (coreGateFailure(night)) {
-    const reason = night.killers.find((k) => k.id === 'core-altitude')?.reason
-    return reason ?? 'below the gate at its closest'
+    const reason = night.killers.find((k) => k.id === 'core-altitude')?.reason ?? ''
+    return /ridge|skyline/i.test(reason)
+      ? 'the skyline raised the gate'
+      : 'below the atmospheric floor'
   }
   return night.gateCoreAltitude === null || night.coreGateDeg === null
     ? 'no astronomical night'
     : 'clears the gate'
 }
 
-/** The core reading and its gate, for the verdict meter — present on every night with a dark
+/** The core reading and its gate, for the Core cell's gauge — present on every night with a dark
  * stretch, whether or not the gate failed, so a clearing night still shows how far it cleared. */
 export function coreMeterReading(night: Night): { reading: number; gate: number } | null {
   const { gateCoreAltitude: reading, coreGateDeg: gate } = night
@@ -231,7 +232,7 @@ export function verdictHeadline(night: Night): string {
   return gateMissText(night)
 }
 
-/** The next usable night after `date`, with its shooting window; or that none of the later nights shown is usable. */
+/** The next usable night after `date`, with its window. When none is usable it says so without a count: the headline owns the number of nights. */
 export function nextUsableText(nights: readonly Night[], date: string): string {
   const later = nights.filter((n) => n.date > date)
   const next = later.find((n) => n.verdict !== 'out')
@@ -239,15 +240,7 @@ export function nextUsableText(nights: readonly Night[], date: string): string {
     const minutes = next.window === null ? '' : `, ${fmtMinutes(next.window.minutes)}`
     return `next usable ${fmtShortDay(next.date)}${minutes}`
   }
-  if (later.length === 0) return 'no later night in this range'
-  return `no usable night in the next ${later.length} ${later.length === 1 ? 'night' : 'nights'}`
-}
-
-/** The gates a ruled-out night failed besides the headline one (`gateMissText`), as `also failed: moon, darkness`, by killer id. */
-export function alsoFailed(night: Night): string | null {
-  const headlineId = headlineKiller(night)?.id
-  const rest = night.killers.filter((k) => k.id !== headlineId).map((k) => k.label.toLowerCase())
-  return rest.length === 0 ? null : `also failed: ${rest.join(', ')}`
+  return later.length === 0 ? 'no later night in this range' : 'no later night is usable'
 }
 
 const COMPASS_WORDS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'] as const
@@ -269,12 +262,6 @@ export function nightShortfall(night: Night): number | null {
   return night.verdict === 'out' ? rawGapToGate(night) : null
 }
 
-/** The shared scale of the strip's shortfall bars: the largest gap on screen, so the worst night fills
- * its track and every other night is a visible fraction of it. Never under 1°. */
-export function shortfallScale(nights: readonly Night[]): number {
-  return Math.max(1, ...nights.map((n) => nightShortfall(n) ?? 0))
-}
-
 /** A night's value as a share of a scale, 0–1: null when there is nothing to draw, and never under
  * `MIN_BAR_SHARE` (a failed gate whose gap rounds to 0.0° still shows a hairline). */
 function barShare(value: number | null, scale: number): number | null {
@@ -282,9 +269,20 @@ function barShare(value: number | null, scale: number): number | null {
   return Math.min(1, Math.max(MIN_BAR_SHARE, value / scale))
 }
 
-/** A night's shortfall as a share of the strip's scale; null when it has no degree gap to draw. */
-export function shortfallShare(night: Night, scale: number): number | null {
-  return barShare(nightShortfall(night), scale)
+/** A night out on the core gate, drawn against its gate: the reading's share of the strip's scale and the gate's tick position. */
+export type GateBar = { fill: number; gate: number }
+
+/** The shared scale of the strip's gate bars: the highest gate among the nights that draw one, so the track always reaches the tallest gate. Never under 1°. */
+export function gateBarScale(nights: readonly Night[]): number {
+  return Math.max(1, ...nights.map((n) => (nightShortfall(n) === null ? 0 : (n.coreGateDeg ?? 0))))
+}
+
+/** A night out on the core gate: fill = the core reading, tick = the gate, both on the shared scale; the distance between them is the miss. Null for any other night. A reading under 0° keeps a hairline. */
+export function gateBar(night: Night, scale: number): GateBar | null {
+  if (nightShortfall(night) === null || night.gateCoreAltitude === null) return null
+  if (night.coreGateDeg === null || !(scale > 0)) return null
+  const fill = barShare(night.gateCoreAltitude, scale)
+  return fill === null ? null : { fill, gate: Math.min(1, night.coreGateDeg / scale) }
 }
 
 /** The longest shooting window on screen, minutes: the scale usable nights are drawn against. */
@@ -349,7 +347,7 @@ export function coreTransitFooter(night: Night): string {
  */
 export function pageSummary(
   data: WindowResponse,
-  { withWindow }: { withWindow: boolean },
+  { withWindow, selectedDate }: { withWindow: boolean; selectedDate: string },
 ): { sentence: string; facts: string[]; aside: string } {
   const total = data.nights.length
   const usable = usableNightCount(data.nights)
@@ -365,7 +363,11 @@ export function pageSummary(
     const range = withWindow && shoot !== null ? `, ${shoot.localStart}–${shoot.localEnd}` : ''
     facts.push(`best ${fmtShortDay(marked.date)}${range}`)
   } else if (usable === 0 && marked !== null) {
-    facts.push(`closest ${fmtShortDay(marked.date)}, ${gateMissText(marked)}`)
+    facts.push(
+      marked.date === selectedDate
+        ? `closest ${fmtShortDay(marked.date)}`
+        : `closest ${fmtShortDay(marked.date)}, ${gateMissText(marked)}`,
+    )
   } else if (usable === 0 && data.bestDate !== null) {
     facts.push(`first ${fmtShortDay(data.bestDate)}`)
   }
@@ -374,18 +376,26 @@ export function pageSummary(
 }
 
 /** The timeline's one fact. The timeline draws the shooting window whenever the API has one, so it is
- * stated whenever it exists; a ruled-out night also names the gate it misses (`{start}–{end} · {miss}`).
- * No window: `none within the dark` on a usable night, the missed gate on a ruled-out one. */
-export function windowFact(night: Night): { value: string; period: string } {
+ * stated whenever it exists. The missed gate is named only when `withMiss` (the Forecast tab); on
+ * Tonight the verdict card states it. No window: `none within the dark` on a usable night. */
+export function windowFact(
+  night: Night,
+  { withMiss }: { withMiss: boolean } = { withMiss: true },
+): { value: string; period: string } {
   const shoot = night.window
   const out = night.verdict === 'out'
   if (shoot === null) {
-    return { value: 'No window', period: out ? gateMissText(night) : 'none within the dark' }
+    const period = !out
+      ? 'none within the dark'
+      : withMiss
+        ? gateMissText(night)
+        : 'no stretch passes every gate'
+    return { value: 'No window', period }
   }
   const range = `${shoot.localStart}–${shoot.localEnd}`
   return {
     value: fmtMinutes(shoot.minutes),
-    period: out ? `${range} · ${gateMissText(night)}` : `shooting window ${range}`,
+    period: out && withMiss ? `${range} · ${gateMissText(night)}` : `shooting window ${range}`,
   }
 }
 
@@ -431,7 +441,73 @@ export function skyCellFooter({
   transparency: number | null
 }): string {
   const dome =
-    domePenaltyMag === null ? 'dome —' : `dome +${domePenaltyMag.toFixed(2)} mag brighter`
+    domePenaltyMag === null ? 'town glow —' : `town glow adds ${domePenaltyMag.toFixed(2)} mag`
   const clarity = transparency === null ? '—' : `${transparency}/8, 1 = clearest`
   return `dark sky from ${SKY_DARK_THRESHOLD} · ${dome} · transparency ${clarity}`
+}
+
+/** Where the score's low-cloud factor is at or under this, low cloud has effectively taken the night. */
+export const LOW_CLOUD_ENDS_BELOW = 0.2
+
+/**
+ * Low cloud as a factor row, present only when it ends the night: the API scores cloud (it never
+ * gates), so the row states the peak and where it falls, not a pass or a fail. The span is the
+ * shooting window when there is one, else the stretch of astronomical dark.
+ */
+export function lowCloudHarm(night: Night, hourly: readonly HourlyPoint[]): string | null {
+  const factor = night.factors.find((f) => f.id === 'cloud-low')
+  if (factor === undefined || factor.value === null || factor.value > LOW_CLOUD_ENDS_BELOW) {
+    return null
+  }
+  const dark = hourly.filter((d) => d.astroDark)
+  const pool = dark.length > 0 ? dark : hourly
+  let peak: HourlyPoint | null = null
+  for (const point of pool) {
+    if (point.cloudLow !== null && (peak === null || point.cloudLow > (peak.cloudLow ?? -1))) {
+      peak = point
+    }
+  }
+  if (peak === null || peak.cloudLow === null) return null
+  const shoot = night.window
+  const first = pool[0]
+  const last = pool.at(-1)
+  const span =
+    shoot !== null
+      ? `shooting window ${shoot.localStart}–${shoot.localEnd}`
+      : first === undefined || last === undefined
+        ? null
+        : `dark ${first.localTime}–${last.localTime}`
+  return `up to ${Math.round(peak.cloudLow)} % around ${peak.localTime}${span === null ? '' : `, ${span}`}`
+}
+
+/** The verdict card's facts line. A usable night names its score and the factor holding it back, unless the low-cloud row already says so. */
+export function verdictFacts(
+  night: Night,
+  nights: readonly Night[],
+  { lowCloudShown }: { lowCloudShown: boolean },
+): string[] {
+  if (night.verdict === 'out') return [fmtShortDay(night.date), nextUsableText(nights, night.date)]
+  const limiting = limitingFactor(night)
+  const named =
+    limiting === null || (lowCloudShown && limiting.label === 'Low cloud')
+      ? null
+      : `limited by ${limiting.label.toLowerCase()} ${limiting.pct} %`
+  return [`score ${night.score}/100`, ...(named === null ? [] : [named])]
+}
+
+/**
+ * The core reading the Forecast panorama's header states: the SAME API fields the Tonight Core cell
+ * reads (`gateCoreAltitude` at the sample closest to the gate, `coreGateDeg`), never a figure
+ * re-derived from the hourly samples. The hourly rows are a coarser sampling and a different
+ * question (the highest point, not the tightest one), which is how the two used to disagree.
+ */
+export function coreGateFact(night: Night): ChartFact | null {
+  const core = coreMeterReading(night)
+  return core === null
+    ? null
+    : {
+        value: fmtDegrees(core.reading),
+        unit: 'core at its closest to the gate',
+        period: `gate ${fmtDegrees(core.gate)}`,
+      }
 }

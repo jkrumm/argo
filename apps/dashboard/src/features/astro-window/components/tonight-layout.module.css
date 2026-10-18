@@ -1,5 +1,4 @@
-/* Tonight's top block: verdict and timeline on the left, the gates beside them. Below 800px the
-   gates sit directly under the verdict so each meter reads against its headline. From 800px the gates stretch beside the verdict and the timeline takes the full width, so no column is left empty. */
+/* Tonight's top block: the verdict card (with its gates) stacks above the timeline; from 800px they sit side by side so neither column is left empty. */
 
 .host {
   container-type: inline-size;
@@ -11,25 +10,18 @@
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
     'verdict'
-    'gates'
     'timeline';
 }
 
 @container (min-width: 800px) {
   .grid {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-    grid-template-areas:
-      'verdict gates'
-      'timeline timeline';
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    grid-template-areas: 'verdict timeline';
   }
 }
 
 .verdict {
   grid-area: verdict;
-}
-
-.gates {
-  grid-area: gates;
 }
 
 .timeline {

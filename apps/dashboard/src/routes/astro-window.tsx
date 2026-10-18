@@ -14,7 +14,6 @@ import {
   CloudLayersChart,
   MAP_FULL_BLEED_HEIGHT,
   MonthlyBudgetChart,
-  GatesCard,
   NightAnatomy,
   NightStrip,
   NightTimelineChart,
@@ -265,7 +264,7 @@ function AstroWindowPage() {
   const selectedDate = data.detail.date
   const selectedNight = data.nights.find((n) => n.date === selectedDate) ?? data.nights[0] ?? null
   const markedNight = markedNightOf(data)
-  const summary = pageSummary(data, { withWindow: search.tab === 'forecast' })
+  const summary = pageSummary(data, { withWindow: search.tab === 'forecast', selectedDate })
 
   return (
     <>
@@ -280,8 +279,8 @@ function AstroWindowPage() {
               label="Site"
               options={sites.data.map((s) => ({
                 value: s.id,
-                // The core direction, not the zenith: it is the number the ranking turns on.
-                label: `${s.name} · ${s.coreDirectionMpsas.toFixed(2)} mag · ${s.driveMinutes}min`,
+                // The core direction, not the zenith: it is the number the ranking turns on. No drive time: the longer label cut the selected value at 1440.
+                label: `${s.name} · ${s.coreDirectionMpsas.toFixed(2)} mag`,
               }))}
             />
             {/* `field.number` + `NumberFilter` (basalt-ui 1.27.0): the URL keeps a NUMBER, and
@@ -332,9 +331,21 @@ function AstroWindowPage() {
           <PageSummary sentence={summary.sentence} facts={summary.facts} aside={summary.aside} />
           {search.tab === 'tonight' && selectedNight && (
             <TonightTop
-              verdict={<VerdictCard night={selectedNight} nights={data.nights} />}
-              gates={<GatesCard night={selectedNight} moonLimit={data.moonMaxIllumination} />}
-              timeline={<NightTimelineChart hourly={data.detail.hourly} night={selectedNight} />}
+              verdict={
+                <VerdictCard
+                  night={selectedNight}
+                  nights={data.nights}
+                  hourly={data.detail.hourly}
+                  moonLimit={data.moonMaxIllumination}
+                />
+              }
+              timeline={
+                <NightTimelineChart
+                  hourly={data.detail.hourly}
+                  night={selectedNight}
+                  withMiss={false}
+                />
+              }
             />
           )}
 
@@ -364,14 +375,19 @@ function AstroWindowPage() {
                   <ScoreCard night={selectedNight} />
                 </Grid.Col>
               </Grid>
-              <SourcesFooter sources={data.sources} darknessSource={data.location.darknessSource} />
+              <SourcesFooter
+                sources={data.sources}
+                darknessSource={data.location.darknessSource}
+                generatedAt={data.generatedAt}
+                timeZone={data.location.timeZone}
+              />
             </>
           )}
 
           {search.tab === 'forecast' && selectedNight && (
             <>
               <Box data-shot="night-timeline">
-                <NightTimelineChart hourly={data.detail.hourly} night={selectedNight} />
+                <NightTimelineChart hourly={data.detail.hourly} night={selectedNight} withMiss />
               </Box>
               <Box data-shot="cloud-layers">
                 <CloudLayersChart hourly={data.detail.hourly} date={selectedDate} />
@@ -398,6 +414,7 @@ function AstroWindowPage() {
                         detailDate={selectedDate}
                         hourly={data.detail.hourly}
                         moonIllumination={selectedNight.moon.illumination}
+                        night={selectedNight}
                       />
                     </Box>
                   </Suspense>

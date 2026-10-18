@@ -7,8 +7,8 @@ import {
   longestWindow,
   offscreenNightsText,
   nightNote,
-  shortfallScale,
-  shortfallShare,
+  gateBar,
+  gateBarScale,
   verdictTone,
   windowShare,
 } from '../formulas'
@@ -17,22 +17,36 @@ import classes from './night-strip.module.css'
 
 /**
  * A night's bar. TWO scales share the track: a usable night draws its window length against the
- * longest window on screen (minutes), a night out on the core gate draws its shortfall against the
- * largest gap on screen (degrees) — never compared with each other. A night with nothing to rank keeps
- * the bar's height empty.
+ * longest window on screen (minutes); a night out on the core gate draws its core reading against
+ * a tick at the gate (degrees), so the gap between fill and tick is the miss. A night with nothing
+ * to rank keeps the bar's height empty.
  */
 function NightBar({ night, scale, longest }: { night: Night; scale: number; longest: number }) {
-  const usable = night.verdict !== 'out'
-  const share = usable ? windowShare(night, longest) : shortfallShare(night, scale)
-  if (share === null) return <span className={classes.band} />
+  if (night.verdict !== 'out') {
+    const share = windowShare(night, longest)
+    if (share === null) return <span className={classes.band} />
+    return (
+      <span className={classes.track}>
+        <Box
+          component="span"
+          className={classes.fill}
+          bg={verdictTone(night.verdict)}
+          w={`${share * 100}%`}
+        />
+      </span>
+    )
+  }
+  const bar = gateBar(night, scale)
+  if (bar === null) return <span className={classes.band} />
   return (
     <span className={classes.track}>
       <Box
         component="span"
         className={classes.fill}
         bg={verdictTone(night.verdict)}
-        w={`${share * 100}%`}
+        w={`${bar.fill * 100}%`}
       />
+      <span className={classes.gateTick} style={{ insetInlineStart: `${bar.gate * 100}%` }} />
     </span>
   )
 }
@@ -59,7 +73,7 @@ export function NightStrip({
   onSelect: (date: string) => void
 }) {
   const allOut = nights.every((n) => n.verdict === 'out')
-  const scale = shortfallScale(nights)
+  const scale = gateBarScale(nights)
   const longest = longestWindow(nights)
   const scroller = useRef<HTMLDivElement>(null)
   const [offscreenCount, setOffscreenCount] = useState(0)
