@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
+import { date } from 'basalt-ui/format'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
@@ -91,6 +92,7 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
         height={HEIGHT}
         x={(d) => d.day}
         series={series}
+        formatX={(d) => date(d, { format: 'medium' })}
         y={{ domain: 'auto', autoMaxFloor: 2, ticks: 5, format: (v) => v.toFixed(1) }}
         zones={[
           { from: 0, to: 0.8, fill: alpha(ZONE_COLORS.neutral, 0.08) },
