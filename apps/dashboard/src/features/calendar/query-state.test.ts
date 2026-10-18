@@ -56,15 +56,29 @@ describe('feedGap', () => {
 })
 
 describe('taskFeedState', () => {
-  it('is loading or error before it is ready, never an empty list', () => {
-    expect(taskFeedState([{ isPending: true, isError: false }])).toBe('loading')
+  const read = (over: Partial<Parameters<typeof taskFeedState>[0][number]> = {}) => ({
+    isPending: false,
+    isError: false,
+    data: {} as unknown,
+    ...over,
+  })
+  it('is loading while any read is pending, even beside a failed one', () => {
+    expect(taskFeedState([read({ isPending: true, data: undefined })])).toBe('loading')
     expect(
       taskFeedState([
-        { isPending: false, isError: false },
-        { isPending: false, isError: true },
+        read({ isPending: true, data: undefined }),
+        read({ isError: true, data: undefined }),
       ]),
-    ).toBe('error')
+    ).toBe('loading')
+  })
+  it('is error only once every read has settled and one has nothing to show', () => {
+    expect(taskFeedState([read(), read({ isError: true, data: undefined })])).toBe('error')
+  })
+  it('does not count a failed background refetch that still holds cached data', () => {
+    expect(taskFeedState([read({ isError: true })])).toBe('ready')
+  })
+  it('is ready with no reads or only settled ones', () => {
     expect(taskFeedState([])).toBe('ready')
-    expect(taskFeedState([{ isPending: false, isError: false }])).toBe('ready')
+    expect(taskFeedState([read()])).toBe('ready')
   })
 })

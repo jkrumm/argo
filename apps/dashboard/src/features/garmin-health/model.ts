@@ -277,9 +277,9 @@ export function loadGap(input: {
   windowDays: number
 }): string | undefined {
   const { acwr, status, placeholder, windowDays } = input
-  if (status === 'error') return 'The load ratio failed to load'
+  if (status === 'error') return 'The training load failed to load'
   if (status === 'pending' || acwr !== null || placeholder) return undefined
-  return chartEmpty('load ratio', windowDays)
+  return chartEmpty('training load', windowDays)
 }
 
 /** The Garmin sync sidecar's cadence, hours: every "fills after the next sync" claim reads this. */

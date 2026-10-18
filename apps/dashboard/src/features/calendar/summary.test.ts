@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { CalendarEventPayload } from '../../lib/queries/calendar'
 import { agendaSummary, type CalendarItem } from './derive'
+import { feedGap } from './query-state'
 import { countdown, summaryParts, todayCardState, untilLabel } from './summary'
 
 const D = '2026-10-14'
@@ -36,11 +37,14 @@ describe('summaryParts', () => {
     const summary = agendaSummary([events[1] as CalendarItem], now)
     expect(summaryParts(summary).sentence).toStartWith('1 meeting today, 40\u00a0min booked')
   })
-  test('dashes, never "No events", while a calendar has not answered', () => {
+  test('says why, never "No events", while a calendar has not answered', () => {
     const summary = agendaSummary([], now, new Set(['work']))
-    expect(summaryParts(summary)).toEqual({
-      sentence: '— meetings today',
-      facts: ['next —', '— booked this week'],
+    const loading = feedGap(new Set(['work']), new Set())
+    expect(summaryParts(summary, loading)).toEqual({ sentence: 'Loading calendar', facts: [] })
+    const failed = feedGap(new Set(['work']), new Set(['work']))
+    expect(summaryParts(summary, failed)).toEqual({
+      sentence: 'Microsoft 365 failed to load — reload to retry',
+      facts: [],
     })
   })
   test('a value never parts from its unit', () => {

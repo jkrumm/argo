@@ -70,8 +70,8 @@ export function AgendaView({
   }, [events, now, unknown])
 
   const { summary, free } = model
-  const parts = summaryParts(summary)
   const gap = feedGap(unknown, failed)
+  const parts = summaryParts(summary, gap)
   const todayState = todayCardState(model.today.rows.length, summary.incomplete)
   return (
     <Stack gap="md">

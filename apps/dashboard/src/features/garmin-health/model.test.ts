@@ -425,14 +425,14 @@ describe('loadGap', () => {
   })
   test('only a settled read without a ratio states the gap, with the chart cards’ wording', () => {
     expect(loadGap({ acwr: null, ...settled })).toBe(
-      'No load ratio in this 30\u00a0d window — Garmin syncs every 6\u00a0h',
+      'No training load in this 30\u00a0d window — Garmin syncs every 6\u00a0h',
     )
     expect(loadGap({ acwr: null, ...settled, placeholder: true })).toBeUndefined()
   })
   test('loading has no copy and a failure says so', () => {
     expect(loadGap({ acwr: null, ...settled, status: 'pending' })).toBeUndefined()
     expect(loadGap({ acwr: null, ...settled, status: 'error' })).toBe(
-      'The load ratio failed to load',
+      'The training load failed to load',
     )
   })
 })

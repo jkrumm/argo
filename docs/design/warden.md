@@ -185,10 +185,10 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 Basalt rows for `UPSTREAM.md`:
 
-| Export         | Needed prop / default                                                                                                                                                         | argo case                                                                                    | What argo does instead                                                                                                                                              |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
 | `DecisionCard` | `question` (short title), `facts` (entity + ≤3), `evidenceLine` (one line), `disclosure` (full ask), `previewPlacement: 'well' \| 'inline'` (one-line history without a well) | Keel's card anatomy; a Warden ask is long prose and its history is often a single transition | `components/upstream/decision-card.tsx` takes `evidenceLine` and `previewPlacement` additively; `cardCopy` / `capFacts` in `decision-card-model.ts` derive the copy |
-| `Meter`        | optional hide of the track with no `target`/`ticks`                                                                                                                           | verdicts share has nothing to compare against                                                | argo drops the visual and states the counts in the footer                                                                                                           |
+| `Meter` | optional hide of the track with no `target`/`ticks` | verdicts share has nothing to compare against | argo drops the visual and states the counts in the footer |
 
 ### Wave 25 round (`w25-r1`, live after #96–#101)
 

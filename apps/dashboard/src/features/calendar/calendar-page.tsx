@@ -152,8 +152,8 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
     if (workUnknown) set.add('work')
     return set
   }, [personalUnknown, workUnknown])
-  const personalFailed = !shotEmpty && failed(googleQuery)
-  const workFailed = !shotEmpty && failed(m365Query)
+  const personalFailed = failed(googleQuery)
+  const workFailed = failed(m365Query)
   const gap = useMemo(() => {
     const failedSources = new Set<SourceClass>()
     if (personalFailed) failedSources.add('personal')
@@ -161,7 +161,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
     return { gap: feedGap(unknown, failedSources), failedSources }
   }, [unknown, personalFailed, workFailed])
   // Tasks are their own read: a pending or failed one is not an empty list.
-  const tasksState = shotEmpty ? 'ready' : taskFeedState([projectsQuery, ...projectQueries])
+  const tasksState = taskFeedState([projectsQuery, ...projectQueries])
 
   function setSearch(patch: Partial<SearchState>) {
     void navigate({

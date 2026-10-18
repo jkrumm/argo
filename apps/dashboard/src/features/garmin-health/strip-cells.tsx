@@ -87,7 +87,6 @@ function LoadRows({
       items={load.map((l) => ({ ...l, key: l.label }))}
       max={max}
       format={(v) => `${v.toFixed(0)} MET-min/day`}
-      emptyText="No load measured"
     />
   )
 }

@@ -40,7 +40,7 @@ const BUDGET_HEADROOM = 1.25
 const MUTED_FILL = alpha(VX.muted, 0.35)
 
 /** Agents' `No snapshot yet` in a cell's width: the cause (nothing pushed) and the cadence to wait for. */
-const NO_SNAPSHOT = 'No snapshot yet — agent-gateway pushes every 10 min'
+const NO_SNAPSHOT = `No snapshot yet — agent-gateway pushes every ${withUnit(10, 'min')}`
 
 // ── Agents working ───────────────────────────────────────────────────────────────────────────
 
@@ -269,13 +269,23 @@ export function recoveryCell(
 
 // ── Training load ────────────────────────────────────────────────────────────────────────────
 
-export function acwrCell(reading: AcwrReading | null, now: number): StatStripCell {
+export function acwrCell(
+  reading: AcwrReading | null,
+  now: number,
+  /** The load read when there is no reading: still pending, or failed. */
+  feed: 'loading' | 'error' = 'error',
+): StatStripCell {
   if (reading === null || reading.acwr === null) {
     return {
       key: 'acwr',
       caption: `Training load · ${withUnit(7, 'd')} / ${withUnit(28, 'd')}`,
       value: null,
-      footer: reading === null ? 'unavailable' : 'no training load observed',
+      footer:
+        reading === null
+          ? feed === 'loading'
+            ? 'loading training load'
+            : 'training load failed to load; reload to retry'
+          : 'no training load observed',
     }
   }
   return {
