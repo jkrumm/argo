@@ -148,3 +148,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: the headline carries the running count and the thread total; `First thread {date}` stays and the fold's `oldest {age}` is gone. Carried: chips without hover (basalt). **New:** the fold row is the bare word `Untitled` (its count lives only in the chip).
 - **Against Keel:** does not yet — three rows and a fold over a void above the composer.
+
+### Wave 30 fixes
+
+- **Fold row bare `Untitled`:** fixed — the fold label is `{n} untitled chats` (`untitledFoldLabel`, tested; page vocabulary is "chats"). The count is read from the rows the fold holds, so it matches what opens.

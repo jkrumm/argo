@@ -335,3 +335,8 @@ export function emptyNote(input: { threads: number; active: number; filtered: bo
   if (input.active === 0 && !input.filtered) return 'All threads archived'
   return 'No thread matches this filter.'
 }
+
+/** The fold's label: what it folds, with the count read once (`3 untitled chats`). */
+export function untitledFoldLabel(count: number): string {
+  return `${count} untitled ${count === 1 ? 'chat' : 'chats'}`
+}
