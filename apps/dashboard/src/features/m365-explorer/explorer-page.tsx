@@ -26,6 +26,8 @@ import {
   coverageOf,
   formatStamp,
   headlineOf,
+  labeledCount,
+  sourcesTitle,
   parseChannelId,
   recencyOf,
   sourceIdFor,
@@ -49,10 +51,10 @@ const SCOPE_BY_VIEW: Record<ViewKey, ChipScope> = {
   teams: 'channels',
   feed: 'sources',
 }
-/** Per phone pane: the Section title, the tab label and the shot anchor. `labeled` has none here, `LabeledPane` carries its own. */
+/** Per phone pane: the Section title (Sources swaps in `sourcesTitle`), the tab label and the shot anchor (the phone wrapper's, so the pane is measured at 390 even when empty). */
 const PANE_META: Record<PaneKey, { title: string; tab: string; shot?: string }> = {
   sources: { title: 'Sources', tab: 'Sources', shot: 'source-list' },
-  labeled: { title: 'Labeled sources', tab: 'Labeled' },
+  labeled: { title: 'Labeled sources', tab: 'Labeled', shot: 'labeled-pane-phone' },
   detail: { title: 'Detail', tab: 'Detail', shot: 'detail-pane' },
 }
 const CHATS_TOP = 50
@@ -155,7 +157,7 @@ export function M365ExplorerPage(): ReactElement {
 
   const headline = headlineOf({
     activeWeek,
-    labeled: labels.length,
+    labeled: labeledCount(coverage),
     tags: tagCounts.length,
     latest: latest ? formatStamp(latest) : null,
   })
@@ -377,7 +379,17 @@ export function M365ExplorerPage(): ReactElement {
 
         {compact ? (
           <Section
-            title={shown.title}
+            title={
+              shownPane === 'sources'
+                ? sourcesTitle({
+                    view,
+                    chats: chatRows.length,
+                    channels: channelsTotal,
+                    teams: teams.length,
+                    labeled: labels.length,
+                  })
+                : shown.title
+            }
             tabs={
               <ViewTabs
                 field={explorerStore.field.pane}

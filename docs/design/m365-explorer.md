@@ -156,3 +156,16 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail: the headline's `{n} labeled` disagrees with the strip's `{n−1} of {total}` and the caption `1 outside this set` does not say which set; the phone `Sources` heading restates the select beside it; row hover is invisible in light; the detail and labeled panes still declare no 390 anchors, so they are unmeasured there. Harness: one source-list focus crop timed out (light 390, a tall anchor).
 - **Against Keel:** close — calm strip and headline; the Teams cell has no visual, the right pane groups by tag with no facts, rows all one weight.
+
+### Wave 25 fixes
+
+- One labeled count: `labeledCount(coverage)` feeds the headline and the strip (labels inside the loaded chats and channels; the headline omits the fact while a team loads).
+- Strip footer names the set: `{n} labels on chats or channels not in this list` (`outsideNote`, tested).
+- Phone `Sources` heading restated the pane switch: the title is now a fact per view (`{n} chats`, `{n} channels in {m} teams`, `{n} labeled sources`; `sourcesTitle`, tested).
+- 390 anchors: the labeled pane's phone wrapper declares `data-shot="labeled-pane-phone"` (the detail wrapper already declares `detail-pane`).
+- Row hover: `--vx-surface-panel-hover` is lighter than the panel in light mode (basalt itself notes the step is imperceptible), so rows use a 6 % `--vx-ink` wash, 9 % when selected.
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| `VX.surface.rowHover` / `rowSelected` | a hover and a selected surface that reads in both schemes | list rows in light mode: `panelHover` is lighter than `panel` | a `color-mix` ink wash in the module CSS |
+| `Section` | untitled variant (repeat) | the phone pane title restates the tab | a fact as the title |

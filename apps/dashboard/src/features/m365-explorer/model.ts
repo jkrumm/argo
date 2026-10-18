@@ -202,10 +202,41 @@ export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`
 }
 
+/**
+ * The one labeled count the page prints: labels whose source is inside the loaded chats and
+ * channels (`Coverage.labeled`), so the headline and the strip cannot disagree. `null` while a
+ * team's channels are still loading — the count is not yet a fact.
+ */
+export function labeledCount(c: Coverage): number | null {
+  return c.loading > 0 ? null : c.labeled
+}
+
+/** The strip footer's note on labels the loaded set cannot place, naming the set. */
+export function outsideNote(c: Coverage): string | null {
+  if (c.outside === 0) return null
+  return `${plural(c.outside, 'label')} on chats or channels not in this list`
+}
+
+/** The phone Sources pane's heading: what the pane lists now, as a fact rather than the tab's name. */
+export function sourcesTitle(input: {
+  view: 'chats' | 'teams' | 'feed'
+  chats: number
+  channels: number | null
+  teams: number
+  labeled: number
+}): string {
+  if (input.view === 'chats') return plural(input.chats, 'chat')
+  if (input.view === 'feed') return `${plural(input.labeled, 'labeled source')}`
+  return input.channels === null
+    ? plural(input.teams, 'team')
+    : `${plural(input.channels, 'channel')} in ${plural(input.teams, 'team')}`
+}
+
 /** The page's opening: how many chats moved this week, then labeled sources, tags and the newest stamp. */
 export function headlineOf(h: {
   activeWeek: number
-  labeled: number
+  /** From `labeledCount`; `null` leaves the fact out. */
+  labeled: number | null
   tags: number
   /** Pre-formatted stamp of the newest chat, or null when there is none. */
   latest: string | null
@@ -213,7 +244,7 @@ export function headlineOf(h: {
   return {
     sentence: `${plural(h.activeWeek, 'chat')} active in the last 7 days`,
     facts: [
-      `${h.labeled} labeled`,
+      h.labeled === null ? null : `${h.labeled} labeled`,
       plural(h.tags, 'tag') + ' in use',
       h.latest === null ? null : `latest activity ${h.latest}`,
     ].filter((f): f is string => f !== null),

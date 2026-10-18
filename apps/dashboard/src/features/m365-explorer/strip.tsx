@@ -1,7 +1,7 @@
 import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { Box, Group, Skeleton, UnstyledButton } from '@mantine/core'
-import type { Coverage } from './model'
+import { outsideNote, type Coverage } from './model'
 import classes from './m365.module.css'
 
 /** A split is not a verdict: stepped neutral fills, never a status colour. */
@@ -12,7 +12,7 @@ const FILL_FAINT = alpha(VX.muted, 0.4)
 type Chats = { total: number; oneOnOne: number; group: number; meeting: number }
 
 function labeledCell(coverage: Coverage, basis: string, onRetry: () => void): StatStripCell {
-  const { labeled, total, loading, failed, outside } = coverage
+  const { labeled, total, loading, failed } = coverage
   const pending = loading > 0
   const atLeast = failed > 0 ? '≥' : ''
   return {
@@ -36,7 +36,7 @@ function labeledCell(coverage: Coverage, basis: string, onRetry: () => void): St
     footer: (
       <>
         {basis}
-        {outside > 0 ? ` · ${outside} outside this set` : ''}
+        {outsideNote(coverage) === null ? '' : ` · ${outsideNote(coverage)}`}
         {failed > 0 ? (
           <>
             {' · '}

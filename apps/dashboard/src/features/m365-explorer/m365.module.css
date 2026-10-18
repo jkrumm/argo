@@ -118,12 +118,13 @@
   color: var(--vx-ink);
 }
 
-.row:hover,
-.rowSelected {
-  background: var(--vx-surface-panel-hover);
+/* panel-hover is lighter than panel in the light scheme, so that step is invisible there: an ink wash reads in both. */
+.row:hover {
+  background: color-mix(in srgb, var(--vx-ink) 6%, transparent);
 }
 
 .rowSelected {
+  background: color-mix(in srgb, var(--vx-ink) 9%, transparent);
   box-shadow: inset 2px 0 0 var(--vx-accent-fill);
 }
 

@@ -7,6 +7,9 @@ import {
   coverageOf,
   formatTime,
   headlineOf,
+  labeledCount,
+  outsideNote,
+  sourcesTitle,
   validTag,
   matchesTag,
   parseChannelId,
@@ -188,5 +191,27 @@ describe('headlineOf', () => {
       sentence: '1 chat active in the last 7 days',
       facts: ['0 labeled', '1 tag in use'],
     })
+  })
+})
+
+describe('labeled count, outside note and sources title', () => {
+  const cov = { total: 5, labeled: 2, outside: 1, loading: 0, failed: 0 }
+  test('one labeled count, unknown while a team loads', () => {
+    expect(labeledCount(cov)).toBe(2)
+    expect(labeledCount({ ...cov, loading: 1 })).toBeNull()
+    expect(headlineOf({ activeWeek: 1, labeled: null, tags: 1, latest: null }).facts).toEqual([
+      '1 tag in use',
+    ])
+  })
+  test('the outside note names the set', () => {
+    expect(outsideNote(cov)).toBe('1 label on chats or channels not in this list')
+    expect(outsideNote({ ...cov, outside: 0 })).toBeNull()
+  })
+  test('the sources title is a fact per view', () => {
+    const base = { chats: 3, channels: 7, teams: 2, labeled: 1 }
+    expect(sourcesTitle({ ...base, view: 'chats' })).toBe('3 chats')
+    expect(sourcesTitle({ ...base, view: 'teams' })).toBe('7 channels in 2 teams')
+    expect(sourcesTitle({ ...base, view: 'teams', channels: null })).toBe('2 teams')
+    expect(sourcesTitle({ ...base, view: 'feed' })).toBe('1 labeled source')
   })
 })
