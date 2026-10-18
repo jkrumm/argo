@@ -194,17 +194,32 @@ describe('headlineOf', () => {
   const at = (day: number) => new Date(2026, 9, day, 12).toISOString()
   test('says how many days the loaded chats span', () => {
     expect(headlineOf({ times: [at(17), at(3), null], capped: false })).toEqual({
-      sentence: `Chats span 14${NBSP}d, 3–17 Oct`,
+      sentence: `Chats span 14${NBSP}d, 3–17${NBSP}Oct`,
     })
   })
   test('a capped list says the span belongs to the newest slice', () => {
     expect(headlineOf({ times: [at(17), at(10)], capped: true })).toEqual({
-      sentence: `Newest 2 chats span 7${NBSP}d, 10–17 Oct`,
+      sentence: `Newest 2 chats span 7${NBSP}d, 10–17${NBSP}Oct`,
     })
+  })
+  test('across years both ends carry their year, even with the same month name', () => {
+    const on = (y: number, mo: number, d: number) => new Date(y, mo, d, 12).toISOString()
+    expect(headlineOf({ times: [on(2026, 9, 3), on(2025, 9, 17)], capped: false }).sentence).toBe(
+      `Chats span 351${NBSP}d, 17${NBSP}Oct 2025 – 3${NBSP}Oct 2026`,
+    )
+    expect(headlineOf({ times: [on(2026, 0, 2), on(2025, 11, 30)], capped: false }).sentence).toBe(
+      `Chats span 3${NBSP}d, 30${NBSP}Dec 2025 – 2${NBSP}Jan 2026`,
+    )
+  })
+  test('across months the ends name their month', () => {
+    const on = (mo: number, d: number) => new Date(2026, mo, d, 12).toISOString()
+    expect(headlineOf({ times: [on(9, 3), on(8, 28)], capped: false }).sentence).toBe(
+      `Chats span 5${NBSP}d, 28${NBSP}Sep – 3${NBSP}Oct`,
+    )
   })
   test('one day and no stamps', () => {
     expect(headlineOf({ times: [at(17), at(17)], capped: false }).sentence).toBe(
-      'Chats all from 17 Oct',
+      `Chats all from 17${NBSP}Oct`,
     )
     expect(headlineOf({ times: [], capped: false })).toEqual({ sentence: 'No chat activity yet' })
     expect(headlineOf({ times: [null], capped: false }).sentence).toBe('No chat activity yet')

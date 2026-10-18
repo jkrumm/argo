@@ -95,7 +95,7 @@ export function SourceRow(props: SourceRowProps): ReactNode {
         <ActionIcon
           size="sm"
           variant="subtle"
-          color="gray"
+          c="inherit"
           aria-label={`Remove label from ${props.name}`}
           onClick={props.onRemove}
           loading={props.removing ?? false}

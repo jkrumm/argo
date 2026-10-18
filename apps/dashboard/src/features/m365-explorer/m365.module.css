@@ -190,23 +190,17 @@
   color: var(--vx-ink);
 }
 
-/* The one control on a labeled-source row: dimmed at rest, full on hover or focus (and always on touch). */
+/* The one control on a labeled-source row: muted at rest, ink on hover or focus. */
 .removeWrap {
   flex: none;
-  opacity: 0.45;
+  color: var(--vx-muted);
 }
 
 .row:hover .removeWrap,
 .rowShell:hover .removeWrap,
 .rowShell:focus-within .removeWrap,
 .removeWrap:focus-within {
-  opacity: 1;
-}
-
-@media (pointer: coarse) {
-  .removeWrap {
-    opacity: 1;
-  }
+  color: var(--vx-ink);
 }
 
 .rowShell {
