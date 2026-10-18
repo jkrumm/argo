@@ -286,7 +286,8 @@ export function staleNote(lifts: readonly { id: string; delta: LiftDelta }[]): s
   if (stale.length === 0) return null
   // Only sessions with a scored e1RM move the figure; a session without one does not count.
   const days = stale[0]?.delta.days ?? DELTA_DAYS
-  if (stale.length === lifts.length) return `Every lift: no scored e1RM in ${withUnit(days, 'd')}`
+  // Every lift stale is the headline's sentence, not a second one.
+  if (stale.length === lifts.length) return null
   return `No scored e1RM in ${withUnit(days, 'd')}: ${stale.map((l) => exerciseLabel(l.id)).join(', ')}`
 }
 
@@ -344,17 +345,22 @@ export function lastSession(
 // ── Summary sentence ─────────────────────────────────────────────────────────────────────────
 
 /**
- * The headline counts the lifts that moved up over the delta window, out of those with a scored
- * move. The per-lift e1RM and move are the strip's, the score and ACWR the call card's: the
- * headline repeats none of them.
+ * The headline always states a fact: how many lifts moved up over the delta window out of those
+ * with a scored move, else that none did (or none has a scored e1RM). The per-lift e1RM and move
+ * are the strip's, the score and ACWR the call card's: the headline repeats none of them.
  */
 export function summaryParts(lifts: readonly { delta: LiftDelta }[]): { sentence: string } | null {
+  if (lifts.length === 0) return null
+  const window = withUnit(lifts[0]?.delta.days ?? DELTA_DAYS, 'd')
   const moves = lifts.map((l) => l.delta.delta)
   const up = moves.filter((m) => m !== null && m > 0).length
-  if (up === 0) return null
-  return {
-    sentence: `${up} of ${moves.length} ${moves.length === 1 ? 'lift' : 'lifts'} up in ${withUnit(DELTA_DAYS, 'd')}`,
+  if (up > 0) {
+    return {
+      sentence: `${up} of ${moves.length} ${moves.length === 1 ? 'lift' : 'lifts'} up in ${window}`,
+    }
   }
+  if (lifts.every((l) => l.delta.stale)) return { sentence: `No scored e1RM in ${window}` }
+  return { sentence: `No lift moved up in ${window}` }
 }
 
 // ── Balance ──────────────────────────────────────────────────────────────────────────────────
@@ -410,13 +416,13 @@ export function bandOffset(
 /** A band bound with at least one decimal: `1.0`, `1.25`. */
 export const fmtBound = (v: number): string => (Number.isInteger(v) ? v.toFixed(1) : String(v))
 
-/** `0.12 under the 0.8–1.0 band`, the bare `0.8–1.0 band` inside it (the verdict says the rest), `—`. */
+/** `0.12 outside the 0.8–1.0 band`, the bare `0.8–1.0 band` inside it (the verdict says the rest), `—`. */
 export function offText(offset: number | null, [lo, hi]: readonly [number, number]): string {
   if (offset === null) return EM_DASH
   const band = `${fmtBound(lo)}–${fmtBound(hi)} band`
   if (offset === 0) return band
   const size = Math.abs(offset) < 0.005 ? '<0.01' : Math.abs(offset).toFixed(2)
-  return `${size} ${offset < 0 ? 'under' : 'over'} the ${band}`
+  return `${size} outside the ${band}`
 }
 
 // ── Records ──────────────────────────────────────────────────────────────────────────────────
@@ -452,7 +458,9 @@ export function shortDate(date: string): string {
 /** Section period from the page window: `90 days`, `all time`, or the custom range. */
 /** The diagnostics section's title: the period is named only when the window is a real one. */
 export function diagnosticsTitle(window: string, period: string): string {
-  return window === 'all' ? 'Against your 90-day norm' : `Against your 90-day norm, ${period}`
+  return window === 'all'
+    ? 'Strength against your 90-day norm'
+    : `Strength against your 90-day norm, ${period}`
 }
 
 /** The balance card's one statement of the tolerance behind `borderline`. */

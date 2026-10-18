@@ -1,6 +1,5 @@
 /* Verdict card: the method line under each meter. */
 .method {
-  font-family: var(--basalt-font-mono);
   font-size: var(--vx-text-xs);
   color: var(--vx-muted);
 }
