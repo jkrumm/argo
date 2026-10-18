@@ -52,10 +52,11 @@ type Headline = NonNullable<ReturnType<typeof useHeadline>['data']>
 type Series = { days: Daily[]; loading: boolean; failed: boolean }
 
 /**
- * One metric's last 30 days. A volume metric (given `now`) leaves today out: the running day would
- * draw as a drop and drag the mean down. Ratios and percentiles are not volumes, so they keep it.
+ * One metric's last 30 days. One rule for the running day across the strip: `dropToday` leaves it
+ * out, so every trend, mean, peak and day count below is over full days; the headline figures are a
+ * rolling window and include today.
  */
-function useDaily(metric: Metric, now: number | null = null): Series {
+function useDaily(metric: Metric, { dropToday, now }: { dropToday: boolean; now: number }): Series {
   const query = useQuery(
     usageQueries.timeseries({ range: '30d', grain: 'day', metric, groupBy: 'none' }),
   )
@@ -64,7 +65,7 @@ function useDaily(metric: Metric, now: number | null = null): Series {
       date: dayToDate(b.bucket),
       value: b.groups['value'] ?? null,
     })) ?? []
-  const days = now === null ? all : dropPartialDay(all, now)
+  const days = dropToday ? dropPartialDay(all, now) : all
   return { days, loading: query.isPending, failed: query.isError }
 }
 
@@ -83,7 +84,7 @@ const footerOf = (lines: readonly (string | null)[]) => (
   </Stack>
 )
 
-const meanLine = (text: string | null) => (text === null ? 'mean —' : `30 d mean ${text}`)
+const meanLine = (text: string | null) => (text === null ? 'mean —' : `mean ${text}, full days`)
 
 /** `peak day $12, 3 Oct`: the busiest day of the series, or `null` without a reading. */
 function peakLine(days: readonly Daily[], format: (v: number) => string): string | null {
@@ -136,7 +137,7 @@ function costCell({ h, loading }: Ctx, cost: Series): StatStripCell {
     key: 'cost',
     caption: 'Cost',
     qualifier: '30 d',
-    info: 'Spend in US dollars over the last 30 days against the 30 days before. The daily trend and the daily mean leave today out until the day is over.',
+    info: 'Spend in US dollars over the last 30 days against the 30 days before. The total includes today; the trend, mean and peak day cover full days only.',
     value: fmtUsdWhole(h?.costUsd30d),
     delta: vs.delta,
     loading,
@@ -171,7 +172,7 @@ function tokensCell({ h, loading }: Ctx, tokens: Series): StatStripCell {
     key: 'tokens',
     caption: 'Tokens',
     qualifier: '30 d',
-    info: 'Tokens the models read and wrote over the last 30 days; tokens re-read from the cache are not counted. The daily trend and the daily mean leave today out until the day is over.',
+    info: 'Tokens the models read and wrote over the last 30 days; tokens re-read from the cache are not counted. The total includes today; the trend, mean and peak day cover full days only.',
     value: qty.value,
     ...(qty.unit ? { unit: qty.unit } : {}),
     delta: vs.delta,
@@ -240,12 +241,13 @@ function errorsCell({ h, loading }: Ctx, errors: Series): StatStripCell {
 function p95Cell({ h, loading }: Ctx, p95: Series): StatStripCell {
   const qty = secondsQuantity(h?.p95Ms30d)
   const worst = peakOf(p95.days)
+  const p95Window = h?.p95Ms30d ?? null
   const slower =
-    h?.p95Ms30d == null
+    p95Window === null
       ? null
       : countAgainst(
           p95.days.map((d) => d.value),
-          h.p95Ms30d,
+          p95Window,
           'above',
         )
   const vs = compare({
@@ -260,7 +262,7 @@ function p95Cell({ h, loading }: Ctx, p95: Series): StatStripCell {
     key: 'p95',
     caption: 'p95 latency',
     qualifier: '30 d',
-    info: '95 % of calls finish faster than this; only calls that report a duration count. The big figure covers every call in the 30 days. The trend plots each day’s own p95 against it, the dashed line.',
+    info: '95 % of calls finish faster than this; only calls that report a duration count. The big figure covers every call in the 30 days, today included. The trend plots each full day’s own p95 against it, the dashed line.',
     value: qty.value,
     ...(qty.unit ? { unit: qty.unit } : {}),
     delta: vs.delta,
@@ -271,7 +273,7 @@ function p95Cell({ h, loading }: Ctx, p95: Series): StatStripCell {
         days={p95.days}
         loading={p95.loading}
         format={fmtSecondsDay}
-        reference={h?.p95Ms30d ?? undefined}
+        reference={p95Window ?? undefined}
       />
     ),
     footer: footerOf([
@@ -290,13 +292,16 @@ function cacheCell({ h, loading }: Ctx, cache: Series): StatStripCell {
   const ratio = h?.cacheHitRatio30d ?? null
   const recent = recentMean(cache.days.map((d) => d.value))
   const delta = pointsDelta(recent, ratio)
-  const under = cache.failed
-    ? null
-    : countAgainst(
-        cache.days.map((d) => d.value),
-        CACHE_HIT_TARGET,
-        'below',
-      )
+  const under = countAgainst(
+    cache.days.map((d) => d.value),
+    CACHE_HIT_TARGET,
+    'below',
+  )
+  const underLine = cache.failed
+    ? 'daily trend failed to load'
+    : under.of === 0
+      ? null
+      : `${under.count} of ${under.of} days under it`
   return {
     key: 'cache',
     caption: 'Cache hit',
@@ -324,14 +329,7 @@ function cacheCell({ h, loading }: Ctx, cache: Series): StatStripCell {
           reference={CACHE_HIT_TARGET}
         />
       ),
-    footer: footerOf([
-      `target ${fmtPct(CACHE_HIT_TARGET, 0)}`,
-      cache.failed
-        ? 'daily trend failed to load'
-        : under === null || under.of === 0
-          ? null
-          : `${under.count} of ${under.of} days under it`,
-    ]),
+    footer: footerOf([`target ${fmtPct(CACHE_HIT_TARGET, 0)}`, underLine]),
   }
 }
 
@@ -382,11 +380,12 @@ function billingFooter({ h, loading }: Ctx) {
 export function UsageStrip() {
   const headline = useHeadline()
   const now = useNow()
-  const cost = useDaily('cost', now)
-  const tokens = useDaily('tokens', now)
-  const p95 = useDaily('latency_p95')
-  const errors = useDaily('error_rate')
-  const cache = useDaily('cache_ratio')
+  const basis = { dropToday: true, now }
+  const cost = useDaily('cost', basis)
+  const tokens = useDaily('tokens', basis)
+  const p95 = useDaily('latency_p95', basis)
+  const errors = useDaily('error_rate', basis)
+  const cache = useDaily('cache_ratio', basis)
   const ctx: Ctx = { h: headline.data, loading: headline.isPending }
 
   return (

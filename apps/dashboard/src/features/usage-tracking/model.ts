@@ -2,6 +2,7 @@
  * Pure derivations for the Usage Tracking page: every figure the summary sentence, the strip and the
  * chart headers print. No React, no queries — a null reading is handled once (always `—`, never 0).
  */
+import { RANK_PALETTE } from './constants'
 import type { TimePoint } from './types'
 
 export const EM_DASH = '—'
@@ -16,8 +17,8 @@ const STALE_AFTER_MIN = 30
 const STALE_IN_HOURS_FROM_MIN = 120
 /** Series kept in a stacked chart before the rest fold into "Other". */
 export const FOLD_TOP_N = 6
-/** The fold widens past `FOLD_TOP_N` up to this many named series while `Other` outweighs the smallest one. */
-export const FOLD_MAX_N = 8
+/** The fold widens past `FOLD_TOP_N` up to one named series per palette hue while `Other` outweighs the smallest one. */
+export const FOLD_MAX_N = RANK_PALETTE.length
 export const ERROR_FOLD_TOP_N = 3
 export const OTHER_KEY = 'Other'
 
@@ -237,9 +238,10 @@ export type FoldedSeries = {
 }
 
 /**
- * Keep the top `n` group keys by their total over the whole window and sum the rest into `Other`.
- * The top `n` are chosen once and kept for every bucket, so series identity is stable over time and
- * matches the adjacent list. `Other` is only added when something folded.
+ * Keep the top group keys by their total over the whole window and sum the rest into `Other`. At
+ * least `n` are kept; up to `max` while `Other` would outweigh the smallest kept series. The kept
+ * set is chosen once and held for every bucket, so series identity is stable over time and matches
+ * the adjacent list. `Other` is only added when something folded.
  */
 export function foldTopN(
   points: readonly TimePoint[],
@@ -371,15 +373,10 @@ export function toolGroupKey(raw: string): string {
 /** A tool identifier in words: `mcp__agent-gateway` → `Agent gateway (MCP)`, `web_search` → `Web search`. */
 export function toolLabel(raw: string): string {
   if (raw === OTHER_KEY) return raw
-  if (raw.startsWith(MCP_PREFIX)) {
-    const [server = '', ...tool] = raw.slice(MCP_PREFIX.length).split('__')
-    const name =
-      tool.length === 0
-        ? plainWords(server)
-        : `${plainWords(server)} · ${plainWords(tool.join(' '))}`
-    return `${name}${tool.length === 0 ? ' (MCP)' : ''}`
-  }
-  return plainWords(raw)
+  if (!raw.startsWith(MCP_PREFIX)) return plainWords(raw)
+  const [server = '', ...tool] = raw.slice(MCP_PREFIX.length).split('__')
+  const name = plainWords(server)
+  return tool.length === 0 ? `${name} (MCP)` : `${name} · ${plainWords(tool.join(' '))}`
 }
 
 /**
@@ -454,4 +451,23 @@ export function freshness(iso: string | null | undefined, now: number): Freshnes
 
 export function periodNoun(range: '7d' | '30d' | '90d' | 'all'): string {
   return range === 'all' ? 'all time' : range.replace('d', ' d')
+}
+
+/**
+ * The folded series the chart and list read. Tools are counted per MCP server before the cut and
+ * labelled in words; every other dimension keeps its keys as sent.
+ */
+export function prepareFolded(input: {
+  points: readonly TimePoint[]
+  groupKeys: readonly string[]
+  groupBy: string
+}): { folded: FoldedSeries; labelOf: (key: string) => string } {
+  const tools = input.groupBy === 'sub_tool'
+  const source = tools
+    ? regroup(input.points, input.groupKeys, toolGroupKey)
+    : { points: [...input.points], groupKeys: [...input.groupKeys] }
+  return {
+    folded: foldTopN(source.points, source.groupKeys, FOLD_TOP_N, FOLD_MAX_N),
+    labelOf: tools ? toolLabel : (key) => key,
+  }
 }

@@ -118,7 +118,13 @@
 
 .summary {
   min-width: 0;
-  overflow-wrap: break-word; /* the text is already cut at a word in `clampAtWord`; this only guards one long token */
+  /* Bounded by width, not characters: two lines, then an ellipsis. `clampAtWord` has already cut at a word. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: break-word;
   font-size: var(--vx-text-sm);
   color: var(--vx-muted);
 }

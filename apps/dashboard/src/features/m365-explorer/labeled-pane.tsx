@@ -13,7 +13,7 @@ export type LabeledPaneProps = {
   /** The last failed remove, shown above the groups. */
   error: string | null
   /** The pane's own title; omitted where a Section title above already names it. */
-  title?: string
+  title?: string | undefined
   onOpen: (label: LabelLite) => void
   onRemove: (sourceId: string) => void
 }

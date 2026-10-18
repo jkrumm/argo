@@ -95,16 +95,17 @@ export function chatKindCounts(rows: ReadonlyArray<{ chatType: ChatType }>): {
   oneOnOne: number
   group: number
   meeting: number
+  /** Any kind the API adds later, so the kinds always sum to the row count. */
+  other: number
 } {
-  let oneOnOne = 0
-  let group = 0
-  let meeting = 0
+  const counts = { oneOnOne: 0, group: 0, meeting: 0, other: 0 }
   for (const r of rows) {
-    if (r.chatType === 'oneOnOne') oneOnOne++
-    else if (r.chatType === 'group') group++
-    else if (r.chatType === 'meeting') meeting++
+    if (r.chatType === 'oneOnOne') counts.oneOnOne++
+    else if (r.chatType === 'group') counts.group++
+    else if (r.chatType === 'meeting') counts.meeting++
+    else counts.other++
   }
-  return { oneOnOne, group, meeting }
+  return counts
 }
 
 export type LabelLite = {
@@ -258,14 +259,26 @@ export function headlineOf(h: {
   }
 }
 
-/** The team holding the most channels (first wins a tie); `null` without a loaded channel. */
+/**
+ * The team holding the most channels (first wins a tie). `null` until every team has loaded, so a
+ * partial list never names a winner, and `null` when no team has a channel.
+ */
 export function largestTeam(
-  teams: ReadonlyArray<{ name: string; channels: number }>,
+  teams: ReadonlyArray<{ name: string; state: ChannelState; channels: number }>,
 ): { name: string; channels: number } | null {
   let best: { name: string; channels: number } | null = null
-  for (const t of teams)
-    if (t.channels > 0 && (best === null || t.channels > best.channels)) best = t
+  for (const t of teams) {
+    if (t.state !== 'loaded') return null
+    if (t.channels > 0 && (best === null || t.channels > best.channels)) {
+      best = { name: t.name, channels: t.channels }
+    }
+  }
   return best
+}
+
+/** The labeled pane's own title: the tag in view, or the whole set for All and the Labeled chip. */
+export function labeledPaneTitle(tag: string): string {
+  return tag === '' || tag === LABELED_FILTER ? 'Labeled sources' : `Labeled sources · ${tag}`
 }
 
 export type ChipCounts = {

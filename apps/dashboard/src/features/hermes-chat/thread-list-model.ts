@@ -113,7 +113,7 @@ function startOfDay(ms: number): number {
 }
 
 /** Midnight six days before today: the start of the 7-day window that includes today. */
-function startOfWeek(now: number): number {
+function weekWindowStart(now: number): number {
   const d = new Date(startOfDay(now))
   d.setDate(d.getDate() - 6)
   return d.getTime()
@@ -122,7 +122,7 @@ function startOfWeek(now: number): number {
 function groupOf(entry: ThreadEntry, now: number): GroupKey {
   if (entry.pinned) return 'pinned'
   if (entry.updatedAt >= startOfDay(now)) return 'today'
-  if (entry.updatedAt >= startOfWeek(now)) return 'week'
+  if (entry.updatedAt >= weekWindowStart(now)) return 'week'
   return 'earlier'
 }
 
@@ -277,14 +277,16 @@ export function summarize(entries: readonly ThreadEntry[], now: number): ThreadS
     untitled: entries.filter((entry) => isUntitled(entry, now)).length,
     pinned: entries.filter((entry) => entry.pinned).length,
     today: entries.filter((entry) => entry.updatedAt >= today).length,
-    week: entries.filter((entry) => entry.updatedAt >= startOfWeek(now)).length,
+    week: entries.filter((entry) => entry.updatedAt >= weekWindowStart(now)).length,
     lastReply: newest === null ? null : listTime(newest, now),
   }
 }
 
 /**
  * The headline: activity (`{n} active today, {m} in the last 7 days`), with untitled, pinned and the
- * last reply as facts. The thread total is the `All` chip's figure and is not printed here.
+ * last reply as facts. The activity counts cover every non-archived thread, including the untitled
+ * ones the list folds away (the `untitled` fact names them). The thread total is the `All` chip's
+ * figure and is not printed here.
  */
 export function summaryHeadline(summary: ThreadSummary): { sentence: string; facts: string[] } {
   return {
@@ -337,12 +339,15 @@ export function listEndNote(
 
 const SUMMARY_MAX_CHARS = 110
 
-/** A summary cut at a word boundary with an ellipsis, never mid-word; short text passes through. */
+/**
+ * A summary cut at a word boundary with an ellipsis; short text passes through with whitespace
+ * collapsed. Only a single token longer than `max` is cut mid-word, as there is no boundary to use.
+ */
 export function clampAtWord(text: string, max: number = SUMMARY_MAX_CHARS): string {
   const flat = text.replace(/\s+/g, ' ').trim()
   if (flat.length <= max) return flat
   const cut = flat.slice(0, max + 1)
   const space = cut.lastIndexOf(' ')
-  const head = (space > 0 ? cut.slice(0, space) : flat.slice(0, max)).replace(/[\s,;:.\-–—]+$/, '')
-  return `${head}…`
+  const atWord = (space > 0 ? cut.slice(0, space) : '').replace(/[\s,;:.\-–—]+$/, '')
+  return `${atWord === '' ? flat.slice(0, max) : atWord}…`
 }
