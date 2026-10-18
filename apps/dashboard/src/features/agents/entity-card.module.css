@@ -68,12 +68,11 @@
   text-overflow: ellipsis;
 }
 
+/* A unit can carry a phrase (`agents · longest 3 d 4 h`): it wraps at its spaces, never cut. */
 .unit {
-  white-space: nowrap;
+  min-width: 0;
   font-size: var(--vx-text-sm);
   color: var(--vx-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .visual {
