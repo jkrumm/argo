@@ -1,7 +1,7 @@
 import {
   createContext,
   useContext,
-  useEffect,
+  useLayoutEffect,
   useState,
   useSyncExternalStore,
   type ReactNode,
@@ -56,16 +56,19 @@ export function GapLedgerProvider({ children }: { children: ReactNode }) {
 
 /**
  * The form this surface prints for its gap: `allocateForms` over every surface registered on the
- * page plus this one (so the first paint is already right for the surfaces above it). Outside a
- * provider there is nothing to share with, so the surface leads.
+ * page plus this one. Surfaces register in a layout effect, so the corrected allocation commits
+ * before paint and two surfaces never paint the full form together. Arrival order is the tradeoff:
+ * a gap that arrives later but leads in reading order takes the full form from one already shown
+ * (the cadence moves, it never repeats). Outside a provider the surface leads.
  */
 export function useGapForm(order: number, gap: Gap | null | undefined): GapForm {
   const ledger = useContext(LedgerContext)
   const entries = useSyncExternalStore(ledger?.subscribe ?? noSubscribe, ledger?.get ?? noEntries)
   const short = gap?.short
   const full = gap?.full
-  useEffect(() => {
-    if (ledger === null || short === undefined || full === undefined) return
+  useLayoutEffect(() => {
+    // Only a line that can carry the cadence competes for the slot.
+    if (ledger === null || short === undefined || full === undefined || full === null) return
     ledger.set(order, { short, full })
     return () => ledger.set(order, null)
   }, [ledger, order, short, full])

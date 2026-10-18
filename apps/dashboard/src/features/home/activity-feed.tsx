@@ -109,13 +109,14 @@ export function ActivityFeed({ groups, total, stale, loaded, failed, pending, no
 
 function FeedRow({ event: e }: { event: ActivityEvent }) {
   const parts = rowParts(e)
+  const time = clockTime(new Date(e.ms).toISOString())
   const text = parts.map((p) => p.text).join(' · ')
   const part = (kind: RowPart['kind']) => parts.find((p) => p.kind === kind)
   const detail = part('detail')
   const outcome = part('outcome')
   const chip = part('chip')
   return (
-    <div role="listitem" className={classes.feedRow} title={text} aria-label={text}>
+    <div role="listitem" className={classes.feedRow} title={text} aria-label={`${text} · ${time}`}>
       <Text component="span" size="sm" className={classes.feedSentence}>
         <span className={classes.feedLead}>
           <span className={classes.feedActor}>{e.actor}</span> {e.title}
@@ -135,7 +136,7 @@ function FeedRow({ event: e }: { event: ActivityEvent }) {
           </Badge>
         ) : null}
       </Text>
-      <span className={classes.feedTime}>{clockTime(new Date(e.ms).toISOString())}</span>
+      <span className={classes.feedTime}>{time}</span>
     </div>
   )
 }
