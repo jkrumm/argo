@@ -2,6 +2,7 @@
  * Pure derivations for the body-composition page. Every figure a sentence repeats is computed here
  * once, so the summary line, the strip cells and the chart header read the same number.
  */
+import { NBSP } from '../../lib/format'
 import type { SkinfoldSite } from '../../lib/queries/skinfold-log'
 import { compareByDate, MEAN_DAYS, trailingMean, type SkinfoldPoint } from './charts/series-data'
 import { SKINFOLD_SITES } from './constants'
@@ -42,16 +43,6 @@ export function daysBetween(fromKey: string, toKey: string): number {
 /** The newest `date` in a series, or `null` when it is empty. */
 export function latestDate(points: readonly { date: string }[]): string | null {
   return points.reduce<string | null>((m, p) => (m === null || p.date > m ? p.date : m), null)
-}
-
-/** Calendar days from the oldest to the newest entry, inclusive; 0 with none. */
-export function entrySpanDays(points: readonly { date: string }[]): number {
-  const first = points.reduce<string | null>(
-    (m, p) => (m === null || p.date < m ? p.date : m),
-    null,
-  )
-  const last = latestDate(points)
-  return first === null || last === null ? 0 : daysBetween(first, last) + 1
 }
 
 /** Days since the newest entry; `null` when there is none. Never negative. */
@@ -154,7 +145,6 @@ export function summaryParts({
   ageDays,
   latestKey,
   entries,
-  entrySpanDays,
 }: {
   current: number | null
   kgPerWeek: number | null
@@ -164,10 +154,8 @@ export function summaryParts({
   ageDays: number | null
   /** The newest weigh-in's day; dates the rate window when the weigh-in is not recent. */
   latestKey?: string | null
-  /** Weigh-ins in the window; a fact the strip does not show. */
+  /** Weigh-ins in the selected window; a fact the strip does not show. */
   entries: number
-  /** Calendar days from the first to the last weigh-in; states the count's span. */
-  entrySpanDays: number
 }): { sentence: string; facts: string[] } {
   if (current === null) return { sentence: 'No weigh-ins in this window', facts: [] }
   const span =
@@ -182,7 +170,7 @@ export function summaryParts({
   return {
     sentence,
     facts: [
-      entriesFact(entries, entrySpanDays),
+      entriesFact(entries),
       ...(ageDays === null
         ? []
         : [`last weigh-in ${ageLabel(ageDays)}${isStale(ageDays) ? ' · stale' : ''}`]),
@@ -190,11 +178,9 @@ export function summaryParts({
   }
 }
 
-/** "12 weigh-ins in 40 d": the count with the span it covers, so it never reads as the rate's span. */
-function entriesFact(entries: number, spanDays: number): string {
-  const noun = entries === 1 ? 'weigh-in' : 'weigh-ins'
-  return spanDays > 1 ? `${entries} ${noun} in ${spanDays} d` : `${entries} ${noun}`
-}
+/** "12 weigh-ins": the count in the selected window, which the page already names. */
+const entriesFact = (entries: number): string =>
+  `${entries} ${entries === 1 ? 'weigh-in' : 'weigh-ins'}`
 
 /** The headline's opening clause: the trend over its window, or that there is none yet. */
 function rateClause({ kgPerWeek, span }: { kgPerWeek: number | null; span: string }): string {
@@ -350,8 +336,8 @@ export function intensityTier(rate: number): IntensityTier {
  */
 function paceFooter(rate: number): string {
   const { tier, band } = intensityTier(rate)
-  if (tier === 'maintenance') return `Under ${RATE_NEUTRAL_KG_WK} kg/wk either way`
-  return `${TIER_NAME[tier]} pace, ${rate < 0 ? 'losing' : 'gaining'} ${band}`
+  if (tier === 'maintenance') return `Under ${RATE_NEUTRAL_KG_WK}${NBSP}kg/wk either way`
+  return `${TIER_NAME[tier]} pace, ${rate < 0 ? 'losing' : 'gaining'} ${band.replaceAll(' ', NBSP)}`
 }
 
 /** The day-based means and slopes the strip and the chart header both state. */

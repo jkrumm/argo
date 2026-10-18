@@ -6,6 +6,7 @@ import { Box } from '@mantine/core'
 import { DeltaBadge, Meter, type StatStripCell } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
 import { format } from 'date-fns'
+import { NBSP } from '../../../lib/format'
 import { SERIES } from '../../../lib/series'
 import { skinfoldDirectionLabel } from '../formulas'
 import {
@@ -63,7 +64,7 @@ export function weightCell({
           value={delta}
           polarity={weightDeltaPolarity(summary.current, goal)}
           format={(v) => withKg(Math.abs(v))}
-          period="30 d mean"
+          period={`30${NBSP}d${NBSP}mean`}
         />
       ),
     }),
@@ -87,7 +88,7 @@ export function weightCell({
     footer: (
       <>
         <span>
-          7 d mean {fixed(stats.mean7)}&nbsp;kg · 30 d mean {fixed(stats.mean30)}&nbsp;kg
+          7{NBSP}d{NBSP}mean {fixed(stats.mean7)}&nbsp;kg
         </span>
         {goal === null && (
           <Box pt="xs">
@@ -118,7 +119,7 @@ export function rateCell({
   return {
     key: 'rate',
     caption: 'Rate',
-    qualifier: `${rateDays} d slope to ${dateLabel(latestDate) ?? 'latest entry'}`,
+    qualifier: `${rateDays}${NBSP}d slope to ${dateLabel(latestDate) ?? 'latest entry'}`,
     value: rate === null ? null : signed(rate, 2),
     unit: 'kg/wk',
     visual: (
@@ -133,7 +134,7 @@ export function rateCell({
           {
             from: -RATE_NEUTRAL_KG_WK,
             to: RATE_NEUTRAL_KG_WK,
-            label: `Maintenance \u00b1${RATE_NEUTRAL_KG_WK}`,
+            label: `Maintenance \u00b1${RATE_NEUTRAL_KG_WK}${NBSP}kg/wk`,
           },
           { from: RATE_NEUTRAL_KG_WK, to: RATE_SCALE_KG_WK, label: 'Bulk' },
         ]}

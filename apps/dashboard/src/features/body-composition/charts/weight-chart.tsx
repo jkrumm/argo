@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { weightLogQueries, type WeightLogWindowParams } from '../../../lib/queries/weight-log'
+import { NBSP } from '../../../lib/format'
 import { METRIC_TOOLTIPS } from '../constants'
 import { weightHeaderFact, windowLabel, windowDays, withKg } from '../model'
 import { markerRadiusFor, toWeightChartPoints, type WeightChartPoint } from './series-data'
@@ -43,7 +44,7 @@ export default function WeightChart({
     },
     {
       key: 'ma',
-      label: '7 d mean',
+      label: `7${NBSP}d${NBSP}mean`,
       color: VX.line,
       dash: 'dashed',
       strokeWidth: 1.5,
