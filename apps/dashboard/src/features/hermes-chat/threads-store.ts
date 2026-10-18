@@ -437,9 +437,9 @@ export function useHermesThreads(): HermesThreadsStore {
   // on `hydrated`, see chat-page.tsx) finds a real last-user-message to resume
   // from. Every later refetch only merges metadata (see `mergeServerThreads`).
   useEffect(() => {
+    if (listQuery.data === undefined) return
     // `shot-state=empty`: the page renders its real no-threads branch.
-    const rows = shotState() === 'empty' ? (listQuery.data ? [] : undefined) : listQuery.data?.data
-    if (rows === undefined) return
+    const rows = shotState() === 'empty' ? [] : listQuery.data.data
 
     if (hydratedRef.current) {
       setThreadsMap((prev) => mergeServerThreads(prev, rows))

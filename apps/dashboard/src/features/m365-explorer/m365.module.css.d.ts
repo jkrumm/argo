@@ -9,6 +9,7 @@ declare const classes: {
   readonly pane: string
   readonly paneBody: string
   readonly phonePane: string
+  readonly labeledPane: string
   readonly paneScroll: string
   readonly toolbar: string
   readonly chip: string
