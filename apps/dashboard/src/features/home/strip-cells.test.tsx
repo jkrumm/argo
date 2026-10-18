@@ -52,6 +52,19 @@ describe('budget cell gap per Warden feed', () => {
     expect((cell.visual as ReactElement<{ children: string }>).props.children).toBe('Loading')
   })
 
+  it('keeps a known count when the cap is missing: value stays, the footer names the gap', () => {
+    const cell = budgetCell(
+      { usedToday: 3 } as never,
+      { name: 'loop', ageMin: 4, stale: false },
+      'ready',
+    )
+    if (cell.value === null) throw new Error('expected the count to survive')
+    expect(cell.value).toBe('3')
+    expect(cell.state).toBeUndefined()
+    expect(cell.visual).toBeUndefined()
+    expect(JSON.stringify(cell.footer)).toContain(BUDGET_MISSING.short)
+  })
+
   it('keeps the budget-missing wording for a snapshot that omits the budget', () => {
     expect(gap('ready')).toBe(BUDGET_MISSING.short)
   })

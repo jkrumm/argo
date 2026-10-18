@@ -85,6 +85,34 @@ describe('todayAgenda cancelled meetings', () => {
     expect(meetingCell(agenda, next, null, NOW_T).footer).toBe('{live} · 1 remaining')
   })
 
+  it('trusts the API flag over the title: isCancelled without a prefix is excluded, false with one stays', () => {
+    const NOW_T = Date.parse(at(9))
+    const agenda = todayAgendaOf(
+      [
+        [
+          event({ id: 'flag', title: '{a}', start: at(10), end: at(11), isCancelled: true }),
+          event({
+            id: 'kept',
+            title: 'Canceled: {b}',
+            start: at(12),
+            end: at(13),
+            isCancelled: false,
+          }),
+        ],
+      ],
+      NOW_T,
+    )
+    expect(agenda.meetings.map((m) => m.key)).toEqual(['kept'])
+  })
+
+  it('drops a cancelled all-day event too', () => {
+    const agenda = todayAgendaOf(
+      [[event({ id: 'ad', title: 'Canceled: {x}', isAllDay: true, start: at(0), end: at(23) })]],
+      Date.parse(at(9)),
+    )
+    expect(agenda.allDay).toEqual([])
+  })
+
   it('skips a cancelled meeting as the next one after today', () => {
     const feeds = [
       {
