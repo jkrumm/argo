@@ -277,7 +277,7 @@ export function deriveBudgetFooter(budget: WardenBudget | undefined): BudgetFoot
 }
 
 /** How often Warden pushes a snapshot to Argo. */
-export const WARDEN_PUSH_MIN = 10
+const WARDEN_PUSH_MIN = 10
 
 /** What a missing budget says: the cause is on warden's side, the fix is its next push. */
 export const BUDGET_MISSING = {
@@ -576,30 +576,41 @@ export function sinceSnapshotMs(receivedAt: string | null, now: number): number 
   return Number.isFinite(received) ? Math.max(0, now - received) : 0
 }
 
-/** `waiting {duration}`; under a minute `waiting <1 min`, never `waiting 0 min` (a measured zero is not a wait). */
-function waitingFact(ms: number): string {
-  return `waiting ${ms < 60_000 ? formatDuration(1) : formatDuration(ms)}`
+/** A wait shorter than this reads `<1 min`, never `0 min`. */
+const MINUTE_MS = 60_000
+const WAITING_UNDER_A_MINUTE = `waiting <${NBSP}1${NBSP}min`
+
+/** Milliseconds since the latest history line; 0 when the item has none or its time is unreadable. */
+export function latestHistoryAgeMs(history: readonly TransitionLine[], now: number): number {
+  const at = Date.parse(history.at(-1)?.at ?? '')
+  return Number.isFinite(at) ? Math.max(0, now - at) : 0
+}
+
+/** What a card's wait is measured against, beyond the snapshot's own `age_days`. */
+export type WaitClock = {
+  /** Time since the snapshot was received: `age_days` is frozen at the push. */
+  elapsedMs: number
+  /** Age of the latest history line, on the live clock. The wait is never shorter than it. */
+  historyAgeMs: number
 }
 
 /**
  * The repo (first, so `capFacts` never drops it) plus `waiting {d} d {h} h` (the app's one duration spelling) and the item's history.
- * `ageDays` is frozen at the snapshot's push, so `sinceSnapshotMs` (live clock minus the push time) carries it
- * to now — the same clock the history's `{n} min ago` reads.
+ * The snapshot row carries no state-entry timestamp, only `age_days` (frozen at the push), so the
+ * wait is `age_days` carried to now and floored at the age of the history line beside it: the two
+ * facts on one card can never disagree (`waiting <1 min` next to `3 min ago`).
  */
 export function cardFacts(
   row: AwaitingOwnerRow,
   repo = stripShortcodes(asText(row.repo)),
-  sinceSnapshotMs = 0,
+  clock: WaitClock = { elapsedMs: 0, historyAgeMs: 0 },
 ): DecisionCardFact[] {
-  const waiting =
-    row.ageDays === null
-      ? ''
-      : row.ageDays > WAIT_WARN_DAYS
-        ? {
-            text: waitingFact(row.ageDays * DAY_MS + sinceSnapshotMs),
-            tone: 'warn' as const,
-          }
-        : waitingFact(row.ageDays * DAY_MS + sinceSnapshotMs)
+  let waiting: DecisionCardFact = ''
+  if (row.ageDays !== null) {
+    const waitMs = Math.max(row.ageDays * DAY_MS + clock.elapsedMs, clock.historyAgeMs)
+    const text = waitMs < MINUTE_MS ? WAITING_UNDER_A_MINUTE : `waiting ${formatDuration(waitMs)}`
+    waiting = waitMs > WAIT_WARN_DAYS * DAY_MS ? { text, tone: 'warn' } : text
+  }
   return [repo, waiting, historyFact(row)].filter((part) => part !== '')
 }
 

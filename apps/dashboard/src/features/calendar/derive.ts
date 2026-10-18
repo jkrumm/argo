@@ -194,6 +194,22 @@ export function dayLoad(
 export const nothingBooked = (load: readonly DayLoad[]): boolean =>
   load.length > 0 && load.every((day) => day.bookedMin === 0)
 
+/**
+ * True when the whole window the empty-window sentence claims holds nothing: every day of this week
+ * (past days included) and the next days, timed rows (cancelled ones too, they are listed) and
+ * all-day items alike. An unanswered calendar is never empty. `nextKeys` are the days after today.
+ */
+export function isEmptyWindow(
+  events: readonly CalendarItem[],
+  summary: Pick<AgendaSummary, 'incomplete' | 'weekKeys'>,
+  nextKeys: readonly DayKey[],
+): boolean {
+  if (summary.incomplete) return false
+  return [...summary.weekKeys, ...nextKeys].every(
+    (key) => agendaDay(events, key).rows.length === 0 && allDayEvents(events, key).length === 0,
+  )
+}
+
 export type SourceSplit = Record<SourceClass, number>
 
 /**

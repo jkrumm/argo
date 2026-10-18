@@ -5,6 +5,7 @@ import { waitingOnOwner, type AwaitingOwnerRow, type AwaitingOwnerView } from '.
 import { formatDuration } from '../../lib/format'
 import {
   cardFacts,
+  latestHistoryAgeMs,
   sinceSnapshotMs,
   deferredNote,
   deriveBoardColumns,
@@ -480,8 +481,9 @@ describe('cardFacts glue', () => {
 
 describe('cardFacts waiting boundaries', () => {
   const MIN = 60_000
-  const waitingAt = (ageDays: number, sinceMs = 0) =>
-    cardFacts(row({ ageDays }), 'repo-a', sinceMs)[1]
+  const DAY = 86_400_000
+  const waitingAt = (ageDays: number, elapsedMs = 0, historyAgeMs = 0) =>
+    cardFacts(row({ ageDays }), 'repo-a', { elapsedMs, historyAgeMs })[1]
   it('never reads a zero: under a minute is `<1 min`', () => {
     expect(waitingAt(0)).toBe('waiting <\u00a01\u00a0min')
     expect(waitingAt(0, 59_000)).toBe('waiting <\u00a01\u00a0min')
@@ -490,13 +492,34 @@ describe('cardFacts waiting boundaries', () => {
     expect(waitingAt(0, MIN)).toBe('waiting 1\u00a0min')
     expect(waitingAt(0, 5 * MIN)).toBe('waiting 5\u00a0min')
   })
-  it('the waiting fact and the history age of one row agree on the live clock', () => {
+  it('ageDays 0 carried by the time since the push', () => {
     const receivedAt = new Date(1_000_000).toISOString()
-    const now = 1_000_000 + 3 * MIN
+    expect(waitingAt(0, sinceSnapshotMs(receivedAt, 1_000_000 + 3 * MIN))).toBe(
+      'waiting 3\u00a0min',
+    )
+  })
+  it('is never shorter than the history line beside it', () => {
     const transitionAt = new Date(1_000_000).toISOString()
-    const waiting = waitingAt(0, sinceSnapshotMs(receivedAt, now))
-    expect(waiting).toBe('waiting 3\u00a0min')
+    const now = 1_000_000 + 3 * MIN
+    const historyAgeMs = latestHistoryAgeMs(
+      [{ from: null, to: 'needs_decision', at: transitionAt }],
+      now,
+    )
+    // The push arrived after the transition: age_days 0, elapsed 10 s, yet the history says 3 min.
+    expect(waitingAt(0, 10_000, historyAgeMs)).toBe('waiting 3\u00a0min')
     expect(historyAge(transitionAt, now)).toBe('3\u00a0min\u00a0ago')
+  })
+  it('the history floor is 0 without a readable line', () => {
+    expect(latestHistoryAgeMs([], 10)).toBe(0)
+    expect(latestHistoryAgeMs([{ from: null, to: 'new', at: 'nope' }], 10)).toBe(0)
+  })
+  it('the warn tone follows the displayed wait', () => {
+    expect(waitingAt(2)).toBe('waiting 2\u00a0d')
+    expect(waitingAt(2, 0, 2 * DAY + 60 * MIN)).toEqual({
+      text: 'waiting 2\u00a0d\u00a01\u00a0h',
+      tone: 'warn',
+    })
+    expect(waitingAt(2, 60 * MIN)).toEqual({ text: 'waiting 2\u00a0d\u00a01\u00a0h', tone: 'warn' })
   })
   it('sinceSnapshotMs is 0 for an unknown or future receipt', () => {
     expect(sinceSnapshotMs(null, 10)).toBe(0)

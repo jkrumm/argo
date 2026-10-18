@@ -10,6 +10,7 @@ import {
   bookedBySourceClass,
   bookedMinOnDay,
   isCancelled,
+  isEmptyWindow,
   nothingBooked,
   agendaDay,
   dayHeadLabel,
@@ -445,5 +446,32 @@ describe('cancelled meetings', () => {
       },
     })
     expect(allDayEvents([allDay('Abgesagt: x'), allDay('x')], D)).toHaveLength(1)
+  })
+})
+
+describe('isEmptyWindow', () => {
+  const now = new Date(2026, 9, 14, 11, 0, 0)
+  const nextKeys = Array.from({ length: 7 }, (_, i) => addDays(D, i + 1))
+  const empty = (events: CalendarItem[], unknown: ReadonlySet<'work' | 'personal'> = new Set()) =>
+    isEmptyWindow(events, agendaSummary(events, now, unknown), nextKeys)
+
+  test('nothing anywhere is empty', () => {
+    expect(empty([])).toBe(true)
+  })
+  test('an all-day item on an earlier day of this week is not empty', () => {
+    expect(empty([ev('mon', '2026-10-12', '2026-10-13', { isAllDay: true })])).toBe(false)
+  })
+  test('a timed event earlier this week, today or in the next 7 days is not empty', () => {
+    expect(empty([ev('a', at('2026-10-12', '09:00'), at('2026-10-12', '10:00'))])).toBe(false)
+    expect(empty([ev('b', at(D, '15:00'), at(D, '16:00'))])).toBe(false)
+    expect(empty([ev('c', at('2026-10-21', '09:00'), at('2026-10-21', '10:00'))])).toBe(false)
+  })
+  test('an unanswered calendar is never empty', () => {
+    expect(empty([], new Set(['personal']))).toBe(false)
+  })
+  test('an event beyond the window (9+ days out) leaves it empty, and stays the next event', () => {
+    const far = [ev('far', at('2026-10-23', '10:00'), at('2026-10-23', '11:00'))]
+    expect(empty(far)).toBe(true)
+    expect(agendaSummary(far, now).next).not.toBeNull()
   })
 })

@@ -4,7 +4,7 @@ import { Anchor, Box, Card, Stack, Text } from '@mantine/core'
 import { Section, StatGroup, PageSummary } from 'basalt-ui'
 import { format } from 'date-fns'
 import type { SourceClass } from '../../lib/queries/calendar'
-import { summaryParts, todayCardState } from './summary'
+import { EMPTY_WINDOW, summaryParts, todayCardState } from './summary'
 import { feedGap } from './query-state'
 import { useNow } from '../../lib/use-now'
 import classes from './agenda.module.css'
@@ -18,8 +18,8 @@ import {
   dayLoad,
   agendaDay,
   keyToDate,
+  isEmptyWindow,
   longestFreeBlock,
-  nothingBooked,
   tasksDue,
   type CalendarItem,
   type DayKey,
@@ -58,6 +58,7 @@ export function AgendaView({
     for (const key of nextKeys) allDay[key] = allDayEvents(events, key)
     return {
       summary,
+      nextKeys,
       free: summary.incomplete ? null : longestFreeBlock(events, todayKey, now),
       today: agendaDay(events, todayKey),
       todayAllDay: allDayEvents(events, todayKey),
@@ -73,13 +74,7 @@ export function AgendaView({
   const { summary, free } = model
   const gap = feedGap(unknown, failed)
   // One gap across the strip, the next days and the headline: the whole window holds nothing.
-  const emptyWindow =
-    !summary.incomplete &&
-    summary.todayCount === 0 &&
-    nothingBooked(model.load) &&
-    model.nextCount === 0 &&
-    model.todayAllDay.length === 0 &&
-    Object.values(model.allDay).every((chips) => chips.length === 0)
+  const emptyWindow = isEmptyWindow(events, summary, model.nextKeys) ? EMPTY_WINDOW : null
   const parts = summaryParts(summary, gap, emptyWindow)
   const todayState = todayCardState(model.today.rows.length, summary.incomplete)
   return (
@@ -175,11 +170,7 @@ export function AgendaView({
                     caption: 'Longest free block',
                     qualifier: 'today',
                     // A measured zero (the day is over) is `0 min`; a dash only where the feed is unknown.
-                    value: free
-                      ? formatMinutes(free.minutes)
-                      : summary.incomplete
-                        ? null
-                        : formatMinutes(0),
+                    value: summary.incomplete ? null : formatMinutes(free?.minutes ?? 0),
                     footer: gap
                       ? gap.card
                       : free

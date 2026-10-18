@@ -2,14 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import type { CalendarEventPayload } from '../../lib/queries/calendar'
 import { agendaSummary, type CalendarItem } from './derive'
 import { feedGap } from './query-state'
-import {
-  EMPTY_WINDOW_SENTENCE,
-  EMPTY_WINDOW_SHORT,
-  countdown,
-  summaryParts,
-  todayCardState,
-  untilLabel,
-} from './summary'
+import { EMPTY_WINDOW, countdown, summaryParts, todayCardState, untilLabel } from './summary'
 
 const D = '2026-10-14'
 const ev = (id: string, start: string, end: string): CalendarItem => ({
@@ -28,17 +21,23 @@ const events = [
 
 describe('summaryParts empty window', () => {
   test('the headline carries the full sentence once; its leading clause is the short form', () => {
-    const { sentence, facts } = summaryParts(agendaSummary([], now), null, true)
-    expect(sentence).toBe(EMPTY_WINDOW_SENTENCE)
-    expect(sentence.startsWith(EMPTY_WINDOW_SHORT)).toBe(true)
+    const { sentence, facts } = summaryParts(agendaSummary([], now), null, EMPTY_WINDOW)
+    expect(sentence).toBe(EMPTY_WINDOW.sentence)
+    expect(sentence.startsWith(EMPTY_WINDOW.short)).toBe(true)
     expect(sentence.match(/Google or Microsoft 365/g)).toHaveLength(1)
     expect(facts).toEqual([])
   })
+  test('a meeting beyond the window keeps its countdown fact', () => {
+    const far = [ev('far', '2026-10-23 10:00:00', '2026-10-23 11:00:00')]
+    const summary = agendaSummary(far, now)
+    expect(summary.next).not.toBeNull()
+    expect(summaryParts(summary, null, EMPTY_WINDOW).facts).toEqual([countdown(summary)])
+  })
   test('an unanswered calendar is still the gap, never the empty window', () => {
     const loading = { state: 'loading' as const, text: 'Loading calendar', card: 'Loading' }
-    expect(summaryParts(agendaSummary([], now, new Set(['work'])), loading, true).sentence).toBe(
-      'Loading calendar',
-    )
+    expect(
+      summaryParts(agendaSummary([], now, new Set(['work'])), loading, EMPTY_WINDOW).sentence,
+    ).toBe('Loading calendar')
   })
 })
 
