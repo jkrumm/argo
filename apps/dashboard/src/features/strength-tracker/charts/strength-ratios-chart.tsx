@@ -59,13 +59,7 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
       state={{ empty: !hasData && 'Need data for multiple lifts' }}
       placeholderHeight={180}
     >
-      <Stack
-        gap="md"
-        p="md"
-        data-shot="strength-balance"
-        data-shot-states="loading error"
-        data-shot-absent="empty"
-      >
+      <Stack gap="md" p="md" data-shot="strength-balance" data-shot-absent="empty loading error">
         {ratios.map((pair) => {
           const [lo, hi] = pair.range
           const offset = bandOffset(pair.ratio, pair.range)
