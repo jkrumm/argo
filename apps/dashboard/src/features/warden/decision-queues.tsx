@@ -8,7 +8,6 @@ import classes from '../../components/upstream/decision-card.module.css'
 import { HistoryPreview } from './history-preview'
 import { DecisionCard, type DecisionCardAction } from '../../components/upstream/decision-card'
 import { capFacts } from '../../components/upstream/decision-card-model'
-import { softBreaks } from '../../lib/text'
 import { ActionPromptModal } from './action-prompt'
 import { VERB_LABEL, needsPrompt, type PromptState, type PromptVerb } from './action-verbs'
 import {
@@ -18,12 +17,11 @@ import {
   type PendingActions,
 } from './model'
 import {
-  askCopy,
+  wardenAsk,
   cardCategory,
   cardFacts,
   historyView,
   needsCards,
-  planActions,
   recentTransitions,
   type TransitionHistory,
   type QueueKind,
@@ -44,7 +42,7 @@ type Props = {
 function FullAsk({ text }: { text: string }) {
   return (
     <Text size="sm" className={classes.wrap}>
-      {softBreaks(text)}
+      {text}
     </Text>
   )
 }
@@ -73,37 +71,41 @@ function QueueCard({
   onFire: (verb: WardenActionVerb) => void
   onSelectItem: () => void
 }) {
-  const plan = planActions(row.availableActions, kind)
+  const { plan, tag, copy, repoNamed } = wardenAsk(
+    {
+      eventId: row.eventId,
+      repo: row.repo,
+      title: row.title,
+      reason: row.reason,
+      question: row.question,
+      availableActions: row.availableActions,
+    },
+    kind,
+  )
   const toAction = (verb: WardenActionVerb): DecisionCardAction => ({
     label: VERB_LABEL[verb],
     onClick: () => onFire(verb),
     disabled: pending !== undefined,
   })
-  // Primary and secondary are the first two offered verbs; the timeline is always an action, so a
-  // card with one verb (or none) still has a second (or first) one and never reads as dead.
   const timeline: DecisionCardAction = {
     label: 'Timeline',
     onClick: onSelectItem,
     icon: <IconListDetails size={14} />,
   }
-  const [primary, secondary, ...menu] = [
-    ...(plan.primary ? [toAction(plan.primary)] : []),
-    ...(plan.secondary ? [toAction(plan.secondary)] : []),
-    timeline,
+  // Slots are explicit. The card's own verbs fill primary and secondary in that order. The timeline
+  // is always an action: it takes the first slot nothing else fills, and otherwise sits in the menu.
+  const primary = plan.primary === null ? timeline : toAction(plan.primary)
+  const secondary =
+    plan.primary === null
+      ? undefined
+      : plan.secondary === null
+        ? timeline
+        : toAction(plan.secondary)
+  const menu = [
+    ...(plan.primary !== null && plan.secondary !== null ? [timeline] : []),
     ...plan.menu.map(toAction),
   ]
-
-  const ask = askCopy({
-    eventId: row.eventId,
-    title: row.title,
-    reason: row.reason,
-    failed: kind === 'failed',
-    question: row.question,
-    repo: row.repo,
-    primary: plan.primary,
-  })
-  const { copy } = ask
-  const category = cardCategory(kind, ask.tag, row.failureClass)
+  const category = cardCategory(kind, tag, row.failureClass)
   const status =
     category !== null ? (
       <StatusChip label={category} />
@@ -116,12 +118,12 @@ function QueueCard({
     <Box data-shot={`${kind}-${row.eventId}`}>
       <DecisionCard
         question={copy.question}
-        facts={capFacts(cardFacts(row))}
+        facts={capFacts(cardFacts(row, repoNamed))}
         status={status}
         actor={
-          ask.entity !== null ? (
+          copy.entity !== null ? (
             <Text component="span" fz="xs" className={classes.wrap}>
-              {softBreaks(ask.entity)}
+              {copy.entity}
             </Text>
           ) : undefined
         }

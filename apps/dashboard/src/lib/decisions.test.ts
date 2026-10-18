@@ -68,7 +68,7 @@ describe('deriveDecisions', () => {
   it('lists a failed item once even when it is both awaiting and on the board', () => {
     const list = deriveDecisions({
       warden: warden({
-        awaiting_owner: [awaiting({ event_id: 3, state: 'failed' })],
+        awaiting_owner: [awaiting({ event_id: 3, state: 'failed', availableActions: ['retry'] })],
         items: [
           { event_id: 3, state: 'failed', repo: '{repo}', title: '{title}' },
           {
@@ -138,7 +138,9 @@ describe('deriveDecisions', () => {
 
   it('asks a plain question for a failed item and keeps its raw title as the entity', () => {
     const [d] = deriveDecisions({
-      warden: warden({ awaiting_owner: [awaiting({ state: 'failed' })] }),
+      warden: warden({
+        awaiting_owner: [awaiting({ state: 'failed', availableActions: ['retry'] })],
+      }),
       agents: null,
       now: NOW,
     })
@@ -164,6 +166,27 @@ describe('deriveDecisions', () => {
     })
     expect(d?.headline).toBe('Unblock {project} agent?')
     expect(d?.detail).toContain(title.trim())
+  })
+
+  it('reads a producer question that is not a string as none, on every path', () => {
+    for (const junk of [7, {}, ['Merge?'], '   ']) {
+      const list = deriveDecisions({
+        warden: warden({ awaiting_owner: [awaiting({ question: junk })] }),
+        agents: agents({ agents: [agent({ question: junk })] }),
+        now: NOW,
+      })
+      expect(list).toHaveLength(2)
+      for (const d of list) expect(d.headline.endsWith('?')).toBe(true)
+    }
+  })
+
+  it('does not throw on a human-queue ask whose question is not a string', () => {
+    const list = deriveDecisions({
+      warden: null,
+      agents: agents({ humanQueue: [{ id: 'q', question: 5 }] }),
+      now: NOW,
+    })
+    expect(list[0]?.headline).toBe('Answer this request?')
   })
 
   it('uses the question an agent authored, verbatim', () => {

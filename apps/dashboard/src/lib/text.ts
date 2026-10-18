@@ -17,13 +17,30 @@ export function stripShortcodes(text: string): string {
     .trim()
 }
 
+/** Whitespace collapsed to single spaces, ends trimmed. */
+export const flatten = (text: string): string => text.replace(/\s+/g, ' ').trim()
+
+/** The first sentence of a text (up to `.`, `!` or `?` followed by a space or the end), flattened. */
+export function firstSentence(text: string): string {
+  const flat = flatten(text)
+  const stop = flat.search(/[.!?](\s|$)/)
+  return stop === -1 ? flat : flat.slice(0, stop + 1)
+}
+
+/** What follows {@link firstSentence}; `null` when nothing does. */
+export function restAfterFirstSentence(text: string): string | null {
+  const flat = flatten(text)
+  const rest = flat.slice(firstSentence(flat).length).trim()
+  return rest === '' ? null : rest
+}
+
 /**
- * A zero-width space after each separator inside a long identifier (`snake_case`, `a/b`, `a.b`,
- * `a-b`, `a:b`), so a test id or path wraps at a separator instead of mid-word. Display only: the
- * text a reader copies should come from the unbroken source.
+ * A question a producer authored, read defensively off a loose wire object: only a non-blank string
+ * counts (a number, object or array is a producer bug, not a question), shortcodes stripped,
+ * whitespace flattened. Every path that reads a producer `question` goes through this.
  */
-export function softBreaks(text: string): string {
-  return text.replace(/(\S{24,})/g, (token) =>
-    token.replace(/([_/.:-])(?=[^\s_/.:-])/g, '$1\u200b'),
-  )
+export function authoredQuestion(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const clean = stripShortcodes(value)
+  return clean === '' ? null : clean
 }

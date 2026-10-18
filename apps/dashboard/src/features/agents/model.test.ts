@@ -14,7 +14,7 @@ import {
   longestRunMs,
   clockTime,
   feedState,
-  summaryParts,
+  agentsSummaryParts,
   sourceLabel,
   fleetFact,
   hoursWithNeedsYou,
@@ -280,30 +280,30 @@ describe('headlineOf', () => {
 
 // ── summaryParts ────────────────────────────────────────────────────────────
 
-describe('summaryParts', () => {
+describe('agentsSummaryParts', () => {
   it('names who waits without repeating the count, the oldest wait or the fleet', () => {
-    expect(summaryParts({ agentWaits: 2, asks: 1 })).toEqual({
+    expect(agentsSummaryParts({ items: 3, asks: 1 })).toEqual({
       sentence: 'Agents and the human queue are waiting on you.',
       facts: ['2 agents blocked', '1 queued ask'],
     })
   })
 
   it('reads agents alone and asks alone, singular and plural', () => {
-    expect(summaryParts({ agentWaits: 1, asks: 0 })).toEqual({
+    expect(agentsSummaryParts({ items: 1, asks: 0 })).toEqual({
       sentence: 'An agent is waiting on you.',
       facts: ['1 agent blocked'],
     })
-    expect(summaryParts({ agentWaits: 3, asks: 0 }).sentence).toBe('Agents are waiting on you.')
-    expect(summaryParts({ agentWaits: 0, asks: 1 }).sentence).toBe(
+    expect(agentsSummaryParts({ items: 3, asks: 0 }).sentence).toBe('Agents are waiting on you.')
+    expect(agentsSummaryParts({ items: 1, asks: 1 }).sentence).toBe(
       'A request is waiting for your answer.',
     )
-    expect(summaryParts({ agentWaits: 0, asks: 2 }).sentence).toBe(
+    expect(agentsSummaryParts({ items: 2, asks: 2 }).sentence).toBe(
       'Requests are waiting for your answer.',
     )
   })
 
   it('says nothing waits, with no fact', () => {
-    expect(summaryParts({ agentWaits: 0, asks: 0 })).toEqual({
+    expect(agentsSummaryParts({ items: 0, asks: 0 })).toEqual({
       sentence: 'Nothing needs you.',
       facts: [],
     })

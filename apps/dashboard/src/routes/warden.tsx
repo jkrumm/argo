@@ -8,10 +8,9 @@ import { PageSummary } from '../components/upstream/page-summary'
 import { wardenQueries } from '../lib/queries/warden'
 import { deriveAwaitingOwner } from '../features/warden/model'
 import {
-  deriveBoardColumns,
+  deriveBoard,
   derivePollers,
   deriveSummary,
-  emptyBoardText,
   needsCards,
   oldestAgeDays,
 } from '../features/warden/page-model'
@@ -62,7 +61,7 @@ function WardenPage() {
   const awaitingOwner = deriveAwaitingOwner(raw?.board)
   const needs = needsCards(awaitingOwner)
   const claimed = new Set([...needs, ...awaitingOwner.failed].map((row) => row.eventId))
-  const columns = deriveBoardColumns(raw?.board, claimed)
+  const board = deriveBoard(raw?.board, claimed)
   const pollers = derivePollers(raw?.metrics, raw?.health)
   const { pending, handleAction } = useWardenActions(snapshot?.machine, raw?.board?.items)
 
@@ -111,8 +110,9 @@ function WardenPage() {
           onAction={handleAction}
         />
         <Board
-          columns={columns}
-          emptyText={emptyBoardText(claimed.size)}
+          columns={board.columns}
+          open={board.open}
+          emptyText={board.emptyText}
           onSelectItem={setSelectedEventId}
         />
         <PollersList pollers={pollers} />

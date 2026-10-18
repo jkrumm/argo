@@ -27,7 +27,6 @@ import { Link } from '@tanstack/react-router'
 import { Fragment, useId, type ReactNode } from 'react'
 import classes from './decision-card.module.css'
 import { VX } from 'basalt-ui/tokens'
-import { softBreaks } from '../../lib/text'
 import {
   hasActions,
   isRenderable,
@@ -207,7 +206,7 @@ export function DecisionCard({
           )}
           {isRenderable(evidenceLine) && (
             <Text size="sm" className={classes.wrap}>
-              {softBreaks(evidenceLine ?? '')}
+              {evidenceLine}
             </Text>
           )}
           {previewPlacement === 'inline' && isRenderable(preview) && (

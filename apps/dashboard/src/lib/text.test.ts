@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'bun:test'
-import { softBreaks, stripShortcodes } from './text'
+import {
+  authoredQuestion,
+  firstSentence,
+  flatten,
+  restAfterFirstSentence,
+  stripShortcodes,
+} from './text'
 
 describe('stripShortcodes', () => {
   it('keeps the text of a bracketed shortcode and drops bare ones', () => {
@@ -30,18 +36,29 @@ describe('stripShortcodes in feed rows', () => {
   })
 })
 
-describe('softBreaks', () => {
-  it('breaks a long identifier after its separators, never inside a word', () => {
-    const id = 'tests_integration_workouts_summary_test'
-    const broken = softBreaks(id)
-    expect(broken.replaceAll('​', '')).toBe(id)
-    expect(broken).toContain('tests_​integration_​')
+describe('sentences', () => {
+  it('flattens whitespace', () => {
+    expect(flatten('  a \n b\t c ')).toBe('a b c')
   })
+  it('splits the first sentence from the rest', () => {
+    expect(firstSentence('Ship it? Then reply.')).toBe('Ship it?')
+    expect(restAfterFirstSentence('Ship it? Then reply.')).toBe('Then reply.')
+    expect(firstSentence('no stop')).toBe('no stop')
+    expect(restAfterFirstSentence('One sentence.')).toBeNull()
+  })
+})
 
-  it('leaves ordinary prose and short tokens alone', () => {
-    expect(softBreaks('Run the checks again, then merge.')).toBe(
-      'Run the checks again, then merge.',
-    )
-    expect(softBreaks('a_b')).toBe('a_b')
+describe('authoredQuestion', () => {
+  it('keeps a string, shortcodes stripped and whitespace flattened', () => {
+    expect(authoredQuestion('  :warning: Merge   the fix? ')).toBe('Merge the fix?')
+  })
+  it('reads blank as none', () => {
+    expect(authoredQuestion('')).toBeNull()
+    expect(authoredQuestion('   \n')).toBeNull()
+    expect(authoredQuestion(':rocket:')).toBeNull()
+  })
+  it('reads anything that is not a string as none, never throwing', () => {
+    for (const junk of [42, 0, true, {}, { text: 'x' }, ['Merge?'], null, undefined])
+      expect(authoredQuestion(junk)).toBeNull()
   })
 })

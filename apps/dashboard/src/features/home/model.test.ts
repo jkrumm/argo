@@ -14,7 +14,7 @@ import {
   nextMeeting,
   recoveryReading,
   staleFeeds,
-  summaryParts,
+  homeSummaryParts,
   taskCounts,
   todayAgenda,
   type ActivityEvent,
@@ -198,7 +198,7 @@ describe('activityStream', () => {
   })
 })
 
-describe('summaryParts', () => {
+describe('homeSummaryParts', () => {
   const base = { unavailable: [] }
   const agentDecision = (): Decision => ({
     ...decision(60 * MIN),
@@ -208,7 +208,7 @@ describe('summaryParts', () => {
 
   it('states count and oldest wait in the sentence and where the items sit as the one fact', () => {
     expect(
-      summaryParts({
+      homeSummaryParts({
         ...base,
         decisions: [decision(2 * 60 * MIN), decision(30 * MIN), agentDecision()],
       }),
@@ -219,32 +219,32 @@ describe('summaryParts', () => {
   })
 
   it('never repeats the fleet, the next meeting or recovery from the strip', () => {
-    const { facts } = summaryParts({ ...base, decisions: [decision(MIN)] })
+    const { facts } = homeSummaryParts({ ...base, decisions: [decision(MIN)] })
     expect(facts.join(' ')).not.toMatch(/agents working|meeting|recovery/i)
   })
 
   it('reads an empty inbox without a fact', () => {
-    expect(summaryParts({ ...base, decisions: [] })).toEqual({
+    expect(homeSummaryParts({ ...base, decisions: [] })).toEqual({
       sentence: 'Nothing needs you.',
       facts: [],
     })
   })
 
   it('names an unavailable source instead of implying an empty inbox', () => {
-    expect(summaryParts({ unavailable: ['Warden'], decisions: [] }).sentence).toBe(
+    expect(homeSummaryParts({ unavailable: ['Warden'], decisions: [] }).sentence).toBe(
       'Nothing needs you (Warden unavailable).',
     )
   })
 
   it('states nothing else when neither source loaded', () => {
-    expect(summaryParts({ unavailable: ['Warden', 'Agents'], decisions: [] })).toEqual({
+    expect(homeSummaryParts({ unavailable: ['Warden', 'Agents'], decisions: [] })).toEqual({
       sentence: "Can't tell — Warden and Agents unavailable.",
       facts: [],
     })
   })
 
   it('uses singular for one item and omits an unknown age', () => {
-    expect(summaryParts({ ...base, decisions: [decision(null)] }).sentence).toBe(
+    expect(homeSummaryParts({ ...base, decisions: [decision(null)] }).sentence).toBe(
       '1 item needs you.',
     )
   })
@@ -327,9 +327,10 @@ describe('shortName', () => {
   it('keeps a name that fits', () => {
     expect(shortName('argo')).toBe('argo')
   })
-  it('cuts after a separator, never inside a token', () => {
+  it('cuts after a separator past half the limit, else hard-cuts', () => {
     expect(shortName('alpha-beta-gamma-delta-epsilon')).toBe('alpha-beta-gamma…')
-    expect(shortName('abcdefghijklmnopqrstuvwxyz')).toBe('abcdefghijklmnopqrstuvwxyz')
+    expect(shortName('abcdefghijklmnopqrstuvwxyz')).toBe('abcdefghijklmnopq…')
+    expect(shortName('ab-cdefghijklmnopqrstuvwxyz')).toBe('ab-cdefghijklmnop…')
   })
 })
 
@@ -428,13 +429,13 @@ describe('staleFeeds and unavailable sources', () => {
   const base = { decisions: [], fleet: null, meetings: null, recovery: null, now: NOW }
 
   it('does not say nothing needs you when neither source loaded', () => {
-    expect(summaryParts({ ...base, unavailable: ['Warden', 'Agents'] }).sentence).toBe(
+    expect(homeSummaryParts({ ...base, unavailable: ['Warden', 'Agents'] }).sentence).toBe(
       "Can't tell — Warden and Agents unavailable.",
     )
   })
 
   it('names the one source that is down', () => {
-    expect(summaryParts({ ...base, unavailable: ['Agents'] }).sentence).toBe(
+    expect(homeSummaryParts({ ...base, unavailable: ['Agents'] }).sentence).toBe(
       'Nothing needs you (Agents unavailable).',
     )
   })

@@ -1,4 +1,5 @@
 import { relativeTime } from 'basalt-ui/format'
+import { authoredQuestion } from '../../lib/text'
 import type {
   WardenActionVerb,
   WardenBoardItem,
@@ -105,12 +106,6 @@ export type AwaitingOwnerView = {
   other: AwaitingOwnerRow[]
 }
 
-/** A producer-authored `question` on a loose wire object; blank or absent reads as `null`. */
-function authoredQuestion(source: Record<string, unknown> | undefined): string | null {
-  const value = source?.['question']
-  return typeof value === 'string' && value.trim() !== '' ? value : null
-}
-
 /** `"5.1 d"` / `"< 1 d"` / `"—"` for an unreported age — never a bare number with no unit. */
 export function formatAgeDays(ageDays: number | null): string {
   if (ageDays === null) return '—'
@@ -154,7 +149,7 @@ export function deriveAwaitingOwner(board: WardenRaw['board'] | undefined): Awai
       failureClass: entry.failure_class ?? boardItem?.failure_class ?? null,
       redrives: entry.redrives ?? boardItem?.redrives ?? 0,
       availableActions: entry.availableActions ?? [],
-      question: authoredQuestion(entry) ?? authoredQuestion(boardItem),
+      question: authoredQuestion(entry['question']) ?? authoredQuestion(boardItem?.['question']),
     }
     if (entry.state === 'needs_decision') view.needsDecision.push(row)
     else if (entry.state === 'failed') view.failed.push(row)

@@ -15,7 +15,7 @@ import {
   feedState,
   snapshotAgeMs,
   feedAside,
-  summaryParts,
+  agentsSummaryParts,
   longestRunMs,
   hoursWithNeedsYou,
 } from '../features/agents/model'
@@ -65,10 +65,7 @@ function AgentsPage() {
   const needsYouCoverage = hoursWithNeedsYou(historyQuery.data?.data, HISTORY_HOURS, now)
   const fleet = fleetParts(snapshot?.summary, countUnknownAgents(agents))
 
-  const summary = summaryParts({
-    agentWaits: agents.filter((a) => a.state === 'needs_you').length,
-    asks: humanQueue.length,
-  })
+  const summary = agentsSummaryParts({ items: needsYouItems, asks: humanQueue.length })
 
   const feed = feedState({
     hasData: latest !== null,

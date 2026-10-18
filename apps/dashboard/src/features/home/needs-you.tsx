@@ -1,10 +1,9 @@
 import { Box, Button, Group, Stack, Text } from '@mantine/core'
 import { EmptyState, Section } from 'basalt-ui'
 import { Link } from '@tanstack/react-router'
-import { useClipboard } from '@mantine/hooks'
-import { IconCheck, IconCircleCheck, IconCopy } from '@tabler/icons-react'
+import { IconCircleCheck } from '@tabler/icons-react'
 import { DecisionCard, type DecisionCardAction } from '../../components/upstream/decision-card'
-import { softBreaks } from '../../lib/text'
+import { useCopyAction } from '../../components/upstream/use-copy-action'
 import type { Decision } from '../../lib/decisions'
 import { NEEDS_YOU_SOURCES } from './model'
 import { StatusChip } from '../agents/status-chip'
@@ -22,29 +21,32 @@ type Props = {
   unavailable: readonly string[]
 }
 
+/**
+ * The card's two actions, explicit. A human-queue ask leads with the command it carries (copying is
+ * the in-place verb) and opens its page second; an agent leads with opening and offers its blocker
+ * to copy; a Warden item carries nothing to copy, so opening is its one action.
+ */
+function actionsFor(
+  source: Decision['source'],
+  open: DecisionCardAction,
+  copy: DecisionCardAction | undefined,
+): { primary: DecisionCardAction; secondary?: DecisionCardAction } {
+  if (copy === undefined) return { primary: open }
+  return source === 'queue'
+    ? { primary: copy, secondary: open }
+    : { primary: open, secondary: copy }
+}
+
 function Card({ decision }: { decision: Decision }) {
-  const primaryClip = useClipboard({ timeout: 1500 })
-  const open = {
+  const open: DecisionCardAction = {
     label: `Open in ${PAGE_LABEL[decision.href]}`,
     href: decision.href,
   }
-  // The payload carries a command only on a human-queue ask, and a blocker only on an agent:
-  // copying it is the in-place verb. A Warden item has nothing to copy, so opening it is the one action.
-  const copyLabel =
-    decision.source === 'queue'
-      ? 'Copy command'
-      : decision.source === 'agent'
-        ? 'Copy blocker'
-        : null
-  const copyValue = copyLabel === null ? null : decision.evidence
-  const copy: DecisionCardAction | null =
-    copyLabel === null || copyValue === null
-      ? null
-      : {
-          label: primaryClip.error ? 'Copy failed' : primaryClip.copied ? 'Copied' : copyLabel,
-          icon: primaryClip.copied ? <IconCheck size={14} /> : <IconCopy size={14} />,
-          onClick: () => primaryClip.copy(copyValue),
-        }
+  const copy = useCopyAction(
+    decision.source === 'queue' ? 'Copy command' : 'Copy blocker',
+    decision.source === 'warden' ? null : decision.evidence,
+  )
+  const actions = actionsFor(decision.source, open, copy)
   const view = historyView(decision.history)
   return (
     <DecisionCard
@@ -54,7 +56,7 @@ function Card({ decision }: { decision: Decision }) {
       {...(decision.entity !== null && {
         actor: (
           <Text span fz="xs">
-            {softBreaks(decision.entity)}
+            {decision.entity}
           </Text>
         ),
       })}
@@ -64,14 +66,10 @@ function Card({ decision }: { decision: Decision }) {
       {...(decision.detail !== null && {
         disclosure: {
           label: 'Full reason',
-          content: <Text size="sm">{softBreaks(decision.detail)}</Text>,
+          content: <Text size="sm">{decision.detail}</Text>,
         },
       })}
-      {...(copy !== null && decision.source === 'queue'
-        ? { primary: copy, secondary: open }
-        : copy !== null
-          ? { primary: open, secondary: copy }
-          : { primary: open })}
+      {...actions}
     />
   )
 }

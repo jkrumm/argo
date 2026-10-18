@@ -28,8 +28,7 @@ import {
   splitBoardColumns,
   revertsFooter,
   REVERTS_INFO,
-  askCopy,
-  wardenPlainQuestion,
+  wardenAsk,
   pollerAgeText,
   BUDGET_MISSING,
   emptyBoardText,
@@ -400,7 +399,7 @@ describe('planActions', () => {
 
 describe('splitReason', () => {
   it('takes the first complete sentence as the question and the rest as evidence', () => {
-    expect(splitReason('Ship the fix? It touches the loop. Tests pass.', 'x')).toEqual({
+    expect(splitReason('Ship the fix? It touches the loop. Tests pass.')).toEqual({
       tag: null,
       question: 'Ship the fix?',
       rest: 'It touches the loop. Tests pass.',
@@ -408,7 +407,7 @@ describe('splitReason', () => {
   })
 
   it('keeps a single sentence whole, with no evidence', () => {
-    expect(splitReason('Ship the fix or revert', 'x')).toEqual({
+    expect(splitReason('Ship the fix or revert')).toEqual({
       tag: null,
       question: 'Ship the fix or revert',
       rest: null,
@@ -417,16 +416,12 @@ describe('splitReason', () => {
 
   it('never cuts a long first sentence', () => {
     const long = `${'word '.repeat(80)}end.`
-    expect(splitReason(long, 'x').question).toBe(long)
+    expect(splitReason(long).question).toBe(long)
   })
 
-  it('falls back when there is no reason', () => {
-    expect(splitReason(null, 'Fallback title')).toEqual({
-      tag: null,
-      question: 'Fallback title',
-      rest: null,
-    })
-    expect(splitReason('  ', 'F').question).toBe('F')
+  it('has an empty question when there is no reason', () => {
+    expect(splitReason(null)).toEqual({ tag: null, question: '', rest: null })
+    expect(splitReason('  ').question).toBe('')
   })
 })
 
@@ -553,7 +548,7 @@ describe('deferredNote', () => {
 
 describe('leading tag', () => {
   it('lifts a leading [tag] out of the question', () => {
-    expect(splitReason('[blocker] Deploy now? It touches CI.', 'x')).toEqual({
+    expect(splitReason('[blocker] Deploy now? It touches CI.')).toEqual({
       tag: 'blocker',
       question: 'Deploy now?',
       rest: 'It touches CI.',
@@ -561,18 +556,14 @@ describe('leading tag', () => {
   })
 
   it('keeps a bracket that is not leading', () => {
-    expect(splitReason('Deploy [now]?', 'x')).toMatchObject({
+    expect(splitReason('Deploy [now]?')).toMatchObject({
       tag: null,
       question: 'Deploy [now]?',
     })
   })
 
-  it('falls back when the tag is all there is', () => {
-    expect(splitReason('[no category]', 'Title')).toEqual({
-      tag: 'no category',
-      question: 'Title',
-      rest: null,
-    })
+  it('has an empty question when the tag is all there is', () => {
+    expect(splitReason('[no category]')).toEqual({ tag: 'no category', question: '', rest: null })
   })
 
   it('shows no category chip for a placeholder tag', () => {
@@ -759,83 +750,86 @@ describe('cardCategory', () => {
   })
 })
 
-describe('askCopy', () => {
-  it('strips shortcodes before splitting and keeps a short question the reason asks', () => {
-    const ask = askCopy({
-      eventId: 1,
-      title: ':rotating_light: {title}',
-      reason: '[blocker] Ship {thing}? It touches the loop.',
-      failed: false,
-    })
+describe('wardenAsk', () => {
+  const source = (over: Partial<Parameters<typeof wardenAsk>[0]> = {}) => ({
+    eventId: 1,
+    repo: '{repo}',
+    title: 'fix(loop): raw subject',
+    reason: null,
+    question: null,
+    availableActions: [],
+    ...over,
+  })
+
+  it('strips shortcodes, keeps a question the reason asks, lifts the tag', () => {
+    const ask = wardenAsk(
+      source({
+        title: ':rotating_light: {title}',
+        reason: '[blocker] Ship {thing}? It touches the loop.',
+      }),
+      'decision',
+    )
     expect(ask.tag).toBe('blocker')
-    expect(ask.entity).toBe('{title}')
     expect(ask.copy).toMatchObject({
       question: 'Ship {thing}?',
+      entity: '{title}',
       evidenceLine: 'It touches the loop.',
       source: 'ask',
     })
   })
 
   it('prefers the producer-authored question over the reason', () => {
-    const ask = askCopy({
-      eventId: 1,
-      title: 'fix(loop): raw subject',
-      reason: 'Ship {thing}? It touches the loop.',
-      failed: false,
+    const ask = wardenAsk(
+      source({ reason: 'Ship {thing}? Why.', question: 'Merge the loop fix?' }),
+      'decision',
+    )
+    expect(ask.copy).toMatchObject({
       question: 'Merge the loop fix?',
+      source: 'authored',
+      entity: 'fix(loop): raw subject',
     })
-    expect(ask.copy.question).toBe('Merge the loop fix?')
-    expect(ask.copy.source).toBe('authored')
-    expect(ask.entity).toBe('fix(loop): raw subject')
   })
 
-  it('asks a plain question from the primary verb when the reason is prose', () => {
+  it('reads a junk authored question as none', () => {
+    for (const junk of [3, {}, ['x'], '  ']) {
+      expect(wardenAsk(source({ question: junk }), 'decision').copy.source).toBe('plain')
+    }
+  })
+
+  it('asks the plain question of the card’s primary verb, naming the repo once', () => {
     const sentence = `Warden ${'merged the change and then redeployed the loop '.repeat(3)}now.`
-    const ask = askCopy({
-      eventId: 1,
-      title: 'fix(loop): raw subject',
-      reason: `${sentence} Tests pass.`,
-      failed: false,
-      repo: '{repo}',
-      primary: 'merge',
-    })
+    const ask = wardenAsk(
+      source({ reason: `${sentence} Tests pass.`, availableActions: ['merge', 'dismiss'] }),
+      'decision',
+    )
+    expect(ask.plan).toMatchObject({ primary: 'merge', secondary: 'dismiss' })
     expect(ask.copy.question).toBe('Merge {repo} PR?')
-    expect(ask.entity).toBe('fix(loop): raw subject')
+    expect(ask.repoNamed).toBe(true)
+    expect(ask.copy.entity).toBe('fix(loop): raw subject')
     expect(ask.copy.detail).toBe(`${sentence} Tests pass.`)
   })
 
-  it('names the plain question after the verb the card offers', () => {
-    const plain = (primary: Parameters<typeof wardenPlainQuestion>[0]['primary'], repo = '{r}') =>
-      wardenPlainQuestion({ failed: false, repo, primary })
-    expect(plain('merge')).toBe('Merge {r} PR?')
-    expect(plain('implement')).toBe('Implement {r} change?')
-    expect(plain('reinvestigate')).toBe('Reinvestigate {r} item?')
-    expect(plain('dismiss')).toBe('Decide on {r} item?')
-    expect(plain('merge', '')).toBe('Merge this PR?')
-    expect(plain(null, '')).toBe('Decide on this item?')
+  it('does not drop the repo fact when the question does not name it', () => {
+    expect(wardenAsk(source({ question: 'Ship it?' }), 'decision').repoNamed).toBe(false)
+    expect(wardenAsk(source(), 'decision').repoNamed).toBe(true)
   })
 
-  it('asks to retry a failed run, with the raw title as the entity, whole', () => {
-    const ask = askCopy({
-      eventId: 1,
-      title: 'fix(loop): raw subject',
-      reason: 'Exit code 1.',
-      failed: true,
-      repo: '{repo}',
-    })
-    expect(ask.copy.question).toBe('Retry failed {repo} run?')
-    expect(ask.entity).toBe('fix(loop): raw subject')
-    expect(ask.copy.evidenceLine).toBe('Exit code 1.')
-    expect(askCopy({ eventId: 1, title: 'x', reason: null, failed: true }).copy.question).toBe(
-      'Retry failed run?',
+  it('asks to retry a failed run only when retry is the primary verb', () => {
+    const retry = wardenAsk(
+      source({ reason: 'Exit code 1.', availableActions: ['retry', 'dismiss'] }),
+      'failed',
+    )
+    expect(retry.copy.question).toBe('Retry failed {repo} run?')
+    expect(retry.copy.entity).toBe('fix(loop): raw subject')
+    expect(retry.copy.evidenceLine).toBe('Exit code 1.')
+    expect(wardenAsk(source({ availableActions: ['dismiss'] }), 'failed').copy.question).toBe(
+      'Decide on {repo} item?',
     )
   })
 
   it('falls back to the item number when the title is only a shortcode', () => {
-    const ask = askCopy({ eventId: 42, title: ':warning:', reason: null, failed: true })
-    expect(ask.entity).toBe('Item #42')
-    const none = askCopy({ eventId: 7, title: null, reason: null, failed: true })
-    expect(none.entity).toBe('Item #7')
+    expect(wardenAsk(source({ title: ':warning:' }), 'failed').copy.entity).toBe('Item #1')
+    expect(wardenAsk(source({ title: null, eventId: 7 }), 'failed').copy.entity).toBe('Item #7')
   })
 })
 
