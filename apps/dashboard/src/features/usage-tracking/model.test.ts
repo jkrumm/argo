@@ -16,7 +16,6 @@ import {
   fmtTokens,
   fmtUsdWhole,
   foldTopN,
-  isStale,
   OTHER_KEY,
   pctChange,
   pctDelta,
@@ -26,7 +25,7 @@ import {
   summaryFacts,
   summarySentence,
   freshnessWord,
-  recentVsWindow,
+  recentMean,
   tokensQuantity,
 } from './model'
 import type { TimePoint } from './types'
@@ -139,11 +138,6 @@ describe('error days', () => {
 
 describe('freshness and copy', () => {
   const now = Date.parse('2026-10-17T12:00:00Z')
-  it('is stale past 30 minutes only', () => {
-    expect(isStale('2026-10-17T11:20:00Z', now)).toBe(true)
-    expect(isStale('2026-10-17T11:45:00Z', now)).toBe(false)
-    expect(isStale(null, now)).toBe(false)
-  })
   it('the headline sentence carries the spend, the facts carry the rest', () => {
     expect(summarySentence({ cost30d: 1234, cost7d: 300 })).toBe(
       '$1,234 spent in 30 days, $300 in the last 7 days',
@@ -168,16 +162,12 @@ describe('freshness and copy', () => {
   })
 })
 
-describe('recentVsWindow', () => {
-  it('compares the last readings with the whole window in points', () => {
-    const r = recentVsWindow([0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9])
-    expect(r.recent).toBeCloseTo(0.9)
-    expect(r.window).toBeCloseTo(0.7)
-    expect(r.delta).toBeCloseTo(20)
-  })
-  it('skips gaps and returns null without readings', () => {
-    expect(recentVsWindow([null, null]).delta).toBeNull()
-    expect(recentVsWindow([null, 0.6, null]).recent).toBeCloseTo(0.6)
+describe('recentMean', () => {
+  it('averages the last readings, skipping gaps', () => {
+    const values = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9]
+    expect(recentMean(values)).toBeCloseTo(0.9)
+    expect(recentMean([null, 0.6, null])).toBeCloseTo(0.6)
+    expect(recentMean([null, null])).toBeNull()
   })
 })
 

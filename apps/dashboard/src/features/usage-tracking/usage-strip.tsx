@@ -7,7 +7,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Box, Group, Skeleton, Stack, Text } from '@mantine/core'
 import { DeltaBadge, Meter, StatGroup, type StatStripCell } from 'basalt-ui'
-import { usageQueries } from '../../lib/queries/usage'
+import { usageQueries, type Metric } from '../../lib/queries/usage'
 import { USAGE_BILLING } from '../../lib/series'
 import { dayToDate } from './constants'
 import {
@@ -31,8 +31,9 @@ import {
   meanOf,
   pctDelta,
   errorComparison,
+  pointsDelta,
   priorNote,
-  recentVsWindow,
+  recentMean,
   secondsDelta,
   secondsQuantity,
   tokensQuantity,
@@ -47,9 +48,7 @@ type Headline = NonNullable<ReturnType<typeof useHeadline>['data']>
 
 type Series = { days: Daily[]; loading: boolean; failed: boolean }
 
-function useDaily(
-  metric: 'cost' | 'tokens' | 'latency_p95' | 'error_rate' | 'cache_ratio',
-): Series {
+function useDaily(metric: Metric): Series {
   const query = useQuery(
     usageQueries.timeseries({ range: '30d', grain: 'day', metric, groupBy: 'none' }),
   )
@@ -262,19 +261,20 @@ function p95Cell({ h, loading }: Ctx, p95: Series): StatStripCell {
 
 function cacheCell({ h, loading }: Ctx, cache: Series): StatStripCell {
   const ratio = h?.cacheHitRatio30d ?? null
-  const trend = recentVsWindow(cache.days.map((d) => d.value))
+  const recent = recentMean(cache.days.map((d) => d.value))
+  const delta = pointsDelta(recent, ratio)
   return {
     key: 'cache',
     caption: 'Cache hit',
     qualifier: '30 d',
     value: fmtPct(ratio),
     delta:
-      trend.delta === null ? undefined : (
+      ratio === null || delta === null ? undefined : (
         <DeltaBadge
-          value={trend.delta}
+          value={delta}
           format={fmtPointsBadge}
           polarity="up-good"
-          period="last 7 d vs 30 d"
+          period="last 7 d vs 30 d ratio"
         />
       ),
     loading,
@@ -294,7 +294,7 @@ function cacheCell({ h, loading }: Ctx, cache: Series): StatStripCell {
       ),
     footer: footerOf([
       `target ${fmtPct(CACHE_HIT_TARGET, 0)}`,
-      trend.recent === null ? null : `last 7 d mean ${fmtPct(trend.recent)}`,
+      recent === null ? null : `last 7 d mean ${fmtPct(recent)}`,
     ]),
   }
 }

@@ -58,7 +58,9 @@ export function RecordPane(props: RecordPaneProps) {
     <>
       <header className={classes.recordHeader} data-shot="record-header">
         <div className={classes.recordTitle}>
-          <h2 className={classes.recordName}>{selected.displayName}</h2>
+          <h2 className={classes.recordName} tabIndex={-1}>
+            {selected.displayName}
+          </h2>
           <Badge variant="light" color="gray">
             {selected.kind}
           </Badge>
