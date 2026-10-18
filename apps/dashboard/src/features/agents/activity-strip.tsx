@@ -24,7 +24,7 @@ type Props = {
 const SIX_HOURS = 6
 
 /** The legend names the scale in data terms: the lightest and the strongest cell, by agents working. */
-const statesFor = (peak: number, hasQuiet: boolean, hasGap: boolean) =>
+const statesFor = (peak: number) =>
   [
     // At a peak of zero nothing was ever working: no cell carries that colour, so no entry names it.
     ...(peak > 0
@@ -38,24 +38,19 @@ const statesFor = (peak: number, hasQuiet: boolean, hasGap: boolean) =>
           },
         ]
       : []),
-    // Only the states the shown hours actually hold: a legend entry with no cell names nothing.
-    ...(hasQuiet
-      ? [
-          {
-            key: 'quiet',
-            label: 'None working',
-            color: alpha(VX.line, 0.1),
-            formatValue: () => '0 agents',
-          },
-        ]
-      : []),
-    ...(hasGap ? [{ key: 'gap', label: 'No snapshot', color: alpha(VX.status.warn, 0.35) }] : []),
+    {
+      key: 'quiet',
+      label: 'None working',
+      color: alpha(VX.line, 0.1),
+      formatValue: () => '0 agents',
+    },
+    { key: 'gap', label: 'No snapshot', color: alpha(VX.status.warn, 0.35) },
   ] as const
 
 /**
  * Agents working per hour over the window: one cell per hour, intensity = the hour's peak working
  * count, a distinct flat cell where no snapshot landed (a feed stall shows as a hole, not a zero).
- * The legend names the kinds of cell the shown hours hold; an hour still in progress with no snapshot is not drawn.
+ * The legend names the three kinds of cell; an hour still in progress with no snapshot is not drawn.
  */
 export function ActivityStrip({ history, hours, now }: Props) {
   const { buckets, peakHour, fact } = useMemo(() => {
@@ -95,11 +90,7 @@ export function ActivityStrip({ history, hours, now }: Props) {
           x={(d) => d.hourMs}
           xTicks={ticks}
           formatX={clockOf}
-          states={statesFor(
-            peak,
-            shown.some((b) => b.working === 0),
-            shown.some((b) => b.working === null),
-          )}
+          states={statesFor(peak)}
           getBand={getBand}
           height={48}
         />
