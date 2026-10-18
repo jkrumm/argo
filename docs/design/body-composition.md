@@ -187,3 +187,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail (no argo change, argo items clean). Carried (all basalt): the maintain zone unnamed at 390; the weight line through the `7 d mean` end label; end labels and legend name the same series; the `·`-led wrap at 390; the info tooltip over the net-change figure. **New:** none.
 - **Against Keel:** close — only shared-component overlaps remain.
+
+### Wave 31 round (`w31-r1`, live after #129–#133 on basalt-ui 2.22.0; `w31-r2` after the follow-ups)
+
+- **Reviewer (r1):** fail. Fixed: end labels and legend no longer both name a series (2.22 `Lines` naming: end labels at 1440, legend at 390); the facts line is sans; the `·`-led wrap at 390 is gone; linear lines. **Regression (r1), fixed and verified in r2:** dropping the local tooltip formatter for 2.22's default lost the weekday and year (the default prints `{d} {Mon}` here); the formatter is restored. **New (basalt):** the rate meter floats ~70 px below its hero in the taller strip row (`emptyRatio` 0.36). Carried (basalt): the maintain zone unnamed at 390; the weight line through the `7 d mean` end label; the info tooltip over the net change; the slashed zero in titles (2.22's reset did not reach them).
+- **Against Keel:** close — shared-component overlaps remain.

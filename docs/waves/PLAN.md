@@ -1557,7 +1557,7 @@ needs a new table row first, and the authored producer `question` stays the owne
   the light 1440 pass of r3; garmin fitness and strength bench-press focus (timeouts).
 - **Cleanup:** worktrees and tabs removed with `rd fan --clean`; no background task left running.
 
-## Wave 31 — Re-score round 10: thresholds that name themselves, the last orphans <!-- status: active -->
+## Wave 31 — Re-score round 10: thresholds that name themselves, the last orphans <!-- status: done -->
 
 Same shape as Wave 30 (fan-out on disjoint page files, two independent reviews per PR, CI `check` green on the PR head before
 `rd merge`, live re-shoot incl. the m365 pane presets, fresh `basalt-design-reviewer`s with the w30 shots + a Keel side-by-side). The
@@ -1566,11 +1566,78 @@ rule stays **subtract before you add**, and a removal that leaves a reader witho
 no local workaround. The question rung stays frozen to its table; the authored producer `question` stays the owner's call. **Shoot only
 once the dashboard bundle is live** (the served `index.html` references the new asset hash), not on `/api/health` alone.
 
-- [ ] Fix the open argo items, fanned out: astro's Sky tick label names itself (`dark ≥ {t}` or equivalent, the unit reachable) and the
+- [x] basalt-ui 2.22.0 in its own commit, MIGRATING read, the props that close UPSTREAM rows adopted and their local workarounds deleted, the closed rows marked in `UPSTREAM.md`.
+- [x] Fix the open argo items, fanned out: astro's Sky tick label names itself (`dark ≥ {t}` or equivalent, the unit reachable) and the
       Sky footer fits two lines at 1440; a warden title that breaks mid-identifier; a failed card's `Full reason` that only repeats a whole
       evidence line; Home's recovery tile and Garmin's recovery cell stating different facts for the same day; usage's cost readout in
       cents and `{m}%` vs `{m} %`; hermes' untitled count said twice. Then carried, then unscored.
-- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 32 in this shape. The loop ends only when a
+- [x] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 32 in this shape. The loop ends only when a
+      fresh scorer and the owner find nothing worth improving.
+
+**Left behind:**
+
+**Closed out (orchestrated): Wave 32 is added as `active`, not spawned; the orchestrator spawns it.**
+
+- **basalt-ui 2.22.0** in its own commit (`90c2844`): `basalt-ui sync` refreshed the managed files; the release's
+  `basalt/shadow-basalt-export` rule rejected argo's local `PageSummary`, so the 13 page imports moved to the export and
+  `components/upstream/page-summary.*` was deleted in that commit (WalkingPad's only change this wave). No further release was
+  announced during the wave.
+- **Landed (master, deployed, `/api/health` = `fc7facf`, check + deploy workflows green):** five fan-out PRs, each with two independent
+  agent-gateway review rounds, scope frozen after round 2, the last fix diff read by the lead, CI `check` green on the PR head before
+  `rd merge`: #129 astro, #130 strength + reading + body composition + calendar, #131 home + garmin, #132 usage + m365 + hermes, #133
+  warden + agents. Follow-ups from the live re-score, same wave, one review round each (no blocking finding; both restore pre-wave
+  code): `a4dd5ab` (the body-composition tooltip date) and `fc7facf` (the strength balance fill). `make check` green on the merged
+  master (1432 + 598 pass, build green), zero new `basalt/*` suppressions. WalkingPad untouched beyond the forced import.
+- **Adopted from 2.22, subtracted locally:** `PageSummary`; `size="row"` part captions (the m365 footer legend deleted); the row
+  surfaces (m365 rows, astro night strip); the single-series legend default (`legend={false}` dropped on three charts); `hideValue`
+  (garmin VO2max); `referenceLabel` (strength PR line). Reverted after the live shot: the tooltip-header default (lost the weekday
+  and year) and `MeterZone tone: 'muted'` (the over-band read as a value bar) — both are new basalt rows. `UPSTREAM.md`: closed rows
+  marked inline, the rest in § "Wave 31".
+- **The rung stayed frozen:** no title text changed. Warden/Agents identifiers stay whole through `nowrap` spans at render time
+  (the copy model, the rung fixture and the aria-label stay raw). No authored-question path was added.
+- **What the lead caught before review:** a one-item `period` list that ran unit and period together again; `interferes` claimed for
+  any moon above the horizon (the gate's illumination limit decides); a past-day reading losing the 7 d mean; the warden worker editing
+  `lib/format.ts` outside its file list (accepted, no other worker owned it).
+- **Code review caught:** word joiners in the warden title leaking into copied text and find-in-page; a short `Full reason` swallowed
+  by a substring inside an unrelated word; a non-idempotent glue pattern; a verdict classified on the unrounded score (`69.9` showing
+  `70` as Normal); the usage band fills switched to the pale status inks; a fold label split between model and view.
+- **Rounds:** `w31-r1` (all pages live, 1440 + 390, both schemes, plus the two m365 pane presets; shot after the served bundle carried
+  the new chunks, not on `/api/health` alone), `w31-r2` (body composition + strength after the follow-ups). `basalt-ui shot --base
+  https://argo.jkrumm.com`, `argo-auth` seeded from `secrets-run read op://common/api/SECRET` via env, never printed or written. Boards:
+  `.design-shots/w31-r{1,2}-*` (gitignored). Fresh `basalt-design-reviewer`s each given the w30 shots, plus a Keel side-by-side;
+  verdicts in `docs/design/<page>.md` § "Wave 31 round"; basalt rows in `UPSTREAM.md` § "Wave 31".
+- **Reviewer verdict, stated plainly:** **Reading passes for the first time, WalkingPad a fifth time.** Agents and Warden pass every
+  component and fail only on `craft-7/no-declared-states` (below). Home, Garmin, Body composition, Calendar, Strength, Astro, Hermes,
+  M365 and Usage fail. No lost fact remains (the one this wave caused, the tooltip date, is fixed and verified in r2).
+- **Against Keel:** close — Home, Agents, Garmin, Warden, Strength, Calendar, Body composition, WalkingPad, Astro, Usage, M365; does
+  not yet — Reading, Hermes.
+- **Harness finding:** basalt-ui 2.22's `shot` renders empty/loading/error only for anchors that declare `data-shot-states`; argo
+  declares none, so those states went unrendered and `shot detect` reports P1 on every page. Wave 32 declares them.
+- **Boards copied to the MacBook:** `~/Downloads/argo-design-review/w31/` (`w31-r1-*`, `w31-r2-b`); `iumac` was offline on the tailnet
+  for most of the close-out and came back before the commit.
+- **Gate flake:** the merge train's first `make check` on `w31/usage-m365-hermes` failed two `hermes-streams` resume tests under load
+  (22.8 s run); 598/598 on the immediate rerun, no API code touched.
+- **Not verified:** the m365 labeled-row hover (the harness hovers the pane); the astro night-strip row hover (it hovers the selected
+  cell); whether the one warden card still offering `Full reason` adds text.
+- **Cleanup:** worktrees and tabs removed with `rd fan --clean`; no background task left running.
+
+## Wave 32 — Re-score round 11: declared shot states, the small orphans, one wording per gap <!-- status: active -->
+
+Same shape as Wave 31 (fan-out on disjoint page files, two independent reviews per PR, CI `check` green on the PR head before
+`rd merge`, live re-shoot incl. the m365 pane presets once the dashboard bundle is live, fresh `basalt-design-reviewer`s with the w31
+shots + a Keel side-by-side). **Subtract before you add**; a removal that leaves a reader without a fact is a defect. Each page's detail
+is in `docs/design/<page>.md` § "Wave 31 round". Reading and WalkingPad pass: leave them. Basalt rows (`UPSTREAM.md` § "Wave 28"–"Wave 31"):
+no local workaround. The question rung stays frozen to its table; the authored producer `question` is an owner-approved backlog item in
+warden and agent-gateway, not built — add nothing for it.
+
+- [ ] Declare `data-shot-states` (`empty loading error`) on each page's anchors that have those states, so basalt-ui 2.22's shot renders
+      and scores them again (every page; Agents and Warden fail on nothing else).
+- [ ] Fix the open argo items, fanned out: Home's show-more Warden count vs the facts line, the feed's raw `[{monitor} - …]` title
+      prefix, the recovery footer's orphaned figure, one wording for the pre-sync recovery gap on Home and Garmin; Garmin's recovery
+      chart facts separator; astro's Sky tick at one of the cell's three sizes with its unit reachable on screen, and the Sky footer in
+      two lines at 1440; the argo-local `ScheduleRow`'s cancelled-row duration overlap and its sizes; m365's kind caption restating the
+      hero and the empty 1440 page height; usage's mixed-precision token rows. Then carried, then unscored.
+- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 33 in this shape. The loop ends only when a
       fresh scorer and the owner find nothing worth improving.
 
 **Left behind:**

@@ -181,3 +181,8 @@ Follow-up (w30-r2):
 
 - **Reviewer (r1):** fail. Fixed: the rating buckets keep their range at every width (`{a}–{b}` at 390, the caption names the star unit), no labels running together. **New (r1), fixed in #126/#128:** `last read {n} {unit} ago` split number from unit, then `last read` from the number — glued as one run (dark 1440; 390 unverified, no anchor on that row; the light 1440 pass rendered the pre-#128 bundle). Carried: the pace cell half blank at 1440 (`emptyRatio` 0.51 — basalt row); no days-to-finish on finished rows (no API field); the backlog focus crop under the bottom nav (harness). Unscored: the mono `★` renders as a small asterisk-like glyph.
 - **Against Keel:** does not yet — the pace cell is still half blank beside the histogram.
+
+### Wave 31 round (`w31-r1`, live after #129–#133 on basalt-ui 2.22.0; `w31-r2` after the follow-ups)
+
+- **Reviewer:** **pass, for the first time.** Fixed: the pace cell under the empty-ratio line by measure (0.14, from 0.51 — the 2.22 cell box ends at its content; visually the column is still half blank, P2 basalt); the rating axis `★` in the body face; `last read {n} {unit} ago` whole. New (basalt, P2): the shelf bar ~40 px below its hero. Carried: the mono `★` in the caption; slashed zeros. No lost fact.
+- **Against Keel:** does not yet — the pace column is still a blank half beside the histogram.

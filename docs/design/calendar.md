@@ -169,3 +169,8 @@ No new basalt rows.
 
 - **Reviewer:** fail (no argo change, no new defect). Carried (all basalt / harness): `ScheduleRow` at four sizes and its titles ellipsized at 390; the half-blank next-days crop; the `·`-led wrap at 390; the mono `<>` ligature. Compound durations stay whole everywhere.
 - **Against Keel:** close — the headline states a fact but carries no figure.
+
+### Wave 31 round (`w31-r1`, live after #129–#133 on basalt-ui 2.22.0; `w31-r2` after the follow-ups)
+
+- **Reviewer:** fail. Fixed: no ellipsized titles at 390 (`ScheduleRow` clamps to two lines with the full title on hover); the `<>` ligature renders as typed (2.22); the next-days crop is whole; the `·`-led wrap is gone. **New (argo, `components/upstream/schedule-row.tsx`):** long titles now take two lines at 390 (the trade for no ellipsis); a cancelled row's compound duration drops under its start and runs into the meta column at 1440. Carried: `ScheduleRow` at four sizes (11/12/13/15). No lost fact.
+- **Against Keel:** close — the headline states a fact but carries no figure.

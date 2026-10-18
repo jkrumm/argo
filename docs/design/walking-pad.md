@@ -172,3 +172,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** pass, a fourth time. No regression: headline, record header, the dimmed strip and the empty state with its widen action hold in both schemes and widths; the duration stays whole at 390.
 - **Against Keel:** close — the empty state is honest; most of the 1440 page is blank below it.
+
+### Wave 31 round (`w31-r1`, live after #129–#133 on basalt-ui 2.22.0; `w31-r2` after the follow-ups)
+
+- **Reviewer:** pass, a fifth time. Only the slashed zero in the empty-state title (basalt) carried. Untouched this wave except the forced `PageSummary` import move.
+- **Against Keel:** close — the empty state is honest; most of the 1440 page is blank below it.

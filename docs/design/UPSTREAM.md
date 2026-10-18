@@ -36,7 +36,7 @@ basalt-ui 2.19.0 (2.18.0 shipped the exports below; 2.19.0 refined `Meter` / `Ba
 | Counted filter toolbar, standalone  | `chips: {label, count, active}[]` + segmented control                                                                                                                   | hermes-chat, m365-explorer                                                                                            | The `BasaltDataTable` toolbar (wave 36) outside a table                                                                                                                                                                                    |
 | Master–detail shell                 | list pane + record pane whose empty state shows real content; a push sheet at 390                                                                                       | m365-explorer                                                                                                         | Proposed in the M365 concept; Hermes and Warden may follow but their concepts do not specify it yet                                                                                                                                        |
 | `BandStrip` additions               | a `today` outline, a text slot under the band, a preset banded by thresholds                                                                                            | walking-pad, astro-window, usage-tracking                                                                             | Extends a shipped export                                                                                                                                                                                                                   |
-| Page summary (SPEC § 6.9 recipe)    | `sentence, facts?: ReactNode[], aside?, loading?`: a headline sentence at the `h2` step (500, −0.02em) carrying a live number, a mono `·`-separated facts line under it | every page (Wave 24's shared gap: no page opened with Keel's headline + fact line)                                    | Prototype: `components/upstream/page-summary.tsx`. SPEC calls it a recipe with no headline token; one shared component in argo is what kept thirteen pages from drifting, so propose it as an export                                       |
+| Page summary (SPEC § 6.9 recipe)    | `sentence, facts?: ReactNode[], aside?, loading?`: a headline sentence at the `h2` step (500, −0.02em) carrying a live number, a mono `·`-separated facts line under it | every page (Wave 24's shared gap: no page opened with Keel's headline + fact line)                                    | **Closed — basalt-ui 2.22.0 (W31):** `PageSummary` export; argo imports it on all 13 pages, the prototype is deleted. |
 | `foldTopN(series, n, otherLabel)`   | top N series plus "Other" for stacked charts grouped by an open-ended key                                                                                               | usage-tracking (the tokens legend has {n_series} entries)                                                             | A data helper next to the chart kinds                                                                                                                                                                                                      |
 
 ## Already specified, not built
@@ -233,18 +233,18 @@ Rows the Wave 24 workers filed (#90–#95):
 | ------------------- | ---------------------------------------------------------------------------------------- | ----------------------------- | ----------------------------------------- |
 | `StatusVerdict`     | a `size` (its word is the micro step, a fourth size inside a ≤3-size card)               | warden decision/failed cards  | `StatusDot` + an `xs` word                |
 | `createSearchStore` | optional-search route typing (a URL field on a route whose nav link carries no search)   | m365 phone `pane`             | a `createLocalStore` field                |
-| `Section`           | an untitled variant (only the `tabs` slot)                                               | m365 phone pane switch        | titled with the open pane's name          |
+| `Section`           | an untitled variant (only the `tabs` slot)                                               | m365 phone pane switch        | **Shipped 2.22.0 (`Section` tabs with no title), not yet adopted (W32):** titled with the open pane's name |
 | `VX.status.*`       | a documented fill role (the status inks read as the palest marks when used as bar fills) | usage health bars, error band | `VX.warnSolid` / `VX.badSolid` per mark   |
-| `Meter` (ring)      | a `target` tick                                                                          | usage cache-hit ring          | the local `CacheRing`, now beside a trend |
-| page summary        | the recipe as an export (see "New — not in SPEC §4")                                     | all 13 pages                  | `components/upstream/page-summary.tsx`    |
+| `Meter` (ring)      | a `target` tick                                                                          | usage cache-hit ring          | **Shipped 2.22.0 (ring `target`/`ticks`):** the local `CacheRing` is already gone |
+| page summary        | the recipe as an export (see "New — not in SPEC §4")                                     | all 13 pages                  | **Closed — 2.22.0 (W31):** `PageSummary` imported, prototype deleted. |
 
 `w24-r1` re-confirmed the Wave 23 rows (Meter zone-label and end-tick placement, the `Button` `rightSection` inset, chart
 cards at four sizes, the chart tooltip name column, list defaults at four sizes, the shot harness on tall anchors). New:
 
 | Export                                    | Needed prop / default                                                                                                               | argo case                                | What argo does instead                                                 |
 | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------- |
-| mono font                                 | ligatures off for data text (`font-variant-ligatures: none` on the mono stack); JetBrains Mono turns `<>` in a title into a diamond | calendar headline facts line             | as rendered                                                            |
-| chart tooltip header                      | a date-only header for a daily bucket (today `{date} 22:00`)                                                                        | strength readiness                       | as rendered                                                            |
+| mono font                                 | ligatures off for data text (`font-variant-ligatures: none` on the mono stack); JetBrains Mono turns `<>` in a title into a diamond | calendar headline facts line             | **Closed — 2.22.0 (W31):** mono ligatures off; `<>` renders as typed (`w31-r1` calendar). |
+| chart tooltip header                      | a date-only header for a daily bucket (today `{date} 22:00`)                                                                        | strength readiness                       | **Closed — 2.22.0 (W31):** day-granular headers drop the clock time (`w31-r1` strength readiness). |
 | chart / strip tooltip                     | placement that never covers the strip cell's own value or title (focus and hover, 390)                                              | home agents strip, agents activity strip | as rendered                                                            |
 | list rows                                 | wrap a title to two lines instead of ellipsizing in a dense agenda/task row                                                         | calendar next-days and tasks at 390      | as rendered                                                            |
 | `basalt-ui shot`                          | info-icon tooltips as a declared state; metrics for every crop it saves (`project-card-6` dark/390 had none)                        | warden strip, agents project cards       | items marked unverified                                                |     | `SegmentedControl` (chart-card actions) | a nested indicator radius at least 3 px below its track (today 4 inside 6) | usage cost and tokens charts | as rendered |
@@ -298,10 +298,10 @@ Rows the Wave 26 workers and the `w26-r1` reviewers filed:
 | Export | Needed prop / default | argo case | What argo does instead |
 |-|-|-|-|
 | `SelectFilter` | a per-option render slot (`FilterOption` is `{value, label, disabled}`), so the dropdown can carry a figure the selected value does not | astro site select: each site's sky brightness, to compare sites before choosing | names only |
-| `ScheduleRow` | a title wrap option (today it ellipsizes) | calendar next-days at 390, long meeting titles | ellipsis (a local CSS override of the row's internals was rejected in review) |
-| `Sparkline` | a label for its `reference` line | strength lift strips (the dashed PR line) | the cell footer names the PR |
+| `ScheduleRow` | a title wrap option (today it ellipsizes) | calendar next-days at 390, long meeting titles | **argo-owned** (`components/upstream/schedule-row.tsx` is local): clamps to two lines with the full title on hover since W31. |
+| `Sparkline` | a label for its `reference` line | strength lift strips (the dashed PR line) | **Closed — 2.22.0 `referenceLabel` (W31);** the label's placement is a new row (§ Wave 31). |
 | `DualPanel` | a tick-count control for the lower pane | strength momentum chart (crowded ticks) | a taller lower pane |
-| mono font | ligatures off in data text (`<>` renders as a diamond) | calendar facts line | as rendered |
+| mono font | ligatures off in data text (`<>` renders as a diamond) | calendar facts line | **Closed — 2.22.0 (W31).** |
 | shell sticky bars | crops and focus states not covered by the sticky page bar / mobile bottom nav | strength sec-load, warden 390 focus, calendar next-days | as rendered |
 
 `w27-r1` re-confirmed open rows: the `DecisionCard` disclosure inset (5.33 px), `Meter` zero/max ticks and `Danger` wrap at 390,
@@ -315,15 +315,15 @@ argo moved to basalt-ui 2.21.0 in its own commit (`7390e3c`). No local strip-cel
 
 | Export | Needed prop / default | argo case | What argo does instead |
 |-|-|-|-|
-| `StatGroup variant="strip"` | align-by-part still leaves a short cell's lower half void beside a sibling with a tall visual/rows (`emptyRatio` 0.47–0.62, over the 0.4 rubric line); the short cell needs to own less height or centre its parts | home next-meeting 0.47, agents needs-you 0.53, garmin recovery 0.62, warden unattended 0.49, reading pace 0.51 | as rendered — no local stretch override |
+| `StatGroup variant="strip"` | align-by-part still leaves a short cell's lower half void beside a sibling with a tall visual/rows (`emptyRatio` 0.47–0.62, over the 0.4 rubric line); the short cell needs to own less height or centre its parts | home next-meeting 0.47, agents needs-you 0.53, garmin recovery 0.62, warden unattended 0.49, reading pace 0.51 | **Mostly closed — 2.22.0 (W31):** cells end at their content; home next-meeting, agents needs-you, warden unattended and reading pace pass; garmin recovery's no-score state still 0.60, and a short cell's visual now floats (new row, § Wave 31). as rendered — no local stretch override |
 | `Meter` zones | a hidden zone name (wider than its span, or `short` still too wide at 390) leaves a zone unnamed on screen; needs an abbreviation ladder or a below-track overflow line rather than silent hiding | home + garmin training-load caution zone; body-composition maintain zone at 390 (`short` set) | as rendered |
 | `Meter` ticks | labelled end ticks on a non-zoned/zoned meter still read detached under the track | garmin load meter `0` / `2.0` | as rendered |
 | `check-theme series-palette` | reads only literal `{ light: '#hex', dark: '#hex' }` entries, so a series file written with `p(BP.*)` (the shipped helper) is never judged — the guard passes silently | `apps/dashboard/src/lib/series.ts` (every entry is `p(...)`) | unjudged |
-| `BandStrip` | a tick/axis formatter prop; a non-hue cue for warn vs bad; a tooltip that does not cover the cell's hero | usage errors band | `DD.MM` ticks, hue-only states |
-| `Button` (outline/light chips), `BarList` rows | a hover state | hermes filter chips, m365 tag chips and pane rows | none |
-| chart header phone select | the 10.67 px inline-start inset (Mantine `/1.5`) the 2.21.0 Button fix did not reach | usage cost + tokens charts at 390 | as rendered |
+| `BandStrip` | a tick/axis formatter prop; a non-hue cue for warn vs bad; a tooltip that does not cover the cell's hero | usage errors band | **Partly closed — 2.22.0 (W31):** warn/bad states draw `!`/`×` (argo sets the glyphs on its solid fills), but at usage's cell width they are unreadable (§ Wave 31); the tick formatter and the tooltip over the hero stay open. `DD.MM` ticks, hue-only states |
+| `Button` (outline/light chips), `BarList` rows | a hover state | hermes filter chips, m365 tag chips and pane rows | **Partly closed — 2.22.0 (W31):** rows use `--vx-surface-row-hover/-selected` (m365, astro night strip); `Button` chips still have no hover. none |
+| chart header phone select | the 10.67 px inline-start inset (Mantine `/1.5`) the 2.21.0 Button fix did not reach | usage cost + tokens charts at 390 | **Closed — 2.22.0 (W31):** the `ctl` inset. |
 | `ViewTabs` at 390 | segment labels centred | astro `Tonight / Forecast / Map` | as rendered |
-| chart tooltips | series names wrap one character per line in a narrow tooltip; a daily value prints a clock time and a US date order | strength ACWR, strength readiness | as rendered |
+| chart tooltips | series names wrap one character per line in a narrow tooltip; a daily value prints a clock time and a US date order | strength ACWR, strength readiness | **Closed — 2.22.0 (W31):** names never wrap; day headers in the locale with no clock time. |
 
 `w28-r1` re-confirmed open rows: `Lines` end labels vs legend (and a clipped end label), `Sparkline` reference label, `ScheduleRow` wrap,
 four type sizes in `ScheduleRow`/section shells, the `·`-led `PageSummary` wrap, the mono `<>` ligature, info tooltips over the card
@@ -337,10 +337,10 @@ Still on basalt-ui 2.21.0 (no release announced during the wave). No local worka
 |-|-|-|-|
 | `Meter` zones | `label` optional for a muted, non-verdict zone (today it is required, so an unnamed zone passes `''`) | strength balance meter, the under/over zones | `label: ''` |
 | `Meter` zone names | one rule across widths: a zone whose `short` fits must show it at every width (the caution zone is named at 390 and hidden at 1440 on Home, the reverse on Garmin) | home + garmin training-load caution zone | `short: 'Caut.'`, as rendered |
-| `Lines` | `endLabels?: boolean` — every non-reference series gets an end label with no off switch, repeating the legend and clipping at the top-right | astro cloud layers; body-composition weight | as rendered |
+| `Lines` | `endLabels?: boolean` — every non-reference series gets an end label with no off switch, repeating the legend and clipping at the top-right | astro cloud layers; body-composition weight | **Partly closed — 2.22.0 `naming` (W31):** end labels or legend, not both (body composition); astro still clips `Low` and sets `High` under its line. as rendered |
 | `Bars` | a non-hue series cue (pattern/hatch fill or direct labels) | astro annual budget `flat` vs `terrain` | shade-only greys |
-| `Bars` / axis | the `0` y-tick label sits under the first bar; needs a label offset or an x inset | usage error chart | as rendered |
-| `SegmentBar` `size="row"` | per-part captions or swatches survive the row size (the row drops caption rows, so parts are told apart by shade only) | m365 `Chats by kind` | the footer names the parts in bar order |
+| `Bars` / axis | the `0` y-tick label sits under the first bar; needs a label offset or an x inset | usage error chart | **Closed — 2.22.0 (W31):** y ticks in a gutter. |
+| `SegmentBar` `size="row"` | per-part captions or swatches survive the row size (the row drops caption rows, so parts are told apart by shade only) | m365 `Chats by kind` | **Closed — 2.22.0 (W31):** row captions name every part; the m365 footer legend is deleted. |
 
 `w29-r1` re-confirmed open rows: `StatGroup` strip short-cell void (home next-meeting 0.47, agents needs-you 0.53, garmin recovery 0.62,
 warden unattended 0.49, reading pace 0.51), `Meter` detached ticks, `Sparkline` reference label, `ScheduleRow` wrap and four sizes,
@@ -363,3 +363,30 @@ warden unattended 0.49, reading pace 0.51), `Meter` detached ticks, `Sparkline` 
 clock time, `ScheduleRow` wrap and four sizes, `BandStrip` hue-only states and ticks, the error chart's `0` tick, chip / row hover, `Lines`
 end labels vs legend (and a clipped end label), `Bars` shade-only series, `SegmentBar` row captions, info tooltips over the card above at
 390, the `·`-led `PageSummary` wrap, the mono `<>` ligature, sticky bars over crops and tall-anchor focus timeouts.
+
+### Wave 31 — basalt-ui 2.22.0 adoption (#129–#133) and the `w31-r1` / `w31-r2` live re-score
+
+argo moved to basalt-ui 2.22.0 in its own commit (`90c2844`); the release's `shadow-basalt-export` rule rejected the local
+`PageSummary`, so the 13 page imports moved to the export and `components/upstream/page-summary.*` was deleted in the same commit.
+Subtracted in #129–#133: the m365 `Chats by kind` footer legend (row captions), hand-mixed row washes in m365 and the astro night
+strip (row surfaces), `legend={false}` on single-series charts (garmin ACWR divergence + activity score, usage p95), the `value: ''`
+VO2max row (`hideValue`), the strength `PR` footer workaround (`referenceLabel`). Rows closed by the release are marked inline above.
+Two adoptions were reverted after the live shot showed a regression (see below). What 2.22.0 still misses, measured on `w31-r1`:
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| chart tooltip header | MIGRATING says a day-granular x prints weekday, day, month and year; live it prints `{d} {Mon}` (the weekday and year lost) | body-composition weight + skinfold | the local `formatHeader` restored (`EEE d MMM yyyy`) |
+| `MeterZone` `tone: 'muted'` | one muted fill for several non-verdict zones; today each zone steps lightness, so an outer zone reads as a value bar | strength balance meters (under/over) | one flat `alpha(VX.muted, .35)` fill, as before 2.22 |
+| `Sparkline` `referenceLabel` | the label sits on its own dashed line (struck through) and under the focus outline | strength lift strips | as rendered |
+| `ChartFact` `period` list | a one-item list gets no separator from `unit` (joins only between items) | astro cloud-layers headline | `period: '· {basis}'` (the W30 row stays open) |
+| `zero` reset | titles still render a slashed zero (`{n}0 d`, `{year}`) in the heading face | body composition, strength, reading, walking pad, agents | as rendered |
+| `StatGroup variant="strip"` | a short cell's visual now floats tens of px under its hero in a taller row (cells end at content, the visual keeps the shared track) | body-composition rate meter, reading shelf bar | as rendered |
+| `BandStrip` glyph | `!` / `×` unreadable at a narrow cell width; needs a minimum cell width or another cue | usage errors band | glyphs set, footer words the tiers |
+| `Sparkline` × `Meter` | the sparkline's focus readout overprints the meter's detached `100` end label in one strip visual | home recovery cell | as rendered |
+| axis ticks | whole-step ticks print a decimal (`{n}.0 s`) | usage latency | as rendered |
+
+`w31-r1` re-confirmed open rows: the `Meter` zone-name fit (`Caution` unnamed on Home at 1440, the maintain zone at 390), detached
+`Meter` ticks, `Lines` clipping `Low` and an end label under its own line (astro), `Bars` shade-only series, four type sizes in the
+`Section` shells (strength), `Button` chip hover, mixed date ticks, `StackedArea` zero rows, info tooltips over the card above at 390,
+sticky bars over section crops, the 390 2 + 1 strip. Harness: 2.22's `shot` renders empty/loading/error only for anchors that declare
+`data-shot-states` — argo declares none (argo's to fix, Wave 32); hover crops that hover the selected cell or the pane, not a row.

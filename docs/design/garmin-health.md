@@ -195,3 +195,8 @@ Follow-up (w30-r1):
 
 - **Reviewer (r1):** fail. Fixed: the ACWR legend names every zone, each swatch with a matching fill (a caution band, danger above it). **Regression (r1), fixed in #127 and verified in r2:** at 390 the meter printed `Undertrained` flush against `Optimal` (basalt `Meter` shows a full label that does not fit and ignores `short`); the zone is `Low` everywhere now, which fits. Also fixed (r2): the recovery footer no longer opens a line with `·`. Carried (basalt): the recovery cell part-empty (`emptyRatio` 0.62); detached `Meter` ticks; `Caut.` hidden at 390; the fitness focus timeout (harness). Unscored: `Low` and `Caution` share one amber swatch (position and word separate them — both match the meter).
 - **Against Keel:** close — load and fitness read like Keel's metric cards; recovery is still a dash and a sentence.
+
+### Wave 31 round (`w31-r1`, live after #129–#133 on basalt-ui 2.22.0; `w31-r2` after the follow-ups)
+
+- **Reviewer:** fail. Fixed: the recovery cell states the same verdict as Home; `Caut.` is named at 1440 on the load meter; the ACWR divergence strip and daily-activity chart draw no legend (2.22 default). Carried (basalt): the recovery cell part-empty in its no-score state (`emptyRatio` 0.60, light 1440 caught before the day's sync); the load meter's `0` / `2.0` ticks detached. Unscored: the scored cell shows no window mean (it is in the chart header); the recovery chart's facts run `mean` into the next figure with no separator. No lost fact.
+- **Against Keel:** close — the strip reads like Keel's metric cards; the chart grid is plainer than Keel's composite cards.

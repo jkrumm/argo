@@ -204,3 +204,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail (no new argo defect). Fixed: the remove control hidden at rest on fine pointers, visible on focus, always visible on coarse pointers (the Wave 22 ruling); the 390 headline keeps each date whole. Carried: kind-bar segments shade-only (basalt `SegmentBar` row); the 390 2 + 1 strip (basalt); two source-list focus timeouts and the 390 labeled header not captured (harness); the 390 detail pane opens empty. Unverified: the hover reveal (the harness hovers the pane, not a row). Unscored: the scrollbar thumb through the labeled-pane header.
 - **Against Keel:** close — the kind bar still needs its footer as a legend.
+
+### Wave 31 round (`w31-r1`, live after #129–#133 on basalt-ui 2.22.0; `w31-r2` after the follow-ups)
+
+- **Reviewer:** fail. Fixed: `Chats by kind` labels each segment under the bar (2.22 `size="row"` captions), so the footer legend is deleted with no count lost; row hover/selected on basalt's row surfaces; the source-list focus timeouts are gone. **New:** the kind caption restates the hero's count (argo); the 1440 page shot is ~1.7k px with ~640 px empty under the panes (argo or harness); a light 390 capture mid-load (harness). Carried: tag-chip hover (basalt); labeled-row hover unverifiable (harness); the 390 2 + 1 strip (basalt); the scrollbar through the pane header; the 390 detail pane with a source open not verified.
+- **Against Keel:** close — Keel's rows carry real columns and its page has no dead space.

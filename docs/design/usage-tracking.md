@@ -191,3 +191,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail (no new argo defect). Fixed: the Tokens footer keeps `full days` together; per-day mean and peak share one unit; the tokens axis and tooltip rows share one unit; the Errors footer reads `was {r}`. Carried (basalt): warn/bad days hue-only and `DD.MM` band ticks; the p95 line through the top tick label; the error chart's `0` tick under the first bar; the tokens tooltip lists zero-value series (`0 M` rows — unverified as true zeros from pixels; `StackedArea` has no per-datum row filter). Unscored: the cost sparkline readout prints cents against the page's whole-dollar rule; `{m}%` unspaced here while Astro prints `{m} %`.
 - **Against Keel:** close — still the best stat strip of the set.
+
+### Wave 31 round (`w31-r1`, live after #129–#133 on basalt-ui 2.22.0; `w31-r2` after the follow-ups)
+
+- **Reviewer:** fail. Fixed: the cost sparkline readout in whole dollars; percent spelled `{m} %` like Astro; the p95 line clears the top tick; the errors chart's `0` tick no longer under the first bar (2.22 gutter ticks); the single-series p95 chart draws no legend. **New:** latency ticks print `{n}.0 s` (2.22 ticks, basalt); token rows mix precision (`0.0{x} B` beside `0.{xx} B`, argo). Carried: the errors band's `!`/`×` glyphs are set but too small to read at this cell width, so warn vs bad is still hue-only (basalt); `DD.MM` band ticks; tooltip zero rows (`StackedArea`); the health bars' three tiers by hue (named in the legend). No lost fact.
+- **Against Keel:** close — still the best stat strip of the set.

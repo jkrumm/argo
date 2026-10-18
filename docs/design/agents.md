@@ -232,3 +232,8 @@ No basalt gaps this round.
 
 - **Reviewer:** fail. Fixed: the headline ends with the oldest wait (the larger of agent wait and human-queue ask), the same figure as the oldest-wait tile; title verbs match the primary button (`Copy command: …?` / `Copy ask: …?`, an alert keeps its kind); the running footer keeps `{d} d {h} h` whole. Carried: card 3 offers one action; the needs-you tile part-empty (`emptyRatio` 0.53 — basalt row); the activity-strip focus tooltip over its heading (basalt). **New:** none argo-owned outside the frozen rung — `Copy command: {ask}?` reads as an instruction (recorded, not scored: the authored producer `question` is the owner's call). No lost fact: the with-a-command count is told by each card's button.
 - **Against Keel:** close (was does not yet) — the headline carries the figure that matters; titles are still a prefix plus the ask text.
+
+### Wave 31 round (`w31-r1`, live after #129–#133 on basalt-ui 2.22.0; `w31-r2` after the follow-ups)
+
+- **Reviewer:** every component passes; the page fails only on `craft-7/no-declared-states` (no anchor declares `data-shot-states`, so empty/loading/error went unrendered under basalt-ui 2.22's shot). Fixed: the needs-you cell is no longer part-empty (2.22 strip cells end at their content); decision-card titles keep identifiers whole at both widths. **New:** a project card's `{h} h {m} min ago` wraps with `ago` alone (data-dependent; `ago` is breakable by the w30 rule). Carried: card 3 offers one action; titles are a verb prefix plus the ask text (frozen rung). Unscored: the slashed zero in the headline (basalt); the 390 oldest-wait meter shows only its 24 h mark. No lost fact.
+- **Against Keel:** close — Keel's cells each carry a micro-visual, ours are text readings.
