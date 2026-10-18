@@ -96,6 +96,8 @@ describe('booked hours', () => {
   })
   test('week total is the sum of the day loads', () => {
     expect(weekBookedMin(events, weekKeys(D))).toBe(210)
+    // An unanswered calendar makes the week unknown, never a partial sum.
+    expect(weekBookedMin(events, weekKeys(D), true)).toBeNull()
   })
   test('split attributes a shared minute once, so Work + Personal is the booked total', () => {
     const split = bookedBySourceClass(events, weekKeys(D))
@@ -307,6 +309,13 @@ describe('tasksDue', () => {
     const out = tasksDue([task('a', D, 1), task('b', D, 0), task('c', D, undefined)], D)
     expect(out.map((t) => t.label)).toEqual(['Low', 'No priority', 'No priority'])
     expect(out.every((t) => t.tone === 'neutral')).toBe(true)
+  })
+  test('all four priority labels rank High > Medium > Low > No priority on a tie', () => {
+    const out = tasksDue(
+      [task('n', D, undefined), task('l', D, 1), task('m', D, 3), task('h', D, 5)],
+      D,
+    )
+    expect(out.map((t) => t.label)).toEqual(['High', 'Medium', 'Low', 'No priority'])
   })
   test('meetings are never tasks', () => {
     expect(tasksDue([ev('m', at(D, '09:00'), at(D, '10:00'))], D)).toEqual([])
