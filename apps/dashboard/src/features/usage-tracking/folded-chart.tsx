@@ -23,12 +23,12 @@ import {
   dropPartialBucket,
   EM_DASH,
   fmtShare,
-  noUsageWindow,
   OTHER_KEY,
   periodNoun,
   prepareFolded,
   shortDay,
 } from './model'
+import { useNoUsageWindow } from './use-headline'
 import classes from './usage.module.css'
 
 /** Rows the list shows at phone width before "Show all". */
@@ -76,6 +76,10 @@ export function FoldedChart({
   const now = useNow()
   const compact = useSizeClass() === 'compact'
   const [showAll, setShowAll] = useState(false)
+  const filtered = billing !== undefined || workspace !== undefined
+  // The cost plot is the first card in reading order: it carries the full sentence, the rest the short form.
+  const plotText = useNoUsageWindow(filtered, metric === 'cost')
+  const listText = useNoUsageWindow(filtered, false)
 
   const { folded, labelOf } = prepareFolded({
     points: toTimePoints(data.buckets),
@@ -90,7 +94,6 @@ export function FoldedChart({
     if (!byRank) return color(key)
     return RANK_PALETTE[folded.keys.indexOf(key) % RANK_PALETTE.length] ?? USAGE_SOURCE.other
   }
-  const emptyText = noUsageWindow(billing !== undefined || workspace !== undefined)
   const rows = compact && !showAll ? folded.totals.slice(0, COMPACT_ROWS) : folded.totals
   const hidden = folded.totals.length - rows.length
   // The chart stops at the last complete bucket (the running one would draw as a drop); the list
@@ -117,7 +120,7 @@ export function FoldedChart({
               <ViewTabs field={usageStore.field.tokensGroupBy} label="Group by" />
             )
           }
-          state={{ empty: (series.length === 0 || drawn.length === 0) && emptyText }}
+          state={{ empty: (series.length === 0 || drawn.length === 0) && plotText }}
         >
           <StackedArea
             ariaLabel={`${unitNoun} per ${perBucket}, stacked by ${groupNoun}`}
@@ -136,7 +139,7 @@ export function FoldedChart({
         <ChartCard
           className={classes.fill}
           title={`${listTitle} · ${periodNoun(range)}${totalNote}`}
-          state={{ empty: folded.totals.length === 0 && emptyText }}
+          state={{ empty: folded.totals.length === 0 && listText }}
         >
           <BarList
             label={`${unitNoun} by ${groupNoun}, ${periodNoun(range)}`}

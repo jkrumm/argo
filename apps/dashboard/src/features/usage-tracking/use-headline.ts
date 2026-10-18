@@ -1,6 +1,7 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query'
 import { shotState } from '../../lib/shot-state'
 import { usageQueries } from '../../lib/queries/usage'
+import { noUsageWindow } from './model'
 
 const useHeadlineQuery = () => useQuery(usageQueries.headline())
 type Headline = NonNullable<ReturnType<typeof useHeadlineQuery>['data']>
@@ -36,4 +37,10 @@ export function useUsageHeadline(): Pick<UseQueryResult<Headline>, 'data' | 'isP
       p95MsPrior30d: null,
     },
   }
+}
+
+/** The wording for an empty window on one chart surface; see `noUsageWindow`. */
+export function useNoUsageWindow(filtered: boolean, leading: boolean): string {
+  const { data } = useUsageHeadline()
+  return noUsageWindow({ filtered, stripEmpty: data?.calls30d === 0, leading })
 }
