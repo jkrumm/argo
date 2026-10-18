@@ -20,7 +20,7 @@ import { shotState } from '../../lib/shot-state'
 import { useNow } from '../../lib/use-now'
 import { calendarStore } from '../../lib/window-stores'
 import { AgendaView, type SourceError } from './agenda-view'
-import { failed, feedGap, taskFeedState, unanswered } from './query-state'
+import { failed, feedGap, taskFeedState, taskReadFailed, unanswered } from './query-state'
 import { DayGroups } from './agenda-parts'
 import {
   addDays,
@@ -166,6 +166,17 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
   // Tasks are their own read: a pending or failed one is not an empty list.
   const tasksState = taskFeedState([projectsQuery, ...projectQueries])
 
+  // Retry refetches exactly what a failure surface shows: the `errors` lines (any errored source,
+  // cached data or not) and the headline gap are both fed by `isError`; tasks by `taskReadFailed`.
+  const failedCalendar = shotEmpty ? [] : [googleQuery, m365Query].filter((query) => query.isError)
+  const failedTasks = [projectsQuery, ...projectQueries].filter(taskReadFailed)
+  function retryFailedCalendar() {
+    for (const query of failedCalendar) void query.refetch()
+  }
+  function retryFailedTasks() {
+    for (const query of failedTasks) void query.refetch()
+  }
+
   function setSearch(patch: Partial<SearchState>) {
     void navigate({
       search: (prev) => ({ ...(prev as SearchState), ...patch }),
@@ -249,14 +260,10 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
           unknown={unknown}
           failed={gap.failedSources}
           tasksState={tasksState}
-          onRetry={() => {
-            if (personalFailed) void googleQuery.refetch()
-            if (workFailed) void m365Query.refetch()
-          }}
-          onRetryTasks={() => {
-            for (const query of [projectsQuery, ...projectQueries])
-              if (query.isError) void query.refetch()
-          }}
+          onRetryCalendar={retryFailedCalendar}
+          retryingCalendar={failedCalendar.some((query) => query.isFetching)}
+          onRetryTasks={retryFailedTasks}
+          retryingTasks={failedTasks.some((query) => query.isFetching)}
         />
       )}
 

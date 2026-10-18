@@ -1,11 +1,12 @@
 import { formatMinutes } from '../../lib/format'
 import { useMemo } from 'react'
-import { Anchor, Box, Button, Card, Stack, Text } from '@mantine/core'
+import { Anchor, Box, Card, Stack, Text } from '@mantine/core'
 import { Section, StatGroup, PageSummary } from 'basalt-ui'
 import { format } from 'date-fns'
 import type { SourceClass } from '../../lib/queries/calendar'
 import { EMPTY_WINDOW, summaryParts, todayCardState } from './summary'
 import { feedGap } from './query-state'
+import { RetryButton } from './retry-button'
 import { useNow } from '../../lib/use-now'
 import classes from './agenda.module.css'
 import {
@@ -52,8 +53,10 @@ export function AgendaView({
   unknown,
   failed,
   tasksState,
-  onRetry,
+  onRetryCalendar,
+  retryingCalendar,
   onRetryTasks,
+  retryingTasks,
 }: {
   events: readonly CalendarItem[]
   errors: readonly SourceError[]
@@ -62,10 +65,12 @@ export function AgendaView({
   /** Unknown sources that stopped trying (failed), as against still loading. */
   failed: ReadonlySet<SourceClass>
   tasksState: 'loading' | 'error' | 'ready'
-  /** Refetches the failed calendar sources: the step beside the headline's failure sentence. */
-  onRetry: () => void
+  /** Refetches every failed calendar source: the one step for the headline and the error lines. */
+  onRetryCalendar: () => void
+  retryingCalendar: boolean
   /** Refetches the failed task reads. */
   onRetryTasks: () => void
+  retryingTasks: boolean
 }) {
   const nowMs = useNow()
   const now = useMemo(() => new Date(nowMs), [nowMs])
@@ -101,11 +106,6 @@ export function AgendaView({
     <Stack gap="md">
       <Box>
         <PageSummary {...parts} loading={loading} />
-        {gap?.state === 'error' && parts.sentence === gap.text && (
-          <Button variant="subtle" color="gray" size="compact-sm" onClick={onRetry}>
-            Retry
-          </Button>
-        )}
         {errors.map((error) => (
           <Text key={error.label} className={classes.muted}>
             {error.label} unavailable — {error.reason}
@@ -119,6 +119,13 @@ export function AgendaView({
             )}
           </Text>
         ))}
+        {(gap?.state === 'error' || errors.length > 0) && (
+          <RetryButton
+            onClick={onRetryCalendar}
+            loading={retryingCalendar}
+            label="Retry calendar sources"
+          />
+        )}
       </Box>
       <AllDayChips items={model.todayAllDay} />
       <Box className={classes.frame}>
@@ -218,7 +225,8 @@ export function AgendaView({
                 tasks={model.tasks}
                 todayKey={summary.todayKey}
                 state={tasksState}
-                onRetry={onRetryTasks}
+                onRetryTasks={onRetryTasks}
+                retryingTasks={retryingTasks}
               />
             </Box>
           </Box>

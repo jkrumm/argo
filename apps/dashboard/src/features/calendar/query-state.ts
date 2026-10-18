@@ -76,5 +76,9 @@ export function taskFeedState(
   // Loading while any read is pending; a failure only counts once all have settled, and a failed
   // background refetch that still holds cached data is not one.
   if (queries.some((q) => q.isPending || (q.isPlaceholderData && q.isFetching))) return 'loading'
-  return queries.some((q) => q.isError && q.data === undefined) ? 'error' : 'ready'
+  return queries.some(taskReadFailed) ? 'error' : 'ready'
 }
+
+/** A task read `taskFeedState` counts as failed: errored with nothing cached to show. */
+export const taskReadFailed = (query: { isError: boolean; data: unknown }) =>
+  query.isError && query.data === undefined

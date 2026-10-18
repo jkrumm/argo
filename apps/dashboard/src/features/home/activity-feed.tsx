@@ -133,8 +133,8 @@ function FeedRow({ event: e }: { event: ActivityEvent }) {
 
 /** One part of line 2: the outcome wraps whole, only the chip clips inside itself. */
 function MetaPart({ part, lead }: { part: RowPart; lead: boolean }) {
+  // The pill separates itself: no `·` before the chip, so a wrap never opens a line with one.
   if (part.kind === 'chip')
-    // The pill separates itself: no `·` before it, so a wrap never opens a line with one.
     return (
       <span className={classes.feedPart}>
         <Badge
