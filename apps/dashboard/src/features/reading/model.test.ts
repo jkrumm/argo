@@ -3,7 +3,6 @@ import { relativeTime } from 'basalt-ui/format'
 import {
   gapsBefore,
   RATING_MAX,
-  RATING_TICKS,
   approxHours,
   booksPerMonth,
   finishedFooter,
@@ -210,9 +209,11 @@ describe('ratingShape', () => {
     expect(ratingBin(6)).toBe(4)
   })
 
-  test('the mean marker is positioned by the model in column widths on the 0…5 track', () => {
-    expect(ratingShape([book({ rating: 2.5 })]).meanAt).toBe(2.5)
-    expect(ratingShape([book({ rating: 5 })]).meanAt).toBe(RATING_MAX)
+  test('the mean marker is positioned by the model on the star scale: a mean of m sits at m − 0.5 column widths', () => {
+    expect(ratingShape([book({ rating: 3 })]).meanAt).toBe(2.5)
+    expect(ratingShape([book({ rating: 2.5 })]).meanAt).toBe(2)
+    expect(ratingShape([book({ rating: 5 })]).meanAt).toBe(4.5)
+    // Below the first label's star the marker stops on the first column's centre.
     expect(ratingShape([book({ rating: 0.5 })]).meanAt).toBe(0.5)
     expect(ratingShape([book()]).meanAt).toBeNull()
   })
@@ -229,13 +230,17 @@ describe('ratingShape', () => {
     expect(ratingShape([book()]).spans).toEqual(expected)
   })
 
-  test('the axis ticks are the six column edges, positioned on the mean marker basis', () => {
-    expect(RATING_TICKS).toEqual([0, 1, 2, 3, 4, 5].map((value) => ({ value, at: value })))
+  test('each column is labelled by its star, and a whole-star rating sits in its own column', () => {
+    expect(ratingShape([book()]).labels).toEqual(['1', '2', '3', '4', '5'])
     expect(RATING_MAX).toBe(5)
+    for (const star of [1, 2, 3, 4, 5]) {
+      const { buckets, labels } = ratingShape([book({ rating: star })])
+      expect(labels[buckets.findIndex((n) => n === 1)]).toBe(String(star))
+    }
   })
 
-  test('gaps before a position: none at the left edge, one per column passed, four at the right', () => {
-    expect([0, 0.5, 1, 1.5, 2, 3, 4, 4.5, 5].map(gapsBefore)).toEqual([0, 0, 0, 1, 1, 2, 3, 4, 4])
+  test('gaps before a position: none at the first centre, one per centre passed, four at the last', () => {
+    expect([0.5, 1, 1.5, 2.5, 3.5, 4.5].map(gapsBefore)).toEqual([0, 0.5, 1, 2, 3, 4])
   })
 
   test('community mean covers the same rated books', () => {
