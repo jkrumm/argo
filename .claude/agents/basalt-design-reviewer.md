@@ -37,7 +37,7 @@ Score per component, then add one line per page for the page items (Communicatio
 
 1. **[measured]** Every inset, gap and radius is a step in `metrics.json` `scale`; nested surfaces step by at least 3 px of radius. No `scale` → `unverified`. Never invent steps.
 2. **[measured]** No more than three font sizes inside one component: `fontSizes` with more than 3 distinct values fails.
-3. No empty region of 40 % or more of the component's height — **[measured]**: `emptyRatio` ≥ 0.4 fails; no dense-list row wraps at 390 — judged from the 390 crop.
+3. No empty region of 40 % or more of the component's height — **[measured]**: `emptyRatio` ≥ 0.4 fails; no dense-list row wraps at 390 — judged from the 390 crop. **D37, not scored:** an errored or empty chart body that keeps its loaded height with its anatomy top-aligned is the SSR-first contract, not a void defect (list it as `D37, not scored`); any other void still fails, and so does a loading skeleton much shorter than the loaded body. D37 covers chart bodies only; a list that keeps a void is scored.
 4. One ring per surface, no bare hairline borders on cards, no accent on chrome: look at every crop for an accent hue on a tab underline, a selected row, a secondary button, a card ring or a solid-filled badge. The accent sites are the primary data series, active-nav icons and active child labels, links, primary buttons, focus rings and the leader bar in meters; chrome (borders, inactive states, backgrounds, general icons) stays neutral, and selection state (active nav row, selected tab) never takes the accent. A status is a dot plus a word, or the value's own ink; a coloured edge stripe or rail down a card, row or callout for status fails here (Craft 4), and a card's `tone` dot-and-word verdict passes.
 5. **[measured]** Text and meaningful marks meet contrast in both schemes (a non-empty `contrast.failures` fails); nothing is told apart only by colour.
 6. Nothing overflows, clips or truncates a value at 1440 or 390.
@@ -58,7 +58,7 @@ Score per component, then add one line per page for the page items (Communicatio
 3. A number whose definition, period or source is not stated on the surface has a tooltip or a one-line explanation; a count of visible items has none.
 4. Titles are precise nouns with their scope ("Ride distance, 7 days"), not categories ("Metrics").
 5. **[page]** A page is not three rows of KPI cards, and not a single table when its data has one of the catalogue's shapes.
-6. Empty and error states say why and what to do.
+6. Empty and error states say why and what to do, per `.claude/skills/basalt-design/references/states.md`: an error is one "Could not load <thing>" title, the cause, one Retry, with the error dot and no empty-state glyph; a loading state is a skeleton in the loaded shape; one wording per repeated gap across cards.
 
 ### Banned filler
 
