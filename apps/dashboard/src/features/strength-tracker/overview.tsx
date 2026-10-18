@@ -97,9 +97,9 @@ function useOverview({ params, exercises }: Params) {
   }
 }
 
-export function SummaryLine(props: Params) {
+function SummaryLine(props: Params) {
   const { summaryLine } = useOverview(props)
-  return <PageSummary sentence={summaryLine.sentence} />
+  return summaryLine === null ? null : <PageSummary sentence={summaryLine.sentence} />
 }
 
 /** A term of art with its plain-word definition behind an info icon. */
@@ -122,7 +122,7 @@ function Term({ name, label, definition }: { name: string; label: ReactNode; def
   )
 }
 
-export function TodaysCall(props: Params) {
+function TodaysCall(props: Params) {
   const { readiness, deload, lastDate, series, call, acwr, acwrWeek } = useOverview(props)
   const score = readiness?.score ?? null
   const session = lastSession(series.byExercise)
@@ -307,7 +307,7 @@ function liftCell({
 /** Strip columns by lift count: at least two, at most six. */
 const liftCols = (n: number) => Math.min(Math.max(n, 2), 6) as 2 | 3 | 4 | 5 | 6
 
-export function LiftStrip(props: Params) {
+function LiftStrip(props: Params) {
   const { series, summary, now } = useOverview(props)
   const prs = new Map(summary.byExercise.map((s) => [s.exercise_id, s]))
   // Each lift's move is derived once; the cells and the stale note both read it.

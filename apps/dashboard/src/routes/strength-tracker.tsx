@@ -277,7 +277,15 @@ function ChartsPanel({
       </Box>
 
       <Box data-shot="sec-diagnostics">
-        <Section title="Against your 90-day norm" collapsible defaultOpen={false}>
+        <Section
+          title={
+            period === 'all time'
+              ? 'Against your 90-day norm'
+              : `Against your 90-day norm, ${period}`
+          }
+          collapsible
+          defaultOpen={false}
+        >
           <Suspense fallback={pending}>
             <CompositeChartSlot params={params} activeExercises={activeExercises} />
           </Suspense>

@@ -1,11 +1,13 @@
 import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
 import {
+  binLabel,
   NO_PACE_REASON,
   paceRange,
   ratingShape,
   ratingsFooter,
   shelfParts,
+  type BinSpan,
   type Pace,
   type ShelfItem,
   type ShelfCounts,
@@ -54,7 +56,7 @@ function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
     visual: (
       <div
         role="img"
-        aria-label={`Rated books per star: ${shape.buckets.map((c, i) => `${shape.labels[i]} ★ ${c}`).join(', ')}; mean ${shape.mean.toFixed(1)} ★`}
+        aria-label={`Rated books per star: ${shape.buckets.map((c, i) => `${binLabel(shape.spans[i] as BinSpan).aria}: ${c}`).join(', ')}; mean ${shape.mean.toFixed(1)} ★`}
       >
         <div className={classes.histogram}>
           {shape.buckets.map((count, i) => (
@@ -70,7 +72,7 @@ function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
         <div className={classes.axis}>
           {shape.buckets.map((count, i) => (
             <span key={i} className={classes.axisLabel}>
-              <span>{shape.labels[i]}</span>
+              <span>{binLabel(shape.spans[i] as BinSpan).visible}</span>
               <span>{count}</span>
             </span>
           ))}
