@@ -137,7 +137,7 @@ const summaryKey = (key: SummaryState) => (key === 'needs_you' ? 'needsYou' : ke
  * The fleet in fixed order, `total` their sum so captions always add up. `unknownAgents` (agents
  * whose state is none of the five) rides as a sixth part only when present, so the total matches
  * the agent roster. `null` when the snapshot carries no summary or only part of it: an unreported
- * count is unknown, never a measured zero.
+ * count is unknown, never an observed zero.
  */
 export function fleetParts(
   summary: OverviewSummary | undefined,
@@ -237,7 +237,7 @@ export function hourlyWorking(
   return buckets
 }
 
-/** The busiest measured hour; `null` when no hour carries a snapshot (nothing was measured, not zero). */
+/** The busiest observed hour; `null` when no hour carries a snapshot (nothing was observed, not zero). */
 export function peakWorking(
   buckets: readonly HourBucket[],
 ): { value: number; hourMs: number } | null {
@@ -256,7 +256,7 @@ export const gapHours = (buckets: readonly HourBucket[], now: number): number =>
 }
 
 /**
- * Activity-strip footer: the busiest hour and how many measured hours had an agent working. Hours
+ * Activity-strip footer: the busiest hour and how many observed hours had an agent working. Hours
  * without a snapshot are left out of the denominator and named when present.
  */
 export function activityFact(
@@ -266,7 +266,7 @@ export function activityFact(
   if (peak === null) return null
   const measured = buckets.filter((b) => b.working !== null)
   const scope =
-    measured.length < buckets.length ? `${measured.length} h measured` : `${buckets.length} h`
+    measured.length < buckets.length ? `${measured.length} h observed` : `${buckets.length} h`
   if (peak.value === 0) return `no agent working in ${scope}`
   const active = measured.filter((b) => (b.working ?? 0) > 0).length
   return `busiest hour ${clockOf(peak.hourMs)} · agents working in ${active} of ${scope}`
@@ -398,35 +398,46 @@ export function headlineOf(text: string): string {
 // ── Page summary ─────────────────────────────────────────────────────────────────────────────
 
 export type SummaryInput = {
-  items: number
-  oldestWaitMs: number | null
-  /** Oldest human-queue ask; named only when no agent is waiting. */
-  oldestAskMs?: number | null
-  /** `null` when the snapshot has no complete summary: the fleet fact is left out, not zeroed. */
-  fleet: { working: number; total: number } | null
-  /** Projects in the quiet bucket the Projects section lists. */
-  idleProjects: number
+  /** Agents in `needs_you`. */
+  agentWaits: number
+  /** Asks in the human queue. */
+  asks: number
 }
 
-/** The headline (count + oldest wait) and the facts under it (fleet, idle projects). */
+/**
+ * The page's verdict and where the waiting sits. The strip under it prints the count, the oldest
+ * wait and the fleet, so the headline names no figure the strip already shows.
+ */
 export function summaryParts(s: SummaryInput): { sentence: string; facts: string[] } {
-  const fleet = s.fleet === null ? null : `${s.fleet.working} of ${s.fleet.total} agents working`
-  const idle = `${s.idleProjects} ${s.idleProjects === 1 ? 'project' : 'projects'} idle`
-  if (s.items === 0) {
-    // The fleet carries the headline's number when nothing waits.
-    return fleet === null
-      ? { sentence: 'Nothing needs you.', facts: [idle] }
-      : { sentence: `Nothing needs you; ${fleet}.`, facts: [idle] }
-  }
-  const facts = [fleet, idle].filter((f): f is string => f !== null)
-  const noun = s.items === 1 ? 'item needs' : 'items need'
-  const wait =
-    s.oldestWaitMs !== null
-      ? `, oldest agent wait ${formatWaitDuration(s.oldestWaitMs)}`
-      : s.oldestAskMs != null
-        ? `, oldest ask ${formatWaitDuration(s.oldestAskMs)}`
-        : ''
-  return { sentence: `${s.items} ${noun} you${wait}.`, facts }
+  if (s.agentWaits === 0 && s.asks === 0) return { sentence: 'Nothing needs you.', facts: [] }
+  const sentence =
+    s.agentWaits > 0 && s.asks > 0
+      ? 'Agents and the human queue are waiting on you.'
+      : s.agentWaits > 0
+        ? `${s.agentWaits === 1 ? 'An agent is' : 'Agents are'} waiting on you.`
+        : `${s.asks === 1 ? 'A request is' : 'Requests are'} waiting for your answer.`
+  const facts = [
+    s.agentWaits > 0 ? `${s.agentWaits} ${s.agentWaits === 1 ? 'agent' : 'agents'} blocked` : null,
+    s.asks > 0 ? `${s.asks} queued ${s.asks === 1 ? 'ask' : 'asks'}` : null,
+  ].filter((f): f is string => f !== null)
+  return { sentence, facts }
+}
+
+/** The tool an agent runs in, as a reader names it: `claude-code` is `Claude Code`. */
+const SOURCE_NAME: Record<string, string> = {
+  claude: 'Claude Code',
+  'claude-code': 'Claude Code',
+  opencode: 'OpenCode',
+  codex: 'Codex',
+  droid: 'Droid',
+}
+
+/** Display name of an agent source; an unlisted one becomes words (`my_tool` → `My tool`). */
+export function sourceLabel(source: string): string {
+  const known = SOURCE_NAME[source.toLowerCase()]
+  if (known !== undefined) return known
+  const words = source.replace(/[_-]+/g, ' ').trim()
+  return words === '' ? source : words.charAt(0).toUpperCase() + words.slice(1)
 }
 
 // ── Narratives ───────────────────────────────────────────────────────────────────────────────

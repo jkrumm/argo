@@ -15,6 +15,7 @@ import {
   clockTime,
   feedState,
   summaryParts,
+  sourceLabel,
   fleetFact,
   hoursWithNeedsYou,
   needsYouWindowFact,
@@ -280,55 +281,42 @@ describe('headlineOf', () => {
 // ── summaryParts ────────────────────────────────────────────────────────────
 
 describe('summaryParts', () => {
-  it('names the count and the oldest wait in the sentence, fleet and idle as facts', () => {
-    expect(
-      summaryParts({
-        items: 3,
-        oldestWaitMs: 5 * 3_600_000,
-        fleet: { working: 4, total: 12 },
-        idleProjects: 2,
-      }),
-    ).toEqual({
-      sentence: '3 items need you, oldest agent wait 5h 0m.',
-      facts: ['4 of 12 agents working', '2 projects idle'],
+  it('names who waits without repeating the count, the oldest wait or the fleet', () => {
+    expect(summaryParts({ agentWaits: 2, asks: 1 })).toEqual({
+      sentence: 'Agents and the human queue are waiting on you.',
+      facts: ['2 agents blocked', '1 queued ask'],
     })
   })
 
-  it('carries the fleet in the sentence when nothing waits', () => {
-    expect(
-      summaryParts({
-        items: 0,
-        oldestWaitMs: null,
-        fleet: { working: 1, total: 5 },
-        idleProjects: 0,
-      }),
-    ).toEqual({ sentence: 'Nothing needs you; 1 of 5 agents working.', facts: ['0 projects idle'] })
+  it('reads agents alone and asks alone, singular and plural', () => {
+    expect(summaryParts({ agentWaits: 1, asks: 0 })).toEqual({
+      sentence: 'An agent is waiting on you.',
+      facts: ['1 agent blocked'],
+    })
+    expect(summaryParts({ agentWaits: 3, asks: 0 }).sentence).toBe('Agents are waiting on you.')
+    expect(summaryParts({ agentWaits: 0, asks: 1 }).sentence).toBe(
+      'A request is waiting for your answer.',
+    )
+    expect(summaryParts({ agentWaits: 0, asks: 2 }).sentence).toBe(
+      'Requests are waiting for your answer.',
+    )
   })
 
-  it('omits the wait clause when nothing carries a clock', () => {
-    expect(
-      summaryParts({
-        items: 1,
-        oldestWaitMs: null,
-        fleet: { working: 0, total: 2 },
-        idleProjects: 1,
-      }),
-    ).toEqual({
-      sentence: '1 item needs you.',
-      facts: ['0 of 2 agents working', '1 project idle'],
+  it('says nothing waits, with no fact', () => {
+    expect(summaryParts({ agentWaits: 0, asks: 0 })).toEqual({
+      sentence: 'Nothing needs you.',
+      facts: [],
     })
   })
+})
 
-  it('names the oldest ask when only the human queue waits', () => {
-    expect(
-      summaryParts({
-        items: 1,
-        oldestWaitMs: null,
-        oldestAskMs: 90 * 60_000,
-        fleet: null,
-        idleProjects: 0,
-      }),
-    ).toEqual({ sentence: '1 item needs you, oldest ask 1h 30m.', facts: ['0 projects idle'] })
+describe('sourceLabel', () => {
+  it('names a known tool as a reader would', () => {
+    expect(sourceLabel('claude-code')).toBe('Claude Code')
+    expect(sourceLabel('opencode')).toBe('OpenCode')
+  })
+  it('turns an unlisted source into words, never a raw key', () => {
+    expect(sourceLabel('my_tool-x')).toBe('My tool x')
   })
 })
 
@@ -387,10 +375,10 @@ describe('activityFact', () => {
   it('leaves unmeasured hours out of the denominator and says so', () => {
     const buckets = [hour(1, null), hour(2, 3), hour(3, 0), hour(4, null)]
     expect(activityFact(buckets, peakWorking(buckets))).toMatch(
-      /agents working in 1 of 2 h measured$/,
+      /agents working in 1 of 2 h observed$/,
     )
     const quiet = [hour(1, null), hour(2, 0)]
-    expect(activityFact(quiet, peakWorking(quiet))).toBe('no agent working in 1 h measured')
+    expect(activityFact(quiet, peakWorking(quiet))).toBe('no agent working in 1 h observed')
   })
 
   it('is null when nothing was measured', () => {
@@ -447,19 +435,6 @@ describe('groupByDay', () => {
       [groups[2]!.label, ['d']],
     ])
     expect(groups[2]!.label).toMatch(/^Sat 3 Jan$/)
-  })
-})
-
-describe('summaryParts without a fleet', () => {
-  it('leaves the fleet fact out instead of zeroing it', () => {
-    expect(summaryParts({ items: 2, oldestWaitMs: null, fleet: null, idleProjects: 1 })).toEqual({
-      sentence: '2 items need you.',
-      facts: ['1 project idle'],
-    })
-    expect(summaryParts({ items: 0, oldestWaitMs: null, fleet: null, idleProjects: 0 })).toEqual({
-      sentence: 'Nothing needs you.',
-      facts: ['0 projects idle'],
-    })
   })
 })
 

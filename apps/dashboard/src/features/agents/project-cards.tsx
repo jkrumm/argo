@@ -7,6 +7,7 @@ import {
   ageAgo,
   formatWaitDuration,
   longestRunMs,
+  sourceLabel,
   STATE_LABEL,
   type AgentState,
   type ProjectGroup,
@@ -33,7 +34,7 @@ function SourceBar({ sources }: { sources: Record<string, number> }) {
     <span
       className={classes.share}
       role="img"
-      aria-label={entries.map(([k, n]) => `${k} ${n}`).join(', ')}
+      aria-label={entries.map(([k, n]) => `${sourceLabel(k)} ${n}`).join(', ')}
     >
       {entries.map(([name, n], i) => (
         <Box
@@ -53,8 +54,8 @@ function sourceCell(
   const entries = Object.entries(sources).toSorted((a, b) => b[1] - a[1])
   if (entries.length === 0) return { value: '—' }
   const [first, ...rest] = entries
-  const unit = rest.map(([name, n]) => `${name} ${n}`).join(' · ')
-  return { value: `${first![0]} ${first![1]}`, small: true, ...(unit && { unit }) }
+  const unit = rest.map(([name, n]) => `${sourceLabel(name)} ${n}`).join(' · ')
+  return { value: `${sourceLabel(first![0])} ${first![1]}`, small: true, ...(unit && { unit }) }
 }
 
 function gitCell(git: ProjectGroup['git']): Pick<EntityCardCell, 'value' | 'small' | 'unit'> {
@@ -113,7 +114,7 @@ function ProjectCard({ group, now }: { group: ProjectGroup; now: number }) {
   )
 }
 
-/** One line per project without a running agent: name, agent count, worst state, age. */
+/** One line per project without a running agent: name, worst state, last activity. */
 function QuietList({ groups, now }: { groups: ProjectGroup[]; now: number }) {
   return (
     <ul className={classes.quiet} aria-label="Projects without a running agent">
@@ -121,9 +122,6 @@ function QuietList({ groups, now }: { groups: ProjectGroup[]; now: number }) {
         <li key={g.name} className={classes.quietRow}>
           <Text size="sm" truncate>
             {g.name}
-          </Text>
-          <Text size="sm" ff="monospace" c="dimmed" span>
-            {plural(g.agents.length, 'agent', 'agents')}
           </Text>
           <StatusChip tone={STATE_TONE[g.worst]} label={STATE_LABEL[g.worst]} />
           <Text size="sm" ff="monospace" c="dimmed" span className={classes.quietAge}>
@@ -143,7 +141,7 @@ type Props = {
 
 /**
  * One entity card per project with a working or waiting agent, then every other project as one
- * compact row (agent count, worst state, last activity) so no project is dropped.
+ * compact row (worst state, last activity) so no project is dropped.
  */
 export function ProjectCards({ active, quiet, now }: Props) {
   const count = active.length + quiet.length

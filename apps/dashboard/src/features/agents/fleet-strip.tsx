@@ -58,7 +58,7 @@ export function FleetStrip({ needsYou, fleet, coverage, hours, oldest, longestRu
           key: 'needs-you',
           caption: 'Needs you · now',
           value: needsYou === null ? null : String(needsYou),
-          ...(needsYou !== null && { unit: itemNoun(needsYou) }),
+          ...(needsYou !== null && { unit: `${itemNoun(needsYou)} waiting` }),
           ...(needsYou !== null && needsYou > 0 && { tone: 'warn' as const }),
           footer: needsYouWindowFact(coverage, hours),
         },

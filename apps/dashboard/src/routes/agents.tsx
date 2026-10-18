@@ -66,11 +66,8 @@ function AgentsPage() {
   const fleet = fleetParts(snapshot?.summary, countUnknownAgents(agents))
 
   const summary = summaryParts({
-    items: needsYouItems,
-    oldestWaitMs: oldestAgent?.ms ?? null,
-    oldestAskMs: askMs,
-    fleet: fleet && { working: fleet.parts[0]?.value ?? 0, total: fleet.total },
-    idleProjects: quiet.length,
+    agentWaits: agents.filter((a) => a.state === 'needs_you').length,
+    asks: humanQueue.length,
   })
 
   const feed = feedState({

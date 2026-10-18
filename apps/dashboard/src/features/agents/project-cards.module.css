@@ -19,9 +19,11 @@
   color: var(--vx-muted);
 }
 
+/* One grid for the whole list, each row a subgrid of it: the columns size to their widest cell, so an age never clips and the rows still align. */
 .quiet {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  column-gap: var(--vx-space-stack-md);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -29,9 +31,9 @@
 
 .quietRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 5.5rem 6.5rem 7.5rem;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
   align-items: center;
-  column-gap: var(--vx-space-stack-md);
   padding-block: var(--vx-space-stack-xs);
   border-bottom: 1px solid var(--vx-surface-hairline);
 }
@@ -39,16 +41,6 @@
 .quietAge {
   text-align: end;
   white-space: nowrap;
-}
-
-@container (max-width: 479.9px) {
-  .quietRow {
-    grid-template-columns: minmax(0, 1fr) auto auto;
-  }
-
-  .quietRow > :nth-child(2) {
-    display: none;
-  }
 }
 
 .quietBox {
