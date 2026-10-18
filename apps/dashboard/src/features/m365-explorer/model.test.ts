@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import {
   chatKindCounts,
+  chatKindParts,
+  detailSectionTitle,
+  labeledSectionTitle,
   groupByRecency,
   chipCounts,
   visibleChipCounts,
@@ -186,15 +189,31 @@ describe('formatTime', () => {
 })
 
 describe('headlineOf', () => {
-  test('leads with the week activity and prints only the newest stamp as a fact', () => {
-    expect(headlineOf({ activeWeek: 4, latest: '17 Oct, 11:58' })).toEqual({
-      sentence: '4 chats active in the last 7 days',
-      facts: ['latest activity 17 Oct, 11:58'],
+  test('is the newest stamp only: no count the recency groups already print', () => {
+    expect(headlineOf({ latest: '17 Oct, 11:58' })).toEqual({
+      sentence: 'Latest activity 17 Oct, 11:58',
     })
-    expect(headlineOf({ activeWeek: 1, latest: null })).toEqual({
-      sentence: '1 chat active in the last 7 days',
-      facts: [],
-    })
+    expect(headlineOf({ latest: null })).toEqual({ sentence: 'No chat activity yet' })
+  })
+})
+
+describe('chatKindParts', () => {
+  test('drops kinds with no chats and keeps reading order', () => {
+    expect(chatKindParts({ oneOnOne: 4, group: 0, meeting: 2, other: 0 })).toEqual([
+      { key: 'oneOnOne', label: '1:1', value: 4 },
+      { key: 'meeting', label: 'meeting', value: 2 },
+    ])
+    expect(chatKindParts({ oneOnOne: 0, group: 0, meeting: 0, other: 0 })).toEqual([])
+  })
+})
+
+describe('phone section titles', () => {
+  test('say a fact about the pane, not the tab name', () => {
+    expect(labeledSectionTitle('')).toBe('Grouped by tag')
+    expect(labeledSectionTitle(LABELED_FILTER)).toBe('Grouped by tag')
+    expect(labeledSectionTitle('alerts')).toBe('alerts')
+    expect(detailSectionTitle(true, 20)).toBe('Latest 20 messages')
+    expect(detailSectionTitle(false, 20)).toBe('Nothing open')
   })
 })
 
@@ -244,7 +263,7 @@ describe('labeled count, outside note and sources title', () => {
     expect(list).toBe('newest 50 chats and channels')
     expect(sourceListName(12, false)).toBe('chats and channels')
     expect(labeledBasis(cov, list)).toBe(
-      '1 more label on sources outside the newest 50 chats and channels',
+      '1 more label on sources not in the newest 50 chats and channels: older or removed',
     )
     expect(labeledBasis({ ...cov, outside: 0 }, list)).toBe(
       'across the newest 50 chats and channels',

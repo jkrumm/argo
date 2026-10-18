@@ -1,7 +1,8 @@
 import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { Skeleton, UnstyledButton } from '@mantine/core'
-import { channelsFooter, labeledBasis, type Coverage } from './model'
+import { withUnit } from '../../lib/format'
+import { channelsFooter, chatKindParts, labeledBasis, type Coverage } from './model'
 import classes from './m365.module.css'
 
 /** A split is not a verdict: neutral fills, never a status colour. */
@@ -49,17 +50,30 @@ function labeledCell(coverage: Coverage, list: string, onRetry: () => void): Sta
   }
 }
 
-/** The chat kinds as aligned rows that sum to the Chats tab's total (`Other` takes any kind added later). */
+/**
+ * The chat kinds as one split bar, shaded by rank (a split is not a verdict), keyed by the footer
+ * words. A kind with no chats is left out; `other` takes any kind the API adds later.
+ */
 function chatsCell(chats: Chats): StatStripCell {
+  const parts = chatKindParts(chats)
   return {
     key: 'chats',
     caption: 'Chats by kind',
-    rows: [
-      { key: 'oneOnOne', label: '1:1', value: String(chats.oneOnOne) },
-      { key: 'group', label: 'Group', value: String(chats.group) },
-      { key: 'meeting', label: 'Meeting', value: String(chats.meeting) },
-      { key: 'other', label: 'Other', value: String(chats.other) },
-    ],
+    visual:
+      parts.length === 0 ? undefined : (
+        <Meter
+          label="Chats by kind"
+          max={parts.reduce((sum, p) => sum + p.value, 0)}
+          size="row"
+          segments={parts.map((p, i) => ({
+            label: p.label,
+            value: p.value,
+            color: alpha(VX.muted, Math.max(0.95 - i * 0.25, 0.3)),
+          }))}
+        />
+      ),
+    footer:
+      parts.length === 0 ? 'no chats' : parts.map((p) => withUnit(p.value, p.label)).join(' · '),
   }
 }
 

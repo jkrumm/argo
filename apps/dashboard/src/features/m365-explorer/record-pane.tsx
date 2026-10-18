@@ -1,4 +1,4 @@
-import { ActionIcon, Alert, Badge, ScrollArea } from '@mantine/core'
+import { ActionIcon, Alert, ScrollArea } from '@mantine/core'
 import { IconX } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
 import { m365Queries } from '../../lib/queries/m365'
@@ -17,7 +17,7 @@ export type RecordPaneProps = {
   error: string | null
 } & Omit<LabelButtonProps, 'sourceId'>
 
-const MESSAGE_TOP = 20
+export const MESSAGE_TOP = 20
 
 function useRecordMessages(selected: SourceRef) {
   const chat = useQuery({
@@ -61,9 +61,6 @@ export function RecordPane(props: RecordPaneProps) {
           <h2 className={classes.recordName} tabIndex={-1}>
             {selected.displayName}
           </h2>
-          <Badge variant="light" color="gray">
-            {selected.kind}
-          </Badge>
           {props.onClose ? (
             <ActionIcon
               ml="auto"

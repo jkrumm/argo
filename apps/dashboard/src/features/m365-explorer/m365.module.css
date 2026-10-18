@@ -87,7 +87,7 @@
 
 .chipCount {
   font-family: var(--basalt-font-mono);
-  font-size: var(--vx-text-micro);
+  font-size: var(--vx-text-xs);
   opacity: 0.7;
 }
 
@@ -101,7 +101,7 @@
   padding: var(--vx-space-stack-sm) var(--vx-space-card-inset-x);
   background: var(--vx-surface-panel);
   font-family: var(--basalt-font-mono);
-  font-size: var(--vx-text-micro);
+  font-size: var(--vx-text-xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--vx-muted);
@@ -180,7 +180,7 @@
 .rowTime {
   flex: none;
   font-family: var(--basalt-font-mono);
-  font-size: var(--vx-text-micro);
+  font-size: var(--vx-text-xs);
   color: var(--vx-muted);
 }
 
@@ -281,7 +281,7 @@
   margin-inline-start: auto;
   flex: none;
   font-family: var(--basalt-font-mono);
-  font-size: var(--vx-text-micro);
+  font-size: var(--vx-text-xs);
   color: var(--vx-muted);
 }
 
@@ -319,14 +319,14 @@
   border-radius: var(--vx-radius-fine);
   background: var(--vx-surface-subtle);
   color: var(--vx-muted);
-  font-size: var(--vx-text-micro);
+  font-size: var(--vx-text-xs);
   font-family: var(--basalt-font-mono);
 }
 
 .recordName {
   min-width: 0;
   margin: 0;
-  font-size: var(--vx-text-lg);
+  font-size: var(--vx-text-sm);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
