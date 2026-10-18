@@ -13,6 +13,7 @@ import {
   ACWR_FLOOR,
   ACWR_METER_MAX,
   ACWR_OPTIMAL_TO,
+  recoveryMeterProps,
 } from '../garmin-health/model'
 import { acwrMeterZones, acwrZoneLabel } from '../garmin-health/formulas'
 import { BUDGET_MISSING, deriveBudget, pollerAgeText } from '../warden/page-model'
@@ -205,19 +206,7 @@ export function recoveryCell(reading: RecoveryReading | null, loading = false): 
     unit: '/100',
     visual: (
       <>
-        <Meter
-          label="Recovery against its 7 day mean"
-          value={score}
-          min={0}
-          max={100}
-          {...(mean !== null && {
-            ticks: [{ at: mean, label: `${withUnit(7, 'd')} mean ${Math.round(mean)}` }],
-          })}
-          format={(v) => String(Math.round(v))}
-          startCaption={null}
-          endCaption={null}
-          tone="muted"
-        />
+        <Meter {...recoveryMeterProps(score)} value={score} format={(v) => String(Math.round(v))} />
         {trend.length > 1 ? (
           <Sparkline
             ariaLabel={`Recovery over the last ${trend.length} observed days`}
@@ -230,7 +219,7 @@ export function recoveryCell(reading: RecoveryReading | null, loading = false): 
       </>
     ),
     footer: isToday
-      ? `${days} observed ${days === 1 ? 'day' : 'days'} of 7`
+      ? `${mean === null ? '' : `${withUnit(7, 'd')} mean ${Math.round(mean)} · `}${days} observed ${days === 1 ? 'day' : 'days'} of 7`
       : `today fills after the next Garmin sync (every ${withUnit(GARMIN_SYNC_HOURS, 'h')})`,
   }
 }
