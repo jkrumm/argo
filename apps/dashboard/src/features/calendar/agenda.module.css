@@ -184,8 +184,10 @@
 }
 
 .taskTitle {
-  /* Wraps at word boundaries; the full title is also the element's title attribute. */
-  overflow-wrap: anywhere;
+  /* One line with an ellipsis; the full title is the element's title attribute. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--vx-ink);
 }
 

@@ -1,7 +1,7 @@
 import { formatMinutes } from '../../lib/format'
 /** The Agenda's summary sentence — pure, so its wording is tested on synthetic events. */
 import { SOURCES_LABEL, type FeedGap } from './query-state'
-import { addDays, displayTitle, keyToDate, type AgendaSummary } from './derive'
+import { addDays, displayTitle, keyToDate, NO_EVENTS, type AgendaSummary } from './derive'
 
 const weekdayShort = (key: string) =>
   keyToDate(key).toLocaleDateString('en-GB', { weekday: 'short' })
@@ -26,7 +26,7 @@ export function countdown(summary: AgendaSummary): string | null {
 /** One gap, two wordings: the headline carries `sentence`, every other surface `short`, its leading clause verbatim. */
 export type EmptyWindow = { short: string; sentence: string }
 
-const EMPTY_WINDOW_SHORT = 'No events'
+const EMPTY_WINDOW_SHORT = NO_EVENTS
 export const EMPTY_WINDOW: EmptyWindow = {
   short: EMPTY_WINDOW_SHORT,
   sentence: `${EMPTY_WINDOW_SHORT} — nothing is booked in ${SOURCES_LABEL} this week or the next 7 days`,
