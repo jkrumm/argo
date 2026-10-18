@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import type { WardenBoardItem, WardenMetrics } from '../../lib/queries/warden'
 import { capFacts } from '../../components/upstream/decision-card-model'
 import { waitingOnOwner, type AwaitingOwnerRow, type AwaitingOwnerView } from './model'
+import { formatDuration } from '../../lib/format'
 import {
   cardFacts,
   deferredNote,
@@ -38,6 +39,7 @@ import {
   resolveQueueAsks,
   fixesLegend,
   historyView,
+  historyAge,
   historyLineWithAge,
   wardenAskInput,
   pollerFooter,
@@ -457,18 +459,36 @@ describe('splitReason', () => {
   })
 })
 
+describe('cardFacts glue', () => {
+  it('the count never leaves its word in the history fact', () => {
+    expect(cardFacts(row({ redrives: 2, revisionCount: 3, ageDays: 1.2 }))[2]).toBe(
+      'retried 2\u00a0times, revised 3\u00a0times',
+    )
+    expect(cardFacts(row({ redrives: 0, revisionCount: 1, ageDays: 1.2 }))[2]).toBe(
+      'revised 1\u00a0time',
+    )
+  })
+  it('the waiting fact and the history age share one duration spelling', () => {
+    const waiting = cardFacts(row({ ageDays: 0.1 }))[1]
+    expect(waiting).toBe(`waiting ${formatDuration(0.1 * 86_400_000)}`)
+    expect(historyAge(new Date(0).toISOString(), 0.1 * 86_400_000)).toBe(
+      `${formatDuration(0.1 * 86_400_000)}\u00a0ago`,
+    )
+  })
+})
+
 describe('cardFacts', () => {
   it('leads with repo, then age, then how often the item was retried and revised', () => {
     expect(cardFacts(row({ redrives: 2, ageDays: 1.2 }))).toEqual([
       'repo-a',
       'waiting 1\u00a0d\u00a04\u00a0h',
-      'retried 2 times, revised 1 time',
+      'retried 2\u00a0times, revised 1\u00a0time',
     ])
   })
 
   it('says revised alone when nothing was retried, and never `revision 0`', () => {
     expect(cardFacts(row({ redrives: 0, revisionCount: 1, ageDays: 1.2 }))[2]).toBe(
-      'revised 1 time',
+      'revised 1\u00a0time',
     )
     expect(cardFacts(row({ redrives: 0, revisionCount: 0, ageDays: 1.2 }))).toEqual([
       'repo-a',

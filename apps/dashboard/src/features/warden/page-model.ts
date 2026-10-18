@@ -23,7 +23,7 @@ import {
   isStale,
   TERMINAL_STATES,
   VERIFICATION_FAILED,
-  pluralize,
+  pluralizeWhole,
   waitingOnOwner,
   type AwaitingOwnerRow,
   type AwaitingOwnerView,
@@ -563,8 +563,8 @@ const DAY_MS = 86_400_000
 /** How often the item was retried and revised, as one fact; `''` when neither happened. */
 function historyFact(row: AwaitingOwnerRow): string {
   return [
-    row.redrives > 0 ? `retried ${pluralize(row.redrives, 'time')}` : '',
-    row.revisionCount > 0 ? `revised ${pluralize(row.revisionCount, 'time')}` : '',
+    row.redrives > 0 ? `retried ${pluralizeWhole(row.redrives, 'time')}` : '',
+    row.revisionCount > 0 ? `revised ${pluralizeWhole(row.revisionCount, 'time')}` : '',
   ]
     .filter((part) => part !== '')
     .join(', ')
@@ -719,6 +719,9 @@ export function transitionText({ from, to }: TransitionLine): string {
 export const historyAge = (at: string, now: number): string =>
   formatAgoWhole(Math.max(0, now - Date.parse(at)))
 
+/** ` · {age}` with the dot glued to the word before it, so it never opens a line. */
+export const historyTail = (at: string, now: number): string => `${NBSP}· ${historyAge(at, now)}`
+
 /**
  * A history row with its age: `{line} · {age}`. The dot is glued to the word before it so it never
  * opens a line, and {@link historyAge} keeps `ago` with its duration, so a list row never leaves
@@ -729,7 +732,7 @@ export function historyLineWithAge(
   at: string | null | undefined,
   now: number,
 ): string {
-  return at ? `${text}${NBSP}· ${historyAge(at, now)}` : text
+  return at ? `${text}${historyTail(at, now)}` : text
 }
 
 export type HistoryView = {

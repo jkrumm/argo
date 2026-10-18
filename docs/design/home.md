@@ -166,3 +166,9 @@ No basalt gaps this round.
 - **Titles: backticks, monitor prefix** — fixed: `subjectOf` unwraps code backticks and turns a monitor's `[{monitor}] Down …` into `{monitor} Down …` (the monitor is read once, in the subject). New/updated rows in `__fixtures__/question-rung.ts`.
 - **Alert card with no evidence line** — fixed where the snapshot carries one: a reason that is one over-long question (so not the title) is now the card's evidence line on Home (`keepQuestionEvidence`). Not fixed, by design: alerts that share one reason word for word keep it on the first card only (`withoutRepeatedEvidence`); the snapshot carries nothing else for them, and the reason stays in `Full reason`.
 - **Not touched** (basalt rows): Meter zone labels, StatGroup strip emptiness.
+
+Follow-up (w30-r1):
+
+- **ACWR meter zone words** — fixed: the Training-load meter passes `label` = `ACWR_ZONE_NAME.*` and `short` = `ACWR_ZONE_SHORT.*` (`garmin-health/formulas.ts`), the same constants as Garmin and Strength; Home no longer hard-codes zone words.
+- **`ago` on every Home age** — fixed: the card's `Latest change:` line, the list rows and the tracking-fact lines (`first seen`, `last seen`, `resolved`, `retry`, reminders) all print `{duration}{NBSP}ago` (`historyTail`, `relativeWhole`); one spelling.
+- **Card glue** — fixed: `retried|revised {n} times` keeps the count with its word (`pluralizeWhole`).

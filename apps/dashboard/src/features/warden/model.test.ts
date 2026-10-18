@@ -8,6 +8,7 @@ import {
   isDeferredItem,
   isSafeHttpUrl,
   isStale,
+  relativeWhole,
   issueRefLabel,
   PENDING_ACTION_TIMEOUT_MS,
   pluralize,
@@ -250,6 +251,15 @@ describe('deriveAwaitingOwner', () => {
   })
 })
 
+describe('relativeWhole', () => {
+  it('glues ago to its duration and leaves future and unreadable times alone', () => {
+    const now = Date.parse('2026-01-01T12:00:00Z')
+    expect(relativeWhole('2026-01-01T09:30:00Z', now)).toBe('2\u00a0h\u00a030\u00a0min\u00a0ago')
+    expect(relativeWhole('2026-01-01T12:00:20Z', now)).toBe('in <\u00a01\u00a0min')
+    expect(relativeWhole('nope', now)).toBe('—')
+  })
+})
+
 describe('pluralize', () => {
   it('pluralizes everything but exactly one', () => {
     expect(pluralize(0, 'strike')).toBe('0 strikes')
@@ -403,8 +413,8 @@ describe('buildItemFacts', () => {
     expect(facts.lines.some((line) => line.startsWith('resolved '))).toBe(true)
     expect(facts.lines.some((line) => line.startsWith('Alert reminders: 5'))).toBe(true)
     expect(facts.lines).toContain('2 strikes')
-    expect(facts.lines).toContain('retry 1\u00a0d ago')
-    expect(facts.lines).toContain('resolved 2\u00a0d ago')
+    expect(facts.lines).toContain('retry 1\u00a0d\u00a0ago')
+    expect(facts.lines).toContain('resolved 2\u00a0d\u00a0ago')
   })
 
   it('never renders a reminder or strike line for a zero or absent count', () => {

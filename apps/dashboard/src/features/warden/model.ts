@@ -1,5 +1,5 @@
 import { asText, authoredQuestion, stripShortcodes } from '../../lib/text'
-import { formatRelative } from '../../lib/format'
+import { NBSP, formatRelative } from '../../lib/format'
 import type {
   WardenActionVerb,
   WardenBoardItem,
@@ -313,6 +313,14 @@ export function pluralize(count: number, word: string): string {
   return `${count} ${word}${count === 1 ? '' : 's'}`
 }
 
+/** {@link pluralize} with a no-break space, so the count never leaves its word (`revised 3 times`). */
+export const pluralizeWhole = (count: number, word: string): string =>
+  pluralize(count, word).replace(' ', NBSP)
+
+/** {@link formatRelative} with `ago` glued to its duration: the whole age is one unbreakable unit. */
+export const relativeWhole = (iso: string, now: number): string =>
+  formatRelative(iso, now).replace(/ ago$/, `${NBSP}ago`)
+
 function externalIdOf(event: Row | null): string | null {
   const raw = event?.['external_id']
   return str(raw) ?? (typeof raw === 'number' ? String(raw) : null)
@@ -322,8 +330,8 @@ function seenParts(item: Row | null, now: number): string[] {
   const firstSeen = str(item?.['first_seen'])
   const lastSeen = str(item?.['last_seen'])
   return [
-    firstSeen ? `first seen ${formatRelative(firstSeen, now)}` : null,
-    lastSeen ? `last seen ${formatRelative(lastSeen, now)}` : null,
+    firstSeen ? `first seen ${relativeWhole(firstSeen, now)}` : null,
+    lastSeen ? `last seen ${relativeWhole(lastSeen, now)}` : null,
   ].filter((part): part is string => part !== null)
 }
 
@@ -340,14 +348,14 @@ function seenAndOccurrencesLine(item: Row | null, now: number): string | null {
 
 function resolvedLine(event: Row | null, now: number): string | null {
   const resolvedAt = str(event?.['resolved_at'])
-  return resolvedAt ? `resolved ${formatRelative(resolvedAt, now)}` : null
+  return resolvedAt ? `resolved ${relativeWhole(resolvedAt, now)}` : null
 }
 
 function alertReminderLine(event: Row | null, now: number): string | null {
   const count = num(event?.['reminder_count'])
   if (count === null || count <= 0) return null
   const last = str(event?.['last_reminder_at'])
-  return `Alert reminders: ${count}${last ? ` (last ${formatRelative(last, now)})` : ''}`
+  return `Alert reminders: ${count}${last ? ` (last ${relativeWhole(last, now)})` : ''}`
 }
 
 /** Strikes and the retry gate — warden's one retry rule: three consecutive infrastructure failures
@@ -357,7 +365,7 @@ function retryLines(item: Row | null, now: number): string[] {
   const retryAt = str(item?.['retry_at'])
   return [
     strikes !== null && strikes > 0 ? `${pluralize(strikes, 'strike')}` : null,
-    retryAt ? `retry ${formatRelative(retryAt, now)}` : null,
+    retryAt ? `retry ${relativeWhole(retryAt, now)}` : null,
   ].filter((line): line is string => line !== null)
 }
 
