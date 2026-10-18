@@ -306,6 +306,13 @@ export type ActivityEvent = {
   detail?: string
 }
 
+/** Where a remaining decision is waiting: Agents holds the agents and the human queue, Warden its own items. */
+const REST_PLACE = { '/agents': 'on Agents', '/warden': 'in Warden' } as const
+
+/** The show-more button for the `count` decisions beyond the cards, worded as the remainder (the summary's facts count the whole list). */
+export const restLabel = (href: keyof typeof REST_PLACE, count: number): string =>
+  `${count} more ${REST_PLACE[href]}`
+
 /** Rows older than the start of yesterday are history, not "today's stream". */
 const activityHorizon = (now: number) => addDays(startOfDayDate(now), -1).getTime()
 
@@ -354,7 +361,7 @@ export function wardenEvents(raw: WardenRaw | null | undefined): ActivityEvent[]
     const rawTitle = board?.title ?? str(itemBag?.['title'])
     // Cleaned once, where the item is read, so every row built from it renders a clean string.
     const repo = rawRepo === null ? null : stripShortcodes(rawRepo) || null
-    // The card's own subject (`subjectOf`): the raw `[{monitor} - …]` prefix is dropped as on the Warden cards.
+    // The cards' subject rule (`subjectOf`): shortcodes, a commit label and a monitor's `[…]` prefix are dropped, as on the Warden cards.
     const itemTitle = rawTitle === null ? null : subjectOf(rawTitle)
     const steps: Step[] = []
     for (const t of timeline.transitions ?? []) {

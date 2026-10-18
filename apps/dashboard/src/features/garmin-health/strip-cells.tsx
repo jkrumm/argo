@@ -32,7 +32,7 @@ import {
   vo2Hero,
   contributorItems,
   firstToLast,
-  lastScored,
+  lastScoredVisible,
   missingInputs,
   recoveryGap,
   loadFooter,
@@ -96,14 +96,12 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
   const summary = useQuery(recoveryQueries.summary(params))
   const series = useQuery(recoveryQueries.series(params))
   // `basalt-ui shot`'s `empty` state renders the cell's own no-score branch.
-  const seriesData = shotState() === 'empty' ? undefined : series.data
+  const empty = shotState() === 'empty'
+  const seriesData = empty ? undefined : series.data
 
-  const last = useMemo(
-    () => lastScored(applyVisibilityFilter(seriesData?.points ?? [], (p) => p.date)),
-    [seriesData],
-  )
+  const last = useMemo(() => lastScoredVisible(seriesData?.points ?? []), [seriesData])
 
-  const data = shotState() === 'empty' ? undefined : summary.data
+  const data = empty ? undefined : summary.data
   const score = data?.recovery ?? null
   // The score's own date: today reads "today", a sync gap reads its date.
   const when = dayLabel(data?.date)
@@ -153,7 +151,8 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
 
 function useLoadCell(params: SummaryParams): StatStripCell {
   const query = useQuery(trainingLoadQueries.summary(params))
-  const { data, isPlaceholderData } = query
+  const { isPlaceholderData } = query
+  const data = shotState() === 'empty' ? undefined : query.data
   // Same visibility rule as the ACWR chart below, so the two never show different "latest" days.
   const latest =
     applyVisibilityFilter(data?.points ?? [], (p) => p.date).findLast((p) => p.acwr !== null) ??
@@ -279,8 +278,12 @@ function useFitnessCell(): StatStripCell {
   const series = useQuery(dailyMetricsQueries.series(range))
   // VO2max moves over months: a bounded 180 d trace, not the page window and not all history.
   const history = useQuery(dailyMetricsQueries.series(lastDaysRange(VO2_DAYS)))
+  // `basalt-ui shot`'s `empty` state: no reading in any of the fitness reads.
+  const empty = shotState() === 'empty'
+  const historyData = empty ? undefined : history.data
+  const seriesData = empty ? undefined : series.data
   const vo2 = useMemo(() => {
-    const read = applyVisibilityFilter(history.data?.points ?? [], (p) => p.date, {
+    const read = applyVisibilityFilter(historyData?.points ?? [], (p) => p.date, {
       hideToday: false,
     }).filter((p): p is typeof p & { vo2Max: number } => p.vo2Max !== null)
     const first = read.at(0)
@@ -288,11 +291,11 @@ function useFitnessCell(): StatStripCell {
     const spanDays =
       first && last ? Math.round((Date.parse(last.date) - Date.parse(first.date)) / 86_400_000) : 0
     return { values: read.map((p) => p.vo2Max), dates: read.map((p) => p.date), spanDays }
-  }, [history.data])
+  }, [historyData])
 
   const rows = useMemo(() => {
     // Sleep-derived readings lock in overnight, so today is kept (as the regression's window does).
-    const last = applyVisibilityFilter(series.data?.points ?? [], (p) => p.date, {
+    const last = applyVisibilityFilter(seriesData?.points ?? [], (p) => p.date, {
       hideToday: false,
     })
     return {
@@ -300,9 +303,9 @@ function useFitnessCell(): StatStripCell {
       hrv: last.map((p) => p.hrv),
       dates: last.map((p) => p.date),
     }
-  }, [series.data])
+  }, [seriesData])
 
-  const d = direction.data
+  const d = empty ? undefined : direction.data
   return {
     key: 'fitness',
     caption: 'Fitness',

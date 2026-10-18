@@ -5,7 +5,7 @@ import { IconCircleCheck } from '@tabler/icons-react'
 import { DecisionCard, type DecisionCardAction } from '../../components/upstream/decision-card'
 import { useCopyAction } from '../../components/upstream/use-copy-action'
 import type { Decision } from '../../lib/decisions'
-import { NEEDS_YOU_SOURCES } from './model'
+import { NEEDS_YOU_SOURCES, restLabel } from './model'
 import { StatusChip } from '../agents/status-chip'
 import { HistoryPreview } from '../warden/history-preview'
 import { historyView } from '../warden/page-model'
@@ -14,8 +14,6 @@ import { historyView } from '../warden/page-model'
 const CARD_LIMIT = 3
 
 const PAGE_LABEL = { '/agents': 'Agents', '/warden': 'Warden' } as const
-/** The remainder's per-page count, worded like the summary's facts (`3 in Warden`, `1 with agents`). */
-const REST_LABEL = { '/agents': 'with agents', '/warden': 'in Warden' } as const
 
 type Props = {
   decisions: readonly Decision[]
@@ -70,8 +68,8 @@ function Card({ decision }: { decision: Decision }) {
 }
 
 /**
- * The merged inbox: the first {@link CARD_LIMIT} decisions as cards, then `Show n more` pointing at
- * the page that owns each remaining item. The heading count is the whole list, not the cards shown.
+ * The merged inbox: the first {@link CARD_LIMIT} decisions as cards, then one `{n} more on/in {page}` button
+ * per page that owns each remaining item. The heading count is the whole list, not the cards shown.
  */
 export function NeedsYou({ decisions, unavailable }: Props) {
   const shown = decisions.slice(0, CARD_LIMIT)
@@ -103,9 +101,6 @@ export function NeedsYou({ decisions, unavailable }: Props) {
         )}
         {rest.length > 0 ? (
           <Group gap="xs" data-shot="show-more" data-shot-absent="empty">
-            <Text size="sm" c="dimmed">
-              Show {rest.length} more:
-            </Text>
             {(['/agents', '/warden'] as const).map((href) =>
               restBy(href) > 0 ? (
                 <Button
@@ -116,7 +111,7 @@ export function NeedsYou({ decisions, unavailable }: Props) {
                   color="gray"
                   size="compact-sm"
                 >
-                  {restBy(href)} {REST_LABEL[href]}
+                  {restLabel(href, restBy(href))}
                 </Button>
               ) : null,
             )}

@@ -186,13 +186,23 @@ function recoveryDay(date: string | null): string {
 }
 
 /** The pre-sync gap in Garmin Health's wording, from its one function (`recoveryGap`), lower-cased for a footer. */
-function noScoreLine({ date, last }: RecoveryReading): string {
-  const line = recoveryGap({ date, settled: true, last }).line ?? ''
-  return line.charAt(0).toLowerCase() + line.slice(1)
+function noScoreLine(
+  { date, last }: RecoveryReading,
+  { settled, failed }: SeriesState,
+): string | null {
+  const { line } = recoveryGap({ date, settled, status: failed ? 'error' : 'success', last })
+  return line === null ? null : line.charAt(0).toLowerCase() + line.slice(1)
 }
 
+/** Whether the recovery series (the source of the last scored day) has settled on the window, or failed. */
+export type SeriesState = { settled: boolean; failed: boolean }
+
 /** `loading` is the query still pending: a missing reading then is not yet a failure. */
-export function recoveryCell(reading: RecoveryReading | null, loading = false): StatStripCell {
+export function recoveryCell(
+  reading: RecoveryReading | null,
+  loading = false,
+  series: SeriesState = { settled: true, failed: false },
+): StatStripCell {
   if (reading === null || reading.score === null) {
     return {
       key: 'recovery',
@@ -203,7 +213,9 @@ export function recoveryCell(reading: RecoveryReading | null, loading = false): 
           ? loading
             ? 'loading Garmin data'
             : 'Garmin data not loaded; reload to retry'
-          : `${noScoreLine(reading)} · Garmin syncs every ${withUnit(GARMIN_SYNC_HOURS, 'h')}`,
+          : [noScoreLine(reading, series), `Garmin syncs every ${withUnit(GARMIN_SYNC_HOURS, 'h')}`]
+              .filter((part) => part !== null)
+              .join(' · '),
     }
   }
   const { score, trend, date, isToday } = reading

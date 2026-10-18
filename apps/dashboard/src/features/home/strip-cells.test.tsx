@@ -60,6 +60,14 @@ describe('strip cells with no reading', () => {
         }),
       ).footer,
     ).toBe('last scored 62/100 on Jan\u00a013 · Garmin syncs every 6\u00a0h')
+    // The gap waits for the series: unsettled names only the cadence, a failed read says so.
+    const unscored = reading({ score: null, mean: null, days: 0, trend: [], isToday: false })
+    expect(recoveryCell(unscored, false, { settled: false, failed: false }).footer).toBe(
+      'Garmin syncs every 6\u00a0h',
+    )
+    expect(recoveryCell(unscored, false, { settled: true, failed: true }).footer).toBe(
+      'the recovery score failed to load · Garmin syncs every 6\u00a0h',
+    )
     expect(recoveryCell(null, true)).toMatchObject({ footer: 'loading Garmin data' })
     expect(acwrCell(null, NOW)).toMatchObject({ value: null, footer: 'unavailable' })
   })

@@ -1,8 +1,9 @@
 import { formatMinutes } from '../../lib/format'
 /**
- * ScheduleRow — one agenda line: clock time with its duration under it, a proportional title, a muted meta line, an optional pill for the next item
- * and an optional trailing action (a `Join` link). Generic on purpose: no domain types in the props,
- * so Calendar and the Home Today list render the same row.
+ * ScheduleRow — one agenda line: clock time with its duration under it, a proportional title,
+ * a muted meta line, an optional pill for the next item and an optional trailing action (a
+ * `Join` link). Generic on purpose: no domain types in the props, so Calendar and the Home Today
+ * list render the same row.
  *
  * Prototype of Keel's `schedule-item` (docs/design/UPSTREAM.md).
  */
