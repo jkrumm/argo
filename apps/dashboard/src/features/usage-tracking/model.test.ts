@@ -14,6 +14,8 @@ import {
   errorComparison,
   priorNote,
   fmtPctBadge,
+  fmtSecondsBadge,
+  fmtPointsBadge,
   fmtTokensDay,
   fmtSeconds,
   errorDayState,
@@ -284,6 +286,8 @@ describe('readout formatters', () => {
 
   it('badge magnitudes keep one decimal so a small change is not a red 0%', () => {
     expect(fmtPctBadge(-0.4)).toBe('0.4\u00a0%')
+    expect(fmtPointsBadge(-1.26)).toBe('1.3\u00a0pp')
+    expect(fmtSecondsBadge(0.44)).toBe('0.4\u00a0s')
   })
 })
 

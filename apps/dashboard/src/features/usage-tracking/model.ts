@@ -41,7 +41,7 @@ export function fmtUsdWhole(n: number | null | undefined): string {
 /** A 0–1 share as a whole percentage, glued (`62 %`); a non-zero share under 1 % reads `<1 %`. */
 export function fmtShare(ratio: number | null | undefined): string {
   if (ratio === null || ratio === undefined || !Number.isFinite(ratio)) return EM_DASH
-  if (ratio > 0 && ratio < 0.005) return `<1${NBSP}%`
+  if (ratio > 0 && ratio < 0.005) return withUnit('<1', '%')
   return withUnit(Math.round(ratio * 100), '%')
 }
 
@@ -171,8 +171,8 @@ export const pointsDelta = (current: number | null, prior: number | null) =>
 
 /** Badge magnitudes: the glyph carries the sign, so these print the absolute value. */
 export const fmtPctBadge = (v: number) => withUnit(Math.abs(v).toFixed(1), '%')
-export const fmtPointsBadge = (v: number) => `${Math.abs(v).toFixed(1)} pp`
-export const fmtSecondsBadge = (v: number) => `${Math.abs(v).toFixed(1)} s`
+export const fmtPointsBadge = (v: number) => withUnit(Math.abs(v).toFixed(1), 'pp')
+export const fmtSecondsBadge = (v: number) => withUnit(Math.abs(v).toFixed(1), 's')
 
 /** Sparkline readouts, each with its unit. */
 export const fmtTokensDay = (v: number) => `${fmtTokens(v)} tokens`
