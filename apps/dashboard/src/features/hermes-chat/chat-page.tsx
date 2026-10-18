@@ -371,11 +371,7 @@ function HermesChatFeed() {
               ref={composerRef}
               onSubmit={handleComposerSubmit}
               draftKey="hermes-new-chat"
-              placeholder={
-                voiceMode
-                  ? 'Talk or type — starts a new chat…'
-                  : 'Message Hermes — starts a new chat…'
-              }
+              placeholder={voiceMode ? 'Talk or type · new chat…' : 'Message Hermes · new chat…'}
               rightSection={
                 HERMES_CHAT_FEATURES.audioTranscription ? (
                   <VoiceControls

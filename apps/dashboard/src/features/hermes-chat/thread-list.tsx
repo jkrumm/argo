@@ -57,7 +57,11 @@ function Row({
   const cutTitle = titleExcerpt(label, compact)
   return (
     <UnstyledButton className={classes['row']} onClick={() => onOpen(entry.id)}>
-      <Box className={classes['rowGrid']}>
+      <Box
+        className={
+          compact ? `${classes['rowGrid']} ${classes['rowGridCompact']}` : classes['rowGrid']
+        }
+      >
         <TypeChip type={entry.type} />
         <Box className={classes['body']}>
           <Text
@@ -67,13 +71,7 @@ function Row({
             {cutTitle}
           </Text>
           {entry.summary !== null && (
-            <Text
-              className={
-                compact ? `${classes['summary']} ${classes['summaryOne']}` : classes['summary']
-              }
-            >
-              {summaryExcerpt(entry.summary, compact)}
-            </Text>
+            <Text className={classes['summary']}>{summaryExcerpt(entry.summary, compact)}</Text>
           )}
         </Box>
         <Text component="span" className={classes['time']}>
