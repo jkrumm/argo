@@ -133,12 +133,10 @@ function FeedRow({ event: e }: { event: ActivityEvent }) {
 
 /** One part of line 2: the outcome wraps whole, only the chip clips inside itself. */
 function MetaPart({ part, lead }: { part: RowPart; lead: boolean }) {
-  // The `·` before a part sits inside its wrapper, so a wrap never leaves it dangling at a line end.
-  const dot = lead ? <span aria-hidden>{`·${NBSP}`}</span> : null
   if (part.kind === 'chip')
+    // The pill separates itself: no `·` before it, so a wrap never opens a line with one.
     return (
       <span className={classes.feedPart}>
-        {dot}
         <Badge
           variant="light"
           color="gray"
@@ -152,6 +150,8 @@ function MetaPart({ part, lead }: { part: RowPart; lead: boolean }) {
       </span>
     )
   if (part.kind !== 'outcome') return null
+  // The `·` before an outcome sits inside its wrapper, so a wrap never leaves it dangling at a line end.
+  const dot = lead ? <span aria-hidden>{`·${NBSP}`}</span> : null
   return (
     <span className={classes.feedOutcome}>
       {dot}
