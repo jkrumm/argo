@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Badge, Button, Card, Text } from '@mantine/core'
 import { Section, useSizeClass } from 'basalt-ui'
 import { clockTime } from '../agents/model'
-import { feedEmptyLine, type ActivityGroup } from './model'
+import { feedEmptyLine, type ActivityEvent, type ActivityGroup } from './model'
 import classes from './home.module.css'
 
 /** Rows shown at desktop width; the rest is behind `Show n more`. */
@@ -21,6 +21,10 @@ type Props = {
   pending: readonly string[]
   now: number
 }
+
+/** The row's whole sentence, for the tooltip a truncated row carries. */
+const rowText = (e: ActivityEvent): string =>
+  [`${e.actor} ${e.title}`, e.outcome, e.chip, e.detail].filter(Boolean).join(' · ')
 
 /**
  * Day-grouped feed of what the control plane, the narrator and the calendar did, newest first.
@@ -74,35 +78,33 @@ export function ActivityFeed({ groups, total, stale, loaded, failed, pending, no
                 <Text className={classes.feedHeading}>{group.label}</Text>
                 <div role="list">
                   {events.map((e) => (
-                    <div key={e.key} role="listitem" className={classes.feedRow}>
+                    <div key={e.key} role="listitem" className={classes.feedRow} title={rowText(e)}>
                       <Text component="span" size="sm" className={classes.feedSentence}>
-                        <span className={classes.feedActor}>{e.actor}</span> {e.title}
+                        <span className={classes.feedLead}>
+                          <span className={classes.feedActor}>{e.actor}</span> {e.title}
+                          {e.detail ? (
+                            <span className={classes.feedDetail}> · {e.detail}</span>
+                          ) : null}
+                        </span>
                         {e.outcome ? (
-                          <>
-                            {' '}
-                            <span className={classes.feedOutcome}>{e.outcome}</span>
-                          </>
+                          <span className={classes.feedOutcome}>{e.outcome}</span>
                         ) : null}
                         {e.chip ? (
-                          <>
-                            {' '}
-                            <Badge
-                              variant="light"
-                              color="gray"
-                              size="sm"
-                              fz="sm"
-                              tt="none"
-                              classNames={{ root: classes.chip, label: classes.chipLabel }}
-                            >
-                              {e.chip}
-                            </Badge>
-                          </>
+                          <Badge
+                            variant="light"
+                            color="gray"
+                            size="sm"
+                            fz="sm"
+                            tt="none"
+                            classNames={{ root: classes.chip, label: classes.chipLabel }}
+                          >
+                            {e.chip}
+                          </Badge>
                         ) : null}
                       </Text>
                       <span className={classes.feedTime}>
                         {clockTime(new Date(e.ms).toISOString())}
                       </span>
-                      {e.detail ? <span className={classes.feedDetail}>{e.detail}</span> : null}
                     </div>
                   ))}
                 </div>
