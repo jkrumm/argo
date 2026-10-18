@@ -6,6 +6,7 @@ import { CONTAINER_GRID_BREAKPOINTS } from 'basalt-ui/tokens'
 import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, MultiSelectFilter, SelectFilter } from 'basalt-ui/controls'
 import { usageQueries } from '../lib/queries/usage'
+import { printTotal } from '../features/usage-tracking/model'
 import { usageStore } from '../lib/window-stores'
 import { UsageStrip } from '../features/usage-tracking/usage-strip'
 import { UsageHeadline } from '../features/usage-tracking/page-headline'
@@ -29,6 +30,9 @@ function UsageTrackingPage() {
   // "empty means every row" is this API's convention, not a store law.
   const billing = search.billing.length > 0 ? [...search.billing] : undefined
   const workspace = search.workspace.length > 0 ? [...search.workspace] : undefined
+  const filtered = billing !== undefined || workspace !== undefined
+  const printCost = printTotal({ range: search.range, filtered, metric: 'cost' })
+  const printTokens = printTotal({ range: search.range, filtered, metric: 'tokens' })
   const tsBase = { range: search.range, grain: search.grain, billing, workspace }
 
   return (
@@ -57,11 +61,11 @@ function UsageTrackingPage() {
         <UsageStrip />
 
         <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
-          <CostChart {...tsBase} groupBy={search.costGroupBy} />
+          <CostChart {...tsBase} groupBy={search.costGroupBy} printTotal={printCost} />
         </Suspense>
 
         <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={280} />}>
-          <TokensChart {...tsBase} groupBy={search.tokensGroupBy} />
+          <TokensChart {...tsBase} groupBy={search.tokensGroupBy} printTotal={printTokens} />
         </Suspense>
 
         <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
@@ -75,7 +79,12 @@ function UsageTrackingPage() {
           <Grid.Col span={{ base: 12, lg: 4 }}>
             <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
               <Box data-shot="projects">
-                <TopProjects range={search.range} billing={billing} workspace={workspace} />
+                <TopProjects
+                  range={search.range}
+                  billing={billing}
+                  workspace={workspace}
+                  printTotal={printCost}
+                />
               </Box>
             </Suspense>
           </Grid.Col>

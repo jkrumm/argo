@@ -45,6 +45,8 @@ type Props = {
   info: string
   listTitle: string
   height?: number
+  /** Whether the list header prints the window's total; decided once, in the route. */
+  printTotal: boolean
 }
 
 export function FoldedChart({
@@ -61,6 +63,7 @@ export function FoldedChart({
   info,
   listTitle,
   height = 280,
+  printTotal,
 }: Props) {
   const { data } = useSuspenseQuery(
     usageQueries.timeseries({ range, grain, metric, groupBy, billing, workspace }),
@@ -85,13 +88,9 @@ export function FoldedChart({
   const series = groupBands(folded.keys, colorOf, labelOf)
   const rows = compact && !showAll ? folded.totals.slice(0, COMPACT_ROWS) : folded.totals
   const hidden = folded.totals.length - rows.length
-  // A window's total is printed once per page: the strip owns the unfiltered 30 d figures and the
-  // headline the unfiltered 7 d spend, so the list prints it only for a window they do not show.
   // The chart stops at the last complete bucket (the running one would draw as a drop); the list
-  // keeps the whole window.
-  const unfiltered = billing === undefined && workspace === undefined
-  const printedElsewhere = unfiltered && (range === '30d' || (range === '7d' && metric === 'cost'))
-  const totalNote = printedElsewhere ? '' : ` · ${format(folded.total)}`
+  // keeps the whole window. The route decides whether the window's total is printed.
+  const totalNote = printTotal ? ` · ${format(folded.total)}` : ''
   const perBucket = grain === 'day' ? 'day' : 'week'
   const drawn = dropPartialBucket(folded.points, now, grain)
 

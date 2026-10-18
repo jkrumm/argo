@@ -25,6 +25,7 @@ import {
   barStateOf,
   dropPartialBucket,
   periodNoun,
+  printTotal,
   prepareFolded,
   FOLD_MAX_N,
   slowerDaysLine,
@@ -333,38 +334,69 @@ describe('foldTopN widening', () => {
 })
 
 describe('dropPartialBucket', () => {
-  // Buckets are UTC days that `dayToDate` keeps as local midnight of the same year-month-day.
-  const days = [1, 2, 3].map((d) => ({ date: new Date(2026, 0, d), value: d }))
-  const weeks = [4, 11, 18].map((d) => ({ date: new Date(2026, 0, d), value: d }))
-  const values = (rows: ReadonlyArray<{ value: number }>) => rows.map((d) => d.value)
   const original = process.env['TZ']
+  // January offsets (minutes west of UTC), so each case proves its zone took effect.
+  const ZONES = [
+    ['UTC', 0],
+    ['America/Los_Angeles', 480],
+    ['Pacific/Kiritimati', -840],
+    ['America/Santiago', 180],
+  ] as const
+  const values = (rows: ReadonlyArray<{ value: number }>) => rows.map((d) => d.value)
+  const at = (y: number, m: number, d: number) => ({ date: new Date(y, m, d), value: d })
 
   afterEach(() => {
     if (original === undefined) delete process.env['TZ']
     else process.env['TZ'] = original
   })
 
-  for (const tz of ['UTC', 'America/Los_Angeles', 'Pacific/Kiritimati']) {
-    it(`measures a day against the UTC clock in ${tz}`, () => {
+  for (const [tz, offset] of ZONES) {
+    it(`measures against the UTC clock in ${tz}`, () => {
       process.env['TZ'] = tz
-      const rows = [1, 2, 3].map((d) => ({ date: new Date(2026, 0, d), value: d }))
-      expect(values(dropPartialBucket(rows, Date.UTC(2026, 0, 3, 0, 30), 'day'))).toEqual([1, 2])
-      expect(values(dropPartialBucket(rows, Date.UTC(2026, 0, 2, 23, 59, 59, 999), 'day'))).toEqual(
-        [1],
+      expect(new Date(2026, 0, 1).getTimezoneOffset()).toBe(offset)
+      const days = [1, 2, 3, 4].map((d) => at(2026, 0, d))
+      expect(values(dropPartialBucket(days, Date.UTC(2026, 0, 3, 0, 30), 'day'))).toEqual([1, 2])
+      expect(values(dropPartialBucket(days, Date.UTC(2026, 0, 3, 23, 59, 59, 999), 'day'))).toEqual(
+        [1, 2],
       )
-      expect(dropPartialBucket(rows, Date.UTC(2026, 0, 4, 0, 0), 'day')).toHaveLength(3)
-    })
-    it(`measures a week to the millisecond in ${tz}`, () => {
-      process.env['TZ'] = tz
-      const rows = [4, 11, 18].map((d) => ({ date: new Date(2026, 0, d), value: d }))
+      expect(values(dropPartialBucket(days, Date.UTC(2026, 0, 4, 0, 0), 'day'))).toEqual([1, 2, 3])
+      expect(dropPartialBucket(days, Date.UTC(2026, 0, 5, 0, 0), 'day')).toHaveLength(4)
+      const weeks = [4, 11, 18].map((d) => at(2026, 0, d))
       const end = Date.UTC(2026, 0, 25)
-      expect(values(dropPartialBucket(rows, end - 1, 'week'))).toEqual([4, 11])
-      expect(values(dropPartialBucket(rows, end, 'week'))).toEqual([4, 11, 18])
+      expect(values(dropPartialBucket(weeks, end - 1, 'week'))).toEqual([4, 11])
+      expect(values(dropPartialBucket(weeks, end, 'week'))).toEqual([4, 11, 18])
     })
   }
-  it('keeps everything when the feed ends before today', () => {
-    expect(dropPartialBucket(days.slice(0, 2), Date.UTC(2026, 0, 3, 12), 'day')).toHaveLength(2)
-    expect(dropPartialBucket(weeks.slice(0, 1), Date.UTC(2026, 0, 20), 'week')).toHaveLength(1)
+
+  it('keeps the days around a midnight daylight-saving jump (Santiago, 2026-09-06)', () => {
+    process.env['TZ'] = 'America/Santiago'
+    const days = [5, 6, 7].map((d) => at(2026, 8, d))
+    expect(values(dropPartialBucket(days, Date.UTC(2026, 8, 7, 12), 'day'))).toEqual([5, 6])
+    expect(values(dropPartialBucket(days, Date.UTC(2026, 8, 8, 0), 'day'))).toEqual([5, 6, 7])
+  })
+
+  it('keeps the running bucket when fewer than two complete ones remain', () => {
+    const week = [at(2026, 0, 18)]
+    expect(dropPartialBucket(week, Date.UTC(2026, 0, 20), 'week')).toEqual(week)
+    const two = [at(2026, 0, 17), at(2026, 0, 18)]
+    expect(dropPartialBucket(two, Date.UTC(2026, 0, 18, 12), 'day')).toEqual(two)
+    expect(
+      values(dropPartialBucket([...two, at(2026, 0, 19)], Date.UTC(2026, 0, 19, 12), 'day')),
+    ).toEqual([17, 18])
+  })
+})
+
+describe('printTotal', () => {
+  it('prints a total only where the strip and headline do not', () => {
+    const base = { filtered: false, metric: 'cost' } as const
+    expect(printTotal({ ...base, range: '30d' })).toBe(false)
+    expect(printTotal({ ...base, range: '30d', metric: 'tokens' })).toBe(false)
+    expect(printTotal({ ...base, range: '7d' })).toBe(false)
+    expect(printTotal({ ...base, range: '7d', metric: 'tokens' })).toBe(true)
+    expect(printTotal({ ...base, range: '90d' })).toBe(true)
+    expect(printTotal({ ...base, range: 'all' })).toBe(true)
+    expect(printTotal({ ...base, range: '30d', filtered: true })).toBe(true)
+    expect(printTotal({ ...base, range: '7d', filtered: true })).toBe(true)
   })
 })
 

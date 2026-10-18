@@ -10,10 +10,13 @@ export default function TopProjects({
   range,
   billing,
   workspace,
+  printTotal,
 }: {
   range: Range
   billing?: BillingValue[] | undefined
   workspace?: WorkspaceValue[] | undefined
+  /** Whether the card prints its window's total; decided once, in the route. */
+  printTotal: boolean
 }) {
   const { data } = useSuspenseQuery(
     usageQueries.breakdown({
@@ -29,7 +32,9 @@ export default function TopProjects({
   const rest = Math.max(0, data.total - shown)
 
   return (
-    <ChartCard title={`Top projects · ${periodNoun(range)}`}>
+    <ChartCard
+      title={`Top projects · ${periodNoun(range)}${printTotal ? ` · ${fmtUsdWhole(data.total)}` : ''}`}
+    >
       <BarList
         label={`Top ${data.rows.length} projects by cost, ${periodNoun(range)}`}
         format={fmtUsdWhole}
@@ -44,7 +49,9 @@ export default function TopProjects({
       />
       {rest > 0.5 && (
         <Text size="sm" c="dimmed">
-          {fmtUsdWhole(rest)} in projects below the top {data.rows.length}
+          {fmtUsdWhole(rest)}
+          {printTotal ? '' : ` of ${fmtUsdWhole(data.total)}`} in projects below the top{' '}
+          {data.rows.length}
         </Text>
       )}
     </ChartCard>
