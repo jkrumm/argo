@@ -241,7 +241,8 @@ export function lastReadFact(lastRead: number | null, now: number): string {
     /^(\d+(?:[.,]\d+)?) /,
     `$1${NBSP}`,
   )
-  return `last read ${age}`
+  const [value = '', ...rest] = age.split(' ')
+  return `last${NBSP}read${NBSP}${value}${rest.length > 0 ? ` ${rest.join(' ')}` : ''}`
 }
 
 // ── Ratings ──────────────────────────────────────────────────────────────────────────────────

@@ -172,3 +172,7 @@ No new basalt rows.
 Follow-up (w30-r1):
 
 - **`last read {n} months ago` split the number from its unit** — fixed: `lastReadFact` (`reading/model.ts`) binds a leading number to its unit with a no-break space; `ago` stays breakable.
+
+Follow-up (w30-r2):
+
+- **`last read` / `{n} months ago` split** — fixed: `lastReadFact` glues `last read {n} {unit}` as one run; `ago` stays breakable.
