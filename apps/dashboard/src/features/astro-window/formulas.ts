@@ -1,6 +1,7 @@
 import { VX } from 'basalt-ui/tokens'
 import { percent, weekday } from 'basalt-ui/format'
-import { MIN_BAR_SHARE } from './constants'
+import type { ChartFact } from 'basalt-ui/charts'
+import { MIN_BAR_SHARE, SKY_DARK_THRESHOLD } from './constants'
 import type { HourlyPoint, Night, Verdict, WindowResponse } from './types'
 
 /** Verdict → tone. `out` is a hard gate, not a low score, so it reads neutral, never red. */
@@ -193,9 +194,9 @@ function rawGapToGate(night: Night): number | null {
   return Math.max(0, night.coreGateDeg - night.gateCoreAltitude)
 }
 
-/** The verdict as a word and a tone: drawn as a status dot + word, never a bare word. `out` is a gate ruling, so it reads neutral. */
-export function verdictStatus(night: Night): { word: 'GO' | 'OUT'; tone: 'good' | 'muted' } {
-  return night.verdict === 'out' ? { word: 'OUT', tone: 'muted' } : { word: 'GO', tone: 'good' }
+/** The verdict as a word and its colour (the same `verdictTone` the strip uses): drawn as a status dot + word, never a bare word. */
+export function verdictStatus(night: Night): { word: 'GO' | 'OUT'; color: string } {
+  return { word: night.verdict === 'out' ? 'OUT' : 'GO', color: verdictTone(night.verdict) }
 }
 
 /** Which gate a ruled-out night misses and by how much: `core 3.9° under its gate`, else the API's first killer. */
@@ -217,15 +218,19 @@ export function verdictHeadline(night: Night): string {
   return gateMissText(night)
 }
 
-/** The next usable night after `date`, with its shooting window; or that none of the nights shown is usable. */
+/** The next usable night after `date`, with its shooting window; or that none of the later nights shown is usable. */
 export function nextUsableText(nights: readonly Night[], date: string): string {
-  const next = nights.find((n) => n.date > date && n.verdict !== 'out')
-  if (next === undefined) return `no usable night in the next ${nights.length} nights`
-  const minutes = next.window === null ? '' : `, ${fmtMinutes(next.window.minutes)}`
-  return `next usable ${fmtShortDay(next.date)}${minutes}`
+  const later = nights.filter((n) => n.date > date)
+  const next = later.find((n) => n.verdict !== 'out')
+  if (next !== undefined) {
+    const minutes = next.window === null ? '' : `, ${fmtMinutes(next.window.minutes)}`
+    return `next usable ${fmtShortDay(next.date)}${minutes}`
+  }
+  if (later.length === 0) return 'no later night in this range'
+  return `no usable night in the next ${later.length} ${later.length === 1 ? 'night' : 'nights'}`
 }
 
-/** Failed gates after the first, `also moon 92 %`-style: the API's own killer labels. */
+/** The gates a ruled-out night failed beyond the first, as `also failed: moon, darkness` (the API's killer labels). */
 export function alsoFailed(night: Night): string | null {
   const rest = night.killers.slice(1).map((k) => k.label.toLowerCase())
   return rest.length === 0 ? null : `also failed: ${rest.join(', ')}`
@@ -241,7 +246,8 @@ export function compassWord(azimuthDeg: number): string {
 
 /** `az 180° S` — an azimuth with its unit and compass word. */
 export function fmtAzimuth(azimuthDeg: number): string {
-  return `az ${Math.round(azimuthDeg)}° ${compassWord(azimuthDeg)}`
+  const rounded = ((Math.round(azimuthDeg) % 360) + 360) % 360
+  return `az ${rounded}° ${compassWord(azimuthDeg)}`
 }
 
 /** Degrees short of the core gate, UNROUNDED, the one gap the strip can draw. Null for any other kind of night. */
@@ -353,10 +359,10 @@ export function pageSummary(
   return { sentence, facts, aside: data.location.name }
 }
 
-/** The timeline's one fact: the shooting window's length and clock range, or why there is none. */
+/** The timeline's one fact: a usable night's shooting window (length and clock range), or the gate a ruled-out night misses (the API's window ignores the moon, so an OUT night never states one). */
 export function windowFact(night: Night): { value: string; period: string } {
   const shoot = night.window
-  if (shoot !== null) {
+  if (night.verdict !== 'out' && shoot !== null) {
     return {
       value: fmtMinutes(shoot.minutes),
       period: `shooting window ${shoot.localStart}–${shoot.localEnd}`,
@@ -365,27 +371,58 @@ export function windowFact(night: Night): { value: string; period: string } {
   return { value: 'No window', period: gateMissText(night) }
 }
 
-/** The thickest low cloud inside astronomical dark (all samples when none is dark): the layer that ends a night. Null without data. */
+/** The thickest low cloud inside astronomical dark (all samples when none is dark). Null without data. */
 export function peakLowCloud(
   hourly: readonly HourlyPoint[],
 ): { pct: number; dark: boolean } | null {
-  const dark = hourly.filter((d) => d.astroDark)
-  const pool = dark.length > 0 ? dark : hourly
+  const inDark = hourly.filter((d) => d.astroDark)
+  const pool = inDark.length > 0 ? inDark : hourly
   const values = pool.flatMap((d) => (d.cloudLow === null ? [] : [d.cloudLow]))
   return values.length === 0
     ? null
-    : { pct: Math.round(Math.max(...values)), dark: dark.length > 0 }
+    : { pct: Math.round(Math.max(...values)), dark: inDark.length > 0 }
 }
 
-/** The month with the most usable core hours, from the per-month minutes the API sends (index 0 = January). */
+/** Minutes → hours at one decimal, the one converter the budget chart and its fact line share. */
+export function minutesToHours(minutes: number | undefined): number | null {
+  return minutes === undefined ? null : Math.round((minutes / 60) * 10) / 10
+}
+
+/** The month (index 0 = January) with the most usable hours; gaps (`null`) never win. */
 export function peakMonth(
-  minutesByMonth: readonly (number | undefined)[],
+  hoursByMonth: readonly (number | null)[],
 ): { monthIndex: number; hours: number } | null {
   let best: { monthIndex: number; hours: number } | null = null
-  minutesByMonth.forEach((minutes, monthIndex) => {
-    if (minutes === undefined) return
-    const hours = Math.round((minutes / 60) * 10) / 10
-    if (best === null || hours > best.hours) best = { monthIndex, hours }
-  })
+  for (const [monthIndex, hours] of hoursByMonth.entries()) {
+    if (hours !== null && (best === null || hours > best.hours)) best = { monthIndex, hours }
+  }
   return best
+}
+
+/** `facts` as an optional ChartCard prop, spread in: the one shape every chart uses for a fact it may not have. */
+export function withFacts(fact: ChartFact | null): { facts?: ChartFact } {
+  return fact === null ? {} : { facts: fact }
+}
+
+/** The Core cell's footer: the core at the dark sample closest to the gate — the same reading the
+ * verdict card draws — against its gate; the transit altitude when the night has no dark stretch. */
+export function coreCellFooter(night: Night): string {
+  const core = coreMeterReading(night)
+  return core === null
+    ? coreTransitFooter(night)
+    : `${fmtDegrees(core.reading)} at closest · gate ${fmtDegrees(core.gate)}`
+}
+
+/** The Sky cell's footer: the dark-sky threshold, the dome and the transparency, each with its unit. */
+export function skyCellFooter({
+  domePenaltyMag,
+  transparency,
+}: {
+  domePenaltyMag: number | null
+  transparency: number | null
+}): string {
+  const dome =
+    domePenaltyMag === null ? 'dome —' : `dome +${domePenaltyMag.toFixed(2)} mag brighter`
+  const clarity = transparency === null ? '—' : `${transparency}/8, 1 = clearest`
+  return `dark sky from ${SKY_DARK_THRESHOLD} · ${dome} · transparency ${clarity}`
 }

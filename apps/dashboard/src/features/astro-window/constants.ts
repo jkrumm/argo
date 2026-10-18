@@ -1,10 +1,16 @@
+/** Sky-brightness meter domain (mag/arcsec²) and the map legend's dark threshold. */
+export const SKY_METER_MIN = 18
+export const SKY_METER_MAX = 22
+export const SKY_DARK_THRESHOLD = 21.6
+
+/** The sun's depth below the horizon at which a night counts as astronomically dark. */
+export const ASTRONOMICAL_DARK_SUN_DEG = 18
+
 export const METRIC_TOOLTIPS = {
-  nightTimeline:
-    'Altitude is degrees above the horizon. Astronomical dark is when the sun is more than 18° below it. The shooting window is the stretch of dark when the core clears its gate and the moon is down or under the limit.',
+  nightTimeline: `Altitude is degrees above the horizon. Astronomical dark is when the sun is more than ${ASTRONOMICAL_DARK_SUN_DEG}° below it. The shooting window is the stretch of dark when the core clears its gate; the moon is judged separately, as its own gate.`,
   cloudLayers:
-    'Cloud cover is the share of sky covered, per layer. Low cloud (under about 2 km) ends a night outright; high cloud (cirrus) only costs contrast.',
-  skyPanorama:
-    'Azimuth is the compass bearing, degrees clockwise from north. The skyline is the measured terrain; the gate is the higher of the 8° atmospheric floor and the skyline plus the framing margin. Skyglow is artificial sky brightness in mag/arcsec²; dark sky is 21.6 or higher.',
+    'Cloud cover is the share of sky covered, per layer. It is a weighted factor in the score, not a gate: heavy cloud drops a night to poor. Low cloud (under about 2 km) blocks the sky outright; high cloud (cirrus) only costs contrast.',
+  skyPanorama: `Azimuth is the compass bearing, degrees clockwise from north. The skyline is the measured terrain; the gate is the higher of the 8° atmospheric floor and the skyline plus the framing margin. Skyglow is artificial sky brightness in mag/arcsec²; dark sky is ${SKY_DARK_THRESHOLD} or higher.`,
   monthlyBudget:
     'Hours per calendar month in which the core is above the gate, at this site, counted three ways: above the flat 8° floor, above the floor and the measured skyline, and with the moon also counted down when it sits behind that skyline. Weather is not included.',
 } as const
@@ -35,11 +41,6 @@ export const MAP_MIN_HEIGHT = 420
 
 /** Upper end of the core-altitude meters; the core never tops ~30° at the site latitudes, so a small gap stays visible. */
 export const CORE_METER_MAX_DEG = 30
-
-/** Sky-brightness meter domain (mag/arcsec²) and the map legend's dark threshold. */
-export const SKY_METER_MIN = 18
-export const SKY_METER_MAX = 22
-export const SKY_DARK_THRESHOLD = 21.6
 
 /** Pixels of slack when deciding a strip cell is off-screen, so sub-pixel rounding never counts a fully visible cell. */
 export const OFFSCREEN_TOLERANCE_PX = 1

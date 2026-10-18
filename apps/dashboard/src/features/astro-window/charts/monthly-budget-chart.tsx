@@ -6,7 +6,7 @@ import { chartStateOf } from '../../../lib/chart-state'
 import { astroQueries } from '../../../lib/queries/astro'
 import { SERIES } from '../../../lib/series'
 import { CHART_HEIGHT, METRIC_TOOLTIPS } from '../constants'
-import { peakMonth } from '../formulas'
+import { minutesToHours, peakMonth, withFacts } from '../formulas'
 import type { Site } from '../types'
 
 const MONTH_LABELS = [
@@ -66,10 +66,6 @@ const BARS: BarsBar<MonthRow>[] = [
   },
 ]
 
-function toHours(minutes: number | undefined): number | null {
-  return minutes === undefined ? null : Math.round((minutes / 60) * 10) / 10
-}
-
 export default function MonthlyBudgetChart({ site }: { site: Site }) {
   const query = useQuery(astroQueries.visibility({ site: site.id }))
   const { data } = query
@@ -80,26 +76,28 @@ export default function MonthlyBudgetChart({ site }: { site: Site }) {
         ? []
         : MONTH_LABELS.map((month, i) => ({
             month,
-            flat: toHours(data.flat.byMonth[i]),
-            terrain: toHours(data.terrain.byMonth[i]),
-            terrainMoon: toHours(data.terrainMoon.byMonth[i]),
+            flat: minutesToHours(data.flat.byMonth[i]),
+            terrain: minutesToHours(data.terrain.byMonth[i]),
+            terrainMoon: minutesToHours(data.terrainMoon.byMonth[i]),
           })),
     [data],
   )
 
-  const peak = data === undefined ? null : peakMonth(data.terrainMoon.byMonth)
+  const peak = peakMonth(rows.map((row) => row.terrainMoon))
 
   return (
     <ChartCard
       title="Usable core hours per month"
       info={METRIC_TOOLTIPS.monthlyBudget}
-      {...(peak !== null && {
-        facts: {
-          value: `${peak.hours} h`,
-          unit: `in ${MONTH_LABELS[peak.monthIndex]}`,
-          period: 'best month, skyline and moon counted',
-        },
-      })}
+      {...withFacts(
+        peak === null
+          ? null
+          : {
+              value: `${peak.hours} h`,
+              unit: `in ${MONTH_LABELS[peak.monthIndex]}`,
+              period: 'best month, skyline and moon counted',
+            },
+      )}
       state={chartStateOf(
         query,
         rows.length === 0 ? 'No visibility budget for this site' : undefined,

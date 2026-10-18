@@ -17,6 +17,11 @@ import {
   shortfallShare,
   verdictHeadline,
   verdictStatus,
+  verdictTone,
+  coreCellFooter,
+  skyCellFooter,
+  minutesToHours,
+  withFacts,
   windowFact,
   peakLowCloud,
   peakMonth,
@@ -328,8 +333,11 @@ describe('window share', () => {
 
 describe('verdictStatus', () => {
   test('a usable night is GO, a ruled-out night OUT', () => {
-    expect(verdictStatus(goNight)).toEqual({ word: 'GO', tone: 'good' })
-    expect(verdictStatus(outNight('2026-06-13', 8, 4))).toEqual({ word: 'OUT', tone: 'muted' })
+    expect(verdictStatus(goNight)).toEqual({ word: 'GO', color: verdictTone('good') })
+    expect(verdictStatus(outNight('2026-06-13', 8, 4))).toEqual({
+      word: 'OUT',
+      color: verdictTone('out'),
+    })
   })
 })
 
@@ -351,6 +359,7 @@ describe('azimuth words', () => {
 
   test('carries the unit and the word', () => {
     expect(fmtAzimuth(179.6)).toBe('az 180° S')
+    expect(fmtAzimuth(359.7)).toBe('az 0° N')
   })
 })
 
@@ -364,7 +373,7 @@ describe('nextUsableText', () => {
   test('says so when none of the nights ahead is usable', () => {
     const out = outNight('2026-06-13', 8, 4)
     expect(nextUsableText([out, outNight('2026-06-14', 8, 5)], out.date)).toBe(
-      'no usable night in the next 2 nights',
+      'no usable night in the next 1 night',
     )
   })
 })
@@ -397,7 +406,64 @@ describe('peakLowCloud', () => {
 
 describe('peakMonth', () => {
   test('picks the month with the most minutes, skipping gaps', () => {
-    expect(peakMonth([60, undefined, 150, 90])).toEqual({ monthIndex: 2, hours: 2.5 })
+    expect(peakMonth([1, null, 2.5, 1.5])).toEqual({ monthIndex: 2, hours: 2.5 })
     expect(peakMonth([])).toBeNull()
+  })
+})
+
+describe('windowFact on a moon-gated night', () => {
+  test('an OUT night never states the API window, which ignores the moon', () => {
+    const moonOut = {
+      ...goNight,
+      verdict: 'out',
+      killers: [{ id: 'moon', label: 'Moon', reason: 'r' }],
+    } as unknown as Night
+    expect(windowFact(moonOut)).toEqual({ value: 'No window', period: 'moon' })
+  })
+})
+
+describe('nextUsableText counts only later nights', () => {
+  test('earlier nights are not "the next"', () => {
+    const nights = [
+      outNight('2026-06-12', 8, 4),
+      outNight('2026-06-13', 8, 4),
+      outNight('2026-06-14', 8, 4),
+    ]
+    expect(nextUsableText(nights, '2026-06-13')).toBe('no usable night in the next 1 night')
+    expect(nextUsableText(nights, '2026-06-14')).toBe('no later night in this range')
+  })
+})
+
+describe('cell footers', () => {
+  test('core: the gate-sample reading and the gate, else the transit altitude', () => {
+    expect(coreCellFooter(outNight('2026-06-13', 8, 4.1))).toBe('4.1° at closest · gate 8.0°')
+    const noDark = {
+      ...goNight,
+      gateCoreAltitude: null,
+      coreGateDeg: null,
+      maxCoreAltitude: 24.1,
+    } as unknown as Night
+    expect(coreCellFooter(noDark)).toBe('24.1° at transit')
+  })
+
+  test('sky: threshold, dome and transparency with units', () => {
+    expect(skyCellFooter({ domePenaltyMag: 1.04, transparency: 3 })).toBe(
+      'dark sky from 21.6 · dome +1.04 mag brighter · transparency 3/8, 1 = clearest',
+    )
+    expect(skyCellFooter({ domePenaltyMag: null, transparency: null })).toBe(
+      'dark sky from 21.6 · dome — · transparency —',
+    )
+  })
+})
+
+describe('minutesToHours and withFacts', () => {
+  test('one decimal, gaps stay gaps', () => {
+    expect(minutesToHours(95)).toBe(1.6)
+    expect(minutesToHours(undefined)).toBeNull()
+  })
+
+  test('withFacts spreads nothing for a missing fact', () => {
+    expect(withFacts(null)).toEqual({})
+    expect(withFacts({ value: '1' })).toEqual({ facts: { value: '1' } })
   })
 })

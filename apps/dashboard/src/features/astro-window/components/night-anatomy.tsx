@@ -3,11 +3,13 @@ import { Box } from '@mantine/core'
 import { Meter, StatGroup, type StatStripRow } from 'basalt-ui'
 import { CORE_METER_MAX_DEG, SKY_DARK_THRESHOLD, SKY_METER_MAX, SKY_METER_MIN } from '../constants'
 import {
-  coreTransitFooter,
+  coreCellFooter,
+  coreMeterReading,
   fmtDegrees,
   fmtLocalClock,
   fmtMinutes,
   moonPhaseLabel,
+  skyCellFooter,
 } from '../formulas'
 import { LP_RAMP, LP_RAMP_MAX, LP_RAMP_MIN } from '../map-layers'
 import type { Location, Night } from '../types'
@@ -81,7 +83,7 @@ export function NightAnatomy({
   const sky = location.darknessSource === 'unknown' ? null : location.coreDirectionMpsas
   const moonSet = night.moon.set === null ? null : fmtLocalClock(night.moon.set, timeZone)
   const { weather } = night
-  const gate = night.coreGateDeg
+  const core = coreMeterReading(night)
 
   return (
     <Box data-shot="night-anatomy">
@@ -107,17 +109,15 @@ export function NightAnatomy({
             caption: 'Core',
             value: night.localTransit,
             unit: 'transit',
-            ...(gate === null
-              ? {}
-              : {
-                  visual: gauge(
-                    `Core ${fmtDegrees(night.maxCoreAltitude)} at transit against a ${fmtDegrees(gate)} gate`,
-                    night.maxCoreAltitude,
-                    CORE_METER_MAX_DEG,
-                    gate,
-                  ),
-                }),
-            footer: `${coreTransitFooter(night)}${gate === null ? '' : ` · gate ${fmtDegrees(gate)}`}`,
+            visual: gauge(
+              core === null
+                ? 'Core altitude: no dark stretch'
+                : `Core ${fmtDegrees(core.reading)} at closest against a ${fmtDegrees(core.gate)} gate`,
+              core?.reading ?? null,
+              CORE_METER_MAX_DEG,
+              core?.gate ?? null,
+            ),
+            footer: coreCellFooter(night),
           },
           {
             key: 'moon',
@@ -147,13 +147,10 @@ export function NightAnatomy({
             value: sky === null ? null : sky.toFixed(2),
             ...(sky === null ? {} : { unit: 'mag/arcsec²' }),
             visual: <SkyScale mpsas={sky} />,
-            footer: `dark sky from ${SKY_DARK_THRESHOLD} · ${
-              location.domePenaltyMag === null
-                ? 'dome —'
-                : `dome +${location.domePenaltyMag.toFixed(2)} mag brighter`
-            } · transparency ${
-              weather.transparency === null ? '—' : `${weather.transparency}/8, 1 = clearest`
-            }`,
+            footer: skyCellFooter({
+              domePenaltyMag: location.domePenaltyMag,
+              transparency: weather.transparency,
+            }),
           },
         ]}
       />

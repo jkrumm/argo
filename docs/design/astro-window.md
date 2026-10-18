@@ -154,6 +154,6 @@ No basalt gaps.
 - Sources: every dot carries a word (`{name} up` / `{name} down`).
 - Core cell: transit altitude drawn against the core gate (meter tick + `gate {x}°` in the footer). Cloud cell: the meters are gone (the API exposes no cloud limit to compare against); the three layer values stand alone under `Cloud cover`.
 - Sky ramp: the unlabeled tick is named in the footer (`dark sky from 21.6`).
-- Forecast: tooltips are definitions, not drawing narration; azimuths read `az {deg}° {compass}` (`fmtAzimuth()`); the panorama's altitude axis is fitted to skyline, gate and tracks (`fitAltDomain()`, height 420 → 320); cloud legend entries are `Low`/`Mid`/`High` (the title already says cloud); each chart has a facts line (`windowFact()`, `peakLowCloud()`, core-at-its-highest, `peakMonth()`).
+- Forecast: tooltips are definitions, not drawing narration; azimuths read `az {deg}° {compass}` (`fmtAzimuth()`); the panorama's altitude axis is fitted to skyline, gate and tracks (`fitAltDomain()`, height 420 → 320); cloud legend entries are `Low`/`Mid`/`High` (the title already says cloud); each chart has a facts line (`windowFact()`, `peakLowCloud()`, core-at-its-highest, `peakMonth()`, all through `withFacts()`).
 
 No basalt gaps.

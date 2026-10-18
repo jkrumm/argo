@@ -1,6 +1,5 @@
 import { Box, Group, Text } from '@mantine/core'
 import { Meter, StatusDot } from 'basalt-ui'
-import { VX } from 'basalt-ui/tokens'
 import { CORE_METER_MAX_DEG } from '../constants'
 import { DecisionCard } from '../../../components/upstream/decision-card'
 import {
@@ -46,7 +45,7 @@ export function VerdictCard({ night, nights }: { night: Night; nights: readonly 
         question={verdictHeadline(night)}
         status={
           <Group gap={6} wrap="nowrap">
-            <StatusDot color={status.tone === 'good' ? VX.status.good : VX.muted} />
+            <StatusDot color={status.color} />
             <Text size="sm" fw={600}>
               {status.word}
             </Text>
