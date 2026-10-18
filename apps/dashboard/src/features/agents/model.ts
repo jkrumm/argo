@@ -76,7 +76,10 @@ export const OLDEST_WAIT_WARN_MS = 24 * 60 * 60 * 1000
  * blocked on a dialog for 21 days, re-announced to Slack ~35 times). */
 export const ABANDONED_AFTER_MS = 7 * 24 * 60 * 60 * 1000
 
-/** The short form of the page alert's `No snapshot yet` (the alert carries the cause and the step). */
+/**
+ * The no-snapshot gap's leading clause, verbatim: the short form on every cell, and the lead of
+ * {@link noSnapshotText} (the alert and the Home agents cell carry the cause and the step).
+ */
 export const NO_SNAPSHOT_SHORT = 'No snapshot yet'
 
 /**
@@ -86,14 +89,12 @@ export const NO_SNAPSHOT_SHORT = 'No snapshot yet'
 export const noSnapshotCaption = (hasSnapshot: boolean, hours: number): string =>
   hasSnapshot ? `No snapshot in the last ${withUnit(hours, 'h')}` : NO_SNAPSHOT_SHORT
 
-export const WAITING_FOR_SNAPSHOT = 'Waiting for the first snapshot'
-
 /** agent-gateway's push cadence, minutes: every "nothing pushed yet" line names it. */
 const AGENT_GATEWAY_PUSH_MIN = 10
 
 /** The one wording for "no overview snapshot has arrived": the gap and the cadence to wait for. */
 export const noSnapshotText = (): string =>
-  `${WAITING_FOR_SNAPSHOT} — agent-gateway pushes every ${withUnit(AGENT_GATEWAY_PUSH_MIN, 'min')}`
+  `${NO_SNAPSHOT_SHORT} — agent-gateway pushes every ${withUnit(AGENT_GATEWAY_PUSH_MIN, 'min')}`
 
 export type OldestWait = { ms: number; project: string }
 
@@ -652,7 +653,7 @@ export const oldestWaitFooter = (
   hasSnapshot: boolean,
   oldest: OldestWait | null,
 ): string | undefined => {
-  if (!hasSnapshot) return WAITING_FOR_SNAPSHOT
+  if (!hasSnapshot) return NO_SNAPSHOT_SHORT
   return oldest === null ? undefined : `in ${oldest.project}`
 }
 

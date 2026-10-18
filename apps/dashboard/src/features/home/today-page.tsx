@@ -4,7 +4,7 @@ import { Stack } from '@mantine/core'
 import { PageBar, StatGroup, PageSummary } from 'basalt-ui'
 import { agentsQueries } from '../../lib/queries/agents'
 import { calendarQueries } from '../../lib/queries/calendar'
-import { RECOVERY_DAYS, lastScored, windowCopyDays } from '../garmin-health/model'
+import { RECOVERY_DAYS, carriesCadence, lastScored, windowCopyDays } from '../garmin-health/model'
 import { VISIBLE_DATE_MIN } from '../garmin-health/constants'
 import { recoveryQueries, trainingLoadQueries } from '../../lib/queries/daily-metrics'
 import { wardenQueries } from '../../lib/queries/warden'
@@ -108,6 +108,12 @@ export function TodayPage() {
     ...(agentsRecord === null && agentsQuery.isPending ? ['Agents'] : []),
   ]
 
+  // A settled read with no snapshot is unknown, not empty: it is neither failed nor loading.
+  const noSnapshot = [
+    ...(warden === null && wardenQuery.isSuccess ? ['Warden'] : []),
+    ...(agentsRecord === null && agentsQuery.isSuccess ? ['Agents'] : []),
+  ]
+
   const decisions = deriveDecisions({
     warden: wardenRaw,
     agents: snapshot,
@@ -202,7 +208,13 @@ export function TodayPage() {
     now,
   )
 
-  const summary = homeSummaryParts({ decisions, unavailable, loading })
+  const summary = homeSummaryParts({ decisions, unavailable, loading, noSnapshot })
+
+  const recoveryStripCell = recoveryCell(recovery, recoveryNow.isPending, {
+    settled: seriesSettled,
+    failed: recoverySeries.isError,
+    windowDays: windowCopyDays(garminParams, VISIBLE_DATE_MIN),
+  })
 
   return (
     <>
@@ -235,23 +247,28 @@ export function TodayPage() {
             ),
             budgetCell(wardenRaw?.budget, poller),
             meetingCell(agenda, next, later, now),
-            recoveryCell(recovery, recoveryNow.isPending, {
-              settled: seriesSettled,
-              failed: recoverySeries.isError,
-              windowDays: windowCopyDays(garminParams, VISIBLE_DATE_MIN),
-            }),
+            recoveryStripCell,
             acwrCell(
               acwr,
               now,
               loadQuery.isPending ? 'loading' : 'error',
               windowCopyDays(garminParams, VISIBLE_DATE_MIN),
               loadQuery.isPlaceholderData,
+              typeof recoveryStripCell.footer === 'string' &&
+                carriesCadence(recoveryStripCell.footer)
+                ? 'short'
+                : 'full',
             ),
           ]}
         />
 
         <div className={classes.columns}>
-          <NeedsYou decisions={decisions} unavailable={unavailable} loading={loading} />
+          <NeedsYou
+            decisions={decisions}
+            unavailable={unavailable}
+            loading={loading}
+            noSnapshot={noSnapshot}
+          />
           <Stack gap="md">
             <Meetings agenda={agenda} tasks={tasks} tasksFeed={tasksFeed} now={now} />
             <ActivityFeed

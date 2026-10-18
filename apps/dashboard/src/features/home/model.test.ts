@@ -18,6 +18,7 @@ import {
   feedEmptyLine,
   homeSummaryParts,
   needsYouEmptyTitle,
+  unknownPhrase,
   taskCounts,
   tasksLine,
   todayAgenda,
@@ -143,6 +144,42 @@ describe('needsYouEmptyTitle', () => {
   })
 })
 
+describe('needsYouEmptyTitle with sources that have no snapshot', () => {
+  const ok = { unavailable: [], loading: [] }
+  it('claims all-clear only when every source has a snapshot', () => {
+    expect(needsYouEmptyTitle({ ...ok, noSnapshot: [] })).toBe('Nothing needs you')
+    expect(needsYouEmptyTitle(ok)).toBe('Nothing needs you')
+  })
+  it('names the gap when no source has a snapshot', () => {
+    expect(needsYouEmptyTitle({ ...ok, noSnapshot: ['Warden', 'Agents'] })).toBe('No snapshot yet')
+  })
+  it('never claims all-clear for a partial: one known-empty, one without a snapshot', () => {
+    expect(needsYouEmptyTitle({ ...ok, noSnapshot: ['Agents'] })).toBe(
+      'Nothing from Warden needs you',
+    )
+    expect(needsYouEmptyTitle({ ...ok, noSnapshot: ['Warden'] })).toBe(
+      'Nothing from Agents needs you',
+    )
+  })
+  it('a mix of causes can only say it cannot tell', () => {
+    expect(
+      needsYouEmptyTitle({ unavailable: ['Warden'], loading: [], noSnapshot: ['Agents'] }),
+    ).toBe("Can't tell")
+    expect(
+      needsYouEmptyTitle({ unavailable: [], loading: ['Warden'], noSnapshot: ['Agents'] }),
+    ).toBe("Can't tell")
+  })
+  it('words the phrase and the summary with the short form', () => {
+    expect(unknownPhrase([], [], ['Agents'])).toBe('no snapshot yet from Agents')
+    expect(
+      homeSummaryParts({ decisions: [], ...ok, noSnapshot: ['Warden', 'Agents'] }).sentence,
+    ).toBe('No snapshot yet from Warden and Agents.')
+    expect(homeSummaryParts({ decisions: [], ...ok, noSnapshot: ['Agents'] }).sentence).toBe(
+      'Nothing from Warden needs you; no snapshot yet from Agents.',
+    )
+  })
+})
+
 describe('feedEmptyLine', () => {
   const none = { failed: [], pending: [], now: NOW }
   it('names every unknown source after the empty window, with the retry only for a failure', () => {
@@ -155,7 +192,7 @@ describe('feedEmptyLine', () => {
   })
   it("with no feed and no cause known, says the feed's own gap", () => {
     expect(feedEmptyLine({ loaded: false, ...none })).toBe(
-      'No feed yet from Warden or agent-gateway.',
+      'No snapshot yet from Warden or agent-gateway.',
     )
     expect(feedEmptyLine({ loaded: false, ...none, pending: ['Warden', 'Agents'] })).toBe(
       'Warden and Agents loading.',

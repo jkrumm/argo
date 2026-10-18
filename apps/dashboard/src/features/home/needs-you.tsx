@@ -21,6 +21,8 @@ type Props = {
   unavailable: readonly string[]
   /** Sources still being read: unknown for now, never an empty inbox. */
   loading: readonly string[]
+  /** Sources that settled without a snapshot: unknown, never an empty inbox. */
+  noSnapshot: readonly string[]
 }
 
 const COPY_LABEL = { queue: 'Copy command', agent: 'Copy blocker', warden: 'Copy PR link' } as const
@@ -73,11 +75,12 @@ function Card({ decision }: { decision: Decision }) {
  * The merged inbox: the first {@link CARD_LIMIT} decisions as cards, then one `{n} more on/in {page}` button
  * per page that owns each remaining item. The heading count is the whole list, not the cards shown.
  */
-export function NeedsYou({ decisions, unavailable, loading }: Props) {
+export function NeedsYou({ decisions, unavailable, loading, noSnapshot }: Props) {
   const shown = decisions.slice(0, CARD_LIMIT)
   const rest = decisions.slice(CARD_LIMIT)
-  const unknown = allUnknown({ unavailable, loading })
-  const phrase = unknownPhrase(unavailable, loading)
+  const sources = { unavailable, loading, noSnapshot }
+  const unknown = allUnknown(sources)
+  const phrase = unknownPhrase(unavailable, loading, noSnapshot)
   const restBy = (href: Decision['href']) => rest.filter((d) => d.href === href).length
   return (
     <Section title="Needs you" {...(unknown ? { value: '—' } : { count: decisions.length })}>
@@ -86,10 +89,10 @@ export function NeedsYou({ decisions, unavailable, loading }: Props) {
           <EmptyState
             tier="section"
             icon={<IconCircleCheck size={28} />}
-            title={needsYouEmptyTitle({ unavailable, loading })}
+            title={needsYouEmptyTitle(sources)}
             description={
               unknown
-                ? `${phrase}, so what is waiting is unknown.`
+                ? `${phrase.charAt(0).toUpperCase()}${phrase.slice(1)}, so what is waiting is unknown.`
                 : phrase === ''
                   ? 'No decision is waiting in Warden or on an agent.'
                   : `Nothing waiting in the source that loaded; ${phrase}.`
