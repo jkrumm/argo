@@ -6,6 +6,7 @@ import {
   lastWhitespace,
   stripShortcodes,
 } from './text'
+import { NBSP } from './format'
 import type { WardenActionVerb } from './queries/warden'
 
 // THE question rule for every decision surface (Agents, Warden, Home): one ladder, one place.
@@ -106,6 +107,9 @@ function withoutEchoTail(sentence: string): string {
   return subject?.toLowerCase() === word.toLowerCase() ? `${head}${end}` : sentence
 }
 
+/** The one short phrase Warden appends to a failure; glued so a wrap never strands `open`. */
+const PR_LEFT_OPEN = /PR left open/g
+
 /**
  * One line of evidence from a reason: statements only (a second question never repeats the title's),
  * raw URLs removed (the whole reason keeps them), cut at a word boundary when long.
@@ -121,7 +125,10 @@ function evidenceLeadOf(text: string, keepQuestions: boolean): string | null {
   // Evidence that is itself a question (an agent's blocker) is still the evidence when it is all there is.
   const lines = statements.length > 0 || !keepQuestions ? statements : cleaned
   if (lines.length === 0) return null
-  return leadOf(lines.join(' '), EVIDENCE_LINE_MAX)
+  const lead = leadOf(lines.join(' '), EVIDENCE_LINE_MAX)
+  return lead === null
+    ? null
+    : lead.replaceAll(PR_LEFT_OPEN, PR_LEFT_OPEN.source.replaceAll(' ', NBSP))
 }
 
 /** A caller-built plain question: bounded at a word, never inside a bracket (no ellipsis before the `?`), never empty. */

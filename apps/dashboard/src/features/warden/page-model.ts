@@ -560,11 +560,13 @@ export function resolveQueueAsks(entries: readonly QueueEntry[]): WardenAsk[] {
 const WAIT_WARN_DAYS = 2
 const DAY_MS = 86_400_000
 
+const glue = (text: string): string => text.replaceAll(' ', NBSP)
+
 /** How often the item was retried and revised, as one fact; `''` when neither happened. */
 function historyFact(row: AwaitingOwnerRow): string {
   return [
-    row.redrives > 0 ? `retried ${pluralize(row.redrives, 'time', NBSP)}` : '',
-    row.revisionCount > 0 ? `revised ${pluralize(row.revisionCount, 'time', NBSP)}` : '',
+    row.redrives > 0 ? glue(`retried ${pluralize(row.redrives, 'time', NBSP)}`) : '',
+    row.revisionCount > 0 ? glue(`revised ${pluralize(row.revisionCount, 'time', NBSP)}`) : '',
   ]
     .filter((part) => part !== '')
     .join(', ')

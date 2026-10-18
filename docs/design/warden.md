@@ -230,3 +230,8 @@ Follow-up (w30-r1):
 - **`revised {n} times` orphan** — fixed: count and word joined by a no-break space (`pluralize` with an NBSP gap); supersedes the "not fixed" line above.
 - **`waiting {h} h` precision** — already one spelling: the facts line and the history ages both go through `formatDuration`; a test now pins the pair so they cannot drift.
 - **`ago` glue everywhere on a card** — fixed: `Ago`, the tracking-fact lines and the history lines share `relativeWhole` / `historyAge`.
+
+Follow-up (w30-r2):
+
+- **`PR left open` orphaned `open`** — fixed: the phrase is glued with no-break spaces in the evidence line (`evidenceLeadOf`, `lib/question-copy.ts`).
+- **`revised {n} times` / `retried {n} times` split** — fixed: each whole phrase, verb included, is glued (`historyFact`); the `, ` between them stays breakable.

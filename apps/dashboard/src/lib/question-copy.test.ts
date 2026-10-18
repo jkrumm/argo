@@ -181,13 +181,15 @@ describe('evidence line', () => {
       authored: 'Merge?',
       body: 'CI failed on {sha}: the head commit is red. — PR left open: https://example.com/pr/1',
     })
-    expect(left.evidenceLine).toBe('CI failed on {sha}: the head commit is red; PR left open')
+    expect(left.evidenceLine).toBe(
+      'CI failed on {sha}: the head commit is red; PR\u00a0left\u00a0open',
+    )
     const dangling = cardCopy({
       authored: 'Merge?',
       body: 'CI failed on {sha}: checks have not passed on the head commit: CI. — PR left open: https://example.com/pr/6',
     })
     expect(dangling.evidenceLine).toBe(
-      'CI failed on {sha}: checks have not passed on the head commit; PR left open',
+      'CI failed on {sha}: checks have not passed on the head commit; PR\u00a0left\u00a0open',
     )
     const repeated = cardCopy({
       authored: 'Merge?',
@@ -198,13 +200,13 @@ describe('evidence line', () => {
       authored: 'Merge?',
       body: 'Build failed on {sha}: step lint. — PR left open: https://example.com/pr/7',
     })
-    expect(kept.evidenceLine).toBe('Build failed on {sha}: step lint; PR left open')
+    expect(kept.evidenceLine).toBe('Build failed on {sha}: step lint; PR\u00a0left\u00a0open')
     // The dash continues the sentence before it: clauses, never a fragment.
     const folded = cardCopy({
       authored: 'Merge?',
       body: 'CI has not run on the head commit. — PR left open: https://example.com/pr/3',
     })
-    expect(folded.evidenceLine).toBe('CI has not run on the head commit; PR left open')
+    expect(folded.evidenceLine).toBe('CI has not run on the head commit; PR\u00a0left\u00a0open')
     // A dash clause that is itself a question is not folded into the statement before it.
     const asked = cardCopy({
       authored: 'Merge?',
@@ -216,7 +218,7 @@ describe('evidence line', () => {
       authored: 'Merge?',
       body: 'Checks are red!! — PR left open: https://example.com/pr/5',
     })
-    expect(emphatic.evidenceLine).toBe('Checks are red; PR left open')
+    expect(emphatic.evidenceLine).toBe('Checks are red; PR\u00a0left\u00a0open')
     const loud = cardCopy({
       authored: 'Merge?',
       body: 'Checks are red. — Re-run them?! https://example.com/pr/6',
@@ -828,7 +830,7 @@ describe('the question table (live snapshot, anonymised)', () => {
     const ci = resolveQueueAsks(entries).find((_, i) => entries[i]!.row.eventId === 32)!
     expect(ci.plan).toMatchObject({ primary: 'retry', secondary: 'dismiss' })
     expect(ci.plan.menu).not.toContain('merge')
-    expect(ci.copy.evidenceLine).toEndWith('; PR left open')
+    expect(ci.copy.evidenceLine).toEndWith('; PR\u00a0left\u00a0open')
     expect(ci.copy.evidenceLine).not.toContain('— ')
   })
 
