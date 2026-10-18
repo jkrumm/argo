@@ -463,6 +463,15 @@ describe('lowCloudStat', () => {
       target: 55,
     })
   })
+  test('mid and high layers lead the footer, floored like the low value', () => {
+    const n = {
+      weather: { cloudLow: 10, cloudMid: 20.9, cloudHigh: 30 },
+      window: {},
+    } as unknown as Night
+    expect(lowCloudStat(n, 55)?.footer).toBe(
+      'mid 20\u00a0% · high 30\u00a0% · shooting-window mean',
+    )
+  })
   test('floors, so a reading never shows at the limit while the engine says under', () => {
     expect(lowCloudStat(night(54.4), 55)?.reading).toBe(54)
     expect(lowCloudStat(night(54.6), 55)?.reading).toBe(54)
@@ -608,9 +617,16 @@ describe('moonGateDetail', () => {
     ({ killers, darkMinutes, moon: { illumination: 0.456 } }) as unknown as Night
 
   test('a failed gate keeps the API reason', () => {
+    expect(moonGateDetail(night([{ id: 'moon', label: 'Moon', reason: 'r' }]), 0.25)).toBe('r')
+  })
+  test('a failed gate drops the illumination the Moon cell already prints', () => {
+    const reason = 'moon 46% illuminated and up to 12.3° above the horizon during the window'
+    expect(moonGateDetail(night([{ id: 'moon', label: 'Moon', reason }]), 0.25)).toBe(
+      'up to 12.3° above the horizon during the window',
+    )
     expect(
-      moonGateDetail(night([{ id: 'moon', label: 'Moon', reason: 'moon 46% up' }]), 0.25),
-    ).toBe('moon 46% up')
+      moonGateDetail(night([{ id: 'moon', label: 'Moon', reason: 'moon 46% illuminated' }]), 0.25),
+    ).toBe('over limit')
   })
   test('a pass under the limit says so in words', () => {
     expect(moonGateDetail(night([]), 0.5)).toBe('under limit')
@@ -635,6 +651,17 @@ describe('gateRows', () => {
       ['moon', 'passed', 'good'],
       ['cloud-low', 'ruinous', 'neutral'],
     ])
+  })
+
+  test('low cloud that limits the score gets its row without being ruinous', () => {
+    const limiting = {
+      ...night,
+      factors: [{ id: 'cloud-low', label: 'Low cloud', value: 0.4 }],
+    } as unknown as Night
+    expect(gateRows(limiting, 0.25).at(-1)).toMatchObject({
+      key: 'cloud-low',
+      state: 'limits the score',
+    })
   })
 
   test('a failed gate flips its row alone', () => {
@@ -666,6 +693,7 @@ describe('verdictFacts', () => {
   })
 
   test('a usable night names its limiting factor unless the low-cloud row already does', () => {
+    // low cloud, ruinous or merely limiting, has its own verdict-card row, so the facts line leaves it out
     const base = {
       ...goNight,
       score: 61,
@@ -676,10 +704,7 @@ describe('verdictFacts', () => {
         ...base,
         factors: [{ id: 'cloud-low', label: 'Low cloud', weight: 5, value: 0.1, ruinous }],
       }) as unknown as Night
-    expect(verdictFacts(night(false), [night(false)])).toEqual([
-      'score 61/100',
-      'limited by low cloud 10 %',
-    ])
+    expect(verdictFacts(night(false), [night(false)])).toEqual(['score 61/100'])
     expect(verdictFacts(night(true), [night(true)])).toEqual(['score 61/100'])
   })
 })
@@ -753,8 +778,7 @@ describe('coreGateFact', () => {
     expect(coreGateFact(night)?.value).toBe(fmtDegrees(cell.reading))
     expect(coreGateFact(night)).toEqual({
       value: '12.3°',
-      unit: 'closest to the gate',
-      period: 'must exceed 9.8°',
+      unit: 'gate 9.8°',
     })
   })
   test('no dark stretch, no fact', () => {
