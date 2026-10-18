@@ -13,7 +13,7 @@ declare const classes: {
   readonly valueSmall: string
   readonly unit: string
   readonly visual: string
-  readonly note: string
   readonly now: string
+  readonly note: string
 }
 export default classes

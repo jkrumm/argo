@@ -324,6 +324,9 @@ export function WeekStrip({
 }
 
 /** The copy for each priority tier: every task names its priority in words. */
+/** The Tasks-due card's one scope: the subtitle and the empty line both say `overdue {TASKS_SCOPE_TAIL}`. */
+const TASKS_SCOPE_TAIL = 'or due within 7 days'
+
 const TIER_LABEL = { high: 'High', medium: 'Medium', low: 'Low', none: 'No priority' } as const
 
 const TONE_COLOR = { bad: VX.status.bad, warn: VX.status.warn, neutral: VX.neutral } as const
@@ -347,7 +350,7 @@ export function TaskList({
   return (
     <Card data-shot="tasks-due" data-shot-states="empty loading error">
       <Section title="Tasks due" {...(state === 'ready' ? { count: tasks.length } : {})}>
-        <Text className={classes.muted}>Overdue or due within 7 days</Text>
+        <Text className={classes.muted}>Overdue {TASKS_SCOPE_TAIL}</Text>
         {state === 'loading' ? (
           <SkeletonRows rows={3} label="Loading tasks" time={false} />
         ) : state === 'error' ? (
@@ -356,7 +359,7 @@ export function TaskList({
             <RetryButton onClick={onRetryTasks} loading={retryingTasks} label="Retry tasks" />
           </Group>
         ) : tasks.length === 0 ? (
-          <Text className={classes.muted}>Nothing overdue or due within 7 days.</Text>
+          <Text className={classes.muted}>Nothing overdue {TASKS_SCOPE_TAIL}.</Text>
         ) : (
           <div role="list">
             {tasks.map((task) => (
