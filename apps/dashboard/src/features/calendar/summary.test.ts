@@ -65,7 +65,7 @@ describe('summaryParts', () => {
     expect(summaryParts(summary, loading)).toEqual({ sentence: 'Loading calendar', facts: [] })
     const failed = feedGap(new Set(['work']), new Set(['work']))
     expect(summaryParts(summary, failed)).toEqual({
-      sentence: 'Microsoft 365 failed to load — reload to retry',
+      sentence: 'Microsoft 365 failed to load',
       facts: [],
     })
   })
