@@ -27,6 +27,7 @@ import {
   statusWord,
   summaryParts,
   DIAGNOSTICS_TITLE,
+  fmtTonnes,
   borderlineNote,
   todaysCall,
 } from './model'
@@ -162,6 +163,15 @@ describe('summaryParts', () => {
   })
   test('no lifts selected is no headline', () => {
     expect(summaryParts([])).toBeNull()
+  })
+})
+
+describe('fmtTonnes', () => {
+  test('one unit, one decimal, a positive week never reads 0.0', () => {
+    expect(fmtTonnes(0)).toBe('0.0\u00a0t')
+    expect(fmtTonnes(40)).toBe('< 0.1\u00a0t')
+    expect(fmtTonnes(960)).toBe('1.0\u00a0t')
+    expect(fmtTonnes(12_300)).toBe('12.3\u00a0t')
   })
 })
 

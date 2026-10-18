@@ -471,6 +471,12 @@ export function shortDate(date: string): string {
   return dayLabel(date).split(' ').slice(1).join(' ')
 }
 
+/** Tonnes throughout the volume chart, one decimal; a positive week that rounds to 0.0 reads `< 0.1 t`. */
+export function fmtTonnes(kg: number): string {
+  const t = Math.round(kg / 100) / 10
+  return withUnit(kg > 0 && t === 0 ? '< 0.1' : t.toFixed(1), 't')
+}
+
 /** The diagnostics section's title: the three measures and their baseline, short enough to stay whole at 390. */
 export const DIAGNOSTICS_TITLE = 'Velocity, tonnage, INOL vs 90-day norm'
 

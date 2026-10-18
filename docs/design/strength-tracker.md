@@ -125,7 +125,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - Momentum: the velocity pane reads in `%/mo` like the header (bars were `%/day`), the chart is taller (320 px, top pane 0.7) so the pane carries a −, 0 and + tick; the zero tick reads `0%`.
 - One-RM info text says `Large dots`, matching the personal-record marks.
 - Readiness: a 7-day trailing average (solid) over the faint daily line; the info text names both.
-- The diagnostics section is titled `Velocity, tonnage, INOL vs 90-day norm` (no period: it must stay whole at 390, and the sections above name it); the composite chart names its signals and the alignment chart carries `last 90 d` (it is fixed to that window).
+- The diagnostics section is titled `Velocity, tonnage, INOL vs 90-day norm` (the period moved into the section summary so the title stays whole at 390); the composite chart names its signals and the alignment chart carries `last 90 d` (it is fixed to that window).
 
 No new basalt rows.
 

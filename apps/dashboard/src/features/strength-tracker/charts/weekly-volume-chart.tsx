@@ -9,8 +9,7 @@ import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { EXERCISE_KEYS } from '../../../lib/window-stores'
 import { localDay } from '../../garmin-health/charts/local-day'
-import { withUnit } from '../../../lib/format'
-import { dayLabel } from '../model'
+import { dayLabel, fmtTonnes } from '../model'
 import { METRIC_TOOLTIPS } from '../constants'
 import { exerciseLabel } from '../formulas'
 import { exerciseColor } from './exercise-helpers'
@@ -32,12 +31,6 @@ type WeeklyVolumePoint = {
   amrap: number
   total: number
   ma: number | null
-}
-
-/** Kilograms throughout, axis, tooltip and sentence: one unit, and a positive week never rounds to zero. */
-const fmtTonnage = (v: number): string => {
-  const kg = Math.round(v)
-  return withUnit(v > 0 && kg === 0 ? '< 1' : kg.toLocaleString('en-GB'), 'kg')
 }
 
 const positive = (v: number): number | null => (v > 0 ? v : null)
@@ -96,7 +89,7 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
       strokeWidth: 1.5,
       role: 'overlay',
       getValue: (d) => d.ma,
-      formatValue: fmtTonnage,
+      formatValue: fmtTonnes,
     },
   ]
 
@@ -112,7 +105,7 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
         <Group gap="xs" wrap="nowrap">
           {hasData && latest && latest.total > 0 ? (
             <Text span size="xs" c="dimmed">
-              {fmtTonnage(latest.total)} week of {dayLabel(latest.iso)}
+              {fmtTonnes(latest.total)} week of {dayLabel(latest.iso)}
             </Text>
           ) : null}
           {availableExercises.length > 1 ? (
@@ -151,7 +144,7 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
               ]
             : []
         }
-        y={{ domain: 'auto', format: fmtTonnage, ticks: 5 }}
+        y={{ domain: 'auto', format: fmtTonnes, ticks: 5 }}
       />
     </ChartCard>
   )
