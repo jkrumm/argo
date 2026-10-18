@@ -200,6 +200,13 @@ describe('ratingShape', () => {
     expect(ratingShape([book({ rating: 2.5 })]).buckets).toEqual([0, 1, 0, 0, 0])
   })
 
+  test('short labels are the lower edge of each contiguous bin, the half star included', () => {
+    const shelf = [0.5, 1, 2.5, 3, 4, 5].map((rating) => book({ rating }))
+    expect(ratingShape(shelf).labels.map((l) => l.short)).toEqual(
+      ['0.5', '2', '3', '4', '5'].map((v) => `${v}\u00a0★`),
+    )
+  })
+
   test('community mean covers the same rated books', () => {
     const shape = ratingShape([
       book({ rating: 4, communityRating: 4 }),

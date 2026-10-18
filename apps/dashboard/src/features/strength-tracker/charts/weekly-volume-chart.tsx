@@ -9,6 +9,7 @@ import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { EXERCISE_KEYS } from '../../../lib/window-stores'
 import { localDay } from '../../garmin-health/charts/local-day'
+import { withUnit } from '../../../lib/format'
 import { dayLabel } from '../model'
 import { METRIC_TOOLTIPS } from '../constants'
 import { exerciseLabel } from '../formulas'
@@ -33,11 +34,11 @@ type WeeklyVolumePoint = {
   ma: number | null
 }
 
-/** One unit and one format for the whole chart, axis, tooltip and sentence: tonnes once any week reaches 1 t, else kg. */
-const tonnageFormat =
-  (peak: number) =>
-  (v: number): string =>
-    peak >= 1000 ? `${(v / 1000).toFixed(1)} t` : `${Math.round(v)} kg`
+/** Kilograms throughout, axis, tooltip and sentence: one unit, and a positive week never rounds to zero. */
+const fmtTonnage = (v: number): string => {
+  const kg = Math.round(v)
+  return withUnit(v > 0 && kg === 0 ? '< 1' : kg.toLocaleString('en-GB'), 'kg')
+}
 
 const positive = (v: number): number | null => (v > 0 ? v : null)
 
@@ -78,8 +79,6 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
       })),
     [selectedBlock],
   )
-
-  const fmtTonnage = tonnageFormat(Math.max(0, ...points.map((p) => Math.max(p.total, p.ma ?? 0))))
 
   const bars: BarsBar<WeeklyVolumePoint>[] = [
     { key: 'warmup', label: 'Warm-up', color: exColor, getValue: (d) => positive(d.warmup) },

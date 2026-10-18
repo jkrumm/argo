@@ -13,8 +13,8 @@ function headerFacts(b: BacklogTotals, pace: number | null): string {
   return [
     'ranked by community rating',
     ...(b.pages > 0 ? [withUnit(b.pages.toLocaleString('en-GB'), 'p')] : []),
-    b.hours !== null
-      ? `${approxHours(b.hours)} to read at ${withUnit(pace ?? 0, 'p/h')}`
+    b.hours !== null && pace !== null
+      ? `${approxHours(b.hours)} to read at ${withUnit(pace, 'p/h')}`
       : `no hours estimate: ${pace === null ? NO_PACE_REASON : 'no page counts'}`,
     ...(b.withoutPages > 0 ? [`${b.withoutPages} without a page count`] : []),
   ].join(' · ')
