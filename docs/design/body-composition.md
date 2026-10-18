@@ -152,7 +152,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 ### Wave 25 fixes
 
 - Headline is a sentence: `Weight {falling|rising} {r} kg/wk over {n} d, {x} kg from the {goal} kg goal` (`holding steady` inside the maintenance band); the current weight moved to the facts line. When the last weigh-in is more than a day old the rate window is dated (`over the {n} d to {d MMM}`), and a weigh-in 14 d or older reads `· stale`.
-- Rate cell carries one window: the 28 d (or shorter) slope. The 7 d slope is gone from the footer; the footer is the intensity tier, or why there is no rate ("a rate needs two weigh-ins at least 3 days apart").
+- Rate cell carries one window: the 28 d (or shorter) slope. The 7 d slope is gone from the footer; the footer is the intensity tier, or why there is no rate ("a rate needs two weigh-ins at least 3 d apart").
 - The unused 7 d slope (`slope7`, `slopeOverDays`) is removed; "at the goal" uses the module's 0.05 kg tolerance.
 - Weight chart header states the net change across the window's entries and its start date (`windowChange`, unit-tested) instead of repeating the current weight, 7 d mean, 30 d delta and last-entry age that the strip and headline already show.
 - Basalt rows: none.
