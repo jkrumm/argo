@@ -206,3 +206,4 @@ Follow-up (w30-r2):
 
 - **Reviewer:** fail (basalt only). The 12 error shots are the strip-cell `data-shot-absent` row only (three strip cells × `empty` × four variants). Carried (basalt): at 1440 the pace column is a blank half beside the histogram; the mono `★` and slashed zeros. Unscored (argo, P3): the rating bins `1 / 2–2.5 / 3 / 4 / 5 ★` cover the half steps unevenly. No lost fact.
 - **Against Keel:** does not yet — the pace cell is a bare figure over a blank half; every Keel tile carries a visual.
+- **Re-score `w35-r2` (after basalt-ui 2.23.0 and `shotAbsent`, #152):** pass on the page; components fail on basalt rows only. **Closed:** the strip-cell P0 (0 error shots, the strip cells read `absent` under `empty`). Not closed (basalt): the pace cell's blank half at 1440; mono `★` and slashed zeros in mono counts (by identity). The uneven rating bins (argo, P3) are unchanged. No lost fact.

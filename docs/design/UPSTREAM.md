@@ -446,3 +446,33 @@ Still on basalt-ui 2.22.0 (no release announced during the wave). New basalt row
 (calendar week strip), the rubric's "no reachable state" gap (astro Tonight), `Lines` end labels, `Bars` shade-only series, `Button`
 chip hover, info tooltips at 390, sticky bars over section crops, `ViewTabs` nested radius, `BandStrip` hue-only days, `StackedArea`
 zero rows, decimal ticks, four type sizes in `Section` shells, the `Meter` zone-name fit, the 390 2 + 1 strip, the slashed zero.
+
+### Wave 35 — one form for a repeated gap (#149–#151), basalt-ui 2.23.0 (#152) and the `w35-r1` / `w35-r2` live re-score
+
+argo moved to basalt-ui 2.23.0 in its own commit (`eecd993`) and adopted it in #152: `shotAbsent={['empty']}` on the Warden,
+Reading and Strength strips (the strip-cell `data-shot-absent` row — **closed**, `w35-r2` has 0 error shots against 56 in `w35-r1`);
+body composition's local tooltip `formatHeader` deleted (the Wave 31 tooltip-header row — **closed**, the default prints
+`{Dow}, {d} {Mon} {yyyy}`); strength's ratio meters back on `tone: 'muted'` (the Wave 31 `MeterZone` muted row — **closed**, one flat
+fill); the astro cloud headline's `period` as a list (the `ChartFact` `period` row — **closed**). Also closed on `w35-r2`: the `Meter`
+null caption `No data`, slashed zeros in head-face titles, whole-step ticks, page-locale date ticks, the sparkline readout over the
+meter's end label, the floating strip-cell meter, the `PR` reference label on its own line (1440), the rubric's "no reachable state"
+gap on astro Tonight (fires on the stateful anchor only).
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| `StatCard` / strip qualifier under 240 px | the qualifier's own line truncates (`… maintain ±…`) — a lost fact when the qualifier is the only place a band is stated | body-composition rate cell at 390 | as rendered |
+| `StatGroup variant="strip"` footers | 2.23's deliberate "footers follow their cell" law leaves ragged footer tops across a row (Home, m365, usage, astro anatomy); a strip whose cells each carry a footer reads unaligned | home, m365, usage, astro night anatomy | as rendered (the `footer[]` pin is for one shared footer, not per-cell) |
+| `Code` in `Alert`, `ViewTabs` indicator radius | the nested step now passes, but the inner radius is 3 — off the radius scale (2/4/5/6/10) | agents / warden no-snapshot alert, usage cost / tokens tabs | as rendered |
+| `Meter` null reading | no `No data` caption, but a stray `—` under every empty track (three dashes per row, doubled row height under loading / error) | calendar week strip | as rendered |
+| `Sparkline` `referenceLabel` | at 390 the series line runs through the label | strength bench strip | as rendered |
+| `Lines` end labels | inside the plot now, but a label can collide with another series' line (`High` over the falling `Low`) | astro cloud layers | as rendered |
+| date ticks | one component spells the month two ways (`Sept` on band ticks, `Sep` in the readout); a duration axis steps by 50 min and ends `0m` | usage errors band, strength load, garmin activities | as rendered |
+| strip qualifier | a short qualifier (`all time`) stranded on its own line | warden verdicts / fixes | as rendered |
+| `MeterZone tone: 'muted'` | the flat muted fill is darker than the in-band zone, so the target band is the lightest ink on the track | strength ratio meters | as rendered |
+| `shot` desktop hover | the fine-pointer launch does not change decision-card button crops (identical to rest), and chip hover crops land on the active chip | home / agents / warden decision cards, hermes and m365 chips | as rendered |
+
+`w35-r2` re-confirmed open rows: the `Meter` zone-name fit (`Caution` / the maintain zone), detached `Meter` end figures, the info
+tooltips over headlines / neighbours, `ChartCard` `state.empty` placeholder height, the tokens `fill` band, `$0` / `0 M` tooltip rows,
+`BandStrip` hue-only warn/bad days (no glyph or notch visible at 6 px cells), `Bars` shade-only series, four type sizes in `Section`
+shells, mixed tick formats in one strength section, the ACWR legend gone at 390, the `Lines` overprint on the weight chart, sticky bars
+over section crops.
