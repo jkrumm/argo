@@ -336,8 +336,9 @@ describe('summaryParts', () => {
 
 describe('fleetFact', () => {
   it('names the longest run, or that nothing works', () => {
-    expect(fleetFact(3 * 3_600_000 + 5 * 60_000)).toBe('longest run 3h 5m')
-    expect(fleetFact(null)).toBe('no agent working')
+    expect(fleetFact(3 * 3_600_000 + 5 * 60_000, 2)).toBe('longest run 3h 5m')
+    expect(fleetFact(null, 0)).toBe('no agent working')
+    expect(fleetFact(null, 3)).toBe('longest run not reported')
   })
 })
 
@@ -354,19 +355,21 @@ describe('needs-you window facts', () => {
       at('2025-12-01T10:10:00Z', 3),
     ]
     expect(hoursWithNeedsYou(history, 24, now)).toEqual({ observed: 2, waiting: 1 })
+    // a snapshot stamped after `now` is clock skew, not an observed hour
+    expect(hoursWithNeedsYou([at('2026-01-10T13:00:00Z', 2)], 24, now)).toBeNull()
     expect(hoursWithNeedsYou([], 24, now)).toBeNull()
   })
 
   it('words the three cases with a unit', () => {
     expect(needsYouWindowFact(null, 24)).toBe('no data in 24 h')
-    expect(needsYouWindowFact({ observed: 24, waiting: 0 }, 24)).toBe('none waiting in 24 h')
-    expect(needsYouWindowFact({ observed: 24, waiting: 5 }, 24)).toBe('waiting in 5 of 24 h')
+    expect(needsYouWindowFact({ observed: 24, waiting: 0 }, 24)).toBe('no agent waiting in 24 h')
+    expect(needsYouWindowFact({ observed: 24, waiting: 5 }, 24)).toBe('agents waiting in 5 of 24 h')
   })
 
   it('claims only the observed hours when the window is not fully covered', () => {
     const one = hoursWithNeedsYou([at('2026-01-10T11:10:00Z', 0)], 24, now)
     expect(one).toEqual({ observed: 1, waiting: 0 })
-    expect(needsYouWindowFact(one, 24)).toBe('waiting in 0 of 1 h observed')
+    expect(needsYouWindowFact(one, 24)).toBe('no agent waiting in 1 h observed')
   })
 })
 
@@ -434,9 +437,17 @@ describe('evidence and preview', () => {
 
   it('previews the last reply paragraph only when it adds something', () => {
     const a = agent({ lastReply: 'First part.\n\nSecond   part\nwraps.' })
-    expect(previewOf(a, null)).toBe('Second part wraps.')
-    expect(previewOf(a, 'Second part wraps.')).toBeNull()
-    expect(previewOf(agent(), null)).toBeNull()
+    expect(previewOf(a)).toBe('Second part wraps.')
+    expect(previewOf(agent({ ...a, blocker: 'Second part wraps.' }))).toBeNull()
+    expect(previewOf(agent())).toBeNull()
+  })
+
+  it('does not repeat an ellipsized or multi-line blocker as the preview', () => {
+    const long = `${'word '.repeat(60)}end`
+    expect(evidenceLine(agent({ blocker: long }))?.endsWith('…')).toBe(true)
+    expect(previewOf(agent({ blocker: long, lastReply: long }))).toBeNull()
+    const multi = agent({ blocker: 'Pick one.\nDetails follow.', lastReply: 'Pick one.' })
+    expect(previewOf(multi)).toBeNull()
   })
 })
 
@@ -579,6 +590,20 @@ describe('needsYouCards', () => {
     })
   })
 
+  it('shows a host on an ask only when the ask carries one', () => {
+    const [bare, hosted] = needsYouCards(
+      [
+        { id: 'a', question: 'Bare?', askedAt: '2026-01-10T11:00:00Z' },
+        { id: 'b', question: 'Hosted?', askedAt: '2026-01-10T11:30:00Z', host: 'laptop' },
+      ],
+      [],
+      now,
+      { machine: 'mini' },
+    )
+    expect(bare?.facts).toEqual(['human queue', 'asked 1h 0m ago'])
+    expect(hosted?.facts).toEqual(['human queue', 'laptop', 'asked 30m ago'])
+  })
+
   it('offers no full ask for a short ask whose only difference is inline code', () => {
     const [card] = needsYouCards([{ id: 'c', question: 'Run `make go` now?' }], [], now)
     expect(card?.headline).toBe('Run make go now?')
@@ -625,14 +650,14 @@ describe('oldestAskMs', () => {
 })
 
 describe('longestRunMs', () => {
-  it('takes the longest age from startedAt, falling back to last activity', () => {
+  it('takes the longest age from startedAt; last activity is not a run', () => {
     const rows = [
       agent({ id: 'a', startedAt: 1_000 }),
-      agent({ id: 'b', lastActivityAt: 4_000 }),
-      agent({ id: 'c' }),
+      agent({ id: 'b', startedAt: 3_000, lastActivityAt: 0 }),
+      agent({ id: 'c', lastActivityAt: 0 }),
     ]
     expect(longestRunMs(rows, 5_000)).toBe(4_000)
-    expect(longestRunMs([agent({ id: 'c' })], 5_000)).toBeNull()
+    expect(longestRunMs([agent({ id: 'c', lastActivityAt: 0 })], 5_000)).toBeNull()
   })
 })
 

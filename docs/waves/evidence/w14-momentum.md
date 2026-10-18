@@ -17,8 +17,8 @@ per-sign swatch. `MIGRATING.md`, `llms.txt` and the `.d.ts` document no option f
 
 ## Friction row
 
-| What I hit | Workaround NOT taken | Severity |
-|-|-|-|
+| What I hit                                                                               | Workaround NOT taken                                                                                                                                                               | Severity                                                                                                      |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `DualPanel` legend shows one swatch (`bar.positive`) for a two-colour signed bar series. | Hand-rendering a second legend swatch next to the chart, or splitting the bar into two fake series (positive/negative) to force two entries. Both bypass basalt's legend contract. | Low: cosmetic, the tooltip and sign still read correctly; the reader sees only the green swatch for red bars. |
 
 No argo code changed; no basalt suppression added; basalt-ui not bumped.

@@ -125,7 +125,7 @@ Wearable tables — already shipped for Garmin Health, reused here:
   sets to compute (max weight, best-set e1RM, total volume). Everything else — derivatives, ACWR,
   ratios, readiness — is derived in the dashboard.
 - **Body weight is dynamic.** `effective_weight(set, date) = is_bodyweight ? set.weight_kg +
-bw(date) : set.weight_kg`, where `bw(date)` walks `weight_log → daily_metrics → profile default`
+  bw(date) : set.weight_kg`, where `bw(date)` walks `weight_log → daily_metrics → profile default`
   in that order.
 - **Null-safe everywhere.** RIR, body weight, and every wearable field can be null on any day.
 

@@ -18,7 +18,10 @@ export type EntityCardProps = {
   identity: ReactNode
   /** Right of the identity: a state chip. */
   status: ReactNode
-  /** The inner panel, row-major, two columns; a trailing odd cell spans both. */
+  /**
+   * The inner panel, row-major, two columns. One to any number of cells; an odd trailing cell spans
+   * both columns (`.cell:last-child:nth-child(odd)`) so the panel never shows an empty slot.
+   */
   cells: readonly [EntityCardCell, ...EntityCardCell[]]
   /** The closing line: `Now <title>`. */
   now?: ReactNode
