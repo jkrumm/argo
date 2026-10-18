@@ -2,9 +2,7 @@ import { NBSP } from '../../lib/format'
 import { describe, expect, test } from 'bun:test'
 import {
   chatKindCounts,
-  channelsCellGap,
-  chatsCellGap,
-  sourceListGap,
+  emptyGap,
   detailGap,
   withStep,
   nothingToLabel,
@@ -418,26 +416,16 @@ describe('showTagChips', () => {
   })
 })
 
-describe('channelsCellGap', () => {
-  test('repeats the leading clause: sources when Labeled leads, else teams', () => {
-    expect(channelsCellGap('labeled')).toBe(NO_SOURCES)
-    expect(channelsCellGap('chats')).toBe(NO_TEAMS)
-    expect(channelsCellGap('channels')).toBe(NO_TEAMS)
-    expect(channelsCellGap(null)).toBe(NO_TEAMS)
-  })
-})
-
-describe('chatsCellGap / sourceListGap', () => {
+describe('emptyGap', () => {
   test('both lists empty: one gap, every surface takes the leading clause', () => {
-    expect(chatsCellGap('labeled')).toBe(NO_SOURCES)
-    expect(sourceListGap(true, 'chats')).toBe(NO_SOURCES)
-    expect(sourceListGap(true, 'teams')).toBe(NO_SOURCES)
+    expect(emptyGap('labeled', 'chats')).toBe(NO_SOURCES)
+    expect(emptyGap('labeled', 'teams')).toBe(NO_SOURCES)
   })
-  test('chats only empty: the narrower gap keeps its own wording', () => {
-    expect(chatsCellGap('chats')).toBe(NO_CHATS)
-    expect(chatsCellGap(null)).toBe(NO_CHATS)
-    expect(sourceListGap(false, 'chats')).toBe(NO_CHATS)
-    expect(sourceListGap(false, 'teams')).toBe(NO_TEAMS)
+  test('otherwise each list names its own gap', () => {
+    for (const leader of ['chats', 'channels', null] as const) {
+      expect(emptyGap(leader, 'chats')).toBe(NO_CHATS)
+      expect(emptyGap(leader, 'teams')).toBe(NO_TEAMS)
+    }
   })
 })
 
@@ -488,5 +476,11 @@ describe('gap predicates', () => {
     expect(gapLeader({ ...none, noChats: true, noTeams: true })).toBe('chats')
     expect(gapLeader({ ...none, noTeams: true })).toBe('channels')
     expect(gapLeader(none)).toBeNull()
+  })
+  test('teams back with no channel and no chats is not a both-empty claim', () => {
+    // nothing to label, but a team came back: the chats pane must not say `or channels`
+    const leader = gapLeader({ nothingToLabel: true, noChats: true, noTeams: false })
+    expect(leader).toBe('chats')
+    expect(emptyGap(leader, 'chats')).toBe(NO_CHATS)
   })
 })

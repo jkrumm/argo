@@ -2,13 +2,12 @@ import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { Skeleton, UnstyledButton } from '@mantine/core'
 import {
-  channelsCellGap,
   channelsFooter,
   chatKindParts,
   chatsStat,
   labeledBasis,
   labeledSegmentCaption,
-  chatsCellGap,
+  emptyGap,
   NO_SOURCES,
   gapLeader,
   nothingToLabel,
@@ -33,6 +32,7 @@ function labeledCell(
   list: { chats: number; capped: boolean },
   onRetry: () => void,
   empty: boolean,
+  leading: boolean,
 ): StatStripCell {
   const { labeled, total, loading, failed } = coverage
   const pending = loading > 0
@@ -42,7 +42,7 @@ function labeledCell(
     return {
       key: 'labeled',
       caption: 'Labeled sources',
-      state: { kind: 'empty', reason: withStep(NO_SOURCES) },
+      state: { kind: 'empty', reason: leading ? withStep(NO_SOURCES) : NO_SOURCES },
     }
   }
   const labeledCount = Math.min(labeled, total)
@@ -89,7 +89,7 @@ function labeledCell(
  */
 function chatsCell(chats: Chats, noChats: boolean, leader: GapLeader): StatStripCell {
   if (noChats) {
-    const short = chatsCellGap(leader)
+    const short = emptyGap(leader, 'chats')
     const reason = leader === 'chats' ? withStep(short) : short
     return { key: 'chats', caption: 'Chats by kind', state: { kind: 'empty', reason } }
   }
@@ -143,7 +143,7 @@ function channelsCell({
   // No teams came back: the channel count is unknown, not zero. When the Labeled cell leads, the
   // screen's sentence says `No chats or channels came back`; this cell repeats that clause verbatim.
   if (noTeams) {
-    const short = channelsCellGap(leader)
+    const short = emptyGap(leader, 'teams')
     const reason = leader === 'channels' ? withStep(short) : short
     return { key: 'channels', caption: 'Team channels', state: { kind: 'empty', reason } }
   }
@@ -188,7 +188,7 @@ export function ExplorerStrip({
       label="Coverage summary"
       cols={3}
       cells={[
-        labeledCell(coverage, list, onRetry, leader === 'labeled'),
+        labeledCell(coverage, list, onRetry, nothingLabelable, leader === 'labeled'),
         chatsCell(chats, noChats, leader),
         channelsCell({ channels, largest: largestTeam, failed: coverage.failed, noTeams, leader }),
       ]}
