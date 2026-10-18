@@ -4,6 +4,7 @@ import {
   chatKindCounts,
   nothingToOpen,
   withStep,
+  NO_SOURCES,
   NO_CHANNELS,
   NO_CHATS,
   NO_TEAMS,
@@ -421,7 +422,7 @@ describe('nothingToOpen', () => {
 
 describe('withStep', () => {
   test('opens with the short form verbatim, then the cause and the step', () => {
-    for (const short of [NO_CHATS, NO_TEAMS]) {
+    for (const short of [NO_CHATS, NO_TEAMS, NO_SOURCES]) {
       expect(withStep(short).startsWith(`${short} — `)).toBe(true)
       expect(withStep(short)).toContain('refresh to retry')
     }

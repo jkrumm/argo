@@ -1,5 +1,5 @@
 import { Alert, ScrollArea } from '@mantine/core'
-import { LABELED_FILTER, labelsByTag, NO_CHATS, type LabelLite } from './model'
+import { LABELED_FILTER, labelsByTag, NO_SOURCES, type LabelLite } from './model'
 import { SourceRow } from './source-row'
 import classes from './m365.module.css'
 
@@ -42,7 +42,7 @@ export function LabeledPane(props: LabeledPaneProps) {
       {groups.length === 0 ? (
         <p className={classes.emptyCenter}>
           {props.noSources
-            ? NO_CHATS
+            ? NO_SOURCES
             : 'No labeled sources — label a chat to include it in /m365/important'}
         </p>
       ) : (

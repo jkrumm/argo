@@ -8,6 +8,7 @@ import {
   labeledBasis,
   labeledSegmentCaption,
   NO_CHATS,
+  NO_SOURCES,
   NO_TEAMS,
   withStep,
   type Coverage,
@@ -37,7 +38,7 @@ function labeledCell(
     return {
       key: 'labeled',
       caption: 'Labeled sources',
-      state: { kind: 'empty', reason: withStep(NO_CHATS) },
+      state: { kind: 'empty', reason: withStep(NO_SOURCES) },
     }
   }
   const labeledCount = Math.min(labeled, total)
