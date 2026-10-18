@@ -27,8 +27,8 @@ export function StaleBanner({ latest, fetchFailed = false }: Props) {
         icon={<IconInfoCircle size={16} />}
         title="No snapshot yet"
       >
-        Nothing has been pushed to <Code>POST /agents/overview</Code> — the dev host's overview
-        producer has not reported.
+        agent-gateway pushes to <Code>POST /agents/overview</Code> every 10&nbsp;min from each dev
+        host. If this stays empty, check that agent-gateway is running on a dev host.
       </Alert>
     )
   }

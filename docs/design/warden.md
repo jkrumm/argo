@@ -185,10 +185,10 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 Basalt rows for `UPSTREAM.md`:
 
-| Export | Needed prop / default | argo case | What argo does instead |
-|-|-|-|-|
+| Export         | Needed prop / default                                                                                                                                                         | argo case                                                                                    | What argo does instead                                                                                                                                              |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DecisionCard` | `question` (short title), `facts` (entity + ≤3), `evidenceLine` (one line), `disclosure` (full ask), `previewPlacement: 'well' \| 'inline'` (one-line history without a well) | Keel's card anatomy; a Warden ask is long prose and its history is often a single transition | `components/upstream/decision-card.tsx` takes `evidenceLine` and `previewPlacement` additively; `cardCopy` / `capFacts` in `decision-card-model.ts` derive the copy |
-| `Meter` | optional hide of the track with no `target`/`ticks` | verdicts share has nothing to compare against | argo drops the visual and states the counts in the footer |
+| `Meter`        | optional hide of the track with no `target`/`ticks`                                                                                                                           | verdicts share has nothing to compare against                                                | argo drops the visual and states the counts in the footer                                                                                                           |
 
 ### Wave 25 round (`w25-r1`, live after #96–#101)
 
@@ -250,3 +250,7 @@ Follow-up (w30-r2):
 
 - **Reviewer:** fail — every decision card, failed card and the board pass; the new failures are the first-ever `empty` renders. Fixed: `craft-7/no-declared-states` (`empty` declared on `board`, the real 404 → `null` branch; every snapshot reader goes through the substituted value). **New (argo, empty state):** every strip cell reads `no data: not reported` / `no data: counts not reported` (banned filler); the `No snapshot yet` alert gives no next step. **New (basalt):** the alert's `Code` radius within 3 px of the Alert's. Carried: raw alert keys (frozen rung); the first `Latest changes` row's age alone after `·` (left: un-gluing would orphan `ago`); info tooltips over the next cell's hero (basalt). Unscored: the fixes cell's `{a} fixed + {b} quiet + {c} closed = {n} items` wraps over three lines with a trailing `+`. No lost fact.
 - **Against Keel:** close — cards distinct and sized right; raw alert keys stand in for authored questions.
+
+### Wave 33 fixes (round 12)
+
+- **Empty state:** the `No snapshot yet` alert names the cause and next step in the shape shared with Agents — `Warden pushes to {route} after every loop tick, about every 10 min. If this stays empty, check that the Warden loop is running on the mini.` Under no snapshot the health strip is not rendered (the alert carries the fact), so no cell repeats `no data` per cell. The fixes legend glues each operator to the term after it (`{a} fixed +{nbsp}{b} quiet +{nbsp}{c} closed ={nbsp}{n} items`), so a wrap lands before an operator, never after.

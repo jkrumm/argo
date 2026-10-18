@@ -60,6 +60,7 @@ export function FleetStrip({ needsYou, fleet, split, oldest, longestRunMs }: Pro
           value: needsYou === null ? null : String(needsYou),
           ...(needsYou !== null && { unit: `${itemNoun(needsYou)} waiting` }),
           ...(needsYou !== null && needsYou > 0 && { tone: 'warn' as const }),
+          ...(needsYou === null && { footer: 'Waiting for the first snapshot' }),
           ...(split !== '' && { footer: split }),
         },
         {
