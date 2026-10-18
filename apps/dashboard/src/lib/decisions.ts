@@ -4,7 +4,7 @@ import {
   recentTransitions,
   retryQuestion,
   splitReason,
-  type TransitionLine,
+  type TransitionHistory,
 } from '../features/warden/page-model'
 import {
   flattenAgents,
@@ -39,7 +39,7 @@ export type Decision = {
   /** The command or blocker behind the question, when the source carries one. */
   evidence: string | null
   /** Where a Warden item has been, newest last; empty for every other source. */
-  history: TransitionLine[]
+  history: TransitionHistory
   /** Past 7 days an agent wait is abandoned rather than live. */
   abandoned: boolean
 }

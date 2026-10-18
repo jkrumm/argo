@@ -13,7 +13,7 @@ export function StatusChip({ label }: { label: string }) {
   const word = sentenceCase(label)
   if (word === null) return null
   return (
-    <Group gap={5} wrap="nowrap" component="span">
+    <Group gap={6} wrap="nowrap" component="span">
       <StatusDot color={VX.muted} />
       <Text span size="xs" c="dimmed">
         {word}

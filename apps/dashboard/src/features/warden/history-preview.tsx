@@ -1,6 +1,11 @@
 import { Group, Stack, Text } from '@mantine/core'
 import { relativeTime } from 'basalt-ui/format'
-import { historySummary, sentenceCase, type TransitionLine } from './page-model'
+import {
+  historySummary,
+  sentenceCase,
+  type TransitionHistory,
+  type TransitionLine,
+} from './page-model'
 
 function transitionText({ from, to }: TransitionLine): string {
   const target = sentenceCase(to) ?? to
@@ -13,8 +18,8 @@ function transitionText({ from, to }: TransitionLine): string {
  * mono), with a count of the earlier ones. The full text rides in `title`; the whole log is in the
  * item timeline.
  */
-export function HistoryPreview({ lines }: { lines: readonly TransitionLine[] }) {
-  const summary = historySummary(lines)
+export function HistoryPreview({ lines }: { lines: TransitionHistory }) {
+  const summary = historySummary(lines, lines.total)
   if (summary === null) return null
   const { latest, earlier } = summary
   const text = transitionText(latest)
@@ -24,7 +29,7 @@ export function HistoryPreview({ lines }: { lines: readonly TransitionLine[] }) 
         Latest change
       </Text>
       <Group gap="xs" wrap="nowrap" justify="space-between">
-        <Text size="xs" truncate="end" title={text} miw={0}>
+        <Text size="xs" truncate="end" title={text} aria-label={text} miw={0}>
           {text}
         </Text>
         <Text size="xs" c="dimmed" ff="monospace" style={{ flex: 'none' }}>

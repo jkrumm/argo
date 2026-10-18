@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import type { WardenBoardItem, WardenMetrics } from '../../lib/queries/warden'
+import type { WardenBoardItem, WardenBudget, WardenMetrics } from '../../lib/queries/warden'
 import type { AwaitingOwnerRow } from './model'
 import {
   cardFacts,
@@ -8,6 +8,7 @@ import {
   deriveBudget,
   derivePollers,
   deriveStrip,
+  type StripModel,
   deriveSummary,
   formatNumber,
   formatSpan,
@@ -286,13 +287,16 @@ describe('deriveSummary', () => {
     })
     expect(summary.status).toBe('degraded')
     expect(summary.text).toContain('Loop degraded: loop is 41 min old.')
+    expect(summary.facts.some((fact) => fact.startsWith('poller'))).toBe(false)
   })
 })
 
 describe('dispatchOf', () => {
   it('needs both used and max', () => {
-    expect(dispatchOf({ usedToday: 4, max: 10 } as never)).toEqual({ used: 4, max: 10 })
-    expect(dispatchOf({ usedToday: 4 } as never)).toBeNull()
+    expect(
+      dispatchOf({ usedToday: 4, max: 10 } satisfies Partial<WardenBudget> as WardenBudget),
+    ).toEqual({ used: 4, max: 10 })
+    expect(dispatchOf({ usedToday: 4 } satisfies Partial<WardenBudget> as WardenBudget)).toBeNull()
     expect(dispatchOf(undefined)).toBeNull()
   })
 })
@@ -306,6 +310,28 @@ describe('historySummary', () => {
     ]
     expect(historySummary(lines)).toEqual({ latest: lines[2], earlier: 2 })
     expect(historySummary([])).toBeNull()
+  })
+
+  it('counts earlier changes from the real total, not the shown lines', () => {
+    const shown = [
+      { from: 'a', to: 'b', at: null },
+      { from: 'b', to: 'c', at: null },
+      { from: 'c', to: 'd', at: null },
+    ]
+    expect(historySummary(shown, 7)?.earlier).toBe(6)
+  })
+
+  it('recentTransitions carries the full transition count', () => {
+    const timeline = {
+      transitions: Array.from({ length: 5 }, (_, i) => ({
+        from_state: `s${i}`,
+        to_state: `s${i + 1}`,
+      })),
+    }
+    const history = recentTransitions(timeline)
+    expect(history).toHaveLength(3)
+    expect(history.total).toBe(5)
+    expect(historySummary(history, history.total)?.earlier).toBe(4)
   })
 })
 
@@ -334,7 +360,7 @@ describe('revertsFooter', () => {
       reopens,
       reopensUnavailable: reopens === null ? 'y' : null,
       windowDays: 7,
-    }) as never
+    }) satisfies Partial<StripModel['reverts']> as StripModel['reverts']
   it('defines a revert in plain words next to the reopen count', () => {
     expect(revertsFooter(strip(0, 1), nd)).toBe(
       'revert = a merged fix that was undone · 1 reopened after fixed · last\u00a07\u00a0d',

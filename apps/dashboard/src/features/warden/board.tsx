@@ -98,6 +98,8 @@ function BoardCard({
   )
 }
 
+const NOTHING_OPEN = 'Nothing open'
+
 function ColumnHeader({ column }: { column: BoardColumn }) {
   return (
     <Stack gap={0}>
@@ -192,7 +194,7 @@ export function Board({
             ) : null}
             {emptyLabels.length > 0 ? (
               <Text size="xs" c="dimmed">
-                {populated.length === 0 ? 'Nothing open. ' : ''}Empty: {emptyLabels.join(', ')}
+                {populated.length === 0 ? NOTHING_OPEN : `Empty: ${emptyLabels.join(', ')}`}
               </Text>
             ) : null}
           </Stack>

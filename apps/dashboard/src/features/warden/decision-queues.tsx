@@ -22,7 +22,7 @@ import {
   planActions,
   retryQuestion,
   recentTransitions,
-  type TransitionLine,
+  type TransitionHistory,
   splitReason,
   type QueueKind,
 } from './page-model'
@@ -39,7 +39,7 @@ type Props = {
 }
 
 /** True while the element's content overflows its clamped box; re-measured whenever it resizes. */
-function useOverflows(active: boolean) {
+function useOverflows(active: boolean, text: string) {
   const ref = useRef<HTMLParagraphElement>(null)
   const [overflows, setOverflows] = useState(false)
   useLayoutEffect(() => {
@@ -50,7 +50,7 @@ function useOverflows(active: boolean) {
     const observer = new ResizeObserver(measure)
     observer.observe(el)
     return () => observer.disconnect()
-  }, [active])
+  }, [active, text])
   return { ref, overflows }
 }
 
@@ -59,7 +59,7 @@ function useOverflows(active: boolean) {
 function ClampedText({ text }: { text: string }) {
   const [expanded, { toggle }] = useDisclosure(false)
   const textId = useId()
-  const { ref, overflows } = useOverflows(!expanded)
+  const { ref, overflows } = useOverflows(!expanded, text)
   // Expanded text no longer overflows, so the toggle stays while expanded to let the owner collapse.
   const canToggle = overflows || expanded
   return (
@@ -105,7 +105,7 @@ function QueueCard({
   kind: QueueKind
   pending: PendingActions[number] | undefined
   narrow: boolean
-  history: TransitionLine[]
+  history: TransitionHistory
   onFire: (verb: WardenActionVerb) => void
   onSelectItem: () => void
 }) {
