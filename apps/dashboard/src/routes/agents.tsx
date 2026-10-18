@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Skeleton, Stack } from '@mantine/core'
-import { PageBar } from 'basalt-ui'
+import { PageBar, PageSummary } from 'basalt-ui'
 import { agentsQueries } from '../lib/queries/agents'
 import { useNow } from '../lib/use-now'
 import {
@@ -23,7 +23,6 @@ import {
 } from '../features/agents/model'
 import { FeedNotice } from '../features/agents/feed-notice'
 import { StaleBanner } from '../features/agents/stale-banner'
-import { PageSummary } from '../components/upstream/page-summary'
 import { FeedAside } from '../features/agents/feed-aside'
 import { FleetStrip } from '../features/agents/fleet-strip'
 import { NeedsYouSection } from '../features/agents/needs-you-section'

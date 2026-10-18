@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { PageSummary } from '../../components/upstream/page-summary'
+import { PageSummary } from 'basalt-ui'
 import { recoveryQueries, trainingLoadQueries } from '../../lib/queries/daily-metrics'
 import { summaryParts } from './model'
 import { RefetchDim } from './refetch-dim'

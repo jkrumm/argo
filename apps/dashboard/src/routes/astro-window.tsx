@@ -3,11 +3,10 @@ import { Suspense, useCallback, useDeferredValue, useMemo } from 'react'
 import { Box, Center, Grid, Loader, Stack, Text, useComputedColorScheme } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { z } from 'zod'
-import { PageBar } from 'basalt-ui'
+import { PageBar, PageSummary } from 'basalt-ui'
 import { CONTAINER_GRID_BREAKPOINTS } from 'basalt-ui/tokens'
 import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, NumberFilter, SelectFilter, ViewTabs } from 'basalt-ui/controls'
-import { PageSummary } from '../components/upstream/page-summary'
 import { astroStore } from '../lib/window-stores'
 import {
   CHART_HEIGHT,

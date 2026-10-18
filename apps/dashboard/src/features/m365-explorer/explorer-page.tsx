@@ -1,4 +1,4 @@
-import { PageBar, Section, useSizeClass } from 'basalt-ui'
+import { PageBar, Section, useSizeClass, PageSummary } from 'basalt-ui'
 import { FilterSet, SearchFilter, ViewTabs } from 'basalt-ui/controls'
 import { Card } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
@@ -12,7 +12,6 @@ import {
 } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import { m365Mutations, m365Queries } from '../../lib/queries/m365'
-import { PageSummary } from '../../components/upstream/page-summary'
 import { FeedPane } from './feed-pane'
 import { LabeledPane } from './labeled-pane'
 import {

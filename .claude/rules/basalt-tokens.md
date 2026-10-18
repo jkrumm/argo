@@ -29,7 +29,7 @@ Every value is a `VX.*` reference or a theme prop; the palette is derived, never
 
 ## Surfaces, radius, depth
 
-- Surfaces are `VX.surface.{bg,panel,panelHover,elevated,subtle,overlay,field,border,hairline}`; the seam between shell regions is `VX.divider`. [type VX]
+- Surfaces are `VX.surface.{bg,panel,panelHover,rowHover,rowSelected,elevated,subtle,overlay,field,border,hairline}`; the seam between shell regions is `VX.divider`. [type VX]
 - Never set border, radius or shadow on a card; the theme owns them (`VX.shadowCard`, `VX.radiusCard`). [check-theme raw-surface]
 - Never replace a surface's shadow with your own `boxShadow`; compose with the depth token. [check-theme surface-shadow-override]
 - In CSS, corners and depth are `var(--vx-radius-card)` (cards) or `var(--vx-radius-ctrl)` (controls) and `var(--vx-shadow-card)`. [check-theme css-raw-surface]

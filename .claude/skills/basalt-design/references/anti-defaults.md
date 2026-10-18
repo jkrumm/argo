@@ -3,7 +3,7 @@
 ## Fact-only copy
 
 - The banned-filler list lives in the `basalt-design-reviewer` subagent; do not duplicate it, write to it.
-- A page summary sentence carries at least one live number ("12 tickets open, 3 past SLA."); a summary with none is cut.
+- A page summary (`PageSummary`, one sentence plus a facts line) carries at least one live number ("12 tickets open, 3 past SLA."); a summary with none is cut.
 - Titles are precise nouns with their scope ("Ride distance, 7 days"). Empty states say why and what to do.
 
 ## Dashboard tells

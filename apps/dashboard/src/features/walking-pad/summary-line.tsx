@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { PageSummary } from '../../components/upstream/page-summary'
+import { PageSummary } from 'basalt-ui'
 import { useNow } from '../../lib/use-now'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../lib/queries/walking-pad'
 import { walkingStore } from '../../lib/window-stores'

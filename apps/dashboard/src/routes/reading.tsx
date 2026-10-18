@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Stack } from '@mantine/core'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { EmptyState, PageBar, unwrap } from 'basalt-ui'
+import { EmptyState, PageBar, unwrap, PageSummary } from 'basalt-ui'
 import { emit } from 'basalt-ui/commands'
 import { IconBooks } from '@tabler/icons-react'
 import { api } from '../lib/eden'
@@ -23,7 +23,6 @@ import {
 } from '../features/reading/model'
 import classes from '../features/reading/reading.module.css'
 import { ReadingStrip } from '../features/reading/strip'
-import { PageSummary } from '../components/upstream/page-summary'
 import { useNow } from '../lib/use-now'
 import { UnmatchedSection } from '../features/reading/unmatched-section'
 

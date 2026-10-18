@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Alert, Box, Center, Loader, ScrollArea, Stack, Text } from '@mantine/core'
 import { IconAlertTriangle } from '@tabler/icons-react'
-import { PageBar } from 'basalt-ui'
+import { PageBar, PageSummary } from 'basalt-ui'
 import {
   Composer,
   useAgentThreadRuns,
@@ -16,7 +16,6 @@ import { hermesChatStore } from './chat-store'
 import { HermesHealth } from './hermes-health'
 import { HermesRow } from './hermes-row'
 import { ThreadList } from './thread-list'
-import { PageSummary } from '../../components/upstream/page-summary'
 import { buildView, emptyNote, listEndNote, summaryHeadline, toEntries } from './thread-list-model'
 import { ThreadRecordHeader } from './thread-record-header'
 import { ThreadToolbar } from './thread-toolbar'
