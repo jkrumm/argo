@@ -13,9 +13,18 @@ export function useCopyAction(
   const clipboard = useClipboard({ timeout: 1500 })
   const text = value?.trim() ?? ''
   if (text === '') return undefined
+  const labelNow = (): string => {
+    if (clipboard.copied) return 'Copied'
+    if (clipboard.error) return 'Copy failed'
+    return label
+  }
   return {
-    label: clipboard.error ? 'Copy failed' : clipboard.copied ? 'Copied' : label,
+    label: labelNow(),
     icon: clipboard.copied ? <IconCheck size={14} /> : <IconCopy size={14} />,
-    onClick: () => clipboard.copy(text),
+    onClick: () => {
+      // A failed copy leaves its error up until reset: clear it so a retry starts clean.
+      clipboard.reset()
+      clipboard.copy(text)
+    },
   }
 }

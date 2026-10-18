@@ -5,14 +5,15 @@
  * optional, so a read-only or copy-only card is just a card without them.
  *
  * The interior shape (Keel's), top to bottom:
- *   1. question    — a short title (`QUESTION_MAX` chars); a longer ask becomes `Approve <entity>?`
+ *   1. question    — a short title (`QUESTION_MAX` chars); an ask that is not a question becomes a plain
+ *                    question from the item's kind and state, the raw title moving to the entity line
  *   2. facts       — the entity plus two or three `·`-separated facts (`capFacts`, `FACTS_MAX` = 3)
  *   3. evidenceLine — ONE line, the lead of the reason (+ an age/confidence where the source has one);
  *                    the whole ask sits behind `disclosure` only when the line had to shorten it
  *   4. actions     — one primary, one secondary, the rest in the menu
  *   5. preview     — context on the right. With a single line of history set `previewPlacement="inline"`: it
  *                    then sits under the facts as plain text, with no well and no box
- * `cardCopy` (decision-card-model) derives 1 + 3 from an ask; callers pass its `question`,
+ * `cardCopy` (lib/question-copy) derives 1 + 3 from an ask; callers pass its `question`,
  * `evidenceLine` and `detail` (as `disclosure.content`). `evidence` (the inset) is the older,
  * heavier slot for multi-line evidence and still works unchanged. Long identifiers and URLs wrap
  * at any character (`overflow-wrap: anywhere`) rather than overflow.

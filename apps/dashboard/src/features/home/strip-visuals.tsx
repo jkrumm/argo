@@ -1,5 +1,6 @@
 import { formatDurationMin } from '../../components/upstream/schedule-row-model'
-import { axisPosition, clockOf, dayAxis, meetingState, type Meeting } from './model'
+import { clockOf } from '../agents/model'
+import { axisPosition, dayAxis, meetingState, type Meeting } from './model'
 import classes from './home.module.css'
 
 export function DayAxis({

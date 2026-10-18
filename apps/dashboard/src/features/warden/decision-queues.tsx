@@ -24,6 +24,7 @@ import {
   needsCards,
   recentTransitions,
   type TransitionHistory,
+  type ActionPlan,
   type QueueKind,
 } from './page-model'
 import { StatusChip } from './status-chip'
@@ -56,6 +57,31 @@ function PrLink({ prUrl }: { prUrl: string }) {
   )
 }
 
+/**
+ * Slots are explicit. The card's own verbs fill primary and secondary in that order. The timeline is
+ * always an action: with no verb it is the primary, with one verb the secondary, and otherwise it
+ * leads the menu.
+ */
+function cardSlots(
+  plan: ActionPlan,
+  toAction: (verb: WardenActionVerb) => DecisionCardAction,
+  timeline: DecisionCardAction,
+): {
+  primary: DecisionCardAction
+  secondary: DecisionCardAction | undefined
+  menu: DecisionCardAction[]
+} {
+  const rest = plan.menu.map(toAction)
+  if (plan.primary === null) return { primary: timeline, secondary: undefined, menu: rest }
+  if (plan.secondary === null)
+    return { primary: toAction(plan.primary), secondary: timeline, menu: rest }
+  return {
+    primary: toAction(plan.primary),
+    secondary: toAction(plan.secondary),
+    menu: [timeline, ...rest],
+  }
+}
+
 function QueueCard({
   row,
   kind,
@@ -71,7 +97,7 @@ function QueueCard({
   onFire: (verb: WardenActionVerb) => void
   onSelectItem: () => void
 }) {
-  const { plan, tag, copy, repoNamed } = wardenAsk(
+  const { plan, repo, tag, copy, repoNamed } = wardenAsk(
     {
       eventId: row.eventId,
       repo: row.repo,
@@ -92,19 +118,7 @@ function QueueCard({
     onClick: onSelectItem,
     icon: <IconListDetails size={14} />,
   }
-  // Slots are explicit. The card's own verbs fill primary and secondary in that order. The timeline
-  // is always an action: it takes the first slot nothing else fills, and otherwise sits in the menu.
-  const primary = plan.primary === null ? timeline : toAction(plan.primary)
-  const secondary =
-    plan.primary === null
-      ? undefined
-      : plan.secondary === null
-        ? timeline
-        : toAction(plan.secondary)
-  const menu = [
-    ...(plan.primary !== null && plan.secondary !== null ? [timeline] : []),
-    ...plan.menu.map(toAction),
-  ]
+  const { primary, secondary, menu } = cardSlots(plan, toAction, timeline)
   const category = cardCategory(kind, tag, row.failureClass)
   const status =
     category !== null ? (
@@ -118,7 +132,7 @@ function QueueCard({
     <Box data-shot={`${kind}-${row.eventId}`}>
       <DecisionCard
         question={copy.question}
-        facts={capFacts(cardFacts(row, repoNamed))}
+        facts={capFacts(cardFacts(row, repoNamed ? '' : repo))}
         status={status}
         actor={
           copy.entity !== null ? (

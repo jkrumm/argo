@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { WardenBoardItem, WardenMetrics } from '../../lib/queries/warden'
-import type { AwaitingOwnerRow } from './model'
+import { waitingOnOwner, type AwaitingOwnerRow } from './model'
 import {
   cardFacts,
   deferredNote,
@@ -29,6 +29,7 @@ import {
   revertsFooter,
   REVERTS_INFO,
   wardenAsk,
+  deriveBoard,
   pollerAgeText,
   BUDGET_MISSING,
   emptyBoardText,
@@ -426,15 +427,15 @@ describe('splitReason', () => {
 })
 
 describe('cardFacts', () => {
-  it('leads with repo, then age, then how often the item was retried', () => {
+  it('leads with repo, then age, then how often the item was retried and revised', () => {
     expect(cardFacts(row({ redrives: 2, ageDays: 1.2 }))).toEqual([
       'repo-a',
       'waiting 1.2 d',
-      'retried 2 times',
+      'retried 2 times, revised 1 time',
     ])
   })
 
-  it('says revised only when nothing was retried, and never `revision 0`', () => {
+  it('says revised alone when nothing was retried, and never `revision 0`', () => {
     expect(cardFacts(row({ redrives: 0, revisionCount: 1, ageDays: 1.2 }))[2]).toBe(
       'revised 1 time',
     )
@@ -569,6 +570,7 @@ describe('leading tag', () => {
   it('shows no category chip for a placeholder tag', () => {
     expect(cardCategory('decision', 'no category', null)).toBeNull()
     expect(cardCategory('decision', 'None', null)).toBeNull()
+    expect(cardCategory('failed', null, 'unknown')).toBe('unknown')
     expect(cardCategory('decision', 'blocker', null)).toBe('blocker')
   })
 })
@@ -926,5 +928,57 @@ describe('board empty copy', () => {
     expect(emptyBoardText(4)).toBe(
       'No other open items. The 4 open items are waiting on you, above.',
     )
+  })
+})
+
+describe('wardenAsk repo naming', () => {
+  const src = (repo: string, question: string) => ({
+    eventId: 1,
+    repo,
+    title: 't',
+    reason: null,
+    question,
+    availableActions: [],
+  })
+  it('names the repo as a whole word, whichever rung wrote the question', () => {
+    expect(wardenAsk(src('api', 'Merge the api fix?'), 'decision').repoNamed).toBe(true)
+    expect(wardenAsk(src('api', 'Is this rapid enough?'), 'decision').repoNamed).toBe(false)
+  })
+  it('returns the cleaned repo once', () => {
+    expect(wardenAsk(src(':warning: service', 'Ship?'), 'decision').repo).toBe('service')
+  })
+})
+
+describe('waitingOnOwner', () => {
+  it('is decisions, unknown states, then failed, in one list', () => {
+    const r = (eventId: number) => ({ eventId }) as never
+    expect(
+      waitingOnOwner({ needsDecision: [r(1)], other: [r(2)], failed: [r(3)] }).map(
+        (x) => x.eventId,
+      ),
+    ).toEqual([1, 2, 3])
+  })
+})
+
+describe('deriveBoard', () => {
+  const item = (event_id: number, state = 'working') =>
+    ({ event_id, state, repo: 'r', title: 't' }) as WardenBoardItem
+  const board = (items: WardenBoardItem[]) => ({ items }) as never
+
+  it('counts the board and names only the items that actually left it', () => {
+    const view = deriveBoard(board([item(1, 'needs_decision'), item(2)]), new Set([1, 99]))
+    expect(view.open).toBe(1)
+    expect(view.columns.flatMap((c) => c.items.map((i) => i.event_id))).toEqual([2])
+    expect(view.emptyText).toBe('No other open items. The one open item is waiting on you, above.')
+  })
+
+  it('says every open item waits on the owner when all are claimed', () => {
+    const view = deriveBoard(board([item(1, 'needs_decision'), item(2, 'failed')]), new Set([1, 2]))
+    expect(view.open).toBe(0)
+    expect(view.emptyText).toBe('No other open items. The 2 open items are waiting on you, above.')
+  })
+
+  it('says nothing is open when nothing was claimed either', () => {
+    expect(deriveBoard(board([]), new Set()).emptyText).toBe('No open items.')
   })
 })

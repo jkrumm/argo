@@ -123,10 +123,6 @@
   overflow-wrap: break-word;
 }
 
-.feedSubject {
-  min-width: 0;
-}
-
 .feedOutcome {
   flex: 0 1 auto;
   min-width: 0;

@@ -47,6 +47,12 @@ const AgentSchema = z.looseObject({
   recommendation: z.string().nullable().optional(),
   standing: z.string().nullable().optional(),
   blocker: z.string().nullable().optional(),
+  question: z
+    .unknown()
+    .optional()
+    .describe(
+      'Producer-authored question for the owner when the agent needs them: plain text, optional, nullable. `blocker` is the evidence behind it.',
+    ),
   confidence: z.string().nullable().optional(),
   recommendationStale: z.boolean().optional(),
   project: z.string().optional().describe('Set on the flattened top-level agents[] only'),
