@@ -281,14 +281,6 @@ export const BUDGET_MISSING = {
   short: `Not reported yet; Warden sends it with each push, about every ${WARDEN_PUSH_MIN} min.`,
 } as const
 
-/** The dispatch meter as `{used, max}` for the headline, `null` unless both are reported. */
-export function dispatchOf(budget: WardenBudget | undefined): { used: number; max: number } | null {
-  const meter = deriveBudget(budget).find((m) => m.key === 'dispatch')
-  return meter === undefined || meter.used === null || meter.max === null
-    ? null
-    : { used: meter.used, max: meter.max }
-}
-
 // ── Summary sentence ────────────────────────────────────────────────────────
 
 /** `"42 min"` / `"3.2 h"` / `"2.1 d"` — a span with a unit, never a bare number. */
@@ -304,25 +296,21 @@ export type WardenSummaryInput = {
   needsCount: number
   oldestAgeDays: number | null
   receivedAt: string | null
-  oldestPollerMin: number | null
-  unattendedFixes: number | null
-  windowDays: number
   stalePoller: PollerRow | null
   /** `health.ok` from the snapshot; `false` is never read as a healthy loop. */
   healthOk?: boolean | undefined
-  /** Dispatches used today against the daily cap; `null` when warden does not report it. */
-  dispatch?: { used: number; max: number } | null
   now?: number
 }
 
 /** `stalled` (no fresh snapshot) and `degraded` (a stale poller) are loud; `ok` is plain text. */
 export type SummaryStatus = 'ok' | 'degraded' | 'stalled'
 
-/** The headline sentence plus the 0–4 short facts under it (`poller 4 min old`, `2 fixes in 7 d`,
- * `budget 4 of 10`). Facts that are not reported are left out, never zero. */
+/**
+ * The headline sentence: the queue and the loop's verdict. The health strip under it already prints
+ * the poller age, the fixes and the budget, so no fact line repeats them.
+ */
 export function deriveSummary(input: WardenSummaryInput): {
   text: string
-  facts: string[]
   status: SummaryStatus
 } {
   const { needsCount, oldestAgeDays, receivedAt, now = Date.now() } = input
@@ -332,43 +320,26 @@ export function deriveSummary(input: WardenSummaryInput): {
       : `${pluralize(needsCount, 'item')} ${needsCount === 1 ? 'needs' : 'need'} you${
           oldestAgeDays === null ? '' : `, oldest ${formatAgeDays(oldestAgeDays)}`
         }`
-  // A degraded headline that names the stale poller already carries its age: say it once.
-  const fixesFact =
-    input.unattendedFixes === null
-      ? null
-      : `${input.unattendedFixes === 1 ? '1 fix' : `${formatNumber(input.unattendedFixes)} fixes`} in ${input.windowDays} d`
-  const facts = [
-    input.oldestPollerMin === null || input.stalePoller !== null
-      ? null
-      : `poller ${formatNumber(input.oldestPollerMin)} min old`,
-    fixesFact,
-    input.dispatch === null || input.dispatch === undefined
-      ? null
-      : `budget ${input.dispatch.used} of ${input.dispatch.max}`,
-  ].filter((part): part is string => part !== null)
   if (isStale(receivedAt, now)) {
     const parsed = receivedAt === null ? Number.NaN : Date.parse(receivedAt)
     const age = Number.isFinite(parsed)
       ? ` — snapshot ${formatSpan(now - parsed)} old`
       : ' — no snapshot yet'
-    // Poller age, fixes and budget are all time-based readings of a snapshot that is stale: omit them.
-    return { text: `${needs}. Loop stalled${age}.`, facts: [], status: 'stalled' }
+    return { text: `${needs}. Loop stalled${age}.`, status: 'stalled' }
   }
   if (input.stalePoller !== null) {
     return {
       text: `${needs}. Loop degraded: ${input.stalePoller.name} is ${formatNumber(input.stalePoller.ageMin)} min old.`,
-      facts,
       status: 'degraded',
     }
   }
   if (input.healthOk === false) {
     return {
       text: `${needs}. Loop degraded: warden's own health check is failing.`,
-      facts,
       status: 'degraded',
     }
   }
-  return { text: `${needs}. Loop healthy.`, facts, status: 'ok' }
+  return { text: `${needs}. Loop healthy.`, status: 'ok' }
 }
 
 // ── Decision cards ──────────────────────────────────────────────────────────
@@ -798,11 +769,15 @@ export function emptyColumnText(key: BoardColumnKey): string {
   return `No item ${COLUMN_MEANING[key]}.`
 }
 
-/** The whole board empty: how many items warden has fixed or closed, when it reports both. */
-export function emptyBoardText(strip: StripModel['fixes']): string {
-  return strip.fixed === null || strip.closed === null
-    ? 'No open items.'
-    : `No open items. Warden has fixed or closed ${strip.fixed + strip.closed} so far.`
+/**
+ * The whole board empty. Items waiting on the owner leave the board for the cards above it, so an
+ * empty board says where they are rather than "No open items" under a non-zero Needs-you count.
+ */
+export function emptyBoardText(waitingOnOwner: number): string {
+  if (waitingOnOwner === 0) return 'No open items.'
+  return waitingOnOwner === 1
+    ? 'No other open items. The one open item is waiting on you, above.'
+    : `No other open items. The ${waitingOnOwner} open items are waiting on you, above.`
 }
 
 /** A poller as the Today page names it: `watchdog poll · 4 min old`. */

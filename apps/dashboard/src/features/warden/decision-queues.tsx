@@ -79,9 +79,18 @@ function QueueCard({
     onClick: () => onFire(verb),
     disabled: pending !== undefined,
   })
-  const menu: DecisionCardAction[] = [
+  // Primary and secondary are the first two offered verbs; the timeline is always an action, so a
+  // card with one verb (or none) still has a second (or first) one and never reads as dead.
+  const timeline: DecisionCardAction = {
+    label: 'Timeline',
+    onClick: onSelectItem,
+    icon: <IconListDetails size={14} />,
+  }
+  const [primary, secondary, ...menu] = [
+    ...(plan.primary ? [toAction(plan.primary)] : []),
+    ...(plan.secondary ? [toAction(plan.secondary)] : []),
+    timeline,
     ...plan.menu.map(toAction),
-    { label: 'Timeline', onClick: onSelectItem, icon: <IconListDetails size={14} /> },
   ]
 
   const ask = askCopy({
@@ -122,8 +131,8 @@ function QueueCard({
           : {})}
         {...(view !== null ? { preview: <HistoryPreview view={view} /> } : {})}
         {...(view?.layout === 'inline' ? { previewPlacement: 'inline' as const } : {})}
-        primary={plan.primary ? toAction(plan.primary) : undefined}
-        secondary={plan.secondary ? toAction(plan.secondary) : undefined}
+        primary={primary}
+        secondary={secondary}
         menu={menu}
         meta={
           pending !== undefined || row.prUrl !== null ? (

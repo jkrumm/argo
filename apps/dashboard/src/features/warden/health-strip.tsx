@@ -149,7 +149,13 @@ function unattendedCell({ unattended }: StripModel): StatStripCell {
     info: 'Fixes verified without owner input in the window.',
     value: formatNumber(unattended.fixes),
     unit: unattended.fixes === 1 ? 'fix' : 'fixes',
-    footer: `last ${unattended.windowDays} d`,
+    footer: (
+      <>
+        last {unattended.windowDays} d
+        <br />
+        no owner input needed
+      </>
+    ),
   }
 }
 

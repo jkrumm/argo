@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import type { WardenBoardItem, WardenBudget, WardenMetrics } from '../../lib/queries/warden'
+import type { WardenBoardItem, WardenMetrics } from '../../lib/queries/warden'
 import type { AwaitingOwnerRow } from './model'
 import {
   cardFacts,
@@ -24,7 +24,6 @@ import {
   sentenceCase,
   deriveBudgetFooter,
   recentTransitions,
-  dispatchOf,
   historySummary,
   splitBoardColumns,
   revertsFooter,
@@ -238,26 +237,21 @@ describe('deriveSummary', () => {
     needsCount: 3,
     oldestAgeDays: 5.1,
     receivedAt: new Date(NOW - 4 * 60_000).toISOString(),
-    oldestPollerMin: 4.5,
-    unattendedFixes: 2,
-    windowDays: 7,
     stalePoller: null,
-    dispatch: { used: 4, max: 10 },
     now: NOW,
   }
 
-  it('states the queue as the sentence and the loop numbers as facts', () => {
+  it('states the queue and the loop verdict, with no fact line repeating the strip', () => {
     expect(deriveSummary(base)).toEqual({
       text: '3 items need you, oldest 5.1 d. Loop healthy.',
-      facts: ['poller 4.5 min old', '2 fixes in 7 d', 'budget 4 of 10'],
       status: 'ok',
     })
   })
 
-  it('uses the singular for one item and one fix', () => {
-    const summary = deriveSummary({ ...base, needsCount: 1, unattendedFixes: 1 })
-    expect(summary.text).toBe('1 item needs you, oldest 5.1 d. Loop healthy.')
-    expect(summary.facts).toContain('1 fix in 7 d')
+  it('uses the singular for one item', () => {
+    expect(deriveSummary({ ...base, needsCount: 1 }).text).toBe(
+      '1 item needs you, oldest 5.1 d. Loop healthy.',
+    )
   })
 
   it('says nothing needs you at zero', () => {
@@ -268,16 +262,6 @@ describe('deriveSummary', () => {
     ).toBe(true)
   })
 
-  it('omits facts that are not reported', () => {
-    const summary = deriveSummary({
-      ...base,
-      oldestPollerMin: null,
-      unattendedFixes: null,
-      dispatch: null,
-    })
-    expect(summary.facts).toEqual([])
-  })
-
   it('switches to the loud stalled variant past 30 minutes', () => {
     const stalled = deriveSummary({
       ...base,
@@ -285,7 +269,6 @@ describe('deriveSummary', () => {
     })
     expect(stalled.text).toBe('3 items need you, oldest 5.1 d. Loop stalled — snapshot 2 h old.')
     expect(stalled.status).toBe('stalled')
-    expect(stalled.facts).toEqual([])
   })
 
   it('reads a missing snapshot as stalled', () => {
@@ -299,17 +282,6 @@ describe('deriveSummary', () => {
     })
     expect(summary.status).toBe('degraded')
     expect(summary.text).toContain('Loop degraded: loop is 41 min old.')
-    expect(summary.facts.some((fact) => fact.startsWith('poller'))).toBe(false)
-  })
-})
-
-describe('dispatchOf', () => {
-  const budgetFull: WardenBudget = { usedToday: 4, max: 10 }
-  const budgetPartial: WardenBudget = { usedToday: 4 }
-  it('needs both used and max', () => {
-    expect(dispatchOf(budgetFull)).toEqual({ used: 4, max: 10 })
-    expect(dispatchOf(budgetPartial)).toBeNull()
-    expect(dispatchOf(undefined)).toBeNull()
   })
 })
 
@@ -715,9 +687,6 @@ describe('deriveSummary health and window', () => {
     needsCount: 0,
     oldestAgeDays: null,
     receivedAt: new Date(NOW - 60_000).toISOString(),
-    oldestPollerMin: 2,
-    unattendedFixes: 1,
-    windowDays: 7,
     stalePoller: null,
     now: NOW,
   }
@@ -955,10 +924,13 @@ describe('board empty copy', () => {
   it('describes what an empty column would hold', () => {
     expect(emptyColumnText('working')).toBe('No item being worked on.')
   })
-  it('counts fixed and closed (not quiet), or just says nothing is open', () => {
-    const fixes = (fixed: number | null) =>
-      ({ pct: null, fixed, quiet: 2, closed: 3, unavailable: null }) as StripModel['fixes']
-    expect(emptyBoardText(fixes(1))).toBe('No open items. Warden has fixed or closed 4 so far.')
-    expect(emptyBoardText(fixes(null))).toBe('No open items.')
+  it('never says No open items while items wait on the owner', () => {
+    expect(emptyBoardText(0)).toBe('No open items.')
+    expect(emptyBoardText(1)).toBe(
+      'No other open items. The one open item is waiting on you, above.',
+    )
+    expect(emptyBoardText(4)).toBe(
+      'No other open items. The 4 open items are waiting on you, above.',
+    )
   })
 })

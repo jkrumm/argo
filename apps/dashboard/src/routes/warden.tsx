@@ -10,9 +10,7 @@ import { deriveAwaitingOwner } from '../features/warden/model'
 import {
   deriveBoardColumns,
   derivePollers,
-  deriveStrip,
   deriveSummary,
-  dispatchOf,
   emptyBoardText,
   needsCards,
   oldestAgeDays,
@@ -66,19 +64,14 @@ function WardenPage() {
   const claimed = new Set([...needs, ...awaitingOwner.failed].map((row) => row.eventId))
   const columns = deriveBoardColumns(raw?.board, claimed)
   const pollers = derivePollers(raw?.metrics, raw?.health)
-  const strip = deriveStrip(raw?.metrics, raw?.health)
   const { pending, handleAction } = useWardenActions(snapshot?.machine, raw?.board?.items)
 
   const summary = deriveSummary({
     needsCount: needs.length,
     oldestAgeDays: oldestAgeDays(needs),
     receivedAt: snapshot?.receivedAt ?? null,
-    oldestPollerMin: strip.poller.oldestMin,
-    unattendedFixes: strip.unattended.fixes,
-    windowDays: strip.unattended.windowDays,
     stalePoller: pollers.find((poller) => poller.stale) ?? null,
     healthOk: raw?.health?.ok,
-    dispatch: dispatchOf(raw?.budget),
   })
 
   const tone = STATUS_TONE[summary.status]
@@ -107,11 +100,7 @@ function WardenPage() {
       <Stack gap="md" opacity={refreshRequested && snapshotQuery.isFetching ? 0.6 : 1}>
         <StaleBanner snapshot={snapshot} />
         {snapshotQuery.isPending || snapshot !== null ? (
-          <PageSummary
-            loading={snapshotQuery.isPending}
-            sentence={sentence}
-            facts={summary.facts}
-          />
+          <PageSummary loading={snapshotQuery.isPending} sentence={sentence} />
         ) : null}
         <HealthStrip metrics={raw?.metrics} health={raw?.health} budget={raw?.budget} />
         <DecisionQueues
@@ -123,7 +112,7 @@ function WardenPage() {
         />
         <Board
           columns={columns}
-          emptyText={emptyBoardText(strip.fixes)}
+          emptyText={emptyBoardText(claimed.size)}
           onSelectItem={setSelectedEventId}
         />
         <PollersList pollers={pollers} />
