@@ -1919,9 +1919,12 @@ under `empty` only the data is substituted.
   close).
 - **Not verified:** the usage filtered pair (no filtered shot); the Agents `No snapshot in the last {n} h` branch (no stale shot); the
   skinfold tooltip header (no caliper session renders); the 2.23 `craft-7` severity (no `detect.json`).
-- **Boards copied to the MacBook:** w33, w34 and w35 boards to `~/Downloads/argo-design-review/{w33,w34,w35}/` (iumac was unreachable
-  at the wave's start and reachable at close).
-- **Cleanup:** worktrees and tabs removed with `rd fan --clean`; no background task left running.
+- **Boards to the MacBook:** w33 copied to `~/Downloads/argo-design-review/w33/`; w34 and w35 still copying at close-out (iumac was
+  unreachable at the wave's start, then reachable over a ~35 MB / 10 min link; a first pass hit `unexpected end of file`). A detached
+  resumable `rsync -a --partial` runs on the mini (log `/tmp/argo-boards-copy.XXXX.log`); if it dies, re-run
+  `rsync -a --partial .design-shots/w3{4,5}-* iumac:Downloads/argo-design-review/<w>/` per week.
+- **Cleanup:** worktrees and tabs removed with `rd fan --clean`; no in-session background task left running (the board copy is a
+  detached process, above).
 
 ## Wave 36 — Re-score round 15: false all-clears, the rule's last breaks <!-- status: active -->
 
