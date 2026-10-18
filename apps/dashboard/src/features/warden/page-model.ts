@@ -563,8 +563,8 @@ const DAY_MS = 86_400_000
 /** How often the item was retried and revised, as one fact; `''` when neither happened. */
 function historyFact(row: AwaitingOwnerRow): string {
   return [
-    row.redrives > 0 ? glue(`retried ${pluralize(row.redrives, 'time', NBSP)}`) : '',
-    row.revisionCount > 0 ? glue(`revised ${pluralize(row.revisionCount, 'time', NBSP)}`) : '',
+    row.redrives > 0 ? glue(`retried ${pluralize(row.redrives, 'time')}`) : '',
+    row.revisionCount > 0 ? glue(`revised ${pluralize(row.revisionCount, 'time')}`) : '',
   ]
     .filter((part) => part !== '')
     .join(', ')
