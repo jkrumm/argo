@@ -123,16 +123,16 @@ export function chatKindParts(counts: ReturnType<typeof chatKindCounts>): Array<
 
 /**
  * The Chats cell: the leading kind (most chats, reading order on a tie) is the hero; the bar's row
- * captions name every kind with its count, so there is no footer to repeat them. `hero` is `null`
- * without chats, and the footer says so.
+ * captions name every kind with its count, so nothing else repeats them. Without chats `hero` is
+ * `null` and `empty` carries the one line that says so.
  */
 export function chatsStat(counts: ReturnType<typeof chatKindCounts>): {
   hero: { value: string; unit: string } | null
-  footer: string | null
+  empty: string | null
 } {
   const [lead] = chatKindParts(counts)
-  if (lead === undefined) return { hero: null, footer: 'no chats' }
-  return { hero: { value: String(lead.value), unit: lead.noun }, footer: null }
+  if (lead === undefined) return { hero: null, empty: 'no chats' }
+  return { hero: { value: String(lead.value), unit: lead.noun }, empty: null }
 }
 
 export function chatKindCounts(rows: ReadonlyArray<{ chatType: ChatType }>): {
