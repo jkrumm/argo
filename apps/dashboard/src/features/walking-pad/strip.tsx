@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Box } from '@mantine/core'
+import { Box, Group } from '@mantine/core'
 import { DeltaBadge, Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
 import { NBSP, withUnit } from '../../lib/format'
@@ -76,14 +76,16 @@ function useWeekCell(): StatStripCell {
     ),
     // `StatStripCell` has no caption-line action slot, so the target control rides the footer.
     footer: (
-      <>
-        {query.isPending
-          ? null
-          : week === null
-            ? 'this week not reported'
-            : `${week.sessions} ${week.sessions === 1 ? 'walk' : 'walks'} · ${Math.round(((km ?? 0) / targetKm) * 100)} % of target`}
+      <Group gap="xs" wrap="nowrap" justify="space-between">
+        <Box>
+          {query.isPending
+            ? null
+            : week === null
+              ? 'this week not reported'
+              : `${week.sessions} ${week.sessions === 1 ? 'walk' : 'walks'} · ${Math.round(((km ?? 0) / targetKm) * 100)} % of target`}
+        </Box>
         <TargetPopover />
-      </>
+      </Group>
     ),
   }
 }
