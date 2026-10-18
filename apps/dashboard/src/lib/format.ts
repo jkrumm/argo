@@ -7,6 +7,18 @@ export const NBSP = ' '
 /** Every plain space becomes a no-break space: the phrase wraps as one run. */
 export const glue = (text: string): string => text.replaceAll(' ', NBSP)
 
+/** Word joiner: zero-width, forbids a line break on either side of it. */
+export const WJ = '\u2060'
+
+/**
+ * Keeps each identifier (`repo/branch`, `a-b_c` ids, paths) whole on one line: a joiner after every
+ * inner `-` or `/` removes the break opportunity browsers give there. Spaces stay breakable, so a
+ * title still wraps between words; an identifier wider than its box still breaks as a last resort
+ * (`overflow-wrap: anywhere`).
+ */
+export const glueIdentifiers = (text: string): string =>
+  text.replace(/(?<=[^\s\u2060\-/])([-/])(?=[^\s\-/])/g, `$1${WJ}`)
+
 /** An arrow with a no-break space each side, so a line never wraps right before or after it. */
 export const ARROW = `${NBSP}→${NBSP}`
 

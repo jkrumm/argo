@@ -8,6 +8,7 @@ import {
   formatMinutes,
   formatRelative,
   glue,
+  glueIdentifiers,
   withUnit,
 } from './format'
 
@@ -84,5 +85,15 @@ describe('glue', () => {
   test('binds every space in the phrase', () => {
     expect(glue('town glow +1 mag')).toBe('town\u00a0glow\u00a0+1\u00a0mag')
     expect(glue('one')).toBe('one')
+  })
+})
+
+describe('glueIdentifiers', () => {
+  test('forbids a break inside an identifier but keeps spaces breakable', () => {
+    expect(glueIdentifiers('Merge repo/feat-x now')).toBe('Merge repo/\u2060feat-\u2060x now')
+  })
+  test('leaves plain words and edge punctuation alone', () => {
+    expect(glueIdentifiers('Retry item? - ok')).toBe('Retry item? - ok')
+    expect(glueIdentifiers('path/')).toBe('path/')
   })
 })
