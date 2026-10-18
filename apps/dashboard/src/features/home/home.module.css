@@ -113,16 +113,11 @@
   overflow-wrap: break-word;
 }
 
-/* Head, outcome and chip are inline runs of one sentence (not flex items): the chip follows the last word on the same line where it fits, and only wraps whole when it does not. */
-.feedHead {
-  min-width: 0;
-}
-
 .feedOutcome {
   color: var(--vx-muted);
 }
 
-/* A project name wraps inside its chip instead of clipping. */
+/* Head, outcome and chip are inline runs of one sentence: the chip follows the last word on the same line where it fits and drops to the next whole. A project name longer than the row breaks inside the chip instead of clipping. */
 .chip {
   height: auto;
   max-width: 100%;

@@ -30,6 +30,7 @@ import {
   type AcwrReading,
   type Meeting,
   type RecoveryReading,
+  recoveryFooter,
 } from './model'
 
 /** The budget track runs past the cap so an overrun is visible; the tick marks the cap itself. */
@@ -198,7 +199,7 @@ export function recoveryCell(reading: RecoveryReading | null, loading = false): 
           : `no reading yet · Garmin syncs every ${withUnit(GARMIN_SYNC_HOURS, 'h')}`,
     }
   }
-  const { score, mean, days, trend, date, isToday } = reading
+  const { score, trend, date, isToday } = reading
   return {
     key: 'recovery',
     caption: isToday ? 'Recovery · today' : `Recovery · ${recoveryDay(date)}`,
@@ -218,9 +219,7 @@ export function recoveryCell(reading: RecoveryReading | null, loading = false): 
         ) : null}
       </>
     ),
-    footer: isToday
-      ? `${mean === null ? '' : `${withUnit(7, 'd')} mean ${Math.round(mean)} · `}${days} observed ${days === 1 ? 'day' : 'days'} of 7`
-      : `today fills after the next Garmin sync (every ${withUnit(GARMIN_SYNC_HOURS, 'h')})`,
+    footer: recoveryFooter(reading),
   }
 }
 

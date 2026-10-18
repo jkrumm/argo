@@ -4,7 +4,7 @@ import type { Narrative } from '../../lib/queries/agents'
 import type { WardenRaw } from '../../lib/queries/warden'
 import type { Decision } from '../../lib/decisions'
 import type { SourceClass } from '../../lib/queries/calendar'
-import { ARROW, NBSP, formatDuration } from '../../lib/format'
+import { ARROW, NBSP, formatDuration, withUnit } from '../../lib/format'
 import { leadOf } from '../../lib/question-copy'
 import { firstClause, oldestWaitSentence, stripShortcodes } from '../../lib/text'
 
@@ -257,6 +257,20 @@ export function recoveryReading(
     date: snapshot?.date ?? null,
     isToday: snapshot?.date === localKey(now),
   }
+}
+
+/** The days the recovery tile's mean and trend cover. */
+export const RECOVERY_DAYS = 7
+
+/** The tile's footer: the window mean (whenever there is one) plus the day-fill fact for this reading. */
+export function recoveryFooter({ mean, days, isToday }: RecoveryReading): string {
+  const parts = [
+    ...(mean === null ? [] : [`${withUnit(RECOVERY_DAYS, 'd')} mean ${Math.round(mean)}`]),
+    isToday
+      ? `${days} observed ${days === 1 ? 'day' : 'days'} of ${RECOVERY_DAYS}`
+      : `today fills after the next Garmin sync (every ${withUnit(GARMIN_SYNC_HOURS, 'h')})`,
+  ]
+  return parts.join(' · ')
 }
 
 export type AcwrZone = 'undertrained' | 'optimal' | 'caution' | 'danger'

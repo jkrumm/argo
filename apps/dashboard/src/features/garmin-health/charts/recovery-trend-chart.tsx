@@ -8,7 +8,16 @@ import { METRIC_TOOLTIPS } from '../constants'
 import { toChartFact } from '../chart-facts'
 import { RefetchDim } from '../refetch-dim'
 import { ZONE_FILL } from '../zone-fills'
-import { RECOVERY_PUSH_FROM, RECOVERY_REST_BELOW, countWhere, mean, recoveryFact } from '../model'
+import {
+  RECOVERY_PUSH_FROM,
+  RECOVERY_REST_BELOW,
+  RECOVERY_VERDICT_NAME,
+  countWhere,
+  mean,
+  recoveryFact,
+  recoveryVerdict,
+  type RecoveryVerdict,
+} from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
@@ -21,10 +30,15 @@ type RecoveryPoint = {
 
 type RecoveryZone = { text: string; color: string }
 
+const VERDICT_COLOR = {
+  push: VX.goodSolid,
+  normal: VX.warnSolid,
+  rest: VX.badSolid,
+} as const satisfies Record<RecoveryVerdict, string>
+
 function recoveryZoneLabel(v: number): RecoveryZone {
-  if (v >= RECOVERY_PUSH_FROM) return { text: 'Push', color: VX.goodSolid }
-  if (v >= RECOVERY_REST_BELOW) return { text: 'Normal', color: VX.warnSolid }
-  return { text: 'Rest', color: VX.badSolid }
+  const verdict = recoveryVerdict(v)
+  return { text: RECOVERY_VERDICT_NAME[verdict], color: VERDICT_COLOR[verdict] }
 }
 
 const RECOVERY_SERIES: ChartSeries<RecoveryPoint>[] = [

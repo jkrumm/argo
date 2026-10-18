@@ -22,6 +22,7 @@ import {
   narrativeEvents,
   laterMeeting,
   nextMeeting,
+  RECOVERY_DAYS,
   recoveryReading,
   homeSummaryParts,
   taskCounts,
@@ -37,7 +38,6 @@ import classes from './home.module.css'
 
 /** The Garmin page's default window, the fallback for a dateless custom range. */
 const GARMIN_DEFAULT_WINDOW = '30d'
-const RECOVERY_DAYS = 7
 /** Seven days from today's midnight: today's agenda plus the lookup for the next meeting after it. */
 const CALENDAR_DAYS = 7
 
