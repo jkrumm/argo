@@ -80,7 +80,7 @@ export function NeedsYou({ decisions, unavailable }: Props) {
   const restBy = (href: Decision['href']) => rest.filter((d) => d.href === href).length
   return (
     <Section title="Needs you" {...(unknown ? { value: '—' } : { count: decisions.length })}>
-      <Stack gap="sm" data-shot="needs-you" data-shot-states="empty error">
+      <Stack gap="sm" data-shot="needs-you" data-shot-states="empty">
         {decisions.length === 0 ? (
           <EmptyState
             tier="section"
@@ -96,17 +96,13 @@ export function NeedsYou({ decisions, unavailable }: Props) {
           />
         ) : (
           shown.map((decision, i) => (
-            <Box
-              key={decision.id}
-              data-shot={`decision-card-${i + 1}`}
-              data-shot-absent="empty error"
-            >
+            <Box key={decision.id} data-shot={`decision-card-${i + 1}`} data-shot-absent="empty">
               <Card decision={decision} />
             </Box>
           ))
         )}
         {rest.length > 0 ? (
-          <Group gap="xs" data-shot="show-more" data-shot-absent="empty error">
+          <Group gap="xs" data-shot="show-more" data-shot-absent="empty">
             <Text size="sm" c="dimmed">
               Show {rest.length} more:
             </Text>

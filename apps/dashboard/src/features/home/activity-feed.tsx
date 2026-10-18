@@ -35,7 +35,7 @@ export function ActivityFeed({ groups, total, stale, loaded, now }: Props) {
   return (
     <Card>
       <Section title="Activity">
-        <div className={classes.feed} data-shot="activity" data-shot-states="empty error">
+        <div className={classes.feed} data-shot="activity" data-shot-states="empty">
           <span className={classes.live}>
             {loaded ? (
               <span className={stale.length === 0 ? classes.pulse : classes.pulseOff} aria-hidden />
