@@ -283,6 +283,7 @@ export function M365ExplorerPage(): ReactElement {
       title={compact ? undefined : labeledPaneTitle(tag)}
       labels={labels}
       tag={tag}
+      noSources={noChats && (noTeams || channelsTotal === 0)}
       selectedId={selectedId}
       error={deleteLabel.error ? deleteLabel.error.message : null}
       removingId={deleteLabel.isPending ? (deleteLabel.variables ?? null) : null}

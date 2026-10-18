@@ -1,5 +1,5 @@
 import { Alert, ScrollArea } from '@mantine/core'
-import { LABELED_FILTER, labelsByTag, type LabelLite } from './model'
+import { LABELED_FILTER, labelsByTag, NO_CHATS, type LabelLite } from './model'
 import { SourceRow } from './source-row'
 import classes from './m365.module.css'
 
@@ -8,6 +8,8 @@ export type LabeledPaneProps = {
   /** `''`/`*` show every tag group; a tag shows only its group. */
   tag: string
   selectedId: string | null
+  /** Neither a chat nor a channel came back: there is nothing to label, so the pane says the gap, not an action. */
+  noSources: boolean
   /** The source whose label is being removed right now. */
   removingId: string | null
   /** The last failed remove, shown under the header. */
@@ -38,13 +40,15 @@ export function LabeledPane(props: LabeledPaneProps) {
         </Alert>
       ) : null}
       {groups.length === 0 ? (
-        <p className={classes.empty}>
-          No labeled sources — label a chat to include it in /m365/important
+        <p className={classes.emptyCenter}>
+          {props.noSources
+            ? NO_CHATS
+            : 'No labeled sources — label a chat to include it in /m365/important'}
         </p>
       ) : (
         <ScrollArea
           className={classes.paneScroll}
-          classNames={{ scrollbar: classes.scrollbar }}
+          classNames={{ scrollbar: classes.scrollbar, viewport: classes.viewport }}
           type="auto"
           scrollbars="y"
         >

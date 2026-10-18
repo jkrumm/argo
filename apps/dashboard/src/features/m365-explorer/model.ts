@@ -243,10 +243,6 @@ export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${noun(n, one, many)}`
 }
 
-/** The one wording for a source list the API returned empty: what is missing, why, what to do. */
-export const noSourcesYet = (noun: 'chats' | 'teams'): string =>
-  `No ${noun} yet — Microsoft 365 returned none; refresh to retry`
-
 /**
  * A labeled-meter segment's caption value. The hero already prints the labeled count, so that
  * segment's caption is the name alone (`''`); on a tie neither segment is the hero's twin and both
@@ -256,20 +252,23 @@ export function labeledSegmentCaption(value: number, labeled: number, unlabeled:
   return labeled !== unlabeled && value === labeled ? '' : String(value)
 }
 
-/** The strip's chats cell when the list came back empty: the fact only; the labeled cell carries the step. */
+/**
+ * One gap, two forms (docs/design/README.md § One form for a repeated gap). The short form is
+ * the fact; the full sentence adds cause and step and appears once per screen, on the first strip
+ * cell that is empty. Every other surface (strip cells, source lists, labeled pane) is the short form.
+ */
 export const NO_CHATS = 'No chats came back'
-/** The strip's channels cell when no team came back: the fact only. */
 export const NO_TEAMS = 'No teams came back'
-/** The channels view's gap when teams loaded but none holds a channel: the fact only. */
+/** The channels view's gap when teams loaded but none holds a channel: a different gap, the fact only. */
 export const NO_CHANNELS = 'No channels came back'
+
+/** A short form's full sentence: its leading clause, verbatim, then the cause and the step. */
+export const withStep = (short: string): string =>
+  `${short} — Microsoft 365 returned none; refresh to retry`
 
 /** The phone Detail pane's line for an empty sources list: says why there is nothing to open. */
 export const nothingToOpen = (cause: string) =>
   `Nothing to open — ${cause.charAt(0).toLowerCase()}${cause.slice(1)}`
-
-/** The labeled cell when there is nothing to label: said once, with the cause. */
-export const NOTHING_TO_LABEL =
-  'Nothing to label — no chats or channels came back; refresh to retry'
 
 /** How many chats the list request asks for. */
 export const CHATS_TOP = 50
