@@ -9,7 +9,7 @@ export const ASTRONOMICAL_DARK_SUN_DEG = 18
 export const METRIC_TOOLTIPS = {
   nightTimeline: `Altitude is degrees above the horizon. Astronomical dark is when the sun is more than ${ASTRONOMICAL_DARK_SUN_DEG}° below it. The shooting window is the stretch of dark when the core clears its gate; the moon is judged separately, as its own gate.`,
   cloudLayers:
-    'Cloud cover is the share of sky covered, per layer. It is a weighted factor in the score, not a gate: heavy cloud drops a night to poor. Low cloud (under about 2 km) blocks the sky outright; high cloud (cirrus) only costs contrast.',
+    'Cloud cover is the share of sky covered, per layer. Cloud never rules a night out: each layer is graded in the score, low cloud weighing most and ruining a night at much less cover than high cloud (cirrus), which only costs contrast.',
   skyPanorama: `Azimuth is the compass bearing, degrees clockwise from north. The skyline is the measured terrain; the gate is the higher of the 8° atmospheric floor and the skyline plus the framing margin. Skyglow is artificial sky brightness in mag/arcsec²; dark sky is ${SKY_DARK_THRESHOLD} or higher.`,
   monthlyBudget:
     'Hours per calendar month in which the core is above the gate, at this site, counted three ways: above the flat 8° floor, above the floor and the measured skyline, and with the moon also counted down when it sits behind that skyline. Weather is not included.',

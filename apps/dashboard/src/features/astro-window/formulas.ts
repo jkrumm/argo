@@ -2,7 +2,7 @@ import { VX } from 'basalt-ui/tokens'
 import { percent, weekday } from 'basalt-ui/format'
 import type { ChartFact } from 'basalt-ui/charts'
 import { MIN_BAR_SHARE, SKY_DARK_THRESHOLD } from './constants'
-import type { HourlyPoint, Night, Verdict, WindowResponse } from './types'
+import type { HourlyPoint, Killer, Night, Verdict, WindowResponse } from './types'
 
 /** Verdict → tone. `out` is a hard gate, not a low score, so it reads neutral, never red. */
 export function verdictTone(verdict: Verdict): string {
@@ -194,17 +194,30 @@ function rawGapToGate(night: Night): number | null {
   return Math.max(0, night.coreGateDeg - night.gateCoreAltitude)
 }
 
-/** The verdict as a word and its colour (the same `verdictTone` the strip uses): drawn as a status dot + word, never a bare word. */
-export function verdictStatus(night: Night): { word: 'GO' | 'OUT'; color: string } {
-  return { word: night.verdict === 'out' ? 'OUT' : 'GO', color: verdictTone(night.verdict) }
+/** The verdict as a word and its colour (the same `verdictTone` the strip uses): the verdict's own tier (Excellent … Poor) or OUT, drawn as a status dot + word, never a bare word. */
+export function verdictStatus(night: Night): { word: string; color: string } {
+  return {
+    word: night.verdict === 'out' ? 'OUT' : verdictLabel(night.verdict),
+    color: verdictTone(night.verdict),
+  }
+}
+
+/** The one gate a ruled-out night is headlined by: the core-altitude killer when its gap is shown
+ * (any unrounded gap above 0, so a 0.0°-looking miss still counts), else the API's first killer. */
+function headlineKiller(night: Night): Killer | undefined {
+  const gap = rawGapToGate(night)
+  const core =
+    gap !== null && gap > 0 ? night.killers.find((k) => k.id === 'core-altitude') : undefined
+  return core ?? night.killers[0]
 }
 
 /** Which gate a ruled-out night misses and by how much: `core 3.9° under its gate`, else the API's first killer. */
 export function gateMissText(night: Night): string {
+  const raw = rawGapToGate(night)
   const gap = gapToGate(night)
-  if (gap !== null && gap > 0) return `core ${fmtDegrees(gap)} under its gate`
-  const first = night.killers[0]
-  return first === undefined ? 'ruled out' : first.label.toLowerCase()
+  if (raw !== null && raw > 0 && gap !== null) return `core ${fmtDegrees(gap)} under its gate`
+  const headline = headlineKiller(night)
+  return headline === undefined ? 'ruled out' : headline.label.toLowerCase()
 }
 
 /** `Sat 17, 23:10–01:40 · 2h 30m` for a GO night, `core 3.9° under its gate` for an OUT one (the status dot carries GO/OUT). */
@@ -230,9 +243,10 @@ export function nextUsableText(nights: readonly Night[], date: string): string {
   return `no usable night in the next ${later.length} ${later.length === 1 ? 'night' : 'nights'}`
 }
 
-/** The gates a ruled-out night failed beyond the first, as `also failed: moon, darkness` (the API's killer labels). */
+/** The gates a ruled-out night failed besides the headline one (`gateMissText`), as `also failed: moon, darkness`, by killer id. */
 export function alsoFailed(night: Night): string | null {
-  const rest = night.killers.slice(1).map((k) => k.label.toLowerCase())
+  const headlineId = headlineKiller(night)?.id
+  const rest = night.killers.filter((k) => k.id !== headlineId).map((k) => k.label.toLowerCase())
   return rest.length === 0 ? null : `also failed: ${rest.join(', ')}`
 }
 
@@ -359,28 +373,32 @@ export function pageSummary(
   return { sentence, facts, aside: data.location.name }
 }
 
-/** The timeline's one fact: a usable night's shooting window (length and clock range), or the gate a ruled-out night misses (the API's window ignores the moon, so an OUT night never states one). */
+/** The timeline's one fact. The timeline draws the shooting window whenever the API has one, so it is
+ * stated whenever it exists; a ruled-out night also names the gate it misses (`{start}–{end} · {miss}`).
+ * No window: `none within the dark` on a usable night, the missed gate on a ruled-out one. */
 export function windowFact(night: Night): { value: string; period: string } {
   const shoot = night.window
-  if (night.verdict !== 'out' && shoot !== null) {
-    return {
-      value: fmtMinutes(shoot.minutes),
-      period: `shooting window ${shoot.localStart}–${shoot.localEnd}`,
-    }
+  const out = night.verdict === 'out'
+  if (shoot === null) {
+    return { value: 'No window', period: out ? gateMissText(night) : 'none within the dark' }
   }
-  return { value: 'No window', period: gateMissText(night) }
+  const range = `${shoot.localStart}–${shoot.localEnd}`
+  return {
+    value: fmtMinutes(shoot.minutes),
+    period: out ? `${range} · ${gateMissText(night)}` : `shooting window ${range}`,
+  }
 }
 
-/** The thickest low cloud inside astronomical dark (all samples when none is dark). Null without data. */
+/** The thickest low cloud inside astronomical dark, or over the whole night when no dark sample has a reading. Null without data. */
 export function peakLowCloud(
   hourly: readonly HourlyPoint[],
 ): { pct: number; dark: boolean } | null {
-  const inDark = hourly.filter((d) => d.astroDark)
-  const pool = inDark.length > 0 ? inDark : hourly
-  const values = pool.flatMap((d) => (d.cloudLow === null ? [] : [d.cloudLow]))
-  return values.length === 0
-    ? null
-    : { pct: Math.round(Math.max(...values)), dark: inDark.length > 0 }
+  const readings = (pool: readonly HourlyPoint[]) =>
+    pool.flatMap((d) => (d.cloudLow === null ? [] : [d.cloudLow]))
+  const inDark = readings(hourly.filter((d) => d.astroDark))
+  const dark = inDark.length > 0
+  const values = dark ? inDark : readings(hourly)
+  return values.length === 0 ? null : { pct: Math.round(Math.max(...values)), dark }
 }
 
 /** Minutes → hours at one decimal, the one converter the budget chart and its fact line share. */
@@ -402,15 +420,6 @@ export function peakMonth(
 /** `facts` as an optional ChartCard prop, spread in: the one shape every chart uses for a fact it may not have. */
 export function withFacts(fact: ChartFact | null): { facts?: ChartFact } {
   return fact === null ? {} : { facts: fact }
-}
-
-/** The Core cell's footer: the core at the dark sample closest to the gate — the same reading the
- * verdict card draws — against its gate; the transit altitude when the night has no dark stretch. */
-export function coreCellFooter(night: Night): string {
-  const core = coreMeterReading(night)
-  return core === null
-    ? coreTransitFooter(night)
-    : `${fmtDegrees(core.reading)} at closest · gate ${fmtDegrees(core.gate)}`
 }
 
 /** The Sky cell's footer: the dark-sky threshold, the dome and the transparency, each with its unit. */

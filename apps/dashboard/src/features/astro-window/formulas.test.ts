@@ -18,7 +18,6 @@ import {
   verdictHeadline,
   verdictStatus,
   verdictTone,
-  coreCellFooter,
   skyCellFooter,
   minutesToHours,
   withFacts,
@@ -27,6 +26,7 @@ import {
   peakMonth,
   nextUsableText,
   gateMissText,
+  alsoFailed,
   compassWord,
   fmtAzimuth,
   windowShare,
@@ -332,8 +332,10 @@ describe('window share', () => {
 })
 
 describe('verdictStatus', () => {
-  test('a usable night is GO, a ruled-out night OUT', () => {
-    expect(verdictStatus(goNight)).toEqual({ word: 'GO', color: verdictTone('good') })
+  test('a usable night carries its own tier word, a ruled-out night OUT', () => {
+    expect(verdictStatus(goNight)).toEqual({ word: 'Good', color: verdictTone('good') })
+    expect(verdictStatus({ ...goNight, verdict: 'poor' } as Night).word).toBe('Poor')
+    expect(verdictStatus({ ...goNight, verdict: 'marginal' } as Night).word).toBe('Marginal')
     expect(verdictStatus(outNight('2026-06-13', 8, 4))).toEqual({
       word: 'OUT',
       color: verdictTone('out'),
@@ -379,11 +381,18 @@ describe('nextUsableText', () => {
 })
 
 describe('windowFact', () => {
-  test('a GO night states length and range; an OUT night states the missed gate', () => {
+  test('a GO night states length and range; an OUT night with no window states the missed gate', () => {
     expect(windowFact(goNight)).toEqual({ value: '2h 30m', period: 'shooting window 23:10–01:40' })
     expect(windowFact(outNight('2026-06-13', 8, 4.1))).toEqual({
       value: 'No window',
       period: 'core 3.9° under its gate',
+    })
+  })
+
+  test('a usable night with no window never reads "ruled out"', () => {
+    expect(windowFact({ ...goNight, window: null } as Night)).toEqual({
+      value: 'No window',
+      period: 'none within the dark',
     })
   })
 })
@@ -396,6 +405,10 @@ describe('peakLowCloud', () => {
       pct: 30,
       dark: true,
     })
+  })
+
+  test('a dark stretch with no readings falls back to the whole night', () => {
+    expect(peakLowCloud([hour(true, null), hour(false, 40)])).toEqual({ pct: 40, dark: false })
   })
 
   test('falls back to the whole night when nothing is dark, and to null without data', () => {
@@ -412,13 +425,54 @@ describe('peakMonth', () => {
 })
 
 describe('windowFact on a moon-gated night', () => {
-  test('an OUT night never states the API window, which ignores the moon', () => {
+  test('the timeline draws the API window, so it is stated together with the missed gate', () => {
     const moonOut = {
       ...goNight,
       verdict: 'out',
       killers: [{ id: 'moon', label: 'Moon', reason: 'r' }],
     } as unknown as Night
-    expect(windowFact(moonOut)).toEqual({ value: 'No window', period: 'moon' })
+    expect(windowFact(moonOut)).toEqual({ value: '2h 30m', period: '23:10–01:40 · moon' })
+  })
+})
+
+describe('one headline gate', () => {
+  const killer = (id: string, label: string) => ({ id, label, reason: 'r' })
+  const both = (order: string[]) =>
+    ({
+      ...outNight('2026-06-13', 8, 4.1),
+      killers: order.map((id) =>
+        id === 'moon' ? killer('moon', 'Moon') : killer('core-altitude', 'Core altitude'),
+      ),
+    }) as unknown as Night
+
+  test('the core gap headlines whichever order the API lists the killers in', () => {
+    for (const order of [
+      ['moon', 'core-altitude'],
+      ['core-altitude', 'moon'],
+    ]) {
+      expect(gateMissText(both(order))).toBe('core 3.9° under its gate')
+      expect(alsoFailed(both(order))).toBe('also failed: moon')
+    }
+  })
+
+  test('a core killer with a gap that rounds to 0.0° still headlines', () => {
+    const night = {
+      ...both(['moon', 'core-altitude']),
+      gateCoreAltitude: 7.98,
+      coreGateDeg: 8,
+    } as Night
+    expect(gateMissText(night)).toBe('core 0.0° under its gate')
+    expect(alsoFailed(night)).toBe('also failed: moon')
+  })
+
+  test('with no core gap the first killer headlines and the rest are "also"', () => {
+    const night = {
+      ...goNight,
+      verdict: 'out',
+      killers: [killer('moon', 'Moon'), killer('darkness', 'Darkness')],
+    } as unknown as Night
+    expect(gateMissText(night)).toBe('moon')
+    expect(alsoFailed(night)).toBe('also failed: darkness')
   })
 })
 
@@ -434,18 +488,7 @@ describe('nextUsableText counts only later nights', () => {
   })
 })
 
-describe('cell footers', () => {
-  test('core: the gate-sample reading and the gate, else the transit altitude', () => {
-    expect(coreCellFooter(outNight('2026-06-13', 8, 4.1))).toBe('4.1° at closest · gate 8.0°')
-    const noDark = {
-      ...goNight,
-      gateCoreAltitude: null,
-      coreGateDeg: null,
-      maxCoreAltitude: 24.1,
-    } as unknown as Night
-    expect(coreCellFooter(noDark)).toBe('24.1° at transit')
-  })
-
+describe('sky cell footer', () => {
   test('sky: threshold, dome and transparency with units', () => {
     expect(skyCellFooter({ domePenaltyMag: 1.04, transparency: 3 })).toBe(
       'dark sky from 21.6 · dome +1.04 mag brighter · transparency 3/8, 1 = clearest',

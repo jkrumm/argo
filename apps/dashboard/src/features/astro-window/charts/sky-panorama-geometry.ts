@@ -12,12 +12,28 @@ export type HorizonProfilePoint = {
   nearAltitudeDeg: number
 }
 
-/** The widest the altitude axis ever gets (a walled-in site's northern skyline can reach 34°); the
- * floor is fixed at −4°, the top is fitted to the data by `fitAltDomain`. */
-export const ALT_DOMAIN: readonly [number, number] = [-4, 52]
+/** The widest the altitude axis ever gets: the zenith, so no body's track is ever gapped; the floor
+ * is fixed at −4°, the top is fitted to the data by `fitAltDomain`. */
+export const ALT_DOMAIN: readonly [number, number] = [-4, 90]
 
 /** Never fitted tighter than this, so the 8° atmospheric floor and the gate line always sit inside the plot. */
 const MIN_ALT_TOP = 16
+
+/** Whether the core is above the framing gate at its azimuth, the gate being the higher of the flat
+ * floor and the skyline plus margin (strictly above, as the API's gate is); `clearance` is the
+ * degrees over the skyline itself. */
+export function coreVsGate(
+  profile: readonly HorizonProfilePoint[],
+  atmosphericFloorDeg: number,
+  framingMarginDeg: number,
+  azDeg: number,
+  altDeg: number,
+): { clearance: number; clears: boolean } {
+  return {
+    clearance: altDeg - bandValue(profile, 'altitudeDeg', azDeg),
+    clears: altDeg > gateAt(profile, atmosphericFloorDeg, framingMarginDeg, azDeg),
+  }
+}
 
 /** Whether an altitude falls inside the plot's altitude domain (inclusive); everything else is a gap. */
 export function inDomain(alt: number, domain: readonly [number, number]): boolean {

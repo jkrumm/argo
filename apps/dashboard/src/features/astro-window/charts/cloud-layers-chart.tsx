@@ -14,8 +14,9 @@ type CloudSeriesKey = 'cloudLow' | 'cloudMid' | 'cloudHigh'
 type CloudSeriesDef = { key: CloudSeriesKey; label: string; strokeWidth: number; dash?: 'dashed' }
 
 /**
- * Styled as a severity ramp, not three peers: low cloud is the thickest solid line (it ends a
- * night outright), mid a thinner solid line, high a dashed line (cirrus only costs contrast).
+ * Styled as a severity ramp, not three peers: low cloud is the thickest solid line (the heaviest
+ * score factor — no layer is a gate), mid a thinner solid line, high a dashed line (cirrus only
+ * costs contrast).
  * Distinct DASH, not just hue, so severity reads in greyscale too — mid and high cloud are
  * near-identical oranges that shape alone would not separate.
  */
