@@ -30,6 +30,7 @@ type RecoveryPoint = {
 
 type RecoveryZone = { text: string; color: string }
 
+// Tooltip text takes the *Solid inks (ink on a surface); the meter and chart zones take fills — intentional.
 const VERDICT_COLOR = {
   push: VX.goodSolid,
   normal: VX.warnSolid,

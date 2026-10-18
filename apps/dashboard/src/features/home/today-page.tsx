@@ -4,6 +4,7 @@ import { Stack } from '@mantine/core'
 import { PageBar, StatGroup, PageSummary } from 'basalt-ui'
 import { agentsQueries } from '../../lib/queries/agents'
 import { calendarQueries } from '../../lib/queries/calendar'
+import { RECOVERY_DAYS } from '../garmin-health/model'
 import { recoveryQueries, trainingLoadQueries } from '../../lib/queries/daily-metrics'
 import { wardenQueries } from '../../lib/queries/warden'
 import { deriveDecisions } from '../../lib/decisions'
@@ -22,7 +23,6 @@ import {
   narrativeEvents,
   laterMeeting,
   nextMeeting,
-  RECOVERY_DAYS,
   recoveryReading,
   homeSummaryParts,
   taskCounts,
