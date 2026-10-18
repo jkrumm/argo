@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { WardenBoardItem, WardenMetrics } from '../../lib/queries/warden'
-import { resolveCopies } from '../../lib/question-copy'
+import { capFacts } from '../../components/upstream/decision-card-model'
 import { waitingOnOwner, type AwaitingOwnerRow, type AwaitingOwnerView } from './model'
 import {
   cardFacts,
@@ -443,7 +443,7 @@ describe('cardFacts', () => {
   it('leads with repo, then age, then how often the item was retried and revised', () => {
     expect(cardFacts(row({ redrives: 2, ageDays: 1.2 }))).toEqual([
       'repo-a',
-      'waiting 1.2\u00a0d',
+      'waiting 1\u00a0d 4\u00a0h',
       'retried 2 times, revised 1 time',
     ])
   })
@@ -454,16 +454,16 @@ describe('cardFacts', () => {
     )
     expect(cardFacts(row({ redrives: 0, revisionCount: 0, ageDays: 1.2 }))).toEqual([
       'repo-a',
-      'waiting 1.2\u00a0d',
+      'waiting 1\u00a0d 4\u00a0h',
     ])
   })
 
   it('tones a wait past two days as a warning', () => {
     expect(cardFacts(row({ ageDays: 2.4 }))[1]).toEqual({
-      text: 'waiting 2.4\u00a0d',
+      text: 'waiting 2\u00a0d 9\u00a0h',
       tone: 'warn',
     })
-    expect(cardFacts(row({ ageDays: 1.5 }))[1]).toBe('waiting 1.5\u00a0d')
+    expect(cardFacts(row({ ageDays: 1.5 }))[1]).toBe('waiting 1\u00a0d 12\u00a0h')
   })
 
   it('omits what warden did not report', () => {
@@ -814,22 +814,25 @@ describe('wardenAsk', () => {
     }
   })
 
-  it('asks the plain question of the card’s primary verb, naming the repo once', () => {
+  it('asks in the card’s primary verb about the title’s subject; the repo stays a fact', () => {
     const sentence = `Warden ${'merged the change and then redeployed the loop '.repeat(3)}now.`
     const ask = wardenAsk(
       source({ reason: `${sentence} Tests pass.`, availableActions: ['merge', 'dismiss'] }),
       'decision',
     )
     expect(ask.plan).toMatchObject({ primary: 'merge', secondary: 'dismiss' })
-    expect(ask.copy.question).toBe('Merge {repo} PR?')
-    expect(ask.repoNamed).toBe(true)
-    expect(ask.copy.entity).toBe('fix(loop): raw subject')
-    expect(ask.copy.detail).toBe(`${sentence} Tests pass.`)
+    // The commit label is not the subject; the whole title stays behind the disclosure.
+    expect(ask.copy.question).toBe('Merge PR: raw subject?')
+    expect(ask.copy.entity).toBeNull()
+    expect(ask.copy.detail).toBe(`fix(loop): raw subject ${sentence} Tests pass.`)
   })
 
-  it('does not drop the repo fact when the question does not name it', () => {
-    expect(wardenAsk(source({ question: 'Ship it?' }), 'decision').repoNamed).toBe(false)
-    expect(wardenAsk(source(), 'decision').repoNamed).toBe(true)
+  it('keeps the repo as the first fact on every card, even when the subject mentions it', () => {
+    const ask = wardenAsk(source({ title: 'Audit of the {repo} vault' }), 'decision')
+    expect(ask.copy.question).toBe('Decide on item: Audit of the {repo} vault?')
+    const facts = capFacts(cardFacts(row({ redrives: 3, revisionCount: 2, ageDays: 9 }), ask.repo))
+    // capFacts keeps the first three: the repo leads, so it is never the one dropped.
+    expect(facts[0]).toBe('{repo}')
   })
 
   it('asks to retry a failed run only when retry is the primary verb', () => {
@@ -837,17 +840,21 @@ describe('wardenAsk', () => {
       source({ reason: 'Exit code 1.', availableActions: ['retry', 'dismiss'] }),
       'failed',
     )
-    expect(retry.copy.question).toBe('Retry failed {repo} run?')
-    expect(retry.copy.entity).toBe('fix(loop): raw subject')
+    expect(retry.copy.question).toBe('Retry failed run: raw subject?')
+    expect(retry.copy.entity).toBeNull()
     expect(retry.copy.evidenceLine).toBe('Exit code 1.')
     expect(wardenAsk(source({ availableActions: ['dismiss'] }), 'failed').copy.question).toBe(
-      'Decide on {repo} item?',
+      'Decide on item: raw subject?',
     )
   })
 
   it('falls back to the item number when the title is only a shortcode', () => {
-    expect(wardenAsk(source({ title: ':warning:' }), 'failed').copy.entity).toBe('Item #1')
-    expect(wardenAsk(source({ title: null, eventId: 7 }), 'failed').copy.entity).toBe('Item #7')
+    expect(wardenAsk(source({ title: ':warning:' }), 'failed').copy.question).toBe(
+      'Decide on item: Item #1?',
+    )
+    expect(wardenAsk(source({ title: null, eventId: 7 }), 'failed').copy.question).toBe(
+      'Decide on item: Item #7?',
+    )
   })
 })
 
@@ -956,7 +963,7 @@ describe('board empty copy', () => {
   })
 })
 
-describe('wardenAsk repo naming', () => {
+describe('wardenAsk repo', () => {
   const src = (repo: string, question: string) => ({
     eventId: 1,
     repo,
@@ -964,10 +971,6 @@ describe('wardenAsk repo naming', () => {
     reason: null,
     question,
     availableActions: [],
-  })
-  it('names the repo as a whole word, whichever rung wrote the question', () => {
-    expect(wardenAsk(src('api', 'Merge the api fix?'), 'decision').repoNamed).toBe(true)
-    expect(wardenAsk(src('api', 'Is this rapid enough?'), 'decision').repoNamed).toBe(false)
   })
   it('returns the cleaned repo once', () => {
     expect(wardenAsk(src(':warning: service', 'Ship?'), 'decision').repo).toBe('service')
@@ -1030,24 +1033,20 @@ describe('wardenAsk across one surface', () => {
       ...over,
     }),
   })
-  const resolve = (entries: Entry[]) =>
-    resolveCopies(entries, {
-      key: ({ kind, row: r }) => `${kind}-${r.eventId}`,
-      derive: ({ kind, row: r }, options) => wardenAsk(r, kind, options),
-    })
+  const resolve = (entries: Entry[]) => resolveQueueAsks(entries)
 
-  it('tells same-repo items apart across needs-you and failed, and spares a lone one', () => {
+  it('names every item by its subject across needs-you and failed', () => {
     const asks = resolve([
       entry(1, 'Disk filling up'),
       { ...entry(2, 'Cache cold'), kind: 'failed' },
       entry(3, 'Latency high', { availableActions: ['reinvestigate'] }),
     ])
     expect(asks.map((a) => a.copy.question)).toEqual([
-      'Implement {repo} change: Disk filling up?',
-      'Implement {repo} change: Cache cold?',
-      'Re-investigate {repo} item?',
+      'Implement change: Disk filling up?',
+      'Implement change: Cache cold?',
+      'Re-investigate item: Latency high?',
     ])
-    expect(asks.map((a) => a.copy.entity)).toEqual([null, null, 'Latency high'])
+    expect(asks.map((a) => a.copy.entity)).toEqual([null, null, null])
   })
 
   it('frames a bracket-tagged alert as an alert whatever its origin, with a whole handle', () => {
@@ -1056,8 +1055,8 @@ describe('wardenAsk across one surface', () => {
       entry(2, '[ALERT] {key-b} disk full', { origin: null }),
     ])
     expect(asks.map((a) => a.copy.question)).toEqual([
-      'Implement fix for {repo} alert: {key-a} disk full?',
-      'Implement fix for {repo} alert: {key-b} disk full?',
+      'Implement fix for alert: {key-a} disk full?',
+      'Implement fix for alert: {key-b} disk full?',
     ])
   })
 
@@ -1076,8 +1075,8 @@ describe('wardenAsk across one surface', () => {
       { ...entry(1, 'Disk filling up'), kind: 'failed' },
     ])
     expect(asks.map((a) => a.copy.question)).toEqual([
-      'Implement {repo} change: Disk filling up (1)?',
-      'Implement {repo} change: Disk filling up (2)?',
+      'Implement change: Disk filling up (1)?',
+      'Implement change: Disk filling up (2)?',
     ])
   })
 
@@ -1087,30 +1086,30 @@ describe('wardenAsk across one surface', () => {
       entry(2, 'Queue deep', { origin: 'alert', availableActions: ['dismiss'] }),
       entry(3, 'Disk full', { origin: 'alert', availableActions: [] }),
     ])
-    expect(handle!.copy.question).toBe('Implement fix for {repo} alert?')
-    expect(dismiss!.copy.question).toBe('Dismiss {repo} alert?')
-    expect(none!.copy.question).toBe('Decide on {repo} alert?')
+    expect(handle!.copy.question).toBe('Implement fix for alert: Latency high?')
+    expect(dismiss!.copy.question).toBe('Dismiss alert: Queue deep?')
+    expect(none!.copy.question).toBe('Decide on alert: Disk full?')
   })
 
   it('does not take an issue about alerts for an alert', () => {
     const [ask] = resolve([entry(1, 'Add incident-response runbook')])
-    expect(ask!.copy.question).toBe('Implement {repo} change?')
+    expect(ask!.copy.question).toBe('Implement change: Add incident-response runbook?')
   })
 
-  it('numbers untitled items by their id, so the ordinal rung always applies', () => {
+  it('names untitled items by their id, never by an ordinal', () => {
     const asks = resolve([entry(1, null), entry(2, ':fire:'), entry(3, '')])
     expect(asks.map((a) => a.copy.question)).toEqual([
-      'Implement {repo} change: Item #1?',
-      'Implement {repo} change: Item #2?',
-      'Implement {repo} change: Item #3?',
+      'Implement change: Item #1?',
+      'Implement change: Item #2?',
+      'Implement change: Item #3?',
     ])
   })
 
   it('reads non-string wire values as absent, never throwing', () => {
     for (const junk of [42, {}, ['x'], true]) {
       const [ask] = resolve([entry(1, junk, { repo: junk as never, reason: junk as never })])
-      expect(ask!.copy.question).toBe('Implement this change?')
-      expect(ask!.copy.entity).toBe('Item #1')
+      expect(ask!.copy.question).toBe('Implement change: Item #1?')
+      expect(ask!.copy.entity).toBeNull()
     }
   })
 })
@@ -1127,29 +1126,19 @@ describe('resolveQueueAsks', () => {
       availableActions: ['implement'],
     } as unknown as AwaitingOwnerRow,
   })
-  const resolve = (entries: ReturnType<typeof entry>[]) =>
-    resolveQueueAsks(entries, ({ row }) => String(row.eventId))
 
-  it('hoists a line every card of the list shares, once, and drops it from the cards', () => {
-    const { asks, shared } = resolve([
+  it('keeps a line several cards share word for word on the first card only', () => {
+    const asks = resolveQueueAsks([
       entry(1, 'Disk full', 'Same note.'),
       entry(2, 'Cache cold', 'same note.'),
-    ])
-    expect(shared.decision).toBe('Same note.')
-    expect(asks.map((a) => a.copy.evidenceLine)).toEqual([null, null])
-  })
-
-  it('keeps a line some cards share on those cards', () => {
-    const { asks, shared } = resolve([
-      entry(1, 'Disk full', 'Same note.'),
-      entry(2, 'Cache cold', 'Same note.'),
       entry(3, 'Queue deep', 'Own fact.'),
     ])
-    expect(shared.decision).toBeNull()
-    expect(asks.map((a) => a.copy.evidenceLine)).toEqual(['Same note.', 'Same note.', 'Own fact.'])
+    expect(asks.map((a) => a.copy.evidenceLine)).toEqual(['Same note.', null, 'Own fact.'])
+    // The dropped line is still behind the card's disclosure.
+    expect(asks[1]!.copy.detail).toBe('same note.')
   })
 
-  it('never hoists from a list of one', () => {
-    expect(resolve([entry(1, 'Disk full', 'Note.')]).shared.decision).toBeNull()
+  it('leaves a lone line alone', () => {
+    expect(resolveQueueAsks([entry(1, 'Disk full', 'Note.')])[0]!.copy.evidenceLine).toBe('Note.')
   })
 })

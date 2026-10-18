@@ -57,7 +57,8 @@ Stays: item-timeline drawer, `PageBar` sync, `StaleBanner` (as the loop-stalled 
 - Section titles: `Needs you <n>`, `Failed <n>`, `Board · <n> open`.
 - Captions: `VERDICTS RECORDED · all time`, `FIXES VS SILENCE · all time`, `DECISION WAIT · 7 d median`, `UNATTENDED FIXES · 7 d`, `OLDEST POLLER`, `REVERTS · REOPENS`, `DISPATCH · today`, `IMPLEMENT · today`.
 - Units: `h`, `min`, `fixes`, `%` muted after the figure.
-- Decision card facts: `<repo> · waiting <n> d · revision <n> · <n> redrives`; actions `Implement`, `Dismiss`, menu `Re-investigate`, `Note`.
+- Decision card title: `<verb of the primary button> <noun>: <subject>?` — `Implement change: <title>?`, `Implement fix for alert: <monitor> <message>?`, `Retry failed run: <title>?`; the subject is cut at a word (never inside a bracket, no `…` before `?`), a commit label (`type(scope): `) is not the subject and comes back only when it alone tells two titles apart; siblings get more of their subject (`Implement: <title>?`, then `<opening words> … <the clause where they part>?`) before an ordinal, which only word-for-word identical subjects take. The repo is always the card's first fact. A producer's own question stands verbatim. Rule: `questionTitles` (`lib/question-copy.ts`), table: `lib/question-rung.fixtures.ts`.
+- Decision card facts: `<repo> · waiting <d> d <h> h · retried <n> times`; actions `Implement`, `Dismiss`, menu `Re-investigate`, `Note`. Cards whose evidence lines read the same word for word keep the line on the first card only; the rest keep it behind `Full reason`.
 - Unavailable metric: `—` with qualifier `no data: <unavailable reason>`, never 0 or `n/a`.
 
 ## Upstream candidates

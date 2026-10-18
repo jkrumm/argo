@@ -7,12 +7,11 @@ import type {
   HistoryPoint,
 } from '../../lib/queries/agents'
 import {
-  cardCopy,
   isAlert,
-  plainQuestion,
-  resolveCopies,
-  type CardCopy,
-  type Disambiguation,
+  questionForms,
+  subjectOf,
+  surfaceCopies,
+  type CardInput,
 } from '../../lib/question-copy'
 import {
   asText,
@@ -22,7 +21,7 @@ import {
   flatten,
   restAfterFirstSentence,
 } from '../../lib/text'
-import { formatAgo, formatDuration, withUnit } from '../../lib/format'
+import { NBSP, formatAgo, formatDuration, withUnit } from '../../lib/format'
 
 // Presentation vocabulary for the agents page. The STATE and RECOMMENDATION
 // enums are agent-gateway's (server/lib/agents.ts); Argo only maps them to a label,
@@ -242,13 +241,13 @@ export function activityFact(
 ): string | null {
   if (peak === null) return null
   const measured = buckets.filter((b) => b.working !== null)
-  const scope =
-    measured.length < buckets.length
-      ? `${withUnit(measured.length, 'h')} observed`
-      : `${withUnit(buckets.length, 'h')}`
-  if (peak.value === 0) return `no agent working in ${scope}`
+  const partial = measured.length < buckets.length
+  const span = withUnit(partial ? measured.length : buckets.length, 'h')
+  const observed = partial ? ' observed' : ''
+  if (peak.value === 0) return `no agent working in ${span}${observed}`
   const active = measured.filter((b) => (b.working ?? 0) > 0).length
-  return `busiest hour ${clockOf(peak.hourMs)} · agents working in ${active} of ${scope}`
+  // `{n} of {m} h` is one figure: it wraps whole, so the unit never sits on a line alone.
+  return `busiest hour ${clockOf(peak.hourMs)} · agents working in ${active}${NBSP}of${NBSP}${span}${observed}`
 }
 
 // ── Projects ─────────────────────────────────────────────────────────────────────────────────
@@ -381,6 +380,8 @@ export type AgentsSummaryInput = {
   abandoned?: number
   /** Distinct hosts the human-queue asks came from. */
   hosts?: number
+  /** Of the asks, how many carry a command to run: a figure no other part of the page prints. */
+  commands: number
   /** Agents in `needs_you`, counted from the cards the section lists. */
   agentWaits: number
   /** Asks in the human queue, counted from the same cards. */
@@ -405,13 +406,23 @@ export const waitingProjects = (agents: readonly AgentRow[]): number =>
  * the blocked agents sit in, how many of them are abandoned, how many hosts the asks came from
  * (the strip has the count, the oldest wait and the fleet).
  */
+/** The headline's figure when only asks wait: how many come with a command to run (the count is the tile's). */
+function readyClause(asks: number, commands: number): string {
+  if (asks === 1) return commands === 1 ? ', with a command to run' : ''
+  let share: string
+  if (commands === 0) share = 'none'
+  else if (commands === asks) share = 'all'
+  else share = String(commands)
+  return `, ${share} with a command to run`
+}
+
 export function agentsSummaryParts(s: AgentsSummaryInput): { sentence: string } {
-  const { agentWaits, asks, projects, abandoned = 0, hosts = 0 } = s
+  const { agentWaits, asks, projects, commands, abandoned = 0, hosts = 0 } = s
   if (agentWaits === 0 && asks === 0) return { sentence: 'Nothing needs you.' }
   if (agentWaits === 0) {
     const from = hosts === 0 ? '' : ` from ${hosts} ${nounFor(hosts, 'host', 'hosts')}`
     return {
-      sentence: `${nounFor(asks, 'A request', 'Requests')}${from} ${nounFor(asks, 'is', 'are')} waiting for your answer.`,
+      sentence: `${nounFor(asks, 'A request', 'Requests')}${from} ${nounFor(asks, 'is', 'are')} waiting for your answer${readyClause(asks, commands)}.`,
     }
   }
   // With no named project there is no figure to give: the sentence says only who waits.
@@ -497,7 +508,7 @@ export function clockTime(iso: string): string {
 export type NeedsYouCard = {
   key: string
   kind: 'human-queue' | 'agent'
-  /** The card title: a question, derived by the one `cardCopy` rule. */
+  /** The card title: a question, derived by the one `questionTitles` rule. */
   question: string
   /** The raw title the question does not already say; whole. */
   entity: string | null
@@ -577,36 +588,51 @@ export const askHosts = (humanQueue: readonly QueueItem[]): number =>
   new Set(humanQueue.map(hostOf).filter((host): host is string => host !== null && host !== ''))
     .size
 
+/** Asks that carry a command to run. */
+export const askCommands = (humanQueue: readonly QueueItem[]): number =>
+  humanQueue.filter((item) => asText(item.cmd).trim() !== '').length
+
 /** Agent waits past the abandoned mark, counted from the cards the section lists. */
 export const abandonedWaits = (cards: readonly NeedsYouCard[]): number =>
   cards.filter((card) => card.kind === 'agent' && card.abandoned).length
 
+/** Which surface a card is asked on: this page, or Home (whose only button opens this page). */
+export type AgentSurface = 'agents' | 'home'
+
 /**
- * The card copy of one human-queue ask, shared by this page and Home: the ask goes through
+ * The card input of one human-queue ask, shared by this page and Home: the ask goes through
  * `authoredQuestion` (shortcodes stripped, blank or non-string reads as absent), its first sentence
- * is the question when it is one, the rest is evidence.
+ * is the question when it is one, else the subject (`Answer: {subject}?`) with the title preferred;
+ * the rest is evidence.
  */
-export function humanQueueCopy(
+export function humanQueueInput(
   item: QueueItem,
-  { handle = null }: { handle?: Disambiguation | null } = {},
-): { copy: CardCopy; askText: string } {
+  surface: AgentSurface = 'agents',
+): { input: CardInput; askText: string } {
   const askText = authoredQuestion(item.question) ?? ''
   const title = asText(item['title'])
   const host = hostOf(item)
   // An alert is asked about as an alert, never as a request to answer.
   const alert = isAlert({ kinds: [item['kind'], item['type']], title })
-  const plain = alert
-    ? plainQuestion('Handle', host ? `${host} alert` : 'this alert')
-    : plainQuestion('Answer', host ? `${host} request` : 'this request')
-  const handleSource = flatten(title) || askText || `Item #${asText(item.id)}`
-  const copy = cardCopy({
-    ask: firstSentence(askText),
-    body: restAfterFirstSentence(askText),
-    title: title === '' ? null : title,
-    plain,
-    handle: handle === null ? null : { source: handleSource, ...handle },
-  })
-  return { copy, askText }
+  const noun = alert ? 'alert' : 'request'
+  const forms =
+    surface === 'home'
+      ? questionForms('Decide on', noun, host)
+      : alert
+        ? questionForms('Handle', noun, host)
+        : { ...questionForms('Answer', noun, host), stem: 'Answer' }
+  const ask = firstSentence(askText)
+  return {
+    input: {
+      key: `hq-${asText(item.id)}`,
+      ask,
+      body: restAfterFirstSentence(askText),
+      title: title === '' ? null : title,
+      subject: subjectOf(title) ?? subjectOf(ask),
+      forms,
+    },
+    askText,
+  }
 }
 
 /** The agent's project, `''` when it names none (`—` is the flattening's placeholder). */
@@ -625,22 +651,26 @@ const NO_BLOCKER = 'No blocker reported.'
 /** The agent's blocker as evidence, or {@link NO_BLOCKER}: one rule for this page and Home. */
 export const blockerEvidence = (a: AgentRow): string => evidenceSource(a) ?? NO_BLOCKER
 
-/** The card copy of one `needs_you` agent, shared by this page and Home; `body` is its evidence. */
-export function agentCopy(
+/** The card input of one `needs_you` agent, shared by this page and Home; `body` is its evidence. */
+export function agentInput(
   a: AgentRow,
   body: string | null,
-  { handle = null }: { handle?: Disambiguation | null } = {},
-): CardCopy {
-  const title = titleOf(a)
+  surface: AgentSurface = 'agents',
+): CardInput {
   const project = projectOf(a)
-  return cardCopy({
+  return {
+    key: `agent-${asText(a.id)}`,
     authored: authoredQuestion(a['question']),
     body,
-    title,
-    plain: plainQuestion('Unblock', project === '' ? 'this agent' : `${project} agent`),
-    handle: handle === null ? null : { source: title || `Item #${asText(a.id)}`, ...handle },
+    title: titleOf(a),
+    // The id names the agent, not its task: it is no subject.
+    subject: subjectOf([a.title, a.lastPrompt].map(asText).find((t) => t.trim() !== '')),
+    forms:
+      surface === 'home'
+        ? questionForms('Decide on', 'agent', project)
+        : questionForms('Unblock', 'agent', project),
     keepQuestionEvidence: true,
-  })
+  }
 }
 
 /** Human-queue asks and `needs_you` agents as one list, longest wait first. */
@@ -652,23 +682,12 @@ export function needsYouCards(
 ): NeedsYouCard[] {
   const machine = ctx.machine ?? null
   const needing = agents.filter((a) => a.state === 'needs_you')
-  // One surface: two cards that would read the same are told apart by their own handle.
-  const copies = resolveCopies(
-    [
-      ...humanQueue.map((ask) => ({ key: `hq-${asText(ask.id)}`, ask })),
-      ...needing.map((agent) => ({ key: `agent-${asText(agent.id)}`, agent })),
-    ],
-    {
-      key: (entry) => entry.key,
-      terseStem: true,
-      derive: (entry, options) => ({
-        copy:
-          'agent' in entry
-            ? agentCopy(entry.agent, blockerEvidence(entry.agent), options)
-            : humanQueueCopy(entry.ask, options).copy,
-      }),
-    },
-  ).map((r) => r.copy)
+  // One surface: two cards that would read the same are told apart together.
+  const askInputs = humanQueue.map((ask) => humanQueueInput(ask))
+  const copies = surfaceCopies([
+    ...askInputs.map(({ input }) => input),
+    ...needing.map((agent) => agentInput(agent, blockerEvidence(agent))),
+  ])
   const asks: NeedsYouCard[] = humanQueue.map((item, i) => {
     const askedMs = parseMs(item.askedAt)
     const waitMs = askedMs === null ? -1 : Math.max(0, now - askedMs)
@@ -678,7 +697,7 @@ export function needsYouCards(
     )
     const command = asText(item.cmd).trim() || null
     const copy = copies[i]!
-    const { askText } = humanQueueCopy(item)
+    const { askText } = askInputs[i]!
     return {
       key: `hq-${item.id}`,
       kind: 'human-queue',

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { Anchor, Box, SimpleGrid, Stack, Text } from '@mantine/core'
+import { Anchor, Box, SimpleGrid, Text } from '@mantine/core'
 import { EmptyState, Section } from 'basalt-ui'
 import { CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
 import { IconCircleCheck, IconListDetails } from '@tabler/icons-react'
@@ -29,10 +29,6 @@ import {
   type WardenAsk,
 } from './page-model'
 import { StatusChip } from './status-chip'
-
-/** A row can sit in both lists, so its kind is part of its identity. */
-const askKey = ({ row, kind }: { row: AwaitingOwnerRow; kind: QueueKind }): string =>
-  `${kind}-${row.eventId}`
 
 type OnAction = (eventId: number, verb: WardenActionVerb, payload?: Record<string, unknown>) => void
 
@@ -104,7 +100,7 @@ function QueueCard({
   onFire: (verb: WardenActionVerb) => void
   onSelectItem: () => void
 }) {
-  const { plan, repo, tag, copy, repoNamed } = ask
+  const { plan, repo, tag, copy } = ask
   const toAction = (verb: WardenActionVerb): DecisionCardAction => ({
     label: VERB_LABEL[verb],
     onClick: () => onFire(verb),
@@ -126,10 +122,10 @@ function QueueCard({
   const view = historyView(history)
 
   return (
-    <Box h="100%" data-shot={`${kind}-${row.eventId}`}>
+    <Box data-shot={`${kind}-${row.eventId}`}>
       <DecisionCard
         question={copy.question}
-        facts={capFacts(cardFacts(row, repoNamed ? '' : repo))}
+        facts={capFacts(cardFacts(row, repo))}
         status={status}
         subject={copy.entity}
         evidenceLine={copy.evidenceLine}
@@ -161,7 +157,6 @@ function CardGrid({
   rows,
   kind,
   asks,
-  shared,
   pending,
   items,
   onFire,
@@ -171,35 +166,26 @@ function CardGrid({
   kind: QueueKind
   /** One ask per row, in order. */
   asks: readonly WardenAsk[]
-  /** The evidence line every card of this list shares: printed once above it, left off the cards. */
-  shared: string | null
   items: WardenItems | undefined
   pending: PendingActions
   onFire: (eventId: number, verb: WardenActionVerb) => void
   onSelectItem: (eventId: number) => void
 }) {
   return (
-    <Stack gap="sm">
-      {shared === null ? null : (
-        <Text size="sm" c="dimmed">
-          {shared}
-        </Text>
-      )}
-      <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="sm">
-        {rows.map((row, i) => (
-          <QueueCard
-            key={row.eventId}
-            row={row}
-            kind={kind}
-            ask={asks[i]!}
-            pending={pending[row.eventId]}
-            history={recentTransitions(items?.[String(row.eventId)])}
-            onFire={(verb) => onFire(row.eventId, verb)}
-            onSelectItem={() => onSelectItem(row.eventId)}
-          />
-        ))}
-      </SimpleGrid>
-    </Stack>
+    <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="sm">
+      {rows.map((row, i) => (
+        <QueueCard
+          key={row.eventId}
+          row={row}
+          kind={kind}
+          ask={asks[i]!}
+          pending={pending[row.eventId]}
+          history={recentTransitions(items?.[String(row.eventId)])}
+          onFire={(verb) => onFire(row.eventId, verb)}
+          onSelectItem={() => onSelectItem(row.eventId)}
+        />
+      ))}
+    </SimpleGrid>
   )
 }
 
@@ -213,19 +199,16 @@ export function DecisionQueues({ view, items, pending, onSelectItem, onAction }:
   const [prompt, setPrompt] = useState<PromptState>(null)
   const needs = useMemo(() => needsCards(view), [view])
   // One surface: a needs-you and a failed card that would read the same are told apart together.
-  const queue = useMemo(
+  const asks = useMemo(
     () =>
-      resolveQueueAsks(
-        [
-          ...needs.map((row) => ({ row, kind: 'decision' as const })),
-          ...view.failed.map((row) => ({ row, kind: 'failed' as const })),
-        ],
-        askKey,
-      ),
+      resolveQueueAsks([
+        ...needs.map((row) => ({ row, kind: 'decision' as const })),
+        ...view.failed.map((row) => ({ row, kind: 'failed' as const })),
+      ]),
     [needs, view.failed],
   )
-  const needsAsks = queue.asks.slice(0, needs.length)
-  const failedAsks = queue.asks.slice(needs.length)
+  const needsAsks = asks.slice(0, needs.length)
+  const failedAsks = asks.slice(needs.length)
 
   const fire = useCallback(
     (eventId: number, verb: WardenActionVerb) => {
@@ -261,7 +244,6 @@ export function DecisionQueues({ view, items, pending, onSelectItem, onAction }:
             rows={needs}
             kind="decision"
             asks={needsAsks}
-            shared={queue.shared.decision}
             items={items}
             pending={pending}
             onFire={fire}
@@ -275,7 +257,6 @@ export function DecisionQueues({ view, items, pending, onSelectItem, onAction }:
             rows={view.failed}
             kind="failed"
             asks={failedAsks}
-            shared={queue.shared.failed}
             items={items}
             pending={pending}
             onFire={fire}

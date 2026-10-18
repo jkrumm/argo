@@ -8,22 +8,27 @@ import {
 } from '../features/warden/model'
 import {
   recentTransitions,
-  wardenAsk,
+  wardenAskInput,
   type AskSource,
   type QueueKind,
   type TransitionHistory,
 } from '../features/warden/page-model'
 import {
-  agentCopy,
+  agentInput,
   blockerEvidence,
   clockMs,
   evidenceSource,
   flattenAgents,
-  humanQueueCopy,
+  humanQueueInput,
   isAbandonedWait,
   type AgentRow,
 } from '../features/agents/model'
-import { resolveCopies, type CardCopy, type Disambiguation } from './question-copy'
+import {
+  surfaceCopies,
+  withoutRepeatedEvidence,
+  type CardCopy,
+  type CardInput,
+} from './question-copy'
 import { formatAgo, formatDuration, withUnit } from './format'
 import { asText } from './text'
 import type { HumanQueueItem, OverviewSnapshot } from './queries/agents'
@@ -86,7 +91,6 @@ type Entry =
 type Derived = {
   copy: CardCopy
   repo?: string
-  repoNamed?: boolean
 }
 
 function idOf(entry: Entry): string {
@@ -120,19 +124,19 @@ function entriesOf(
   return [...warden, ...asks, ...agents]
 }
 
-function derive(entry: Entry, options: { handle: Disambiguation | null }): Derived {
+/** The card input of one entry, asked as Home asks: `Decide on …`, its only button opens the owning page. */
+function inputOf(entry: Entry): { input: CardInput; repo?: string } {
   if (entry.source === 'warden') {
-    const { row, kind } = entry
-    const { copy, repo, repoNamed } = wardenAsk(row as AskSource, kind, options)
-    return { copy, repo, repoNamed }
+    const { input, repo } = wardenAskInput(entry.row as AskSource, entry.kind, 'home')
+    return { input, repo }
   }
-  if (entry.source === 'queue') return { copy: humanQueueCopy(entry.item, options).copy }
-  return { copy: agentCopy(entry.agent, blockerEvidence(entry.agent), options) }
+  if (entry.source === 'queue') return { input: humanQueueInput(entry.item, 'home').input }
+  return { input: agentInput(entry.agent, blockerEvidence(entry.agent), 'home') }
 }
 
 function toDecision(
   entry: Entry,
-  { copy, repo = '', repoNamed = false }: Derived,
+  { copy, repo = '' }: Derived,
   { raw, now, sincePush }: { raw: WardenRaw | null | undefined; now: number; sincePush: number },
 ): Decision {
   const base = {
@@ -158,7 +162,7 @@ function toDecision(
     return {
       ...base,
       source: 'warden',
-      facts: capFacts([`warden${repo && !repoNamed ? ` · ${repo}` : ''}`, waiting]),
+      facts: capFacts([`warden${repo ? ` · ${repo}` : ''}`, waiting]),
       ageMs,
       href: '/warden',
       evidence: pr !== '' && isSafeHttpUrl(pr) ? pr : null,
@@ -205,7 +209,8 @@ function toDecision(
 
 /**
  * Everything waiting on the owner, longest wait first; an item with no clock sorts last. The inbox
- * is one surface: its plain questions are told apart together (`resolveCopies`), across sources.
+ * is one surface: its questions are told apart together (`surfaceCopies`), across sources, and
+ * Warden cards that share an evidence line word for word keep it on the first card only.
  */
 export function deriveDecisions({
   warden,
@@ -216,8 +221,18 @@ export function deriveDecisions({
   const receivedMs = parseMs(wardenReceivedAt)
   const sincePush = receivedMs === null ? 0 : Math.max(0, now - receivedMs)
   const entries = entriesOf(warden, agents)
-  const derived = resolveCopies(entries, { derive, key: idOf })
-  return entries
+  const inputs = entries.map(inputOf)
+  const copies = surfaceCopies(inputs.map(({ input }) => input))
+  const derived = entries.map((entry, i): Derived => {
+    const copy = copies[i]!
+    const repo = inputs[i]!.repo
+    return repo === undefined ? { copy } : { copy, repo }
+  })
+  const sorted = entries
     .map((entry, i) => toDecision(entry, derived[i]!, { raw: warden, now, sincePush }))
     .toSorted((a, b) => (b.ageMs ?? -1) - (a.ageMs ?? -1))
+  return withoutRepeatedEvidence(
+    sorted,
+    sorted.flatMap((decision, i) => (decision.source === 'warden' ? [i] : [])),
+  )
 }

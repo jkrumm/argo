@@ -4,7 +4,6 @@ import {
   firstBracketTag,
   flatten,
   lastWhitespace,
-  leadClauses,
   stripShortcodes,
 } from './text'
 import type { WardenActionVerb } from './queries/warden'
@@ -49,9 +48,24 @@ function closeBrackets(text: string): string {
   return `${text.replace(/[\s,;:]+$/, '')}${']'.repeat(missingSquares)}${')'.repeat(missingParens)}`
 }
 
-/** Removes raw URLs; a bracket left open by the removal is closed, never dangling. */
+/** What introduces a removed URL and is left dangling at the end: `: ` or `, `, or a bare `— PR`. */
+const DANGLING_URL_LABEL = /(?:[\s:,;]+|\s*[—–-]\s*(?:PR|link|url|see)?)$/i
+
+/**
+ * Removes raw URLs; a bracket left open by the removal is closed, never dangling, and the colon
+ * or bare label that introduced the URL goes with it (`— PR left open: {url}` → `— PR left open`).
+ */
 function withoutUrls(sentence: string): string {
-  return closeBrackets(flatten(sentence.replace(BRACKETED_URL, '').replace(BARE_URL, '')))
+  const removed = sentence.replace(BRACKETED_URL, '').replace(BARE_URL, '')
+  if (removed === sentence) return closeBrackets(flatten(sentence))
+  let text = flatten(removed)
+  for (
+    let next = text.replace(DANGLING_URL_LABEL, '');
+    next !== text;
+    next = text.replace(DANGLING_URL_LABEL, '')
+  )
+    text = next
+  return closeBrackets(text)
 }
 
 /** The sentences of a text, each with its closing punctuation. */
@@ -75,77 +89,298 @@ function evidenceLeadOf(text: string, keepQuestions: boolean): string | null {
   return leadOf(lines.join(' '), EVIDENCE_LINE_MAX)
 }
 
-/** `<verb> <object>?`, never longer than {@link QUESTION_MAX} and never losing its `?`. */
-export function plainQuestion(verb: string, object: string): string {
-  return boundedQuestion(`${verb} ${object}`)
-}
-
-/** A caller-built plain question: bounded, never empty, always ending in `?`. */
-function boundedQuestion(question: string): string {
+/** A caller-built plain question: bounded at a word (no ellipsis before the `?`), never empty. */
+function boundedQuestion(question: string, max = QUESTION_MAX - 1): string {
   const stem = flatten(question).replace(/[?\s]+$/, '')
   if (stem === '') return NEUTRAL_QUESTION
-  return `${stem.length > QUESTION_MAX - 1 ? leadOf(stem, QUESTION_MAX - 1) : stem}?`
+  return `${stem.length > max ? (cutAtWord(stem, max) ?? stem.slice(0, max)) : stem}?`
 }
 
-/** Room a handle needs to be worth printing: the stem, `: `, the handle and the `?` must fit. */
-const HANDLE_MIN = 10
+const ALERT_WORD = /^(?:alert|incident|outage)s?$/i
+/** A title that leads with the kind and a colon or a spaced dash (`Alert: …`, `Outage — …`; a hyphen inside a word is not one): the fallback when no field names it. */
+const ALERT_TITLE_PREFIX = /^\W*(?:alert|incident|outage)s?(?:\s*:|\s+[—–-]\s)/i
 
-/** How much of an item tells it apart: its first `clauses` clauses, then an ordinal among the still-identical. */
-export type Disambiguation = {
-  clauses: number
-  ordinal: number | null
-  /** The stem shrinks to its verb (`Answer: {handle}?`): set when the shared stem repeats on every card. */
-  terse?: boolean
+// ── The question rung ──────────────────────────────────────────────────────────────────────
+
+/** Room a subject needs to be worth printing; below it the plain question stands. */
+const SUBJECT_MIN = 10
+
+/** A word a cut subject must not end on: it promises a next word the title no longer has. */
+const TRAILING_FILLER =
+  /[\s_/.]+(?:a|an|the|and|or|but|nor|to|of|for|in|on|at|by|with|from|as|into|than|that|which|when|while|without|beside|its|it|this|these|those|is|are|was|were|be|has|have|do|does|did|can|will|would|should|not|no)$/i
+/** Punctuation a cut leaves dangling at its end; a closing bracket is not one. */
+const TRAILING_PUNCTUATION = /[\s,;:.!?\-–—/(['"`]+$/
+
+const balanced = (text: string): boolean => {
+  const count = (re: RegExp) => (text.match(re) ?? []).length
+  return (
+    count(/\(/g) === count(/\)/g) &&
+    count(/\[/g) === count(/\]/g) &&
+    count(/"/g) % 2 === 0 &&
+    count(/`/g) % 2 === 0
+  )
 }
 
-const balanced = (text: string): boolean =>
-  (text.match(/\(/g) ?? []).length === (text.match(/\)/g) ?? []).length &&
-  (text.match(/\[/g) ?? []).length === (text.match(/\]/g) ?? []).length
+/** A text with no letter or digit in it names nothing. */
+const names = (text: string): boolean => /[\p{L}\p{N}]/u.test(text)
+
+/** `text` without the punctuation and filler words a cut left at its end. */
+function trimmedTail(text: string): string {
+  let current = text
+  for (;;) {
+    const next = current.replace(TRAILING_PUNCTUATION, '').replace(TRAILING_FILLER, '')
+    if (next === current) return current
+    current = next
+  }
+}
+
+/** The longest lead of `text` before a `boundary` match within `max`, balanced and trimmed. */
+function longestLead(text: string, max: number, boundary: RegExp): string | null {
+  let best: string | null = null
+  for (const match of text.matchAll(boundary)) {
+    if (match.index > max) break
+    const lead = trimmedTail(text.slice(0, match.index))
+    if (names(lead) && balanced(lead)) best = lead
+  }
+  return best
+}
 
 /**
- * The longest whole-clause lead of `source` (at most `clauses` clauses) that fits `room`: never cut
- * inside a bracket or a word, no ellipsis. `null` when no whole clause fits or none names anything.
+ * The longest lead of `text` that fits `max`, cut at a word boundary: never inside a bracket or a
+ * quote, no ellipsis, no dangling punctuation or filler word. Only when that leaves less than
+ * {@link SUBJECT_MIN} (one long identifier: `{label}: {one_long_identifier}`) may the cut fall
+ * between an identifier's own words (`_`, `/`, `.`). `null` when nothing fits.
  */
-function fittingLead(source: string, clauses: number, room: number): string | null {
-  const rungs = [...new Set([clauses, 2, 1].filter((n) => n <= clauses))]
-  for (const n of rungs) {
-    const lead = leadClauses(source, n)
-    // A handle with no letter or digit in it names nothing.
-    if (lead.length <= room && /[\p{L}\p{N}]/u.test(lead) && balanced(lead)) return lead
+function cutAtWord(text: string, max: number): string | null {
+  const lead = longestLead(text, max, /\s+/g)
+  if (lead !== null && lead.length >= SUBJECT_MIN) return lead
+  return longestLead(text, max, /[\s_/.]+/g) ?? lead
+}
+
+/** A whole subject keeps its last word; only its closing punctuation gives way to the `?`. */
+const wholeSubject = (subject: string): string => flatten(subject).replace(/[\s,;:.!?\-–—]+$/, '')
+
+/** The subject as the title shows it in `room` characters: whole when it fits, else cut at a word. */
+export function subjectLead(subject: string, room: number): string | null {
+  if (room < SUBJECT_MIN) return null
+  const flat = wholeSubject(subject)
+  if (!names(flat)) return null
+  return flat.length <= room ? flat : cutAtWord(flat, room)
+}
+
+/** How one item's question can read: with no subject, and the two heads its subject can take. */
+export type QuestionForms = {
+  /** The question when the item names no subject: `Implement {repo} change`. */
+  plain: string
+  /** What heads the subject: `Implement change` (read `Implement change: {subject}?`). */
+  stem: string
+  /** The shortest honest head, for siblings that need the room: `Implement`. */
+  terse: string
+}
+
+export type QuestionInput = QuestionForms & {
+  /** Orders the ordinal tie-break, so it is stable across refreshes. */
+  key: string
+  /** What the item is about: its title, or its ask's lead. `null` when it names nothing. */
+  subject: string | null
+  /** A question the item already carries (authored, its own ask, a question title): verbatim. */
+  fixed?: string | null
+  /** The commit label the subject was stripped of (`fix(scope)`): given back only to tell siblings apart. */
+  label?: string | null
+}
+
+export type QuestionTitle = {
+  question: string
+  /** The subject words the question shows; `null` when it shows none (plain or fixed). */
+  subject: string | null
+}
+
+const keyOf = (title: QuestionTitle) => title.question.toLowerCase()
+
+function compose(
+  input: QuestionInput,
+  head: 'stem' | 'terse',
+  ordinal: number | null,
+): QuestionTitle {
+  const tail = ordinal === null ? '' : ` (${ordinal})`
+  const stem = flatten(head === 'stem' ? input.stem : input.terse)
+  // The tail's room is reserved first, so an ordinal is never the part that goes.
+  const room = QUESTION_MAX - 1 - tail.length - stem.length - 2
+  const lead = input.subject === null ? null : subjectLead(input.subject, room)
+  if (lead === null) {
+    const plain = boundedQuestion(input.plain, QUESTION_MAX - 1 - tail.length).slice(0, -1)
+    return { question: `${plain}${tail}?`, subject: null }
+  }
+  return { question: `${stem}: ${lead}${tail}?`, subject: lead }
+}
+
+/** Words that open a clause: the word after one of these starts a later distinguishing clause. */
+const CLAUSE_END = /(?:[,;:]|^[—–-])$/
+
+/**
+ * A subject told apart from `others` (the full subjects it would read the same as) by the clause
+ * where it parts from them: `{terse}: {opening words} … {distinguishing clause}?`. The opening and
+ * the clause are both whole words and balanced; the ellipsis never sits before the `?`. `null`
+ * when the subject has no word the others lack (it is theirs word for word, or a prefix of one).
+ */
+function composeApart(input: QuestionInput, others: readonly string[]): QuestionTitle | null {
+  if (input.subject === null) return null
+  const own = wholeSubject(input.subject).split(' ')
+  const lower = own.map((word) => word.toLowerCase())
+  let common = 0
+  for (const other of others) {
+    const theirs = wholeSubject(other).toLowerCase().split(' ')
+    let shared = 0
+    while (shared < lower.length && lower[shared] === theirs[shared]) shared += 1
+    common = Math.max(common, shared)
+  }
+  if (common === 0 || common >= own.length) return null
+  // The distinguishing part starts at its clause when one opens within three words of it.
+  let start = common
+  for (let back = common; back > Math.max(0, common - 3); back -= 1) {
+    if (CLAUSE_END.test(own[back - 1]!)) {
+      start = back
+      break
+    }
+  }
+  // Never inside a bracket: an opening the head leaves unclosed pulls the clause back to it.
+  while (start > 0 && !balanced(own.slice(0, start).join(' '))) start -= 1
+  const stem = flatten(input.terse)
+  const room = QUESTION_MAX - 1 - stem.length - 2
+  const clause = own.slice(start).join(' ')
+  for (let size = start; size >= 1; size -= 1) {
+    const head = trimmedTail(own.slice(0, size).join(' '))
+    if (!names(head) || !balanced(head)) continue
+    const joint = size === start ? ' ' : ' … '
+    const clauseRoom = room - head.length - joint.length
+    const shown = clause.length <= clauseRoom ? clause : cutAtWord(clause, clauseRoom)
+    // The clause must reach the first word the others lack, or it tells nothing apart.
+    if (shown === null || shown.split(' ').length < common - start + 1) continue
+    return { question: `${stem}: ${head}${joint}${shown}?`, subject: head }
   }
   return null
 }
 
-/** The pieces of a handled question, assembled in one place ({@link assemble}). */
-export type QuestionParts = { stem: string; lead: string | null; ordinal: number | null }
-
-/** `<stem>: <lead> (<n>)?`; a missing lead or ordinal leaves its part out. */
-const assemble = ({ stem, lead, ordinal }: QuestionParts): string =>
-  `${stem}${lead === null ? '' : `: ${lead}`}${ordinal === null ? '' : ` (${ordinal})`}?`
+const byKey = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
 
 /**
- * The plain question with the item's own handle: the first `disambiguation.clauses` clauses of
- * `source` (a leading `[tag]` removed), whole, then ` (n)` when clauses alone left two items
- * identical. Bounded to {@link QUESTION_MAX} with the `?` kept; a handle that does not fit whole is
- * dropped (the ordinal rung takes over), never cut. `null` when nothing fits and there is no ordinal:
- * the plain question stands.
+ * THE question rule, for every card of ONE surface (the page or inbox the owner reads together),
+ * in input order. Deterministic and pure:
+ *  1. a `fixed` question (the producer's own) is used verbatim;
+ *  2. otherwise the title keeps its subject: `{stem}: {subject}?`, the subject cut at a word when it
+ *     does not fit {@link QUESTION_MAX} — never inside a bracket or token, never an ellipsis before
+ *     the `?`; with no subject the plain question stands;
+ *  3. siblings that read the same take the terse head (more room for more of their subject), when
+ *     that alone tells them apart;
+ *  4. siblings still the same whose FULL subjects differ are told apart by subject: the opening
+ *     words, then the clause where each parts from the others (`… {clause}?`);
+ *  5. only cards whose normalised full subjects are identical are numbered ` (n)`, in `key` order
+ *     (code-unit comparison), each taking the lowest ordinal no other card already reads.
  */
-function withHandle(
-  plain: string,
-  source: string,
-  { clauses, ordinal, terse = false }: Disambiguation,
-): QuestionParts | null {
-  const tail = ordinal === null ? '' : ` (${ordinal})`
-  // The tail's room is reserved before anything is cut, so an ordinal is never the part that goes.
-  const stemMax = QUESTION_MAX - 1 - tail.length
-  const whole = flatten(plain).replace(/[?\s]+$/, '')
-  const full = whole.length > stemMax ? leadOf(whole, stemMax) : whole
-  const stem = terse ? (full.split(' ')[0] ?? full) : full
-  const room = stemMax - stem.length - 2
-  const lead =
-    room < HANDLE_MIN ? null : fittingLead(source.replace(LEADING_BRACKET_TAGS, ''), clauses, room)
-  return lead === null && ordinal === null ? null : { stem, lead, ordinal }
+export function questionTitles(inputs: readonly QuestionInput[]): QuestionTitle[] {
+  const titles = inputs.map((input) => {
+    const fixed = flatten(input.fixed ?? '')
+    return fixed === '' ? compose(input, 'stem', null) : { question: fixed, subject: null }
+  })
+  const derived = inputs.map((input) => flatten(input.fixed ?? '') === '')
+  const clashing = (list: readonly QuestionTitle[]): number[] => {
+    const count = new Map<string, number>()
+    for (const title of list) count.set(keyOf(title), (count.get(keyOf(title)) ?? 0) + 1)
+    return list.flatMap((title, i) => (derived[i] && count.get(keyOf(title))! > 1 ? [i] : []))
+  }
+
+  const first = clashing(titles)
+  if (first.length === 0) return titles
+  const terse = titles.map((title, i) =>
+    first.includes(i) ? compose(inputs[i]!, 'terse', null) : title,
+  )
+  const stillTerse = new Set(clashing(terse))
+  for (const i of first) if (!stillTerse.has(i)) titles[i] = terse[i]!
+
+  // Still the same: a subject stripped of its commit label gets the label back (`fix(a): …`).
+  const subjects = inputs.map((input) => input.subject)
+  for (const i of clashing(titles)) {
+    const { label, subject } = inputs[i]!
+    if (label == null || subject === null) continue
+    subjects[i] = `${label}: ${subject}`
+    titles[i] = compose({ ...inputs[i]!, subject: subjects[i] }, 'stem', null)
+  }
+
+  // Same title, different full subjects: the subjects themselves tell them apart.
+  const full = subjects.map((subject) =>
+    subject === null ? null : wholeSubject(subject).toLowerCase(),
+  )
+  const groups = new Map<string, number[]>()
+  for (const i of clashing(titles)) {
+    const group = keyOf(titles[i]!)
+    groups.set(group, [...(groups.get(group) ?? []), i])
+  }
+  for (const members of groups.values()) {
+    const apart = members.map((i) => {
+      const others = members.flatMap((j) =>
+        j !== i && full[j] !== null && full[j] !== full[i] ? [subjects[j]!] : [],
+      )
+      return others.length === 0
+        ? null
+        : composeApart({ ...inputs[i]!, subject: subjects[i] ?? null }, others)
+    })
+    members.forEach((i, n) => {
+      if (apart[n] != null) titles[i] = apart[n]!
+    })
+  }
+
+  const order = clashing(titles).toSorted((a, b) => byKey(inputs[a]!.key, inputs[b]!.key))
+  const taken = new Set(titles.map(keyOf))
+  for (const i of order) {
+    const numbered = (n: number) =>
+      compose({ ...inputs[i]!, subject: subjects[i] ?? null }, 'stem', n)
+    let ordinal = 1
+    let next = numbered(ordinal)
+    while (taken.has(keyOf(next)) && ordinal <= inputs.length) {
+      ordinal += 1
+      next = numbered(ordinal)
+    }
+    taken.add(keyOf(next))
+    titles[i] = next
+  }
+  return titles
 }
+
+/** The forms of a question about `noun`: `{verb} {where} {noun}` with no subject, `{verb} {noun}: …` with one. */
+export function questionForms(verb: string, noun: string, where: string | null): QuestionForms {
+  const place = stripShortcodes(where ?? '')
+  return {
+    plain: `${verb} ${place === '' ? 'this' : place} ${noun}`,
+    stem: `${verb} ${noun}`,
+    terse: verb.replace(/\s+(?:for|on|to)$/i, ''),
+  }
+}
+
+/** A conventional-commit label: `fix(scope): `, `ci: `, `feat!: ` — lowercase type, optional scope. */
+const COMMIT_PREFIX = /^[a-z]+(?:\([^)]*\))?!?:\s+/
+
+/** The commit label {@link subjectOf} strips (`fix(scope)`), `null` when the title has none. */
+export function commitLabelOf(title: unknown): string | null {
+  const match = COMMIT_PREFIX.exec(stripShortcodes(asText(title)))
+  return match === null ? null : match[0].replace(/:\s+$/, '')
+}
+
+/** A title's subject: shortcodes stripped, a leading producer kind (`[alert] `, `Alert: `) and a commit label (`fix(scope): `) removed; `null` when nothing is left. */
+export function subjectOf(title: unknown): string | null {
+  const text = stripShortcodes(asText(title))
+  const tag = firstBracketTag(text)
+  const untagged =
+    tag !== null && ALERT_WORD.test(tag) ? text.replace(/^\s*\[[^\]]*\]\s*/, '') : text
+  // The stem already says `alert`: a title that leads with the kind (`Alert: …`) does not say it
+  // twice; a commit-style `type(scope): ` is a label, not the subject (the whole title stays in the detail).
+  const subject = untagged.replace(ALERT_TITLE_PREFIX, '').replace(COMMIT_PREFIX, '').trim()
+  return names(subject) ? subject : null
+}
+
+/** The forms of a card whose caller names no verb. */
+const NEUTRAL_FORMS: QuestionForms = questionForms('Decide on', 'item', null)
+
+// ── Card copy ──────────────────────────────────────────────────────────────────────────────
 
 export type CardCopySource = 'authored' | 'ask' | 'title' | 'plain'
 
@@ -154,253 +389,192 @@ export type CardCopy = {
   question: string
   /** The raw title when the question does not already say it; whole, `null` past {@link ENTITY_MAX} (it sits in `detail`). */
   entity: string | null
-  /** One line of evidence, statements only, no raw URL; `null` when there is none. */
+  /** One line of evidence, statements only, no raw URL, never the question's own words; `null` when there is none. */
   evidenceLine: string | null
-  /** The whole ask/reason (and an over-long title), only when the evidence line did not show all of it. */
+  /** The whole ask/reason (and a title the question cut), only when the evidence line did not show all of it. */
   detail: string | null
   /** Which rung of the rule produced the question. */
   source: CardCopySource
-  /** The handled question's pieces; `null` when the question carries no handle or ordinal. */
-  parts: QuestionParts | null
+  /** The subject words the question shows; `null` for a plain or producer question. */
+  subject: string | null
 }
 
-/**
- * The question rule. In order:
- *  1. `authored` — the question the producer wrote, verbatim, when it fits {@link QUESTION_MAX};
- *     an over-long one is never cut into a fragment, it falls through and its full text goes to the detail;
- *  2. `ask` — the item's own first sentence, when it already is a question that fits;
- *  3. `title` — when the title itself is a question that fits;
- *  4. `plain` — a short question from the item's kind and state (`Merge {repo} PR?`), with the raw
- *     title moved to the entity line, whole. A verb is never glued onto a raw title. When `handle`
- *     is set the question carries the item's own short handle (`Merge {repo} PR: {handle}?`) and the
- *     entity line is dropped: the title is said by the question, or whole in the detail.
- * Whatever did not become the question (`body`, a statement `ask`, a long authored question) is the
- * evidence line / detail.
- */
-export function cardCopy({
-  authored,
-  ask = '',
-  body = null,
-  title,
-  plain = NEUTRAL_QUESTION,
-  handle = null,
-  keepQuestionEvidence = false,
-}: {
+export type CardInput = {
+  /** Orders the ordinal tie-break among identical siblings. */
+  key: string
   authored?: string | null | undefined
   ask?: string
   body?: string | null
   title?: string | null | undefined
-  plain?: string
-  /**
-   * Set only for an item whose plain question another card on the same surface would repeat:
-   * `source` is the text the handle is taken from (the title, or the ask when there is no title).
-   */
-  handle?: ({ source: string } & Disambiguation) | null
+  /** The question forms; neutral (`Decide on item: …`) when the caller names no verb. */
+  forms?: QuestionForms
+  /** The commit label stripped from the subject; defaults to the title's {@link commitLabelOf}. */
+  label?: string | null
+  /** What the item is about; defaults to the title's {@link subjectOf}. */
+  subject?: string | null
   /** Show the body as the evidence line even when it is only questions (an agent's blocker). */
   keepQuestionEvidence?: boolean
-}): CardCopy {
+}
+
+/** Which rung asks the question, and the producer's text when it is not the derived one. */
+function rungOf({ authored, ask = '', title }: CardInput): {
+  source: CardCopySource
+  fixed: string | null
+} {
   const written = flatten(authored ?? '')
   const sentence = flatten(ask)
   const item = flatten(title ?? '')
   const isQuestion = (text: string) => text.endsWith('?') && text.length <= QUESTION_MAX
+  // An over-long authored question is never cut into a fragment: it falls through, whole in the detail.
+  if (written !== '' && written.length <= QUESTION_MAX)
+    return { source: 'authored', fixed: written }
+  if (isQuestion(sentence)) return { source: 'ask', fixed: sentence }
+  if (isQuestion(item)) return { source: 'title', fixed: item }
+  return { source: 'plain', fixed: null }
+}
 
-  let source: CardCopySource
-  let question: string
-  let carriesHandle = false
-  let parts: QuestionParts | null = null
-  if (written !== '' && written.length <= QUESTION_MAX) {
-    source = 'authored'
-    question = written
-  } else if (isQuestion(sentence)) {
-    source = 'ask'
-    question = sentence
-  } else if (isQuestion(item)) {
-    source = 'title'
-    question = item
-  } else {
-    source = 'plain'
-    parts = handle === null ? null : withHandle(plain, handle.source, handle)
-    question = parts === null ? boundedQuestion(plain) : assemble(parts)
-    carriesHandle = parts !== null
+/**
+ * `text` without the sentence the question's `said` subject opened, when it leads with it: the
+ * evidence takes the next fact instead of restating the title. A leading `[tag]` run is a fact the
+ * question does not say, so it stays when anything follows it. `whole` is set when the question
+ * said all of the dropped sentence, so nothing of it is left for the detail to show.
+ */
+function withoutSaid(text: string, said: string): { text: string; whole: boolean } {
+  const tags = LEADING_BRACKET_TAGS.exec(text)?.[0] ?? ''
+  for (const prefix of tags === '' ? [''] : ['', tags]) {
+    const body = text.slice(prefix.length)
+    if (body.slice(0, said.length).toLowerCase() !== said.toLowerCase()) continue
+    const rest = body.slice(said.length)
+    // A word or two the title happens to share (`Flaky` over `Flaky thread test …`) is no
+    // restatement; a short subject that is the whole sentence is.
+    const endsSentence = /^\s*(?:[.!?](?:\s|$)|$)/.test(rest)
+    if (/^[\p{L}\p{N}_]/u.test(rest) || (said.length < SUBJECT_MIN && !endsSentence))
+      return { text, whole: false }
+    const stop = rest.search(/[.!?](?:\s|$)/)
+    // With no sentence stop after the subject, the remainder is the next fact: kept, never dropped.
+    const next = (stop === -1 ? rest.replace(/^[\s,;:—–-]+/, '') : rest.slice(stop + 1)).trim()
+    const whole =
+      prefix === '' && /^[.!?]?$/.test((stop === -1 ? rest : rest.slice(0, stop + 1)).trim())
+    return { text: next === '' ? '' : `${prefix}${next}`.trim(), whole }
   }
+  return { text, whole: false }
+}
 
+function finishCopy(input: CardInput, source: CardCopySource, title: QuestionTitle): CardCopy {
+  const written = flatten(input.authored ?? '')
+  const sentence = flatten(input.ask ?? '')
+  const item = flatten(input.title ?? '')
+  const { question, subject } = title
   const spill = written.length > QUESTION_MAX ? written : ''
   const used = source === 'ask' ? '' : sentence
-  const joined = [spill, used, body ?? '']
+  const joined = [spill, used, input.body ?? '']
     .map(flatten)
     .filter((part) => part !== '')
     .join(' ')
-  // The handle is the opening words of the text: the question says them, the evidence does not repeat them.
-  const text = parts?.lead == null ? joined : withoutLead(joined, parts.lead)
+  const { text, whole: saidWhole } =
+    subject === null ? { text: joined, whole: false } : withoutSaid(joined, subject)
   const saidTitle = bareTitle(item).toLowerCase()
   const showsTitle =
     source === 'title' ||
     bareTitle(question).toLowerCase() === saidTitle ||
-    // A handle that carries the whole title says it; a cut one leaves the whole title to the detail.
-    (carriesHandle && saidTitle !== '' && question.toLowerCase().includes(saidTitle))
-  const entityFits = item !== '' && !showsTitle && !carriesHandle && item.length <= ENTITY_MAX
-  const evidenceLine = text === '' ? null : evidenceLeadOf(text, keepQuestionEvidence)
-  const whole = [item !== '' && !showsTitle && !entityFits ? item : '', text]
-    .filter((part) => part !== '')
-    .join(' ')
+    // A subject that carries the whole title says it; a cut one leaves the whole title to the detail.
+    (subject !== null && saidTitle !== '' && question.toLowerCase().includes(saidTitle))
+  const entityFits = item !== '' && !showsTitle && subject === null && item.length <= ENTITY_MAX
+  const lead = text === '' ? null : evidenceLeadOf(text, input.keepQuestionEvidence ?? false)
+  // The evidence line never restates the question, nor the subject it shows.
+  const said = [question, subject ?? ''].map((t) => bareTitle(t).toLowerCase())
+  const evidenceLine = lead !== null && said.includes(bareTitle(lead).toLowerCase()) ? null : lead
+  const unsaidTitle = item !== '' && !showsTitle && !entityFits ? item : ''
+  const whole = [unsaidTitle, joined].filter((part) => part !== '').join(' ')
+  // Nothing is hidden when the question said the opening sentence whole and the line shows the rest.
+  const shownAll =
+    whole === evidenceLine ||
+    (unsaidTitle === '' &&
+      saidWhole &&
+      (text === '' ? evidenceLine === null : text === evidenceLine))
   return {
     question,
     entity: entityFits ? item : null,
     evidenceLine,
-    detail: whole !== '' && whole !== evidenceLine ? whole : null,
+    detail: whole !== '' && !shownAll ? whole : null,
     source,
-    parts,
+    subject,
   }
 }
 
 /**
- * The cards of one surface whose question another card repeats, flagged in input order. Only the
- * plain rung is a candidate: an authored, ask or title question already belongs to its item.
+ * The copy of every card on ONE surface (Home's inbox, the Warden page, Agents needs-you — never
+ * app-wide), in input order: the question by {@link questionTitles}, then the entity, the evidence
+ * line and the detail around it. Whatever did not become the question (`body`, a statement `ask`,
+ * a long authored question) is the evidence line / detail.
  */
-export function collidingCopies(
-  copies: readonly Pick<CardCopy, 'question' | 'source'>[],
-): boolean[] {
-  const count = new Map<string, number>()
-  for (const { question } of copies) {
-    const key = question.toLowerCase()
-    count.set(key, (count.get(key) ?? 0) + 1)
-  }
-  return copies.map(
-    ({ source, question }) => source === 'plain' && (count.get(question.toLowerCase()) ?? 0) > 1,
+export function surfaceCopies(inputs: readonly CardInput[]): CardCopy[] {
+  const rungs = inputs.map(rungOf)
+  const titles = questionTitles(
+    inputs.map((input, i) => ({
+      ...(input.forms ?? NEUTRAL_FORMS),
+      key: input.key,
+      subject: input.subject === undefined ? subjectOf(input.title) : input.subject,
+      label: input.label === undefined ? commitLabelOf(input.title) : input.label,
+      fixed: rungs[i]!.fixed,
+    })),
   )
+  return inputs.map((input, i) => finishCopy(input, rungs[i]!.source, titles[i]!))
 }
 
-/**
- * `text` without the repeated `lead` and the full stop after it, when it opens with it and the lead
- * ends a sentence. A leading `[tag]` run is a fact the question does not say, so it stays. A lead
- * that stops mid-sentence leaves the line as written: the remainder would be a fragment.
- */
-function withoutLead(text: string, lead: string): string {
-  const tags = LEADING_BRACKET_TAGS.exec(text)?.[0] ?? ''
-  for (const prefix of tags === '' ? [''] : ['', tags]) {
-    const body = text.slice(prefix.length)
-    if (body.slice(0, lead.length).toLowerCase() !== lead.toLowerCase()) continue
-    const rest = body.slice(lead.length)
-    if (!/^\s*(?:[.!?]|$)/.test(rest)) return text
-    return `${prefix}${rest.replace(/^[\s.!?]+/, '')}`.trim()
-  }
-  return text
+/** The copy of one card alone on its surface. */
+export function cardCopy(input: Omit<CardInput, 'key'> & { key?: string }): CardCopy {
+  return surfaceCopies([{ key: '', ...input }])[0]!
 }
 
-/** Each step takes more of the title; the last takes all of it. */
-const LADDER: readonly number[] = [1, 2, Infinity]
+/** What a card shows of its reason: the line, and the whole text behind the disclosure. */
+type Evidence = { evidenceLine: string | null; detail: string | null }
 
 /**
- * The copy of every card on ONE surface (the page or inbox the owner reads together: Home needs-you
- * across all its sources, the Warden page across needs-you and failed, Agents needs-you — never
- * app-wide). A card keeps its short plain question unless another card of the surface reads the
- * same; then it derives again with its handle, and the whole surface is re-checked after each step:
- * first clause, two clauses, the whole title, and for items still identical an ordinal in `key`
- * order, so the result is distinct for any input and stable across refreshes.
+ * Cards whose evidence lines read the same word for word tell nothing apart: only the first in
+ * `order` (display order, indices into `cards`; default input order) keeps the line, the others drop
+ * it and keep the whole text behind their disclosure. A `null` line is never a group; a card outside
+ * `order` is left as it is.
  */
-export function resolveCopies<T, R extends { copy: CardCopy }>(
-  items: readonly T[],
-  {
-    derive,
-    key,
-    terseStem = false,
-  }: {
-    derive: (item: T, options: { handle: Disambiguation | null }) => R
-    key: (item: T) => string
-    /** Where a shared stem would head every card (`Answer this request: …`), keep only its verb. */
-    terseStem?: boolean
-  },
-): R[] {
-  const results = items.map((item) => derive(item, { handle: null }))
-  const used: (Disambiguation | null)[] = items.map(() => null)
-  const clashes = () => collidingCopies(results.map((r) => r.copy))
-  const finish = (): R[] => (terseStem ? withTerseStems(items, results, used, derive) : results)
-  let last: Disambiguation = { clauses: 1, ordinal: null }
-  for (const clauses of LADDER) {
-    const flags = clashes()
-    if (!flags.some(Boolean)) return finish()
-    last = { clauses, ordinal: null }
-    flags.forEach((flag, i) => {
-      if (!flag) return
-      used[i] = last
-      results[i] = derive(items[i]!, { handle: last })
-    })
-  }
-  // Still identical: number them in key order. Each takes the lowest ordinal whose question no other
-  // card on the surface already reads, so `Disk full`, `Disk full` and `Disk full (1)` stay distinct.
-  const taken = new Set(results.map((r) => r.copy.question.toLowerCase()))
-  const flags = clashes()
-  const order = items
-    .map((_, i) => i)
-    .filter((i) => flags[i])
-    .toSorted((a, b) => key(items[a]!).localeCompare(key(items[b]!)))
-  for (const index of order) {
-    const item = items[index]!
-    // The first of an identical group keeps the question the others will be measured against.
-    let ordinal = 1
-    let next = derive(item, { handle: { ...last, ordinal } })
-    while (taken.has(next.copy.question.toLowerCase()) && ordinal < items.length + 1) {
-      ordinal += 1
-      next = derive(item, { handle: { ...last, ordinal } })
+export function withoutRepeatedEvidence<T extends Evidence>(
+  cards: readonly T[],
+  order: readonly number[] = cards.map((_, i) => i),
+): T[] {
+  const seen = new Set<string>()
+  const result = [...cards]
+  for (const i of order) {
+    const card = cards[i]!
+    const line = card.evidenceLine
+    if (line === null) continue
+    const key = line.toLowerCase()
+    if (!seen.has(key)) {
+      seen.add(key)
+      continue
     }
-    taken.add(next.copy.question.toLowerCase())
-    used[index] = { ...last, ordinal }
-    results[index] = next
+    result[i] = { ...card, evidenceLine: null, detail: card.detail ?? line }
   }
-  return finish()
-}
-
-/**
- * Cards that all open with the same stem before their handle (`Answer this request: …`) say it
- * once too often: those cards keep the verb alone. A card keeps its full stem when the terse form
- * lost its handle or reads the same as another card on the surface.
- */
-function withTerseStems<T, R extends { copy: CardCopy }>(
-  items: readonly T[],
-  results: R[],
-  used: readonly (Disambiguation | null)[],
-  derive: (item: T, options: { handle: Disambiguation | null }) => R,
-): R[] {
-  const counts = new Map<string, number>()
-  for (const { copy } of results) {
-    const stem = copy.parts?.lead == null ? null : copy.parts.stem.toLowerCase()
-    if (stem !== null) counts.set(stem, (counts.get(stem) ?? 0) + 1)
-  }
-  const terse = results.map((result, i) => {
-    const handle = used[i]
-    const stem = result.copy.parts?.lead == null ? null : result.copy.parts.stem.toLowerCase()
-    if (handle == null || stem === null || (counts.get(stem) ?? 0) < 2) return null
-    const next = derive(items[i]!, { handle: { ...handle, terse: true } })
-    return next.copy.parts?.lead == null ? null : next
-  })
-  const merged = results.map((result, i) => terse[i] ?? result)
-  const clashing = collidingCopies(merged.map((r) => r.copy))
-  return merged.map((result, i) => (clashing[i] && terse[i] != null ? results[i]! : result))
+  return result
 }
 
 // ── Warden ───────────────────────────────────────────────────────────────────────────────────
 
-/** The plain question per primary verb: `[verb, noun]`, read as `<verb> <repo> <noun>?`. */
-const WARDEN_PLAIN: Partial<Record<WardenActionVerb, readonly [verb: string, noun: string]>> = {
+/** The noun a Warden card asks about per primary verb: `<verb> <noun>: <subject>?`. */
+const WARDEN_ASK: Partial<Record<WardenActionVerb, readonly [verb: string, noun: string]>> = {
   merge: ['Merge', 'PR'],
   implement: ['Implement', 'change'],
   reinvestigate: ['Re-investigate', 'item'],
   retry: ['Retry', 'item'],
 }
 
-/** What an alert asks for per primary verb: the verb the card's button carries, then what it acts on. */
-const ALERT_PLAIN: Record<WardenActionVerb, readonly [verb: string, object: string]> = {
-  implement: ['Implement', 'fix for'],
-  merge: ['Merge', 'fix for'],
-  reinvestigate: ['Re-investigate', ''],
-  retry: ['Retry', ''],
-  dismiss: ['Dismiss', ''],
-  note: ['Add a note to', ''],
+/** What an alert asks for per primary verb: the verb the card's button carries. */
+const ALERT_VERB: Record<WardenActionVerb, string> = {
+  implement: 'Implement fix for',
+  merge: 'Merge fix for',
+  reinvestigate: 'Re-investigate',
+  retry: 'Retry',
+  dismiss: 'Dismiss',
+  note: 'Add a note to',
 }
-
-const ALERT_WORD = /^(?:alert|incident|outage)s?$/i
-/** A title that leads with the kind and a colon or a spaced dash (`Alert: …`, `Outage — …`; a hyphen inside a word is not one): the fallback when no field names it. */
-const ALERT_TITLE_PREFIX = /^\W*(?:alert|incident|outage)s?(?:\s*:|\s+[—–-]\s)/i
 
 /**
  * Whether an item is an alert, incident or outage. A title the producer tagged `[alert]` is one; else
@@ -424,34 +598,39 @@ export function isAlert({
 }
 
 /**
- * The plain question of a Warden item from the verb its card offers first: `Merge {repo} PR?`.
- * `Retry failed {repo} run?` only for a failed item whose primary is retry; any other verb (or none)
- * is neutral, so a question never promises an action the card does not carry. An `alert` is asked
- * about as an alert in the verb its button carries (`Implement fix for {repo} alert?`, `Dismiss …`),
- * never as a change; with no verb it is neutral (`Decide on {repo} alert?`).
+ * The question forms of a Warden item from the verb its card offers first (`Merge PR: {subject}?`,
+ * `Merge {repo} PR?` with no subject). `Retry failed run` only for a failed item whose primary is
+ * retry; any other verb (or none) is neutral (`Decide on`), so a question never promises an action
+ * the card does not carry. An `alert` is asked about as an alert in the verb its button carries
+ * (`Implement fix for alert: {subject}?`), never as a change. On `home`, whose only button opens the
+ * item in Warden, every question is `Decide on {noun}`: it names what to decide, never a verb the
+ * card cannot do.
  */
-export function wardenPlainQuestion({
+export function wardenQuestionForms({
   failed,
   repo,
   primary,
   alert = false,
+  surface = 'warden',
 }: {
   failed: boolean
   repo: string | null
   primary: WardenActionVerb | null
   alert?: boolean
-}): string {
+  surface?: 'warden' | 'home'
+}): QuestionForms {
   const where = stripShortcodes(asText(repo))
-  if (alert) {
-    const [verb, object] = primary === null ? (['Decide on', ''] as const) : ALERT_PLAIN[primary]
-    const alertName = where === '' ? 'this alert' : `${where} alert`
-    return plainQuestion(verb, object === '' ? alertName : `${object} ${alertName}`)
-  }
-  const entry = primary === null ? undefined : WARDEN_PLAIN[primary]
-  if (entry === undefined)
-    return plainQuestion('Decide on', where === '' ? 'this item' : `${where} item`)
-  const [verb, noun] = entry
-  if (primary === 'retry' && failed)
-    return plainQuestion(verb, where === '' ? 'failed run' : `failed ${where} run`)
-  return plainQuestion(verb, where === '' ? `this ${noun}` : `${where} ${noun}`)
+  const entry = primary === null ? undefined : WARDEN_ASK[primary]
+  const failedRun = !alert && failed && primary === 'retry'
+  const noun = alert ? 'alert' : failedRun ? 'failed run' : (entry?.[1] ?? 'item')
+  const verb =
+    surface === 'home' || primary === null
+      ? 'Decide on'
+      : alert
+        ? ALERT_VERB[primary]
+        : (entry?.[0] ?? 'Decide on')
+  const forms = questionForms(verb, noun, where)
+  return failedRun
+    ? { ...forms, plain: `${verb} failed ${where === '' ? '' : `${where} `}run` }
+    : forms
 }

@@ -255,38 +255,46 @@ describe('headlineOf', () => {
 
 describe('agentsSummaryParts', () => {
   it('carries the one figure the strip lacks: the projects the blocked agents sit in', () => {
-    expect(agentsSummaryParts({ agentWaits: 2, asks: 1, projects: 2 }).sentence).toBe(
+    expect(agentsSummaryParts({ agentWaits: 2, asks: 1, projects: 2, commands: 0 }).sentence).toBe(
       'Agents in 2 projects and the human queue are waiting on you.',
     )
-    expect(agentsSummaryParts({ agentWaits: 3, asks: 0, projects: 2 }).sentence).toBe(
+    expect(agentsSummaryParts({ agentWaits: 3, asks: 0, projects: 2, commands: 0 }).sentence).toBe(
       'Agents in 2 projects are waiting on you.',
     )
-    expect(agentsSummaryParts({ agentWaits: 1, asks: 0, projects: 1 }).sentence).toBe(
+    expect(agentsSummaryParts({ agentWaits: 1, asks: 0, projects: 1, commands: 0 }).sentence).toBe(
       'An agent in 1 project is waiting on you.',
     )
   })
 
   it('adds the abandoned count and the ask hosts, figures no other part of the page prints', () => {
-    expect(agentsSummaryParts({ agentWaits: 3, asks: 0, projects: 2, abandoned: 1 }).sentence).toBe(
-      'Agents in 2 projects are waiting on you, 1 of them abandoned.',
-    )
+    expect(
+      agentsSummaryParts({ agentWaits: 3, asks: 0, projects: 2, abandoned: 1, commands: 0 })
+        .sentence,
+    ).toBe('Agents in 2 projects are waiting on you, 1 of them abandoned.')
     // All abandoned is the most urgent case: it is said.
-    expect(agentsSummaryParts({ agentWaits: 3, asks: 0, projects: 2, abandoned: 3 }).sentence).toBe(
-      'Agents in 2 projects are waiting on you, all abandoned.',
-    )
-    expect(agentsSummaryParts({ agentWaits: 0, asks: 3, projects: 0, hosts: 2 }).sentence).toBe(
-      'Requests from 2 hosts are waiting for your answer.',
-    )
+    expect(
+      agentsSummaryParts({ agentWaits: 3, asks: 0, projects: 2, abandoned: 3, commands: 0 })
+        .sentence,
+    ).toBe('Agents in 2 projects are waiting on you, all abandoned.')
+    expect(
+      agentsSummaryParts({ agentWaits: 0, asks: 3, projects: 0, hosts: 2, commands: 0 }).sentence,
+    ).toBe('Requests from 2 hosts are waiting for your answer, none with a command to run.')
   })
 
-  it('reads asks alone without a figure, and says nothing waits', () => {
-    expect(agentsSummaryParts({ agentWaits: 0, asks: 1, projects: 0 }).sentence).toBe(
+  it('gives asks alone the figure the tile does not print: how many come with a command', () => {
+    expect(agentsSummaryParts({ agentWaits: 0, asks: 1, projects: 0, commands: 0 }).sentence).toBe(
       'A request is waiting for your answer.',
     )
-    expect(agentsSummaryParts({ agentWaits: 0, asks: 2, projects: 0 }).sentence).toBe(
-      'Requests are waiting for your answer.',
+    expect(agentsSummaryParts({ agentWaits: 0, asks: 1, projects: 0, commands: 1 }).sentence).toBe(
+      'A request is waiting for your answer, with a command to run.',
     )
-    expect(agentsSummaryParts({ agentWaits: 0, asks: 0, projects: 0 })).toEqual({
+    expect(agentsSummaryParts({ agentWaits: 0, asks: 3, projects: 0, commands: 2 }).sentence).toBe(
+      'Requests are waiting for your answer, 2 with a command to run.',
+    )
+    expect(agentsSummaryParts({ agentWaits: 0, asks: 2, projects: 0, commands: 2 }).sentence).toBe(
+      'Requests are waiting for your answer, all with a command to run.',
+    )
+    expect(agentsSummaryParts({ agentWaits: 0, asks: 0, projects: 0, commands: 0 })).toEqual({
       sentence: 'Nothing needs you.',
     })
   })
@@ -334,14 +342,14 @@ describe('activityFact', () => {
   it('names the busiest hour and the measured hours with an agent working', () => {
     const buckets = [hour(1, 0), hour(2, 3), hour(3, 1), hour(4, 0)]
     expect(activityFact(buckets, peakWorking(buckets))).toMatch(
-      /^busiest hour \d\d:\d\d · agents working in 2 of 4\u00a0h$/,
+      /^busiest hour \d\d:\d\d · agents working in 2\u00a0of\u00a04\u00a0h$/,
     )
   })
 
   it('leaves unmeasured hours out of the denominator and says so', () => {
     const buckets = [hour(1, null), hour(2, 3), hour(3, 0), hour(4, null)]
     expect(activityFact(buckets, peakWorking(buckets))).toMatch(
-      /agents working in 1 of 2\u00a0h observed$/,
+      /agents working in 1\u00a0of\u00a02\u00a0h observed$/,
     )
     const quiet = [hour(1, null), hour(2, 0)]
     expect(activityFact(quiet, peakWorking(quiet))).toBe('no agent working in 1\u00a0h observed')
@@ -459,8 +467,8 @@ describe('needsYouCards', () => {
     expect(cards.map((c) => c.key)).toEqual(['agent-x', 'hq-a', 'hq-b'])
     expect(cards[0]).toMatchObject({
       abandoned: true,
-      question: 'Unblock project-a agent?',
-      entity: 'Pick a branch',
+      question: 'Unblock agent: Pick a branch?',
+      entity: null,
       evidenceLine: 'dialog open',
       actions: [
         { label: 'Copy pane id', value: 'p1' },
@@ -506,8 +514,9 @@ describe('needsYouCards', () => {
     )
     expect(cards.map((c) => c.question)).toEqual([
       'Deploy now?',
-      'Answer: Item #b?',
-      'Answer: Item #c?',
+      // No ask text, no subject: identical cards, so the ordinal is the honest last tie-break.
+      'Answer this request (1)?',
+      'Answer this request (2)?',
     ])
     for (const card of cards) expect(card.actions.length).toBeGreaterThanOrEqual(1)
   })
@@ -527,7 +536,8 @@ describe('needsYouCards', () => {
       [agent({ id: 'z', state: 'needs_you', title: 'Pick', project: '—' })],
       now,
     )
-    expect(card?.question).toBe('Unblock this agent?')
+    expect(card?.question).toBe('Unblock agent: Pick?')
+    expect(card?.facts).not.toContain('—')
   })
 
   it('never has a card without an action', () => {
@@ -580,15 +590,15 @@ describe('needsYouCards', () => {
     expect(hosted?.facts).toEqual(['human queue', 'laptop', 'asked 30\u00a0min ago'])
   })
 
-  it('turns a statement ask into a plain question, the statement as evidence, no character count', () => {
+  it('asks about a statement ask by its first sentence; the evidence takes the next one', () => {
     const [card] = needsYouCards(
       [{ id: 's', question: 'Short ask. Second sentence follows.', host: 'mini' }],
       [],
       now,
     )
     expect(card).toMatchObject({
-      question: 'Answer mini request?',
-      evidenceLine: 'Short ask. Second sentence follows.',
+      question: 'Answer: Short ask?',
+      evidenceLine: 'Second sentence follows.',
       disclosure: null,
     })
   })
@@ -707,19 +717,19 @@ describe('feedAside', () => {
 describe('needsYouCards: questions that tell items apart', () => {
   const now = Date.parse('2026-01-10T12:00:00Z')
 
-  it('gives two same-project agents their own handle, and a lone one keeps the short form', () => {
+  it('names every agent by its task, alone or beside a same-project sibling', () => {
     const waiting = (id: string, title: string) =>
       agent({ id, state: 'needs_you', title, project: 'project-a', lastActivityAt: now - 60_000 })
     const [lone] = needsYouCards([], [waiting('a', 'Pick a branch')], now)
-    expect(lone!.question).toBe('Unblock project-a agent?')
+    expect(lone!.question).toBe('Unblock agent: Pick a branch?')
     const pair = needsYouCards(
       [],
       [waiting('a', 'Pick a branch'), waiting('b', 'Choose a host')],
       now,
     )
     expect(pair.map((c) => c.question).toSorted()).toEqual([
-      'Unblock: Choose a host?',
-      'Unblock: Pick a branch?',
+      'Unblock agent: Choose a host?',
+      'Unblock agent: Pick a branch?',
     ])
     expect(pair.map((c) => c.entity)).toEqual([null, null])
   })
@@ -763,7 +773,7 @@ describe('needsYouCards: loose wire values', () => {
     }
   })
 
-  it('tells two same-title-prefix agents apart by clause, then ordinal', () => {
+  it('tells two same-title-prefix agents apart by the rest of their subject', () => {
     const waiting = (id: string, title: string) =>
       agent({ id, state: 'needs_you', title, project: 'project-a', lastActivityAt: now - 60_000 })
     const cards = needsYouCards(
@@ -777,9 +787,9 @@ describe('needsYouCards: loose wire values', () => {
     )
     expect(cards.map((c) => c.question).toSorted()).toEqual(
       [
-        'Unblock: Pick a branch — host a?',
-        'Unblock: Pick a branch — host b?',
-        'Unblock: Same?',
+        'Unblock agent: Pick a branch — host a?',
+        'Unblock agent: Pick a branch — host b?',
+        'Unblock agent: Same?',
       ].toSorted(),
     )
   })
@@ -794,10 +804,10 @@ describe('round 2 guards', () => {
       agent({ id: 'b', state: 'needs_you', project: '  ' }),
     ]
     expect(waitingProjects(rows)).toBe(0)
-    expect(agentsSummaryParts({ agentWaits: 2, asks: 0, projects: 0 }).sentence).toBe(
+    expect(agentsSummaryParts({ agentWaits: 2, asks: 0, projects: 0, commands: 0 }).sentence).toBe(
       'Agents are waiting on you.',
     )
-    expect(agentsSummaryParts({ agentWaits: 1, asks: 1, projects: 0 }).sentence).toBe(
+    expect(agentsSummaryParts({ agentWaits: 1, asks: 1, projects: 0, commands: 0 }).sentence).toBe(
       'Agents and the human queue are waiting on you.',
     )
   })
