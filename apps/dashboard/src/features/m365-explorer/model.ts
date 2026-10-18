@@ -257,8 +257,12 @@ export function labeledSegmentCaption(value: number, labeled: number, unlabeled:
 
 /** The labeled cell when there is nothing to label: said once, with the cause. */
 /** The strip's chats and channels cells: what is missing and the next step, in the labeled cell's wording. */
-export const NO_CHATS = 'No chats came back — refresh to retry'
-export const NO_TEAMS = 'No teams came back — refresh to retry'
+export const NO_CHATS = 'No chats came back'
+export const NO_TEAMS = 'No teams came back'
+
+/** The channels cell is empty only once the teams read has settled with none and no team failed; `null` (pending) is never empty. */
+export const noTeamsSettled = (teams: number | null, failed: number): boolean =>
+  teams === 0 && failed === 0
 
 export const NOTHING_TO_LABEL =
   'Nothing to label — no chats or channels came back; refresh to retry'

@@ -5,6 +5,7 @@ import {
   chatKindParts,
   chatsStat,
   NO_CHATS,
+  noTeamsSettled,
   chatsCapped,
   CHATS_TOP,
   sectionTitleFor,
@@ -398,5 +399,14 @@ describe('labeledSegmentCaption', () => {
   })
   test('all labeled: the zero unlabeled segment keeps its count', () => {
     expect(labeledSegmentCaption(0, 5, 0)).toBe('0')
+  })
+})
+
+describe('noTeamsSettled', () => {
+  test('pending is never empty; settled with none is; a failed team is not', () => {
+    expect(noTeamsSettled(null, 0)).toBe(false)
+    expect(noTeamsSettled(0, 0)).toBe(true)
+    expect(noTeamsSettled(0, 1)).toBe(false)
+    expect(noTeamsSettled(2, 0)).toBe(false)
   })
 })
