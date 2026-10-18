@@ -46,6 +46,14 @@ const ACWR_SERIES: ChartSeries<TrainingLoadPoint>[] = [
   },
   // Legend-only zone keys: `getValue` is always null, so they draw nothing and own no tooltip row.
   {
+    key: 'under',
+    label: LEGEND.under,
+    color: VX.warnSolid,
+    mark: 'bar',
+    role: 'reference',
+    getValue: () => null,
+  },
+  {
     key: 'optimal',
     label: LEGEND.optimal,
     color: VX.goodSolid,
@@ -141,9 +149,12 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
           {...(xDomain && { xDomain })}
           xTicks={xTicks}
           y={{ domain: 'auto', autoMaxFloor: 1.6, autoMinCeil: 0.6, format: (v) => v.toFixed(1) }}
-          zones={[{ from: ACWR_FLOOR, to: ACWR_OPTIMAL_TO, fill: ZONE_FILL.good }]}
+          zones={[
+            { from: ACWR_FLOOR, to: ACWR_OPTIMAL_TO, fill: ZONE_FILL.good },
+            { from: ACWR_OPTIMAL_TO, to: ACWR_CAUTION_TO, fill: ZONE_FILL.warn },
+          ]}
           thresholds={[
-            { value: ACWR_OPTIMAL_TO, side: 'above', fill: ZONE_FILL.bad },
+            { value: ACWR_CAUTION_TO, side: 'above', fill: ZONE_FILL.bad },
             { value: ACWR_FLOOR, side: 'below', fill: ZONE_FILL.warn },
           ]}
           refLines={[

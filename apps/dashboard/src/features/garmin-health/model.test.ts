@@ -432,6 +432,7 @@ describe('loadFooter', () => {
 describe('acwrLegendLabels', () => {
   test('names all three zones with the meter vocabulary and their bounds', () => {
     expect(acwrLegendLabels()).toEqual({
+      under: 'Under (< 0.8)',
       optimal: 'Optimal (0.8–1.3)',
       caution: 'Caution (1.3–1.5)',
       danger: 'Danger (> 1.5)',
