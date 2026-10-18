@@ -3,6 +3,7 @@ import { alpha, VX } from 'basalt-ui/tokens'
 import {
   booksPerMonth,
   NO_PACE_REASON,
+  paceRange,
   ratingShape,
   ratingsFooter,
   shelfParts,
@@ -38,7 +39,14 @@ function shelfCell(
         segments={parts.map((p, i) => ({ label: p.label, value: p.value, color: fillAt(i) }))}
       />
     ),
-    ...(rate === null ? {} : { footer: `${rate} books a month in ${year}` }),
+    ...(finished === 0
+      ? {}
+      : {
+          footer:
+            rate === null
+              ? `${finished} so far in ${year}`
+              : `${rate.toFixed(1)} books a month in ${year}`,
+        }),
   }
 }
 
@@ -59,7 +67,7 @@ function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
     visual: (
       <div
         role="img"
-        aria-label={`Rated books per star: ${shape.buckets.map((c, i) => `${i + 1} ★ ${c}`).join(', ')}; mean ${shape.mean.toFixed(1)} ★`}
+        aria-label={`Rated books per star: ${shape.buckets.map((c, i) => `${shape.labels[i]} ${c}`).join(', ')}; mean ${shape.mean.toFixed(1)} ★`}
       >
         <div className={classes.histogram}>
           {shape.buckets.map((count, i) => (
@@ -75,7 +83,7 @@ function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
         <div className={classes.axis}>
           {shape.buckets.map((count, i) => (
             <span key={i} className={classes.axisLabel}>
-              <span>{i + 1}★</span>
+              <span>{shape.labels[i]}</span>
               <span>{count}</span>
             </span>
           ))}
@@ -90,17 +98,12 @@ function paceCell(pace: Pace): StatStripCell {
   if (pace.median === null || pace.median <= 0) {
     return { key: 'pace', caption: 'Reading pace', value: null, footer: NO_PACE_REASON }
   }
-  const slowest = pace.paces[0] as number
-  const fastest = pace.paces[pace.paces.length - 1] as number
   return {
     key: 'pace',
     caption: `Reading pace · median of ${pace.paces.length} ${pace.paces.length === 1 ? 'book' : 'books'}`,
     value: String(pace.median),
     unit: 'pages/h',
-    footer:
-      pace.paces.length === 1
-        ? 'one book has reading time so far'
-        : `slowest ${slowest}, fastest ${fastest} pages/h`,
+    footer: paceRange(pace.paces) ?? 'one book has reading time so far',
   }
 }
 

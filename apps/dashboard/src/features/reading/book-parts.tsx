@@ -69,7 +69,7 @@ type BookRowProps = {
 /** Entity row: cover 32 px, title, author, a mono value pinned right. */
 export function BookRow({ book, meta, trail }: BookRowProps) {
   return (
-    <div role="listitem" className={classes.row}>
+    <li className={classes.row}>
       <Cover book={book} width={32} />
       <div className={classes.rowBody}>
         <BookTitle book={book} />
@@ -79,6 +79,6 @@ export function BookRow({ book, meta, trail }: BookRowProps) {
         </Text>
       </div>
       <div className={classes.rowTrail}>{trail}</div>
-    </div>
+    </li>
   )
 }

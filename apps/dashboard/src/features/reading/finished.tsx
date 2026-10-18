@@ -27,34 +27,36 @@ export function Finished({
   undated: number
 }) {
   const total = groups.reduce((sum, g) => sum + g.rows.length, 0)
-  const note = undated > 0 ? `${undated} finished without a read date, not listed` : ''
+  const note = undated > 0 ? `${undated} finished without a read date, not listed` : null
   const scope = scopeLabel(groups)
   return (
     <Section
       title={scope === '' ? 'Finished' : `Finished · ${scope}`}
       count={total}
-      {...(note !== '' && { summary: <Text className={classes.facts}>{note}</Text> })}
+      {...(note !== null && { summary: <Text className={classes.facts}>{note}</Text> })}
     >
       {total === 0 ? (
         <Text size="sm" c="dimmed">
           No finished books with a read date.
         </Text>
       ) : (
-        <div role="list">
+        <div>
           {groups.map((group) => (
             <section key={group.label} aria-label={group.label}>
               <Text className={classes.groupHeading}>
                 {group.label}
                 <span>{group.rows.length}</span>
               </Text>
-              {group.rows.map(({ book, readDate, days }) => (
-                <BookRow
-                  key={book.hardcoverBookId}
-                  book={book}
-                  meta={finishedMeta(book.rating, days)}
-                  trail={trail(readDate, book.pages)}
-                />
-              ))}
+              <ul className={classes.list}>
+                {group.rows.map(({ book, readDate, days }) => (
+                  <BookRow
+                    key={book.hardcoverBookId}
+                    book={book}
+                    meta={finishedMeta(book.rating, days)}
+                    trail={trail(readDate, book.pages)}
+                  />
+                ))}
+              </ul>
             </section>
           ))}
         </div>
@@ -80,16 +82,16 @@ export function TimeRead({ shelf }: { shelf: readonly ShelfItem[] }) {
           No device reading time recorded for a finished book yet.
         </Text>
       ) : (
-        <div role="list">
+        <ul className={classes.list}>
           {rows.map((r) => (
-            <div key={r.key} role="listitem" className={classes.row}>
+            <li key={r.key} className={classes.row}>
               <Text size="sm" className={classes.rowBody} lineClamp={2}>
                 {r.label}
               </Text>
               <div className={classes.rowTrail}>{formatReadTime(r.seconds)}</div>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </Section>
   )

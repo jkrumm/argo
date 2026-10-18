@@ -31,7 +31,9 @@ export function Backlog({ backlog, pace }: { backlog: BacklogTotals; pace: numbe
       <Section
         title="Backlog"
         count={backlog.count}
-        summary={<Text className={classes.facts}>{headerFacts(backlog, pace)}</Text>}
+        {...(backlog.count > 0 && {
+          summary: <Text className={classes.facts}>{headerFacts(backlog, pace)}</Text>,
+        })}
       >
         {backlog.count === 0 ? (
           <Text size="sm" c="dimmed">
@@ -39,7 +41,7 @@ export function Backlog({ backlog, pace }: { backlog: BacklogTotals; pace: numbe
           </Text>
         ) : (
           <>
-            <div role="list">
+            <ul className={classes.list}>
               {shown.map((book) => (
                 <BookRow
                   key={book.hardcoverBookId}
@@ -54,7 +56,7 @@ export function Backlog({ backlog, pace }: { backlog: BacklogTotals; pace: numbe
                   trail={book.pages === null ? '—' : `${book.pages} p`}
                 />
               ))}
-            </div>
+            </ul>
             {backlog.count > cap ? (
               <Button
                 variant="subtle"

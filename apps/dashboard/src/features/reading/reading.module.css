@@ -82,6 +82,13 @@
   border-radius: var(--vx-radius-ctrl);
 }
 
+/* A semantic list with the bullets and indent reset: rows draw their own hairlines. */
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 /* ── Book rows and cards ──────────────────────────────────────────────────────────────────── */
 
 .cover {
