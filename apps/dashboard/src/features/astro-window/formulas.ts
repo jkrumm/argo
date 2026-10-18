@@ -88,7 +88,7 @@ export function limitingFactor(night: Night): { label: string; pct: number } | n
 export function nightNote(night: Night): string {
   if (night.verdict !== 'out' && night.window !== null) return fmtMinutes(night.window.minutes)
   const gap = coreGateFailure(night) ? gapToGate(night) : null
-  return gap !== null ? `${gap.toFixed(1)}° short` : killerLabel(night)
+  return gap !== null && gap > 0 ? `${gap.toFixed(1)}° short` : killerLabel(night)
 }
 
 /** Compact reason label for a ruled-out night's strip cell — the operator's actual question on a
@@ -182,29 +182,34 @@ export function coreMeterReading(night: Night): { reading: number; gate: number 
  * the gate or there is no dark stretch.
  */
 export function gapToGate(night: Night): number | null {
+  const gap = rawGapToGate(night)
+  return gap === null ? null : Math.round(gap * 10) / 10
+}
+
+/** The same gap unrounded: what ranking and bar lengths use, so 3.96° beats 3.99° though both show as 4.0°. */
+function rawGapToGate(night: Night): number | null {
   if (night.gateCoreAltitude === null || night.coreGateDeg === null) return null
-  const gap = night.coreGateDeg - night.gateCoreAltitude
   if (!coreGateFailure(night)) return null
-  return Math.round(Math.max(0, gap) * 10) / 10
+  return Math.max(0, night.coreGateDeg - night.gateCoreAltitude)
 }
 
 /** `OUT · core 3.9° under the gate` / `GO · Sat 17, 23:10–01:40 · 2h 30m`. The API rules; this phrases. */
 export function verdictHeadline(night: Night): string {
   if (night.verdict !== 'out') {
-    const { window } = night
-    return window === null
+    const shoot = night.window
+    return shoot === null
       ? `GO · ${fmtShortDay(night.date)}`
-      : `GO · ${fmtShortDay(night.date)}, ${window.localStart}–${window.localEnd} · ${fmtMinutes(window.minutes)}`
+      : `GO · ${fmtShortDay(night.date)}, ${shoot.localStart}–${shoot.localEnd} · ${fmtMinutes(shoot.minutes)}`
   }
   const gap = gapToGate(night)
-  if (gap !== null) return `OUT · core ${fmtDegrees(gap)} under the gate`
+  if (gap !== null && gap > 0) return `OUT · core ${fmtDegrees(gap)} under the gate`
   const first = night.killers[0]
   return first === undefined ? 'OUT' : `OUT · ${first.label.toLowerCase()}`
 }
 
-/** Degrees short of the core gate, the one gap the strip can draw. Null for any other kind of night. */
+/** Degrees short of the core gate, UNROUNDED, the one gap the strip can draw. Null for any other kind of night. */
 export function nightShortfall(night: Night): number | null {
-  return night.verdict === 'out' ? gapToGate(night) : null
+  return night.verdict === 'out' ? rawGapToGate(night) : null
 }
 
 /** The shared scale of the strip's shortfall bars: the largest gap on screen, so the worst night fills
@@ -230,9 +235,9 @@ export function longestWindow(nights: readonly Night[]): number {
   return Math.max(0, ...nights.map((n) => (n.verdict === 'out' ? 0 : (n.window?.minutes ?? 0))))
 }
 
-/** A usable night's window length as a share of the longest; null for a night with no window. */
+/** A usable night's window length as a share of the longest; null for a night with no (or an empty) window. */
 export function windowShare(night: Night, longest: number): number | null {
-  if (night.verdict === 'out' || night.window === null) return null
+  if (night.verdict === 'out' || night.window === null || night.window.minutes <= 0) return null
   return barShare(night.window.minutes, longest)
 }
 
@@ -268,17 +273,16 @@ export function countOffscreen(
   return cellRights.filter((right) => right > scrollerRight + tolerance).length
 }
 
-/** `1 more night →` / `6 more nights →`; empty when nothing is off-screen. */
-export function moreNightsLabel(count: number): string {
-  if (count <= 0) return ''
-  return `${count} more ${count === 1 ? 'night' : 'nights'} →`
+/** The off-screen strip count in words: `visible` is the cue's text, `spoken` the group's aria suffix. */
+export function offscreenNightsText(count: number): { visible: string; spoken: string } {
+  if (count <= 0) return { visible: '', spoken: '' }
+  const phrase = `${count} more ${count === 1 ? 'night' : 'nights'}`
+  return { visible: `${phrase} →`, spoken: `${phrase} off-screen` }
 }
 
-/** The Core cell's footer. The altitude is the transit altitude and may lie in daylight, so it is
- * only called "of the night" when there is an astronomical night at all. */
+/** The Core cell's footer: the transit altitude. Transit can fall in daylight, so it is never "the night's" best. */
 export function coreTransitFooter(night: Night): string {
-  const reading = `${fmtDegrees(night.maxCoreAltitude)} at transit`
-  return night.darkMinutes > 0 ? `highest of the night, ${reading}` : reading
+  return `${fmtDegrees(night.maxCoreAltitude)} at transit`
 }
 
 /**
@@ -293,17 +297,19 @@ export function pageSummary(
   const total = data.nights.length
   const usable = usableNightCount(data.nights)
   const marked = markedNightOf(data)
+  const nightWord = total === 1 ? 'night' : 'nights'
   const sentence =
-    usable === 0 ? `No usable night in the next ${total}` : `${usable} of ${total} nights usable`
+    usable === 0
+      ? `No usable night${total === 1 ? '' : ` in the next ${total}`}`
+      : `${usable} of ${total} ${nightWord} usable`
   const facts: string[] = []
   if (usable > 0 && marked !== null) {
-    const { bestWindow } = data
-    const range =
-      withWindow && bestWindow !== null ? `, ${bestWindow.localStart}–${bestWindow.localEnd}` : ''
+    const shoot = marked.window
+    const range = withWindow && shoot !== null ? `, ${shoot.localStart}–${shoot.localEnd}` : ''
     facts.push(`best ${fmtShortDay(marked.date)}${range}`)
-  } else if (marked !== null) {
+  } else if (usable === 0 && marked !== null) {
     facts.push(`closest ${fmtShortDay(marked.date)}`)
-  } else if (data.bestDate !== null) {
+  } else if (usable === 0 && data.bestDate !== null) {
     facts.push(`first ${fmtShortDay(data.bestDate)}`)
   }
   if (usable > 0 && usable < total) facts.push(`${total - usable} ruled out`)

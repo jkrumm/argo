@@ -10,7 +10,7 @@ import {
   coreTransitFooter,
   countOffscreen,
   longestWindow,
-  moreNightsLabel,
+  offscreenNightsText,
   nightShortfall,
   pageSummary,
   shortfallScale,
@@ -164,6 +164,11 @@ describe('verdictHeadline', () => {
     expect(verdictHeadline({ ...goNight, window: null })).toBe('GO · Sat 13')
   })
 
+  test('a 0.0° gap falls back to the killer label, not "0.0° under the gate"', () => {
+    expect(verdictHeadline(outNight('2026-06-13', 8, 8))).toBe('OUT · core altitude')
+    expect(nightNote(outNight('2026-06-13', 8, 8))).toBe('core low')
+  })
+
   test('an OUT night on the core gate states the gap', () => {
     expect(verdictHeadline(outNight('2026-06-13', 8, 4.1))).toBe('OUT · core 3.9° under the gate')
   })
@@ -199,6 +204,12 @@ describe('pageSummary', () => {
     expect(summary.facts).toEqual(['closest Sun 14'])
   })
 
+  test('one night reads in the singular and takes the range from the marked night', () => {
+    const summary = pageSummary(response([goNight], '2026-06-13'), { withWindow: true })
+    expect(summary.sentence).toBe('1 of 1 night usable')
+    expect(summary.facts).toEqual(['best Sat 13, 23:10–01:40'])
+  })
+
   test('an all-out week with no degree gap says "first", as the API only gives the first night', () => {
     const dark = {
       ...outNight('2026-06-13', 8, 4),
@@ -213,6 +224,12 @@ describe('closestNight', () => {
   test('picks the smallest shortfall and ignores usable nights', () => {
     const nights = [outNight('2026-06-13', 8, 4), outNight('2026-06-14', 8, 6), goNight]
     expect(closestNight(nights)?.date).toBe('2026-06-14')
+  })
+
+  test('ranks on the unrounded gap: 3.96° beats 3.99° though both show 4.0°', () => {
+    const a = outNight('2026-06-13', 8, 4.01)
+    const b = outNight('2026-06-14', 8, 4.04)
+    expect(closestNight([a, b])?.date).toBe('2026-06-14')
   })
 
   test('null when no night has a degree gap', () => {
@@ -230,23 +247,26 @@ describe('countOffscreen', () => {
   })
 })
 
-describe('moreNightsLabel', () => {
-  test('pluralises and is empty at zero', () => {
-    expect(moreNightsLabel(0)).toBe('')
-    expect(moreNightsLabel(1)).toBe('1 more night →')
-    expect(moreNightsLabel(6)).toBe('6 more nights →')
+describe('offscreenNightsText', () => {
+  test('pluralises, and builds the visible cue and the spoken suffix together', () => {
+    expect(offscreenNightsText(0)).toEqual({ visible: '', spoken: '' })
+    expect(offscreenNightsText(1)).toEqual({
+      visible: '1 more night →',
+      spoken: '1 more night off-screen',
+    })
+    expect(offscreenNightsText(6).spoken).toBe('6 more nights off-screen')
   })
 })
 
 describe('coreTransitFooter', () => {
-  const night = { maxCoreAltitude: 24.1, darkMinutes: 300 } as unknown as Night
-
-  test('with a dark stretch it is the highest of the night, at transit', () => {
-    expect(coreTransitFooter(night)).toBe('highest of the night, 24.1° at transit')
+  test('is the transit altitude only, even with a dark stretch', () => {
+    const night = { maxCoreAltitude: 24.1, darkMinutes: 300 } as unknown as Night
+    expect(coreTransitFooter(night)).toBe('24.1° at transit')
   })
 
-  test('without one it is only the transit altitude', () => {
-    expect(coreTransitFooter({ ...night, darkMinutes: 0 })).toBe('24.1° at transit')
+  test("a daylight transit (no dark stretch) is never called the night's best", () => {
+    const night = { maxCoreAltitude: 24.1, darkMinutes: 0 } as unknown as Night
+    expect(coreTransitFooter(night)).toBe('24.1° at transit')
   })
 })
 
@@ -284,6 +304,12 @@ describe('window share', () => {
     expect(longest).toBe(300)
     expect(windowShare(longNight, longest)).toBe(1)
     expect(windowShare(goNight, longest)).toBe(0.5)
+  })
+
+  test('an empty window has no share', () => {
+    expect(
+      windowShare({ ...goNight, window: { ...goNight.window!, minutes: 0 } } as Night, 300),
+    ).toBeNull()
   })
 
   test('an out night or a night without a window has no share', () => {

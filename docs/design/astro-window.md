@@ -137,7 +137,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - The panorama's header minute figure is removed: it counted samples above the panorama gate and disagreed with the API's window. The per-night length stays in the strip cell.
 - Strip: a night out on the core gate draws its shortfall as a bar on one scale shared by all nights (`shortfallScale`/`shortfallShare`); usable nights draw their window length on one shared scale in the verdict hue; other ruled-out nights draw none (their note names the killer).
 - Strip at narrow widths: right-edge fade plus a `{n} more night(s) →` count (also in the group's aria-label), measured with viewport rects (hidden from 800 px, where the strip tiles).
-- Core cell: footer `{x}° at transit` (`highest of the night, …` only when there is a dark stretch) (the verdict meter owns the in-dark reading).
+- Core cell: footer `{x}° at transit` (transit can fall in daylight, so never "of the night") (the verdict meter owns the in-dark reading).
 - `data-shot="sky-panorama"` already wraps the Forecast panorama and `/astro-window?tab=forecast` is in `scripts/evidence/routes.txt`; no change needed.
 
 No basalt gaps.

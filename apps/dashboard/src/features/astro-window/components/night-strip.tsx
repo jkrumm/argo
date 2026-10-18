@@ -5,7 +5,7 @@ import {
   countOffscreen,
   fmtShortDay,
   longestWindow,
-  moreNightsLabel,
+  offscreenNightsText,
   nightNote,
   shortfallScale,
   shortfallShare,
@@ -15,31 +15,22 @@ import {
 import type { Night } from '../types'
 import classes from './night-strip.module.css'
 
-/** A night's bar: the window length on a usable night, the core-gate shortfall on a night out on it,
- * both on one scale shared by the strip. A night with nothing to rank keeps the bar's height empty. */
+/**
+ * A night's bar. TWO scales share the track: a usable night draws its window length against the
+ * longest window on screen (minutes), a night out on the core gate draws its shortfall against the
+ * largest gap on screen (degrees) — never compared with each other. A night with nothing to rank keeps
+ * the bar's height empty.
+ */
 function NightBar({ night, scale, longest }: { night: Night; scale: number; longest: number }) {
-  if (night.verdict !== 'out') {
-    const share = windowShare(night, longest)
-    if (share === null) return <span className={classes.band} />
-    return (
-      <span className={classes.track}>
-        <Box
-          component="span"
-          className={classes.fill}
-          bg={verdictTone(night.verdict)}
-          w={`${share * 100}%`}
-        />
-      </span>
-    )
-  }
-  const share = shortfallShare(night, scale)
+  const usable = night.verdict !== 'out'
+  const share = usable ? windowShare(night, longest) : shortfallShare(night, scale)
   if (share === null) return <span className={classes.band} />
   return (
     <span className={classes.track}>
       <Box
         component="span"
         className={classes.fill}
-        bg={verdictTone('out')}
+        bg={verdictTone(night.verdict)}
         w={`${share * 100}%`}
       />
     </span>
@@ -72,7 +63,8 @@ export function NightStrip({
   const longest = longestWindow(nights)
   const scroller = useRef<HTMLDivElement>(null)
   const [offscreenCount, setOffscreenCount] = useState(0)
-  const measure = useCallback(() => {
+  const frame = useRef(0)
+  const measureNow = useCallback(() => {
     const el = scroller.current
     if (el === null) return
     const rights = Array.from(el.children)
@@ -82,14 +74,23 @@ export function NightStrip({
       countOffscreen(rights, el.getBoundingClientRect().right, OFFSCREEN_TOLERANCE_PX),
     )
   }, [])
+  // Scroll fires per frame at worst; one measure per animation frame is plenty.
+  const measure = useCallback(() => {
+    cancelAnimationFrame(frame.current)
+    frame.current = requestAnimationFrame(measureNow)
+  }, [measureNow])
   useEffect(() => {
     const el = scroller.current
     if (el === null) return
-    measure()
+    measureNow()
     const observer = new ResizeObserver(measure)
     observer.observe(el)
-    return () => observer.disconnect()
-  }, [measure, nights.length])
+    return () => {
+      observer.disconnect()
+      cancelAnimationFrame(frame.current)
+    }
+  }, [measure, measureNow, nights])
+  const offscreenText = offscreenNightsText(offscreenCount)
   return (
     <Card data-shot="night-strip">
       <Box className={classes.host} data-more={offscreenCount > 0}>
@@ -98,11 +99,7 @@ export function NightStrip({
           onScroll={measure}
           className={classes.scroller}
           role="group"
-          aria-label={
-            offscreenCount > 0
-              ? `Nights, ${moreNightsLabel(offscreenCount).replace(' →', '')} off-screen`
-              : 'Nights'
-          }
+          aria-label={offscreenCount > 0 ? `Nights, ${offscreenText.spoken}` : 'Nights'}
           style={{ '--night-count': nights.length } as CSSProperties}
         >
           {nights.map((night) => {
@@ -124,7 +121,9 @@ export function NightStrip({
             )
           })}
         </Box>
-        <span className={classes.more}>{moreNightsLabel(offscreenCount)}</span>
+        <span className={classes.more} aria-hidden="true">
+          {offscreenText.visible}
+        </span>
       </Box>
     </Card>
   )
