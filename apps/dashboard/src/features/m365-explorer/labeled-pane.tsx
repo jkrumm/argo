@@ -29,7 +29,13 @@ export function LabeledPane(props: LabeledPaneProps) {
     )
   }
   return (
-    <ScrollArea className={classes.paneScroll} type="auto" scrollbars="y" data-shot="labeled-pane">
+    <ScrollArea
+      className={classes.paneScroll}
+      classNames={{ scrollbar: classes.scrollbar }}
+      type="auto"
+      scrollbars="y"
+      data-shot="labeled-pane"
+    >
       {props.error ? (
         <Alert color="red" variant="light" m="sm">
           {props.error}

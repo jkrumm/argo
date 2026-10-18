@@ -17,9 +17,9 @@ function labeledCell(coverage: Coverage, basis: string, onRetry: () => void): St
   const atLeast = failed > 0 ? '≥' : ''
   return {
     key: 'labeled',
-    caption: 'Labeled',
+    caption: 'Labeled sources',
     value: pending ? null : String(labeled),
-    unit: pending ? 'of …' : `of ${atLeast}${total} sources`,
+    unit: pending ? 'of …' : `of ${atLeast}${total}`,
     visual: pending ? (
       <Skeleton h={22} />
     ) : (

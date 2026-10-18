@@ -6,6 +6,7 @@ import {
   visibleChipCounts,
   coverageOf,
   formatTime,
+  headlineOf,
   validTag,
   matchesTag,
   parseChannelId,
@@ -174,5 +175,18 @@ describe('formatTime', () => {
     expect(formatTime('2026-10-17T08:05:00', NOW)).toMatch(/08:05/)
     expect(formatTime('2026-10-14T08:05:00', NOW)).not.toMatch(/08:05/)
     expect(formatTime(null, NOW)).toBe('')
+  })
+})
+
+describe('headlineOf', () => {
+  test('leads with the week activity and keeps the facts to units', () => {
+    expect(headlineOf({ activeWeek: 4, labeled: 12, tags: 3, latest: '17 Oct, 11:58' })).toEqual({
+      sentence: '4 chats active in the last 7 days',
+      facts: ['12 labeled', '3 tags in use', 'latest activity 17 Oct, 11:58'],
+    })
+    expect(headlineOf({ activeWeek: 1, labeled: 0, tags: 1, latest: null })).toEqual({
+      sentence: '1 chat active in the last 7 days',
+      facts: ['0 labeled', '1 tag in use'],
+    })
   })
 })

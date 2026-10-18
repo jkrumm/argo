@@ -1,6 +1,6 @@
-import { PageBar, useSizeClass } from 'basalt-ui'
+import { PageBar, Section, useSizeClass } from 'basalt-ui'
 import { FilterSet, SearchFilter, ViewTabs } from 'basalt-ui/controls'
-import { Card, Text } from '@mantine/core'
+import { Card } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { IconTag } from '@tabler/icons-react'
 import {
@@ -12,6 +12,7 @@ import {
 } from '@tanstack/react-query'
 import { useState, type ReactElement } from 'react'
 import { m365Mutations, m365Queries } from '../../lib/queries/m365'
+import { PageSummary } from '../../components/upstream/page-summary'
 import { FeedPane } from './feed-pane'
 import { LabeledPane } from './labeled-pane'
 import {
@@ -24,8 +25,8 @@ import {
   visibleChipCounts,
   coverageOf,
   formatStamp,
+  headlineOf,
   parseChannelId,
-  plural,
   recencyOf,
   sourceIdFor,
   tagCountsOf,
@@ -35,11 +36,10 @@ import {
   type LabelLite,
   type SourceRef,
 } from './model'
-import { PreviewDrawer } from './preview-drawer'
 import { RecordPane } from './record-pane'
 import { SourceList, type TeamChannels } from './source-list'
 import { ExplorerStrip } from './strip'
-import { explorerStore, type ViewKey } from './store'
+import { explorerStore, type PaneKey, type ViewKey } from './store'
 import { TagChips, type ChipScope } from './tag-chips'
 import { TagsModal } from './tags-modal'
 import classes from './m365.module.css'
@@ -48,6 +48,16 @@ const SCOPE_BY_VIEW: Record<ViewKey, ChipScope> = {
   chats: 'chats',
   teams: 'channels',
   feed: 'sources',
+}
+const PANE_TITLE: Record<PaneKey, string> = {
+  sources: 'Sources',
+  labeled: 'Labeled sources',
+  detail: 'Detail',
+}
+const PANE_SHOT: Record<PaneKey, string> = {
+  sources: 'source-list',
+  labeled: 'labeled-pane',
+  detail: 'detail-pane',
 }
 const CHATS_TOP = 50
 /** Channel lists load this many teams ahead of the ones already settled: a slow Graph call never fans out all at once. */
@@ -60,6 +70,7 @@ export function M365ExplorerPage(): ReactElement {
   const [view, setView] = explorerStore.field.view.use()
   const [storedTag, setTag] = explorerStore.field.tag.use()
   const [query] = explorerStore.field.q.use()
+  const [pane, setPane] = explorerStore.field.pane.use()
   const [selected, setSelected] = useState<SourceRef | null>(null)
   const [tagsOpened, tagsModal] = useDisclosure(false)
 
@@ -143,6 +154,13 @@ export function M365ExplorerPage(): ReactElement {
   )
   const activeWeek = chatRows.filter((r) => recencyOf(r.lastUpdatedAt, now) !== 'Earlier').length
 
+  const headline = headlineOf({
+    activeWeek,
+    labeled: labels.length,
+    tags: tagCounts.length,
+    latest: latest ? formatStamp(latest) : null,
+  })
+
   const invalidateLabels = (): void => {
     void qc.invalidateQueries({ queryKey: [...m365Queries.all(), 'labels'] })
     void qc.invalidateQueries({ queryKey: [...m365Queries.all(), 'important'] })
@@ -191,6 +209,8 @@ export function M365ExplorerPage(): ReactElement {
     upsertLabel.reset()
     deleteLabel.reset()
     setSelected(ref)
+    // A phone shows one pane: a pick opens the detail, closing it returns to the list.
+    if (compact) setPane(ref ? 'detail' : 'sources')
   }
 
   const record = selected ? (
@@ -219,7 +239,7 @@ export function M365ExplorerPage(): ReactElement {
         })
       }
       onRemove={() => deleteLabel.mutate(sourceIdFor(selected))}
-      onClose={compact ? undefined : () => select(null)}
+      onClose={() => select(null)}
     />
   ) : null
 
@@ -234,6 +254,41 @@ export function M365ExplorerPage(): ReactElement {
       onRemove={(id) => deleteLabel.mutate(id)}
     />
   )
+
+  const sourcesPane = (
+    <>
+      <TagChips active={tag} counts={counts} scope={SCOPE_BY_VIEW[view]} onChange={setTag} />
+      {view === 'feed' ? (
+        labeledPane
+      ) : (
+        <SourceList
+          view={view}
+          chats={chatRows}
+          teams={teams}
+          channelsByTeam={channelsByTeam}
+          labelOf={(id) => labelMap.get(id)}
+          tag={tag}
+          query={query}
+          now={now}
+          selected={selected}
+          onSelect={select}
+        />
+      )}
+    </>
+  )
+  // The detail side: the feed in the feed view, the open record, else the labeled sources on a wide
+  // screen (a phone has its own Labeled pane) or a hint on a phone.
+  const detailPane =
+    view === 'feed' ? (
+      <FeedPane tag={tag} />
+    ) : (
+      (record ??
+      (compact ? (
+        <p className={classes.empty}>Pick a chat or channel in Sources to open it</p>
+      ) : (
+        labeledPane
+      )))
+    )
 
   const retryFailed = (): void => {
     channelStates.forEach((c) => {
@@ -291,11 +346,7 @@ export function M365ExplorerPage(): ReactElement {
       />
 
       <div className={classes.stack}>
-        <Text className={classes.summary}>
-          {latest ? `Latest activity ${formatStamp(latest)} · ` : ''}
-          {plural(activeWeek, 'chat')} active in the last 7 days · {plural(tagCounts.length, 'tag')}{' '}
-          in use
-        </Text>
+        <PageSummary sentence={headline.sentence} facts={headline.facts} />
 
         <ExplorerStrip
           coverage={coverage}
@@ -306,47 +357,39 @@ export function M365ExplorerPage(): ReactElement {
           onRetry={retryFailed}
         />
 
-        <div className={classes.split}>
-          <Card className={classes.pane} data-shot="source-list">
-            <Card.Section className={classes.paneBody}>
-              <TagChips
-                active={tag}
-                counts={counts}
-                scope={SCOPE_BY_VIEW[view]}
-                onChange={setTag}
+        {compact ? (
+          <Section
+            title={PANE_TITLE[pane]}
+            tabs={
+              <ViewTabs
+                field={explorerStore.field.pane}
+                label="Pane"
+                options={
+                  [
+                    { value: 'sources', label: 'Sources' },
+                    { value: 'labeled', label: `Labeled ${labels.length}` },
+                    { value: 'detail', label: 'Detail' },
+                  ] satisfies Array<{ value: PaneKey; label: string }>
+                }
               />
-              {view === 'feed' ? (
-                labeledPane
-              ) : (
-                <SourceList
-                  view={view}
-                  chats={chatRows}
-                  teams={teams}
-                  channelsByTeam={channelsByTeam}
-                  labelOf={(id) => labelMap.get(id)}
-                  tag={tag}
-                  query={query}
-                  now={now}
-                  selected={selected}
-                  onSelect={select}
-                />
-              )}
-            </Card.Section>
-          </Card>
-
-          <Card className={`${classes.pane} ${classes.detailPane}`} data-shot="detail-pane">
-            <Card.Section className={classes.paneBody}>
-              {view === 'feed' ? <FeedPane tag={tag} /> : (record ?? labeledPane)}
-            </Card.Section>
-          </Card>
-        </div>
+            }
+          >
+            <div className={classes.phonePane} data-shot={PANE_SHOT[pane]}>
+              {pane === 'sources' ? sourcesPane : pane === 'labeled' ? labeledPane : detailPane}
+            </div>
+          </Section>
+        ) : (
+          <div className={classes.split}>
+            <Card className={classes.pane} data-shot="source-list">
+              <Card.Section className={classes.paneBody}>{sourcesPane}</Card.Section>
+            </Card>
+            <Card className={classes.pane} data-shot="detail-pane">
+              <Card.Section className={classes.paneBody}>{record ?? detailPane}</Card.Section>
+            </Card>
+          </div>
+        )}
       </div>
 
-      {compact ? (
-        <PreviewDrawer opened={selected !== null} onClose={() => select(null)}>
-          {record}
-        </PreviewDrawer>
-      ) : null}
       <TagsModal opened={tagsOpened} onClose={tagsModal.close} tagCounts={tagCounts} />
     </div>
   )

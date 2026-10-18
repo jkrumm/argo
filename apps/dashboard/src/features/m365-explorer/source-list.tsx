@@ -41,7 +41,12 @@ export type SourceListProps = {
 
 export function SourceList(props: SourceListProps) {
   return (
-    <ScrollArea className={classes.paneScroll} type="auto" scrollbars="y">
+    <ScrollArea
+      className={classes.paneScroll}
+      classNames={{ scrollbar: classes.scrollbar }}
+      type="auto"
+      scrollbars="y"
+    >
       {props.view === 'chats' ? <ChatGroups {...props} /> : <TeamTree {...props} />}
     </ScrollArea>
   )
