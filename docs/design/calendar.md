@@ -133,3 +133,9 @@ No new basalt rows.
 
 - **Reviewer:** fail: the Today card repeats the headline's facts verbatim. Basalt: next-days still four sizes and ellipsized titles (list defaults); JetBrains Mono ligatures turn `<>` in a title into a diamond in the facts line.
 - **Against Keel:** holds up — the week table and day-grouped agenda read as Keel; the Today card is a full-width block holding one repeated sentence.
+
+### Wave 25 fixes
+
+- The Today card renders only when there are events today. With none, the headline already says so and names the next event, so the card (a full-width block holding that sentence again) is gone and the column starts at Next 7 days.
+
+No new basalt rows.

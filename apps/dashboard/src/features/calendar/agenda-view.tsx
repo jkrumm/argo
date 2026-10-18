@@ -5,7 +5,7 @@ import { format } from 'date-fns'
 import { formatDurationMin } from '../../components/upstream/schedule-row-model'
 import type { SourceClass } from '../../lib/queries/calendar'
 import { PageSummary } from '../../components/upstream/page-summary'
-import { countdown, summaryParts } from './summary'
+import { summaryParts } from './summary'
 import { useNow } from '../../lib/use-now'
 import classes from './agenda.module.css'
 import { AllDayChips, DayGroups, EventRows, TaskList, WeekStrip } from './agenda-parts'
@@ -88,24 +88,20 @@ export function AgendaView({
       <Box className={classes.frame}>
         <Box className={classes.page}>
           <Box className={classes.col}>
-            <Box className={classes.oToday} data-shot="today">
-              <Card>
-                <Section
-                  title="Today"
-                  {...(summary.incomplete ? {} : { count: model.today.count })}
-                >
-                  {model.today.rows.length === 0 ? (
-                    <Text className={classes.muted}>
-                      {summary.incomplete
-                        ? '—'
-                        : `No events today${countdown(summary) ? ` · ${countdown(summary)}` : ''}`}
-                    </Text>
-                  ) : (
+            {/* With nothing today the headline already says so and names the next event; a card
+                would only repeat it, so the column starts at the next days. */}
+            {model.today.rows.length > 0 && (
+              <Box className={classes.oToday} data-shot="today">
+                <Card>
+                  <Section
+                    title="Today"
+                    {...(summary.incomplete ? {} : { count: model.today.count })}
+                  >
                     <EventRows rows={model.today.rows} now={now} next={summary.next} />
-                  )}
-                </Section>
-              </Card>
-            </Box>
+                  </Section>
+                </Card>
+              </Box>
+            )}
             <Box className={classes.oNext} data-shot="next-days">
               <Card>
                 <Section
