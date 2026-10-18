@@ -121,7 +121,7 @@ export function NightAnatomy({
   const cloud = lowCloudStat(night, cloudLimit)
 
   return (
-    <Box data-shot="night-anatomy" data-shot-states="loading error">
+    <Box data-shot="night-anatomy">
       <StatGroup
         variant="strip"
         label="Night anatomy"

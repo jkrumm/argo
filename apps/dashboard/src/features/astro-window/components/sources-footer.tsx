@@ -25,7 +25,7 @@ export function SourcesFooter({
   timeZone: string
 }) {
   return (
-    <Group gap="sm" data-shot="sources-footer" data-shot-states="loading error">
+    <Group gap="sm" data-shot="sources-footer">
       <Text size="xs" c="dimmed">
         {`Forecast${NBSP}run${NBSP}${fmtLocalClock(generatedAt, timeZone)}`}
       </Text>

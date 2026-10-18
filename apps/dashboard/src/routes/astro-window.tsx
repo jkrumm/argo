@@ -329,7 +329,7 @@ function AstroWindowPage() {
             </Center>
           }
         >
-          <Box data-shot="site-map" data-shot-states="loading error">
+          <Box data-shot="site-map">
             <SiteMap
               siteId={search.site}
               onSelectSite={handleSiteChange}
@@ -406,14 +406,14 @@ function AstroWindowPage() {
 
           {search.tab === 'forecast' && selectedNight && (
             <>
-              <Box data-shot="night-timeline" data-shot-states="loading error">
+              <Box data-shot="night-timeline">
                 <NightTimelineChart
                   hourly={data.detail.hourly}
                   night={selectedNight}
                   withMiss={timelineNamesMiss}
                 />
               </Box>
-              <Box data-shot="cloud-layers" data-shot-states="loading error">
+              <Box data-shot="cloud-layers">
                 <CloudLayersChart hourly={data.detail.hourly} night={selectedNight} />
               </Box>
               {selectedSite ? (
@@ -431,11 +431,7 @@ function AstroWindowPage() {
                       <ChartCard state={{ pending: true }} placeholderHeight={PANORAMA_HEIGHT} />
                     }
                   >
-                    <Box
-                      data-shot="sky-panorama"
-                      data-shot-states="loading error"
-                      data-shot-absent="empty"
-                    >
+                    <Box data-shot="sky-panorama" data-shot-absent="empty">
                       <SkyPanorama
                         key={`${selectedSite.id}-${selectedDate}`}
                         site={selectedSite}
@@ -451,11 +447,7 @@ function AstroWindowPage() {
                       <ChartCard state={{ pending: true }} placeholderHeight={CHART_HEIGHT} />
                     }
                   >
-                    <Box
-                      data-shot="annual-budget"
-                      data-shot-states="loading error"
-                      data-shot-absent="empty"
-                    >
+                    <Box data-shot="annual-budget" data-shot-absent="empty">
                       <MonthlyBudgetChart site={selectedSite} />
                     </Box>
                   </Suspense>
