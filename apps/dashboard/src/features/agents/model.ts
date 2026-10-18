@@ -78,6 +78,13 @@ export const ABANDONED_AFTER_MS = 7 * 24 * 60 * 60 * 1000
 
 export const WAITING_FOR_SNAPSHOT = 'Waiting for the first snapshot'
 
+/** agent-gateway's push cadence, minutes: every "nothing pushed yet" line names it. */
+export const AGENT_GATEWAY_PUSH_MIN = 10
+
+/** The one wording for "no overview snapshot has arrived": the gap and the cadence to wait for. */
+export const noSnapshotText = (): string =>
+  `${WAITING_FOR_SNAPSHOT} — agent-gateway pushes every ${withUnit(AGENT_GATEWAY_PUSH_MIN, 'min')}`
+
 export type OldestWait = { ms: number; project: string }
 
 /**

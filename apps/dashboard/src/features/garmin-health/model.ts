@@ -320,6 +320,23 @@ export const chartEmpty = (metric: string, windowDays: number): string =>
   `No ${metric} in ${thisWindow(windowDays)}${SYNC_NEXT_STEP}`
 
 /**
+ * What the fitness cell says when none of its reads holds a reading, once (its meter's empty
+ * line). The reads span two windows (RHR/HRV over {@link FITNESS_DAYS}, VO2max over
+ * {@link VO2_DAYS}), so the wording names both. A pending or placeholder read has no copy and a
+ * failure says so, mirroring {@link loadGap}.
+ */
+export function fitnessGap(input: {
+  status: QueryStatus
+  placeholder: boolean
+  hasReading: boolean
+}): string | undefined {
+  const { status, placeholder, hasReading } = input
+  if (status === 'error') return 'The fitness readings failed to load'
+  if (status === 'pending' || placeholder || hasReading) return undefined
+  return `No RHR or HRV in this ${withUnit(FITNESS_DAYS, 'd')} window and no VO2max in ${withUnit(VO2_DAYS, 'd')}${SYNC_NEXT_STEP}`
+}
+
+/**
  * Why there is no recovery score, worded once for both places that say so: the headline clause and
  * the recovery cell's line. A failed read is its own wording, never the data gap. `line` is `null`
  * until the reads settle (a loading cell is not a data gap).

@@ -5,7 +5,7 @@ import { IconCircleCheck } from '@tabler/icons-react'
 import { DecisionCard, type DecisionCardAction } from '../../components/upstream/decision-card'
 import { useCopyAction } from '../../components/upstream/use-copy-action'
 import type { Decision } from '../../lib/decisions'
-import { NEEDS_YOU_SOURCES, restLabel } from './model'
+import { allUnknown, restLabel, unknownPhrase } from './model'
 import { StatusChip } from '../agents/status-chip'
 import { HistoryPreview } from '../warden/history-preview'
 import { historyView } from '../warden/page-model'
@@ -19,6 +19,8 @@ type Props = {
   decisions: readonly Decision[]
   /** Sources whose feed is not loaded: what needs the owner there is unknown, not empty. */
   unavailable: readonly string[]
+  /** Sources still being read: unknown for now, never an empty inbox. */
+  loading: readonly string[]
 }
 
 const COPY_LABEL = { queue: 'Copy command', agent: 'Copy blocker', warden: 'Copy PR link' } as const
@@ -71,10 +73,11 @@ function Card({ decision }: { decision: Decision }) {
  * The merged inbox: the first {@link CARD_LIMIT} decisions as cards, then one `{n} more on/in {page}` button
  * per page that owns each remaining item. The heading count is the whole list, not the cards shown.
  */
-export function NeedsYou({ decisions, unavailable }: Props) {
+export function NeedsYou({ decisions, unavailable, loading }: Props) {
   const shown = decisions.slice(0, CARD_LIMIT)
   const rest = decisions.slice(CARD_LIMIT)
-  const unknown = unavailable.length >= NEEDS_YOU_SOURCES
+  const unknown = allUnknown({ unavailable, loading })
+  const phrase = unknownPhrase(unavailable, loading)
   const restBy = (href: Decision['href']) => rest.filter((d) => d.href === href).length
   return (
     <Section title="Needs you" {...(unknown ? { value: '—' } : { count: decisions.length })}>
@@ -83,13 +86,15 @@ export function NeedsYou({ decisions, unavailable }: Props) {
           <EmptyState
             tier="section"
             icon={<IconCircleCheck size={28} />}
-            title={unknown ? "Can't tell" : 'Nothing needs you'}
+            title={
+              unknown ? (unavailable.length === 0 ? 'Loading' : "Can't tell") : 'Nothing needs you'
+            }
             description={
               unknown
-                ? `${unavailable.join(' and ')} unavailable, so what is waiting is unknown.`
-                : unavailable.length === 0
+                ? `${phrase}, so what is waiting is unknown.`
+                : phrase === ''
                   ? 'No decision is waiting in Warden or on an agent.'
-                  : `Nothing waiting in the source that loaded; ${unavailable.join(' and ')} unavailable.`
+                  : `Nothing waiting in the source that loaded; ${phrase}.`
             }
           />
         ) : (
@@ -117,9 +122,9 @@ export function NeedsYou({ decisions, unavailable }: Props) {
             )}
           </Group>
         ) : null}
-        {decisions.length > 0 && unavailable.length > 0 ? (
+        {decisions.length > 0 && phrase !== '' ? (
           <Text size="xs" c="dimmed">
-            {unavailable.join(' and ')} unavailable: the list may be incomplete.
+            {phrase}: the list may be incomplete.
           </Text>
         ) : null}
       </Stack>
