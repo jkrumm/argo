@@ -360,9 +360,9 @@ describe('paceTicks', () => {
   test('ticks and median sit on the slowest-to-fastest span', () => {
     expect(paceTicks([20, 30, 40], 30)).toEqual({
       ticks: [
-        { at: 0, count: 1 },
-        { at: 50, count: 1 },
-        { at: 100, count: 1 },
+        { at: 0, count: 1, pace: '20' },
+        { at: 50, count: 1, pace: '30' },
+        { at: 100, count: 1, pace: '40' },
       ],
       medianAt: 50,
       slowest: '20',
@@ -372,8 +372,8 @@ describe('paceTicks', () => {
   test('books at one displayed pace are one tick that counts them', () => {
     const shape = paceTicks([20, 20, 40], 20)
     expect(shape?.ticks).toEqual([
-      { at: 0, count: 2 },
-      { at: 100, count: 1 },
+      { at: 0, count: 2, pace: '20' },
+      { at: 100, count: 1, pace: '40' },
     ])
     expect(shape?.ticks.reduce((n, t) => n + t.count, 0)).toBe(3)
   })
@@ -385,6 +385,13 @@ describe('paceTicks', () => {
     expect(paceTicks([0, 30], 15)).toMatchObject({ slowest: '< 1', fastest: '30' })
     expect(paceTicks([20, 40], 30)).toMatchObject({ slowest: '20', fastest: '40' })
     expect(paceRange([0, 30])).toBe('slowest < 1, fastest 30\u00a0pages/h')
+  })
+  test('rounds its own input: grouping, endpoints and the span follow the displayed value', () => {
+    expect(paceTicks([19.6, 20.4, 40], 20)?.ticks).toEqual([
+      { at: 0, count: 2, pace: '20' },
+      { at: 100, count: 1, pace: '40' },
+    ])
+    expect(paceTicks([29.6, 30.4], 30)).toBeNull()
   })
   test('one book, or books at one pace, have no span to draw', () => {
     expect(paceTicks([30], 30)).toBeNull()

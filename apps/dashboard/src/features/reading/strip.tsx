@@ -42,7 +42,7 @@ function shelfCell(counts: ShelfCounts, footer: string | null): StatStripCell {
 
 function ratingsCell(shelf: readonly ShelfItem[], narrow: boolean): StatStripCell {
   const shape = ratingShape(shelf)
-  if (shape.mean === null) {
+  if (shape.mean === null || shape.meanAt === null) {
     return { key: 'ratings', caption: 'Ratings · 0 rated', value: null, footer: 'no rated books' }
   }
   const footer = ratingsFooter(shape)
@@ -66,7 +66,7 @@ function ratingsCell(shelf: readonly ShelfItem[], narrow: boolean): StatStripCel
               />
             </div>
           ))}
-          <div className={classes.meanTick} style={{ left: `${shape.meanAt ?? 0}%` }} />
+          <div className={classes.meanTick} style={{ left: `${shape.meanAt}%` }} />
         </div>
         <div className={classes.axis}>
           {shape.labels.map((label, i) => (
@@ -90,21 +90,21 @@ function ratingsCell(shelf: readonly ShelfItem[], narrow: boolean): StatStripCel
   }
 }
 
-/** A tick's height grows with the books at that pace but stays under the median line's full height. */
-const tickHeight = (count: number): string => `${Math.min(80, 35 + (count - 1) * 15)}%`
+/** A tick's height scales against the peak group, from a floor up to a cap under the median line's full height. */
+const tickHeight = (count: number, peak: number): string =>
+  `${peak <= 1 ? 35 : 35 + (45 * (count - 1)) / (peak - 1)}%`
 
 function PaceTrack({ ticks, median, label }: { ticks: PaceTicks; median: number; label: string }) {
+  const peak = Math.max(...ticks.ticks.map((t) => t.count))
+  const listed = ticks.ticks.map((t) => `${t.pace} pages/h × ${t.count}`).join(', ')
   return (
-    <div
-      role="img"
-      aria-label={`${label}: slowest ${ticks.slowest}, median ${median}, fastest ${ticks.fastest}`}
-    >
+    <div role="img" aria-label={`${label}: ${listed}; median ${median} pages/h`}>
       <div className={classes.paceTrack}>
         {ticks.ticks.map((tick) => (
           <Box
             key={tick.at}
             className={classes.paceTick}
-            style={{ left: `${tick.at}%`, height: tickHeight(tick.count) }}
+            style={{ left: `${tick.at}%`, height: tickHeight(tick.count, peak) }}
           />
         ))}
         <div className={classes.paceMedian} style={{ left: `${ticks.medianAt}%` }} />
