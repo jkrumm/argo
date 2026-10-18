@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   chatKindCounts,
   channelsCellGap,
+  detailGap,
   withStep,
   nothingToLabel,
   teamsGap,
@@ -417,8 +418,24 @@ describe('showTagChips', () => {
 
 describe('channelsCellGap', () => {
   test('repeats the leading clause: sources when Labeled leads, else teams', () => {
-    expect(channelsCellGap(true)).toBe(NO_SOURCES)
-    expect(channelsCellGap(false)).toBe(NO_TEAMS)
+    expect(channelsCellGap('labeled')).toBe(NO_SOURCES)
+    expect(channelsCellGap('chats')).toBe(NO_TEAMS)
+    expect(channelsCellGap('channels')).toBe(NO_TEAMS)
+    expect(channelsCellGap(null)).toBe(NO_TEAMS)
+  })
+})
+
+describe('detailGap', () => {
+  test('both lists empty: one spelling for the whole screen', () => {
+    expect(detailGap({ leader: 'labeled', chatsView: true, teams: 0 })).toBe(NO_SOURCES)
+    expect(detailGap({ leader: 'labeled', chatsView: false, teams: 0 })).toBe(NO_SOURCES)
+  })
+  test('chats only empty: the chats view names chats', () => {
+    expect(detailGap({ leader: 'chats', chatsView: true, teams: 2 })).toBe(NO_CHATS)
+  })
+  test('teams only empty: the teams view names teams, or channels once teams came back', () => {
+    expect(detailGap({ leader: 'channels', chatsView: false, teams: 0 })).toBe(NO_TEAMS)
+    expect(detailGap({ leader: null, chatsView: false, teams: 2 })).toBe(NO_CHANNELS)
   })
 })
 

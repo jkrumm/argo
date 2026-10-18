@@ -271,10 +271,6 @@ export const nothingToLabel = (c: Coverage): boolean =>
 /** The teams view's gap: no team came back, or teams came back holding no channel. */
 export const teamsGap = (teams: number): string => (teams === 0 ? NO_TEAMS : NO_CHANNELS)
 
-/** The channels cell's short form: the leading clause of the sentence the screen shows once (`No chats or channels came back` when the Labeled cell leads). */
-export const channelsCellGap = (labeledLeads: boolean): string =>
-  labeledLeads ? NO_SOURCES : NO_TEAMS
-
 /** The first empty strip cell in reading order carries the full sentence; the rest the short form. */
 export type GapLeader = 'labeled' | 'chats' | 'channels' | null
 export const gapLeader = (g: {
@@ -283,6 +279,14 @@ export const gapLeader = (g: {
   noTeams: boolean
 }): GapLeader =>
   g.nothingToLabel ? 'labeled' : g.noChats ? 'chats' : g.noTeams ? 'channels' : null
+
+/** The channels cell's short form: the leading clause of the screen's one sentence (`No chats or channels came back` when the Labeled cell leads). */
+export const channelsCellGap = (leader: GapLeader): string =>
+  leader === 'labeled' ? NO_SOURCES : NO_TEAMS
+
+/** The phone Detail pane's empty line: the screen's one spelling when both lists are empty, else the open view's own gap. */
+export const detailGap = (o: { leader: GapLeader; chatsView: boolean; teams: number }): string =>
+  o.leader === 'labeled' ? NO_SOURCES : o.chatsView ? NO_CHATS : teamsGap(o.teams)
 
 /** A short form's full sentence: its leading clause, verbatim, then the cause and the step. */
 export const withStep = (short: string): string =>

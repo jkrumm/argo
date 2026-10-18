@@ -14,6 +14,7 @@ import {
   nothingToLabel,
   withStep,
   type Coverage,
+  type GapLeader,
 } from './model'
 import classes from './m365.module.css'
 
@@ -125,19 +126,24 @@ function chatsCell(chats: Chats, noChats: boolean, leading: boolean): StatStripC
 const footerOf = (footer: string | null) => (footer === null ? {} : { footer })
 
 /** Channels across the teams; the team count is the tab's, so the footer names the biggest team. */
-function channelsCell(
-  channels: number | null,
-  largest: { name: string; channels: number } | null,
-  failed: number,
-  noTeams: boolean,
-  leading: boolean,
-  labeledLeads: boolean,
-): StatStripCell {
+function channelsCell({
+  channels,
+  largest,
+  failed,
+  noTeams,
+  leader,
+}: {
+  channels: number | null
+  largest: { name: string; channels: number } | null
+  failed: number
+  noTeams: boolean
+  leader: GapLeader
+}): StatStripCell {
   // No teams came back: the channel count is unknown, not zero. When the Labeled cell leads, the
   // screen's sentence says `No chats or channels came back`; this cell repeats that clause verbatim.
   if (noTeams) {
-    const short = channelsCellGap(labeledLeads)
-    const reason = leading ? withStep(short) : short
+    const short = channelsCellGap(leader)
+    const reason = leader === 'channels' ? withStep(short) : short
     return { key: 'channels', caption: 'Team channels', state: { kind: 'empty', reason } }
   }
   return {
@@ -183,14 +189,7 @@ export function ExplorerStrip({
       cells={[
         labeledCell(coverage, list, onRetry, leader === 'labeled'),
         chatsCell(chats, noChats, leader === 'chats'),
-        channelsCell(
-          channels,
-          largestTeam,
-          coverage.failed,
-          noTeams,
-          leader === 'channels',
-          leader === 'labeled',
-        ),
+        channelsCell({ channels, largest: largestTeam, failed: coverage.failed, noTeams, leader }),
       ]}
     />
   )
