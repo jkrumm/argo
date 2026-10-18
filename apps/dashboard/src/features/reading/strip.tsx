@@ -3,6 +3,8 @@ import { alpha, VX } from 'basalt-ui/tokens'
 import {
   NO_PACE_REASON,
   paceRange,
+  gapsBefore,
+  RATING_MAX,
   RATING_TICKS,
   ratingShape,
   ratingsFooter,
@@ -38,6 +40,10 @@ function shelfCell(counts: ShelfCounts, footer: string | null): StatStripCell {
   }
 }
 
+/** A track position as CSS: `at` column widths plus the gaps left of it, on the histogram's own grid. */
+const trackLeft = (at: number): string =>
+  `calc((100% - ${RATING_MAX - 1} * var(--vx-space-control-gap)) / ${RATING_MAX} * ${at} + ${gapsBefore(at)} * var(--vx-space-control-gap))`
+
 function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
   const shape = ratingShape(shelf)
   if (shape.mean === null || shape.meanAt === null) {
@@ -64,22 +70,20 @@ function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
               />
             </div>
           ))}
-          <div className={classes.meanTick} style={{ left: `${shape.meanAt}%` }} />
+          <div className={classes.meanTick} style={{ left: trackLeft(shape.meanAt) }} />
         </div>
         <div className={classes.axisTicks} aria-hidden>
-          {RATING_TICKS.map((tick) => (
-            <span
-              key={tick}
-              className={classes.axisTick}
-              style={{ left: `${(tick / (RATING_TICKS.length - 1)) * 100}%` }}
-            >
-              {tick}
+          {RATING_TICKS.map(({ value, at }) => (
+            <span key={value} className={classes.axisTick} style={{ left: trackLeft(at) }}>
+              {value}
             </span>
           ))}
         </div>
         <div className={classes.axis}>
           {shape.buckets.map((count, i) => (
-            <span key={i}>{count}</span>
+            <span key={i} title={shape.spans[i]}>
+              {count}
+            </span>
           ))}
         </div>
       </div>

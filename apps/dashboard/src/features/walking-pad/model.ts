@@ -526,3 +526,9 @@ export function lastWalkLabel(input: {
   const when = [input.relative?.(input.endedAt), DAY_MONTH.format(ms)].filter(Boolean).join(', ')
   return `last walk ${when}`
 }
+
+/** The week cell's footer: walks so far and how much of the weekly target the distance is; the percent phrase never breaks. */
+export function weekTargetLine(sessions: number, km: number, targetKm: number): string {
+  const percent = Math.round((km / targetKm) * 100)
+  return `${sessions} ${sessions === 1 ? 'walk' : 'walks'} · ${percent}${NBSP}%${NBSP}of${NBSP}target`
+}
