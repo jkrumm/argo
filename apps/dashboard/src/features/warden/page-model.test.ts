@@ -995,14 +995,14 @@ describe('historyLineWithAge', () => {
 
   it('keeps the whole age, ago included, in one unbreakable unit after a glued dot', () => {
     const line = historyLineWithAge('{a} → {b}', ago((5 * 60 + 12) * 60_000), NOW)
-    expect(line).toBe('{a} → {b}\u00a0· 5\u00a0h\u00a012\u00a0min\u00a0ago')
+    expect(line).toBe('{a} → {b}\u00a0·\u00a05\u00a0h\u00a012\u00a0min\u00a0ago')
     // Nothing after the dot can break: not between the parts, and not before `ago`.
-    expect(line.slice(line.indexOf('·') + 2)).not.toContain(' ')
+    expect(line.slice(line.indexOf('·'))).not.toContain(' ')
   })
   it('leaves a recent or missing time as it is', () => {
-    expect(historyLineWithAge('{a} → {b}', ago(10_000), NOW)).toBe('{a} → {b}\u00a0· just now')
+    expect(historyLineWithAge('{a} → {b}', ago(10_000), NOW)).toBe('{a} → {b}\u00a0·\u00a0just now')
     expect(historyLineWithAge('{a} → {b}', null, NOW)).toBe('{a} → {b}')
-    expect(historyLineWithAge('{a} → {b}', 'nope', NOW)).toBe('{a} → {b}\u00a0· —')
+    expect(historyLineWithAge('{a} → {b}', 'nope', NOW)).toBe('{a} → {b}\u00a0·\u00a0—')
   })
 })
 
