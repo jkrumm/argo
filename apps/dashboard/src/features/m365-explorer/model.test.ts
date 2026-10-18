@@ -194,17 +194,17 @@ describe('headlineOf', () => {
   const at = (day: number) => new Date(2026, 9, day, 12).toISOString()
   test('says how many days the loaded chats span', () => {
     expect(headlineOf({ times: [at(17), at(3), null], capped: false })).toEqual({
-      sentence: `Chats span 14${NBSP}d`,
+      sentence: `Chats span 14${NBSP}d, 3–17 Oct`,
     })
   })
   test('a capped list says the span belongs to the newest slice', () => {
     expect(headlineOf({ times: [at(17), at(10)], capped: true })).toEqual({
-      sentence: `Newest 2 chats span 7${NBSP}d`,
+      sentence: `Newest 2 chats span 7${NBSP}d, 10–17 Oct`,
     })
   })
   test('one day and no stamps', () => {
     expect(headlineOf({ times: [at(17), at(17)], capped: false }).sentence).toBe(
-      'Chats all from one day',
+      'Chats all from 17 Oct',
     )
     expect(headlineOf({ times: [], capped: false })).toEqual({ sentence: 'No chat activity yet' })
     expect(headlineOf({ times: [null], capped: false }).sentence).toBe('No chat activity yet')
@@ -219,13 +219,13 @@ describe('chatsCapped', () => {
 })
 
 describe('chatKindParts', () => {
-  test('drops kinds with no chats, reads in order and counts the noun', () => {
+  test('drops kinds with no chats, biggest first and counts the noun', () => {
     expect(chatKindParts({ oneOnOne: 4, group: 1, meeting: 2, other: 0 })).toEqual([
-      { key: 'oneOnOne', label: '1:1', noun: '1:1 chats', text: '4 1:1 chats', value: 4 },
-      { key: 'group', label: 'group', noun: 'group chat', text: '1 group chat', value: 1 },
+      { key: 'oneOnOne', label: 'direct', noun: 'direct chats', text: '4 direct chats', value: 4 },
       { key: 'meeting', label: 'meeting', noun: 'meetings', text: '2 meetings', value: 2 },
+      { key: 'group', label: 'group', noun: 'group chat', text: '1 group chat', value: 1 },
     ])
-    expect(chatKindParts({ oneOnOne: 0, group: 0, meeting: 1, other: 3 })[1]?.text).toBe(
+    expect(chatKindParts({ oneOnOne: 0, group: 0, meeting: 1, other: 3 })[0]?.text).toBe(
       '3 other chats',
     )
     expect(chatKindParts({ oneOnOne: 0, group: 0, meeting: 0, other: 0 })).toEqual([])
@@ -235,12 +235,12 @@ describe('chatKindParts', () => {
 describe('chatsStat', () => {
   test('the leading kind is the hero and the footer never repeats it', () => {
     expect(chatsStat({ oneOnOne: 4, group: 1, meeting: 2, other: 0 })).toEqual({
-      hero: { value: '4', unit: '1:1 chats' },
-      footer: '1 group chat · 2 meetings',
+      hero: { value: '4', unit: 'direct chats' },
+      footer: '2 meetings · 1 group chat',
     })
     expect(chatsStat({ oneOnOne: 1, group: 3, meeting: 3, other: 0 })).toEqual({
       hero: { value: '3', unit: 'group chats' },
-      footer: '1 1:1 chat · 3 meetings',
+      footer: '3 meetings · 1 direct chat',
     })
   })
   test('one kind has no footer, none says so', () => {
@@ -261,9 +261,9 @@ describe('sectionTitleFor', () => {
     expect(sectionTitleFor({ ...base, pane: 'sources' })).toBe('Chats')
     expect(sectionTitleFor({ ...base, pane: 'sources', view: 'teams' })).toBe('Teams')
     expect(sectionTitleFor({ ...base, pane: 'sources', view: 'feed' })).toBe('Feed sources')
-    expect(sectionTitleFor({ ...base, pane: 'labeled' })).toBe('Labeled sources')
+    expect(sectionTitleFor({ ...base, pane: 'labeled' })).toBe('Chats and channels')
     expect(sectionTitleFor({ ...base, pane: 'labeled', tag: LABELED_FILTER })).toBe(
-      'Labeled sources',
+      'Chats and channels',
     )
     expect(sectionTitleFor({ ...base, pane: 'labeled', tag: 'alerts' })).toBe('alerts')
     expect(sectionTitleFor({ ...base, pane: 'detail', open: true })).toBe('Messages')
@@ -314,10 +314,10 @@ describe('labeled count, outside note and sources title', () => {
     expect(list).toBe('newest 50 chats and all channels')
     expect(sourceListName(12, false)).toBe('chats and channels')
     expect(labeledBasis(cov, { chats: CHATS_TOP, capped: true })).toBe(
-      '1 more label on chats older than the newest 50, or no longer listed',
+      '1 more label on chats outside the newest 50, or gone from the list',
     )
     expect(labeledBasis(cov, { chats: 12, capped: false })).toBe(
-      '1 more label on sources no longer listed',
+      '1 more label on sources gone from the chat and channel list',
     )
     expect(labeledBasis({ ...cov, outside: 0 }, { chats: CHATS_TOP, capped: true })).toBe(
       'across the newest 50 chats and all channels',

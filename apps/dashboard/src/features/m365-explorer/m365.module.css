@@ -190,10 +190,10 @@
   color: var(--vx-ink);
 }
 
-/* The one control on a labeled-source row: hidden at rest, shown on hover or focus (and always on touch). */
+/* The one control on a labeled-source row: dimmed at rest, full on hover or focus (and always on touch). */
 .removeWrap {
   flex: none;
-  opacity: 0;
+  opacity: 0.45;
 }
 
 .row:hover .removeWrap,
