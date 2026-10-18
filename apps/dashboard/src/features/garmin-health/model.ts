@@ -170,6 +170,8 @@ export function acwrRelation(acwr: number | null): string {
 
 export type SummaryInput = {
   recovery: number | null
+  /** The snapshot's own date; names the day a missing recovery is missing for. */
+  recoveryDate?: string | null
   acwr: number | null
   rhrDelta: number | null
   hrvDelta: number | null
@@ -179,20 +181,42 @@ export type SummaryInput = {
  * The page's opening: the headline answers "how recovered and how loaded", the facts carry the
  * ACWR figure and the 14 d fitness deltas, each with unit.
  */
-export function summaryParts({ recovery, acwr, rhrDelta, hrvDelta }: SummaryInput): {
+export function summaryParts({ recovery, recoveryDate, acwr, rhrDelta, hrvDelta }: SummaryInput): {
   sentence: string
   facts: string[]
 } {
+  const load = acwr === null ? null : `load ${acwrRelation(acwr)}`
+  const sentence =
+    recovery !== null
+      ? [`Recovery ${fmtNum(recovery)}/100`, load].filter(Boolean).join(', ')
+      : // What is known leads; the missing recovery states its reason instead of opening on a dash.
+        capitalize([load, recoveryGap(recoveryDate).headline].filter(Boolean).join('; '))
   return {
-    sentence:
-      acwr === null
-        ? `Recovery ${fmtNum(recovery)}/100`
-        : `Recovery ${fmtNum(recovery)}/100, load ${acwrRelation(acwr)}`,
+    sentence,
     facts: [
       `ACWR ${fmtNum(acwr, 2)}`,
       `RHR ${signed(rhrDelta)} bpm over ${FITNESS_DAYS} d`,
       `HRV ${signed(hrvDelta)} ms over ${FITNESS_DAYS} d`,
     ],
+  }
+}
+
+const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1)
+
+/**
+ * Why there is no recovery score and when it fills. The score needs at least one of HRV, sleep score
+ * and resting HR on the snapshot's day; those lock in overnight and arrive with Garmin's 6-hourly sync.
+ */
+export function recoveryGap(date: string | null | undefined): {
+  headline: string
+  reason: string
+  fills: string
+} {
+  const when = date === null || date === undefined ? 'the latest day' : dayLabel(date)
+  return {
+    headline: `no recovery score, since ${when} has no HRV, sleep or resting HR reading`,
+    reason: `No HRV, sleep or resting HR reading for ${when}.`,
+    fills: 'It fills once Garmin syncs last night’s sleep (every 6 h).',
   }
 }
 

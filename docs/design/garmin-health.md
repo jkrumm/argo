@@ -147,3 +147,9 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail: the headline opens on a missing recovery value with no reason; the recovery cell draws an empty meter, is stretched (`emptyRatio` ≥ 0.4) and says neither why nor when it fills. Basalt: training-load meter ticks (`0` under the marker, the max on its own row), zone labels bunched at the start, `Danger` wrapping at 390.
 - **Against Keel:** holds up.
+
+### Wave 25 fixes
+
+- Headline with no recovery score leads with what is known and states the reason: `Load {relation}; no recovery score, since {day} has no HRV, sleep or resting HR reading` (`summaryParts`, `recoveryGap`, unit-tested). With a score the sentence is unchanged.
+- Recovery cell without a score: no meter, no contributor bars, value `—` with the reason and when it fills ("fills once Garmin syncs last night's sleep, every 6 h") in place of the visual, so the cell no longer stretches around an empty drawing.
+- Basalt rows: none.

@@ -24,6 +24,7 @@ import {
   signed,
   sleepFact,
   stressFact,
+  recoveryGap,
   summaryParts,
 } from './model'
 
@@ -88,9 +89,23 @@ describe('summaryParts', () => {
     })
   })
 
-  test('a missing reading is an em dash in place; a missing ACWR keeps its fact as a dash', () => {
+  test('a missing recovery leads with the load and states its reason', () => {
+    expect(
+      summaryParts({
+        recovery: null,
+        recoveryDate: '2026-01-05',
+        acwr: 0.62,
+        rhrDelta: 0,
+        hrvDelta: 0,
+      }).sentence,
+    ).toBe(
+      'Load under the 0.8 floor; no recovery score, since Jan 5 has no HRV, sleep or resting HR reading',
+    )
+  })
+
+  test('a missing recovery and ACWR is the reason alone, facts stay dashes', () => {
     expect(summaryParts({ recovery: null, acwr: null, rhrDelta: null, hrvDelta: null })).toEqual({
-      sentence: 'Recovery —/100',
+      sentence: 'No recovery score, since the latest day has no HRV, sleep or resting HR reading',
       facts: ['ACWR —', 'RHR — bpm over 14 d', 'HRV — ms over 14 d'],
     })
   })
@@ -101,6 +116,14 @@ describe('summaryParts', () => {
     expect(acwrRelation(1.3)).toContain('optimal')
     expect(acwrRelation(1.31)).toContain('ceiling')
     expect(acwrRelation(1.51)).toContain('danger')
+  })
+})
+
+describe('recoveryGap', () => {
+  test('names the day, the missing readings and when it fills', () => {
+    const gap = recoveryGap('2026-01-05')
+    expect(gap.reason).toBe('No HRV, sleep or resting HR reading for Jan 5.')
+    expect(gap.fills).toContain('every 6 h')
   })
 })
 

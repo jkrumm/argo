@@ -29,6 +29,7 @@ import {
   lastDaysRange,
   vo2Hero,
   RECOVERY_PUSH_FROM,
+  recoveryGap,
   RECOVERY_REST_BELOW,
   contributorItems,
   firstToLast,
@@ -103,34 +104,44 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
     caption: 'Recovery',
     qualifier:
       window.mean === null ? when : `${when} · ${window.days} d mean ${fmtNum(window.mean)}`,
-    value: fmtNum(score),
-    unit: '/100',
+    value: score === null ? null : fmtNum(score),
+    ...(score !== null && { unit: '/100' }),
     loading: summary.isPending,
     stale: summary.isPlaceholderData,
-    visual: (
-      <>
-        <Meter
-          label="Recovery score"
-          value={score}
-          min={0}
-          max={100}
-          zones={[
-            { from: 0, to: RECOVERY_REST_BELOW, label: 'Rest', color: VX.bad },
-            { from: RECOVERY_REST_BELOW, to: RECOVERY_PUSH_FROM, label: 'Normal', color: VX.warn },
-            { from: RECOVERY_PUSH_FROM, to: 100, label: 'Push', color: VX.good },
-          ]}
-          startCaption={`rest < ${RECOVERY_REST_BELOW} · push ≥ ${RECOVERY_PUSH_FROM}`}
-          endCaption="100"
-          loading={summary.isPending}
-          emptyText="No recovery score"
-        />
-        <ContributorRows
-          label="Recovery contributors, points of their weight"
-          rows={contributorItems(data?.components ?? { hrv: null, sleep: null, rhr: null })}
-          loading={summary.isPending}
-        />
-      </>
-    ),
+    visual:
+      score === null && !summary.isPending ? (
+        <Text size="xs" c="dimmed">
+          {recoveryGap(data?.date).reason} {recoveryGap(data?.date).fills}
+        </Text>
+      ) : (
+        <>
+          <Meter
+            label="Recovery score"
+            value={score}
+            min={0}
+            max={100}
+            zones={[
+              { from: 0, to: RECOVERY_REST_BELOW, label: 'Rest', color: VX.bad },
+              {
+                from: RECOVERY_REST_BELOW,
+                to: RECOVERY_PUSH_FROM,
+                label: 'Normal',
+                color: VX.warn,
+              },
+              { from: RECOVERY_PUSH_FROM, to: 100, label: 'Push', color: VX.good },
+            ]}
+            startCaption={`rest < ${RECOVERY_REST_BELOW} · push ≥ ${RECOVERY_PUSH_FROM}`}
+            endCaption="100"
+            loading={summary.isPending}
+            emptyText="No recovery score"
+          />
+          <ContributorRows
+            label="Recovery contributors, points of their weight"
+            rows={contributorItems(data?.components ?? { hrv: null, sleep: null, rhr: null })}
+            loading={summary.isPending}
+          />
+        </>
+      ),
   }
 }
 
