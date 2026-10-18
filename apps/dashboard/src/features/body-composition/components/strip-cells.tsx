@@ -2,6 +2,7 @@
  * The three cells of the body-composition strip. Each takes already-fetched data and returns one
  * question: where is the weight against the goal, how fast is it moving, how thick are the folds.
  */
+import type { ReactNode } from 'react'
 import { Box } from '@mantine/core'
 import { DeltaBadge, Meter, type StatStripCell } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
@@ -35,6 +36,28 @@ const SITE_COLORS = {
 const dateLabel = (key: string | null): string | undefined =>
   key === null ? undefined : format(localDay(key), 'd MMM')
 
+const hasNoWeightEntries = (summary: WeightSummary, stats: WeightWindowStats): boolean =>
+  summary.current === null && stats.mean7 === null
+
+/**
+ * A cell in `state` draws no `footer` of its own, so the `Set a goal` action a goalless no-entries
+ * Weight cell would lose rides the strip's footer, under that cell.
+ */
+export function weightFooterEntries({
+  summary,
+  stats,
+  goal,
+}: {
+  summary: WeightSummary
+  stats: WeightWindowStats
+  goal: number | null
+}): { key: string; under: string; content: ReactNode }[] {
+  if (!hasNoWeightEntries(summary, stats) || goal !== null) return []
+  return [
+    { key: 'weight-goal', under: 'weight', content: <GoalPopover lastWeight={summary.current} /> },
+  ]
+}
+
 export function weightCell({
   summary,
   stats,
@@ -54,10 +77,9 @@ export function weightCell({
   const progress = goalProgress({ start: startWeight, current: summary.current, goal })
   const latest = dateLabel(latestDate)
 
-  const noEntries = summary.current === null && stats.mean7 === null
   const meanFooter = `${withUnit(withUnit(7, 'd'), 'mean')} ${stats.mean7 === null ? '—' : withKg(stats.mean7)}`
 
-  if (noEntries) {
+  if (hasNoWeightEntries(summary, stats)) {
     return {
       key: 'weight',
       caption: 'Weight',

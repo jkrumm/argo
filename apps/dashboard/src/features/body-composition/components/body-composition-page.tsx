@@ -26,7 +26,7 @@ import type { SkinfoldSummary, WeightSummary } from '../types'
 
 import classes from './body-composition.module.css'
 import { SkinfoldHistoryTable } from './skinfold-history-table'
-import { rateCell, skinfoldCell, weightCell } from './strip-cells'
+import { rateCell, skinfoldCell, weightCell, weightFooterEntries } from './strip-cells'
 
 type Params = WeightLogWindowParams & SkinfoldWindowParams
 
@@ -92,6 +92,7 @@ export function BodyCompositionPage({ params }: { params: Params }) {
         label="Body composition at a glance"
         cols={sessions.length > 0 ? 3 : 2}
         cells={cells}
+        footer={weightFooterEntries({ summary, stats, goal })}
       />
 
       <WeightChart params={params} goal={goal} />
