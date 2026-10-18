@@ -45,10 +45,11 @@ export function agentsCell(
   const working = summary?.working
   return {
     key: 'agents',
-    caption: 'Agents working · 24 h',
+    caption: 'Agents working · 24\u00a0h',
     value: typeof working === 'number' ? String(working) : null,
     ...(typeof working === 'number' && total !== null && { unit: `of ${total} agents` }),
-    footer: fleetPulse(hourlyWorking(history, HISTORY_HOURS, now), total) ?? 'no snapshot in 24 h',
+    footer:
+      fleetPulse(hourlyWorking(history, HISTORY_HOURS, now), total) ?? 'no snapshot in 24\u00a0h',
   }
 }
 
@@ -183,7 +184,7 @@ export function recoveryCell(reading: RecoveryReading | null, loading = false): 
           ? loading
             ? 'loading Garmin data'
             : 'Garmin data not loaded; reload to retry'
-          : `no reading yet · Garmin syncs every ${GARMIN_SYNC_HOURS} h`,
+          : `no reading yet · Garmin syncs every ${GARMIN_SYNC_HOURS}\u00a0h`,
     }
   }
   const { score, mean, days, trend, date, isToday } = reading
@@ -199,7 +200,9 @@ export function recoveryCell(reading: RecoveryReading | null, loading = false): 
           value={score}
           min={0}
           max={100}
-          {...(mean !== null && { ticks: [{ at: mean, label: `7 d mean ${Math.round(mean)}` }] })}
+          {...(mean !== null && {
+            ticks: [{ at: mean, label: `7\u00a0d mean ${Math.round(mean)}` }],
+          })}
           format={(v) => String(Math.round(v))}
           startCaption={null}
           endCaption={null}
@@ -218,7 +221,7 @@ export function recoveryCell(reading: RecoveryReading | null, loading = false): 
     ),
     footer: isToday
       ? `${days} observed ${days === 1 ? 'day' : 'days'} of 7`
-      : `today fills after the next Garmin sync (every ${GARMIN_SYNC_HOURS} h)`,
+      : `today fills after the next Garmin sync (every ${GARMIN_SYNC_HOURS}\u00a0h)`,
   }
 }
 
@@ -228,14 +231,14 @@ export function acwrCell(reading: AcwrReading | null, now: number): StatStripCel
   if (reading === null || reading.acwr === null) {
     return {
       key: 'acwr',
-      caption: 'ACWR · 7 d / 28 d',
+      caption: 'ACWR · 7\u00a0d / 28\u00a0d',
       value: null,
       footer: reading === null ? 'unavailable' : 'no training load observed',
     }
   }
   return {
     key: 'acwr',
-    caption: 'ACWR · 7 d / 28 d',
+    caption: 'ACWR · 7\u00a0d / 28\u00a0d',
     value: reading.acwr.toFixed(2),
     ...(reading.zone !== null && { unit: reading.zone }),
     visual: (

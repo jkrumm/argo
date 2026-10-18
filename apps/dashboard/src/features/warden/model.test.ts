@@ -90,12 +90,12 @@ describe('formatAgeDays', () => {
   })
 
   it('renders under a day as "< 1 d"', () => {
-    expect(formatAgeDays(0.4)).toBe('< 1 d')
+    expect(formatAgeDays(0.4)).toBe('< 1 d')
   })
 
   it('renders a day or more to one decimal with a "d" unit', () => {
-    expect(formatAgeDays(5.14)).toBe('5.1 d')
-    expect(formatAgeDays(1)).toBe('1.0 d')
+    expect(formatAgeDays(5.14)).toBe('5.1 d')
+    expect(formatAgeDays(1)).toBe('1.0 d')
   })
 })
 
@@ -204,7 +204,7 @@ describe('deriveAwaitingOwner', () => {
     ]
     const rows = deriveAwaitingOwner({ awaiting_owner: entries } as never).needsDecision
     expect(rows[0]!.stale).toBe(true)
-    expect(rows[0]!.ageLabel).toBe(`${AWAITING_OWNER_STALE_DAYS.toFixed(1)} d`)
+    expect(rows[0]!.ageLabel).toBe(`${AWAITING_OWNER_STALE_DAYS.toFixed(1)} d`)
     expect(rows[1]!.stale).toBe(false)
     expect(rows[2]!.stale).toBe(false)
     expect(rows[2]!.ageLabel).toBe('—')

@@ -2,7 +2,6 @@ import { Box, Stack, Text } from '@mantine/core'
 import { Section } from 'basalt-ui'
 import { DecisionCard } from '../../components/upstream/decision-card'
 import { useCopyAction } from '../../components/upstream/use-copy-action'
-import decisionClasses from '../../components/upstream/decision-card.module.css'
 import type { NeedsYouCard } from './model'
 import { StatusChip } from './status-chip'
 import classes from './needs-you-section.module.css'
@@ -22,13 +21,7 @@ function Card({ card }: { card: NeedsYouCard }) {
     <DecisionCard
       question={card.question}
       facts={card.facts}
-      {...(card.entity !== null && {
-        actor: (
-          <Text component="span" fz="xs" className={decisionClasses.wrap}>
-            {card.entity}
-          </Text>
-        ),
-      })}
+      subject={card.entity}
       {...(card.abandoned && { status: <StatusChip tone="bad" label="Abandoned" /> })}
       evidenceLine={card.evidenceLine}
       {...(card.preview !== null && {

@@ -71,8 +71,8 @@ export function FleetStrip({ needsYou, fleet, split, oldest, longestRunMs }: Pro
               value={oldest?.ms ?? null}
               max={ABANDONED_AFTER_MS}
               ticks={[
-                { at: OLDEST_WAIT_WARN_MS, label: 'warn at 24 h' },
-                { at: ABANDONED_AFTER_MS, label: 'abandoned at 7 d' },
+                { at: OLDEST_WAIT_WARN_MS, label: 'warn at 24\u00a0h' },
+                { at: ABANDONED_AFTER_MS, label: 'abandoned at 7\u00a0d' },
               ]}
               format={formatWaitDuration}
               startCaption={null}

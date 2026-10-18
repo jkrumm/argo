@@ -346,11 +346,11 @@ describe('fleetPulse', () => {
   })
   it('names the busiest hour and how many hours had an agent working', () => {
     expect(fleetPulse([hour(8, 0), hour(9, 4), hour(10, 2), hour(11, null)], 10)).toBe(
-      'peak 4 of 10 at 09:00 · working in 2 of 3 h · 1 h no data',
+      'peak 4 of 10 at 09:00 · working in 2 of 3 h · 1 h no data',
     )
   })
   it('says nothing was working when every hour is zero, and null with no snapshot', () => {
-    expect(fleetPulse([hour(8, 0), hour(9, 0)], null)).toBe('none working in 2 h observed')
+    expect(fleetPulse([hour(8, 0), hour(9, 0)], null)).toBe('none working in 2 h observed')
     expect(fleetPulse([hour(8, null)], 3)).toBeNull()
   })
 })

@@ -246,7 +246,9 @@ export function activityFact(
   if (peak === null) return null
   const measured = buckets.filter((b) => b.working !== null)
   const scope =
-    measured.length < buckets.length ? `${measured.length} h observed` : `${buckets.length} h`
+    measured.length < buckets.length
+      ? `${measured.length}\u00a0h observed`
+      : `${buckets.length}\u00a0h`
   if (peak.value === 0) return `no agent working in ${scope}`
   const active = measured.filter((b) => (b.working ?? 0) > 0).length
   return `busiest hour ${clockOf(peak.hourMs)} · agents working in ${active} of ${scope}`

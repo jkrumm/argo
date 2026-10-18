@@ -527,9 +527,9 @@ export function fleetPulse(buckets: readonly HourBucket[], total: number | null)
   const measured = buckets.filter((b) => b.working !== null).length
   const busy = buckets.filter((b) => (b.working ?? 0) > 0).length
   const gap = buckets.length - measured
-  const unobserved = gap > 0 ? ` · ${gap} h no data` : ''
+  const unobserved = gap > 0 ? ` · ${gap}\u00a0h no data` : ''
   const of = total === null ? '' : ` of ${total}`
   return peak.value === 0
-    ? `none working in ${measured} h observed${unobserved}`
-    : `peak ${peak.value}${of} at ${clockOf(peak.hourMs)} · working in ${busy} of ${measured} h${unobserved}`
+    ? `none working in ${measured}\u00a0h observed${unobserved}`
+    : `peak ${peak.value}${of} at ${clockOf(peak.hourMs)} · working in ${busy} of ${measured}\u00a0h${unobserved}`
 }

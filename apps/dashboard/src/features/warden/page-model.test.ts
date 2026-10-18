@@ -54,7 +54,7 @@ const row = (overrides: Partial<AwaitingOwnerRow>): AwaitingOwnerRow => ({
   state: 'needs_decision',
   prUrl: null,
   ageDays: 2.4,
-  ageLabel: '2.4 d',
+  ageLabel: '2.4 d',
   stale: false,
   reason: null,
   strikes: 0,
@@ -222,9 +222,9 @@ describe('deriveBudget', () => {
 
 describe('formatSpan / formatNumber', () => {
   it('picks the unit by size', () => {
-    expect(formatSpan(5 * 60_000)).toBe('5 min')
-    expect(formatSpan(3.2 * 3_600_000)).toBe('3.2 h')
-    expect(formatSpan(72 * 3_600_000)).toBe('3 d')
+    expect(formatSpan(5 * 60_000)).toBe('5 min')
+    expect(formatSpan(3.2 * 3_600_000)).toBe('3.2 h')
+    expect(formatSpan(72 * 3_600_000)).toBe('3 d')
   })
 
   it('drops a trailing .0', () => {
@@ -244,14 +244,14 @@ describe('deriveSummary', () => {
 
   it('states the queue and the loop verdict, with no fact line repeating the strip', () => {
     expect(deriveSummary(base)).toEqual({
-      text: '3 items need you, oldest 5.1 d. Loop healthy.',
+      text: 'Oldest wait on you 5.1 d. Loop healthy.',
       status: 'ok',
     })
   })
 
-  it('uses the singular for one item', () => {
-    expect(deriveSummary({ ...base, needsCount: 1 }).text).toBe(
-      '1 item needs you, oldest 5.1 d. Loop healthy.',
+  it('reads an unreported age as waiting, without a figure', () => {
+    expect(deriveSummary({ ...base, oldestAgeDays: null }).text).toBe(
+      'Items are waiting on you. Loop healthy.',
     )
   })
 
@@ -268,7 +268,7 @@ describe('deriveSummary', () => {
       ...base,
       receivedAt: new Date(NOW - 2 * 3_600_000).toISOString(),
     })
-    expect(stalled.text).toBe('3 items need you, oldest 5.1 d. Loop stalled — snapshot 2 h old.')
+    expect(stalled.text).toBe('Oldest wait on you 5.1 d. Loop stalled — snapshot 2 h old.')
     expect(stalled.status).toBe('stalled')
   })
 
@@ -282,7 +282,7 @@ describe('deriveSummary', () => {
       stalePoller: { name: 'loop', ageMin: 41, thresholdMin: 30, stale: true },
     })
     expect(summary.status).toBe('degraded')
-    expect(summary.text).toContain('Loop degraded: loop is 41 min old.')
+    expect(summary.text).toContain('Loop degraded: loop is 41 min old.')
   })
 })
 
@@ -431,7 +431,7 @@ describe('cardFacts', () => {
   it('leads with repo, then age, then how often the item was retried and revised', () => {
     expect(cardFacts(row({ redrives: 2, ageDays: 1.2 }))).toEqual([
       'repo-a',
-      'waiting 1.2 d',
+      'waiting 1.2 d',
       'retried 2 times, revised 1 time',
     ])
   })
@@ -442,13 +442,13 @@ describe('cardFacts', () => {
     )
     expect(cardFacts(row({ redrives: 0, revisionCount: 0, ageDays: 1.2 }))).toEqual([
       'repo-a',
-      'waiting 1.2 d',
+      'waiting 1.2 d',
     ])
   })
 
   it('tones a wait past two days as a warning', () => {
-    expect(cardFacts(row({ ageDays: 2.4 }))[1]).toEqual({ text: 'waiting 2.4 d', tone: 'warn' })
-    expect(cardFacts(row({ ageDays: 1.5 }))[1]).toBe('waiting 1.5 d')
+    expect(cardFacts(row({ ageDays: 2.4 }))[1]).toEqual({ text: 'waiting 2.4 d', tone: 'warn' })
+    expect(cardFacts(row({ ageDays: 1.5 }))[1]).toBe('waiting 1.5 d')
   })
 
   it('omits what warden did not report', () => {
@@ -638,13 +638,13 @@ describe('recentTransitions', () => {
 describe('pollerStaleLabel', () => {
   it('names the poller’s own threshold', () => {
     expect(pollerStaleLabel({ name: 'a', ageMin: 12, thresholdMin: 10, stale: true })).toBe(
-      'stale at 10 min',
+      'stale at 10 min',
     )
   })
 
   it('falls back to the 30 minute scale without a threshold', () => {
     expect(pollerStaleLabel({ name: 'a', ageMin: 40, thresholdMin: null, stale: true })).toBe(
-      'stale at 30 min',
+      'stale at 30 min',
     )
   })
 
@@ -894,7 +894,7 @@ describe('strip footers', () => {
       'merge poller · oldest of 3',
     )
     expect(pollerFooter({ ...poller, name: 'merge_poller', count: 1 })).toBe('merge poller')
-    expect(pollerFooter({ ...poller, name: null, count: 0 })).toBe('stale at 30 min')
+    expect(pollerFooter({ ...poller, name: null, count: 0 })).toBe('stale at 30 min')
   })
 
   it('carries the oldest poller name through the strip', () => {
@@ -905,7 +905,7 @@ describe('strip footers', () => {
   })
 
   it('tells a missing budget when it arrives', () => {
-    expect(BUDGET_MISSING.both).toContain('about every 10 min')
+    expect(BUDGET_MISSING.both).toContain('about every 10 min')
     expect(BUDGET_MISSING.one('Dispatch')).toContain('Dispatch budget')
     expect(REVERTS_INFO).toContain('reopen')
   })
@@ -913,7 +913,7 @@ describe('strip footers', () => {
 
 describe('pollerAgeText', () => {
   it('names the poller once, without a second `poller`', () => {
-    expect(pollerAgeText({ name: 'merge_poller', ageMin: 3.6 })).toBe('merge poller · 4 min old')
+    expect(pollerAgeText({ name: 'merge_poller', ageMin: 3.6 })).toBe('merge poller · 4 min old')
   })
 })
 

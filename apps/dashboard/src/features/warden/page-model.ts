@@ -277,10 +277,10 @@ const WARDEN_PUSH_MIN = 10
 
 /** What a missing budget says: the cause is on warden's side, the fix is its next push. */
 export const BUDGET_MISSING = {
-  both: `Dispatch and implement budget not reported yet. Warden sends it with each push (about every ${WARDEN_PUSH_MIN} min).`,
+  both: `Dispatch and implement budget not reported yet. Warden sends it with each push (about every ${WARDEN_PUSH_MIN}\u00a0min).`,
   one: (name: string) =>
-    `${name} budget not reported yet. Warden sends it with each push (about every ${WARDEN_PUSH_MIN} min).`,
-  short: `Not reported yet; Warden sends it with each push, about every ${WARDEN_PUSH_MIN} min.`,
+    `${name} budget not reported yet. Warden sends it with each push (about every ${WARDEN_PUSH_MIN}\u00a0min).`,
+  short: `Not reported yet; Warden sends it with each push, about every ${WARDEN_PUSH_MIN}\u00a0min.`,
 } as const
 
 // ── Summary sentence ────────────────────────────────────────────────────────
@@ -288,10 +288,10 @@ export const BUDGET_MISSING = {
 /** `"42 min"` / `"3.2 h"` / `"2.1 d"` — a span with a unit, never a bare number. */
 export function formatSpan(ms: number): string {
   const minutes = ms / 60_000
-  if (minutes < 60) return `${Math.max(1, Math.round(minutes))} min`
+  if (minutes < 60) return `${Math.max(1, Math.round(minutes))}\u00a0min`
   const hours = minutes / 60
-  if (hours < 48) return `${formatNumber(hours)} h`
-  return `${formatNumber(hours / 24)} d`
+  if (hours < 48) return `${formatNumber(hours)}\u00a0h`
+  return `${formatNumber(hours / 24)}\u00a0d`
 }
 
 export type WardenSummaryInput = {
@@ -308,20 +308,22 @@ export type WardenSummaryInput = {
 export type SummaryStatus = 'ok' | 'degraded' | 'stalled'
 
 /**
- * The headline sentence: the queue and the loop's verdict. The health strip under it already prints
- * the poller age, the fixes and the budget, so no fact line repeats them.
+ * The headline sentence: how long the queue has waited and the loop's verdict. The health strip
+ * under it prints the poller age, the fixes and the budget, the cards' sections print the counts, so
+ * no figure here repeats them.
  */
 export function deriveSummary(input: WardenSummaryInput): {
   text: string
   status: SummaryStatus
 } {
   const { needsCount, oldestAgeDays, receivedAt, now = Date.now() } = input
+  // The sections under it print the counts; the headline names the one figure they do not.
   const needs =
     needsCount === 0
       ? 'Nothing needs you'
-      : `${pluralize(needsCount, 'item')} ${needsCount === 1 ? 'needs' : 'need'} you${
-          oldestAgeDays === null ? '' : `, oldest ${formatAgeDays(oldestAgeDays)}`
-        }`
+      : oldestAgeDays === null
+        ? 'Items are waiting on you'
+        : `Oldest wait on you ${formatAgeDays(oldestAgeDays)}`
   if (isStale(receivedAt, now)) {
     const parsed = receivedAt === null ? Number.NaN : Date.parse(receivedAt)
     const age = Number.isFinite(parsed)
@@ -331,7 +333,7 @@ export function deriveSummary(input: WardenSummaryInput): {
   }
   if (input.stalePoller !== null) {
     return {
-      text: `${needs}. Loop degraded: ${input.stalePoller.name} is ${formatNumber(input.stalePoller.ageMin)} min old.`,
+      text: `${needs}. Loop degraded: ${input.stalePoller.name} is ${formatNumber(input.stalePoller.ageMin)}\u00a0min old.`,
       status: 'degraded',
     }
   }
@@ -628,7 +630,7 @@ export function openCount(columns: readonly BoardColumn[]): number {
 
 /** The label a stale poller carries: its own threshold, else the 30 minute scale. `null` when fresh. */
 export function pollerStaleLabel(poller: PollerRow): string | null {
-  return poller.stale ? `stale at ${poller.thresholdMin ?? POLLER_SCALE_MIN} min` : null
+  return poller.stale ? `stale at ${poller.thresholdMin ?? POLLER_SCALE_MIN}\u00a0min` : null
 }
 
 /** Deferral on the board: the marker follows `isDeferredItem`; the note only supplies the detail. */
@@ -769,7 +771,7 @@ export function verdictsFooter(verdicts: StripModel['verdicts']): string {
 
 /** The oldest poller's name and rank (`merge poller · oldest of 3`); an unnamed one states its stale mark. */
 export function pollerFooter(poller: StripModel['poller']): string {
-  if (poller.name === null) return `stale at ${poller.thresholdMin} min`
+  if (poller.name === null) return `stale at ${poller.thresholdMin}\u00a0min`
   const name = poller.name.replaceAll('_', ' ')
   return poller.count > 1 ? `${name} · oldest of ${poller.count}` : name
 }
@@ -803,7 +805,7 @@ export function emptyBoardText(waitingOnOwner: number): string {
 
 /** A poller as the Today page names it: `watchdog poll · 4 min old`. */
 export function pollerAgeText(poller: { name: string; ageMin: number }): string {
-  return `${poller.name.replaceAll('_', ' ')} · ${Math.round(poller.ageMin)} min old`
+  return `${poller.name.replaceAll('_', ' ')} · ${Math.round(poller.ageMin)}\u00a0min old`
 }
 
 export type BoardView = {

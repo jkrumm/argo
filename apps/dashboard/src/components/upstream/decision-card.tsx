@@ -6,14 +6,15 @@
  *
  * The interior shape (Keel's), top to bottom:
  *   1. question    — a short title (`QUESTION_MAX` chars); an ask that is not a question becomes a plain
- *                    question from the item's kind and state, the raw title moving to the entity line
- *   2. facts       — the entity plus two or three `·`-separated facts (`capFacts`, `FACTS_MAX` = 3)
- *   3. evidenceLine — ONE line, the lead of the reason (+ an age/confidence where the source has one);
+ *                    question from the item's kind and state
+ *   2. subject     — the raw title the question does not already say, under the question, never above it
+ *   3. facts       — two or three `·`-separated facts (`capFacts`, `FACTS_MAX` = 3)
+ *   4. evidenceLine — ONE line, the lead of the reason (+ an age/confidence where the source has one);
  *                    the whole ask sits behind `disclosure` only when the line had to shorten it
- *   4. actions     — one primary, one secondary, the rest in the menu
- *   5. preview     — context on the right. With a single line of history set `previewPlacement="inline"`: it
+ *   5. actions     — one primary, one secondary, the rest in the menu
+ *   6. preview     — context on the right. With a single line of history set `previewPlacement="inline"`: it
  *                    then sits under the facts as plain text, with no well and no box
- * `cardCopy` (lib/question-copy) derives 1 + 3 from an ask; callers pass its `question`,
+ * `cardCopy` (lib/question-copy) derives 1, 2 + 4 from an ask; callers pass its `question`,
  * `evidenceLine` and `detail` (as `disclosure.content`). `evidence` (the inset) is the older,
  * heavier slot for multi-line evidence and still works unchanged. Long identifiers and URLs wrap
  * at any character (`overflow-wrap: anywhere`) rather than overflow.
@@ -46,8 +47,8 @@ export type DecisionCardProps = {
   facts: readonly DecisionCardFact[]
   /** Leading chip or label before the facts (status, source). */
   status?: ReactNode
-  /** Actor / timing line above the question (who flagged it, when). */
-  actor?: ReactNode
+  /** The raw title under the question when the question does not already say it. */
+  subject?: ReactNode
   /** Inset panel under the facts: the reasoning behind the question. */
   evidence?: ReactNode
   /** One plain line under the facts: the lead of the reasoning (no inset). Wraps, never cut. */
@@ -160,7 +161,7 @@ export function DecisionCard({
   question,
   facts,
   status,
-  actor,
+  subject,
   evidence,
   evidenceLine,
   preview,
@@ -173,17 +174,17 @@ export function DecisionCard({
 }: DecisionCardProps) {
   const shown = visibleFacts(facts)
   return (
-    <Card>
-      <Group align="stretch" gap="md" wrap="wrap">
+    <Card h="100%">
+      <Group align="stretch" gap="md" wrap="wrap" h="100%">
         <Stack gap="sm" flex="1 1 14rem" miw={0}>
-          {isRenderable(actor) && (
-            <Text size="xs" c="dimmed">
-              {actor}
-            </Text>
-          )}
           <Text component="h3" m={0} fw={600} size="md" lh={1.35} className={classes.question}>
             {question}
           </Text>
+          {isRenderable(subject) && (
+            <Text size="xs" c="dimmed" className={classes.wrap}>
+              {subject}
+            </Text>
+          )}
           {(isRenderable(status) || shown.length > 0) && (
             <Group gap="xs" wrap="nowrap" align="baseline">
               {isRenderable(status) && <Box className={classes.status}>{status}</Box>}
@@ -215,12 +216,14 @@ export function DecisionCard({
           )}
           {isRenderable(evidence) && <Box className={classes.inset}>{evidence}</Box>}
           {disclosure !== undefined && <Disclosure {...disclosure} />}
-          <ActionRow question={question} primary={primary} secondary={secondary} menu={menu} />
-          {isRenderable(meta) && (
-            <Text size="xs" c="dimmed">
-              {meta}
-            </Text>
-          )}
+          <Stack gap="sm" mt="auto">
+            <ActionRow question={question} primary={primary} secondary={secondary} menu={menu} />
+            {isRenderable(meta) && (
+              <Text size="xs" c="dimmed">
+                {meta}
+              </Text>
+            )}
+          </Stack>
         </Stack>
         {previewPlacement === 'well' && isRenderable(preview) && (
           <Box className={classes.preview}>{preview}</Box>

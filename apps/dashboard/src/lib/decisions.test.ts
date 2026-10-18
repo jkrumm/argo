@@ -279,7 +279,7 @@ const factsAt = (days: number) =>
 describe('deriveDecisions: one clock and one threshold', () => {
   it('warns on an age from Warden’s own stale threshold, inclusive', () => {
     expect(factsAt(AWAITING_OWNER_STALE_DAYS)).toEqual({
-      text: 'waiting 3 d 0 h · stale at 3 d',
+      text: 'waiting 3 d 0 h · stale at 3 d',
       tone: 'warn',
     })
     expect(factsAt(AWAITING_OWNER_STALE_DAYS - 0.1)).toBe('waiting 2 d 21 h')

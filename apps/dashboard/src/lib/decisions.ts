@@ -96,7 +96,7 @@ function wardenDecisions(
         ? ''
         : ageMs >= AWAITING_OWNER_STALE_DAYS * DAY_MS
           ? {
-              text: `waiting ${formatWaitDuration(ageMs)} · stale at ${AWAITING_OWNER_STALE_DAYS} d`,
+              text: `waiting ${formatWaitDuration(ageMs)} · stale at ${AWAITING_OWNER_STALE_DAYS}\u00a0d`,
               tone: 'warn' as const,
             }
           : `waiting ${formatWaitDuration(ageMs)}`
