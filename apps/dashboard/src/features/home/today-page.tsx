@@ -36,7 +36,7 @@ import { applyVisibilityFilter } from '../garmin-health/visibility'
 import { acwrCell, agentsCell, budgetCell, meetingCell, recoveryCell } from './strip-cells'
 import classes from './home.module.css'
 
-/** Recovery and its baselines are window-wide, so Today reads the Garmin page's default window. */
+/** Recovery and its baselines are window-wide: Today reads the 30 d window, the Garmin page's default. */
 const GARMIN_WINDOW = { window: '30d' } as const
 const RECOVERY_DAYS = 7
 /** Seven days from today's midnight: today's agenda plus the lookup for the next meeting after it. */

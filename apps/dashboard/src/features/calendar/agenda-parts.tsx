@@ -1,3 +1,4 @@
+import { formatMinutes } from '../../lib/format'
 /**
  * The Agenda tab's presentational pieces. They render `derive.ts` output and compute nothing:
  * every figure, count and window arrives already derived.
@@ -7,7 +8,6 @@ import { Meter, Section } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { IconVideo } from '@tabler/icons-react'
 import { ScheduleRow } from '../../components/upstream/schedule-row'
-import { formatDurationMin } from '../../components/upstream/schedule-row-model'
 import { SERIES } from '../../lib/series'
 import classes from './agenda.module.css'
 import { untilLabel } from './summary'
@@ -31,7 +31,7 @@ import {
 /** Work and Personal are the one categorical split on the page, so they alone earn hues. */
 const SPLIT_COLOR = { work: SERIES.calendarWork, personal: SERIES.calendarPersonal } as const
 /**
- * The next item carries its `in 1h 30m` pill only while it is under 12 h away; further out the
+ * The next item carries its `in 1 h 30 min` pill only while it is under 12 h away; further out the
  * summary's `next Mon 10:45` already says when, and a pill of `in 44h` is noise.
  */
 const PILL_WITHIN_MIN = 12 * 60
@@ -135,7 +135,7 @@ export function DayGroups({
             <Box className={classes.groupHead}>
               <span className={classes.caption}>{dayLabel(day.key)}</span>
               <span className={classes.muted}>
-                {incomplete ? '—' : dayHeadLabel(day, formatDurationMin, chips.length)}
+                {incomplete ? '—' : dayHeadLabel(day, formatMinutes, chips.length)}
               </span>
             </Box>
             {chips.length > 0 && (
@@ -196,7 +196,7 @@ export function WeekStrip({
                   size="row"
                 />
                 <span className={classes.stripBooked}>
-                  {day.bookedMin === null ? '—' : formatDurationMin(day.bookedMin)}
+                  {day.bookedMin === null ? '—' : formatMinutes(day.bookedMin)}
                 </span>
                 <span className={classes.stripCount}>{day.count ?? '—'}</span>
               </Box>
@@ -207,7 +207,7 @@ export function WeekStrip({
           <Meter
             label="Booked hours by source"
             max={Math.max(total, 1)}
-            format={formatDurationMin}
+            format={formatMinutes}
             segments={(['work', 'personal'] as const).map((key) => ({
               value: split[key],
               label: SPLIT_LABEL[key],
@@ -224,7 +224,7 @@ export function WeekStrip({
                 {unknown.has(key)
                   ? 'unavailable'
                   : // Personal is the booked time minus work: without the work feed it is a floor.
-                    `${formatDurationMin(split[key])}${key === 'personal' && unknown.has('work') ? ' (partial)' : ''}`}
+                    `${formatMinutes(split[key])}${key === 'personal' && unknown.has('work') ? ' (partial)' : ''}`}
               </span>
             ))}
           </Box>

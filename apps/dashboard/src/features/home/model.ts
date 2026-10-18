@@ -1,10 +1,10 @@
 import { addDays, startOfDay as startOfDayDate } from 'date-fns'
-import { clockTime, dayLabel, formatWaitDuration, headlineOf } from '../agents/model'
+import { clockTime, dayLabel, headlineOf } from '../agents/model'
 import type { Narrative } from '../../lib/queries/agents'
 import type { WardenRaw } from '../../lib/queries/warden'
 import type { Decision } from '../../lib/decisions'
 import type { SourceClass } from '../../lib/queries/calendar'
-import { NBSP, formatDuration } from '../../lib/format'
+import { ARROW, NBSP, formatDuration } from '../../lib/format'
 import { leadOf } from '../../lib/question-copy'
 import { firstClause, oldestWaitSentence, stripShortcodes } from '../../lib/text'
 
@@ -318,7 +318,7 @@ function pathOf(steps: readonly Step[]): string {
   push(first?.from ?? null)
   for (const step of steps) push(step.to)
   const ends = states.length > 2 ? [states[0]!, states.at(-1)!] : states
-  return ends.join(`${NBSP}→${NBSP}`)
+  return ends.join(ARROW)
 }
 
 /**
@@ -452,7 +452,7 @@ export function staleFeeds(
   return feeds.flatMap((f) => {
     const ms = parseMs(f.receivedAt)
     if (ms === null || now - ms < LIVE_WITHIN_MS) return []
-    return [`${f.name} ${formatWaitDuration(now - ms)} old`]
+    return [`${f.name} ${formatDuration(now - ms)} old`]
   })
 }
 
@@ -479,7 +479,7 @@ export function homeSummaryParts(s: HomeSummaryInput): HomeSummaryParts {
     return { sentence: `Can't tell — ${s.unavailable.join(' and ')} unavailable.`, facts: [] }
   const gap = s.unavailable.length > 0 ? ` (${s.unavailable.join(' and ')} unavailable)` : ''
   const ages = s.decisions.flatMap((d) => (d.ageMs === null ? [] : [d.ageMs]))
-  const oldest = ages.length === 0 ? null : formatWaitDuration(Math.max(...ages))
+  const oldest = ages.length === 0 ? null : formatDuration(Math.max(...ages))
   const sentence = `${oldestWaitSentence(s.decisions.length, oldest)}${gap}.`
   const count = (source: Decision['source']) =>
     s.decisions.filter((d) => d.source === source).length

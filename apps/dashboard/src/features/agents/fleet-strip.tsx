@@ -1,11 +1,10 @@
-import { withUnit } from '../../lib/format'
+import { formatDuration, withUnit } from '../../lib/format'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import {
   ABANDONED_AFTER_MS,
   fleetFact,
   itemNoun,
-  formatWaitDuration,
   OLDEST_WAIT_WARN_MS,
   type FleetPart,
   type FleetState,
@@ -66,7 +65,7 @@ export function FleetStrip({ needsYou, fleet, split, oldest, longestRunMs }: Pro
         {
           key: 'oldest-wait',
           caption: 'Oldest wait',
-          value: oldest === null ? null : formatWaitDuration(oldest.ms),
+          value: oldest === null ? null : formatDuration(oldest.ms),
           ...(oldestTone !== undefined && { tone: oldestTone }),
           footer: oldest === null ? undefined : `in ${oldest.project}`,
           visual: (
@@ -84,7 +83,7 @@ export function FleetStrip({ needsYou, fleet, split, oldest, longestRunMs }: Pro
                   label: `abandoned at ${withUnit(ABANDONED_AFTER_MS / DAY_MS, 'd')}`,
                 },
               ]}
-              format={formatWaitDuration}
+              format={formatDuration}
               startCaption={null}
               endCaption={null}
               emptyText="No agent or ask is waiting"
@@ -114,7 +113,7 @@ function fleetCell(fleet: Props['fleet'], longestRunMs: number | null): StatStri
     key: 'fleet',
     caption: 'Fleet',
     value: String(parts[0]?.value ?? 0),
-    unit: `working of ${total} agents`,
+    unit: `working of ${total} ${total === 1 ? 'agent' : 'agents'}`,
     footer: fleetFact(longestRunMs, parts[0]?.value ?? 0),
     visual: (
       <Meter

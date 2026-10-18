@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import {
   AWAITING_OWNER_STALE_DAYS,
-  buildItemFacts,
+  buildItemFacts as buildFacts,
   deriveAwaitingOwner,
   formatAgeDays,
   formatSourceLine,
@@ -328,6 +328,9 @@ describe('formatVerdictLine', () => {
   })
 })
 
+const FACTS_NOW = Date.parse('2026-09-06T00:00:00Z')
+const buildItemFacts = (item: Row | null, event: Row | null) => buildFacts(item, event, FACTS_NOW)
+
 describe('buildItemFacts', () => {
   it('reads every field as absent when both item and event are null', () => {
     const facts = buildItemFacts(null, null)
@@ -389,7 +392,8 @@ describe('buildItemFacts', () => {
     expect(facts.lines.some((line) => line.startsWith('resolved '))).toBe(true)
     expect(facts.lines.some((line) => line.startsWith('Alert reminders: 5'))).toBe(true)
     expect(facts.lines).toContain('2 strikes')
-    expect(facts.lines.some((line) => line.startsWith('retry '))).toBe(true)
+    expect(facts.lines).toContain('retry 1\u00a0d ago')
+    expect(facts.lines).toContain('resolved 2\u00a0d ago')
   })
 
   it('never renders a reminder or strike line for a zero or absent count', () => {

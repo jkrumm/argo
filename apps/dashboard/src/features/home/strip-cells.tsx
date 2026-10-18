@@ -56,7 +56,9 @@ export function agentsCell(
     key: 'agents',
     caption: 'Agents working · now',
     value: typeof working === 'number' ? String(working) : null,
-    ...(typeof working === 'number' && { unit: `of ${fleet.total} agents` }),
+    ...(typeof working === 'number' && {
+      unit: `of ${fleet.total} ${fleet.total === 1 ? 'agent' : 'agents'}`,
+    }),
     visual: (
       <Meter
         label="Agents by state"

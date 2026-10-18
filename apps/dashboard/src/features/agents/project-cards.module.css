@@ -6,7 +6,7 @@
   color: var(--vx-muted);
 }
 
-/* One grid for the whole list, each row a subgrid of it: the columns size to their widest cell, so an age never clips and the rows still align. */
+/* One grid for the whole list, each row a subgrid of it: the name track stops at 20rem and the columns start-align, so the state and the age sit beside the name instead of at the far edge of a wide row; the state and age columns size to their widest cell, so an age never clips. At 390 the name track shrinks first (min 0). */
 .quiet {
   display: grid;
   grid-template-columns: minmax(0, 20rem) max-content max-content;
@@ -29,8 +29,6 @@
 }
 
 .quietAge {
-  /* Sits beside its state, not at the far edge of a wide row; whole, never clipped. */
-  overflow: visible;
   white-space: nowrap;
 }
 

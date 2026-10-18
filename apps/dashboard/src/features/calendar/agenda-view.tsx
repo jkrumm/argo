@@ -1,8 +1,8 @@
+import { formatMinutes } from '../../lib/format'
 import { useMemo } from 'react'
 import { Anchor, Box, Card, Stack, Text } from '@mantine/core'
 import { Section, StatGroup } from 'basalt-ui'
 import { format } from 'date-fns'
-import { formatDurationMin } from '../../components/upstream/schedule-row-model'
 import type { SourceClass } from '../../lib/queries/calendar'
 import { PageSummary } from '../../components/upstream/page-summary'
 import { summaryParts, todayCardState } from './summary'
@@ -143,7 +143,7 @@ export function AgendaView({
                     key: 'free-block',
                     caption: 'Longest free block',
                     qualifier: 'today',
-                    value: free ? formatDurationMin(free.minutes) : null,
+                    value: free ? formatMinutes(free.minutes) : null,
                     footer: summary.incomplete
                       ? 'a calendar has not answered'
                       : free

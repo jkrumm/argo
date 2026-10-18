@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import type { WardenBoardItem, WardenMetrics } from '../../lib/queries/warden'
 import { resolveCopies } from '../../lib/question-copy'
-import { waitingOnOwner, type AwaitingOwnerRow } from './model'
+import { waitingOnOwner, type AwaitingOwnerRow, type AwaitingOwnerView } from './model'
 import {
   cardFacts,
   deferredNote,
@@ -35,7 +35,7 @@ import {
   BUDGET_MISSING,
   emptyBoardText,
   emptyColumnText,
-  sharedEvidenceLines,
+  resolveQueueAsks,
   fixesLegend,
   historyView,
   pollerFooter,
@@ -63,6 +63,7 @@ const row = (overrides: Partial<AwaitingOwnerRow>): AwaitingOwnerRow => ({
   revisionCount: 1,
   failureClass: null,
   redrives: 0,
+  failedFrom: null,
   availableActions: [],
   ...overrides,
 })
@@ -988,20 +989,22 @@ describe('deriveBoard', () => {
   const item = (event_id: number, state = 'working') =>
     ({ event_id, state, repo: 'r', title: 't' }) as WardenBoardItem
   const board = (items: WardenBoardItem[]) => ({ items }) as never
+  const owner = (needs: number[], failed: number[] = []) =>
+    ({
+      needsDecision: needs.map((eventId) => ({ eventId })),
+      other: [],
+      failed: failed.map((eventId) => ({ eventId })),
+    }) as unknown as AwaitingOwnerView
 
   it('counts the board and names only the items that actually left it', () => {
-    const view = deriveBoard(board([item(1, 'needs_decision'), item(2)]), new Set([1, 99]))
+    const view = deriveBoard(board([item(1, 'needs_decision'), item(2)]), owner([1, 99]))
     expect(view.open).toBe(1)
     expect(view.columns.flatMap((c) => c.items.map((i) => i.event_id))).toEqual([2])
     expect(view.emptyText).toBe('No other open items. The one open item is waiting on you, above.')
   })
 
   it('says every open item waits on the owner when all are claimed', () => {
-    const view = deriveBoard(
-      board([item(1, 'needs_decision'), item(2, 'failed')]),
-      new Set([1, 2]),
-      new Set([2]),
-    )
+    const view = deriveBoard(board([item(1, 'needs_decision'), item(2, 'failed')]), owner([1], [2]))
     expect(view.open).toBe(0)
     // The count is the `Needs you` badge's: the failed item is named apart, never added to it.
     expect(view.emptyText).toBe(
@@ -1010,7 +1013,7 @@ describe('deriveBoard', () => {
   })
 
   it('says nothing is open when nothing was claimed either', () => {
-    expect(deriveBoard(board([]), new Set()).emptyText).toBe('No open items.')
+    expect(deriveBoard(board([]), owner([])).emptyText).toBe('No open items.')
   })
 })
 
@@ -1112,13 +1115,41 @@ describe('wardenAsk across one surface', () => {
   })
 })
 
-describe('sharedEvidenceLines', () => {
-  const ask = (evidenceLine: string | null) =>
-    ({ copy: { evidenceLine } }) as unknown as Parameters<typeof sharedEvidenceLines>[0][number]
-  it('returns the lines two or more cards print word for word, once each', () => {
-    expect(
-      sharedEvidenceLines([ask('Same note.'), ask('same note.'), ask('Own fact.'), ask(null)]),
-    ).toEqual(['Same note.'])
-    expect(sharedEvidenceLines([ask('A.'), ask('B.')])).toEqual([])
+describe('resolveQueueAsks', () => {
+  const entry = (eventId: number, title: string, reason: string) => ({
+    kind: 'decision' as const,
+    row: {
+      eventId,
+      repo: '{repo}',
+      title,
+      reason,
+      question: null,
+      availableActions: ['implement'],
+    } as unknown as AwaitingOwnerRow,
+  })
+  const resolve = (entries: ReturnType<typeof entry>[]) =>
+    resolveQueueAsks(entries, ({ row }) => String(row.eventId))
+
+  it('hoists a line every card of the list shares, once, and drops it from the cards', () => {
+    const { asks, shared } = resolve([
+      entry(1, 'Disk full', 'Same note.'),
+      entry(2, 'Cache cold', 'same note.'),
+    ])
+    expect(shared.decision).toBe('Same note.')
+    expect(asks.map((a) => a.copy.evidenceLine)).toEqual([null, null])
+  })
+
+  it('keeps a line some cards share on those cards', () => {
+    const { asks, shared } = resolve([
+      entry(1, 'Disk full', 'Same note.'),
+      entry(2, 'Cache cold', 'Same note.'),
+      entry(3, 'Queue deep', 'Own fact.'),
+    ])
+    expect(shared.decision).toBeNull()
+    expect(asks.map((a) => a.copy.evidenceLine)).toEqual(['Same note.', 'Same note.', 'Own fact.'])
+  })
+
+  it('never hoists from a list of one', () => {
+    expect(resolve([entry(1, 'Disk full', 'Note.')]).shared.decision).toBeNull()
   })
 })

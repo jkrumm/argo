@@ -64,6 +64,7 @@ describe('cardCopy', () => {
       evidenceLine: 'It touches the loop.',
       detail: null,
       source: 'ask',
+      parts: null,
     })
   })
 
@@ -538,5 +539,50 @@ describe('handles are whole', () => {
       'Answer this request: Disk full?',
       'Answer this request: Queue deep?',
     ])
+  })
+})
+
+describe('terse stems', () => {
+  type Ask = { host: string; text: string }
+  const derive = (
+    a: Ask,
+    { handle }: { handle: import('./question-copy').Disambiguation | null },
+  ) => ({
+    copy: cardCopy({
+      title: a.text,
+      plain: `Answer ${a.host} request?`,
+      handle: handle === null ? null : { source: a.text, ...handle },
+    }),
+  })
+  const run = (asks: Ask[]) =>
+    resolveCopies(asks, { key: (a) => `${a.host}-${a.text}`, terseStem: true, derive }).map(
+      (r) => r.copy.question,
+    )
+
+  it('keeps identical asks on two hosts distinct when the terse form would merge them', () => {
+    const questions = run([
+      { host: 'h1', text: 'Disk full' },
+      { host: 'h1', text: 'Queue deep' },
+      { host: 'h2', text: 'Disk full' },
+      { host: 'h2', text: 'Queue deep' },
+    ])
+    expect(new Set(questions.map((q) => q.toLowerCase())).size).toBe(4)
+    expect(questions).toEqual([
+      'Answer h1 request: Disk full?',
+      'Answer h1 request: Queue deep?',
+      'Answer h2 request: Disk full?',
+      'Answer h2 request: Queue deep?',
+    ])
+  })
+
+  it('keeps the original line when the handle stops mid-sentence', () => {
+    const copy = cardCopy({
+      body: 'Disk full — host a is down. Free space.',
+      title: 'Disk full — host a is down',
+      plain: 'Answer this request?',
+      handle: { source: 'Disk full — host a is down', clauses: 1, ordinal: null },
+    })
+    expect(copy.question).toBe('Answer this request: Disk full?')
+    expect(copy.evidenceLine).toBe('Disk full — host a is down. Free space.')
   })
 })

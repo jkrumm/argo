@@ -1,3 +1,4 @@
+import { formatMinutes } from '../../lib/format'
 /**
  * ScheduleRow — one agenda line: clock time with its duration (beside it when the row is wide,
  * under it when narrow), a proportional title, a muted meta line, an optional pill for the next item
@@ -8,7 +9,6 @@
  */
 import type { ReactNode } from 'react'
 import classes from './schedule-row.module.css'
-import { formatDurationMin } from './schedule-row-model'
 
 export type ScheduleRowProps = {
   /** The start, already formatted (`09:30`). */
@@ -39,7 +39,7 @@ export function ScheduleRow({
       <div className={classes.inner}>
         <div className={classes.time}>
           <span>{start}</span>
-          <span className={classes.duration}>{formatDurationMin(durationMin)}</span>
+          <span className={classes.duration}>{formatMinutes(durationMin)}</span>
         </div>
         <div className={classes.body}>
           <div className={classes.title} title={title}>

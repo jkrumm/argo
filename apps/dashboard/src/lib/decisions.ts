@@ -19,13 +19,12 @@ import {
   clockMs,
   evidenceSource,
   flattenAgents,
-  formatWaitDuration,
   humanQueueCopy,
   isAbandonedWait,
   type AgentRow,
 } from '../features/agents/model'
 import { resolveCopies, type CardCopy, type Disambiguation } from './question-copy'
-import { withUnit } from './format'
+import { formatDuration, withUnit } from './format'
 import { asText } from './text'
 import type { HumanQueueItem, OverviewSnapshot } from './queries/agents'
 import type { WardenRaw } from './queries/warden'
@@ -151,10 +150,10 @@ function toDecision(
         ? ''
         : ageMs >= AWAITING_OWNER_STALE_DAYS * DAY_MS
           ? {
-              text: `waiting ${formatWaitDuration(ageMs)} · stale at ${withUnit(AWAITING_OWNER_STALE_DAYS, 'd')}`,
+              text: `waiting ${formatDuration(ageMs)} · stale at ${withUnit(AWAITING_OWNER_STALE_DAYS, 'd')}`,
               tone: 'warn' as const,
             }
-          : `waiting ${formatWaitDuration(ageMs)}`
+          : `waiting ${formatDuration(ageMs)}`
     const pr = asText(row.prUrl)
     return {
       ...base,
@@ -177,7 +176,7 @@ function toDecision(
       source: 'queue',
       facts: capFacts([
         `queue${host ? ` · ${host}` : ''}`,
-        ageMs === null ? '' : `asked ${formatWaitDuration(ageMs)} ago`,
+        ageMs === null ? '' : `asked ${formatDuration(ageMs)} ago`,
       ]),
       ageMs,
       href: '/agents',
@@ -194,7 +193,7 @@ function toDecision(
     source: 'agent',
     facts: capFacts([
       `agent · ${asText(a.project)}`,
-      ageMs === null ? '' : `waiting ${formatWaitDuration(ageMs)}`,
+      ageMs === null ? '' : `waiting ${formatDuration(ageMs)}`,
     ]),
     ageMs,
     href: '/agents',

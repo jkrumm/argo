@@ -22,8 +22,8 @@ describe('summaryParts', () => {
   test('a busy day: the headline carries the count and booked time, the facts the countdown and week', () => {
     const summary = agendaSummary(events, now)
     const { sentence, facts } = summaryParts(summary)
-    expect(sentence).toBe('3 meetings today, 2h\u00a040m booked')
-    expect(facts).toEqual(['next in 20m', '2h\u00a040m booked this week'])
+    expect(sentence).toBe('3 meetings today, 2\u00a0h 40\u00a0min booked')
+    expect(facts).toEqual(['next in 20\u00a0min', '2\u00a0h 40\u00a0min booked this week'])
   })
   test("an empty day says so; the free time is the free-block cell's, not repeated", () => {
     const summary = agendaSummary([], now)
@@ -34,7 +34,7 @@ describe('summaryParts', () => {
   })
   test('a lone meeting reads singular', () => {
     const summary = agendaSummary([events[1] as CalendarItem], now)
-    expect(summaryParts(summary).sentence).toStartWith('1 meeting today, 40m booked')
+    expect(summaryParts(summary).sentence).toStartWith('1 meeting today, 40\u00a0min booked')
   })
   test('dashes, never "No events", while a calendar has not answered', () => {
     const summary = agendaSummary([], now, new Set(['work']))
@@ -43,18 +43,18 @@ describe('summaryParts', () => {
       facts: ['next —', '— booked this week'],
     })
   })
-  test('durations never break between hours and minutes', () => {
+  test('a value never parts from its unit', () => {
     const long = [ev('l', `${D} 12:00:00`, `${D} 23:05:00`)]
     const { sentence, facts } = summaryParts(agendaSummary(long, now))
-    for (const text of [sentence, ...facts]) expect(text).not.toMatch(/\d+h \d+m/)
-    expect(sentence).toContain('11h\u00a05m')
+    for (const text of [sentence, ...facts]) expect(text).not.toMatch(/\d+ (?:h|min)\b/)
+    expect(sentence).toContain('11\u00a0h 5\u00a0min')
   })
 })
 
 describe('untilLabel', () => {
   test('one wording for the pill and the summary', () => {
-    expect(untilLabel(20)).toBe('in 20m')
-    expect(untilLabel(90)).toBe('in 1h 30m')
+    expect(untilLabel(20)).toBe('in 20\u00a0min')
+    expect(untilLabel(90)).toBe('in 1\u00a0h 30\u00a0min')
     const within = agendaSummary([ev('x', `${D} 12:30:00`, `${D} 13:00:00`)], now)
     expect(countdown(within)).toBe(`next ${untilLabel(90)}`)
   })

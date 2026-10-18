@@ -5,7 +5,6 @@ import { CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
 import { IconCircleCheck, IconListDetails } from '@tabler/icons-react'
 import type { WardenActionVerb, WardenItems } from '../../lib/queries/warden'
 import classes from '../../components/upstream/decision-card.module.css'
-import { resolveCopies } from '../../lib/question-copy'
 import { HistoryPreview } from './history-preview'
 import { DecisionCard, type DecisionCardAction } from '../../components/upstream/decision-card'
 import { capFacts } from '../../components/upstream/decision-card-model'
@@ -18,12 +17,11 @@ import {
   type PendingActions,
 } from './model'
 import {
-  wardenAsk,
   cardCategory,
   cardFacts,
   historyView,
   needsCards,
-  sharedEvidenceLines,
+  resolveQueueAsks,
   recentTransitions,
   type TransitionHistory,
   type ActionPlan,
@@ -159,13 +157,6 @@ function QueueCard({
   )
 }
 
-/** The ask with an evidence line the list prints once left out of it. */
-function withoutShared(ask: WardenAsk, shared: readonly string[]): WardenAsk {
-  const line = ask.copy.evidenceLine
-  if (line === null || !shared.some((s) => s.toLowerCase() === line.toLowerCase())) return ask
-  return { ...ask, copy: { ...ask.copy, evidenceLine: null } }
-}
-
 function CardGrid({
   rows,
   kind,
@@ -178,9 +169,10 @@ function CardGrid({
 }: {
   rows: readonly AwaitingOwnerRow[]
   kind: QueueKind
-  asks: ReadonlyMap<string, WardenAsk | undefined>
-  /** Evidence lines this list prints once above the cards; its cards do not repeat them. */
-  shared: readonly string[]
+  /** One ask per row, in order. */
+  asks: readonly WardenAsk[]
+  /** The evidence line every card of this list shares: printed once above it, left off the cards. */
+  shared: string | null
   items: WardenItems | undefined
   pending: PendingActions
   onFire: (eventId: number, verb: WardenActionVerb) => void
@@ -188,18 +180,18 @@ function CardGrid({
 }) {
   return (
     <Stack gap="sm">
-      {shared.map((line) => (
-        <Text key={line} size="sm" c="dimmed">
-          {line}
+      {shared === null ? null : (
+        <Text size="sm" c="dimmed">
+          {shared}
         </Text>
-      ))}
+      )}
       <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="sm">
-        {rows.map((row) => (
+        {rows.map((row, i) => (
           <QueueCard
             key={row.eventId}
             row={row}
             kind={kind}
-            ask={withoutShared(asks.get(askKey({ row, kind })) ?? wardenAsk(row, kind), shared)}
+            ask={asks[i]!}
             pending={pending[row.eventId]}
             history={recentTransitions(items?.[String(row.eventId)])}
             onFire={(verb) => onFire(row.eventId, verb)}
@@ -221,26 +213,19 @@ export function DecisionQueues({ view, items, pending, onSelectItem, onAction }:
   const [prompt, setPrompt] = useState<PromptState>(null)
   const needs = useMemo(() => needsCards(view), [view])
   // One surface: a needs-you and a failed card that would read the same are told apart together.
-  const asks = useMemo(() => {
-    const entries = [
-      ...needs.map((row) => ({ row, kind: 'decision' as const })),
-      ...view.failed.map((row) => ({ row, kind: 'failed' as const })),
-    ]
-    const resolved = resolveCopies(entries, {
-      key: askKey,
-      derive: ({ row, kind }, options) => wardenAsk(row, kind, options),
-    })
-    return new Map(entries.map((entry, i) => [askKey(entry), resolved[i]] as const))
-  }, [needs, view.failed])
-
-  const sharedNeeds = useMemo(
-    () => sharedEvidenceLines(needs.map((row) => asks.get(askKey({ row, kind: 'decision' }))!)),
-    [needs, asks],
+  const queue = useMemo(
+    () =>
+      resolveQueueAsks(
+        [
+          ...needs.map((row) => ({ row, kind: 'decision' as const })),
+          ...view.failed.map((row) => ({ row, kind: 'failed' as const })),
+        ],
+        askKey,
+      ),
+    [needs, view.failed],
   )
-  const sharedFailed = useMemo(
-    () => sharedEvidenceLines(view.failed.map((row) => asks.get(askKey({ row, kind: 'failed' }))!)),
-    [view.failed, asks],
-  )
+  const needsAsks = queue.asks.slice(0, needs.length)
+  const failedAsks = queue.asks.slice(needs.length)
 
   const fire = useCallback(
     (eventId: number, verb: WardenActionVerb) => {
@@ -275,8 +260,8 @@ export function DecisionQueues({ view, items, pending, onSelectItem, onAction }:
           <CardGrid
             rows={needs}
             kind="decision"
-            asks={asks}
-            shared={sharedNeeds}
+            asks={needsAsks}
+            shared={queue.shared.decision}
             items={items}
             pending={pending}
             onFire={fire}
@@ -289,8 +274,8 @@ export function DecisionQueues({ view, items, pending, onSelectItem, onAction }:
           <CardGrid
             rows={view.failed}
             kind="failed"
-            asks={asks}
-            shared={sharedFailed}
+            asks={failedAsks}
+            shared={queue.shared.failed}
             items={items}
             pending={pending}
             onFire={fire}

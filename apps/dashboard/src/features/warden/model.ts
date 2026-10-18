@@ -1,6 +1,5 @@
-import { relativeTime } from 'basalt-ui/format'
 import { authoredQuestion } from '../../lib/text'
-import { NBSP, withUnit } from '../../lib/format'
+import { NBSP, formatRelative, withUnit } from '../../lib/format'
 import type {
   WardenActionVerb,
   WardenBoardItem,
@@ -84,7 +83,7 @@ export type AwaitingOwnerRow = {
   /** The board item's `origin` (`alert`, …); `null` when the item is past the board cap. */
   origin: string | null
   /** For a `failed` row: the state it failed out of (`verifying`), from its own timeline; `null` when unknown. */
-  failedFrom?: string | null
+  failedFrom: string | null
   /** The entry's raw state — the badge of the `other` list, which holds states outside the vocabulary. */
   state: string | null
   prUrl: string | null
@@ -312,55 +311,57 @@ function externalIdOf(event: Row | null): string | null {
   return str(raw) ?? (typeof raw === 'number' ? String(raw) : null)
 }
 
-function seenParts(item: Row | null): string[] {
+function seenParts(item: Row | null, now: number): string[] {
   const firstSeen = str(item?.['first_seen'])
   const lastSeen = str(item?.['last_seen'])
   return [
-    firstSeen ? `first seen ${relativeTime(firstSeen)}` : null,
-    lastSeen ? `last seen ${relativeTime(lastSeen)}` : null,
+    firstSeen ? `first seen ${formatRelative(firstSeen, now)}` : null,
+    lastSeen ? `last seen ${formatRelative(lastSeen, now)}` : null,
   ].filter((part): part is string => part !== null)
 }
 
 /** "first seen … · last seen … · N occurrences" — any of the three parts may be absent; `null`
  * only when none of them are present. */
-function seenAndOccurrencesLine(item: Row | null): string | null {
+function seenAndOccurrencesLine(item: Row | null, now: number): string | null {
   const occurrences = num(item?.['occurrences'])
   const occurrenceText = occurrences !== null ? pluralize(occurrences, 'occurrence') : null
-  const parts = [...seenParts(item), occurrenceText].filter((part): part is string => part !== null)
+  const parts = [...seenParts(item, now), occurrenceText].filter(
+    (part): part is string => part !== null,
+  )
   return parts.length > 0 ? parts.join(' · ') : null
 }
 
-function resolvedLine(event: Row | null): string | null {
+function resolvedLine(event: Row | null, now: number): string | null {
   const resolvedAt = str(event?.['resolved_at'])
-  return resolvedAt ? `resolved ${relativeTime(resolvedAt)}` : null
+  return resolvedAt ? `resolved ${formatRelative(resolvedAt, now)}` : null
 }
 
-function alertReminderLine(event: Row | null): string | null {
+function alertReminderLine(event: Row | null, now: number): string | null {
   const count = num(event?.['reminder_count'])
   if (count === null || count <= 0) return null
   const last = str(event?.['last_reminder_at'])
-  return `Alert reminders: ${count}${last ? ` (last ${relativeTime(last)})` : ''}`
+  return `Alert reminders: ${count}${last ? ` (last ${formatRelative(last, now)})` : ''}`
 }
 
 /** Strikes and the retry gate — warden's one retry rule: three consecutive infrastructure failures
  * of a step park the item in `failed`; a submitting poller skips the row until `retry_at`. */
-function retryLines(item: Row | null): string[] {
+function retryLines(item: Row | null, now: number): string[] {
   const strikes = num(item?.['strikes'])
   const retryAt = str(item?.['retry_at'])
   return [
     strikes !== null && strikes > 0 ? `${pluralize(strikes, 'strike')}` : null,
-    retryAt ? `retry ${relativeTime(retryAt)}` : null,
+    retryAt ? `retry ${formatRelative(retryAt, now)}` : null,
   ].filter((line): line is string => line !== null)
 }
 
 /** The tracking-facts lines below the identity header, in fixed order — only the ones with
  * something to say. */
-function buildFactLines(item: Row | null, event: Row | null): string[] {
+function buildFactLines(item: Row | null, event: Row | null, now: number): string[] {
   return [
-    seenAndOccurrencesLine(item),
-    resolvedLine(event),
-    alertReminderLine(event),
-    ...retryLines(item),
+    seenAndOccurrencesLine(item, now),
+    resolvedLine(event, now),
+    alertReminderLine(event, now),
+    ...retryLines(item, now),
   ].filter((line): line is string => line !== null)
 }
 
@@ -406,7 +407,7 @@ export type ItemFacts = {
  * `state` carries its `close_reason`. Fields vary between warden's producers, so every read is
  * defensive.
  */
-export function buildItemFacts(item: Row | null, event: Row | null): ItemFacts {
+export function buildItemFacts(item: Row | null, event: Row | null, now: number): ItemFacts {
   const origin = str(item?.['origin'])
   const brief = str(item?.['brief'])
   const state = str(item?.['state'])
@@ -417,7 +418,7 @@ export function buildItemFacts(item: Row | null, event: Row | null): ItemFacts {
     state: state ? stateLabel(state, str(item?.['close_reason'])) : null,
     origin,
     signature: str(item?.['signature']),
-    lines: buildFactLines(item, event),
+    lines: buildFactLines(item, event, now),
     note: str(item?.['note']),
     brief,
     payloadSummary: payloadSummary(event, origin, brief),

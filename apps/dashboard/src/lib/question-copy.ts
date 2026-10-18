@@ -1,4 +1,12 @@
-import { asText, flatten, lastWhitespace, leadClauses, stripShortcodes } from './text'
+import {
+  LEADING_BRACKET_TAGS,
+  asText,
+  firstBracketTag,
+  flatten,
+  lastWhitespace,
+  leadClauses,
+  stripShortcodes,
+} from './text'
 import type { WardenActionVerb } from './queries/warden'
 
 // THE question rule for every decision surface (Agents, Warden, Home): one ladder, one place.
@@ -90,9 +98,6 @@ export type Disambiguation = {
   terse?: boolean
 }
 
-/** Bracket tags a producer prefixes a title with (`[alert] `, `[blocker] `): the frame already says them. */
-const LEADING_TAGS = /^(?:\[[^\]]{1,40}\]\s*)+/
-
 const balanced = (text: string): boolean =>
   (text.match(/\(/g) ?? []).length === (text.match(/\)/g) ?? []).length &&
   (text.match(/\[/g) ?? []).length === (text.match(/\]/g) ?? []).length
@@ -111,18 +116,25 @@ function fittingLead(source: string, clauses: number, room: number): string | nu
   return null
 }
 
+/** The pieces of a handled question, assembled in one place ({@link assemble}). */
+export type QuestionParts = { stem: string; lead: string | null; ordinal: number | null }
+
+/** `<stem>: <lead> (<n>)?`; a missing lead or ordinal leaves its part out. */
+export const assemble = ({ stem, lead, ordinal }: QuestionParts): string =>
+  `${stem}${lead === null ? '' : `: ${lead}`}${ordinal === null ? '' : ` (${ordinal})`}?`
+
 /**
- * `<stem>: <handle> (<n>)?` — the plain question with the item's own handle: the first
- * `disambiguation.clauses` clauses of `source` (a leading `[tag]` removed), whole, then ` (n)` when
- * clauses alone left two items identical. Bounded to {@link QUESTION_MAX} with the `?` kept; a handle
- * that does not fit whole is dropped (the ordinal rung takes over), never cut. The plain question
- * unchanged when nothing fits. `handled` says whether the question changed; `lead` is the handle.
+ * The plain question with the item's own handle: the first `disambiguation.clauses` clauses of
+ * `source` (a leading `[tag]` removed), whole, then ` (n)` when clauses alone left two items
+ * identical. Bounded to {@link QUESTION_MAX} with the `?` kept; a handle that does not fit whole is
+ * dropped (the ordinal rung takes over), never cut. `null` when nothing fits and there is no ordinal:
+ * the plain question stands.
  */
 function withHandle(
   plain: string,
   source: string,
   { clauses, ordinal, terse = false }: Disambiguation,
-): { question: string; handled: boolean; lead: string | null } {
+): QuestionParts | null {
   const tail = ordinal === null ? '' : ` (${ordinal})`
   // The tail's room is reserved before anything is cut, so an ordinal is never the part that goes.
   const stemMax = QUESTION_MAX - 1 - tail.length
@@ -131,14 +143,8 @@ function withHandle(
   const stem = terse ? (full.split(' ')[0] ?? full) : full
   const room = stemMax - stem.length - 2
   const lead =
-    room < HANDLE_MIN ? null : fittingLead(source.replace(LEADING_TAGS, ''), clauses, room)
-  if (lead === null && ordinal === null)
-    return { question: boundedQuestion(plain), handled: false, lead: null }
-  return {
-    question: `${lead === null ? stem : `${stem}: ${lead}`}${tail}?`,
-    handled: true,
-    lead,
-  }
+    room < HANDLE_MIN ? null : fittingLead(source.replace(LEADING_BRACKET_TAGS, ''), clauses, room)
+  return lead === null && ordinal === null ? null : { stem, lead, ordinal }
 }
 
 export type CardCopySource = 'authored' | 'ask' | 'title' | 'plain'
@@ -154,6 +160,8 @@ export type CardCopy = {
   detail: string | null
   /** Which rung of the rule produced the question. */
   source: CardCopySource
+  /** The handled question's pieces; `null` when the question carries no handle or ordinal. */
+  parts: QuestionParts | null
 }
 
 /**
@@ -199,7 +207,7 @@ export function cardCopy({
   let source: CardCopySource
   let question: string
   let carriesHandle = false
-  let handleLead: string | null = null
+  let parts: QuestionParts | null = null
   if (written !== '' && written.length <= QUESTION_MAX) {
     source = 'authored'
     question = written
@@ -211,10 +219,9 @@ export function cardCopy({
     question = item
   } else {
     source = 'plain'
-    const handled = handle === null ? null : withHandle(plain, handle.source, handle)
-    question = handled?.handled ? handled.question : boundedQuestion(plain)
-    carriesHandle = handled?.handled === true
-    handleLead = carriesHandle ? (handled?.lead ?? null) : null
+    parts = handle === null ? null : withHandle(plain, handle.source, handle)
+    question = parts === null ? boundedQuestion(plain) : assemble(parts)
+    carriesHandle = parts !== null
   }
 
   const spill = written.length > QUESTION_MAX ? written : ''
@@ -224,7 +231,7 @@ export function cardCopy({
     .filter((part) => part !== '')
     .join(' ')
   // The handle is the opening words of the text: the question says them, the evidence does not repeat them.
-  const text = handleLead === null ? joined : withoutLead(joined, handleLead)
+  const text = parts?.lead == null ? joined : withoutLead(joined, parts.lead)
   const saidTitle = bareTitle(item).toLowerCase()
   const showsTitle =
     source === 'title' ||
@@ -242,6 +249,7 @@ export function cardCopy({
     evidenceLine,
     detail: whole !== '' && whole !== evidenceLine ? whole : null,
     source,
+    parts,
   }
 }
 
@@ -262,13 +270,18 @@ export function collidingCopies(
   )
 }
 
-/** `text` without `lead` and the punctuation after it, when it opens with it (a leading `[tag]` aside). */
+/**
+ * `text` without `lead` and the full stop after it, when it opens with it (a leading `[tag]` aside)
+ * and the lead ends a sentence. A lead that stops mid-sentence leaves the line as written: the
+ * remainder would be a fragment.
+ */
 function withoutLead(text: string, lead: string): string {
-  for (const candidate of [text, text.replace(LEADING_TAGS, '')]) {
+  for (const candidate of [text, text.replace(LEADING_BRACKET_TAGS, '')]) {
+    const head = candidate.slice(0, lead.length)
+    if (head.toLowerCase() !== lead.toLowerCase()) continue
     const rest = candidate.slice(lead.length)
-    // Whole words only: `Disk` never trims `Disks full`.
-    if (candidate.toLowerCase().startsWith(lead.toLowerCase()) && !/^[\p{L}\p{N}]/u.test(rest))
-      return rest.replace(/^[\s,;:.\-–—]+/, '')
+    const endsSentence = /^\s*(?:[.!?]|$)/.test(rest)
+    return endsSentence ? rest.replace(/^[\s.!?]+/, '') : text
   }
   return text
 }
@@ -336,15 +349,10 @@ export function resolveCopies<T, R extends { copy: CardCopy }>(
   return finish()
 }
 
-/** The stem of a handled question: everything before the first `: `. */
-const stemOf = (question: string): string | null => {
-  const at = question.indexOf(': ')
-  return at === -1 ? null : question.slice(0, at).toLowerCase()
-}
-
 /**
  * Cards that all open with the same stem before their handle (`Answer this request: …`) say it
- * once too often: those cards keep the verb alone. Handles differ, so the questions stay distinct.
+ * once too often: those cards keep the verb alone. A card keeps its full stem when the terse form
+ * lost its handle or reads the same as another card on the surface.
  */
 function withTerseStems<T, R extends { copy: CardCopy }>(
   items: readonly T[],
@@ -354,16 +362,19 @@ function withTerseStems<T, R extends { copy: CardCopy }>(
 ): R[] {
   const counts = new Map<string, number>()
   for (const { copy } of results) {
-    const stem = copy.source === 'plain' ? stemOf(copy.question) : null
+    const stem = copy.parts?.lead == null ? null : copy.parts.stem.toLowerCase()
     if (stem !== null) counts.set(stem, (counts.get(stem) ?? 0) + 1)
   }
-  return results.map((result, i) => {
+  const terse = results.map((result, i) => {
     const handle = used[i]
-    const stem = result.copy.source === 'plain' ? stemOf(result.copy.question) : null
-    if (handle === null || handle === undefined || stem === null || (counts.get(stem) ?? 0) < 2)
-      return result
-    return derive(items[i]!, { handle: { ...handle, terse: true } })
+    const stem = result.copy.parts?.lead == null ? null : result.copy.parts.stem.toLowerCase()
+    if (handle == null || stem === null || (counts.get(stem) ?? 0) < 2) return null
+    const next = derive(items[i]!, { handle: { ...handle, terse: true } })
+    return next.copy.parts?.lead == null ? null : next
   })
+  const merged = results.map((result, i) => terse[i] ?? result)
+  const clashing = collidingCopies(merged.map((r) => r.copy))
+  return merged.map((result, i) => (clashing[i] && terse[i] != null ? results[i]! : result))
 }
 
 // ── Warden ───────────────────────────────────────────────────────────────────────────────────
@@ -389,8 +400,6 @@ const ALERT_PLAIN: Record<WardenActionVerb, readonly [verb: string, object: stri
 const ALERT_WORD = /^(?:alert|incident|outage)s?$/i
 /** A title that leads with the kind and a colon or a spaced dash (`Alert: …`, `Outage — …`; a hyphen inside a word is not one): the fallback when no field names it. */
 const ALERT_TITLE_PREFIX = /^\W*(?:alert|incident|outage)s?(?:\s*:|\s+[—–-]\s)/i
-/** The producer's own marker: a leading bracket tag, any case (`[alert] {key} …`). */
-const ALERT_TITLE_TAG = /^\s*\[\s*(?:alert|incident|outage)s?\s*\]/i
 
 /**
  * Whether an item is an alert, incident or outage. A title the producer tagged `[alert]` is one; else
@@ -406,7 +415,8 @@ export function isAlert({
   title?: unknown
 }): boolean {
   const text = stripShortcodes(asText(title))
-  if (ALERT_TITLE_TAG.test(text)) return true
+  const tag = firstBracketTag(text)
+  if (tag !== null && ALERT_WORD.test(tag)) return true
   const explicit = kinds.map((k) => asText(k).trim()).find((k) => k !== '')
   if (explicit !== undefined) return ALERT_WORD.test(explicit)
   return ALERT_TITLE_PREFIX.test(text)
