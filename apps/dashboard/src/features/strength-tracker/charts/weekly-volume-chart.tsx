@@ -13,6 +13,7 @@ import { dayLabel, fmtTonnes } from '../model'
 import { METRIC_TOOLTIPS } from '../constants'
 import { exerciseLabel } from '../formulas'
 import { exerciseColor } from './exercise-helpers'
+import { drawnSeries } from './volume-series'
 
 /** Per-card select → a local store field, not `useState` (law C3). Persisted per chart. */
 const local = createLocalStore({
@@ -73,12 +74,14 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
     [selectedBlock],
   )
 
-  const bars: BarsBar<WeeklyVolumePoint>[] = [
+  const allBars: BarsBar<WeeklyVolumePoint>[] = [
     { key: 'warmup', label: 'Warm-up', color: exColor, getValue: (d) => positive(d.warmup) },
     { key: 'work', label: 'Work', color: exColor, getValue: (d) => positive(d.work) },
     { key: 'drop', label: 'Drop', color: exColor, getValue: (d) => positive(d.drop) },
     { key: 'amrap', label: 'AMRAP', color: VX.warnSolid, getValue: (d) => positive(d.amrap) },
   ]
+
+  const bars = drawnSeries(allBars, points)
 
   const lines: BarsLine<WeeklyVolumePoint>[] = [
     {
