@@ -84,7 +84,11 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
                   endCaption={null}
                 />
               )}
-              {pair.ratio === null ? null : (
+              {pair.ratio === null ? (
+                <Text size="xs" c="dimmed">
+                  {`${fmtBound(lo)}–${fmtBound(hi)} band · need both lifts`}
+                </Text>
+              ) : (
                 <Text size="xs" c="dimmed">
                   <Text
                     span

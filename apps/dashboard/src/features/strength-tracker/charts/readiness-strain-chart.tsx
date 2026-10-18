@@ -137,7 +137,7 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
         y={{ domain: [0, 100], format: (v) => String(Math.round(v)) }}
         zones={[
           { from: READINESS_PUSH_FROM, to: 100, fill: VX.good },
-          { from: READINESS_REST_BELOW, to: READINESS_PUSH_FROM, fill: alpha(VX.muted, 0.08) },
+          { from: READINESS_REST_BELOW, to: READINESS_PUSH_FROM, fill: alpha(VX.muted, 0.2) },
           { from: 0, to: READINESS_REST_BELOW, fill: VX.bad },
         ]}
         refLines={[

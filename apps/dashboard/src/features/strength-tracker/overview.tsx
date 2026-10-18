@@ -22,6 +22,7 @@ import {
   deloadLine,
   lastSessionDate,
   staleNote,
+  ACWR_LABEL,
   readinessHeader,
   recentDeload,
   liftDelta,
@@ -110,7 +111,12 @@ export function SummaryLine(props: Params) {
   // The headline's ACWR carries its definition; the other facts are plain words.
   const facts = summaryLine.facts.map((fact) =>
     fact.kind === 'acwr' ? (
-      <Term key={fact.text} name="ACWR" label={fact.text} definition={TERM_DEFINITIONS.acwr} />
+      <Term
+        key={fact.text}
+        name={ACWR_LABEL}
+        label={fact.text}
+        definition={TERM_DEFINITIONS.acwr}
+      />
     ) : (
       fact.text
     ),
@@ -139,13 +145,13 @@ function Term({ name, label, definition }: { name: string; label: ReactNode; def
 }
 
 export function TodaysCall(props: Params) {
-  const { readiness, deload, series, call, acwr, acwrWeek } = useOverview(props)
+  const { readiness, deload, lastDate, series, call, acwr, acwrWeek } = useOverview(props)
   const score = readiness?.score ?? null
   const session = lastSession(series.byExercise)
 
   const facts = callFacts({ asOf: call.asOf, driver: readiness?.driver ?? null, session })
   const meta = [
-    deloadLine(deload),
+    deloadLine(deload, { lastSessionShown: session !== null, lastDate }),
     // An override already shows as the title; only a cap needs the meter's own verdict named.
     call.monitor !== null && call.verdict !== call.readinessVerdict
       ? `score alone reads ${call.readinessVerdict}`
@@ -217,10 +223,10 @@ export function TodaysCall(props: Params) {
           </Stack>
           <Stack gap="xs" miw={0}>
             <Term
-              name="ACWR"
+              name={ACWR_LABEL}
               label={
                 <Text size="xs" fw={600}>
-                  Recent vs usual load, ACWR {acwr === null ? EM_DASH : acwr.toFixed(2)}
+                  Recent vs usual load, {ACWR_LABEL} {acwr === null ? EM_DASH : acwr.toFixed(2)}
                 </Text>
               }
               definition={TERM_DEFINITIONS.acwr}
