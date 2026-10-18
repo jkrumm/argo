@@ -52,22 +52,30 @@ export const METRICS: { value: MetricKey; label: string; unit: string }[] = [
   { value: 'avg_intensity', label: 'Avg Intensity', unit: '%' },
 ]
 
+/** Plain-word definitions for the call card, where each term first appears. */
+export const TERM_DEFINITIONS = {
+  readiness:
+    'Readiness score, 0–100: the Garmin recovery score (HRV, sleep, resting heart rate) reduced by the fatigue of your last session. Push from 70, Rest below 40.',
+  acwr: 'Acute:chronic workload ratio: your recent weekly tonnage (4-week EWMA) divided by your long-run average (16-week EWMA). 0.8–1.3 is the healthy range; above 1.5 raises injury risk.',
+  inol: 'INOL, the load of one session on one lift: reps ÷ (100 − %1RM), summed over its work sets. 0.6–1.0 is productive; above 1.0 is heavy.',
+} as const
+
 export const METRIC_TOOLTIPS = {
   oneRmTrend:
-    'Estimated 1-rep max per session: the best single work/AMRAP set, scored as the Brzycki + Epley average. Only 1–10 rep sets count — the two formulas cross at 10 reps and diverge above it, so higher-rep sets are left unscored rather than inflated. Dashed line = 30-day moving average. Large dots = personal records. Direction arrow (▲►▼) from 28-day linear regression of e1RM.',
+    'Estimated 1-rep max per session: the best work or AMRAP set of 1–10 reps, scored as the average of the Brzycki and Epley formulas. Higher-rep sets are left unscored because the two formulas diverge above 10 reps. The direction arrow is the slope of the last 28 days.',
   strengthComposite:
-    "Three independent signals z-scored to your own 90-day baseline. Velocity (f'): e1RM growth rate. Tonnage growth: weekly volume vs 28-day MA. INOL quality: session load index (0.6–1.0 = optimal). All on a shared σ axis — up means above your own average.",
+    'Three signals, each in standard deviations from your own 90-day average: e1RM growth rate, weekly tonnage growth against its 28-day average, and session INOL quality (0.6–1.0 is the productive range). Above zero is better than your norm.',
   weeklyVolume:
-    'Weekly tonnage (weight × reps) broken down by set type. Dashed line = 4-week moving average. Ref lines: MEV (p25), MAV (p50), MRV (p90) computed from 90-day window — use as rough volume landmarks.',
+    'Weekly tonnage (weight × reps) by set type. MEV, MAV and MRV are the 25th, 50th and 90th percentile of your weekly tonnage over the last 90 days: a rough minimum, productive and maximum volume.',
   trainingLoad:
-    'Acute:chronic workload ratio — 4-week vs 16-week EWMA of weekly tonnage per exercise. Green zone (0.8–1.3) = optimal adaptation stimulus. Below 0.8 = undertrained. 1.3–1.5 = caution. Above 1.5 = injury risk.',
+    'Acute:chronic workload ratio — 4-week vs 16-week EWMA of weekly tonnage per exercise. 0.8–1.3 is the optimal adaptation stimulus. Below 0.8 is undertrained, 1.3–1.5 is caution, above 1.5 is injury risk.',
   inol: 'INOL (Intensity × Number Of Lifts) = Σ reps / (100 − %1RM) per session. Optimal zone 0.6–1.0. Below is underdosing, above is high CNS fatigue. Only work/AMRAP sets with 1–12 reps count.',
   momentum:
-    'e1RM trend with 30-day moving average (top). Velocity (%/month, 28-day linear regression) in the bottom panel — green bars = positive trend, red = decline.',
+    'Velocity is the slope of a 28-day linear fit of e1RM, in % per month. Positive means strength is rising.',
   relativeProgression:
-    'Each lift normalized to 100% at the start of the selected date range. Shows relative momentum — which lifts are gaining, which are stalling — independent of absolute strength levels.',
+    'Each lift as a percentage of its e1RM on the first day of the selected range, so lifts of different absolute strength compare directly.',
   strengthRatios:
-    'DOTS-adjusted strength ratios vs IPF normative ranges (809,986 entries). Green band = expected range. Colored tick = current ratio. ✓ balanced · △ imbalanced (>15% off) · ✗ critical (>30% off). Pull-up ratio = added weight / bodyweight.',
+    'DOTS-adjusted lift ratios against IPF normative ranges (809,986 entries). Balanced is within 15 % of the range, critical more than 30 % off. The pull-up ratio is added weight over bodyweight.',
   heroStrength:
     "Strength Direction: 3-level verdict (Improving/Stable/Declining) from 28-day e1RM velocity (f') for the leader lift. Sub-text shows f'' sign — accelerating means the trend is steepening, decelerating means it's tapering.",
   heroLoadQuality:
@@ -77,11 +85,11 @@ export const METRIC_TOOLTIPS = {
   heroReadiness:
     'Readiness: Garmin recovery score adjusted for strength fatigue. Penalty = INOL of last session / personal p90 ceiling × 25% max shave. An additional 10% dampening applies if the last session had INOL > 1.2 within 48h. Push ≥ 70 · Normal 40–69 · Rest < 40.',
   readinessStrain:
-    'Adjusted readiness: Garmin recovery score (HRV 40% + sleep 35% + RHR 25%) × (1 − fatigue_debt × 0.25). Fatigue debt = last session INOL / p90 INOL ceiling. Heavy session (INOL > 1.2) adds a further 10% dampening. Faint line = daily score, dashed = 7-day average. Zone thresholds: Push ≥ 70 · Normal 40–69 · Rest < 40.',
+    "Garmin recovery score (HRV 40 %, sleep 35 %, resting HR 25 %) reduced by up to 25 % for fatigue debt: the last session's INOL over your 90th-percentile INOL. A session above INOL 1.2 within 48 h takes a further 10 %. Push from 70, Rest below 40.",
   trainingRecoveryAlignment:
-    "3×3 matrix: rows = recovery zone (High/Normal/Low), cols = training load, the per-lift average ACWR (Under/Optimal/Caution). Each cell shows sessions in that zone combination. Today's cell has a colored border. Aligned cells = recovery and load match. Misaligned cells = conflict between body state and training load.",
+    'Sessions counted by recovery zone (High, Normal, Low) against training load (per-lift average ACWR: Under, Optimal, Caution). Aligned means recovery and load match; misaligned means they conflict.',
   strengthScan:
-    'One row per lift: 1RM trend, weekly volume, INOL quality, momentum (28d velocity), and a status indicator.',
+    'Momentum is the 28-day e1RM velocity in % per month; INOL quality is the session load index (0.6–1.0 is productive).',
 } as const
 
 /**

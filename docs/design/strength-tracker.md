@@ -133,3 +133,13 @@ No new basalt rows.
 
 - **Reviewer:** fail: every lift strip caption explains the sparkline (`line: … dashed: PR`); the info tooltips in four sections narrate the drawing; ACWR, INOL and the readiness score are undefined on the headline and the call card; `Diagnostics · {period}` is still a category. Basalt: chart cards at four sizes, the ACWR tooltip name column, a daily point's tooltip header with a clock time.
 - **Against Keel:** close — the stacked charts are gone and the e1RM grid resembles Keel's composite card; the strip captions run three mono lines and the readiness well is a filled grey block.
+
+### Wave 25 fixes
+
+- Lift strip: the caption is one fact line (`liftFooter` in `model.ts`, tested) — the personal record with its day, led by the reason there is no 28 d move when the badge is absent. The sparkline explanation and the session count are gone.
+- Info tooltips (one-RM, composite, weekly volume, momentum, relative progression, readiness, ratios, alignment, scan) now define terms and name windows; none describes the drawing.
+- ACWR, INOL and the readiness score are defined in plain words (`TERM_DEFINITIONS` in `constants.ts`) behind an info icon on the call card, each with its healthy range.
+- The call card is a local `Card` instead of `DecisionCard`: the evidence slot's tinted inset was the filled grey well. Content sits on the card surface, the two meters side by side at wide widths; the method line under ACWR is dropped (the definition holds it).
+- `Diagnostics · {period}` is now `Signals and recovery alignment, {period}`.
+
+No new basalt rows.
