@@ -379,3 +379,52 @@ describe('coreGateReading', () => {
     expect(coreGateReading(night('2026-06-21', { lat: 48.6, lon: MUNICH.lon }))).toBeNull()
   })
 })
+
+describe('machine-readable causes and ruin points', () => {
+  const MUNICH_SITE = findSite('munich')!
+  const coreKiller = (result: ReturnType<typeof scoreWindow>) =>
+    result.killers.find((k) => k.id === 'core-altitude')
+
+  it('tags a ridge-blocked night `ridge`', () => {
+    const wall = Array.from({ length: 72 }, () => 20)
+    const result = scoreWindow(
+      astroWindowConfig,
+      input('2026-08-15', { night: night('2026-08-15', MUNICH, { horizonDeg: wall }) }),
+    )
+    expect(coreKiller(result)?.cause).toBe('ridge')
+  })
+
+  it('tags a night under the flat floor `floor`, with or without a profile', () => {
+    expect(coreKiller(scoreWindow(astroWindowConfig, input('2026-12-15')))?.cause).toBe('floor')
+    const result = scoreWindow(
+      astroWindowConfig,
+      input('2026-12-15', {
+        night: night('2026-12-15', MUNICH, { horizonDeg: MUNICH_SITE.horizonDeg }),
+      }),
+    )
+    expect(coreKiller(result)?.cause).toBe('floor')
+  })
+
+  it('leaves other gates untagged', () => {
+    const result = scoreWindow(
+      astroWindowConfig,
+      input('2026-06-21', { night: night('2026-06-21', { lat: 48.6, lon: MUNICH.lon }) }),
+    )
+    expect(result.killers[0]!.cause).toBeUndefined()
+  })
+
+  it('flags a cloud factor ruinous only at or past its ruin level, and only with data', () => {
+    const factor = (weather: Partial<AstroScoreInput>, id: string) =>
+      scoreWindow(astroWindowConfig, input('2026-08-15', weather)).factors.find((f) => f.id === id)
+    expect(factor({ cloudLow: 55 }, 'cloud-low')?.ruinous).toBe(true)
+    expect(factor({ cloudLow: 54 }, 'cloud-low')?.ruinous).toBe(false)
+    expect(factor({ cloudLow: null }, 'cloud-low')?.ruinous).toBeUndefined()
+    expect(factor({ cloudMid: 80 }, 'cloud-mid')?.ruinous).toBe(true)
+    expect(factor({}, 'transparency')?.ruinous).toBeUndefined()
+  })
+
+  it('exposes the instant of the closest-to-gate sample', () => {
+    const reading = coreGateReading(night('2026-08-15'))!
+    expect(reading.time.getTime()).toBeGreaterThan(0)
+  })
+})

@@ -6,7 +6,13 @@ export type WindowParams = {
 
 export type Verdict = 'excellent' | 'good' | 'marginal' | 'poor' | 'out'
 
-export type Killer = { id: string; label: string; reason: string }
+export type Killer = {
+  id: string
+  label: string
+  reason: string
+  /** Why the `core-altitude` gate failed (`ridge`, `floor`, `never-rises`); absent on other gates. A value this client does not know is shown by its `reason`. */
+  cause?: string | undefined
+}
 
 export type Factor = {
   id: string
@@ -15,6 +21,8 @@ export type Factor = {
   value: number | null
   weighted: number | null
   detail?: string | undefined
+  /** Cloud factors with data only: the cover is at or past the API's ruin level for the layer. A factor, never a gate. */
+  ruinous?: boolean | undefined
 }
 
 export type ShootingWindow = {
@@ -65,6 +73,8 @@ export type Night = {
   gateCoreAltitude: number | null
   /** The floor at that same sample, degrees: 8° flat, raised by a resolved ridge plus margin. Null without a dark stretch. */
   coreGateDeg: number | null
+  /** ISO instant (UTC) of the sample behind `gateCoreAltitude`/`coreGateDeg`. Null without a dark stretch. */
+  gateSampleTime: string | null
   moon: Moon
   weather: Weather
 }

@@ -118,6 +118,12 @@ const KillerSchema = z.object({
   id: z.string().describe('Stable machine id, e.g. `moon`'),
   label: z.string(),
   reason: z.string().describe('Human-readable, already contains the numbers'),
+  cause: z
+    .string()
+    .optional()
+    .describe(
+      'Stable tag for why the `core-altitude` gate failed, one of `ridge` (the measured skyline raised the floor), `floor` (the core stayed under the flat atmospheric floor) or `never-rises` (it never rose while dark); a client treats any other value as unknown and shows `reason`. Absent on other gates; read this, never `reason`, to branch',
+    ),
 })
 
 const FactorSchema = z.object({
@@ -127,6 +133,12 @@ const FactorSchema = z.object({
   value: z.number().nullable().describe('0..1, 1 is perfect. null = the upstream had no data'),
   weighted: z.number().nullable(),
   detail: z.string().optional().describe('One-line human summary of the current value'),
+  ruinous: z
+    .boolean()
+    .optional()
+    .describe(
+      'Cloud factors only, when data exists: true when the cover is at or past the level where the layer has effectively taken the night (low 55 %, mid 80 %, high 100 %). A factor is scored, never a gate: `ruinous` does not make a night `out`',
+    ),
 })
 
 const ShootingWindowSchema = z.object({
@@ -195,6 +207,12 @@ const NightSchema = z.object({
     .nullable()
     .describe(
       'The floor, degrees, at that same sample: the 8° atmospheric floor, raised to the measured ridge at the core azimuth plus the 2° framing margin when a committed skyline is resolved. Null when there is no dark sample',
+    ),
+  gateSampleTime: z
+    .string()
+    .nullable()
+    .describe(
+      'ISO 8601 UTC instant of the sample behind `gateCoreAltitude`/`coreGateDeg`. Null when there is no dark sample',
     ),
   peakCoreClearanceDeg: z
     .number()
@@ -1192,6 +1210,7 @@ function serializeNight(
     maxCoreAltitude: round1(night.maxCoreAltitude),
     gateCoreAltitude: roundOrNull(coreGateReading(night)?.altitude ?? null),
     coreGateDeg: roundOrNull(coreGateReading(night)?.floor ?? null),
+    gateSampleTime: coreGateReading(night)?.time.toISOString() ?? null,
     peakCoreClearanceDeg: night.peakCoreClearance === null ? null : round1(night.peakCoreClearance),
     moon: {
       illumination: round3(night.moonIllumination),

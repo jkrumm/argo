@@ -264,7 +264,11 @@ function AstroWindowPage() {
   const selectedDate = data.detail.date
   const selectedNight = data.nights.find((n) => n.date === selectedDate) ?? data.nights[0] ?? null
   const markedNight = markedNightOf(data)
-  const summary = pageSummary(data, { withWindow: search.tab === 'forecast', selectedDate })
+  const summary = pageSummary(data, {
+    withWindow: search.tab === 'forecast',
+    // The selected night's own card (Tonight) or timeline fact (Forecast) states its miss.
+    withMiss: markedNight?.date !== selectedDate,
+  })
 
   return (
     <>
@@ -335,7 +339,6 @@ function AstroWindowPage() {
                 <VerdictCard
                   night={selectedNight}
                   nights={data.nights}
-                  hourly={data.detail.hourly}
                   moonLimit={data.moonMaxIllumination}
                 />
               }
@@ -413,7 +416,6 @@ function AstroWindowPage() {
                         site={selectedSite}
                         detailDate={selectedDate}
                         hourly={data.detail.hourly}
-                        moonIllumination={selectedNight.moon.illumination}
                         night={selectedNight}
                       />
                     </Box>

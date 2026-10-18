@@ -158,26 +158,30 @@ export function peakCoreAltitudeInDarkness(night: AstroNight): number | null {
  * the gate's reason text and the `gateCoreAltitude`/`coreGateDeg` response fields all read this one
  * sample. Null with no dark sample.
  */
-function closestGateSample(
-  night: AstroNight,
-): { altitude: number; floor: number; ridge: number | null } | null {
-  let best: { altitude: number; floor: number; ridge: number | null } | null = null
+type GateSample = { altitude: number; floor: number; ridge: number | null; time: Date }
+
+function closestGateSample(night: AstroNight): GateSample | null {
+  let best: GateSample | null = null
   for (const sample of night.samples) {
     if (!sample.astroDark) continue
     const ridge = Number.isNaN(sample.terrainAtCore) ? null : sample.terrainAtCore
     const floor =
       ridge === null ? MIN_CORE_ALTITUDE : Math.max(MIN_CORE_ALTITUDE, ridge + FRAMING_MARGIN_DEG)
     if (best === null || floor - sample.coreAltitude < best.floor - best.altitude) {
-      best = { altitude: sample.coreAltitude, floor, ridge }
+      best = { altitude: sample.coreAltitude, floor, ridge, time: sample.time }
     }
   }
   return best
 }
 
 /** The unrounded altitude and floor of {@link closestGateSample}; null with no dark sample. */
-export function coreGateReading(night: AstroNight): { altitude: number; floor: number } | null {
+export function coreGateReading(
+  night: AstroNight,
+): { altitude: number; floor: number; time: Date } | null {
   const closest = closestGateSample(night)
-  return closest === null ? null : { altitude: closest.altitude, floor: closest.floor }
+  return closest === null
+    ? null
+    : { altitude: closest.altitude, floor: closest.floor, time: closest.time }
 }
 
 /** Highest moon altitude across the evaluation window. */
@@ -221,7 +225,11 @@ export const astroWindowConfig: WindowConfig<AstroScoreInput> = {
         }
         const closest = closestGateSample(night)
         if (closest === null) {
-          return { passes: false, reason: 'the core never rises while it is dark' }
+          return {
+            passes: false,
+            cause: 'never-rises',
+            reason: 'the core never rises while it is dark',
+          }
         }
         /*
          * Name the ridge ONLY when the ridge is what actually blocked the core.
@@ -239,11 +247,13 @@ export const astroWindowConfig: WindowConfig<AstroScoreInput> = {
         if (ridgeBinds) {
           return {
             passes: false,
+            cause: 'ridge',
             reason: `the ridge to the south stands at ${round1(ridge)}° — the core gets no higher than ${round1(peak)}° there and never clears it`,
           }
         }
         return {
           passes: false,
+          cause: 'floor',
           reason: `core peaks at ${round1(peak)}° during darkness, below the ${MIN_CORE_ALTITUDE}° floor`,
         }
       },
@@ -284,6 +294,7 @@ export const astroWindowConfig: WindowConfig<AstroScoreInput> = {
       label: 'Low cloud',
       weight: ASTRO_WEIGHTS.cloudLow,
       value: (input) => linearScore(input.cloudLow, { good: 0, bad: CLOUD_RUINS_AT.low }),
+      ruinous: (input) => input.cloudLow !== null && input.cloudLow >= CLOUD_RUINS_AT.low,
       detail: (input) => (input.cloudLow === null ? undefined : `${Math.round(input.cloudLow)}%`),
     },
     {
@@ -298,6 +309,7 @@ export const astroWindowConfig: WindowConfig<AstroScoreInput> = {
       label: 'Mid cloud',
       weight: ASTRO_WEIGHTS.cloudMid,
       value: (input) => linearScore(input.cloudMid, { good: 0, bad: CLOUD_RUINS_AT.mid }),
+      ruinous: (input) => input.cloudMid !== null && input.cloudMid >= CLOUD_RUINS_AT.mid,
       detail: (input) => (input.cloudMid === null ? undefined : `${Math.round(input.cloudMid)}%`),
     },
     {
@@ -323,6 +335,7 @@ export const astroWindowConfig: WindowConfig<AstroScoreInput> = {
       label: 'High cloud',
       weight: ASTRO_WEIGHTS.cloudHigh,
       value: (input) => linearScore(input.cloudHigh, { good: 0, bad: CLOUD_RUINS_AT.high }),
+      ruinous: (input) => input.cloudHigh !== null && input.cloudHigh >= CLOUD_RUINS_AT.high,
       detail: (input) => (input.cloudHigh === null ? undefined : `${Math.round(input.cloudHigh)}%`),
     },
   ],
