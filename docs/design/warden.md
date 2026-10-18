@@ -151,3 +151,13 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - **r2:** fail: four font sizes still on some decision/failed cards; the desktop reason box truncates with no expander; `reverts` has no definition; the board has no 390 crop; the `Full reason` button inset is off-scale (basalt).
 - **Against Keel:** weakest of the set: the board is a thin band of empty columns, the header is not a headline, the history panel squeezes the main column.
 - **Open for Wave 24:** ≤3 sizes on every card, a desktop reason expander, the reverts definition, a Keel-style board (collapsed empty columns, a 390 layout), a non-wrapping history preview.
+
+### Wave 24 fixes
+
+- Decision/failed cards use three type steps (question `md`, reason `sm`, everything else `xs`): `StatusChip` no longer wraps basalt's `StatusVerdict` (micro step, the fourth size) but a `StatusDot` plus an `xs` word.
+- The reason clamp is measured (`ResizeObserver` overflow) instead of a character count, so the in-place `Show more` / `Show less` appears at 1440 whenever the text is actually cut; `Full reason` stays the 390 path.
+- Reverts cell footer defines the term: `revert = a merged fix that was undone · {n} reopened after fixed · last 7 d` (`revertsFooter`).
+- Board: only populated columns render at 1440 and take the width; empty ones fold into one `Empty: {A}, {B}` line. 390 keeps one column at a time under the `ViewTabs` selector. `data-shot="board"` wraps both layouts.
+- History preview is one non-wrapping line (latest change, truncating, full text in `title`) plus `+{n} earlier`; the shared preview column grows from 11 rem to 14 rem, which also applies to Home and Agents cards (`components/upstream/decision-card.module.css`).
+- The page opens with `PageSummary`: sentence `{n} items need you, oldest {age}. Loop healthy.`, facts `poller {n} min old · {n} fixes in 7 d · budget {used} of {max}`; the loop-stalled/degraded sentence keeps its status tone. `deriveSummary` now returns `facts`.
+- basalt gap: none new; `StatusVerdict` has no size prop (`| StatusVerdict | size / fontSize | argo decision cards hold ≤3 type steps and its word is the micro step | argo renders StatusDot + xs Text |`).

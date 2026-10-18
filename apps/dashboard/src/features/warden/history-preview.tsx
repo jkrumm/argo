@@ -1,6 +1,6 @@
 import { Group, Stack, Text } from '@mantine/core'
 import { relativeTime } from 'basalt-ui/format'
-import { sentenceCase, type TransitionLine } from './page-model'
+import { historySummary, sentenceCase, type TransitionLine } from './page-model'
 
 function transitionText({ from, to }: TransitionLine): string {
   const target = sentenceCase(to) ?? to
@@ -8,21 +8,34 @@ function transitionText({ from, to }: TransitionLine): string {
   return `${sentenceCase(from) ?? from} → ${target}`
 }
 
-/** The decision card's right-hand context: the last state changes, newest last, `from → to` with the time in mono. */
+/**
+ * The decision card's right-hand context: the latest state change on ONE line (`from → to`, time in
+ * mono), with a count of the earlier ones. The full text rides in `title`; the whole log is in the
+ * item timeline.
+ */
 export function HistoryPreview({ lines }: { lines: readonly TransitionLine[] }) {
+  const summary = historySummary(lines)
+  if (summary === null) return null
+  const { latest, earlier } = summary
+  const text = transitionText(latest)
   return (
     <Stack gap={4}>
       <Text size="xs" c="dimmed">
-        Recent changes
+        Latest change
       </Text>
-      {lines.map((line, index) => (
-        <Group key={`${index}-${line.to}`} gap="xs" wrap="nowrap" justify="space-between">
-          <Text size="xs">{transitionText(line)}</Text>
-          <Text size="xs" c="dimmed" ff="monospace">
-            {line.at ? relativeTime(line.at) : '—'}
-          </Text>
-        </Group>
-      ))}
+      <Group gap="xs" wrap="nowrap" justify="space-between">
+        <Text size="xs" truncate="end" title={text} miw={0}>
+          {text}
+        </Text>
+        <Text size="xs" c="dimmed" ff="monospace" style={{ flex: 'none' }}>
+          {latest.at ? relativeTime(latest.at) : '—'}
+        </Text>
+      </Group>
+      {earlier > 0 ? (
+        <Text size="xs" c="dimmed">
+          +{earlier} earlier
+        </Text>
+      ) : null}
     </Stack>
   )
 }

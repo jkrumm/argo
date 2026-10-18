@@ -9,7 +9,14 @@ import type { WardenBoardItem } from '../../lib/queries/warden'
 import { isSafeHttpUrl, issueRefLabel } from './model'
 import classes from './board.module.css'
 import { boardStore } from './board-store'
-import { deferralOf, openCount, originKind, type BoardColumn, type OriginKind } from './page-model'
+import {
+  deferralOf,
+  openCount,
+  originKind,
+  splitBoardColumns,
+  type BoardColumn,
+  type OriginKind,
+} from './page-model'
 
 const ORIGIN_ICON: Record<OriginKind, { Glyph: Icon; label: string }> = {
   alert: { Glyph: IconBell, label: 'Alert' },
@@ -115,7 +122,7 @@ function ColumnBody({
     <Stack gap="xs">
       {column.items.length === 0 ? (
         <Text size="xs" c="dimmed">
-          Nothing has reached {column.label} yet
+          Nothing in {column.label}
         </Text>
       ) : (
         column.items.map((item) => (
@@ -133,8 +140,9 @@ function ColumnBody({
 
 /**
  * Board — prototype of the upstream `Board` (docs/design/UPSTREAM.md): `columns` with counts,
- * `onOpen` per card; columns grow with the page (no nested scroll) and one column at a time sits under a
- * `SegmentedControl` at 390.
+ * `onOpen` per card. At 1440 only populated columns take the row's width; the empty ones fold into
+ * one `Empty: A, B` line under it. At 390 one column at a time sits under a `ViewTabs` selector.
+ * `data-shot="board"` wraps whichever layout renders, so the shot harness crops it at both widths.
  */
 export function Board({
   columns,
@@ -161,27 +169,35 @@ export function Board({
       }))}
     />
   ) : undefined
+  const { populated, emptyLabels } = splitBoardColumns(columns)
 
   return (
     <Section title={title} {...(tabs ? { tabs } : {})}>
-      {narrow ? (
-        active ? (
-          <ColumnBody column={active} onOpen={onSelectItem} />
-        ) : null
-      ) : (
-        <Box className={classes.columns} data-shot="board">
-          {columns.map((column) => (
-            <Stack
-              key={column.key}
-              gap="xs"
-              className={column.items.length === 0 ? classes.empty : classes.column}
-            >
-              <ColumnHeader column={column} />
-              <ColumnBody column={column} onOpen={onSelectItem} />
-            </Stack>
-          ))}
-        </Box>
-      )}
+      <Box data-shot="board">
+        {narrow ? (
+          active ? (
+            <ColumnBody column={active} onOpen={onSelectItem} />
+          ) : null
+        ) : (
+          <Stack gap="xs">
+            {populated.length > 0 ? (
+              <Box className={classes.columns}>
+                {populated.map((column) => (
+                  <Stack key={column.key} gap="xs" className={classes.column}>
+                    <ColumnHeader column={column} />
+                    <ColumnBody column={column} onOpen={onSelectItem} />
+                  </Stack>
+                ))}
+              </Box>
+            ) : null}
+            {emptyLabels.length > 0 ? (
+              <Text size="xs" c="dimmed">
+                {populated.length === 0 ? 'Nothing open. ' : ''}Empty: {emptyLabels.join(', ')}
+              </Text>
+            ) : null}
+          </Stack>
+        )}
+      </Box>
     </Section>
   )
 }

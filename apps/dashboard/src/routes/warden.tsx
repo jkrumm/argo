@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Stack, Text } from '@mantine/core'
+import { PageSummary } from '../components/upstream/page-summary'
 import { PageBar } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { wardenQueries } from '../lib/queries/warden'
@@ -11,6 +12,7 @@ import {
   derivePollers,
   deriveStrip,
   deriveSummary,
+  dispatchOf,
   needsCards,
   oldestAgeDays,
 } from '../features/warden/page-model'
@@ -68,6 +70,7 @@ function WardenPage() {
     windowDays: strip.unattended.windowDays,
     stalePoller: pollers.find((poller) => poller.stale) ?? null,
     healthOk: raw?.health?.ok,
+    dispatch: dispatchOf(raw?.budget),
   })
 
   return (
@@ -85,18 +88,19 @@ function WardenPage() {
 
       <Stack gap="md" opacity={refreshRequested && snapshotQuery.isFetching ? 0.6 : 1}>
         <StaleBanner snapshot={snapshot} />
-        {snapshot ? (
-          <Text
-            size="sm"
-            {...(summary.status === 'stalled'
-              ? { c: VX.status.bad, fw: 600 }
-              : summary.status === 'degraded'
-                ? { c: VX.status.warn, fw: 600 }
-                : {})}
-          >
-            {summary.text}
-          </Text>
-        ) : null}
+        <PageSummary
+          loading={snapshot === null}
+          sentence={
+            summary.status === 'ok' ? (
+              summary.text
+            ) : (
+              <Text span inherit c={summary.status === 'stalled' ? VX.status.bad : VX.status.warn}>
+                {summary.text}
+              </Text>
+            )
+          }
+          facts={summary.facts}
+        />
         <HealthStrip metrics={raw?.metrics} health={raw?.health} budget={raw?.budget} />
         <DecisionQueues
           view={awaitingOwner}

@@ -1,4 +1,4 @@
-/* Board — columns share the row; an empty column shrinks to its header so the loaded ones get the width. */
+/* Board — columns share the row; only populated columns render here, so they get the width; empties fold into a line. */
 
 .columns {
   display: flex;
@@ -9,10 +9,6 @@
 .column {
   flex: 1 1 0;
   min-width: 0;
-}
-
-.empty {
-  flex: 0 0 9rem;
 }
 
 .text {
