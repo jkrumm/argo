@@ -162,3 +162,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: the untitled count said once (the chip); the fold row reads `Untitled chats`. Carried: chips without hover (basalt `Button`). No lost fact.
 - **Against Keel:** does not yet — three rows and a fold over a void above the composer.
+
+### Wave 32 fixes
+
+- **Shot states:** `thread-toolbar` declares `empty loading error`; `loading` is the hydration `Loader` and `error` the `Couldn't load threads` alert (both `thread-state`), `empty` substitutes an empty thread list so the real no-threads note renders (`thread-empty`); `thread-list` is absent in all three.
+- **Against Keel:** no subtraction removes the void above the composer without adding UI; left.

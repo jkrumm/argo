@@ -209,3 +209,9 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: `Chats by kind` labels each segment under the bar (2.22 `size="row"` captions), so the footer legend is deleted with no count lost; row hover/selected on basalt's row surfaces; the source-list focus timeouts are gone. **New:** the kind caption restates the hero's count (argo); the 1440 page shot is ~1.7k px with ~640 px empty under the panes (argo or harness); a light 390 capture mid-load (harness). Carried: tag-chip hover (basalt); labeled-row hover unverifiable (harness); the 390 2 + 1 strip (basalt); the scrollbar through the pane header; the 390 detail pane with a source open not verified.
 - **Against Keel:** close — Keel's rows carry real columns and its page has no dead space.
+
+### Wave 32 fixes
+
+- **Shot states:** `empty` substitutes no chats / teams / labels where the page reads them (the real empty list and labeled pane render); `loading` is the route's Suspense fallback (`explorer-loading`), every other anchor declares itself absent there. `error` is not declared: the page reads through `useSuspenseQuery`, so a failure is the app's crash screen.
+- **Kind caption:** the leading kind's bar caption names the kind without its count — the hero holds the count. On a tie every caption keeps its count.
+- **Page height:** the panes are `min(760px, 100dvh − 240px)`, independent of their content; the ~640 px of dead space under them in the 1440 page shot is the harness growing the inner scrollport (`100dvh` follows it), not argo sizing the page taller than its content. Left as is.
