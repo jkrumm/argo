@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Badge, Button, Card, Text } from '@mantine/core'
 import { Section, useSizeClass } from 'basalt-ui'
-import { clockTime, noSnapshotText } from '../agents/model'
-import { emptyStreamLabel, type ActivityGroup } from './model'
+import { clockTime } from '../agents/model'
+import { feedEmptyLine, type ActivityGroup } from './model'
 import classes from './home.module.css'
 
 /** Rows shown at desktop width; the rest is behind `Show n more`. */
@@ -27,19 +27,6 @@ type Props = {
  * Prototype of `EventList density="feed" live` (docs/design/UPSTREAM.md): the Agents `EventList`
  * has a fixed 10 rem actor column, too wide for a 40 % column.
  */
-/** What the feed says with nothing to count: the horizon when a feed loaded, else why none did. */
-function emptyLine(
-  loaded: boolean,
-  failed: readonly string[],
-  pending: readonly string[],
-  now: number,
-) {
-  if (loaded) return emptyStreamLabel(now)
-  if (failed.length > 0) return `${failed.join(' and ')} failed to load — reload to retry.`
-  if (pending.length > 0) return `Loading ${pending.join(' and ')}.`
-  return `${noSnapshotText()}.`
-}
-
 export function ActivityFeed({ groups, total, stale, loaded, failed, pending, now }: Props) {
   const [open, setOpen] = useState(false)
   const narrow = useSizeClass() === 'compact'
@@ -76,7 +63,7 @@ export function ActivityFeed({ groups, total, stale, loaded, failed, pending, no
             </Text>
           ) : (
             <Text size="sm" c="dimmed">
-              {emptyLine(loaded, failed, pending, now)}
+              {feedEmptyLine({ loaded, failed, pending, now })}
             </Text>
           )}
           {groups.map((group, i) => {

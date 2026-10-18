@@ -5,7 +5,7 @@ import { IconCircleCheck } from '@tabler/icons-react'
 import { DecisionCard, type DecisionCardAction } from '../../components/upstream/decision-card'
 import { useCopyAction } from '../../components/upstream/use-copy-action'
 import type { Decision } from '../../lib/decisions'
-import { allUnknown, restLabel, unknownPhrase } from './model'
+import { allUnknown, needsYouEmptyTitle, restLabel, unknownPhrase } from './model'
 import { StatusChip } from '../agents/status-chip'
 import { HistoryPreview } from '../warden/history-preview'
 import { historyView } from '../warden/page-model'
@@ -86,9 +86,7 @@ export function NeedsYou({ decisions, unavailable, loading }: Props) {
           <EmptyState
             tier="section"
             icon={<IconCircleCheck size={28} />}
-            title={
-              unknown ? (unavailable.length === 0 ? 'Loading' : "Can't tell") : 'Nothing needs you'
-            }
+            title={needsYouEmptyTitle({ unavailable, loading })}
             description={
               unknown
                 ? `${phrase}, so what is waiting is unknown.`
