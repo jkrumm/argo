@@ -33,3 +33,13 @@ feed (Home) first.
 The wave order in `PLAN.md` stays as planned and overrides rank: it groups pages by shared patterns. Wave 19's Garmin
 Health is where `Meter`, the strip and the chart facts header are first proven, and Wave 20 proves the
 decision card and `Board`. That order outweighs strict rank.
+
+## One form for a repeated gap (settled Wave 35)
+
+When one gap shows on several surfaces of one screen, its **full sentence** (what is missing, why, the next step) appears
+**once**, on the screen's leading surface: the page alert or headline if there is one, else the first card in reading order.
+Every other surface carries the **short form**, which is the full sentence's leading clause, verbatim and with no cause or step
+(`No usage ingested`, `No chats came back`). A short form names the same gap in the same words, so a reader matches it to the
+sentence without reading it twice. This is Calendar's rule: the headline carries the step, and each card carries the sentence
+without it. A surface never shows both forms. A cell too small for the short form takes the short form anyway, never a bare `—`.
+A surface whose gap differs (a filter that matched nothing, one failed source) is a different gap, and it gets its own sentence.
