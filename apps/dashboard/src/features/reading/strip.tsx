@@ -3,6 +3,7 @@ import { alpha, VX } from 'basalt-ui/tokens'
 import {
   NO_PACE_REASON,
   ratingShape,
+  ratingsFooter,
   shelfParts,
   shelfShares,
   totalReadSeconds,
@@ -45,6 +46,7 @@ function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
   if (shape.mean === null) {
     return { key: 'ratings', caption: 'Ratings · 0 rated', value: null, footer: 'no rated books' }
   }
+  const footer = ratingsFooter(shape)
   const peak = Math.max(...shape.buckets)
   // Bucket i holds [i, i + 1), so the track spans 1…6 and a mean of m lands at (m − 1) / 5.
   const meanAt = Math.min(100, Math.max(0, ((shape.mean - 1) / 5) * 100))
@@ -71,21 +73,14 @@ function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
         </div>
         <div className={classes.axis}>
           {shape.buckets.map((count, i) => (
-            <span key={i}>
+            <span key={i} className={i % 2 === 1 ? classes.axisMinor : undefined}>
               {i + 1}★ {count}
             </span>
           ))}
         </div>
       </div>
     ),
-    footer: [
-      'whole stars, rounded down (2.5 → 2★)',
-      ...(shape.community === null
-        ? []
-        : [
-            `community mean ${shape.community.mean.toFixed(1)} ★ on ${shape.community.n} of the same books`,
-          ]),
-    ].join(' · '),
+    ...(footer === undefined ? {} : { footer }),
   }
 }
 
@@ -119,7 +114,7 @@ function paceCell(pace: Pace, shelf: readonly ShelfItem[]): StatStripCell {
         </div>
       </div>
     ),
-    footer: `${formatReadTime(seconds)} read across in-progress and finished books · one dot per book, tick is the median`,
+    footer: `${formatReadTime(seconds)} read across in-progress and finished books`,
   }
 }
 

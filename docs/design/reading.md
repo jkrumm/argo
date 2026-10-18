@@ -129,3 +129,12 @@ No new basalt rows.
 
 - **Reviewer:** fail: the ratings caption explains the binning, the pace caption explains the dots, the finished list carries a note about what it does not draw; the ratings ticks crowd at 390; link focus is now a 2 px bar after the title instead of an outline (the r2 focus-box fix overcorrected).
 - **Against Keel:** holds up — still the closest to Keel.
+
+### Wave 25 fixes
+
+- Ratings cell: the footer is the community mean and its base, or nothing (`ratingsFooter`, tested); the binning note is gone. At container widths below 480 px the even-star tick labels hide (the bars and the aria label keep all five).
+- Pace cell: the footer states the total read time only; the dot/tick explanation is gone.
+- Finished list: the days-to-finish note is dropped; the one remaining note is a count of books finished without a read date.
+- Title link: `:focus-visible` is a 2 px accent outline with offset around the link text. The clamp clips overflow, so its wrapper carries 3 px padding with a matching negative margin to leave room for the ring (it was clipped to a bar before).
+
+No new basalt rows.

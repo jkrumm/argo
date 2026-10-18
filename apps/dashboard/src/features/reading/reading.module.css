@@ -70,6 +70,13 @@
   text-align: center;
 }
 
+/* Five labelled ticks crowd a narrow cell: keep the odd stars (1, 3, 5). */
+@container (max-width: 479.9px) {
+  .axisMinor {
+    visibility: hidden;
+  }
+}
+
 /* ── Pace dots: one dot per book on a pages/h track, a tick at the median ─────────────────── */
 
 .paceTrack {
@@ -104,6 +111,19 @@
   bottom: 2px;
   width: 1px;
   background: var(--vx-ink);
+}
+
+/* ── Title link: an outline ring around the link text, inside the clamp's clipping box ──── */
+
+.titleClamp {
+  padding: 3px;
+  margin: -3px;
+}
+
+.titleLink:focus-visible {
+  outline: 2px solid var(--vx-accent);
+  outline-offset: 1px;
+  border-radius: var(--vx-radius-ctrl);
 }
 
 /* ── Book rows and cards ──────────────────────────────────────────────────────────────────── */

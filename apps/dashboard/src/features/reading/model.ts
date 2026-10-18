@@ -269,6 +269,12 @@ export function ratingShape(shelf: readonly ShelfItem[]): RatingShape {
   }
 }
 
+/** The ratings cell's one footer fact: how the community rated the same books, or nothing. */
+export function ratingsFooter(shape: RatingShape): string | undefined {
+  if (shape.community === null) return undefined
+  return `community mean ${shape.community.mean.toFixed(1)} ★ on ${shape.community.n} of the same books`
+}
+
 // ── Shelf counts: the one source of every repeated figure ───────────────────────────────────
 
 export type ShelfCounts = {

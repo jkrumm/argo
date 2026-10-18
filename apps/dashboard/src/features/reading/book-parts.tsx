@@ -39,10 +39,12 @@ export function BookTitle({ book }: { book: Pick<ShelfItem, 'slug' | 'title'> })
     )
   }
   return (
-    // The clamp sits on a wrapper: on the link itself it turns the anchor into a full-width box,
-    // and its focus ring would cover the author line too.
-    <Text component="div" size="sm" fw={600} lineClamp={2}>
+    // The clamp sits on a wrapper: on the link itself it turns the anchor into a full-width box.
+    // The clamp clips overflow, so the wrapper's padding (undone by a negative margin) leaves
+    // room for the link's focus outline instead of cutting it down to a bar.
+    <Text component="div" size="sm" fw={600} lineClamp={2} className={classes.titleClamp}>
       <Anchor
+        className={classes.titleLink}
         href={`https://hardcover.app/books/${book.slug}`}
         target="_blank"
         rel="noopener noreferrer"
