@@ -102,12 +102,10 @@ export function weightCell({
 
 export function rateCell({
   summary,
-  stats,
   rateDays,
   latestDate,
 }: {
   summary: WeightSummary
-  stats: WeightWindowStats
   rateDays: number
   latestDate: string | null
 }): StatStripCell {
@@ -140,11 +138,7 @@ export function rateCell({
         emptyText="No rate yet"
       />
     ),
-    // No hero-extra pill slot on a strip cell, so the intensity word leads the footer.
-    footer:
-      rate === null
-        ? rateFooter(stats.slope7)
-        : `${summary.intensity} · ${rateFooter(stats.slope7)}`,
+    footer: rateFooter(rate, summary.intensity),
   }
 }
 

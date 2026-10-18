@@ -118,13 +118,31 @@ export function deltaFromMean(current: number | null, mean: number | null): numb
   return current === null || mean === null ? null : current - mean
 }
 
-/** Headline: weight and distance to goal. Facts: the trailing rate and the last weigh-in's age. */
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** "3 Jun" from a `YYYY-MM-DD` key. */
+export function shortDay(key: string): string {
+  return `${Number(key.slice(8, 10))} ${MONTHS[Number(key.slice(5, 7)) - 1] ?? ''}`.trim()
+}
+
+/** The direction word for a trailing rate; inside the maintenance band the weight is holding. */
+function trend(kgPerWeek: number): string {
+  if (Math.abs(kgPerWeek) < RATE_NEUTRAL_KG_WK) return 'holding steady'
+  return kgPerWeek < 0 ? 'falling' : 'rising'
+}
+
+/**
+ * Headline: direction and rate over a stated window, then the distance to the goal. The rate window
+ * ends at the last weigh-in, so it is dated whenever that weigh-in is not today or yesterday.
+ * Facts: the current weight and the last weigh-in's age.
+ */
 export function summaryParts({
   current,
   kgPerWeek,
   rateDays,
   goal,
   ageDays,
+  latestKey,
 }: {
   current: number | null
   kgPerWeek: number | null
@@ -132,19 +150,44 @@ export function summaryParts({
   rateDays: number
   goal: number | null
   ageDays: number | null
+  /** The newest weigh-in's day; dates the rate window when the weigh-in is not recent. */
+  latestKey?: string | null
 }): { sentence: string; facts: string[] } {
-  if (current === null) return { sentence: 'No weigh-ins in this window.', facts: [] }
+  if (current === null) return { sentence: 'No weigh-ins in this window', facts: [] }
+  const window =
+    ageDays !== null && ageDays > 1 && latestKey != null
+      ? `the ${rateDays} d to ${shortDay(latestKey)}`
+      : `${rateDays} d`
+  const rate =
+    kgPerWeek === null
+      ? `Weight at ${fixed(current)} kg`
+      : Math.abs(kgPerWeek) < RATE_NEUTRAL_KG_WK
+        ? `Weight ${trend(kgPerWeek)} over ${window}`
+        : `Weight ${trend(kgPerWeek)} ${Math.abs(kgPerWeek).toFixed(2)} kg/wk over ${window}`
   const sentence =
     goal === null
-      ? `${fixed(current)} kg`
-      : `${fixed(current)} kg, ${fixed(Math.abs(current - goal))} kg to the ${fixed(goal)} kg goal`
+      ? rate
+      : `${rate}, ${fixed(Math.abs(current - goal))} kg ${current === goal ? 'at' : 'from'} the ${fixed(goal)} kg goal`
   return {
     sentence,
     facts: [
-      `${signed(kgPerWeek, 2)} kg/wk over ${rateDays} d`,
-      ...(ageDays === null ? [] : [`last weigh-in ${ageLabel(ageDays)}`]),
+      `${fixed(current)} kg`,
+      ...(ageDays === null
+        ? []
+        : [`last weigh-in ${ageLabel(ageDays)}${isStale(ageDays) ? ' · stale' : ''}`]),
     ],
   }
+}
+
+/** Net change across the window's entries, dated from its first one; `null` with fewer than two. */
+export function windowChange(
+  points: readonly { date: string; weightKg: number }[],
+): { changeKg: number; fromKey: string; entries: number } | null {
+  const sorted = points.toSorted(compareByDate)
+  const first = sorted[0]
+  const last = sorted.at(-1)
+  if (first === undefined || last === undefined || sorted.length < 2) return null
+  return { changeKg: last.weightKg - first.weightKg, fromKey: first.date, entries: sorted.length }
 }
 
 /** The API's trailing rate looks back 28 d but only sees rows in the selected window. */
@@ -254,9 +297,9 @@ export function slopeOverDays(
   return den === 0 ? null : (num / den) * 7
 }
 
-/** The RATE cell footer: the 7 d slope only; the 28 d hero above it is the one long-span rate. */
-export function rateFooter(slope7: number | null): string {
-  return `${signed(slope7, 2)} kg/wk over ${MEAN_DAYS} d`
+/** The RATE cell footer: the API's intensity tier, or why there is no rate. One window per cell. */
+export function rateFooter(rate: number | null, intensity: string): string {
+  return rate === null ? 'A rate needs two weigh-ins in the window' : intensity
 }
 
 /** The kg/week range of the API's intensity tier for a rate ("0.1\u20130.3 kg/wk", "\u2265 0.6 kg/wk"). */
