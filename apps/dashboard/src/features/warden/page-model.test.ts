@@ -274,6 +274,7 @@ describe('deriveSummary', () => {
     })
     expect(stalled.text).toBe('3 items need you, oldest 5.1 d. Loop stalled — snapshot 2 h old.')
     expect(stalled.status).toBe('stalled')
+    expect(stalled.facts).toEqual([])
   })
 
   it('reads a missing snapshot as stalled', () => {
@@ -292,11 +293,11 @@ describe('deriveSummary', () => {
 })
 
 describe('dispatchOf', () => {
+  const budgetFull: WardenBudget = { usedToday: 4, max: 10 }
+  const budgetPartial: WardenBudget = { usedToday: 4 }
   it('needs both used and max', () => {
-    expect(
-      dispatchOf({ usedToday: 4, max: 10 } satisfies Partial<WardenBudget> as WardenBudget),
-    ).toEqual({ used: 4, max: 10 })
-    expect(dispatchOf({ usedToday: 4 } satisfies Partial<WardenBudget> as WardenBudget)).toBeNull()
+    expect(dispatchOf(budgetFull)).toEqual({ used: 4, max: 10 })
+    expect(dispatchOf(budgetPartial)).toBeNull()
     expect(dispatchOf(undefined)).toBeNull()
   })
 })
@@ -353,14 +354,13 @@ describe('splitBoardColumns', () => {
 
 describe('revertsFooter', () => {
   const nd = (reason: string) => `no data: ${reason}`
-  const strip = (reverts: number | null, reopens: number | null) =>
-    ({
-      reverts,
-      revertsUnavailable: reverts === null ? 'x' : null,
-      reopens,
-      reopensUnavailable: reopens === null ? 'y' : null,
-      windowDays: 7,
-    }) satisfies Partial<StripModel['reverts']> as StripModel['reverts']
+  const strip = (reverts: number | null, reopens: number | null): StripModel['reverts'] => ({
+    reverts,
+    revertsUnavailable: reverts === null ? 'x' : null,
+    reopens,
+    reopensUnavailable: reopens === null ? 'y' : null,
+    windowDays: 7,
+  })
   it('defines a revert in plain words next to the reopen count', () => {
     expect(revertsFooter(strip(0, 1), nd)).toBe(
       'revert = a merged fix that was undone · 1 reopened after fixed · last\u00a07\u00a0d',

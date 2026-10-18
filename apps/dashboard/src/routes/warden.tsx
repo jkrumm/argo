@@ -24,6 +24,13 @@ import { PollersList } from '../features/warden/pollers-list'
 import { useWardenActions } from '../features/warden/use-warden-actions'
 import { ItemTimeline } from '../features/warden/item-timeline'
 
+/** The headline's ink: plain when healthy, a status hue when the loop is degraded or stalled. */
+const STATUS_TONE = {
+  ok: null,
+  degraded: VX.status.warn,
+  stalled: VX.status.bad,
+} as const
+
 export const Route = createFileRoute('/warden')({
   loader: ({ context }) => context.queryClient.ensureQueryData(wardenQueries.snapshot()),
   component: WardenPage,
@@ -73,6 +80,16 @@ function WardenPage() {
     dispatch: dispatchOf(raw?.budget),
   })
 
+  const tone = STATUS_TONE[summary.status]
+  const sentence =
+    tone === null ? (
+      summary.text
+    ) : (
+      <Text span inherit c={tone}>
+        {summary.text}
+      </Text>
+    )
+
   return (
     <>
       <PageBar
@@ -88,19 +105,13 @@ function WardenPage() {
 
       <Stack gap="md" opacity={refreshRequested && snapshotQuery.isFetching ? 0.6 : 1}>
         <StaleBanner snapshot={snapshot} />
-        <PageSummary
-          loading={snapshot === null}
-          sentence={
-            summary.status === 'ok' ? (
-              summary.text
-            ) : (
-              <Text span inherit c={summary.status === 'stalled' ? VX.status.bad : VX.status.warn}>
-                {summary.text}
-              </Text>
-            )
-          }
-          facts={summary.facts}
-        />
+        {snapshotQuery.isPending || snapshot !== null ? (
+          <PageSummary
+            loading={snapshotQuery.isPending}
+            sentence={sentence}
+            facts={summary.facts}
+          />
+        ) : null}
         <HealthStrip metrics={raw?.metrics} health={raw?.health} budget={raw?.budget} />
         <DecisionQueues
           view={awaitingOwner}

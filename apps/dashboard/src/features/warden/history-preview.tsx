@@ -29,7 +29,7 @@ export function HistoryPreview({ lines }: { lines: TransitionHistory }) {
         Latest change
       </Text>
       <Group gap="xs" wrap="nowrap" justify="space-between">
-        <Text size="xs" truncate="end" title={text} aria-label={text} miw={0}>
+        <Text size="xs" truncate="end" title={text} miw={0}>
           {text}
         </Text>
         <Text size="xs" c="dimmed" ff="monospace" style={{ flex: 'none' }}>
