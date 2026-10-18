@@ -81,7 +81,7 @@ function useWeekCell(): StatStripCell {
           <Box>
             {week === null
               ? 'this week not reported'
-              : `${week.sessions} ${week.sessions === 1 ? 'walk' : 'walks'} · ${Math.round(((km ?? 0) / targetKm) * 100)} % of target`}
+              : `${week.sessions} ${week.sessions === 1 ? 'walk' : 'walks'} · ${Math.round(((km ?? 0) / targetKm) * 100)}${NBSP}%${NBSP}of${NBSP}target`}
           </Box>
         )}
         <Box ml="auto">
