@@ -351,7 +351,7 @@ export function formatRange({ lo, hi }: RangeBounds, unit: string): string {
 function paceFooter(rate: number): string {
   const bounds = intensityTier(rate)
   const { tier } = bounds
-  if (tier === 'maintenance') return `Under ${RATE_NEUTRAL_KG_WK}${NBSP}kg/wk either way`
+  if (tier === 'maintenance') return 'Within the maintenance band'
   return `${TIER_NAME[tier]} pace, ${rate < 0 ? 'losing' : 'gaining'} ${formatRange(bounds, 'kg/wk')}`
 }
 

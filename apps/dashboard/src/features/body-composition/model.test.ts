@@ -395,12 +395,12 @@ describe('one fixture, two live-review items', () => {
     expect(rateFooter({ rate: 0.2, entries: 9 })).toBe(
       'Lean pace, gaining 0.1–\u20600.3\u00a0kg/wk',
     )
-    expect(rateFooter({ rate: 0.05, entries: 9 })).toBe('Under 0.1\u00a0kg/wk either way')
+    expect(rateFooter({ rate: 0.05, entries: 9 })).toBe('Within the maintenance band')
     // Decided from the number: the footer needs no label from the API.
     expect(rateFooter({ rate: 0.1, entries: 9 })).toBe(
       'Lean pace, gaining 0.1–\u20600.3\u00a0kg/wk',
     )
-    expect(rateFooter({ rate: -0.0999, entries: 9 })).toBe('Under 0.1\u00a0kg/wk either way')
+    expect(rateFooter({ rate: -0.0999, entries: 9 })).toBe('Within the maintenance band')
     expect(rateFooter({ rate: null, entries: 1 })).toBe(
       'A rate needs two weigh-ins at least 3\u00a0d apart',
     )
