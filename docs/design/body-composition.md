@@ -127,3 +127,13 @@ Remaining fails are basalt-side (see friction) or fixed after the last shot.
 ## Wave 21 live fixes
 
 After the live review: the rate cell drops the 30 d footer slope; the header's, the cell's and the chart line's 7 d mean are one helper (`coveredWindow` / `trailingMean` in `charts/series-data.ts`, one `MEAN_DAYS`), and the line has a gap wherever the header would say `—`.
+
+## Wave 23 rounds
+
+Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the basalt-ui 2.20.0 adoption (#81–#84), scored each round by a fresh `basalt-design-reviewer` plus a side-by-side against Keel. Boards: `.design-shots/w23-r1-*` and `w23-r2-*` (gitignored).
+
+- **r1:** fail. the weight cell's `30 d mean` broke at 390 and the `Set a goal` focus ring overlapped the unit.
+- **Fixed between rounds (#87):** the goal action moved off the facts line; `{x} kg` joins are unbreakable (delta badge and meter captions included).
+- **r2:** **pass** — every component and the page.
+- **Against Keel:** close; the chart header repeats the strip's numbers and its end labels repeat the legend.
+- **Open for Wave 24:** drop one of each repeated figure.

@@ -110,3 +110,13 @@ Open after r4, basalt-side: the free-block cell's 1 px gap and `Section`'s mono 
 ## Wave 20 live round
 
 Post-deploy score on production failed four owner rules. Fixed: the strip's non-verdict fill is `alpha(VX.muted, 0.35)` (full-opacity `VX.muted` read near-white in dark; `status.warn` past 8 h stays); the free block's `now` rounds up to a whole minute so its length matches the printed `{start}–{end}`; the summary reads `{x} booked this week`; durations in the summary use a non-breaking space so `11h 5m` never wraps at 390 (applied in `summary.ts`, not the shared `formatDurationMin`, which this page does not own).
+
+## Wave 23 rounds
+
+Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the basalt-ui 2.20.0 adoption (#81–#84), scored each round by a fresh `basalt-design-reviewer` plus a side-by-side against Keel. Boards: `.design-shots/w23-r1-*` and `w23-r2-*` (gitignored).
+
+- **r1:** fail. cancelled M365 meetings looked live and were counted; tasks wrapped at 390; the next meeting was not named once today's had ended; four font sizes in next-days (basalt).
+- **Fixed between rounds (#87):** cancelled meetings (title prefix) are muted, de-prefixed and out of every count, booked hour, free block and `next` (all-day included; `all cancelled` only for a wholly cancelled day); one-line tasks; `next {day} {time} — {title}`.
+- **r2:** fail, basalt-owned only: next-days still has four sizes (the list group label and meta are two small steps); the tall crop is blank below one screen (harness).
+- **Against Keel:** mostly holds up; Keel's schedule rows carry a per-row state word, and its summary is a headline.
+- **Open for Wave 24:** the API `isCancelled` field (the title prefix is a stopgap); a headline summary.

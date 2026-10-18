@@ -126,3 +126,13 @@ Five shot rounds (`w19-garmin-health-r1` … `r5`), each scored by a fresh `basa
 - `BarList`: no thin, label-outside row (bars are full-height rails with the label inside), and no per-row `max`. Closest shipped option used instead: one `Meter` per row, which gives each contributor its own weight as `max`.
 - `Meter`: no prop to mute the fill (it is the neutral `VX.line`, near-white in dark mode); a `color` is for verdicts only.
 - `ChartCard`: a `facts` slot (see `FactsLine`); `Bars`/`Lines`: a `refLines[].label` for the 600 target; chart legends: collapse to the active series at compact width.
+
+## Wave 23 rounds
+
+Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the basalt-ui 2.20.0 adoption (#81–#84), scored each round by a fresh `basalt-design-reviewer` plus a side-by-side against Keel. Boards: `.design-shots/w23-r1-*` and `w23-r2-*` (gitignored).
+
+- **r1:** fail. recovery and load cells: Meter end tick on its own row, zone labels not under their zones; the fitness focus shot timed out.
+- **Fixed between rounds (no argo change needed):** the strip moved to `StatGroup variant="strip"` and the charts to `ChartCard facts` (#82).
+- **r2:** fail, basalt-owned: the same Meter tick and zone-label placement (filed in UPSTREAM.md); the fitness focus anchor still times out in the harness.
+- **Against Keel:** holds up; the densest strip, closest to Keel's metric cards.
+- **Open for Wave 24:** only the Meter placement (basalt) and the harness focus anchor.

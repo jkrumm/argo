@@ -111,3 +111,13 @@ Shots against production through `basalt-ui shot --api`; the production API did 
 | `StatGroup variant="strip"` | five cells plus a full-width row | headline strip | local CSS-module strip |
 | series fold | `foldTopN` for stacked data | top 6 + Other for the cost and token charts | `foldTopN` in `features/usage-tracking/model.ts` (tested) |
 | `BandStrip` | threshold-banded preset | daily error-rate days at 1 % / 3 % | `getBand` with `errorDayState` |
+
+## Wave 23 rounds
+
+Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the basalt-ui 2.20.0 adoption (#81–#84), scored each round by a fresh `basalt-design-reviewer` plus a side-by-side against Keel. Boards: `.design-shots/w23-r1-*` and `w23-r2-*` (gitignored).
+
+- **r1:** fail. deltas without glyphs; unitless or mis-scaled sparkline readouts; raw date-time BandStrip headers; two near-identical token blues; health with no tooltips and all-red error bars; project labels crossing the bar end.
+- **Fixed between rounds (#89):** `DeltaBadge` deltas with polarity (one per cell, none on an empty window), `$` / `M tokens` / seconds readouts, short-day headers, distinct hue families per visible key, health bars inked by the error-rate verdict joined by bucket key with a neutral zero-call state, thin project bars.
+- **r2:** fail: cache-hit cell has no sparkline or delta; the billing footer is a bare `total {amount}`; health has one x tick and the worst verdict tiers are the palest bars; the freshness dot has no word; basalt: the BandStrip tooltip covers the hero, y tick labels inside the plot, the phone select inset.
+- **Against Keel:** holds up, mostly; no headline sentence and lighter chart craft than Keel.
+- **Open for Wave 24:** the four argo items above.

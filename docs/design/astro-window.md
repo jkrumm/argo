@@ -119,3 +119,13 @@ Does not hold: Keel's decision card carries a real action row and a context prev
 - The core-altitude killer now reads the same closest-to-gate sample as `gateCoreAltitude`/`coreGateDeg` (one derivation); the ridge wording reads "gets no higher than Y° there". The dashboard labels the figure "closest to the gate" in the verdict card, gates and anatomy.
 - `coreGateReading` has unit tests on synthetic ridge nights (an out night whose highest sample differs from the closest one, a passing night compared unrounded, no darkness).
 - The page resolves its selected site from the deferred params, so a site switch never pairs the old night with the new site.
+
+## Wave 23 rounds
+
+Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the basalt-ui 2.20.0 adoption (#81–#84), scored each round by a fresh `basalt-design-reviewer` plus a side-by-side against Keel. Boards: `.design-shots/w23-r1-*` and `w23-r2-*` (gitignored).
+
+- **r1:** fail. ten identical all-out strip cells; score card stretched empty; source dots without words; a dead column beside the timeline; a clipped site select; core altitude stated four times.
+- **Fixed between rounds (#88):** a per-night `{n}° short` note, the core reading stated once (and still shown when the gate clears) with the API's terrain reason kept on a failed gate, `coreGateFailure` as the one rule, a compact `{x} mag` site label, degraded sources named with a word.
+- **r2:** fail: the strip still draws an identical full-width bar per night and shows 4 of 10 nights at 390 with no scroll cue; the core strip cell is half empty; healthy source dots still carry no word (the reviewer wants one on every dot); the select still clips at 1440 (basalt max width).
+- **Against Keel:** does not hold up yet: a half-empty verdict card beside a tall gates card, the strip.
+- **Open for Wave 24:** a per-night shortfall bar (or none), a 390 strip scroll cue, the core cell, the panorama-minutes and GO-window items (not on any shot — no GO night, Forecast tab not shot).

@@ -97,3 +97,13 @@ Local prototypes: `features/hermes-chat/thread-list.tsx` (`ThreadList{groups: {k
 - Archived threads sit behind an `Archived {n}` chip (shown only when n > 0); the record-header menu offers Unarchive there.
 - An untitled thread that is streaming or not yet persisted stays in the main list under its first line instead of the fold.
 - Opening a thread is a `?thread=` URL param (push), replacing inline expansion.
+
+## Wave 23 rounds
+
+Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the basalt-ui 2.20.0 adoption (#81–#84), scored each round by a fresh `basalt-design-reviewer` plus a side-by-side against Keel. Boards: `.design-shots/w23-r1-*` and `w23-r2-*` (gitignored).
+
+- **r1:** fail. the summary sat flush under the header; a date split at 390; mono uppercase type chips.
+- **Fixed between rounds (#89):** a top inset, no-wrap dates, quiet sentence-case pills on `--vx-surface-subtle`.
+- **r2:** **pass** — every component and the page.
+- **Against Keel:** weaker than Keel: a page-height void under three rows, pills faint in light, no headline.
+- **Open for Wave 24:** pills visible in light; Pinned / Today / streaming states still never on a live shot.

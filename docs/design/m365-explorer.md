@@ -129,3 +129,13 @@ Shots on live data via `basalt-ui shot` (r1–r3, 1440 / 390, light / dark) plus
 | (none) | `createLocalStore` fields with dynamic values | tag filter | `field.string` for tag and search |
 
 Local prototypes built: `source-row.tsx` (`glyph`, `name`, `meta`, `time`, `selected`, `starLabel`, `expanded`, `child`, `onSelect`, `onRemove`, `removing`), `tag-chips.tsx` (`active`, `total`, `labeled`, `tagCounts`, `onChange`), `strip.tsx` (`ExplorerStrip`), `label-button.tsx` (split button: `existing`, `tags`, `saving`, `onSave`, `onRemove`), `preview-drawer.tsx` (`opened`, `onClose`).
+
+## Wave 23 rounds
+
+Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the basalt-ui 2.20.0 adoption (#81–#84), scored each round by a fresh `basalt-design-reviewer` plus a side-by-side against Keel. Boards: `.design-shots/w23-r1-*` and `w23-r2-*` (gitignored).
+
+- **r1:** fail. source-list rows wrapped at 390; fragmented right-pane scrollbar; the `Labeled` chip scope disagreed with the strip; zero-count chips; an unlabelled three-part meter.
+- **Fixed between rounds (#88):** one-line rows at 390 (meta included), a single ScrollArea per pane, a scoped `Labeled {scope}` chip, zero-count chips dropped only once counts are settled, meter parts named in the footer.
+- **r2:** fail: the labeled pane still shows a fragmented thumb; `LABELED` is an adjective, not a noun; the detail and labeled panes are unreachable at 390 (shot errors).
+- **Against Keel:** close to Keel's records list, rougher.
+- **Open for Wave 24:** panes reachable at 390, one scroll region, a noun for the labeled cell.

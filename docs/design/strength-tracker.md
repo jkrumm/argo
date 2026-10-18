@@ -107,3 +107,13 @@ Deviations from the concept, recorded: section titles carry the page window (`St
 | `EventList` | day groups with a right-pinned value | Recent records | local day-grouped list in `recent-records.tsx` |
 | `ChartCard` | a visible period/basis line in the header | Every chart header states its period in `actions` text | header `actions` text |
 | `shot` harness | anchors for content below the first viewport | The full-page shot is blank below the fold; sections needed wrapper `data-shot` boxes | `Box data-shot` around each `Section` |
+
+## Wave 23 rounds
+
+Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the basalt-ui 2.20.0 adoption (#81–#84), scored each round by a fresh `basalt-design-reviewer` plus a side-by-side against Keel. Boards: `.design-shots/w23-r1-*` and `w23-r2-*` (gitignored).
+
+- **r1:** fail. four sizes in the readiness card; hued lift sparklines; unitless readouts and axes; the Balance y-domain; a bare `Diagnostics` title; the sticky page bar over section titles (basalt).
+- **Fixed between rounds (#87):** neutral lift sparklines with `kg` readouts and date labels, axis and tooltip units, a fitted progression domain, scoped section titles, a `fixed last 90 d` alignment title, `week of` dropped on daily rows.
+- **r2:** fail: the readiness card still has four sizes and its title names a verdict rather than its subject; the velocity sub-panel has one tick; the info text says stars where the chart draws dots; `Composite, all time` is still a category; basalt: the ACWR tooltip name column collapses, Sparkline focus starts on the first point, the dark-390 focus ring, chart cards at four sizes, the sticky clearance.
+- **Against Keel:** does not hold up: heavy stacked charts, a filled grey well, the tooltip bug.
+- **Open for Wave 24:** the four argo items above; a smoothed readiness line.

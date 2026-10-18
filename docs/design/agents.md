@@ -153,3 +153,13 @@ Next to the crew card: the project cards carry the same anatomy (identity + stat
 - `Sparkline`: no hover value/time readout, and no reference (`reference?: number | 'mean'` or a target band) to qualify a tile sparkline.
 - Hero numerals: the `StatCard`-style mono numerals are tabular; a `numerals: 'proportional'` prop is needed for a hero value.
 - `BandStrip`: a text slot under the band and a legend for an intensity ramp.
+
+## Wave 23 rounds
+
+Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the basalt-ui 2.20.0 adoption (#81–#84), scored each round by a fresh `basalt-design-reviewer` plus a side-by-side against Keel. Boards: `.design-shots/w23-r1-*` and `w23-r2-*` (gitignored).
+
+- **r1:** fail. needs-you tile showed 0 against a non-zero section; oldest-wait kicker and narratives truncated at 390; off-scale button inset (basalt).
+- **Fixed between rounds (#86):** the tile counts exactly what the section renders (one rule), a shorter oldest-wait caption, two-line narratives at 390.
+- **r2:** fail: the needs-you sparkline readout has no unit; the fleet cell is stretched half-empty (emptyRatio {r} ≥ 0.4); a decision-card title ellipsizes; the project-card mini bar has no caption; the activity-strip footer has no unit; the `Full ask` button inset is off-scale (basalt).
+- **Against Keel:** does not hold up yet: no headline sentence, project cards half-empty, decision cards are code blocks with no evidence panel.
+- **Open for Wave 24:** the five argo items above and a headline sentence.

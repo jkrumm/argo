@@ -113,3 +113,13 @@ Against Keel (`root--dark--desktop`, the strip and record-header patterns): same
 | `EmptyState` / heading face | a zero that is not slashed in the heading face | "No walks in the last 30 days" reads `3θ` | left as is |
 
 - **r5** (reviewer on r4: record header, Totals and both page states pass; strip cells fail on blank height, chart facts and table on mono figures and four type sizes). Changed after it: the summary names the pace period, facts context is sans, achievements state `{n} unlocks in {m} titles`. Left: strip dead space (cells share the row height), table and heatmap type scales (basalt chrome), the slashed zero and the `Value` tooltip row (basalt-side).
+
+## Wave 23 rounds
+
+Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the basalt-ui 2.20.0 adoption (#81–#84), scored each round by a fresh `basalt-design-reviewer` plus a side-by-side against Keel. Boards: `.design-shots/w23-r1-*` and `w23-r2-*` (gitignored).
+
+- **r1:** fail. the record header's steps/kcal had no period; the speed unit broke at 390.
+- **Fixed between rounds (#87):** the header states its period; every value + unit join is a no-break space inside the model formatters.
+- **r2:** **pass** — every component and the page.
+- **Against Keel:** holds up as an empty state; Keel would still show the history.
+- **Open for Wave 24:** open on the last window with walks when the 30-day window is empty.

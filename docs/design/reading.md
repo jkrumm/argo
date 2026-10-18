@@ -105,3 +105,13 @@ Deviations from the concept: Finished is grouped by month across all years rathe
 | `StatGroup variant="strip"` | a `segments` cell, a histogram cell, a dot-on-axis cell            | the three strip cells         | a local `strip.tsx` joined-cell grid                                   |
 | `Section`                   | `summary` takes a facts line; a visible subtitle                   | backlog totals, finished note | `summary` carries the line                                             |
 | heading face                | numerals without the slashed zero                                  | the summary headline          | none                                                                   |
+
+## Wave 23 rounds
+
+Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the basalt-ui 2.20.0 adoption (#81–#84), scored each round by a fresh `basalt-design-reviewer` plus a side-by-side against Keel. Boards: `.design-shots/w23-r1-*` and `w23-r2-*` (gitignored).
+
+- **r1:** fail. the shelf cell was half empty (emptyRatio ≥ 0.4); `Finished` had no scope; four sizes in the finished list.
+- **Fixed between rounds (#87):** `Finished` carries its period from the model's `scopeLabel`; three sizes.
+- **r2:** fail: the shelf cell is still stretched half-empty; title links draw a square full-width focus box over the author line; the time-read label crosses its bar end.
+- **Against Keel:** closest to Keel (headline sentence, strip with inline charts).
+- **Open for Wave 24:** a footer fact on the shelf cell (or no stretch), the title-link focus ring, outside labels on time-read.

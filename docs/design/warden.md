@@ -141,3 +141,13 @@ Deviations from the concept: the card headline is the first sentence of warden's
 - `Meter` renders its captions in three of its own font sizes, so a strip cell reaches four to five distinct sizes against a cap of three; needed: a caption size that follows the host text size (or one `size` prop) so a cell can stay within the cap. The status chip's Badge has no size between 10 and 12 px; needed: a `StatusChip size` matching the card's `xs` text.
 - Mantine's default Button padding (14 px) and `compact-xs` (7 px) are not steps of basalt's spacing scale; needed: basalt's `Button` theme padding on the scale.
 - `relativeTime` ignores the app's English UI (German strings on an English page).
+
+## Wave 23 rounds
+
+Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the basalt-ui 2.20.0 adoption (#81–#84), scored each round by a fresh `basalt-design-reviewer` plus a side-by-side against Keel. Boards: `.design-shots/w23-r1-*` and `w23-r2-*` (gitignored).
+
+- **r1:** fail. tinted enum pills for categories; one-line kickers clipped at 1440; four font sizes per card; a mono history panel taking ~30 % of the card; per-column scroll.
+- **Fixed between rounds (#85):** category as a neutral dot + sentence-case word (mixed-case and acronym tokens kept, blank → nothing), wrapping kickers with the full text in `title`, sans history preview with `Created` for a creation row, no nested column scroll.
+- **r2:** fail: four font sizes still on some decision/failed cards; the desktop reason box truncates with no expander; `reverts` has no definition; the board has no 390 crop; the `Full reason` button inset is off-scale (basalt).
+- **Against Keel:** weakest of the set: the board is a thin band of empty columns, the header is not a headline, the history panel squeezes the main column.
+- **Open for Wave 24:** ≤3 sizes on every card, a desktop reason expander, the reverts definition, a Keel-style board (collapsed empty columns, a 390 layout), a non-wrapping history preview.
