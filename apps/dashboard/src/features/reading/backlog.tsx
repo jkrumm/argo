@@ -28,7 +28,7 @@ export function Backlog({ backlog, pace }: { backlog: BacklogTotals; pace: numbe
   const genres = genreCounts(backlog.books, 5)
 
   return (
-    <div className={classes.pair} data-shot="backlog">
+    <div className={classes.pair} data-shot="backlog" data-shot-absent="empty">
       <Section
         title="Backlog"
         {...(backlog.count > 0 && {
