@@ -549,11 +549,12 @@ function PanoramaLoaded({
           {clearance.toFixed(1)}°
         </Text>
         <Text size="sm">
-          Skyglow there {glowBehindCore.toFixed(2)} mag/arcsec² (dark sky ≥ {SKY_DARK_THRESHOLD})
+          Skyglow there {glowBehindCore.toFixed(2)} mag/arcsec² (dark sky ≥ {SKY_DARK_THRESHOLD}{' '}
+          mag/arcsec²)
         </Text>
         <Text size="sm">Sun {fmtDegrees(sample.sunAltitude)}</Text>
         <Text size="sm" style={{ color: moonGood ? VX.goodSolid : VX.badSolid }}>
-          Moon {moonState}
+          Moon {moonState} · {moonGood ? 'no interference' : 'interferes'}
         </Text>
         <Text size="sm" c={coreClearsNow ? VX.goodSolid : VX.muted}>
           {coreClearsNow ? 'Core clears the gate now' : 'Core does not clear the gate now'}

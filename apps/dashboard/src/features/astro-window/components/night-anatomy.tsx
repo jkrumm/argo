@@ -37,7 +37,7 @@ function SkyScale({ mpsas }: { mpsas: number | null }) {
       <Box
         className={classes.track}
         role="img"
-        aria-label={`Sky brightness on the ${SKY_METER_MIN} to ${SKY_METER_MAX} mag/arcsec² scale; dark sky from ${SKY_DARK_THRESHOLD}`}
+        aria-label={`Sky brightness on the ${SKY_METER_MIN} to ${SKY_METER_MAX} mag/arcsec² scale; dark sky at or above ${SKY_DARK_THRESHOLD} mag/arcsec²`}
       >
         <Box className={classes.ramp} style={rampStyle} />
         <Box className={classes.tick} style={{ insetInlineStart: tickAt }} />
@@ -49,7 +49,7 @@ function SkyScale({ mpsas }: { mpsas: number | null }) {
         )}
       </Box>
       <Box className={classes.tickLabel} aria-hidden="true" style={{ insetInlineStart: tickAt }}>
-        {SKY_DARK_THRESHOLD}
+        dark ≥ {SKY_DARK_THRESHOLD}
       </Box>
     </Box>
   )
