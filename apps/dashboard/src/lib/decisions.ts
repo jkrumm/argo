@@ -1,11 +1,10 @@
-import type { DecisionCardFact } from '../components/upstream/decision-card-model'
-import { AWAITING_OWNER_STALE_DAYS, deriveAwaitingOwner } from '../features/warden/model'
 import {
-  recentTransitions,
-  retryQuestion,
-  splitReason,
-  type TransitionHistory,
-} from '../features/warden/page-model'
+  capFacts,
+  cardCopy,
+  type DecisionCardFact,
+} from '../components/upstream/decision-card-model'
+import { AWAITING_OWNER_STALE_DAYS, deriveAwaitingOwner } from '../features/warden/model'
+import { askCopy, recentTransitions, type TransitionHistory } from '../features/warden/page-model'
 import {
   flattenAgents,
   formatWaitDuration,
@@ -28,10 +27,16 @@ export type Decision = {
   source: DecisionSource
   /** Unique across sources (`warden-12`, `queue-abc`, `agent-xyz`). */
   id: string
-  /** The question the owner answers. */
+  /** The question the owner answers: short (a long ask becomes `Decide on <title>?`). */
   headline: string
-  /** `warden · <repo>` / `queue · <host>` / `agent · <project>` first, then the age. */
+  /** The item the question is about, when the headline does not already name it. */
+  entity: string | null
+  /** `warden · <repo>` / `queue · <host>` / `agent · <project>` first, then the age: at most 3. */
   facts: DecisionCardFact[]
+  /** One line of evidence, the lead of the reason or command; `null` when there is none. */
+  evidenceLine: string | null
+  /** The whole ask/reason, only when `evidenceLine` had to shorten it. */
+  detail: string | null
   /** How long it has waited, by the source's own clock; `null` when the source reports none. */
   ageMs: number | null
   /** The page that owns the full item. */
@@ -84,7 +89,7 @@ function wardenDecisions(
   ) => {
     seen.add(eventId)
     const label = title ?? `Item #${eventId}`
-    const headline = failed ? retryQuestion(label) : splitReason(reason, label).question
+    const { copy, title: entity } = askCopy({ title: label, reason, failed })
     const waiting =
       ageMs === null
         ? ''
@@ -97,8 +102,11 @@ function wardenDecisions(
     out.push({
       source: 'warden',
       id: `warden-${eventId}`,
-      headline,
-      facts: [`warden${repo ? ` · ${repo}` : ''}`, waiting].filter((f) => f !== ''),
+      headline: copy.question,
+      entity: copy.fromTitle || copy.question === entity ? null : entity,
+      facts: capFacts([`warden${repo ? ` · ${repo}` : ''}`, waiting]),
+      evidenceLine: copy.evidenceLine,
+      detail: copy.detail,
       ageMs,
       href: '/warden',
       evidence: null,
@@ -140,17 +148,23 @@ function agentDecisions(snapshot: OverviewSnapshot | null | undefined, now: numb
     const askedMs = parseMs(item.askedAt)
     const ageMs = askedMs === null ? null : Math.max(0, now - askedMs)
     const host = typeof item['host'] === 'string' ? item['host'] : null
+    const evidence = item.cmd?.trim() || null
+    const headline = headlineOf(item.question)
+    const copy = cardCopy({ question: headline, body: evidence })
     return {
       source: 'queue',
       id: `queue-${item.id}`,
-      headline: headlineOf(item.question),
-      facts: [
+      headline,
+      entity: null,
+      facts: capFacts([
         `queue${host ? ` · ${host}` : ''}`,
         ageMs === null ? '' : `asked ${formatWaitDuration(ageMs)} ago`,
-      ].filter((f) => f !== ''),
+      ]),
+      evidenceLine: copy.evidenceLine,
+      detail: copy.detail,
       ageMs,
       href: '/agents',
-      evidence: item.cmd?.trim() || null,
+      evidence,
       history: [],
       abandoned: false,
     }
@@ -159,17 +173,25 @@ function agentDecisions(snapshot: OverviewSnapshot | null | undefined, now: numb
     .filter((a) => a.state === 'needs_you')
     .map((a): Decision => {
       const ageMs = a.lastActivityAt == null ? null : Math.max(0, now - a.lastActivityAt)
+      const evidence = a.blocker ?? a.waitingFor ?? a.standing ?? null
+      const headline = headlineOf(a.title ?? a.lastPrompt ?? a.id)
+      const copy = cardCopy({ question: headline, body: evidence })
       return {
         source: 'agent',
         id: `agent-${a.id}`,
-        headline: headlineOf(a.title ?? a.lastPrompt ?? a.id),
-        facts: [
-          `agent · ${a.project}`,
-          ageMs === null ? '' : `waiting ${formatWaitDuration(ageMs)}`,
-        ].filter(isText),
+        headline,
+        entity: null,
+        facts: capFacts(
+          [
+            `agent · ${a.project}`,
+            ageMs === null ? '' : `waiting ${formatWaitDuration(ageMs)}`,
+          ].filter(isText),
+        ),
+        evidenceLine: copy.evidenceLine,
+        detail: copy.detail,
         ageMs,
         href: '/agents',
-        evidence: a.blocker ?? a.waitingFor ?? a.standing ?? null,
+        evidence,
         history: [],
         abandoned: isAbandonedWait(a, now),
       }

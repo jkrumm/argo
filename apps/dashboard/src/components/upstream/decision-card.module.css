@@ -2,6 +2,7 @@
 
 .inset {
   min-width: 0;
+  overflow-wrap: anywhere;
   padding: var(--vx-space-stack-sm, 0.5rem) var(--vx-space-stack-md, 0.75rem);
   border-radius: var(--vx-radius-fine);
   background: color-mix(in srgb, var(--vx-line) 14%, transparent);
@@ -16,6 +17,11 @@
 }
 
 .question {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.wrap {
   min-width: 0;
   overflow-wrap: anywhere;
 }

@@ -4,6 +4,19 @@
  * (subtle) action are visible; every other verb lives in a single quiet menu. All actions are
  * optional, so a read-only or copy-only card is just a card without them.
  *
+ * The interior shape (Keel's), top to bottom:
+ *   1. question    — a short title (`QUESTION_MAX` chars); a longer ask becomes `Decide on <entity>?`
+ *   2. facts       — the entity plus two or three `·`-separated facts (`capFacts`, `FACTS_MAX` = 3)
+ *   3. evidenceLine — ONE line, the lead of the reason (+ an age/confidence where the source has one);
+ *                    the whole ask sits behind `disclosure` only when the line had to shorten it
+ *   4. actions     — one primary, one secondary, the rest in the menu
+ *   5. preview     — context on the right. With a single line of history set `inlinePreview`: it
+ *                    then sits under the facts as plain text, with no well and no box
+ * `cardCopy` (decision-card-model) derives 1 + 3 from an ask; callers pass its `question`,
+ * `evidenceLine` and `detail` (as `disclosure.content`). `evidence` (the inset) is the older,
+ * heavier slot for multi-line evidence and still works unchanged. Long identifiers and URLs wrap
+ * at any character (`overflow-wrap: anywhere`) rather than overflow.
+ *
  * Prototype of the shared decision-card recipe (docs/design/UPSTREAM.md); props stay close to that row
  * so basalt-ui can promote it.
  */
@@ -36,12 +49,16 @@ export type DecisionCardProps = {
   actor?: ReactNode
   /** Inset panel under the facts: the reasoning behind the question. */
   evidence?: ReactNode
+  /** One plain line under the facts: the lead of the reasoning (no inset). Wraps, never cut. */
+  evidenceLine?: string | null | undefined
   /** Right-hand context column (draft excerpt, from → to trend). Stacks below at narrow widths. */
   preview?: ReactNode
   primary?: DecisionCardAction | undefined
   secondary?: DecisionCardAction | undefined
   /** Every other verb, behind one quiet icon button. */
   menu?: readonly DecisionCardAction[] | undefined
+  /** Render `preview` as plain text under the facts instead of a well on the right (one line of history). */
+  inlinePreview?: boolean
   /** A collapsed section revealed on demand, e.g. the full evidence at 390. */
   disclosure?: { label: string; content: ReactNode }
   /** Trailing meta line under the actions. */
@@ -144,7 +161,9 @@ export function DecisionCard({
   status,
   actor,
   evidence,
+  evidenceLine,
   preview,
+  inlinePreview = false,
   primary,
   secondary,
   menu,
@@ -185,6 +204,12 @@ export function DecisionCard({
               )}
             </Group>
           )}
+          {isRenderable(evidenceLine) && (
+            <Text size="sm" className={classes.wrap}>
+              {evidenceLine}
+            </Text>
+          )}
+          {inlinePreview && isRenderable(preview) && <Box className={classes.wrap}>{preview}</Box>}
           {isRenderable(evidence) && <Box className={classes.inset}>{evidence}</Box>}
           {disclosure !== undefined && <Disclosure {...disclosure} />}
           <ActionRow question={question} primary={primary} secondary={secondary} menu={menu} />
@@ -194,7 +219,9 @@ export function DecisionCard({
             </Text>
           )}
         </Stack>
-        {isRenderable(preview) && <Box className={classes.preview}>{preview}</Box>}
+        {!inlinePreview && isRenderable(preview) && (
+          <Box className={classes.preview}>{preview}</Box>
+        )}
       </Group>
     </Card>
   )
