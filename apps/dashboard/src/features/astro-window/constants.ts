@@ -20,6 +20,9 @@ export const CHART_HEIGHT = 260
 /** Slightly taller than CHART_HEIGHT: the panorama carries the skyline, the gate and three tracks on one pair of axes. */
 export const PANORAMA_HEIGHT = 320
 
+/** The `Unknown site` card holds one sentence and no chart: the body fits two lines of copy, not the panorama it stands in for. */
+export const UNKNOWN_SITE_HEIGHT = 96
+
 /** Fixed height so the map and the night-facts panel line up exactly. */
 export const SIDE_PANEL_HEIGHT = 620
 

@@ -115,7 +115,7 @@
   }
 
   .host[data-more='true'] .scroller {
-    mask-image: linear-gradient(to right, black calc(100% - 2.5rem), transparent);
+    mask-image: linear-gradient(to right, black calc(100% - 1rem), transparent);
   }
 }
 

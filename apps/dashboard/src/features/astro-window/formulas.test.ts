@@ -34,6 +34,7 @@ import {
   verdictStatus,
   verdictTone,
   skyCellFooter,
+  unknownSiteCopy,
   moonFooter,
   cloudHeadline,
   minutesToHours,
@@ -645,17 +646,15 @@ describe('nextUsableText looks only at later nights', () => {
 })
 
 describe('sky cell footer', () => {
-  test('sky: dome and transparency; the threshold lives on the scale tick', () => {
+  test('sky: dome and clarity; the threshold lives on the scale tick', () => {
     expect(skyCellFooter({ domePenaltyMag: 1.04, transparency: 3 })).toBe(
-      'town glow +1.04\u00a0mag\u00a0· transparency 3/8 (lower\u00a0=\u00a0clearer)',
+      'town glow +1.04\u00a0mag\u00a0· clarity 3/8 (1\u00a0best)',
     )
     expect(skyCellFooter({ domePenaltyMag: null, transparency: null })).toBe(
-      'town glow —\u00a0· transparency — (lower\u00a0=\u00a0clearer)',
+      'town glow —\u00a0· clarity — (1\u00a0best)',
     )
     const other = skyCellFooter({ domePenaltyMag: 0.5, transparency: 6 })
-    expect(other).toBe(
-      'town glow +0.50\u00a0mag\u00a0· transparency 6/8 (lower\u00a0=\u00a0clearer)',
-    )
+    expect(other).toBe('town glow +0.50\u00a0mag\u00a0· clarity 6/8 (1\u00a0best)')
     // A plain space before a dot would let a wrap open a line on it (a no-break space is not ' ').
     for (const footer of [other, skyCellFooter({ domePenaltyMag: null, transparency: null })]) {
       expect(footer).not.toContain(' ·')
@@ -1069,5 +1068,13 @@ describe('darkSkyTickText and moonInterferes', () => {
   test('the interference rule is at-or-over the limit', () => {
     expect(moonInterferes(0.25, 0.25)).toBe(true)
     expect(moonInterferes(0.24, 0.25)).toBe(false)
+  })
+})
+
+describe('unknownSiteCopy', () => {
+  test('names the site and the next step', () => {
+    expect(unknownSiteCopy('example-site')).toBe(
+      'example-site is not in the site list — pick another in Site, or reload if the list is empty',
+    )
   })
 })
