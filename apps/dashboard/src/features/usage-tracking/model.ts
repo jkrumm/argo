@@ -5,6 +5,7 @@
 import { format as formatDate } from 'date-fns'
 import { NBSP, withUnit } from '../../lib/format'
 import type { CostGroupBy, TimePoint, TokensGroupBy } from './types'
+import type { Daily } from './usage-visuals'
 
 export const EM_DASH = '—'
 
@@ -294,6 +295,10 @@ const DAY_MS = 86_400_000
 /** Epoch ms of the UTC midnight a bucket date names (`dayToDate` keeps the bucket's year-month-day as local fields). */
 const bucketStartMs = (d: Date): number => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
 
+/** Whether the bucket starting on `date` (a day, or `span` ms) has ended at `now`. The one closed-bucket rule. */
+const isClosedDay = (date: Date, now: number, span: number = DAY_MS): boolean =>
+  bucketStartMs(date) + span <= now
+
 /**
  * A chart's complete buckets: a day or week bucket still running at `now` would draw as a drop
  * against full ones. Buckets are UTC calendar days (a week bucket starts on its date), so they are
@@ -307,7 +312,7 @@ export function dropPartialBucket<T extends { date: Date }>(
   grain: 'day' | 'week',
 ): T[] {
   const span = (grain === 'day' ? 1 : 7) * DAY_MS
-  const complete = points.filter((p) => bucketStartMs(p.date) + span <= now)
+  const complete = points.filter((p) => isClosedDay(p.date, now, span))
   return complete.length < 2 ? [...points] : complete
 }
 
@@ -366,7 +371,11 @@ export type FoldedSeries = {
   folded: number
 }
 
-const compareKeys = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
+const compareKeys = (a: string, b: string): number => {
+  if (a < b) return -1
+  if (a > b) return 1
+  return 0
+}
 
 /**
  * Keep the top group keys by their total over the whole window and sum the rest into `Other`. At
@@ -385,7 +394,8 @@ export function foldTopN(
   for (const p of points) {
     for (const key of groupKeys) sums.set(key, (sums.get(key) ?? 0) + (p.groups[key] ?? 0))
   }
-  // Ties break on the key by code unit (a total order, whatever the locale), so rank (and the hue it assigns) is the same on every load.
+  // Ties break on the key by code unit (a total order, whatever the locale), so rank and the
+  // hue it assigns are the same on every load.
   const ranked = [...groupKeys].toSorted(
     (a, b) => (sums.get(b) ?? 0) - (sums.get(a) ?? 0) || compareKeys(a, b),
   )
@@ -627,19 +637,16 @@ export function prepareFolded(input: {
   return { folded: foldTopN(source.points, source.groupKeys, FOLD_TOP_N, FOLD_MAX_N), labelOf }
 }
 
-/** A daily reading: the day's UTC date and its value, `null` for a gap. */
-type DayReading = { date: Date; value: number | null }
-
 /** The values of the days that have closed at `now`; the running day is not a full day. */
-const fullDayValues = (days: readonly DayReading[], now: number): (number | null)[] =>
-  days.filter((d) => bucketStartMs(d.date) + DAY_MS <= now).map((d) => d.value)
+const fullDayValues = (days: readonly Daily[], now: number): (number | null)[] =>
+  days.filter((d) => isClosedDay(d.date, now)).map((d) => d.value)
 
 /**
  * `{n} of {m} full days slower than the 30 d p95`, or `null` without a window p95 or any full day.
  * Today is still running and is not counted, so `{m}` is the closed days only.
  */
 export function slowerDaysLine(
-  days: readonly DayReading[],
+  days: readonly Daily[],
   windowP95: number | null,
   now: number,
 ): string | null {
@@ -651,7 +658,7 @@ export function slowerDaysLine(
 }
 
 /** `{n} of {m} full days under it` (the target), or `null` without a full day; today is not counted. */
-export function cacheUnderLine(days: readonly DayReading[], now: number): string | null {
+export function cacheUnderLine(days: readonly Daily[], now: number): string | null {
   const under = countAgainst(fullDayValues(days, now), CACHE_HIT_TARGET, 'below')
   return under.of === 0 ? null : `${under.count} of ${under.of} full days under it`
 }

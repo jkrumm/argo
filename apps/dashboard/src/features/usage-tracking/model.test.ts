@@ -456,23 +456,27 @@ describe('fold palette', () => {
 })
 
 describe('day-count sentences', () => {
-  const NOW = Date.UTC(2026, 0, 10, 12)
-  const day = (n: number, value: number | null) => ({ date: new Date(Date.UTC(2026, 0, n)), value })
+  // Buckets are the UTC midnight of a date's local fields, so `now` is read from local fields too.
+  const noon = new Date(2026, 0, 10, 12)
+  const NOW = Date.UTC(noon.getFullYear(), noon.getMonth(), noon.getDate(), 12)
+  const reading = (n: number, value: number | null) => ({ date: new Date(2026, 0, n), value })
   it('counts full days slower than the window p95, null without a window or a day', () => {
-    const days = [day(1, 1), day(2, 5), day(3, null), day(4, 9)]
+    const days = [reading(1, 1), reading(2, 5), reading(3, null), reading(4, 9)]
     expect(slowerDaysLine(days, 4, NOW)).toBe('2 of 3 full days slower than the 30\u00a0d p95')
     expect(slowerDaysLine(days, null, NOW)).toBeNull()
-    expect(slowerDaysLine([day(1, null)], 4, NOW)).toBeNull()
+    expect(slowerDaysLine([reading(1, null)], 4, NOW)).toBeNull()
   })
   it('counts full days under the cache target, null without a day', () => {
-    const days = [day(1, 0.5), day(2, 0.7), day(3, 0.59), day(4, null)]
+    const days = [reading(1, 0.5), reading(2, 0.7), reading(3, 0.59), reading(4, null)]
     expect(cacheUnderLine(days, NOW)).toBe('2 of 3 full days under it')
     expect(cacheUnderLine([], NOW)).toBeNull()
   })
   it('leaves the running day out of the count and the base', () => {
-    const days = [day(8, 9), day(9, 1), day(10, 9)]
+    const days = [reading(8, 9), reading(9, 1), reading(10, 9)]
     expect(slowerDaysLine(days, 4, NOW)).toBe('1 of 2 full days slower than the 30\u00a0d p95')
-    expect(cacheUnderLine([day(9, 0.9), day(10, 0.1)], NOW)).toBe('0 of 1 full days under it')
+    expect(cacheUnderLine([reading(9, 0.9), reading(10, 0.1)], NOW)).toBe(
+      '0 of 1 full days under it',
+    )
   })
 })
 

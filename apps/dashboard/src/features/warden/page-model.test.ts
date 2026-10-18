@@ -523,10 +523,10 @@ describe('cardFacts waiting boundaries', () => {
   })
   it('resolveWaitMs: agreement within the resolution takes the history age', () => {
     expect(resolveWaitMs(1, 0, DAY - 70 * MIN)).toBe(DAY - 70 * MIN)
+    expect(resolveWaitMs(0, 0, 3 * MIN)).toBe(3 * MIN)
   })
   it('resolveWaitMs: disagreement beyond the resolution keeps the longer', () => {
     expect(resolveWaitMs(1, 0, DAY - 90 * MIN)).toBe(DAY)
-    expect(resolveWaitMs(0, 0, 3 * MIN)).toBe(3 * MIN)
   })
   it('the history floor is 0 without a readable line', () => {
     expect(latestHistoryAgeMs([], 10)).toBe(0)
