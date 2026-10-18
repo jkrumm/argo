@@ -273,7 +273,7 @@ export function acwrCell(
   reading: AcwrReading | null,
   now: number,
   /** The load read when there is no reading: still pending, or failed. */
-  feed: 'loading' | 'error' = 'error',
+  feed: 'loading' | 'error',
 ): StatStripCell {
   if (reading === null || reading.acwr === null) {
     return {

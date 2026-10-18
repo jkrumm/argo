@@ -34,6 +34,7 @@ import {
   stressFact,
   summaryParts,
   vo2Hero,
+  windowCopyDays,
   windowDayCount,
 } from './model'
 
@@ -289,6 +290,13 @@ describe('windows', () => {
       windowDayCount({ dateFrom: '2026-01-01', dateTo: '2026-04-20' }, '2026-04-15', today),
     ).toBe(6)
     expect(windowDayCount({}, '2026-10-10', today)).toBe(8)
+  })
+
+  test('windowCopyDays reads the selected preset length, not the inclusive day count', () => {
+    expect(windowCopyDays({ window: '7d' }, '2026-04-15', today)).toBe(7)
+    expect(windowCopyDays({ window: '30d' }, '2026-04-15', today)).toBe(30)
+    expect(windowCopyDays({ from: '2026-10-01', to: '2026-10-10' }, '2026-04-15', today)).toBe(10)
+    expect(windowCopyDays({ window: '90d' }, '2026-10-05', today)).toBe(13)
   })
 
   test('windowDayCount is 0, not negative, for an empty window', () => {

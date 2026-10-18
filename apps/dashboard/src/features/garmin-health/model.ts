@@ -5,6 +5,8 @@
  */
 
 import { NBSP, withUnit } from '../../lib/format'
+import { WINDOW_DAYS, activitiesRange } from '../../lib/queries/activities-window'
+import type { WindowParams } from '../../lib/queries/daily-metrics'
 import { ACWR_ZONE_NAME, type AcwrZone } from './formulas'
 
 const EM_DASH = '—'
@@ -156,6 +158,24 @@ export function windowDayCount(
   const end = range.dateTo ?? dayKey(today)
   const ms = Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)
   return ms < 0 ? 0 : Math.round(ms / 86_400_000) + 1
+}
+
+/**
+ * The window's length as the selector names it, for copy: a `30d` preset is 30 days (its query
+ * range starts 30 days back and so spans 31 calendar days), a custom range counts its days. Clipped
+ * at the visible floor like `windowDayCount`.
+ */
+export function windowCopyDays(
+  params: WindowParams,
+  floor: string,
+  today: Date = new Date(),
+): number {
+  const counted = windowDayCount(activitiesRange(params, today), floor, today)
+  const preset =
+    !params.from && !params.to && params.window && params.window !== 'all'
+      ? WINDOW_DAYS[params.window]
+      : undefined
+  return preset === undefined ? counted : Math.min(preset, counted)
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']

@@ -60,10 +60,16 @@ export const sourceGapWord = (
  * never an empty list — a pending or failed read must not print `0`.
  */
 export function taskFeedState(
-  queries: readonly { isPending: boolean; isError: boolean; data: unknown }[],
+  queries: readonly {
+    isPending: boolean
+    isError: boolean
+    isPlaceholderData: boolean
+    isFetching: boolean
+    data: unknown
+  }[],
 ): 'loading' | 'error' | 'ready' {
   // Loading while any read is pending; a failure only counts once all have settled, and a failed
   // background refetch that still holds cached data is not one.
-  if (queries.some((q) => q.isPending)) return 'loading'
+  if (queries.some((q) => q.isPending || (q.isPlaceholderData && q.isFetching))) return 'loading'
   return queries.some((q) => q.isError && q.data === undefined) ? 'error' : 'ready'
 }
