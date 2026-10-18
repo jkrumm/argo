@@ -109,24 +109,16 @@
 }
 
 .feedSentence {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--vx-space-control-gap);
-  min-width: 0;
-}
-
-/* The head keeps whole words (it wraps at spaces, never ellipsized); the outcome (the transition) sits after it in the muted ink and wraps below it rather than squeezing it. */
-.feedHead {
-  max-width: 100%;
   min-width: 0;
   overflow-wrap: break-word;
+}
+
+/* Head, outcome and chip are inline runs of one sentence (not flex items): the chip follows the last word on the same line where it fits, and only wraps whole when it does not. */
+.feedHead {
+  min-width: 0;
 }
 
 .feedOutcome {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow-wrap: break-word;
   color: var(--vx-muted);
 }
 
@@ -134,6 +126,7 @@
 .chip {
   height: auto;
   max-width: 100%;
+  vertical-align: baseline;
 }
 
 .chipLabel {
