@@ -57,7 +57,7 @@
 
 .meanTick {
   position: absolute;
-  top: 0;
+  top: var(--reading-count-h);
   bottom: 0;
   width: 1px;
   background: var(--vx-ink);
