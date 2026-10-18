@@ -25,6 +25,8 @@ import {
   sleepFact,
   stressFact,
   recoveryGap,
+  lastScored,
+  loadVsBaseline,
   recoverySentence,
   summaryParts,
 } from './model'
@@ -99,15 +101,12 @@ describe('summaryParts', () => {
         rhrDelta: 0,
         hrvDelta: 0,
       }).sentence,
-    ).toBe(
-      'Load under the 0.8 floor; no recovery score, since there is not enough HRV, sleep or resting HR data for Jan 5',
-    )
+    ).toBe('Load under the 0.8 floor; no recovery score for Jan 5')
   })
 
   test('a missing recovery and ACWR is the reason alone, facts stay dashes', () => {
     expect(summaryParts({ recovery: null, acwr: null, rhrDelta: null, hrvDelta: null })).toEqual({
-      sentence:
-        'No recovery score, since there is not enough HRV, sleep or resting HR data for the latest day',
+      sentence: 'No recovery score for the latest day',
       facts: ['ACWR —', 'RHR — bpm over 14 d', 'HRV — ms over 14 d'],
     })
   })
@@ -373,5 +372,33 @@ describe('shared fitness window and hero', () => {
     expect(hoursFromSec(Number.NaN)).toBeNull()
     expect(hoursFromSec(7200)).toBe(2)
     expect(hoursFromSec(null)).toBeNull()
+  })
+})
+
+describe('lastScored', () => {
+  test('is the newest scored day, skipping unscored ones', () => {
+    expect(
+      lastScored([
+        { date: '2026-01-01', recovery: 50 },
+        { date: '2026-01-02', recovery: 64 },
+        { date: '2026-01-03', recovery: null },
+      ]),
+    ).toEqual({ value: 64, date: '2026-01-02' })
+  })
+  test('an unscored window is null', () => {
+    expect(lastScored([{ date: '2026-01-01', recovery: null }])).toBeNull()
+    expect(lastScored([])).toBeNull()
+  })
+})
+
+describe('loadVsBaseline', () => {
+  test('names the direction and size against the 28 d baseline', () => {
+    expect(loadVsBaseline(0.62)).toBe('38% below your 28 d baseline')
+    expect(loadVsBaseline(1.12)).toBe('12% above your 28 d baseline')
+    expect(loadVsBaseline(1)).toBe('level with your 28 d baseline')
+  })
+  test('an unknown ratio has no sentence', () => {
+    expect(loadVsBaseline(null)).toBeNull()
+    expect(loadVsBaseline(Number.NaN)).toBeNull()
   })
 })
