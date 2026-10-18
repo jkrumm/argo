@@ -11,6 +11,13 @@ describe('stripShortcodes', () => {
   })
 })
 
+describe('capitalised bracket text', () => {
+  it('keeps a bracketed real word', () => {
+    expect(stripShortcodes('[Note: rollout paused] now')).toBe('[Note: rollout paused] now')
+    expect(stripShortcodes('[blocker] Deploy')).toBe('[blocker] Deploy')
+  })
+})
+
 describe('stripShortcodes in feed rows', () => {
   it('unwraps the bracketed form and drops bare shortcodes', () => {
     expect(stripShortcodes('[red_circle: build failed]')).toBe('build failed')

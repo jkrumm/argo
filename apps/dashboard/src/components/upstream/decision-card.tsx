@@ -58,7 +58,7 @@ export type DecisionCardProps = {
   /** Every other verb, behind one quiet icon button. */
   menu?: readonly DecisionCardAction[] | undefined
   /** `well` (default) puts `preview` in the right-hand column; `inline` renders it as plain text under the facts (one line of history, no box). */
-  previewPlacement?: 'well' | 'inline'
+  previewPlacement?: 'well' | 'inline' | undefined
   /** A collapsed section revealed on demand, e.g. the full evidence at 390. */
   disclosure?: { label: string; content: ReactNode }
   /** Trailing meta line under the actions. */

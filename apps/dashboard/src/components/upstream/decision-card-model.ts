@@ -74,25 +74,33 @@ export function leadOf(text: string, max: number): string {
   return `${(space > max / 2 ? cut.slice(0, space) : cut.slice(0, max - 1)).replace(/[\s,;:.\-–—]+$/, '')}…`
 }
 
+const flatten = (text: string): string => text.replace(/\s+/g, ' ').trim()
+
+/** A title without its trailing punctuation: the form a question is compared and built from. */
+const bareTitle = (title: string): string => flatten(title).replace(/[.!?…:;,]+$/, '')
+
 /**
- * `<verb> <title>?`, never longer than {@link QUESTION_MAX}: only the title is ellipsized, at a
- * word boundary.
+ * `<verb> <title>?`, never longer than {@link QUESTION_MAX}: the verb, the space, the `?` and the
+ * title's ellipsis are all inside the budget, and only the title is shortened (at a word boundary).
  */
 export function titleQuestion(verb: string, title: string): string {
-  const clean = title.trim().replace(/[.!?…:;,]+$/, '')
+  const clean = bareTitle(title)
   const room = QUESTION_MAX - verb.length - 2
   return `${verb} ${clean.length > room ? leadOf(clean, room) : clean}?`
 }
 
-/** A title that is already a question stays one (bounded); anything else becomes `Approve <title>?`. */
-function asQuestion(title: string): string {
-  if (!title.endsWith('?')) return titleQuestion('Approve', title)
-  return title.length <= QUESTION_MAX ? title : `${leadOf(title.slice(0, -1), QUESTION_MAX - 1)}?`
+/** A title that is already a question stays one (bounded); anything else becomes `<verb> <title>?`. */
+function asQuestion(verb: string, title: string): string {
+  const flat = flatten(title)
+  if (!flat.endsWith('?')) return titleQuestion(verb, flat)
+  return flat.length <= QUESTION_MAX ? flat : `${leadOf(flat.slice(0, -1), QUESTION_MAX - 1)}?`
 }
 
 export type CardCopy = {
-  /** Short enough to be a title: the ask's first sentence, or `Approve <title>?` (a yes/no question) when that is prose. */
+  /** At most {@link QUESTION_MAX} characters, never empty: the ask's first sentence, else a question built from the title. */
   question: string
+  /** The item the question is about, when the question does not already name it; else `null`. */
+  entity: string | null
   /** One line of evidence, the lead of the reason; `null` when there is none. */
   evidenceLine: string | null
   /** The whole ask/reason, only when the evidence line had to shorten it (the disclosure content). */
@@ -103,31 +111,46 @@ export type CardCopy = {
 
 /**
  * The text of a decision card's interior. `question` is the ask's first sentence, `body` what
- * follows it; `title` (the entity) replaces a question longer than {@link QUESTION_MAX} (as
- * itself when it is already a question, else `Approve <title>?`) and the long sentence moves
- * into the body, so nothing is cut and nothing is lost.
+ * follows it. A question over {@link QUESTION_MAX} is replaced by the `title` as a question
+ * (itself when it already is one, else `<verb> <title>?`), or, with no title, shortened to its lead;
+ * the long sentence moves into the body, so nothing is cut and nothing is lost. A blank question
+ * is built from the title too. `named` says the caller built `question` from the title already.
  */
 export function cardCopy({
   question,
   body,
   title,
+  verb = 'Approve',
+  named = false,
 }: {
   question: string
   body: string | null
   title?: string | null | undefined
+  verb?: string
+  named?: boolean
 }): CardCopy {
-  const entity = title?.trim() ?? ''
-  const long = question.length > QUESTION_MAX && entity !== ''
-  const text = (long ? [question, body] : [body])
-    .filter((part): part is string => part !== null && part.trim() !== '')
+  const ask = flatten(question)
+  const item = flatten(title ?? '')
+  const rebuild = item !== '' && (ask === '' || ask.length > QUESTION_MAX)
+  const trim = ask.length > QUESTION_MAX && !rebuild
+  const asked = rebuild
+    ? asQuestion(verb, item)
+    : trim
+      ? leadOf(ask, QUESTION_MAX)
+      : ask === ''
+        ? 'Needs your decision'
+        : ask
+  const text = [rebuild || trim ? ask : '', body ?? '']
+    .map(flatten)
+    .filter((part) => part !== '')
     .join(' ')
-    .replace(/\s+/g, ' ')
-    .trim()
   const lead = text === '' ? null : leadOf(text, EVIDENCE_LINE_MAX)
+  const bare = bareTitle(item).toLowerCase()
   return {
-    question: long ? asQuestion(entity) : question,
+    question: asked,
+    entity: item === '' || rebuild || named || bareTitle(ask).toLowerCase() === bare ? null : item,
     evidenceLine: lead,
     detail: lead !== null && lead !== text ? text : null,
-    fromTitle: long,
+    fromTitle: rebuild,
   }
 }

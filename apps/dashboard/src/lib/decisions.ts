@@ -149,12 +149,17 @@ function agentDecisions(snapshot: OverviewSnapshot | null | undefined, now: numb
     const host = typeof item['host'] === 'string' ? item['host'] : null
     const evidence = item.cmd?.trim() || null
     const title = typeof item['title'] === 'string' ? item['title'] : null
-    const copy = cardCopy({ question: headlineOf(item.question), body: evidence, title })
+    const copy = cardCopy({
+      question: headlineOf(item.question),
+      body: evidence,
+      title,
+      verb: 'Answer',
+    })
     return {
       source: 'queue',
       id: `queue-${item.id}`,
       headline: copy.question,
-      entity: null,
+      entity: copy.entity,
       facts: capFacts([
         `queue${host ? ` · ${host}` : ''}`,
         ageMs === null ? '' : `asked ${formatWaitDuration(ageMs)} ago`,
@@ -177,12 +182,13 @@ function agentDecisions(snapshot: OverviewSnapshot | null | undefined, now: numb
         question: headlineOf(a.title ?? a.lastPrompt ?? a.id),
         body: evidence,
         title: a.title,
+        verb: 'Unblock',
       })
       return {
         source: 'agent',
         id: `agent-${a.id}`,
         headline: copy.question,
-        entity: null,
+        entity: copy.entity,
         facts: capFacts([
           `agent · ${a.project}`,
           ageMs === null ? '' : `waiting ${formatWaitDuration(ageMs)}`,

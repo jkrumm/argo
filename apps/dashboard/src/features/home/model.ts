@@ -528,15 +528,19 @@ export function summaryParts(s: SummaryInput): SummaryParts {
 // ── Agents strip ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * The agents cell's fact line: the busiest hour and how many of the last 24 h had an agent
- * working. `null` when no hour has a snapshot. (A shade band of hourly counts answered neither.)
+ * The agents cell's fact line: the busiest hour and how many of the hours that have a snapshot
+ * had an agent working; hours with no snapshot are named, not counted as idle. `null` when no hour
+ * has a snapshot. (A shade band of hourly counts answered neither.)
  */
 export function fleetPulse(buckets: readonly HourBucket[], total: number | null): string | null {
   const peak = peakWorking(buckets)
   if (peak === null) return null
+  const measured = buckets.filter((b) => b.working !== null).length
   const busy = buckets.filter((b) => (b.working ?? 0) > 0).length
+  const gap = buckets.length - measured
+  const unobserved = gap > 0 ? ` · ${gap} h no data` : ''
   const of = total === null ? '' : ` of ${total}`
   return peak.value === 0
-    ? `none working in the last ${buckets.length} h`
-    : `peak ${peak.value}${of} at ${clockOf(peak.hourMs)} · working in ${busy} of ${buckets.length} h`
+    ? `none working in ${measured} h observed${unobserved}`
+    : `peak ${peak.value}${of} at ${clockOf(peak.hourMs)} · working in ${busy} of ${measured} h${unobserved}`
 }

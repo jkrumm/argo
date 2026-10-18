@@ -154,7 +154,30 @@ describe('deriveDecisions', () => {
       now: NOW,
     })
     expect(d?.headline.length).toBeLessThanOrEqual(80)
-    expect(d?.headline.startsWith('Approve word')).toBe(true)
+    expect(d?.headline.startsWith('Unblock word')).toBe(true)
+  })
+
+  it('keeps the item identity on a queue ask with a short question', () => {
+    const [d] = deriveDecisions({
+      warden: null,
+      agents: agents({
+        humanQueue: [
+          { id: 'q1', question: 'Proceed?', title: '{task}', askedAt: new Date(NOW).toISOString() },
+        ],
+      }),
+      now: NOW,
+    })
+    expect(d?.headline).toBe('Proceed?')
+    expect(d?.entity).toBe('{task}')
+  })
+
+  it('shows a short title even when the question contains it', () => {
+    const [d] = deriveDecisions({
+      warden: warden({ awaiting_owner: [awaiting({ title: 'Fix', reason: 'Should we fix it?' })] }),
+      agents: null,
+      now: NOW,
+    })
+    expect(d?.entity).toBe('Fix')
   })
 
   it('leads an agent decision with its blocker as the evidence line', () => {

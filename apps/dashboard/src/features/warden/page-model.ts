@@ -6,6 +6,7 @@ import type {
   WardenHealth,
   WardenMetrics,
 } from '../../lib/queries/warden'
+import { stripShortcodes } from '../../lib/text'
 import {
   cardCopy,
   titleQuestion,
@@ -25,25 +26,6 @@ import {
 // Pure derivations for the redesigned Warden page: the summary sentence, the health strip, the
 // budget meters, the poller list, the decision-card copy and the board columns. Argo still derives
 // nothing warden did not already compute — this only reads, groups and words it.
-
-// ── Emoji shortcodes ────────────────────────────────────────────────────────
-
-/** `[red_circle: build failed]` → group 1 is the text worth keeping. */
-const BRACKET_SHORTCODE = /\[:?[a-z][a-z0-9_+-]*:?\s*:\s*([^\]]*)\]/gi
-/** A standalone `:rocket:`; never the colons inside `m365:auth:prod`, `a:b:c` or `10:30:45`. */
-const BARE_SHORTCODE = /(?<![\w:]):[a-z][a-z0-9_+-]*:(?![\w:])/gi
-
-/**
- * Slack-style emoji shortcodes are noise in a source line or a title: `[red_circle: text]` keeps its
- * `text`, a bare `:name:` is dropped, and the whitespace left behind is collapsed.
- */
-export function stripShortcodes(text: string): string {
-  return text
-    .replace(BRACKET_SHORTCODE, '$1')
-    .replace(BARE_SHORTCODE, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
 
 // ── Metric reading ──────────────────────────────────────────────────────────
 
@@ -289,7 +271,7 @@ export function deriveBudgetFooter(budget: WardenBudget | undefined): BudgetFoot
 }
 
 /** How often Warden pushes a snapshot to Argo. */
-export const WARDEN_PUSH_MIN = 10
+const WARDEN_PUSH_MIN = 10
 
 /** What a missing budget says: the cause is on warden's side, the fix is its next push. */
 export const BUDGET_MISSING = {
@@ -318,7 +300,7 @@ export function formatSpan(ms: number): string {
   return `${formatNumber(hours / 24)} d`
 }
 
-export type SummaryInput = {
+export type WardenSummaryInput = {
   needsCount: number
   oldestAgeDays: number | null
   receivedAt: string | null
@@ -338,7 +320,7 @@ export type SummaryStatus = 'ok' | 'degraded' | 'stalled'
 
 /** The headline sentence plus the 0–4 short facts under it (`poller 4 min old`, `2 fixes in 7 d`,
  * `budget 4 of 10`). Facts that are not reported are left out, never zero. */
-export function deriveSummary(input: SummaryInput): {
+export function deriveSummary(input: WardenSummaryInput): {
   text: string
   facts: string[]
   status: SummaryStatus
@@ -506,17 +488,20 @@ export function askCopy({
 }): { tag: string | null; entity: string | null; copy: CardCopy } {
   const cleanTitle = stripShortcodes(title ?? '') || `Item #${eventId}`
   const cleanReason = reason === null ? null : stripShortcodes(reason)
-  const named = (copy: CardCopy) => (copy.question.includes(cleanTitle) ? null : cleanTitle)
   if (failed) {
+    const question = retryQuestion(cleanTitle)
+    // Only a title the question had to ellipsize still needs to be shown whole above it.
     const copy = cardCopy({
-      question: retryQuestion(cleanTitle),
+      question,
       body: cleanReason === '' ? null : cleanReason,
+      title: cleanTitle,
+      named: !question.includes('…'),
     })
-    return { tag: null, entity: named(copy), copy }
+    return { tag: null, entity: copy.entity, copy }
   }
   const split = splitReason(cleanReason, cleanTitle)
   const copy = cardCopy({ question: split.question, body: split.rest, title: cleanTitle })
-  return { tag: split.tag, entity: named(copy), copy }
+  return { tag: split.tag, entity: copy.entity, copy }
 }
 
 /** `Retry <title>?` — a title that already ends in punctuation does not get a second mark. */
@@ -784,10 +769,14 @@ export function emptyColumnText(key: BoardColumnKey): string {
   return `No item ${COLUMN_MEANING[key]}.`
 }
 
-/** The whole board empty: how many items warden has already resolved, when it reports them. */
+/** The whole board empty: how many items warden has fixed or closed, when it reports both. */
 export function emptyBoardText(strip: StripModel['fixes']): string {
-  const resolved = [strip.fixed, strip.quiet, strip.closed]
-  return resolved.some((n) => n === null)
+  return strip.fixed === null || strip.closed === null
     ? 'No open items.'
-    : `No open items. Warden has resolved ${resolved.reduce<number>((sum, n) => sum + (n ?? 0), 0)} so far.`
+    : `No open items. Warden has fixed or closed ${strip.fixed + strip.closed} so far.`
+}
+
+/** A poller as the Today page names it: `watchdog poll · 4 min old`. */
+export function pollerAgeText(poller: { name: string; ageMin: number }): string {
+  return `${poller.name.replaceAll('_', ' ')} · ${Math.round(poller.ageMin)} min old`
 }

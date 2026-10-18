@@ -31,6 +31,7 @@ import {
   revertsFooter,
   REVERTS_INFO,
   askCopy,
+  pollerAgeText,
   BUDGET_MISSING,
   emptyBoardText,
   emptyColumnText,
@@ -907,14 +908,20 @@ describe('strip footers', () => {
   })
 })
 
+describe('pollerAgeText', () => {
+  it('names the poller once, without a second `poller`', () => {
+    expect(pollerAgeText({ name: 'merge_poller', ageMin: 3.6 })).toBe('merge poller · 4 min old')
+  })
+})
+
 describe('board empty copy', () => {
   it('describes what an empty column would hold', () => {
     expect(emptyColumnText('working')).toBe('No item being worked on.')
   })
-  it('states how much warden has resolved, or just that nothing is open', () => {
+  it('counts fixed and closed (not quiet), or just says nothing is open', () => {
     const fixes = (fixed: number | null) =>
       ({ pct: null, fixed, quiet: 2, closed: 3, unavailable: null }) as StripModel['fixes']
-    expect(emptyBoardText(fixes(1))).toBe('No open items. Warden has resolved 6 so far.')
+    expect(emptyBoardText(fixes(1))).toBe('No open items. Warden has fixed or closed 4 so far.')
     expect(emptyBoardText(fixes(null))).toBe('No open items.')
   })
 })
