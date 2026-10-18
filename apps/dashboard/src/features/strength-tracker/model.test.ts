@@ -14,7 +14,9 @@ import {
   callFacts,
   liftDelta,
   localIso,
-  offText,
+  bandRange,
+  distanceText,
+  fmtLoadPair,
   periodLabel,
   perMonth,
   ratioName,
@@ -328,14 +330,14 @@ describe('balance', () => {
     expect(bandOffset(null, [1, 2])).toBeNull()
   })
   test('a hair outside the band never prints inside it', () => {
-    expect(offText(bandOffset(2.004, [1, 2]), [1, 2])).toBe('<0.01 over the 1.0–2.0 band')
-    expect(offText(0, [1, 2])).toBe('1.0–2.0 band')
-    expect(offText(-0.1, [1, 2])).toBe('0.10 under the 1.0–2.0 band')
-    expect(offText(null, [1, 2])).toBe('—')
+    expect(distanceText(bandOffset(2.004, [1, 2]))).toBe('<0.01 over')
+    expect(distanceText(-0.1)).toBe('0.10 under')
+    expect(distanceText(0)).toBeNull()
+    expect(distanceText(null)).toBeNull()
   })
   test('outside the band the distance text carries the direction, the verdict word the severity', () => {
-    expect(offText(-0.2, [1, 2])).toContain('under')
-    expect(offText(0.4, [1, 2])).toContain('over')
+    expect(distanceText(-0.2)).toContain('under')
+    expect(distanceText(0.4)).toContain('over')
     expect(statusWord('imbalanced', -0.2)).toBe('imbalanced')
   })
   test('status words', () => {
@@ -347,7 +349,6 @@ describe('balance', () => {
   test('bounds keep one decimal at least, and more when they have more', () => {
     expect(fmtBound(1)).toBe('1.0')
     expect(fmtBound(1.25)).toBe('1.25')
-    expect(offText(0, [1, 1.25])).toBe('1.0–1.25 band')
   })
   test('borderline is a status of the API against the band, not a display word', () => {
     expect(isBorderline('balanced', -0.2)).toBe(true)
@@ -355,11 +356,14 @@ describe('balance', () => {
     expect(isBorderline('imbalanced', -0.2)).toBe(false)
     expect(isBorderline('balanced', null)).toBe(false)
   })
-  test('inside the band the row names the band alone, outside it the distance', () => {
-    expect(offText(0, [1, 2])).toBe('1.0–2.0 band')
-    expect(offText(-0.2, [1, 2])).toBe('0.20 under the 1.0–2.0 band')
-    expect(offText(0.4, [1, 2])).toBe('0.40 over the 1.0–2.0 band')
-    expect(offText(null, [1, 2])).toBe('—')
+  test('the band range is said once, with one decimal at least', () => {
+    expect(bandRange([1, 2])).toBe('1.0–2.0')
+    expect(bandRange([1, 1.25])).toBe('1.0–1.25')
+  })
+  test('the ACWR load pair is in tonnes, like the weekly volume axis', () => {
+    expect(fmtLoadPair(4200, 3900)).toBe(`acute ${fmtTonnes(4200)} / chronic ${fmtTonnes(3900)}`)
+    expect(fmtLoadPair(4200, 3900)).toBe('acute 4.2\u00a0t / chronic 3.9\u00a0t')
+    expect(fmtLoadPair(undefined, undefined)).toBe('acute — / chronic —')
   })
 })
 

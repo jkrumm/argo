@@ -1,12 +1,12 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
-import { date } from 'basalt-ui/format'
 import { alpha, VX } from 'basalt-ui/tokens'
 import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { SERIES } from '../../../lib/series'
 import { EXERCISE_COLORS, METRIC_TOOLTIPS, ZONE_COLORS, type ExerciseKey } from '../constants'
+import { fmtLoadPair } from '../model'
 import { acwrZoneLabel, exerciseLabel, type AcwrZone } from '../formulas'
 import { ACWR_PARITY } from '../bands'
 import { mergePoints, type ExerciseSeries, type MergedPoint } from './merge-acwr'
@@ -64,7 +64,7 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
         formatValue: (v, d) => {
           const row = d.per[ex]
           const zoneStr = row?.zone ? ` · ${acwrZoneLabel(row.zone)}` : ''
-          return `${v.toFixed(2)}${zoneStr} · acute ${row?.acute.toFixed(1) ?? '—'} kg / chronic ${row?.chronic.toFixed(1) ?? '—'} kg`
+          return `${v.toFixed(2)}${zoneStr} · ${fmtLoadPair(row?.acute, row?.chronic)}`
         },
       })),
       ...ZONE_SERIES,
@@ -91,7 +91,6 @@ export default function TrainingLoadChart({ params }: { params: StrengthQueryPar
         height={HEIGHT}
         x={(d) => d.day}
         series={series}
-        formatX={(d) => date(d, { format: 'medium' })}
         y={{ domain: 'auto', autoMaxFloor: 2, ticks: 5, format: (v) => v.toFixed(1) }}
         zones={[
           { from: 0, to: 0.8, fill: alpha(ZONE_COLORS.neutral, 0.08) },
