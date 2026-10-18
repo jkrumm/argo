@@ -363,7 +363,7 @@ export function agendaDays(events: readonly CalendarItem[], keys: readonly DayKe
   return keys.map((key) => agendaDay(events, key))
 }
 
-/** `2 events · 3h` / `no meetings` / `all cancelled` — the day heading's right-hand side. */
+/** `2 events · 3h` / `no events` / `all cancelled` — the day heading's right-hand side. */
 export function dayHeadLabel(
   day: AgendaDay,
   format: (min: number) => string,
@@ -372,7 +372,7 @@ export function dayHeadLabel(
   if (day.count > 0)
     return `${day.count} ${day.count === 1 ? 'event' : 'events'} · ${format(day.bookedMin)}`
   // A live all-day item means the day is not wholly cancelled.
-  return day.rows.length > 0 && liveAllDay === 0 ? 'all cancelled' : 'no meetings'
+  return day.rows.length > 0 && liveAllDay === 0 ? 'all cancelled' : 'no events'
 }
 
 /** Live all-day events (never tasks, never cancelled) covering `key`, titles intact. */

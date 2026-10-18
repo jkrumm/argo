@@ -110,7 +110,7 @@ export function AgendaView({
                     {...(summary.incomplete ? {} : { count: model.today.count })}
                   >
                     {todayState === 'unknown' ? (
-                      <Text className={classes.muted}>{gap?.text}</Text>
+                      <Text className={classes.muted}>{gap?.card}</Text>
                     ) : (
                       <EventRows rows={model.today.rows} now={now} next={summary.next} />
                     )}
@@ -147,7 +147,7 @@ export function AgendaView({
                 split={model.split}
                 todayKey={summary.todayKey}
                 unknown={unknown}
-                failed={failed}
+                gap={gap}
               />
             </Box>
             <Box
@@ -165,7 +165,7 @@ export function AgendaView({
                     qualifier: 'today',
                     value: free ? formatMinutes(free.minutes) : null,
                     footer: gap
-                      ? gap.text
+                      ? gap.card
                       : free
                         ? `${hhmm(free.start)}–${hhmm(free.end)}`
                         : 'none left in 08:00–18:00',
