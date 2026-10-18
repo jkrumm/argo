@@ -127,6 +127,17 @@ describe('booked hours', () => {
     )
     expect(nothingBooked(dayLoad([], weekKeys(D), true))).toBe(false)
   })
+  test('no heading figure for a day holding only live all-day items; empty days say no events', () => {
+    const only = agendaDay([], D)
+    expect(dayHeadLabel(only, fmt, 2)).toBe('')
+    const cancelledRow = agendaDay([cancelled('x', 'Canceled:', at(D, '09:00'), at(D, '10:00'))], D)
+    expect(dayHeadLabel(cancelledRow, fmt, 1)).toBe('')
+    expect(dayHeadLabel(only, fmt, 0)).toBe('no events')
+    expect(dayHeadLabel(cancelledRow, fmt, 0)).toBe('all cancelled')
+  })
+  test('an empty load is not nothing booked', () => {
+    expect(nothingBooked([])).toBe(false)
+  })
   test('an event across midnight is split between both days', () => {
     const night = [ev('n', at(D, '23:00'), at(addDays(D, 1), '01:00'))]
     expect(bookedMinOnDay(night, D)).toBe(60)
