@@ -75,7 +75,7 @@ function chatsCell(chats: Chats): StatStripCell {
           max={parts.reduce((sum, p) => sum + p.value, 0)}
           size="row"
           startCaption={parts[0]?.label}
-          endCaption={parts.length > 1 ? parts[parts.length - 1]?.label : undefined}
+          endCaption={parts.length > 1 ? (parts[parts.length - 1]?.label ?? null) : null}
           segments={parts.map((p, i) => ({
             label: p.label,
             value: p.value,

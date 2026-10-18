@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, format, isSameDay } from 'date-fns'
-import { withUnit } from '../../lib/format'
+import { NBSP, withUnit } from '../../lib/format'
 
 export type LabelKind = 'chat' | 'channel'
 export type ChatType = 'oneOnOne' | 'group' | 'meeting' | 'unknownFutureValue'
@@ -242,7 +242,7 @@ export function formatStamp(iso: string | null | undefined): string {
   return format(d, 'dd MMM, HH:mm')
 }
 
-export function noun(n: number, one: string, many = `${one}s`): string {
+function noun(n: number, one: string, many = `${one}s`): string {
   return n === 1 ? one : many
 }
 
@@ -283,11 +283,14 @@ export function sourcesTitle(view: 'chats' | 'teams' | 'feed'): string {
   return view === 'feed' ? 'Feed sources' : view === 'chats' ? 'Chats' : 'Teams'
 }
 
-/** `3–17 Oct` within a month, `28 Sep – 17 Oct` across two. */
+/** `3–17 Oct` within a month, `28 Sep – 17 Oct` across two, `17 Oct 2025 – 3 Oct 2026` across years. Day↔month is glued. */
 function spanDates(from: number, to: number): string {
+  const day = (ms: number, pattern: string) => format(ms, pattern).replace(' ', NBSP)
+  if (format(from, 'yyyy') !== format(to, 'yyyy'))
+    return `${day(from, 'd MMM yyyy')} – ${day(to, 'd MMM yyyy')}`
   return format(from, 'MMM') === format(to, 'MMM')
-    ? `${format(from, 'd')}–${format(to, 'd MMM')}`
-    : `${format(from, 'd MMM')} – ${format(to, 'd MMM')}`
+    ? `${format(from, 'd')}–${day(to, 'd MMM')}`
+    : `${day(from, 'd MMM')} – ${day(to, 'd MMM')}`
 }
 
 /**
@@ -309,7 +312,7 @@ export function headlineOf(h: {
   return {
     sentence:
       days === 0
-        ? `${lead} all from ${format(newest, 'd MMM')}`
+        ? `${lead} all from ${format(newest, 'd MMM').replace(' ', NBSP)}`
         : `${lead} span ${withUnit(days, 'd')}, ${spanDates(oldest, newest)}`,
   }
 }
