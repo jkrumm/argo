@@ -5,10 +5,7 @@ const NOW = new Date(2026, 0, 15, 12, 0).getTime()
 
 describe('strip cells with no reading', () => {
   it('shows an em dash and a reason, never 0', () => {
-    expect(agentsCell(undefined, null, undefined, NOW)).toMatchObject({
-      value: null,
-      footer: 'no snapshot in 24 h',
-    })
+    expect(agentsCell(undefined, null)).toMatchObject({ value: null })
     expect(budgetCell(undefined, undefined)).toMatchObject({ value: null })
     expect(meetingCell(null, null, null, NOW)).toMatchObject({
       value: null,
@@ -34,7 +31,7 @@ describe('strip cells with no reading', () => {
         date: null,
         isToday: false,
       }),
-    ).toMatchObject({ value: null, footer: 'no reading yet · Garmin syncs every 6 h' })
+    ).toMatchObject({ value: null, footer: 'no reading yet · Garmin syncs every 6\u00a0h' })
     expect(recoveryCell(null, true)).toMatchObject({ footer: 'loading Garmin data' })
     expect(acwrCell(null, NOW)).toMatchObject({ value: null, footer: 'unavailable' })
   })
@@ -50,7 +47,7 @@ describe('strip cells with no reading', () => {
       isToday: false,
     })
     expect(cell.caption).toBe('Recovery · Wed 14 Jan')
-    expect(cell.footer).toBe('today fills after the next Garmin sync (every 6 h)')
+    expect(cell.footer).toBe('today fills after the next Garmin sync (every 6\u00a0h)')
   })
 
   it('names the reading day in the ACWR footer only when it is not today', () => {
@@ -76,5 +73,16 @@ describe('strip cells with no reading', () => {
       NOW,
     )
     expect(cell.value).toBe('Mon 09:30')
+  })
+})
+
+describe('agentsCell', () => {
+  it('states one window, now: the caption says so and no 24 h footer contradicts it', () => {
+    const cell = agentsCell({ working: 2 } as never, {
+      total: 5,
+      parts: [{ key: 'working', label: 'working', value: 2 }],
+    })
+    expect(cell).toMatchObject({ caption: 'Agents working · now', value: '2', unit: 'of 5 agents' })
+    expect(cell.footer).toBeUndefined()
   })
 })

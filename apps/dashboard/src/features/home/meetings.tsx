@@ -1,3 +1,4 @@
+import { withUnit } from '../../lib/format'
 import { ActionIcon, Badge, Card, Group, Stack, Text } from '@mantine/core'
 import { Section } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
@@ -116,7 +117,7 @@ export function Meetings({ agenda, later, tasks, now }: Props) {
                 <Text component="span" size="sm" {...(tasks.overdue > 0 && { c: VX.status.bad })}>
                   Tasks: {tasks.overdue} overdue
                 </Text>
-                {` · ${tasks.dueSoon} due within 7\u00a0d`}
+                {` · ${tasks.dueSoon} due within ${withUnit(7, 'd')}`}
               </>
             )}
           </Text>

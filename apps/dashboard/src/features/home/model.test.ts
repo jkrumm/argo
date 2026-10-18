@@ -19,7 +19,6 @@ import {
   todayAgenda,
   type ActivityEvent,
   type RawCalendarEvent,
-  fleetPulse,
   narrativeEvents,
 } from './model'
 import type { Decision } from '../../lib/decisions'
@@ -47,6 +46,7 @@ const decision = (ageMs: number | null): Decision => ({
   source: 'warden',
   id: `d-${ageMs}`,
   headline: '{q}',
+  copySource: 'plain',
   entity: null,
   facts: [],
   evidenceLine: null,
@@ -217,7 +217,7 @@ describe('homeSummaryParts', () => {
         ],
       }),
     ).toEqual({
-      sentence: 'Oldest wait on you 2 h 0 m.',
+      sentence: 'Oldest wait on you 2\u00a0h 0\u00a0m.',
       facts: ['2 in Warden', '1 with agents', '1 in the human queue'],
     })
   })
@@ -249,7 +249,7 @@ describe('homeSummaryParts', () => {
 
   it('omits an unknown age rather than printing a figure it lacks', () => {
     expect(homeSummaryParts({ ...base, decisions: [decision(null)] }).sentence).toBe(
-      'Items are waiting on you.',
+      'An item is waiting on you.',
     )
   })
 
@@ -330,22 +330,6 @@ describe('names in the feed', () => {
   })
 })
 
-describe('fleetPulse', () => {
-  const hour = (h: number, working: number | null) => ({
-    hourMs: new Date(2026, 0, 15, h).getTime(),
-    working,
-  })
-  it('names the busiest hour and how many hours had an agent working', () => {
-    expect(fleetPulse([hour(8, 0), hour(9, 4), hour(10, 2), hour(11, null)], 10)).toBe(
-      'peak 4 of 10 at 09:00 · working in 2 of 3 h · 1 h no data',
-    )
-  })
-  it('says nothing was working when every hour is zero, and null with no snapshot', () => {
-    expect(fleetPulse([hour(8, 0), hour(9, 0)], null)).toBe('none working in 2 h observed')
-    expect(fleetPulse([hour(8, null)], 3)).toBeNull()
-  })
-})
-
 describe('recovery date', () => {
   it('is today only when the scored day is the local today', () => {
     expect(
@@ -418,7 +402,7 @@ describe('staleFeeds and unavailable sources', () => {
         ],
         NOW,
       ),
-    ).toEqual(['Agents 45 m old'])
+    ).toEqual(['Agents 45\u00a0m old'])
     expect(staleFeeds([{ name: 'Warden', receivedAt: agoIso(29) }], NOW)).toEqual([])
   })
 

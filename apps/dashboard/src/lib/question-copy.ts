@@ -1,4 +1,4 @@
-import { firstClause, flatten, stripShortcodes } from './text'
+import { asText, flatten, leadClauses, stripShortcodes } from './text'
 import type { WardenActionVerb } from './queries/warden'
 
 // THE question rule for every decision surface (Agents, Warden, Home): one ladder, one place.
@@ -82,19 +82,38 @@ function boundedQuestion(question: string): string {
 /** Room a handle needs to be worth printing: the stem, `: `, the handle and the `?` must fit. */
 const HANDLE_MIN = 10
 
+/** How much of an item tells it apart: its first `clauses` clauses, then an ordinal among the still-identical. */
+export type Disambiguation = { clauses: number; ordinal: number | null }
+
+/** `text` cut at a word boundary within `max` characters, ellipsis added; `null` when no whole word fits. */
+function wordLead(text: string, max: number): string | null {
+  if (text.length <= max) return text
+  const cut = text.slice(0, max - 1)
+  const space = cut.lastIndexOf(' ')
+  const head = (space === -1 ? '' : cut.slice(0, space)).replace(/[\s,;:.\-–—]+$/, '')
+  return head === '' ? null : `${head}…`
+}
+
 /**
- * `<stem>: <handle>?` — the plain question with the item's own short handle (the first clause of
- * `source`, cut at a word), so two items of one kind read differently. Bounded to {@link QUESTION_MAX}
- * with the `?` kept; the plain question unchanged when `source` is empty or leaves no room.
- * `handled` says whether the handle made it in.
+ * `<stem>: <handle> (<n>)?` — the plain question with the item's own handle: the first
+ * `disambiguation.clauses` clauses of `source`, cut at a word, then ` (n)` when clauses alone left two
+ * items identical. Bounded to {@link QUESTION_MAX} with the `?` kept; the plain question unchanged
+ * when nothing fits (no whole word, no room). `handled` says whether the question changed.
  */
-function withHandle(plain: string, source: string): { question: string; handled: boolean } {
+function withHandle(
+  plain: string,
+  source: string,
+  { clauses, ordinal }: Disambiguation,
+): { question: string; handled: boolean } {
   const stem = flatten(plain).replace(/[?\s]+$/, '')
-  const clause = firstClause(source)
-  const room = QUESTION_MAX - 1 - stem.length - 2
-  if (clause === '' || room < HANDLE_MIN)
-    return { question: boundedQuestion(plain), handled: false }
-  return { question: `${stem}: ${leadOf(clause, room)}?`, handled: true }
+  const tail = ordinal === null ? '' : ` (${ordinal})`
+  const room = QUESTION_MAX - 1 - stem.length - 2 - tail.length
+  const cut = room < HANDLE_MIN ? null : wordLead(leadClauses(source, clauses), room)
+  // A handle with no letter or digit in it names nothing.
+  const lead = cut !== null && /[\p{L}\p{N}]/u.test(cut) ? cut : null
+  if (lead === null && ordinal === null) return { question: boundedQuestion(plain), handled: false }
+  const body = lead === null ? `${stem}${tail}` : `${stem}: ${lead}${tail}`
+  return { question: boundedQuestion(body), handled: true }
 }
 
 export type CardCopySource = 'authored' | 'ask' | 'title' | 'plain'
@@ -140,10 +159,10 @@ export function cardCopy({
   title?: string | null | undefined
   plain?: string
   /**
-   * Text the plain rung takes its handle from (the title, or the ask when there is no title): set
-   * only for an item whose plain question another card on the same surface would repeat.
+   * Set only for an item whose plain question another card on the same surface would repeat:
+   * `source` is the text the handle is taken from (the title, or the ask when there is no title).
    */
-  handle?: string | null
+  handle?: ({ source: string } & Disambiguation) | null
   /** Show the body as the evidence line even when it is only questions (an agent's blocker). */
   keepQuestionEvidence?: boolean
 }): CardCopy {
@@ -166,7 +185,7 @@ export function cardCopy({
     question = item
   } else {
     source = 'plain'
-    const handled = handle === null ? null : withHandle(plain, handle)
+    const handled = handle === null ? null : withHandle(plain, handle.source, handle)
     question = handled?.handled ? handled.question : boundedQuestion(plain)
     carriesHandle = handled?.handled === true
   }
@@ -210,22 +229,59 @@ export function collidingCopies(
     count.set(key, (count.get(key) ?? 0) + 1)
   }
   return copies.map(
-    ({ source, question }) => source === 'plain' && count.get(question.toLowerCase())! > 1,
+    ({ source, question }) => source === 'plain' && (count.get(question.toLowerCase()) ?? 0) > 1,
   )
 }
 
+/** Each step takes more of the title; the last takes all of it. */
+const LADDER: readonly number[] = [1, 2, Infinity]
+
 /**
- * The copy of every card on ONE surface: the short plain form, unless another card on the same
- * surface would read the same, in which case that card derives again with its handle. A lone item
- * keeps the short form.
+ * The copy of every card on ONE surface (the page or inbox the owner reads together: Home needs-you
+ * across all its sources, the Warden page across needs-you and failed, Agents needs-you — never
+ * app-wide). A card keeps its short plain question unless another card of the surface reads the
+ * same; then it derives again with its handle, and the whole surface is re-checked after each step:
+ * first clause, two clauses, the whole title, and for items still identical an ordinal in `key`
+ * order, so the result is distinct for any input and stable across refreshes.
  */
-export function resolveCopies<T>(
+export function resolveCopies<T, R extends { copy: CardCopy }>(
   items: readonly T[],
-  derive: (item: T, withHandle: boolean) => CardCopy,
-): CardCopy[] {
-  const short = items.map((item) => derive(item, false))
-  const clash = collidingCopies(short)
-  return items.map((item, i) => (clash[i] ? derive(item, true) : short[i]!))
+  {
+    derive,
+    key,
+  }: {
+    derive: (item: T, options: { handle: Disambiguation | null }) => R
+    key: (item: T) => string
+  },
+): R[] {
+  const results = items.map((item) => derive(item, { handle: null }))
+  const reDerive = (flags: readonly boolean[], handleFor: (index: number) => Disambiguation) =>
+    flags.forEach((flag, i) => {
+      if (flag) results[i] = derive(items[i]!, { handle: handleFor(i) })
+    })
+  const clashes = () => collidingCopies(results.map((r) => r.copy))
+  let last: Disambiguation = { clauses: 1, ordinal: null }
+  for (const clauses of LADDER) {
+    const flags = clashes()
+    if (!flags.some(Boolean)) return results
+    last = { clauses, ordinal: null }
+    reDerive(flags, () => last)
+  }
+  const flags = clashes()
+  const groups = new Map<string, number[]>()
+  flags.forEach((flag, i) => {
+    if (!flag) return
+    const question = results[i]!.copy.question.toLowerCase()
+    groups.set(question, [...(groups.get(question) ?? []), i])
+  })
+  for (const indices of groups.values()) {
+    indices
+      .toSorted((a, b) => key(items[a]!).localeCompare(key(items[b]!)))
+      .forEach((index, rank) => {
+        results[index] = derive(items[index]!, { handle: { ...last, ordinal: rank + 1 } })
+      })
+  }
+  return results
 }
 
 // ── Warden ───────────────────────────────────────────────────────────────────────────────────
@@ -238,22 +294,43 @@ const WARDEN_PLAIN: Partial<Record<WardenActionVerb, readonly [verb: string, nou
   retry: ['Retry', 'item'],
 }
 
-/** What an alert asks for per primary verb: the verb that matches the action, the noun is the alert. */
-const ALERT_PLAIN: Partial<Record<WardenActionVerb, string>> = {
+/** What an alert asks for per primary verb: the verb the card's button carries, the noun is the alert. */
+const ALERT_PLAIN: Record<WardenActionVerb, string> = {
   implement: 'Handle',
+  merge: 'Merge',
   reinvestigate: 'Reinvestigate',
   retry: 'Retry',
+  dismiss: 'Dismiss',
+  note: 'Add a note to',
 }
 
-/** An alert, incident or outage is something to handle, never a change to implement. */
-export const ALERT_KIND = /\b(alert|incident|outage)s?\b/i
+const ALERT_WORD = /^(?:alert|incident|outage)s?$/i
+/** A title that leads with the kind (`Alert: …`, `Outage — …`): the fallback when no field names it. */
+const ALERT_TITLE_PREFIX = /^\W*(?:alert|incident|outage)s?\s*[:\-–—]/i
+
+/**
+ * Whether an item is an alert, incident or outage. The first explicit kind field (`origin`, `kind`,
+ * `type`) decides — a `github_issue` titled `Alert: …` is an issue; only with no field at all does a
+ * title that leads with the kind count.
+ */
+export function isAlert({
+  kinds = [],
+  title,
+}: {
+  kinds?: readonly unknown[]
+  title?: unknown
+}): boolean {
+  const explicit = kinds.map((k) => asText(k).trim()).find((k) => k !== '')
+  if (explicit !== undefined) return ALERT_WORD.test(explicit)
+  return ALERT_TITLE_PREFIX.test(stripShortcodes(asText(title)))
+}
 
 /**
  * The plain question of a Warden item from the verb its card offers first: `Merge {repo} PR?`.
  * `Retry failed {repo} run?` only for a failed item whose primary is retry; any other verb (or none)
  * is neutral, so a question never promises an action the card does not carry. An `alert` is asked
- * about as an alert (`Handle {repo} alert?`, `Acknowledge {repo} alert?` when the card carries no
- * handling verb), never as a change.
+ * about as an alert in the verb its button carries (`Handle {repo} alert?`, `Dismiss …`), never as a
+ * change; with no verb it is neutral (`Decide on {repo} alert?`).
  */
 export function wardenPlainQuestion({
   failed,
@@ -266,10 +343,10 @@ export function wardenPlainQuestion({
   primary: WardenActionVerb | null
   alert?: boolean
 }): string {
-  const where = stripShortcodes(repo ?? '')
-  if (alert && primary !== 'merge') {
-    const verb = primary === null ? undefined : ALERT_PLAIN[primary]
-    return plainQuestion(verb ?? 'Acknowledge', where === '' ? 'this alert' : `${where} alert`)
+  const where = stripShortcodes(asText(repo))
+  if (alert) {
+    const verb = primary === null ? 'Decide on' : ALERT_PLAIN[primary]
+    return plainQuestion(verb, where === '' ? 'this alert' : `${where} alert`)
   }
   const entry = primary === null ? undefined : WARDEN_PLAIN[primary]
   if (entry === undefined)

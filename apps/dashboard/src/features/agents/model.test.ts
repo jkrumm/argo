@@ -34,7 +34,7 @@ import type { HistoryPoint, OverviewSummary } from '../../lib/queries/agents'
 const agent = (overrides: Partial<AgentRow> = {}): AgentRow => ({
   id: overrides.id ?? 'agent-1',
   state: 'idle',
-  project: 'argo',
+  project: 'project-a',
   ...overrides,
 })
 
@@ -43,16 +43,16 @@ const agent = (overrides: Partial<AgentRow> = {}): AgentRow => ({
 describe('formatWaitDuration', () => {
   it('formats a multi-day wait as days + hours', () => {
     const ms = 21 * 24 * 60 * 60 * 1000
-    expect(formatWaitDuration(ms)).toBe('21 d 0 h')
+    expect(formatWaitDuration(ms)).toBe('21\u00a0d 0\u00a0h')
   })
 
   it('formats an hours+minutes wait once past an hour', () => {
     const ms = 5 * 3_600_000 + 12 * 60_000
-    expect(formatWaitDuration(ms)).toBe('5 h 12 m')
+    expect(formatWaitDuration(ms)).toBe('5\u00a0h 12\u00a0m')
   })
 
   it('formats a sub-hour wait as minutes only', () => {
-    expect(formatWaitDuration(42 * 60_000)).toBe('42 m')
+    expect(formatWaitDuration(42 * 60_000)).toBe('42\u00a0m')
   })
 
   it('prints "—" for a negative or non-finite value', () => {
@@ -305,20 +305,24 @@ describe('agentsSummaryParts', () => {
 })
 
 describe('needsYouSplit', () => {
-  it('splits the tile count into agents and asks, leaving out a kind with none', () => {
+  it('splits the tile count into agents and asks only when both exist', () => {
     expect(needsYouSplit(2, 1)).toBe('2 agents · 1 ask')
-    expect(needsYouSplit(1, 0)).toBe('1 agent')
-    expect(needsYouSplit(0, 3)).toBe('3 asks')
+    expect(needsYouSplit(1, 3)).toBe('1 agent · 3 asks')
+    // One kind alone is the tile's own count.
+    expect(needsYouSplit(1, 0)).toBe('')
+    expect(needsYouSplit(0, 3)).toBe('')
     expect(needsYouSplit(0, 0)).toBe('')
   })
 })
 
 describe('waitingProjects', () => {
-  it('counts distinct projects among needs-you agents only', () => {
+  it('counts distinct named projects among needs-you agents only, never — or blank', () => {
     const rows = [
       agent({ id: 'a', state: 'needs_you', project: 'p1' }),
       agent({ id: 'b', state: 'needs_you', project: 'p1' }),
       agent({ id: 'c', state: 'needs_you', project: 'p2' }),
+      agent({ id: 'e', state: 'needs_you', project: '—' }),
+      agent({ id: 'f', state: 'needs_you', project: '' }),
       agent({ id: 'd', state: 'working', project: 'p3' }),
     ]
     expect(waitingProjects(rows)).toBe(2)
@@ -327,7 +331,7 @@ describe('waitingProjects', () => {
 
 describe('fleetFact', () => {
   it('names the longest run, or that nothing works', () => {
-    expect(fleetFact(3 * 3_600_000 + 5 * 60_000, 2)).toBe('longest run 3 h 5 m')
+    expect(fleetFact(3 * 3_600_000 + 5 * 60_000, 2)).toBe('longest run 3\u00a0h 5\u00a0m')
     expect(fleetFact(null, 0)).toBe('no agent working')
     expect(fleetFact(null, 3)).toBe('longest run not reported')
   })
@@ -352,7 +356,7 @@ describe('activityFact', () => {
       /agents working in 1 of 2\u00a0h observed$/,
     )
     const quiet = [hour(1, null), hour(2, 0)]
-    expect(activityFact(quiet, peakWorking(quiet))).toBe('no agent working in 1 h observed')
+    expect(activityFact(quiet, peakWorking(quiet))).toBe('no agent working in 1\u00a0h observed')
   })
 
   it('is null when nothing was measured', () => {
@@ -439,7 +443,7 @@ describe('countUnknownAgents', () => {
 describe('ageAgo', () => {
   it('reads just now under a minute, else the wait format', () => {
     expect(ageAgo(30_000)).toBe('just now')
-    expect(ageAgo(5 * 60_000)).toBe('5 m ago')
+    expect(ageAgo(5 * 60_000)).toBe('5\u00a0m ago')
     expect(ageAgo(-1)).toBe('—')
   })
 })
@@ -475,7 +479,7 @@ describe('needsYouCards', () => {
     expect(cards.map((c) => c.key)).toEqual(['agent-x', 'hq-a', 'hq-b'])
     expect(cards[0]).toMatchObject({
       abandoned: true,
-      question: 'Unblock argo agent?',
+      question: 'Unblock project-a agent?',
       entity: 'Pick a branch',
       evidenceLine: 'dialog open',
       actions: [
@@ -484,7 +488,7 @@ describe('needsYouCards', () => {
       ],
     })
     expect(cards[1]).toMatchObject({
-      facts: ['human queue', 'mini', 'asked 1 h 0 m ago'],
+      facts: ['human queue', 'mini', 'asked 1\u00a0h 0\u00a0m ago'],
       question: 'Run the thing now?',
       evidenceLine: 'Then reply.',
       actions: [
@@ -553,17 +557,17 @@ describe('needsYouCards', () => {
     expect(card).toMatchObject({ question: 'Pick a branch?', entity: 'raw_title_key' })
   })
 
-  it('derives facts, evidence and a snapshot-age fallback for agents', () => {
+  it('derives facts, evidence and the no-blocker line for agents', () => {
     const waiting = agent({
       id: 'z',
       state: 'needs_you',
       title: 'Pick a branch',
       lastActivityAt: now - 90 * 60_000,
     })
-    const [card] = needsYouCards([], [waiting], now, { machine: 'mini', snapshotAgeMs: 120_000 })
+    const [card] = needsYouCards([], [waiting], now, { machine: 'mini' })
     expect(card).toMatchObject({
-      facts: ['argo', 'waiting 1 h 30 m', 'mini'],
-      evidenceLine: 'No blocker reported; the snapshot is 2 m ago.',
+      facts: ['project-a', 'waiting 1\u00a0h 30\u00a0m', 'mini'],
+      evidenceLine: 'No blocker reported.',
       preview: null,
     })
   })
@@ -578,8 +582,8 @@ describe('needsYouCards', () => {
       now,
       { machine: 'mini' },
     )
-    expect(bare?.facts).toEqual(['human queue', 'asked 1 h 0 m ago'])
-    expect(hosted?.facts).toEqual(['human queue', 'laptop', 'asked 30 m ago'])
+    expect(bare?.facts).toEqual(['human queue', 'asked 1\u00a0h 0\u00a0m ago'])
+    expect(hosted?.facts).toEqual(['human queue', 'laptop', 'asked 30\u00a0m ago'])
   })
 
   it('turns a statement ask into a plain question, the statement as evidence, no character count', () => {
@@ -711,18 +715,78 @@ describe('needsYouCards: questions that tell items apart', () => {
 
   it('gives two same-project agents their own handle, and a lone one keeps the short form', () => {
     const waiting = (id: string, title: string) =>
-      agent({ id, state: 'needs_you', title, lastActivityAt: now - 60_000 })
+      agent({ id, state: 'needs_you', title, project: 'project-a', lastActivityAt: now - 60_000 })
     const [lone] = needsYouCards([], [waiting('a', 'Pick a branch')], now)
-    expect(lone!.question).toBe('Unblock argo agent?')
+    expect(lone!.question).toBe('Unblock project-a agent?')
     const pair = needsYouCards(
       [],
       [waiting('a', 'Pick a branch'), waiting('b', 'Choose a host')],
       now,
     )
     expect(pair.map((c) => c.question).toSorted()).toEqual([
-      'Unblock argo agent: Choose a host?',
-      'Unblock argo agent: Pick a branch?',
+      'Unblock project-a agent: Choose a host?',
+      'Unblock project-a agent: Pick a branch?',
     ])
     expect(pair.map((c) => c.entity)).toEqual([null, null])
+  })
+})
+
+describe('needsYouCards: loose wire values', () => {
+  const now = Date.parse('2026-01-10T12:00:00Z')
+
+  it('reads a non-string cmd, host, title, project or reply as absent, never throwing', () => {
+    for (const junk of [42, {}, ['x'], true]) {
+      const cards = needsYouCards(
+        [
+          {
+            id: 'q',
+            question: 'Run it?',
+            cmd: junk,
+            host: junk,
+            title: junk,
+            askedAt: junk,
+          } as never,
+        ],
+        [
+          agent({
+            id: 'z',
+            state: 'needs_you',
+            title: junk as never,
+            lastPrompt: junk as never,
+            project: junk as never,
+            lastReply: junk as never,
+            blocker: junk as never,
+            lastActivityAt: now - 60_000,
+          }),
+        ],
+        now,
+      )
+      expect(cards).toHaveLength(2)
+      const agentCard = cards.find((c) => c.kind === 'agent')
+      expect(agentCard?.question).toBe('Unblock this agent?')
+      expect(agentCard?.evidenceLine).toBe('No blocker reported.')
+      expect(cards.find((c) => c.kind === 'human-queue')?.question).toBe('Run it?')
+    }
+  })
+
+  it('tells two same-title-prefix agents apart by clause, then ordinal', () => {
+    const waiting = (id: string, title: string) =>
+      agent({ id, state: 'needs_you', title, project: 'project-a', lastActivityAt: now - 60_000 })
+    const cards = needsYouCards(
+      [],
+      [
+        waiting('a', 'Pick a branch — host a'),
+        waiting('b', 'Pick a branch — host b'),
+        waiting('c', 'Same'),
+      ],
+      now,
+    )
+    expect(cards.map((c) => c.question).toSorted()).toEqual(
+      [
+        'Unblock project-a agent: Pick a branch — host a?',
+        'Unblock project-a agent: Pick a branch — host b?',
+        'Unblock project-a agent: Same?',
+      ].toSorted(),
+    )
   })
 })

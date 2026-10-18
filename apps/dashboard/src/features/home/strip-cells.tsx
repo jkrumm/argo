@@ -1,11 +1,12 @@
+import { withUnit } from '../../lib/format'
 import { Text } from '@mantine/core'
 import { DayAxis } from './strip-visuals'
 import { Meter, type StatStripCell } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
-import type { HistoryPoint, OverviewSummary } from '../../lib/queries/agents'
+import type { OverviewSummary } from '../../lib/queries/agents'
 import type { WardenBudget } from '../../lib/queries/warden'
-import { clockOf, hourlyWorking, type FleetPart } from '../agents/model'
+import { clockOf, type FleetPart } from '../agents/model'
 import { FLEET_COLOR } from '../agents/fleet-strip'
 import {
   ACWR_CAUTION_TO,
@@ -16,7 +17,6 @@ import {
 import { BUDGET_MISSING, deriveBudget, pollerAgeText } from '../warden/page-model'
 import {
   countdownLabel,
-  fleetPulse,
   localKey,
   meetingState,
   classLabels,
@@ -29,7 +29,6 @@ import {
   type RecoveryReading,
 } from './model'
 
-const HISTORY_HOURS = 24
 /** The budget track runs past the cap so an overrun is visible; the tick marks the cap itself. */
 const BUDGET_HEADROOM = 1.25
 /** The recovery sparkline's ink: a trend, not a verdict (`Meter` has `tone="muted"` for its own fill). */
@@ -40,8 +39,6 @@ const MUTED_FILL = alpha(VX.muted, 0.35)
 export function agentsCell(
   summary: OverviewSummary | undefined,
   fleet: { parts: FleetPart[]; total: number } | null,
-  history: HistoryPoint[] | undefined,
-  now: number,
 ): StatStripCell {
   const working = summary?.working
   const total = fleet?.total ?? null
@@ -62,8 +59,6 @@ export function agentsCell(
         />
       ),
     }),
-    footer:
-      fleetPulse(hourlyWorking(history, HISTORY_HOURS, now), total) ?? 'no snapshot in 24\u00a0h',
   }
 }
 
@@ -182,7 +177,7 @@ export function recoveryCell(reading: RecoveryReading | null, loading = false): 
           ? loading
             ? 'loading Garmin data'
             : 'Garmin data not loaded; reload to retry'
-          : `no reading yet · Garmin syncs every ${GARMIN_SYNC_HOURS}\u00a0h`,
+          : `no reading yet · Garmin syncs every ${withUnit(GARMIN_SYNC_HOURS, 'h')}`,
     }
   }
   const { score, mean, days, trend, date, isToday } = reading
@@ -199,7 +194,7 @@ export function recoveryCell(reading: RecoveryReading | null, loading = false): 
           min={0}
           max={100}
           {...(mean !== null && {
-            ticks: [{ at: mean, label: `7\u00a0d mean ${Math.round(mean)}` }],
+            ticks: [{ at: mean, label: `${withUnit(7, 'd')} mean ${Math.round(mean)}` }],
           })}
           format={(v) => String(Math.round(v))}
           startCaption={null}
@@ -219,7 +214,7 @@ export function recoveryCell(reading: RecoveryReading | null, loading = false): 
     ),
     footer: isToday
       ? `${days} observed ${days === 1 ? 'day' : 'days'} of 7`
-      : `today fills after the next Garmin sync (every ${GARMIN_SYNC_HOURS}\u00a0h)`,
+      : `today fills after the next Garmin sync (every ${withUnit(GARMIN_SYNC_HOURS, 'h')})`,
   }
 }
 
@@ -229,14 +224,14 @@ export function acwrCell(reading: AcwrReading | null, now: number): StatStripCel
   if (reading === null || reading.acwr === null) {
     return {
       key: 'acwr',
-      caption: 'Training load · 7\u00a0d / 28\u00a0d',
+      caption: `Training load · ${withUnit(7, 'd')} / ${withUnit(28, 'd')}`,
       value: null,
       footer: reading === null ? 'unavailable' : 'no training load observed',
     }
   }
   return {
     key: 'acwr',
-    caption: 'Training load · 7\u00a0d / 28\u00a0d',
+    caption: `Training load · ${withUnit(7, 'd')} / ${withUnit(28, 'd')}`,
     value: reading.acwr.toFixed(2),
     ...(reading.zone !== null && { unit: reading.zone }),
     visual: (

@@ -60,9 +60,9 @@ describe('deriveDecisions', () => {
       now: NOW,
     })
     expect(w?.facts[0]).toBe('warden · {repo}')
-    expect(w?.facts[1]).toBe('waiting 1 d 0 h')
+    expect(w?.facts[1]).toBe('waiting 1\u00a0d 0\u00a0h')
     const [a] = deriveDecisions({ warden: null, agents: agents({ agents: [agent()] }), now: NOW })
-    expect(a?.facts).toEqual(['agent · {project}', 'waiting 2 h 0 m'])
+    expect(a?.facts).toEqual(['agent · {project}', 'waiting 2\u00a0h 0\u00a0m'])
   })
 
   it('lists a failed item once, from awaiting_owner only', () => {
@@ -279,10 +279,10 @@ const factsAt = (days: number) =>
 describe('deriveDecisions: one clock and one threshold', () => {
   it('warns on an age from Warden’s own stale threshold, inclusive', () => {
     expect(factsAt(AWAITING_OWNER_STALE_DAYS)).toEqual({
-      text: 'waiting 3 d 0 h · stale at 3 d',
+      text: 'waiting 3\u00a0d 0\u00a0h · stale at 3\u00a0d',
       tone: 'warn',
     })
-    expect(factsAt(AWAITING_OWNER_STALE_DAYS - 0.1)).toBe('waiting 2 d 21 h')
+    expect(factsAt(AWAITING_OWNER_STALE_DAYS - 0.1)).toBe('waiting 2\u00a0d 21\u00a0h')
   })
 
   it('adds the time since the push to a Warden age so it sorts on the same clock as the rest', () => {
@@ -434,5 +434,74 @@ describe('deriveDecisions: evidence and second action', () => {
     expect(pr('https://example.com/pr/1')).toBe('https://example.com/pr/1')
     expect(pr('javascript:alert(1)')).toBeNull()
     expect(pr(null)).toBeNull()
+  })
+})
+
+describe('deriveDecisions: loose wire values and distinct questions', () => {
+  it('reads non-string cmd, host, title, reason and repo as absent, never throwing', () => {
+    for (const junk of [42, {}, ['x'], true]) {
+      const list = deriveDecisions({
+        warden: warden({
+          awaiting_owner: [awaiting({ title: junk, reason: junk, repo: junk, pr_url: junk })],
+        }),
+        agents: agents({
+          humanQueue: [{ id: 'q', question: 'Run it?', cmd: junk, host: junk, title: junk }],
+          agents: [agent({ title: junk, project: junk, blocker: junk })],
+        }),
+        now: NOW,
+      })
+      expect(list).toHaveLength(3)
+      expect(list.every((d) => d.headline.endsWith('?') && d.evidence === null)).toBe(true)
+    }
+  })
+
+  it('takes the next clause, then an ordinal, so no two questions on the inbox match', () => {
+    const board = warden({
+      awaiting_owner: [
+        awaiting({
+          event_id: 1,
+          title: 'Disk full — host a',
+          reason: 'Evidence.',
+          availableActions: ['implement'],
+        }),
+        awaiting({
+          event_id: 2,
+          title: 'Disk full — host b',
+          reason: 'Evidence.',
+          availableActions: ['implement'],
+        }),
+        awaiting({
+          event_id: 3,
+          title: 'Same',
+          reason: 'Evidence.',
+          availableActions: ['implement'],
+        }),
+        awaiting({
+          event_id: 4,
+          title: 'Same',
+          reason: 'Evidence.',
+          availableActions: ['implement'],
+        }),
+      ],
+    })
+    const list = deriveDecisions({ warden: board, agents: null, now: NOW })
+    expect(new Set(list.map((d) => d.headline)).size).toBe(4)
+  })
+
+  it('is not fooled by an issue that merely mentions an alert', () => {
+    const [d] = deriveDecisions({
+      warden: warden({
+        awaiting_owner: [
+          awaiting({
+            title: 'Add incident-response runbook',
+            reason: 'Evidence.',
+            availableActions: ['implement'],
+          }),
+        ],
+      }),
+      agents: null,
+      now: NOW,
+    })
+    expect(d?.headline).toBe('Implement {repo} change?')
   })
 })

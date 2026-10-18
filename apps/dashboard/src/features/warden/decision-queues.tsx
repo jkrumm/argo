@@ -5,6 +5,7 @@ import { CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
 import { IconCircleCheck, IconListDetails } from '@tabler/icons-react'
 import type { WardenActionVerb, WardenItems } from '../../lib/queries/warden'
 import classes from '../../components/upstream/decision-card.module.css'
+import { resolveCopies } from '../../lib/question-copy'
 import { HistoryPreview } from './history-preview'
 import { DecisionCard, type DecisionCardAction } from '../../components/upstream/decision-card'
 import { capFacts } from '../../components/upstream/decision-card-model'
@@ -17,7 +18,7 @@ import {
   type PendingActions,
 } from './model'
 import {
-  wardenAsks,
+  wardenAsk,
   cardCategory,
   cardFacts,
   historyView,
@@ -29,6 +30,10 @@ import {
   type WardenAsk,
 } from './page-model'
 import { StatusChip } from './status-chip'
+
+/** A row can sit in both lists, so its kind is part of its identity. */
+const askKey = ({ row, kind }: { row: AwaitingOwnerRow; kind: QueueKind }): string =>
+  `${kind}-${row.eventId}`
 
 type OnAction = (eventId: number, verb: WardenActionVerb, payload?: Record<string, unknown>) => void
 
@@ -164,7 +169,7 @@ function CardGrid({
 }: {
   rows: readonly AwaitingOwnerRow[]
   kind: QueueKind
-  asks: ReadonlyMap<number, WardenAsk>
+  asks: ReadonlyMap<string, WardenAsk | undefined>
   items: WardenItems | undefined
   pending: PendingActions
   onFire: (eventId: number, verb: WardenActionVerb) => void
@@ -177,7 +182,7 @@ function CardGrid({
           key={row.eventId}
           row={row}
           kind={kind}
-          ask={asks.get(row.eventId)!}
+          ask={asks.get(askKey({ row, kind })) ?? wardenAsk(row, kind)}
           pending={pending[row.eventId]}
           history={recentTransitions(items?.[String(row.eventId)])}
           onFire={(verb) => onFire(row.eventId, verb)}
@@ -196,29 +201,19 @@ function CardGrid({
  */
 export function DecisionQueues({ view, items, pending, onSelectItem, onAction }: Props) {
   const [prompt, setPrompt] = useState<PromptState>(null)
-  const needs = needsCards(view)
+  const needs = useMemo(() => needsCards(view), [view])
   // One surface: a needs-you and a failed card that would read the same are told apart together.
   const asks = useMemo(() => {
     const entries = [
-      ...needsCards(view).map((row) => ({ row, kind: 'decision' as const })),
+      ...needs.map((row) => ({ row, kind: 'decision' as const })),
       ...view.failed.map((row) => ({ row, kind: 'failed' as const })),
     ]
-    const resolved = wardenAsks(
-      entries.map(({ row, kind }) => ({
-        kind,
-        source: {
-          eventId: row.eventId,
-          repo: row.repo,
-          title: row.title,
-          origin: row.origin,
-          reason: row.reason,
-          question: row.question,
-          availableActions: row.availableActions,
-        },
-      })),
-    )
-    return new Map(entries.map(({ row }, i) => [row.eventId, resolved[i]!] as const))
-  }, [view])
+    const resolved = resolveCopies(entries, {
+      key: askKey,
+      derive: ({ row, kind }, options) => wardenAsk(row, kind, options),
+    })
+    return new Map(entries.map((entry, i) => [askKey(entry), resolved[i]] as const))
+  }, [needs, view.failed])
 
   const fire = useCallback(
     (eventId: number, verb: WardenActionVerb) => {

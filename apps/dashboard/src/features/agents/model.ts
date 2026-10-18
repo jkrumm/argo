@@ -7,13 +7,20 @@ import type {
   HistoryPoint,
 } from '../../lib/queries/agents'
 import {
-  ALERT_KIND,
   cardCopy,
+  isAlert,
   plainQuestion,
   resolveCopies,
   type CardCopy,
+  type Disambiguation,
 } from '../../lib/question-copy'
-import { authoredQuestion, firstSentence, flatten, restAfterFirstSentence } from '../../lib/text'
+import {
+  asText,
+  authoredQuestion,
+  firstSentence,
+  flatten,
+  restAfterFirstSentence,
+} from '../../lib/text'
 import { withUnit } from '../../lib/format'
 
 // Presentation vocabulary for the agents page. The STATE and RECOMMENDATION
@@ -247,8 +254,8 @@ export function activityFact(
   const measured = buckets.filter((b) => b.working !== null)
   const scope =
     measured.length < buckets.length
-      ? `${measured.length}\u00a0h observed`
-      : `${buckets.length}\u00a0h`
+      ? `${withUnit(measured.length, 'h')} observed`
+      : `${withUnit(buckets.length, 'h')}`
   if (peak.value === 0) return `no agent working in ${scope}`
   const active = measured.filter((b) => (b.working ?? 0) > 0).length
   return `busiest hour ${clockOf(peak.hourMs)} · agents working in ${active} of ${scope}`
@@ -392,7 +399,12 @@ const nounFor = (n: number, one: string, many: string): string => (n === 1 ? one
 
 /** Distinct projects with an agent waiting on the owner. */
 export const waitingProjects = (agents: readonly AgentRow[]): number =>
-  new Set(agents.filter((a) => a.state === 'needs_you').map((a) => a.project)).size
+  new Set(
+    agents
+      .filter((a) => a.state === 'needs_you')
+      .map(projectOf)
+      .filter((p) => p !== ''),
+  ).size
 
 /**
  * The page's verdict. Its one figure is the one nothing else on the page prints: how many projects
@@ -410,8 +422,10 @@ export function agentsSummaryParts(s: AgentsSummaryInput): { sentence: string } 
   }
 }
 
-/** The needs-you tile's footer: the split of its count into the two kinds of item. */
+/** The needs-you tile's footer: the split of its count into the two kinds, when there are two. */
 export function needsYouSplit(agentWaits: number, asks: number): string {
+  // One kind alone is the tile's own count.
+  if (agentWaits === 0 || asks === 0) return ''
   return [
     agentWaits > 0 ? `${agentWaits} ${nounFor(agentWaits, 'agent', 'agents')}` : null,
     asks > 0 ? `${asks} ${nounFor(asks, 'ask', 'asks')}` : null,
@@ -523,11 +537,13 @@ const nonEmptyLines = (text: string): string[] =>
 
 /** The blocker text the agent reports, as sent: the first of blocker, waiting-for and standing that has content. */
 export const evidenceSource = (a: AgentRow): string | null =>
-  [a.blocker, a.waitingFor, a.standing].find((t) => t && nonEmptyLines(t).length > 0) ?? null
+  [a.blocker, a.waitingFor, a.standing].find(
+    (t): t is string => typeof t === 'string' && nonEmptyLines(t).length > 0,
+  ) ?? null
 
 /** The agent's last reply as context: its final paragraph, kept only when it adds to the evidence line. */
 export function previewOf(a: AgentRow): string | null {
-  const last = (a.lastReply ?? '')
+  const last = asText(a.lastReply)
     .split(/\n\s*\n/)
     .map(flatten)
     .filter(Boolean)
@@ -549,8 +565,6 @@ type QueueItem = {
 export type CardContext = {
   /** Producer host of the snapshot; named on agent cards only. An ask shows a host only when it carries one. */
   machine?: string | null
-  /** Age of the snapshot, the evidence line's fallback. */
-  snapshotAgeMs?: number | null
 }
 
 /** The producer host of a queue ask, when it carries one. */
@@ -564,37 +578,57 @@ const hostOf = (item: QueueItem): string | null =>
  */
 export function humanQueueCopy(
   item: QueueItem,
-  withHandle = false,
+  { handle = null }: { handle?: Disambiguation | null } = {},
 ): { copy: CardCopy; askText: string } {
   const askText = authoredQuestion(item.question) ?? ''
-  const title = typeof item['title'] === 'string' ? item['title'] : null
+  const title = asText(item['title'])
   const host = hostOf(item)
   // An alert is asked about as an alert, never as a request to answer.
-  const alert = [title, item['kind'], item['type']].some(
-    (v) => typeof v === 'string' && ALERT_KIND.test(v),
-  )
+  const alert = isAlert({ kinds: [item['kind'], item['type']], title })
   const plain = alert
     ? plainQuestion('Handle', host ? `${host} alert` : 'this alert')
     : plainQuestion('Answer', host ? `${host} request` : 'this request')
+  const handleSource = flatten(title) || askText
   const copy = cardCopy({
     ask: firstSentence(askText),
     body: restAfterFirstSentence(askText),
-    title,
+    title: title === '' ? null : title,
     plain,
-    handle: withHandle ? flatten(title ?? '') || askText : null,
+    handle: handle !== null && handleSource !== '' ? { source: handleSource, ...handle } : null,
   })
   return { copy, askText }
 }
 
+/** The agent's project, `''` when it names none (`—` is the flattening's placeholder). */
+const projectOf = (a: AgentRow): string => {
+  const project = asText(a.project)
+  return project === '—' ? '' : project
+}
+
+/** The agent's task as a title: its title, else its last prompt, else its id. */
+const titleOf = (a: AgentRow): string =>
+  [a.title, a.lastPrompt, a.id].map(asText).find((t) => t.trim() !== '') ?? ''
+
+/** What a card says when the agent reported no blocker: the absence is the fact. */
+export const NO_BLOCKER = 'No blocker reported.'
+
+/** The agent's blocker as evidence, or {@link NO_BLOCKER}: one rule for this page and Home. */
+export const blockerEvidence = (a: AgentRow): string => evidenceSource(a) ?? NO_BLOCKER
+
 /** The card copy of one `needs_you` agent, shared by this page and Home; `body` is its evidence. */
-export function agentCopy(a: AgentRow, body: string | null, withHandle = false): CardCopy {
-  const title = a.title ?? a.lastPrompt ?? a.id
+export function agentCopy(
+  a: AgentRow,
+  body: string | null,
+  { handle = null }: { handle?: Disambiguation | null } = {},
+): CardCopy {
+  const title = titleOf(a)
+  const project = projectOf(a)
   return cardCopy({
     authored: authoredQuestion(a['question']),
     body,
     title,
-    plain: plainQuestion('Unblock', a.project === '—' ? 'this agent' : `${a.project} agent`),
-    handle: withHandle ? title : null,
+    plain: plainQuestion('Unblock', project === '' ? 'this agent' : `${project} agent`),
+    handle: handle !== null && title !== '' ? { source: title, ...handle } : null,
     keepQuestionEvidence: true,
   })
 }
@@ -608,18 +642,22 @@ export function needsYouCards(
 ): NeedsYouCard[] {
   const machine = ctx.machine ?? null
   const needing = agents.filter((a) => a.state === 'needs_you')
-  const fallback =
-    ctx.snapshotAgeMs == null
-      ? null
-      : `No blocker reported; the snapshot is ${ageAgo(ctx.snapshotAgeMs)}.`
   // One surface: two cards that would read the same are told apart by their own handle.
-  const copies = resolveCopies<{ ask: QueueItem } | { agent: AgentRow }>(
-    [...humanQueue.map((ask) => ({ ask })), ...needing.map((agent) => ({ agent }))],
-    (entry, withHandle) =>
-      'agent' in entry
-        ? agentCopy(entry.agent, evidenceSource(entry.agent) ?? fallback, withHandle)
-        : humanQueueCopy(entry.ask, withHandle).copy,
-  )
+  const copies = resolveCopies(
+    [
+      ...humanQueue.map((ask) => ({ key: `hq-${asText(ask.id)}`, ask })),
+      ...needing.map((agent) => ({ key: `agent-${asText(agent.id)}`, agent })),
+    ],
+    {
+      key: (entry) => entry.key,
+      derive: (entry, options) => ({
+        copy:
+          'agent' in entry
+            ? agentCopy(entry.agent, blockerEvidence(entry.agent), options)
+            : humanQueueCopy(entry.ask, options).copy,
+      }),
+    },
+  ).map((r) => r.copy)
   const asks: NeedsYouCard[] = humanQueue.map((item, i) => {
     const askedMs = parseMs(item.askedAt)
     const waitMs = askedMs === null ? -1 : Math.max(0, now - askedMs)
@@ -627,7 +665,7 @@ export function needsYouCards(
     const facts = ['human queue', host, waitMs >= 0 ? `asked ${ageAgo(waitMs)}` : null].filter(
       isText,
     )
-    const command = item.cmd?.trim() || null
+    const command = asText(item.cmd).trim() || null
     const copy = copies[i]!
     const { askText } = humanQueueCopy(item)
     return {
@@ -650,11 +688,11 @@ export function needsYouCards(
   const waiting: NeedsYouCard[] = needing.map((a, j) => {
     const waitMs = a.lastActivityAt == null ? -1 : Math.max(0, now - a.lastActivityAt)
     const facts = [
-      a.project,
+      projectOf(a),
       waitMs >= 0 ? `waiting ${formatWaitDuration(waitMs)}` : null,
       machine,
     ].filter(isText)
-    const title = a.title ?? a.lastPrompt ?? a.id
+    const title = titleOf(a)
     const source = evidenceSource(a)
     const copy = copies[humanQueue.length + j]!
     return {

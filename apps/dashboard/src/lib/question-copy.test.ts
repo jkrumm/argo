@@ -5,6 +5,7 @@ import {
   QUESTION_MAX,
   cardCopy,
   collidingCopies,
+  isAlert,
   leadOf,
   plainQuestion,
   resolveCopies,
@@ -252,57 +253,110 @@ describe('round 2 rules', () => {
 })
 
 describe('plain rung: handles that tell items apart', () => {
-  const plain = wardenPlainQuestion({ failed: false, repo: 'api', primary: 'implement' })
-  const derive = (title: string) => (_: string, withHandle: boolean) =>
-    cardCopy({ title, plain, handle: withHandle ? title : null })
+  const plain = wardenPlainQuestion({ failed: false, repo: 'project-a', primary: 'implement' })
+  const resolve = (titles: readonly string[]) =>
+    resolveCopies(titles, {
+      key: (title) => title,
+      derive: (title, { handle }) => ({
+        copy: cardCopy({
+          title,
+          plain,
+          handle: handle === null ? null : { source: title, ...handle },
+        }),
+      }),
+    }).map((r) => r.copy)
 
   it('keeps the short form for a lone item', () => {
-    const [copy] = resolveCopies(['Disk filling up'], (t, h) => derive(t)(t, h))
-    expect(copy!.question).toBe('Implement api change?')
+    const [copy] = resolve(['Disk filling up'])
+    expect(copy!.question).toBe('Implement project-a change?')
     expect(copy!.entity).toBe('Disk filling up')
   })
 
   it('gives two same-repo items different titles and drops the entity line', () => {
-    const titles = ['Disk filling up — host a', 'Certificate expires soon']
-    const copies = resolveCopies(titles, (t, h) => derive(t)(t, h))
-    expect(copies[0]!.question).toBe('Implement api change: Disk filling up?')
-    expect(copies[1]!.question).toBe('Implement api change: Certificate expires soon?')
+    const copies = resolve(['Disk filling up — host a', 'Certificate expires soon'])
+    expect(copies[0]!.question).toBe('Implement project-a change: Disk filling up?')
+    expect(copies[1]!.question).toBe('Implement project-a change: Certificate expires soon?')
     expect(copies.map((c) => c.entity)).toEqual([null, null])
     // The cut title stays whole behind the disclosure; the fully said one needs no repeat.
     expect(copies[0]!.detail).toBe('Disk filling up — host a')
     expect(copies[1]!.detail).toBeNull()
   })
 
+  it('takes the next clause when the first clause is shared', () => {
+    const copies = resolve(['Disk full — host a', 'Disk full — host b'])
+    expect(copies.map((c) => c.question)).toEqual([
+      'Implement project-a change: Disk full — host a?',
+      'Implement project-a change: Disk full — host b?',
+    ])
+  })
+
+  it('falls back to an ordinal, in key order, for identical titles', () => {
+    const copies = resolve(['Disk full', 'Disk full', 'Disk full'])
+    expect(copies.map((c) => c.question)).toEqual([
+      'Implement project-a change: Disk full (1)?',
+      'Implement project-a change: Disk full (2)?',
+      'Implement project-a change: Disk full (3)?',
+    ])
+  })
+
+  it('re-checks after the handled pass: a handle that collides with another card is not enough', () => {
+    const copies = resolve(['Disk full', 'Disk full — host a', 'Disk full — host b'])
+    expect(new Set(copies.map((c) => c.question)).size).toBe(3)
+  })
+
+  it('numbers an item with no usable title text, never leaving the clash', () => {
+    const copies = resolve(['…', '…'])
+    expect(copies.map((c) => c.question)).toEqual([
+      'Implement project-a change (1)?',
+      'Implement project-a change (2)?',
+    ])
+  })
+
   it('leaves an authored question alone even when two cards share it', () => {
-    const copies = resolveCopies(['a', 'b'], (t, h) =>
-      cardCopy({ authored: 'Ship it?', title: t, plain, handle: h ? t : null }),
-    )
+    const copies = resolveCopies(['a', 'b'], {
+      key: (t) => t,
+      derive: (t, { handle }) => ({
+        copy: cardCopy({
+          authored: 'Ship it?',
+          title: t,
+          plain,
+          handle: handle === null ? null : { source: t, ...handle },
+        }),
+      }),
+    }).map((r) => r.copy)
     expect(collidingCopies(copies)).toEqual([false, false])
     expect(copies.map((c) => c.question)).toEqual(['Ship it?', 'Ship it?'])
   })
 
-  it('never ends mid-word, never loses its ?, never exceeds QUESTION_MAX', () => {
+  it('cuts a handle at a word, with the ellipsis and the ? kept, within QUESTION_MAX', () => {
     const long = `Replication lag ${'on the standby node '.repeat(12)}is growing`
-    const lead = (title: string) =>
-      resolveCopies([long, title], (t, h) => cardCopy({ title: t, plain, handle: h ? t : null }))
-    for (const copy of [...lead(long), ...lead(`${long} again`)]) {
-      expect(copy.question.length).toBeLessThanOrEqual(QUESTION_MAX)
-      expect(copy.question.endsWith('?')).toBe(true)
-      expect(copy.question).toMatch(/\b[\w}]*…?\?$/)
-      expect(copy.question).not.toMatch(/\s\w{1,2}…\?$/)
-    }
-    const [first] = lead(long)
-    expect(
-      first!.question
-        .replace(/…?\?$/, '')
-        .split(' ')
-        .pop(),
-    ).toBe('node')
+    const [only] = resolve([long])
+    expect(only!.question).toBe('Implement project-a change?')
+    // Two cards sharing the same long opening are cut alike, so the ordinal tells them apart.
+    const copies = resolve([long, `${long} again`])
+    expect(copies.map((c) => c.question)).toEqual([
+      'Implement project-a change: Replication lag on the standby node on the… (1)?',
+      'Implement project-a change: Replication lag on the standby node on the… (2)?',
+    ])
+    for (const copy of copies) expect(copy.question.length).toBeLessThanOrEqual(QUESTION_MAX)
+  })
+
+  it('uses no handle when not even the first word fits, then numbers the clash', () => {
+    const word = 'x'.repeat(90)
+    const copies = resolve([word, `${word}y`])
+    expect(copies.map((c) => c.question)).toEqual([
+      'Implement project-a change (1)?',
+      'Implement project-a change (2)?',
+    ])
   })
 
   it('drops the handle when the stem leaves no room for it', () => {
     const stem = 'Unblock '.concat('x'.repeat(QUESTION_MAX - 12), ' agent')
-    const copy = cardCopy({ title: 'Some title', plain: stem, handle: 'Some title' })
+    const copy = cardCopy({
+      title: 'Some title',
+      plain: stem,
+      handle: { source: 'Some title', clauses: 1, ordinal: null },
+    })
     expect(copy.question.length).toBeLessThanOrEqual(QUESTION_MAX)
     expect(copy.question.endsWith('?')).toBe(true)
     expect(copy.entity).toBe('Some title')
@@ -310,42 +364,57 @@ describe('plain rung: handles that tell items apart', () => {
 })
 
 describe('alerts are asked about, never framed as a change', () => {
-  it('asks to handle an alert whose card offers implement', () => {
-    const q = wardenPlainQuestion({ failed: false, repo: 'api', primary: 'implement', alert: true })
-    expect(q).toBe('Handle api alert?')
-    expect(q).not.toMatch(/implement|change/i)
+  const ask = (primary: Parameters<typeof wardenPlainQuestion>[0]['primary']) =>
+    wardenPlainQuestion({ failed: false, repo: 'project-a', primary, alert: true })
+
+  it('names the verb the card carries, for every primary', () => {
+    expect(ask('implement')).toBe('Handle project-a alert?')
+    expect(ask('reinvestigate')).toBe('Reinvestigate project-a alert?')
+    expect(ask('retry')).toBe('Retry project-a alert?')
+    expect(ask('merge')).toBe('Merge project-a alert?')
+    expect(ask('dismiss')).toBe('Dismiss project-a alert?')
+    expect(ask('note')).toBe('Add a note to project-a alert?')
+    for (const primary of ['implement', 'dismiss', 'note'] as const)
+      expect(ask(primary)).not.toMatch(/implement|change|acknowledge/i)
   })
-  it('asks to acknowledge an alert whose card offers no handling verb', () => {
+
+  it('is neutral when the card carries no verb', () => {
+    expect(ask(null)).toBe('Decide on project-a alert?')
     expect(wardenPlainQuestion({ failed: false, repo: null, primary: null, alert: true })).toBe(
-      'Acknowledge this alert?',
+      'Decide on this alert?',
     )
   })
-  it('matches the verb to the primary action', () => {
-    expect(wardenPlainQuestion({ failed: true, repo: 'api', primary: 'retry', alert: true })).toBe(
-      'Retry api alert?',
-    )
-    expect(
-      wardenPlainQuestion({ failed: false, repo: 'api', primary: 'reinvestigate', alert: true }),
-    ).toBe('Reinvestigate api alert?')
-  })
-  it('keeps a merge a merge', () => {
-    expect(wardenPlainQuestion({ failed: false, repo: 'api', primary: 'merge', alert: true })).toBe(
-      'Merge api PR?',
-    )
-  })
+
   it('carries the alert handle once two alerts collide', () => {
-    const plain = wardenPlainQuestion({
-      failed: false,
-      repo: 'api',
-      primary: 'implement',
-      alert: true,
-    })
-    const copies = resolveCopies(['Service A down', 'Service B down'], (t, h) =>
-      cardCopy({ title: t, plain, handle: h ? t : null }),
-    )
+    const alertPlain = ask('implement')
+    const copies = resolveCopies(['Service A down', 'Service B down'], {
+      key: (t) => t,
+      derive: (t, { handle }) => ({
+        copy: cardCopy({
+          title: t,
+          plain: alertPlain,
+          handle: handle === null ? null : { source: t, ...handle },
+        }),
+      }),
+    }).map((r) => r.copy)
     expect(copies.map((c) => c.question)).toEqual([
-      'Handle api alert: Service A down?',
-      'Handle api alert: Service B down?',
+      'Handle project-a alert: Service A down?',
+      'Handle project-a alert: Service B down?',
     ])
+  })
+})
+
+describe('isAlert', () => {
+  it('prefers the explicit kind field over the title', () => {
+    expect(isAlert({ kinds: ['alert'], title: 'Disk full' })).toBe(true)
+    expect(isAlert({ kinds: [null, 'incident'], title: 'x' })).toBe(true)
+    expect(isAlert({ kinds: ['github_issue'], title: 'Alert: disk full' })).toBe(false)
+  })
+  it('reads a title only as a leading kind, and only with no field at all', () => {
+    expect(isAlert({ title: 'Alert: disk full' })).toBe(true)
+    expect(isAlert({ title: ':fire: Outage — api down' })).toBe(true)
+    expect(isAlert({ title: 'Add incident-response runbook' })).toBe(false)
+    expect(isAlert({ title: 'Reduce alert noise' })).toBe(false)
+    expect(isAlert({ kinds: [42, {}], title: 7 })).toBe(false)
   })
 })

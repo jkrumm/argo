@@ -58,10 +58,7 @@ function AgentsPage() {
   const oldestAgent = oldestNeedsYouWait(agents, now)
   const oldest = oldestAgent ?? (askMs === null ? null : { ms: askMs, project: 'the human queue' })
   const { active, quiet } = groupProjects(snapshot, agents)
-  const cards = needsYouCards(humanQueue, agents, now, {
-    machine: latest?.machine ?? null,
-    snapshotAgeMs: latest === null ? null : snapshotAgeMs(latest, now),
-  })
+  const cards = needsYouCards(humanQueue, agents, now, { machine: latest?.machine ?? null })
   const needsYouItems = cards.length
   const longestRun = longestRunMs(
     agents.filter((a) => a.state === 'working'),
@@ -70,7 +67,7 @@ function AgentsPage() {
   const fleet = fleetParts(snapshot?.summary, countUnknownAgents(agents))
 
   const agentWaits = cards.filter((card) => card.kind === 'agent').length
-  const asks = cards.length - agentWaits
+  const asks = cards.filter((card) => card.kind === 'human-queue').length
   const summary = agentsSummaryParts({ agentWaits, asks, projects: waitingProjects(agents) })
 
   const feed = feedState({
