@@ -108,7 +108,7 @@
   border-bottom: 1px solid var(--vx-surface-hairline);
 }
 
-/* Line 1 (actor, verb, subject) wraps whole and is never clamped or cut; line 2 (detail · outcome · chip) is muted, smaller and stays one line, ellipsizing. The time keeps its own column; the row's `title` holds the full text. */
+/* Line 1 (actor, verb, the item's own title) and line 2's outcome (path · step) wrap whole and are never clamped or cut; line 2 is muted and smaller. Only the chip ellipsizes. The time keeps its own column; the row's `title` holds the full text. */
 .feedBody {
   min-width: 0;
   display: flex;
@@ -123,26 +123,16 @@
 .feedMeta {
   min-width: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--vx-space-stack-xs);
-  overflow: hidden;
-  white-space: nowrap;
+  gap: 0 var(--vx-space-stack-xs);
   font-size: var(--vx-text-sm);
   color: var(--vx-muted);
 }
 
-.feedDetail {
-  min-width: 0;
-  flex: 0 1 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .feedOutcome {
   min-width: 0;
-  flex: 0 1 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .chip {

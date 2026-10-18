@@ -22,12 +22,11 @@ type Props = {
   now: number
 }
 
-type RowPart = { kind: 'lead' | 'detail' | 'outcome' | 'chip'; text: string }
+type RowPart = { kind: 'lead' | 'outcome' | 'chip'; text: string }
 
 /** A row's parts in reading order: the one list the row renders and its full-text label joins. */
 const rowParts = (e: ActivityEvent): RowPart[] => [
   { kind: 'lead', text: `${e.actor} ${e.title}` },
-  ...(e.detail ? [{ kind: 'detail' as const, text: e.detail }] : []),
   ...(e.outcome ? [{ kind: 'outcome' as const, text: e.outcome }] : []),
   ...(e.chip ? [{ kind: 'chip' as const, text: e.chip }] : []),
 ]
@@ -134,12 +133,7 @@ function FeedRow({ event: e }: { event: ActivityEvent }) {
   )
 }
 
-const META_CLASS: Record<Exclude<RowPart['kind'], 'chip' | 'lead'>, string> = {
-  detail: classes.feedDetail,
-  outcome: classes.feedOutcome,
-}
-
-/** One part of line 2: detail and outcome ellipsize, the chip clips inside itself. */
+/** One part of line 2: the outcome wraps whole, only the chip clips inside itself. */
 function MetaPart({ part }: { part: RowPart }) {
   if (part.kind === 'chip')
     return (
@@ -155,5 +149,5 @@ function MetaPart({ part }: { part: RowPart }) {
       </Badge>
     )
   if (part.kind === 'lead') return null
-  return <span className={META_CLASS[part.kind]}>{part.text}</span>
+  return <span className={classes.feedOutcome}>{part.text}</span>
 }

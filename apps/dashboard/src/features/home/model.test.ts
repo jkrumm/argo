@@ -28,6 +28,7 @@ import {
   type ActivityEvent,
   type RawCalendarEvent,
   narrativeEvents,
+  calendarEvents,
 } from './model'
 import type { Decision } from '../../lib/decisions'
 import { meetingCell } from './strip-cells'
@@ -433,9 +434,9 @@ describe('wardenEvents', () => {
     const rows = wardenEvents(raw)
     expect(rows).toHaveLength(2)
     const burst = rows.find((r) => r.ms === NOW - 57 * MIN)
-    expect(burst?.title).toBe('moved {repo} item')
+    expect(burst?.title).toBe('moved {item title}')
+    expect(burst?.chip).toBe('{repo}')
     expect(burst?.outcome).toBe('new\u00a0→\u00a0working\u00a0· investigate\u00a0done')
-    expect(burst?.detail).toBe('{item title}')
   })
 
   it("drops a monitor's [prefix] from the item title, as the Warden cards do", () => {
@@ -443,7 +444,7 @@ describe('wardenEvents', () => {
       board: { items: [{ event_id: 7, repo: '{repo}', title: '[{monitor}] Down {reason}' }] },
       items: { '7': { transitions: [{ from_state: 'new', to_state: 'triaged', at: ago(5) }] } },
     } as unknown as Parameters<typeof wardenEvents>[0]
-    expect(wardenEvents(monitored)[0]?.detail).toBe('{monitor} Down {reason}')
+    expect(wardenEvents(monitored)[0]?.title).toBe('moved {monitor} Down {reason}')
   })
 
   it("drops a commit-style label from the item title (the cards' subject rule)", () => {
@@ -451,7 +452,7 @@ describe('wardenEvents', () => {
       board: { items: [{ event_id: 7, repo: '{repo}', title: 'fix({scope}): {change}' }] },
       items: { '7': { transitions: [{ from_state: 'new', to_state: 'triaged', at: ago(5) }] } },
     } as unknown as Parameters<typeof wardenEvents>[0]
-    expect(wardenEvents(commit)[0]?.detail).toBe('{change}')
+    expect(wardenEvents(commit)[0]?.title).toBe('moved {change}')
   })
 
   it('words the show-more buttons as the remainder, per page', () => {
@@ -461,7 +462,7 @@ describe('wardenEvents', () => {
 
   it('starts a new row after a gap and times each row at its last step', () => {
     const later = wardenEvents(raw).find((r) => r.ms === NOW - 5 * MIN)
-    expect(later?.title).toBe('moved {repo} item')
+    expect(later?.title).toBe('moved {item title}')
     expect(later?.outcome).toBe('working\u00a0→\u00a0needs\u00a0decision')
   })
 })
@@ -474,7 +475,8 @@ describe('names in the feed', () => {
       items: { '9': { transitions: [{ from_state: 'new', to_state: 'triaged', at: ago(5) }] } },
     } as unknown as Parameters<typeof wardenEvents>[0]
     const [row] = wardenEvents(long)
-    expect(row?.title).toBe(`moved ${repo} item`)
+    expect(row?.title).toBe('moved {t}')
+    expect(row?.chip).toBe(repo)
   })
 
   it('strips a shortcode from the repo and the item title', () => {
@@ -482,8 +484,8 @@ describe('names in the feed', () => {
       board: { items: [{ event_id: 9, repo: ':warning: service', title: ':fire: {t}' }] },
       items: { '9': { transitions: [{ from_state: 'new', to_state: 'triaged', at: ago(5) }] } },
     } as unknown as Parameters<typeof wardenEvents>[0])
-    expect(row?.title).toBe('moved service item')
-    expect(row?.detail).toBe('{t}')
+    expect(row?.title).toBe('moved {t}')
+    expect(row?.chip).toBe('service')
   })
 
   it('names a short repo whole', () => {
@@ -491,7 +493,8 @@ describe('names in the feed', () => {
       board: { items: [{ event_id: 9, repo: '{repo}', title: '{t}' }] },
       items: { '9': { transitions: [{ from_state: 'new', to_state: 'triaged', at: ago(5) }] } },
     } as unknown as Parameters<typeof wardenEvents>[0])
-    expect(row?.title).toBe('moved {repo} item')
+    expect(row?.title).toBe('moved {t}')
+    expect(row?.chip).toBe('{repo}')
   })
 
   it('keeps a long project chip whole', () => {
@@ -499,6 +502,75 @@ describe('names in the feed', () => {
       { project: 'an-extremely-long-project-name', summary: '{s}', revisedAt: ago(5) },
     ] as unknown as Parameters<typeof narrativeEvents>[0])
     expect(row?.chip).toBe('an-extremely-long-project-name')
+  })
+})
+
+describe('activity row parts per actor', () => {
+  const one = (item: Record<string, unknown>, timeline: Record<string, unknown>) =>
+    wardenEvents({
+      board: { items: [{ event_id: 3, ...item }] },
+      items: { '3': timeline },
+    } as unknown as Parameters<typeof wardenEvents>[0])[0]
+
+  it('warden with an item title: the title is line 1, the path and step line 2, the repo the chip', () => {
+    const row = one(
+      { repo: '{repo}', title: '{item title}' },
+      {
+        transitions: [{ from_state: 'new', to_state: 'needs_decision', at: ago(5) }],
+        dispatches: [{ tier: 'implement', status: 'queued', created_at: ago(5) }],
+      },
+    )
+    expect(row?.title).toBe('moved {item title}')
+    expect(row?.outcome).toBe('new\u00a0→\u00a0needs\u00a0decision\u00a0· implement\u00a0queued')
+    expect(row?.chip).toBe('{repo}')
+  })
+
+  it('warden without an item title: the repo names the item in the sentence, no chip', () => {
+    const row = one(
+      { repo: '{repo}' },
+      { transitions: [{ from_state: 'new', to_state: 'triaged', at: ago(5) }] },
+    )
+    expect(row?.title).toBe('moved {repo} item')
+    expect(row?.chip).toBeUndefined()
+    expect(row?.outcome).toBe('new\u00a0→\u00a0triaged')
+  })
+
+  it('warden with a dispatch only: dispatched, the step is the whole outcome', () => {
+    const row = one(
+      { repo: '{repo}', title: '{item title}' },
+      { dispatches: [{ tier: 'investigate', status: 'done', created_at: ago(5) }] },
+    )
+    expect(row?.title).toBe('dispatched {item title}')
+    expect(row?.outcome).toBe('investigate\u00a0done')
+  })
+
+  it('warden without a dispatch carries the path alone', () => {
+    const row = one(
+      { repo: '{repo}', title: '{item title}' },
+      { transitions: [{ from_state: 'working', to_state: 'done', at: ago(5) }] },
+    )
+    expect(row?.outcome).toBe('working\u00a0→\u00a0done')
+  })
+
+  it('narrator: the headline is line 1, the project the chip, no outcome', () => {
+    const [row] = narrativeEvents([
+      { project: '{project}', summary: '{summary}', revisedAt: ago(5) },
+    ] as unknown as Parameters<typeof narrativeEvents>[0])
+    expect(row?.actor).toBe('narrator')
+    expect(row?.chip).toBe('{project}')
+    expect(row?.outcome).toBeUndefined()
+  })
+
+  it('calendar: a started meeting is one line, no outcome and no chip', () => {
+    const [row] = calendarEvents(
+      [{ key: 'm', title: '{meeting}', startMs: NOW - MIN }] as unknown as Parameters<
+        typeof calendarEvents
+      >[0],
+      NOW,
+    )
+    expect(row?.title).toBe('started {meeting}')
+    expect(row?.outcome).toBeUndefined()
+    expect(row?.chip).toBeUndefined()
   })
 })
 

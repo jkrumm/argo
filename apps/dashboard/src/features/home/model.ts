@@ -297,14 +297,12 @@ export type ActivityEvent = {
   key: string
   ms: number
   actor: 'warden' | 'narrator' | 'calendar'
-  /** The subject; wraps at its spaces, never cut. */
+  /** Line 1: the verb and its subject (a Warden row's own item title); wraps at its spaces, never cut. */
   title: string
-  /** The end of the sentence (a transition path, a dispatch): always rendered whole, never clipped. */
+  /** Line 2, muted: the end of the story (a transition path, a dispatch): always rendered whole, never clipped. */
   outcome?: string
-  /** The entity chip: a project (a Warden row names its repo in the sentence instead). */
+  /** The entity chip on line 2 (a project, a Warden item's repo): the one part that may ellipsize. */
   chip?: string
-  /** A muted second line: the item's own title. */
-  detail?: string
 }
 
 /** Where a remaining decision waits: Agents holds the agents and the human queue, Warden its items. */
@@ -393,7 +391,8 @@ export function wardenEvents(raw: WardenRaw | null | undefined): ActivityEvent[]
       const path = pathOf(burst)
       const dispatches = burst.flatMap((s) => (s.dispatch ? [s.dispatch] : []))
       const verb = path ? 'moved' : 'dispatched'
-      const title = `${verb}${repo ? ` ${repo}` : ''} item`
+      // The item's own title is the subject; the repo is its chip. With no title the repo names the item in the sentence.
+      const title = itemTitle ? `${verb} ${itemTitle}` : `${verb}${repo ? ` ${repo}` : ''} item`
       const outcome = [path, dispatches.map(gluePhrase).join(', ')]
         .filter(Boolean)
         .join(`${NBSP}· `)
@@ -403,7 +402,7 @@ export function wardenEvents(raw: WardenRaw | null | undefined): ActivityEvent[]
         actor: 'warden',
         title,
         ...(outcome ? { outcome } : {}),
-        ...(itemTitle ? { detail: itemTitle } : {}),
+        ...(itemTitle && repo ? { chip: repo } : {}),
       })
     }
   }
@@ -452,7 +451,6 @@ export function activityStream(
     .map((e) => ({
       ...e,
       title: stripShortcodes(e.title),
-      ...(e.detail !== undefined && { detail: stripShortcodes(e.detail) }),
     }))
     .toSorted((a, b) => b.ms - a.ms)
   const groups: ActivityGroup[] = []
