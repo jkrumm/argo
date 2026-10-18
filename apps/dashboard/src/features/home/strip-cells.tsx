@@ -6,7 +6,7 @@ import { Sparkline } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import type { OverviewSummary } from '../../lib/queries/agents'
 import type { WardenBudget } from '../../lib/queries/warden'
-import { clockOf, noSnapshotText, type FleetPart } from '../agents/model'
+import { NO_SNAPSHOT_SHORT, clockOf, noSnapshotText, type FleetPart } from '../agents/model'
 import { FLEET_COLOR } from '../agents/fleet-strip'
 import {
   ACWR_CAUTION_TO,
@@ -96,6 +96,13 @@ export function agentsCell(
 
 // ── Dispatch budget ──────────────────────────────────────────────────────────────────────────
 
+/** Warden's push cadence in minutes; mirrors `WARDEN_PUSH_MIN` in `warden/page-model.ts` (not exported there). */
+const WARDEN_PUSH_MIN = 10
+
+/** The no-snapshot gap's clause verbatim plus Warden's cadence: the one place Home states it. */
+export const noWardenSnapshotText = (): string =>
+  `${NO_SNAPSHOT_SHORT} — Warden pushes every ${withUnit(WARDEN_PUSH_MIN, 'min')}`
+
 export function budgetCell(
   budget: WardenBudget | undefined,
   poller: { name: string; ageMin: number; stale: boolean } | undefined,
@@ -122,7 +129,9 @@ export function budgetCell(
         />
       ) : (
         <Text size="sm" c="dimmed">
-          {BUDGET_MISSING.short}
+          {budget === undefined && poller === undefined
+            ? noWardenSnapshotText()
+            : BUDGET_MISSING.short}
         </Text>
       ),
     // With no budget and no poller there is no snapshot: the cell's line already says what to wait for.

@@ -31,6 +31,13 @@ const reading = (over: Partial<RecoveryReading> = {}): RecoveryReading => ({
   ...over,
 })
 
+describe('budget cell without a snapshot', () => {
+  it('leads with the no-snapshot clause and states the cadence once', () => {
+    const visual = budgetCell(undefined, undefined).visual as ReactElement<{ children: string }>
+    expect(visual.props.children).toBe('No snapshot yet — Warden pushes every 10\u00a0min')
+  })
+})
+
 describe('agents cell without a fleet', () => {
   const emptyText = (feed: 'none' | 'failed' | null) =>
     (agentsCell(undefined, null, feed).visual as ReactElement<{ emptyText: string }>).props
