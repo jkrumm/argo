@@ -117,12 +117,19 @@ test('deltaFromMean', () => {
 })
 
 describe('summaryParts', () => {
-  test('the headline is direction and rate over a window, then the goal; facts weight and age', () => {
+  test('the headline is direction over a window, then the goal; the rate and weight stay in their cells', () => {
     expect(
-      summaryParts({ current: 80, kgPerWeek: -0.5, rateDays: 28, goal: 75, ageDays: 1 }),
+      summaryParts({
+        current: 80,
+        kgPerWeek: -0.5,
+        rateDays: 28,
+        goal: 75,
+        ageDays: 1,
+        entries: 12,
+      }),
     ).toEqual({
-      sentence: 'Weight falling 0.50 kg/wk over 28 d, 5.0 kg from the 75.0 kg goal',
-      facts: ['80.0 kg', 'last weigh-in 1 day ago'],
+      sentence: 'Weight falling over 28 d, 5.0 kg from the 75.0 kg goal',
+      facts: ['12 weigh-ins', 'last weigh-in 1 day ago'],
     })
   })
   test('an old last weigh-in dates the rate window', () => {
@@ -136,8 +143,8 @@ describe('summaryParts', () => {
         latestKey: '2026-06-03',
       }),
     ).toEqual({
-      sentence: 'Weight rising 0.40 kg/wk over the 28 d to 3 Jun',
-      facts: ['80.0 kg', 'last weigh-in 20 days ago · stale'],
+      sentence: 'Weight rising over the 28 d to 3 Jun',
+      facts: ['last weigh-in 20 days ago · stale'],
     })
   })
   test('inside the maintenance band the weight is holding steady', () => {
@@ -150,10 +157,10 @@ describe('summaryParts', () => {
       summaryParts({ current: 75.02, kgPerWeek: 0, rateDays: 28, goal: 75, ageDays: 0 }).sentence,
     ).toContain('0.0 kg at the 75.0 kg goal')
   })
-  test('unknown rate states the weight, never 0', () => {
+  test('unknown rate says there is no trend yet, never 0', () => {
     expect(
       summaryParts({ current: 80, kgPerWeek: null, rateDays: 28, goal: null, ageDays: null }),
-    ).toEqual({ sentence: 'Weight at 80.0 kg', facts: [] })
+    ).toEqual({ sentence: 'Weight trend not available yet', facts: [] })
   })
   test('empty window', () => {
     expect(
@@ -173,7 +180,7 @@ describe('weightHeaderFact', () => {
         ],
         now,
       ),
-    ).toEqual({ value: '−2.0', period: 'net change since 1 Jun · 2 entries' })
+    ).toEqual({ value: '−2.0', period: 'net change, 1 Jun to 10 Jun · 2 entries' })
   })
   test('a single entry shows that weight and its day', () => {
     expect(weightHeaderFact([{ date: '2026-06-01', weightKg: 81 }], now)).toEqual({
@@ -301,7 +308,15 @@ describe('one fixture, two live-review items', () => {
   })
 
   test('the RATE footer is the tier, or why there is no rate; loading and failure are their own', () => {
-    expect(rateFooter({ rate: -0.3, intensity: 'Standard cut', entries: 9 })).toBe('Standard cut')
+    expect(rateFooter({ rate: -0.5, intensity: 'Standard cut', entries: 9 })).toBe(
+      'Standard pace, losing 0.4–0.8 kg/wk',
+    )
+    expect(rateFooter({ rate: 0.2, intensity: 'Lean bulk', entries: 9 })).toBe(
+      'Lean pace, gaining 0.1–0.3 kg/wk',
+    )
+    expect(rateFooter({ rate: 0.05, intensity: 'Maintenance', entries: 9 })).toBe(
+      'Under 0.1 kg/wk either way',
+    )
     expect(rateFooter({ rate: null, intensity: 'x', entries: 1 })).toBe(
       'A rate needs two weigh-ins at least 3 days apart',
     )

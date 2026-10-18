@@ -12,7 +12,6 @@ import {
   deltaFromMean,
   fixed,
   goalProgress,
-  intensityBand,
   RATE_NEUTRAL_KG_WK,
   rateFooter,
   RATE_SCALE_KG_WK,
@@ -113,7 +112,6 @@ export function rateCell({
   latestDate: string | null
 }): StatStripCell {
   const rate = summary.kgPerWeek
-  const band = intensityBand(rate)
   return {
     key: 'rate',
     caption: 'Rate',
@@ -137,7 +135,7 @@ export function rateCell({
           { from: RATE_NEUTRAL_KG_WK, to: RATE_SCALE_KG_WK, label: 'Bulk' },
         ]}
         startCaption={null}
-        endCaption={band === null ? null : `tier ${band}`}
+        endCaption={null}
         emptyText="No rate yet"
       />
     ),
