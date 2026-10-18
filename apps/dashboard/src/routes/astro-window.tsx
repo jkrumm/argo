@@ -379,7 +379,7 @@ function AstroWindowPage() {
               selectedDate={selectedDate}
               markedDate={markedNight?.date ?? null}
               onSelect={handleSelectDate}
-              absentWhenEmpty={search.tab === 'forecast'}
+              shotAbsentWhenEmpty={search.tab === 'forecast'}
             />
           )}
 

@@ -58,15 +58,15 @@ export function NightStrip({
   selectedDate,
   markedDate,
   onSelect,
-  absentWhenEmpty = false,
+  shotAbsentWhenEmpty = false,
 }: {
   nights: Night[]
   selectedDate: string
   /** The night the verdict is about. */
   markedDate: string | null
   onSelect: (date: string) => void
-  /** Forecast only: an empty site list subtracts the strip there (`forecastView`), so the shot records it absent. */
-  absentWhenEmpty?: boolean
+  /** Harness marker only (`data-shot-absent`, read off the rest render): the Forecast tab subtracts the strip when the site list lacks the URL site. */
+  shotAbsentWhenEmpty?: boolean
 }) {
   const allOut = nights.every((n) => n.verdict === 'out')
   const gateScale = gateBarScale(nights)
@@ -102,7 +102,7 @@ export function NightStrip({
   }, [measure, measureNow, nights])
   const offscreenText = offscreenNightsText(offscreenCount)
   return (
-    <Card data-shot="night-strip" data-shot-absent={absentWhenEmpty ? 'empty' : undefined}>
+    <Card data-shot="night-strip" data-shot-absent={shotAbsentWhenEmpty ? 'empty' : undefined}>
       <Box className={classes.host} data-more={offscreenCount > 0}>
         <Box
           ref={scroller}
