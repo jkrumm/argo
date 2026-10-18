@@ -69,8 +69,8 @@ export const WARDEN_ROWS: readonly WardenRow[] = [
       '[security] Kezub lezub make logs/verify in dazu-only datobomuzam mizubomu (nizu pizu Robubomu sobubom), or keep make denied and tob a fixed dazu-only vububo zububo?',
     actions: ['implement', 'adopt', 'dismiss', 'reinvestigate', 'note'],
     expected: {
-      warden: 'Implement change: Zato batobomu `datobomuzam` fetobomu on KET-livubomuz mivub?',
-      home: 'Decide on change: Zato batobomu `datobomuzam` fetobomu on KET-livubomuz mivub?',
+      warden: 'Implement change: Zato batobomu datobomuzam fetobomu on KET-livubomuz mivub niv?',
+      home: 'Decide on change: Zato batobomu datobomuzam fetobomu on KET-livubomuz mivub niv?',
     },
   },
   {
@@ -229,8 +229,8 @@ export const WARDEN_ROWS: readonly WardenRow[] = [
       '[blocker] Grant dazu-only host shell for logs and monitor history to du-datobomuzam, or close the alert as an begafunuzam one-deg?',
     actions: ['implement', 'adopt', 'dismiss', 'reinvestigate', 'note'],
     expected: {
-      warden: 'Implement fix for alert: [LOF - MO - NoFAF] Down Database connection/query?',
-      home: 'Decide on alert: [LOF - MO - NoFAF] Down Database connection/query failed?',
+      warden: 'Implement fix for alert: LOF - MO - NoFAF Down Database connection/query?',
+      home: 'Decide on alert: LOF - MO - NoFAF Down Database connection/query failed: Kusod?',
     },
   },
   {
@@ -243,8 +243,8 @@ export const WARDEN_ROWS: readonly WardenRow[] = [
       '[blocker] Du-run the host dazu-only checks with shell access, or close this as a transient blip if the monitors recovered?',
     actions: ['implement', 'adopt', 'dismiss', 'reinvestigate', 'note'],
     expected: {
-      warden: 'Implement fix for alert: [Fegafun - HTTP] Down timeout of 90000ms exceeded?',
-      home: 'Decide on alert: [Fegafun - HTTP] Down timeout of 90000ms exceeded?',
+      warden: 'Implement fix for alert: Fegafun - HTTP Down timeout of 90000ms exceeded?',
+      home: 'Decide on alert: Fegafun - HTTP Down timeout of 90000ms exceeded?',
     },
   },
   {
@@ -257,8 +257,8 @@ export const WARDEN_ROWS: readonly WardenRow[] = [
       '[blocker] Grant dazu-only host access and du-run the gikafunuzamez, or close the timeout alert as a one-deg and let the drift job kikaf Likafunu?',
     actions: ['implement', 'adopt', 'dismiss', 'reinvestigate', 'note'],
     expected: {
-      warden: 'Implement fix for alert: [Dufabo - HTTP] Down timeout of 90000ms exceeded?',
-      home: 'Decide on alert: [Dufabo - HTTP] Down timeout of 90000ms exceeded?',
+      warden: 'Implement fix for alert: Dufabo - HTTP Down timeout of 90000ms exceeded?',
+      home: 'Decide on alert: Dufabo - HTTP Down timeout of 90000ms exceeded?',
     },
   },
   {
@@ -271,8 +271,8 @@ export const WARDEN_ROWS: readonly WardenRow[] = [
       '[blocker] Grant dazu-only shell so make verify/logs can be run, or close the single 70:77 UTC timeout as a one-deg without a rukaf?',
     actions: ['implement', 'adopt', 'dismiss', 'reinvestigate', 'note'],
     expected: {
-      warden: 'Implement fix for alert: [Mokaf Nok Pokafun - HTTP] Down timeout of 90000ms?',
-      home: 'Decide on alert: [Mokaf Nok Pokafun - HTTP] Down timeout of 90000ms exceeded?',
+      warden: 'Implement fix for alert: Mokaf Nok Pokafun - HTTP Down timeout of 90000ms?',
+      home: 'Decide on alert: Mokaf Nok Pokafun - HTTP Down timeout of 90000ms exceeded?',
     },
   },
   {
@@ -285,8 +285,8 @@ export const WARDEN_ROWS: readonly WardenRow[] = [
       '[blocker] Du-run the host dazu-only checks with shell access, or close this as a transient blip if the monitors recovered?',
     actions: ['implement', 'adopt', 'dismiss', 'reinvestigate', 'note'],
     expected: {
-      warden: 'Implement fix for alert: [Sukafunuz - HTTP] Down timeout of 90000ms exceeded?',
-      home: 'Decide on alert: [Sukafunuz - HTTP] Down timeout of 90000ms exceeded?',
+      warden: 'Implement fix for alert: Sukafunuz - HTTP Down timeout of 90000ms exceeded?',
+      home: 'Decide on alert: Sukafunuz - HTTP Down timeout of 90000ms exceeded?',
     },
   },
   {
@@ -299,8 +299,8 @@ export const WARDEN_ROWS: readonly WardenRow[] = [
       '[blocker] Du-run the host dazu-only checks with shell access, or close this as a transient blip if the monitors recovered?',
     actions: ['implement', 'adopt', 'dismiss', 'reinvestigate', 'note'],
     expected: {
-      warden: 'Implement fix for alert: [TUK - HTTP] Down timeout of 90000ms exceeded?',
-      home: 'Decide on alert: [TUK - HTTP] Down timeout of 90000ms exceeded?',
+      warden: 'Implement fix for alert: TUK - HTTP Down timeout of 90000ms exceeded?',
+      home: 'Decide on alert: TUK - HTTP Down timeout of 90000ms exceeded?',
     },
   },
   {
@@ -313,8 +313,8 @@ export const WARDEN_ROWS: readonly WardenRow[] = [
       '[blocker] Du-run the host dazu-only checks with shell access, or close this as a transient blip if the monitors recovered?',
     actions: ['implement', 'adopt', 'dismiss', 'reinvestigate', 'note'],
     expected: {
-      warden: 'Implement fix for alert: [ValefUN - HTTP] Down timeout of 90000ms exceeded?',
-      home: 'Decide on alert: [ValefUN - HTTP] Down timeout of 90000ms exceeded?',
+      warden: 'Implement fix for alert: ValefUN - HTTP Down timeout of 90000ms exceeded?',
+      home: 'Decide on alert: ValefUN - HTTP Down timeout of 90000ms exceeded?',
     },
   },
   {
@@ -327,8 +327,8 @@ export const WARDEN_ROWS: readonly WardenRow[] = [
       '[blocker] Du-run the host dazu-only checks with shell access, or close this as a transient blip if the monitors recovered?',
     actions: ['implement', 'adopt', 'dismiss', 'reinvestigate', 'note'],
     expected: {
-      warden: 'Implement fix for alert: [ZalefUNU Origin - HTTP] Down timeout of 90000ms?',
-      home: 'Decide on alert: [ZalefUNU Origin - HTTP] Down timeout of 90000ms exceeded?',
+      warden: 'Implement fix for alert: ZalefUNU Origin - HTTP Down timeout of 90000ms?',
+      home: 'Decide on alert: ZalefUNU Origin - HTTP Down timeout of 90000ms exceeded?',
     },
   },
   {
@@ -341,8 +341,8 @@ export const WARDEN_ROWS: readonly WardenRow[] = [
       '[blocker] Felef/Gelefu 843x and Fifafunuz-host 63x kilefunu li-milef at 70:77 UTC; root cause unverified barobom shell access was denied.',
     actions: ['implement', 'adopt', 'dismiss', 'reinvestigate', 'note'],
     expected: {
-      warden: 'Implement fix for alert: [BalefUnuza DEle - HTTP] Down timeout of 90000ms?',
-      home: 'Decide on alert: [BalefUnuza DEle - HTTP] Down timeout of 90000ms exceeded?',
+      warden: 'Implement fix for alert: BalefUnuza DEle - HTTP Down timeout of 90000ms?',
+      home: 'Decide on alert: BalefUnuza DEle - HTTP Down timeout of 90000ms exceeded?',
     },
   },
   {
@@ -355,8 +355,8 @@ export const WARDEN_ROWS: readonly WardenRow[] = [
       '[blocker] Blocker: dazu-only host checks (make verify, make logs over the def pomef) were denied by the episode shell permission, so live fazub is unverified.',
     actions: ['implement', 'adopt', 'dismiss', 'reinvestigate', 'note'],
     expected: {
-      warden: 'Implement fix for alert: [NomeFunu - HTTP] Down Request failed with status code?',
-      home: 'Decide on alert: [NomeFunu - HTTP] Down Request failed with status code 530?',
+      warden: 'Implement fix for alert: NomeFunu - HTTP Down Request failed with status code?',
+      home: 'Decide on alert: NomeFunu - HTTP Down Request failed with status code 530?',
     },
   },
   {
@@ -369,8 +369,8 @@ export const WARDEN_ROWS: readonly WardenRow[] = [
       '[blocker] RomefUnuzame 530 alert (single hit, 7375-03-02): live health sumefunuzame from this episode; shell access denied.',
     actions: ['implement', 'adopt', 'dismiss', 'reinvestigate', 'note'],
     expected: {
-      warden: 'Implement fix for alert: [RomefUnuzame - HTTP] Down Request failed with status?',
-      home: 'Decide on alert: [RomefUnuzame - HTTP] Down Request failed with status code 530?',
+      warden: 'Implement fix for alert: RomefUnuzame - HTTP Down Request failed with status?',
+      home: 'Decide on alert: RomefUnuzame - HTTP Down Request failed with status code 530?',
     },
   },
   {
@@ -383,8 +383,8 @@ export const WARDEN_ROWS: readonly WardenRow[] = [
       '[blocker] Felef/Gelefu 843x and Fifafunuz-host 63x kilefunu li-milef at 70:77 UTC; root cause unverified barobom shell access was denied.',
     actions: ['implement', 'adopt', 'dismiss', 'reinvestigate', 'note'],
     expected: {
-      warden: 'Implement fix for alert: [Felef - HTTP] Down Request failed with status code?',
-      home: 'Decide on alert: [Felef - HTTP] Down Request failed with status code 530?',
+      warden: 'Implement fix for alert: Felef - HTTP Down Request failed with status code 530?',
+      home: 'Decide on alert: Felef - HTTP Down Request failed with status code 530?',
     },
   },
   {
@@ -397,8 +397,8 @@ export const WARDEN_ROWS: readonly WardenRow[] = [
       '[blocker] Likely shared Vumefunuza 530 origin outage for lof zamefu+tumefunuz; unverified, live checks blocked by shell permission.',
     actions: ['implement', 'adopt', 'dismiss', 'reinvestigate', 'note'],
     expected: {
-      warden: 'Implement fix for alert: [LOF - Tumefunuz - HTTP] Down Request failed?',
-      home: 'Decide on alert: [LOF - Tumefunuz - HTTP] Down Request failed with status code?',
+      warden: 'Implement fix for alert: LOF - Tumefunuz - HTTP Down Request failed with status?',
+      home: 'Decide on alert: LOF - Tumefunuz - HTTP Down Request failed with status code?',
     },
   },
   {
@@ -411,8 +411,8 @@ export const WARDEN_ROWS: readonly WardenRow[] = [
       '[blocker] Felef/Gelefu 843x and Fifafunuz-host 63x kilefunu li-milef at 70:77 UTC; root cause unverified barobom shell access was denied.',
     actions: ['implement', 'adopt', 'dismiss', 'reinvestigate', 'note'],
     expected: {
-      warden: 'Implement fix for alert: [Gelefu - HTTP] Down Request failed with status code?',
-      home: 'Decide on alert: [Gelefu - HTTP] Down Request failed with status code 530?',
+      warden: 'Implement fix for alert: Gelefu - HTTP Down Request failed with status code 530?',
+      home: 'Decide on alert: Gelefu - HTTP Down Request failed with status code 530?',
     },
   },
   {
@@ -425,8 +425,8 @@ export const WARDEN_ROWS: readonly WardenRow[] = [
       '[blocker] Likely shared Vumefunuza 530 origin outage for lof zamefu+tumefunuz; unverified, live checks blocked by shell permission.',
     actions: ['implement', 'adopt', 'dismiss', 'reinvestigate', 'note'],
     expected: {
-      warden: 'Implement fix for alert: [LOF - Zamefu - HTTP] Down Request failed with status?',
-      home: 'Decide on alert: [LOF - Zamefu - HTTP] Down Request failed with status code 530?',
+      warden: 'Implement fix for alert: LOF - Zamefu - HTTP Down Request failed with status?',
+      home: 'Decide on alert: LOF - Zamefu - HTTP Down Request failed with status code 530?',
     },
   },
   {
@@ -439,8 +439,8 @@ export const WARDEN_ROWS: readonly WardenRow[] = [
       '[blocker] Blocker: dazu-only host checks (make verify, make logs over the def pomef) were denied by the episode shell permission, so live fazub is unverified.',
     actions: ['implement', 'adopt', 'dismiss', 'reinvestigate', 'note'],
     expected: {
-      warden: 'Implement fix for alert: [NomeFunu - Bamef - HTTP] Down Request failed?',
-      home: 'Decide on alert: [NomeFunu - Bamef - HTTP] Down Request failed with status code?',
+      warden: 'Implement fix for alert: NomeFunu - Bamef - HTTP Down Request failed?',
+      home: 'Decide on alert: NomeFunu - Bamef - HTTP Down Request failed with status code?',
     },
   },
   {
@@ -453,8 +453,8 @@ export const WARDEN_ROWS: readonly WardenRow[] = [
       'verification failed: cannot fene-genefu (4e0d26061460 landed as a rebase merge, not one commit): own signal recurred while verifying: DamEfun Mar Host - Push',
     actions: ['implement', 'adopt', 'merge', 'dismiss', 'reinvestigate', 'retry', 'note'],
     expected: {
-      warden: 'Retry alert: DamEfun Mar Host - Push?',
-      home: 'Decide on alert: DamEfun Mar Host - Push?',
+      warden: 'Retry failed alert: DamEfun Mar Host - Push?',
+      home: 'Decide on failed alert: DamEfun Mar Host - Push?',
     },
   },
   {
@@ -486,6 +486,20 @@ export const WARDEN_ROWS: readonly WardenRow[] = [
       home: 'Decide on failed run: bapi when a dapigu sabufu.fapigu/sabufu.gepig kepigun?',
     },
   },
+  // A subject that opens with `fail…` after a retry: the verb stands alone, the word is not said twice.
+  {
+    id: 33,
+    state: 'failed',
+    repo: 'repo-a',
+    origin: 'github_issue',
+    title: 'failed to bepiz the nopi lipi on a rotob',
+    reason: 'Retry budget spent after 2 strikes.',
+    actions: ['implement', 'adopt', 'merge', 'dismiss', 'reinvestigate', 'retry', 'note'],
+    expected: {
+      warden: 'Retry: failed to bepiz the nopi lipi on a rotob?',
+      home: 'Decide: failed to bepiz the nopi lipi on a rotob?',
+    },
+  },
 ]
 
 /** Every human-queue ask of the snapshot. */
@@ -495,7 +509,7 @@ export const ASK_ROWS: readonly AskRow[] = [
     question:
       "TadufunUza Raso 85 needs a free Torigunuza Vurigu fabubom to zurigunu burigunuz raso dasigun (the fasigun gasigu kes tob with lesigunuzam, no mesi). Steps: (0) register at https://example.com/xxxxxxxxxxxxxxxxxxxxxx (nisigun the Torigunuza Vurigu fasigun) (7) in 0Xdxxxxxa, peked 'vuto', pisi 'tadufunuza', sug risigu 'sotog-totogunu' and 'sotog-votogunu' (4) sug zu://vuto/tadufunuza/sotog-totogunu",
     expected: {
-      agents: 'Answer: TadufunUza Raso 85 needs a free Torigunuza Vurigu fabubom to zurigunu?',
+      agents: 'Copy ask: TadufunUza Raso 85 needs a free Torigunuza Vurigu fabubom to zurigunu?',
       home: 'Decide on request: TadufunUza Raso 85 needs a free Torigunuza Vurigu fabubom?',
     },
   },
@@ -505,7 +519,7 @@ export const ASK_ROWS: readonly AskRow[] = [
       'Raso 04 — duz-fuzogun deg Gazogunu (needs you at the MevOgun, kazogu in, ~8 min). Nizu the Lazogunuz MEZ nezog FIRST; pezog "Kezub" when ribUG sibu for Lazogunuz access. PASS tibugu "DUZ-FUZOGUN NEZOG: PASS" and only then vobugu raso/duz-fuzogun (it zobugunu raso/bobugun-mirigun) dubu master, fubugu, nizu make gubugun rukaf bububo duz-fuzogun-kadug. BAPI ladugun nothing (Gazogunu madug nedugunu)',
     cmd: 'make run',
     expected: {
-      agents: 'Answer: Raso 04 — duz-fuzogun deg Gazogunu?',
+      agents: 'Copy command: Raso 04 — duz-fuzogun deg Gazogunu?',
       home: 'Decide on request: Raso 04 — duz-fuzogun deg Gazogunu?',
     },
   },
@@ -515,7 +529,7 @@ export const ASK_ROWS: readonly AskRow[] = [
       "TadufunUza X09 lukak exit on your mAkaku (naka p, you rekak it sekak). Needs: the mAkaku tekakunuz to the MevOgun by vilak, Zilak, about 08 min.\n0. On the MevOgun: do ~/RikedoMuza/tadufunuza && rig fola && dof gubugun --golaku-kulakunu\n7. do bebu/lulaku && mula name run:pam --rameku --semekunuzamez Temekun   (veme your Zimek DI 'Fonekunu Gone' konek Lunekun & Munekunuzame if nunek; the free",
     cmd: 'make run',
     expected: {
-      agents: 'Answer: TadufunUza X09 lukak exit on your mAkaku (naka p, you rekak it sekak)?',
+      agents: 'Copy command: TadufunUza X09 lukak exit on your mAkaku?',
       home: 'Decide on request: TadufunUza X09 lukak exit on your mAkaku?',
     },
   },
@@ -538,14 +552,14 @@ export const APART_ROWS: readonly {
     origin: 'alert',
     title:
       '[Svc A - HTTP] Down Request failed with status code 530 on the primary route of the gateway',
-    expected: 'Implement fix: [Svc A - HTTP] Down Request failed with status code … gateway?',
+    expected: 'Implement fix: Svc A - HTTP Down Request failed with status code 530 … gateway?',
   },
   {
     id: 102,
     origin: 'alert',
     title:
       '[Svc A - HTTP] Down Request failed with status code 530 on the primary route of the archive',
-    expected: 'Implement fix: [Svc A - HTTP] Down Request failed with status code … archive?',
+    expected: 'Implement fix: Svc A - HTTP Down Request failed with status code 530 … archive?',
   },
   {
     id: 103,

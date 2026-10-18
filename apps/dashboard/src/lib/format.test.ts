@@ -34,13 +34,13 @@ describe('formatDuration', () => {
   test('one spelling: min for minutes, a zero tail dropped, units glued', () => {
     expect(formatDuration(42 * min)).toBe('42\u00a0min')
     expect(formatDuration(5 * 60 * min)).toBe('5\u00a0h')
-    expect(formatDuration(5 * 60 * min + 12 * min)).toBe('5\u00a0h 12\u00a0min')
+    expect(formatDuration(5 * 60 * min + 12 * min)).toBe('5\u00a0h\u00a012\u00a0min')
     expect(formatDuration(21 * 1440 * min)).toBe('21\u00a0d')
-    expect(formatDuration((21 * 1440 + 4 * 60) * min)).toBe('21\u00a0d 4\u00a0h')
+    expect(formatDuration((21 * 1440 + 4 * 60) * min)).toBe('21\u00a0d\u00a04\u00a0h')
     expect(formatDuration(0)).toBe('0\u00a0min')
     expect(formatDuration(30_000)).toBe('<\u00a01\u00a0min')
     expect(formatDuration(59_999)).toBe('<\u00a01\u00a0min')
-    expect(formatMinutes(90)).toBe('1\u00a0h 30\u00a0min')
+    expect(formatMinutes(90)).toBe('1\u00a0h\u00a030\u00a0min')
   })
   test('is a dash for a negative or non-finite value', () => {
     expect(formatDuration(-1)).toBe('—')

@@ -380,8 +380,8 @@ export type AgentsSummaryInput = {
   abandoned?: number
   /** Distinct hosts the human-queue asks came from. */
   hosts?: number
-  /** Of the asks, how many carry a command to run: a figure no other part of the page prints. */
-  commands: number
+  /** The longest any waiting item has waited; `null` when no clock is reported. */
+  oldestWaitMs?: number | null
   /** Agents in `needs_you`, counted from the cards the section lists. */
   agentWaits: number
   /** Asks in the human queue, counted from the same cards. */
@@ -402,27 +402,18 @@ export const waitingProjects = (agents: readonly AgentRow[]): number =>
   ).size
 
 /**
- * The page's verdict. Its figures are the ones nothing else on the page prints: how many projects
- * the blocked agents sit in, how many of them are abandoned, how many hosts the asks came from
- * (the strip has the count, the oldest wait and the fleet).
+ * The page's verdict. Its figures are the ones the strip does not print beside the sentence: how many
+ * projects the blocked agents sit in, how many of them are abandoned, how many hosts the asks came
+ * from, and the oldest wait (the strip's count and fleet stay in the strip).
  */
-/** The headline's figure when only asks wait: how many come with a command to run (the count is the tile's). */
-function readyClause(asks: number, commands: number): string {
-  if (asks === 1) return commands === 1 ? ', with a command to run' : ''
-  let share: string
-  if (commands === 0) share = 'none'
-  else if (commands === asks) share = 'all'
-  else share = String(commands)
-  return `, ${share} with a command to run`
-}
-
 export function agentsSummaryParts(s: AgentsSummaryInput): { sentence: string } {
-  const { agentWaits, asks, projects, commands, abandoned = 0, hosts = 0 } = s
+  const { agentWaits, asks, projects, oldestWaitMs = null, abandoned = 0, hosts = 0 } = s
+  const oldest = oldestWaitMs === null ? '' : ` Oldest wait ${formatDuration(oldestWaitMs)}.`
   if (agentWaits === 0 && asks === 0) return { sentence: 'Nothing needs you.' }
   if (agentWaits === 0) {
     const from = hosts === 0 ? '' : ` from ${hosts} ${nounFor(hosts, 'host', 'hosts')}`
     return {
-      sentence: `${nounFor(asks, 'A request', 'Requests')}${from} ${nounFor(asks, 'is', 'are')} waiting for your answer${readyClause(asks, commands)}.`,
+      sentence: `${nounFor(asks, 'A request', 'Requests')}${from} ${nounFor(asks, 'is', 'are')} waiting for your answer.${oldest}`,
     }
   }
   // With no named project there is no figure to give: the sentence says only who waits.
@@ -434,9 +425,11 @@ export function agentsSummaryParts(s: AgentsSummaryInput): { sentence: string } 
         ? ', all abandoned'
         : `, ${abandoned} of them abandoned`
   if (asks > 0)
-    return { sentence: `Agents${where} and the human queue are waiting on you${abandonedClause}.` }
+    return {
+      sentence: `Agents${where} and the human queue are waiting on you${abandonedClause}.${oldest}`,
+    }
   return {
-    sentence: `${nounFor(agentWaits, 'An agent', 'Agents')}${where} ${nounFor(agentWaits, 'is', 'are')} waiting on you${abandonedClause}.`,
+    sentence: `${nounFor(agentWaits, 'An agent', 'Agents')}${where} ${nounFor(agentWaits, 'is', 'are')} waiting on you${abandonedClause}.${oldest}`,
   }
 }
 
@@ -588,10 +581,6 @@ export const askHosts = (humanQueue: readonly QueueItem[]): number =>
   new Set(humanQueue.map(hostOf).filter((host): host is string => host !== null && host !== ''))
     .size
 
-/** Asks that carry a command to run. */
-export const askCommands = (humanQueue: readonly QueueItem[]): number =>
-  humanQueue.filter((item) => asText(item.cmd).trim() !== '').length
-
 /** Agent waits past the abandoned mark, counted from the cards the section lists. */
 export const abandonedWaits = (cards: readonly NeedsYouCard[]): number =>
   cards.filter((card) => card.kind === 'agent' && card.abandoned).length
@@ -602,7 +591,7 @@ export type AgentSurface = 'agents' | 'home'
 /**
  * The card input of one human-queue ask, shared by this page and Home: the ask goes through
  * `authoredQuestion` (shortcodes stripped, blank or non-string reads as absent), its first sentence
- * is the question when it is one, else the subject (`Answer: {subject}?`) with the title preferred;
+ * is the question when it is one, else the subject (`Copy ask: {subject}?`, the verb of the primary button) with the title preferred;
  * the rest is evidence.
  */
 export function humanQueueInput(
@@ -615,12 +604,13 @@ export function humanQueueInput(
   // An alert is asked about as an alert, never as a request to answer.
   const alert = isAlert({ kinds: [item['kind'], item['type']], title })
   const noun = alert ? 'alert' : 'request'
+  // The verb is the primary button's: a human-queue card only copies (`Copy command` when the ask
+  // carries one, else `Copy ask`), so it never asks to `Answer` or `Handle` what it cannot do.
+  const copy = asText(item.cmd).trim() ? 'Copy command' : 'Copy ask'
   const forms =
     surface === 'home'
       ? questionForms('Decide on', noun, host)
-      : alert
-        ? questionForms('Handle', noun, host)
-        : { ...questionForms('Answer', noun, host), stem: 'Answer' }
+      : { ...questionForms(`${copy} for`, noun, host), stem: copy, terse: copy }
   const ask = firstSentence(askText)
   return {
     input: {

@@ -75,13 +75,31 @@ const sentencesOf = (text: string): string[] =>
     .filter((part) => part !== '')
 
 /**
+ * A sentence that opens with a dash (`— PR left open`) continues the one before it: the dash goes
+ * and the two read as clauses (`…commit: CI; PR left open`), never as a stray fragment.
+ */
+function joinDashClauses(sentences: readonly string[]): string[] {
+  const joined: string[] = []
+  for (const sentence of sentences) {
+    const clause = /^[—–]\s*(.+)$/.exec(sentence)?.[1]
+    const last = joined.at(-1)
+    if (clause === undefined) joined.push(sentence)
+    else if (last === undefined || last.endsWith('?')) joined.push(clause)
+    else joined[joined.length - 1] = `${last.replace(/[.!]$/, '')}; ${clause}`
+  }
+  return joined
+}
+
+/**
  * One line of evidence from a reason: statements only (a second question never repeats the title's),
  * raw URLs removed (the whole reason keeps them), cut at a word boundary when long.
  */
 function evidenceLeadOf(text: string, keepQuestions: boolean): string | null {
-  const cleaned = sentencesOf(text)
-    .map(withoutUrls)
-    .filter((sentence) => sentence !== '' && !/^[\s.,;:\-–—()[\]]+$/.test(sentence))
+  const cleaned = joinDashClauses(
+    sentencesOf(text)
+      .map(withoutUrls)
+      .filter((sentence) => sentence !== '' && !/^[\s.,;:\-–—()[\]]+$/.test(sentence)),
+  )
   const statements = cleaned.filter((sentence) => !sentence.endsWith('?'))
   // Evidence that is itself a question (an agent's blocker) is still the evidence when it is all there is.
   const lines = statements.length > 0 || !keepQuestions ? statements : cleaned
@@ -206,7 +224,10 @@ function compose(
   ordinal: number | null,
 ): QuestionTitle {
   const tail = ordinal === null ? '' : ` (${ordinal})`
-  const stem = flatten(head === 'stem' ? input.stem : input.terse)
+  // `Retry failed run: failed to build …` says the word twice: the terse head carries the verb alone.
+  const doubled =
+    input.subject !== null && /\bfailed\s\S+$/.test(input.stem) && /^fail/i.test(input.subject)
+  const stem = flatten(head === 'stem' && !doubled ? input.stem : input.terse)
   // The tail's room is reserved first, so an ordinal is never the part that goes.
   const room = QUESTION_MAX - 1 - tail.length - stem.length - 2
   const lead = input.subject === null ? null : subjectLead(input.subject, room)
@@ -379,13 +400,16 @@ export function questionForms(verb: string, noun: string, where: string | null):
 const COMMIT_PREFIX =
   /^(?:feat|fix|chore|ci|docs|style|refactor|perf|test|build|deps|revert|security|release)(?:\([^)]*\))?!?:\s+/
 
+/** An uptime monitor's raw `[{monitor}]` prefix on its status line (`[{monitor}] Down …`): the monitor is the subject, not a tag. */
+const MONITOR_PREFIX = /^\[([^\]]+)\]\s+(?=(?:Down|Up|Pending|Maintenance)\b)/
+
 /** The commit label {@link subjectOf} strips (`fix(scope)`), `null` when the title has none. */
 export function commitLabelOf(title: unknown): string | null {
   const match = COMMIT_PREFIX.exec(stripShortcodes(asText(title)))
   return match === null ? null : match[0].replace(/:\s+$/, '')
 }
 
-/** A title's subject: shortcodes stripped, a leading producer kind (`[alert] `, `Alert: `) and a commit label (`fix(scope): `) removed; `null` when nothing is left. */
+/** A title's subject: shortcodes stripped, a leading producer kind (`[alert] `, `Alert: `), a commit label (`fix(scope): `) and a monitor's `[…]` prefix removed, code backticks unwrapped; `null` when nothing is left. */
 export function subjectOf(title: unknown): string | null {
   const text = stripShortcodes(asText(title))
   const tag = firstBracketTag(text)
@@ -393,7 +417,13 @@ export function subjectOf(title: unknown): string | null {
     tag !== null && ALERT_WORD.test(tag) ? text.replace(/^\s*\[[^\]]*\]\s*/, '') : text
   // The stem already says `alert`: a title that leads with the kind (`Alert: …`) does not say it
   // twice; a commit-style `type(scope): ` is a label, not the subject (the whole title stays in the detail).
-  const subject = untagged.replace(ALERT_TITLE_PREFIX, '').replace(COMMIT_PREFIX, '').trim()
+  const subject = untagged
+    .replace(ALERT_TITLE_PREFIX, '')
+    .replace(COMMIT_PREFIX, '')
+    .replace(MONITOR_PREFIX, '$1 ')
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/`/g, '')
+    .trim()
   return names(subject) ? subject : null
 }
 
@@ -641,8 +671,15 @@ export function wardenQuestionForms({
 }): QuestionForms {
   const where = stripShortcodes(asText(repo))
   const entry = primary === null ? undefined : WARDEN_ASK[primary]
-  const failedRun = !alert && failed && primary === 'retry'
-  const noun = alert ? 'alert' : failedRun ? 'failed run' : (entry?.[1] ?? 'item')
+  const failedRun = failed && primary === 'retry'
+  // One shape for a retry: `Retry failed run: …` / `Retry failed alert: …`.
+  const noun = failedRun
+    ? alert
+      ? 'failed alert'
+      : 'failed run'
+    : alert
+      ? 'alert'
+      : (entry?.[1] ?? 'item')
   const verb =
     surface === 'home' || primary === null
       ? 'Decide on'
@@ -651,6 +688,9 @@ export function wardenQuestionForms({
         : (entry?.[0] ?? 'Decide on')
   const forms = questionForms(verb, noun, where)
   return failedRun
-    ? { ...forms, plain: `${verb} failed ${where === '' ? '' : `${where} `}run` }
+    ? {
+        ...forms,
+        plain: `${verb} failed ${where === '' ? '' : `${where} `}${alert ? 'alert' : 'run'}`,
+      }
     : forms
 }
