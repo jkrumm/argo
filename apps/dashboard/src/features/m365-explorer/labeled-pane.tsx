@@ -25,13 +25,17 @@ export function LabeledPane(props: LabeledPaneProps) {
   )
   const header =
     props.title === undefined ? null : (
-      <header className={classes.recordHeader} data-shot="labeled-header">
+      <header
+        className={classes.recordHeader}
+        data-shot="labeled-header"
+        data-shot-absent="loading"
+      >
         <h2 className={classes.recordName}>{props.title}</h2>
       </header>
     )
   if (groups.length === 0) {
     return (
-      <div data-shot="labeled-pane">
+      <div data-shot="labeled-pane" data-shot-absent="loading">
         {header}
         <p className={classes.empty}>
           No labeled sources — label a chat to include it in /m365/important
@@ -46,6 +50,7 @@ export function LabeledPane(props: LabeledPaneProps) {
       type="auto"
       scrollbars="y"
       data-shot="labeled-pane"
+      data-shot-absent="loading"
     >
       {header}
       {props.error ? (

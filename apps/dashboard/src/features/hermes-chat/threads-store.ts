@@ -10,6 +10,7 @@ import {
   type ThreadsStore,
 } from 'basalt-ui/agent'
 import { hermesQueries } from '../../lib/queries/hermes'
+import { shotState } from '../../lib/shot-state'
 import type { HermesMessage, HermesThread } from '../../lib/queries/hermes'
 
 // A DIRECT ThreadsStore implementation over Argo's React Query cache — see
@@ -436,7 +437,8 @@ export function useHermesThreads(): HermesThreadsStore {
   // on `hydrated`, see chat-page.tsx) finds a real last-user-message to resume
   // from. Every later refetch only merges metadata (see `mergeServerThreads`).
   useEffect(() => {
-    const rows = listQuery.data?.data
+    // `shot-state=empty`: the page renders its real no-threads branch.
+    const rows = shotState() === 'empty' ? (listQuery.data ? [] : undefined) : listQuery.data?.data
     if (rows === undefined) return
 
     if (hydratedRef.current) {

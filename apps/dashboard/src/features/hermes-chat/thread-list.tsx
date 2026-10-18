@@ -122,7 +122,7 @@ export function ThreadList({
   }
 
   return (
-    <Box className={classes['root']} data-shot="thread-list">
+    <Box className={classes['root']} data-shot="thread-list" data-shot-absent="empty loading error">
       {groups.map((group) => (
         <Box
           key={group.key}

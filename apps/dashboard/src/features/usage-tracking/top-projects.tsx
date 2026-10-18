@@ -2,6 +2,7 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { Text } from '@mantine/core'
 import { BarList } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
+import { shotState } from '../../lib/shot-state'
 import { usageQueries, type Range } from '../../lib/queries/usage'
 import type { BillingValue, WorkspaceValue } from './types'
 import { EM_DASH, fmtShare, fmtUsdWhole, periodNoun } from './model'
@@ -18,7 +19,7 @@ export default function TopProjects({
   /** Whether the card prints its window's total; decided once, in the route. */
   printTotal: boolean
 }) {
-  const { data } = useSuspenseQuery(
+  const query = useSuspenseQuery(
     usageQueries.breakdown({
       range,
       metric: 'cost',
@@ -28,6 +29,7 @@ export default function TopProjects({
       workspace,
     }),
   )
+  const data = shotState() === 'empty' ? { ...query.data, rows: [], total: 0 } : query.data
   const shown = data.rows.reduce((acc, r) => acc + r.value, 0)
   const rest = Math.max(0, data.total - shown)
 

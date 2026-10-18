@@ -6,6 +6,7 @@ import { useSuspenseQueries } from '@tanstack/react-query'
 import { Box } from '@mantine/core'
 import { Bars, ChartCard, Lines } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
+import { shotState } from '../../lib/shot-state'
 import { usageQueries, type Grain, type Range } from '../../lib/queries/usage'
 import { dayToDate } from './constants'
 import {
@@ -66,13 +67,17 @@ export default function HealthCard({
   workspace?: WorkspaceValue[] | undefined
 }) {
   const base = { range, grain, billing, workspace }
-  const [{ data: latency }, { data: errors }, { data: rates }] = useSuspenseQueries({
+  const [latencyQ, errorsQ, ratesQ] = useSuspenseQueries({
     queries: [
       usageQueries.timeseries({ ...base, metric: 'latency_p95', groupBy: 'none' }),
       usageQueries.timeseries({ ...base, metric: 'errors', groupBy: 'source' }),
       usageQueries.timeseries({ ...base, metric: 'error_rate', groupBy: 'none' }),
     ],
   })
+  const emptyShot = shotState() === 'empty'
+  const latency = emptyShot ? { ...latencyQ.data, buckets: [] } : latencyQ.data
+  const errors = emptyShot ? { ...errorsQ.data, buckets: [] } : errorsQ.data
+  const rates = emptyShot ? { ...ratesQ.data, buckets: [] } : ratesQ.data
 
   const p95: P95Point[] = latency.buckets.flatMap((b) => {
     const v = b.groups['value']

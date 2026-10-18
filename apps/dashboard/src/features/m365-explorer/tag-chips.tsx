@@ -34,7 +34,14 @@ function Chip(props: {
 /** Neutral filter chips with counts; the accent is spent only on the active one. */
 export function TagChips({ active, counts, scope, onChange }: TagChipsProps) {
   return (
-    <div className={classes.toolbar} role="group" aria-label="Filter by tag" data-shot="tag-chips">
+    <div
+      className={classes.toolbar}
+      role="group"
+      aria-label="Filter by tag"
+      data-shot="tag-chips"
+      data-shot-states="empty loading"
+      data-shot-absent="loading"
+    >
       <Chip label="All" count={counts.all} active={active === ''} onClick={() => onChange('')} />
       {counts.labeled > 0 || active === LABELED_FILTER ? (
         <Chip
