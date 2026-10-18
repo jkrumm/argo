@@ -774,12 +774,13 @@ export function transitionText({ from, to }: TransitionLine): string {
 export const historyAge = (at: string, now: number): string =>
   formatAgoWhole(Math.max(0, now - Date.parse(at)))
 
-/** ` · {age}` with the dot glued to the word before it, so it never opens a line. */
-export const historyTail = (at: string, now: number): string => `${NBSP}· ${historyAge(at, now)}`
+/** ` · {age}` with the dot glued to the word before it and to the age after it, so a wrapped line never opens or ends on a bare `·`. */
+export const historyTail = (at: string, now: number): string =>
+  `${NBSP}·${NBSP}${historyAge(at, now)}`
 
 /**
  * A history row with its age: `{line} · {age}`. The dot is glued to the word before it so it never
- * opens a line, and {@link historyAge} keeps `ago` with its duration, so a list row never leaves
+ * opens a line or ends on it, and {@link historyAge} keeps `ago` with its duration, so a list row never leaves
  * `ago` alone on a line. No time at all is the line.
  */
 export function historyLineWithAge(
