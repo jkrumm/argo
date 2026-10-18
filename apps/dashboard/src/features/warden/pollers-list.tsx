@@ -12,7 +12,7 @@ export function PollersList({ pollers }: { pollers: readonly PollerRow[] }) {
       <BarList
         label={`Poller age in minutes, scale 0 to ${POLLER_SCALE_MIN}`}
         max={POLLER_SCALE_MIN}
-        format={(value) => `${formatNumber(value)} min`}
+        format={(value) => `${formatNumber(value)}\u00a0min`}
         items={pollers.map((poller) => ({
           key: poller.name,
           label: poller.name,

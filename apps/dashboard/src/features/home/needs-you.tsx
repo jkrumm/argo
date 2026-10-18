@@ -53,13 +53,7 @@ function Card({ decision }: { decision: Decision }) {
       question={decision.headline}
       facts={decision.facts}
       evidenceLine={decision.evidenceLine}
-      {...(decision.entity !== null && {
-        actor: (
-          <Text span fz="xs">
-            {decision.entity}
-          </Text>
-        ),
-      })}
+      subject={decision.entity}
       {...(view !== null && { preview: <HistoryPreview view={view} /> })}
       {...(view?.layout === 'inline' && { previewPlacement: 'inline' as const })}
       {...(decision.abandoned && { status: <StatusChip tone="bad" label="Abandoned" /> })}

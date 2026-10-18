@@ -1,5 +1,6 @@
 import { relativeTime } from 'basalt-ui/format'
 import { authoredQuestion } from '../../lib/text'
+import { NBSP, withUnit } from '../../lib/format'
 import type {
   WardenActionVerb,
   WardenBoardItem,
@@ -111,8 +112,8 @@ export type AwaitingOwnerView = {
 /** `"5.1 d"` / `"< 1 d"` / `"—"` for an unreported age — never a bare number with no unit. */
 export function formatAgeDays(ageDays: number | null): string {
   if (ageDays === null) return '—'
-  if (ageDays < 1) return '< 1 d'
-  return `${ageDays.toFixed(1)} d`
+  if (ageDays < 1) return `< 1${NBSP}d`
+  return withUnit(ageDays.toFixed(1), 'd')
 }
 
 /**

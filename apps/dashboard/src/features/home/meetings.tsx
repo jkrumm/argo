@@ -121,7 +121,7 @@ export function Meetings({ agenda, later, tasks, now }: Props) {
                 <Text component="span" size="sm" {...(tasks.overdue > 0 && { c: VX.status.bad })}>
                   Tasks: {tasks.overdue} overdue
                 </Text>
-                {` · ${tasks.dueSoon} due within 7 d`}
+                {` · ${tasks.dueSoon} due within 7\u00a0d`}
               </>
             )}
           </Text>

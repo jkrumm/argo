@@ -122,18 +122,12 @@ function QueueCard({
   const view = historyView(history)
 
   return (
-    <Box data-shot={`${kind}-${row.eventId}`}>
+    <Box h="100%" data-shot={`${kind}-${row.eventId}`}>
       <DecisionCard
         question={copy.question}
         facts={capFacts(cardFacts(row, repoNamed ? '' : repo))}
         status={status}
-        actor={
-          copy.entity !== null ? (
-            <Text component="span" fz="xs" className={classes.wrap}>
-              {copy.entity}
-            </Text>
-          ) : undefined
-        }
+        subject={copy.entity}
         evidenceLine={copy.evidenceLine}
         {...(copy.detail !== null
           ? { disclosure: { label: 'Full reason', content: <FullAsk text={copy.detail} /> } }

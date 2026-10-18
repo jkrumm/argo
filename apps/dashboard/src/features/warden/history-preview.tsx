@@ -1,10 +1,17 @@
-import { Group, Stack, Text } from '@mantine/core'
+import { Stack, Text } from '@mantine/core'
 import { VX } from 'basalt-ui/tokens'
 import { relativeTime } from 'basalt-ui/format'
 import classes from '../../components/upstream/decision-card.module.css'
+import { NBSP } from '../../lib/format'
 import type { HistoryView } from './page-model'
 
-const when = (at: string) => relativeTime(at)
+const when = (at: string) => relativeTime(at).replaceAll(' ', NBSP)
+
+/** The age glued to the last word of the line it follows, so it never wraps onto a line alone. */
+function withAge(text: string, at: string | null | undefined): string {
+  if (!at) return text
+  return `${text.replace(/ (\S*)$/, `${NBSP}$1`)}${NBSP}·${NBSP}${when(at)}`
+}
 
 /**
  * The decision card's change history. One transition is a single inline sentence
@@ -20,7 +27,7 @@ export function HistoryPreview({ view }: { view: HistoryView }) {
         <Text span inherit c={VX.ink}>
           {only?.text}
         </Text>
-        {only?.at ? ` · ${when(only.at)}` : null}
+        {only?.at ? `${NBSP}·${NBSP}${when(only.at)}` : null}
       </Text>
     )
   }
@@ -30,16 +37,9 @@ export function HistoryPreview({ view }: { view: HistoryView }) {
         Latest changes
       </Text>
       {view.lines.map((line, i) => (
-        <Group key={`${i}-${line.text}`} gap={4} align="baseline" wrap="wrap">
-          <Text size="xs" miw={0} className={classes.wrap}>
-            {line.text}
-          </Text>
-          {line.at ? (
-            <Text span size="xs" c="dimmed">
-              {when(line.at)}
-            </Text>
-          ) : null}
-        </Group>
+        <Text key={`${i}-${line.text}`} size="xs" miw={0} className={classes.wrap}>
+          {line.at ? withAge(line.text, line.at) : line.text}
+        </Text>
       ))}
       {view.earlier > 0 ? (
         <Text size="xs" c="dimmed">

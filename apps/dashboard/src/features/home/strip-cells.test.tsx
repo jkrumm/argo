@@ -7,7 +7,7 @@ describe('strip cells with no reading', () => {
   it('shows an em dash and a reason, never 0', () => {
     expect(agentsCell(undefined, null, undefined, NOW)).toMatchObject({
       value: null,
-      footer: 'no snapshot in 24 h',
+      footer: 'no snapshot in 24 h',
     })
     expect(budgetCell(undefined, undefined)).toMatchObject({ value: null })
     expect(meetingCell(null, null, null, NOW)).toMatchObject({
@@ -34,7 +34,7 @@ describe('strip cells with no reading', () => {
         date: null,
         isToday: false,
       }),
-    ).toMatchObject({ value: null, footer: 'no reading yet · Garmin syncs every 6 h' })
+    ).toMatchObject({ value: null, footer: 'no reading yet · Garmin syncs every 6 h' })
     expect(recoveryCell(null, true)).toMatchObject({ footer: 'loading Garmin data' })
     expect(acwrCell(null, NOW)).toMatchObject({ value: null, footer: 'unavailable' })
   })
@@ -50,7 +50,7 @@ describe('strip cells with no reading', () => {
       isToday: false,
     })
     expect(cell.caption).toBe('Recovery · Wed 14 Jan')
-    expect(cell.footer).toBe('today fills after the next Garmin sync (every 6 h)')
+    expect(cell.footer).toBe('today fills after the next Garmin sync (every 6 h)')
   })
 
   it('names the reading day in the ACWR footer only when it is not today', () => {

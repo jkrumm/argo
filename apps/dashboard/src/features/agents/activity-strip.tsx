@@ -72,7 +72,7 @@ export function ActivityStrip({ history, hours, now }: Props) {
 
   return (
     <Section
-      title="Last 24 h · agents working per hour"
+      title={`Last ${hours}\u00a0h · agents working per hour`}
       value={peakHour === null ? '—' : String(peak)}
       {...(peakHour !== null && { unit: 'agents at peak' })}
     >
@@ -88,7 +88,7 @@ export function ActivityStrip({ history, hours, now }: Props) {
           height={48}
         />
         <Text size="sm" ff="monospace" c="dimmed" mt="xs">
-          {fact ?? `No snapshot in the last ${hours} h`}
+          {fact ?? `No snapshot in the last ${hours}\u00a0h`}
         </Text>
         {gaps > 0 ? (
           <Text size="xs" c="dimmed" mt="xs">

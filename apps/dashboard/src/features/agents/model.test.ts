@@ -342,17 +342,17 @@ describe('activityFact', () => {
   it('names the busiest hour and the measured hours with an agent working', () => {
     const buckets = [hour(1, 0), hour(2, 3), hour(3, 1), hour(4, 0)]
     expect(activityFact(buckets, peakWorking(buckets))).toMatch(
-      /^busiest hour \d\d:\d\d · agents working in 2 of 4 h$/,
+      /^busiest hour \d\d:\d\d · agents working in 2 of 4\u00a0h$/,
     )
   })
 
   it('leaves unmeasured hours out of the denominator and says so', () => {
     const buckets = [hour(1, null), hour(2, 3), hour(3, 0), hour(4, null)]
     expect(activityFact(buckets, peakWorking(buckets))).toMatch(
-      /agents working in 1 of 2 h observed$/,
+      /agents working in 1 of 2\u00a0h observed$/,
     )
     const quiet = [hour(1, null), hour(2, 0)]
-    expect(activityFact(quiet, peakWorking(quiet))).toBe('no agent working in 1 h observed')
+    expect(activityFact(quiet, peakWorking(quiet))).toBe('no agent working in 1 h observed')
   })
 
   it('is null when nothing was measured', () => {
