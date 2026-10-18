@@ -21,6 +21,7 @@ import {
   waitingProjects,
   clockMs,
   activityFact,
+  noSnapshotCaption,
   previewOf,
   gapHours,
   feedAside,
@@ -925,5 +926,14 @@ describe('oldestWaitEmptyText', () => {
     expect(oldestWaitEmptyText(null)).toBe(WAITING_FOR_SNAPSHOT)
     expect(oldestWaitEmptyText(0)).toBe('No agent or ask is waiting')
     expect(oldestWaitEmptyText(2)).toBe('Waiting, but no wait time reported')
+  })
+})
+
+describe('noSnapshotCaption', () => {
+  it('uses the alert short form only when no snapshot ever arrived', () => {
+    expect(noSnapshotCaption(false, 24)).toBe('No snapshot yet')
+  })
+  it('names the window when snapshots exist but none fall inside it', () => {
+    expect(noSnapshotCaption(true, 24)).toBe('No snapshot in the last 24\u00a0h')
   })
 })

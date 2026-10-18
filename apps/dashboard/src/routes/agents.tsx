@@ -129,7 +129,12 @@ function AgentsPage() {
             <NeedsYouSection cards={cards} unknown={latest === null} />
             {feed === 'failed' ? null : <ProjectCards active={active} quiet={quiet} now={now} />}
             {feed === 'failed' ? null : (
-              <ActivityStrip history={history} hours={HISTORY_HOURS} now={now} />
+              <ActivityStrip
+                history={history}
+                hours={HISTORY_HOURS}
+                now={now}
+                hasSnapshot={latest !== null}
+              />
             )}
             <NarrativesSection query={narrativesQuery} />
           </Stack>
