@@ -135,10 +135,16 @@
   overflow-wrap: anywhere;
 }
 
+.feedPart {
+  min-width: 0;
+  max-width: 50%;
+  display: inline-flex;
+  align-items: baseline;
+}
+
 .chip {
   flex: 0 1 auto;
   min-width: 0;
-  max-width: 50%;
   height: auto;
   vertical-align: baseline;
 }

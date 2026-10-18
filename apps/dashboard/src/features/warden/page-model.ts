@@ -1,3 +1,4 @@
+import { NO_SNAPSHOT_SHORT } from '../agents/model'
 import { ARROW, NBSP, formatAgoWhole, formatDuration, glue, withUnit } from '../../lib/format'
 import type {
   WardenActionVerb,
@@ -286,6 +287,9 @@ export const BUDGET_MISSING = {
     `${name} budget not reported yet. Warden sends it with each push (about every ${withUnit(WARDEN_PUSH_MIN, 'min')}).`,
   short: `Not reported yet; Warden sends it with each push, about every ${withUnit(WARDEN_PUSH_MIN, 'min')}.`,
 } as const
+
+/** Home's budget cell with no Warden snapshot: the no-snapshot clause verbatim, then the cadence to wait for. */
+export const BUDGET_NO_SNAPSHOT = `${NO_SNAPSHOT_SHORT} — Warden pushes every ${withUnit(WARDEN_PUSH_MIN, 'min')}`
 
 // ── Summary sentence ────────────────────────────────────────────────────────
 

@@ -1,3 +1,4 @@
+import { BUDGET_MISSING } from '../warden/page-model'
 import { describe, expect, it } from 'bun:test'
 import type { ReactElement } from 'react'
 import { RECOVERY_VERDICT_NAME, allocateForms, recoveryVerdict } from '../garmin-health/model'
@@ -31,10 +32,19 @@ const reading = (over: Partial<RecoveryReading> = {}): RecoveryReading => ({
   ...over,
 })
 
-describe('budget cell without a snapshot', () => {
-  it('leads with the no-snapshot clause and states the cadence once', () => {
-    const visual = budgetCell(undefined, undefined).visual as ReactElement<{ children: string }>
-    expect(visual.props.children).toBe('No snapshot yet — Warden pushes every 10\u00a0min')
+describe('budget cell gap per Warden feed', () => {
+  const gap = (feed: Parameters<typeof budgetCell>[2]) =>
+    (budgetCell(undefined, undefined, feed).visual as ReactElement<{ children: string }>).props
+      .children
+
+  it('words each feed state once: no snapshot leads with the clause and the cadence, failed and pending never alias', () => {
+    expect(gap('no-snapshot')).toBe('No snapshot yet — Warden pushes every 10\u00a0min')
+    expect(gap('failed')).toBe('Warden failed to load — reload to retry')
+    expect(gap('loading')).toBe('Loading')
+  })
+
+  it('keeps the budget-missing wording for a snapshot that omits the budget', () => {
+    expect(gap('ready')).toBe(BUDGET_MISSING.short)
   })
 })
 
@@ -126,7 +136,7 @@ describe('recovery footer breaks', () => {
 describe('strip cells with no reading', () => {
   it('shows an em dash and a reason, never 0', () => {
     expect(agentsCell(undefined, null)).toMatchObject({ value: null })
-    expect(budgetCell(undefined, undefined)).toMatchObject({ value: null })
+    expect(budgetCell(undefined, undefined, 'ready')).toMatchObject({ value: null })
     expect(meetingCell(null, null, null, NOW)).toMatchObject({
       value: null,
       footer: 'calendar unavailable',
@@ -225,10 +235,10 @@ describe('strip cells with no reading', () => {
   })
 
   it('drops the poller line when there is no budget and no poller to date', () => {
-    expect(budgetCell(undefined, undefined)).not.toHaveProperty('footer')
-    expect(budgetCell(undefined, { name: 'loop', ageMin: 4, stale: false })).toHaveProperty(
-      'footer',
-    )
+    expect(budgetCell(undefined, undefined, 'ready')).not.toHaveProperty('footer')
+    expect(
+      budgetCell(undefined, { name: 'loop', ageMin: 4, stale: false }, 'ready'),
+    ).toHaveProperty('footer')
   })
 
   it('names the reading day in the ACWR footer only when it is not today', () => {

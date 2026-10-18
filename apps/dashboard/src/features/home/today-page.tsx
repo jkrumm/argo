@@ -108,8 +108,9 @@ export function TodayPage() {
   const warden = shotEmpty ? null : (wardenQuery.data ?? null)
   const wardenRaw = warden?.raw
   // One state per source: failed, loading, or settled without a snapshot (unknown, never empty).
+  const wardenStatus = sourceStatus(warden !== null, wardenQuery.status)
   const { unavailable, loading, noSnapshot } = classifySources({
-    Warden: sourceStatus(warden !== null, wardenQuery.status),
+    Warden: wardenStatus,
     Agents: sourceStatus(agentsRecord !== null, agentsQuery.status),
   })
 
@@ -251,7 +252,7 @@ export function TodayPage() {
               fleet,
               agentsRecord !== null ? null : agentsQuery.isError ? 'failed' : 'none',
             ),
-            budgetCell(wardenRaw?.budget, poller),
+            budgetCell(wardenRaw?.budget, poller, wardenStatus),
             meetingCell(agenda, next, later, now),
             recoveryCell(recovery, recoveryNow.isPending, recoverySeriesState, recoveryForm),
             acwrCell(

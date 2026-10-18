@@ -21,6 +21,7 @@ declare const classes: {
   readonly feedMeta: string
   readonly feedLead: string
   readonly feedOutcome: string
+  readonly feedPart: string
   readonly chip: string
   readonly chipLabel: string
   readonly feedActor: string
