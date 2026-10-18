@@ -82,3 +82,16 @@ export function taskFeedState(queries: readonly TaskRead[]): 'loading' | 'error'
   if (queries.some((q) => q.isPending || (q.isPlaceholderData && q.isFetching))) return 'loading'
   return queries.some(taskReadFailed) ? 'error' : 'ready'
 }
+
+/** The next step for a source whose sign-in failed: a link the owner follows, or a command the owner runs. */
+export type SignInStep =
+  | { kind: 'link'; url: string; label: string }
+  | { kind: 'command'; hint: string; command: string }
+
+/** Google re-authorizes in the browser; the Microsoft 365 grant is re-seeded from the laptop. */
+export function signInStep(source: keyof typeof SOURCE_LABEL): SignInStep {
+  if (source === 'personal') {
+    return { kind: 'link', url: '/api/oauth/google/init', label: 'Re-authorize' }
+  }
+  return { kind: 'command', hint: 'Re-seed on the laptop:', command: 'bun m365:auth:prod' }
+}

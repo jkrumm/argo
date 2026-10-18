@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { failed, feedGap, taskFeedState, unanswered } from './query-state'
+import { failed, feedGap, signInStep, taskFeedState, unanswered } from './query-state'
 
 const q = (over: Partial<Parameters<typeof unanswered>[0]> = {}) => ({
   isPending: false,
@@ -97,5 +97,22 @@ describe('taskFeedState', () => {
   it('is ready with no reads or only settled ones', () => {
     expect(taskFeedState([])).toBe('ready')
     expect(taskFeedState([read()])).toBe('ready')
+  })
+})
+
+describe('signInStep', () => {
+  it('sends Google to the browser re-authorization', () => {
+    expect(signInStep('personal')).toEqual({
+      kind: 'link',
+      url: '/api/oauth/google/init',
+      label: 'Re-authorize',
+    })
+  })
+  it('gives Microsoft 365 the re-seed command, not a link', () => {
+    expect(signInStep('work')).toEqual({
+      kind: 'command',
+      hint: 'Re-seed on the laptop:',
+      command: 'bun m365:auth:prod',
+    })
   })
 })
