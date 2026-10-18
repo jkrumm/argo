@@ -1496,7 +1496,7 @@ rule stays **subtract before you add**, and a removal that leaves a reader witho
 - **Cleanup:** worktrees and tabs removed with `rd fan --clean`; no background task left running; the live data used for the fixture was
   kept outside the repo (`/tmp`) and never committed.
 
-## Wave 30 — Re-score round 9: compound durations, one vocabulary per surface, the rung frozen <!-- status: active -->
+## Wave 30 — Re-score round 9: compound durations, one vocabulary per surface, the rung frozen <!-- status: done -->
 
 Same shape as Wave 29 (fan-out on disjoint page files, two independent reviews per PR, CI `check` green on the PR head before
 `rd merge`, live re-shoot incl. the m365 pane presets, fresh `basalt-design-reviewer`s with the w29 shots + a Keel side-by-side). The
@@ -1505,14 +1505,72 @@ rule stays **subtract before you add**, and a removal that leaves a reader witho
 no local workaround. **The question rung is frozen:** its table (`lib/__fixtures__/question-rung.ts`) is the contract; a title change
 needs a new table row first, and the authored producer `question` stays the owner's call.
 
-- [ ] Compound durations and leftover title noise (Home, Warden, Agents): a duration's own parts stay together (`{h} h {m} min` never splits,
+- [x] Compound durations and leftover title noise (Home, Warden, Agents): a duration's own parts stay together (`{h} h {m} min` never splits,
       `ago` stays breakable); warden's headline wait in the cards' spelling; raw backticks and the monitor's `[…]` prefix out of titles (new
       table rows); the Agents headline carries the needs-you count or the oldest wait; `Answer:` vs a `Copy …` primary; the CI-failed card's
       `Merge` secondary; the failed card's garbled `— PR left open` evidence.
-- [ ] Fix the argo items per page, fanned out: new first (Garmin ACWR legend names caution; strength ACWR tooltip in t; m365 remove control
+- [x] Fix the argo items per page, fanned out: new first (Garmin ACWR legend names caution; strength ACWR tooltip in t; m365 remove control
       back to hover/focus with the muted token; astro Sky footer that stretches the anatomy row and the run-together cloud headline; usage
       `days` orphan; hermes fold label; m365 390 date/year split), then carried, then unscored.
-- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 31 in this shape. The loop ends only when a
+- [x] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 31 in this shape. The loop ends only when a
+      fresh scorer and the owner find nothing worth improving.
+
+**Left behind:**
+
+**Closed out (orchestrated): Wave 31 is added as `active`, not spawned; the orchestrator spawns it.**
+
+- **basalt-ui stayed on 2.21.0** — no release was announced during the wave, so no bump commit.
+- **Landed (master, deployed, `/api/health` = `04aa13d`, check + deploy workflows green):** seven fan-out PRs, each with two independent
+  agent-gateway review rounds, scope frozen after round 2, the last fix diff read by the lead, CI `check` green on the PR head before
+  `rd merge`, `make check` green after every rebase and again on the merged master (1408 + 598 pass, build green, zero new `basalt/*`
+  suppressions). Round 9: #122 garmin + strength + reading, #123 astro, #124 usage + m365 + hermes, #125 home + warden + agents + the shared
+  duration glue. Follow-ups from the live re-score, same wave: #126 + #127 (r1 regressions), #128 (r2 regressions). WalkingPad untouched.
+- **The rung stayed frozen:** every moved fixture row in #125 is named by a Wave 30 item (backticks and the monitor bracket out, one retry
+  shape, the copy-button verb on Agents, an alert keeping its kind) and its newly visible words are the subject's own text; four new rows
+  (no doubled `failed`, `Alert: [..] Down`, `[alert] [..] Down`, the alert-kind ask). No authored-question path was added.
+- **What the lead caught before review:** a legend swatch with no matching fill (Garmin ACWR caution); a dropped `formatX` that would have
+  put a clock time in the strength tooltip; touch users losing the m365 remove control; a fixed-unit token formatter printing non-zero as
+  `0.0 M`; the dark-sky threshold leaving Tonight with no label; `at its lowest` (factually wrong — the figure is nearest the gate); two
+  names for one zone on one page; an unrequested meter tint swap.
+- **Code review caught:** `Merge` kept on a provider-prefixed CI failure; a non-string wire reason that would throw in render; a dash
+  question folded into a statement; an Agents alert losing its kind; the monitor prefix surviving after `Alert:`; the "oldest wait" headline
+  showing a younger agent wait over an older ask; hybrid-pointer devices hiding the m365 control; `999.96` printing unitless `1000`; a
+  title-card total and its rows in two units; the threshold losing its unit; a ruled-out night with a moon factor dropping its cloud row;
+  the reading 390 label collision coming back; an echo-tail rule that would drop a real current state; the NBSP glue breaking the
+  evidence/disclosure comparison.
+- **Rounds:** `w30-r1` (all pages live, 1440 + 390, both schemes, plus the two m365 pane presets; 1426 shots, 10 focus timeouts); `w30-r2`
+  (home, garmin, warden, astro, reading, strength after #126/#127); `w30-r3` (warden, astro, reading after #128). `basalt-ui shot --base
+  https://argo.jkrumm.com`, `argo-auth` seeded from `secrets-run read op://common/api/SECRET` via env, never printed or written. Boards:
+  `.design-shots/w30-r{1,2,3}-*` (gitignored), copied to the MacBook, `~/Downloads/argo-design-review/w30/`. Fresh
+  `basalt-design-reviewer`s each given the previous round's shots, plus a Keel side-by-side; verdicts in `docs/design/<page>.md`
+  § "Wave 30 round"; basalt rows in `UPSTREAM.md` § "Wave 30".
+- **Reviewer verdict, stated plainly:** **walking pad passes a fourth time; twelve fail.** Two regressions came from this wave's own r1
+  changes (the strength band range hidden at 390, the clipped astro Sky footer) and one from the vocabulary change (`Undertrained` colliding
+  at 390); all three are fixed and verified live. No lost fact remains except the bare tick label below. Usage, M365, Hermes, Calendar and
+  Body composition have no open argo-owned defect — what fails them is basalt rows and harness gaps.
+- **Against Keel:** close — Home, Agents (up from does not yet), Garmin, Warden, Strength, Calendar, Body composition, WalkingPad, Astro,
+  Usage, M365; does not yet — Reading, Hermes.
+- **Harness finding:** `/api/health` proves only the API image; the dashboard image rolls later, so the first shot pass after a deploy
+  (light 1440 in r1 and r3) can render the previous bundle. Wave 31 waits for the dashboard bundle itself before shooting.
+- **Gate flake:** the `hermes-streams` timeout test prints `ack timeout` as expected output; no flake this wave.
+- **Not verified:** the m365 hover reveal (the harness hovers the pane, not a row); reading `last read` at 390 (no anchor on that row);
+  the light 1440 pass of r3; garmin fitness and strength bench-press focus (timeouts).
+- **Cleanup:** worktrees and tabs removed with `rd fan --clean`; no background task left running.
+
+## Wave 31 — Re-score round 10: thresholds that name themselves, the last orphans <!-- status: active -->
+
+Same shape as Wave 30 (fan-out on disjoint page files, two independent reviews per PR, CI `check` green on the PR head before
+`rd merge`, live re-shoot incl. the m365 pane presets, fresh `basalt-design-reviewer`s with the w30 shots + a Keel side-by-side). The
+rule stays **subtract before you add**, and a removal that leaves a reader without a fact is a defect. Each page's detail is in
+`docs/design/<page>.md` § "Wave 30 round". WalkingPad passed four times: leave it. Basalt rows (`UPSTREAM.md` § "Wave 28"–"Wave 30"):
+no local workaround. The question rung stays frozen to its table; the authored producer `question` stays the owner's call. **Shoot only
+once the dashboard bundle is live** (the served `index.html` references the new asset hash), not on `/api/health` alone.
+
+- [ ] Fix the open argo items, fanned out: astro's Sky tick label names itself (`dark ≥ {t}` or equivalent, the unit reachable) and the
+      Sky footer fits two lines at 1440; a warden title that breaks mid-identifier; a failed card's `Full reason` that only repeats a whole
+      evidence line; Home's recovery tile and Garmin's recovery cell stating different facts for the same day; usage's cost readout in
+      cents and `{m}%` vs `{m} %`; hermes' untitled count said twice. Then carried, then unscored.
+- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 32 in this shape. The loop ends only when a
       fresh scorer and the owner find nothing worth improving.
 
 **Left behind:**

@@ -235,3 +235,8 @@ Follow-up (w30-r2):
 
 - **`PR left open` orphaned `open`** — fixed: the phrase is glued with no-break spaces in the evidence line (`evidenceLeadOf`, `lib/question-copy.ts`).
 - **`revised {n} times` / `retried {n} times` split** — fixed: each whole phrase, verb included, is glued (`historyFact`); the `, ` between them stays breakable.
+
+### Wave 30 round (`w30-r1`, live after #122–#125; `w30-r2` / `w30-r3` after #126–#128, basalt-ui 2.21.0)
+
+- **Reviewer (r1):** fail. Fixed: the headline's oldest wait in the cards' spelling; compound ages whole; backticks and the monitor bracket out of titles; one retry shape; the CI-failed card offers `Dismiss`, never `Merge`. Partly fixed (r1), then fixed in #127/#128 (r2/r3, dark 1440 and 390): the stray one-word fragment before `; PR left open`; `revised {n} times` and `PR left open` no longer split (the light 1440 pass rendered the pre-#128 bundle). Carried: the unattended cell part-empty (`emptyRatio` 0.49 — basalt row); alert subjects are raw alert keys and `Retry: fail when …?` reads as a command (frozen rung — the producer `question` is the owner's call). **Open (r3):** one title breaks mid-identifier at 1440; a failed card offers `Full reason` beside an evidence line that is already whole (unverified whether it only repeats it).
+- **Against Keel:** close — cards are distinct and sized right; raw alert keys stand in for authored questions.

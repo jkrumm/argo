@@ -176,3 +176,8 @@ Follow-up (w30-r1):
 Follow-up (w30-r2):
 
 - **`last read` / `{n} months ago` split** — fixed: `lastReadFact` glues `last read {n} {unit}` as one run; `ago` stays breakable.
+
+### Wave 30 round (`w30-r1`, live after #122–#125; `w30-r2` / `w30-r3` after #126–#128, basalt-ui 2.21.0)
+
+- **Reviewer (r1):** fail. Fixed: the rating buckets keep their range at every width (`{a}–{b}` at 390, the caption names the star unit), no labels running together. **New (r1), fixed in #126/#128:** `last read {n} {unit} ago` split number from unit, then `last read` from the number — glued as one run (dark 1440; 390 unverified, no anchor on that row; the light 1440 pass rendered the pre-#128 bundle). Carried: the pace cell half blank at 1440 (`emptyRatio` 0.51 — basalt row); no days-to-finish on finished rows (no API field); the backlog focus crop under the bottom nav (harness). Unscored: the mono `★` renders as a small asterisk-like glyph.
+- **Against Keel:** does not yet — the pace cell is still half blank beside the histogram.

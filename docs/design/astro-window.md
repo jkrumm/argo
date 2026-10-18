@@ -217,3 +217,8 @@ Follow-up (w30-r1):
 Follow-up (w30-r2):
 
 - **Sky footer still five lines at 1440** — fixed: the dark-sky threshold `{t}` is labelled under the tick on the local `SkyScale` (mono xs muted; the unit is the cell's), and the aria-label names it. `skyCellFooter` drops `dark ≥ {t} mag/arcsec²`, so the footer is `town glow +{d} mag · transparency {n}/8 (lower = clearer)`; no fact lost. Footer height at 1440 not measured here (no dev server); the round's shot decides.
+
+### Wave 30 round (`w30-r1`, live after #122–#125; `w30-r2` / `w30-r3` after #126–#128, basalt-ui 2.21.0)
+
+- **Reviewer (r1):** fail. Fixed: the cloud headline in two phrases; a ruled-out night's verdict card shows its low cloud as `not scored`; `nearest its gate`, the shortfall said once; the transparency gloss. **New (r1):** the glued Sky footer clipped mid-word at 1440 — #126 let it wrap, which re-stretched the anatomy row (strip-dark / strip-cloud `emptyRatio` 0.44, r2); #128 moved the dark-sky threshold onto the Sky scale's tick, bringing the row to 0.38 at 1440 (r3, dark; the light 1440 pass rendered the pre-#128 bundle). **Open (r3):** the tick label is a bare `{t}` with no word or unit (the meaning left with the footer phrase); the Sky footer is three lines at 1440 (target two). Carried (basalt): `Lines` end labels clip `Low`; 390 info tooltips over the card above; the budget's shade-only greys; night-strip hover unverifiable (harness). Unscored: the panorama readout's threshold without a unit; `Moon up` in bad ink with no verdict word.
+- **Against Keel:** close — the verdict card plus timeline reads like Keel's decision card; Keel labels its thresholds, this tick does not yet.
