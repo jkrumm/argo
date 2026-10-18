@@ -47,6 +47,7 @@ const READINESS_SERIES: ChartSeries<ReadinessPoint>[] = [
     label: `${SMOOTH_DAYS}-day average`,
     color: VX.line,
     strokeWidth: 2.25,
+    dash: 'dashed',
     getValue: (d) => d.smoothed,
     formatValue: (v) => String(Math.round(v)),
   },
@@ -92,7 +93,8 @@ export default function ReadinessStrainChart({ params }: { params: StrengthQuery
     return raw.map((p, i) => ({
       day: localDay(p.date),
       readiness: p.readiness,
-      smoothed: smoothed[i] ?? null,
+      // No average on a day with no reading: the line does not bridge a gap it never measured.
+      smoothed: p.readiness === null ? null : (smoothed[i] ?? null),
       garminRecovery: p.garminRecovery,
       fatigueDebt: p.fatigueDept,
       driver: p.driver,

@@ -3,6 +3,7 @@ import {
   acwrReading,
   deloadLine,
   lastSessionDate,
+  fmtMonthly,
   readinessHeader,
   recentDeload,
   bandOffset,
@@ -166,6 +167,15 @@ describe('readiness reads one value everywhere', () => {
   })
   test('no reading is null', () => {
     expect(readinessHeader(null)).toBeNull()
+  })
+})
+
+describe('fmtMonthly', () => {
+  test('rounds before the sign, so a rate that displays as zero is unsigned', () => {
+    expect(fmtMonthly(-0.04)).toBe('0.0')
+    expect(fmtMonthly(0.04)).toBe('0.0')
+    expect(fmtMonthly(-1.5)).toBe('−1.5')
+    expect(fmtMonthly(2.449)).toBe('+2.4')
   })
 })
 

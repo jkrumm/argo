@@ -243,6 +243,15 @@ export function perMonth(pctPerDay: number | null): number | null {
   return pctPerDay === null ? null : Math.round(pctPerDay * 30 * 10) / 10
 }
 
+/** The unrounded monthly rate, for bars: rounding belongs to the display (`fmtMonthly`). */
+export const perMonthRaw = (pctPerDay: number): number => pctPerDay * 30
+
+/** `+1.2` / `−0.4` / `0.0`: rounds first, so a rate that displays as zero carries no sign. */
+export function fmtMonthly(v: number): string {
+  const rounded = Math.round(v * 10) / 10
+  return rounded === 0 ? '0.0' : signed(rounded)
+}
+
 export function signed(v: number | null, digits = 1): string {
   if (v === null) return EM_DASH
   return `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(digits)}`

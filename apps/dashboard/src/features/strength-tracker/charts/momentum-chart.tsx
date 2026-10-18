@@ -12,7 +12,7 @@ import { localDay } from '../../garmin-health/charts/local-day'
 import { METRIC_TOOLTIPS } from '../constants'
 import { directionArrow, directionColor, exerciseLabel } from '../formulas'
 import { exerciseColor } from './exercise-helpers'
-import { perMonth, signed } from '../model'
+import { fmtMonthly, perMonthRaw } from '../model'
 import { directionFromVelocity, rollingVelocityPctPerDay } from './momentum-data'
 
 /** A per-chart select is store state like any filter (law C3) — a LOCAL store, because which lift
@@ -38,7 +38,7 @@ type MomentumPoint = {
 const fmtE1rm = (v: number) => `${v.toFixed(1)} kg`
 const fmtTop = (v: number) => `${Math.round(v)} kg`
 /** The bars read in the page's one velocity unit, `%/mo`, like the header beside them. */
-const fmtVelocity = (v: number, unit: string) => (v === 0 ? `0${unit}` : `${signed(v, 1)}${unit}`)
+const fmtVelocity = (v: number, unit: string) => `${fmtMonthly(v)}${unit}`
 
 export default function MomentumChart({ params }: { params: StrengthQueryParams }) {
   const query = useQuery(strengthQueries.seriesDetailed(params))
@@ -91,7 +91,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
 
   const latestVel = [...chartData].reverse().find((d) => d.velocity !== null)?.velocity ?? null
   const dir = directionFromVelocity(latestVel)
-  const monthly = perMonth(latestVel)
+  const monthly = latestVel === null ? null : perMonthRaw(latestVel)
 
   const selectOptions = (query.data?.byExercise ?? []).map((e) => ({
     value: e.exercise_id,
@@ -107,7 +107,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
           {monthly !== null ? (
             <Group gap={4} align="baseline" wrap="nowrap">
               <Text span fw={600} size="md" c={directionColor(dir)}>
-                {signed(monthly)}
+                {fmtMonthly(monthly)}
               </Text>
               <Text span size="xs" c="dimmed">
                 %/mo, 28 d velocity
@@ -135,7 +135,7 @@ export default function MomentumChart({ params }: { params: StrengthQueryParams 
         top={{ format: fmtTop }}
         bar={{
           label: 'Velocity',
-          getValue: (d) => perMonth(d.velocity),
+          getValue: (d) => (d.velocity === null ? null : perMonthRaw(d.velocity)),
           positive: VX.goodSolid,
           negative: VX.badSolid,
           format: (v) => fmtVelocity(v, '%'),

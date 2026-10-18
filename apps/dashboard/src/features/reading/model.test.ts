@@ -258,6 +258,12 @@ describe('shelfShares', () => {
       ...Array.from({ length: 300 }, () => book({ statusId: 1 })),
     ])
     expect(shelfShares(lopsided)).toEqual({ read: 1, backlog: 99 })
+    // 1 of 8 and 7 of 8 both round up (13 + 88): the pair still stays within 100 %.
+    const eight = shelfCounts([
+      book({ statusId: 3 }),
+      ...Array.from({ length: 7 }, () => book({ statusId: 1 })),
+    ])
+    expect(shelfShares(eight)).toEqual({ read: 13, backlog: 87 })
   })
 })
 

@@ -131,7 +131,7 @@ export function TodaysCall(props: Params) {
   return (
     <Box data-shot="strength-call">
       <DecisionCard
-        question={`Readiness: ${call.verdict}`}
+        question={readinessTitle(call)}
         facts={facts}
         evidence={
           <Stack gap="md">
@@ -207,6 +207,12 @@ export function TodaysCall(props: Params) {
       />
     </Box>
   )
+}
+
+/** The meter's own verdict, not the capped call (an override is named in the meta line). */
+function readinessTitle(call: ReturnType<typeof useOverview>['call']): string {
+  const verdict = call.overridden ? call.readinessVerdict : call.verdict
+  return verdict === EM_DASH ? 'Readiness' : `Readiness: ${verdict}`
 }
 
 type LiftPr = ReturnType<typeof useOverview>['summary']['byExercise'][number]
