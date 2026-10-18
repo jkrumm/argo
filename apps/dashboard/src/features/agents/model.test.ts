@@ -16,7 +16,9 @@ import {
   longestRunMs,
   clockTime,
   feedState,
-  summarySentence,
+  summaryParts,
+  fleetFooter,
+  gapHours,
   dayLabel,
   ageAgo,
   needsYouCards,
@@ -298,9 +300,15 @@ describe('headlineOf', () => {
     )
   })
 
+  it('keeps a clause-free sentence whole while it fits two lines', () => {
+    const ask = 'word '.repeat(25).trim()
+    expect(ask.length).toBeGreaterThan(90)
+    expect(headlineOf(ask)).toBe(ask)
+  })
+
   it('ellipsizes at a word boundary only when no clause boundary fits', () => {
     const out = headlineOf('word '.repeat(60))
-    expect(out.length).toBeLessThanOrEqual(90)
+    expect(out.length).toBeLessThanOrEqual(180)
     expect(out.endsWith('word…')).toBe(true)
   })
 
@@ -309,52 +317,82 @@ describe('headlineOf', () => {
   })
 })
 
-// ── summarySentence ─────────────────────────────────────────────────────────
+// ── summaryParts ────────────────────────────────────────────────────────────
 
-describe('summarySentence', () => {
-  it('names the count and the oldest wait as figures', () => {
+describe('summaryParts', () => {
+  it('names the count and the oldest wait in the sentence, fleet and idle as facts', () => {
     expect(
-      summarySentence({
+      summaryParts({
         items: 3,
         oldestWaitMs: 5 * 3_600_000,
         fleet: { working: 4, total: 12 },
         idleProjects: 2,
       }),
-    ).toBe('3 items need you, oldest agent wait 5h 0m. 4 of 12 agents working, 2 projects idle.')
+    ).toEqual({
+      sentence: '3 items need you, oldest agent wait 5h 0m.',
+      facts: ['4 of 12 agents working', '2 projects idle'],
+    })
   })
 
-  it('reads the zero case without a wait', () => {
+  it('carries the fleet in the sentence when nothing waits', () => {
     expect(
-      summarySentence({
+      summaryParts({
         items: 0,
         oldestWaitMs: null,
         fleet: { working: 1, total: 5 },
         idleProjects: 0,
       }),
-    ).toBe('Nothing needs you. 1 of 5 agents working.')
+    ).toEqual({ sentence: 'Nothing needs you; 1 of 5 agents working.', facts: ['0 projects idle'] })
   })
 
   it('omits the wait clause when nothing carries a clock', () => {
     expect(
-      summarySentence({
+      summaryParts({
         items: 1,
         oldestWaitMs: null,
         fleet: { working: 0, total: 2 },
         idleProjects: 1,
       }),
-    ).toBe('1 item needs you. 0 of 2 agents working, 1 project idle.')
+    ).toEqual({
+      sentence: '1 item needs you.',
+      facts: ['0 of 2 agents working', '1 project idle'],
+    })
   })
 
   it('names the oldest ask when only the human queue waits', () => {
     expect(
-      summarySentence({
+      summaryParts({
         items: 1,
         oldestWaitMs: null,
         oldestAskMs: 90 * 60_000,
-        fleet: { working: 0, total: 2 },
+        fleet: null,
         idleProjects: 0,
       }),
-    ).toBe('1 item needs you, oldest ask 1h 30m. 0 of 2 agents working, 0 projects idle.')
+    ).toEqual({ sentence: '1 item needs you, oldest ask 1h 30m.', facts: ['0 projects idle'] })
+  })
+})
+
+describe('fleetFooter', () => {
+  it('lists the non-working states that have agents', () => {
+    expect(
+      fleetFooter([
+        { key: 'working', label: 'working', value: 3 },
+        { key: 'needs_you', label: 'needs you', value: 0 },
+        { key: 'idle', label: 'idle', value: 2 },
+        { key: 'done', label: 'done', value: 1 },
+      ]),
+    ).toBe('2 idle · 1 done')
+  })
+
+  it('is empty when every agent is working', () => {
+    expect(fleetFooter([{ key: 'working', label: 'working', value: 3 }])).toBe('')
+  })
+})
+
+describe('gapHours', () => {
+  it('counts completed hours without a snapshot, never the hour in progress', () => {
+    const hours = [null, 2, null, null].map((working, i) => ({ hourMs: i * 3_600_000, working }))
+    expect(gapHours(hours)).toBe(2)
   })
 })
 
@@ -386,14 +424,16 @@ describe('groupByDay', () => {
   })
 })
 
-describe('summarySentence without a fleet', () => {
-  it('leaves the fleet clause out instead of zeroing it', () => {
-    expect(summarySentence({ items: 2, oldestWaitMs: null, fleet: null, idleProjects: 1 })).toBe(
-      '2 items need you. 1 project idle.',
-    )
-    expect(summarySentence({ items: 0, oldestWaitMs: null, fleet: null, idleProjects: 0 })).toBe(
-      'Nothing needs you.',
-    )
+describe('summaryParts without a fleet', () => {
+  it('leaves the fleet fact out instead of zeroing it', () => {
+    expect(summaryParts({ items: 2, oldestWaitMs: null, fleet: null, idleProjects: 1 })).toEqual({
+      sentence: '2 items need you.',
+      facts: ['1 project idle'],
+    })
+    expect(summaryParts({ items: 0, oldestWaitMs: null, fleet: null, idleProjects: 0 })).toEqual({
+      sentence: 'Nothing needs you.',
+      facts: ['0 projects idle'],
+    })
   })
 })
 

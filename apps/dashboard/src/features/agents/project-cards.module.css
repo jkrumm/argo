@@ -1,17 +1,3 @@
-.bars {
-  display: inline-flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 1.5rem;
-}
-
-.bar {
-  display: block;
-  width: 5px;
-  border-radius: var(--vx-radius-fine);
-  background: var(--vx-line);
-}
-
 .share {
   display: flex;
   width: 3rem;

@@ -5,6 +5,7 @@ import type { HistoryPoint } from '../../lib/queries/agents'
 import {
   ABANDONED_AFTER_MS,
   ageAgo,
+  fleetFooter,
   formatWaitDuration,
   OLDEST_WAIT_WARN_MS,
   peakNeedsYou,
@@ -47,6 +48,7 @@ function NeedsYouVisual({ history, hours }: Pick<Props, 'history' | 'hours'>) {
     <Sparkline
       ariaLabel={`Agents needing you over the last ${hours} hours`}
       data={trend}
+      format={(n) => `${n} ${n === 1 ? 'item' : 'items'}`}
       height={32}
       color={VX.line}
       emphasizeLast
@@ -62,10 +64,7 @@ function peakFooter(history: HistoryPoint[] | undefined, hours: number, now: num
       : peak.value === 0
         ? `none in ${hours} h`
         : `peak ${peak.value} in ${hours} h`
-  const scope = `line is agents needing you, ${hours} h`
-  return peak !== null && peak.value > 0
-    ? `${trend} · ${ageAgo(now - peak.atMs)} · ${scope}`
-    : `${trend} · ${scope}`
+  return peak !== null && peak.value > 0 ? `${trend} · ${ageAgo(now - peak.atMs)}` : trend
 }
 
 /**
@@ -136,6 +135,7 @@ function fleetCell(fleet: Props['fleet']): StatStripCell {
     caption: `Fleet · ${total} agents`,
     value: String(parts[0]?.value ?? 0),
     unit: `working of ${total}`,
+    footer: fleetFooter(parts) || 'every agent working',
     visual: (
       <Meter
         label="Agents by state"

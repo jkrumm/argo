@@ -159,6 +159,13 @@ export function fleetParts(
   return { parts, total: parts.reduce((sum, p) => sum + p.value, 0) }
 }
 
+/** The fleet's non-working states with counts, `2 idle · 1 stale`; empty when every agent is working. */
+export const fleetFooter = (parts: readonly FleetPart[]): string =>
+  parts
+    .filter((p) => p.key !== 'working' && p.value > 0)
+    .map((p) => `${p.value} ${p.label}`)
+    .join(' · ')
+
 // ── Needs-you trend ──────────────────────────────────────────────────────────────────────────
 
 export type Peak = { value: number; atMs: number }
@@ -219,6 +226,10 @@ export function peakWorking(
   }
   return peak
 }
+
+/** Completed hours with no snapshot (the in-progress hour is not a gap). */
+export const gapHours = (buckets: readonly HourBucket[]): number =>
+  buckets.slice(0, -1).filter((b) => b.working === null).length
 
 // ── Projects ─────────────────────────────────────────────────────────────────────────────────
 
@@ -312,14 +323,17 @@ export function longestRunMs(agents: readonly AgentRow[], now: number): number |
 // ── Needs-you cards ──────────────────────────────────────────────────────────────────────────
 
 const HEADLINE_MAX = 90
+/** A sentence with no clause boundary stays whole up to this (the card title wraps); past it, ellipsis. */
+const HEADLINE_WRAP_MAX = 2 * HEADLINE_MAX
 
 /** Where a long sentence may end without cutting a thought: before a parenthesis, colon, dash, semicolon or comma. */
 const CLAUSE_END = /\s\(|: | — |; |, /g
 
 /**
  * The headline of an ask: its first sentence. A sentence over `max` ends at the last clause
- * boundary that fits (no ellipsis, the full ask is behind the disclosure); only with none does it
- * ellipsize, and then at a word boundary.
+ * boundary that fits (no ellipsis, the full ask is behind the disclosure); with none it stays whole
+ * up to {@link HEADLINE_WRAP_MAX} (the title wraps, the question reads whole) and only then
+ * ellipsizes, at a word boundary.
  */
 export function headlineOf(text: string, max = HEADLINE_MAX): string {
   const flat = text.replace(/\s+/g, ' ').trim()
@@ -333,7 +347,8 @@ export function headlineOf(text: string, max = HEADLINE_MAX): string {
     if (match.index >= floor) clauseEnd = match.index
   }
   if (clauseEnd !== -1) return sentence.slice(0, clauseEnd).replace(/[\s,;:—-]+$/, '')
-  const cut = sentence.slice(0, max - 1)
+  if (sentence.length <= HEADLINE_WRAP_MAX) return sentence
+  const cut = sentence.slice(0, HEADLINE_WRAP_MAX - 1)
   const space = cut.lastIndexOf(' ')
   return `${(space > 0 ? cut.slice(0, space) : cut).trimEnd()}…`
 }
@@ -345,15 +360,23 @@ export type SummaryInput = {
   oldestWaitMs: number | null
   /** Oldest human-queue ask; named only when no agent is waiting. */
   oldestAskMs?: number | null
-  /** `null` when the snapshot has no complete summary: the fleet clause is left out, not zeroed. */
+  /** `null` when the snapshot has no complete summary: the fleet fact is left out, not zeroed. */
   fleet: { working: number; total: number } | null
   /** Projects in the quiet bucket the Projects section lists. */
   idleProjects: number
 }
 
-export function summarySentence(s: SummaryInput): string {
+/** The headline (count + oldest wait) and the facts under it (fleet, idle projects). */
+export function summaryParts(s: SummaryInput): { sentence: string; facts: string[] } {
   const fleet = s.fleet === null ? null : `${s.fleet.working} of ${s.fleet.total} agents working`
-  if (s.items === 0) return fleet === null ? 'Nothing needs you.' : `Nothing needs you. ${fleet}.`
+  const idle = `${s.idleProjects} ${s.idleProjects === 1 ? 'project' : 'projects'} idle`
+  if (s.items === 0) {
+    // The fleet carries the headline's number when nothing waits.
+    return fleet === null
+      ? { sentence: 'Nothing needs you.', facts: [idle] }
+      : { sentence: `Nothing needs you; ${fleet}.`, facts: [idle] }
+  }
+  const facts = [fleet, idle].filter((f): f is string => f !== null)
   const noun = s.items === 1 ? 'item needs' : 'items need'
   const wait =
     s.oldestWaitMs !== null
@@ -361,8 +384,7 @@ export function summarySentence(s: SummaryInput): string {
       : s.oldestAskMs != null
         ? `, oldest ask ${formatWaitDuration(s.oldestAskMs)}`
         : ''
-  const idle = `${s.idleProjects} ${s.idleProjects === 1 ? 'project' : 'projects'} idle`
-  return `${s.items} ${noun} you${wait}. ${[fleet, idle].filter(Boolean).join(', ')}.`
+  return { sentence: `${s.items} ${noun} you${wait}.`, facts }
 }
 
 // ── Narratives ───────────────────────────────────────────────────────────────────────────────
@@ -487,14 +509,20 @@ export function needsYouCards(
         a.project,
         waitMs >= 0 ? `waiting ${formatWaitDuration(waitMs)}` : null,
       ].filter(isText)
+      const title = a.title ?? a.lastPrompt ?? a.id
+      const flatTitle = title.replace(/\s+/g, ' ').trim()
+      const headline = headlineOf(title)
       return {
         key: `agent-${a.id}`,
         kind: 'agent',
-        headline: headlineOf(a.title ?? a.lastPrompt ?? a.id),
+        headline,
         facts,
         inset: a.blocker ?? a.waitingFor ?? a.standing ?? null,
         copy: a.paneId ? { label: 'Copy pane id', value: a.paneId } : null,
-        fullAsk: null,
+        fullAsk:
+          headline === flatTitle
+            ? null
+            : { label: `Full ask · ${flatTitle.length} chars`, text: title },
         abandoned: isAbandonedWait(a, now),
         waitMs,
       }

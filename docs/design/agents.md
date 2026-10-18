@@ -163,3 +163,14 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - **r2:** fail: the needs-you sparkline readout has no unit; the fleet cell is stretched half-empty (emptyRatio {r} ≥ 0.4); a decision-card title ellipsizes; the project-card mini bar has no caption; the activity-strip footer has no unit; the `Full ask` button inset is off-scale (basalt).
 - **Against Keel:** does not hold up yet: no headline sentence, project cards half-empty, decision cards are code blocks with no evidence panel.
 - **Open for Wave 24:** the five argo items above and a headline sentence.
+
+### Wave 24 fixes
+
+- Needs-you sparkline readout carries a unit (`{n} items`) via `format`; the footer drops the "line is …" encoding note.
+- Fleet cell has a footer fact (non-working states with counts, `fleetFooter` + test) so it no longer stretches half-empty.
+- Decision-card title: `headlineOf` keeps a clause-free sentence whole up to two lines before ellipsizing; an agent title that is still shortened gets the `Full ask` disclosure.
+- Project-card run-time bars removed: the cell's unit already states the count and the longest run.
+- Activity-strip footer states units (`peak {n} agents at {hh:mm} · latest hour {n} agents`); the amber note became a fact (`{n} hours without a snapshot`, `gapHours` + test).
+- Headline: the local `page-summary.tsx` is deleted; the page uses the shared `PageSummary` (`summaryParts`: sentence = count + oldest wait, facts = fleet + idle projects, aside = `Live · updated {age}`).
+
+No basalt gaps this round.

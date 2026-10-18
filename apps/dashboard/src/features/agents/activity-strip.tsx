@@ -5,7 +5,7 @@ import { BandStrip } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import type { BandSpan } from 'basalt-ui/charts'
 import type { HistoryPoint } from '../../lib/queries/agents'
-import { hourlyWorking, peakWorking, type HourBucket } from './model'
+import { gapHours, hourlyWorking, peakWorking, type HourBucket } from './model'
 
 type Props = {
   history: HistoryPoint[] | undefined
@@ -14,6 +14,8 @@ type Props = {
 }
 
 const SIX_HOURS = 6
+
+const plural = (n: number) => `${n} ${n === 1 ? 'agent' : 'agents'}`
 
 const clock = (ms: number) =>
   new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(ms)
@@ -45,8 +47,10 @@ export function ActivityStrip({ history, hours, now }: Props) {
     return { buckets: hourly, peakHour: peakWorking(hourly) }
   }, [history, hours, now])
   const currentHourMs = buckets.at(-1)?.hourMs
-  const hasGap = buckets.some((b) => b.working === null && b.hourMs !== currentHourMs)
+  const gaps = gapHours(buckets)
   const peak = peakHour?.value ?? 0
+  const latest = buckets.at(-1)?.working ?? null
+  const latestHour = latest === null ? '—' : plural(latest)
 
   const getBand = useMemo(
     () =>
@@ -82,11 +86,11 @@ export function ActivityStrip({ history, hours, now }: Props) {
         <Text size="sm" ff="monospace" c="dimmed" mt="xs">
           {peakHour === null
             ? 'No snapshot in the window'
-            : `peak ${peak} at ${clock(peakHour.hourMs)} · latest hour ${buckets.at(-1)?.working ?? '—'}`}
+            : `peak ${plural(peak)} at ${clock(peakHour.hourMs)} · latest hour ${latestHour}`}
         </Text>
-        {hasGap ? (
+        {gaps > 0 ? (
           <Text size="xs" c="dimmed" mt="xs">
-            Amber: an hour with no snapshot received.
+            {gaps} {gaps === 1 ? 'hour' : 'hours'} without a snapshot
           </Text>
         ) : null}
       </Box>

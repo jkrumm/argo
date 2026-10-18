@@ -8,14 +8,10 @@ import {
   formatWaitDuration,
   longestRunMs,
   STATE_LABEL,
-  type AgentRow,
   type AgentState,
   type ProjectGroup,
 } from './model'
 import classes from './project-cards.module.css'
-
-const DAY_MS = 86_400_000
-const MAX_BARS = 12
 
 const STATE_TONE: Record<AgentState, StatusTone> = {
   needs_you: 'bad',
@@ -27,31 +23,6 @@ const STATE_TONE: Record<AgentState, StatusTone> = {
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
-
-/** One bar per running agent, taller the longer it has run (capped at a day). */
-function AgeBars({ agents, now }: { agents: AgentRow[]; now: number }) {
-  const shown = agents.slice(0, MAX_BARS)
-  return (
-    <span
-      className={classes.bars}
-      role="img"
-      aria-label={`Run time of ${plural(agents.length, 'running agent', 'running agents')}, capped at 24 h`}
-    >
-      {shown.map((a) => {
-        const since = a.startedAt ?? a.lastActivityAt ?? now
-        const share = Math.min(1, Math.max(0, (now - since) / DAY_MS))
-        return (
-          <Box
-            key={a.id}
-            component="span"
-            className={classes.bar}
-            h={`${Math.round(35 + share * 65)}%`}
-          />
-        )
-      })}
-    </span>
-  )
-}
 
 /** The share of each source among the project's agents, as one neutral two-to-three part bar. */
 function SourceBar({ sources }: { sources: Record<string, number> }) {
@@ -116,7 +87,6 @@ function ProjectCard({ group, now }: { group: ProjectGroup; now: number }) {
           caption: 'Running',
           value: String(running),
           unit: `${running === 1 ? 'agent' : 'agents'}${longest === null ? '' : ` · longest ${formatWaitDuration(longest)}`}`,
-          visual: running > 1 ? <AgeBars agents={group.working} now={now} /> : undefined,
         },
         {
           caption: 'Last activity',
