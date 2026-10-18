@@ -6,10 +6,10 @@ import { alpha, VX } from 'basalt-ui/tokens'
 import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { SERIES } from '../../../lib/series'
-import { EXERCISE_COLORS, METRIC_TOOLTIPS, ZONE_COLORS, type ExerciseKey } from '../constants'
-import { fmtLoadPair } from '../model'
-import { acwrZoneLabel, exerciseLabel, type AcwrZone } from '../formulas'
 import { ACWR_PARITY, ACWR_ZONE_NAME } from '../bands'
+import { EXERCISE_COLORS, METRIC_TOOLTIPS, ZONE_COLORS, type ExerciseKey } from '../constants'
+import { acwrZoneLabel, exerciseLabel, type AcwrZone } from '../formulas'
+import { fmtLoadPair } from '../model'
 import { mergePoints, type ExerciseSeries, type MergedPoint } from './merge-acwr'
 
 const HEIGHT = 280

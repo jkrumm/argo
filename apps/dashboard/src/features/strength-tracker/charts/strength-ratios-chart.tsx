@@ -8,12 +8,11 @@ import { METRIC_TOOLTIPS } from '../constants'
 import { type RatioStatus } from '../formulas'
 import {
   bandOffset,
-  borderlineNote,
-  EM_DASH,
-  fmtBound,
-  isBorderline,
   bandRange,
+  borderlineNote,
   distanceTail,
+  EM_DASH,
+  isBorderline,
   ratioName,
   statusWord,
 } from '../model'
@@ -73,7 +72,7 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
               </Group>
               {pair.ratio === null ? null : (
                 <Meter
-                  label={`${ratioName(pair.label)} ratio against its ${fmtBound(lo)}–${fmtBound(hi)} band`}
+                  label={`${ratioName(pair.label)} ratio against its ${bandRange(pair.range)} band`}
                   value={pair.ratio}
                   min={0}
                   max={pair.scaleMax}
