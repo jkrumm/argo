@@ -6,7 +6,7 @@ import { Sparkline } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import type { OverviewSummary } from '../../lib/queries/agents'
 import type { WardenBudget } from '../../lib/queries/warden'
-import { clockOf, WAITING_FOR_SNAPSHOT, type FleetPart } from '../agents/model'
+import { clockOf, noSnapshotText, type FleetPart } from '../agents/model'
 import { FLEET_COLOR } from '../agents/fleet-strip'
 import {
   ACWR_CAUTION_TO,
@@ -61,7 +61,7 @@ export function agentsCell(
           value={null}
           emptyText={
             feed === 'none'
-              ? WAITING_FOR_SNAPSHOT
+              ? noSnapshotText()
               : feed === 'failed'
                 ? 'Agents failed to load — reload to retry'
                 : 'No fleet counts in this snapshot'
@@ -278,7 +278,9 @@ export function acwrCell(
   /** The load read when there is no reading: still pending, or failed. */
   feed: 'loading' | 'error',
   /** The window the load was read over, for the settled-but-empty wording (Garmin's, one function). */
-  windowDays = 0,
+  windowDays: number,
+  /** The reading is the previous window's while this one loads: no gap to state yet. */
+  placeholder = false,
 ): StatStripCell {
   if (reading === null || reading.acwr === null) {
     return {
@@ -290,7 +292,9 @@ export function acwrCell(
           ? feed === 'loading'
             ? 'loading training load'
             : 'training load failed to load; reload to retry'
-          : chartEmpty('training load', windowDays),
+          : placeholder
+            ? 'loading training load'
+            : chartEmpty('training load', windowDays),
     }
   }
   return {

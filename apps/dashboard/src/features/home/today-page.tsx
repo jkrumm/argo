@@ -71,9 +71,10 @@ export function TodayPage() {
   const googleQuery = useQuery(calendarQueries.google(CALENDAR_DAYS, todayKey))
   const m365Query = useQuery(calendarQueries.m365(CALENDAR_DAYS, todayKey))
   const projectsQuery = useQuery(calendarQueries.ticktickProjects())
-  const projects = ((projectsQuery.data as { data?: unknown } | undefined)?.data ?? []) as Array<{
-    id: string
-  }>
+  // Under the shot's `empty` TickTick holds no project: the real "no tasks" branch, not a forced feed state.
+  const projects = (
+    shotEmpty ? [] : ((projectsQuery.data as { data?: unknown } | undefined)?.data ?? [])
+  ) as Array<{ id: string }>
   const taskQueries = useQueries({
     queries: projects.map((project) => calendarQueries.ticktickProjectTasks(project.id)),
   })
@@ -96,22 +97,23 @@ export function TodayPage() {
   const snapshot = agentsRecord?.snapshot
   const warden = shotEmpty ? null : (wardenQuery.data ?? null)
   const wardenRaw = warden?.raw
-  // Under the shot's `empty` every source answered: nothing is unavailable or stale.
-  const unavailable = shotEmpty
-    ? []
-    : [
-        ...(warden === null && !wardenQuery.isPending ? ['Warden'] : []),
-        ...(agentsRecord === null && !agentsQuery.isPending ? ['Agents'] : []),
-      ]
+  // A source is `unavailable` only when its read failed; a read still pending is `loading`; a settled
+  // null snapshot is neither, and the cells word it as "no snapshot yet".
+  const unavailable = [
+    ...(warden === null && wardenQuery.isError ? ['Warden'] : []),
+    ...(agentsRecord === null && agentsQuery.isError ? ['Agents'] : []),
+  ]
+  const loading = [
+    ...(warden === null && wardenQuery.isPending ? ['Warden'] : []),
+    ...(agentsRecord === null && agentsQuery.isPending ? ['Agents'] : []),
+  ]
 
-  const decisions = shotEmpty
-    ? []
-    : deriveDecisions({
-        warden: wardenRaw,
-        agents: snapshot,
-        wardenReceivedAt: warden?.receivedAt,
-        now,
-      })
+  const decisions = deriveDecisions({
+    warden: wardenRaw,
+    agents: snapshot,
+    wardenReceivedAt: warden?.receivedAt,
+    now,
+  })
 
   // ── Fleet and loop ─────────────────────────────────────────────────────────────────────────
   const agents = flattenAgents(snapshot)
@@ -135,17 +137,15 @@ export function TodayPage() {
   const later = agenda === null ? null : laterMeeting(feeds, now)
   const next = agenda === null ? null : nextMeeting(agenda.meetings, now)
 
-  const tasksFeed = shotEmpty ? 'ready' : taskFeedState([projectsQuery, ...taskQueries])
+  const tasksFeed = taskFeedState([projectsQuery, ...taskQueries])
   const tasks =
     tasksFeed === 'ready'
       ? taskCounts(
-          shotEmpty
-            ? []
-            : taskQueries.flatMap(
-                (q) =>
-                  ((q.data as { data?: { tasks?: unknown } } | undefined)?.data?.tasks ??
-                    []) as Parameters<typeof taskCounts>[0],
-              ),
+          taskQueries.flatMap(
+            (q) =>
+              ((q.data as { data?: { tasks?: unknown } } | undefined)?.data?.tasks ??
+                []) as Parameters<typeof taskCounts>[0],
+          ),
           now,
         )
       : null
@@ -202,7 +202,7 @@ export function TodayPage() {
     now,
   )
 
-  const summary = homeSummaryParts({ decisions, unavailable })
+  const summary = homeSummaryParts({ decisions, unavailable, loading })
 
   return (
     <>
@@ -245,12 +245,13 @@ export function TodayPage() {
               now,
               loadQuery.isPending ? 'loading' : 'error',
               windowCopyDays(garminParams, VISIBLE_DATE_MIN),
+              loadQuery.isPlaceholderData,
             ),
           ]}
         />
 
         <div className={classes.columns}>
-          <NeedsYou decisions={decisions} unavailable={unavailable} />
+          <NeedsYou decisions={decisions} unavailable={unavailable} loading={loading} />
           <Stack gap="md">
             <Meetings agenda={agenda} tasks={tasks} tasksFeed={tasksFeed} now={now} />
             <ActivityFeed
@@ -258,6 +259,8 @@ export function TodayPage() {
               total={stream.total}
               stale={stale}
               loaded={warden !== null || agentsRecord !== null}
+              failed={unavailable}
+              pending={loading}
               now={now}
             />
           </Stack>

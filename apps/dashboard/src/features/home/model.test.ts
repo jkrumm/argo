@@ -17,6 +17,7 @@ import {
   staleFeeds,
   homeSummaryParts,
   taskCounts,
+  tasksLine,
   todayAgenda,
   type ActivityEvent,
   type RawCalendarEvent,
@@ -126,6 +127,25 @@ describe('countdownLabel', () => {
   })
 })
 
+describe('tasksLine', () => {
+  it('words unknown tasks as loading or failed, never as zeros', () => {
+    expect(tasksLine(null, 'loading').lead).toBe('Tasks: loading')
+    expect(tasksLine(null, 'error').lead).toBe('Tasks: failed to load — reload to retry')
+  })
+
+  it('says no tasks in words and flags overdue only above zero', () => {
+    expect(tasksLine({ overdue: 0, dueSoon: 0, open: 0 }, 'ready')).toEqual({
+      lead: 'Tasks: none open',
+      overdue: false,
+    })
+    expect(tasksLine({ overdue: 0, dueSoon: 2, open: 3 }, 'ready')).toMatchObject({
+      lead: 'Tasks: 0 overdue',
+      overdue: false,
+    })
+    expect(tasksLine({ overdue: 1, dueSoon: 0, open: 1 }, 'ready').overdue).toBe(true)
+  })
+})
+
 describe('taskCounts', () => {
   it('counts open overdue and due-soon tasks by local day', () => {
     const counts = taskCounts(
@@ -198,7 +218,7 @@ describe('activityStream', () => {
 })
 
 describe('homeSummaryParts', () => {
-  const base = { unavailable: [] }
+  const base = { unavailable: [], loading: [] }
   const agentDecision = (): Decision => ({
     ...decision(60 * MIN),
     source: 'agent',
@@ -235,16 +255,30 @@ describe('homeSummaryParts', () => {
   })
 
   it('names an unavailable source instead of implying an empty inbox', () => {
-    expect(homeSummaryParts({ unavailable: ['Warden'], decisions: [] }).sentence).toBe(
+    expect(homeSummaryParts({ unavailable: ['Warden'], loading: [], decisions: [] }).sentence).toBe(
       'Nothing needs you (Warden unavailable).',
     )
   })
 
   it('states nothing else when neither source loaded', () => {
-    expect(homeSummaryParts({ unavailable: ['Warden', 'Agents'], decisions: [] })).toEqual({
+    expect(
+      homeSummaryParts({ unavailable: ['Warden', 'Agents'], loading: [], decisions: [] }),
+    ).toEqual({
       sentence: "Can't tell — Warden and Agents unavailable.",
       facts: [],
     })
+  })
+
+  it('says loading, never an empty inbox, while a source is pending', () => {
+    expect(homeSummaryParts({ unavailable: [], loading: ['Warden'], decisions: [] }).sentence).toBe(
+      'Nothing needs you (Warden loading).',
+    )
+    expect(
+      homeSummaryParts({ unavailable: [], loading: ['Warden', 'Agents'], decisions: [] }),
+    ).toEqual({ sentence: 'Loading Warden and Agents.', facts: [] })
+    expect(
+      homeSummaryParts({ unavailable: ['Agents'], loading: ['Warden'], decisions: [] }).sentence,
+    ).toBe("Can't tell — Agents unavailable, Warden loading.")
   })
 
   it('omits an unknown age rather than printing a figure it lacks', () => {
@@ -427,7 +461,7 @@ describe('staleFeeds and unavailable sources', () => {
     expect(staleFeeds([{ name: 'Warden', receivedAt: agoIso(29) }], NOW)).toEqual([])
   })
 
-  const base = { decisions: [], fleet: null, meetings: null, recovery: null, now: NOW }
+  const base = { decisions: [], loading: [], fleet: null, meetings: null, recovery: null, now: NOW }
 
   it('does not say nothing needs you when neither source loaded', () => {
     expect(homeSummaryParts({ ...base, unavailable: ['Warden', 'Agents'] }).sentence).toBe(

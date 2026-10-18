@@ -471,9 +471,6 @@ export function activityStream(
 export const emptyStreamLabel = (now: number) =>
   `No events since ${clockTime(new Date(activityHorizon(now)).toISOString())} yesterday — Warden, narrator and calendar events appear here.`
 
-/** With no feed loaded at all: the cause and the cadence to wait for (the Agents page's `No snapshot yet`, in the feed's width). */
-export const NO_FEED_LABEL = `No feed yet — Warden and Agents push every ${withUnit(10, 'min')}.`
-
 // ── Freshness ────────────────────────────────────────────────────────────────────────────────
 
 /** The `Live` pulse shows only while the newest push is younger than this. */
@@ -498,9 +495,23 @@ export const NEEDS_YOU_SOURCES = 2
 
 export type HomeSummaryInput = {
   decisions: readonly Decision[]
-  /** Sources whose feed is not loaded: the count then covers the rest, and the sentence says so. */
+  /** Sources whose read failed: the count then covers the rest, and the sentence says so. */
   unavailable: readonly string[]
+  /** Sources still being read: unknown for now, never an empty inbox. */
+  loading: readonly string[]
 }
+
+/** `Warden unavailable, Agents loading`: the one wording for sources the list cannot yet count. */
+export function unknownPhrase(unavailable: readonly string[], loading: readonly string[]): string {
+  return [
+    ...(unavailable.length > 0 ? [`${unavailable.join(' and ')} unavailable`] : []),
+    ...(loading.length > 0 ? [`${loading.join(' and ')} loading`] : []),
+  ].join(', ')
+}
+
+/** Every source behind the needs-you list is unknown (failed or loading): the list can't be counted. */
+export const allUnknown = (s: Pick<HomeSummaryInput, 'unavailable' | 'loading'>): boolean =>
+  s.unavailable.length + s.loading.length >= NEEDS_YOU_SOURCES
 
 export type HomeSummaryParts = { sentence: string; facts: string[] }
 
@@ -510,9 +521,17 @@ export type HomeSummaryParts = { sentence: string; facts: string[] }
  * so the summary does not print them a second time.
  */
 export function homeSummaryParts(s: HomeSummaryInput): HomeSummaryParts {
-  if (s.unavailable.length >= NEEDS_YOU_SOURCES)
-    return { sentence: `Can't tell — ${s.unavailable.join(' and ')} unavailable.`, facts: [] }
-  const gap = s.unavailable.length > 0 ? ` (${s.unavailable.join(' and ')} unavailable)` : ''
+  const phrase = unknownPhrase(s.unavailable, s.loading)
+  if (allUnknown(s)) {
+    return {
+      sentence:
+        s.unavailable.length === 0
+          ? `Loading ${s.loading.join(' and ')}.`
+          : `Can't tell — ${phrase}.`,
+      facts: [],
+    }
+  }
+  const gap = phrase === '' ? '' : ` (${phrase})`
   const ages = s.decisions.flatMap((d) => (d.ageMs === null ? [] : [d.ageMs]))
   const oldest = ages.length === 0 ? null : formatDuration(Math.max(...ages))
   const sentence = `${oldestWaitSentence(s.decisions.length, oldest)}${gap}.`
@@ -525,4 +544,25 @@ export function homeSummaryParts(s: HomeSummaryInput): HomeSummaryParts {
   ].flatMap(([n, label]) => (n === 0 ? [] : [`${n} ${label}`]))
   // One source alone is the heading count already; the split only says something across two.
   return { sentence, facts: where.length < 2 ? [] : where }
+}
+
+export type TaskFeed = 'loading' | 'error' | 'ready'
+
+/** The meetings card's tasks line: `lead` always, `rest` after a middle dot, `overdue` flags the lead as bad. */
+export function tasksLine(
+  tasks: { overdue: number; dueSoon: number; open: number } | null,
+  feed: TaskFeed,
+): { lead: string; rest?: string; overdue: boolean } {
+  if (tasks === null) {
+    return {
+      lead: feed === 'error' ? 'Tasks: failed to load — reload to retry' : 'Tasks: loading',
+      overdue: false,
+    }
+  }
+  if (tasks.open === 0) return { lead: 'Tasks: none open', overdue: false }
+  return {
+    lead: `Tasks: ${tasks.overdue} overdue`,
+    rest: ` · ${tasks.dueSoon} due within ${withUnit(DUE_SOON_DAYS, 'd')}`,
+    overdue: tasks.overdue > 0,
+  }
 }

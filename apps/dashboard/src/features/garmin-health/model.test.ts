@@ -14,6 +14,7 @@ import {
   divergenceFact,
   firstToLast,
   FITNESS_DAYS,
+  fitnessGap,
   fitnessRange,
   fmtMinutes,
   fmtNum,
@@ -423,6 +424,21 @@ describe('lastScored edge cases', () => {
     expect(lastScored([])).toBeNull()
     expect(lastScored([{ date: '2026-01-01', recovery: null }])).toBeNull()
     expect(lastScored([{ date: '2026-01-01', recovery: Number.NaN }])).toBeNull()
+  })
+})
+
+describe('fitnessGap', () => {
+  const settled = { status: 'success', placeholder: false, hasReading: false } as const
+  test('a settled read with no reading names both spans and the next step', () => {
+    expect(fitnessGap(settled)).toBe(
+      'No RHR or HRV in this 14\u00a0d window and no VO2max in 180\u00a0d — Garmin syncs every 6\u00a0h',
+    )
+  })
+  test('a reading, a pending or a placeholder read has no copy; a failure says so', () => {
+    expect(fitnessGap({ ...settled, hasReading: true })).toBeUndefined()
+    expect(fitnessGap({ ...settled, status: 'pending' })).toBeUndefined()
+    expect(fitnessGap({ ...settled, placeholder: true })).toBeUndefined()
+    expect(fitnessGap({ ...settled, status: 'error' })).toBe('The fitness readings failed to load')
   })
 })
 

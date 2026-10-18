@@ -36,7 +36,7 @@ import {
   missingInputs,
   recoveryGap,
   loadGap,
-  chartEmpty,
+  fitnessGap,
   windowCopyDays,
   fmtNum,
   shortDate,
@@ -316,29 +316,26 @@ function useFitnessCell(): StatStripCell {
   }, [seriesData])
 
   const d = empty ? undefined : direction.data
-  // Settled with no reading at all: one line with cause and next step (the neighbours' wording),
-  // not a hero, a qualifier and three rows of dashes. A pending or placeholder read is not a gap.
-  const settled =
-    empty ||
-    ([direction, series, history].every((q) => q.isSuccess) &&
-      ![direction, series, history].some((q) => q.isPlaceholderData))
-  const noReading =
-    settled &&
-    vo2.values.length === 0 &&
-    d?.label === undefined &&
-    rows.rhr.every((v) => v === null) &&
-    rows.hrv.every((v) => v === null)
-  if (noReading) {
+  // No reading in any read: one line with cause and next step (the neighbours' wording), not a hero,
+  // a qualifier and three rows of dashes. A pending or placeholder read is not a gap.
+  const reads = [direction, series, history]
+  const gap = fitnessGap({
+    status: reads.some((q) => q.isError)
+      ? 'error'
+      : reads.some((q) => q.isPending)
+        ? 'pending'
+        : 'success',
+    placeholder: reads.some((q) => q.isPlaceholderData),
+    hasReading:
+      vo2Hero(vo2.values, d?.vo2max) !== null ||
+      rows.rhr.some((v) => v !== null) ||
+      rows.hrv.some((v) => v !== null),
+  })
+  if (gap !== undefined) {
     return {
       key: 'fitness',
       caption: 'Fitness',
-      visual: (
-        <Meter
-          label="Fitness signals"
-          value={null}
-          emptyText={chartEmpty('RHR, HRV or VO2max', FITNESS_DAYS)}
-        />
-      ),
+      visual: <Meter label="Fitness signals" value={null} emptyText={gap} />,
     }
   }
   return {

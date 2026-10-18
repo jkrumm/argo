@@ -40,7 +40,9 @@ describe('agents cell without a fleet', () => {
       .emptyText
 
   it('names the cause and the next step, one wording per feed state', () => {
-    expect(emptyText('none')).toBe('Waiting for the first snapshot')
+    expect(emptyText('none')).toBe(
+      'Waiting for the first snapshot — agent-gateway pushes every 10\u00a0min',
+    )
     expect(emptyText('failed')).toBe('Agents failed to load — reload to retry')
     expect(emptyText(null)).toBe('No fleet counts in this snapshot')
   })
@@ -112,8 +114,8 @@ describe('strip cells with no reading', () => {
       'the recovery score failed to load',
     )
     expect(recoveryCell(null, true)).toMatchObject({ footer: 'loading Garmin data' })
-    expect(acwrCell(null, NOW, 'loading')).toMatchObject({ footer: 'loading training load' })
-    expect(acwrCell(null, NOW, 'error')).toMatchObject({
+    expect(acwrCell(null, NOW, 'loading', 30)).toMatchObject({ footer: 'loading training load' })
+    expect(acwrCell(null, NOW, 'error', 30)).toMatchObject({
       value: null,
       footer: 'training load failed to load; reload to retry',
     })
@@ -140,6 +142,10 @@ describe('strip cells with no reading', () => {
     expect(acwrCell({ acwr: null, zone: null, date: null }, NOW, 'error', 30).footer).toBe(
       'No training load in this 30\u00a0d window — Garmin syncs every 6\u00a0h',
     )
+    // The previous window's rows while this one loads: no gap to state yet.
+    expect(acwrCell({ acwr: null, zone: null, date: null }, NOW, 'error', 30, true).footer).toBe(
+      'loading training load',
+    )
   })
 
   it('drops the poller line when there is no budget and no poller to date', () => {
@@ -152,10 +158,13 @@ describe('strip cells with no reading', () => {
   it('names the reading day in the ACWR footer only when it is not today', () => {
     const reading = { acwr: 1.1, zone: 'optimal' as const }
     expect(
-      acwrCell({ acwr: 0.5, zone: 'undertrained' as const, date: '2026-01-15' }, NOW, 'error').unit,
+      acwrCell({ acwr: 0.5, zone: 'undertrained' as const, date: '2026-01-15' }, NOW, 'error', 30)
+        .unit,
     ).toBe('Low')
-    expect(acwrCell({ ...reading, date: '2026-01-15' }, NOW, 'error').footer).toBe('range 0.8–1.3')
-    expect(acwrCell({ ...reading, date: '2026-01-14' }, NOW, 'error').footer).toBe(
+    expect(acwrCell({ ...reading, date: '2026-01-15' }, NOW, 'error', 30).footer).toBe(
+      'range 0.8–1.3',
+    )
+    expect(acwrCell({ ...reading, date: '2026-01-14' }, NOW, 'error', 30).footer).toBe(
       'range 0.8–1.3 · Wed 14 Jan',
     )
   })
