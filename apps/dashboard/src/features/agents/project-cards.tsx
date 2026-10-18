@@ -110,14 +110,19 @@ export function ProjectCards({ active, quiet, now }: Props) {
             cols={{ base: 1, [CONTAINER_KEYS.regular]: 2, [CONTAINER_KEYS.wide]: 3 }}
           >
             {active.map((g, i) => (
-              <Box key={g.name} data-shot={`project-card-${i + 1}`}>
+              <Box key={g.name} data-shot={`project-card-${i + 1}`} data-shot-absent="empty">
                 <ProjectCard group={g} now={now} />
               </Box>
             ))}
           </SimpleGrid>
         ) : null}
         {quiet.length > 0 ? (
-          <Stack gap="xs" className={classes.quietBox} data-shot="quiet-projects">
+          <Stack
+            gap="xs"
+            className={classes.quietBox}
+            data-shot="quiet-projects"
+            data-shot-absent="empty"
+          >
             <Text className={classes.listHead}>
               No agent running · {plural(quiet.length, 'project', 'projects')}
             </Text>

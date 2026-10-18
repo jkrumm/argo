@@ -68,7 +68,7 @@ export function NeedsYouSection({ cards, unknown = false }: Props) {
     <Section title="Needs you">
       <Stack gap="sm">
         {cards.map((card, i) => (
-          <Box key={card.key} data-shot={`decision-card-${i + 1}`}>
+          <Box key={card.key} data-shot={`decision-card-${i + 1}`} data-shot-absent="empty">
             <Card card={card} />
           </Box>
         ))}

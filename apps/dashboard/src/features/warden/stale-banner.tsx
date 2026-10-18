@@ -14,6 +14,7 @@ export function StaleBanner({ snapshot }: Props) {
   if (!snapshot) {
     return (
       <Alert
+        data-shot="no-snapshot"
         color="gray"
         variant="light"
         icon={<IconInfoCircle size={16} />}
