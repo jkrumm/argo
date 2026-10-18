@@ -1,12 +1,13 @@
-import { useCallback, useId, useLayoutEffect, useRef, useState } from 'react'
-import { Anchor, Box, Button, SimpleGrid, Stack, Text } from '@mantine/core'
-import { useDisclosure } from '@mantine/hooks'
+import { useCallback, useState } from 'react'
+import { Anchor, Box, SimpleGrid, Text } from '@mantine/core'
 import { EmptyState, Section, useSizeClass } from 'basalt-ui'
 import { CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
 import { IconCircleCheck, IconListDetails } from '@tabler/icons-react'
 import type { WardenActionVerb, WardenItems } from '../../lib/queries/warden'
+import classes from './board.module.css'
 import { HistoryPreview } from './history-preview'
 import { DecisionCard, type DecisionCardAction } from '../../components/upstream/decision-card'
+import { capFacts } from '../../components/upstream/decision-card-model'
 import { ActionPromptModal } from './action-prompt'
 import { VERB_LABEL, needsPrompt, type PromptState, type PromptVerb } from './action-verbs'
 import {
@@ -16,14 +17,14 @@ import {
   type PendingActions,
 } from './model'
 import {
+  askCopy,
   cardCategory,
   cardFacts,
+  historyView,
   needsCards,
   planActions,
-  retryQuestion,
   recentTransitions,
   type TransitionHistory,
-  splitReason,
   type QueueKind,
 } from './page-model'
 import { StatusChip } from './status-chip'
@@ -38,48 +39,12 @@ type Props = {
   onAction: OnAction
 }
 
-/** True while the element's content overflows its clamped box; re-measured whenever it resizes. */
-function useOverflows(active: boolean, text: string) {
-  const ref = useRef<HTMLParagraphElement>(null)
-  const [overflows, setOverflows] = useState(false)
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!active || el === null) return
-    const measure = () => setOverflows(el.scrollHeight > el.clientHeight + 1)
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [active, text])
-  return { ref, overflows }
-}
-
-/** The reason, clamped to three lines with an in-place expand/collapse whenever it is cut off at
- * the current width — measured, not guessed from the character count. */
-function ClampedText({ text }: { text: string }) {
-  const [expanded, { toggle }] = useDisclosure(false)
-  const textId = useId()
-  const { ref, overflows } = useOverflows(!expanded, text)
-  // Expanded text no longer overflows, so the toggle stays while expanded to let the owner collapse.
-  const canToggle = overflows || expanded
+/** The whole ask, behind the card's disclosure; long identifiers and URLs wrap anywhere. */
+function FullAsk({ text }: { text: string }) {
   return (
-    <Stack gap={4} align="flex-start">
-      <Text id={textId} ref={ref} size="sm" {...(expanded ? {} : { lineClamp: 3 })}>
-        {text}
-      </Text>
-      {canToggle ? (
-        <Button
-          variant="subtle"
-          color="gray"
-          size="compact-xs"
-          onClick={toggle}
-          aria-expanded={expanded}
-          aria-controls={textId}
-        >
-          {expanded ? 'Show less' : 'Show more'}
-        </Button>
-      ) : null}
-    </Stack>
+    <Text size="sm" className={classes.text}>
+      {text}
+    </Text>
   )
 }
 
@@ -120,36 +85,42 @@ function QueueCard({
     { label: 'Timeline', onClick: onSelectItem, icon: <IconListDetails size={14} /> },
   ]
 
-  const title = row.title ?? `Item #${row.eventId}`
-  const split =
-    kind === 'failed'
-      ? { question: retryQuestion(title), rest: row.reason }
-      : splitReason(row.reason, title)
-  const category = cardCategory(kind, 'tag' in split ? split.tag : null, row.failureClass)
+  const ask = askCopy({
+    title: row.title ?? `Item #${row.eventId}`,
+    reason: row.reason,
+    failed: kind === 'failed',
+  })
+  const { copy } = ask
+  const category = cardCategory(kind, ask.tag, row.failureClass)
   const status =
     category !== null ? (
       <StatusChip label={category} />
     ) : row.state !== 'needs_decision' && row.state !== 'failed' && row.state !== null ? (
       <StatusChip label={row.state} />
     ) : undefined
-  const evidence = split.rest !== null ? <ClampedText text={split.rest} /> : undefined
+  const view = historyView(history)
 
   return (
     <Box data-shot={`${kind}-${row.eventId}`}>
       <DecisionCard
-        question={split.question}
-        facts={cardFacts(row)}
+        question={copy.question}
+        facts={capFacts(cardFacts(row))}
         status={status}
         actor={
-          kind === 'decision' && split.question !== title ? (
-            <Text component="span" fz="xs" title={title}>
-              {title}
+          kind === 'decision' && !copy.fromTitle && copy.question !== ask.title ? (
+            <Text component="span" fz="xs" title={ask.title} className={classes.text}>
+              {ask.title}
             </Text>
           ) : undefined
         }
-        {...(!narrow && evidence ? { evidence } : {})}
-        {...(narrow && evidence ? { disclosure: { label: 'Full reason', content: evidence } } : {})}
-        {...(!narrow && history.length > 0 ? { preview: <HistoryPreview lines={history} /> } : {})}
+        evidenceLine={copy.evidenceLine}
+        {...(copy.detail !== null
+          ? { disclosure: { label: 'Full reason', content: <FullAsk text={copy.detail} /> } }
+          : {})}
+        {...(view !== null && (!narrow || view.layout === 'inline')
+          ? { preview: <HistoryPreview lines={history} /> }
+          : {})}
+        {...(view?.layout === 'inline' ? { inlinePreview: true } : {})}
         primary={plan.primary ? toAction(plan.primary) : undefined}
         secondary={plan.secondary ? toAction(plan.secondary) : undefined}
         menu={menu}

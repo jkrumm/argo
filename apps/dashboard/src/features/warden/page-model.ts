@@ -6,7 +6,11 @@ import type {
   WardenHealth,
   WardenMetrics,
 } from '../../lib/queries/warden'
-import type { DecisionCardFact } from '../../components/upstream/decision-card-model'
+import {
+  cardCopy,
+  type CardCopy,
+  type DecisionCardFact,
+} from '../../components/upstream/decision-card-model'
 import {
   formatAgeDays,
   isDeferredItem,
@@ -20,6 +24,25 @@ import {
 // Pure derivations for the redesigned Warden page: the summary sentence, the health strip, the
 // budget meters, the poller list, the decision-card copy and the board columns. Argo still derives
 // nothing warden did not already compute — this only reads, groups and words it.
+
+// ── Emoji shortcodes ────────────────────────────────────────────────────────
+
+/** `[red_circle: build failed]` → group 1 is the text worth keeping. */
+const BRACKET_SHORTCODE = /\[:?[a-z][a-z0-9_+-]*:?\s*:\s*([^\]]*)\]/gi
+/** A standalone `:rocket:`; never the colons inside `m365:auth:prod`, `a:b:c` or `10:30:45`. */
+const BARE_SHORTCODE = /(?<![\w:]):[a-z][a-z0-9_+-]*:(?![\w:])/gi
+
+/**
+ * Slack-style emoji shortcodes are noise in a source line or a title: `[red_circle: text]` keeps its
+ * `text`, a bare `:name:` is dropped, and the whitespace left behind is collapsed.
+ */
+export function stripShortcodes(text: string): string {
+  return text
+    .replace(BRACKET_SHORTCODE, '$1')
+    .replace(BARE_SHORTCODE, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
 
 // ── Metric reading ──────────────────────────────────────────────────────────
 
@@ -83,6 +106,9 @@ export type StripModel = {
     oldestMin: number | null
     thresholdMin: number
     stale: boolean
+    /** The oldest poller's own name and how many pollers report; `null` when only the leaf value is known. */
+    name: string | null
+    count: number
     unavailable: string | null
   }
   reverts: {
@@ -183,6 +209,8 @@ export function deriveStrip(
       oldestMin: pollers[0]?.ageMin ?? pollerReading.value,
       thresholdMin: pollers[0]?.thresholdMin ?? POLLER_SCALE_MIN,
       stale: pollers[0]?.stale ?? (pollerReading.value ?? 0) >= POLLER_SCALE_MIN,
+      name: pollers[0]?.name ?? null,
+      count: pollers.length,
       unavailable: pollers[0] || pollerReading.value !== null ? null : pollerReading.unavailable,
     },
     reverts: {
@@ -258,6 +286,14 @@ export function deriveBudgetFooter(budget: WardenBudget | undefined): BudgetFoot
   const reported = meters.some((meter) => meter.used !== null && meter.max !== null)
   return reported ? { kind: 'meters', meters } : { kind: 'not-reported' }
 }
+
+/** What a missing budget says: the cause is on warden's side, the fix is its next push. */
+export const BUDGET_MISSING = {
+  both: 'Dispatch and implement budget not reported yet. Warden sends it with each push (about every 10 min).',
+  one: (name: string) =>
+    `${name} budget not reported yet. Warden sends it with each push (about every 10 min).`,
+  short: 'Not reported yet; Warden sends it with each push, about every 10 min.',
+} as const
 
 /** The dispatch meter as `{used, max}` for the headline, `null` unless both are reported. */
 export function dispatchOf(budget: WardenBudget | undefined): { used: number; max: number } | null {
@@ -446,15 +482,49 @@ export function splitReason(
   return { tag, question: first, rest: rest === '' ? null : rest }
 }
 
+/**
+ * The question, evidence line and disclosure text of one Warden ask: emoji shortcodes stripped,
+ * a failed item as `Retry <title>?` with its reason as the body, a decision as the reason's first
+ * sentence (or `Decide on <title>?` when that sentence is prose). `tag` is the lifted `[tag]`.
+ */
+export function askCopy({
+  title,
+  reason,
+  failed,
+}: {
+  title: string
+  reason: string | null
+  failed: boolean
+}): { tag: string | null; title: string; copy: CardCopy } {
+  const cleanTitle = stripShortcodes(title)
+  const cleanReason = reason === null ? null : stripShortcodes(reason)
+  if (failed) {
+    return {
+      tag: null,
+      title: cleanTitle,
+      copy: cardCopy({
+        question: retryQuestion(cleanTitle),
+        body: cleanReason === '' ? null : cleanReason,
+      }),
+    }
+  }
+  const split = splitReason(cleanReason, cleanTitle)
+  return {
+    tag: split.tag,
+    title: cleanTitle,
+    copy: cardCopy({ question: split.question, body: split.rest, title: cleanTitle }),
+  }
+}
+
 /** `Retry <title>?` — a title that already ends in punctuation does not get a second mark. */
 export function retryQuestion(title: string): string {
   return `Retry ${title.trim().replace(/[.!?…:;,]+$/, '')}?`
 }
 
-/** `<repo> · waiting <n> d · revision <n> · <n> redrives` — only the parts warden reported. */
 /** A decision waiting longer than this many days gets a warning tone on its age. */
 const WAIT_WARN_DAYS = 2
 
+/** The entity (`<repo>`) plus two facts: `waiting <n> d` and `revision <n>[, <n> redrives]`. */
 export function cardFacts(row: AwaitingOwnerRow): DecisionCardFact[] {
   const waiting =
     row.ageDays === null
@@ -463,10 +533,9 @@ export function cardFacts(row: AwaitingOwnerRow): DecisionCardFact[] {
         ? { text: `waiting ${formatAgeDays(row.ageDays)}`, tone: 'warn' as const }
         : `waiting ${formatAgeDays(row.ageDays)}`
   return [
-    row.repo ?? '',
+    stripShortcodes(row.repo ?? ''),
     waiting,
-    `revision ${row.revisionCount}`,
-    row.redrives > 0 ? pluralize(row.redrives, 'redrive') : '',
+    `revision ${row.revisionCount}${row.redrives > 0 ? `, ${pluralize(row.redrives, 'redrive')}` : ''}`,
   ].filter((part) => part !== '')
 }
 
@@ -592,6 +661,32 @@ export function recentTransitions(timeline: unknown, limit = 3): TransitionHisto
 
 // ── History preview ─────────────────────────────────────────────────────────
 
+/** `Needs decision → Working`; a creation row reads `Created` (or `Created → <state>`). */
+export function transitionText({ from, to }: TransitionLine): string {
+  const target = sentenceCase(to) ?? to
+  if (from === null) return to === 'new' ? 'Created' : `Created → ${target}`
+  return `${sentenceCase(from) ?? from} → ${target}`
+}
+
+export type HistoryView = {
+  /** One transition is plain inline text; more earn the right-hand well. */
+  layout: 'inline' | 'well'
+  /** Newest first, every state named whole. */
+  lines: { text: string; at: string | null }[]
+  /** Transitions left out of `lines`. */
+  earlier: number
+}
+
+export function historyView(history: TransitionHistory): HistoryView | null {
+  const summary = historySummary(history, history.total)
+  if (summary === null) return null
+  return {
+    layout: Math.max(history.total ?? 0, history.length) <= 1 ? 'inline' : 'well',
+    lines: history.toReversed().map((line) => ({ text: transitionText(line), at: line.at })),
+    earlier: summary.earlier - (history.length - 1),
+  }
+}
+
 /** The newest state change plus how many earlier ones sit behind it — a card shows one line, not a log. */
 export function historySummary(
   lines: readonly TransitionLine[],
@@ -617,9 +712,11 @@ export function splitBoardColumns(columns: readonly BoardColumn[]): {
   }
 }
 
-// ── Reverts footer ──────────────────────────────────────────────────────────
+// ── Strip footers ───────────────────────────────────────────────────────────
 
-/** The reverts cell's footer: the definition in plain words, then the reopen count and window. */
+const NBSP = '\u00a0'
+
+/** The reverts cell's footer: the reopen count and window (the term is defined in the info tooltip). */
 export function revertsFooter(
   reverts: StripModel['reverts'],
   noData: (reason: string) => string,
@@ -627,10 +724,67 @@ export function revertsFooter(
   const parts = [
     reverts.reverts === null
       ? `reverts ${noData(reverts.revertsUnavailable ?? 'not reported')}`
-      : 'revert = a merged fix that was undone',
+      : '',
     reverts.reopens === null
       ? `reopens ${noData(reverts.reopensUnavailable ?? 'not reported')}`
-      : `${reverts.reopens} reopened after fixed · last\u00a0${reverts.windowDays}\u00a0d`,
+      : `${reverts.reopens} reopened after fixed · last${NBSP}${reverts.windowDays}${NBSP}d`,
   ]
-  return parts.join(' · ')
+  return parts.filter((part) => part !== '').join(' · ')
+}
+
+export const REVERTS_INFO =
+  'A revert is a merged fix that was undone. A reopen is an item that came back after it was marked fixed.'
+
+/**
+ * The fixes legend as a sum: `a fixed + b quiet + c closed = n items`. A count warden did not
+ * report is `—` and the total is left off, so the line never claims a sum it cannot show.
+ */
+export function fixesLegend(fixes: StripModel['fixes']): string {
+  const parts = [
+    { n: fixes.fixed, label: 'fixed' },
+    { n: fixes.quiet, label: 'quiet' },
+    { n: fixes.closed, label: 'closed' },
+  ]
+  const text = parts.map((part) => `${part.n ?? '—'}${NBSP}${part.label}`).join(' + ')
+  return parts.some((part) => part.n === null)
+    ? text
+    : `${text} = ${parts.reduce((sum, part) => sum + (part.n ?? 0), 0)}${NBSP}items`
+}
+
+/** The verdicts cell's fact line (the cell has nothing to compare the share against). */
+export function verdictsFooter(verdicts: StripModel['verdicts']): string {
+  return verdicts.numerator !== null && verdicts.denominator !== null
+    ? `${verdicts.numerator} of ${verdicts.denominator} tracked items · all time`
+    : 'all time'
+}
+
+/** The oldest poller's name and rank (`merge poller · oldest of 3`); `null` when unnamed. */
+export function pollerFooter(poller: StripModel['poller']): string | null {
+  if (poller.name === null) return null
+  const name = poller.name.replaceAll('_', ' ')
+  return poller.count > 1 ? `${name} · oldest of ${poller.count}` : name
+}
+
+// ── Board empty copy ────────────────────────────────────────────────────────
+
+const COLUMN_MEANING: Record<BoardColumnKey, string> = {
+  new: 'waiting to be triaged',
+  triaged: 'triaged and waiting to start',
+  working: 'being worked on',
+  merging: 'with a PR waiting to merge',
+  verifying: 'merged and being verified',
+  other: 'in a state this page does not list',
+}
+
+/** An empty column, as a fact about what would be in it: `No item being worked on.` */
+export function emptyColumnText(key: BoardColumnKey): string {
+  return `No item ${COLUMN_MEANING[key]}.`
+}
+
+/** The whole board empty: how many items warden has already resolved, when it reports them. */
+export function emptyBoardText(strip: StripModel['fixes']): string {
+  const resolved = [strip.fixed, strip.quiet, strip.closed]
+  return resolved.some((n) => n === null)
+    ? 'No open items.'
+    : `No open items. Warden has resolved ${resolved.reduce<number>((sum, n) => sum + (n ?? 0), 0)} so far.`
 }

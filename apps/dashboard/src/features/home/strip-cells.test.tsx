@@ -18,13 +18,27 @@ describe('strip cells with no reading', () => {
       meetingCell({ meetings: [], loaded: ['work', 'personal'], unavailable: [] }, null, null, NOW),
     ).toMatchObject({
       value: null,
-      footer: 'none in the next 7 days',
+      footer: 'none in 7 days',
     })
-    expect(recoveryCell(null)).toMatchObject({ value: null, footer: 'unavailable' })
+    expect(recoveryCell(null)).toMatchObject({
+      value: null,
+      footer: 'Garmin data not loaded; reload to retry',
+    })
+    expect(
+      recoveryCell({
+        score: null,
+        mean: null,
+        days: 0,
+        ceiling: null,
+        trend: [],
+        date: null,
+        isToday: false,
+      }),
+    ).toMatchObject({ value: null, footer: 'no reading yet · Garmin syncs every 6 h' })
     expect(acwrCell(null, NOW)).toMatchObject({ value: null, footer: 'unavailable' })
   })
 
-  it('labels a recovery that is not today’s with its own day and says it is not scored yet', () => {
+  it('labels a recovery that is not today’s with its own day and says when today fills', () => {
     const cell = recoveryCell({
       score: 70,
       mean: 65,
@@ -35,7 +49,7 @@ describe('strip cells with no reading', () => {
       isToday: false,
     })
     expect(cell.caption).toBe('Recovery · Wed 14 Jan')
-    expect(cell.footer).toBe('not scored yet today')
+    expect(cell.footer).toBe('today fills after the next Garmin sync (every 6 h)')
   })
 
   it('names the reading day in the ACWR footer only when it is not today', () => {
@@ -49,7 +63,7 @@ describe('strip cells with no reading', () => {
   it('says which calendar is missing when the empty day is partial', () => {
     expect(
       meetingCell({ meetings: [], loaded: ['work'], unavailable: ['personal'] }, null, null, NOW),
-    ).toMatchObject({ footer: 'No Work meetings today · Personal unavailable.' })
+    ).toMatchObject({ footer: 'none today · Personal unavailable' })
   })
 
   it('names the next meeting after today when today is empty', () => {

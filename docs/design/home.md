@@ -119,3 +119,16 @@ No basalt gaps this round.
 
 - **Reviewer:** fail: the agents strip's 24 h shade band is near-uniform and its caption explains the encoding; the budget and recovery empty states say why but not what next; the recovery cell is stretched (`emptyRatio` ≥ 0.4); the decision cards' `Latest change` line truncates mid-state at 1440; activity actor names clip. Basalt: ACWR zone labels bunch at the track start; chart tooltips cover the cell's value at 390.
 - **Against Keel:** close — the headline and fact line work; dash tiles with sentence captions and a mostly empty `Latest change` well are what still separate it.
+
+### Wave 25 fixes
+
+- **Decision cards** use the shared interior (see `docs/design/warden.md` § "Wave 25 fixes"): question, entity + at most three facts (the source kicker above the question is gone, its facts sit under it), one evidence line, the full text behind a `Full text` disclosure, and the `Latest change` line inline (no well) when an item has one transition. `Decision` now carries `entity`, `evidenceLine` and `detail`, all derived in `lib/decisions.ts`.
+- **Agents strip:** the 24 h shade band and its "shade is share" caption are gone. The footer is a fact (`peak {n} of {total} at {time} · working in {h} of 24 h`, `fleetPulse`).
+- **Empty states say what next:** the budget (`Not reported yet; Warden sends it with each push, about every 10 min`), recovery without a reading (`no reading yet · Garmin syncs every 6 h`), recovery not yet scored today (`today fills after the next Garmin sync (every 6 h)`) and recovery not loaded (`Garmin data not loaded; reload to retry`).
+- **Dash tiles:** footers are short facts (`{name} poller {n} min old`, `none in 7 days`, `none today · {source} unavailable`) rather than sentences.
+- **Activity actors:** a repo name over 18 characters is shortened in the row after a separator (`shortName`), a long project chip likewise; the whole sentence rides in the row's tooltip (`ActivityEvent.full`).
+- **Recovery cell:** not changed beyond its footers. The stretch comes from the strip row height set by the meeting cell's two-line footer, which `StatGroup` does not let a cell opt out of; filed below.
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| `StatGroup` strip | per-cell `align="start"` (a cell keeps its content height instead of filling the row) | the recovery cell is stretched by a taller neighbour and shows ≥40 % empty | argo leaves the stretch and keeps every state's footer a short fact |

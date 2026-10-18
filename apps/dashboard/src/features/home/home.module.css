@@ -110,15 +110,17 @@
 
 .feedSentence {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: var(--vx-space-control-gap);
   min-width: 0;
 }
 
-/* The subject gives way first; the outcome (the transition) is never clipped. */
+/* The subject keeps its words; the outcome (the transition) wraps below it rather than squeezing it. */
 .feedSubject {
-  flex: 0 100 auto;
-  min-width: 10ch;
+  flex: 0 1 auto;
+  max-width: 100%;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
