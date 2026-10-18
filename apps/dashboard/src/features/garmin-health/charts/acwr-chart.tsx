@@ -24,7 +24,7 @@ import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
 import { shotState } from '../../../lib/shot-state'
 import { latestWith } from './latest'
-import { emptyIn } from './empty'
+import { useChartEmpty } from './empty'
 import { localDay } from './local-day'
 
 type TrainingLoadPoint = {
@@ -131,11 +131,16 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
     dayCount: measured.length,
   })
 
+  const emptyLabel = useChartEmpty('acwrChart', 'training load', params, {
+    settled: query.isSuccess && !query.isPlaceholderData,
+    empty: !hasAcwr,
+  })
+
   return (
     <ChartCard
       title="ACWR"
       info={METRIC_TOOLTIPS.trainingLoad}
-      state={chartStateOf(query, !hasAcwr ? emptyIn('training load', params) : undefined)}
+      state={chartStateOf(query, emptyLabel)}
       placeholderHeight={280}
       facts={[toChartFact(fact), toChartFact(divergence)]}
     >

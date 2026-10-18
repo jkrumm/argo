@@ -7,7 +7,12 @@ import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, RangeFilter } from 'basalt-ui/controls'
 import { DateRangePicker } from 'basalt-ui/controls-dates'
 import { garminStore, toApiWindow } from '../lib/window-stores'
-import { SummaryLine, GarminStrip, useGarminSync } from '../features/garmin-health'
+import {
+  GapLedgerProvider,
+  SummaryLine,
+  GarminStrip,
+  useGarminSync,
+} from '../features/garmin-health'
 import { fitnessRange } from '../features/garmin-health/model'
 import ActivitiesChart from '../features/garmin-health/charts/activities-chart'
 import ActivityScoreChart from '../features/garmin-health/charts/activity-score-chart'
@@ -69,58 +74,68 @@ function GarminHealthPage() {
         }
       />
 
-      <Stack gap="md">
-        <SummaryLine params={params} />
-        <Box data-shot="strip" data-shot-states="empty">
-          <GarminStrip params={params} />
-        </Box>
-
-        <Section title="Training load">
-          <Box data-shot="acwr-chart" data-shot-states="empty">
-            <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
-              <AcwrChart params={params} />
-            </Suspense>
+      <GapLedgerProvider>
+        <Stack gap="md">
+          <SummaryLine params={params} />
+          <Box data-shot="strip" data-shot-states="empty">
+            <GarminStrip params={params} />
           </Box>
-        </Section>
 
-        <Section title="Recovery, sleep and stress">
-          <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
-            <Box data-shot="recovery-chart" data-shot-states="empty">
+          <Section title="Training load">
+            <Box data-shot="acwr-chart" data-shot-states="empty">
               <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
-                <RecoveryTrendChart params={params} />
+                <AcwrChart params={params} />
               </Suspense>
             </Box>
-            <Box data-shot="sleep-chart" data-shot-states="empty">
-              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
-                <SleepBreakdownChart params={params} />
-              </Suspense>
-            </Box>
-            <Box data-shot="body-battery-chart" data-shot-states="empty">
-              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
-                <BodyBatteryChart params={params} />
-              </Suspense>
-            </Box>
-            <Box data-shot="stress-chart" data-shot-states="empty">
-              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
-                <StressChart params={params} />
-              </Suspense>
-            </Box>
-          </SimpleGrid>
-        </Section>
+          </Section>
 
-        <Section title="Training volume">
-          <Box data-shot="activities-chart" data-shot-states="empty">
-            <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
-              <ActivitiesChart params={params} />
-            </Suspense>
-          </Box>
-          <Box data-shot="activity-score-chart" data-shot-states="empty">
-            <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
-              <ActivityScoreChart params={params} />
-            </Suspense>
-          </Box>
-        </Section>
-      </Stack>
+          <Section title="Recovery, sleep and stress">
+            <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
+              <Box data-shot="recovery-chart" data-shot-states="empty">
+                <Suspense
+                  fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}
+                >
+                  <RecoveryTrendChart params={params} />
+                </Suspense>
+              </Box>
+              <Box data-shot="sleep-chart" data-shot-states="empty">
+                <Suspense
+                  fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}
+                >
+                  <SleepBreakdownChart params={params} />
+                </Suspense>
+              </Box>
+              <Box data-shot="body-battery-chart" data-shot-states="empty">
+                <Suspense
+                  fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}
+                >
+                  <BodyBatteryChart params={params} />
+                </Suspense>
+              </Box>
+              <Box data-shot="stress-chart" data-shot-states="empty">
+                <Suspense
+                  fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}
+                >
+                  <StressChart params={params} />
+                </Suspense>
+              </Box>
+            </SimpleGrid>
+          </Section>
+
+          <Section title="Training volume">
+            <Box data-shot="activities-chart" data-shot-states="empty">
+              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
+                <ActivitiesChart params={params} />
+              </Suspense>
+            </Box>
+            <Box data-shot="activity-score-chart" data-shot-states="empty">
+              <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={320} />}>
+                <ActivityScoreChart params={params} />
+              </Suspense>
+            </Box>
+          </Section>
+        </Stack>
+      </GapLedgerProvider>
     </>
   )
 }

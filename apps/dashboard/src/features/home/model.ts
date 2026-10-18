@@ -9,8 +9,6 @@ import { GARMIN_SYNC_HOURS, RECOVERY_DAYS } from '../garmin-health/model'
 import { leadOf, subjectOf } from '../../lib/question-copy'
 import { firstClause, oldestWaitSentence, stripShortcodes } from '../../lib/text'
 
-export { GARMIN_SYNC_HOURS }
-
 // Pure derivations for the Today page: meetings, tasks, the Garmin readings, the activity stream
 // and the summary sentence. No React, no queries. A reading that is absent stays `null` (rendered
 // `—`), never 0.
@@ -521,6 +519,40 @@ export function staleFeeds(
 /** Sources behind the needs-you list: Warden and the agent snapshot. With none of them loaded the list is unknown, not empty. */
 const NEEDS_YOU_SOURCES = 2
 
+/** The sources behind the needs-you list, by the names the gap wording uses. */
+const NEEDS_YOU_SOURCE_NAMES = ['Warden', 'Agents'] as const
+type SourceName = (typeof NEEDS_YOU_SOURCE_NAMES)[number]
+
+/** One state per source, disjoint by construction: a source is exactly one of these. */
+type SourceStatus = 'ready' | 'loading' | 'failed' | 'no-snapshot'
+
+/**
+ * A source with a snapshot is ready; without one its read decides: still pending is loading, failed
+ * is failed, and a read that settled with nothing is `no-snapshot`: unknown, never an empty inbox.
+ */
+export function sourceStatus(
+  hasSnapshot: boolean,
+  read: 'pending' | 'error' | 'success',
+): SourceStatus {
+  if (hasSnapshot) return 'ready'
+  if (read === 'pending') return 'loading'
+  return read === 'error' ? 'failed' : 'no-snapshot'
+}
+
+/** The per-source states as the three name lists the needs-you wording reads. */
+export function classifySources(status: Record<SourceName, SourceStatus>): {
+  unavailable: SourceName[]
+  loading: SourceName[]
+  noSnapshot: SourceName[]
+} {
+  const named = (want: SourceStatus) => NEEDS_YOU_SOURCE_NAMES.filter((n) => status[n] === want)
+  return {
+    unavailable: named('failed'),
+    loading: named('loading'),
+    noSnapshot: named('no-snapshot'),
+  }
+}
+
 export type HomeSummaryInput = {
   decisions: readonly Decision[]
   /** Sources whose read failed: the count then covers the rest, and the sentence says so. */
@@ -554,18 +586,27 @@ const unknownCount = (s: SourceState): number =>
 /** Every source behind the needs-you list is unknown (failed, loading or without a snapshot): the list can't be counted. */
 export const allUnknown = (s: SourceState): boolean => unknownCount(s) >= NEEDS_YOU_SOURCES
 
-/** The all-unknown headline: one cause names itself, a mix can only say it can't tell. */
-function allUnknownTitle(s: SourceState): string {
+/** Why the whole list is unknown: one cause names itself, a mix can only say it can't tell. */
+type UnknownKind = 'loading' | 'no-snapshot' | 'cant-tell'
+
+function unknownKind(s: SourceState): UnknownKind {
   const noSnapshot = s.noSnapshot?.length ?? 0
-  if (s.unavailable.length === 0 && noSnapshot === 0) return 'Loading'
-  if (s.unavailable.length === 0 && s.loading.length === 0) return NO_SNAPSHOT_SHORT
-  return "Can't tell"
+  if (s.unavailable.length === 0 && noSnapshot === 0) return 'loading'
+  if (s.unavailable.length === 0 && s.loading.length === 0) return 'no-snapshot'
+  return 'cant-tell'
 }
 
-export type HomeSummaryParts = { sentence: string; facts: string[] }
+const UNKNOWN_TITLE: Record<UnknownKind, string> = {
+  loading: 'Loading',
+  'no-snapshot': NO_SNAPSHOT_SHORT,
+  'cant-tell': "Can't tell",
+}
 
-/** The sources behind the needs-you list, by the names the gap wording uses. */
-const NEEDS_YOU_SOURCE_NAMES = ['Warden', 'Agents'] as const
+/** `unknownPhrase` opens a sentence: the one place its casing is decided. */
+export const unknownSentence = (phrase: string): string =>
+  `${phrase.charAt(0).toUpperCase()}${phrase.slice(1)}`
+
+export type HomeSummaryParts = { sentence: string; facts: string[] }
 
 /** The sources that answered: neither failed nor still loading. */
 const knownSources = (s: SourceState): string[] =>
@@ -578,7 +619,7 @@ const knownSources = (s: SourceState): string[] =>
  * unknown it speaks only for the source that answered, and with all unknown it can't tell.
  */
 export function needsYouEmptyTitle(s: SourceState): string {
-  if (allUnknown(s)) return allUnknownTitle(s)
+  if (allUnknown(s)) return UNKNOWN_TITLE[unknownKind(s)]
   const known = knownSources(s)
   return known.length === NEEDS_YOU_SOURCE_NAMES.length
     ? 'Nothing needs you'
@@ -593,16 +634,12 @@ export function needsYouEmptyTitle(s: SourceState): string {
 export function homeSummaryParts(s: HomeSummaryInput): HomeSummaryParts {
   const phrase = unknownPhrase(s.unavailable, s.loading, s.noSnapshot)
   if (allUnknown(s)) {
-    const title = allUnknownTitle(s)
-    return {
-      sentence:
-        title === 'Loading'
-          ? `Loading ${s.loading.join(' and ')}.`
-          : title === NO_SNAPSHOT_SHORT
-            ? `${NO_SNAPSHOT_SHORT} from ${(s.noSnapshot ?? []).join(' and ')}.`
-            : `Can't tell — ${phrase}.`,
-      facts: [],
+    const sentence: Record<UnknownKind, string> = {
+      loading: `Loading ${s.loading.join(' and ')}.`,
+      'no-snapshot': `${NO_SNAPSHOT_SHORT} from ${(s.noSnapshot ?? []).join(' and ')}.`,
+      'cant-tell': `Can't tell — ${phrase}.`,
     }
+    return { sentence: sentence[unknownKind(s)], facts: [] }
   }
   if (s.decisions.length === 0 && phrase !== '')
     return { sentence: `${needsYouEmptyTitle(s)}; ${phrase}.`, facts: [] }

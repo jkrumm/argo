@@ -22,7 +22,7 @@ import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
 import { shotState } from '../../../lib/shot-state'
-import { emptyIn } from './empty'
+import { useChartEmpty } from './empty'
 import { localDay } from './local-day'
 
 type RecoveryPoint = {
@@ -90,11 +90,16 @@ export default function RecoveryTrendChart({ params }: { params: SummaryParams }
   const high = countWhere(values, (v) => v >= RECOVERY_PUSH_FROM)
   const fact = recoveryFact({ mean: mean(values), high: high.hits, dayCount: high.days })
 
+  const emptyLabel = useChartEmpty('recoveryChart', 'recovery score', params, {
+    settled: query.isSuccess && !query.isPlaceholderData,
+    empty: !hasRecovery,
+  })
+
   return (
     <ChartCard
       title="Recovery"
       info={METRIC_TOOLTIPS.recoveryScore}
-      state={chartStateOf(query, !hasRecovery ? emptyIn('recovery score', params) : undefined)}
+      state={chartStateOf(query, emptyLabel)}
       placeholderHeight={280}
       facts={toChartFact(fact)}
     >

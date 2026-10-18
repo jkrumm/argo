@@ -4,7 +4,7 @@ import { Stack } from '@mantine/core'
 import { PageBar, StatGroup, PageSummary } from 'basalt-ui'
 import { agentsQueries } from '../../lib/queries/agents'
 import { calendarQueries } from '../../lib/queries/calendar'
-import { RECOVERY_DAYS, carriesCadence, lastScored, windowCopyDays } from '../garmin-health/model'
+import { RECOVERY_DAYS, allocateForms, lastScored, windowCopyDays } from '../garmin-health/model'
 import { VISIBLE_DATE_MIN } from '../garmin-health/constants'
 import { recoveryQueries, trainingLoadQueries } from '../../lib/queries/daily-metrics'
 import { wardenQueries } from '../../lib/queries/warden'
@@ -26,7 +26,9 @@ import {
   laterMeeting,
   nextMeeting,
   recoveryReading,
+  classifySources,
   homeSummaryParts,
+  sourceStatus,
   taskCounts,
   todayAgenda,
   wardenEvents,
@@ -35,7 +37,15 @@ import {
 import { NeedsYou } from './needs-you'
 import { garminStore, toApiWindow } from '../../lib/window-stores'
 import { applyVisibilityFilter } from '../garmin-health/visibility'
-import { acwrCell, agentsCell, budgetCell, meetingCell, recoveryCell } from './strip-cells'
+import {
+  acwrCell,
+  acwrCellGap,
+  agentsCell,
+  budgetCell,
+  meetingCell,
+  recoveryCell,
+  recoveryCellGap,
+} from './strip-cells'
 import classes from './home.module.css'
 
 /** The Garmin page's default window, the fallback for a dateless custom range. */
@@ -97,22 +107,11 @@ export function TodayPage() {
   const snapshot = agentsRecord?.snapshot
   const warden = shotEmpty ? null : (wardenQuery.data ?? null)
   const wardenRaw = warden?.raw
-  // A source is `unavailable` only when its read failed; a read still pending is `loading`; a settled
-  // null snapshot is neither, and the cells word it as "no snapshot yet".
-  const unavailable = [
-    ...(warden === null && wardenQuery.isError ? ['Warden'] : []),
-    ...(agentsRecord === null && agentsQuery.isError ? ['Agents'] : []),
-  ]
-  const loading = [
-    ...(warden === null && wardenQuery.isPending ? ['Warden'] : []),
-    ...(agentsRecord === null && agentsQuery.isPending ? ['Agents'] : []),
-  ]
-
-  // A settled read with no snapshot is unknown, not empty: it is neither failed nor loading.
-  const noSnapshot = [
-    ...(warden === null && wardenQuery.isSuccess ? ['Warden'] : []),
-    ...(agentsRecord === null && agentsQuery.isSuccess ? ['Agents'] : []),
-  ]
+  // One state per source: failed, loading, or settled without a snapshot (unknown, never empty).
+  const { unavailable, loading, noSnapshot } = classifySources({
+    Warden: sourceStatus(warden !== null, wardenQuery.status),
+    Agents: sourceStatus(agentsRecord !== null, agentsQuery.status),
+  })
 
   const decisions = deriveDecisions({
     warden: wardenRaw,
@@ -210,11 +209,18 @@ export function TodayPage() {
 
   const summary = homeSummaryParts({ decisions, unavailable, loading, noSnapshot })
 
-  const recoveryStripCell = recoveryCell(recovery, recoveryNow.isPending, {
+  // The Garmin cadence sentence prints once: on the first of these two cells that shows a data gap.
+  const recoverySeriesState = {
     settled: seriesSettled,
     failed: recoverySeries.isError,
     windowDays: windowCopyDays(garminParams, VISIBLE_DATE_MIN),
-  })
+  }
+  const acwrFeed = loadQuery.isPending ? 'loading' : 'error'
+  const forms = allocateForms([
+    recoveryCellGap(recovery, recoveryNow.isPending, recoverySeriesState),
+    acwrCellGap(acwr, acwrFeed, recoverySeriesState.windowDays, loadQuery.isPlaceholderData),
+  ])
+  const [recoveryForm, acwrForm] = [forms[0] ?? 'short', forms[1] ?? 'short'] as const
 
   return (
     <>
@@ -247,17 +253,14 @@ export function TodayPage() {
             ),
             budgetCell(wardenRaw?.budget, poller),
             meetingCell(agenda, next, later, now),
-            recoveryStripCell,
+            recoveryCell(recovery, recoveryNow.isPending, recoverySeriesState, recoveryForm),
             acwrCell(
               acwr,
               now,
-              loadQuery.isPending ? 'loading' : 'error',
-              windowCopyDays(garminParams, VISIBLE_DATE_MIN),
+              acwrFeed,
+              recoverySeriesState.windowDays,
               loadQuery.isPlaceholderData,
-              typeof recoveryStripCell.footer === 'string' &&
-                carriesCadence(recoveryStripCell.footer)
-                ? 'short'
-                : 'full',
+              acwrForm,
             ),
           ]}
         />

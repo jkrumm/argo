@@ -17,7 +17,10 @@ import {
   staleFeeds,
   feedEmptyLine,
   homeSummaryParts,
+  classifySources,
   needsYouEmptyTitle,
+  sourceStatus,
+  unknownSentence,
   unknownPhrase,
   taskCounts,
   tasksLine,
@@ -141,6 +144,41 @@ describe('needsYouEmptyTitle', () => {
     )
     expect(needsYouEmptyTitle({ unavailable: [], loading: ['Warden', 'Agents'] })).toBe('Loading')
     expect(needsYouEmptyTitle({ unavailable: ['Warden'], loading: ['Agents'] })).toBe("Can't tell")
+  })
+})
+
+describe('source classification', () => {
+  it('gives each source exactly one state', () => {
+    expect(sourceStatus(true, 'pending')).toBe('ready')
+    expect(sourceStatus(true, 'error')).toBe('ready')
+    expect(sourceStatus(false, 'pending')).toBe('loading')
+    expect(sourceStatus(false, 'error')).toBe('failed')
+    expect(sourceStatus(false, 'success')).toBe('no-snapshot')
+  })
+  it('splits the states into disjoint lists', () => {
+    expect(classifySources({ Warden: 'failed', Agents: 'no-snapshot' })).toEqual({
+      unavailable: ['Warden'],
+      loading: [],
+      noSnapshot: ['Agents'],
+    })
+    expect(classifySources({ Warden: 'ready', Agents: 'ready' })).toEqual({
+      unavailable: [],
+      loading: [],
+      noSnapshot: [],
+    })
+  })
+  it('a source that settled with no snapshot is never an all-clear', () => {
+    const settledEmpty = classifySources({
+      Warden: sourceStatus(false, 'success'),
+      Agents: sourceStatus(false, 'success'),
+    })
+    expect(needsYouEmptyTitle(settledEmpty)).not.toBe('Nothing needs you')
+    const partial = classifySources({
+      Warden: sourceStatus(true, 'success'),
+      Agents: sourceStatus(false, 'success'),
+    })
+    expect(needsYouEmptyTitle(partial)).not.toBe('Nothing needs you')
+    expect(unknownSentence(unknownPhrase([], [], ['Agents']))).toBe('No snapshot yet from Agents')
   })
 })
 

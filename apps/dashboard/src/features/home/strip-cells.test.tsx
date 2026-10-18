@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'bun:test'
 import type { ReactElement } from 'react'
-import { RECOVERY_VERDICT_NAME, recoveryVerdict } from '../garmin-health/model'
+import {
+  RECOVERY_VERDICT_NAME,
+  allocateForms,
+  recoveryVerdict,
+  type GapForm,
+} from '../garmin-health/model'
 import { recoveryMeterProps } from '../garmin-health/recovery-meter'
 import type { RecoveryReading } from './model'
 import { recoveryFooter } from './model'
 import {
-  acwrCell,
+  acwrCell as acwrCellOf,
+  acwrCellGap,
+  recoveryCellGap,
   agentsCell,
   budgetCell,
   meetingCell,
@@ -20,7 +27,16 @@ const recoveryCell = (
   reading: Parameters<typeof recoveryCellOf>[0],
   loading = false,
   series: SeriesState = SETTLED,
-) => recoveryCellOf(reading, loading, series)
+  form: GapForm = 'full',
+) => recoveryCellOf(reading, loading, series, form)
+const acwrCell = (
+  reading: Parameters<typeof acwrCellOf>[0],
+  now: number,
+  feed: 'loading' | 'error',
+  windowDays: number,
+  placeholder = false,
+  form: GapForm = 'short',
+) => acwrCellOf(reading, now, feed, windowDays, placeholder, form)
 
 const reading = (over: Partial<RecoveryReading> = {}): RecoveryReading => ({
   score: 55,
@@ -43,6 +59,39 @@ describe('agents cell without a fleet', () => {
     expect(emptyText('none')).toBe('No snapshot yet — agent-gateway pushes every 10\u00a0min')
     expect(emptyText('failed')).toBe('Agents failed to load — reload to retry')
     expect(emptyText(null)).toBe('No fleet counts in this snapshot')
+  })
+})
+
+describe('Garmin cadence on Home: once per screen', () => {
+  const unscored = reading({ score: null, mean: null, days: 0, trend: [], isToday: false })
+  const emptyLoad = { acwr: null, zone: null, date: null }
+  const forms = (
+    recovery: ReturnType<typeof recoveryCellGap>,
+    load = acwrCellGap(emptyLoad, 'error', 30, false),
+  ) => allocateForms([recovery, load])
+
+  it('a recovery gap leads, so the ACWR cell takes the short form', () => {
+    const gap = recoveryCellGap(unscored, false, { settled: true, failed: false, windowDays: 30 })
+    expect(forms(gap)).toEqual(['full', 'short'])
+  })
+  it('a scored recovery leaves the cadence to the ACWR cell', () => {
+    expect(forms(recoveryCellGap(reading(), false, SETTLED))).toEqual(['short', 'full'])
+  })
+  it('a failed or loading recovery line is not a data gap: the ACWR cell still carries it', () => {
+    expect(forms(recoveryCellGap(unscored, false, { settled: true, failed: true }))).toEqual([
+      'short',
+      'full',
+    ])
+    expect(forms(recoveryCellGap(null, true, SETTLED))).toEqual(['short', 'full'])
+  })
+  it('the unsettled recovery footer is the cadence itself, so the ACWR cell repeats nothing', () => {
+    const gap = recoveryCellGap(unscored, false, { settled: false, failed: false })
+    expect(forms(gap)).toEqual(['full', 'short'])
+  })
+  it('a failed load never takes the slot either', () => {
+    expect(
+      forms(recoveryCellGap(reading(), false, SETTLED), acwrCellGap(null, 'error', 30, false)),
+    ).toEqual(['short', 'short'])
   })
 })
 

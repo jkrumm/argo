@@ -12,7 +12,7 @@ import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
 import { shotState } from '../../../lib/shot-state'
-import { emptyIn } from './empty'
+import { useChartEmpty } from './empty'
 import { localDay } from './local-day'
 
 const CHART_HEIGHT = 240
@@ -169,10 +169,15 @@ export default function ActivitiesChart({ params }: { params: SummaryParams }) {
     [orderedTypes],
   )
 
+  const emptyLabel = useChartEmpty('activitiesChart', 'activities', params, {
+    settled: query.isSuccess && !query.isPlaceholderData,
+    empty: points.length === 0,
+  })
+
   return (
     <ChartCard
       title="Activities"
-      state={chartStateOf(query, points.length === 0 ? emptyIn('activities', params) : undefined)}
+      state={chartStateOf(query, emptyLabel)}
       placeholderHeight={CHART_HEIGHT}
       facts={toChartFact(activitiesFact({ sessions: activities.length, totalMin, dayCount }))}
     >
