@@ -1,9 +1,8 @@
 import { Stack, Text } from '@mantine/core'
 import { VX } from 'basalt-ui/tokens'
 import classes from '../../components/upstream/decision-card.module.css'
-import { NBSP } from '../../lib/format'
 import { useNow } from '../../lib/use-now'
-import { historyAge, historyLineWithAge, type HistoryView } from './page-model'
+import { historyLineWithAge, historyTail, type HistoryView } from './page-model'
 
 /**
  * The decision card's change history. One transition is a single inline sentence
@@ -20,7 +19,7 @@ export function HistoryPreview({ view }: { view: HistoryView }) {
         <Text span inherit c={VX.ink}>
           {only?.text}
         </Text>
-        {only?.at ? `${NBSP}· ${historyAge(only.at, now)}` : null}
+        {only?.at ? historyTail(only.at, now) : null}
       </Text>
     )
   }
