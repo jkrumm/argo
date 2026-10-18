@@ -47,7 +47,8 @@ function ProjectCard({ group, now }: { group: ProjectGroup; now: number }) {
         {
           caption: 'Running',
           value: String(running),
-          unit: `${running === 1 ? 'agent' : 'agents'}${longest === null ? '' : ` · longest ${formatDuration(longest)}`}`,
+          unit: running === 1 ? 'agent' : 'agents',
+          ...(longest === null ? {} : { note: `longest ${formatDuration(longest)}` }),
         },
         {
           caption: 'Last activity',

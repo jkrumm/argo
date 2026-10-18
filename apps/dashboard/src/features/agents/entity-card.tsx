@@ -7,6 +7,8 @@ export type EntityCardCell = {
   caption: string
   value: string
   unit?: string
+  /** A muted mono line under value + unit, for a fact that would crowd the reading's line. */
+  note?: string
   /** Text-sized value, for a reading that is a phrase rather than a figure. */
   small?: boolean
   /** The cell's micro-visual (age bars, a meter). */
@@ -47,6 +49,7 @@ export function EntityCard({ identity, status, cells, now }: EntityCardProps) {
               {cell.unit ? <span className={classes.unit}>{cell.unit}</span> : null}
               {cell.visual ? <span className={classes.visual}>{cell.visual}</span> : null}
             </div>
+            {cell.note ? <Text className={classes.note}>{cell.note}</Text> : null}
           </div>
         ))}
       </div>

@@ -213,3 +213,7 @@ No new basalt rows.
 - **Re-score `w37-r3` (after #166):** fail on the basalt measurer only. Fixed (confirmed): every sign-in failure carries one step on its line — Google `Re-authorize`, Microsoft 365 `Re-seed on the laptop: {command}` with `Copy command`. New (argo, P3): the 390 headline split the product name.
 - **Re-score `w37-r4` (after #167):** fail on the basalt measurer only (Today `emptyRatio` counts skeleton bars). Fixed (confirmed): `Microsoft 365` never splits. Declined with reason: a Retry on each failed calendar card (the one-form rule puts the step once on the headline; Tasks, a separate gap, carries its own). Carried (basalt): the `Meter` null `—` under week-strip tracks. Carried (argo, P3): `Nothing due in the next 7 days.` under an `overdue or due` scope. No lost fact.
 - **Against Keel:** close — Keel's `schedule-item` row anatomy; Keel puts the retry on the failed card itself.
+
+### Wave 38 round
+
+- **Tasks-due empty names its whole scope:** the card is scoped `Overdue or due within 7 days`, so its empty line reads `Nothing overdue or due in the next 7 days.` (was `Nothing due in the next 7 days.`). Closes the Wave 37 carried P3. No lost fact.
