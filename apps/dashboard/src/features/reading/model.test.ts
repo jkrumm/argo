@@ -6,6 +6,7 @@ import {
   finishedFooter,
   finishCohort,
   paceRange,
+  paceTicks,
   backlog,
   currentYear,
   progressPercent,
@@ -186,25 +187,31 @@ describe('timeRead', () => {
 })
 
 describe('ratingShape', () => {
-  test('every rating lands in the whole-star bin a reader expects (rounded down)', () => {
-    const ratings = [0.5, 1, 2.5, 3, 3.5, 4, 4.5, 5]
+  test('every bin holds exactly two half steps: (0, 1] … (4, 5]', () => {
+    const ratings = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]
     const shelf = ratings.map((rating) => book({ statusId: 3, readDate: '2026-01-01', rating }))
-    const { buckets } = ratingShape(shelf)
-    expect(buckets).toEqual([2, 1, 2, 2, 1])
-    // A book is never binned above its own rating (except 0.5, shown in the lowest bin).
+    expect(ratingShape(shelf).buckets).toEqual([2, 2, 2, 2, 2])
+    const star = (rating: number) =>
+      ratingShape([book({ rating })]).buckets.findIndex((n) => n === 1) + 1
     for (const rating of ratings) {
-      const single = ratingShape([book({ rating })]).buckets
-      const star = single.findIndex((n) => n === 1) + 1
-      expect(star).toBe(Math.max(1, Math.floor(rating)))
-      expect(star).toBeLessThanOrEqual(Math.max(1, rating))
+      expect(star(rating)).toBe(Math.ceil(rating))
+      // A book is never binned below its own rating.
+      expect(star(rating)).toBeGreaterThanOrEqual(rating)
     }
-    // The Finished list's `★ {rating}` and the histogram bin agree for the half star.
-    expect(ratingShape([book({ rating: 2.5 })]).buckets).toEqual([0, 1, 0, 0, 0])
+    expect(ratingShape([book({ rating: 2.5 })]).buckets).toEqual([0, 0, 1, 0, 0])
   })
 
-  test('every bin label keeps its range, one spelling', () => {
-    const labels = ratingShape([0.5, 1, 2.5, 3, 4, 5].map((rating) => book({ rating }))).labels
-    expect(labels.map((l) => l.span)).toEqual(['0.5–1', '2–2.5', '3', '4', '5'])
+  test('every bin label spells its two half steps, whatever the data', () => {
+    const expected = ['0.5–1', '1.5–2', '2.5–3', '3.5–4', '4.5–5']
+    expect(ratingShape([book({ rating: 3 })]).labels.map((l) => l.span)).toEqual(expected)
+    expect(ratingShape([book()]).labels.map((l) => l.span)).toEqual(expected)
+    expect(ratingShape([book()]).labels.map((l) => l.aria)).toEqual([
+      '0.5 to 1 star',
+      '1.5 to 2 stars',
+      '2.5 to 3 stars',
+      '3.5 to 4 stars',
+      '4.5 to 5 stars',
+    ])
   })
 
   test('community mean covers the same rated books', () => {
@@ -214,7 +221,7 @@ describe('ratingShape', () => {
       book({ rating: 3, communityRating: null }),
       book({ rating: null, communityRating: 5 }),
     ])
-    expect(shape.buckets).toEqual([0, 1, 1, 1, 0])
+    expect(shape.buckets).toEqual([0, 0, 2, 1, 0])
     expect(shape.n).toBe(3)
     expect(shape.mean).toBeCloseTo(3.1667)
     expect(shape.community).toEqual({ mean: 3.5, n: 2 })
@@ -335,6 +342,24 @@ describe('paceRange', () => {
   })
 })
 
+describe('paceTicks', () => {
+  test('ticks and median sit on the slowest-to-fastest span', () => {
+    expect(paceTicks([20, 30, 40], 30)).toEqual({
+      at: [0, 50, 100],
+      medianAt: 50,
+      slowest: '20',
+      fastest: '40',
+    })
+  })
+  test('an endpoint that rounds to 0 reads < 1', () => {
+    expect(paceTicks([0, 30], 15)?.slowest).toBe('< 1')
+  })
+  test('one book, or books at one pace, have no span to draw', () => {
+    expect(paceTicks([30], 30)).toBeNull()
+    expect(paceTicks([30, 30], 30)).toBeNull()
+  })
+})
+
 describe('one source for every repeated figure', () => {
   const shelf = [
     book({ statusId: 2, pages: 400, stats: stats(100, 2, 25) }),
@@ -442,26 +467,6 @@ describe('ratingsFooter', () => {
     expect(ratingsFooter(ratingShape([book({ rating: 4, communityRating: 3.8 })]))).toBe(
       'community mean 3.8\u00a0★, on 1 of them',
     )
-  })
-  test('a half star in the first bin pluralises on the upper bound', () => {
-    expect(ratingShape([book({ rating: 0.5 }), book({ rating: 1 })]).labels[0].aria).toBe(
-      '0.5 to 1 star',
-    )
-  })
-  test('a bin that holds a half star says so in its label', () => {
-    const { labels } = ratingShape([
-      book({ rating: 3 }),
-      book({ rating: 3.5 }),
-      book({ rating: 4 }),
-    ])
-    expect(labels.map((l) => l.span)).toEqual(['1', '2', '3–3.5', '4', '5'])
-    expect(labels.map((l) => l.aria)).toEqual([
-      '1 star',
-      '2 stars',
-      '3 to 3.5 stars',
-      '4 stars',
-      '5 stars',
-    ])
   })
   test('says nothing about binning, and nothing without a community rating', () => {
     expect(ratingsFooter(ratingShape([book({ rating: 3.5 })]))).toBeUndefined()

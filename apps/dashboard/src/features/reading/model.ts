@@ -249,22 +249,19 @@ export function lastReadFact(lastRead: number | null, now: number): string {
 /** `span` is the range alone (`2–2.5`); the strip adds the `★` unit where the axis is wide enough, else the cell caption carries it. */
 export type BinLabel = { span: string; aria: string }
 
-/** One bin's span, two views: the axis span (`3–3.5`) and the screen-reader text (`3 to 3.5 stars`). */
-function binLabel(lo: number, hi: number): BinLabel {
-  const stars = (n: number) => (n === 1 ? 'star' : 'stars')
-  const span = lo === hi ? `${lo}` : `${lo}–${hi}`
-  return {
-    span,
-    aria: lo === hi ? `${lo} ${stars(lo)}` : `${lo} to ${hi} ${stars(hi)}`,
-  }
+/** One bin's span, two views: the axis span (`1.5–2`) and the screen-reader text (`1.5 to 2 stars`). */
+function binLabel(bin: number): BinLabel {
+  const lo = bin + 0.5
+  const hi = bin + 1
+  return { span: `${lo}–${hi}`, aria: `${lo} to ${hi} ${hi === 1 ? 'star' : 'stars'}` }
 }
 
 export type RatingShape = {
-  /** Books per 1–5 ★ bucket: whole stars, rounded down (`2.5` → the 2 ★ bucket, `0.5` → 1 ★). */
+  /** Books per 1–5 ★ bucket, each holding exactly two half steps: bucket `i` is `(i, i + 1]` (`0.5`, `1` → 1 ★; `4.5`, `5` → 5 ★). */
   buckets: [number, number, number, number, number]
   n: number
   mean: number | null
-  /** The real span per bucket, as axis and screen-reader text. */
+  /** The span per bucket, as axis and screen-reader text. */
   labels: [BinLabel, BinLabel, BinLabel, BinLabel, BinLabel]
   /** Mean community rating over the same rated books that have one, with how many that is. */
   community: { mean: number; n: number } | null
@@ -276,15 +273,12 @@ export function ratingShape(shelf: readonly ShelfItem[]): RatingShape {
   const rated = shelf.flatMap((b) =>
     b.rating === null ? [] : [{ rating: b.rating, community: b.communityRating }],
   )
-  // Bin i holds [i + 1, i + 2) ratings, the ends clamped (0.5 joins 1 ★).
-  const bin = (rating: number) => Math.min(5, Math.max(1, Math.floor(rating))) - 1
-  const bins = tuple5((i) => rated.filter((r) => bin(r.rating) === i).map((r) => r.rating))
+  // Bin i holds (i, i + 1]: two half steps each, so the ends clamp only a rating outside 0.5–5.
+  const bin = (rating: number) => Math.min(5, Math.max(1, Math.ceil(rating))) - 1
   const community = rated.flatMap((r) => (r.community === null ? [] : [r.community]))
   return {
-    buckets: tuple5((i) => bins[i]?.length ?? 0),
-    labels: tuple5((i) =>
-      binLabel(Math.min(i + 1, ...(bins[i] ?? [])), Math.max(i + 1, ...(bins[i] ?? []))),
-    ),
+    buckets: tuple5((i) => rated.filter((r) => bin(r.rating) === i).length),
+    labels: tuple5(binLabel),
     n: rated.length,
     mean: rated.length === 0 ? null : rated.reduce((sum, r) => sum + r.rating, 0) / rated.length,
     community:
@@ -419,6 +413,27 @@ export function paceRange(paces: readonly number[]): string | null {
   if (paces.length < 2) return null
   const at = (v: number) => (v < 1 ? '< 1' : String(v))
   return `slowest ${at(Math.min(...paces))}, fastest ${withUnit(at(Math.max(...paces)), 'pages/h')}`
+}
+
+/** The pace axis: where each book's tick and the median sit, as 0–100 along the slowest-to-fastest span. */
+export type PaceTicks = { at: number[]; medianAt: number; slowest: string; fastest: string }
+
+/**
+ * One tick per book on a pages/h axis that runs slowest to fastest. Null with fewer than two
+ * distinct paces: a span of one value has no distribution to draw, and the figure states it.
+ */
+export function paceTicks(paces: readonly number[], median: number): PaceTicks | null {
+  const lo = Math.min(...paces)
+  const hi = Math.max(...paces)
+  if (paces.length < 2 || lo === hi) return null
+  const along = (v: number) => Math.min(100, Math.max(0, ((v - lo) / (hi - lo)) * 100))
+  const label = (v: number) => (v < 1 ? '< 1' : String(v))
+  return {
+    at: paces.map(along),
+    medianAt: along(median),
+    slowest: label(lo),
+    fastest: label(hi),
+  }
 }
 
 // ── Ratings: bin labels ──────────────────────────────────────────────────────────────────────
