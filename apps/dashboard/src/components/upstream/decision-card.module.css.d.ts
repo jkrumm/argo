@@ -6,5 +6,6 @@ declare const classes: {
   readonly inset: string
   readonly preview: string
   readonly question: string
+  readonly wrap: string
 }
 export default classes

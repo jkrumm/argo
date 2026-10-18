@@ -98,6 +98,44 @@ describe('deriveDecisions', () => {
     expect(d?.headline).toBe('Ship {thing}?')
   })
 
+  it('builds a short question, at most three facts and one evidence line', () => {
+    const prose = `Should warden ${'merge the change and then redeploy the loop '.repeat(3)}now?`
+    const [d] = deriveDecisions({
+      warden: warden({ awaiting_owner: [awaiting({ reason: `${prose} Tests pass.` })] }),
+      agents: null,
+      now: NOW,
+    })
+    expect(d?.headline).toBe('Decide on {title}?')
+    expect(d?.entity).toBeNull()
+    expect(d?.facts.length).toBeLessThanOrEqual(3)
+    expect(d?.evidenceLine?.endsWith('…')).toBe(true)
+    expect(d?.detail).toBe(`${prose} Tests pass.`)
+  })
+
+  it('names the item when the question does not, and strips emoji shortcodes', () => {
+    const [d] = deriveDecisions({
+      warden: warden({
+        awaiting_owner: [
+          awaiting({ title: ':warning: {title}', reason: 'Ship {thing}? Why: tests.' }),
+        ],
+      }),
+      agents: null,
+      now: NOW,
+    })
+    expect(d?.entity).toBe('{title}')
+    expect(d?.evidenceLine).toBe('Why: tests.')
+    expect(d?.detail).toBeNull()
+  })
+
+  it('leads an agent decision with its blocker as the evidence line', () => {
+    const [d] = deriveDecisions({
+      warden: null,
+      agents: agents({ agents: [agent({ blocker: 'Waiting on {thing}' })] }),
+      now: NOW,
+    })
+    expect(d?.evidenceLine).toBe('Waiting on {thing}')
+  })
+
   it('ignores agents that are not waiting and sorts an unclocked item last', () => {
     const list = deriveDecisions({
       warden: warden({ awaiting_owner: [awaiting({ age_days: null })] }),
