@@ -927,7 +927,7 @@ describe('coreGateFact', () => {
     expect(coreGateFact(night)?.value).toBe(fmtDegrees(cell.reading))
     expect(coreGateFact(night)).toEqual({
       value: '12.3°',
-      unit: 'at its lowest, needs > 9.8°',
+      unit: 'nearest its gate, needs > 9.8°',
     })
   })
   test('no dark stretch, no fact', () => {

@@ -205,5 +205,5 @@ No basalt gaps.
 - **Cloud-layers headline ran two phrases together** — fixed: `{v} % low cloud · dark-hours mean` (or `shooting-window mean`), each phrase glued with no-break spaces, one break point at the separator (`cloudHeadline`).
 - **`transparency {n}/8, 1 = clearest` read as a score** — fixed: `transparency {n}/8 (lower is clearer)`; the value is kept.
 - **Verdict-card cloud row absent on gated nights** — fixed: the API still sends the night's low-cloud figure for a ruled-out night, so the row shows it as `Low cloud · not scored` with the figure. Nights that are not ruled out and carry no cloud factor still get no row.
-- **`closest to gate` beside the shortfall figure** — fixed: the Core cell and the panorama fact now label the reading `at its lowest`; the shortfall (`core {g}° under its gate`) is stated once, in the verdict headline.
+- **`closest to gate` beside the shortfall figure** — fixed: the Core cell and the panorama fact now label the reading `nearest its gate`; the shortfall (`core {g}° under its gate`) is stated once, in the verdict headline.
 - **Not argo's, left:** `Lines` end labels, info tooltips at 390, `Map` tab alignment, budget greys shade-only (basalt rows, see `UPSTREAM.md`); night-strip hover.
