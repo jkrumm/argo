@@ -459,6 +459,7 @@ describe('GET /astro/window — the verdict', () => {
     }
     expect(body.bestDate).toBe(body.nights[0].date)
     expect(body.moonMaxIllumination).toBe(0.25)
+    expect(body.cloudRuinsAt).toEqual({ low: 55, mid: 80, high: 100 })
   })
 
   it('has no committed skyline for a raw lat/lon, even one near a known site', async () => {
