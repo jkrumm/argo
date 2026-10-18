@@ -30,6 +30,7 @@ import {
   loadFooter,
   recoverySentence,
   summaryParts,
+  acwrLegendLabels,
 } from './model'
 
 describe('number formatting', () => {
@@ -425,5 +426,15 @@ describe('loadFooter', () => {
     expect(loadFooter({ acwr: null, status: 'error', placeholder: false })).toBe(
       'The load ratio failed to load',
     )
+  })
+})
+
+describe('acwrLegendLabels', () => {
+  test('names all three zones with the meter vocabulary and their bounds', () => {
+    expect(acwrLegendLabels()).toEqual({
+      optimal: 'Optimal (0.8–1.3)',
+      caution: 'Caution (1.3–1.5)',
+      danger: 'Danger (> 1.5)',
+    })
   })
 })

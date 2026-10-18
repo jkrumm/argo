@@ -179,3 +179,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: the load meter's caution zone named (`Caut.`) at 1440. Carried: the caution zone unnamed at 390 (basalt `Meter`, the reverse of Home); the recovery cell part-empty (`emptyRatio` 0.62 — basalt row) and two columns at 390; `Meter` tick labels detached (basalt); the recovery cell says why there is no score but not when it fills (no API field states it — not invented); the fitness focus shot timed out (harness). **New:** the ACWR chart legend names optimal and danger but not caution while the meter says `Caut.`. Unscored: the recovery meter change unverifiable (no score on the shot day); the heading font's slashed zero (basalt).
 - **Against Keel:** close — load and fitness read like Keel's metric cards; recovery is still a dash and a sentence.
+
+### Wave 30 fixes
+
+- ACWR chart legend: fixed — names `Caution ({lo}–{hi})` beside Optimal and Danger, all three from `acwrZoneLabel`, the meter's vocabulary (`acwrLegendLabels` in `model.ts`).
+- Not fixed (basalt / not argo's): recovery cell part-empty, Meter detached ticks and unnamed caution at 390, ACWR tooltip name wrapping, Sparkline reference label, four type sizes in shells.
