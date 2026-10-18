@@ -647,17 +647,16 @@ describe('nextUsableText looks only at later nights', () => {
 describe('sky cell footer', () => {
   test('sky: dome and transparency; the threshold lives on the scale tick', () => {
     expect(skyCellFooter({ domePenaltyMag: 1.04, transparency: 3 })).toBe(
-      'town\u00a0glow\u00a0+1.04\u00a0mag\u00a0· transparency\u00a03/8 (lower\u00a0=\u00a0clearer)',
+      'town glow +1.04\u00a0mag · transparency 3/8 (lower = clearer)',
     )
     expect(skyCellFooter({ domePenaltyMag: null, transparency: null })).toBe(
-      'town\u00a0glow\u00a0—\u00a0· transparency\u00a0— (lower\u00a0=\u00a0clearer)',
+      'town glow — · transparency — (lower = clearer)',
     )
   })
 
-  test('no glued run exceeds 24 characters and no line can open on a dot', () => {
+  test('only number and unit are glued', () => {
     const footer = skyCellFooter({ domePenaltyMag: 1.04, transparency: 3 })
-    for (const run of footer.split(' ')) expect(run.length).toBeLessThanOrEqual(24)
-    expect(footer).not.toContain(' ·')
+    expect(footer.match(/\u00a0/g)).toHaveLength(1)
   })
 })
 
@@ -1061,8 +1060,8 @@ describe('moonReadout', () => {
 })
 
 describe('darkSkyTickText and moonInterferes', () => {
-  test('the tick spelling is one glued run', () => {
-    expect(darkSkyTickText(21.6)).toBe('dark\u00a0≥\u00a021.6')
+  test('the tick carries its unit, glued to the number', () => {
+    expect(darkSkyTickText(21.6)).toBe('dark ≥ 21.6\u00a0mag/arcsec²')
   })
   test('the interference rule is at-or-over the limit', () => {
     expect(moonInterferes(0.25, 0.25)).toBe(true)

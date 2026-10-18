@@ -271,7 +271,7 @@ const moonState = (altitude: number, behindTerrain: boolean): MoonState => {
 }
 
 export function darkSkyTickText(threshold: number): string {
-  return glue(`dark ≥ ${threshold}`)
+  return `dark ≥ ${withUnit(threshold, 'mag/arcsec²')}`
 }
 
 /** The Darkness gate row's one line. */
@@ -636,8 +636,7 @@ export function withFacts(fact: ChartFact | null): { facts?: ChartFact } {
 
 /**
  * The Sky cell's footer: the town glow and the transparency (the dark-sky threshold is labelled on
- * the scale's tick). Each run is glued internally, so a wrap falls only after a ` · `, or inside
- * the transparency phrase between its value and its hint.
+ * the scale's tick). Only number↔unit is glued, so the line wraps at phrase boundaries.
  */
 export function skyCellFooter({
   domePenaltyMag,
@@ -648,10 +647,7 @@ export function skyCellFooter({
 }): string {
   const dome = domePenaltyMag === null ? '—' : `+${withUnit(domePenaltyMag.toFixed(2), 'mag')}`
   const clarity = transparency === null ? '—' : `${transparency}/8`
-  return joinPhrases([
-    glue(`town glow ${dome}`),
-    `${glue(`transparency ${clarity}`)} ${glue('(lower = clearer)')}`,
-  ])
+  return `town glow ${dome} · transparency ${clarity} (lower = clearer)`
 }
 
 /** The Moon cell's footer: the limit, the phase and (when the moon sets) the set time; no line opens on a `·`. */

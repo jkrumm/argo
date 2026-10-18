@@ -24,7 +24,7 @@
 /* Reserves the tick label's line in flow, so the footer below never overlaps it. */
 .scale {
   position: relative;
-  padding-block-end: calc(var(--vx-text-xs) + var(--mantine-spacing-xs));
+  padding-block-end: calc(var(--vx-text-micro) + var(--mantine-spacing-xs));
 }
 
 .tickLabel {
@@ -33,8 +33,8 @@
   /* Ends under the tick, so it never overruns the track's right end (the tick sits near it). */
   transform: translateX(-100%);
   white-space: nowrap;
-  font-family: var(--basalt-font-mono);
-  font-size: var(--vx-text-xs);
+  /* The cell's micro size, in the sans the cell's qualifier uses (mono at this length would overrun the left edge). */
+  font-size: var(--vx-text-micro);
   line-height: 1;
   color: var(--vx-muted);
   pointer-events: none;
