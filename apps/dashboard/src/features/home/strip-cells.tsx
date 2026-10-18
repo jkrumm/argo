@@ -123,7 +123,7 @@ export function budgetCell(
     caption: 'Dispatch · today',
     value: used === null ? null : String(used),
     ...(max !== null && { unit: `/ ${max}` }),
-    ...(!(used !== null && max !== null && max > 0) &&
+    ...(used === null &&
       feed !== 'loading' && {
         state: { kind: 'empty' as const, reason: budgetGap(feed) },
       }),
@@ -139,17 +139,25 @@ export function budgetCell(
           endCaption={`cap ${max}`}
           {...(dispatch?.warn ? { color: VX.warn } : { tone: 'muted' as const })}
         />
-      ) : feed === 'loading' ? (
+      ) : used === null && feed === 'loading' ? (
         <Text size="sm" c="dimmed">
           {budgetGap(feed)}
         </Text>
       ) : undefined,
     // With no budget and no poller there is no snapshot: the cell's line already says what to wait for.
+    // A known count with no usable cap keeps its value and says the cap is missing.
     ...((poller !== undefined || budget !== undefined) && {
       footer: (
-        <Text span size="sm" c={poller?.stale ? VX.status.warn : 'dimmed'}>
-          {poller === undefined ? 'poller age unknown' : pollerAgeText(poller)}
-        </Text>
+        <>
+          {used !== null && !(max !== null && max > 0) ? (
+            <Text span size="sm" c="dimmed">
+              {BUDGET_MISSING.short}{' '}
+            </Text>
+          ) : null}
+          <Text span size="sm" c={poller?.stale ? VX.status.warn : 'dimmed'}>
+            {poller === undefined ? 'poller age unknown' : pollerAgeText(poller)}
+          </Text>
+        </>
       ),
     }),
   }

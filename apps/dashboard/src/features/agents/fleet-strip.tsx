@@ -75,7 +75,8 @@ export function FleetStrip({ needsYou, fleet, split, oldest, hasSnapshot, longes
           footer: oldestWaitFooter(hasSnapshot, oldest),
           // No snapshot: the waiting line is the footer (as in the needs-you cell), so no empty meter.
           // A snapshot with no wait to plot says why in the value's place.
-          ...(needsYou !== null &&
+          ...(hasSnapshot &&
+            needsYou !== null &&
             oldest === null && {
               state: { kind: 'empty' as const, reason: oldestWaitEmptyText(needsYou) },
             }),

@@ -37,6 +37,8 @@ export type RawCalendarEvent = {
   start: string
   end: string
   isAllDay?: boolean | undefined
+  /** Set by the API (Graph / Google); absent from an older image, where the title prefix decides. */
+  isCancelled?: boolean | undefined
   attendees?: readonly unknown[] | undefined
   videoLink?: string | null | undefined
 }
@@ -74,8 +76,9 @@ export function noMeetingsLabel(a: Pick<Agenda, 'loaded' | 'unavailable'>): stri
   return `No ${a.loaded.map((c) => CLASS_LABEL[c]).join(' or ')} meetings today · ${classLabels(a.unavailable)} unavailable`
 }
 
-/** Outlook keeps a cancelled meeting on the calendar and prefixes its title; Calendar's rule, so Home counts the same meetings. */
-const isCancelledTitle = (title: string) => CANCELLED_PREFIX.test(title)
+/** Calendar's rule exactly (`payload.isCancelled = event.isCancelled ?? CANCELLED_PREFIX.test(title)`), so Home counts the same meetings. */
+const isCancelledEvent = (e: Pick<RawCalendarEvent, 'title' | 'isCancelled'>) =>
+  e.isCancelled ?? CANCELLED_PREFIX.test(e.title)
 
 export type LaterMeeting = { title: string; startMs: number }
 
@@ -85,7 +88,7 @@ export function laterMeeting(feeds: readonly CalendarFeed[], now: number): Later
   let best: LaterMeeting | null = null
   for (const { events } of feeds) {
     for (const e of events) {
-      if (e.isAllDay || isDateOnly(e.start) || isCancelledTitle(e.title)) continue
+      if (e.isAllDay || isDateOnly(e.start) || isCancelledEvent(e)) continue
       const startMs = parseMs(e.start)
       if (startMs === null || startMs < from) continue
       if (best === null || startMs < best.startMs) best = { title: e.title, startMs }
@@ -120,7 +123,7 @@ export function todayAgenda(
   const allDay: string[] = []
   for (const { sourceClass, events } of feeds) {
     for (const e of events) {
-      if (isCancelledTitle(e.title)) continue
+      if (isCancelledEvent(e)) continue
       if (e.isAllDay || isDateOnly(e.start)) {
         const from = isDateOnly(e.start) ? dateOnlyMs(e.start) : parseMs(e.start)
         const to = isDateOnly(e.end) ? dateOnlyMs(e.end) : parseMs(e.end)
