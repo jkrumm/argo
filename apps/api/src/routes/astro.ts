@@ -300,6 +300,11 @@ const WindowResponseSchema = z.object({
     .describe(
       'Moon-gate limit as a 0–1 fraction: a night fails the moon gate at or above it while the moon is up and clear of the skyline',
     ),
+  cloudRuinsAt: z
+    .object({ low: z.number(), mid: z.number(), high: z.number() })
+    .describe(
+      'Cloud cover (percent) at which each layer has effectively taken the night: the level `factors[].ruinous` is judged against. A scored limit, never a gate',
+    ),
   bestWindow: ShootingWindowSchema.nullable().describe('Null when no night in the range is usable'),
   summary: z
     .string()
@@ -1445,6 +1450,7 @@ export function createAstroRoutes(overrides: Partial<AstroRouteDeps> = {}) {
           killers: best?.scored.killers ?? [],
           bestDate: best?.night.date ?? null,
           moonMaxIllumination: MAX_MOON_ILLUMINATION,
+          cloudRuinsAt: CLOUD_RUINS_AT,
           bestWindow,
           summary,
           detail: {
