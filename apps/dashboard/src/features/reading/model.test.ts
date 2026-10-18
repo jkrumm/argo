@@ -479,13 +479,13 @@ describe('lastReadFact', () => {
   const now = Date.UTC(2026, 9, 18)
   const day = 86_400_000
   test('glues the number to its unit in basalt relativeTime output, `ago` stays breakable', () => {
-    expect(lastReadFact(now - 95 * day, now)).toBe('last read 3\u00a0months ago')
-    expect(lastReadFact(now - day, now)).toBe('last read 1\u00a0day ago')
-    expect(lastReadFact(now - 3 * 3_600_000, now)).toBe('last read 3\u00a0hours ago')
+    expect(lastReadFact(now - 95 * day, now)).toBe('last\u00a0read\u00a03\u00a0months ago')
+    expect(lastReadFact(now - day, now)).toBe('last\u00a0read\u00a01\u00a0day ago')
+    expect(lastReadFact(now - 3 * 3_600_000, now)).toBe('last\u00a0read\u00a03\u00a0hours ago')
   })
   test('an age without a leading number is left whole', () => {
     expect(lastReadFact(now, now)).toBe(
-      `last read ${relativeTime(now, { now, numeric: 'always' })}`,
+      `last\u00a0read\u00a0${relativeTime(now, { now, numeric: 'always' })}`,
     )
   })
   test('no timestamp', () => {
