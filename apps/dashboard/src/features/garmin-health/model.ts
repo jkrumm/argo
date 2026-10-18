@@ -98,6 +98,24 @@ export function stressZone(v: number): StressZone {
 /** The load meter's empty line while the read is pending or a placeholder (no gap to name yet). */
 export const LOAD_LOADING_TEXT = 'Loading training load'
 
+/** The load meter's empty line: the gap's own line, or the loading text while there is no gap yet. */
+export function loadMeterEmptyText<G>(gap: G | undefined, line: (gap: G) => string): string {
+  return gap === undefined ? LOAD_LOADING_TEXT : line(gap)
+}
+
+/**
+ * The load cell is a bare worded reason only when there is nothing to show: a gap (no ACWR) with
+ * no acute/chronic rows. Rows without an ACWR keep the meter, its empty line and the rows.
+ */
+export function loadCellBranch(input: { gap: unknown; loadRows: number }): 'empty' | 'meter' {
+  return input.gap !== undefined && input.loadRows === 0 ? 'empty' : 'meter'
+}
+
+/** The recovery cell is a worded reason only when it shows its gap and the gap has a line. */
+export function recoveryCellBranch(input: { showsGap: boolean; gap: unknown }): 'empty' | 'meter' {
+  return input.showsGap && input.gap !== null ? 'empty' : 'meter'
+}
+
 /** Minus sign (U+2212) so a signed figure aligns with `+` in tabular numerals. */
 const MINUS = '−'
 

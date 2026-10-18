@@ -37,7 +37,9 @@ import {
   stressZone,
   STRESS_ZONE_LEGEND,
   STRESS_ZONE_NAME,
-  LOAD_LOADING_TEXT,
+  loadCellBranch,
+  loadMeterEmptyText,
+  recoveryCellBranch,
   recoverySentence,
   shortDate,
   signed,
@@ -658,8 +660,24 @@ describe('stress zones', () => {
   })
 })
 
-describe('load meter empty text', () => {
-  test('pending or placeholder (no gap yet) reads the loading text', () => {
-    expect(LOAD_LOADING_TEXT).toBe('Loading training load')
+describe('strip cell branches', () => {
+  test('load: a gap with acute/chronic rows keeps the meter and its gap line', () => {
+    expect(loadCellBranch({ gap: {}, loadRows: 2 })).toBe('meter')
+    expect(loadMeterEmptyText({ n: 1 }, () => 'gap line')).toBe('gap line')
+  })
+
+  test('load: a gap with nothing to show is the worded reason', () => {
+    expect(loadCellBranch({ gap: {}, loadRows: 0 })).toBe('empty')
+  })
+
+  test('load: no gap yet (pending or placeholder) is the meter reading the loading text', () => {
+    expect(loadCellBranch({ gap: undefined, loadRows: 0 })).toBe('meter')
+    expect(loadMeterEmptyText(undefined, () => 'gap line')).toBe('Loading training load')
+  })
+
+  test('recovery: a reason only when the gap is shown and has a line', () => {
+    expect(recoveryCellBranch({ showsGap: true, gap: {} })).toBe('empty')
+    expect(recoveryCellBranch({ showsGap: true, gap: null })).toBe('meter')
+    expect(recoveryCellBranch({ showsGap: false, gap: {} })).toBe('meter')
   })
 })
