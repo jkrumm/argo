@@ -64,14 +64,15 @@ function HelpHeader({ label, tip }: { label: string; tip: string }) {
 }
 
 // `meta.priority`: the HIGHEST number folds first when the card is too narrow, so INOL and Volume
-// go before Status and Momentum; Exercise and 1RM stay. Folded columns remain one tap away in the
+// go before Momentum and Status, and Momentum folds before Status: the word (Status) is the fact the
+// arrow repeats, so at 390 the row keeps Exercise, 1RM and the status word. Folded columns remain one tap away in the
 // per-row disclosure.
 const columns = [
   columnHelper.accessor('exercise_name', {
     header: 'Exercise',
     meta: { priority: 0 },
     cell: (ctx) => (
-      <Text size="sm" fw={600} c={VX.line}>
+      <Text size="sm" fw={600} c={VX.line} truncate="end" title={ctx.getValue()}>
         {ctx.getValue()}
       </Text>
     ),
@@ -121,7 +122,7 @@ const columns = [
       <HelpHeader label="Velocity, %/mo" tip="e1RM velocity over 28 days, as a monthly rate" />
     ),
     enableSorting: false,
-    meta: { priority: 2 },
+    meta: { priority: 3 },
     cell: (ctx) => {
       const { dir, vel } = ctx.row.original
       const monthly = perMonth(vel)
@@ -141,7 +142,7 @@ const columns = [
     id: 'status',
     header: 'Status',
     enableSorting: false,
-    meta: { priority: 3 },
+    meta: { priority: 2 },
     cell: (ctx) => (
       <Group gap={6} wrap="nowrap">
         <Box
