@@ -119,7 +119,6 @@ export default function HealthCard({
               x={(d: P95Point) => d.date}
               xTicks={5}
               formatX={(d) => shortDay(d)}
-              legend={false}
               cursorResolution="leading"
               // Headroom above the data so the line clears the top tick label.
               y={{ format: fmtSeconds, ticks: 2, autoPad: 1.3 }}
