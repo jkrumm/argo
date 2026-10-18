@@ -1,7 +1,7 @@
 import { VX } from 'basalt-ui/tokens'
-import { percent, weekday } from 'basalt-ui/format'
+import { weekday } from 'basalt-ui/format'
 import type { ChartFact } from 'basalt-ui/charts'
-import { withUnit } from '../../lib/format'
+import { NBSP, formatMinutes, withUnit } from '../../lib/format'
 import { CORE_METER_MAX_DEG, CORE_UNIT, MIN_BAR_SHARE, SKY_DARK_THRESHOLD } from './constants'
 import type { HourlyPoint, Killer, Night, Verdict, WindowResponse } from './types'
 
@@ -31,12 +31,9 @@ export function fmtDegrees(v: number | null): string {
   return v === null ? '—' : `${v.toFixed(1)}°`
 }
 
+/** The app's duration spelling (`2 h 30 min`, `45 min`), `—` without a value. */
 export function fmtMinutes(v: number | null): string {
-  if (v === null) return '—'
-  const h = Math.floor(v / 60)
-  const m = Math.round(v % 60)
-  if (h === 0) return `${m}m`
-  return `${h}h ${m}m`
+  return v === null ? '—' : formatMinutes(v)
 }
 
 /** Weekday abbreviation + day-of-month, for the night-strip cell header. */
@@ -101,7 +98,7 @@ function killerLabel(night: Night): string {
   if (killer === undefined) return '—'
   switch (killer.id) {
     case 'moon':
-      return `moon ${percent(night.moon.illumination)}`
+      return `moon ${withUnit(Math.round(night.moon.illumination * 100), '%')}`
     case 'core-altitude':
       return 'core low'
     case 'darkness':
@@ -179,10 +176,18 @@ export function coreGateDetail(night: Night): string {
     : 'clears the gate'
 }
 
+/** The moon's highest altitude over the astronomical-dark samples, when it gets above the horizon; null otherwise. */
+function moonPeakInDark(hourly: readonly HourlyPoint[]): number | null {
+  const dark = hourly.filter((h) => h.astroDark).map((h) => h.moonAltitude)
+  if (dark.length === 0) return null
+  const peak = Math.max(...dark)
+  return peak > 0 ? peak : null
+}
+
 /**
  * The Moon gate row's one line, in words only (the illumination and the limit are drawn in the Moon
- * cell). A failed gate: the moon's peak altitude over the window, from the structured field, else
- * the API's reason verbatim. A pass: `under limit`, or, for a moon over the limit, why the engine
+ * cell). A failed gate: the moon's peak altitude over the window, else over the dark hours, both from
+ * structured fields; the API's reason verbatim only when neither says. A pass: `under limit`, or, for a moon over the limit, why the engine
  * counted it down: `below horizon` (peak under 0°) or `behind skyline` (a window sample reports
  * `moonBehindTerrain`); `over limit` alone when neither field says.
  */
@@ -193,9 +198,11 @@ export function moonGateDetail(
 ): string {
   const killer = night.killers.find((k) => k.id === 'moon')
   if (killer !== undefined) {
-    return night.window === null
-      ? killer.reason
-      : `up to ${fmtDegrees(night.window.maxMoonAltitude)} during the window`
+    if (night.window !== null) {
+      return `up to ${fmtDegrees(night.window.maxMoonAltitude)} during the window`
+    }
+    const peak = moonPeakInDark(hourly)
+    return peak === null ? killer.reason : `up to ${fmtDegrees(peak)} while it is dark`
   }
   if (night.moon.illumination < moonLimit) return 'under limit'
   const shoot = night.window
@@ -401,12 +408,12 @@ export function coreTransitFooter(night: Night): string {
 
 /**
  * The page's opening: the live usable count, then which night to look at and how many are ruled
- * out. The shooting window is stated here only when `withWindow` (the Forecast tab, which has no
- * verdict card); on Tonight the verdict card owns it, so it is said once per view.
+ * out. The marked night is named only while another night is selected (the selected one is stated
+ * by the card or chart under the headline). Its shooting window is added only when `withWindow`.
  */
 export function pageSummary(
   data: WindowResponse,
-  { withWindow, withMiss }: { withWindow: boolean; withMiss: boolean },
+  { withWindow, selectedDate }: { withWindow: boolean; selectedDate: string },
 ): { sentence: string; facts: string[] } {
   const total = data.nights.length
   const usable = usableNightCount(data.nights)
@@ -417,16 +424,17 @@ export function pageSummary(
       ? `No usable night${total === 1 ? '' : ` in the next ${total} nights`}`
       : `${usable} of ${total} ${nightWord} usable`
   const facts: string[] = []
+  // The selected night is stated by the card or chart beside the headline and marked in the strip:
+  // naming it here again is a restatement.
+  const markedIsSelected = marked?.date === selectedDate
   if (usable > 0 && marked !== null) {
     const shoot = marked.window
     const range = withWindow && shoot !== null ? `, ${shoot.localStart}–${shoot.localEnd}` : ''
-    facts.push(`best ${fmtShortDay(marked.date)}${range}`)
+    if (!markedIsSelected) facts.push(`best ${fmtShortDay(marked.date)}${range}`)
   } else if (usable === 0 && marked !== null) {
-    facts.push(
-      withMiss
-        ? `closest ${fmtShortDay(marked.date)}, ${gateMissText(marked)}`
-        : `closest ${fmtShortDay(marked.date)}`,
-    )
+    if (!markedIsSelected) {
+      facts.push(`closest ${fmtShortDay(marked.date)}, ${gateMissText(marked)}`)
+    }
   } else if (usable === 0 && data.bestDate !== null) {
     facts.push(`first ${fmtShortDay(data.bestDate)}`)
   }
@@ -464,7 +472,7 @@ function layerParts({ weather }: Night): string[] {
     ['high', weather.cloudHigh],
   ]
   return layers.flatMap(([name, v]) =>
-    v === null || v === undefined ? [] : [`${name} ${withUnit(Math.floor(v), '%')}`],
+    v === null || v === undefined ? [] : [`${name}${NBSP}${withUnit(Math.floor(v), '%')}`],
   )
 }
 
@@ -477,7 +485,9 @@ function lowCloudValue(night: Night): string | null {
 type LowCloudStat = {
   value: string
   unit: string
-  /** The low value's window, then the mid and high layer values. */
+  /** What the low value is a mean over: `shooting-window mean` or `dark-hours mean`. */
+  basis: string
+  /** The basis, then the mid and high layer values (a label and its value never split across lines). */
   footer: string
   /** The reading and the limit tick for the gauge; the tick only when the night has the shooting window the limit applies to. */
   reading: number
@@ -495,10 +505,12 @@ export function lowCloudStat(night: Night, limit: number | undefined): LowCloudS
   if (mean === null) return null
   const scored = night.window !== null
   const reading = Math.floor(mean)
+  const basis = scored ? 'shooting-window mean' : 'dark-hours mean'
   return {
     value: lowCloudValue(night) ?? '',
     unit: 'low cloud',
-    footer: [scored ? 'shooting-window mean' : 'dark-hours mean', ...layerParts(night)].join(' · '),
+    basis,
+    footer: [basis, ...layerParts(night)].join(' · '),
     reading,
     target: scored && limit !== undefined ? limit : null,
   }
@@ -534,9 +546,11 @@ export function skyCellFooter({
   transparency: number | null
 }): string {
   const dome =
-    domePenaltyMag === null ? 'town glow —' : `town glow adds ${domePenaltyMag.toFixed(2)} mag`
+    domePenaltyMag === null
+      ? 'town glow —'
+      : `town glow adds ${withUnit(domePenaltyMag.toFixed(2), 'mag')}`
   const clarity = transparency === null ? '—' : `${transparency}/8, 1 = clearest`
-  return `dark sky from ${SKY_DARK_THRESHOLD} · ${dome} · transparency ${clarity}`
+  return `dark sky from ${withUnit(SKY_DARK_THRESHOLD, 'mag/arcsec²')} · ${dome} · transparency ${clarity}`
 }
 
 /**
@@ -557,6 +571,12 @@ function lowCloudState(night: Night): 'ruinous' | 'limits the score' | null {
   if (night.weather.cloudLow === null) return null
   if (lowCloudRuinous(night)) return 'ruinous'
   return limitingFactor(night)?.id === 'cloud-low' ? 'limits the score' : null
+}
+
+/** A scored night's low cloud when it is neither ruinous nor the limiting factor: the cloud fact the verdict still rests on. */
+function lowCloudScoredFine(night: Night): boolean {
+  const factor = night.factors.find((f) => f.id === 'cloud-low')
+  return night.weather.cloudLow !== null && factor !== undefined && factor.value !== null
 }
 
 /** The verdict card's facts line. A usable night names its score and the factor holding it back, unless the low-cloud row already says it. */
@@ -606,7 +626,7 @@ export function gateRows(
     gate('core-altitude', 'Core', coreGateDetail(night), dark),
     gate('moon', 'Moon', moonGateDetail(night, moonLimit, hourly), dark),
   ]
-  const cloudState = lowCloudState(night)
+  const cloudState = lowCloudState(night) ?? (lowCloudScoredFine(night) ? 'not limiting' : null)
   if (cloudState !== null) {
     rows.push({
       key: 'cloud-low',

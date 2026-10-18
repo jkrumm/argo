@@ -1,9 +1,11 @@
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
-import { percent } from 'basalt-ui/format'
+import { withUnit } from '../../../lib/format'
 import { SERIES } from '../../../lib/series'
 import { CHART_HEIGHT, METRIC_TOOLTIPS } from '../constants'
 import { fmtShortDay, hourlyTicks, hourlyTimeLabel, lowCloudStat, withFacts } from '../formulas'
 import type { HourlyPoint, Night } from '../types'
+
+const fmtCloud = (v: number) => withUnit(Math.round(v), '%')
 
 // The 0 gridline is not the plot floor — a series pinned at 0% (a common outcome for "low cloud")
 // draws as a visible line above the axis rule instead of merging with it.
@@ -27,30 +29,19 @@ const SERIES_DEFS: CloudSeriesDef[] = [
 ]
 
 /**
- * The single value a series holds for the entire night, or null when it varies (or has any gap).
- * Used to move a flat line's story out of the plot and into the legend.
+ * A layer's value is printed in one place each: low in the headline, and every layer in the tooltip
+ * at the cursor. The legend and the line ends only name the layer, so a series carries no `note`
+ * (the legend and the tooltip row both print it).
  */
-function constantValue(hourly: HourlyPoint[], key: CloudSeriesKey): number | null {
-  const first = hourly[0]?.[key]
-  if (first === null || first === undefined) return null
-  return hourly.every((d) => d[key] === first) ? first : null
-}
-
-function toSeries(def: CloudSeriesDef, hourly: HourlyPoint[]): ChartSeries<HourlyPoint> {
-  // A layer that holds one value all night draws as a straight line sitting on a gridline, which
-  // is easy to read as chart furniture — and for low cloud, "0% all night" is the single best
-  // piece of news on the page. The line stays plotted (it is still data, and the legend toggle
-  // needs its entry); the legend note states the finding in words.
-  const flat = constantValue(hourly, def.key)
+function toSeries(def: CloudSeriesDef): ChartSeries<HourlyPoint> {
   return {
     key: def.key,
     label: def.label,
     color: SERIES[def.key],
     strokeWidth: def.strokeWidth,
     getValue: (d) => d[def.key],
-    formatValue: (v) => percent(v, { input: 'percent' }),
+    formatValue: fmtCloud,
     ...(def.dash !== undefined && { dash: def.dash }),
-    ...(flat !== null && { note: `${flat}% all night` }),
   }
 }
 
@@ -77,7 +68,7 @@ export default function CloudLayersChart({
 }) {
   const stat = lowCloudStat(night, undefined)
   const series = SERIES_DEFS.filter((def) => hourly.some((d) => d[def.key] !== null)).map((def) =>
-    toSeries(def, hourly),
+    toSeries(def),
   )
 
   return (
@@ -85,7 +76,7 @@ export default function CloudLayersChart({
       title={`Cloud cover by layer · ${fmtShortDay(night.date)}`}
       info={METRIC_TOOLTIPS.cloudLayers}
       {...withFacts(
-        stat === null ? null : { value: stat.value, unit: stat.unit, period: stat.footer },
+        stat === null ? null : { value: stat.value, unit: stat.unit, period: stat.basis },
       )}
       state={{ empty: series.length === 0 && 'No cloud data for this night' }}
       placeholderHeight={CHART_HEIGHT}
@@ -98,7 +89,7 @@ export default function CloudLayersChart({
         xTicks={hourlyTicks(hourly)}
         formatX={hourlyTimeLabel(hourly)}
         series={series}
-        y={{ domain: Y_DOMAIN, ticks: Y_TICKS, format: (v) => `${v}%` }}
+        y={{ domain: Y_DOMAIN, ticks: Y_TICKS, format: (v) => withUnit(v, '%') }}
         tooltip={{ formatHeader: (_x, d) => d.localTime, onFollow: true }}
       />
     </ChartCard>
