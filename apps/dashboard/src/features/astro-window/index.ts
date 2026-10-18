@@ -35,6 +35,7 @@ export {
   fmtShortDay,
   coreGateFailure,
   coreMeterReading,
+  headlineNight,
   markedNightOf,
   pageSummary,
 } from './formulas'

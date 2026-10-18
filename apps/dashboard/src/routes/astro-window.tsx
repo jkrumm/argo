@@ -25,6 +25,7 @@ import {
   TonightTop,
   VerdictCard,
   markedNightOf,
+  headlineNight,
   pageSummary,
   BASE_LAYER_IDS,
   DEFAULT_LP_YEAR,
@@ -265,11 +266,12 @@ function AstroWindowPage() {
   const selectedNight = data.nights.find((n) => n.date === selectedDate) ?? null
   const markedNight = markedNightOf(data)
   // Where the selected night's miss is stated, once: Tonight's verdict card, or the Forecast timeline
-  // (which has no card). The headline names the closest night's miss only for ANOTHER night.
+  // (which has no card). The headline names the marked night per `headlineNight`.
   const timelineNamesMiss = search.tab === 'forecast'
   const summary = pageSummary(data, {
     withWindow: search.tab === 'forecast',
     selectedDate,
+    marked: headlineNight(data, { forecast: search.tab === 'forecast', selectedDate }),
   })
 
   return (

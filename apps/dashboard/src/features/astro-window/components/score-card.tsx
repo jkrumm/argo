@@ -5,7 +5,8 @@ import type { Night } from '../types'
 
 /**
  * What carries the score: one bar per scored factor (value 0–100 %), its share of the total weight
- * trailing in muted ink. A gated night has no score — one line names the gate instead.
+ * trailing in muted ink. A gated night has no score — one line says so; the verdict card's gate rows
+ * name the gates.
  */
 export function ScoreCard({ night }: { night: Night }) {
   const out = night.verdict === 'out'

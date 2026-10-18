@@ -47,7 +47,6 @@ const BARS: BarsBar<MonthRow>[] = [
   {
     key: 'flat',
     label: 'Flat atmospheric floor',
-    note: 'left bar',
     color: VX.faint,
     getValue: (d) => d.flat,
     formatValue: fmtBudget,
@@ -55,7 +54,6 @@ const BARS: BarsBar<MonthRow>[] = [
   {
     key: 'terrain',
     label: 'Flat + measured skyline',
-    note: 'middle bar',
     color: VX.muted,
     getValue: (d) => d.terrain,
     formatValue: fmtBudget,
@@ -63,7 +61,6 @@ const BARS: BarsBar<MonthRow>[] = [
   {
     key: 'terrainMoon',
     label: 'Skyline + moon behind it',
-    note: 'right bar',
     color: SERIES.coreAltitude,
     getValue: (d) => d.terrainMoon,
     formatValue: fmtBudget,

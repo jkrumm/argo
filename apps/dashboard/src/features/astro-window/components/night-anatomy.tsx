@@ -1,11 +1,13 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { Box } from '@mantine/core'
 import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
-import { SKY_DARK_THRESHOLD, SKY_METER_MAX, SKY_METER_MIN } from '../constants'
+import { CORE_UNIT, SKY_DARK_THRESHOLD, SKY_METER_MAX, SKY_METER_MIN } from '../constants'
 import {
   coreGaugeMax,
   coreMeterReading,
+  cloudFooter,
   coreTransitFooter,
+  fmtPercent,
   fmtDegrees,
   fmtLocalClock,
   fmtMinutes,
@@ -14,7 +16,6 @@ import {
   skyCellFooter,
 } from '../formulas'
 import { LP_RAMP, LP_RAMP_MAX, LP_RAMP_MIN } from '../map-layers'
-import { withUnit } from '../../../lib/format'
 import type { Location, Night } from '../types'
 import classes from './night-anatomy.module.css'
 
@@ -80,14 +81,14 @@ function coreCell(night: Night): StatStripCell {
     key: 'core',
     caption: 'Core',
     value: fmtDegrees(core.reading),
-    unit: `of ${fmtDegrees(core.gate)} gate`,
+    unit: CORE_UNIT,
     visual: gauge(
       `Core ${fmtDegrees(core.reading)} against a gate of ${fmtDegrees(core.gate)}`,
       core.reading,
       coreGaugeMax(core.gate),
       core.gate,
     ),
-    footer: coreTransitFooter(night),
+    footer: `gate ${fmtDegrees(core.gate)} · ${coreTransitFooter(night)}`,
   }
 }
 
@@ -136,7 +137,7 @@ export function NightAnatomy({
           {
             key: 'moon',
             caption: 'Moon',
-            value: withUnit(moonPct, '%'),
+            value: fmtPercent(moonPct),
             unit: 'lit',
             visual: gauge(
               `Moon ${moonPct} percent against a ${limitPct} percent limit`,
@@ -144,7 +145,7 @@ export function NightAnatomy({
               100,
               limitPct,
             ),
-            footer: `limit ${withUnit(limitPct, '%')} · ${moonPhaseLabel(night.moon.phase)}${moonSet === null ? '' : ` · sets ${moonSet}`}`,
+            footer: `limit ${fmtPercent(limitPct)} · ${moonPhaseLabel(night.moon.phase)}${moonSet === null ? '' : ` · sets ${moonSet}`}`,
           },
           {
             key: 'cloud',
@@ -162,7 +163,7 @@ export function NightAnatomy({
                     cloud.target,
                   ),
                 }),
-            footer: cloud?.footer ?? 'no cloud data',
+            footer: cloud === null ? 'no cloud data' : cloudFooter(cloud),
           },
           {
             key: 'sky',
