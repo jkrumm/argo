@@ -108,12 +108,11 @@
   border-bottom: 1px solid var(--vx-surface-hairline);
 }
 
-/* Two lines at most: line 1 (actor, verb, subject) wraps whole and is never cut; line 2 (detail, outcome, chip) is muted, smaller and may ellipsize. The time keeps its own column; the row's `title` holds the full text. */
+/* Line 1 (actor, verb, subject) wraps whole and is never clamped or cut; line 2 (detail · outcome · chip) is muted, smaller and stays one line, ellipsizing. The time keeps its own column; the row's `title` holds the full text. */
 .feedBody {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0;
 }
 
 .feedLead {

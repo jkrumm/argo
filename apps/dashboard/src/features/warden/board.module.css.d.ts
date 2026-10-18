@@ -4,7 +4,6 @@
  */
 declare const classes: {
   readonly columns: string
-  readonly queueGrid: string
   readonly column: string
   readonly text: string
 }
