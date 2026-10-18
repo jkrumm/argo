@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { relativeTime } from 'basalt-ui/format'
+import { Text } from '@mantine/core'
+import { VX } from 'basalt-ui/tokens'
 import { PageSummary } from '../../components/upstream/page-summary'
 import { usageQueries } from '../../lib/queries/usage'
 import { useNow } from '../../lib/use-now'
-import { freshnessWord, summaryFacts, summarySentence } from './model'
+import { freshness, summaryFacts, summarySentence } from './model'
 
 /** `relativeTime` against the shared clock, or null when the feed has no record. */
 function age(iso: string | null | undefined, now: number): string | null {
@@ -11,12 +13,20 @@ function age(iso: string | null | undefined, now: number): string | null {
   return relativeTime(new Date(iso), { now })
 }
 
+const FRESHNESS_INK = {
+  ok: VX.muted,
+  none: VX.muted,
+  warn: VX.status.warn,
+  bad: VX.status.bad,
+} as const
+
 /** The page's opening: 30 d spend as the sentence, the rest as facts, freshness as a word. */
 export function UsageHeadline() {
   const { data, isPending } = useQuery(usageQueries.headline())
   const now = useNow()
   if (isPending) return <PageSummary sentence="" loading />
   if (data === undefined) return <PageSummary sentence="Usage headline unavailable" />
+  const fresh = freshness(data.maxTs, now)
   return (
     <PageSummary
       sentence={summarySentence({ cost30d: data.costUsd30d, cost7d: data.costUsd7d })}
@@ -26,7 +36,11 @@ export function UsageHeadline() {
         sources: data.sourcesActive,
         lastEvent: age(data.maxTs, now),
       })}
-      aside={freshnessWord(data.maxTs, now)}
+      aside={
+        <Text component="span" inherit c={FRESHNESS_INK[fresh.tone]}>
+          {fresh.word}
+        </Text>
+      }
     />
   )
 }

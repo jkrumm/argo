@@ -11,9 +11,8 @@ export const CACHE_HIT_TARGET = 0.6
 /** Daily error-rate bands: below 1 % ok, 1–3 % warn, above 3 % bad. Proposed, not an SLO. */
 export const ERROR_WARN_FROM = 0.01
 export const ERROR_BAD_ABOVE = 0.03
-/** A feed with no record for this long is stale. */
-/** A feed is stale past this many minutes without an event; the headline switches from minutes to hours at `STALE_IN_HOURS_FROM_MIN`. */
-export const STALE_AFTER_MIN = 30
+/** A feed with no event for this many minutes is stale; past `STALE_IN_HOURS_FROM_MIN` it reads in hours and turns bad. */
+const STALE_AFTER_MIN = 30
 const STALE_IN_HOURS_FROM_MIN = 120
 /** Series kept in a stacked chart before the rest fold into "Other". */
 export const FOLD_TOP_N = 6
@@ -169,7 +168,8 @@ export function meanOf(values: readonly (number | null)[]): number | null {
 
 /**
  * The mean of the last `n` daily readings: the cache cell's recent figure, because the headline
- * carries no prior-30 d cache ratio. Compare it with the printed 30 d ratio via `pointsDelta`.
+ * carries no prior-30 d cache ratio. Slots are calendar days, so a trailing gap (`null`) shortens the
+ * window rather than reaching further back. Compare it with the printed 30 d ratio via `pointsDelta`.
  */
 export function recentMean(values: readonly (number | null)[], n = 7): number | null {
   return meanOf(values.slice(-n))
@@ -302,13 +302,16 @@ export function summaryFacts(
   ].filter((f): f is string => f !== null)
 }
 
-/** The freshness word for the headline's aside: `fresh`, `stale 40 min`, `stale 3 h`, or `no events`. */
-export function freshnessWord(iso: string | null | undefined, now: number): string {
-  const age = ageMinutes(iso, now)
-  if (age === null) return 'no events'
-  if (age <= STALE_AFTER_MIN) return 'fresh'
-  if (age < STALE_IN_HOURS_FROM_MIN) return `stale ${Math.round(age)} min`
-  return `stale ${Math.round(age / 60)} h`
+export type Freshness = { word: string; tone: 'ok' | 'warn' | 'bad' | 'none' }
+
+/** The headline aside: `fresh`, `stale 40 min` (warn), `stale 3 h` (bad, past 2 h), or `no events`. */
+export function freshness(iso: string | null | undefined, now: number): Freshness {
+  const raw = ageMinutes(iso, now)
+  if (raw === null) return { word: 'no events', tone: 'none' }
+  const age = Math.round(raw)
+  if (age <= STALE_AFTER_MIN) return { word: 'fresh', tone: 'ok' }
+  if (age < STALE_IN_HOURS_FROM_MIN) return { word: `stale ${age} min`, tone: 'warn' }
+  return { word: `stale ${Math.round(age / 60)} h`, tone: 'bad' }
 }
 
 export function periodNoun(range: '7d' | '30d' | '90d' | 'all'): string {

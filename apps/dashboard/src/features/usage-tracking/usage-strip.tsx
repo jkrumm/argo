@@ -270,12 +270,7 @@ function cacheCell({ h, loading }: Ctx, cache: Series): StatStripCell {
     value: fmtPct(ratio),
     delta:
       ratio === null || delta === null ? undefined : (
-        <DeltaBadge
-          value={delta}
-          format={fmtPointsBadge}
-          polarity="up-good"
-          period="last 7 d vs 30 d ratio"
-        />
+        <DeltaBadge value={delta} format={fmtPointsBadge} polarity="up-good" period="30 d ratio" />
       ),
     loading,
     visual:
@@ -294,7 +289,11 @@ function cacheCell({ h, loading }: Ctx, cache: Series): StatStripCell {
       ),
     footer: footerOf([
       `target ${fmtPct(CACHE_HIT_TARGET, 0)}`,
-      recent === null ? null : `last 7 d mean ${fmtPct(recent)}`,
+      cache.failed
+        ? '7 d trend failed to load'
+        : recent === null
+          ? null
+          : `last 7 d mean ${fmtPct(recent)}`,
     ]),
   }
 }

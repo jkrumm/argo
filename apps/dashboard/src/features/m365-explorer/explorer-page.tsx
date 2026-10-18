@@ -10,7 +10,7 @@ import {
   useQueryClient,
   useSuspenseQuery,
 } from '@tanstack/react-query'
-import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import { m365Mutations, m365Queries } from '../../lib/queries/m365'
 import { PageSummary } from '../../components/upstream/page-summary'
 import { FeedPane } from './feed-pane'
@@ -50,12 +50,11 @@ const SCOPE_BY_VIEW: Record<ViewKey, ChipScope> = {
   feed: 'sources',
 }
 /** Per phone pane: the Section title, the tab label and the shot anchor. `labeled` has none here, `LabeledPane` carries its own. */
-const PANE_META: Record<PaneKey, { title: string; tab: string; shot: string | null }> = {
+const PANE_META: Record<PaneKey, { title: string; tab: string; shot?: string }> = {
   sources: { title: 'Sources', tab: 'Sources', shot: 'source-list' },
-  labeled: { title: 'Labeled sources', tab: 'Labeled', shot: null },
+  labeled: { title: 'Labeled sources', tab: 'Labeled' },
   detail: { title: 'Detail', tab: 'Detail', shot: 'detail-pane' },
 }
-const PANE_ORDER: readonly PaneKey[] = ['sources', 'labeled', 'detail']
 const CHATS_TOP = 50
 /** Channel lists load this many teams ahead of the ones already settled: a slow Graph call never fans out all at once. */
 const CHANNEL_WINDOW = 4
@@ -69,6 +68,8 @@ export function M365ExplorerPage(): ReactElement {
   const [query] = explorerStore.field.q.use()
   const [pane, setPane] = explorerStore.field.pane.use()
   const phoneRef = useRef<HTMLDivElement>(null)
+  /** Set by an explicit pick on a phone, so focus moves to the record then and not on mount or resize. */
+  const pickedRef = useRef(false)
   const [selected, setSelected] = useState<SourceRef | null>(null)
   const [tagsOpened, tagsModal] = useDisclosure(false)
 
@@ -207,16 +208,29 @@ export function M365ExplorerPage(): ReactElement {
     upsertLabel.reset()
     deleteLabel.reset()
     setSelected(ref)
+    pickedRef.current = compact && ref !== null
     // Set on every layout, not only a phone's: the pane a resize back to a phone lands on must match the selection.
     setPane(ref ? 'detail' : 'sources')
   }
 
-  // A phone swaps the list for the detail on a pick: move focus to the record's heading so the swap is announced.
+  // The pane the phone shows: Labeled duplicates Sources in the feed view, and a Detail with nothing
+  // open (outside the feed) has nothing to show, so both fall back to Sources.
+  const shownPane: PaneKey =
+    view === 'feed'
+      ? pane === 'labeled'
+        ? 'sources'
+        : pane
+      : pane === 'detail' && selected === null
+        ? 'sources'
+        : pane
+
+  // A phone swaps the list for the detail on a pick: move focus to the record's heading.
   useEffect(() => {
-    if (compact && pane === 'detail' && selectedId !== null) {
+    if (compact && shownPane === 'detail' && pickedRef.current) {
+      pickedRef.current = false
       phoneRef.current?.querySelector<HTMLElement>('h2')?.focus()
     }
-  }, [compact, pane, selectedId])
+  }, [compact, shownPane, selectedId])
 
   const record = selected ? (
     <RecordPane
@@ -287,6 +301,13 @@ export function M365ExplorerPage(): ReactElement {
   const detailPane =
     view === 'feed' ? <FeedPane tag={tag} /> : (record ?? (compact ? emptyDetail : labeledPane))
 
+  const phonePanes: Record<PaneKey, ReactNode> = {
+    sources: sourcesPane,
+    labeled: labeledPane,
+    detail: detailPane,
+  }
+  const shown = PANE_META[shownPane]
+
   const retryFailed = (): void => {
     channelStates.forEach((c) => {
       if (c.state === 'failed') c.retry()
@@ -356,27 +377,29 @@ export function M365ExplorerPage(): ReactElement {
 
         {compact ? (
           <Section
-            title={PANE_META[pane].title}
+            title={shown.title}
             tabs={
               <ViewTabs
                 field={explorerStore.field.pane}
                 label="Pane"
-                options={PANE_ORDER.map((value) => ({
-                  value,
-                  label:
-                    value === 'labeled'
-                      ? `${PANE_META[value].tab} ${labels.length}`
-                      : PANE_META[value].tab,
-                }))}
+                options={(['sources', 'labeled', 'detail'] as const)
+                  .filter((value) => view !== 'feed' || value !== 'labeled')
+                  .map((value) => ({
+                    value,
+                    label:
+                      value === 'labeled'
+                        ? `${PANE_META[value].tab} ${labels.length}`
+                        : PANE_META[value].tab,
+                  }))}
               />
             }
           >
             <div
               ref={phoneRef}
               className={classes.phonePane}
-              {...(PANE_META[pane].shot === null ? {} : { 'data-shot': PANE_META[pane].shot })}
+              {...(shown.shot === undefined ? {} : { 'data-shot': shown.shot })}
             >
-              {pane === 'sources' ? sourcesPane : pane === 'labeled' ? labeledPane : detailPane}
+              {phonePanes[shownPane]}
             </div>
           </Section>
         ) : (

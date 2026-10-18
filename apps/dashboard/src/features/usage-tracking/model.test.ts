@@ -24,7 +24,7 @@ import {
   secondsQuantity,
   summaryFacts,
   summarySentence,
-  freshnessWord,
+  freshness,
   recentMean,
   tokensQuantity,
 } from './model'
@@ -154,11 +154,13 @@ describe('freshness and copy', () => {
       summaryFacts({ tokens30d: null, errorRate30d: null, sources: null, lastEvent: null }),
     ).toEqual(['— tokens', '— errors', 'no events recorded'])
   })
-  it('names the freshness in words', () => {
-    expect(freshnessWord('2026-10-17T11:45:00Z', now)).toBe('fresh')
-    expect(freshnessWord('2026-10-17T11:20:00Z', now)).toBe('stale 40 min')
-    expect(freshnessWord('2026-10-17T09:00:00Z', now)).toBe('stale 3 h')
-    expect(freshnessWord(null, now)).toBe('no events')
+  it('names the freshness in words and tones it', () => {
+    expect(freshness('2026-10-17T11:45:00Z', now)).toEqual({ word: 'fresh', tone: 'ok' })
+    expect(freshness('2026-10-17T11:20:00Z', now)).toEqual({ word: 'stale 40 min', tone: 'warn' })
+    expect(freshness('2026-10-17T10:00:30Z', now)).toEqual({ word: 'stale 2 h', tone: 'bad' })
+    expect(freshness('2026-10-17T10:00:10Z', now)).toEqual({ word: 'stale 2 h', tone: 'bad' })
+    expect(freshness('2026-10-17T10:00:20Z', now).tone).toBe('bad')
+    expect(freshness(null, now)).toEqual({ word: 'no events', tone: 'none' })
   })
 })
 
@@ -168,6 +170,30 @@ describe('recentMean', () => {
     expect(recentMean(values)).toBeCloseTo(0.9)
     expect(recentMean([null, 0.6, null])).toBeCloseTo(0.6)
     expect(recentMean([null, null])).toBeNull()
+  })
+  it('counts trailing gaps as part of the calendar window', () => {
+    // 12 slots, the last 5 empty: the window is slots 6–12, so the older 0.2 days never reach in.
+    const values = [0.2, 0.2, 0.2, 0.2, 0.2, 0.6, 0.6, null, null, null, null, null]
+    expect(recentMean(values)).toBeCloseTo(0.6)
+    expect(
+      recentMean([
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+      ]),
+    ).toBeNull()
   })
 })
 
