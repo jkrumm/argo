@@ -5,8 +5,7 @@ import { overlays } from 'basalt-ui/commands'
 import { relativeTime } from 'basalt-ui/format'
 import {
   TYPE_LABEL,
-  clampAtWord,
-  SUMMARY_MAX_CHARS_COMPACT,
+  summaryExcerpt,
   listTime,
   oldestUpdatedAt,
   untitledLabel,
@@ -61,9 +60,7 @@ function Row({
         <Box className={classes['body']}>
           <Text className={classes['title']}>{label}</Text>
           {entry.summary !== null && (
-            <Text className={classes['summary']}>
-              {clampAtWord(entry.summary, compact ? SUMMARY_MAX_CHARS_COMPACT : undefined)}
-            </Text>
+            <Text className={classes['summary']}>{summaryExcerpt(entry.summary, compact)}</Text>
           )}
         </Box>
         <Text component="span" className={classes['time']}>
@@ -152,7 +149,7 @@ export function ThreadList({
               aria-disabled={foldOpen || undefined}
               onClick={() => !foldOpen && onToggleOpen()}
             >
-              {untitledLabel(relativeTime(oldestUpdatedAt(untitled)))}
+              {untitledLabel(untitled.length, relativeTime(oldestUpdatedAt(untitled)))}
             </UnstyledButton>
             <Button
               variant="subtle"

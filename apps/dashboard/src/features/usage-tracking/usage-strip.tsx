@@ -9,7 +9,6 @@ import { Skeleton, Stack, Text } from '@mantine/core'
 import { DeltaBadge, Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { usageQueries, type Metric } from '../../lib/queries/usage'
 import { USAGE_BILLING } from '../../lib/series'
-import { withUnit } from '../../lib/format'
 import { useNow } from '../../lib/use-now'
 import { dayToDate } from './constants'
 import {
@@ -40,7 +39,8 @@ import {
   D30,
   PRIOR_30D,
   slowerDaysLine,
-  dropPartialDay,
+  dropPartialBucket,
+  D7,
   secondsDelta,
   secondsQuantity,
   tokensQuantity,
@@ -69,7 +69,7 @@ function useDaily(metric: Metric, now: number): Series {
       date: dayToDate(b.bucket),
       value: b.groups['value'] ?? null,
     })) ?? []
-  const days = dropPartialDay(all, now)
+  const days = dropPartialBucket(all, now, 'day')
   return { days, loading: query.isPending, failed: query.isError }
 }
 
@@ -299,7 +299,7 @@ function cacheCell({ h, loading }: Ctx, cache: Series): StatStripCell {
           value={delta}
           format={fmtPointsBadge}
           polarity="up-good"
-          period={`last ${withUnit(7, 'd')} vs ${D30}`}
+          period={`last ${D7} vs ${D30}`}
           periodPrefix=""
         />
       ),

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test'
+import { afterEach, describe, expect, it } from 'bun:test'
 import {
   badDayCount,
   errorDaysLine,
@@ -22,8 +22,9 @@ import {
   fmtUsdWhole,
   foldTopN,
   countAgainst,
+  barStateOf,
   dropPartialBucket,
-  dropPartialDay,
+  periodNoun,
   prepareFolded,
   FOLD_MAX_N,
   slowerDaysLine,
@@ -152,7 +153,7 @@ describe('error days', () => {
 describe('freshness and copy', () => {
   const now = Date.parse('2026-10-17T12:00:00Z')
   it('the headline sentence carries the spend, the facts carry the rest', () => {
-    expect(summarySentence({ cost7d: 300 })).toBe('$300 spent in the last 7\u00a0days')
+    expect(summarySentence({ cost7d: 300 })).toBe('$300 spent in the last 7\u00a0d')
     expect(summaryFacts({ sources: 7, lastEvent: '3 minutes ago' })).toEqual([
       '7 sources active',
       'last event 3 minutes ago',
@@ -303,7 +304,7 @@ describe('error days, peak and source note', () => {
   it('words the health and fold info from the constants', () => {
     expect(healthInfo('week')).toContain('a week under 1%')
     expect(foldInfo('billing lane')).toBe(
-      'The largest billing lanes in the window are named (at least 6, more while the rest would outweigh the smallest), the rest are grouped as Other. The chart ends at the last full day; the list includes today.',
+      'The largest billing lanes in the window are named (at least 6, more while the rest would outweigh the smallest), the rest are grouped as Other.',
     )
   })
   it('states what the source percentage is of', () => {
@@ -331,22 +332,55 @@ describe('foldTopN widening', () => {
   })
 })
 
-describe('dropPartialDay', () => {
+describe('dropPartialBucket', () => {
   // Buckets are UTC days that `dayToDate` keeps as local midnight of the same year-month-day.
   const days = [1, 2, 3].map((d) => ({ date: new Date(2026, 0, d), value: d }))
+  const weeks = [4, 11, 18].map((d) => ({ date: new Date(2026, 0, d), value: d }))
+  const values = (rows: ReadonlyArray<{ value: number }>) => rows.map((d) => d.value)
+  const original = process.env['TZ']
 
-  it('drops the bucket of the UTC day of now, whatever the browser offset', () => {
-    // 00:30 UTC on 3 Jan: 3 Jan 01:30 in Berlin, but still 2 Jan evening in the Americas.
-    const justAfterUtcMidnight = Date.UTC(2026, 0, 3, 0, 30)
-    expect(dropPartialDay(days, justAfterUtcMidnight).map((d) => d.value)).toEqual([1, 2])
+  afterEach(() => {
+    if (original === undefined) delete process.env['TZ']
+    else process.env['TZ'] = original
   })
-  it('keeps the next UTC day running when it is already the local day east of UTC', () => {
-    // 23:30 UTC on 2 Jan: already 3 Jan 00:30 in Berlin, yet the running bucket is 2 Jan.
-    const justBeforeUtcMidnight = Date.UTC(2026, 0, 2, 23, 30)
-    expect(dropPartialDay(days, justBeforeUtcMidnight).map((d) => d.value)).toEqual([1, 3])
-  })
+
+  for (const tz of ['UTC', 'America/Los_Angeles', 'Pacific/Kiritimati']) {
+    it(`measures a day against the UTC clock in ${tz}`, () => {
+      process.env['TZ'] = tz
+      const rows = [1, 2, 3].map((d) => ({ date: new Date(2026, 0, d), value: d }))
+      expect(values(dropPartialBucket(rows, Date.UTC(2026, 0, 3, 0, 30), 'day'))).toEqual([1, 2])
+      expect(values(dropPartialBucket(rows, Date.UTC(2026, 0, 2, 23, 59, 59, 999), 'day'))).toEqual(
+        [1],
+      )
+      expect(dropPartialBucket(rows, Date.UTC(2026, 0, 4, 0, 0), 'day')).toHaveLength(3)
+    })
+    it(`measures a week to the millisecond in ${tz}`, () => {
+      process.env['TZ'] = tz
+      const rows = [4, 11, 18].map((d) => ({ date: new Date(2026, 0, d), value: d }))
+      const end = Date.UTC(2026, 0, 25)
+      expect(values(dropPartialBucket(rows, end - 1, 'week'))).toEqual([4, 11])
+      expect(values(dropPartialBucket(rows, end, 'week'))).toEqual([4, 11, 18])
+    })
+  }
   it('keeps everything when the feed ends before today', () => {
-    expect(dropPartialDay(days.slice(0, 2), Date.UTC(2026, 0, 3, 12))).toHaveLength(2)
+    expect(dropPartialBucket(days.slice(0, 2), Date.UTC(2026, 0, 3, 12), 'day')).toHaveLength(2)
+    expect(dropPartialBucket(weeks.slice(0, 1), Date.UTC(2026, 0, 20), 'week')).toHaveLength(1)
+  })
+})
+
+describe('barStateOf', () => {
+  it('is the verdict, and nothing for a day with no calls and no events', () => {
+    expect(barStateOf({ state: 'warn', count: 3 })).toBe('warn')
+    expect(barStateOf({ state: 'none', count: 0 })).toBeNull()
+    expect(barStateOf({ state: 'none', count: 2 })).toBe('ok')
+  })
+})
+
+describe('periodNoun', () => {
+  it('names every range explicitly, units glued', () => {
+    expect(periodNoun('7d')).toBe('7\u00a0d')
+    expect(periodNoun('90d')).toBe('90\u00a0d')
+    expect(periodNoun('all')).toBe('all time')
   })
 })
 
@@ -389,6 +423,8 @@ describe('prepareFolded', () => {
       'Chrome devtools · Take screenshot',
     )
     expect(labelOf('web_search')).toBe('Web search')
+    expect(labelOf('file.read')).toBe('File read')
+    expect(labelOf('Task:sub/agent')).toBe('Task sub agent')
     expect(labelOf('Skill:review/deep')).toBe('Skill review deep')
     expect(labelOf(OTHER_KEY)).toBe(OTHER_KEY)
   })
@@ -396,23 +432,5 @@ describe('prepareFolded', () => {
     const { folded, labelOf } = prepareFolded({ points, groupKeys, groupBy: 'project' })
     expect(folded.keys).toEqual(['mcp__s__a', 'mcp__s__b', 'Bash', 'Read'])
     expect(labelOf('Bash')).toBe('Bash')
-  })
-})
-
-describe('dropPartialBucket', () => {
-  const days = [1, 2, 3].map((d) => ({ date: new Date(2026, 0, d), value: d }))
-  const weeks = [4, 11, 18].map((d) => ({ date: new Date(2026, 0, d), value: d }))
-
-  it('ends a day chart at the last complete UTC day', () => {
-    expect(dropPartialBucket(days, Date.UTC(2026, 0, 3, 0, 30), 'day').map((d) => d.value)).toEqual(
-      [1, 2],
-    )
-    expect(dropPartialBucket(days, Date.UTC(2026, 0, 4, 0, 0), 'day')).toHaveLength(3)
-  })
-  it('ends a week chart at the last complete week', () => {
-    expect(dropPartialBucket(weeks, Date.UTC(2026, 0, 20), 'week').map((d) => d.value)).toEqual([
-      4, 11,
-    ])
-    expect(dropPartialBucket(weeks, Date.UTC(2026, 0, 25), 'week')).toHaveLength(3)
   })
 })

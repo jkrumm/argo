@@ -10,6 +10,7 @@ export const EM_DASH = '—'
 
 /** `30 d` that never splits across lines. */
 export const D30 = withUnit(30, 'd')
+export const D7 = withUnit(7, 'd')
 export const PRIOR_30D = `prior ${D30}`
 
 /** Cache hit ratio the page calls good — the tick on the ring (`>60%` in the old zone chart). */
@@ -174,26 +175,16 @@ export function meanOf(values: readonly (number | null)[]): number | null {
   return present.length === 0 ? null : present.reduce((a, b) => a + b, 0) / present.length
 }
 
-/**
- * Drop today's bucket: the day is still running, so its total would draw as a drop against full
- * days. Buckets are UTC days (`dayToDate` keeps the bucket's own year-month-day as local midnight),
- * so they are matched against the UTC day of `now`, whatever the browser's offset.
- */
-export function dropPartialDay<T extends { date: Date }>(days: readonly T[], now: number): T[] {
-  const utc = new Date(now)
-  const isToday = (d: Date) =>
-    d.getFullYear() === utc.getUTCFullYear() &&
-    d.getMonth() === utc.getUTCMonth() &&
-    d.getDate() === utc.getUTCDate()
-  return days.filter((d) => !isToday(d.date))
-}
-
 const DAY_MS = 86_400_000
 
+/** Epoch ms of the UTC midnight a bucket date names (`dayToDate` keeps the bucket's year-month-day as local midnight). */
+const bucketStartMs = (d: Date): number => d.getTime() - d.getTimezoneOffset() * 60_000
+
 /**
- * A chart's drawn buckets, complete ones only: a day or week bucket still running at `now` would
- * draw as a drop. Buckets are UTC calendar days (a week bucket starts on its date), matched against
- * the UTC clock like `dropPartialDay`.
+ * A chart's complete buckets: a day or week bucket still running at `now` would draw as a drop
+ * against full ones. Buckets are UTC calendar days (a week bucket starts on its date), so they are
+ * measured against the UTC clock, whatever the browser's offset. Whether a figure includes the
+ * running bucket is the call site's choice.
  */
 export function dropPartialBucket<T extends { date: Date }>(
   points: readonly T[],
@@ -201,9 +192,7 @@ export function dropPartialBucket<T extends { date: Date }>(
   grain: 'day' | 'week',
 ): T[] {
   const span = (grain === 'day' ? 1 : 7) * DAY_MS
-  return points.filter(
-    (p) => Date.UTC(p.date.getFullYear(), p.date.getMonth(), p.date.getDate()) + span <= now,
-  )
+  return points.filter((p) => bucketStartMs(p.date) + span <= now)
 }
 
 /** How many of the readings are strictly above (`above`) or strictly below (`below`) a line; gaps do not count. */
@@ -324,6 +313,15 @@ export function errorDayState(rate: number | null): ErrorDayState {
   return 'ok'
 }
 
+/** The error-bar series a day's bucket lands in: its verdict, or `null` for a day with no calls and no events (nothing to draw). */
+export function barStateOf(day: {
+  state: ErrorDayState
+  count: number
+}): 'ok' | 'warn' | 'bad' | null {
+  if (day.state !== 'none') return day.state
+  return day.count > 0 ? 'ok' : null
+}
+
 export function badDayCount(rates: readonly (number | null)[]): number {
   return rates.filter((r) => errorDayState(r) === 'bad').length
 }
@@ -373,7 +371,7 @@ export function healthInfo(unit: 'day' | 'week'): string {
 
 /** The cost and tokens info tail: how many series are named and what they are called. */
 export function foldInfo(noun: string): string {
-  return `The largest ${noun}s in the window are named (at least ${FOLD_TOP_N}, more while the rest would outweigh the smallest), the rest are grouped as Other. The chart ends at the last full day; the list includes today.`
+  return `The largest ${noun}s in the window are named (at least ${FOLD_TOP_N}, more while the rest would outweigh the smallest), the rest are grouped as Other.`
 }
 
 // ── Tool names ───────────────────────────────────────────────────────────────────────────────
@@ -440,9 +438,9 @@ export type SummaryInput = {
   lastEvent: string | null
 }
 
-/** `{$} spent in the last 7 days` — the page's answer; the 30 d spend is the strip's Cost cell. */
+/** `{$} spent in the last 7 d` — the page's answer; the 30 d spend is the strip's Cost cell. */
 export function summarySentence(s: Pick<SummaryInput, 'cost7d'>): string {
-  return `${fmtUsdWhole(s.cost7d)} spent in the last ${withUnit(7, 'days')}`
+  return `${fmtUsdWhole(s.cost7d)} spent in the last ${D7}`
 }
 
 /** The facts line under the sentence: active sources and the last event (the strip owns the rest). */
@@ -467,8 +465,15 @@ export function freshness(iso: string | null | undefined, now: number): Freshnes
   return { word: `stale ${Math.round(age / 60)} h`, tone: 'bad' }
 }
 
+const PERIOD_NOUN: Record<'7d' | '30d' | '90d' | 'all', string> = {
+  '7d': withUnit(7, 'd'),
+  '30d': D30,
+  '90d': withUnit(90, 'd'),
+  all: 'all time',
+}
+
 export function periodNoun(range: '7d' | '30d' | '90d' | 'all'): string {
-  return range === 'all' ? 'all time' : withUnit(range.replace('d', ''), 'd')
+  return PERIOD_NOUN[range]
 }
 
 type FoldGroupBy = CostGroupBy | TokensGroupBy

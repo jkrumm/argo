@@ -10,7 +10,6 @@ import { BarList, useSizeClass } from 'basalt-ui'
 import { ViewTabs } from 'basalt-ui/controls'
 import { ChartCard, StackedArea } from 'basalt-ui/charts'
 import { CONTAINER_GRID_BREAKPOINTS } from 'basalt-ui/tokens'
-import { format as formatDate } from 'date-fns'
 import { useState } from 'react'
 import { usageQueries, type Grain, type Metric, type Range } from '../../lib/queries/usage'
 import { USAGE_SOURCE } from '../../lib/series'
@@ -18,7 +17,15 @@ import { useNow } from '../../lib/use-now'
 import { usageStore } from '../../lib/window-stores'
 import type { BillingValue, CostGroupBy, TokensGroupBy, WorkspaceValue } from './types'
 import { RANK_PALETTE, toTimePoints, groupBands } from './constants'
-import { dropPartialBucket, EM_DASH, fmtShare, OTHER_KEY, periodNoun, prepareFolded } from './model'
+import {
+  dropPartialBucket,
+  EM_DASH,
+  fmtShare,
+  OTHER_KEY,
+  periodNoun,
+  prepareFolded,
+  shortDay,
+} from './model'
 import classes from './usage.module.css'
 
 /** Rows the list shows at phone width before "Show all". */
@@ -78,11 +85,13 @@ export function FoldedChart({
   const series = groupBands(folded.keys, colorOf, labelOf)
   const rows = compact && !showAll ? folded.totals.slice(0, COMPACT_ROWS) : folded.totals
   const hidden = folded.totals.length - rows.length
-  // Unfiltered 30 d is the strip's own window and its figure is printed there: the total appears
-  // here only for a window the strip does not show. The chart stops at the last complete bucket (the
-  // running one would draw as a drop); the list keeps the whole window, today included.
-  const unfiltered = range === '30d' && billing === undefined && workspace === undefined
-  const totalNote = unfiltered ? '' : ` · ${format(folded.total)}`
+  // A window's total is printed once per page: the strip owns the unfiltered 30 d figures and the
+  // headline the unfiltered 7 d spend, so the list prints it only for a window they do not show.
+  // The chart stops at the last complete bucket (the running one would draw as a drop); the list
+  // keeps the whole window.
+  const unfiltered = billing === undefined && workspace === undefined
+  const printedElsewhere = unfiltered && (range === '30d' || (range === '7d' && metric === 'cost'))
+  const totalNote = printedElsewhere ? '' : ` · ${format(folded.total)}`
   const perBucket = grain === 'day' ? 'day' : 'week'
   const drawn = dropPartialBucket(folded.points, now, grain)
 
@@ -99,7 +108,7 @@ export function FoldedChart({
               <ViewTabs field={usageStore.field.tokensGroupBy} label="Group by" />
             )
           }
-          state={{ empty: series.length === 0 }}
+          state={{ empty: series.length === 0 || drawn.length === 0 }}
         >
           <StackedArea
             ariaLabel={`${unitNoun} per ${perBucket}, stacked by ${groupNoun}`}
@@ -109,7 +118,7 @@ export function FoldedChart({
             cursorResolution="leading"
             series={series}
             legend={false}
-            formatX={(d) => formatDate(d, 'd MMM')}
+            formatX={(d) => shortDay(d)}
             y={{ format }}
           />
         </ChartCard>

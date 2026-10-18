@@ -247,26 +247,20 @@ export function factsParts({
   return parts.filter((part): part is string => part !== null)
 }
 
-/** Time of the newest reply in `HH:mm` / `D Mon` form, or `null` with no threads. */
-export function lastReplyOf(entries: readonly ThreadEntry[], now: number): string | null {
-  const newest = entries.reduce<number | null>(
-    (max, entry) => (max === null || entry.updatedAt > max ? entry.updatedAt : max),
-    null,
-  )
-  return newest === null ? null : listTime(newest, now)
-}
-
 /**
- * The headline: the one fact no group heading, chip or fold already prints. Today, this week,
- * pinned and untitled counts are the headings' and chips' figures, so none repeats here.
+ * The headline, over every thread (archived included): the one fact no group heading, chip, fold or
+ * row time prints. It carries no figure; `null` with no threads, where the empty state speaks.
  */
-export function summaryHeadline(lastReply: string | null): { sentence: string } {
-  return { sentence: lastReply === null ? 'No threads yet' : `Last reply ${lastReply}` }
+export function summaryHeadline(entries: readonly ThreadEntry[]): { sentence: string } | null {
+  if (entries.length === 0) return null
+  return {
+    sentence: entries.some((entry) => entry.streaming) ? 'Hermes is replying' : 'Nothing running',
+  }
 }
 
-/** The disclosure row: `Untitled chats · oldest {age}`; the count is the `Untitled` chip's. */
-export function untitledLabel(oldestAge: string): string {
-  return `Untitled chats · oldest ${oldestAge}`
+/** The disclosure row: `{n} untitled chats · oldest {age}`. The count is printed here only. */
+export function untitledLabel(count: number, oldestAge: string): string {
+  return `${count} untitled ${count === 1 ? 'chat' : 'chats'} · oldest ${oldestAge}`
 }
 
 function oldestOf(entries: readonly ThreadEntry[], field: 'createdAt' | 'updatedAt'): number {
@@ -304,7 +298,7 @@ export function listEndNote(
 
 const SUMMARY_MAX_CHARS = 110
 /** Two lines of the phone's narrow body column; a longer cut would be clipped mid-word by the line clamp. */
-export const SUMMARY_MAX_CHARS_COMPACT = 52
+const SUMMARY_MAX_CHARS_COMPACT = 52
 
 /**
  * A summary cut at a word boundary with an ellipsis; short text passes through with whitespace
@@ -317,4 +311,9 @@ export function clampAtWord(text: string, max: number = SUMMARY_MAX_CHARS): stri
   const space = cut.lastIndexOf(' ')
   const atWord = (space > 0 ? cut.slice(0, space) : '').replace(/[\s,;:.\-–—]+$/, '')
   return `${atWord === '' ? flat.slice(0, max) : atWord}…`
+}
+
+/** A row's summary cut for the layout: the phone's narrow column takes fewer characters. */
+export function summaryExcerpt(summary: string, compact: boolean): string {
+  return clampAtWord(summary, compact ? SUMMARY_MAX_CHARS_COMPACT : SUMMARY_MAX_CHARS)
 }

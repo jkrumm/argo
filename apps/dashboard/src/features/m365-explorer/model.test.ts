@@ -2,8 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   chatKindCounts,
   chatKindParts,
-  detailSectionTitle,
-  labeledSectionTitle,
+  sectionTitleFor,
   groupByRecency,
   chipCounts,
   visibleChipCounts,
@@ -198,22 +197,30 @@ describe('headlineOf', () => {
 })
 
 describe('chatKindParts', () => {
-  test('drops kinds with no chats and keeps reading order', () => {
-    expect(chatKindParts({ oneOnOne: 4, group: 0, meeting: 2, other: 0 })).toEqual([
-      { key: 'oneOnOne', label: '1:1', value: 4 },
-      { key: 'meeting', label: 'meeting', value: 2 },
+  test('drops kinds with no chats, reads in order and counts the noun', () => {
+    expect(chatKindParts({ oneOnOne: 4, group: 1, meeting: 2, other: 0 })).toEqual([
+      { key: 'oneOnOne', label: '1:1', text: '4 1:1 chats', value: 4 },
+      { key: 'group', label: 'group', text: '1 group chat', value: 1 },
+      { key: 'meeting', label: 'meeting', text: '2 meetings', value: 2 },
     ])
+    expect(chatKindParts({ oneOnOne: 0, group: 0, meeting: 1, other: 3 })[1]?.text).toBe(
+      '3 other chats',
+    )
     expect(chatKindParts({ oneOnOne: 0, group: 0, meeting: 0, other: 0 })).toEqual([])
   })
 })
 
-describe('phone section titles', () => {
-  test('say a fact about the pane, not the tab name', () => {
-    expect(labeledSectionTitle('')).toBe('Grouped by tag')
-    expect(labeledSectionTitle(LABELED_FILTER)).toBe('Grouped by tag')
-    expect(labeledSectionTitle('alerts')).toBe('alerts')
-    expect(detailSectionTitle(true, 20)).toBe('Latest 20 messages')
-    expect(detailSectionTitle(false, 20)).toBe('Nothing open')
+describe('sectionTitleFor', () => {
+  const base = { tag: '', open: false, sources: '3 chats' }
+  test('says a fact about the pane, not the tab name', () => {
+    expect(sectionTitleFor({ ...base, pane: 'sources' })).toBe('3 chats')
+    expect(sectionTitleFor({ ...base, pane: 'labeled' })).toBe('Grouped by tag')
+    expect(sectionTitleFor({ ...base, pane: 'labeled', tag: LABELED_FILTER })).toBe(
+      'Grouped by tag',
+    )
+    expect(sectionTitleFor({ ...base, pane: 'labeled', tag: 'alerts' })).toBe('alerts')
+    expect(sectionTitleFor({ ...base, pane: 'detail', open: true })).toBe('Messages')
+    expect(sectionTitleFor({ ...base, pane: 'detail' })).toBe('Nothing open')
   })
 })
 
@@ -263,7 +270,7 @@ describe('labeled count, outside note and sources title', () => {
     expect(list).toBe('newest 50 chats and channels')
     expect(sourceListName(12, false)).toBe('chats and channels')
     expect(labeledBasis(cov, list)).toBe(
-      '1 more label on sources not in the newest 50 chats and channels: older or removed',
+      '1 more label on sources not in the newest 50 chats and channels',
     )
     expect(labeledBasis({ ...cov, outside: 0 }, list)).toBe(
       'across the newest 50 chats and channels',

@@ -1,6 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Suspense } from 'react'
-import { useSuspenseQuery } from '@tanstack/react-query'
 import { Box, Grid, Stack } from '@mantine/core'
 import { PageBar } from 'basalt-ui'
 import { CONTAINER_GRID_BREAKPOINTS } from 'basalt-ui/tokens'
@@ -24,7 +23,6 @@ export const Route = createFileRoute('/usage-tracking')({
 
 function UsageTrackingPage() {
   const search = usageStore.useValues()
-  const headline = useSuspenseQuery(usageQueries.headline()).data
 
   // An EMPTY multi selection means "no constraint" on the URL, and the API wants the key absent
   // rather than an empty array — the one translation the store deliberately does not make, because
@@ -77,12 +75,7 @@ function UsageTrackingPage() {
           <Grid.Col span={{ base: 12, lg: 4 }}>
             <Suspense fallback={<ChartCard state={{ pending: true }} placeholderHeight={240} />}>
               <Box data-shot="projects">
-                <TopProjects
-                  range={search.range}
-                  billing={billing}
-                  workspace={workspace}
-                  headlineTotal={headline.costUsd30d}
-                />
+                <TopProjects range={search.range} billing={billing} workspace={workspace} />
               </Box>
             </Suspense>
           </Grid.Col>

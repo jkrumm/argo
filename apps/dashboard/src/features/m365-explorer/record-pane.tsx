@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { m365Queries } from '../../lib/queries/m365'
 import { LabelButton, type LabelButtonProps } from './label-button'
 import { MessageRow, MessageSkeleton } from './message-row'
-import { formatStamp, plural, sourceIdFor, type SourceRef } from './model'
+import { formatStamp, MESSAGE_TOP, plural, sourceIdFor, type SourceRef } from './model'
 import classes from './m365.module.css'
 
 export type RecordPaneProps = {
@@ -16,8 +16,6 @@ export type RecordPaneProps = {
   /** The last failed label write for this record, shown inline. */
   error: string | null
 } & Omit<LabelButtonProps, 'sourceId'>
-
-export const MESSAGE_TOP = 20
 
 function useRecordMessages(selected: SourceRef) {
   const chat = useQuery({

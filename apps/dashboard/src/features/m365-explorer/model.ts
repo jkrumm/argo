@@ -65,7 +65,7 @@ function timeOf(iso: string | null | undefined): number {
   return Number.isNaN(t) ? Number.NEGATIVE_INFINITY : t
 }
 
-export function recencyOf(iso: string | null, now: Date): RecencyGroup {
+function recencyOf(iso: string | null, now: Date): RecencyGroup {
   if (!iso) return 'Earlier'
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return 'Earlier'
@@ -90,21 +90,30 @@ export function groupByRecency(
   })
 }
 
-/** The kinds that have chats, in reading order, for the Chats cell: a zero kind is not a fact. */
+const KIND_TYPE = {
+  oneOnOne: 'oneOnOne',
+  group: 'group',
+  meeting: 'meeting',
+  other: 'unknownFutureValue',
+} as const satisfies Record<string, ChatType>
+
+/**
+ * The kinds that have chats, in reading order, for the Chats cell: a zero kind is not a fact.
+ * `label` is the kind's word (the bar segment), `text` the counted noun (`2 meetings`, `1 group chat`).
+ */
 export function chatKindParts(counts: ReturnType<typeof chatKindCounts>): Array<{
   key: keyof ReturnType<typeof chatKindCounts>
   label: string
+  text: string
   value: number
 }> {
-  const kinds = [
-    { key: 'oneOnOne', label: '1:1' },
-    { key: 'group', label: 'group' },
-    { key: 'meeting', label: 'meeting' },
-    { key: 'other', label: 'other' },
-  ] as const
-  return kinds.flatMap(({ key, label }) =>
-    counts[key] > 0 ? [{ key, label, value: counts[key] }] : [],
-  )
+  return (Object.keys(KIND_TYPE) as Array<keyof typeof KIND_TYPE>).flatMap((key) => {
+    const value = counts[key]
+    if (value === 0) return []
+    const label = CHAT_TYPE_LABEL[KIND_TYPE[key]]
+    const noun = key === 'meeting' ? label : `${label} chat`
+    return [{ key, label, text: plural(value, noun), value }]
+  })
 }
 
 export function chatKindCounts(rows: ReadonlyArray<{ chatType: ChatType }>): {
@@ -231,7 +240,7 @@ export function sourceListName(chats: number, capped: boolean): string {
  */
 export function labeledBasis(c: Coverage, list: string): string {
   if (c.outside === 0) return `across the ${list}`
-  return `${plural(c.outside, 'more label')} on sources not in the ${list}: older or removed`
+  return `${plural(c.outside, 'more label')} on sources not in the ${list}`
 }
 
 /** The phone Sources pane's heading: what the pane lists now, as a fact rather than the tab's name. */
@@ -261,14 +270,24 @@ export function headlineOf(h: {
   return { sentence: h.latest === null ? 'No chat activity yet' : `Latest activity ${h.latest}` }
 }
 
-/** The phone Labeled pane's heading: the tag in view, else what the pane does with the labels. */
-export function labeledSectionTitle(tag: string): string {
-  return tag === '' || tag === LABELED_FILTER ? 'Grouped by tag' : tag
-}
+/** How many messages a record fetches; the pane's heading never states it (it is a request cap, not what renders). */
+export const MESSAGE_TOP = 20
 
-/** The phone Detail pane's heading: what the open record lists, or that nothing is open. */
-export function detailSectionTitle(open: boolean, messages: number): string {
-  return open ? `Latest ${messages} messages` : 'Nothing open'
+/** The phone Section title: a fact about the pane in view, never the tab's own name. */
+export function sectionTitleFor(input: {
+  pane: 'sources' | 'labeled' | 'detail'
+  tag: string
+  open: boolean
+  sources: string
+}): string {
+  switch (input.pane) {
+    case 'sources':
+      return input.sources
+    case 'labeled':
+      return input.tag === '' || input.tag === LABELED_FILTER ? 'Grouped by tag' : input.tag
+    case 'detail':
+      return input.open ? 'Messages' : 'Nothing open'
+  }
 }
 
 /**
