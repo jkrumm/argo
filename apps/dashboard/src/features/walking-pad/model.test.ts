@@ -333,7 +333,7 @@ describe('formats and summary', () => {
   it('formats durations by magnitude', () => {
     expect(fmtDuration(30)).toBe('30\u00a0s')
     expect(fmtDuration(45 * 60)).toBe('45\u00a0min')
-    expect(fmtDuration(2 * 3600 + 5 * 60)).toBe('2\u00a0h 05\u00a0min')
+    expect(fmtDuration(2 * 3600 + 5 * 60)).toBe('2\u00a0h\u00a005\u00a0min')
   })
 
   it('signs deltas with a real minus', () => {

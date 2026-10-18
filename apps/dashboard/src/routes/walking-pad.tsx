@@ -69,7 +69,7 @@ function WalkingPadPage() {
 
       <Stack gap="md">
         <SummaryLine params={params} empty={empty} />
-        <RecordHeader />
+        <RecordHeader empty={empty} />
         {summary.isPending ? (
           <Skeleton height={160} radius="md" />
         ) : empty ? (
