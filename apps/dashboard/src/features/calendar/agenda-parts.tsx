@@ -136,6 +136,7 @@ export function DayGroups({
       )}
       {visible.map((day) => {
         const chips = allDay[day.key] ?? []
+        const headLabel = dayHeadLabel(day, formatMinutes, chips.length)
         if (day.rows.length === 0 && chips.length === 0) {
           return (
             <Box key={day.key} className={classes.freeDay}>
@@ -148,11 +149,7 @@ export function DayGroups({
           <Box key={day.key} className={classes.group}>
             <Box className={classes.groupHead}>
               <span className={classes.caption}>{dayLabel(day.key)}</span>
-              {!gap && (
-                <span className={classes.muted}>
-                  {dayHeadLabel(day, formatMinutes, chips.length)}
-                </span>
-              )}
+              {!gap && headLabel && <span className={classes.muted}>{headLabel}</span>}
             </Box>
             {chips.length > 0 && (
               <Box pt="xs">
@@ -250,9 +247,7 @@ export function WeekStrip({
                   </span>
                 )
               })}
-            <span className={classes.muted} role="status">
-              {gap?.card}
-            </span>
+            {gap && <span className={classes.muted}>{gap.card}</span>}
           </Box>
         ) : emptyWeek ? (
           <Text className={classes.muted}>Nothing booked this week in {SOURCES_LABEL}</Text>

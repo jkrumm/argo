@@ -192,7 +192,7 @@ export function dayLoad(
 
 /** True when every day of a known week books no time (all-day and cancelled items book none). */
 export const nothingBooked = (load: readonly DayLoad[]): boolean =>
-  load.every((day) => day.bookedMin === 0)
+  load.length > 0 && load.every((day) => day.bookedMin === 0)
 
 export type SourceSplit = Record<SourceClass, number>
 
@@ -367,7 +367,7 @@ export function agendaDays(events: readonly CalendarItem[], keys: readonly DayKe
   return keys.map((key) => agendaDay(events, key))
 }
 
-/** `2 events · 3h` / `no events` / `all cancelled` — the day heading's right-hand side. */
+/** `2 events · 3h` / `no events` / `` (live all-day items only) / `all cancelled` — the day heading's right-hand side. */
 export function dayHeadLabel(
   day: AgendaDay,
   format: (min: number) => string,
@@ -375,8 +375,10 @@ export function dayHeadLabel(
 ): string {
   if (day.count > 0)
     return `${day.count} ${day.count === 1 ? 'event' : 'events'} · ${format(day.bookedMin)}`
-  // A live all-day item means the day is not wholly cancelled.
-  return day.rows.length > 0 && liveAllDay === 0 ? 'all cancelled' : 'no events'
+  // A live all-day item means the day is neither empty nor wholly cancelled: it has no timed
+  // figure to state, and the chips beside the heading carry the item.
+  if (liveAllDay > 0) return ''
+  return day.rows.length > 0 ? 'all cancelled' : 'no events'
 }
 
 /** Live all-day events (never tasks, never cancelled) covering `key`, titles intact. */
