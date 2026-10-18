@@ -1,7 +1,6 @@
 import { formatMinutes } from '../../lib/format'
 /**
- * ScheduleRow — one agenda line: clock time with its duration (beside it when the row is wide,
- * under it when narrow), a proportional title, a muted meta line, an optional pill for the next item
+ * ScheduleRow — one agenda line: clock time with its duration under it, a proportional title, a muted meta line, an optional pill for the next item
  * and an optional trailing action (a `Join` link). Generic on purpose: no domain types in the props,
  * so Calendar and the Home Today list render the same row.
  *

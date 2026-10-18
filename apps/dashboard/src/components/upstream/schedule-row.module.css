@@ -1,7 +1,6 @@
 /* ScheduleRow — prototype of Keel's `schedule-item` (docs/design/UPSTREAM.md). */
 
 .row {
-  container-type: inline-size;
   border-bottom: 1px solid var(--vx-surface-hairline);
 }
 
@@ -11,7 +10,7 @@
 
 .inner {
   display: grid;
-  grid-template-columns: 4.25rem minmax(0, 1fr) auto;
+  grid-template-columns: 5.5rem minmax(0, 1fr) auto;
   column-gap: var(--vx-space-stack-md);
   align-items: start;
   padding-block: var(--vx-space-stack-sm);
@@ -21,7 +20,10 @@
   opacity: 0.55;
 }
 
-/* Clock time and duration are the row's only mono: the start, then the length under it. */
+/*
+ * Clock time and duration are the row's only mono: the start, then the length under it at every
+ * width. A compound length (`1 h 30 min`) fits the column and never runs into the meta beside it.
+ */
 .time {
   display: flex;
   flex-direction: column;
@@ -32,7 +34,8 @@
 }
 
 .duration {
-  font-size: var(--vx-text-micro);
+  font-size: var(--vx-text-xs);
+  white-space: nowrap;
   color: var(--vx-muted);
 }
 
@@ -56,7 +59,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--vx-text-xs, 0.75rem);
+  font-size: var(--vx-text-xs);
   line-height: 1.3;
   color: var(--vx-muted);
 }
@@ -71,26 +74,8 @@
   padding: 0 var(--vx-space-stack-sm);
   border-radius: var(--vx-radius-fine);
   background: color-mix(in srgb, var(--vx-line) 14%, transparent);
-  font-size: var(--vx-text-micro);
+  font-size: var(--vx-text-xs);
   line-height: 1.6;
   white-space: nowrap;
   color: var(--vx-ink);
-}
-
-/* Wide rows put the duration beside the start on one line. */
-@container (min-width: 480px) {
-  .inner {
-    grid-template-columns: 6.5rem minmax(0, 1fr) auto;
-  }
-
-  .time {
-    flex-direction: row;
-    align-items: baseline;
-    gap: var(--vx-space-stack-sm);
-  }
-
-  /* `10:45 · 15m` — the separator only exists when the duration sits beside the start. */
-  .duration::before {
-    content: '· ';
-  }
 }
