@@ -607,7 +607,7 @@ export function skyCellFooter({
   const dome = domePenaltyMag === null ? '—' : `+${withUnit(domePenaltyMag.toFixed(2), 'mag')}`
   const clarity = transparency === null ? '—' : `${transparency}/8`
   return joinPhrases([
-    glue(`dark ≥ ${withUnit(SKY_DARK_THRESHOLD, 'mag/arcsec²')}`),
+    `dark ${glue(`≥ ${withUnit(SKY_DARK_THRESHOLD, 'mag/arcsec²')}`)}`,
     glue(`town glow ${dome}`),
     `${glue(`transparency ${clarity}`)} ${glue('(lower = clearer)')}`,
   ])
@@ -624,9 +624,9 @@ export function moonFooter({
   set: string | null
 }): string {
   return joinPhrases([
-    `limit${NBSP}${limit}`,
+    glue(`limit ${limit}`),
     glue(phase),
-    ...(set === null ? [] : [`sets${NBSP}${set}`]),
+    ...(set === null ? [] : [glue(`sets ${set}`)]),
   ])
 }
 

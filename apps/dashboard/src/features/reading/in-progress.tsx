@@ -1,7 +1,6 @@
 import { Card, Text } from '@mantine/core'
 import { EmptyState, Meter, Section } from 'basalt-ui'
 import { IconBooks } from '@tabler/icons-react'
-import { relativeTime } from 'basalt-ui/format'
 import { BookTitle, Cover } from './book-parts'
 import { formatReadTime } from './format'
 import {
@@ -12,7 +11,7 @@ import {
   shortDate,
   STATUS,
   type ShelfItem,
-  gluedRelative,
+  lastReadFact,
 } from './model'
 import { withUnit } from '../../lib/format'
 import classes from './reading.module.css'
@@ -34,9 +33,7 @@ function facts(book: ShelfItem, pace: number | null, now: number): string[] {
       : left === null || pace === null
         ? []
         : [`${approxHours(left)} left at ${withUnit(pace, 'pages/h')}`]),
-    lastRead === null
-      ? 'last read —'
-      : `last read ${gluedRelative(relativeTime(lastRead, { now, numeric: 'always' }))}`,
+    lastReadFact(lastRead, now),
   ]
 }
 

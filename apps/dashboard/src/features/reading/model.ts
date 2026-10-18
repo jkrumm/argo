@@ -1,3 +1,4 @@
+import { relativeTime } from 'basalt-ui/format'
 import { NBSP, withUnit } from '../../lib/format'
 
 export type ShelfItem = {
@@ -231,6 +232,18 @@ export function progressPercent(book: ShelfItem): number | null {
   return stats.currentPercent <= 0 && stats.sessions <= 0 ? null : stats.currentPercent
 }
 
+// ── In progress: last read ───────────────────────────────────────────────────────────────────
+
+/** `last read 3 months ago` (number glued to its unit, `ago` breakable) or `last read —` with no timestamp. */
+export function lastReadFact(lastRead: number | null, now: number): string {
+  if (lastRead === null) return 'last read —'
+  const age = relativeTime(lastRead, { now, numeric: 'always' }).replace(
+    /^(\d+(?:[.,]\d+)?) /,
+    `$1${NBSP}`,
+  )
+  return `last read ${age}`
+}
+
 // ── Ratings ──────────────────────────────────────────────────────────────────────────────────
 
 /** `compact` is the range alone (`2–2.5`), for axes too narrow for the `★`; the cell caption carries the unit. */
@@ -410,8 +423,3 @@ export function paceRange(paces: readonly number[]): string | null {
 }
 
 // ── Ratings: bin labels ──────────────────────────────────────────────────────────────────────
-
-/** Glues a leading number to its unit (`3 months ago` → `3{NBSP}months ago`); `ago` stays breakable. */
-export function gluedRelative(text: string): string {
-  return text.replace(/^(\d+(?:[.,]\d+)?) /, `$1${NBSP}`)
-}
