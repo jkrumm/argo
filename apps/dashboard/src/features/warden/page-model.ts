@@ -583,13 +583,18 @@ export function sinceSnapshotMs(receivedAt: string | null, now: number): number 
 }
 
 /** A wait shorter than this reads `<1 min`, never `0 min`. */
-export const MINUTE_MS = 60_000
-export const WAITING_UNDER_A_MINUTE = `waiting <${NBSP}1${NBSP}min`
+const MINUTE_MS = 60_000
+const WAITING_UNDER_A_MINUTE = `waiting <${NBSP}1${NBSP}min`
 
 /** Milliseconds since the latest history line; 0 when the item has none or its time is unreadable. */
 export function latestHistoryAgeMs(history: readonly TransitionLine[], now: number): number {
   const at = Date.parse(history.at(-1)?.at ?? '')
   return Number.isFinite(at) ? Math.max(0, now - at) : 0
+}
+
+/** The one wording of a wait: `waiting <1 min` under a minute, else `waiting {d} d {h} h`. */
+export function waitingText(ms: number): string {
+  return ms < MINUTE_MS ? WAITING_UNDER_A_MINUTE : `waiting ${formatDuration(ms)}`
 }
 
 /** What a card's wait is measured against, beyond the snapshot's own `age_days`. */
@@ -628,7 +633,7 @@ export function cardFacts(
   let waiting: DecisionCardFact = ''
   if (row.ageDays !== null) {
     const waitMs = resolveWaitMs(row.ageDays, clock.elapsedMs, clock.historyAgeMs)
-    const text = waitMs < MINUTE_MS ? WAITING_UNDER_A_MINUTE : `waiting ${formatDuration(waitMs)}`
+    const text = waitingText(waitMs)
     waiting = waitMs > WAIT_WARN_DAYS * DAY_MS ? { text, tone: 'warn' } : text
   }
   return [repo, waiting, historyFact(row)].filter((part) => part !== '')

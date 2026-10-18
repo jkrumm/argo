@@ -8,10 +8,9 @@ import {
 } from '../features/warden/model'
 import {
   latestHistoryAgeMs,
-  MINUTE_MS,
   recentTransitions,
   resolveWaitMs,
-  WAITING_UNDER_A_MINUTE,
+  waitingText,
   wardenAskInput,
   type AskSource,
   type QueueKind,
@@ -158,19 +157,17 @@ function toDecision(
       row.ageDays === null
         ? null
         : resolveWaitMs(row.ageDays, sincePush, latestHistoryAgeMs(history, now))
-    const text =
-      ageMs === null
-        ? ''
-        : ageMs < MINUTE_MS
-          ? WAITING_UNDER_A_MINUTE
-          : `waiting ${formatDuration(ageMs)}`
-    const waiting =
-      ageMs !== null && ageMs >= AWAITING_OWNER_STALE_DAYS * DAY_MS
-        ? {
-            text: `${text} · stale at ${withUnit(AWAITING_OWNER_STALE_DAYS, 'd')}`,
-            tone: 'warn' as const,
-          }
-        : text
+    let waiting: DecisionCardFact = ''
+    if (ageMs !== null) {
+      const text = waitingText(ageMs)
+      waiting =
+        ageMs >= AWAITING_OWNER_STALE_DAYS * DAY_MS
+          ? {
+              text: `${text} · stale at ${withUnit(AWAITING_OWNER_STALE_DAYS, 'd')}`,
+              tone: 'warn',
+            }
+          : text
+    }
     const pr = asText(row.prUrl)
     return {
       ...base,
