@@ -401,6 +401,9 @@ export function M365ExplorerPage(): ReactElement {
             <div
               ref={phoneRef}
               className={classes.phonePane}
+              // Every phone pane declares the page's empty state: the tag chips that carry it on
+              // wide layouts render only in the sources pane.
+              data-shot-states="empty"
               {...(shown.shot === undefined ? {} : { 'data-shot': shown.shot })}
             >
               {phonePanes[shownPane]}
