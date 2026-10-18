@@ -116,7 +116,14 @@
   min-width: 0;
 }
 
-/* The subject keeps its words; the outcome (the transition) wraps below it rather than squeezing it. */
+/* The head keeps its words and its separator (never ellipsized with the subject); the outcome (the transition) wraps below it rather than squeezing it. */
+.feedHead {
+  display: inline-flex;
+  gap: var(--vx-space-control-gap);
+  max-width: 100%;
+  min-width: 0;
+}
+
 .feedSubject {
   flex: 0 1 auto;
   max-width: 100%;

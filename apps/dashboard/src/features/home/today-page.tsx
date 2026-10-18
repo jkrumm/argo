@@ -216,7 +216,7 @@ export function TodayPage() {
             agentsCell(snapshot?.summary, fleet?.total ?? null, historyQuery.data?.data, now),
             budgetCell(wardenRaw?.budget, poller),
             meetingCell(agenda, next, later, now),
-            recoveryCell(recovery),
+            recoveryCell(recovery, recoveryNow.isPending),
             acwrCell(acwr, now),
           ]}
         />

@@ -4,7 +4,7 @@ import { relativeTime } from 'basalt-ui/format'
 import classes from '../../components/upstream/decision-card.module.css'
 import type { HistoryView } from './page-model'
 
-const when = (at: string | null) => (at ? relativeTime(at) : '—')
+const when = (at: string) => relativeTime(at)
 
 /**
  * The decision card's change history. One transition is a single inline sentence
@@ -19,8 +19,8 @@ export function HistoryPreview({ view }: { view: HistoryView }) {
         Latest change:{' '}
         <Text span inherit c={VX.ink}>
           {only?.text}
-        </Text>{' '}
-        · {when(only?.at ?? null)}
+        </Text>
+        {only?.at ? ` · ${when(only.at)}` : null}
       </Text>
     )
   }
@@ -34,9 +34,11 @@ export function HistoryPreview({ view }: { view: HistoryView }) {
           <Text size="xs" miw={0} className={classes.wrap}>
             {line.text}
           </Text>
-          <Text span size="xs" c="dimmed">
-            {when(line.at)}
-          </Text>
+          {line.at ? (
+            <Text span size="xs" c="dimmed">
+              {when(line.at)}
+            </Text>
+          ) : null}
         </Group>
       ))}
       {view.earlier > 0 ? (

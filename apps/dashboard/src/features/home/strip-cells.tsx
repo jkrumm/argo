@@ -12,7 +12,7 @@ import {
   ACWR_METER_MAX,
   ACWR_OPTIMAL_TO,
 } from '../garmin-health/model'
-import { BUDGET_MISSING, deriveBudget } from '../warden/page-model'
+import { BUDGET_MISSING, deriveBudget, pollerAgeText } from '../warden/page-model'
 import {
   countdownLabel,
   fleetPulse,
@@ -86,9 +86,7 @@ export function budgetCell(
       ),
     footer: (
       <Text span size="sm" c={poller?.stale ? VX.status.warn : 'dimmed'}>
-        {poller === undefined
-          ? 'poller age unknown'
-          : `${poller.name.replaceAll('_', ' ')} poller ${Math.round(poller.ageMin)} min old`}
+        {poller === undefined ? 'poller age unknown' : pollerAgeText(poller)}
       </Text>
     ),
   }
@@ -174,7 +172,8 @@ function recoveryDay(date: string | null): string {
     .replace(',', '')
 }
 
-export function recoveryCell(reading: RecoveryReading | null): StatStripCell {
+/** `loading` is the query still pending: a missing reading then is not yet a failure. */
+export function recoveryCell(reading: RecoveryReading | null, loading = false): StatStripCell {
   if (reading === null || reading.score === null) {
     return {
       key: 'recovery',
@@ -182,7 +181,9 @@ export function recoveryCell(reading: RecoveryReading | null): StatStripCell {
       value: null,
       footer:
         reading === null
-          ? 'Garmin data not loaded; reload to retry'
+          ? loading
+            ? 'loading Garmin data'
+            : 'Garmin data not loaded; reload to retry'
           : `no reading yet · Garmin syncs every ${GARMIN_SYNC_HOURS} h`,
     }
   }

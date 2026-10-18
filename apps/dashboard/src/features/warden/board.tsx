@@ -58,7 +58,8 @@ function BoardCard({
   const ref = item.issue ? issueRefLabel(item.issue) : null
   const source =
     stripShortcodes([item.repo, ref].filter(Boolean).join(' · ')) || `Item #${item.event_id}`
-  const title = stripShortcodes(item.title ?? '') || `Item #${item.event_id}`
+  const cleanTitle = stripShortcodes(item.title ?? '')
+  const title = cleanTitle || `Item #${item.event_id}`
   return (
     <Card data-shot={`board-card-${item.event_id}`}>
       <Stack gap={6}>
@@ -74,7 +75,7 @@ function BoardCard({
           ta="left"
         >
           <Text size="sm" lineClamp={2} className={classes.text}>
-            {stripShortcodes(item.title ?? '') || '—'}
+            {cleanTitle || '—'}
           </Text>
         </UnstyledButton>
         {showState ? (

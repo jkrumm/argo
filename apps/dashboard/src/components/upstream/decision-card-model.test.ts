@@ -95,6 +95,7 @@ describe('cardCopy', () => {
       cardCopy({ question: 'Ship {thing}?', body: 'It touches the loop.', title: '{title}' }),
     ).toEqual({
       question: 'Ship {thing}?',
+      entity: '{title}',
       evidenceLine: 'It touches the loop.',
       detail: null,
       fromTitle: false,
@@ -125,9 +126,40 @@ describe('cardCopy', () => {
     expect(copy).toMatchObject({ question: 'Approve {title}?', evidenceLine: long, detail: null })
   })
 
-  it('leaves a long question alone when there is no title to stand in', () => {
-    const long = `Should we ${'x'.repeat(QUESTION_MAX)} now?`
-    expect(cardCopy({ question: long, body: null, title: ' ' }).question).toBe(long)
+  it('shortens a long question with no title to its lead and keeps the whole ask', () => {
+    const long = `Should we ${'word '.repeat(QUESTION_MAX)}now?`
+    const copy = cardCopy({ question: long, body: null, title: ' ' })
+    expect(copy.question.length).toBeLessThanOrEqual(QUESTION_MAX)
+    expect(copy.question.endsWith('…')).toBe(true)
+    expect(copy.detail).toBe(long.replace(/\s+/g, ' '))
+  })
+
+  it('still yields a heading for a blank question', () => {
+    expect(cardCopy({ question: '  ', body: 'Why.', title: '{t}', verb: 'Answer' }).question).toBe(
+      'Answer {t}?',
+    )
+    expect(cardCopy({ question: '', body: null }).question).not.toBe('')
+  })
+
+  it('takes the verb as a parameter', () => {
+    const long = `Should we ${'word '.repeat(QUESTION_MAX)}now?`
+    expect(cardCopy({ question: long, body: null, title: '{t}', verb: 'Unblock' }).question).toBe(
+      'Unblock {t}?',
+    )
+  })
+
+  it('normalises whitespace before measuring', () => {
+    const q = `Ship   ${' '.repeat(100)}it?`
+    expect(cardCopy({ question: q, body: null, title: '{t}' }).question).toBe('Ship it?')
+  })
+
+  it('shows the title as the entity unless the question is the title or names it by construction', () => {
+    expect(cardCopy({ question: 'Proceed?', body: null, title: '{t}' }).entity).toBe('{t}')
+    expect(cardCopy({ question: '{t}?', body: null, title: '{t}' }).entity).toBeNull()
+    expect(
+      cardCopy({ question: 'Retry {t}?', body: null, title: '{t}', named: true }).entity,
+    ).toBeNull()
+    expect(cardCopy({ question: 'Should we fix it?', body: null, title: 'Fix' }).entity).toBe('Fix')
   })
 })
 

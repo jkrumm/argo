@@ -35,6 +35,7 @@ describe('strip cells with no reading', () => {
         isToday: false,
       }),
     ).toMatchObject({ value: null, footer: 'no reading yet · Garmin syncs every 6 h' })
+    expect(recoveryCell(null, true)).toMatchObject({ footer: 'loading Garmin data' })
     expect(acwrCell(null, NOW)).toMatchObject({ value: null, footer: 'unavailable' })
   })
 
