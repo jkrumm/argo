@@ -298,8 +298,8 @@ export function listEndNote(
 }
 
 const SUMMARY_MAX_CHARS = 110
-/** One line of the phone's narrow body column, cut at a word so the line clamp never has to clip mid-word. */
-const SUMMARY_MAX_CHARS_COMPACT = 26
+/** Two lines of the phone's full-width body, cut at a word so the line clamp never has to clip mid-word. */
+const SUMMARY_MAX_CHARS_COMPACT = 80
 
 /**
  * A summary cut at a word boundary with an ellipsis; short text passes through with whitespace

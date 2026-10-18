@@ -46,7 +46,7 @@ Stay: composer, message renderer, voice, thread stream behaviour. Change: list r
 - Disclosure: `{n} untitled chats · oldest {age}`
 - Header facts: `Started {date} · last reply {time} · {type}`
 - Health: `Hermes reachable` / `Hermes degraded · replies may fail`
-- Composer placeholder stays `Message Hermes — starts a new chat…`
+- Composer placeholder: `Message Hermes · new chat…` (`Talk or type · new chat…` in voice mode) — one line at 390
 
 ## Upstream candidates
 

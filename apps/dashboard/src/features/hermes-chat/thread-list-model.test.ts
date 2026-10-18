@@ -201,7 +201,7 @@ describe('summaryExcerpt', () => {
   const long =
     'alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho'
   it('cuts the phone shorter than the desktop, always at a word', () => {
-    expect(summaryExcerpt(long, true).length).toBeLessThanOrEqual(27)
+    expect(summaryExcerpt(long, true).length).toBeLessThanOrEqual(81)
     expect(summaryExcerpt(long, true).endsWith('…')).toBe(true)
     expect(summaryExcerpt(long, false)).toBe(long)
   })

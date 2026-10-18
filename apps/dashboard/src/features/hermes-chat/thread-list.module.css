@@ -82,6 +82,16 @@
   column-gap: var(--vx-space-stack-md);
 }
 
+/* The phone: the tag and the time share a line above the body, so the title and the summary keep the full row width. */
+.rowGridCompact {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'chip time'
+    'body body';
+  align-items: center;
+  row-gap: var(--vx-space-stack-xs);
+}
+
 /* A date-bearing fragment never wraps inside itself: a line breaks only at its ` · ` separators. */
 .part {
   white-space: nowrap;
@@ -187,9 +197,4 @@
   line-clamp: 2;
   white-space: normal;
   overflow-wrap: break-word;
-}
-
-.summaryOne {
-  -webkit-line-clamp: 1;
-  line-clamp: 1;
 }
