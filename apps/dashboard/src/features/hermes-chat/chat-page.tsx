@@ -17,7 +17,7 @@ import { HermesHealth } from './hermes-health'
 import { HermesRow } from './hermes-row'
 import { ThreadList } from './thread-list'
 import { PageSummary } from '../../components/upstream/page-summary'
-import { buildView, summarize, summaryHeadline, toEntries } from './thread-list-model'
+import { buildView, listEndNote, summarize, summaryHeadline, toEntries } from './thread-list-model'
 import { ThreadRecordHeader } from './thread-record-header'
 import { ThreadToolbar } from './thread-toolbar'
 import { ThreadSpeaker } from './use-auto-speak'
@@ -265,6 +265,7 @@ function HermesChatFeed() {
   const archived = everything.filter((entry) => entry.archived)
   const view = buildView({ entries, archived, filter: { type: typeFilter, query }, now })
   const headline = summaryHeadline(summarize(entries, now))
+  const endNote = listEndNote(entries, archived.length, now)
   const openEntry = everything.find((entry) => entry.id === expandedId)
   const openThread = store.threads.find((thread) => thread.id === expandedId)
 
@@ -333,17 +334,24 @@ function HermesChatFeed() {
                 </Text>
               </Center>
             ) : (
-              <ThreadList
-                groups={view.groups}
-                untitled={view.untitled}
-                now={now}
-                busy={actions.busy}
-                foldOpen={typeFilter === 'untitled'}
-                open={foldOpen}
-                onToggleOpen={() => setFoldOpen((v) => !v)}
-                onOpen={setExpandedId}
-                onDeleteUntitled={(ids) => void actions.removeAll(ids)}
-              />
+              <>
+                <ThreadList
+                  groups={view.groups}
+                  untitled={view.untitled}
+                  now={now}
+                  busy={actions.busy}
+                  foldOpen={typeFilter === 'untitled'}
+                  open={foldOpen}
+                  onToggleOpen={() => setFoldOpen((v) => !v)}
+                  onOpen={setExpandedId}
+                  onDeleteUntitled={(ids) => void actions.removeAll(ids)}
+                />
+                {typeFilter === 'all' && query.trim() === '' && endNote !== null && (
+                  <Text c="dimmed" size="sm" py="md">
+                    {endNote}
+                  </Text>
+                )}
+              </>
             )}
           </ScrollArea>
 

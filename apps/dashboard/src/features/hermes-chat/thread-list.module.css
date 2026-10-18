@@ -57,8 +57,7 @@
   }
 }
 
-/* One row = one button. Wide: chip · title + summary · time on a single line. Narrow (the list's
-   own container, not the viewport): the summary drops under the title, time stays on line one. */
+/* One row = one button: chip · title over summary · time. */
 .row {
   container-type: inline-size;
   display: block;
@@ -69,15 +68,16 @@
   color: inherit;
 }
 
+/* panel-hover is lighter than panel in the light scheme, so the step is invisible there: an ink wash reads in both. */
 .row:hover {
-  background: var(--vx-surface-panel-hover);
+  background: color-mix(in srgb, var(--vx-ink) 6%, transparent);
 }
 
 .rowGrid {
   display: grid;
   grid-template-columns: 4.75rem minmax(0, 1fr) auto;
   grid-template-areas: 'chip body time';
-  align-items: baseline;
+  align-items: start;
   column-gap: var(--vx-space-stack-md);
 }
 
@@ -98,17 +98,17 @@
   justify-self: start;
 }
 
+/* Title line, then the muted summary line beneath it. */
 .body {
   grid-area: body;
   display: flex;
-  align-items: baseline;
-  gap: var(--vx-space-stack-sm);
+  flex-direction: column;
+  gap: var(--vx-space-stack-xs);
   min-width: 0;
 }
 
 .title {
-  flex: none;
-  max-width: 60%;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -135,30 +135,6 @@
   font-size: var(--vx-text-micro);
   color: var(--vx-faint);
   white-space: nowrap;
-}
-
-@container (max-width: 479.9px) {
-  .rowGrid {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas:
-      'chip title time'
-      'body body body';
-    row-gap: var(--vx-space-stack-xs);
-  }
-
-  .body {
-    display: block;
-  }
-
-  .title {
-    grid-area: title;
-    max-width: none;
-    align-self: baseline;
-  }
-
-  .summary {
-    display: block;
-  }
 }
 
 /* The untitled fold: a quiet disclosure row, not a thread. */
