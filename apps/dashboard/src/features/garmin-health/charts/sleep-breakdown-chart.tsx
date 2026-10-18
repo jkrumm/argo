@@ -10,6 +10,7 @@ import { dayLabel, hoursFromSec, mean, sleepFact } from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
+import { shotState } from '../../../lib/shot-state'
 import { localDay } from './local-day'
 
 const CHART_HEIGHT = 280
@@ -57,11 +58,13 @@ const BARS: BarsBar<SleepPoint>[] = [
 
 export default function SleepBreakdownChart({ params }: { params: SummaryParams }) {
   const query = useQuery(dailyMetricsQueries.series(params))
+  // `basalt-ui shot`'s `empty` state renders the chart's own empty branch.
+  const data = shotState() === 'empty' ? undefined : query.data
 
   // Sleep locks in overnight, so today is kept (`hideToday: false`).
   const sleepData = useMemo<SleepPoint[]>(
     () =>
-      applyVisibilityFilter(query.data?.points ?? [], (p) => p.date, { hideToday: false })
+      applyVisibilityFilter(data?.points ?? [], (p) => p.date, { hideToday: false })
         .filter((p) => p.sleepDurationSec !== null)
         .map((p) => ({
           day: localDay(p.date),
@@ -73,7 +76,7 @@ export default function SleepBreakdownChart({ params }: { params: SummaryParams 
           total: hoursFromSec(p.sleepDurationSec),
           sleepScore: p.sleepScore,
         })),
-    [query.data],
+    [data],
   )
 
   const latest = sleepData.at(-1)

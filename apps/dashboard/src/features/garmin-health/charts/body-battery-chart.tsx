@@ -9,6 +9,7 @@ import { bodyBatteryFact, dayLabel, mean, signed } from '../model'
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
+import { shotState } from '../../../lib/shot-state'
 import { localDay } from './local-day'
 
 type BodyBatteryPoint = {
@@ -55,11 +56,13 @@ const LINES: BarsLine<BodyBatteryPoint>[] = [
 
 export default function BodyBatteryChart({ params }: { params: SummaryParams }) {
   const query = useQuery(dailyMetricsQueries.series(params))
+  // `basalt-ui shot`'s `empty` state renders the chart's own empty branch.
+  const data = shotState() === 'empty' ? undefined : query.data
 
   const points = useMemo<BodyBatteryPoint[]>(
     () =>
       applyVisibilityFilter(
-        (query.data?.points ?? []).filter((p) => p.bbCharged !== null || p.bbDrained !== null),
+        (data?.points ?? []).filter((p) => p.bbCharged !== null || p.bbDrained !== null),
         (p) => p.date,
       ).map((p) => ({
         day: localDay(p.date),
@@ -70,7 +73,7 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
         highest: p.bbHighest,
         lowest: p.bbLowest,
       })),
-    [query.data],
+    [data],
   )
 
   // Net, high and low come from the latest day that has a net, not whatever the last row holds.

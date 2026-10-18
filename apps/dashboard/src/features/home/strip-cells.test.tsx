@@ -16,6 +16,7 @@ const reading = (over: Partial<RecoveryReading> = {}): RecoveryReading => ({
   trend: [55],
   date: '2026-01-15',
   isToday: true,
+  last: null,
   ...over,
 })
 
@@ -41,7 +42,24 @@ describe('strip cells with no reading', () => {
       recoveryCell(
         reading({ score: null, mean: null, days: 0, trend: [], date: null, isToday: false }),
       ),
-    ).toMatchObject({ value: null, footer: 'no reading yet · Garmin syncs every 6\u00a0h' })
+    ).toMatchObject({
+      value: null,
+      footer: 'no score in this window · Garmin syncs every 6\u00a0h',
+    })
+    // The pre-sync gap names the last score and its day, in Garmin Health's wording.
+    expect(
+      recoveryCell(
+        reading({
+          score: null,
+          mean: null,
+          days: 0,
+          trend: [],
+          date: '2026-01-15',
+          isToday: false,
+          last: { value: 62, date: '2026-01-13' },
+        }),
+      ).footer,
+    ).toBe('last scored 62/100 on Jan\u00a013 · Garmin syncs every 6\u00a0h')
     expect(recoveryCell(null, true)).toMatchObject({ footer: 'loading Garmin data' })
     expect(acwrCell(null, NOW)).toMatchObject({ value: null, footer: 'unavailable' })
   })
@@ -59,7 +77,7 @@ describe('strip cells with no reading', () => {
     )
     expect(cell.caption).toBe('Recovery · Wed 14 Jan')
     expect(cell.footer).toBe(
-      '7\u00a0d mean 65 · today fills after the next Garmin sync (every 6\u00a0h)',
+      '7\u00a0d mean\u00a065 · today fills after the next Garmin sync (every 6\u00a0h)',
     )
   })
 
@@ -145,16 +163,16 @@ describe('recoveryFooter', () => {
   const NB = '\u00a0'
   it('keeps the mean in every branch where there is one', () => {
     expect(recoveryFooter(reading({ isToday: true }))).toBe(
-      `7${NB}d mean 60 · 7 observed days of 7`,
+      `7${NB}d mean${NB}60 · 7 observed days of${NB}7`,
     )
     expect(recoveryFooter(reading({ isToday: false }))).toBe(
-      `7${NB}d mean 60 · today fills after the next Garmin sync (every 6${NB}h)`,
+      `7${NB}d mean${NB}60 · today fills after the next Garmin sync (every 6${NB}h)`,
     )
   })
 
   it('drops only the mean when there is none', () => {
     expect(recoveryFooter(reading({ mean: null, days: 0, isToday: true }))).toBe(
-      '0 observed days of 7',
+      `0 observed days of${NB}7`,
     )
     expect(recoveryFooter(reading({ mean: null, isToday: false }))).toBe(
       `today fills after the next Garmin sync (every 6${NB}h)`,
@@ -162,6 +180,8 @@ describe('recoveryFooter', () => {
   })
 
   it('singular day', () => {
-    expect(recoveryFooter(reading({ days: 1 }))).toBe(`7${NB}d mean 60 · 1 observed day of 7`)
+    expect(recoveryFooter(reading({ days: 1 }))).toBe(
+      `7${NB}d mean${NB}60 · 1 observed day of${NB}7`,
+    )
   })
 })

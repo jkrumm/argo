@@ -91,7 +91,12 @@ export function AgendaView({
             {/* Confirmed-empty hides the card (the headline says so and names the next event); an
                 unanswered calendar keeps it, as unknown. */}
             {todayState !== 'hidden' && (
-              <Box className={classes.oToday} data-shot="today">
+              <Box
+                className={classes.oToday}
+                data-shot="today"
+                data-shot-states="loading error"
+                data-shot-absent="empty"
+              >
                 <Card>
                   <Section
                     title="Today"
@@ -106,7 +111,11 @@ export function AgendaView({
                 </Card>
               </Box>
             )}
-            <Box className={classes.oNext} data-shot="next-days">
+            <Box
+              className={classes.oNext}
+              data-shot="next-days"
+              data-shot-states="empty loading error"
+            >
               <Card>
                 <Section
                   title="Next 7 days"
@@ -133,7 +142,11 @@ export function AgendaView({
                 unknown={unknown}
               />
             </Box>
-            <Box className={classes.oFree} data-shot="free-block">
+            <Box
+              className={classes.oFree}
+              data-shot="free-block"
+              data-shot-states="empty loading error"
+            >
               <StatGroup
                 variant="strip"
                 label="Longest free block"

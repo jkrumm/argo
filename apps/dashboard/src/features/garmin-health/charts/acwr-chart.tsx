@@ -22,6 +22,7 @@ import {
 import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
+import { shotState } from '../../../lib/shot-state'
 import { latestWith } from './latest'
 import { localDay } from './local-day'
 
@@ -92,17 +93,19 @@ const DIVERGENCE_HEIGHT = 60
 
 export default function AcwrChart({ params }: { params: SummaryParams }) {
   const query = useQuery(trainingLoadQueries.summary(params))
+  // `basalt-ui shot`'s `empty` state renders the chart's own empty branch.
+  const data = shotState() === 'empty' ? undefined : query.data
 
   const points = useMemo<TrainingLoadPoint[]>(
     () =>
-      applyVisibilityFilter(query.data?.points ?? [], (p) => p.date).map((p) => ({
+      applyVisibilityFilter(data?.points ?? [], (p) => p.date).map((p) => ({
         date: p.date,
         day: localDay(p.date),
         acwr: p.acwr,
         zone: p.zone,
         divergence: p.divergence,
       })),
-    [query.data],
+    [data],
   )
   // At 390 the zone keys in the legend are noise; the card's header and the bands carry them.
   const compact = useSizeClass() === 'compact'
