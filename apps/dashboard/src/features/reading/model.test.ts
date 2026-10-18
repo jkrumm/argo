@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   approxHours,
   booksPerMonth,
+  finishedFooter,
   finishCohort,
   paceRange,
   backlog,
@@ -245,7 +246,7 @@ describe('summaryParts', () => {
       summaryParts({ finished: 3, year: 2026, cohort: { days: 12, measured: 2, finished: 3 } }),
     ).toEqual({
       sentence: '3 books finished in 2026',
-      facts: ['median 12 d from start to finish, over 2 of 3 with a start date'],
+      facts: ['median 12 d from start to finish, over 2 of 3 with a valid start and finish date'],
     })
   })
   test('one book is singular; nothing finished says so; no cohort drops the fact, not 0', () => {
@@ -305,6 +306,14 @@ describe('booksPerMonth', () => {
     expect(booksPerMonth(6, Date.UTC(2026, 5, 16))).toBeCloseTo(1.08, 2) // 5.53 months
     expect(booksPerMonth(3, Date.UTC(2026, 0, 5))).toBeNull()
     expect(booksPerMonth(0, Date.UTC(2026, 5, 16))).toBeNull()
+  })
+})
+
+describe('finishedFooter', () => {
+  test('a rate once a month has elapsed, the count before, nothing with none', () => {
+    expect(finishedFooter(6, 2026, Date.UTC(2026, 5, 16))).toBe('1.1 books a month in 2026')
+    expect(finishedFooter(2, 2026, Date.UTC(2026, 0, 5))).toBe('2 so far in 2026')
+    expect(finishedFooter(0, 2026, Date.UTC(2026, 5, 16))).toBeNull()
   })
 })
 

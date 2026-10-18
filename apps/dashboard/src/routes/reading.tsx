@@ -15,6 +15,7 @@ import {
   finishedGroups,
   finishedInYear,
   finishCohort,
+  finishedFooter,
   readingPace,
   shelfCounts,
   summaryParts,
@@ -108,9 +109,7 @@ function ReadingPage() {
               counts={counts}
               shelf={shelf}
               pace={pace}
-              finished={finished}
-              year={year}
-              now={now}
+              footer={finishedFooter(finished, year, now)}
             />
             <UnmatchedSection />
             <InProgress shelf={shelf} pace={pace.median} now={now} />
