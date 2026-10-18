@@ -65,7 +65,7 @@ export function Meetings({ agenda, tasks, now }: Props) {
   return (
     <Card>
       <Section title="Agenda" {...(agenda === null && { value: '—' })}>
-        <Stack gap="sm" data-shot="meetings" data-shot-states="empty loading error">
+        <Stack gap="sm" data-shot="meetings" data-shot-states="empty error">
           {agenda === null ? (
             <Text size="sm" c="dimmed">
               Unknown: a calendar has not answered, so today's meetings cannot be listed.
