@@ -1,3 +1,4 @@
+import { format } from 'date-fns'
 import type { SkinfoldSite } from '../../../lib/queries/skinfold-log'
 
 /** A `YYYY-MM-DD` log date as the LOCAL calendar day the user entered it on. */
@@ -109,4 +110,14 @@ export function toSkinfoldChartPoints(points: readonly SkinfoldPoint[]): Skinfol
     for (const r of p.readings) bySite[r.site] = r.valueMm
     return { date: localDay(p.date), average: p.average, bySite }
   })
+}
+
+/**
+ * The x-axis tick format for what is plotted: `7 Oct` inside a year, `Oct 2026` once the first and
+ * last point are over a year apart (a bare day would repeat across years).
+ */
+export function axisDateFormat(dates: readonly Date[]): (d: Date) => string {
+  const times = dates.map((d) => d.getTime())
+  const spanDays = times.length === 0 ? 0 : (Math.max(...times) - Math.min(...times)) / 86_400_000
+  return (d) => format(d, spanDays > 365 ? 'MMM yyyy' : 'd MMM')
 }

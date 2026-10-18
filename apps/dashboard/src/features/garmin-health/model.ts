@@ -259,30 +259,48 @@ export function recoveryGap(input: {
   /** The newest scored day in the window, if any. */
   last?: { value: number; date: string } | null
   windowDays?: number
+  /** The recovery inputs the scored day lacks, e.g. `['HRV', 'sleep']`; names why there is no score. */
+  missing?: readonly string[]
   today?: Date
 }): { headline: string; line: string | null } {
-  const { date, status = 'success', settled = false, last = null, windowDays = 0 } = input
+  const {
+    date,
+    status = 'success',
+    settled = false,
+    last = null,
+    windowDays = 0,
+    missing = [],
+  } = input
+  const today = input.today ?? new Date()
   if (status === 'pending') return { headline: 'recovery loading', line: null }
   if (status === 'error') {
     const headline = 'the recovery score failed to load'
     return { headline, line: capitalize(headline) }
   }
-  const day = date == null ? 'the latest day' : dayLabel(date, 'day', input.today)
+  const day = date == null ? 'the latest day' : dayLabel(date, 'day', today)
   const headline = `no recovery score for ${day}`
   if (!settled) return { headline, line: null }
-  // Today's row exists but has no sleep, HRV or RHR yet: the next sync fills it. An older gap never does.
-  const fills = date != null && date === dayKey(input.today ?? new Date()) ? ' · fills on sync' : ''
+  const why = missing.length > 0 ? ` · no ${missing.join(', ')}` : ''
   if (last !== null) {
     const lastDay = dayLabel(last.date).replaceAll(' ', NBSP)
-    return { headline, line: `Last scored ${fmtNum(last.value)}/100 on ${lastDay}${fills}` }
+    return { headline, line: `Last scored ${fmtNum(last.value)}/100 on ${lastDay}${why}` }
   }
   const window = windowDays > 0 ? `this ${withUnit(windowDays, 'd')} window` : 'this window'
-  return { headline, line: `No score in ${window}${fills}` }
+  return { headline, line: `No score in ${window}${why}` }
 }
 
 // ── Strip ──────────────────────────────────────────────────────────────────
 
 type Components = { hrv: number | null; sleep: number | null; rhr: number | null }
+
+/** The recovery inputs a day did not measure, in the order the cell lists them. */
+export function missingInputs(components: Components): string[] {
+  return [
+    ...(components.hrv === null ? ['HRV'] : []),
+    ...(components.sleep === null ? ['sleep'] : []),
+    ...(components.rhr === null ? ['RHR'] : []),
+  ]
+}
 
 /** Contributor rows as points of their weight. A component that did not measure is left out. */
 export function contributorItems(components: Components) {

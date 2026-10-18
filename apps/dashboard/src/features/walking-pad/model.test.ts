@@ -17,6 +17,7 @@ import {
   shiftCellsToLocal,
   emptyWindowHint,
   emptyWindowParts,
+  lastWalkLabel,
   toLastWalk,
   summaryParts,
   trimLeadingEmpty,
@@ -529,5 +530,18 @@ describe('emptyWindowHint', () => {
 
   it('a never-walked history leaves the headline to say so', () => {
     expect(emptyWindowHint({ last: { state: 'never' }, wider: '30d', nowMs: now })).toBeUndefined()
+  })
+})
+
+describe('lastWalkLabel', () => {
+  it('age and date sit together, the date alone when the headline has the age', () => {
+    expect(lastWalkLabel({ endedAt: '2026-10-12T10:00:00Z', age: '2 days ago' })).toBe(
+      'last walk 2 days ago, 12 Oct',
+    )
+    expect(lastWalkLabel({ endedAt: '2026-10-12T10:00:00Z', age: null })).toBe('last walk 12 Oct')
+  })
+  it('an unparseable timestamp drops the date and never throws', () => {
+    expect(lastWalkLabel({ endedAt: 'nope', age: '2 days ago' })).toBe('last walk 2 days ago')
+    expect(lastWalkLabel({ endedAt: 'nope', age: null })).toBe('last walk')
   })
 })

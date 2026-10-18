@@ -8,7 +8,12 @@ import { weightLogQueries, type WeightLogWindowParams } from '../../../lib/queri
 import { NBSP } from '../../../lib/format'
 import { METRIC_TOOLTIPS } from '../constants'
 import { weightHeaderFact, windowLabel, windowDays, withKg } from '../model'
-import { markerRadiusFor, toWeightChartPoints, type WeightChartPoint } from './series-data'
+import {
+  axisDateFormat,
+  markerRadiusFor,
+  toWeightChartPoints,
+  type WeightChartPoint,
+} from './series-data'
 
 // 280 px on desktop, 220 px below the regular container class.
 const CHART_HEIGHT = { base: 220, regular: 280 }
@@ -88,7 +93,7 @@ export default function WeightChart({
           data={chartData}
           height={CHART_HEIGHT}
           x={(d) => d.date}
-          formatX={(x) => format(x, span === null || span > 365 ? 'MMM yyyy' : 'd MMM')}
+          formatX={axisDateFormat(chartData.map((d) => d.date))}
           series={series}
           tooltip={{ formatHeader: (x) => format(x, 'EEE d MMM yyyy') }}
           {...(goal !== null && {

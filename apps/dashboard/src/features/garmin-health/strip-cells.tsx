@@ -33,6 +33,7 @@ import {
   contributorItems,
   firstToLast,
   lastScored,
+  missingInputs,
   recoveryGap,
   loadFooter,
   windowDayCount,
@@ -112,6 +113,7 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
     settled,
     last,
     windowDays: windowDayCount(activitiesRange(params), VISIBLE_DATE_MIN),
+    missing: missingInputs(data?.components ?? { hrv: null, sleep: null, rhr: null }),
   }).line
   return {
     key: 'recovery',
@@ -228,6 +230,11 @@ type SignalSpec = {
   delta: number | null
 }
 
+/** One reading with its unit kept together; a missing day (null or the sparkline's NaN gap) is `—`. */
+function reading(spec: Pick<SignalSpec, 'digits' | 'unit'>, v: number | null): string {
+  return v === null || !Number.isFinite(v) ? '—' : withUnit(v.toFixed(spec.digits), spec.unit)
+}
+
 function signalRow(spec: SignalSpec): StatStripRow {
   const present = spec.values.filter((v): v is number => v !== null)
   const current = present.at(-1) ?? null
@@ -236,12 +243,7 @@ function signalRow(spec: SignalSpec): StatStripRow {
   return {
     key: spec.label,
     label: spec.label,
-    value:
-      spec.hideValue === true
-        ? ''
-        : current === null
-          ? null
-          : `${current.toFixed(spec.digits)} ${spec.unit}`,
+    value: spec.hideValue === true ? '' : current === null ? null : reading(spec, current),
     visual:
       present.length > 1 && new Set(present).size > 1 ? (
         <Sparkline
@@ -249,9 +251,9 @@ function signalRow(spec: SignalSpec): StatStripRow {
           height={28}
           color={VX.line}
           emphasizeLast
-          format={(v) => `${v.toFixed(spec.digits)} ${spec.unit}`}
-          labels={spec.dates.map(shortDate)}
-          ariaLabel={`${spec.label} over ${spec.period}, now ${current === null ? 'unknown' : current.toFixed(spec.digits)} ${spec.unit}`}
+          format={(v) => reading(spec, v)}
+          labels={spec.dates.map((d) => shortDate(d))}
+          ariaLabel={`${spec.label} over ${spec.period}, now ${current === null ? 'unknown' : reading(spec, current)}`}
         />
       ) : (
         <Text size="xs" c="dimmed">
