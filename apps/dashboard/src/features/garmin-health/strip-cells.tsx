@@ -197,7 +197,13 @@ function useLoadCell(params: SummaryParams): StatStripCell {
           max={ACWR_METER_MAX}
           format={(v) => v.toFixed(2)}
           zones={[
-            { from: 0, to: ACWR_FLOOR, label: ACWR_ZONE_NAME.undertrained, color: VX.warn },
+            {
+              from: 0,
+              to: ACWR_FLOOR,
+              label: ACWR_ZONE_NAME.undertrained,
+              short: 'Under',
+              color: VX.warn,
+            },
             {
               from: ACWR_FLOOR,
               to: ACWR_OPTIMAL_TO,
