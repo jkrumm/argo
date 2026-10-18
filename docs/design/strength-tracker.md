@@ -121,10 +121,10 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 ### Wave 24 fixes
 
 - Headline: `SummaryLine` is now `PageSummary` — the sentence is the leader lift's e1RM and its 28 d move, the facts are ACWR and the readiness call (`summaryParts` in `model.ts`, tested).
-- The call card is titled `Readiness` (its subject); the verdict (`Latest: {verdict} · {date}`) leads its facts line. Evidence labels and the method lines are one size (`xs`), so the card holds the title size plus one.
+- The call card is titled `Readiness: {verdict}` (subject, then verdict), with `latest {date}` in its facts when the reading is not today's. Evidence labels and the method lines are one size (`xs`), so the card holds the title size plus one.
 - Momentum: the velocity pane reads in `%/mo` like the header (bars were `%/day`), the chart is taller (320 px, top pane 0.7) so the pane carries a −, 0 and + tick; the zero tick reads `0%`.
 - One-RM info text says `Large dots`, matching the personal-record marks.
 - Readiness: a 7-day trailing average (solid) over the faint daily line; the info text names both.
-- The diagnostics section is titled by what it holds (`Velocity, tonnage and INOL against baseline, {period} · Alignment matrix, fixed last 90 d`).
+- The diagnostics section is `Diagnostics · {period}`; the composite chart names its signals and the alignment chart carries `last 90 d` (it is fixed to that window).
 
 No new basalt rows.

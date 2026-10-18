@@ -123,8 +123,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 ### Wave 24 fixes
 
-- API: `isCancelled: boolean` on both event responses — Graph's `isCancelled` for M365 (added to the `get-calendar-view` `$select`; `false` when Graph omits it), always `false` for Google. Tests: `clients/m365-calendar.test.ts` (`normalizeEvent`) and the OpenAPI check in `routes/calendar.test.ts`.
-- Dashboard: `payload.isCancelled` (threaded in `mapCalendarEvent`) replaces the title-prefix stopgap in `derive.ts`; a `Canceled:` / `Cancelled:` / `Abgesagt:` prefix is still stripped from the displayed title, but a prefix alone no longer cancels a meeting.
+- API: `isCancelled: boolean` on both event responses — Graph's `isCancelled` for M365 (added to the `get-calendar-view` `$select`; `false` when Graph omits it), `status === 'cancelled'` for Google. Tests: `clients/m365-calendar.test.ts` (`normalizeEvent`) and the OpenAPI check in `routes/calendar.test.ts`.
+- Dashboard: `payload.isCancelled` (threaded in `mapCalendarEvent`) replaces the title-prefix stopgap in `derive.ts`; a `Canceled:` / `Cancelled:` / `Abgesagt:` prefix is still stripped from the displayed title, but a prefix alone no longer cancels a meeting, and a live meeting keeps its title as written. While the API image predates the field, the dashboard falls back to the prefix (`CANCELLED_TITLE` in `lib/queries/calendar.ts`).
 - Headline: the summary in `agenda-view.tsx` is `PageSummary` — sentence `{n} meetings today, {booked} booked`, facts `next in {m}` and `{booked} booked this week` (`summaryParts`, tested); unknown sources read `— meetings today` with dashed facts.
 
 No new basalt rows.

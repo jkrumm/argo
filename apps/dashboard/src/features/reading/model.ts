@@ -336,9 +336,13 @@ export function summaryParts(input: {
   }
 }
 
-/** Share of the shelf that is read, and that is still backlog: whole percent of `counts.total`. */
+/**
+ * Share of the shelf that is read, and that is still backlog: whole percent of `counts.total`,
+ * kept inside 1–99 while the part exists, so `0%` and `100%` never claim an empty or full shelf.
+ */
 export function shelfShares(counts: ShelfCounts): { read: number; backlog: number } | null {
   if (counts.total === 0) return null
-  const pct = (n: number) => Math.round((n / counts.total) * 100)
+  const pct = (n: number) =>
+    n === 0 ? 0 : Math.min(99, Math.max(1, Math.round((n / counts.total) * 100)))
   return { read: pct(counts.read), backlog: pct(counts.backlog) }
 }

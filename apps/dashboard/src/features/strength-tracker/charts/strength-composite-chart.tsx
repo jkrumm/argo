@@ -172,7 +172,7 @@ export default function StrengthCompositeChart({
 
   return (
     <ChartCard
-      title="Strength Composite"
+      title="Strength composite: velocity, tonnage, INOL"
       info={METRIC_TOOLTIPS.strengthComposite}
       actions={
         <Group gap="xs" wrap="nowrap">

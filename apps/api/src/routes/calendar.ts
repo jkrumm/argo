@@ -16,7 +16,9 @@ const CalendarEventSchema = z.object({
   isAllDay: z.boolean(),
   isCancelled: z
     .boolean()
-    .describe('Always false for Google: cancelled events are not returned by the Calendar API'),
+    .describe(
+      'True when Google marks the event status cancelled (deleted events are not requested)',
+    ),
   location: z.string().optional(),
   organizer: z.object({ name: z.string(), email: z.string() }).optional(),
   attendees: z.array(AttendeeSchema),
