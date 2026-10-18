@@ -1,9 +1,11 @@
+import { Box } from '@mantine/core'
 import { Meter, StatGroup, useSizeClass, type StatStripCell } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
 import {
   NO_PACE_REASON,
   paceRange,
   paceTicks,
+  type PaceTicks,
   ratingShape,
   ratingsFooter,
   shelfParts,
@@ -45,8 +47,6 @@ function ratingsCell(shelf: readonly ShelfItem[], narrow: boolean): StatStripCel
   }
   const footer = ratingsFooter(shape)
   const peak = Math.max(...shape.buckets)
-  // Bucket i holds (i, i + 1], so the track spans 0…5 and a mean of m lands at m / 5.
-  const meanAt = Math.min(100, Math.max(0, (shape.mean / 5) * 100))
   return {
     key: 'ratings',
     caption: `Ratings (★) · ${shape.n} rated`,
@@ -66,7 +66,7 @@ function ratingsCell(shelf: readonly ShelfItem[], narrow: boolean): StatStripCel
               />
             </div>
           ))}
-          <div className={classes.meanTick} style={{ left: `${meanAt}%` }} />
+          <div className={classes.meanTick} style={{ left: `${shape.meanAt ?? 0}%` }} />
         </div>
         <div className={classes.axis}>
           {shape.labels.map((label, i) => (
@@ -90,39 +90,52 @@ function ratingsCell(shelf: readonly ShelfItem[], narrow: boolean): StatStripCel
   }
 }
 
+/** A tick's height grows with the books at that pace but stays under the median line's full height. */
+const tickHeight = (count: number): string => `${Math.min(80, 35 + (count - 1) * 15)}%`
+
+function PaceTrack({ ticks, median, label }: { ticks: PaceTicks; median: number; label: string }) {
+  return (
+    <div
+      role="img"
+      aria-label={`${label}: slowest ${ticks.slowest}, median ${median}, fastest ${ticks.fastest}`}
+    >
+      <div className={classes.paceTrack}>
+        {ticks.ticks.map((tick) => (
+          <Box
+            key={tick.at}
+            className={classes.paceTick}
+            style={{ left: `${tick.at}%`, height: tickHeight(tick.count) }}
+          />
+        ))}
+        <div className={classes.paceMedian} style={{ left: `${ticks.medianAt}%` }} />
+      </div>
+      <div className={classes.paceAxis}>
+        <span>{ticks.slowest}</span>
+        <span>{ticks.fastest}</span>
+      </div>
+    </div>
+  )
+}
+
 function paceCell(pace: Pace): StatStripCell {
   if (pace.median === null || pace.median <= 0) {
     return { key: 'pace', caption: 'Reading pace', value: null, footer: NO_PACE_REASON }
   }
   const ticks = paceTicks(pace.paces, pace.median)
   const books = `${pace.paces.length} ${pace.paces.length === 1 ? 'book' : 'books'}`
-  return {
+  const cell = {
     key: 'pace',
     caption: `Pace · median of ${books}`,
     value: String(pace.median),
     unit: 'pages/h',
-    // The axis ends state slowest and fastest, so the range footer is only for what the axis cannot draw.
-    ...(ticks === null
-      ? { footer: paceRange(pace.paces) ?? 'one book has reading time so far' }
-      : {
-          visual: (
-            <div
-              role="img"
-              aria-label={`Pages per hour for ${books}: slowest ${ticks.slowest}, median ${pace.median}, fastest ${ticks.fastest}`}
-            >
-              <div className={classes.paceTrack}>
-                {ticks.at.map((at, i) => (
-                  <div key={i} className={classes.paceTick} style={{ left: `${at}%` }} />
-                ))}
-                <div className={classes.paceMedian} style={{ left: `${ticks.medianAt}%` }} />
-              </div>
-              <div className={classes.paceAxis}>
-                <span>{ticks.slowest}</span>
-                <span>{ticks.fastest}</span>
-              </div>
-            </div>
-          ),
-        }),
+  }
+  // No span (one book, or one pace) draws no axis, so the footer states what the visual cannot.
+  if (ticks === null) {
+    return { ...cell, footer: paceRange(pace.paces) ?? 'one book has reading time so far' }
+  }
+  return {
+    ...cell,
+    visual: <PaceTrack ticks={ticks} median={pace.median} label={`Pages per hour for ${books}`} />,
   }
 }
 

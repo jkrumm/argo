@@ -249,6 +249,14 @@ export function lastReadFact(lastRead: number | null, now: number): string {
 /** `span` is the range alone (`2–2.5`); the strip adds the `★` unit where the axis is wide enough, else the cell caption carries it. */
 export type BinLabel = { span: string; aria: string }
 
+/** Five bins on a 0…5 track; bin `i` is `(i, i + 1]`, so each holds two half steps. The one source of the bin rule, its edges and the mean marker. */
+const RATING_BINS = 5
+
+/** `(0.5, 1]` → 0 … `(4.5, 5]` → 4; a rating outside 0.5–5 clamps to the end bin. */
+export function ratingBin(rating: number): number {
+  return Math.min(RATING_BINS, Math.max(1, Math.ceil(rating))) - 1
+}
+
 /** One bin's span, two views: the axis span (`1.5–2`) and the screen-reader text (`1.5 to 2 stars`). */
 function binLabel(bin: number): BinLabel {
   const lo = bin + 0.5
@@ -261,6 +269,8 @@ export type RatingShape = {
   buckets: [number, number, number, number, number]
   n: number
   mean: number | null
+  /** The mean's position on the 0…5 track, 0–100; null with nothing rated. */
+  meanAt: number | null
   /** The span per bucket, as axis and screen-reader text. */
   labels: [BinLabel, BinLabel, BinLabel, BinLabel, BinLabel]
   /** Mean community rating over the same rated books that have one, with how many that is. */
@@ -273,14 +283,15 @@ export function ratingShape(shelf: readonly ShelfItem[]): RatingShape {
   const rated = shelf.flatMap((b) =>
     b.rating === null ? [] : [{ rating: b.rating, community: b.communityRating }],
   )
-  // Bin i holds (i, i + 1]: two half steps each, so the ends clamp only a rating outside 0.5–5.
-  const bin = (rating: number) => Math.min(5, Math.max(1, Math.ceil(rating))) - 1
+  const mean =
+    rated.length === 0 ? null : rated.reduce((sum, r) => sum + r.rating, 0) / rated.length
   const community = rated.flatMap((r) => (r.community === null ? [] : [r.community]))
   return {
-    buckets: tuple5((i) => rated.filter((r) => bin(r.rating) === i).length),
+    buckets: tuple5((i) => rated.filter((r) => ratingBin(r.rating) === i).length),
     labels: tuple5(binLabel),
     n: rated.length,
-    mean: rated.length === 0 ? null : rated.reduce((sum, r) => sum + r.rating, 0) / rated.length,
+    mean,
+    meanAt: mean === null ? null : Math.min(100, Math.max(0, (mean / RATING_BINS) * 100)),
     community:
       community.length === 0
         ? null
@@ -408,31 +419,38 @@ export function booksPerMonth(finished: number, now: number): number | null {
   return months < 1 ? null : finished / months
 }
 
+/** A pace endpoint as shown: one rule for the footer range and the axis ends (rounds to 0 → `< 1`). */
+const paceEndpoint = (v: number): string => (v < 1 ? '< 1' : String(v))
+
 /** `slowest 20, fastest 40 pages/h`; an endpoint that rounds to 0 reads `< 1`. Null with no paces. */
 export function paceRange(paces: readonly number[]): string | null {
   if (paces.length < 2) return null
-  const at = (v: number) => (v < 1 ? '< 1' : String(v))
-  return `slowest ${at(Math.min(...paces))}, fastest ${withUnit(at(Math.max(...paces)), 'pages/h')}`
+  return `slowest ${paceEndpoint(Math.min(...paces))}, fastest ${withUnit(paceEndpoint(Math.max(...paces)), 'pages/h')}`
 }
 
-/** The pace axis: where each book's tick and the median sit, as 0–100 along the slowest-to-fastest span. */
-export type PaceTicks = { at: number[]; medianAt: number; slowest: string; fastest: string }
+/** One tick per distinct displayed pace, `count` books at it. */
+export type PaceTick = { at: number; count: number }
+
+/** The pace axis: ticks and the median as 0–100 along the slowest-to-fastest span. */
+export type PaceTicks = { ticks: PaceTick[]; medianAt: number; slowest: string; fastest: string }
 
 /**
- * One tick per book on a pages/h axis that runs slowest to fastest. Null with fewer than two
- * distinct paces: a span of one value has no distribution to draw, and the figure states it.
+ * Books grouped by displayed (rounded) pace on a pages/h axis running slowest to fastest, so two
+ * books at one pace are one tick with `count: 2`, never one tick that reads as one book. Null
+ * with fewer than two distinct paces: a span of one value has no distribution to draw.
  */
 export function paceTicks(paces: readonly number[], median: number): PaceTicks | null {
   const lo = Math.min(...paces)
   const hi = Math.max(...paces)
   if (paces.length < 2 || lo === hi) return null
   const along = (v: number) => Math.min(100, Math.max(0, ((v - lo) / (hi - lo)) * 100))
-  const label = (v: number) => (v < 1 ? '< 1' : String(v))
+  const counts = new Map<number, number>()
+  for (const pace of paces) counts.set(pace, (counts.get(pace) ?? 0) + 1)
   return {
-    at: paces.map(along),
+    ticks: [...counts].toSorted(([a], [b]) => a - b).map(([v, count]) => ({ at: along(v), count })),
     medianAt: along(median),
-    slowest: label(lo),
-    fastest: label(hi),
+    slowest: paceEndpoint(lo),
+    fastest: paceEndpoint(hi),
   }
 }
 

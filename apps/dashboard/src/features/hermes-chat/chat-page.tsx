@@ -46,11 +46,12 @@ const TITLE_POLL_ATTEMPTS = 6
 const PERSIST_POLL_MAX_ATTEMPTS = 20
 
 // The page is two views over one URL param (`?thread=`): the day-grouped thread list, or one open
-// thread (record header, transcript, its own composer). A single composer is pinned to the bottom
-// of the list view, right under the last row (the list is content-sized and scrolls only once it
+// thread (record header, transcript, its own composer). A single composer sits at the bottom of
+// the list view, right under the last row (the list is content-sized and scrolls only once it
 // outgrows the page, so no blank band opens between them); typing there STARTS a new chat —
-// `store.create()` mints a client id synchronously and `runs.start()` sends immediately: no async create-then-effect chain to race
-// (see docs/HERMES-CHAT-V2.md, D-E). Design record: docs/design/hermes-chat.md.
+// `store.create()` mints a client id synchronously and `runs.start()` sends immediately: no async
+// create-then-effect chain to race (see docs/HERMES-CHAT-V2.md, D-E). Design record:
+// docs/design/hermes-chat.md.
 
 // Full-bleed chat surface: fill the whole main area and cancel AppShell.Main's `padding="md"`
 // with a negative margin so the feed and composer sit flush to the edges (no inset frame).
