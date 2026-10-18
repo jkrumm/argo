@@ -19,6 +19,16 @@
   display: none;
 }
 
+/* Phone: exactly four nights fit, ending one fade-width before the edge. The fade then dims the
+   empty gutter, never a night's fact line (a fixed width left the fourth cell half under it, and
+   `under its gate` with it). */
+@container (max-width: 479.9px) {
+  .scroller {
+    grid-auto-columns: calc((100cqw - var(--mantine-spacing-md) - 3 * 4px) / 4);
+    padding-inline-end: var(--mantine-spacing-md);
+  }
+}
+
 @container (min-width: 800px) {
   .scroller {
     grid-auto-flow: row;
@@ -40,6 +50,7 @@
   background: transparent;
   color: var(--vx-ink);
   cursor: pointer;
+  min-width: 0;
 }
 
 .cell:hover:not([aria-pressed='true']) {
@@ -124,6 +135,8 @@
   color: var(--vx-muted);
   text-align: center;
   line-height: 1.25;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .marker {
