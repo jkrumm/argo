@@ -4,6 +4,8 @@
  * so the copy is testable and a null reading is handled once (always `—`, never `0`).
  */
 
+import { SYNC_CADENCE_HOURS } from './constants'
+
 const EM_DASH = '—'
 
 /** The fitness regression's window and the VO2max trace's window, fixed regardless of the page selector. */
@@ -197,13 +199,7 @@ export function summaryParts({
   facts: string[]
 } {
   const load = acwr === null ? null : `load ${acwrRelation(acwr)}`
-  const sentence =
-    recovery !== null
-      ? [`Recovery ${fmtNum(recovery)}/100`, load].filter(Boolean).join(', ')
-      : // What is known leads; the missing recovery states its reason instead of opening on a dash.
-        capitalize(
-          [load, recoveryGap(recoveryDate, recoveryStatus).headline].filter(Boolean).join('; '),
-        )
+  const sentence = recoverySentence({ recovery, recoveryDate, recoveryStatus, load })
   return {
     sentence,
     facts: [
@@ -217,20 +213,46 @@ export function summaryParts({
 const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1)
 
 /**
+ * The headline: a present score leads and the load follows; otherwise what is known (the load) leads
+ * and the missing score states its reason or its load state, so the sentence is never empty.
+ */
+export function recoverySentence(input: {
+  recovery: number | null
+  recoveryDate?: string | null | undefined
+  recoveryStatus?: QueryStatus | undefined
+  /** The load clause, e.g. `load under the 0.8 floor`; `null` when ACWR is unknown. */
+  load: string | null
+}): string {
+  if (input.recovery !== null) {
+    return [`Recovery ${fmtNum(input.recovery)}/100`, input.load].filter(Boolean).join(', ')
+  }
+  const gap = recoveryGap(input.recoveryDate, input.recoveryStatus)
+  return capitalize([input.load, gap.headline].filter(Boolean).join('; '))
+}
+
+/** Whole calendar days from a `YYYY-MM-DD` key to `today`. */
+function daysOld(date: string, today: Date): number {
+  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+  return Math.round((todayUtc - Date.parse(`${date}T00:00:00Z`)) / 86_400_000)
+}
+
+/**
  * Why there is no recovery score and when it fills. A failed query is its own wording, never the data
  * gap. The score needs a usable HRV, sleep score or resting HR on the snapshot's day (resting HR needs
- * more than one distinct value in the window); those lock in overnight and arrive with the sync sidecar's
- * six-hourly cron (cron/garmin-sync.ts in the API).
+ * more than one distinct value in the window). Those lock in overnight and arrive with the next sync,
+ * so only a gap on today (the night's data) or yesterday (today's row) promises a fill; an older latest
+ * day says how old it is instead.
  */
 export function recoveryGap(
   date: string | null | undefined,
   status: QueryStatus = 'success',
+  today: Date = new Date(),
 ): {
   headline: string
   reason: string
   fills: string
 } {
-  if (status === 'pending') return { headline: '', reason: '', fills: '' }
+  if (status === 'pending') return { headline: 'recovery loading', reason: '', fills: '' }
   if (status === 'error') {
     return {
       headline: 'the recovery score failed to load',
@@ -238,11 +260,21 @@ export function recoveryGap(
       fills: 'Reload the page to retry.',
     }
   }
-  const when = date === null || date === undefined ? 'the latest day' : dayLabel(date)
+  const when = date === null || date === undefined ? 'the latest day' : dayLabel(date, 'day', today)
+  const age = date === null || date === undefined ? null : daysOld(date, today)
+  const cadence = `every ${SYNC_CADENCE_HOURS} h`
+  const fills =
+    age === null || age < 0
+      ? `Garmin syncs ${cadence}.`
+      : age === 0
+        ? `It fills once Garmin syncs last night’s sleep (${cadence}).`
+        : age === 1
+          ? `Today’s score appears once today’s readings sync (${cadence}).`
+          : `The latest synced day is ${age} d old; Garmin syncs ${cadence}.`
   return {
     headline: `no recovery score, since there is not enough HRV, sleep or resting HR data for ${when}`,
     reason: `Not enough HRV, sleep or resting HR data for ${when}.`,
-    fills: 'It fills once Garmin syncs last night’s sleep (every 6 h).',
+    fills,
   }
 }
 

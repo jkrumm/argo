@@ -1,16 +1,6 @@
 import type { SkinfoldSite } from '../../lib/queries/skinfold-log'
 import type { SkinfoldDirection, WeightPhase, WeightTrend } from './formulas'
 
-/**
- * Window/range parameters both body-composition endpoints (weight-log, skinfold-log)
- * accept. Matches the API's `WindowQuerySchema`.
- */
-export type SummaryParams = {
-  window?: '7d' | '30d' | '90d' | 'all'
-  from?: string
-  to?: string
-}
-
 /** `GET /weight-log/summary`. */
 export type WeightSummary = {
   current: number | null

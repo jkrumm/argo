@@ -25,6 +25,7 @@ import {
   sleepFact,
   stressFact,
   recoveryGap,
+  recoverySentence,
   summaryParts,
 } from './model'
 
@@ -121,16 +122,30 @@ describe('summaryParts', () => {
 })
 
 describe('recoveryGap', () => {
-  test('names the day, the missing readings and when it fills', () => {
-    const gap = recoveryGap('2026-01-05')
-    expect(gap.reason).toBe('Not enough HRV, sleep or resting HR data for Jan 5.')
-    expect(gap.fills).toContain('every 6 h')
+  const today = new Date(2026, 0, 6)
+
+  test('a gap on today promises the night’s data with the cadence', () => {
+    const gap = recoveryGap('2026-01-06', 'success', today)
+    expect(gap.reason).toBe('Not enough HRV, sleep or resting HR data for today.')
+    expect(gap.fills).toBe('It fills once Garmin syncs last night’s sleep (every 6 h).')
+  })
+
+  test('a gap on yesterday waits for today’s readings', () => {
+    expect(recoveryGap('2026-01-05', 'success', today).fills).toBe(
+      'Today’s score appears once today’s readings sync (every 6 h).',
+    )
+  })
+
+  test('an older latest day says how old it is and promises nothing', () => {
+    const gap = recoveryGap('2026-01-01', 'success', today)
+    expect(gap.reason).toBe('Not enough HRV, sleep or resting HR data for Jan 1.')
+    expect(gap.fills).toBe('The latest synced day is 5 d old; Garmin syncs every 6 h.')
   })
 })
 
 describe('recovery load states', () => {
   test('pending has no copy, error never claims a data gap, success-null does', () => {
-    expect(recoveryGap('2026-01-05', 'pending').headline).toBe('')
+    expect(recoveryGap('2026-01-05', 'pending').headline).toBe('recovery loading')
     expect(recoveryGap('2026-01-05', 'error').reason).toBe('The recovery score failed to load.')
     expect(recoveryGap('2026-01-05', 'success').reason).toContain('Not enough')
   })
@@ -144,6 +159,20 @@ describe('recovery load states', () => {
     })
     expect(sentence).toBe('Load inside the 0.8–1.3 optimal band; the recovery score failed to load')
     expect(sentence).not.toContain('HRV, sleep')
+  })
+})
+
+describe('recoverySentence', () => {
+  test('a pending recovery with no ACWR is never an empty headline', () => {
+    expect(recoverySentence({ recovery: null, recoveryStatus: 'pending', load: null })).toBe(
+      'Recovery loading',
+    )
+  })
+  test('a score leads, its absence yields to the load', () => {
+    expect(recoverySentence({ recovery: 70, load: 'load x' })).toBe('Recovery 70/100, load x')
+    expect(recoverySentence({ recovery: null, recoveryStatus: 'error', load: 'load x' })).toBe(
+      'Load x; the recovery score failed to load',
+    )
   })
 })
 

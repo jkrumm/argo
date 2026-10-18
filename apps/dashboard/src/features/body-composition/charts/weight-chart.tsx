@@ -6,7 +6,7 @@ import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { weightLogQueries, type WeightLogWindowParams } from '../../../lib/queries/weight-log'
 import { METRIC_TOOLTIPS } from '../constants'
-import { isStale, shortDay, signed, windowChange, windowLabel, windowDays, withKg } from '../model'
+import { isStale, weightHeaderFact, windowLabel, windowDays, withKg } from '../model'
 import {
   localDay,
   markerRadiusFor,
@@ -37,7 +37,7 @@ export default function WeightChart({
   const span = windowDays(params)
   const chartData = useMemo(() => toWeightChartPoints(apiPoints ?? [], span), [apiPoints, span])
   // The strip and headline carry the current weight and its age; the header adds what they do not.
-  const change = useMemo(() => windowChange(apiPoints ?? []), [apiPoints])
+  const headerFact = useMemo(() => weightHeaderFact(apiPoints ?? []), [apiPoints])
   // Drawn to today, so a stale last entry shows as empty plot rather than a line that just stops.
   const first = chartData[0]
   const xDomain: [Date, Date] | null =
@@ -89,12 +89,8 @@ export default function WeightChart({
       <ChartCard
         title={`Body weight, ${windowLabel(params)}`}
         info={goal === null ? METRIC_TOOLTIPS.bodyWeight : METRIC_TOOLTIPS.bodyWeightGoal}
-        {...(change !== null && {
-          facts: {
-            value: signed(change.changeKg, 1),
-            unit: 'kg',
-            period: `net change since ${shortDay(change.fromKey)} · ${change.entries} entries`,
-          },
+        {...(headerFact !== null && {
+          facts: { value: headerFact.value, unit: 'kg', period: headerFact.period },
         })}
         state={{ pending: query.isPending, error: query.isError ? query.error : undefined, empty }}
         placeholderHeight={PLACEHOLDER_HEIGHT}

@@ -67,6 +67,7 @@ export function BodyCompositionPage({ params }: { params: Params }) {
       summary,
       rateDays: rateDays(windowDays(params)),
       latestDate: latestDate(weightPoints),
+      entries: weightPoints.length,
     }),
     ...(sessions.length > 0
       ? [skinfoldCell({ summary: skinfoldSummary, rows, latestDate: latestDate(sessions) })]
