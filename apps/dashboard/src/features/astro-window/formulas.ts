@@ -181,8 +181,9 @@ export function coreGateDetail(night: Night): string {
 
 /**
  * The Moon gate row's one line, in words only (the illumination and the limit are drawn in the Moon
- * cell): when the gate failed, the moon's peak altitude over the window (a structured field), else the API's reason verbatim; else `under limit`, or, for a moon over the limit,
- * why it still passed: below the horizon through the shooting window, or behind the skyline.
+ * cell). A failed gate: the moon's peak altitude over the window, from the structured field, else
+ * the API's reason verbatim. A pass: `under limit`, or, for a moon over the limit, `below horizon`
+ * when its peak stays under 0°, else only that the engine passed it (it never says how).
  */
 export function moonGateDetail(night: Night, moonLimit: number): string {
   const killer = night.killers.find((k) => k.id === 'moon')
@@ -192,9 +193,9 @@ export function moonGateDetail(night: Night, moonLimit: number): string {
       : `up to ${fmtDegrees(night.window.maxMoonAltitude)} during the window`
   }
   if (night.moon.illumination < moonLimit) return 'under limit'
-  const shoot = night.window
-  if (shoot === null) return 'over limit, position passed'
-  return shoot.maxMoonAltitude < 0 ? 'over limit, below horizon' : 'over limit, behind skyline'
+  return night.window !== null && night.window.maxMoonAltitude < 0
+    ? 'over limit, below horizon'
+    : 'over limit, position passed'
 }
 
 /** The Darkness gate row's one line. */
@@ -445,15 +446,21 @@ export function windowFact(
   }
 }
 
-/** `mid {m} %` / `high {h} %`: the other two layers, the same statistic as the low value; a layer without data is left out. */
-function layerParts(night: Night): string[] {
-  const { cloudMid, cloudHigh } = night.weather
-  return [
-    ['mid', cloudMid],
-    ['high', cloudHigh],
-  ].flatMap(([name, v]) =>
-    v === null ? [] : [`${name} ${withUnit(Math.floor(v as number), '%')}`],
+/** `mid {m} %` / `high {h} %`: the other two layers, the same statistic as the low value; a layer without data (null or absent) is left out. */
+function layerParts({ weather }: Night): string[] {
+  const layers: readonly (readonly [string, number | null | undefined])[] = [
+    ['mid', weather.cloudMid],
+    ['high', weather.cloudHigh],
+  ]
+  return layers.flatMap(([name, v]) =>
+    v === null || v === undefined ? [] : [`${name} ${withUnit(Math.floor(v), '%')}`],
   )
+}
+
+/** The low-cloud figure as printed: the floored scored mean with its unit; null without a reading. */
+function lowCloudValue(night: Night): string | null {
+  const mean = night.weather.cloudLow
+  return mean === null ? null : withUnit(Math.floor(mean), '%')
 }
 
 type LowCloudStat = {
@@ -478,7 +485,7 @@ export function lowCloudStat(night: Night, limit: number | undefined): LowCloudS
   const scored = night.window !== null
   const reading = Math.floor(mean)
   return {
-    value: withUnit(reading, '%'),
+    value: lowCloudValue(night) ?? '',
     unit: 'low cloud',
     footer: [scored ? 'shooting-window mean' : 'dark-hours mean', ...layerParts(night)].join(' · '),
     reading,
@@ -531,8 +538,11 @@ export function lowCloudRuinous(night: Night): boolean {
   return factor?.ruinous === true && night.weather.cloudLow !== null
 }
 
-/** Why low cloud earns a verdict-card row: the API calls the layer ruinous, or it is the factor holding the score back (the engine's lowest, under 80 %). Null when it earns none. */
-export function lowCloudState(night: Night): 'ruinous' | 'limits the score' | null {
+/**
+ * Why low cloud earns a verdict-card row: the API calls the layer ruinous, or it is the factor
+ * holding the score back (the engine's lowest, under 80 %). Null when it earns none.
+ */
+function lowCloudState(night: Night): 'ruinous' | 'limits the score' | null {
   if (night.weather.cloudLow === null) return null
   if (lowCloudRuinous(night)) return 'ruinous'
   return limitingFactor(night)?.id === 'cloud-low' ? 'limits the score' : null
@@ -588,7 +598,7 @@ export function gateRows(night: Night, moonLimit: number): GateRowModel[] {
       label: 'Low cloud',
       state: cloudState,
       tone: 'neutral',
-      detail: lowCloudStat(night, undefined)?.value ?? null,
+      detail: lowCloudValue(night),
     })
   }
   return rows
