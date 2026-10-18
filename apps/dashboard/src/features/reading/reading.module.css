@@ -70,10 +70,14 @@
   text-align: center;
 }
 
-/* Five labelled ticks crowd a narrow cell: keep the odd stars (1, 3, 5). 479.9px is the guard's
-   boundary just under basalt's `regular` container class (CONTAINER_CLASSES.regular, 480); CSS
-   cannot read the JS token. */
-@container (max-width: 479.9px) {
+/* The ratings cell is its own container, so the query below measures the cell, not the page.
+   Five labelled ticks crowd a cell under 240px: keep the odd stars (1, 3, 5). 239.9px is the
+   guard's boundary under basalt's 240 container class; CSS cannot read the JS token. */
+.ratingsCell {
+  container-type: inline-size;
+}
+
+@container (max-width: 239.9px) {
   .axisMinor {
     visibility: hidden;
   }

@@ -16,14 +16,8 @@ import { workoutsQueries } from '../../lib/queries/workouts'
 import { TERM_DEFINITIONS } from './constants'
 import { exerciseLabel } from './formulas'
 import {
-  ACWR_CAUTION_TO,
   DELTA_DAYS,
-  ACWR_FLOOR,
-  ACWR_METER_MAX,
-  ACWR_OPTIMAL_TO,
   EM_DASH,
-  READINESS_PUSH_FROM,
-  READINESS_REST_BELOW,
   shortDate,
   deloadLine,
   lastSessionDate,
@@ -40,6 +34,14 @@ import {
   todaysCall,
   type Point,
 } from './model'
+import {
+  ACWR_CAUTION_TO,
+  ACWR_FLOOR,
+  ACWR_METER_MAX,
+  ACWR_OPTIMAL_TO,
+  READINESS_PUSH_FROM,
+  READINESS_REST_BELOW,
+} from './bands'
 import classes from './overview.module.css'
 
 /** `MeterZone` has no tone, and `Meter`'s default zone fill is near-white in dark mode. */
@@ -147,7 +149,7 @@ export function TodaysCall(props: Params) {
         <Text component="h3" m={0} fw={600} size="md" lh={1.35}>
           {readinessTitle(call)}
         </Text>
-        {facts.text === '' && facts.inol === null ? null : (
+        {facts.text === '' ? null : (
           <Group gap={4} wrap="wrap" align="center">
             <Text size="xs" c="dimmed">
               {facts.text}
@@ -157,8 +159,7 @@ export function TodaysCall(props: Params) {
                 name="INOL"
                 label={
                   <Text size="xs" c="dimmed">
-                    {facts.text === '' ? '' : '· '}
-                    {facts.inol}
+                    · {facts.inol}
                   </Text>
                 }
                 definition={TERM_DEFINITIONS.inol}

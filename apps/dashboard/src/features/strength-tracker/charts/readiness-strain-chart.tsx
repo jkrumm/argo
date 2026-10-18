@@ -6,12 +6,8 @@ import { VX } from 'basalt-ui/tokens'
 import { chartStateOf } from '../../../lib/chart-state'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { localDay } from '../../garmin-health/charts/local-day'
-import {
-  READINESS_PUSH_FROM,
-  READINESS_REST_BELOW,
-  readinessHeader,
-  readinessReading,
-} from '../model'
+import { readinessHeader, readinessReading } from '../model'
+import { READINESS_PUSH_FROM, READINESS_REST_BELOW } from '../bands'
 import { METRIC_TOOLTIPS } from '../constants'
 import { trailingMA } from './trailing-ma'
 

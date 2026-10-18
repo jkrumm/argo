@@ -12,19 +12,6 @@ import {
 } from './bands'
 import { exerciseLabel } from './formulas'
 
-export {
-  ACWR_CAUTION_TO,
-  ACWR_FLOOR,
-  ACWR_METER_MAX,
-  ACWR_OPTIMAL_TO,
-  E1RM_MAX_REPS,
-  INOL_MAX_REPS,
-  INOL_OPTIMAL_FROM,
-  INOL_OPTIMAL_TO,
-  READINESS_PUSH_FROM,
-  READINESS_REST_BELOW,
-} from './bands'
-
 export const EM_DASH = '—'
 export const DELTA_DAYS = 28
 const DAY_MS = 86_400_000
@@ -215,7 +202,7 @@ export function acwrZoneWord(acwr: number | null): string {
   return 'danger'
 }
 
-export const ACWR_METHOD = 'EWMA spans 4 wk / 16 wk of weekly tonnage, all lifts summed'
+export const ACWR_METHOD = '4 wk / 16 wk EWMA of weekly tonnage, all lifts summed'
 
 // ── Lifts ────────────────────────────────────────────────────────────────────────────────────
 

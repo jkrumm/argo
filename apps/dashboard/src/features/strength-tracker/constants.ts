@@ -8,6 +8,16 @@ import {
   INOL_MAX_REPS,
   INOL_OPTIMAL_FROM,
   INOL_OPTIMAL_TO,
+  FATIGUE_MAX_SHAVE_PCT,
+  HEAVY_SESSION_DAMPEN_PCT,
+  HEAVY_SESSION_HOURS,
+  HEAVY_SESSION_INOL,
+  LANDMARK_DAYS,
+  LANDMARK_PERCENTILES,
+  LOAD_QUALITY_ADEQUATE_FROM,
+  LOAD_QUALITY_QUALITY_FROM,
+  LOAD_QUALITY_WEIGHTS,
+  RECOVERY_WEIGHTS,
   READINESS_PUSH_FROM,
   READINESS_REST_BELOW,
 } from './bands'
@@ -69,31 +79,29 @@ export const METRICS: { value: MetricKey; label: string; unit: string }[] = [
  */
 export const TERM_DEFINITIONS = {
   readiness: `Readiness score, 0–100: the Garmin recovery score (HRV, sleep, resting heart rate) reduced by the fatigue of your last session. Push from ${READINESS_PUSH_FROM}, Rest below ${READINESS_REST_BELOW}.`,
-  acwr: `Acute:chronic workload ratio: your recent weekly tonnage (4-week EWMA) divided by your long-run average (16-week EWMA). ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO} is the healthy range; above ${ACWR_CAUTION_TO} raises injury risk.`,
+  acwr: `Acute:chronic workload ratio: the 4-week EWMA of weekly tonnage divided by its 16-week EWMA. ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO} is the healthy range; above ${ACWR_CAUTION_TO} raises injury risk. The headline figure sums all lifts.`,
   inol: `INOL, the load of one session on one lift: reps ÷ (100 − %1RM), summed over its work and AMRAP sets of 1–${INOL_MAX_REPS} reps. ${INOL_OPTIMAL_FROM}–${INOL_OPTIMAL_TO} is productive; above ${INOL_OPTIMAL_TO} is heavy.`,
 } as const
 
 export const METRIC_TOOLTIPS = {
-  oneRmTrend: `Estimated 1-rep max per session: the best work or AMRAP set of 1–${E1RM_MAX_REPS} reps, scored as the average of the Brzycki and Epley formulas. Higher-rep sets are left unscored because the two formulas diverge above ${E1RM_MAX_REPS} reps. The direction arrow is the slope of the last 28 days.`,
-  strengthComposite: `Three signals, each in standard deviations from your own 90-day average: e1RM growth rate, weekly tonnage growth against its 28-day average, and session INOL quality (${INOL_OPTIMAL_FROM}–${INOL_OPTIMAL_TO} is productive). Above zero is better than your norm.`,
-  weeklyVolume:
-    'Weekly tonnage (weight × reps) by set type. MEV, MAV and MRV are the 25th, 50th and 90th percentile of your weekly tonnage over the last 90 days: a rough minimum, productive and maximum volume.',
-  trainingLoad: `${TERM_DEFINITIONS.acwr} Computed per exercise. Below ${ACWR_FLOOR} is undertrained, ${ACWR_OPTIMAL_TO}–${ACWR_CAUTION_TO} is caution.`,
+  oneRmTrend: `Estimated 1-rep max per session: the best work or AMRAP set of 1–${E1RM_MAX_REPS} reps, scored as the average of the Brzycki and Epley formulas. Higher-rep sets are left unscored because the two formulas diverge above ${E1RM_MAX_REPS} reps.`,
+  strengthComposite: `Three signals, each in standard deviations from your own 90-day average. e1RM growth rate and weekly tonnage growth (against its 28-day average): above zero is faster than your norm. INOL quality: above zero is heavier sessions than your norm, which is only better up to ${INOL_OPTIMAL_TO} (${INOL_OPTIMAL_FROM}–${INOL_OPTIMAL_TO} is productive).`,
+  weeklyVolume: `Weekly tonnage (weight × reps) by set type. MEV, MAV and MRV are the ${LANDMARK_PERCENTILES.mev}th, ${LANDMARK_PERCENTILES.mav}th and ${LANDMARK_PERCENTILES.mrv}th percentile of the selected lift's non-zero weekly tonnage over the last ${LANDMARK_DAYS} days of the selected range (all of it when the range is shorter): a rough minimum, productive and maximum volume.`,
+  trainingLoad: `${TERM_DEFINITIONS.acwr} The lines are one per lift, each from that lift's own weekly tonnage. Below ${ACWR_FLOOR} is undertrained, ${ACWR_OPTIMAL_TO}–${ACWR_CAUTION_TO} is caution.`,
   inol: TERM_DEFINITIONS.inol,
   momentum:
     'Velocity is the slope of a 28-day linear fit of e1RM, in % per month. Positive means strength is rising.',
   relativeProgression:
-    'Each lift as a percentage of its e1RM on the first day of the selected range, so lifts of different absolute strength compare directly.',
+    'Each lift as the percentage change of its e1RM from its first session in the selected range, so lifts of different absolute strength compare directly.',
   strengthRatios:
     'DOTS-adjusted lift ratios against IPF normative ranges (809,986 entries). Balanced is within 15 % of the range, critical more than 30 % off. The pull-up ratio is added weight over bodyweight.',
   heroStrength:
     "Strength Direction: 3-level verdict (Improving/Stable/Declining) from 28-day e1RM velocity (f') for the leader lift. Sub-text shows f'' sign — accelerating means the trend is steepening, decelerating means it's tapering.",
-  heroLoadQuality:
-    'Load Quality: 0–100 composite. 40% INOL zone score (optimal: 0.6–1.0) + 40% ACWR zone score (optimal: 0.8–1.3) + 20% weekly volume vs personal MEV/MAV landmarks. ≥75 = Quality · 50–74 = Adequate · <50 = Poor.',
+  heroLoadQuality: `Load Quality: 0–100 composite. ${LOAD_QUALITY_WEIGHTS.inol}% INOL zone score (optimal: ${INOL_OPTIMAL_FROM}–${INOL_OPTIMAL_TO}) + ${LOAD_QUALITY_WEIGHTS.acwr}% ACWR zone score (optimal: ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO}) + ${LOAD_QUALITY_WEIGHTS.volume}% weekly volume vs personal MEV/MAV landmarks. ≥${LOAD_QUALITY_QUALITY_FROM} = Quality · ${LOAD_QUALITY_ADEQUATE_FROM}–${LOAD_QUALITY_QUALITY_FROM - 1} = Adequate · <${LOAD_QUALITY_ADEQUATE_FROM} = Poor.`,
   heroBalance:
     'Balance: DOTS-adjusted ratio status across DL/Squat, Squat/Bench, DL/Bench, and Pull-up/BW. Shows the worst-offender pair. Balanced = all ratios within normative range. Imbalanced = >15% off. Critical = >30% off.',
-  heroReadiness: `Readiness: Garmin recovery score adjusted for strength fatigue. Penalty = INOL of last session / personal p90 ceiling × 25% max shave. An additional 10% dampening applies if the last session had INOL > 1.2 within 48h. Push ≥ ${READINESS_PUSH_FROM} · Normal ${READINESS_REST_BELOW}–${READINESS_PUSH_FROM - 1} · Rest < ${READINESS_REST_BELOW}.`,
-  readinessStrain: `${TERM_DEFINITIONS.readiness} Recovery is HRV 40 %, sleep 35 %, resting HR 25 %; fatigue takes up to 25 %: the last session's INOL over your 90th-percentile INOL, and a session above INOL 1.2 within 48 h takes a further 10 %.`,
+  heroReadiness: `Readiness: Garmin recovery score adjusted for strength fatigue. Penalty = INOL of last session / personal p90 ceiling × ${FATIGUE_MAX_SHAVE_PCT}% max shave. An additional ${HEAVY_SESSION_DAMPEN_PCT}% dampening applies if the last session had INOL > ${HEAVY_SESSION_INOL} within ${HEAVY_SESSION_HOURS}h. Push ≥ ${READINESS_PUSH_FROM} · Normal ${READINESS_REST_BELOW}–${READINESS_PUSH_FROM - 1} · Rest < ${READINESS_REST_BELOW}.`,
+  readinessStrain: `${TERM_DEFINITIONS.readiness} Recovery is HRV ${RECOVERY_WEIGHTS.hrv} %, sleep ${RECOVERY_WEIGHTS.sleep} %, resting HR ${RECOVERY_WEIGHTS.restingHr} %; fatigue takes up to ${FATIGUE_MAX_SHAVE_PCT} %: the last session's INOL over your 90th-percentile INOL, and a session above INOL ${HEAVY_SESSION_INOL} within ${HEAVY_SESSION_HOURS} h takes a further ${HEAVY_SESSION_DAMPEN_PCT} %.`,
   trainingRecoveryAlignment:
     'Sessions counted by recovery zone (High, Normal, Low) against training load (per-lift average ACWR: Under, Optimal, Caution). Aligned means recovery and load match; misaligned means they conflict.',
   strengthScan: `Momentum is the 28-day e1RM velocity in % per month; INOL quality is productive at ${INOL_OPTIMAL_FROM}–${INOL_OPTIMAL_TO}.`,

@@ -13,6 +13,7 @@ declare const classes: {
   readonly meanTick: string
   readonly axis: string
   readonly axisMinor: string
+  readonly ratingsCell: string
   readonly paceTrack: string
   readonly paceRail: string
   readonly paceDot: string
