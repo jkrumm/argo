@@ -43,7 +43,7 @@ export function ThreadRecordHeader({
   }
 
   return (
-    <Box className={classes['root']} data-shot="thread-record-header">
+    <Box className={classes['root']} data-shot="thread-record-header" data-shot-absent="empty">
       <Group gap="sm" wrap="nowrap" justify="space-between">
         <Group gap="sm" wrap="nowrap" miw={0}>
           <ActionIcon variant="subtle" color="gray" aria-label="Threads" onClick={onBack}>
