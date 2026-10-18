@@ -82,6 +82,7 @@ function ReadingPage() {
   const year = currentYear(now)
   const finished = finishedInYear(shelf, year)
   const timeRows = timeRead(shelf)
+  const hasTime = timeRows.length > 0
 
   return (
     <>
@@ -115,11 +116,11 @@ function ReadingPage() {
             />
             <UnmatchedSection />
             <InProgress shelf={shelf} pace={pace.median} now={now} />
-            <div className={timeRows.length > 0 ? classes.pair : undefined}>
+            <div className={hasTime ? classes.pair : undefined}>
               <div data-shot="finished">
                 <Finished groups={finishedGroups(shelf)} undated={counts.read - counts.readDated} />
               </div>
-              {timeRows.length > 0 && (
+              {hasTime && (
                 <div data-shot="time-read">
                   <TimeRead rows={timeRows} />
                 </div>

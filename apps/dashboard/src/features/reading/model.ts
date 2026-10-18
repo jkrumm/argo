@@ -235,12 +235,12 @@ export function progressPercent(book: ShelfItem): number | null {
 
 export type BinLabel = { visible: string; aria: string }
 
-/** One bin's span, two views: the axis text (`3–3.5`) and the screen-reader text (`3 to 3.5 stars`). */
+/** One bin's span, two views: the axis text (`3–3.5 ★`) and the screen-reader text (`3 to 3.5 stars`). */
 function binLabel(lo: number, hi: number): BinLabel {
   const stars = (n: number) => (n === 1 ? 'star' : 'stars')
   return lo === hi
-    ? { visible: `${lo}`, aria: `${lo} ${stars(lo)}` }
-    : { visible: `${lo}–${hi}`, aria: `${lo} to ${hi} ${stars(hi)}` }
+    ? { visible: withUnit(lo, '★'), aria: `${lo} ${stars(lo)}` }
+    : { visible: withUnit(`${lo}–${hi}`, '★'), aria: `${lo} to ${hi} ${stars(hi)}` }
 }
 
 export type RatingShape = {

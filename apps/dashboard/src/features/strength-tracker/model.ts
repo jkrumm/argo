@@ -285,10 +285,9 @@ export function staleNote(lifts: readonly { id: string; delta: LiftDelta }[]): s
   const stale = lifts.filter((l) => l.delta.stale)
   if (stale.length === 0) return null
   // Only sessions with a scored e1RM move the figure; a session without one does not count.
-  const days = stale[0]?.delta.days ?? DELTA_DAYS
   // Every lift stale is the headline's sentence, not a second one.
-  if (stale.length === lifts.length) return null
-  return `No scored e1RM in ${withUnit(days, 'd')}: ${stale.map((l) => exerciseLabel(l.id)).join(', ')}`
+  if (allStale(lifts)) return null
+  return `No scored e1RM in ${deltaSpan(lifts)}: ${stale.map((l) => exerciseLabel(l.id)).join(', ')}`
 }
 
 /** The call card's facts line, split around the INOL figure (which carries its own definition). */
@@ -344,23 +343,32 @@ export function lastSession(
 
 // ── Summary sentence ─────────────────────────────────────────────────────────────────────────
 
+/** True when no lift has a session inside the delta window (and there is at least one lift). */
+function allStale(lifts: readonly { delta: LiftDelta }[]): boolean {
+  return lifts.length > 0 && lifts.every((l) => l.delta.stale)
+}
+
+/** The delta window of a lift set, as a value with its unit. */
+function deltaSpan(lifts: readonly { delta: LiftDelta }[]): string {
+  return withUnit(lifts[0]?.delta.days ?? DELTA_DAYS, 'd')
+}
+
 /**
- * The headline always states a fact: how many lifts moved up over the delta window out of those
- * with a scored move, else that none did (or none has a scored e1RM). The per-lift e1RM and move
- * are the strip's, the score and ACWR the call card's: the headline repeats none of them.
+ * The headline always states a fact. It counts lifts up out of those with a scored move; when none
+ * is up it says so (`No lift moved up` only when every lift is scored, else the scored-only
+ * wording), or that no lift has a scored e1RM. The per-lift e1RM and move are the strip's, the
+ * score and ACWR the call card's: the headline repeats none of them.
  */
 export function summaryParts(lifts: readonly { delta: LiftDelta }[]): { sentence: string } | null {
   if (lifts.length === 0) return null
-  const window = withUnit(lifts[0]?.delta.days ?? DELTA_DAYS, 'd')
-  const moves = lifts.map((l) => l.delta.delta)
-  const up = moves.filter((m) => m !== null && m > 0).length
-  if (up > 0) {
-    return {
-      sentence: `${up} of ${moves.length} ${moves.length === 1 ? 'lift' : 'lifts'} up in ${window}`,
-    }
-  }
-  if (lifts.every((l) => l.delta.stale)) return { sentence: `No scored e1RM in ${window}` }
-  return { sentence: `No lift moved up in ${window}` }
+  const span = deltaSpan(lifts)
+  if (allStale(lifts)) return { sentence: `No scored e1RM in ${span}` }
+  const scored = lifts.flatMap((l) => (l.delta.delta === null ? [] : [l.delta.delta]))
+  const up = scored.filter((m) => m > 0).length
+  const noun = scored.length === 1 ? 'lift' : 'lifts'
+  if (up > 0) return { sentence: `${up} of ${scored.length} ${noun} up in ${span}` }
+  if (scored.length === lifts.length) return { sentence: `No lift moved up in ${span}` }
+  return { sentence: `0 of ${scored.length} scored ${noun} up in ${span}` }
 }
 
 // ── Balance ──────────────────────────────────────────────────────────────────────────────────
@@ -386,7 +394,7 @@ export function ratioName(label: string): string {
  * apps/api/src/lib/strength-formulas.ts); mirrored here, the one place in the dashboard, like the
  * 40 / 70 readiness thresholds above.
  */
-export const RATIO_TOLERANCE = 0.15
+const RATIO_TOLERANCE = 0.15
 
 export type StatusWord = RatioStatus | 'borderline' | typeof EM_DASH
 
@@ -416,13 +424,13 @@ export function bandOffset(
 /** A band bound with at least one decimal: `1.0`, `1.25`. */
 export const fmtBound = (v: number): string => (Number.isInteger(v) ? v.toFixed(1) : String(v))
 
-/** `0.12 outside the 0.8–1.0 band`, the bare `0.8–1.0 band` inside it (the verdict says the rest), `—`. */
+/** `0.12 under the 0.8–1.0 band`, the bare `0.8–1.0 band` inside it (the verdict says the rest), `—`. */
 export function offText(offset: number | null, [lo, hi]: readonly [number, number]): string {
   if (offset === null) return EM_DASH
   const band = `${fmtBound(lo)}–${fmtBound(hi)} band`
   if (offset === 0) return band
   const size = Math.abs(offset) < 0.005 ? '<0.01' : Math.abs(offset).toFixed(2)
-  return `${size} outside the ${band}`
+  return `${size} ${offset < 0 ? 'under' : 'over'} the ${band}`
 }
 
 // ── Records ──────────────────────────────────────────────────────────────────────────────────
@@ -455,12 +463,11 @@ export function shortDate(date: string): string {
   return dayLabel(date).split(' ').slice(1).join(' ')
 }
 
-/** Section period from the page window: `90 days`, `all time`, or the custom range. */
 /** The diagnostics section's title: the period is named only when the window is a real one. */
 export function diagnosticsTitle(window: string, period: string): string {
   return window === 'all'
-    ? 'Strength against your 90-day norm'
-    : `Strength against your 90-day norm, ${period}`
+    ? 'Velocity, tonnage and INOL against your 90-day norm'
+    : `Velocity, tonnage and INOL against your 90-day norm, ${period}`
 }
 
 /** The balance card's one statement of the tolerance behind `borderline`. */

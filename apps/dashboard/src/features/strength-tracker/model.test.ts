@@ -125,27 +125,46 @@ const move = (delta: number | null) => ({
   delta: { delta, phrase: null, stale: delta === null, days: 28 },
 })
 
+// A lift with no figure yet (not stale): `liftDelta` returns this for a first session.
+const unscored = { delta: { delta: null, phrase: 'first session', stale: false, days: 28 } }
+
 describe('summaryParts', () => {
-  test('counts the selected lifts that moved up, unscored ones stay in the denominator', () => {
+  test('counts lifts up out of those with a scored move, stale ones are not in the denominator', () => {
     expect(summaryParts([move(10), move(-2.5), move(0), move(null)])?.sentence).toBe(
-      '1 of 4 lifts up in 28\u00a0d',
+      '1 of 3 lifts up in 28\u00a0d',
+    )
+    expect(summaryParts([move(10), move(null), move(null)])?.sentence).toBe(
+      '1 of 1 lift up in 28\u00a0d',
     )
   })
   test('a single lift is singular', () => {
     expect(summaryParts([move(2.5)])?.sentence).toBe('1 of 1 lift up in 28\u00a0d')
   })
-  test('nothing up still states a fact: flat or down, or nothing scored', () => {
-    expect(summaryParts([move(0), move(null)])?.sentence).toBe('No lift moved up in 28\u00a0d')
-    expect(summaryParts([move(-1.5), move(-0.1)])?.sentence).toBe('No lift moved up in 28\u00a0d')
-    expect(summaryParts([move(null)])?.sentence).toBe('No scored e1RM in 28\u00a0d')
+  test('nothing up with every lift scored says no lift moved up', () => {
+    expect(summaryParts([move(0), move(-1.5)])?.sentence).toBe('No lift moved up in 28\u00a0d')
+  })
+  test('nothing up with an unscored lift uses the scored-only wording', () => {
+    expect(summaryParts([move(-1.5), unscored])?.sentence).toBe(
+      '0 of 1 scored lift up in 28\u00a0d',
+    )
+  })
+  test('every lift stale is one sentence, and the strip note stays silent', () => {
+    expect(summaryParts([move(null), move(null)])?.sentence).toBe('No scored e1RM in 28\u00a0d')
+    expect(staleNote([{ id: 'squat', delta: move(null).delta }])).toBeNull()
+  })
+  test('no lifts selected is no headline', () => {
     expect(summaryParts([])).toBeNull()
   })
 })
 
 describe('diagnosticsTitle', () => {
   test('names the period only when the window is a real one', () => {
-    expect(diagnosticsTitle('all', 'all time')).toBe('Strength against your 90-day norm')
-    expect(diagnosticsTitle('30d', '30 days')).toBe('Strength against your 90-day norm, 30 days')
+    expect(diagnosticsTitle('all', 'all time')).toBe(
+      'Velocity, tonnage and INOL against your 90-day norm',
+    )
+    expect(diagnosticsTitle('30d', '30 days')).toBe(
+      'Velocity, tonnage and INOL against your 90-day norm, 30 days',
+    )
   })
 })
 
@@ -294,10 +313,15 @@ describe('balance', () => {
     expect(bandOffset(null, [1, 2])).toBeNull()
   })
   test('a hair outside the band never prints inside it', () => {
-    expect(offText(bandOffset(2.004, [1, 2]), [1, 2])).toBe('<0.01 outside the 1.0–2.0 band')
+    expect(offText(bandOffset(2.004, [1, 2]), [1, 2])).toBe('<0.01 over the 1.0–2.0 band')
     expect(offText(0, [1, 2])).toBe('1.0–2.0 band')
-    expect(offText(-0.1, [1, 2])).toBe('0.10 outside the 1.0–2.0 band')
+    expect(offText(-0.1, [1, 2])).toBe('0.10 under the 1.0–2.0 band')
     expect(offText(null, [1, 2])).toBe('—')
+  })
+  test('outside the band the distance text carries the direction, the verdict word the severity', () => {
+    expect(offText(-0.2, [1, 2])).toContain('under')
+    expect(offText(0.4, [1, 2])).toContain('over')
+    expect(statusWord('imbalanced', -0.2)).toBe('imbalanced')
   })
   test('status words', () => {
     expect(statusWord('balanced', -0.2)).toBe('borderline')
@@ -318,8 +342,8 @@ describe('balance', () => {
   })
   test('inside the band the row names the band alone, outside it the distance', () => {
     expect(offText(0, [1, 2])).toBe('1.0–2.0 band')
-    expect(offText(-0.2, [1, 2])).toBe('0.20 outside the 1.0–2.0 band')
-    expect(offText(0.4, [1, 2])).toBe('0.40 outside the 1.0–2.0 band')
+    expect(offText(-0.2, [1, 2])).toBe('0.20 under the 1.0–2.0 band')
+    expect(offText(0.4, [1, 2])).toBe('0.40 over the 1.0–2.0 band')
     expect(offText(null, [1, 2])).toBe('—')
   })
 })
