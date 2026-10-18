@@ -4,6 +4,7 @@ export {
   METRIC_TOOLTIPS,
   CHART_HEIGHT,
   PANORAMA_HEIGHT,
+  UNKNOWN_SITE_HEIGHT,
   SIDE_PANEL_HEIGHT,
   MAP_FULL_BLEED_HEIGHT,
   MAP_MIN_HEIGHT,
@@ -26,6 +27,7 @@ export type {
 } from './types'
 
 export {
+  unknownSiteCopy,
   verdictTone,
   fmtDegrees,
   fmtMinutes,

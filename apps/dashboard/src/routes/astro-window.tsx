@@ -17,6 +17,8 @@ import {
   NightStrip,
   NightTimelineChart,
   PANORAMA_HEIGHT,
+  UNKNOWN_SITE_HEIGHT,
+  unknownSiteCopy,
   SiteMap,
   ScoreCard,
   SkyPanorama,
@@ -354,11 +356,13 @@ function AstroWindowPage() {
                 />
               }
               timeline={
-                <NightTimelineChart
-                  hourly={data.detail.hourly}
-                  night={selectedNight}
-                  withMiss={timelineNamesMiss}
-                />
+                <Box data-shot="night-timeline">
+                  <NightTimelineChart
+                    hourly={data.detail.hourly}
+                    night={selectedNight}
+                    withMiss={timelineNamesMiss}
+                  />
+                </Box>
               }
             />
           )}
@@ -456,8 +460,8 @@ function AstroWindowPage() {
               ) : (
                 <Box data-shot="unknown-site">
                   <ChartCard
-                    state={{ empty: 'Unknown site' }}
-                    placeholderHeight={PANORAMA_HEIGHT}
+                    state={{ empty: unknownSiteCopy(deferredParams.site) }}
+                    placeholderHeight={UNKNOWN_SITE_HEIGHT}
                   />
                 </Box>
               )}

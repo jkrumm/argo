@@ -635,9 +635,10 @@ export function withFacts(fact: ChartFact | null): { facts?: ChartFact } {
 }
 
 /**
- * The Sky cell's footer: the town glow and the transparency (the dark-sky threshold is labelled on
- * the scale's tick). Number↔unit is glued and each ` · ` is bound to the text before it, so a wrap
- * falls between words and no line opens on a dot.
+ * The Sky cell's footer: the town glow and the sky's clarity (the API's `transparency` index, 1 = best;
+ * the dark-sky threshold is labelled on the scale's tick). Two lines at 1440: `town glow +x mag ·` is
+ * 21 characters and `clarity n/8 (1 best)` 20, against a cell that holds about 21. Number↔unit is glued
+ * and each ` · ` is bound to the text before it, so a wrap falls between words and no line opens on a dot.
  */
 export function skyCellFooter({
   domePenaltyMag,
@@ -648,7 +649,15 @@ export function skyCellFooter({
 }): string {
   const dome = domePenaltyMag === null ? '—' : `+${withUnit(domePenaltyMag.toFixed(2), 'mag')}`
   const clarity = transparency === null ? '—' : `${transparency}/8`
-  return joinPhrases([`town glow ${dome}`, `transparency ${clarity} ${glue('(lower = clearer)')}`])
+  return joinPhrases([`town glow ${dome}`, `clarity ${clarity} ${glue('(1 best)')}`])
+}
+
+/**
+ * The Forecast tab's card when the selected site id is not in the fetched site list (an empty list
+ * included): the cause, then the one next step the page offers.
+ */
+export function unknownSiteCopy(siteId: string): string {
+  return `${siteId} is not in the site list — pick another in Site, or reload if the list is empty`
 }
 
 /** The Moon cell's footer: the limit, the phase and (when the moon sets) the set time; no line opens on a `·`. */
