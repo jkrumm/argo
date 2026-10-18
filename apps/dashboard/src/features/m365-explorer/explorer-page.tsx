@@ -19,9 +19,9 @@ import {
   CHAT_TYPE_LABEL,
   channelSourceId,
   CHATS_TOP,
-  NO_CHATS,
   nothingToLabel,
-  teamsGap,
+  detailGap,
+  gapLeader,
   chatKindCounts,
   chatsCapped as isCapped,
   chatSourceId,
@@ -319,7 +319,11 @@ export function M365ExplorerPage(): ReactElement {
   // `chats`/`teams` are suspense reads (never pending at render) and `channelsTotal` is null until
   // every channel loaded, so an empty list here is a real gap, not a load in flight.
   const sourcesEmpty = view === 'chats' ? noChats : noTeams || channelsTotal === 0
-  const emptyCause = view === 'chats' ? NO_CHATS : teamsGap(teams.length)
+  const emptyCause = detailGap({
+    leader: gapLeader({ nothingToLabel: nothingToLabel(coverage), noChats, noTeams }),
+    chatsView: view === 'chats',
+    teams: teams.length,
+  })
   const emptyDetail = (
     <p className={classes.empty}>
       {sourcesEmpty ? emptyCause : 'Pick a chat or channel in Sources to open it'}
