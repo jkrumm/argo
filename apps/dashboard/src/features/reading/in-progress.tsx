@@ -40,7 +40,7 @@ function facts(book: ShelfItem, pace: number | null, now: number): string[] {
 function ProgressCard({ book, pace, now }: { book: ShelfItem; pace: number | null; now: number }) {
   const percent = progressPercent(book)
   return (
-    <Card data-shot="progress-card">
+    <Card data-shot="progress-card" data-shot-states="loading error" data-shot-absent="empty">
       <div className={classes.card}>
         <Cover book={book} width={56} />
         <div className={classes.cardBody}>

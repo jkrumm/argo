@@ -139,7 +139,7 @@ function TodaysCall(props: Params) {
     .join(' · ')
 
   return (
-    <Card data-shot="strength-call">
+    <Card data-shot="strength-call" data-shot-states="loading error" data-shot-absent="empty">
       <Stack gap="sm">
         <Text component="h3" m={0} fw={600} size="md" lh={1.35}>
           {readinessTitle(call)}

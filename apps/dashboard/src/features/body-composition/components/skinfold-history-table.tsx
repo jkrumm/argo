@@ -3,6 +3,7 @@ import { overlays } from 'basalt-ui/commands'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { IconTrash } from '@tabler/icons-react'
 import { BasaltDataTable, createColumnHelper } from 'basalt-ui/table'
+import { shotState } from '../../../lib/shot-state'
 import { skinfoldLogQueries, useDeleteSkinfoldLog } from '../../../lib/queries/skinfold-log'
 import { skinfoldSiteLabel } from '../formulas'
 import { localDay } from '../charts/series-data'
@@ -20,7 +21,7 @@ const columnHelper = createColumnHelper<SkinfoldRow>()
 
 export function SkinfoldHistoryTable() {
   const { data } = useSuspenseQuery(skinfoldLogQueries.list({ page: 1, limit: 20 }))
-  const readings = (data?.data ?? []) as SkinfoldRow[]
+  const readings = (shotState() === 'empty' ? [] : (data?.data ?? [])) as SkinfoldRow[]
 
   const deleteSkinfoldLog = useDeleteSkinfoldLog()
 
@@ -60,7 +61,12 @@ export function SkinfoldHistoryTable() {
   ]
 
   return (
-    <Stack gap="xs" data-shot="skinfold-history">
+    <Stack
+      gap="xs"
+      data-shot="skinfold-history"
+      data-shot-states="loading error"
+      data-shot-absent="empty"
+    >
       <BasaltDataTable
         data={readings}
         columns={columns}

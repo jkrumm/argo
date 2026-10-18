@@ -23,6 +23,7 @@ import {
 } from '../features/reading/model'
 import classes from '../features/reading/reading.module.css'
 import { ReadingStrip } from '../features/reading/strip'
+import { shotState } from '../lib/shot-state'
 import { useNow } from '../lib/use-now'
 import { UnmatchedSection } from '../features/reading/unmatched-section'
 
@@ -74,7 +75,7 @@ function ReadingPage() {
   const sync = useShelfSync()
   const now = useNow()
 
-  const shelf = data?.shelf ?? []
+  const shelf = shotState() === 'empty' ? [] : (data?.shelf ?? [])
   const pace = readingPace(shelf)
   const backlog = deriveBacklog(shelf, pace.median)
   const counts = shelfCounts(shelf)
@@ -97,11 +98,13 @@ function ReadingPage() {
       {data === undefined || shelf.length === 0 ? (
         <>
           <UnmatchedSection />
-          <EmptyState
-            icon={<IconBooks size={28} />}
-            title="Your shelf is empty"
-            description="Books appear here once you add them to your shelf on Hardcover. Sync runs daily."
-          />
+          <div data-shot="empty-shelf" data-shot-states="empty" data-shot-absent="loading error">
+            <EmptyState
+              icon={<IconBooks size={28} />}
+              title="Your shelf is empty"
+              description="Books appear here once you add them to your shelf on Hardcover. Sync runs daily."
+            />
+          </div>
         </>
       ) : (
         <div className={classes.root}>
@@ -116,11 +119,15 @@ function ReadingPage() {
             <UnmatchedSection />
             <InProgress shelf={shelf} pace={pace.median} now={now} />
             <div className={hasTime ? classes.pair : undefined}>
-              <div data-shot="finished">
+              <div data-shot="finished" data-shot-states="loading error" data-shot-absent="empty">
                 <Finished groups={finishedGroups(shelf)} undated={counts.read - counts.readDated} />
               </div>
               {hasTime && (
-                <div data-shot="time-read">
+                <div
+                  data-shot="time-read"
+                  data-shot-states="loading error"
+                  data-shot-absent="empty"
+                >
                   <TimeRead rows={timeRows} />
                 </div>
               )}
