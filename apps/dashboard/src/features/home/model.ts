@@ -1,5 +1,5 @@
 import { addDays, startOfDay as startOfDayDate } from 'date-fns'
-import { clockTime, dayLabel, headlineOf } from '../agents/model'
+import { NO_SNAPSHOT_SHORT, clockTime, dayLabel, headlineOf } from '../agents/model'
 import type { Narrative } from '../../lib/queries/agents'
 import type { WardenRaw } from '../../lib/queries/warden'
 import type { Decision } from '../../lib/decisions'
@@ -467,8 +467,11 @@ export function activityStream(
   return { groups, total: live.length }
 }
 
-/** The activity card's feed gap: both producers named; each cadence is stated once elsewhere on the screen. */
-const noFeedYet = 'No feed yet from Warden or agent-gateway'
+/**
+ * The activity card's feed gap: the cells' no-snapshot sentence in its short form (leading clause,
+ * verbatim) with both producers named; each cadence is stated once on the cells.
+ */
+const noFeedYet = `${NO_SNAPSHOT_SHORT} from Warden or agent-gateway`
 
 /**
  * The activity card's line with nothing to count: the empty window when a feed loaded, then every
@@ -524,19 +527,40 @@ export type HomeSummaryInput = {
   unavailable: readonly string[]
   /** Sources still being read: unknown for now, never an empty inbox. */
   loading: readonly string[]
+  /** Sources whose read settled without a snapshot: unknown, not empty (the cells say `No snapshot yet`). */
+  noSnapshot?: readonly string[]
 }
 
-/** `Warden failed to load, Agents loading`: the one wording for sources the list cannot yet count. */
-export function unknownPhrase(unavailable: readonly string[], loading: readonly string[]): string {
+type SourceState = Pick<HomeSummaryInput, 'unavailable' | 'loading' | 'noSnapshot'>
+
+/** `Warden failed to load, Agents loading, no snapshot yet from Agents`: the one wording for sources the list cannot yet count. */
+export function unknownPhrase(
+  unavailable: readonly string[],
+  loading: readonly string[],
+  noSnapshot: readonly string[] = [],
+): string {
   return [
     ...(unavailable.length > 0 ? [`${unavailable.join(' and ')} failed to load`] : []),
     ...(loading.length > 0 ? [`${loading.join(' and ')} loading`] : []),
+    ...(noSnapshot.length > 0
+      ? [`${NO_SNAPSHOT_SHORT.toLowerCase()} from ${noSnapshot.join(' and ')}`]
+      : []),
   ].join(', ')
 }
 
-/** Every source behind the needs-you list is unknown (failed or loading): the list can't be counted. */
-export const allUnknown = (s: Pick<HomeSummaryInput, 'unavailable' | 'loading'>): boolean =>
-  s.unavailable.length + s.loading.length >= NEEDS_YOU_SOURCES
+const unknownCount = (s: SourceState): number =>
+  s.unavailable.length + s.loading.length + (s.noSnapshot?.length ?? 0)
+
+/** Every source behind the needs-you list is unknown (failed, loading or without a snapshot): the list can't be counted. */
+export const allUnknown = (s: SourceState): boolean => unknownCount(s) >= NEEDS_YOU_SOURCES
+
+/** The all-unknown headline: one cause names itself, a mix can only say it can't tell. */
+function allUnknownTitle(s: SourceState): string {
+  const noSnapshot = s.noSnapshot?.length ?? 0
+  if (s.unavailable.length === 0 && noSnapshot === 0) return 'Loading'
+  if (s.unavailable.length === 0 && s.loading.length === 0) return NO_SNAPSHOT_SHORT
+  return "Can't tell"
+}
 
 export type HomeSummaryParts = { sentence: string; facts: string[] }
 
@@ -544,15 +568,17 @@ export type HomeSummaryParts = { sentence: string; facts: string[] }
 const NEEDS_YOU_SOURCE_NAMES = ['Warden', 'Agents'] as const
 
 /** The sources that answered: neither failed nor still loading. */
-const knownSources = (s: Pick<HomeSummaryInput, 'unavailable' | 'loading'>): string[] =>
-  NEEDS_YOU_SOURCE_NAMES.filter((n) => !s.unavailable.includes(n) && !s.loading.includes(n))
+const knownSources = (s: SourceState): string[] =>
+  NEEDS_YOU_SOURCE_NAMES.filter(
+    (n) => !s.unavailable.includes(n) && !s.loading.includes(n) && !s.noSnapshot?.includes(n),
+  )
 
 /**
- * The empty needs-you list's title: `Nothing needs you` only when every source settled OK; with one
+ * The empty needs-you list's title: `Nothing needs you` only when every source has a snapshot; with one
  * unknown it speaks only for the source that answered, and with all unknown it can't tell.
  */
-export function needsYouEmptyTitle(s: Pick<HomeSummaryInput, 'unavailable' | 'loading'>): string {
-  if (allUnknown(s)) return s.unavailable.length === 0 ? 'Loading' : "Can't tell"
+export function needsYouEmptyTitle(s: SourceState): string {
+  if (allUnknown(s)) return allUnknownTitle(s)
   const known = knownSources(s)
   return known.length === NEEDS_YOU_SOURCE_NAMES.length
     ? 'Nothing needs you'
@@ -565,13 +591,16 @@ export function needsYouEmptyTitle(s: Pick<HomeSummaryInput, 'unavailable' | 'lo
  * so the summary does not print them a second time.
  */
 export function homeSummaryParts(s: HomeSummaryInput): HomeSummaryParts {
-  const phrase = unknownPhrase(s.unavailable, s.loading)
+  const phrase = unknownPhrase(s.unavailable, s.loading, s.noSnapshot)
   if (allUnknown(s)) {
+    const title = allUnknownTitle(s)
     return {
       sentence:
-        s.unavailable.length === 0
+        title === 'Loading'
           ? `Loading ${s.loading.join(' and ')}.`
-          : `Can't tell — ${phrase}.`,
+          : title === NO_SNAPSHOT_SHORT
+            ? `${NO_SNAPSHOT_SHORT} from ${(s.noSnapshot ?? []).join(' and ')}.`
+            : `Can't tell — ${phrase}.`,
       facts: [],
     }
   }

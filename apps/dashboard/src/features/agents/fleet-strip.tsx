@@ -8,7 +8,7 @@ import {
   OLDEST_WAIT_WARN_MS,
   oldestWaitEmptyText,
   oldestWaitFooter,
-  WAITING_FOR_SNAPSHOT,
+  NO_SNAPSHOT_SHORT,
   type FleetPart,
   type FleetState,
   type OldestWait,
@@ -65,7 +65,7 @@ export function FleetStrip({ needsYou, fleet, split, oldest, hasSnapshot, longes
           value: needsYou === null ? null : String(needsYou),
           ...(needsYou !== null && { unit: `${itemNoun(needsYou)} waiting` }),
           ...(needsYou !== null && needsYou > 0 && { tone: 'warn' as const }),
-          footer: hasSnapshot ? split || undefined : WAITING_FOR_SNAPSHOT,
+          footer: hasSnapshot ? split || undefined : NO_SNAPSHOT_SHORT,
         },
         {
           key: 'oldest-wait',
@@ -127,7 +127,7 @@ function fleetCell(
               />
             ),
           }
-        : { footer: WAITING_FOR_SNAPSHOT }),
+        : { footer: NO_SNAPSHOT_SHORT }),
     }
   }
   const { parts, total } = fleet

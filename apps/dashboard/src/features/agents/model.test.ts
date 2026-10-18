@@ -7,7 +7,7 @@ import {
   oldestWaitFooter,
   activityLegend,
   bandStateOf,
-  WAITING_FOR_SNAPSHOT,
+  NO_SNAPSHOT_SHORT,
   fleetParts,
   hourlyWorking,
   peakWorking,
@@ -942,7 +942,7 @@ describe('noSnapshotCaption', () => {
 
 describe('oldestWaitFooter', () => {
   it('waits before a snapshot, names the project after', () => {
-    expect(oldestWaitFooter(false, null)).toBe(WAITING_FOR_SNAPSHOT)
+    expect(oldestWaitFooter(false, null)).toBe(NO_SNAPSHOT_SHORT)
     expect(oldestWaitFooter(true, null)).toBeUndefined()
     expect(oldestWaitFooter(true, { ms: 1, project: 'alpha' })).toBe('in alpha')
   })
