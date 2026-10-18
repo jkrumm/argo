@@ -8,6 +8,9 @@ declare const classes: {
   readonly cell: string
   readonly date: string
   readonly band: string
+  readonly track: string
+  readonly fill: string
+  readonly more: string
   readonly note: string
   readonly marker: string
 }

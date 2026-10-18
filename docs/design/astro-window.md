@@ -129,3 +129,15 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - **r2:** fail: the strip still draws an identical full-width bar per night and shows 4 of 10 nights at 390 with no scroll cue; the core strip cell is half empty; healthy source dots still carry no word (the reviewer wants one on every dot); the select still clips at 1440 (basalt max width).
 - **Against Keel:** does not hold up yet: a half-empty verdict card beside a tall gates card, the strip.
 - **Open for Wave 24:** a per-night shortfall bar (or none), a 390 strip scroll cue, the core cell, the panorama-minutes and GO-window items (not on any shot — no GO night, Forecast tab not shot).
+
+### Wave 24 fixes
+
+- Headline is the shared `PageSummary` (`pageSummary()` in `formulas.ts`): `{n} of {total} nights usable` (or `No usable night in the next {total}`), facts `best|closest {day}` · `{n} ruled out`, site name as aside. It carries no window, so the verdict card's sentence is not repeated.
+- The GO window (day, clock range, length) is stated once, in the verdict card (`verdictHeadline()`, now unit-tested on a GO fixture). Its facts line no longer repeats the day on a GO night.
+- The panorama's header minute figure is removed: it counted samples above the panorama gate and disagreed with the API's window. The per-night length stays in the strip cell.
+- Strip: a night out on the core gate draws its shortfall as a bar on one scale shared by all nights (`shortfallScale`/`shortfallShare`); usable nights keep the verdict-colour bar; other ruled-out nights draw none (their note names the killer).
+- Strip at narrow widths: right-edge fade plus a `{n} more nights →` count, measured from the scroller (hidden from 800 px, where the strip tiles).
+- Core cell: footer `highest of the night, {x}°` beside the transit time (the verdict meter owns the in-dark reading).
+- `data-shot="sky-panorama"` already wraps the Forecast panorama and `/astro-window?tab=forecast` is in `scripts/evidence/routes.txt`; no change needed.
+
+No basalt gaps.
