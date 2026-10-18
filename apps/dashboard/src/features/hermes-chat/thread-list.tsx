@@ -6,6 +6,7 @@ import { relativeTime } from 'basalt-ui/format'
 import {
   TYPE_LABEL,
   summaryExcerpt,
+  titleExcerpt,
   listTime,
   oldestUpdatedAt,
   untitledLabel,
@@ -59,7 +60,7 @@ function Row({
       <Box className={classes['rowGrid']}>
         <TypeChip type={entry.type} />
         <Box className={classes['body']}>
-          <Text className={classes['title']}>{label}</Text>
+          <Text className={classes['title']}>{titleExcerpt(label, compact)}</Text>
           {entry.summary !== null && (
             <Text className={classes['summary']}>{summaryExcerpt(entry.summary, compact)}</Text>
           )}

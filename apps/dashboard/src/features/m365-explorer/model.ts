@@ -208,6 +208,13 @@ export function formatTime(iso: string | null | undefined, now: Date): string {
   return format(d, differenceInCalendarDays(now, d) < 7 ? 'EEE dd' : 'dd MMM')
 }
 
+export function formatDay(iso: string | null | undefined): string {
+  if (!iso) return FALLBACK_TIME
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return FALLBACK_TIME
+  return format(d, 'dd MMM')
+}
+
 export function formatStamp(iso: string | null | undefined): string {
   if (!iso) return FALLBACK_TIME
   const d = new Date(iso)
@@ -228,9 +235,10 @@ export function sourceListName(chats: number, capped: boolean): string {
  * The labeled cell's footer: the list the count ranges over, and, when labels sit on sources the
  * list cannot place, how many, naming the same list and why they are missing from it.
  */
-export function labeledBasis(c: Coverage, list: string): string {
+export function labeledBasis(c: Coverage, list: string, capped: boolean): string {
   if (c.outside === 0) return `across the ${list}`
-  return `${plural(c.outside, 'more label')} on sources not in the ${list}`
+  const why = capped ? 'older than' : 'missing from'
+  return `${plural(c.outside, 'more label')} on sources ${why} the ${list}`
 }
 
 /** The phone Sources pane's heading: the pane's name only; the tabs and cells print the counts. */
@@ -239,14 +247,16 @@ export function sourcesTitle(view: 'chats' | 'teams' | 'feed'): string {
 }
 
 /**
- * The page's opening: the newest chat stamp. Every count (the recency groups, the labeled count, the
- * chat and team totals, the tag count) is printed once each elsewhere, so none repeats here.
+ * The page's opening: how far back the chat list reaches, the one fact its rows do not print (each
+ * row carries its own time, and every count appears once elsewhere).
  */
 export function headlineOf(h: {
-  /** Pre-formatted stamp of the newest chat, or null when there is none. */
-  latest: string | null
+  /** Pre-formatted date of the oldest chat in the list, or null when there is none. */
+  oldest: string | null
 }): { sentence: string } {
-  return { sentence: h.latest === null ? 'No chat activity yet' : `Latest activity ${h.latest}` }
+  return {
+    sentence: h.oldest === null ? 'No chat activity yet' : `Chats reach back to ${h.oldest}`,
+  }
 }
 
 /** How many messages a record fetches; the pane's heading never states it (it is a request cap, not what renders). */
@@ -263,7 +273,7 @@ export function sectionTitleFor(input: {
     case 'sources':
       return sourcesTitle(input.view)
     case 'labeled':
-      return input.tag === '' || input.tag === LABELED_FILTER ? 'Grouped by tag' : input.tag
+      return input.tag === '' || input.tag === LABELED_FILTER ? 'Labeled sources' : input.tag
     case 'detail':
       if (input.view === 'feed') return 'Agent feed'
       return input.open ? 'Messages' : 'Nothing open'

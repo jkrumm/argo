@@ -38,7 +38,7 @@ export function ThreadToolbar({
       count: typeCounts[t],
     })),
     ...(untitledCount > 0 || type === 'untitled'
-      ? [{ key: 'untitled' as const, label: 'Untitled', count: null }]
+      ? [{ key: 'untitled' as const, label: 'Untitled', count: untitledCount }]
       : []),
     ...(archivedCount > 0 || type === 'archived'
       ? [{ key: 'archived' as const, label: 'Archived', count: archivedCount }]

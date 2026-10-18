@@ -187,11 +187,11 @@ describe('formatTime', () => {
 })
 
 describe('headlineOf', () => {
-  test('is the newest stamp only: no count the recency groups already print', () => {
-    expect(headlineOf({ latest: '17 Oct, 11:58' })).toEqual({
-      sentence: 'Latest activity 17 Oct, 11:58',
+  test('is how far back the list reaches: a fact no row prints, no count', () => {
+    expect(headlineOf({ oldest: '17 Sep' })).toEqual({
+      sentence: 'Chats reach back to 17 Sep',
     })
-    expect(headlineOf({ latest: null })).toEqual({ sentence: 'No chat activity yet' })
+    expect(headlineOf({ oldest: null })).toEqual({ sentence: 'No chat activity yet' })
   })
 })
 
@@ -215,9 +215,9 @@ describe('sectionTitleFor', () => {
     expect(sectionTitleFor({ ...base, pane: 'sources' })).toBe('Chats')
     expect(sectionTitleFor({ ...base, pane: 'sources', view: 'teams' })).toBe('Teams')
     expect(sectionTitleFor({ ...base, pane: 'sources', view: 'feed' })).toBe('Labeled sources')
-    expect(sectionTitleFor({ ...base, pane: 'labeled' })).toBe('Grouped by tag')
+    expect(sectionTitleFor({ ...base, pane: 'labeled' })).toBe('Labeled sources')
     expect(sectionTitleFor({ ...base, pane: 'labeled', tag: LABELED_FILTER })).toBe(
-      'Grouped by tag',
+      'Labeled sources',
     )
     expect(sectionTitleFor({ ...base, pane: 'labeled', tag: 'alerts' })).toBe('alerts')
     expect(sectionTitleFor({ ...base, pane: 'detail', open: true })).toBe('Messages')
@@ -267,10 +267,13 @@ describe('labeled count, outside note and sources title', () => {
     const list = sourceListName(50, true)
     expect(list).toBe('newest 50 chats and channels')
     expect(sourceListName(12, false)).toBe('chats and channels')
-    expect(labeledBasis(cov, list)).toBe(
-      '1 more label on sources not in the newest 50 chats and channels',
+    expect(labeledBasis(cov, list, true)).toBe(
+      '1 more label on sources older than the newest 50 chats and channels',
     )
-    expect(labeledBasis({ ...cov, outside: 0 }, list)).toBe(
+    expect(labeledBasis(cov, 'chats and channels', false)).toBe(
+      '1 more label on sources missing from the chats and channels',
+    )
+    expect(labeledBasis({ ...cov, outside: 0 }, list, true)).toBe(
       'across the newest 50 chats and channels',
     )
   })

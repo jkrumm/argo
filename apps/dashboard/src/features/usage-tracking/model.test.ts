@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from 'bun:test'
+import { NBSP } from '../../lib/format'
 import {
+  shortDay,
   badDayCount,
   errorDaysLine,
   foldInfo,
@@ -284,12 +286,18 @@ describe('readout formatters', () => {
   })
 })
 
+describe('shortDay', () => {
+  it('keeps the date whole across a line break', () => {
+    expect(shortDay(new Date(2026, 9, 3))).toBe(`3${NBSP}Oct`)
+  })
+})
+
 describe('error days, peak and source note', () => {
   it('words warn and bad days with counts', () => {
     expect(errorDaysLine([0, 0.02, 0.05, null, 0.011])).toBe(
-      '2 warn days (1%–3%), 1 bad day (> 3%)',
+      `2${NBSP}warn${NBSP}days${NBSP}(1%–3%), 1${NBSP}bad${NBSP}day${NBSP}(>${NBSP}3%)`,
     )
-    expect(errorDaysLine([0.02, null])).toBe('1 warn day (1%–3%)')
+    expect(errorDaysLine([0.02, null])).toBe(`1${NBSP}warn${NBSP}day${NBSP}(1%–3%)`)
     expect(errorDaysLine([0, 0.001])).toBe('no day above 1%')
     expect(errorDaysLine([null, null])).toBe('no daily reading yet')
   })

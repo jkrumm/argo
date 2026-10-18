@@ -12,12 +12,14 @@ const {
   listTime,
   startedDate,
   summaryExcerpt,
+  titleExcerpt,
   listEndNote,
   clampAtWord,
   summaryHeadline,
   emptyNote,
   untitledLabel,
 } = await import('./thread-list-model')
+const { NBSP } = await import('../../lib/format')
 type ThreadEntry = import('./thread-list-model').ThreadEntry
 
 // 2026-10-17 15:30 local.
@@ -197,7 +199,9 @@ describe('summary', () => {
   })
 
   it('words the untitled fold, the one place the count is printed', () => {
-    expect(untitledLabel(3, '2 months ago')).toBe('3 untitled chats · oldest 2 months ago')
+    expect(untitledLabel(3, '2 months ago')).toBe(
+      `3 untitled chats · oldest 2${NBSP}months${NBSP}ago`,
+    )
     expect(untitledLabel(1, 'yesterday')).toBe('1 untitled chat · oldest yesterday')
   })
 })
@@ -209,6 +213,14 @@ describe('summaryExcerpt', () => {
     expect(summaryExcerpt(long, true).length).toBeLessThanOrEqual(53)
     expect(summaryExcerpt(long, true).endsWith('…')).toBe(true)
     expect(summaryExcerpt(long, false)).toBe(long)
+  })
+})
+
+describe('titleExcerpt', () => {
+  it('cuts a phone title at a word, leaves a wide one whole', () => {
+    const title = 'Quarterly planning notes for the platform migration'
+    expect(titleExcerpt(title, true)).toBe('Quarterly planning notes…')
+    expect(titleExcerpt(title, false)).toBe(title)
   })
 })
 
@@ -244,10 +256,10 @@ describe('listEndNote', () => {
   it('is null without threads', () => {
     expect(listEndNote([], 0, NOW, 0)).toBeNull()
   })
-  it('claims completeness only when the server total is covered', () => {
-    const note = listEndNote([entry(NOW), entry(NOW - 1000)], 2, NOW, 4)
-    expect(note).toMatch(/^Oldest thread started [^,]+$/)
-    expect(listEndNote([entry(NOW)], 0, NOW, 1)).toMatch(/^Oldest thread started [^,]+$/)
+  it('is silent once the server total is covered (the fold names the oldest)', () => {
+    expect(listEndNote([entry(NOW), entry(NOW - 1000)], 2, NOW, 4)).toBeNull()
+    expect(listEndNote([entry(NOW)], 0, NOW, 1)).toBeNull()
+    expect(listEndNote([entry(NOW)], 0, NOW, null, 5)).toBeNull()
   })
   it('says how far back a capped list reaches', () => {
     expect(listEndNote([entry(NOW), entry(NOW - 1000)], 0, NOW, 9)).toMatch(
@@ -256,7 +268,6 @@ describe('listEndNote', () => {
     expect(listEndNote([entry(NOW), entry(NOW - 1000)], 0, NOW, null, 2)).toMatch(
       /^The newest 2 threads, back to /,
     )
-    expect(listEndNote([entry(NOW)], 0, NOW, null, 5)).toMatch(/^Oldest thread started/)
   })
 })
 
