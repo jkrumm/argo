@@ -4,7 +4,7 @@ import { EmptyState } from 'basalt-ui'
 import { useNow } from '../../lib/use-now'
 import { walkingStore } from '../../lib/window-stores'
 import { useLastWalk } from './last-walk'
-import { emptyWindowHint, widenLabel, widerPreset, windowPhrase } from './model'
+import { emptyWindowHint, emptyWindowShort, widenLabel, widerPreset } from './model'
 
 /** The empty state under the dimmed strip: why nothing is drawn, what fills it, and the wider window. */
 export function EmptyWindow() {
@@ -18,7 +18,7 @@ export function EmptyWindow() {
     <EmptyState
       tier="section"
       icon={<IconWalk size={28} />}
-      title={`No walks in ${windowPhrase(preset)}`}
+      title={emptyWindowShort(preset)}
       {...(description !== undefined && { description })}
       {...(wider !== null && {
         action: (

@@ -25,6 +25,7 @@ import {
   weekTicks,
   widerPreset,
   windowPhrase,
+  emptyWindowShort,
   windowTitle,
   windowQualifier,
   widenLabel,
@@ -177,6 +178,8 @@ describe('weeks', () => {
 
 describe('window naming', () => {
   it('names a preset, a custom range and the open window', () => {
+    expect(emptyWindowShort('30d')).toBe('No walks in the last 30 days')
+    expect(emptyWindowShort('all')).toBe('No walks in any window')
     expect(windowPhrase('30d')).toBe('the last 30 days')
     expect(windowPhrase('6m')).toBe('the last 6 months')
     expect(windowPhrase('custom')).toBe('this range')
