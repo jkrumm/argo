@@ -12,6 +12,7 @@ import {
   shortDate,
   STATUS,
   type ShelfItem,
+  gluedRelative,
 } from './model'
 import { withUnit } from '../../lib/format'
 import classes from './reading.module.css'
@@ -35,7 +36,7 @@ function facts(book: ShelfItem, pace: number | null, now: number): string[] {
         : [`${approxHours(left)} left at ${withUnit(pace, 'pages/h')}`]),
     lastRead === null
       ? 'last read —'
-      : `last read ${relativeTime(lastRead, { now, numeric: 'always' })}`,
+      : `last read ${gluedRelative(relativeTime(lastRead, { now, numeric: 'always' }))}`,
   ]
 }
 
