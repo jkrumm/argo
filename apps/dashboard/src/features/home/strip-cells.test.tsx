@@ -40,7 +40,7 @@ describe('agents cell without a fleet', () => {
       .emptyText
 
   it('names the cause and the next step, one wording per feed state', () => {
-    expect(emptyText('none')).toBe('No snapshot yet — agent-gateway pushes every 10\u00a0min')
+    expect(emptyText('none')).toBe('Waiting for the first snapshot')
     expect(emptyText('failed')).toBe('Agents failed to load — reload to retry')
     expect(emptyText(null)).toBe('No fleet counts in this snapshot')
   })
@@ -131,8 +131,21 @@ describe('strip cells with no reading', () => {
       }),
     )
     expect(cell.caption).toBe('Recovery · Wed 14 Jan')
-    expect(cell.footer).toBe(
+    expect((cell.footer as ReactElement<{ children: string }>).props.children).toBe(
       '7\u00a0d mean\u00a065 · today fills after the next Garmin sync (every 6\u00a0h)',
+    )
+  })
+
+  it('words a settled, empty training load in Garmin’s wording', () => {
+    expect(acwrCell({ acwr: null, zone: null, date: null }, NOW, 'error', 30).footer).toBe(
+      'No training load in this 30\u00a0d window — Garmin syncs every 6\u00a0h',
+    )
+  })
+
+  it('drops the poller line when there is no budget and no poller to date', () => {
+    expect(budgetCell(undefined, undefined)).not.toHaveProperty('footer')
+    expect(budgetCell(undefined, { name: 'loop', ageMin: 4, stale: false })).toHaveProperty(
+      'footer',
     )
   })
 
