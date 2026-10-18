@@ -224,3 +224,7 @@ Follow-up (w30-r1):
 
 - **Reviewer (`w37-r1`):** fail on basalt only — four type sizes in the `Section` shells (`sec-strength`, `sec-load`, `sec-balance`). No regression: the 390 `%/mo` sits under the status word, 1440 prints it once. Carried (basalt): the INOL info tooltip over the headline, the sparkline through its `PR` label at 390, `Sept` beside `Sep`, the sticky filter bar over section crops, the target band as the lightest ink on the balance meters. No lost fact.
 - **Against Keel:** close — every figure once; the four-size shells remain basalt's.
+
+### Wave 38 round
+
+- **Weekly volume legend (`w38-r1`, P3):** a series with no non-zero value in the window (the `AMRAP` key with no AMRAP segment drawn) gets no legend entry; the other series and the empty state are unchanged.

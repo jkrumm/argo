@@ -3,7 +3,7 @@
 
 import { relativeTime } from 'basalt-ui/format'
 import { format, subMonths, subYears } from 'date-fns'
-import { APP_LOCALE, NBSP } from '../../lib/format'
+import { APP_LOCALE, glue, NBSP } from '../../lib/format'
 import { WALKING_WINDOW_VALUES } from '../../lib/window-stores'
 
 export const DEFAULT_WEEKLY_TARGET_KM = 15
@@ -100,7 +100,7 @@ const WINDOW_SHORT: Record<string, string> = {
 export function windowPhrase(preset: string | undefined): string {
   if (preset === 'all') return 'any window'
   const long = preset === undefined ? undefined : WINDOW_LONG[preset]
-  return long === undefined ? 'this range' : `the last ${long}`
+  return long === undefined ? 'this range' : `the last ${glue(long)}`
 }
 
 /**

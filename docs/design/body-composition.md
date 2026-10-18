@@ -227,3 +227,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer (`w37-r1`):** fail on basalt only — the 390 rate qualifier truncates before the maintain band (basalt Wave 38). Carried (basalt): the strip `—` above `No entries in this window`, the unnamed middle meter zone at 390, the weight line through its end labels, the `Set a goal` hover identical to rest. No regression, no lost fact.
 - **Against Keel:** close — what remains is basalt's.
+
+### Wave 38 round
+
+- **Empty cells (`w38-r1`, P3):** the weight and rate cells under no entries use the 2.24 strip `state: { kind: 'empty', reason }` — the reason in the value's place, no `—` above it, no null Meter; the reason text is unchanged. A pending or failed rate keeps its meter line.

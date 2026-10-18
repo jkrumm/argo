@@ -55,9 +55,16 @@ export function weightCell({
   const latest = dateLabel(latestDate)
 
   const noEntries = summary.current === null && stats.mean7 === null
-  const meanFooter = noEntries
-    ? NO_WEIGHT_ENTRIES_SHORT
-    : `${withUnit(withUnit(7, 'd'), 'mean')} ${stats.mean7 === null ? '—' : withKg(stats.mean7)}`
+  const meanFooter = `${withUnit(withUnit(7, 'd'), 'mean')} ${stats.mean7 === null ? '—' : withKg(stats.mean7)}`
+
+  if (noEntries) {
+    return {
+      key: 'weight',
+      caption: 'Weight',
+      ...(latest !== undefined && { qualifier: `latest ${latest}` }),
+      state: { kind: 'empty', reason: NO_WEIGHT_ENTRIES_SHORT },
+    }
+  }
 
   return {
     key: 'weight',
@@ -121,8 +128,16 @@ export function rateCell({
   latestDate: string | null
 }): StatStripCell {
   const rate = summary.kgPerWeek
-  // With no rate the meter's empty line is the cell's one statement of why (no footer repeats it).
+  // A settled cell with no rate says why in the strip's empty state; a pending or failed one keeps the meter line.
   const line = rateFooter({ rate, entries, status })
+  if (rate === null && status === 'success') {
+    return {
+      key: 'rate',
+      caption: 'Rate',
+      qualifier: rateQualifier(rateDays, dateLabel(latestDate)),
+      state: { kind: 'empty', reason: line },
+    }
+  }
   return {
     key: 'rate',
     caption: 'Rate',

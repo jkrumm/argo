@@ -210,3 +210,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - **Reviewer (`w37-r1`):** pass. Fixed (confirmed, #162): the target button's focus ring no longer covers `of target`. New (argo, P3): with the button beside the text the 390 footer split `% of` / `target` — fixed in #165.
 - **Re-score `w37-r2` (after #165):** **pass.** Fixed (confirmed): at 390 the footer wraps only at the `·`, in both schemes, at rest, focus and empty. Carried (basalt): the strip `—` above the reason in Pace / Totals, the empty-window button hover identical to rest. No lost fact.
 - **Against Keel:** close — two tiles hold a short form with no visual.
+
+### Wave 38 round
+
+- **Empty reason (`w38-r1`, P3):** `No walks in the last 30 days` glues the figure to its unit with a non-breaking space where `windowPhrase` builds it, so at 390 it wraps before `30`, never between `30` and `days`.
