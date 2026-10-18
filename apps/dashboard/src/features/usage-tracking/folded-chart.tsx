@@ -42,6 +42,8 @@ type Props = {
   workspace?: WorkspaceValue[] | undefined
   color: (key: string) => string
   format: (n: number) => string
+  /** One magnitude per chart: builds the axis and tooltip formatter from the largest bucket total. */
+  formatFor?: (reference: number) => (n: number) => string
   info: string
   listTitle: string
   height?: number
@@ -60,6 +62,7 @@ export function FoldedChart({
   workspace,
   color,
   format,
+  formatFor,
   info,
   listTitle,
   height = 280,
@@ -85,7 +88,6 @@ export function FoldedChart({
     if (!byRank) return color(key)
     return RANK_PALETTE[folded.keys.indexOf(key) % RANK_PALETTE.length] ?? USAGE_SOURCE.other
   }
-  const series = groupBands(folded.keys, colorOf, labelOf)
   const rows = compact && !showAll ? folded.totals.slice(0, COMPACT_ROWS) : folded.totals
   const hidden = folded.totals.length - rows.length
   // The chart stops at the last complete bucket (the running one would draw as a drop); the list
@@ -93,6 +95,12 @@ export function FoldedChart({
   const totalNote = printTotal ? ` · ${format(folded.total)}` : ''
   const perBucket = grain === 'day' ? 'day' : 'week'
   const drawn = dropPartialBucket(folded.points, now, grain)
+  const peakTotal = Math.max(
+    0,
+    ...drawn.map((p) => Object.values(p.groups).reduce<number>((sum, v) => sum + (v ?? 0), 0)),
+  )
+  const plotFormat = formatFor ? formatFor(peakTotal) : format
+  const series = groupBands(folded.keys, colorOf, labelOf, plotFormat)
 
   return (
     <Grid type="container" breakpoints={CONTAINER_GRID_BREAKPOINTS}>
@@ -118,7 +126,7 @@ export function FoldedChart({
             series={series}
             legend={false}
             formatX={(d) => shortDay(d)}
-            y={{ format }}
+            y={{ format: plotFormat }}
           />
         </ChartCard>
       </Grid.Col>

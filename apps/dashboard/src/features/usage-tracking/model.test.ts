@@ -43,6 +43,7 @@ import {
   freshness,
   recentMean,
   tokensQuantity,
+  tokensFormatterFor,
 } from './model'
 import { RANK_PALETTE } from './constants'
 import type { TimePoint } from './types'
@@ -221,7 +222,7 @@ describe('prior comparisons', () => {
     )
     expect(errorComparison({ current: 0.02, prior: 0.012, calls })).toEqual({
       value: expect.closeTo(0.8),
-      note: 'vs 1.2% prior 30\u00a0d',
+      note: 'was 1.2%',
     })
     expect(errorComparison({ current: 0, prior: 0.012, calls: 0 })).toEqual({
       value: null,
@@ -470,5 +471,16 @@ describe('prepareFolded', () => {
     const { folded, labelOf } = prepareFolded({ points, groupKeys, groupBy: 'project' })
     expect(folded.keys).toEqual(['mcp__s__a', 'mcp__s__b', 'Bash', 'Read'])
     expect(labelOf('Bash')).toBe('Bash')
+  })
+})
+
+describe('tokensFormatterFor', () => {
+  it('prints every value in the magnitude of the reference', () => {
+    const f = tokensFormatterFor(5_600_000)
+    expect(f(5_600_000)).toBe('5.6\u00a0M')
+    expect(f(360_000)).toBe('0.4\u00a0M')
+    expect(f(0)).toBe('0.0\u00a0M')
+    expect(tokensFormatterFor(2_340_000_000)(120_000_000)).toBe('0.1\u00a0B')
+    expect(tokensFormatterFor(900)(12)).toBe('12')
   })
 })
