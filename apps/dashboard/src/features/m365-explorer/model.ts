@@ -128,12 +128,13 @@ export function chatKindParts(counts: ReturnType<typeof chatKindCounts>): Array<
  */
 export function chatsStat(counts: ReturnType<typeof chatKindCounts>): {
   hero: { value: string; unit: string } | null
-  empty: string | null
 } {
   const [lead] = chatKindParts(counts)
-  if (lead === undefined) return { hero: null, empty: NO_CHATS }
-  return { hero: { value: String(lead.value), unit: lead.noun }, empty: null }
+  return { hero: lead === undefined ? null : { value: String(lead.value), unit: lead.noun } }
 }
+
+/** The tag chips filter a view's sources: with none they do nothing, unless a persisted tag is active and they are the only way to clear it. */
+export const showTagChips = (all: number | null, tag: string): boolean => all !== 0 || tag !== ''
 
 export function chatKindCounts(rows: ReadonlyArray<{ chatType: ChatType }>): {
   oneOnOne: number
@@ -255,15 +256,12 @@ export function labeledSegmentCaption(value: number, labeled: number, unlabeled:
   return labeled !== unlabeled && value === labeled ? '' : String(value)
 }
 
-/** The labeled cell when there is nothing to label: said once, with the cause. */
-/** The strip's chats and channels cells: what is missing and the next step, in the labeled cell's wording. */
+/** The strip's chats cell when the list came back empty: the fact only; the labeled cell carries the step. */
 export const NO_CHATS = 'No chats came back'
+/** The strip's channels cell when no team came back: the fact only. */
 export const NO_TEAMS = 'No teams came back'
 
-/** The channels cell is empty only once the teams read has settled with none and no team failed; `null` (pending) is never empty. */
-export const noTeamsSettled = (teams: number | null, failed: number): boolean =>
-  teams === 0 && failed === 0
-
+/** The labeled cell when there is nothing to label: said once, with the cause. */
 export const NOTHING_TO_LABEL =
   'Nothing to label — no chats or channels came back; refresh to retry'
 

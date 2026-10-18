@@ -7,8 +7,8 @@ import {
   chatsStat,
   labeledBasis,
   labeledSegmentCaption,
+  NO_CHATS,
   NO_TEAMS,
-  noTeamsSettled,
   NOTHING_TO_LABEL,
   type Coverage,
 } from './model'
@@ -82,7 +82,10 @@ function labeledCell(
  * The chat kinds as one split bar, shaded by rank (a split is not a verdict); the hero is the leading
  * kind with its count and the bar's row captions name every kind, with the count of every kind but the lead. A kind with no chats is left out; `other` takes any kind the API adds later.
  */
-function chatsCell(chats: Chats): StatStripCell {
+function chatsCell(chats: Chats, noChats: boolean): StatStripCell {
+  if (noChats) {
+    return { key: 'chats', caption: 'Chats by kind', state: { kind: 'empty', reason: NO_CHATS } }
+  }
   const parts = chatKindParts(chats)
   const stat = chatsStat(chats)
   // The hero already prints the leading kind's count, so its caption names the kind only; on a tie
@@ -90,9 +93,6 @@ function chatsCell(chats: Chats): StatStripCell {
   // segments, so the lead is matched by its (unique) value.
   const [lead, runnerUp] = parts
   const uniqueLead = lead !== undefined && lead.value !== runnerUp?.value
-  if (stat.empty !== null) {
-    return { key: 'chats', caption: 'Chats by kind', state: { kind: 'empty', reason: stat.empty } }
-  }
   return {
     key: 'chats',
     caption: 'Chats by kind',
@@ -124,10 +124,10 @@ function channelsCell(
   channels: number | null,
   largest: { name: string; channels: number } | null,
   failed: number,
-  teams: number | null,
+  noTeams: boolean,
 ): StatStripCell {
   // No teams came back: the channel count is unknown, not zero.
-  if (noTeamsSettled(teams, failed)) {
+  if (noTeams) {
     return { key: 'channels', caption: 'Team channels', state: { kind: 'empty', reason: NO_TEAMS } }
   }
   return {
@@ -147,8 +147,9 @@ export type StripProps = {
   /** Channels across the teams that loaded; null while any team is not loaded. */
   channels: number | null
   largestTeam: { name: string; channels: number } | null
-  /** Teams the API returned once that read has settled; null while it has not. */
-  teams: number | null
+  /** The chats list / the teams list came back empty (settled: both reads suspend, so never pending). */
+  noChats: boolean
+  noTeams: boolean
   onRetry: () => void
 }
 
@@ -158,7 +159,8 @@ export function ExplorerStrip({
   chats,
   channels,
   largestTeam,
-  teams,
+  noChats,
+  noTeams,
   onRetry,
 }: StripProps) {
   return (
@@ -168,8 +170,8 @@ export function ExplorerStrip({
       cols={3}
       cells={[
         labeledCell(coverage, list, onRetry),
-        chatsCell(chats),
-        channelsCell(channels, largestTeam, coverage.failed, teams),
+        chatsCell(chats, noChats),
+        channelsCell(channels, largestTeam, coverage.failed, noTeams),
       ]}
     />
   )

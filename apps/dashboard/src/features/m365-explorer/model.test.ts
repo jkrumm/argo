@@ -4,8 +4,7 @@ import {
   chatKindCounts,
   chatKindParts,
   chatsStat,
-  NO_CHATS,
-  noTeamsSettled,
+  showTagChips,
   chatsCapped,
   CHATS_TOP,
   sectionTitleFor,
@@ -269,21 +268,17 @@ describe('chatsStat', () => {
   test('the leading kind is the hero; the bar captions name the rest, so no empty line', () => {
     expect(chatsStat({ oneOnOne: 4, group: 1, meeting: 2, other: 0 })).toEqual({
       hero: { value: '4', unit: 'direct chats' },
-      empty: null,
     })
     expect(chatsStat({ oneOnOne: 1, group: 3, meeting: 3, other: 0 })).toEqual({
       hero: { value: '3', unit: 'group chats' },
-      empty: null,
     })
   })
   test('one kind is the hero alone, none says so', () => {
     expect(chatsStat({ oneOnOne: 0, group: 0, meeting: 1, other: 0 })).toEqual({
       hero: { value: '1', unit: 'meeting' },
-      empty: null,
     })
     expect(chatsStat({ oneOnOne: 0, group: 0, meeting: 0, other: 0 })).toEqual({
       hero: null,
-      empty: NO_CHATS,
     })
   })
 })
@@ -402,11 +397,11 @@ describe('labeledSegmentCaption', () => {
   })
 })
 
-describe('noTeamsSettled', () => {
-  test('pending is never empty; settled with none is; a failed team is not', () => {
-    expect(noTeamsSettled(null, 0)).toBe(false)
-    expect(noTeamsSettled(0, 0)).toBe(true)
-    expect(noTeamsSettled(0, 1)).toBe(false)
-    expect(noTeamsSettled(2, 0)).toBe(false)
+describe('showTagChips', () => {
+  test('hidden over an empty view, unless a tag is active and must be clearable', () => {
+    expect(showTagChips(0, '')).toBe(false)
+    expect(showTagChips(0, 'alerts')).toBe(true)
+    expect(showTagChips(3, '')).toBe(true)
+    expect(showTagChips(null, '')).toBe(true)
   })
 })
