@@ -107,3 +107,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - **r2:** **pass** — every component and the page.
 - **Against Keel:** weaker than Keel: a page-height void under three rows, pills faint in light, no headline.
 - **Open for Wave 24:** pills visible in light; Pinned / Today / streaming states still never on a live shot.
+
+### Wave 24 fixes
+
+- Headline: the dimmed summary line replaced by `PageSummary`; `summaryHeadline` (tested): `{n} threads, {m} today`, facts `{n} untitled · {n} pinned · last reply {time}`. `summaryParts` deleted.
+- Type pills: text `--vx-ink2` on a 9 % `--vx-ink` wash (tokens only), replacing muted on `--vx-surface-subtle`, which vanished against the light card.

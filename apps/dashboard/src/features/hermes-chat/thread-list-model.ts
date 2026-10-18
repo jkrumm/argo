@@ -277,16 +277,17 @@ export function summarize(entries: readonly ThreadEntry[], now: number): ThreadS
   }
 }
 
-/** `{n} threads`, `{n} pinned`, `{n} active today`, `last reply {time}`, joined by ` · ` at render. */
-export function summaryParts(summary: ThreadSummary): string[] {
-  const parts = [
-    `${summary.threads} ${summary.threads === 1 ? 'thread' : 'threads'}`,
-    ...(summary.untitled > 0 ? [`${summary.untitled} untitled`] : []),
-    `${summary.pinned} pinned`,
-    `${summary.today} active today`,
-  ]
-  if (summary.lastReply !== null) parts.push(`last reply ${summary.lastReply}`)
-  return parts
+/** The headline: `{n} threads, {m} today`, with untitled, pinned and the last reply as facts. */
+export function summaryHeadline(summary: ThreadSummary): { sentence: string; facts: string[] } {
+  const noun = summary.threads === 1 ? 'thread' : 'threads'
+  return {
+    sentence: `${summary.threads} ${noun}, ${summary.today} today`,
+    facts: [
+      ...(summary.untitled > 0 ? [`${summary.untitled} untitled`] : []),
+      `${summary.pinned} pinned`,
+      ...(summary.lastReply === null ? [] : [`last reply ${summary.lastReply}`]),
+    ],
+  }
 }
 
 /** The disclosure row: `{n} untitled chats · oldest {age}`. `ageLabel` is the relative age. */

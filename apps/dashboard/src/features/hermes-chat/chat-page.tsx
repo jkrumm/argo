@@ -15,8 +15,9 @@ import { useUiStore } from '../../lib/store'
 import { hermesChatStore } from './chat-store'
 import { HermesHealth } from './hermes-health'
 import { HermesRow } from './hermes-row'
-import { JoinedParts, ThreadList } from './thread-list'
-import { buildView, summarize, summaryParts, toEntries } from './thread-list-model'
+import { ThreadList } from './thread-list'
+import { PageSummary } from '../../components/upstream/page-summary'
+import { buildView, summarize, summaryHeadline, toEntries } from './thread-list-model'
 import { ThreadRecordHeader } from './thread-record-header'
 import { ThreadToolbar } from './thread-toolbar'
 import { ThreadSpeaker } from './use-auto-speak'
@@ -263,7 +264,7 @@ function HermesChatFeed() {
   const entries = everything.filter((entry) => !entry.archived)
   const archived = everything.filter((entry) => entry.archived)
   const view = buildView({ entries, archived, filter: { type: typeFilter, query }, now })
-  const summary = summarize(entries, now)
+  const headline = summaryHeadline(summarize(entries, now))
   const openEntry = everything.find((entry) => entry.id === expandedId)
   const openThread = store.threads.find((thread) => thread.id === expandedId)
 
@@ -310,9 +311,7 @@ function HermesChatFeed() {
       ) : (
         <>
           <Stack gap="sm" px="md" pt="lg">
-            <Text size="sm" c="dimmed" data-shot="thread-summary">
-              <JoinedParts parts={summaryParts(summary)} />
-            </Text>
+            <PageSummary sentence={headline.sentence} facts={headline.facts} />
             <ThreadToolbar
               allCount={view.allCount}
               typeCounts={view.typeCounts}

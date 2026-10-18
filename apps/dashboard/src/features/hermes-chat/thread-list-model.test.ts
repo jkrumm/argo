@@ -12,7 +12,7 @@ const {
   listTime,
   startedDate,
   summarize,
-  summaryParts,
+  summaryHeadline,
   untitledLabel,
 } = await import('./thread-list-model')
 type ThreadEntry = import('./thread-list-model').ThreadEntry
@@ -187,17 +187,18 @@ describe('summary', () => {
       ],
       NOW,
     )
-    expect(summaryParts(summary)).toEqual([
-      '2 threads',
-      '1 pinned',
-      '1 active today',
-      'last reply 14:05',
-    ])
+    expect(summaryHeadline(summary)).toEqual({
+      sentence: '2 threads, 1 today',
+      facts: ['1 pinned', 'last reply 14:05'],
+    })
   })
 
   it('omits the last reply with no threads and pluralises', () => {
-    expect(summaryParts(summarize([], NOW))).toEqual(['0 threads', '0 pinned', '0 active today'])
-    expect(summaryParts(summarize([entry({ id: 'a' })], NOW))[0]).toBe('1 thread')
+    expect(summaryHeadline(summarize([], NOW))).toEqual({
+      sentence: '0 threads, 0 today',
+      facts: ['0 pinned'],
+    })
+    expect(summaryHeadline(summarize([entry({ id: 'a' })], NOW)).sentence).toMatch(/^1 thread,/)
   })
 
   it('words the untitled fold', () => {
