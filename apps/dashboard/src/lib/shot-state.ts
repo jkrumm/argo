@@ -1,7 +1,9 @@
 /**
  * The `shot-state` URL param `basalt-ui shot` reloads a page with to capture the states its anchors
  * declare (`data-shot-states="empty loading error"`). `loading` and `error` are forced at the API
- * client (`shotFetcher`), so every query on the page renders its real pending / error branch; `empty`
+ * client (`shotFetcher`), so the page renders exactly what production renders on a hung or failed
+ * fetch — for a route whose loader awaits its data that is the route's pending / error screen, not a
+ * card, so its anchors do not declare those states; `empty`
  * is page-owned — a page substitutes its own empty data where `shotState() === 'empty'`.
  */
 export type ShotState = 'empty' | 'loading' | 'error'
@@ -18,15 +20,6 @@ const LOADED_WITH = parseShotState(globalThis.location?.search ?? '')
 
 export function shotState(): ShotState | null {
   return LOADED_WITH
-}
-
-/**
- * Wraps a route loader so it does not run under `loading` / `error`: an awaited loader would hold the
- * whole route on its pending screen or replace it with the error screen, so no card's own pending /
- * error branch would ever render. Under `empty` and in production the loader runs unchanged.
- */
-export function shotLoader<A, R>(loader: (args: A) => R): (args: A) => R | undefined {
-  return (args) => (LOADED_WITH === 'loading' || LOADED_WITH === 'error' ? undefined : loader(args))
 }
 
 /** `fetch` for the API client: never settles under `loading`, answers 503 under `error`. */
