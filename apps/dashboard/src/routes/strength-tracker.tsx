@@ -7,6 +7,7 @@ import { CONTAINER_GRID_BREAKPOINTS, CONTAINER_KEYS as CQ } from 'basalt-ui/toke
 import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, MultiSelectFilter, RangeFilter, ViewTabs } from 'basalt-ui/controls'
 import { DateRangePicker } from 'basalt-ui/controls-dates'
+import { shotState } from '../lib/shot-state'
 import { strengthStore, toApiWindow } from '../lib/window-stores'
 import {
   DEFAULT_EXERCISES,
@@ -125,7 +126,7 @@ function StrengthTrackerPage() {
   // Total workout count drives the page-level empty state. The list query is
   // already prefetched in the loader, so this hits the cache.
   const { data: workoutsList } = useSuspenseQuery(workoutsQueries.list({ page: 1, limit: 20 }))
-  const hasWorkouts = workoutsList.total > 0
+  const hasWorkouts = shotState() !== 'empty' && workoutsList.total > 0
 
   return (
     <>
@@ -167,7 +168,11 @@ function StrengthTrackerPage() {
                 multiExercise={exercises.length > 1}
               />
             ) : !hasWorkouts ? (
-              <Card>
+              <Card
+                data-shot="empty-workouts"
+                data-shot-states="empty"
+                data-shot-absent="loading error"
+              >
                 <EmptyState
                   icon={<IconBarbell size={28} stroke={1.5} />}
                   title="No workouts logged"
@@ -226,7 +231,7 @@ function ChartsPanel({
         <SparklineGridChart params={params} />
       </Suspense>
 
-      <Box data-shot="sec-strength">
+      <Box data-shot="sec-strength" data-shot-states="loading error" data-shot-absent="empty">
         <Section title={`Strength, ${period}`}>
           <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
             <Suspense fallback={pending}>
@@ -239,7 +244,7 @@ function ChartsPanel({
         </Section>
       </Box>
 
-      <Box data-shot="sec-load">
+      <Box data-shot="sec-load" data-shot-states="loading error" data-shot-absent="empty">
         <Section title={`Load, ${period}`}>
           <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
             <Suspense fallback={pending}>
@@ -255,7 +260,7 @@ function ChartsPanel({
         </Section>
       </Box>
 
-      <Box data-shot="sec-balance">
+      <Box data-shot="sec-balance" data-shot-states="loading error" data-shot-absent="empty">
         <Section title="Balance">
           <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
             <Suspense fallback={pending}>
@@ -268,7 +273,7 @@ function ChartsPanel({
         </Section>
       </Box>
 
-      <Box data-shot="sec-readiness">
+      <Box data-shot="sec-readiness" data-shot-states="loading error" data-shot-absent="empty">
         <Section title={`Readiness, ${period}`}>
           <Suspense fallback={pending}>
             <ReadinessStrainChart params={params} />
@@ -276,7 +281,7 @@ function ChartsPanel({
         </Section>
       </Box>
 
-      <Box data-shot="sec-diagnostics">
+      <Box data-shot="sec-diagnostics" data-shot-states="loading error" data-shot-absent="empty">
         <Section
           title={DIAGNOSTICS_TITLE}
           summary={
@@ -293,7 +298,7 @@ function ChartsPanel({
         </Section>
       </Box>
 
-      <Box data-shot="sec-alignment">
+      <Box data-shot="sec-alignment" data-shot-states="loading error" data-shot-absent="empty">
         <Section
           title="Where training and recovery disagree, last 90 days"
           collapsible

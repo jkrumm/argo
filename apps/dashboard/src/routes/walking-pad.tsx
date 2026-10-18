@@ -6,6 +6,7 @@ import { PageBar } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, RangeFilter } from 'basalt-ui/controls'
 import { CONTAINER_GRID_BREAKPOINTS, CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
+import { shotState } from '../lib/shot-state'
 import { walkingStore } from '../lib/window-stores'
 import {
   AchievementsList,
@@ -55,7 +56,7 @@ function WalkingPadPage() {
 
   // An empty window keeps its structure: headline, record header and a dimmed strip over one
   // empty-state row, no empty chart cards. Pending is not empty, so the first paint waits for the count.
-  const empty = summary.data?.sessions === 0
+  const empty = shotState() === 'empty' || summary.data?.sessions === 0
 
   return (
     <>
@@ -75,21 +76,29 @@ function WalkingPadPage() {
         ) : empty ? (
           <>
             <WalkingStrip params={params} empty />
-            <Box data-shot="empty-window">
+            <Box data-shot="empty-window" data-shot-states="empty" data-shot-absent="loading error">
               <EmptyWindow />
             </Box>
           </>
         ) : (
           <>
             <WalkingStrip params={params} />
-            <Box data-shot="chart-weeks">
+            <Box data-shot="chart-weeks" data-shot-states="error" data-shot-absent="empty loading">
               <WeekChart params={params} />
             </Box>
             <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
-              <Box data-shot="chart-distance">
+              <Box
+                data-shot="chart-distance"
+                data-shot-states="error"
+                data-shot-absent="empty loading"
+              >
                 <DistanceChart params={params} />
               </Box>
-              <Box data-shot="chart-hours">
+              <Box
+                data-shot="chart-hours"
+                data-shot-states="error"
+                data-shot-absent="empty loading"
+              >
                 <HourGrid params={params} />
               </Box>
             </SimpleGrid>
@@ -98,13 +107,21 @@ function WalkingPadPage() {
                 <Suspense
                   fallback={<ChartCard state={{ pending: true }} placeholderHeight={420} />}
                 >
-                  <Box data-shot="history">
+                  <Box
+                    data-shot="history"
+                    data-shot-states="error"
+                    data-shot-absent="empty loading"
+                  >
                     <HistoryTable />
                   </Box>
                 </Suspense>
               </Grid.Col>
               <Grid.Col span={{ base: 12, lg: 4 }}>
-                <Box data-shot="achievements">
+                <Box
+                  data-shot="achievements"
+                  data-shot-states="error"
+                  data-shot-absent="empty loading"
+                >
                   <AchievementsList />
                 </Box>
               </Grid.Col>

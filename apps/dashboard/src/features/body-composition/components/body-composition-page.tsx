@@ -5,6 +5,7 @@ import { overlays } from 'basalt-ui/commands'
 import { skinfoldLogQueries, type SkinfoldWindowParams } from '../../../lib/queries/skinfold-log'
 import { userProfileQueries } from '../../../lib/queries/user-profile'
 import { weightLogQueries, type WeightLogWindowParams } from '../../../lib/queries/weight-log'
+import { shotState } from '../../../lib/shot-state'
 import { useNow } from '../../../lib/use-now'
 import SkinfoldChart from '../charts/skinfold-chart'
 import WeightChart from '../charts/weight-chart'
@@ -37,7 +38,7 @@ export function BodyCompositionPage({ params }: { params: Params }) {
   const summary = weight as WeightSummary
   const skinfoldSummary = skinfold as SkinfoldSummary
   const weightPoints = weightSeries.points
-  const sessions = skinfoldSeries.points as SkinfoldPoint[]
+  const sessions = (shotState() === 'empty' ? [] : skinfoldSeries.points) as SkinfoldPoint[]
 
   const goal = profile.goal_weight_kg
   const todayKey = dayKey(now)
@@ -94,7 +95,12 @@ export function BodyCompositionPage({ params }: { params: Params }) {
         <SkinfoldChart params={params} />
       ) : (
         <Paper>
-          <Box className={classes.emptyRow} data-shot="empty-row">
+          <Box
+            className={classes.emptyRow}
+            data-shot="empty-row"
+            data-shot-states="empty"
+            data-shot-absent="loading error"
+          >
             <span>
               {sessions.length === 0
                 ? 'No caliper session in this window — log abdominal and suprailiac to start a baseline.'
