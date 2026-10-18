@@ -40,7 +40,7 @@ const STRESS_ZONE_COLOR = {
 } as const satisfies Record<StressZone, string>
 
 function stressZoneLabel(v: number): { text: string; color: string } {
-  const zone = stressZone(v)
+  const zone = stressZone(Math.round(v))
   return { text: STRESS_ZONE_NAME[zone], color: STRESS_ZONE_COLOR[zone] }
 }
 
