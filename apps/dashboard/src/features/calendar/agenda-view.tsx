@@ -13,7 +13,8 @@ import {
   DayGroups,
   EventRows,
   GapLine,
-  SkeletonLines,
+  SkeletonRows,
+  TODAY_SKELETON_ROWS,
   TaskList,
   WeekStrip,
 } from './agenda-parts'
@@ -123,9 +124,9 @@ export function AgendaView({
                   >
                     {todayState === 'unknown' ? (
                       gap ? (
-                        <GapLine gap={gap} />
+                        <GapLine gap={gap} rows={TODAY_SKELETON_ROWS} />
                       ) : (
-                        <SkeletonLines />
+                        <SkeletonRows rows={TODAY_SKELETON_ROWS} />
                       )
                     ) : (
                       <EventRows rows={model.today.rows} now={now} next={summary.next} />

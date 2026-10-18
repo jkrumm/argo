@@ -53,6 +53,44 @@ export function SkeletonLines({ rows = 1, label = 'Loading' }: { rows?: number; 
   )
 }
 
+/**
+ * Pending rows of a list card: each stands for one loaded row (a time column, a title bar and a
+ * meta bar, ScheduleRow's height), so the card keeps its height from loading to loaded.
+ */
+export function SkeletonRows({
+  rows,
+  label = 'Loading',
+  time = true,
+}: {
+  rows: number
+  label?: string
+  /** A time column before the bars: the schedule rows, not the task rows. */
+  time?: boolean
+}) {
+  return (
+    <Box role="status" aria-label={label} w="100%">
+      {Array.from({ length: rows }, (_, i) => (
+        <Box key={i} className={time ? classes.skelRow : classes.skelRowPlain}>
+          {time && (
+            <Box>
+              <Skeleton height={14} width="3rem" />
+              <Skeleton height={10} width="2rem" mt={4} />
+            </Box>
+          )}
+          <Box>
+            <Skeleton height={14} width={i % 2 === 0 ? '70%' : '50%'} />
+            <Skeleton height={10} width="35%" mt={4} />
+          </Box>
+        </Box>
+      ))}
+    </Box>
+  )
+}
+
+/** Rows a pending agenda card stands for: the loaded Today card typically shows this many. */
+export const TODAY_SKELETON_ROWS = 5
+export const NEXT_DAYS_SKELETON_ROWS = 6
+
 /** A card's gap line: a pending read is a skeleton; a failure names the source. */
 export function GapLine({
   gap,
@@ -64,7 +102,8 @@ export function GapLine({
   /** A span in a flex row instead of a block `Text`. */
   inline?: boolean
 }) {
-  if (gap.state === 'loading') return <SkeletonLines rows={rows} />
+  if (gap.state === 'loading')
+    return inline ? <SkeletonLines rows={rows} /> : <SkeletonRows rows={rows} />
   return inline ? (
     <span className={classes.muted} role="status">
       {gap.card}
@@ -164,7 +203,7 @@ export function DayGroups({
     : days
   return (
     <div>
-      {gap && <GapLine gap={gap} rows={3} />}
+      {gap && <GapLine gap={gap} rows={NEXT_DAYS_SKELETON_ROWS} />}
       {visible.map((day) => {
         const chips = allDay[day.key] ?? []
         const headLabel = dayHeadLabel(day, formatMinutes, chips.length)
@@ -313,7 +352,7 @@ export function TaskList({
       <Section title="Tasks due" {...(state === 'ready' ? { count: tasks.length } : {})}>
         <Text className={classes.muted}>Overdue or due within 7 days</Text>
         {state === 'loading' ? (
-          <SkeletonLines rows={3} label="Loading tasks" />
+          <SkeletonRows rows={3} label="Loading tasks" time={false} />
         ) : state === 'error' ? (
           <Text className={classes.muted}>Tasks failed to load — reload to retry</Text>
         ) : tasks.length === 0 ? (

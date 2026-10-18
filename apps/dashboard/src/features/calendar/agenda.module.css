@@ -204,3 +204,15 @@
   white-space: nowrap;
   color: var(--vx-muted);
 }
+
+/* A pending list row: the same grid and padding as a loaded ScheduleRow / task, so the card holds its height. */
+.skelRow {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  column-gap: var(--vx-space-stack-md);
+  padding-block: var(--vx-space-stack-sm);
+}
+
+.skelRowPlain {
+  padding-block: var(--vx-space-stack-sm);
+}

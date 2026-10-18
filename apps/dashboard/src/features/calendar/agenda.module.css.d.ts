@@ -27,6 +27,8 @@ declare const classes: {
   readonly stripCount: string
   readonly split: string
   readonly task: string
+  readonly skelRow: string
+  readonly skelRowPlain: string
   readonly dot: string
   readonly taskTitle: string
   readonly taskMeta: string
