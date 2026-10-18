@@ -39,7 +39,7 @@ export function TagChips({ active, counts, scope, onChange }: TagChipsProps) {
       role="group"
       aria-label="Filter by tag"
       data-shot="tag-chips"
-      data-shot-states="empty"
+      data-shot-absent="empty"
     >
       <Chip label="All" count={counts.all} active={active === ''} onClick={() => onChange('')} />
       {counts.labeled > 0 || active === LABELED_FILTER ? (
