@@ -12,11 +12,12 @@ import { astroQueries } from '../../../lib/queries/astro'
 import { SERIES } from '../../../lib/series'
 import { LP_RAMP } from '../map-layers'
 import { METRIC_TOOLTIPS, PANORAMA_HEIGHT } from '../constants'
-import { fmtAzimuth, fmtDegrees, fmtShortDay } from '../formulas'
+import { fmtAzimuth, fmtDegrees, fmtShortDay, withFacts } from '../formulas'
 import type { HourlyPoint, Site } from '../types'
 import {
   bandValue,
   fitAltDomain,
+  inDomain,
   darkness,
   gateAt,
   glowAt,
@@ -160,7 +161,7 @@ function trackOf(
 ): Track[] {
   return samples.map((s, i) => {
     const { az, alt } = at(s)
-    return { i, az, alt: alt >= domain[0] && alt <= domain[1] && keep(s) ? alt : null }
+    return { i, az, alt: inDomain(alt, domain) && keep(s) ? alt : null }
   })
 }
 
@@ -284,22 +285,20 @@ function PanoramaLoaded({
   const moonGood = moonState !== 'up'
   const coreClearsNow = sample.astroDark && sample.coreAltitude >= gate(sample.coreAzimuth)
 
-  // The altitude axis fits what is drawn: skyline, gate and the night's own tracks.
-  const altDomain = useMemo(() => {
-    const row = (az: number) => [
-      bandValue(profile, 'altitudeDeg', az),
-      gateAt(profile, atmosphericFloorDeg, framingMarginDeg, az),
-    ]
-    const ridge = Array.from({ length: 181 }, (_, i) => row(i * 2)).flat()
-    const bodies = samples.flatMap((d) => [d.coreAltitude, d.moonAltitude])
-    return fitAltDomain([...ridge, ...bodies])
-  }, [profile, atmosphericFloorDeg, framingMarginDeg, samples])
-
   // Static geometry — depends on the site and night, never on the scrub index, so dragging the
   // slider recomputes none of it.
   const rows = useMemo(
     () => profileRows(profile, (az) => gateAt(profile, atmosphericFloorDeg, framingMarginDeg, az)),
     [profile, atmosphericFloorDeg, framingMarginDeg],
+  )
+  // The altitude axis fits everything drawn: the terrain rows and all three bodies' tracks.
+  const altDomain = useMemo(
+    () =>
+      fitAltDomain(
+        rows,
+        samples.flatMap((d) => [d.coreAltitude, d.moonAltitude, d.sunAltitude]),
+      ),
+    [rows, samples],
   )
   // Cells bucketed by brightness: a rect mark takes one fill and the engine draws a mark per
   // call, so the field is one mark per 0.1 mag bucket rather than one per distinct colour.
@@ -455,10 +454,10 @@ function PanoramaLoaded({
     }
 
     // 8. Instant markers.
-    if (on('sun') && sample.sunAltitude >= altDomain[0] && sample.sunAltitude <= altDomain[1]) {
+    if (on('sun') && inDomain(sample.sunAltitude, altDomain)) {
       out.push(marker('sun-now', sample.sunAzimuth, sample.sunAltitude, 6, VX.muted))
     }
-    if (on('moon') && sample.moonAltitude >= altDomain[0] && sample.moonAltitude <= altDomain[1]) {
+    if (on('moon') && inDomain(sample.moonAltitude, altDomain)) {
       out.push(
         marker(
           'moon-now',
@@ -469,7 +468,7 @@ function PanoramaLoaded({
         ),
       )
     }
-    if (on('core') && sample.coreAltitude >= altDomain[0] && sample.coreAltitude <= altDomain[1]) {
+    if (on('core') && inDomain(sample.coreAltitude, altDomain)) {
       out.push(
         marker(
           'core-now',
@@ -488,13 +487,15 @@ function PanoramaLoaded({
     <ChartCard
       title={`Skyline, skyglow and tracks · ${fmtShortDay(detailDate)}`}
       info={METRIC_TOOLTIPS.skyPanorama}
-      {...(peak !== null && {
-        facts: {
-          value: fmtDegrees(peak.coreAltitude),
-          unit: 'core at its highest in the dark',
-          period: `${peak.localTime} · ${fmtAzimuth(peak.coreAzimuth)}`,
-        },
-      })}
+      {...withFacts(
+        peak === null
+          ? null
+          : {
+              value: fmtDegrees(peak.coreAltitude),
+              unit: 'core at its highest in the dark',
+              period: `${peak.localTime} · ${fmtAzimuth(peak.coreAzimuth)}`,
+            },
+      )}
     >
       <CartesianChart
         ariaLabel="Azimuth by altitude panorama of the terrain skyline, artificial skyglow, and the sun, moon and galactic-core tracks across the night"

@@ -19,12 +19,9 @@ export const ALT_DOMAIN: readonly [number, number] = [-4, 52]
 /** Never fitted tighter than this, so the 8° atmospheric floor and the gate line always sit inside the plot. */
 const MIN_ALT_TOP = 16
 
-/** The altitude axis fitted to what is drawn: the highest of the given altitudes (skyline, gate,
- * tracks) plus a little headroom, rounded up to a 4° step, inside `ALT_DOMAIN` and never under `MIN_ALT_TOP`. */
-export function fitAltDomain(altitudes: readonly number[]): [number, number] {
-  const peak = Math.max(0, ...altitudes)
-  const top = Math.ceil((peak + 2) / 4) * 4
-  return [ALT_DOMAIN[0], Math.min(ALT_DOMAIN[1], Math.max(MIN_ALT_TOP, top))]
+/** Whether an altitude falls inside the plot's altitude domain (inclusive); everything else is a gap. */
+export function inDomain(alt: number, domain: readonly [number, number]): boolean {
+  return alt >= domain[0] && alt <= domain[1]
 }
 
 /** Coarse skyglow-field cell size, degrees — "a coarse interpolated grid", not a pixel-accurate
@@ -119,6 +116,20 @@ export function profileRows(
     })
   }
   return rows
+}
+
+/** The altitude axis fitted to everything drawn: the skyline, the near band and the gate (every
+ * profile row, one per `PROFILE_STEP`°) and the altitudes of the bodies' tracks, plus a little
+ * headroom, rounded up to a 4° step, inside `ALT_DOMAIN` and never under `MIN_ALT_TOP`. */
+export function fitAltDomain(
+  rows: readonly ProfileRow[],
+  bodyAltitudes: readonly number[],
+): [number, number] {
+  let peak = 0
+  for (const row of rows) peak = Math.max(peak, row.skyline, row.near, row.gate)
+  for (const alt of bodyAltitudes) peak = Math.max(peak, alt)
+  const top = Math.ceil((peak + 2) / 4) * 4
+  return [ALT_DOMAIN[0], Math.min(ALT_DOMAIN[1], Math.max(MIN_ALT_TOP, top))]
 }
 
 export type GlowCell = { az0: number; az1: number; alt0: number; alt1: number; mpsas: number }

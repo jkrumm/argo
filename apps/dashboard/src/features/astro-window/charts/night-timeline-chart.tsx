@@ -10,6 +10,7 @@ import {
   hourlyTicks,
   hourlyTimeLabel,
   windowFact,
+  withFacts,
 } from '../formulas'
 import type { HourlyPoint, Night } from '../types'
 
@@ -136,7 +137,7 @@ export default function NightTimelineChart({
     <ChartCard
       title={`Core, moon and sun altitude · ${fmtShortDay(night.date)}`}
       info={METRIC_TOOLTIPS.nightTimeline}
-      facts={fact}
+      {...withFacts(fact)}
       state={{ empty: hourly.length === 0 && 'No hourly data for this night' }}
       placeholderHeight={CHART_HEIGHT}
     >

@@ -4,6 +4,7 @@ import {
   bandValue,
   darkness,
   fitAltDomain,
+  inDomain,
   glowAt,
   gateAt,
   glowBuckets,
@@ -123,13 +124,31 @@ describe('glowBuckets', () => {
 })
 
 describe('fitAltDomain', () => {
+  const row = (skyline: number, near: number, gate: number) => ({ az: 0, skyline, near, gate })
+
   test('fits the top to the data with headroom, on a 4° step', () => {
-    expect(fitAltDomain([8, 21, 13.5])).toEqual([-4, 24])
+    expect(fitAltDomain([row(8, 8, 8)], [21, 13.5])).toEqual([-4, 24])
   })
 
-  test('never goes under the gate floor or over the widest domain', () => {
-    expect(fitAltDomain([8, 3])).toEqual([-4, 16])
-    expect(fitAltDomain([80])).toEqual([-4, ALT_DOMAIN[1]])
+  test('the near band counts even when it rises above the far skyline', () => {
+    expect(fitAltDomain([row(5, 25, 8)], [])).toEqual([-4, 28])
+  })
+
+  test('a body above the terrain (the sun) lifts the top', () => {
+    expect(fitAltDomain([row(5, 5, 8)], [38])).toEqual([-4, 40])
+  })
+
+  test('never goes under the 16° floor or over the widest domain', () => {
+    expect(fitAltDomain([row(2, 2, 8)], [3])).toEqual([-4, 16])
+    expect(fitAltDomain([row(80, 80, 80)], [])).toEqual([-4, ALT_DOMAIN[1]])
+  })
+})
+
+describe('inDomain', () => {
+  test('is inclusive at both ends', () => {
+    expect(inDomain(-4, [-4, 20])).toBe(true)
+    expect(inDomain(20, [-4, 20])).toBe(true)
+    expect(inDomain(20.1, [-4, 20])).toBe(false)
   })
 })
 
