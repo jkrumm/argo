@@ -2,14 +2,11 @@ import { Fragment } from 'react'
 import { Box, Button, Text, UnstyledButton } from '@mantine/core'
 import { useSizeClass } from 'basalt-ui'
 import { overlays } from 'basalt-ui/commands'
-import { relativeTime } from 'basalt-ui/format'
 import {
   TYPE_LABEL,
   summaryExcerpt,
   titleExcerpt,
   listTime,
-  oldestUpdatedAt,
-  untitledLabel,
   type ThreadEntry,
   type ThreadGroup,
 } from './thread-list-model'
@@ -163,7 +160,7 @@ export function ThreadList({
               aria-disabled={foldOpen || undefined}
               onClick={() => !foldOpen && onToggleOpen()}
             >
-              {untitledLabel(relativeTime(oldestUpdatedAt(untitled)))}
+              Untitled
             </UnstyledButton>
             <Button
               variant="subtle"

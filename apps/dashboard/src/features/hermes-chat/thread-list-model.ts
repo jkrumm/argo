@@ -1,7 +1,6 @@
 import { format } from 'date-fns'
 import type { AgentPart, AgentThread } from 'basalt-ui/agent'
 import type { HermesThreadType } from '../../lib/queries/hermes'
-import { NBSP } from '../../lib/format'
 import { isThreadPersisted, THREADS_LIST_LIMIT } from './threads-store'
 
 // The pure half of the thread list: what a row says, which day group it sits in, which threads
@@ -252,42 +251,34 @@ export function factsParts({
   return parts.filter((part): part is string => part !== null)
 }
 
+const plural = (n: number, one: string): string => `${n} ${n === 1 ? one : `${one}s`}`
+
 /**
- * The headline, over every thread (archived included): the one fact no group heading, chip, fold or
- * row time prints, with the figure it rests on: how many of all threads are replying. `null` with no
- * threads, where the empty state speaks.
+ * The headline, over the non-archived threads (the set the `All` chip counts): the one fact no group
+ * heading, chip, fold or row time prints, with the figure it rests on. `null` with no threads, where
+ * the empty state speaks.
  */
 export function summaryHeadline(entries: readonly ThreadEntry[]): { sentence: string } | null {
   if (entries.length === 0) return null
   const running = entries.filter((entry) => entry.streaming).length
-  const of = `${entries.length} ${entries.length === 1 ? 'thread' : 'threads'}`
+  const total = plural(entries.length, 'thread')
   return {
     sentence:
-      running === 0 ? `Nothing running in ${of}` : `Hermes is replying in ${running} of ${of}`,
+      running === 0
+        ? `Nothing running in ${total}`
+        : `Hermes is replying in ${running} of ${total}`,
   }
-}
-
-/** Every space unbreakable: a phrase that must never split across lines. */
-const glue = (text: string): string => text.replaceAll(' ', NBSP)
-
-/** The disclosure row: `Untitled · oldest {age}`. The count lives on the `Untitled` chip only. */
-export function untitledLabel(oldestAge: string): string {
-  return `Untitled · oldest ${glue(oldestAge)}`
 }
 
 function oldestOf(entries: readonly ThreadEntry[], field: 'createdAt' | 'updatedAt'): number {
   return entries.reduce((min, entry) => Math.min(min, entry[field]), Number.POSITIVE_INFINITY)
 }
 
-export function oldestUpdatedAt(entries: readonly ThreadEntry[]): number {
-  return oldestOf(entries, 'updatedAt')
-}
-
 /**
  * The line under the last row of an unfiltered list. The list request is capped, so how far back
  * the loaded part reaches is stated only when the server's `total` (or, without it, a list at the
- * cap) says more exist; a complete list needs no note (the fold's `oldest {age}` and the rows' own
- * start dates already say how far back it reaches).
+ * cap) says more exist; a complete list names when its first thread started (rows print last-reply
+ * times, a different fact).
  */
 export function listEndNote(
   entries: readonly ThreadEntry[],
@@ -299,7 +290,7 @@ export function listEndNote(
   if (entries.length === 0) return null
   const loaded = entries.length + archivedCount
   const capped = serverTotal === null ? loaded >= limit : serverTotal > loaded
-  if (!capped) return null
+  if (!capped) return `First thread ${startedDate(oldestOf(entries, 'createdAt'), now)}`
   const back = startedDate(oldestOf(entries, 'updatedAt'), now)
   return serverTotal === null
     ? `The newest ${loaded} threads, back to ${back}`

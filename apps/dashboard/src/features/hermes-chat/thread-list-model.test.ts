@@ -17,9 +17,7 @@ const {
   clampAtWord,
   summaryHeadline,
   emptyNote,
-  untitledLabel,
 } = await import('./thread-list-model')
-const { NBSP } = await import('../../lib/format')
 type ThreadEntry = import('./thread-list-model').ThreadEntry
 
 // 2026-10-17 15:30 local.
@@ -193,17 +191,8 @@ describe('summary', () => {
     })
   })
 
-  it('counts archived threads, and has no headline with none at all', () => {
-    expect(summaryHeadline([entry({ id: 'a', archived: true })])).toEqual({
-      sentence: 'Nothing running in 1 thread',
-    })
+  it('has no headline with no threads, where the empty state speaks', () => {
     expect(summaryHeadline([])).toBeNull()
-  })
-
-  it('words the untitled fold without the count (the chip prints it)', () => {
-    expect(untitledLabel('2 months ago')).toBe(`Untitled · oldest 2${NBSP}months${NBSP}ago`)
-    expect(untitledLabel('yesterday')).toBe('Untitled · oldest yesterday')
-    expect(untitledLabel('3 days ago')).toBe(`Untitled · oldest 3${NBSP}days${NBSP}ago`)
   })
 })
 
@@ -257,10 +246,10 @@ describe('listEndNote', () => {
   it('is null without threads', () => {
     expect(listEndNote([], 0, NOW, 0)).toBeNull()
   })
-  it('is null once the server total is covered: the fold and the rows say how far back it reaches', () => {
-    expect(listEndNote([entry(NOW), entry(NOW - 1000)], 2, NOW, 4)).toBeNull()
-    expect(listEndNote([entry(NOW)], 0, NOW, 1)).toBeNull()
-    expect(listEndNote([entry(NOW)], 0, NOW, null, 5)).toBeNull()
+  it('names when the first thread started once the server total is covered', () => {
+    expect(listEndNote([entry(NOW), entry(NOW - 1000)], 2, NOW, 4)).toMatch(/^First thread [^,]+$/)
+    expect(listEndNote([entry(NOW)], 0, NOW, 1)).toMatch(/^First thread [^,]+$/)
+    expect(listEndNote([entry(NOW)], 0, NOW, null, 5)).toMatch(/^First thread /)
   })
   it('says how far back a capped list reaches', () => {
     expect(listEndNote([entry(NOW), entry(NOW - 1000)], 0, NOW, 9)).toMatch(
