@@ -254,12 +254,16 @@ export function factsParts({
 
 /**
  * The headline, over every thread (archived included): the one fact no group heading, chip, fold or
- * row time prints. It carries no figure; `null` with no threads, where the empty state speaks.
+ * row time prints, with the figure it rests on: how many of all threads are replying. `null` with no
+ * threads, where the empty state speaks.
  */
 export function summaryHeadline(entries: readonly ThreadEntry[]): { sentence: string } | null {
   if (entries.length === 0) return null
+  const running = entries.filter((entry) => entry.streaming).length
+  const of = `${entries.length} ${entries.length === 1 ? 'thread' : 'threads'}`
   return {
-    sentence: entries.some((entry) => entry.streaming) ? 'Hermes is replying' : 'Nothing running',
+    sentence:
+      running === 0 ? `Nothing running in ${of}` : `Hermes is replying in ${running} of ${of}`,
   }
 }
 
@@ -282,8 +286,8 @@ export function oldestUpdatedAt(entries: readonly ThreadEntry[]): number {
 /**
  * The line under the last row of an unfiltered list. The list request is capped, so how far back
  * the loaded part reaches is stated only when the server's `total` (or, without it, a list at the
- * cap) says more exist; a complete list names when its first thread started (rows print last-reply
- * times, a different fact).
+ * cap) says more exist; a complete list needs no note (the fold's `oldest {age}` and the rows' own
+ * start dates already say how far back it reaches).
  */
 export function listEndNote(
   entries: readonly ThreadEntry[],
@@ -295,7 +299,7 @@ export function listEndNote(
   if (entries.length === 0) return null
   const loaded = entries.length + archivedCount
   const capped = serverTotal === null ? loaded >= limit : serverTotal > loaded
-  if (!capped) return `First thread ${startedDate(oldestOf(entries, 'createdAt'), now)}`
+  if (!capped) return null
   const back = startedDate(oldestOf(entries, 'updatedAt'), now)
   return serverTotal === null
     ? `The newest ${loaded} threads, back to ${back}`
