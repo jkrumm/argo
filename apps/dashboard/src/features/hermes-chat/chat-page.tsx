@@ -47,8 +47,9 @@ const PERSIST_POLL_MAX_ATTEMPTS = 20
 
 // The page is two views over one URL param (`?thread=`): the day-grouped thread list, or one open
 // thread (record header, transcript, its own composer). A single composer is pinned to the bottom
-// of the list view; typing there STARTS a new chat — `store.create()` mints a client id
-// synchronously and `runs.start()` sends immediately: no async create-then-effect chain to race
+// of the list view, right under the last row (the list is content-sized and scrolls only once it
+// outgrows the page, so no blank band opens between them); typing there STARTS a new chat —
+// `store.create()` mints a client id synchronously and `runs.start()` sends immediately: no async create-then-effect chain to race
 // (see docs/HERMES-CHAT-V2.md, D-E). Design record: docs/design/hermes-chat.md.
 
 // Full-bleed chat surface: fill the whole main area and cancel AppShell.Main's `padding="md"`
@@ -325,7 +326,7 @@ function HermesChatFeed() {
               />
             )}
           </Stack>
-          <ScrollArea style={{ flex: 1, minHeight: 0 }} px="md" pt="xs">
+          <ScrollArea style={{ flex: '0 1 auto', minHeight: 0 }} px="md" pt="xs">
             {view.groups.length === 0 && view.untitled.length === 0 ? (
               <Center py="xl" data-shot="thread-empty">
                 <Text c="dimmed" size="sm" ta="center">
