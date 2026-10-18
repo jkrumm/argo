@@ -154,9 +154,7 @@ describe('feedEmptyLine', () => {
     )
   })
   it("with no feed and no cause known, says the feed's own gap", () => {
-    expect(feedEmptyLine({ loaded: false, ...none })).toBe(
-      'No feed yet — Warden and agent-gateway push every 10\u00a0min.',
-    )
+    expect(feedEmptyLine({ loaded: false, ...none })).toBe('No feed yet')
     expect(feedEmptyLine({ loaded: false, ...none, pending: ['Warden', 'Agents'] })).toBe(
       'Warden and Agents loading.',
     )
