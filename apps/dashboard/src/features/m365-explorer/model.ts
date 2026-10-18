@@ -284,10 +284,18 @@ export const gapLeader = (g: {
 export const channelsCellGap = (leader: GapLeader): string =>
   leader === 'labeled' ? NO_SOURCES : NO_TEAMS
 
+/** The chats cell's short form: `No chats or channels came back` when both lists are empty (one gap), else the narrower chats-only gap. */
+export const chatsCellGap = (leader: GapLeader): string =>
+  leader === 'labeled' ? NO_SOURCES : NO_CHATS
+
+/** The unfiltered empty message of a source list: the screen's one clause when both lists are empty, else the open list's own gap. */
+export const sourceListGap = (bothEmpty: boolean, noun: 'chats' | 'teams'): string =>
+  bothEmpty ? NO_SOURCES : noun === 'chats' ? NO_CHATS : NO_TEAMS
+
 /** The phone Detail pane's empty line: the screen's one spelling when both lists are empty, else the open view's own gap. */
 export function detailGap(o: { leader: GapLeader; chatsView: boolean; teams: number }): string {
   if (o.leader === 'labeled') return channelsCellGap(o.leader)
-  if (o.chatsView) return NO_CHATS
+  if (o.chatsView) return chatsCellGap(o.leader)
   return teamsGap(o.teams)
 }
 
