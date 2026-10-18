@@ -12,8 +12,8 @@ declare const classes: {
   readonly meanTick: string
   readonly axis: string
   readonly list: string
-  readonly axisLabel: string
-  readonly star: string
+  readonly axisTicks: string
+  readonly axisTick: string
   readonly paceTrack: string
   readonly paceTick: string
   readonly paceMedian: string

@@ -246,9 +246,6 @@ export function lastReadFact(lastRead: number | null, now: number): string {
 
 // ── Ratings ──────────────────────────────────────────────────────────────────────────────────
 
-/** `span` is the range alone (`2–2.5`); the strip adds the `★` unit where the axis is wide enough, else the cell caption carries it. */
-export type BinLabel = { span: string; aria: string }
-
 /** Five bins on a 0…5 track; bin `i` is `(i, i + 1]`, so each holds two half steps. The one source of the bin rule, its edges and the mean marker. */
 const RATING_BINS = 5
 
@@ -260,11 +257,14 @@ export function ratingBin(rating: number): number {
   return Math.min(RATING_BINS, Math.max(1, Math.ceil(rating))) - 1
 }
 
-/** One bin's span, two views: the axis span (`1.5–2`) and the screen-reader text (`1.5 to 2 stars`). */
-function binLabel(bin: number): BinLabel {
+/** The axis ticks sit on the column edges of the 0…5 track (`0` … `5`), the scale the mean marker reads against. */
+export const RATING_TICKS: readonly number[] = Array.from({ length: RATING_BINS + 1 }, (_, i) => i)
+
+/** One bin's span as screen-reader text (`1.5 to 2 stars`); the axis itself shows only the edge ticks. */
+function binSpan(bin: number): string {
   const lo = bin + 0.5
   const hi = bin + 1
-  return { span: `${lo}–${hi}`, aria: `${lo} to ${hi} ${hi === 1 ? 'star' : 'stars'}` }
+  return `${lo} to ${hi} ${hi === 1 ? 'star' : 'stars'}`
 }
 
 export type RatingShape = {
@@ -274,8 +274,8 @@ export type RatingShape = {
   mean: number | null
   /** The mean's position on the 0…5 track, 0–100; null with nothing rated. */
   meanAt: number | null
-  /** The span per bucket, as axis and screen-reader text. */
-  labels: [BinLabel, BinLabel, BinLabel, BinLabel, BinLabel]
+  /** The span per bucket, as screen-reader text. */
+  spans: [string, string, string, string, string]
   /** Mean community rating over the same rated books that have one, with how many that is. */
   community: { mean: number; n: number } | null
 }
@@ -291,7 +291,7 @@ export function ratingShape(shelf: readonly ShelfItem[]): RatingShape {
   const community = rated.flatMap((r) => (r.community === null ? [] : [r.community]))
   return {
     buckets: tuple5((i) => rated.filter((r) => ratingBin(r.rating) === i).length),
-    labels: tuple5(binLabel),
+    spans: tuple5(binSpan),
     n: rated.length,
     mean,
     meanAt: mean === null ? null : toPercent((mean / RATING_BINS) * 100),

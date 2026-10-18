@@ -1,10 +1,11 @@
 import { Box } from '@mantine/core'
-import { Meter, StatGroup, useSizeClass, type StatStripCell } from 'basalt-ui'
+import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
 import {
   NO_PACE_REASON,
   paceRange,
   paceTicks,
+  RATING_TICKS,
   type PaceTicks,
   ratingShape,
   ratingsFooter,
@@ -40,7 +41,7 @@ function shelfCell(counts: ShelfCounts, footer: string | null): StatStripCell {
   }
 }
 
-function ratingsCell(shelf: readonly ShelfItem[], narrow: boolean): StatStripCell {
+function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
   const shape = ratingShape(shelf)
   if (shape.mean === null || shape.meanAt === null) {
     return { key: 'ratings', caption: 'Ratings · 0 rated', value: null, footer: 'no rated books' }
@@ -55,7 +56,7 @@ function ratingsCell(shelf: readonly ShelfItem[], narrow: boolean): StatStripCel
     visual: (
       <div
         role="img"
-        aria-label={`Rated books per star: ${shape.labels.map((l, i) => `${l.aria}: ${shape.buckets[i]}`).join(', ')}; mean ${shape.mean.toFixed(1)} ★`}
+        aria-label={`Rated books per star: ${shape.spans.map((span, i) => `${span}: ${shape.buckets[i]}`).join(', ')}; mean ${shape.mean.toFixed(1)} ★`}
       >
         <div className={classes.histogram}>
           {shape.buckets.map((count, i) => (
@@ -68,20 +69,20 @@ function ratingsCell(shelf: readonly ShelfItem[], narrow: boolean): StatStripCel
           ))}
           <div className={classes.meanTick} style={{ left: `${shape.meanAt}%` }} />
         </div>
-        <div className={classes.axis}>
-          {shape.labels.map((label, i) => (
-            <span key={i} className={classes.axisLabel}>
-              <span title={label.aria}>
-                {label.span}
-                {narrow ? null : (
-                  <>
-                    {NBSP}
-                    <span className={classes.star}>★</span>
-                  </>
-                )}
-              </span>
-              <span>{shape.buckets[i]}</span>
+        <div className={classes.axisTicks} aria-hidden>
+          {RATING_TICKS.map((tick) => (
+            <span
+              key={tick}
+              className={classes.axisTick}
+              style={{ left: `${(tick / (RATING_TICKS.length - 1)) * 100}%` }}
+            >
+              {tick}
             </span>
+          ))}
+        </div>
+        <div className={classes.axis}>
+          {shape.buckets.map((count, i) => (
+            <span key={i}>{count}</span>
           ))}
         </div>
       </div>
@@ -150,14 +151,13 @@ export function ReadingStrip({
   pace: Pace
   footer: string | null
 }) {
-  const narrow = useSizeClass() === 'compact'
   return (
     <StatGroup
       variant="strip"
       label="Reading summary"
       cols={3}
       shotAbsent={['empty']}
-      cells={[shelfCell(counts, footer), ratingsCell(shelf, narrow), paceCell(pace)]}
+      cells={[shelfCell(counts, footer), ratingsCell(shelf), paceCell(pace)]}
     />
   )
 }

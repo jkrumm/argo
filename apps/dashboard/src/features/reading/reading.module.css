@@ -52,6 +52,29 @@
   background: var(--vx-ink);
 }
 
+/* Star ticks at the column edges (0…5), the scale the mean marker reads against; the end ticks hang inward. */
+.axisTicks {
+  position: relative;
+  height: 1.2em;
+  font-family: var(--basalt-font-mono);
+  font-size: var(--vx-text-micro);
+  color: var(--vx-muted);
+}
+
+.axisTick {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.axisTick:first-child {
+  transform: none;
+}
+
+.axisTick:last-child {
+  transform: translateX(-100%);
+}
+
+/* The count under each column. */
 .axis {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -60,19 +83,6 @@
   font-size: var(--vx-text-micro);
   color: var(--vx-muted);
   text-align: center;
-}
-
-/* One label per bar, the star over its count, so five of them fit however narrow the cell is. */
-.axisLabel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  white-space: nowrap;
-}
-
-/* The mono axis has no good star; the glyph takes the body face. */
-.star {
-  font-family: var(--basalt-font-sans);
 }
 
 /* ── Pace distribution: one tick per book on a slowest-to-fastest axis, the median full height ── */
