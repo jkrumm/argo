@@ -6,13 +6,14 @@ import { Sparkline } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import type { OverviewSummary } from '../../lib/queries/agents'
 import type { WardenBudget } from '../../lib/queries/warden'
-import { clockOf, type FleetPart } from '../agents/model'
+import { clockOf, WAITING_FOR_SNAPSHOT, type FleetPart } from '../agents/model'
 import { FLEET_COLOR } from '../agents/fleet-strip'
 import {
   ACWR_CAUTION_TO,
   ACWR_FLOOR,
   ACWR_METER_MAX,
   ACWR_OPTIMAL_TO,
+  chartEmpty,
   recoveryGap,
 } from '../garmin-health/model'
 import { recoveryMeterProps } from '../garmin-health/recovery-meter'
@@ -33,14 +34,12 @@ import {
   type RecoveryReading,
   recoveryFooter,
 } from './model'
+import classes from './home.module.css'
 
 /** The budget track runs past the cap so an overrun is visible; the tick marks the cap itself. */
 const BUDGET_HEADROOM = 1.25
 /** The recovery sparkline's ink: a trend, not a verdict (`Meter` has `tone="muted"` for its own fill). */
 const MUTED_FILL = alpha(VX.muted, 0.35)
-
-/** Agents' `No snapshot yet` in a cell's width: the cause (nothing pushed) and the cadence to wait for. */
-const NO_SNAPSHOT = `No snapshot yet — agent-gateway pushes every ${withUnit(10, 'min')}`
 
 // ── Agents working ───────────────────────────────────────────────────────────────────────────
 
@@ -62,7 +61,7 @@ export function agentsCell(
           value={null}
           emptyText={
             feed === 'none'
-              ? NO_SNAPSHOT
+              ? WAITING_FOR_SNAPSHOT
               : feed === 'failed'
                 ? 'Agents failed to load — reload to retry'
                 : 'No fleet counts in this snapshot'
@@ -122,11 +121,14 @@ export function budgetCell(
           {BUDGET_MISSING.short}
         </Text>
       ),
-    footer: (
-      <Text span size="sm" c={poller?.stale ? VX.status.warn : 'dimmed'}>
-        {poller === undefined ? 'poller age unknown' : pollerAgeText(poller)}
-      </Text>
-    ),
+    // With no budget and no poller there is no snapshot: the cell's line already says what to wait for.
+    ...((poller !== undefined || budget !== undefined) && {
+      footer: (
+        <Text span size="sm" c={poller?.stale ? VX.status.warn : 'dimmed'}>
+          {poller === undefined ? 'poller age unknown' : pollerAgeText(poller)}
+        </Text>
+      ),
+    }),
   }
 }
 
@@ -263,7 +265,8 @@ export function recoveryCell(
         ) : null}
       </>
     ),
-    footer: recoveryFooter(reading),
+    // Broken evenly, so the narrow footer splits between its phrases and never strands a word.
+    footer: <span className={classes.balanced}>{recoveryFooter(reading)}</span>,
   }
 }
 
@@ -274,6 +277,8 @@ export function acwrCell(
   now: number,
   /** The load read when there is no reading: still pending, or failed. */
   feed: 'loading' | 'error',
+  /** The window the load was read over, for the settled-but-empty wording (Garmin's, one function). */
+  windowDays = 0,
 ): StatStripCell {
   if (reading === null || reading.acwr === null) {
     return {
@@ -285,7 +290,7 @@ export function acwrCell(
           ? feed === 'loading'
             ? 'loading training load'
             : 'training load failed to load; reload to retry'
-          : 'no training load observed',
+          : chartEmpty('training load', windowDays),
     }
   }
   return {

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Badge, Button, Card, Text } from '@mantine/core'
 import { Section, useSizeClass } from 'basalt-ui'
 import { clockTime } from '../agents/model'
-import { emptyStreamLabel, type ActivityGroup } from './model'
+import { emptyStreamLabel, NO_FEED_LABEL, type ActivityGroup } from './model'
 import classes from './home.module.css'
 
 /** Rows shown at desktop width; the rest is behind `Show n more`. */
@@ -36,21 +36,33 @@ export function ActivityFeed({ groups, total, stale, loaded, now }: Props) {
     <Card>
       <Section title="Activity">
         <div className={classes.feed} data-shot="activity" data-shot-states="empty">
-          <span className={classes.live}>
-            {loaded ? (
-              <span className={stale.length === 0 ? classes.pulse : classes.pulseOff} aria-hidden />
-            ) : null}
-            {!loaded ? 'No live feed' : stale.length === 0 ? 'Live' : `Stale: ${stale.join(', ')}`}{' '}
-            · {total} {total === 1 ? 'update' : 'updates'} since yesterday
-          </span>
-          <Text size="sm" c="dimmed">
-            A burst of steps on one item counts as one update.
-          </Text>
-          {total === 0 ? (
-            <Text size="sm" c="dimmed">
-              {emptyStreamLabel(now)}
-            </Text>
+          {loaded || total > 0 ? (
+            <span className={classes.live}>
+              {loaded ? (
+                <span
+                  className={stale.length === 0 ? classes.pulse : classes.pulseOff}
+                  aria-hidden
+                />
+              ) : null}
+              {!loaded
+                ? 'No live feed'
+                : stale.length === 0
+                  ? 'Live'
+                  : `Stale: ${stale.join(', ')}`}
+              {total > 0
+                ? ` · ${total} ${total === 1 ? 'update' : 'updates'} since yesterday`
+                : null}
+            </span>
           ) : null}
+          {total > 0 ? (
+            <Text size="sm" c="dimmed">
+              A burst of steps on one item counts as one update.
+            </Text>
+          ) : (
+            <Text size="sm" c="dimmed">
+              {loaded ? emptyStreamLabel(now) : NO_FEED_LABEL}
+            </Text>
+          )}
           {groups.map((group, i) => {
             const events = group.events.slice(0, budgets[i])
             if (events.length === 0) return null

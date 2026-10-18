@@ -139,7 +139,7 @@ describe('taskCounts', () => {
       ],
       NOW,
     )
-    expect(counts).toEqual({ overdue: 1, dueSoon: 2 })
+    expect(counts).toEqual({ overdue: 1, dueSoon: 2, open: 5 })
   })
 })
 
@@ -407,7 +407,7 @@ describe('day boundaries on a DST day', () => {
       ],
       dst,
     )
-    expect(counts).toEqual({ overdue: 0, dueSoon: 1 })
+    expect(counts).toEqual({ overdue: 0, dueSoon: 1, open: 2 })
   })
 })
 

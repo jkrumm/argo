@@ -10,7 +10,7 @@ import { recoveryQueries, trainingLoadQueries } from '../../lib/queries/daily-me
 import { wardenQueries } from '../../lib/queries/warden'
 import { deriveDecisions } from '../../lib/decisions'
 import { dayKey } from '../calendar/derive'
-import { unanswered } from '../calendar/query-state'
+import { taskFeedState, unanswered } from '../calendar/query-state'
 import { useNow } from '../../lib/use-now'
 import { shotState } from '../../lib/shot-state'
 import { countUnknownAgents, fleetParts, flattenAgents } from '../agents/model'
@@ -94,7 +94,7 @@ export function TodayPage() {
   // Under the shot's `empty` the overview feed holds no snapshot: the cell reads the real no-snapshot branch.
   const agentsRecord = shotEmpty ? null : (agentsQuery.data?.latest ?? null)
   const snapshot = agentsRecord?.snapshot
-  const warden = wardenQuery.data ?? null
+  const warden = shotEmpty ? null : (wardenQuery.data ?? null)
   const wardenRaw = warden?.raw
   // Under the shot's `empty` every source answered: nothing is unavailable or stale.
   const unavailable = shotEmpty
@@ -135,21 +135,20 @@ export function TodayPage() {
   const later = agenda === null ? null : laterMeeting(feeds, now)
   const next = agenda === null ? null : nextMeeting(agenda.meetings, now)
 
-  const tasksLoaded =
-    shotEmpty ||
-    (!projectsQuery.isError && projectsQuery.data !== undefined && taskQueries.every((q) => q.data))
-  const tasks = tasksLoaded
-    ? taskCounts(
-        shotEmpty
-          ? []
-          : taskQueries.flatMap(
-              (q) =>
-                ((q.data as { data?: { tasks?: unknown } } | undefined)?.data?.tasks ??
-                  []) as Parameters<typeof taskCounts>[0],
-            ),
-        now,
-      )
-    : null
+  const tasksFeed = shotEmpty ? 'ready' : taskFeedState([projectsQuery, ...taskQueries])
+  const tasks =
+    tasksFeed === 'ready'
+      ? taskCounts(
+          shotEmpty
+            ? []
+            : taskQueries.flatMap(
+                (q) =>
+                  ((q.data as { data?: { tasks?: unknown } } | undefined)?.data?.tasks ??
+                    []) as Parameters<typeof taskCounts>[0],
+              ),
+          now,
+        )
+      : null
 
   // ── Body ───────────────────────────────────────────────────────────────────────────────────
   // The series is the source of the trend and of the last scored day: one flag for both and for the cell.
@@ -241,14 +240,19 @@ export function TodayPage() {
               failed: recoverySeries.isError,
               windowDays: windowCopyDays(garminParams, VISIBLE_DATE_MIN),
             }),
-            acwrCell(acwr, now, loadQuery.isPending ? 'loading' : 'error'),
+            acwrCell(
+              acwr,
+              now,
+              loadQuery.isPending ? 'loading' : 'error',
+              windowCopyDays(garminParams, VISIBLE_DATE_MIN),
+            ),
           ]}
         />
 
         <div className={classes.columns}>
           <NeedsYou decisions={decisions} unavailable={unavailable} />
           <Stack gap="md">
-            <Meetings agenda={agenda} tasks={tasks} now={now} />
+            <Meetings agenda={agenda} tasks={tasks} tasksFeed={tasksFeed} now={now} />
             <ActivityFeed
               groups={stream.groups}
               total={stream.total}

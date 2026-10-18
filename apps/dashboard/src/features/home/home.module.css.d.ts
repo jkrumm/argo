@@ -13,6 +13,7 @@ declare const classes: {
   readonly nowMark: string
   readonly axisLabels: string
   readonly feed: string
+  readonly balanced: string
   readonly feedGroup: string
   readonly feedHeading: string
   readonly feedRow: string

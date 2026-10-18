@@ -56,12 +56,14 @@ function MeetingRow({ meeting, now }: { meeting: Meeting; now: number }) {
 type Props = {
   /** `null` when a calendar feed has not answered and nothing else is known: the agenda is unknown, not empty. */
   agenda: Agenda | null
-  tasks: { overdue: number; dueSoon: number } | null
+  /** `null` while the task reads are unknown; `tasksFeed` then says whether they are loading or failed. */
+  tasks: { overdue: number; dueSoon: number; open: number } | null
+  tasksFeed?: 'loading' | 'error' | 'ready'
   now: number
 }
 
 /** Today as an agenda, ended meetings dimmed: only hours that hold a meeting are drawn, then the tasks line. */
-export function Meetings({ agenda, tasks, now }: Props) {
+export function Meetings({ agenda, tasks, tasksFeed = 'loading', now }: Props) {
   return (
     <Card>
       <Section title="Agenda" {...(agenda === null && { value: '—' })}>
@@ -101,7 +103,13 @@ export function Meetings({ agenda, tasks, now }: Props) {
           ) : null}
           <Text size="sm" c="dimmed">
             {tasks === null ? (
-              'Tasks: unknown'
+              tasksFeed === 'error' ? (
+                'Tasks: failed to load — reload to retry'
+              ) : (
+                'Tasks: loading'
+              )
+            ) : tasks.open === 0 ? (
+              'Tasks: none open — TickTick holds no open task'
             ) : (
               <>
                 <Text component="span" size="sm" {...(tasks.overdue > 0 && { c: VX.status.bad })}>

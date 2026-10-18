@@ -187,3 +187,8 @@
     animation: none;
   }
 }
+
+.balanced {
+  display: block;
+  text-wrap: balance;
+}

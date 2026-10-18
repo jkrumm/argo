@@ -211,18 +211,21 @@ export const localKey = (ms: number) => {
 export function taskCounts(
   tasks: readonly RawTask[],
   now: number,
-): { overdue: number; dueSoon: number } {
+): { overdue: number; dueSoon: number; open: number } {
   const today = localKey(now)
   const horizon = localKey(addDays(now, DUE_SOON_DAYS).getTime())
   let overdue = 0
   let dueSoon = 0
+  let open = 0
   for (const t of tasks) {
-    if (t.status !== 0 || !t.dueDate || t.dueDate.length < 10) continue
+    if (t.status !== 0) continue
+    open += 1
+    if (!t.dueDate || t.dueDate.length < 10) continue
     const due = t.dueDate.slice(0, 10)
     if (due < today) overdue += 1
     else if (due <= horizon) dueSoon += 1
   }
-  return { overdue, dueSoon }
+  return { overdue, dueSoon, open }
 }
 
 // ── Garmin readings ──────────────────────────────────────────────────────────────────────────
@@ -464,8 +467,12 @@ export function activityStream(
   return { groups, total: live.length }
 }
 
+/** With a feed loaded and nothing in the window: the horizon, and where new events appear. */
 export const emptyStreamLabel = (now: number) =>
-  `No events since ${clockTime(new Date(activityHorizon(now)).toISOString())} yesterday.`
+  `No events since ${clockTime(new Date(activityHorizon(now)).toISOString())} yesterday — Warden, narrator and calendar events appear here.`
+
+/** With no feed loaded at all: the cause and the cadence to wait for (the Agents page's `No snapshot yet`, in the feed's width). */
+export const NO_FEED_LABEL = `No feed yet — Warden and Agents push every ${withUnit(10, 'min')}.`
 
 // ── Freshness ────────────────────────────────────────────────────────────────────────────────
 
