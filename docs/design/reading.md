@@ -196,3 +196,8 @@ Follow-up (w30-r2):
 
 - **Reviewer:** fail on basalt-only P0s; not changed this round. Carried (basalt): the `StatGroup` strip-cell anchors error under `empty` (12 shots, no way to declare `data-shot-absent`); the pace column a blank half beside the histogram; the mono `★`; slashed zeros. `empty-shelf` passes (cause + when the data arrives). No lost fact.
 - **Against Keel:** does not yet — the pace column is still a blank half.
+
+### Wave 34 round (`w34-r1`, live after #144–#147 on basalt-ui 2.22.0; `w34-r2` after #148)
+
+- **Reviewer:** fail (basalt only); untouched this round. Carried (basalt): the strip-cell anchors error under `empty` (12 shots); the pace column a blank half beside the histogram; the mono `★`; slashed zeros. `empty-shelf` passes. No lost fact.
+- **Against Keel:** does not yet — the pace column is still a blank half at 1440.

@@ -210,3 +210,8 @@ Follow-up (w30-r1):
 
 - **Reviewer:** fail. Fixed: the seven chart empties read one wording, `No {metric} in this {n} d window — Garmin syncs every {h} h` (the window length now matches the preset); the training-load cell states its absence once, and the load cell and the ACWR card both say `training load`. **New (argo):** under `empty` the fitness cell is dashes only (`— · slope · {n} d`, rows `— —`), no cause or next step, while its two neighbours give both. Unscored: empty chart cards keep their full height around one line. Carried (basalt): the ACWR legend gone at 390 (zones by hue only — now confirmed); the ACWR info tooltip over the headline; detached load-meter ticks. No lost fact.
 - **Against Keel:** close — the strip reads like Keel's metric cards; the chart grid is plainer than Keel's composite cards.
+
+### Wave 34 round (`w34-r1`, live after #144–#147 on basalt-ui 2.22.0; `w34-r2` after #148)
+
+- **Reviewer:** pass on this round's fixes (P3 only). Fixed: the fitness cell's empty says cause and next step in one line (`No RHR or HRV in this {n} d window and no VO2max in {m} d — Garmin syncs every {h} h`), no dashes; the branch is reachable in production (it reads the readings, not the direction label), and a partial failure keeps the readings that loaded. **New (argo, P3):** under `empty` the recovery kicker reads `RECOVERY —` (the dash says nothing). Unscored: empty chart cards keep full height around one line (basalt `ChartCard` row). Carried (basalt): the ACWR legend gone at 390, the ACWR info tooltip over the headline, detached load-meter ticks. No lost fact.
+- **Against Keel:** close — the strip reads like Keel's metric cards; the chart grid is plainer than Keel's composite cards.

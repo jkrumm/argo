@@ -259,3 +259,8 @@ Follow-up (w30-r2):
 
 - **Reviewer:** fail on basalt only. Fixed: no `no data: not reported` filler — under no snapshot the health strip, decision queues and board are not rendered and the `No snapshot yet` alert carries the absence once, with a next step (`check that the Warden loop is running on the mini`); the fixes legend wraps before an operator, never after. **New (basalt, P0):** hiding the strip under `empty` makes its seven `StatGroup` strip-cell anchors error shots (28) — the same row as Reading and Strength (`data-shot-absent` on a strip cell). Carried (basalt): the Alert × `Code` nested radius; info tooltips over the next cell's hero. Carried: raw alert keys (frozen rung); the first `Latest changes` row's age alone after `·`. Unscored: the 390 board crop differs between schemes (data refreshed between captures). No lost fact.
 - **Against Keel:** close — cards distinct and sized right; raw alert keys stand in for authored questions.
+
+### Wave 34 round (`w34-r1`, live after #144–#147 on basalt-ui 2.22.0; `w34-r2` after #148)
+
+- **Reviewer:** fail (basalt only); untouched this round. Carried (basalt): the strip-cell `data-shot-absent` row (28 error shots), the Alert × `Code` nested radius, info tooltips over the next cell's hero. Carried (argo): raw alert keys (frozen rung). Unscored: the wrapped `Latest changes` row (board crop not re-checked). No lost fact.
+- **Against Keel:** close — cards distinct and sized right; raw alert keys stand in for authored questions.

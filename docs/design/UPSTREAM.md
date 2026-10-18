@@ -431,3 +431,18 @@ struck through, `Lines` overprinting `Low`, `Bars` shade-only series, four type 
 mixed date ticks, `StackedArea` zero rows, decimal ticks, `BandStrip` glyphs, info tooltips over a hero or the card above, sticky bars
 over section crops, the 390 2 + 1 strip, the slashed zero; harness: hover crops that hover the selected cell or the pane, the phone
 preset crop clipping its tabs.
+
+### Wave 34 — one wording per gap (#144–#148) and the `w34-r1` / `w34-r2` live re-score
+
+Still on basalt-ui 2.22.0 (no release announced during the wave). New basalt rows:
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| `ChartCard` `placeholderHeight` / `StackedArea` `height` | a `'fill'` value (as `Heatmap`'s box has), so a plot can grow with a taller neighbour in the same grid row | usage tokens chart beside its list at 1440 (~80 px band under the axis) | the card stretches to the cell, the plot keeps its fixed height |
+| `CartesianChart` legend | a legend renders only with more than one entry (`entryCount > 1`); a consumer that trims entries to the states present can lose the whole key | Agents activity strip (trimming hid the shade key, reverted in #148) | keeps every entry: the legend names the encoding, not the data present |
+
+`w34-r1` re-confirmed open rows: the strip-cell `data-shot-absent` row (Warden 28, Reading 12, Strength 16 error shots — basalt Wave
+37), `ChartCard` `state.empty` placeholder height (Garmin, usage lists and projects at 1440), the `Meter` null caption `No data`
+(calendar week strip), the rubric's "no reachable state" gap (astro Tonight), `Lines` end labels, `Bars` shade-only series, `Button`
+chip hover, info tooltips at 390, sticky bars over section crops, `ViewTabs` nested radius, `BandStrip` hue-only days, `StackedArea`
+zero rows, decimal ticks, four type sizes in `Section` shells, the `Meter` zone-name fit, the 390 2 + 1 strip, the slashed zero.

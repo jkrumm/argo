@@ -187,3 +187,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** **pass** (seventh time); not changed this round. Unscored: under `empty` the strip cells are a bare `—`, the reason stated once in `empty-window` below them. Carried (basalt): the slashed zero in the empty copy. No lost fact.
 - **Against Keel:** close — most of the 1440 page is blank below the empty state.
+
+### Wave 34 round (`w34-r1`, live after #144–#147 on basalt-ui 2.22.0; `w34-r2` after #148)
+
+- **Reviewer:** **pass (eighth time)**; untouched. Carried (basalt): the slashed zero in the empty copy. Unscored: the four strip cells are a bare `—` at rest too while the live window holds no walks; the reason is stated once in `empty-window` below them. No lost fact.
+- **Against Keel:** close — most of the 1440 page is blank below the empty state.

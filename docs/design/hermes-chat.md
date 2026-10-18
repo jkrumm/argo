@@ -182,3 +182,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail (basalt only). Fixed: with no threads the toolbar (`All 0` chip, search) is absent; `thread-empty` says what is missing and what to do; at 390 titles wrap to two lines and summaries hold one. **New (argo, P2):** at 390 the leading tag column takes ~a quarter of the row, so a one-line summary shows ~four words — the reviewer counts that as a lost fact against w32's two summary lines. Carried (basalt): filter chips without hover. Unscored: the composer placeholder wraps at 390.
 - **Against Keel:** does not yet — three rows and a fold over a void above the composer.
+
+### Wave 34 round (`w34-r1`, live after #144–#147 on basalt-ui 2.22.0; `w34-r2` after #148)
+
+- **Reviewer:** fail (basalt only). Fixed: at 390 the tag and time share a line above the body, so title and summary take the full row width and the summary shows two lines (w33's lost fact restored). **Not fixed (argo, P3):** the shortened composer placeholder still wraps at 390. Carried (basalt): filter chips without hover. No lost fact.
+- **Against Keel:** does not yet — three rows and a fold over a void above the composer.
