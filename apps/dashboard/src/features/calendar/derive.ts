@@ -190,6 +190,10 @@ export function dayLoad(
   }))
 }
 
+/** True when every day of a known week books no time (all-day and cancelled items book none). */
+export const nothingBooked = (load: readonly DayLoad[]): boolean =>
+  load.every((day) => day.bookedMin === 0)
+
 export type SourceSplit = Record<SourceClass, number>
 
 /**

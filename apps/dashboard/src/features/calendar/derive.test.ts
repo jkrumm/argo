@@ -10,6 +10,7 @@ import {
   bookedBySourceClass,
   bookedMinOnDay,
   isCancelled,
+  nothingBooked,
   agendaDay,
   dayHeadLabel,
   displayTitle,
@@ -114,6 +115,17 @@ describe('booked hours', () => {
       ev('t', `${D} 00:00:00`, `${addDays(D, 1)} 00:00:00`, { source: 'ticktick', isAllDay: true }),
     ]
     expect(bookedMinOnDay(items, D)).toBe(0)
+  })
+  test('a week holding only all-day or cancelled items books nothing', () => {
+    const items = [
+      ev('d', `${D} 00:00:00`, `${addDays(D, 1)} 00:00:00`, { isAllDay: true }),
+      ev('c', at(D, '09:00'), at(D, '10:00'), { isCancelled: true }),
+    ]
+    expect(nothingBooked(dayLoad(items, weekKeys(D)))).toBe(true)
+    expect(nothingBooked(dayLoad([ev('t', at(D, '09:00'), at(D, '10:00'))], weekKeys(D)))).toBe(
+      false,
+    )
+    expect(nothingBooked(dayLoad([], weekKeys(D), true))).toBe(false)
   })
   test('an event across midnight is split between both days', () => {
     const night = [ev('n', at(D, '23:00'), at(addDays(D, 1), '01:00'))]
