@@ -169,3 +169,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: no facts line repeating the load and fitness cells; no load footer restating the bands; the recovery cell at three sizes; no unlabelled sparkline fragments; `Last scored` keeps its day at 390. Carried: the strip two columns at 390 with an empty recovery column; basalt `Meter` ticks and `Danger` wrap. **New:** lost fact — the recovery cell no longer says why there is no score or when it fills; it stretches again (`emptyRatio` 0.62–0.68). Unscored: the fitness caption's `14 d regression` vs the VO2max row's `vs {n} d`; the RHR sparkline focus readout bare (no unit or date). Not verified: fitness focus (timeout).
 - **Against Keel:** close — recovery is a dash and a sentence where Keel draws a gauge against a target.
+
+### Wave 28 round (`w28-r1`, live after #112–#116 on basalt-ui 2.21.0)
+
+- **Reviewer:** fail. Fixed: the recovery cell names why there is no score (`{day}: {inputs} not scored`); one fitness wording (`slope · {n} d`) on the caption and the rows; the sparkline focus readout carries its unit and date. Carried: the recovery cell part-empty (`emptyRatio` 0.62 at 1440 on 2.21.0 — basalt row); `Meter` tick labels detached under the track (basalt); two columns at 390 with recovery part-empty. **New:** the load meter's caution zone has no name (2.21.0 hides a zone name wider than its span — pass `short`). Unscored: the recovery cell does not say when the score fills. Not verified: fitness focus (timeouts).
+- **Against Keel:** close — recovery is a dash and a sentence where Keel draws a gauge against a target.

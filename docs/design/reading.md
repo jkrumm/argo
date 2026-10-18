@@ -153,3 +153,8 @@ No new basalt rows.
 
 - **Reviewer:** fail. Fixed: the `Currently reading` heading no longer repeats the legend count; no permanent empty time-read card. Carried: the pace cell half blank (`emptyRatio` 0.48); the range bucket label wraps at 390; finished rows show no days-to-finish (shown only when the API sends a start date); the shelf cell stretches at 390. **New:** with time-read gone the Finished list takes the left half of its row and leaves the right half empty at 1440; lost fact — the histogram bucket labels dropped `★`, so two rows of bare numbers sit under the bars. Unscored: month group heads print a bare count with no noun.
 - **Against Keel:** does not yet — two half-empty regions.
+
+### Wave 28 round (`w28-r1`, live after #112–#116 on basalt-ui 2.21.0)
+
+- **Reviewer:** fail. Fixed: bucket labels carry `★`; Finished spans the full row at 1440; month heads read `{n} books`; the shelf cell no longer stretches at 390 (2.21.0). Carried: the pace cell half blank (`emptyRatio` 0.51 on 2.21.0 — basalt row); range bucket labels at 390 no longer wrap but run into each other; no days-to-finish on finished rows (only when the API sends a start date). Unscored: `≈ {h} h to read` names no pace; backlog focus crops under the sticky bar (harness).
+- **Against Keel:** does not yet — the pace cell is half blank beside the histogram.

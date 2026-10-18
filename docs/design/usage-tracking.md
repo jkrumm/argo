@@ -167,3 +167,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail (no new defect). Fixed: p95 and cache tooltips are definitions; `30 d` kept whole; the cost chart keeps the partial day consistently; no raw tool separator; the 30-day spend and token totals printed once; one neutral grey in the health card. Carried: warn/bad days hue-only in the errors strip (basalt `BandStrip`). Unscored: the errors footer orphans `(> 3%)` at 1440; the p95 `slowest day` splits its date at 390; the errors band ticks `DD.MM` vs `{day} {Mon}`.
 - **Against Keel:** close — the best KPI band of the set.
+
+### Wave 28 round (`w28-r1`, live after #112–#116 on basalt-ui 2.21.0)
+
+- **Reviewer:** fail. Fixed: the errors footer keeps `(> 3%)` with its phrase. Carried: warn/bad days hue-only (basalt `BandStrip`); the p95 `slowest day` date still splits at 390; band ticks `DD.MM` vs `{day} {Mon}` (basalt `BandStrip` has no tick formatter). **New:** the error chart's `0` tick under the first bar (thin `BarList`/axis on 2.21.0). Unscored: the headline's 7 d spend window matches no cell; `{n} B` vs `{n}M` in one cell; the errors tooltip covers the hero and gives no rate, the cache tooltip hides its value (basalt); the latency line through the top tick label; a 10.67 px phone-select inset (basalt).
+- **Against Keel:** close — still the best KPI band of the set; the headline window disagrees with it.

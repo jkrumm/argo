@@ -307,3 +307,24 @@ Rows the Wave 26 workers and the `w26-r1` reviewers filed:
 `w27-r1` re-confirmed open rows: the `DecisionCard` disclosure inset (5.33 px), `Meter` zero/max ticks and `Danger` wrap at 390,
 `Lines` end labels vs legend, the `·`-led `PageSummary` wrap, `BandStrip` hue-only states and tooltips over the hero value, four type
 sizes in chart/list cards, the heading face's slashed zero, the `next-days` crop, tall-anchor focus timeouts, astro night-strip hover.
+
+### Wave 28 — round 7 fixes (#112–#116), basalt-ui 2.21.0, and the `w28-r1` live re-score
+
+argo moved to basalt-ui 2.21.0 in its own commit (`7390e3c`). No local strip-cell stretch workaround existed to drop (swept: none in
+`apps/dashboard/src`). What 2.21.0 still misses, measured on the live `w28-r1` shots:
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| `StatGroup variant="strip"` | align-by-part still leaves a short cell's lower half void beside a sibling with a tall visual/rows (`emptyRatio` 0.47–0.62, over the 0.4 rubric line); the short cell needs to own less height or centre its parts | home next-meeting 0.47, agents needs-you 0.53, garmin recovery 0.62, warden unattended 0.49, reading pace 0.51 | as rendered — no local stretch override |
+| `Meter` zones | a hidden zone name (wider than its span, or `short` still too wide at 390) leaves a zone unnamed on screen; needs an abbreviation ladder or a below-track overflow line rather than silent hiding | home + garmin training-load caution zone; body-composition maintain zone at 390 (`short` set) | as rendered |
+| `Meter` ticks | labelled end ticks on a non-zoned/zoned meter still read detached under the track | garmin load meter `0` / `2.0` | as rendered |
+| `check-theme series-palette` | reads only literal `{ light: '#hex', dark: '#hex' }` entries, so a series file written with `p(BP.*)` (the shipped helper) is never judged — the guard passes silently | `apps/dashboard/src/lib/series.ts` (every entry is `p(...)`) | unjudged |
+| `BandStrip` | a tick/axis formatter prop; a non-hue cue for warn vs bad; a tooltip that does not cover the cell's hero | usage errors band | `DD.MM` ticks, hue-only states |
+| `Button` (outline/light chips), `BarList` rows | a hover state | hermes filter chips, m365 tag chips and pane rows | none |
+| chart header phone select | the 10.67 px inline-start inset (Mantine `/1.5`) the 2.21.0 Button fix did not reach | usage cost + tokens charts at 390 | as rendered |
+| `ViewTabs` at 390 | segment labels centred | astro `Tonight / Forecast / Map` | as rendered |
+| chart tooltips | series names wrap one character per line in a narrow tooltip; a daily value prints a clock time and a US date order | strength ACWR, strength readiness | as rendered |
+
+`w28-r1` re-confirmed open rows: `Lines` end labels vs legend (and a clipped end label), `Sparkline` reference label, `ScheduleRow` wrap,
+four type sizes in `ScheduleRow`/section shells, the `·`-led `PageSummary` wrap, the mono `<>` ligature, info tooltips over the card
+above at 390, sticky bars over crops, tall-anchor focus timeouts.

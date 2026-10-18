@@ -1368,7 +1368,7 @@ on the mini's ICU).
 - **Cleanup:** worktrees removed with `rd fan --clean`; no background task left running.
 
 
-## Wave 28 — Re-score round 7: lost facts, alert titles, one stretch rule <!-- status: active -->
+## Wave 28 — Re-score round 7: lost facts, alert titles, one stretch rule <!-- status: done -->
 
 Same shape as Wave 27 (fan-out on disjoint page files, two independent reviews per PR, CI `check` green on the PR head before
 `rd merge`, live re-shoot incl. the m365 pane presets, fresh `basalt-design-reviewer`s with the w27 shots + a Keel side-by-side). The
@@ -1376,12 +1376,71 @@ rule stays **subtract before you add**, with its counterpart made explicit: a re
 (every `## Removed copy` line names where that fact still lives, or why no reader needs it). Each page's detail is in
 `docs/design/<page>.md` § "Wave 27 round". WalkingPad passed: only its two unscored polish items, no redesign.
 
-- [ ] Alert titles and handles: recognise the producer's `[alert]` prefix (and the board item's own origin/kind), never cut a
+- [x] Alert titles and handles: recognise the producer's `[alert]` prefix (and the board item's own origin/kind), never cut a
       handle inside a bracket or mid-token, the question's verb matches the primary button, agents titles never restate their evidence
       line. Home, Warden and Agents. The producer change stays queued for the owner.
-- [ ] Fix the argo items per page, fanned out: new first ("lost facts" restored in the shortest form that carries them, the
+- [x] Fix the argo items per page, fanned out: new first ("lost facts" restored in the shortest form that carries them, the
       re-stretched cells fixed by shortening the tallest neighbour rather than re-adding a footer), then carried, then unscored.
-- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 29 in this shape. The loop ends only when a
+- [x] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 29 in this shape. The loop ends only when a
+      fresh scorer and the owner find nothing worth improving.
+
+**Left behind:**
+
+**Closed out (orchestrated): Wave 29 is added as `active`, not spawned; the orchestrator spawns it.**
+
+- **basalt-ui 2.21.0** landed in its own commit (`7390e3c`: `bun install`, `basalt-ui sync`, MIGRATING § 2.21.0 read; no `BarList
+  variant="default"` in argo). No local strip-cell stretch workaround existed to drop — swept the whole dashboard, none found; the
+  workers were told not to add one and the stretched-cell items went out as `waits: basalt 2.21.0`.
+- **Landed (master, deployed, `/api/health` = `b93552d`, check + deploy workflows green):** five fan-out PRs, each with two independent
+  agent-gateway review rounds, scope frozen after round 2, the last fix diff read by the lead, CI `check` green on the PR head before
+  `rd merge`, `make check` green after every rebase: #112 astro, #113 garmin + body composition + walking pad, #114 strength + reading,
+  #115 usage + m365 + hermes, #116 the question rung (`[alert]` prefix, structured handles `{stem, lead, ordinal}`, verb from the primary
+  action, terse stems re-checked for collisions) + home + warden + agents, and one duration helper (`formatDuration` / `formatAgo` in
+  `lib/format.ts`) across home, agents, warden, calendar and `ScheduleRow`.
+- **Code review caught:** the moon detail parsed API prose (now structured fields, the reason verbatim otherwise); a low-cloud limiting
+  factor two predicates could drop; `Gate clearance` measuring against the skyline; a speculative `fills on sync`; a `NaN bpm` focus
+  readout; missing recovery inputs attributed to the last scored day; a bare `±{x}` zone caption; a headline denominator counting
+  unscored lifts and `0 of 0`; balance direction; the untitled count printed twice; an m365 headline asserting the fetch cap; terse
+  stems that re-collided; a page-blanking `!` on a missing ask; a hover-only fact; `0 min`; Merge on a failed verification.
+- **Round `w28-r1`** (live, `basalt-ui shot --base https://argo.jkrumm.com`, `argo-auth` seeded from `secrets-run read
+  op://common/api/SECRET` via env, 1440 + 390, both schemes, plus the two m365 pane presets; 1549 shots, 12 focus timeouts; the light
+  desktop page timed out in both presets, covered by the main run). Boards: `.design-shots/w28-r1-{a,b,c,m365-labeled,m365-detail}`
+  (gitignored), copied to the MacBook, `~/Downloads/argo-design-review/w28/`. Three fresh `basalt-design-reviewer`s, each given the w27
+  shots to classify every defect, plus a Keel side-by-side; per-page verdicts in `docs/design/<page>.md` § "Wave 28 round".
+- **Reviewer verdict, stated plainly:** **walking pad passes again; twelve fail.** Counted from the reviewers' lists: **≈47 fixed**,
+  **≈37 carried**, **19 new**, **≈36 unscored** (the reviewers read further into crops this round). Calendar, reading and hermes have
+  no new defect. The new defects cluster in three places: (1) **the question rung over-corrected** — when no handle fits whole, change
+  titles fall to `Implement {repo} change ({n})?` and lose their subject (Home, Warden), and Agents card 3 is back to the generic
+  `Answer this request?`; (2) **over-glued text** — `Latest changes` ages glued end to end now break mid-word in the decision-card
+  panel, and `mid` / `{m} %` split at 1440; (3) **lost facts again** — the body-comp maintenance band width, the 2.21.0 meters hiding a
+  zone name (caution, maintain), astro cloud-layers printing the mid value three times instead of once.
+- **Stretch on 2.21.0:** align-by-part fixed most strips (warden, reading shelf, the c pages are all under 0.4), but five short cells still
+  read 0.47–0.62 empty beside a tall sibling — an UPSTREAM row, not an argo workaround.
+- **Against Keel:** close — Garmin, Body composition, Calendar, Strength, WalkingPad, Astro, Usage; does not yet — Home (regressed:
+  ordinal titles), Agents, Warden, Reading, Hermes, M365.
+- **Not verified:** focus on garmin fitness, strength bench press, one warden board card (left the board mid-run) and one m365 anchor;
+  the m365 390 labeled header and the 390 detail pane with a source open; strength full-page shots below the first viewport.
+- **Basalt-owned rows:** `UPSTREAM.md` § "Wave 28" (strip short-cell void on 2.21.0, hidden zone names, detached ticks, the
+  `series-palette` guard skipping `p(BP.*)` entries, `BandStrip` ticks/hue/tooltip, chip and row hover, the 10.67 px select inset,
+  `ViewTabs` 390 alignment, narrow chart tooltips).
+- **Producer change still queued for the owner:** an authored `question` from warden and agent-gateway — the ordinal regression shows
+  how far a derived question can go.
+- **Cleanup:** worktrees and tabs removed with `rd fan --clean`; no background task left running.
+
+## Wave 29 — Re-score round 8: subjects back in titles, glue that wraps, one figure each <!-- status: active -->
+
+Same shape as Wave 28 (fan-out on disjoint page files, two independent reviews per PR, CI `check` green on the PR head before
+`rd merge`, live re-shoot incl. the m365 pane presets, fresh `basalt-design-reviewer`s with the w28 shots + a Keel side-by-side). The
+rule stays **subtract before you add**, and a removal that leaves a reader without a fact is a defect. Each page's detail is in
+`docs/design/<page>.md` § "Wave 28 round". WalkingPad passed twice: leave it. Stretched short cells are basalt's (`UPSTREAM.md`
+§ "Wave 28"): no local workaround.
+
+- [ ] The question rung: a title never drops its subject for an ordinal — when the whole handle does not fit, cut the handle at a word
+      (no ellipsis before `?`) and keep the ordinal only as a last tie-break; Agents never falls back to `Answer this request?`; titles
+      never restate their evidence line; Home's verb matches its only button (`Open in Warden`). Home, Warden and Agents.
+- [ ] Fix the argo items per page, fanned out: new first (glue that wraps at phrase boundaries rather than mid-word; the maintenance
+      band width back once; a `short` for every zone the 2.21.0 Meter hides; astro's mid value once), then carried, then unscored.
+- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 30 in this shape. The loop ends only when a
       fresh scorer and the owner find nothing worth improving.
 
 **Left behind:**

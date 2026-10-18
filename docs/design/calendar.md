@@ -154,3 +154,8 @@ No new basalt rows.
 
 - **Reviewer:** fail (no new defect; the page renders as in w26). Carried: next-days at four sizes and its half-blank crop (basalt / harness); the `·`-led wrap at 390 (basalt); long meeting titles ellipsize in next-days at 390 (basalt `ScheduleRow` has no wrap option — the local CSS override was rejected in review). Unscored: a mono ligature turns `<>` in a title into a diamond (basalt); mobile next-days crops include the bottom nav (harness).
 - **Against Keel:** close — the headline sentence carries no figure.
+
+### Wave 28 round (`w28-r1`, live after #112–#116 on basalt-ui 2.21.0)
+
+- **Reviewer:** fail (no new defect). Fixed: durations read `{h} h {m} min` (one spelling with Home and Agents). Carried: next-days at four sizes and its half-blank crop (basalt / harness); the `·`-led wrap at 390 (basalt); long titles ellipsize in next-days at 390 (basalt `ScheduleRow`). Unscored: the `<>` mono ligature (basalt); mobile next-days crops include the bottom nav (harness).
+- **Against Keel:** close — the headline states a fact but carries no figure.

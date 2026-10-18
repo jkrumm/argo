@@ -138,3 +138,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: no restated `This week` count, no opening zero, no `0 pinned`; the untitled count printed once; row times inside the edge; summaries end at a word at 390. Carried: no chip hover. **New:** a row title cut mid-word at 390 (whole in w26); the fold row `{n} untitled chats · oldest {age} ago` orphans `ago` at 390; the `Untitled` chip lost its count while every sibling keeps one, so the chips no longer add up to `All {n}`. Unscored: the footer's `Oldest thread started {date}` repeats the last row's date beside a second "oldest" in the fold.
 - **Against Keel:** does not yet — three rows and a fold, then a void above the composer.
+
+### Wave 28 round (`w28-r1`, live after #112–#116 on basalt-ui 2.21.0)
+
+- **Reviewer:** fail. Fixed: the `Untitled {n}` chip has its count, the chips add up to `All {n}`; the fold no longer orphans `ago`; row titles at 390 end at a word. Carried: chips have no hover (basalt `Button`); the complete-list footer `First thread {date}` still sits beside the fold's `oldest {age}` (reworded, not removed). Unscored: the headline `Nothing running` carries no figure or scope.
+- **Against Keel:** does not yet — three rows and a fold over a void above the composer.
