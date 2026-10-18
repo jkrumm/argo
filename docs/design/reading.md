@@ -186,3 +186,8 @@ Follow-up (w30-r2):
 
 - **Reviewer:** **pass, for the first time.** Fixed: the pace cell under the empty-ratio line by measure (0.14, from 0.51 — the 2.22 cell box ends at its content; visually the column is still half blank, P2 basalt); the rating axis `★` in the body face; `last read {n} {unit} ago` whole. New (basalt, P2): the shelf bar ~40 px below its hero. Carried: the mono `★` in the caption; slashed zeros. No lost fact.
 - **Against Keel:** does not yet — the pace column is still a blank half beside the histogram.
+
+### Wave 32 round (`w32-r1`, live after #134–#138 on basalt-ui 2.22.0, the first round with declared shot states)
+
+- **Reviewer:** fail on basalt-only P0s. Changed only by the state attributes: `empty` declared on `finished` (a rest anchor absent in empty), the real `Your shelf is empty` branch cropped as `empty-shelf`; progress, finished, backlog and time-read declare themselves absent. **New (basalt):** the `StatGroup` strip's cell anchors (`strip-<key>`) vanish under `empty` with no way to declare `data-shot-absent`, so 12 error shots. Carried (basalt): the pace column a blank half beside the histogram; the shelf bar floating under its hero; the mono `★`; slashed zeros. No lost fact.
+- **Against Keel:** does not yet — the pace column is still a blank half beside the histogram.

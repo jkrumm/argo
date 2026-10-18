@@ -1621,7 +1621,7 @@ once the dashboard bundle is live** (the served `index.html` references the new 
   cell); whether the one warden card still offering `Full reason` adds text.
 - **Cleanup:** worktrees and tabs removed with `rd fan --clean`; no background task left running.
 
-## Wave 32 — Re-score round 11: declared shot states, the small orphans, one wording per gap <!-- status: active -->
+## Wave 32 — Re-score round 11: declared shot states, the small orphans, one wording per gap <!-- status: done -->
 
 Same shape as Wave 31 (fan-out on disjoint page files, two independent reviews per PR, CI `check` green on the PR head before
 `rd merge`, live re-shoot incl. the m365 pane presets once the dashboard bundle is live, fresh `basalt-design-reviewer`s with the w31
@@ -1630,14 +1630,88 @@ is in `docs/design/<page>.md` § "Wave 31 round". Reading and WalkingPad pass: l
 no local workaround. The question rung stays frozen to its table; the authored producer `question` is an owner-approved backlog item in
 warden and agent-gateway, not built — add nothing for it.
 
-- [ ] Declare `data-shot-states` (`empty loading error`) on each page's anchors that have those states, so basalt-ui 2.22's shot renders
+- [x] Declare `data-shot-states` (`empty loading error`) on each page's anchors that have those states, so basalt-ui 2.22's shot renders
       and scores them again (every page; Agents and Warden fail on nothing else).
-- [ ] Fix the open argo items, fanned out: Home's show-more Warden count vs the facts line, the feed's raw `[{monitor} - …]` title
+- [x] Fix the open argo items, fanned out: Home's show-more Warden count vs the facts line, the feed's raw `[{monitor} - …]` title
       prefix, the recovery footer's orphaned figure, one wording for the pre-sync recovery gap on Home and Garmin; Garmin's recovery
       chart facts separator; astro's Sky tick at one of the cell's three sizes with its unit reachable on screen, and the Sky footer in
       two lines at 1440; the argo-local `ScheduleRow`'s cancelled-row duration overlap and its sizes; m365's kind caption restating the
       hero and the empty 1440 page height; usage's mixed-precision token rows. Then carried, then unscored.
-- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 33 in this shape. The loop ends only when a
+- [x] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 33 in this shape. The loop ends only when a
+      fresh scorer and the owner find nothing worth improving.
+
+**Left behind:**
+
+**Closed out (orchestrated): Wave 33 is added as `active`, not spawned; the orchestrator spawns it.**
+
+- **The shot-state seam (lead, on master before the fan-out):** `apps/dashboard/src/lib/shot-state.ts` reads `?shot-state=` once at
+  load; `lib/eden.ts`'s `fetcher` never settles under `loading` and answers 503 under `error`, `lib/router.ts` skips the retry under
+  `error`; `empty` is page-owned (`shotState() === 'empty'` substitutes the query's empty value at the read). Honoured in the production
+  bundle on purpose (the loop shoots the deployed dashboard; the param writes nothing). Commits `b335923`, `5d97986` (test windows
+  without `location`), `f023a73`, `0abf76c`. A `shotLoader` (skip awaited loaders under loading/error) was added and **dropped the same
+  hour**: it rendered card states production never reaches. The rule that replaced it: a state is declared only where production renders
+  it — a route whose loader awaits its data shows the route pending screen / `CrashFallback`, so its anchors declare `empty` only.
+  basalt's `shot` reads the declared set from the REST render, so the declaration sits on a rest anchor (it may also carry
+  `data-shot-absent`), the empty UI gets its own anchor, and every rest anchor gone under a state carries `data-shot-absent`.
+- **Landed (master, deployed, `/api/health` = `732a53f`, Deploy + check workflows green):** five fan-out PRs, each with two independent
+  agent-gateway review rounds, scope frozen after round 2, the last fix diff read by the lead, CI `check` green on the PR head before
+  `rd merge` (the first train run stopped on draft PRs; marked ready, re-run): #134 warden + agents, #135 strength + body composition +
+  reading + walking pad, #136 astro, #137 usage + m365 + hermes, #138 home + garmin + calendar. Follow-up after the shot, one review
+  round: `69568a6` (the m365 phone panes declare `empty`). `make check` green on merged master (1441 + 598 pass, build green). Reading and
+  WalkingPad changed only by state attributes and the one-line empty substitution.
+- **Declared:** `empty` on every page; Calendar also `loading` / `error` (its loader only prefetches). Astro's Tonight declares nothing
+  (disputed, below).
+- **Fixed this round (verified live):** Home show-more as the remainder (`{m} more in Warden` / `{m} more on Agents`, label covers agent
+  and human-queue items); feed Warden titles without the `[{monitor} - …]` prefix; Garmin chart facts `mean · `; the cancelled
+  `ScheduleRow` duration in its column; m365 `Chats by kind` lead caption; the m365 scrollbar under the pane header; usage token precision;
+  the Sky tick with its unit on screen; astro `night-anatomy` / `strip-sky` at three sizes; `craft-7/no-declared-states` everywhere but
+  Tonight.
+- **Not fixed (carried to Wave 33, argo):** the Home recovery footer still orphans `of {n}`; `ScheduleRow` still four type sizes; the Sky
+  footer still three lines at 1440. The pre-sync recovery wording is shared in code but unverifiable live (the day was scored).
+- **What the lead caught before review:** the show-more row wording the totals and the remainder identically; declarations on
+  empty-only elements (invisible at rest, so craft-7 stayed); `loading` / `error` declared on loader-gated pages; whole-page wrapper
+  anchors; a shot-only page-level astro card.
+- **Code review caught:** the Garmin load + fitness cells unemptied under `empty`; calendar / Home sources still `unknown` under `empty`;
+  a `?? ''` footer opening on ` · `; `restBy('/agents')` counting human-queue items; the m365 `LabeledPane` fragment root; the m365
+  source list's false `with this label` under `empty`; the Sky footer able to open a line on `·`; a `0.95` → `0.9` float tie; absent marks
+  that did not match what unmounts.
+- **Rounds:** `w32-r1` (all pages live, 1440 + 390, both schemes, plus the two m365 pane presets; shot after the served bundle carried the
+  new route chunks — `data-shot-states` present in them — not on `/api/health` alone). `basalt-ui shot --base https://argo.jkrumm.com`,
+  `argo-auth` seeded from `secrets-run read op://common/api/SECRET` via env, never printed or written. Boards:
+  `.design-shots/w32-r1-{a,b,c,m365-labeled,m365-detail}` (gitignored). Four fresh `basalt-design-reviewer`s each given the w31 shots, plus
+  a Keel side-by-side; verdicts in `docs/design/<page>.md` § "Wave 32 round"; basalt rows in `UPSTREAM.md` § "Wave 32".
+- **Reviewer verdict, stated plainly:** **WalkingPad passes a sixth time.** Every other page fails, and most new failures exist only
+  because the states render for the first time: empty / loading / error copy that names no cause or next step, false zeros, loading
+  worded as error, strips that keep live figures beside emptied charts. Reading fails on basalt-only P0s (strip-cell anchors cannot
+  declare `data-shot-absent`), Strength on the same plus carried basalt rows. Agents and Warden pass every rest component. No lost fact.
+- **Against Keel:** close — Home, Agents, Garmin, Warden, Strength, Calendar (at rest), Body composition, WalkingPad, Astro, Usage, M365;
+  does not yet — Reading, Hermes.
+- **Not verified:** the m365 labeled-pane remove error (no error rendered); the 390 m365 detail pane with a source open; row hovers the
+  harness cannot reach (m365 rows, astro night strip).
+- **Boards copied to the MacBook:** `~/Downloads/argo-design-review/w32/` (`w32-r1-*`).
+- **Cleanup:** worktrees and tabs removed with `rd fan --clean`; no background task left running.
+
+## Wave 33 — Re-score round 12: states that say why, strips that empty with their charts <!-- status: active -->
+
+Same shape as Wave 32 (fan-out on disjoint page files, two independent reviews per PR, CI `check` green on the PR head before
+`rd merge`, live re-shoot incl. the m365 pane presets once the dashboard bundle is live, fresh `basalt-design-reviewer`s with the w32
+shots + a Keel side-by-side). **Subtract before you add**; a removal that leaves a reader without a fact is a defect. Each page's detail
+is in `docs/design/<page>.md` § "Wave 32 round". WalkingPad passes: leave it; Reading changes only if a declared state needs it. Basalt rows
+(`UPSTREAM.md` § "Wave 28"–"Wave 32"): no local workaround. The question rung stays frozen to its table; the authored producer `question`
+is an owner-approved backlog item in warden and agent-gateway, not built — add nothing for it. A state is declared only where production
+renders it (`lib/shot-state.ts`).
+
+- [ ] Every declared state says what is missing, why and what to do, in one wording per gap: the Agents / Warden `No snapshot yet` alerts
+      (a next step), Warden's `no data: …` strip cells, the Agents activity strip's two-line empty, Garmin's chart empties and the
+      triple-stated load cell, Usage's `No data in this window` lists and the ChartCard `empty` labels argo does not pass, m365's
+      `No chats yet` and the labeled cell's blank track, astro's `Unknown site` (copy and its 49 % empty height), Hermes' `All 0` toolbar;
+      Calendar's loading worded as error, `tasks-due`'s false zero under loading / error, the bare `{day} —` rows and the lone `—` in Today.
+- [ ] A page's strip and summary empty with its charts under `empty` (Body composition weight + rate cells, Usage's strip, Home's agents
+      cell); Home and Garmin say the empty recovery window in one wording. Then the carried argo items: the Home recovery footer's
+      orphaned `of {n}`, `ScheduleRow` at three sizes, the Sky footer in two lines at 1440, Tonight's declared state (settle the dispute:
+      declare a real one or record why none exists), the m365 `Labeled {n}` restatement and `no channels`, the warden fixes-cell
+      equation wrap. Then unscored.
+- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 34 in this shape. The loop ends only when a
       fresh scorer and the owner find nothing worth improving.
 
 **Left behind:**

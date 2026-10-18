@@ -132,6 +132,14 @@ Mantine `Modal` in a `*-modal.tsx` file (the `basalt-controls` filename carve-ou
 `inputProps(form, path, { type: 'checkbox' })`. In a fresh worktree run `bun install` before reading
 `node_modules/basalt-ui` (`llms.txt`, `dist/**/*.d.ts`), and `oxfmt <dir>` fixes a `format:check` failure.
 
+## Shot states (`basalt-ui shot`)
+
+`lib/shot-state.ts` reads `?shot-state=empty|loading|error` once at load: `loading` / `error` are forced at the API client
+(`lib/eden.ts` `fetcher`, no retry under `error`), `empty` is page-owned (`shotState() === 'empty'` swaps in the query's empty
+value at the read). Declare a state only where production renders it: a route whose loader awaits its data shows the route
+pending screen / `CrashFallback`, so its anchors declare `empty` only. `shot` reads the declared set from the rest render, so
+`data-shot-states` sits on a rest anchor; every rest anchor gone under a state carries `data-shot-absent`.
+
 ## Path Aliases
 
 - `@argo/api` → `../api/src` (Eden Treaty type source)

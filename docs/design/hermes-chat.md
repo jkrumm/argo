@@ -167,3 +167,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Shot states:** `thread-toolbar` declares `empty`; an empty thread list is substituted so the real no-threads note renders (`thread-empty`), and `thread-list` is absent there. `loading` and `error` are not declared: the route loader awaits the threads, so production shows the route pending screen / crash screen.
 - **Against Keel:** no subtraction removes the void above the composer without adding UI; left.
+
+### Wave 32 round (`w32-r1`, live after #134–#138 on basalt-ui 2.22.0, the first round with declared shot states)
+
+- **Reviewer:** fail. Fixed: the empty branch declared (`thread-toolbar`), `thread-empty` says what to do, `thread-list` absent in empty. Unscored (argo): with no threads the toolbar still shows an `All 0` chip and a search field; at 390 every title ellipsizes after a few words while its summary gets two lines. Carried: chips without hover (basalt). No lost fact.
+- **Against Keel:** does not yet — the void between the last row and the composer.

@@ -390,3 +390,25 @@ Two adoptions were reverted after the live shot showed a regression (see below).
 `Section` shells (strength), `Button` chip hover, mixed date ticks, `StackedArea` zero rows, info tooltips over the card above at 390,
 sticky bars over section crops, the 390 2 + 1 strip. Harness: 2.22's `shot` renders empty/loading/error only for anchors that declare
 `data-shot-states` — argo declares none (argo's to fix, Wave 32); hover crops that hover the selected cell or the pane, not a row.
+
+### Wave 32 — declared shot states (#134–#138) and the `w32-r1` live re-score
+
+Still on basalt-ui 2.22.0 (no release announced during the wave). argo now declares `data-shot-states` on every page: the
+seam is `apps/dashboard/src/lib/shot-state.ts` (`loading` / `error` forced at the API client, `empty` substituted per page
+where production has a real empty branch). Pages whose loader awaits its data declare only `empty` — production shows the
+route's pending / error screen there, not a card. The first render of those states surfaced these basalt-owned gaps:
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| `StatGroup variant="strip"` | a way for a strip cell's derived anchor (`strip-<key>`) to declare `data-shot-absent` (a cell prop, or inherit it from a wrapper); today a page that hides its strip in a declared state gets an error shot per cell | Reading (12) and Strength (16) hide the strip under `empty`, as production does with no data | as rendered — the errors stand |
+| `Alert` × `Code` theme radius | an inline `Code` inside an `Alert` within 3 px of the alert's radius (`craft-1/nested-radius-step`) | Agents + Warden `No snapshot yet` alerts | as rendered |
+| `Meter` null caption | a null value prints `No data` (banned filler) under the track; needs a caption prop or no default text | calendar week strip under loading / error | as rendered |
+| `ChartCard` `state.empty` default | a bare `No data` when the consumer passes no label | usage cost + tokens charts, health latency (argo will pass labels, Wave 33) | — |
+| `ViewTabs` in a `ChartCard` header | the indicator's radius within 3 px of the card's (`craft-1/nested-radius-step`, carried since w31) | usage cost + tokens charts | as rendered |
+
+`w32-r1` re-confirmed open rows: the `Meter` zone-name fit (`Caution` unnamed on Home at 1440, the maintain zone at 390), detached
+`Meter` ticks, the sparkline readout over the meter's `100`, `Sparkline referenceLabel` struck through, `Lines` clipping `Low`
+(astro), `Bars` shade-only series, four type sizes in the `Section` shells (strength), `Button` chip hover, mixed date ticks,
+`StackedArea` zero rows, decimal ticks, `BandStrip` glyphs, the strip's floating visual, info tooltips over the card above at 390,
+sticky bars over section crops, the 390 2 + 1 strip, the slashed zero in titles; harness: hover crops that hover the selected cell or
+the pane, not a row.

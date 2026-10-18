@@ -200,3 +200,8 @@ Follow-up (w30-r1):
 
 - **Reviewer:** fail. Fixed: the recovery cell states the same verdict as Home; `Caut.` is named at 1440 on the load meter; the ACWR divergence strip and daily-activity chart draw no legend (2.22 default). Carried (basalt): the recovery cell part-empty in its no-score state (`emptyRatio` 0.60, light 1440 caught before the day's sync); the load meter's `0` / `2.0` ticks detached. Unscored: the scored cell shows no window mean (it is in the chart header); the recovery chart's facts run `mean` into the next figure with no separator. No lost fact.
 - **Against Keel:** close — the strip reads like Keel's metric cards; the chart grid is plainer than Keel's composite cards.
+
+### Wave 32 round (`w32-r1`, live after #134–#138 on basalt-ui 2.22.0, the first round with declared shot states)
+
+- **Reviewer:** fail. Fixed: the recovery chart facts separate `mean · ` from the next figure; `craft-7/no-declared-states` (`empty` declared on the strip and every chart; the strip's three cells and the summary line all empty together); the recovery cell part-empty did not show (scored state — data-dependent). **New (argo, empty state):** each chart card says only `No {metric} in this window` in a full-height card — no cause (sync, window), no action; the training-load cell states the same absence three times. Carried (basalt): detached load-meter ticks. Unscored (basalt, unconfirmed): the ACWR legend is gone at 390, so its zone lines separate by hue only. No lost fact.
+- **Against Keel:** close — the strip reads like Keel's metric cards; the chart grid is plainer than Keel's composite cards.

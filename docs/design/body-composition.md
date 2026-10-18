@@ -192,3 +192,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer (r1):** fail. Fixed: end labels and legend no longer both name a series (2.22 `Lines` naming: end labels at 1440, legend at 390); the facts line is sans; the `·`-led wrap at 390 is gone; linear lines. **Regression (r1), fixed and verified in r2:** dropping the local tooltip formatter for 2.22's default lost the weekday and year (the default prints `{d} {Mon}` here); the formatter is restored. **New (basalt):** the rate meter floats ~70 px below its hero in the taller strip row (`emptyRatio` 0.36). Carried (basalt): the maintain zone unnamed at 390; the weight line through the `7 d mean` end label; the info tooltip over the net change; the slashed zero in titles (2.22's reset did not reach them).
 - **Against Keel:** close — shared-component overlaps remain.
+
+### Wave 32 round (`w32-r1`, live after #134–#138 on basalt-ui 2.22.0, the first round with declared shot states)
+
+- **Reviewer:** fail. Fixed: `craft-7/no-declared-states` (`empty` declared on `weight-chart`; the weight and skinfold series empty to their own branches). **New (argo, empty state):** the weight and rate strip cells keep their latest value, 7 d mean, 30 d delta and 28 d slope while the chart below says the window has no entries — the strip must empty with the series. Carried (basalt): the maintain zone unnamed at 390; the rate meter floating under its hero; the weight line through the `7 d mean` end label; the info tooltip over the net change; the slashed zero in titles. The w31 r2 tooltip date (`EEE d MMM yyyy`) holds. No lost fact.
+- **Against Keel:** close — shared-component overlaps remain.
