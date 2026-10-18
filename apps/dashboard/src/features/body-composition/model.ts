@@ -118,7 +118,8 @@ export function deltaFromMean(current: number | null, mean: number | null): numb
   return current === null || mean === null ? null : current - mean
 }
 
-export function summarySentence({
+/** Headline: weight and distance to goal. Facts: the trailing rate and the last weigh-in's age. */
+export function summaryParts({
   current,
   kgPerWeek,
   rateDays,
@@ -131,13 +132,19 @@ export function summarySentence({
   rateDays: number
   goal: number | null
   ageDays: number | null
-}): string {
-  if (current === null) return 'No weigh-ins in this window.'
-  const parts = [`${fixed(current)} kg`, `${signed(kgPerWeek, 2)} kg/wk over ${rateDays} d`]
-  if (goal !== null)
-    parts.push(`${fixed(Math.abs(current - goal))} kg to the ${fixed(goal)} kg goal`)
-  const head = parts.join(', ')
-  return ageDays === null ? `${head}.` : `${head}; last weigh-in ${ageLabel(ageDays)}.`
+}): { sentence: string; facts: string[] } {
+  if (current === null) return { sentence: 'No weigh-ins in this window.', facts: [] }
+  const sentence =
+    goal === null
+      ? `${fixed(current)} kg`
+      : `${fixed(current)} kg, ${fixed(Math.abs(current - goal))} kg to the ${fixed(goal)} kg goal`
+  return {
+    sentence,
+    facts: [
+      `${signed(kgPerWeek, 2)} kg/wk over ${rateDays} d`,
+      ageDays === null ? null : `last weigh-in ${ageLabel(ageDays)}`,
+    ].filter((f) => f !== null),
+  }
 }
 
 /** The API's trailing rate looks back 28 d but only sees rows in the selected window. */

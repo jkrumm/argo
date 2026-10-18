@@ -1,22 +1,22 @@
 import { useQuery } from '@tanstack/react-query'
-import { Skeleton, Text } from '@mantine/core'
+import { PageSummary } from '../../components/upstream/page-summary'
 import { useNow } from '../../lib/use-now'
 import { walkingPadQueries, type WalkingPadWindowParams } from '../../lib/queries/walking-pad'
 import { walkingStore } from '../../lib/window-stores'
-import { priorLabel, windowQualifier, summarySentence, weekSummary } from './model'
+import { priorLabel, windowQualifier, summaryParts, weekSummary } from './model'
 import { weekDaysSeries } from './week-queries'
 
-/** The page's one-line answer; every figure is the one its strip cell shows. */
+/** The page's headline and facts; every figure is the one its strip cell shows. */
 export function SummaryLine({ params }: { params: WalkingPadWindowParams }) {
   const now = useNow()
   const { window: preset } = walkingStore.useValues()
   const week = useQuery(weekDaysSeries(now))
   const heroes = useQuery(walkingPadQueries.heroes(params))
-  if (week.isPending || heroes.isPending) return <Skeleton height={20} width="60%" radius="sm" />
+  if (week.isPending || heroes.isPending) return <PageSummary sentence="" loading />
   const thisWeek = week.data === undefined ? null : weekSummary(week.data.points, now)
   return (
-    <Text size="sm" c="dimmed" data-shot="summary">
-      {summarySentence({
+    <PageSummary
+      {...summaryParts({
         weekDistanceM: thisWeek?.distanceM ?? null,
         weekSessions: thisWeek?.sessions ?? null,
         streakDays: heroes.data?.streak.currentDays ?? 0,
@@ -25,6 +25,6 @@ export function SummaryLine({ params }: { params: WalkingPadWindowParams }) {
         prior: priorLabel(preset),
         period: windowQualifier(preset),
       })}
-    </Text>
+    />
   )
 }

@@ -8,9 +8,3 @@
   font-size: var(--vx-text-sm);
   color: var(--vx-muted);
 }
-
-.summary {
-  margin: 0;
-  font-size: var(--vx-text-md);
-  color: var(--vx-ink);
-}

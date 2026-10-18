@@ -123,3 +123,9 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - **r2:** **pass** — every component and the page.
 - **Against Keel:** holds up as an empty state; Keel would still show the history.
 - **Open for Wave 24:** open on the last window with walks when the 30-day window is empty.
+
+### Wave 24 fixes
+
+- The page opens with `PageSummary`: sentence `{km} km this week in {n} walks`, facts `streak {d} d` · `pace {p} km/h, {±d} km/h vs the {prior window}`. `summaryParts` (pure, unit-tested) replaces `summarySentence`; the skeleton rides `loading`. The "no prior window to compare" clause is gone: a pace without a delta says only its period.
+- History table subtitle drops "newest first" (an ordering note, not a fact): it states the walk count only.
+- Basalt rows: none.

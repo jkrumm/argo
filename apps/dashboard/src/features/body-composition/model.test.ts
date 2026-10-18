@@ -16,7 +16,7 @@ import {
   signed,
   siteRows,
   slopeOverDays,
-  summarySentence,
+  summaryParts,
   weightDeltaPolarity,
   weightWindowStats,
   windowDays,
@@ -115,26 +115,29 @@ test('deltaFromMean', () => {
   expect(deltaFromMean(null, 81)).toBeNull()
 })
 
-describe('summarySentence', () => {
-  test('full sentence repeats the cell figures', () => {
+describe('summaryParts', () => {
+  test('the headline carries weight and distance to goal, the facts rate and entry age', () => {
     expect(
-      summarySentence({ current: 80, kgPerWeek: -0.5, rateDays: 28, goal: 75, ageDays: 3 }),
-    ).toBe('80.0 kg, −0.50 kg/wk over 28 d, 5.0 kg to the 75.0 kg goal; last weigh-in 3 days ago.')
+      summaryParts({ current: 80, kgPerWeek: -0.5, rateDays: 28, goal: 75, ageDays: 3 }),
+    ).toEqual({
+      sentence: '80.0 kg, 5.0 kg to the 75.0 kg goal',
+      facts: ['−0.50 kg/wk over 28 d', 'last weigh-in 3 days ago'],
+    })
   })
   test('no goal drops the distance clause', () => {
     expect(
-      summarySentence({ current: 80, kgPerWeek: 0.5, rateDays: 28, goal: null, ageDays: 0 }),
-    ).toBe('80.0 kg, +0.50 kg/wk over 28 d; last weigh-in today.')
+      summaryParts({ current: 80, kgPerWeek: 0.5, rateDays: 28, goal: null, ageDays: 0 }),
+    ).toEqual({ sentence: '80.0 kg', facts: ['+0.50 kg/wk over 28 d', 'last weigh-in today'] })
   })
   test('unknown rate is a dash, never 0', () => {
     expect(
-      summarySentence({ current: 80, kgPerWeek: null, rateDays: 28, goal: null, ageDays: null }),
-    ).toBe('80.0 kg, — kg/wk over 28 d.')
+      summaryParts({ current: 80, kgPerWeek: null, rateDays: 28, goal: null, ageDays: null }).facts,
+    ).toEqual(['— kg/wk over 28 d'])
   })
   test('empty window', () => {
     expect(
-      summarySentence({ current: null, kgPerWeek: null, rateDays: 28, goal: 75, ageDays: null }),
-    ).toBe('No weigh-ins in this window.')
+      summaryParts({ current: null, kgPerWeek: null, rateDays: 28, goal: 75, ageDays: null }),
+    ).toEqual({ sentence: 'No weigh-ins in this window.', facts: [] })
   })
 })
 
@@ -146,8 +149,8 @@ describe('rateDays', () => {
   })
   test('summary names that span', () => {
     expect(
-      summarySentence({ current: 80, kgPerWeek: 0.5, rateDays: 7, goal: null, ageDays: 1 }),
-    ).toBe('80.0 kg, +0.50 kg/wk over 7 d; last weigh-in 1 day ago.')
+      summaryParts({ current: 80, kgPerWeek: 0.5, rateDays: 7, goal: null, ageDays: 1 }).facts,
+    ).toEqual(['+0.50 kg/wk over 7 d', 'last weigh-in 1 day ago'])
   })
 })
 
