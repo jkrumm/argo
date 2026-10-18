@@ -6,7 +6,8 @@ import type {
   OverviewSummary,
   HistoryPoint,
 } from '../../lib/queries/agents'
-import { cardCopy, plainQuestion } from '../../components/upstream/decision-card-model'
+import { cardCopy, plainQuestion } from '../../lib/question-copy'
+import { authoredQuestion, firstSentence, flatten, restAfterFirstSentence } from '../../lib/text'
 
 // Presentation vocabulary for the agents page. The STATE and RECOMMENDATION
 // enums are agent-gateway's (server/lib/agents.ts); Argo only maps them to a label,
@@ -397,30 +398,35 @@ export function headlineOf(text: string): string {
 
 // ── Page summary ─────────────────────────────────────────────────────────────────────────────
 
-export type SummaryInput = {
-  /** Agents in `needs_you`. */
-  agentWaits: number
-  /** Asks in the human queue. */
+export type AgentsSummaryInput = {
+  /** Everything the Needs-you section lists: `needsYouCount`. */
+  items: number
+  /** Asks in the human queue; the rest of `items` are agents in `needs_you`. */
   asks: number
+}
+
+const nounFor = (n: number, one: string, many: string): string => (n === 1 ? one : many)
+
+/** Who is waiting, as a sentence that names no figure the strip under it shows. */
+function waitingSentence(agentWaits: number, asks: number): string {
+  if (agentWaits > 0 && asks > 0) return 'Agents and the human queue are waiting on you.'
+  if (agentWaits > 0) return `${nounFor(agentWaits, 'An agent is', 'Agents are')} waiting on you.`
+  return `${nounFor(asks, 'A request is', 'Requests are')} waiting for your answer.`
 }
 
 /**
  * The page's verdict and where the waiting sits. The strip under it prints the count, the oldest
  * wait and the fleet, so the headline names no figure the strip already shows.
  */
-export function summaryParts(s: SummaryInput): { sentence: string; facts: string[] } {
-  if (s.agentWaits === 0 && s.asks === 0) return { sentence: 'Nothing needs you.', facts: [] }
-  const sentence =
-    s.agentWaits > 0 && s.asks > 0
-      ? 'Agents and the human queue are waiting on you.'
-      : s.agentWaits > 0
-        ? `${s.agentWaits === 1 ? 'An agent is' : 'Agents are'} waiting on you.`
-        : `${s.asks === 1 ? 'A request is' : 'Requests are'} waiting for your answer.`
+export function agentsSummaryParts(s: AgentsSummaryInput): { sentence: string; facts: string[] } {
+  if (s.items === 0) return { sentence: 'Nothing needs you.', facts: [] }
+  const asks = Math.min(s.asks, s.items)
+  const agentWaits = s.items - asks
   const facts = [
-    s.agentWaits > 0 ? `${s.agentWaits} ${s.agentWaits === 1 ? 'agent' : 'agents'} blocked` : null,
-    s.asks > 0 ? `${s.asks} queued ${s.asks === 1 ? 'ask' : 'asks'}` : null,
+    agentWaits > 0 ? `${agentWaits} ${nounFor(agentWaits, 'agent', 'agents')} blocked` : null,
+    asks > 0 ? `${asks} queued ${nounFor(asks, 'ask', 'asks')}` : null,
   ].filter((f): f is string => f !== null)
-  return { sentence, facts }
+  return { sentence: waitingSentence(agentWaits, asks), facts }
 }
 
 /** The tool an agent runs in, as a reader names it: `claude-code` is `Claude Code`. */
@@ -527,8 +533,6 @@ const PREVIEW_MAX = 220
 /** An ellipsis cut falls back to a hard cut unless a word boundary sits past this share of the limit. */
 const WORD_CUT_FLOOR = 0.5
 
-const flatten = (text: string): string => text.replace(/\s+/g, ' ').trim()
-
 /** Cuts at the last word boundary that fits, with an ellipsis. */
 function ellipsize(text: string, max: number): string {
   if (text.length <= max) return text
@@ -592,9 +596,10 @@ export function needsYouCards(
       isText,
     )
     const command = item.cmd?.trim() || null
+    const askText = typeof item.question === 'string' ? item.question : ''
     const copy = cardCopy({
-      ask: firstSentence(item.question),
-      body: restAfterFirstSentence(item.question),
+      ask: firstSentence(askText),
+      body: restAfterFirstSentence(askText),
       title,
       plain: plainQuestion('Answer', host ? `${host} request` : 'this request'),
     })
@@ -608,7 +613,7 @@ export function needsYouCards(
       preview: null,
       actions: copyActions([
         command ? { label: 'Copy command', value: command } : null,
-        { label: 'Copy ask', value: flatten(item.question) },
+        { label: 'Copy ask', value: flatten(askText) || copy.question },
       ]),
       disclosure: disclosureOf('ask', copy.detail, command),
       abandoned: false,
@@ -631,10 +636,10 @@ export function needsYouCards(
           ? null
           : `No blocker reported; the snapshot is ${ageAgo(ctx.snapshotAgeMs)}.`
       const copy = cardCopy({
-        authored: a.question ?? null,
+        authored: authoredQuestion(a['question']),
         body: source ?? fallback,
         title,
-        plain: plainQuestion('Unblock', `${a.project} agent`),
+        plain: plainQuestion('Unblock', a.project === '—' ? 'this agent' : `${a.project} agent`),
       })
       return {
         key: `agent-${a.id}`,
@@ -647,7 +652,7 @@ export function needsYouCards(
         actions: copyActions([
           a.paneId ? { label: 'Copy pane id', value: a.paneId } : null,
           source ? { label: 'Copy blocker', value: flatten(source) } : null,
-          { label: 'Copy task', value: flatten(title) },
+          { label: 'Copy task', value: flatten(title) || copy.question },
         ]),
         disclosure: disclosureOf('reason', copy.detail, null),
         abandoned: isAbandonedWait(a, now),
@@ -677,18 +682,6 @@ function disclosureOf(
         ? 'Command'
         : `Full ${noun}`
   return { label, text, command }
-}
-
-export const firstSentence = (text: string): string => {
-  const flat = flatten(text)
-  const stop = flat.search(/[.!?](\s|$)/)
-  return stop === -1 ? flat : flat.slice(0, stop + 1)
-}
-
-export const restAfterFirstSentence = (text: string): string | null => {
-  const flat = flatten(text)
-  const rest = flat.slice(firstSentence(flat).length).trim()
-  return rest === '' ? null : rest
 }
 
 /**

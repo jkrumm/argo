@@ -295,14 +295,14 @@ const NAME_MAX = 18
 
 /**
  * A repo or project name that fits a feed row: whole when it fits, else cut after its last `-`,
- * `_`, `/` or `.` separator with an ellipsis. A name with no separator is never cut mid-token; it
- * stays whole and the row wraps it.
+ * `_`, `/` or `.` separator that leaves at least half the limit; with no such separator the name is
+ * hard-cut. Either way the cut ends in an ellipsis.
  */
 export function shortName(name: string, max = NAME_MAX): string {
   if (name.length <= max) return name
   const head = name.slice(0, max - 1)
   const sep = Math.max(...['-', '_', '/', '.'].map((c) => head.lastIndexOf(c)))
-  return sep > 0 ? `${head.slice(0, sep)}…` : name
+  return `${sep >= max / 2 ? head.slice(0, sep) : head}…`
 }
 
 /** Rows older than the start of yesterday are history, not "today's stream". */
@@ -478,20 +478,20 @@ export function staleFeeds(
 /** Sources behind the needs-you list: Warden and the agent snapshot. With none of them loaded the list is unknown, not empty. */
 export const NEEDS_YOU_SOURCES = 2
 
-export type SummaryInput = {
+export type HomeSummaryInput = {
   decisions: readonly Decision[]
   /** Sources whose feed is not loaded: the count then covers the rest, and the sentence says so. */
   unavailable: readonly string[]
 }
 
-export type SummaryParts = { sentence: string; facts: string[] }
+export type HomeSummaryParts = { sentence: string; facts: string[] }
 
 /**
  * The headline (count + oldest wait, or why it can't be told) and one fact under it: where the
  * waiting items sit. The fleet, the next meeting and recovery each have a strip cell of their own,
  * so the summary does not print them a second time.
  */
-export function summaryParts(s: SummaryInput): SummaryParts {
+export function homeSummaryParts(s: HomeSummaryInput): HomeSummaryParts {
   const n = s.decisions.length
   const oldest = s.decisions.reduce<number | null>(
     (max, d) => (d.ageMs !== null && (max === null || d.ageMs > max) ? d.ageMs : max),

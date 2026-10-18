@@ -13,7 +13,6 @@ import { boardStore } from './board-store'
 import {
   deferralOf,
   emptyColumnText,
-  openCount,
   originKind,
   splitBoardColumns,
   type BoardColumn,
@@ -150,10 +149,13 @@ function ColumnBody({
  */
 export function Board({
   columns,
+  open,
   emptyText,
   onSelectItem,
 }: {
   columns: readonly BoardColumn[]
+  /** Items on the board (`deriveBoard`), shown as the section count. */
+  open: number
   /** What the empty board says (a fact, from `emptyBoardText`). */
   emptyText: string
   onSelectItem: (eventId: number) => void
@@ -165,7 +167,6 @@ export function Board({
   useEffect(() => {
     if (active !== undefined && active.key !== picked) setPicked(active.key)
   }, [active, picked, setPicked])
-  const open = openCount(columns)
   const tabs = narrow ? (
     <ViewTabs
       label="Board column"

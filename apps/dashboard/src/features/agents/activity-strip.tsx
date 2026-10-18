@@ -64,7 +64,7 @@ export function ActivityStrip({ history, hours, now }: Props) {
       },
     [peak],
   )
-  const ticks = buckets
+  const ticks = shown
     .filter((b) => new Date(b.hourMs).getHours() % SIX_HOURS === 0)
     .map((b) => b.hourMs)
 

@@ -24,7 +24,7 @@ import {
   laterMeeting,
   nextMeeting,
   recoveryReading,
-  summaryParts,
+  homeSummaryParts,
   taskCounts,
   todayAgenda,
   wardenEvents,
@@ -170,7 +170,7 @@ export function TodayPage() {
     now,
   )
 
-  const summary = summaryParts({ decisions, unavailable })
+  const summary = homeSummaryParts({ decisions, unavailable })
 
   return (
     <>

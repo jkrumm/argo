@@ -6,13 +6,9 @@ import type {
   WardenHealth,
   WardenMetrics,
 } from '../../lib/queries/warden'
-import { stripShortcodes } from '../../lib/text'
-import {
-  cardCopy,
-  plainQuestion,
-  type CardCopy,
-  type DecisionCardFact,
-} from '../../components/upstream/decision-card-model'
+import { authoredQuestion, stripShortcodes } from '../../lib/text'
+import { cardCopy, wardenPlainQuestion, type CardCopy } from '../../lib/question-copy'
+import type { DecisionCardFact } from '../../components/upstream/decision-card-model'
 import {
   formatAgeDays,
   isDeferredItem,
@@ -426,15 +422,16 @@ export function cardCategory(
 /** The first complete sentence of warden's decision text is the question; whatever follows is the
  * evidence. A leading `[tag]` is lifted out as `tag` so the headline starts at the question.
  * Nothing is ever cut mid-sentence — a long first sentence is the headline as written. */
-export function splitReason(
-  reason: string | null,
-  fallback: string,
-): { tag: string | null; question: string; rest: string | null } {
+export function splitReason(reason: string | null): {
+  tag: string | null
+  question: string
+  rest: string | null
+} {
   const raw = reason?.trim() ?? ''
   const tagMatch = LEADING_TAG.exec(raw)
   const tag = tagMatch?.[1] ?? null
   const text = tagMatch ? raw.slice(tagMatch[0].length).trim() : raw
-  if (text === '') return { tag, question: fallback, rest: null }
+  if (text === '') return { tag, question: '', rest: null }
   const match = /^(.+?[.?!])(?:\s+|$)/s.exec(text)
   const first = match?.[1]
   if (first === undefined || first.length >= text.length) return { tag, question: text, rest: null }
@@ -442,76 +439,62 @@ export function splitReason(
   return { tag, question: first, rest: rest === '' ? null : rest }
 }
 
-/** The plain question of a Warden item from its kind and state: `Merge {repo} PR?`, `Retry failed run?`. */
-export function wardenPlainQuestion({
-  failed,
-  repo,
-  primary,
-}: {
-  failed: boolean
+/** What the Warden ask needs of an item; both `AwaitingOwnerRow` and a failed board item supply it. */
+export type AskSource = {
+  eventId: number
   repo: string | null
-  primary: WardenActionVerb | null
-}): string {
-  const where = stripShortcodes(repo ?? '')
-  if (failed) return plainQuestion('Retry', where === '' ? 'failed run' : `failed ${where} run`)
-  if (primary === 'merge') return plainQuestion('Merge', where === '' ? 'this PR' : `${where} PR`)
-  if (primary === 'implement')
-    return plainQuestion('Implement', where === '' ? 'this change' : `${where} change`)
-  if (primary === 'reinvestigate')
-    return plainQuestion('Reinvestigate', where === '' ? 'this item' : `${where} item`)
-  return plainQuestion('Decide on', where === '' ? 'this item' : `${where} item`)
+  title: string | null
+  reason: string | null
+  /** The raw producer `question`; read through `authoredQuestion`, so any junk reads as none. */
+  question: unknown
+  availableActions: readonly string[]
+}
+
+export type WardenAsk = {
+  plan: ActionPlan
+  /** The lifted `[tag]` of the reason. */
+  tag: string | null
+  copy: CardCopy
+  /** The repo is already named by the question, so a facts line must not repeat it. */
+  repoNamed: boolean
 }
 
 /**
- * The question, entity, evidence line and disclosure text of one Warden ask, all through the one
- * `cardCopy` rule: the producer's authored `question` first, else the reason's first sentence when
- * it is a question, else a plain question from the item's kind and state (`plain`), with the raw
- * title — emoji shortcodes stripped; a title that is nothing else is `Item #<id>` — as the entity,
- * whole. A failed item's reason is all evidence. `tag` is the lifted `[tag]`.
+ * Plan and copy of one Warden item, derived once: the verbs the card offers decide the plain
+ * question, and the same result feeds the Warden card and the Home inbox. The authored question
+ * comes first, then the reason's first sentence when it is a question, then the plain question,
+ * with the shortcode-stripped title (`Item #<id>` when nothing is left) as the entity, whole.
+ * A failed item's reason is all evidence.
  */
-export function askCopy({
-  eventId,
-  title,
-  reason,
-  failed,
-  question = null,
-  repo = null,
-  primary = null,
-}: {
-  eventId: number
-  title: string | null
-  reason: string | null
-  failed: boolean
-  /** The question the producer authored, when it sends one. */
-  question?: string | null
-  repo?: string | null
-  /** The primary verb the card offers, which names the plain question. */
-  primary?: WardenActionVerb | null
-}): { tag: string | null; entity: string | null; copy: CardCopy } {
-  const cleanTitle = stripShortcodes(title ?? '') || `Item #${eventId}`
-  const cleanReason = reason === null ? null : stripShortcodes(reason)
-  const plain = wardenPlainQuestion({ failed, repo, primary })
-  const authored = question === null ? null : stripShortcodes(question)
-  if (failed) {
-    const copy = cardCopy({ authored, body: cleanReason, title: cleanTitle, plain })
-    return { tag: null, entity: copy.entity, copy }
-  }
-  const split = splitReason(cleanReason, '')
+export function wardenAsk(source: AskSource, kind: QueueKind): WardenAsk {
+  const failed = kind === 'failed'
+  const plan = planActions(source.availableActions, kind)
+  const title = stripShortcodes(source.title ?? '') || `Item #${source.eventId}`
+  const reason = source.reason === null ? null : stripShortcodes(source.reason)
+  const plain = wardenPlainQuestion({ failed, repo: source.repo, primary: plan.primary })
+  const authored = authoredQuestion(source.question)
+  const split = failed ? null : splitReason(reason)
   const copy = cardCopy({
     authored,
-    ask: split.question,
-    body: split.rest,
-    title: cleanTitle,
+    ask: split?.question ?? '',
+    body: split === null ? reason : split.rest,
+    title,
     plain,
   })
-  return { tag: split.tag, entity: copy.entity, copy }
+  const where = stripShortcodes(source.repo ?? '')
+  return {
+    plan,
+    tag: split?.tag ?? null,
+    copy,
+    repoNamed: copy.source === 'plain' && where !== '' && copy.question.includes(where),
+  }
 }
 
 /** A decision waiting longer than this many days gets a warning tone on its age. */
 const WAIT_WARN_DAYS = 2
 
 /** The repo plus two facts: `waiting <n> d` and, when there is a history worth a word, how often the item was retried or revised. */
-export function cardFacts(row: AwaitingOwnerRow): DecisionCardFact[] {
+export function cardFacts(row: AwaitingOwnerRow, repoNamed = false): DecisionCardFact[] {
   const waiting =
     row.ageDays === null
       ? ''
@@ -524,7 +507,9 @@ export function cardFacts(row: AwaitingOwnerRow): DecisionCardFact[] {
       : row.revisionCount > 0
         ? `revised ${pluralize(row.revisionCount, 'time')}`
         : ''
-  return [stripShortcodes(row.repo ?? ''), waiting, history].filter((part) => part !== '')
+  return [repoNamed ? '' : stripShortcodes(row.repo ?? ''), waiting, history].filter(
+    (part) => part !== '',
+  )
 }
 
 /** Cards in one list: needs-decision first, then any awaiting entry in a state this page does not
@@ -783,4 +768,21 @@ export function emptyBoardText(waitingOnOwner: number): string {
 /** A poller as the Today page names it: `watchdog poll · 4 min old`. */
 export function pollerAgeText(poller: { name: string; ageMin: number }): string {
   return `${poller.name.replaceAll('_', ' ')} · ${Math.round(poller.ageMin)} min old`
+}
+
+export type BoardView = {
+  columns: BoardColumn[]
+  /** Items on the board: the one figure behind both the count and the empty sentence. */
+  open: number
+  /** What an empty board says; names the items waiting on the owner instead of "No open items". */
+  emptyText: string
+}
+
+/** The board's columns with the figures that depend on them, so no caller counts twice. */
+export function deriveBoard(
+  board: WardenBoard | undefined,
+  claimed: ReadonlySet<number>,
+): BoardView {
+  const columns = deriveBoardColumns(board, claimed)
+  return { columns, open: openCount(columns), emptyText: emptyBoardText(claimed.size) }
 }

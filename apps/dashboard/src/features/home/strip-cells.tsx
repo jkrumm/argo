@@ -248,7 +248,7 @@ export function acwrCell(reading: AcwrReading | null, now: number): StatStripCel
         format={(v) => v.toFixed(2)}
         zones={[
           { from: 0, to: ACWR_FLOOR, label: 'Under', color: VX.warn },
-          { from: ACWR_FLOOR, to: ACWR_OPTIMAL_TO, label: 'Target', color: VX.good },
+          { from: ACWR_FLOOR, to: ACWR_OPTIMAL_TO, label: 'Optimal', color: VX.good },
           { from: ACWR_OPTIMAL_TO, to: ACWR_CAUTION_TO, label: 'Caution', color: VX.warn },
           { from: ACWR_CAUTION_TO, to: ACWR_METER_MAX, label: 'Danger', color: VX.bad },
         ]}

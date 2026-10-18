@@ -1,10 +1,8 @@
 import { Box, Stack, Text } from '@mantine/core'
-import { useClipboard } from '@mantine/hooks'
 import { Section } from 'basalt-ui'
-import { IconCheck, IconCopy } from '@tabler/icons-react'
-import { DecisionCard, type DecisionCardAction } from '../../components/upstream/decision-card'
+import { DecisionCard } from '../../components/upstream/decision-card'
+import { useCopyAction } from '../../components/upstream/use-copy-action'
 import decisionClasses from '../../components/upstream/decision-card.module.css'
-import { softBreaks } from '../../lib/text'
 import type { HumanQueueItem } from '../../lib/queries/agents'
 import { useNow } from '../../lib/use-now'
 import { needsYouCards, type AgentRow, type NeedsYouCard } from './model'
@@ -21,22 +19,10 @@ type Props = {
   snapshotAgeMs?: number | null
 }
 
-/** Copies a payload field; the label reads `Copied` (or `Copy failed`) for a moment afterwards. */
-function copyAction(
-  clipboard: ReturnType<typeof useClipboard>,
-  action: NeedsYouCard['actions'][number],
-): DecisionCardAction {
-  return {
-    label: clipboard.error ? 'Copy failed' : clipboard.copied ? 'Copied' : action.label,
-    icon: clipboard.copied ? <IconCheck size={14} /> : <IconCopy size={14} />,
-    onClick: () => clipboard.copy(action.value),
-  }
-}
-
 function Card({ card }: { card: NeedsYouCard }) {
-  const primaryClip = useClipboard({ timeout: 1500 })
-  const secondaryClip = useClipboard({ timeout: 1500 })
-  const [primary, secondary] = card.actions
+  const [first, second] = card.actions
+  const primary = useCopyAction(first?.label ?? '', first?.value)
+  const secondary = useCopyAction(second?.label ?? '', second?.value)
   const { disclosure } = card
   return (
     <DecisionCard
@@ -45,7 +31,7 @@ function Card({ card }: { card: NeedsYouCard }) {
       {...(card.entity !== null && {
         actor: (
           <Text component="span" fz="xs" className={decisionClasses.wrap}>
-            {softBreaks(card.entity)}
+            {card.entity}
           </Text>
         ),
       })}
@@ -54,8 +40,8 @@ function Card({ card }: { card: NeedsYouCard }) {
       {...(card.preview !== null && {
         preview: <Text className={classes.preview}>{card.preview}</Text>,
       })}
-      {...(primary !== undefined && { primary: copyAction(primaryClip, primary) })}
-      {...(secondary !== undefined && { secondary: copyAction(secondaryClip, secondary) })}
+      primary={primary}
+      secondary={secondary}
       {...(disclosure !== null && {
         disclosure: {
           label: disclosure.label,
