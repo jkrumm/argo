@@ -951,6 +951,8 @@ describe('oldestWaitFooter', () => {
 describe('activityLegend', () => {
   const labels = (peak: number) => activityLegend(peak).map((e) => e.label)
   it('names no working entry at a peak of 0', () => expect(labels(0)).toEqual([]))
+  it('samples 1 for the range and the peak for the darkest', () =>
+    expect(activityLegend(5).map((e) => e.sample)).toEqual([1, 5]))
   it('names only the peak at 1', () => expect(labels(1)).toEqual(['1 agent working']))
   it('collapses the range to 1 agent at a peak of 2', () =>
     expect(labels(2)).toEqual(['1 agent working', '2 agents working']))

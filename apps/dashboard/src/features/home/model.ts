@@ -5,7 +5,6 @@ import type { WardenRaw } from '../../lib/queries/warden'
 import type { Decision } from '../../lib/decisions'
 import type { SourceClass } from '../../lib/queries/calendar'
 import { ARROW, NBSP, formatDuration, withUnit } from '../../lib/format'
-import { WARDEN_PUSH_MIN } from '../warden/page-model'
 import { GARMIN_SYNC_HOURS, RECOVERY_DAYS } from '../garmin-health/model'
 import { leadOf, subjectOf } from '../../lib/question-copy'
 import { firstClause, oldestWaitSentence, stripShortcodes } from '../../lib/text'
@@ -468,12 +467,8 @@ export function activityStream(
   return { groups, total: live.length }
 }
 
-/**
- * The activity card's feed gap: both producers named, Warden's cadence only (the agents cell above
- * states agent-gateway's, so each fact reads once).
- */
-const noFeedYet = (): string =>
-  `No feed yet from Warden or agent-gateway — Warden pushes every ${withUnit(WARDEN_PUSH_MIN, 'min')}`
+/** The activity card's feed gap: both producers named; each cadence is stated once elsewhere on the screen. */
+const noFeedYet = 'No feed yet from Warden or agent-gateway'
 
 /**
  * The activity card's line with nothing to count: the empty window when a feed loaded, then every
@@ -489,7 +484,7 @@ export function feedEmptyLine(input: {
   const { loaded, failed, pending, now } = input
   const unknown = unknownPhrase(failed, pending)
   if (!loaded && unknown === '') {
-    return `${noFeedYet()}.`
+    return `${noFeedYet}.`
   }
   const retry = failed.length > 0 ? ' — reload to retry' : ''
   return [loaded ? emptyStreamLabel(now) : null, unknown === '' ? null : `${unknown}${retry}.`]
@@ -498,7 +493,7 @@ export function feedEmptyLine(input: {
 }
 
 /** With a feed loaded and nothing in the window: the horizon, and where new events appear. */
-export const emptyStreamLabel = (now: number) =>
+const emptyStreamLabel = (now: number) =>
   `No events since ${clockTime(new Date(activityHorizon(now)).toISOString())} yesterday — Warden, narrator and calendar events appear here.`
 
 // ── Freshness ────────────────────────────────────────────────────────────────────────────────
@@ -521,7 +516,7 @@ export function staleFeeds(
 // ── Summary sentence ─────────────────────────────────────────────────────────────────────────
 
 /** Sources behind the needs-you list: Warden and the agent snapshot. With none of them loaded the list is unknown, not empty. */
-export const NEEDS_YOU_SOURCES = 2
+const NEEDS_YOU_SOURCES = 2
 
 export type HomeSummaryInput = {
   decisions: readonly Decision[]

@@ -9,6 +9,7 @@ import type { HistoryPoint } from '../../lib/queries/agents'
 import {
   activityFact,
   activityLegend,
+  agentCount,
   bandStateOf,
   clockOf,
   gapHours,
@@ -41,11 +42,11 @@ const workingFill = (working: number, peak: number) =>
  */
 const statesFor = (peak: number) =>
   [
-    ...activityLegend(peak).map(({ key, label }) => ({
+    ...activityLegend(peak).map(({ key, label, sample }) => ({
       key,
       label,
-      color: workingFill(key === 'peak' ? peak : 1, peak),
-      formatValue: (d: HourBucket) => `${d.working ?? 0} ${d.working === 1 ? 'agent' : 'agents'}`,
+      color: workingFill(sample, peak),
+      formatValue: (d: HourBucket) => agentCount(d.working ?? 0),
     })),
     {
       key: 'quiet',

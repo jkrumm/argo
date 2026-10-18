@@ -89,7 +89,7 @@ export const noSnapshotCaption = (hasSnapshot: boolean, hours: number): string =
 export const WAITING_FOR_SNAPSHOT = 'Waiting for the first snapshot'
 
 /** agent-gateway's push cadence, minutes: every "nothing pushed yet" line names it. */
-export const AGENT_GATEWAY_PUSH_MIN = 10
+const AGENT_GATEWAY_PUSH_MIN = 10
 
 /** The one wording for "no overview snapshot has arrived": the gap and the cadence to wait for. */
 export const noSnapshotText = (): string =>
@@ -274,24 +274,28 @@ export function activityFact(
 
 // ── Activity legend ──────────────────────────────────────────────────────────────────────────
 
-const agentCount = (n: number) => `${n} ${n === 1 ? 'agent' : 'agents'}`
+export const agentCount = (n: number) => `${n} ${n === 1 ? 'agent' : 'agents'}`
 
 /** The state an hour with `working` agents (> 0) belongs to: the peak, or the lighter range below it. */
 export const bandStateOf = (working: number, peak: number): 'peak' | 'working' =>
   working === peak ? 'peak' : 'working'
 
 /** The lighter range's label: `1 agent` when the peak is 2 (the range collapses to one), else `1–{peak-1}`. */
-export const workingRangeLabel = (peak: number): string =>
+const workingRangeLabel = (peak: number): string =>
   peak === 2 ? `${agentCount(1)} working` : `1–${agentCount(peak - 1)} working`
 
 /**
- * The working entries of the activity key. None at a peak of 0 (no cell carries the colour); only
+ * The working entries of the activity key, each with a representative `sample` count for its swatch. None at a peak of 0 (no cell carries the colour); only
  * the peak at 1 (no range below it); both above.
  */
-export function activityLegend(peak: number): { key: 'working' | 'peak'; label: string }[] {
+export function activityLegend(
+  peak: number,
+): { key: 'working' | 'peak'; label: string; sample: number }[] {
   if (peak < 1) return []
-  const peakEntry = { key: 'peak' as const, label: `${agentCount(peak)} working` }
-  return peak === 1 ? [peakEntry] : [{ key: 'working', label: workingRangeLabel(peak) }, peakEntry]
+  const peakEntry = { key: 'peak' as const, label: `${agentCount(peak)} working`, sample: peak }
+  return peak === 1
+    ? [peakEntry]
+    : [{ key: 'working', label: workingRangeLabel(peak), sample: 1 }, peakEntry]
 }
 
 // ── Projects ─────────────────────────────────────────────────────────────────────────────────
@@ -644,7 +648,10 @@ export function oldestWait(
 }
 
 /** The oldest-wait cell's footer: the waiting line before any snapshot, else the project it is in. */
-export const oldestWaitFooter = (hasSnapshot: boolean, oldest: OldestWait | null) => {
+export const oldestWaitFooter = (
+  hasSnapshot: boolean,
+  oldest: OldestWait | null,
+): string | undefined => {
   if (!hasSnapshot) return WAITING_FOR_SNAPSHOT
   return oldest === null ? undefined : `in ${oldest.project}`
 }
