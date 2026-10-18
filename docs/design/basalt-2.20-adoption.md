@@ -1,5 +1,8 @@
 # basalt-ui 2.20.0 adoption (basalt Wave 35)
 
+**Done in argo Wave 23 (2026-10-18):** #81–#84 and `c5670de`, net −1924 lines in `apps/`. What could not be deleted is in
+`UPSTREAM.md` § "Wave 23 — basalt-ui 2.20.0 adoption"; the reviewer verdicts are in `docs/waves/PLAN.md` Wave 23.
+
 Released: basalt-ui 2.20.0 (2026-10-18) carries all of basalt Wave 35.
 Repo: `argo`, landing per its own AGENTS.md (fan-out workers through `rd merge`). Do not edit basalt-ui.
 

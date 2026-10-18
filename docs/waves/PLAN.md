@@ -1002,7 +1002,7 @@ merges.
   - **For later waves:** the open items above; `apps/dashboard/src/lib/notifications.ts` needs an `m365:error` kind before M365 write
     failures can toast; the shot harness's focus anchors time out on slow upstreams and hidden mobile panes (each costs 30 s).
 
-## Wave 23 — The convergence re-score <!-- status: active -->
+## Wave 23 — The convergence re-score <!-- status: done -->
 
 Spawn only after basalt Wave 35 ships its props (`StatGroup variant="strip"`, `Meter` `ticks` / `tone="muted"` / `size="row"` /
 `stops`, per-row `BarList` `max`, `Sparkline reference`, `ChartCard facts`, the `relativeTime` locale fix, the `StatusDot` root export,
@@ -1011,10 +1011,10 @@ Spawn only after basalt Wave 35 ships its props (`StatGroup variant="strip"`, `M
 
 basalt-ui 2.20.0 shipped Wave 35 on 2026-10-18. `EventList` did not ship (a basalt Wave 36+ item); keep the local one.
 
-- [ ] Adopt basalt 2.20.0 per `docs/design/basalt-2.20-adoption.md` (bump, `sync`, delete each prototype for its export, one
+- [x] Adopt basalt 2.20.0 per `docs/design/basalt-2.20-adoption.md` (bump, `sync`, delete each prototype for its export, one
       commit per export). `make check` green, then live-shoot Garmin, Agents, Warden and Home and score them with a fresh
       `basalt-design-reviewer`. Report the argo line delta and file every gap as an `UPSTREAM.md` row.
-- [ ] Re-score every page with a fresh reviewer and against Keel. Every page still below the bar gets a Wave 24+ in this shape. The
+- [x] Re-score every page with a fresh reviewer and against Keel. Every page still below the bar gets a Wave 24+ in this shape. The
       loop ends only when a fresh scorer and the owner find nothing worth improving.
 
 What to re-score, page by page (the open items each re-score must check first):
@@ -1039,6 +1039,80 @@ What to re-score, page by page (the open items each re-score must check first):
 - Hermes chat (craft): the summary line's top inset; mono uppercase type chips.
 - Astro window (craft): the slashed-zero headline; per-night information in an all-out strip; the empty column beside the timeline; the
   clipped site select.
+
+**Left behind:**
+
+**Closed out (orchestrated): Wave 24 is added as `active`, not spawned; the orchestrator spawns it.**
+
+- **Landed (master, deployed, `/api/health` verified, last code commit `e0fdcd0`):**
+  - Step 1, the 2.20.0 adoption: `84c3379` bump + `sync`, `891ff50` astro `StatusDot` (2.20's `basalt/shadow-basalt-export`
+    lint failed on the two local `StatusDot`s; the Hermes one was an icon and is now `StatusIcon`), #81 agents + warden, #82 garmin
+    + calendar, #83 home + strength + body composition + walking pad, #84 reading + usage + astro + m365 + hermes, `c5670de` the
+    `relativeTime` wrapper deleted (`lib/format.ts` keeps only `APP_LOCALE`; a test pins that basalt follows the configured locale).
+    **Line delta: `apps/` +1500 / −3424 (net −1924).** Deleted: every local strip prototype (garmin, agents, warden, home,
+    walking-pad, body-composition, strength, reading, usage, m365, astro Night anatomy) for `StatGroup variant="strip"`,
+    `FactsLine` for `ChartCard facts`, the local status dots, the muted fills and caption-null pairs the export covers, all redundant
+    card insets. Not deletable (each a row in `UPSTREAM.md` § "Wave 23 — basalt-ui 2.20.0 adoption"): `CacheRing` (no ring tick),
+    `SkyScale` (no `stops`), per-zone/segment muted fills, Meter caption-null pairs that must keep zone labels, the strip's missing
+    `action` / pill / context / `state` slots, facts that cannot dim or take a tone.
+  - Step 2, the re-score: #85 warden, #86 home + agents, #87 calendar + strength + walking pad + body composition + reading, #88 astro
+    + m365, #89 usage + hermes (round-1 fixes; `apps/` +1258 / −592, mostly new tests and model helpers). What each fixed is in
+    `docs/design/<page>.md` § "Wave 23 rounds".
+- **Rounds:** r0 (`w23-r0-core`, the four core pages right after the bump), r1 (all 13 pages after step 1), r2 (all 13 after the
+  fixes). Live production, `basalt-ui shot --base https://argo.jkrumm.com` with the `argo-auth` localStorage seeded from
+  `secrets-run read op://common/api/SECRET` via env (never printed or written), 1440 + 390, both schemes. Each round scored by fresh
+  `basalt-design-reviewer`s plus a Keel side-by-side. Boards in `.design-shots/w23-*` (gitignored), copied to the MacBook,
+  `~/Downloads/argo-design-review/w23/`.
+- **Reviewer verdict, stated plainly (r2):** **pass** — Hermes chat, WalkingPad, Body composition (every component and page).
+  **Fail** — the other ten. Basalt-owned only: Garmin Health (Meter tick / zone-label placement), Calendar (four sizes from list
+  defaults). Argo items remain on Home, Agents, Warden, Strength, Reading, Usage, Astro, M365 (Wave 24). r1 had every page failing.
+- **Against Keel (r2):** holds up — Garmin, Reading, Usage (mostly), Home (mostly), Calendar (mostly), Body composition (close);
+  does not yet — Agents, Warden (weakest), Strength, Astro, M365 (rougher), Hermes (an empty page below three rows). The shared gap:
+  no page opens with Keel's headline sentence + fact line; argo's summaries are body-size text.
+- **Code review:** every PR got two independent agent-gateway review rounds, then scope froze and the lead read the last fix diff.
+  Real bugs caught: cancelled all-day events still counted and "all cancelled" over a live all-day item (calendar), a shortcode
+  regex that ate `m365:auth:prod`, a needs-you count with a second rule, navigation verbs turned into buttons (home/agents), tag
+  chips pruned while teams were still loading, the terrain-ridge reason dropped from the core gate (m365/astro), a bare-decimal cost
+  readout, index-joined verdict bars, `+NaN s` deltas (usage), `New → New` creation rows and recased `GitHub`/`OOMKilled` labels
+  (warden), a worker report claiming a fix it had not made (strength `dashed: PR`). Recurring false positive, rejected every round:
+  "import `relativeTime` from the wrapper" (2.20 honours the provider locale). `make check` ran green in the merge train on every merge.
+- **basalt friction:** `docs/design/UPSTREAM.md` § "Wave 23" (three tables: the adoption gaps, round 1, round 2). Top asks: the
+  `Button` `rightSection` inset (5.33 px, off-scale — the most frequent failure on agents and warden), Meter zone-label and end-tick
+  placement, sticky clearance = page-bar height, the chart tooltip name column, y ticks outside the plot, a strip cell `state` /
+  `action` slot, `ChartCard facts` stale/tone, the heading slashed zero outside `h1`–`h6`, and the shot harness (tall anchors blank
+  below one screen, fixed chrome over crops, focus timeouts).
+- **Deviations kept, the owner may revert:** warden board columns are uncapped (the per-column scroll was the listed defect; a busy
+  column now makes the page tall); the calendar detects cancellation by title prefix until the API carries `isCancelled`; strength
+  lift sparklines are neutral (one metric per cell, hue not earned); Home ACWR applies Garmin's visibility rule, so before 22:00 it
+  may show yesterday's reading and says so.
+
+## Wave 24 — Re-score round 3: the argo items r2 left <!-- status: active -->
+
+Same shape as Wave 23 step 2 (fan-out on disjoint page files, two independent reviews per PR, `rd merge`, live re-shoot, a
+fresh `basalt-design-reviewer` + Keel side-by-side per round). Basalt-owned items wait for basalt (UPSTREAM.md § "Wave 23").
+The list below is r2's argo-owned residue; each page's detail is in `docs/design/<page>.md` § "Wave 23 rounds".
+
+- [ ] Fix the argo items per page, fanned out:
+  - Home: activity headlines ellipsize mid-transition; the decision-card history log wraps at 1440 (one-line latest
+    transition or an evidence preview).
+  - Agents: needs-you readout unit; the stretched half-empty fleet cell; a decision-card title ellipsis; the project-card mini
+    bar caption; the activity-strip footer unit; a headline sentence.
+  - Warden: ≤3 font sizes on every decision/failed card; a desktop reason expander; the `reverts` definition; a Keel-style
+    board (empty columns collapsed, a 390 layout and anchor); a history preview that does not wrap.
+  - Strength: readiness card at ≤3 sizes and titled by its subject; the velocity panel's single tick; "stars" vs dots;
+    `Composite, all time` as a noun.
+  - Reading: the shelf cell (footer fact or no stretch); the title-link focus box; time-read labels outside the bar.
+  - Usage: the cache-hit cell's sparkline + delta; the billing footer noun; health x ticks and verdict-bar contrast; the
+    freshness word.
+  - Astro: a per-night shortfall bar (or none) instead of identical bars; a 390 strip scroll cue; the half-empty core cell;
+    the panorama minutes vs the window and the GO window stated three times (shoot the Forecast tab and a GO fixture).
+  - M365: the labeled pane's fragmented thumb; a noun for the labeled cell; detail and labeled panes reachable at 390.
+  - Calendar: the API `isCancelled` field (replace the title-prefix stopgap). Hermes: pills visible in light.
+- [ ] Every page opens with a headline sentence + fact line (Keel's shared gap): one shared pattern, not thirteen.
+- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 25 in this shape. The loop ends only when a
+      fresh scorer and the owner find nothing worth improving.
+
+**Left behind:**
 
 
 # Part 1, continued
