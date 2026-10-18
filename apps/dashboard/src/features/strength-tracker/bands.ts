@@ -9,7 +9,7 @@ import {
   ACWR_OPTIMAL_TO,
 } from '../garmin-health/model'
 
-export { ACWR_ZONE_NAME, ACWR_ZONE_SHORT } from '../garmin-health/formulas'
+export { ACWR_ZONE_NAME, acwrMeterZones } from '../garmin-health/formulas'
 export { ACWR_CAUTION_TO, ACWR_FLOOR, ACWR_METER_MAX, ACWR_OPTIMAL_TO }
 
 /** Acute equals chronic: the ACWR line the zones are read against. */

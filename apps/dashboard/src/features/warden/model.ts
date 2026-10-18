@@ -309,17 +309,12 @@ function summarizeRow(row: Row, skip: string[]): string {
     .join(' · ')
 }
 
-export function pluralize(count: number, word: string): string {
-  return `${count} ${word}${count === 1 ? '' : 's'}`
+export function pluralize(count: number, word: string, gap = ' '): string {
+  return `${count}${gap}${word}${count === 1 ? '' : 's'}`
 }
 
-/** {@link pluralize} with a no-break space, so the count never leaves its word (`revised 3 times`). */
-export const pluralizeWhole = (count: number, word: string): string =>
-  pluralize(count, word).replace(' ', NBSP)
-
 /** {@link formatRelative} with `ago` glued to its duration: the whole age is one unbreakable unit. */
-export const relativeWhole = (iso: string, now: number): string =>
-  formatRelative(iso, now).replace(/ ago$/, `${NBSP}ago`)
+export const relativeWhole = (iso: string, now: number): string => formatRelative(iso, now, NBSP)
 
 function externalIdOf(event: Row | null): string | null {
   const raw = event?.['external_id']

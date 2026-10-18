@@ -43,10 +43,9 @@ import {
   ACWR_FLOOR,
   ACWR_METER_MAX,
   ACWR_OPTIMAL_TO,
-  ACWR_ZONE_NAME,
-  ACWR_ZONE_SHORT,
   READINESS_PUSH_FROM,
   READINESS_REST_BELOW,
+  acwrMeterZones,
 } from './bands'
 import classes from './overview.module.css'
 
@@ -220,36 +219,12 @@ function TodaysCall(props: Params) {
                 min={0}
                 max={ACWR_METER_MAX}
                 format={(v) => v.toFixed(2)}
-                zones={[
-                  {
-                    from: 0,
-                    to: ACWR_FLOOR,
-                    label: ACWR_ZONE_NAME.undertrained,
-                    short: ACWR_ZONE_SHORT.undertrained,
-                    color: VX.warn,
-                  },
-                  {
-                    from: ACWR_FLOOR,
-                    to: ACWR_OPTIMAL_TO,
-                    label: ACWR_ZONE_NAME.optimal,
-                    short: ACWR_ZONE_SHORT.optimal,
-                    color: VX.good,
-                  },
-                  {
-                    from: ACWR_OPTIMAL_TO,
-                    to: ACWR_CAUTION_TO,
-                    label: ACWR_ZONE_NAME.caution,
-                    short: ACWR_ZONE_SHORT.caution,
-                    color: VX.warn,
-                  },
-                  {
-                    from: ACWR_CAUTION_TO,
-                    to: ACWR_METER_MAX,
-                    label: ACWR_ZONE_NAME.danger,
-                    short: ACWR_ZONE_SHORT.danger,
-                    color: VX.bad,
-                  },
-                ]}
+                zones={acwrMeterZones({
+                  floor: ACWR_FLOOR,
+                  optimalTo: ACWR_OPTIMAL_TO,
+                  cautionTo: ACWR_CAUTION_TO,
+                  max: ACWR_METER_MAX,
+                })}
                 startCaption={null}
                 endCaption={null}
               />

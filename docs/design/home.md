@@ -169,6 +169,6 @@ No basalt gaps this round.
 
 Follow-up (w30-r1):
 
-- **ACWR meter zone words** — fixed: the Training-load meter passes `label` = `ACWR_ZONE_NAME.*` and `short` = `ACWR_ZONE_SHORT.*` (`garmin-health/formulas.ts`), the same constants as Garmin and Strength; Home no longer hard-codes zone words.
+- **ACWR meter zone words** — fixed: the Training-load meter uses `acwrMeterZones` (`garmin-health/formulas.ts`), the same builder as Garmin and Strength; Home no longer hard-codes zone words.
 - **`ago` on every Home age** — fixed: the card's `Latest change:` line, the list rows and the tracking-fact lines (`first seen`, `last seen`, `resolved`, `retry`, reminders) all print `{duration}{NBSP}ago` (`historyTail`, `relativeWhole`); one spelling.
-- **Card glue** — fixed: `retried|revised {n} times` keeps the count with its word (`pluralizeWhole`).
+- **Card glue** — fixed: `retried|revised {n} times` keeps the count with its word (`pluralize` with an NBSP gap).

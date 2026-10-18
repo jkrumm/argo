@@ -181,4 +181,4 @@ No new basalt rows.
 Follow-up (w30-r1):
 
 - **Balance rows: the band range is never hidden** — fixed, supersedes the "range as the meter's band label" line above: the 390 Meter hides a narrow band's label, so the range moved to the caption, said once (`bandTail`): `{status} · in the {lo}–{hi} band`, or `{status} · {n} under|over the {lo}–{hi} band`. The band zone has an empty label (UPSTREAM § Wave 29 workaround).
-- **ACWR zone vocabulary** — fixed: `label` and `short` both come from the shared `ACWR_ZONE_NAME` / `ACWR_ZONE_SHORT`.
+- **ACWR zone vocabulary** — fixed: the meter uses the shared `acwrMeterZones`; the zone is `Low`, not `Undertrained`.

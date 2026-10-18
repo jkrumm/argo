@@ -440,9 +440,10 @@ export function bandRange([lo, hi]: readonly [number, number]): string {
 /** ` · in the 1.0–2.0 band`, ` · 0.12 under the 1.0–2.0 band`: the range is said here, once, since a narrow band's meter label is hidden. Empty with no ratio. */
 export function bandTail(offset: number | null, range: readonly [number, number]): string {
   if (offset === null) return ''
-  if (offset === 0) return ` · in the ${bandRange(range)} band`
+  const band = `the ${bandRange(range)} band`
+  if (offset === 0) return ` · in ${band}`
   const size = Math.abs(offset) < 0.005 ? '<0.01' : Math.abs(offset).toFixed(2)
-  return ` · ${size} ${offset < 0 ? 'under' : 'over'} the ${bandRange(range)} band`
+  return ` · ${size} ${offset < 0 ? 'under' : 'over'} ${band}`
 }
 
 // ── Records ──────────────────────────────────────────────────────────────────────────────────
