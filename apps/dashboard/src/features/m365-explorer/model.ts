@@ -285,8 +285,11 @@ export const channelsCellGap = (leader: GapLeader): string =>
   leader === 'labeled' ? NO_SOURCES : NO_TEAMS
 
 /** The phone Detail pane's empty line: the screen's one spelling when both lists are empty, else the open view's own gap. */
-export const detailGap = (o: { leader: GapLeader; chatsView: boolean; teams: number }): string =>
-  o.leader === 'labeled' ? NO_SOURCES : o.chatsView ? NO_CHATS : teamsGap(o.teams)
+export function detailGap(o: { leader: GapLeader; chatsView: boolean; teams: number }): string {
+  if (o.leader === 'labeled') return channelsCellGap(o.leader)
+  if (o.chatsView) return NO_CHATS
+  return teamsGap(o.teams)
+}
 
 /** A short form's full sentence: its leading clause, verbatim, then the cause and the step. */
 export const withStep = (short: string): string =>
