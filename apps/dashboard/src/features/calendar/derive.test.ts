@@ -324,18 +324,32 @@ describe('DST day (Europe/Berlin)', () => {
 })
 
 const cancelled = (id: string, prefix: string, start: string, end: string): CalendarItem => ({
-  ...ev(id, start, end),
+  ...ev(id, start, end, { isCancelled: true }),
   title: `${prefix} {title ${id}}`,
 })
 
 describe('cancelled meetings', () => {
-  test('the detector knows the M365 prefixes and nothing else', () => {
-    for (const prefix of ['Abgesagt:', 'Canceled:', 'Cancelled:', 'abgesagt :'])
-      expect(isCancelled(cancelled('x', prefix, `${D} 09:00:00`, `${D} 10:00:00`))).toBe(true)
+  test('the API flag is the signal, never the title', () => {
+    expect(isCancelled(cancelled('x', 'Canceled:', `${D} 09:00:00`, `${D} 10:00:00`))).toBe(true)
     expect(isCancelled(ev('y', `${D} 09:00:00`, `${D} 10:00:00`))).toBe(false)
+    expect(isCancelled(ev('y', `${D} 09:00:00`, `${D} 10:00:00`, { isCancelled: false }))).toBe(
+      false,
+    )
+    // A prefix without the flag is a live meeting that happens to be named that way.
     expect(
-      isCancelled({ ...ev('z', `${D} 09:00:00`, `${D} 10:00:00`), title: 'Canceled lunch' }),
+      isCancelled({ ...ev('z', `${D} 09:00:00`, `${D} 10:00:00`), title: 'Canceled: planning' }),
     ).toBe(false)
+  })
+  test('a flagged meeting without a prefix is cancelled and keeps its title', () => {
+    const flagged = ev('f', `${D} 09:00:00`, `${D} 10:00:00`, { isCancelled: true })
+    expect(isCancelled(flagged)).toBe(true)
+    expect(displayTitle(flagged)).toBe('{title f}')
+  })
+  test('the display title strips the en and de prefixes', () => {
+    for (const prefix of ['Abgesagt:', 'Canceled:', 'Cancelled:', 'abgesagt :'])
+      expect(displayTitle(cancelled('p', prefix, `${D} 09:00:00`, `${D} 10:00:00`))).toBe(
+        '{title p}',
+      )
   })
   test('one derivation owns rows, count and booked time', () => {
     const events = [
@@ -375,7 +389,12 @@ describe('cancelled meetings', () => {
     const allDay = (title: string): CalendarItem => ({
       ...ev('d', `${D} 00:00:00`, `${addDays(D, 1)} 00:00:00`),
       title,
-      payload: { source: 'm365', sourceClass: 'work', isAllDay: true },
+      payload: {
+        source: 'm365',
+        sourceClass: 'work',
+        isAllDay: true,
+        isCancelled: title.startsWith('Abgesagt'),
+      },
     })
     expect(allDayEvents([allDay('Abgesagt: x'), allDay('x')], D)).toHaveLength(1)
   })

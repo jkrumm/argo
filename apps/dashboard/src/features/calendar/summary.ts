@@ -22,17 +22,26 @@ export function countdown(summary: AgendaSummary): string | null {
   return `next ${weekdayShort(startKey)} ${time} — ${title}`
 }
 
-/** One sentence, built from the same derivation as the lists and the strip beside it. */
-export function summarySentence(summary: AgendaSummary, free: FreeBlock | null): string {
+/** `11h 5m` must not break between its parts at a narrow width. */
+const keepTogether = (text: string) => text.replace(/(\d+h) (\d+m)/g, '$1\u00a0$2')
+
+/**
+ * The page opening, built from the same derivation as the lists and the strip beside it: the
+ * headline answers "what is today", the facts carry the countdown and the week.
+ */
+export function summaryParts(
+  summary: AgendaSummary,
+  free: FreeBlock | null,
+): { sentence: string; facts: string[] } {
   // A calendar that has not answered makes every figure unknown: dashes, never "No events".
   if (
     summary.todayCount === null ||
     summary.todayBookedMin === null ||
     summary.weekBookedMin === null
   ) {
-    return '— meetings today · next — · — booked this week'
+    return { sentence: '— meetings today', facts: ['next —', '— booked this week'] }
   }
-  const today =
+  const sentence =
     summary.todayCount > 0
       ? `${summary.todayCount} ${summary.todayCount === 1 ? 'meeting' : 'meetings'} today, ${formatDurationMin(summary.todayBookedMin)} booked`
       : `No events today${free ? ` · ${formatDurationMin(free.minutes)} free` : ''}`
@@ -40,9 +49,8 @@ export function summarySentence(summary: AgendaSummary, free: FreeBlock | null):
     summary.weekBookedMin === 0
       ? 'nothing booked this week'
       : `${formatDurationMin(summary.weekBookedMin)} booked this week`
-  // `11h 5m` must not break between its parts at a narrow width.
-  return [today, countdown(summary), week]
-    .filter(Boolean)
-    .join(' · ')
-    .replace(/(\d+h) (\d+m)/g, '$1\u00a0$2')
+  return {
+    sentence: keepTogether(sentence),
+    facts: [countdown(summary), week].filter((f): f is string => f !== null).map(keepTogether),
+  }
 }

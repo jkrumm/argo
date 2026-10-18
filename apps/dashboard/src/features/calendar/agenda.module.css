@@ -59,12 +59,6 @@
   }
 }
 
-.summary {
-  font-size: var(--vx-text-md);
-  line-height: 1.4;
-  color: var(--vx-ink);
-}
-
 .muted {
   font-size: var(--vx-text-sm);
   color: var(--vx-muted);

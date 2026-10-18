@@ -4,7 +4,8 @@ import { Section, StatGroup } from 'basalt-ui'
 import { format } from 'date-fns'
 import { formatDurationMin } from '../../components/upstream/schedule-row-model'
 import type { SourceClass } from '../../lib/queries/calendar'
-import { countdown, summarySentence } from './summary'
+import { PageSummary } from '../../components/upstream/page-summary'
+import { countdown, summaryParts } from './summary'
 import { useNow } from '../../lib/use-now'
 import classes from './agenda.module.css'
 import { AllDayChips, DayGroups, EventRows, TaskList, WeekStrip } from './agenda-parts'
@@ -64,12 +65,11 @@ export function AgendaView({
   }, [events, now, unknown])
 
   const { summary, free } = model
+  const parts = summaryParts(summary, free)
   return (
     <Stack gap="md">
-      <Box data-shot="summary">
-        <Text className={classes.summary}>
-          {loading ? 'Loading agenda…' : summarySentence(summary, free)}
-        </Text>
+      <Box>
+        <PageSummary {...parts} loading={loading} />
         {errors.map((error) => (
           <Text key={error.label} className={classes.muted}>
             {error.label} unavailable — {error.reason}

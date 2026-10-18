@@ -120,3 +120,11 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - **r2:** fail, basalt-owned only: next-days still has four sizes (the list group label and meta are two small steps); the tall crop is blank below one screen (harness).
 - **Against Keel:** mostly holds up; Keel's schedule rows carry a per-row state word, and its summary is a headline.
 - **Open for Wave 24:** the API `isCancelled` field (the title prefix is a stopgap); a headline summary.
+
+### Wave 24 fixes
+
+- API: `isCancelled: boolean` on both event responses — Graph's `isCancelled` for M365 (added to the `get-calendar-view` `$select`; `false` when Graph omits it), always `false` for Google. Tests: `clients/m365-calendar.test.ts` (`normalizeEvent`) and the OpenAPI check in `routes/calendar.test.ts`.
+- Dashboard: `payload.isCancelled` (threaded in `mapCalendarEvent`) replaces the title-prefix stopgap in `derive.ts`; a `Canceled:` / `Cancelled:` / `Abgesagt:` prefix is still stripped from the displayed title, but a prefix alone no longer cancels a meeting.
+- Headline: the summary in `agenda-view.tsx` is `PageSummary` — sentence `{n} meetings today, {booked} booked`, facts `next in {m}` and `{booked} booked this week` (`summaryParts`, tested); unknown sources read `— meetings today` with dashed facts.
+
+No new basalt rows.

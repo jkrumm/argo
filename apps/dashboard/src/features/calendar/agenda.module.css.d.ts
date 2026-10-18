@@ -11,7 +11,6 @@ declare const classes: {
   readonly oStrip: string
   readonly oNext: string
   readonly oTasks: string
-  readonly summary: string
   readonly muted: string
   readonly chips: string
   readonly caption: string

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { CalendarEventPayload } from '../../lib/queries/calendar'
 import { agendaSummary, longestFreeBlock, type CalendarItem } from './derive'
-import { countdown, summarySentence, untilLabel } from './summary'
+import { countdown, summaryParts, untilLabel } from './summary'
 
 const D = '2026-10-14'
 const ev = (id: string, start: string, end: string): CalendarItem => ({
@@ -18,41 +18,36 @@ const events = [
   ev('c', `${D} 15:00:00`, `${D} 16:00:00`),
 ]
 
-describe('summarySentence', () => {
-  test('a busy day carries the count, booked time, the countdown and the week total', () => {
+describe('summaryParts', () => {
+  test('a busy day: the headline carries the count and booked time, the facts the countdown and week', () => {
     const summary = agendaSummary(events, now)
-    const sentence = summarySentence(summary, longestFreeBlock(events, D, now))
-    expect(sentence).toBe(
-      '3 meetings today, 2h\u00a040m booked · next in 20m · 2h\u00a040m booked this week',
-    )
-    // at least three live numbers plus the countdown
-    expect(sentence.match(/\d+/g)?.length).toBeGreaterThanOrEqual(4)
+    const { sentence, facts } = summaryParts(summary, longestFreeBlock(events, D, now))
+    expect(sentence).toBe('3 meetings today, 2h\u00a040m booked')
+    expect(facts).toEqual(['next in 20m', '2h\u00a040m booked this week'])
   })
   test('an empty day states the free time instead', () => {
     const summary = agendaSummary([], now)
-    expect(summarySentence(summary, longestFreeBlock([], D, now))).toBe(
-      'No events today · 7h free · nothing booked this week',
-    )
+    expect(summaryParts(summary, longestFreeBlock([], D, now))).toEqual({
+      sentence: 'No events today · 7h free',
+      facts: ['nothing booked this week'],
+    })
   })
   test('a lone meeting reads singular', () => {
     const summary = agendaSummary([events[1] as CalendarItem], now)
-    expect(summarySentence(summary, null)).toStartWith('1 meeting today, 40m booked')
+    expect(summaryParts(summary, null).sentence).toStartWith('1 meeting today, 40m booked')
   })
-})
-
-describe('summarySentence — unknown sources', () => {
   test('dashes, never "No events", while a calendar has not answered', () => {
     const summary = agendaSummary([], now, new Set(['work']))
-    expect(summarySentence(summary, null)).toBe('— meetings today · next — · — booked this week')
+    expect(summaryParts(summary, null)).toEqual({
+      sentence: '— meetings today',
+      facts: ['next —', '— booked this week'],
+    })
   })
-})
-
-describe('durations in the sentence', () => {
-  test('never break between hours and minutes', () => {
+  test('durations never break between hours and minutes', () => {
     const long = [ev('l', `${D} 12:00:00`, `${D} 23:05:00`)]
-    const sentence = summarySentence(agendaSummary(long, now), null)
+    const { sentence, facts } = summaryParts(agendaSummary(long, now), null)
+    for (const text of [sentence, ...facts]) expect(text).not.toMatch(/\d+h \d+m/)
     expect(sentence).toContain('11h\u00a05m')
-    expect(sentence).not.toMatch(/\d+h \d+m/)
   })
 })
 

@@ -18,6 +18,8 @@ export type CalendarEventPayload = {
   attendeeTotal?: number | undefined
   attendeeAccepted?: number | undefined
   isAllDay?: boolean | undefined
+  /** Set by the API (Graph `isCancelled`; always false for Google). */
+  isCancelled?: boolean | undefined
   location?: string | null
   organizer?: string | null
   videoLink?: string | null
@@ -121,6 +123,7 @@ type RawCalendarEvent = {
   start: string
   end: string
   isAllDay?: boolean
+  isCancelled?: boolean
   location?: string | null
   organizer?: { name?: string | null; email?: string | null } | string | null
   attendees?: Array<{ status?: string | null }> | null
@@ -192,6 +195,7 @@ function mapCalendarEvent(
       attendeeTotal: event.attendees?.length ?? 0,
       attendeeAccepted: event.attendees?.filter((a) => a.status === 'accepted').length ?? 0,
       isAllDay: event.isAllDay,
+      isCancelled: event.isCancelled ?? false,
       location: event.location ?? null,
       organizer: organizerName(event.organizer),
       videoLink: event.videoLink ?? null,
