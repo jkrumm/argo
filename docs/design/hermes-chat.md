@@ -172,3 +172,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: the empty branch declared (`thread-toolbar`), `thread-empty` says what to do, `thread-list` absent in empty. Unscored (argo): with no threads the toolbar still shows an `All 0` chip and a search field; at 390 every title ellipsizes after a few words while its summary gets two lines. Carried: chips without hover (basalt). No lost fact.
 - **Against Keel:** does not yet — the void between the last row and the composer.
+
+### Wave 33 fixes (round 12)
+
+- **No threads:** the toolbar (the `All 0` chip and the search field) renders only when a thread exists; the list's own note carries the state. `thread-toolbar` stays the declaring anchor and is absent under `empty`.
+- **At 390:** the title wraps to two lines (cut at a word past ~52 characters) and the summary holds to one.
