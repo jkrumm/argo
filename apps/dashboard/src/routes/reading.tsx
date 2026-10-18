@@ -98,7 +98,7 @@ function ReadingPage() {
       {data === undefined || shelf.length === 0 ? (
         <>
           <UnmatchedSection />
-          <div data-shot="empty-shelf" data-shot-states="empty" data-shot-absent="loading error">
+          <div data-shot="empty-shelf" data-shot-states="empty">
             <EmptyState
               icon={<IconBooks size={28} />}
               title="Your shelf is empty"
@@ -119,15 +119,11 @@ function ReadingPage() {
             <UnmatchedSection />
             <InProgress shelf={shelf} pace={pace.median} now={now} />
             <div className={hasTime ? classes.pair : undefined}>
-              <div data-shot="finished" data-shot-states="loading error" data-shot-absent="empty">
+              <div data-shot="finished" data-shot-absent="empty loading error">
                 <Finished groups={finishedGroups(shelf)} undated={counts.read - counts.readDated} />
               </div>
               {hasTime && (
-                <div
-                  data-shot="time-read"
-                  data-shot-states="loading error"
-                  data-shot-absent="empty"
-                >
+                <div data-shot="time-read" data-shot-absent="empty loading error">
                   <TimeRead rows={timeRows} />
                 </div>
               )}

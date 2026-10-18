@@ -83,22 +83,14 @@ function WalkingPadPage() {
         ) : (
           <>
             <WalkingStrip params={params} />
-            <Box data-shot="chart-weeks" data-shot-states="error" data-shot-absent="empty loading">
+            <Box data-shot="chart-weeks" data-shot-absent="empty loading error">
               <WeekChart params={params} />
             </Box>
             <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
-              <Box
-                data-shot="chart-distance"
-                data-shot-states="error"
-                data-shot-absent="empty loading"
-              >
+              <Box data-shot="chart-distance" data-shot-absent="empty loading error">
                 <DistanceChart params={params} />
               </Box>
-              <Box
-                data-shot="chart-hours"
-                data-shot-states="error"
-                data-shot-absent="empty loading"
-              >
+              <Box data-shot="chart-hours" data-shot-absent="empty loading error">
                 <HourGrid params={params} />
               </Box>
             </SimpleGrid>
@@ -107,21 +99,13 @@ function WalkingPadPage() {
                 <Suspense
                   fallback={<ChartCard state={{ pending: true }} placeholderHeight={420} />}
                 >
-                  <Box
-                    data-shot="history"
-                    data-shot-states="error"
-                    data-shot-absent="empty loading"
-                  >
+                  <Box data-shot="history" data-shot-absent="empty loading error">
                     <HistoryTable />
                   </Box>
                 </Suspense>
               </Grid.Col>
               <Grid.Col span={{ base: 12, lg: 4 }}>
-                <Box
-                  data-shot="achievements"
-                  data-shot-states="error"
-                  data-shot-absent="empty loading"
-                >
+                <Box data-shot="achievements" data-shot-absent="empty loading error">
                   <AchievementsList />
                 </Box>
               </Grid.Col>

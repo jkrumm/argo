@@ -26,7 +26,7 @@ function Row({
   stats: string
 }) {
   return (
-    <Card data-shot="record-header" data-shot-states="empty loading error">
+    <Card data-shot="record-header" data-shot-states="empty" data-shot-absent="loading error">
       <Group justify="space-between" gap="sm" wrap="wrap">
         <Group gap="sm" wrap="nowrap">
           <Box className={dot === 'live' ? `${classes.dot} ${classes.live}` : classes.dot} />
