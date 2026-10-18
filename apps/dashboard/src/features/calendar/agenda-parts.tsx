@@ -356,7 +356,7 @@ export function TaskList({
             <RetryButton onClick={onRetryTasks} loading={retryingTasks} label="Retry tasks" />
           </Group>
         ) : tasks.length === 0 ? (
-          <Text className={classes.muted}>Nothing overdue or due in the next 7 days.</Text>
+          <Text className={classes.muted}>Nothing overdue or due within 7 days.</Text>
         ) : (
           <div role="list">
             {tasks.map((task) => (
