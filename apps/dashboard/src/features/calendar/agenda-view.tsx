@@ -107,7 +107,7 @@ export function AgendaView({
   const todayState = todayCardState(model.today.rows.length, summary.incomplete)
   return (
     <Stack gap="md">
-      <Box>
+      <Box data-shot="calendar-headline" data-shot-states="loading error empty">
         <PageSummary {...parts} loading={loading} />
         {errors.map((error) => (
           <Text key={error.label} className={classes.muted}>
