@@ -5,7 +5,7 @@ import { format } from 'date-fns'
 import { formatDurationMin } from '../../components/upstream/schedule-row-model'
 import type { SourceClass } from '../../lib/queries/calendar'
 import { PageSummary } from '../../components/upstream/page-summary'
-import { summaryParts } from './summary'
+import { summaryParts, todayCardState } from './summary'
 import { useNow } from '../../lib/use-now'
 import classes from './agenda.module.css'
 import { AllDayChips, DayGroups, EventRows, TaskList, WeekStrip } from './agenda-parts'
@@ -66,6 +66,7 @@ export function AgendaView({
 
   const { summary, free } = model
   const parts = summaryParts(summary, free)
+  const todayState = todayCardState(model.today.rows.length, summary.incomplete)
   return (
     <Stack gap="md">
       <Box>
@@ -88,16 +89,20 @@ export function AgendaView({
       <Box className={classes.frame}>
         <Box className={classes.page}>
           <Box className={classes.col}>
-            {/* With nothing today the headline already says so and names the next event; a card
-                would only repeat it, so the column starts at the next days. */}
-            {model.today.rows.length > 0 && (
+            {/* Confirmed-empty hides the card (the headline says so and names the next event); an
+                unanswered calendar keeps it, as unknown. */}
+            {todayState !== 'hidden' && (
               <Box className={classes.oToday} data-shot="today">
                 <Card>
                   <Section
                     title="Today"
                     {...(summary.incomplete ? {} : { count: model.today.count })}
                   >
-                    <EventRows rows={model.today.rows} now={now} next={summary.next} />
+                    {todayState === 'unknown' ? (
+                      <Text className={classes.muted}>—</Text>
+                    ) : (
+                      <EventRows rows={model.today.rows} now={now} next={summary.next} />
+                    )}
                   </Section>
                 </Card>
               </Box>

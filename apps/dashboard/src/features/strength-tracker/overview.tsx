@@ -24,13 +24,13 @@ import {
   EM_DASH,
   READINESS_PUSH_FROM,
   READINESS_REST_BELOW,
-  dayLabel,
   shortDate,
   deloadLine,
   lastSessionDate,
   readinessHeader,
   recentDeload,
   liftDelta,
+  callFacts,
   lastSession,
   liftFooter,
   latestE1rm,
@@ -107,7 +107,7 @@ export function SummaryLine(props: Params) {
 }
 
 /** A term of art with its plain-word definition behind an info icon. */
-function Term({ label, definition }: { label: ReactNode; definition: string }) {
+function Term({ name, label, definition }: { name: string; label: ReactNode; definition: string }) {
   return (
     <Group gap={4} wrap="nowrap" align="center">
       {label}
@@ -118,7 +118,7 @@ function Term({ label, definition }: { label: ReactNode; definition: string }) {
         withArrow
         events={{ hover: true, focus: true, touch: true }}
       >
-        <ActionIcon variant="transparent" color="gray" size="xs" aria-label={definition}>
+        <ActionIcon variant="transparent" color="gray" size="xs" aria-label={`About ${name}`}>
           <IconInfoCircle size={14} />
         </ActionIcon>
       </Tooltip>
@@ -131,10 +131,7 @@ export function TodaysCall(props: Params) {
   const score = readiness?.score ?? null
   const session = lastSession(series.byExercise)
 
-  const facts = [
-    ...(call.asOf === null ? [] : [`latest ${call.asOf}`]),
-    ...(readiness?.driver ? [`driver ${readiness.driver}`] : []),
-  ]
+  const facts = callFacts({ asOf: call.asOf, driver: readiness?.driver ?? null, session })
   const meta = [
     deloadLine(deload, lastDate),
     call.verdict !== call.readinessVerdict && readiness !== null && score !== null
@@ -150,23 +147,18 @@ export function TodaysCall(props: Params) {
         <Text component="h3" m={0} fw={600} size="md" lh={1.35}>
           {readinessTitle(call)}
         </Text>
-        {facts.length === 0 && session === null ? null : (
+        {facts.text === '' && facts.inol === null ? null : (
           <Group gap={4} wrap="wrap" align="center">
             <Text size="xs" c="dimmed">
-              {[
-                ...facts,
-                ...(session === null
-                  ? []
-                  : [
-                      `last session ${exerciseLabel(session.exercise_id)}, ${dayLabel(session.date)}`,
-                    ]),
-              ].join(' · ')}
+              {facts.text}
             </Text>
-            {session === null ? null : (
+            {facts.inol === null ? null : (
               <Term
+                name="INOL"
                 label={
                   <Text size="xs" c="dimmed">
-                    · INOL {session.inol.toFixed(2)}
+                    {facts.text === '' ? '' : '· '}
+                    {facts.inol}
                   </Text>
                 }
                 definition={TERM_DEFINITIONS.inol}
@@ -177,6 +169,7 @@ export function TodaysCall(props: Params) {
         <SimpleGrid type="container" cols={{ base: 1, [CQ.wide]: 2 }} spacing="md">
           <Stack gap="xs" miw={0}>
             <Term
+              name="the readiness score"
               label={
                 <Text size="xs" fw={600}>
                   Score {readinessHeader(readiness)?.text ?? EM_DASH}
@@ -215,6 +208,7 @@ export function TodaysCall(props: Params) {
           </Stack>
           <Stack gap="xs" miw={0}>
             <Term
+              name="ACWR"
               label={
                 <Text size="xs" fw={600}>
                   ACWR {acwr === null ? EM_DASH : acwr.toFixed(2)}
@@ -278,7 +272,7 @@ function liftCell({
   now: number
 }): StatStripCell {
   const e1rm = latestE1rm(points)
-  const { delta, phrase } = liftDelta(points, now)
+  const move = liftDelta(points, now)
   const plotted = points.filter((p) => p.e1rm !== null).slice(-SPARK_POINTS)
   const spark = plotted.map((p) => p.e1rm as number)
   return {
@@ -286,10 +280,10 @@ function liftCell({
     caption: exerciseLabel(id),
     value: e1rm === null ? null : e1rm.toFixed(1),
     unit: 'kg e1RM',
-    ...(delta !== null && {
+    ...(move.delta !== null && {
       delta: (
         <DeltaBadge
-          value={delta}
+          value={move.delta}
           polarity="up-good"
           format={(v) => `${Math.abs(v).toFixed(1)} kg`}
           period={`in ${DELTA_DAYS} d`}
@@ -312,7 +306,7 @@ function liftCell({
       ),
     }),
     footer: liftFooter({
-      delta: { delta, phrase },
+      delta: move,
       prKg: pr?.bestE1RM ?? null,
       prDate: pr?.prDate ?? null,
     }),

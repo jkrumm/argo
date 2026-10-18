@@ -6,17 +6,27 @@
 import {
   ACWR_CAUTION_TO,
   ACWR_FLOOR,
-  ACWR_METER_MAX,
   ACWR_OPTIMAL_TO,
-} from '../garmin-health/model'
+  READINESS_PUSH_FROM,
+  READINESS_REST_BELOW,
+} from './bands'
 import { exerciseLabel } from './formulas'
 
-export { ACWR_CAUTION_TO, ACWR_FLOOR, ACWR_METER_MAX, ACWR_OPTIMAL_TO }
+export {
+  ACWR_CAUTION_TO,
+  ACWR_FLOOR,
+  ACWR_METER_MAX,
+  ACWR_OPTIMAL_TO,
+  E1RM_MAX_REPS,
+  INOL_MAX_REPS,
+  INOL_OPTIMAL_FROM,
+  INOL_OPTIMAL_TO,
+  READINESS_PUSH_FROM,
+  READINESS_REST_BELOW,
+} from './bands'
 
 export const EM_DASH = '—'
 export const DELTA_DAYS = 28
-export const READINESS_REST_BELOW = 40
-export const READINESS_PUSH_FROM = 70
 const DAY_MS = 86_400_000
 
 export type Point = { date: string; e1rm: number | null; inol: number | null }
@@ -248,12 +258,34 @@ export function liftFooter(input: {
     prKg === null
       ? null
       : `PR ${prKg.toFixed(1)} kg${prDate === null ? '' : ` · ${shortDate(prDate)}`}`
-  if (delta.delta === null) return [delta.phrase, record].filter((v) => v !== null).join(' · ')
-  return record ?? EM_DASH
+  const parts = (delta.delta === null ? [delta.phrase, record] : [record]).filter(
+    (v): v is string => v !== null && v !== '',
+  )
+  return parts.length === 0 ? EM_DASH : parts.join(' · ')
 }
 
-export function sessionCount(points: readonly Point[]): number {
-  return points.filter((p) => isNum(p.e1rm)).length
+export type CallFactsInput = {
+  asOf: string | null
+  driver: string | null
+  session: { exercise_id: string; date: string; inol: number } | null
+}
+
+/** The call card's facts line, split around the INOL figure (which carries its own definition). */
+export function callFacts({ asOf, driver, session }: CallFactsInput): {
+  text: string
+  inol: string | null
+} {
+  const parts = [
+    ...(asOf === null ? [] : [`latest ${asOf}`]),
+    ...(driver ? [`driver ${driver}`] : []),
+    ...(session === null
+      ? []
+      : [`last session ${exerciseLabel(session.exercise_id)}, ${dayLabel(session.date)}`]),
+  ]
+  return {
+    text: parts.join(' · '),
+    inol: session === null ? null : `INOL ${session.inol.toFixed(2)}`,
+  }
 }
 
 /** The API's `%/day` velocity as the page's one unit, `%/mo`. */

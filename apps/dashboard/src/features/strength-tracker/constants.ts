@@ -1,5 +1,16 @@
 import { VX } from 'basalt-ui/tokens'
 import { SERIES } from '../../lib/series'
+import {
+  ACWR_CAUTION_TO,
+  ACWR_FLOOR,
+  ACWR_OPTIMAL_TO,
+  E1RM_MAX_REPS,
+  INOL_MAX_REPS,
+  INOL_OPTIMAL_FROM,
+  INOL_OPTIMAL_TO,
+  READINESS_PUSH_FROM,
+  READINESS_REST_BELOW,
+} from './bands'
 import { EXERCISE_KEYS, STRENGTH_WINDOW_VALUES } from '../../lib/window-stores'
 
 export type ExerciseKey = (typeof EXERCISE_KEYS)[number]
@@ -52,24 +63,23 @@ export const METRICS: { value: MetricKey; label: string; unit: string }[] = [
   { value: 'avg_intensity', label: 'Avg Intensity', unit: '%' },
 ]
 
-/** Plain-word definitions for the call card, where each term first appears. */
+/**
+ * One definition per term, with its bands built from the model's constants so the copy cannot
+ * drift from what the page computes. Tooltips below reference these instead of restating them.
+ */
 export const TERM_DEFINITIONS = {
-  readiness:
-    'Readiness score, 0–100: the Garmin recovery score (HRV, sleep, resting heart rate) reduced by the fatigue of your last session. Push from 70, Rest below 40.',
-  acwr: 'Acute:chronic workload ratio: your recent weekly tonnage (4-week EWMA) divided by your long-run average (16-week EWMA). 0.8–1.3 is the healthy range; above 1.5 raises injury risk.',
-  inol: 'INOL, the load of one session on one lift: reps ÷ (100 − %1RM), summed over its work sets. 0.6–1.0 is productive; above 1.0 is heavy.',
+  readiness: `Readiness score, 0–100: the Garmin recovery score (HRV, sleep, resting heart rate) reduced by the fatigue of your last session. Push from ${READINESS_PUSH_FROM}, Rest below ${READINESS_REST_BELOW}.`,
+  acwr: `Acute:chronic workload ratio: your recent weekly tonnage (4-week EWMA) divided by your long-run average (16-week EWMA). ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO} is the healthy range; above ${ACWR_CAUTION_TO} raises injury risk.`,
+  inol: `INOL, the load of one session on one lift: reps ÷ (100 − %1RM), summed over its work and AMRAP sets of 1–${INOL_MAX_REPS} reps. ${INOL_OPTIMAL_FROM}–${INOL_OPTIMAL_TO} is productive; above ${INOL_OPTIMAL_TO} is heavy.`,
 } as const
 
 export const METRIC_TOOLTIPS = {
-  oneRmTrend:
-    'Estimated 1-rep max per session: the best work or AMRAP set of 1–10 reps, scored as the average of the Brzycki and Epley formulas. Higher-rep sets are left unscored because the two formulas diverge above 10 reps. The direction arrow is the slope of the last 28 days.',
-  strengthComposite:
-    'Three signals, each in standard deviations from your own 90-day average: e1RM growth rate, weekly tonnage growth against its 28-day average, and session INOL quality (0.6–1.0 is the productive range). Above zero is better than your norm.',
+  oneRmTrend: `Estimated 1-rep max per session: the best work or AMRAP set of 1–${E1RM_MAX_REPS} reps, scored as the average of the Brzycki and Epley formulas. Higher-rep sets are left unscored because the two formulas diverge above ${E1RM_MAX_REPS} reps. The direction arrow is the slope of the last 28 days.`,
+  strengthComposite: `Three signals, each in standard deviations from your own 90-day average: e1RM growth rate, weekly tonnage growth against its 28-day average, and session INOL quality (${INOL_OPTIMAL_FROM}–${INOL_OPTIMAL_TO} is productive). Above zero is better than your norm.`,
   weeklyVolume:
     'Weekly tonnage (weight × reps) by set type. MEV, MAV and MRV are the 25th, 50th and 90th percentile of your weekly tonnage over the last 90 days: a rough minimum, productive and maximum volume.',
-  trainingLoad:
-    'Acute:chronic workload ratio — 4-week vs 16-week EWMA of weekly tonnage per exercise. 0.8–1.3 is the optimal adaptation stimulus. Below 0.8 is undertrained, 1.3–1.5 is caution, above 1.5 is injury risk.',
-  inol: 'INOL (Intensity × Number Of Lifts) = Σ reps / (100 − %1RM) per session. Optimal zone 0.6–1.0. Below is underdosing, above is high CNS fatigue. Only work/AMRAP sets with 1–12 reps count.',
+  trainingLoad: `${TERM_DEFINITIONS.acwr} Computed per exercise. Below ${ACWR_FLOOR} is undertrained, ${ACWR_OPTIMAL_TO}–${ACWR_CAUTION_TO} is caution.`,
+  inol: TERM_DEFINITIONS.inol,
   momentum:
     'Velocity is the slope of a 28-day linear fit of e1RM, in % per month. Positive means strength is rising.',
   relativeProgression:
@@ -82,14 +92,11 @@ export const METRIC_TOOLTIPS = {
     'Load Quality: 0–100 composite. 40% INOL zone score (optimal: 0.6–1.0) + 40% ACWR zone score (optimal: 0.8–1.3) + 20% weekly volume vs personal MEV/MAV landmarks. ≥75 = Quality · 50–74 = Adequate · <50 = Poor.',
   heroBalance:
     'Balance: DOTS-adjusted ratio status across DL/Squat, Squat/Bench, DL/Bench, and Pull-up/BW. Shows the worst-offender pair. Balanced = all ratios within normative range. Imbalanced = >15% off. Critical = >30% off.',
-  heroReadiness:
-    'Readiness: Garmin recovery score adjusted for strength fatigue. Penalty = INOL of last session / personal p90 ceiling × 25% max shave. An additional 10% dampening applies if the last session had INOL > 1.2 within 48h. Push ≥ 70 · Normal 40–69 · Rest < 40.',
-  readinessStrain:
-    "Garmin recovery score (HRV 40 %, sleep 35 %, resting HR 25 %) reduced by up to 25 % for fatigue debt: the last session's INOL over your 90th-percentile INOL. A session above INOL 1.2 within 48 h takes a further 10 %. Push from 70, Rest below 40.",
+  heroReadiness: `Readiness: Garmin recovery score adjusted for strength fatigue. Penalty = INOL of last session / personal p90 ceiling × 25% max shave. An additional 10% dampening applies if the last session had INOL > 1.2 within 48h. Push ≥ ${READINESS_PUSH_FROM} · Normal ${READINESS_REST_BELOW}–${READINESS_PUSH_FROM - 1} · Rest < ${READINESS_REST_BELOW}.`,
+  readinessStrain: `${TERM_DEFINITIONS.readiness} Recovery is HRV 40 %, sleep 35 %, resting HR 25 %; fatigue takes up to 25 %: the last session's INOL over your 90th-percentile INOL, and a session above INOL 1.2 within 48 h takes a further 10 %.`,
   trainingRecoveryAlignment:
     'Sessions counted by recovery zone (High, Normal, Low) against training load (per-lift average ACWR: Under, Optimal, Caution). Aligned means recovery and load match; misaligned means they conflict.',
-  strengthScan:
-    'Momentum is the 28-day e1RM velocity in % per month; INOL quality is the session load index (0.6–1.0 is productive).',
+  strengthScan: `Momentum is the 28-day e1RM velocity in % per month; INOL quality is productive at ${INOL_OPTIMAL_FROM}–${INOL_OPTIMAL_TO}.`,
 } as const
 
 /**

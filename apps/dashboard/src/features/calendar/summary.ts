@@ -54,3 +54,15 @@ export function summaryParts(
     facts: [countdown(summary), week].filter((f): f is string => f !== null).map(keepTogether),
   }
 }
+
+/**
+ * What the Today card shows. Confirmed-empty hides it (the headline says so); an unanswered
+ * calendar keeps it as unknown, because absence of rows is then not absence of events.
+ */
+export function todayCardState(
+  rowCount: number,
+  incomplete: boolean,
+): 'rows' | 'unknown' | 'hidden' {
+  if (rowCount > 0) return 'rows'
+  return incomplete ? 'unknown' : 'hidden'
+}

@@ -70,7 +70,9 @@
   text-align: center;
 }
 
-/* Five labelled ticks crowd a narrow cell: keep the odd stars (1, 3, 5). */
+/* Five labelled ticks crowd a narrow cell: keep the odd stars (1, 3, 5). 479.9px is the guard's
+   boundary just under basalt's `regular` container class (CONTAINER_CLASSES.regular, 480); CSS
+   cannot read the JS token. */
 @container (max-width: 479.9px) {
   .axisMinor {
     visibility: hidden;

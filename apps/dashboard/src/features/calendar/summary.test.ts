@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { CalendarEventPayload } from '../../lib/queries/calendar'
 import { agendaSummary, longestFreeBlock, type CalendarItem } from './derive'
-import { countdown, summaryParts, untilLabel } from './summary'
+import { countdown, summaryParts, todayCardState, untilLabel } from './summary'
 
 const D = '2026-10-14'
 const ev = (id: string, start: string, end: string): CalendarItem => ({
@@ -71,5 +71,18 @@ describe('countdown', () => {
   })
   test('nothing ahead is no clause', () => {
     expect(countdown(agendaSummary([], now))).toBeNull()
+  })
+})
+
+describe('todayCardState', () => {
+  test('rows show whatever the completeness', () => {
+    expect(todayCardState(2, false)).toBe('rows')
+    expect(todayCardState(1, true)).toBe('rows')
+  })
+  test('empty and complete hides the card', () => {
+    expect(todayCardState(0, false)).toBe('hidden')
+  })
+  test('empty but incomplete keeps the card as unknown, never "no events"', () => {
+    expect(todayCardState(0, true)).toBe('unknown')
   })
 })
