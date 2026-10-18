@@ -122,7 +122,7 @@ function QueueCard({
   const view = historyView(history)
 
   return (
-    <Box data-shot={`${kind}-${row.eventId}`}>
+    <Box data-shot={`${kind}-${row.eventId}`} data-shot-absent="empty">
       <DecisionCard
         question={copy.question}
         facts={capFacts(cardFacts(row, repo))}

@@ -21,6 +21,7 @@ export function StaleBanner({ latest, fetchFailed = false }: Props) {
   if (age === null) {
     return (
       <Alert
+        data-shot="no-snapshot"
         color="gray"
         variant="light"
         icon={<IconInfoCircle size={16} />}

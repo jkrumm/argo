@@ -60,7 +60,7 @@ function BoardCard({
   const cleanTitle = stripShortcodes(item.title ?? '')
   const title = cleanTitle || `Item #${item.event_id}`
   return (
-    <Card data-shot={`board-card-${item.event_id}`}>
+    <Card data-shot={`board-card-${item.event_id}`} data-shot-absent="empty">
       <Stack gap={6}>
         <Group gap="xs" wrap="nowrap" justify="space-between">
           <Text size="xs" c="dimmed" lineClamp={1} className={classes.text}>
@@ -181,7 +181,7 @@ export function Board({
 
   return (
     <Section title="Board" count={open} {...(tabs && open > 0 ? { tabs } : {})}>
-      <Box data-shot="board">
+      <Box data-shot="board" data-shot-states="empty">
         {open === 0 ? (
           <Text size="xs" c="dimmed">
             {emptyText}

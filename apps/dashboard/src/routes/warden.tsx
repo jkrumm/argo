@@ -5,6 +5,7 @@ import { Stack, Text } from '@mantine/core'
 import { PageBar, PageSummary } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { wardenQueries } from '../lib/queries/warden'
+import { shotState } from '../lib/shot-state'
 import { deriveAwaitingOwner, waitingOnOwner } from '../features/warden/model'
 import {
   deriveBoard,
@@ -47,7 +48,8 @@ function WardenPage() {
   // swaps data in place.
   const [refreshRequested, setRefreshRequested] = useState(false)
 
-  const snapshot = snapshotQuery.data ?? null
+  // `empty` is the real "nothing pushed yet" branch (404 → null).
+  const snapshot = shotState() === 'empty' ? null : (snapshotQuery.data ?? null)
   // The request ends when the fetch it started settles — two quick clicks share one settle.
   const isFetching = snapshotQuery.isFetching
   const [wasFetching, setWasFetching] = useState(isFetching)

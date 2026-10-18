@@ -1,9 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Skeleton, Stack } from '@mantine/core'
+import { Box, Skeleton, Stack } from '@mantine/core'
 import { PageBar, PageSummary } from 'basalt-ui'
 import { agentsQueries } from '../lib/queries/agents'
 import { useNow } from '../lib/use-now'
+import { shotState } from '../lib/shot-state'
 import {
   fleetParts,
   flattenAgents,
@@ -49,7 +50,8 @@ function AgentsPage() {
 
   const historyQuery = useQuery(agentsQueries.history(HISTORY_HOURS))
 
-  const latest = latestQuery.data?.latest ?? null
+  // `empty` is the real "nothing pushed yet" branch (`latest: null`).
+  const latest = shotState() === 'empty' ? null : (latestQuery.data?.latest ?? null)
   const snapshot = latest?.snapshot
   const agents = flattenAgents(snapshot)
   const now = useNow()
@@ -110,13 +112,15 @@ function AgentsPage() {
               <PageSummary sentence={summary.sentence} aside={asideNode} />
             )}
             {feed === 'failed' ? null : (
-              <FleetStrip
-                needsYou={latest === null ? null : needsYouItems}
-                fleet={fleet}
-                split={needsYouSplit(agentWaits, asks)}
-                oldest={oldest}
-                longestRunMs={longestRun}
-              />
+              <Box data-shot="fleet-strip" data-shot-states="empty">
+                <FleetStrip
+                  needsYou={latest === null ? null : needsYouItems}
+                  fleet={fleet}
+                  split={needsYouSplit(agentWaits, asks)}
+                  oldest={oldest}
+                  longestRunMs={longestRun}
+                />
+              </Box>
             )}
             <NeedsYouSection cards={cards} unknown={latest === null} />
             {feed === 'failed' ? null : <ProjectCards active={active} quiet={quiet} now={now} />}
