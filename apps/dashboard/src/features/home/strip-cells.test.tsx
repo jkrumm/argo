@@ -1,11 +1,23 @@
 import { describe, expect, it } from 'bun:test'
 import type { ReactElement } from 'react'
-import { RECOVERY_VERDICT_NAME, recoveryMeterProps, recoveryVerdict } from '../garmin-health/model'
+import { RECOVERY_VERDICT_NAME, recoveryVerdict } from '../garmin-health/model'
+import { recoveryMeterProps } from '../garmin-health/recovery-meter'
 import type { RecoveryReading } from './model'
 import { recoveryFooter } from './model'
 import { acwrCell, agentsCell, budgetCell, meetingCell, recoveryCell } from './strip-cells'
 
 const NOW = new Date(2026, 0, 15, 12, 0).getTime()
+
+const reading = (over: Partial<RecoveryReading> = {}): RecoveryReading => ({
+  score: 55,
+  mean: 60,
+  days: 7,
+  ceiling: null,
+  trend: [55],
+  date: '2026-01-15',
+  isToday: true,
+  ...over,
+})
 
 describe('strip cells with no reading', () => {
   it('shows an em dash and a reason, never 0', () => {
@@ -26,30 +38,25 @@ describe('strip cells with no reading', () => {
       footer: 'Garmin data not loaded; reload to retry',
     })
     expect(
-      recoveryCell({
-        score: null,
-        mean: null,
-        days: 0,
-        ceiling: null,
-        trend: [],
-        date: null,
-        isToday: false,
-      }),
+      recoveryCell(
+        reading({ score: null, mean: null, days: 0, trend: [], date: null, isToday: false }),
+      ),
     ).toMatchObject({ value: null, footer: 'no reading yet · Garmin syncs every 6\u00a0h' })
     expect(recoveryCell(null, true)).toMatchObject({ footer: 'loading Garmin data' })
     expect(acwrCell(null, NOW)).toMatchObject({ value: null, footer: 'unavailable' })
   })
 
   it('labels a recovery that is not today’s with its own day and says when today fills', () => {
-    const cell = recoveryCell({
-      score: 70,
-      mean: 65,
-      days: 5,
-      ceiling: null,
-      trend: [60, 70],
-      date: '2026-01-14',
-      isToday: false,
-    })
+    const cell = recoveryCell(
+      reading({
+        score: 70,
+        mean: 65,
+        days: 5,
+        trend: [60, 70],
+        date: '2026-01-14',
+        isToday: false,
+      }),
+    )
     expect(cell.caption).toBe('Recovery · Wed 14 Jan')
     expect(cell.footer).toBe(
       '7\u00a0d mean 65 · today fills after the next Garmin sync (every 6\u00a0h)',
@@ -122,20 +129,9 @@ describe('agentsCell', () => {
 })
 
 describe('recovery agrees with Garmin', () => {
-  const reading = (score: number, over: Partial<RecoveryReading> = {}): RecoveryReading => ({
-    score,
-    mean: 60,
-    days: 7,
-    ceiling: null,
-    trend: [score],
-    date: '2026-01-15',
-    isToday: true,
-    ...over,
-  })
-
   it('draws the shared meter: same zones and a label naming the verdict', () => {
     for (const score of [0, 39, 40, 69, 70, 100]) {
-      const cell = recoveryCell(reading(score))
+      const cell = recoveryCell(reading({ score, trend: [score] }))
       expect(cell.value).toBe(String(score))
       const children = (cell.visual as ReactElement<{ children: ReactElement[] }>).props.children
       const meter = (children[0] as ReactElement<ReturnType<typeof recoveryMeterProps>>).props
@@ -143,17 +139,6 @@ describe('recovery agrees with Garmin', () => {
       expect(meter.label).toContain(RECOVERY_VERDICT_NAME[recoveryVerdict(score)])
     }
   })
-})
-
-const reading = (over: Partial<RecoveryReading> = {}): RecoveryReading => ({
-  score: 55,
-  mean: 60,
-  days: 7,
-  ceiling: null,
-  trend: [55],
-  date: '2026-01-15',
-  isToday: true,
-  ...over,
 })
 
 describe('recoveryFooter', () => {

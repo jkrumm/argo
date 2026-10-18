@@ -18,6 +18,7 @@ import {
   trainingLoadQueries,
 } from '../../lib/queries/daily-metrics'
 import { acwrMeterZones } from './formulas'
+import { recoveryMeterProps } from './recovery-meter'
 import {
   ACWR_CAUTION_TO,
   ACWR_FLOOR,
@@ -29,7 +30,6 @@ import {
   fitnessRange,
   lastDaysRange,
   vo2Hero,
-  recoveryMeterProps,
   contributorItems,
   firstToLast,
   lastScored,
@@ -133,7 +133,11 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
         )
       ) : (
         <>
-          <Meter {...recoveryMeterProps(score)} value={score} loading={summary.isPending} />
+          <Meter
+            {...recoveryMeterProps(score)}
+            value={score === null ? null : Math.round(score)}
+            loading={summary.isPending}
+          />
           <ContributorRows
             label="Recovery contributors, points of their weight"
             rows={contributorItems(data?.components ?? { hrv: null, sleep: null, rhr: null })}

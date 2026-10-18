@@ -5,6 +5,7 @@ import type { WardenRaw } from '../../lib/queries/warden'
 import type { Decision } from '../../lib/decisions'
 import type { SourceClass } from '../../lib/queries/calendar'
 import { ARROW, NBSP, formatDuration, withUnit } from '../../lib/format'
+import { RECOVERY_DAYS } from '../garmin-health/model'
 import { leadOf } from '../../lib/question-copy'
 import { firstClause, oldestWaitSentence, stripShortcodes } from '../../lib/text'
 
@@ -258,9 +259,6 @@ export function recoveryReading(
     isToday: snapshot?.date === localKey(now),
   }
 }
-
-/** The days the recovery tile's mean and trend cover. */
-export const RECOVERY_DAYS = 7
 
 /** The tile's footer: the window mean (whenever there is one) plus the day-fill fact for this reading. */
 export function recoveryFooter({ mean, days, isToday }: RecoveryReading): string {

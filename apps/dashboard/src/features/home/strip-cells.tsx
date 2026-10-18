@@ -13,8 +13,8 @@ import {
   ACWR_FLOOR,
   ACWR_METER_MAX,
   ACWR_OPTIMAL_TO,
-  recoveryMeterProps,
 } from '../garmin-health/model'
+import { recoveryMeterProps } from '../garmin-health/recovery-meter'
 import { acwrMeterZones, acwrZoneLabel } from '../garmin-health/formulas'
 import { BUDGET_MISSING, deriveBudget, pollerAgeText } from '../warden/page-model'
 import {
@@ -207,7 +207,11 @@ export function recoveryCell(reading: RecoveryReading | null, loading = false): 
     unit: '/100',
     visual: (
       <>
-        <Meter {...recoveryMeterProps(score)} value={score} format={(v) => String(Math.round(v))} />
+        <Meter
+          {...recoveryMeterProps(score)}
+          value={Math.round(score)}
+          format={(v) => String(Math.round(v))}
+        />
         {trend.length > 1 ? (
           <Sparkline
             ariaLabel={`Recovery over the last ${trend.length} observed days`}

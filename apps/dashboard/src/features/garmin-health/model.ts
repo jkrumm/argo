@@ -4,8 +4,6 @@
  * so the copy is testable and a null reading is handled once (always `—`, never `0`).
  */
 
-import type { MeterProps, MeterZone } from 'basalt-ui'
-import { VX } from 'basalt-ui/tokens'
 import { NBSP, withUnit } from '../../lib/format'
 import { ACWR_ZONE_NAME, type AcwrZone } from './formulas'
 
@@ -24,10 +22,20 @@ export const RECOVERY_PUSH_FROM = 70
 
 export type RecoveryVerdict = 'rest' | 'normal' | 'push'
 
-/** The day's recovery verdict: the one derivation Home's tile and Garmin's cell both state. */
+/** Days Home's recovery tile averages and trends over. */
+export const RECOVERY_DAYS = 7
+
+/** The cut-off caption both recovery meters print. */
+export const RECOVERY_CUTOFF_CAPTION = `rest < ${RECOVERY_REST_BELOW} · push ≥ ${RECOVERY_PUSH_FROM}`
+
+/**
+ * The day's recovery verdict: the one derivation Home's tile and Garmin's cell both state. It
+ * classifies the rounded score, the number on screen, so 69.9 prints 70 and reads Push.
+ */
 export function recoveryVerdict(score: number): RecoveryVerdict {
-  if (score >= RECOVERY_PUSH_FROM) return 'push'
-  if (score >= RECOVERY_REST_BELOW) return 'normal'
+  const shown = Math.round(score)
+  if (shown >= RECOVERY_PUSH_FROM) return 'push'
+  if (shown >= RECOVERY_REST_BELOW) return 'normal'
   return 'rest'
 }
 
@@ -36,36 +44,6 @@ export const RECOVERY_VERDICT_NAME = {
   normal: 'Normal',
   push: 'Push',
 } as const satisfies Record<RecoveryVerdict, string>
-
-/**
- * The recovery meter, once: zones, cut-off caption and a label that names the verdict. Home's tile
- * and Garmin's cell spread this, so the same day's score reads the same on both pages.
- */
-export function recoveryMeterProps(
-  score: number | null,
-): Required<Pick<MeterProps, 'label' | 'min' | 'max' | 'zones' | 'startCaption' | 'endCaption'>> {
-  const zones: MeterZone[] = [
-    { from: 0, to: RECOVERY_REST_BELOW, label: RECOVERY_VERDICT_NAME.rest, color: VX.bad },
-    {
-      from: RECOVERY_REST_BELOW,
-      to: RECOVERY_PUSH_FROM,
-      label: RECOVERY_VERDICT_NAME.normal,
-      color: VX.warn,
-    },
-    { from: RECOVERY_PUSH_FROM, to: 100, label: RECOVERY_VERDICT_NAME.push, color: VX.good },
-  ]
-  return {
-    label:
-      score === null
-        ? 'Recovery score'
-        : `Recovery score, ${RECOVERY_VERDICT_NAME[recoveryVerdict(score)]} zone`,
-    min: 0,
-    max: 100,
-    zones,
-    startCaption: `rest < ${RECOVERY_REST_BELOW} · push ≥ ${RECOVERY_PUSH_FROM}`,
-    endCaption: '100',
-  }
-}
 
 /** Recovery contributor weights in points — `RECOVERY_WEIGHT_*` × 100 in `garmin-formulas.ts`. */
 const RECOVERY_WEIGHT_PTS = { hrv: 40, sleep: 35, rhr: 25 } as const

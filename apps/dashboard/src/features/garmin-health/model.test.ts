@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { ACWR_ZONE_NAME, acwrMeterZones, acwrZoneLabel } from './formulas'
+import { recoveryMeterProps } from './recovery-meter'
 import {
   activitiesFact,
   activityScoreFact,
@@ -24,7 +25,6 @@ import {
   missingInputs,
   recoveryFact,
   recoveryGap,
-  recoveryMeterProps,
   recoveryVerdict,
   recoverySentence,
   shortDate,
@@ -470,15 +470,22 @@ describe('ACWR zone vocabulary', () => {
 })
 
 describe('recovery verdict', () => {
-  test('cuts at 40 and 70, boundaries belong to the higher zone', () => {
-    expect([0, 39.9, 40, 69.9, 70, 100].map(recoveryVerdict)).toEqual([
-      'rest',
-      'rest',
-      'normal',
-      'normal',
-      'push',
-      'push',
-    ])
+  test('classifies the displayed (rounded) score', () => {
+    const cases: [number, string][] = [
+      [0, 'rest'],
+      [39.4, 'rest'],
+      [39.5, 'normal'],
+      [39.9, 'normal'],
+      [40, 'normal'],
+      [69.4, 'normal'],
+      [69.9, 'push'],
+      [70, 'push'],
+      [100, 'push'],
+    ]
+    for (const [score, verdict] of cases) {
+      expect(recoveryVerdict(score)).toBe(verdict as ReturnType<typeof recoveryVerdict>)
+      expect(recoveryVerdict(score)).toBe(recoveryVerdict(Number(fmtNum(score))))
+    }
   })
 
   test('the meter names the verdict and the cut-offs', () => {
