@@ -3,7 +3,7 @@ import { alpha, VX } from 'basalt-ui/tokens'
 import {
   NO_PACE_REASON,
   paceRange,
-  gapsBefore,
+  gapsBeforePosition,
   RATING_MAX,
   ratingShape,
   ratingsFooter,
@@ -41,7 +41,7 @@ function shelfCell(counts: ShelfCounts, footer: string | null): StatStripCell {
 
 /** A track position as CSS: `at` column widths plus the gaps left of it, on the histogram's own grid. */
 const trackLeft = (at: number): string =>
-  `calc((100% - ${RATING_MAX - 1} * var(--vx-space-control-gap)) / ${RATING_MAX} * ${at} + ${gapsBefore(at)} * var(--vx-space-control-gap))`
+  `calc((100% - ${RATING_MAX - 1} * var(--vx-space-control-gap)) / ${RATING_MAX} * ${at} + ${gapsBeforePosition(at)} * var(--vx-space-control-gap))`
 
 function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
   const shape = ratingShape(shelf)
@@ -61,21 +61,22 @@ function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
         aria-label={`Rated books per star column: ${shape.spans.map((span, i) => `${shape.labels[i]} ★ (${span}): ${shape.buckets[i]}`).join(', ')}; mean ${shape.mean.toFixed(1)} ★`}
       >
         <div className={classes.histogram}>
-          {shape.buckets.map((count, i) => (
-            <div
-              key={i}
-              className={classes.bucket}
-              title={`${shape.labels[i]} ★: ${shape.spans[i]}`}
-            >
-              {count > 0 && <span className={classes.count}>{count}</span>}
+          {shape.buckets.map((count, i) => {
+            const share = peak === 0 ? 0 : count / peak
+            return (
               <div
-                className={count > 0 ? `${classes.bar} ${classes.barFilled}` : classes.bar}
-                style={{
-                  height: `calc((100% - var(--reading-count-h)) * ${peak === 0 ? 0 : count / peak})`,
-                }}
-              />
-            </div>
-          ))}
+                key={i}
+                className={classes.bucket}
+                title={`${shape.labels[i]} ★: ${shape.spans[i]}`}
+              >
+                {count > 0 && <span className={classes.count}>{count}</span>}
+                <div
+                  className={count > 0 ? `${classes.bar} ${classes.barFilled}` : classes.bar}
+                  style={{ height: `calc((100% - var(--reading-count-h)) * ${share})` }}
+                />
+              </div>
+            )
+          })}
           <div className={classes.meanTick} style={{ left: trackLeft(shape.meanAt) }} />
         </div>
         <div className={classes.axis} aria-hidden>

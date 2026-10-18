@@ -19,16 +19,10 @@ import { ViewTabs } from 'basalt-ui/controls'
 import { shotState } from '../../lib/shot-state'
 import { useNow } from '../../lib/use-now'
 import { calendarStore } from '../../lib/window-stores'
-import { AgendaView, type SourceError } from './agenda-view'
-import {
-  failed,
-  feedGap,
-  signInStep,
-  taskFeedState,
-  taskReadFailed,
-  unanswered,
-} from './query-state'
-import { SignInStepView } from './sign-in-step'
+import { AgendaView } from './agenda-view'
+import { failed, feedGap, taskFeedState, taskReadFailed, unanswered } from './query-state'
+import { failureReason, isAuthError, signInStep } from './sign-in'
+import { SourceErrorLine, type SourceError } from './sign-in-step'
 import { DayGroups } from './agenda-parts'
 import {
   addDays,
@@ -78,21 +72,6 @@ function headerLabel(date: string, view: CalendarView): string {
   if (sameMonth) return `${format(start, 'MMM d')} – ${format(end, 'd, yyyy')}`
   if (sameYear) return `${format(start, 'MMM d')} – ${format(end, 'MMM d, yyyy')}`
   return `${format(start, 'MMM d, yyyy')} – ${format(end, 'MMM d, yyyy')}`
-}
-
-function isAuthError(error: unknown): boolean {
-  return (
-    error !== null &&
-    typeof error === 'object' &&
-    'status' in error &&
-    (error as { status?: number }).status === 503
-  )
-}
-
-function failureReason(error: unknown, source: string): string {
-  if (isAuthError(error)) return 'token expired.'
-  if (error instanceof Error) return error.message
-  return `could not load ${source} events.`
 }
 
 export function CalendarPage({ view, date }: CalendarPageProps) {
@@ -145,14 +124,14 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
     errors.push({
       label: 'Google',
       reason: failureReason(googleQuery.error, 'Google'),
-      step: isAuthError(googleQuery.error) ? signInStep('personal') : undefined,
+      step: signInStep('personal', googleQuery.error),
     })
   }
   if (m365Query.error && !shotEmpty) {
     errors.push({
       label: 'Microsoft 365',
       reason: failureReason(m365Query.error, 'Microsoft 365'),
-      step: isAuthError(m365Query.error) ? signInStep('work') : undefined,
+      step: signInStep('work', m365Query.error),
     })
   }
 
@@ -285,10 +264,7 @@ export function CalendarPage({ view, date }: CalendarPageProps) {
       {view !== 'agenda' && errors.length > 0 && (
         <Stack gap={2}>
           {errors.map((error) => (
-            <Text key={error.label} size="sm" c="dimmed">
-              {error.label} unavailable — {error.reason}
-              {error.step && <SignInStepView step={error.step} />}
-            </Text>
+            <SourceErrorLine key={error.label} error={error} />
           ))}
         </Stack>
       )}

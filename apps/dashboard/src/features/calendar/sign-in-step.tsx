@@ -1,7 +1,9 @@
 import { Anchor, Button, Text } from '@mantine/core'
 import { useCopyAction } from '../../components/upstream/use-copy-action'
-import type { SignInStep } from './query-state'
+import type { SignInStep } from './sign-in'
 import classes from './agenda.module.css'
+
+export type SourceError = { label: string; reason: string; step?: SignInStep | undefined }
 
 function CommandStep({ hint, command }: { hint: string; command: string }) {
   const copy = useCopyAction('Copy command', command)
@@ -27,15 +29,21 @@ function CommandStep({ hint, command }: { hint: string; command: string }) {
   )
 }
 
-/** The step beside a sign-in failure, on the same line as the `unavailable — token expired.` sentence. */
-export function SignInStepView({ step }: { step: SignInStep }) {
-  if (step.kind === 'command') return <CommandStep hint={step.hint} command={step.command} />
+/** One failed source: `{source} unavailable — {reason}`, then its sign-in step on the same line. */
+export function SourceErrorLine({ error }: { error: SourceError }) {
+  const { step } = error
   return (
-    <>
-      {' '}
-      <Anchor href={step.url} target="_blank" rel="noreferrer" size="sm">
-        {step.label}
-      </Anchor>
-    </>
+    <Text className={classes.muted}>
+      {error.label} unavailable — {error.reason}
+      {step?.kind === 'command' && <CommandStep hint={step.hint} command={step.command} />}
+      {step?.kind === 'link' && (
+        <>
+          {' '}
+          <Anchor href={step.url} target="_blank" rel="noreferrer" size="sm">
+            {step.label}
+          </Anchor>
+        </>
+      )}
+    </Text>
   )
 }
