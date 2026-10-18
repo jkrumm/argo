@@ -106,6 +106,7 @@ function WardenPage() {
             <HealthStrip metrics={raw?.metrics} health={raw?.health} budget={raw?.budget} />
             <DecisionQueues
               view={awaitingOwner}
+              receivedAt={snapshot?.receivedAt ?? null}
               items={raw?.items}
               pending={pending}
               onSelectItem={setSelectedEventId}

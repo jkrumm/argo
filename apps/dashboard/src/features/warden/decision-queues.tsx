@@ -5,6 +5,7 @@ import { CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
 import { IconCircleCheck, IconListDetails } from '@tabler/icons-react'
 import type { WardenActionVerb, WardenItems } from '../../lib/queries/warden'
 import classes from '../../components/upstream/decision-card.module.css'
+import { useNow } from '../../lib/use-now'
 import { HistoryPreview } from './history-preview'
 import { DecisionCard, type DecisionCardAction } from '../../components/upstream/decision-card'
 import { capFacts } from '../../components/upstream/decision-card-model'
@@ -18,6 +19,7 @@ import {
 } from './model'
 import {
   cardCategory,
+  sinceSnapshotMs,
   cardFacts,
   historyView,
   needsCards,
@@ -34,6 +36,8 @@ type OnAction = (eventId: number, verb: WardenActionVerb, payload?: Record<strin
 
 type Props = {
   view: AwaitingOwnerView
+  /** When the snapshot was received: the card's `age_days` is frozen there. */
+  receivedAt: string | null
   items: WardenItems | undefined
   pending: PendingActions
   onSelectItem: (eventId: number) => void
@@ -89,6 +93,7 @@ function QueueCard({
   ask,
   pending,
   history,
+  receivedAt,
   onFire,
   onSelectItem,
 }: {
@@ -97,10 +102,12 @@ function QueueCard({
   ask: WardenAsk
   pending: PendingActions[number] | undefined
   history: TransitionHistory
+  receivedAt: string | null
   onFire: (verb: WardenActionVerb) => void
   onSelectItem: () => void
 }) {
   const { plan, repo, tag, copy } = ask
+  const now = useNow()
   const toAction = (verb: WardenActionVerb): DecisionCardAction => ({
     label: VERB_LABEL[verb],
     onClick: () => onFire(verb),
@@ -125,7 +132,7 @@ function QueueCard({
     <Box data-shot={`${kind}-${row.eventId}`} data-shot-absent="empty">
       <DecisionCard
         question={copy.question}
-        facts={capFacts(cardFacts(row, repo))}
+        facts={capFacts(cardFacts(row, repo, sinceSnapshotMs(receivedAt, now)))}
         status={status}
         subject={copy.entity}
         evidenceLine={copy.evidenceLine}
@@ -159,6 +166,7 @@ function CardGrid({
   asks,
   pending,
   items,
+  receivedAt,
   onFire,
   onSelectItem,
 }: {
@@ -167,6 +175,7 @@ function CardGrid({
   /** One ask per row, in order. */
   asks: readonly WardenAsk[]
   items: WardenItems | undefined
+  receivedAt: string | null
   pending: PendingActions
   onFire: (eventId: number, verb: WardenActionVerb) => void
   onSelectItem: (eventId: number) => void
@@ -181,6 +190,7 @@ function CardGrid({
           ask={asks[i]!}
           pending={pending[row.eventId]}
           history={recentTransitions(items?.[String(row.eventId)])}
+          receivedAt={receivedAt}
           onFire={(verb) => onFire(row.eventId, verb)}
           onSelectItem={() => onSelectItem(row.eventId)}
         />
@@ -195,7 +205,14 @@ function CardGrid({
  * `dismiss`/`note` collect a short text first (`ActionPromptModal`); the write contract
  * (`onAction` → `use-warden-actions`) is unchanged.
  */
-export function DecisionQueues({ view, items, pending, onSelectItem, onAction }: Props) {
+export function DecisionQueues({
+  view,
+  receivedAt,
+  items,
+  pending,
+  onSelectItem,
+  onAction,
+}: Props) {
   const [prompt, setPrompt] = useState<PromptState>(null)
   const needs = useMemo(() => needsCards(view), [view])
   // One surface: a needs-you and a failed card that would read the same are told apart together.
@@ -245,6 +262,7 @@ export function DecisionQueues({ view, items, pending, onSelectItem, onAction }:
             kind="decision"
             asks={needsAsks}
             items={items}
+            receivedAt={receivedAt}
             pending={pending}
             onFire={fire}
             onSelectItem={onSelectItem}
@@ -258,6 +276,7 @@ export function DecisionQueues({ view, items, pending, onSelectItem, onAction }:
             kind="failed"
             asks={failedAsks}
             items={items}
+            receivedAt={receivedAt}
             pending={pending}
             onFire={fire}
             onSelectItem={onSelectItem}
