@@ -530,8 +530,8 @@ export function pageSummary(
 }
 
 /** The timeline's one fact. The timeline draws the shooting window whenever the API has one, so it is
- * stated whenever it exists. The missed gate is named only when `withMiss` (the Forecast tab); on
- * Tonight the verdict card states it. No window: `none within the dark` on a usable night. */
+ * stated whenever it exists. The missed gate is always worded by `gateMissText`; beside a window it
+ * is appended only when `withMiss` (the Forecast tab). No window: `none within the dark` on a usable night. */
 export function windowFact(
   night: Night,
   { withMiss }: { withMiss: boolean },
@@ -542,7 +542,7 @@ export function windowFact(
     if (!out) return { value: 'No window', period: 'none within the dark' }
     return {
       value: 'No window',
-      period: withMiss ? gateMissText(night) : 'no stretch passes every gate',
+      period: gateMissText(night),
     }
   }
   const range = `${shoot.localStart}–${shoot.localEnd}`
@@ -656,7 +656,7 @@ export function skyCellFooter({
  * included): the cause, then the one next step the page offers.
  */
 export function unknownSiteCopy(siteId: string): string {
-  return `${siteId} is not in the site list — pick another in Site, or reload if the list is empty`
+  return `No site "${siteId}" in the list — pick another from the site filter, or reload if the list is empty`
 }
 
 /** The Moon cell's footer: the limit, the phase and (when the moon sets) the set time; no line opens on a `·`. */
