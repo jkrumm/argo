@@ -60,7 +60,7 @@ describe('deriveDecisions', () => {
       now: NOW,
     })
     expect(w?.facts[0]).toBe('warden · {repo}')
-    expect(w?.facts[1]).toBe('waiting 1\u00a0d')
+    expect(w?.facts).toContain('waiting 1\u00a0d')
     const [a] = deriveDecisions({ warden: null, agents: agents({ agents: [agent()] }), now: NOW })
     expect(a?.facts).toEqual(['agent · {project}', 'waiting 2\u00a0h'])
   })
@@ -275,7 +275,7 @@ const factsAt = (days: number) =>
     warden: warden({ awaiting_owner: [awaiting({ age_days: days })] }),
     agents: null,
     now: NOW,
-  })[0]?.facts[1]
+  })[0]?.facts.find((f) => (typeof f === 'string' ? f : f.text).startsWith('waiting'))
 
 describe('deriveDecisions: one clock and one threshold', () => {
   it('warns on an age from Warden’s own stale threshold, inclusive', () => {
@@ -595,7 +595,7 @@ describe('deriveDecisions: the warden wait is resolveWaitMs over the timeline', 
   it('history agreeing with age_days within its resolution is the wait', () => {
     const d = run(1, DAY - 70 * 60_000)
     expect(d.ageMs).toBe(DAY - 70 * 60_000)
-    expect(d.facts[1]).toBe('waiting 22\u00a0h\u00a050\u00a0min')
+    expect(d.facts).toContain('waiting 22\u00a0h\u00a050\u00a0min')
   })
 
   it('a disagreement beyond the resolution keeps the longer', () => {

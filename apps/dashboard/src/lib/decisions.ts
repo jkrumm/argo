@@ -32,7 +32,7 @@ import {
   type CardCopy,
   type CardInput,
 } from './question-copy'
-import { formatAgo, formatDuration, withUnit } from './format'
+import { formatAgo, withUnit } from './format'
 import { asText } from './text'
 import type { HumanQueueItem, OverviewSnapshot } from './queries/agents'
 import type { WardenRaw } from './queries/warden'
@@ -205,10 +205,7 @@ function toDecision(
   return {
     ...base,
     source: 'agent',
-    facts: capFacts([
-      `agent · ${asText(a.project)}`,
-      ageMs === null ? '' : `waiting ${formatDuration(ageMs)}`,
-    ]),
+    facts: capFacts([`agent · ${asText(a.project)}`, ageMs === null ? '' : waitingText(ageMs)]),
     ageMs,
     href: '/agents',
     evidence: evidenceSource(a),
