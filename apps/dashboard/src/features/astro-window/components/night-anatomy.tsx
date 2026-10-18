@@ -12,6 +12,7 @@ import {
   fmtLocalClock,
   fmtMinutes,
   lowCloudStat,
+  moonFooter,
   moonPhaseLabel,
   skyCellFooter,
 } from '../formulas'
@@ -145,7 +146,11 @@ export function NightAnatomy({
               100,
               limitPct,
             ),
-            footer: `limit ${fmtPercent(limitPct)} · ${moonPhaseLabel(night.moon.phase)}${moonSet === null ? '' : ` · sets ${moonSet}`}`,
+            footer: moonFooter({
+              limit: fmtPercent(limitPct),
+              phase: moonPhaseLabel(night.moon.phase),
+              set: moonSet,
+            }),
           },
           {
             key: 'cloud',

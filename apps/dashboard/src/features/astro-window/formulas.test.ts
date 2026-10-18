@@ -30,6 +30,7 @@ import {
   verdictStatus,
   verdictTone,
   skyCellFooter,
+  moonFooter,
   cloudHeadline,
   minutesToHours,
   withFacts,
@@ -360,12 +361,12 @@ describe('offscreenNightsText', () => {
 describe('coreTransitFooter', () => {
   test('is the transit altitude only, even with a dark stretch', () => {
     const night = { maxCoreAltitude: 24.1, darkMinutes: 300 } as unknown as Night
-    expect(coreTransitFooter(night)).toBe('24.1° at transit')
+    expect(coreTransitFooter(night)).toBe('24.1° at\u00a0transit')
   })
 
   test("a daylight transit (no dark stretch) is never called the night's best", () => {
     const night = { maxCoreAltitude: 24.1, darkMinutes: 0 } as unknown as Night
-    expect(coreTransitFooter(night)).toBe('24.1° at transit')
+    expect(coreTransitFooter(night)).toBe('24.1° at\u00a0transit')
   })
 })
 
@@ -642,10 +643,30 @@ describe('nextUsableText looks only at later nights', () => {
 describe('sky cell footer', () => {
   test('sky: the threshold, dome and transparency', () => {
     expect(skyCellFooter({ domePenaltyMag: 1.04, transparency: 3 })).toBe(
-      'dark\u00a0≥\u00a021.6\u00a0mag/arcsec² · town\u00a0glow\u00a0+1.04\u00a0mag · transparency\u00a03/8,\u00a0lower\u00a0clearer',
+      'dark\u00a0≥\u00a021.6\u00a0mag/arcsec²\u00a0· town\u00a0glow\u00a0+1.04\u00a0mag\u00a0· transparency\u00a03/8 (lower\u00a0=\u00a0clearer)',
     )
     expect(skyCellFooter({ domePenaltyMag: null, transparency: null })).toBe(
-      'dark\u00a0≥\u00a021.6\u00a0mag/arcsec² · town\u00a0glow\u00a0— · transparency\u00a0—,\u00a0lower\u00a0clearer',
+      'dark\u00a0≥\u00a021.6\u00a0mag/arcsec²\u00a0· town\u00a0glow\u00a0—\u00a0· transparency\u00a0— (lower\u00a0=\u00a0clearer)',
+    )
+  })
+
+  test('no glued run exceeds 24 characters and no line can open on a dot', () => {
+    const footer = skyCellFooter({ domePenaltyMag: 1.04, transparency: 3 })
+    for (const run of footer.split(' '))
+      expect(run.replace(/\u00a0·$/, '').length).toBeLessThanOrEqual(24)
+    expect(footer).not.toContain(' ·')
+  })
+})
+
+describe('moonFooter', () => {
+  test('binds each dot to the text before it', () => {
+    expect(moonFooter({ limit: '40\u00a0%', phase: 'waxing crescent', set: '23:10' })).toBe(
+      'limit\u00a040\u00a0%\u00a0· waxing\u00a0crescent\u00a0· sets\u00a023:10',
+    )
+  })
+  test('no set time, no trailing dot', () => {
+    expect(moonFooter({ limit: '40\u00a0%', phase: 'full', set: null })).toBe(
+      'limit\u00a040\u00a0%\u00a0· full',
     )
   })
 })
