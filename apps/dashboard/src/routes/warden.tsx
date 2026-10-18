@@ -102,10 +102,8 @@ function WardenPage() {
           <PageSummary loading={snapshotQuery.isPending} sentence={sentence} />
         ) : null}
         {snapshot === null ? null : (
-          <HealthStrip metrics={raw?.metrics} health={raw?.health} budget={raw?.budget} />
-        )}
-        {snapshot === null ? null : (
           <>
+            <HealthStrip metrics={raw?.metrics} health={raw?.health} budget={raw?.budget} />
             <DecisionQueues
               view={awaitingOwner}
               items={raw?.items}
