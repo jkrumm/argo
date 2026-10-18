@@ -149,8 +149,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - Error events label: `{pct} from {source}` (`topSourceNote`, tested) says the percent is of error events.
 - Warn vs bad: the errors cell footer words both (only the kinds that occurred, e.g. `{n} warn days (1%–3%), {n} bad day (> 3%)`, else `no day above 1%`; `errorDaysLine`, tested), so the strip no longer separates them by hue alone.
 
-| Export | Needed prop / default | argo case | What argo does instead |
-|-|-|-|-|
+| Export      | Needed prop / default                         | argo case                                                | What argo does instead                 |
+| ----------- | --------------------------------------------- | -------------------------------------------------------- | -------------------------------------- |
 | `BandStrip` | per-state glyph or text channel inside a cell | warn and bad days differ by hue alone in the strip cells | a worded count line in the cell footer |
 
 ### Wave 25 round (`w25-r1`, live after #96–#101)
@@ -177,3 +177,12 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: the headline `{n} calls in the last 30 d` (spend only in the Cost cell, the window matches); one seconds format; the p95 date no longer splits. Carried: warn/bad days hue-only, band ticks `DD.MM`, the error chart's `0` tick under the first bar, the 10.67 px phone-select inset (all basalt); the p95 line still through the top tick label (the `autoPad` headroom does not show); `{n} B` vs `{n} M` in the Tokens cell. **New:** the Tokens footer orphans `days`. Unscored: the tokens tooltip lists zero-value series and mixes `k` with `M`; the Errors footer `vs {r} prior 30 d` repeats the delta's baseline.
 - **Against Keel:** close — still the best KPI band of the set, and the headline now agrees with it.
+
+### Wave 30 fixes
+
+- **Tokens footer orphans `days`:** fixed — `full days` is glued with `NBSP` in the shared mean line (Cost and Tokens).
+- **`{n} B` vs `{n} M` in the Tokens cell:** partly fixed — mean and peak per day share one magnitude (`tokensFormatterFor`, taken from the larger). The headline stays in its own magnitude: it is the 30 d total, a different quantity from a per-day figure, and in `M` it would read as a long number.
+- **Tokens tooltip magnitudes:** fixed — the chart's axis and every tooltip row use one magnitude, taken from the largest bucket total.
+- **Tokens tooltip zero rows:** not fixed — basalt row. `StackedArea` drops a stack row where any band is `null`, and the per-series `tooltip` flag is static, so there is no per-datum filter and no honest way to omit a zero without breaking the stack.
+- **Errors footer repeats baseline:** fixed — the badge carries `prior 30 d`; the footer now reads `was {r}`.
+- **p95 line through the top tick:** not fixed — no y-domain headroom prop set; left to basalt.

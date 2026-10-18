@@ -7,6 +7,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Skeleton, Stack, Text } from '@mantine/core'
 import { DeltaBadge, Meter, StatGroup, type StatStripCell } from 'basalt-ui'
+import { NBSP } from '../../lib/format'
 import { usageQueries, type Metric } from '../../lib/queries/usage'
 import { USAGE_BILLING } from '../../lib/series'
 import { useNow } from '../../lib/use-now'
@@ -25,7 +26,7 @@ import {
   fmtSeconds,
   shortDay,
   fmtShare,
-  fmtTokens,
+  tokensFormatterFor,
   fmtTokensDay,
   fmtUsdDay,
   fmtUsdWhole,
@@ -88,7 +89,8 @@ const footerOf = (lines: readonly (string | null)[]) => (
   </Stack>
 )
 
-const meanLine = (text: string | null) => (text === null ? 'mean —' : `mean ${text}, full days`)
+const meanLine = (text: string | null) =>
+  text === null ? 'mean —' : `mean ${text}, full${NBSP}days`
 
 /** `peak day $12, 3 Oct`: the busiest day of the series, or `null` without a reading. */
 function peakLine(days: readonly Daily[], format: (v: number) => string): string | null {
@@ -164,6 +166,8 @@ function costCell({ h, loading }: Ctx, cost: Series): StatStripCell {
 function tokensCell({ h, loading }: Ctx, tokens: Series): StatStripCell {
   const qty = tokensQuantity(h?.tokens30d)
   const mean = meanOf(tokens.days.map((d) => d.value))
+  // Mean and peak are compared by eye: one magnitude, taken from the larger of the two.
+  const perDay = tokensFormatterFor(Math.max(mean ?? 0, peakOf(tokens.days)?.value ?? 0))
   const vs = compare({
     h,
     current: h?.tokens30d,
@@ -190,8 +194,8 @@ function tokensCell({ h, loading }: Ctx, tokens: Series): StatStripCell {
       />
     ),
     footer: footerOf([
-      meanLine(mean === null ? null : `${fmtTokens(mean)} a day`),
-      peakLine(tokens.days, fmtTokens),
+      meanLine(mean === null ? null : `${perDay(mean)} a day`),
+      peakLine(tokens.days, perDay),
       vs.note,
     ]),
   }

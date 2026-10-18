@@ -101,11 +101,13 @@ export function groupBands(
   groupKeys: readonly string[],
   color: (key: string) => string,
   label: (key: string) => string = (k) => k,
+  formatValue?: (v: number) => string,
 ): StackedAreaBand<TimePoint>[] {
   return groupKeys.map((k) => ({
     key: k,
     label: label(k),
     color: color(k),
     getValue: (d) => d.groups[k] ?? 0,
+    ...(formatValue ? { formatValue } : {}),
   }))
 }

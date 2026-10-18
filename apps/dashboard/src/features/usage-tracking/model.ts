@@ -57,6 +57,23 @@ export function tokensQuantity(n: number | null | undefined): Quantity {
   return { value: n.toFixed(0), unit: '' }
 }
 
+const TOKEN_UNITS = [
+  { unit: 'B', size: 1e9 },
+  { unit: 'M', size: 1e6 },
+  { unit: 'k', size: 1e3 },
+] as const
+
+/**
+ * A token formatter fixed to the magnitude of `reference` (a surface's largest value), so every
+ * number on one tooltip, axis or footer pair reads in the same unit and can be compared by eye.
+ */
+export function tokensFormatterFor(reference: number): (n: number) => string {
+  const abs = Math.abs(reference)
+  const step = TOKEN_UNITS.find((u) => abs >= u.size)
+  if (!step) return (n) => (Number.isFinite(n) ? n.toFixed(0) : EM_DASH)
+  return (n) => (Number.isFinite(n) ? `${(n / step.size).toFixed(1)}${NBSP}${step.unit}` : EM_DASH)
+}
+
 export function fmtTokens(n: number | null | undefined): string {
   const q = tokensQuantity(n)
   return q.unit === '' ? q.value : `${q.value}${NBSP}${q.unit}`
@@ -158,7 +175,7 @@ export function errorComparison(input: {
   const value = pointsDelta(current ?? null, prior)
   return value === null
     ? { value, note: `${PRIOR_30D} had no base to compare` }
-    : { value, note: `vs ${fmtPct(prior)} ${PRIOR_30D}` }
+    : { value, note: `was ${fmtPct(prior)}` }
 }
 
 /** The 30 d error rate, or `—` when the window had no calls (the API reports 0 there, not a rate). */
