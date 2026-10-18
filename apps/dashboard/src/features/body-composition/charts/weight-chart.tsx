@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { Box } from '@mantine/core'
-import { format } from 'date-fns'
 import { useQuery } from '@tanstack/react-query'
 import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
@@ -95,7 +94,6 @@ export default function WeightChart({
           x={(d) => d.date}
           formatX={axisDateFormat(chartData.map((d) => d.date))}
           series={series}
-          tooltip={{ formatHeader: (x) => format(x, 'EEE d MMM yyyy') }}
           {...(goal !== null && {
             refLines: [
               {
