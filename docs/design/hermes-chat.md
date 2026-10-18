@@ -193,3 +193,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - **Reviewer:** pass (basalt P3 only). Fixed (confirmed): the 390 composer placeholder `New chat with Hermes…` fits on one line in both schemes. Carried (basalt): filter chips without hover. No lost fact.
 - **Against Keel:** does not yet — three rows and a fold over a void above the composer.
 - **Re-score `w35-r2` (after basalt-ui 2.23.0, #152):** pass. The filter-chip hover crop still matches rest (the hover lands on the active chip — harness, not closed by 2.23's fine-pointer launch). Badge sentence case reads fine. No lost fact.
+
+### Wave 36 round (`w36-r1`, live after #153–#155 on basalt-ui 2.23.0; `w36-r2` after #156–#158)
+
+- **Reviewer (`w36-r1`):** pass, untouched. Carried (basalt / harness, P3): the chip hover crop lands on the active chip. No lost fact.
+- **Against Keel:** does not yet — three rows and a fold over an empty area above the composer.

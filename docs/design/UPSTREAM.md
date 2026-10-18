@@ -476,3 +476,21 @@ tooltips over headlines / neighbours, `ChartCard` `state.empty` placeholder heig
 `BandStrip` hue-only warn/bad days (no glyph or notch visible at 6 px cells), `Bars` shade-only series, four type sizes in `Section`
 shells, mixed tick formats in one strength section, the ACWR legend gone at 390, the `Lines` overprint on the weight chart, sticky bars
 over section crops.
+
+### Wave 36 — false all-clears and the rule's last breaks (#153–#158) and the `w36-r1` / `w36-r2` live re-score
+
+No basalt-ui release this wave (2.23.0 stays). New basalt rows the round surfaced; argo works around none of them:
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| `StatGroup variant="strip"` cell `state: { kind: 'empty', reason }` | the value slot always prints `—` above the reason, so a cell that states its gap in words still shows the bare dash the repeated-gap rule bans; an empty state needs no placeholder glyph when its reason is set | walking pad Pace / Totals under an empty window, body composition weight / rate under `empty` | as rendered |
+| `Sparkline` focus readout | the readout is cut inside its focus box (`{v} bpm · {dd} …`), losing the date | garmin fitness strip cell | as rendered |
+| chart legend at 390 | the narrow-width legend drop now hides the zones / series on three charts (ACWR, recovery, stress), so they read by hue alone | garmin health | as rendered |
+| `shot` `emptyRatio` | Mantine `Skeleton` bars count as empty space, so a loading card filled with skeleton rows measures 0.86 empty and fails `craft-3` while the crop is visually full | calendar Today under `loading` | as rendered |
+
+`w36-r1` / `w36-r2` re-confirmed open rows: the `Code` / `ViewTabs` radius 3 and the body-composition 390 rate qualifier (both in basalt
+Wave 38), four type sizes in `Section` shells, the `Meter` zone-name fit (`Caution` / `Caut.`), detached `Meter`
+end figures, the `Meter` null `—` under empty week-strip tracks, info tooltips over headlines / neighbours, `ChartCard` top-set empties,
+the tokens `fill` band, `$0` / `<$1` tooltip rows, `BandStrip` hue-only warn/bad days, `Sept` beside `Sep`, the `Sparkline` `PR` label at
+390, `Lines` end-label collisions, ragged strip footers, the `all time` qualifier, sticky bars over section crops, and the `shot` desktop
+hover crops identical to rest.

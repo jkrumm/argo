@@ -198,3 +198,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - **Reviewer:** fail — the first since w26, and only because the rule changed, not the render (pixel-identical to w34). **New by the rule (argo, P1):** with the default 30-day window empty, each strip cell (week, pace, streak, totals) shows a bare `—` at rest and under `empty`; by the repeated-gap rule a cell takes the short form (`No walks in the last 30 days`), never a bare dash, while the full sentence stays in the empty-window card below. Carried (basalt): the slashed zero in `last 30 days`. No lost fact.
 - **Against Keel:** does not yet (w34: close) — four tiles hold only a dash.
 - **Re-score `w35-r2` (after basalt-ui 2.23.0, #152):** fail — the four bare-`—` strip cells (argo P1, by the repeated-gap rule) are unchanged; slashed zeros in titles closed by 2.23. No lost fact.
+
+### Wave 36 round (`w36-r1`, live after #153–#155 on basalt-ui 2.23.0; `w36-r2` after #156–#158)
+
+- **Reviewer (`w36-r1`):** pass (w35: fail). Fixed (#153): with the 30-day window empty, Pace and Totals read `No walks in the last 30 days`, the empty card's title verbatim; This week and Streak keep their real readings (not window-bound). Partial, basalt-owned (P3): `StatStrip`'s `state: { kind: 'empty' }` still prints `—` in the value slot above the reason (UPSTREAM § "Wave 36"). Unscored before (argo, P3): the target button's focus ring covers the end of `of target`. Carried (basalt): the button hover crop identical to rest. No lost fact.
+- **Against Keel:** close (w35: does not yet) — two tiles hold a short form with no visual.
