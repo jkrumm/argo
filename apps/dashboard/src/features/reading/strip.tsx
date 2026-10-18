@@ -4,6 +4,7 @@ import {
   NO_PACE_REASON,
   ratingShape,
   shelfParts,
+  shelfShares,
   totalReadSeconds,
   type Pace,
   type ShelfItem,
@@ -19,6 +20,7 @@ const fillAt = (i: number): string => SEGMENT_FILLS[Math.min(i, SEGMENT_FILLS.le
 
 function shelfCell(counts: ShelfCounts): StatStripCell {
   const parts = shelfParts(counts)
+  const shares = shelfShares(counts)
   return {
     key: 'shelf',
     caption: 'Shelf · by status',
@@ -32,6 +34,9 @@ function shelfCell(counts: ShelfCounts): StatStripCell {
         segments={parts.map((p, i) => ({ label: p.label, value: p.value, color: fillAt(i) }))}
       />
     ),
+    ...(shares !== null && {
+      footer: `${shares.read}% of the shelf is read · ${shares.backlog}% is backlog`,
+    }),
   }
 }
 

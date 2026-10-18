@@ -316,20 +316,29 @@ export const currentYear = (now: number): number => new Date(now).getUTCFullYear
 
 // ── Sentence ─────────────────────────────────────────────────────────────────────────────────
 
-export function summarySentence(input: {
+export function summaryParts(input: {
   counts: ShelfCounts
   pace: number | null
   finished: number
   year: number
   backlogHours: number | null
-}): string {
+}): { sentence: string; facts: string[] } {
   const { counts, pace, finished, year, backlogHours } = input
   const reading = `${counts.reading} ${counts.reading === 1 ? 'book' : 'books'} in progress`
-  return [
-    pace === null ? reading : `${reading}, median ${pace} pages/h`,
-    `${finished} finished in ${year}`,
-    `backlog ${counts.backlog} ${counts.backlog === 1 ? 'book' : 'books'}${
-      backlogHours === null ? '' : ` ${approxHours(backlogHours)}`
-    }`,
-  ].join(' · ')
+  return {
+    sentence: pace === null ? reading : `${reading}, median ${pace} pages/h`,
+    facts: [
+      `${finished} finished in ${year}`,
+      `backlog ${counts.backlog} ${counts.backlog === 1 ? 'book' : 'books'}${
+        backlogHours === null ? '' : ` ${approxHours(backlogHours)}`
+      }`,
+    ],
+  }
+}
+
+/** Share of the shelf that is read, and that is still backlog: whole percent of `counts.total`. */
+export function shelfShares(counts: ShelfCounts): { read: number; backlog: number } | null {
+  if (counts.total === 0) return null
+  const pct = (n: number) => Math.round((n / counts.total) * 100)
+  return { read: pct(counts.read), backlog: pct(counts.backlog) }
 }

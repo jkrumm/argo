@@ -18,7 +18,8 @@ import {
   readingPace,
   scopeLabel,
   shelfParts,
-  summarySentence,
+  shelfShares,
+  summaryParts,
   timeRead,
   type ShelfItem,
 } from './model'
@@ -235,7 +236,36 @@ describe('shelfParts', () => {
   })
 })
 
-describe('summarySentence', () => {
+/** The headline and its facts as the one line they replace. */
+const summarySentence = (input: Parameters<typeof summaryParts>[0]) => {
+  const { sentence, facts } = summaryParts(input)
+  return [sentence, ...facts].join(' · ')
+}
+
+describe('shelfShares', () => {
+  test('whole percent of the shelf, null when empty', () => {
+    const counts = shelfCounts([
+      book({ statusId: 3 }),
+      book({ statusId: 1 }),
+      book({ statusId: 1 }),
+      book({ statusId: 1 }),
+    ])
+    expect(shelfShares(counts)).toEqual({ read: 25, backlog: 75 })
+    expect(shelfShares(shelfCounts([]))).toBeNull()
+  })
+})
+
+describe('summaryParts', () => {
+  test('the headline carries the in-progress count, the facts the year and the backlog', () => {
+    const counts = shelfCounts([book({ statusId: 2 }), book({ statusId: 1 })])
+    expect(summaryParts({ counts, pace: 90, finished: 3, year: 2026, backlogHours: 7.2 })).toEqual({
+      sentence: '1 book in progress, median 90 pages/h',
+      facts: ['3 finished in 2026', 'backlog 1 book ≈ 7 h'],
+    })
+  })
+})
+
+describe('summarySentence (joined)', () => {
   test('quotes the same pace and hours figures the cells show', () => {
     const counts = shelfCounts([
       ...Array.from({ length: 4 }, () => book({ statusId: 2 })),
