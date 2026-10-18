@@ -197,7 +197,8 @@
 }
 
 .row:hover .removeWrap,
-.row:focus-within .removeWrap,
+.rowShell:hover .removeWrap,
+.rowShell:focus-within .removeWrap,
 .removeWrap:focus-within {
   opacity: 1;
 }

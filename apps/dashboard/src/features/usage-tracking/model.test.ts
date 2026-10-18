@@ -24,6 +24,7 @@ import {
   countAgainst,
   dropPartialDay,
   regroup,
+  prepareFolded,
   toolGroupKey,
   toolLabel,
   OTHER_KEY,
@@ -379,5 +380,21 @@ describe('countAgainst', () => {
     const values = [1, 2, null, 3, 2]
     expect(countAgainst(values, 2, 'above')).toEqual({ count: 1, of: 4 })
     expect(countAgainst(values, 2, 'below')).toEqual({ count: 1, of: 4 })
+  })
+})
+
+describe('prepareFolded', () => {
+  const points = [day(1, { mcp__s__a: 5, mcp__s__b: 4, Bash: 3, Read: 1 })]
+  const groupKeys = ['mcp__s__a', 'mcp__s__b', 'Bash', 'Read']
+
+  it('counts tools per MCP server and labels them in words', () => {
+    const { folded, labelOf } = prepareFolded({ points, groupKeys, groupBy: 'sub_tool' })
+    expect(folded.keys).toEqual(['mcp__s', 'Bash', 'Read'])
+    expect(labelOf('mcp__s')).toBe('S (MCP)')
+  })
+  it('leaves every other dimension as sent', () => {
+    const { folded, labelOf } = prepareFolded({ points, groupKeys, groupBy: 'project' })
+    expect(folded.keys).toEqual(['mcp__s__a', 'mcp__s__b', 'Bash', 'Read'])
+    expect(labelOf('Bash')).toBe('Bash')
   })
 })

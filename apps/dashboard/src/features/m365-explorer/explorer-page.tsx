@@ -27,7 +27,7 @@ import {
   formatStamp,
   headlineOf,
   labeledCount,
-  LABELED_FILTER,
+  labeledPaneTitle,
   sourcesTitle,
   parseChannelId,
   recencyOf,
@@ -61,6 +61,8 @@ const PANE_META: Record<PaneKey, { title: string; tab: string; shot?: string }> 
   detail: { title: 'Detail', tab: 'Detail', shot: 'detail-pane' },
 }
 const CHATS_TOP = 50
+/** A team whose channel query has not started yet. */
+const NOT_STARTED: TeamChannels = { state: 'loading', channels: [], retry: () => {} }
 /** Channel lists load this many teams ahead of the ones already settled: a slow Graph call never fans out all at once. */
 const CHANNEL_WINDOW = 4
 
@@ -103,7 +105,17 @@ export function M365ExplorerPage(): ReactElement {
       void channelQs[i]?.refetch()
     },
   }))
-  const channelsByTeam = new Map(teams.map((t, i) => [t.id, channelStates[i] as TeamChannels]))
+  const channelsByTeam = new Map<string, TeamChannels>(
+    teams.flatMap((t, i) => {
+      const states = channelStates[i]
+      return states === undefined ? [] : [[t.id, states] as const]
+    }),
+  )
+  // One row per team, keyed by team id: a team whose channel query has not started reads as loading.
+  const teamRows = teams.map((team) => ({
+    team,
+    channels: channelsByTeam.get(team.id) ?? NOT_STARTED,
+  }))
 
   const chatRows: ChatRow[] = chatsQ.data.chats.map((c) => ({
     ref: { kind: 'chat', chatId: c.id, displayName: chatTitle(c) },
@@ -121,18 +133,18 @@ export function M365ExplorerPage(): ReactElement {
 
   const coverage = coverageOf({
     chatIds: chatRows.map((r) => r.ref.chatId),
-    channels: teams.map((t, i) => ({
-      teamId: t.id,
-      state: (channelStates[i] as TeamChannels).state,
-      ids: (channelStates[i] as TeamChannels).channels.map((c) => c.id),
+    channels: teamRows.map(({ team, channels }) => ({
+      teamId: team.id,
+      state: channels.state,
+      ids: channels.channels.map((c) => c.id),
     })),
     labels,
   })
   const allChannelsLoaded = coverage.loading === 0 && coverage.failed === 0
   const channelsTotal = allChannelsLoaded ? coverage.total - chatRows.length : null
-  const channelRows = teams.flatMap((t, i) =>
-    (channelStates[i] as TeamChannels).channels.map((c) => ({
-      label: labelMap.get(channelSourceId(t.id, c.id))?.label,
+  const channelRows = teamRows.flatMap(({ team, channels }) =>
+    channels.channels.map((c) => ({
+      label: labelMap.get(channelSourceId(team.id, c.id))?.label,
     })),
   )
   const counts = visibleChipCounts(
@@ -257,12 +269,7 @@ export function M365ExplorerPage(): ReactElement {
 
   const labeledPane = (
     <LabeledPane
-      {...(compact
-        ? {}
-        : {
-            title:
-              tag === '' || tag === LABELED_FILTER ? 'Labeled sources' : `Labeled sources · ${tag}`,
-          })}
+      title={compact ? undefined : labeledPaneTitle(tag)}
       labels={labels}
       tag={tag}
       selectedId={selectedId}
@@ -378,9 +385,10 @@ export function M365ExplorerPage(): ReactElement {
           chats={kindCounts}
           channels={channelsTotal}
           largestTeam={largestTeam(
-            teams.map((t, i) => ({
-              name: t.displayName,
-              channels: (channelStates[i] as TeamChannels).channels.length,
+            teamRows.map(({ team, channels }) => ({
+              name: team.displayName,
+              state: channels.state,
+              channels: channels.channels.length,
             })),
           )}
           onRetry={retryFailed}

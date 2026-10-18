@@ -8,7 +8,7 @@ import classes from './m365.module.css'
 const FILL_STRONG = alpha(VX.muted, 0.95)
 const FILL_FAINT = alpha(VX.muted, 0.4)
 
-type Chats = { oneOnOne: number; group: number; meeting: number }
+type Chats = { oneOnOne: number; group: number; meeting: number; other: number }
 
 function labeledCell(coverage: Coverage, list: string, onRetry: () => void): StatStripCell {
   const { labeled, total, loading, failed } = coverage
@@ -49,35 +49,52 @@ function labeledCell(coverage: Coverage, list: string, onRetry: () => void): Sta
   }
 }
 
-/** The three chat kinds as aligned rows: the kind split is new information, the total is the tab's. */
-function chatsCell(chats: Chats): StatStripCell {
+/**
+ * The chat kinds as aligned rows that sum to the Chats tab's total (`Other` takes any kind the API
+ * adds later). `null` while the chat list loads: a dash per row, never 0.
+ */
+function chatsCell(chats: Chats | null): StatStripCell {
+  const row = (key: string, label: string, value: number | undefined) => ({
+    key,
+    label,
+    value: value === undefined ? null : String(value),
+  })
   return {
     key: 'chats',
     caption: 'Chats by kind',
     rows: [
-      { key: 'oneOnOne', label: '1:1', value: String(chats.oneOnOne) },
-      { key: 'group', label: 'Group', value: String(chats.group) },
-      { key: 'meeting', label: 'Meeting', value: String(chats.meeting) },
+      row('oneOnOne', '1:1', chats?.oneOnOne),
+      row('group', 'Group', chats?.group),
+      row('meeting', 'Meeting', chats?.meeting),
+      row('other', 'Other', chats?.other),
     ],
   }
+}
+
+/** The channels cell's footer: loading, failed and empty are different facts, each in its own words. */
+function channelsFooter(
+  channels: number | null,
+  largest: { name: string; channels: number } | null,
+  failed: number,
+): string {
+  if (failed > 0) return failed === 1 ? '1 team failed to load' : `${failed} teams failed to load`
+  if (channels === null) return 'still loading'
+  if (largest === null) return 'no channels'
+  return `most in ${largest.name}, ${plural(largest.channels, 'channel')}`
 }
 
 /** Channels across the teams; the team count is the tab's, so the footer names the biggest team. */
 function channelsCell(
   channels: number | null,
   largest: { name: string; channels: number } | null,
+  failed: number,
 ): StatStripCell {
   return {
     key: 'channels',
     caption: 'Team channels',
     value: channels === null ? null : String(channels),
-    unit: channels === 1 ? 'channel' : 'channels',
-    footer:
-      channels === null
-        ? 'still loading'
-        : largest === null
-          ? 'no channels'
-          : `most in ${largest.name}, ${plural(largest.channels, 'channel')}`,
+    ...(channels === null ? {} : { unit: channels === 1 ? 'channel' : 'channels' }),
+    footer: channelsFooter(channels, largest, failed),
   }
 }
 
@@ -85,7 +102,7 @@ export type StripProps = {
   coverage: Coverage
   /** What the labeled count ranges over, from `sourceListName`. */
   list: string
-  chats: Chats
+  chats: Chats | null
   /** Channels across the teams that loaded; null while any team is not loaded. */
   channels: number | null
   largestTeam: { name: string; channels: number } | null
@@ -108,7 +125,7 @@ export function ExplorerStrip({
       cells={[
         labeledCell(coverage, list, onRetry),
         chatsCell(chats),
-        channelsCell(channels, largestTeam),
+        channelsCell(channels, largestTeam, coverage.failed),
       ]}
     />
   )

@@ -10,6 +10,7 @@ import {
   labeledCount,
   labeledBasis,
   largestTeam,
+  labeledPaneTitle,
   sourceListName,
   sourcesTitle,
   validTag,
@@ -63,7 +64,7 @@ describe('groupByRecency order', () => {
 })
 
 describe('chatKindCounts', () => {
-  test('counts the three kinds and ignores unknown values', () => {
+  test('counts the kinds; an unknown kind lands in other so they sum to the rows', () => {
     expect(
       chatKindCounts([
         { chatType: 'oneOnOne' },
@@ -72,7 +73,7 @@ describe('chatKindCounts', () => {
         { chatType: 'meeting' },
         { chatType: 'unknownFutureValue' },
       ]),
-    ).toEqual({ oneOnOne: 1, group: 2, meeting: 1 })
+    ).toEqual({ oneOnOne: 1, group: 2, meeting: 1, other: 1 })
   })
 })
 
@@ -197,16 +198,36 @@ describe('headlineOf', () => {
 })
 
 describe('largestTeam', () => {
-  test('picks the team with the most channels, first wins a tie, none without channels', () => {
-    expect(
-      largestTeam([
-        { name: 'a', channels: 2 },
-        { name: 'b', channels: 5 },
-        { name: 'c', channels: 5 },
-      ]),
-    ).toEqual({ name: 'b', channels: 5 })
-    expect(largestTeam([{ name: 'a', channels: 0 }])).toBeNull()
+  const team = (
+    name: string,
+    channels: number,
+    state: 'loaded' | 'loading' | 'failed' = 'loaded',
+  ) => ({
+    name,
+    channels,
+    state,
+  })
+  test('picks the team with the most channels, first wins a tie', () => {
+    expect(largestTeam([team('a', 2), team('b', 5), team('c', 5)])).toEqual({
+      name: 'b',
+      channels: 5,
+    })
+  })
+  test('is null without channels or without teams', () => {
+    expect(largestTeam([team('a', 0)])).toBeNull()
     expect(largestTeam([])).toBeNull()
+  })
+  test('is null while any team is loading or failed', () => {
+    expect(largestTeam([team('a', 4), team('b', 0, 'loading')])).toBeNull()
+    expect(largestTeam([team('a', 4), team('b', 0, 'failed')])).toBeNull()
+  })
+})
+
+describe('labeledPaneTitle', () => {
+  test('names the tag in view, or the whole set', () => {
+    expect(labeledPaneTitle('')).toBe('Labeled sources')
+    expect(labeledPaneTitle(LABELED_FILTER)).toBe('Labeled sources')
+    expect(labeledPaneTitle('alerts')).toBe('Labeled sources · alerts')
   })
 })
 
