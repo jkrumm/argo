@@ -17,7 +17,7 @@
 
 /* Fade the right edge while nights are still off-screen; the `.more` count names how many. */
 .host[data-more='true'] .scroller {
-  mask-image: linear-gradient(to right, var(--vx-ink) calc(100% - 2.5rem), transparent);
+  mask-image: linear-gradient(to right, black calc(100% - 2.5rem), transparent);
 }
 
 .scroller::-webkit-scrollbar {
@@ -63,19 +63,17 @@
   font-weight: 700;
 }
 
-.band {
+/* Bar geometry shared by the empty spacer (.band) and the track: the fill is the night's share of
+   the strip's shared scale (window length on a usable night, core-gate gap on an out night). */
+.band,
+.track {
   display: block;
   width: 100%;
   height: 4px;
   border-radius: 2px;
 }
 
-/* Shortfall: the fill is the gap to the core gate on the strip's shared scale. */
 .track {
-  display: block;
-  width: 100%;
-  height: 4px;
-  border-radius: 2px;
   background: color-mix(in srgb, var(--vx-line) 18%, transparent);
 }
 
@@ -83,7 +81,6 @@
   display: block;
   height: 100%;
   border-radius: 2px;
-  background: var(--vx-muted);
 }
 
 .more {

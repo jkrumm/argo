@@ -41,3 +41,9 @@ export const CORE_METER_MAX_DEG = 30
 export const SKY_METER_MIN = 18
 export const SKY_METER_MAX = 22
 export const SKY_DARK_THRESHOLD = 21.6
+
+/** Pixels of slack when deciding a strip cell is off-screen, so sub-pixel rounding never counts a fully visible cell. */
+export const OFFSCREEN_TOLERANCE_PX = 1
+
+/** The shortest bar the strip draws for a non-zero value, so a small shortfall or window stays visible. */
+export const MIN_BAR_SHARE = 0.06

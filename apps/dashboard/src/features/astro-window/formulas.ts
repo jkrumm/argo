@@ -1,5 +1,6 @@
 import { VX } from 'basalt-ui/tokens'
 import { percent, weekday } from 'basalt-ui/format'
+import { MIN_BAR_SHARE } from './constants'
 import type { Night, Verdict, WindowResponse } from './types'
 
 /** Verdict → tone. `out` is a hard gate, not a low score, so it reads neutral, never red. */
@@ -201,26 +202,6 @@ export function verdictHeadline(night: Night): string {
   return first === undefined ? 'OUT' : `OUT · ${first.label.toLowerCase()}`
 }
 
-/**
- * The page's opening: the live usable count, then which night to look at and how many are ruled
- * out. The shooting window is NOT stated here — the verdict card owns it, so it is said once.
- */
-export function pageSummary(data: WindowResponse): {
-  sentence: string
-  facts: string[]
-  aside: string
-} {
-  const total = data.nights.length
-  const usable = usableNightCount(data.nights)
-  const best = bestNightOf(data)
-  const sentence =
-    usable === 0 ? `No usable night in the next ${total}` : `${usable} of ${total} nights usable`
-  const facts: string[] = []
-  if (best !== null) facts.push(`${usable === 0 ? 'closest' : 'best'} ${fmtShortDay(best.date)}`)
-  if (usable > 0 && usable < total) facts.push(`${total - usable} ruled out`)
-  return { sentence, facts, aside: data.location.name }
-}
-
 /** Degrees short of the core gate, the one gap the strip can draw. Null for any other kind of night. */
 export function nightShortfall(night: Night): number | null {
   return night.verdict === 'out' ? gapToGate(night) : null
@@ -232,8 +213,99 @@ export function shortfallScale(nights: readonly Night[]): number {
   return Math.max(1, ...nights.map((n) => nightShortfall(n) ?? 0))
 }
 
-/** A night's shortfall as a 0–1 share of the strip's scale; null when it has no degree gap to draw. */
+/** A night's value as a share of a scale, 0–1: null when there is nothing to draw, and never under
+ * `MIN_BAR_SHARE` (a failed gate whose gap rounds to 0.0° still shows a hairline). */
+function barShare(value: number | null, scale: number): number | null {
+  if (value === null || !(scale > 0)) return null
+  return Math.min(1, Math.max(MIN_BAR_SHARE, value / scale))
+}
+
+/** A night's shortfall as a share of the strip's scale; null when it has no degree gap to draw. */
 export function shortfallShare(night: Night, scale: number): number | null {
-  const gap = nightShortfall(night)
-  return gap === null ? null : Math.min(1, gap / scale)
+  return barShare(nightShortfall(night), scale)
+}
+
+/** The longest shooting window on screen, minutes: the scale usable nights are drawn against. */
+export function longestWindow(nights: readonly Night[]): number {
+  return Math.max(0, ...nights.map((n) => (n.verdict === 'out' ? 0 : (n.window?.minutes ?? 0))))
+}
+
+/** A usable night's window length as a share of the longest; null for a night with no window. */
+export function windowShare(night: Night, longest: number): number | null {
+  if (night.verdict === 'out' || night.window === null) return null
+  return barShare(night.window.minutes, longest)
+}
+
+/**
+ * The out night nearest to passing: the smallest core-gate shortfall. The API's `bestDate` is only
+ * the FIRST night when every night is out, so "closest" has to come from the real gap. Null when no
+ * out night has a degree gap to rank by.
+ */
+export function closestNight(nights: readonly Night[]): Night | null {
+  let closest: Night | null = null
+  let least = Infinity
+  for (const night of nights) {
+    const gap = nightShortfall(night)
+    if (gap !== null && gap < least) {
+      closest = night
+      least = gap
+    }
+  }
+  return closest
+}
+
+/** The night the strip marks and the headline names: the API's best when any night is usable, else the closest. */
+export function markedNightOf(data: WindowResponse): Night | null {
+  return usableNightCount(data.nights) > 0 ? bestNightOf(data) : closestNight(data.nights)
+}
+
+/** How many cells end past the scroller's right edge (all in viewport coordinates). */
+export function countOffscreen(
+  cellRights: readonly number[],
+  scrollerRight: number,
+  tolerance: number,
+): number {
+  return cellRights.filter((right) => right > scrollerRight + tolerance).length
+}
+
+/** `1 more night →` / `6 more nights →`; empty when nothing is off-screen. */
+export function moreNightsLabel(count: number): string {
+  if (count <= 0) return ''
+  return `${count} more ${count === 1 ? 'night' : 'nights'} →`
+}
+
+/** The Core cell's footer. The altitude is the transit altitude and may lie in daylight, so it is
+ * only called "of the night" when there is an astronomical night at all. */
+export function coreTransitFooter(night: Night): string {
+  const reading = `${fmtDegrees(night.maxCoreAltitude)} at transit`
+  return night.darkMinutes > 0 ? `highest of the night, ${reading}` : reading
+}
+
+/**
+ * The page's opening: the live usable count, then which night to look at and how many are ruled
+ * out. The shooting window is stated here only when `withWindow` (the Forecast tab, which has no
+ * verdict card); on Tonight the verdict card owns it, so it is said once per view.
+ */
+export function pageSummary(
+  data: WindowResponse,
+  { withWindow }: { withWindow: boolean },
+): { sentence: string; facts: string[]; aside: string } {
+  const total = data.nights.length
+  const usable = usableNightCount(data.nights)
+  const marked = markedNightOf(data)
+  const sentence =
+    usable === 0 ? `No usable night in the next ${total}` : `${usable} of ${total} nights usable`
+  const facts: string[] = []
+  if (usable > 0 && marked !== null) {
+    const { bestWindow } = data
+    const range =
+      withWindow && bestWindow !== null ? `, ${bestWindow.localStart}–${bestWindow.localEnd}` : ''
+    facts.push(`best ${fmtShortDay(marked.date)}${range}`)
+  } else if (marked !== null) {
+    facts.push(`closest ${fmtShortDay(marked.date)}`)
+  } else if (data.bestDate !== null) {
+    facts.push(`first ${fmtShortDay(data.bestDate)}`)
+  }
+  if (usable > 0 && usable < total) facts.push(`${total - usable} ruled out`)
+  return { sentence, facts, aside: data.location.name }
 }

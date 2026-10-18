@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { Box } from '@mantine/core'
 import { Meter, StatGroup, type StatStripRow } from 'basalt-ui'
 import { SKY_DARK_THRESHOLD, SKY_METER_MAX, SKY_METER_MIN } from '../constants'
-import { fmtDegrees, fmtLocalClock, fmtMinutes, moonPhaseLabel } from '../formulas'
+import { coreTransitFooter, fmtLocalClock, fmtMinutes, moonPhaseLabel } from '../formulas'
 import { LP_RAMP, LP_RAMP_MAX, LP_RAMP_MIN } from '../map-layers'
 import type { Location, Night } from '../types'
 import classes from './night-anatomy.module.css'
@@ -109,7 +109,7 @@ export function NightAnatomy({
             caption: 'Core',
             value: night.localTransit,
             unit: 'transit',
-            footer: `highest of the night, ${fmtDegrees(night.maxCoreAltitude)}`,
+            footer: coreTransitFooter(night),
           },
           {
             key: 'moon',

@@ -41,6 +41,7 @@ export {
   gapToGate,
   coreGateFailure,
   coreMeterReading,
+  markedNightOf,
   pageSummary,
 } from './formulas'
 

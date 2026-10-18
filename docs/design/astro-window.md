@@ -132,12 +132,12 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 ### Wave 24 fixes
 
-- Headline is the shared `PageSummary` (`pageSummary()` in `formulas.ts`): `{n} of {total} nights usable` (or `No usable night in the next {total}`), facts `best|closest {day}` · `{n} ruled out`, site name as aside. It carries no window, so the verdict card's sentence is not repeated.
+- Headline is the shared `PageSummary` (`pageSummary()` in `formulas.ts`): `{n} of {total} nights usable` (or `No usable night in the next {total}`), facts `best|closest {day}` · `{n} ruled out`, site name as aside. On Tonight it carries no window (the verdict card owns it); on Forecast, which has no verdict card, it states the range once. "Closest" comes from the smallest core-gate shortfall, not the API's `bestDate` (the first night when all are out).
 - The GO window (day, clock range, length) is stated once, in the verdict card (`verdictHeadline()`, now unit-tested on a GO fixture). Its facts line no longer repeats the day on a GO night.
 - The panorama's header minute figure is removed: it counted samples above the panorama gate and disagreed with the API's window. The per-night length stays in the strip cell.
-- Strip: a night out on the core gate draws its shortfall as a bar on one scale shared by all nights (`shortfallScale`/`shortfallShare`); usable nights keep the verdict-colour bar; other ruled-out nights draw none (their note names the killer).
-- Strip at narrow widths: right-edge fade plus a `{n} more nights →` count, measured from the scroller (hidden from 800 px, where the strip tiles).
-- Core cell: footer `highest of the night, {x}°` beside the transit time (the verdict meter owns the in-dark reading).
+- Strip: a night out on the core gate draws its shortfall as a bar on one scale shared by all nights (`shortfallScale`/`shortfallShare`); usable nights draw their window length on one shared scale in the verdict hue; other ruled-out nights draw none (their note names the killer).
+- Strip at narrow widths: right-edge fade plus a `{n} more night(s) →` count (also in the group's aria-label), measured with viewport rects (hidden from 800 px, where the strip tiles).
+- Core cell: footer `{x}° at transit` (`highest of the night, …` only when there is a dark stretch) (the verdict meter owns the in-dark reading).
 - `data-shot="sky-panorama"` already wraps the Forecast panorama and `/astro-window?tab=forecast` is in `scripts/evidence/routes.txt`; no change needed.
 
 No basalt gaps.
