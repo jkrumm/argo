@@ -22,6 +22,8 @@ import {
   moonGateDetail,
   moonReadout,
   darkSkyThresholdText,
+  darkSkyTickText,
+  moonInterferes,
   coreGaugeMax,
   drawsGateBar,
   darknessDetail,
@@ -1055,5 +1057,15 @@ describe('moonReadout', () => {
       interferes: false,
       text: 'Moon behind terrain · no interference',
     })
+  })
+})
+
+describe('darkSkyTickText and moonInterferes', () => {
+  test('the tick spelling is one glued run', () => {
+    expect(darkSkyTickText(21.6)).toBe('dark\u00a0≥\u00a021.6')
+  })
+  test('the interference rule is at-or-over the limit', () => {
+    expect(moonInterferes(0.25, 0.25)).toBe(true)
+    expect(moonInterferes(0.24, 0.25)).toBe(false)
   })
 })

@@ -15,9 +15,9 @@ import { METRIC_TOOLTIPS, PANORAMA_HEIGHT, SKY_DARK_THRESHOLD } from '../constan
 import {
   coreGateFact,
   coreGateFailure,
+  darkSkyThresholdText,
   fmtAzimuth,
   fmtDegrees,
-  darkSkyThresholdText,
   fmtShortDay,
   moonReadout,
   withFacts,

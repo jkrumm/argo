@@ -8,6 +8,7 @@ import {
   cloudFooter,
   coreTransitFooter,
   darkSkyThresholdText,
+  darkSkyTickText,
   fmtPercent,
   fmtDegrees,
   fmtLocalClock,
@@ -50,7 +51,7 @@ function SkyScale({ mpsas }: { mpsas: number | null }) {
         )}
       </Box>
       <Box className={classes.tickLabel} aria-hidden="true" style={{ insetInlineStart: tickAt }}>
-        dark ≥ {SKY_DARK_THRESHOLD}
+        {darkSkyTickText(SKY_DARK_THRESHOLD)}
       </Box>
     </Box>
   )
