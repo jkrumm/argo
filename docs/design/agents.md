@@ -268,3 +268,8 @@ No basalt gaps this round.
 - **Reviewer (`w36-r1`):** fail (basalt only). Fixed (confirmed, #154): the three fleet cells read `No snapshot yet`, the alert's short form, one size at 1440 and 390. Carried (basalt): the `Code` radius 3 in the no-snapshot alert (off the radius scale — the one measured failure); decision-card hover identical to rest. Not re-checked this round: card 3's one action, the activity-strip focus readout. No lost fact.
 - **Against Keel:** close — Keel's cells each carry a micro-visual, ours are text readings.
 - Not re-shot in `w36-r2` (untouched after #154).
+
+### Wave 37 round (`w37-r1`, live after #160–#162 on basalt-ui 2.23.0; untouched)
+
+- **Reviewer (`w37-r1`):** fail on basalt only — the `no-snapshot` alert's nested `Code` radius 3 (UPSTREAM, basalt Wave 38). The fleet cells' `No snapshot yet` holds at both widths. Carried (argo, P3 polish): at 390 a project card's running value and `agent · longest {d}` share one line. Closed by the Home decision: decision card 3's single `Copy ask` (nothing else to copy). Carried (basalt): decision-card hover identical to rest, the activity-strip focus readout over its legend, the oldest-wait meter dropping its `abandoned at 7 d` caption at 390. Harness: `shot detect` does not flag the off-scale nested radius the metrics record. No lost fact.
+- **Against Keel:** close — the crew-card anatomy; Keel's inner cells each carry a micro-visual where ours are text readings.

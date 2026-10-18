@@ -207,3 +207,6 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 ### Wave 37 round 16 fixes (`w37-r2`)
 
 - The week footer's `{p} % of target` is glued with non-breaking spaces, so at 390 it wraps only at the `·` and never splits the phrase.
+- **Reviewer (`w37-r1`):** pass. Fixed (confirmed, #162): the target button's focus ring no longer covers `of target`. New (argo, P3): with the button beside the text the 390 footer split `% of` / `target` — fixed in #165.
+- **Re-score `w37-r2` (after #165):** **pass.** Fixed (confirmed): at 390 the footer wraps only at the `·`, in both schemes, at rest, focus and empty. Carried (basalt): the strip `—` above the reason in Pace / Totals, the empty-window button hover identical to rest. No lost fact.
+- **Against Keel:** close — two tiles hold a short form with no visual.

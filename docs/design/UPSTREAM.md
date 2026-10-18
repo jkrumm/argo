@@ -494,3 +494,15 @@ end figures, the `Meter` null `—` under empty week-strip tracks, info tooltips
 the tokens `fill` band, `$0` / `<$1` tooltip rows, `BandStrip` hue-only warn/bad days, `Sept` beside `Sep`, the `Sparkline` `PR` label at
 390, `Lines` end-label collisions, ragged strip footers, the `all time` qualifier, sticky bars over section crops, and the `shot` desktop
 hover crops identical to rest.
+
+### Wave 37 — the argo P3s (#160–#165) and the `w37-r1` / `w37-r2` live re-score
+
+No basalt-ui release this wave (2.23.0 stays). New basalt rows the round surfaced; argo works around none of them:
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| `Bars` (`basalt-ui/charts`) | an axis-less slot mode (no x / y axes, no gutters) so the catalogue's "distribution as a slot micro-visual" row can be built — today `AxisConfig` only exposes ticks / grid, not removal | reading pace tile (per-book pages/h, small n) | the tile has no visual: median hero + `slowest {x}, fastest {y} pages/h` footer; a local tick strip was tried in #161 and reverted in #165 as a catalogue-banned hand-roll |
+| chart compact legend | the one-row compact legend default (basalt Wave 38) | garmin ACWR, recovery, stress at 390 | `compact && { legend: false }` in `acwr-chart.tsx`, `recovery-trend-chart.tsx`, `stress-chart.tsx` stays until the release; the bump/adoption commit deletes those three lines |
+| `shot detect` | flag an off-scale NESTED radius the metrics already record (`Code` / `ViewTabs` radius 3) | agents / warden `no-snapshot`, usage `cost-chart` / `tokens-chart` | the reviewer scores it from `metrics.json` |
+
+`w37-r1` / `w37-r2` re-confirmed open rows: the `Code` / `ViewTabs` radius 3 and the body-composition 390 rate qualifier (basalt Wave 38), four type sizes in `Section` shells, the `Meter` zone-name fit (`Caut.`), the sparkline focus readout cut before its date, the 390 chart legends, the strip-cell `—` above a worded reason, the `shot` `emptyRatio` counting skeleton bars (calendar Today), info tooltips over headlines / neighbours, detached `Meter` end figures, `Sept` beside `Sep`, `Lines` end-label collisions, the budget's shade-only greys, `BandStrip` hue-only days, `$0` / `<$1` tooltip rows, ragged strip footers, the `all time` qualifier, sticky bars over section crops, and hover crops identical to rest.

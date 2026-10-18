@@ -222,3 +222,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer (`w36-r1`):** fail on the carried basalt P1 only (untouched by argo): at 390 the rate cell's qualifier truncates to `… maintain ±…`, so the band appears nowhere on the cell (basalt Wave 38). Carried (basalt): the meter's unnamed middle zone, the weight line through its end labels, `Set a goal` hover identical to rest. Unscored before (basalt, P3): `—` above `No entries in this window` in the empty strip cells (the `StatStrip` empty-state row). No new lost fact.
 - **Against Keel:** close — what remains is basalt's.
+
+### Wave 37 round (`w37-r1`, live after #160–#162 on basalt-ui 2.23.0; untouched)
+
+- **Reviewer (`w37-r1`):** fail on basalt only — the 390 rate qualifier truncates before the maintain band (basalt Wave 38). Carried (basalt): the strip `—` above `No entries in this window`, the unnamed middle meter zone at 390, the weight line through its end labels, the `Set a goal` hover identical to rest. No regression, no lost fact.
+- **Against Keel:** close — what remains is basalt's.

@@ -219,3 +219,8 @@ Follow-up (w30-r1):
 - **Reviewer (`w36-r1`):** fail (basalt P1s plus one new argo P2). Fixed (confirmed, #155): at 390 the scan keeps Exercise, e1RM and the status word, lift names on one line (the carried w35 P1). **New (argo, P2, a lost fact):** folding Velocity first at 390 removed the per-lift `%/mo` from the scan — fixed in #157 (the figure moves under the status word once its column folds; 1440 prints it once, in its column).
 - **Re-score `w36-r2` (after #157):** fail on basalt only. Confirmed: the 390 velocity figure under the status word, printed once at 1440. Carried (basalt): four type sizes in the `Section` shells (P1 ×3), the INOL tooltip over the headline, the bench sparkline through its `PR` label at 390, `Sept` beside `Sep`, the sticky bar over section crops, the target band as the lightest ink. No lost fact versus `w36-r1` or `w35-r2`.
 - **Against Keel:** close — every figure once; the jargon density and the four-size shells remain.
+
+### Wave 37 round (`w37-r1`, live after #160–#162 on basalt-ui 2.23.0; untouched)
+
+- **Reviewer (`w37-r1`):** fail on basalt only — four type sizes in the `Section` shells (`sec-strength`, `sec-load`, `sec-balance`). No regression: the 390 `%/mo` sits under the status word, 1440 prints it once. Carried (basalt): the INOL info tooltip over the headline, the sparkline through its `PR` label at 390, `Sept` beside `Sep`, the sticky filter bar over section crops, the target band as the lightest ink on the balance meters. No lost fact.
+- **Against Keel:** close — every figure once; the four-size shells remain basalt's.

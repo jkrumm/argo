@@ -207,3 +207,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - **Why:** pinning the composer to the bottom is a chat convention for a transcript, which grows toward the composer. The thread list is a record list whose rows start at the top, so it is the composer that attaches to the content.
 - **Keel pattern:** a day-grouped list (`timeline-event`) ending in its entry form, with no filler between them.
 
+
+### Wave 37 round (`w37-r1`, live after #161 on basalt-ui 2.23.0)
+
+- **Reviewer (`w37-r1`):** **pass.** The composer now sits right under the `First thread {date}` line at both widths; the band between the last row and the composer is gone and the list ends in its entry form. The unused space falls below the composer, read as the page's end rather than a gap inside it. Harness: the composer is no `data-shot` anchor (its hover / focus are unshot); the chip hover lands on the active chip. No lost fact: counts, rows, the untitled fold, the `First thread` line and the composer hint all match w36.
+- **Against Keel:** **close** (w36: does not yet) — Keel's `timeline-event` pattern: day-grouped rows ending in the entry form, nothing between them.

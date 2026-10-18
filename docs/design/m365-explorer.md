@@ -254,3 +254,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 ### Wave 37 round
 
 - **Decision:** a both-empty screen is ONE gap, so every surface (Labeled cell, chats cell, channels cell, source list in either view, phone Detail line) takes the leading clause verbatim: `No chats or channels came back`. `No chats came back` stays only for the narrower chats-only gap (channels present), where the chats cell leads with its own full sentence. Selection lives in `emptyGap(leader, kind)` and `detailGap` (`model.ts`).
+
+### Wave 37 re-score (`w37-r1`, live after #162 on basalt-ui 2.23.0, incl. both pane presets)
+
+- **Reviewer (`w37-r1`):** **pass**, default run and both phone presets. Fixed (confirmed): on the both-empty screen every surface — Labeled cell (the one full sentence with its step), Chats cell, Channels cell, the source list, the desktop Labeled pane, the phone Labeled pane and the phone Detail line — names the gap with `No chats or channels came back`; none still says `No chats came back`, none shows both forms. Harness: the first preset run seeded the store without its `{v, value}` envelope and the phone panes did not render; re-shot with the envelope and re-scored. Not shot: the chats-only gap (channels present). Carried (P3): chat names ellipsize at 390 (argo); the strip-cell `—` above its reason (basalt); the sticky tabs over the phone focus ring, the desktop detail crop identical to the labeled pane, the ~640 px band under the panes, the chip hover crop (harness). No lost fact.
+- **Against Keel:** close — one gap, one sentence; Keel's rows still carry real columns.

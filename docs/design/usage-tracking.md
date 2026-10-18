@@ -239,3 +239,6 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Day base named.** The p95 and cache tiles count full (complete) days only — today is still running — so under a `30 d` caption they read `{n} of {m} full days …` (`{m}` is 29 until the day closes); w36 read `of {m} days`, which looked like a miscount.
 - **Tied hues are stable.** Rank assigns a series its hue; equal totals now rank by key, so a tool keeps its hue across loads and schemes.
+- **Reviewer (`w37-r1`):** fail on basalt only (the `ViewTabs` indicator radius 3 on both charts, which `shot detect` does not flag). New (argo, P3): `of 29 days` under a `30 d` caption with no base named; tied tools swapped hue between loads — both fixed in #163. Carried (basalt): `Sept` beside `Sep`, `$0` / `<$1` tooltip rows, hue-only band cells, ragged footers, the band under the tokens plot.
+- **Re-score `w37-r2` (after #163):** fail on basalt only. Fixed (confirmed): the p95 and cache tiles read `{n} of {m} full days …`; two tied tools keep their hues in light and dark, in the list and the chart legend. No regression; the cost list still adds up to the strip total. No lost fact.
+- **Against Keel:** close — Keel never leaves a band under a plot nor top-sets an empty message (`ChartCard` placeholder, basalt).

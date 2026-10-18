@@ -280,3 +280,6 @@ Follow-up (w30-r2):
 ### Wave 37 round (`w37-r2`)
 
 - **One wait clock.** `age_days` carries one decimal, so a card could print `waiting 1 d` beside a history line of `{22} h {53} min ago`. When the latest history line agrees with the `age_days` wait within that resolution, the wait prints the history's duration through the same formatter; otherwise the longer of the two stands.
+- **Reviewer (`w37-r1`):** fail on basalt only (the `no-snapshot` `Code` radius 3). New (argo, P3, data-dependent): a card read `waiting 1 d` beside its own history line `{22} h {53} min ago` — fixed in #163. Harness: the 1440 and 390 board shots were taken on different live data. Carried (basalt): info tooltips over neighbouring cells, the stranded `all time`, decision-card hover identical to rest.
+- **Re-score `w37-r2` (after #163):** fail on basalt only. Fixed (confirmed): every decision and failed card's `waiting …` matches its history line in one form at 1440 and 390. Carried (argo / harness, P3): at 390 the board crop shows only `No item being worked on.` while 1440 has items in Merging; the column selector sits outside the anchor. No regression, no lost fact.
+- **Against Keel:** close — Keel's Needs-your-call anatomy; the remaining gap is the frozen question rung (titles are a verb prefix plus a raw alert key).
