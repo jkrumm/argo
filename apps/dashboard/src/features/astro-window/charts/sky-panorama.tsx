@@ -87,10 +87,9 @@ const panoramaSeries = (glowColor: string): ChartSeries<ProfileRow>[] => [
   },
   {
     key: 'gate',
-    label: 'Framing gate',
+    label: 'Core gate',
     color: VX.muted,
     mark: 'line',
-    dash: 'dashed',
     role: 'reference',
     getValue: (d) => d.gate,
   },
@@ -391,7 +390,6 @@ function PanoramaLoaded({
           y: 'gate',
           stroke: VX.muted,
           strokeWidth: 1.5,
-          strokeDasharray: VX.dashArray,
         }),
       )
     }

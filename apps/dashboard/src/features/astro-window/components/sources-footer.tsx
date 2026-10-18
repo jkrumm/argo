@@ -1,6 +1,7 @@
 import { Group, Text } from '@mantine/core'
 import { StatusDot } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
+import { NBSP } from '../../../lib/format'
 import { fmtLocalClock } from '../formulas'
 import type { Location, Sources } from '../types'
 
@@ -26,7 +27,7 @@ export function SourcesFooter({
   return (
     <Group gap="sm" data-shot="sources-footer">
       <Text size="xs" c="dimmed">
-        Forecast sources · run {fmtLocalClock(generatedAt, timeZone)}
+        {['Forecast', 'run', fmtLocalClock(generatedAt, timeZone)].join(NBSP)}
       </Text>
       {SOURCES.map(({ key, name }) => (
         <Group key={key} gap={6} wrap="nowrap">
