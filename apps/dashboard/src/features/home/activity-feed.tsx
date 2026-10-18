@@ -22,9 +22,15 @@ type Props = {
   now: number
 }
 
-/** The row's whole sentence, for the tooltip a truncated row carries. */
-const rowText = (e: ActivityEvent): string =>
-  [`${e.actor} ${e.title}`, e.outcome, e.chip, e.detail].filter(Boolean).join(' · ')
+type RowPart = { kind: 'lead' | 'detail' | 'outcome' | 'chip'; text: string }
+
+/** A row's parts in reading order: the one list the row renders and its full-text label joins. */
+const rowParts = (e: ActivityEvent): RowPart[] => [
+  { kind: 'lead', text: `${e.actor} ${e.title}` },
+  ...(e.detail ? [{ kind: 'detail' as const, text: e.detail }] : []),
+  ...(e.outcome ? [{ kind: 'outcome' as const, text: e.outcome }] : []),
+  ...(e.chip ? [{ kind: 'chip' as const, text: e.chip }] : []),
+]
 
 /**
  * Day-grouped feed of what the control plane, the narrator and the calendar did, newest first.
@@ -78,34 +84,7 @@ export function ActivityFeed({ groups, total, stale, loaded, failed, pending, no
                 <Text className={classes.feedHeading}>{group.label}</Text>
                 <div role="list">
                   {events.map((e) => (
-                    <div key={e.key} role="listitem" className={classes.feedRow} title={rowText(e)}>
-                      <Text component="span" size="sm" className={classes.feedSentence}>
-                        <span className={classes.feedLead}>
-                          <span className={classes.feedActor}>{e.actor}</span> {e.title}
-                          {e.detail ? (
-                            <span className={classes.feedDetail}> · {e.detail}</span>
-                          ) : null}
-                        </span>
-                        {e.outcome ? (
-                          <span className={classes.feedOutcome}>{e.outcome}</span>
-                        ) : null}
-                        {e.chip ? (
-                          <Badge
-                            variant="light"
-                            color="gray"
-                            size="sm"
-                            fz="sm"
-                            tt="none"
-                            classNames={{ root: classes.chip, label: classes.chipLabel }}
-                          >
-                            {e.chip}
-                          </Badge>
-                        ) : null}
-                      </Text>
-                      <span className={classes.feedTime}>
-                        {clockTime(new Date(e.ms).toISOString())}
-                      </span>
-                    </div>
+                    <FeedRow key={e.key} event={e} />
                   ))}
                 </div>
               </section>
@@ -125,5 +104,38 @@ export function ActivityFeed({ groups, total, stale, loaded, failed, pending, no
         </div>
       </Section>
     </Card>
+  )
+}
+
+function FeedRow({ event: e }: { event: ActivityEvent }) {
+  const parts = rowParts(e)
+  const text = parts.map((p) => p.text).join(' · ')
+  const part = (kind: RowPart['kind']) => parts.find((p) => p.kind === kind)
+  const detail = part('detail')
+  const outcome = part('outcome')
+  const chip = part('chip')
+  return (
+    <div role="listitem" className={classes.feedRow} title={text} aria-label={text}>
+      <Text component="span" size="sm" className={classes.feedSentence}>
+        <span className={classes.feedLead}>
+          <span className={classes.feedActor}>{e.actor}</span> {e.title}
+          {detail ? <span className={classes.feedDetail}> · {detail.text}</span> : null}
+        </span>
+        {outcome ? <span className={classes.feedOutcome}>{outcome.text}</span> : null}
+        {chip ? (
+          <Badge
+            variant="light"
+            color="gray"
+            size="sm"
+            fz="sm"
+            tt="none"
+            classNames={{ root: classes.chip, label: classes.chipLabel }}
+          >
+            {chip.text}
+          </Badge>
+        ) : null}
+      </Text>
+      <span className={classes.feedTime}>{clockTime(new Date(e.ms).toISOString())}</span>
+    </div>
   )
 }

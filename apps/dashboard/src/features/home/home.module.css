@@ -114,6 +114,7 @@
   display: flex;
   align-items: baseline;
   gap: var(--vx-space-stack-xs);
+  overflow: hidden;
   white-space: nowrap;
 }
 
@@ -130,14 +131,16 @@
 }
 
 .chip {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 50%;
   height: auto;
-  max-width: 100%;
   vertical-align: baseline;
 }
 
+/* The label keeps Mantine's nowrap + ellipsis, so a long project name clips inside the chip and never paints over the time column. */
 .chipLabel {
-  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 .feedDetail {
