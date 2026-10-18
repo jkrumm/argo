@@ -33,11 +33,11 @@ type WeeklyVolumePoint = {
   ma: number | null
 }
 
-const fmtTonnage = (v: number): string =>
-  v >= 1000 ? `${(v / 1000).toFixed(1)}t` : `${Math.round(v)}`
-
-/** `fmtTonnage` drops the unit under 1 t; a sentence needs it. */
-const withUnit = (v: string): string => (v.endsWith('t') ? v : `${v} kg`)
+/** One unit and one format for the whole chart, axis, tooltip and sentence: tonnes once any week reaches 1 t, else kg. */
+const tonnageFormat =
+  (peak: number) =>
+  (v: number): string =>
+    peak >= 1000 ? `${(v / 1000).toFixed(1)} t` : `${Math.round(v)} kg`
 
 const positive = (v: number): number | null => (v > 0 ? v : null)
 
@@ -79,6 +79,8 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
     [selectedBlock],
   )
 
+  const fmtTonnage = tonnageFormat(Math.max(0, ...points.map((p) => Math.max(p.total, p.ma ?? 0))))
+
   const bars: BarsBar<WeeklyVolumePoint>[] = [
     { key: 'warmup', label: 'Warm-up', color: exColor, getValue: (d) => positive(d.warmup) },
     { key: 'work', label: 'Work', color: exColor, getValue: (d) => positive(d.work) },
@@ -111,7 +113,7 @@ export default function WeeklyVolumeChart({ params }: { params: StrengthQueryPar
         <Group gap="xs" wrap="nowrap">
           {hasData && latest && latest.total > 0 ? (
             <Text span size="xs" c="dimmed">
-              {withUnit(fmtTonnage(latest.total))} week of {dayLabel(latest.iso)}
+              {fmtTonnage(latest.total)} week of {dayLabel(latest.iso)}
             </Text>
           ) : null}
           {availableExercises.length > 1 ? (

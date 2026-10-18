@@ -23,7 +23,7 @@ import OneRmTrendChart from '../features/strength-tracker/charts/one-rm-trend-ch
 import ReadinessStrainChart from '../features/strength-tracker/charts/readiness-strain-chart'
 import RelativeProgressionChart from '../features/strength-tracker/charts/relative-progression-chart'
 import { OverviewStack } from '../features/strength-tracker/overview'
-import { diagnosticsTitle, periodLabel } from '../features/strength-tracker/model'
+import { DIAGNOSTICS_TITLE, periodLabel } from '../features/strength-tracker/model'
 import SparklineGridChart from '../features/strength-tracker/charts/sparkline-grid-chart'
 import StrengthCompositeChart from '../features/strength-tracker/charts/strength-composite-chart'
 import StrengthRatiosChart from '../features/strength-tracker/charts/strength-ratios-chart'
@@ -277,7 +277,7 @@ function ChartsPanel({
       </Box>
 
       <Box data-shot="sec-diagnostics">
-        <Section title={diagnosticsTitle(search.window, period)} collapsible defaultOpen={false}>
+        <Section title={DIAGNOSTICS_TITLE} collapsible defaultOpen={false}>
           <Suspense fallback={pending}>
             <CompositeChartSlot params={params} activeExercises={activeExercises} />
           </Suspense>

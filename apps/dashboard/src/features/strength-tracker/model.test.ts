@@ -26,7 +26,7 @@ import {
   staleCopy,
   statusWord,
   summaryParts,
-  diagnosticsTitle,
+  DIAGNOSTICS_TITLE,
   borderlineNote,
   todaysCall,
 } from './model'
@@ -165,14 +165,10 @@ describe('summaryParts', () => {
   })
 })
 
-describe('diagnosticsTitle', () => {
-  test('names the period only when the window is a real one', () => {
-    expect(diagnosticsTitle('all', 'all time')).toBe(
-      'Velocity, tonnage and INOL against your 90-day norm',
-    )
-    expect(diagnosticsTitle('30d', '30 days')).toBe(
-      'Velocity, tonnage and INOL against your 90-day norm, 30 days',
-    )
+describe('DIAGNOSTICS_TITLE', () => {
+  test('names the three measures and the baseline, short enough for 390', () => {
+    expect(DIAGNOSTICS_TITLE).toBe('Velocity, tonnage, INOL vs 90-day norm')
+    expect(DIAGNOSTICS_TITLE.length).toBeLessThanOrEqual(40)
   })
 })
 
