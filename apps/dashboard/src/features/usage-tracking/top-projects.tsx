@@ -33,7 +33,9 @@ export default function TopProjects({
   const rest = Math.max(0, total - shown)
 
   return (
-    <ChartCard title={`Top projects · ${periodNoun(range)} · ${fmtUsdWhole(total)}`}>
+    <ChartCard
+      title={`Top projects · ${periodNoun(range)}${unfiltered ? '' : ` · ${fmtUsdWhole(total)}`}`}
+    >
       <BarList
         label={`Top ${data.rows.length} projects by cost, ${periodNoun(range)}`}
         format={fmtUsdWhole}

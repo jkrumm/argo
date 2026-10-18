@@ -2,9 +2,15 @@
  * Pure derivations for the Usage Tracking page: every figure the summary sentence, the strip and the
  * chart headers print. No React, no queries — a null reading is handled once (always `—`, never 0).
  */
+import { format as formatDate } from 'date-fns'
+import { withUnit } from '../../lib/format'
 import type { CostGroupBy, TimePoint, TokensGroupBy } from './types'
 
 export const EM_DASH = '—'
+
+/** `30 d` that never splits across lines. */
+export const D30 = withUnit(30, 'd')
+export const PRIOR_30D = `prior ${D30}`
 
 /** Cache hit ratio the page calls good — the tick on the ring (`>60%` in the old zone chart). */
 export const CACHE_HIT_TARGET = 0.6
@@ -114,7 +120,7 @@ export const fmtSecondsDay = (v: number) => {
 }
 
 /** `18 Oct`: a daily bucket's tooltip header and axis caption. */
-export const shortDay = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' })
+export const shortDay = (d: Date): string => formatDate(d, 'd MMM')
 
 // ── Prior-window comparisons ─────────────────────────────────────────────────────────────────
 
@@ -131,8 +137,8 @@ export function priorNote(
   delta: (current: number | null, prior: number | null) => number | null,
 ): string | null {
   if (prior === undefined) return 'prior unavailable'
-  if (prior === null) return 'no comparable prior 30 d'
-  return delta(current ?? null, prior) === null ? 'prior 30 d had no base to compare' : null
+  if (prior === null) return `no comparable ${PRIOR_30D}`
+  return delta(current ?? null, prior) === null ? `${PRIOR_30D} had no base to compare` : null
 }
 
 /**
@@ -146,12 +152,12 @@ export function errorComparison(input: {
 }): { value: number | null; note: string } {
   const { current, prior, calls } = input
   if (prior === undefined) return { value: null, note: 'prior unavailable' }
-  if (prior === null) return { value: null, note: 'no comparable prior 30 d' }
+  if (prior === null) return { value: null, note: `no comparable ${PRIOR_30D}` }
   if (calls === 0) return { value: null, note: 'no calls to rate' }
   const value = pointsDelta(current ?? null, prior)
   return value === null
-    ? { value, note: 'prior 30 d had no base to compare' }
-    : { value, note: `vs ${fmtPct(prior)} prior 30 d` }
+    ? { value, note: `${PRIOR_30D} had no base to compare` }
+    : { value, note: `vs ${fmtPct(prior)} ${PRIOR_30D}` }
 }
 
 /** The 30 d error rate, or `—` when the window had no calls (the API reports 0 there, not a rate). */
@@ -180,6 +186,24 @@ export function dropPartialDay<T extends { date: Date }>(days: readonly T[], now
     d.getMonth() === utc.getUTCMonth() &&
     d.getDate() === utc.getUTCDate()
   return days.filter((d) => !isToday(d.date))
+}
+
+const DAY_MS = 86_400_000
+
+/**
+ * A chart's drawn buckets, complete ones only: a day or week bucket still running at `now` would
+ * draw as a drop. Buckets are UTC calendar days (a week bucket starts on its date), matched against
+ * the UTC clock like `dropPartialDay`.
+ */
+export function dropPartialBucket<T extends { date: Date }>(
+  points: readonly T[],
+  now: number,
+  grain: 'day' | 'week',
+): T[] {
+  const span = (grain === 'day' ? 1 : 7) * DAY_MS
+  return points.filter(
+    (p) => Date.UTC(p.date.getFullYear(), p.date.getMonth(), p.date.getDate()) + span <= now,
+  )
 }
 
 /** How many of the readings are strictly above (`above`) or strictly below (`below`) a line; gaps do not count. */
@@ -349,7 +373,7 @@ export function healthInfo(unit: 'day' | 'week'): string {
 
 /** The cost and tokens info tail: how many series are named and what they are called. */
 export function foldInfo(noun: string): string {
-  return `The largest ${noun}s in the window are named (at least ${FOLD_TOP_N}, more while the rest would outweigh the smallest), the rest are grouped as Other.`
+  return `The largest ${noun}s in the window are named (at least ${FOLD_TOP_N}, more while the rest would outweigh the smallest), the rest are grouped as Other. The chart ends at the last full day; the list includes today.`
 }
 
 // ── Tool names ───────────────────────────────────────────────────────────────────────────────
@@ -358,7 +382,7 @@ const MCP_PREFIX = 'mcp__'
 
 /** `my_server-name` → `My server name`. */
 function plainWords(raw: string): string {
-  const words = raw.replace(/[_-]+/g, ' ').trim()
+  const words = raw.replace(/[_\-:/.]+/g, ' ').trim()
   return words === '' ? raw : words.charAt(0).toUpperCase() + words.slice(1)
 }
 
@@ -411,26 +435,21 @@ function ageMinutes(iso: string | null | undefined, now: number): number | null 
 // ── Copy ─────────────────────────────────────────────────────────────────────────────────────
 
 export type SummaryInput = {
-  cost30d: number | null
   cost7d: number | null
-  tokens30d: number | null
-  errorRate30d: number | null
   /** Pre-formatted age from `relativeTime`, or `null` when the feed has no record. */
   lastEvent: string | null
 }
 
-/** `{$} spent in 30 days, {$} in the last 7 days` — the page's answer, always with a live number. */
-export function summarySentence(s: Pick<SummaryInput, 'cost30d' | 'cost7d'>): string {
-  return `${fmtUsdWhole(s.cost30d)} spent in 30 days, ${fmtUsdWhole(s.cost7d)} in the last 7 days`
+/** `{$} spent in the last 7 days` — the page's answer; the 30 d spend is the strip's Cost cell. */
+export function summarySentence(s: Pick<SummaryInput, 'cost7d'>): string {
+  return `${fmtUsdWhole(s.cost7d)} spent in the last ${withUnit(7, 'days')}`
 }
 
-/** The facts line under the sentence: tokens, error rate, active sources, last event. */
+/** The facts line under the sentence: active sources and the last event (the strip owns the rest). */
 export function summaryFacts(
-  s: Pick<SummaryInput, 'tokens30d' | 'errorRate30d' | 'lastEvent'> & { sources: number | null },
+  s: Pick<SummaryInput, 'lastEvent'> & { sources: number | null },
 ): string[] {
   return [
-    `${fmtTokens(s.tokens30d)} tokens`,
-    `${fmtPct(s.errorRate30d)} errors`,
     s.sources === null ? null : `${s.sources} sources active`,
     s.lastEvent === null ? 'no events recorded' : `last event ${s.lastEvent}`,
   ].filter((f): f is string => f !== null)
@@ -449,7 +468,7 @@ export function freshness(iso: string | null | undefined, now: number): Freshnes
 }
 
 export function periodNoun(range: '7d' | '30d' | '90d' | 'all'): string {
-  return range === 'all' ? 'all time' : range.replace('d', ' d')
+  return range === 'all' ? 'all time' : withUnit(range.replace('d', ''), 'd')
 }
 
 type FoldGroupBy = CostGroupBy | TokensGroupBy
@@ -486,7 +505,7 @@ export function slowerDaysLine(
 ): string | null {
   if (windowP95 === null) return null
   const slower = countAgainst(days, windowP95, 'above')
-  return slower.of === 0 ? null : `${slower.count} of ${slower.of} days slower than the 30 d p95`
+  return slower.of === 0 ? null : `${slower.count} of ${slower.of} days slower than the ${D30} p95`
 }
 
 /** `{n} of {m} days under it` (the target), or `null` without a full day. */

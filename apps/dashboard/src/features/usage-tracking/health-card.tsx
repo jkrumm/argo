@@ -32,9 +32,9 @@ type ErrorBucket = { date: Date; count: number; state: ErrorDayState }
 type P95Point = { date: Date; v: number }
 
 /**
- * One bar series per error-rate verdict, so hue carries the verdict only: neutral under 1 %, warn
- * 1–3 %, bad over 3 %, and a quiet "no calls" state for a day with nothing to rate (as in the strip's
- * band). A bucket lands in exactly one series; the others are `null`, so stacking adds nothing.
+ * One bar series per error-rate verdict, so hue carries the verdict only: neutral under 1 % (a day
+ * with nothing to rate has no events and draws no bar), warn 1–3 %, bad over 3 %. A bucket lands in
+ * exactly one series; the others are `null`, so stacking adds nothing.
  */
 const VERDICT_BARS = (
   [
@@ -45,13 +45,12 @@ const VERDICT_BARS = (
       color: VX.warnSolid,
     },
     { state: 'bad', label: `Over ${fmtPct(ERROR_BAD_ABOVE, 0)}`, color: VX.badSolid },
-    { state: 'none', label: 'No calls', color: alpha(VX.muted, 0.35) },
   ] as const
 ).map(({ state, label, color }) => ({
   key: state,
-  label: state === 'none' ? label : `${label} of calls`,
+  label: `${label} of calls`,
   color,
-  getValue: (d: ErrorBucket) => (d.state === state ? d.count : null),
+  getValue: (d: ErrorBucket) => ((d.state === 'none' ? 'ok' : d.state) === state ? d.count : null),
 }))
 
 export default function HealthCard({
@@ -118,7 +117,7 @@ export default function HealthCard({
               height={120}
               x={(d: P95Point) => d.date}
               xTicks={5}
-              formatX={(d) => shortDay.format(d)}
+              formatX={(d) => shortDay(d)}
               legend={false}
               cursorResolution="leading"
               y={{ format: fmtSecondsDay, ticks: 2 }}
@@ -131,7 +130,7 @@ export default function HealthCard({
                   formatValue: fmtSecondsDay,
                 },
               ]}
-              tooltip={{ formatHeader: (x) => shortDay.format(x) }}
+              tooltip={{ formatHeader: (x) => shortDay(x) }}
               state={{ empty: p95.length < 2 }}
             />
           </div>
@@ -151,12 +150,12 @@ export default function HealthCard({
               height={120}
               x={(d: ErrorBucket) => d.date}
               xTicks={5}
-              formatX={(d) => shortDay.format(d)}
+              formatX={(d) => shortDay(d)}
               legend={{ placement: 'bottom' }}
               cursorResolution="leading"
               y={{ format: fmtTokens, ticks: 2 }}
               bars={VERDICT_BARS}
-              tooltip={{ formatHeader: (x) => shortDay.format(x) }}
+              tooltip={{ formatHeader: (x) => shortDay(x) }}
               state={{ empty: folded.total === 0 && 'No errors in this window' }}
             />
           </div>
