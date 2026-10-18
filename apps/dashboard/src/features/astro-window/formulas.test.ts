@@ -444,6 +444,40 @@ describe('gateMissText', () => {
   })
 })
 
+describe('the core gate miss clause at its boundaries', () => {
+  test('a raw gap of 0.01–0.04° reads 0.0° (still a miss)', () => {
+    for (const reading of [7.99, 7.96]) {
+      const night = outNight('2026-06-13', 8, reading)
+      expect(gateMissText(night)).toBe('core 0.0° under its gate')
+      expect(nightNote(night)).toBe('core 0.0° under its gate')
+    }
+  })
+
+  test('a raw gap of exactly 0 has no clause and falls back to the killer', () => {
+    const night = outNight('2026-06-13', 8, 8)
+    expect(gateMissText(night)).toBe('core altitude')
+    expect(nightNote(night)).toBe('core low')
+  })
+
+  test('a raw gap of 0.05° reads 0.1°', () => {
+    const night = outNight('2026-06-13', 10, 9.95)
+    expect(gateMissText(night)).toBe('core 0.1° under its gate')
+    expect(nightNote(night)).toBe('core 0.1° under its gate')
+  })
+
+  test('the strip cell and coreGateFailure agree when moon is the first killer', () => {
+    const night = {
+      ...outNight('2026-06-13', 8, 4.1),
+      killers: [
+        { id: 'moon', label: 'Moon', reason: 'r' },
+        { id: 'core-altitude', label: 'Core altitude', reason: 'r' },
+      ],
+    } as unknown as Night
+    expect(coreGateFailure(night)).toBe(true)
+    expect(nightNote(night)).toBe('core 3.9° under its gate')
+  })
+})
+
 describe('azimuth words', () => {
   test('8-point compass, wrapping at north', () => {
     expect(compassWord(0)).toBe('N')
@@ -1096,10 +1130,9 @@ describe('darkSkyTickText and moonInterferes', () => {
 
 describe('unknownSiteCopy', () => {
   test('names the site and the next step', () => {
-    const { title, hint } = unknownSiteCopy('example-site')
-    expect(title).toBe('No site "example-site" in the list')
-    expect(`${title} — ${hint.toLowerCase()}`).toBe(
-      'No site "example-site" in the list — choose another site, or reload if the list is empty',
-    )
+    expect(unknownSiteCopy('example-site')).toEqual({
+      title: 'No site "example-site" in the list',
+      hint: 'Choose another site, or reload if the list is empty',
+    })
   })
 })
