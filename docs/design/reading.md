@@ -234,3 +234,7 @@ Follow-up (w30-r2):
 - **Re-score `w37-r3` (after #166):** pass. Fixed (confirmed): one axis row, columns labelled `1…5` at their centres, the mean marker on the same star scale. New (argo, P2): at 390 the marker crossed a count.
 - **Re-score `w37-r4` (after #167):** **pass.** Fixed (confirmed): every count sits on one reserved row above the bars and the marker spans only the bar zone, so the two cannot meet. Carried (basalt, P3): the pace cell's blank lower half until the axis-less `Bars` slot ships. No lost fact; the figures reconcile (counts, mean, shelf, backlog).
 - **Against Keel:** does not yet — the pace tile has no visual (basalt-owned now).
+
+### Wave 38 round
+
+- Pace cell: the slot distribution returns on basalt-ui 2.25.0 as `Bars` (axis-less in the strip `visual` slot) — one neutral `VX.line` bar per book, slowest first (`paceBars`, tested). The median hero, `{n} books` caption and `slowest {x}, fastest {y} pages/h` footer are unchanged; one book or no pace draws no visual, as before. No lost fact.

@@ -7,6 +7,7 @@ import {
   booksPerMonth,
   finishedFooter,
   finishCohort,
+  paceBars,
   paceRange,
   backlog,
   currentYear,
@@ -500,5 +501,19 @@ describe('lastReadFact', () => {
   })
   test('no timestamp', () => {
     expect(lastReadFact(null, now)).toBe('last read —')
+  })
+})
+
+describe('paceBars', () => {
+  test('draws one bar per book, slowest first', () => {
+    expect(paceBars([20, 35, 40])).toEqual([
+      { book: 1, pace: 20 },
+      { book: 2, pace: 35 },
+      { book: 3, pace: 40 },
+    ])
+  })
+  test('draws nothing below two books', () => {
+    expect(paceBars([])).toEqual([])
+    expect(paceBars([30])).toEqual([])
   })
 })

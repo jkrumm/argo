@@ -144,6 +144,7 @@ export function FoldedChart({
       <Grid.Col span={{ base: 12, lg: 4 }} data-shot={`${metric}-list`} data-shot-states="empty">
         <ChartCard
           className={classes.fill}
+          placeholderHeight="content"
           title={`${listTitle} · ${periodNoun(range)}${totalNote}`}
           state={{ empty: folded.totals.length === 0 && listText }}
         >

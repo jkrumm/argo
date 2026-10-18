@@ -242,3 +242,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - **Reviewer (`w37-r1`):** fail on basalt only (the `ViewTabs` indicator radius 3 on both charts, which `shot detect` does not flag). New (argo, P3): `of 29 days` under a `30 d` caption with no base named; tied tools swapped hue between loads — both fixed in #163. Carried (basalt): `Sept` beside `Sep`, `$0` / `<$1` tooltip rows, hue-only band cells, ragged footers, the band under the tokens plot.
 - **Re-score `w37-r2` (after #163):** fail on basalt only. Fixed (confirmed): the p95 and cache tiles read `{n} of {m} full days …`; two tied tools keep their hues in light and dark, in the list and the chart legend. No regression; the cost list still adds up to the strip total. No lost fact.
 - **Against Keel:** close — Keel never leaves a band under a plot nor top-sets an empty message (`ChartCard` placeholder, basalt).
+
+### Wave 38 round
+
+- The cost/tokens list cards and the top-projects card pass `placeholderHeight="content"` (basalt-ui 2.25.0): their empty message ends at the list's content instead of the upper third of a chart-height box. These bodies never enter a pending state (suspense query), so no body-drawn loading is needed. Plot cards unchanged. No lost fact.

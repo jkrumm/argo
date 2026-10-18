@@ -1,7 +1,9 @@
 import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
+import { Bars } from 'basalt-ui/charts'
 import { alpha, VX } from 'basalt-ui/tokens'
 import {
   NO_PACE_REASON,
+  paceBars,
   paceRange,
   gapsBeforePosition,
   RATING_MAX,
@@ -96,11 +98,34 @@ function paceCell(pace: Pace): StatStripCell {
     return { key: 'pace', caption: 'Reading pace', value: null, footer: NO_PACE_REASON }
   }
   const books = `${pace.paces.length} ${pace.paces.length === 1 ? 'book' : 'books'}`
+  const bars = paceBars(pace.paces)
   return {
     key: 'pace',
     caption: `Pace · median of ${books}`,
     value: String(pace.median),
     unit: 'pages/h',
+    ...(bars.length === 0
+      ? {}
+      : {
+          visual: (
+            <Bars
+              ariaLabel={`Reading pace per book in pages per hour, slowest to fastest: ${pace.paces.join(', ')}`}
+              data={bars}
+              height={28}
+              x={(d) => d.book}
+              bars={[
+                {
+                  key: 'pace',
+                  label: 'Pace',
+                  color: VX.line,
+                  getValue: (d) => d.pace,
+                  formatValue: (v) => `${Math.round(v)} pages/h`,
+                },
+              ]}
+              legend={false}
+            />
+          ),
+        }),
     footer: paceRange(pace.paces) ?? 'one book has reading time so far',
   }
 }
