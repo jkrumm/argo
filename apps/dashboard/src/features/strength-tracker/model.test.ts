@@ -367,6 +367,7 @@ describe('records and periods', () => {
   })
   test('day label is zone-stable', () => {
     expect(dayLabel('2026-10-16')).toBe('Fri 16 Oct')
+    expect(dayLabel('2026-09-02')).toBe('Wed 2 Sep')
     expect(shortDate('2026-10-16')).toBe('16 Oct')
   })
   test('local iso', () => {

@@ -3,6 +3,7 @@
  * the summary, the verdict card and the lift cells cannot disagree. Unknown is `null` (rendered `—`),
  * never 0.
  */
+import { format } from 'date-fns'
 import {
   ACWR_CAUTION_TO,
   ACWR_FLOOR,
@@ -478,16 +479,13 @@ export function groupByDay<T extends RecordRow>(records: readonly T[]): DayGroup
   return groups
 }
 
-const DAY_FMT = new Intl.DateTimeFormat('en-GB', {
-  weekday: 'short',
-  day: 'numeric',
-  month: 'short',
-})
-
-/** `Fri 16 Oct` for a `YYYY-MM-DD` day (parsed as a local date, never shifted by the zone). */
+/**
+ * `Fri 16 Oct` for a `YYYY-MM-DD` day (parsed as a local date, never shifted by the zone). date-fns,
+ * not `Intl`: ICU's en-GB month abbreviations differ by runtime (`Sept` on newer ICU), the app's are fixed.
+ */
 export function dayLabel(date: string): string {
   const [y, m, d] = date.split('-').map(Number) as [number, number, number]
-  return DAY_FMT.format(new Date(y, m - 1, d)).replace(',', '')
+  return format(new Date(y, m - 1, d), 'EEE d MMM')
 }
 
 /** `13 Aug` for a `YYYY-MM-DD` day. */
