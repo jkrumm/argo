@@ -10,10 +10,10 @@ function trail(date: string, pages: number | null): string {
   return `${shortDate(date)}${pages === null ? '' : ` · ${withUnit(pages, 'p')}`}`
 }
 
-/** `★ 4 · 12 days`; the days are left out (not zeroed) when the book has no start date. */
+/** `4 ★ · 12 days`; the days are left out (not zeroed) when the book has no start date. */
 function finishedMeta(rating: number | null, days: number | null): string | undefined {
   const parts = [
-    ...(rating === null ? [] : [`★ ${rating}`]),
+    ...(rating === null ? [] : [withUnit(rating, '★')]),
     ...(days === null
       ? []
       : [days === 0 ? 'same day' : withUnit(days, days === 1 ? 'day' : 'days')]),

@@ -447,7 +447,9 @@ describe('ratingsFooter', () => {
       book({ rating: 3.5 }),
       book({ rating: 4 }),
     ])
-    expect(labels.map((l) => l.visible)).toEqual(['1', '2', '3–3.5', '4', '5'])
+    expect(labels.map((l) => l.visible)).toEqual(
+      ['1', '2', '3–3.5', '4', '5'].map((v) => `${v}\u00a0★`),
+    )
     expect(labels.map((l) => l.aria)).toEqual([
       '1 star',
       '2 stars',
