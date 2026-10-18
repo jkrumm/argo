@@ -41,7 +41,7 @@ import {
   fmtAzimuth,
   windowShare,
 } from './formulas'
-import type { Night, WindowResponse } from './types'
+import type { HourlyPoint, Night, WindowResponse } from './types'
 
 // Europe/Berlin fall-back night 2026-10-25: 02:00 and 02:30 local occur twice (CEST, then CET).
 const FALL_BACK = [
@@ -630,22 +630,26 @@ describe('moonGateDetail', () => {
     ({ killers, darkMinutes, window: null, moon: { illumination: 0.456 } }) as unknown as Night
 
   test('a failed gate keeps the API reason', () => {
-    expect(moonGateDetail(night([{ id: 'moon', label: 'Moon', reason: 'r' }]), 0.25)).toBe('r')
+    expect(moonGateDetail(night([{ id: 'moon', label: 'Moon', reason: 'r' }]), 0.25, [])).toBe('r')
   })
   test('a failed gate with a window states the moon peak from the number, not the prose', () => {
     const n = {
       ...night([{ id: 'moon', label: 'Moon', reason: 'prose' }]),
       window: { maxMoonAltitude: 12.34 },
     } as unknown as Night
-    expect(moonGateDetail(n, 0.25)).toBe('up to 12.3° during the window')
+    expect(moonGateDetail(n, 0.25, [])).toBe('up to 12.3° during the window')
   })
   test('a failed gate without a window keeps the API reason verbatim', () => {
     expect(
-      moonGateDetail(night([{ id: 'moon', label: 'Moon', reason: 'moon 46% illuminated' }]), 0.25),
+      moonGateDetail(
+        night([{ id: 'moon', label: 'Moon', reason: 'moon 46% illuminated' }]),
+        0.25,
+        [],
+      ),
     ).toBe('moon 46% illuminated')
   })
   test('a pass under the limit says so in words', () => {
-    expect(moonGateDetail(night([]), 0.5)).toBe('under limit')
+    expect(moonGateDetail(night([]), 0.5, [])).toBe('under limit')
   })
 })
 
@@ -660,7 +664,7 @@ describe('gateRows', () => {
   } as unknown as Night
 
   test('pass or fail comes from the killers only; low cloud is a factor row, not a gate', () => {
-    const rows = gateRows(night, 0.25)
+    const rows = gateRows(night, 0.25, [])
     expect(rows.map((r) => [r.key, r.state, r.tone])).toEqual([
       ['darkness', 'passed', 'good'],
       ['core-altitude', 'passed', 'good'],
@@ -674,7 +678,7 @@ describe('gateRows', () => {
       ...night,
       factors: [{ id: 'cloud-low', label: 'Low cloud', value: 0.4 }],
     } as unknown as Night
-    expect(gateRows(limiting, 0.25).at(-1)).toMatchObject({
+    expect(gateRows(limiting, 0.25, []).at(-1)).toMatchObject({
       key: 'cloud-low',
       state: 'limits the score',
       detail: '70\u00a0%',
@@ -688,7 +692,7 @@ describe('gateRows', () => {
       window: null,
       factors: [],
     } as unknown as Night
-    expect(gateRows(out, 0.25).map((r) => r.state)).toEqual(['passed', 'passed', 'failed'])
+    expect(gateRows(out, 0.25, []).map((r) => r.state)).toEqual(['passed', 'passed', 'failed'])
   })
 })
 
@@ -733,13 +737,27 @@ describe('moon gate row on a pass', () => {
       killers: [],
       darkMinutes: 300,
       moon: { illumination: 0.96 },
-      window: windowNull ? null : { maxMoonAltitude },
+      window: windowNull
+        ? null
+        : { maxMoonAltitude, start: '2026-01-01T20:00:00Z', end: '2026-01-01T22:00:00Z' },
     }) as unknown as Night
+  const sample = (time: string, moonBehindTerrain: boolean) =>
+    ({ time, moonBehindTerrain }) as unknown as HourlyPoint
 
-  test('over the limit it says why it passed, never a bare contradiction', () => {
-    expect(moonGateDetail(passed(-10), 0.25)).toBe('over limit, below horizon')
-    expect(moonGateDetail(passed(12), 0.25)).toBe('over limit, position passed')
-    expect(moonGateDetail(passed(0, true), 0.25)).toBe('over limit, position passed')
+  test('below the horizon through the window', () => {
+    expect(moonGateDetail(passed(-10), 0.25, [])).toBe('over limit, below horizon')
+  })
+  test('behind the skyline when a window sample says so', () => {
+    const hourly = [sample('2026-01-01T21:00:00Z', true)]
+    expect(moonGateDetail(passed(12), 0.25, hourly)).toBe('over limit, behind skyline')
+  })
+  test('a behind-terrain sample outside the window does not count', () => {
+    const hourly = [sample('2026-01-01T23:00:00Z', true)]
+    expect(moonGateDetail(passed(12), 0.25, hourly)).toBe('over limit')
+  })
+  test('no window, or no field that says why: over limit alone', () => {
+    expect(moonGateDetail(passed(0, true), 0.25, [])).toBe('over limit')
+    expect(moonGateDetail(passed(12), 0.25, [])).toBe('over limit')
   })
 })
 
@@ -753,7 +771,7 @@ describe('gateRows with no astronomical night', () => {
       killers: [{ id: 'darkness', label: 'Darkness', reason: 'no night' }],
       factors: [],
     } as unknown as Night
-    expect(gateRows(night, 0.25).map((r) => [r.key, r.state, r.tone])).toEqual([
+    expect(gateRows(night, 0.25, []).map((r) => [r.key, r.state, r.tone])).toEqual([
       ['darkness', 'failed', 'warn'],
       ['core-altitude', 'n/a', 'neutral'],
       ['moon', 'n/a', 'neutral'],
@@ -770,7 +788,7 @@ describe('gateRows with no astronomical night', () => {
       killers: [],
       factors: [{ id: 'cloud-low', label: 'Low cloud', value: 0, ruinous: true }],
     } as unknown as Night
-    expect(gateRows(night, 0.25).at(-1)?.tone).toBe('neutral')
+    expect(gateRows(night, 0.25, []).at(-1)?.tone).toBe('neutral')
   })
 })
 

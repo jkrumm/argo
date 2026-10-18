@@ -9,7 +9,7 @@ import {
   verdictStatus,
   type GateRowModel,
 } from '../formulas'
-import type { Night } from '../types'
+import type { HourlyPoint, Night } from '../types'
 
 const TONE: Record<GateRowModel['tone'], string> = {
   good: VX.status.good,
@@ -48,10 +48,12 @@ export function VerdictCard({
   night,
   nights,
   moonLimit,
+  hourly,
 }: {
   night: Night
   nights: readonly Night[]
   moonLimit: number
+  hourly: readonly HourlyPoint[]
 }) {
   const status = verdictStatus(night)
   const facts = verdictFacts(night, nights)
@@ -71,7 +73,7 @@ export function VerdictCard({
         facts={facts}
         evidence={
           <Stack gap="sm">
-            {gateRows(night, moonLimit).map(({ key, ...row }) => (
+            {gateRows(night, moonLimit, hourly).map(({ key, ...row }) => (
               <GateRow key={key} {...row} />
             ))}
           </Stack>
