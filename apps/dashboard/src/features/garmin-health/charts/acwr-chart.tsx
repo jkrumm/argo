@@ -176,7 +176,6 @@ export default function AcwrChart({ params }: { params: SummaryParams }) {
           bars={DIVERGENCE_BARS}
           {...(xDomain && { xDomain })}
           xTicks={xTicks}
-          legend={false}
           y={{ domain: 'auto', ticks: 2, autoMaxFloor: 5, autoMinCeil: -5 }}
         />
       </RefetchDim>

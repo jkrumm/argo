@@ -77,7 +77,6 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
           height={CHART_HEIGHT}
           x={(d) => d.day}
           bars={BARS}
-          legend={false}
           refLines={[{ value: ACTIVITY_TARGET_SCORE, color: VX.muted, dashed: true }]}
           y={{ autoMaxFloor: ACTIVITY_TARGET_SCORE, ticks: 5 }}
           tooltip={{
