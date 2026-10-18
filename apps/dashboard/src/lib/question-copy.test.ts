@@ -952,6 +952,10 @@ describe('addsText', () => {
   it('is false when the reason sits mid-string inside the evidence line', () => {
     expect(addsText('failed on {sha}', 'CI failed on {sha} after retries.')).toBe(false)
   })
+  it('is true when a short reason only appears inside longer words', () => {
+    expect(addsText('API', 'A rapid retry failed.')).toBe(true)
+    expect(addsText('merge', 'Emerged from the queue.')).toBe(true)
+  })
   it('is true when there is no evidence line', () => {
     expect(addsText('Whole reason.', null)).toBe(true)
   })

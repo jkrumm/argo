@@ -37,7 +37,7 @@ export function leadOf(text: string, max: number): string {
 const bareTitle = (title: string): string => flatten(title).replace(/[.!?…:;,]+$/, '')
 
 /** A text as the evidence comparison reads it: flattened (no-break spaces included), lower-case, no tail punctuation. */
-const comparable = (text: string): string => bareTitle(unglue(text)).toLowerCase()
+const evidenceComparable = (text: string): string => bareTitle(unglue(text)).toLowerCase()
 
 /**
  * True when the reason has text the evidence line lacks. A reason equal to the line, or found
@@ -46,9 +46,15 @@ const comparable = (text: string): string => bareTitle(unglue(text)).toLowerCase
  */
 export function addsText(reason: string, evidenceLine: string | null): boolean {
   if (evidenceLine === null) return true
-  const full = comparable(reason)
-  const shown = comparable(evidenceLine)
-  return full !== shown && !shown.includes(full)
+  const full = evidenceComparable(reason)
+  const shown = evidenceComparable(evidenceLine)
+  if (full === shown) return false
+  // Word boundaries: a short reason (`API`) inside a longer word (`rapid`) is not shown by the line.
+  const inside = new RegExp(
+    `(?<![\\p{L}\\p{N}])${full.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}\\p{N}])`,
+    'u',
+  )
+  return !inside.test(shown)
 }
 
 /** A URL with the words that introduce it, or the whole `(see https://…)` it sits in. */
