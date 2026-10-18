@@ -61,9 +61,7 @@ export function ActivityFeed({ groups, total, stale, loaded, now }: Props) {
                   {events.map((e) => (
                     <div key={e.key} role="listitem" className={classes.feedRow}>
                       <Text component="span" size="sm" className={classes.feedSentence}>
-                        <span className={classes.feedHead}>
-                          <span className={classes.feedActor}>{e.actor}</span> {e.title}
-                        </span>
+                        <span className={classes.feedActor}>{e.actor}</span> {e.title}
                         {e.outcome ? (
                           <>
                             {' '}

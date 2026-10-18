@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'bun:test'
-import { isValidElement } from 'react'
-import { recoveryMeterProps, recoveryVerdict } from '../garmin-health/model'
+import type { ReactElement } from 'react'
+import { RECOVERY_VERDICT_NAME, recoveryMeterProps, recoveryVerdict } from '../garmin-health/model'
+import type { RecoveryReading } from './model'
+import { recoveryFooter } from './model'
 import { acwrCell, agentsCell, budgetCell, meetingCell, recoveryCell } from './strip-cells'
 
 const NOW = new Date(2026, 0, 15, 12, 0).getTime()
@@ -118,7 +120,7 @@ describe('agentsCell', () => {
 })
 
 describe('recovery agrees with Garmin', () => {
-  const reading = (score: number) => ({
+  const reading = (score: number, over: Partial<RecoveryReading> = {}): RecoveryReading => ({
     score,
     mean: 60,
     days: 7,
@@ -126,24 +128,53 @@ describe('recovery agrees with Garmin', () => {
     trend: [score],
     date: '2026-01-15',
     isToday: true,
+    ...over,
   })
 
-  it('states the score and the same zone verdict from the shared meter derivation', () => {
+  it('draws the shared meter: same zones and a label naming the verdict', () => {
     for (const score of [0, 39, 40, 69, 70, 100]) {
       const cell = recoveryCell(reading(score))
       expect(cell.value).toBe(String(score))
-      const meter = (cell.visual as { props: { children: unknown[] } }).props.children[0]
-      expect(isValidElement(meter)).toBe(true)
-      const props = (meter as { props: ReturnType<typeof recoveryMeterProps> }).props
-      expect(props.zones).toEqual(recoveryMeterProps(score).zones)
-      expect(props.label).toBe(recoveryMeterProps(score).label)
-      expect(props.label).toContain(
-        { rest: 'Rest', normal: 'Normal', push: 'Push' }[recoveryVerdict(score)],
-      )
+      const children = (cell.visual as ReactElement<{ children: ReactElement[] }>).props.children
+      const meter = (children[0] as ReactElement<ReturnType<typeof recoveryMeterProps>>).props
+      expect(meter).toMatchObject(recoveryMeterProps(score))
+      expect(meter.label).toContain(RECOVERY_VERDICT_NAME[recoveryVerdict(score)])
     }
   })
+})
 
-  it('keeps the 7 d mean as its own labelled fact', () => {
-    expect(recoveryCell(reading(55)).footer).toBe('7\u00a0d mean 60 · 7 observed days of 7')
+const reading = (over: Partial<RecoveryReading> = {}): RecoveryReading => ({
+  score: 55,
+  mean: 60,
+  days: 7,
+  ceiling: null,
+  trend: [55],
+  date: '2026-01-15',
+  isToday: true,
+  ...over,
+})
+
+describe('recoveryFooter', () => {
+  const NB = '\u00a0'
+  it('keeps the mean in every branch where there is one', () => {
+    expect(recoveryFooter(reading({ isToday: true }))).toBe(
+      `7${NB}d mean 60 · 7 observed days of 7`,
+    )
+    expect(recoveryFooter(reading({ isToday: false }))).toBe(
+      `7${NB}d mean 60 · today fills after the next Garmin sync (every 6${NB}h)`,
+    )
+  })
+
+  it('drops only the mean when there is none', () => {
+    expect(recoveryFooter(reading({ mean: null, days: 0, isToday: true }))).toBe(
+      '0 observed days of 7',
+    )
+    expect(recoveryFooter(reading({ mean: null, isToday: false }))).toBe(
+      `today fills after the next Garmin sync (every 6${NB}h)`,
+    )
+  })
+
+  it('singular day', () => {
+    expect(recoveryFooter(reading({ days: 1 }))).toBe(`7${NB}d mean 60 · 1 observed day of 7`)
   })
 })

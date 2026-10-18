@@ -14,7 +14,6 @@ declare const classes: {
   readonly axisLabels: string
   readonly feed: string
   readonly feedGroup: string
-  readonly feedHead: string
   readonly feedHeading: string
   readonly feedRow: string
   readonly feedSentence: string

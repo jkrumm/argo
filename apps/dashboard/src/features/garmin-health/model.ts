@@ -4,7 +4,7 @@
  * so the copy is testable and a null reading is handled once (always `—`, never `0`).
  */
 
-import type { MeterZone } from 'basalt-ui'
+import type { MeterProps, MeterZone } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { NBSP, withUnit } from '../../lib/format'
 import { ACWR_ZONE_NAME, type AcwrZone } from './formulas'
@@ -41,7 +41,9 @@ export const RECOVERY_VERDICT_NAME = {
  * The recovery meter, once: zones, cut-off caption and a label that names the verdict. Home's tile
  * and Garmin's cell spread this, so the same day's score reads the same on both pages.
  */
-export function recoveryMeterProps(score: number | null) {
+export function recoveryMeterProps(
+  score: number | null,
+): Required<Pick<MeterProps, 'label' | 'min' | 'max' | 'zones' | 'startCaption' | 'endCaption'>> {
   const zones: MeterZone[] = [
     { from: 0, to: RECOVERY_REST_BELOW, label: RECOVERY_VERDICT_NAME.rest, color: VX.bad },
     {
