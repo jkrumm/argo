@@ -499,6 +499,7 @@ describe('tokensFormatterFor', () => {
   it('rolls a value that rounds to one unit up to one decimal, not two', () => {
     // 0.96 M prints `1.0 M` (rounded-value rule), never `0.96 M` beside `1.0 M`.
     expect(tokensFormatterFor(5_600_000)(960_000)).toBe(`1.0${NB}M`)
+    expect(tokensFormatterFor(5_600_000)(950_000)).toBe(`1.0${NB}M`)
     expect(tokensFormatterFor(5_600_000)(940_000)).toBe(`0.94${NB}M`)
   })
   it('never prints a non-zero value as zero, and keeps the sign', () => {

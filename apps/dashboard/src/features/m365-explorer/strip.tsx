@@ -65,9 +65,10 @@ function chatsCell(chats: Chats): StatStripCell {
   const parts = chatKindParts(chats)
   const stat = chatsStat(chats)
   // The hero already prints the leading kind's count, so its caption names the kind only; on a tie
-  // no segment is the hero's twin and every caption keeps its count.
-  const leadCount =
-    parts[0] !== undefined && parts[0].value !== parts[1]?.value ? parts[0].value : null
+  // no segment is the hero's twin and every caption keeps its count. `format` sees values, not
+  // segments, so the lead is matched by its (unique) value.
+  const [lead, runnerUp] = parts
+  const uniqueLead = lead !== undefined && lead.value !== runnerUp?.value
   return {
     key: 'chats',
     caption: 'Chats by kind',
@@ -78,7 +79,7 @@ function chatsCell(chats: Chats): StatStripCell {
           label="Chats by kind"
           max={parts.reduce((sum, p) => sum + p.value, 0)}
           size="row"
-          format={(v) => (v === leadCount ? '' : String(v))}
+          format={(v) => (uniqueLead && v === lead.value ? '' : String(v))}
           segments={parts.map((p, i) => ({
             label: p.label,
             value: p.value,
