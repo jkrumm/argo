@@ -38,7 +38,8 @@ export function BodyCompositionPage({ params }: { params: Params }) {
   const summary = weight as WeightSummary
   const skinfoldSummary = skinfold as SkinfoldSummary
   const weightPoints = weightSeries.points
-  const sessions = (shotState() === 'empty' ? [] : skinfoldSeries.points) as SkinfoldPoint[]
+  const loggedSessions = skinfoldSeries.points as SkinfoldPoint[]
+  const sessions: SkinfoldPoint[] = shotState() === 'empty' ? [] : loggedSessions
 
   const goal = profile.goal_weight_kg
   const todayKey = dayKey(now)
