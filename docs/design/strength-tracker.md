@@ -177,3 +177,8 @@ No new basalt rows.
 - Balance rows: fixed — the range is said once, as the meter's band label (`{lo}–{hi}`); the caption's distance tail comes from `distanceTail` (`· {n} under|over the band`, empty inside the band). Rows without a meter keep `{lo}–{hi} band · need both lifts`.
 - Not fixed (basalt / not argo's): Meter detached ticks, Sparkline reference label, four type sizes in shells.
 - ACWR zone names: fixed — Strength reads the one `ACWR_ZONE_NAME` (full names in text, legend and tooltip); its meter passes `short` (`Under`, `Caut.`) as the narrow fallback only.
+
+Follow-up (w30-r1):
+
+- **Balance rows: the band range is never hidden** — fixed, supersedes the "range as the meter's band label" line above: the 390 Meter hides a narrow band's label, so the range moved to the caption, said once (`bandTail`): `{status} · in the {lo}–{hi} band`, or `{status} · {n} under|over the {lo}–{hi} band`. The band zone has an empty label (UPSTREAM § Wave 29 workaround).
+- **ACWR zone vocabulary** — fixed: `label` and `short` both come from the shared `ACWR_ZONE_NAME` / `ACWR_ZONE_SHORT`.
