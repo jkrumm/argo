@@ -21,7 +21,7 @@ import {
   shortDate,
   deloadLine,
   lastSessionDate,
-  staleNote,
+  staleCopy,
   ACWR_LABEL,
   readinessHeader,
   recentDeload,
@@ -314,7 +314,7 @@ function LiftStrip(props: Params) {
   const cells = lifts.map(({ id, points, delta }) =>
     liftCell({ id, points, move: delta, pr: prs.get(id) }),
   )
-  const note = staleNote(lifts)
+  const { note } = staleCopy(lifts)
 
   return (
     <Stack gap="xs">

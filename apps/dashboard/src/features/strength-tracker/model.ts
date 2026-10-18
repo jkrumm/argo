@@ -280,14 +280,30 @@ export type CallFactsInput = {
   session: { exercise_id: string; date: string; inol: number } | null
 }
 
-/** The one note for lifts with no session in the delta window; null when every lift has one. */
-export function staleNote(lifts: readonly { id: string; delta: LiftDelta }[]): string | null {
+type DeltaLift = { id: string; delta: LiftDelta }
+
+/** The delta window of a lift set, as a value with its unit. */
+function deltaSpan(lifts: readonly DeltaLift[]): string {
+  return withUnit(lifts[0]?.delta.days ?? DELTA_DAYS, 'd')
+}
+
+/**
+ * The copy for lifts with no session in the delta window, decided once: every lift stale is the
+ * headline's sentence (and the strip stays silent); some stale is the strip's one note. Only
+ * sessions with a scored e1RM move the figure; a session without one does not count.
+ */
+export function staleCopy(lifts: readonly DeltaLift[]): {
+  headline: string | null
+  note: string | null
+} {
   const stale = lifts.filter((l) => l.delta.stale)
-  if (stale.length === 0) return null
-  // Only sessions with a scored e1RM move the figure; a session without one does not count.
-  // Every lift stale is the headline's sentence, not a second one.
-  if (allStale(lifts)) return null
-  return `No scored e1RM in ${deltaSpan(lifts)}: ${stale.map((l) => exerciseLabel(l.id)).join(', ')}`
+  if (stale.length === 0) return { headline: null, note: null }
+  const span = deltaSpan(lifts)
+  if (stale.length === lifts.length) return { headline: `No scored e1RM in ${span}`, note: null }
+  return {
+    headline: null,
+    note: `No scored e1RM in ${span}: ${stale.map((l) => exerciseLabel(l.id)).join(', ')}`,
+  }
 }
 
 /** The call card's facts line, split around the INOL figure (which carries its own definition). */
@@ -343,32 +359,24 @@ export function lastSession(
 
 // ── Summary sentence ─────────────────────────────────────────────────────────────────────────
 
-/** True when no lift has a session inside the delta window (and there is at least one lift). */
-function allStale(lifts: readonly { delta: LiftDelta }[]): boolean {
-  return lifts.length > 0 && lifts.every((l) => l.delta.stale)
-}
-
-/** The delta window of a lift set, as a value with its unit. */
-function deltaSpan(lifts: readonly { delta: LiftDelta }[]): string {
-  return withUnit(lifts[0]?.delta.days ?? DELTA_DAYS, 'd')
-}
-
 /**
- * The headline always states a fact. It counts lifts up out of those with a scored move; when none
- * is up it says so (`No lift moved up` only when every lift is scored, else the scored-only
- * wording), or that no lift has a scored e1RM. The per-lift e1RM and move are the strip's, the
- * score and ACWR the call card's: the headline repeats none of them.
+ * The headline always states a fact. It counts lifts up out of those with a scored move, naming
+ * that basis; with none scored it says so, and when every lift is stale that is `staleCopy`'s
+ * sentence. The per-lift e1RM and move are the strip's, the score and ACWR the call card's: the
+ * headline repeats none of them.
  */
-export function summaryParts(lifts: readonly { delta: LiftDelta }[]): { sentence: string } | null {
+export function summaryParts(lifts: readonly DeltaLift[]): { sentence: string } | null {
   if (lifts.length === 0) return null
+  const { headline } = staleCopy(lifts)
+  if (headline !== null) return { sentence: headline }
   const span = deltaSpan(lifts)
-  if (allStale(lifts)) return { sentence: `No scored e1RM in ${span}` }
   const scored = lifts.flatMap((l) => (l.delta.delta === null ? [] : [l.delta.delta]))
+  if (scored.length === 0) return { sentence: `No lift has a scored move in ${span}` }
   const up = scored.filter((m) => m > 0).length
-  const noun = scored.length === 1 ? 'lift' : 'lifts'
-  if (up > 0) return { sentence: `${up} of ${scored.length} ${noun} up in ${span}` }
-  if (scored.length === lifts.length) return { sentence: `No lift moved up in ${span}` }
-  return { sentence: `0 of ${scored.length} scored ${noun} up in ${span}` }
+  if (up === 0 && scored.length === lifts.length) return { sentence: `No lift moved up in ${span}` }
+  return {
+    sentence: `${up} of ${scored.length} scored ${scored.length === 1 ? 'lift' : 'lifts'} up in ${span}`,
+  }
 }
 
 // ── Balance ──────────────────────────────────────────────────────────────────────────────────

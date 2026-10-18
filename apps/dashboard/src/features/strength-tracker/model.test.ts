@@ -23,7 +23,7 @@ import {
   readinessReading,
   shortDate,
   signed,
-  staleNote,
+  staleCopy,
   statusWord,
   summaryParts,
   diagnosticsTitle,
@@ -121,36 +121,44 @@ describe('deload recency', () => {
   })
 })
 
+let liftSeq = 0
 const move = (delta: number | null) => ({
+  id: `lift${liftSeq++}`,
   delta: { delta, phrase: null, stale: delta === null, days: 28 },
 })
 
 // A lift with no figure yet (not stale): `liftDelta` returns this for a first session.
-const unscored = { delta: { delta: null, phrase: 'first session', stale: false, days: 28 } }
+const unscored = {
+  id: 'unscored',
+  delta: { delta: null, phrase: 'first session', stale: false, days: 28 },
+}
 
 describe('summaryParts', () => {
-  test('counts lifts up out of those with a scored move, stale ones are not in the denominator', () => {
+  test('counts lifts up out of those with a scored move, naming the basis', () => {
     expect(summaryParts([move(10), move(-2.5), move(0), move(null)])?.sentence).toBe(
-      '1 of 3 lifts up in 28\u00a0d',
+      '1 of 3 scored lifts up in 28\u00a0d',
     )
     expect(summaryParts([move(10), move(null), move(null)])?.sentence).toBe(
-      '1 of 1 lift up in 28\u00a0d',
+      '1 of 1 scored lift up in 28\u00a0d',
     )
-  })
-  test('a single lift is singular', () => {
-    expect(summaryParts([move(2.5)])?.sentence).toBe('1 of 1 lift up in 28\u00a0d')
+    expect(summaryParts([move(2.5)])?.sentence).toBe('1 of 1 scored lift up in 28\u00a0d')
   })
   test('nothing up with every lift scored says no lift moved up', () => {
     expect(summaryParts([move(0), move(-1.5)])?.sentence).toBe('No lift moved up in 28\u00a0d')
   })
-  test('nothing up with an unscored lift uses the scored-only wording', () => {
+  test('nothing up with an unscored lift names the scored basis', () => {
     expect(summaryParts([move(-1.5), unscored])?.sentence).toBe(
       '0 of 1 scored lift up in 28\u00a0d',
     )
   })
-  test('every lift stale is one sentence, and the strip note stays silent', () => {
+  test('no scored move, not all stale, is never 0 of 0', () => {
+    expect(summaryParts([unscored])?.sentence).toBe('No lift has a scored move in 28\u00a0d')
+    expect(summaryParts([move(null), unscored])?.sentence).toBe(
+      'No lift has a scored move in 28\u00a0d',
+    )
+  })
+  test('every lift stale is the stale headline', () => {
     expect(summaryParts([move(null), move(null)])?.sentence).toBe('No scored e1RM in 28\u00a0d')
-    expect(staleNote([{ id: 'squat', delta: move(null).delta }])).toBeNull()
   })
   test('no lifts selected is no headline', () => {
     expect(summaryParts([])).toBeNull()
@@ -256,7 +264,9 @@ describe('card and strip read one figure each', () => {
     expect(acwrReading(lifts, NOW).acwr).toBe(1.2)
     const delta = liftDelta(series, NOW)
     expect(delta.delta).toBe(10)
-    expect(summaryParts([{ delta }])?.sentence).toBe('1 of 1 lift up in 28\u00a0d')
+    expect(summaryParts([{ id: 'squat', delta }])?.sentence).toBe(
+      '1 of 1 scored lift up in 28\u00a0d',
+    )
   })
 })
 
@@ -417,22 +427,25 @@ describe('callFacts', () => {
   })
 })
 
-describe('staleNote', () => {
+describe('staleCopy', () => {
   const fresh = { delta: 1, phrase: null, stale: false, days: 28 }
   const stale = { delta: null, phrase: null, stale: true, days: 28 }
-  test('none stale is no note', () => {
-    expect(staleNote([{ id: 'squat', delta: fresh }])).toBeNull()
+  test('none stale is neither headline nor note', () => {
+    expect(staleCopy([{ id: 'squat', delta: fresh }])).toEqual({ headline: null, note: null })
   })
-  test('names the stale lifts once', () => {
+  test('some stale is the strip note, naming the lifts once', () => {
     expect(
-      staleNote([
+      staleCopy([
         { id: 'squat', delta: stale },
         { id: 'deadlift', delta: fresh },
         { id: 'bench_press', delta: stale },
       ]),
-    ).toBe('No scored e1RM in 28 d: Squat, Bench Press')
+    ).toEqual({ headline: null, note: 'No scored e1RM in 28\u00a0d: Squat, Bench Press' })
   })
-  test('every lift stale is the headline, not a second note', () => {
-    expect(staleNote([{ id: 'squat', delta: stale }])).toBeNull()
+  test('every lift stale is the headline alone', () => {
+    expect(staleCopy([{ id: 'squat', delta: stale }])).toEqual({
+      headline: 'No scored e1RM in 28\u00a0d',
+      note: null,
+    })
   })
 })
