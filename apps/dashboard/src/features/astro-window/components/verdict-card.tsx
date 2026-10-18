@@ -30,9 +30,11 @@ function GateRow({ label, state, tone, detail }: Omit<GateRowModel, 'key'>) {
           {state}
         </Text>
       </Group>
-      <Text size="xs" c="dimmed">
-        {detail}
-      </Text>
+      {detail !== null && (
+        <Text size="xs" c="dimmed">
+          {detail}
+        </Text>
+      )}
     </Stack>
   )
 }

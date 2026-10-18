@@ -17,7 +17,7 @@ import {
   pageSummary,
   gateBar,
   gateBarScale,
-  lowCloudRow,
+  lowCloudRuinous,
   gateRows,
   moonGateDetail,
   coreGaugeMax,
@@ -41,7 +41,6 @@ import {
   fmtAzimuth,
   windowShare,
 } from './formulas'
-import { CORE_UNIT } from './constants'
 import type { Night, WindowResponse } from './types'
 
 // Europe/Berlin fall-back night 2026-10-25: 02:00 and 02:30 local occur twice (CEST, then CET).
@@ -460,12 +459,27 @@ describe('lowCloudStat', () => {
       value: '62\u00a0%',
       unit: 'low cloud',
       footer: 'shooting-window mean',
-      reading: 62.4,
+      reading: 62,
       target: 55,
     })
   })
-  test('no shooting window: the value stays, the tick goes', () => {
-    expect(lowCloudStat(night(12, false), 55)).toMatchObject({ reading: 12, target: null })
+  test('floors, so a reading never shows at the limit while the engine says under', () => {
+    expect(lowCloudStat(night(54.4), 55)?.reading).toBe(54)
+    expect(lowCloudStat(night(54.6), 55)?.reading).toBe(54)
+    expect(lowCloudStat(night(55), 55)?.reading).toBe(55)
+  })
+  test('0 % is a value, not a missing reading', () => {
+    expect(lowCloudStat(night(0), 55)?.value).toBe('0\u00a0%')
+  })
+  test('no shooting window: the dark-hours mean, no tick', () => {
+    expect(lowCloudStat(night(12, false), 55)).toMatchObject({
+      footer: 'dark-hours mean',
+      reading: 12,
+      target: null,
+    })
+  })
+  test('no limit in the response: no tick', () => {
+    expect(lowCloudStat(night(30), undefined)?.target).toBeNull()
   })
   test('no reading, no stat', () => {
     expect(lowCloudStat(night(null), 55)).toBeNull()
@@ -567,7 +581,7 @@ describe('minutesToHours and withFacts', () => {
   })
 })
 
-describe('lowCloudRow', () => {
+describe('lowCloudRuinous', () => {
   const night = (ruinous: boolean | undefined, cloudLow: number | null = 62.4) =>
     ({
       ...goNight,
@@ -575,17 +589,17 @@ describe('lowCloudRow', () => {
       factors: [{ id: 'cloud-low', label: 'Low cloud', value: 0.1, ruinous }],
     }) as unknown as Night
 
-  test('states no figure when the API calls the factor ruinous', () => {
-    expect(lowCloudRow(night(true))).toBe('lowers the score, not a gate')
+  test('true when the API calls the factor ruinous', () => {
+    expect(lowCloudRuinous(night(true))).toBe(true)
   })
 
   test('no row unless the API says ruinous, nor without a scored value', () => {
-    expect(lowCloudRow(night(false))).toBeNull()
-    expect(lowCloudRow(night(undefined))).toBeNull()
-    expect(lowCloudRow(night(true, null))).toBeNull()
+    expect(lowCloudRuinous(night(false))).toBe(false)
+    expect(lowCloudRuinous(night(undefined))).toBe(false)
+    expect(lowCloudRuinous(night(true, null))).toBe(false)
     expect(
-      lowCloudRow({ ...goNight, factors: [], weather: { cloudLow: 62 } } as unknown as Night),
-    ).toBeNull()
+      lowCloudRuinous({ ...goNight, factors: [], weather: { cloudLow: 62 } } as unknown as Night),
+    ).toBe(false)
   })
 })
 
@@ -739,8 +753,8 @@ describe('coreGateFact', () => {
     expect(coreGateFact(night)?.value).toBe(fmtDegrees(cell.reading))
     expect(coreGateFact(night)).toEqual({
       value: '12.3°',
-      unit: CORE_UNIT,
-      period: 'gate 9.8°',
+      unit: 'closest to the gate',
+      period: 'must exceed 9.8°',
     })
   })
   test('no dark stretch, no fact', () => {

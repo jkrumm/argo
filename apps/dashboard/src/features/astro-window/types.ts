@@ -129,7 +129,7 @@ export type WindowResponse = {
   /** Moon-gate limit, 0–1. */
   moonMaxIllumination: number
   /** Cover (percent) at which each cloud layer is ruinous; a scored limit, never a gate. */
-  cloudRuinsAt: { low: number; mid: number; high: number }
+  cloudRuinsAt?: { low: number; mid: number; high: number } | undefined
   bestWindow: ShootingWindow | null
   summary: string | null
   detail: { date: string; hourly: HourlyPoint[] }

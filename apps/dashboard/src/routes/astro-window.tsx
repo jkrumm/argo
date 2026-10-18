@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Suspense, useCallback, useDeferredValue, useMemo } from 'react'
-import { Box, Center, Grid, Loader, Stack, useComputedColorScheme } from '@mantine/core'
+import { Box, Center, Grid, Loader, Stack, Text, useComputedColorScheme } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 import { PageBar } from 'basalt-ui'
@@ -361,6 +361,12 @@ function AstroWindowPage() {
             onSelect={handleSelectDate}
           />
 
+          {selectedNight === null && (
+            <Text size="sm" c="dimmed">
+              No forecast for {selectedDate}
+            </Text>
+          )}
+
           {search.tab === 'tonight' && selectedNight && (
             <>
               <Grid
@@ -374,7 +380,7 @@ function AstroWindowPage() {
                     night={selectedNight}
                     location={data.location}
                     moonLimit={data.moonMaxIllumination}
-                    cloudLimit={data.cloudRuinsAt.low}
+                    cloudLimit={data.cloudRuinsAt?.low}
                   />
                 </Grid.Col>
                 <Grid.Col span={{ base: 12, lg: 3 }}>
@@ -400,11 +406,7 @@ function AstroWindowPage() {
                 />
               </Box>
               <Box data-shot="cloud-layers">
-                <CloudLayersChart
-                  hourly={data.detail.hourly}
-                  night={selectedNight}
-                  cloudLimit={data.cloudRuinsAt.low}
-                />
+                <CloudLayersChart hourly={data.detail.hourly} night={selectedNight} />
               </Box>
               {selectedSite ? (
                 <>

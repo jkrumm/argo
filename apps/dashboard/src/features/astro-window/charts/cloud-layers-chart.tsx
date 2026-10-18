@@ -71,14 +71,11 @@ function toSeries(def: CloudSeriesDef, hourly: HourlyPoint[]): ChartSeries<Hourl
 export default function CloudLayersChart({
   hourly,
   night,
-  cloudLimit,
 }: {
   hourly: HourlyPoint[]
   night: Night
-  /** Cover (percent) the engine rates low cloud ruinous at; the tick lives in the Tonight Cloud cell. */
-  cloudLimit: number
 }) {
-  const stat = lowCloudStat(night, cloudLimit)
+  const stat = lowCloudStat(night, undefined)
   const series = SERIES_DEFS.filter((def) => hourly.some((d) => d[def.key] !== null)).map((def) =>
     toSeries(def, hourly),
   )
