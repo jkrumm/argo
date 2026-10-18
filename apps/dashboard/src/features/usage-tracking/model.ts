@@ -525,9 +525,9 @@ export function cacheUnderLine(days: readonly (number | null)[]): string | null 
 }
 
 /**
- * Whether a card prints its window's total. The strip owns the unfiltered 30 d figures (the headline repeats the
- * spend), so those are not repeated; any filter, 7 d totals, and
- * 90 d / all-time windows have no other home and print it.
+ * Whether a card prints its window's total. The strip owns the unfiltered 30 d figures (the
+ * headline's call count is not repeated), so those are not printed again; any filter, the 7 d
+ * window and the 90 d / all-time windows have no other home and print it.
  */
 export function printTotal(input: {
   range: '7d' | '30d' | '90d' | 'all'
