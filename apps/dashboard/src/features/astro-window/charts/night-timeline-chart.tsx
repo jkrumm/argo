@@ -21,7 +21,10 @@ const Y_TICKS = 5
 const inPlot = (v: number, domain: readonly [number, number]): number | null =>
   v < domain[0] || v > domain[1] ? null : v
 
-const plotSeries = (domain: readonly [number, number]): ChartSeries<HourlyPoint>[] => [
+/** The sun is a reference track: it stays clipped at the original 20° even when a high moon lifts the axis. */
+const SUN_CLIP: readonly [number, number] = [-20, 20]
+
+export const plotSeries = (domain: readonly [number, number]): ChartSeries<HourlyPoint>[] => [
   {
     key: 'core',
     label: 'Galactic core',
@@ -47,7 +50,7 @@ const plotSeries = (domain: readonly [number, number]): ChartSeries<HourlyPoint>
     dash: 'dashed',
     strokeWidth: 1,
     role: 'reference',
-    getValue: (d) => inPlot(d.sunAltitude, domain),
+    getValue: (d) => inPlot(d.sunAltitude, SUN_CLIP),
     formatValue: fmtDegrees,
   },
 ]

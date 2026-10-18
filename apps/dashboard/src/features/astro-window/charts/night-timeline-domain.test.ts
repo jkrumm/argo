@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { HourlyPoint } from '../types'
+import { plotSeries } from './night-timeline-chart'
 import { timelineDomain } from './night-timeline-domain'
 
 const point = (core: number | null, moon: number | null, sun: number | null = -30) =>
@@ -24,5 +25,23 @@ describe('timelineDomain', () => {
   it('ignores null samples', () => {
     expect(timelineDomain([point(null, null), point(null, 25)])).toEqual([-20, 30])
     expect(timelineDomain([])).toEqual([-20, 20])
+  })
+  it('keeps a float-noisy multiple of 10 as is', () => {
+    expect(timelineDomain([point(30.000000000000004, 10)])).toEqual([-20, 30])
+  })
+})
+
+describe('plotSeries', () => {
+  const value = (key: string, d: HourlyPoint, domain: [number, number]) =>
+    plotSeries(domain)
+      .find((s) => s.key === key)!
+      .getValue(d)
+
+  it('clips the sun at 20 even when a high moon lifts the domain', () => {
+    const d = point(12, 34, 30)
+    const domain = timelineDomain([d])
+    expect(domain).toEqual([-20, 40])
+    expect(value('sun', d, domain)).toBeNull()
+    expect(value('moon', d, domain)).toBe(34)
   })
 })
