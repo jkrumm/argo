@@ -60,7 +60,7 @@ export const noHealthReading = (hasCalls: boolean, p95Points: number): boolean =
   !hasCalls && p95Points === 0
 /** The strip's cells carry the short form; the billing footer beneath them is the screen's leading surface (cause and step). */
 export const NO_USAGE_CELL = NO_USAGE_SHORT
-export const NO_USAGE_STRIP = `${NO_USAGE_SHORT} in the last ${D30} — the usage-tracker pushes every ${TRACKER_PUSH_EVERY}`
+export const NO_USAGE_STRIP = `${NO_USAGE_SHORT} in the last ${D30} — the usage-tracker pushes every ${TRACKER_PUSH_EVERY}; check it is running`
 
 /** Cache hit ratio the page calls good — the tick on the ring (`>60%` in the old zone chart). */
 export const CACHE_HIT_TARGET = 0.6
