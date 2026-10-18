@@ -5,9 +5,11 @@ import type { WardenRaw } from '../../lib/queries/warden'
 import type { Decision } from '../../lib/decisions'
 import type { SourceClass } from '../../lib/queries/calendar'
 import { ARROW, NBSP, formatDuration, withUnit } from '../../lib/format'
-import { RECOVERY_DAYS } from '../garmin-health/model'
+import { GARMIN_SYNC_HOURS, RECOVERY_DAYS } from '../garmin-health/model'
 import { leadOf, subjectOf } from '../../lib/question-copy'
 import { firstClause, oldestWaitSentence, stripShortcodes } from '../../lib/text'
+
+export { GARMIN_SYNC_HOURS }
 
 // Pure derivations for the Today page: meetings, tasks, the Garmin readings, the activity stream
 // and the summary sentence. No React, no queries. A reading that is absent stays `null` (rendered
@@ -26,9 +28,6 @@ const parseMs = (iso: string | null | undefined): number | null => {
 }
 
 /** `09:30` for an epoch ms: the one clock format of the Today page. */
-
-/** How often the Garmin sidecar syncs, in hours (the recovery cell's "when it fills"). */
-export const GARMIN_SYNC_HOURS = 6
 
 // ── Meetings ─────────────────────────────────────────────────────────────────────────────────
 
@@ -268,9 +267,10 @@ export function recoveryReading(
 export function recoveryFooter({ mean, days, isToday }: RecoveryReading): string {
   const parts = [
     ...(mean === null ? [] : [`${withUnit(RECOVERY_DAYS, 'd')} mean${NBSP}${Math.round(mean)}`]),
-    // The trailing figure is glued to its word, so a narrow footer never leaves it alone on a line.
+    // `{n}/{total} d` is one unit-bound figure and the only break left falls before `observed`,
+    // so a narrow footer breaks between phrases, never inside the fill fact.
     isToday
-      ? `${days} observed ${days === 1 ? 'day' : 'days'} of${NBSP}${RECOVERY_DAYS}`
+      ? `${days}/${withUnit(RECOVERY_DAYS, 'd')} observed`
       : `today fills after the next Garmin sync (every ${withUnit(GARMIN_SYNC_HOURS, 'h')})`,
   ]
   return parts.join(' · ')

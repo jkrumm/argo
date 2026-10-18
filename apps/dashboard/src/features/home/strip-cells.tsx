@@ -39,11 +39,16 @@ const BUDGET_HEADROOM = 1.25
 /** The recovery sparkline's ink: a trend, not a verdict (`Meter` has `tone="muted"` for its own fill). */
 const MUTED_FILL = alpha(VX.muted, 0.35)
 
+/** Agents' `No snapshot yet` in a cell's width: the cause (nothing pushed) and the cadence to wait for. */
+const NO_SNAPSHOT = 'No snapshot yet — agent-gateway pushes every 10 min'
+
 // ── Agents working ───────────────────────────────────────────────────────────────────────────
 
 export function agentsCell(
   summary: OverviewSummary | undefined,
   fleet: { parts: FleetPart[]; total: number } | null,
+  /** The overview feed itself: `none` = nothing pushed yet, `failed` = the read failed, `null` = a snapshot exists. */
+  feed: 'none' | 'failed' | null = null,
 ): StatStripCell {
   const working = summary?.working
   if (fleet === null) {
@@ -52,7 +57,17 @@ export function agentsCell(
       caption: 'Agents working · now',
       value: null,
       visual: (
-        <Meter label="Agents by state" value={null} emptyText="No fleet data in this snapshot" />
+        <Meter
+          label="Agents by state"
+          value={null}
+          emptyText={
+            feed === 'none'
+              ? NO_SNAPSHOT
+              : feed === 'failed'
+                ? 'Agents failed to load — reload to retry'
+                : 'No fleet counts in this snapshot'
+          }
+        />
       ),
     }
   }
@@ -188,14 +203,20 @@ function recoveryDay(date: string | null): string {
 /** The pre-sync gap in Garmin Health's wording, from its one function (`recoveryGap`), lower-cased for a footer. */
 function noScoreLine(
   { date, last }: RecoveryReading,
-  { settled, failed }: SeriesState,
+  { settled, failed, windowDays }: SeriesState,
 ): string | null {
-  const { line } = recoveryGap({ date, settled, status: failed ? 'error' : 'success', last })
+  const { line } = recoveryGap({
+    date,
+    settled,
+    status: failed ? 'error' : 'success',
+    last,
+    ...(windowDays !== undefined && { windowDays }),
+  })
   return line === null ? null : line.charAt(0).toLowerCase() + line.slice(1)
 }
 
 /** The recovery series (source of the last scored day): settled on the window, or failed. */
-export type SeriesState = { settled: boolean; failed: boolean }
+export type SeriesState = { settled: boolean; failed: boolean; windowDays?: number }
 
 /** `loading` is the query still pending: a missing reading then is not yet a failure. */
 export function recoveryCell(
@@ -213,9 +234,9 @@ export function recoveryCell(
           ? loading
             ? 'loading Garmin data'
             : 'Garmin data not loaded; reload to retry'
-          : [noScoreLine(reading, series), `Garmin syncs every ${withUnit(GARMIN_SYNC_HOURS, 'h')}`]
-              .filter((part) => part !== null)
-              .join(' · '),
+          : // Unsettled: no gap to state yet, only when a score can arrive.
+            (noScoreLine(reading, series) ??
+            `Garmin syncs every ${withUnit(GARMIN_SYNC_HOURS, 'h')}`),
     }
   }
   const { score, trend, date, isToday } = reading

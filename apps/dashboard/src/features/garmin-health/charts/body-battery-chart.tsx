@@ -10,6 +10,7 @@ import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
 import { shotState } from '../../../lib/shot-state'
+import { emptyIn } from './empty'
 import { localDay } from './local-day'
 
 type BodyBatteryPoint = {
@@ -90,10 +91,7 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
   return (
     <ChartCard
       title="Body battery"
-      state={chartStateOf(
-        query,
-        points.length === 0 ? 'No body battery in this window' : undefined,
-      )}
+      state={chartStateOf(query, points.length === 0 ? emptyIn('body battery', params) : undefined)}
       placeholderHeight={280}
       facts={toChartFact(fact)}
     >

@@ -11,6 +11,7 @@ import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
 import { shotState } from '../../../lib/shot-state'
+import { emptyIn } from './empty'
 import { localDay } from './local-day'
 
 const CHART_HEIGHT = 280
@@ -68,7 +69,7 @@ export default function ActivityScoreChart({ params }: { params: SummaryParams }
     <ChartCard
       title="Daily activity"
       info={METRIC_TOOLTIPS.activityScore}
-      state={chartStateOf(query, !hasData ? 'No activity in this window' : undefined)}
+      state={chartStateOf(query, !hasData ? emptyIn('activity score', params) : undefined)}
       placeholderHeight={CHART_HEIGHT}
       facts={toChartFact(fact)}
     >

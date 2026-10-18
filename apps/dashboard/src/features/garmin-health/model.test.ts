@@ -20,7 +20,8 @@ import {
   hoursFromSec,
   lastDaysRange,
   lastScored,
-  loadFooter,
+  loadGap,
+  chartEmpty,
   mean,
   missingInputs,
   recoveryFact,
@@ -129,19 +130,19 @@ describe('recoveryGap', () => {
 
   test('the cell line names the unscored day and what it could not score from', () => {
     expect(recoveryGap({ ...settled, date: '2026-01-06', missing: ['HRV', 'sleep'] }).line).toBe(
-      'Last scored 62/100 on Jan\u00a01\u00a0· today: HRV, sleep not scored',
+      'Last scored 62/100 on Jan\u00a01\u00a0· today: HRV, sleep not scored — Garmin syncs every 6\u00a0h',
     )
     expect(recoveryGap({ ...settled, date: '2026-01-02', last: null, missing: ['RHR'] }).line).toBe(
-      'No score in this 30\u00a0d window\u00a0· Jan\u00a02: RHR not scored',
+      'No score in this 30\u00a0d window\u00a0· Jan\u00a02: RHR not scored — Garmin syncs every 6\u00a0h',
     )
   })
 
   test('with no date or nothing missing the line names no subject', () => {
     expect(recoveryGap({ ...settled, missing: ['HRV'] }).line).toBe(
-      'Last scored 62/100 on Jan\u00a01',
+      'Last scored 62/100 on Jan\u00a01 — Garmin syncs every 6\u00a0h',
     )
     expect(recoveryGap({ ...settled, date: '2026-01-06', missing: [] }).line).toBe(
-      'Last scored 62/100 on Jan\u00a01',
+      'Last scored 62/100 on Jan\u00a01 — Garmin syncs every 6\u00a0h',
     )
     expect(missingInputs({ hrv: null, sleep: 30, rhr: null })).toEqual(['HRV', 'RHR'])
     expect(missingInputs({ hrv: 1, sleep: 2, rhr: 3 })).toEqual([])
@@ -151,12 +152,16 @@ describe('recoveryGap', () => {
     expect(recoveryGap({ ...settled, settled: false }).line).toBeNull()
   })
   test('the last scored day carries its value and day, unit unspaced', () => {
-    expect(recoveryGap(settled).line).toBe('Last scored 62/100 on Jan\u00a01')
+    expect(recoveryGap(settled).line).toBe(
+      'Last scored 62/100 on Jan\u00a01 — Garmin syncs every 6\u00a0h',
+    )
   })
   test('no scored day states the window, or none when its length is unknown', () => {
-    expect(recoveryGap({ ...settled, last: null }).line).toBe('No score in this 30\u00a0d window')
+    expect(recoveryGap({ ...settled, last: null }).line).toBe(
+      'No score in this 30\u00a0d window — Garmin syncs every 6\u00a0h',
+    )
     expect(recoveryGap({ ...settled, last: null, windowDays: 0 }).line).toBe(
-      'No score in this window',
+      'No score in this window — Garmin syncs every 6\u00a0h',
     )
   })
 })
@@ -413,22 +418,31 @@ describe('lastScored edge cases', () => {
   })
 })
 
-describe('loadFooter', () => {
-  const settled = { status: 'success', placeholder: false } as const
-  test('a ratio needs no footer: the meter names the bands', () => {
-    expect(loadFooter({ acwr: 1, ...settled })).toBeNull()
+describe('loadGap', () => {
+  const settled = { status: 'success', placeholder: false, windowDays: 30 } as const
+  test('a ratio needs no copy: the meter names the bands', () => {
+    expect(loadGap({ acwr: 1, ...settled })).toBeUndefined()
   })
-  test('only a settled read without a ratio states the gap', () => {
-    expect(loadFooter({ acwr: null, ...settled })).toBe(
-      'No day in this window has a load ratio yet',
+  test('only a settled read without a ratio states the gap, with the chart cards’ wording', () => {
+    expect(loadGap({ acwr: null, ...settled })).toBe(
+      'No load ratio in this 30\u00a0d window — Garmin syncs every 6\u00a0h',
     )
-    expect(loadFooter({ acwr: null, status: 'success', placeholder: true })).toBeNull()
+    expect(loadGap({ acwr: null, ...settled, placeholder: true })).toBeUndefined()
   })
-  test('loading has no footer and a failure says so', () => {
-    expect(loadFooter({ acwr: null, status: 'pending', placeholder: false })).toBeNull()
-    expect(loadFooter({ acwr: null, status: 'error', placeholder: false })).toBe(
+  test('loading has no copy and a failure says so', () => {
+    expect(loadGap({ acwr: null, ...settled, status: 'pending' })).toBeUndefined()
+    expect(loadGap({ acwr: null, ...settled, status: 'error' })).toBe(
       'The load ratio failed to load',
     )
+  })
+})
+
+describe('chartEmpty', () => {
+  test('names the metric, the window and the sync cadence', () => {
+    expect(chartEmpty('sleep', 14)).toBe(
+      'No sleep in this 14\u00a0d window — Garmin syncs every 6\u00a0h',
+    )
+    expect(chartEmpty('sleep', 0)).toBe('No sleep in this window — Garmin syncs every 6\u00a0h')
   })
 })
 

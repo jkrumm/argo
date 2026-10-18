@@ -18,6 +18,7 @@ import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
 import { shotState } from '../../../lib/shot-state'
+import { emptyIn } from './empty'
 import { localDay } from './local-day'
 
 const CHART_HEIGHT = 280
@@ -106,7 +107,7 @@ export default function StressChart({ params }: { params: SummaryParams }) {
       title="Stress"
       state={chartStateOf(
         query,
-        chartData.length === 0 ? 'No stress readings in this window' : undefined,
+        chartData.length === 0 ? emptyIn('stress reading', params) : undefined,
       )}
       placeholderHeight={CHART_HEIGHT}
       facts={toChartFact(fact)}
