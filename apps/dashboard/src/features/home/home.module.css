@@ -117,15 +117,16 @@
 
 /* The subject gives way first; the outcome (the transition) is never clipped. */
 .feedSubject {
-  flex: 0 1 auto;
+  flex: 0 100 auto;
   min-width: 10ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* The outcome shrinks only after the subject is down to its floor. */
 .feedOutcome {
-  flex: 0 100 auto;
+  flex: 0 1 auto;
   min-width: 0;
   overflow-wrap: anywhere;
 }
