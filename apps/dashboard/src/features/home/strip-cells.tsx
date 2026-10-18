@@ -194,14 +194,14 @@ function noScoreLine(
   return line === null ? null : line.charAt(0).toLowerCase() + line.slice(1)
 }
 
-/** Whether the recovery series (the source of the last scored day) has settled on the window, or failed. */
+/** The recovery series (source of the last scored day): settled on the window, or failed. */
 export type SeriesState = { settled: boolean; failed: boolean }
 
 /** `loading` is the query still pending: a missing reading then is not yet a failure. */
 export function recoveryCell(
   reading: RecoveryReading | null,
   loading = false,
-  series: SeriesState = { settled: true, failed: false },
+  series: SeriesState,
 ): StatStripCell {
   if (reading === null || reading.score === null) {
     return {
