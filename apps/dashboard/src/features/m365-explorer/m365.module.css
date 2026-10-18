@@ -3,11 +3,6 @@
   container-type: inline-size;
 }
 
-.summary {
-  font-size: var(--vx-text-sm);
-  color: var(--vx-muted);
-}
-
 /* ── Master–detail ────────────────────────────────────────────────────────────────────────── */
 
 .split {
@@ -24,10 +19,6 @@
   overflow: hidden;
 }
 
-.detailPane {
-  display: none;
-}
-
 @container (min-width: 800px) {
   .split {
     grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
@@ -36,10 +27,12 @@
   .pane {
     height: min(760px, calc(100dvh - 240px));
   }
+}
 
-  .detailPane {
-    display: flex;
-  }
+.phonePane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .paneBody {
@@ -53,6 +46,11 @@
 .paneScroll {
   flex: 1;
   min-height: 0;
+}
+
+/* The sticky group headings sit at z-index 1 and would paint over the scrollbar, cutting its thumb in pieces. */
+.scrollbar {
+  z-index: 2;
 }
 
 .toolbar {
@@ -303,12 +301,6 @@
   color: var(--vx-muted);
 }
 
-.sheetBack {
-  display: flex;
-  align-items: center;
-  gap: var(--vx-space-stack-sm);
-}
-
 .chipStatic {
   flex: none;
   padding: 0 var(--vx-space-stack-sm);
@@ -327,12 +319,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.sheetBody {
-  display: flex;
-  flex-direction: column;
-  height: calc(100dvh - 60px);
 }
 
 .stack {

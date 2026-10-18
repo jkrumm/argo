@@ -202,6 +202,24 @@ export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`
 }
 
+/** The page's opening: how many chats moved this week, then labeled sources, tags and the newest stamp. */
+export function headlineOf(h: {
+  activeWeek: number
+  labeled: number
+  tags: number
+  /** Pre-formatted stamp of the newest chat, or null when there is none. */
+  latest: string | null
+}): { sentence: string; facts: string[] } {
+  return {
+    sentence: `${plural(h.activeWeek, 'chat')} active in the last 7 days`,
+    facts: [
+      `${h.labeled} labeled`,
+      plural(h.tags, 'tag') + ' in use',
+      h.latest === null ? null : `latest activity ${h.latest}`,
+    ].filter((f): f is string => f !== null),
+  }
+}
+
 export type ChipCounts = {
   /** Rows the view lists unfiltered; null while unknown. */
   all: number | null

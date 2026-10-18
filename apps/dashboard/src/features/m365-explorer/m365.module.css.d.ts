@@ -4,11 +4,11 @@
  */
 declare const classes: {
   readonly root: string
-  readonly summary: string
   readonly split: string
+  readonly scrollbar: string
   readonly pane: string
-  readonly detailPane: string
   readonly paneBody: string
+  readonly phonePane: string
   readonly paneScroll: string
   readonly toolbar: string
   readonly chip: string
@@ -36,10 +36,8 @@ declare const classes: {
   readonly body: string
   readonly meta: string
   readonly empty: string
-  readonly sheetBack: string
   readonly chipStatic: string
   readonly recordName: string
-  readonly sheetBody: string
   readonly stack: string
   readonly retry: string
   readonly tagPick: string

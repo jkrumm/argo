@@ -139,3 +139,15 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - **r2:** fail: the labeled pane still shows a fragmented thumb; `LABELED` is an adjective, not a noun; the detail and labeled panes are unreachable at 390 (shot errors).
 - **Against Keel:** close to Keel's records list, rougher.
 - **Open for Wave 24:** panes reachable at 390, one scroll region, a noun for the labeled cell.
+
+### Wave 24 fixes
+
+- Headline: the `Text` summary replaced by `PageSummary`; `headlineOf` (tested): `{n} chats active in the last 7 days`, facts `{n} labeled · {n} tags in use · latest activity {stamp}`.
+- Scrollbar: the sticky group headings (z-index 1) painted over the `ScrollArea` scrollbar and cut its thumb; the scrollbar is lifted to z-index 2 in the source list and the labeled pane. One `ScrollArea` per pane, none nested.
+- Strip: the cell caption is the noun `Labeled sources`; the unit reads `of {total}`.
+- 390: the detail and labeled panes were `display: none` below 800 px. A phone now gets a `Section` whose `tabs` slot holds a `ViewTabs` pane switch (`Sources` / `Labeled {n}` / `Detail`, the `pane` field of `explorerStore`; `ViewTabs` is refused outside a `tabs` slot) and shows one pane at a time; picking a source opens `Detail`, closing the record returns to `Sources`. The drawer (`preview-drawer.tsx`) is deleted. `data-shot="source-list"`, `labeled-pane` and `detail-pane` resolve once their pane is open; the pane is local state, not a URL param, because `lib/nav.tsx` links the route without search and is not an owned file (a shot has to click the tab).
+
+| Export | Needed prop | argo case | What argo does instead |
+|-|-|-|-|
+| `createSearchStore` | optional-search route typing | a `pane` URL param on a route whose nav link carries no search | `createLocalStore` field |
+| `Section` | untitled variant (no `title`) | a phone pane switch needs only the `tabs` slot | `Section` titled with the open pane's name |
