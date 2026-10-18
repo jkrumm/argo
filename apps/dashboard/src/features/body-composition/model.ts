@@ -3,13 +3,7 @@
  * once, so the summary line, the strip cells and the chart header read the same number.
  */
 import type { SkinfoldSite } from '../../lib/queries/skinfold-log'
-import {
-  compareByDate,
-  coveredWindow,
-  MEAN_DAYS,
-  trailingMean,
-  type SkinfoldPoint,
-} from './charts/series-data'
+import { compareByDate, MEAN_DAYS, trailingMean, type SkinfoldPoint } from './charts/series-data'
 import { SKINFOLD_SITES } from './constants'
 import type { WeightWindowStats } from './types'
 
@@ -22,6 +16,9 @@ const STALE_DAYS = 14
 /** The rate meter spans ±this many kg/week; the neutral zone is ±RATE_NEUTRAL_KG_WK. */
 export const RATE_SCALE_KG_WK = 0.5
 export const RATE_NEUTRAL_KG_WK = 0.1
+
+/** Within this many kg of the goal counts as at it. */
+const GOAL_TOLERANCE_KG = 0.05
 
 const MINUS = '−'
 
@@ -98,7 +95,7 @@ export function goalProgress({
 }): GoalProgress | null {
   if (start === null || current === null || goal === null) return null
   const span = Math.abs(start - goal)
-  if (span < 0.05) return null
+  if (span < GOAL_TOLERANCE_KG) return null
   const direction = Math.sign(goal - start)
   const moved = Math.min(Math.max((current - start) * direction, 0), span)
   return { toGo: Math.abs(current - goal), span, moved }
@@ -109,7 +106,8 @@ export function weightDeltaPolarity(
   current: number | null,
   goal: number | null,
 ): 'up-good' | 'up-bad' | 'neutral' {
-  if (current === null || goal === null || Math.abs(goal - current) < 0.05) return 'neutral'
+  if (current === null || goal === null || Math.abs(goal - current) < GOAL_TOLERANCE_KG)
+    return 'neutral'
   return goal > current ? 'up-good' : 'up-bad'
 }
 
@@ -154,7 +152,7 @@ export function summaryParts({
   latestKey?: string | null
 }): { sentence: string; facts: string[] } {
   if (current === null) return { sentence: 'No weigh-ins in this window', facts: [] }
-  const window =
+  const span =
     ageDays !== null && ageDays > 1 && latestKey != null
       ? `the ${rateDays} d to ${shortDay(latestKey)}`
       : `${rateDays} d`
@@ -162,12 +160,12 @@ export function summaryParts({
     kgPerWeek === null
       ? `Weight at ${fixed(current)} kg`
       : Math.abs(kgPerWeek) < RATE_NEUTRAL_KG_WK
-        ? `Weight ${trend(kgPerWeek)} over ${window}`
-        : `Weight ${trend(kgPerWeek)} ${Math.abs(kgPerWeek).toFixed(2)} kg/wk over ${window}`
+        ? `Weight ${trend(kgPerWeek)} over ${span}`
+        : `Weight ${trend(kgPerWeek)} ${Math.abs(kgPerWeek).toFixed(2)} kg/wk over ${span}`
   const sentence =
     goal === null
       ? rate
-      : `${rate}, ${fixed(Math.abs(current - goal))} kg ${current === goal ? 'at' : 'from'} the ${fixed(goal)} kg goal`
+      : `${rate}, ${fixed(Math.abs(current - goal))} kg ${Math.abs(current - goal) < GOAL_TOLERANCE_KG ? 'at' : 'from'} the ${fixed(goal)} kg goal`
   return {
     sentence,
     facts: [
@@ -266,40 +264,9 @@ export function meanOverDays(
   return last === null ? null : trailingMean(points, last, days, span)
 }
 
-/**
- * Least-squares slope in kg/week over the last `days` days, the same method as the API's 28 d rate
- * (so the hero rate and these footer rates can never be two different methods). `null` when not
- * covered or when the entries span under 3 days, as the API's.
- */
-export function slopeOverDays(
-  points: readonly DatedWeight[],
-  days: number,
-  span: number | null,
-): number | null {
-  const last0 = latestDate(points)
-  const slice = last0 === null ? [] : coveredWindow(points, last0, days, span)
-  const first = slice.at(0)
-  const last = slice.at(-1)
-  if (first === undefined || last === undefined || daysBetween(first.date, last.date) < 3) {
-    return null
-  }
-  const xs = slice.map((p) => daysBetween(first.date, p.date))
-  const n = slice.length
-  const meanX = xs.reduce((a, x) => a + x, 0) / n
-  const meanY = slice.reduce((a, p) => a + p.weightKg, 0) / n
-  let num = 0
-  let den = 0
-  slice.forEach((p, i) => {
-    const dx = xs[i]! - meanX
-    num += dx * (p.weightKg - meanY)
-    den += dx * dx
-  })
-  return den === 0 ? null : (num / den) * 7
-}
-
 /** The RATE cell footer: the API's intensity tier, or why there is no rate. One window per cell. */
 export function rateFooter(rate: number | null, intensity: string): string {
-  return rate === null ? 'A rate needs two weigh-ins in the window' : intensity
+  return rate === null ? 'A rate needs two weigh-ins at least 3 days apart' : intensity
 }
 
 /** The kg/week range of the API's intensity tier for a rate ("0.1\u20130.3 kg/wk", "\u2265 0.6 kg/wk"). */
@@ -322,6 +289,5 @@ export function weightWindowStats(
   return {
     mean7: meanOverDays(points, MEAN_DAYS, span),
     mean30: meanOverDays(points, 30, span),
-    slope7: slopeOverDays(points, 7, span),
   }
 }

@@ -435,6 +435,23 @@ describe('emptyWindowParts', () => {
     ).toContain('the last was today, on Jan 20')
   })
 
+  it('the day count follows the printed day keys, never elapsed hours', () => {
+    // 23 h elapsed but a different UTC day: "1 d ago, on Jan 19", never "today, on Jan 19".
+    const late = Date.parse('2026-01-20T01:00:00Z')
+    expect(
+      emptyWindowParts({ preset: '7d', lastEndedAt: '2026-01-19T02:00:00Z', nowMs: late }).sentence,
+    ).toContain('the last was 1 d ago, on Jan 19')
+  })
+
+  it('a failed lookup names the window only, never "no walks recorded"', () => {
+    expect(emptyWindowParts({ preset: '7d', lastEndedAt: undefined, nowMs: now }).sentence).toBe(
+      'No walks in the last 7 days',
+    )
+    expect(emptyWindowParts({ preset: '7d', lastEndedAt: 'garbage', nowMs: now }).sentence).toBe(
+      'No walks in the last 7 days',
+    )
+  })
+
   it('no walk ever recorded says so', () => {
     expect(emptyWindowParts({ preset: '7d', lastEndedAt: null, nowMs: now }).sentence).toBe(
       'No walks recorded yet',

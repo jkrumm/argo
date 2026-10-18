@@ -99,13 +99,14 @@ describe('summaryParts', () => {
         hrvDelta: 0,
       }).sentence,
     ).toBe(
-      'Load under the 0.8 floor; no recovery score, since Jan 5 has no HRV, sleep or resting HR reading',
+      'Load under the 0.8 floor; no recovery score, since there is not enough HRV, sleep or resting HR data for Jan 5',
     )
   })
 
   test('a missing recovery and ACWR is the reason alone, facts stay dashes', () => {
     expect(summaryParts({ recovery: null, acwr: null, rhrDelta: null, hrvDelta: null })).toEqual({
-      sentence: 'No recovery score, since the latest day has no HRV, sleep or resting HR reading',
+      sentence:
+        'No recovery score, since there is not enough HRV, sleep or resting HR data for the latest day',
       facts: ['ACWR —', 'RHR — bpm over 14 d', 'HRV — ms over 14 d'],
     })
   })
@@ -122,8 +123,27 @@ describe('summaryParts', () => {
 describe('recoveryGap', () => {
   test('names the day, the missing readings and when it fills', () => {
     const gap = recoveryGap('2026-01-05')
-    expect(gap.reason).toBe('No HRV, sleep or resting HR reading for Jan 5.')
+    expect(gap.reason).toBe('Not enough HRV, sleep or resting HR data for Jan 5.')
     expect(gap.fills).toContain('every 6 h')
+  })
+})
+
+describe('recovery load states', () => {
+  test('pending has no copy, error never claims a data gap, success-null does', () => {
+    expect(recoveryGap('2026-01-05', 'pending').headline).toBe('')
+    expect(recoveryGap('2026-01-05', 'error').reason).toBe('The recovery score failed to load.')
+    expect(recoveryGap('2026-01-05', 'success').reason).toContain('Not enough')
+  })
+  test('a failed recovery query keeps the load and says so in the headline', () => {
+    const { sentence } = summaryParts({
+      recovery: null,
+      recoveryStatus: 'error',
+      acwr: 1,
+      rhrDelta: 0,
+      hrvDelta: 0,
+    })
+    expect(sentence).toBe('Load inside the 0.8–1.3 optimal band; the recovery score failed to load')
+    expect(sentence).not.toContain('HRV, sleep')
   })
 })
 

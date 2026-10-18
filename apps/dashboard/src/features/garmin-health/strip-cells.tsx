@@ -99,6 +99,7 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
   const score = data?.recovery ?? null
   // The score's own date: today reads "today", a sync gap reads its date.
   const when = dayLabel(data?.date)
+  const gap = recoveryGap(data?.date, summary.status)
   return {
     key: 'recovery',
     caption: 'Recovery',
@@ -111,7 +112,7 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
     visual:
       score === null && !summary.isPending ? (
         <Text size="xs" c="dimmed">
-          {recoveryGap(data?.date).reason} {recoveryGap(data?.date).fills}
+          {gap.reason} {gap.fills}
         </Text>
       ) : (
         <>

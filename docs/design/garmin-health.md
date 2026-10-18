@@ -150,6 +150,6 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 ### Wave 25 fixes
 
-- Headline with no recovery score leads with what is known and states the reason: `Load {relation}; no recovery score, since {day} has no HRV, sleep or resting HR reading` (`summaryParts`, `recoveryGap`, unit-tested). With a score the sentence is unchanged.
+- Headline with no recovery score leads with what is known and states the reason: `Load {relation}; no recovery score, since there is not enough HRV, sleep or resting HR data for {day}`; a failed recovery query reads "the recovery score failed to load", never the data gap (`summaryParts`, `recoveryGap`, unit-tested). With a score the sentence is unchanged.
 - Recovery cell without a score: no meter, no contributor bars, value `—` with the reason and when it fills ("fills once Garmin syncs last night's sleep, every 6 h") in place of the visual, so the cell no longer stretches around an empty drawing.
 - Basalt rows: none.

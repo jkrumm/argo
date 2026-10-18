@@ -434,21 +434,22 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 /**
  * The headline of a window with no walks: it names the window and how long ago the last walk was
- * (whole UTC-independent days, with the date), or says nothing was ever recorded.
+ * (whole UTC days between the two printed day keys, so the count and the date cannot disagree), or
+ * says nothing was ever recorded. `lastEndedAt: undefined` is a failed lookup: the window alone.
  */
 export function emptyWindowParts(input: {
   preset: string | undefined
-  lastEndedAt: string | null
+  lastEndedAt: string | null | undefined
   nowMs: number
 }): { sentence: string; facts: string[] } {
+  const none = `No walks in ${windowPhrase(input.preset)}`
+  if (input.lastEndedAt === undefined) return { sentence: none, facts: [] }
   if (input.lastEndedAt === null) return { sentence: 'No walks recorded yet', facts: [] }
   const endedMs = Date.parse(input.lastEndedAt)
-  const days = Math.max(0, Math.floor((input.nowMs - endedMs) / 86_400_000))
+  if (!Number.isFinite(endedMs)) return { sentence: none, facts: [] }
   const key = dayKey(endedMs)
+  const days = Math.max(0, Math.round((keyMs(dayKey(input.nowMs)) - keyMs(key)) / MS_PER_DAY))
   const date = `${MONTHS[Number(key.slice(5, 7)) - 1]} ${Number(key.slice(8, 10))}`
   const ago = days === 0 ? 'today' : `${days} d ago`
-  return {
-    sentence: `No walks in ${windowPhrase(input.preset)}; the last was ${ago}, on ${date}`,
-    facts: [],
-  }
+  return { sentence: `${none}; the last was ${ago}, on ${date}`, facts: [] }
 }

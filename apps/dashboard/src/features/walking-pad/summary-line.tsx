@@ -26,7 +26,8 @@ export function SummaryLine({
       <PageSummary
         {...emptyWindowParts({
           preset,
-          lastEndedAt: last.data?.data[0]?.ended_at ?? null,
+          // A failed lookup is `undefined` (window only), never "no walks recorded".
+          lastEndedAt: last.isError ? undefined : (last.data?.data[0]?.ended_at ?? null),
           nowMs: now,
         })}
       />
