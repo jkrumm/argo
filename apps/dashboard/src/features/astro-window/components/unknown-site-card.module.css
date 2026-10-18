@@ -1,0 +1,4 @@
+/* The site id comes from the URL and can be arbitrarily long: it wraps anywhere rather than overflow the card. */
+.copy {
+  overflow-wrap: anywhere;
+}

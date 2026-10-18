@@ -635,10 +635,9 @@ export function withFacts(fact: ChartFact | null): { facts?: ChartFact } {
 }
 
 /**
- * The Sky cell's footer: the town glow and the sky's clarity (the API's `transparency` index, 1 = best;
- * the dark-sky threshold is labelled on the scale's tick). Two lines at 1440: `town glow +x mag ·` is
- * 21 characters and `clarity n/8 (1 best)` 20, against a cell that holds about 21. Number↔unit is glued
- * and each ` · ` is bound to the text before it, so a wrap falls between words and no line opens on a dot.
+ * The Sky cell's footer: the town glow and the transparency index (1 = best); the dark-sky threshold is
+ * labelled on the scale's tick. Number↔unit is glued and each ` · ` is bound to the text before it, so a
+ * wrap falls between words and no line opens on a dot.
  */
 export function skyCellFooter({
   domePenaltyMag,
@@ -648,8 +647,8 @@ export function skyCellFooter({
   transparency: number | null
 }): string {
   const dome = domePenaltyMag === null ? '—' : `+${withUnit(domePenaltyMag.toFixed(2), 'mag')}`
-  const clarity = transparency === null ? '—' : `${transparency}/8`
-  return joinPhrases([`town glow ${dome}`, `clarity ${clarity} ${glue('(1 best)')}`])
+  const index = transparency === null ? '—' : `${transparency}/8`
+  return joinPhrases([`town glow ${dome}`, `transparency ${index} ${glue('(1 = best)')}`])
 }
 
 /**
