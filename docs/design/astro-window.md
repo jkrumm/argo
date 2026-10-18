@@ -69,7 +69,7 @@ Format is binding; figures are placeholders.
 1. The Tonight tab has no two-column facts table and no empty `SCORE` block; when gated it says why in one line.
 2. The verdict card states the gap to the gate with a number and `°`, and draws it as a length against a tick.
 3. With all 10 nights out, each strip cell still names its first killer or window length; no cell repeats `—` on two lines.
-4. Every sky number carries its unit (`°`, `%`, `mag/arcsec²`, `h m`); `{mpsas}` appears only on a scaled meter.
+4. Every sky number carries its unit (`°`, `%`, `mag/arcsec²`, `h min`), spelled with a space (`2 h 30 min`, `46 %`); `{mpsas}` appears only on a scaled meter.
 5. No filler question is a subtitle; the page summary sentence contains a live count of usable nights.
 6. Panorama skyline and gate line are legible at first glance in dark and light.
 7. At 390 px the strip scrolls with snap and nothing overflows the viewport.
