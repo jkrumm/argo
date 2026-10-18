@@ -196,3 +196,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: the cost sparkline readout in whole dollars; percent spelled `{m} %` like Astro; the p95 line clears the top tick; the errors chart's `0` tick no longer under the first bar (2.22 gutter ticks); the single-series p95 chart draws no legend. **New:** latency ticks print `{n}.0 s` (2.22 ticks, basalt); token rows mix precision (`0.0{x} B` beside `0.{xx} B`, argo). Carried: the errors band's `!`/`×` glyphs are set but too small to read at this cell width, so warn vs bad is still hue-only (basalt); `DD.MM` band ticks; tooltip zero rows (`StackedArea`); the health bars' three tiers by hue (named in the legend). No lost fact.
 - **Against Keel:** close — still the best stat strip of the set.
+
+### Wave 32 fixes
+
+- **Shot states:** `headline` declares `empty loading`; `strip`, `health` and `projects` render their pending branch under `loading` (the Suspense wrapper sits inside the anchor), `cost-chart`/`cost-list` are absent under `loading` (their Suspense fallback is the shared pending card). `empty` substitutes an empty series/breakdown where each query is read, so the real empty `ChartCard` / `BarList` render. `error` is not declared: the charts read through `useSuspenseQuery`, so a failed query is the app's crash screen, not a card state.
+- **Token precision:** one rule per column — one decimal from 1 of the unit up, two decimals below it (`0.05 B`, `0.50 B`, `0.12 B`, `1.8 B`), never a mix of significant-digit counts.
