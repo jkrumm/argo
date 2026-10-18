@@ -201,6 +201,10 @@ export function dayLabel(
   return shortDate(date)
 }
 
+/** The recovery cell's kicker qualifier: the score's own day, none when the read carries no date. */
+export const recoveryQualifier = (date: string | null | undefined): string | undefined =>
+  date ? dayLabel(date) : undefined
+
 /** The fixed window the fitness regression and its rows read; the loader prefetches this same key. */
 export function fitnessRange(today: Date = new Date()): { from: string; to: string } {
   return lastDaysRange(FITNESS_DAYS, today)

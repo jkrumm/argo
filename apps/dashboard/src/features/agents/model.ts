@@ -272,6 +272,28 @@ export function activityFact(
   return `busiest hour ${clockOf(peak.hourMs)} · agents working in ${active}${NBSP}of${NBSP}${span}${observed}`
 }
 
+// ── Activity legend ──────────────────────────────────────────────────────────────────────────
+
+const agentCount = (n: number) => `${n} ${n === 1 ? 'agent' : 'agents'}`
+
+/** The state an hour with `working` agents (> 0) belongs to: the peak, or the lighter range below it. */
+export const bandStateOf = (working: number, peak: number): 'peak' | 'working' =>
+  working === peak ? 'peak' : 'working'
+
+/** The lighter range's label: `1 agent` when the peak is 2 (the range collapses to one), else `1–{peak-1}`. */
+export const workingRangeLabel = (peak: number): string =>
+  peak === 2 ? `${agentCount(1)} working` : `1–${agentCount(peak - 1)} working`
+
+/**
+ * The working entries of the activity key. None at a peak of 0 (no cell carries the colour); only
+ * the peak at 1 (no range below it); both above.
+ */
+export function activityLegend(peak: number): { key: 'working' | 'peak'; label: string }[] {
+  if (peak < 1) return []
+  const peakEntry = { key: 'peak' as const, label: `${agentCount(peak)} working` }
+  return peak === 1 ? [peakEntry] : [{ key: 'working', label: workingRangeLabel(peak) }, peakEntry]
+}
+
 // ── Projects ─────────────────────────────────────────────────────────────────────────────────
 
 /** Worst first — the state a collapsed project row is labelled with. */
@@ -621,9 +643,14 @@ export function oldestWait(
   return agent
 }
 
-/** What the oldest-wait meter says when it has no wait to plot: unknown, none, or waiting without a clock. */
-export function oldestWaitEmptyText(needsYou: number | null): string {
-  if (needsYou === null) return WAITING_FOR_SNAPSHOT
+/** The oldest-wait cell's footer: the waiting line before any snapshot, else the project it is in. */
+export const oldestWaitFooter = (hasSnapshot: boolean, oldest: OldestWait | null) => {
+  if (!hasSnapshot) return WAITING_FOR_SNAPSHOT
+  return oldest === null ? undefined : `in ${oldest.project}`
+}
+
+/** What the oldest-wait meter says when it has no wait to plot: none, or waiting without a clock. */
+export function oldestWaitEmptyText(needsYou: number): string {
   return needsYou === 0 ? 'No agent or ask is waiting' : 'Waiting, but no wait time reported'
 }
 

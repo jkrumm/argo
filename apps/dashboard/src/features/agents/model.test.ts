@@ -4,6 +4,9 @@ import {
   isAbandonedWait,
   oldestNeedsYouWait,
   oldestWaitEmptyText,
+  oldestWaitFooter,
+  activityLegend,
+  bandStateOf,
   WAITING_FOR_SNAPSHOT,
   fleetParts,
   hourlyWorking,
@@ -923,7 +926,6 @@ describe('round 2 guards', () => {
 
 describe('oldestWaitEmptyText', () => {
   it('says unknown, none, or waiting without a clock — never a false none', () => {
-    expect(oldestWaitEmptyText(null)).toBe(WAITING_FOR_SNAPSHOT)
     expect(oldestWaitEmptyText(0)).toBe('No agent or ask is waiting')
     expect(oldestWaitEmptyText(2)).toBe('Waiting, but no wait time reported')
   })
@@ -935,5 +937,27 @@ describe('noSnapshotCaption', () => {
   })
   it('names the window when snapshots exist but none fall inside it', () => {
     expect(noSnapshotCaption(true, 24)).toBe('No snapshot in the last 24\u00a0h')
+  })
+})
+
+describe('oldestWaitFooter', () => {
+  it('waits before a snapshot, names the project after', () => {
+    expect(oldestWaitFooter(false, null)).toBe(WAITING_FOR_SNAPSHOT)
+    expect(oldestWaitFooter(true, null)).toBeUndefined()
+    expect(oldestWaitFooter(true, { ms: 1, project: 'alpha' })).toBe('in alpha')
+  })
+})
+
+describe('activityLegend', () => {
+  const labels = (peak: number) => activityLegend(peak).map((e) => e.label)
+  it('names no working entry at a peak of 0', () => expect(labels(0)).toEqual([]))
+  it('names only the peak at 1', () => expect(labels(1)).toEqual(['1 agent working']))
+  it('collapses the range to 1 agent at a peak of 2', () =>
+    expect(labels(2)).toEqual(['1 agent working', '2 agents working']))
+  it('names the range below the peak above 2', () =>
+    expect(labels(5)).toEqual(['1–4 agents working', '5 agents working']))
+  it('puts only the peak hour in the peak state', () => {
+    expect(bandStateOf(5, 5)).toBe('peak')
+    expect(bandStateOf(3, 5)).toBe('working')
   })
 })
