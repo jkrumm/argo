@@ -10,7 +10,7 @@ import type { SummaryParams } from '../types'
 import { applyVisibilityFilter } from '../visibility'
 import { chartStateOf } from '../../../lib/chart-state'
 import { shotState } from '../../../lib/shot-state'
-import { emptyIn } from './empty'
+import { useChartEmpty } from './empty'
 import { localDay } from './local-day'
 
 type BodyBatteryPoint = {
@@ -88,10 +88,15 @@ export default function BodyBatteryChart({ params }: { params: SummaryParams }) 
     dayCount: points.filter((p) => p.net !== null).length,
   })
 
+  const emptyLabel = useChartEmpty('bodyBatteryChart', 'body battery', params, {
+    settled: query.isSuccess && !query.isPlaceholderData,
+    empty: points.length === 0,
+  })
+
   return (
     <ChartCard
       title="Body battery"
-      state={chartStateOf(query, points.length === 0 ? emptyIn('body battery', params) : undefined)}
+      state={chartStateOf(query, emptyLabel)}
       placeholderHeight={280}
       facts={toChartFact(fact)}
     >

@@ -13,9 +13,12 @@ import {
   ACWR_FLOOR,
   ACWR_METER_MAX,
   ACWR_OPTIMAL_TO,
+  cadenceGap,
   chartEmpty,
-  SYNC_CADENCE,
+  gapLine,
+  plainGap,
   recoveryGap,
+  type Gap,
   type GapForm,
 } from '../garmin-health/model'
 import { recoveryMeterProps } from '../garmin-health/recovery-meter'
@@ -204,41 +207,56 @@ function recoveryDay(date: string | null): string {
 }
 
 /** The pre-sync gap in Garmin Health's wording, from its one function (`recoveryGap`), verbatim. */
-function noScoreLine(
+function noScoreGap(
   { date, last }: RecoveryReading,
   { settled, failed, windowDays }: SeriesState,
-): string | null {
-  const { line } = recoveryGap({
+): Gap | null {
+  return recoveryGap({
     date,
     settled,
     status: failed ? 'error' : 'success',
     last,
     ...(windowDays !== undefined && { windowDays }),
-  })
-  return line
+  }).line
 }
 
 /** The recovery series (source of the last scored day): settled on the window, or failed. */
 export type SeriesState = { settled: boolean; failed: boolean; windowDays?: number }
 
+/** What the recovery cell says without a score. Unsettled, no gap to state yet, only when a score can arrive. */
+function noScoreCellGap(
+  reading: RecoveryReading | null,
+  loading: boolean,
+  series: SeriesState,
+): Gap {
+  if (reading === null) {
+    return plainGap(loading ? 'Loading Garmin data' : 'Garmin data not loaded; reload to retry')
+  }
+  return noScoreGap(reading, series) ?? cadenceGap
+}
+
+/** The recovery cell's gap for the screen's form allocation; `null` when the cell has a score. */
+export const recoveryCellGap = (
+  reading: RecoveryReading | null,
+  loading: boolean,
+  series: SeriesState,
+): Gap | null =>
+  reading !== null && reading.score !== null ? null : noScoreCellGap(reading, loading, series)
+
 /** `loading` is the query still pending: a missing reading then is not yet a failure. */
 export function recoveryCell(
   reading: RecoveryReading | null,
-  loading = false,
+  loading: boolean,
   series: SeriesState,
+  /** Which form of the Garmin gap this cell prints: the screen's one full form goes to the first gapped surface. */
+  form: GapForm,
 ): StatStripCell {
   if (reading === null || reading.score === null) {
     return {
       key: 'recovery',
       caption: 'Recovery · today',
       value: null,
-      footer:
-        reading === null
-          ? loading
-            ? 'Loading Garmin data'
-            : 'Garmin data not loaded; reload to retry'
-          : // Unsettled: no gap to state yet, only when a score can arrive.
-            (noScoreLine(reading, series) ?? SYNC_CADENCE),
+      footer: gapLine(noScoreCellGap(reading, loading, series), form),
     }
   }
   const { score, trend, date, isToday } = reading
@@ -272,31 +290,43 @@ export function recoveryCell(
 
 // ── Training load ────────────────────────────────────────────────────────────────────────────
 
-export function acwrCell(
+/** What the load cell says without a ratio; `null` when it has one. */
+export function acwrCellGap(
   reading: AcwrReading | null,
-  now: number,
   /** The load read when there is no reading: still pending, or failed. */
   feed: 'loading' | 'error',
   /** The window the load was read over, for the settled-but-empty wording (Garmin's, one function). */
   windowDays: number,
   /** The reading is the previous window's while this one loads: no gap to state yet. */
-  placeholder = false,
-  /** `full` only when no earlier cell on the screen already carries the cadence sentence. */
-  form: GapForm = 'short',
+  placeholder: boolean,
+): Gap | null {
+  if (reading !== null && reading.acwr !== null) return null
+  if (reading === null) {
+    return plainGap(
+      feed === 'loading'
+        ? 'loading training load'
+        : 'training load failed to load; reload to retry',
+    )
+  }
+  return placeholder ? plainGap('loading training load') : chartEmpty('training load', windowDays)
+}
+
+export function acwrCell(
+  reading: AcwrReading | null,
+  now: number,
+  feed: 'loading' | 'error',
+  windowDays: number,
+  placeholder: boolean,
+  /** Which form of the Garmin gap this cell prints: the screen's one full form goes to the first gapped surface. */
+  form: GapForm,
 ): StatStripCell {
+  const gap = acwrCellGap(reading, feed, windowDays, placeholder)
   if (reading === null || reading.acwr === null) {
     return {
       key: 'acwr',
       caption: `Training load · ${withUnit(7, 'd')} / ${withUnit(28, 'd')}`,
       value: null,
-      footer:
-        reading === null
-          ? feed === 'loading'
-            ? 'loading training load'
-            : 'training load failed to load; reload to retry'
-          : placeholder
-            ? 'loading training load'
-            : chartEmpty('training load', windowDays, form),
+      footer: gap === null ? undefined : gapLine(gap, form),
     }
   }
   return {

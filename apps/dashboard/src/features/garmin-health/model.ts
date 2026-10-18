@@ -185,11 +185,15 @@ const DAY_MONTH = new Intl.DateTimeFormat(APP_LOCALE, {
   timeZone: 'UTC',
 })
 
-/** "14 Oct" from a `YYYY-MM-DD` key; a malformed key comes back raw. */
+/** "14 Oct" from a `YYYY-MM-DD` key; anything that is not a real calendar day comes back raw. */
 export function shortDate(date: string): string {
-  const month = Number(date.slice(5, 7))
-  if (!(month >= 1 && month <= 12)) return date
-  return DAY_MONTH.format(Date.UTC(2000, month - 1, Number(date.slice(8, 10))))
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date)
+  if (match === null) return date
+  const [y, m, d] = [Number(match[1]), Number(match[2]), Number(match[3])]
+  const at = new Date(Date.UTC(y, m - 1, d))
+  // Round-trip: `2026-02-31` and `2026-10-00` roll into another month and must not be printed as one.
+  const real = at.getUTCFullYear() === y && at.getUTCMonth() === m - 1 && at.getUTCDate() === d
+  return real ? DAY_MONTH.format(at) : date
 }
 
 /**
@@ -295,6 +299,59 @@ export function lastScored(
   return null
 }
 
+/** The Garmin sync sidecar's cadence, hours: every "fills after the next sync" claim reads this. */
+export const GARMIN_SYNC_HOURS = 6
+
+/** `this 30 d window`; `this window` when the length is unknown. */
+const thisWindow = (windowDays: number): string =>
+  windowDays > 0 ? `this ${withUnit(windowDays, 'd')} window` : 'this window'
+
+/** The next step for any gap in Garmin data: a sync is the only thing that fills it. */
+const SYNC_CADENCE = `Garmin syncs every ${withUnit(GARMIN_SYNC_HOURS, 'h')}`
+const SYNC_NEXT_STEP = ` — ${SYNC_CADENCE}`
+
+/**
+ * The one Garmin gap pair (docs/design/README.md § One form for a repeated gap). `short` is the
+ * sentence's leading clause, verbatim; `full` adds the cadence/next step. `full` is `null` for a
+ * line that is not a data gap (a failed read names its own cause): it never takes the screen's one
+ * full form. {@link allocateForms} decides which surface prints `full`.
+ */
+export type Gap = { short: string; full: string | null }
+export type GapForm = 'full' | 'short'
+
+/** A data gap: the clause, and the clause plus the sync cadence. */
+const dataGap = (clause: string, full = `${clause}${SYNC_NEXT_STEP}`): Gap => ({
+  short: clause,
+  full,
+})
+
+/** A line that is not a data gap (a failure, a loading line): one wording, no cadence to carry. */
+export const plainGap = (text: string): Gap => ({ short: text, full: null })
+
+/** Cadence only, no clause of its own (Home's unsettled recovery footer): it carries the cadence as is. */
+export const cadenceGap: Gap = { short: SYNC_CADENCE, full: SYNC_CADENCE }
+
+/**
+ * The one allocation rule, in reading order: the first surface whose gap can carry the cadence
+ * prints the `full` sentence, every other surface its `short` form. A surface without a gap
+ * (`null`/`undefined`) or with a plain line never takes the slot.
+ */
+export function allocateForms(gaps: readonly (Gap | null | undefined)[]): GapForm[] {
+  const lead = gaps.findIndex((g) => g?.full != null)
+  return gaps.map((_, i) => (i === lead ? 'full' : 'short'))
+}
+
+/** The line a surface prints for its allocated form. */
+export const gapLine = (gap: Gap, form: GapForm): string =>
+  form === 'full' && gap.full !== null ? gap.full : gap.short
+
+/**
+ * An empty chart card's one wording: what is missing, the window it is missing from, and the next
+ * step. The cause is always the same: no synced day in the window.
+ */
+export const chartEmpty = (metric: string, windowDays: number): Gap =>
+  dataGap(`No ${metric} in ${thisWindow(windowDays)}`)
+
 /**
  * What the load cell says when it has no ratio, once (the meter's empty line; the cell has no
  * footer or bar list for it). A loading or placeholder read is never a data gap: it has no copy, a
@@ -305,45 +362,12 @@ export function loadGap(input: {
   status: QueryStatus
   placeholder: boolean
   windowDays: number
-  form?: GapForm
-}): string | undefined {
-  const { acwr, status, placeholder, windowDays, form } = input
-  if (status === 'error') return 'The training load failed to load'
+}): Gap | undefined {
+  const { acwr, status, placeholder, windowDays } = input
+  if (status === 'error') return plainGap('The training load failed to load')
   if (status === 'pending' || acwr !== null || placeholder) return undefined
-  return chartEmpty('training load', windowDays, form)
+  return chartEmpty('training load', windowDays)
 }
-
-/** The Garmin sync sidecar's cadence, hours: every "fills after the next sync" claim reads this. */
-export const GARMIN_SYNC_HOURS = 6
-
-/** `this 30 d window`; `this window` when the length is unknown. */
-const thisWindow = (windowDays: number): string =>
-  windowDays > 0 ? `this ${withUnit(windowDays, 'd')} window` : 'this window'
-
-/** The next step for any gap in Garmin data: a sync is the only thing that fills it. */
-export const SYNC_CADENCE = `Garmin syncs every ${withUnit(GARMIN_SYNC_HOURS, 'h')}`
-const SYNC_NEXT_STEP = ` — ${SYNC_CADENCE}`
-
-/**
- * The one Garmin gap pair (docs/design/README.md § One form for a repeated gap). `full` is the
- * sentence: what is missing + the cadence/next step. `short` is its leading clause, verbatim. A
- * screen prints `full` once on its leading surface and `short` everywhere else.
- */
-export type GapForm = 'full' | 'short'
-
-export const gapText = (clause: string, form: GapForm = 'full'): string =>
-  form === 'full' ? `${clause}${SYNC_NEXT_STEP}` : clause
-
-/** Whether a gap line carries the full sentence's cadence, i.e. the screen's one full form is taken. */
-export const carriesCadence = (text: string | null | undefined): boolean =>
-  text != null && text.endsWith(SYNC_NEXT_STEP)
-
-/**
- * An empty chart card's one wording: what is missing, the window it is missing from, and the next
- * step. The cause is always the same: no synced day in the window.
- */
-export const chartEmpty = (metric: string, windowDays: number, form?: GapForm): string =>
-  gapText(`No ${metric} in ${thisWindow(windowDays)}`, form)
 
 /**
  * What the fitness cell says when none of its reads holds a reading, once (its meter's empty
@@ -355,23 +379,22 @@ export function fitnessGap(input: {
   status: QueryStatus
   placeholder: boolean
   hasReading: boolean
-  form?: GapForm
-}): string | undefined {
-  const { status, placeholder, hasReading, form } = input
+}): Gap | undefined {
+  const { status, placeholder, hasReading } = input
   // Readings that did load stay: a partial failure replaces the cell only when nothing is left to show.
   if (hasReading) return undefined
-  if (status === 'error') return 'The fitness readings failed to load'
+  if (status === 'error') return plainGap('The fitness readings failed to load')
   if (status === 'pending' || placeholder) return undefined
-  return gapText(
+  return dataGap(
     `No RHR or HRV in this ${withUnit(FITNESS_DAYS, 'd')} window and no VO2max in ${withUnit(VO2_DAYS, 'd')}`,
-    form,
   )
 }
 
 /**
  * Why there is no recovery score, worded once for both places that say so: the headline clause and
  * the recovery cell's line. A failed read is its own wording, never the data gap. `line` is `null`
- * until the reads settle (a loading cell is not a data gap).
+ * until the reads settle (a loading cell is not a data gap). The unscored-input detail sits in the
+ * full form only, between the clause and the cadence.
  */
 export function recoveryGap(input: {
   date?: string | null | undefined
@@ -384,9 +407,7 @@ export function recoveryGap(input: {
   /** The inputs the unscored day could not score from, e.g. `['HRV', 'sleep']`; empty names nothing. */
   missing?: readonly RecoveryInput[]
   today?: Date
-  /** `short` drops the unscored-input detail and the cadence: the leading clause alone. */
-  form?: GapForm
-}): { headline: string; line: string | null } {
+}): { headline: string; line: Gap | null } {
   const {
     date,
     status = 'success',
@@ -394,13 +415,12 @@ export function recoveryGap(input: {
     last = null,
     windowDays = 0,
     missing = [],
-    form = 'full',
   } = input
   const today = input.today ?? new Date()
   if (status === 'pending') return { headline: 'recovery loading', line: null }
   if (status === 'error') {
     const headline = 'the recovery score failed to load'
-    return { headline, line: capitalize(headline) }
+    return { headline, line: plainGap(capitalize(headline)) }
   }
   const day = date == null ? 'the latest day' : dayLabel(date, 'day', today)
   const headline = `no recovery score for ${day}`
@@ -410,18 +430,11 @@ export function recoveryGap(input: {
     date != null && missing.length > 0
       ? `${NBSP}· ${dayLabel(date, 'day', today).replaceAll(' ', NBSP)}: ${missing.join(', ')} not scored`
       : ''
-  const detail = form === 'full' ? why : ''
-  if (last !== null) {
-    const lastDay = dayLabel(last.date).replaceAll(' ', NBSP)
-    return {
-      headline,
-      line: gapText(`Last scored ${fmtNum(last.value)}/100 on ${lastDay}${detail}`, form),
-    }
-  }
-  return {
-    headline,
-    line: gapText(`No score in ${thisWindow(windowDays)}${detail}`, form),
-  }
+  const clause =
+    last !== null
+      ? `Last scored ${fmtNum(last.value)}/100 on ${dayLabel(last.date).replaceAll(' ', NBSP)}`
+      : `No score in ${thisWindow(windowDays)}`
+  return { headline, line: dataGap(clause, `${clause}${why}${SYNC_NEXT_STEP}`) }
 }
 
 // ── Strip ──────────────────────────────────────────────────────────────────

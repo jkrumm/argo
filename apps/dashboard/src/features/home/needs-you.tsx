@@ -1,11 +1,11 @@
 import { Box, Button, Group, Stack, Text } from '@mantine/core'
 import { EmptyState, Section } from 'basalt-ui'
 import { Link } from '@tanstack/react-router'
-import { IconCircleCheck } from '@tabler/icons-react'
+import { IconCircleCheck, IconCircleDashed } from '@tabler/icons-react'
 import { DecisionCard, type DecisionCardAction } from '../../components/upstream/decision-card'
 import { useCopyAction } from '../../components/upstream/use-copy-action'
 import type { Decision } from '../../lib/decisions'
-import { allUnknown, needsYouEmptyTitle, restLabel, unknownPhrase } from './model'
+import { allUnknown, needsYouEmptyTitle, restLabel, unknownPhrase, unknownSentence } from './model'
 import { StatusChip } from '../agents/status-chip'
 import { HistoryPreview } from '../warden/history-preview'
 import { historyView } from '../warden/page-model'
@@ -88,11 +88,12 @@ export function NeedsYou({ decisions, unavailable, loading, noSnapshot }: Props)
         {decisions.length === 0 ? (
           <EmptyState
             tier="section"
-            icon={<IconCircleCheck size={28} />}
+            // A check is an all-clear; with the list unknown there is none to give.
+            icon={unknown ? <IconCircleDashed size={28} /> : <IconCircleCheck size={28} />}
             title={needsYouEmptyTitle(sources)}
             description={
               unknown
-                ? `${phrase.charAt(0).toUpperCase()}${phrase.slice(1)}, so what is waiting is unknown.`
+                ? `${unknownSentence(phrase)}, so what is waiting is unknown.`
                 : phrase === ''
                   ? 'No decision is waiting in Warden or on an agent.'
                   : `Nothing waiting in the source that loaded; ${phrase}.`

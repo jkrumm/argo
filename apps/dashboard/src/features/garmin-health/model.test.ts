@@ -23,7 +23,10 @@ import {
   lastScored,
   loadGap,
   chartEmpty,
-  carriesCadence,
+  allocateForms,
+  cadenceGap,
+  gapLine,
+  plainGap,
   mean,
   missingInputs,
   recoveryFact,
@@ -128,24 +131,28 @@ describe('recoveryGap', () => {
     expect(recoveryGap({ status: 'pending' })).toEqual({ headline: 'recovery loading', line: null })
     expect(recoveryGap({ status: 'error' })).toEqual({
       headline: 'the recovery score failed to load',
-      line: 'The recovery score failed to load',
+      line: { short: 'The recovery score failed to load', full: null },
     })
   })
 
   test('the cell line names the unscored day and what it could not score from', () => {
-    expect(recoveryGap({ ...settled, date: '2026-01-06', missing: ['HRV', 'sleep'] }).line).toBe(
+    expect(
+      recoveryGap({ ...settled, date: '2026-01-06', missing: ['HRV', 'sleep'] }).line?.full,
+    ).toBe(
       'Last scored 62/100 on 1\u00a0Jan\u00a0· today: HRV, sleep not scored — Garmin syncs every 6\u00a0h',
     )
-    expect(recoveryGap({ ...settled, date: '2026-01-02', last: null, missing: ['RHR'] }).line).toBe(
+    expect(
+      recoveryGap({ ...settled, date: '2026-01-02', last: null, missing: ['RHR'] }).line?.full,
+    ).toBe(
       'No score in this 30\u00a0d window\u00a0· 2\u00a0Jan: RHR not scored — Garmin syncs every 6\u00a0h',
     )
   })
 
   test('with no date or nothing missing the line names no subject', () => {
-    expect(recoveryGap({ ...settled, missing: ['HRV'] }).line).toBe(
+    expect(recoveryGap({ ...settled, missing: ['HRV'] }).line?.full).toBe(
       'Last scored 62/100 on 1\u00a0Jan — Garmin syncs every 6\u00a0h',
     )
-    expect(recoveryGap({ ...settled, date: '2026-01-06', missing: [] }).line).toBe(
+    expect(recoveryGap({ ...settled, date: '2026-01-06', missing: [] }).line?.full).toBe(
       'Last scored 62/100 on 1\u00a0Jan — Garmin syncs every 6\u00a0h',
     )
     expect(missingInputs({ hrv: null, sleep: 30, rhr: null })).toEqual(['HRV', 'RHR'])
@@ -156,15 +163,15 @@ describe('recoveryGap', () => {
     expect(recoveryGap({ ...settled, settled: false }).line).toBeNull()
   })
   test('the last scored day carries its value and day, unit unspaced', () => {
-    expect(recoveryGap(settled).line).toBe(
+    expect(recoveryGap(settled).line?.full).toBe(
       'Last scored 62/100 on 1\u00a0Jan — Garmin syncs every 6\u00a0h',
     )
   })
   test('no scored day states the window, or none when its length is unknown', () => {
-    expect(recoveryGap({ ...settled, last: null }).line).toBe(
+    expect(recoveryGap({ ...settled, last: null }).line?.full).toBe(
       'No score in this 30\u00a0d window — Garmin syncs every 6\u00a0h',
     )
-    expect(recoveryGap({ ...settled, last: null, windowDays: 0 }).line).toBe(
+    expect(recoveryGap({ ...settled, last: null, windowDays: 0 }).line?.full).toBe(
       'No score in this window — Garmin syncs every 6\u00a0h',
     )
   })
@@ -354,8 +361,23 @@ describe('headers name the point they show', () => {
     expect(dayLabel(undefined, 'night', today)).toBe('—')
   })
 
-  test('shortDate falls back to the raw key for a malformed month', () => {
-    expect(shortDate('2026-13-01')).toBe('2026-13-01')
+  test('shortDate prints a real day in the page locale order', () => {
+    expect(shortDate('2026-10-14')).toBe('14 Oct')
+    expect(shortDate('2024-02-29')).toBe('29 Feb')
+  })
+
+  test('shortDate returns the raw key for anything that is not a calendar day', () => {
+    for (const key of [
+      '2026-13-01',
+      '2026-10-xx',
+      '2026-02-31',
+      '2026-10-00',
+      '2026-10',
+      '2026-02-29',
+      '',
+    ]) {
+      expect(shortDate(key)).toBe(key)
+    }
   })
 
   test('a header for a historical point never says today or last night', () => {
@@ -432,7 +454,7 @@ describe('lastScored edge cases', () => {
 describe('fitnessGap', () => {
   const settled = { status: 'success', placeholder: false, hasReading: false } as const
   test('a settled read with no reading names both spans and the next step', () => {
-    expect(fitnessGap(settled)).toBe(
+    expect(fitnessGap(settled)?.full).toBe(
       'No RHR or HRV in this 14\u00a0d window and no VO2max in 180\u00a0d — Garmin syncs every 6\u00a0h',
     )
   })
@@ -440,7 +462,10 @@ describe('fitnessGap', () => {
     expect(fitnessGap({ ...settled, hasReading: true })).toBeUndefined()
     expect(fitnessGap({ ...settled, status: 'pending' })).toBeUndefined()
     expect(fitnessGap({ ...settled, placeholder: true })).toBeUndefined()
-    expect(fitnessGap({ ...settled, status: 'error' })).toBe('The fitness readings failed to load')
+    expect(fitnessGap({ ...settled, status: 'error' })).toEqual({
+      short: 'The fitness readings failed to load',
+      full: null,
+    })
     // A partial failure keeps the readings that loaded.
     expect(fitnessGap({ ...settled, status: 'error', hasReading: true })).toBeUndefined()
   })
@@ -452,60 +477,89 @@ describe('loadGap', () => {
     expect(loadGap({ acwr: 1, ...settled })).toBeUndefined()
   })
   test('only a settled read without a ratio states the gap, with the chart cards’ wording', () => {
-    expect(loadGap({ acwr: null, ...settled })).toBe(
+    expect(loadGap({ acwr: null, ...settled })?.full).toBe(
       'No training load in this 30\u00a0d window — Garmin syncs every 6\u00a0h',
     )
     expect(loadGap({ acwr: null, ...settled, placeholder: true })).toBeUndefined()
   })
   test('loading has no copy and a failure says so', () => {
     expect(loadGap({ acwr: null, ...settled, status: 'pending' })).toBeUndefined()
-    expect(loadGap({ acwr: null, ...settled, status: 'error' })).toBe(
-      'The training load failed to load',
-    )
+    expect(loadGap({ acwr: null, ...settled, status: 'error' })).toEqual({
+      short: 'The training load failed to load',
+      full: null,
+    })
   })
 })
 
 describe('chartEmpty', () => {
   test('names the metric, the window and the sync cadence', () => {
-    expect(chartEmpty('sleep', 14)).toBe(
+    expect(chartEmpty('sleep', 14).full).toBe(
       'No sleep in this 14\u00a0d window — Garmin syncs every 6\u00a0h',
     )
-    expect(chartEmpty('sleep', 0)).toBe('No sleep in this window — Garmin syncs every 6\u00a0h')
+    expect(chartEmpty('sleep', 0).full).toBe(
+      'No sleep in this window — Garmin syncs every 6\u00a0h',
+    )
   })
 
   test('the short form is the full sentence’s leading clause, verbatim', () => {
-    const full = chartEmpty('sleep', 14)
-    const short = chartEmpty('sleep', 14, 'short')
+    const { short, full } = chartEmpty('sleep', 14)
     expect(short).toBe('No sleep in this 14\u00a0d window')
-    expect(full.startsWith(short)).toBe(true)
-    expect(carriesCadence(full)).toBe(true)
-    expect(carriesCadence(short)).toBe(false)
+    expect(full?.startsWith(short)).toBe(true)
   })
 
   test('every Garmin gap shares the pair: short is the full form’s prefix', () => {
     const settled = { status: 'success' as const, placeholder: false }
-    const fitness = { ...settled, hasReading: false }
-    expect(
-      fitnessGap({ ...fitness, form: 'full' })!.startsWith(
-        fitnessGap({ ...fitness, form: 'short' })!,
-      ),
-    ).toBe(true)
-    expect(carriesCadence(fitnessGap({ ...fitness, form: 'short' }))).toBe(false)
-    const load = { acwr: null, ...settled, windowDays: 30 }
-    expect(loadGap({ ...load, form: 'short' })).toBe('No training load in this 30\u00a0d window')
+    const fitness = fitnessGap({ ...settled, hasReading: false })!
+    expect(fitness.full?.startsWith(fitness.short)).toBe(true)
+    expect(fitness.short).not.toContain('Garmin syncs')
+    const load = loadGap({ acwr: null, ...settled, windowDays: 30 })!
+    expect(load.short).toBe('No training load in this 30\u00a0d window')
     const rec = { settled: true, windowDays: 30, date: '2026-01-02', missing: ['RHR' as const] }
-    const full = recoveryGap(rec).line!
-    const short = recoveryGap({ ...rec, form: 'short' }).line!
-    expect(short).toBe('No score in this 30\u00a0d window')
-    expect(full.startsWith(short)).toBe(true)
-    expect(
-      recoveryGap({ ...rec, last: { value: 62, date: '2026-01-01' }, form: 'short' }).line,
-    ).toBe('Last scored 62/100 on 1\u00a0Jan')
+    const noScore = recoveryGap(rec).line!
+    expect(noScore.short).toBe('No score in this 30\u00a0d window')
+    expect(noScore.full?.startsWith(noScore.short)).toBe(true)
+    expect(recoveryGap({ ...rec, last: { value: 62, date: '2026-01-01' } }).line?.short).toBe(
+      'Last scored 62/100 on 1\u00a0Jan',
+    )
+  })
+})
+
+describe('allocateForms', () => {
+  const data = chartEmpty('sleep', 14)
+  const failure = plainGap('The training load failed to load')
+
+  test('a strip gap leads: it prints the cadence, every later gap the short form', () => {
+    expect(allocateForms([data, data, null, data])).toEqual(['full', 'short', 'short', 'short'])
   })
 
-  test('a failed read is its own sentence, never the cadence', () => {
-    expect(carriesCadence('The training load failed to load')).toBe(false)
-    expect(carriesCadence(undefined)).toBe(false)
+  test('chart-only gaps: with no strip gap the first empty chart card carries the cadence', () => {
+    expect(allocateForms([null, undefined, null, data, data])).toEqual([
+      'short',
+      'short',
+      'short',
+      'full',
+      'short',
+    ])
+  })
+
+  test('an error line never takes the slot: the next data gap still prints the cadence', () => {
+    expect(allocateForms([failure, data, data])).toEqual(['short', 'full', 'short'])
+    expect(allocateForms([failure, null, data])).toEqual(['short', 'short', 'full'])
+  })
+
+  test('the cadence-only gap leads like any data gap', () => {
+    expect(allocateForms([cadenceGap, data])).toEqual(['full', 'short'])
+  })
+
+  test('no gap, or only failures, allocates no full form', () => {
+    expect(allocateForms([])).toEqual([])
+    expect(allocateForms([failure, null])).toEqual(['short', 'short'])
+  })
+
+  test('gapLine prints the allocated form; a plain gap has one wording', () => {
+    expect(gapLine(data, 'full')).toBe(data.full!)
+    expect(gapLine(data, 'short')).toBe(data.short)
+    expect(gapLine(failure, 'full')).toBe(failure.short)
   })
 })
 
