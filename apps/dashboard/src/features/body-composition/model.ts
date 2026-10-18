@@ -2,13 +2,11 @@
  * Pure derivations for the body-composition page. Every figure a sentence repeats is computed here
  * once, so the summary line, the strip cells and the chart header read the same number.
  */
-import { formatAgo, NBSP, withUnit } from '../../lib/format'
+import { NBSP, withUnit } from '../../lib/format'
 import type { SkinfoldSite } from '../../lib/queries/skinfold-log'
 import { compareByDate, MEAN_DAYS, trailingMean, type SkinfoldPoint } from './charts/series-data'
 import { SKINFOLD_SITES } from './constants'
 import type { WeightWindowStats } from './types'
-
-const DAY_MS = 86_400_000
 
 /** The API's trailing-rate lookback. */
 const RATE_LOOKBACK_DAYS = 28
@@ -59,7 +57,7 @@ export const isStale = (ageDays: number | null): boolean =>
 /** "today" / "{n} d ago". */
 export function ageLabel(ageDays: number): string {
   if (ageDays === 0) return 'today'
-  return formatAgo(ageDays * DAY_MS)
+  return `${withUnit(ageDays, 'd')} ago`
 }
 
 /** A signed fixed-point figure with a real minus sign; `null` is `—`, never 0. */
@@ -306,7 +304,7 @@ export function rateFooter(input: {
   if (rate !== null) return paceFooter(rate)
   return entries === 0
     ? 'No weigh-ins in this window'
-    : 'A rate needs two weigh-ins at least 3 days apart'
+    : `A rate needs two weigh-ins at least ${withUnit(3, 'd')} apart`
 }
 
 /** A kg/week range, absolute; one end may be open (`null`), never both. */
