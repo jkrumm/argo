@@ -477,10 +477,12 @@ describe('prepareFolded', () => {
 describe('tokensFormatterFor', () => {
   it('prints every value in the magnitude of the reference', () => {
     const f = tokensFormatterFor(5_600_000)
-    expect(f(5_600_000)).toBe('5.6\u00a0M')
-    expect(f(360_000)).toBe('0.4\u00a0M')
-    expect(f(0)).toBe('0.0\u00a0M')
-    expect(tokensFormatterFor(2_340_000_000)(120_000_000)).toBe('0.1\u00a0B')
+    expect(f(360_000)).toBe('0.36\u00a0M')
+    expect(f(0)).toBe('0\u00a0M')
+    expect(f(20_000)).toBe('0.02\u00a0M')
+    expect(f(360_000)).toBe('0.36\u00a0M')
+    expect(f(1_000)).toBe('<0.01\u00a0M')
+    expect(tokensFormatterFor(2_340_000_000)(120_000_000)).toBe('0.12\u00a0B')
     expect(tokensFormatterFor(900)(12)).toBe('12')
   })
 })

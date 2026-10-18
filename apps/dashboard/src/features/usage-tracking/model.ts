@@ -71,7 +71,20 @@ export function tokensFormatterFor(reference: number): (n: number) => string {
   const abs = Math.abs(reference)
   const step = TOKEN_UNITS.find((u) => abs >= u.size)
   if (!step) return (n) => (Number.isFinite(n) ? n.toFixed(0) : EM_DASH)
-  return (n) => (Number.isFinite(n) ? `${(n / step.size).toFixed(1)}${NBSP}${step.unit}` : EM_DASH)
+  return (n) => {
+    if (!Number.isFinite(n)) return EM_DASH
+    const v = n / step.size
+    // A non-zero value never prints as zero: two significant digits below 1, `<0.01` below that.
+    const text =
+      v === 0
+        ? '0'
+        : Math.abs(v) >= 1
+          ? v.toFixed(1)
+          : Math.abs(v) < 0.01
+            ? '<0.01'
+            : String(Number(v.toPrecision(2)))
+    return `${text}${NBSP}${step.unit}`
+  }
 }
 
 export function fmtTokens(n: number | null | undefined): string {

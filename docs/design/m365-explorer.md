@@ -197,5 +197,5 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 ### Wave 30 fixes
 
-- **Remove control at rest:** fixed — hidden at rest (`opacity: 0`, still in the tab order and labelled), revealed in the muted token on row hover, `:focus-within` and keyboard focus. Touch has no hover, so on a phone the control is reachable only by tapping its (invisible) slot or by keyboard; kept to the Wave 22 ruling.
+- **Remove control at rest:** fixed — hidden at rest on fine pointers (`opacity: 0`, still in the tab order and labelled), revealed in the muted token on row hover, `:focus-within` and keyboard focus; always visible (muted) on coarse pointers (`@media (hover: none), (pointer: coarse)`), per the Wave 22 ruling.
 - **390 headline date split:** fixed — every space inside a date is `NBSP` (day, month and year); only the spaces around the range dash can break. `spanDates` in `model.ts`, tested.
