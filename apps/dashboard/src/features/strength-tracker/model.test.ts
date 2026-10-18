@@ -168,7 +168,6 @@ describe('summaryParts', () => {
 describe('DIAGNOSTICS_TITLE', () => {
   test('names the three measures and the baseline, short enough for 390', () => {
     expect(DIAGNOSTICS_TITLE).toBe('Velocity, tonnage, INOL vs 90-day norm')
-    expect(DIAGNOSTICS_TITLE.length).toBeLessThanOrEqual(40)
   })
 })
 

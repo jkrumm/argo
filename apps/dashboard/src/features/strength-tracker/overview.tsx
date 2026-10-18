@@ -3,6 +3,7 @@
  * zone bands) and a joined strip with a cell per lift. Every figure comes from `model.ts`.
  */
 import { ActionIcon, Card, Group, SimpleGrid, Stack, Text, Tooltip } from '@mantine/core'
+import { NBSP } from '../../lib/format'
 import { IconInfoCircle } from '@tabler/icons-react'
 import type { ReactNode } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
@@ -148,7 +149,7 @@ function TodaysCall(props: Params) {
         {facts.text === '' ? null : (
           <Group gap={4} wrap="wrap" align="center">
             <Text size="xs" c="dimmed">
-              {facts.inol === null ? facts.text : `${facts.text} ·`}
+              {facts.inol === null ? facts.text : `${facts.text}${NBSP}·`}
             </Text>
             {facts.inol === null ? null : (
               <Term

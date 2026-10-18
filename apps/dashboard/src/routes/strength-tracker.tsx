@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Suspense, useMemo } from 'react'
-import { Box, Card, Grid, SimpleGrid, Stack } from '@mantine/core'
+import { Box, Card, Grid, SimpleGrid, Stack, Text } from '@mantine/core'
 import { IconBarbell } from '@tabler/icons-react'
 import { EmptyState, PageBar, Section, useSizeClass } from 'basalt-ui'
 import { CONTAINER_GRID_BREAKPOINTS, CONTAINER_KEYS as CQ } from 'basalt-ui/tokens'
@@ -277,7 +277,16 @@ function ChartsPanel({
       </Box>
 
       <Box data-shot="sec-diagnostics">
-        <Section title={DIAGNOSTICS_TITLE} collapsible defaultOpen={false}>
+        <Section
+          title={DIAGNOSTICS_TITLE}
+          summary={
+            <Text size="xs" c="dimmed">
+              {period}
+            </Text>
+          }
+          collapsible
+          defaultOpen={false}
+        >
           <Suspense fallback={pending}>
             <CompositeChartSlot params={params} activeExercises={activeExercises} />
           </Suspense>

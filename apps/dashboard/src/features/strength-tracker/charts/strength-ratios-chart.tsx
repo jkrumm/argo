@@ -79,7 +79,7 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
                   format={(v) => v.toFixed(2)}
                   zones={[
                     { from: 0, to: lo, label: `<${fmtBound(lo)}`, color: MUTED_FILL },
-                    { from: lo, to: hi, label: `${fmtBound(lo)}–${fmtBound(hi)}`, color: VX.good },
+                    { from: lo, to: hi, label: 'Band', color: VX.good },
                     { from: hi, to: pair.scaleMax, label: `>${fmtBound(hi)}`, color: MUTED_FILL },
                   ]}
                   startCaption={null}
