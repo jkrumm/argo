@@ -144,7 +144,7 @@ function QueueCard({
         {...(copy.detail !== null
           ? { disclosure: { label: 'Full reason', content: <FullAsk text={copy.detail} /> } }
           : {})}
-        {...(view !== null ? { preview: <HistoryPreview view={view} /> } : {})}
+        {...(view !== null ? { preview: <HistoryPreview view={view} now={now} /> } : {})}
         {...(view?.layout === 'inline' ? { previewPlacement: 'inline' as const } : {})}
         primary={primary}
         secondary={secondary}

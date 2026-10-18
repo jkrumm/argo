@@ -1,16 +1,17 @@
 import { Stack, Text } from '@mantine/core'
 import { VX } from 'basalt-ui/tokens'
-import classes from '../../components/upstream/decision-card.module.css'
 import { useNow } from '../../lib/use-now'
+import classes from '../../components/upstream/decision-card.module.css'
 import { historyLineWithAge, historyTail, type HistoryView } from './page-model'
 
 /**
  * The decision card's change history. One transition is a single inline sentence
  * (`Latest change: A → B · 2 h ago`) with no well; several are a short list, newest first, in the
- * card's right-hand well. State names are never truncated: a line wraps at its spaces instead.
+ * card's right-hand well. A Warden card passes its one clock (`now`), shared with its `waiting` fact; a caller without one (Home) falls back to the page clock. State names are never truncated: a line wraps at its spaces instead.
  */
-export function HistoryPreview({ view }: { view: HistoryView }) {
-  const now = useNow()
+export function HistoryPreview({ view, now: cardNow }: { view: HistoryView; now?: number }) {
+  const ownNow = useNow()
+  const now = cardNow ?? ownNow
   if (view.layout === 'inline') {
     const [only] = view.lines
     return (
