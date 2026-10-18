@@ -10,6 +10,7 @@ import {
   type StatStripRow,
 } from 'basalt-ui'
 import { Sparkline } from 'basalt-ui/charts'
+import { NBSP, withUnit } from '../../lib/format'
 import { VX } from 'basalt-ui/tokens'
 import {
   dailyMetricsQueries,
@@ -29,7 +30,6 @@ import {
   lastDaysRange,
   vo2Hero,
   RECOVERY_PUSH_FROM,
-  recoveryGap,
   RECOVERY_REST_BELOW,
   contributorItems,
   firstToLast,
@@ -37,7 +37,6 @@ import {
   loadFooter,
   windowDayCount,
   fmtNum,
-  mean,
   signed,
 } from './model'
 import { activitiesRange } from '../../lib/queries/activities-window'
@@ -93,57 +92,40 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
   const summary = useQuery(recoveryQueries.summary(params))
   const series = useQuery(recoveryQueries.series(params))
 
-  const trend = useMemo(() => {
-    const visible = applyVisibilityFilter(series.data?.points ?? [], (p) => p.date)
-    const values = visible.map((p) => p.recovery)
-    return {
-      mean: mean(values),
-      days: values.filter((v) => v !== null).length,
-      values,
-      last: lastScored(visible),
-    }
-  }, [series.data])
+  const last = useMemo(
+    () => lastScored(applyVisibilityFilter(series.data?.points ?? [], (p) => p.date)),
+    [series.data],
+  )
 
   const data = summary.data
   const score = data?.recovery ?? null
   // The score's own date: today reads "today", a sync gap reads its date.
   const when = dayLabel(data?.date)
-  const gap = recoveryGap(data?.date, summary.status)
   // A fact about the window, so it waits for both reads to settle on the window itself.
   const settled =
     summary.isSuccess && !summary.isPlaceholderData && series.isSuccess && !series.isPlaceholderData
   const windowDays = windowDayCount(activitiesRange(params), VISIBLE_DATE_MIN)
-  const footer =
-    score !== null || !settled
-      ? null
-      : trend.last
-        ? `Last scored ${fmtNum(trend.last.value)}/100 on ${dayLabel(trend.last.date)}`
-        : `No score in this ${windowDays} d window`
+  // The gap's one line: the headline already says no score for the day, this names the last one.
+  const gapLine = !settled
+    ? null
+    : last
+      ? `Last scored ${fmtNum(last.value)}${NBSP}/100 on ${dayLabel(last.date).replaceAll(' ', NBSP)}`
+      : `No score in this ${withUnit(windowDays, 'd')} window`
   return {
     key: 'recovery',
     caption: 'Recovery',
-    qualifier: trend.mean === null ? when : `${when} · ${trend.days} d mean ${fmtNum(trend.mean)}`,
+    qualifier: when,
     value: score === null ? null : fmtNum(score),
     ...(score !== null && { unit: '/100' }),
     loading: summary.isPending,
     stale: summary.isPlaceholderData,
-    ...(footer !== null && { footer }),
     visual:
       score === null && !summary.isPending ? (
-        <>
+        gapLine !== null && (
           <Text size="xs" c="dimmed">
-            {gap.reason} {gap.fills}
+            {gapLine}
           </Text>
-          {trend.days > 1 && (
-            <Sparkline
-              data={trend.values.map((v) => v ?? Number.NaN)}
-              height={28}
-              color={VX.line}
-              emphasizeLast
-              ariaLabel={`Recovery score over ${trend.values.length} d`}
-            />
-          )}
-        </>
+        )
       ) : (
         <>
           <Meter

@@ -179,35 +179,22 @@ export type SummaryInput = {
   /** The recovery query's state; a failed load never reads as a data gap. Default `success`. */
   recoveryStatus?: QueryStatus
   acwr: number | null
-  rhrDelta: number | null
-  hrvDelta: number | null
 }
 
 /**
- * The page's opening: the headline answers "how recovered and how loaded", the facts carry the
- * ACWR figure and the 14 d fitness deltas, each with unit.
+ * The page's opening: the headline answers "how recovered and how loaded". The ACWR figure and the
+ * fitness deltas live in the strip cells below, so no facts line repeats them.
  */
 export function summaryParts({
   recovery,
   recoveryDate,
   recoveryStatus = 'success',
   acwr,
-  rhrDelta,
-  hrvDelta,
 }: SummaryInput): {
   sentence: string
-  facts: string[]
 } {
   const load = acwr === null ? null : `load ${acwrRelation(acwr)}`
-  const sentence = recoverySentence({ recovery, recoveryDate, recoveryStatus, load })
-  return {
-    sentence,
-    facts: [
-      `ACWR ${fmtNum(acwr, 2)}`,
-      `RHR ${signed(rhrDelta)} bpm over ${FITNESS_DAYS} d`,
-      `HRV ${signed(hrvDelta)} ms over ${FITNESS_DAYS} d`,
-    ],
-  }
+  return { sentence: recoverySentence({ recovery, recoveryDate, recoveryStatus, load }) }
 }
 
 const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1)
@@ -245,7 +232,7 @@ export function lastScored(
 
 /**
  * The load cell's footer. A loading, failed or placeholder read is never a data gap: pending and
- * placeholder have no footer, a failure says so, and only a settled read without a ratio states the gap.
+ * placeholder have no footer, a present ratio needs none (the meter's zones name the bands), a failure says so, and only a settled read without a ratio states the gap.
  */
 export function loadFooter(input: {
   acwr: number | null
@@ -255,9 +242,7 @@ export function loadFooter(input: {
   const { acwr, status, placeholder } = input
   if (status === 'pending') return null
   if (status === 'error') return 'The load ratio failed to load'
-  if (acwr !== null) {
-    return `Both loads are exponentially weighted. Optimal is ${ACWR_FLOOR}–${ACWR_OPTIMAL_TO}; above ${ACWR_CAUTION_TO} is the danger zone.`
-  }
+  if (acwr !== null) return null
   return placeholder ? null : 'No day in this window has a load ratio yet'
 }
 
