@@ -383,7 +383,10 @@ export function foldTopN(
   for (const p of points) {
     for (const key of groupKeys) sums.set(key, (sums.get(key) ?? 0) + (p.groups[key] ?? 0))
   }
-  const ranked = [...groupKeys].toSorted((a, b) => (sums.get(b) ?? 0) - (sums.get(a) ?? 0))
+  // Ties break on the key, so rank (and the hue it assigns) is the same on every load.
+  const ranked = [...groupKeys].toSorted(
+    (a, b) => (sums.get(b) ?? 0) - (sums.get(a) ?? 0) || a.localeCompare(b),
+  )
   const sumOf = (keys: readonly string[]) =>
     keys.reduce((acc, key) => acc + (sums.get(key) ?? 0), 0)
   // `Other` must never be the largest bucket: widen the named set (up to `max`) while the remainder
@@ -622,20 +625,22 @@ export function prepareFolded(input: {
   return { folded: foldTopN(source.points, source.groupKeys, FOLD_TOP_N, FOLD_MAX_N), labelOf }
 }
 
-/** `{n} of {m} days slower than the 30 d p95`, or `null` without a window p95 or any full day. */
+/** `{n} of {m} full days slower than the 30 d p95` (today is still running, so it is not counted), or `null` without a window p95 or any full day. */
 export function slowerDaysLine(
   days: readonly (number | null)[],
   windowP95: number | null,
 ): string | null {
   if (windowP95 === null) return null
   const slower = countAgainst(days, windowP95, 'above')
-  return slower.of === 0 ? null : `${slower.count} of ${slower.of} days slower than the ${D30} p95`
+  return slower.of === 0
+    ? null
+    : `${slower.count} of ${slower.of} full days slower than the ${D30} p95`
 }
 
-/** `{n} of {m} days under it` (the target), or `null` without a full day. */
+/** `{n} of {m} full days under it` (the target), or `null` without a full day. */
 export function cacheUnderLine(days: readonly (number | null)[]): string | null {
   const under = countAgainst(days, CACHE_HIT_TARGET, 'below')
-  return under.of === 0 ? null : `${under.count} of ${under.of} days under it`
+  return under.of === 0 ? null : `${under.count} of ${under.of} full days under it`
 }
 
 /**

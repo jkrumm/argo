@@ -122,6 +122,16 @@ const day = (d: number, groups: Record<string, number>): TimePoint => ({
   groups,
 })
 
+describe('foldTopN ties', () => {
+  it('equal totals rank by key, whatever order the keys arrive in', () => {
+    const points = [{ date: '2026-01-01', groups: { b: 5, a: 5, c: 5 } }]
+    const forward = foldTopN(points, ['a', 'b', 'c'], 3)
+    const reversed = foldTopN(points, ['c', 'b', 'a'], 3)
+    expect(forward.keys).toEqual(['a', 'b', 'c'])
+    expect(reversed.keys).toEqual(forward.keys)
+  })
+})
+
 describe('foldTopN', () => {
   const points = [day(1, { a: 10, b: 5, c: 3, d: 1 }), day(2, { a: 10, b: 0, c: 3, d: 9 })]
 
@@ -440,12 +450,14 @@ describe('fold palette', () => {
 
 describe('day-count sentences', () => {
   it('counts days slower than the window p95, null without a window or a day', () => {
-    expect(slowerDaysLine([1, 5, null, 9], 4)).toBe('2 of 3 days slower than the 30\u00a0d p95')
+    expect(slowerDaysLine([1, 5, null, 9], 4)).toBe(
+      '2 of 3 full days slower than the 30\u00a0d p95',
+    )
     expect(slowerDaysLine([1, 5], null)).toBeNull()
     expect(slowerDaysLine([null], 4)).toBeNull()
   })
   it('counts days under the cache target, null without a day', () => {
-    expect(cacheUnderLine([0.5, 0.7, 0.59, null])).toBe('2 of 3 days under it')
+    expect(cacheUnderLine([0.5, 0.7, 0.59, null])).toBe('2 of 3 full days under it')
     expect(cacheUnderLine([])).toBeNull()
   })
 })

@@ -234,3 +234,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer (`w36-r1`):** pass on the page; the cost / tokens charts fail on one basalt P1 (the `ViewTabs` indicator radius 3, off the scale). Fixed (confirmed, #155): the leading 30 d billing sentence ends with its step (`…; check it is running`); every other surface keeps the short form `No usage ingested`, no surface shows both. Carried (basalt): hue-only warn/bad days at 6 px band cells, the top-set empties in `ChartCard`'s placeholder, the tokens `fill` band, `$0` / `<$1` tooltip rows, `Sept` beside `Sep`, ragged strip footers. No lost fact.
 - **Against Keel:** close — Keel leaves no band under a plot and never sets an empty message at the top.
+
+### Wave 37 round (`w37-r2`)
+
+- **Day base named.** The p95 and cache tiles count full (complete) days only — today is still running — so under a `30 d` caption they read `{n} of {m} full days …` (`{m}` is 29 until the day closes); w36 read `of {m} days`, which looked like a miscount.
+- **Tied hues are stable.** Rank assigns a series its hue; equal totals now rank by key, so a tool keeps its hue across loads and schemes.
