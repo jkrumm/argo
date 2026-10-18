@@ -3,11 +3,11 @@ import { Anchor, Box, Card, Group, Stack, Text, UnstyledButton } from '@mantine/
 import { Section, useSizeClass } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { ViewTabs } from 'basalt-ui/controls'
-import { relativeTime } from 'basalt-ui/format'
 import { IconBell, IconBrandGithub, IconBriefcase, IconUser, type Icon } from '@tabler/icons-react'
 import type { WardenBoardItem } from '../../lib/queries/warden'
 import { stripShortcodes } from '../../lib/text'
 import { isSafeHttpUrl, issueRefLabel } from './model'
+import { Ago } from './ago'
 import classes from './board.module.css'
 import { boardStore } from './board-store'
 import {
@@ -92,7 +92,7 @@ function BoardCard({
         ) : null}
         <Group gap="xs" justify="space-between">
           <Text size="xs" c="dimmed">
-            {at ? relativeTime(at) : '—'}
+            {at ? <Ago at={at} /> : '—'}
           </Text>
           {item.pr_url ? <PrLink url={item.pr_url} /> : null}
         </Group>

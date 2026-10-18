@@ -77,9 +77,6 @@ export const OLDEST_WAIT_WARN_MS = 24 * 60 * 60 * 1000
  * blocked on a dialog for 21 days, re-announced to Slack ~35 times). */
 export const ABANDONED_AFTER_MS = 7 * 24 * 60 * 60 * 1000
 
-/** Human wait duration: the app's one spelling (`formatDuration`), `—` for a bad value. */
-export const formatWaitDuration = formatDuration
-
 export type OldestWait = { ms: number; project: string }
 
 /**
@@ -140,9 +137,14 @@ export const countUnknownAgents = (agents: readonly AgentRow[]): number =>
   agents.filter((a) => !(FLEET_STATES as readonly string[]).includes(a.state)).length
 
 /** The meter legend's words: one name per state, the same one the project chips print. */
-const FLEET_LABEL = Object.fromEntries(
-  Object.entries(STATE_LABEL).map(([key, label]) => [key, label.toLowerCase()]),
-) as Record<FleetState, string>
+const FLEET_LABEL: Record<FleetState, string> = {
+  working: 'working',
+  needs_you: 'needs you',
+  idle: 'idle',
+  stale: 'stale',
+  done: 'done',
+  unknown: 'unknown',
+}
 
 const summaryKey = (key: SummaryState) => (key === 'needs_you' ? 'needsYou' : key)
 
@@ -177,7 +179,7 @@ export const fleetFact = (longestRunMs: number | null, working: number): string 
   if (working === 0) return 'no agent working'
   return longestRunMs === null
     ? 'longest run not reported'
-    : `longest run ${formatWaitDuration(longestRunMs)}`
+    : `longest run ${formatDuration(longestRunMs)}`
 }
 
 // ── Activity window ──────────────────────────────────────────────────────────────────────────
@@ -414,7 +416,8 @@ export function agentsSummaryParts(s: AgentsSummaryInput): { sentence: string } 
   }
   // With no named project there is no figure to give: the sentence says only who waits.
   const where = projects === 0 ? '' : ` in ${projects} ${nounFor(projects, 'project', 'projects')}`
-  const gone = abandoned === 0 ? '' : `, ${abandoned} abandoned`
+  // All of them abandoned is the strip's oldest-wait bar, not a new figure.
+  const gone = abandoned === 0 || abandoned === agentWaits ? '' : `, ${abandoned} of them abandoned`
   if (asks > 0) return { sentence: `Agents${where} and the human queue are waiting on you${gone}.` }
   return {
     sentence: `${nounFor(agentWaits, 'An agent', 'Agents')}${where} ${nounFor(agentWaits, 'is', 'are')} waiting on you${gone}.`,
@@ -483,9 +486,6 @@ export function clockTime(iso: string): string {
   const ms = parseMs(iso)
   return ms === null ? '—' : clockOf(ms)
 }
-
-/** `"6 min ago"`, or `"just now"` under a minute; `"—"` for a bad duration. */
-export const ageAgo = formatAgo
 
 // ── Needs-you cards (view models) ────────────────────────────────────────────────────────────
 
@@ -566,6 +566,15 @@ export type CardContext = {
 /** The producer host of a queue ask, when it carries one. */
 const hostOf = (item: QueueItem): string | null =>
   typeof item['host'] === 'string' ? item['host'] : null
+
+/** Distinct hosts the asks came from; an ask without a host names none. */
+export const askHosts = (humanQueue: readonly QueueItem[]): number =>
+  new Set(humanQueue.map(hostOf).filter((host): host is string => host !== null && host !== ''))
+    .size
+
+/** Agent waits past the abandoned mark, counted from the cards the section lists. */
+export const abandonedWaits = (cards: readonly NeedsYouCard[]): number =>
+  cards.filter((card) => card.kind === 'agent' && card.abandoned).length
 
 /**
  * The card copy of one human-queue ask, shared by this page and Home: the ask goes through
@@ -659,7 +668,7 @@ export function needsYouCards(
     const askedMs = parseMs(item.askedAt)
     const waitMs = askedMs === null ? -1 : Math.max(0, now - askedMs)
     const host = hostOf(item)
-    const facts = ['human queue', host, waitMs >= 0 ? `asked ${ageAgo(waitMs)}` : null].filter(
+    const facts = ['human queue', host, waitMs >= 0 ? `asked ${formatAgo(waitMs)}` : null].filter(
       isText,
     )
     const command = asText(item.cmd).trim() || null
@@ -687,7 +696,7 @@ export function needsYouCards(
     const waitMs = activeAt === null ? -1 : Math.max(0, now - activeAt)
     const facts = [
       projectOf(a),
-      waitMs >= 0 ? `waiting ${formatWaitDuration(waitMs)}` : null,
+      waitMs >= 0 ? `waiting ${formatDuration(waitMs)}` : null,
       machine,
     ].filter(isText)
     const title = titleOf(a)
@@ -775,7 +784,7 @@ export function feedAside(
   if (ageMs === null || feed === 'pending' || feed === 'failed') return null
   const live = feed === 'ok' && ageMs < STALE_AFTER_MS
   return {
-    text: `${live ? 'Live' : 'Stale'} · updated ${ageAgo(ageMs)}`,
+    text: `${live ? 'Live' : 'Stale'} · updated ${formatAgo(ageMs)}`,
     tone: live ? 'live' : 'warn',
   }
 }

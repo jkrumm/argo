@@ -1,5 +1,5 @@
 import { Alert, Code, Text } from '@mantine/core'
-import { relativeTime } from 'basalt-ui/format'
+import { formatAgo } from '../../lib/format'
 import { IconAlertTriangle, IconInfoCircle } from '@tabler/icons-react'
 import type { OverviewRecord } from '../../lib/queries/agents'
 import { STALE_AFTER_MS, snapshotAgeMs } from './model'
@@ -43,8 +43,8 @@ export function StaleBanner({ latest, fetchFailed = false }: Props) {
       <Text span fw={600}>
         {latest!.machine}
       </Text>{' '}
-      was received {relativeTime(latest!.receivedAt)} — the producer has stopped pushing. Everything
-      below is that last snapshot, not the live state.
+      was received {formatAgo(age)} — the producer has stopped pushing. Everything below is that
+      last snapshot, not the live state.
     </Alert>
   )
 }

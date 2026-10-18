@@ -6,7 +6,8 @@ import { useNow } from '../../lib/use-now'
 import type { HistoryView } from './page-model'
 
 /** `3 min ago` in the app's one duration spelling; `—` for an unreadable time. */
-const when = (at: string, now: number) => formatAgo(now - Date.parse(at)).replaceAll(' ', NBSP)
+const when = (at: string, now: number) =>
+  formatAgo(Math.max(0, now - Date.parse(at))).replaceAll(' ', NBSP)
 
 /** The age glued to the last word of the line it follows, so it never wraps onto a line alone. */
 function withAge(text: string, at: string | null | undefined, now: number): string {

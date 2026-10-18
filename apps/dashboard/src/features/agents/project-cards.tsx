@@ -1,16 +1,10 @@
+import { formatAgo, formatDuration } from '../../lib/format'
 import { Box, SimpleGrid, Stack, Text } from '@mantine/core'
 import { Section } from 'basalt-ui'
 import { CONTAINER_KEYS } from 'basalt-ui/tokens'
 import { EntityCard, type EntityCardCell } from './entity-card'
 import { StatusChip, type StatusTone } from './status-chip'
-import {
-  ageAgo,
-  formatWaitDuration,
-  longestRunMs,
-  STATE_LABEL,
-  type AgentState,
-  type ProjectGroup,
-} from './model'
+import { longestRunMs, STATE_LABEL, type AgentState, type ProjectGroup } from './model'
 import classes from './project-cards.module.css'
 
 const STATE_TONE: Record<AgentState, StatusTone> = {
@@ -53,11 +47,11 @@ function ProjectCard({ group, now }: { group: ProjectGroup; now: number }) {
         {
           caption: 'Running',
           value: String(running),
-          unit: `${running === 1 ? 'agent' : 'agents'}${longest === null ? '' : ` · longest ${formatWaitDuration(longest)}`}`,
+          unit: `${running === 1 ? 'agent' : 'agents'}${longest === null ? '' : ` · longest ${formatDuration(longest)}`}`,
         },
         {
           caption: 'Last activity',
-          value: group.lastActivityAt === null ? '—' : ageAgo(now - group.lastActivityAt),
+          value: group.lastActivityAt === null ? '—' : formatAgo(now - group.lastActivityAt),
         },
         { caption: 'Git · ahead / behind', ...gitCell(group.git) },
       ]}
@@ -86,7 +80,7 @@ function QuietList({ groups, now }: { groups: ProjectGroup[]; now: number }) {
           </Text>
           <StatusChip tone={STATE_TONE[g.worst]} label={STATE_LABEL[g.worst]} />
           <Text size="sm" ff="monospace" c="dimmed" span className={classes.quietAge}>
-            {g.lastActivityAt === null ? '—' : ageAgo(now - g.lastActivityAt)}
+            {g.lastActivityAt === null ? '—' : formatAgo(now - g.lastActivityAt)}
           </Text>
         </li>
       ))}

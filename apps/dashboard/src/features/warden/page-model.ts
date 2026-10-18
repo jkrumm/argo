@@ -1,4 +1,4 @@
-import { NBSP, withUnit } from '../../lib/format'
+import { ARROW, NBSP, withUnit } from '../../lib/format'
 import type {
   WardenActionVerb,
   WardenBoard,
@@ -11,6 +11,7 @@ import { asText, authoredQuestion, oldestWaitSentence, stripShortcodes } from '.
 import {
   cardCopy,
   isAlert,
+  resolveCopies,
   wardenPlainQuestion,
   type CardCopy,
   type Disambiguation,
@@ -22,6 +23,7 @@ import {
   isStale,
   TERMINAL_STATES,
   pluralize,
+  waitingOnOwner,
   type AwaitingOwnerRow,
   type AwaitingOwnerView,
 } from './model'
@@ -523,20 +525,43 @@ export function wardenAsk(
   return { plan, repo, tag: split?.tag ?? null, copy, repoNamed: namesRepo(copy.question, repo) }
 }
 
+export type QueueEntry = { row: AwaitingOwnerRow; kind: QueueKind }
+
+export type QueueAsks = {
+  /** One ask per entry, in input order; a line the whole list shares is already left off its cards. */
+  asks: WardenAsk[]
+  /** Per kind, the evidence line every card of that list shares word for word; printed once above it. */
+  shared: Record<QueueKind, string | null>
+}
+
 /**
- * The evidence lines two or more cards of one list print word for word. They say nothing that tells
- * the cards apart, so the list prints each once and the cards drop it (the full reason stays behind
- * each card's disclosure). Compared case-insensitively.
+ * Every card of the Warden page resolved ONCE, as one surface (needs-you and failed are told apart
+ * together). A list whose cards all carry the same evidence line (two or more cards, compared
+ * case-insensitively) says nothing that tells them apart: that line moves to `shared` and the
+ * cards drop it; the full reason stays behind each card's disclosure. A line only some cards share
+ * stays on its cards.
  */
-export function sharedEvidenceLines(asks: readonly WardenAsk[]): string[] {
-  const counts = new Map<string, { line: string; n: number }>()
-  for (const { copy } of asks) {
-    if (copy.evidenceLine === null) continue
-    const key = copy.evidenceLine.toLowerCase()
-    const seen = counts.get(key)
-    counts.set(key, { line: seen?.line ?? copy.evidenceLine, n: (seen?.n ?? 0) + 1 })
+export function resolveQueueAsks(
+  entries: readonly QueueEntry[],
+  key: (entry: QueueEntry) => string,
+): QueueAsks {
+  const resolved = resolveCopies(entries, {
+    key,
+    derive: ({ row, kind }, options) => wardenAsk(row, kind, options),
+  })
+  const shared: Record<QueueKind, string | null> = { decision: null, failed: null }
+  for (const kind of ['decision', 'failed'] as const) {
+    const lines = resolved.flatMap((ask, i) =>
+      entries[i]!.kind === kind ? [ask.copy.evidenceLine] : [],
+    )
+    const first = lines[0]
+    if (lines.length < 2 || first == null) continue
+    if (lines.every((line) => line?.toLowerCase() === first.toLowerCase())) shared[kind] = first
   }
-  return [...counts.values()].filter(({ n }) => n > 1).map(({ line }) => line)
+  const asks = resolved.map((ask, i) =>
+    shared[entries[i]!.kind] === null ? ask : { ...ask, copy: { ...ask.copy, evidenceLine: null } },
+  )
+  return { asks, shared }
 }
 
 /** A decision waiting longer than this many days gets a warning tone on its age. */
@@ -690,9 +715,6 @@ export function recentTransitions(timeline: unknown, limit = 3): TransitionHisto
 
 // ── History preview ─────────────────────────────────────────────────────────
 
-/** The arrow with a no-break space each side, so a line never wraps right after it. */
-const ARROW = `${NBSP}→${NBSP}`
-
 /** `Needs decision → Working`; a creation row reads `Created` (or `Created → <state>`). */
 export function transitionText({ from, to }: TransitionLine): string {
   const target = sentenceCase(to) ?? to
@@ -818,10 +840,10 @@ export function emptyColumnText(key: BoardColumnKey): string {
  */
 export function emptyBoardText(needsYou: number, failed = 0): string {
   if (needsYou === 0 && failed === 0) return 'No open items.'
-  const failedText = failed === 0 ? '' : `${needsYou === 0 ? '' : ' and '}${failed} failed`
-  if (needsYou === 0) return `No other open items. ${failedText}, above.`
+  if (needsYou === 0) return `No other open items. ${failed} failed, above.`
   const waiting = needsYou === 1 ? 'The one open item is' : `The ${needsYou} open items are`
-  return `No other open items. ${waiting} waiting on you${failedText}, above.`
+  const andFailed = failed === 0 ? '' : ` and ${failed} failed`
+  return `No other open items. ${waiting} waiting on you${andFailed}, above.`
 }
 
 /** A poller as the Today page names it: `watchdog poll · 4 min old`. */
@@ -841,11 +863,9 @@ export type BoardView = {
  * The board's columns with the figures that depend on them. `emptyText` counts only the board
  * items a card actually claimed (not every awaiting entry, some of which may be past the board's cap).
  */
-export function deriveBoard(
-  board: WardenBoard | undefined,
-  claimed: ReadonlySet<number>,
-  failedIds: ReadonlySet<number> = new Set(),
-): BoardView {
+export function deriveBoard(board: WardenBoard | undefined, owner: AwaitingOwnerView): BoardView {
+  const claimed = new Set(waitingOnOwner(owner).map((row) => row.eventId))
+  const failedIds = new Set(owner.failed.map((row) => row.eventId))
   const columns = deriveBoardColumns(board, claimed)
   const left = (board?.items ?? []).filter((item) => claimed.has(item.event_id))
   const failed = left.filter((item) => failedIds.has(item.event_id)).length

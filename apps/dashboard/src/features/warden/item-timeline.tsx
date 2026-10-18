@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import { Anchor, Badge, Divider, Group, Modal, Stack, Text } from '@mantine/core'
-import { relativeTime } from 'basalt-ui/format'
 import {
   buildItemFacts,
   formatSourceLine,
@@ -12,7 +11,9 @@ import {
   type TimelineView,
 } from './model'
 import type { WardenItems } from '../../lib/queries/warden'
-import { NBSP } from '../../lib/format'
+import { ARROW } from '../../lib/format'
+import { useNow } from '../../lib/use-now'
+import { Ago } from './ago'
 
 type Props = {
   eventId: number | null
@@ -52,7 +53,7 @@ function TransitionLabel({ transition }: { transition: Row }) {
   if (transition['synthetic'] === true) return <Text size="sm">created</Text>
   const from = str(transition['from_state']) ?? '—'
   const to = str(transition['to_state']) ?? '—'
-  return <Text size="sm">{`${from}${NBSP}→${NBSP}${to}`}</Text>
+  return <Text size="sm">{`${from}${ARROW}${to}`}</Text>
 }
 
 function TransitionRow({ transition }: { transition: Row }) {
@@ -61,7 +62,7 @@ function TransitionRow({ transition }: { transition: Row }) {
   return (
     <Group gap="xs" wrap="nowrap">
       <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
-        {at ? relativeTime(at) : '—'}
+        {at ? <Ago at={at} /> : '—'}
       </Text>
       <TransitionLabel transition={transition} />
       {reason ? (
@@ -104,7 +105,7 @@ function DispatchBadges({ dispatch }: { dispatch: Row }) {
       </Badge>
       {createdAt ? (
         <Text size="xs" c="dimmed">
-          {relativeTime(createdAt)}
+          <Ago at={createdAt} />
         </Text>
       ) : null}
     </Group>
@@ -134,7 +135,7 @@ function DispatchMeta({ dispatch }: { dispatch: Row }) {
       ) : null}
       {mergedAt ? (
         <Text size="xs" c="dimmed">
-          Merged {relativeTime(mergedAt)}
+          Merged <Ago at={mergedAt} />
         </Text>
       ) : null}
     </>
@@ -185,7 +186,7 @@ function OperationRow({ operation }: { operation: Row }) {
       <OperationSummaryText operation={operation} />
       {startedAt ? (
         <Text size="xs" c="dimmed">
-          {relativeTime(startedAt)}
+          <Ago at={startedAt} />
         </Text>
       ) : null}
     </Group>
@@ -344,7 +345,7 @@ function ItemBody({ facts }: { facts: ItemFacts }) {
  * composes the small pieces above it.
  */
 function ItemSummary({ item, event }: { item: Row | null; event: Row | null }) {
-  const facts = buildItemFacts(item, event)
+  const facts = buildItemFacts(item, event, useNow())
   return (
     <Stack gap={4}>
       <ItemIdentity facts={facts} />

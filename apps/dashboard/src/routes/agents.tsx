@@ -19,6 +19,8 @@ import {
   longestRunMs,
   needsYouSplit,
   waitingProjects,
+  abandonedWaits,
+  askHosts,
 } from '../features/agents/model'
 import { FeedNotice } from '../features/agents/feed-notice'
 import { StaleBanner } from '../features/agents/stale-banner'
@@ -72,12 +74,8 @@ function AgentsPage() {
     agentWaits,
     asks,
     projects: waitingProjects(agents),
-    abandoned: cards.filter((card) => card.abandoned).length,
-    hosts: new Set(
-      humanQueue.flatMap((item) =>
-        typeof item['host'] === 'string' && item['host'] !== '' ? [item['host']] : [],
-      ),
-    ).size,
+    abandoned: abandonedWaits(cards),
+    hosts: askHosts(humanQueue),
   })
 
   const feed = feedState({

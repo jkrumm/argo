@@ -132,7 +132,6 @@
 
 /* A project name wraps inside its chip instead of clipping. */
 .chip {
-  --badge-fz: var(--vx-text-sm);
   height: auto;
   max-width: 100%;
 }

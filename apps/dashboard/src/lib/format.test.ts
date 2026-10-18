@@ -1,6 +1,13 @@
 import { describe, expect, test } from 'bun:test'
 import { defineFormat, relativeTime } from 'basalt-ui/format'
-import { APP_LOCALE, formatAgo, formatDuration, withUnit } from './format'
+import {
+  APP_LOCALE,
+  formatAgo,
+  formatDuration,
+  formatMinutes,
+  formatRelative,
+  withUnit,
+} from './format'
 
 const FOUR_DAYS_AGO = Date.now() - 4 * 86_400_000
 
@@ -31,6 +38,9 @@ describe('formatDuration', () => {
     expect(formatDuration(21 * 1440 * min)).toBe('21\u00a0d')
     expect(formatDuration((21 * 1440 + 4 * 60) * min)).toBe('21\u00a0d 4\u00a0h')
     expect(formatDuration(0)).toBe('0\u00a0min')
+    expect(formatDuration(30_000)).toBe('<\u00a01\u00a0min')
+    expect(formatDuration(59_999)).toBe('<\u00a01\u00a0min')
+    expect(formatMinutes(90)).toBe('1\u00a0h 30\u00a0min')
   })
   test('is a dash for a negative or non-finite value', () => {
     expect(formatDuration(-1)).toBe('—')
@@ -41,5 +51,14 @@ describe('formatDuration', () => {
     expect(formatAgo(30_000)).toBe('just now')
     expect(formatAgo(3 * min)).toBe('3\u00a0min ago')
     expect(formatAgo(-1)).toBe('—')
+  })
+})
+
+describe('formatRelative', () => {
+  const now = Date.parse('2026-01-01T12:00:00Z')
+  test('past, future and unreadable', () => {
+    expect(formatRelative('2026-01-01T11:00:00Z', now)).toBe('1\u00a0h ago')
+    expect(formatRelative('2026-01-01T14:00:00Z', now)).toBe('in 2\u00a0h')
+    expect(formatRelative('nope', now)).toBe('—')
   })
 })

@@ -1,12 +1,12 @@
+import { formatMinutes } from '../../lib/format'
 /** The Agenda's summary sentence — pure, so its wording is tested on synthetic events. */
-import { formatDurationMin } from '../../components/upstream/schedule-row-model'
 import { addDays, displayTitle, keyToDate, type AgendaSummary } from './derive'
 
 const weekdayShort = (key: string) =>
   keyToDate(key).toLocaleDateString('en-GB', { weekday: 'short' })
 
-/** The one countdown wording, shared by the summary and the agenda pill: `in 20m`, `in 1h 30m`. */
-export const untilLabel = (minutes: number): string => `in ${formatDurationMin(minutes)}`
+/** The one countdown wording, shared by the summary and the agenda pill: `in 20 min`, `in 1 h 30 min`. */
+export const untilLabel = (minutes: number): string => `in ${formatMinutes(minutes)}`
 
 /** `next in 20m` inside two hours, else when and what: `next at 15:00 — {title}`, `next tomorrow 09:30 — {title}`. */
 export function countdown(summary: AgendaSummary): string | null {
@@ -21,9 +21,6 @@ export function countdown(summary: AgendaSummary): string | null {
   if (startKey === addDays(summary.todayKey, 1)) return `next tomorrow ${time} — ${title}`
   return `next ${weekdayShort(startKey)} ${time} — ${title}`
 }
-
-/** `11h 5m` must not break between its parts at a narrow width. */
-const keepTogether = (text: string) => text.replace(/(\d+h) (\d+m)/g, '$1\u00a0$2')
 
 /**
  * The page opening, built from the same derivation as the lists and the strip beside it: the
@@ -41,15 +38,15 @@ export function summaryParts(summary: AgendaSummary): { sentence: string; facts:
   }
   const sentence =
     summary.todayCount > 0
-      ? `${summary.todayCount} ${summary.todayCount === 1 ? 'meeting' : 'meetings'} today, ${formatDurationMin(summary.todayBookedMin)} booked`
+      ? `${summary.todayCount} ${summary.todayCount === 1 ? 'meeting' : 'meetings'} today, ${formatMinutes(summary.todayBookedMin)} booked`
       : 'No events today'
   const week =
     summary.weekBookedMin === 0
       ? 'nothing booked this week'
-      : `${formatDurationMin(summary.weekBookedMin)} booked this week`
+      : `${formatMinutes(summary.weekBookedMin)} booked this week`
   return {
-    sentence: keepTogether(sentence),
-    facts: [countdown(summary), week].filter((f): f is string => f !== null).map(keepTogether),
+    sentence: sentence,
+    facts: [countdown(summary), week].filter((f): f is string => f !== null),
   }
 }
 

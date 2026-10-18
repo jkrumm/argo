@@ -48,6 +48,14 @@ export function authoredQuestion(value: unknown): string | null {
   return clean === '' ? null : clean
 }
 
+/** The bracket tags a producer prefixes a title with (`[alert] `, `[blocker] `), as one run. */
+export const LEADING_BRACKET_TAGS = /^\s*(?:\[[^\]]{1,40}\]\s*)+/
+
+/** The text of a title's first leading bracket tag (`alert` for `[Alert] {key}`), `null` with none. */
+export function firstBracketTag(title: string): string | null {
+  return /^\s*\[([^\]]{1,40})\]/.exec(title)?.[1]?.trim() ?? null
+}
+
 /** Index of the last whitespace character of `text` (not only a plain space), `-1` when it has none. */
 export const lastWhitespace = (text: string): number => text.search(/\s\S*$/)
 

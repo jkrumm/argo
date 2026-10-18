@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import {
   ABANDONED_AFTER_MS,
-  formatWaitDuration,
   isAbandonedWait,
   oldestNeedsYouWait,
   fleetParts,
@@ -24,7 +23,6 @@ import {
   feedAside,
   STALE_AFTER_MS,
   dayLabel,
-  ageAgo,
   needsYouCards,
   oldestAskMs,
   groupByDay,
@@ -37,30 +35,6 @@ const agent = (overrides: Partial<AgentRow> = {}): AgentRow => ({
   state: 'idle',
   project: 'project-a',
   ...overrides,
-})
-
-// ── formatWaitDuration ──────────────────────────────────────────────────────
-
-describe('formatWaitDuration', () => {
-  it('formats a multi-day wait as days + hours', () => {
-    const ms = 21 * 24 * 60 * 60 * 1000
-    expect(formatWaitDuration(ms)).toBe('21\u00a0d')
-  })
-
-  it('formats an hours+minutes wait once past an hour', () => {
-    const ms = 5 * 3_600_000 + 12 * 60_000
-    expect(formatWaitDuration(ms)).toBe('5\u00a0h 12\u00a0min')
-  })
-
-  it('formats a sub-hour wait as minutes only', () => {
-    expect(formatWaitDuration(42 * 60_000)).toBe('42\u00a0min')
-  })
-
-  it('prints "—" for a negative or non-finite value', () => {
-    expect(formatWaitDuration(-1)).toBe('—')
-    expect(formatWaitDuration(Number.NaN)).toBe('—')
-    expect(formatWaitDuration(Number.POSITIVE_INFINITY)).toBe('—')
-  })
 })
 
 // ── oldestNeedsYouWait ───────────────────────────────────────────────────────
@@ -294,7 +268,11 @@ describe('agentsSummaryParts', () => {
 
   it('adds the abandoned count and the ask hosts, figures no other part of the page prints', () => {
     expect(agentsSummaryParts({ agentWaits: 3, asks: 0, projects: 2, abandoned: 1 }).sentence).toBe(
-      'Agents in 2 projects are waiting on you, 1 abandoned.',
+      'Agents in 2 projects are waiting on you, 1 of them abandoned.',
+    )
+    // All of them abandoned is the strip's oldest-wait bar, not a new figure.
+    expect(agentsSummaryParts({ agentWaits: 3, asks: 0, projects: 2, abandoned: 3 }).sentence).toBe(
+      'Agents in 2 projects are waiting on you.',
     )
     expect(agentsSummaryParts({ agentWaits: 0, asks: 3, projects: 0, hosts: 2 }).sentence).toBe(
       'Requests from 2 hosts are waiting for your answer.',
@@ -447,14 +425,6 @@ describe('countUnknownAgents', () => {
       agent({ state: 'paused' as AgentRow['state'] }),
     ]
     expect(countUnknownAgents(rows)).toBe(2)
-  })
-})
-
-describe('ageAgo', () => {
-  it('reads just now under a minute, else the wait format', () => {
-    expect(ageAgo(30_000)).toBe('just now')
-    expect(ageAgo(5 * 60_000)).toBe('5\u00a0min ago')
-    expect(ageAgo(-1)).toBe('—')
   })
 })
 
