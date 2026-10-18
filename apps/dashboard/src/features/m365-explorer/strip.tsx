@@ -14,7 +14,12 @@ const KIND_ALPHA_STEP = 0.25
 
 type Chats = { oneOnOne: number; group: number; meeting: number; other: number }
 
-function labeledCell(coverage: Coverage, list: string, onRetry: () => void): StatStripCell {
+function labeledCell(
+  coverage: Coverage,
+  list: string,
+  capped: boolean,
+  onRetry: () => void,
+): StatStripCell {
   const { labeled, total, loading, failed } = coverage
   const pending = loading > 0
   const atLeast = failed > 0 ? '≥' : ''
@@ -38,7 +43,7 @@ function labeledCell(coverage: Coverage, list: string, onRetry: () => void): Sta
     ),
     footer: (
       <>
-        {labeledBasis(coverage, list)}
+        {labeledBasis(coverage, list, capped)}
         {failed > 0 ? (
           <>
             {' · '}
@@ -62,6 +67,8 @@ function chatsCell(chats: Chats): StatStripCell {
   return {
     key: 'chats',
     caption: 'Chats by kind',
+    value: String(parts.reduce((sum, p) => sum + p.value, 0)),
+    unit: parts.length === 1 && parts[0]?.value === 1 ? 'chat' : 'chats',
     visual:
       parts.length === 0 ? undefined : (
         <Meter
@@ -101,6 +108,8 @@ export type StripProps = {
   coverage: Coverage
   /** What the labeled count ranges over, from `sourceListName`. */
   list: string
+  /** The chat list hit its request cap, so older sources are missing. */
+  capped: boolean
   chats: Chats
   /** Channels across the teams that loaded; null while any team is not loaded. */
   channels: number | null
@@ -111,6 +120,7 @@ export type StripProps = {
 export function ExplorerStrip({
   coverage,
   list,
+  capped,
   chats,
   channels,
   largestTeam,
@@ -122,7 +132,7 @@ export function ExplorerStrip({
       label="Coverage summary"
       cols={3}
       cells={[
-        labeledCell(coverage, list, onRetry),
+        labeledCell(coverage, list, capped, onRetry),
         chatsCell(chats),
         channelsCell(channels, largestTeam, coverage.failed),
       ]}

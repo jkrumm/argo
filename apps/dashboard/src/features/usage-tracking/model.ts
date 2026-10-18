@@ -3,7 +3,7 @@
  * chart headers print. No React, no queries — a null reading is handled once (always `—`, never 0).
  */
 import { format as formatDate } from 'date-fns'
-import { withUnit } from '../../lib/format'
+import { NBSP, withUnit } from '../../lib/format'
 import type { CostGroupBy, TimePoint, TokensGroupBy } from './types'
 
 export const EM_DASH = '—'
@@ -121,7 +121,8 @@ export const fmtSecondsDay = (v: number) => {
 }
 
 /** `18 Oct`: a daily bucket's tooltip header and axis caption. */
-export const shortDay = (d: Date): string => formatDate(d, 'd MMM')
+/** `3 Oct`, its space unbreakable so a date never splits across lines. */
+export const shortDay = (d: Date): string => formatDate(d, 'd MMM').replace(' ', NBSP)
 
 // ── Prior-window comparisons ─────────────────────────────────────────────────────────────────
 
@@ -343,7 +344,9 @@ export function errorDaysLine(rates: readonly (number | null)[]): string {
       ? `${warn} warn ${days(warn)} (${fmtPct(ERROR_WARN_FROM, 0)}–${fmtPct(ERROR_BAD_ABOVE, 0)})`
       : null,
     bad > 0 ? `${bad} bad ${days(bad)} (> ${fmtPct(ERROR_BAD_ABOVE, 0)})` : null,
-  ].filter((p): p is string => p !== null)
+  ]
+    .filter((p): p is string => p !== null)
+    .map((p) => p.replaceAll(' ', NBSP))
   return parts.length === 0 ? `no day above ${fmtPct(ERROR_WARN_FROM, 0)}` : parts.join(', ')
 }
 

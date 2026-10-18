@@ -1,6 +1,7 @@
 import { format } from 'date-fns'
 import type { AgentPart, AgentThread } from 'basalt-ui/agent'
 import type { HermesThreadType } from '../../lib/queries/hermes'
+import { NBSP } from '../../lib/format'
 import { isThreadPersisted, THREADS_LIST_LIMIT } from './threads-store'
 
 // The pure half of the thread list: what a row says, which day group it sits in, which threads
@@ -262,9 +263,9 @@ export function summaryHeadline(entries: readonly ThreadEntry[]): { sentence: st
   }
 }
 
-/** The disclosure row: `{n} untitled chats · oldest {age}`. The count is printed here only. */
+/** The disclosure row: `{n} untitled chats · oldest {age}`; the age is glued so `ago` never orphans. */
 export function untitledLabel(count: number, oldestAge: string): string {
-  return `${count} untitled ${count === 1 ? 'chat' : 'chats'} · oldest ${oldestAge}`
+  return `${count} untitled ${count === 1 ? 'chat' : 'chats'} · oldest ${oldestAge.replace(/ /g, NBSP)}`
 }
 
 function oldestOf(entries: readonly ThreadEntry[], field: 'createdAt' | 'updatedAt'): number {
@@ -278,7 +279,8 @@ export function oldestUpdatedAt(entries: readonly ThreadEntry[]): number {
 /**
  * The line under the last row of an unfiltered list. The list request is capped, so how far back
  * the loaded part reaches is stated only when the server's `total` (or, without it, a list at the
- * cap) says more exist; a complete list states its oldest start instead of repeating the count.
+ * cap) says more exist; a complete list says nothing (the last row and the untitled fold already
+ * carry the oldest dates).
  */
 export function listEndNote(
   entries: readonly ThreadEntry[],
@@ -290,13 +292,11 @@ export function listEndNote(
   if (entries.length === 0) return null
   const loaded = entries.length + archivedCount
   const capped = serverTotal === null ? loaded >= limit : serverTotal > loaded
-  if (capped) {
-    const back = startedDate(oldestOf(entries, 'updatedAt'), now)
-    return serverTotal === null
-      ? `The newest ${loaded} threads, back to ${back}`
-      : `${loaded} of ${serverTotal} threads, back to ${back}`
-  }
-  return `Oldest thread started ${startedDate(oldestOf(entries, 'createdAt'), now)}`
+  if (!capped) return null
+  const back = startedDate(oldestOf(entries, 'updatedAt'), now)
+  return serverTotal === null
+    ? `The newest ${loaded} threads, back to ${back}`
+    : `${loaded} of ${serverTotal} threads, back to ${back}`
 }
 
 const SUMMARY_MAX_CHARS = 110
@@ -314,6 +314,13 @@ export function clampAtWord(text: string, max: number = SUMMARY_MAX_CHARS): stri
   const space = cut.lastIndexOf(' ')
   const atWord = (space > 0 ? cut.slice(0, space) : '').replace(/[\s,;:.\-–—]+$/, '')
   return `${atWord === '' ? flat.slice(0, max) : atWord}…`
+}
+
+/** A row title on the phone is cut at a word; the CSS ellipsis stays as the backstop on wide rows. */
+const TITLE_MAX_CHARS_COMPACT = 26
+
+export function titleExcerpt(title: string, compact: boolean): string {
+  return compact ? clampAtWord(title, TITLE_MAX_CHARS_COMPACT) : title
 }
 
 /** A row's summary cut for the layout: the phone's narrow column takes fewer characters. */
