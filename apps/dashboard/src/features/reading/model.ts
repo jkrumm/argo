@@ -148,11 +148,15 @@ export function scopeLabel(groups: readonly FinishedGroup[]): string {
   return newest.label === oldest.label ? newest.label : `${oldest.label} – ${newest.label}`
 }
 
-export function finishedInYear(shelf: readonly ShelfItem[], year: number): number {
+/** The one source of "finished in {year}": the headline count and its median cohort both read it. */
+export function finishedBooksInYear(shelf: readonly ShelfItem[], year: number): ShelfItem[] {
   return shelf.filter(
     (b) => b.statusId === STATUS.read && b.readDate !== null && b.readDate.startsWith(`${year}-`),
-  ).length
+  )
 }
+
+export const finishedInYear = (shelf: readonly ShelfItem[], year: number): number =>
+  finishedBooksInYear(shelf, year).length
 
 // ── Backlog ──────────────────────────────────────────────────────────────────────────────────
 
@@ -238,38 +242,30 @@ export type RatingShape = {
   community: { mean: number; n: number } | null
 }
 
+const tuple5 = <T>(at: (i: number) => T): [T, T, T, T, T] => [at(0), at(1), at(2), at(3), at(4)]
+
 export function ratingShape(shelf: readonly ShelfItem[]): RatingShape {
-  const buckets: RatingShape['buckets'] = [0, 0, 0, 0, 0]
-  const spans: { lo: number; hi: number }[] = Array.from({ length: 5 }, (_, i) => ({
-    lo: i + 1,
-    hi: i + 1,
-  }))
-  const rated = shelf.filter((b) => b.rating !== null)
-  for (const book of rated) {
-    const rating = book.rating as number
-    const bucket = Math.min(5, Math.max(1, Math.floor(rating)))
-    buckets[bucket - 1] = (buckets[bucket - 1] as number) + 1
-    const span = spans[bucket - 1] as { lo: number; hi: number }
-    span.lo = Math.min(span.lo, rating)
-    span.hi = Math.max(span.hi, rating)
-  }
-  const community = rated.filter((b) => b.communityRating !== null)
-  const labels = spans.map(({ lo, hi }) => (lo === hi ? `${lo}★` : `${lo}–${hi}★`))
+  const rated = shelf.flatMap((b) =>
+    b.rating === null ? [] : [{ rating: b.rating, community: b.communityRating }],
+  )
+  // Bin i holds [i + 1, i + 2) ratings, the ends clamped (0.5 joins 1 ★).
+  const bin = (rating: number) => Math.min(5, Math.max(1, Math.floor(rating))) - 1
+  const bins = tuple5((i) => rated.filter((r) => bin(r.rating) === i).map((r) => r.rating))
+  const community = rated.flatMap((r) => (r.community === null ? [] : [r.community]))
   return {
-    buckets,
-    labels: labels as RatingShape['labels'],
+    buckets: tuple5((i) => bins[i]?.length ?? 0),
+    labels: tuple5((i) => {
+      const lo = Math.min(i + 1, ...(bins[i] ?? []))
+      const hi = Math.max(i + 1, ...(bins[i] ?? []))
+      return lo === hi ? `${lo}★` : `${lo}–${hi}★`
+    }),
     n: rated.length,
-    mean:
-      rated.length === 0
-        ? null
-        : rated.reduce((sum, b) => sum + (b.rating as number), 0) / rated.length,
+    mean: rated.length === 0 ? null : rated.reduce((sum, r) => sum + r.rating, 0) / rated.length,
     community:
       community.length === 0
         ? null
         : {
-            mean:
-              community.reduce((sum, b) => sum + (b.communityRating as number), 0) /
-              community.length,
+            mean: community.reduce((sum, v) => sum + v, 0) / community.length,
             n: community.length,
           },
   }
@@ -351,7 +347,7 @@ export function summaryParts(input: {
       cohort === null
         ? []
         : [
-            `median ${cohort.days} d from start to finish, over ${cohort.measured} of ${cohort.finished} with a start date`,
+            `median ${cohort.days} d from start to finish, over ${cohort.measured} of ${cohort.finished} with a valid start and finish date`,
           ],
   }
 }
@@ -361,9 +357,7 @@ export function summaryParts(input: {
  * how many of that year's books that is; null while none has both.
  */
 export function finishCohort(shelf: readonly ShelfItem[], year: number): FinishCohort | null {
-  const finishedBooks = shelf.filter(
-    (b) => b.statusId === STATUS.read && b.readDate !== null && b.readDate.startsWith(`${year}-`),
-  )
+  const finishedBooks = finishedBooksInYear(shelf, year)
   const days = finishedBooks
     .map((b) => daysToFinish(b.startedDate, b.readDate))
     .filter((d): d is number => d !== null)
@@ -371,6 +365,15 @@ export function finishCohort(shelf: readonly ShelfItem[], year: number): FinishC
   return mid === null
     ? null
     : { days: Math.round(mid), measured: days.length, finished: finishedBooks.length }
+}
+
+/** The shelf cell's footer: the year's rate, or the plain count before a month has elapsed. */
+export function finishedFooter(finished: number, year: number, now: number): string | null {
+  if (finished === 0) return null
+  const rate = booksPerMonth(finished, now)
+  return rate === null
+    ? `${finished} so far in ${year}`
+    : `${rate.toFixed(1)} books a month in ${year}`
 }
 
 /**

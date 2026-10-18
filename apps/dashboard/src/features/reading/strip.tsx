@@ -1,7 +1,6 @@
 import { Meter, StatGroup, type StatStripCell } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
 import {
-  booksPerMonth,
   NO_PACE_REASON,
   paceRange,
   ratingShape,
@@ -18,14 +17,8 @@ const SEGMENT_FILLS = [0.75, 0.5, 0.25, 0.15, 0.1].map((a) => alpha(VX.muted, a)
 
 const fillAt = (i: number): string => SEGMENT_FILLS[Math.min(i, SEGMENT_FILLS.length - 1)] as string
 
-function shelfCell(
-  counts: ShelfCounts,
-  finished: number,
-  year: number,
-  now: number,
-): StatStripCell {
+function shelfCell(counts: ShelfCounts, footer: string | null): StatStripCell {
   const parts = shelfParts(counts)
-  const rate = booksPerMonth(finished, now)
   return {
     key: 'shelf',
     caption: 'Shelf · by status',
@@ -39,14 +32,7 @@ function shelfCell(
         segments={parts.map((p, i) => ({ label: p.label, value: p.value, color: fillAt(i) }))}
       />
     ),
-    ...(finished === 0
-      ? {}
-      : {
-          footer:
-            rate === null
-              ? `${finished} so far in ${year}`
-              : `${rate.toFixed(1)} books a month in ${year}`,
-        }),
+    ...(footer === null ? {} : { footer }),
   }
 }
 
@@ -111,23 +97,19 @@ export function ReadingStrip({
   counts,
   shelf,
   pace,
-  finished,
-  year,
-  now,
+  footer,
 }: {
   counts: ShelfCounts
   shelf: readonly ShelfItem[]
   pace: Pace
-  finished: number
-  year: number
-  now: number
+  footer: string | null
 }) {
   return (
     <StatGroup
       variant="strip"
       label="Reading summary"
       cols={3}
-      cells={[shelfCell(counts, finished, year, now), ratingsCell(shelf), paceCell(pace)]}
+      cells={[shelfCell(counts, footer), ratingsCell(shelf), paceCell(pace)]}
     />
   )
 }
