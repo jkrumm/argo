@@ -14,7 +14,6 @@ import {
   EventRows,
   GapLine,
   SkeletonRows,
-  TODAY_SKELETON_ROWS,
   TaskList,
   WeekStrip,
 } from './agenda-parts'
@@ -39,6 +38,9 @@ const NEXT_DAYS = 7
 export type SourceError = { label: string; reason: string; reauthUrl?: string | undefined }
 
 const hhmm = (d: Date) => format(d, 'HH:mm')
+
+/** Rows the pending Today card stands for: the loaded card typically shows this many. */
+const TODAY_SKELETON_ROWS = 5
 
 export function AgendaView({
   events,

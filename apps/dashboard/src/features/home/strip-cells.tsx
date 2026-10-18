@@ -23,7 +23,7 @@ import {
 } from '../garmin-health/model'
 import { recoveryMeterProps } from '../garmin-health/recovery-meter'
 import { acwrMeterZones, acwrZoneLabel } from '../garmin-health/formulas'
-import { BUDGET_MISSING, deriveBudget, pollerAgeText } from '../warden/page-model'
+import { BUDGET_MISSING, WARDEN_PUSH_MIN, deriveBudget, pollerAgeText } from '../warden/page-model'
 import {
   countdownLabel,
   localKey,
@@ -95,9 +95,6 @@ export function agentsCell(
 }
 
 // ── Dispatch budget ──────────────────────────────────────────────────────────────────────────
-
-/** Warden's push cadence in minutes; mirrors `WARDEN_PUSH_MIN` in `warden/page-model.ts` (not exported there). */
-const WARDEN_PUSH_MIN = 10
 
 /** The no-snapshot gap's clause verbatim plus Warden's cadence: the one place Home states it. */
 export const noWardenSnapshotText = (): string =>

@@ -87,9 +87,8 @@ export function SkeletonRows({
   )
 }
 
-/** Rows a pending agenda card stands for: the loaded Today card typically shows this many. */
-export const TODAY_SKELETON_ROWS = 5
-export const NEXT_DAYS_SKELETON_ROWS = 6
+/** Rows the pending Next 7 days card stands for. */
+const NEXT_DAYS_SKELETON_ROWS = 6
 
 /** A card's gap line: a pending read is a skeleton; a failure names the source. */
 export function GapLine({
