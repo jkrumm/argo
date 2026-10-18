@@ -2,7 +2,7 @@ import { VX } from 'basalt-ui/tokens'
 import { weekday } from 'basalt-ui/format'
 import type { ChartFact } from 'basalt-ui/charts'
 import { NBSP, formatMinutes, withUnit } from '../../lib/format'
-import { CORE_METER_MAX_DEG, CORE_UNIT, MIN_BAR_SHARE, SKY_DARK_THRESHOLD } from './constants'
+import { CORE_METER_MAX_DEG, CORE_UNIT, MIN_BAR_SHARE } from './constants'
 import type { HourlyPoint, Killer, Night, Verdict, WindowResponse } from './types'
 
 /** Verdict → tone. `out` is a hard gate, not a low score, so it reads neutral, never red. */
@@ -527,7 +527,7 @@ function lowCloudValue(night: Night): string | null {
   return mean === null ? null : fmtPercent(mean)
 }
 
-type LowCloudStat = {
+export type LowCloudStat = {
   value: string
   unit: string
   /** What the low value is a mean over: `shooting-window mean` or `dark-hours mean`. */
@@ -586,7 +586,11 @@ export function withFacts(fact: ChartFact | null): { facts?: ChartFact } {
   return fact === null ? {} : { facts: fact }
 }
 
-/** The Sky cell's footer: the dark-sky threshold, the dome and the transparency, each with its unit. */
+/**
+ * The Sky cell's footer: only what the cell's own scale does not draw. The dark-sky threshold is
+ * the scale's tick (and the Forecast panorama states it), so it is not repeated here. Each phrase
+ * is glued internally; the plain-space ` · ` between them may wrap.
+ */
 export function skyCellFooter({
   domePenaltyMag,
   transparency,
@@ -594,13 +598,26 @@ export function skyCellFooter({
   domePenaltyMag: number | null
   transparency: number | null
 }): string {
-  const dome =
-    domePenaltyMag === null
-      ? 'town glow —'
-      : `town glow adds ${withUnit(domePenaltyMag.toFixed(2), 'mag')}`
-  const clarity = transparency === null ? '—' : `${transparency}/8, 1 = clearest`
-  const threshold = withUnit(SKY_DARK_THRESHOLD, 'mag/arcsec²')
-  return `dark sky from ${threshold} · ${dome} · transparency ${clarity}`
+  const dome = domePenaltyMag === null ? '—' : `+${withUnit(domePenaltyMag.toFixed(2), 'mag')}`
+  const clarity = transparency === null ? '—' : `${transparency}/8`
+  const glue = (text: string) => text.replaceAll(' ', NBSP)
+  return [
+    glue(`town glow ${dome}`),
+    `${glue(`transparency ${clarity}`)} ${glue('(lower is clearer)')}`,
+  ].join(' · ')
+}
+
+/** The cloud-layers headline: `{v} % low cloud · dark-hours mean`, each phrase glued, one break point between them. */
+export function cloudHeadline({ value, unit, basis }: LowCloudStat): {
+  value: string
+  unit: string
+  period: string
+} {
+  return {
+    value,
+    unit: unit.replaceAll(' ', NBSP),
+    period: `· ${basis.replaceAll(' ', NBSP)}`,
+  }
 }
 
 /**
@@ -627,6 +644,11 @@ function lowCloudState(night: Night): 'ruinous' | 'limits the score' | null {
 function hasLowCloudFact(night: Night): boolean {
   const factor = night.factors.find((f) => f.id === 'cloud-low')
   return night.weather.cloudLow !== null && factor !== undefined && factor.value !== null
+}
+
+/** A ruled-out night carries no factors, but the API still sends its cloud figure: shown, as unscored. */
+function ungatedCloudFact(night: Night): boolean {
+  return night.verdict === 'out' && night.factors.length === 0 && night.weather.cloudLow !== null
 }
 
 /** The verdict card's facts line. A usable night names its score and the factor holding it back, unless the low-cloud row already says it. */
@@ -691,7 +713,9 @@ export function gateRows(
     gate(GATE_IDS[1], 'Core', coreGateDetail(night), dark),
     gate(GATE_IDS[2], 'Moon', moonGateDetail(night, moonLimit, hourly), dark),
   ]
-  const cloudState = lowCloudState(night) ?? (hasLowCloudFact(night) ? 'not limiting' : null)
+  const cloudState =
+    lowCloudState(night) ??
+    (hasLowCloudFact(night) ? 'not limiting' : ungatedCloudFact(night) ? 'not scored' : null)
   if (cloudState !== null) {
     rows.push({
       key: 'cloud-low',

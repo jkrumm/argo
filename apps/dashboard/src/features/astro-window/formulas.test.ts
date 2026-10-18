@@ -30,6 +30,7 @@ import {
   verdictStatus,
   verdictTone,
   skyCellFooter,
+  cloudHeadline,
   minutesToHours,
   withFacts,
   windowFact,
@@ -637,13 +638,27 @@ describe('nextUsableText looks only at later nights', () => {
 })
 
 describe('sky cell footer', () => {
-  test('sky: threshold, dome and transparency with units', () => {
+  test('sky: dome and transparency only; the threshold is the scale tick', () => {
     expect(skyCellFooter({ domePenaltyMag: 1.04, transparency: 3 })).toBe(
-      'dark sky from 21.6\u00a0mag/arcsec² · town glow adds 1.04\u00a0mag · transparency 3/8, 1 = clearest',
+      'town\u00a0glow\u00a0+1.04\u00a0mag · transparency\u00a03/8 (lower\u00a0is\u00a0clearer)',
     )
     expect(skyCellFooter({ domePenaltyMag: null, transparency: null })).toBe(
-      'dark sky from 21.6\u00a0mag/arcsec² · town glow — · transparency —',
+      'town\u00a0glow\u00a0— · transparency\u00a0— (lower\u00a0is\u00a0clearer)',
     )
+  })
+})
+
+describe('cloudHeadline', () => {
+  test('two glued phrases around a separator', () => {
+    const stat = lowCloudStat(
+      { ...goNight, window: null, weather: { cloudLow: 40 } } as unknown as Night,
+      undefined,
+    )!
+    expect(cloudHeadline(stat)).toEqual({
+      value: '40\u00a0%',
+      unit: 'low\u00a0cloud',
+      period: '· dark-hours\u00a0mean',
+    })
   })
 })
 
@@ -768,9 +783,19 @@ describe('gateRows', () => {
     })
   })
 
-  test('a gated night carries no factors, so no cloud row', () => {
-    const gated = { ...night, factors: [] } as unknown as Night
-    expect(gateRows(gated, 0.25, []).map((r) => r.key)).not.toContain('cloud-low')
+  test('a scored night with no cloud factor has no cloud row', () => {
+    const noFactor = { ...night, factors: [] } as unknown as Night
+    expect(gateRows(noFactor, 0.25, []).map((r) => r.key)).not.toContain('cloud-low')
+  })
+
+  test('a ruled-out night still shows the cloud figure the API sends, as not scored', () => {
+    const gated = { ...night, verdict: 'out', factors: [] } as unknown as Night
+    expect(gateRows(gated, 0.25, []).at(-1)).toMatchObject({
+      key: 'cloud-low',
+      state: 'not scored',
+      tone: 'neutral',
+      detail: '70\u00a0%',
+    })
   })
 
   test('a failed gate flips its row alone', () => {
@@ -902,7 +927,7 @@ describe('coreGateFact', () => {
     expect(coreGateFact(night)?.value).toBe(fmtDegrees(cell.reading))
     expect(coreGateFact(night)).toEqual({
       value: '12.3°',
-      unit: 'closest to gate, needs > 9.8°',
+      unit: 'at tightest sample, needs > 9.8°',
     })
   })
   test('no dark stretch, no fact', () => {
