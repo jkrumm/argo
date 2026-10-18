@@ -1,10 +1,4 @@
-export {
-  METRIC_TOOLTIPS,
-  SKINFOLD_SITES,
-  WINDOW_PRESET_OPTIONS,
-  WINDOW_PRESET_VALUES,
-  type WindowPreset,
-} from './constants'
+export { METRIC_TOOLTIPS, SKINFOLD_SITES } from './constants'
 
 export type { SummaryParams } from './types'
 

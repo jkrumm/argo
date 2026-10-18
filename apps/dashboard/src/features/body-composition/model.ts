@@ -17,7 +17,7 @@ import type { WeightWindowStats } from './types'
 const RATE_LOOKBACK_DAYS = 28
 
 /** A last weigh-in this many days old (or older) reads as stale. */
-export const STALE_DAYS = 14
+const STALE_DAYS = 14
 
 /** The rate meter spans ±this many kg/week; the neutral zone is ±RATE_NEUTRAL_KG_WK. */
 export const RATE_SCALE_KG_WK = 0.5
@@ -143,7 +143,7 @@ export function summaryParts({
     facts: [
       `${signed(kgPerWeek, 2)} kg/wk over ${rateDays} d`,
       ageDays === null ? null : `last weigh-in ${ageLabel(ageDays)}`,
-    ].filter((f) => f !== null),
+    ].filter((f): f is string => f !== null),
   }
 }
 

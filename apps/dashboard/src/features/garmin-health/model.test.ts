@@ -75,10 +75,17 @@ describe('summaryParts', () => {
     })
   })
 
-  test('a missing reading is an em dash in place, and a missing ACWR drops its clause', () => {
+  test('a present recovery with no ACWR keeps the sentence short and the fact a dash', () => {
+    expect(summaryParts({ recovery: 80, acwr: null, rhrDelta: 1, hrvDelta: -4 })).toEqual({
+      sentence: 'Recovery 80/100',
+      facts: ['ACWR —', 'RHR +1 bpm over 14 d', 'HRV −4 ms over 14 d'],
+    })
+  })
+
+  test('a missing reading is an em dash in place; a missing ACWR keeps its fact as a dash', () => {
     expect(summaryParts({ recovery: null, acwr: null, rhrDelta: null, hrvDelta: null })).toEqual({
       sentence: 'Recovery —/100',
-      facts: ['RHR — bpm over 14 d', 'HRV — ms over 14 d'],
+      facts: ['ACWR —', 'RHR — bpm over 14 d', 'HRV — ms over 14 d'],
     })
   })
 

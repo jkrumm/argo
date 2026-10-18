@@ -139,6 +139,6 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 ### Wave 24 fixes
 
-- The page opens with `PageSummary`: sentence `Recovery {n}/100, load {relation to the ACWR band}`, facts `ACWR {x}` · `RHR {±n} bpm over 14 d` · `HRV {±n} ms over 14 d`. `summaryParts` (pure, unit-tested) replaces `summarySentence`; the skeleton rides `loading`, `RefetchDim` still wraps it.
+- The page opens with `PageSummary`: sentence `Recovery {n}/100, load {relation to the ACWR band}`, facts `ACWR {x or —}` · `RHR {±n} bpm over 14 d` · `HRV {±n} ms over 14 d`. `summaryParts` (pure, unit-tested) replaces `summarySentence`; the skeleton rides `loading`, `RefetchDim` still wraps it.
 - Caption sweep (rules 2/3): strip captions/footers and `METRIC_TOOLTIPS` already state thresholds and units, none explains an encoding; nothing changed.
 - Basalt rows: none.

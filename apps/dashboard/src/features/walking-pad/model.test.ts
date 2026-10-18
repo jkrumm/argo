@@ -370,6 +370,23 @@ describe('formats and summary', () => {
     ).toEqual({ sentence: '3.0\u00a0km this week in 1 walk', facts: ['streak 0 d', 'pace —'] })
   })
 
+  it('an unreported week is a dash in the headline', () => {
+    expect(
+      summaryParts({
+        weekDistanceM: null,
+        weekSessions: null,
+        streakDays: 2,
+        paceKmh: 4,
+        paceDeltaKmh: -0.2,
+        prior: 'prior 30 d',
+        period: '30 d',
+      }),
+    ).toEqual({
+      sentence: 'This week —',
+      facts: ['streak 2 d', 'pace 4.0\u00a0km/h, \u22120.2\u00a0km/h vs the prior 30 d'],
+    })
+  })
+
   it('says when pace has no prior window to compare', () => {
     expect(
       summaryParts({

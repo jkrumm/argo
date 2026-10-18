@@ -46,6 +46,13 @@ export function BodyCompositionPage({ params }: { params: Params }) {
   const stats = weightWindowStats(weightPoints, windowDays(params))
   const startPoint = weightPoints.toSorted(compareByDate)[0] ?? null
   const rows = siteRows(sessions, skinfoldSummary.perSite)
+  const headline = summaryParts({
+    current: summary.current,
+    kgPerWeek: summary.kgPerWeek,
+    rateDays: rateDays(windowDays(params)),
+    goal,
+    ageDays,
+  })
   const cells: StatStripCell[] = [
     weightCell({
       summary,
@@ -68,15 +75,7 @@ export function BodyCompositionPage({ params }: { params: Params }) {
 
   return (
     <Stack gap="md">
-      <PageSummary
-        {...summaryParts({
-          current: summary.current,
-          kgPerWeek: summary.kgPerWeek,
-          rateDays: rateDays(windowDays(params)),
-          goal,
-          ageDays,
-        })}
-      />
+      <PageSummary sentence={headline.sentence} facts={headline.facts} />
 
       <StatGroup
         variant="strip"

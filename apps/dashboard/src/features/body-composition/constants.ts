@@ -1,18 +1,4 @@
 import type { SkinfoldSite } from '../../lib/queries/skinfold-log'
-import { BODY_COMP_WINDOW_VALUES } from '../../lib/window-stores'
-
-/** Re-exported from the leaf store module so the values, the type, the Select options,
- * the route's zod enum and the store's accepted set are all ONE declaration. */
-export const WINDOW_PRESET_VALUES = BODY_COMP_WINDOW_VALUES
-
-export type WindowPreset = (typeof WINDOW_PRESET_VALUES)[number]
-
-export const WINDOW_PRESET_OPTIONS: { value: WindowPreset; label: string }[] = [
-  { value: '7d', label: '7D' },
-  { value: '30d', label: '30D' },
-  { value: '90d', label: '90D' },
-  { value: 'all', label: 'All' },
-]
 
 /**
  * UI registry for skinfold caliper sites — order = display order. Keys must match the
@@ -28,9 +14,7 @@ export const SKINFOLD_SITES: { key: SkinfoldSite; label: string; description: st
 ]
 
 export const METRIC_TOOLTIPS = {
-  bodyWeight: 'Daily weight in kg, same-day weigh-ins averaged. Dashed: 7 d mean.',
-  bodyWeightGoal:
-    'Daily weight in kg, same-day weigh-ins averaged. Dashed: 7 d mean and the goal weight.',
-  skinfoldChart:
-    'Fold thickness in mm per caliper site; thinner folds mean lower body fat. Dashed: session average.',
+  bodyWeight: 'Daily weight in kg; same-day weigh-ins are averaged.',
+  bodyWeightGoal: 'Daily weight in kg against the goal weight; same-day weigh-ins are averaged.',
+  skinfoldChart: 'Fold thickness in mm per caliper site; thinner folds mean lower body fat.',
 } as const

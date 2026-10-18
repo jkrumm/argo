@@ -4,7 +4,7 @@
  * so the copy is testable and a null reading is handled once (always `—`, never `0`).
  */
 
-export const EM_DASH = '—'
+const EM_DASH = '—'
 
 /** The fitness regression's window and the VO2max trace's window, fixed regardless of the page selector. */
 export const FITNESS_DAYS = 14
@@ -18,7 +18,7 @@ export const RECOVERY_REST_BELOW = 40
 export const RECOVERY_PUSH_FROM = 70
 
 /** Recovery contributor weights in points — `RECOVERY_WEIGHT_*` × 100 in `garmin-formulas.ts`. */
-export const RECOVERY_WEIGHT_PTS = { hrv: 40, sleep: 35, rhr: 25 } as const
+const RECOVERY_WEIGHT_PTS = { hrv: 40, sleep: 35, rhr: 25 } as const
 
 /** ACWR zone cut-offs — `classifyAcwrZone` in `garmin-formulas.ts` (Gabbett 2016). */
 export const ACWR_FLOOR = 0.8
@@ -183,14 +183,16 @@ export function summaryParts({ recovery, acwr, rhrDelta, hrvDelta }: SummaryInpu
   sentence: string
   facts: string[]
 } {
-  const load = acwr === null ? '' : `, load ${acwrRelation(acwr)}`
   return {
-    sentence: `Recovery ${fmtNum(recovery)}/100${load}`,
+    sentence:
+      acwr === null
+        ? `Recovery ${fmtNum(recovery)}/100`
+        : `Recovery ${fmtNum(recovery)}/100, load ${acwrRelation(acwr)}`,
     facts: [
-      acwr === null ? null : `ACWR ${acwr.toFixed(2)}`,
+      `ACWR ${acwr === null ? EM_DASH : acwr.toFixed(2)}`,
       `RHR ${signed(rhrDelta)} bpm over ${FITNESS_DAYS} d`,
       `HRV ${signed(hrvDelta)} ms over ${FITNESS_DAYS} d`,
-    ].filter((f) => f !== null),
+    ],
   }
 }
 
@@ -218,9 +220,6 @@ export function contributorItems(components: Components) {
         ],
   )
 }
-
-/** Whether a delta is the good direction. RHR down and HRV up are good; the sign alone is not. */
-export type DeltaDirection = 'up-good' | 'up-bad'
 
 // ── Chart facts headers ────────────────────────────────────────────────────
 
