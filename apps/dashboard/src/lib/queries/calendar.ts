@@ -5,6 +5,7 @@ import { api } from '../eden'
 import { unwrap } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { SERIES } from '../series'
+import { CANCELLED_PREFIX } from '../../features/calendar/derive'
 
 export type CalendarSource = 'google' | 'm365' | 'ticktick'
 
@@ -18,7 +19,7 @@ export type CalendarEventPayload = {
   attendeeTotal?: number | undefined
   attendeeAccepted?: number | undefined
   isAllDay?: boolean | undefined
-  /** Set by the API (Graph `isCancelled`; always false for Google). */
+  /** Set by the API (Graph `isCancelled`; Google `status === 'cancelled'`). */
   isCancelled?: boolean | undefined
   location?: string | null
   organizer?: string | null
@@ -177,8 +178,6 @@ const SOURCE_CLASS: Record<'google' | 'm365', SourceClass> = {
  * An API image that predates `isCancelled` sends no field; Outlook's title prefix (en and de) is
  * then the only signal, so a dashboard that rolls out first does not revive cancelled meetings.
  */
-const CANCELLED_TITLE = /^\s*(abgesagt|canceled|cancelled)\s*:/i
-
 function mapCalendarEvent(
   source: 'google' | 'm365',
   event: RawCalendarEvent,
@@ -201,7 +200,7 @@ function mapCalendarEvent(
       attendeeTotal: event.attendees?.length ?? 0,
       attendeeAccepted: event.attendees?.filter((a) => a.status === 'accepted').length ?? 0,
       isAllDay: event.isAllDay,
-      isCancelled: event.isCancelled ?? CANCELLED_TITLE.test(event.title),
+      isCancelled: event.isCancelled ?? CANCELLED_PREFIX.test(event.title),
       location: event.location ?? null,
       organizer: organizerName(event.organizer),
       videoLink: event.videoLink ?? null,

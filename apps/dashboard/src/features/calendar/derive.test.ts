@@ -345,6 +345,13 @@ describe('cancelled meetings', () => {
     expect(isCancelled(flagged)).toBe(true)
     expect(displayTitle(flagged)).toBe('{title f}')
   })
+  test('an empty title falls back to a placeholder, live or cancelled', () => {
+    const live = { ...ev('e', `${D} 09:00:00`, `${D} 10:00:00`), title: '  ' }
+    expect(displayTitle(live)).toBe('Untitled meeting')
+    expect(displayTitle({ ...live, title: '' })).toBe('Untitled meeting')
+    const gone = { ...ev('g', `${D} 09:00:00`, `${D} 10:00:00`, { isCancelled: true }), title: '' }
+    expect(displayTitle(gone)).toBe('Untitled meeting')
+  })
   test('a live meeting keeps a Canceled: prefix in its title', () => {
     const live = { ...ev('l', `${D} 09:00:00`, `${D} 10:00:00`), title: 'Canceled: planning' }
     expect(displayTitle(live)).toBe('Canceled: planning')

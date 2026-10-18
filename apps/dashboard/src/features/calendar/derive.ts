@@ -96,17 +96,17 @@ export function isTimed(event: CalendarItem): boolean {
 }
 
 /** M365 keeps a cancelled meeting on the calendar and prefixes its title (en and de). */
-const CANCELLED_PREFIX = /^\s*(abgesagt|canceled|cancelled)\s*:\s*/i
+export const CANCELLED_PREFIX = /^\s*(abgesagt|canceled|cancelled)\s*:\s*/i
 
-/** The API's `isCancelled` (Graph's flag; always false for Google and tasks). */
+/** The API's `isCancelled` (Graph's flag; Google's `status === 'cancelled'`; false for tasks). */
 export function isCancelled(event: CalendarItem): boolean {
   return event.payload?.isCancelled === true
 }
 
 /** The title without the `Canceled:` / `Abgesagt:` prefix Outlook adds, for a cancelled meeting only: its row says "Cancelled" once, in its meta. A live meeting keeps its title as written. */
 export function displayTitle(event: CalendarItem): string {
-  if (!isCancelled(event)) return event.title
-  return event.title.replace(CANCELLED_PREFIX, '').trim() || 'Untitled meeting'
+  const title = isCancelled(event) ? event.title.replace(CANCELLED_PREFIX, '') : event.title
+  return title.trim() || 'Untitled meeting'
 }
 
 /** Meetings that still happen: the basis of every count, booked hour, free block and "next". */

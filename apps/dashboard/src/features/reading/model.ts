@@ -344,5 +344,7 @@ export function shelfShares(counts: ShelfCounts): { read: number; backlog: numbe
   if (counts.total === 0) return null
   const pct = (n: number) =>
     n === 0 ? 0 : Math.min(99, Math.max(1, Math.round((n / counts.total) * 100)))
-  return { read: pct(counts.read), backlog: pct(counts.backlog) }
+  // Backlog is capped by the complement, so the pair never sums above 100 % after rounding.
+  const read = pct(counts.read)
+  return { read, backlog: Math.min(pct(counts.backlog), 100 - read) }
 }
