@@ -636,7 +636,8 @@ export function withFacts(fact: ChartFact | null): { facts?: ChartFact } {
 
 /**
  * The Sky cell's footer: the town glow and the transparency (the dark-sky threshold is labelled on
- * the scale's tick). Only number↔unit is glued, so the line wraps at phrase boundaries.
+ * the scale's tick). Number↔unit is glued and each ` · ` is bound to the text before it, so a wrap
+ * falls between words and no line opens on a dot.
  */
 export function skyCellFooter({
   domePenaltyMag,
@@ -647,7 +648,7 @@ export function skyCellFooter({
 }): string {
   const dome = domePenaltyMag === null ? '—' : `+${withUnit(domePenaltyMag.toFixed(2), 'mag')}`
   const clarity = transparency === null ? '—' : `${transparency}/8`
-  return `town glow ${dome} · transparency ${clarity} (lower = clearer)`
+  return joinPhrases([`town glow ${dome}`, `transparency ${clarity} (lower = clearer)`])
 }
 
 /** The Moon cell's footer: the limit, the phase and (when the moon sets) the set time; no line opens on a `·`. */

@@ -179,7 +179,8 @@ function AstroWindowPage() {
   const { data } = useSuspenseQuery(astroQueries.window(deferredParams))
   const { data: sitesResponse } = useSuspenseQuery(astroQueries.sites())
   // `?shot-state=empty`: the real empty branch is an empty site list (the Forecast tab's "Unknown site" card).
-  const sites = shotState() === 'empty' ? { data: [] } : sitesResponse
+  const sites: typeof sitesResponse =
+    shotState() === 'empty' ? { ...sitesResponse, data: [] } : sitesResponse
   // Resolved from the deferred params so a site switch never pairs the old night with the new site.
   const selectedSite = sites.data.find((s) => s.id === deferredParams.site)
 
