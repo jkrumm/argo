@@ -8,6 +8,7 @@ import {
   labeledBasis,
   labeledSegmentCaption,
   NO_TEAMS,
+  noTeamsSettled,
   NOTHING_TO_LABEL,
   type Coverage,
 } from './model'
@@ -123,10 +124,10 @@ function channelsCell(
   channels: number | null,
   largest: { name: string; channels: number } | null,
   failed: number,
-  teams: number,
+  teams: number | null,
 ): StatStripCell {
   // No teams came back: the channel count is unknown, not zero.
-  if (teams === 0 && failed === 0) {
+  if (noTeamsSettled(teams, failed)) {
     return { key: 'channels', caption: 'Team channels', state: { kind: 'empty', reason: NO_TEAMS } }
   }
   return {
@@ -146,8 +147,8 @@ export type StripProps = {
   /** Channels across the teams that loaded; null while any team is not loaded. */
   channels: number | null
   largestTeam: { name: string; channels: number } | null
-  /** Teams the API returned; none means the channel count has nothing to range over. */
-  teams: number
+  /** Teams the API returned once that read has settled; null while it has not. */
+  teams: number | null
   onRetry: () => void
 }
 

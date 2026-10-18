@@ -387,7 +387,7 @@ export function M365ExplorerPage(): ReactElement {
           chats={kindCounts}
           channels={channelsTotal}
           largestTeam={largestTeam(teamSizes)}
-          teams={teams.length}
+          teams={teamsQ.isSuccess ? teams.length : null}
           onRetry={retryFailed}
         />
 
