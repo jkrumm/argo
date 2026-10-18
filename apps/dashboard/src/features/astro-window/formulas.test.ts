@@ -630,6 +630,29 @@ describe('one headline gate', () => {
     } as unknown as Night
     expect(gateMissText(night)).toBe('moon')
   })
+
+  const moonOnly = () =>
+    ({
+      ...goNight,
+      verdict: 'out',
+      window: null,
+      killers: [killer('moon', 'Moon')],
+    }) as unknown as Night
+
+  test('Tonight drops the miss from the timeline fact: no period, moon-gated or not', () => {
+    for (const night of [moonOnly(), { ...both(['core-altitude']), window: null } as Night]) {
+      const fact = windowFact(night, { withMiss: false })
+      expect(fact).toEqual({ value: 'No window' })
+      expect('period' in fact).toBe(false)
+    }
+  })
+
+  test('the fact dropped from the Tonight timeline is on the verdict headline for every OUT night', () => {
+    for (const night of [moonOnly(), both(['moon', 'core-altitude']), both(['core-altitude'])]) {
+      expect(verdictHeadline(night)).toBe(gateMissText(night))
+    }
+    expect(verdictHeadline(moonOnly())).toBe('moon')
+  })
 })
 
 describe('nextUsableText looks only at later nights', () => {
