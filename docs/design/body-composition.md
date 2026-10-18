@@ -162,3 +162,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: the windows are anchored. Open: the headline restates the rate cell and the facts line the weight cell; `tier {range} kg/wk` undefined and `Lean bulk` repeats the zone label; the chart's net change since `{date}` reads against a headline in the other direction with no window note; the x-axis runs ~40 % past the last weigh-in; direct labels and legend name the same two series.
 - **Against Keel:** close (was holds up under the softer bar).
+
+### Wave 26 round (`w26-r1`, live after #102–#106)
+
+- **Reviewer:** fail. Fixed: no restated rate or weight in the headline; one plain pace footer; the chart's net change carries its dates; the x-axis ends at the last weigh-in. Carried: end labels and the legend name the same two series on wide (basalt `Lines` has no naming switch — UPSTREAM). **New:** `{n} weigh-ins in {d} d` names a span matching neither the window nor the rate; the weight line runs through the `7 d mean` end label now that the plot ends at the last point; the rate footer splits its unit at 390. Unscored: `30 d mean` breaks at 390; `Maintenance ±0.1` without a unit; the weight cell prints the 30 d mean twice.
+- **Against Keel:** close — the chart header and strip still overlap.

@@ -198,3 +198,8 @@ No basalt gaps this round.
 
 - **Reviewer:** fail. Fixed: the flat needs-you sparkline is gone; the fleet footer no longer repeats the meter captions. Open: decision titles are still raw ask prose, one cut at an open bracket, none a question; one card has no action, two only `Copy command`; `Full ask · {n} chars` (a character count means nothing); quiet-project ages still clip at the right edge at 1440 and every row reads `1 agent` under a header saying none run; the activity heatmap has no legend and an unexplained empty last cell; `measured` vs `observed` across strips; the needs-you count has no status word and repeats the headline; project cards show a raw tool name.
 - **Against Keel:** does not yet — Keel never shows a command block or a character count as decision content, and every card has a primary plus secondaries.
+
+### Wave 26 round (`w26-r1`, live after #102–#106)
+
+- **Reviewer:** fail. Fixed: no command block or character count as decision content; a secondary action on every card; quiet rows agree with the header; the heatmap has a legend and no unexplained last cell; one word for observed hours; the needs-you tile carries a status word. Carried: quiet-project ages clip at 1440; the needs-you count printed three times; raw tool name on project cards. **New:** the headline carries no figure; every card reads the same `Answer this request?` (the generic fallback names nothing); the heatmap legend says `darker = more` while dark scheme draws busier hours lighter. Unscored: the strip footer orphans an `h` at 390; the needs-you tile footer counts agents while the tile counts asks; `Idle`/`Unknown` undefined.
+- **Against Keel:** does not yet — identical generic titles; Keel's question names the action and the object.

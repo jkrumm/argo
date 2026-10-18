@@ -174,3 +174,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: light row hover; the phone Sources heading. Open: `1 label on chats or channels not in this list` still names no list; `{n} labeled` vs the chip `Labeled chats {m}`; chats/teams cells restate the tab counts; detail and labeled panes still not captured at 390 (the anchor did not register); the labeled pane has no title; no hover on labeled rows or tag chips. Harness: a source-list focus crop timed out.
 - **Against Keel:** close — Keel's rows carry real columns; every count here is printed three or four times.
+
+### Wave 26 round (`w26-r1`, live after #102–#106)
+
+- **Reviewer:** fail. Fixed: the labeled pane has a title, hover and its remove action; the chip names its scope; chats/teams cells no longer restate the tab counts; **the 390 labeled and detail panes are captured for the first time** (shot with a `basalt:m365-explorer` pane preset). Carried: the out-of-list label note still names neither the list nor the reason; tag chips have no hover. **New:** the detail and labeled panes at four sizes (the new pane title is the fourth); `Chats by kind` is a bare number list with a zero `Other` row. Unscored: the headline restates the `Last 7 days` list count; every labeled row carries the meta word `chat`; at 390 the section title restates the pane select and the labeled count sits in the strip and the select. Not verified: the detail pane with a source open at 390 (the preset opens it empty); three focus timeouts.
+- **Against Keel:** close — the strip cells are plain text and counts still repeat.

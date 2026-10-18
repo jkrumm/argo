@@ -128,3 +128,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail (was pass). Fixed: light row hover. Open: a summary cut mid-word at 1440; no chip hover; the thread count three times (subtitle, chip, footer) and the list-end note restates the headline.
 - **Against Keel:** does not yet — three rows, then an empty page.
+
+### Wave 26 round (`w26-r1`, live after #102–#106)
+
+- **Reviewer:** fail. Fixed: summaries end at a word at 1440; the thread total printed once. Carried: no chip hover. **New:** the headline's `in the last 7 days` restates the `This week` group count under another window name; the headline opens on a zero. Unscored: the untitled count printed three times; a `0 pinned` fact; row times touch the right edge (dark desktop); summaries cut mid-word at 390.
+- **Against Keel:** does not yet — three rows, then a void above the composer.

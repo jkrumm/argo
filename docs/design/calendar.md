@@ -77,12 +77,12 @@ Placeholders; the format is the contract.
 ## Wave 20 build notes
 
 - **Past days.** `GET /calendar` and `GET /m365/calendar/upcoming` take an optional `from` (ISO date or datetime; default now, so agents are unaffected). The dashboard passes the local Monday of the week shown (`queryFromKey` in `derive.ts`), so Today lists the morning's meetings dimmed, the strip is the real Monday–Sunday week with today ringed, and the Week and Month grids show past events.
-- **Row tick.** The shared track is 0–8 h with `max === target`, so the tick sits on the track end and a column header row names it (`8 h`) beside `booked` and `events`; a day over 8 h fills the track and turns `warn`.
+- **Row tick.** The shared track is 0–8 h with `max === target`, so the tick sits on the track end and a column header row names it (`target 8 h`) beside `booked` and `events`; a day over 8 h fills the track and turns `warn`.
 - **Attendees.** `{accepted}/{total} accepted` up to 12 invitees, `{total} people` beyond: a ratio on a 100-person invite reads as noise.
 - **Week at 390.** A day-grouped list of the 3-day window (selected ± 1) replaces the grid (no visible-days prop on `WeekView`, see UPSTREAM). The arrows move it 3 days.
 - **Tasks.** Overdue or due within 7 days of today, from the same TickTick queries; the Week and Month grids carry meetings only.
 - **Work / Personal hues** are registered series `calendarWork` (sky) and `calendarPersonal` (violet — no status or metric on the page uses it; gold would read as a warning).
-- Source errors read `{source} unavailable — {reason}` plus a `Re-authorize` link, and the failed class reads `—` in the split.
+- Source errors read `{source} unavailable — {reason}` plus a `Re-authorize` link, and the failed source reads `unavailable` in the split; with the work feed down, personal hours are marked `(partial)` (personal is booked minus work, so it is a ceiling).
 
 ## Wave 20 rounds
 
@@ -116,7 +116,7 @@ Post-deploy score on production failed four owner rules. Fixed: the strip's non-
 Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the basalt-ui 2.20.0 adoption (#81–#84), scored each round by a fresh `basalt-design-reviewer` plus a side-by-side against Keel. Boards: `.design-shots/w23-r1-*` and `w23-r2-*` (gitignored).
 
 - **r1:** fail. cancelled M365 meetings looked live and were counted; tasks wrapped at 390; the next meeting was not named once today's had ended; four font sizes in next-days (basalt).
-- **Fixed between rounds (#87):** cancelled meetings (title prefix) are muted, de-prefixed and out of every count, booked hour, free block and `next` (all-day included; `all cancelled` only for a wholly cancelled day); one-line tasks; `next {day} {time} — {title}`.
+- **Fixed between rounds (#87):** cancelled meetings (title prefix) are muted, de-prefixed and out of every count, booked hour, free block and `next` (all-day included; `all cancelled` only for a wholly cancelled day); one-line tasks (superseded in Wave 26: titles wrap whole rather than cut mid-word); `next {day} {time} — {title}`.
 - **r2:** fail, basalt-owned only: next-days still has four sizes (the list group label and meta are two small steps); the tall crop is blank below one screen (harness).
 - **Against Keel:** mostly holds up; Keel's schedule rows carry a per-row state word, and its summary is a headline.
 - **Open for Wave 24:** the API `isCancelled` field (the title prefix is a stopgap); a headline summary.
@@ -144,3 +144,8 @@ No new basalt rows.
 
 - **Reviewer:** fail. Fixed: no Today card repeating the headline. Open: the same defect moved — `Longest free block {h}` repeats the headline's free hours, the week strip's `Work {h}` repeats its booked hours, and the `8 h` column is an unexplained target; a task title cut mid-word at 1440; one task row has a coloured dot + priority word, the others grey dots with none. Basalt: next-days at 4 sizes; the next-days crop renders only its top half (harness).
 - **Against Keel:** close.
+
+### Wave 26 round (`w26-r1`, live after #102–#106)
+
+- **Reviewer:** fail (no new defect). Fixed: no repeated free or booked hours; `target 8 h` names the tick; task titles wrap whole; every task row names its priority. Carried: next-days at four sizes and its crop cut (basalt / harness). Unscored: the facts line opens a wrapped line with `·` at 390 (basalt); long meeting titles ellipsize in next-days at 390.
+- **Against Keel:** close — the headline has no figure in its sentence.

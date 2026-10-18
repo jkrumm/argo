@@ -1225,16 +1225,16 @@ Each page's detail is in `docs/design/<page>.md` § "Wave 24 round".
   was the grey well); `headlineOf` (home/lib) and `questionOf` (agents) and `cardCopy` (shared) are three question rules — unify in
   Wave 26.
 
-## Wave 26 — Re-score round 5: restatement, terms, authored questions <!-- status: active -->
+## Wave 26 — Re-score round 5: restatement, terms, authored questions <!-- status: done -->
 
 Same shape as Wave 25 (fan-out on disjoint page files, two independent reviews per PR, `rd merge`, live re-shoot, fresh
 `basalt-design-reviewer`s + a Keel side-by-side). Basalt-owned items wait for basalt (`UPSTREAM.md` § "Wave 23"–"Wave 25").
 Each page's detail is in `docs/design/<page>.md` § "Wave 25 round".
 
-- [ ] One question rule in argo (`cardCopy`; `headlineOf` and `questionOf` route through it), reading an optional `question`
+- [x] One question rule in argo (`cardCopy`; `headlineOf` and `questionOf` route through it), reading an optional `question`
       field when a producer sends one. The producer change (warden + agent-gateway payloads emit an authored `question`) is
       queued for the owner (orchestrator, 2026-10-18); this wave does not touch those repos.
-- [ ] Fix the argo items per page, fanned out:
+- [x] Fix the argo items per page, fanned out:
   - Restatement, every page: each figure printed once — headline, facts line, cards and strips never repeat each other
     (calendar free/booked hours, reading pace/backlog/time-read, body-comp rate/weight, warden summary vs strips, m365 counts,
     hermes thread count, astro core miss ×3, home meetings, garmin recovery sentence).
@@ -1246,7 +1246,81 @@ Each page's detail is in `docs/design/<page>.md` § "Wave 25 round".
   - Decision cards: two actions where one exists today, the preview kept at 390, the multi-transition well sized to its lines, no
     character counts, no command block as decision content.
   - Truncation: home activity names, warden test identifiers and `Blocker` wrap, calendar task titles, astro site select, quiet-project ages.
-- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 27 in this shape. The loop ends only when a
+- [x] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 27 in this shape. The loop ends only when a
+      fresh scorer and the owner find nothing worth improving.
+
+**Left behind:**
+
+**Closed out (orchestrated): Wave 27 is added as `active`, not spawned; the orchestrator spawns it.**
+
+- **Landed (master, deployed, `/api/health` = `1e1fc7d`, check + deploy workflows green):** five fan-out PRs, each with two
+  independent agent-gateway review rounds, scope frozen after round 2 and the last fix diff read by the lead, landed by `rd merge`
+  with `make check` green after every rebase: #102 garmin + walking pad + body composition, #103 strength + reading + calendar,
+  #104 astro (API: additive `killers[].cause` — `ridge | floor | never-rises` —, `factors[].ruinous`, `nights[].gateSampleTime`;
+  the UI renders them instead of inferring causes from prose; `docs/ASTRO-WINDOW.md` updated), #105 usage + m365 + hermes,
+  #106 the one question rule (`lib/question-copy.ts`: authored `question` → own first-sentence question → title question → a plain
+  question from kind and state; `authoredQuestion(unknown)` guards every producer path; `question` documented, optional and open,
+  on the warden and agents ingest schemas) + agents + warden + home (one `waitingOnOwner` list behind the Warden summary, the
+  board text and Home). Then `1e1fc7d`, a lead fix: #103's `dayLabel` used `Intl` month abbreviations, which print `Sept` on the
+  CI runner's ICU (and in en-GB browsers) — local `make check` passed, CI `check` failed on master for nine pushes until the fix;
+  the deploy went out regardless (the deploy workflow does not wait on `check`).
+- **Code review:** real bugs caught: a non-string producer `question` would throw in render and take down Agents and Home; the
+  astro card asserted a client-side low-cloud threshold, a regex-derived core cause, a moon "behind the skyline" claim on passing
+  nights and a dark window the engine never produced; a reading headline pairing a this-year count with an all-time median; unsorted
+  slowest/fastest paces; the usage "30 d mean" over 29 full days beside a 30-day total, and a partial-day rule on the browser's day
+  instead of the UTC bucket day; an m365 crash while channel queries load; Home, the Warden summary and the board counting three
+  different sets; the board's count and its empty sentence from two sets; loading/failed reads stated as data gaps (garmin load and
+  recovery footers, body-composition rate); an ACWR described as a 7 d vs 28 d load when it is an EWMA ratio. Rejected: restoring the
+  reading half-star note (the round scored it as narration — the bucket label states its range instead); keeping the weight chart's
+  x-axis running to today (staleness is stated in words on the headline).
+- **Round `w26-r1`** (live production, `basalt-ui shot --base https://argo.jkrumm.com`, `argo-auth` seeded from
+  `secrets-run read op://common/api/SECRET` via env, 1440 + 390, both schemes; 1320 shots, 8 harness failures — tall-anchor focus
+  timeouts). The m365 phone panes were shot for the first time with a `--local-storage basalt:m365-explorer=…` pane preset
+  (two extra runs). Boards: `.design-shots/w26-r1-{a,b,c,m365-labeled,m365-detail}` (gitignored), copied to the MacBook,
+  `~/Downloads/argo-design-review/w26/`. Scored by three fresh `basalt-design-reviewer`s (each with the w25 shots of the same routes
+  to classify every defect) plus a Keel side-by-side; per-page verdicts in `docs/design/<page>.md` § "Wave 26 round".
+- **Reviewer verdict, stated plainly:** **fail — all thirteen pages.** The honest trend, as the reviewers classified it (counts are
+  defects, not pages): **~66 fixed** from the Wave 25 open lists; **28 carried** (named in w25, still open); **35 new** (not in the
+  w25 shots — introduced by this wave); **35 unscored** (present in the w25 shots, named only now — the bar found them, the wave did
+  not cause them). Calendar is the one page with no new defect. The new defects cluster in four places: (1) **the plain-question
+  fallback** — with no authored question, distinct Warden items collapse to the same `Implement {repo} change?` and every agent ask
+  to `Answer this request?`, so titles no longer tell items apart (home, warden, agents); (2) **cells emptied by removing a
+  non-answering visual** — reading pace, the astro Cloud cell (the stretch moved from Core), walking pad's strip, the reading
+  time-read card; (3) **new copy that narrates or restates again** — usage tooltips about "the dashed line", hermes `last 7 days`
+  vs `This week`, `gate gate`, the strength diagnostics title, two "last session" dates on strength; (4) **390 wraps** of units and
+  status words (body composition, walking pad, garmin, astro sources).
+- **Against Keel:** holds up — none; close — Home, Garmin, Body composition, Calendar, Strength (up), WalkingPad, Astro (up), M365,
+  Usage; does not yet — Agents, Warden, Reading, Hermes.
+- **The finding that changes the plan (again, sharper):** the argo-side question rule is done and cannot get better on its own. The
+  plain rung is honest but generic; Keel-grade titles need the producers' authored `question`. argo now reads it on every surface
+  (`question` on warden `awaiting_owner` rows and board items, agents overview agents) — the producer change in warden and
+  agent-gateway stays the owner's call. Until it lands, Wave 27's argo mitigation is a distinguishing plain rung (the item's own
+  short title or alert key in the question when two cards would otherwise collide), not more derivation from prose.
+- **Not verified:** focus states on 8 anchors (harness timeouts); the astro night-strip hover tint (the harness hovers the selected
+  cell); the m365 detail pane at 390 with a source open (the preset opens it empty); info tooltips with no `data-shot-tooltip` anchor.
+- **Basalt-owned rows:** `UPSTREAM.md` § "Wave 26" (`Lines` naming switch, `PageSummary` wrapped `·`, disclosure inset, tooltip
+  over value at 390, sparkline focus start, heading slashed zero, `BandStrip`/`BarList`, two harness asks).
+- **Cleanup:** worktrees removed with `rd fan --clean`; no background task left running.
+
+## Wave 27 — Re-score round 6: distinguishing questions, cells that answer <!-- status: active -->
+
+Same shape as Wave 26 (fan-out on disjoint page files, two independent reviews per PR, `rd merge`, live re-shoot — including the
+m365 pane presets — fresh `basalt-design-reviewer`s with the previous round's shots for new/carried/unscored, + a Keel side-by-side).
+Basalt-owned items wait for basalt (`UPSTREAM.md` § "Wave 23"–"Wave 26"). Each page's detail is in `docs/design/<page>.md`
+§ "Wave 26 round". Gate addition: every PR's CI `check` run must be green before `rd merge` (Wave 26 merged a test that passed only
+on the mini's ICU).
+
+- [ ] Questions that tell items apart: until the producers send `question`, the plain rung carries the item's own short handle
+      (title lead, alert key) whenever two cards on one surface would read the same, and never frames an alert as a change; Home,
+      Warden and Agents. The producer change stays queued for the owner.
+- [ ] Fix the argo items per page, fanned out:
+  - New defects first (see each page's "New:"), then carried, then unscored.
+  - Cells that went blank when a visual was dropped get a fact or a visual that answers them (reading pace, astro cloud with its
+    statistic and window agreeing with Forecast, walking pad strip, reading time-read).
+  - Copy that narrates or restates: usage tooltips, hermes window names, astro `gate gate`, strength diagnostics title and the two
+    last-session dates, every total printed more than once (usage spend ×5, strength readiness ×3, m365 counts).
+  - 390 wraps of units and status words: keep a value with its unit (non-breaking space) everywhere a unit follows a number.
+- [ ] Re-shoot all pages live and re-score; any page still below the bar gets a Wave 28 in this shape. The loop ends only when a
       fresh scorer and the owner find nothing worth improving.
 
 **Left behind:**

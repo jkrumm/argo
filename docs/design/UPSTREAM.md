@@ -274,3 +274,21 @@ header on a daily bucket, a latency axis label printed over its line, `StatGroup
 | chart tooltip | a name column that never wraps one character per line (min width or ellipsis) | strength ACWR per-lift tooltip, light and dark | as rendered |
 | `phoneSelect` (chart-card actions at 390) | an input inset on the spacing scale (today 10.67 px) | usage cost and tokens charts | as rendered |
 | `basalt-ui shot` | focus states on tall anchors time out (`boundingBox`); a crop rendered only its top half | garmin `strip-fitness`, strength `strip-bench_press`, m365 `source-list`; calendar `next-days` | items marked unverified |
+
+### Wave 26 — round 5 fixes (#102–#106)
+
+Rows the Wave 26 workers and the `w26-r1` reviewers filed:
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| `Lines` | a per-chart naming switch (`legend` / `endLabels` / auto by width); today end labels draw on the wide class only, with no per-series opt-out but `role: 'reference'` | body-composition weight chart: end labels and legend name the same two series on wide, and the line runs through an end label once the plot ends at the last point | legend on at every width; the duplicate stays on wide |
+| `PageSummary` facts line | a wrapped facts line never opens with the `·` separator | body composition, calendar, garmin at 390 | as rendered |
+| `DecisionCard` disclosure button | an inset on the spacing scale (today right padding 5.33 px) | every decision card's `Full reason` / `Command and full ask` | as rendered |
+| info / chart tooltip | at 390, never cover the cell's own value | warden poller, agents activity strip | as rendered |
+| sparkline focus | keyboard focus starts on the latest point | strength lift strips | as rendered |
+| heading font | no slashed zero in the heading face (`2026`, `90 days`) | walking pad, reading | as rendered |
+| `BandStrip` / `BarList` | the BandStrip hover tooltip never covers the cell's hero value; BarList labels never run past a short bar | usage errors strip, usage tokens list, reading backlog genres | as rendered |
+| `basalt-ui shot` hover state | hover a non-selected cell when the anchor has a selected one | astro night strip (the new hover tint is unverifiable) | not verified |
+| `basalt-ui shot` | a phone pane held in a local store needs `--local-storage basalt:<key>=…` per pane; a first-class "state preset" per anchor would make the 390 panes part of the default run | m365 labeled and detail panes (captured for the first time in `w26-r1` with a per-pane seed) | two extra shot runs |
+
+`w26-r1` re-confirmed open rows from Waves 23–25: `Meter` zone captions bunching and `Danger` wrapping at 390, the floating `0`/`2.0` meter ticks, the ACWR chart tooltip wrapping names one character per line, a daily tooltip showing a clock time, chart cards at four type sizes, the `next-days` crop rendering only its top part, tall-anchor focus timeouts.

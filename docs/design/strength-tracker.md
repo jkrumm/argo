@@ -149,3 +149,8 @@ No new basalt rows.
 
 - **Reviewer:** fail. Fixed: INOL is defined. Open: `ACWR —` undefined in the headline and on the call card (no ACWR tooltip shot), the INOL tooltip introduces `AMRAP` undefined; `DOTS-adjusted` and `30d MA` undefined; `no session in 28d` in all four lift cells and the headline (`28d` vs `28 d`); the call card restates the meter's zone labels and repeats its deload line; `band` three times with two verdicts in the balance cell; the dashed reference line unlabelled; `Normal` legend swatch gold on a neutral band; `Signals and recovery alignment` still a category; `Sept` vs `Sep`; four sections at 4 sizes. Basalt: the ACWR tooltip wraps series names one character per line; a daily value's tooltip shows a clock time. Harness: the bench-press focus shot timed out.
 - **Against Keel:** does not yet — jargon density; Keel's stat cells are one number plus one qualifier.
+
+### Wave 26 round (`w26-r1`, live after #102–#106)
+
+- **Reviewer:** fail. Fixed: ACWR, AMRAP and `30 d average` defined or plain; one stale note instead of four; the call card no longer restates zones or the deload line; neutral `Normal` swatch; `Sep`; the category title renamed. Carried: four sizes per section (basalt); the sparkline reference line unlabelled; balance rows carry two verdicts and repeat the tolerance phrase on every row; bench-press focus timeout (harness). **New:** the diagnostics title `Against your 90-day norm, all time` contradicts itself; the headline's `last scored session` and the call card's `last session` are two dates with no lift named. Unscored: the readiness score printed three times; the leading e1RM three times; the ACWR chart header repeats the call card; momentum ticks crowded.
+- **Against Keel:** close (up from does not yet).

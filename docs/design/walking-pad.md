@@ -147,3 +147,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: an empty window keeps the headline, the dimmed KPI row and an empty state. Open: `{n} d ago, on {date}` beside `{n} months ago` (one fact, two granularities, a date order unlike the rest of the app); `Idle` undefined; `The strip fills once…` describes the UI, not the data; `Streak —` without unit or window.
 - **Against Keel:** close (was does not yet) — Keel's empty state is a contained card with concrete facts.
+
+### Wave 26 round (`w26-r1`, live after #102–#106)
+
+- **Reviewer:** fail. Fixed: one granularity for the last walk; `Not walking`; a data fact instead of the strip note; the streak carries its unit. Carried: the last walk's age in the headline and the record header. **New:** the streak footer describes loading, not data; that footer sets the row height and leaves the other three cells half blank; `Not walking` and the duration wrap at 390.
+- **Against Keel:** close.

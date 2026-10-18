@@ -143,3 +143,8 @@ No new basalt rows.
 
 - **Reviewer:** fail. Fixed: link focus is an outline ring. Open: `half stars count in the star below` still explains the binning; at 390 two ratings bars lose their labels; the pace visual (two unnamed dots + a tick) does not answer "what is my pace"; `days to finish need a start date; {n} of {n} have none` still describes what is not drawn; the headline repeats the pace cell and the shelf legend; backlog caption repeats the headline; shelf footer percentages restate the bar; time-read repeats the progress cards' hours in a second format, drawn as tracks that read as percent; `— % · no device progress yet` pairs a dash with a unit.
 - **Against Keel:** does not yet (was holds up) — the stricter copy bar; Keel's micro-visuals carry their own scale and target.
+
+### Wave 26 round (`w26-r1`, live after #102–#106)
+
+- **Reviewer:** fail. Fixed: no binning note (the bucket label states its range); no note about what is not drawn; no headline/pace/legend/backlog restatement; no shelf percentages; time-read no longer repeats hours; no dash paired with a unit. **New:** the pace cell lost its visual and is half blank (`emptyRatio` ≈ 0.48); the range bucket label wraps onto three lines at 390; time-read is now a permanent empty card that does not say what fills it; finished rows show no days-to-finish and no reason. Unscored: the shelf legend and the `Currently reading` heading print one count; the shelf cell stretches at 390.
+- **Against Keel:** does not yet — two empty surfaces.

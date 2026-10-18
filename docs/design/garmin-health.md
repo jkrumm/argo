@@ -159,3 +159,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail. Fixed: the headline opens on load and states why recovery is missing. Open: the recovery cell is still stretched (`emptyRatio` ≈ 0.55–0.59 — the row height comes from `StatGroup`); the headline repeats the recovery cell's sentence; the load footer restates the band captions and `acute ÷ chronic EWMA` is jargon. Harness: the fitness focus shot timed out. Basalt: `Danger` wraps and stray `0`/`2.0` ticks float under the meter.
 - **Against Keel:** close.
+
+### Wave 26 round (`w26-r1`, live after #102–#106)
+
+- **Reviewer:** fail. Fixed: the headline no longer repeats the recovery sentence; plain words for the load ratio; the recovery cell no longer stretched (`emptyRatio` < 0.4); the fitness focus shot captured. Carried: the load footer restates the band captions; headline facts repeat the load and fitness cells. **New:** the recovery cell at four type sizes; two unlabelled sparkline fragments with a bare hover readout (no scale, unit or date); focus ring over the reason text (dark desktop); the `Last scored` footer orphans the day at 390. Unscored: the strip stays two columns at 390 with a mostly empty recovery column; the facts line opens a wrapped line with `·` (basalt `PageSummary`). Not verified: recovery focus timed out (3 of 4).
+- **Against Keel:** close — load and fitness read like Keel's metric cards; recovery is a paragraph plus unlabelled marks where Keel draws a gauge against a target.

@@ -157,3 +157,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail (page passes). Fixed: no `fresh` aside, no one-spike sparkline, tooltips in plain words with no raw field names. Open: the p95 cell is now blank (`emptyRatio` ≈ 0.45) with no history, and `p95 {a} s` beside `30 d mean daily p95 {b} s` is undefined; warn and bad days still hue-only in the strip itself (the footer words them); the partial current day drawn as a drop; `last 7 d mean` restates the delta; donut + scale-less sparkline encode the cache rate twice; `Other` is the largest tokens bucket; raw tool identifiers in the tokens list. Basalt: `100.0 s` axis label over the line; `phoneSelect` padding 10.67.
 - **Against Keel:** close (was holds up) — Keel's cells carry their scale or target top-right.
+
+### Wave 26 round (`w26-r1`, live after #102–#106)
+
+- **Reviewer:** fail. Fixed: the p95 cell draws a trend against a dashed reference (no longer blank); one p95 reading with a labelled reference; no `last 7 d mean` restatement; the cache rate encoded once; `Other` no longer the largest bucket; the page on one full-days basis (UTC days). Carried: warn/bad days hue-only inside the strip (basalt `BandStrip`); the cost chart still drops for the partial current day; tool labels keep a raw separator. **New:** the p95 and cache info tooltips narrate the drawing (`the dashed line…`); the p95 footer splits `30 d` at 1440. Unscored: the 30-day spend printed five times and the token total four times; two greys in the health card told apart by tone alone.
+- **Against Keel:** close.
