@@ -285,7 +285,8 @@ describe('error days, peak and source note', () => {
     expect(errorDaysLine([0, 0.02, 0.05, null, 0.011])).toBe(
       '2 warn days (1%–3%), 1 bad day (> 3%)',
     )
-    expect(errorDaysLine([0, null])).toBe('0 warn days (1%–3%), 0 bad days (> 3%)')
+    expect(errorDaysLine([0.02, null])).toBe('1 warn day (1%–3%)')
+    expect(errorDaysLine([0, null])).toBe('no day above 1%')
   })
   it('finds the peak day', () => {
     const days = [

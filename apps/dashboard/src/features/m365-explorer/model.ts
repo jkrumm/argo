@@ -205,10 +205,11 @@ export function plural(n: number, one: string, many = `${one}s`): string {
 /**
  * The one labeled count the page prints: labels whose source is inside the loaded chats and
  * channels (`Coverage.labeled`), so the headline and the strip cannot disagree. `null` while a
- * team's channels are still loading — the count is not yet a fact.
+ * team is loading or failed — the count is then a lower bound, not yet a fact (the strip shows it
+ * as `≥`).
  */
 export function labeledCount(c: Coverage): number | null {
-  return c.loading > 0 ? null : c.labeled
+  return c.loading > 0 || c.failed > 0 ? null : c.labeled
 }
 
 /** The strip footer's note on labels the loaded set cannot place, naming the set. */
@@ -223,10 +224,15 @@ export function sourcesTitle(input: {
   chats: number
   channels: number | null
   teams: number
-  labeled: number
+  /** From `labeledCount`; `null` falls back to the team count. */
+  labeled: number | null
 }): string {
   if (input.view === 'chats') return plural(input.chats, 'chat')
-  if (input.view === 'feed') return `${plural(input.labeled, 'labeled source')}`
+  if (input.view === 'feed') {
+    return input.labeled === null
+      ? plural(input.teams, 'team')
+      : plural(input.labeled, 'labeled source')
+  }
   return input.channels === null
     ? plural(input.teams, 'team')
     : `${plural(input.channels, 'channel')} in ${plural(input.teams, 'team')}`

@@ -59,7 +59,6 @@
 
 /* One row = one button: chip · title over summary · time. */
 .row {
-  container-type: inline-size;
   display: block;
   width: 100%;
   padding-block: var(--vx-space-stack-sm);

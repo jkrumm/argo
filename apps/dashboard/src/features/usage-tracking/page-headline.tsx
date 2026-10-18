@@ -13,12 +13,7 @@ function age(iso: string | null | undefined, now: number): string | null {
   return relativeTime(new Date(iso), { now })
 }
 
-const FRESHNESS_INK = {
-  ok: VX.muted,
-  none: VX.muted,
-  warn: VX.status.warn,
-  bad: VX.status.bad,
-} as const
+const STALE_INK = { warn: VX.status.warn, bad: VX.status.bad } as const
 
 /** The page's opening: 30 d spend as the sentence, the rest as facts, freshness as a word. */
 export function UsageHeadline() {
@@ -38,8 +33,8 @@ export function UsageHeadline() {
       })}
       aside={
         fresh.tone === 'warn' || fresh.tone === 'bad' ? (
-          <Text component="span" inherit c={FRESHNESS_INK[fresh.tone]}>
-            feed stale
+          <Text component="span" inherit c={STALE_INK[fresh.tone]}>
+            feed {fresh.word}
           </Text>
         ) : undefined
       }

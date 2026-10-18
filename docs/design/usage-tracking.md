@@ -142,12 +142,12 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 ### Wave 25 fixes
 
-- Headline aside: the `fresh` word is gone (the facts line already carries `last event {age}`); the aside appears only as `feed stale` in warn/bad ink.
+- Headline aside: the `fresh` word is gone (the facts line already carries `last event {age}`); the aside appears only as `feed stale {age}` in warn/bad ink.
 - p95 cell: the one-spike sparkline is dropped for facts: slowest day `{s} s, {date}` (`peakOf`, tested), mean daily p95, and the delta badge.
 - Cache delta: the badge period reads `last 7 d vs 30 d`, naming both windows.
 - Cost, tokens and health info tooltips rewritten as plain-word definitions; no raw field names.
 - Error events label: `{pct} from {source}` (`topSourceNote`, tested) says the percent is of error events.
-- Warn vs bad: the errors cell footer words both (`{n} warn days (1%–3%), {n} bad days (> 3%)`, `errorDaysLine`, tested), so the strip no longer separates them by hue alone.
+- Warn vs bad: the errors cell footer words both (only the kinds that occurred, e.g. `{n} warn days (1%–3%), {n} bad day (> 3%)`, else `no day above 1%`; `errorDaysLine`, tested), so the strip no longer separates them by hue alone.
 
 | Export | Needed prop / default | argo case | What argo does instead |
 |-|-|-|-|
