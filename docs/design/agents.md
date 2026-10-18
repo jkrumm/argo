@@ -273,3 +273,7 @@ No basalt gaps this round.
 
 - **Reviewer (`w37-r1`):** fail on basalt only — the `no-snapshot` alert's nested `Code` radius 3 (UPSTREAM, basalt Wave 38). The fleet cells' `No snapshot yet` holds at both widths. Carried (argo, P3 polish): at 390 a project card's running value and `agent · longest {d}` share one line. Closed by the Home decision: decision card 3's single `Copy ask` (nothing else to copy). Carried (basalt): decision-card hover identical to rest, the activity-strip focus readout over its legend, the oldest-wait meter dropping its `abandoned at 7 d` caption at 390. Harness: `shot detect` does not flag the off-scale nested radius the metrics record. No lost fact.
 - **Against Keel:** close — the crew-card anatomy; Keel's inner cells each carry a micro-visual where ours are text readings.
+
+### Wave 38 round
+
+- **Longest run on its own line:** a project card's `Running` cell keeps the value and `agent`/`agents` as its reading and moves `longest {d}` to the new optional `EntityCardCell.note` — a muted mono line under the reading — so at 390 it no longer crowds the value. 1440 reads the same. Closes the Wave 37 carried P3. No lost fact.
