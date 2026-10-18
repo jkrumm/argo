@@ -396,11 +396,11 @@ export function dayHeadLabel(
   format: (min: number) => string,
   liveAllDay = 0,
 ): string {
-  if (day.count > 0)
-    return `${day.count} ${day.count === 1 ? 'event' : 'events'} · ${format(day.bookedMin)}`
+  const noun = (n: number) => `${n} ${n === 1 ? 'event' : 'events'}`
+  if (day.count > 0) return `${noun(day.count)} · ${format(day.bookedMin)}`
   // A live all-day item means the day is neither empty nor wholly cancelled: it has no booked
   // figure to state, so the count stands with `all day` where the duration would be.
-  if (liveAllDay > 0) return `${liveAllDay} ${liveAllDay === 1 ? 'event' : 'events'} · all day`
+  if (liveAllDay > 0) return `${noun(liveAllDay)} · all day`
   return day.rows.length > 0 ? 'all cancelled' : NO_EVENTS
 }
 

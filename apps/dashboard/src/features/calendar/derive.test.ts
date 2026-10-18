@@ -128,7 +128,7 @@ describe('booked hours', () => {
     )
     expect(nothingBooked(dayLoad([], weekKeys(D), true))).toBe(false)
   })
-  test('no heading figure for a day holding only live all-day items; empty days say No events', () => {
+  test('a day holding only live all-day items counts them as `all day`; empty days say No events', () => {
     const fmt = (m: number) => `${m}m`
     const only = agendaDay([], D)
     expect(dayHeadLabel(only, fmt, 2)).toBe('2 events · all day')

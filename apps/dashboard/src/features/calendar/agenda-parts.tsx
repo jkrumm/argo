@@ -3,7 +3,7 @@ import { formatMinutes } from '../../lib/format'
  * The Agenda tab's presentational pieces. They render `derive.ts` output and compute nothing:
  * every figure, count and window arrives already derived.
  */
-import { ActionIcon, Box, Button, Card, Group, Skeleton, Text } from '@mantine/core'
+import { ActionIcon, Box, Card, Group, Skeleton, Text } from '@mantine/core'
 import { Meter, Section } from 'basalt-ui'
 import { VX } from 'basalt-ui/tokens'
 import { IconVideo } from '@tabler/icons-react'
@@ -12,6 +12,7 @@ import { SERIES } from '../../lib/series'
 import classes from './agenda.module.css'
 import { untilLabel, type EmptyWindow } from './summary'
 import { SOURCES_LABEL, type FeedGap } from './query-state'
+import { RetryButton } from './retry-button'
 import {
   DAY_TARGET_H,
   dayLabel,
@@ -341,14 +342,17 @@ export function TaskList({
   tasks,
   todayKey,
   state,
-  onRetry,
+  onRetryTasks,
+  retryingTasks,
 }: {
   tasks: readonly TaskDue[]
   todayKey: DayKey
   /** The task read itself: a pending or failed one is not an empty list, so it has no count. */
   state: 'loading' | 'error' | 'ready'
   /** Refetches the failed task reads: the step on the failed card itself. */
-  onRetry: () => void
+  onRetryTasks: () => void
+  /** Those reads are in flight. */
+  retryingTasks: boolean
 }) {
   return (
     <Card data-shot="tasks-due" data-shot-states="empty loading error">
@@ -359,9 +363,7 @@ export function TaskList({
         ) : state === 'error' ? (
           <Group gap="xs">
             <Text className={classes.muted}>Tasks failed to load</Text>
-            <Button variant="subtle" color="gray" size="compact-sm" onClick={onRetry}>
-              Retry
-            </Button>
+            <RetryButton onClick={onRetryTasks} loading={retryingTasks} label="Retry tasks" />
           </Group>
         ) : tasks.length === 0 ? (
           <Text className={classes.muted}>Nothing due in the next 7 days.</Text>
