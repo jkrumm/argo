@@ -27,7 +27,7 @@ export type FeedGap = {
   text: string
   /**
    * The same gap inside a card: a loading card says `Loading` (the page headline already says
-   * `Loading calendar`), a failed one repeats the shared failure wording.
+   * `Loading calendar`), a failed one is the headline's sentence minus the step.
    */
   card: string
 }
@@ -45,11 +45,11 @@ export function feedGap(
     .filter((key) => failedSources.has(key))
     .map((key) => SOURCE_LABEL[key])
   if (names.length === 0) return { state: 'loading', text: 'Loading calendar', card: 'Loading' }
-  const text = `${names.join(' and ')} failed to load — reload to retry`
+  const card = `${names.join(' and ')} failed to load`
   return {
     state: 'error',
-    text,
-    card: text,
+    text: `${card} — reload to retry`,
+    card,
   }
 }
 
