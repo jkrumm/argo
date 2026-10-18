@@ -11,18 +11,17 @@ import { usageQueries, type Metric } from '../../lib/queries/usage'
 import { USAGE_BILLING } from '../../lib/series'
 import { dayToDate } from './constants'
 import {
-  badDayCount,
+  errorDaysLine,
+  peakOf,
   billingParts,
   CACHE_HIT_TARGET,
   EM_DASH,
-  ERROR_BAD_ABOVE,
-  ERROR_WARN_FROM,
   errorRateReading,
   fmtPct,
   fmtPctBadge,
   fmtPointsBadge,
   fmtSecondsBadge,
-  fmtSecondsDay,
+  shortDay,
   fmtShare,
   fmtTokens,
   fmtTokensDay,
@@ -216,11 +215,7 @@ function errorsCell({ h, loading }: Ctx, errors: Series): StatStripCell {
     footer: footerOf(
       errors.days.length === 0
         ? [vs.note]
-        : [
-            `${badDayCount(errors.days.map((d) => d.value))} bad days · > ${fmtPct(ERROR_BAD_ABOVE, 0)}`,
-            vs.note,
-            `warn from ${fmtPct(ERROR_WARN_FROM, 0)} a day`,
-          ],
+        : [errorDaysLine(errors.days.map((d) => d.value)), vs.note],
     ),
   }
 }
@@ -228,6 +223,7 @@ function errorsCell({ h, loading }: Ctx, errors: Series): StatStripCell {
 function p95Cell({ h, loading }: Ctx, p95: Series): StatStripCell {
   const qty = secondsQuantity(h?.p95Ms30d)
   const mean = meanOf(p95.days.map((d) => d.value))
+  const worst = peakOf(p95.days)
   const vs = compare({
     h,
     current: h?.p95Ms30d,
@@ -244,15 +240,10 @@ function p95Cell({ h, loading }: Ctx, p95: Series): StatStripCell {
     ...(qty.unit ? { unit: qty.unit } : {}),
     delta: vs.delta,
     loading,
-    visual: (
-      <Trend
-        label="p95 latency per day over the last 30 days"
-        days={p95.days}
-        loading={p95.loading}
-        format={fmtSecondsDay}
-      />
-    ),
     footer: footerOf([
+      worst === null || worst.value === null
+        ? null
+        : `slowest day ${secondsQuantity(worst.value).value} s, ${shortDay.format(worst.date)}`,
       meanLine(mean === null ? null : `${secondsQuantity(mean).value} s`, 'mean daily p95'),
       vs.note,
     ]),
@@ -270,7 +261,12 @@ function cacheCell({ h, loading }: Ctx, cache: Series): StatStripCell {
     value: fmtPct(ratio),
     delta:
       ratio === null || delta === null ? undefined : (
-        <DeltaBadge value={delta} format={fmtPointsBadge} polarity="up-good" period="30 d ratio" />
+        <DeltaBadge
+          value={delta}
+          format={fmtPointsBadge}
+          polarity="up-good"
+          period="last 7 d vs 30 d"
+        />
       ),
     loading,
     visual:

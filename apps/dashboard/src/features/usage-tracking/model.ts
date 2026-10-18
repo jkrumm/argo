@@ -266,6 +266,36 @@ export function badDayCount(rates: readonly (number | null)[]): number {
   return rates.filter((r) => errorDayState(r) === 'bad').length
 }
 
+export function warnDayCount(rates: readonly (number | null)[]): number {
+  return rates.filter((r) => errorDayState(r) === 'warn').length
+}
+
+/**
+ * The error cell's second channel for warn vs bad: a word and a count, so the two never differ by
+ * hue alone. `null` when neither kind of day occurred.
+ */
+export function errorDaysLine(rates: readonly (number | null)[]): string {
+  const bad = badDayCount(rates)
+  const warn = warnDayCount(rates)
+  const plural = (n: number) => (n === 1 ? 'day' : 'days')
+  return `${warn} warn ${plural(warn)} (${fmtPct(ERROR_WARN_FROM, 0)}–${fmtPct(ERROR_BAD_ABOVE, 0)}), ${bad} bad ${plural(bad)} (> ${fmtPct(ERROR_BAD_ABOVE, 0)})`
+}
+
+/** The day with the highest reading, or `null` without a reading. */
+export function peakOf<T extends { value: number | null }>(days: readonly T[]): T | null {
+  let peak: T | null = null
+  for (const d of days) {
+    if (d.value === null || !Number.isFinite(d.value)) continue
+    if (peak === null || d.value > (peak.value ?? -Infinity)) peak = d
+  }
+  return peak
+}
+
+/** What the error-events label's percentage is of: `{pct} from {source}` (events, not calls). */
+export function topSourceNote(source: string, value: number, total: number): string {
+  return `${fmtShare(total > 0 ? value / total : null)} from ${source}`
+}
+
 // ── Freshness ────────────────────────────────────────────────────────────────────────────────
 
 function ageMinutes(iso: string | null | undefined, now: number): number | null {

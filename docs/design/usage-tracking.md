@@ -139,3 +139,16 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail: the `fresh` aside restates the facts line; the p95 sparkline is one spike then flat; the cache delta's `vs 30 d ratio` baseline is unclear beside a 30 d headline; the cost, tokens and health info tooltips narrate the drawing and show raw field names (`cost_usd`, `cache_read`); `{source} {pct}%` next to the error count has no stated meaning; warn and bad days differ by hue alone. Basalt: the latency axis has two ticks with the line through `100.0 s`; the errors tooltip covers the value; SegmentedControl indicator radius and the phone select inset.
 - **Against Keel:** holds up — the best KPI band of the set; the stacked-area chart and the filter row dominate the fold.
+
+### Wave 25 fixes
+
+- Headline aside: the `fresh` word is gone (the facts line already carries `last event {age}`); the aside appears only as `feed stale` in warn/bad ink.
+- p95 cell: the one-spike sparkline is dropped for facts: slowest day `{s} s, {date}` (`peakOf`, tested), mean daily p95, and the delta badge.
+- Cache delta: the badge period reads `last 7 d vs 30 d`, naming both windows.
+- Cost, tokens and health info tooltips rewritten as plain-word definitions; no raw field names.
+- Error events label: `{pct} from {source}` (`topSourceNote`, tested) says the percent is of error events.
+- Warn vs bad: the errors cell footer words both (`{n} warn days (1%–3%), {n} bad days (> 3%)`, `errorDaysLine`, tested), so the strip no longer separates them by hue alone.
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| `BandStrip` | per-state glyph or text channel inside a cell | warn and bad days differ by hue alone in the strip cells | a worded count line in the cell footer |

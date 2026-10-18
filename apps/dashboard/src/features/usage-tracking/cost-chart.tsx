@@ -33,7 +33,7 @@ export default function CostChart({
       color={colorForGroup(groupBy)}
       format={fmtUsdWhole}
       listTitle={`Spend by ${GROUP_NOUN[groupBy]}`}
-      info="Sum of cost_usd per bucket. The six largest series over the window are shown by name; the rest are summed into Other."
+      info="Spend in US dollars, added up per day or week. The six biggest spenders in the window are named, the rest are grouped as Other."
     />
   )
 }
