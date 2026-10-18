@@ -117,7 +117,7 @@ export function AllDayChips({ items }: { items: readonly CalendarItem[] }) {
   if (items.length === 0) return null
   return (
     <Box className={classes.chips}>
-      <span className={classes.caption}>All day · {items.length}</span>
+      <span className={classes.caption}>All day</span>
       {items.map((item) => (
         <span key={String(item.id)} className={classes.chip}>
           {item.title}
@@ -207,7 +207,7 @@ export function DayGroups({
       {gap && <GapLine gap={gap} skeleton={{ kind: 'rows', rows: skeletonRows }} />}
       {visible.map((day) => {
         const chips = allDay[day.key] ?? []
-        const headLabel = dayHeadLabel(day, formatMinutes, chips.length)
+        const headLabel = dayHeadLabel(day, formatMinutes)
         if (day.rows.length === 0 && chips.length === 0) {
           return (
             <Box key={day.key} className={classes.freeDay}>
