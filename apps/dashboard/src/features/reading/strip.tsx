@@ -119,6 +119,7 @@ export function ReadingStrip({
       variant="strip"
       label="Reading summary"
       cols={3}
+      shotAbsent={['empty']}
       cells={[shelfCell(counts, footer), ratingsCell(shelf, narrow), paceCell(pace)]}
     />
   )

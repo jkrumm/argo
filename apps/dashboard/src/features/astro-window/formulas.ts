@@ -686,7 +686,7 @@ export function moonFooter({
  * period carries its own `· `; both phrases are glued.
  */
 export function cloudHeadline({ value, unit, basis }: LowCloudStat): ChartFact {
-  return { value, unit: glue(unit), period: `· ${glue(basis)}` }
+  return { value, unit: glue(unit), period: [glue(basis)] }
 }
 
 /**

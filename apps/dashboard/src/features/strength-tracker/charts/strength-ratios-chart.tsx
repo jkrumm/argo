@@ -2,7 +2,7 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { Group, Stack, Text } from '@mantine/core'
 import { Meter } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
-import { alpha, VX } from 'basalt-ui/tokens'
+import { VX } from 'basalt-ui/tokens'
 import { strengthQueries, type StrengthQueryParams } from '../../../lib/queries/strength'
 import { METRIC_TOOLTIPS } from '../constants'
 import { type RatioStatus } from '../formulas'
@@ -16,12 +16,6 @@ import {
   ratioName,
   statusWord,
 } from '../model'
-
-/**
- * The under/over zones: one flat fill. `tone: 'muted'` steps lightness per zone, so the over zone
- * read as a value bar (docs/design/UPSTREAM.md § Wave 31).
- */
-const OUTSIDE_FILL = alpha(VX.muted, 0.35)
 
 type Ratio = {
   label: string
@@ -81,9 +75,9 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
                   max={pair.scaleMax}
                   format={(v) => v.toFixed(2)}
                   zones={[
-                    { from: 0, to: lo, label: '', color: OUTSIDE_FILL },
+                    { from: 0, to: lo, label: '', tone: 'muted' },
                     { from: lo, to: hi, label: '', color: VX.good },
-                    { from: hi, to: pair.scaleMax, label: '', color: OUTSIDE_FILL },
+                    { from: hi, to: pair.scaleMax, label: '', tone: 'muted' },
                   ]}
                   startCaption={null}
                   endCaption={null}
