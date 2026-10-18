@@ -115,27 +115,32 @@ function FeedRow({ event: e }: { event: ActivityEvent }) {
   const detail = part('detail')
   const outcome = part('outcome')
   const chip = part('chip')
+  const secondary = detail !== undefined || outcome !== undefined || chip !== undefined
   return (
     <div role="listitem" className={classes.feedRow} title={text} aria-label={`${text} · ${time}`}>
-      <Text component="span" size="sm" className={classes.feedSentence}>
-        <span className={classes.feedLead}>
+      <div className={classes.feedBody}>
+        <Text component="span" size="sm" className={classes.feedLead}>
           <span className={classes.feedActor}>{e.actor}</span> {e.title}
-          {detail ? <span className={classes.feedDetail}> · {detail.text}</span> : null}
-        </span>
-        {outcome ? <span className={classes.feedOutcome}>{outcome.text}</span> : null}
-        {chip ? (
-          <Badge
-            variant="light"
-            color="gray"
-            size="sm"
-            fz="sm"
-            tt="none"
-            classNames={{ root: classes.chip, label: classes.chipLabel }}
-          >
-            {chip.text}
-          </Badge>
+        </Text>
+        {secondary ? (
+          <span className={classes.feedMeta}>
+            {detail ? <span className={classes.feedDetail}>{detail.text}</span> : null}
+            {outcome ? <span className={classes.feedOutcome}>{outcome.text}</span> : null}
+            {chip ? (
+              <Badge
+                variant="light"
+                color="gray"
+                size="sm"
+                fz="sm"
+                tt="none"
+                classNames={{ root: classes.chip, label: classes.chipLabel }}
+              >
+                {chip.text}
+              </Badge>
+            ) : null}
+          </span>
         ) : null}
-      </Text>
+      </div>
       <span className={classes.feedTime}>{time}</span>
     </div>
   )
