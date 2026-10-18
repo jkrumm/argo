@@ -54,7 +54,7 @@ function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
     visual: (
       <div
         role="img"
-        aria-label={`Rated books per star: ${shape.buckets.map((c, i) => `${shape.labels[i].aria}: ${c}`).join(', ')}; mean ${shape.mean.toFixed(1)} ★`}
+        aria-label={`Rated books per star: ${shape.labels.map((l, i) => `${l.aria}: ${shape.buckets[i]}`).join(', ')}; mean ${shape.mean.toFixed(1)} ★`}
       >
         <div className={classes.histogram}>
           {shape.buckets.map((count, i) => (
@@ -68,10 +68,10 @@ function ratingsCell(shelf: readonly ShelfItem[]): StatStripCell {
           <div className={classes.meanTick} style={{ left: `${meanAt}%` }} />
         </div>
         <div className={classes.axis}>
-          {shape.buckets.map((count, i) => (
+          {shape.labels.map((label, i) => (
             <span key={i} className={classes.axisLabel}>
-              <span>{shape.labels[i].visible}</span>
-              <span>{count}</span>
+              <span>{label.visible}</span>
+              <span>{shape.buckets[i]}</span>
             </span>
           ))}
         </div>
