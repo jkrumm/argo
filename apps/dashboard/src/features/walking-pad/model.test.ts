@@ -370,7 +370,21 @@ describe('formats and summary', () => {
     ).toEqual({ sentence: '3.0\u00a0km this week in 1 walk', facts: ['streak 0 d', 'pace —'] })
   })
 
-  it('an unreported week is a dash in the headline', () => {
+  it('an unreadable streak is a dash, never 0', () => {
+    expect(
+      summaryParts({
+        weekDistanceM: 1000,
+        weekSessions: 1,
+        streakDays: null,
+        paceKmh: null,
+        paceDeltaKmh: null,
+        prior: 'prior 30 d',
+        period: '30 d',
+      }).facts,
+    ).toEqual(['streak —', 'pace —'])
+  })
+
+  it('an unreported week says so in words', () => {
     expect(
       summaryParts({
         weekDistanceM: null,
@@ -382,7 +396,7 @@ describe('formats and summary', () => {
         period: '30 d',
       }),
     ).toEqual({
-      sentence: 'This week —',
+      sentence: 'No walks reported this week',
       facts: ['streak 2 d', 'pace 4.0\u00a0km/h, \u22120.2\u00a0km/h vs the prior 30 d'],
     })
   })

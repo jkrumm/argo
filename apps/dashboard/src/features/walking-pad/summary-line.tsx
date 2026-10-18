@@ -19,7 +19,7 @@ export function SummaryLine({ params }: { params: WalkingPadWindowParams }) {
       {...summaryParts({
         weekDistanceM: thisWeek?.distanceM ?? null,
         weekSessions: thisWeek?.sessions ?? null,
-        streakDays: heroes.data?.streak.currentDays ?? 0,
+        streakDays: heroes.data?.streak.currentDays ?? null,
         paceKmh: heroes.data?.pace.currentAvgKmh ?? null,
         paceDeltaKmh: heroes.data?.pace.deltaKmh ?? null,
         prior: priorLabel(preset),

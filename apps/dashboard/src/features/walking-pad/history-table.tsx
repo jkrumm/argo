@@ -101,7 +101,7 @@ export function HistoryTable() {
     // The TOTAL rides `subtitle`: under `manualPagination` the table's own count is this page's rows.
     <BasaltDataTable
       title="Session history"
-      subtitle={`${data.total} ${data.total === 1 ? 'walk' : 'walks'}`}
+      subtitle={`${data.total} ${data.total === 1 ? 'walk' : 'walks'}, newest first`}
       data={data.data}
       columns={columns}
       enableSorting={false}

@@ -127,5 +127,5 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 ### Wave 24 fixes
 
 - The page opens with `PageSummary`: sentence `{km} km this week in {n} walks`, facts `streak {d} d` · `pace {p} km/h, {±d} km/h vs the {prior window}`. `summaryParts` (pure, unit-tested) replaces `summarySentence`; the skeleton rides `loading`. The "no prior window to compare" clause is gone: a pace without a delta says only its period.
-- History table subtitle drops "newest first" (an ordering note, not a fact): it states the walk count only.
+- Streak is `null` (shown as `streak —`) when the heroes query has no data, never 0; an unreported week reads "No walks reported this week". The history subtitle keeps "newest first": the list is requested `order: desc` and the table cannot re-sort.
 - Basalt rows: none.

@@ -398,7 +398,8 @@ export function groupByMonth(
 export type SummaryInput = {
   weekDistanceM: number | null
   weekSessions: number | null
-  streakDays: number
+  /** `null` when the streak could not be read; rendered as a dash, never 0. */
+  streakDays: number | null
   paceKmh: number | null
   paceDeltaKmh: number | null
   prior: string
@@ -421,7 +422,10 @@ function paceFact(s: SummaryInput): string {
 export function summaryParts(s: SummaryInput): { sentence: string; facts: string[] } {
   const sentence =
     s.weekDistanceM === null || s.weekSessions === null
-      ? 'This week —'
+      ? 'No walks reported this week'
       : `${withKm(s.weekDistanceM)} this week in ${s.weekSessions} ${plural(s.weekSessions, 'walk')}`
-  return { sentence, facts: [`streak ${s.streakDays} d`, paceFact(s)] }
+  return {
+    sentence,
+    facts: [`streak ${s.streakDays === null ? '—' : `${s.streakDays} d`}`, paceFact(s)],
+  }
 }
