@@ -406,7 +406,7 @@ function AstroWindowPage() {
 
           {search.tab === 'forecast' && selectedNight && (
             <>
-              <Box data-shot="night-timeline">
+              <Box data-shot="night-timeline" data-shot-states="empty">
                 <NightTimelineChart
                   hourly={data.detail.hourly}
                   night={selectedNight}
@@ -453,7 +453,7 @@ function AstroWindowPage() {
                   </Suspense>
                 </>
               ) : (
-                <Box data-shot="unknown-site" data-shot-states="empty">
+                <Box data-shot="unknown-site">
                   <ChartCard
                     state={{ empty: 'Unknown site' }}
                     placeholderHeight={PANORAMA_HEIGHT}
