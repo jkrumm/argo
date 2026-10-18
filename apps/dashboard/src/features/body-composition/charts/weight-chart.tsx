@@ -6,13 +6,8 @@ import { ChartCard, Lines, type ChartSeries } from 'basalt-ui/charts'
 import { VX } from 'basalt-ui/tokens'
 import { weightLogQueries, type WeightLogWindowParams } from '../../../lib/queries/weight-log'
 import { METRIC_TOOLTIPS } from '../constants'
-import { isStale, weightHeaderFact, windowLabel, windowDays, withKg } from '../model'
-import {
-  localDay,
-  markerRadiusFor,
-  toWeightChartPoints,
-  type WeightChartPoint,
-} from './series-data'
+import { weightHeaderFact, windowLabel, windowDays, withKg } from '../model'
+import { markerRadiusFor, toWeightChartPoints, type WeightChartPoint } from './series-data'
 
 // 280 px on desktop, 220 px below the regular container class.
 const CHART_HEIGHT = { base: 220, regular: 280 }
@@ -23,13 +18,9 @@ const fmtKg = (v: number): string => withKg(v, 2)
 export default function WeightChart({
   params,
   goal,
-  ageDays,
-  todayKey,
 }: {
   params: WeightLogWindowParams
   goal: number | null
-  ageDays: number | null
-  todayKey: string
 }) {
   const query = useQuery(weightLogQueries.series(params))
   const apiPoints = query.data?.points
@@ -38,10 +29,6 @@ export default function WeightChart({
   const chartData = useMemo(() => toWeightChartPoints(apiPoints ?? [], span), [apiPoints, span])
   // The strip and headline carry the current weight and its age; the header adds what they do not.
   const headerFact = useMemo(() => weightHeaderFact(apiPoints ?? []), [apiPoints])
-  // Drawn to today, so a stale last entry shows as empty plot rather than a line that just stops.
-  const first = chartData[0]
-  const xDomain: [Date, Date] | null =
-    first === undefined || !isStale(ageDays) ? null : [first.date, localDay(todayKey)]
   const dotR = markerRadiusFor(chartData.length)
 
   const series: ChartSeries<WeightChartPoint>[] = [
@@ -102,14 +89,14 @@ export default function WeightChart({
           x={(d) => d.date}
           series={series}
           tooltip={{ formatHeader: (x) => format(x, 'EEE d MMM yyyy') }}
-          {...(xDomain !== null && { xDomain })}
+          legend={false}
           {...(goal !== null && {
             refLines: [
               {
                 value: goal,
                 color: VX.muted,
                 dashed: false,
-                legend: { label: `goal ${goal.toFixed(1)}` },
+                label: `goal ${goal.toFixed(1)}`,
               },
             ],
           })}

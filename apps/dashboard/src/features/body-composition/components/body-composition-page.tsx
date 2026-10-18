@@ -53,6 +53,7 @@ export function BodyCompositionPage({ params }: { params: Params }) {
     goal,
     ageDays,
     latestKey: latestDate(weightPoints),
+    entries: weightPoints.length,
   })
   const cells: StatStripCell[] = [
     weightCell({
@@ -85,7 +86,7 @@ export function BodyCompositionPage({ params }: { params: Params }) {
         cells={cells}
       />
 
-      <WeightChart params={params} goal={goal} ageDays={ageDays} todayKey={todayKey} />
+      <WeightChart params={params} goal={goal} />
 
       {sessions.length >= 2 ? (
         <SkinfoldChart params={params} />

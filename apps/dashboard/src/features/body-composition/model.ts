@@ -131,9 +131,10 @@ function trend(kgPerWeek: number): string {
 }
 
 /**
- * Headline: direction and rate over a stated window, then the distance to the goal. The rate window
- * ends at the last weigh-in, so it is dated whenever that weigh-in is not today or yesterday.
- * Facts: the current weight and the last weigh-in's age.
+ * Headline: direction over a stated window, then the distance to the goal. The rate figure and the
+ * current weight live in their strip cells and are not repeated. The window ends at the last
+ * weigh-in, so it is dated whenever that weigh-in is not today or yesterday.
+ * Facts: the weigh-in count and the last weigh-in's age.
  */
 export function summaryParts({
   current,
@@ -142,6 +143,7 @@ export function summaryParts({
   goal,
   ageDays,
   latestKey,
+  entries,
 }: {
   current: number | null
   kgPerWeek: number | null
@@ -151,13 +153,15 @@ export function summaryParts({
   ageDays: number | null
   /** The newest weigh-in's day; dates the rate window when the weigh-in is not recent. */
   latestKey?: string | null
+  /** Weigh-ins in the window; a fact the strip does not show. */
+  entries?: number
 }): { sentence: string; facts: string[] } {
   if (current === null) return { sentence: 'No weigh-ins in this window', facts: [] }
   const span =
     ageDays !== null && ageDays > 1 && latestKey != null
       ? `the ${rateDays} d to ${shortDay(latestKey)}`
       : `${rateDays} d`
-  const rate = rateClause({ current, kgPerWeek, span })
+  const rate = rateClause({ kgPerWeek, span })
   const sentence =
     goal === null
       ? rate
@@ -165,8 +169,7 @@ export function summaryParts({
   return {
     sentence,
     facts: [
-      // Without a rate the sentence already states the weight; it appears once.
-      ...(kgPerWeek === null ? [] : [`${fixed(current)} kg`]),
+      ...(entries === undefined ? [] : [`${entries} ${entries === 1 ? 'weigh-in' : 'weigh-ins'}`]),
       ...(ageDays === null
         ? []
         : [`last weigh-in ${ageLabel(ageDays)}${isStale(ageDays) ? ' · stale' : ''}`]),
@@ -174,24 +177,15 @@ export function summaryParts({
   }
 }
 
-/** The headline's opening clause: the trend and its rate, or the bare weight when there is no rate. */
-function rateClause({
-  current,
-  kgPerWeek,
-  span,
-}: {
-  current: number
-  kgPerWeek: number | null
-  span: string
-}): string {
-  if (kgPerWeek === null) return `Weight at ${fixed(current)} kg`
-  if (Math.abs(kgPerWeek) < RATE_NEUTRAL_KG_WK) return `Weight ${trend(kgPerWeek)} over ${span}`
-  return `Weight ${trend(kgPerWeek)} ${Math.abs(kgPerWeek).toFixed(2)} kg/wk over ${span}`
+/** The headline's opening clause: the trend over its window, or that there is none yet. */
+function rateClause({ kgPerWeek, span }: { kgPerWeek: number | null; span: string }): string {
+  if (kgPerWeek === null) return 'Weight trend not available yet'
+  return `Weight ${trend(kgPerWeek)} over ${span}`
 }
 
 /**
  * The weight chart header's fact, one the strip does not show: the net change across the window's
- * entries and where it starts; a single entry shows that weight and its day. `null` with no entries.
+ * entries, stated with both ends of its span; a single entry shows that weight and its day. `null` with no entries.
  */
 export function weightHeaderFact(
   points: readonly { date: string; weightKg: number }[],
@@ -206,7 +200,7 @@ export function weightHeaderFact(
   }
   return {
     value: signed(last.weightKg - first.weightKg, 1),
-    period: `net change since ${shortDay(first.date, now)} · ${sorted.length} entries`,
+    period: `net change, ${shortDay(first.date, now)} to ${shortDay(last.date, now)} · ${sorted.length} entries`,
   }
 }
 
@@ -300,10 +294,23 @@ export function rateFooter(input: {
   const { rate, intensity, entries, status = 'success' } = input
   if (status === 'pending') return 'Loading the rate'
   if (status === 'error') return 'The rate failed to load'
-  if (rate !== null) return intensity
+  if (rate !== null) return paceFooter(rate, intensity)
   return entries === 0
     ? 'No weigh-ins in this window'
     : 'A rate needs two weigh-ins at least 3 days apart'
+}
+
+/**
+ * The pace class in plain words: `Lean pace, gaining 0.1–0.3 kg/wk`. The meter's zone already names
+ * cut/bulk/maintenance, so the footer carries the class and the range it covers instead.
+ */
+export function paceFooter(rate: number, intensity: string): string {
+  const band = intensityBand(rate)
+  const pace = intensity.split(' ')[0]
+  if (band === null || pace === undefined || !['Lean', 'Standard', 'Aggressive'].includes(pace)) {
+    return `Under ${RATE_NEUTRAL_KG_WK} kg/wk either way`
+  }
+  return `${pace} pace, ${rate < 0 ? 'losing' : 'gaining'} ${band}`
 }
 
 /** The kg/week range of the API's intensity tier for a rate ("0.1\u20130.3 kg/wk", "\u2265 0.6 kg/wk"). */
