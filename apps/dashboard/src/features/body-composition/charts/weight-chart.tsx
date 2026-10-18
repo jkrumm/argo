@@ -8,7 +8,7 @@ import { weightLogQueries, type WeightLogWindowParams } from '../../../lib/queri
 import { shotState } from '../../../lib/shot-state'
 import { NBSP } from '../../../lib/format'
 import { METRIC_TOOLTIPS } from '../constants'
-import { weightHeaderFact, windowLabel, windowDays, withKg } from '../model'
+import { NO_WEIGHT_ENTRIES, weightHeaderFact, windowLabel, windowDays, withKg } from '../model'
 import {
   axisDateFormat,
   markerRadiusFor,
@@ -76,10 +76,7 @@ export default function WeightChart({
     return [min - pad, max + pad]
   }, [chartData, goal])
 
-  const empty =
-    chartData.length === 0
-      ? 'No entries in this window — log a weight to start the trend.'
-      : undefined
+  const empty = chartData.length === 0 ? NO_WEIGHT_ENTRIES : undefined
 
   return (
     <Box data-shot="weight-chart" data-shot-states="empty">

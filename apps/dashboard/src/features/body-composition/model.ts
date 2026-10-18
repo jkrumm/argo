@@ -137,6 +137,9 @@ function trend(kgPerWeek: number): string {
  * weigh-in, so it is dated whenever that weigh-in is not today or yesterday.
  * Facts: the weigh-in count and the last weigh-in's age.
  */
+/** The one wording for a window with no weigh-ins: what is missing and the next step. */
+export const NO_WEIGHT_ENTRIES = 'No entries in this window — log a weight to start the trend.'
+
 export function summaryParts({
   current,
   kgPerWeek,
@@ -160,7 +163,7 @@ export function summaryParts({
   /** Days the selected window spans; `null` for all time. */
   windowDays: number | null
 }): { sentence: string; facts: string[] } {
-  if (current === null) return { sentence: 'No weigh-ins in this window', facts: [] }
+  if (current === null) return { sentence: NO_WEIGHT_ENTRIES, facts: [] }
   const span =
     ageDays !== null && ageDays > 1 && latestKey != null
       ? `the ${rateDays} d to ${shortDay(latestKey)}`
@@ -303,7 +306,7 @@ export function rateFooter(input: {
   if (status === 'error') return 'The rate failed to load'
   if (rate !== null) return paceFooter(rate)
   return entries === 0
-    ? 'No weigh-ins in this window'
+    ? NO_WEIGHT_ENTRIES
     : `A rate needs two weigh-ins at least ${withUnit(3, 'd')} apart`
 }
 

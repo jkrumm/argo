@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { toWeightChartPoints } from './charts/series-data'
 import {
   ageLabel,
+  NO_WEIGHT_ENTRIES,
   rateDays,
   dayKey,
   daysBetween,
@@ -201,7 +202,7 @@ describe('summaryParts', () => {
         entries: 0,
         windowDays: 30,
       }),
-    ).toEqual({ sentence: 'No weigh-ins in this window', facts: [] })
+    ).toEqual({ sentence: NO_WEIGHT_ENTRIES, facts: [] })
   })
 })
 
@@ -404,7 +405,7 @@ describe('one fixture, two live-review items', () => {
     expect(rateFooter({ rate: null, entries: 1 })).toBe(
       'A rate needs two weigh-ins at least 3\u00a0d apart',
     )
-    expect(rateFooter({ rate: null, entries: 0 })).toBe('No weigh-ins in this window')
+    expect(rateFooter({ rate: null, entries: 0 })).toBe(NO_WEIGHT_ENTRIES)
     expect(rateFooter({ rate: null, entries: 0, status: 'pending' })).toBe('Loading the rate')
     expect(rateFooter({ rate: null, entries: 0, status: 'error' })).toBe('The rate failed to load')
   })
