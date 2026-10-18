@@ -199,6 +199,7 @@ describe('labeled count, outside note and sources title', () => {
   test('one labeled count, unknown while a team loads', () => {
     expect(labeledCount(cov)).toBe(2)
     expect(labeledCount({ ...cov, loading: 1 })).toBeNull()
+    expect(labeledCount({ ...cov, failed: 1 })).toBeNull()
     expect(headlineOf({ activeWeek: 1, labeled: null, tags: 1, latest: null }).facts).toEqual([
       '1 tag in use',
     ])
@@ -213,5 +214,6 @@ describe('labeled count, outside note and sources title', () => {
     expect(sourcesTitle({ ...base, view: 'teams' })).toBe('7 channels in 2 teams')
     expect(sourcesTitle({ ...base, view: 'teams', channels: null })).toBe('2 teams')
     expect(sourcesTitle({ ...base, view: 'feed' })).toBe('1 labeled source')
+    expect(sourcesTitle({ ...base, view: 'feed', labeled: null })).toBe('2 teams')
   })
 })

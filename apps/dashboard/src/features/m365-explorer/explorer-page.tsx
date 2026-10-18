@@ -309,6 +309,13 @@ export function M365ExplorerPage(): ReactElement {
     detail: detailPane,
   }
   const shown = PANE_META[shownPane]
+  const sourcesHeading = sourcesTitle({
+    view,
+    chats: chatRows.length,
+    channels: channelsTotal,
+    teams: teams.length,
+    labeled: labeledCount(coverage),
+  })
 
   const retryFailed = (): void => {
     channelStates.forEach((c) => {
@@ -379,17 +386,7 @@ export function M365ExplorerPage(): ReactElement {
 
         {compact ? (
           <Section
-            title={
-              shownPane === 'sources'
-                ? sourcesTitle({
-                    view,
-                    chats: chatRows.length,
-                    channels: channelsTotal,
-                    teams: teams.length,
-                    labeled: labels.length,
-                  })
-                : shown.title
-            }
+            title={shownPane === 'sources' ? sourcesHeading : shown.title}
             tabs={
               <ViewTabs
                 field={explorerStore.field.pane}

@@ -270,23 +270,32 @@ export function warnDayCount(rates: readonly (number | null)[]): number {
   return rates.filter((r) => errorDayState(r) === 'warn').length
 }
 
+const days = (n: number) => (n === 1 ? 'day' : 'days')
+
 /**
  * The error cell's second channel for warn vs bad: a word and a count, so the two never differ by
- * hue alone. `null` when neither kind of day occurred.
+ * hue alone. Only the kinds that occurred are named; with neither, a plain fact.
  */
 export function errorDaysLine(rates: readonly (number | null)[]): string {
   const bad = badDayCount(rates)
   const warn = warnDayCount(rates)
-  const plural = (n: number) => (n === 1 ? 'day' : 'days')
-  return `${warn} warn ${plural(warn)} (${fmtPct(ERROR_WARN_FROM, 0)}–${fmtPct(ERROR_BAD_ABOVE, 0)}), ${bad} bad ${plural(bad)} (> ${fmtPct(ERROR_BAD_ABOVE, 0)})`
+  const parts = [
+    warn > 0
+      ? `${warn} warn ${days(warn)} (${fmtPct(ERROR_WARN_FROM, 0)}–${fmtPct(ERROR_BAD_ABOVE, 0)})`
+      : null,
+    bad > 0 ? `${bad} bad ${days(bad)} (> ${fmtPct(ERROR_BAD_ABOVE, 0)})` : null,
+  ].filter((p): p is string => p !== null)
+  return parts.length === 0 ? `no day above ${fmtPct(ERROR_WARN_FROM, 0)}` : parts.join(', ')
 }
 
 /** The day with the highest reading, or `null` without a reading. */
-export function peakOf<T extends { value: number | null }>(days: readonly T[]): T | null {
+export function peakOf<T extends { value: number | null }>(series: readonly T[]): T | null {
   let peak: T | null = null
-  for (const d of days) {
-    if (d.value === null || !Number.isFinite(d.value)) continue
-    if (peak === null || d.value > (peak.value ?? -Infinity)) peak = d
+  let max = Number.NEGATIVE_INFINITY
+  for (const d of series) {
+    if (d.value === null || !Number.isFinite(d.value) || d.value <= max) continue
+    peak = d
+    max = d.value
   }
   return peak
 }

@@ -119,7 +119,7 @@
 }
 
 /* panel-hover is lighter than panel in the light scheme, so that step is invisible there: an ink wash reads in both. */
-.row:hover {
+.row:hover:not(.rowSelected) {
   background: color-mix(in srgb, var(--vx-ink) 6%, transparent);
 }
 
