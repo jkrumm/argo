@@ -23,6 +23,9 @@ const NO_USAGE_FILTERED =
 /** The caller names whether billing / workspace filters are active: with one, the filter is the cause, not the tracker. */
 export const noUsageWindow = (filtered: boolean): string =>
   filtered ? NO_USAGE_FILTERED : NO_USAGE_UNFILTERED
+/** The health card is one empty state only when the window has no calls and no latency line to show: a real line is never hidden. */
+export const noHealthReading = (hasCalls: boolean, p95Points: number): boolean =>
+  !hasCalls && p95Points === 0
 /** The strip's cells name the fact; the billing footer beneath them carries the cause and the next step. */
 export const NO_USAGE_CELL = 'No usage ingested'
 export const NO_USAGE_STRIP = `No usage ingested in the last ${D30} — the usage-tracker pushes every ${TRACKER_PUSH_EVERY}`
