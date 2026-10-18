@@ -17,9 +17,9 @@ import {
   recoveryQueries,
   trainingLoadQueries,
 } from '../../lib/queries/daily-metrics'
+import { ACWR_ZONE_NAME } from './formulas'
 import {
   ACWR_CAUTION_TO,
-  ACWR_UNDER_LABEL,
   ACWR_FLOOR,
   ACWR_METER_MAX,
   ACWR_OPTIMAL_TO,
@@ -197,24 +197,24 @@ function useLoadCell(params: SummaryParams): StatStripCell {
           max={ACWR_METER_MAX}
           format={(v) => v.toFixed(2)}
           zones={[
-            { from: 0, to: ACWR_FLOOR, label: ACWR_UNDER_LABEL, color: VX.warn },
+            { from: 0, to: ACWR_FLOOR, label: ACWR_ZONE_NAME.undertrained, color: VX.warn },
             {
               from: ACWR_FLOOR,
               to: ACWR_OPTIMAL_TO,
-              label: 'Optimal',
+              label: ACWR_ZONE_NAME.optimal,
               color: VX.good,
             },
             {
               from: ACWR_OPTIMAL_TO,
               to: ACWR_CAUTION_TO,
-              label: 'Caution',
+              label: ACWR_ZONE_NAME.caution,
               short: 'Caut.',
               color: VX.warn,
             },
             {
               from: ACWR_CAUTION_TO,
               to: ACWR_METER_MAX,
-              label: 'Danger',
+              label: ACWR_ZONE_NAME.danger,
               color: VX.bad,
             },
           ]}

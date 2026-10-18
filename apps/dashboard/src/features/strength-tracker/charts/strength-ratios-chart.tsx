@@ -13,7 +13,7 @@ import {
   fmtBound,
   isBorderline,
   bandRange,
-  distanceText,
+  distanceTail,
   ratioName,
   statusWord,
 } from '../model'
@@ -61,7 +61,6 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
         {ratios.map((pair) => {
           const [lo, hi] = pair.range
           const offset = bandOffset(pair.ratio, pair.range)
-          const distance = distanceText(offset)
           return (
             <Stack key={pair.label} gap={4}>
               <Group justify="space-between" gap="sm" wrap="nowrap">
@@ -101,7 +100,7 @@ export default function StrengthRatiosChart({ params }: { params: StrengthQueryP
                   >
                     {statusWord(pair.status, offset)}
                   </Text>
-                  {distance === null ? '' : ` · ${distance} the band`}
+                  {distanceTail(offset)}
                 </Text>
               )}
             </Stack>

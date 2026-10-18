@@ -5,7 +5,7 @@
  */
 
 import { NBSP, withUnit } from '../../lib/format'
-import { acwrZoneLabel } from './formulas'
+import { ACWR_ZONE_NAME, type AcwrZone } from './formulas'
 
 const EM_DASH = '—'
 
@@ -28,18 +28,13 @@ export const ACWR_FLOOR = 0.8
 export const ACWR_OPTIMAL_TO = 1.3
 export const ACWR_CAUTION_TO = 1.5
 
-/** The load meter's name for the band below the floor; the chart legend uses the same word. */
-export const ACWR_UNDER_LABEL = 'Under'
-
-/** The chart legend's zone names, from the same `acwrZoneLabel` vocabulary the load meter uses. */
-export function acwrLegendLabels(): Record<'under' | 'optimal' | 'caution' | 'danger', string> {
-  return {
-    under: `${ACWR_UNDER_LABEL} (< ${ACWR_FLOOR})`,
-    optimal: `${acwrZoneLabel('optimal')} (${ACWR_FLOOR}–${ACWR_OPTIMAL_TO})`,
-    caution: `${acwrZoneLabel('caution')} (${ACWR_OPTIMAL_TO}–${ACWR_CAUTION_TO})`,
-    danger: `${acwrZoneLabel('danger')} (> ${ACWR_CAUTION_TO})`,
-  }
-}
+/** The chart legend's zone names, from the same `ACWR_ZONE_NAME` vocabulary the load meters use. */
+export const ACWR_LEGEND = {
+  undertrained: `${ACWR_ZONE_NAME.undertrained} (< ${ACWR_FLOOR})`,
+  optimal: `${ACWR_ZONE_NAME.optimal} (${ACWR_FLOOR}–${ACWR_OPTIMAL_TO})`,
+  caution: `${ACWR_ZONE_NAME.caution} (${ACWR_OPTIMAL_TO}–${ACWR_CAUTION_TO})`,
+  danger: `${ACWR_ZONE_NAME.danger} (> ${ACWR_CAUTION_TO})`,
+} as const satisfies Record<AcwrZone, string>
 export const ACWR_METER_MAX = 2
 
 /** Stress zone edges: below 25 rest, 25–49 low, 50–74 moderate, from 75 high. */

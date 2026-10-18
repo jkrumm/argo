@@ -174,5 +174,5 @@ No new basalt rows.
 
 - ACWR tooltip load: fixed — acute/chronic print in tonnes through `fmtTonnes` (`fmtLoadPair` in `model.ts`), like the weekly volume axis.
 - Mixed date ticks: not fixed — basalt row. `formatX` on the ACWR chart drives both its ticks and the tooltip title (the default prints `DD.MM` ticks and, per the Wave 28 row, a clock time and US date order in the tooltip for a daily value); dropping it trades the mixed ticks for a worse tooltip, so it stays and the mixed ticks are basalt-owned.
-- Balance rows: fixed — the range is said once, as the meter's band label (`{lo}–{hi}`); the caption reads `{status} · {n} under|over the band`, bare status inside it. Rows without a meter keep `{lo}–{hi} band · need both lifts`.
+- Balance rows: fixed — the range is said once, as the meter's band label (`{lo}–{hi}`); the caption's distance tail comes from `distanceTail` (`· {n} under|over the band`, empty inside the band). Rows without a meter keep `{lo}–{hi} band · need both lifts`.
 - Not fixed (basalt / not argo's): Meter detached ticks, Sparkline reference label, four type sizes in shells.

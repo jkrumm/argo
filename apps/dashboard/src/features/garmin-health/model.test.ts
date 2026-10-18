@@ -30,7 +30,7 @@ import {
   loadFooter,
   recoverySentence,
   summaryParts,
-  acwrLegendLabels,
+  ACWR_LEGEND,
 } from './model'
 
 describe('number formatting', () => {
@@ -429,10 +429,10 @@ describe('loadFooter', () => {
   })
 })
 
-describe('acwrLegendLabels', () => {
+describe('ACWR_LEGEND', () => {
   test('names all three zones with the meter vocabulary and their bounds', () => {
-    expect(acwrLegendLabels()).toEqual({
-      under: 'Under (< 0.8)',
+    expect(ACWR_LEGEND).toEqual({
+      undertrained: 'Under (< 0.8)',
       optimal: 'Optimal (0.8–1.3)',
       caution: 'Caution (1.3–1.5)',
       danger: 'Danger (> 1.5)',

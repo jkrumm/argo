@@ -12,9 +12,9 @@ import { acwrZoneColor, acwrZoneLabel, type AcwrZone } from '../formulas'
 import {
   ACWR_CAUTION_TO,
   ACWR_FLOOR,
+  ACWR_LEGEND,
   ACWR_OPTIMAL_TO,
   acwrFact,
-  acwrLegendLabels,
   dayLabel,
   divergenceFact,
   signed,
@@ -34,8 +34,6 @@ type TrainingLoadPoint = {
   divergence: number | null
 }
 
-const LEGEND = acwrLegendLabels()
-
 const ACWR_SERIES: ChartSeries<TrainingLoadPoint>[] = [
   {
     key: 'acwr',
@@ -47,7 +45,7 @@ const ACWR_SERIES: ChartSeries<TrainingLoadPoint>[] = [
   // Legend-only zone keys: `getValue` is always null, so they draw nothing and own no tooltip row.
   {
     key: 'under',
-    label: LEGEND.under,
+    label: ACWR_LEGEND.undertrained,
     color: VX.warnSolid,
     mark: 'bar',
     role: 'reference',
@@ -55,7 +53,7 @@ const ACWR_SERIES: ChartSeries<TrainingLoadPoint>[] = [
   },
   {
     key: 'optimal',
-    label: LEGEND.optimal,
+    label: ACWR_LEGEND.optimal,
     color: VX.goodSolid,
     mark: 'bar',
     role: 'reference',
@@ -63,7 +61,7 @@ const ACWR_SERIES: ChartSeries<TrainingLoadPoint>[] = [
   },
   {
     key: 'caution',
-    label: LEGEND.caution,
+    label: ACWR_LEGEND.caution,
     color: VX.warnSolid,
     mark: 'bar',
     role: 'reference',
@@ -71,7 +69,7 @@ const ACWR_SERIES: ChartSeries<TrainingLoadPoint>[] = [
   },
   {
     key: 'danger',
-    label: LEGEND.danger,
+    label: ACWR_LEGEND.danger,
     color: VX.badSolid,
     mark: 'bar',
     role: 'reference',

@@ -43,6 +43,7 @@ import {
   ACWR_FLOOR,
   ACWR_METER_MAX,
   ACWR_OPTIMAL_TO,
+  ACWR_ZONE_NAME,
   READINESS_PUSH_FROM,
   READINESS_REST_BELOW,
 } from './bands'
@@ -219,10 +220,25 @@ function TodaysCall(props: Params) {
                 max={ACWR_METER_MAX}
                 format={(v) => v.toFixed(2)}
                 zones={[
-                  { from: 0, to: ACWR_FLOOR, label: 'Under', color: VX.warn },
-                  { from: ACWR_FLOOR, to: ACWR_OPTIMAL_TO, label: 'Optimal', color: VX.good },
-                  { from: ACWR_OPTIMAL_TO, to: ACWR_CAUTION_TO, label: 'Caution', color: VX.warn },
-                  { from: ACWR_CAUTION_TO, to: ACWR_METER_MAX, label: 'Danger', color: VX.bad },
+                  { from: 0, to: ACWR_FLOOR, label: ACWR_ZONE_NAME.undertrained, color: VX.warn },
+                  {
+                    from: ACWR_FLOOR,
+                    to: ACWR_OPTIMAL_TO,
+                    label: ACWR_ZONE_NAME.optimal,
+                    color: VX.good,
+                  },
+                  {
+                    from: ACWR_OPTIMAL_TO,
+                    to: ACWR_CAUTION_TO,
+                    label: ACWR_ZONE_NAME.caution,
+                    color: VX.warn,
+                  },
+                  {
+                    from: ACWR_CAUTION_TO,
+                    to: ACWR_METER_MAX,
+                    label: ACWR_ZONE_NAME.danger,
+                    color: VX.bad,
+                  },
                 ]}
                 startCaption={null}
                 endCaption={null}
