@@ -366,6 +366,8 @@ export type FoldedSeries = {
   folded: number
 }
 
+const compareKeys = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
+
 /**
  * Keep the top group keys by their total over the whole window and sum the rest into `Other`. At
  * least `n` are kept; up to `max` while `Other` would outweigh the smallest kept series. The kept
@@ -383,9 +385,9 @@ export function foldTopN(
   for (const p of points) {
     for (const key of groupKeys) sums.set(key, (sums.get(key) ?? 0) + (p.groups[key] ?? 0))
   }
-  // Ties break on the key, so rank (and the hue it assigns) is the same on every load.
+  // Ties break on the key by code unit (a total order, whatever the locale), so rank (and the hue it assigns) is the same on every load.
   const ranked = [...groupKeys].toSorted(
-    (a, b) => (sums.get(b) ?? 0) - (sums.get(a) ?? 0) || a.localeCompare(b),
+    (a, b) => (sums.get(b) ?? 0) - (sums.get(a) ?? 0) || compareKeys(a, b),
   )
   const sumOf = (keys: readonly string[]) =>
     keys.reduce((acc, key) => acc + (sums.get(key) ?? 0), 0)
@@ -625,21 +627,32 @@ export function prepareFolded(input: {
   return { folded: foldTopN(source.points, source.groupKeys, FOLD_TOP_N, FOLD_MAX_N), labelOf }
 }
 
-/** `{n} of {m} full days slower than the 30 d p95` (today is still running, so it is not counted), or `null` without a window p95 or any full day. */
+/** A daily reading: the day's UTC date and its value, `null` for a gap. */
+type DayReading = { date: Date; value: number | null }
+
+/** The values of the days that have closed at `now`; the running day is not a full day. */
+const fullDayValues = (days: readonly DayReading[], now: number): (number | null)[] =>
+  days.filter((d) => bucketStartMs(d.date) + DAY_MS <= now).map((d) => d.value)
+
+/**
+ * `{n} of {m} full days slower than the 30 d p95`, or `null` without a window p95 or any full day.
+ * Today is still running and is not counted, so `{m}` is the closed days only.
+ */
 export function slowerDaysLine(
-  days: readonly (number | null)[],
+  days: readonly DayReading[],
   windowP95: number | null,
+  now: number,
 ): string | null {
   if (windowP95 === null) return null
-  const slower = countAgainst(days, windowP95, 'above')
+  const slower = countAgainst(fullDayValues(days, now), windowP95, 'above')
   return slower.of === 0
     ? null
     : `${slower.count} of ${slower.of} full days slower than the ${D30} p95`
 }
 
-/** `{n} of {m} full days under it` (the target), or `null` without a full day. */
-export function cacheUnderLine(days: readonly (number | null)[]): string | null {
-  const under = countAgainst(days, CACHE_HIT_TARGET, 'below')
+/** `{n} of {m} full days under it` (the target), or `null` without a full day; today is not counted. */
+export function cacheUnderLine(days: readonly DayReading[], now: number): string | null {
+  const under = countAgainst(fullDayValues(days, now), CACHE_HIT_TARGET, 'below')
   return under.of === 0 ? null : `${under.count} of ${under.of} full days under it`
 }
 

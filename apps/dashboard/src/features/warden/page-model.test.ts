@@ -5,6 +5,7 @@ import { waitingOnOwner, type AwaitingOwnerRow, type AwaitingOwnerView } from '.
 import { formatDuration } from '../../lib/format'
 import {
   cardFacts,
+  resolveWaitMs,
   latestHistoryAgeMs,
   sinceSnapshotMs,
   deferredNote,
@@ -509,13 +510,23 @@ describe('cardFacts waiting boundaries', () => {
     expect(waitingAt(0, 10_000, historyAgeMs)).toBe('waiting 3\u00a0min')
     expect(historyAge(transitionAt, now)).toBe('3\u00a0min\u00a0ago')
   })
-  it('one clock, one form: age_days 1.0 beside a 22 h 53 min history line reads 22 h 53 min', () => {
+  it('a wait within age_days rounding of the history line prints the duration of the history line', () => {
     const historyAgeMs = 22 * 60 * MIN + 53 * MIN
     expect(waitingAt(1, 0, historyAgeMs)).toBe('waiting 22\u00a0h\u00a053\u00a0min')
     expect(formatDuration(historyAgeMs)).toBe('22\u00a0h\u00a053\u00a0min')
   })
   it('a history line far from age_days leaves the longer wait standing', () => {
     expect(waitingAt(3, 0, 2 * 60 * MIN)).toEqual({ text: 'waiting 3\u00a0d', tone: 'warn' })
+  })
+  it('resolveWaitMs: no history keeps the age_days wait', () => {
+    expect(resolveWaitMs(0.04, 0, 0)).toBe(0.04 * DAY)
+  })
+  it('resolveWaitMs: agreement within the resolution takes the history age', () => {
+    expect(resolveWaitMs(1, 0, DAY - 70 * MIN)).toBe(DAY - 70 * MIN)
+  })
+  it('resolveWaitMs: disagreement beyond the resolution keeps the longer', () => {
+    expect(resolveWaitMs(1, 0, DAY - 90 * MIN)).toBe(DAY)
+    expect(resolveWaitMs(0, 0, 3 * MIN)).toBe(3 * MIN)
   })
   it('the history floor is 0 without a readable line', () => {
     expect(latestHistoryAgeMs([], 10)).toBe(0)
