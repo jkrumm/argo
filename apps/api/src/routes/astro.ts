@@ -170,7 +170,12 @@ const MoonSchema = z.object({
 })
 
 const WeatherSchema = z.object({
-  cloudLow: z.number().nullable().describe('mean % across the window'),
+  cloudLow: z
+    .number()
+    .nullable()
+    .describe(
+      'mean % across the shooting window; a night with no window averages its astronomical-dark samples (sun below -6° when there are none), and that mean is what `cloudRuinsAt.low` is judged against',
+    ),
   cloudMid: z.number().nullable().describe('mean % across the window'),
   cloudHigh: z.number().nullable().describe('mean % across the window'),
   transparency: z.number().nullable().describe('7Timer band, 1 (best) to 8'),
@@ -303,7 +308,7 @@ const WindowResponseSchema = z.object({
   cloudRuinsAt: z
     .object({ low: z.number(), mid: z.number(), high: z.number() })
     .describe(
-      'Cloud cover (percent) at which each layer has effectively taken the night: the level `factors[].ruinous` is judged against, compared with the scored statistic `nights[].weather` (the mean over the shooting window). A scored limit, never a gate',
+      'Cloud cover (percent) at which each layer has effectively taken the night: the level `factors[].ruinous` is judged against, compared with `nights[].weather` (the mean over the shooting window; on a night with no window, the mean over the astronomical-dark samples, falling back to sun below -6°). A scored limit, never a gate',
     ),
   bestWindow: ShootingWindowSchema.nullable().describe('Null when no night in the range is usable'),
   summary: z

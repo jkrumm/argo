@@ -376,6 +376,25 @@ describe('GET /astro/window — the verdict', () => {
     }
   })
 
+  it('averages a gated night’s cloud over its dark stretch, not the daylight hours', async () => {
+    const cloud: CloudSeries = new Map()
+    const start = Date.parse('2026-12-14T00:00:00Z')
+    for (let i = 0; i < 24 * 8; i++) {
+      const hour = new Date(start + i * 3_600_000).getUTCHours()
+      const day = hour >= 6 && hour <= 14
+      cloud.set(start + i * 3_600_000, { low: day ? 80 : 20, mid: 0, high: 0 })
+    }
+    const { app } = build({
+      now: () => DECEMBER,
+      fetchUpstreams: async () => upstreams({ cloud }),
+    })
+    const { body } = await get(app, '/astro/window?nights=3')
+    for (const night of body.nights) {
+      expect(night.window).toBeNull()
+      expect(night.weather.cloudLow).toBe(20)
+    }
+  })
+
   it('carries the full factor breakdown per night', async () => {
     const { app } = build()
     const { body } = await get(app, '/astro/window?site=alpenvorland&nights=1')
@@ -461,6 +480,7 @@ describe('GET /astro/window — the verdict', () => {
     expect(body.bestDate).toBe(body.nights[0].date)
     expect(body.moonMaxIllumination).toBe(0.25)
     expect(body.cloudRuinsAt).toEqual(CLOUD_RUINS_AT)
+    expect(body.cloudRuinsAt).toEqual({ low: 55, mid: 80, high: 100 })
   })
 
   it('has no committed skyline for a raw lat/lon, even one near a known site', async () => {

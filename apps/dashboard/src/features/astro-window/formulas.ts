@@ -441,32 +441,33 @@ export function windowFact(
   }
 }
 
-/** What the engine judges low cloud by: the mean over the shooting window (`night.weather.cloudLow`). */
-export type LowCloudStat = {
+type LowCloudStat = {
   value: string
   unit: string
   /** Names the statistic's window, nothing else. */
   footer: string
   /** The reading and the limit tick for the gauge; the tick only when the night has the shooting window the limit applies to. */
-  reading: number | null
+  reading: number
   target: number | null
 }
 
 /**
- * The one low-cloud figure the page prints: the scored shooting-window mean, which is what the
- * engine compares to its `limit`. The Tonight Cloud cell and the Forecast cloud chart both read it.
- * A night without a shooting window has a value but no tick: nothing was scored against the limit.
+ * The one low-cloud figure the page prints: the mean the engine scores against its limit, over the
+ * shooting window, or over the astronomical-dark hours when the night has no window. Floored, so a
+ * reading never shows at the limit while the engine's `>=` check says under it. A night without a
+ * shooting window, or a response without a limit, has a value but no tick.
  */
-export function lowCloudStat(night: Night, limit: number): LowCloudStat | null {
+export function lowCloudStat(night: Night, limit: number | undefined): LowCloudStat | null {
   const mean = night.weather.cloudLow
   if (mean === null) return null
   const scored = night.window !== null
+  const reading = Math.floor(mean)
   return {
-    value: withUnit(Math.round(mean), '%'),
+    value: withUnit(reading, '%'),
     unit: 'low cloud',
-    footer: scored ? 'shooting-window mean' : 'night mean',
-    reading: mean,
-    target: scored ? limit : null,
+    footer: scored ? 'shooting-window mean' : 'dark-hours mean',
+    reading,
+    target: scored && limit !== undefined ? limit : null,
   }
 }
 
@@ -511,10 +512,9 @@ export function skyCellFooter({
  * states the one statistic and its limit, and a second number here would disagree with it. Cloud is
  * scored, never gated, so the row never reads as a failed gate. Gated nights carry no factors.
  */
-export function lowCloudRow(night: Night): string | null {
+export function lowCloudRuinous(night: Night): boolean {
   const factor = night.factors.find((f) => f.id === 'cloud-low')
-  if (factor?.ruinous !== true || night.weather.cloudLow === null) return null
-  return 'lowers the score, not a gate'
+  return factor?.ruinous === true && night.weather.cloudLow !== null
 }
 
 /** The verdict card's facts line. A usable night names its score and the factor holding it back, unless the low-cloud row already says it. */
@@ -522,7 +522,7 @@ export function verdictFacts(night: Night, nights: readonly Night[]): string[] {
   if (night.verdict === 'out') return [fmtShortDay(night.date), nextUsableText(nights, night.date)]
   const limiting = limitingFactor(night)
   const named =
-    limiting === null || (limiting.id === 'cloud-low' && lowCloudRow(night) !== null)
+    limiting === null || (limiting.id === 'cloud-low' && lowCloudRuinous(night))
       ? null
       : `limited by ${limiting.label.toLowerCase()} ${limiting.pct} %`
   return [`score ${night.score}/100`, ...(named === null ? [] : [named])]
@@ -534,7 +534,7 @@ export type GateRowModel = {
   state: string
   /** `good` and `warn` are gate verdicts; `neutral` is a fact that is neither. */
   tone: 'good' | 'warn' | 'neutral'
-  detail: string
+  detail: string | null
 }
 
 /**
@@ -560,14 +560,13 @@ export function gateRows(night: Night, moonLimit: number): GateRowModel[] {
     gate('core-altitude', 'Core', coreGateDetail(night), dark),
     gate('moon', 'Moon', moonGateDetail(night, moonLimit), dark),
   ]
-  const cloud = lowCloudRow(night)
-  if (cloud !== null) {
+  if (lowCloudRuinous(night)) {
     rows.push({
       key: 'cloud-low',
       label: 'Low cloud',
       state: 'ruinous',
       tone: 'neutral',
-      detail: cloud,
+      detail: null,
     })
   }
   return rows
@@ -586,7 +585,7 @@ export function coreGateFact(night: Night): ChartFact | null {
     : {
         value: fmtDegrees(core.reading),
         unit: CORE_UNIT,
-        period: `gate ${fmtDegrees(core.gate)}`,
+        period: `must exceed ${fmtDegrees(core.gate)}`,
       }
 }
 

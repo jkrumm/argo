@@ -104,7 +104,7 @@ export function NightAnatomy({
   location: Location
   moonLimit: number
   /** Low-cloud cover (percent) at which the engine rates the layer ruinous. */
-  cloudLimit: number
+  cloudLimit: number | undefined
 }) {
   const { timeZone } = location
   const limitPct = Math.round(moonLimit * 100)
@@ -154,7 +154,7 @@ export function NightAnatomy({
             visual: gauge(
               cloud === null
                 ? 'Low cloud unknown'
-                : `Low cloud ${cloud.value}${cloud.target === null ? '' : ` against a limit of ${cloudLimit} percent`}`,
+                : `Low cloud ${cloud.value}${cloud.target === null ? '' : ` against a limit of ${cloud.target} percent`}`,
               cloud?.reading ?? null,
               100,
               cloud?.target ?? null,
