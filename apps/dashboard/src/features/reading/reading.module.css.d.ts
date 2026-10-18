@@ -13,6 +13,7 @@ declare const classes: {
   readonly axis: string
   readonly list: string
   readonly axisLabel: string
+  readonly star: string
   readonly titleClamp: string
   readonly titleLink: string
   readonly cover: string

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Meter, StatGroup, useSizeClass, type StatStripCell } from 'basalt-ui'
 import { alpha, VX } from 'basalt-ui/tokens'
 import {
@@ -37,6 +38,19 @@ function shelfCell(counts: ShelfCounts, footer: string | null): StatStripCell {
   }
 }
 
+/** The axis is mono, whose face has no good `★`: the glyph renders in the body face. */
+function withBodyStar(text: string): ReactNode {
+  const [head, ...rest] = text.split('★')
+  if (rest.length === 0) return text
+  return (
+    <>
+      {head}
+      <span className={classes.star}>★</span>
+      {rest.join('★')}
+    </>
+  )
+}
+
 function ratingsCell(shelf: readonly ShelfItem[], narrow: boolean): StatStripCell {
   const shape = ratingShape(shelf)
   if (shape.mean === null) {
@@ -70,7 +84,7 @@ function ratingsCell(shelf: readonly ShelfItem[], narrow: boolean): StatStripCel
         <div className={classes.axis}>
           {shape.labels.map((label, i) => (
             <span key={i} className={classes.axisLabel}>
-              <span title={label.aria}>{narrow ? label.compact : label.visible}</span>
+              <span title={label.aria}>{withBodyStar(narrow ? label.compact : label.visible)}</span>
               <span>{shape.buckets[i]}</span>
             </span>
           ))}
