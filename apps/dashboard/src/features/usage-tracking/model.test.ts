@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it } from 'bun:test'
 import { NBSP } from '../../lib/format'
 import {
   noHealthReading,
+  noUsageWindow,
+  NO_USAGE_CELL,
   shortDay,
   badDayCount,
   errorDaysLine,
@@ -545,5 +547,30 @@ describe('noHealthReading', () => {
     expect(noHealthReading(false, 0)).toBe(true)
     expect(noHealthReading(false, 3)).toBe(false)
     expect(noHealthReading(true, 0)).toBe(false)
+  })
+})
+
+describe('noUsageWindow', () => {
+  const full = (filtered: boolean) => noUsageWindow({ filtered, stripEmpty: false, leading: true })
+  const short = (filtered: boolean) =>
+    noUsageWindow({ filtered, stripEmpty: false, leading: false })
+
+  it('the short form is the full sentence leading clause, verbatim', () => {
+    for (const filtered of [false, true]) {
+      expect(full(filtered).startsWith(`${short(filtered)} in this window — `)).toBe(true)
+    }
+  })
+
+  it('a filter that matched nothing is a different gap from nothing ingested', () => {
+    expect(full(true)).not.toBe(full(false))
+    expect(short(true)).not.toBe(short(false))
+  })
+
+  it('an empty strip leaves every chart surface the short form, filtered or not', () => {
+    for (const filtered of [false, true]) {
+      for (const leading of [false, true]) {
+        expect(noUsageWindow({ filtered, stripEmpty: true, leading })).toBe(NO_USAGE_CELL)
+      }
+    }
   })
 })

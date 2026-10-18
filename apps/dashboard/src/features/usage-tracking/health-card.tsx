@@ -22,7 +22,6 @@ import {
   fmtTokens,
   foldTopN,
   noHealthReading,
-  noUsageWindow,
   OTHER_KEY,
   periodNoun,
   fmtSeconds,
@@ -30,6 +29,7 @@ import {
   shortDay,
 } from './model'
 import type { BillingValue, WorkspaceValue } from './types'
+import { useNoUsageWindow } from './use-headline'
 import classes from './usage.module.css'
 
 type ErrorBucket = { date: Date; count: number; state: ErrorDayState }
@@ -93,7 +93,7 @@ export default function HealthCard({
   const hasCalls = rates.buckets.some((b) => b.groups['value'] != null)
   // No calls in the window: neither half has a reading, so the card says so once instead of
   // printing a zero count beside a dash.
-  const emptyWindow = noUsageWindow(billing !== undefined || workspace !== undefined)
+  const emptyWindow = useNoUsageWindow(billing !== undefined || workspace !== undefined, false)
   const unit = grain === 'day' ? 'day' : 'week'
   const last = p95.at(-1)
   const lastQty = secondsQuantity(last?.v)

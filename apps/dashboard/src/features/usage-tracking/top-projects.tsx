@@ -4,9 +4,10 @@ import { BarList } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
 import { shotState } from '../../lib/shot-state'
 import { usageQueries, type Range } from '../../lib/queries/usage'
+import { useNoUsageWindow } from './use-headline'
 import classes from './usage.module.css'
 import type { BillingValue, WorkspaceValue } from './types'
-import { EM_DASH, fmtShare, fmtUsdWhole, noUsageWindow, periodNoun } from './model'
+import { EM_DASH, fmtShare, fmtUsdWhole, periodNoun } from './model'
 
 export default function TopProjects({
   range,
@@ -31,7 +32,7 @@ export default function TopProjects({
     }),
   )
   const data = shotState() === 'empty' ? { ...query.data, rows: [], total: 0 } : query.data
-  const emptyText = noUsageWindow(billing !== undefined || workspace !== undefined)
+  const emptyText = useNoUsageWindow(billing !== undefined || workspace !== undefined, false)
   const shown = data.rows.reduce((acc, r) => acc + r.value, 0)
   const rest = Math.max(0, data.total - shown)
 

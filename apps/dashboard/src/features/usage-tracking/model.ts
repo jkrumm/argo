@@ -15,20 +15,36 @@ export const PRIOR_30D = `prior ${D30}`
 
 /** The usage-tracker LaunchAgent's push cadence (the API route's description names it). */
 const TRACKER_PUSH_EVERY = withUnit(15, 'min')
-/** The one wording for a window with no ingested usage: what is missing, why, what to do. */
-const NO_USAGE_UNFILTERED = `No usage ingested in this window — the usage-tracker pushes every ${TRACKER_PUSH_EVERY}, or widen the range`
-const NO_USAGE_FILTERED =
-  'No usage matches these filters in this window — clear a filter or widen the range'
+/**
+ * One gap, two forms (docs/design/README.md § One form for a repeated gap): the full sentence names
+ * cause and step, the short form is its leading clause, verbatim. A filter that matched nothing is a
+ * different gap from "nothing ingested", so it keeps its own pair.
+ */
+const NO_USAGE_SHORT = 'No usage ingested'
+const NO_USAGE_FULL = `${NO_USAGE_SHORT} in this window — the usage-tracker pushes every ${TRACKER_PUSH_EVERY}, or widen the range`
+const NO_MATCH_SHORT = 'No usage matches these filters'
+const NO_MATCH_FULL = `${NO_MATCH_SHORT} in this window — clear a filter or widen the range`
 
-/** The caller names whether billing / workspace filters are active: with one, the filter is the cause, not the tracker. */
-export const noUsageWindow = (filtered: boolean): string =>
-  filtered ? NO_USAGE_FILTERED : NO_USAGE_UNFILTERED
+/**
+ * The wording for a surface whose window holds no usage. `stripEmpty` (the 30 d strip already says
+ * nothing was ingested, with the step) makes every chart surface the short form, filtered or not:
+ * the filter is not the cause. Otherwise the leading chart carries the full sentence, the rest the short form.
+ */
+export function noUsageWindow(o: {
+  filtered: boolean
+  stripEmpty: boolean
+  leading: boolean
+}): string {
+  if (o.stripEmpty) return NO_USAGE_SHORT
+  if (o.filtered) return o.leading ? NO_MATCH_FULL : NO_MATCH_SHORT
+  return o.leading ? NO_USAGE_FULL : NO_USAGE_SHORT
+}
 /** The health card is one empty state only when the window has no calls and no latency line to show: a real line is never hidden. */
 export const noHealthReading = (hasCalls: boolean, p95Points: number): boolean =>
   !hasCalls && p95Points === 0
-/** The strip's cells name the fact; the billing footer beneath them carries the cause and the next step. */
-export const NO_USAGE_CELL = 'No usage ingested'
-export const NO_USAGE_STRIP = `No usage ingested in the last ${D30} — the usage-tracker pushes every ${TRACKER_PUSH_EVERY}`
+/** The strip's cells carry the short form; the billing footer beneath them is the screen's leading surface (cause and step). */
+export const NO_USAGE_CELL = NO_USAGE_SHORT
+export const NO_USAGE_STRIP = `${NO_USAGE_SHORT} in the last ${D30} — the usage-tracker pushes every ${TRACKER_PUSH_EVERY}`
 
 /** Cache hit ratio the page calls good — the tick on the ring (`>60%` in the old zone chart). */
 export const CACHE_HIT_TARGET = 0.6
