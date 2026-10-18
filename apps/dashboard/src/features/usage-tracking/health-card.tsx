@@ -11,6 +11,7 @@ import { usageQueries, type Grain, type Range } from '../../lib/queries/usage'
 import { dayToDate } from './constants'
 import {
   isFiltered,
+  noUsageWindow,
   ERROR_FOLD_TOP_N,
   fmtPct,
   ERROR_BAD_ABOVE,
@@ -30,7 +31,6 @@ import {
   shortDay,
 } from './model'
 import type { BillingValue, WorkspaceValue } from './types'
-import { useNoUsageWindow } from './use-headline'
 import classes from './usage.module.css'
 
 type ErrorBucket = { date: Date; count: number; state: ErrorDayState }
@@ -63,11 +63,14 @@ export default function HealthCard({
   grain,
   billing,
   workspace,
+  stripEmpty,
 }: {
   range: Range
   grain: Grain
   billing?: BillingValue[] | undefined
   workspace?: WorkspaceValue[] | undefined
+  /** The 30 d strip is empty and covers this range. */
+  stripEmpty: boolean
 }) {
   const base = { range, grain, billing, workspace }
   const [latencyQ, errorsQ, ratesQ] = useSuspenseQueries({
@@ -94,9 +97,11 @@ export default function HealthCard({
   const hasCalls = rates.buckets.some((b) => b.groups['value'] != null)
   // No calls in the window: neither half has a reading, so the card says so once instead of
   // printing a zero count beside a dash.
-  const emptyWindow = useNoUsageWindow({
+  const emptyWindow = noUsageWindow({
     filtered: isFiltered(billing, workspace),
+    stripEmpty,
     leading: false,
+    range,
   })
   const unit = grain === 'day' ? 'day' : 'week'
   const last = p95.at(-1)

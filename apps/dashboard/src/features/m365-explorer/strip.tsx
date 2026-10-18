@@ -31,12 +31,13 @@ function labeledCell(
   coverage: Coverage,
   list: { chats: number; capped: boolean },
   onRetry: () => void,
+  empty: boolean,
 ): StatStripCell {
   const { labeled, total, loading, failed } = coverage
   const pending = loading > 0
   const atLeast = failed > 0 ? '≥' : ''
   // Only a settled, complete list can be called empty: a failed team or labels outside the list mean there is more than the cell can see (and Retry lives in the footer).
-  if (nothingToLabel(coverage)) {
+  if (empty) {
     return {
       key: 'labeled',
       caption: 'Labeled sources',
@@ -169,14 +170,15 @@ export function ExplorerStrip({
   noTeams,
   onRetry,
 }: StripProps) {
-  const leader = gapLeader({ nothingToLabel: nothingToLabel(coverage), noChats, noTeams })
+  const nothingLabelable = nothingToLabel(coverage)
+  const leader = gapLeader({ nothingToLabel: nothingLabelable, noChats, noTeams })
   return (
     <StatGroup
       variant="strip"
       label="Coverage summary"
       cols={3}
       cells={[
-        labeledCell(coverage, list, onRetry),
+        labeledCell(coverage, list, onRetry, leader === 'labeled'),
         chatsCell(chats, noChats, leader === 'chats'),
         channelsCell(channels, largestTeam, coverage.failed, noTeams, leader === 'channels'),
       ]}

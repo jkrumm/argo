@@ -4,22 +4,24 @@ import { BarList } from 'basalt-ui'
 import { ChartCard } from 'basalt-ui/charts'
 import { shotState } from '../../lib/shot-state'
 import { usageQueries, type Range } from '../../lib/queries/usage'
-import { useNoUsageWindow } from './use-headline'
 import classes from './usage.module.css'
 import type { BillingValue, WorkspaceValue } from './types'
-import { EM_DASH, isFiltered, fmtShare, fmtUsdWhole, periodNoun } from './model'
+import { EM_DASH, isFiltered, noUsageWindow, fmtShare, fmtUsdWhole, periodNoun } from './model'
 
 export default function TopProjects({
   range,
   billing,
   workspace,
   printTotal,
+  stripEmpty,
 }: {
   range: Range
   billing?: BillingValue[] | undefined
   workspace?: WorkspaceValue[] | undefined
   /** Whether the card prints its window's total; decided once, in the route. */
   printTotal: boolean
+  /** The 30 d strip is empty and covers this range. */
+  stripEmpty: boolean
 }) {
   const query = useSuspenseQuery(
     usageQueries.breakdown({
@@ -32,9 +34,11 @@ export default function TopProjects({
     }),
   )
   const data = shotState() === 'empty' ? { ...query.data, rows: [], total: 0 } : query.data
-  const emptyText = useNoUsageWindow({
+  const emptyText = noUsageWindow({
     filtered: isFiltered(billing, workspace),
+    stripEmpty,
     leading: false,
+    range,
   })
   const shown = data.rows.reduce((acc, r) => acc + r.value, 0)
   const rest = Math.max(0, data.total - shown)

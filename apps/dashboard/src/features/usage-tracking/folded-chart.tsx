@@ -24,12 +24,12 @@ import {
   EM_DASH,
   fmtShare,
   isFiltered,
+  noUsageWindow,
   OTHER_KEY,
   periodNoun,
   prepareFolded,
   shortDay,
 } from './model'
-import { useNoUsageWindow } from './use-headline'
 import classes from './usage.module.css'
 
 /** Rows the list shows at phone width before "Show all". */
@@ -54,6 +54,8 @@ type Props = {
   printTotal: boolean
   /** The first chart card in reading order: its plot carries the full empty sentence. */
   leading: boolean
+  /** The 30 d strip is empty and covers this range, so the gap is already said in full above. */
+  stripEmpty: boolean
 }
 
 export function FoldedChart({
@@ -72,6 +74,7 @@ export function FoldedChart({
   height = 280,
   printTotal,
   leading,
+  stripEmpty,
 }: Props) {
   const query = useSuspenseQuery(
     usageQueries.timeseries({ range, grain, metric, groupBy, billing, workspace }),
@@ -81,8 +84,8 @@ export function FoldedChart({
   const compact = useSizeClass() === 'compact'
   const [showAll, setShowAll] = useState(false)
   const filtered = isFiltered(billing, workspace)
-  const plotText = useNoUsageWindow({ filtered, leading })
-  const listText = useNoUsageWindow({ filtered, leading: false })
+  const plotText = noUsageWindow({ filtered, stripEmpty, leading, range })
+  const listText = noUsageWindow({ filtered, stripEmpty, leading: false, range })
 
   const { folded, labelOf } = prepareFolded({
     points: toTimePoints(data.buckets),

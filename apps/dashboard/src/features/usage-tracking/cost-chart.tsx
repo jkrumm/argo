@@ -13,6 +13,7 @@ const GROUP_NOUN: Record<CostGroupBy, string> = {
 export default function CostChart({
   groupBy,
   printTotal,
+  stripEmpty,
   leading,
   ...filters
 }: {
@@ -21,6 +22,7 @@ export default function CostChart({
   billing?: BillingValue[] | undefined
   workspace?: WorkspaceValue[] | undefined
   printTotal: boolean
+  stripEmpty: boolean
   leading: boolean
   groupBy: CostGroupBy
 }) {
@@ -28,6 +30,7 @@ export default function CostChart({
     <FoldedChart
       {...filters}
       printTotal={printTotal}
+      stripEmpty={stripEmpty}
       leading={leading}
       metric="cost"
       groupBy={groupBy}

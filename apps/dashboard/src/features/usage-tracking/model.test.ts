@@ -3,6 +3,8 @@ import { NBSP } from '../../lib/format'
 import {
   noHealthReading,
   noUsageWindow,
+  stripCoversRange,
+  isFiltered,
   NO_USAGE_CELL,
   shortDay,
   badDayCount,
@@ -551,9 +553,12 @@ describe('noHealthReading', () => {
 })
 
 describe('noUsageWindow', () => {
-  const full = (filtered: boolean) => noUsageWindow({ filtered, stripEmpty: false, leading: true })
-  const short = (filtered: boolean) =>
-    noUsageWindow({ filtered, stripEmpty: false, leading: false })
+  const at = (
+    range: '7d' | '30d' | '90d' | 'all',
+    o: { filtered?: boolean; stripEmpty?: boolean; leading?: boolean },
+  ) => noUsageWindow({ filtered: false, stripEmpty: false, leading: false, ...o, range })
+  const full = (filtered: boolean) => at('90d', { filtered, leading: true })
+  const short = (filtered: boolean) => at('90d', { filtered })
 
   it('the short form is the full sentence leading clause, verbatim', () => {
     for (const filtered of [false, true]) {
@@ -568,12 +573,36 @@ describe('noUsageWindow', () => {
 
   it('an empty strip leaves every unfiltered chart surface the short form', () => {
     for (const leading of [false, true]) {
-      expect(noUsageWindow({ filtered: false, stripEmpty: true, leading })).toBe(NO_USAGE_CELL)
+      expect(at('30d', { stripEmpty: true, leading })).toBe(NO_USAGE_CELL)
     }
   })
 
   it('a filtered window keeps the match pair even under an empty strip', () => {
-    expect(noUsageWindow({ filtered: true, stripEmpty: true, leading: true })).toBe(full(true))
-    expect(noUsageWindow({ filtered: true, stripEmpty: true, leading: false })).toBe(short(true))
+    expect(at('7d', { filtered: true, stripEmpty: true, leading: true })).toBe(full(true))
+    expect(at('7d', { filtered: true, stripEmpty: true })).toBe(short(true))
+  })
+
+  it('"widen the range" is named only where a wider range exists', () => {
+    expect(at('90d', { leading: true })).toContain('widen the range')
+    expect(at('all', { leading: true })).not.toContain('widen')
+    expect(at('all', { filtered: true, leading: true })).not.toContain('widen')
+  })
+})
+
+describe('stripCoversRange', () => {
+  it('speaks for 7 d and 30 d charts, not for 90 d or all (they reach past its window)', () => {
+    expect(stripCoversRange('7d')).toBe(true)
+    expect(stripCoversRange('30d')).toBe(true)
+    expect(stripCoversRange('90d')).toBe(false)
+    expect(stripCoversRange('all')).toBe(false)
+  })
+})
+
+describe('isFiltered', () => {
+  it('an empty selection is no constraint', () => {
+    expect(isFiltered(undefined, undefined)).toBe(false)
+    expect(isFiltered([], [])).toBe(false)
+    expect(isFiltered(['iu'], undefined)).toBe(true)
+    expect(isFiltered(undefined, ['x'])).toBe(true)
   })
 })
