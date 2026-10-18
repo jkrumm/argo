@@ -205,4 +205,6 @@ fix workers; these need a basalt prop or default.
 | phone `Select` (ChartCard actions at 390) | an on-scale left inset (today 10.67 px) | usage cost and tokens charts | as rendered |
 | `StackedArea` | a band fill opacity prop (full-opacity bands read saturated) | usage tokens / cost | as rendered |
 | heading numerals | the slashed zero still renders on section titles that are not `h1`–`h6` / `.mantine-Title-root` (2.20 only resets those) | astro headline, usage / reading / walking-pad / body-composition section titles | none |
+| `SyncButton` (`PageBar sync`) | the age text (`synced {age}`) below `sm` — today `scope="page"` is icon-only there | m365 refresh at 390 | icon only |
+| `PageBar` filter `Select` | a pill wider than `max-width: 15rem` (or a fit-to-option mode) | astro site select clips long site names | the label shortened |
 | `basalt-ui shot` | focus/hover anchors time out (`boundingBox` / `scrollIntoViewIfNeeded` 30 s) on the Sparkline focus target and on hidden mobile panes; a 390 board is "not captured" | garmin strip-fitness, m365 detail/labeled panes, warden board | re-run |
