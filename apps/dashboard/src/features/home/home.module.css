@@ -108,17 +108,29 @@
   border-bottom: 1px solid var(--vx-surface-hairline);
 }
 
+/* One line per row: the lead (actor, subject, the item's own title) gives way with an ellipsis; the outcome and the chip stay whole, and the row's `title` holds the full text. */
 .feedSentence {
   min-width: 0;
-  overflow-wrap: break-word;
+  display: flex;
+  align-items: baseline;
+  gap: var(--vx-space-stack-xs);
+  white-space: nowrap;
+}
+
+.feedLead {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .feedOutcome {
+  flex: none;
   color: var(--vx-muted);
 }
 
-/* Head, outcome and chip are inline runs of one sentence: the chip follows the last word on the same line where it fits and drops to the next whole. A project name longer than the row breaks inside the chip instead of clipping. */
 .chip {
+  flex: none;
   height: auto;
   max-width: 100%;
   vertical-align: baseline;
@@ -126,15 +138,9 @@
 
 .chipLabel {
   overflow-wrap: anywhere;
-  white-space: normal;
-  text-overflow: clip;
 }
 
 .feedDetail {
-  grid-column: 1;
-  min-width: 0;
-  overflow-wrap: break-word;
-  font-size: var(--vx-text-sm);
   color: var(--vx-muted);
 }
 
