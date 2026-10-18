@@ -72,42 +72,25 @@ describe('aggregates', () => {
 })
 
 describe('summaryParts', () => {
-  test('the sentence carries recovery and the load verdict, the facts the figures with units', () => {
-    expect(summaryParts({ recovery: 62.4, acwr: 0.62, rhrDelta: -2, hrvDelta: 3 })).toEqual({
+  test('the sentence carries recovery and the load verdict, nothing else', () => {
+    expect(summaryParts({ recovery: 62.4, acwr: 0.62 })).toEqual({
       sentence: 'Recovery 62/100, load under the 0.8 floor',
-      facts: ['ACWR 0.62', 'RHR −2 bpm over 14 d', 'HRV +3 ms over 14 d'],
     })
   })
 
-  test('a non-finite ACWR renders as a dash', () => {
-    expect(
-      summaryParts({ recovery: 80, acwr: Number.NaN, rhrDelta: 0, hrvDelta: 0 }).facts[0],
-    ).toBe('ACWR —')
-  })
-
-  test('a present recovery with no ACWR keeps the sentence short and the fact a dash', () => {
-    expect(summaryParts({ recovery: 80, acwr: null, rhrDelta: 1, hrvDelta: -4 })).toEqual({
-      sentence: 'Recovery 80/100',
-      facts: ['ACWR —', 'RHR +1 bpm over 14 d', 'HRV −4 ms over 14 d'],
-    })
+  test('a present recovery with no ACWR keeps the sentence short', () => {
+    expect(summaryParts({ recovery: 80, acwr: null })).toEqual({ sentence: 'Recovery 80/100' })
   })
 
   test('a missing recovery leads with the load and states its reason', () => {
-    expect(
-      summaryParts({
-        recovery: null,
-        recoveryDate: '2026-01-05',
-        acwr: 0.62,
-        rhrDelta: 0,
-        hrvDelta: 0,
-      }).sentence,
-    ).toBe('Load under the 0.8 floor; no recovery score for Jan 5')
+    expect(summaryParts({ recovery: null, recoveryDate: '2026-01-05', acwr: 0.62 }).sentence).toBe(
+      'Load under the 0.8 floor; no recovery score for Jan 5',
+    )
   })
 
-  test('a missing recovery and ACWR is the reason alone, facts stay dashes', () => {
-    expect(summaryParts({ recovery: null, acwr: null, rhrDelta: null, hrvDelta: null })).toEqual({
+  test('a missing recovery and ACWR is the reason alone', () => {
+    expect(summaryParts({ recovery: null, acwr: null })).toEqual({
       sentence: 'No recovery score for the latest day',
-      facts: ['ACWR —', 'RHR — bpm over 14 d', 'HRV — ms over 14 d'],
     })
   })
 
@@ -353,12 +336,6 @@ describe('shared fitness window and hero', () => {
     expect(fitnessRange(today)).toEqual({ from: '2026-10-04', to: '2026-10-17' })
   })
 
-  test('the summary names the fitness window by the constant', () => {
-    expect(
-      summaryParts({ recovery: 1, acwr: 1, rhrDelta: 0, hrvDelta: 0 }).facts.join(' · '),
-    ).toContain(`over ${FITNESS_DAYS} d`)
-  })
-
   test("the VO2max hero takes the trace's last value, else the regression figure, else null", () => {
     expect(vo2Hero([52, 53.2], 50)).toBe(53.2)
     expect(vo2Hero([], 50)).toBe(50)
@@ -409,10 +386,8 @@ describe('lastScored edge cases', () => {
 
 describe('loadFooter', () => {
   const settled = { status: 'success', placeholder: false } as const
-  test('a ratio explains the weighting and the zones once', () => {
-    expect(loadFooter({ acwr: 1, ...settled })).toBe(
-      'Both loads are exponentially weighted. Optimal is 0.8–1.3; above 1.5 is the danger zone.',
-    )
+  test('a ratio needs no footer: the meter names the bands', () => {
+    expect(loadFooter({ acwr: 1, ...settled })).toBeNull()
   })
   test('only a settled read without a ratio states the gap', () => {
     expect(loadFooter({ acwr: null, ...settled })).toBe(
