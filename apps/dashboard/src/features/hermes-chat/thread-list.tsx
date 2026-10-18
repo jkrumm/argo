@@ -7,6 +7,7 @@ import {
   summaryExcerpt,
   titleExcerpt,
   listTime,
+  untitledFoldLabel,
   type ThreadEntry,
   type ThreadGroup,
 } from './thread-list-model'
@@ -160,7 +161,7 @@ export function ThreadList({
               aria-disabled={foldOpen || undefined}
               onClick={() => !foldOpen && onToggleOpen()}
             >
-              Untitled
+              {untitledFoldLabel(untitled.length)}
             </UnstyledButton>
             <Button
               variant="subtle"

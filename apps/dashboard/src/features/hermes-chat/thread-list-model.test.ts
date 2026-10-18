@@ -9,6 +9,7 @@ const {
   factsParts,
   groupEntries,
   isUntitled,
+  untitledFoldLabel,
   listTime,
   startedDate,
   summaryExcerpt,
@@ -289,5 +290,12 @@ describe('emptyNote', () => {
     expect(emptyNote({ threads: 3, active: 2, filtered: true })).toBe(
       'No thread matches this filter.',
     )
+  })
+})
+
+describe('untitledFoldLabel', () => {
+  it('names what the fold holds, with its count', () => {
+    expect(untitledFoldLabel(1)).toBe('1 untitled chat')
+    expect(untitledFoldLabel(12)).toBe('12 untitled chats')
   })
 })
