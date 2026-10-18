@@ -174,8 +174,8 @@ export function DecisionCard({
 }: DecisionCardProps) {
   const shown = visibleFacts(facts)
   return (
-    <Card h="100%">
-      <Group align="stretch" gap="md" wrap="wrap" h="100%">
+    <Card>
+      <Group align="stretch" gap="md" wrap="wrap">
         <Stack gap="sm" flex="1 1 14rem" miw={0}>
           <Text component="h3" m={0} fw={600} size="md" lh={1.35} className={classes.question}>
             {question}
