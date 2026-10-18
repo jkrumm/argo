@@ -167,3 +167,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** pass, the third round running. No regression against w28.
 - **Against Keel:** close — the empty state is honest; most of the page at 1440 is blank below it.
+
+### Wave 30 round (`w30-r1`, live after #122–#125 on basalt-ui 2.21.0)
+
+- **Reviewer:** pass, a fourth time. No regression: headline, record header, the dimmed strip and the empty state with its widen action hold in both schemes and widths; the duration stays whole at 390.
+- **Against Keel:** close — the empty state is honest; most of the 1440 page is blank below it.

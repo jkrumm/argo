@@ -182,3 +182,8 @@ Follow-up (w30-r1):
 
 - **Balance rows: the band range is never hidden** — fixed, supersedes the "range as the meter's band label" line above: the 390 Meter hides a narrow band's label, so the range moved to the caption, said once (`bandTail`): `{status} · in the {lo}–{hi} band`, or `{status} · {n} under|over the {lo}–{hi} band`. The band zone has an empty label (UPSTREAM § Wave 29 workaround).
 - **ACWR zone vocabulary** — fixed: the meter uses the shared `acwrMeterZones`; the zone is `Low`, not `Undertrained`.
+
+### Wave 30 round (`w30-r1`, live after #122–#125; `w30-r2` after #126–#127, basalt-ui 2.21.0)
+
+- **Reviewer (r1):** fail. Fixed: the ACWR tooltip loads in tonnes; one zone vocabulary across text, legend and tooltip; the band range said once at 1440. **Regression (r1), fixed in #127 and verified in r2:** at 390 the `Meter` hid a narrow band's `{lo}–{hi}` label, so a row showed no range; the range now sits in the row caption, once, at both widths. Carried (basalt / harness): four type sizes in the section shells; the sparkline reference unlabelled; mixed date ticks; the bench-press focus timeout; the readiness tooltip's clock time and US date order; the INOL focus tooltip over the headline at 390.
+- **Against Keel:** close — one verdict per row, consistent units; jargon density and four-size sections remain.

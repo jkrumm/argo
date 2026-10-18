@@ -199,3 +199,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Remove control at rest:** fixed — hidden at rest on fine pointers (`opacity: 0`, still in the tab order and labelled), revealed in the muted token on row hover, `:focus-within` and keyboard focus; always visible (muted) on coarse pointers (`@media (any-pointer: coarse)`), per the Wave 22 ruling.
 - **390 headline date split:** fixed — every space inside a date is `NBSP` (day, month and year); only the spaces around the range dash can break. `spanDates` in `model.ts`, tested.
+
+### Wave 30 round (`w30-r1`, live after #122–#125 on basalt-ui 2.21.0)
+
+- **Reviewer:** fail (no new argo defect). Fixed: the remove control hidden at rest on fine pointers, visible on focus, always visible on coarse pointers (the Wave 22 ruling); the 390 headline keeps each date whole. Carried: kind-bar segments shade-only (basalt `SegmentBar` row); the 390 2 + 1 strip (basalt); two source-list focus timeouts and the 390 labeled header not captured (harness); the 390 detail pane opens empty. Unverified: the hover reveal (the harness hovers the pane, not a row). Unscored: the scrollbar thumb through the labeled-pane header.
+- **Against Keel:** close — the kind bar still needs its footer as a legend.

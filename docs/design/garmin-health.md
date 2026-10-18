@@ -190,3 +190,8 @@ Follow-up (w30-r1):
 - **One ACWR zone vocabulary** — fixed: the under-loaded zone is `Low` everywhere (tooltips, summary, legend `Low (< 0.8)`, meters), a name short enough to fit at 390, so name and short agree. One builder, `acwrMeterZones` (`formulas.ts`), serves strip-load, Home and Strength; `ACWR_ZONE_SHORT` keeps only the real abbreviation (`Caution` → `Caut.`).
 - **`Caution` meter label at 390** — not fixed, basalt row: `Meter` shows the full label though it does not fit and ignores `short`. No width-dependent label prop in Argo; the fit logic is basalt's.
 - **Recovery footer opening a wrapped line with `·`** — fixed: each `·` is bound to the text before it (`{a}{NBSP}· {b}`, `recoveryGap`).
+
+### Wave 30 round (`w30-r1`, live after #122–#125; `w30-r2` after #126–#127, basalt-ui 2.21.0)
+
+- **Reviewer (r1):** fail. Fixed: the ACWR legend names every zone, each swatch with a matching fill (a caution band, danger above it). **Regression (r1), fixed in #127 and verified in r2:** at 390 the meter printed `Undertrained` flush against `Optimal` (basalt `Meter` shows a full label that does not fit and ignores `short`); the zone is `Low` everywhere now, which fits. Also fixed (r2): the recovery footer no longer opens a line with `·`. Carried (basalt): the recovery cell part-empty (`emptyRatio` 0.62); detached `Meter` ticks; `Caut.` hidden at 390; the fitness focus timeout (harness). Unscored: `Low` and `Caution` share one amber swatch (position and word separate them — both match the meter).
+- **Against Keel:** close — load and fitness read like Keel's metric cards; recovery is still a dash and a sentence.

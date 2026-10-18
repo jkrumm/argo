@@ -152,3 +152,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 ### Wave 30 fixes
 
 - **Fold row bare `Untitled`:** fixed — the fold label is `{n} untitled chats` (`untitledFoldLabel`, tested; page vocabulary is "chats"). The count is read from the rows the fold holds, so it matches what opens.
+
+### Wave 30 round (`w30-r1`, live after #122–#125 on basalt-ui 2.21.0)
+
+- **Reviewer:** fail. Fixed: the fold row names what it folds (`{n} untitled chats`), its count matching the chip. Carried: chips without hover (basalt `Button`). **New:** none. Unscored: the untitled count now appears twice (chip and fold).
+- **Against Keel:** does not yet — three rows and a fold over a void above the composer.

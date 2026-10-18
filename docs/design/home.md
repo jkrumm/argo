@@ -172,3 +172,8 @@ Follow-up (w30-r1):
 - **ACWR meter zone words** — fixed: the Training-load meter uses `acwrMeterZones` (`garmin-health/formulas.ts`), the same builder as Garmin and Strength; Home no longer hard-codes zone words.
 - **`ago` on every Home age** — fixed: the card's `Latest change:` line, the list rows and the tracking-fact lines (`first seen`, `last seen`, `resolved`, `retry`, reminders) all print `{duration}{NBSP}ago` (`historyTail`, `relativeWhole`); one spelling.
 - **Card glue** — fixed: `retried|revised {n} times` keeps the count with its word (`pluralize` with an NBSP gap).
+
+### Wave 30 round (`w30-r1`, live after #122–#125; `w30-r2` after #126–#127, basalt-ui 2.21.0)
+
+- **Reviewer (r1):** fail. Fixed: the oldest wait in the cards' spelling; an alert's question-only reason as its evidence line; the monitor bracket out of titles. Carried: one action on cards 1 and 3; an alert card's subject is a raw alert key (frozen rung — the producer `question` is the owner's call); the next-meeting cell part-empty (`emptyRatio` 0.47 — basalt row); activity rows wrap to 2–3 lines with the chip on its own line, now also at 1440. **New (r1), fixed in #127 and verified in r2:** `ago` alone on a line in one card's age; Home's meter said `Under` beside Garmin's `Undertrained` (one vocabulary now: `Low`, which fits at 390); the ACWR value unit printed the raw zone key. Still basalt: `Caut.` hidden on the meter at 1440. Unscored: Home's recovery tile and Garmin's recovery cell state different facts for the same day.
+- **Against Keel:** close — strip and side column hold; raw alert keys and one-action cards are the gap.

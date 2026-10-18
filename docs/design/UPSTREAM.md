@@ -346,3 +346,20 @@ Still on basalt-ui 2.21.0 (no release announced during the wave). No local worka
 warden unattended 0.49, reading pace 0.51), `Meter` detached ticks, `Sparkline` reference label, `ScheduleRow` wrap and four sizes,
 `BandStrip` hue-only states and ticks, chip / row hover, the phone-select inset, `ViewTabs` 390, narrow tooltips, info tooltips over the
 card above at 390, the `·`-led `PageSummary` wrap, the mono `<>` ligature, sticky bars over crops and tall-anchor focus timeouts.
+
+### Wave 30 — round 9 fixes (#122–#128) and the `w30-r1` / `w30-r2` live re-score
+
+Still on basalt-ui 2.21.0 (no release announced during the wave). No local workaround added; what the round hit that the shipped API lacks:
+
+| Export | Needed prop / default | argo case | What argo does instead |
+|-|-|-|-|
+| `Meter` zone labels | the fit check must honour `short`: a full label that does not fit its span is drawn anyway (overlapping the next zone) instead of falling back to `short` | ACWR under-floor zone at 390 (`Undertrained` ran into `Optimal`); `Caution` / `Caut.` hidden on Home at 1440 and Garmin at 390 | the zone renamed `Low` (fits everywhere); `Caut.` as rendered |
+| `Meter` zone labels | a narrow zone's hidden label takes its fact with it; a below-track overflow line (or a guaranteed `short`) so a zone's range is never silently dropped | strength balance rows at 390 (`{lo}–{hi}` band label hidden) | the range moved to the row caption; the band zone label `''` |
+| `StackedArea` tooltip | a per-datum row filter (omit a zero band from one bucket's tooltip without nulling the stack) | usage tokens tooltip lists `0` rows | as rendered |
+| `ChartCard facts` | a separator between `unit` and `period` (today they render run together, so the period must carry its own `· `) | astro cloud-layers headline | `period: '· {basis}'` |
+
+`w30-r1` re-confirmed open rows: the `StatGroup` strip short-cell void (home next-meeting 0.47, agents needs-you 0.53, garmin recovery 0.62,
+warden unattended 0.49, reading pace 0.51), `Meter` detached ticks, `Sparkline` reference label, mixed date ticks / the readiness tooltip's
+clock time, `ScheduleRow` wrap and four sizes, `BandStrip` hue-only states and ticks, the error chart's `0` tick, chip / row hover, `Lines`
+end labels vs legend (and a clipped end label), `Bars` shade-only series, `SegmentBar` row captions, info tooltips over the card above at
+390, the `·`-led `PageSummary` wrap, the mono `<>` ligature, sticky bars over crops and tall-anchor focus timeouts.

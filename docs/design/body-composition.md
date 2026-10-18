@@ -182,3 +182,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 - **Reviewer:** fail (argo items clean). Fixed: the maintenance band's width back once (`maintain ±{x} kg/wk` in the rate qualifier, zone `Maintenance`); one `{n} d` day spelling across headline, facts and chart titles. Carried (all basalt): the maintain zone unnamed at 390 even with `short`; the weight line through the `7 d mean` end label; end labels and legend name the same series; the `·`-led wrap at 390. **New:** none. Unscored: the chart info tooltip covers the net-change figure on focus (basalt).
 - **Against Keel:** close — the meter has its names and its band width again; only shared-component overlaps remain.
+
+### Wave 30 round (`w30-r1`, live after #122–#125 on basalt-ui 2.21.0)
+
+- **Reviewer:** fail (no argo change, argo items clean). Carried (all basalt): the maintain zone unnamed at 390; the weight line through the `7 d mean` end label; end labels and legend name the same series; the `·`-led wrap at 390; the info tooltip over the net-change figure. **New:** none.
+- **Against Keel:** close — only shared-component overlaps remain.

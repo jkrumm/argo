@@ -186,3 +186,8 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 - **Tokens tooltip zero rows:** not fixed — basalt row. `StackedArea` drops a stack row where any band is `null`, and the per-series `tooltip` flag is static, so there is no per-datum filter and no honest way to omit a zero without breaking the stack.
 - **Errors footer repeats baseline:** fixed — the badge carries `prior 30 d`; the footer now reads `was {r}`.
 - **p95 line through the top tick:** not fixed — no y-domain headroom prop set; left to basalt.
+
+### Wave 30 round (`w30-r1`, live after #122–#125 on basalt-ui 2.21.0)
+
+- **Reviewer:** fail (no new argo defect). Fixed: the Tokens footer keeps `full days` together; per-day mean and peak share one unit; the tokens axis and tooltip rows share one unit; the Errors footer reads `was {r}`. Carried (basalt): warn/bad days hue-only and `DD.MM` band ticks; the p95 line through the top tick label; the error chart's `0` tick under the first bar; the tokens tooltip lists zero-value series (`0 M` rows — unverified as true zeros from pixels; `StackedArea` has no per-datum row filter). Unscored: the cost sparkline readout prints cents against the page's whole-dollar rule; `{m}%` unspaced here while Astro prints `{m} %`.
+- **Against Keel:** close — still the best stat strip of the set.

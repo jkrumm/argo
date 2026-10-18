@@ -147,7 +147,7 @@ ACWR = ewma_acute / ewma_chronic
 
 | Range   | Zone         | Interpretation                         |
 | ------- | ------------ | -------------------------------------- |
-| < 0.8   | Undertrained | insufficient stimulus, detraining risk |
+| < 0.8   | Undertrained (shown as `Low`) | insufficient stimulus, detraining risk |
 | 0.8–1.3 | Optimal      | adaptation sweet spot                  |
 | 1.3–1.5 | Caution      | elevated injury risk                   |
 | > 1.5   | Danger       | high injury probability                |
