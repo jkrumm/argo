@@ -63,8 +63,9 @@ function HelpHeader({ label, tip }: { label: string; tip: string }) {
   )
 }
 
-// `meta.priority`: the HIGHEST number folds first when the card is too narrow. Fold order:
-//   1. INOL, 2. Volume, 3. Velocity (its arrow repeats Status), 4. Status. Exercise and 1RM stay.
+// `meta.priority`: the HIGHEST number folds first when the card is too narrow. Fold order (the
+// list numbers are the order, not the priority values): 1. INOL, 2. Volume, 3. Velocity (its arrow
+// repeats Status), 4. Status. Exercise and 1RM stay.
 // Folded columns remain one tap away in the per-row disclosure.
 const columns = [
   columnHelper.accessor('exercise_name', {
