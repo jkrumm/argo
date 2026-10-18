@@ -1231,8 +1231,9 @@ Same shape as Wave 25 (fan-out on disjoint page files, two independent reviews p
 `basalt-design-reviewer`s + a Keel side-by-side). Basalt-owned items wait for basalt (`UPSTREAM.md` § "Wave 23"–"Wave 25").
 Each page's detail is in `docs/design/<page>.md` § "Wave 25 round".
 
-- [ ] Decide with the owner: producers emit an authored `question` on Warden items and agent asks (warden + agent-gateway payloads);
-      argo reads it with `cardCopy` as the fallback. One question rule in argo (`cardCopy`; `headlineOf` and `questionOf` route through it).
+- [ ] One question rule in argo (`cardCopy`; `headlineOf` and `questionOf` route through it), reading an optional `question`
+      field when a producer sends one. The producer change (warden + agent-gateway payloads emit an authored `question`) is
+      queued for the owner (orchestrator, 2026-10-18); this wave does not touch those repos.
 - [ ] Fix the argo items per page, fanned out:
   - Restatement, every page: each figure printed once — headline, facts line, cards and strips never repeat each other
     (calendar free/booked hours, reading pace/backlog/time-read, body-comp rate/weight, warden summary vs strips, m365 counts,
