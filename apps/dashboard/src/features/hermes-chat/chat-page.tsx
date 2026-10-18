@@ -240,7 +240,7 @@ function HermesChatFeed() {
   if (!store.hydrated) {
     if (store.error !== undefined) {
       return (
-        <Center h={FILL_HEIGHT} data-shot="thread-state">
+        <Center h={FILL_HEIGHT}>
           <Alert
             icon={<IconAlertTriangle size={16} />}
             color="red"
@@ -253,7 +253,7 @@ function HermesChatFeed() {
       )
     }
     return (
-      <Center h={FILL_HEIGHT} data-shot="thread-state">
+      <Center h={FILL_HEIGHT}>
         <Loader />
       </Center>
     )

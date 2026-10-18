@@ -165,5 +165,5 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 ### Wave 32 fixes
 
-- **Shot states:** `thread-toolbar` declares `empty loading error`; `loading` is the hydration `Loader` and `error` the `Couldn't load threads` alert (both `thread-state`), `empty` substitutes an empty thread list so the real no-threads note renders (`thread-empty`); `thread-list` is absent in all three.
+- **Shot states:** `thread-toolbar` declares `empty`; an empty thread list is substituted so the real no-threads note renders (`thread-empty`), and `thread-list` is absent there. `loading` and `error` are not declared: the route loader awaits the threads, so production shows the route pending screen / crash screen.
 - **Against Keel:** no subtraction removes the void above the composer without adding UI; left.

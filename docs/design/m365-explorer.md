@@ -212,7 +212,7 @@ Live production shots (`basalt-ui shot`, 1440 + 390, both schemes) after the bas
 
 ### Wave 32 fixes
 
-- **Shot states:** `empty` substitutes no chats / teams / labels where the page reads them (the real empty list and labeled pane render); `loading` is the route's Suspense fallback (`explorer-loading`), every other anchor declares itself absent there. `error` is not declared: the page reads through `useSuspenseQuery`, so a failure is the app's crash screen.
+- **Shot states:** `tag-chips` declares `empty`; no chats / teams / labels is substituted where the page reads them, so the real empty list and labeled pane render. `loading` and `error` are not declared: the route loader awaits the lists, so production shows the route pending screen / crash screen.
 - **Kind caption:** the leading kind's bar caption names the kind without its count — the hero holds the count. On a tie every caption keeps its count.
 - **Page height:** the panes are `min(760px, 100dvh − 240px)`, independent of their content; the ~640 px of dead space under them in the 1440 page shot is the harness growing the inner scrollport (`100dvh` follows it), not argo sizing the page taller than its content. Left as is.
 - **Scrollbar through the pane header:** argo-owned and fixed — the labeled pane's header sat inside its `ScrollArea`; it now sits above it, so the scrollbar starts under the header.

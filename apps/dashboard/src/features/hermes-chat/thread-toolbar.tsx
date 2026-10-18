@@ -46,12 +46,7 @@ export function ThreadToolbar({
   ]
 
   return (
-    <Box
-      className={classes['root']}
-      data-shot="thread-toolbar"
-      data-shot-states="empty loading error"
-      data-shot-absent="loading error"
-    >
+    <Box className={classes['root']} data-shot="thread-toolbar" data-shot-states="empty">
       <ScrollArea className={classes['chips']} type="never" scrollbars="x">
         <Group gap="xs" wrap="nowrap" p={4}>
           {chips.map((chip) => (
