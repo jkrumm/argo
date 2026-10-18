@@ -530,20 +530,18 @@ export function pageSummary(
 }
 
 /** The timeline's one fact. The timeline draws the shooting window whenever the API has one, so it is
- * stated whenever it exists. The missed gate is always worded by `gateMissText`; beside a window it
- * is appended only when `withMiss` (the Forecast tab). No window: `none within the dark` on a usable night. */
+ * stated whenever it exists. The missed gate is worded by `gateMissText` and stated only when
+ * `withMiss` (the Forecast tab); on Tonight the verdict card headline says it, so a no-window night
+ * is the bare `No window`. No window: `none within the dark` on a usable night. */
 export function windowFact(
   night: Night,
   { withMiss }: { withMiss: boolean },
-): { value: string; period: string } {
+): { value: string; period?: string } {
   const shoot = night.window
   const out = night.verdict === 'out'
   if (shoot === null) {
     if (!out) return { value: 'No window', period: 'none within the dark' }
-    return {
-      value: 'No window',
-      period: gateMissText(night),
-    }
+    return withMiss ? { value: 'No window', period: gateMissText(night) } : { value: 'No window' }
   }
   const range = `${shoot.localStart}–${shoot.localEnd}`
   return {

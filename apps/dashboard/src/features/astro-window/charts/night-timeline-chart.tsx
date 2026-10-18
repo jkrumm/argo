@@ -92,7 +92,7 @@ export default function NightTimelineChart({
 }: {
   hourly: HourlyPoint[]
   night: Night
-  /** Append the missed gate beside a window (Forecast); a no-window night always names it. */
+  /** Name the missed gate in the fact line (Forecast); off on Tonight, where the verdict card headline states it. */
   withMiss: boolean
 }) {
   const win = night.window
