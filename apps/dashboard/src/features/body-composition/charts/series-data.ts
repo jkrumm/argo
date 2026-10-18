@@ -29,7 +29,7 @@ export function markerRadiusFor(count: number): number {
 export const MEAN_DAYS = 7
 
 /** A period's figure needs entries spanning at least this share of it; one entry is not a "30 d mean". */
-export const COVERAGE_SHARE = 0.7
+const COVERAGE_SHARE = 0.7
 
 /**
  * The entries dated 0 to `days` days up to `endDate` (inclusive, the API's `date >= end - days`),
@@ -37,7 +37,7 @@ export const COVERAGE_SHARE = 0.7
  * period or the entries do not span {@link COVERAGE_SHARE} of it. The one definition every
  * period figure (mean, slope) and the chart's mean line go through.
  */
-export function coveredWindow<T extends { date: string }>(
+function coveredWindow<T extends { date: string }>(
   points: readonly T[],
   endDate: string,
   days: number,
@@ -114,10 +114,10 @@ export function toSkinfoldChartPoints(points: readonly SkinfoldPoint[]): Skinfol
 
 /**
  * The x-axis tick format for what is plotted: `7 Oct` inside a year, `Oct 2026` once the first and
- * last point are over a year apart (a bare day would repeat across years).
+ * last point are a year or more apart (a bare day would repeat across years).
  */
 export function axisDateFormat(dates: readonly Date[]): (d: Date) => string {
   const times = dates.map((d) => d.getTime())
   const spanDays = times.length === 0 ? 0 : (Math.max(...times) - Math.min(...times)) / 86_400_000
-  return (d) => format(d, spanDays > 365 ? 'MMM yyyy' : 'd MMM')
+  return (d) => format(d, spanDays >= 365 ? 'MMM yyyy' : 'd MMM')
 }

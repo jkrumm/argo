@@ -298,9 +298,9 @@ describe('intensityTier', () => {
     expect(intensityTier(-0.9)).toEqual({ tier: 'aggressive', lo: 0.8, hi: null })
   })
   test('formatRange glues the unit and the range', () => {
-    expect(formatRange(0.1, 0.3, 'kg/wk')).toBe('0.1\u2013\u20600.3\u00a0kg/wk')
-    expect(formatRange(0.6, null, 'kg/wk')).toBe('\u2265\u00a00.6\u00a0kg/wk')
-    expect(formatRange(null, 0.1, 'kg/wk')).toBe('< 0.1\u00a0kg/wk')
+    expect(formatRange({ lo: 0.1, hi: 0.3 }, 'kg/wk')).toBe('0.1\u2013\u20600.3\u00a0kg/wk')
+    expect(formatRange({ lo: 0.6, hi: null }, 'kg/wk')).toBe('\u2265\u00a00.6\u00a0kg/wk')
+    expect(formatRange({ lo: null, hi: 0.1 }, 'kg/wk')).toBe('< 0.1\u00a0kg/wk')
   })
   test('boundaries belong to the next tier up', () => {
     expect(intensityTier(0.0999)?.tier).toBe('maintenance')

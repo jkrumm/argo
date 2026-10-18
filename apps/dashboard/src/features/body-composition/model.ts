@@ -183,7 +183,7 @@ export function summaryParts({
 
 /** "12 weigh-ins in 30 d": the count and the window it was counted over. */
 const entriesFact = (entries: number, span: number | null): string =>
-  `${entries} ${entries === 1 ? 'weigh-in' : 'weigh-ins'} in ${span === null ? 'all time' : withUnit(span, 'd')}`
+  `${entries} ${entries === 1 ? 'weigh-in' : 'weigh-ins'} ${span === null ? 'over all time' : `in ${withUnit(span, 'd')}`}`
 
 /** The headline's opening clause: the trend over its window, or that there is none yet. */
 function rateClause({ kgPerWeek, span }: { kgPerWeek: number | null; span: string }): string {
@@ -307,12 +307,12 @@ export function rateFooter(input: {
     : 'A rate needs two weigh-ins at least 3 days apart'
 }
 
+/** A kg/week range, absolute; one end may be open (`null`), never both. */
+type RangeBounds = { lo: number; hi: number | null } | { lo: null; hi: number }
+
 export type IntensityTier = {
   tier: 'maintenance' | 'lean' | 'standard' | 'aggressive'
-  /** The kg/week range the tier covers, absolute; an open end is `null`. */
-  lo: number | null
-  hi: number | null
-}
+} & RangeBounds
 
 const TIER_NAME: Record<IntensityTier['tier'], string> = {
   maintenance: 'Maintenance',
@@ -338,7 +338,7 @@ export function intensityTier(rate: number): IntensityTier {
  * `0.1–0.3 kg/wk` / `≥ 0.6 kg/wk`, built from its bounds. The unit stays on its value (NBSP) and a
  * word joiner after the dash keeps the range in one piece when it wraps.
  */
-export function formatRange(lo: number | null, hi: number | null, unit: string): string {
+export function formatRange({ lo, hi }: RangeBounds, unit: string): string {
   if (lo === null) return `< ${hi}${NBSP}${unit}`
   if (hi === null) return `\u2265${NBSP}${lo}${NBSP}${unit}`
   return `${lo}\u2013\u2060${hi}${NBSP}${unit}`
@@ -349,9 +349,10 @@ export function formatRange(lo: number | null, hi: number | null, unit: string):
  * cut/bulk/maintenance, so the footer carries the class and the range it covers instead.
  */
 function paceFooter(rate: number): string {
-  const { tier, lo, hi } = intensityTier(rate)
+  const bounds = intensityTier(rate)
+  const { tier } = bounds
   if (tier === 'maintenance') return `Under ${RATE_NEUTRAL_KG_WK}${NBSP}kg/wk either way`
-  return `${TIER_NAME[tier]} pace, ${rate < 0 ? 'losing' : 'gaining'} ${formatRange(lo, hi, 'kg/wk')}`
+  return `${TIER_NAME[tier]} pace, ${rate < 0 ? 'losing' : 'gaining'} ${formatRange(bounds, 'kg/wk')}`
 }
 
 /** The day-based means and slopes the strip and the chart header both state. */

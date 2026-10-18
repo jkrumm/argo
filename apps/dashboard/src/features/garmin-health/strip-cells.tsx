@@ -113,7 +113,8 @@ function useRecoveryCell(params: SummaryParams): StatStripCell {
     settled,
     last,
     windowDays: windowDayCount(activitiesRange(params), VISIBLE_DATE_MIN),
-    missing: missingInputs(data?.components ?? { hrv: null, sleep: null, rhr: null }),
+    // No payload or no date is a sentinel, not a day that failed to score: it names nothing.
+    missing: data?.date ? missingInputs(data.components) : [],
   }).line
   return {
     key: 'recovery',
@@ -222,7 +223,7 @@ type SignalSpec = {
   values: readonly (number | null)[]
   /** ISO day per value, index-aligned; dates the sparkline's focus readout. */
   dates: readonly string[]
-  /** The span the sparkline and delta cover, e.g. "14 d". */
+  /** The span the sparkline and delta cover, e.g. "slope · 14 d". */
   period: string
   /** The hero already shows the reading, so the value column names the span instead. */
   hideValue?: boolean
@@ -253,7 +254,7 @@ function signalRow(spec: SignalSpec): StatStripRow {
           emphasizeLast
           format={(v) => reading(spec, v)}
           labels={spec.dates.map((d) => shortDate(d))}
-          ariaLabel={`${spec.label} over ${spec.period}, now ${current === null ? 'unknown' : reading(spec, current)}`}
+          ariaLabel={`${spec.label}, ${spec.period}, now ${current === null ? 'unknown' : reading(spec, current)}`}
         />
       ) : (
         <Text size="xs" c="dimmed">
@@ -272,13 +273,17 @@ function signalRow(spec: SignalSpec): StatStripRow {
           format={(v) => `${signed(v, spec.digits)} ${spec.deltaUnit}`.trim()}
           withGlyph
           period={spec.period}
+          periodPrefix=""
         />
       ),
   }
 }
 
+/** The one wording for the fitness windows: the method and the span it covers. */
+const slope = (days: number): string => `slope · ${withUnit(days, 'd')}`
+
 function useFitnessCell(): StatStripCell {
-  // Fixed windows keep the copy true ("vs 14 d") whatever the page's selector says.
+  // Fixed windows keep the copy true ("slope · 14 d") whatever the page's selector says.
   const range = fitnessRange()
   const direction = useQuery(fitnessDirectionQueries.summary(range))
   const series = useQuery(dailyMetricsQueries.series(range))
@@ -311,7 +316,7 @@ function useFitnessCell(): StatStripCell {
   return {
     key: 'fitness',
     caption: 'Fitness',
-    qualifier: `${d?.label || '—'} · vs ${withUnit(FITNESS_DAYS, 'd')}`,
+    qualifier: `${d?.label || '—'} · ${slope(FITNESS_DAYS)}`,
     value: fmtNum(vo2Hero(vo2.values, d?.vo2max), 1),
     unit: 'VO2max ml/kg/min',
     loading: direction.isPending,
@@ -323,7 +328,7 @@ function useFitnessCell(): StatStripCell {
         deltaUnit: 'bpm',
         digits: 0,
         polarity: 'up-bad',
-        period: `${FITNESS_DAYS} d`,
+        period: slope(FITNESS_DAYS),
         values: rows.rhr,
         dates: rows.dates,
         delta: d?.rhrDelta ?? null,
@@ -334,7 +339,7 @@ function useFitnessCell(): StatStripCell {
         deltaUnit: 'ms',
         digits: 0,
         polarity: 'up-good',
-        period: `${FITNESS_DAYS} d`,
+        period: slope(FITNESS_DAYS),
         values: rows.hrv,
         dates: rows.dates,
         delta: d?.hrvDelta ?? null,
@@ -345,7 +350,7 @@ function useFitnessCell(): StatStripCell {
         deltaUnit: 'ml/kg/min',
         digits: 1,
         polarity: 'up-good',
-        period: `${vo2.spanDays} d`,
+        period: slope(vo2.spanDays),
         hideValue: true,
         values: vo2.values,
         dates: vo2.dates,

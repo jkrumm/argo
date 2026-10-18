@@ -94,8 +94,8 @@ describe('axisDateFormat', () => {
   test('a plotted range inside a year reads day and month', () => {
     expect(axisDateFormat([at('2026-01-05'), at('2026-10-07')])(at('2026-10-07'))).toBe('7 Oct')
   })
-  test('a range over a year names the year', () => {
-    expect(axisDateFormat([at('2025-01-05'), at('2026-10-07')])(at('2026-10-07'))).toBe('Oct 2026')
+  test('a range of a year or more names the year', () => {
+    expect(axisDateFormat([at('2025-10-07'), at('2026-10-07')])(at('2026-10-07'))).toBe('Oct 2026')
   })
   test('no points fall back to day and month', () => {
     expect(axisDateFormat([])(at('2026-10-07'))).toBe('7 Oct')

@@ -123,12 +123,21 @@ describe('recoveryGap', () => {
     })
   })
 
-  test('the cell line names the inputs the scored day lacks, never a promise', () => {
-    expect(recoveryGap({ ...settled, missing: ['HRV', 'sleep'] }).line).toBe(
-      'Last scored 62/100 on Jan\u00a01 · no HRV, sleep',
+  test('the cell line names the unscored day and what it could not score from', () => {
+    expect(recoveryGap({ ...settled, date: '2026-01-06', missing: ['HRV', 'sleep'] }).line).toBe(
+      'Last scored 62/100 on Jan\u00a01 · today: HRV, sleep not scored',
     )
-    expect(recoveryGap({ ...settled, last: null, missing: ['RHR'] }).line).toBe(
-      'No score in this 30\u00a0d window · no RHR',
+    expect(recoveryGap({ ...settled, date: '2026-01-02', last: null, missing: ['RHR'] }).line).toBe(
+      'No score in this 30\u00a0d window · Jan\u00a02: RHR not scored',
+    )
+  })
+
+  test('with no date or nothing missing the line names no subject', () => {
+    expect(recoveryGap({ ...settled, missing: ['HRV'] }).line).toBe(
+      'Last scored 62/100 on Jan\u00a01',
+    )
+    expect(recoveryGap({ ...settled, date: '2026-01-06', missing: [] }).line).toBe(
+      'Last scored 62/100 on Jan\u00a01',
     )
     expect(missingInputs({ hrv: null, sleep: 30, rhr: null })).toEqual(['HRV', 'RHR'])
     expect(missingInputs({ hrv: 1, sleep: 2, rhr: 3 })).toEqual([])
