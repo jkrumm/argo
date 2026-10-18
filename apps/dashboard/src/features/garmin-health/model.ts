@@ -4,7 +4,7 @@
  * so the copy is testable and a null reading is handled once (always `—`, never `0`).
  */
 
-import { NBSP, withUnit } from '../../lib/format'
+import { APP_LOCALE, NBSP, withUnit } from '../../lib/format'
 import { WINDOW_DAYS, activitiesRange } from '../../lib/queries/activities-window'
 import type { WindowParams } from '../../lib/queries/daily-metrics'
 import { ACWR_ZONE_NAME, type AcwrZone } from './formulas'
@@ -178,12 +178,18 @@ export function windowCopyDays(
   return preset === undefined ? counted : Math.min(preset, counted)
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+/** One day-month order for every date the page prints: the page locale's, like basalt's chart ticks and tooltip (`4 Oct`). */
+const DAY_MONTH = new Intl.DateTimeFormat(APP_LOCALE, {
+  day: 'numeric',
+  month: 'short',
+  timeZone: 'UTC',
+})
 
-/** "Oct 14" from a `YYYY-MM-DD` key. */
+/** "14 Oct" from a `YYYY-MM-DD` key; a malformed key comes back raw. */
 export function shortDate(date: string): string {
-  const month = MONTHS[Number(date.slice(5, 7)) - 1]
-  return month === undefined ? date : `${month} ${Number(date.slice(8, 10))}`
+  const month = Number(date.slice(5, 7))
+  if (!(month >= 1 && month <= 12)) return date
+  return DAY_MONTH.format(Date.UTC(2000, month - 1, Number(date.slice(8, 10))))
 }
 
 /**
@@ -299,11 +305,12 @@ export function loadGap(input: {
   status: QueryStatus
   placeholder: boolean
   windowDays: number
+  form?: GapForm
 }): string | undefined {
-  const { acwr, status, placeholder, windowDays } = input
+  const { acwr, status, placeholder, windowDays, form } = input
   if (status === 'error') return 'The training load failed to load'
   if (status === 'pending' || acwr !== null || placeholder) return undefined
-  return chartEmpty('training load', windowDays)
+  return chartEmpty('training load', windowDays, form)
 }
 
 /** The Garmin sync sidecar's cadence, hours: every "fills after the next sync" claim reads this. */
@@ -314,14 +321,29 @@ const thisWindow = (windowDays: number): string =>
   windowDays > 0 ? `this ${withUnit(windowDays, 'd')} window` : 'this window'
 
 /** The next step for any gap in Garmin data: a sync is the only thing that fills it. */
-const SYNC_NEXT_STEP = ` — Garmin syncs every ${withUnit(GARMIN_SYNC_HOURS, 'h')}`
+export const SYNC_CADENCE = `Garmin syncs every ${withUnit(GARMIN_SYNC_HOURS, 'h')}`
+const SYNC_NEXT_STEP = ` — ${SYNC_CADENCE}`
+
+/**
+ * The one Garmin gap pair (docs/design/README.md § One form for a repeated gap). `full` is the
+ * sentence: what is missing + the cadence/next step. `short` is its leading clause, verbatim. A
+ * screen prints `full` once on its leading surface and `short` everywhere else.
+ */
+export type GapForm = 'full' | 'short'
+
+export const gapText = (clause: string, form: GapForm = 'full'): string =>
+  form === 'full' ? `${clause}${SYNC_NEXT_STEP}` : clause
+
+/** Whether a gap line carries the full sentence's cadence, i.e. the screen's one full form is taken. */
+export const carriesCadence = (text: string | null | undefined): boolean =>
+  text != null && text.endsWith(SYNC_NEXT_STEP)
 
 /**
  * An empty chart card's one wording: what is missing, the window it is missing from, and the next
  * step. The cause is always the same: no synced day in the window.
  */
-export const chartEmpty = (metric: string, windowDays: number): string =>
-  `No ${metric} in ${thisWindow(windowDays)}${SYNC_NEXT_STEP}`
+export const chartEmpty = (metric: string, windowDays: number, form?: GapForm): string =>
+  gapText(`No ${metric} in ${thisWindow(windowDays)}`, form)
 
 /**
  * What the fitness cell says when none of its reads holds a reading, once (its meter's empty
@@ -333,13 +355,17 @@ export function fitnessGap(input: {
   status: QueryStatus
   placeholder: boolean
   hasReading: boolean
+  form?: GapForm
 }): string | undefined {
-  const { status, placeholder, hasReading } = input
+  const { status, placeholder, hasReading, form } = input
   // Readings that did load stay: a partial failure replaces the cell only when nothing is left to show.
   if (hasReading) return undefined
   if (status === 'error') return 'The fitness readings failed to load'
   if (status === 'pending' || placeholder) return undefined
-  return `No RHR or HRV in this ${withUnit(FITNESS_DAYS, 'd')} window and no VO2max in ${withUnit(VO2_DAYS, 'd')}${SYNC_NEXT_STEP}`
+  return gapText(
+    `No RHR or HRV in this ${withUnit(FITNESS_DAYS, 'd')} window and no VO2max in ${withUnit(VO2_DAYS, 'd')}`,
+    form,
+  )
 }
 
 /**
@@ -358,6 +384,8 @@ export function recoveryGap(input: {
   /** The inputs the unscored day could not score from, e.g. `['HRV', 'sleep']`; empty names nothing. */
   missing?: readonly RecoveryInput[]
   today?: Date
+  /** `short` drops the unscored-input detail and the cadence: the leading clause alone. */
+  form?: GapForm
 }): { headline: string; line: string | null } {
   const {
     date,
@@ -366,6 +394,7 @@ export function recoveryGap(input: {
     last = null,
     windowDays = 0,
     missing = [],
+    form = 'full',
   } = input
   const today = input.today ?? new Date()
   if (status === 'pending') return { headline: 'recovery loading', line: null }
@@ -381,15 +410,18 @@ export function recoveryGap(input: {
     date != null && missing.length > 0
       ? `${NBSP}· ${dayLabel(date, 'day', today).replaceAll(' ', NBSP)}: ${missing.join(', ')} not scored`
       : ''
-  const cadence = SYNC_NEXT_STEP
+  const detail = form === 'full' ? why : ''
   if (last !== null) {
     const lastDay = dayLabel(last.date).replaceAll(' ', NBSP)
     return {
       headline,
-      line: `Last scored ${fmtNum(last.value)}/100 on ${lastDay}${why}${cadence}`,
+      line: gapText(`Last scored ${fmtNum(last.value)}/100 on ${lastDay}${detail}`, form),
     }
   }
-  return { headline, line: `No score in ${thisWindow(windowDays)}${why}${cadence}` }
+  return {
+    headline,
+    line: gapText(`No score in ${thisWindow(windowDays)}${detail}`, form),
+  }
 }
 
 // ── Strip ──────────────────────────────────────────────────────────────────

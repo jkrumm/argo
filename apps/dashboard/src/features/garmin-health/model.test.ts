@@ -23,6 +23,7 @@ import {
   lastScored,
   loadGap,
   chartEmpty,
+  carriesCadence,
   mean,
   missingInputs,
   recoveryFact,
@@ -93,7 +94,7 @@ describe('summaryParts', () => {
 
   test('a missing recovery leads with the load and states its reason', () => {
     expect(summaryParts({ recovery: null, recoveryDate: '2026-01-05', acwr: 0.62 }).sentence).toBe(
-      'Load under the 0.8 floor; no recovery score for Jan 5',
+      'Load under the 0.8 floor; no recovery score for 5 Jan',
     )
   })
 
@@ -119,7 +120,7 @@ describe('recoveryGap', () => {
 
   test('the headline names the day a missing score is missing for', () => {
     expect(recoveryGap({ date: '2026-01-06', today }).headline).toBe('no recovery score for today')
-    expect(recoveryGap({ date: '2026-01-01', today }).headline).toBe('no recovery score for Jan 1')
+    expect(recoveryGap({ date: '2026-01-01', today }).headline).toBe('no recovery score for 1 Jan')
     expect(recoveryGap({ date: null, today }).headline).toBe('no recovery score for the latest day')
   })
 
@@ -133,19 +134,19 @@ describe('recoveryGap', () => {
 
   test('the cell line names the unscored day and what it could not score from', () => {
     expect(recoveryGap({ ...settled, date: '2026-01-06', missing: ['HRV', 'sleep'] }).line).toBe(
-      'Last scored 62/100 on Jan\u00a01\u00a0· today: HRV, sleep not scored — Garmin syncs every 6\u00a0h',
+      'Last scored 62/100 on 1\u00a0Jan\u00a0· today: HRV, sleep not scored — Garmin syncs every 6\u00a0h',
     )
     expect(recoveryGap({ ...settled, date: '2026-01-02', last: null, missing: ['RHR'] }).line).toBe(
-      'No score in this 30\u00a0d window\u00a0· Jan\u00a02: RHR not scored — Garmin syncs every 6\u00a0h',
+      'No score in this 30\u00a0d window\u00a0· 2\u00a0Jan: RHR not scored — Garmin syncs every 6\u00a0h',
     )
   })
 
   test('with no date or nothing missing the line names no subject', () => {
     expect(recoveryGap({ ...settled, missing: ['HRV'] }).line).toBe(
-      'Last scored 62/100 on Jan\u00a01 — Garmin syncs every 6\u00a0h',
+      'Last scored 62/100 on 1\u00a0Jan — Garmin syncs every 6\u00a0h',
     )
     expect(recoveryGap({ ...settled, date: '2026-01-06', missing: [] }).line).toBe(
-      'Last scored 62/100 on Jan\u00a01 — Garmin syncs every 6\u00a0h',
+      'Last scored 62/100 on 1\u00a0Jan — Garmin syncs every 6\u00a0h',
     )
     expect(missingInputs({ hrv: null, sleep: 30, rhr: null })).toEqual(['HRV', 'RHR'])
     expect(missingInputs({ hrv: 1, sleep: 2, rhr: 3 })).toEqual([])
@@ -156,7 +157,7 @@ describe('recoveryGap', () => {
   })
   test('the last scored day carries its value and day, unit unspaced', () => {
     expect(recoveryGap(settled).line).toBe(
-      'Last scored 62/100 on Jan\u00a01 — Garmin syncs every 6\u00a0h',
+      'Last scored 62/100 on 1\u00a0Jan — Garmin syncs every 6\u00a0h',
     )
   })
   test('no scored day states the window, or none when its length is unknown', () => {
@@ -310,14 +311,14 @@ describe('windows', () => {
 
 describe('null today', () => {
   test('a null final-day score renders a dash and no percentage', () => {
-    const f = activityScoreFact({ when: 'Oct 14', score: null, mean: 410, dayCount: 20 })
+    const f = activityScoreFact({ when: '14 Oct', score: null, mean: 410, dayCount: 20 })
     expect(f.value).toBe('—')
     expect(f.context[0]).toBe('— % of the 600 target')
   })
 
   test('body battery uses one minus glyph and dashes for a missing day', () => {
     const f = bodyBatteryFact({
-      when: 'Oct 14',
+      when: '14 Oct',
       net: -12,
       mean: -3,
       high: null,
@@ -346,9 +347,9 @@ describe('headers name the point they show', () => {
   test("dayLabel is derived from the point's own date", () => {
     expect(dayLabel('2026-10-17', 'day', today)).toBe('today')
     expect(dayLabel('2026-10-17', 'night', today)).toBe('last night')
-    expect(dayLabel('2026-10-16', 'day', today)).toBe('Oct 16')
-    expect(dayLabel('2026-10-16', 'night', today)).toBe('Oct 16')
-    expect(dayLabel('2026-03-02', 'day', today)).toBe('Mar 2')
+    expect(dayLabel('2026-10-16', 'day', today)).toBe('16 Oct')
+    expect(dayLabel('2026-10-16', 'night', today)).toBe('16 Oct')
+    expect(dayLabel('2026-03-02', 'day', today)).toBe('2 Mar')
     expect(dayLabel(null, 'day', today)).toBe('—')
     expect(dayLabel(undefined, 'night', today)).toBe('—')
   })
@@ -360,16 +361,16 @@ describe('headers name the point they show', () => {
   test('a header for a historical point never says today or last night', () => {
     const when = dayLabel('2026-10-14', 'night', today)
     expect(sleepFact({ when, hours: 7, score: 80, meanHours: 7, dayCount: 9 }).unit).toBe(
-      'h Oct 14',
+      'h 14 Oct',
     )
     const day = dayLabel('2026-10-14', 'day', today)
     expect(activityScoreFact({ when: day, score: 100, mean: 200, dayCount: 9 }).unit).toBe(
-      'MET-min Oct 14',
+      'MET-min 14 Oct',
     )
     expect(
       bodyBatteryFact({ when: day, net: 4, mean: 1, high: 90, low: 20, dayCount: 9 }).unit,
-    ).toBe('pts net Oct 14')
-    expect(divergenceFact({ divergence: 1, when: day }).context).toContain('Oct 14')
+    ).toBe('pts net 14 Oct')
+    expect(divergenceFact({ divergence: 1, when: day }).context).toContain('14 Oct')
   })
 })
 
@@ -471,6 +472,41 @@ describe('chartEmpty', () => {
     )
     expect(chartEmpty('sleep', 0)).toBe('No sleep in this window — Garmin syncs every 6\u00a0h')
   })
+
+  test('the short form is the full sentence’s leading clause, verbatim', () => {
+    const full = chartEmpty('sleep', 14)
+    const short = chartEmpty('sleep', 14, 'short')
+    expect(short).toBe('No sleep in this 14\u00a0d window')
+    expect(full.startsWith(short)).toBe(true)
+    expect(carriesCadence(full)).toBe(true)
+    expect(carriesCadence(short)).toBe(false)
+  })
+
+  test('every Garmin gap shares the pair: short is the full form’s prefix', () => {
+    const settled = { status: 'success' as const, placeholder: false }
+    const fitness = { ...settled, hasReading: false }
+    expect(
+      fitnessGap({ ...fitness, form: 'full' })!.startsWith(
+        fitnessGap({ ...fitness, form: 'short' })!,
+      ),
+    ).toBe(true)
+    expect(carriesCadence(fitnessGap({ ...fitness, form: 'short' }))).toBe(false)
+    const load = { acwr: null, ...settled, windowDays: 30 }
+    expect(loadGap({ ...load, form: 'short' })).toBe('No training load in this 30\u00a0d window')
+    const rec = { settled: true, windowDays: 30, date: '2026-01-02', missing: ['RHR' as const] }
+    const full = recoveryGap(rec).line!
+    const short = recoveryGap({ ...rec, form: 'short' }).line!
+    expect(short).toBe('No score in this 30\u00a0d window')
+    expect(full.startsWith(short)).toBe(true)
+    expect(
+      recoveryGap({ ...rec, last: { value: 62, date: '2026-01-01' }, form: 'short' }).line,
+    ).toBe('Last scored 62/100 on 1\u00a0Jan')
+  })
+
+  test('a failed read is its own sentence, never the cadence', () => {
+    expect(carriesCadence('The training load failed to load')).toBe(false)
+    expect(carriesCadence(undefined)).toBe(false)
+  })
 })
 
 describe('ACWR_LEGEND', () => {
@@ -539,7 +575,7 @@ describe('recovery verdict', () => {
 
 describe('recoveryQualifier', () => {
   test('is the score day, and absent when the read has no date', () => {
-    expect(recoveryQualifier('2020-01-02')).toBe('Jan 2')
+    expect(recoveryQualifier('2020-01-02')).toBe('2 Jan')
     expect(recoveryQualifier(undefined)).toBeUndefined()
     expect(recoveryQualifier(null)).toBeUndefined()
   })
