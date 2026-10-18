@@ -184,6 +184,7 @@ export function glowBuckets(cells: readonly GlowCell[]): { mpsas: number; cells:
 
 /** The index of the instant closest to `target` (epoch ms); null for no instants. A tie keeps the earlier one. */
 export function nearestInstantIndex(instants: readonly number[], target: number): number | null {
+  if (!Number.isFinite(target)) return null
   let best: number | null = null
   for (const [i, t] of instants.entries()) {
     const current = best === null ? undefined : instants[best]
@@ -196,4 +197,13 @@ export function nearestInstantIndex(instants: readonly number[], target: number)
 export function medianMpsas(rose: SkyglowRose): number | null {
   const values = rose.mpsas.flat().toSorted((a, b) => a - b)
   return values.length === 0 ? null : values[Math.floor(values.length / 2)]!
+}
+
+/** The index the panorama scrubber opens on: the sample nearest the API's gate instant, else ~45% through the night. */
+export function seedScrubIndex(instants: readonly number[], gateSampleTime: string | null): number {
+  const nearest =
+    gateSampleTime === null
+      ? null
+      : nearestInstantIndex(instants, new Date(gateSampleTime).getTime())
+  return nearest ?? Math.floor(instants.length * 0.45)
 }

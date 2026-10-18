@@ -67,6 +67,16 @@ to clearing the core gate (smallest floor − altitude, the same per-sample floo
 night passes that gate exactly when the altitude is strictly above the floor, and the core killer's
 reason names the same sample. Both are `null` when there is no dark sample. `maxCoreAltitude` is the
 transit altitude, which can fall in daylight, so it is not the figure the gate judges.
+`gateSampleTime` (ISO datetime, UTC) is the instant of that same sample, so a client can line an
+hourly series up with the reading; `null` with no dark sample.
+
+Two more additive fields a client branches on instead of parsing prose. `killers[].cause` tags WHY
+the `core-altitude` gate failed: `ridge` (the measured skyline raised the floor), `floor` (the core
+stayed under the flat atmospheric floor) or `never-rises`; it is absent on every other gate. Branch
+on `cause`, never on `reason`; a value a client does not know falls back to showing `reason`
+verbatim. `factors[].ruinous` is set on the three cloud factors when they have data: `true` once the
+cover reaches that layer's `CLOUD_RUINS_AT` level. It describes a scored factor and never gates: a
+night with a ruinous layer is not `out`.
 
 Engine rules worth knowing: a missing factor is _no data_, not a bad factor — it leaves both
 numerator and denominator and `coverage` (0–1) says how much configured weight had data behind it;

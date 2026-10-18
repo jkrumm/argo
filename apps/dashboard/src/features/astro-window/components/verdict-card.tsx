@@ -4,7 +4,6 @@ import { VX } from 'basalt-ui/tokens'
 import { DecisionCard } from '../../../components/upstream/decision-card'
 import {
   gateRows,
-  lowCloudRow,
   verdictFacts,
   verdictHeadline,
   verdictStatus,
@@ -53,7 +52,7 @@ export function VerdictCard({
   moonLimit: number
 }) {
   const status = verdictStatus(night)
-  const facts = verdictFacts(night, nights, { lowCloudShown: lowCloudRow(night) !== null })
+  const facts = verdictFacts(night, nights)
 
   return (
     <Box data-shot="verdict-card">

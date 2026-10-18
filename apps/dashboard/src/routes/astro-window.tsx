@@ -264,9 +264,11 @@ function AstroWindowPage() {
   const selectedDate = data.detail.date
   const selectedNight = data.nights.find((n) => n.date === selectedDate) ?? data.nights[0] ?? null
   const markedNight = markedNightOf(data)
+  // Where the selected night's miss is stated, once: Tonight's verdict card, or the Forecast timeline
+  // (which has no card). The headline names the closest night's miss only for ANOTHER night.
+  const timelineNamesMiss = search.tab === 'forecast'
   const summary = pageSummary(data, {
     withWindow: search.tab === 'forecast',
-    // The selected night's own card (Tonight) or timeline fact (Forecast) states its miss.
     withMiss: markedNight?.date !== selectedDate,
   })
 
@@ -346,7 +348,7 @@ function AstroWindowPage() {
                 <NightTimelineChart
                   hourly={data.detail.hourly}
                   night={selectedNight}
-                  withMiss={false}
+                  withMiss={timelineNamesMiss}
                 />
               }
             />
@@ -390,7 +392,11 @@ function AstroWindowPage() {
           {search.tab === 'forecast' && selectedNight && (
             <>
               <Box data-shot="night-timeline">
-                <NightTimelineChart hourly={data.detail.hourly} night={selectedNight} withMiss />
+                <NightTimelineChart
+                  hourly={data.detail.hourly}
+                  night={selectedNight}
+                  withMiss={timelineNamesMiss}
+                />
               </Box>
               <Box data-shot="cloud-layers">
                 <CloudLayersChart hourly={data.detail.hourly} date={selectedDate} />

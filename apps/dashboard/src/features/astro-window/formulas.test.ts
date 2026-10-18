@@ -20,6 +20,9 @@ import {
   lowCloudRow,
   gateRows,
   moonGateDetail,
+  coreGaugeMax,
+  drawsGateBar,
+  darknessDetail,
   nightBar,
   limitingFactor,
   verdictFacts,
@@ -422,8 +425,11 @@ describe('nextUsableText', () => {
 
 describe('windowFact', () => {
   test('a GO night states length and range; an OUT night with no window states the missed gate', () => {
-    expect(windowFact(goNight)).toEqual({ value: '2h 30m', period: 'shooting window 23:10–01:40' })
-    expect(windowFact(outNight('2026-06-13', 8, 4.1))).toEqual({
+    expect(windowFact(goNight, { withMiss: true })).toEqual({
+      value: '2h 30m',
+      period: 'shooting window 23:10–01:40',
+    })
+    expect(windowFact(outNight('2026-06-13', 8, 4.1), { withMiss: true })).toEqual({
       value: 'No window',
       period: 'core 3.9° under its gate',
     })
@@ -437,7 +443,7 @@ describe('windowFact', () => {
   })
 
   test('a usable night with no window never reads "ruled out"', () => {
-    expect(windowFact({ ...goNight, window: null } as Night)).toEqual({
+    expect(windowFact({ ...goNight, window: null } as Night, { withMiss: true })).toEqual({
       value: 'No window',
       period: 'none within the dark',
     })
@@ -478,7 +484,10 @@ describe('windowFact on a moon-gated night', () => {
       verdict: 'out',
       killers: [{ id: 'moon', label: 'Moon', reason: 'r' }],
     } as unknown as Night
-    expect(windowFact(moonOut)).toEqual({ value: '2h 30m', period: '23:10–01:40 · moon' })
+    expect(windowFact(moonOut, { withMiss: true })).toEqual({
+      value: '2h 30m',
+      period: '23:10–01:40 · moon',
+    })
     expect(windowFact(moonOut, { withMiss: false }).period).toBe('shooting window 23:10–01:40')
   })
 })
@@ -589,7 +598,6 @@ describe('moonGateDetail', () => {
   })
   test('a pass states the illumination against the response limit', () => {
     expect(moonGateDetail(night([]), 0.5)).toBe('46 % lit · limit 50 %')
-    expect(moonGateDetail(night([], 0), 0.5)).toBe('no astronomical night')
   })
 })
 
@@ -609,7 +617,7 @@ describe('gateRows', () => {
       ['darkness', 'passed', 'good'],
       ['core-altitude', 'passed', 'good'],
       ['moon', 'passed', 'good'],
-      ['cloud-low', 'ruinous · scored, not a gate', 'warn'],
+      ['cloud-low', 'ruinous · scored, not a gate', 'neutral'],
     ])
   })
 
@@ -638,23 +646,93 @@ describe('limitingFactor', () => {
 describe('verdictFacts', () => {
   test('an OUT night names its day and the next usable night, no gate list', () => {
     const out = outNight('2026-06-13', 8, 4)
-    expect(verdictFacts(out, [out], { lowCloudShown: false })).toEqual([
-      'Sat 13',
-      'no later night in this range',
-    ])
+    expect(verdictFacts(out, [out])).toEqual(['Sat 13', 'no later night in this range'])
   })
 
   test('a usable night names its limiting factor unless the low-cloud row already does', () => {
-    const night = {
+    const base = {
       ...goNight,
       score: 61,
-      factors: [{ id: 'cloud-low', label: 'Low cloud', weight: 5, value: 0.1 }],
-    } as unknown as Night
-    expect(verdictFacts(night, [night], { lowCloudShown: false })).toEqual([
+      weather: { cloudLow: 70 },
+    }
+    const night = (ruinous: boolean) =>
+      ({
+        ...base,
+        factors: [{ id: 'cloud-low', label: 'Low cloud', weight: 5, value: 0.1, ruinous }],
+      }) as unknown as Night
+    expect(verdictFacts(night(false), [night(false)])).toEqual([
       'score 61/100',
       'limited by low cloud 10 %',
     ])
-    expect(verdictFacts(night, [night], { lowCloudShown: true })).toEqual(['score 61/100'])
+    expect(verdictFacts(night(true), [night(true)])).toEqual(['score 61/100'])
+  })
+})
+
+describe('moon gate row on a pass', () => {
+  const passed = (maxMoonAltitude: number, windowNull = false) =>
+    ({
+      killers: [],
+      darkMinutes: 300,
+      moon: { illumination: 0.96 },
+      window: windowNull ? null : { maxMoonAltitude },
+    }) as unknown as Night
+
+  test('over the limit it says why it passed, never a bare contradiction', () => {
+    expect(moonGateDetail(passed(-10), 0.25)).toBe(
+      '96 % lit, over the 25 % limit · down through the shooting window',
+    )
+    expect(moonGateDetail(passed(12), 0.25)).toBe(
+      '96 % lit, over the 25 % limit · behind the skyline in the shooting window',
+    )
+    expect(moonGateDetail(passed(0, true), 0.25)).toBe(
+      '96 % lit, over the 25 % limit · passed on its position',
+    )
+  })
+})
+
+describe('gateRows with no astronomical night', () => {
+  test('core and moon are n/a and neutral; darkness carries the failure', () => {
+    const night = {
+      ...goNight,
+      darkMinutes: 0,
+      moon: { illumination: 0.1 },
+      weather: { cloudLow: null },
+      killers: [{ id: 'darkness', label: 'Darkness', reason: 'no night' }],
+      factors: [],
+    } as unknown as Night
+    expect(gateRows(night, 0.25).map((r) => [r.key, r.state, r.tone])).toEqual([
+      ['darkness', 'failed', 'warn'],
+      ['core-altitude', 'n/a', 'neutral'],
+      ['moon', 'n/a', 'neutral'],
+    ])
+    expect(darknessDetail(night)).toBe('no night')
+  })
+
+  test('the ruinous low-cloud row is neutral, never the failed-gate tone', () => {
+    const night = {
+      ...goNight,
+      darkMinutes: 300,
+      moon: { illumination: 0.1 },
+      weather: { cloudLow: 70 },
+      killers: [],
+      factors: [{ id: 'cloud-low', label: 'Low cloud', value: 0, ruinous: true }],
+    } as unknown as Night
+    expect(gateRows(night, 0.25).at(-1)?.tone).toBe('neutral')
+  })
+})
+
+describe('core gauge and gate bar', () => {
+  test('the gauge domain widens to a gate above the usual scale', () => {
+    expect(coreGaugeMax(8)).toBe(30)
+    expect(coreGaugeMax(34)).toBe(34)
+  })
+
+  test('only an out night with a reading and a gate draws a gate bar', () => {
+    expect(drawsGateBar(outNight('2026-06-13', 8, 4))).toBe(true)
+    expect(drawsGateBar(goNight)).toBe(false)
+    expect(drawsGateBar({ ...outNight('2026-06-13', 8, 4), coreGateDeg: null } as Night)).toBe(
+      false,
+    )
   })
 })
 

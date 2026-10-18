@@ -47,7 +47,7 @@
 }
 
 .cell:focus-visible {
-  outline: 2px solid var(--vx-ink);
+  outline: 2px solid var(--vx-accent);
   outline-offset: -2px;
 }
 
