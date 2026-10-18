@@ -119,7 +119,7 @@ export function rateCell({
   return {
     key: 'rate',
     caption: 'Rate',
-    qualifier: `${rateDays}${NBSP}d slope to ${dateLabel(latestDate) ?? 'latest entry'}`,
+    qualifier: `${rateDays}${NBSP}d slope to ${dateLabel(latestDate) ?? 'latest entry'}, maintain \u00b1${RATE_NEUTRAL_KG_WK}${NBSP}kg/wk`,
     value: rate === null ? null : signed(rate, 2),
     unit: 'kg/wk',
     visual: (
@@ -130,16 +130,16 @@ export function rateCell({
         max={RATE_SCALE_KG_WK}
         format={(v) => `${signed(v, 2)}\u00a0kg/wk`}
         zones={[
-          { from: -RATE_SCALE_KG_WK, to: -RATE_NEUTRAL_KG_WK, label: 'Cut', short: 'Cut' },
+          { from: -RATE_SCALE_KG_WK, to: -RATE_NEUTRAL_KG_WK, label: 'Cut' },
           {
             from: -RATE_NEUTRAL_KG_WK,
             to: RATE_NEUTRAL_KG_WK,
-            label: `Maintenance \u00b1${RATE_NEUTRAL_KG_WK}${NBSP}kg/wk`,
+            label: 'Maintenance',
             short: 'Maintain',
           },
-          { from: RATE_NEUTRAL_KG_WK, to: RATE_SCALE_KG_WK, label: 'Bulk', short: 'Bulk' },
+          { from: RATE_NEUTRAL_KG_WK, to: RATE_SCALE_KG_WK, label: 'Bulk' },
         ]}
-        startCaption={`maintain \u00b1${RATE_NEUTRAL_KG_WK}${NBSP}kg/wk`}
+        startCaption={null}
         emptyText="No rate yet"
       />
     ),

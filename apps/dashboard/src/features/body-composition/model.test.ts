@@ -402,7 +402,7 @@ describe('one fixture, two live-review items', () => {
     )
     expect(rateFooter({ rate: -0.0999, entries: 9 })).toBe('Under 0.1\u00a0kg/wk either way')
     expect(rateFooter({ rate: null, entries: 1 })).toBe(
-      'A rate needs two weigh-ins at least 3 days apart',
+      'A rate needs two weigh-ins at least 3\u00a0d apart',
     )
     expect(rateFooter({ rate: null, entries: 0 })).toBe('No weigh-ins in this window')
     expect(rateFooter({ rate: null, entries: 0, status: 'pending' })).toBe('Loading the rate')
