@@ -121,7 +121,7 @@ export default function HealthCard({
               formatX={(d) => shortDay(d)}
               legend={false}
               cursorResolution="leading"
-              y={{ format: fmtSecondsDay, ticks: 2 }}
+              y={{ format: fmtSecondsDay, ticks: 2, autoPad: 1.3 }}
               series={[
                 {
                   key: 'p95',

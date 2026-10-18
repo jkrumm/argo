@@ -47,6 +47,7 @@ import {
   type BillingPart,
   type Prior,
 } from './model'
+import { NBSP } from '../../lib/format'
 
 import { ErrorBand, Trend, type Daily } from './usage-visuals'
 
@@ -274,7 +275,7 @@ function p95Cell({ h, loading }: Ctx, p95: Series): StatStripCell {
       ),
       worst === null || worst.value === null
         ? null
-        : `slowest day ${secondsQuantity(worst.value).value} s, ${shortDay(worst.date)}`,
+        : `slowest day ${secondsQuantity(worst.value).value}${NBSP}s, ${shortDay(worst.date)}`,
       vs.note,
     ]),
   }

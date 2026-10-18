@@ -59,7 +59,7 @@ export function tokensQuantity(n: number | null | undefined): Quantity {
 
 export function fmtTokens(n: number | null | undefined): string {
   const q = tokensQuantity(n)
-  return q.unit === '' ? q.value : `${q.value}${q.unit}`
+  return q.unit === '' ? q.value : `${q.value}${NBSP}${q.unit}`
 }
 
 /** A 0–1 ratio as a percentage with `digits` decimals. */
@@ -111,10 +111,7 @@ export const fmtSecondsBadge = (v: number) => `${Math.abs(v).toFixed(1)} s`
 
 /** Sparkline readouts, each with its unit. */
 export const fmtUsdDay = (v: number) => `$${v.toFixed(2)}`
-export const fmtTokensDay = (v: number) => {
-  const q = tokensQuantity(v)
-  return `${q.value}${q.unit} tokens`
-}
+export const fmtTokensDay = (v: number) => `${fmtTokens(v)} tokens`
 export const fmtSecondsDay = (v: number) => {
   const q = secondsQuantity(v)
   return q.unit === '' ? q.value : `${q.value} ${q.unit}`
@@ -440,14 +437,14 @@ function ageMinutes(iso: string | null | undefined, now: number): number | null 
 // ── Copy ─────────────────────────────────────────────────────────────────────────────────────
 
 export type SummaryInput = {
-  cost7d: number | null
+  cost30d: number | null
   /** Pre-formatted age from `relativeTime`, or `null` when the feed has no record. */
   lastEvent: string | null
 }
 
-/** `{$} spent in the last 7 d` — the page's answer; the 30 d spend is the strip's Cost cell. */
-export function summarySentence(s: Pick<SummaryInput, 'cost7d'>): string {
-  return `${fmtUsdWhole(s.cost7d)} spent in the last ${D7}`
+/** `{$} spent in the last 30 d` — the page's answer, the same window and figure as the strip's Cost cell. */
+export function summarySentence(s: Pick<SummaryInput, 'cost30d'>): string {
+  return `${fmtUsdWhole(s.cost30d)} spent in the last ${D30}`
 }
 
 /** The facts line under the sentence: active sources and the last event (the strip owns the rest). */
@@ -527,8 +524,8 @@ export function cacheUnderLine(days: readonly (number | null)[]): string | null 
 }
 
 /**
- * Whether a card prints its window's total. The strip owns the unfiltered 30 d figures and the
- * headline the unfiltered 7 d spend, so those are not repeated; any filter, a 7 d token total, and
+ * Whether a card prints its window's total. The strip owns the unfiltered 30 d figures (the headline repeats the
+ * spend), so those are not repeated; any filter, 7 d totals, and
  * 90 d / all-time windows have no other home and print it.
  */
 export function printTotal(input: {
@@ -537,6 +534,5 @@ export function printTotal(input: {
   metric: 'cost' | 'tokens'
 }): boolean {
   if (input.filtered) return true
-  if (input.range === '30d') return false
-  return !(input.range === '7d' && input.metric === 'cost')
+  return input.range !== '30d'
 }

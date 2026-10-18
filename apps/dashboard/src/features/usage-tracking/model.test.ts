@@ -64,7 +64,7 @@ describe('tokens and latency units', () => {
   it('scales tokens to B / M / k and keeps the unit apart', () => {
     expect(tokensQuantity(2_340_000_000)).toEqual({ value: '2.3', unit: 'B' })
     expect(tokensQuantity(5_600_000)).toEqual({ value: '5.6', unit: 'M' })
-    expect(fmtTokens(2_340_000_000)).toBe('2.3B')
+    expect(fmtTokens(2_340_000_000)).toBe('2.3\u00a0B')
     expect(fmtTokens(null)).toBe('—')
   })
   it('converts milliseconds to seconds, null stays a dash', () => {
@@ -156,7 +156,7 @@ describe('error days', () => {
 describe('freshness and copy', () => {
   const now = Date.parse('2026-10-17T12:00:00Z')
   it('the headline sentence carries the spend, the facts carry the rest', () => {
-    expect(summarySentence({ cost7d: 300 })).toBe('$300 spent in the last 7\u00a0d')
+    expect(summarySentence({ cost30d: 300 })).toBe('$300 spent in the last 30\u00a0d')
     expect(summaryFacts({ sources: 7, lastEvent: '3 minutes ago' })).toEqual([
       '7 sources active',
       'last event 3 minutes ago',
@@ -275,7 +275,7 @@ describe('badge deltas', () => {
 describe('readout formatters', () => {
   it('every readout carries its unit', () => {
     expect(fmtUsdDay(12.4)).toBe('$12.40')
-    expect(fmtTokensDay(3_200_000)).toBe('3.2M tokens')
+    expect(fmtTokensDay(3_200_000)).toBe('3.2\u00a0M tokens')
     expect(fmtTokensDay(950)).toBe('950 tokens')
     expect(fmtSecondsDay(1800)).toBe('1.8 s')
     expect(fmtSecondsDay(Number.NaN)).toBe('—')
@@ -395,11 +395,11 @@ describe('dropPartialBucket', () => {
 })
 
 describe('printTotal', () => {
-  it('prints a total only where the strip and headline do not', () => {
+  it('prints a total only where the strip does not', () => {
     const base = { filtered: false, metric: 'cost' } as const
     expect(printTotal({ ...base, range: '30d' })).toBe(false)
     expect(printTotal({ ...base, range: '30d', metric: 'tokens' })).toBe(false)
-    expect(printTotal({ ...base, range: '7d' })).toBe(false)
+    expect(printTotal({ ...base, range: '7d' })).toBe(true)
     expect(printTotal({ ...base, range: '7d', metric: 'tokens' })).toBe(true)
     expect(printTotal({ ...base, range: '90d' })).toBe(true)
     expect(printTotal({ ...base, range: 'all' })).toBe(true)
