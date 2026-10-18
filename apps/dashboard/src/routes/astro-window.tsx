@@ -1,12 +1,13 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Suspense, useCallback, useDeferredValue, useMemo } from 'react'
-import { Box, Center, Grid, Loader, Stack, Text, useComputedColorScheme } from '@mantine/core'
+import { Box, Center, Grid, Loader, Stack, useComputedColorScheme } from '@mantine/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { z } from 'zod'
-import { PageBar, Section } from 'basalt-ui'
+import { PageBar } from 'basalt-ui'
 import { CONTAINER_GRID_BREAKPOINTS } from 'basalt-ui/tokens'
 import { ChartCard } from 'basalt-ui/charts'
 import { FilterSet, NumberFilter, SelectFilter, ViewTabs } from 'basalt-ui/controls'
+import { PageSummary } from '../components/upstream/page-summary'
 import { astroStore } from '../lib/window-stores'
 import {
   CHART_HEIGHT,
@@ -25,9 +26,7 @@ import {
   TonightTop,
   VerdictCard,
   bestNightOf,
-  fmtShortDay,
-  fmtMinutes,
-  usableNightCount,
+  pageSummary,
   BASE_LAYER_IDS,
   DEFAULT_LP_YEAR,
   formatLpParam,
@@ -38,8 +37,6 @@ import {
   parseWeatherParam,
   SCHEME_DEFAULT_BASE,
   type MapLayerState,
-  type Night,
-  type WindowResponse,
 } from '../features/astro-window'
 import { astroQueries, type AstroWindowParams } from '../lib/queries/astro'
 
@@ -162,24 +159,6 @@ export const Route = createFileRoute('/astro-window')({
 
 // ── Page component ─────────────────────────────────────────────────────────
 
-/** The page's one summary sentence, split heading/subtitle: the live usable count, then what decides it. */
-function summaryOf(data: WindowResponse, best: Night | null) {
-  const usable = usableNightCount(data.nights)
-  const title = `${usable} of ${data.nights.length} nights usable`
-  if (best === null) return { title, detail: undefined }
-  if (data.bestWindow !== null) {
-    const w = data.bestWindow
-    return {
-      title,
-      detail: `best ${fmtShortDay(w.date)} · ${w.localStart}–${w.localEnd} · ${fmtMinutes(w.minutes)}`,
-    }
-  }
-  return {
-    title,
-    detail: `closest night ${fmtShortDay(best.date)}`,
-  }
-}
-
 function AstroWindowPage() {
   const search = Route.useSearch()
   const navigate = useNavigate()
@@ -286,7 +265,7 @@ function AstroWindowPage() {
   const selectedDate = data.detail.date
   const selectedNight = data.nights.find((n) => n.date === selectedDate) ?? data.nights[0] ?? null
   const bestNight = bestNightOf(data)
-  const summary = summaryOf(data, bestNight)
+  const summary = pageSummary(data)
 
   return (
     <>
@@ -349,65 +328,57 @@ function AstroWindowPage() {
           />
         </Suspense>
       ) : (
-        <Section title={summary.title}>
-          <Stack gap="sm">
-            {summary.detail !== undefined && (
-              <Text size="sm" c="dimmed">
-                {summary.detail}
-              </Text>
-            )}
-            {search.tab === 'tonight' && selectedNight && (
-              <TonightTop
-                verdict={<VerdictCard night={selectedNight} />}
-                gates={<GatesCard night={selectedNight} moonLimit={data.moonMaxIllumination} />}
-                timeline={<NightTimelineChart hourly={data.detail.hourly} night={selectedNight} />}
-              />
-            )}
-
-            <NightStrip
-              nights={data.nights}
-              selectedDate={selectedDate}
-              markedDate={bestNight?.date ?? null}
-              onSelect={handleSelectDate}
+        <Stack gap="sm">
+          <PageSummary sentence={summary.sentence} facts={summary.facts} aside={summary.aside} />
+          {search.tab === 'tonight' && selectedNight && (
+            <TonightTop
+              verdict={<VerdictCard night={selectedNight} />}
+              gates={<GatesCard night={selectedNight} moonLimit={data.moonMaxIllumination} />}
+              timeline={<NightTimelineChart hourly={data.detail.hourly} night={selectedNight} />}
             />
+          )}
 
-            {search.tab === 'tonight' && selectedNight && (
-              <>
-                <Grid
-                  type="container"
-                  breakpoints={CONTAINER_GRID_BREAKPOINTS}
-                  gap="sm"
-                  align="start"
-                >
-                  <Grid.Col span={{ base: 12, lg: 9 }}>
-                    <NightAnatomy
-                      night={selectedNight}
-                      location={data.location}
-                      moonLimit={data.moonMaxIllumination}
-                    />
-                  </Grid.Col>
-                  <Grid.Col span={{ base: 12, lg: 3 }}>
-                    <ScoreCard night={selectedNight} />
-                  </Grid.Col>
-                </Grid>
-                <SourcesFooter
-                  sources={data.sources}
-                  darknessSource={data.location.darknessSource}
-                />
-              </>
-            )}
+          <NightStrip
+            nights={data.nights}
+            selectedDate={selectedDate}
+            markedDate={bestNight?.date ?? null}
+            onSelect={handleSelectDate}
+          />
 
-            {search.tab === 'forecast' && selectedNight && (
-              <>
-                <Box data-shot="night-timeline">
-                  <NightTimelineChart hourly={data.detail.hourly} night={selectedNight} />
-                </Box>
-                <Box data-shot="cloud-layers">
-                  <CloudLayersChart hourly={data.detail.hourly} date={selectedDate} />
-                </Box>
-                {selectedSite ? (
-                  <>
-                    {/*
+          {search.tab === 'tonight' && selectedNight && (
+            <>
+              <Grid
+                type="container"
+                breakpoints={CONTAINER_GRID_BREAKPOINTS}
+                gap="sm"
+                align="start"
+              >
+                <Grid.Col span={{ base: 12, lg: 9 }}>
+                  <NightAnatomy
+                    night={selectedNight}
+                    location={data.location}
+                    moonLimit={data.moonMaxIllumination}
+                  />
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, lg: 3 }}>
+                  <ScoreCard night={selectedNight} />
+                </Grid.Col>
+              </Grid>
+              <SourcesFooter sources={data.sources} darknessSource={data.location.darknessSource} />
+            </>
+          )}
+
+          {search.tab === 'forecast' && selectedNight && (
+            <>
+              <Box data-shot="night-timeline">
+                <NightTimelineChart hourly={data.detail.hourly} night={selectedNight} />
+              </Box>
+              <Box data-shot="cloud-layers">
+                <CloudLayersChart hourly={data.detail.hourly} date={selectedDate} />
+              </Box>
+              {selectedSite ? (
+                <>
+                  {/*
                       Each chart owns its own Suspense. Both charts are Wave 9 stubs that fetch
                       nothing today. Their upstreams legitimately 502 (the DEM bucket, the Lorenz
                       atlas), and the 1.x per-chart error boundary is gone (`BasaltErrorBoundary`
@@ -415,41 +386,37 @@ function AstroWindowPage() {
                       `ChartCard state={{ error }}` or one chart's 502 reaches the route's error
                       component.
                     */}
-                    <Suspense
-                      fallback={
-                        <ChartCard state={{ pending: true }} placeholderHeight={PANORAMA_HEIGHT} />
-                      }
-                    >
-                      <Box data-shot="sky-panorama">
-                        <SkyPanorama
-                          key={`${selectedSite.id}-${selectedDate}`}
-                          site={selectedSite}
-                          detailDate={selectedDate}
-                          hourly={data.detail.hourly}
-                          moonIllumination={selectedNight.moon.illumination}
-                        />
-                      </Box>
-                    </Suspense>
-                    <Suspense
-                      fallback={
-                        <ChartCard state={{ pending: true }} placeholderHeight={CHART_HEIGHT} />
-                      }
-                    >
-                      <Box data-shot="annual-budget">
-                        <MonthlyBudgetChart site={selectedSite} />
-                      </Box>
-                    </Suspense>
-                  </>
-                ) : (
-                  <ChartCard
-                    state={{ empty: 'Unknown site' }}
-                    placeholderHeight={PANORAMA_HEIGHT}
-                  />
-                )}
-              </>
-            )}
-          </Stack>
-        </Section>
+                  <Suspense
+                    fallback={
+                      <ChartCard state={{ pending: true }} placeholderHeight={PANORAMA_HEIGHT} />
+                    }
+                  >
+                    <Box data-shot="sky-panorama">
+                      <SkyPanorama
+                        key={`${selectedSite.id}-${selectedDate}`}
+                        site={selectedSite}
+                        detailDate={selectedDate}
+                        hourly={data.detail.hourly}
+                        moonIllumination={selectedNight.moon.illumination}
+                      />
+                    </Box>
+                  </Suspense>
+                  <Suspense
+                    fallback={
+                      <ChartCard state={{ pending: true }} placeholderHeight={CHART_HEIGHT} />
+                    }
+                  >
+                    <Box data-shot="annual-budget">
+                      <MonthlyBudgetChart site={selectedSite} />
+                    </Box>
+                  </Suspense>
+                </>
+              ) : (
+                <ChartCard state={{ empty: 'Unknown site' }} placeholderHeight={PANORAMA_HEIGHT} />
+              )}
+            </>
+          )}
+        </Stack>
       )}
     </>
   )

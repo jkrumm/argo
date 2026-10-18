@@ -12,7 +12,7 @@ import { astroQueries } from '../../../lib/queries/astro'
 import { SERIES } from '../../../lib/series'
 import { LP_RAMP } from '../map-layers'
 import { METRIC_TOOLTIPS, PANORAMA_HEIGHT } from '../constants'
-import { fmtDegrees, fmtMinutes, fmtShortDay } from '../formulas'
+import { fmtDegrees, fmtShortDay } from '../formulas'
 import type { HourlyPoint, Site } from '../types'
 import {
   ALT_DOMAIN,
@@ -133,16 +133,6 @@ function rampFill(mpsasValue: number): string {
   const mixed = `color-mix(in srgb, ${b.token} ${Math.round(frac * 100)}%, ${a.token} ${Math.round((1 - frac) * 100)}%)`
   const opacity = a.alpha + (b.alpha - a.alpha) * frac
   return alpha(mixed, opacity)
-}
-
-function stepMinutesOf(samples: readonly { time: string }[]): number {
-  const t0Sample = samples[0]
-  const t1Sample = samples[1]
-  if (!t0Sample || !t1Sample) return 30
-  const t0 = new Date(t0Sample.time).getTime()
-  const t1 = new Date(t1Sample.time).getTime()
-  const diff = Math.round((t1 - t0) / 60_000)
-  return diff > 0 ? diff : 30
 }
 
 /** The moment the core is highest while astronomically dark — the shot, and what a reader wants
@@ -279,10 +269,6 @@ function PanoramaLoaded({
 
   const skyline = (az: number) => bandValue(profile, 'altitudeDeg', az)
   const gate = (az: number) => gateAt(profile, atmosphericFloorDeg, framingMarginDeg, az)
-
-  const stepMinutes = stepMinutesOf(samples)
-  const gateMinutes =
-    samples.filter((s) => s.astroDark && s.coreAltitude >= gate(s.coreAzimuth)).length * stepMinutes
 
   const sample = samples[idx] ?? samples[0]!
   const dark = darkness(sample.sunAltitude)
@@ -484,16 +470,6 @@ function PanoramaLoaded({
     <ChartCard
       title={`Skyline, skyglow and tracks · ${fmtShortDay(detailDate)}`}
       info={METRIC_TOOLTIPS.skyPanorama}
-      actions={
-        <Box component="span" style={{ fontSize: VX.text.xs }}>
-          <Box component="span" style={{ fontWeight: 600, fontSize: VX.text.sm }}>
-            {gateMinutes === 0 ? 'No time' : fmtMinutes(gateMinutes)}
-          </Box>
-          <Box component="span" ml={6} style={{ opacity: 0.6 }}>
-            above the gate · {fmtShortDay(detailDate)}
-          </Box>
-        </Box>
-      }
     >
       <CartesianChart
         ariaLabel="Azimuth by altitude panorama of the terrain skyline, artificial skyglow, and the sun, moon and galactic-core tracks across the night"
