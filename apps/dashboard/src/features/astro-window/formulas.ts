@@ -2,7 +2,7 @@ import { VX } from 'basalt-ui/tokens'
 import { percent, weekday } from 'basalt-ui/format'
 import type { ChartFact } from 'basalt-ui/charts'
 import { withUnit } from '../../lib/format'
-import { CORE_METER_MAX_DEG, CORE_UNIT, MIN_BAR_SHARE, SKY_DARK_THRESHOLD } from './constants'
+import { CORE_METER_MAX_DEG, MIN_BAR_SHARE, SKY_DARK_THRESHOLD } from './constants'
 import type { Killer, Night, Verdict, WindowResponse } from './types'
 
 /** Verdict → tone. `out` is a hard gate, not a low score, so it reads neutral, never red. */
@@ -186,7 +186,10 @@ export function coreGateDetail(night: Night): string {
  */
 export function moonGateDetail(night: Night, moonLimit: number): string {
   const killer = night.killers.find((k) => k.id === 'moon')
-  if (killer !== undefined) return killer.reason
+  if (killer !== undefined) {
+    const rest = killer.reason.replace(/^moon \d+% illuminated\s*(and\s*)?/, '')
+    return rest === '' ? 'over limit' : rest
+  }
   if (night.moon.illumination < moonLimit) return 'under limit'
   const shoot = night.window
   if (shoot === null) return 'over limit, position passed'
@@ -441,10 +444,23 @@ export function windowFact(
   }
 }
 
+/** `mid {m} %` / `high {h} %`: the other two layers, the same statistic as the low value; a layer without data is left out. */
+function layerParts(night: Night): string[] {
+  const { cloudMid, cloudHigh } = night.weather
+  return [
+    ...(cloudMid === null || cloudMid === undefined
+      ? []
+      : [`mid ${withUnit(Math.floor(cloudMid), '%')}`]),
+    ...(cloudHigh === null || cloudHigh === undefined
+      ? []
+      : [`high ${withUnit(Math.floor(cloudHigh), '%')}`]),
+  ]
+}
+
 type LowCloudStat = {
   value: string
   unit: string
-  /** Names the statistic's window, nothing else. */
+  /** The mid and high layer values, then the statistic's window. */
   footer: string
   /** The reading and the limit tick for the gauge; the tick only when the night has the shooting window the limit applies to. */
   reading: number
@@ -465,7 +481,7 @@ export function lowCloudStat(night: Night, limit: number | undefined): LowCloudS
   return {
     value: withUnit(reading, '%'),
     unit: 'low cloud',
-    footer: scored ? 'shooting-window mean' : 'dark-hours mean',
+    footer: [...layerParts(night), scored ? 'shooting-window mean' : 'dark-hours mean'].join(' · '),
     reading,
     target: scored && limit !== undefined ? limit : null,
   }
@@ -517,12 +533,17 @@ export function lowCloudRuinous(night: Night): boolean {
   return factor?.ruinous === true && night.weather.cloudLow !== null
 }
 
+/** Low cloud is the factor holding the score back (the engine's lowest factor, under 80 %): the verdict card carries it as a row. */
+function lowCloudLimiting(night: Night): boolean {
+  return limitingFactor(night)?.id === 'cloud-low' && night.weather.cloudLow !== null
+}
+
 /** The verdict card's facts line. A usable night names its score and the factor holding it back, unless the low-cloud row already says it. */
 export function verdictFacts(night: Night, nights: readonly Night[]): string[] {
   if (night.verdict === 'out') return [fmtShortDay(night.date), nextUsableText(nights, night.date)]
   const limiting = limitingFactor(night)
   const named =
-    limiting === null || (limiting.id === 'cloud-low' && lowCloudRuinous(night))
+    limiting === null || limiting.id === 'cloud-low'
       ? null
       : `limited by ${limiting.label.toLowerCase()} ${limiting.pct} %`
   return [`score ${night.score}/100`, ...(named === null ? [] : [named])]
@@ -560,11 +581,11 @@ export function gateRows(night: Night, moonLimit: number): GateRowModel[] {
     gate('core-altitude', 'Core', coreGateDetail(night), dark),
     gate('moon', 'Moon', moonGateDetail(night, moonLimit), dark),
   ]
-  if (lowCloudRuinous(night)) {
+  if (lowCloudRuinous(night) || lowCloudLimiting(night)) {
     rows.push({
       key: 'cloud-low',
       label: 'Low cloud',
-      state: 'ruinous',
+      state: lowCloudRuinous(night) ? 'ruinous' : 'limits the score',
       tone: 'neutral',
       detail: null,
     })
@@ -584,8 +605,7 @@ export function coreGateFact(night: Night): ChartFact | null {
     ? null
     : {
         value: fmtDegrees(core.reading),
-        unit: CORE_UNIT,
-        period: `must exceed ${fmtDegrees(core.gate)}`,
+        unit: `gate ${fmtDegrees(core.gate)}`,
       }
 }
 

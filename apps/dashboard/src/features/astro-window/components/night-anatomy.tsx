@@ -151,14 +151,17 @@ export function NightAnatomy({
             caption: 'Cloud cover',
             value: cloud?.value ?? null,
             ...(cloud === null ? {} : { unit: cloud.unit }),
-            visual: gauge(
-              cloud === null
-                ? 'Low cloud unknown'
-                : `Low cloud ${cloud.value}${cloud.target === null ? '' : ` against a limit of ${cloud.target} percent`}`,
-              cloud?.reading ?? null,
-              100,
-              cloud?.target ?? null,
-            ),
+            // A bar with no limit answers nothing: drawn only against the limit the value is scored on.
+            ...(cloud === null || cloud.target === null
+              ? {}
+              : {
+                  visual: gauge(
+                    `Low cloud ${cloud.value} against a limit of ${cloud.target} percent`,
+                    cloud.reading,
+                    100,
+                    cloud.target,
+                  ),
+                }),
             footer: cloud?.footer ?? 'no cloud data',
           },
           {

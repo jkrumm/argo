@@ -545,7 +545,7 @@ function PanoramaLoaded({
           Skyline there <b>{fmtDegrees(ridge)}</b>
         </Text>
         <Text size="sm" style={{ color: coreClearsNow ? VX.goodSolid : VX.muted }}>
-          Clearance {clearance >= 0 ? '+' : ''}
+          Gate clearance {clearance >= 0 ? '+' : ''}
           {clearance.toFixed(1)}°
         </Text>
         <Text size="sm">
